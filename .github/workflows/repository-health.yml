@@ -1,0 +1,64 @@
+name: I.K.E. repository health
+
+on:
+  schedule:
+    # GitHub cron is UTC. Run at both possible UTC equivalents of 08:00 Europe/Rome.
+    - cron: "0 6 * * *"
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ike-repository-health-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  health:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Enforce 08:00 Europe/Rome schedule
+        if: github.event_name == 'schedule'
+        id: local-time
+        shell: bash
+        run: |
+          local_hour="$(TZ=Europe/Rome date +'%H')"
+          echo "hour=$local_hour" >> "$GITHUB_OUTPUT"
+          if [ "$local_hour" != "08" ]; then
+            echo "This UTC trigger is not the 08:00 Europe/Rome run; skip."
+          fi
+
+      - name: Validate repository baseline
+        if: github.event_name != 'schedule' || steps.local-time.outputs.hour == '08'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s README.md
+          test -s CHANGELOG.md
+          test -s docs/BUILDING.md
+          test -s docs/TESTING.md
+          test -s docs/MAINTENANCE.md
+          grep -q "I.K.E." README.md
+          grep -q "\\[1.0.0\\]" CHANGELOG.md
+          echo "Documentation baseline is present."
+
+      - name: Report source bootstrap status
+        if: github.event_name != 'schedule' || steps.local-time.outputs.hour == '08'
+        shell: bash
+        run: |
+          if [ -f pyproject.toml ] || [ -f setup.cfg ] || [ -f PKGBUILD ]; then
+            echo "Build metadata detected. Full source CI must be enabled and validated against the imported project."
+          else
+            echo "::notice::Application source and build metadata are not yet present. This is a repository-health check, not an application test."
+          fi
