@@ -389,7 +389,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                      T("Open the home page"))
         for a in (self.act_back, self.act_fwd, self.act_home):
             tb.addAction(a)
-        tb.addSeparator()             # fixed navigation group ends after Home
+        self.home_sep_act = tb.addSeparator()      # fixed: always right after Home, never moved
 
         def spacer():
             w = QWidget(self)
@@ -479,6 +479,22 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.menu_btn.clicked.connect(self.menu_btn.showMenu)
         self.menu_btn.setToolTip(T("Menu"))
         self.menu_act = tb.addWidget(self.menu_btn)
+        # buttons that do not fit in a narrow window (see _fit_urlbar)
+        self.more_btn = QToolButton(self)
+        self.more_btn.setText("»")
+        f = self.more_btn.font()
+        if f.pointSizeF() > 0:
+            f.setPointSizeF(f.pointSizeF() * 1.3)
+            self.more_btn.setFont(f)
+        self.more_btn.setToolTip(T("More buttons"))
+        self.more_btn.setAutoRaise(True)
+        self.more_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+        self.more_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.more_btn.setStyleSheet("QToolButton::menu-indicator { image: none; }")
+        self.more_menu = QMenu(self.more_btn)
+        self.more_btn.setMenu(self.more_menu)
+        self.more_act = tb.addWidget(self.more_btn)
+        self.more_act.setVisible(False)
         self._build_window_buttons(tb)
         right = self._win_btns[0]
         self._nav_items = [("shield", self.shield_act, right),
@@ -501,6 +517,45 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.bookbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.addToolBarBreak()
         self.addToolBar(self.bookbar)
+        self._build_customise_bar()
+
+    def _build_customise_bar(self):
+        """The strip shown under the toolbar while its buttons are arranged."""
+        bar = self.custom_bar = QToolBar(T("Customise toolbar"), self)
+        bar.setObjectName("customise")
+        bar.setMovable(False)
+        bar.toggleViewAction().setVisible(False)
+        note = QLabel(T("Drag the buttons to arrange them. Back, Forward and Home stay in place."), bar)
+        note.setContentsMargins(8, 0, 8, 0)
+        bar.addWidget(note)
+        gap = QWidget(bar)
+        gap.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        bar.addWidget(gap)
+        choose = QToolButton(bar)
+        choose.setText(T("Toolbar buttons"))
+        choose.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        menu = QMenu(choose)
+        menu.aboutToShow.connect(lambda: self._fill_toolbar_buttons(menu))
+        menu.triggered.connect(self._toolbar_button_toggled)
+        choose.setMenu(menu)
+        bar.addWidget(choose)
+        reset = QToolButton(bar)
+        reset.setText(T("Reset to default layout"))
+        reset.clicked.connect(self.reset_toolbar)
+        bar.addWidget(reset)
+        done = QToolButton(bar)
+        done.setText(T("Done"))
+        done.clicked.connect(lambda: self.customise_toolbar(False))
+        bar.addWidget(done)
+        self.insertToolBar(self.bookbar, bar)
+        self.insertToolBarBreak(self.bookbar)
+        bar.hide()
+        self.act_customise = self._action(T("Customise toolbar…"), lambda: self.customise_toolbar(True), None,
+                                          icon(("configure-toolbars", "configure")),
+                                          T("Move the toolbar buttons with the mouse"))
+        self.act_customise_done = self._action("customise-done", lambda: self.customise_toolbar(False),
+                                               ["Escape"])
+        self.act_customise_done.setEnabled(False)
 
     def _build_menus(self):
         A = self._action
@@ -568,7 +623,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_bookbar = A(T("Bookmarks bar"), self._toggle_bookbar, "Ctrl+Shift+B",
                              "bookmark-toolbar",
                              T("Switch between: only on a new tab, always, hidden"))
-        for a in (self.act_vertical, self.act_menubar, self.act_bookbar, self.act_titlebar):
+        for a in (self.act_vertical, self.act_menubar, self.act_bookbar, self.act_titlebar,
+                  self.act_customise):
             m_view.addAction(a)
         m_view.addSeparator()
         m_view.addAction(A(T("Zoom in"), lambda: self.zoom(+1), ["Ctrl++", "Ctrl+="], "zoom-in",
@@ -687,6 +743,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.htab_row.setVisible(not vertical and chrome)
         self.menuBar().setVisible(bool(cfg["show_menubar"]) and chrome)
         self._apply_toolbar()
+        if not chrome and self.toolbar_mover.customising:
+            self.customise_toolbar(False)
         self.act_store.setVisible(bool(cfg["experimental_extensions"]))
         self.nav.setVisible(not self._fullscreen_page)
         self.act_escape.setEnabled(self._fullscreen_page)
@@ -1132,8 +1190,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             if 0 <= i < len(self.views):
                 self.close_tab(self.views[i])
                 return True
-        if self._toolbar_reorder_event(obj, event):
-            return True
         if self._drag_filter(obj, event):
             return True
         if event.type() == QEvent.Type.MouseButtonDblClick and obj is self.tabbar:
@@ -1581,21 +1637,49 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         super().resizeEvent(event)
         self._fit_urlbar()
 
-    def _fit_urlbar(self):
-        """Address bar: a share of the window width, with free room on both sides."""
-        if not hasattr(self, "urlbar"):
+    URLBAR_MIN = 180            # the address bar is not made narrower while buttons can give way
+    URLBAR_LEAST = 120          # ... and never narrower than this
+
+    def _fit_urlbar(self, place=False):
+        """Address bar: a share of the window width, with free room on both
+        sides. Buttons that would leave it less than URLBAR_MIN are moved
+        under the » button, the last ones first (see toolbar.spill).
+        place=True: the arrangement changed, put the buttons in place anyway."""
+        if not hasattr(self, "urlbar") or not hasattr(self, "toolbar_layout"):
             return
-        share = max(30, min(100, int(self.app.config["urlbar_width"]))) / 100.0
-        skip = (self.urlbar_act, self.space_left_act, self.space_right_act)
-        other = 0
-        for a in self.nav.actions():
-            if a in skip or not a.isVisible():
+        from .toolbar import LEFT, RIGHT, spill
+        nav, layout = self.nav, self.toolbar_layout
+        movable = {act for _key, act, _anchor in self._nav_items}
+        skip = (self.urlbar_act, self.space_left_act, self.space_right_act, self.more_act)
+        fixed = 0                                # everything that is neither a movable button nor the bar
+        for a in nav.actions():
+            if a in skip or a in movable or not a.isVisible():
                 continue
-            w = self.nav.widgetForAction(a)
+            w = nav.widgetForAction(a)
             if w is not None:
-                other += w.sizeHint().width() + 2
-        room = self.nav.width() - other - 16
-        width = max(180, min(int(self.width() * share), room))
+                fixed += w.sizeHint().width() + 2
+        back = nav.widgetForAction(self.act_back)
+        usual = (back.sizeHint().width() if back is not None else nav.iconSize().width() + 14) + 2
+        more = self.more_btn.sizeHint().width() + 2
+        shown = layout.shown(LEFT) + layout.shown(RIGHT)
+        for _attempt in (1, 2):                  # a button is measured once the toolbar has built it
+            known = dict(self._tool_widths)
+            widths = [(key, known.get(key, usual)) for key in shown]
+            space = nav.width() - fixed - 16     # for the buttons and the address bar
+            spilled = set()
+            if sum(w for _k, w in widths) > space - self.URLBAR_MIN:
+                space -= more
+                spilled = set(spill(widths, space - self.URLBAR_MIN))
+            if place or spilled != self.toolbar_spilled:
+                place = False
+                self.toolbar_spilled = spilled
+                self._place_toolbar_buttons()
+                self.toolbar_mover.refresh()
+            if self._tool_widths == known:
+                break
+        room = space - sum(w for key, w in widths if key not in spilled)
+        share = max(30, min(100, int(self.app.config["urlbar_width"]))) / 100.0
+        width = max(self.URLBAR_LEAST, min(int(self.width() * share), room))
         self.urlbar.setFixedWidth(width)
         self._urlbar_width, self._urlbar_room = width, room
         QTimer.singleShot(0, self._centre_urlbar)        # after the toolbar's layout
@@ -1630,33 +1714,51 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             left.setFixedWidth(pad)
 
     def _toolbar_menu(self, pos):
-        """Right click on the toolbar: choose which buttons it shows."""
+        """Right click on the toolbar: choose which buttons it shows, or arrange them."""
         child = self.nav.childAt(pos)
         if child is not None and child not in self._nav_spacers \
                 and not isinstance(child, QToolButton):
             return
-        cfg = self.app.config
         m = QMenu(self)
         title = m.addAction(T("Toolbar buttons"))
         title.setEnabled(False)
         m.addSeparator()
-        for key, act, _anchor in self._nav_items:
+        self._fill_toolbar_buttons(m, clear=False)
+        m.addSeparator()
+        m.addAction(self.act_customise)
+        reset = m.addAction(T("Reset to default layout"))
+        chosen = m.exec(self.nav.mapToGlobal(pos))
+        if chosen is reset:
+            self.reset_toolbar()
+        elif chosen is not None and chosen.data():
+            self._toolbar_button_toggled(chosen)
+        m.deleteLater()
+
+    def _fill_toolbar_buttons(self, menu, clear=True):
+        """One checkable entry for each button that can be shown or hidden."""
+        if clear:
+            menu.clear()
+        hidden = self.app.config["toolbar_hidden"]
+        for key, act in (("back", self.act_back), ("forward", self.act_fwd), ("home", self.act_home)) \
+                + tuple((key, act) for key, act, _anchor in self._nav_items):
             if key in ("shield", "menu"):
                 continue
-            a = m.addAction(act.icon(), act.text())
+            a = menu.addAction(act.icon(), act.text())
             a.setCheckable(True)
-            a.setChecked(key not in cfg["toolbar_hidden"])
+            a.setChecked(key not in hidden)
             a.setData(key)
-        chosen = m.exec(self.nav.mapToGlobal(pos))
-        if chosen is None or not chosen.data():
-            return
+
+    def _toolbar_button_toggled(self, chosen):
+        cfg = self.app.config
         key = chosen.data()
+        if not key:
+            return
         hidden = [k for k in cfg["toolbar_hidden"] if k != key]
         if not chosen.isChecked():
             hidden.append(key)
         cfg["toolbar_hidden"] = hidden
         cfg.save()
-        self.app.refresh_windows()
+        self.app.refresh_toolbars()
 
     def clear_site_data(self):
         """Delete cookies and stored data of the site in the current tab."""

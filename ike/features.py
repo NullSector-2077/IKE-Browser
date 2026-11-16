@@ -5,7 +5,7 @@ video, site permissions and session (de)serialisation."""
 import time
 from urllib.parse import quote
 
-from PyQt6.QtCore import QRect, QSize, Qt, QUrl
+from PyQt6.QtCore import QRect, QSize, Qt, QTimer, QUrl
 from PyQt6.QtGui import QColor, QIcon, QPainter, QPixmap
 from PyQt6.QtWebEngineCore import QWebEnginePage
 from PyQt6.QtWidgets import (
@@ -173,6 +173,8 @@ class WindowFeatures:
     # ------------------------------------------------------------------
     def _init_features(self):
         self._floating = []
+        self.toolbar_spilled = set()     # buttons listed under » because the window is narrow
+        self._tool_widths = {}           # key -> width its button takes in the toolbar
         self._restoring = False
         self.app.qapp.focusChanged.connect(self._focus_changed)
         self._update_ws_buttons()
@@ -277,7 +279,6 @@ class WindowFeatures:
     # vertical tabs that hide and come back at the left edge
     # ------------------------------------------------------------------
     def _build_vtabs_root(self):
-        from PyQt6.QtCore import QTimer
         root = QWidget(self)
         lay = QHBoxLayout(root)
         lay.setContentsMargins(0, 0, 0, 0)
@@ -413,118 +414,109 @@ class WindowFeatures:
             self._vtabs_slide(-self.vtab_panel.width(), gone)
 
     def _apply_toolbar(self):
-        """Apply visibility and the user's saved order around the address field."""
+        """Put the toolbar's buttons where the settings say (see toolbar.py)."""
+        from .toolbar import FIXED, ToolbarLayout, ToolbarMover
         cfg = self.app.config
-        hidden = set(cfg["toolbar_hidden"])
-        present = self.nav.actions()
-        for i, (key, act, anchor) in enumerate(self._nav_items):
-            want = key in ("shield", "menu") or key not in hidden
-            if want and act not in present:
-                before = anchor
-                for _k, later, a2 in self._nav_items[i + 1:]:
-                    if a2 is anchor and later in self.nav.actions():
-                        before = later
-                        break
-                self.nav.insertAction(before, act)
-            elif not want and act in present:
-                self.nav.removeAction(act)
-
         by_key = {key: act for key, act, _anchor in self._nav_items}
-        order = [key for key in cfg.get("toolbar_order", []) if key in by_key]
-        order += [key for key, _act, _anchor in self._nav_items if key not in order]
-        left = set(cfg.get("toolbar_left", []))
-        self._toolbar_left_keys = left
-        for key in order:
-            act = by_key[key]
-            if act in self.nav.actions():
-                anchor = self.space_left_act if key in left else self._win_btns[0]
-                self.nav.insertAction(anchor, act)
-            button = self.nav.widgetForAction(act)
-            if isinstance(button, QToolButton):
-                button.setProperty("ikeToolbarKey", key)
-                button.setCursor(Qt.CursorShape.OpenHandCursor)
-                button.installEventFilter(self)
+        self.toolbar_layout = ToolbarLayout.from_config(cfg, list(by_key))
+        if getattr(self, "toolbar_mover", None) is None:
+            self.toolbar_mover = ToolbarMover(self)
+        # Back, Forward, Home: fixed place, can only be shown or hidden
+        hidden = cfg["toolbar_hidden"] if isinstance(cfg["toolbar_hidden"], list) else []
+        fixed = dict(zip(FIXED, (self.act_back, self.act_fwd, self.act_home)))
+        for key, act in fixed.items():
+            act.setVisible(key not in hidden)
+        self.home_sep_act.setVisible(any(key not in hidden for key in fixed))
+        self._fit_urlbar(place=True)        # puts the buttons that fit in place
+        QTimer.singleShot(0, self.toolbar_mover.refresh)
 
-        btn = self.nav.widgetForAction(self.act_dark)
+    def _place_toolbar_buttons(self):
+        """Make the toolbar hold exactly the buttons to show that fit, in order."""
+        from .toolbar import LEFT, RIGHT
+        nav, layout, spilled = self.nav, self.toolbar_layout, self.toolbar_spilled
+        by_key = {key: act for key, act, _anchor in self._nav_items}
+        want_left = [by_key[k] for k in layout.shown(LEFT) if k not in spilled]
+        want_right = [by_key[k] for k in layout.shown(RIGHT) if k not in spilled]
+        movable = set(by_key.values())
+        actions = nav.actions()
+        split = actions.index(self.urlbar_act)
+        have_left = [a for a in actions[:split] if a in movable]
+        have_right = [a for a in actions[split:] if a in movable]
+        if have_left != want_left or have_right != want_right:
+            nav.setUpdatesEnabled(False)
+            try:
+                for act in have_left + have_right:
+                    nav.removeAction(act)
+                for act in want_left:
+                    nav.insertAction(self.space_left_act, act)
+                for act in want_right:
+                    nav.insertAction(self.more_act, act)
+            finally:
+                nav.setUpdatesEnabled(True)
+        # the toolbar builds a new button whenever an action is inserted
+        for key, act in by_key.items():
+            if act in want_left or act in want_right:
+                button = nav.widgetForAction(act)
+                self.toolbar_mover.attach(key, button)
+                if button is not None:
+                    self._tool_widths[key] = button.sizeHint().width() + 2
+        btn = nav.widgetForAction(self.act_dark)
         if isinstance(btn, QToolButton):
             btn.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
             if not btn.property("ikeMenuClickConnected"):
                 btn.clicked.connect(btn.showMenu)
                 btn.setProperty("ikeMenuClickConnected", True)
-        self._fit_urlbar()
+        # what did not fit is listed under the » button
+        shown = layout.shown(LEFT) + layout.shown(RIGHT)
+        self.more_menu.clear()
+        for key in shown:
+            if key in spilled:
+                self.more_menu.addAction(by_key[key])
+        self.more_act.setVisible(bool(spilled))
 
-    def _toolbar_reorder_event(self, obj, event):
-        """Move a toolbar action only after a deliberate long press and drag."""
-        key = obj.property("ikeToolbarKey") if hasattr(obj, "property") else None
-        if not key:
-            return False
-        kind = event.type()
-        if kind == event.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
-            self._toolbar_drag_key = key
-            self._toolbar_drag_started = time.monotonic()
-            self._toolbar_dragging = False
-            return False
-        if (kind == event.Type.MouseMove and getattr(self, "_toolbar_drag_key", None) == key
-                and event.buttons() & Qt.MouseButton.LeftButton):
-            if not getattr(self, "_toolbar_dragging", False):
-                if time.monotonic() - self._toolbar_drag_started < 0.8:
-                    return False
-                self._toolbar_dragging = True
-                obj.setCursor(Qt.CursorShape.ClosedHandCursor)
-                self.statusBar().showMessage(T("Move button to a new position"), 1800)
-            self._move_toolbar_action(key, event.globalPosition().toPoint())
-            return True
-        if (kind == event.Type.MouseButtonRelease and event.button() == Qt.MouseButton.LeftButton
-                and getattr(self, "_toolbar_drag_key", None) == key):
-            dragging = getattr(self, "_toolbar_dragging", False)
-            obj.setCursor(Qt.CursorShape.OpenHandCursor)
-            self._toolbar_drag_key = None
-            self._toolbar_dragging = False
-            if dragging:
-                self._save_toolbar_layout()
-                return True
-        return False
-
-    def _move_toolbar_action(self, key, global_pos):
-        by_key = {item_key: act for item_key, act, _anchor in self._nav_items}
-        action = by_key.get(key)
-        if action is None:
-            return
-        url_center = self.urlbar.mapToGlobal(
-            self.urlbar.rect().center()).x()
-        to_left = global_pos.x() < url_center
-        target = self.nav.actionAt(self.nav.mapFromGlobal(global_pos))
-        target_key = next((k for k, a in by_key.items() if a is target), None)
-        left = set(getattr(self, "_toolbar_left_keys", set()))
-        if target_key and target_key != key and ((target_key in left) == to_left):
-            target_widget = self.nav.widgetForAction(target)
-            after = (target_widget is not None and
-                     global_pos.x() >= target_widget.mapToGlobal(
-                         target_widget.rect().center()).x())
-            actions = self.nav.actions()
-            index = actions.index(target)
-            before = next((a for a in actions[index + 1:]
-                           if a is not action), self.menu_act) if after else target
-        else:
-            before = self.space_left_act if to_left else self._win_btns[0]
-        if to_left:
-            left.add(key)
-        else:
-            left.discard(key)
-        self._toolbar_left_keys = left
-        if action is not before:
-            self.nav.insertAction(before, action)
-        self._fit_urlbar()
-
-    def _save_toolbar_layout(self):
+    def toolbar_layout_changed(self):
+        """A button was moved: save the arrangement and show it in every window."""
         cfg = self.app.config
-        by_action = {act: key for key, act, _anchor in self._nav_items}
-        visible_order = [by_action[a] for a in self.nav.actions() if a in by_action]
-        old_order = list(cfg.get("toolbar_order", []))
-        cfg["toolbar_order"] = visible_order + [k for k in old_order if k not in visible_order]
-        cfg["toolbar_left"] = [k for k in cfg["toolbar_order"]
-                               if k in getattr(self, "_toolbar_left_keys", set())]
+        self.toolbar_layout.store(cfg)
         cfg.save()
+        QTimer.singleShot(0, self.app.refresh_toolbars)     # not while a button handles its own event
+
+    def toolbar_zone_start(self, zone):
+        """x, in the toolbar, where the first button of an empty zone goes."""
+        from .toolbar import LEFT
+        if zone == LEFT:
+            w = self._nav_spacers[0]
+            return w.mapTo(self.nav, w.rect().topLeft()).x() + 1
+        w = self.nav.widgetForAction(self._win_btns[0])
+        if w is not None and w.isVisible():
+            return w.mapTo(self.nav, w.rect().topLeft()).x() - 2
+        return self.nav.width() - 4
+
+    def toolbar_hint(self, on):
+        """Tell in the status bar that a button is ready to be moved."""
+        bar = self.statusBar()
+        if on:
+            bar.showMessage(T("Move button to a new position"))
+            bar.show()
+        elif bar.currentMessage() == T("Move button to a new position"):
+            self._hide_status()
+
+    def customise_toolbar(self, on=True):
+        """Enter or leave the mode in which the toolbar buttons are arranged."""
+        on = bool(on) and not self._fullscreen_page
+        self.custom_bar.setVisible(on)
+        self.act_customise_done.setEnabled(on)
+        self.toolbar_mover.set_customising(on)
+
+    def reset_toolbar(self):
+        """Back to the buttons, sides and order of a new installation."""
+        from .config import DEFAULTS, TOOLBAR_ITEMS
+        cfg = self.app.config
+        cfg["toolbar_order"] = list(DEFAULTS["toolbar_order"])
+        cfg["toolbar_left"] = list(DEFAULTS["toolbar_left"])
+        cfg["toolbar_hidden"] = [key for key, hide in TOOLBAR_ITEMS if hide]
+        cfg.save()
+        self.app.refresh_toolbars()
 
     # ------------------------------------------------------------------
     # window without the system title bar

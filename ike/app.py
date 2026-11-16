@@ -219,6 +219,11 @@ class IkeApp(QObject):
             w.apply_layout()
             w.sync_urlbar()
 
+    def refresh_toolbars(self):
+        """The toolbar's buttons changed: show the new arrangement in every window."""
+        for w in self.windows:
+            w._apply_toolbar()
+
     def start(self, urls=None, private=False):
         from .window import NEWTAB
         self.blocker.load()

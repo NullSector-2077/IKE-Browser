@@ -168,7 +168,7 @@ def colour_scheme(config):
 
 def style_window(win, theme):
     """Toolbars and tabs of a browser window in the theme's colours."""
-    bars = [win.nav, win.menuBar(), getattr(win, "bookbar", None)]
+    bars = [win.nav, win.menuBar(), getattr(win, "bookbar", None), getattr(win, "custom_bar", None)]
     tabs = [getattr(win, n, None) for n in ("htab_row", "tabbar", "vtab_panel", "vtabs")]
     for widgets, key in ((bars, "toolbar"), (tabs, "tabs")):
         for w in widgets:

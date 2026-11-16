@@ -217,52 +217,22 @@ def test_window_buttons_and_centred_address_bar(run_ike):
     assert all(h >= out["icon"] * 1.2 for h in out["buttons"])
 
 
-def test_toolbar_long_press_layout_and_private_badge(run_ike):
+def test_fixed_toolbar_buttons_and_private_badge(run_ike):
+    """Back, Forward and Home at the start with their separator (moving the
+    other buttons is in test_toolbar.py); the badge of a private window."""
     out = run_ike("""
-        from PyQt6.QtCore import QPoint
-
         def steps(ike, qapp, out):
             win = ike.windows[0]
-            # The three navigation controls stay at the start, followed by a separator.
             actions = win.nav.actions()
-            out["fixed_order"] = [actions.index(win.act_back) < actions.index(win.act_fwd)
-                                  < actions.index(win.act_home)]
-            home_index = actions.index(win.act_home)
-            out["home_separator"] = actions[home_index + 1].isSeparator()
-
-            # Moving an optional button to the left of the address field is persisted.
-            left = win.urlbar.mapToGlobal(QPoint(0, win.urlbar.height() // 2))
-            win._move_toolbar_action("reader", left)
-            win._save_toolbar_layout()
-            out["left_of_address"] = (win.nav.actions().index(win.act_tb_reader)
-                                      < win.nav.actions().index(win.urlbar_act))
-            out["saved_left"] = "reader" in ike.config["toolbar_left"]
-
-            # It can also be returned to the right side.
-            right = win.nav.mapToGlobal(QPoint(win.nav.width() - 8, win.nav.height() // 2))
-            win._move_toolbar_action("reader", right)
-            win._save_toolbar_layout()
-            out["right_of_address"] = (win.nav.actions().index(win.act_tb_reader)
-                                       > win.nav.actions().index(win.urlbar_act))
-            out["saved_right"] = "reader" not in ike.config["toolbar_left"]
-
-            # The shield and menu controls are movable too, but remain available.
-            win._move_toolbar_action("shield", left)
-            win._move_toolbar_action("menu", left)
-            win._save_toolbar_layout()
-            out["shield_left"] = win.nav.actions().index(win.shield_act) < win.nav.actions().index(win.urlbar_act)
-            out["menu_left"] = win.nav.actions().index(win.menu_act) < win.nav.actions().index(win.urlbar_act)
-            out["menu_not_hidden"] = win.menu_act in win.nav.actions()
-
+            out["fixed_order"] = [actions.index(win.act_back), actions.index(win.act_fwd),
+                                  actions.index(win.act_home), actions.index(win.home_sep_act)]
+            out["home_separator"] = win.home_sep_act.isSeparator()
             private = ike.new_window(private=True)
             yield 400
             from PyQt6.QtWidgets import QLabel
             badge = private.findChild(QLabel, "privateWindowBadge")
             out["private_badge"] = bool(badge and "border-radius" in badge.styleSheet())
+            out["badge_visible"] = bool(badge and badge.isVisible())
     """)
-    assert all(out["fixed_order"])
-    assert out["home_separator"]
-    assert out["left_of_address"] and out["saved_left"]
-    assert out["right_of_address"] and out["saved_right"]
-    assert out["shield_left"] and out["menu_left"] and out["menu_not_hidden"]
-    assert out["private_badge"]
+    assert out["fixed_order"] == [0, 1, 2, 3] and out["home_separator"]
+    assert out["private_badge"] and out["badge_visible"]
