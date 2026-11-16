@@ -1,0 +1,48 @@
+# Build the native Arch Linux package in an Arch environment.
+name: Arch package
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: "Branch or commit to build"
+        required: false
+        type: string
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, "rebrand/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: arch-package-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    container:
+      image: archlinux:base-devel
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Install Arch build and runtime dependencies
+        run: |
+          pacman -Syu --noconfirm --needed \
+            base-devel git rust python python-pyqt6 python-pyqt6-webengine \
+            qt6-webengine qt6-webchannel qt6-svg python-cryptography \
+            python-jeepney hicolor-icon-theme
+
+      - name: Build package as an unprivileged user
+        run: |
+          useradd --create-home builder
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+          runuser -u builder -- env HOME=/home/builder makepkg --nodeps --noconfirm
+          test -n "$(find . -maxdepth 1 -type f -name 'ike-browser-*.pkg.tar.zst' -print -quit)"
