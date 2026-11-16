@@ -39,7 +39,7 @@ input:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(-
     if (date) date.textContent = fmt(now, {weekday: "long", day: "numeric", month: "long"});
   }
   if (clock || date) { tick(); setInterval(tick, 1000); }
-  window.iceWeather = function (text) {
+  window.ikeWeather = function (text) {
     var w = document.getElementById("weather");
     if (w) w.textContent = text;
   };
