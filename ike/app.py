@@ -928,7 +928,7 @@ def main(argv=None):
                    QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)):
             qapp.installTranslator(tr)
             qapp._translators.append(tr)
-    ice = IceApp(qapp, config)
+    ike = IceApp(qapp, config)
 
     server = QLocalServer(qapp)
     if not os.environ.get("IKE_NO_SINGLE"):
@@ -954,9 +954,9 @@ def main(argv=None):
     hook = os.environ.get("IKE_TEST_HOOK")
     if hook:
         import runpy
-        runpy.run_path(hook, init_globals={"ike": ice, "qapp": qapp})
+        runpy.run_path(hook, init_globals={"ike": ike, "qapp": qapp})
     code = qapp.exec()
-    if getattr(ice, "_restart", False):
+    if getattr(ike, "_restart", False):
         import subprocess
         server.close()
         QLocalServer.removeServer(server_name)
