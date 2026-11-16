@@ -144,17 +144,25 @@ key. Nothing is called ready on the strength of incomplete checks.
   the network-only one; Rust test and lint clean).
 - Step 2 done: 1.1.1 on `ike-1.1.1` (pull request #12; 195 passed, 1
   skipped; GitHub's "Tests" green).
-- Step 3 in progress: `linux/distro-checks` (#11, tests with each
-  distribution's own Qt; Arch, Debian 13 green, Ubuntu 26.04 and Fedora 43
-  show a crash of the fingerprint test with software WebGL in containers,
-  being investigated), `linux/packages` (#13, DEB and RPM), `linux/flatpak`
-  (in preparation). Measured: Ubuntu 26.04 and Debian 13 decode H.264 and
-  AAC; Fedora 43 declares H.264 but does not decode it (AAC yes).
+- Step 3: Linux tests per distribution (#11) and DEB / RPM packages (#13)
+  green on GitHub Actions: Arch, Ubuntu 26.04, Debian 13, Fedora 43 pass
+  the whole suite with their own Qt; the DEB and RPM packages are built,
+  installed, started, tested and removed. Debian 13: the fingerprint test's
+  WebGL part is reported as not measured (no steady software WebGL for its
+  engine in a container). Measured: Ubuntu 26.04 and Debian 13 decode H.264
+  and AAC; Fedora 43 declares H.264 but does not decode it (AAC yes).
+  Flatpak (`linux/flatpak`) in progress.
 - Step 4 in progress: `windows/port` (Windows port on the official Qt,
-  installer) and `windows/engine` (H.264 / AAC through Windows' own
-  decoders, the way Vivaldi does it; study in progress).
-- Step 6 in progress: `automation/audit` (known vulnerabilities in the daily
-  check).
+  installer) and `windows/engine`. For the engine the owner chose, on
+  2026-11-17, to integrate existing open-source code instead of writing an
+  own adapter: Vivaldi's `platform_media` (BSD-3, from Opera; Vivaldi 7.6 is
+  on the same Chromium 140 as Qt WebEngine 6.140) for H.264 through
+  Windows' software and hardware decoders, and Cromite's patch (GPL-2.0+)
+  for AAC through Chromium's Media Foundation audio decoder, built without
+  FFmpeg's H.264 / AAC decoders. Study: the fallback notes in the branch.
+  When Fable's usage ends, Opus continues on the same branch.
+- Step 6: `automation/audit` (#14, green): known vulnerabilities in the
+  daily check; how to make the checks required (docs/MAINTENANCE.md).
 
 ## Previous plan (1.0.1 – 1.1.0, published)
 
