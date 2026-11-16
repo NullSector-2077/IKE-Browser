@@ -1,16 +1,14 @@
 # Maintenance policy
 
-## Repository checks
+## Automated component checks
 
-The repository-health workflow remains scheduled for 08:00 Europe/Rome. It checks repository structure and documentation; it does not update packages, push to `main`, merge pull requests or publish releases.
+The daily component check monitors only the Rust AdBlock engine and uBlock Origin scriptlet payloads used by the Arch / CachyOS package. When an actionable update is found, the daily maintenance workflow prepares a candidate on a dedicated branch and opens or updates a draft pull request. It builds the updated AdBlock engine and runs the Linux tests and Arch package build.
 
-## Dependency and source updates
+Python, PyQt6, Qt and Qt WebEngine are system-managed by pacman. Windows and AppImage dependencies are outside this repository's scope. See [Arch maintenance details](arch/MAINTENANCE.md).
 
-The Arch system supplies Python, Qt and Qt WebEngine. Users update those with `sudo pacman -Syu`; I.K.E. must not bundle or replace the system Qt runtime.
+## Repository and review policy
 
-The browser application has a separate signed update channel. Changes to the Rust AdBlock engine, filter scriptlets, bootstrap or release tooling must be proposed through a branch and pull request, built with locked dependencies, and tested before review. No automatic merge or release publication is permitted.
-
-## Branch and review policy
+The repository-health workflow checks repository structure and documentation. Automation must not merge pull requests, change `main`, sign updates or publish releases.
 
 - `main` is the stable line; do not push transfer work directly to it.
 - Propose source changes through pull requests.
