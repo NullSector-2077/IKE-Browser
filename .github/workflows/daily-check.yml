@@ -1,0 +1,74 @@
+# Daily check of the components used by the Arch / CachyOS package.
+name: Daily Arch component check
+
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-arch-component-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      updates: \${{ steps.check.outputs.updates }}
+      errors: \${{ steps.check.outputs.errors }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Check Arch components
+        id: check
+        run: python3 tools/check-components.py --json report.json --markdown report.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arch-component-report
+          path: report.*
+          if-no-files-found: error
+          retention-days: 14
+
+  update-issue:
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      issues: write
+    steps:
+      - name: Download component report
+        uses: actions/download-artifact@v4
+        with:
+          name: arch-component-report
+          path: report
+      - name: Update the Arch component issue
+        env:
+          GH_TOKEN: \${{ github.token }}
+          UPDATES: \${{ needs.check.outputs.updates }}
+          ERRORS: \${{ needs.check.outputs.errors }}
+        run: |
+          gh label create arch-components --color 1d76db \
+            --description "Arch / CachyOS component updates or check failures" 2>/dev/null || true
+          open=$(gh issue list --label arch-components --state open --json number --jq '.[0].number // empty')
+          if [ "$UPDATES" -gt 0 ] || [ "$ERRORS" -gt 0 ]; then
+            if [ -n "$open" ]; then
+              gh issue edit "$open" --body-file report/report.md
+            else
+              title="Arch component updates"
+              if [ "$UPDATES" -eq 0 ]; then title="Arch component check needs attention"; fi
+              gh issue create --title "$title" --label arch-components --body-file report/report.md
+            fi
+          elif [ -n "$open" ]; then
+            gh issue comment "$open" --body-file report/report.md
+            gh issue close "$open"
+          fi
