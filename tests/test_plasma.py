@@ -131,7 +131,8 @@ def steps(ike, qapp, out):
 """ % (site + "/song"), env={"DBUS_SESSION_BUS_ADDRESS": address})
     c = out["calls"]
     assert out["registered"]
-    assert "'Identity': <'I.K.E.'>" in c[0] and "'DesktopEntry': <'ike-browser'>" in c[0]
+    from ike.osinfo import desktop_id  # "ike-browser"; the application ID in a Flatpak
+    assert "'Identity': <'I.K.E.'>" in c[0] and "'DesktopEntry': <'%s'>" % desktop_id() in c[0]
     assert "'PlaybackStatus': <'Playing'>" in c[1]
     assert "'xesam:title': <'Ike Tone'>" in c[1] and "'xesam:artist': <['Tester']>" in c[1]
     assert "'xesam:album': <'Tests'>" in c[1] and "mpris:length" in c[1] and "int64" in c[1]

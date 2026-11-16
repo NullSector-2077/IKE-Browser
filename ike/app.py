@@ -1003,7 +1003,8 @@ def main(argv=None):
     qapp.setApplicationDisplayName(APP_NAME if PROFILE == "default"
                                    else "%s [%s]" % (APP_NAME, PROFILE))
     qapp.setApplicationVersion(__version__)
-    qapp.setDesktopFileName(APP_ID)
+    from .osinfo import desktop_id
+    qapp.setDesktopFileName(desktop_id())     # the Flatpak's ID inside a Flatpak
     qapp.setQuitOnLastWindowClosed(True)
     QNetworkProxyFactory.setUseSystemConfiguration(True)
 

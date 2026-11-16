@@ -7,6 +7,7 @@ give each run an empty profile).
 """
 
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -33,6 +34,16 @@ def in_flatpak():
     """True inside a Flatpak sandbox: the program folder is read-only there and
     new versions come from Flatpak (Flathub), never from I.K.E.'s own updater."""
     return os.path.exists(FLATPAK_INFO) or bool(os.environ.get("FLATPAK_ID"))
+
+
+def desktop_id():
+    """Name of I.K.E.'s desktop entry and icon on the desktop: inside a Flatpak
+    the application ID (Flatpak exports those files under that name), and
+    "ike-browser" everywhere else."""
+    fid = os.environ.get("FLATPAK_ID", "")
+    if re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]*(\.[A-Za-z0-9_-]+)+", fid):
+        return fid
+    return APP_ID
 
 
 # ---- identity presented to websites ----------------------------------------
@@ -67,7 +78,7 @@ def notify(title, text):
     services show it as markup (links and pictures included)."""
     import html
     try:
-        subprocess.Popen(["notify-send", "-a", "I.K.E.", "-i", "ike-browser", "--",
+        subprocess.Popen(["notify-send", "-a", "I.K.E.", "-i", desktop_id(), "--",
                           str(title)[:200] or " ", html.escape(str(text)[:2000], quote=False)])
     except (OSError, ValueError):
         pass

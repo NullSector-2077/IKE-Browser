@@ -548,7 +548,7 @@ def test_notification_text_cannot_become_an_option(tmp_path, monkeypatch):
         argv = json.loads(log.read_text())
         sep = argv.index("--")
         # the fixed options, "--", then exactly two texts: nothing a page wrote is an option
-        assert argv[:sep] == ["-a", "I.K.E.", "-i", "ike-browser"] and len(argv) == sep + 3, argv
+        assert argv[:sep] == ["-a", "I.K.E.", "-i", osinfo.desktop_id()] and len(argv) == sep + 3, argv
         shown_title, shown_text = argv[sep + 1:]
         assert "<" not in shown_text and ">" not in shown_text
         assert len(shown_title) <= 200 and len(shown_text) <= 12000

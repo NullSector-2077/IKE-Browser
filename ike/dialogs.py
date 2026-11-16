@@ -223,7 +223,13 @@ class SettingsDialog(QDialog):
 
     def _make_default(self):
         import subprocess
+
+        from .osinfo import in_flatpak
         try:
+            if in_flatpak():
+                # xdg-settings would only change the sandbox's own copy of the
+                # setting: in a Flatpak the choice is made in System Settings
+                raise OSError("Flatpak")
             subprocess.run(["xdg-settings", "set", "default-web-browser", "ike-browser.desktop"],
                            check=True, timeout=10)
             QMessageBox.information(self, "I.K.E.", T("I.K.E. is now the default browser."))

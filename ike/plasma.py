@@ -23,8 +23,9 @@ from pathlib import Path
 from PyQt6.QtCore import QObject, QTimer, QUrl
 from PyQt6.QtWebEngineCore import QWebEngineScript
 
-from . import APP_ID, APP_NAME
+from . import APP_NAME
 from .desktopbus import Bus, BusError, introspection
+from .osinfo import desktop_id
 
 MPRIS_PATH = "/org/mpris/MediaPlayer2"
 MPRIS = "org.mpris.MediaPlayer2"
@@ -272,7 +273,7 @@ class DesktopIntegration(QObject):
 
     def _prop_mpris(self, name):
         return {"CanQuit": ("b", False), "CanRaise": ("b", True), "HasTrackList": ("b", False),
-                "Identity": ("s", APP_NAME), "DesktopEntry": ("s", APP_ID),
+                "Identity": ("s", APP_NAME), "DesktopEntry": ("s", desktop_id()),
                 "SupportedUriSchemes": ("as", ["http", "https"]),
                 "SupportedMimeTypes": ("as", [])}.get(name)
 
@@ -402,7 +403,7 @@ class DesktopIntegration(QObject):
                 hay = (title + " " + url).lower()
                 if all(x in hay for x in words):
                     rel = 0.9 if words[0] in title.lower() else 0.7
-                    out.append(("tab:%d:%d" % (wi, id(v)), title, "ike-browser", 70, rel,
+                    out.append(("tab:%d:%d" % (wi, id(v)), title, desktop_id(), 70, rel,
                                 {"subtext": ("s", url)}))
         seen = {m[5]["subtext"][1] for m in out}
         try:
@@ -527,7 +528,7 @@ class DesktopIntegration(QObject):
             self.download_progress(item, force=True)
 
         self.bus.call(JOBS, "/JobViewServer", "org.kde.JobViewServerV2", "requestView", "sia{sv}",
-                      (APP_ID, 1, hints), got, lambda _e: self.jobs.pop(key, None))
+                      (desktop_id(), 1, hints), got, lambda _e: self.jobs.pop(key, None))
 
     def _job_state(self, item):
         from .i18n import T
