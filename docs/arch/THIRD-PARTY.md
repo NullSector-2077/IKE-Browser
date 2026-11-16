@@ -98,8 +98,7 @@ servo_arc — MIT OR Apache-2.0
 siphasher — MIT OR Apache-2.0
 smallvec — MIT OR Apache-2.0
 stable_deref_trait — MIT OR Apache-2.0
-syn — MIT OR Apache-2.0
-syn — MIT OR Apache-2.0
+syn (multiple locked versions) — MIT OR Apache-2.0
 synstructure — MIT
 target-lexicon — Apache-2.0 WITH LLVM-exception
 thiserror — MIT OR Apache-2.0
