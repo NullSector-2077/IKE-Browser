@@ -12,7 +12,7 @@ from conftest import needs_engine
 
 PAGE = b"""<!doctype html><title>adtest</title>
 <img src="/banner-ad.png"><img src="/ok.png">
-<div class="ice-test-ad" id="ad">ad</div><div id="plain">text</div>"""
+<div class="ike-test-ad" id="ad">ad</div><div id="plain">text</div>"""
 PNG = bytes.fromhex("89504e470d0a1a0a0000000d4948445200000001000000010806000000"
                     "1f15c4890000000d49444154789c6360000002000154a24f5d0000000049454e44ae426082")
 
@@ -45,7 +45,7 @@ def test_engine_matching(run_ice):
     out = run_ice("""
         def steps(ice, qapp, out):
             yield 300
-            b = ice.blocker
+            b = ike.blocker
             out["native"] = b.native
             out["engine"] = b.engine is not None
             import adblock
@@ -66,7 +66,7 @@ def test_blocks_in_page(run_ice, server):
     out = run_ice("""
         def steps(ice, qapp, out):
             yield 300
-            win = ice.windows[0]
+            win = ike.windows[0]
             view = win.add_tab(%r)
             loaded = {"done": False, "ok": None}
             view.loadFinished.connect(lambda ok: loaded.update(done=True, ok=ok))
@@ -87,7 +87,7 @@ def test_blocks_in_page(run_ice, server):
                 yield 100
             out["javascript_finished"] = res["done"]
             out["display"] = res["display"]
-            out["count"] = ice.shields.total("127.0.0.1")
+            out["count"] = ike.shields.total("127.0.0.1")
     """ % url, settings={"shield_level": "balanced"})
     assert out["load_finished"], f"page did not finish loading (title={out['title']!r}, requests={seen})"
     assert out["javascript_finished"], "JavaScript result callback did not complete"
@@ -107,7 +107,7 @@ def test_engine_error_lets_request_through_and_is_counted(run_ice, server):
     out = run_ice("""
         def steps(ice, qapp, out):
             yield 300
-            b = ice.blocker
+            b = ike.blocker
             out["before"] = b.errors
             real = b.engine
 
@@ -120,7 +120,7 @@ def test_engine_error_lets_request_through_and_is_counted(run_ice, server):
                         return fail
                     return attr
             b.engine = Broken()
-            view = ice.windows[0].add_tab(%r)
+            view = ike.windows[0].add_tab(%r)
             loaded = {"done": False, "ok": None}
             view.loadFinished.connect(lambda ok: loaded.update(done=True, ok=ok))
             for _ in range(200):
@@ -134,7 +134,7 @@ def test_engine_error_lets_request_through_and_is_counted(run_ice, server):
             # engine error counter. Do not assume a fixed page-load duration.
             yield 500
             out["errors"] = b.errors
-            out["about"] = ice.windows[0]._engine_about(b)
+            out["about"] = ike.windows[0]._engine_about(b)
             b.engine = real
             out["blocked_again"] = b.should_block("https://ads.example.test/a.js", "https://site.test/", "script")
             out["errors_after"] = b.errors

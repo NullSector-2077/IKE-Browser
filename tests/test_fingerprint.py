@@ -6,7 +6,7 @@ set of uBlock Origin scriptlets that wrap the functions pages use most
 (timers, fetch, XHR, JSON, events, eval, animation frames, constants). What
 sites see — canvas, WebGL, audio, navigator, screen, Client Hints, media
 devices, WebGPU, workers, frames, and functions that must look native — must
-not change because of the scriptlets. With ICE_TEST_FP_OUT=<file> the
+not change because of the scriptlets. With IKE_TEST_FP_OUT=<file> the
 measured values are also written there (before/after comparisons).
 """
 
@@ -18,7 +18,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import pytest
 from conftest import needs_engine
 
-from ice.osinfo import identity
+from ike.osinfo import identity
 
 PROBE = r"""<!doctype html><html><head><title>fp</title></head><body>
 <script>
@@ -119,7 +119,7 @@ SCRIPTLETS = "\n".join("127.0.0.1##+js(%s)" % r for r in (
     "no-requestAnimationFrame-if, iceNeverMatches",
     "noeval-if, iceNeverMatches",
     "abort-on-property-read, iceNeverProperty",
-    "remove-attr, data-ice-never",
+    "remove-attr, data-ike-never",
 ))
 
 
@@ -165,13 +165,13 @@ def measure(v, url, out, key):
     out[key] = None
 
 def steps(ice, qapp, out):
-    v = ice.windows[0].current_view()
+    v = ike.windows[0].current_view()
     yield from measure(v, URL, out, "plain")
     yield from measure(v, URL + "?again", out, "plain_again")
-    ice.config["custom_filters"] = SCRIPTLETS
-    ice.blocker.load()                     # rebuilds the engine and the scriptlet index
+    ike.config["custom_filters"] = SCRIPTLETS
+    ike.blocker.load()                     # rebuilds the engine and the scriptlet index
     yield 300
-    out["rules"] = ice.blocker.scriptlets.scripts_for("127.0.0.1")
+    out["rules"] = ike.blocker.scriptlets.scripts_for("127.0.0.1")
     yield from measure(v, URL + "?scriptlets", out, "scriptlets")
 '''
 
@@ -184,8 +184,8 @@ def test_scriptlets_do_not_change_fingerprint(run_ice, site, level):
     out = run_ice("URL = %r\nSCRIPTLETS = %r\n" % (site, SCRIPTLETS) + STEPS,
                   settings={"shield_level": level}, env={"QTWEBENGINE_CHROMIUM_FLAGS": flags}, timeout=120)
     plain, again, with_scriptlets = out["plain"], out["plain_again"], out["scriptlets"]
-    if os.environ.get("ICE_TEST_FP_OUT"):
-        with open(os.environ["ICE_TEST_FP_OUT"] + "." + level + ".json", "w", encoding="utf-8") as f:
+    if os.environ.get("IKE_TEST_FP_OUT"):
+        with open(os.environ["IKE_TEST_FP_OUT"] + "." + level + ".json", "w", encoding="utf-8") as f:
             json.dump({"plain": plain, "scriptlets": with_scriptlets}, f, indent=1, sort_keys=True)
     assert plain and again and with_scriptlets
     assert out["rules"]["MAIN"], "the scriptlets were not installed"

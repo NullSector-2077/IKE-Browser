@@ -12,7 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
-from ice.passwords import origin_of
+from ike.passwords import origin_of
 
 FORM = (b"<!doctype html><title>login</title><form><input name=user id=u>"
         b"<input type=password name=pw id=p><button>go</button></form>")
@@ -69,11 +69,11 @@ import json
 from PyQt6.QtCore import QUrl
 
 def steps(ice, qapp, out):
-    pm = ice.passwords
+    pm = ike.passwords
     pm.vault.create("test master")
     for origin, user in SAVED:
         pm.vault.put(origin, user, "pw-" + user)
-    v = ice.windows[0].current_view()
+    v = ike.windows[0].current_view()
     for url in PAGES:
         done = {}
         v.page().loadFinished.connect(lambda ok, done=done: done.setdefault("ok", ok))

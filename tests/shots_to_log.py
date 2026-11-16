@@ -1,4 +1,4 @@
-"""Print the screenshots of a test run (ICE_TEST_SHOTS) as text, one line each:
+"""Print the screenshots of a test run (IKE_TEST_SHOTS) as text, one line each:
 "ICE-SHOT <name> <base64 JPEG>", so they can be read from the job's log too.
 
     python tests/shots_to_log.py <folder>

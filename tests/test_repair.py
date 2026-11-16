@@ -45,7 +45,7 @@ def test_repair_real_page(run_ice, server):
     out = run_ice("""
         def steps(ice, qapp, out):
             yield 300
-            win = ice.windows[0]
+            win = ike.windows[0]
             view = win.add_tab(%r)
             # Wait for the image's load/error handler, not only document.readyState.
             # On slower Windows runners the document can be complete before the
@@ -75,13 +75,13 @@ def test_repair_real_page(run_ice, server):
             out["culprits"] = r.culprits
             out["bar"] = win.repair_bar.text.text()
             out["after"] = view.title()
-            out["opts"] = dict(ice.config["site_opts"].get("127.0.0.1") or {})
+            out["opts"] = dict(ike.config["site_opts"].get("127.0.0.1") or {})
             win.shield_panel.refresh()
             out["panel"] = win.shield_panel.repaired.text()
             win.shield_panel._undo_repair()
             yield 2000
             out["undone"] = view.title()
-            out["opts_undone"] = ice.config["site_opts"].get("127.0.0.1")
+            out["opts_undone"] = ike.config["site_opts"].get("127.0.0.1")
     """ % server)
     assert out["before"] == "broken"
     assert out["button"]
@@ -101,7 +101,7 @@ import json
 
 def steps(ice, qapp, out):
     yield 300
-    win = ice.windows[0]
+    win = ike.windows[0]
     view = win.add_tab(%(url)r)
     yield 1200
     for _ in range(40):                  # the page may still be loading on a slow computer
@@ -110,9 +110,9 @@ def steps(ice, qapp, out):
         yield 250
         if ready == ["complete"] and view.url().host():
             break
-    cfg = ice.config
+    cfg = ike.config
     before = json.dumps([cfg["site_opts"], cfg["site_noscript"], cfg["site_levels"]], sort_keys=True)
-    from ice import repair
+    from ike import repair
     need = %(need)r                      # protections that must be off for the page to work
     win.repair_site()
     r = win.repair_bar.repair
@@ -186,7 +186,7 @@ def test_repair_switch_off(run_ice, server):
     out = run_ice("""
         def steps(ice, qapp, out):
             yield 300
-            win = ice.windows[0]
+            win = ike.windows[0]
             win.add_tab(%r)
             yield 1200
             win.shield_panel.refresh()

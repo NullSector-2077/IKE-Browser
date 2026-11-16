@@ -18,15 +18,15 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 # the copy of I.K.E. to start: this repository, or an installed one
-# (ICE_TEST_APP=/usr/lib/ike-browser python3 -m pytest), or a built AppImage
-# (ICE_TEST_APPIMAGE=dist/IKE-Browser-<version>-x86_64.AppImage python3 -m pytest),
+# (IKE_TEST_APP=/usr/lib/ike-browser python3 -m pytest), or a built AppImage
+# (IKE_TEST_APPIMAGE=dist/IKE-Browser-<version>-x86_64.AppImage python3 -m pytest),
 # or on Windows an installed copy started through its launcher
-# (ICE_TEST_EXE=...\ike-browser.exe ICE_TEST_APP=...\app\<version> python -m pytest)
-APP = Path(os.environ.get("ICE_TEST_APP") or ROOT)
+# (IKE_TEST_EXE=...\ike-browser.exe IKE_TEST_APP=...\app\<version> python -m pytest)
+APP = Path(os.environ.get("IKE_TEST_APP") or ROOT)
 HARNESS = Path(__file__).resolve().parent / "harness.py"
 # a tiny filter list stored in place of EasyList, so nothing is downloaded
 TEST_LIST_URL = "https://easylist.to/easylist/easylist.txt"
-TEST_LIST = "||ads.example.test^\n/banner-ad.$image\n##.ice-test-ad\n"
+TEST_LIST = "||ads.example.test^\n/banner-ad.$image\n##.ike-test-ad\n"
 
 # no list, version or update downloads while testing
 QUIET_SETTINGS = {
@@ -74,33 +74,33 @@ def run_ice(tmp_path):
         script_file.write_text(textwrap.dedent(script), "utf-8")
         out_file = tmp_path / "out.json"
         e = {k: v for k, v in os.environ.items()
-             if not k.startswith(("XDG_", "ICE_", "LANG", "LC_"))}
+             if not k.startswith(("XDG_", "IKE_", "LANG", "LC_"))}
         e.update({
             "HOME": str(home),
             "XDG_CONFIG_HOME": str(home / ".config"),
             "XDG_DATA_HOME": str(home / ".local/share"),
             "XDG_CACHE_HOME": str(home / ".cache"),
             "XDG_RUNTIME_DIR": str(tmp_path / "run"),
-            # ICE_TEST_QPA=windows: real windows on the Windows runner's desktop
-            "QT_QPA_PLATFORM": os.environ.get("ICE_TEST_QPA") or "offscreen",
+            # IKE_TEST_QPA=windows: real windows on the Windows runner's desktop
+            "QT_QPA_PLATFORM": os.environ.get("IKE_TEST_QPA") or "offscreen",
             "QTWEBENGINE_CHROMIUM_FLAGS": "--no-sandbox",
             "QTWEBENGINE_DISABLE_SANDBOX": "1",
             "LANG": "C.UTF-8",
-            "ICE_NO_SINGLE": "1",
-            "ICE_TEST_NOASK": "1",
-            "ICE_TEST_HOOK": str(HARNESS),
-            "ICE_TEST_SCRIPT": str(script_file),
-            "ICE_TEST_OUT": str(out_file),
+            "IKE_NO_SINGLE": "1",
+            "IKE_TEST_NOASK": "1",
+            "IKE_TEST_HOOK": str(HARNESS),
+            "IKE_TEST_SCRIPT": str(script_file),
+            "IKE_TEST_OUT": str(out_file),
         })
         (tmp_path / "run").mkdir(mode=0o700, exist_ok=True)
         # no desktop bus unless a test brings its own (see desktop_bus below)
         e["DBUS_SESSION_BUS_ADDRESS"] = ""
         e.update(env or {})
         cmd = [sys.executable, str(APP / "ike_boot.py")]
-        if os.environ.get("ICE_TEST_APPIMAGE"):        # test a built AppImage instead
-            cmd = [str(Path(os.environ["ICE_TEST_APPIMAGE"]).resolve())]
-        if os.environ.get("ICE_TEST_EXE"):             # an installed copy on Windows
-            cmd = [str(Path(os.environ["ICE_TEST_EXE"]).resolve())]
+        if os.environ.get("IKE_TEST_APPIMAGE"):        # test a built AppImage instead
+            cmd = [str(Path(os.environ["IKE_TEST_APPIMAGE"]).resolve())]
+        if os.environ.get("IKE_TEST_EXE"):             # an installed copy on Windows
+            cmd = [str(Path(os.environ["IKE_TEST_EXE"]).resolve())]
         e.setdefault("PYTHONUTF8", "1")       # Windows: messages in UTF-8 as on Linux
         if command:
             cmd = list(command)

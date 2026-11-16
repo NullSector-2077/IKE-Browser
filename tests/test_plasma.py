@@ -98,10 +98,10 @@ def test_media_controls(run_ice, site, desktop_bus):
     out = run_ice(GDBUS + """
 def steps(ice, qapp, out):
     yield 300
-    win = ice.windows[0]
+    win = ike.windows[0]
     view = win.add_tab(%r)
     yield 3500
-    d = ice.desktop
+    d = ike.desktop
     name = d.mpris_name
     out["registered"] = d._mpris_on and name in d.bus.names
     P = ["-d", name, "-o", "/org/mpris/MediaPlayer2"]
@@ -148,14 +148,14 @@ def test_media_switched_off_and_private(run_ice, site, desktop_bus):
     out = run_ice("""
         def steps(ice, qapp, out):
             yield 300
-            win = ice.windows[0]
+            win = ike.windows[0]
             win.add_tab(%r)
             yield 3000
-            out["off"] = ice.desktop._mpris_on
-            ice.config["di_media"] = True
-            p = ice.new_window(private=True, urls=[%r])
+            out["off"] = ike.desktop._mpris_on
+            ike.config["di_media"] = True
+            p = ike.new_window(private=True, urls=[%r])
             yield 3000
-            out["private"] = ice.desktop._mpris_on
+            out["private"] = ike.desktop._mpris_on
     """ % (site + "/song", site + "/song"), settings={"di_media": False},
         env={"DBUS_SESSION_BUS_ADDRESS": address})
     assert out["off"] is False and out["private"] is False
@@ -168,12 +168,12 @@ import os
 
 def steps(ice, qapp, out):
     yield 300
-    win = ice.windows[0]
+    win = ike.windows[0]
     zebra = win.add_tab(%r)
     other = win.add_tab(%r)
-    ice.storage.add_bookmark("https://zebra.example/stripes", "Zebra stripes explained")
+    ike.storage.add_bookmark("https://zebra.example/stripes", "Zebra stripes explained")
     yield 1500
-    d = ice.desktop
+    d = ike.desktop
     out["owned"] = d.runner_name in d.bus.names
     f = os.path.join(os.environ["XDG_DATA_HOME"], "krunner", "dbusplugins", "ike-browser.desktop")
     out["desktop_file"] = open(f).read()
@@ -191,8 +191,8 @@ def steps(ice, qapp, out):
     yield from gdbus(r, *R, "-m", "org.kde.krunner1.Run", "bm:https://zebra.example/stripes", "")
     yield 300
     out["bookmark_opened"] = len(win.views) == n + 1
-    ice.config["di_krunner"] = False
-    ice.desktop.settings_changed()
+    ike.config["di_krunner"] = False
+    ike.desktop.settings_changed()
     yield 300
     out["file_after_off"] = os.path.exists(f)
     out["owned_after_off"] = d.runner_name in d.bus.names
@@ -216,11 +216,11 @@ def test_downloads_in_notifications(run_ice, site, desktop_bus, tmp_path):
 
         def steps(ice, qapp, out):
             yield 400
-            win = ice.windows[0]
+            win = ike.windows[0]
             win.current_view().page().download(QUrl(%r))
             for _ in range(60):
                 yield 200
-                if ice.downloads and ice.downloads[0].isFinished():
+                if ike.downloads and ike.downloads[0].isFinished():
                     break
             yield 500
             win.current_view().page().download(QUrl(%r))
@@ -228,10 +228,10 @@ def test_downloads_in_notifications(run_ice, site, desktop_bus, tmp_path):
             open(%r, "w").write("cancel")       # the user presses "cancel" in Plasma
             for _ in range(30):
                 yield 200
-                if ice.downloads[0].isFinished():
+                if ike.downloads[0].isFinished():
                     break
             yield 500
-            out["second_state"] = ice.downloads[0].state().name
+            out["second_state"] = ike.downloads[0].state().name
     """ % (site + "/file.bin", site + "/file.bin", str(logfile) + ".cmd"),
         settings={"download_dir": str(tmp_path / "dl"), "ask_download_location": False},
         env={"DBUS_SESSION_BUS_ADDRESS": address}, timeout=120)
@@ -258,24 +258,24 @@ def test_send_to_phone(run_ice, site, desktop_bus):
     out = run_ice("""
         def steps(ice, qapp, out):
             yield 300
-            win = ice.windows[0]
+            win = ike.windows[0]
             view = win.add_tab(%r)
             yield 1500
-            out["devices"] = ice.desktop.devices
+            out["devices"] = ike.desktop.devices
             from PyQt6.QtWidgets import QMenu
             m = QMenu()
-            ice.desktop.add_send_menu(m, view.url().toString())
+            ike.desktop.add_send_menu(m, view.url().toString())
             sub = [a for a in m.actions() if a.menu()]
             out["menu"] = [sub[0].text()] + [a.text() for a in sub[0].menu().actions()] if sub else []
             sub[0].menu().actions()[0].trigger()
             yield 800
-            from ice import contextmenu
+            from ike import contextmenu
             menu = contextmenu.build(view, None)
             out["page_menu"] = any(a.text() == "Send to device" for a in menu.actions())
-            ice.config["di_kdeconnect"] = False
-            ice.desktop.settings_changed()
+            ike.config["di_kdeconnect"] = False
+            ike.desktop.settings_changed()
             m2 = QMenu()
-            ice.desktop.add_send_menu(m2, view.url().toString())
+            ike.desktop.add_send_menu(m2, view.url().toString())
             out["menu_off"] = len(m2.actions())
     """ % (site + "/zebra"), env={"DBUS_SESSION_BUS_ADDRESS": address})
     assert out["devices"] == {"abc123": "Pixel"}
@@ -318,7 +318,7 @@ def test_screen_stays_on_through_the_engine(run_ice, site, desktop_bus, tmp_path
     run_ice("""
         def steps(ice, qapp, out):
             yield 300
-            ice.windows[0].add_tab(%r)
+            ike.windows[0].add_tab(%r)
             yield 4000
     """ % ("http://127.0.0.1:%d/" % httpd.server_address[1]), env={"DBUS_SESSION_BUS_ADDRESS": address})
     httpd.shutdown()
@@ -332,9 +332,9 @@ def test_without_desktop_bus(run_ice, site):
 
         def steps(ice, qapp, out):
             yield 300
-            ice.windows[0].add_tab(%r)
+            ike.windows[0].add_tab(%r)
             yield 2500
-            out["bus"] = ice.desktop.bus is None
+            out["bus"] = ike.desktop.bus is None
             out["file"] = os.path.exists(os.path.join(os.environ["XDG_DATA_HOME"], "krunner"))
     """ % (site + "/song"))
     assert out["bus"] and out["file"] is False

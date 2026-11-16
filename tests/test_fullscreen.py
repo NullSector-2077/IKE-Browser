@@ -10,7 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
-SHOTS = os.environ.get("ICE_TEST_SHOTS", "")   # folder for screenshots, optional
+SHOTS = os.environ.get("IKE_TEST_SHOTS", "")   # folder for screenshots, optional
 
 PAGE = b"""<!doctype html><html><body style="margin:0">
 <div id="d" style="width:600px;height:400px;background:#ccc"></div>
@@ -89,8 +89,8 @@ def state(v, out, key):
         g = notice.geometry()
         d["notice_inside"] = w.rect().contains(g)
         import os
-        if os.environ.get("ICE_TEST_SHOTS"):
-            w.grab().save(os.path.join(os.environ["ICE_TEST_SHOTS"], "notice-%s.png" % key))
+        if os.environ.get("IKE_TEST_SHOTS"):
+            w.grab().save(os.path.join(os.environ["IKE_TEST_SHOTS"], "notike-%s.png" % key))
     out[key] = d
 '''
 
@@ -100,7 +100,7 @@ def test_fullscreen_and_mouse_lock(run_ice, site):
     origin = "http://127.0.0.1:%d" % site
     steps = HELPERS + r'''
 def steps(ice, qapp, out):
-    w = ice.windows[0]
+    w = ike.windows[0]
     v = w.current_view()
     yield from load(v, URL)
     v.setFocus()
@@ -142,7 +142,7 @@ def steps(ice, qapp, out):
     yield 900
     yield from state(v, out, "video_exited")
 '''.replace("URL", repr(url))
-    out = run_ice(steps, timeout=120, env={"ICE_TEST_SHOTS": SHOTS})
+    out = run_ice(steps, timeout=120, env={"IKE_TEST_SHOTS": SHOTS})
     assert out["locked"]["lock"] and not out["locked"]["window_fs"]
     assert out["locked"]["notice"] == "%s controls the mouse pointer — press Esc to show the cursor" % origin
     assert out["locked"]["notice_inside"]
@@ -164,7 +164,7 @@ def test_background_tab_refused(run_ice, site):
     url = "http://127.0.0.1:%d/" % site
     steps = HELPERS + r'''
 def steps(ice, qapp, out):
-    w = ice.windows[0]
+    w = ike.windows[0]
     a = w.current_view()
     yield from load(a, URL)
     a.page().runJavaScript("want = 'none'", 0)

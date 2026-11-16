@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-SHOTS = os.environ.get("ICE_TEST_SHOTS", "")   # folder for screenshots, optional
+SHOTS = os.environ.get("IKE_TEST_SHOTS", "")   # folder for screenshots, optional
 
 
 def test_bookmarks_overflow_button(run_ice):
@@ -17,7 +17,7 @@ def test_bookmarks_overflow_button(run_ice):
 
         def steps(ice, qapp, out):
             yield 400
-            win = ice.windows[0]
+            win = ike.windows[0]
             win.resize(1000, 700)
             bar = win.bookbar
             bar.show()
@@ -31,7 +31,7 @@ def test_bookmarks_overflow_button(run_ice):
             out["visible"] = bar._more_action.isVisible()
             out["in_bar"] = sum(a.isVisible() for a in bar._marks)
             out["in_menu"] = len(bar._menu.actions())
-            shots = os.environ.get("ICE_TEST_SHOTS")
+            shots = os.environ.get("IKE_TEST_SHOTS")
             if shots:
                 bar.grab().save(os.path.join(shots, "bookmarks-overflow.png"))
             win.resize(8000, 700)
@@ -41,7 +41,7 @@ def test_bookmarks_overflow_button(run_ice):
                 bar.set_marks(marks[:2], lambda u: None)
                 yield 400
             out["wide_visible"] = bar._more_action.isVisible()
-    """, settings={"bookmarks_bar": "always"}, env={"ICE_TEST_SHOTS": SHOTS})
+    """, settings={"bookmarks_bar": "always"}, env={"IKE_TEST_SHOTS": SHOTS})
     assert out["text"] == "»"
     assert out["icon"] is False
     assert out["visible"]
@@ -98,39 +98,39 @@ def test_download_progress_ring(run_ice, slow_server, tmp_path):
 
         def steps(ice, qapp, out):
             yield 400
-            win = ice.windows[0]
-            out["start"] = ice._dl_state[0]
+            win = ike.windows[0]
+            out["start"] = ike._dl_state[0]
             out["start_colours"] = colours(win)
             win.current_view().page().download(QUrl(%r))
             fractions = []
             for _ in range(8):
                 yield 200
-                if ice._dl_state[0] == "active":
-                    fractions.append(ice._dl_state[1])
+                if ike._dl_state[0] == "active":
+                    fractions.append(ike._dl_state[1])
             out["fractions"] = fractions
             out["active_colours"] = colours(win)
-            shots = os.environ.get("ICE_TEST_SHOTS")
+            shots = os.environ.get("IKE_TEST_SHOTS")
             if shots:
                 win.act_downloads.icon().pixmap(QSize(64, 64)).save(os.path.join(shots, "download-active.png"))
             for _ in range(30):
                 yield 200
-                if ice._dl_state[0] == "done":
+                if ike._dl_state[0] == "done":
                     break
-            out["end"] = ice._dl_state[0]
+            out["end"] = ike._dl_state[0]
             out["done_colours"] = colours(win)
             if shots:
                 win.act_downloads.icon().pixmap(QSize(64, 64)).save(os.path.join(shots, "download-done.png"))
-            second = ice.new_window()
+            second = ike.new_window()
             yield 300
             out["new_window_state"] = colours(second)[0] > 0
-            ice.show_downloads()
+            ike.show_downloads()
             yield 300
-            out["after_open"] = ice._dl_state[0]
+            out["after_open"] = ike._dl_state[0]
             out["after_open_colours"] = colours(win)
             out["file"] = os.path.getsize(os.path.join(%r, "file.bin"))
     """ % (slow_server, str(tmp_path / "dl")),
         settings={"download_dir": str(tmp_path / "dl"), "ask_download_location": False},
-        env={"ICE_TEST_SHOTS": SHOTS})
+        env={"IKE_TEST_SHOTS": SHOTS})
     assert out["start"] == "idle" and out["start_colours"][0] == 0
     fr = [f for f in out["fractions"] if f is not None]
     assert fr and any(0 < f < 1 for f in fr) and fr == sorted(fr), out["fractions"]
@@ -170,7 +170,7 @@ def test_address_bar_domain_highlight(run_ice):
 
         def steps(ice, qapp, out):
             yield 400
-            win = ice.windows[0]
+            win = ike.windows[0]
             bar = win.urlbar
             text = "https://www.example.org/some/long/path?query=1"
             win.current_view().setFocus()
@@ -179,7 +179,7 @@ def test_address_bar_domain_highlight(run_ice):
             yield 100
             out["span"] = bar.domain_span()
             out["unfocused"] = measure(bar, text)
-            shots = os.environ.get("ICE_TEST_SHOTS")
+            shots = os.environ.get("IKE_TEST_SHOTS")
             if shots:
                 bar.grab().save(os.path.join(shots, "urlbar-domain.png"))
             # while typing in the bar everything is normal text
@@ -190,7 +190,7 @@ def test_address_bar_domain_highlight(run_ice):
             out["text_kept"] = bar.text() == text
             out["search_span"] = bar.domain_span("hello world")
             out["idn"] = bar.domain_span("http://user@xn--80ak6aa92e.com:8080/a")
-    """, env={"ICE_TEST_SHOTS": SHOTS})
+    """, env={"IKE_TEST_SHOTS": SHOTS})
     assert out["span"] == [8, 15]
     u = out["unfocused"]
     assert u["path"] > u["host"] + 150 and u["scheme"] > u["host"] + 150, u
@@ -237,14 +237,14 @@ def test_loading_line(run_ice, slow_page):
         def steps(ice, qapp, out):
             yield 400
             for _ in range(50):                 # the new tab page has finished loading
-                if not getattr(ice.windows[0].current_view(), "loading", False):
+                if not getattr(ike.windows[0].current_view(), "loading", False):
                     break
                 yield 100
             yield 200
-            from ice import themes
-            ice.config["ui_scheme"] = "theme:ice"
-            themes.apply(ice.config)
-            win = ice.windows[0]
+            from ike import themes
+            ike.config["ui_scheme"] = "theme:ice"
+            themes.apply(ike.config)
+            win = ike.windows[0]
             line = win.loading_line
             out["idle_visible"] = line.isVisible()
             view = win.add_tab(%r)
@@ -257,7 +257,7 @@ def test_loading_line(run_ice, slow_page):
                                line.height()]
             img = line.grab().toImage()
             out["colour"] = QColor(img.pixel(3, 3)).name()
-            shots = os.environ.get("ICE_TEST_SHOTS")
+            shots = os.environ.get("IKE_TEST_SHOTS")
             if shots:
                 win.grab().save(os.path.join(shots, "loading-line.png"))
             # another tab that is not loading: no line
@@ -274,7 +274,7 @@ def test_loading_line(run_ice, slow_page):
             yield 600
             out["after"] = line.isVisible()
             out["title"] = view.title()
-    """ % slow_page, env={"ICE_TEST_SHOTS": SHOTS})
+    """ % slow_page, env={"IKE_TEST_SHOTS": SHOTS})
     assert out["idle_visible"] is False
     shown = [v for vis, v in out["seen"] if vis]
     assert shown, out["seen"]
@@ -297,7 +297,7 @@ def test_tab_previews(run_ice):
 
         def steps(ice, qapp, out):
             yield 400
-            win = ice.windows[0]
+            win = ike.windows[0]
             red = win.add_tab("data:text/html,<title>red</title><body style='background:%23d00000'>")
             yield 1200
             win.add_tab("data:text/html,<title>blue</title><body style='background:%230000d0'>")
@@ -315,7 +315,7 @@ def test_tab_previews(run_ice):
             prev = win._preview
             out["shown"] = prev.isVisible()
             out["text"] = prev.text.text()
-            shots = os.environ.get("ICE_TEST_SHOTS")
+            shots = os.environ.get("IKE_TEST_SHOTS")
             if shots:
                 prev.grab().save(os.path.join(shots, "tab-preview.png"))
             QApplication.sendEvent(win.tabbar, QEvent(QEvent.Type.Leave))
@@ -327,7 +327,7 @@ def test_tab_previews(run_ice):
             yield 100
             out["current_preview"] = prev.isVisible()
             # vertical tabs use the same preview
-            ice.config["tabs_position"] = "vertical"
+            ike.config["tabs_position"] = "vertical"
             win.apply_layout()
             yield 300
             r = win.vtabs.visualItemRect(win.vtabs.item(i))
@@ -338,7 +338,7 @@ def test_tab_previews(run_ice):
             win.close_tab(red)
             yield 300
             out["tabs"] = len(win.views)
-    """, env={"ICE_TEST_SHOTS": SHOTS})
+    """, env={"IKE_TEST_SHOTS": SHOTS})
     assert out["has_preview"]
     assert out["size"][0] == 240 and 60 < out["size"][1] <= 180
     r, g, b = out["centre"]
@@ -389,7 +389,7 @@ WEATHER_STEPS = """
 
     def steps(ice, qapp, out):
         yield 600
-        win = ice.windows[0]
+        win = ike.windows[0]
         view = win.current_view()
         res = {}
         page_text(view, "[document.getElementById('clock') && document.getElementById('clock').textContent,"
@@ -398,7 +398,7 @@ WEATHER_STEPS = """
         yield 300
         out["before"] = res.get("before")
         # choose the city in Settings
-        dlg = ice.show_settings(win, "general")
+        dlg = ike.show_settings(win, "general")
         yield 200
         dlg.city.setText("Rome")
         dlg._find_city()
@@ -409,13 +409,13 @@ WEATHER_STEPS = """
         out["results"] = [dlg.city_results.itemText(i) for i in range(dlg.city_results.count())]
         dlg.apply()
         dlg.close()
-        out["saved"] = [ice.config["weather_city"], ice.config["weather_lat"], ice.config["weather_lon"]]
+        out["saved"] = [ike.config["weather_city"], ike.config["weather_lat"], ike.config["weather_lon"]]
         # the open new tab page gets the weather without reloading
         page_text(view, "window.__mark = 1", res, "mark")
         win.add_tab()
         for _ in range(30):
             yield 100
-            if ice.weather.data:
+            if ike.weather.data:
                 break
         yield 500
         page_text(view, "[document.getElementById('weather').textContent, window.__mark]", res, "after")
@@ -424,7 +424,7 @@ WEATHER_STEPS = """
         page_text(win.current_view(), "document.getElementById('weather').textContent", res, "new")
         yield 300
         out["new_tab"] = res.get("new")
-        shots = os.environ.get("ICE_TEST_SHOTS")
+        shots = os.environ.get("IKE_TEST_SHOTS")
         if shots:
             win.grab().save(os.path.join(shots, "newtab-clock-weather.png"))
         # more new tabs within 30 minutes: no new request
@@ -433,8 +433,8 @@ WEATHER_STEPS = """
         win.add_tab()
         yield 800
         # switched off: nothing in the corner, nothing asked
-        ice.config["newtab_clock"] = False
-        ice.config["newtab_weather"] = False
+        ike.config["newtab_clock"] = False
+        ike.config["newtab_weather"] = False
         v2 = win.add_tab()
         yield 1000
         page_text(v2, "document.querySelector('.corner').innerHTML", res, "off")
@@ -445,7 +445,7 @@ WEATHER_STEPS = """
 
 def test_newtab_clock_and_weather(run_ice, weather_server):
     base, seen = weather_server
-    out = run_ice(WEATHER_STEPS, env={"ICE_TEST_WEATHER": base, "ICE_TEST_SHOTS": SHOTS})
+    out = run_ice(WEATHER_STEPS, env={"IKE_TEST_WEATHER": base, "IKE_TEST_SHOTS": SHOTS})
     clock, weather = out["before"]
     assert clock and __import__("re").fullmatch(r"\d\d:\d\d( [AP]M)?", clock), clock
     assert weather == ""

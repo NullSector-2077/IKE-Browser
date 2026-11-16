@@ -26,7 +26,7 @@ def test_settings_list_each_language_once(run_ice):
     out = run_ice("""
         def steps(ice, qapp, out):
             yield 400
-            dlg = ice.show_settings(ice.windows[0])
+            dlg = ike.show_settings(ike.windows[0])
             yield 200
             out["codes"] = [dlg.language.itemData(i) for i in range(dlg.language.count())]
             dlg.close()
@@ -42,9 +42,9 @@ def test_start_in_language(run_ice, code):
     out = run_ice("""
         def steps(ice, qapp, out):
             yield 600
-            from ice import i18n
+            from ike import i18n
             out["lang"] = i18n.current()
-            win = ice.windows[0]
+            win = ike.windows[0]
             out["menus"] = [a.text() for a in win.menuBar().actions()]
             out["settings"] = i18n.T("Settings")
     """, settings={"language": code})
@@ -59,7 +59,7 @@ def test_language_from_system(run_ice, env_lang, code):
     out = run_ice("""
         def steps(ice, qapp, out):
             yield 600
-            from ice import i18n
+            from ike import i18n
             out["lang"] = i18n.current()
             out["settings"] = i18n.T("Settings")
     """, env={"LANG": env_lang})

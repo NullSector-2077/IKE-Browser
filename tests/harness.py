@@ -1,9 +1,9 @@
-"""Runs inside the real browser (loaded through ICE_TEST_HOOK).
+"""Runs inside the real browser (loaded through IKE_TEST_HOOK).
 
-The test script (ICE_TEST_SCRIPT) defines ``steps(ice, qapp, out)``: a
+The test script (IKE_TEST_SCRIPT) defines ``steps(ice, qapp, out)``: a
 generator that yields the number of milliseconds to wait before it goes on,
 so the event loop keeps running between checks. Whatever it puts in ``out``
-is written as JSON to ICE_TEST_OUT, then the browser quits. An exception is
+is written as JSON to IKE_TEST_OUT, then the browser quits. An exception is
 reported as out["error"].
 """
 
@@ -13,8 +13,8 @@ import traceback
 
 from PyQt6.QtCore import QTimer
 
-_script = os.environ["ICE_TEST_SCRIPT"]
-_outfile = os.environ["ICE_TEST_OUT"]
+_script = os.environ["IKE_TEST_SCRIPT"]
+_outfile = os.environ["IKE_TEST_OUT"]
 _out = {}
 _scope = {}
 exec(compile(open(_script, encoding="utf-8").read(), _script, "exec"), _scope)
@@ -24,7 +24,7 @@ _gen = None
 def _finish():
     with open(_outfile, "w", encoding="utf-8") as f:
         json.dump(_out, f, default=str)
-    for w in list(ice.windows):            # noqa: F821  (given by the browser)
+    for w in list(ike.windows):            # noqa: F821  (given by the browser)
         w.close()
     QTimer.singleShot(200, qapp.quit)       # noqa: F821
 
@@ -53,4 +53,4 @@ def _start():
     _step()
 
 
-QTimer.singleShot(int(os.environ.get("ICE_TEST_DELAY", "300")), _start)
+QTimer.singleShot(int(os.environ.get("IKE_TEST_DELAY", "300")), _start)

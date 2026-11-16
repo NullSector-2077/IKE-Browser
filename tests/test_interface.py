@@ -9,7 +9,7 @@ def test_shield_icon_levels(run_ice):
 
         def steps(ice, qapp, out):
             yield 500
-            from ice.shieldpanel import shield_icon
+            from ike.shieldpanel import shield_icon
             res = {}
             for level in ("off", "compatibility", "balanced", "strict", "maximum"):
                 for size in (16, 22):
@@ -19,9 +19,9 @@ def test_shield_icon_levels(run_ice):
                     c = QColor(img.pixel(int(w * 0.30), int(h * 0.55)))
                     res["%s-%d" % (level, size)] = [c.red(), c.green(), c.blue(), c.alpha()]
             out["pixels"] = res
-            win = ice.windows[0]
+            win = ike.windows[0]
             out["button_icon"] = not win.shield_btn.icon().isNull()
-            ice.config["shield_level"] = "strict"
+            ike.config["shield_level"] = "strict"
             win.update_shield()
             out["menu_icon"] = not win.m_level.icon().isNull()
     """)
@@ -52,8 +52,8 @@ def test_window_close_button(run_ice):
 
         def steps(ice, qapp, out):
             yield 800
-            from ice.closebutton import WindowCloseButton
-            win = ice.windows[0]
+            from ike.closebutton import WindowCloseButton
+            win = ike.windows[0]
             buttons = [win.nav.widgetForAction(a) for a in win._win_btns]
             out["frameless"] = win._frameless
             out["visible"] = [a.isVisible() for a in win._win_btns]
@@ -64,12 +64,12 @@ def test_window_close_button(run_ice):
             btn._hovered = True
             out["hover_red"] = red_pixels(btn)
             btn._hovered = False
-            second = ice.new_window()
+            second = ike.new_window()
             yield 500
             QTest.mouseClick(btn, Qt.MouseButton.LeftButton)
             yield 800
-            out["windows_after_click"] = len(ice.windows)
-            out["closed_first"] = win not in ice.windows
+            out["windows_after_click"] = len(ike.windows)
+            out["closed_first"] = win not in ike.windows
     """, settings={"system_titlebar": False})
     assert out["frameless"] is True
     assert all(out["visible"])
@@ -83,7 +83,7 @@ def test_system_titlebar_keeps_own_buttons_hidden(run_ice):
     out = run_ice("""
         def steps(ice, qapp, out):
             yield 600
-            win = ice.windows[0]
+            win = ike.windows[0]
             out["frameless"] = win._frameless
             out["visible"] = [a.isVisible() for a in win._win_btns]
     """)
@@ -98,7 +98,7 @@ def test_window_buttons_and_centred_address_bar(run_ice):
         from PyQt6.QtCore import QPoint
 
         def steps(ice, qapp, out):
-            win = ice.windows[0]
+            win = ike.windows[0]
             win.showNormal()
             out["sizes"] = []
             for width in (1920, 1400, 2560):
@@ -136,7 +136,7 @@ def test_toolbar_long_press_layout_and_private_badge(run_ice):
         from PyQt6.QtCore import QPoint
 
         def steps(ice, qapp, out):
-            win = ice.windows[0]
+            win = ike.windows[0]
             # The three navigation controls stay at the start, followed by a separator.
             actions = win.nav.actions()
             out["fixed_order"] = [actions.index(win.act_back) < actions.index(win.act_fwd)
@@ -150,7 +150,7 @@ def test_toolbar_long_press_layout_and_private_badge(run_ice):
             win._save_toolbar_layout()
             out["left_of_address"] = (win.nav.actions().index(win.act_tb_reader)
                                       < win.nav.actions().index(win.urlbar_act))
-            out["saved_left"] = "reader" in ice.config["toolbar_left"]
+            out["saved_left"] = "reader" in ike.config["toolbar_left"]
 
             # It can also be returned to the right side.
             right = win.nav.mapToGlobal(QPoint(win.nav.width() - 8, win.nav.height() // 2))
@@ -158,7 +158,7 @@ def test_toolbar_long_press_layout_and_private_badge(run_ice):
             win._save_toolbar_layout()
             out["right_of_address"] = (win.nav.actions().index(win.act_tb_reader)
                                        > win.nav.actions().index(win.urlbar_act))
-            out["saved_right"] = "reader" not in ice.config["toolbar_left"]
+            out["saved_right"] = "reader" not in ike.config["toolbar_left"]
 
             # The shield and menu controls are movable too, but remain available.
             win._move_toolbar_action("shield", left)
@@ -168,7 +168,7 @@ def test_toolbar_long_press_layout_and_private_badge(run_ice):
             out["menu_left"] = win.nav.actions().index(win.menu_act) < win.nav.actions().index(win.urlbar_act)
             out["menu_not_hidden"] = win.menu_act in win.nav.actions()
 
-            private = ice.new_window(private=True)
+            private = ike.new_window(private=True)
             yield 400
             from PyQt6.QtWidgets import QLabel
             badge = private.findChild(QLabel, "privateWindowBadge")
