@@ -197,6 +197,12 @@ class TabStyle(QProxyStyle):
             return super().pixelMetric(metric, opt, widget) + (2 * SLANT if self.lk.shape == "lama" else 8)
         return super().pixelMetric(metric, opt, widget)
 
+    def sizeFromContents(self, kind, opt, size, widget=None):
+        s = super().sizeFromContents(kind, opt, size, widget)
+        if kind == QStyle.ContentsType.CT_TabBarTab:
+            s.setHeight(max(s.height() + 4, 32))          # room for the line above or below the title
+        return s
+
     def tab_rect(self, rect, selected):
         """Where the shape of a tab is painted inside the tab's own area."""
         r = QRect(rect)

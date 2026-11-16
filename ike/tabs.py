@@ -122,7 +122,7 @@ class VTabDelegate(QStyledItemDelegate):
         selected = bool(option.state & QStyle.StateFlag.State_Selected)
         if self.look is not None:
             # the Cyber theme: the row's surface is ours, the desktop's style adds icon and title
-            from PyQt6.QtGui import QPalette
+            from PyQt6.QtGui import QBrush, QPalette
 
             from . import cyber
             cyber.paint_row(painter, option.rect, self.look, selected,
@@ -131,7 +131,7 @@ class VTabDelegate(QStyledItemDelegate):
             opt.state &= ~(QStyle.StateFlag.State_Selected | QStyle.StateFlag.State_MouseOver
                            | QStyle.StateFlag.State_HasFocus)
             opt.showDecorationSelected = False
-            opt.backgroundBrush = Qt.BrushStyle.NoBrush
+            opt.backgroundBrush = QBrush()
             text = self.look.text if selected else self.look.mix(self.look.text, self.look.tabs, 0.3)
             for group in (QPalette.ColorGroup.Active, QPalette.ColorGroup.Inactive):
                 opt.palette.setColor(group, QPalette.ColorRole.Text, text)
