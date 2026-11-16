@@ -72,7 +72,11 @@ report; on Arch also the package built, installed and tested; weekly too)
 and `linux-packages.yml` (the DEB and RPM packages built, installed with
 apt / dnf, started, the suite against the installed copy, removed). There
 the tests choose software WebGL switches that work on each engine
-(`tests/conftest.py`).
+(`tests/conftest.py`). Debian 13's engine gives no steady software WebGL in a
+container (measured with nine sets of switches, with and without a virtual
+X display): there `IKE_TEST_NO_SOFTWARE_WEBGL=1` makes the fingerprint test
+check every value except WebGL and end as "skipped" with that reason; the
+other distributions measure WebGL too.
 
 GitHub runs both on every pull request to `main` and every push to `main`
 (`.github/workflows/tests.yml`, Ubuntu 24.04 with the packages of
