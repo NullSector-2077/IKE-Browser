@@ -1,32 +1,23 @@
 # Maintenance policy
 
-## Daily schedule
+## Repository checks
 
-The repository health workflow is scheduled for 08:00 Europe/Rome. GitHub Actions schedules use UTC, so the workflow is triggered at both 06:00 and 07:00 UTC and checks the Europe/Rome local hour before doing its work. This accommodates both daylight-saving time and standard time without changing the intended local run time.
+The repository-health workflow remains scheduled for 08:00 Europe/Rome. It checks repository structure and documentation; it does not update packages, push to `main`, merge pull requests or publish releases.
 
-The workflow is observational: it checks repository structure and documentation consistency. It does not publish releases, sign packages, push to main, or silently change dependencies.
+## Dependency and source updates
 
-## Dependency maintenance
+The Arch system supplies Python, Qt and Qt WebEngine. Users update those with `sudo pacman -Syu`; I.K.E. must not bundle or replace the system Qt runtime.
 
-Automated dependency updates are not enabled in this bootstrap repository because the application source, dependency manifests and component update tooling have not yet been imported and reviewed.
-
-After source import, component checks may be added for the exact dependencies that the project actually uses. Any automated update must:
-- be limited to explicitly identified dependency files;
-- use lockfiles and reproducible build settings where available;
-- run the relevant tests and packaging checks;
-- create a candidate branch and pull request;
-- never merge itself into main or publish a release.
+The browser application has a separate signed update channel. Changes to the Rust AdBlock engine, filter scriptlets, bootstrap or release tooling must be proposed through a branch and pull request, built with locked dependencies, and tested before review. No automatic merge or release publication is permitted.
 
 ## Branch and review policy
 
-- main is the protected stable line.
-- Work is proposed through pull requests.
-- Automated maintenance must use a dedicated branch.
-- A draft PR remains draft until checks pass and a human reviews the changes.
+- `main` is the stable line; do not push transfer work directly to it.
+- Propose source changes through pull requests.
+- Keep automation on dedicated branches.
 - Failed, incomplete or skipped checks must not be described as passing.
+- The maintainer reviews and approves every merge.
 
 ## Signing and publication
 
-Release signing is a local maintainer operation. Private signing keys must never enter Git, workflow artifacts, Actions logs or repository files.
-
-A release is published only after the maintainer has tested the exact package on CachyOS and verified its signature and installed behavior.
+Release signing is a local maintainer operation. Private signing keys must never enter Git, workflow artifacts, Actions logs or repository files. Publish only after the exact Arch package has been built, installed and tested on CachyOS / Arch Linux.
