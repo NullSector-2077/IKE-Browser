@@ -2,7 +2,7 @@
 
 | Component | Where | Licence |
 |---|---|---|
-| adblock-rust 0.13.5 (filter engine, by Brave) | compiled into `ike_adblock.abi3.so` | MPL-2.0, see `LICENSE.adblock-rust` |
+| adblock-rust (filter engine, by Brave) | compiled into `ike_adblock.abi3.so` | MPL-2.0, see `LICENSE.adblock-rust` |
 | uBlock Origin scriptlets | `ike/resources/ubo-scriptlets.json` | GPL-3.0 |
 | Dark Reader | `ike/resources/darkreader.js` | MIT, see `LICENSE.darkreader` |
 | Lucide icons | `ike/resources/icons/sets/lucide` | ISC, see `LICENSE.lucide` |
