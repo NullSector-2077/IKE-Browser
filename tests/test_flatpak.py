@@ -15,10 +15,10 @@ import os
 import sys
 
 import pytest
+from conftest import IN_FLATPAK_SANDBOX
 
 APP_ID = "io.github.nullsector_2077.IKE-Browser"
-REAL_FLATPAK = os.path.exists("/.flatpak-info")
-outside_only = pytest.mark.skipif(REAL_FLATPAK, reason="runs inside a real Flatpak sandbox")
+outside_only = pytest.mark.skipif(IN_FLATPAK_SANDBOX, reason="runs inside a real Flatpak sandbox")
 
 
 def test_desktop_id(monkeypatch, tmp_path):

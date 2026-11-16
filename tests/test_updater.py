@@ -16,7 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
-from conftest import APP, ROOT
+from conftest import APP, ROOT, self_update
 
 sys.path.insert(0, str(ROOT))
 
@@ -322,6 +322,7 @@ def update_env(tmp_path, releases, pub):
             "no_proxy": "127.0.0.1,localhost"}
 
 
+@self_update
 def test_full_update_through_github_like_releases(run_ike, releases, keypair, tmp_path):
     key, _, pub = keypair
     env = update_env(tmp_path, releases, pub)
@@ -344,6 +345,7 @@ def test_full_update_through_github_like_releases(run_ike, releases, keypair, tm
     assert out["kind"] == "current"
 
 
+@self_update
 def test_bad_signature_is_refused(run_ike, releases, keypair, tmp_path):
     key, _, pub = keypair
     releases.publish(key, "99.0.0", min_system="0", bad_sig=True)
@@ -353,6 +355,7 @@ def test_bad_signature_is_refused(run_ike, releases, keypair, tmp_path):
     assert not any(h.startswith("/assets/ike-") for h in releases.hits)      # payload never fetched
 
 
+@self_update
 def test_update_failing_self_test_is_not_installed(run_ike, releases, keypair, tmp_path):
     key, _, pub = keypair
     releases.publish(key, "99.0.0", min_system="0", broken=True)
@@ -361,6 +364,7 @@ def test_update_failing_self_test_is_not_installed(run_ike, releases, keypair, t
     assert out["versions"] == [] and not out["state"].get("current")
 
 
+@self_update
 def test_update_needing_new_package_is_only_announced(run_ike, releases, keypair, tmp_path):
     key, _, pub = keypair
     releases.publish(key, "99.0.0", min_system="99.0.0")
@@ -371,6 +375,7 @@ def test_update_needing_new_package_is_only_announced(run_ike, releases, keypair
     assert out["state"].get("system_notice") == "99.0.0"       # told once, not every day
 
 
+@self_update
 def test_rollback_of_update_that_does_not_start(run_ike, tmp_path):
     """An installed update that crashes at start-up: the next start goes back."""
     data = tmp_path / "home" / ".local/share/ike-browser/updates"

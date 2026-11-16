@@ -13,7 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
-from conftest import APP, ROOT, needs_engine
+from conftest import APP, ROOT, needs_engine, self_update
 
 JS = r'''
 import json
@@ -426,6 +426,7 @@ def test_instance_socket_is_private_to_the_user(run_ike, tmp_path, monkeypatch):
     from ike import app
     run = Path(tempfile.mkdtemp(prefix="ikr"))     # short: a socket path cannot be long
     monkeypatch.setenv("XDG_RUNTIME_DIR", str(run))
+    monkeypatch.delenv("FLATPAK_ID", raising=False)     # set when the suite runs inside the Flatpak
     first, legacy = app.instance_addresses()
     assert first[0] == str(run / ("ike-browser-%d-default.sock" % os.getuid())) and first[1] is False
     assert not os.path.isabs(legacy[0])
@@ -573,6 +574,7 @@ def test_switches_that_turn_protections_off_need_a_test_session(monkeypatch):
             assert 'environ.get("%s")' % name not in text and 'environ["%s"]' % name not in text, path.name
 
 
+@self_update
 def test_boot_does_not_follow_a_tampered_state_file(tmp_path, monkeypatch):
     """ike_boot.py runs the copy the updater's notes name. Notes that name
     something that is not a version must never lead to another folder."""
@@ -1139,6 +1141,7 @@ def test_a_copied_password_is_marked_secret_and_cleared(run_ike):
     assert out["after"] == "" and out["kept"] == "the user's own text"
 
 
+@self_update
 def test_update_channel_is_one_of_the_known_two(tmp_path, monkeypatch):
     from ike import background, updater
     started = []

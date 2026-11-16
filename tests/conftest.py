@@ -21,6 +21,12 @@ ROOT = Path(__file__).resolve().parent.parent
 # (IKE_TEST_APP=/usr/lib/ike-browser python3 -m pytest)
 APP = Path(os.environ.get("IKE_TEST_APP") or ROOT)
 HARNESS = Path(__file__).resolve().parent / "harness.py"
+# The Flatpak workflow runs the suite inside the Flatpak sandbox, where Flatpak
+# updates I.K.E. and its own self-update is off by design (tests/test_flatpak.py
+# and the Flatpak tests of test_updater.py check that): the tests of the
+# self-update itself are skipped there.
+IN_FLATPAK_SANDBOX = os.path.exists("/.flatpak-info")
+self_update = pytest.mark.skipif(IN_FLATPAK_SANDBOX, reason="I.K.E.'s self-update is off inside a Flatpak")
 # a tiny filter list stored in place of EasyList, so nothing is downloaded
 TEST_LIST_URL = "https://easylist.to/easylist/easylist.txt"
 TEST_LIST = "||ads.example.test^\n/banner-ad.$image\n##.ike-test-ad\n"
