@@ -1526,9 +1526,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self.update_shield()
 
     def _hide_status(self):
-        if not self.statusBar().currentMessage() or True:
-            self.statusBar().clearMessage()
-            self.statusBar().hide()
+        self.statusBar().clearMessage()
+        self.statusBar().hide()
 
     def _blocked(self, host):
         if host == self.current_host():
@@ -1672,20 +1671,36 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         box.setText("<table>%s</table>" % "".join(rows))
         box.exec()
 
-    def show_about(self):
+    def about_text(self):
+        """Help → About: versions, and the state of what protects the user."""
         from PyQt6.QtCore import QT_VERSION_STR
         from PyQt6.QtWebEngineCore import qWebEngineChromiumVersion
-        b = self.app.blocker
-        QMessageBox.about(self, T("About I.K.E."), (
-            "<h2>%s</h2><p>%s %s</p><p>%s: Qt WebEngine %s (Chromium %s)<br>%s: %s<br>%s</p>"
-            "<p>%s</p>") % (
-            APP_LONG_NAME, T("Version"), __version__, T("Engine"), QT_VERSION_STR,
-            qWebEngineChromiumVersion(), T("Content blocker"),
-            self._engine_about(b),
-            T("Chrome extensions: not usable with this engine version (enabling one crashes it)")
-            + "<br>" +
-            self._drm_about(),
-            T("An independent, privacy-first browser. No telemetry, no accounts, no sponsored content.")))
+
+        from .app import INTERNAL_ERRORS, sandbox_off
+        chromium = qWebEngineChromiumVersion()
+        try:
+            from PyQt6.QtWebEngineCore import qWebEngineChromiumSecurityPatchVersion
+            patched = qWebEngineChromiumSecurityPatchVersion()
+            if patched and patched != chromium:
+                chromium += ", " + T("security fixes up to %s") % patched
+        except ImportError:                      # Qt older than 6.3
+            pass
+        lines = ["%s: Qt WebEngine %s (Chromium %s)" % (T("Engine"), QT_VERSION_STR, chromium),
+                 T("Engine sandbox: OFF (switched off by the environment, or I.K.E. was started as administrator)")
+                 if sandbox_off() else T("Engine sandbox: on"),
+                 "%s: %s" % (T("Content blocker"), self._engine_about(self.app.blocker)),
+                 T("Chrome extensions: not usable with this engine version (enabling one crashes it)"),
+                 self._drm_about()]
+        if INTERNAL_ERRORS:
+            from .config import CACHE_DIR
+            lines.append(T("Internal errors this session: %d (details in %s)")
+                         % (len(INTERNAL_ERRORS), CACHE_DIR / "errors.log"))
+        return "<h2>%s</h2><p>%s %s</p><p>%s</p><p>%s</p>" % (
+            APP_LONG_NAME, T("Version"), __version__, "<br>".join(lines),
+            T("An independent, privacy-first browser. No telemetry, no accounts, no sponsored content."))
+
+    def show_about(self):
+        QMessageBox.about(self, T("About I.K.E."), self.about_text())
 
     # ------------------------------------------------------------------
     def resizeEvent(self, event):

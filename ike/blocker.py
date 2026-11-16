@@ -313,8 +313,17 @@ class Blocker(QObject):
                 if texts:
                     fs = adblock.FilterSet()
                     for t in texts:
-                        fs.add_filter_list(t)
-                    self.engine = adblock.Engine(fs)
+                        try:
+                            fs.add_filter_list(t)
+                        except Exception as exc:        # one unreadable list: the others still count
+                            self._engine_error("a filter list", "", exc)
+                    try:
+                        self.engine = adblock.Engine(fs)
+                    except Exception as exc:
+                        # no engine this time: pages load unfiltered rather than not at all
+                        self._engine_error("building the engine", "", exc)
+                        self.engine = None
+                if self.engine is not None:
                     try:
                         for old in CACHE_DIR.glob("engine-*.dat"):
                             old.unlink()

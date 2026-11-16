@@ -32,10 +32,6 @@ class Storage:
         )
         self.db.commit()
 
-    def set_title(self, url, title):
-        self.db.execute("UPDATE history SET title=? WHERE url=?", (title, url))
-        self.db.commit()
-
     def history(self, query="", limit=500):
         like = "%" + query.replace("%", "") + "%"
         return self.db.execute(

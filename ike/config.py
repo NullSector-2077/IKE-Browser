@@ -245,6 +245,45 @@ TOOLBAR_ITEMS = (("back", False), ("forward", False), ("reload", False), ("home"
                  ("downloads", False))
 
 
+_LISTS_OF_DICTS = ("search_engines", "filter_lists", "containers", "page_watches")
+
+
+def sound_settings(stored):
+    """The stored settings without the values that are not of the kind the
+    program expects (a settings file edited by hand, damaged, or written by
+    something else): those fall back to their defaults instead of stopping
+    the browser at start. Settings the program does not know are kept."""
+    clean = {}
+    for key, value in stored.items():
+        if not isinstance(key, str):
+            continue
+        default = DEFAULTS.get(key)
+        if key not in DEFAULTS or default is None:
+            clean[key] = value
+        elif isinstance(default, bool):
+            if isinstance(value, bool) or value in (0, 1):
+                clean[key] = bool(value)
+        elif isinstance(default, (int, float)):
+            if isinstance(value, (int, float)) and not isinstance(value, bool) and value == value \
+                    and abs(value) != float("inf"):
+                clean[key] = value
+        elif isinstance(default, str):
+            if isinstance(value, str):
+                clean[key] = value
+        elif isinstance(default, list):
+            if isinstance(value, list):
+                if key in _LISTS_OF_DICTS:
+                    value = [v for v in value if isinstance(v, dict)]
+                clean[key] = value
+        elif isinstance(default, dict):
+            if isinstance(value, dict):
+                if key in ("site_levels", "site_opts", "ui_themes"):
+                    want = str if key == "site_levels" else dict
+                    value = {k: v for k, v in value.items() if isinstance(k, str) and isinstance(v, want)}
+                clean[key] = value
+    return clean
+
+
 class Config:
     def __init__(self, path=None):
         self.path = Path(path) if path else CONFIG_DIR / "settings.json"
@@ -265,7 +304,7 @@ class Config:
         except (OSError, ValueError):
             return
         if isinstance(stored, dict):
-            self.data.update(stored)
+            self.data.update(sound_settings(stored))
         d = self.data
         if isinstance(stored, dict) and "bookmarks_bar" not in stored \
                 and stored.get("show_bookmarks_bar"):

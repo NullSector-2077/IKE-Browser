@@ -56,11 +56,6 @@ class VTabDelegate(QStyledItemDelegate):
             return (index.row(), "audio")
         return (index.row(), "")
 
-    def _row_at(self, pos):
-        """Row whose close area contains pos, or -1."""
-        row, area = self._hit(pos)
-        return row if area == "close" else -1
-
     def _repaint(self, *rows):
         for row in rows:
             if row >= 0:

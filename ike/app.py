@@ -858,6 +858,13 @@ def _chromium_flags(config):
     os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = " ".join(flags)
 
 
+def sandbox_off():
+    """True when the engine's sandbox, which keeps a web page's process away
+    from the user's files, is switched off for this run."""
+    flags = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "").split()
+    return "--no-sandbox" in flags or os.environ.get("QTWEBENGINE_DISABLE_SANDBOX", "") not in ("", "0")
+
+
 def _wait_for_previous():
     """After a restart: let the previous instance finish closing first."""
     import time
@@ -868,6 +875,83 @@ def _wait_for_previous():
         if not os.path.exists("/proc/%s" % pid):
             return
         time.sleep(0.1)
+
+
+INTERNAL_ERRORS = []          # tracebacks of errors the browser went on after (this session)
+
+
+def _keep_running_after_errors():
+    """PyQt ends the whole program when a Python error escapes from the
+    handler of a signal (a click, a timer, a finished download). One broken
+    handler must not take every open tab with it: the error is written to
+    the terminal and to errors.log in the cache folder, counted (Help → About)
+    and the browser goes on."""
+    import traceback
+
+    def hook(kind, value, tb):
+        if issubclass(kind, KeyboardInterrupt):
+            sys.__excepthook__(kind, value, tb)
+            return
+        text = "".join(traceback.format_exception(kind, value, tb))
+        INTERNAL_ERRORS.append(text)
+        del INTERNAL_ERRORS[:-50]
+        try:
+            sys.stderr.write("I.K.E. %s: internal error, the browser goes on\n%s" % (__version__, text))
+        except (OSError, ValueError, AttributeError):
+            pass
+        try:
+            log = CACHE_DIR / "errors.log"
+            old = log.read_text("utf-8", "replace")[-150_000:] if log.exists() else ""
+            log.write_text("%s\n--- I.K.E. %s, %s\n%s" % (old, __version__, time.strftime("%Y-%m-%d %H:%M:%S"), text),
+                           "utf-8")
+        except OSError:
+            pass
+    sys.excepthook = hook
+
+
+def instance_addresses():
+    """Where the running browser of this user and profile listens for the
+    addresses a second start hands over: [(address, checked)].
+
+    First a socket in the user's own runtime folder, which no other user can
+    enter. Then the name in the shared temporary folder that earlier versions
+    used, which is only trusted when the socket there belongs to this user:
+    anybody may create a file with that name there."""
+    import tempfile
+    uid = os.getuid() if hasattr(os, "getuid") else "u"
+    name = "%s-%s-%s" % (APP_ID, uid, PROFILE)
+    found = []
+    run = os.environ.get("XDG_RUNTIME_DIR", "")
+    try:
+        if run and os.path.isdir(run) and os.stat(run).st_uid == uid and os.access(run, os.W_OK):
+            path = os.path.join(run, name + ".sock")
+            if len(path.encode()) < 100:              # a socket path cannot be longer
+                found.append(path)
+    except OSError:
+        pass
+    found.append(name)
+    old = os.path.join(tempfile.gettempdir(), name)
+
+    def own(address):
+        path = address if os.path.isabs(address) else old
+        try:
+            return os.lstat(path).st_uid == uid
+        except OSError:
+            return False
+    return [(a, own(a)) for a in found]
+
+
+def handed_over(data):
+    """(urls, private) from the message of a second start, or None if it is
+    not such a message."""
+    try:
+        msg = json.loads(data[:1_000_000].decode("utf-8"))
+    except (ValueError, AttributeError):
+        return None
+    if not isinstance(msg, dict) or not isinstance(msg.get("urls", []), list):
+        return None
+    urls = [u for u in msg.get("urls", [])[:100] if isinstance(u, str) and 0 < len(u) < 20000]
+    return urls, msg.get("private") is True
 
 
 def _to_url(arg):
@@ -903,15 +987,18 @@ def main(argv=None):
     urls = [_to_url(u) for u in args.urls]
 
     # Single instance: hand the request to the running browser.
-    server_name = "%s-%s-%s" % (APP_ID, os.getuid() if hasattr(os, "getuid") else "u", PROFILE)
+    addresses = instance_addresses()
     if not os.environ.get("IKE_NO_SINGLE"):
-        sock = QLocalSocket()
-        sock.connectToServer(server_name)
-        if sock.waitForConnected(300):
-            sock.write(json.dumps({"urls": urls, "private": args.private}).encode())
-            sock.waitForBytesWritten(1000)
-            sock.disconnectFromServer()
-            return 0
+        for address, ours in addresses:
+            if not ours:
+                continue                  # nothing there, or a socket of somebody else
+            sock = QLocalSocket()
+            sock.connectToServer(address)
+            if sock.waitForConnected(300):
+                sock.write(json.dumps({"urls": urls, "private": args.private}).encode())
+                sock.waitForBytesWritten(1000)
+                sock.disconnectFromServer()
+                return 0
 
     from . import i18n
     i18n.setup(config["language"])
@@ -932,12 +1019,18 @@ def main(argv=None):
                    QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)):
             qapp.installTranslator(tr)
             qapp._translators.append(tr)
+    _keep_running_after_errors()
     ike = IkeApp(qapp, config)
 
     server = QLocalServer(qapp)
+    server_name = ""
     if not os.environ.get("IKE_NO_SINGLE"):
-        QLocalServer.removeServer(server_name)
-        server.listen(server_name)
+        server.setSocketOptions(QLocalServer.SocketOption.UserAccessOption)     # this user only
+        for address, _ours in addresses:
+            QLocalServer.removeServer(address)
+            if server.listen(address):
+                server_name = address
+                break
 
         def incoming():
             conn = server.nextPendingConnection()
@@ -945,12 +1038,10 @@ def main(argv=None):
                 return
 
             def read():
-                try:
-                    msg = json.loads(bytes(conn.readAll()).decode())
-                    ike.open_urls(msg.get("urls", []), bool(msg.get("private")))
-                except ValueError:
-                    pass
+                request = handed_over(bytes(conn.readAll()))
                 conn.deleteLater()
+                if request is not None:
+                    ike.open_urls(*request)
             conn.readyRead.connect(read)
         server.newConnection.connect(incoming)
 
@@ -964,7 +1055,8 @@ def main(argv=None):
     if getattr(ike, "_restart", False):
         import subprocess
         server.close()
-        QLocalServer.removeServer(server_name)
+        if server_name:
+            QLocalServer.removeServer(server_name)
         boot = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ike_boot.py")
         env = dict(os.environ, IKE_WAIT_PID=str(os.getpid()))
         cmd = [sys.executable, boot] + (["--profile", args.profile] if args.profile else [])

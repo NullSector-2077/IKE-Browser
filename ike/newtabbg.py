@@ -19,9 +19,8 @@ from .config import DATA_DIR
 MAX_SIDE = 3840                  # longest side of the stored copy, in pixels
 MAX_FILE = 200 * 1024 * 1024     # larger files are refused without being opened
 NAME = "newtab-background"
-FITS = ("fill", "fit", "centre")
 VEIL_MAX = 90
-_CSS_SIZE = {"fill": "cover", "fit": "contain", "centre": "auto"}
+_CSS_SIZE = {"fill": "cover", "fit": "contain", "centre": "auto"}     # the three placements
 _MIME = {".jpg": b"image/jpeg", ".png": b"image/png"}
 
 # reasons a file is refused (translated where they are shown)

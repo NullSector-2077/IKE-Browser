@@ -230,7 +230,8 @@ class WebPage(QWebEnginePage):
         return view.page()
 
     def certificateError(self, error):
-        if os.environ.get("IKE_TEST_INSECURE") == "1":
+        from .osinfo import test_switch
+        if test_switch("IKE_TEST_INSECURE") == "1":
             error.acceptCertificate()
             return True
         return False
@@ -318,20 +319,27 @@ class WebPage(QWebEnginePage):
         if any(k in blocked for k in kinds.get(perm.permissionType(), ())):
             perm.deny()
             return
-        if os.environ.get("IKE_TEST_PERMS"):
-            perm.grant() if os.environ["IKE_TEST_PERMS"] == "grant" else perm.deny()
+        from .osinfo import test_switch
+        if test_switch("IKE_TEST_PERMS") in ("grant", "deny"):
+            perm.grant() if test_switch("IKE_TEST_PERMS") == "grant" else perm.deny()
             return
-        box = QMessageBox(self.window_ref)
-        box.setIcon(QMessageBox.Icon.Question)
-        box.setWindowTitle(T("Permission request"))
-        box.setText(T("%s wants to %s.") % (origin, permission_text(perm.permissionType())))
-        allow = box.addButton(T("Allow"), QMessageBox.ButtonRole.AcceptRole)
-        box.addButton(T("Block"), QMessageBox.ButtonRole.RejectRole)
-        box.exec()
-        if box.clickedButton() is allow:
+        # (the engine remembers the answer for the site: a page that was told
+        # no is not asked about again until the user resets the site's permissions)
+        if self.ask_permission(origin, perm.permissionType()):
             perm.grant()
         else:
             perm.deny()
+
+    def ask_permission(self, origin, ptype):
+        """Ask the user; True to allow."""
+        box = QMessageBox(self.window_ref)
+        box.setIcon(QMessageBox.Icon.Question)
+        box.setWindowTitle(T("Permission request"))
+        box.setText(T("%s wants to %s.") % (origin, permission_text(ptype)))
+        allow = box.addButton(T("Allow"), QMessageBox.ButtonRole.AcceptRole)
+        box.addButton(T("Block"), QMessageBox.ButtonRole.RejectRole)
+        box.exec()
+        return box.clickedButton() is allow
 
     def _desktop_media(self, request):
         """Require an explicit user choice before sharing a screen or window."""

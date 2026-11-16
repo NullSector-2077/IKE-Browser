@@ -774,6 +774,10 @@
 "Drag the buttons to arrange them. Back, Forward and Home stay in place.": "Trascina i pulsanti per disporli. Indietro, Avanti e Pagina iniziale restano al loro posto.",
 "Reset to default layout": "Ripristina la disposizione predefinita",
 "Done": "Fatto",
-"Move the toolbar buttons with the mouse": "Sposta i pulsanti della barra con il mouse"
+"Move the toolbar buttons with the mouse": "Sposta i pulsanti della barra con il mouse",
+"security fixes up to %s": "correzioni di sicurezza fino alla %s",
+"Engine sandbox: on": "Sandbox del motore: attiva",
+"Engine sandbox: OFF (switched off by the environment, or I.K.E. was started as administrator)": "Sandbox del motore: DISATTIVATA (spenta dall'ambiente, oppure I.K.E. è stato avviato come amministratore)",
+"Internal errors this session: %d (details in %s)": "Errori interni in questa sessione: %d (dettagli in %s)"
 }
 }

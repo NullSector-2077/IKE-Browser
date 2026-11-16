@@ -774,6 +774,10 @@
 "Drag the buttons to arrange them. Back, Forward and Home stay in place.": "Faites glisser les boutons pour les disposer. Précédent, Suivant et Accueil restent en place.",
 "Reset to default layout": "Rétablir la disposition par défaut",
 "Done": "Terminé",
-"Move the toolbar buttons with the mouse": "Déplacer les boutons de la barre avec la souris"
+"Move the toolbar buttons with the mouse": "Déplacer les boutons de la barre avec la souris",
+"security fixes up to %s": "correctifs de sécurité jusqu'à la %s",
+"Engine sandbox: on": "Bac à sable du moteur : actif",
+"Engine sandbox: OFF (switched off by the environment, or I.K.E. was started as administrator)": "Bac à sable du moteur : DÉSACTIVÉ (coupé par l'environnement, ou I.K.E. a été lancé en administrateur)",
+"Internal errors this session: %d (details in %s)": "Erreurs internes pendant cette session : %d (détails dans %s)"
 }
 }

@@ -774,6 +774,10 @@
 "Drag the buttons to arrange them. Back, Forward and Home stay in place.": "Ziehen Sie die Schaltflächen, um sie anzuordnen. Zurück, Vor und Startseite bleiben an ihrem Platz.",
 "Reset to default layout": "Standardanordnung wiederherstellen",
 "Done": "Fertig",
-"Move the toolbar buttons with the mouse": "Schaltflächen der Leiste mit der Maus verschieben"
+"Move the toolbar buttons with the mouse": "Schaltflächen der Leiste mit der Maus verschieben",
+"security fixes up to %s": "Sicherheitskorrekturen bis %s",
+"Engine sandbox: on": "Sandbox der Engine: an",
+"Engine sandbox: OFF (switched off by the environment, or I.K.E. was started as administrator)": "Sandbox der Engine: AUS (von der Umgebung abgeschaltet, oder I.K.E. wurde als Administrator gestartet)",
+"Internal errors this session: %d (details in %s)": "Interne Fehler in dieser Sitzung: %d (Einzelheiten in %s)"
 }
 }

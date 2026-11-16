@@ -22,6 +22,12 @@ _gen = None
 
 
 def _finish():
+    try:
+        from ike.app import INTERNAL_ERRORS
+        if INTERNAL_ERRORS:
+            _out["_internal_errors"] = list(INTERNAL_ERRORS)
+    except ImportError:                    # a copy from before 1.0.3
+        pass
     with open(_outfile, "w", encoding="utf-8") as f:
         json.dump(_out, f, default=str)
     for w in list(ike.windows):            # noqa: F821  (given by the browser)

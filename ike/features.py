@@ -518,9 +518,10 @@ class WindowFeatures:
     def reset_toolbar(self):
         """Back to the buttons, sides and order of a new installation."""
         from .config import DEFAULTS, TOOLBAR_ITEMS
+        from .toolbar import default_layout
         cfg = self.app.config
-        cfg["toolbar_order"] = list(DEFAULTS["toolbar_order"])
-        cfg["toolbar_left"] = list(DEFAULTS["toolbar_left"])
+        first = default_layout(self.toolbar_layout.keys, DEFAULTS, TOOLBAR_ITEMS)
+        first.store(cfg)
         cfg["toolbar_hidden"] = [key for key, hide in TOOLBAR_ITEMS if hide]
         cfg.save()
         self.app.refresh_toolbars()

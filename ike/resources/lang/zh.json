@@ -774,6 +774,10 @@
 "Drag the buttons to arrange them. Back, Forward and Home stay in place.": "拖动按钮进行排列。后退、前进和主页保持原位。",
 "Reset to default layout": "恢复默认布局",
 "Done": "完成",
-"Move the toolbar buttons with the mouse": "用鼠标移动工具栏按钮"
+"Move the toolbar buttons with the mouse": "用鼠标移动工具栏按钮",
+"security fixes up to %s": "安全修复至 %s",
+"Engine sandbox: on": "引擎沙盒：已开启",
+"Engine sandbox: OFF (switched off by the environment, or I.K.E. was started as administrator)": "引擎沙盒：已关闭（被环境关闭，或 I.K.E. 以管理员身份启动）",
+"Internal errors this session: %d (details in %s)": "本次会话的内部错误：%d（详情见 %s）"
 }
 }

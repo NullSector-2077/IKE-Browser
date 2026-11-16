@@ -734,7 +734,7 @@ class Shields(QObject):
                 out.append(c)
         return out
 
-    def dark_for(self, host, system_dark=False):
+    def dark_for(self, host):
         """Whether this host should use the selected dark renderer."""
         cfg = self.config
         on = cfg["dark_mode"] == "on"

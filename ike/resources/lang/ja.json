@@ -774,6 +774,10 @@
 "Drag the buttons to arrange them. Back, Forward and Home stay in place.": "ボタンをドラッグして並べ替えます。戻る、進む、ホームは固定です。",
 "Reset to default layout": "既定の配置に戻す",
 "Done": "完了",
-"Move the toolbar buttons with the mouse": "マウスでツールバーのボタンを移動"
+"Move the toolbar buttons with the mouse": "マウスでツールバーのボタンを移動",
+"security fixes up to %s": "セキュリティ修正は %s まで",
+"Engine sandbox: on": "エンジンのサンドボックス：オン",
+"Engine sandbox: OFF (switched off by the environment, or I.K.E. was started as administrator)": "エンジンのサンドボックス：オフ（環境によって無効化されたか、I.K.E. が管理者として起動されました）",
+"Internal errors this session: %d (details in %s)": "このセッションの内部エラー：%d（詳細は %s）"
 }
 }
