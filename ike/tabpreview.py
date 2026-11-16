@@ -31,14 +31,14 @@ def capture(view):
 class TabPreview(QFrame):
     def __init__(self, parent):
         super().__init__(parent, Qt.WindowType.ToolTip)
-        self.setObjectName("iceTabPreview")
+        self.setObjectName("ikeTabPreview")
         self.setFrameShape(QFrame.Shape.Box)
         self.setForegroundRole(QPalette.ColorRole.ToolTipText)
         self.setBackgroundRole(QPalette.ColorRole.ToolTipBase)
         self.setAutoFillBackground(True)
         self.setStyleSheet(
-            "#iceTabPreview { border: 1px solid palette(mid); border-radius: 8px; }"
-            "#iceTabPreview QLabel { color: palette(tool-tip-text); }"
+            "#ikeTabPreview { border: 1px solid palette(mid); border-radius: 8px; }"
+            "#ikeTabPreview QLabel { color: palette(tool-tip-text); }"
         )
         lay = QVBoxLayout(self)
         lay.setContentsMargins(6, 6, 6, 6)
