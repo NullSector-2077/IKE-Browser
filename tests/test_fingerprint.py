@@ -103,22 +103,22 @@ PROBE = r"""<!doctype html><html><head><title>fp</title></head><body>
     try { s = Function.prototype.toString.call(f); } catch (e) { s = 'error'; }
     R.natives[k] = [/\{\s*\[native code\]\s*\}\s*$/.test(s), f && f.name, f && f.length];
   });
-  R.scriptlets = window.iceFpTestConstant === 1;
+  R.scriptlets = window.ikeFpTestConstant === 1;
   window.fpResult = JSON.stringify(R);
 })();
 </script></body></html>"""
 
 SCRIPTLETS = "\n".join("127.0.0.1##+js(%s)" % r for r in (
-    "set-constant, iceFpTestConstant, 1",
-    "no-setTimeout-if, iceNeverMatches",
-    "no-setInterval-if, iceNeverMatches",
+    "set-constant, ikeFpTestConstant, 1",
+    "no-setTimeout-if, ikeNeverMatches",
+    "no-setInterval-if, ikeNeverMatches",
     "prevent-fetch, icenever.example",
     "prevent-xhr, icenever.example",
-    "json-prune, iceNeverKey",
-    "addEventListener-defuser, iceNeverEvent",
-    "no-requestAnimationFrame-if, iceNeverMatches",
-    "noeval-if, iceNeverMatches",
-    "abort-on-property-read, iceNeverProperty",
+    "json-prune, ikeNeverKey",
+    "addEventListener-defuser, ikeNeverEvent",
+    "no-requestAnimationFrame-if, ikeNeverMatches",
+    "noeval-if, ikeNeverMatches",
+    "abort-on-property-read, ikeNeverProperty",
     "remove-attr, data-ike-never",
 ))
 
