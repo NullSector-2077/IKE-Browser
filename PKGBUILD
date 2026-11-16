@@ -42,7 +42,7 @@ package() {
   install -Dm644 data/update.json "$lib/update.json"
   install -Dm644 -t "$lib/vendor/adblock" vendor/adblock/__init__.py \
       vendor/adblock/adblock.pyi vendor/adblock/py.typed
-  install -Dm755 "$srcdir/target/release/libice_adblock.so" \
+  install -Dm755 "$srcdir/target/release/libike_adblock.so" \
       "$lib/vendor/adblock/ike_adblock.abi3.so"
   install -Dm755 "$srcdir/ike-browser-launcher" "$pkgdir/usr/bin/ike-browser"
 
