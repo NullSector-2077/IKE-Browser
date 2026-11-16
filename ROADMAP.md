@@ -30,6 +30,12 @@ them without asking.
   the owner step by step to sign and publish the release.
 - Documentation in English; the owner talks in Italian and prefers short,
   plain explanations.
+- When the owner has approved a session plan and asks for unattended work,
+  carry it through without stopping for approvals on analysis, coding and
+  tests. Commit and push to the session's branch often, so nothing is lost if
+  the session stops, and write in "Status" below where the work stopped. Even
+  then: never merge, sign or publish, and no destructive Git operations.
+- Never report a check that was not actually run.
 
 ## Now: Arch Linux / CachyOS
 
@@ -38,18 +44,177 @@ the daily component maintenance on GitHub Actions, for Arch-based systems only.
 
 ## Next
 
-1. **Remove the one-time import** (`ike/legacy.py`, its call in `ike/app.py`,
-   its tests, the fallback in `ike/passwords.py`, and `conflicts` / `replaces`
-   in the PKGBUILD) once the owner confirms the earlier installation was
-   imported and its folders are gone.
-2. **AUR**: publish I.K.E. on the Arch User Repository — when the owner says
-   it is time.
-3. **Licence**: GPL-3.0-or-later for now; the owner may decide to change it.
+Plan approved by the owner on 2026-11-16. It joins the owner's "master
+roadmap" (phases 0–14: brand, interface, toolbar, shield, link preview bar,
+new-tab background, code review, security audit, platforms, component manager,
+Windows codecs, porting plan, tests, final review) with the earlier list.
+Versions go up by one per session: 1.0.1, 1.0.2, 1.0.3. In every session the
+tests cover what it changes (phase 13), CHANGELOG.md and docs/TESTING.md are
+updated, and the work goes on one branch with one pull request to `main`. When
+an earlier version is not merged yet, the next branch starts from it, so its
+pull request also contains the earlier one; the owner merges them in order.
+
+Principles for every session (from the owner):
+- Do not overturn the existing interface. Every customisation keeps working
+  (interface themes, colours, fonts) and I.K.E. keeps following the system
+  theme (Plasma / Breeze): no own palette, no fixed colours; new elements use
+  the existing theme system; existing settings are never reset.
+- No heavy effects, no needless dependencies; the Rust core, ad blocking and
+  fingerprinting protection are never weakened; security is never traded for
+  compatibility.
+- Document every important change.
+
+### 1.0.1 — clean-up and brand
+
+1. **Remove the one-time import**: `ike/legacy.py`, its calls in `ike/app.py`,
+   `tests/test_legacy.py` and its row in docs/TESTING.md, the old-vault
+   fallback in `ike/passwords.py`, `conflicts` / `replaces` and their comment
+   in the PKGBUILD. The owner confirmed on 2026-11-16 that the old folders are
+   gone and the password vault opens. `__min_system__` stays 1.0.0 if only
+   `ike/` changes.
+2. **Brand**: `ike/resources/ike.svg` still draws "I.C.E" as SVG paths (a text
+   search does not find it); check `data/icons` (SVG and every PNG size) too.
+   The logo shows "I.K.E" and the full name is "Internet Kontrol Experience"
+   (Kontrol with K), on the new tab page and wherever the old name appears.
+   Lettering: futuristic / cyber, distinctive, elegant, easy to read, from a
+   font with a free licence (OFL) whose licence goes in `licenses/` and
+   docs/THIRD-PARTY.md; drawn as vector paths, so no font is needed at run time
+   and it looks the same on every system. The interface fonts do not change.
+   No blanket renaming of files or modules.
+3. **Shield icon** 15–20% larger: the drawing grows, the button and the click
+   area do not; centred, inside its bounds, not over its neighbours, sharp at
+   every scale and DPI. Ad blocking untouched.
+4. **No link preview bar**: hovering a link must no longer show its address at
+   the bottom of the window (`page.linkHovered` → `_hovered()` in
+   `ike/window.py` shows the status bar, which also resizes the page). Remove
+   only that: the status bar stays for zoom and toolbar messages, and loading,
+   security information, navigation and opening links are unchanged. The
+   window and page must not move when the mouse crosses links; check on a page
+   with many links, thumbnails and clickable images.
+
+### 1.0.2 — toolbar, interface polish, new-tab background
+
+1. **Toolbar** (top priority): moving buttons did not work reliably; find the
+   architectural cause, not a surface fix. Current code: `ike/features.py`
+   (long press of 800 ms, `toolbar_order` / `toolbar_left` in `ike/config.py`).
+   - Layout: Back, Forward and Home fixed at the left, then a vertical
+     separator that always stays right after Home and cannot be dragged;
+     customisable buttons on both sides of the address bar; the address bar
+     always correctly sized; tabs and window controls on the right, the fixed
+     ones staying fixed.
+   - Dragging: precise reordering into the allowed zones, a drop indicator,
+     snapping to the free positions, no overlap, no deformation of the
+     toolbar. A "Customise toolbar" mode in which items clearly show they can
+     be dragged; the long press stays as well.
+   - Saved automatically and restored at start; handles added and removed
+     buttons, reset to the default layout, window resizing, DPI scaling and
+     resolution changes. If QToolBar cannot do this, a custom container built
+     on Qt widgets and layouts; robust and maintainable first.
+2. **Interface polish**, only where it has a reason: finer hover effects,
+   light transitions, smoother opening of menus, discreet feedback, more
+   uniform icons, cleaner tooltips, discreet tab loading indicators. Colours
+   from the current theme and user colours. No blur, no permanent animations,
+   no needless timers or repaints; follow the system's reduced-motion
+   preference and add a setting to turn the extra effects off; measure CPU
+   and memory before and after.
+3. **New-tab background photo**: choose a photo from the computer, change it,
+   remove it; fill, fit or centre; optional brightness / overlay for
+   readability. A copy is kept in I.K.E.'s data folder, never uploaded
+   anywhere; interface colours, text colours and the system theme are not
+   changed by it (independent of the theme system). Handles a missing file,
+   unsupported formats, invalid paths, very large images (scaled down once,
+   loaded efficiently) and keeps the choice across restarts.
+
+### 1.0.3 — code review and security audit
+
+1. **Code review of the whole project** (Python modules, Rust core,
+   Python ↔ Rust interface, configuration, dependencies, interface, packaging,
+   workflows, tests): duplicated or unused code, overloaded classes and
+   modules, needless dependencies, unused imports and variables, incomplete
+   error handling, possible leaks, costly or repeated operations, blocking
+   loads, concurrency, Qt signals and widget lifetimes, tight coupling,
+   Python / Rust mismatches. Write the findings first; change only what has a
+   technical reason; keep internal APIs and settings compatible. Performance:
+   start-up, tab opening, memory, CPU, page loading measured before and after;
+   no optimisation claimed without a measurement.
+2. **Security audit** (a review, not only automatic scanning):
+   - Qt WebEngine / Chromium: real version and security state, sandbox,
+     process isolation, TLS certificates, permissions, local files,
+     JavaScript settings, local APIs, custom schemes, harmful content, any
+     setting that turns a protection off. The sandbox is never disabled to fix
+     compatibility (the CI runner is the only exception, as now).
+   - Python ↔ Rust: FFI, memory, input validation, deserialisation, error
+     handling, crashes, trust boundaries.
+   - Ad blocking and fingerprinting: filter robustness, list updates, rule
+     integrity, bypasses, exceptions, tracker protection, consistency,
+     breakage of sites.
+   - Downloads, cookies, cache, profiles, local storage, passwords,
+     permissions, sensitive data, clearing browsing data, opening external
+     applications, URL handling.
+   - Dependencies (Python, Rust, Qt, Chromium, bundled components): known
+     vulnerabilities from official advisories, outdated or unmaintained
+     packages, licences, needless components.
+   - Findings rated Critical / High / Medium / Low; fix what can be fixed
+     safely, with regression tests run locally (never against third-party
+     sites). Never call the browser 100% secure; open issues and the limits of
+     the audit are written down.
+3. **Final review** (phase 14) of the whole repository after these changes:
+   errors introduced, untidy or duplicated code, security, crashes, packaging;
+   check that the visual changes broke nothing; fix what is safe and run the
+   affected tests again.
+4. **Report** in `docs/review/` (English, new files only): initial state,
+   architecture, changes and files, toolbar problems found and fixed, visual
+   changes, link preview bar, clean-up results, optimisations, audit results,
+   fixed and still open vulnerabilities, compatibility, dependencies, Linux
+   and Windows strategy, component manager, codecs and licences, tests run,
+   tests that could not be run, performance, remaining work, next phases.
+
+### Platform study (documents only: no version, no code)
+
+In `docs/platforms/` (English), citing the official sources used:
+- **Linux** — Arch / CachyOS, Debian, Ubuntu, Linux Mint, Fedora: Python, Qt
+  and Qt WebEngine versions, system and multimedia libraries, fonts,
+  certificates, hardware acceleration, Wayland / X11, PipeWire, ABI, native
+  dependencies; realistic minimum versions. DEB, RPM, PKGBUILD, AppImage and
+  Flatpak compared on size, maintenance, security, updates, dependencies and
+  compatibility; a concrete strategy (not the easiest format by default).
+- **Component manager** (Linux and Windows): what can really be separated
+  from Qt WebEngine and how it is loaded; detection, compatible versions,
+  download, integrity (signed manifests, SHA-256, TLS, pinned versions),
+  atomic installation, update, repair, roll-back, no unauthorised downgrades,
+  no unverified binaries, the user's folder without admin rights, no SDKs for
+  the user. Native (distribution packages) versus self-contained; never mix
+  system Qt with downloaded Qt.
+- **Windows**: Qt runtime, Qt WebEngine, helper processes, Chromium
+  resources, Visual C++ runtime, official Qt deployment tools, optional
+  components, repeatable and verifiable builds. Codecs: whether Qt WebEngine
+  can use Windows' own decoders (Media Foundation, H.264, audio) — Qt
+  Multimedia using Media Foundation does not mean Qt WebEngine does; Qt
+  WebEngine decodes through its own FFmpeg and needs proprietary codecs
+  enabled when it is built — to be verified. A matrix: redistributable /
+  usable through the system / needs checks or a licence / must not be shipped,
+  for Qt, Chromium, FFmpeg, proprietary codecs and patents (also by
+  territory). No definitive legal statements.
+- **Porting plan** per platform (Arch / CachyOS, Debian, Ubuntu, Mint,
+  Fedora, Windows): dependencies, format, Qt WebEngine strategy, component
+  manager, codecs and media, updates, signing and integrity, tests needed,
+  problems to solve, technical complexity; what already works versus what
+  needs changes. A platform is not "done" because the code looks compatible.
+
+### Status
+
+- 2026-11-16: plan written; no session started yet.
+
+### Also planned
+
+- **AUR**: publish I.K.E. on the Arch User Repository — when the owner says it
+  is time.
+- **Licence**: GPL-3.0-or-later for now; the owner may decide to change it.
 
 ## Later
 
-- Other Linux distributions and Windows: to be planned again from scratch when
-  the owner asks.
+- Other Linux distributions and Windows: implementation planned with the owner
+  after the platform study.
 - Android: a separate project. Qt WebEngine does not exist on Android, so it
   would need Android's WebView and a rework of ad blocking, fingerprinting
   protection and user scripts.
@@ -57,7 +222,9 @@ the daily component maintenance on GitHub Actions, for Arch-based systems only.
 ## Starting a new session
 
 The owner opens a new conversation, attaches this repository and pastes this
-prompt, replacing `<TASK>` and `<VERSION>`:
+prompt, replacing `<TASK>` and `<VERSION>` (for unattended work, add: "il piano
+è già approvato, lavora da solo senza chiedere il vai, fai commit e push
+spesso"):
 
 ```
 Ciao! Lavoriamo a I.K.E. Browser, repository GitHub NullSector-2077/IKE-Browser
