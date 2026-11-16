@@ -14,8 +14,10 @@ def test_shield_icon_levels(run_ike):
                 for size in (16, 22):
                     img = shield_icon(level, size).pixmap(size, size).toImage()
                     w, h = img.width(), img.height()
-                    # a pixel of the centre, off the letter (left of it)
-                    c = QColor(img.pixel(int(w * 0.30), int(h * 0.55)))
+                    # a pixel of the centre, off the letter: below it, so that
+                    # no font's letter can reach it (Windows' bold "M" at 16
+                    # pixels reaches the pixel left of the letter)
+                    c = QColor(img.pixel(int(w * 0.5), int(h * 0.71)))
                     res["%s-%d" % (level, size)] = [c.red(), c.green(), c.blue(), c.alpha()]
             out["pixels"] = res
             win = ike.windows[0]

@@ -180,9 +180,12 @@ def steps(ike, qapp, out):
 @pytest.mark.parametrize("level", ["balanced", "maximum"])
 def test_scriptlets_do_not_change_fingerprint(run_ike, site, level):
     # software WebGL, so the WebGL values are measured too
-    flags = engine_flags("--enable-unsafe-swiftshader", "--use-angle=swiftshader", "--ignore-gpu-blocklist")
+    webgl = os.environ.get("IKE_TEST_WEBGL_FLAGS", "").split() or [
+        "--enable-unsafe-swiftshader", "--use-angle=swiftshader", "--ignore-gpu-blocklist"]
+    flags = engine_flags(*webgl)
     out = run_ike("URL = %r\nSCRIPTLETS = %r\n" % (site, SCRIPTLETS) + STEPS,
                   settings={"shield_level": level}, env={"QTWEBENGINE_CHROMIUM_FLAGS": flags}, timeout=120)
+    print("engine messages:\n" + out["_stderr"][-6000:])      # shown when the test fails
     plain, again, with_scriptlets = out["plain"], out["plain_again"], out["scriptlets"]
     if os.environ.get("IKE_TEST_FP_OUT"):
         with open(os.environ["IKE_TEST_FP_OUT"] + "." + level + ".json", "w", encoding="utf-8") as f:

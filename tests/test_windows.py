@@ -446,7 +446,7 @@ server.close()
 
 
 @ASKS_WINDOWS
-def test_instance_pipe_on_windows(run_ike):
+def test_instance_pipe_on_windows(run_ike, tmp_path):
     """The real thing on Windows: the first start listens on the pipe named
     after the user, a second start hands its address over and ends, rubbish
     written to the pipe is ignored."""
@@ -477,18 +477,28 @@ def steps(ike, qapp, out):
     out["tabs_before"] = len(win.views)
     env = dict(os.environ)
     env.pop("IKE_TEST_HOOK", None)
+    log = open(os.environ["IKE_SECOND_LOG"], "wb")
     second = subprocess.Popen(json.loads(os.environ["IKE_SECOND"]) + ["data:text/html,<title>handed over</title>x"],
-                              env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                              env=env, stdout=log, stderr=subprocess.STDOUT)
     for _ in range(600):                 # the browser must keep running: it is the one that reads
         if second.poll() is not None:
             break
         yield 100
     else:
         second.kill()
+    log.close()
     out["second_exit"] = second.returncode
-    yield 2000
+    for _ in range(50):                  # the handed-over page is opened and loaded (at most 10 s)
+        if any(v.title() == "handed over" for w in ike.windows for v in w.views):
+            break
+        yield 200
+    yield 500
     out["tabs_after"] = [v.title() for v in win.views]
-''', env={"IKE_NO_SINGLE": "", "IKE_SECOND": json.dumps(_start_command())}, timeout=180)
+    out["windows"] = [[(v.title(), v.url().toString()[:60]) for v in w.views] for w in ike.windows]
+''', env={"IKE_NO_SINGLE": "", "IKE_SECOND": json.dumps(_start_command()),
+              "IKE_SECOND_LOG": str(tmp_path / "second.log")}, timeout=180)
+    out["second_log"] = (tmp_path / "second.log").read_text("utf-8", "replace")[-1500:]
+    print({k: out.get(k) for k in ("second_exit", "tabs_after", "windows", "second_log")})   # shown on failure
     assert out["name"] == "ike-browser-%s-default" % out["sid"] and out["sid"].startswith("S-1-5-")
     assert out["listed"], out
     assert out["write_errors"] == [], out

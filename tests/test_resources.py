@@ -85,6 +85,15 @@ def test_memory_limit(run_ike, server):
             yield 2000
             fg = win.add_tab("http://127.0.0.1:%(p)d/big")
             yield 2500
+            # a slow computer: both pages loaded and the background site's
+            # memory over the limit before the limit is applied (at most 20 s)
+            for _ in range(100):
+                rows = {r["site"]: r for r in ike.resources.sample()}
+                mem = rows.get("localhost", {}).get("memory")
+                if bg.title() == fg.title() == "big" and mem and mem > 100 * 1024 * 1024:
+                    break
+                yield 200
+            out["bg_memory"] = mem
             out["timer"] = ike.resources.timer.isActive()
             ike.resources._tick()
             yield 500
@@ -95,7 +104,7 @@ def test_memory_limit(run_ike, server):
             out["bg_back"] = not bg.sleeping and bg.title() == "big"
     """ % {"p": server}, settings={"res_mem_limit": 100})
     assert out["timer"]
-    assert out["bg_sleeping"] and not out["fg_sleeping"]
+    assert out["bg_sleeping"] and not out["fg_sleeping"], out
     assert out["bg_back"]
 
 
