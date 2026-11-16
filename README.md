@@ -2,7 +2,7 @@
 
 **Internet Kontrol Experience**
 
-I.K.E. is a privacy-focused desktop browser built with Python, PyQt6 and Qt WebEngine, with a Rust-based AdBlock engine. The imported application baseline is derived from the previously working ICE 1.6.1 source, renamed for the IKE project.
+I.K.E. is a privacy-focused desktop browser built with Python, PyQt6 and Qt WebEngine, with a Rust-based AdBlock engine. Its application baseline comes from the previously working 1.6.1 source, transferred and renamed for the IKE project.
 
 ## Supported build target
 
@@ -39,4 +39,4 @@ See [Arch build instructions](docs/arch/BUILDING.md), [tests](docs/arch/TESTING.
 
 ## Project and release policy
 
-The old `NullSector-2077/ICE-Browser` repository remains separate and unchanged. This repository uses its own `main` branch and review process. Source changes are proposed through pull requests; release signing stays on the maintainer's computer. Private keys and passphrases must never be committed or uploaded to GitHub Actions.
+The previous source repository, [ICE-Browser](https://github.com/NullSector-2077/ICE-Browser), remains separate and unchanged. This repository uses its own `main` branch and review process. Source changes are proposed through pull requests; release signing stays on the maintainer's computer. Private keys and passphrases must never be committed or uploaded to GitHub Actions.
