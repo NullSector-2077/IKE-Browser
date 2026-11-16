@@ -19,7 +19,7 @@ work, a review of the whole code and a security audit.
   WebEngine (about 14,500 lines in `ike/`), a Rust module around Brave's
   adblock-rust (`ike-adblock/`), a small C launcher, a PKGBUILD and a signed
   self-update of the Python part.
-- 126 automatic tests that start the real browser without a display; lint
+- About 130 automatic tests that start the real browser without a display; lint
   with ruff; a GitHub workflow that runs both and builds the package.
 - Known problems at the start: toolbar buttons could not be moved reliably;
   the page jumped when a link was hovered; leftovers of the earlier
@@ -30,7 +30,7 @@ work, a review of the whole code and a security audit.
 
 ## State after 1.0.3
 
-- 169 automatic tests in 26 files, 23 of them attack simulations and
+- 172 automatic tests in 25 files, 25 of them attack simulations and
   regression tests of the audit (`tests/test_security.py`), all run on the
   local machine only; one Rust unit test; `cargo audit` and `pip-audit`
   without known vulnerabilities on the day of the audit (2026-11-16).

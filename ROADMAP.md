@@ -104,7 +104,15 @@ Branch `ike-1.0.2` (contains 1.0.1). Done and tested:
    judged on a real Plasma session.
 3. New-tab background photo in `ike/newtabbg.py`.
 
-### 1.0.3 — code review and security audit
+### 1.0.3 — code review and security audit (done, waiting for the owner)
+
+Branch `ike-1.0.3` (contains 1.0.1 and 1.0.2). The report is in
+[docs/review/](docs/review/README.md): one finding rated High (a page opened
+from a file could read any other file), five Medium, nine Low, all fixed with
+regression tests; eleven open issues, none above Medium, three of which need a
+decision of the owner (Widevine integrity and updates, when saved passwords
+are filled, CRX signatures). The plan that was followed:
+
 
 1. **Code review of the whole project** (Python modules, Rust core,
    Python ↔ Rust interface, configuration, dependencies, interface, packaging,
@@ -189,6 +197,9 @@ In `docs/platforms/` (English), citing the official sources used:
   tested); next is 1.0.3 on `ike-1.0.3`. Noted for the 1.0.3 audit: web
   pages can load `ike:logo` and frame `ike:newtab` (a way to recognise the
   browser); settings of the wrong type are not checked when read.
+- 1.0.3 finished on branch `ike-1.0.3` (172 tests, package built and
+  tested; report in `docs/review/`). Next: the platform study, documents
+  only, on `docs/platform-study`.
 
 ### Also planned
 
@@ -235,10 +246,13 @@ chiaro.
 
 - With DejaVu Sans as the system font, Settings → Appearance scrolls sideways
   by a few pixels in German and Spanish (fine with Noto Sans, Plasma's font).
-- Closing I.K.E. while the filter lists or the Chrome version are still being
-  downloaded (a few seconds after start-up, or during the daily update) can end
-  with "QThread: Destroyed while thread is still running" and an abort instead
-  of a clean exit.
+- "Cookies and site data" deletes cookies at once; local storage, databases
+  and service workers go when I.K.E. starts next (Qt WebEngine cannot delete
+  them while it runs). The dialog says so.
+- A page opened from a file can still load pictures, media, style sheets and
+  scripts from anywhere on the disk (saved pages need it), so it can tell
+  whether such a file exists; it can no longer read other files.
+- Open issues of the 1.0.3 audit: see `docs/review/security-audit.md`.
 - Media controls: next / previous track are not offered (they would need a
   hook inside the pages' own scripts); media inside frames (embedded players)
   are not seen.

@@ -929,6 +929,121 @@ def test_site_data_is_removed_without_following_links(tmp_path):
     assert not sitedata.asked(data)
 
 
+def _self_signed(folder, host="127.0.0.1"):
+    """A certificate nobody vouches for, for a local server: (cert file, key file)."""
+    import datetime
+    import ipaddress
+
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.x509.oid import NameOID
+
+    key = ec.generate_private_key(ec.SECP256R1())
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, host)])
+    now = datetime.datetime.now(datetime.timezone.utc)
+    cert = (x509.CertificateBuilder().subject_name(name).issuer_name(name).public_key(key.public_key())
+            .serial_number(x509.random_serial_number()).not_valid_before(now - datetime.timedelta(days=1))
+            .not_valid_after(now + datetime.timedelta(days=2))
+            .add_extension(x509.SubjectAlternativeName([x509.IPAddress(ipaddress.ip_address(host))]), critical=False)
+            .sign(key, hashes.SHA256()))
+    cert_file, key_file = folder / "cert.pem", folder / "key.pem"
+    cert_file.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+    key_file.write_bytes(key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
+                                           serialization.NoEncryption()))
+    return cert_file, key_file
+
+
+@needs_engine
+def test_a_server_with_an_untrusted_certificate_is_refused(run_ike, tmp_path):
+    """Somebody between the user and the site answers with a certificate of
+    their own: the page is not shown, its scripts do not run, and there is no
+    way to go on from inside the page."""
+    import ssl
+
+    hits = []
+
+    class H(BaseHTTPRequestHandler):
+        def do_GET(self):
+            hits.append(self.path)
+            body = b"<!doctype html><title>secret page</title><body>SECRET<script>document.title = 'ran';</script>"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+
+    cert_file, key_file = _self_signed(tmp_path)
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.load_cert_chain(str(cert_file), str(key_file))
+    srv.socket = ctx.wrap_socket(srv.socket, server_side=True)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        out = run_ike(JS + r'''
+import os
+
+def steps(ike, qapp, out):
+    view = ike.windows[0].current_view()
+    out["ok"] = yield from load(view, os.environ["IKE_SITE"])
+    out["title"] = view.page().title()
+    out["text"] = yield from js(view, "document.body ? document.body.innerText : ''")
+''', env={"IKE_SITE": "https://127.0.0.1:%d/page" % srv.server_address[1]}, timeout=120)
+    finally:
+        srv.shutdown()
+    assert out["ok"] is False
+    assert "SECRET" not in (out["text"] or "") and out["title"] != "ran" and "secret page" not in out["title"]
+    assert hits == []                                 # the request was never sent
+
+
+@needs_engine
+def test_a_download_cannot_choose_a_place_outside_the_download_folder(run_ike, tmp_path):
+    """A server names its file "../../.bashrc" or an absolute path: the file
+    lands in the download folder under a plain name, and nothing is opened."""
+    class H(BaseHTTPRequestHandler):
+        def do_GET(self):
+            names = {"/a": '../../.bashrc', "/b": '/tmp/ike-test-absolute.txt', "/c": '..\\..\\evil.desktop'}
+            body = b"echo owned\n"
+            self.send_response(200)
+            self.send_header("Content-Type", "application/octet-stream")
+            self.send_header("Content-Disposition", 'attachment; filename="%s"' % names[self.path])
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    folder = tmp_path / "home" / "Downloads"
+    try:
+        out = run_ike(JS + r'''
+import os
+from PyQt6.QtCore import QUrl
+
+def steps(ike, qapp, out):
+    view = ike.windows[0].current_view()
+    for path in ("/a", "/b", "/c"):
+        view.load(QUrl(os.environ["IKE_SITE"] + path))
+        yield 1500
+    out["paths"] = [str(ike.download_path(d)) for d in ike.downloads]
+''', settings={"download_dir": str(folder)}, env={"IKE_SITE": "http://127.0.0.1:%d" % srv.server_address[1]},
+                      timeout=120)
+    finally:
+        srv.shutdown()
+    assert len(out["paths"]) == 3
+    for path in out["paths"]:
+        assert Path(path).parent == folder, path
+        assert Path(path).exists()
+    assert not (tmp_path / "home" / ".bashrc").exists() and not (tmp_path / ".bashrc").exists()
+    assert not Path("/tmp/ike-test-absolute.txt").exists()
+    assert sorted(p.name for p in folder.iterdir()) == sorted(Path(p).name for p in out["paths"])
+
+
 def test_password_files_are_private_from_the_start(tmp_path):
     from ike import passwords
     old = os.umask(0)                     # the most permissive creation mask there is
