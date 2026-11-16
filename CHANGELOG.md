@@ -2,6 +2,13 @@
 
 All notable changes to I.K.E. Browser are documented here.
 
+## [1.6.1] - Arch / CachyOS source baseline
+
+- Import the previously working browser source and rename the application, Python namespace, Rust AdBlock module, launcher, paths and package metadata to I.K.E.
+- Limit packaging, release instructions and automated tests to Arch Linux / CachyOS x86_64.
+- Preserve the signed application update channel; system Qt WebEngine remains managed by pacman.
+- No new browser features or functional changes are intended in this transfer.
+
 ## [1.0.0] - Initial project baseline
 
 - Establish the independent I.K.E. Browser repository and version line.
