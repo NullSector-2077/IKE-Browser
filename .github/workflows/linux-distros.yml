@@ -60,6 +60,10 @@ jobs:
           - name: Debian 13
             id: debian
             image: debian:trixie
+            # Debian's Qt cannot make an OpenGL context in the offscreen
+            # platform without an X display: a virtual one (Xvfb) gives it
+            # Mesa's GL, and with it the software WebGL the tests measure
+            xvfb: true
           - name: Fedora 43
             id: fedora
             image: fedora:43
@@ -94,7 +98,12 @@ jobs:
       - name: Tests (this distribution's Qt)
         run: |
           set -o pipefail
-          python3 -m pytest -ra --junitxml=out/tests-${{ matrix.id }}.xml 2>&1 | tee out/tests-${{ matrix.id }}.log
+          run=""
+          if [ "${{ matrix.xvfb }}" = true ]; then
+            apt-get install -yq --no-install-recommends xvfb xauth >/dev/null
+            run="xvfb-run -a -s -noreset"
+          fi
+          $run python3 -m pytest -ra --junitxml=out/tests-${{ matrix.id }}.xml 2>&1 | tee out/tests-${{ matrix.id }}.log
       - name: Arch package (makepkg, pacman, tests as installed)
         if: matrix.id == 'arch'
         run: |
