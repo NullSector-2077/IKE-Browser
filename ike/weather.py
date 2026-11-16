@@ -23,9 +23,9 @@ from .config import CACHE_DIR
 
 FORECAST = "https://api.open-meteo.com/v1/forecast"
 GEOCODING = "https://geocoding-api.open-meteo.com/v1/search"
-if os.environ.get("ICE_TEST_WEATHER"):        # stand-in server for the tests
-    FORECAST = os.environ["ICE_TEST_WEATHER"] + "/forecast"
-    GEOCODING = os.environ["ICE_TEST_WEATHER"] + "/search"
+if os.environ.get("IKE_TEST_WEATHER"):        # stand-in server for the tests
+    FORECAST = os.environ["IKE_TEST_WEATHER"] + "/forecast"
+    GEOCODING = os.environ["IKE_TEST_WEATHER"] + "/search"
 REFRESH = 30 * 60
 CACHE = CACHE_DIR / "weather.json"
 

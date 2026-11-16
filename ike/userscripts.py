@@ -621,7 +621,7 @@ class UserScripts(QObject):
             return
         except ValueError:
             pass
-        fake = dict(p.split("=", 1) for p in os.environ.get("ICE_TEST_RESOLVE", "").split(",") if "=" in p)
+        fake = dict(p.split("=", 1) for p in os.environ.get("IKE_TEST_RESOLVE", "").split(",") if "=" in p)
         if host in fake:
             addresses = fake[host].split("|")
             QTimer.singleShot(0, lambda: self._resolved(name, host, addresses, done))
@@ -715,5 +715,5 @@ class UserScripts(QObject):
 
 
 def _debug(text):
-    if os.environ.get("ICE_DEBUG"):
+    if os.environ.get("IKE_DEBUG"):
         print("[user scripts] " + text)

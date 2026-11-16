@@ -761,7 +761,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             return T("DRM video (Widevine): not installed — Netflix and similar services will not play")
         origin = T("installed by I.K.E.") if st["source"] == "ike" else T("system package")
         text = T("DRM video (Widevine): %s, %s") % (st["version"] or "?", origin)
-        if not os.environ.get("ICE_WIDEVINE"):
+        if not os.environ.get("IKE_WIDEVINE"):
             text += " — " + T("restart I.K.E. to use it")
         return text
 

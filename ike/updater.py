@@ -52,8 +52,8 @@ def boot_command():
     """Command that starts I.K.E. again (used for self-tests and profiles)."""
     if os.environ.get("APPIMAGE") and os.path.exists(os.environ["APPIMAGE"]):
         return [os.environ["APPIMAGE"]]
-    if os.environ.get("ICE_LAUNCHER") and os.path.isfile(os.environ["ICE_LAUNCHER"]):
-        return [os.environ["ICE_LAUNCHER"]]           # Windows: ike-browser.exe
+    if os.environ.get("IKE_LAUNCHER") and os.path.isfile(os.environ["IKE_LAUNCHER"]):
+        return [os.environ["IKE_LAUNCHER"]]           # Windows: ike-browser.exe
     if getattr(sys, "frozen", False):
         return [sys.executable]
     boot = system_dir() / "ike_boot.py"
@@ -79,7 +79,7 @@ def plain_name(name):
 def appimage_path():
     """The AppImage file this copy runs from, or None."""
     p = os.environ.get("APPIMAGE")
-    if os.environ.get("ICE_PACKAGE") == "appimage" and p and os.path.isfile(p):
+    if os.environ.get("IKE_PACKAGE") == "appimage" and p and os.path.isfile(p):
         return Path(p)
     return None
 
@@ -112,7 +112,7 @@ def replace_appimage(current, url, info, version):
             raise ValueError("hash mismatch")
         os.chmod(new, 0o755)
         env = dict(os.environ, QT_QPA_PLATFORM="offscreen")
-        for k in ("ICE_TEST_HOOK", "APPIMAGE", "APPDIR", "ARGV0", "OWD"):
+        for k in ("IKE_TEST_HOOK", "APPIMAGE", "APPDIR", "ARGV0", "OWD"):
             env.pop(k, None)
         res = subprocess.run([str(new), "--selftest"], capture_output=True, text=True,
                              timeout=180, env=env)
@@ -139,8 +139,8 @@ def windows_install():
 
     Its folder holds the launcher, the file "current" (the version folder in
     use) and app/<version>/ folders (docs/UPDATES.md)."""
-    d = os.environ.get("ICE_INSTALL_DIR")
-    if os.environ.get("ICE_PACKAGE") == "windows" and d and os.path.isfile(os.path.join(d, "current")) \
+    d = os.environ.get("IKE_INSTALL_DIR")
+    if os.environ.get("IKE_PACKAGE") == "windows" and d and os.path.isfile(os.path.join(d, "current")) \
             and os.path.isdir(os.path.join(d, "app")):
         return Path(d)
     return None
@@ -253,11 +253,11 @@ def replace_windows(root, url, info, version):
         shutil.rmtree(staging, ignore_errors=True)
         unpack_windows(download, staging, version)
         download.unlink()
-        env = {k: v for k, v in os.environ.items() if not k.startswith(("PYTHON", "ICE_TEST_HOOK"))}
+        env = {k: v for k, v in os.environ.items() if not k.startswith(("PYTHON", "IKE_TEST_HOOK"))}
         env.update(QT_QPA_PLATFORM="offscreen", PYTHONNOUSERSITE="1")
         python = str(staging / "python" / "python.exe")
-        if os.environ.get("ICE_TEST_HOOK") and os.environ.get("ICE_TEST_WIN_PYTHON"):
-            python = os.environ["ICE_TEST_WIN_PYTHON"]          # automatic tests only
+        if os.environ.get("IKE_TEST_HOOK") and os.environ.get("IKE_TEST_WIN_PYTHON"):
+            python = os.environ["IKE_TEST_WIN_PYTHON"]          # automatic tests only
         res = _hidden_run([python, "-s", str(staging / "ike_boot.py"), "--selftest"],
                           capture_output=True, text=True, timeout=180, env=env, cwd=str(staging))
         if "IKE-SELFTEST-OK %s" % version not in res.stdout:
@@ -304,8 +304,8 @@ def _set_installed_version(version):
 def source():
     """{'url': ..., 'pubkey': ...} or {} when no update channel is configured."""
     paths = [system_dir() / "update.json", RES_DIR / "update.json"]
-    if os.environ.get("ICE_TEST_HOOK") and os.environ.get("ICE_TEST_UPDATE_CONFIG"):
-        paths = [Path(os.environ["ICE_TEST_UPDATE_CONFIG"])]      # automatic tests only
+    if os.environ.get("IKE_TEST_HOOK") and os.environ.get("IKE_TEST_UPDATE_CONFIG"):
+        paths = [Path(os.environ["IKE_TEST_UPDATE_CONFIG"])]      # automatic tests only
     for p in paths:
         try:
             d = json.loads(p.read_text("utf-8"))
@@ -380,7 +380,7 @@ def stage(manifest, payload):
     try:
         safe_extract(payload, staging)
         env = dict(os.environ, QT_QPA_PLATFORM="offscreen")
-        env.pop("ICE_TEST_HOOK", None)
+        env.pop("IKE_TEST_HOOK", None)
         res = subprocess.run(boot_command() + ["--selftest-import", str(staging)],
                              capture_output=True, text=True, timeout=120, env=env)
         if "IKE-SELFTEST-OK %s" % version not in res.stdout:

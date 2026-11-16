@@ -231,7 +231,7 @@ class IceSchemeHandler(QWebEngineUrlSchemeHandler):
             job.redirect(QUrl(self.s.search_url(q)))
             return
         if path == "logo":
-            data = (RES_DIR / "ice.svg").read_bytes()
+            data = (RES_DIR / "ike.svg").read_bytes()
             mime = b"image/svg+xml"
         else:
             data = self.s.newtab_html().encode("utf-8")

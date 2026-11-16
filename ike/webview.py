@@ -230,7 +230,7 @@ class WebPage(QWebEnginePage):
         return view.page()
 
     def certificateError(self, error):
-        if os.environ.get("ICE_TEST_INSECURE") == "1":
+        if os.environ.get("IKE_TEST_INSECURE") == "1":
             error.acceptCertificate()
             return True
         return False
@@ -240,7 +240,7 @@ class WebPage(QWebEnginePage):
         if message.startswith(PREFIX):
             self.app.userscripts.receive(self, message)
             return
-        if os.environ.get("ICE_DEBUG"):
+        if os.environ.get("IKE_DEBUG"):
             print("[js] %s:%s %s" % (source, line, message))
 
     # --- protections -------------------------------------------------
@@ -318,8 +318,8 @@ class WebPage(QWebEnginePage):
         if any(k in blocked for k in kinds.get(perm.permissionType(), ())):
             perm.deny()
             return
-        if os.environ.get("ICE_TEST_PERMS"):
-            perm.grant() if os.environ["ICE_TEST_PERMS"] == "grant" else perm.deny()
+        if os.environ.get("IKE_TEST_PERMS"):
+            perm.grant() if os.environ["IKE_TEST_PERMS"] == "grant" else perm.deny()
             return
         box = QMessageBox(self.window_ref)
         box.setIcon(QMessageBox.Icon.Question)
@@ -475,7 +475,7 @@ class WebView(QWebEngineView):
             return
         cb = QGuiApplication.clipboard()
         if cb.text() != text and cb.text().replace("\r", "") != text:
-            if os.environ.get("ICE_DEBUG"):
+            if os.environ.get("IKE_DEBUG"):
                 print("[clipboard] engine copy did not arrive, writing it via Qt")
             cb.setText(text)
         if not final:

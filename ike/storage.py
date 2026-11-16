@@ -8,7 +8,7 @@ from .config import DATA_DIR
 
 class Storage:
     def __init__(self, path=None):
-        self.db = sqlite3.connect(str(path or DATA_DIR / "ice.sqlite"))
+        self.db = sqlite3.connect(str(path or DATA_DIR / "ike.sqlite"))
         self.db.executescript(
             """
             CREATE TABLE IF NOT EXISTS history(

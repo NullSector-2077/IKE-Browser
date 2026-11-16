@@ -91,7 +91,7 @@ def choose():
 
 
 def run(folder):
-    for name in [m for m in sys.modules if m == "ike" or m.startswith("ice.")]:
+    for name in [m for m in sys.modules if m == "ike" or m.startswith("ike.")]:
         del sys.modules[name]
     sys.path[:] = [p for p in sys.path if p != str(folder)]
     sys.path.insert(0, str(folder))
@@ -100,9 +100,9 @@ def run(folder):
         sys.path.append(str(vendor))
     os.environ["IKE_APP_DIR"] = str(folder)
     os.environ["IKE_SYSTEM_DIR"] = str(SYSTEM_DIR)
-    import ice
-    ice.early_args(sys.argv[1:])
-    from ice.app import main
+    import ike
+    ike.early_args(sys.argv[1:])
+    from ike.app import main
     return main()
 
 
@@ -110,9 +110,9 @@ def windows_check(argv):
     """Windows: a newly installed version (a whole app/<version> folder) whose
     first start was not confirmed is given up at the next start; the launcher
     goes back to the previous folder (see ike/updater.py, replace_windows)."""
-    root = os.environ.get("ICE_INSTALL_DIR")
-    launcher = os.environ.get("ICE_LAUNCHER")
-    if os.environ.get("ICE_PACKAGE") != "windows" or not root or not launcher:
+    root = os.environ.get("IKE_INSTALL_DIR")
+    launcher = os.environ.get("IKE_LAUNCHER")
+    if os.environ.get("IKE_PACKAGE") != "windows" or not root or not launcher:
         return
     state = load_state()
     win = state.get("windows") or {}
@@ -147,12 +147,12 @@ def main():
         # before installing it
         sys.path.insert(0, argv[1] if len(argv) == 2 else str(SYSTEM_DIR))
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-        import ice
-        import ice.app  # noqa: F401  (every module must load)
-        import ice.dialogs
-        import ice.updater
-        import ice.window
-        print("IKE-SELFTEST-OK %s" % ice.__version__)
+        import ike
+        import ike.app  # noqa: F401  (every module must load)
+        import ike.dialogs
+        import ike.updater
+        import ike.window
+        print("IKE-SELFTEST-OK %s" % ike.__version__)
         return 0
     windows_check(argv)
     folder, state, sysver = choose()
