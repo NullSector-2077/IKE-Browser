@@ -80,6 +80,29 @@ the pull request stays a draft: the adaptation is done by hand on that branch.
 
 ## Repository settings
 
+### Required checks before merging
+
+So that a pull request with a failing test cannot be merged, GitHub must be
+told which checks are required. Once the workflows have run on `main` at
+least once (after the pull requests that add them are merged):
+
+1. GitHub → the repository → **Settings** → **Rules** → **Rulesets** →
+   **New ruleset** → **New branch ruleset**.
+2. Name: `main`. Enforcement status: **Active**. Target branches: **Add
+   target** → **Include default branch**.
+3. Tick **Require a pull request before merging** (no approvals needed: the
+   owner is the only reviewer) and **Require status checks to pass**.
+4. Under the status checks, **Add checks** and pick each of: `tests`
+   (Tests), `Arch Linux`, `Ubuntu 26.04`, `Debian 13`, `Fedora 43` (Linux
+   distributions), `DEB - Ubuntu 26.04`, `DEB - Debian 13`, `RPM - Fedora 43`
+   (Linux packages), and the Flatpak and Windows checks once those
+   workflows are on `main`.
+5. **Create**.
+
+From then on the merge button stays grey until every required check is
+green; a failed run keeps its logs and downloads (test results, engine
+report, packages) on the run's page for 30 days.
+
 The maintenance workflow opens pull requests with the workflow's own token.
 In the repository's Settings → Actions → General, "Workflow permissions" must
 allow GitHub Actions to create pull requests.
