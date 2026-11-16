@@ -36,7 +36,7 @@ package() {
 
   # the browser
   install -d "$lib"
-  cp -r --no-preserve=ownership ice "$lib/"
+  cp -r --no-preserve=ownership ike "$lib/"
   find "$lib" -name __pycache__ -type d -prune -exec rm -rf {} +
   install -Dm644 ike_boot.py "$lib/ike_boot.py"
   install -Dm644 data/update.json "$lib/update.json"
@@ -59,6 +59,6 @@ package() {
 
   # licences and documentation
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-  install -Dm644 -t "$pkgdir/usr/share/licenses/$pkgname" licenses/* docs/THIRD-PARTY.md
-  install -Dm644 -t "$pkgdir/usr/share/doc/$pkgname" README.md CHANGELOG.md docs/*.md
+  install -Dm644 -t "$pkgdir/usr/share/licenses/$pkgname" licenses/* docs/arch/THIRD-PARTY.md
+  install -Dm644 -t "$pkgdir/usr/share/doc/$pkgname" README.md CHANGELOG.md docs/*.md docs/arch/*.md
 }

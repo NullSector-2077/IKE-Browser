@@ -5,7 +5,7 @@
 | Filter lists | daily, by I.K.E. (Settings → Components) |
 | Chrome version presented to sites | daily check of Google's public version list; estimated from the calendar when offline |
 | User scripts | daily, from their update address |
-| Web engine (Qt WebEngine) | Arch / CachyOS: with the system (`pacman -Syu`); AppImage and Windows: with I.K.E. itself |
+| Web engine (Qt WebEngine) | Arch / CachyOS: with the system (`pacman -Syu`); other platforms: with I.K.E. itself |
 | I.K.E. itself | signed update channel on GitHub Releases, described below |
 | Components inside I.K.E. (AdBlock engine, uBlock Origin scriptlets, bundled Qt WebEngine and Python) | checked daily and prepared as a tested candidate by GitHub Actions on a separate branch; the owner reviews and approves before merge and signing ([MAINTENANCE.md](MAINTENANCE.md)) |
 
@@ -29,7 +29,7 @@ to the newest release):
 - `stable.json.sig` — base64 Ed25519 signature of the exact bytes of `stable.json`
 - `beta.json`, `beta.json.sig` — the same for the beta channel (for now a copy
   of stable, so users who chose "beta" are not left without updates)
-- the payload `ice-<version>.tar.gz` — only the `ike/` folder of the new version
+- the payload `ike-<version>.tar.gz` — only the `ike/` folder of the new version
 - the package and the AppImage, for people installing by hand
 - `IKE-Browser-<version>-x64-setup.exe`, the Windows installer, and
   `IKE-Browser-<version>-windows-x64.zip`, the Windows program folder used by
@@ -44,7 +44,7 @@ user's data folder (`~/.local/share/ike-browser/updates`), runs a self-test, and
 uses it from the next start. A version that fails to start is rolled back
 automatically and never installed again. Nothing under `/usr` is touched.
 
-The AppImage and the Windows installation replace the whole program instead,
+Other platform packages are not built or published in this repository.
 so Qt WebEngine and Python are updated too. On Windows I.K.E. downloads the
 update archive, checks its size and hash against the signed manifest, unpacks
 it into `app\<version>` next to the folder in use (refusing any file that
@@ -71,10 +71,10 @@ Other users can download updates only while the repository is public.
 Generated once by the owner, on the owner's computer (fish shell):
 
 ```fish
-mkdir -p ~/.ice-signing; chmod 700 ~/.ice-signing
-openssl genpkey -algorithm ed25519 -aes-256-cbc -out ~/.ice-signing/ice-update.key
-chmod 600 ~/.ice-signing/ice-update.key
-openssl pkey -in ~/.ice-signing/ice-update.key -pubout -outform DER | tail -c 32 | base64
+mkdir -p ~/.ike-signing; chmod 700 ~/.ike-signing
+openssl genpkey -algorithm ed25519 -aes-256-cbc -out ~/.ike-signing/ike-update.key
+chmod 600 ~/.ike-signing/ike-update.key
+openssl pkey -in ~/.ike-signing/ike-update.key -pubout -outform DER | tail -c 32 | base64
 ```
 
 The last line prints the public key that goes into `data/update.json`. Keep a
@@ -94,7 +94,7 @@ stored inside the repository, and a test fails if a private key is committed.
 
 This release intentionally publishes only the Arch package. Do not download,
 build or attach AppImage or Windows artifacts. The release still needs the
-signed `stable.json` / `beta.json` manifests and `ice-<version>.tar.gz`
+signed `stable.json` / `beta.json` manifests and `ike-<version>.tar.gz`
 payload so the Arch installation can update its application code.
 
 On the owner's CachyOS / Arch computer, from the updated clone:
@@ -119,11 +119,11 @@ gh release create v1.6.1 dist/release-1.6.1/* \
 
 Do not attach an AppImage, Windows installer or Windows update archive. Because
 the signed manifest has neither an `appimage` nor a `windows` entry, existing
-AppImage and Windows installations will be told that a platform package is
+other platforms installations will be told that a platform package is
 needed; they will not install the Arch-only update. Their current 1.6.0 builds
 remain available from the preceding release.
 
-### Full multi-platform release
+### Arch Linux / CachyOS release only
 
 On the owner's computer, from a clone at the commit to release (the version in
 `ike/__init__.py` and the PKGBUILD already raised and merged into `main`):
