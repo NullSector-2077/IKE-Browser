@@ -1,11 +1,10 @@
 """Tests for the Arch-only component update checker."""
 
 import json
-import runpy
 import subprocess
 import sys
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType
 
 import pytest
 
@@ -14,10 +13,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def load_tool():
-    namespace = runpy.run_path(
-        ROOT / "tools" / "check-components.py", run_name="ike_check_components"
-    )
-    return SimpleNamespace(**namespace)
+    path = ROOT / "tools" / "check-components.py"
+    module = ModuleType("ike_check_components")
+    module.__file__ = str(path)
+    exec(compile(path.read_text("utf-8"), str(path), "exec"), module.__dict__)
+    return module
 
 def make_adblock_repo(root, version="0.13.5"):
     crate = root / "ike-adblock"
