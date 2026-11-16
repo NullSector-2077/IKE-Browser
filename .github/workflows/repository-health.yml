@@ -52,4 +52,8 @@ jobs:
           test -s ike-adblock/Cargo.toml
           test -s tests/conftest.py
           test -s .github/workflows/tests.yml
+          test -s tools/check-components.py
+          test -s tests/test_components.py
+          test -s .github/workflows/daily-check.yml
+          test -s .github/workflows/daily-maintenance.yml
           echo "IKE Arch source baseline and test workflow are present."
