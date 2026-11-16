@@ -6,7 +6,7 @@
 pkgname=ike-browser
 pkgver=1.6.1
 pkgrel=2
-pkgdesc="I.K.E. - Internet Control Experience: private, independent web browser"
+pkgdesc="I.K.E. - Internet Kontrol Experience: private, independent web browser"
 arch=('x86_64')
 url="https://github.com/NullSector-2077/IKE-Browser"
 license=('GPL-3.0-or-later')
