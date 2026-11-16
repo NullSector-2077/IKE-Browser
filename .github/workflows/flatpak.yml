@@ -1,29 +1,17 @@
 # I.K.E. as a Flatpak (packaging/flatpak/README.md): built with
 # flatpak-builder in Flathub's own container for the KDE 6.11 run time, then
-# installed from the bundle and started inside the Flatpak sandbox: the engine
-# report (versions, formats it plays) and a start with --version, plus a check
-# that the Python libraries, the AdBlock engine and the Flatpak detection of
-# the updater are in place. A failing step fails the job.
-#
-# The bundle is NOT kept as a download of the run unless asked for by hand
-# (Run workflow -> "upload_bundle"): the Qt WebEngine base application the
-# Flatpak is built on is compiled with Chromium's proprietary codecs (see the
-# README, "Codecs"), and I.K.E.'s rule is that it ships no proprietary codec.
-# The owner decides; turning the upload on is the one line marked below.
+# installed from the bundle and started inside the Flatpak sandbox: --version,
+# the engine report (versions, formats declared and really decoded), the
+# Python libraries and the AdBlock engine, and the test suite run inside the
+# sandbox with the installed copy. A failing step fails the job.
 name: Flatpak
 
 on:
   pull_request:
     branches: [main]
   push:
-    branches: [main]
+    branches: [main, linux/flatpak]
   workflow_dispatch:
-    inputs:
-      upload_bundle:
-        description: "Keep the .flatpak bundle as a download of the run (read the README's Codecs section first)"
-        required: false
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -40,7 +28,7 @@ jobs:
   flatpak:
     name: Flatpak (KDE 6.11)
     runs-on: ubuntu-24.04
-    timeout-minutes: 150
+    timeout-minutes: 180
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.11
       # bubblewrap, which flatpak-builder and flatpak run use, needs it
@@ -53,45 +41,58 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Container
+        run: |
+          df -h / "$PWD" || true
+          nproc
+          flatpak --version
+          flatpak-builder --version
+          flatpak remotes --show-details || true
+
       - name: Build the Flatpak and its bundle
         uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
           manifest-path: packaging/flatpak/io.github.nullsector_2077.IKE-Browser.yml
           bundle: ${{ env.BUNDLE }}
           cache-key: flatpak-builder-${{ hashFiles('packaging/flatpak/**') }}
-          # the upload of the bundle (see the comment at the top)
-          upload-artifact: ${{ github.event_name == 'workflow_dispatch' && inputs.upload_bundle == true }}
-          artifact-name: ike-browser-flatpak
+          upload-artifact: false
 
       - name: Install the bundle
         run: |
           test -f "$BUNDLE"
-          flatpak install --system -y --noninteractive "$BUNDLE"
-          flatpak info --system "$APP_ID"
+          ls -l "$BUNDLE"
+          flatpak install --user -y --noninteractive "$BUNDLE"
+          flatpak info --user "$APP_ID"
+          mkdir -p out
+          flatpak info --user --show-permissions "$APP_ID" | tee out/permissions.txt
 
-      - name: Engine report inside the Flatpak
+      - name: What the run time offers (codecs, tools)
+        continue-on-error: true
         run: |
-          # Chromium's sandbox needs the Flatpak portal of a desktop session,
-          # which this container does not have: it is switched off for this
-          # step only, as in every other workflow. The manifest keeps it on.
-          export XDG_RUNTIME_DIR=/tmp/xdg-runtime
-          mkdir -p -m 700 "$XDG_RUNTIME_DIR" out
-          flatpak run --filesystem="$PWD" --env=QT_QPA_PLATFORM=offscreen \
-              --env=QTWEBENGINE_DISABLE_SANDBOX=1 --command=python3 "$APP_ID" \
-              "$PWD/tools/engine-report.py" --app /app/lib/ike-browser \
-              --json "$PWD/out/engine-flatpak.json" --markdown "$PWD/out/engine-flatpak.md"
-          { echo "### Flatpak (KDE 6.11)"; cat out/engine-flatpak.md; } >> "$GITHUB_STEP_SUMMARY"
+          set -x
+          flatpak info --user -m org.kde.Platform//6.11 | sed -n '/Extension/,$p' | head -60
+          flatpak remote-ls --user flathub --all 2>/dev/null | grep -i -E 'codecs|ffmpeg' | head -20
+          flatpak run --user --command=sh "$APP_ID" -c '
+            for t in notify-send xdg-settings xdg-open dbus-daemon gdbus; do printf "%s: " $t; command -v $t || echo missing; done
+            ls -d /usr/lib/x86_64-linux-gnu/codecs* /usr/lib/extensions/* 2>&1
+            ls /usr/lib/x86_64-linux-gnu | grep -E "^lib(avcodec|avformat|avutil|openh264)" '
+          flatpak run --user --command=sh org.kde.Sdk//6.11 -c '
+            pkg-config --modversion libavcodec libavformat libavutil opus libwebp
+            printf "%s\n" "#include <libavformat/avformat.h>" "int main(void){AVStream s; return (int)av_stream_get_first_dts(&s);}" > /tmp/t.c
+            gcc /tmp/t.c $(pkg-config --cflags --libs libavformat) -o /tmp/t && echo "FFmpeg has av_stream_get_first_dts (Chromium patch)" || echo "FFmpeg lacks av_stream_get_first_dts"
+            ffmpeg -hide_banner -decoders 2>/dev/null | grep -i -E " (h264|aac|hevc|libopenh264)" '
 
       - name: Start I.K.E. inside the Flatpak
         run: |
           export XDG_RUNTIME_DIR=/tmp/xdg-runtime
+          mkdir -p -m 700 "$XDG_RUNTIME_DIR"
           version=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' ike/__init__.py)
-          got=$(flatpak run --env=QT_QPA_PLATFORM=offscreen "$APP_ID" --version)
+          got=$(flatpak run --user --env=QT_QPA_PLATFORM=offscreen "$APP_ID" --version)
           echo "$got"
           test "$got" = "I.K.E. $version"
           # the libraries of the PKGBUILD, the AdBlock engine, and the updater
           # knowing that updates come from Flatpak
-          flatpak run --env=QT_QPA_PLATFORM=offscreen --command=python3 "$APP_ID" -c '
+          flatpak run --user --env=QT_QPA_PLATFORM=offscreen --command=python3 "$APP_ID" -c '
           import sys
           sys.path[:0] = ["/app/lib/ike-browser", "/app/lib/ike-browser/vendor"]
           import cryptography, jeepney, adblock
@@ -102,10 +103,56 @@ jobs:
           assert osinfo.in_flatpak(), "the Flatpak was not detected"
           '
 
+      - name: Engine report inside the Flatpak (Chromium sandbox on)
+        id: sandboxed
+        continue-on-error: true
+        run: |
+          # Chromium's sandbox inside Flatpak starts its processes through
+          # the Flatpak portal on the session bus: a private bus and the
+          # portal are started for this step.
+          export XDG_RUNTIME_DIR=/tmp/xdg-runtime
+          portal=$(ls /usr/libexec/flatpak-portal /usr/lib/flatpak/flatpak-portal 2>/dev/null | head -1)
+          echo "portal: ${portal:-none}"
+          dbus-run-session -- bash -c "
+            ${portal:-true} & sleep 2
+            timeout 300 flatpak run --user --filesystem='$PWD' --env=QT_QPA_PLATFORM=offscreen \
+              --command=python3 '$APP_ID' '$PWD/tools/engine-report.py' --app /app/lib/ike-browser \
+              --decode '$PWD/tests/media' --json '$PWD/out/engine-flatpak-sandbox.json' \
+              --markdown '$PWD/out/engine-flatpak-sandbox.md'"
+          { echo "### Flatpak (KDE 6.11), Chromium sandbox on"; cat out/engine-flatpak-sandbox.md; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Engine report inside the Flatpak (sandbox off, this step only)
+        if: steps.sandboxed.outcome != 'success'
+        run: |
+          # Only when the sandboxed start above failed in this container: the
+          # report is still wanted. The manifest never switches it off.
+          export XDG_RUNTIME_DIR=/tmp/xdg-runtime
+          flatpak run --user --filesystem="$PWD" --env=QT_QPA_PLATFORM=offscreen \
+              --env=QTWEBENGINE_DISABLE_SANDBOX=1 --command=python3 "$APP_ID" \
+              "$PWD/tools/engine-report.py" --app /app/lib/ike-browser --decode "$PWD/tests/media" \
+              --json "$PWD/out/engine-flatpak.json" --markdown "$PWD/out/engine-flatpak.md"
+          { echo "### Flatpak (KDE 6.11), sandbox off for this step"; cat out/engine-flatpak.md; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Tests inside the Flatpak (installed copy)
+        run: |
+          set -o pipefail
+          # pytest is not part of the Flatpak: a copy for this step only,
+          # given to the sandbox's Python through PYTHONPATH
+          python3 -m pip --version || dnf -y -q install python3-pip
+          python3 -m pip install -q --target "$PWD/.ci/pytest" "pytest==9.1.1"
+          export XDG_RUNTIME_DIR=/tmp/xdg-runtime
+          # the tests switch Chromium's sandbox off for the browsers they
+          # start (tests/conftest.py), as in every other workflow
+          flatpak run --user --filesystem="$PWD" --env=PYTHONPATH="$PWD/.ci/pytest" \
+              --env=IKE_TEST_APP=/app/lib/ike-browser --env=QT_QPA_PLATFORM=offscreen \
+              --env=PYTHONDONTWRITEBYTECODE=1 --cwd="$PWD" --command=python3 "$APP_ID" \
+              -m pytest -ra -p no:cacheprovider --junitxml="$PWD/out/tests-flatpak.xml" \
+              2>&1 | tee out/tests-flatpak.log
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: flatpak-engine-report
+          name: flatpak-reports
           path: out/
           if-no-files-found: warn
           retention-days: 30
