@@ -117,7 +117,7 @@ class WebPage(QWebEnginePage):
                      else QWebEngineScript.ScriptWorldId.ApplicationWorld)
         s.setRunsOnSubFrames(bool(subframes))
         self.scripts().insert(s)
-        self._ice_scripts.append(name)
+        self._ike_scripts.append(name)
 
     def _video_host(self, host):
         cfg = self.app.config
@@ -127,10 +127,10 @@ class WebPage(QWebEnginePage):
     def _reset_scripts(self):
         """Remove the scripts installed for the previous page."""
         scripts = self.scripts()
-        for name in getattr(self, "_ice_scripts", ()):
+        for name in getattr(self, "_ike_scripts", ()):
             for old in scripts.find(name):
                 scripts.remove(old)
-        self._ice_scripts = []
+        self._ike_scripts = []
 
     def _set_dark(self, url, host):
         """Apply the selected dark renderer to this page, respecting site overrides."""
@@ -160,9 +160,9 @@ class WebPage(QWebEnginePage):
         global _DARK_SRC
         if _DARK_SRC is None:
             _DARK_SRC = ((RES_DIR / "darkmode.js").read_text("utf-8")
-                         .replace("__ICE_DR_LIB__", (RES_DIR / "darkreader.js").read_text("utf-8")))
+                         .replace("__IKE_DR_LIB__", (RES_DIR / "darkreader.js").read_text("utf-8")))
         theme = dict(cfg["dark_theme"]) if isinstance(cfg["dark_theme"], dict) else {}
-        self._add_script("ice-dark", _DARK_SRC.replace("__ICE_DR_CFG__", json.dumps({"theme": theme})),
+        self._add_script("ike-dark", _DARK_SRC.replace("__IKE_DR_CFG__", json.dumps({"theme": theme})),
                          False)
 
     def _set_scriptlets(self, url, host):

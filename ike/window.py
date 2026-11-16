@@ -42,7 +42,7 @@ from .tabs import AUDIO_ROLE, VTabDelegate
 from .urlbar import _URLISH, UrlBar
 from .webview import WebView
 
-NEWTAB = "ice:newtab"
+NEWTAB = "ike:newtab"
 def icon(name, fallback=None):
     from .icons import themed
     return themed(name, fallback)
