@@ -108,7 +108,7 @@ Branch `ike-1.0.2` (contains 1.0.1). Done and tested:
 
 Branch `ike-1.0.3` (contains 1.0.1 and 1.0.2). The report is in
 [docs/review/](docs/review/README.md): one finding rated High (a page opened
-from a file could read any other file), five Medium, nine Low, all fixed with
+from a file could read any other file), four Medium, ten Low, all fixed with
 regression tests; eleven open issues, none above Medium, three of which need a
 decision of the owner (Widevine integrity and updates, when saved passwords
 are filled, CRX signatures). The plan that was followed:
