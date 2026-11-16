@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     outputs:
-      changed: \${{ steps.changes.outputs.changed }}
+      changed: ${{ steps.changes.outputs.changed }}
     steps:
       - name: Check out main and restore the persistent maintenance branch
         uses: actions/checkout@v5
@@ -64,7 +64,7 @@ jobs:
       - name: Prepare the IKE patch release candidate
         if: steps.changes.outputs.changed == 'true'
         run: |
-          base_version=$(git show origin/main:ike/__init__.py | sed -n 's/^__version__ = "\(\.*\)"/\1/p')
+          base_version=$(git show origin/main:ike/__init__.py | sed -n 's/^__version__ = "\(.*\)"/\1/p')
           python3 tools/prepare-maintenance.py --report component-report.json --base-version "$base_version"
       - name: Build the updated AdBlock engine
         if: steps.changes.outputs.changed == 'true'
@@ -72,19 +72,19 @@ jobs:
       - name: Create and push the draft candidate
         if: steps.changes.outputs.changed == 'true'
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add ike-adblock/Cargo.toml ike-adblock/Cargo.lock ike-adblock/src/lib.rs \
             ike/resources/ubo-scriptlets.json ike/__init__.py PKGBUILD README.md CHANGELOG.md
-          git commit -m "maintenance: update Arch components for IKE $(sed -n 's/^__version__ = "\(\.*\)"/\1/p' ike/__init__.py)"
+          git commit -m "maintenance: update Arch components for IKE $(sed -n 's/^__version__ = "\(.*\)"/\1/p' ike/__init__.py)"
           gh auth setup-git
           git push origin refs/heads/automation/daily-maintenance:refs/heads/automation/daily-maintenance
           gh label create maintenance --color 0e8a16 \
             --description "Automated Arch component maintenance candidate" 2>/dev/null || true
           pr=$(gh pr list --head automation/daily-maintenance --base main --state open --json number --jq '.[0].number // empty')
-          title="Arch maintenance candidate: IKE $(sed -n 's/^__version__ = "\(\.*\)"/\1/p' ike/__init__.py)"
+          title="Arch maintenance candidate: IKE $(sed -n 's/^__version__ = "\(.*\)"/\1/p' ike/__init__.py)"
           if [ -n "$pr" ]; then
             gh pr edit "$pr" --title "$title" \
               --body-file component-report.md --add-label maintenance
