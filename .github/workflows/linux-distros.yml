@@ -1,9 +1,10 @@
 # I.K.E. on each Linux distribution, with THAT distribution's own Python, Qt,
 # PyQt and Qt WebEngine packages (the "Tests" workflow uses PyPI's Qt, which
 # proves nothing about a distribution's own build). In a container of each:
-# the engine module built, the engine report (versions, the formats the engine
-# declares and the ones it really decodes, sandbox), the whole test suite. On Arch the package is also built with
-# makepkg, installed with pacman and tested as installed.
+# the engine module built, the engine report (versions, the formats the
+# engine declares and the ones it really decodes, sandbox), the whole test
+# suite. On Arch the package is also built with makepkg, installed with
+# pacman and tested as installed.
 #
 # A failing step fails the job; the job's name tells the distribution, the
 # logs, the test results (JUnit) and the engine report are kept as the run's
@@ -90,26 +91,6 @@ jobs:
           python3 tools/engine-report.py --decode tests/media --json out/engine-${{ matrix.id }}.json \
               --markdown out/engine-${{ matrix.id }}.md
           { echo "### ${{ matrix.name }}"; cat out/engine-${{ matrix.id }}.md; } >> "$GITHUB_STEP_SUMMARY"
-      - name: Software WebGL switches, four times each (diagnostic, temporary)
-        continue-on-error: true
-        run: |
-          for flags in "--use-angle=gl --ignore-gpu-blocklist" \
-                       "--use-angle=gl --ignore-gpu-blocklist --disable-gpu-compositing" \
-                       "--enable-unsafe-swiftshader --use-angle=swiftshader --ignore-gpu-blocklist" \
-                       "--enable-unsafe-swiftshader --use-angle=swiftshader --ignore-gpu-blocklist --disable-gpu-compositing" \
-                       "--use-angle=swiftshader-webgl --ignore-gpu-blocklist --disable-gpu-compositing" \
-                       "NONE"; do
-            ok=0
-            for i in 1 2 3 4; do
-              if [ "$flags" = NONE ]; then
-                IKE_TEST_WEBGL_FLAGS="--disable-gpu" python3 -m pytest -q tests/test_fingerprint.py >/tmp/fp.log 2>&1 && ok=$((ok+1))
-              else
-                IKE_TEST_WEBGL_FLAGS="$flags" python3 -m pytest -q tests/test_fingerprint.py >/tmp/fp.log 2>&1 && ok=$((ok+1))
-              fi
-            done
-            echo "RESULT $ok/4: $flags"
-            tail -3 /tmp/fp.log
-          done
       - name: Tests (this distribution's Qt)
         run: |
           set -o pipefail

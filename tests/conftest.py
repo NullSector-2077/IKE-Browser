@@ -172,14 +172,16 @@ needs_engine = pytest.mark.skipif(not _engine_available(),
 
 
 # Switches that give WebGL without a graphics card, in order of preference:
-# Mesa's software GL through ANGLE (what a desktop without a GPU driver uses;
-# steady with every engine tried, and the only one where a distribution
-# leaves SwiftShader out, as Debian does), then the engine's own SwiftShader
-# (it made distribution builds of Qt WebEngine end with SIGTRAP now and then).
+# Mesa's software GL through ANGLE (what a desktop without a GPU driver uses),
+# then the engine's own SwiftShader (left out by some distributions, such as
+# Debian). Compositing stays in software: with it on the GPU, distribution
+# builds of Qt WebEngine (Ubuntu 26.04, Fedora 43) ended with SIGTRAP in two
+# runs out of four in a container; with it in software, four out of four
+# passed with either kind of WebGL (measured on GitHub Actions, 2026-11-16).
 SOFTWARE_WEBGL = (
-    "--use-angle=gl --ignore-gpu-blocklist",
-    "--enable-unsafe-swiftshader --use-angle=swiftshader --ignore-gpu-blocklist",
-    "--use-gl=angle --use-angle=swiftshader-webgl --ignore-gpu-blocklist",
+    "--use-angle=gl --ignore-gpu-blocklist --disable-gpu-compositing",
+    "--enable-unsafe-swiftshader --use-angle=swiftshader --ignore-gpu-blocklist --disable-gpu-compositing",
+    "--use-angle=swiftshader-webgl --ignore-gpu-blocklist --disable-gpu-compositing",
 )
 _WEBGL_PROBE = r"""
 import sys
