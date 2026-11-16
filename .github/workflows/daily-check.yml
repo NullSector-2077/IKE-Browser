@@ -1,4 +1,5 @@
-# Every day: are there newer versions of the components I.K.E. bundles?
+# Every day: are there newer versions of the components I.K.E. bundles, and
+# known vulnerabilities in the Rust and pinned Python dependencies?
 # The answer is kept in one issue labelled "components" (opened when there is
 # something new, closed when there is nothing). No repository files are changed.
 name: Daily component check
@@ -24,6 +25,8 @@ jobs:
     outputs:
       updates: ${{ steps.check.outputs.updates }}
       errors: ${{ steps.check.outputs.errors }}
+      vulnerabilities: ${{ steps.audit.outputs.vulnerabilities }}
+      audit_errors: ${{ steps.audit.outputs.audit_errors }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -37,10 +40,22 @@ jobs:
       - name: Check components
         id: check
         run: python3 tools/check-components.py --json report.json --markdown report.md
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Audit tools (RustSec, PyPI advisories)
+        run: |
+          python3 -m pip install --disable-pip-version-check -q pip-audit
+          cargo install --locked -q cargo-audit
+      - name: Known vulnerabilities
+        id: audit
+        run: |
+          python3 tools/audit-deps.py --json audit.json --markdown audit.md
+          { echo; cat audit.md; } >> report.md
       - uses: actions/upload-artifact@v4
         with:
           name: component-report
-          path: report.*
+          path: |
+            report.*
+            audit.*
           if-no-files-found: error
           retention-days: 14
 
@@ -61,16 +76,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           UPDATES: ${{ needs.check.outputs.updates }}
           ERRORS: ${{ needs.check.outputs.errors }}
+          VULNS: ${{ needs.check.outputs.vulnerabilities || 0 }}
+          AUDIT_ERRORS: ${{ needs.check.outputs.audit_errors || 0 }}
         run: |
           gh label create components --color 1d76db \
               --description "New versions or check failures for bundled components" 2>/dev/null || true
           open=$(gh issue list --label components --state open --json number --jq '.[0].number // empty')
+          if [ "$VULNS" -gt 0 ] || [ "$AUDIT_ERRORS" -gt 0 ]; then ERRORS=$((ERRORS + VULNS + AUDIT_ERRORS)); fi
           if [ "$UPDATES" -gt 0 ] || [ "$ERRORS" -gt 0 ]; then
             if [ -n "$open" ]; then
               gh issue edit "$open" --body-file report/report.md
             else
               title="Component updates"
               if [ "$UPDATES" -eq 0 ]; then title="Component check needs attention"; fi
+              if [ "$VULNS" -gt 0 ]; then title="Known vulnerabilities in dependencies"; fi
               gh issue create --title "$title" --label components --body-file report/report.md
             fi
           elif [ -n "$open" ]; then

@@ -34,6 +34,20 @@ dependencies) are reported as informational and carried along only with an
 actionable update. Filter lists, the presented Chrome version and user scripts
 update themselves inside the browser.
 
+## Known vulnerabilities
+
+The same daily check runs `tools/audit-deps.py`: `cargo audit` (RustSec) on the
+engine module's `Cargo.lock`, and `pip-audit` (PyPI / OSV advisories) on the
+pinned Python packages of the tests and, once it exists, of the Windows build.
+On Linux the browser runs on the distribution's own Qt and Python, which the
+distribution's security team follows; those are covered by the weekly
+"Linux distributions" workflow, which tests I.K.E. on each distribution's
+current packages. A known vulnerability, or an audit that could not run, keeps
+the "components" issue open with the details. Nothing is updated
+automatically for it: stability and security come before taking every new
+version; the owner decides, and the fix goes through a candidate branch like
+any other update.
+
 ## The candidate
 
 1. `daily-maintenance.yml` checks out `automation/daily-maintenance` (or
