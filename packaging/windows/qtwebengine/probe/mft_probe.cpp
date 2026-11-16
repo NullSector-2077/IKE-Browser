@@ -471,6 +471,7 @@ std::vector<std::vector<uint8_t>> SplitAccessUnits(
     }
   }
   std::vector<std::vector<uint8_t>> units;
+  bool has_slices = false;
   for (size_t n = 0; n < starts.size(); ++n) {
     const size_t payload = starts[n] + 3;
     size_t end = n + 1 < starts.size() ? starts[n + 1] : stream.size();
@@ -483,11 +484,19 @@ std::vector<std::vector<uint8_t>> SplitAccessUnits(
     }
     const int type = stream[payload] & 0x1F;
     if (type == 9) {
-      units.emplace_back();
+      // Parameter sets written in front of a delimiter belong to the picture
+      // that follows: a new picture starts only after one with slices.
+      if (units.empty() || has_slices) {
+        units.emplace_back();
+        has_slices = false;
+      }
       continue;
     }
     if (units.empty()) {
       units.emplace_back();
+    }
+    if (type == 1 || type == 5) {
+      has_slices = true;
     }
     static const uint8_t kStartCode[] = {0, 0, 0, 1};
     auto& unit = units.back();
