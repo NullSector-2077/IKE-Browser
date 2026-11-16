@@ -253,9 +253,8 @@ class IkeApp(QObject):
         QTimer.singleShot(20000, self._healthy)
 
     def _healthy(self):
-        from . import legacy, updater
+        from . import updater
         updater.confirm_healthy()
-        legacy.clean_up()
         notice = updater.take_rollback_notice()
         if notice:
             self._desktop_notify(self._t("I.K.E. update %s did not start correctly and was "
@@ -874,8 +873,6 @@ def main(argv=None):
     args, qt_args = parser.parse_known_args(argv if argv is not None else sys.argv[1:])
 
     _wait_for_previous()
-    from . import legacy
-    legacy.import_once()
     ensure_dirs()
     config = Config()
     _chromium_flags(config)

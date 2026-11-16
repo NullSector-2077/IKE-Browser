@@ -104,19 +104,12 @@ class Vault:
             nonce, data = base64.b64decode(blob["nonce"]), base64.b64decode(blob["data"])
         except (ValueError, KeyError, OSError):
             return False
-        from .legacy import LEGACY_VAULT_AAD
-        for aad in (_AAD, LEGACY_VAULT_AAD):
-            try:
-                plain = AESGCM(key).decrypt(nonce, data, aad)
-                break
-            except InvalidTag:
-                continue
-        else:
+        try:
+            plain = AESGCM(key).decrypt(nonce, data, _AAD)
+        except InvalidTag:
             return False
         self.entries = json.loads(plain.decode("utf-8"))
         self._key, self._salt = key, salt
-        if aad != _AAD:
-            self.save()                 # imported vault: sealed again as I.K.E.'s own
         return True
 
     def lock(self):

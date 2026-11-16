@@ -1,4 +1,8 @@
-"""Password manager: the origin a login is saved for and filled on.
+"""Password manager: the vault file, and the origin a login is saved for and
+filled on.
+
+A vault opens only with its master password and only when it was sealed as
+I.K.E.'s own (a file sealed for another program, or altered, is refused).
 
 origin_of() rules (scheme, host case, default and explicit ports, IPv6), and in
 the real browser: a saved login is offered and filled only on its exact origin
@@ -7,6 +11,9 @@ origin of the page at fill time counts. Site names are mapped to a local
 server with Chromium's host resolver rules.
 """
 
+import base64
+import json
+import os
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -36,6 +43,44 @@ def test_origin_rules():
     # entries saved by older versions for ordinary addresses keep the same key
     for url in ("https://site.example/", "http://site.example/", "https://site.example:8443/a"):
         assert origin_of(url) == origin_of(origin_of(url))
+
+
+def test_vault_opens_only_as_sealed_by_ike(tmp_path):
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+    from ike import passwords
+    vault = passwords.Vault(tmp_path / "vault.bin")
+    vault.create("master")
+    vault.entries = [{"origin": "https://example.org", "user": "me", "password": "secret"}]
+    vault.save()
+    again = passwords.Vault(vault.path)
+    assert not again.unlock("wrong") and not again.unlocked
+    assert again.unlock("master") and again.entries[0]["password"] == "secret"
+
+    original = vault.path.read_text("utf-8")
+    blob = json.loads(original)
+    key = vault._derive("master", base64.b64decode(blob["salt"]))
+    # the same entries and key, sealed with another program's associated data
+    for aad in (b"ice-vault-1", b"", None):
+        nonce = os.urandom(12)
+        data = AESGCM(key).encrypt(nonce, json.dumps(vault.entries).encode(), aad)
+        other = dict(blob, nonce=base64.b64encode(nonce).decode(), data=base64.b64encode(data).decode())
+        vault.path.write_text(json.dumps(other), "utf-8")
+        refused = passwords.Vault(vault.path)
+        assert not refused.unlock("master") and not refused.unlocked, aad
+        # a refused file is left exactly as it was
+        assert json.loads(vault.path.read_text("utf-8")) == other
+    # one byte of the sealed data changed
+    raw = bytearray(base64.b64decode(blob["data"]))
+    raw[0] ^= 1
+    vault.path.write_text(json.dumps(dict(blob, data=base64.b64encode(bytes(raw)).decode())), "utf-8")
+    assert not passwords.Vault(vault.path).unlock("master")
+    # damaged or foreign files
+    for text in ("", "{}", "not json", json.dumps({"salt": "x", "nonce": "y", "data": "z"})):
+        vault.path.write_text(text, "utf-8")
+        assert not passwords.Vault(vault.path).unlock("master")
+    vault.path.write_text(original, "utf-8")
+    assert passwords.Vault(vault.path).unlock("master")
 
 
 @pytest.fixture
