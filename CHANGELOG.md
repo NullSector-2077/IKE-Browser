@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.1.1
+
+- **Help → About tells which video and audio formats play** (H.264, AAC,
+  HEVC, VP9, AV1, Opus, MP3) and which do not. I.K.E. ships no codec of its
+  own: what plays depends on the engine installed on the system (on Arch
+  Linux, Qt WebEngine built with the system's FFmpeg). When a video does not
+  play, About now shows whether the engine of this system can play its
+  format at all. The engine is asked once per session, when About is first
+  opened, in a blank private page that is thrown away at once; no web page is
+  involved and nothing is written to disk.
+- **Help → About shows how old the engine is**: how many Chrome versions it is
+  behind the current one (the Chrome version I.K.E. already checks once a
+  day for the fingerprinting protection).
+- Updates itself from 1.1.0 (only the browser's own files changed).
+
 ## 1.1.0
 
 A theme of I.K.E.'s own and a richer new tab page. "Follow the system" stays
