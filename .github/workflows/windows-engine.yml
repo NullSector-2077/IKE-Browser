@@ -23,6 +23,10 @@ on:
         description: "Build folder to continue from: auto (the newest kept), none, or a run id"
         required: false
         default: "auto"
+      verify_run:
+        description: "Build nothing: play the clips again with the engine that this earlier run built (run id)"
+        required: false
+        default: ""
   push:
     branches: [windows/engine]
     paths:
@@ -83,57 +87,64 @@ jobs:
           retention-days: 14
 
   stage1:
+    if: ${{ !inputs.verify_run }}
     uses: ./.github/workflows/windows-engine-stage.yml
     with:
       stage: 1
       build_tree: ${{ inputs.build_tree || 'auto' }}
   stage2:
     needs: stage1
-    if: ${{ needs.stage1.outputs.done != 'true' }}
+    if: ${{ needs.stage1.result == 'success' && needs.stage1.outputs.done != 'true' }}
     uses: ./.github/workflows/windows-engine-stage.yml
     with:
       stage: 2
   stage3:
     needs: stage2
-    if: ${{ needs.stage2.outputs.done != 'true' }}
+    if: ${{ needs.stage2.result == 'success' && needs.stage2.outputs.done != 'true' }}
     uses: ./.github/workflows/windows-engine-stage.yml
     with:
       stage: 3
   stage4:
     needs: stage3
-    if: ${{ needs.stage3.outputs.done != 'true' }}
+    if: ${{ needs.stage3.result == 'success' && needs.stage3.outputs.done != 'true' }}
     uses: ./.github/workflows/windows-engine-stage.yml
     with:
       stage: 4
   stage5:
     needs: stage4
-    if: ${{ needs.stage4.outputs.done != 'true' }}
+    if: ${{ needs.stage4.result == 'success' && needs.stage4.outputs.done != 'true' }}
     uses: ./.github/workflows/windows-engine-stage.yml
     with:
       stage: 5
   stage6:
     needs: stage5
-    if: ${{ needs.stage5.outputs.done != 'true' }}
+    if: ${{ needs.stage5.result == 'success' && needs.stage5.outputs.done != 'true' }}
     uses: ./.github/workflows/windows-engine-stage.yml
     with:
       stage: 6
   stage7:
     needs: stage6
-    if: ${{ needs.stage6.outputs.done != 'true' }}
+    if: ${{ needs.stage6.result == 'success' && needs.stage6.outputs.done != 'true' }}
     uses: ./.github/workflows/windows-engine-stage.yml
     with:
       stage: 7
 
   verify:
-    name: Play real clips with the built engine
+    name: Play real clips with the built engine (${{ matrix.os }})
     needs: [stage1, stage2, stage3, stage4, stage5, stage6, stage7]
     if: >-
-      ${{ always() && !cancelled() && (
+      ${{ always() && !cancelled() && ( inputs.verify_run ||
         needs.stage1.outputs.done == 'true' || needs.stage2.outputs.done == 'true' ||
         needs.stage3.outputs.done == 'true' || needs.stage4.outputs.done == 'true' ||
         needs.stage5.outputs.done == 'true' || needs.stage6.outputs.done == 'true' ||
         needs.stage7.outputs.done == 'true') }}
-    runs-on: windows-2022
+    # Two generations of the Windows decoders: Server 2022 is the Windows 10
+    # code base, Server 2025 the one of Windows 11 24H2.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     env:
       PYTHONUNBUFFERED: "1"
@@ -151,6 +162,8 @@ jobs:
         with:
           name: ike-qtwebengine-windows
           path: engine
+          run-id: ${{ inputs.verify_run || github.run_id }}
+          github-token: ${{ github.token }}
       - name: Unpack the engine
         shell: pwsh
         run: |
@@ -213,7 +226,7 @@ jobs:
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: engine-codec-check
+          name: engine-codec-check-${{ matrix.os }}
           path: |
             reports
             clips
