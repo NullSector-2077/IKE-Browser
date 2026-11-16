@@ -9,14 +9,11 @@ being released. It writes into dist/release-<version>/:
     beta.json, beta.json.sig          the same for the beta channel
 
 and checks every signature against the public key in data/update.json before
-it finishes. Upload these files, together with the package, the AppImage and
-the Windows files, as the assets of a new GitHub release (see docs/UPDATES.md).
+it finishes. Upload these files together with the Arch package as the assets of a new GitHub release (see docs/arch/UPDATES.md).
 
     python3 tools/make-release.py [--key ~/.ike-signing/ike-update.key]
                                   [--channels stable,beta]
 
---windows is the update archive IKE-Browser-<version>-windows-x64.zip built on
-GitHub (tools/build-windows.ps1); it is checked to hold this version.
 
 The private key is read from its file and the passphrase is asked on the
 terminal; neither is stored anywhere. Only the `cryptography` module is needed.
