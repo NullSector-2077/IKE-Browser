@@ -243,7 +243,8 @@ def test_informational_rebuilds_are_deferred_without_actionable_updates(tool, re
 
 def test_prepare_maintenance_bumps_candidate_version(tmp_path):
     root = tmp_path / "repo"
-    for rel in ("ike/__init__.py", "PKGBUILD", "README.md"):
+    for rel in ("ike/__init__.py", "PKGBUILD", "README.md", "packaging/debian/changelog",
+                "packaging/rpm/ike-browser.spec"):
         dest = root / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(ROOT / rel, dest)
@@ -264,6 +265,10 @@ def test_prepare_maintenance_bumps_candidate_version(tmp_path):
     assert "**Version 1.0.1**" in readme and "ike-browser-1.0.1-1-x86_64.pkg.tar.zst" in readme
     log = (root / "CHANGELOG.md").read_text(encoding="utf-8")
     assert log.startswith("# Changelog\n\n## 1.0.1\n") and "## 1.0.0" in log
+    deb = (root / "packaging/debian/changelog").read_text("utf-8")
+    assert deb.startswith("ike-browser (1.0.1-1) unstable;")
+    spec = (root / "packaging/rpm/ike-browser.spec").read_text("utf-8")
+    assert re.search(r"^Version: +1\.0\.1$", spec, re.M) and re.search(r"^Release: +1%\{\?dist\}$", spec, re.M)
 
     # the next day's candidate for the same release adds to the same section
     report.write_text(json.dumps({"errors": 0, "components": [{
@@ -275,3 +280,5 @@ def test_prepare_maintenance_bumps_candidate_version(tmp_path):
     assert '__version__ = "1.0.1"' in (root / "ike/__init__.py").read_text()
     log = (root / "CHANGELOG.md").read_text(encoding="utf-8")
     assert log.count("## 1.0.1") == 1 and "scriptlet changes" in log and "adblock-rust" in log
+    # one DEB entry per version
+    assert (root / "packaging/debian/changelog").read_text("utf-8").count("ike-browser (1.0.1-1)") == 1

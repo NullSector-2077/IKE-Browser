@@ -1,0 +1,28 @@
+#!/usr/bin/make -f
+# I.K.E. on Debian and Ubuntu: the system's Python, PyQt6 and Qt WebEngine;
+# the engine module needs Rust 1.88 or later (cargo on PATH; Debian 13's own
+# is older, so the build uses rustup's when the distribution's is too old).
+export DH_VERBOSE = 1
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	cargo build --release --locked --manifest-path ike-adblock/Cargo.toml \
+	    --target-dir debian/cargo-target
+	gcc $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) -o debian/ike-browser-launcher launcher/ike-browser.c
+
+override_dh_auto_install:
+	sh tools/install-linux.sh debian/ike-browser \
+	    debian/cargo-target/release/libike_adblock.so debian/ike-browser-launcher \
+	    /usr/share/doc/ike-browser /usr/share/doc/ike-browser
+
+override_dh_auto_test:
+	# the tests start the browser: run by the CI workflow, not at build time
+
+override_dh_auto_clean:
+	rm -rf debian/cargo-target debian/ike-browser-launcher
+
+# the engine module is stripped by its own release profile
+override_dh_strip:
+override_dh_dwz:

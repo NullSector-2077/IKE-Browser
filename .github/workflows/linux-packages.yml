@@ -1,0 +1,137 @@
+# The DEB (Ubuntu 26.04, Debian 13) and RPM (Fedora 43) packages of I.K.E.:
+# built in a container of each distribution from packaging/, installed with
+# the distribution's own package manager (which brings the dependencies),
+# then started and tested as installed: the engine report (versions, formats
+# declared and decoded, sandbox), `ike-browser --version`, the whole test
+# suite against /usr/lib/ike-browser, removal. The packages are kept as the
+# run's downloads; a failing step fails the job. Nothing is published.
+name: Linux packages
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: "Branch or commit to test"
+        required: false
+        type: string
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-packages-${{ inputs.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container:
+      image: ${{ matrix.image }}
+      # Chromium's sandbox cannot start inside the runner's containers; the
+      # installed package keeps it on (Help → About tells).
+      env:
+        QTWEBENGINE_DISABLE_SANDBOX: "1"
+        LANG: C.UTF-8
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: DEB - Ubuntu 26.04
+            id: ubuntu
+            image: ubuntu:26.04
+            kind: deb
+          - name: DEB - Debian 13
+            id: debian
+            image: debian:trixie
+            kind: deb
+          - name: RPM - Fedora 43
+            id: fedora
+            image: fedora:43
+            kind: rpm
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Git (for the checkout)
+        run: |
+          case "${{ matrix.id }}" in
+            ubuntu|debian) apt-get update -q && apt-get install -yq --no-install-recommends git ca-certificates ;;
+            fedora) dnf -y -q install git ;;
+          esac
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref || github.sha }}
+      - name: The distribution's packages and the packaging tools
+        run: |
+          sh tools/ci/distro-deps.sh "${{ matrix.id }}"
+          case "${{ matrix.kind }}" in
+            deb) apt-get install -yq --no-install-recommends dpkg-dev debhelper ;;
+            rpm) dnf -y -q install rpm-build ;;
+          esac
+      - name: Build the package
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.cargo/bin:$PATH"
+          cargo --version
+          mkdir -p out
+          version=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' ike/__init__.py)
+          if [ "${{ matrix.kind }}" = deb ]; then
+            rm -rf debian && cp -r packaging/debian debian
+            # -d: the engine module is built with rustup's Rust when the
+            # distribution's is older than 1.88 (Debian 13)
+            dpkg-buildpackage -us -uc -b -d
+            mv ../ike-browser_*.deb out/
+          else
+            mkdir -p rpm/SOURCES
+            git archive --format=tar.gz --prefix="ike-browser-$version/" \
+                -o "rpm/SOURCES/ike-browser-$version.tar.gz" HEAD
+            # --nodeps: Rust may come from rustup (see above)
+            rpmbuild -bb --nodeps --define "_topdir $PWD/rpm" packaging/rpm/ike-browser.spec
+            mv rpm/RPMS/x86_64/ike-browser-*.rpm out/
+          fi
+          ls -l out
+      - name: Install with the distribution's package manager
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.kind }}" = deb ]; then
+            apt-get install -yq ./out/ike-browser_*.deb
+            dpkg -L ike-browser > out/files-${{ matrix.id }}.txt
+          else
+            dnf -y install ./out/ike-browser-*.rpm
+            rpm -ql ike-browser > out/files-${{ matrix.id }}.txt
+          fi
+          if grep -E '\.(key|pem)$' out/files-${{ matrix.id }}.txt; then
+            echo "Private-key-like file in the package"; exit 1
+          fi
+          test -x /usr/bin/ike-browser
+          ike-browser --version
+      - name: Engine report (installed copy)
+        run: |
+          python3 tools/engine-report.py --app /usr/lib/ike-browser --decode tests/media \
+              --json out/engine-${{ matrix.id }}.json --markdown out/engine-${{ matrix.id }}.md
+          { echo "### ${{ matrix.name }}"; cat out/engine-${{ matrix.id }}.md; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Tests of the installed package
+        run: |
+          set -o pipefail
+          IKE_TEST_APP=/usr/lib/ike-browser python3 -m pytest -ra \
+              --junitxml=out/tests-${{ matrix.id }}.xml 2>&1 | tee out/tests-${{ matrix.id }}.log
+      - name: Remove the package
+        run: |
+          if [ "${{ matrix.kind }}" = deb ]; then apt-get remove -yq ike-browser; else dnf -y remove ike-browser; fi
+          test ! -e /usr/bin/ike-browser
+          test ! -e /usr/lib/ike-browser/ike_boot.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: package-${{ matrix.id }}
+          path: out/
+          if-no-files-found: warn
+          retention-days: 30

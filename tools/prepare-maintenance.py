@@ -50,6 +50,21 @@ def main():
 
     replace_one(root / "PKGBUILD", r'^pkgver=.*$', "pkgver=%s" % version, re.M)
     replace_one(root / "PKGBUILD", r'^pkgrel=.*$', "pkgrel=1", re.M)
+    # the DEB and RPM recipes carry the same version (tests/test_packaging.py)
+    deb = root / "packaging" / "debian" / "changelog"
+    if deb.exists():
+        import email.utils
+        old_deb = deb.read_text("utf-8")
+        entry = ("ike-browser (%s-1) unstable; urgency=medium\n\n"
+                 "  * Component maintenance; see CHANGELOG.md in /usr/share/doc/ike-browser.\n\n"
+                 " -- The I.K.E. project <noreply@github.com>  %s\n\n"
+                 % (version, email.utils.formatdate(usegmt=False)))
+        if not old_deb.startswith("ike-browser (%s-1)" % version):
+            deb.write_text(entry + old_deb, "utf-8")
+    spec = root / "packaging" / "rpm" / "ike-browser.spec"
+    if spec.exists():
+        replace_one(spec, r'^Version:(\s+).*$', r"Version:\g<1>%s" % version, re.M)
+        replace_one(spec, r'^Release:(\s+).*$', r"Release:\g<1>1%{?dist}", re.M)
     replace_one(root / "README.md", r'^\*\*Version [^\n]+',
                 "**Version %s** - see [CHANGELOG.md](CHANGELOG.md)." % version, re.M)
     replace_one(root / "README.md", r'ike-browser-[0-9]+\.[0-9]+\.[0-9]+-1-x86_64\.pkg\.tar\.zst',

@@ -1,0 +1,30 @@
+Source: ike-browser
+Section: web
+Priority: optional
+Maintainer: The I.K.E. project <noreply@github.com>
+Build-Depends: debhelper-compat (= 13), gcc, libc6-dev
+Standards-Version: 4.7.0
+Homepage: https://github.com/NullSector-2077/IKE-Browser
+Rules-Requires-Root: no
+
+Package: ike-browser
+Architecture: amd64
+Depends: ${misc:Depends}, ${shlibs:Depends},
+ python3 (>= 3.10),
+ python3-pyqt6,
+ python3-pyqt6.qtwebengine,
+ python3-pyqt6.qtwebchannel,
+ python3-pyqt6.qtsvg,
+ libqt6webenginecore6 (>= 6.8),
+ qt6-svg-plugins,
+ python3-cryptography,
+ python3-jeepney,
+ hicolor-icon-theme
+Recommends: libnotify-bin, xdg-utils
+Suggests: fonts-noto-cjk
+Description: I.K.E. - Internet Kontrol Experience, a private web browser
+ A light, independent web browser focused on privacy: no telemetry, no
+ accounts, no sponsored content, with ad blocking and fingerprinting
+ protection built in. Pages are rendered by the system's Qt WebEngine; video
+ and audio formats are the ones this system's engine can decode (I.K.E.
+ ships no codec of its own).

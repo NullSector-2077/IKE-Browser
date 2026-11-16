@@ -1,0 +1,18 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: I.K.E. - Internet Kontrol Experience
+Source: https://github.com/NullSector-2077/IKE-Browser
+
+Files: *
+Copyright: The I.K.E. project
+License: GPL-3.0-or-later
+ On Debian systems the full text is in /usr/share/common-licenses/GPL-3.
+
+Files: ike-adblock/*
+Copyright: The I.K.E. project; adblock-rust: Brave Software
+License: MPL-2.0
+ On Debian systems the full text is in /usr/share/common-licenses/MPL-2.0.
+
+Comment: The other bundled third-party components (uBlock Origin scriptlets,
+ Dark Reader, Lucide and Phosphor icons, the Orbitron lettering) and their
+ licences are listed in /usr/share/doc/ike-browser/THIRD-PARTY.md, with the
+ licence texts next to it.
