@@ -9,6 +9,7 @@ Without them everything works the same, changing at once.
 """
 
 import os
+import sys
 import time
 
 from PyQt6.QtCore import QEasingCurve, QObject, QPropertyAnimation, QRectF, Qt, QVariantAnimation
@@ -34,7 +35,11 @@ def _ini_value(path, key):
     return None
 
 
-def _desktop_reduced():
+def _desktop_reduced(platform=None):
+    if (platform or sys.platform) == "win32":
+        # Windows: Settings → Accessibility → Visual effects → Animation effects
+        from . import winapi
+        return not winapi.animations_wanted()
     base = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
     # Plasma: System Settings → Animation speed set to "Instant"
     factor = _ini_value(os.path.join(base, "kdeglobals"), "AnimationDurationFactor")

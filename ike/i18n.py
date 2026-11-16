@@ -2,6 +2,7 @@
 
 import locale
 import os
+import sys
 
 _lang = "en"
 _pack = {}          # strings of a downloaded language pack (when one is active)
@@ -85,6 +86,14 @@ def setup(choice="auto"):
             return
     code = (os.environ.get("LANGUAGE") or os.environ.get("LC_ALL")
             or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or "")
+    if not code and sys.platform == "win32":
+        # Windows has no such variables, and names its locales in words
+        # ("Italian_Italy"): Qt gives the display language as a code
+        try:
+            from PyQt6.QtCore import QLocale
+            code = (QLocale.system().uiLanguages() or [""])[0]
+        except Exception:
+            code = ""
     if not code:
         try:
             code = locale.getlocale()[0] or ""

@@ -17,6 +17,13 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
+WINDOWS = sys.platform == "win32"
+# The engine's sandbox while testing. On Linux the tests have always run
+# without it (GitHub's runners and containers cannot start it). On Windows
+# it stays on, as in a normal start; IKE_TEST_NO_SANDBOX=1 switches it off
+# for a runner that cannot start it (.github/workflows/windows.yml says
+# whether that was needed).
+SANDBOX_OFF = not WINDOWS or os.environ.get("IKE_TEST_NO_SANDBOX") == "1"
 # the copy of I.K.E. to start: this repository, or an installed one
 # (IKE_TEST_APP=/usr/lib/ike-browser python3 -m pytest)
 APP = Path(os.environ.get("IKE_TEST_APP") or ROOT)
@@ -61,6 +68,39 @@ def write_profile(cfg, data_dir, settings=None, keep=False):
     (lists / name).write_text(TEST_LIST, "utf-8")
 
 
+def engine_flags(*flags):
+    """QTWEBENGINE_CHROMIUM_FLAGS for a test that needs its own switches: the
+    sandbox switch comes first where the tests run without the sandbox."""
+    return " ".join((("--no-sandbox",) if SANDBOX_OFF else ()) + flags)
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers", "linux_only(reason): the test checks something that exists on Linux only; "
+        "on other systems it is skipped and the reason is shown in the report")
+
+
+    config.addinivalue_line(
+        "markers", "windows_only(reason): the test asks Windows itself (a named pipe, a process, the "
+        "registry); on other systems it is skipped and the reason is shown in the report")
+
+
+def pytest_collection_modifyitems(config, items):
+    """Tests marked linux_only / windows_only are skipped on the other
+    systems - always with the reason the marker gives, never silently."""
+    for item in items:
+        for name, here, label in (("linux_only", sys.platform.startswith("linux"), "Linux only: "),
+                                  ("windows_only", WINDOWS, "Windows only: ")):
+            mark = item.get_closest_marker(name)
+            if mark is None:
+                continue
+            reason = (mark.args[0] if mark.args else mark.kwargs.get("reason", "")).strip()
+            if not reason:
+                raise pytest.UsageError("%s: %s needs a reason" % (item.nodeid, name))
+            if not here:
+                item.add_marker(pytest.mark.skip(reason=label + reason))
+
+
 @pytest.fixture
 def run_ike(tmp_path):
     def run(script, settings=None, env=None, timeout=90, args=(), keep_profile=False, command=None,
@@ -87,8 +127,7 @@ def run_ike(tmp_path):
             "XDG_CACHE_HOME": str(home / ".cache"),
             "XDG_RUNTIME_DIR": str(tmp_path / "run"),
             "QT_QPA_PLATFORM": "offscreen",
-            "QTWEBENGINE_CHROMIUM_FLAGS": "--no-sandbox",
-            "QTWEBENGINE_DISABLE_SANDBOX": "1",
+            "QTWEBENGINE_CHROMIUM_FLAGS": engine_flags(),
             "LANG": "C.UTF-8",
             "IKE_NO_SINGLE": "1",
             "IKE_TEST_NOASK": "1",
@@ -96,11 +135,27 @@ def run_ike(tmp_path):
             "IKE_TEST_SCRIPT": str(script_file),
             "IKE_TEST_OUT": str(out_file),
         })
+        if SANDBOX_OFF:
+            e["QTWEBENGINE_DISABLE_SANDBOX"] = "1"
+        else:
+            e.pop("QTWEBENGINE_DISABLE_SANDBOX", None)
+        if WINDOWS:
+            # the profile is found through XDG_* as everywhere; these keep
+            # anything else that asks Windows for the user's folders away
+            # from the real ones
+            e.update({"USERPROFILE": str(home), "APPDATA": str(home / "AppData" / "Roaming"),
+                      "LOCALAPPDATA": str(home / "AppData" / "Local")})
+            for name in ("APPDATA", "LOCALAPPDATA"):
+                Path(e[name]).mkdir(parents=True, exist_ok=True)
         (tmp_path / "run").mkdir(mode=0o700, exist_ok=True)
         # no desktop bus unless a test brings its own (see desktop_bus below)
         e["DBUS_SESSION_BUS_ADDRESS"] = ""
         e.update(env or {})
         cmd = [sys.executable, str(APP / "ike_boot.py")]
+        if os.environ.get("IKE_TEST_COMMAND"):
+            # an installed copy with its own launcher (Windows: ike-browser.exe,
+            # which runs its own Python and ike_boot.py itself)
+            cmd = [os.environ["IKE_TEST_COMMAND"]]
         e.setdefault("PYTHONUTF8", "1")
         if command:
             cmd = list(command)

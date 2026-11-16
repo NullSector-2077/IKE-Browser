@@ -2,6 +2,7 @@
 """What the engine of a copy of I.K.E. is and which formats it declares.
 
     python engine-check.py [--app DIR] [--json FILE] [--expect-free-only]
+                           [--expect-sandbox] [--expect-own-python]
 
 Starts Qt WebEngine without a window, asks it the same question as
 Help → About (ike/mediacheck.py: ``canPlayType`` and Media Source support for
@@ -31,6 +32,10 @@ def main():
     ap.add_argument("--app", default=str(ROOT))
     ap.add_argument("--json")
     ap.add_argument("--expect-free-only", action="store_true")
+    ap.add_argument("--expect-sandbox", action="store_true",
+                    help="fail when the environment switches the engine's sandbox off")
+    ap.add_argument("--expect-own-python", action="store_true",
+                    help="fail unless this Python and the Qt it loads are the ones inside --app")
     args = ap.parse_args()
     sys.path.insert(0, args.app)
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -64,6 +69,8 @@ def main():
         or os.environ.get("QTWEBENGINE_DISABLE_SANDBOX", "") not in ("", "0"),
         "formats": {},
     }
+    import PyQt6
+    report["pyqt_from"] = str(Path(PyQt6.__file__).resolve().parent)
     got = []
     mediacheck.ask(None, got.append)
     give_up = QTimer(singleShot=True, interval=mediacheck.TIMEOUT_MS + 5000)
@@ -83,6 +90,15 @@ def main():
     if not report["formats"]:
         print("engine-check: the engine did not answer", file=sys.stderr)
         return 1
+    if args.expect_sandbox and report["sandbox_off_by_environment"]:
+        print("engine-check: the engine's sandbox is switched off by the environment", file=sys.stderr)
+        return 1
+    if args.expect_own_python:
+        app = Path(args.app).resolve()
+        for what in ("python_from", "pyqt_from", "ike_from"):
+            if app not in Path(report[what]).resolve().parents:
+                print("engine-check: %s is %s, outside %s" % (what, report[what], app), file=sys.stderr)
+                return 1
     if args.expect_free_only:
         f = report["formats"]
         missing = [n for n in ("VP9", "AV1", "Opus", "MP3") if not f.get(n)]

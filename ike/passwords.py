@@ -12,6 +12,7 @@ import json
 import os
 import secrets
 import string
+import sys
 import time
 
 from PyQt6.QtCore import QFile, QIODevice, QObject, Qt, QTimer, pyqtSignal, pyqtSlot
@@ -77,12 +78,20 @@ def write_private(path, text):
         os.unlink(path)                  # an older file may have other permissions
     except OSError:
         pass
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0), 0o600)
     with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
         fh.write(text)
 
 
 CLIPBOARD_SECONDS = 45
+# Windows' own way to say the same: clipboard formats that keep the text out
+# of the clipboard history (Win+V) and of the clipboard synchronised between
+# the user's devices. Qt creates a format of exactly this name from the MIME
+# type below.
+WINDOWS_MIME = 'application/x-qt-windows-mime;value="%s"'
+WINDOWS_CLIPBOARD_HINTS = (("ExcludeClipboardContentFromMonitorProcessing", b"\0\0\0\0"),
+                           ("CanIncludeInClipboardHistory", b"\0\0\0\0"),
+                           ("CanUploadToCloudClipboard", b"\0\0\0\0"))
 
 
 def copy_secret(text):
@@ -94,6 +103,9 @@ def copy_secret(text):
     data = QMimeData()
     data.setText(text)
     data.setData("x-kde-passwordManagerHint", b"secret")
+    if sys.platform == "win32":
+        for name, value in WINDOWS_CLIPBOARD_HINTS:
+            data.setData(WINDOWS_MIME % name, value)
     clipboard.setMimeData(data)
 
     def clear():

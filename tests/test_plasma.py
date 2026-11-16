@@ -36,6 +36,11 @@ SONG = (b"<!doctype html><title>Song page</title><audio id=a loop></audio><scrip
 SIZE = 200 * 1024
 
 
+DBUS_ONLY = pytest.mark.linux_only("desktop integration through D-Bus (Plasma's media widget, KRunner, "
+                                   "notifications with progress, KDE Connect): none of it exists on Windows, where "
+                                   "it stays off (test_without_desktop_bus runs everywhere)")
+
+
 @pytest.fixture
 def site():
     tone = _tone()
@@ -93,6 +98,7 @@ def js(view, code, res):
 """
 
 
+@DBUS_ONLY
 def test_media_controls(run_ike, site, desktop_bus):
     address, _log, _f = desktop_bus
     out = run_ike(GDBUS + """
@@ -143,6 +149,7 @@ def steps(ike, qapp, out):
     assert "false" in out["after_close"]
 
 
+@DBUS_ONLY
 def test_media_switched_off_and_private(run_ike, site, desktop_bus):
     address, _log, _f = desktop_bus
     out = run_ike("""
@@ -161,6 +168,7 @@ def test_media_switched_off_and_private(run_ike, site, desktop_bus):
     assert out["off"] is False and out["private"] is False
 
 
+@DBUS_ONLY
 def test_krunner(run_ike, site, desktop_bus, tmp_path):
     address, _log, _f = desktop_bus
     out = run_ike(GDBUS + """
@@ -209,6 +217,7 @@ def steps(ike, qapp, out):
     assert out["file_after_off"] is False and out["owned_after_off"] is False
 
 
+@DBUS_ONLY
 def test_downloads_in_notifications(run_ike, site, desktop_bus, tmp_path):
     address, log, logfile = desktop_bus
     out = run_ike("""
@@ -253,6 +262,7 @@ def test_downloads_in_notifications(run_ike, site, desktop_bus, tmp_path):
     assert ends["/org/kde/notificationmanager/jobs/JobView_2"][0] == 1
 
 
+@DBUS_ONLY
 def test_send_to_phone(run_ike, site, desktop_bus):
     address, log, _f = desktop_bus
     out = run_ike("""
@@ -287,6 +297,7 @@ def test_send_to_phone(run_ike, site, desktop_bus):
     assert out["menu_off"] == 0
 
 
+@DBUS_ONLY
 def test_screen_stays_on_through_the_engine(run_ike, site, desktop_bus, tmp_path):
     """Qt WebEngine asks the desktop to keep the screen on while a video plays."""
     import shutil

@@ -841,6 +841,7 @@
 "Video and audio formats: checking…": "動画と音声の形式：確認中…",
 "Video and audio formats: the engine did not answer": "動画と音声の形式：エンジンが応答しませんでした",
 "Plays: %s": "再生可能：%s",
-"Does not play: %s — this depends on the engine installed on this system; videos offered only in these formats will not play": "再生不可：%s — このシステムにインストールされたエンジンによります。これらの形式でのみ提供される動画は再生されません"
+"Does not play: %s — this depends on the engine installed on this system; videos offered only in these formats will not play": "再生不可：%s — このシステムにインストールされたエンジンによります。これらの形式でのみ提供される動画は再生されません",
+"Windows lets only you choose the default browser: in the settings window that has just opened, choose I.K.E. and set it as the default.": "Windows では既定のブラウザーを選べるのはユーザー自身だけです。いま開いた設定ウィンドウで I.K.E. を選び、既定に設定してください。"
 }
 }

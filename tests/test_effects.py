@@ -12,6 +12,32 @@ import pytest
 SHOTS = os.environ.get("IKE_TEST_SHOTS", "")
 
 
+def test_reduced_motion_on_windows(monkeypatch):
+    """Windows: the answer is Windows' own "Animation effects" switch
+    (SPI_GETCLIENTAREAANIMATION), not a settings file; the override of the
+    tests and the user's own switch work as everywhere."""
+    from ike import effects, winapi
+    monkeypatch.delenv("IKE_REDUCED_MOTION", raising=False)
+    asked = []
+    for wanted in (True, False):
+        monkeypatch.setattr(winapi, "animations_wanted", lambda wanted=wanted: asked.append(1) or wanted,
+                            raising=False)
+        assert effects._desktop_reduced("win32") is (not wanted)
+    assert len(asked) == 2
+    assert winapi.SPI_GETCLIENTAREAANIMATION == 0x1042
+    if os.name == "nt":                          # the real question, where there is a Windows to ask
+        monkeypatch.undo()
+        monkeypatch.delenv("IKE_REDUCED_MOTION", raising=False)
+        effects._checked["at"] = -1e9
+        assert effects.reduced_motion() is (not winapi.animations_wanted())
+    monkeypatch.setenv("IKE_REDUCED_MOTION", "1")
+    assert effects.reduced_motion() is True and effects.on({"ui_effects": True}) is False
+    monkeypatch.setenv("IKE_REDUCED_MOTION", "0")
+    assert effects.on({"ui_effects": True}) is True and effects.on({"ui_effects": False}) is False
+
+
+@pytest.mark.linux_only("reads Plasma's kdeglobals and GTK's settings.ini; on Windows the answer comes "
+                        "from Windows itself (test_reduced_motion_on_windows)")
 def test_reduced_motion_is_read_from_the_desktop(tmp_path, monkeypatch):
     from ike import effects
     monkeypatch.delenv("IKE_REDUCED_MOTION", raising=False)

@@ -881,6 +881,10 @@ def _wait_for_previous():
     pid = os.environ.pop("IKE_WAIT_PID", "")
     if not pid.isdigit():
         return
+    if sys.platform == "win32":
+        from . import winapi
+        winapi.wait_for_exit(int(pid), 10)
+        return
     for _ in range(100):
         if not os.path.exists("/proc/%s" % pid):
             return
@@ -919,7 +923,7 @@ def _keep_running_after_errors():
     sys.excepthook = hook
 
 
-def instance_addresses():
+def instance_addresses(platform=None):
     """Where the running browser of this user and profile listens for the
     addresses a second start hands over: [(address, checked)].
 
@@ -927,6 +931,11 @@ def instance_addresses():
     enter. Then the name in the shared temporary folder that earlier versions
     used, which is only trusted when the socket there belongs to this user:
     anybody may create a file with that name there."""
+    if (platform or sys.platform) == "win32":
+        # Windows: a named pipe, whose name carries the user's identifier.
+        # Whose pipe it is can only be asked once connected (pipe_is_ours).
+        from . import winapi
+        return [(winapi.instance_name(APP_ID, winapi.user_sid(), PROFILE), True)]
     import tempfile
     uid = os.getuid() if hasattr(os, "getuid") else "u"
     name = "%s-%s-%s" % (APP_ID, uid, PROFILE)
@@ -949,6 +958,19 @@ def instance_addresses():
         except OSError:
             return False
     return [(a, own(a)) for a in found]
+
+
+def pipe_is_ours(sock, platform=None):
+    """Windows: is the pipe a second start has connected to the one of this
+    user's own browser? (On Linux the socket's owner is checked before
+    connecting, in instance_addresses.)"""
+    if (platform or sys.platform) != "win32":
+        return True
+    from . import winapi
+    try:
+        return winapi.owned_by_user(int(sock.socketDescriptor())) is True
+    except Exception:
+        return False                     # whatever went wrong: not known to be ours
 
 
 def handed_over(data):
@@ -987,6 +1009,10 @@ def main(argv=None):
     from .shields import register_scheme
     register_scheme()
 
+    if sys.platform == "win32":
+        from . import winapi
+        winapi.set_app_id()              # before the first window: one task-bar button
+        winapi.mark_running()            # the installer asks to close I.K.E. before it changes files
     qapp = QApplication([sys.argv[0]] + qt_args)
     qapp.setApplicationName(APP_ID)
     qapp.setApplicationDisplayName(APP_NAME if PROFILE == "default"
@@ -1007,6 +1033,9 @@ def main(argv=None):
             sock = QLocalSocket()
             sock.connectToServer(address)
             if sock.waitForConnected(300):
+                if not pipe_is_ours(sock):
+                    sock.abort()          # a pipe of somebody else under our name: tell it nothing
+                    continue
                 sock.write(json.dumps({"urls": urls, "private": args.private}).encode())
                 sock.waitForBytesWritten(1000)
                 sock.disconnectFromServer()
@@ -1074,5 +1103,8 @@ def main(argv=None):
         boot = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ike_boot.py")
         env = dict(os.environ, IKE_WAIT_PID=str(os.getpid()))
         cmd = [sys.executable, boot] + (["--profile", args.profile] if args.profile else [])
+        if sys.platform == "win32":
+            from .updater import boot_command
+            cmd = boot_command() + cmd[2:]          # the installed launcher starts ike_boot.py itself
         subprocess.Popen(cmd, env=env, start_new_session=True, stdin=subprocess.DEVNULL)
     return code

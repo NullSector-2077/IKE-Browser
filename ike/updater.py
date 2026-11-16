@@ -4,6 +4,11 @@ install in the user's data folder, confirmation of a healthy start.
 Nothing under /usr and no system package is touched: the engine (Qt) stays
 under the control of the package manager. The bootstrap (ike_boot.py) decides
 at start-up which verified copy to run and rolls back a copy that fails.
+
+On Windows it is the same: nothing in the installation folder is touched (a
+running program's files cannot be replaced there), the new ike/ folder is
+unpacked next to the user's data and used from the next start; the engine
+comes with the installer.
 """
 
 import base64
@@ -29,6 +34,7 @@ from .osinfo import app_dir
 UPDATES = app_dir("data") / "updates"
 STATE = UPDATES / "state.json"
 MAX_PAYLOAD = 20 * 1024 * 1024
+LAUNCHER = "ike-browser.exe"         # Windows: the program the installer puts next to ike_boot.py
 
 
 def vtuple(v):
@@ -39,9 +45,21 @@ def system_dir():
     return Path(os.environ.get("IKE_SYSTEM_DIR") or Path(__file__).resolve().parent.parent)
 
 
+def runs_in_launcher(platform=None, executable=None):
+    """The installed copy on Windows: I.K.E. runs inside its own launcher
+    (ike-browser.exe), which is not a Python to hand a script to - it runs
+    ike_boot.py itself and passes its arguments on."""
+    if (platform or sys.platform) != "win32":
+        return False
+    import ntpath
+    return ntpath.basename(executable or sys.executable or "").lower() == LAUNCHER
+
+
 def boot_command():
     """Command that starts I.K.E. again (used for self-tests and profiles)."""
     boot = system_dir() / "ike_boot.py"
+    if runs_in_launcher():
+        return [sys.executable]
     if boot.exists():
         return [sys.executable, str(boot)]
     return [sys.executable, "-m", "ike"]
@@ -134,6 +152,23 @@ def safe_extract(payload, target):
                     shutil.copyfileobj(src, out)
 
 
+def _move_into_place(staging, final, tries=None, wait=0.5):
+    """Give the checked folder its final name. On Windows a folder cannot be
+    renamed while another program still holds a file in it - the virus
+    scanner looking at the files just written, usually for a moment - so the
+    rename is tried again a few times there before giving up."""
+    tries = tries or (10 if sys.platform == "win32" else 1)
+    for attempt in range(tries):
+        try:
+            staging.replace(final)
+            return
+        except PermissionError:
+            if attempt == tries - 1:
+                raise
+            time.sleep(wait)
+            shutil.rmtree(final, ignore_errors=True)
+
+
 def stage(manifest, payload):
     """Verify, unpack, self-test and register a downloaded version."""
     version = manifest["version"]
@@ -155,7 +190,7 @@ def stage(manifest, payload):
             raise ValueError("self-test failed: %s" % (res.stderr.strip()[-300:] or res.stdout[-200:]))
         final = versions / version
         shutil.rmtree(final, ignore_errors=True)
-        staging.replace(final)
+        _move_into_place(staging, final)
     except Exception:
         shutil.rmtree(staging, ignore_errors=True)
         raise

@@ -14,8 +14,21 @@ import sys
 from pathlib import Path
 
 SYSTEM_DIR = Path(__file__).resolve().parent
-_DATA = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local/share")
-UPDATES = _DATA / "ike-browser" / "updates"
+
+
+def data_dir():
+    """I.K.E.'s data folder, as ike/osinfo.py computes it (this file cannot
+    import ike/: it is what chooses which ike/ to load)."""
+    if os.environ.get("XDG_DATA_HOME"):
+        return Path(os.environ["XDG_DATA_HOME"]) / "ike-browser"
+    if sys.platform == "win32":
+        base = os.environ.get("LOCALAPPDATA") or ""
+        root = Path(base) if os.path.isabs(base) else Path.home() / "AppData/Local"
+        return root / "ike-browser" / "data"
+    return Path.home() / ".local/share" / "ike-browser"
+
+
+UPDATES = data_dir() / "updates"
 STATE = UPDATES / "state.json"
 
 

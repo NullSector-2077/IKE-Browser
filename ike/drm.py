@@ -6,6 +6,9 @@ the copy of another browser either. With the user's consent it downloads the
 module from Google's own server into I.K.E.'s data folder (no administrator
 rights needed), checks it and uses it from there. A copy installed by a
 distribution package is used when there is no copy of I.K.E.'s own.
+
+On Windows the same is done with Google's archive for Windows (the module is
+widevinecdm.dll, checked to be a whole 64-bit x86-64 DLL before it is kept).
 """
 
 import io
@@ -13,6 +16,7 @@ import json
 import os
 import shutil
 import struct
+import sys
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -22,16 +26,25 @@ from PyQt6.QtCore import QThread, pyqtSignal
 from .config import DATA_DIR
 
 OWN_DIR = DATA_DIR / "WidevineCdm"
-LIB_NAME, PLATFORM_DIR, ZIP_SUFFIX = "libwidevinecdm.so", "linux_x64", "linux-x64"
+WINDOWS = sys.platform == "win32"
+if WINDOWS:
+    # Google's archive for Windows holds the module as a DLL, with a signature
+    # file the module itself wants next to it.
+    LIB_NAME, PLATFORM_DIR, ZIP_SUFFIX = "widevinecdm.dll", "win_x64", "win-x64"
+    EXTRA_FILES = ("widevinecdm.dll.sig",)
+    SYSTEM_LIBS = ()                 # there is no system copy, and never another browser's
+else:
+    LIB_NAME, PLATFORM_DIR, ZIP_SUFFIX = "libwidevinecdm.so", "linux_x64", "linux-x64"
+    EXTRA_FILES = ()
+    # copies installed by a distribution / AUR package (never another browser's)
+    SYSTEM_LIBS = (
+        "/usr/lib/chromium/WidevineCdm/_platform_specific/linux_x64/" + LIB_NAME,
+        "/usr/lib/chromium/" + LIB_NAME,
+        "/usr/lib/chromium-widevine/" + LIB_NAME,
+        "/opt/WidevineCdm/_platform_specific/linux_x64/" + LIB_NAME,
+        "/usr/lib/widevine/" + LIB_NAME,
+    )
 OWN_LIB = OWN_DIR / "_platform_specific" / PLATFORM_DIR / LIB_NAME
-# copies installed by a distribution / AUR package (never another browser's)
-SYSTEM_LIBS = (
-    "/usr/lib/chromium/WidevineCdm/_platform_specific/linux_x64/" + LIB_NAME,
-    "/usr/lib/chromium/" + LIB_NAME,
-    "/usr/lib/chromium-widevine/" + LIB_NAME,
-    "/opt/WidevineCdm/_platform_specific/linux_x64/" + LIB_NAME,
-    "/usr/lib/widevine/" + LIB_NAME,
-)
 SOURCE = "https://dl.google.com/widevine-cdm/"
 VERSIONS_URL = SOURCE + "versions.txt"
 # tried, newest first, when the version list cannot be read
@@ -74,8 +87,12 @@ def library_path():
     return status()["path"] or None
 
 
-def check_library(data):
-    """Raise DrmError unless data is a 64-bit x86-64 Linux shared library."""
+def check_library(data, windows=None):
+    """Raise DrmError unless data is the kind of module this system loads: a
+    64-bit x86-64 Linux shared library, on Windows a 64-bit x86-64 DLL.
+    (`windows` chooses the kind for the automatic tests.)"""
+    if WINDOWS if windows is None else windows:
+        return check_pe(data)
     if len(data) < 64 or data[:4] != b"\x7fELF":
         raise DrmError("the module is not a Linux library")
     if data[4] != 2 or data[5] != 1:
@@ -85,6 +102,53 @@ def check_library(data):
         raise DrmError("the module is not built for this kind of computer (x86-64)")
     if len(data) > MAX_LIB:
         raise DrmError("the module is unexpectedly large")
+
+
+_PE_MACHINE_AMD64 = 0x8664
+_PE_EXECUTABLE, _PE_DLL = 0x0002, 0x2000
+_PE32_PLUS = 0x20B
+
+
+def check_pe(data):
+    """Raise DrmError unless data is a 64-bit x86-64 Windows DLL whose headers
+    and sections all lie inside the file (a cut download, another kind of
+    program or a file made to mislead is refused before Windows sees it).
+
+    Only the fixed parts of the format are read, each after its bounds were
+    checked: nothing in the file can make this read outside it."""
+    size = len(data)
+    if size > MAX_LIB:
+        raise DrmError("the module is unexpectedly large")
+    if size < 0x40 or data[:2] != b"MZ":
+        raise DrmError("the module is not a Windows library")
+    (pe_at,) = struct.unpack_from("<I", data, 0x3C)
+    # signature (4) + file header (20) + the start of the optional header (2)
+    if pe_at < 0x40 or pe_at > size - 26:
+        raise DrmError("the module is damaged (its header points outside the file)")
+    if data[pe_at:pe_at + 4] != b"PE\0\0":
+        raise DrmError("the module is not a Windows library")
+    machine, sections, _time, _symbols, _nsymbols, optional_size, flags = struct.unpack_from(
+        "<HHIIIHH", data, pe_at + 4)
+    if machine != _PE_MACHINE_AMD64:
+        raise DrmError("the module is not built for this kind of computer (x86-64)")
+    if not flags & _PE_EXECUTABLE or not flags & _PE_DLL:
+        raise DrmError("the module is not a library (DLL)")
+    optional_at = pe_at + 24
+    (magic,) = struct.unpack_from("<H", data, optional_at)
+    if magic != _PE32_PLUS:
+        raise DrmError("the module is not a 64-bit library")
+    # a 64-bit optional header is 112 bytes plus its data directories
+    if optional_size < 112 or optional_at + optional_size > size:
+        raise DrmError("the module is damaged (header cut short)")
+    if not 1 <= sections <= 96:
+        raise DrmError("the module is damaged (impossible number of sections)")
+    table_at = optional_at + optional_size
+    if table_at + 40 * sections > size:
+        raise DrmError("the module is damaged (section table cut short)")
+    for i in range(sections):
+        raw_size, raw_at = struct.unpack_from("<II", data, table_at + 40 * i + 16)
+        if raw_size and (raw_at < table_at + 40 * sections or raw_at + raw_size > size):
+            raise DrmError("the module is incomplete (a section lies outside the file)")
 
 
 def install_from_zip(data, expect_version=None):
@@ -102,7 +166,7 @@ def install_from_zip(data, expect_version=None):
     files = {}
     for info in archive.infolist():
         name = info.filename.rsplit("/", 1)[-1]
-        if name in (LIB_NAME, "manifest.json", "LICENSE.txt", "LICENSE") and name not in files:
+        if name in (LIB_NAME, "manifest.json", "LICENSE.txt", "LICENSE") + EXTRA_FILES and name not in files:
             if info.file_size > MAX_LIB:
                 raise DrmError("the archive holds an unexpectedly large file")
             files[name] = archive.read(info)
@@ -128,14 +192,25 @@ def install_from_zip(data, expect_version=None):
     lib_dir.mkdir(parents=True)
     (lib_dir / LIB_NAME).write_bytes(files[LIB_NAME])
     os.chmod(lib_dir / LIB_NAME, 0o755)
+    for name in EXTRA_FILES:
+        if name in files:
+            (lib_dir / name).write_bytes(files[name])
     (new / "manifest.json").write_bytes(files["manifest.json"])
     licence = files.get("LICENSE.txt") or files.get("LICENSE")
     if licence:
         (new / "LICENSE.txt").write_bytes(licence)
     shutil.rmtree(old, ignore_errors=True)
-    if OWN_DIR.exists():
-        OWN_DIR.rename(old)
-    new.rename(OWN_DIR)
+    try:
+        if OWN_DIR.exists():
+            OWN_DIR.rename(old)
+        new.rename(OWN_DIR)
+    except OSError:
+        if not WINDOWS:
+            raise
+        # Windows does not let go of a module that is loaded
+        shutil.rmtree(new, ignore_errors=True)
+        raise DrmError("the copy in use could not be replaced: close I.K.E. completely, "
+                       "start it again and install Widevine before opening a protected video")
     shutil.rmtree(old, ignore_errors=True)
     return version
 

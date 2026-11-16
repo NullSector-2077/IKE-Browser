@@ -1,5 +1,6 @@
 """Settings, history, bookmarks, downloads and clear-data dialogs."""
 
+import sys
 import time
 from pathlib import Path
 
@@ -188,6 +189,12 @@ class SettingsDialog(QDialog):
             c = QCheckBox(label)
             c.setChecked(bool(self.cfg[key]))
             self.di[key] = c
+            if sys.platform == "win32":
+                # Plasma, KRunner and KDE Connect are reached through D-Bus, which Windows
+                # does not have: the choices are kept as they are, and not shown
+                c.setParent(w)
+                c.hide()
+                continue
             f.addRow(T("Desktop integration") if i == 0 else "", _wrapping(c) if i == 0 else c)
         return w
 
@@ -223,6 +230,16 @@ class SettingsDialog(QDialog):
 
     def _make_default(self):
         import subprocess
+        if sys.platform == "win32":
+            # Windows lets only the user choose: open its own page for it
+            if QDesktopServices.openUrl(QUrl("ms-settings:defaultapps")):
+                QMessageBox.information(self, "I.K.E.", T(
+                    "Windows lets only you choose the default browser: in the settings window "
+                    "that has just opened, choose I.K.E. and set it as the default."))
+            else:
+                QMessageBox.warning(self, "I.K.E.", T(
+                    "Could not change the default browser. Set it in System Settings → Default Applications."))
+            return
         try:
             subprocess.run(["xdg-settings", "set", "default-web-browser", "ike-browser.desktop"],
                            check=True, timeout=10)

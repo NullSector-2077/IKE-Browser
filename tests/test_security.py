@@ -145,8 +145,18 @@ def test_reach_of_a_local_page(tmp_path):
     assert not reach(str(tmp_path / "downloads/.html"), str(tmp_path / "downloads/_files/x"), shared)
     from ike.shields import shared_folders
     folders = shared_folders((str(tmp_path / "downloads"),))
-    assert os.path.realpath(os.path.expanduser("~")) in folders and "/tmp" in folders and "/" in folders
-    assert str(tmp_path / "downloads") in folders
+    assert os.path.normcase(os.path.realpath(os.path.expanduser("~"))) in folders
+    if os.name == "nt":
+        import tempfile
+        assert os.path.normcase(os.path.realpath(tempfile.gettempdir())) in folders
+        # the top of a drive holds everybody's files: only "<name>_files" there
+        top = os.path.splitdrive(os.path.realpath(str(tmp_path)))[0] + os.sep
+        assert not reach(top + "page.html", top + "other.html")
+        assert reach(top + "page.html", top + "page_files" + os.sep + "part.html")
+        assert reach(str(tmp_path / "SITE" / "Page.html"), str(tmp_path / "site" / "own" / "inner.html"))
+    else:
+        assert "/tmp" in folders and "/" in folders
+    assert os.path.normcase(str(tmp_path / "downloads")) in folders
 
 
 def test_a_local_page_cannot_read_other_files(run_ike, tmp_path):
@@ -419,6 +429,8 @@ def test_hand_over_message_is_checked():
         assert handed_over(bad) is None, bad
 
 
+@pytest.mark.linux_only("the Unix socket of the single instance, its owner and its mode; on Windows the "
+                        "instance listens on a named pipe (test_instance_pipe_on_windows)")
 def test_instance_socket_is_private_to_the_user(run_ike, tmp_path, monkeypatch):
     import shutil
     import tempfile
@@ -484,6 +496,8 @@ def steps(ike, qapp, out):
 # ----------------------------------------------------------------------
 # small things
 # ----------------------------------------------------------------------
+@pytest.mark.linux_only("notifications through notify-send; on Windows they go through Qt "
+                        "(test_notification_text_on_windows)")
 def test_notification_text_cannot_become_an_option(tmp_path, monkeypatch):
     from ike import osinfo
     log = tmp_path / "argv.json"
@@ -1044,6 +1058,22 @@ def steps(ike, qapp, out):
     assert sorted(p.name for p in folder.iterdir()) == sorted(Path(p).name for p in out["paths"])
 
 
+def test_password_files_are_written_as_given(tmp_path):
+    """On every system: an older file is replaced, and the text arrives
+    byte for byte (no line-end translation, UTF-8)."""
+    from ike import passwords
+    target = tmp_path / "export.csv"
+    target.write_text("older file")
+    text = "url,username,password\r\nhttps://a.example,mé,sécret\nlast"
+    passwords.write_private(target, text)
+    assert target.read_bytes() == text.encode("utf-8")
+    vault = passwords.Vault(tmp_path / "vault.bin")
+    vault.create("master")
+    assert (tmp_path / "vault.bin").stat().st_size > 0
+
+
+@pytest.mark.linux_only("file modes (0600 from the first byte); on Windows a file takes its access list from "
+                        "the user's own profile folder and has no such mode")
 def test_password_files_are_private_from_the_start(tmp_path):
     from ike import passwords
     old = os.umask(0)                     # the most permissive creation mask there is

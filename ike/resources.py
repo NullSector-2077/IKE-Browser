@@ -1,7 +1,9 @@
 """Per-site resources: memory, CPU and network of each site, and optional limits.
 
 Memory and CPU come from the page's renderer process (``/proc/<pid>`` on
-Linux: proportional memory from ``smaps_rollup`` and CPU time from ``stat``);
+Linux: proportional memory from ``smaps_rollup`` and CPU time from ``stat``;
+on Windows the process's private memory and CPU time, asked from Windows
+itself in ike/winapi.py);
 tabs of the same site share their numbers when they share a process. Network
 is the number of requests made for the site (counted by the shield) and the
 data the page reports through its own resource timing, so some third-party
@@ -18,6 +20,7 @@ touched. Qt WebEngine offers no way to cap CPU or network use itself.
 """
 
 import os
+import sys
 import time
 
 from PyQt6.QtCore import QObject, Qt, QTimer
@@ -43,7 +46,11 @@ from .shields import site_of
 _WORLD = QWebEngineScript.ScriptWorldId.ApplicationWorld   # unseen by the page
 CHECK_MS = 5000
 CPU_STRIKES = 3
-_TICKS = os.sysconf("SC_CLK_TCK")
+if sys.platform == "win32":
+    from . import winapi
+    _TICKS = winapi.TICKS_PER_SECOND
+else:
+    _TICKS = os.sysconf("SC_CLK_TCK")
 
 _NET_JS = r"""(function () {
   try {
@@ -56,7 +63,10 @@ _NET_JS = r"""(function () {
 
 
 def proc_memory(pid):
-    """Memory of a process in bytes (proportional set size), or None."""
+    """Memory of a process in bytes (proportional set size; on Windows its
+    private memory), or None."""
+    if sys.platform == "win32":
+        return winapi.process_memory(pid)
     try:
         with open("/proc/%d/smaps_rollup" % pid, encoding="ascii") as f:
             for line in f:
@@ -76,6 +86,8 @@ def proc_memory(pid):
 
 def proc_cpu_ticks(pid):
     """User + system CPU time of a process in clock ticks, or None."""
+    if sys.platform == "win32":
+        return winapi.process_cpu_ticks(pid)
     try:
         with open("/proc/%d/stat" % pid, encoding="ascii") as f:
             data = f.read()

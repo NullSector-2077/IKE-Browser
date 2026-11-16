@@ -3,6 +3,7 @@
 import json
 import os
 import secrets
+import sys
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from PyQt6.QtCore import QBuffer, QByteArray, QIODevice, QObject, QUrl, pyqtSignal
@@ -82,13 +83,17 @@ def shared_folders(extra=()):
         from PyQt6.QtCore import QStandardPaths
         L = QStandardPaths.StandardLocation
         found = {os.path.realpath(os.path.expanduser("~")), "/", "/tmp", "/var/tmp", "/dev/shm"}
+        if sys.platform == "win32":
+            # "/tmp" means nothing there; the temporary folder comes from Qt below
+            found = {os.path.realpath(os.path.expanduser("~"))}
         for loc in (L.HomeLocation, L.DesktopLocation, L.DocumentsLocation, L.DownloadLocation,
                     L.MusicLocation, L.MoviesLocation, L.PicturesLocation, L.TempLocation):
             for path in QStandardPaths.standardLocations(loc):
                 if path:
                     found.add(os.path.realpath(path))
-        _shared_folders = found
-    return _shared_folders | {os.path.realpath(p) for p in extra if p}
+        # (normcase changes nothing on Linux; Windows does not tell A from a)
+        _shared_folders = {os.path.normcase(p) for p in found}
+    return _shared_folders | {os.path.normcase(os.path.realpath(p)) for p in extra if p}
 
 
 def local_file_in_reach(page, target, shared=()):
@@ -99,10 +104,14 @@ def local_file_in_reach(page, target, shared=()):
         if not page or not target or "\0" in page or "\0" in target:
             return False
         page, target = os.path.realpath(page), os.path.realpath(target)
+        if sys.platform == "win32":
+            page, target = os.path.normcase(page), os.path.normcase(target)
+            shared = {os.path.normcase(folder) for folder in shared}
     except (OSError, ValueError):
         return False
     folder = os.path.dirname(page)
-    if folder in shared:
+    # the top of a drive (C:\, D:\ - "/" on Linux is in the list already) is shared too
+    if folder in shared or (sys.platform == "win32" and os.path.dirname(folder) == folder):
         stem = os.path.splitext(os.path.basename(page))[0]
         if not stem:
             return False

@@ -16,7 +16,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
-from conftest import needs_engine
+from conftest import engine_flags, needs_engine
 
 from ike.osinfo import identity
 
@@ -180,7 +180,7 @@ def steps(ike, qapp, out):
 @pytest.mark.parametrize("level", ["balanced", "maximum"])
 def test_scriptlets_do_not_change_fingerprint(run_ike, site, level):
     # software WebGL, so the WebGL values are measured too
-    flags = "--no-sandbox --enable-unsafe-swiftshader --use-angle=swiftshader --ignore-gpu-blocklist"
+    flags = engine_flags("--enable-unsafe-swiftshader", "--use-angle=swiftshader", "--ignore-gpu-blocklist")
     out = run_ike("URL = %r\nSCRIPTLETS = %r\n" % (site, SCRIPTLETS) + STEPS,
                   settings={"shield_level": level}, env={"QTWEBENGINE_CHROMIUM_FLAGS": flags}, timeout=120)
     plain, again, with_scriptlets = out["plain"], out["plain_again"], out["scriptlets"]
@@ -202,14 +202,21 @@ def test_scriptlets_do_not_change_fingerprint(run_ike, site, level):
         assert with_scriptlets["natives"][name] == [native, fname, length], ("changed by the scriptlets", name)
     # the protection is really on: the graphics card is not the real one
     assert "SwiftShader" not in json.dumps(plain["webgl"])
-    # the system named to sites is Linux,
+    # the system named to sites is the one I.K.E. runs on (Linux, or Windows),
     # the same in the request header, in scripts, in Client Hints and workers
     ident = identity()
+    windows = ident["os"] == "windows"
+    assert ident["os"] == ("windows" if os.name == "nt" else "linux")
     nav = plain["navigator"]
     assert ident["ua_os"] in nav[0], nav[0]
-    assert nav[2] == "Linux x86_64", nav[2]
-    assert plain["hints"][2] == ident["platform"]
+    assert ("Windows NT 10.0; Win64; x64" in nav[0]) == windows and ("X11; Linux x86_64" in nav[0]) != windows
+    assert nav[2] == ident["navigator_platform"] == ("Win32" if windows else "Linux x86_64"), nav[2]
+    assert plain["hints"][2] == ident["platform"] == ("Windows" if windows else "Linux")
     assert json.loads(plain["hints"][3])["platformVersion"] == ident["platform_version"]
     assert plain["worker"][0] == nav[0] and plain["frame"][1] == nav[0]
+    assert plain["worker"][1] == nav[2], plain["worker"]
     if level == "balanced":                 # Maximum hides the graphics card's name
-        assert "Direct3D11" not in plain["webgl"][3], plain["webgl"]
+        # a card as Chrome names it on this system: through Direct3D on
+        # Windows, through Mesa or OpenGL on Linux - never the other one
+        assert ("Direct3D11" in plain["webgl"][3]) == windows, plain["webgl"]
+        assert ("OpenGL" in plain["webgl"][3]) != windows, plain["webgl"]
