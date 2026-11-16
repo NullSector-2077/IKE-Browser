@@ -223,7 +223,7 @@ class ImportDialog(QDialog):
 
 
 # --- backup -------------------------------------------------------------
-BACKUP_FILES = (("settings.json", CONFIG_DIR), ("ice.sqlite", DATA_DIR), ("vault.bin", DATA_DIR))
+BACKUP_FILES = (("settings.json", CONFIG_DIR), ("ike.sqlite", DATA_DIR), ("vault.bin", DATA_DIR))
 
 
 def make_backup(target, storage=None):
