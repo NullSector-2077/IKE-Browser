@@ -30,6 +30,8 @@ jobs:
           persist-credentials: false
       - name: Update the maintenance branch with main
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin main
           if git ls-remote --exit-code --heads origin automation/daily-maintenance >/dev/null 2>&1; then
             git fetch origin automation/daily-maintenance
