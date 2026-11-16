@@ -12,6 +12,33 @@ makepkg -si
 The PKGBUILD takes the sources from the clone, compiles the AdBlock engine and
 the launcher, and installs everything under `/usr`.
 
+## Packages for other distributions (not released yet)
+
+The DEB (Ubuntu 26.04, Debian 13) and RPM (Fedora 43) packages are built and
+tested by the "Linux packages" workflow and kept as downloads of each run;
+they are not published. By hand, from a clone (Rust 1.88 or later on the
+path, e.g. from rustup):
+
+```bash
+# Debian / Ubuntu
+sudo apt install dpkg-dev debhelper python3-pyqt6 python3-pyqt6.qtwebengine \
+    python3-pyqt6.qtsvg python3-pyqt6.qtwebchannel python3-cryptography python3-jeepney
+cp -r packaging/debian debian && dpkg-buildpackage -us -uc -b -d
+sudo apt install ../ike-browser_*.deb
+
+# Fedora
+sudo dnf install rpm-build gcc python3-pyqt6 python3-pyqt6-webengine qt6-qtwebengine \
+    qt6-qtsvg qt6-qtwebchannel python3-cryptography python3-jeepney
+v=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' ike/__init__.py)
+mkdir -p rpm/SOURCES && git archive --prefix="ike-browser-$v/" -o "rpm/SOURCES/ike-browser-$v.tar.gz" HEAD
+rpmbuild -bb --nodeps --define "_topdir $PWD/rpm" packaging/rpm/ike-browser.spec
+sudo dnf install rpm/RPMS/x86_64/ike-browser-*.rpm
+```
+
+Both install the same files as the Arch package (`tools/install-linux.sh`)
+and use the distribution's own Qt WebEngine: video plays as that engine can
+decode it (see docs/platforms/linux.md, "Measured on each distribution").
+
 ## I.K.E. AdBlock Engine
 
 `ike-adblock/` is a native Python module (PyO3, stable `abi3` interface,

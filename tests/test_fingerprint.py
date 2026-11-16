@@ -164,8 +164,29 @@ def measure(v, url, out, key):
         yield 50
     out[key] = None
 
+def webgl_ready(v, out):
+    """Software WebGL can need a few seconds after the start (the GPU process
+    and Mesa's compiler): wait for it on a blank page before measuring."""
+    done = {}
+    v.page().loadFinished.connect(lambda ok, done=done: done.setdefault("ok", ok))
+    v.setHtml("<p>warm-up</p>")
+    while "ok" not in done:
+        yield 20
+    for i in range(40):
+        res = {}
+        v.page().runJavaScript("!!document.createElement('canvas').getContext('webgl')", 0,
+                               lambda r, res=res: res.setdefault("r", r))
+        while "r" not in res:
+            yield 20
+        if res["r"]:
+            out["webgl_wait_ms"] = i * 500
+            return
+        yield 500
+    out["webgl_wait_ms"] = None
+
 def steps(ike, qapp, out):
     v = ike.windows[0].current_view()
+    yield from webgl_ready(v, out)
     yield from measure(v, URL, out, "plain")
     yield from measure(v, URL + "?again", out, "plain_again")
     ike.config["custom_filters"] = SCRIPTLETS
