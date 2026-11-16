@@ -25,7 +25,7 @@ these assets (fixed names, so `releases/latest/download/<name>` always points
 to the newest release):
 
 - `stable.json` — the manifest:
-  `{"version": "1.4.1", "payload": "ice-1.4.1.tar.gz", "sha256": "<hex>", "min_system": "1.4.0"}`
+  `{"version": "1.4.1", "payload": "ike-1.4.1.tar.gz", "sha256": "<hex>", "min_system": "1.4.0"}`
 - `stable.json.sig` — base64 Ed25519 signature of the exact bytes of `stable.json`
 - `beta.json`, `beta.json.sig` — the same for the beta channel (for now a copy
   of stable, so users who chose "beta" are not left without updates)

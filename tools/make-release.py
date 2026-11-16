@@ -4,7 +4,7 @@
 Run it on the owner's computer, from a clone of the repository at the commit
 being released. It writes into dist/release-<version>/:
 
-    ice-<version>.tar.gz              the ike/ folder (the self-update payload)
+    ike-<version>.tar.gz              the ike/ folder (the self-update payload)
     stable.json, stable.json.sig      the manifest and its Ed25519 signature
     beta.json, beta.json.sig          the same for the beta channel
 
@@ -12,7 +12,7 @@ and checks every signature against the public key in data/update.json before
 it finishes. Upload these files, together with the package, the AppImage and
 the Windows files, as the assets of a new GitHub release (see docs/UPDATES.md).
 
-    python3 tools/make-release.py [--key ~/.ice-signing/ice-update.key]
+    python3 tools/make-release.py [--key ~/.ike-signing/ike-update.key]
                                   [--appimage FILE] [--windows FILE]
                                   [--channels stable,beta]
 
@@ -36,7 +36,7 @@ import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_KEY = Path.home() / ".ice-signing" / "ice-update.key"
+DEFAULT_KEY = Path.home() / " .ike-signing" / "ike-update.key"
 
 
 def read_var(name):
@@ -148,7 +148,7 @@ def make(key_path, out_dir, channels, appimage=None, passphrase=None, update_fil
 
     version = read_var("__version__")
     payload = build_payload()
-    manifest = {"version": version, "payload": "ice-%s.tar.gz" % version,
+    manifest = {"version": version, "payload": "ike-%s.tar.gz" % version,
                 "sha256": hashlib.sha256(payload).hexdigest(),
                 "min_system": read_var("__min_system__")}
     if appimage:
