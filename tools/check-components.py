@@ -139,7 +139,7 @@ def check_scriptlets(root, work, ubo_src=None):
     note = ""
     if changed:
         modified = sum(
-            current[name] != latest[name]
+            current["scriptlets"][name] != latest["scriptlets"][name]
             for name in current_names & latest_names
         )
         note = "%d changed, %d new, %d removed" % (
