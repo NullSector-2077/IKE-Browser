@@ -143,7 +143,7 @@ class SettingsDialog(QDialog):
             self.startup.addItem(label, key)
         self.startup.setCurrentIndex(max(0, self.startup.findData(self.cfg["startup"])))
         self.homepage = QLineEdit(self.cfg["homepage"])
-        self.homepage.setPlaceholderText("ice:newtab")
+        self.homepage.setPlaceholderText("ike:newtab")
         default_btn = QPushButton(T("Make I.K.E. the default browser"))
         default_btn.clicked.connect(self._make_default)
         f.addRow(T("Interface language"), self.language)
@@ -942,7 +942,7 @@ class SettingsDialog(QDialog):
         cfg["language"] = self.language.currentData()
         cfg["accept_language"] = self.accept_lang.text().strip() or "en-US,en"
         cfg["startup"] = self.startup.currentData()
-        cfg["homepage"] = self.homepage.text().strip() or "ice:newtab"
+        cfg["homepage"] = self.homepage.text().strip() or "ike:newtab"
         cfg["tabs_position"] = self.tabs_pos.currentData()
         look = (cfg["icon_theme"], cfg["ui_scheme"])
         cfg["icon_theme"] = self.icon_theme.currentData()

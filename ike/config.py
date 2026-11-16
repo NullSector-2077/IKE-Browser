@@ -125,7 +125,7 @@ DEFAULTS = {
     "language": "auto",                 # auto | it | en
     "accept_language": "it-IT,it,en-US,en",
     "startup": "restore",               # restore | home | newtab
-    "homepage": "ice:newtab",
+    "homepage": "ike:newtab",
     "tabs_position": "horizontal",      # horizontal | vertical
     "show_menubar": True,
     "show_bookmarks_bar": False,        # (before 1.0.3; replaced by bookmarks_bar)

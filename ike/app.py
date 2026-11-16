@@ -256,7 +256,7 @@ class IceApp(QObject):
         from . import updater
         updater.confirm_healthy()
         notice = updater.take_rollback_notice()
-        if notice:
+        if notike:
             self._desktop_notify(self._t("I.K.E. update %s did not start correctly and was "
                                          "removed. The previous version is in use.") % notice[0])
 
@@ -541,14 +541,14 @@ class IceApp(QObject):
         from .i18n import T
         folder = self.download_dir()
         name = item.downloadFileName()
-        item._ice_tmp = item._ice_target = item._ice_final = None
+        item._ike_tmp = item._ike_target = item._ike_final = None
         ask = self.config["ask_download_location"] and not os.environ.get("IKE_TEST_NOASK")
         if ask:
             import tempfile
             tmp_root = CACHE_DIR / "downloads-tmp"
             tmp_root.mkdir(parents=True, exist_ok=True)
-            item._ice_tmp = Path(tempfile.mkdtemp(dir=str(tmp_root)))
-            item.setDownloadDirectory(str(item._ice_tmp))
+            item._ike_tmp = Path(tempfile.mkdtemp(dir=str(tmp_root)))
+            item.setDownloadDirectory(str(item._ike_tmp))
         else:
             try:
                 folder.mkdir(parents=True, exist_ok=True)
@@ -571,31 +571,31 @@ class IceApp(QObject):
             dlg.selectFile(name)
             dlg.fileSelected.connect(lambda p, i=item: self._download_target(i, p))
             dlg.rejected.connect(lambda i=item: self._download_rejected(i))
-            item._ice_dialog = dlg
+            item._ike_dialog = dlg
             dlg.open()
         else:
             self._notify(T("Download started: %s") % name)
 
     def download_path(self, item):
         """Where the file of a download is (or will be)."""
-        final = getattr(item, "_ice_final", None) or getattr(item, "_ice_target", None)
+        final = getattr(item, "_ike_final", None) or getattr(item, "_ike_target", None)
         return Path(final) if final else Path(item.downloadDirectory()) / item.downloadFileName()
 
     def _download_target(self, item, path):
         from .i18n import T
-        item._ice_target = Path(path)
-        item._ice_dialog = None
+        item._ike_target = Path(path)
+        item._ike_dialog = None
         if item.isFinished():
             self._download_finished(item)
         else:
-            self._notify(T("Download started: %s") % item._ice_target.name)
+            self._notify(T("Download started: %s") % item._ike_target.name)
 
     def _download_rejected(self, item):
-        if getattr(item, "_ice_target", None) is None and getattr(item, "_ice_tmp", None):
-            item._ice_dialog = None
+        if getattr(item, "_ike_target", None) is None and getattr(item, "_ike_tmp", None):
+            item._ike_dialog = None
             item.cancel()
-            shutil.rmtree(item._ice_tmp, ignore_errors=True)
-            item._ice_tmp = None
+            shutil.rmtree(item._ike_tmp, ignore_errors=True)
+            item._ike_tmp = None
 
     def _download_finished(self, item):
         from PyQt6.QtWebEngineCore import QWebEngineDownloadRequest as DR
@@ -603,7 +603,7 @@ class IceApp(QObject):
         from .i18n import T
         if not item.isFinished():
             return
-        tmp = getattr(item, "_ice_tmp", None)
+        tmp = getattr(item, "_ike_tmp", None)
         if item.state() != DR.DownloadState.DownloadCompleted:
             if tmp:
                 shutil.rmtree(tmp, ignore_errors=True)
@@ -613,19 +613,19 @@ class IceApp(QObject):
             self.desktop.download_done(item, False, item.interruptReasonString() if failed else "")
             return
         if tmp:
-            if item._ice_target is None:
+            if item._ike_target is None:
                 return                      # still waiting for the user to pick a place
             try:
-                item._ice_target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.move(str(tmp / item.downloadFileName()), str(item._ice_target))
-                item._ice_final = item._ice_target
+                item._ike_target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(tmp / item.downloadFileName()), str(item._ike_target))
+                item._ike_final = item._ike_target
             except OSError as exc:
                 self._notify(T("Download failed: %s") % exc)
                 self.desktop.download_done(item, False, str(exc))
                 return
             finally:
                 shutil.rmtree(tmp, ignore_errors=True)
-                item._ice_tmp = None
+                item._ike_tmp = None
         self._notify(T("Download finished: %s") % self.download_path(item).name)
         self.desktop.download_done(item, True)
 
@@ -654,8 +654,8 @@ class IceApp(QObject):
                 continue
             if st == DR.DownloadState.DownloadInProgress:
                 active.append(item)
-            elif st == DR.DownloadState.DownloadCompleted and not getattr(item, "_ice_ring_seen", False):
-                item._ice_ring_seen = True
+            elif st == DR.DownloadState.DownloadCompleted and not getattr(item, "_ike_ring_seen", False):
+                item._ike_ring_seen = True
                 self._dl_done = True
         if active:
             total = sum(i.totalBytes() for i in active)
@@ -732,7 +732,7 @@ class IceApp(QObject):
     def backup(self):
         from .i18n import T
         from .importer import make_backup
-        name = "ice-backup-%s.zip" % time.strftime("%Y%m%d")
+        name = "ike-backup-%s.zip" % time.strftime("%Y%m%d")
         path, _f = QFileDialog.getSaveFileName(self.active_window(), T("Back up I.K.E. data"),
                                                str(Path.home() / name), "ZIP (*.zip)")
         if path:
