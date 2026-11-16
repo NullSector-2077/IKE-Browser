@@ -1,0 +1,120 @@
+# I.K.E. on each Linux distribution, with THAT distribution's own Python, Qt,
+# PyQt and Qt WebEngine packages (the "Tests" workflow uses PyPI's Qt, which
+# proves nothing about a distribution's own build). In a container of each:
+# the engine module built, the engine report (versions, formats it plays,
+# sandbox), the whole test suite. On Arch the package is also built with
+# makepkg, installed with pacman and tested as installed.
+#
+# A failing step fails the job; the job's name tells the distribution, the
+# logs, the test results (JUnit) and the engine report are kept as the run's
+# downloads. Runs on every pull request to main, every push to main, once a
+# week (a distribution's update can break I.K.E. without any change here)
+# and by hand.
+name: Linux distributions
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: "Branch or commit to test"
+        required: false
+        type: string
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: "41 3 * * 1"     # Mondays, 03:41 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-distros-${{ inputs.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  distro:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container:
+      image: ${{ matrix.image }}
+      # Chromium's sandbox needs user namespaces that a container on the
+      # runner does not get; the packages keep the sandbox on (see About).
+      env:
+        QTWEBENGINE_DISABLE_SANDBOX: "1"
+        LANG: C.UTF-8
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Arch Linux
+            id: arch
+            image: archlinux:latest
+          - name: Ubuntu 26.04
+            id: ubuntu
+            image: ubuntu:26.04
+          - name: Debian 13
+            id: debian
+            image: debian:trixie
+          - name: Fedora 43
+            id: fedora
+            image: fedora:43
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Git (for the checkout)
+        run: |
+          case "${{ matrix.id }}" in
+            arch) pacman -Sy --noconfirm --needed git ;;
+            ubuntu|debian) apt-get update -q && apt-get install -yq --no-install-recommends git ca-certificates ;;
+            fedora) dnf -y -q install git ;;
+          esac
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref || github.sha }}
+      - name: The distribution's packages
+        run: sh tools/ci/distro-deps.sh "${{ matrix.id }}"
+      - name: AdBlock engine
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          cargo build --release --locked --manifest-path ike-adblock/Cargo.toml
+          install -m755 ike-adblock/target/release/libike_adblock.so vendor/adblock/ike_adblock.abi3.so
+      - name: Engine report
+        run: |
+          mkdir -p out
+          python3 tools/engine-report.py --json out/engine-${{ matrix.id }}.json \
+              --markdown out/engine-${{ matrix.id }}.md
+          { echo "### ${{ matrix.name }}"; cat out/engine-${{ matrix.id }}.md; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Tests (this distribution's Qt)
+        run: |
+          set -o pipefail
+          python3 -m pytest -ra --junitxml=out/tests-${{ matrix.id }}.xml 2>&1 | tee out/tests-${{ matrix.id }}.log
+      - name: Arch package (makepkg, pacman, tests as installed)
+        if: matrix.id == 'arch'
+        run: |
+          set -o pipefail
+          useradd -m builder
+          chown -R builder: .
+          sudo -u builder env PKGDEST="$PWD/out" PKGEXT=.pkg.tar.zst makepkg -f --noconfirm
+          pkg=$(find out -name 'ike-browser-*-x86_64.pkg.tar.zst' -print -quit)
+          test -n "$pkg"
+          if bsdtar -tf "$pkg" | grep -E '\.(key|pem)$'; then
+            echo "Private-key-like file found in the package"; exit 1
+          fi
+          pacman -U --noconfirm "$pkg"
+          ike-browser --version
+          python3 tools/engine-report.py --app /usr/lib/ike-browser --json out/engine-arch-installed.json
+          IKE_TEST_APP=/usr/lib/ike-browser python3 -m pytest -ra \
+              --junitxml=out/tests-arch-installed.xml 2>&1 | tee out/tests-arch-installed.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux-${{ matrix.id }}
+          path: out/
+          if-no-files-found: warn
+          retention-days: 30
