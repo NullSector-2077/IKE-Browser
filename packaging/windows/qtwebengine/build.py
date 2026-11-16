@@ -636,8 +636,30 @@ def check_gn_args(folder):
 # --- smoke ------------------------------------------------------------------
 
 SMOKE_PATTERN = re.compile(
-    r"^(obj/media/(base|filters|renderers|ffmpeg|formats|parsers|video|mojo/services|"
-    r"mojo/clients|gpu|cdm)/[^:]*\.obj): ")
+    r"^obj/media/(base|filters|renderers|ffmpeg|formats|parsers|video|mojo/services|"
+    r"mojo/clients|gpu|cdm)/.*\.obj$")
+
+
+def smoke_objects(folder):
+    """The media object files that go into Qt6WebEngineCore.dll, and the ones
+    of the patched files, as Ninja names them. Taken from the list GN writes
+    for the linker: the build folder also knows test targets, whose sources
+    Qt's copy of Chromium does not have."""
+    stems = set()
+    for patch in patch_files()[1]:
+        for path in patched_paths(patch, Path(".")):
+            if path.suffix == ".cc":
+                stems.add(path.stem)
+    objects = set()
+    for path in link_inputs(folder):
+        try:
+            name = path.relative_to(folder).as_posix()
+        except ValueError:
+            continue
+        if SMOKE_PATTERN.match(name) or (name.endswith(".obj") and
+                                         name.rsplit("/", 1)[-1][:-4] in stems):
+            objects.add(name)
+    return sorted(objects)
 
 
 def cmd_smoke(_args):
@@ -654,19 +676,7 @@ def cmd_smoke(_args):
         raise SystemExit("GN did not write args.gn")
     check_gn_args(folder)
 
-    listed = output(["ninja", "-C", folder, "-t", "targets", "all"], env=env)
-    objects = {m.group(1) for m in map(SMOKE_PATTERN.match, listed.splitlines()) if m}
-    # The patched files that are not media code (the renderer's start-up).
-    stems = set()
-    for patch in patch_files()[1]:
-        for path in patched_paths(patch, Path(".")):
-            if path.suffix == ".cc":
-                stems.add(path.stem)
-    for line in listed.splitlines():
-        name = line.split(": ", 1)[0]
-        if name.endswith(".obj") and name.rsplit("/", 1)[-1][:-4] in stems:
-            objects.add(name)
-    objects = sorted(objects)
+    objects = smoke_objects(folder)
     log(f"{len(objects)} media objects to compile first")
     note(f"GN done; compiling {len(objects)} media objects first")
     if not objects:
@@ -810,6 +820,7 @@ def link_inputs(folder):
         for token in re.findall(r'"([^"]+)"|(\S+)', text):
             name = token[0] or token[1]
             if name.lower().endswith((".obj", ".o", ".lib", ".a")):
+                # Qt's GN writes "C:/q/b/src/core/Release/AMD64/obj/...".
                 path = Path(name)
                 files.append(path if path.is_absolute() else folder / path)
     return files
@@ -869,9 +880,13 @@ def cmd_evidence(_args):
         problems.append(f"FFmpeg is built with the configuration '{used}', not 'Chromium'")
 
     inputs = link_inputs(folder)
-    report += ["", f"Link inputs of Qt6WebEngineCore.dll: {len(inputs)} object files and libraries"]
+    missing = [p for p in inputs if not p.exists()]
+    report += ["", f"Link inputs of Qt6WebEngineCore.dll: {len(inputs)} object files and libraries, "
+                   f"{len(missing)} of them not found on disk"]
     if len(inputs) < 1000:
         problems.append(f"only {len(inputs)} link inputs found; the list was not understood")
+    if missing:
+        problems.append(f"{len(missing)} link inputs are not on disk, e.g. {missing[:3]}")
     names = [str(p).replace("\\", "/").lower() for p in inputs]
     for fragment in ("openh264", "/h264dec", "h264_slice", "h264_cabac", "/aacdec", "aacsbr",
                      "aacps", "hevcdec"):
