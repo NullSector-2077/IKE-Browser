@@ -50,7 +50,8 @@ processor time at rest and while the toolbar is used, and the memory. Outside Ar
 | `test_components.py` | Daily component check (`tools/check-components.py`): the versions written in the repository agree (Cargo.toml, Cargo.lock, `ENGINE_VERSION`, test requirements); with stand-in upstream answers and the real Node.js scriptlet builder on a stand-in uBlock checkout: nothing new, each kind of new version found, minor changes (a new uBlock commit with the same scriptlets, a new certifi) reported but not counted, `--apply` rewrites every version file and a second check finds nothing, one failing source reported alone, JSON / Markdown / GitHub output; the GitHub workflows; with `IKE_TEST_NETWORK=1` the real sources; the maintenance version bump (`tools/prepare-maintenance.py`) |
 | `test_passwords.py` | The vault file: opens only with its master password and only as sealed by I.K.E. (the same entries sealed for another program, a changed byte, damaged or foreign files are refused and left as they were). Password manager origins: scheme, host case, the scheme's own default port only (`http://site:443` and `https://site:80` stay distinct), other ports, IPv6, invalid ports, addresses without a scheme (CSV import), older keys unchanged; in the browser, a saved login offered and filled only on its exact origin (not on another subdomain, port or scheme) and, after a redirect, on the origin of the page at fill time |
 | `test_plasma.py` | Desktop integration on a private D-Bus with stand-ins (`tests/dbus_standins.py`) and `gdbus` calls: media controls (properties, metadata from the site, pause, play/pause, set position, introspection, name released when the tab closes; off by the setting and for private windows); KRunner (tabs and bookmarks found, short queries ignored, switching to a tab, opening a bookmark, runner file written and removed); downloads in the notifications (progress, speed, total, destination, finished; cancelled from the notification); Send to device (device list, menus, shareUrl, off by the setting); the engine keeps the screen on during a video; nothing happens without a bus |
-| `test_platform.py` | The folders (XDG), the updater's folder agreed by `ike_boot.py` and `ike/updater.py`, the identity presented to sites, the Widevine module check (only a 64-bit x86-64 Linux library; another machine, a Windows library or a truncated file refused) and its archive (names leaving the folder ignored); Settings and the window in the browser |
+| `test_platform.py` | The folders: XDG on Linux; on Windows `%APPDATA%` and `%LOCALAPPDATA%` (each kind in its own folder, values that are not full paths ignored, extra profiles); the updater's folder agreed by `ike_boot.py` and `ike/updater.py` on both systems; the identity presented to sites (Linux, and Chrome on Windows 10 and 11: no value names Linux, the version list is the one of `win64`); the Widevine module check — on Linux only a 64-bit x86-64 Linux library, on Windows only a complete 64-bit x86-64 DLL: another machine, a program that is not a library, a 32-bit file, headers pointing outside the file, sections outside the file, a file cut at any length and 4000 files with changed bytes are refused or accepted, never another error — and its archive (names leaving the folder ignored, a bad module leaves the copy in use untouched); Settings and the window in the browser |
+| `test_windows.py` | The Windows port. On every system: the name of the single-instance pipe (one per user and profile, never a path), a pipe whose owner is not known is not ours, the command that starts I.K.E. again from its launcher, the rename of a staged update tried again while Windows holds a file, notification texts (plain, no control characters, Windows' lengths), the clipboard marks for a copied password, the pinned and hashed requirements of the installer and the tool that renews them, the build script (Python pinned by hash, Qt Multimedia's FFmpeg removed and refused, archives that cannot write outside their folder, an engine replacement that can only replace), the installer script (per user, nothing outside `HKEY_CURRENT_USER` and the user's profile, the user's data never named), the launcher's source, the workflow (read-only, no secret, sandbox never switched off, no test left out), no new library imported, other browsers' profiles found under `AppData`. **On Windows only** (marker `windows_only`): Windows' own answers (user, memory and CPU time of a process, waiting for a process, the animation switch); a real pipe of this user recognised; a second start handing over through the pipe, rubbish ignored; **attack**: a pipe made under I.K.E.'s name with another owner receives nothing and I.K.E. starts by itself; the page process runs at a lower integrity level than the browser (the sandbox is on); a notification and the clipboard marks in the real browser; the real folders without the XDG variables |
 | `test_userscripts.py` | User scripts on pages of a local server (other sites through a stand-in proxy): common patterns (`@grant none` in the page, `document-start` before the page, `GM_getValue` / `GM_setValue` kept between loads, `GM_addStyle`, `GM_xmlhttpRequest` and `GM.xmlHttpRequest` to another site, the page's own address, `unsafeWindow`); each script gets only the GM functions of its `@grant` (none without `@grant`); attacks by the page: messages without a token, with a wrong token or another script's token, an operation not granted, `console.info` and `JSON.stringify` replaced before an idle script, the answer callback taken over; `@connect` (listed domains and subdomains, `self`, `*`, not listed); this computer and private addresses (127/8, other forms of 127.0.0.1, `localhost`, 192.168/16, IPv6-mapped, a name resolving to 10/8) refused unless `@connect` names them, also after a redirect; the install dialog lists `@connect` |
 | `test_newtab_page.py` | The new tab page of 1.1.0. The counter per month with a fixed clock: starts again on the first, keeps last month only if it really was the month before, the total never reset, a damaged record; what the page shows for "month" and "total". Site tiles: from bookmarks and from the history, at most eight, one per site; hostile titles and addresses (markup in a title, `javascript:` and `data:` addresses, a quote in an address) never become markup or links; hiding a tile keeps the bookmark; adding a site. A website that links, frames, fetches or submits a form to `ike:tile` or `ike:theme` changes nothing. The suggestion of the Cyber theme: shown once, "Try" switches, "Back" restores the desktop's own colours, not shown to who already chose a theme |
 | `test_cyber.py` | The Cyber theme in the windows. Shapes at several sizes stay inside their rectangle, with and without cut corners. For each tab shape: the style is ours, the accent mark is on the current tab only, the corner is cut, tabs still move, close and keep their titles. Vertical tabs and the address field. "Follow the system": the desktop's style, no style sheet, no mark, nothing of the Cyber code on the window. The theme switched on, re-coloured, replaced by another theme, on again and off: nothing left behind. The mark glides only when effects are wanted (also off with reduced motion). A scale of 150 %. Settings: the default is the system, Cyber is marked as recommended, every option is saved and applied, and one choice goes back. The shield's pulse (not twice in a row, not without effects), the equaliser, the ring by kind, the preview frame, the soft change of theme — and that all of them are absent with "Follow the system" |
@@ -69,6 +70,54 @@ GitHub runs both on every pull request to `main` and every push to `main`
 cannot start), then builds the Arch package with `makepkg`, runs the whole
 suite again against the installed copy and keeps the package as the run's
 `ike-browser-package` download.
+
+## On Windows
+
+`.github/workflows/windows.yml` runs on GitHub's `windows-latest` on every
+pull request to `main`, every push to `main` and to `windows/port`, and by
+hand. Two jobs; a failing step fails its job; logs and JUnit files are kept
+as downloads of the run whether it passed or not.
+
+- **Tests on Windows**: the packages of `packaging/windows/requirements.txt`
+  (pip checks each against its pinned hash), the AdBlock engine built with
+  Rust for MSVC and its Rust tests, `ruff check .`, then the whole suite as
+  above.
+- **Installer on Windows**: `packaging/windows/build.py` builds the
+  installer; it is installed silently for the current user
+  (`/VERYSILENT /CURRENTUSER`); `ike-browser.exe --version` and
+  `--selftest` are started; `packaging/windows/engine-check.py` asks the
+  installed engine, with the installed Python, which formats it plays (it
+  must be VP9, AV1, Opus and MP3, and not H.264, AAC or HEVC) and that the
+  sandbox is not switched off; the whole suite runs again through the
+  installed `ike-browser.exe` (`IKE_TEST_COMMAND`, `IKE_TEST_APP`); the
+  uninstaller runs silently and `packaging/windows/check-install.py` checks
+  that the program, the shortcut and the registry entries are gone and the
+  user's data is still there. The installer is the run's
+  `ike-browser-windows-installer` download (30 days).
+
+What differs from Linux:
+
+- **The sandbox is on.** On Linux the tests switch the engine's sandbox off
+  (containers and GitHub's Linux runners cannot start it). On the Windows
+  runner it starts, so `tests/conftest.py` leaves it on there, and
+  `test_windows.py` checks that the page process really is confined.
+  (`IKE_TEST_NO_SANDBOX=1` would switch it off for a machine that cannot
+  start it; the workflow does not use it, and a test fails if it ever does.)
+- **Tests of things that exist on Linux only are skipped by a marker with a
+  reason**, `@pytest.mark.linux_only("…")`, never silently: the D-Bus desktop
+  integration (`test_plasma.py`, except the test that nothing happens
+  without a bus), the Unix socket of the single instance, `notify-send`,
+  file modes of the password files, Plasma's and GTK's reduced-motion
+  files. Each has a Windows counterpart in `test_windows.py` or
+  `test_effects.py`. Tests that ask Windows itself carry
+  `@pytest.mark.windows_only("…")` and are skipped, with their reason, on
+  Linux. `pytest -rs` lists every skipped test with its reason; the
+  workflow's log shows that list.
+- The folders are found through the `XDG_*` variables as on Linux (that is
+  how each test gets an empty profile); one test starts the browser without
+  them to check the real Windows folders.
+
+What a runner cannot check is in [WINDOWS-CHECKLIST.md](WINDOWS-CHECKLIST.md).
 
 With `IKE_TEST_SHOTS=<folder>` some tests also save screenshots there, to be
 checked by eye.

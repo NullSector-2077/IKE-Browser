@@ -9,7 +9,14 @@ The interface, protections, password manager and updater are I.K.E.'s own code
 provided and kept up to date by Arch Linux. I.K.E. is developed on and for
 KDE Plasma (CachyOS / Arch Linux) and works on the other Arch-based desktops.
 
-**Version 1.1.1** - see [CHANGELOG.md](CHANGELOG.md).
+**Version 1.2.0** - see [CHANGELOG.md](CHANGELOG.md).
+
+> **Windows (preview, not released).** 1.2.0 adds a build for Windows 10 / 11
+> (64-bit): a per-user installer made and tested by GitHub Actions, not yet
+> tried on a real PC and not published as a release. It plays VP9, AV1, Opus
+> and MP3; it does **not** play H.264 / AAC yet (no proprietary codec is
+> shipped). See [docs/platforms/windows.md](docs/platforms/windows.md) and
+> [docs/WINDOWS-CHECKLIST.md](docs/WINDOWS-CHECKLIST.md).
 
 ## Install (Arch Linux, CachyOS)
 
@@ -17,7 +24,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.1.1-1-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.2.0-1-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:
@@ -145,6 +152,7 @@ I.K.E. has no servers of its own and sends no telemetry. It contacts only:
 | `vendor/adblock/` | loader for the engine module |
 | `launcher/` | the `/usr/bin/ike-browser` launcher (C) |
 | `data/` | desktop entry, icons, update channel configuration |
+| `packaging/windows/` | the Windows build (preview): launcher, installer script, pinned requirements |
 | `docs/` | building, updates, maintenance, translating, testing, third-party components |
 | `licenses/` | licences of bundled third-party components |
 | `tools/` | release and maintenance scripts |

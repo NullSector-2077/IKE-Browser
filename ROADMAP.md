@@ -141,6 +141,22 @@ key. Nothing is called ready on the strength of incomplete checks.
   `ike-1.1.0`) are all contained in `main`; the sessions cannot delete
   branches, so the owner removes them.
 
+- 2026-11-16, step 4 (Windows, 1.2.0), branch `windows/port`: the port
+  with the **official** Qt WebEngine from PyPI — folders, single instance,
+  notifications, identity, Widevine check, self-update, per-site resources;
+  embedded Python, engine module for MSVC, launcher, per-user installer and
+  uninstaller; `.github/workflows/windows.yml` builds, tests (sandbox on),
+  installs, starts and uninstalls it on a Windows runner and keeps the
+  installer as a download. State and limits: `docs/platforms/windows.md`;
+  the owner's test: `docs/WINDOWS-CHECKLIST.md`. **This build does not play
+  H.264 / AAC**: the engine of the codec rule above (Windows' own decoders)
+  is the separate branch `windows/engine`; `build.py --engine` is where its
+  files go in. Not merged, not released, not tried on a real PC.
+- Seen while porting, not changed (Linux was not to change): "Restart" from
+  a copy installed by a self-update looks for `ike_boot.py` next to that
+  copy (`ike/app.py`, end of `main`), where there is none; `boot_command()`
+  of `ike/updater.py` names the right one. To check and fix in a Linux step.
+
 ## Previous plan (1.0.1 – 1.1.0, published)
 
 Plan approved by the owner on 2026-11-16. It joins the owner's "master

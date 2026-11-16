@@ -1,5 +1,53 @@
 # Changelog
 
+## 1.2.0
+
+**Windows 10 / 11 (64-bit), as a preview.** Nothing changes on Linux: the
+same code runs there as before, every Windows part sits behind its own
+branch, no setting was added, removed or changed in meaning, and "Follow the
+system" stays the default. The Windows build is made and tested by GitHub
+Actions and is **not released**: it has not been tried on a real PC yet
+(`docs/WINDOWS-CHECKLIST.md` is the list for that).
+
+- **An installer for one user, without administrator rights**: I.K.E. goes
+  into `%LOCALAPPDATA%\Programs\I.K.E` with a Start-menu shortcut; the
+  uninstaller removes it and leaves bookmarks, passwords, history and
+  settings where they are. It brings its own Python and the official Qt
+  WebEngine (each download pinned by its SHA-256), the AdBlock engine built
+  for Windows and a small launcher, `ike-browser.exe`, so that Windows shows
+  "I.K.E." with its icon and no console window.
+- **Codecs, plainly**: the Windows build plays VP8, VP9, AV1, Opus, Vorbis,
+  FLAC and MP3. It does **not** play H.264 or AAC yet — most `.mp4` files and
+  the sites that offer nothing else. I.K.E. ships no proprietary codec, and
+  the FFmpeg libraries that come with Qt for another purpose are taken out of
+  the installer. Playing H.264 / AAC through the decoders Windows itself has
+  is separate work, not in this version. Help → About tells what plays.
+- **To websites I.K.E. on Windows is Chrome on Windows**, the same in the
+  request header, in scripts, in Client Hints, in workers and frames; the
+  graphics card named to sites is a common Windows one, never the real one.
+  Ad blocking and fingerprinting protection are the same code as on Linux.
+- **Windows' own places and ways**: settings under `%APPDATA%\ike-browser`,
+  everything else under `%LOCALAPPDATA%\ike-browser`; one running I.K.E. per
+  user, found through a named pipe that only this user's I.K.E. is trusted
+  on; notifications through the notification area; the "Animation effects"
+  switch of Windows turns I.K.E.'s effects off; a copied password is kept
+  out of Windows' clipboard history; memory and CPU of each site (Shift+Esc)
+  asked from Windows; other browsers found under `AppData` for the import;
+  "Make I.K.E. the default browser" opens Windows' own page for it.
+- **The signed self-update works the same way**: checked with the project's
+  key, unpacked next to the user's data, used from the next start, rolled
+  back if it fails. The installation folder is never changed by it.
+- **Widevine on Windows**: the download from Google and the check of the
+  module (a complete 64-bit DLL, or it is refused) are there; whether a
+  service then plays could not be tried, and services that need H.264 / AAC
+  will not.
+- The engine's sandbox is never switched off on Windows, and the automatic
+  tests run with it on there.
+- Not on Windows yet: media keys and Windows' media controls, download
+  progress in the task bar. The Plasma integration (KRunner, KDE Connect,
+  Plasma's notifications) is Linux only and simply stays off.
+- Updates itself from 1.1.1 on Linux (only the browser's own files changed).
+
 ## 1.1.1
 
 - **Help → About tells which video and audio formats play** (H.264, AAC,

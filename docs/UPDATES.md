@@ -5,7 +5,7 @@
 | Filter lists | daily, by I.K.E. (Settings → Components) |
 | Chrome version presented to sites | daily check of Google's public version list; estimated from the calendar when offline |
 | User scripts | daily, from their update address |
-| Web engine (Qt WebEngine) | with the system (`sudo pacman -Syu`) |
+| Web engine (Qt WebEngine) | with the system (`sudo pacman -Syu`); on Windows (preview) it is inside the installer and changes with a new installer |
 | I.K.E. itself | signed update channel on GitHub Releases, described below |
 | Components inside I.K.E. (AdBlock engine, uBlock Origin scriptlets) | checked daily and prepared as a tested candidate by GitHub Actions on a separate branch; the owner reviews and approves before merge and signing ([MAINTENANCE.md](MAINTENANCE.md)) |
 
@@ -46,6 +46,24 @@ available, but it needs a newer installation package".
 
 Pre-releases and drafts are not "latest" on GitHub, so they are never offered.
 Other users can download updates only while the repository is public.
+
+## On Windows (preview)
+
+The same channel, the same key, the same payload: `ike-<version>.tar.gz`
+holds only the `ike/` folder, which is the same on every system. I.K.E.
+checks signature and hash, unpacks into
+`%LOCALAPPDATA%\ike-browser\data\updates\versions`, runs the self-test
+with its own launcher and uses the new version from the next start; a version
+that fails to start is rolled back. Nothing in the installation folder
+(`%LOCALAPPDATA%\Programs\I.K.E`) is touched: Python, Qt, Qt WebEngine, the
+AdBlock engine module and the launcher change only with a new installer.
+When a release needs one of those, raise `__min_system__`: an older
+installation is then told that a newer installer is needed, as on Linux.
+
+The Windows installer itself is not part of the channel yet and is not
+signed here: GitHub Actions builds it as a download of the workflow run and
+never receives the key. Publishing it with a release, and signing it for
+Windows (a separate Authenticode certificate), are the owner's decisions.
 
 ## The signing key
 

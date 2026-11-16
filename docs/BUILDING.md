@@ -12,6 +12,49 @@ makepkg -si
 The PKGBUILD takes the sources from the clone, compiles the AdBlock engine and
 the launcher, and installs everything under `/usr`.
 
+## Installer (Windows 10 / 11, 64-bit) — preview
+
+GitHub Actions builds it on every push (`.github/workflows/windows.yml`) and
+keeps it as the run's `ike-browser-windows-installer` download; that is the
+reference. On a PC, with 64-bit CPython 3.13, Rust (the `x86_64-pc-windows-msvc`
+tool chain), Visual Studio's C++ build tools and Inno Setup 6 installed:
+
+```powershell
+git clone https://github.com/NullSector-2077/IKE-Browser.git
+cd IKE-Browser
+python -m pip install --require-hashes --only-binary=:all: --no-deps -r packaging\windows\requirements.txt
+python packaging\windows\build.py
+```
+
+The result is `build\windows\installer\ike-browser-<version>-windows-x64-setup.exe`,
+the folder it installs (`build\windows\app`) and `build\windows\build-info.json`,
+which lists what went in with its hashes. The script
+
+- downloads the embeddable CPython from python.org and checks it against the
+  SHA-256 written in the script;
+- installs the wheels of `packaging/windows/requirements.txt`, each checked
+  by pip against its pinned hash, and removes Qt Multimedia with its FFmpeg
+  libraries (I.K.E. ships no codec; the build stops if one is left);
+- builds the AdBlock engine with Rust for MSVC as `ike_adblock.pyd`;
+- compiles the launcher `packaging/windows/launcher/ike-browser.c` with its
+  icon, version and manifest;
+- runs Inno Setup on `packaging/windows/ike-browser.iss`.
+
+`python packaging\windows\build.py --no-installer` stops before Inno Setup;
+`--engine DIR` puts the files of a Qt WebEngine built elsewhere in place of
+the wheel's (same layout, replacements only). To move to newer wheels:
+`python packaging/windows/update-requirements.py` (it reads the hashes from
+PyPI), then let the workflow build and test. To move to a newer Python,
+change `PYTHON_VERSION` and `PYTHON_SHA256` in `build.py` (the hash is in the
+`.spdx.json` file python.org publishes next to the download).
+
+To run from source on Windows instead: install the wheels as above, build
+the engine (`cargo build --release --locked --manifest-path ike-adblock/Cargo.toml`,
+then copy `ike-adblock\target\release\ike_adblock.dll` to
+`vendor\adblock\ike_adblock.pyd`) and start `python ike_boot.py`.
+
+What the Windows build is and is not: [platforms/windows.md](platforms/windows.md).
+
 ## I.K.E. AdBlock Engine
 
 `ike-adblock/` is a native Python module (PyO3, stable `abi3` interface,
