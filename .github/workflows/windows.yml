@@ -23,6 +23,22 @@ env:
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
 
 jobs:
+  facts:
+    name: Display facts (temporary)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - shell: pwsh
+        run: |
+          python -m pip install --require-hashes --only-binary=:all: --no-deps -r packaging/windows/requirements.txt
+          python tests/show_display.py --webgl
+
   tests:
     name: Tests on Windows
     runs-on: windows-latest
@@ -72,7 +88,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force logs | Out-Null
-          python -m pytest -rs --junitxml=logs/junit-tests.xml -o junit_family=xunit2 2>&1 | Tee-Object -FilePath logs/pytest.log
+          python -m pytest -rfEs --junitxml=logs/junit-tests.xml -o junit_family=xunit2 2>&1 | Tee-Object -FilePath logs/pytest.log
           exit $LASTEXITCODE
       - name: Logs
         if: always()
@@ -155,7 +171,7 @@ jobs:
           $app = "$env:LOCALAPPDATA\Programs\I.K.E"
           $env:IKE_TEST_APP = $app
           $env:IKE_TEST_COMMAND = "$app\ike-browser.exe"
-          python -m pytest -rs --junitxml=logs/junit-installed.xml -o junit_family=xunit2 2>&1 | Tee-Object -FilePath logs/pytest-installed.log
+          python -m pytest -rfEs --junitxml=logs/junit-installed.xml -o junit_family=xunit2 2>&1 | Tee-Object -FilePath logs/pytest-installed.log
           exit $LASTEXITCODE
       - name: Uninstall (silently) and check that it is gone
         shell: pwsh

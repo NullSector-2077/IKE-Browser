@@ -451,8 +451,16 @@ def test_instance_pipe_on_windows(run_ike):
     after the user, a second start hands its address over and ends, rubbish
     written to the pipe is ignored."""
     out = run_ike(r'''
-import json, os, subprocess, sys
+import json, os, subprocess, sys, threading
 from ike import app as ikeapp, winapi
+
+def write(path, data, errors):
+    # from a thread: Windows makes the writer wait until the browser has read
+    try:
+        with open(path, "r+b", buffering=0) as pipe:
+            pipe.write(data)
+    except OSError as e:
+        errors.append(str(e))
 
 def steps(ike, qapp, out):
     yield 600
@@ -460,28 +468,31 @@ def steps(ike, qapp, out):
     out["name"] = name
     out["sid"] = winapi.user_sid()
     path = "\\\\.\\pipe\\" + name
-    out["listening"] = os.path.exists(path)
+    out["listed"] = name in os.listdir("\\\\.\\pipe\\")
+    out["write_errors"] = []
     for rubbish in (b"[]", b"\xff\x00garbage", b'{"urls": 7}', b"null", b'{"urls": ["' + b"x" * 30000 + b'"]}'):
-        try:
-            with open(path, "r+b", buffering=0) as pipe:
-                pipe.write(rubbish)
-        except OSError as e:
-            out.setdefault("write_errors", []).append(str(e))
-        yield 200
+        threading.Thread(target=write, args=(path, rubbish, out["write_errors"]), daemon=True).start()
+        yield 300
     win = ike.windows[0]
     out["tabs_before"] = len(win.views)
     env = dict(os.environ)
     env.pop("IKE_TEST_HOOK", None)
-    second = subprocess.run(json.loads(os.environ["IKE_SECOND"]) + ["data:text/html,<title>handed over</title>x"],
-                            env=env, capture_output=True, timeout=90)
+    second = subprocess.Popen(json.loads(os.environ["IKE_SECOND"]) + ["data:text/html,<title>handed over</title>x"],
+                              env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    for _ in range(600):                 # the browser must keep running: it is the one that reads
+        if second.poll() is not None:
+            break
+        yield 100
+    else:
+        second.kill()
     out["second_exit"] = second.returncode
-    out["second_err"] = second.stderr.decode("utf-8", "replace")[-800:]
     yield 2000
     out["tabs_after"] = [v.title() for v in win.views]
 ''', env={"IKE_NO_SINGLE": "", "IKE_SECOND": json.dumps(_start_command())}, timeout=180)
     assert out["name"] == "ike-browser-%s-default" % out["sid"] and out["sid"].startswith("S-1-5-")
-    assert out["listening"], out
-    assert out["second_exit"] == 0, out["second_err"]
+    assert out["listed"], out
+    assert out["write_errors"] == [], out
+    assert out["second_exit"] == 0, out
     assert out["tabs_before"] == 1
     assert out["tabs_after"][-1] == "handed over" and len(out["tabs_after"]) == 2, out
 

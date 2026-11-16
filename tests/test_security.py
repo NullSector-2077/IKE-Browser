@@ -13,7 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
-from conftest import APP, ROOT, needs_engine
+from conftest import APP, ROOT, SANDBOX_OFF, needs_engine
 
 JS = r'''
 import json
@@ -678,7 +678,8 @@ def test_about_tells_the_state_of_the_engine(run_ike, monkeypatch):
     """)
     about = out["about"]
     assert out["chromium"] in about and "Qt WebEngine" in about
-    assert "Engine sandbox: OFF" in about            # the tests run without it, and About says so
+    # on Linux the tests run without it, and About says so; on Windows it is on, and About does not
+    assert ("Engine sandbox: OFF" in about) == SANDBOX_OFF
     assert "Internal errors" not in about
 
 
