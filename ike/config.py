@@ -141,6 +141,9 @@ DEFAULTS = {
     "urlbar_width": 60,                 # address bar: per cent of the window width
     "newtab_clock": True,               # clock and date on the new tab page
     "newtab_weather": True,             # weather on the new tab page (needs a city, see weather.py)
+    "newtab_bg": "",                    # the user's photo behind the new tab page (see newtabbg.py)
+    "newtab_bg_fit": "fill",            # fill | fit | centre
+    "newtab_bg_veil": 35,               # veil in the page's colour over the photo, per cent (0-90)
     "weather_city": "",                 # chosen by the user in Settings; never the system location
     "weather_lat": None,
     "weather_lon": None,

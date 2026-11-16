@@ -11,6 +11,7 @@ from PyQt6.QtWebEngineCore import (
     QWebEngineSettings,
     QWebEngineUrlRequestInfo,
     QWebEngineUrlRequestInterceptor,
+    QWebEngineUrlRequestJob,
     QWebEngineUrlScheme,
     QWebEngineUrlSchemeHandler,
 )
@@ -233,6 +234,15 @@ class IkeSchemeHandler(QWebEngineUrlSchemeHandler):
         if path == "logo":
             data = (RES_DIR / "ike.svg").read_bytes()
             mime = b"image/svg+xml"
+        elif path == "background":
+            # the user's own photo: for I.K.E.'s pages only, never for a web page
+            from . import newtabbg
+            data, mime = (None, None)
+            if job.initiator().scheme() in ("ike", ""):
+                data, mime = newtabbg.content(self.s.config)
+            if data is None:
+                job.fail(QWebEngineUrlRequestJob.Error.RequestDenied)
+                return
         else:
             data = self.s.newtab_html().encode("utf-8")
             mime = b"text/html"
@@ -316,8 +326,9 @@ class Shields(QObject):
             corner += '<div class="clock" id="clock"></div><div class="date" id="date"></div>'
         if self.config["newtab_weather"]:
             corner += '<div class="weather" id="weather">%s</div>' % _html.escape(self.weather_text())
-        from . import i18n
+        from . import i18n, newtabbg
         html = html.replace("{{corner}}", corner).replace("{{lang}}", i18n.current().replace("_", "-"))
+        html = html.replace("{{background}}", newtabbg.style(self.config))
         for k, v in {
             "{{placeholder}}": T("Search with %s or enter address") % e["name"],
             "{{blocked}}": "{:,}".format(self.config["blocked_total"]).replace(",", "."),

@@ -353,6 +353,103 @@ class SettingsDialog(QDialog):
                         "30 minutes and only when a new tab is open. Your location is never asked."))
         info.setWordWrap(True)
         f.addRow("", info)
+        self._background_rows(f)
+
+    def _background_rows(self, f):
+        """New tab page: a photo of the user's as its background (see newtabbg.py)."""
+        from PyQt6.QtWidgets import QFrame, QSlider
+
+        from . import newtabbg
+        self._bg_choice = None            # None: as it is; "": remove it; a path: use that file
+        self.bg_preview = QLabel()
+        self.bg_preview.setFixedSize(96, 54)
+        self.bg_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.bg_preview.setFrameShape(QFrame.Shape.StyledPanel)
+        self.bg_info = QLabel("")
+        self.bg_info.setWordWrap(True)
+        choose = QPushButton(T("Choose…"))
+        choose.setToolTip(T("A copy is kept in I.K.E.'s own folder. It is never sent anywhere."))
+        choose.clicked.connect(self._choose_background)
+        self.bg_remove = QPushButton(T("Remove"))
+        self.bg_remove.clicked.connect(lambda: self._set_background(""))
+        row = QHBoxLayout()
+        row.addWidget(self.bg_preview)
+        row.addWidget(self.bg_info, 1)
+        row.addWidget(choose)
+        row.addWidget(self.bg_remove)
+        self.bg_fit = QComboBox()
+        for key, label in (("fill", T("Fill the page")), ("fit", T("Show the whole photo")),
+                           ("centre", T("Centre at its own size"))):
+            self.bg_fit.addItem(label, key)
+        self.bg_fit.setCurrentIndex(max(0, self.bg_fit.findData(self.cfg["newtab_bg_fit"])))
+        self.bg_veil = QSlider(Qt.Orientation.Horizontal)
+        self.bg_veil.setRange(0, newtabbg.VEIL_MAX)
+        self.bg_veil.setPageStep(10)
+        try:
+            self.bg_veil.setValue(int(self.cfg["newtab_bg_veil"]))
+        except (TypeError, ValueError):
+            self.bg_veil.setValue(35)
+        self.bg_veil.setToolTip(T("A veil in the page's own colour over the photo, to keep the text readable"))
+        veil_value = QLabel("")
+        veil_value.setMinimumWidth(veil_value.fontMetrics().horizontalAdvance("100%"))
+        self.bg_veil.valueChanged.connect(lambda v: veil_value.setText("%d%%" % v))
+        veil_value.setText("%d%%" % self.bg_veil.value())
+        veil = QHBoxLayout()
+        veil.addWidget(self.bg_veil, 1)
+        veil.addWidget(veil_value)
+        f.addRow(T("Background photo"), row)
+        f.addRow(T("Photo placement"), self.bg_fit)
+        f.addRow(T("Veil over the photo"), veil)
+        current = newtabbg.current(self.cfg)
+        self._show_background(str(current) if current else "")
+
+    def _show_background(self, path):
+        """Preview and controls for the photo at path ("" = none)."""
+        from PyQt6.QtGui import QPixmap
+
+        from . import newtabbg
+        image = None
+        if path:
+            image, _problem = newtabbg.load_scaled(path, 192)
+        if image is None:
+            self.bg_preview.setPixmap(QPixmap())
+            self.bg_preview.setText("—")
+            self.bg_info.setText(T("No photo"))
+        else:
+            size, _problem = newtabbg.probe(path)
+            ratio = self.devicePixelRatioF()
+            pm = QPixmap.fromImage(image).scaled(
+                round(96 * ratio), round(54 * ratio), Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation)
+            pm.setDevicePixelRatio(ratio)
+            self.bg_preview.setText("")
+            self.bg_preview.setPixmap(pm)
+            self.bg_info.setText("%d × %d" % size if size else "")
+        on = image is not None
+        self.bg_remove.setEnabled(on)
+        self.bg_fit.setEnabled(on)
+        self.bg_veil.setEnabled(on)
+
+    def _choose_background(self):
+        from . import newtabbg
+        path, _f = QFileDialog.getOpenFileName(self, T("Choose a photo"), str(Path.home()),
+                                               "%s (%s)" % (T("Pictures"), newtabbg.filters()))
+        if path:
+            self._set_background(path)
+
+    def _set_background(self, path):
+        """Take a file as the photo to use when the settings are applied ("" = none)."""
+        from . import newtabbg
+        if path:
+            _size, problem = newtabbg.probe(path)
+            if not problem:
+                _image, problem = newtabbg.load_scaled(path, 192)
+            if problem:
+                self.bg_info.setText(T(problem))          # said in place; the choice made before stays
+                return False
+        self._bg_choice = path
+        self._show_background(path)
+        return True
 
     def _show_found(self, on):
         try:
@@ -1012,8 +1109,24 @@ class SettingsDialog(QDialog):
             self.app.weather.forget()
         cfg["download_dir"] = self.dl_dir.text().strip()
         cfg["ask_download_location"] = self.dl_ask.isChecked()
+        from . import newtabbg
+        look = newtabbg.style(cfg)
+        problem = ""
+        if self._bg_choice == "":
+            newtabbg.remove_photo(cfg)
+        elif self._bg_choice:
+            problem = newtabbg.set_photo(cfg, self._bg_choice)
+        self._bg_choice = None
+        current = newtabbg.current(cfg)
+        self._show_background(str(current) if current else "")
+        if problem:
+            self.bg_info.setText(T(problem))
+        cfg["newtab_bg_fit"] = self.bg_fit.currentData()
+        cfg["newtab_bg_veil"] = self.bg_veil.value()
         cfg.save()
         self.app.settings_changed()
+        if look != newtabbg.style(cfg):
+            self.app.reload_newtabs()
 
 
 class ThemeEditor(QDialog):

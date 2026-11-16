@@ -219,6 +219,13 @@ class IkeApp(QObject):
             w.apply_layout()
             w.sync_urlbar()
 
+    def reload_newtabs(self):
+        """The look of the new tab page changed: show it in the ones that are open."""
+        for w in self.windows:
+            for v in w.all_views():
+                if v.url().scheme() == "ike" and not v.sleeping:
+                    v.reload()
+
     def refresh_toolbars(self):
         """The toolbar's buttons changed: show the new arrangement in every window."""
         for w in self.windows:
