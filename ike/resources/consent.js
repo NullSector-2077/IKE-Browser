@@ -1,8 +1,8 @@
 // I.K.E. cookie-banner handler: refuses consent automatically where possible.
-// Runs in an isolated world. __ICE_CFG__ is replaced at injection time.
+// Runs in an isolated world. __IKE_CFG__ is replaced at injection time.
 (function () {
   'use strict';
-  var CFG = __ICE_CFG__;
+  var CFG = __IKE_CFG__;
   if (window.top !== window && !/consent|cmp|privacy|cookie/i.test(location.hostname)) return;
   var host = location.hostname;
   function off(h) {

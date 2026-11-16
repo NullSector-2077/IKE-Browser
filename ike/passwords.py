@@ -300,7 +300,7 @@ class PasswordManager(QObject):
         bridge = PageBridge(self, page)
         channel.registerObject("ike", bridge)
         page.setWebChannel(channel, WORLD)
-        page._ice_bridge = bridge
+        page._ike_bridge = bridge
 
     def _origin(self, page):
         return origin_of(page.url().toString())
@@ -347,7 +347,7 @@ class PasswordManager(QObject):
 
     def fill(self, view, interactive=False):
         page = view.page()
-        bridge = getattr(page, "_ice_bridge", None)
+        bridge = getattr(page, "_ike_bridge", None)
         if bridge is None:
             return False
         if not self.vault.unlocked and not (interactive and self.ensure_unlocked(view.window())):

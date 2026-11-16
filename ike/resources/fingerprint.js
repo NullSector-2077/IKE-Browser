@@ -1,5 +1,5 @@
 // I.K.E. fingerprinting protection. Runs in the page's main world before any
-// page script, in every frame. __ICE_CFG__ is replaced at injection time.
+// page script, in every frame. __IKE_CFG__ is replaced at injection time.
 //
 // The protection is applied per "realm" (a window with its own set of built-in
 // objects): the page itself, and every same-origin window the page can reach
@@ -8,8 +8,8 @@
 // Inline (blob: and data:) workers get the same values through a prelude.
 (function () {
   'use strict';
-  var CFG = __ICE_CFG__;
-  var SECRET = 'ice:' + CFG.key;       // lets instances recognise a protected realm
+  var CFG = __IKE_CFG__;
+  var SECRET = 'ike:' + CFG.key;       // lets instances recognise a protected realm
   var origToString = Function.prototype.toString;
 
   // The site the user is visiting (not the frame's own), so every frame of a
@@ -596,7 +596,7 @@
       getter(w.GPUAdapter.prototype, 'info', function (orig) {
         var real = orig.call(this);
         try {
-          return Object.freeze({ vendor: '', architecture: '', device: '', description: '',
+          return Object.freeze({ vendor: '', architecture: '', devike: '', description: '',
             subgroupMinSize: real.subgroupMinSize, subgroupMaxSize: real.subgroupMaxSize,
             isFallbackAdapter: false });
         } catch (e) { return real; }

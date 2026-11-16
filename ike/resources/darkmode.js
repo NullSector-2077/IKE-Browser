@@ -1,17 +1,17 @@
 // I.K.E. dark mode for pages: runs Dark Reader's own engine (resources/darkreader.js,
 // MIT licence, https://darkreader.org) in the isolated world of every frame of a
-// page that should be dark. The two ICE_DR placeholders below are replaced with
+// page that should be dark. The two IKE_DR placeholders below are replaced with
 // the library and with {theme: {...}} when the script is installed.
 (function () {
   'use strict';
   if (window.__iceDark) return;
   window.__iceDark = true;
-  var CFG = __ICE_DR_CFG__;
+  var CFG = __IKE_DR_CFG__;
   var DR;
   try {
     var module = { exports: {} }, exports = module.exports;
     (function () {
-__ICE_DR_LIB__
+__IKE_DR_LIB__
     }).call(window);
     DR = module.exports;
   } catch (e) { return; }
