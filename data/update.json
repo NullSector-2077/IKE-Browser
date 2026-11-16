@@ -1,5 +1,5 @@
 {
- "_comment": "Program self-update source: the latest GitHub release, signed with the owner's Ed25519 key. Leave url empty to disable. See docs/UPDATES.md.",
+ "_comment": "Program self-update source: the latest GitHub release, signed with the owner's Ed25519 key. Leave url empty to disable. See docs/arch/UPDATES.md.",
  "url": "https://github.com/NullSector-2077/IKE-Browser/releases/latest/download",
  "pubkey": "ArIf8ObFue7pEUXuhk126g1Wx62AExbQdPPgY1RH/+4="
 }

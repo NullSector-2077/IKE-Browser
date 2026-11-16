@@ -23,7 +23,7 @@ must be added there too, and `template()` and `tools/check-lang.py` take the
 list of strings from it. The list of all strings can be printed with:
 
 ```bash
-python3 -c "import sys; sys.path.insert(0, '.'); from ice.i18n import template; print(*template(), sep='\n')"
+python3 -c "import sys; sys.path.insert(0, '.'); from ike.i18n import template; print(*template(), sep='\n')"
 ```
 
 Check a pack (missing strings, placeholders, `&`, final `…` / `:`) with:
