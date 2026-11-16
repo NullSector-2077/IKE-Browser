@@ -48,6 +48,14 @@ jobs:
           flatpak --version
           flatpak-builder --version
           flatpak remotes --show-details || true
+          # The run times come preinstalled in the image's own layer, where
+          # ostree cannot rename across the overlay ("Invalid cross-device
+          # link" when flatpak-builder updates them): copied into the
+          # container's writable layer first.
+          mv /var/lib/flatpak /var/lib/flatpak.image
+          cp -a /var/lib/flatpak.image /var/lib/flatpak
+          rm -rf /var/lib/flatpak.image
+          flatpak list --columns=ref
 
       - name: Build the Flatpak and its bundle
         uses: flatpak/flatpak-github-actions/flatpak-builder@v6
@@ -61,38 +69,43 @@ jobs:
         run: |
           test -f "$BUNDLE"
           ls -l "$BUNDLE"
-          flatpak install --user -y --noninteractive "$BUNDLE"
-          flatpak info --user "$APP_ID"
+          flatpak install --system -y --noninteractive "$BUNDLE"
+          flatpak info --system "$APP_ID"
           mkdir -p out
-          flatpak info --user --show-permissions "$APP_ID" | tee out/permissions.txt
+          flatpak info --system --show-permissions "$APP_ID" | tee out/permissions.txt
 
       - name: What the run time offers (codecs, tools)
         continue-on-error: true
         run: |
           set -x
-          flatpak info --user -m org.kde.Platform//6.11 | sed -n '/Extension/,$p' | head -60
-          flatpak remote-ls --user flathub --all 2>/dev/null | grep -i -E 'codecs|ffmpeg' | head -20
-          flatpak run --user --command=sh "$APP_ID" -c '
+          flatpak info -m org.kde.Platform//6.11 | sed -n '/Extension/,$p' | head -60
+          flatpak remote-ls flathub --all 2>/dev/null | grep -i -E 'codecs|ffmpeg' | head -20
+          flatpak run --command=sh "$APP_ID" -c '
             for t in notify-send xdg-settings xdg-open dbus-daemon gdbus; do printf "%s: " $t; command -v $t || echo missing; done
             ls -d /usr/lib/x86_64-linux-gnu/codecs* /usr/lib/extensions/* 2>&1
             ls /usr/lib/x86_64-linux-gnu | grep -E "^lib(avcodec|avformat|avutil|openh264)" '
-          flatpak run --user --command=sh org.kde.Sdk//6.11 -c '
+          flatpak run --command=sh org.kde.Sdk//6.11 -c '
             pkg-config --modversion libavcodec libavformat libavutil opus libwebp
             printf "%s\n" "#include <libavformat/avformat.h>" "int main(void){AVStream s; return (int)av_stream_get_first_dts(&s);}" > /tmp/t.c
             gcc /tmp/t.c $(pkg-config --cflags --libs libavformat) -o /tmp/t && echo "FFmpeg has av_stream_get_first_dts (Chromium patch)" || echo "FFmpeg lacks av_stream_get_first_dts"
             ffmpeg -hide_banner -decoders 2>/dev/null | grep -i -E " (h264|aac|hevc|libopenh264)" '
+          for v in 6.11.3 6.11.2; do
+            u=https://download.qt.io/official_releases/qt/6.11/$v/submodules/qtwebengine-everywhere-src-$v.tar.xz
+            curl -sSfL "$u" -o /tmp/qtwe.tar.xz && { echo "$u"; sha256sum /tmp/qtwe.tar.xz; ls -l /tmp/qtwe.tar.xz; }
+            rm -f /tmp/qtwe.tar.xz
+          done
 
       - name: Start I.K.E. inside the Flatpak
         run: |
           export XDG_RUNTIME_DIR=/tmp/xdg-runtime
           mkdir -p -m 700 "$XDG_RUNTIME_DIR"
           version=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' ike/__init__.py)
-          got=$(flatpak run --user --env=QT_QPA_PLATFORM=offscreen "$APP_ID" --version)
+          got=$(flatpak run --env=QT_QPA_PLATFORM=offscreen "$APP_ID" --version)
           echo "$got"
           test "$got" = "I.K.E. $version"
           # the libraries of the PKGBUILD, the AdBlock engine, and the updater
           # knowing that updates come from Flatpak
-          flatpak run --user --env=QT_QPA_PLATFORM=offscreen --command=python3 "$APP_ID" -c '
+          flatpak run --env=QT_QPA_PLATFORM=offscreen --command=python3 "$APP_ID" -c '
           import sys
           sys.path[:0] = ["/app/lib/ike-browser", "/app/lib/ike-browser/vendor"]
           import cryptography, jeepney, adblock
@@ -115,7 +128,7 @@ jobs:
           echo "portal: ${portal:-none}"
           dbus-run-session -- bash -c "
             ${portal:-true} & sleep 2
-            timeout 300 flatpak run --user --filesystem='$PWD' --env=QT_QPA_PLATFORM=offscreen \
+            timeout 300 flatpak run --filesystem='$PWD' --env=QT_QPA_PLATFORM=offscreen \
               --command=python3 '$APP_ID' '$PWD/tools/engine-report.py' --app /app/lib/ike-browser \
               --decode '$PWD/tests/media' --json '$PWD/out/engine-flatpak-sandbox.json' \
               --markdown '$PWD/out/engine-flatpak-sandbox.md'"
@@ -127,7 +140,7 @@ jobs:
           # Only when the sandboxed start above failed in this container: the
           # report is still wanted. The manifest never switches it off.
           export XDG_RUNTIME_DIR=/tmp/xdg-runtime
-          flatpak run --user --filesystem="$PWD" --env=QT_QPA_PLATFORM=offscreen \
+          flatpak run --filesystem="$PWD" --env=QT_QPA_PLATFORM=offscreen \
               --env=QTWEBENGINE_DISABLE_SANDBOX=1 --command=python3 "$APP_ID" \
               "$PWD/tools/engine-report.py" --app /app/lib/ike-browser --decode "$PWD/tests/media" \
               --json "$PWD/out/engine-flatpak.json" --markdown "$PWD/out/engine-flatpak.md"
@@ -143,7 +156,7 @@ jobs:
           export XDG_RUNTIME_DIR=/tmp/xdg-runtime
           # the tests switch Chromium's sandbox off for the browsers they
           # start (tests/conftest.py), as in every other workflow
-          flatpak run --user --filesystem="$PWD" --env=PYTHONPATH="$PWD/.ci/pytest" \
+          flatpak run --filesystem="$PWD" --env=PYTHONPATH="$PWD/.ci/pytest" \
               --env=IKE_TEST_APP=/app/lib/ike-browser --env=QT_QPA_PLATFORM=offscreen \
               --env=PYTHONDONTWRITEBYTECODE=1 --cwd="$PWD" --command=python3 "$APP_ID" \
               -m pytest -ra -p no:cacheprovider --junitxml="$PWD/out/tests-flatpak.xml" \
