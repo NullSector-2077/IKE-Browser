@@ -1,7 +1,7 @@
 /* I.K.E. launcher: starts the browser with the system's python3.
  *
  * Built by the PKGBUILD and installed as /usr/bin/ike-browser.
- * ICE_LIBDIR overrides the installation folder.
+ * IKE_LIBDIR overrides the installation folder.
  *
  *   gcc -O2 -o ike-browser ike-browser.c
  */
@@ -11,7 +11,7 @@
 #include <unistd.h>
 
 int main(int argc, char **argv) {
-    const char *libdir = getenv("ICE_LIBDIR");
+    const char *libdir = getenv("IKE_LIBDIR");
     char boot[PATH_MAX];
     char **args;
     int i;
