@@ -60,6 +60,12 @@ jobs:
           - name: Debian 13
             id: debian
             image: debian:trixie
+            # Debian's engine (Chromium 122, no SwiftShader) gives no steady
+            # software WebGL in a container: measured on GitHub Actions with
+            # nine sets of switches, with and without a virtual X display.
+            # The fingerprint test checks every other value there and reports
+            # the WebGL part as not measured; Arch, Ubuntu and Fedora cover it.
+            no_webgl: "1"
           - name: Fedora 43
             id: fedora
             image: fedora:43
@@ -94,6 +100,7 @@ jobs:
       - name: Tests (this distribution's Qt)
         run: |
           set -o pipefail
+          export IKE_TEST_NO_SOFTWARE_WEBGL="${{ matrix.no_webgl }}"
           python3 -m pytest -ra --junitxml=out/tests-${{ matrix.id }}.xml 2>&1 | tee out/tests-${{ matrix.id }}.log
       - name: Arch package (makepkg, pacman, tests as installed)
         if: matrix.id == 'arch'

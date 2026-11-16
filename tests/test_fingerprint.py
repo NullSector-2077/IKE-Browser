@@ -16,7 +16,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
-from conftest import SOFTWARE_WEBGL, needs_engine, software_webgl_flags
+from conftest import needs_engine, software_webgl_flags, software_webgl_why
 
 from ike.osinfo import identity
 
@@ -202,9 +202,17 @@ def steps(ike, qapp, out):
 def test_scriptlets_do_not_change_fingerprint(run_ike, site, level):
     # software WebGL, so the WebGL values are measured too (the switches that
     # give it depend on how the engine was built: see conftest.SOFTWARE_WEBGL)
-    webgl = software_webgl_flags()
-    assert webgl, "no software WebGL with this engine (tried: %s)" % (SOFTWARE_WEBGL,)
-    flags = "--no-sandbox " + webgl
+    # IKE_TEST_NO_SOFTWARE_WEBGL=1: the environment cannot give this engine
+    # software WebGL (Debian 13's Qt in a container, see docs/TESTING.md);
+    # every other value is still measured and checked, and the test then
+    # reports the WebGL part as not measured instead of passing silently
+    no_webgl = os.environ.get("IKE_TEST_NO_SOFTWARE_WEBGL") == "1"
+    if no_webgl:
+        flags = "--no-sandbox"
+    else:
+        webgl = software_webgl_flags()
+        assert webgl, "no software WebGL with this engine:\n%s" % software_webgl_why()
+        flags = "--no-sandbox " + webgl
     out = run_ike("URL = %r\nSCRIPTLETS = %r\n" % (site, SCRIPTLETS) + STEPS,
                   settings={"shield_level": level}, env={"QTWEBENGINE_CHROMIUM_FLAGS": flags}, timeout=120)
     plain, again, with_scriptlets = out["plain"], out["plain_again"], out["scriptlets"]
@@ -214,9 +222,12 @@ def test_scriptlets_do_not_change_fingerprint(run_ike, site, level):
     assert plain and again and with_scriptlets
     assert out["rules"]["MAIN"], "the scriptlets were not installed"
     assert not plain["scriptlets"] and with_scriptlets["scriptlets"]   # they really ran
-    assert plain["webgl"], "WebGL not available"
-    for key in ("canvas", "webgl", "audio", "navigator", "screen", "hints", "media", "webgpu",
-                "worker", "frame"):
+    keys = ["canvas", "webgl", "audio", "navigator", "screen", "hints", "media", "webgpu", "worker", "frame"]
+    if no_webgl:
+        keys.remove("webgl")
+    else:
+        assert plain["webgl"], "WebGL not available"
+    for key in keys:
         assert not str(plain[key]).startswith("error"), (key, plain[key])
         assert plain[key] == again[key], ("not stable within a session", key)
         assert with_scriptlets[key] == plain[key], ("changed by the scriptlets", key, plain[key],
@@ -225,7 +236,9 @@ def test_scriptlets_do_not_change_fingerprint(run_ike, site, level):
         assert native, ("does not look native without scriptlets", name)
         assert with_scriptlets["natives"][name] == [native, fname, length], ("changed by the scriptlets", name)
     # the protection is really on: the graphics card is not the real one
+    # (SwiftShader, or Mesa's llvmpipe in software)
     assert "SwiftShader" not in json.dumps(plain["webgl"])
+    assert "llvmpipe" not in json.dumps(plain["webgl"]).lower()
     # the system named to sites is Linux,
     # the same in the request header, in scripts, in Client Hints and workers
     ident = identity()
@@ -235,5 +248,8 @@ def test_scriptlets_do_not_change_fingerprint(run_ike, site, level):
     assert plain["hints"][2] == ident["platform"]
     assert json.loads(plain["hints"][3])["platformVersion"] == ident["platform_version"]
     assert plain["worker"][0] == nav[0] and plain["frame"][1] == nav[0]
-    if level == "balanced":                 # Maximum hides the graphics card's name
+    if level == "balanced" and not no_webgl:   # Maximum hides the graphics card's name
         assert "Direct3D11" not in plain["webgl"][3], plain["webgl"]
+    if no_webgl:
+        pytest.skip("every value checked except WebGL: this environment gives the engine no "
+                    "software WebGL (IKE_TEST_NO_SOFTWARE_WEBGL=1)")
