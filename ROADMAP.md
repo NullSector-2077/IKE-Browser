@@ -198,6 +198,56 @@ In `docs/platforms/` (English), citing the official sources used:
   problems to solve, technical complexity; what already works versus what
   needs changes. A platform is not "done" because the code looks compatible.
 
+### 1.1.0 — the Cyber theme, new-tab tiles, monthly counter (approved by the owner on 2026-11-16)
+
+Branch `ike-1.1.0` (starts from `docs/platform-study`). The design was agreed
+on a shared canvas before any code. Rule of the whole version: **"Follow the
+system" stays the default and behaves exactly as before**; everything "Cyber"
+is one optional theme of I.K.E.'s own, drawn with what is already there (Qt
+Widgets, QPainter, the HTML of the new tab page) — no new library, no blur
+behind the window. No existing setting is reset or changes meaning.
+
+1. **Counter per month.** The new tab page shows the trackers and ads blocked
+   in the current month and in the month before; it starts again on the first
+   of the month. The all-time total goes on being counted (`blocked_total`)
+   and can be chosen instead. Setting `blocked_counter` (`month` | `total`).
+2. **Site tiles on the new tab page**, between the search field and the
+   counter: the user's bookmarks or the most visited sites (local history
+   only), or none; site icon or initial; a tile to add one; a tile can be
+   hidden without deleting anything. Setting `newtab_tiles`
+   (`bookmarks` | `visited` | `none`). Titles and addresses are untrusted
+   text: escaped, web addresses only — with an attack test.
+3. **The "I.K.E. Cyber" theme**: a ready-made theme (dark, one accent colour)
+   with a look of its own — cut corners, thin luminous lines, a grid on the
+   new tab page when there is no photo. Options, shown only with this theme:
+   accent colour, shape of the tabs, glow, cut corners. The other ready-made
+   and custom themes stay.
+4. **Tab shapes of the Cyber theme**, horizontal and vertical, chosen by the
+   user: *Smusso* (one cut corner, line above the current tab), *Lama*
+   (slanted sides, line below), *Mirino* (no fill, the current tab between
+   two brackets). Dragging, closing, groups, sound and the loading mark work
+   as before. With "Follow the system" the tabs are the desktop's.
+5. **Light effects**, all under the existing "Interface effects" switch and
+   off when the desktop asks for no animations: the accent line glides to the
+   new current tab; the address field lights up on focus; tabs open and
+   close with a short slide; the shield pulses once when it blocks; the
+   counter counts up when the new tab opens; a lit corner on hover.
+6. **Small things**: an equaliser on a tab that plays sound; the tab preview,
+   group colour, download ring, menus and shield panel in the Cyber look; the
+   site's domain emphasised in the address field; a short fade when the theme
+   changes.
+7. **Clear options and a clear suggestion.** Settings → Appearance shows the
+   theme choice first, "Follow the system" marked as the default and "I.K.E.
+   Cyber" as recommended; the new tab page suggests the Cyber theme once,
+   with "Try it" and "Not now", and it is one click to go back.
+8. Dropped on purpose: a live trace of blocked requests under the toolbar (it
+   would distract).
+9. Tests for each part (shapes drawn at several sizes and scales, drag and
+   close with the Cyber tabs, month roll-over with a fixed clock, tiles with
+   hostile titles, nothing changed with "Follow the system"); processor time
+   at rest and in use measured against 1.0.3; translations in the seven
+   languages; package built and tested.
+
 ### Status
 
 - 2026-11-16: plan written.
@@ -213,6 +263,8 @@ In `docs/platforms/` (English), citing the official sources used:
   Everything of this plan is done and waits for the owner: review, merge
   (#4, #5, #6, #7, then the study), sign and publish. Nothing was merged,
   signed or published by the unattended session.
+- 1.1.0 started on branch `ike-1.1.0` (plan above approved). Done so far:
+  nothing yet.
 
 ### Also planned
 
