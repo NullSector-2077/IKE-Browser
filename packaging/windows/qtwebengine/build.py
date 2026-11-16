@@ -295,11 +295,19 @@ def install_qt():
                 f"sha256 {sha256_file(target)}")
             if actual != expected:
                 raise SystemExit(f"{archive}: SHA-1 is {actual}, the repository says {expected}")
-            run(["7z", "x", target, f"-o{QT_ROOT}", "-y", "-bso0", "-bsp0"])
+            # The archives hold the content of <version>/<compiler>/ itself
+            # (bin, lib, ...); Qt's installer puts them there.
+            listing = output(["7z", "l", "-ba", "-slt", target])
+            inside = re.findall(r"^Path = (.+)$", listing, flags=re.M)
+            nested = any(p.replace("\\", "/").startswith(VERSIONS["qt_version"] + "/")
+                         for p in inside)
+            where = QT_ROOT if nested else QT_PREFIX
+            where.mkdir(parents=True, exist_ok=True)
+            run(["7z", "x", target, f"-o{where}", "-y", "-bso0", "-bsp0"])
             target.unlink()
     shutil.rmtree(scratch, ignore_errors=True)
     if not (QT_PREFIX / "bin" / "qt-cmake.bat").exists():
-        found = [str(p) for p in QT_ROOT.glob("*/*")][:20]
+        found = [str(p) for p in QT_ROOT.glob("*/*/*")][:20]
         raise SystemExit(f"Qt was unpacked but {QT_PREFIX} has no qt-cmake.bat; found {found}")
     for library in ("Qt6Core.dll", "Qt6Quick.dll", "Qt6WebChannel.dll", "Qt6Positioning.dll"):
         log(f"{library}: {'present' if (QT_PREFIX / 'bin' / library).exists() else 'MISSING'}")
