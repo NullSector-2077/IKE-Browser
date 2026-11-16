@@ -171,14 +171,15 @@ needs_engine = pytest.mark.skipif(not _engine_available(),
                                   reason="I.K.E. AdBlock engine not built (see docs/BUILDING.md)")
 
 
-# Switches that give WebGL without a graphics card, in order of preference.
-# Qt's own builds and most distributions have SwiftShader inside the engine;
-# a distribution that leaves it out (Debian) is asked for Mesa's software GL.
+# Switches that give WebGL without a graphics card, in order of preference:
+# Mesa's software GL through ANGLE (what a desktop without a GPU driver uses;
+# steady with every engine tried, and the only one where a distribution
+# leaves SwiftShader out, as Debian does), then the engine's own SwiftShader
+# (it made distribution builds of Qt WebEngine end with SIGTRAP now and then).
 SOFTWARE_WEBGL = (
+    "--use-angle=gl --ignore-gpu-blocklist",
     "--enable-unsafe-swiftshader --use-angle=swiftshader --ignore-gpu-blocklist",
     "--use-gl=angle --use-angle=swiftshader-webgl --ignore-gpu-blocklist",
-    "--use-angle=gl --ignore-gpu-blocklist",
-    "--use-gl=egl --ignore-gpu-blocklist",
 )
 _WEBGL_PROBE = r"""
 import sys
