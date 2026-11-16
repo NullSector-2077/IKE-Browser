@@ -1,0 +1,93 @@
+"""Site icons, stored per host so bookmarks can show them."""
+
+import sqlite3
+import time
+from urllib.parse import urlsplit
+
+from PyQt6.QtCore import QBuffer, QByteArray, QIODevice, QObject, QUrl, pyqtSignal
+from PyQt6.QtGui import QIcon, QPixmap
+from PyQt6.QtNetwork import QNetworkReply, QNetworkRequest
+
+from .config import DATA_DIR
+
+
+def host_of(url):
+    try:
+        return (urlsplit(url).hostname or "").lower()
+    except ValueError:
+        return ""
+
+
+class Favicons(QObject):
+    changed = pyqtSignal()          # a new icon is available
+
+    def __init__(self, app):
+        super().__init__(app)
+        self.app = app
+        self.db = sqlite3.connect(str(DATA_DIR / "favicons.sqlite"))
+        self.db.execute("CREATE TABLE IF NOT EXISTS icons("
+                        "host TEXT PRIMARY KEY, png BLOB, ts INTEGER)")
+        self.db.commit()
+        self._cache = {}
+        self._tried = set()
+
+    def icon(self, url):
+        """QIcon for the site of url, or a null icon when none is known."""
+        host = host_of(url)
+        if not host:
+            return QIcon()
+        if host not in self._cache:
+            row = self.db.execute("SELECT png FROM icons WHERE host=?", (host,)).fetchone()
+            pm = QPixmap()
+            if row and row[0]:
+                pm.loadFromData(row[0], "PNG")
+            self._cache[host] = QIcon(pm) if not pm.isNull() else QIcon()
+        return self._cache[host]
+
+    def store(self, url, icon):
+        host = host_of(url)
+        if not host or icon.isNull():
+            return
+        pm = icon.pixmap(32, 32)
+        if pm.isNull():
+            return
+        data = QByteArray()
+        buf = QBuffer(data)
+        buf.open(QIODevice.OpenModeFlag.WriteOnly)
+        pm.save(buf, "PNG")
+        buf.close()
+        self.db.execute("INSERT INTO icons(host,png,ts) VALUES(?,?,?) ON CONFLICT(host) "
+                        "DO UPDATE SET png=excluded.png, ts=excluded.ts",
+                        (host, bytes(data), int(time.time())))
+        self.db.commit()
+        known = host in self._cache and not self._cache[host].isNull()
+        self._cache[host] = QIcon(pm)
+        if not known:
+            self.changed.emit()
+
+    def fetch(self, url):
+        """Ask the site for /favicon.ico once per session (bookmarks not visited yet)."""
+        host = host_of(url)
+        if not host or host in self._tried or not self.icon(url).isNull():
+            return
+        self._tried.add(host)
+        scheme = urlsplit(url).scheme if urlsplit(url).scheme in ("http", "https") else "https"
+        req = QNetworkRequest(QUrl("%s://%s/favicon.ico" % (scheme, urlsplit(url).netloc)))
+        req.setAttribute(QNetworkRequest.Attribute.RedirectPolicyAttribute,
+                         QNetworkRequest.RedirectPolicy.NoLessSafeRedirectPolicy)
+        req.setRawHeader(b"User-Agent", self.app.shields.user_agent().encode())
+        reply = self.app.network.get(req)
+
+        def done():
+            ok = reply.error() == QNetworkReply.NetworkError.NoError
+            data = bytes(reply.readAll()) if ok else b""
+            reply.deleteLater()
+            pm = QPixmap()
+            if data and len(data) < 512 * 1024 and pm.loadFromData(data):
+                self.store(url, QIcon(pm))
+        reply.finished.connect(done)
+
+    def clear(self):
+        self.db.execute("DELETE FROM icons")
+        self.db.commit()
+        self._cache.clear()
