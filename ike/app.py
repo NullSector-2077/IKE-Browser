@@ -641,7 +641,7 @@ class IkeApp(QObject):
         url = view.url()
         if url.scheme() == "ike" and url.path() in ("", "newtab") and self.config["newtab_weather"]:
             text = json.dumps(self.shields.weather_text())
-            view.page().runJavaScript("window.iceWeather && iceWeather(%s)" % text)
+            view.page().runJavaScript("window.ikeWeather && ikeWeather(%s)" % text)
 
     def _download_tick(self):
         """Update the progress ring of the Downloads buttons."""
