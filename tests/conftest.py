@@ -212,6 +212,7 @@ QTimer.singleShot(40000, app.quit)
 app.exec()
 """
 _webgl_flags = []
+_webgl_why = []
 
 
 def software_webgl_flags():
@@ -233,5 +234,12 @@ def software_webgl_flags():
         if "WEBGL=True" in r.stdout:
             found = flags
             break
+        _webgl_why.append("%s -> %s" % (flags, " | ".join(
+            line for line in r.stderr.splitlines()[-12:] if "propagateSizeHints" not in line)))
     _webgl_flags.append(found)
     return found
+
+
+def software_webgl_why():
+    """What the engine said when no switch gave WebGL (for the failure message)."""
+    return "\n".join(_webgl_why)

@@ -16,7 +16,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
-from conftest import SOFTWARE_WEBGL, needs_engine, software_webgl_flags
+from conftest import needs_engine, software_webgl_flags, software_webgl_why
 
 from ike.osinfo import identity
 
@@ -203,7 +203,7 @@ def test_scriptlets_do_not_change_fingerprint(run_ike, site, level):
     # software WebGL, so the WebGL values are measured too (the switches that
     # give it depend on how the engine was built: see conftest.SOFTWARE_WEBGL)
     webgl = software_webgl_flags()
-    assert webgl, "no software WebGL with this engine (tried: %s)" % (SOFTWARE_WEBGL,)
+    assert webgl, "no software WebGL with this engine:\n%s" % software_webgl_why()
     flags = "--no-sandbox " + webgl
     out = run_ike("URL = %r\nSCRIPTLETS = %r\n" % (site, SCRIPTLETS) + STEPS,
                   settings={"shield_level": level}, env={"QTWEBENGINE_CHROMIUM_FLAGS": flags}, timeout=120)
