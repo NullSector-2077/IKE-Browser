@@ -527,8 +527,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         line.setMidLineWidth(0)
         line.setFixedSize(10, 24)
         line.setMouseTracking(True)
-        line.setProperty("iceToolbarKey", key)
-        line.setProperty("iceToolbarSeparator", True)
+        line.setProperty("ikeToolbarKey", key)
+        line.setProperty("ikeToolbarSeparator", True)
         line.setToolTip(T("Custom separator — hold and drag to move"))
         action.setDefaultWidget(line)
         return action
@@ -1336,10 +1336,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         label = getattr(self, "_notice", None)
         if label is None:
             label = self._notice = QLabel(self)
-            label.setObjectName("iceExclusiveNotice")
+            label.setObjectName("ikeExclusiveNotice")
             label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            label.setStyleSheet("#iceExclusiveNotice { background: rgba(32, 33, 36, 235); color: white;"
+            label.setStyleSheet("#ikeExclusiveNotice { background: rgba(32, 33, 36, 235); color: white;"
                                 " border-radius: 10px; padding: 12px 20px; }")
             f = label.font()
             f.setPointSizeF(f.pointSizeF() * 1.15)
