@@ -19,6 +19,7 @@ def load_tool():
     exec(compile(path.read_text("utf-8"), str(path), "exec"), module.__dict__)
     return module
 
+
 def make_adblock_repo(root, version="0.13.5"):
     crate = root / "ike-adblock"
     (crate / "src").mkdir(parents=True)
