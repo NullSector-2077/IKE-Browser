@@ -20,8 +20,8 @@ jobs:
     permissions:
       contents: read
     outputs:
-      updates: \${{ steps.check.outputs.updates }}
-      errors: \${{ steps.check.outputs.errors }}
+      updates: ${{ steps.check.outputs.updates }}
+      errors: ${{ steps.check.outputs.errors }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -53,9 +53,9 @@ jobs:
           path: report
       - name: Update the Arch component issue
         env:
-          GH_TOKEN: \${{ github.token }}
-          UPDATES: \${{ needs.check.outputs.updates }}
-          ERRORS: \${{ needs.check.outputs.errors }}
+          GH_TOKEN: ${{ github.token }}
+          UPDATES: ${{ needs.check.outputs.updates }}
+          ERRORS: ${{ needs.check.outputs.errors }}
         run: |
           gh label create arch-components --color 1d76db \
             --description "Arch / CachyOS component updates or check failures" 2>/dev/null || true
