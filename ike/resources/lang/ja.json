@@ -780,6 +780,7 @@
 "Engine sandbox: OFF (switched off by the environment, or I.K.E. was started as administrator)": "エンジンのサンドボックス：オフ（環境によって無効化されたか、I.K.E. が管理者として起動されました）",
 "Internal errors this session: %d (details in %s)": "このセッションの内部エラー：%d（詳細は %s）",
 "Open with another application": "別のアプリケーションで開く",
-"%s wants to open this link with another application:": "%s がこのリンクを別のアプリケーションで開こうとしています:"
+"%s wants to open this link with another application:": "%s がこのリンクを別のアプリケーションで開こうとしています:",
+"Cookies are deleted at once. The other data stored by sites (local storage, databases) is removed when I.K.E. is started again.": "Cookie はすぐに削除されます。サイトが保存したその他のデータ（ローカルストレージ、データベース）は、次回 I.K.E. を起動したときに削除されます。"
 }
 }

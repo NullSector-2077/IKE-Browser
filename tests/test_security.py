@@ -775,6 +775,160 @@ def steps(ike, qapp, out):
     assert all(out["own"]) and not any(out["external"])
 
 
+def test_clearing_site_data_removes_what_sites_stored(run_ike, tmp_path):
+    """ "Cookies and site data" must also take away local storage and
+    databases: a tracker keeps its identifier there just as well as in a
+    cookie. The engine cannot delete them while it runs, so they go when
+    I.K.E. starts next; the history, passwords and settings stay."""
+    class H(BaseHTTPRequestHandler):
+        def do_GET(self):
+            body = b"<!doctype html><title>store</title><body>page"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    site = "http://127.0.0.1:%d/" % srv.server_address[1]
+    read = JS + r'''
+import os
+SITE = os.environ["IKE_SITE"]
+
+def stored(view):
+    yield from js(view, """window._r = null; (async function () {
+        var db = await new Promise(function (ok) {
+            var q = indexedDB.open('ikedb', 1);
+            q.onupgradeneeded = function () { q.result.createObjectStore('s'); };
+            q.onsuccess = function () { ok(q.result); }; q.onerror = function () { ok(null); }; });
+        var v = db && await new Promise(function (ok) {
+            var g = db.transaction('s').objectStore('s').get('id');
+            g.onsuccess = function () { ok(g.result || null); }; g.onerror = function () { ok('error'); }; });
+        window._r = JSON.stringify([localStorage.getItem('id'), v]); })(); 1""")
+    yield 500
+    return json.loads((yield from js(view, "window._r")))
+'''
+    try:
+        out = run_ike(read + r'''
+def steps(ike, qapp, out):
+    view = ike.windows[0].current_view()
+    yield from load(view, SITE)
+    yield from js(view, """localStorage.setItem('id', 'tracker-1234');
+        var q = indexedDB.open('ikedb', 1);
+        q.onupgradeneeded = function () { q.result.createObjectStore('s'); };
+        q.onsuccess = function () { q.result.transaction('s', 'readwrite').objectStore('s').put('tracker-5678', 'id'); }; 1""")
+    yield 800
+    out["written"] = yield from stored(view)
+''', env={"IKE_SITE": site}, timeout=120)
+        assert out["written"] == ["tracker-1234", "tracker-5678"]
+
+        out = run_ike(read + r'''
+def steps(ike, qapp, out):
+    from ike import sitedata
+    view = ike.windows[0].current_view()
+    yield from load(view, SITE)
+    out["kept"] = yield from stored(view)             # an ordinary restart keeps it
+    out["asked_before"] = sitedata.asked()
+    ike.clear_data(False, True, False, False)         # "Cookies and site data"
+    out["asked"] = sitedata.asked()
+''', env={"IKE_SITE": site}, keep_profile=True, timeout=120)
+        assert out["kept"] == ["tracker-1234", "tracker-5678"]
+        assert out["asked_before"] is False and out["asked"] is True
+
+        out = run_ike(read + r'''
+def steps(ike, qapp, out):
+    from ike import sitedata
+    view = ike.windows[0].current_view()
+    out["asked"] = sitedata.asked()
+    yield from load(view, SITE)
+    out["after"] = yield from stored(view)
+    out["history"] = [h[0] for h in ike.storage.history("127.0.0.1", 10)]
+''', env={"IKE_SITE": site}, keep_profile=True, timeout=120)
+        assert out["after"] == [None, None]
+        assert out["asked"] is False                  # done once, not at every start
+        assert out["history"]                         # the history was not asked for: still there
+    finally:
+        srv.shutdown()
+
+
+def test_clear_when_closed_leaves_no_site_data(run_ike, tmp_path):
+    """With "clear when I.K.E. is closed" nothing a site stored survives the session."""
+    class H(BaseHTTPRequestHandler):
+        def do_GET(self):
+            body = b"<!doctype html><title>store</title><body>page"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    script = JS + r'''
+import os
+
+def steps(ike, qapp, out):
+    view = ike.windows[0].current_view()
+    yield from load(view, os.environ["IKE_SITE"])
+    out["found"] = yield from js(view, "localStorage.getItem('id')")
+    yield from js(view, "localStorage.setItem('id', 'tracker-1234'); 1")
+    yield 600
+'''
+    env = {"IKE_SITE": "http://127.0.0.1:%d/" % srv.server_address[1]}
+    try:
+        first = run_ike(script, settings={"clear_on_exit": True}, env=env, timeout=120)
+        left = [p.name for p in (tmp_path / "home/.local/share/ike-browser/profile").glob("Local Storage/leveldb/*.log")
+                if b"tracker-1234" in p.read_bytes()]
+        second = run_ike(script, settings={"clear_on_exit": True}, env=env, keep_profile=True, timeout=120)
+    finally:
+        srv.shutdown()
+    assert first["found"] is None and second["found"] is None
+    assert left == []                                 # already gone from the disk when the browser closed
+
+
+def test_site_data_is_removed_without_following_links(tmp_path):
+    """The clean-up works inside the profile folders only: a link placed there
+    is removed itself, what it points to is not touched."""
+    from ike import sitedata
+
+    data = tmp_path / "data"
+    profile = data / "profile"
+    work = data / "containers" / "work"
+    for folder in (profile, work):
+        (folder / "Local Storage" / "leveldb").mkdir(parents=True)
+        (folder / "Local Storage" / "leveldb" / "000003.log").write_text("x")
+        (folder / "IndexedDB").mkdir()
+        (folder / "Cookies").write_text("x")
+        (folder / "History").write_text("history")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "precious.txt").write_text("keep me")
+    (profile / "Service Worker").symlink_to(outside)
+    (data / "containers" / "linked").symlink_to(outside)        # not a container: a link
+    (data / "passwords.json").write_text("vault")
+
+    assert sitedata.at_start(data) is False                      # nothing was asked for
+    assert (profile / "Local Storage").exists()
+    sitedata.ask(data)
+    assert sitedata.asked(data)
+    assert sitedata.at_start(data) is True
+    for folder in (profile, work):
+        assert not (folder / "Local Storage").exists() and not (folder / "IndexedDB").exists()
+        assert not (folder / "Cookies").exists()
+        assert (folder / "History").read_text() == "history"
+    assert not (profile / "Service Worker").is_symlink()
+    assert (outside / "precious.txt").read_text() == "keep me"
+    assert (data / "passwords.json").read_text() == "vault"
+    assert not sitedata.asked(data)
+
+
 def test_password_files_are_private_from_the_start(tmp_path):
     from ike import passwords
     old = os.umask(0)                     # the most permissive creation mask there is

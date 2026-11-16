@@ -780,6 +780,7 @@
 "Engine sandbox: OFF (switched off by the environment, or I.K.E. was started as administrator)": "Sandbox do motor: DESLIGADA (desligada pelo ambiente, ou o I.K.E. foi iniciado como administrador)",
 "Internal errors this session: %d (details in %s)": "Erros internos nesta sessão: %d (detalhes em %s)",
 "Open with another application": "Abrir com outra aplicação",
-"%s wants to open this link with another application:": "%s quer abrir esta ligação com outra aplicação:"
+"%s wants to open this link with another application:": "%s quer abrir esta ligação com outra aplicação:",
+"Cookies are deleted at once. The other data stored by sites (local storage, databases) is removed when I.K.E. is started again.": "Os cookies são eliminados de imediato. Os outros dados guardados pelos sites (armazenamento local, bases de dados) são removidos quando o I.K.E. for iniciado de novo."
 }
 }

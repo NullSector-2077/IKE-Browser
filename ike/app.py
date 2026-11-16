@@ -788,6 +788,9 @@ class IkeApp(QObject):
         if cookies:
             for p in self.all_profiles():
                 p.cookieStore().deleteAllCookies()
+            # local storage, databases, service workers: at the next start (see sitedata.py)
+            from . import sitedata
+            sitedata.ask()
         if cache:
             for p in self.all_profiles():
                 p.clearHttpCache()
@@ -970,6 +973,8 @@ def main(argv=None):
 
     _wait_for_previous()
     ensure_dirs()
+    from . import sitedata
+    sitedata.at_start()                  # site data the user asked to clear: before the engine opens it
     config = Config()
     _chromium_flags(config)
     from .shields import register_scheme
@@ -1052,6 +1057,8 @@ def main(argv=None):
         runpy.run_path(hook, init_globals={"ike": ike, "qapp": qapp})
     code = qapp.exec()
     background.let_go()          # a download still waiting for its server must not be destroyed
+    if config["clear_on_exit"] and sitedata.asked() and not getattr(ike, "_restart", False):
+        sitedata.remove()        # "clear when closed": now, and once more at the next start
     if getattr(ike, "_restart", False):
         import subprocess
         server.close()

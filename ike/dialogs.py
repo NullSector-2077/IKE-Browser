@@ -1574,6 +1574,11 @@ class ClearDataDialog(QDialog):
             c.setChecked(True)
         for c in (self.history, self.cookies, self.cache, self.perms):
             lay.addWidget(c)
+        note = QLabel(T("Cookies are deleted at once. The other data stored by sites (local storage, "
+                        "databases) is removed when I.K.E. is started again."))
+        note.setWordWrap(True)
+        note.setEnabled(False)
+        lay.addWidget(note)
         bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok
                               | QDialogButtonBox.StandardButton.Cancel)
         bb.button(QDialogButtonBox.StandardButton.Ok).setText(T("Clear"))
