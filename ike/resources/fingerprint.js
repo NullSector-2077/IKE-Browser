@@ -596,7 +596,7 @@
       getter(w.GPUAdapter.prototype, 'info', function (orig) {
         var real = orig.call(this);
         try {
-          return Object.freeze({ vendor: '', architecture: '', devike: '', description: '',
+          return Object.freeze({ vendor: '', architecture: '', device: '', description: '',
             subgroupMinSize: real.subgroupMinSize, subgroupMaxSize: real.subgroupMaxSize,
             isFallbackAdapter: false });
         } catch (e) { return real; }

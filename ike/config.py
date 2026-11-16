@@ -225,7 +225,7 @@ DEFAULTS = {
     "update_channel": "stable",         # stable | beta
     "last_app_check": 0,
     "passwords_offer_save": True,
-    "crx_url": ("https://clients2.google.com/servike/update2/crx?response=redirect"
+    "crx_url": ("https://clients2.google.com/service/update2/crx?response=redirect"
                 "&prodversion={version}&acceptformat=crx2,crx3&x=id%3D{id}%26uc"),
     "lang_url": "",                     # where language packs are listed (index.json)
     "system_titlebar": True,            # False: own window buttons, more room for pages

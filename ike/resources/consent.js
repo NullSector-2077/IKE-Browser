@@ -42,7 +42,7 @@
     'button#W0wltc'
   ];
   var WORDS = /^(rifiuta( tutt[oi])?( e chiudi)?|rifiuto|rifiuta tutti i cookie|nega|non accetto|continua senza accettare|solo (cookie )?necessari|usa solo (i )?cookie necessari|accetta solo (i )?necessari|reject( all)?( cookies)?|decline( all)?|deny( all)?|refuse( all)?|i (do not|don't) accept|disagree|only (necessary|essential)( cookies)?|use (necessary|essential) cookies only|necessary (cookies )?only|essential (cookies )?only|continue without accepting|alle ablehnen|ablehnen|nur notwendige( cookies)?|tout refuser|refuser|continuer sans accepter|rechazar( todo| todas)?|rechazar cookies|denegar)$/i;
-  var CONTAINER = /cookie|consent|gdpr|privacy|cmp|banner|notike/i;
+  var CONTAINER = /cookie|consent|gdpr|privacy|cmp|banner|notice/i;
 
   function visible(el) {
     var r = el.getBoundingClientRect();
