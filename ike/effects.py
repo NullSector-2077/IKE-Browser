@@ -97,9 +97,14 @@ def fade_in(widget, config, ms=FADE_MS):
 
 def fading(menu, config):
     """Make a QMenu fade in each time it opens."""
-    menu.aboutToShow.connect(lambda m=menu: fade_in(m, config))
+    menu.aboutToShow.connect(lambda m=menu: (_cyber_menu(m, config), fade_in(m, config)))
     menu.aboutToHide.connect(lambda m=menu: _settle(m))
     return menu
+
+
+def _cyber_menu(menu, config):
+    from . import cyber
+    cyber.style_menu(menu, config)
 
 
 def _settle(widget):

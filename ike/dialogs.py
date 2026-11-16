@@ -90,6 +90,7 @@ class SettingsDialog(QDialog):
         sections = (
             (self._general, T("General"), ("configure", "preferences-system")),
             (self._appearance, T("Appearance"), ("preferences-desktop-theme", "preferences-desktop")),
+            (self._newtab_page, T("New tab page"), ("tab-new", "document-new")),
             (self._search, T("Search"), ("edit-find", "system-search")),
             (self._privacy, T("Privacy and protection"), ("security-high", "preferences-security")),
             (self._components, T("Components and extensions"), ("preferences-plugin", "application-x-addon")),
@@ -152,7 +153,6 @@ class SettingsDialog(QDialog):
         f.addRow(T("At startup"), self.startup)
         f.addRow(T("Home page"), self.homepage)
         f.addRow("", default_btn)
-        self._newtab_rows(f)
         self.lazy = QCheckBox(T("Load restored tabs only when they are opened (faster start)"))
         self.lazy.setChecked(bool(self.cfg["lazy_restore"]))
         self.sleep = QSpinBox()
@@ -297,8 +297,9 @@ class SettingsDialog(QDialog):
         scheme_row = QHBoxLayout()
         scheme_row.addWidget(self.ui_scheme, 1)
         scheme_row.addWidget(custom)
-        f.addRow(T("Icons"), self.icon_theme)
         f.addRow(T("Interface colours"), scheme_row)
+        self._cyber_rows(f)
+        f.addRow(T("Icons"), self.icon_theme)
         f.addRow(T("Tabs"), self.tabs_pos)
         f.addRow("", self.menubar)
         f.addRow(T("Bookmarks bar"), self.bookbar)
@@ -486,6 +487,116 @@ class SettingsDialog(QDialog):
     def _city_chosen(self, i):
         self._city_pick = self.city_results.itemData(i)
 
+    def _cyber_rows(self, f):
+        """The suggestion of the Cyber theme and, when it is chosen, its own options."""
+        from PyQt6.QtGui import QColor
+
+        from . import themes
+        self.cyber_hint = QWidget()
+        row = QHBoxLayout(self.cyber_hint)
+        row.setContentsMargins(0, 0, 0, 0)
+        text = QLabel(T("Recommended: I.K.E. Cyber, a theme of I.K.E.'s own with cut corners and luminous "
+                        "lines, the same on every system. “Follow the system” stays the default."))
+        text.setWordWrap(True)
+        self.cyber_try = QPushButton(T("Try the Cyber theme"))
+        self.cyber_try.clicked.connect(
+            lambda: self.ui_scheme.setCurrentIndex(max(0, self.ui_scheme.findData("theme:cyber"))))
+        row.addWidget(text, 1)
+        row.addWidget(self.cyber_try)
+        f.addRow("", self.cyber_hint)
+
+        self.cyber_box = QWidget()
+        box = QFormLayout(self.cyber_box)
+        box.setContentsMargins(0, 0, 0, 0)
+        self._cyber_accent = self.cfg["cyber_accent"] if QColor.isValidColorName(self.cfg["cyber_accent"] or "x") else ""
+        accents = QHBoxLayout()
+        self.cyber_swatches = []
+        default = themes.BUILTIN["cyber"]["accent"]
+        for colour, name in ((default, T("Cyan")), ("#ff5fa8", T("Magenta")), ("#b6ff3c", T("Lime")),
+                             ("#ffb020", T("Amber")), ("#9d8cff", T("Violet"))):
+            b = QPushButton()
+            b.setFixedSize(34, 26)
+            b.setCheckable(True)
+            b.setToolTip(name)
+            b.setAccessibleName(name)
+            b.setStyleSheet("QPushButton{background:%s;border:2px solid transparent}"
+                            "QPushButton:checked{border:2px solid palette(window-text)}" % colour)
+            b.clicked.connect(lambda _c=False, c=colour: self._pick_accent("" if c == default else c))
+            b.setProperty("accent", "" if colour == default else colour)
+            self.cyber_swatches.append(b)
+            accents.addWidget(b)
+        other = QPushButton(T("Other…"))
+        other.clicked.connect(self._other_accent)
+        accents.addWidget(other)
+        accents.addStretch(1)
+        self.cyber_shape = QComboBox()
+        for key, label in (("smusso", T("Cut: one cut corner, a line above the current tab")),
+                           ("lama", T("Blade: slanted sides, a line below the current tab")),
+                           ("mirino", T("Viewfinder: no fill, the current tab between two brackets"))):
+            self.cyber_shape.addItem(label, key)
+        self.cyber_shape.setCurrentIndex(max(0, self.cyber_shape.findData(self.cfg["cyber_shape"])))
+        self.cyber_glow = QCheckBox(T("Glow on the lines and on the element in use"))
+        self.cyber_glow.setChecked(bool(self.cfg["cyber_glow"]))
+        self.cyber_corners = QCheckBox(T("Cut corners"))
+        self.cyber_corners.setChecked(bool(self.cfg["cyber_corners"]))
+        box.addRow(T("Accent colour"), accents)
+        box.addRow(T("Shape of the tabs"), self.cyber_shape)
+        box.addRow("", self.cyber_glow)
+        box.addRow("", self.cyber_corners)
+        f.addRow("", self.cyber_box)
+        self.ui_scheme.currentIndexChanged.connect(lambda _i: self._cyber_shown())
+        self._pick_accent(self._cyber_accent)
+        self._cyber_shown()
+
+    def _cyber_shown(self):
+        cyber = self.ui_scheme.currentData() == "theme:cyber"
+        self.cyber_box.setVisible(cyber)
+        self.cyber_hint.setVisible(not cyber)
+
+    def _pick_accent(self, colour):
+        self._cyber_accent = colour
+        for b in self.cyber_swatches:
+            b.setChecked(b.property("accent") == colour)
+
+    def _other_accent(self):
+        from PyQt6.QtGui import QColor
+        from PyQt6.QtWidgets import QColorDialog
+
+        from . import themes
+        start = QColor(self._cyber_accent or themes.BUILTIN["cyber"]["accent"])
+        colour = QColorDialog.getColor(start, self, T("Accent colour"))
+        if colour.isValid():
+            self._pick_accent(colour.name())
+
+    def _newtab_page(self):
+        """Everything about the new tab page in one place."""
+        w = QWidget()
+        f = QFormLayout(w)
+        self.nt_tiles = QComboBox()
+        for key, label in (("bookmarks", T("My bookmarks")), ("visited", T("The sites I visit most")),
+                           ("none", T("None"))):
+            self.nt_tiles.addItem(label, key)
+        self.nt_tiles.setCurrentIndex(max(0, self.nt_tiles.findData(self.cfg["newtab_tiles"])))
+        self.nt_tiles.setToolTip(T("The most visited sites are worked out from the history kept on this computer"))
+        self.nt_unhide = QPushButton(T("Show the hidden tiles again"))
+        self.nt_unhide.setEnabled(bool(self.cfg["newtab_tiles_hidden"]))
+        self.nt_unhide.clicked.connect(lambda: (self.nt_unhide.setProperty("clear", True),
+                                                self.nt_unhide.setEnabled(False)))
+        tiles = QHBoxLayout()
+        tiles.addWidget(self.nt_tiles, 1)
+        tiles.addWidget(self.nt_unhide)
+        self.nt_counter = QComboBox()
+        self.nt_counter.addItem(T("This month (starts again on the first of each month)"), "month")
+        self.nt_counter.addItem(T("Since I.K.E. was installed"), "total")
+        self.nt_counter.setCurrentIndex(max(0, self.nt_counter.findData(self.cfg["blocked_counter"])))
+        self.nt_grid = QCheckBox(T("Cyber theme: a grid when there is no background photo"))
+        self.nt_grid.setChecked(bool(self.cfg["newtab_grid"]))
+        f.addRow(T("Site tiles"), tiles)
+        f.addRow(T("Counter of blocked trackers and ads"), self.nt_counter)
+        self._newtab_rows(f)
+        f.addRow("", self.nt_grid)
+        return w
+
     def _fill_schemes(self, selected):
         """System / light / dark, the ready-made themes and the user's own."""
         from . import themes
@@ -495,7 +606,7 @@ class SettingsDialog(QDialog):
             combo.addItem(label, key)
         combo.insertSeparator(combo.count())
         for key, label in themes.names():
-            combo.addItem(label, "theme:" + key)
+            combo.addItem(T("%s (recommended)") % label if key == "cyber" else label, "theme:" + key)
         mine = sorted((self.cfg["ui_themes"] or {}), key=str.lower)
         if mine:
             combo.insertSeparator(combo.count())
@@ -1036,10 +1147,29 @@ class SettingsDialog(QDialog):
         cfg["startup"] = self.startup.currentData()
         cfg["homepage"] = self.homepage.text().strip() or "ike:newtab"
         cfg["tabs_position"] = self.tabs_pos.currentData()
-        look = (cfg["icon_theme"], cfg["ui_scheme"])
+        def looks():
+            return [cfg[k] for k in ("icon_theme", "ui_scheme", "cyber_accent", "cyber_shape", "cyber_glow",
+                                     "cyber_corners")]
+
+        def newtab_look():
+            return [cfg[k] for k in ("newtab_tiles", "blocked_counter", "newtab_grid", "ui_scheme", "cyber_accent",
+                                     "cyber_glow", "cyber_corners")] + [list(cfg["newtab_tiles_hidden"])]
+        look, page_look = looks(), newtab_look()
         cfg["icon_theme"] = self.icon_theme.currentData()
         cfg["ui_scheme"] = self.ui_scheme.currentData()
-        if look != (cfg["icon_theme"], cfg["ui_scheme"]):
+        cfg["cyber_accent"] = self._cyber_accent
+        cfg["cyber_shape"] = self.cyber_shape.currentData()
+        cfg["cyber_glow"] = self.cyber_glow.isChecked()
+        cfg["cyber_corners"] = self.cyber_corners.isChecked()
+        if cfg["ui_scheme"] != look[1] and cfg["cyber_hint"] != "done":
+            cfg["cyber_hint"] = "done"            # a theme chosen here: nothing left to suggest
+        cfg["newtab_tiles"] = self.nt_tiles.currentData()
+        cfg["blocked_counter"] = self.nt_counter.currentData()
+        cfg["newtab_grid"] = self.nt_grid.isChecked()
+        if self.nt_unhide.property("clear"):
+            cfg["newtab_tiles_hidden"] = []
+            self.nt_unhide.setProperty("clear", False)
+        if look != looks():
             from . import icons, themes
             icons.apply_scheme(cfg)
             themes.apply(cfg)
@@ -1131,7 +1261,7 @@ class SettingsDialog(QDialog):
         cfg["newtab_bg_veil"] = self.bg_veil.value()
         cfg.save()
         self.app.settings_changed()
-        if look != newtabbg.style(cfg):
+        if look != newtabbg.style(cfg) or page_look != newtab_look():
             self.app.reload_newtabs()
 
 

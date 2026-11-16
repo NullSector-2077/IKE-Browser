@@ -31,6 +31,9 @@ class VTabDelegate(QStyledItemDelegate):
         from .effects import Glide
         self._glide = Glide(self, config, lambda: self._repaint(self._hover[0]))
         self._hover = (-1, "")       # (row, "close" | "audio")
+        self.look = None             # the Cyber theme's look (see cyber.py), or None
+        self.group_of = lambda row: None     # colour of the tab group of a row
+        self.gliding = False         # the mark of the current row is being moved by cyber.MarkGlide
         self._pressed = (-1, "")
         view.viewport().setMouseTracking(True)
         view.viewport().installEventFilter(self)
@@ -115,9 +118,25 @@ class VTabDelegate(QStyledItemDelegate):
         text_rect = style.subElementRect(QStyle.SubElement.SE_ItemViewItemText, opt, widget)
         room = max(0, min(text_rect.right(), limit) - text_rect.left() - 4)
         opt.text = opt.fontMetrics.elidedText(opt.text, Qt.TextElideMode.ElideRight, room)
-        style.drawControl(QStyle.ControlElement.CE_ItemViewItem, opt, painter, widget)
         row = index.row()
         selected = bool(option.state & QStyle.StateFlag.State_Selected)
+        if self.look is not None:
+            # the Cyber theme: the row's surface is ours, the desktop's style adds icon and title
+            from PyQt6.QtGui import QPalette
+
+            from . import cyber
+            cyber.paint_row(painter, option.rect, self.look, selected,
+                            bool(option.state & QStyle.StateFlag.State_MouseOver), self.group_of(row),
+                            with_mark=not self.gliding)
+            opt.state &= ~(QStyle.StateFlag.State_Selected | QStyle.StateFlag.State_MouseOver
+                           | QStyle.StateFlag.State_HasFocus)
+            opt.showDecorationSelected = False
+            opt.backgroundBrush = Qt.BrushStyle.NoBrush
+            text = self.look.text if selected else self.look.mix(self.look.text, self.look.tabs, 0.3)
+            for group in (QPalette.ColorGroup.Active, QPalette.ColorGroup.Inactive):
+                opt.palette.setColor(group, QPalette.ColorRole.Text, text)
+            opt.rect = opt.rect.adjusted(8, 0, 0, 0)
+        style.drawControl(QStyle.ControlElement.CE_ItemViewItem, opt, painter, widget)
         if audio:
             from .icons import themed
             zone = self._audio_zone(option.rect)
@@ -138,4 +157,4 @@ class VTabDelegate(QStyledItemDelegate):
     def sizeHint(self, option, index):
         # a narrow hint: rows are as wide as the panel, never as wide as the title
         s = super().sizeHint(option, index)
-        return QSize(60, max(s.height(), 32))
+        return QSize(60, max(s.height(), 38 if self.look is not None else 32))
