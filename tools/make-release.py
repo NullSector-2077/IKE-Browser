@@ -13,7 +13,6 @@ it finishes. Upload these files, together with the package, the AppImage and
 the Windows files, as the assets of a new GitHub release (see docs/UPDATES.md).
 
     python3 tools/make-release.py [--key ~/.ike-signing/ike-update.key]
-                                  [--appimage FILE] [--windows FILE]
                                   [--channels stable,beta]
 
 --windows is the update archive IKE-Browser-<version>-windows-x64.zip built on
@@ -36,7 +35,7 @@ import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_KEY = Path.home() / " .ike-signing" / "ike-update.key"
+DEFAULT_KEY = Path.home() / ".ike-signing" / "ike-update.key"
 
 
 def read_var(name):
@@ -112,30 +111,7 @@ def file_info(path):
     return {"file": path.name, "sha256": h.hexdigest(), "size": path.stat().st_size}
 
 
-def check_windows(path, version):
-    """The Windows update archive must be this version's, complete."""
-    import zipfile
-    if path.name != "IKE-Browser-%s-windows-x64.zip" % version:
-        raise SystemExit("%s: expected IKE-Browser-%s-windows-x64.zip" % (path.name, version))
-    try:
-        with zipfile.ZipFile(path) as z:
-            names = set(z.namelist())
-            missing = [n for n in ("python/python3.dll", "python/python.exe", "ike_boot.py", "ike/__init__.py",
-                                   "update.json") if n not in names]
-            if missing:
-                raise SystemExit("%s is incomplete: %s missing" % (path.name, ", ".join(missing)))
-            text = z.read("ike/__init__.py").decode("utf-8")
-            update = json.loads(z.read("update.json"))
-    except zipfile.BadZipFile:
-        raise SystemExit("%s is not a valid archive" % path.name)
-    found = re.search(r'^__version__\s*=\s*"([^"]+)"', text, re.M)
-    if not found or found.group(1) != version:
-        raise SystemExit("%s holds another version" % path.name)
-    if update != json.loads((ROOT / "data" / "update.json").read_text("utf-8")):
-        raise SystemExit("%s has another update channel or key than data/update.json" % path.name)
-
-
-def make(key_path, out_dir, channels, appimage=None, passphrase=None, update_file=None, windows=None):
+def make(key_path, out_dir, channels, passphrase=None, update_file=None):
     key_path = Path(key_path).expanduser()
     if inside_repo(key_path):
         raise SystemExit("refusing to use a private key stored inside the repository: move it out")
@@ -151,13 +127,6 @@ def make(key_path, out_dir, channels, appimage=None, passphrase=None, update_fil
     manifest = {"version": version, "payload": "ike-%s.tar.gz" % version,
                 "sha256": hashlib.sha256(payload).hexdigest(),
                 "min_system": read_var("__min_system__")}
-    if appimage:
-        manifest["appimage"] = file_info(Path(appimage))
-    if windows:
-        windows = Path(windows)
-        check_windows(windows, version)
-        manifest["windows"] = file_info(windows)
-
     out = Path(out_dir or ROOT / "dist" / ("release-" + version))
     out.mkdir(parents=True, exist_ok=True)
     (out / manifest["payload"]).write_bytes(payload)
@@ -182,9 +151,7 @@ def main(argv=None):
     print("I.K.E. %s: signed update files in %s" % (manifest["version"], out))
     for p in sorted(out.iterdir()):
         print("  " + p.name)
-    print("\nPublish them (not as a draft or pre-release) with:\n"
-          "  gh release create v{v} {o}/* <package> <AppImage> <Windows setup and zip> --title 'I.K.E. {v}' "
-          "--notes-file <notes>".format(v=manifest["version"], o=out))
+    print("\nPublish the signed files and the Arch package with gh release create (not as a draft or pre-release).")
     return 0
 
 
