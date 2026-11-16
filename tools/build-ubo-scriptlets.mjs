@@ -1,0 +1,26 @@
+// Dumps uBlock Origin's built-in scriptlets into a JSON library for I.K.E.
+//
+// Usage, from an empty working folder:
+//   git clone --depth 1 https://github.com/gorhill/uBlock src
+//   node /path/to/build-ubo-scriptlets.mjs
+// It writes ubo-scriptlets.json in that folder; copy it to ike/resources/.
+import { writeFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
+const mod = await import(pathToFileURL(process.cwd() + '/src/src/js/resources/scriptlets.js').href);
+const out = { source: 'https://github.com/gorhill/uBlock', license: 'GPL-3.0',
+  commit: execSync('git -C src log -1 --format=%H').toString().trim(),
+  date: execSync('git -C src log -1 --format=%cs').toString().trim(), scriptlets: {} };
+for ( const s of mod.builtinScriptlets ) {
+  const fn = s.fn;
+  out.scriptlets[s.name] = {
+    fn: fn.name, src: fn.toString(), aliases: s.aliases || [], deps: s.dependencies || [],
+    trust: s.requiresTrust === true, world: s.world === 'ISOLATED' ? 'ISOLATED' : 'MAIN',
+  };
+}
+writeFileSync('ubo-scriptlets.json', JSON.stringify(out));
+const names = Object.keys(out.scriptlets);
+console.log('entries', names.length, 'runnable', names.filter(n => n.endsWith('.js')).length);
+const missing = new Set();
+for ( const n of names ) for ( const d of out.scriptlets[n].deps ) if ( !out.scriptlets[d] ) missing.add(d);
+console.log('missing deps', [...missing]);

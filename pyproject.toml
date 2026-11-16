@@ -1,0 +1,18 @@
+# Tool settings only: I.K.E. is built and installed with the PKGBUILD.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+extend-exclude = ["ike-adblock", "ike/resources"]
+
+[tool.ruff.lint]
+# unused code and import order only; the style of the code is left as it is
+select = ["F", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["ike"]
+split-on-trailing-comma = false
