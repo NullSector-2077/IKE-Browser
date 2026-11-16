@@ -156,7 +156,17 @@ are filled, CRX signatures). The plan that was followed:
    and Windows strategy, component manager, codecs and licences, tests run,
    tests that could not be run, performance, remaining work, next phases.
 
-### Platform study (documents only: no version, no code)
+### Platform study (documents only: no version, no code) (done, waiting for the owner)
+
+Branch `docs/platform-study` (contains 1.0.3). Written in
+[docs/platforms/](docs/platforms/README.md). Main results: I.K.E. needs Qt
+WebEngine 6.8 or later (Arch / CachyOS, Debian 13, Ubuntu 26.04, Fedora 43+
+have it; Debian 12, Ubuntu 24.04 and Mint 22 do not); nothing inside Qt
+WebEngine can be downloaded separately, codecs are fixed when it is built;
+the proposed order is AUR, checks on each distribution's own Qt, Flatpak,
+DEB and RPM, Windows last. Nothing was tried on those systems: what is still
+to verify is marked. The plan that was followed:
+
 
 In `docs/platforms/` (English), citing the official sources used:
 - **Linux** — Arch / CachyOS, Debian, Ubuntu, Linux Mint, Fedora: Python, Qt
@@ -198,8 +208,11 @@ In `docs/platforms/` (English), citing the official sources used:
   pages can load `ike:logo` and frame `ike:newtab` (a way to recognise the
   browser); settings of the wrong type are not checked when read.
 - 1.0.3 finished on branch `ike-1.0.3` (172 tests, package built and
-  tested; report in `docs/review/`). Next: the platform study, documents
-  only, on `docs/platform-study`.
+  tested; report in `docs/review/`, pull request #7).
+- Platform study finished on branch `docs/platform-study` (documents only).
+  Everything of this plan is done and waits for the owner: review, merge
+  (#4, #5, #6, #7, then the study), sign and publish. Nothing was merged,
+  signed or published by the unattended session.
 
 ### Also planned
 
