@@ -22,12 +22,12 @@ The manifest's min_system value comes from __min_system__ in ike/__init__.py. Ra
 
 ## Signing key
 
-The Ed25519 private key stays on the owner's computer and outside the repository:
+Reuse the existing Ed25519 private key that matches the public key in data/update.json. The original ICE update channel used ~/.ice-signing/ice-update.key; keep using that same key to preserve update continuity. It stays on the owner's computer and outside the repository:
 
-    mkdir -p ~/.ike-signing; chmod 700 ~/.ike-signing
-    openssl genpkey -algorithm ed25519 -aes-256-cbc -out ~/.ike-signing/ike-update.key
-    chmod 600 ~/.ike-signing/ike-update.key
-    openssl pkey -in ~/.ike-signing/ike-update.key -pubout -outform DER | tail -c 32 | base64
+    mkdir -p ~/.ice-signing; chmod 700 ~/.ice-signing
+    openssl genpkey -algorithm ed25519 -aes-256-cbc -out ~/.ice-signing/ice-update.key
+    chmod 600 ~/.ice-signing/ice-update.key
+    openssl pkey -in ~/.ice-signing/ice-update.key -pubout -outform DER | tail -c 32 | base64
 
 The final command prints the public key placed in data/update.json. Never commit or upload the private key. Losing it prevents future automatic updates for existing installations; if it is exposed, generate a replacement key and publish a package update containing the new public key.
 

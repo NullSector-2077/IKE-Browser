@@ -32,7 +32,7 @@ import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_KEY = Path.home() / ".ike-signing" / "ike-update.key"
+DEFAULT_KEY = Path.home() / ".ice-signing" / "ice-update.key"
 
 
 def read_var(name):
