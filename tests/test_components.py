@@ -2,6 +2,8 @@
 
 import importlib.util
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -131,3 +133,39 @@ def test_check_all_keeps_one_component_error_separate(tmp_path, monkeypatch):
     assert results[0]["error"] == "RuntimeError: crates.io unavailable"
     assert results[1]["error"] == ""
     assert results[1]["update"] is False
+
+
+def test_prepare_maintenance_does_not_require_ike_readme_markers(tmp_path):
+    package = tmp_path / "ike"
+    package.mkdir()
+    (package / "__init__.py").write_text(
+        '__version__ = "1.6.1"\n__min_system__ = "1.6.1"\n', encoding="utf-8"
+    )
+    (tmp_path / "PKGBUILD").write_text(
+        "pkgver=1.6.1\npkgrel=2\n", encoding="utf-8"
+    )
+    readme = "# I.K.E. Browser\n\nArch / CachyOS only.\n"
+    (tmp_path / "README.md").write_text(readme, encoding="utf-8")
+    (tmp_path / "CHANGELOG.md").write_text(
+        "# Changelog\n\n## 1.6.1\n\nExisting release.\n", encoding="utf-8"
+    )
+    report = tmp_path / "report.json"
+    report.write_text(json.dumps({
+        "errors": 0,
+        "components": [{
+            "name": "uBlock Origin scriptlets",
+            "current": "old",
+            "latest": "new",
+            "update": True,
+            "note": "payload changed",
+        }],
+    }), encoding="utf-8")
+    subprocess.run([
+        sys.executable, str(ROOT / "tools" / "prepare-maintenance.py"),
+        "--root", str(tmp_path), "--report", str(report), "--base-version", "1.6.1",
+    ], check=True)
+    assert '__version__ = "1.6.2"' in (package / "__init__.py").read_text(encoding="utf-8")
+    assert "pkgver=1.6.2" in (tmp_path / "PKGBUILD").read_text(encoding="utf-8")
+    assert "pkgrel=1" in (tmp_path / "PKGBUILD").read_text(encoding="utf-8")
+    assert (tmp_path / "README.md").read_text(encoding="utf-8") == readme
+    assert "## 1.6.2" in (tmp_path / "CHANGELOG.md").read_text(encoding="utf-8")
