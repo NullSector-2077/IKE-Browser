@@ -138,7 +138,7 @@ def windows_install():
     """The per-user Windows installation this copy runs from, or None.
 
     Its folder holds the launcher, the file "current" (the version folder in
-    use) and app/<version>/ folders (docs/UPDATES.md)."""
+    use) and app/<version>/ folders (docs/arch/UPDATES.md)."""
     d = os.environ.get("IKE_INSTALL_DIR")
     if os.environ.get("IKE_PACKAGE") == "windows" and d and os.path.isfile(os.path.join(d, "current")) \
             and os.path.isdir(os.path.join(d, "app")):
