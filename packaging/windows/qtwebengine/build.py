@@ -138,6 +138,12 @@ def set_output(name, value):
             handle.write(f"{name}={value}\n")
 
 
+def note(text):
+    """A note attached to the job; readable from outside while the job runs."""
+    print(f"::notice title=Engine build, stage {os.environ.get('IKE_STAGE', '?')}::{text[:300]}",
+          flush=True)
+
+
 def summary(text):
     target = os.environ.get("GITHUB_STEP_SUMMARY")
     if target:
@@ -449,6 +455,8 @@ def cmd_prepare(_args):
     env = msvc_env()
     log(f"MSVC {env.get('VCToolsVersion')}, Windows SDK {env.get('WindowsSDKVersion')}, "
         f"Visual Studio {env.get('VisualStudioVersion')}")
+    note(f"prepared: MSVC {env.get('VCToolsVersion')}, SDK {env.get('WindowsSDKVersion')}, "
+         f"{free_gb(ROOT):.0f} GB free, image {os.environ.get('ImageVersion', '?')}")
 
 
 def cmd_patch(_args):
@@ -503,6 +511,7 @@ def cmd_restore(args):
     first = download / "build-tree.7z.001"
     if not first.exists():
         log("no build folder to restore: this stage starts from nothing")
+        note("no build folder restored: starting from nothing")
         return
     if BUILD.exists():
         shutil.rmtree(BUILD)
@@ -511,6 +520,7 @@ def cmd_restore(args):
     shutil.rmtree(download, ignore_errors=True)
     log(f"build folder restored in {time.time() - started:.0f} s, "
         f"free space {free_gb(ROOT):.1f} GB")
+    note(f"build folder restored in {time.time() - started:.0f} s")
     seen = {}
     if STATE.exists():
         try:
@@ -539,6 +549,7 @@ def cmd_pack(_args):
     size = sum(p.stat().st_size for p in target.iterdir())
     log(f"build folder packed: {size / 2**30:.2f} GB in {time.time() - started:.0f} s")
     summary(f"- build folder saved: {size / 2**30:.2f} GB")
+    note(f"build folder saved: {size / 2**30:.2f} GB")
     set_output("packed", "true")
 
 
@@ -619,6 +630,7 @@ def cmd_smoke(_args):
     listed = output(["ninja", "-C", folder, "-t", "targets", "all"], env=env)
     objects = sorted({m.group(1) for m in map(SMOKE_PATTERN.match, listed.splitlines()) if m})
     log(f"{len(objects)} media objects to compile first")
+    note(f"GN done; compiling {len(objects)} media objects first")
     if not objects:
         raise SystemExit("found no media objects; the pattern no longer fits the build")
     # In pieces: a command line on Windows holds about 32 000 characters.
@@ -635,9 +647,14 @@ def cmd_smoke(_args):
         code = run(["ninja", "-C", folder, "-j4", "-k", "30", *names], env=env, check=False)
         if code != 0:
             raise SystemExit("the patched media code does not compile; see FAILED: above")
+    note("the patched media code compiles")
 
 
 # --- build ------------------------------------------------------------------
+
+def progress_line(line):
+    return re.match(r"^\[\d+/\d+\] ", line) is not None
+
 
 def kill_tree(pid):
     subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)], capture_output=True)
@@ -673,14 +690,23 @@ def cmd_build(args):
                 last["line"] = stripped
                 # Progress lines are kept in the file; the job log gets one in
                 # two hundred of them and everything else.
-                if re.match(r"^\[\d+/\d+\] ", stripped):
+                if progress_line(stripped):
                     pump.count += 1
-                    if pump.count % 200:
+                    if pump.count % 200 and time.time() - pump.noted <= 1900:
                         continue
                 if stripped.startswith("FAILED:"):
                     failed_lines.append(stripped)
+                    if len(failed_lines) <= 8:
+                        print(f"::error title=Build::{stripped[:300]}", flush=True)
                 print(stripped, flush=True)
+                # A note on the job every half hour: the log of a running job
+                # cannot be read from outside, its notes can.
+                if progress_line(stripped) and time.time() - pump.noted > 1900:
+                    pump.noted = time.time()
+                    print(f"::notice title=Build progress, stage {os.environ.get('IKE_STAGE', '?')}::"
+                          f"{stripped[:120]}", flush=True)
     pump.count = 0
+    pump.noted = time.time() - 1500
     reader = threading.Thread(target=pump, daemon=True)
     reader.start()
 
@@ -711,6 +737,7 @@ def cmd_build(args):
         summary(f"- stage {os.environ.get('IKE_STAGE', '?')}: Ninja at `{progress.group(0)}`")
     if timed_out:
         set_output("done", "false")
+        note(f"time is up, build not finished: {last['line'][:100]}")
         return
     if process.returncode != 0:
         set_output("done", "false")
@@ -718,6 +745,7 @@ def cmd_build(args):
         raise SystemExit(f"the build failed with code {process.returncode}")
     set_output("done", "true")
     summary("- build finished")
+    note("build finished")
 
 
 # --- install, evidence, package ---------------------------------------------
