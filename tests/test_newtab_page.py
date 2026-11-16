@@ -118,10 +118,30 @@ def steps(ike, qapp, out):
     out["still_bookmarked"] = st.is_bookmarked("https://example.org/a")
     out["url_after_hide"] = view.url().toString()
 
-    # add one, as the "Add" tile does
+    # add one with the "Add" tile itself: a click opens the field, the address is typed, Enter sends it
+    out["add_closed"] = yield from js(view, "getComputedStyle(document.querySelector('.tile.add input')).display")
+    yield from js(view, "document.querySelector('.tile.add .open').click(); 1")
+    yield 200
+    out["add_open"] = json.loads((yield from js(view, """JSON.stringify([
+        getComputedStyle(document.querySelector('.tile.add input')).display,
+        document.activeElement === document.querySelector('.tile.add input'),
+        document.querySelector('.tile.add .open').getAttribute('aria-expanded')])""")))
+    yield from js(view, """var f = document.querySelector('.tile.add input'); f.value = 'clicked.example';
+        document.querySelector('.tile.add').requestSubmit(); 1""")
+    yield 1200
+    out["added_by_click"] = [st.is_bookmarked("https://clicked.example"), view.url().toString(),
+                             (yield from js(view, "Array.from(document.querySelectorAll('.tile .name')).map(function (n) { return n.textContent; }).indexOf('clicked.example') >= 0"))]
+    # an empty field sends nothing, and Escape closes it
+    yield from js(view, "document.querySelector('.tile.add .open').click(); document.querySelector('.tile.add').requestSubmit(); 1")
+    yield 400
+    out["empty"] = view.url().toString()
+    yield from js(view, "document.querySelector('.tile.add input').dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true})); 1")
+    out["escaped"] = yield from js(view, "getComputedStyle(document.querySelector('.tile.add input')).display")
+    # the address the tile sends, directly
     yield from load(view, "ike:tile?add=new.example")
     yield 300
     out["added"] = [st.is_bookmarked("https://new.example"), view.url().toString()]
+    out["first_tiles"] = json.loads((yield from js(view, read)))["links"][:2]
     yield from load(view, "ike:tile?add=" + "javascript%3Aalert(1)")
     out["not_added"] = [u for u, _t, _f in st.bookmarks() if u.startswith("javascript:alert")]
 
@@ -141,7 +161,12 @@ def steps(ike, qapp, out):
     assert b["add"] is True
     assert out["after_hide"]["links"][0] == "https://wiki.example.net/" and out["still_bookmarked"] is True
     assert out["url_after_hide"] == "ike:newtab"
+    assert out["add_closed"] == "none" and out["add_open"] == ["block", True, "true"]
+    assert out["added_by_click"] == [True, "ike:newtab", True]
+    assert out["empty"] == "ike:newtab" and out["escaped"] == "none"
     assert out["added"] == [True, "ike:newtab"] and out["not_added"] == []
+    # with more bookmarks than tiles, the sites added from the page are still shown: first, the newest first
+    assert out["first_tiles"] == ["https://new.example", "https://clicked.example"]
     v = out["visited"]
     assert v["links"][:2] == ["https://often.example/", "http://plain.example/"]       # by visits, one per site
     assert v["names"][:3] == ["often.example", "plain.example", "seldom.example"] and v["add"] is False

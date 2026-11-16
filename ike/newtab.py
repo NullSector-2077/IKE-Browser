@@ -151,7 +151,15 @@ def tiles(config, storage):
     hidden = set(h for h in hidden if isinstance(h, str)) if isinstance(hidden, list) else set()
     found, seen = [], set()
     if mode == "bookmarks":
-        for url, title, _folder in storage.bookmarks():
+        rows = list(storage.bookmarks())
+        first = config.data.get("newtab_tiles_first")
+        first = [u for u in first if isinstance(u, str)] if isinstance(first, list) else []
+        if first:
+            # the sites added from the page itself come first, the newest before the others:
+            # with many bookmarks a new tile would otherwise never be among the eight shown
+            rank = {u: i for i, u in enumerate(first)}
+            rows.sort(key=lambda row: rank.get(row[0], len(rank)))
+        for url, title, _folder in rows:
             url = web_address(url)
             if url and url not in hidden and url not in seen:
                 seen.add(url)
@@ -192,9 +200,11 @@ def tiles_html(config, storage):
                 html.escape(T("Hide this tile"), quote=True), html.escape(T("Hide this tile"), quote=True)))
     if mode == "bookmarks":
         out.append(
-            '<form class="tile add" action="ike:tile" method="get"><label><span class="ico">+</span>'
-            '<span class="name">%s</span><input name="add" autocomplete="off" spellcheck="false" '
-            'placeholder="%s" aria-label="%s"></label></form>' % (
+            # a real button opens the field (see the page's script): a hidden field cannot be
+            # reached by clicking its label, which is why the first version did nothing
+            '<form class="tile add" action="ike:tile" method="get"><button type="button" class="open" '
+            'aria-expanded="false"><span class="ico">+</span><span class="name">%s</span></button>'
+            '<input name="add" autocomplete="off" spellcheck="false" placeholder="%s" aria-label="%s"></form>' % (
                 html.escape(T("Add")), html.escape(T("address of the site"), quote=True),
                 html.escape(T("Address of the site to add"), quote=True)))
     out.append("</div>")
@@ -207,6 +217,16 @@ def hide_tile(config, url):
     if url and url not in hidden:
         hidden.append(url[:2000])
     config.data["newtab_tiles_hidden"] = hidden[-HIDDEN_MAX:]
+
+
+def put_first(config, url):
+    """A site added with the "Add" tile: its tile is the first one, and is shown again if it was hidden."""
+    first = config.data.get("newtab_tiles_first")
+    first = [u for u in first if isinstance(u, str) and u != url] if isinstance(first, list) else []
+    config.data["newtab_tiles_first"] = ([url] + first)[:TILES * 4]
+    hidden = config.data.get("newtab_tiles_hidden")
+    if isinstance(hidden, list) and url in hidden:
+        config.data["newtab_tiles_hidden"] = [h for h in hidden if h != url]
 
 
 # --- the Cyber look and its suggestion -------------------------------------

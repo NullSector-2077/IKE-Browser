@@ -20,9 +20,11 @@ input:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(-
 .stats span{font-size:13px;color:var(--mute)}
 .tiles{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;width:min(760px,92vw);margin-top:26px}
 .tile{position:relative;width:92px}
-.tile>a:first-child,.tile label{display:flex;flex-direction:column;align-items:center;gap:8px;padding:6px 2px;
+.tile>a:first-child,.tile .open{display:flex;flex-direction:column;align-items:center;gap:8px;padding:6px 2px;
  color:var(--mute);text-decoration:none;font-size:12px;border-radius:6px;cursor:pointer}
-.tile>a:first-child:hover,.tile>a:first-child:focus-visible,.tile.add label:hover{color:var(--fg);outline:none}
+.tile .open{width:100%;background:none;border:0;font-family:inherit}
+.tile>a:first-child:hover,.tile>a:first-child:focus-visible,.tile .open:hover,.tile .open:focus-visible{color:var(--fg);outline:none}
+.tile .open:hover .ico,.tile .open:focus-visible .ico{border-color:var(--acc);color:var(--fg)}
 .ico{position:relative;display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:8px;
  background:var(--card);border:1px solid var(--line);color:var(--fg);font-size:20px;font-weight:600;
  transition:border-color .12s,box-shadow .12s}
@@ -37,8 +39,8 @@ input:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(-
 .tile.add .ico{border-style:dashed;background:transparent;color:var(--mute)}
 .tile.add input{display:none;position:absolute;top:66px;left:50%;transform:translateX(-50%);width:220px;z-index:2;
  font-size:13px;padding:7px 10px}
-.tile.add:focus-within input{display:block}
-.tile.add:focus-within .name{visibility:hidden}
+.tile.add.on input{display:block}
+.tile.add.on .name{visibility:hidden}
 .hint{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px 14px;width:min(760px,92vw);
  margin-top:30px;padding:10px 14px;font-size:14px;background:var(--card);border:1px solid var(--line);border-radius:6px}
 .hint span{flex:1 1 280px}
@@ -58,7 +60,7 @@ input:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(-
 .cyber form:not(.tile) input:focus{box-shadow:none}
 .cyber.glow .search{filter:drop-shadow(0 0 12px color-mix(in srgb,var(--acc) 40%,transparent))}
 .cyber .search:focus-within{filter:drop-shadow(0 0 16px color-mix(in srgb,var(--acc) 65%,transparent))}
-.cyber .ico,.cyber .hint,.cyber .hint a,.cyber .tile>a:first-child,.cyber .tile label{border-radius:0}
+.cyber .ico,.cyber .hint,.cyber .hint a,.cyber .tile>a:first-child,.cyber .tile .open,.cyber .tile.add input{border-radius:0}
 .cyber .ico{border:0;background:var(--line);color:var(--acc);
  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px)}
 .cyber:not(.cut) .ico{clip-path:none}
@@ -112,6 +114,22 @@ input:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(-
       }
       requestAnimationFrame(step);
     });
+  }
+  // the "Add" tile: its button opens a small field for the address; Enter adds the site
+  var add = document.querySelector(".tile.add");
+  if (add) {
+    var open = add.querySelector(".open"), field = add.querySelector("input");
+    var shut = function () { add.classList.remove("on"); open.setAttribute("aria-expanded", "false"); };
+    open.addEventListener("click", function () {
+      add.classList.add("on");
+      open.setAttribute("aria-expanded", "true");
+      field.focus();
+    });
+    field.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") { field.value = ""; shut(); open.focus(); }
+    });
+    field.addEventListener("blur", function () { if (!field.value.trim()) shut(); });
+    add.addEventListener("submit", function (e) { if (!field.value.trim()) e.preventDefault(); });
   }
   window.ikeWeather = function (text) {
     var w = document.getElementById("weather");

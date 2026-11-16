@@ -434,6 +434,8 @@ class Shields(QObject):
             if query.get("hide"):
                 newtab.hide_tile(self.config, query["hide"])
             address = newtab.web_address(query.get("add", ""))
+            if address:
+                newtab.put_first(self.config, address)
             if address and storage is not None and not storage.is_bookmarked(address):
                 from urllib.parse import urlsplit
                 host = urlsplit(address).hostname or address

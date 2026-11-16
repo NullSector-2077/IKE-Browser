@@ -206,6 +206,7 @@ DEFAULTS = {
     # new tab page
     "newtab_tiles": "bookmarks",     # "bookmarks" | "visited" | "none"
     "newtab_tiles_hidden": [],       # addresses of the tiles the user hid
+    "newtab_tiles_first": [],        # sites added with the "Add" tile: shown before the other bookmarks
     "newtab_grid": True,             # Cyber theme: a grid when there is no photo
     # the Cyber theme (ui_scheme "theme:cyber")
     "cyber_accent": "",              # "" = the theme's own, or "#rrggbb"
