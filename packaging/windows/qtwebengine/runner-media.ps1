@@ -8,23 +8,30 @@ try { Get-WindowsFeature Server-Media-Foundation | Format-Table Name, InstallSta
 catch { "Get-WindowsFeature: $_" }
 
 $names = "mfplat.dll", "msmpeg2vdec.dll", "msauddecmft.dll"
-$missing = $false
-foreach ($name in $names) {
-    $path = Join-Path $env:SystemRoot "System32\$name"
-    if (Test-Path $path) {
-        "{0}: present, version {1}" -f $name, (Get-Item $path).VersionInfo.ProductVersion
-    } else {
-        "{0}: MISSING" -f $name
-        $missing = $true
+function Show-Decoders {
+    foreach ($name in $names) {
+        $path = Join-Path $env:SystemRoot "System32\$name"
+        if (Test-Path $path) {
+            "{0}: present, version {1}" -f $name, (Get-Item $path).VersionInfo.ProductVersion
+        } else {
+            "{0}: MISSING" -f $name
+        }
     }
 }
-if ($missing) {
-    "Installing the Media Foundation feature of Windows Server"
-    try { Install-WindowsFeature Server-Media-Foundation | Format-List }
-    catch { "Install-WindowsFeature: $_" }
-    foreach ($name in $names) {
-        "{0}: present after installing: {1}" -f $name, (Test-Path (Join-Path $env:SystemRoot "System32\$name"))
-    }
+Show-Decoders
+
+# With -InstallFeature: make this Windows Server like a desktop Windows, where
+# Media Foundation is always there.
+if ($args -contains "-InstallFeature") {
+    try {
+        $feature = Get-WindowsFeature Server-Media-Foundation
+        if ($feature -and -not $feature.Installed) {
+            "Installing the Media Foundation feature of Windows Server"
+            Install-WindowsFeature Server-Media-Foundation |
+                Format-List Success, RestartNeeded, ExitCode
+            Show-Decoders
+        }
+    } catch { "Install-WindowsFeature: $_" }
 }
 "Graphics adapters:"
 Get-CimInstance Win32_VideoController |

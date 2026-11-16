@@ -258,6 +258,25 @@ report("ready", {});
 """
 
 
+# chrome://gpu keeps its text inside shadow trees, which innerText does not see.
+GPU_TEXT_JS = """(function () {
+  function text(node) {
+    var out = "";
+    if (node.shadowRoot) { out += text(node.shadowRoot) + "\\n"; }
+    node.childNodes.forEach(function (child) {
+      if (child.nodeType === 3) { out += child.textContent; }
+      else if (child.nodeType === 1 && child.tagName !== "SCRIPT" && child.tagName !== "STYLE") {
+        out += text(child);
+        if (/^(DIV|LI|TR|P|H1|H2|H3|H4|UL|TABLE)$/.test(child.tagName)) { out += "\\n"; }
+        else if (child.tagName === "TD" || child.tagName === "TH") { out += " | "; }
+      }
+    });
+    return out;
+  }
+  return text(document.documentElement);
+})()"""
+
+
 def log(message):
     print(f"[codec-check] {message}", flush=True)
 
@@ -635,10 +654,10 @@ def cmd_run(args):
             phase["asked"] = time.time()
 
             def keep(text):
-                state["gpu"] = text or ""
+                state["gpu"] = text if isinstance(text, str) else ""
                 if "Video Decode" in state["gpu"] or time.time() - phase["since"] > 25:
                     phase["name"] = "finished"
-            web_page.toPlainText(keep)
+            web_page.runJavaScript(GPU_TEXT_JS, keep)
         if phase["name"] == "finished" or elapsed > args.timeout:
             if phase["name"] != "finished":
                 log(f"gave up after {elapsed:.0f} s in phase '{phase['name']}'")
@@ -666,11 +685,15 @@ def cmd_run(args):
     if renderers:
         sandbox = "off (--no-sandbox)" if any("--no-sandbox" in p for p in renderers) else "on"
     lines.append(f"- renderer sandbox: {sandbox} ({len(renderers)} renderer processes seen)")
-    gpu_lines = [line.strip() for line in state["gpu"].splitlines()
-                 if any(key in line for key in ("Video Decode", "GL_RENDERER", "Display type",
-                                                "ANGLE", "Driver vendor", "GPU0", "Rasterization",
-                                                "Compositing:"))]
-    lines += ["", "chrome://gpu:", ""] + [f"    {line[:200]}" for line in gpu_lines[:14]]
+    gpu_lines = []
+    for line in state["gpu"].splitlines():
+        line = " ".join(line.split())
+        if line and line not in gpu_lines and any(key in line for key in (
+                "Video Decode", "Video Encode", "GL_RENDERER", "Display type", "GPU0",
+                "Rasterization", "Compositing:", "Canvas:", "WebGL:", "Decode h264", "Decode vp9",
+                "Decode av1", "Skia Backend", "Direct Rendering")):
+            gpu_lines.append(line)
+    lines += ["", "chrome://gpu:", ""] + [f"    {line[:200]}" for line in gpu_lines[:24]]
 
     if not state["probe"]:
         problems.append("the page never answered")

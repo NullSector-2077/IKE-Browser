@@ -202,29 +202,99 @@ def report_machine():
     log(f"python: {sys.version.split()[0]} at {sys.executable}")
 
 
+def download(url, target=None, tries=4):
+    """The bytes at |url| (or written to |target|), with a few retries."""
+    last = None
+    for attempt in range(tries):
+        try:
+            request = urllib.request.Request(url, headers={"User-Agent": "ike-engine-build"})
+            with urllib.request.urlopen(request, timeout=120) as reply:
+                if target is None:
+                    return reply.read()
+                with open(target, "wb") as handle:
+                    shutil.copyfileobj(reply, handle, 1 << 20)
+                return None
+        except OSError as error:
+            last = error
+            time.sleep(3 * (attempt + 1))
+    raise SystemExit(f"could not download {url}: {last}")
+
+
+def qt_repository():
+    """(base URL, parsed Updates.xml) of the official Qt binaries wanted.
+
+    Qt's online repository changed its layout more than once; the folder for
+    one compiler is looked for under the names used so far."""
+    import xml.etree.ElementTree as ElementTree
+    code = VERSIONS["qt_version"].replace(".", "")
+    root = f"{VERSIONS['qt_repository']}/qt6_{code}"
+    tried = []
+    for folder in (f"qt6_{code}_{VERSIONS['qt_dir']}", f"qt6_{code}_{VERSIONS['qt_arch']}",
+                   f"qt6_{code}"):
+        url = f"{root}/{folder}/Updates.xml"
+        try:
+            request = urllib.request.Request(url, headers={"User-Agent": "ike-engine-build"})
+            with urllib.request.urlopen(request, timeout=60) as reply:
+                data = reply.read()
+        except OSError as error:
+            tried.append(f"{url}: {error}")
+            continue
+        log(f"Qt repository: {url} ({len(data):,} bytes)")
+        return f"{root}/{folder}", ElementTree.fromstring(data)
+    for line in tried:
+        log(line)
+    try:
+        listing = download(root + "/", tries=1).decode("utf-8", "replace")
+        log("folders there: " + " ".join(sorted(set(re.findall(r'href="([^"?/]+)/"', listing)))))
+    except SystemExit as error:
+        log(str(error))
+    raise SystemExit("the official Qt binaries were not found in the online repository")
+
+
 def install_qt():
+    """The official Qt binaries, the same that the PyPI wheels repackage:
+    read from Qt's online repository, checked against its SHA-1 files."""
     if (QT_PREFIX / "bin" / "qt-cmake.bat").exists():
         log(f"Qt already at {QT_PREFIX}")
         return
-    run([sys.executable, "-m", "pip", "install", "--disable-pip-version-check", "-q",
-         f"aqtinstall=={VERSIONS['aqtinstall']}"])
-    version, arch = VERSIONS["qt_version"], VERSIONS["qt_arch"]
-    aqt = [sys.executable, "-m", "aqt"]
-    run(aqt + ["list-qt", "windows", "desktop", "--arch", version], check=False)
-    listed = subprocess.run(aqt + ["list-qt", "windows", "desktop", "--modules", version, arch],
-                            capture_output=True, text=True)
-    available = listed.stdout.split()
-    log(f"Qt {version} {arch} modules on the mirror: {' '.join(available) or listed.stderr.strip()}")
-    modules = [m for m in VERSIONS["qt_modules"] if m in available]
-    missing = [m for m in VERSIONS["qt_modules"] if m not in available]
+    base, updates = qt_repository()
+    code = VERSIONS["qt_version"].replace(".", "")
+    arch = VERSIONS["qt_arch"]
+    wanted = {f"qt.qt6.{code}.{arch}": "base"}
+    for module in VERSIONS["qt_modules"]:
+        wanted[f"qt.qt6.{code}.addons.{module}.{arch}"] = module
+    packages = {}
+    for package in updates.iter("PackageUpdate"):
+        name = package.findtext("Name", "")
+        if name in wanted:
+            archives = [a.strip() for a in package.findtext("DownloadableArchives", "").split(",")
+                        if a.strip()]
+            packages[name] = (package.findtext("Version", ""), archives)
+    missing = [name for name in wanted if name not in packages]
     if missing:
-        log(f"WARNING: modules not offered separately (part of the base, or absent): {missing}")
-    cmd = aqt + ["install-qt", "windows", "desktop", version, arch, "-O", QT_ROOT]
-    if modules:
-        cmd += ["-m"] + modules
-    run(cmd)
+        names = sorted(p.findtext("Name", "") for p in updates.iter("PackageUpdate"))
+        log("packages offered: " + " ".join(n for n in names if "debug_information" not in n))
+        raise SystemExit(f"not in the Qt repository: {missing}")
+    QT_ROOT.mkdir(parents=True, exist_ok=True)
+    scratch = QT_ROOT / "dl"
+    scratch.mkdir(exist_ok=True)
+    for name, (version, archives) in packages.items():
+        for archive in archives:
+            url = f"{base}/{name}/{version}{archive}"
+            target = scratch / archive
+            download(url, target)
+            expected = download(url + ".sha1").decode("ascii", "replace").split()[0]
+            actual = hashlib.sha1(target.read_bytes()).hexdigest()
+            log(f"{archive}: {target.stat().st_size / 2**20:.1f} MB, sha1 {actual}, "
+                f"sha256 {sha256_file(target)}")
+            if actual != expected:
+                raise SystemExit(f"{archive}: SHA-1 is {actual}, the repository says {expected}")
+            run(["7z", "x", target, f"-o{QT_ROOT}", "-y", "-bso0", "-bsp0"])
+            target.unlink()
+    shutil.rmtree(scratch, ignore_errors=True)
     if not (QT_PREFIX / "bin" / "qt-cmake.bat").exists():
-        raise SystemExit(f"Qt was installed but {QT_PREFIX} has no qt-cmake.bat")
+        found = [str(p) for p in QT_ROOT.glob("*/*")][:20]
+        raise SystemExit(f"Qt was unpacked but {QT_PREFIX} has no qt-cmake.bat; found {found}")
     for library in ("Qt6Core.dll", "Qt6Quick.dll", "Qt6WebChannel.dll", "Qt6Positioning.dll"):
         log(f"{library}: {'present' if (QT_PREFIX / 'bin' / library).exists() else 'MISSING'}")
 
@@ -237,7 +307,7 @@ def install_gnuwin32():
     TOOLS.mkdir(parents=True, exist_ok=True)
     archive = TOOLS / "gnuwin32.zip"
     log(f"downloading {VERSIONS['gnuwin32_url']}")
-    urllib.request.urlretrieve(VERSIONS["gnuwin32_url"], archive)
+    download(VERSIONS["gnuwin32_url"], archive)
     sha1 = hashlib.sha1(archive.read_bytes()).hexdigest()
     log(f"gnuwin32.zip sha1 {sha1} sha256 {sha256_file(archive)}")
     if sha1 != VERSIONS["gnuwin32_sha1"]:

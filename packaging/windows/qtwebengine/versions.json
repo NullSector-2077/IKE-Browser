@@ -8,8 +8,10 @@
   "qt_version": "6.12.0",
   "qt_arch": "win64_msvc2022_64",
   "qt_dir": "msvc2022_64",
-  "qt_modules": ["qtwebchannel", "qtpositioning"],
-  "aqtinstall": "3.3.0",
+  "qt_modules": [
+    "qtwebchannel",
+    "qtpositioning"
+  ],
   "gnuwin32_url": "https://download.qt.io/development_releases/gnuwin32/gnuwin32.zip",
   "gnuwin32_sha1": "d7a34a385ccde2374b8a2ca3369e5b8a1452c5a5",
   "pyqt": {
@@ -17,5 +19,6 @@
     "PyQt6-Qt6": "6.12.0",
     "PyQt6-WebEngine": "6.140.1",
     "PyQt6-WebEngine-Qt6": "6.140.0"
-  }
+  },
+  "qt_repository": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop"
 }
