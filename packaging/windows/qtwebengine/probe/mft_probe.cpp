@@ -21,6 +21,7 @@
 // DllGetClassObject from libraries loaded from the system directory, and the
 // H.264 part never calls MFStartup (the renderer does not).
 
+#define NOMINMAX
 #include <windows.h>
 
 #include <mfapi.h>
