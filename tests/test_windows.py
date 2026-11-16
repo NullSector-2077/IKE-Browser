@@ -761,3 +761,92 @@ def steps(ike, qapp, out):
     assert (local / "ike-browser" / "data" / "ike.sqlite").is_file()
     assert sorted(p.name for p in home.iterdir()) == ["AppData"]            # nothing else in the home folder
     assert sorted(p.name for p in roaming.iterdir()) == ["ike-browser"]
+
+
+def test_requirements_tool_picks_the_windows_wheel(tmp_path):
+    """packaging/windows/update-requirements.py: the wheel pip would install
+    on 64-bit Windows with CPython 3.13, never a source archive, and the file
+    it writes is the pinned form the build accepts."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("ike_windows_requirements", WIN / "update-requirements.py")
+    tool = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(tool)
+
+    def files(*names):
+        return [{"filename": n, "digests": {"sha256": "%064x" % i}} for i, n in enumerate(names, 1)]
+
+    assert tool.choose(files("x-1.0-cp313-cp313-win_amd64.whl", "x-1.0-cp313-cp313-win32.whl",
+                             "x-1.0-cp313-cp313-win_arm64.whl", "x-1.0-cp314-cp314-win_amd64.whl",
+                             "x-1.0-cp313-cp313-manylinux_2_34_x86_64.whl", "x-1.0.tar.gz"))[0] == \
+        "x-1.0-cp313-cp313-win_amd64.whl"
+    assert tool.choose(files("x-1.0-cp39-abi3-win_amd64.whl", "x-1.0-cp311-abi3-win_amd64.whl",
+                             "x-1.0-cp315-abi3.abi3t-win_amd64.whl", "x-1.0-cp314-cp314t-win_amd64.whl"))[0] == \
+        "x-1.0-cp311-abi3-win_amd64.whl"
+    assert tool.choose(files("x-1.0-py3-none-win_amd64.whl", "x-1.0-1-py3-none-win_amd64.whl",
+                             "x-1.0-py3-none-win_arm64.whl"))[0] == "x-1.0-1-py3-none-win_amd64.whl"
+    assert tool.choose(files("x-1.0-py3-none-any.whl", "x-1.0.tar.gz"))[0] == "x-1.0-py3-none-any.whl"
+    assert tool.choose(files("x-1.0.tar.gz", "x-1.0-cp313-cp313-manylinux_2_34_x86_64.whl",
+                             "x-1.0-cp314-cp314-win_amd64.whl", "x-1.0-cp313-cp313-win32.whl")) is None
+
+    target = tmp_path / "requirements.txt"
+    target.write_text("# header\n# second line\nPyQt6==6.12.0 \\\n    --hash=sha256:%s\ncffi==2.1.1 \\\n"
+                      "    --hash=sha256:%s\n" % ("a" * 64, "b" * 64), "utf-8")
+    asked = []
+
+    def fetch(name, version):
+        asked.append((name, version))
+        return files("%s-%s-cp313-cp313-win_amd64.whl" % (name.lower(), version), "%s-%s.tar.gz" % (name, version))
+
+    assert tool.main(["--file", str(target), "cffi==2.2.0"], fetch=fetch) == 0
+    assert asked == [("PyQt6", "6.12.0"), ("cffi", "2.2.0")]
+    text = target.read_text("utf-8")
+    assert text == ("# header\n# second line\nPyQt6==6.12.0 \\\n    --hash=sha256:%064x\ncffi==2.2.0 \\\n"
+                    "    --hash=sha256:%064x\n" % (1, 1))
+    with pytest.raises(SystemExit):                       # a package that is not in the list is not added
+        tool.main(["--file", str(target), "requests==2.0"], fetch=fetch)
+    with pytest.raises(SystemExit):                       # no wheel for Windows: nothing is written
+        tool.main(["--file", str(target)], fetch=lambda n, v: files("%s-%s.tar.gz" % (n, v)))
+    assert target.read_text("utf-8") == text
+
+
+def test_other_browsers_are_found_on_windows(tmp_path):
+    """Import from another browser: on Windows the profiles are looked for
+    under AppData (Firefox's under Roaming, the Chromium family's under
+    Local), not under the folders of Linux - and the other way round."""
+    from ike import importer
+    home = tmp_path
+    fx = home / "AppData/Roaming/Mozilla/Firefox/Profiles/abcd.default-release"
+    chrome = home / "AppData/Local/Google/Chrome/User Data/Default"
+    edge = home / "AppData/Local/Microsoft/Edge/User Data/Profile 1"
+    linux_fx = home / ".mozilla/firefox/wxyz.default"
+    linux_chromium = home / ".config/chromium/Default"
+    for folder in (fx, chrome, edge, linux_fx, linux_chromium):
+        folder.mkdir(parents=True)
+    for folder in (fx, linux_fx):
+        (folder / "places.sqlite").write_bytes(b"")
+    for folder in (chrome, edge, linux_chromium):
+        (folder / "Bookmarks").write_text("{}")
+    (home / "AppData/Local/Google/Chrome/User Data/Crashpad").mkdir()           # not a profile
+    on_windows = importer.find_sources(home, windows=True)
+    assert [(label, kind) for label, kind, _dir in on_windows] == [
+        ("Firefox — abcd.default-release", "firefox"), ("Google Chrome — Default", "chromium"),
+        ("Microsoft Edge — Profile 1", "chromium")]
+    assert [d for _l, _k, d in on_windows] == [fx, chrome, edge]
+    on_linux = importer.find_sources(home, windows=False)
+    assert [d for _l, _k, d in on_linux] == [linux_fx, linux_chromium]
+    assert importer.find_sources(home) == (on_windows if WINDOWS else on_linux)
+    # a copied database opens read-only on this system (the address form differs on Windows)
+    import sqlite3
+    db = sqlite3.connect(str(tmp_path / "places.sqlite"))
+    db.execute("create table t (x)")
+    db.execute("insert into t values (7)")
+    db.commit()
+    db.close()
+    folder, copy = importer._copy_db(tmp_path / "places.sqlite")
+    try:
+        assert copy.execute("select x from t").fetchall() == [(7,)]
+        with pytest.raises(sqlite3.OperationalError):
+            copy.execute("insert into t values (8)")
+    finally:
+        copy.close()
+        __import__("shutil").rmtree(folder, ignore_errors=True)

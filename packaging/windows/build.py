@@ -314,7 +314,7 @@ def build_launcher(work, app, ver):
         "rc /nologo /fo ike-browser.res ike-browser.rc || exit /b 1",
         "cl /nologo /O2 /W4 /MT /GS /guard:cf /DUNICODE /D_UNICODE ike-browser.c ike-browser.res "
         "/Fe:ike-browser.exe /link /SUBSYSTEM:WINDOWS /DYNAMICBASE /NXCOMPAT /HIGHENTROPYVA /guard:cf "
-        "/MANIFEST:EMBED /MANIFESTINPUT:ike-browser.exe.manifest || exit /b 1",
+        "/MANIFEST:EMBED /MANIFESTINPUT:ike-browser.exe.manifest user32.lib || exit /b 1",
         ""]), "ascii")
     run(["cmd", "/d", "/c", script.name], cwd=str(src))
     shutil.copyfile(src / "ike-browser.exe", app / "ike-browser.exe")

@@ -7,6 +7,7 @@ to a temporary folder first and read from there, so nothing is modified.
 import json
 import shutil
 import sqlite3
+import sys
 import tempfile
 import time
 import zipfile
@@ -42,16 +43,36 @@ FIREFOX_DIRS = {
 }
 
 
-def find_sources(home=None):
+# The same browsers on Windows, under the user's AppData folder.
+WINDOWS_CHROMIUM_DIRS = {
+    "Chromium": "AppData/Local/Chromium/User Data",
+    "Google Chrome": "AppData/Local/Google/Chrome/User Data",
+    "Brave": "AppData/Local/BraveSoftware/Brave-Browser/User Data",
+    "Vivaldi": "AppData/Local/Vivaldi/User Data",
+    "Microsoft Edge": "AppData/Local/Microsoft/Edge/User Data",
+    "Opera": "AppData/Roaming/Opera Software/Opera Stable",
+}
+WINDOWS_FIREFOX_DIRS = {
+    "Firefox": "AppData/Roaming/Mozilla/Firefox/Profiles", "LibreWolf": "AppData/Roaming/librewolf/Profiles",
+    "Zen": "AppData/Roaming/zen/Profiles", "Floorp": "AppData/Roaming/Floorp/Profiles",
+    "Waterfox": "AppData/Roaming/Waterfox/Profiles",
+}
+
+
+def find_sources(home=None, windows=None):
     """[(label, kind, profile_dir)] for every browser profile found."""
     home = Path(home or Path.home())
     out = []
-    for name, rel in FIREFOX_DIRS.items():
+    if (sys.platform == "win32") if windows is None else windows:
+        firefox, chromium = WINDOWS_FIREFOX_DIRS, WINDOWS_CHROMIUM_DIRS
+    else:
+        firefox, chromium = FIREFOX_DIRS, CHROMIUM_DIRS
+    for name, rel in firefox.items():
         base = home / rel
         if base.is_dir():
             for places in sorted(base.glob("*/places.sqlite")):
                 out.append(("%s — %s" % (name, places.parent.name), "firefox", places.parent))
-    for name, rel in CHROMIUM_DIRS.items():
+    for name, rel in chromium.items():
         base = home / rel
         if base.is_dir():
             for prof in sorted(base.iterdir()):
@@ -67,6 +88,8 @@ def _copy_db(path):
         src = Path(str(path) + suffix)
         if src.exists():
             shutil.copy2(src, tmp / (path.name + suffix))
+    if sys.platform == "win32":          # a drive letter and "\\" are not an address: file:///C:/...
+        return tmp, sqlite3.connect((tmp / path.name).as_uri() + "?mode=ro", uri=True)
     return tmp, sqlite3.connect("file:%s?mode=ro" % (tmp / path.name), uri=True)
 
 
