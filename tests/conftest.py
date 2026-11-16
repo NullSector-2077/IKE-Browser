@@ -196,13 +196,19 @@ app = QApplication(sys.argv[:1])
 v = QWebEngineView()
 v.resize(200, 200)
 v.show()
+tries = []
+def ask():
+    v.page().runJavaScript("!!document.createElement('canvas').getContext('webgl')", done)
 def done(r):
-    print("WEBGL=%s" % r)
-    app.quit()
-v.loadFinished.connect(lambda ok: v.page().runJavaScript(
-    "!!document.createElement('canvas').getContext('webgl')", done))
+    tries.append(r)
+    if r or len(tries) >= 20:          # software WebGL can need a few seconds
+        print("WEBGL=%s" % r)
+        app.quit()
+    else:
+        QTimer.singleShot(500, ask)
+v.loadFinished.connect(lambda ok: ask())
 v.setHtml("<p>x</p>")
-QTimer.singleShot(30000, app.quit)
+QTimer.singleShot(40000, app.quit)
 app.exec()
 """
 _webgl_flags = []
@@ -221,7 +227,7 @@ def software_webgl_flags():
                    QTWEBENGINE_CHROMIUM_FLAGS="--no-sandbox " + flags)
         try:
             r = subprocess.run([sys.executable, "-c", _WEBGL_PROBE], env=env, capture_output=True,
-                               text=True, timeout=60)
+                               text=True, timeout=70)
         except subprocess.TimeoutExpired:
             continue
         if "WEBGL=True" in r.stdout:
