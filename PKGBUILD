@@ -60,5 +60,8 @@ package() {
   # licences and documentation
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 -t "$pkgdir/usr/share/licenses/$pkgname" licenses/* docs/arch/THIRD-PARTY.md
-  install -Dm644 -t "$pkgdir/usr/share/doc/$pkgname" README.md CHANGELOG.md docs/*.md
+  local doc="$pkgdir/usr/share/doc/$pkgname"
+  install -Dm644 -t "$doc" README.md CHANGELOG.md
+  install -Dm644 -t "$doc/docs" docs/*.md
+  install -Dm644 -t "$doc/docs/arch" docs/arch/*.md
 }
