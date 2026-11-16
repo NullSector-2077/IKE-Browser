@@ -69,7 +69,7 @@ class IceApp(QObject):
             if f.exists():
                 self.icon.addFile(str(f), QSize(size, size))
         if self.icon.isNull():
-            self.icon = QIcon(str(RES_DIR / "ice.svg"))
+            self.icon = QIcon(str(RES_DIR / "ike.svg"))
         qapp.setWindowIcon(self.icon)
         self.windows = []
         self.downloads = []
@@ -296,8 +296,8 @@ class IceApp(QObject):
         if name == PROFILE:
             return
         env = dict(os.environ)
-        env.pop("ICE_TEST_HOOK", None)
-        env["ICE_PROFILE"] = name
+        env.pop("IKE_TEST_HOOK", None)
+        env["IKE_PROFILE"] = name
         subprocess.Popen(boot_command() + ["--profile", name], env=env,
                          start_new_session=True)
 
@@ -542,7 +542,7 @@ class IceApp(QObject):
         folder = self.download_dir()
         name = item.downloadFileName()
         item._ice_tmp = item._ice_target = item._ice_final = None
-        ask = self.config["ask_download_location"] and not os.environ.get("ICE_TEST_NOASK")
+        ask = self.config["ask_download_location"] and not os.environ.get("IKE_TEST_NOASK")
         if ask:
             import tempfile
             tmp_root = CACHE_DIR / "downloads-tmp"
@@ -840,7 +840,7 @@ def _chromium_flags(config):
         lib = find_widevine()
         if lib:
             flags.append("--widevine-path=%s" % lib)
-            os.environ["ICE_WIDEVINE"] = lib
+            os.environ["IKE_WIDEVINE"] = lib
     if hasattr(os, "geteuid") and os.geteuid() == 0 and "--no-sandbox" not in flags:
         flags.append("--no-sandbox")
     os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = " ".join(flags)
@@ -849,7 +849,7 @@ def _chromium_flags(config):
 def _wait_for_previous():
     """After a restart: let the previous instance finish closing first."""
     import time
-    pid = os.environ.pop("ICE_WAIT_PID", "")
+    pid = os.environ.pop("IKE_WAIT_PID", "")
     if not pid.isdigit():
         return
     if sys.platform == "win32":          # no /proc: wait on the process itself
@@ -900,7 +900,7 @@ def main(argv=None):
 
     # Single instance: hand the request to the running browser.
     server_name = "%s-%s-%s" % (APP_ID, os.getuid() if hasattr(os, "getuid") else "u", PROFILE)
-    if not os.environ.get("ICE_NO_SINGLE"):
+    if not os.environ.get("IKE_NO_SINGLE"):
         sock = QLocalSocket()
         sock.connectToServer(server_name)
         if sock.waitForConnected(300):
@@ -931,7 +931,7 @@ def main(argv=None):
     ice = IceApp(qapp, config)
 
     server = QLocalServer(qapp)
-    if not os.environ.get("ICE_NO_SINGLE"):
+    if not os.environ.get("IKE_NO_SINGLE"):
         QLocalServer.removeServer(server_name)
         server.listen(server_name)
 
@@ -943,15 +943,15 @@ def main(argv=None):
             def read():
                 try:
                     msg = json.loads(bytes(conn.readAll()).decode())
-                    ice.open_urls(msg.get("urls", []), bool(msg.get("private")))
+                    ike.open_urls(msg.get("urls", []), bool(msg.get("private")))
                 except ValueError:
                     pass
                 conn.deleteLater()
             conn.readyRead.connect(read)
         server.newConnection.connect(incoming)
 
-    ice.start(urls, args.private)
-    hook = os.environ.get("ICE_TEST_HOOK")
+    ike.start(urls, args.private)
+    hook = os.environ.get("IKE_TEST_HOOK")
     if hook:
         import runpy
         runpy.run_path(hook, init_globals={"ike": ice, "qapp": qapp})
@@ -961,7 +961,7 @@ def main(argv=None):
         server.close()
         QLocalServer.removeServer(server_name)
         boot = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ike_boot.py")
-        env = dict(os.environ, ICE_WAIT_PID=str(os.getpid()))
+        env = dict(os.environ, IKE_WAIT_PID=str(os.getpid()))
         cmd = [sys.executable, boot] + (["--profile", args.profile] if args.profile else [])
         subprocess.Popen(cmd, env=env, start_new_session=True, stdin=subprocess.DEVNULL)
     return code

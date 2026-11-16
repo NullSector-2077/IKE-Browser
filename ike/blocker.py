@@ -435,9 +435,9 @@ class Blocker(QObject):
 
     def _engine_error(self, what, url, exc):
         """The engine failed: the request (or page) goes on unfiltered, as before;
-        the error is counted and, with ICE_DEBUG, logged."""
+        the error is counted and, with IKE_DEBUG, logged."""
         self.errors += 1
-        if os.environ.get("ICE_DEBUG"):
+        if os.environ.get("IKE_DEBUG"):
             print("[adblock] %s failed for %s: %s: %s" % (what, url[:200], exc.__class__.__name__, exc))
 
     def should_block(self, url, source, rtype, method="GET"):

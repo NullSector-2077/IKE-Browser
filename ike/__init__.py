@@ -24,5 +24,5 @@ def early_args(argv):
         if name is not None:
             name = "".join(ch for ch in name if ch.isalnum() or ch in "-_")
             if name:
-                os.environ["ICE_PROFILE"] = name
+                os.environ["IKE_PROFILE"] = name
             return

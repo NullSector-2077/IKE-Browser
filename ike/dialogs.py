@@ -775,7 +775,7 @@ class SettingsDialog(QDialog):
         else:
             text = T("Widevine is not installed: Netflix, Prime Video and similar services will not play. "
                      "I.K.E. can download it from Google's server into its own folder.")
-        if st["path"] and os.environ.get("ICE_WIDEVINE") != st["path"]:
+        if st["path"] and os.environ.get("IKE_WIDEVINE") != st["path"]:
             text += " " + T("Restart I.K.E. to use it.")
         if note:
             text += "\n" + note

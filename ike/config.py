@@ -7,7 +7,7 @@ from pathlib import Path
 
 from . import osinfo
 
-PROFILE = os.environ.get("ICE_PROFILE", "").strip() or "default"
+PROFILE = os.environ.get("IKE_PROFILE", "").strip() or "default"
 
 
 def _xdg(kind):
