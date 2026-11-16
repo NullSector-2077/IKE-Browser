@@ -113,3 +113,123 @@ def test_default_browser_button_outside_flatpak(run_ike, tmp_path):
     assert out["desktop_file"] == "ike-browser"
     assert json.loads(log.read_text()) == ["set", "default-web-browser", "ike-browser.desktop"]
     assert out["message"] == ["I.K.E. is now the default browser."]
+
+
+# --- a restart (Settings → Restart) and another profile ----------------------
+# Inside a Flatpak every process of the sandbox ends with the program that
+# started it: the new copy has to be started through Flatpak's portal
+# (flatpak-spawn), in a sandbox of its own, and waits for a lock instead of a
+# process number. The stand-in flatpak-spawn records how it was called and
+# then starts the command itself, as the portal would.
+
+FAKE_SPAWN = r'''#!%(python)s
+import fcntl, json, os, sys
+args = sys.argv[1:]
+env = dict(os.environ)
+passed = []
+while args and args[0].startswith("--env="):
+    k, _, v = args.pop(0)[len("--env="):].partition("=")
+    env[k] = v
+    passed.append(k)
+lock = os.path.join(env["XDG_CACHE_HOME"], "ike-browser", "restart.lock")
+try:
+    with open(lock, "a") as f:
+        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    free = True
+except OSError:
+    free = False
+json.dump({"env": passed, "cmd": args, "lock_free": free}, open(%(log)r, "w"))
+if os.environ.get("FAKE_SPAWN_RUN") == "1":
+    os.execve(args[0], args, env)
+'''
+
+RESTART = r'''
+import json, os
+
+def steps(ike, qapp, out):
+    marker = os.path.join(os.environ["HOME"], "restarted-once")
+    if os.path.exists(marker):              # the new copy
+        first = json.load(open(marker))["pid"]
+        try:
+            alive = "\nState:\tZ" not in open("/proc/%d/status" % first).read()
+        except OSError:
+            alive = False
+        views = ike.windows[0].views
+        out["second"] = {"pid": os.getpid(), "first_alive": alive,
+                         "urls": [getattr(v, "pending_url", None) or v.url().toString() for v in views]}
+        yield 200
+        return
+    win = ike.windows[0]
+    win.add_tab("data:text/html,<title>kept</title>kept")
+    yield 1500
+    json.dump({"pid": os.getpid()}, open(marker, "w"))
+    out["first"] = os.getpid()
+    json.dump(out, open(os.environ["IKE_TEST_OUT"], "w"))
+    ike.restart()
+    yield 10000
+'''
+
+
+def _spawn_stand_in(tmp_path):
+    log = tmp_path / "spawn.json"
+    fake = tmp_path / "bin" / "flatpak-spawn"
+    fake.parent.mkdir(exist_ok=True)
+    fake.write_text(FAKE_SPAWN % {"python": sys.executable, "log": str(log)})
+    fake.chmod(0o755)
+    return log, "%s:%s" % (fake.parent, os.environ["PATH"])
+
+
+def _second_start(tmp_path, timeout=90):
+    import time
+    out_file = tmp_path / "out.json"
+    end = time.time() + timeout
+    while time.time() < end:
+        try:
+            data = json.loads(out_file.read_text("utf-8"))
+            if "second" in data:
+                return data["second"]
+        except (OSError, ValueError):
+            pass
+        time.sleep(0.5)
+    raise AssertionError("the browser did not start again")
+
+
+def test_restart_in_flatpak_goes_through_the_portal(run_ike, tmp_path):
+    log, path = _spawn_stand_in(tmp_path)
+    run_ike(RESTART, env={"PATH": path, "FLATPAK_ID": APP_ID, "FAKE_SPAWN_RUN": "1"}, timeout=120)
+    second = _second_start(tmp_path)
+    first = json.loads((tmp_path / "home" / "restarted-once").read_text())["pid"]
+    spawn = json.loads(log.read_text())
+    assert spawn["env"] == ["IKE_WAIT_LOCK"] and spawn["cmd"][-1].endswith("ike_boot.py")
+    assert spawn["lock_free"] is False               # held by the closing copy
+    assert second["pid"] != first and second["first_alive"] is False
+    assert any("kept" in u for u in second["urls"])  # the tabs came back
+
+
+@outside_only
+def test_restart_outside_flatpak_unchanged(run_ike, tmp_path):
+    log, path = _spawn_stand_in(tmp_path)
+    run_ike(RESTART, env={"PATH": path, "FLATPAK_ID": ""}, timeout=120)
+    second = _second_start(tmp_path)
+    first = json.loads((tmp_path / "home" / "restarted-once").read_text())["pid"]
+    assert not log.exists()                          # started directly, as before
+    assert second["pid"] != first and second["first_alive"] is False
+    assert any("kept" in u for u in second["urls"])
+
+
+def test_other_profile_in_flatpak_gets_its_own_sandbox(tmp_path, monkeypatch):
+    from ike import app
+    log, path = _spawn_stand_in(tmp_path)
+    monkeypatch.setenv("PATH", path)
+    monkeypatch.setenv("FLATPAK_ID", APP_ID)
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    (tmp_path / "cache" / "ike-browser").mkdir(parents=True)
+    app.start_detached(["/bin/true", "--profile", "work"], dict(os.environ, IKE_PROFILE="work", SECRET="x"),
+                       keep=("IKE_PROFILE",), stdin=None)
+    import time
+    for _ in range(100):
+        if log.exists() and log.stat().st_size:
+            break
+        time.sleep(0.05)
+    spawn = json.loads(log.read_text())
+    assert spawn["env"] == ["IKE_PROFILE"] and spawn["cmd"] == ["/bin/true", "--profile", "work"]

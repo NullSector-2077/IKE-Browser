@@ -317,8 +317,8 @@ class IkeApp(QObject):
         env = dict(os.environ)
         env.pop("IKE_TEST_HOOK", None)
         env["IKE_PROFILE"] = name
-        subprocess.Popen(boot_command() + ["--profile", name], env=env,
-                         start_new_session=True)
+        start_detached(boot_command() + ["--profile", name], env, keep=("IKE_PROFILE",),
+                       stdin=None)
 
     def _periodic_save(self):
         session = self._session()
@@ -883,6 +883,21 @@ def sandbox_off():
 def _wait_for_previous():
     """After a restart: let the previous instance finish closing first."""
     import time
+    if os.environ.pop("IKE_WAIT_LOCK", "") == "1":
+        # Flatpak: the previous instance ran in another sandbox, where its
+        # process number means nothing; it holds a lock until it has ended
+        import fcntl
+        try:
+            with open(_restart_lock(), "a") as f:
+                for _ in range(100):
+                    try:
+                        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        return
+                    except OSError:
+                        time.sleep(0.1)
+        except OSError:
+            return
+        return
     pid = os.environ.pop("IKE_WAIT_PID", "")
     if not pid.isdigit():
         return
@@ -890,6 +905,28 @@ def _wait_for_previous():
         if not os.path.exists("/proc/%s" % pid):
             return
         time.sleep(0.1)
+
+
+def _restart_lock():
+    from .osinfo import app_dir
+    folder = app_dir("cache")
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder / "restart.lock"
+
+
+def start_detached(cmd, env, keep=(), stdin=subprocess.DEVNULL):
+    """Start another I.K.E. (a restart, another profile) that outlives this one.
+
+    Inside a Flatpak every process of the sandbox ends when the program that
+    started the sandbox ends: a restart would never come back and another
+    profile would close with this one. There the new copy gets a sandbox of
+    its own through Flatpak's portal (flatpak-spawn, allowed to every
+    Flatpak), with the variables named in ``keep``; the rest of its
+    environment is Flatpak's own. Elsewhere: a new session, as before."""
+    from .osinfo import in_flatpak
+    if in_flatpak() and shutil.which("flatpak-spawn"):
+        cmd = ["flatpak-spawn"] + ["--env=%s=%s" % (k, env[k]) for k in keep if k in env] + list(cmd)
+    subprocess.Popen(cmd, env=env, start_new_session=True, stdin=stdin)
 
 
 INTERNAL_ERRORS = []          # tracebacks of errors the browser went on after (this session)
@@ -1079,12 +1116,18 @@ def main(argv=None):
     if config["clear_on_exit"] and sitedata.asked() and not getattr(ike, "_restart", False):
         sitedata.remove()        # "clear when closed": now, and once more at the next start
     if getattr(ike, "_restart", False):
-        import subprocess
         server.close()
         if server_name:
             QLocalServer.removeServer(server_name)
         boot = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ike_boot.py")
         env = dict(os.environ, IKE_WAIT_PID=str(os.getpid()))
+        from .osinfo import in_flatpak
+        if in_flatpak():
+            import fcntl
+            lock = open(_restart_lock(), "a")        # held until this process has ended
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            env["IKE_WAIT_LOCK"] = "1"
+            ike._restart_lock = lock
         cmd = [sys.executable, boot] + (["--profile", args.profile] if args.profile else [])
-        subprocess.Popen(cmd, env=env, start_new_session=True, stdin=subprocess.DEVNULL)
+        start_detached(cmd, env, keep=("IKE_WAIT_LOCK", "IKE_PROFILE"))
     return code
