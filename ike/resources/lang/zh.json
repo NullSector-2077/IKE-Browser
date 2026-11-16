@@ -778,6 +778,8 @@
 "security fixes up to %s": "安全修复至 %s",
 "Engine sandbox: on": "引擎沙盒：已开启",
 "Engine sandbox: OFF (switched off by the environment, or I.K.E. was started as administrator)": "引擎沙盒：已关闭（被环境关闭，或 I.K.E. 以管理员身份启动）",
-"Internal errors this session: %d (details in %s)": "本次会话的内部错误：%d（详情见 %s）"
+"Internal errors this session: %d (details in %s)": "本次会话的内部错误：%d（详情见 %s）",
+"Open with another application": "用其他应用程序打开",
+"%s wants to open this link with another application:": "%s 想用其他应用程序打开此链接:"
 }
 }

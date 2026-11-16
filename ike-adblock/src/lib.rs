@@ -206,7 +206,7 @@ impl Engine {
     fn check_network_urls(&self, py: Python<'_>, url: &str, source_url: &str, request_type: &str, method: &str) -> BlockerResult {
         let checked = guarded("check_network_request", || {
             let request = ARequest::new(url, source_url, request_type, method).map_err(|e| format!("{e:?}"))?;
-            Ok::<_, String>(py.allow_threads(|| self.inner.check_network_request(&request)))
+            Ok::<_, String>(py.detach(|| self.inner.check_network_request(&request)))
         });
         let result = match checked {
             Ok(Ok(result)) => result,

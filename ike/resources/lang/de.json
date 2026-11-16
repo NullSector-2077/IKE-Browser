@@ -778,6 +778,8 @@
 "security fixes up to %s": "Sicherheitskorrekturen bis %s",
 "Engine sandbox: on": "Sandbox der Engine: an",
 "Engine sandbox: OFF (switched off by the environment, or I.K.E. was started as administrator)": "Sandbox der Engine: AUS (von der Umgebung abgeschaltet, oder I.K.E. wurde als Administrator gestartet)",
-"Internal errors this session: %d (details in %s)": "Interne Fehler in dieser Sitzung: %d (Einzelheiten in %s)"
+"Internal errors this session: %d (details in %s)": "Interne Fehler in dieser Sitzung: %d (Einzelheiten in %s)",
+"Open with another application": "Mit einer anderen Anwendung öffnen",
+"%s wants to open this link with another application:": "%s möchte diesen Link mit einer anderen Anwendung öffnen:"
 }
 }

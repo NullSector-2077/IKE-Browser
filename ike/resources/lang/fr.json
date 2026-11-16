@@ -778,6 +778,8 @@
 "security fixes up to %s": "correctifs de sécurité jusqu'à la %s",
 "Engine sandbox: on": "Bac à sable du moteur : actif",
 "Engine sandbox: OFF (switched off by the environment, or I.K.E. was started as administrator)": "Bac à sable du moteur : DÉSACTIVÉ (coupé par l'environnement, ou I.K.E. a été lancé en administrateur)",
-"Internal errors this session: %d (details in %s)": "Erreurs internes pendant cette session : %d (détails dans %s)"
+"Internal errors this session: %d (details in %s)": "Erreurs internes pendant cette session : %d (détails dans %s)",
+"Open with another application": "Ouvrir avec une autre application",
+"%s wants to open this link with another application:": "%s veut ouvrir ce lien avec une autre application :"
 }
 }

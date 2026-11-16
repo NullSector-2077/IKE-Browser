@@ -778,6 +778,8 @@
 "security fixes up to %s": "correcciones de seguridad hasta la %s",
 "Engine sandbox: on": "Aislamiento del motor (sandbox): activo",
 "Engine sandbox: OFF (switched off by the environment, or I.K.E. was started as administrator)": "Aislamiento del motor (sandbox): DESACTIVADO (apagado por el entorno, o I.K.E. se inició como administrador)",
-"Internal errors this session: %d (details in %s)": "Errores internos en esta sesión: %d (detalles en %s)"
+"Internal errors this session: %d (details in %s)": "Errores internos en esta sesión: %d (detalles en %s)",
+"Open with another application": "Abrir con otra aplicación",
+"%s wants to open this link with another application:": "%s quiere abrir este enlace con otra aplicación:"
 }
 }

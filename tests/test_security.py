@@ -367,6 +367,7 @@ def steps(ike, qapp, out):
             raise RuntimeError("the filter engine failed in Engine: boom")
     adblock.Engine = BadEngine
     before = b.errors
+    ike.config["custom_filters"] = "||first-list.example.test^"     # something changed: the engine is built anew
     b.load()
     out["no_engine"] = [b.engine is None, b.errors - before]
     ok = yield from load(view, BASE + "/ask?again")
@@ -697,6 +698,81 @@ def steps(ike, qapp, out):
     asked, answers = out["first_page"]
     assert asked == ["127.0.0.1"] and len(answers) == 4 and set(answers) <= {"denied", "default"}, out["first_page"]
     assert out["second_page"][0] == 1 and set(out["second_page"][1]) <= {"denied", "default"}
+
+
+def test_a_link_never_starts_another_application_without_asking(run_ike):
+    """A link such as "mailto:" or the private kind of an installed program
+    goes to the desktop only after the user said so, and never from a script
+    alone or from a tab in the background."""
+    out = run_ike(JS + r'''
+from PyQt6.QtCore import QCoreApplication, QEvent, QObject, QPointF, Qt, QUrl, pyqtSlot
+from PyQt6.QtGui import QDesktopServices, QMouseEvent
+
+class Desktop(QObject):
+    def __init__(self):
+        super().__init__()
+        self.started = []
+    @pyqtSlot(QUrl)
+    def handle(self, url):
+        self.started.append(bytes(url.toEncoded()).decode())
+
+def click(view, x, y):
+    target = view.focusProxy() or view
+    for kind, held in ((QEvent.Type.MouseButtonPress, Qt.MouseButton.LeftButton),
+                       (QEvent.Type.MouseButtonRelease, Qt.MouseButton.NoButton)):
+        QCoreApplication.sendEvent(target, QMouseEvent(kind, QPointF(x, y), QPointF(view.mapToGlobal(QPointF(x, y).toPoint())),
+                                                       Qt.MouseButton.LeftButton, held, Qt.KeyboardModifier.NoModifier))
+
+PAGE = ("<body style='margin:0'><a href='iketestproto://run/this?arg=--dangerous%20option' "
+        "style='display:block;width:400px;height:120px;background:#ccc'>link</a>")
+
+def steps(ike, qapp, out):
+    from ike import webview
+    desktop = Desktop()
+    ike._desktop_stand_in = desktop
+    QDesktopServices.setUrlHandler("iketestproto", desktop, "handle")
+    asked = []
+    answer = [False]
+    def ask(self, origin, url):
+        asked.append([origin, bytes(url.toEncoded()).decode()])
+        return answer[0]
+    webview.WebPage.ask_external = ask
+    win = ike.windows[0]
+    view = win.current_view()
+    view.setHtml(PAGE, QUrl("http://site.example/page"))
+    yield 800
+    click(view, 60, 60)
+    yield 500
+    out["refused"] = [list(asked), list(desktop.started), view.url().toString()]
+    answer[0] = True
+    click(view, 60, 60)
+    yield 500
+    out["allowed"] = [len(asked), list(desktop.started)]
+    # a script alone (no click)
+    view.setHtml("<script>setTimeout(function () { location.href = 'iketestproto://by/script'; }, 300);</script>",
+                 QUrl("http://site.example/auto"))
+    yield 1500
+    out["script"] = [len(asked), len(desktop.started)]
+    # a tab that is not in view
+    view.setHtml(PAGE, QUrl("http://site.example/page"))
+    yield 600
+    other = win.add_tab("ike:newtab")
+    yield 600
+    view.page()._external_link(QUrl("iketestproto://from/background"))
+    yield 200
+    out["background"] = [len(asked), len(desktop.started)]
+    # the kinds of address the browser shows itself are never taken for external ones
+    own = webview.WebPage.OWN_SCHEMES
+    out["own"] = [s in own for s in ("http", "https", "file", "ike", "data", "blob", "about", "view-source")]
+    out["external"] = [s in own for s in ("mailto", "tel", "magnet", "ssh", "smb", "steam", "iketestproto")]
+''', timeout=120)
+    asked, started, url = out["refused"]
+    assert asked == [["http://site.example", "iketestproto://run/this?arg=--dangerous%20option"]]
+    assert started == [] and url.startswith("http://site.example/")          # the page stays where it was
+    assert out["allowed"] == [2, ["iketestproto://run/this?arg=--dangerous%20option"]]
+    assert out["script"] == [2, 1]                                           # neither asked nor started
+    assert out["background"] == [2, 1]
+    assert all(out["own"]) and not any(out["external"])
 
 
 def test_password_files_are_private_from_the_start(tmp_path):

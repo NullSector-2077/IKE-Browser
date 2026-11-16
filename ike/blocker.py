@@ -294,7 +294,17 @@ class Blocker(QObject):
             pass
 
     def load(self):
-        """Build the engine from cached lists (uses a serialized cache)."""
+        """Build the engine from cached lists (uses a serialized cache).
+
+        Called at start, after every list update and whenever the settings
+        are applied; when neither the lists nor the filter settings changed
+        since the last time, the engine in use is kept (reading it again from
+        the cache takes about 0.2 s with the standard lists, in the interface's
+        own thread)."""
+        signature = self._signature()
+        if getattr(self, "_loaded", None) == signature and (self.engine is not None or self.fallback is not None):
+            return
+        self._loaded = signature
         self.engine = self.fallback = None
         texts = None
         self._load_scriptlets()
