@@ -1,0 +1,81 @@
+# Asks the H.264 and AAC decoders of Windows (Media Foundation) to decode small
+# streams, driven with the same calls as I.K.E.'s engine patches drive them,
+# from a test program of a few hundred lines (packaging/windows/qtwebengine/
+# probe/). Takes minutes; the engine build takes most of a day. It does not
+# replace the check with the built engine (windows-engine.yml): it says early
+# whether Windows answers those calls as the patches expect. Nothing here is
+# shipped; FFmpeg only makes the test streams on the runner.
+name: Windows decoders probe
+
+on:
+  push:
+    branches: [windows/engine]
+    paths:
+      - "packaging/windows/qtwebengine/probe/**"
+      - ".github/workflows/windows-mft-probe.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-mft-probe
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    name: Probe (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # Server 2022 is the Windows 10 code base, Server 2025 the one of
+        # Windows 11 24H2.
+        os: [windows-2022, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            packaging/windows/qtwebengine
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12.10"
+      - name: The decoders of this Windows
+        shell: pwsh
+        run: ./packaging/windows/qtwebengine/runner-media.ps1
+      - name: FFmpeg, to make the test streams
+        shell: pwsh
+        run: |
+          if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
+              choco install ffmpeg -y --no-progress
+              if ($LASTEXITCODE -ne 0) { throw "could not install FFmpeg" }
+          }
+          "C:\ProgramData\chocolatey\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Probe, Windows as the runner comes
+        id: plain
+        continue-on-error: true
+        run: >-
+          python packaging/windows/qtwebengine/probe/run_probe.py --work probe-work
+          --report reports/probe.md --name " (Windows as the runner comes)"
+      # Only if that failed: the runner is Windows Server, where Media
+      # Foundation is an optional feature. A desktop Windows always has it.
+      - name: Switch on Media Foundation on this Windows Server
+        if: ${{ steps.plain.outcome == 'failure' }}
+        shell: pwsh
+        run: ./packaging/windows/qtwebengine/runner-media.ps1 -InstallFeature
+      - name: Probe, with the Media Foundation feature switched on
+        if: ${{ steps.plain.outcome == 'failure' }}
+        run: >-
+          python packaging/windows/qtwebengine/probe/run_probe.py --work probe-work2
+          --report reports/probe-feature.md --name " (Media Foundation feature switched on)"
+      - name: Keep the reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mft-probe-${{ matrix.os }}
+          path: reports
+          if-no-files-found: warn
+          retention-days: 30
