@@ -443,7 +443,7 @@ class WindowFeatures:
                 self.nav.insertAction(anchor, act)
             widget = self.nav.widgetForAction(act)
             if widget is not None:
-                widget.setProperty("iceToolbarKey", key)
+                widget.setProperty("ikeToolbarKey", key)
                 widget.setCursor(Qt.CursorShape.ArrowCursor if locked
                                   else Qt.CursorShape.OpenHandCursor)
                 widget.installEventFilter(self)
@@ -451,14 +451,14 @@ class WindowFeatures:
         btn = self.nav.widgetForAction(self.act_dark)
         if isinstance(btn, QToolButton):
             btn.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
-            if not btn.property("iceMenuClickConnected"):
+            if not btn.property("ikeMenuClickConnected"):
                 btn.clicked.connect(btn.showMenu)
-                btn.setProperty("iceMenuClickConnected", True)
+                btn.setProperty("ikeMenuClickConnected", True)
         self._fit_urlbar()
 
     def _toolbar_reorder_event(self, obj, event):
         """Drag a toolbar button and preview its exact insertion point."""
-        key = obj.property("iceToolbarKey") if hasattr(obj, "property") else None
+        key = obj.property("ikeToolbarKey") if hasattr(obj, "property") else None
         if not key or self.app.config.get("toolbar_locked", False):
             return False
         kind = event.type()
