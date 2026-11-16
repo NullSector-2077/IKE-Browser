@@ -50,10 +50,21 @@ def main():
 
     replace_one(root / "PKGBUILD", r'^pkgver=.*$', "pkgver=%s" % version, re.M)
     replace_one(root / "PKGBUILD", r'^pkgrel=.*$', "pkgrel=1", re.M)
-    replace_one(root / "README.md", r'^\*\*Version [^\n]+',
-                "**Version %s** - see [CHANGELOG.md](CHANGELOG.md)." % version, re.M)
-    replace_one(root / "README.md", r'ike-browser-[0-9]+\.[0-9]+\.[0-9]+-1-x86_64\.pkg\.tar\.zst',
-                "ike-browser-%s-1-x86_64.pkg.tar.zst" % version)
+    # The IKE README intentionally has no prebuilt-package filename or version
+    # banner. Update either marker only if a future README explicitly adds it.
+    readme = root / "README.md"
+    readme_text = readme.read_text("utf-8")
+    readme_text, _ = re.subn(
+        r'^\*\*Version [^\n]+',
+        "**Version %s** - see [CHANGELOG.md](CHANGELOG.md)." % version,
+        readme_text, count=1, flags=re.M,
+    )
+    readme_text, _ = re.subn(
+        r'ike-browser-[0-9]+\.[0-9]+\.[0-9]+-1-x86_64\.pkg\.tar\.zst',
+        "ike-browser-%s-1-x86_64.pkg.tar.zst" % version,
+        readme_text, count=1,
+    )
+    readme.write_text(readme_text, "utf-8")
 
     bullets = []
     for component in changed:
