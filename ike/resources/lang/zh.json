@@ -407,6 +407,7 @@
 "No pages are watched. Right-click a page, or a part of it such as a price, and choose “Notify me when this page changes…” or “Notify me when this part changes…”.": "没有监视的页面。右键点击页面或其中的部分（例如价格），然后选择“此页面变化时通知我…”或“此部分变化时通知我…”。",
 "No saved login for this site.": "此网站没有已保存的登录信息。",
 "No update channel is configured for this copy of I.K.E. (file update.json). Filter lists still update every day; the web engine is updated by the system package manager.": "此 I.K.E. 副本未配置更新渠道（update.json 文件）。过滤列表仍会每天更新；网页引擎由系统软件包管理器更新。",
+"This copy of I.K.E. is a Flatpak: its updates come from Flatpak (your software centre, or the command flatpak update), not from I.K.E.'s own updater.": "此 I.K.E. 副本是 Flatpak 版本：更新由 Flatpak 提供（软件中心或命令 flatpak update），而不是 I.K.E. 自带的更新程序。",
 "No video was found on this page.": "此页面上未找到视频。",
 "No, still broken": "不，还是有问题",
 "Not installed: %s": "未安装: %s",

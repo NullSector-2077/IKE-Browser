@@ -474,6 +474,11 @@ class IkeApp(QObject):
             if manual:
                 QMessageBox.information(win, "I.K.E.", T("I.K.E. is up to date (version %s).")
                                         % data["version"])
+        elif kind == "flatpak":
+            if manual:
+                QMessageBox.information(win, "I.K.E.", T(
+                    "This copy of I.K.E. is a Flatpak: its updates come from Flatpak (your software "
+                    "centre, or the command flatpak update), not from I.K.E.'s own updater."))
         elif kind == "system":
             from . import updater
             text = T("I.K.E. %s is available, but it needs a newer installation package. "
@@ -927,11 +932,17 @@ def instance_addresses():
     enter. Then the name in the shared temporary folder that earlier versions
     used, which is only trusted when the socket there belongs to this user:
     anybody may create a file with that name there."""
+    import re
     import tempfile
     uid = os.getuid() if hasattr(os, "getuid") else "u"
     name = "%s-%s-%s" % (APP_ID, uid, PROFILE)
     found = []
     run = os.environ.get("XDG_RUNTIME_DIR", "")
+    flatpak_id = os.environ.get("FLATPAK_ID", "")
+    if run and re.fullmatch(r"[A-Za-z0-9_.-]+", flatpak_id):
+        # each start of a Flatpak gets a runtime folder of its own; only the
+        # app's folder inside it is shared by all its starts
+        run = os.path.join(run, "app", flatpak_id)
     try:
         if run and os.path.isdir(run) and os.stat(run).st_uid == uid and os.access(run, os.W_OK):
             path = os.path.join(run, name + ".sock")

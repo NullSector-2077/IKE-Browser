@@ -407,6 +407,7 @@
 "No pages are watched. Right-click a page, or a part of it such as a price, and choose “Notify me when this page changes…” or “Notify me when this part changes…”.": "監視中のページはありません。ページ、または価格などのページの一部を右クリックし、「このページが変わったら通知…」か「この部分が変わったら通知…」を選んでください。",
 "No saved login for this site.": "このサイトに保存されたログイン情報はありません。",
 "No update channel is configured for this copy of I.K.E. (file update.json). Filter lists still update every day; the web engine is updated by the system package manager.": "この I.K.E. には更新チャンネルが設定されていません（update.json ファイル）。フィルターリストは毎日更新されます。ウェブエンジンはシステムのパッケージマネージャーで更新されます。",
+"This copy of I.K.E. is a Flatpak: its updates come from Flatpak (your software centre, or the command flatpak update), not from I.K.E.'s own updater.": "この I.K.E. は Flatpak 版です。更新は I.K.E. 自身の更新機能ではなく、Flatpak（ソフトウェアセンター、またはコマンド flatpak update）から届きます。",
 "No video was found on this page.": "このページには動画が見つかりませんでした。",
 "No, still broken": "いいえ、まだ壊れています",
 "Not installed: %s": "未インストール: %s",

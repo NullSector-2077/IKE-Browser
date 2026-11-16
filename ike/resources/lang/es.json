@@ -407,6 +407,7 @@
 "No pages are watched. Right-click a page, or a part of it such as a price, and choose “Notify me when this page changes…” or “Notify me when this part changes…”.": "No hay páginas vigiladas. Haz clic derecho en una página, o en una parte como un precio, y elige “Avisarme cuando cambie esta página…” o “Avisarme cuando cambie esta parte…”.",
 "No saved login for this site.": "No hay inicio de sesión guardado para este sitio.",
 "No update channel is configured for this copy of I.K.E. (file update.json). Filter lists still update every day; the web engine is updated by the system package manager.": "No hay canal de actualización configurado para esta copia de I.K.E. (archivo update.json). Las listas de filtros se siguen actualizando cada día; el motor web lo actualiza el gestor de paquetes del sistema.",
+"This copy of I.K.E. is a Flatpak: its updates come from Flatpak (your software centre, or the command flatpak update), not from I.K.E.'s own updater.": "Esta copia de I.K.E. es un Flatpak: las actualizaciones llegan a través de Flatpak (el centro de software o la orden flatpak update), no del actualizador propio de I.K.E.",
 "No video was found on this page.": "No se encontró ningún vídeo en esta página.",
 "No, still broken": "No, sigue rota",
 "Not installed: %s": "No instalado: %s",

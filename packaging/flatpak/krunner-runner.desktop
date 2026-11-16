@@ -1,0 +1,14 @@
+[Desktop Entry]
+Name=I.K.E. tabs and bookmarks
+Comment=Switch to an open tab or open a bookmark of I.K.E.
+Type=Service
+Icon=io.github.nullsector_2077.IKE-Browser
+X-KDE-ServiceTypes=Plasma/Runner
+X-KDE-PluginInfo-Name=io.github.nullsector_2077.IKE-Browser
+X-KDE-PluginInfo-EnabledByDefault=true
+X-Plasma-API=DBus
+X-Plasma-API-Minimum-Version=2.0
+X-Plasma-DBusRunner-Service=org.kde.ike_browser.krunner.*
+X-Plasma-DBusRunner-Path=/runner
+X-Plasma-Request-Actions-Once=true
+X-Plasma-Runner-Min-Letter-Count=3

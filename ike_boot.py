@@ -80,11 +80,16 @@ def rollback(state, sysver, reason):
     return version_dir(state["current"]) or SYSTEM_DIR
 
 
+def in_flatpak():
+    """Inside a Flatpak only the copy Flatpak installed runs (ike/osinfo.py)."""
+    return os.path.exists("/.flatpak-info") or bool(os.environ.get("FLATPAK_ID"))
+
+
 def choose():
     sysver = version_in(SYSTEM_DIR) or "0"
     state = load_state()
     cur = state.get("current")
-    if not cur:
+    if not cur or in_flatpak():
         return SYSTEM_DIR, state, sysver
     if not usable(cur, sysver):
         # removed, damaged, or the package manager installed something newer

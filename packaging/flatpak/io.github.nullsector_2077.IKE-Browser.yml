@@ -1,0 +1,124 @@
+# I.K.E. as a Flatpak. How to build it, what differs from the Arch package and
+# what is still to verify: README.md in this folder.
+#
+# The application ID follows Flathub's rule for projects hosted on GitHub:
+# io.github.<user>.<repository>, with the user part in lower case and its dash
+# turned into an underscore (a dash is only allowed in the last component).
+# Flathub turns it back into https://github.com/nullsector-2077/IKE-Browser.
+id: io.github.nullsector_2077.IKE-Browser
+runtime: org.kde.Platform
+runtime-version: '6.11'
+sdk: org.kde.Sdk
+# The PyQt base application brings PyQt6 and PyQt6-WebEngine and contains the
+# Qt WebEngine base application; 6.11 is the newest branch both have.
+base: com.riverbankcomputing.PyQt.BaseApp
+base-version: '6.11'
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: ike-browser
+
+finish-args:
+  # Display: Wayland, X11 only where there is no Wayland; ipc is X11's shared
+  # memory, which Qt and Chromium use under X11.
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  # A browser.
+  - --share=network
+  # Sound, and the microphone for sites that ask (WebRTC).
+  - --socket=pulseaudio
+  # The graphics card (WebGL, accelerated drawing) and the security keys of
+  # Settings -> passwords (FIDO2 / passkeys over USB): Chromium reads them as
+  # /dev/hidraw*, which Flatpak exposes only with --device=all (it includes
+  # --device=dri). Cameras do not need it: the base application's engine
+  # uses the camera portal through PipeWire.
+  - --device=all
+  # File -> Print: Qt prints through CUPS.
+  - --socket=cups
+  # Downloads are saved straight into the Downloads folder, as in the native
+  # package. Any other place is chosen in the file dialog, which Qt shows
+  # through the file chooser portal: no access to the rest of the home folder.
+  - --filesystem=xdg-download
+  # Required by the Qt WebEngine base application (its README).
+  - --env=QTWEBENGINEPROCESS_PATH=/app/bin/QtWebEngineProcess
+  - --env=QTWEBENGINE_DICTIONARIES_PATH=/app/qtwebengine_dictionaries
+  # Desktop notifications (I.K.E. sends them with notify-send).
+  - --talk-name=org.freedesktop.Notifications
+  # The engine keeps the screen on while a video plays.
+  - --talk-name=org.freedesktop.ScreenSaver
+  # Media controls: I.K.E. registers as org.mpris.MediaPlayer2.ike_browser.
+  # instance<PID> (ike/plasma.py), not under the application ID that Flatpak
+  # grants by itself.
+  - --own-name=org.mpris.MediaPlayer2.ike_browser.*
+  # Downloads in Plasma's notifications.
+  - --talk-name=org.kde.JobViewServer
+  # Open tabs and bookmarks in KRunner: KRunner calls I.K.E. under this name;
+  # the runner file is exported below (share/krunner/dbusplugins).
+  - --own-name=org.kde.ike_browser.krunner.*
+  # "Send to device" through KDE Connect.
+  - --talk-name=org.kde.kdeconnect
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+
+cleanup-commands:
+  # removes the base applications' build tools and development files
+  - /app/cleanup-BaseApp.sh
+
+modules:
+  # build only (removed at the end): what cryptography needs to be compiled
+  - generated/python3-build-deps.json
+  # jeepney (D-Bus) and cryptography (vault, update signatures), from source
+  - generated/python3-runtime-deps.json
+
+  - name: ike-browser
+    buildsystem: simple
+    build-options:
+      env:
+        CARGO_HOME: /run/build/ike-browser/cargo
+        CARGO_NET_OFFLINE: 'true'
+    build-commands:
+      # the I.K.E. AdBlock engine (Rust, built offline from the vendored crates)
+      - cargo build --release --locked --offline --manifest-path ike-adblock/Cargo.toml
+      # the browser, laid out as the PKGBUILD lays it out under /usr/lib
+      - install -d ${FLATPAK_DEST}/lib/ike-browser
+      - cp -r --no-preserve=ownership ike ${FLATPAK_DEST}/lib/ike-browser/
+      - find ${FLATPAK_DEST}/lib/ike-browser -name __pycache__ -type d -prune -exec rm -rf {} +
+      - install -Dm644 ike_boot.py ${FLATPAK_DEST}/lib/ike-browser/ike_boot.py
+      # kept: the language packs are downloaded from the address it names;
+      # program updates themselves come from Flatpak (ike/updater.py)
+      - install -Dm644 data/update.json ${FLATPAK_DEST}/lib/ike-browser/update.json
+      - install -Dm644 -t ${FLATPAK_DEST}/lib/ike-browser/vendor/adblock vendor/adblock/__init__.py
+        vendor/adblock/adblock.pyi vendor/adblock/py.typed
+      - install -Dm755 ike-adblock/target/release/libike_adblock.so ${FLATPAK_DEST}/lib/ike-browser/vendor/adblock/ike_adblock.abi3.so
+      # the application folder is read-only: compile the Python files now
+      - python3 -m compileall -q ${FLATPAK_DEST}/lib/ike-browser
+      - install -Dm755 ike-browser.sh ${FLATPAK_DEST}/bin/ike-browser
+      # desktop entry, icons, metainfo and KRunner runner, named after the ID
+      - install -Dm644 data/ike-browser.desktop ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
+      - desktop-file-edit --set-icon=${FLATPAK_ID} ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
+      - for size in 48 64 128 256 512; do install -Dm644 data/icons/ike-browser-${size}.png ${FLATPAK_DEST}/share/icons/hicolor/${size}x${size}/apps/${FLATPAK_ID}.png;
+        done
+      - install -Dm644 data/icons/ike-browser.svg ${FLATPAK_DEST}/share/icons/hicolor/scalable/apps/${FLATPAK_ID}.svg
+      - install -Dm644 packaging/flatpak/${FLATPAK_ID}.metainfo.xml ${FLATPAK_DEST}/share/metainfo/${FLATPAK_ID}.metainfo.xml
+      - install -Dm644 packaging/flatpak/krunner-runner.desktop ${FLATPAK_DEST}/share/krunner/dbusplugins/${FLATPAK_ID}.desktop
+      # licences: I.K.E.'s and those of the bundled third-party components
+      - install -Dm644 LICENSE ${FLATPAK_DEST}/share/licenses/${FLATPAK_ID}/ike-browser/LICENSE
+      - install -Dm644 -t ${FLATPAK_DEST}/share/licenses/${FLATPAK_ID}/ike-browser licenses/* docs/THIRD-PARTY.md
+    sources:
+      # this repository (local builds and the GitHub workflow); a Flathub
+      # submission replaces it with the release tag: type git, url, tag, commit
+      - type: dir
+        path: ../..
+        skip:
+          - .git
+          - ike-adblock/target
+          - vendor/adblock/ike_adblock.abi3.so
+          - build-flatpak
+          - repo
+          - out
+      - type: script
+        dest-filename: ike-browser.sh
+        commands:
+          - exec python3 /app/lib/ike-browser/ike_boot.py "$@"
+      - generated/cargo-sources.json

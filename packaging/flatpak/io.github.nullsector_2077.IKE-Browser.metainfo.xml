@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright the I.K.E. project -->
+<component type="desktop-application">
+  <id>io.github.nullsector_2077.IKE-Browser</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <name>I.K.E.</name>
+  <summary>Private, independent web browser</summary>
+  <developer id="io.github.nullsector_2077">
+    <name>The I.K.E. project</name>
+  </developer>
+
+  <description>
+    <p>
+      I.K.E. (Internet Kontrol Experience) is a light web browser focused on
+      privacy: no telemetry, no accounts, no sponsored content, with ad
+      blocking and fingerprinting protection built in. Pages are rendered by
+      Qt WebEngine, the Chromium engine.
+    </p>
+    <ul>
+      <li>A shield with five protection levels, set globally or per site, and "Repair this site" when a page breaks</li>
+      <li>Ad and tracker blocking with the EasyList, EasyPrivacy and uBlock filter lists, updated daily</li>
+      <li>Fingerprinting protection that changes identifying values from site to site</li>
+      <li>Encrypted password vault with autofill and a generator, passkeys and security keys</li>
+      <li>Horizontal or vertical tabs, tab groups, workspaces, containers, split view and private windows</li>
+      <li>User scripts in the Greasemonkey style, reader mode, picture-in-picture and page dark mode</li>
+      <li>Follows the desktop theme, or uses the optional "I.K.E. Cyber" theme</li>
+    </ul>
+    <p>
+      In the Flatpak, I.K.E. is updated by Flatpak; its own updater stays off.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">io.github.nullsector_2077.IKE-Browser.desktop</launchable>
+  <url type="homepage">https://github.com/NullSector-2077/IKE-Browser</url>
+  <url type="bugtracker">https://github.com/NullSector-2077/IKE-Browser/issues</url>
+  <url type="vcs-browser">https://github.com/NullSector-2077/IKE-Browser</url>
+
+  <branding>
+    <color type="primary" scheme_preference="light">#7df3ff</color>
+    <color type="primary" scheme_preference="dark">#07131f</color>
+  </branding>
+
+  <content_rating type="oars-1.1"/>
+
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+  <requires>
+    <display_length compare="ge">768</display_length>
+  </requires>
+
+  <keywords>
+    <keyword>browser</keyword>
+    <keyword>web</keyword>
+    <keyword>privacy</keyword>
+    <keyword>adblock</keyword>
+  </keywords>
+
+  <releases>
+    <release version="1.1.1" date="2026-11-16">
+      <description>
+        <p>Help, About tells which video and audio formats the engine plays and how old the engine is.</p>
+      </description>
+    </release>
+  </releases>
+</component>

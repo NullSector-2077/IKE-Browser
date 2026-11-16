@@ -16,7 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
-from conftest import ROOT
+from conftest import APP, ROOT
 
 sys.path.insert(0, str(ROOT))
 
@@ -184,6 +184,21 @@ def test_no_private_key_in_repository():
         p = ROOT / name
         if p.is_file():
             assert marker not in p.read_bytes(), name
+
+
+def test_flatpak_detection(monkeypatch, tmp_path):
+    """Flatpak is recognised by /.flatpak-info or by FLATPAK_ID, either one."""
+    from ike import osinfo
+    info = tmp_path / ".flatpak-info"
+    monkeypatch.setattr(osinfo, "FLATPAK_INFO", str(info))
+    monkeypatch.delenv("FLATPAK_ID", raising=False)
+    assert not osinfo.in_flatpak()
+    monkeypatch.setenv("FLATPAK_ID", "io.github.nullsector_2077.IKE-Browser")
+    assert osinfo.in_flatpak()
+    monkeypatch.setenv("FLATPAK_ID", "")
+    assert not osinfo.in_flatpak()
+    info.write_text("[Application]\nname=io.github.nullsector_2077.IKE-Browser\n")
+    assert osinfo.in_flatpak()
 
 
 def test_shipped_update_channel():
@@ -370,3 +385,38 @@ def test_rollback_of_update_that_does_not_start(run_ike, tmp_path):
     assert out["running"] == ike.__version__
     state = json.loads((data / "state.json").read_text())
     assert "99.0.0" in state["bad"] and not state["current"]
+
+
+# --- inside a Flatpak --------------------------------------------------------
+
+FLATPAK = {"FLATPAK_ID": "io.github.nullsector_2077.IKE-Browser"}
+
+
+def test_flatpak_updates_come_from_flatpak(run_ike, releases, keypair, tmp_path):
+    """In a Flatpak the updater says where updates come from and asks nobody:
+    the release server is never contacted, even with a newer release on it."""
+    key, _, pub = keypair
+    releases.publish(key, "99.0.0", min_system="0")
+    out = run_ike(CHECK, env=dict(update_env(tmp_path, releases, pub), **FLATPAK), timeout=120)
+    assert out["configured"]                  # the channel is still there (language packs use it)
+    assert not out["started"]
+    assert out["kind"] == "flatpak" and out["data"] is None
+    assert releases.hits == []
+    assert out["versions"] == [] and not out["state"]
+
+
+def test_flatpak_runs_only_its_own_copy(run_ike, tmp_path):
+    """A copy staged by the self-updater (say, data brought over from a native
+    installation) is never started inside a Flatpak, and its notes are kept."""
+    data = tmp_path / "home" / ".local/share/ike-browser/updates"
+    vdir = data / "versions" / "99.0.0"
+    shutil.copytree(ROOT / "ike", vdir / "ike", ignore=shutil.ignore_patterns("__pycache__"))
+    init = vdir / "ike" / "__init__.py"
+    init.write_text(re.sub(r'__version__ = "[^"]+"', '__version__ = "99.0.0"', init.read_text()))
+    state = {"current": "99.0.0", "status": "ok", "attempts": 0}
+    (data / "state.json").write_text(json.dumps(state))
+    out = run_ike(RUNNING, env=FLATPAK)
+    import ike
+    assert out["running"] == ike.__version__
+    assert Path(out["app_dir"]) == APP
+    assert json.loads((data / "state.json").read_text()) == state

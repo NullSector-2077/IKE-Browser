@@ -445,6 +445,18 @@ def test_instance_socket_is_private_to_the_user(run_ike, tmp_path, monkeypatch):
     # no runtime folder, or one of somebody else: only the old name is left
     monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path / "missing"))
     assert [a for a, _ours in app.instance_addresses()] == [legacy[0]]
+    # in a Flatpak every start has its own runtime folder: the socket goes into
+    # the app's folder inside it, the one Flatpak shares between starts
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(run))
+    monkeypatch.setenv("FLATPAK_ID", "io.github.nullsector_2077.IKE-Browser")
+    shared = run / "app" / "io.github.nullsector_2077.IKE-Browser"
+    assert [a for a, _ours in app.instance_addresses()] == [legacy[0]]       # not there yet
+    shared.mkdir(parents=True)
+    assert app.instance_addresses()[0][0] == str(shared / ("ike-browser-%d-default.sock" % os.getuid()))
+    monkeypatch.setenv("FLATPAK_ID", "../../elsewhere")
+    assert app.instance_addresses()[0][0] == first[0]
+    monkeypatch.delenv("FLATPAK_ID")
+    shutil.rmtree(run / "app")
 
     # the real thing: the first start listens in the runtime folder, for the user only;
     # a second start hands over its address; rubbish sent to the socket is ignored
@@ -478,6 +490,36 @@ def steps(ike, qapp, out):
     assert int(out["mode"], 8) & 0o077 == 0, out["mode"]          # nothing for the group or for others
     assert out["second_exit"] == 0 and out["tabs_before"] == 1
     shutil.rmtree(run, ignore_errors=True)
+    assert out["tabs_after"][-1] == "handed over" and len(out["tabs_after"]) == 2
+
+
+def test_flatpak_second_start_hands_over(run_ike):
+    """In a Flatpak a second start (a link opened from another program) finds
+    the running browser through the app's shared runtime folder."""
+    import shutil
+    import tempfile
+    run = Path(tempfile.mkdtemp(prefix="ikr"))
+    app_id = "io.github.nullsector_2077.IKE-Browser"
+    (run / "app" / app_id).mkdir(parents=True)
+    out = run_ike(r'''
+import os, subprocess, sys
+def steps(ike, qapp, out):
+    yield 600
+    shared = os.path.join(os.environ["XDG_RUNTIME_DIR"], "app", os.environ["FLATPAK_ID"])
+    out["socket"] = [n for n in os.listdir(shared) if n.endswith(".sock")]
+    win = ike.windows[0]
+    env = dict(os.environ)
+    env.pop("IKE_TEST_HOOK", None)
+    second = subprocess.run([sys.executable, os.environ["IKE_APP_BOOT"], "data:text/html,<title>handed over</title>x"],
+                            env=env, capture_output=True, timeout=60)
+    out["second_exit"] = second.returncode
+    yield 1500
+    out["tabs_after"] = [v.title() for v in win.views]
+''', env={"IKE_NO_SINGLE": "", "XDG_RUNTIME_DIR": str(run), "FLATPAK_ID": app_id,
+          "IKE_APP_BOOT": str(APP / "ike_boot.py")}, timeout=120)
+    shutil.rmtree(run, ignore_errors=True)
+    assert out["socket"] == ["ike-browser-%d-default.sock" % os.getuid()]
+    assert out["second_exit"] == 0
     assert out["tabs_after"][-1] == "handed over" and len(out["tabs_after"]) == 2
 
 

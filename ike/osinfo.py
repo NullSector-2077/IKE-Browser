@@ -25,6 +25,16 @@ def app_dir(kind):
     return Path.home() / default / APP_ID
 
 
+# Flatpak writes this file into every sandbox it starts, and sets FLATPAK_ID.
+FLATPAK_INFO = "/.flatpak-info"
+
+
+def in_flatpak():
+    """True inside a Flatpak sandbox: the program folder is read-only there and
+    new versions come from Flatpak (Flathub), never from I.K.E.'s own updater."""
+    return os.path.exists(FLATPAK_INFO) or bool(os.environ.get("FLATPAK_ID"))
+
+
 # ---- identity presented to websites ----------------------------------------
 # Common values of a Linux computer, never the computer's own ones.
 

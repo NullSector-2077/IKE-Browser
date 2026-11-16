@@ -22,7 +22,7 @@ from pathlib import Path
 
 from PyQt6.QtCore import QObject, QThread, pyqtSignal
 
-from . import __version__, background
+from . import __version__, background, osinfo
 from .config import RES_DIR
 from .osinfo import app_dir
 
@@ -243,6 +243,11 @@ class Updater(QObject):
         return self._worker is not None
 
     def run(self, install):
+        if osinfo.in_flatpak():
+            # read-only program folder: Flatpak delivers new versions, so
+            # nothing is checked or downloaded; the caller is told so
+            self.finished.emit("flatpak", None)
+            return False
         src = source()
         if not src or self._worker is not None:
             return False

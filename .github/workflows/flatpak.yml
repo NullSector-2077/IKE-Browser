@@ -1,0 +1,111 @@
+# I.K.E. as a Flatpak (packaging/flatpak/README.md): built with
+# flatpak-builder in Flathub's own container for the KDE 6.11 run time, then
+# installed from the bundle and started inside the Flatpak sandbox: the engine
+# report (versions, formats it plays) and a start with --version, plus a check
+# that the Python libraries, the AdBlock engine and the Flatpak detection of
+# the updater are in place. A failing step fails the job.
+#
+# The bundle is NOT kept as a download of the run unless asked for by hand
+# (Run workflow -> "upload_bundle"): the Qt WebEngine base application the
+# Flatpak is built on is compiled with Chromium's proprietary codecs (see the
+# README, "Codecs"), and I.K.E.'s rule is that it ships no proprietary codec.
+# The owner decides; turning the upload on is the one line marked below.
+name: Flatpak
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      upload_bundle:
+        description: "Keep the .flatpak bundle as a download of the run (read the README's Codecs section first)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flatpak-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_ID: io.github.nullsector_2077.IKE-Browser
+  BUNDLE: ike-browser.flatpak
+
+jobs:
+  flatpak:
+    name: Flatpak (KDE 6.11)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.11
+      # bubblewrap, which flatpak-builder and flatpak run use, needs it
+      options: --privileged
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Build the Flatpak and its bundle
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          manifest-path: packaging/flatpak/io.github.nullsector_2077.IKE-Browser.yml
+          bundle: ${{ env.BUNDLE }}
+          cache-key: flatpak-builder-${{ hashFiles('packaging/flatpak/**') }}
+          # the upload of the bundle (see the comment at the top)
+          upload-artifact: ${{ github.event_name == 'workflow_dispatch' && inputs.upload_bundle == true }}
+          artifact-name: ike-browser-flatpak
+
+      - name: Install the bundle
+        run: |
+          test -f "$BUNDLE"
+          flatpak install --system -y --noninteractive "$BUNDLE"
+          flatpak info --system "$APP_ID"
+
+      - name: Engine report inside the Flatpak
+        run: |
+          # Chromium's sandbox needs the Flatpak portal of a desktop session,
+          # which this container does not have: it is switched off for this
+          # step only, as in every other workflow. The manifest keeps it on.
+          export XDG_RUNTIME_DIR=/tmp/xdg-runtime
+          mkdir -p -m 700 "$XDG_RUNTIME_DIR" out
+          flatpak run --filesystem="$PWD" --env=QT_QPA_PLATFORM=offscreen \
+              --env=QTWEBENGINE_DISABLE_SANDBOX=1 --command=python3 "$APP_ID" \
+              "$PWD/tools/engine-report.py" --app /app/lib/ike-browser \
+              --json "$PWD/out/engine-flatpak.json" --markdown "$PWD/out/engine-flatpak.md"
+          { echo "### Flatpak (KDE 6.11)"; cat out/engine-flatpak.md; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Start I.K.E. inside the Flatpak
+        run: |
+          export XDG_RUNTIME_DIR=/tmp/xdg-runtime
+          version=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' ike/__init__.py)
+          got=$(flatpak run --env=QT_QPA_PLATFORM=offscreen "$APP_ID" --version)
+          echo "$got"
+          test "$got" = "I.K.E. $version"
+          # the libraries of the PKGBUILD, the AdBlock engine, and the updater
+          # knowing that updates come from Flatpak
+          flatpak run --env=QT_QPA_PLATFORM=offscreen --command=python3 "$APP_ID" -c '
+          import sys
+          sys.path[:0] = ["/app/lib/ike-browser", "/app/lib/ike-browser/vendor"]
+          import cryptography, jeepney, adblock
+          from ike import osinfo
+          print("cryptography", cryptography.__version__, "| jeepney", jeepney.__version__)
+          print("AdBlock engine:", adblock.BACKEND)
+          assert adblock.MODERN, "the I.K.E. AdBlock engine did not load"
+          assert osinfo.in_flatpak(), "the Flatpak was not detected"
+          '
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: flatpak-engine-report
+          path: out/
+          if-no-files-found: warn
+          retention-days: 30
