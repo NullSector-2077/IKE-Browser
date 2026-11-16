@@ -140,6 +140,21 @@ key. Nothing is called ready on the strength of incomplete checks.
   (`docs/platform-study`, `docs/roadmap-plan-1.0.x`, `ike-1.0.0` …
   `ike-1.1.0`) are all contained in `main`; the sessions cannot delete
   branches, so the owner removes them.
+- Step 1 done: `main` 1.1.0 checked again (192 tests passed, 1 skipped —
+  the network-only one; Rust test and lint clean).
+- Step 2 done: 1.1.1 on `ike-1.1.1` (pull request #12; 195 passed, 1
+  skipped; GitHub's "Tests" green).
+- Step 3 in progress: `linux/distro-checks` (#11, tests with each
+  distribution's own Qt; Arch, Debian 13 green, Ubuntu 26.04 and Fedora 43
+  show a crash of the fingerprint test with software WebGL in containers,
+  being investigated), `linux/packages` (#13, DEB and RPM), `linux/flatpak`
+  (in preparation). Measured: Ubuntu 26.04 and Debian 13 decode H.264 and
+  AAC; Fedora 43 declares H.264 but does not decode it (AAC yes).
+- Step 4 in progress: `windows/port` (Windows port on the official Qt,
+  installer) and `windows/engine` (H.264 / AAC through Windows' own
+  decoders, the way Vivaldi does it; study in progress).
+- Step 6 in progress: `automation/audit` (known vulnerabilities in the daily
+  check).
 
 ## Previous plan (1.0.1 – 1.1.0, published)
 
