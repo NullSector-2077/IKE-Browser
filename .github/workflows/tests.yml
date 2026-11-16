@@ -48,7 +48,7 @@ jobs:
               libxkbcommon0 libxkbcommon-x11-0 libxcomposite1 libxdamage1 libxrandr2 \
               libxtst6 libxshmfence1 libasound2t64 libfontconfig1 libdbus-1-3 \
               dbus libglib2.0-bin ffmpeg fonts-noto-core \
-              pacman-package-manager libarchive-tools fakeroot zstd
+              makepkg pacman-package-manager libarchive-tools fakeroot zstd
           # the font of a Plasma desktop: the layout tests measure text widths
           mkdir -p ~/.config/fontconfig
           printf '%s\n' '<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "fonts.dtd"><fontconfig>' \
