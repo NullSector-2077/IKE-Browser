@@ -11,7 +11,7 @@ being released. It writes into dist/release-<version>/:
 and checks every signature against the public key in data/update.json before
 it finishes. Upload these files together with the Arch package as the assets of a new GitHub release (see docs/arch/UPDATES.md).
 
-    python3 tools/make-release.py [--key ~/.ike-signing/ike-update.key]
+    python3 tools/make-release.py [--key ~/.ice-signing/ice-update.key]
                                   [--channels stable,beta]
 
 
