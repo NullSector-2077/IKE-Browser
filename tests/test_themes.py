@@ -7,21 +7,21 @@ def test_builtin_themes_and_back_to_system(run_ice):
 
         def steps(ice, qapp, out):
             yield 600
-            from ice import themes
-            win = ice.windows[0]
+            from ike import themes
+            win = ike.windows[0]
             role = QPalette.ColorRole.Window
             out["system_window"] = qapp.palette().color(role).name()
             out["system_font"] = qapp.font().toString()
             out["applied"] = {}
             for key, _label in themes.names():
-                ice.config["ui_scheme"] = "theme:" + key
-                themes.apply(ice.config)
+                ike.config["ui_scheme"] = "theme:" + key
+                themes.apply(ike.config)
                 yield 50
                 out["applied"][key] = [qapp.palette().color(role).name(),
                                        win.nav.palette().color(role).name(),
                                        win.nav.autoFillBackground()]
-            ice.config["ui_scheme"] = "system"
-            themes.apply(ice.config)
+            ike.config["ui_scheme"] = "system"
+            themes.apply(ike.config)
             yield 50
             out["back_window"] = qapp.palette().color(role).name()
             out["back_font"] = qapp.font().toString()
@@ -43,9 +43,9 @@ def test_system_theme_touches_nothing(run_ice):
 
         def steps(ice, qapp, out):
             yield 600
-            from ice import themes
+            from ike import themes
             out["original"] = dict(themes._original)
-            out["nav_fill"] = ice.windows[0].nav.autoFillBackground()
+            out["nav_fill"] = ike.windows[0].nav.autoFillBackground()
     """)
     assert out["original"] == {}
     assert out["nav_fill"] is False
@@ -57,11 +57,11 @@ def test_user_theme_saved_restored_and_deleted(run_ice):
     first = run_ice("""
         def steps(ice, qapp, out):
             yield 600
-            from ice import themes
-            ice.config["ui_themes"] = {"Mine": %r}
-            ice.config["ui_scheme"] = "user:Mine"
-            ice.config.save()
-            themes.apply(ice.config)
+            from ike import themes
+            ike.config["ui_themes"] = {"Mine": %r}
+            ike.config["ui_scheme"] = "user:Mine"
+            ike.config.save()
+            themes.apply(ike.config)
             yield 50
             out["font_size"] = qapp.font().pointSize()
     """ % theme)
@@ -72,16 +72,16 @@ def test_user_theme_saved_restored_and_deleted(run_ice):
 
         def steps(ice, qapp, out):
             yield 600
-            from ice import themes
+            from ike import themes
             out["window"] = qapp.palette().color(QPalette.ColorRole.Window).name()
             out["font_size"] = qapp.font().pointSize()
             # delete it, as the settings page does
-            ice.config["ui_themes"] = {}
-            ice.config["ui_scheme"] = "system"
-            ice.config.save()
-            themes.apply(ice.config)
+            ike.config["ui_themes"] = {}
+            ike.config["ui_scheme"] = "system"
+            ike.config.save()
+            themes.apply(ike.config)
             yield 50
-            out["after_delete"] = themes.current(ice.config)
+            out["after_delete"] = themes.current(ike.config)
             out["original_kept"] = bool(themes._original)
     """, keep_profile=True)
     assert second["window"] == "#202830"

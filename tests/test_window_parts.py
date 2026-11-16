@@ -5,7 +5,7 @@ def test_address_bar(run_ice):
     out = run_ice("""
         def steps(ice, qapp, out):
             yield 600
-            win = ice.windows[0]
+            win = ike.windows[0]
             r = lambda t: win.resolve(t).toString()
             out["host"] = r("example.org")
             out["local"] = r("localhost:8000/x")
@@ -32,7 +32,7 @@ def test_vertical_tabs(run_ice):
 
         def steps(ice, qapp, out):
             yield 600
-            win = ice.windows[0]
+            win = ike.windows[0]
             for i in range(3):
                 win.add_tab("data:text/html,<title>t%d</title>" % i)
             yield 1500
@@ -60,13 +60,13 @@ def test_shield_panel(run_ice):
     out = run_ice("""
         def steps(ice, qapp, out):
             yield 600
-            win = ice.windows[0]
+            win = ike.windows[0]
             win.add_tab("data:text/html,<title>x</title>x")
             yield 800
             panel = win.shield_panel
             panel.refresh()
             out["count"] = panel.count.text()
-            ice.config["shield_level"] = "maximum"
+            ike.config["shield_level"] = "maximum"
             win.update_shield()
             panel.refresh()
             out["ok"] = True
@@ -78,7 +78,7 @@ def test_find_bar(run_ice):
     out = run_ice("""
         def steps(ice, qapp, out):
             yield 600
-            win = ice.windows[0]
+            win = ike.windows[0]
             win.add_tab("data:text/html,<p>alpha beta alpha</p>")
             yield 1000
             win.findbar.open_bar()

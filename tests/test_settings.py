@@ -8,10 +8,10 @@ SCRIPT = """
     def steps(ice, qapp, out):
         yield 600
         import json
-        from ice.config import CONFIG_DIR
-        ice.config.save()
+        from ike.config import CONFIG_DIR
+        ike.config.save()
         before = json.loads((CONFIG_DIR / "settings.json").read_text("utf-8"))
-        dlg = ice.show_settings(ice.windows[0])
+        dlg = ike.show_settings(ike.windows[0])
         yield 400
         out["sections"] = dlg.nav.count()
         out["pages"] = dlg.stack.count()
@@ -56,7 +56,7 @@ def test_settings_keys_unchanged(run_ice, tmp_path):
     run_ice("""
         def steps(ice, qapp, out):
             yield 300
-            ice.config.save()
+            ike.config.save()
     """)
     from conftest import ROOT
     keys = sorted(json.loads((tmp_path / "home/.config/ike-browser/settings.json")

@@ -28,7 +28,7 @@ def shop(tmp_path):
             p = price.read_text()
             body = ("<!doctype html><title>Shop</title><body style='margin:0'>"
                     "<h1>Shop</h1><p>loaded %d</p>"
-                    "<div><span>price:</span> <b id='price' style='font-size:40px'>%s</b></div>"
+                    "<div><span>prike:</span> <b id='price' style='font-size:40px'>%s</b></div>"
                     "<ul><li>a</li><li style='font-size:40px'>%s euro</li></ul>"
                     "<script>document.cookie='seen=1; max-age=3600'</script>"
                     % (seen["n"], p, p)).encode()
@@ -58,20 +58,20 @@ URL, TARGET, PART, PRICE = %r, %r, %r, %r
 def wait_check(ice):
     for _ in range(60):
         yield 250
-        if ice.watcher._current is None:
+        if ike.watcher._current is None:
             return
 
 
 def steps(ice, qapp, out):
     notes = []
-    ice._desktop_notify = notes.append
+    ike._desktop_notify = notes.append
     yield 300
-    win = ice.windows[0]
-    out["timer_idle"] = ice.watcher.timer.isActive()
+    win = ike.windows[0]
+    out["timer_idle"] = ike.watcher.timer.isActive()
     view = win.add_tab(URL)
     yield 2000
-    shield_before = ice.shields.total("127.0.0.1")
-    requests_before = ice.shields.requests.get("127.0.0.1", 0)
+    shield_before = ike.shields.total("127.0.0.1")
+    requests_before = ike.shields.requests.get("127.0.0.1", 0)
     res = {}
     for _ in range(40):                  # the page may still be loading on a slow computer
         view.page().runJavaScript(
@@ -80,28 +80,28 @@ def steps(ice, qapp, out):
         yield 400
         if res.get("pt"):
             break
-    from ice.watcher import pick_and_watch
+    from ike.watcher import pick_and_watch
     pick_and_watch(view, QPoint(int(res["pt"][0]), int(res["pt"][1])), PART)
     yield 600
-    dlg = ice._dialogs["watch-add"]
+    dlg = ike._dialogs["watch-add"]
     dlg.interval.setCurrentIndex(0)
     dlg.accept()
-    w = ice.watcher.watches[0]
+    w = ike.watcher.watches[0]
     out["watch"] = {k: w[k] for k in ("selector", "excerpt", "interval", "url")}
-    out["timer_on"] = ice.watcher.timer.isActive()
-    out["due_now"] = len(ice.watcher.due())
-    ice.watcher.check(w)                 # nothing changed but the counter elsewhere
+    out["timer_on"] = ike.watcher.timer.isActive()
+    out["due_now"] = len(ike.watcher.due())
+    ike.watcher.check(w)                 # nothing changed but the counter elsewhere
     yield from wait_check(ice)
     out["first"] = {k: w[k] for k in ("status", "changed")}
     out["notes1"] = list(notes)
     open(PRICE, "w").write("12")
-    ice.watcher.check(w)
+    ike.watcher.check(w)
     yield from wait_check(ice)
     out["second"] = {k: w[k] for k in ("status", "changed", "excerpt")}
     out["notes2"] = list(notes)
-    out["shield_same"] = ice.shields.total("127.0.0.1") == shield_before
-    out["requests_same"] = ice.shields.requests.get("127.0.0.1", 0) == requests_before
-    dlg = ice.show_watches()
+    out["shield_same"] = ike.shields.total("127.0.0.1") == shield_before
+    out["requests_same"] = ike.shields.requests.get("127.0.0.1", 0) == requests_before
+    dlg = ike.show_watches()
     yield 300
     out["rows"] = dlg.table.rowCount()
     out["bold"] = dlg.table.item(0, 0).font().bold()
@@ -111,11 +111,11 @@ def steps(ice, qapp, out):
     yield 300
     out["opened"] = len(win.views) == n_tabs + 1
     out["seen"] = w["changed"] is False
-    saved = json.loads(ice.config.path.read_text("utf-8"))
+    saved = json.loads(ike.config.path.read_text("utf-8"))
     out["saved"] = saved["page_watches"][0]["excerpt"]
     dlg._remove()
-    out["left"] = len(ice.watcher.watches)
-    out["timer_after"] = ice.watcher.timer.isActive()
+    out["left"] = len(ike.watcher.watches)
+    out["timer_after"] = ike.watcher.timer.isActive()
 """
 
 
@@ -166,17 +166,17 @@ def test_watch_due_and_missing(run_ice, shop):
     out = run_ice("""
         def steps(ice, qapp, out):
             yield 300
-            w = ice.watcher.watches[0]
-            out["timer"] = ice.watcher.timer.isActive()
-            ice.watcher.check_due()          # due: last checked long ago
-            out["started"] = ice.watcher._current is w
+            w = ike.watcher.watches[0]
+            out["timer"] = ike.watcher.timer.isActive()
+            ike.watcher.check_due()          # due: last checked long ago
+            out["started"] = ike.watcher._current is w
             for _ in range(60):
                 yield 250
-                if ice.watcher._current is None:
+                if ike.watcher._current is None:
                     break
             out["status"] = w["status"]
             out["checked"] = w["last_check"] > 0
-            dlg = ice.show_watches()
+            dlg = ike.show_watches()
             out["cell"] = dlg.table.item(0, 4).text()
     """, settings={"page_watches": [{"url": url, "selector": "#gone", "name": "Gone", "interval": 15,
                                      "last_check": 0, "hash": "", "excerpt": "", "changed": False,
@@ -191,9 +191,9 @@ def test_watch_switched_off(run_ice, shop):
     out = run_ice("""
         def steps(ice, qapp, out):
             yield 300
-            out["timer"] = ice.watcher.timer.isActive()
-            ice.watcher.check_due()
-            out["started"] = ice.watcher._current is not None
+            out["timer"] = ike.watcher.timer.isActive()
+            ike.watcher.check_due()
+            out["started"] = ike.watcher._current is not None
     """, settings={"page_watch_on": False,
                    "page_watches": [{"url": url, "selector": "", "name": "x", "interval": 15,
                                      "last_check": 0, "hash": "", "excerpt": ""}]})

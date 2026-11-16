@@ -28,7 +28,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey 
 PASS = "test passphrase"
 # these tests drive the update of a copy started from source; a real AppImage
 # is tested by test_real_appimage_updates_itself instead
-from_source = pytest.mark.skipif(bool(os.environ.get("ICE_TEST_APPIMAGE") or os.environ.get("ICE_TEST_EXE")),
+from_source = pytest.mark.skipif(bool(os.environ.get("IKE_TEST_APPIMAGE") or os.environ.get("IKE_TEST_EXE")),
                                  reason="started from source only (an AppImage would update itself)")
 linux_only = pytest.mark.skipif(sys.platform == "win32", reason="AppImages exist on Linux only")
 
@@ -42,7 +42,7 @@ def load_tool():
 
 @pytest.fixture
 def updater(tmp_path, monkeypatch):
-    from ice import updater as u
+    from ike import updater as u
     monkeypatch.setattr(u, "UPDATES", tmp_path / "updates")
     monkeypatch.setattr(u, "STATE", tmp_path / "updates" / "state.json")
     return u
@@ -54,7 +54,7 @@ def keypair(tmp_path):
     key = Ed25519PrivateKey.generate()
     pem = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
                             serialization.BestAvailableEncryption(PASS.encode()))
-    path = tmp_path / "keys" / "ice-update.key"
+    path = tmp_path / "keys" / "ike-update.key"
     path.parent.mkdir()
     path.write_bytes(pem)
     pub = key.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
@@ -91,9 +91,9 @@ def test_signature(updater, keypair):
 
 
 def test_release_file_names(updater):
-    assert updater.plain_name("ice-1.4.1.tar.gz")
+    assert updater.plain_name("ike-1.4.1.tar.gz")
     assert updater.plain_name("IKE-Browser-1.4.1-x86_64.AppImage")
-    for bad in ("", None, "../ice.tar.gz", "/etc/passwd", "a/b.tar.gz",
+    for bad in ("", None, "../ike.tar.gz", "/etc/passwd", "a/b.tar.gz",
                 "https://evil.example/x.tar.gz", "..", ".hidden"):
         assert not updater.plain_name(bad), bad
 
@@ -118,9 +118,9 @@ def test_hash_mismatch_rejected(updater):
 
 
 def test_system_version(updater):
-    import ice
-    assert updater.system_version() == ice.__version__
-    assert len(updater.vtuple(ice.__min_system__)) == 3
+    import ike
+    assert updater.system_version() == ike.__version__
+    assert len(updater.vtuple(ike.__min_system__)) == 3
 
 
 # --- release tool -----------------------------------------------------------
@@ -138,9 +138,9 @@ def test_release_files_signed_and_reproducible(updater, keypair, tmp_path):
     out1, manifest = tool.make(key_path, tmp_path / "r1", ["stable", "beta"], passphrase=PASS, update_file=upd)
     out2, _ = tool.make(key_path, tmp_path / "r2", ["stable"], passphrase=PASS, update_file=upd)
 
-    import ice
-    assert manifest["version"] == ice.__version__
-    assert manifest["min_system"] == ice.__min_system__
+    import ike
+    assert manifest["version"] == ike.__version__
+    assert manifest["min_system"] == ike.__min_system__
     payload = (out1 / manifest["payload"]).read_bytes()
     assert payload == (out2 / manifest["payload"]).read_bytes()          # reproducible
     assert hashlib.sha256(payload).hexdigest() == manifest["sha256"]
@@ -165,7 +165,7 @@ def test_release_tool_refuses_wrong_or_misplaced_key(keypair, tmp_path):
     with pytest.raises(SystemExit, match="does not match"):
         tool.make(key_path, tmp_path / "r", ["stable"], passphrase=PASS, update_file=upd)
     with pytest.raises(SystemExit, match="inside the repository"):
-        tool.make(ROOT / "ice-update.key", tmp_path / "r", ["stable"], passphrase=PASS,
+        tool.make(ROOT / "ike-update.key", tmp_path / "r", ["stable"], passphrase=PASS,
                   update_file=make_update_json(tmp_path, pub))
 
 
@@ -250,7 +250,7 @@ class Releases:
                 info.size = len(data)
                 tar.addfile(info, io.BytesIO(data))
         payload = buf.getvalue()
-        m = {"version": version, "payload": "ice-%s.tar.gz" % version,
+        m = {"version": version, "payload": "ike-%s.tar.gz" % version,
              "sha256": hashlib.sha256(payload).hexdigest(), "min_system": min_system}
         name = "IKE-Browser-%s-x86_64.AppImage" % version
         if appimage is not None:
@@ -259,7 +259,7 @@ class Releases:
         manifest = json.dumps(m).encode()
         sig = key.sign(manifest + (b"x" if bad_sig else b""))
         self.files = {"stable.json": manifest, "stable.json.sig": base64.b64encode(sig),
-                      "ice-%s.tar.gz" % version: payload}
+                      "ike-%s.tar.gz" % version: payload}
         if appimage is not None:
             self.files[name] = appimage
 
@@ -277,11 +277,11 @@ def releases():
 CHECK = """
     def steps(ice, qapp, out):
         import json, os, time
-        from ice import updater
+        from ike import updater
         result = []
-        ice.updater.finished.connect(lambda kind, data: result.append((kind, data)))
-        out["configured"] = ice.updater.configured()
-        out["started"] = ice.updater.run(install=True)
+        ike.updater.finished.connect(lambda kind, data: result.append((kind, data)))
+        out["configured"] = ike.updater.configured()
+        out["started"] = ike.updater.run(install=True)
         t = time.time()
         while not result and time.time() - t < 150:
             yield 200
@@ -294,7 +294,7 @@ CHECK = """
 
 RUNNING = """
     def steps(ice, qapp, out):
-        from ice import updater
+        from ike import updater
         yield 1500
         out["running"] = __import__("ike").__version__
         out["app_dir"] = __import__("os").environ.get("IKE_APP_DIR")
@@ -306,7 +306,7 @@ RUNNING = """
 def update_env(tmp_path, releases, pub):
     cfg = tmp_path / "test-update.json"
     cfg.write_text(json.dumps({"url": releases.url, "pubkey": pub}))
-    return {"ICE_TEST_UPDATE_CONFIG": str(cfg), "NO_PROXY": "127.0.0.1,localhost",
+    return {"IKE_TEST_UPDATE_CONFIG": str(cfg), "NO_PROXY": "127.0.0.1,localhost",
             "no_proxy": "127.0.0.1,localhost"}
 
 
@@ -320,7 +320,7 @@ def test_full_update_through_github_like_releases(run_ice, releases, keypair, tm
     assert out["kind"] == "installed", out["data"]
     assert out["state"]["current"] == "99.0.0" and out["state"]["status"] == "pending"
     assert out["versions"] == ["99.0.0"]
-    assert any(h.startswith("/assets/ice-99.0.0") for h in releases.hits)    # redirects followed
+    assert any(h.startswith("/assets/ike-99.0.0") for h in releases.hits)    # redirects followed
 
     # next start: the verified update is used, then confirmed healthy
     out = run_ice(RUNNING, env=env, keep_profile=True)
@@ -340,7 +340,7 @@ def test_bad_signature_is_refused(run_ice, releases, keypair, tmp_path):
     out = run_ice(CHECK, env=update_env(tmp_path, releases, pub), timeout=120)
     assert out["kind"] == "error" and "signature" in out["data"]
     assert out["versions"] == []
-    assert not any(h.startswith("/assets/ice-") for h in releases.hits)      # payload never fetched
+    assert not any(h.startswith("/assets/ike-") for h in releases.hits)      # payload never fetched
 
 
 @from_source
@@ -359,7 +359,7 @@ def test_update_needing_new_package_is_only_announced(run_ice, releases, keypair
     out = run_ice(CHECK, env=update_env(tmp_path, releases, pub), timeout=120)
     assert out["kind"] == "system"
     assert out["versions"] == []
-    assert not any(h.startswith("/assets/ice-") for h in releases.hits)
+    assert not any(h.startswith("/assets/ike-") for h in releases.hits)
     assert out["state"].get("system_notice") == "99.0.0"       # told once, not every day
 
 
@@ -374,8 +374,8 @@ def test_rollback_of_update_that_does_not_start(run_ice, tmp_path):
     (vdir / "ike" / "app.py").write_text("raise RuntimeError('crash at start')\n")
     (data / "state.json").write_text(json.dumps({"current": "99.0.0", "status": "pending", "attempts": 0}))
     out = run_ice(RUNNING)
-    import ice
-    assert out["running"] == ice.__version__
+    import ike
+    assert out["running"] == ike.__version__
     state = json.loads((data / "state.json").read_text())
     assert "99.0.0" in state["bad"] and not state["current"]
 
@@ -394,7 +394,7 @@ def appimage_env(tmp_path, releases, pub):
     current.write_bytes(fake_appimage("1.0.0"))
     current.chmod(0o755)
     env = update_env(tmp_path, releases, pub)
-    env.update({"APPIMAGE": str(current), "ICE_PACKAGE": "appimage"})
+    env.update({"APPIMAGE": str(current), "IKE_PACKAGE": "appimage"})
     return env, current
 
 
@@ -413,7 +413,7 @@ def test_appimage_replaced(run_ice, releases, keypair, tmp_path):
     assert sorted(p.name for p in current.parent.iterdir()) == [current.name, current.name + ".previous"]
     assert out["state"]["appimage"]["version"] == "99.0.0"
     assert out["versions"] == []                    # no separate ike/ copy for AppImages
-    assert not any(h.startswith("/assets/ice-") for h in releases.hits)
+    assert not any(h.startswith("/assets/ike-") for h in releases.hits)
 
 
 @from_source
@@ -443,19 +443,19 @@ def _selftest_version(appimage):
     return re.search(r"IKE-SELFTEST-OK (\S+)", res.stdout).group(1)
 
 
-@pytest.mark.skipif(not (os.environ.get("ICE_TEST_APPIMAGE") and os.environ.get("ICE_TEST_APPIMAGE_NEW")),
-                    reason="needs two real AppImages: ICE_TEST_APPIMAGE and a newer ICE_TEST_APPIMAGE_NEW")
+@pytest.mark.skipif(not (os.environ.get("IKE_TEST_APPIMAGE") and os.environ.get("IKE_TEST_APPIMAGE_NEW")),
+                    reason="needs two real AppImages: IKE_TEST_APPIMAGE and a newer IKE_TEST_APPIMAGE_NEW")
 def test_real_appimage_updates_itself(run_ice, releases, keypair, tmp_path, monkeypatch):
     """A real AppImage downloads a real newer AppImage, checks it, swaps, restarts into it."""
     key, _, pub = keypair
     current = tmp_path / "Applications" / "IKE-Browser.AppImage"
     current.parent.mkdir()
-    shutil.copy2(Path(os.environ["ICE_TEST_APPIMAGE"]).resolve(), current)
-    new = Path(os.environ["ICE_TEST_APPIMAGE_NEW"]).read_bytes()
+    shutil.copy2(Path(os.environ["IKE_TEST_APPIMAGE"]).resolve(), current)
+    new = Path(os.environ["IKE_TEST_APPIMAGE_NEW"]).read_bytes()
     old_version = _selftest_version(current)
-    new_version = _selftest_version(os.environ["ICE_TEST_APPIMAGE_NEW"])
+    new_version = _selftest_version(os.environ["IKE_TEST_APPIMAGE_NEW"])
     releases.publish(key, new_version, appimage=new)
-    monkeypatch.setenv("ICE_TEST_APPIMAGE", str(current))
+    monkeypatch.setenv("IKE_TEST_APPIMAGE", str(current))
     env = update_env(tmp_path, releases, pub)
     out = run_ice(CHECK, env=env, timeout=400)
     assert out["running"] == old_version

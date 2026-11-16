@@ -48,14 +48,14 @@ def test_measure(run_ice, server):
     out = run_ice("""
         def steps(ice, qapp, out):
             yield 300
-            win = ice.windows[0]
+            win = ike.windows[0]
             win.add_tab("http://127.0.0.1:%(p)d/")
             win.add_tab("http://localhost:%(p)d/big")
             yield 2500
-            out["idle_timer"] = ice.resources.timer.isActive()
-            dlg = ice.show_resources()
+            out["idle_timer"] = ike.resources.timer.isActive()
+            dlg = ike.show_resources()
             yield 2500
-            rows = {r["site"]: r for r in ice.resources.sample()}
+            rows = {r["site"]: r for r in ike.resources.sample()}
             out["sites"] = sorted(rows)
             a, b = rows.get("127.0.0.1", {}), rows.get("localhost", {})
             out["a"] = {k: a.get(k) for k in ("tabs", "memory", "cpu", "requests", "data")}
@@ -64,7 +64,7 @@ def test_measure(run_ice, server):
             out["table_sites"] = sorted(dlg.table.item(r, 0).text() for r in range(dlg.table.rowCount()))
             out["mem_cell"] = dlg.table.item(0, 2).text()
             dlg.close()
-            out["watchers"] = ice.resources.watchers
+            out["watchers"] = ike.resources.watchers
     """ % {"p": server})
     assert out["idle_timer"] is False
     assert out["sites"] == ["127.0.0.1", "localhost"]
@@ -80,13 +80,13 @@ def test_memory_limit(run_ice, server):
     out = run_ice("""
         def steps(ice, qapp, out):
             yield 300
-            win = ice.windows[0]
+            win = ike.windows[0]
             bg = win.add_tab("http://localhost:%(p)d/big")
             yield 2000
             fg = win.add_tab("http://127.0.0.1:%(p)d/big")
             yield 2500
-            out["timer"] = ice.resources.timer.isActive()
-            ice.resources._tick()
+            out["timer"] = ike.resources.timer.isActive()
+            ike.resources._tick()
             yield 500
             out["bg_sleeping"] = bool(bg.sleeping)
             out["fg_sleeping"] = bool(fg.sleeping)
@@ -105,12 +105,12 @@ def test_cpu_limit(run_ice, server):
 
         def steps(ice, qapp, out):
             yield 300
-            win = ice.windows[0]
+            win = ike.windows[0]
             bg = win.add_tab("http://localhost:%(p)d/busy")
             yield 1500
             fg = win.add_tab("http://127.0.0.1:%(p)d/")
             yield 1000
-            mon = ice.resources
+            mon = ike.resources
             mon.timer.stop()                 # the checks are made by hand below
             mon.sample()
             states = []
@@ -141,7 +141,7 @@ def test_off_by_default(run_ice):
     out = run_ice("""
         def steps(ice, qapp, out):
             yield 300
-            out["timer"] = ice.resources.timer.isActive()
-            out["limits"] = ice.resources.limits()
+            out["timer"] = ike.resources.timer.isActive()
+            out["limits"] = ike.resources.limits()
     """)
     assert out["timer"] is False and out["limits"] == [0, 0]

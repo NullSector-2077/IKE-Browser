@@ -5,8 +5,8 @@ def test_starts_with_new_tab(run_ice):
     out = run_ice("""
         def steps(ice, qapp, out):
             yield 1500
-            win = ice.windows[0]
-            out["windows"] = len(ice.windows)
+            win = ike.windows[0]
+            out["windows"] = len(ike.windows)
             out["tabs"] = len(win.views)
             out["url"] = win.current_view().url().toString()
             out["title"] = win.windowTitle()
@@ -15,7 +15,7 @@ def test_starts_with_new_tab(run_ice):
     """)
     assert out["windows"] == 1
     assert out["tabs"] == 1
-    assert out["url"].startswith("ice:")
+    assert out["url"].startswith("ike:")
     assert out["visible"]
     assert "I.K.E." in out["title"]
     assert out["_exit"] == 0
@@ -25,7 +25,7 @@ def test_opens_address_from_command_line(run_ice):
     out = run_ice("""
         def steps(ice, qapp, out):
             yield 1500
-            views = ice.windows[0].views
+            views = ike.windows[0].views
             out["tabs"] = len(views)
             out["title"] = views[0].title()
     """, args=["data:text/html,<title>hello</title>hi"])
@@ -37,7 +37,7 @@ def test_private_window(run_ice):
     out = run_ice("""
         def steps(ice, qapp, out):
             yield 800
-            win = ice.windows[0]
+            win = ike.windows[0]
             out["private"] = win.private
             out["off_the_record"] = win.current_view().page().profile().isOffTheRecord()
     """, args=["--private"])

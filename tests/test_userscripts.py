@@ -6,7 +6,7 @@ redirects and name resolution.
 
 The scripts run on pages of a local server. Other sites ("*.example.test")
 are reached through the same server acting as an HTTP proxy, set on I.K.E.'s
-own network manager; ICE_TEST_RESOLVE makes a name resolve to a private
+own network manager; IKE_TEST_RESOLVE makes a name resolve to a private
 address without a DNS server.
 """
 
@@ -108,20 +108,20 @@ from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtNetwork import QNetworkProxy
 
 def steps(ice, qapp, out):
-    from ice.userscripts import gather, script_id, parse_meta
-    ice.network.setProxy(QNetworkProxy(QNetworkProxy.ProxyType.HttpProxy, "127.0.0.1", PORT))
+    from ike.userscripts import gather, script_id, parse_meta
+    ike.network.setProxy(QNetworkProxy(QNetworkProxy.ProxyType.HttpProxy, "127.0.0.1", PORT))
     QGuiApplication.clipboard().setText("untouched")
     sids = {}
     for text in SCRIPTS:
-        sids[parse_meta(text)["name"]] = ice.userscripts.store(gather(text))
+        sids[parse_meta(text)["name"]] = ike.userscripts.store(gather(text))
     out["sids"] = sids
-    us = ice.userscripts
+    us = ike.userscripts
     if hasattr(us, "tokens"):
         out["tokens"] = {n: us.tokens.get(s) for n, s in sids.items()}
     else:                            # 1.5.1 and older: one token for every script
         out["tokens"] = {n: us.token.split(":")[1] for n in sids}
     yield 300
-    v = ice.windows[0].current_view()
+    v = ike.windows[0].current_view()
     for i, page in enumerate(PAGES):
         done = {}
         v.page().loadFinished.connect(lambda ok, done=done: done.setdefault("ok", ok))
@@ -139,7 +139,7 @@ def steps(ice, qapp, out):
             yield 20
         out.setdefault("pages", []).append(json.loads(res["r"]))
     out["clipboard"] = QGuiApplication.clipboard().text()
-    out["tabs"] = [w.url().toString() for w in ice.windows[0].views]
+    out["tabs"] = [w.url().toString() for w in ike.windows[0].views]
 '''
 
 RESULT_JS = """(window.realStringify || JSON.stringify)((function () {
@@ -242,7 +242,7 @@ def test_forged_messages(run_ice, server):
         script("getonly", ["GM_getValue", "GM_xmlhttpRequest"], body=""),
     ]
     forged = """(function () {
-      var T = __TOKENS__, S = __SIDS__, P = '\\u0001ice-gm:';
+      var T = __TOKENS__, S = __SIDS__, P = '\\u0001ike-gm:';
       function m(tok, id, op, d) { console.info(P + tok + ':' + JSON.stringify({id: id, op: op, d: d})); }
       m('', S.clip, 'clip', {text: 'no token'});
       m('0123456789abcdef0123456789abcdef', S.clip, 'clip', {text: 'wrong token'});
@@ -274,7 +274,7 @@ def test_page_replaces_console_before_idle_script(run_ice, server):
     p = out["pages"][0]
     assert out["clipboard"] == "from script"
     assert p["idle"] == "/idle"
-    assert not any("ice-gm" in s for s in p["stolen"]), p["stolen"]
+    assert not any("ike-gm" in s for s in p["stolen"]), p["stolen"]
     assert p["hijack"] == []
 
 
@@ -310,7 +310,7 @@ def test_connect(run_ice, server):
         _xhr_script("file", "file:///etc/passwd"),
     ]
     out = run_scripts(run_ice, port, scripts, ["http://127.0.0.1:%d/page" % port],
-                      env={"ICE_TEST_RESOLVE": "private.example.test=10.1.2.3"}, wait=2500)
+                      env={"IKE_TEST_RESOLVE": "private.example.test=10.1.2.3"}, wait=2500)
     p = out["pages"][0]
     assert p["noconnect"] == "ok:200:api.example.test"
     assert p["listed"] == "ok:200:api.example.test"
@@ -340,7 +340,7 @@ def test_redirect_to_private_address(run_ice, server):
         _xhr_script("tounlisted", "http://api.example.test/redirect?http://evil.example.test/x", ["api.example.test"]),
     ]
     out = run_scripts(run_ice, port, scripts, ["http://127.0.0.1:%d/page" % port],
-                      env={"ICE_TEST_RESOLVE": "private.example.test=10.1.2.3"}, wait=2500)
+                      env={"IKE_TEST_RESOLVE": "private.example.test=10.1.2.3"}, wait=2500)
     p = out["pages"][0]
     assert p["tolocal"] == "refused" and p["toresolved"] == "refused" and p["tounlisted"] == "refused"
     assert p["tolocalnamed"] == "ok:200:127.0.0.1"
@@ -351,14 +351,14 @@ def test_redirect_to_private_address(run_ice, server):
 
 
 def test_install_dialog_lists_connect():
-    from ice.userscripts import UserScripts, parse_meta
+    from ike.userscripts import UserScripts, parse_meta
     meta = parse_meta(script("d", ["GM_xmlhttpRequest"], connect=["api.example.test", "self"]))
     text = UserScripts.describe(None, meta)
     assert "api.example.test, self" in text and "GM_xmlhttpRequest" in text
 
 
 def test_address_rules():
-    from ice.userscripts import connect_rule, granted, is_local_address, is_local_name
+    from ike.userscripts import connect_rule, granted, is_local_address, is_local_name
     for a in ("127.0.0.1", "10.2.3.4", "172.16.0.1", "172.31.255.255", "192.168.0.1", "169.254.1.1",
               "0.0.0.0", "100.64.0.1", "::1", "::", "fc00::1", "fd12::1", "fe80::1", "::ffff:192.168.1.1",
               "::127.0.0.1"):
@@ -381,7 +381,7 @@ def test_address_rules():
 
 def test_connect_of_scripts_installed_before(tmp_path, monkeypatch):
     """Scripts installed by 1.5.1 have no "connect" entry: it is read from their code."""
-    import ice.userscripts as us
+    import ike.userscripts as us
     monkeypatch.setattr(us, "DIR", tmp_path)
     (tmp_path / "abc.user.js").write_text(script("old", ["GM_xmlhttpRequest"], connect=["api.test"]), "utf-8")
     obj = us.UserScripts.__new__(us.UserScripts)
