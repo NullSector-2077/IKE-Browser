@@ -56,8 +56,8 @@ Other:
 
 - pyo3 (the Python–Rust bridge) 0.23 → 0.30, which closes two published
   advisories; neither affected code I.K.E. uses.
-- Applying the settings no longer rebuilds an unchanged filter engine
-  (0.2 s with the default lists).
+- Applying the settings no longer reloads an unchanged filter engine
+  (0.3 s with the default lists).
 - Unused code removed; every message of the interface is now checked for a
   translation by `tools/check-lang.py`.
 - Measured before and after on the same machine: start-up, opening a tab,

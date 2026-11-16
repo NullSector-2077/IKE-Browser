@@ -109,8 +109,8 @@ Not done, on purpose: splitting `window.py`, `dialogs.py` and `features.py`
 
 | Change | Before | After | How measured |
 |---|---|---|---|
-| Applying the settings rebuilt the filter engine even when no list had changed | 0.20 s | 0.00 s | A second `Blocker.load()` timed with six real default lists (EasyList, EasyPrivacy, four uBlock Origin lists) saved once to a local folder |
-| pyo3 0.23 → 0.30 and the panic guard | 1.4 µs per request | 1.4 µs per request | Median of 7 rounds of 4,000 `check_network_urls` calls against 53,000 generated rules, old and new module on the same machine |
+| Applying the settings rebuilt the filter engine (read back from its cache) even when no list had changed | 0.29 s | 0.00 s | A second `Blocker.load()` with six real default lists (EasyList, EasyPrivacy, four uBlock Origin lists) saved once to a local folder; package 1.0.2 against package 1.0.3 |
+| Not an optimisation, a cost: pyo3 0.23 → 0.30 and the panic guard around every engine call | 1.40–1.51 µs per request | 1.47–1.63 µs per request | Median of 7 rounds of 4,000 `check_network_urls` calls against 53,000 generated rules, three alternating runs of the module of each package. About 0.1 µs more per request: under 0.01 ms for a page of a hundred requests, not visible in the page-load times |
 
 No other optimisation is claimed. The review looked for repeated or blocking
 work at start-up, when a tab opens and on every request, and found nothing
