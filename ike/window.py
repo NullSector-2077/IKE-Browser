@@ -1686,8 +1686,36 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         box.setText("<table>%s</table>" % "".join(rows))
         box.exec()
 
-    def about_text(self):
-        """Help → About: versions, and the state of what protects the user."""
+    def _engine_age(self):
+        from . import chromever
+        behind = chromever.current(self.app.config) - chromever.engine_major()
+        if behind <= 0:
+            return T("Engine age: as recent as the current Chrome")
+        return T("Engine age: %d Chrome versions behind the current one") % behind
+
+    @staticmethod
+    def _media_about(media):
+        """media: {format: bool} from ike.mediacheck, None while it is asked,
+        {} when the engine did not answer."""
+        from . import mediacheck
+        if media is None:
+            return T("Video and audio formats: checking…")
+        if not media:
+            return T("Video and audio formats: the engine did not answer")
+        yes, no = mediacheck.split(media)
+        text = T("Plays: %s") % (", ".join(yes) or "—")
+        if no:
+            text += "<br>" + T("Does not play: %s — this depends on the engine installed on this system; "
+                               "videos offered only in these formats will not play") % ", ".join(no)
+        return text
+
+    def about_text(self, media=None):
+        """Help → About: versions, and the state of what protects the user.
+        media: the formats the engine plays (see _media_about); by default
+        what this session already knows."""
+        if media is None:
+            from . import mediacheck
+            media = mediacheck.known()
         from PyQt6.QtCore import QT_VERSION_STR
         from PyQt6.QtWebEngineCore import qWebEngineChromiumVersion
 
@@ -1701,8 +1729,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         except ImportError:                      # Qt older than 6.3
             pass
         lines = ["%s: Qt WebEngine %s (Chromium %s)" % (T("Engine"), QT_VERSION_STR, chromium),
+                 self._engine_age(),
                  T("Engine sandbox: OFF (switched off by the environment, or I.K.E. was started as administrator)")
                  if sandbox_off() else T("Engine sandbox: on"),
+                 self._media_about(media),
                  "%s: %s" % (T("Content blocker"), self._engine_about(self.app.blocker)),
                  T("Chrome extensions: not usable with this engine version (enabling one crashes it)"),
                  self._drm_about()]
@@ -1715,7 +1745,22 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             T("An independent, privacy-first browser. No telemetry, no accounts, no sponsored content."))
 
     def show_about(self):
-        QMessageBox.about(self, T("About I.K.E."), self.about_text())
+        from . import mediacheck
+        box = QMessageBox(self)
+        box.setWindowTitle(T("About I.K.E."))
+        box.setIconPixmap(self.app.icon.pixmap(64, 64))
+        box.setTextFormat(Qt.TextFormat.RichText)
+        box.setText(self.about_text())
+        box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        self._about_box = box
+
+        def answered(result):
+            if self._about_box is box:
+                box.setText(self.about_text(result))
+        if mediacheck.known() is None:
+            mediacheck.ask(self, answered)
+        box.exec()
+        self._about_box = None
 
     # ------------------------------------------------------------------
     def resizeEvent(self, event):

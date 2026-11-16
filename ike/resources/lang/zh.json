@@ -835,6 +835,12 @@
 "October": "10月",
 "November": "11月",
 "December": "12月",
-"Blocked counter": "拦截计数"
+"Blocked counter": "拦截计数",
+"Engine age: as recent as the current Chrome": "引擎版本：与当前 Chrome 一样新",
+"Engine age: %d Chrome versions behind the current one": "引擎版本：落后当前 Chrome %d 个版本",
+"Video and audio formats: checking…": "视频和音频格式：正在检查…",
+"Video and audio formats: the engine did not answer": "视频和音频格式：引擎没有响应",
+"Plays: %s": "可播放：%s",
+"Does not play: %s — this depends on the engine installed on this system; videos offered only in these formats will not play": "无法播放：%s — 这取决于本系统安装的引擎；仅以这些格式提供的视频将无法播放"
 }
 }

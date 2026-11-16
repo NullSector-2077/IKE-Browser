@@ -835,6 +835,12 @@
 "October": "Oktober",
 "November": "November",
 "December": "Dezember",
-"Blocked counter": "Blockierzähler"
+"Blocked counter": "Blockierzähler",
+"Engine age: as recent as the current Chrome": "Alter der Engine: so aktuell wie das neueste Chrome",
+"Engine age: %d Chrome versions behind the current one": "Alter der Engine: %d Chrome-Versionen hinter der aktuellen",
+"Video and audio formats: checking…": "Video- und Audioformate: wird geprüft…",
+"Video and audio formats: the engine did not answer": "Video- und Audioformate: die Engine hat nicht geantwortet",
+"Plays: %s": "Spielt ab: %s",
+"Does not play: %s — this depends on the engine installed on this system; videos offered only in these formats will not play": "Spielt nicht ab: %s — das hängt von der auf diesem System installierten Engine ab; Videos, die nur in diesen Formaten angeboten werden, laufen nicht"
 }
 }

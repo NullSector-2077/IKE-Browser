@@ -835,6 +835,12 @@
 "October": "ottobre",
 "November": "novembre",
 "December": "dicembre",
-"Blocked counter": "Contatore dei blocchi"
+"Blocked counter": "Contatore dei blocchi",
+"Engine age: as recent as the current Chrome": "Età del motore: recente quanto l'ultimo Chrome",
+"Engine age: %d Chrome versions behind the current one": "Età del motore: %d versioni di Chrome indietro rispetto all'ultima",
+"Video and audio formats: checking…": "Formati video e audio: controllo in corso…",
+"Video and audio formats: the engine did not answer": "Formati video e audio: il motore non ha risposto",
+"Plays: %s": "Riproduce: %s",
+"Does not play: %s — this depends on the engine installed on this system; videos offered only in these formats will not play": "Non riproduce: %s — dipende dal motore installato su questo sistema; i video offerti solo in questi formati non partiranno"
 }
 }
