@@ -182,9 +182,6 @@ SOFTWARE_WEBGL = (
     "--use-angle=gl --ignore-gpu-blocklist --disable-gpu-compositing",
     "--enable-unsafe-swiftshader --use-angle=swiftshader --ignore-gpu-blocklist --disable-gpu-compositing",
     "--use-angle=swiftshader-webgl --ignore-gpu-blocklist --disable-gpu-compositing",
-    # Debian 13's engine (Chromium 122, no SwiftShader) gives WebGL only with
-    # compositing on the GPU; it was steady there (several full runs)
-    "--use-angle=gl --ignore-gpu-blocklist",
 )
 _WEBGL_PROBE = r"""
 import sys
@@ -212,6 +209,7 @@ QTimer.singleShot(40000, app.quit)
 app.exec()
 """
 _webgl_flags = []
+_webgl_why = []
 
 
 def software_webgl_flags():
@@ -233,5 +231,12 @@ def software_webgl_flags():
         if "WEBGL=True" in r.stdout:
             found = flags
             break
+        _webgl_why.append("%s -> %s" % (flags, " | ".join(
+            line for line in r.stderr.splitlines()[-12:] if "propagateSizeHints" not in line)))
     _webgl_flags.append(found)
     return found
+
+
+def software_webgl_why():
+    """What the engine said when no switch gave WebGL (for the failure message)."""
+    return "\n".join(_webgl_why)

@@ -93,8 +93,9 @@ Web Audio).
 - In containers Chromium's sandbox cannot start; the packages keep it on.
   For the WebGL part of the fingerprinting test the tests choose software
   WebGL switches that work on each engine (`tests/conftest.py`,
-  `SOFTWARE_WEBGL`): Debian's engine has no SwiftShader and gives WebGL only
-  through Mesa with GPU compositing.
+  `SOFTWARE_WEBGL`). Debian's engine has no SwiftShader and gave no steady
+  software WebGL in a container: there the WebGL values are not measured
+  (reported as such); every other fingerprint value is.
 
 ## Package formats compared
 

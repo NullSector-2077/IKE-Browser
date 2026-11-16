@@ -51,6 +51,9 @@ jobs:
             id: debian
             image: debian:trixie
             kind: deb
+            # no steady software WebGL for Debian's engine in a container
+            # (see linux-distros.yml): the WebGL part is reported as not measured
+            no_webgl: "1"
           - name: RPM - Fedora 43
             id: fedora
             image: fedora:43
@@ -121,6 +124,7 @@ jobs:
       - name: Tests of the installed package
         run: |
           set -o pipefail
+          export IKE_TEST_NO_SOFTWARE_WEBGL="${{ matrix.no_webgl }}"
           IKE_TEST_APP=/usr/lib/ike-browser python3 -m pytest -ra \
               --junitxml=out/tests-${{ matrix.id }}.xml 2>&1 | tee out/tests-${{ matrix.id }}.log
       - name: Remove the package
