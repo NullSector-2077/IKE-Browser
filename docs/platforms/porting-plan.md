@@ -99,7 +99,7 @@ These four answers replace most of the "to verify" marks of this study.
 
 | | |
 |---|---|
-| State | Nothing works: the code has no Windows branch (list in [windows.md](windows.md)) |
+| State | When this plan was written: nothing worked, the code had no Windows branch. **Since 1.2.0**: a preview built, installed and tested on a Windows runner, with the official Qt WebEngine (no H.264 / AAC) — see the first part of [windows.md](windows.md); by hand it is still untested ([WINDOWS-CHECKLIST.md](../WINDOWS-CHECKLIST.md)) |
 | Dependencies | all bundled: CPython (embeddable), the Qt Company's Qt and Qt WebEngine through the PyQt wheels pinned by hash, `cryptography`, the engine module built with the MSVC Rust tool chain |
 | Format | per-user installer; MSIX as the alternative |
 | Qt WebEngine | bundled, replaced as a whole with each installer; never a second Qt on the side |

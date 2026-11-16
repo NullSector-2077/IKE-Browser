@@ -1,14 +1,17 @@
 # Platform study (November 2026)
 
-Documents only: nothing here is implemented, and no platform is "supported"
-because of this study. Today I.K.E. is built, packaged and tested for Arch
-Linux / CachyOS.
+A study: no platform is "supported" because of it. Today I.K.E. is built,
+packaged and tested for Arch Linux / CachyOS. Since 1.2.0 there is also a
+**preview for Windows**, built and tested by GitHub Actions but not released
+and not yet tried on a real PC: [windows.md](windows.md) starts with what
+exists, and [../WINDOWS-CHECKLIST.md](../WINDOWS-CHECKLIST.md) is the test
+still to be done by hand.
 
 | File | Content |
 |---|---|
 | [linux.md](linux.md) | Arch / CachyOS, Debian, Ubuntu, Linux Mint, Fedora: versions and requirements; DEB, RPM, PKGBUILD, AppImage and Flatpak compared; the strategy proposed |
 | [component-manager.md](component-manager.md) | What can and cannot be separated from Qt WebEngine, and how optional components would be found, verified, installed, updated and rolled back |
-| [windows.md](windows.md) | Qt run time, deployment, helper processes, Visual C++ run time; codecs; a matrix of what may be shipped |
+| [windows.md](windows.md) | The state of the Windows preview (what is implemented, the installer, codecs, known limits), then the study: Qt run time, deployment, helper processes, Visual C++ run time; codecs; a matrix of what may be shipped |
 | [porting-plan.md](porting-plan.md) | Per platform: what already works, what must change, tests needed, complexity |
 
 ## How to read it
