@@ -48,6 +48,13 @@ the default and looks and behaves as before; no setting was reset.
 Not in this version: tabs do not slide when they open and close (Qt's tab bar
 adds and removes them at once), and menus have square, not cut, corners.
 
+Measured against 1.0.3 on the same machine, package against package. With
+"Follow the system": processor time at rest (0.9 – 1.0 % of one core),
+start-up (0.30 – 0.34 s) and memory (354 → 357 MiB) are unchanged; a new tab
+costs about 5 ms more of processor time (108 → 113 ms over all processes),
+because the page shows more. With the Cyber theme: the same at rest, start-up
+0.32 – 0.33 s, 370 MiB, a new tab about 130 ms.
+
 ## 1.0.3
 
 A review of the whole code and a security audit; the full report is in
