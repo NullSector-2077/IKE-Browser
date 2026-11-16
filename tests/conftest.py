@@ -116,8 +116,11 @@ def run_ike(tmp_path):
                 time.sleep(0.5)
             time.sleep(1)
         if not out_file.exists():
+            err = proc.stderr
+            if len(err) > 8000:                  # the start too: a fatal check is often early
+                err = err[:3000] + "\n[...]\n" + err[-5000:]
             raise AssertionError("the browser ended without results (exit %s)\n%s"
-                                 % (proc.returncode, proc.stderr[-4000:]))
+                                 % (proc.returncode, err))
         out = json.loads(out_file.read_text("utf-8"))
         out["_exit"] = proc.returncode
         out["_stderr"] = proc.stderr
