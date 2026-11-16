@@ -1,5 +1,53 @@
 # Changelog
 
+## 1.1.0
+
+A theme of I.K.E.'s own and a richer new tab page. "Follow the system" stays
+the default and looks and behaves as before; no setting was reset.
+
+- **The "I.K.E. Cyber" theme** (Settings → Appearance → Interface colours, or
+  "Try the Cyber theme" on the new tab page): dark, one accent colour, cut
+  corners and thin luminous lines, the same on every system. Drawn with what
+  Qt already offers: no new library, no blur behind the window.
+  - Three **tab shapes** to choose from, for horizontal and vertical tabs:
+    *Cut* (one cut corner, a line above the current tab), *Blade* (slanted
+    sides, a line below), *Viewfinder* (no fill, the current tab between two
+    brackets). Dragging, closing, groups and the loading mark work as before.
+  - Accent colour (five ready ones or any other), glow and cut corners can
+    be switched in Settings.
+  - The address field has a cut frame that lights up when it is used; the
+    toolbar buttons light a corner under the mouse; menus are square with
+    luminous separators.
+  - Light effects, all under the existing "Interface effects" switch and off
+    when the desktop asks for no animations: the mark of the current tab
+    glides to the new tab, the shield pulses once when it blocks, the
+    counter counts up, the bars of a window fade into a new theme.
+  - A tab that plays sound shows a small equaliser; the shield panel shows a
+    ring of what was blocked by kind; the tab preview has an accent frame;
+    the colour of a tab group is a luminous mark on the tab's edge.
+- **Suggested once, never imposed.** The new tab page suggests the Cyber
+  theme one time ("Try the Cyber theme" / "Not now"); while it is on trial
+  the same place offers "Keep it" / "Back to the system theme". Settings
+  mark "Follow the system" as the default and Cyber as recommended.
+- **Counter per month.** The new tab page shows the trackers and ads blocked
+  this month and last month and starts again on the first of each month. The
+  total since installation goes on being counted and can be shown instead
+  (Settings → New tab page). The month's count starts from zero with this
+  version; the total is untouched.
+- **Site tiles on the new tab page**: your bookmarks or the sites you visit
+  most (worked out from the history on this computer), or none; a tile to
+  add a site; a tile can be hidden without deleting the bookmark.
+- **Settings → New tab page**: a page of its own for tiles, counter, clock,
+  weather and the background photo (the photo was at the bottom of
+  "General", where it was hard to find).
+- Security: titles and addresses shown on the new tab page are escaped and
+  only web addresses become tiles; the answers the page gives for the user
+  (hide a tile, add a site, switch the theme) are refused when they come
+  from a website. Both with attack tests.
+
+Not in this version: tabs do not slide when they open and close (Qt's tab bar
+adds and removes them at once), and menus have square, not cut, corners.
+
 ## 1.0.3
 
 A review of the whole code and a security audit; the full report is in

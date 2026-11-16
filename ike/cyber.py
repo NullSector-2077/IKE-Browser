@@ -584,9 +584,11 @@ def apply(win):
         win.nav.setStyleSheet("")
         old["pulse"].setParent(None)
         old["pulse"].deleteLater()
+        from PyQt6.QtGui import QPalette
         for menu in old["menus"]:
             try:
                 menu.setStyleSheet("")
+                menu.setPalette(QPalette())   # the application's colours again, whatever they are now
             except RuntimeError:              # the menu is gone
                 pass
         win._cyber = None
@@ -650,3 +652,6 @@ def style_menu(menu, config):
     want = menu_qss(lk) if lk is not None else ""
     if menu.styleSheet() != want:
         menu.setStyleSheet(want)
+        if not want:
+            from PyQt6.QtGui import QPalette
+            menu.setPalette(QPalette())

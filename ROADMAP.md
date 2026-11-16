@@ -198,7 +198,7 @@ In `docs/platforms/` (English), citing the official sources used:
   problems to solve, technical complexity; what already works versus what
   needs changes. A platform is not "done" because the code looks compatible.
 
-### 1.1.0 — the Cyber theme, new-tab tiles, monthly counter (approved by the owner on 2026-11-16)
+### 1.1.0 — the Cyber theme, new-tab tiles, monthly counter (done, waiting for the owner)
 
 Branch `ike-1.1.0` (starts from `docs/platform-study`). The design was agreed
 on a shared canvas before any code. Rule of the whole version: **"Follow the
@@ -263,8 +263,11 @@ behind the window. No existing setting is reset or changes meaning.
   Everything of this plan is done and waits for the owner: review, merge
   (#4, #5, #6, #7, then the study), sign and publish. Nothing was merged,
   signed or published by the unattended session.
-- 1.1.0 started on branch `ike-1.1.0` (plan above approved). Done so far:
-  nothing yet.
+- 1.1.0 on branch `ike-1.1.0` (plan above approved): every point of the plan
+  is written and tested except two, left out and said so in the changelog —
+  tabs do not slide when they open and close, and menus have square corners,
+  not cut ones. Nothing of it was seen on a real Plasma session yet: the
+  owner's eye decides whether it looks right.
 
 ### Also planned
 

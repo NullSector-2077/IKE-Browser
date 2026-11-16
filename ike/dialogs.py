@@ -63,14 +63,14 @@ def _wrapping(box):
 
 
 class SettingsDialog(QDialog):
-    PAGES = ["general", "appearance", "search", "privacy", "components", "userscripts", "downloads"]
+    PAGES = ["general", "appearance", "newtab", "search", "privacy", "components", "userscripts", "downloads"]
 
     def __init__(self, app, parent=None, page=None):
         super().__init__(parent)
         self.app = app
         self.cfg = app.config
         self.setWindowTitle(T("Settings") + " — I.K.E.")
-        self.resize(1080, 680)
+        self.resize(1100, 680)       # room for a scroll bar beside the widest page (German)
         from PyQt6.QtCore import QSize
         from PyQt6.QtWidgets import QFrame, QScrollArea, QStackedWidget
 
@@ -290,6 +290,7 @@ class SettingsDialog(QDialog):
             self.icon_theme.addItem(label, "theme:" + folder)
         self.icon_theme.setCurrentIndex(max(0, self.icon_theme.findData(self.cfg["icon_theme"])))
         self.ui_scheme = QComboBox()
+        self._narrow(self.ui_scheme)
         self._fill_schemes(self.cfg["ui_scheme"])
         custom = QPushButton(T("Customize…"))
         custom.setToolTip(T("Colours and font of the interface"))
@@ -493,7 +494,7 @@ class SettingsDialog(QDialog):
 
         from . import themes
         self.cyber_hint = QWidget()
-        row = QHBoxLayout(self.cyber_hint)
+        row = QVBoxLayout(self.cyber_hint)        # the button under the text: it fits in every language
         row.setContentsMargins(0, 0, 0, 0)
         text = QLabel(T("Recommended: I.K.E. Cyber, a theme of I.K.E.'s own with cut corners and luminous "
                         "lines, the same on every system. “Follow the system” stays the default."))
@@ -501,8 +502,8 @@ class SettingsDialog(QDialog):
         self.cyber_try = QPushButton(T("Try the Cyber theme"))
         self.cyber_try.clicked.connect(
             lambda: self.ui_scheme.setCurrentIndex(max(0, self.ui_scheme.findData("theme:cyber"))))
-        row.addWidget(text, 1)
-        row.addWidget(self.cyber_try)
+        row.addWidget(text)
+        row.addWidget(self.cyber_try, 0, Qt.AlignmentFlag.AlignLeft)
         f.addRow("", self.cyber_hint)
 
         self.cyber_box = QWidget()
@@ -535,6 +536,7 @@ class SettingsDialog(QDialog):
                            ("mirino", T("Viewfinder: no fill, the current tab between two brackets"))):
             self.cyber_shape.addItem(label, key)
         self.cyber_shape.setCurrentIndex(max(0, self.cyber_shape.findData(self.cfg["cyber_shape"])))
+        self._narrow(self.cyber_shape)
         self.cyber_glow = QCheckBox(T("Glow on the lines and on the element in use"))
         self.cyber_glow.setChecked(bool(self.cfg["cyber_glow"]))
         self.cyber_corners = QCheckBox(T("Cut corners"))
@@ -547,6 +549,12 @@ class SettingsDialog(QDialog):
         self.ui_scheme.currentIndexChanged.connect(lambda _i: self._cyber_shown())
         self._pick_accent(self._cyber_accent)
         self._cyber_shown()
+
+    @staticmethod
+    def _narrow(combo):
+        """A combo box with long entries must not make the page wider than the window."""
+        combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        combo.setMinimumContentsLength(16)
 
     def _cyber_shown(self):
         cyber = self.ui_scheme.currentData() == "theme:cyber"
@@ -589,10 +597,12 @@ class SettingsDialog(QDialog):
         self.nt_counter.addItem(T("This month (starts again on the first of each month)"), "month")
         self.nt_counter.addItem(T("Since I.K.E. was installed"), "total")
         self.nt_counter.setCurrentIndex(max(0, self.nt_counter.findData(self.cfg["blocked_counter"])))
+        self._narrow(self.nt_counter)
+        self._narrow(self.nt_tiles)
         self.nt_grid = QCheckBox(T("Cyber theme: a grid when there is no background photo"))
         self.nt_grid.setChecked(bool(self.cfg["newtab_grid"]))
         f.addRow(T("Site tiles"), tiles)
-        f.addRow(T("Counter of blocked trackers and ads"), self.nt_counter)
+        f.addRow(T("Blocked counter"), self.nt_counter)
         self._newtab_rows(f)
         f.addRow("", self.nt_grid)
         return w

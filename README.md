@@ -9,7 +9,7 @@ The interface, protections, password manager and updater are I.K.E.'s own code
 provided and kept up to date by Arch Linux. I.K.E. is developed on and for
 KDE Plasma (CachyOS / Arch Linux) and works on the other Arch-based desktops.
 
-**Version 1.0.3** - see [CHANGELOG.md](CHANGELOG.md).
+**Version 1.1.0** - see [CHANGELOG.md](CHANGELOG.md).
 
 ## Install (Arch Linux, CachyOS)
 
@@ -17,7 +17,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.0.3-1-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.1.0-1-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:
@@ -72,8 +72,10 @@ profiles: `ike-browser --profile NAME`.
   download manager, PDF viewer, reader mode, picture-in-picture, page dark mode,
   translation through an external service, site permissions.
 - Free choice of search engines (DuckDuckGo by default), suggestions, keywords.
-- New tab page with a clock and, for a city you choose, the weather; your own
-  photo as its background if you like (kept on the computer, never uploaded).
+- New tab page with a clock and, for a city you choose, the weather; tiles of
+  your bookmarks or of the sites you visit most; the trackers and ads blocked
+  this month; your own photo as its background if you like (kept on the
+  computer, never uploaded).
 - Toolbar buttons shown, hidden and moved to either side of the address bar
   ("Customise toolbar"); in a narrow window the ones that do not fit are listed
   under a » button.
@@ -91,9 +93,13 @@ profiles: `ike-browser --profile NAME`.
 **Appearance and languages**
 - Follows the system theme by default; icon themes installed on the computer or
   the bundled Lucide and Phosphor sets; light or dark interface.
-- Interface themes: five ready-made ones (I.K.E., Night, Paper, Forest, High
-  contrast) and your own, with your choice of background, text, accent, toolbar
-  and tab colours and of the font family and size.
+- "I.K.E. Cyber", a theme of I.K.E.'s own that looks the same on every system:
+  cut corners, thin luminous lines, three tab shapes to choose from
+  (horizontal and vertical), your accent colour. Optional and suggested once;
+  one click goes back to the system's look.
+- Other interface themes: five ready-made ones (I.K.E., Night, Paper, Forest,
+  High contrast) and your own, with your choice of background, text, accent,
+  toolbar and tab colours and of the font family and size.
 - Light interface effects (short fades, a loading mark on tabs) that follow the
   desktop's reduced-motion setting and can be switched off.
 - English, Italian, Spanish, French, German, Portuguese, Chinese (Simplified) and
@@ -112,7 +118,7 @@ I.K.E. has no servers of its own and sends no telemetry. It contacts only:
 | Encrypted DNS provider | only if you turn DNS over HTTPS on | the names of the sites you visit |
 | Google Translate (or the address you set) | only when you translate a page | the address of the page |
 | Google's Widevine download (dl.google.com) | only if you ask I.K.E. to install Widevine | a plain download |
-| Open-Meteo (open-meteo.com), free, no account, no key | weather on the new tab page, only after you choose a city | finding the city: its name, once; then only the city's coordinates (rounded), at most every 30 minutes and only when a new tab is open. Your location is never asked. Can be switched off in Settings → General |
+| Open-Meteo (open-meteo.com), free, no account, no key | weather on the new tab page, only after you choose a city | finding the city: its name, once; then only the city's coordinates (rounded), at most every 30 minutes and only when a new tab is open. Your location is never asked. Can be switched off in Settings → New tab page |
 | The pages you chose to watch | at the interval you chose, only while I.K.E. is open | a normal page load, like a private window: without your cookies |
 | The sites of your user scripts | once a day, if automatic updates are on | a plain download of each script |
 | GitHub (github.com and its download servers) | once a day, unless I.K.E. updates are off | a plain download of the latest release's signed manifest, and of the update when you install it |

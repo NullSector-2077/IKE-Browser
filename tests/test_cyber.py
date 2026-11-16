@@ -171,6 +171,9 @@ def steps(ike, qapp, out):
                 "menus": sum(1 for m in win.findChildren(QMenu) if m.styleSheet()),
                 "marks": sum(1 for c in win.tabbar.children() if type(c).__name__ == "MarkGlide"),
                 "window": qapp.palette().color(R.Window).name(),
+                "nav_colour": win.nav.palette().color(R.Window).name(),
+                "menu_colour": win.findChildren(QMenu)[0].palette().color(R.Window).name(),
+                "button_colour": win.shield_btn.palette().color(R.ButtonText).name(),
                 "field_base": win.urlbar.palette().color(R.Base).alpha()}
     out["system"] = state()
     for scheme, accent, key in (("theme:cyber", "", "on"), ("theme:cyber", "#ff5fa8", "accent"),
@@ -193,6 +196,8 @@ def steps(ike, qapp, out):
     other = out["other"]                              # another ready-made theme: colours only, no Cyber shapes
     assert other["style"] != "TabStyle" and other["frame"] and not other["nav"] and other["menus"] == 0
     assert other["marks"] == 0 and not other["look"] and other["window"] != "#070b14"
+    assert other["nav_colour"] == "#18191b"            # the "Night" theme's toolbar, not a leftover of Cyber's
+    assert other["menu_colour"] == other["window"]
     assert out["on_again"]["style"] == "TabStyle" and out["on_again"]["marks"] == 1
     off = out["off"]
     assert {k: off[k] for k in system} == system      # exactly as before the theme was ever used

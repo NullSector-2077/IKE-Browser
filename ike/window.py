@@ -1883,9 +1883,11 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if theme is None and not getattr(self, "_themed", False):
             return                       # "Follow the system": nothing to undo
         from . import cyber, themes
+        # The Cyber theme's shapes first, or their removal: taking a style sheet off a
+        # widget gives it back the colours it had before, which the theme then replaces.
+        cyber.apply(self)
         themes.style_window(self, theme)
         self._themed = theme is not None
-        cyber.apply(self)                # the Cyber theme's shapes, or back to the desktop's
 
     def changeEvent(self, event):
         # Follow a change of the desktop theme / colour scheme at once.
