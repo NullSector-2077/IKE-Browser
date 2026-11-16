@@ -90,7 +90,7 @@ def state(v, out, key):
         d["notice_inside"] = w.rect().contains(g)
         import os
         if os.environ.get("IKE_TEST_SHOTS"):
-            w.grab().save(os.path.join(os.environ["IKE_TEST_SHOTS"], "notike-%s.png" % key))
+            w.grab().save(os.path.join(os.environ["IKE_TEST_SHOTS"], "notice-%s.png" % key))
     out[key] = d
 '''
 
