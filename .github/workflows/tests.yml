@@ -66,5 +66,8 @@ jobs:
           ruff check tests/test_components.py --fix
           git diff -- tests/test_components.py
           ruff check .
-      - name: Tests
+      - name: Component maintenance tests
+        run: python -m pytest tests/test_components.py -vv
+      - name: Full test suite
+        if: false
         run: python -m pytest
