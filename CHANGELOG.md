@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.0.1
+
+- The logo, the application icon at every size and the new tab page show
+  "I.K.E"; the lettering of the logo and of the full name, "Internet Kontrol
+  Experience", is drawn as shapes from the Orbitron typeface (SIL Open Font
+  License), so it looks the same on every system and needs no font installed.
+  The interface fonts are unchanged.
+- The shield in the toolbar is drawn about 18% larger inside the same button,
+  and is now sharp at every screen scale. Ad blocking is unchanged.
+- Hovering a link no longer shows its address in a bar at the bottom of the
+  window, so the page no longer moves. The bar still appears for zoom and
+  toolbar messages.
+- Removed the one-time import of the earlier installation, which every
+  installation has completed. A password vault that was never opened with
+  I.K.E. 1.0.0 must be opened once with 1.0.0 before updating.
+- This release changes the icons installed with the package, so it is installed
+  as a package (`sudo pacman -U …`); I.K.E. 1.0.0 announces it instead of
+  updating itself.
+
 ## 1.0.0
 
 First release of I.K.E. — Internet Kontrol Experience, for Arch Linux and

@@ -64,34 +64,23 @@ Principles for every session (from the owner):
   compatibility.
 - Document every important change.
 
-### 1.0.1 — clean-up and brand
+### 1.0.1 — clean-up and brand (done, waiting for the owner)
 
-1. **Remove the one-time import**: `ike/legacy.py`, its calls in `ike/app.py`,
-   `tests/test_legacy.py` and its row in docs/TESTING.md, the old-vault
-   fallback in `ike/passwords.py`, `conflicts` / `replaces` and their comment
-   in the PKGBUILD. The owner confirmed on 2026-11-16 that the old folders are
-   gone and the password vault opens. `__min_system__` stays 1.0.0 if only
-   `ike/` changes.
-2. **Brand**: `ike/resources/ike.svg` still draws the earlier lettering as SVG
-   paths (a text search does not find it); check `data/icons` (SVG and every
-   PNG size) too.
-   The logo shows "I.K.E" and the full name is "Internet Kontrol Experience"
-   (Kontrol with K), on the new tab page and wherever the old name appears.
-   Lettering: futuristic / cyber, distinctive, elegant, easy to read, from a
-   font with a free licence (OFL) whose licence goes in `licenses/` and
-   docs/THIRD-PARTY.md; drawn as vector paths, so no font is needed at run time
-   and it looks the same on every system. The interface fonts do not change.
-   No blanket renaming of files or modules.
-3. **Shield icon** 15–20% larger: the drawing grows, the button and the click
-   area do not; centred, inside its bounds, not over its neighbours, sharp at
-   every scale and DPI. Ad blocking untouched.
-4. **No link preview bar**: hovering a link must no longer show its address at
-   the bottom of the window (`page.linkHovered` → `_hovered()` in
-   `ike/window.py` shows the status bar, which also resizes the page). Remove
-   only that: the status bar stays for zoom and toolbar messages, and loading,
-   security information, navigation and opening links are unchanged. The
-   window and page must not move when the mouse crosses links; check on a page
-   with many links, thumbnails and clickable images.
+Branch `ike-1.0.1`. Done and tested:
+
+1. The one-time import is removed (`ike/legacy.py`, its calls, its test, the
+   old-vault fallback, `conflicts` / `replaces`).
+2. Brand: the logo, every icon size and the new tab page show "I.K.E" and
+   "Internet Kontrol Experience", lettered in Orbitron (OFL, licence in
+   `licenses/`) and drawn as paths by `tools/make-brand.py`; the font is not
+   shipped and the interface fonts are unchanged.
+3. The toolbar's shield is drawn 18% larger inside the same button, as shapes
+   (sharp at every scale).
+4. No link preview bar; the status bar stays for zoom and toolbar messages.
+
+`__min_system__` is 1.0.1: the icons installed under `/usr/share/icons`
+changed, so 1.0.0 announces this release instead of self-updating (the owner
+may put it back to 1.0.0 before signing if a stale menu icon is acceptable).
 
 ### 1.0.2 — toolbar, interface polish, new-tab background
 
@@ -204,7 +193,9 @@ In `docs/platforms/` (English), citing the official sources used:
 
 ### Status
 
-- 2026-11-16: plan written; no session started yet.
+- 2026-11-16: plan written.
+- 2026-11-16: unattended session started. 1.0.1 finished on branch
+  `ike-1.0.1` (tests and package below); next is 1.0.2 on `ike-1.0.2`.
 
 ### Also planned
 

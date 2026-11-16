@@ -38,8 +38,9 @@ uses it from the next start. A version that fails to start is rolled back
 automatically and never installed again. Nothing under `/usr` is touched.
 
 `min_system` is `__min_system__` from `ike/__init__.py`: the oldest installed
-system part (`ike_boot.py`, the AdBlock engine module, the launcher) the new
-`ike/` folder works with. Raise it when a release changes one of those parts.
+system part (`ike_boot.py`, the AdBlock engine module, the launcher, the
+desktop entry and its icons) the new `ike/` folder goes with. Raise it when a
+release changes one of those parts.
 An installation older than that is not self-updated: it shows once "I.K.E. X is
 available, but it needs a newer installation package".
 
