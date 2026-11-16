@@ -53,12 +53,16 @@ jobs:
           grep -q "\\[1.0.0\\]" CHANGELOG.md
           echo "Documentation baseline is present."
 
-      - name: Report source bootstrap status
+      - name: Verify imported Arch source and CI
         if: github.event_name != 'schedule' || steps.local-time.outputs.hour == '08'
         shell: bash
         run: |
           if [ -f pyproject.toml ] || [ -f setup.cfg ] || [ -f PKGBUILD ]; then
-            echo "Build metadata detected. Full source CI must be enabled and validated against the imported project."
+            test -s ike/__init__.py
+            test -s ike-adblock/Cargo.toml
+            test -s tests/conftest.py
+            test -s .github/workflows/tests.yml
+            echo "Arch source baseline and application test workflow are present."
           else
             echo "::notice::Application source and build metadata are not yet present. This is a repository-health check, not an application test."
           fi

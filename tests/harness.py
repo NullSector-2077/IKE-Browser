@@ -1,6 +1,6 @@
 """Runs inside the real browser (loaded through IKE_TEST_HOOK).
 
-The test script (IKE_TEST_SCRIPT) defines ``steps(ice, qapp, out)``: a
+The test script (IKE_TEST_SCRIPT) defines ``steps(ike, qapp, out)``: a
 generator that yields the number of milliseconds to wait before it goes on,
 so the event loop keeps running between checks. Whatever it puts in ``out``
 is written as JSON to IKE_TEST_OUT, then the browser quits. An exception is
@@ -45,7 +45,7 @@ def _step():
 def _start():
     global _gen
     try:
-        _gen = _scope["steps"](ice, qapp, _out)  # noqa: F821
+        _gen = _scope["steps"](ike, qapp, _out)  # noqa: F821
     except Exception:
         _out["error"] = traceback.format_exc()
         _finish()

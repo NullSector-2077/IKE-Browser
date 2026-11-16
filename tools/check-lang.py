@@ -16,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from ice.i18n import template  # noqa: E402
+from ike.i18n import template  # noqa: E402
 
 PLACEHOLDER = re.compile(r"%[sd%]|\{[a-z]+\}")
 
