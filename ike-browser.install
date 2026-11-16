@@ -1,0 +1,22 @@
+post_install() {
+  python3 -m compileall -q /usr/lib/ike-browser >/dev/null 2>&1 || true
+  update-desktop-database -q /usr/share/applications 2>/dev/null || true
+  gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor 2>/dev/null || true
+  echo ">> I.K.E. installed. Start it from the application menu or with: ike-browser"
+  echo ">> Your data lives in ~/.config/ike-browser and ~/.local/share/ike-browser"
+}
+
+post_upgrade() {
+  find /usr/lib/ike-browser -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
+  post_install
+}
+
+pre_remove() {
+  find /usr/lib/ike-browser -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
+}
+
+post_remove() {
+  update-desktop-database -q /usr/share/applications 2>/dev/null || true
+  echo ">> I.K.E. removed. Personal data was kept; to delete it too:"
+  echo ">>   rm -rf ~/.config/ike-browser ~/.local/share/ike-browser ~/.cache/ike-browser"
+}

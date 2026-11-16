@@ -1,0 +1,48 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>I.K.E.</title>
+<style>
+:root{--bg:{{bg}};--fg:{{fg}};--mute:{{mute}};--card:{{card}};--line:{{line}};--acc:{{acc}}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+ background:var(--bg);color:var(--fg);font-family:system-ui,"Noto Sans",sans-serif}
+img{width:132px;height:132px}
+h1{font-size:15px;letter-spacing:.32em;font-weight:500;color:var(--mute);margin:14px 0 30px;text-transform:uppercase}
+form{width:min(620px,88vw)}
+input{width:100%;font:inherit;font-size:17px;padding:12px 16px;border-radius:6px;border:1px solid var(--line);
+ background:var(--card);color:var(--fg);outline:none}
+input:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 25%,transparent)}
+.stats{display:flex;gap:44px;margin-top:38px;text-align:center}
+.stats b{display:block;font-size:26px;font-weight:600;color:var(--acc);font-variant-numeric:tabular-nums}
+.stats span{font-size:13px;color:var(--mute)}
+.corner{position:fixed;top:22px;right:30px;text-align:right}
+.clock{font-size:42px;font-weight:300;line-height:1.1;font-variant-numeric:tabular-nums}
+.date{font-size:13px;color:var(--mute);margin-top:2px}
+.weather{font-size:15px;margin-top:10px}
+.weather:empty{display:none}
+</style></head>
+<body>
+<div class="corner">{{corner}}</div>
+<img src="ike:logo" alt="I.K.E.">
+<h1>Internet Kontrol Experience</h1>
+<form action="ike:search" method="get"><input name="q" autofocus autocomplete="off" placeholder="{{placeholder}}"></form>
+<div class="stats">
+ <div><b>{{blocked}}</b><span>{{blocked_label}}</span></div>
+ <div><b>{{level}}</b><span>{{level_label}}</span></div>
+</div>
+<script>
+(function () {
+  var lang = "{{lang}}", clock = document.getElementById("clock"), date = document.getElementById("date");
+  function fmt(d, opts) { try { return d.toLocaleString(lang, opts); } catch (e) { return d.toLocaleString(undefined, opts); } }
+  function tick() {
+    var now = new Date();
+    if (clock) clock.textContent = fmt(now, {hour: "2-digit", minute: "2-digit"});
+    if (date) date.textContent = fmt(now, {weekday: "long", day: "numeric", month: "long"});
+  }
+  if (clock || date) { tick(); setInterval(tick, 1000); }
+  window.ikeWeather = function (text) {
+    var w = document.getElementById("weather");
+    if (w) w.textContent = text;
+  };
+})();
+</script>
+</body></html>

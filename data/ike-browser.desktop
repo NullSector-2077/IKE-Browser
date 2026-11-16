@@ -1,0 +1,27 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=I.K.E.
+GenericName=Web Browser
+GenericName[it]=Browser web
+Comment=Internet Kontrol Experience - private, independent web browser
+Comment[it]=Internet Kontrol Experience - browser web privato e indipendente
+Exec=ike-browser %U
+Icon=ike-browser
+Terminal=false
+Categories=Network;WebBrowser;Qt;
+MimeType=text/html;text/xml;application/xhtml+xml;application/pdf;x-scheme-handler/http;x-scheme-handler/https;
+StartupNotify=true
+StartupWMClass=ike-browser
+Keywords=browser;web;internet;privacy;
+Actions=new-window;new-private-window;
+
+[Desktop Action new-window]
+Name=New Window
+Name[it]=Nuova finestra
+Exec=ike-browser
+
+[Desktop Action new-private-window]
+Name=New Private Window
+Name[it]=Nuova finestra privata
+Exec=ike-browser --private

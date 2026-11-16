@@ -1,0 +1,65 @@
+# Automatic tests
+
+`tests/` holds checks that start the real browser without a display (PyQt6 +
+Qt WebEngine, `QT_QPA_PLATFORM=offscreen`), each time with an empty profile in
+a temporary folder and without downloading anything, and look at it from the
+inside. From the repository root:
+
+```bash
+python3 -m pytest
+```
+
+Needs `python-pytest` besides the dependencies of the PKGBUILD; the desktop
+integration tests also need `dbus-daemon` and `gdbus` (skipped without them),
+and the screen test `ffmpeg`. Every other test runs without a session bus. The AdBlock
+engine tests need the engine built into `vendor/adblock/` (see BUILDING.md);
+without it they are skipped. The whole run takes a few minutes.
+To test an installed copy instead of the repository:
+`IKE_TEST_APP=/usr/lib/ike-browser python3 -m pytest`.
+`python3 tests/measure_startup.py` gives the median start-up time (the same
+variable chooses the copy). Outside Arch, the Python packages of
+`tools/test-requirements.txt` give the same Qt WebEngine from PyPI.
+
+| File | What it checks |
+|---|---|
+| `test_startup.py` | start-up with the new tab page, an address from the command line, private window |
+| `test_interface.py` | shield icon at every level and size (dark-blue centre), own window close button (red circle on hover, closes the window), hidden with the system title bar |
+| `test_fullscreen.py` | Full screen and mouse lock with real clicks and keys: mouse lock granted with a notice naming the site's origin, Esc frees the pointer; full screen granted with its notice, Esc leaves it; both at once ended by one Esc; a video in full screen, the notice gone after a few seconds; a tab that is no longer in view refused both, the tab in view still allowed |
+| `test_window_parts.py` | address bar (addresses, search, keywords, typing an address), vertical tabs (rows, close button), shield panel, find bar |
+| `test_themes.py` | the ready-made themes applied live, back to "Follow the system", the system look untouched by default, a user theme saved, applied at the next start and deleted |
+| `test_languages.py` | `tools/check-lang.py` without errors, start-up in Italian, German, Chinese and Japanese, language taken from the system (`zh_TW` falls back to Chinese) |
+| `test_settings.py` | Settings in all eight languages: 7 sections with icons, no sideways scrolling on General and Appearance, applying without changes changes nothing, a change is saved; the keys of settings.json match `tests/settings-keys.json` |
+| `test_part_b.py` | » button of the bookmarks bar; progress ring of the Downloads button (local server sending a file slowly); domain in normal text and the rest of the address dimmed; loading line (slow local page, tab switch, theme accent colour); tab previews (picture taken when the tab is left, shown instead of the tooltip on horizontal and vertical tabs, not on the current tab); new tab clock and weather (stand-in Open-Meteo server: city search, only rounded coordinates sent, once in 30 minutes, page updated without reload, switched off) |
+| `test_updater.py` | Ed25519 signatures; release file names; archives with `..`, absolute paths, other folders or links refused; hash mismatch; `tools/make-release.py` (reproducible payload, signed stable and beta manifests, wrong key or a key inside the repository refused); no private key in the repository; the shipped channel; in the real browser, through a local server that redirects like GitHub Releases: full update, next start on the new version and confirmed, nothing to do the second time, bad signature (payload never downloaded), failing self-test, `min_system` too high (announced once), roll-back of an update that crashes at start |
+| `test_adblock.py` | the engine matches network and cosmetic filters; in a page served locally an image is blocked, an element is hidden and the shield counts it; when the engine fails, requests are let through (fail-open, as before), the errors are counted and shown in Help → About, and blocking resumes with the engine |
+| `test_fingerprint.py` | Fingerprinting protection with list scriptlets, at Balanced and Maximum, with software WebGL: the same page measured twice without scriptlets (stable within a session) and once with eleven uBlock Origin scriptlets wrapping timers, fetch, XHR, JSON, events, eval and animation frames: canvas, WebGL, audio, navigator, screen, Client Hints, media devices, WebGPU, a worker, a frame and fifteen functions that must look native are the same; the graphics card is never the real one. `IKE_TEST_FP_OUT=<file>` writes the values |
+| `test_repair.py` | Repair this site: a local page broken by the ad blocker is repaired by answering the questions from what the page shows (only ad blocking turned off, remembered, shown in the shield, undone); the search with one and with two culprits, protections not the cause, only the whole shield helps, cancel restores everything, button hidden by the setting |
+| `test_resources.py` | Site resources: two local sites measured (memory, CPU, requests, data) and listed; the memory limit suspends only the background tab, which comes back when opened; the CPU limit freezes a busy background tab after three checks, stops it, and it runs again when opened; off by default |
+| `test_watcher.py` | Page watcher (a local shop whose price changes and whose page changes at every load): a part with an id, a part without an id, the whole page; unchanged and changed text, notification, no cookies of the user in the checks, shield untouched; the list window (changed in bold, open, remove); part not found; due check; switched off |
+| `test_components.py` | Daily component check (`tools/check-components.py`): the versions written in the repository agree (Cargo.toml, Cargo.lock, `ENGINE_VERSION`, test requirements); with stand-in upstream answers and the real Node.js scriptlet builder on a stand-in uBlock checkout: nothing new, each kind of new version found, minor changes (a new uBlock commit with the same scriptlets, a new certifi) reported but not counted, `--apply` rewrites every version file and a second check finds nothing, one failing source reported alone, JSON / Markdown / GitHub output; the GitHub workflows; with `IKE_TEST_NETWORK=1` the real sources; the maintenance version bump (`tools/prepare-maintenance.py`) |
+| `test_passwords.py` | Password manager origins: scheme, host case, the scheme's own default port only (`http://site:443` and `https://site:80` stay distinct), other ports, IPv6, invalid ports, addresses without a scheme (CSV import), older keys unchanged; in the browser, a saved login offered and filled only on its exact origin (not on another subdomain, port or scheme) and, after a redirect, on the origin of the page at fill time |
+| `test_plasma.py` | Desktop integration on a private D-Bus with stand-ins (`tests/dbus_standins.py`) and `gdbus` calls: media controls (properties, metadata from the site, pause, play/pause, set position, introspection, name released when the tab closes; off by the setting and for private windows); KRunner (tabs and bookmarks found, short queries ignored, switching to a tab, opening a bookmark, runner file written and removed); downloads in the notifications (progress, speed, total, destination, finished; cancelled from the notification); Send to device (device list, menus, shareUrl, off by the setting); the engine keeps the screen on during a video; nothing happens without a bus |
+| `test_platform.py` | The folders (XDG), the updater's folder agreed by `ike_boot.py` and `ike/updater.py`, the identity presented to sites, the Widevine module check (only a 64-bit x86-64 Linux library; another machine, a Windows library or a truncated file refused) and its archive (names leaving the folder ignored); Settings and the window in the browser |
+| `test_legacy.py` | One-time import of the earlier installation (`ike/legacy.py`): settings, bookmarks (also of extra profiles), cookies and the password vault copied, internal addresses and theme names adjusted, the old self-updates left out; nothing deleted until `clean_up()` after a correct start; done only once; an existing I.K.E. profile left alone; a failed copy leaves both sides as they were; an old vault opens with the same master password and is sealed again; in the real browser, a bookmark and the start page carried over and the old folders removed |
+| `test_userscripts.py` | User scripts on pages of a local server (other sites through a stand-in proxy): common patterns (`@grant none` in the page, `document-start` before the page, `GM_getValue` / `GM_setValue` kept between loads, `GM_addStyle`, `GM_xmlhttpRequest` and `GM.xmlHttpRequest` to another site, the page's own address, `unsafeWindow`); each script gets only the GM functions of its `@grant` (none without `@grant`); attacks by the page: messages without a token, with a wrong token or another script's token, an operation not granted, `console.info` and `JSON.stringify` replaced before an idle script, the answer callback taken over; `@connect` (listed domains and subdomains, `self`, `*`, not listed); this computer and private addresses (127/8, other forms of 127.0.0.1, `localhost`, 192.168/16, IPv6-mapped, a name resolving to 10/8) refused unless `@connect` names them, also after a redirect; the install dialog lists `@connect` |
+
+Lint (unused code and import order, settings in `pyproject.toml`):
+
+```bash
+ruff check .
+```
+
+GitHub runs both on every pull request to `main` and every push to `main`
+(`.github/workflows/tests.yml`, Ubuntu 24.04 with the packages of
+`tools/test-requirements.txt`, the Chromium sandbox off as on the runner it
+cannot start), then builds the Arch package with `makepkg`, runs the whole
+suite again against the installed copy and keeps the package as the run's
+`ike-browser-package` download.
+
+With `IKE_TEST_SHOTS=<folder>` some tests also save screenshots there, to be
+checked by eye.
+
+How a test works: `tests/conftest.py` starts `ike_boot.py` with
+`IKE_TEST_HOOK=tests/harness.py`; the harness runs the test's `steps()`
+generator inside the browser (each `yield` waits that many milliseconds with
+the event loop running), saves what it recorded and closes the browser.
