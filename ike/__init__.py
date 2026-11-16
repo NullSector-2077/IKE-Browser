@@ -6,7 +6,7 @@ __version__ = "1.6.1"
 # Oldest installed system part (ike_boot.py, AdBlock engine module, launcher,
 # AppImage runtime) this ike/ folder works with. Raise it when a release needs
 # a new system part: older installations are then told to update the package
-# instead of receiving a self-update (see docs/UPDATES.md).
+# instead of receiving a self-update (see docs/arch/UPDATES.md).
 __min_system__ = "1.4.0"
 APP_NAME = "I.K.E."
 APP_LONG_NAME = "I.K.E. - Internet Control Experience"
