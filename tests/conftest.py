@@ -206,6 +206,8 @@ _webgl_flags = []
 def software_webgl_flags():
     """The first set of SOFTWARE_WEBGL with which this engine gives WebGL, or
     None. Asked once per test session, in a separate process each time."""
+    if os.environ.get("IKE_TEST_WEBGL_FLAGS"):         # chosen by hand (diagnostics)
+        return os.environ["IKE_TEST_WEBGL_FLAGS"]
     if _webgl_flags:
         return _webgl_flags[0]
     found = None

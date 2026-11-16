@@ -90,8 +90,26 @@ jobs:
           python3 tools/engine-report.py --decode tests/media --json out/engine-${{ matrix.id }}.json \
               --markdown out/engine-${{ matrix.id }}.md
           { echo "### ${{ matrix.name }}"; cat out/engine-${{ matrix.id }}.md; } >> "$GITHUB_STEP_SUMMARY"
-      - name: Fingerprint test, three times in a row (steadiness with software WebGL)
-        run: for i in 1 2 3; do python3 -m pytest -ra tests/test_fingerprint.py || exit 1; done
+      - name: Software WebGL switches, four times each (diagnostic, temporary)
+        continue-on-error: true
+        run: |
+          for flags in "--use-angle=gl --ignore-gpu-blocklist" \
+                       "--use-angle=gl --ignore-gpu-blocklist --disable-gpu-compositing" \
+                       "--enable-unsafe-swiftshader --use-angle=swiftshader --ignore-gpu-blocklist" \
+                       "--enable-unsafe-swiftshader --use-angle=swiftshader --ignore-gpu-blocklist --disable-gpu-compositing" \
+                       "--use-angle=swiftshader-webgl --ignore-gpu-blocklist --disable-gpu-compositing" \
+                       "NONE"; do
+            ok=0
+            for i in 1 2 3 4; do
+              if [ "$flags" = NONE ]; then
+                IKE_TEST_WEBGL_FLAGS="--disable-gpu" python3 -m pytest -q tests/test_fingerprint.py >/tmp/fp.log 2>&1 && ok=$((ok+1))
+              else
+                IKE_TEST_WEBGL_FLAGS="$flags" python3 -m pytest -q tests/test_fingerprint.py >/tmp/fp.log 2>&1 && ok=$((ok+1))
+              fi
+            done
+            echo "RESULT $ok/4: $flags"
+            tail -3 /tmp/fp.log
+          done
       - name: Tests (this distribution's Qt)
         run: |
           set -o pipefail
