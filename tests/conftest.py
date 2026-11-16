@@ -116,8 +116,11 @@ def run_ike(tmp_path):
                 time.sleep(0.5)
             time.sleep(1)
         if not out_file.exists():
+            err = proc.stderr
+            if len(err) > 8000:                  # the start too: a fatal check is often early
+                err = err[:3000] + "\n[...]\n" + err[-5000:]
             raise AssertionError("the browser ended without results (exit %s)\n%s"
-                                 % (proc.returncode, proc.stderr[-4000:]))
+                                 % (proc.returncode, err))
         out = json.loads(out_file.read_text("utf-8"))
         out["_exit"] = proc.returncode
         out["_stderr"] = proc.stderr
@@ -168,14 +171,17 @@ needs_engine = pytest.mark.skipif(not _engine_available(),
                                   reason="I.K.E. AdBlock engine not built (see docs/BUILDING.md)")
 
 
-# Switches that give WebGL without a graphics card, in order of preference.
-# Qt's own builds and most distributions have SwiftShader inside the engine;
-# a distribution that leaves it out (Debian) is asked for Mesa's software GL.
+# Switches that give WebGL without a graphics card, in order of preference:
+# Mesa's software GL through ANGLE (what a desktop without a GPU driver uses),
+# then the engine's own SwiftShader (left out by some distributions, such as
+# Debian). Compositing stays in software: with it on the GPU, distribution
+# builds of Qt WebEngine (Ubuntu 26.04, Fedora 43) ended with SIGTRAP in two
+# runs out of four in a container; with it in software, four out of four
+# passed with either kind of WebGL (measured on GitHub Actions, 2026-11-16).
 SOFTWARE_WEBGL = (
-    "--enable-unsafe-swiftshader --use-angle=swiftshader --ignore-gpu-blocklist",
-    "--use-gl=angle --use-angle=swiftshader-webgl --ignore-gpu-blocklist",
-    "--use-angle=gl --ignore-gpu-blocklist",
-    "--use-gl=egl --ignore-gpu-blocklist",
+    "--use-angle=gl --ignore-gpu-blocklist --disable-gpu-compositing",
+    "--enable-unsafe-swiftshader --use-angle=swiftshader --ignore-gpu-blocklist --disable-gpu-compositing",
+    "--use-angle=swiftshader-webgl --ignore-gpu-blocklist --disable-gpu-compositing",
 )
 _WEBGL_PROBE = r"""
 import sys
@@ -202,6 +208,8 @@ _webgl_flags = []
 def software_webgl_flags():
     """The first set of SOFTWARE_WEBGL with which this engine gives WebGL, or
     None. Asked once per test session, in a separate process each time."""
+    if os.environ.get("IKE_TEST_WEBGL_FLAGS"):         # chosen by hand (diagnostics)
+        return os.environ["IKE_TEST_WEBGL_FLAGS"]
     if _webgl_flags:
         return _webgl_flags[0]
     found = None
