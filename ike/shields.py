@@ -474,6 +474,11 @@ class Shields(QObject):
         photo = newtabbg.style(self.config)
         theme = themes.current(self.config)
         classes = newtab.body_class(self.config, theme) + ("" if photo else " plain")
+        if not themes.is_cyber(theme):
+            # the rules of the Cyber look are left out when they are not used: less for the page to work through
+            a, b = html.find("/*CYBER*/"), html.find("/*END*/")
+            if 0 <= a < b:
+                html = html[:a] + html[b + 7:]
         html = html.replace("{{background}}", photo)
         app = self.parent()
         for k, v in {

@@ -54,10 +54,23 @@ def roll(config, now=None):
     return m
 
 
+_known = [0.0, ""]            # until when (epoch) the current month's key is known, and that key
+
+
 def count_blocked(config, now=None):
-    """One more tracker or ad blocked."""
+    """One more tracker or ad blocked. Called for every blocked request, so the
+    calendar is looked at once a month, not each time."""
     config.data["blocked_total"] += 1
+    if now is None:
+        m = config.data.get("blocked_month")
+        if time.time() < _known[0] and type(m) is dict and m.get("key") == _known[1] and type(m.get("count")) is int:
+            m["count"] += 1
+            return
     roll(config, now)["count"] += 1
+    if now is None:
+        t = time.localtime()
+        _known[0] = time.mktime((t.tm_year, t.tm_mon + 1, 1, 0, 0, 0, 0, 0, -1))      # the first of next month
+        _known[1] = month_key()
 
 
 def month_name(key):

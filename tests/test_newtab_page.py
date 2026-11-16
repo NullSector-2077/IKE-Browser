@@ -220,3 +220,25 @@ def steps(ike, qapp, out):
     out["class"] = yield from js(view, "document.body.className")
 ''', settings={"ui_scheme": "theme:night"}, timeout=120)
     assert out["hint"] is False and "cyber" not in out["class"]
+
+
+def test_counting_does_not_look_at_the_calendar_each_time():
+    """The quick way taken for every blocked request gives the same figures,
+    and gives way as soon as the month, or the record, is not the expected one."""
+    from ike import newtab
+
+    cfg = Cfg()
+    for _ in range(50):
+        newtab.count_blocked(cfg)
+    key = newtab.month_key()
+    assert cfg["blocked_month"]["key"] == key and cfg["blocked_month"]["count"] == 50 and cfg["blocked_total"] == 50
+    assert newtab._known[1] == key and newtab._known[0] > time.time()
+    cfg.data["blocked_month"] = "damaged"                  # the record replaced behind its back
+    newtab.count_blocked(cfg)
+    assert cfg["blocked_month"]["count"] == 1
+    cfg.data["blocked_month"] = {"key": "2001-01", "count": 7, "prev_key": "", "prev": 0}      # an old month
+    newtab.count_blocked(cfg)
+    assert cfg["blocked_month"]["key"] == key and cfg["blocked_month"]["count"] == 1
+    newtab._known[0] = 0.0                                 # the first of the month has come
+    newtab.count_blocked(cfg)
+    assert cfg["blocked_month"]["count"] == 2
