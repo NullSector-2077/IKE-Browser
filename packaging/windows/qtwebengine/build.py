@@ -167,8 +167,10 @@ def msvc_env():
     for line in dumped.splitlines():
         if "=" in line and not line.startswith("="):
             key, _, value = line.partition("=")
-            env[key] = value
-    if "VCToolsVersion" not in env:
+            # Windows does not tell "Path" from "PATH"; one spelling only, or
+            # a child process may get the wrong one of two.
+            env[key.upper()] = value
+    if "VCTOOLSVERSION" not in env:
         raise SystemExit(f"vcvars64.bat did not set up the compiler ({vcvars})")
     return env
 
@@ -183,10 +185,26 @@ def build_env():
     # memory with MSVC.
     env["NINJAFLAGS"] = os.environ.get("IKE_NINJAFLAGS", "-j4")
     # Read by the Microsoft linker: write a map of every symbol linked in, the
-    # evidence for the "no H.264 / AAC decoder" check.
-    env["LINK"] = "/MAP"
+    # evidence for the "no H.264 / AAC decoder" check. It costs memory in the
+    # last link; "linker_map": false in versions.json switches it off.
+    if VERSIONS.get("linker_map", True):
+        env["LINK"] = "/MAP"
     env["PYTHONDONTWRITEBYTECODE"] = "1"
+    node = cmake_cache_value("Nodejs_EXECUTABLE") or shutil.which("node", path=env["PATH"])
+    if node:
+        # Qt WebEngine's CMake files give this to the Ninja that builds
+        # Chromium; the same when Ninja is started from here.
+        env["NODEJS_EXECUTABLE"] = str(node)
     return env
+
+
+def cmake_cache_value(name):
+    cache = BUILD / "CMakeCache.txt"
+    if not cache.exists():
+        return None
+    found = re.search(rf"^{re.escape(name)}(?::[A-Z]+)?=(.*)$",
+                      cache.read_text(encoding="utf-8", errors="replace"), flags=re.M)
+    return found.group(1).strip() if found and found.group(1).strip() else None
 
 
 # --- prepare ----------------------------------------------------------------
@@ -461,9 +479,9 @@ def cmd_prepare(_args):
     fetch_sources()
     log(f"free space after preparing: {free_gb(ROOT):.1f} GB")
     env = msvc_env()
-    log(f"MSVC {env.get('VCToolsVersion')}, Windows SDK {env.get('WindowsSDKVersion')}, "
-        f"Visual Studio {env.get('VisualStudioVersion')}")
-    note(f"prepared: MSVC {env.get('VCToolsVersion')}, SDK {env.get('WindowsSDKVersion')}, "
+    log(f"MSVC {env.get('VCTOOLSVERSION')}, Windows SDK {env.get('WINDOWSSDKVERSION')}, "
+        f"Visual Studio {env.get('VISUALSTUDIOVERSION')}")
+    note(f"prepared: MSVC {env.get('VCTOOLSVERSION')}, SDK {env.get('WINDOWSSDKVERSION')}, "
          f"{free_gb(ROOT):.0f} GB free, image {os.environ.get('ImageVersion', '?')}")
 
 
@@ -575,7 +593,8 @@ def cmd_configure(_args):
     qt_cmake = QT_PREFIX / "bin" / "qt-cmake.bat"
     run([qt_cmake, "-G", "Ninja", "-S", SRC, "-B", BUILD,
          "-DCMAKE_BUILD_TYPE=Release",
-         "-DQT_USE_ORIGINAL_COMPILER=ON",
+         # The runner also has GCC on its PATH; say which compiler is meant.
+         "-DCMAKE_C_COMPILER=cl", "-DCMAKE_CXX_COMPILER=cl",
          "-DQT_GENERATE_SBOM=OFF",
          # Formats known, decoders left to Windows: see patches/README.md.
          "-DFEATURE_webengine_proprietary_codecs=ON",
@@ -636,7 +655,18 @@ def cmd_smoke(_args):
     check_gn_args(folder)
 
     listed = output(["ninja", "-C", folder, "-t", "targets", "all"], env=env)
-    objects = sorted({m.group(1) for m in map(SMOKE_PATTERN.match, listed.splitlines()) if m})
+    objects = {m.group(1) for m in map(SMOKE_PATTERN.match, listed.splitlines()) if m}
+    # The patched files that are not media code (the renderer's start-up).
+    stems = set()
+    for patch in patch_files()[1]:
+        for path in patched_paths(patch, Path(".")):
+            if path.suffix == ".cc":
+                stems.add(path.stem)
+    for line in listed.splitlines():
+        name = line.split(": ", 1)[0]
+        if name.endswith(".obj") and name.rsplit("/", 1)[-1][:-4] in stems:
+            objects.add(name)
+    objects = sorted(objects)
     log(f"{len(objects)} media objects to compile first")
     note(f"GN done; compiling {len(objects)} media objects first")
     if not objects:

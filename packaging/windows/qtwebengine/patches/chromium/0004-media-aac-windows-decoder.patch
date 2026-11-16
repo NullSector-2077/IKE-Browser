@@ -48,7 +48,7 @@ index 8aecfc75..9e768faa 100644
    // codecs that have |sample_fmt| set by FFmpeg.
    DCHECK_EQ(av_get_bytes_per_sample(codec_context->sample_fmt),
 diff --git a/chromium/media/filters/win/media_foundation_audio_decoder.cc b/chromium/media/filters/win/media_foundation_audio_decoder.cc
-index 0767af51..e7c9dd01 100644
+index 0767af51..a0c9c9ed 100644
 --- a/chromium/media/filters/win/media_foundation_audio_decoder.cc
 +++ b/chromium/media/filters/win/media_foundation_audio_decoder.cc
 @@ -12,6 +12,8 @@
@@ -194,7 +194,43 @@ index 0767af51..e7c9dd01 100644
  int GetBytesPerFrame(AudioCodec codec) {
    switch (codec) {
  #if BUILDFLAG(ENABLE_PLATFORM_DTS_AUDIO)
-@@ -266,13 +351,31 @@ void MediaFoundationAudioDecoder::Decode(scoped_refptr<DecoderBuffer> buffer,
+@@ -175,9 +260,13 @@ int GetBytesPerFrame(AudioCodec codec) {
+ // static
+ std::unique_ptr<MediaFoundationAudioDecoder>
+ MediaFoundationAudioDecoder::Create() {
+-  return InitializeMediaFoundation()
+-             ? std::make_unique<MediaFoundationAudioDecoder>()
+-             : nullptr;
++  // I.K.E.: always an object. Upstream returns null when Media Foundation
++  // cannot be started (Windows N without the Media Feature Pack), and the
++  // service then treats the next Initialize() as a bad message from the
++  // renderer. Here every AAC stream comes this way, so such a system has to
++  // get an ordinary "not supported" instead: CreateDecoder() checks Media
++  // Foundation again and Initialize() reports the failure.
++  return std::make_unique<MediaFoundationAudioDecoder>();
+ }
+ 
+ MediaFoundationAudioDecoder::MediaFoundationAudioDecoder() = default;
+@@ -221,10 +310,17 @@ void MediaFoundationAudioDecoder::Initialize(const AudioDecoderConfig& config,
+ 
+ void MediaFoundationAudioDecoder::Decode(scoped_refptr<DecoderBuffer> buffer,
+                                          DecodeCB decode_cb) {
+-  CHECK(decoder_);
+   DecodeCB decode_cb_bound =
+       base::BindPostTaskToCurrentDefault(std::move(decode_cb));
+ 
++  // I.K.E.: upstream has CHECK(decoder_) here. In Qt WebEngine this code runs
++  // in the browser process, which a call after a failed Initialize() must not
++  // bring down.
++  if (!decoder_) {
++    std::move(decode_cb_bound).Run(DecoderStatus::Codes::kNotInitialized);
++    return;
++  }
++
+   if (buffer->end_of_stream()) {
+     switch (decoder_->ProcessMessage(MFT_MESSAGE_COMMAND_DRAIN, 0)) {
+       case S_OK: {
+@@ -266,13 +362,31 @@ void MediaFoundationAudioDecoder::Decode(scoped_refptr<DecoderBuffer> buffer,
      has_reset_ = false;
    }
  
@@ -227,7 +263,20 @@ index 0767af51..e7c9dd01 100644
      std::move(decode_cb_bound).Run(DecoderStatus::Codes::kFailed);
      return;
    }
-@@ -352,33 +455,60 @@ HRESULT MediaFoundationAudioDecoder::CreateDecoder() {
+@@ -326,7 +440,11 @@ void MediaFoundationAudioDecoder::Decode(scoped_refptr<DecoderBuffer> buffer,
+ }
+ 
+ void MediaFoundationAudioDecoder::Reset(base::OnceClosure reset_cb) {
+-  CHECK(decoder_);
++  // I.K.E.: no CHECK(decoder_), for the reason given in Decode().
++  if (!decoder_) {
++    base::BindPostTaskToCurrentDefault(std::move(reset_cb)).Run();
++    return;
++  }
+   has_reset_ = true;
+   auto hr = decoder_->ProcessMessage(MFT_MESSAGE_COMMAND_FLUSH, 0);
+   if (hr != S_OK) {
+@@ -352,33 +470,60 @@ HRESULT MediaFoundationAudioDecoder::CreateDecoder() {
      return kErrorInitializeMediaFoundation;
    }
  
@@ -307,7 +356,7 @@ index 0767af51..e7c9dd01 100644
  #else
      return E_NOTIMPL;
  #endif
-@@ -512,7 +642,10 @@ MediaFoundationAudioDecoder::PumpOutput(PumpState pump_state) {
+@@ -512,7 +657,10 @@ MediaFoundationAudioDecoder::PumpOutput(PumpState pump_state) {
  
    if (hr == MF_E_TRANSFORM_STREAM_CHANGE &&
        pump_state != PumpState::kStreamChange) {
