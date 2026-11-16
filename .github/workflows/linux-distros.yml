@@ -1,9 +1,10 @@
 # I.K.E. on each Linux distribution, with THAT distribution's own Python, Qt,
 # PyQt and Qt WebEngine packages (the "Tests" workflow uses PyPI's Qt, which
 # proves nothing about a distribution's own build). In a container of each:
-# the engine module built, the engine report (versions, the formats the engine
-# declares and the ones it really decodes, sandbox), the whole test suite. On Arch the package is also built with
-# makepkg, installed with pacman and tested as installed.
+# the engine module built, the engine report (versions, the formats the
+# engine declares and the ones it really decodes, sandbox), the whole test
+# suite. On Arch the package is also built with makepkg, installed with
+# pacman and tested as installed.
 #
 # A failing step fails the job; the job's name tells the distribution, the
 # logs, the test results (JUnit) and the engine report are kept as the run's
