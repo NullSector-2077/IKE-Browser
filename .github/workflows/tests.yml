@@ -61,13 +61,7 @@ jobs:
         run: |
           cargo build --release --locked --manifest-path ike-adblock/Cargo.toml
           install -m755 ike-adblock/target/release/libike_adblock.so vendor/adblock/ike_adblock.abi3.so
-      - name: Diagnose import order
-        run: |
-          ruff check tests/test_components.py --fix
-          git diff -- tests/test_components.py
-          ruff check .
-      - name: Component maintenance tests
-        run: python -m pytest tests/test_components.py -vv
-      - name: Full test suite
-        if: false
+      - name: Lint
+        run: ruff check .
+      - name: Tests
         run: python -m pytest
