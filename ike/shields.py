@@ -326,7 +326,21 @@ class IkeSchemeHandler(QWebEngineUrlSchemeHandler):
             q = q.replace("+", " ")
             job.redirect(QUrl(self.s.search_url(q)))
             return
-        if path == "logo":
+        if path in ("tile", "theme"):
+            # answers given on the new tab page itself (a tile hidden or added, the
+            # suggestion of the Cyber theme); the page is shown again afterwards
+            from PyQt6.QtCore import QUrlQuery
+            items = QUrlQuery(url).queryItems(QUrl.ComponentFormattingOption.FullyDecoded)
+            self.s.newtab_answer(path, {k: v.replace("+", " ") if path == "theme" else v for k, v in items})
+            job.redirect(QUrl("ike:newtab"))
+            return
+        if path == "favicon":
+            data = self.s.favicon_png(QUrlQuery_value(url, "h"))
+            mime = b"image/png"
+            if not data:
+                job.fail(QWebEngineUrlRequestJob.Error.UrlNotFound)
+                return
+        elif path == "logo":
             data = (RES_DIR / "ike.svg").read_bytes()
             mime = b"image/svg+xml"
         elif path == "background":
@@ -344,8 +358,14 @@ class IkeSchemeHandler(QWebEngineUrlSchemeHandler):
         job.reply(mime, buf)
 
 
+def QUrlQuery_value(url, key):
+    from PyQt6.QtCore import QUrlQuery
+    return QUrlQuery(url).queryItemValue(key, QUrl.ComponentFormattingOption.FullyDecoded)
+
+
 class Shields(QObject):
     blocked = pyqtSignal(str)  # first-party host
+    theme_changed = pyqtSignal()     # the theme was changed from the new tab page
 
     def __init__(self, config, blocker, parent=None):
         super().__init__(parent)
@@ -382,7 +402,8 @@ class Shields(QObject):
             st = self.stats[host] = dict.fromkeys(self.KINDS, 0)
         st[kind] += 1
         if kind in ("ads", "scripts"):
-            self.config.data["blocked_total"] += 1
+            from . import newtab
+            newtab.count_blocked(self.config)        # the total and the month's own count
             self.blocked.emit(host)
 
     def site_stats(self, host):
@@ -396,6 +417,35 @@ class Shields(QObject):
         self.stats.pop(host, None)
 
     # --- search / new tab --------------------------------------------
+    def favicon_png(self, host):
+        """PNG of the icon kept for a site (for the tiles), or b""."""
+        icons = getattr(self.parent(), "favicons", None)
+        if icons is None or not host or len(host) > 255:
+            return b""
+        row = icons.db.execute("SELECT png FROM icons WHERE host=?", (host.lower(),)).fetchone()
+        return bytes(row[0]) if row and row[0] else b""
+
+    def newtab_answer(self, what, query):
+        """A choice made on the new tab page: a tile hidden or added, the Cyber theme tried or left."""
+        from . import newtab
+        app = self.parent()
+        storage = getattr(app, "storage", None)
+        if what == "tile":
+            if query.get("hide"):
+                newtab.hide_tile(self.config, query["hide"])
+            address = newtab.web_address(query.get("add", ""))
+            if address and storage is not None and not storage.is_bookmarked(address):
+                from urllib.parse import urlsplit
+                host = urlsplit(address).hostname or address
+                storage.add_bookmark(address, host[4:] if host.startswith("www.") else host)
+                refresh = getattr(app, "refresh_windows", None)
+                if refresh is not None:
+                    from PyQt6.QtCore import QTimer
+                    QTimer.singleShot(0, refresh)             # the bookmarks bar and menu
+        elif newtab.answer_hint(self.config, query):
+            self.theme_changed.emit()
+        self.config.save()
+
     def search_url(self, query, engine=None):
         e = self.config.engine(engine)
         return e["url"].replace("{q}", quote(query, safe=""))
@@ -420,13 +470,20 @@ class Shields(QObject):
             corner += '<div class="weather" id="weather">%s</div>' % _html.escape(self.weather_text())
         from . import i18n, newtabbg
         html = html.replace("{{corner}}", corner).replace("{{lang}}", i18n.current().replace("_", "-"))
-        html = html.replace("{{background}}", newtabbg.style(self.config))
+        from . import effects, newtab, themes
+        photo = newtabbg.style(self.config)
+        theme = themes.current(self.config)
+        classes = newtab.body_class(self.config, theme) + ("" if photo else " plain")
+        html = html.replace("{{background}}", photo)
+        app = self.parent()
         for k, v in {
-            "{{placeholder}}": T("Search with %s or enter address") % e["name"],
-            "{{blocked}}": "{:,}".format(self.config["blocked_total"]).replace(",", "."),
-            "{{blocked_label}}": T("trackers and ads blocked"),
-            "{{level_label}}": T("Protection level"),
-            "{{level}}": T(LEVEL_NAMES[self.config["shield_level"]]),
+            "{{placeholder}}": _html.escape(T("Search with %s or enter address") % e["name"], quote=True),
+            "{{class}}": classes.strip(),
+            "{{effects}}": "true" if effects.on(self.config) else "false",
+            "{{tiles}}": newtab.tiles_html(self.config, getattr(app, "storage", None)),
+            "{{stats}}": newtab.stats_html(self.config, T("Protection level"),
+                                           T(LEVEL_NAMES[self.config["shield_level"]])),
+            "{{hint}}": newtab.hint_html(self.config, theme),
         }.items():
             html = html.replace(k, v)
         return html

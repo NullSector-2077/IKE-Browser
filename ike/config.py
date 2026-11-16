@@ -201,6 +201,18 @@ DEFAULTS = {
     "ask_download_location": True,
     # stats / session
     "blocked_total": 0,
+    "blocked_month": {},             # {"key": "2026-11", "count": n, "prev_key": "2026-10", "prev": n}
+    "blocked_counter": "month",      # what the new tab page shows: "month" | "total"
+    # new tab page
+    "newtab_tiles": "bookmarks",     # "bookmarks" | "visited" | "none"
+    "newtab_tiles_hidden": [],       # addresses of the tiles the user hid
+    "newtab_grid": True,             # Cyber theme: a grid when there is no photo
+    # the Cyber theme (ui_scheme "theme:cyber")
+    "cyber_accent": "",              # "" = the theme's own, or "#rrggbb"
+    "cyber_shape": "smusso",         # tabs: "smusso" | "lama" | "mirino"
+    "cyber_glow": True,
+    "cyber_corners": True,
+    "cyber_hint": "ask",             # the suggestion on the new tab page: "ask" | "trial" | "done"
     "session": [],
     "experimental_extensions": False,   # engine extension support is unstable
     "enabled_extensions": [],           # extension ids to re-enable at startup
