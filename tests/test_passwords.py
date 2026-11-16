@@ -61,7 +61,7 @@ def test_vault_opens_only_as_sealed_by_ike(tmp_path):
     blob = json.loads(original)
     key = vault._derive("master", base64.b64decode(blob["salt"]))
     # the same entries and key, sealed with another program's associated data
-    for aad in (b"ice-vault-1", b"", None):
+    for aad in (b"other-vault-1", b"", None):
         nonce = os.urandom(12)
         data = AESGCM(key).encrypt(nonce, json.dumps(vault.entries).encode(), aad)
         other = dict(blob, nonce=base64.b64encode(nonce).decode(), data=base64.b64encode(data).decode())

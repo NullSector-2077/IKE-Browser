@@ -263,7 +263,9 @@ class Shields(QObject):
         self.scheme_handler = IkeSchemeHandler(self)
         self._fp_src = (RES_DIR / "fingerprint.js").read_text("utf-8")
         self._consent_src = (RES_DIR / "consent.js").read_text("utf-8")
-        self._newtab_src = (RES_DIR / "newtab.html").read_text("utf-8")
+        # the full name is drawn as paths (tools/make-brand.py), in the colour of the page text
+        self._newtab_src = (RES_DIR / "newtab.html").read_text("utf-8").replace(
+            "{{wordmark}}", (RES_DIR / "wordmark.svg").read_text("utf-8").strip())
         self._videoads_src = (RES_DIR / "videoads.js").read_text("utf-8")
         self._videorelay_src = (RES_DIR / "videorelay.js").read_text("utf-8")
         self._site_lru = {}              # id(profile) -> [host, ...] most recent last

@@ -72,8 +72,9 @@ Principles for every session (from the owner):
    in the PKGBUILD. The owner confirmed on 2026-11-16 that the old folders are
    gone and the password vault opens. `__min_system__` stays 1.0.0 if only
    `ike/` changes.
-2. **Brand**: `ike/resources/ike.svg` still draws "I.C.E" as SVG paths (a text
-   search does not find it); check `data/icons` (SVG and every PNG size) too.
+2. **Brand**: `ike/resources/ike.svg` still draws the earlier lettering as SVG
+   paths (a text search does not find it); check `data/icons` (SVG and every
+   PNG size) too.
    The logo shows "I.K.E" and the full name is "Internet Kontrol Experience"
    (Kontrol with K), on the new tab page and wherever the old name appears.
    Lettering: futuristic / cyber, distinctive, elegant, easy to read, from a

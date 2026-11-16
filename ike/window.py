@@ -37,7 +37,7 @@ from . import APP_LONG_NAME, APP_NAME, __version__
 from .config import LEVEL_NAMES, LEVELS
 from .features import WindowFeatures, tab_icon
 from .i18n import T
-from .shieldpanel import ShieldPanel, shield_icon
+from .shieldpanel import TOOLBAR_SHIELD_GROW, ShieldPanel, shield_icon
 from .tabs import AUDIO_ROLE, VTabDelegate
 from .urlbar import _URLISH, UrlBar
 from .webview import WebView
@@ -836,7 +836,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         view.loadStarted.connect(lambda v=view: self._load_state(v, True))
         view.loadFinished.connect(lambda ok, v=view: self._load_finished(v, ok))
         view.loadProgress.connect(lambda pc, v=view: self._load_progress(v, pc))
-        page.linkHovered.connect(self._hovered)
         page.windowCloseRequested.connect(lambda v=view: self.close_tab(v))
         page.recentlyAudibleChanged.connect(lambda _a, v=view: self._tab_changed(v))
         if not self.private:
@@ -1415,13 +1414,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if view is self.current_view():
             self.update_shield()
 
-    def _hovered(self, url):
-        if url:
-            self.statusBar().showMessage(url)
-            self.statusBar().show()
-        else:
-            self._hide_status()
-
     def _hide_status(self):
         if not self.statusBar().currentMessage() or True:
             self.statusBar().clearMessage()
@@ -1436,7 +1428,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         cfg = self.app.config
         level = cfg.level_for(host) if host else cfg["shield_level"]
         n = self.app.shields.total(host) if host else 0
-        self.shield_btn.setIcon(shield_icon(level))
+        self.shield_btn.setIcon(shield_icon(level, grow=TOOLBAR_SHIELD_GROW))
         self.shield_btn.setText(str(n) if n and level != "off" else "")
         self.m_level.setIcon(shield_icon(cfg["shield_level"], 16))
         if self.shield_menu.isVisible():

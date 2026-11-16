@@ -7,6 +7,7 @@
 | Dark Reader | `ike/resources/darkreader.js` | MIT, see `LICENSE.darkreader` |
 | Lucide icons | `ike/resources/icons/sets/lucide` | ISC, see `LICENSE.lucide` |
 | Phosphor Icons | `ike/resources/icons/sets/phosphor` | MIT, see `LICENSE.phosphor` |
+| Orbitron 2.001 (typeface, The Orbitron Project Authors) | the lettering of the logo and of the full name, drawn as paths in `ike/resources/ike.svg`, `ike/resources/wordmark.svg` and the icons of `data/icons` (`tools/make-brand.py`); the font itself is not shipped | SIL Open Font License 1.1, see `LICENSE.orbitron` |
 
 The `ike_adblock` module is written for I.K.E. (sources in `ike-adblock/`,
 MPL-2.0) and statically links the Rust libraries listed below, each under its

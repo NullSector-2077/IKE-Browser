@@ -33,6 +33,101 @@ def test_shield_icon_levels(run_ike):
     assert out["button_icon"] and out["menu_icon"]
 
 
+def test_toolbar_shield_is_larger_in_the_same_button(run_ike):
+    """The toolbar's shield drawing is 15-20% larger than the plain glyph,
+    centred and inside its icon box at every screen scale, with sharp edges;
+    the button, its icon box and its place in the toolbar do not change."""
+    out = run_ike("""
+        from PyQt6.QtCore import QSize
+        from PyQt6.QtGui import QColor
+
+        def box(img):
+            xs, ys = [], []
+            for x in range(img.width()):
+                for y in range(img.height()):
+                    if QColor.fromRgba(img.pixel(x, y)).alpha() > 24:
+                        xs.append(x)
+                        ys.append(y)
+            return [min(xs), min(ys), max(xs) + 1, max(ys) + 1]
+
+        def soft_edge(img):
+            # partly transparent pixels on the middle row, left of the drawing's centre
+            y = img.height() // 2
+            return sum(1 for x in range(img.width() // 2)
+                       if 8 < QColor.fromRgba(img.pixel(x, y)).alpha() < 247)
+
+        def steps(ike, qapp, out):
+            yield 600
+            from ike.shieldpanel import TOOLBAR_SHIELD_GROW, shield_icon
+            win = ike.windows[0]
+            btn = win.shield_btn
+            side = win.nav.iconSize().height()
+            out["grow"] = TOOLBAR_SHIELD_GROW
+            out["side"] = side
+            out["scales"] = {}
+            for level in ("off", "balanced", "maximum"):
+                for dpr in (1.0, 1.25, 1.5, 2.0, 3.0):
+                    plain = shield_icon(level).pixmap(QSize(side, side), dpr).toImage()
+                    big = shield_icon(level, grow=TOOLBAR_SHIELD_GROW).pixmap(QSize(side, side), dpr).toImage()
+                    out["scales"]["%s@%s" % (level, dpr)] = {
+                        "size": [big.width(), big.height(), round(side * dpr)],
+                        "plain": box(plain), "big": box(big), "soft": soft_edge(big)}
+            # what the button really shows: the rows of its left part that are not background
+            win.update_shield()
+            yield 150
+            shot = btn.grab().toImage()
+            ratio = shot.devicePixelRatio() or 1.0
+            back = QColor(shot.pixel(1, 1))
+            rows = []
+            for y in range(shot.height()):
+                for x in range(min(shot.width(), int((side + 8) * ratio))):
+                    c = QColor(shot.pixel(x, y))
+                    if abs(c.red() - back.red()) + abs(c.green() - back.green()) + abs(c.blue() - back.blue()) > 90:
+                        rows.append(y)
+                        break
+            out["shown"] = [min(rows) / ratio, (max(rows) + 1) / ratio, btn.height()]
+            from PyQt6.QtWidgets import QWidget
+            others = [win.nav.widgetForAction(a) for a in (win.act_reload, win.act_downloads)]
+            out["heights"] = [btn.height()] + [w.height() for w in others if w is not None]
+            # neighbours: nothing of the button overlaps the widgets beside it
+            geo = btn.geometry()
+            out["inside_toolbar"] = win.nav.rect().contains(geo)
+            out["overlap"] = [w.objectName() or type(w).__name__ for w in win.nav.children()
+                              if isinstance(w, QWidget) and w is not btn and w.isVisible()
+                              and w.geometry().intersects(geo)]
+            before = [geo.width(), geo.height()]
+            for level in ("off", "compatibility", "balanced", "strict", "maximum"):
+                ike.config["shield_level"] = level
+                win.update_shield()
+                yield 50
+                assert [btn.width(), btn.height()] == before, (level, btn.width(), btn.height(), before)
+            out["button"] = before
+    """)
+    assert 1.15 <= out["grow"] <= 1.20
+    for key, m in out["scales"].items():
+        w, h, want = m["size"]
+        assert w == h == want, (key, m)
+        px0, py0, px1, py1 = m["plain"]
+        bx0, by0, bx1, by1 = m["big"]
+        # inside the icon box
+        assert bx0 >= 0 and by0 >= 0 and bx1 <= w and by1 <= h, (key, m)
+        # 15-20% larger (one device pixel of tolerance on each measure)
+        for plain, big in ((px1 - px0, bx1 - bx0), (py1 - py0, by1 - by0)):
+            assert (big - 1) / (plain + 1) <= 1.20 and (big + 1) / (plain - 1) >= 1.15, (key, m)
+            assert big > plain, (key, m)
+        # centred: the same room left and right, and above and below
+        assert abs(bx0 - (w - bx1)) <= 1 and abs(by0 - (h - by1)) <= 1, (key, m)
+        # drawn for this scale, not a stretched picture: the edge is one or two pixels soft
+        assert m["soft"] <= 2, (key, m)
+    top, bottom, height = out["shown"]
+    # the drawing nearly fills the toolbar's icon box and stays inside the button
+    assert 0.9 * out["side"] <= bottom - top <= out["side"], out["shown"]
+    assert top >= 0 and bottom <= height, out["shown"]
+    assert out["inside_toolbar"]
+    assert len(set(out["heights"])) == 1, out["heights"]
+    assert not out["overlap"], out["overlap"]
+
+
 def test_window_close_button(run_ike):
     out = run_ike("""
         from PyQt6.QtCore import QPoint, Qt
