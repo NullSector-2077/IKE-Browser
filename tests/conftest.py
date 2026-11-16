@@ -182,9 +182,12 @@ SOFTWARE_WEBGL = (
     "--use-angle=gl --ignore-gpu-blocklist --disable-gpu-compositing",
     "--enable-unsafe-swiftshader --use-angle=swiftshader --ignore-gpu-blocklist --disable-gpu-compositing",
     "--use-angle=swiftshader-webgl --ignore-gpu-blocklist --disable-gpu-compositing",
-    # Debian 13's engine (Chromium 122, no SwiftShader) gives WebGL only with
-    # compositing on the GPU; it was steady there (several full runs)
-    "--use-angle=gl --ignore-gpu-blocklist",
+    # Debian 13's engine (Chromium 122, no SwiftShader) allows only
+    # "egl-angle" or "desktop-gl", asked for by name, and needs an OpenGL
+    # context from Qt (in the CI: a virtual X display)
+    "--use-gl=angle --use-angle=gl --ignore-gpu-blocklist",
+    "--use-gl=angle --use-angle=default --ignore-gpu-blocklist",
+    "--use-gl=desktop --ignore-gpu-blocklist",
 )
 _WEBGL_PROBE = r"""
 import sys
