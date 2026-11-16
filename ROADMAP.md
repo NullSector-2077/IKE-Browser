@@ -195,7 +195,11 @@ In `docs/platforms/` (English), citing the official sources used:
 
 - 2026-11-16: plan written.
 - 2026-11-16: unattended session started. 1.0.1 finished on branch
-  `ike-1.0.1` (tests and package below); next is 1.0.2 on `ike-1.0.2`.
+  `ike-1.0.1` (pull request #5, 129 tests passed, package built and tested).
+- 1.0.2 in progress on branch `ike-1.0.2`: toolbar done (`ike/toolbar.py`,
+  `tests/test_toolbar.py`); still to do: interface polish, new-tab
+  background photo, translations of the new strings, version, changelog,
+  package.
 
 ### Also planned
 
