@@ -25,7 +25,7 @@ def find_widevine(home=None):
     return library_path()
 
 
-class IceApp(QObject):
+class IkeApp(QObject):
     def __init__(self, qapp, config):
         super().__init__(qapp)
         from .blocker import Blocker
@@ -928,7 +928,7 @@ def main(argv=None):
                    QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)):
             qapp.installTranslator(tr)
             qapp._translators.append(tr)
-    ike = IceApp(qapp, config)
+    ike = IkeApp(qapp, config)
 
     server = QLocalServer(qapp)
     if not os.environ.get("IKE_NO_SINGLE"):
