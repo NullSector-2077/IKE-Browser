@@ -141,6 +141,12 @@ def main():
         import ike.window
         print("IKE-SELFTEST-OK %s" % ike.__version__)
         return 0
+    if sys.platform == "win32" and len(argv) == 2 and argv[0] == "--finish-clearing":
+        # Windows, after "clear when closed" (ike/sitedata.py): not a start of the
+        # browser, so it must not count as one for a freshly installed update
+        sys.path.insert(0, str(SYSTEM_DIR))
+        from ike import sitedata
+        return sitedata.finish_after(argv[1])
     folder, state, sysver = choose()
     if folder == SYSTEM_DIR:
         return run(folder)

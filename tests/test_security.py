@@ -9,6 +9,7 @@ import stat
 import subprocess
 import sys
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -899,8 +900,24 @@ def steps(ike, qapp, out):
     env = {"IKE_SITE": "http://127.0.0.1:%d/" % srv.server_address[1]}
     try:
         first = run_ike(script, settings={"clear_on_exit": True}, env=env, timeout=120)
-        left = [p.name for p in (tmp_path / "home/.local/share/ike-browser/profile").glob("Local Storage/leveldb/*.log")
-                if b"tracker-1234" in p.read_bytes()]
+        def still_there():
+            found = []
+            for p in (tmp_path / "home/.local/share/ike-browser/profile").glob("Local Storage/leveldb/*.log"):
+                try:
+                    if b"tracker-1234" in p.read_bytes():
+                        found.append(p.name)
+                except OSError:               # being deleted right now
+                    found.append(p.name)
+            return found
+        left = still_there()
+        if os.name == "nt":
+            # Windows cannot delete what the closing browser still holds: the helper it leaves
+            # behind (ike/sitedata.py) removes it moments after the browser has ended
+            for _ in range(80):
+                if not left:
+                    break
+                time.sleep(0.25)
+                left = still_there()
         second = run_ike(script, settings={"clear_on_exit": True}, env=env, keep_profile=True, timeout=120)
     finally:
         srv.shutdown()

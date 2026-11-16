@@ -235,3 +235,17 @@ if sys.platform == "win32":
                 _running.append(handle)
         except (OSError, AttributeError):
             pass
+
+    def is_running():
+        """Is an I.K.E. of this user running (one that holds the mark of
+        mark_running)?"""
+        try:
+            _kernel32.OpenMutexW.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR]
+            _kernel32.OpenMutexW.restype = wintypes.HANDLE
+            handle = _kernel32.OpenMutexW(SYNCHRONIZE, False, RUNNING_MUTEX)
+        except (OSError, AttributeError):
+            return False
+        if not handle:
+            return False
+        _kernel32.CloseHandle(handle)
+        return True

@@ -68,6 +68,36 @@ def write_profile(cfg, data_dir, settings=None, keep=False):
     (lists / name).write_text(TEST_LIST, "utf-8")
 
 
+_fonts = {}
+
+
+def windows_fonts():
+    """Windows: a folder with Windows' own interface font (Segoe UI) for Qt's
+    "offscreen" display, or None when it cannot be made.
+
+    The tests run without a real display, on Qt's "offscreen" platform. On
+    Windows that platform knows no fonts at all unless a folder is named in
+    QT_QPA_FONTDIR: every text would be drawn as boxes twice as wide as
+    letters, and the layout tests would measure boxes. With this folder they
+    measure the font Windows itself shows the interface in."""
+    if "dir" not in _fonts:
+        import shutil
+        import tempfile
+        _fonts["dir"] = None
+        source = Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts"
+        # Segoe UI (regular, bold, italic, bold italic, semibold, light), its symbols,
+        # and what Windows uses for Chinese and Japanese where it is installed
+        names = ("segoeui.ttf", "segoeuib.ttf", "segoeuii.ttf", "segoeuiz.ttf", "seguisb.ttf", "segoeuil.ttf",
+                 "seguisym.ttf", "msyh.ttc", "YuGothR.ttc", "meiryo.ttc")
+        if (source / names[0]).is_file():
+            target = Path(tempfile.mkdtemp(prefix="ike-test-fonts-"))
+            for name in names:
+                if (source / name).is_file():
+                    shutil.copyfile(source / name, target / name)
+            _fonts["dir"] = str(target)
+    return _fonts["dir"]
+
+
 def engine_flags(*flags):
     """QTWEBENGINE_CHROMIUM_FLAGS for a test that needs its own switches: the
     sandbox switch comes first where the tests run without the sandbox."""
@@ -147,6 +177,8 @@ def run_ike(tmp_path):
                       "LOCALAPPDATA": str(home / "AppData" / "Local")})
             for name in ("APPDATA", "LOCALAPPDATA"):
                 Path(e[name]).mkdir(parents=True, exist_ok=True)
+            if windows_fonts():
+                e["QT_QPA_FONTDIR"] = windows_fonts()
         (tmp_path / "run").mkdir(mode=0o700, exist_ok=True)
         # no desktop bus unless a test brings its own (see desktop_bus below)
         e["DBUS_SESSION_BUS_ADDRESS"] = ""

@@ -1002,6 +1002,9 @@ def main(argv=None):
 
     _wait_for_previous()
     ensure_dirs()
+    if sys.platform == "win32":
+        from . import winapi
+        winapi.mark_running()            # the installer asks to close I.K.E. first; a clearing helper stands back
     from . import sitedata
     sitedata.at_start()                  # site data the user asked to clear: before the engine opens it
     config = Config()
@@ -1012,7 +1015,6 @@ def main(argv=None):
     if sys.platform == "win32":
         from . import winapi
         winapi.set_app_id()              # before the first window: one task-bar button
-        winapi.mark_running()            # the installer asks to close I.K.E. before it changes files
     qapp = QApplication([sys.argv[0]] + qt_args)
     qapp.setApplicationName(APP_ID)
     qapp.setApplicationDisplayName(APP_NAME if PROFILE == "default"
@@ -1095,6 +1097,9 @@ def main(argv=None):
     background.let_go()          # a download still waiting for its server must not be destroyed
     if config["clear_on_exit"] and sitedata.asked() and not getattr(ike, "_restart", False):
         sitedata.remove()        # "clear when closed": now, and once more at the next start
+        if sys.platform == "win32":
+            from .updater import boot_command
+            sitedata.finish_later(boot_command())    # Windows: what is still open goes once this process has ended
     if getattr(ike, "_restart", False):
         import subprocess
         server.close()

@@ -861,3 +861,57 @@ def test_other_browsers_are_found_on_windows(tmp_path):
     finally:
         copy.close()
         __import__("shutil").rmtree(folder, ignore_errors=True)
+
+
+def test_clear_when_closed_is_finished_after_the_browser_ended(tmp_path):
+    """Windows cannot delete files the closing browser still holds, so a
+    helper finishes "clear when closed" once the browser has ended. It waits
+    for that browser, removes site data only (never following a link), stands
+    back when another I.K.E. is running, and does nothing when nobody asked."""
+    from ike import sitedata
+    data = tmp_path / "data"
+    profile = data / "profile"
+    (profile / "Local Storage" / "leveldb").mkdir(parents=True)
+    (profile / "Local Storage" / "leveldb" / "000003.log").write_text("tracker-1234")
+    (profile / "IndexedDB").mkdir()
+    (profile / "History").write_text("history")
+    (data / "vault.bin").write_text("vault")
+    calls = []
+
+    def wait(pid, seconds):
+        calls.append(("wait", pid, seconds))
+
+    # nobody asked: nothing is touched, nobody is waited for
+    assert sitedata.left(data) is True
+    assert sitedata.finish_after("4242", data, wait_for_exit=wait, running=lambda: False, pause=0) == 0
+    assert calls == [] and sitedata.left(data)
+    # something that is not a process number: nothing
+    sitedata.ask(data)
+    for bad in ("", "abc", "-1", "12 34", "1;calc", None):
+        assert sitedata.finish_after(bad, data, wait_for_exit=wait, running=lambda: False, pause=0) == 0
+    assert calls == [] and sitedata.left(data)
+    # another I.K.E. is running: hands off
+    assert sitedata.finish_after("4242", data, wait_for_exit=wait, running=lambda: True, pause=0) == 0
+    assert calls == [("wait", 4242, 30)] and sitedata.left(data)
+    # the real work: first the wait, then the removal; the note for the next start stays
+    order = []
+    assert sitedata.finish_after("4242", data, wait_for_exit=lambda pid, s: order.append("waited"),
+                                 running=lambda: order.append("asked") or False, pause=0) == 0
+    assert order[:2] == ["waited", "asked"]
+    assert sitedata.left(data) is False and sitedata.asked(data)
+    assert not (profile / "Local Storage").exists() and not (profile / "IndexedDB").exists()
+    assert (profile / "History").read_text() == "history" and (data / "vault.bin").read_text() == "vault"
+    # a folder that is still held is tried again, a limited number of times
+    tried = []
+    real_remove = sitedata.remove
+    (profile / "Local Storage").mkdir()
+    try:
+        sitedata.remove = lambda d=None: tried.append(1) or 0
+        sitedata.finish_after("4242", data, tries=7, wait_for_exit=wait, running=lambda: False, pause=0)
+    finally:
+        sitedata.remove = real_remove
+    assert len(tried) == 7
+    # ike_boot.py hands the request over without counting a start of the browser
+    boot = (ROOT / "ike_boot.py").read_text("utf-8")
+    assert boot.index('"--finish-clearing"') < boot.index("folder, state, sysver = choose()")
+    assert sitedata.FINISH == "--finish-clearing"

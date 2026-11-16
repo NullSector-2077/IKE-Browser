@@ -43,10 +43,21 @@ v = QWebEngineView()
 v.resize(800, 600)
 v.show()
 got = []
+import os
 JS = """(function(){var g=document.createElement('canvas').getContext('webgl'); if(!g) return null;
-var d=g.getExtension('WEBGL_debug_renderer_info'); return d ? g.getParameter(d.UNMASKED_RENDERER_WEBGL) : 'no debug info';})()"""
+var d=g.getExtension('WEBGL_debug_renderer_info'); return d ? g.getParameter(d.UNMASKED_RENDERER_WEBGL).slice(0, 40) : 'no debug info';})()"""
+GPU = """(async function(){ try { if (!navigator.gpu) { window.wg = 'no navigator.gpu'; return; }
+var ad = await Promise.race([navigator.gpu.requestAdapter(), new Promise(function (ok) { setTimeout(ok, 1500, 'slow'); })]);
+window.wg = ad === 'slow' ? 'slow' : (ad ? 'adapter' : 'no adapter'); } catch (e) { window.wg = 'error ' + e; } })()"""
 def ask(ok):
-    v.page().runJavaScript(JS, lambda r: (got.append(r), nxt()))
+    def webgl(r):
+        if os.environ.get("SHOW_WEBGPU"):
+            v.page().runJavaScript(GPU)
+            QTimer.singleShot(2500, lambda: v.page().runJavaScript("window.wg", lambda w: (got.append([r, w]), nxt())))
+        else:
+            got.append(r)
+            nxt()
+    v.page().runJavaScript(JS, webgl)
 def nxt():
     if len(got) >= 4:
         print("WEBGL " + json.dumps(got), flush=True)
@@ -75,6 +86,11 @@ def run(code, env, label):
 def main():
     for platform in ("offscreen",) + (("windows",) if sys.platform == "win32" else ()):
         run(CHILD, {"QT_QPA_PLATFORM": platform}, platform)
+    if sys.platform == "win32":
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from conftest import windows_fonts
+        run(CHILD, {"QT_QPA_PLATFORM": "offscreen", "QT_QPA_FONTDIR": windows_fonts() or ""},
+            "offscreen with the fonts of the tests (%s)" % windows_fonts())
     if "--webgl" in sys.argv:
         for flags in ("", "--ignore-gpu-blocklist", "--ignore-gpu-blocklist --use-angle=d3d11-warp",
                       "--ignore-gpu-blocklist --use-angle=d3d11",
@@ -83,6 +99,10 @@ def main():
                       "--enable-unsafe-swiftshader --ignore-gpu-blocklist --disable-gpu"):
             run(WEBGL, {"QT_QPA_PLATFORM": "offscreen", "QTWEBENGINE_CHROMIUM_FLAGS": flags},
                 "webgl with [%s]" % flags)
+        for flags in ("--ignore-gpu-blocklist",
+                      "--enable-unsafe-swiftshader --use-angle=swiftshader --ignore-gpu-blocklist"):
+            run(WEBGL, {"QT_QPA_PLATFORM": "offscreen", "QTWEBENGINE_CHROMIUM_FLAGS": flags, "SHOW_WEBGPU": "1"},
+                "webgl, then webgpu, with [%s]" % flags)
     print(json.dumps({"python": sys.version.split()[0], "system": sys.platform}))
 
 

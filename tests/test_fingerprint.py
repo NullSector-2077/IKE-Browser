@@ -190,11 +190,12 @@ def test_scriptlets_do_not_change_fingerprint(run_ike, site, level):
     assert plain and again and with_scriptlets
     assert out["rules"]["MAIN"], "the scriptlets were not installed"
     assert not plain["scriptlets"] and with_scriptlets["scriptlets"]   # they really ran
-    assert plain["webgl"], "WebGL not available"
+    assert plain["webgl"], ("WebGL not available", out["_stderr"][-2500:])
     for key in ("canvas", "webgl", "audio", "navigator", "screen", "hints", "media", "webgpu",
                 "worker", "frame"):
         assert not str(plain[key]).startswith("error"), (key, plain[key])
-        assert plain[key] == again[key], ("not stable within a session", key)
+        assert plain[key] == again[key], ("not stable within a session", key, plain[key], again[key],
+                                          out["_stderr"][-2500:] if key == "webgl" else "")
         assert with_scriptlets[key] == plain[key], ("changed by the scriptlets", key, plain[key],
                                                     with_scriptlets[key])
     for name, (native, fname, length) in plain["natives"].items():
