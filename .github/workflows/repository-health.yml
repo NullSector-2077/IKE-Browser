@@ -2,7 +2,6 @@ name: I.K.E. repository health
 
 on:
   schedule:
-    # GitHub cron is UTC. Run at both possible UTC equivalents of 08:00 Europe/Rome.
     - cron: "0 6 * * *"
     - cron: "0 7 * * *"
   workflow_dispatch:
@@ -27,7 +26,6 @@ jobs:
         uses: actions/checkout@v5
         with:
           persist-credentials: false
-
       - name: Enforce 08:00 Europe/Rome schedule
         if: github.event_name == 'schedule'
         id: local-time
@@ -35,34 +33,23 @@ jobs:
         run: |
           local_hour="$(TZ=Europe/Rome date +'%H')"
           echo "hour=$local_hour" >> "$GITHUB_OUTPUT"
-          if [ "$local_hour" != "08" ]; then
-            echo "This UTC trigger is not the 08:00 Europe/Rome run; skip."
-          fi
-
-      - name: Validate repository baseline
+      - name: Validate IKE Arch repository baseline
         if: github.event_name != 'schedule' || steps.local-time.outputs.hour == '08'
         shell: bash
         run: |
           set -euo pipefail
           test -s README.md
           test -s CHANGELOG.md
-          test -s docs/BUILDING.md
-          test -s docs/TESTING.md
-          test -s docs/MAINTENANCE.md
+          test -s docs/arch/BUILDING.md
+          test -s docs/arch/TESTING.md
+          test -s docs/arch/MAINTENANCE.md
+          test -s docs/arch/UPDATES.md
           grep -q "I.K.E." README.md
-          grep -q "\\[1.0.0\\]" CHANGELOG.md
-          echo "Documentation baseline is present."
-
-      - name: Verify imported Arch source and CI
-        if: github.event_name != 'schedule' || steps.local-time.outputs.hour == '08'
-        shell: bash
-        run: |
-          if [ -f pyproject.toml ] || [ -f setup.cfg ] || [ -f PKGBUILD ]; then
-            test -s ike/__init__.py
-            test -s ike-adblock/Cargo.toml
-            test -s tests/conftest.py
-            test -s .github/workflows/tests.yml
-            echo "Arch source baseline and application test workflow are present."
-          else
-            echo "::notice::Application source and build metadata are not yet present. This is a repository-health check, not an application test."
-          fi
+          version="$(sed -n 's/^__version__ = "\\(.*\\)"/\\1/p' ike/__init__.py)"
+          test -n "$version"
+          grep -q "^## $version$" CHANGELOG.md
+          test -s ike/__init__.py
+          test -s ike-adblock/Cargo.toml
+          test -s tests/conftest.py
+          test -s .github/workflows/tests.yml
+          echo "IKE Arch source baseline and test workflow are present."
