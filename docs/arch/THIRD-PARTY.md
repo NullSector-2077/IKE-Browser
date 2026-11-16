@@ -28,96 +28,94 @@ The Arch package does not bundle these runtimes; pacman supplies them:
 
 The list below records the licence expressions for the imported 1.6.1 dependency set. `ike-adblock/Cargo.lock` is the authoritative version lock. Review this inventory whenever that lockfile changes, especially when a dependency is added or replaced.
 
-## Rust libraries linked into `ike_adblock`
-
 ```
-adblock  — MPL-2.0
-addr  — MIT/Apache-2.0
-aho-corasick  — Unlicense OR MIT
-arrayvec  — MIT OR Apache-2.0
-base64  — MIT OR Apache-2.0
-bitflags  — MIT OR Apache-2.0
-cfg-if  — MIT OR Apache-2.0
-cssparser  — MPL-2.0
-cssparser-macros  — MPL-2.0
-derive_more  — MIT
-derive_more-impl  — MIT
-displaydoc  — MIT OR Apache-2.0
-dtoa  — MIT OR Apache-2.0
-dtoa-short  — MPL-2.0
-either  — MIT OR Apache-2.0
-flatbuffers  — Apache-2.0
-heck  — MIT OR Apache-2.0
-ike-adblock  — MPL-2.0
-icu_collections  — Unicode-3.0
-icu_locale_core  — Unicode-3.0
-icu_normalizer  — Unicode-3.0
-icu_normalizer_data  — Unicode-3.0
-icu_properties  — Unicode-3.0
-icu_properties_data  — Unicode-3.0
-icu_provider  — Unicode-3.0
-idna  — MIT OR Apache-2.0
-idna_adapter  — Apache-2.0 OR MIT
-indoc  — MIT OR Apache-2.0
-itertools  — MIT OR Apache-2.0
-itoa  — MIT OR Apache-2.0
-libc  — MIT OR Apache-2.0
-litemap  — Unicode-3.0
-log  — MIT OR Apache-2.0
-memchr  — Unlicense OR MIT
-memoffset  — MIT
-new_debug_unreachable  — MIT
-once_cell  — MIT OR Apache-2.0
-percent-encoding  — MIT OR Apache-2.0
-phf  — MIT
-phf_generator  — MIT
-phf_macros  — MIT
-phf_shared  — MIT
-potential_utf  — Unicode-3.0
-precomputed-hash  — MIT
-proc-macro2  — MIT OR Apache-2.0
-psl  — MIT/Apache-2.0
-psl-types  — MIT/Apache-2.0
-pyo3  — MIT OR Apache-2.0
-pyo3-build-config  — MIT OR Apache-2.0
-pyo3-ffi  — MIT OR Apache-2.0
-pyo3-macros  — MIT OR Apache-2.0
-pyo3-macros-backend  — MIT OR Apache-2.0
-quote  — MIT OR Apache-2.0
-rand  — MIT OR Apache-2.0
-rand_core  — MIT OR Apache-2.0
-regex  — MIT OR Apache-2.0
-regex-automata  — MIT OR Apache-2.0
-regex-syntax  — MIT OR Apache-2.0
-rustc-hash  — Apache-2.0 OR MIT
-seahash  — MIT
-selectors  — MPL-2.0
-serde  — MIT OR Apache-2.0
-serde_core  — MIT OR Apache-2.0
-serde_derive  — MIT OR Apache-2.0
-serde_json  — MIT OR Apache-2.0
-servo_arc  — MIT OR Apache-2.0
-siphasher  — MIT OR Apache-2.0
-smallvec  — MIT OR Apache-2.0
-stable_deref_trait  — MIT OR Apache-2.0
-syn  — MIT OR Apache-2.0
-syn  — MIT OR Apache-2.0
-synstructure  — MIT
-target-lexicon  — Apache-2.0 WITH LLVM-exception
-thiserror  — MIT OR Apache-2.0
-thiserror-impl  — MIT OR Apache-2.0
-tinystr  — Unicode-3.0
-unicode-ident  — (MIT OR Apache-2.0) AND Unicode-3.0
-unindent  — MIT OR Apache-2.0
-utf8_iter  — Apache-2.0 OR MIT
-utf_types  — Apache-2.0 OR MIT
-writeable  — Unicode-3.0
-yoke  — Unicode-3.0
-yoke-derive  — Unicode-3.0
-zerofrom  — Unicode-3.0
-zerofrom-derive  — Unicode-3.0
-zerotrie  — Unicode-3.0
-zerovec  — Unicode-3.0
-zerovec-derive  — Unicode-3.0
-zmij  — MIT
+adblock — MPL-2.0
+addr — MIT/Apache-2.0
+aho-corasick — Unlicense OR MIT
+arrayvec — MIT OR Apache-2.0
+base64 — MIT OR Apache-2.0
+bitflags — MIT OR Apache-2.0
+cfg-if — MIT OR Apache-2.0
+cssparser — MPL-2.0
+cssparser-macros — MPL-2.0
+derive_more — MIT
+derive_more-impl — MIT
+displaydoc — MIT OR Apache-2.0
+dtoa — MIT OR Apache-2.0
+dtoa-short — MPL-2.0
+either — MIT OR Apache-2.0
+flatbuffers — Apache-2.0
+heck — MIT OR Apache-2.0
+ike-adblock — MPL-2.0
+icu_collections — Unicode-3.0
+icu_locale_core — Unicode-3.0
+icu_normalizer — Unicode-3.0
+icu_normalizer_data — Unicode-3.0
+icu_properties — Unicode-3.0
+icu_properties_data — Unicode-3.0
+icu_provider — Unicode-3.0
+idna — MIT OR Apache-2.0
+idna_adapter — Apache-2.0 OR MIT
+indoc — MIT OR Apache-2.0
+itertools — MIT OR Apache-2.0
+itoa — MIT OR Apache-2.0
+libc — MIT OR Apache-2.0
+litemap — Unicode-3.0
+log — MIT OR Apache-2.0
+memchr — Unlicense OR MIT
+memoffset — MIT
+new_debug_unreachable — MIT
+once_cell — MIT OR Apache-2.0
+percent-encoding — MIT OR Apache-2.0
+phf — MIT
+phf_generator — MIT
+phf_macros — MIT
+phf_shared — MIT
+potential_utf — Unicode-3.0
+precomputed-hash — MIT
+proc-macro2 — MIT OR Apache-2.0
+psl — MIT/Apache-2.0
+psl-types — MIT/Apache-2.0
+pyo3 — MIT OR Apache-2.0
+pyo3-build-config — MIT OR Apache-2.0
+pyo3-ffi — MIT OR Apache-2.0
+pyo3-macros — MIT OR Apache-2.0
+pyo3-macros-backend — MIT OR Apache-2.0
+quote — MIT OR Apache-2.0
+rand — MIT OR Apache-2.0
+rand_core — MIT OR Apache-2.0
+regex — MIT OR Apache-2.0
+regex-automata — MIT OR Apache-2.0
+regex-syntax — MIT OR Apache-2.0
+rustc-hash — Apache-2.0 OR MIT
+seahash — MIT
+selectors — MPL-2.0
+serde — MIT OR Apache-2.0
+serde_core — MIT OR Apache-2.0
+serde_derive — MIT OR Apache-2.0
+serde_json — MIT OR Apache-2.0
+servo_arc — MIT OR Apache-2.0
+siphasher — MIT OR Apache-2.0
+smallvec — MIT OR Apache-2.0
+stable_deref_trait — MIT OR Apache-2.0
+syn — MIT OR Apache-2.0
+syn — MIT OR Apache-2.0
+synstructure — MIT
+target-lexicon — Apache-2.0 WITH LLVM-exception
+thiserror — MIT OR Apache-2.0
+thiserror-impl — MIT OR Apache-2.0
+tinystr — Unicode-3.0
+unicode-ident — (MIT OR Apache-2.0) AND Unicode-3.0
+unindent — MIT OR Apache-2.0
+utf8_iter — Apache-2.0 OR MIT
+utf_types — Apache-2.0 OR MIT
+writeable — Unicode-3.0
+yoke — Unicode-3.0
+yoke-derive — Unicode-3.0
+zerofrom — Unicode-3.0
+zerofrom-derive — Unicode-3.0
+zerotrie — Unicode-3.0
+zerovec — Unicode-3.0
+zerovec-derive — Unicode-3.0
+zmij — MIT
 ```
