@@ -14,7 +14,7 @@ An Arch/CachyOS release contains:
 - stable.json and stable.json.sig
 - beta.json and beta.json.sig
 - ike-<version>.tar.gz, containing only the ike/ application code
-- ike-browser-<version>-1-x86_64.pkg.tar.zst, built locally with makepkg
+- ike-browser-<version>-<pkgrel>-x86_64.pkg.tar.zst, built locally with makepkg
 
 No AppImage or Windows installers/update archives are produced by this repository.
 
