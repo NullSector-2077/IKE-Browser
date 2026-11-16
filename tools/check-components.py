@@ -80,7 +80,7 @@ def check_adblock(root):
         "latest": latest,
         "update": update,
         "note": (
-            "system component: review API changes and raise __min_system__ if required"
+            "review API changes, raise __min_system__ if required, and review docs/arch/THIRD-PARTY.md when Cargo.lock changes"
             if update else ""
         ),
     }
