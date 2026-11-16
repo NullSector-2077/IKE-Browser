@@ -11,7 +11,7 @@ Without them everything works the same, changing at once.
 import os
 import time
 
-from PyQt6.QtCore import QEasingCurve, QObject, QRectF, Qt, QVariantAnimation
+from PyQt6.QtCore import QEasingCurve, QObject, QPropertyAnimation, QRectF, Qt, QVariantAnimation
 from PyQt6.QtGui import QColor, QIcon, QPainter, QPalette, QPen, QPixmap
 
 FADE_MS = 120
@@ -93,6 +93,36 @@ def fade_in(widget, config, ms=FADE_MS):
     anim.setDuration(ms)
     widget.setWindowOpacity(0.0)
     anim.start()
+
+
+def cross_fade(widgets, config, ms=200):
+    """Call just before the look of widgets changes: a picture of each as it is
+    now is laid over it and fades away, so a new theme comes in softly. Used
+    for the bars of a window, never for the page (its picture may be empty)."""
+    from PyQt6.QtWidgets import QGraphicsOpacityEffect, QLabel
+    if not on(config):
+        return 0
+    n = 0
+    for w in widgets:
+        if w is None or not w.isVisible() or w.width() < 2 or w.height() < 2:
+            continue
+        shot = QLabel(w)
+        shot.setObjectName("ike_theme_fade")
+        shot.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        shot.setPixmap(w.grab())
+        shot.setGeometry(w.rect())
+        effect = QGraphicsOpacityEffect(shot)
+        shot.setGraphicsEffect(effect)
+        anim = QPropertyAnimation(effect, b"opacity", shot)
+        anim.setDuration(ms)
+        anim.setStartValue(1.0)
+        anim.setEndValue(0.0)
+        anim.finished.connect(shot.deleteLater)
+        shot.show()
+        shot.raise_()
+        anim.start()
+        n += 1
+    return n
 
 
 def fading(menu, config):

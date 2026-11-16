@@ -144,6 +144,12 @@ def apply(config, preview=None):
     was in use before, in which case the desktop's palette and font return."""
     app = QApplication.instance()
     theme = preview if preview is not None else current(config)
+    if preview is None:
+        from . import effects
+        for w in app.topLevelWidgets():          # the bars of each window: the new look comes in softly
+            if hasattr(w, "apply_theme") and w.isVisible():
+                effects.cross_fade([w.menuBar(), getattr(w, "nav", None), getattr(w, "htab_row", None),
+                                    getattr(w, "vtab_panel", None), getattr(w, "bookbar", None)], config)
     if theme is not None:
         if not _original:
             _original["palette"] = QPalette(app.palette())

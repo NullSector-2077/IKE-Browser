@@ -34,6 +34,7 @@ class VTabDelegate(QStyledItemDelegate):
         self.look = None             # the Cyber theme's look (see cyber.py), or None
         self.group_of = lambda row: None     # colour of the tab group of a row
         self.gliding = False         # the mark of the current row is being moved by cyber.MarkGlide
+        self.eq_phase = 0            # where the equaliser of a sounding tab is (see cyber.Equaliser)
         self._pressed = (-1, "")
         view.viewport().setMouseTracking(True)
         view.viewport().installEventFilter(self)
@@ -145,8 +146,13 @@ class VTabDelegate(QStyledItemDelegate):
             painter.save()
             if self._hover != (row, "audio"):
                 painter.setOpacity(0.75)
-            ic.paint(painter, QRect(zone.center().x() - 8, zone.center().y() - 8, 16, 16),
-                     Qt.AlignmentFlag.AlignCenter, mode)
+            box = QRect(zone.center().x() - 8, zone.center().y() - 8, 16, 16)
+            if self.look is not None and audio == "on":
+                from . import cyber, effects
+                cyber.bars(painter, box.adjusted(1, 2, -1, -2), self.eq_phase, self.look.accent,
+                           effects.on(self.look.config))
+            else:
+                ic.paint(painter, box, Qt.AlignmentFlag.AlignCenter, mode)
             painter.restore()
         hovered = self._hover == (row, "close")
         pressed = self._pressed == (row, "close")

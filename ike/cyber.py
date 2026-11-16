@@ -385,6 +385,187 @@ def menu_qss(lk):
             _rgba(lk.accent, 46), lk.accent.name(), lk.mix(lk.text, lk.toolbar, 0.55).name(), _rgba(lk.accent, 110)))
 
 
+# --- small moving things --------------------------------------------------------
+PULSE_MS = 420
+PULSE_REST = 1.5              # seconds between two pulses of the shield, at least
+EQ_MS = 170
+
+
+class Pulse(QWidget):
+    """A ring that opens once around the shield when it blocks something."""
+
+    def __init__(self, button, lk):
+        super().__init__(button)
+        self.lk = lk
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
+        self._anim = QVariantAnimation(self)
+        self._anim.setDuration(PULSE_MS)
+        self._anim.setStartValue(0.0)
+        self._anim.setEndValue(1.0)
+        self._anim.valueChanged.connect(lambda _v: self.update())
+        self._anim.finished.connect(self.hide)
+        self._last = 0.0
+        self.fired = 0
+        self.hide()
+
+    def fire(self):
+        import time
+
+        from . import effects
+        now = time.monotonic()
+        if now - self._last < PULSE_REST or not effects.on(self.lk.config) or not self.parent().isVisible():
+            return
+        self._last = now
+        self.fired += 1
+        self.setGeometry(self.parent().rect())
+        self.show()
+        self.raise_()
+        self._anim.stop()
+        self._anim.start()
+
+    def paintEvent(self, _event):
+        t = float(self._anim.currentValue() or 0.0)
+        side = min(self.width(), self.height())
+        centre = QPointF(min(self.height(), self.width()) / 2.0, self.height() / 2.0)
+        radius = side * (0.28 + 0.24 * t)
+        colour = QColor(self.lk.accent)
+        colour.setAlpha(round(210 * (1.0 - t)))
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setPen(QPen(colour, 2.0))
+        p.drawEllipse(centre, radius, radius)
+        p.end()
+
+
+def bars(p, rect, phase, colour, moving=True):
+    """A small equaliser of three bars inside rect (a tab that plays sound)."""
+    r = QRectF(rect)
+    levels = ((0.45, 0.9, 0.6), (0.8, 0.5, 0.95), (0.6, 1.0, 0.4), (0.95, 0.65, 0.75))
+    heights = levels[phase % len(levels)] if moving else (0.55, 0.9, 0.7)
+    w = r.width() / 5.0
+    p.save()
+    p.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+    p.setPen(Qt.PenStyle.NoPen)
+    p.setBrush(QColor(colour))
+    for i, h in enumerate(heights):
+        p.drawRect(QRectF(r.left() + w * (0.5 + i * 1.5), r.bottom() - r.height() * h, w, r.height() * h))
+    p.restore()
+
+
+def audio_icon(base, phase, colour, moving=True):
+    """A tab icon with the equaliser in its lower right corner."""
+    from PyQt6.QtGui import QIcon, QPixmap
+    pm = QPixmap(32, 32)
+    pm.fill(Qt.GlobalColor.transparent)
+    p = QPainter(pm)
+    base.paint(p, 0, 0, 32, 32)
+    p.setCompositionMode(QPainter.CompositionMode.CompositionMode_Clear)
+    p.fillRect(QRectF(15, 15, 17, 17), QColor(0, 0, 0))
+    p.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
+    bars(p, QRectF(17, 17, 15, 15), phase, colour, moving)
+    p.end()
+    pm.setDevicePixelRatio(2)
+    return QIcon(pm)
+
+
+class KindRing(QWidget):
+    """The shield panel's ring: what was blocked on this site, by kind."""
+
+    KINDS = ("ads", "scripts", "cookies", "https", "params")
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedHeight(74)
+        self.stats = {}
+        self.lk = None
+        self.labels = {}
+
+    def show_stats(self, lk, stats, labels):
+        self.lk, self.stats, self.labels = lk, dict(stats or {}), dict(labels)
+        self.setVisible(lk is not None)
+        self.update()
+
+    def colours(self):
+        lk = self.lk
+        return [lk.accent, lk.mix(lk.accent, lk.text, 0.55), QColor("#ff5fa8"), QColor("#b6ff3c"), QColor("#ffb020")]
+
+    def paintEvent(self, _event):
+        if self.lk is None:
+            return
+        lk = self.lk
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        ring = QRectF(8, 8, self.height() - 16, self.height() - 16)
+        values = [max(0, int(self.stats.get(k, 0) or 0)) for k in self.KINDS]
+        total = sum(values)
+        track = lk.mix(lk.background, lk.text, 0.14)
+        pen = QPen(track, 7.0)
+        pen.setCapStyle(Qt.PenCapStyle.FlatCap)
+        p.setPen(pen)
+        p.drawEllipse(ring)
+        angle = 90.0
+        for value, colour in zip(values, self.colours()):
+            if not total or not value:
+                continue
+            span = 360.0 * value / total
+            pen.setColor(colour)
+            p.setPen(pen)
+            p.drawArc(ring, int(angle * 16), int(-span * 16))
+            angle -= span
+        p.setPen(lk.text)
+        p.drawText(ring, Qt.AlignmentFlag.AlignCenter, str(total))
+        x = ring.right() + 14
+        y = 6.0
+        metrics = p.fontMetrics()
+        for kind, value, colour in zip(self.KINDS, values, self.colours()):
+            p.fillRect(QRectF(x, y + 4, 8, 8), colour)
+            p.setPen(lk.text if value else lk.mix(lk.text, lk.background, 0.5))
+            p.drawText(QPointF(x + 14, y + metrics.ascent()), "%s  %d" % (self.labels.get(kind, kind), value))
+            y += (self.height() - 12) / len(self.KINDS)
+        p.end()
+
+
+class Equaliser:
+    """Moves the equalisers of a window while one of its tabs plays sound."""
+
+    def __init__(self, win):
+        from PyQt6.QtCore import QTimer
+        self.win = win
+        self.phase = 0
+        self.timer = QTimer(win)
+        self.timer.setInterval(EQ_MS)
+        self.timer.timeout.connect(self.tick)
+
+    def playing(self):
+        return [v for v in self.win.views
+                if not v.sleeping and v.page().recentlyAudible() and not v.page().isAudioMuted()]
+
+    def wake(self):
+        from . import effects
+        if getattr(self.win, "_cyber", None) and effects.on(self.win.app.config) and not self.timer.isActive():
+            self.timer.start()
+
+    def tick(self):
+        views = self.playing() if getattr(self.win, "_cyber", None) else []
+        if not views:
+            self.timer.stop()
+            return
+        self.phase += 1
+        self.win.vtabs.itemDelegate().eq_phase = self.phase
+        for v in views:
+            self.win._tab_changed(v)
+
+
+def style_preview(frame, config):
+    """The tab preview: a thin accent frame with the Cyber theme."""
+    lk = look(config)
+    want = ("QFrame{border:1px solid %s;background:%s}QLabel{border:0;color:%s}" % (
+        lk.accent.name(), lk.mix(lk.toolbar, lk.background, 0.3).name(), lk.text.name())) if lk else ""
+    if frame.styleSheet() != want:
+        frame.setStyleSheet(want)
+
+
 # --- putting the look on a window, and taking it off ----------------------------
 def apply(win):
     """Give a browser window the Cyber look, or remove it (any other theme)."""
@@ -401,6 +582,8 @@ def apply(win):
             glide.deleteLater()
         win.tabbar.setStyle(None)
         win.nav.setStyleSheet("")
+        old["pulse"].setParent(None)
+        old["pulse"].deleteLater()
         for menu in old["menus"]:
             try:
                 menu.setStyleSheet("")
@@ -452,7 +635,11 @@ def apply(win):
     menus = [m for m in win.findChildren(QMenu)]
     for menu in menus:
         menu.setStyleSheet(qss)
-    win._cyber = {"style": style, "glides": (glide_h, glide_v), "menus": menus, "look": lk}
+    if not hasattr(win, "_equaliser"):
+        win._equaliser = Equaliser(win)
+    win._cyber = {"style": style, "glides": (glide_h, glide_v), "menus": menus, "look": lk,
+                  "pulse": Pulse(win.shield_btn, lk)}
+    win._equaliser.wake()
     win.vtabs.doItemsLayout()
     win.tabbar.update()
 

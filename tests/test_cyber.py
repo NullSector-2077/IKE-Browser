@@ -287,3 +287,82 @@ def steps(ike, qapp, out):
     assert out["saved"] == ["theme:cyber", "lama", "#b6ff3c", False, True, "visited", "total", "done"]
     assert out["applied"] == "TabStyle" and "New tab page" in out["pages"]
     assert out["back"] == ["system", True]
+
+
+def test_the_small_moving_things(run_ike):
+    """The shield's pulse, the equaliser of a tab that plays sound, the ring of
+    the shield panel, the frame of the tab preview, the soft change of theme."""
+    out = run_ike(COMMON + r'''
+def steps(ike, qapp, out):
+    from PyQt6.QtWidgets import QLabel
+    from ike import cyber, effects
+    from ike.tabpreview import TabPreview
+    win = ike.windows[0]
+    win.show()
+    yield 1000
+    lk = cyber.look(ike.config)
+    pulse = win._cyber["pulse"]
+    pulse.fire()
+    out["pulse"] = [pulse.fired, pulse.isVisible()]
+    pulse.fire()                                   # at once again: the shield does not flicker
+    out["pulse_again"] = pulse.fired
+    yield 700
+    out["pulse_over"] = pulse.isVisible()
+    ike.config["ui_effects"] = False
+    pulse._last = 0.0
+    pulse.fire()
+    out["pulse_without_effects"] = pulse.fired
+    ike.config["ui_effects"] = True
+
+    icon = cyber.audio_icon(ike.icon, 1, lk.accent)
+    image = icon.pixmap(32, 32).toImage()
+    out["bars"] = count_near(image.copy(image.width() // 2, image.height() // 2, image.width() // 2, image.height() // 2), lk.accent) > 8
+    out["bars_only_in_the_corner"] = count_near(image.copy(0, 0, image.width() // 2, image.height() // 2), lk.accent, 10) == 0
+
+    panel = win.shield_panel
+    panel.refresh()
+    out["ring_shown"] = not panel.kinds.isHidden()
+    panel.kinds.show_stats(lk, {"ads": 6, "scripts": 3, "cookies": 1}, {"ads": "ads"})
+    panel.kinds.resize(260, 74)
+    ring = panel.kinds.grab().toImage()
+    out["ring"] = [count_near(ring, lk.accent) > 30, count_near(ring, "#ff5fa8") > 5]
+
+    preview = TabPreview(win)
+    cyber.style_preview(preview, ike.config)
+    out["preview"] = lk.accent.name() in preview.styleSheet()
+
+    out["fades"] = effects.cross_fade([win.nav, None], ike.config)
+    out["fade_shown"] = len(win.nav.findChildren(QLabel, "ike_theme_fade"))
+    yield 600
+    out["fade_gone"] = len(win.nav.findChildren(QLabel, "ike_theme_fade"))
+    out["equaliser_idle"] = win._equaliser.timer.isActive()        # nothing plays: no timer runs
+''', settings={"ui_scheme": "theme:cyber", "cyber_hint": "done"}, env={"IKE_REDUCED_MOTION": "0"}, timeout=120)
+    assert out["pulse"] == [1, True] and out["pulse_again"] == 1 and out["pulse_over"] is False
+    assert out["pulse_without_effects"] == 1
+    assert out["bars"] is True and out["bars_only_in_the_corner"] is True
+    assert out["ring_shown"] is True and out["ring"] == [True, True]
+    assert out["preview"] is True
+    assert out["fades"] == 1 and out["fade_shown"] == 1 and out["fade_gone"] == 0
+    assert out["equaliser_idle"] is False
+
+
+def test_the_small_things_are_cyber_only(run_ike):
+    out = run_ike(COMMON + r'''
+def steps(ike, qapp, out):
+    from ike import cyber
+    from ike.tabpreview import TabPreview
+    win = ike.windows[0]
+    yield 800
+    panel = win.shield_panel
+    panel.refresh()
+    out["ring_hidden"] = panel.kinds.isHidden()
+    preview = TabPreview(win)
+    cyber.style_preview(preview, ike.config)
+    out["preview"] = preview.styleSheet()
+    out["equaliser"] = hasattr(win, "_equaliser")
+    view = win.current_view()
+    yield from load(view, "ike:newtab")
+    out["count_up"] = yield from js(view, "document.documentElement.innerHTML.indexOf('if (true &&') >= 0")
+''', timeout=120)
+    assert out["ring_hidden"] is True and out["preview"] == "" and out["equaliser"] is False
+    assert out["count_up"] is False

@@ -1041,7 +1041,17 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         ic = view.tab_icon = tab_icon(ic, g["color"] if g else None, self.app.container_color(view.container))
         if getattr(view, "loading_marked", False):
             ic = effects.loading_icon(ic, getattr(self, "_spin_angle", 45), self.tabbar.palette())
-        self.tabbar.setTabText(i, prefix + (title if len(title) < 28 else title[:27] + "…"))
+        look = getattr(self, "_cyber", None)
+        if look and prefix == "🔊 ":
+            # the Cyber theme: a small equaliser on the tab instead of the loudspeaker sign
+            from . import cyber
+            eq = self._equaliser
+            ic = cyber.audio_icon(ic, eq.phase, look["look"].accent, effects.on(self.app.config))
+            eq.wake()
+            h_prefix = ""
+        else:
+            h_prefix = prefix
+        self.tabbar.setTabText(i, h_prefix + (title if len(title) < 28 else title[:27] + "…"))
         self.tabbar.setTabToolTip(i, tip)
         self.tabbar.setTabIcon(i, ic)
         item = self.vtabs.item(i)
@@ -1175,6 +1185,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if t == QEvent.Type.MouseMove and prev.index == i:
             return False
         tip = self.tabbar.tabToolTip(i) or view.title()
+        from . import cyber
+        cyber.style_preview(prev, self.app.config)
         prev.show_for(i, pm, tip, obj.mapToGlobal(pos))
         return t == QEvent.Type.ToolTip
 
@@ -1532,6 +1544,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     def _blocked(self, host):
         if host == self.current_host():
             self.update_shield()
+            look = getattr(self, "_cyber", None)
+            if look:
+                look["pulse"].fire()         # the Cyber theme: the shield pulses once
 
     def update_shield(self):
         host = self.current_host()
