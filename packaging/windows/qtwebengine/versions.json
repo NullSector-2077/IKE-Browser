@@ -1,0 +1,21 @@
+{
+  "qtwebengine_repo": "https://github.com/qt/qtwebengine",
+  "qtwebengine_tag": "v6.140.0",
+  "qtwebengine_commit": "e081473af432e2b09d17caa3ca3bffd45992a0bd",
+  "chromium_repo": "https://github.com/qt/qtwebengine-chromium",
+  "chromium_commit": "e2b413ea3e2dc3c533335e12297abfda95b26cfa",
+  "chromium_version": "140.0.7339.264",
+  "qt_version": "6.12.0",
+  "qt_arch": "win64_msvc2022_64",
+  "qt_dir": "msvc2022_64",
+  "qt_modules": ["qtwebchannel", "qtpositioning"],
+  "aqtinstall": "3.3.0",
+  "gnuwin32_url": "https://download.qt.io/development_releases/gnuwin32/gnuwin32.zip",
+  "gnuwin32_sha1": "d7a34a385ccde2374b8a2ca3369e5b8a1452c5a5",
+  "pyqt": {
+    "PyQt6": "6.12.1",
+    "PyQt6-Qt6": "6.12.0",
+    "PyQt6-WebEngine": "6.140.1",
+    "PyQt6-WebEngine-Qt6": "6.140.0"
+  }
+}

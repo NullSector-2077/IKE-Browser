@@ -1,0 +1,132 @@
+# One stage of the Qt WebEngine build for Windows: restores the build folder of
+# the stage before, builds until its time is up, saves the folder again. Called
+# by windows-engine.yml, never on its own.
+name: Windows engine (one build stage)
+
+on:
+  workflow_call:
+    inputs:
+      stage:
+        description: "Number of this stage (1 is the first)"
+        required: true
+        type: number
+      build_tree:
+        description: "First stage only: auto, none, or the id of an earlier run"
+        required: false
+        type: string
+        default: "none"
+    outputs:
+      done:
+        description: "'true' when the build finished in this stage"
+        value: ${{ jobs.stage.outputs.done }}
+
+permissions:
+  contents: read
+  # to read the build folder that an earlier run of this workflow kept
+  actions: read
+
+jobs:
+  stage:
+    name: Build stage ${{ inputs.stage }}
+    runs-on: windows-2022
+    # a job may last 6 hours; the build stops itself in time to save its folder
+    timeout-minutes: 355
+    outputs:
+      done: ${{ steps.build.outputs.done }}
+    env:
+      IKE_STAGE: ${{ inputs.stage }}
+      IKE_ENGINE_ROOT: C:\q
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Start the clock
+        shell: bash
+        run: echo "IKE_JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v5
+        with:
+          # the head of the branch as it is when this stage starts
+          ref: ${{ github.ref }}
+          persist-credentials: false
+          sparse-checkout: |
+            packaging/windows/qtwebengine
+      - uses: actions/setup-python@v6
+        with:
+          # exact, so that the path CMake remembers is the same in every stage
+          python-version: "3.12.10"
+      - name: Keep the virus scanner off the build folder
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          New-Item -ItemType Directory -Force -Path C:\q | Out-Null
+          Add-MpPreference -ExclusionPath C:\q
+          Set-MpPreference -DisableRealtimeMonitoring $true
+      - name: Tools, Qt, sources
+        id: prepare
+        run: python packaging/windows/qtwebengine/build.py prepare
+      - name: Build folder of the stage before
+        if: ${{ inputs.stage > 1 }}
+        uses: actions/download-artifact@v4
+        with:
+          name: engine-build-tree
+          path: C:\q\dl
+      - name: Restore the build folder
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python packaging/windows/qtwebengine/build.py restore --source "${{ inputs.stage == 1 && inputs.build_tree || 'none' }}"
+      - name: Patches
+        run: python packaging/windows/qtwebengine/build.py patch
+      - name: Configure
+        run: python packaging/windows/qtwebengine/build.py configure
+      - name: The patched media code first
+        run: python packaging/windows/qtwebengine/build.py smoke
+      - name: Build
+        id: build
+        run: python packaging/windows/qtwebengine/build.py build --until-minute 285
+      - name: Install, check what is linked in, package
+        if: ${{ steps.build.outputs.done == 'true' }}
+        run: |
+          python packaging/windows/qtwebengine/build.py install
+          python packaging/windows/qtwebengine/build.py evidence
+          python packaging/windows/qtwebengine/build.py package
+      - name: Keep the engine
+        if: ${{ steps.build.outputs.done == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ike-qtwebengine-windows
+          path: |
+            C:\q\out\ike-qtwebengine-*.zip
+            C:\q\out\SHA256SUMS.txt
+            C:\q\out\evidence
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+      - name: Keep the evidence when the check failed
+        if: ${{ failure() && steps.build.outputs.done == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-evidence-failed-${{ inputs.stage }}
+          path: C:\q\out\evidence
+          if-no-files-found: ignore
+          retention-days: 14
+      # Also after a failed build: what is compiled is not compiled again.
+      - name: Pack the build folder
+        id: pack
+        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+        run: python packaging/windows/qtwebengine/build.py pack
+      - name: Keep the build folder
+        if: ${{ !cancelled() && steps.pack.outputs.packed == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-build-tree
+          path: C:\q\out\tree
+          overwrite: true
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+      - name: Keep the build log
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-build-log-${{ inputs.stage }}
+          path: C:\q\out\*.log
+          if-no-files-found: ignore
+          retention-days: 14

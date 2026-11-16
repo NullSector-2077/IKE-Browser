@@ -1,0 +1,197 @@
+I.K.E. Windows engine: find the Windows libraries with the H.264 / AAC decoders
+
+New helper (media/base/win/mf_decoder_libraries) and a call from the
+renderer's start-up, before the sandbox closes.
+
+diff --git a/chromium/content/renderer/renderer_main_platform_delegate_win.cc b/chromium/content/renderer/renderer_main_platform_delegate_win.cc
+index e0d6ec85..fa615b81 100644
+--- a/chromium/content/renderer/renderer_main_platform_delegate_win.cc
++++ b/chromium/content/renderer/renderer_main_platform_delegate_win.cc
+@@ -19,6 +19,7 @@
+ #include "content/public/common/content_switches.h"
+ #include "content/public/renderer/render_thread.h"
+ #include "content/renderer/render_thread_impl.h"
++#include "media/base/win/mf_decoder_libraries.h"
+ #include "sandbox/policy/features.h"
+ #include "sandbox/policy/switches.h"
+ #include "sandbox/policy/win/sandbox_warmup.h"
+@@ -66,6 +67,10 @@ void RendererMainPlatformDelegate::PlatformInitialize() {
+       command_line.HasSwitch(switches::kSingleProcess)) {
+     InitializeDWriteFontProxy();
+   }
++
++  // I.K.E.: H.264 is decoded in this process by the decoder that is part of
++  // Windows. Its library can only be loaded now, before the sandbox closes.
++  media::PreloadMediaFoundationDecoderLibraries();
+ }
+ 
+ void RendererMainPlatformDelegate::PlatformUninitialize() {
+diff --git a/chromium/media/base/BUILD.gn b/chromium/media/base/BUILD.gn
+index 442f6c83..ebd92d13 100644
+--- a/chromium/media/base/BUILD.gn
++++ b/chromium/media/base/BUILD.gn
+@@ -493,6 +493,16 @@ jumbo_source_set("base") {
+       "win/mf_feature_checks.cc",
+       "win/mf_feature_checks.h",
+     ]
++
++    # I.K.E.: finds the Windows libraries with the H.264 and AAC decoders.
++    sources += [
++      "win/mf_decoder_libraries.cc",
++      "win/mf_decoder_libraries.h",
++    ]
++    if (!defined(jumbo_excluded_sources)) {
++      jumbo_excluded_sources = []
++    }
++    jumbo_excluded_sources += [ "win/mf_decoder_libraries.cc" ]
+   }
+ 
+   if (is_android) {
+diff --git a/chromium/media/base/win/mf_decoder_libraries.cc b/chromium/media/base/win/mf_decoder_libraries.cc
+new file mode 100644
+index 00000000..1b4ed066
+--- /dev/null
++++ b/chromium/media/base/win/mf_decoder_libraries.cc
+@@ -0,0 +1,92 @@
++// Copyright 2026 The I.K.E. Browser authors
++// SPDX-License-Identifier: BSD-3-Clause
++//
++// Part of I.K.E.'s Windows patch set for Qt WebEngine; not upstream Chromium.
++
++#include "media/base/win/mf_decoder_libraries.h"
++
++#include <windows.h>
++
++#include <string>
++
++namespace media {
++
++namespace {
++
++struct DecoderLibraries {
++  HMODULE mfplat = nullptr;
++  HMODULE h264 = nullptr;
++  bool has_aac = false;
++};
++
++// Only the system directory is searched, never the application's folder or
++// the current directory.
++HMODULE LoadFromSystemDirectory(const wchar_t* name) {
++  return ::LoadLibraryExW(name, nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
++}
++
++bool ExistsInSystemDirectory(const wchar_t* name) {
++  wchar_t directory[MAX_PATH];
++  const UINT length = ::GetSystemDirectoryW(directory, MAX_PATH);
++  if (length == 0 || length >= MAX_PATH) {
++    return false;
++  }
++  std::wstring path(directory, length);
++  path += L'\\';
++  path += name;
++  const DWORD attributes = ::GetFileAttributesW(path.c_str());
++  return attributes != INVALID_FILE_ATTRIBUTES &&
++         (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
++}
++
++DecoderLibraries LoadDecoderLibraries() {
++  DecoderLibraries libraries;
++  // mfplat.dll holds the Media Foundation functions the decoders are driven
++  // with (samples, buffers, media types). Without it nothing else is useful.
++  libraries.mfplat = LoadFromSystemDirectory(L"mfplat.dll");
++  if (!libraries.mfplat) {
++    return libraries;
++  }
++  // The H.264 decoder runs inside the process that plays the video, so its
++  // library has to be in memory before the sandbox closes.
++  libraries.h264 = LoadFromSystemDirectory(L"msmpeg2vdec.dll");
++  // The AAC decoder runs in the process that hosts the media service, which
++  // finds it through Media Foundation. Here it is enough to know it exists.
++  libraries.has_aac = ExistsInSystemDirectory(L"msauddecmft.dll");
++  return libraries;
++}
++
++const DecoderLibraries& GetDecoderLibraries() {
++  // Initialised once, by the first caller; the libraries stay loaded for the
++  // life of the process.
++  static const DecoderLibraries libraries = LoadDecoderLibraries();
++  return libraries;
++}
++
++}  // namespace
++
++void PreloadMediaFoundationDecoderLibraries() {
++  GetDecoderLibraries();
++}
++
++HMODULE GetMediaFoundationH264DecoderLibrary() {
++  return GetDecoderLibraries().h264;
++}
++
++bool HasMediaFoundationH264Decoder() {
++  return GetDecoderLibraries().h264 != nullptr;
++}
++
++bool HasMediaFoundationAacDecoder() {
++  return GetDecoderLibraries().has_aac;
++}
++
++HMODULE GetMediaFoundationAacDecoderLibrary() {
++  static const HMODULE library =
++      GetDecoderLibraries().has_aac
++          ? LoadFromSystemDirectory(L"msauddecmft.dll")
++          : nullptr;
++  return library;
++}
++
++}  // namespace media
+diff --git a/chromium/media/base/win/mf_decoder_libraries.h b/chromium/media/base/win/mf_decoder_libraries.h
+new file mode 100644
+index 00000000..e9396561
+--- /dev/null
++++ b/chromium/media/base/win/mf_decoder_libraries.h
+@@ -0,0 +1,44 @@
++// Copyright 2026 The I.K.E. Browser authors
++// SPDX-License-Identifier: BSD-3-Clause
++//
++// Part of I.K.E.'s Windows patch set for Qt WebEngine; not upstream Chromium.
++
++#ifndef MEDIA_BASE_WIN_MF_DECODER_LIBRARIES_H_
++#define MEDIA_BASE_WIN_MF_DECODER_LIBRARIES_H_
++
++#include "base/win/windows_types.h"
++#include "media/base/media_export.h"
++
++namespace media {
++
++// I.K.E. plays H.264 and AAC with the decoders that are part of Windows
++// (Media Foundation); the engine itself contains no decoder for them. These
++// helpers find the Windows libraries that hold those decoders.
++//
++// A sandboxed process cannot load a library once its sandbox is closed, so the
++// renderer calls PreloadMediaFoundationDecoderLibraries() while it starts.
++// Every other caller gets the libraries loaded on first use, which works in a
++// process without a sandbox and reports "not available" otherwise.
++
++// Loads the libraries now. Safe to call more than once and from any thread.
++MEDIA_EXPORT void PreloadMediaFoundationDecoderLibraries();
++
++// The library with the H.264 decoder of Windows (msmpeg2vdec.dll), or null
++// when Media Foundation or the decoder is missing, as on Windows N without the
++// Media Feature Pack.
++MEDIA_EXPORT HMODULE GetMediaFoundationH264DecoderLibrary();
++
++// True when this Windows installation has its H.264 decoder.
++MEDIA_EXPORT bool HasMediaFoundationH264Decoder();
++
++// True when this Windows installation has its AAC decoder (msauddecmft.dll).
++MEDIA_EXPORT bool HasMediaFoundationAacDecoder();
++
++// The library with the AAC decoder of Windows, loaded on first use, or null.
++// Only for the process that hosts the audio decoder (the one that runs the
++// media service); the renderer never loads it.
++MEDIA_EXPORT HMODULE GetMediaFoundationAacDecoderLibrary();
++
++}  // namespace media
++
++#endif  // MEDIA_BASE_WIN_MF_DECODER_LIBRARIES_H_

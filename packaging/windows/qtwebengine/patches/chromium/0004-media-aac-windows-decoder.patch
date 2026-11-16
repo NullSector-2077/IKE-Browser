@@ -1,0 +1,336 @@
+I.K.E. Windows engine: AAC through the decoder of Windows
+
+Chromium's MediaFoundationAudioDecoder takes every AAC profile, not only
+xHE-AAC; two fixes from later Chromium versions; AAC from a plain MP4 file
+gets a sample format although FFmpeg has no AAC decoder.
+
+diff --git a/chromium/media/ffmpeg/ffmpeg_common.cc b/chromium/media/ffmpeg/ffmpeg_common.cc
+index 8aecfc75..9e768faa 100644
+--- a/chromium/media/ffmpeg/ffmpeg_common.cc
++++ b/chromium/media/ffmpeg/ffmpeg_common.cc
+@@ -426,6 +426,8 @@ bool AVCodecContextToAudioDecoderConfig(const AVCodecContext* codec_context,
+ 
+   SampleFormat sample_format = AVSampleFormatToSampleFormat(
+       codec_context->sample_fmt, codec_context->codec_id);
++  // I.K.E.: true when the format below is chosen here and not by FFmpeg.
++  [[maybe_unused]] bool sample_format_set_without_ffmpeg = false;
+ 
+   ChannelLayout channel_layout =
+ #if LIBAVCODEC_VERSION_MAJOR > 60
+@@ -462,6 +464,18 @@ bool AVCodecContextToAudioDecoderConfig(const AVCodecContext* codec_context,
+       sample_format = kSampleFormatMpegHAudio;
+       break;
+ #endif
++#if BUILDFLAG(IS_WIN) && BUILDFLAG(USE_PROPRIETARY_CODECS)
++    case AudioCodec::kAAC:
++      // I.K.E.: FFmpeg only takes AAC out of the container here; it has no
++      // AAC decoder, so it does not fill |sample_fmt|. Windows decodes the
++      // stream (MediaFoundationAudioDecoder). 16 bits is what the MP4 parser
++      // used for Media Source reports for AAC as well.
++      if (sample_format == kUnknownSampleFormat) {
++        sample_format = kSampleFormatS16;
++        sample_format_set_without_ffmpeg = true;
++      }
++      break;
++#endif
+ 
+     default:
+       break;
+@@ -527,6 +541,10 @@ bool AVCodecContextToAudioDecoderConfig(const AVCodecContext* codec_context,
+   }
+ #endif
+ 
++  if (sample_format_set_without_ffmpeg) {
++    return true;
++  }
++
+   // Verify that AudioConfig.bytes_per_channel was calculated correctly for
+   // codecs that have |sample_fmt| set by FFmpeg.
+   DCHECK_EQ(av_get_bytes_per_sample(codec_context->sample_fmt),
+diff --git a/chromium/media/filters/win/media_foundation_audio_decoder.cc b/chromium/media/filters/win/media_foundation_audio_decoder.cc
+index 0767af51..e7c9dd01 100644
+--- a/chromium/media/filters/win/media_foundation_audio_decoder.cc
++++ b/chromium/media/filters/win/media_foundation_audio_decoder.cc
+@@ -12,6 +12,8 @@
+ #include <mfapi.h>
+ #include <mferror.h>
+ #include <stdint.h>
++#include <string.h>
++#include <unknwn.h>
+ #include <wmcodecdsp.h>
+ 
+ #include "base/auto_reset.h"
+@@ -30,6 +32,7 @@
+ #include "media/base/status.h"
+ #include "media/base/timestamp_constants.h"
+ #include "media/base/win/hresults.h"
++#include "media/base/win/mf_decoder_libraries.h"
+ #include "media/base/win/mf_helpers.h"
+ #include "media/base/win/mf_initializer.h"
+ 
+@@ -58,6 +61,16 @@ bool CodecSupportsFloatOutput(AudioCodec codec) {
+ 
+ bool CodecSupportsFormat(const AudioDecoderConfig& config,
+                          const WAVEFORMATEX& format) {
++#if BUILDFLAG(USE_PROPRIETARY_CODECS)
++  // I.K.E.: with AAC the stream decides. HE-AAC may come out at twice the
++  // sample rate, and with twice the channels, of what the container
++  // announced; the decoded buffers carry the real values.
++  if (config.codec() == AudioCodec::kAAC && format.nChannels > 0 &&
++      format.nSamplesPerSec > 0) {
++    return true;
++  }
++#endif
++
+   if (config.channels() == format.nChannels &&
+       config.samples_per_second() == static_cast<int>(format.nSamplesPerSec)) {
+     return true;
+@@ -106,7 +119,11 @@ std::optional<MFT_REGISTER_TYPE_INFO> GetTypeInfo(
+ #endif
+ #if BUILDFLAG(USE_PROPRIETARY_CODECS)
+     case AudioCodec::kAAC:
+-      if (config.profile() == AudioCodecProfile::kXHE_AAC &&
++      // I.K.E.: upstream sends only xHE-AAC to Windows and leaves the rest to
++      // FFmpeg. This build's FFmpeg has no AAC decoder, so every AAC stream
++      // goes to the AAC decoder of Windows (AAC-LC, HE-AAC v1 and v2 on every
++      // supported Windows; xHE-AAC from Windows 11 22H2).
++      if (config.profile() != AudioCodecProfile::kXHE_AAC ||
+           base::win::GetVersion() >= base::win::Version::WIN11_22H2) {
+         return MFT_REGISTER_TYPE_INFO{MFMediaType_Audio, MFAudioFormat_AAC};
+       }
+@@ -121,7 +138,34 @@ std::optional<MFT_REGISTER_TYPE_INFO> GetTypeInfo(
+   }
+ }
+ 
+-bool PopulateInputSample(IMFSample* sample, const DecoderBuffer& input) {
++// I.K.E.: Media Source hands over AAC frames with an ADTS header in front
++// (see PrepareAACBuffer() in mp4_stream_parser.cc); a plain MP4 file gives the
++// bare frames. Returns the length of an ADTS header that covers the whole of
++// |data|, or 0 when there is none.
++size_t GetAdtsHeaderSize(const uint8_t* data, size_t size) {
++  constexpr size_t kMinAdtsHeaderSize = 7;
++  if (!data || size <= kMinAdtsHeaderSize) {
++    return 0;
++  }
++  // 12 bits of sync word, then one bit of version, two bits of layer (always
++  // 0) and the "no CRC" bit.
++  if (data[0] != 0xFF || (data[1] & 0xF6) != 0xF0) {
++    return 0;
++  }
++  const size_t header_size = (data[1] & 0x01) ? 7 : 9;
++  const size_t frame_length = (static_cast<size_t>(data[3] & 0x03) << 11) |
++                              (static_cast<size_t>(data[4]) << 3) |
++                              (static_cast<size_t>(data[5]) >> 5);
++  if (frame_length != size || header_size >= size) {
++    return 0;
++  }
++  return header_size;
++}
++
++// I.K.E.: |offset| bytes at the start of |input| are left out.
++bool PopulateInputSample(IMFSample* sample,
++                         const DecoderBuffer& input,
++                         size_t offset) {
+   Microsoft::WRL::ComPtr<IMFMediaBuffer> buffer;
+   HRESULT hr = sample->GetBufferByIndex(0, &buffer);
+   RETURN_ON_HR_FAILURE(hr, "Failed to get buffer from sample", false);
+@@ -139,9 +183,11 @@ bool PopulateInputSample(IMFSample* sample, const DecoderBuffer& input) {
+   RETURN_ON_FAILURE(!current_length, "Input length is zero", false);
+   RETURN_ON_FAILURE(input.size() <= max_length, "Input length is too long",
+                     false);
+-  destination.copy_prefix_from(input);
++  RETURN_ON_FAILURE(offset < input.size(), "Input has no payload", false);
++  const size_t payload_size = input.size() - offset;
++  memcpy(destination.data(), input.data() + offset, payload_size);
+ 
+-  hr = buffer->SetCurrentLength(input.size());
++  hr = buffer->SetCurrentLength(static_cast<DWORD>(payload_size));
+   RETURN_ON_HR_FAILURE(hr, "Failed to set buffer length", false);
+ 
+   hr = buffer->Unlock();
+@@ -156,6 +202,45 @@ bool PopulateInputSample(IMFSample* sample, const DecoderBuffer& input) {
+   return true;
+ }
+ 
++#if BUILDFLAG(USE_PROPRIETARY_CODECS)
++// I.K.E.: CLSID_CMSAACDecMFT, the AAC decoder that is part of Windows.
++constexpr GUID kWindowsAacDecoderClsid = {
++    0x32d186a7,
++    0x218f,
++    0x4c75,
++    {0x88, 0x76, 0xdd, 0x77, 0x27, 0x3a, 0x89, 0x99}};
++
++// I.K.E.: creates the AAC decoder of Windows straight from its library. This
++// needs neither the registry nor COM to be initialised on the calling thread,
++// which the enumeration below does; in Qt WebEngine the media service runs on
++// the in-process GPU thread, where COM is not initialised.
++Microsoft::WRL::ComPtr<IMFTransform> CreateWindowsAacDecoder() {
++  using DllGetClassObjectFunction = HRESULT(STDAPICALLTYPE*)(REFCLSID, REFIID,
++                                                             LPVOID*);
++  HMODULE library = GetMediaFoundationAacDecoderLibrary();
++  if (!library) {
++    return nullptr;
++  }
++  auto get_class_object = reinterpret_cast<DllGetClassObjectFunction>(
++      ::GetProcAddress(library, "DllGetClassObject"));
++  if (!get_class_object) {
++    return nullptr;
++  }
++  Microsoft::WRL::ComPtr<IClassFactory> factory;
++  HRESULT hr =
++      get_class_object(kWindowsAacDecoderClsid, IID_PPV_ARGS(&factory));
++  if (FAILED(hr) || !factory) {
++    return nullptr;
++  }
++  Microsoft::WRL::ComPtr<IMFTransform> transform;
++  hr = factory->CreateInstance(nullptr, IID_PPV_ARGS(&transform));
++  if (FAILED(hr)) {
++    return nullptr;
++  }
++  return transform;
++}
++#endif  // BUILDFLAG(USE_PROPRIETARY_CODECS)
++
+ int GetBytesPerFrame(AudioCodec codec) {
+   switch (codec) {
+ #if BUILDFLAG(ENABLE_PLATFORM_DTS_AUDIO)
+@@ -266,13 +351,31 @@ void MediaFoundationAudioDecoder::Decode(scoped_refptr<DecoderBuffer> buffer,
+     has_reset_ = false;
+   }
+ 
++  // I.K.E.: taken from later Chromium versions. An empty buffer would hit a
++  // CHECK in CreateEmptySampleWithBuffer(); in Qt WebEngine that is the
++  // browser process.
++  if (buffer->size() == 0) {
++    discard_helper_->ProcessBuffers(
++        AudioDiscardHelper::TimeInfo::FromBuffer(*buffer), nullptr);
++    std::move(decode_cb_bound).Run(OkStatus());
++    return;
++  }
++
+   auto sample = CreateEmptySampleWithBuffer(buffer->size(), 0);
+   if (!sample) {
+     std::move(decode_cb_bound).Run(DecoderStatus::Codes::kFailed);
+     return;
+   }
+ 
+-  if (!PopulateInputSample(sample.Get(), *buffer)) {
++  size_t skipped_header_size = 0;
++#if BUILDFLAG(USE_PROPRIETARY_CODECS)
++  if (config_.codec() == AudioCodec::kAAC && !aac_input_is_adts_) {
++    // The decoder was set up for bare AAC frames.
++    skipped_header_size = GetAdtsHeaderSize(buffer->data(), buffer->size());
++  }
++#endif
++
++  if (!PopulateInputSample(sample.Get(), *buffer, skipped_header_size)) {
+     std::move(decode_cb_bound).Run(DecoderStatus::Codes::kFailed);
+     return;
+   }
+@@ -352,33 +455,60 @@ HRESULT MediaFoundationAudioDecoder::CreateDecoder() {
+     return kErrorInitializeMediaFoundation;
+   }
+ 
+-  // Find the decoder factory.
+-  //
+-  // Note: It'd be nice if there was an asynchronous MFT (to avoid the need
+-  // for a codec pump), but alas MFT_ENUM_FLAG_ASYNC_MFT returns no matches :(
+-  base::win::ScopedCoMem<IMFActivate*> acts;
+-  UINT32 acts_num = 0;
+-  RETURN_IF_FAILED(MFTEnumEx(MFT_CATEGORY_AUDIO_DECODER,
+-                             MFT_ENUM_FLAG_SYNCMFT | MFT_ENUM_FLAG_LOCALMFT |
+-                                 MFT_ENUM_FLAG_SORTANDFILTER,
+-                             &type_info.value(), nullptr, &acts, &acts_num));
+-
+-  if (acts_num < 1) {
+-    return MF_E_TOPO_CODEC_NOT_FOUND;
++#if BUILDFLAG(USE_PROPRIETARY_CODECS)
++  // I.K.E.: AAC-LC and HE-AAC go to the AAC decoder that is part of Windows,
++  // created directly. If that is not possible, the enumeration below is tried.
++  if (config_.codec() == AudioCodec::kAAC &&
++      config_.profile() != AudioCodecProfile::kXHE_AAC) {
++    decoder_ = CreateWindowsAacDecoder();
+   }
++#endif
+ 
+-  // Create the decoder from the factory. Activate the first MFT object. We need
+-  // to release acts regardless of success/failure hre.
+-  HRESULT hr = acts[0]->ActivateObject(IID_PPV_ARGS(&decoder_));
+-  for (UINT32 curr_act = 0; curr_act < acts_num; ++curr_act) {
+-    acts[curr_act]->Release();
++  if (!decoder_) {
++    // Find the decoder factory.
++    //
++    // Note: It'd be nice if there was an asynchronous MFT (to avoid the need
++    // for a codec pump), but alas MFT_ENUM_FLAG_ASYNC_MFT returns no matches :(
++    base::win::ScopedCoMem<IMFActivate*> acts;
++    UINT32 acts_num = 0;
++    RETURN_IF_FAILED(MFTEnumEx(MFT_CATEGORY_AUDIO_DECODER,
++                               MFT_ENUM_FLAG_SYNCMFT | MFT_ENUM_FLAG_LOCALMFT |
++                                   MFT_ENUM_FLAG_SORTANDFILTER,
++                               &type_info.value(), nullptr, &acts, &acts_num));
++
++    if (acts_num < 1) {
++      return MF_E_TOPO_CODEC_NOT_FOUND;
++    }
++
++    // Create the decoder from the factory. Activate the first MFT object. We
++    // need to release acts regardless of success/failure hre.
++    HRESULT hr = acts[0]->ActivateObject(IID_PPV_ARGS(&decoder_));
++    for (UINT32 curr_act = 0; curr_act < acts_num; ++curr_act) {
++      acts[curr_act]->Release();
++    }
++    RETURN_IF_FAILED(hr);
+   }
+-  RETURN_IF_FAILED(hr);
+ 
+   Microsoft::WRL::ComPtr<IMFMediaType> input_type;
+   if (config_.codec() == AudioCodec::kAAC) {
+ #if BUILDFLAG(USE_PROPRIETARY_CODECS)
+     RETURN_IF_FAILED(GetAacAudioType(config_, &input_type));
++    // I.K.E.: GetAacAudioType() describes bare AAC frames and passes the
++    // stream's AudioSpecificConfig, taken from the container. A stream that
++    // comes without one (ADTS inside MPEG-2 TS, for instance) carries the
++    // same information in the ADTS header of every frame, so tell the decoder
++    // to read the frames with their headers.
++    aac_input_is_adts_ = config_.extra_data().empty();
++    if (aac_input_is_adts_) {
++      // The part of HEAACWAVEINFO that follows WAVEFORMATEX: wPayloadType = 1
++      // (ADTS), wAudioProfileLevelIndication = 0xFE (not specified),
++      // wStructType, wReserved1 and dwReserved2 = 0.
++      const uint8_t kAdtsUserData[] = {0x01, 0x00, 0xFE, 0x00, 0x00, 0x00,
++                                       0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
++      RETURN_IF_FAILED(input_type->SetUINT32(MF_MT_AAC_PAYLOAD_TYPE, 1));
++      RETURN_IF_FAILED(input_type->SetBlob(MF_MT_USER_DATA, kAdtsUserData,
++                                           sizeof(kAdtsUserData)));
++    }
+ #else
+     return E_NOTIMPL;
+ #endif
+@@ -512,7 +642,10 @@ MediaFoundationAudioDecoder::PumpOutput(PumpState pump_state) {
+ 
+   if (hr == MF_E_TRANSFORM_STREAM_CHANGE &&
+       pump_state != PumpState::kStreamChange) {
+-    if (!ConfigureOutput()) {
++    // I.K.E.: ConfigureOutput() returns an HRESULT, for which success is 0.
++    // Upstream 140 tested it with "!", which turned every change of format
++    // (HE-AAC) into an error; later Chromium versions have this fix.
++    if (FAILED(ConfigureOutput())) {
+       return OutputStatus::kFailed;
+     }
+ 
+diff --git a/chromium/media/filters/win/media_foundation_audio_decoder.h b/chromium/media/filters/win/media_foundation_audio_decoder.h
+index 5cff3a4f..42115a48 100644
+--- a/chromium/media/filters/win/media_foundation_audio_decoder.h
++++ b/chromium/media/filters/win/media_foundation_audio_decoder.h
+@@ -107,6 +107,10 @@ class MEDIA_EXPORT MediaFoundationAudioDecoder : public AudioDecoder {
+ 
+   // Used to rest timestamp_helper_ after Reset() is called
+   bool has_reset_ = false;
++
++  // I.K.E.: true when the AAC decoder was set up for frames that keep their
++  // ADTS header (a stream without AudioSpecificConfig).
++  bool aac_input_is_adts_ = false;
+ };
+ 
+ }  // namespace media

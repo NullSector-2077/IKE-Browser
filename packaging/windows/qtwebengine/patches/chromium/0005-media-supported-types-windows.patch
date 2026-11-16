@@ -1,0 +1,90 @@
+I.K.E. Windows engine: answer canPlayType from what Windows can decode
+
+H.264 and AAC are reported as supported only when Windows has its decoders,
+and H.264 profiles that neither Windows decoder takes are refused.
+
+diff --git a/chromium/media/base/supported_types.cc b/chromium/media/base/supported_types.cc
+index 2ce29798..e861c366 100644
+--- a/chromium/media/base/supported_types.cc
++++ b/chromium/media/base/supported_types.cc
+@@ -35,6 +35,7 @@
+ 
+ #if BUILDFLAG(IS_WIN)
+ #include "base/win/windows_version.h"
++#include "media/base/win/mf_decoder_libraries.h"
+ #endif
+ 
+ namespace media {
+@@ -286,6 +287,28 @@ bool IsDecoderVp9ProfileSupported(const VideoType& type) {
+ #endif  // BUILDFLAG(ENABLE_LIBVPX)
+ }
+ 
++#if BUILDFLAG(IS_WIN)
++// I.K.E.: H.264 is decoded by Windows: by the graphics driver through
++// D3D11VideoDecoder, or in software by the Media Foundation decoder
++// (MediaFoundationVideoDecoder). Both take 8-bit 4:2:0 only, so the other
++// profiles are answered with "no" instead of a promise nobody keeps.
++bool IsDecoderH264SupportedOnWindows(const VideoType& type) {
++  switch (type.profile) {
++    case H264PROFILE_HIGH10PROFILE:
++    case H264PROFILE_HIGH422PROFILE:
++    case H264PROFILE_HIGH444PREDICTIVEPROFILE:
++    case H264PROFILE_SCALABLEBASELINE:
++    case H264PROFILE_SCALABLEHIGH:
++    case H264PROFILE_STEREOHIGH:
++    case H264PROFILE_MULTIVIEWHIGH:
++      return false;
++    default:
++      break;
++  }
++  return HasMediaFoundationH264Decoder();
++}
++#endif  // BUILDFLAG(IS_WIN)
++
+ bool IsDecoderAV1Supported(const VideoType& type) {
+   // If the AV1 decoder is enabled, or if we're on Q or later, yes.
+ #if BUILDFLAG(ENABLE_AV1_DECODER)
+@@ -301,7 +324,14 @@ bool IsDecoderAV1Supported(const VideoType& type) {
+ 
+ bool IsDecoderAACSupported(const AudioType& type) {
+   if (type.profile != AudioCodecProfile::kXHE_AAC) {
++#if BUILDFLAG(IS_WIN)
++    // I.K.E.: AAC is decoded by Windows (Media Foundation), not by FFmpeg.
++    // Say yes only when Windows has its AAC decoder (Windows N has none until
++    // the Media Feature Pack is installed).
++    return HasMediaFoundationAacDecoder();
++#else
+     return true;
++#endif
+   }
+ #if BUILDFLAG(ENABLE_MOJO_AUDIO_DECODER) && \
+     (BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN))
+@@ -453,7 +483,11 @@ bool IsDefaultDecoderSupportedVideoType(const VideoType& type) {
+     case VideoCodec::kTheora:
+       return IsDecoderBuiltInVideoCodec(type.codec);
+     case VideoCodec::kH264:
++#if BUILDFLAG(IS_WIN)
++      return IsDecoderH264SupportedOnWindows(type);
++#else
+       return true;
++#endif
+     case VideoCodec::kVP8:
+       return IsDecoderBuiltInVideoCodec(type.codec)
+                  ? true
+@@ -585,7 +619,15 @@ bool IsEncoderOptionalVideoType(const media::VideoType& type) {
+ }
+ 
+ bool IsDecoderBuiltInVideoCodec(VideoCodec codec) {
+-#if BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS) && BUILDFLAG(USE_PROPRIETARY_CODECS)
++#if BUILDFLAG(IS_WIN) && BUILDFLAG(USE_PROPRIETARY_CODECS)
++  // I.K.E.: FFmpeg has no H.264 decoder in this build. The software decoder
++  // that is always in the decoder list is the one of Windows, when Windows has
++  // it.
++  if (codec == VideoCodec::kH264) {
++    return HasMediaFoundationH264Decoder();
++  }
++#elif BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS) && \
++    BUILDFLAG(USE_PROPRIETARY_CODECS)
+   if (codec == VideoCodec::kH264) {
+     return true;
+   }

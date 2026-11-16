@@ -1,0 +1,37 @@
+I.K.E. Windows engine: GN arguments
+
+-webengine-proprietary-codecs no longer builds FFmpeg's H.264 / AAC decoders
+or OpenH264.
+
+diff --git a/src/core/CMakeLists.txt b/src/core/CMakeLists.txt
+index 37e1cd4..ae40d8b 100644
+--- a/src/core/CMakeLists.txt
++++ b/src/core/CMakeLists.txt
+@@ -428,12 +428,25 @@ foreach(arch ${archs})
+             ARGS use_kerberos
+             CONDITION QT_FEATURE_webengine_kerberos
+         )
++        # I.K.E. (Windows): with these patches "proprietary codecs" means that
++        # the engine knows the formats (MP4, H.264, AAC) and hands the decoding
++        # to Windows (Media Foundation). No H.264 / AAC decoder or encoder is
++        # built: FFmpeg keeps its free codecs only (ffmpeg_branding
++        # "Chromium"), OpenH264 is not built (media_use_openh264,
++        # rtc_use_h264), and the H.265 / Dolby Vision code is left out.
+         extend_gn_list(gnArgArg
+-            ARGS proprietary_codecs rtc_use_h264
++            ARGS proprietary_codecs
+             CONDITION QT_FEATURE_webengine_proprietary_codecs
+         )
+         if(QT_FEATURE_webengine_proprietary_codecs)
+-            list(APPEND gnArgArg ffmpeg_branding="Chrome")
++            list(APPEND gnArgArg
++                ffmpeg_branding="Chromium"
++                media_use_openh264=false
++                rtc_use_h264=false
++                enable_hevc_parser_and_hw_decoder=false
++                enable_platform_dolby_vision=false
++                enable_platform_encrypted_dolby_vision=false
++            )
+         endif()
+         extend_gn_list(gnArgArg
+             ARGS use_browser_spellchecker

@@ -1,0 +1,203 @@
+# I.K.E.'s own Qt WebEngine for Windows: H.264 and AAC are decoded by Windows
+# (Media Foundation); the engine contains no decoder for them. Patches, build
+# script and explanation: packaging/windows/qtwebengine/.
+#
+# The build takes far longer than one job may last, so it runs as a chain of
+# stages that hand the build folder on. The last job installs the result over
+# PyQt6 from PyPI and plays real clips with it.
+#
+# Heavy: started by hand, or by a push to windows/engine that changes what is
+# built (the patches, the pinned versions, this workflow). Never on a pull
+# request. A new run stops the one in progress and continues from the build
+# folder that run last saved.
+#
+# Every job takes the scripts from the head of the branch when it starts, so a
+# correction to build.py or verify_codecs.py pushed while a build is running
+# is used by the jobs that have not started yet, without starting over.
+name: Windows engine
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_tree:
+        description: "Build folder to continue from: auto (the newest kept), none, or a run id"
+        required: false
+        default: "auto"
+  push:
+    branches: [windows/engine]
+    paths:
+      - "packaging/windows/qtwebengine/patches/**"
+      - "!packaging/windows/qtwebengine/patches/**/*.md"
+      - "packaging/windows/qtwebengine/versions.json"
+      - ".github/workflows/windows-engine.yml"
+      - ".github/workflows/windows-engine-stage.yml"
+
+permissions:
+  contents: read
+  # to read the build folder that an earlier run of this workflow kept
+  actions: read
+
+concurrency:
+  group: windows-engine
+  cancel-in-progress: true
+
+jobs:
+  # Runs beside the first stage and takes minutes: shows that this runner can
+  # play clips with PyQt6 at all, and that the engine from PyPI does not play
+  # H.264 / AAC. The last job repeats it before it tests the built engine.
+  control:
+    name: "Control: the engine from PyPI on this runner"
+    runs-on: windows-2022
+    timeout-minutes: 30
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+          sparse-checkout: |
+            packaging/windows/qtwebengine
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12.10"
+      - name: The decoders of this Windows
+        shell: pwsh
+        run: ./packaging/windows/qtwebengine/runner-media.ps1
+      - name: PyQt6 from PyPI
+        shell: pwsh
+        run: ./packaging/windows/qtwebengine/runner-pyqt.ps1
+      - name: Test clips
+        run: python packaging/windows/qtwebengine/verify_codecs.py clips --out clips
+      - name: The engine from PyPI must not play H.264 / AAC
+        run: >-
+          python packaging/windows/qtwebengine/verify_codecs.py run --clips clips
+          --expect stock --name "engine from PyPI (control, early)" --report reports
+      - name: Keep the reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-control-check
+          path: reports
+          if-no-files-found: warn
+          retention-days: 14
+
+  stage1:
+    uses: ./.github/workflows/windows-engine-stage.yml
+    with:
+      stage: 1
+      build_tree: ${{ inputs.build_tree || 'auto' }}
+  stage2:
+    needs: stage1
+    if: ${{ needs.stage1.outputs.done != 'true' }}
+    uses: ./.github/workflows/windows-engine-stage.yml
+    with:
+      stage: 2
+  stage3:
+    needs: stage2
+    if: ${{ needs.stage2.outputs.done != 'true' }}
+    uses: ./.github/workflows/windows-engine-stage.yml
+    with:
+      stage: 3
+  stage4:
+    needs: stage3
+    if: ${{ needs.stage3.outputs.done != 'true' }}
+    uses: ./.github/workflows/windows-engine-stage.yml
+    with:
+      stage: 4
+  stage5:
+    needs: stage4
+    if: ${{ needs.stage4.outputs.done != 'true' }}
+    uses: ./.github/workflows/windows-engine-stage.yml
+    with:
+      stage: 5
+  stage6:
+    needs: stage5
+    if: ${{ needs.stage5.outputs.done != 'true' }}
+    uses: ./.github/workflows/windows-engine-stage.yml
+    with:
+      stage: 6
+  stage7:
+    needs: stage6
+    if: ${{ needs.stage6.outputs.done != 'true' }}
+    uses: ./.github/workflows/windows-engine-stage.yml
+    with:
+      stage: 7
+
+  verify:
+    name: Play real clips with the built engine
+    needs: [stage1, stage2, stage3, stage4, stage5, stage6, stage7]
+    if: >-
+      ${{ always() && !cancelled() && (
+        needs.stage1.outputs.done == 'true' || needs.stage2.outputs.done == 'true' ||
+        needs.stage3.outputs.done == 'true' || needs.stage4.outputs.done == 'true' ||
+        needs.stage5.outputs.done == 'true' || needs.stage6.outputs.done == 'true' ||
+        needs.stage7.outputs.done == 'true') }}
+    runs-on: windows-2022
+    timeout-minutes: 60
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+          sparse-checkout: |
+            packaging/windows/qtwebengine
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12.10"
+      - uses: actions/download-artifact@v4
+        with:
+          name: ike-qtwebengine-windows
+          path: engine
+      - name: Unpack the engine
+        shell: pwsh
+        run: |
+          Get-Content engine\SHA256SUMS.txt -TotalCount 1
+          $zip = Get-ChildItem engine\ike-qtwebengine-*.zip | Select-Object -First 1
+          $sum = (Get-FileHash $zip.FullName -Algorithm SHA256).Hash.ToLower()
+          $want = (Get-Content engine\SHA256SUMS.txt -TotalCount 1).Split(" ")[0]
+          if ($sum -ne $want) { throw "SHA-256 of $($zip.Name) is $sum, the list says $want" }
+          Expand-Archive -Path $zip.FullName -DestinationPath engine\package
+      - name: The decoders of this Windows
+        shell: pwsh
+        run: ./packaging/windows/qtwebengine/runner-media.ps1
+      - name: PyQt6 from PyPI
+        shell: pwsh
+        run: ./packaging/windows/qtwebengine/runner-pyqt.ps1
+      - name: Test clips
+        run: python packaging/windows/qtwebengine/verify_codecs.py clips --out clips
+      - name: "Control: the engine from PyPI must not play H.264 / AAC"
+        run: >-
+          python packaging/windows/qtwebengine/verify_codecs.py run --clips clips
+          --expect stock --name "engine from PyPI (control)" --report reports
+      - name: Put the built engine over the one from PyPI
+        run: python packaging/windows/qtwebengine/verify_codecs.py overlay --package engine/package
+      # The runner has no graphics card: H.264 must come out of the software
+      # decoder of Windows, which is exactly the path to prove here.
+      - name: "Built engine: H.264 / AAC through Windows, no graphics card"
+        run: >-
+          python packaging/windows/qtwebengine/verify_codecs.py run --clips clips
+          --expect patched --name "built engine" --report reports
+          --require-decoder-names
+          --video-decoder MediaFoundationVideoDecoder
+          --audio-decoder MediaFoundationAudioDecoder
+      - name: "Built engine with --disable-gpu"
+        if: ${{ !cancelled() }}
+        run: >-
+          python packaging/windows/qtwebengine/verify_codecs.py run --clips clips
+          --expect patched --name "built engine, GPU disabled" --report reports
+          --flags "--disable-gpu"
+          --video-decoder MediaFoundationVideoDecoder
+          --audio-decoder MediaFoundationAudioDecoder
+      - name: Keep the reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-codec-check
+          path: |
+            reports
+            clips
+          if-no-files-found: warn
+          retention-days: 30
