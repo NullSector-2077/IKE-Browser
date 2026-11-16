@@ -292,7 +292,7 @@
 "I.K.E. update %s did not start correctly and was removed. The previous version is in use.": "I.K.E. の更新 %s が正しく起動しなかったため削除しました。以前のバージョンを使用しています。",
 "I.K.E. update check failed: %s": "I.K.E. の更新確認に失敗しました: %s",
 "I.K.E. updates": "I.K.E. の更新",
-"Ice": "アイス",
+"Ike": "アイス",
 "Icons": "アイコン",
 "Import": "インポート",
 "Import CSV…": "CSV をインポート…",

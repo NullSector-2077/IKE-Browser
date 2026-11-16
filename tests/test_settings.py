@@ -5,7 +5,7 @@ import json
 import pytest
 
 SCRIPT = """
-    def steps(ice, qapp, out):
+    def steps(ike, qapp, out):
         yield 600
         import json
         from ike.config import CONFIG_DIR
@@ -39,8 +39,8 @@ SCRIPT = """
 
 
 @pytest.mark.parametrize("lang", ["en", "it", "de", "fr", "es", "pt", "zh", "ja"])
-def test_settings_dialog(run_ice, lang):
-    out = run_ice(SCRIPT, settings={"language": lang})
+def test_settings_dialog(run_ike, lang):
+    out = run_ike(SCRIPT, settings={"language": lang})
     assert out["sections"] == 7 and out["pages"] == 7
     assert all(out["icons"])
     assert out["sideways"]["appearance"] == 0, out["sideways"]
@@ -50,11 +50,11 @@ def test_settings_dialog(run_ice, lang):
     assert out["homepage"] == "https://example.org/"
 
 
-def test_settings_keys_unchanged(run_ice, tmp_path):
+def test_settings_keys_unchanged(run_ike, tmp_path):
     """The keys written to settings.json are part of the user's data: a list of
     them is kept in tests/settings-keys.json and must not change by accident."""
-    run_ice("""
-        def steps(ice, qapp, out):
+    run_ike("""
+        def steps(ike, qapp, out):
             yield 300
             ike.config.save()
     """)

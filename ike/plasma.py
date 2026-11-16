@@ -127,8 +127,8 @@ class DesktopIntegration(QObject):
         super().__init__(app)
         self.app = app
         self.bus = None
-        self.mpris_name = "org.mpris.MediaPlayer2.ice_browser.instance%d" % os.getpid()
-        self.runner_name = "org.kde.ice_browser.krunner.instance%d" % os.getpid()
+        self.mpris_name = "org.mpris.MediaPlayer2.ike_browser.instance%d" % os.getpid()
+        self.runner_name = "org.kde.ike_browser.krunner.instance%d" % os.getpid()
         self.player = None          # the view whose media is shown
         self.state = None           # last media state read from it
         self._track = 0
@@ -383,7 +383,7 @@ class DesktopIntegration(QObject):
             if not self._runner_on:
                 self._runner_on = True
                 self.bus.request_name(self.runner_name)
-            text = RUNNER_DESKTOP.format(service="org.kde.ice_browser.krunner.*", path=RUNNER_PATH)
+            text = RUNNER_DESKTOP.format(service="org.kde.ike_browser.krunner.*", path=RUNNER_PATH)
             try:
                 if not f.exists() or f.read_text("utf-8") != text:
                     f.parent.mkdir(parents=True, exist_ok=True)

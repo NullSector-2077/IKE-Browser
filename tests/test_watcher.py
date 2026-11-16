@@ -55,14 +55,14 @@ from PyQt6.QtCore import QPoint
 URL, TARGET, PART, PRICE = %r, %r, %r, %r
 
 
-def wait_check(ice):
+def wait_check(ike):
     for _ in range(60):
         yield 250
         if ike.watcher._current is None:
             return
 
 
-def steps(ice, qapp, out):
+def steps(ike, qapp, out):
     notes = []
     ike._desktop_notify = notes.append
     yield 300
@@ -91,12 +91,12 @@ def steps(ice, qapp, out):
     out["timer_on"] = ike.watcher.timer.isActive()
     out["due_now"] = len(ike.watcher.due())
     ike.watcher.check(w)                 # nothing changed but the counter elsewhere
-    yield from wait_check(ice)
+    yield from wait_check(ike)
     out["first"] = {k: w[k] for k in ("status", "changed")}
     out["notes1"] = list(notes)
     open(PRICE, "w").write("12")
     ike.watcher.check(w)
-    yield from wait_check(ice)
+    yield from wait_check(ike)
     out["second"] = {k: w[k] for k in ("status", "changed", "excerpt")}
     out["notes2"] = list(notes)
     out["shield_same"] = ike.shields.total("127.0.0.1") == shield_before
@@ -119,14 +119,14 @@ def steps(ice, qapp, out):
 """
 
 
-def _run(run_ice, shop, target, part):
+def _run(run_ike, shop, target, part):
     url, price, seen = shop
-    out = run_ice(SCRIPT % (url, target, part, str(price)))
+    out = run_ike(SCRIPT % (url, target, part, str(price)))
     return out, seen
 
 
-def test_watch_part(run_ice, shop):
-    out, seen = _run(run_ice, shop, "document.getElementById('price')", True)
+def test_watch_part(run_ike, shop):
+    out, seen = _run(run_ike, shop, "document.getElementById('price')", True)
     assert out["timer_idle"] is False
     assert out["watch"]["selector"] == "#price" and out["watch"]["excerpt"] == "10"
     assert out["watch"]["interval"] == 15 and out["timer_on"] and out["due_now"] == 0
@@ -145,26 +145,26 @@ def test_watch_part(run_ice, shop):
     assert out["left"] == 0 and out["timer_after"] is False
 
 
-def test_watch_part_without_id(run_ice, shop):
-    out, _ = _run(run_ice, shop, "document.querySelectorAll('li')[1]", True)
+def test_watch_part_without_id(run_ike, shop):
+    out, _ = _run(run_ike, shop, "document.querySelectorAll('li')[1]", True)
     assert out["watch"]["selector"] == "body > ul:nth-of-type(1) > li:nth-of-type(2)"
     assert out["watch"]["excerpt"] == "10 euro"
     assert out["first"]["changed"] is False
     assert out["second"]["changed"] is True and out["second"]["excerpt"] == "12 euro"
 
 
-def test_watch_whole_page(run_ice, shop):
-    out, _ = _run(run_ice, shop, "document.body", False)
+def test_watch_whole_page(run_ike, shop):
+    out, _ = _run(run_ike, shop, "document.body", False)
     assert out["watch"]["selector"] == ""
     # the counter on the page changes at every load: the whole page differs each time
     assert out["first"]["changed"] is True
     assert "12 euro" in out["second"]["excerpt"]
 
 
-def test_watch_due_and_missing(run_ice, shop):
+def test_watch_due_and_missing(run_ike, shop):
     url, _price, _seen = shop
-    out = run_ice("""
-        def steps(ice, qapp, out):
+    out = run_ike("""
+        def steps(ike, qapp, out):
             yield 300
             w = ike.watcher.watches[0]
             out["timer"] = ike.watcher.timer.isActive()
@@ -186,10 +186,10 @@ def test_watch_due_and_missing(run_ice, shop):
     assert out["cell"] == "The part was not found"
 
 
-def test_watch_switched_off(run_ice, shop):
+def test_watch_switched_off(run_ike, shop):
     url, _price, _seen = shop
-    out = run_ice("""
-        def steps(ice, qapp, out):
+    out = run_ike("""
+        def steps(ike, qapp, out):
             yield 300
             out["timer"] = ike.watcher.timer.isActive()
             ike.watcher.check_due()

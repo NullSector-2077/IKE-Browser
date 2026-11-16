@@ -292,7 +292,7 @@
 "I.K.E. update %s did not start correctly and was removed. The previous version is in use.": "La mise à jour %s d'I.K.E. n'a pas démarré correctement et a été retirée. La version précédente est utilisée.",
 "I.K.E. update check failed: %s": "Échec de la recherche de mises à jour d'I.K.E. : %s",
 "I.K.E. updates": "Mises à jour d'I.K.E.",
-"Ice": "Glace",
+"Ike": "Glace",
 "Icons": "Icônes",
 "Import": "Importer",
 "Import CSV…": "Importer un CSV…",

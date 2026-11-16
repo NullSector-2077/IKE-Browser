@@ -4,8 +4,8 @@ import os
 import re
 import time
 
-from PyQt6.QtCore import QEvent, QPoint, QSize, Qt, QTimer, QUrl
-from PyQt6.QtGui import QAction, QActionGroup, QIcon, QKeySequence
+from PyQt6.QtCore import QEvent, QPoint, QRect, QSize, Qt, QTimer, QUrl
+from PyQt6.QtGui import QAction, QActionGroup, QIcon, QKeySequence, QPainter, QPalette, QPen, QPixmap
 from PyQt6.QtWebEngineCore import QWebEnginePage
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -251,6 +251,12 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.tabbar.setElideMode(Qt.TextElideMode.ElideRight)
         self.tabbar.setUsesScrollButtons(True)
         self.tabbar.setIconSize(QSize(16, 16))
+        self.tabbar.setMouseTracking(True)
+        self.tabbar.setStyleSheet(
+            "QTabBar::tab { padding: 6px 10px; border-bottom: 2px solid transparent; }"
+            "QTabBar::tab:selected { border-bottom-color: palette(highlight); }"
+            "QTabBar::tab:hover:!selected { background: palette(alternate-base); }"
+        )
         self.tabbar.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tabbar.currentChanged.connect(self._tabbar_changed)
         self.tabbar.tabCloseRequested.connect(lambda i: self.close_tab(self.views[i]))
@@ -358,7 +364,12 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                            else [QKeySequence(shortcut)])
         if tip:
             a.setStatusTip(tip)
-            a.setToolTip(tip)
+            shortcut_text = ", ".join(
+                QKeySequence(value).toString(QKeySequence.SequenceFormat.NativeText)
+                for value in (shortcut if isinstance(shortcut, (list, tuple)) else [shortcut])
+            ) if shortcut else ""
+            a.setToolTip(tip + ("\n" + T("Shortcut:") + " " + shortcut_text
+                                if shortcut_text else ""))
         a.setCheckable(checkable)
         if slot:
             a.triggered.connect(slot)
@@ -375,6 +386,11 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         tb.customContextMenuRequested.connect(self._toolbar_menu)
         self.addToolBar(tb)
         self.nav = tb
+        self.nav.setStyleSheet(
+            "QToolButton { border: none; border-radius: 6px; padding: 0px; }"
+            "QToolButton:hover { background: palette(alternate-base); }"
+            "QToolButton:pressed { background: palette(midlight); }"
+        )
         self.act_back = self._action(T("Back"), lambda: self._web(QWebEnginePage.WebAction.Back),
                                      ["Alt+Left"], icon("go-previous", SP.SP_ArrowBack),
                                      T("Go back one page"))
@@ -387,9 +403,15 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_home = self._action(T("Home"), self.go_home, ["Alt+Home"],
                                      icon("go-home", SP.SP_DirHomeIcon),
                                      T("Open the home page"))
-        for a in (self.act_back, self.act_fwd, self.act_home):
+        # The four primary navigation actions stay fixed. The separator is
+        # deliberately after Reload so optional actions can be arranged after it.
+        for a in (self.act_back, self.act_fwd, self.act_home, self.act_reload):
             tb.addAction(a)
-        tb.addSeparator()             # fixed navigation group ends after Home
+        tb.addSeparator()
+        for action in (self.act_back, self.act_fwd, self.act_reload):
+            button = tb.widgetForAction(action)
+            if button is not None:
+                button.setIconSize(QSize(22, 22))
 
         def spacer():
             w = QWidget(self)
@@ -402,20 +424,13 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.urlbar.returnPressed.connect(lambda: self.navigate(self.urlbar.text()))
         self.urlbar_act = tb.addWidget(self.urlbar)
 
-        # Shield: protection level selector, right of the address bar.
-        self.shield_btn = QToolButton(self)
-        self.shield_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.shield_btn.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
-        self.shield_btn.clicked.connect(self.shield_btn.showMenu)
-        self.shield_btn.setToolTip(T("I.K.E. Shield: choose the protection level"))
+        # The Shield panel is opened from the address bar's leading icon.
         self.shield_menu = QMenu(self)
         self.shield_panel = ShieldPanel(self)
         wa = QWidgetAction(self.shield_menu)
         wa.setDefaultWidget(self.shield_panel)
         self.shield_menu.addAction(wa)
         self.shield_menu.aboutToShow.connect(self.shield_panel.refresh)
-        self.shield_btn.setMenu(self.shield_menu)
-        self.shield_act = tb.addWidget(self.shield_btn)
 
         self.store_btn = QToolButton(self)
         self.store_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
@@ -427,9 +442,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.store_act.setVisible(False)
         self.space_right_act = tb.addWidget(self._nav_spacers[1])
         A = self._action
-        self.act_tb_translate = A(T("Translate page"), self.translate_page, None,
-                                  icon(("translate", "crow-translate-tray", "preferences-desktop-locale")),
-                                  T("Translate this page through an external web service"))
         self.act_tb_reader = A(T("Reader mode"), self.toggle_reader, None,
                                icon(("view-readermode", "document-preview")),
                                T("Show only the text of the article"))
@@ -455,7 +467,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                           icon("download", SP.SP_ArrowDown),
                                           T("Show downloaded files"))
         self._dl_icon = self.act_downloads.icon()
-        for a in (self.act_tb_translate, self.act_tb_reader, self.act_tb_shot, self.act_tb_pip,
+        for a in (self.act_tb_reader, self.act_tb_shot, self.act_tb_pip,
                   self.act_tb_split, self.act_dark, self.act_tb_private, self.act_tb_clean,
                   self.act_downloads):
             tb.addAction(a)
@@ -481,10 +493,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.menu_act = tb.addWidget(self.menu_btn)
         self._build_window_buttons(tb)
         right = self._win_btns[0]
-        self._nav_items = [("shield", self.shield_act, right),
-                           ("reload", self.act_reload, right),
-                           ("translate", self.act_tb_translate, right),
-                           ("reader", self.act_tb_reader, right),
+        self._nav_items = [("reader", self.act_tb_reader, right),
                            ("screenshot", self.act_tb_shot, right),
                            ("pip", self.act_tb_pip, right),
                            ("split", self.act_tb_split, right),
@@ -493,6 +502,11 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                            ("cleansite", self.act_tb_clean, right),
                            ("downloads", self.act_downloads, right),
                            ("menu", self.menu_act, right)]
+        self._toolbar_separator_actions = {}
+        for separator_key in self.app.config.get("toolbar_separators", []):
+            separator_action = self._create_toolbar_separator(separator_key)
+            self._toolbar_separator_actions[separator_key] = separator_action
+            self._nav_items.append((separator_key, separator_action, right))
 
         self.bookbar = BookmarksBar(T("Bookmarks bar"), self)
         self.bookbar.setObjectName("bookmarks")
@@ -501,6 +515,94 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.bookbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.addToolBarBreak()
         self.addToolBar(self.bookbar)
+
+    def _create_toolbar_separator(self, key):
+        """Create a user-owned, draggable separator in the navigation toolbar."""
+        action = QWidgetAction(self)
+        line = QFrame(self.nav)
+        line.setObjectName("toolbarSeparator_" + key)
+        line.setFrameShape(QFrame.Shape.VLine)
+        line.setFrameShadow(QFrame.Shadow.Plain)
+        line.setLineWidth(1)
+        line.setMidLineWidth(0)
+        line.setFixedSize(10, 24)
+        line.setMouseTracking(True)
+        line.setProperty("iceToolbarKey", key)
+        line.setProperty("iceToolbarSeparator", True)
+        line.setToolTip(T("Custom separator — hold and drag to move"))
+        action.setDefaultWidget(line)
+        return action
+
+    def _add_toolbar_separator(self):
+        cfg = self.app.config
+        if cfg.get("toolbar_locked", False):
+            return
+        used = set(cfg.get("toolbar_separators", []))
+        index = 1
+        while "separator_%d" % index in used:
+            index += 1
+        key = "separator_%d" % index
+        action = self._create_toolbar_separator(key)
+        cfg["toolbar_separators"] = list(cfg.get("toolbar_separators", [])) + [key]
+        cfg["toolbar_order"] = list(cfg.get("toolbar_order", [])) + [key]
+        self._toolbar_separator_actions[key] = action
+        self._nav_items.append((key, action, self._win_btns[0]))
+        self._apply_toolbar()
+        self._save_toolbar_layout()
+
+    def _remove_toolbar_separator(self, key):
+        cfg = self.app.config
+        if cfg.get("toolbar_locked", False) or key not in cfg.get("toolbar_separators", []):
+            return
+        action = self._toolbar_separator_actions.pop(key, None)
+        if action is not None:
+            self.nav.removeAction(action)
+            # QWidgetAction owns its default widget; deleting the action releases it.
+            action.deleteLater()
+        self._nav_items = [item for item in self._nav_items if item[0] != key]
+        cfg["toolbar_separators"] = [item for item in cfg.get("toolbar_separators", [])
+                                     if item != key]
+        cfg["toolbar_order"] = [item for item in cfg.get("toolbar_order", []) if item != key]
+        cfg["toolbar_left"] = [item for item in cfg.get("toolbar_left", []) if item != key]
+        self._apply_toolbar()
+        self._save_toolbar_layout()
+
+    def _set_toolbar_locked(self, locked):
+        self.app.config["toolbar_locked"] = bool(locked)
+        self.app.config.save()
+        self._apply_toolbar()
+
+    def _show_shield_menu(self):
+        self.shield_panel.refresh()
+        point = self.urlbar.mapToGlobal(QPoint(0, self.urlbar.height()))
+        self.shield_menu.popup(point)
+
+    def update_permission_indicator(self):
+        action = getattr(self.urlbar, "permissions", None)
+        if action is None:
+            return
+        permissions = self.site_permissions()
+        action.setVisible(bool(permissions))
+        if permissions:
+            action.setToolTip(T("Site permissions") + "\n" + "\n".join(permissions))
+
+    def _show_site_permissions(self):
+        permissions = self.site_permissions()
+        if not permissions:
+            return
+        menu = QMenu(self)
+        menu.setToolTipsVisible(True)
+        heading = menu.addAction(T("Permissions used by this site"))
+        heading.setEnabled(False)
+        for item in permissions:
+            entry = menu.addAction(item)
+            entry.setEnabled(False)
+        menu.addSeparator()
+        reset = menu.addAction(T("Reset site permissions"))
+        reset.triggered.connect(lambda: (self.site_permissions(reset=True),
+                                         self.update_permission_indicator()))
+        menu.aboutToHide.connect(menu.deleteLater)
+        menu.popup(self.urlbar.mapToGlobal(QPoint(self.urlbar.width(), self.urlbar.height())))
 
     def _build_menus(self):
         A = self._action
@@ -663,6 +765,13 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         burger.addAction(m_edit.actions()[-1])
         burger.addAction(m_file.actions()[-1])
         self.menu_btn.setMenu(burger)
+        self.setStyleSheet(
+            self.styleSheet()
+            + " QMenu { padding: 4px; border: 1px solid palette(mid); border-radius: 8px; }"
+              " QMenu::item { padding: 6px 26px 6px 26px; border-radius: 5px; }"
+              " QMenu::item:selected { background: palette(highlight); color: palette(highlighted-text); }"
+              " QToolTip { padding: 5px 8px; border: 1px solid palette(mid); border-radius: 5px; }"
+        )
 
         # Extra shortcuts without a menu entry.
         A("focus-url", self._focus_url, ["Ctrl+L", "Alt+D", "F6"])
@@ -945,6 +1054,21 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self.set_current(cur)
         self._apply_groups()
 
+    def _loading_tab_icon(self, progress):
+        """A tiny progress ring instead of the favicon while a page is loading."""
+        pixmap = QPixmap(32, 32)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        colour = self.palette().color(QPalette.ColorRole.Highlight)
+        painter.setPen(QPen(colour, 3.0, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        percent = max(0, min(100, int(progress or 0)))
+        span = 115 if percent <= 0 else max(24, int(360 * percent / 100))
+        painter.drawArc(QRect(7, 7, 18, 18), 90 * 16, -span * 16)
+        painter.end()
+        pixmap.setDevicePixelRatio(2)
+        return QIcon(pixmap)
+
     def _tab_changed(self, view):
         if view not in self.views:
             return
@@ -974,11 +1098,14 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             tip += "\n" + T("Container: %s") % view.container
         # Never ask the engine for the icon here: on a suspended (discarded) page
         # that call crashes Qt WebEngine. We keep our own copy instead.
-        ic = view.last_icon
-        if ic.isNull():
-            ic = self.app.icon if view.url().scheme() == "ike" else icon(
-                "globe", QStyle.StandardPixmap.SP_FileIcon)
-        ic = tab_icon(ic, g["color"] if g else None, self.app.container_color(view.container))
+        if getattr(view, "loading", False):
+            ic = self._loading_tab_icon(getattr(view, "progress", 0))
+        else:
+            ic = view.last_icon
+            if ic.isNull():
+                ic = self.app.icon if view.url().scheme() == "ike" else icon(
+                    "globe", QStyle.StandardPixmap.SP_FileIcon)
+            ic = tab_icon(ic, g["color"] if g else None, self.app.container_color(view.container))
         self.tabbar.setTabText(i, prefix + (title if len(title) < 28 else title[:27] + "…"))
         self.tabbar.setTabToolTip(i, tip)
         self.tabbar.setTabIcon(i, ic)
@@ -1364,6 +1491,11 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self.urlbar.setCursorPosition(0)
         SP = QStyle.StandardPixmap
         scheme = url.scheme()
+        web_page = scheme in ("http", "https")
+        self.urlbar.shield.setVisible(web_page)
+        self.urlbar.translate.setVisible(web_page)
+        if not web_page:
+            self.urlbar.permissions.setVisible(False)
         if scheme == "https":
             self.urlbar.lock.setIcon(icon("object-locked", SP.SP_DialogYesButton))
             self.urlbar.lock.setToolTip(T("Secure connection (HTTPS)"))
@@ -1380,6 +1512,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.urlbar.star.setIcon(icon("bookmarks" if marked else "bookmark-new",
                                       SP.SP_DialogApplyButton if marked else SP.SP_DialogOpenButton))
         self.urlbar.star.setToolTip(T("Remove bookmark") if marked else T("Bookmark this page"))
+        self.update_permission_indicator()
 
     def _url_changed(self, view):
         if view is self.current_view():
@@ -1394,6 +1527,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         view.loading = loading
         if not loading:
             view.progress = 100
+        self._tab_changed(view)
         if view is self.current_view():
             self._update_nav()
             self._update_bookbar()
@@ -1401,6 +1535,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
 
     def _load_progress(self, view, percent):
         view.progress = percent
+        if getattr(view, "loading", False):
+            self._tab_changed(view)
         if view is self.current_view() and getattr(view, "loading", False):
             self.loading_line.set_state(True, percent)
 
@@ -1436,11 +1572,14 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         cfg = self.app.config
         level = cfg.level_for(host) if host else cfg["shield_level"]
         n = self.app.shields.total(host) if host else 0
-        self.shield_btn.setIcon(shield_icon(level))
-        self.shield_btn.setText(str(n) if n and level != "off" else "")
+        self.urlbar.shield.setIcon(shield_icon(level, 16))
+        self.urlbar.shield.setToolTip(
+            T("I.K.E. Shield") + (" — %s " % n + T("items blocked") if n else "")
+        )
         self.m_level.setIcon(shield_icon(cfg["shield_level"], 16))
         if self.shield_menu.isVisible():
             self.shield_panel.count.setText(str(n))
+        self.update_permission_indicator()
 
     # ------------------------------------------------------------------
     # bookmarks / history menus
@@ -1638,27 +1777,57 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             left.setFixedWidth(pad)
 
     def _toolbar_menu(self, pos):
-        """Right click on the toolbar: choose which buttons it shows."""
+        """Configure toolbar visibility, separators and its layout lock."""
         child = self.nav.childAt(pos)
-        if child is not None and child not in self._nav_spacers \
-                and not isinstance(child, QToolButton):
+        if (child is not None and child not in self._nav_spacers
+                and not isinstance(child, (QToolButton, QFrame))):
             return
         cfg = self.app.config
         m = QMenu(self)
+        locked = m.addAction(T("Lock toolbar layout"))
+        locked.setCheckable(True)
+        locked.setChecked(bool(cfg.get("toolbar_locked", False)))
+        locked.setData("__toolbar_lock__")
+        m.addSeparator()
+
+        add_separator = m.addAction(T("Add separator"))
+        add_separator.setEnabled(not cfg.get("toolbar_locked", False))
+        add_separator.setData("__add_separator__")
+        separators = list(cfg.get("toolbar_separators", []))
+        if separators:
+            remove_menu = m.addMenu(T("Remove separator"))
+            for key in separators:
+                action = remove_menu.addAction(T("Separator %s") % key.rsplit("_", 1)[-1])
+                action.setData("__remove_separator__:" + key)
+                action.setEnabled(not cfg.get("toolbar_locked", False))
+        m.addSeparator()
+
         title = m.addAction(T("Toolbar buttons"))
         title.setEnabled(False)
-        m.addSeparator()
         for key, act, _anchor in self._nav_items:
-            if key in ("shield", "menu"):
+            if key == "menu" or key.startswith("separator_"):
                 continue
             a = m.addAction(act.icon(), act.text())
             a.setCheckable(True)
             a.setChecked(key not in cfg["toolbar_hidden"])
             a.setData(key)
+
         chosen = m.exec(self.nav.mapToGlobal(pos))
-        if chosen is None or not chosen.data():
+        if chosen is None:
             return
-        key = chosen.data()
+        data = chosen.data()
+        if data == "__toolbar_lock__":
+            self._set_toolbar_locked(chosen.isChecked())
+            return
+        if data == "__add_separator__":
+            self._add_toolbar_separator()
+            return
+        if isinstance(data, str) and data.startswith("__remove_separator__:"):
+            self._remove_toolbar_separator(data.split(":", 1)[1])
+            return
+        if not data:
+            return
+        key = str(data)
         hidden = [k for k in cfg["toolbar_hidden"] if k != key]
         if not chosen.isChecked():
             hidden.append(key)

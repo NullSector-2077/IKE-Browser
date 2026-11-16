@@ -101,7 +101,7 @@ class Vault:
             salt = base64.b64decode(blob["salt"])
             key = self._derive(master, salt)
             plain = AESGCM(key).decrypt(base64.b64decode(blob["nonce"]),
-                                        base64.b64decode(blob["data"]), b"ice-vault-1")
+                                        base64.b64decode(blob["data"]), b"ike-vault-1")
         except (InvalidTag, ValueError, KeyError, OSError):
             return False
         self.entries = json.loads(plain.decode("utf-8"))
@@ -121,7 +121,7 @@ class Vault:
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
         nonce = os.urandom(12)
         data = AESGCM(self._key).encrypt(nonce, json.dumps(self.entries).encode("utf-8"),
-                                         b"ice-vault-1")
+                                         b"ike-vault-1")
         blob = {"v": 1, "kdf": "scrypt", "n": SCRYPT_N, "r": SCRYPT_R, "p": SCRYPT_P,
                 "cipher": "aes-256-gcm", "salt": _b64(self._salt), "nonce": _b64(nonce),
                 "data": _b64(data)}
@@ -587,7 +587,7 @@ class PasswordsDialog(QDialog):
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         ) != QMessageBox.StandardButton.Yes:
             return
-        path, _f = QFileDialog.getSaveFileName(self, T("Export passwords"), "ice-passwords.csv",
+        path, _f = QFileDialog.getSaveFileName(self, T("Export passwords"), "ike-passwords.csv",
                                                "CSV (*.csv)")
         if path:
             with open(path, "w", encoding="utf-8", newline="") as fh:

@@ -30,7 +30,7 @@ def _tone():
 
 # (from a blob, so the test server need not answer range requests for seeking)
 SONG = (b"<!doctype html><title>Song page</title><audio id=a loop></audio><script>"
-        b"navigator.mediaSession.metadata=new MediaMetadata({title:'Ice Tone',artist:'Tester',album:'Tests',"
+        b"navigator.mediaSession.metadata=new MediaMetadata({title:'Ike Tone',artist:'Tester',album:'Tests',"
         b"artwork:[{src:'http://127.0.0.1/cover.png'}]});var a=document.getElementById('a');"
         b"fetch('/tone.wav').then(r=>r.blob()).then(b=>{a.src=URL.createObjectURL(b);a.play()})</script>")
 SIZE = 200 * 1024
@@ -93,10 +93,10 @@ def js(view, code, res):
 """
 
 
-def test_media_controls(run_ice, site, desktop_bus):
+def test_media_controls(run_ike, site, desktop_bus):
     address, _log, _f = desktop_bus
-    out = run_ice(GDBUS + """
-def steps(ice, qapp, out):
+    out = run_ike(GDBUS + """
+def steps(ike, qapp, out):
     yield 300
     win = ike.windows[0]
     view = win.add_tab(%r)
@@ -133,7 +133,7 @@ def steps(ice, qapp, out):
     assert out["registered"]
     assert "'Identity': <'I.K.E.'>" in c[0] and "'DesktopEntry': <'ike-browser'>" in c[0]
     assert "'PlaybackStatus': <'Playing'>" in c[1]
-    assert "'xesam:title': <'Ice Tone'>" in c[1] and "'xesam:artist': <['Tester']>" in c[1]
+    assert "'xesam:title': <'Ike Tone'>" in c[1] and "'xesam:artist': <['Tester']>" in c[1]
     assert "'xesam:album': <'Tests'>" in c[1] and "mpris:length" in c[1] and "int64" in c[1]
     assert "'mpris:artUrl': <'http://127.0.0.1/cover.png'>" in c[1]
     assert c[3] is True and "Paused" in c[4]
@@ -143,10 +143,10 @@ def steps(ice, qapp, out):
     assert "false" in out["after_close"]
 
 
-def test_media_switched_off_and_private(run_ice, site, desktop_bus):
+def test_media_switched_off_and_private(run_ike, site, desktop_bus):
     address, _log, _f = desktop_bus
-    out = run_ice("""
-        def steps(ice, qapp, out):
+    out = run_ike("""
+        def steps(ike, qapp, out):
             yield 300
             win = ike.windows[0]
             win.add_tab(%r)
@@ -161,12 +161,12 @@ def test_media_switched_off_and_private(run_ice, site, desktop_bus):
     assert out["off"] is False and out["private"] is False
 
 
-def test_krunner(run_ice, site, desktop_bus, tmp_path):
+def test_krunner(run_ike, site, desktop_bus, tmp_path):
     address, _log, _f = desktop_bus
-    out = run_ice(GDBUS + """
+    out = run_ike(GDBUS + """
 import os
 
-def steps(ice, qapp, out):
+def steps(ike, qapp, out):
     yield 300
     win = ike.windows[0]
     zebra = win.add_tab(%r)
@@ -199,7 +199,7 @@ def steps(ice, qapp, out):
 """ % (site + "/zebra", site + "/other"), env={"DBUS_SESSION_BUS_ADDRESS": address})
     m, short, actions = out["calls"][:3]
     assert out["owned"]
-    assert "X-Plasma-DBusRunner-Service=org.kde.ice_browser.krunner.*" in out["desktop_file"]
+    assert "X-Plasma-DBusRunner-Service=org.kde.ike_browser.krunner.*" in out["desktop_file"]
     assert "X-Plasma-DBusRunner-Path=/runner" in out["desktop_file"]
     assert "'Zebra crossing guide'" in m and "'Zebra stripes explained'" in m and "Other page" not in m
     assert "'subtext': <'https://zebra.example/stripes'>" in m
@@ -209,12 +209,12 @@ def steps(ice, qapp, out):
     assert out["file_after_off"] is False and out["owned_after_off"] is False
 
 
-def test_downloads_in_notifications(run_ice, site, desktop_bus, tmp_path):
+def test_downloads_in_notifications(run_ike, site, desktop_bus, tmp_path):
     address, log, logfile = desktop_bus
-    out = run_ice("""
+    out = run_ike("""
         from PyQt6.QtCore import QUrl
 
-        def steps(ice, qapp, out):
+        def steps(ike, qapp, out):
             yield 400
             win = ike.windows[0]
             win.current_view().page().download(QUrl(%r))
@@ -253,10 +253,10 @@ def test_downloads_in_notifications(run_ice, site, desktop_bus, tmp_path):
     assert ends["/org/kde/notificationmanager/jobs/JobView_2"][0] == 1
 
 
-def test_send_to_phone(run_ice, site, desktop_bus):
+def test_send_to_phone(run_ike, site, desktop_bus):
     address, log, _f = desktop_bus
-    out = run_ice("""
-        def steps(ice, qapp, out):
+    out = run_ike("""
+        def steps(ike, qapp, out):
             yield 300
             win = ike.windows[0]
             view = win.add_tab(%r)
@@ -287,7 +287,7 @@ def test_send_to_phone(run_ice, site, desktop_bus):
     assert out["menu_off"] == 0
 
 
-def test_screen_stays_on_through_the_engine(run_ice, site, desktop_bus, tmp_path):
+def test_screen_stays_on_through_the_engine(run_ike, site, desktop_bus, tmp_path):
     """Qt WebEngine asks the desktop to keep the screen on while a video plays."""
     import shutil
     import subprocess
@@ -315,8 +315,8 @@ def test_screen_stays_on_through_the_engine(run_ice, site, desktop_bus, tmp_path
 
     httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
-    run_ice("""
-        def steps(ice, qapp, out):
+    run_ike("""
+        def steps(ike, qapp, out):
             yield 300
             ike.windows[0].add_tab(%r)
             yield 4000
@@ -326,11 +326,11 @@ def test_screen_stays_on_through_the_engine(run_ice, site, desktop_bus, tmp_path
     assert "Inhibit" in members
 
 
-def test_without_desktop_bus(run_ice, site):
-    out = run_ice("""
+def test_without_desktop_bus(run_ike, site):
+    out = run_ike("""
         import os
 
-        def steps(ice, qapp, out):
+        def steps(ike, qapp, out):
             yield 300
             ike.windows[0].add_tab(%r)
             yield 2500

@@ -1,9 +1,9 @@
 """Start-up: one window with the new tab page, and a clean exit."""
 
 
-def test_starts_with_new_tab(run_ice):
-    out = run_ice("""
-        def steps(ice, qapp, out):
+def test_starts_with_new_tab(run_ike):
+    out = run_ike("""
+        def steps(ike, qapp, out):
             yield 1500
             win = ike.windows[0]
             out["windows"] = len(ike.windows)
@@ -21,9 +21,9 @@ def test_starts_with_new_tab(run_ice):
     assert out["_exit"] == 0
 
 
-def test_opens_address_from_command_line(run_ice):
-    out = run_ice("""
-        def steps(ice, qapp, out):
+def test_opens_address_from_command_line(run_ike):
+    out = run_ike("""
+        def steps(ike, qapp, out):
             yield 1500
             views = ike.windows[0].views
             out["tabs"] = len(views)
@@ -33,9 +33,9 @@ def test_opens_address_from_command_line(run_ice):
     assert out["title"] == "hello"
 
 
-def test_private_window(run_ice):
-    out = run_ice("""
-        def steps(ice, qapp, out):
+def test_private_window(run_ike):
+    out = run_ike("""
+        def steps(ike, qapp, out):
             yield 800
             win = ike.windows[0]
             out["private"] = win.private

@@ -1,6 +1,6 @@
 """Start the real browser without a display and run checks inside it.
 
-Each call of ``run_ice`` starts I.K.E. from this repository with an empty
+Each call of ``run_ike`` starts I.K.E. from this repository with an empty
 profile in a temporary folder, ``QT_QPA_PLATFORM=offscreen`` and no network
 updates, runs the given ``steps`` script inside it (see tests/harness.py) and
 returns what the script recorded.
@@ -51,7 +51,7 @@ def _engine_available():
 
 
 @pytest.fixture
-def run_ice(tmp_path):
+def run_ike(tmp_path):
     def run(script, settings=None, env=None, timeout=90, args=(), keep_profile=False, command=None,
             wait_results=0):
         """keep_profile=True: start again with the profile of the previous run.

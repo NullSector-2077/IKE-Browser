@@ -6,7 +6,7 @@
   'use strict';
   if (window.top !== window || window.__iceVideoRelay) return;
   window.__iceVideoRelay = true;
-  var HOSTS = __ICE_VIDEO_HOSTS__;
+  var HOSTS = __IKE_VIDEO_HOSTS__;
   function allowed(host) {
     host = String(host || '').toLowerCase();
     return HOSTS.some(function (base) { return host === base || host.endsWith('.' + base); });
@@ -21,7 +21,7 @@
   }
   window.addEventListener('message', function (event) {
     var data = event.data;
-    if (!data || data.type !== 'ice-video-ad-skip' || !event.source) return;
+    if (!data || data.type !== 'ike-video-ad-skip' || !event.source) return;
     var frames = document.querySelectorAll('iframe');
     var frame = null;
     for (var i = 0; i < frames.length; i++) {

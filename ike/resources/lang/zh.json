@@ -292,7 +292,7 @@
 "I.K.E. update %s did not start correctly and was removed. The previous version is in use.": "I.K.E. 更新 %s 未能正常启动，已被移除。正在使用旧版本。",
 "I.K.E. update check failed: %s": "I.K.E. 更新检查失败: %s",
 "I.K.E. updates": "I.K.E. 更新",
-"Ice": "冰蓝",
+"Ike": "冰蓝",
 "Icons": "图标",
 "Import": "导入",
 "Import CSV…": "导入 CSV…",

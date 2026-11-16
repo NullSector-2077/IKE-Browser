@@ -78,7 +78,7 @@ def find_sources(home=None):
 
 def _copy_db(path):
     """Copy an SQLite database (with its WAL) and open the copy read-only."""
-    tmp = Path(tempfile.mkdtemp(prefix="ice-import-"))
+    tmp = Path(tempfile.mkdtemp(prefix="ike-import-"))
     for suffix in ("", "-wal"):
         src = Path(str(path) + suffix)
         if src.exists():
@@ -230,7 +230,7 @@ def make_backup(target, storage=None):
     if storage is not None:
         storage.db.commit()
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as z:
-        z.writestr("ice-backup.json", json.dumps({"format": 1, "created": int(time.time())}))
+        z.writestr("ike-backup.json", json.dumps({"format": 1, "created": int(time.time())}))
         for name, folder in BACKUP_FILES:
             p = folder / name
             if p.exists():
@@ -243,7 +243,7 @@ def restore_backup(source):
     restored = []
     with zipfile.ZipFile(source) as z:
         names = set(z.namelist())
-        if "ice-backup.json" not in names:
+        if "ike-backup.json" not in names:
             raise ValueError("not an I.K.E. backup")
         for name, folder in BACKUP_FILES:
             if name in names:

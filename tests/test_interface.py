@@ -1,13 +1,13 @@
-"""Shield button and the browser's own window close button."""
+"""Address-bar Shield control and the browser's own window close button."""
 
 import sys
 
 
-def test_shield_icon_levels(run_ice):
-    out = run_ice("""
+def test_shield_icon_levels(run_ike):
+    out = run_ike("""
         from PyQt6.QtGui import QColor
 
-        def steps(ice, qapp, out):
+        def steps(ike, qapp, out):
             yield 500
             from ike.shieldpanel import shield_icon
             res = {}
@@ -20,7 +20,7 @@ def test_shield_icon_levels(run_ice):
                     res["%s-%d" % (level, size)] = [c.red(), c.green(), c.blue(), c.alpha()]
             out["pixels"] = res
             win = ike.windows[0]
-            out["button_icon"] = not win.shield_btn.icon().isNull()
+            out["button_icon"] = not win.urlbar.shield.icon().isNull()
             ike.config["shield_level"] = "strict"
             win.update_shield()
             out["menu_icon"] = not win.m_level.icon().isNull()
@@ -34,8 +34,8 @@ def test_shield_icon_levels(run_ice):
     assert out["button_icon"] and out["menu_icon"]
 
 
-def test_window_close_button(run_ice):
-    out = run_ice("""
+def test_window_close_button(run_ike):
+    out = run_ike("""
         from PyQt6.QtCore import QPoint, Qt
         from PyQt6.QtGui import QColor
         from PyQt6.QtTest import QTest
@@ -50,7 +50,7 @@ def test_window_close_button(run_ice):
                         n += 1
             return n
 
-        def steps(ice, qapp, out):
+        def steps(ike, qapp, out):
             yield 800
             from ike.closebutton import WindowCloseButton
             win = ike.windows[0]
@@ -79,9 +79,9 @@ def test_window_close_button(run_ice):
     assert out["windows_after_click"] == 1 and out["closed_first"]
 
 
-def test_system_titlebar_keeps_own_buttons_hidden(run_ice):
-    out = run_ice("""
-        def steps(ice, qapp, out):
+def test_system_titlebar_keeps_own_buttons_hidden(run_ike):
+    out = run_ike("""
+        def steps(ike, qapp, out):
             yield 600
             win = ike.windows[0]
             out["frameless"] = win._frameless
@@ -91,13 +91,13 @@ def test_system_titlebar_keeps_own_buttons_hidden(run_ice):
     assert not any(out["visible"])
 
 
-def test_window_buttons_and_centred_address_bar(run_ice):
+def test_window_buttons_and_centred_address_bar(run_ike):
     """A separator before the window buttons, the buttons a little larger than
     the toolbar icons, and the address bar in the middle of a wide window."""
-    out = run_ice("""
+    out = run_ike("""
         from PyQt6.QtCore import QPoint
 
-        def steps(ice, qapp, out):
+        def steps(ike, qapp, out):
             win = ike.windows[0]
             win.showNormal()
             out["sizes"] = []
@@ -131,18 +131,18 @@ def test_window_buttons_and_centred_address_bar(run_ice):
     assert all(h >= out["icon"] * 1.2 for h in out["buttons"])
 
 
-def test_toolbar_long_press_layout_and_private_badge(run_ice):
-    out = run_ice("""
+def test_toolbar_long_press_layout_and_private_badge(run_ike):
+    out = run_ike("""
         from PyQt6.QtCore import QPoint
 
-        def steps(ice, qapp, out):
+        def steps(ike, qapp, out):
             win = ike.windows[0]
-            # The three navigation controls stay at the start, followed by a separator.
+            # Primary navigation stays fixed; the separator follows Reload.
             actions = win.nav.actions()
             out["fixed_order"] = [actions.index(win.act_back) < actions.index(win.act_fwd)
-                                  < actions.index(win.act_home)]
-            home_index = actions.index(win.act_home)
-            out["home_separator"] = actions[home_index + 1].isSeparator()
+                                  < actions.index(win.act_home) < actions.index(win.act_reload)]
+            reload_index = actions.index(win.act_reload)
+            out["reload_separator"] = actions[reload_index + 1].isSeparator()
 
             # Moving an optional button to the left of the address field is persisted.
             left = win.urlbar.mapToGlobal(QPoint(0, win.urlbar.height() // 2))
@@ -160,12 +160,12 @@ def test_toolbar_long_press_layout_and_private_badge(run_ice):
                                        > win.nav.actions().index(win.urlbar_act))
             out["saved_right"] = "reader" not in ike.config["toolbar_left"]
 
-            # The shield and menu controls are movable too, but remain available.
-            win._move_toolbar_action("shield", left)
+            # The menu control is still movable; Shield and translation now live in the address bar.
             win._move_toolbar_action("menu", left)
             win._save_toolbar_layout()
-            out["shield_left"] = win.nav.actions().index(win.shield_act) < win.nav.actions().index(win.urlbar_act)
             out["menu_left"] = win.nav.actions().index(win.menu_act) < win.nav.actions().index(win.urlbar_act)
+            out["addressbar_shield"] = not win.urlbar.shield.icon().isNull()
+            out["addressbar_translate"] = win.urlbar.translate is not None
             out["menu_not_hidden"] = win.menu_act in win.nav.actions()
 
             private = ike.new_window(private=True)
@@ -175,8 +175,9 @@ def test_toolbar_long_press_layout_and_private_badge(run_ice):
             out["private_badge"] = bool(badge and "border-radius" in badge.styleSheet())
     """)
     assert all(out["fixed_order"])
-    assert out["home_separator"]
+    assert out["reload_separator"]
     assert out["left_of_address"] and out["saved_left"]
     assert out["right_of_address"] and out["saved_right"]
-    assert out["shield_left"] and out["menu_left"] and out["menu_not_hidden"]
+    assert out["menu_left"] and out["menu_not_hidden"] and out["addressbar_shield"]
+    assert out["addressbar_translate"]
     assert out["private_badge"]

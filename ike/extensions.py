@@ -4,7 +4,7 @@ The store page cannot install into I.K.E. by itself (its button talks to a
 Chrome-only API), so I.K.E. downloads the extension package (.crx) from the
 store's public download address, unpacks it and hands it to the engine.
 Enabling an extension uses the engine call that crashed in our tests with
-Qt 6.11; it goes through IceApp.enable_extension, which survives a crash.
+Qt 6.11; it goes through IkeApp.enable_extension, which survives a crash.
 """
 
 import io

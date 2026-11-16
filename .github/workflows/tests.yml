@@ -1,5 +1,6 @@
 # Lint and the automatic tests (docs/TESTING.md) on every pull request to main
-# and every push to main: the Arch-targeted browser test suite on Linux CI.
+# and every push to main: the real browser without a display, on Linux and on
+# Windows.
 name: Tests
 
 on:
@@ -53,7 +54,7 @@ jobs:
           fc-match sans-serif
       - name: Python packages
         run: |
-          python -m pip install --disable-pip-version-check -q PyQt6 PyQt6-WebEngine cryptography jeepney pytest ruff
+          python -m pip install --disable-pip-version-check -q -r tools/appimage-requirements.txt pytest ruff
       - uses: actions/cache@v4
         with:
           path: |
@@ -63,8 +64,57 @@ jobs:
       - name: AdBlock engine
         run: |
           cargo build --release --locked --manifest-path ike-adblock/Cargo.toml
-          install -m755 ike-adblock/target/release/libike_adblock.so vendor/adblock/ike_adblock.abi3.so
+          install -m755 ike-adblock/target/release/libice_adblock.so vendor/adblock/ike_adblock.abi3.so
       - name: Lint
         run: ruff check .
       - name: Tests
         run: python -m pytest
+
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Python packages
+        run: |
+          python -m pip install --disable-pip-version-check -q -r tools/appimage-requirements.txt `
+              -r tools/windows-requirements.txt winrt-Windows.Media.Control pytest ruff
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ike-adblock/target
+          key: adblock-win-${{ hashFiles('ike-adblock/Cargo.lock', 'ike-adblock/src/**') }}
+      - name: AdBlock engine
+        run: |
+          cargo build --release --locked --manifest-path ike-adblock/Cargo.toml
+          Copy-Item ike-adblock/target/release/ike_adblock.dll vendor/adblock/ike_adblock.pyd
+      - name: Lint
+        run: ruff check .
+      - name: Tests
+        env:
+          IKE_TEST_SHOTS: ${{ runner.temp }}/ike-shots
+          # real windows on the runner's desktop, as users see them
+          IKE_TEST_QPA: windows
+        run: |
+          New-Item -ItemType Directory -Force "$env:IKE_TEST_SHOTS" | Out-Null
+          python -m pytest -p no:cacheprovider -rs
+      - name: Screenshots in the log
+        if: always()
+        run: python tests/shots_to_log.py "${{ runner.temp }}/ike-shots"
+      - name: Screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-test-output
+          path: ${{ runner.temp }}/ike-shots
+          if-no-files-found: ignore

@@ -31,17 +31,25 @@ def capture(view):
 class TabPreview(QFrame):
     def __init__(self, parent):
         super().__init__(parent, Qt.WindowType.ToolTip)
+        self.setObjectName("iceTabPreview")
         self.setFrameShape(QFrame.Shape.Box)
         self.setForegroundRole(QPalette.ColorRole.ToolTipText)
         self.setBackgroundRole(QPalette.ColorRole.ToolTipBase)
         self.setAutoFillBackground(True)
+        self.setStyleSheet(
+            "#iceTabPreview { border: 1px solid palette(mid); border-radius: 8px; }"
+            "#iceTabPreview QLabel { color: palette(tool-tip-text); }"
+        )
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(4, 4, 4, 4)
-        lay.setSpacing(4)
+        lay.setContentsMargins(6, 6, 6, 6)
+        lay.setSpacing(6)
         self.picture = QLabel(self)
+        self.picture.setObjectName("tabPreviewPicture")
         self.text = QLabel(self)
+        self.text.setObjectName("tabPreviewText")
         self.text.setWordWrap(True)
         self.text.setFixedWidth(WIDTH)
+        self.text.setMargin(2)
         self.text.setTextFormat(Qt.TextFormat.PlainText)
         lay.addWidget(self.picture)
         lay.addWidget(self.text)

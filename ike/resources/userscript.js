@@ -188,7 +188,7 @@
 
     var info = { script: { name: CFG.name, namespace: CFG.namespace, version: CFG.version,
       description: CFG.description, matches: CFG.matches, grant: CFG.grant, 'run-at': CFG.runAt },
-      scriptHandler: 'I.K.E.', version: CFG.ice, scriptMetaStr: CFG.meta };
+      scriptHandler: 'I.K.E.', version: CFG.ike, scriptMetaStr: CFG.meta };
     function later(fn) {
       return function () {
         var args = arguments;

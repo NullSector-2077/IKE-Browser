@@ -423,7 +423,7 @@ class UserScripts(QObject):
         return tok
 
     def _callback(self, sid):
-        return "__ice_us_" + hashlib.sha1((self.secret + sid).encode()).hexdigest()[:20]
+        return "__ike_us_" + hashlib.sha1((self.secret + sid).encode()).hexdigest()[:20]
 
     def _connect(self, sid):
         """The script's "@connect" lines (read from its code for scripts installed before 1.5.2)."""
@@ -480,7 +480,7 @@ class UserScripts(QObject):
         """(Re)install the enabled scripts in a profile."""
         scripts = profile.scripts()
         for old in list(scripts.toList()):
-            if old.name().startswith("ice-us:"):
+            if old.name().startswith("ike-us:"):
                 scripts.remove(old)
         if not self.enabled():
             return
@@ -492,7 +492,7 @@ class UserScripts(QObject):
             except Exception:
                 continue
             q = QWebEngineScript()
-            q.setName("ice-us:" + sid)
+            q.setName("ike-us:" + sid)
             q.setSourceCode(source)
             q.setInjectionPoint(self._point(s))
             q.setWorldId(self._world(s))

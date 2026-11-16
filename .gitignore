@@ -20,6 +20,3 @@ venv/
 /pkg/
 *.pkg.tar*
 *.log
-
-# Existing Ed25519 update key used to preserve the signed channel
-.ice-signing/

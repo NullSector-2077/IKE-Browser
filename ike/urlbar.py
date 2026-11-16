@@ -59,12 +59,30 @@ class UrlBar(QLineEdit):
         self.textEdited.connect(lambda _t: self._timer.start())
         self._reply = None
         self._local = []
+        # Site identity and I.K.E. protection are grouped at the leading edge,
+        # while page actions stay at the trailing edge of the address field.
+        self.shield = self.addAction(icon("security-high", QStyle.StandardPixmap.SP_MessageBoxInformation),
+                                     QLineEdit.ActionPosition.LeadingPosition)
+        self.shield.setToolTip(T("I.K.E. Shield"))
+        self.shield.triggered.connect(window._show_shield_menu)
         self.lock = self.addAction(icon("globe", QStyle.StandardPixmap.SP_FileIcon),
                                    QLineEdit.ActionPosition.LeadingPosition)
+        self.translate = self.addAction(icon("translate", QStyle.StandardPixmap.SP_ArrowRight),
+                                        QLineEdit.ActionPosition.TrailingPosition)
+        self.translate.setToolTip(T("Translate page"))
+        self.translate.triggered.connect(window.translate_page)
+        self.permissions = self.addAction(
+            icon("preferences-desktop-privacy", QStyle.StandardPixmap.SP_MessageBoxInformation),
+            QLineEdit.ActionPosition.TrailingPosition)
+        self.permissions.setToolTip(T("Site permissions"))
+        self.permissions.triggered.connect(window._show_site_permissions)
         self.star = self.addAction(icon("bookmark-new", QStyle.StandardPixmap.SP_DialogApplyButton),
                                    QLineEdit.ActionPosition.TrailingPosition)
         self.star.setToolTip(T("Bookmark this page"))
         self.star.triggered.connect(window.toggle_bookmark)
+        self.shield.setVisible(False)
+        self.translate.setVisible(False)
+        self.permissions.setVisible(False)
         self.textChanged.connect(lambda _t: None if self.hasFocus() else self.highlight_domain())
 
     # --- the site's domain in normal text, the rest of the address dimmed ---

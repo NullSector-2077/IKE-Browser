@@ -95,11 +95,11 @@ def state(v, out, key):
 '''
 
 
-def test_fullscreen_and_mouse_lock(run_ice, site):
+def test_fullscreen_and_mouse_lock(run_ike, site):
     url = "http://127.0.0.1:%d/" % site
     origin = "http://127.0.0.1:%d" % site
     steps = HELPERS + r'''
-def steps(ice, qapp, out):
+def steps(ike, qapp, out):
     w = ike.windows[0]
     v = w.current_view()
     yield from load(v, URL)
@@ -142,7 +142,7 @@ def steps(ice, qapp, out):
     yield 900
     yield from state(v, out, "video_exited")
 '''.replace("URL", repr(url))
-    out = run_ice(steps, timeout=120, env={"IKE_TEST_SHOTS": SHOTS})
+    out = run_ike(steps, timeout=120, env={"IKE_TEST_SHOTS": SHOTS})
     assert out["locked"]["lock"] and not out["locked"]["window_fs"]
     assert out["locked"]["notice"] == "%s controls the mouse pointer — press Esc to show the cursor" % origin
     assert out["locked"]["notice_inside"]
@@ -159,11 +159,11 @@ def steps(ice, qapp, out):
     assert not out["video_exited"]["fs"] and not out["video_exited"]["window_fs"]
 
 
-def test_background_tab_refused(run_ice, site):
+def test_background_tab_refused(run_ike, site):
     """A tab that was clicked (so it may ask) but is no longer in view."""
     url = "http://127.0.0.1:%d/" % site
     steps = HELPERS + r'''
-def steps(ice, qapp, out):
+def steps(ike, qapp, out):
     w = ike.windows[0]
     a = w.current_view()
     yield from load(a, URL)
@@ -189,7 +189,7 @@ def steps(ice, qapp, out):
     yield 600
     yield from state(b, out, "b")
 '''.replace("URL", repr(url))
-    out = run_ice(steps, timeout=120)
+    out = run_ike(steps, timeout=120)
     assert out["a_visible"] is False
     assert not out["a"]["fs"] and not out["a"]["lock"] and not out["window_fs"]
     assert out["a"]["notice"] is None

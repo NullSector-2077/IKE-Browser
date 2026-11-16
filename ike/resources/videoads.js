@@ -11,10 +11,10 @@
 // player leaves its ad state; the previous 5-second reveal exposed the ad.
 // The script lives in the profile and is limited to the hosts below, both as
 // a page and as a frame embedded in another site.
-// __ICE_VA__ is replaced with {hosts: [...]}.
+// __IKE_VA__ is replaced with {hosts: [...]}.
 (function () {
   'use strict';
-  var CFG = __ICE_VA__;
+  var CFG = __IKE_VA__;
   var hn = location.hostname, ok = false;
   for (var i = 0; i < CFG.hosts.length; i++) {
     var h = CFG.hosts[i];
@@ -48,9 +48,9 @@
   function addStyle() {
     var root = document.head || document.documentElement;
     if (!root) return false;
-    if (document.getElementById('ice-videoads')) return true;
+    if (document.getElementById('ike-videoads')) return true;
     var s = document.createElement('style');
-    s.id = 'ice-videoads';
+    s.id = 'ike-videoads';
     s.textContent = CSS;
     root.appendChild(s);
     return true;
@@ -87,7 +87,7 @@
       // sender against an actual YouTube iframe before forwarding it to Qt.
       try {
         window.top.postMessage({
-          type: 'ice-video-ad-skip', x: x, y: y,
+          type: 'ike-video-ad-skip', x: x, y: y,
           viewportWidth: window.innerWidth, viewportHeight: window.innerHeight
         }, '*');
       } catch (e) {}
@@ -107,7 +107,7 @@
         if (s.rate) s.video.playbackRate = s.rate;
       } catch (e) {}
     }
-    if (s.player) s.player.removeAttribute('data-ice-ad');
+    if (s.player) s.player.removeAttribute('data-ike-ad');
     schedule(false);
   }
 
@@ -118,7 +118,7 @@
     if (!state) {
       state = { since: Date.now(), player: player, video: video, lastClick: 0,
                 muted: video ? video.muted : null, rate: 0 };
-      player.setAttribute('data-ice-ad', 'skipping');
+      player.setAttribute('data-ike-ad', 'skipping');
       schedule(true);
     }
     if (video) {

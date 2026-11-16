@@ -22,7 +22,7 @@ class Storage:
 
     # --- history -----------------------------------------------------
     def add_visit(self, url, title):
-        if not url or url.startswith(("ice:", "about:", "data:", "view-source:")):
+        if not url or url.startswith(("ike:", "about:", "data:", "view-source:")):
             return
         self.db.execute(
             "INSERT INTO history(url,title,last,visits) VALUES(?,?,?,1) "

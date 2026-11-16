@@ -41,9 +41,9 @@ def server():
 
 
 @needs_engine
-def test_engine_matching(run_ice):
-    out = run_ice("""
-        def steps(ice, qapp, out):
+def test_engine_matching(run_ike):
+    out = run_ike("""
+        def steps(ike, qapp, out):
             yield 300
             b = ike.blocker
             out["native"] = b.native
@@ -61,10 +61,10 @@ def test_engine_matching(run_ice):
 
 
 @needs_engine
-def test_blocks_in_page(run_ice, server):
+def test_blocks_in_page(run_ike, server):
     url, seen = server
-    out = run_ice("""
-        def steps(ice, qapp, out):
+    out = run_ike("""
+        def steps(ike, qapp, out):
             yield 300
             win = ike.windows[0]
             view = win.add_tab(%r)
@@ -99,13 +99,13 @@ def test_blocks_in_page(run_ice, server):
 
 
 @needs_engine
-def test_engine_error_lets_request_through_and_is_counted(run_ice, server):
+def test_engine_error_lets_request_through_and_is_counted(run_ike, server):
     """Fail-open is kept: when the engine fails on a request, the request goes
     on (blocking everything would break browsing). The error is counted and
     shown in Help → About."""
     url, seen = server
-    out = run_ice("""
-        def steps(ice, qapp, out):
+    out = run_ike("""
+        def steps(ike, qapp, out):
             yield 300
             b = ike.blocker
             out["before"] = b.errors

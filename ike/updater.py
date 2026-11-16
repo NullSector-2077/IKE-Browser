@@ -1,9 +1,12 @@
 """Program self-update: daily check, signature and hash verification, staged
 install in the user's data folder, confirmation of a healthy start.
 
-Nothing under /usr and no system package is touched: Qt stays under the control
-of the Arch package manager. The bootstrap (ike_boot.py) chooses the verified
-application copy and rolls back a copy that fails to start.
+Nothing under /usr and no system package is touched: the engine (Qt) stays
+under the control of the package manager. The bootstrap (ike_boot.py) decides
+at start-up which verified copy to run and rolls back a copy that fails.
+The AppImage and the Windows installation replace the whole program instead
+(web engine included): the AppImage file, or a new app/<version> folder next
+to the one in use on Windows.
 """
 
 import base64

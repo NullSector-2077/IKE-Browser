@@ -5,11 +5,12 @@ video, site permissions and session (de)serialisation."""
 import time
 from urllib.parse import quote
 
-from PyQt6.QtCore import QRect, QSize, Qt, QUrl
-from PyQt6.QtGui import QColor, QIcon, QPainter, QPixmap
+from PyQt6.QtCore import QPoint, QRect, QSize, Qt, QUrl
+from PyQt6.QtGui import QColor, QIcon, QPainter, QPalette, QPen, QPixmap
 from PyQt6.QtWebEngineCore import QWebEnginePage
 from PyQt6.QtWidgets import (
     QDialog,
+    QFrame,
     QHBoxLayout,
     QInputDialog,
     QLabel,
@@ -125,19 +126,19 @@ class TabSearch(QDialog):
 class FloatingVideo(QWidget):
     """Small always-on-top window that hosts a tab while its video plays."""
 
-    CSS = ("video.ice-float{position:fixed!important;left:0!important;top:0!important;"
+    CSS = ("video.ike-float{position:fixed!important;left:0!important;top:0!important;"
            "width:100vw!important;height:100vh!important;max-width:none!important;"
            "max-height:none!important;z-index:2147483647!important;background:#000!important;"
            "object-fit:contain!important;transform:none!important}"
-           "html.ice-float,html.ice-float body{overflow:hidden!important}")
+           "html.ike-float,html.ike-float body{overflow:hidden!important}")
     JS_ON = """(function(css){
       var vids=[].slice.call(document.querySelectorAll('video'));
       if(!vids.length)return false;
       vids.sort(function(a,b){return (b.clientWidth*b.clientHeight+(b.paused?0:1e9))-(a.clientWidth*a.clientHeight+(a.paused?0:1e9));});
-      var s=document.createElement('style');s.id='ice-float-style';s.textContent=css;document.documentElement.appendChild(s);
-      vids[0].classList.add('ice-float');document.documentElement.classList.add('ice-float');return true;})(%r);"""
-    JS_OFF = """(function(){var s=document.getElementById('ice-float-style');if(s)s.remove();
-      [].forEach.call(document.querySelectorAll('.ice-float'),function(e){e.classList.remove('ice-float');});})();"""
+      var s=document.createElement('style');s.id='ike-float-style';s.textContent=css;document.documentElement.appendChild(s);
+      vids[0].classList.add('ike-float');document.documentElement.classList.add('ike-float');return true;})(%r);"""
+    JS_OFF = """(function(){var s=document.getElementById('ike-float-style');if(s)s.remove();
+      [].forEach.call(document.querySelectorAll('.ike-float'),function(e){e.classList.remove('ike-float');});})();"""
 
     def __init__(self, window, view):
         super().__init__(None, Qt.WindowType.Window | Qt.WindowType.WindowStaysOnTopHint)
@@ -418,7 +419,7 @@ class WindowFeatures:
         hidden = set(cfg["toolbar_hidden"])
         present = self.nav.actions()
         for i, (key, act, anchor) in enumerate(self._nav_items):
-            want = key in ("shield", "menu") or key not in hidden
+            want = key == "menu" or key.startswith("separator_") or key not in hidden
             if want and act not in present:
                 before = anchor
                 for _k, later, a2 in self._nav_items[i + 1:]:
@@ -434,16 +435,18 @@ class WindowFeatures:
         order += [key for key, _act, _anchor in self._nav_items if key not in order]
         left = set(cfg.get("toolbar_left", []))
         self._toolbar_left_keys = left
+        locked = bool(cfg.get("toolbar_locked", False))
         for key in order:
             act = by_key[key]
             if act in self.nav.actions():
                 anchor = self.space_left_act if key in left else self._win_btns[0]
                 self.nav.insertAction(anchor, act)
-            button = self.nav.widgetForAction(act)
-            if isinstance(button, QToolButton):
-                button.setProperty("iceToolbarKey", key)
-                button.setCursor(Qt.CursorShape.OpenHandCursor)
-                button.installEventFilter(self)
+            widget = self.nav.widgetForAction(act)
+            if widget is not None:
+                widget.setProperty("iceToolbarKey", key)
+                widget.setCursor(Qt.CursorShape.ArrowCursor if locked
+                                  else Qt.CursorShape.OpenHandCursor)
+                widget.installEventFilter(self)
 
         btn = self.nav.widgetForAction(self.act_dark)
         if isinstance(btn, QToolButton):
@@ -454,15 +457,16 @@ class WindowFeatures:
         self._fit_urlbar()
 
     def _toolbar_reorder_event(self, obj, event):
-        """Move a toolbar action only after a deliberate long press and drag."""
+        """Drag a toolbar button and preview its exact insertion point."""
         key = obj.property("iceToolbarKey") if hasattr(obj, "property") else None
-        if not key:
+        if not key or self.app.config.get("toolbar_locked", False):
             return False
         kind = event.type()
         if kind == event.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
             self._toolbar_drag_key = key
             self._toolbar_drag_started = time.monotonic()
             self._toolbar_dragging = False
+            self._toolbar_drag_target = None
             return False
         if (kind == event.Type.MouseMove and getattr(self, "_toolbar_drag_key", None) == key
                 and event.buttons() & Qt.MouseButton.LeftButton):
@@ -471,42 +475,93 @@ class WindowFeatures:
                     return False
                 self._toolbar_dragging = True
                 obj.setCursor(Qt.CursorShape.ClosedHandCursor)
-                self.statusBar().showMessage(T("Move button to a new position"), 1800)
-            self._move_toolbar_action(key, event.globalPosition().toPoint())
+                message = ("Move separator to a new position" if key.startswith("separator_")
+                           else "Move button to a new position")
+                self.statusBar().showMessage(T(message))
+            target = self._toolbar_drop_target(key, event.globalPosition().toPoint())
+            if target is not None:
+                self._toolbar_drag_target = target[:2]
+                self._show_toolbar_drop_marker(target[2])
             return True
         if (kind == event.Type.MouseButtonRelease and event.button() == Qt.MouseButton.LeftButton
                 and getattr(self, "_toolbar_drag_key", None) == key):
             dragging = getattr(self, "_toolbar_dragging", False)
+            target = getattr(self, "_toolbar_drag_target", None)
             obj.setCursor(Qt.CursorShape.OpenHandCursor)
             self._toolbar_drag_key = None
             self._toolbar_dragging = False
+            self._toolbar_drag_target = None
+            marker = getattr(self, "_toolbar_drop_marker", None)
+            if marker is not None:
+                marker.hide()
             if dragging:
-                self._save_toolbar_layout()
+                if target is not None:
+                    self._commit_toolbar_action(key, target[0], target[1])
+                    self._save_toolbar_layout()
                 return True
         return False
 
-    def _move_toolbar_action(self, key, global_pos):
+    def _toolbar_drop_target(self, key, global_pos):
+        """Return (side, action-before-which-to-insert, marker-x) without moving anything."""
+        by_key = {item_key: act for item_key, act, _anchor in self._nav_items}
+        if key not in by_key:
+            return None
+
+        url_center = self.urlbar.mapToGlobal(
+            self.urlbar.rect().center()).x()
+        to_left = global_pos.x() < url_center
+        left = set(getattr(self, "_toolbar_left_keys", set()))
+        boundary = self.space_left_act if to_left else self._win_btns[0]
+
+        candidates = []
+        present = self.nav.actions()
+        for item_key, action, _anchor in self._nav_items:
+            if (item_key == key or action not in present
+                    or ((item_key in left) != to_left) or not action.isVisible()):
+                continue
+            widget = self.nav.widgetForAction(action)
+            if widget is None or not widget.isVisible():
+                continue
+            center_x = widget.mapToGlobal(widget.rect().center()).x()
+            candidates.append((center_x, action, widget))
+        candidates.sort(key=lambda item: item[0])
+
+        before = boundary
+        boundary_widget = self.nav.widgetForAction(boundary)
+        marker_x = (boundary_widget.mapTo(self.nav, QPoint(0, 0)).x()
+                    if boundary_widget is not None else self.nav.width())
+        for center_x, action, widget in candidates:
+            if global_pos.x() < center_x:
+                before = action
+                marker_x = widget.mapTo(self.nav, QPoint(0, 0)).x()
+                break
+        return to_left, before, marker_x
+
+    def _show_toolbar_drop_marker(self, x):
+        """Show a non-interactive insertion marker without reflowing the toolbar."""
+        marker = getattr(self, "_toolbar_drop_marker", None)
+        if marker is None:
+            marker = QFrame(self.nav)
+            marker.setObjectName("toolbarDropMarker")
+            marker.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+            marker.setStyleSheet(
+                "#toolbarDropMarker { background: palette(highlight); border: 0; border-radius: 1px; }"
+            )
+            self._toolbar_drop_marker = marker
+        marker_height = max(16, self.nav.height() - 8)
+        marker_x = max(0, min(self.nav.width() - 3, int(x) - 1))
+        marker.setGeometry(marker_x, max(2, (self.nav.height() - marker_height) // 2),
+                           3, marker_height)
+        marker.show()
+        marker.raise_()
+
+    def _commit_toolbar_action(self, key, to_left, before):
+        """Apply a previously previewed position and update which side owns it."""
         by_key = {item_key: act for item_key, act, _anchor in self._nav_items}
         action = by_key.get(key)
         if action is None:
             return
-        url_center = self.urlbar.mapToGlobal(
-            self.urlbar.rect().center()).x()
-        to_left = global_pos.x() < url_center
-        target = self.nav.actionAt(self.nav.mapFromGlobal(global_pos))
-        target_key = next((k for k, a in by_key.items() if a is target), None)
         left = set(getattr(self, "_toolbar_left_keys", set()))
-        if target_key and target_key != key and ((target_key in left) == to_left):
-            target_widget = self.nav.widgetForAction(target)
-            after = (target_widget is not None and
-                     global_pos.x() >= target_widget.mapToGlobal(
-                         target_widget.rect().center()).x())
-            actions = self.nav.actions()
-            index = actions.index(target)
-            before = next((a for a in actions[index + 1:]
-                           if a is not action), self.menu_act) if after else target
-        else:
-            before = self.space_left_act if to_left else self._win_btns[0]
         if to_left:
             left.add(key)
         else:
@@ -516,6 +571,12 @@ class WindowFeatures:
             self.nav.insertAction(before, action)
         self._fit_urlbar()
 
+    def _move_toolbar_action(self, key, global_pos):
+        """Programmatic move helper retained for layout restoration and UI checks."""
+        target = self._toolbar_drop_target(key, global_pos)
+        if target is not None:
+            self._commit_toolbar_action(key, target[0], target[1])
+
     def _save_toolbar_layout(self):
         cfg = self.app.config
         by_action = {act: key for key, act, _anchor in self._nav_items}
@@ -524,6 +585,8 @@ class WindowFeatures:
         cfg["toolbar_order"] = visible_order + [k for k in old_order if k not in visible_order]
         cfg["toolbar_left"] = [k for k in cfg["toolbar_order"]
                                if k in getattr(self, "_toolbar_left_keys", set())]
+        cfg["toolbar_separators"] = [key for key, _act, _anchor in self._nav_items
+                                     if key.startswith("separator_")]
         cfg.save()
 
     # ------------------------------------------------------------------
@@ -532,6 +595,23 @@ class WindowFeatures:
     EDGE = 5
 
     WINDOW_BUTTON_SCALE = 1.2         # the window buttons, a little larger than the toolbar icons
+
+    def _plasma_maximize_icon(self):
+        """A small Breeze-like diamond maximize glyph drawn in the current text colour."""
+        pixmap = QPixmap(24, 24)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        colour = self.palette().color(QPalette.ColorRole.ButtonText)
+        painter.setPen(QPen(colour, 1.7, Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawLine(6, 12, 12, 6)
+        painter.drawLine(12, 6, 18, 12)
+        painter.drawLine(18, 12, 12, 18)
+        painter.drawLine(12, 18, 6, 12)
+        painter.end()
+        pixmap.setDevicePixelRatio(1.5)
+        return QIcon(pixmap)
 
     def _build_window_buttons(self, toolbar):
         SP = QStyle.StandardPixmap
@@ -548,7 +628,8 @@ class WindowFeatures:
             else:
                 b = WindowButton(self, side)
                 b.setAutoRaise(True)
-                b.setIcon(_theme(name, fallback))
+                b.setIcon(self._plasma_maximize_icon() if name == "window-maximize"
+                          else _theme(name, fallback))
             b.setToolTip(tip)
             b.clicked.connect(slot)
             self._win_btns.append(toolbar.addWidget(b))

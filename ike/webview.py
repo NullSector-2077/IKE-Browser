@@ -14,7 +14,7 @@ from .i18n import T
 _A = QWebEngineSettings.WebAttribute
 
 _COSMETIC_JS = """(function(css){
- var id='ice-cosmetic-%s';
+ var id='ike-cosmetic-%s';
  function add(){
   var root=document.head||document.documentElement;
   if(!root){new MutationObserver(function(m,o){if(document.documentElement){o.disconnect();add();}})
@@ -290,6 +290,9 @@ class WebPage(QWebEnginePage):
             self.runJavaScript(_COSMETIC_JS % ("b", json.dumps(css)), 1)
 
     # --- requests from the page --------------------------------------
+    def _refresh_permission_indicator(self):
+        QTimer.singleShot(0, self.window_ref.update_permission_indicator)
+
     def _permission(self, perm):
         from PyQt6.QtWebEngineCore import QWebEnginePermission as P
         if perm.permissionType() == P.PermissionType.MouseLock:
@@ -314,12 +317,15 @@ class WebPage(QWebEnginePage):
         if (perm.permissionType() == PT.LocalFontsAccess and
                 rank(self.app.config.level_for(origin)) >= rank("strict")):
             perm.deny()
+            self._refresh_permission_indicator()
             return
         if any(k in blocked for k in kinds.get(perm.permissionType(), ())):
             perm.deny()
+            self._refresh_permission_indicator()
             return
         if os.environ.get("IKE_TEST_PERMS"):
             perm.grant() if os.environ["IKE_TEST_PERMS"] == "grant" else perm.deny()
+            self._refresh_permission_indicator()
             return
         box = QMessageBox(self.window_ref)
         box.setIcon(QMessageBox.Icon.Question)
@@ -332,6 +338,7 @@ class WebPage(QWebEnginePage):
             perm.grant()
         else:
             perm.deny()
+        self._refresh_permission_indicator()
 
     def _desktop_media(self, request):
         """Require an explicit user choice before sharing a screen or window."""

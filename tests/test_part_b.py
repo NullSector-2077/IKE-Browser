@@ -10,12 +10,12 @@ import pytest
 SHOTS = os.environ.get("IKE_TEST_SHOTS", "")   # folder for screenshots, optional
 
 
-def test_bookmarks_overflow_button(run_ice):
-    out = run_ice("""
+def test_bookmarks_overflow_button(run_ike):
+    out = run_ike("""
         import os
         from PyQt6.QtGui import QIcon
 
-        def steps(ice, qapp, out):
+        def steps(ike, qapp, out):
             yield 400
             win = ike.windows[0]
             win.resize(1000, 700)
@@ -75,8 +75,8 @@ def slow_server():
     httpd.shutdown()
 
 
-def test_download_progress_ring(run_ice, slow_server, tmp_path):
-    out = run_ice("""
+def test_download_progress_ring(run_ike, slow_server, tmp_path):
+    out = run_ike("""
         import os
         from PyQt6.QtCore import QSize, QUrl
         from PyQt6.QtGui import QColor, QGuiApplication, QPalette
@@ -96,7 +96,7 @@ def test_download_progress_ring(run_ice, slow_server, tmp_path):
                         blue += 1
             return green, blue
 
-        def steps(ice, qapp, out):
+        def steps(ike, qapp, out):
             yield 400
             win = ike.windows[0]
             out["start"] = ike._dl_state[0]
@@ -141,8 +141,8 @@ def test_download_progress_ring(run_ice, slow_server, tmp_path):
     assert out["file"] == 200 * 1024
 
 
-def test_address_bar_domain_highlight(run_ice):
-    out = run_ice("""
+def test_address_bar_domain_highlight(run_ike):
+    out = run_ike("""
         import os
         from PyQt6.QtGui import QColor
 
@@ -168,7 +168,7 @@ def test_address_bar_domain_highlight(run_ice):
             img = bar.grab().toImage()
             return {k: darkest(img, a, b) for k, (a, b) in spans.items()}
 
-        def steps(ice, qapp, out):
+        def steps(ike, qapp, out):
             yield 400
             win = ike.windows[0]
             bar = win.urlbar
@@ -229,12 +229,12 @@ def slow_page():
     httpd.shutdown()
 
 
-def test_loading_line(run_ice, slow_page):
-    out = run_ice("""
+def test_loading_line(run_ike, slow_page):
+    out = run_ike("""
         import os
         from PyQt6.QtGui import QColor
 
-        def steps(ice, qapp, out):
+        def steps(ike, qapp, out):
             yield 400
             for _ in range(50):                 # the new tab page has finished loading
                 if not getattr(ike.windows[0].current_view(), "loading", False):
@@ -242,7 +242,7 @@ def test_loading_line(run_ice, slow_page):
                 yield 100
             yield 200
             from ike import themes
-            ike.config["ui_scheme"] = "theme:ice"
+            ike.config["ui_scheme"] = "theme:ike"
             themes.apply(ike.config)
             win = ike.windows[0]
             line = win.loading_line
@@ -284,8 +284,8 @@ def test_loading_line(run_ice, slow_page):
     assert out["after"] is False and out["title"] == "slow"
 
 
-def test_tab_previews(run_ice):
-    out = run_ice("""
+def test_tab_previews(run_ike):
+    out = run_ike("""
         import os
         from PyQt6.QtCore import QPoint, QEvent
         from PyQt6.QtGui import QColor, QHelpEvent
@@ -295,7 +295,7 @@ def test_tab_previews(run_ice):
             ev = QHelpEvent(QEvent.Type.ToolTip, pos, obj.mapToGlobal(pos))
             QApplication.sendEvent(obj, ev)
 
-        def steps(ice, qapp, out):
+        def steps(ike, qapp, out):
             yield 400
             win = ike.windows[0]
             red = win.add_tab("data:text/html,<title>red</title><body style='background:%23d00000'>")
@@ -387,7 +387,7 @@ WEATHER_STEPS = """
     def page_text(view, js, res, key):
         view.page().runJavaScript(js, lambda r: res.__setitem__(key, r))
 
-    def steps(ice, qapp, out):
+    def steps(ike, qapp, out):
         yield 600
         win = ike.windows[0]
         view = win.current_view()
@@ -443,9 +443,9 @@ WEATHER_STEPS = """
 """
 
 
-def test_newtab_clock_and_weather(run_ice, weather_server):
+def test_newtab_clock_and_weather(run_ike, weather_server):
     base, seen = weather_server
-    out = run_ice(WEATHER_STEPS, env={"IKE_TEST_WEATHER": base, "IKE_TEST_SHOTS": SHOTS})
+    out = run_ike(WEATHER_STEPS, env={"IKE_TEST_WEATHER": base, "IKE_TEST_SHOTS": SHOTS})
     clock, weather = out["before"]
     assert clock and __import__("re").fullmatch(r"\d\d:\d\d( [AP]M)?", clock), clock
     assert weather == ""

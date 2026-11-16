@@ -5,7 +5,7 @@
 # repository is private.
 pkgname=ike-browser
 pkgver=1.6.1
-pkgrel=1
+pkgrel=2
 pkgdesc="I.K.E. - Internet Control Experience: private, independent web browser"
 arch=('x86_64')
 url="https://github.com/NullSector-2077/IKE-Browser"
@@ -42,7 +42,7 @@ package() {
   install -Dm644 data/update.json "$lib/update.json"
   install -Dm644 -t "$lib/vendor/adblock" vendor/adblock/__init__.py \
       vendor/adblock/adblock.pyi vendor/adblock/py.typed
-  install -Dm755 "$srcdir/target/release/libike_adblock.so" \
+  install -Dm755 "$srcdir/target/release/libice_adblock.so" \
       "$lib/vendor/adblock/ike_adblock.abi3.so"
   install -Dm755 "$srcdir/ike-browser-launcher" "$pkgdir/usr/bin/ike-browser"
 
@@ -59,6 +59,6 @@ package() {
 
   # licences and documentation
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-  install -Dm644 -t "$pkgdir/usr/share/licenses/$pkgname" licenses/* docs/arch/THIRD-PARTY.md
-  install -Dm644 -t "$pkgdir/usr/share/doc/$pkgname" README.md CHANGELOG.md docs/*.md docs/arch/*.md
+  install -Dm644 -t "$pkgdir/usr/share/licenses/$pkgname" licenses/* docs/THIRD-PARTY.md
+  install -Dm644 -t "$pkgdir/usr/share/doc/$pkgname" README.md CHANGELOG.md docs/*.md
 }

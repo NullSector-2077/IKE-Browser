@@ -1,11 +1,11 @@
 """Interface themes: apply, save, restart, delete, back to the system look."""
 
 
-def test_builtin_themes_and_back_to_system(run_ice):
-    out = run_ice("""
+def test_builtin_themes_and_back_to_system(run_ike):
+    out = run_ike("""
         from PyQt6.QtGui import QPalette
 
-        def steps(ice, qapp, out):
+        def steps(ike, qapp, out):
             yield 600
             from ike import themes
             win = ike.windows[0]
@@ -37,11 +37,11 @@ def test_builtin_themes_and_back_to_system(run_ice):
     assert out["back_nav_fill"] is False
 
 
-def test_system_theme_touches_nothing(run_ice):
-    out = run_ice("""
+def test_system_theme_touches_nothing(run_ike):
+    out = run_ike("""
         from PyQt6.QtGui import QPalette
 
-        def steps(ice, qapp, out):
+        def steps(ike, qapp, out):
             yield 600
             from ike import themes
             out["original"] = dict(themes._original)
@@ -51,11 +51,11 @@ def test_system_theme_touches_nothing(run_ice):
     assert out["nav_fill"] is False
 
 
-def test_user_theme_saved_restored_and_deleted(run_ice):
+def test_user_theme_saved_restored_and_deleted(run_ike):
     theme = {"background": "#202830", "text": "#f0f0f0", "accent": "#ff8800",
              "toolbar": "#101820", "tabs": "#303840", "font_family": "", "font_size": 13}
-    first = run_ice("""
-        def steps(ice, qapp, out):
+    first = run_ike("""
+        def steps(ike, qapp, out):
             yield 600
             from ike import themes
             ike.config["ui_themes"] = {"Mine": %r}
@@ -67,10 +67,10 @@ def test_user_theme_saved_restored_and_deleted(run_ice):
     """ % theme)
     assert first["font_size"] == 13
     # same profile, new start: the saved theme is applied at start-up
-    second = run_ice("""
+    second = run_ike("""
         from PyQt6.QtGui import QPalette
 
-        def steps(ice, qapp, out):
+        def steps(ike, qapp, out):
             yield 600
             from ike import themes
             out["window"] = qapp.palette().color(QPalette.ColorRole.Window).name()

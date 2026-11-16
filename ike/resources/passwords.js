@@ -45,13 +45,13 @@
     return true;
   }
   new QWebChannel(qt.webChannelTransport, function (channel) {
-    var ice = channel.objects.ice;
-    if (!ice) return;
-    window.__iceBridge = ice;      // shared with the other isolated-world helpers
+    var ike = channel.objects.ike;
+    if (!ike) return;
+    window.__iceBridge = ike;      // shared with the other isolated-world helpers
     var filled = false;
     function tryFill() {
       if (filled || !pwField(false)) return;
-      ice.logins(function (json) {
+      ike.logins(function (json) {
         var list = [];
         try { list = JSON.parse(json || '[]'); } catch (e) {}
         if (list.length && fill(list[0], false)) filled = true;
@@ -61,9 +61,9 @@
       var p = pwField(true);
       if (!p) return;
       var u = userFor(p);
-      ice.captured(u ? u.value : '', p.value);
+      ike.captured(u ? u.value : '', p.value);
     }
-    ice.fillRequested.connect(function (json) {
+    ike.fillRequested.connect(function (json) {
       try { fill(JSON.parse(json), true); } catch (e) {}
     });
     document.addEventListener('submit', capture, true);

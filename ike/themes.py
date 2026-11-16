@@ -21,7 +21,7 @@ COLOURS = ("background", "text", "accent", "toolbar", "tabs")
 
 # names are translated when shown (see names())
 BUILTIN = {
-    "ike": {"name": "Ice", "background": "#0f1d2b", "text": "#e6f4ff", "accent": "#19c3e6",
+    "ike": {"name": "Ike", "background": "#0f1d2b", "text": "#e6f4ff", "accent": "#19c3e6",
             "toolbar": "#0a1622", "tabs": "#12324a"},
     "night": {"name": "Night", "background": "#1f2023", "text": "#e4e4e7", "accent": "#7aa2f7",
               "toolbar": "#18191b", "tabs": "#2a2b30"},

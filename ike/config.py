@@ -135,9 +135,11 @@ DEFAULTS = {
     "vtabs_anim_ms": 200,               # slide of the auto-hidden tab panel (0 = none)
     "toolbar_hidden": [],               # keys of TOOLBAR_ITEMS the user does not want
     "toolbar_known": ["back", "forward", "reload", "home", "downloads"],
-    "toolbar_order": ["shield", "reload", "translate", "reader", "screenshot", "pip",
-                      "split", "dark", "private", "cleansite", "downloads", "menu"],
-    "toolbar_left": ["shield", "reload", "translate"],  # balance the address field around the window centre
+    "toolbar_order": ["reader", "screenshot", "pip", "split", "dark", "private",
+                      "cleansite", "downloads", "menu"],
+    "toolbar_left": [],                 # optional buttons before the address field
+    "toolbar_locked": False,            # lock button/separator positions; visibility remains configurable
+    "toolbar_separators": [],            # stable keys of user-created toolbar separators
     "urlbar_width": 60,                 # address bar: per cent of the window width
     "newtab_clock": True,               # clock and date on the new tab page
     "newtab_weather": True,             # weather on the new tab page (needs a city, see weather.py)
@@ -236,7 +238,7 @@ DEFAULTS = {
 
 # Toolbar buttons the user can show or hide: (key, hidden when first seen)
 TOOLBAR_ITEMS = (("back", False), ("forward", False), ("reload", False), ("home", False),
-                 ("translate", False), ("reader", False), ("screenshot", False), ("pip", False),
+                 ("reader", False), ("screenshot", False), ("pip", False),
                  ("split", True), ("dark", True), ("private", True), ("cleansite", True),
                  ("downloads", False))
 

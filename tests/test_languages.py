@@ -22,9 +22,9 @@ def test_check_lang_reports_no_errors():
             assert ", 0 missing," in line, line
 
 
-def test_settings_list_each_language_once(run_ice):
-    out = run_ice("""
-        def steps(ice, qapp, out):
+def test_settings_list_each_language_once(run_ike):
+    out = run_ike("""
+        def steps(ike, qapp, out):
             yield 400
             dlg = ike.show_settings(ike.windows[0])
             yield 200
@@ -38,9 +38,9 @@ def test_settings_list_each_language_once(run_ice):
 
 
 @pytest.mark.parametrize("code", ["it", "de", "zh", "ja"])
-def test_start_in_language(run_ice, code):
-    out = run_ice("""
-        def steps(ice, qapp, out):
+def test_start_in_language(run_ike, code):
+    out = run_ike("""
+        def steps(ike, qapp, out):
             yield 600
             from ike import i18n
             out["lang"] = i18n.current()
@@ -55,9 +55,9 @@ def test_start_in_language(run_ice, code):
 
 @pytest.mark.parametrize("env_lang,code", [("de_DE.UTF-8", "de"), ("it_IT.UTF-8", "it"),
                                            ("zh_TW.UTF-8", "zh"), ("en_US.UTF-8", "en")])
-def test_language_from_system(run_ice, env_lang, code):
-    out = run_ice("""
-        def steps(ice, qapp, out):
+def test_language_from_system(run_ike, env_lang, code):
+    out = run_ike("""
+        def steps(ike, qapp, out):
             yield 600
             from ike import i18n
             out["lang"] = i18n.current()

@@ -164,7 +164,7 @@ def measure(v, url, out, key):
         yield 50
     out[key] = None
 
-def steps(ice, qapp, out):
+def steps(ike, qapp, out):
     v = ike.windows[0].current_view()
     yield from measure(v, URL, out, "plain")
     yield from measure(v, URL + "?again", out, "plain_again")
@@ -178,10 +178,10 @@ def steps(ice, qapp, out):
 
 @needs_engine
 @pytest.mark.parametrize("level", ["balanced", "maximum"])
-def test_scriptlets_do_not_change_fingerprint(run_ice, site, level):
+def test_scriptlets_do_not_change_fingerprint(run_ike, site, level):
     # software WebGL, so the WebGL values are measured too
     flags = "--no-sandbox --enable-unsafe-swiftshader --use-angle=swiftshader --ignore-gpu-blocklist"
-    out = run_ice("URL = %r\nSCRIPTLETS = %r\n" % (site, SCRIPTLETS) + STEPS,
+    out = run_ike("URL = %r\nSCRIPTLETS = %r\n" % (site, SCRIPTLETS) + STEPS,
                   settings={"shield_level": level}, env={"QTWEBENGINE_CHROMIUM_FLAGS": flags}, timeout=120)
     plain, again, with_scriptlets = out["plain"], out["plain_again"], out["scriptlets"]
     if os.environ.get("IKE_TEST_FP_OUT"):

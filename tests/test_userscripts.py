@@ -33,7 +33,7 @@ console.info = function (m) { window.stolen.push(String(m)); };
 JSON.stringify = function () { window.stolen.push('stringify'); return '{}'; };
 window.hijack = [];
 Object.getOwnPropertyNames(window).forEach(function (k) {
-  if (k.indexOf('__ice_us_') === 0) {
+  if (k.indexOf('__ike_us_') === 0) {
     try { window[k] = function () { window.hijack.push(k); }; } catch (e) {}
     try { Object.defineProperty(window, k, { value: function () { window.hijack.push(k); } }); } catch (e) {}
   }
@@ -107,7 +107,7 @@ from PyQt6.QtCore import QUrl
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtNetwork import QNetworkProxy
 
-def steps(ice, qapp, out):
+def steps(ike, qapp, out):
     from ike.userscripts import gather, script_id, parse_meta
     ike.network.setProxy(QNetworkProxy(QNetworkProxy.ProxyType.HttpProxy, "127.0.0.1", PORT))
     QGuiApplication.clipboard().setText("untouched")
@@ -153,10 +153,10 @@ RESULT_JS = """(window.realStringify || JSON.stringify)((function () {
 })())"""
 
 
-def run_scripts(run_ice, port, scripts, pages, page_js=None, wait=1500, env=None):
+def run_scripts(run_ike, port, scripts, pages, page_js=None, wait=1500, env=None):
     head = "SCRIPTS = %r\nPAGES = %r\nPAGE_JS = %r\nRESULT_JS = %r\nPORT = %d\nWAIT = %d\n" % (
         scripts, pages, page_js or {}, RESULT_JS, port, wait)
-    return run_ice(head + STEPS, env=env, timeout=120)
+    return run_ike(head + STEPS, env=env, timeout=120)
 
 
 def mark(key, value):
@@ -165,7 +165,7 @@ def mark(key, value):
 
 # --- common patterns ---------------------------------------------------------
 
-def test_common_patterns(run_ice, server):
+def test_common_patterns(run_ike, server):
     port, seen, port2, seen2 = server
     scripts = [
         script("none", ["none"], body="window.fromScript = 'none:' + window.pageValue + ':' + typeof GM_setValue + ':' + GM_info.script.name;"),
@@ -190,7 +190,7 @@ def test_common_patterns(run_ice, server):
     ]
     base = "http://127.0.0.1:%d/page" % port
     # stored values reach new pages when they are saved (1.5 s after the change)
-    out = run_scripts(run_ice, port, scripts, [base, base + "?2"], wait=2500)
+    out = run_scripts(run_ike, port, scripts, [base, base + "?2"], wait=2500)
     first, second = out["pages"]
     assert first["pageVar"] == "none:from-page:undefined:none"      # page world, no GM functions
     assert first["seenAtStart"] == "early"                            # document-start before the page
@@ -201,7 +201,7 @@ def test_common_patterns(run_ice, server):
     assert first["same"] == "/same"
 
 
-def test_grants(run_ice, server):
+def test_grants(run_ike, server):
     port = server[0]
     probe = ("['GM_getValue','GM_setValue','GM_deleteValue','GM_listValues','GM_addStyle','GM_addElement',"
              "'GM_xmlhttpRequest','GM_setClipboard','GM_openInTab','GM_notification','GM_download',"
@@ -218,7 +218,7 @@ def test_grants(run_ice, server):
                        "GM_notification", "GM_download", "GM_getResourceText", "GM_getResourceURL",
                        "GM_registerMenuCommand", "GM_log"], body=mark("all", probe)),
     ]
-    out = run_scripts(run_ice, port, scripts, ["http://127.0.0.1:%d/page" % port])
+    out = run_scripts(run_ike, port, scripts, ["http://127.0.0.1:%d/page" % port])
     p = out["pages"][0]
     assert p["nogrant"] == "|info|object"
     assert p["nonegrant"] == "|info|object"
@@ -233,7 +233,7 @@ def test_grants(run_ice, server):
 
 # --- a page attacking the bridge ---------------------------------------------
 
-def test_forged_messages(run_ice, server):
+def test_forged_messages(run_ike, server):
     """Messages written by the page: no token, a wrong token, another script's
     token, an operation the script was not granted."""
     port, seen, port2, _seen2 = server
@@ -242,7 +242,7 @@ def test_forged_messages(run_ice, server):
         script("getonly", ["GM_getValue", "GM_xmlhttpRequest"], body=""),
     ]
     forged = """(function () {
-      var T = __TOKENS__, S = __SIDS__, P = '\\u0001ike-gm:';
+      var T = __TOKENS__, S = __SIDS__, P = '\\u0001ice-gm:';
       function m(tok, id, op, d) { console.info(P + tok + ':' + JSON.stringify({id: id, op: op, d: d})); }
       m('', S.clip, 'clip', {text: 'no token'});
       m('0123456789abcdef0123456789abcdef', S.clip, 'clip', {text: 'wrong token'});
@@ -253,14 +253,14 @@ def test_forged_messages(run_ice, server):
       console.info(P + T.clip);
       console.info(P + T.clip + ':not json');
     })();""" % (port2, port2)
-    out = run_scripts(run_ice, port, scripts, ["http://127.0.0.1:%d/page" % port], {"0": [forged]})
+    out = run_scripts(run_ike, port, scripts, ["http://127.0.0.1:%d/page" % port], {"0": [forged]})
     assert out["clipboard"] == "untouched"
     assert ["127.0.0.1", "/forged"] not in seen + _seen2
     assert ["127.0.0.1", "/tab"] not in _seen2
     assert not any(u.endswith("/tab") for u in out["tabs"])
 
 
-def test_page_replaces_console_before_idle_script(run_ice, server):
+def test_page_replaces_console_before_idle_script(run_ike, server):
     """The page replaces console.info and JSON.stringify and tries to take over
     the answer callback before a script in its world (unsafeWindow) starts at
     document-idle: the script still works and nothing reaches the page."""
@@ -270,7 +270,7 @@ def test_page_replaces_console_before_idle_script(run_ice, server):
                       body="GM_setClipboard('from script');"
                            "GM_xmlhttpRequest({url: 'http://127.0.0.1:%d/idle', onload: function (r) {%s}});"
                            % (port2, mark("idle", "JSON.parse(r.responseText).path")))]
-    out = run_scripts(run_ice, port, scripts, ["http://127.0.0.1:%d/evil" % port])
+    out = run_scripts(run_ike, port, scripts, ["http://127.0.0.1:%d/evil" % port])
     p = out["pages"][0]
     assert out["clipboard"] == "from script"
     assert p["idle"] == "/idle"
@@ -287,7 +287,7 @@ def _xhr_script(name, url, connect=(), grants=("GM_xmlhttpRequest",)):
                           mark(name, "'refused'")))
 
 
-def test_connect(run_ice, server):
+def test_connect(run_ike, server):
     port, seen, port2, seen2 = server
     scripts = [
         # public sites (through the stand-in proxy)
@@ -309,7 +309,7 @@ def test_connect(run_ice, server):
         _xhr_script("resolvesnamed", "http://private.example.test/o", ["private.example.test"]),
         _xhr_script("file", "file:///etc/passwd"),
     ]
-    out = run_scripts(run_ice, port, scripts, ["http://127.0.0.1:%d/page" % port],
+    out = run_scripts(run_ike, port, scripts, ["http://127.0.0.1:%d/page" % port],
                       env={"IKE_TEST_RESOLVE": "private.example.test=10.1.2.3"}, wait=2500)
     p = out["pages"][0]
     assert p["noconnect"] == "ok:200:api.example.test"
@@ -329,7 +329,7 @@ def test_connect(run_ice, server):
         assert "/" + path not in reached
 
 
-def test_redirect_to_private_address(run_ice, server):
+def test_redirect_to_private_address(run_ike, server):
     port, seen, port2, seen2 = server
     secret = "http://127.0.0.1:%d/secret" % port2
     scripts = [
@@ -339,7 +339,7 @@ def test_redirect_to_private_address(run_ice, server):
         _xhr_script("topublic", "http://api.example.test/redirect?http://www.example.test/fine"),
         _xhr_script("tounlisted", "http://api.example.test/redirect?http://evil.example.test/x", ["api.example.test"]),
     ]
-    out = run_scripts(run_ice, port, scripts, ["http://127.0.0.1:%d/page" % port],
+    out = run_scripts(run_ike, port, scripts, ["http://127.0.0.1:%d/page" % port],
                       env={"IKE_TEST_RESOLVE": "private.example.test=10.1.2.3"}, wait=2500)
     p = out["pages"][0]
     assert p["tolocal"] == "refused" and p["toresolved"] == "refused" and p["tounlisted"] == "refused"

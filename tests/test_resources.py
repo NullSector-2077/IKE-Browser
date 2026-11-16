@@ -44,9 +44,9 @@ def server():
     httpd.shutdown()
 
 
-def test_measure(run_ice, server):
-    out = run_ice("""
-        def steps(ice, qapp, out):
+def test_measure(run_ike, server):
+    out = run_ike("""
+        def steps(ike, qapp, out):
             yield 300
             win = ike.windows[0]
             win.add_tab("http://127.0.0.1:%(p)d/")
@@ -76,9 +76,9 @@ def test_measure(run_ice, server):
     assert out["watchers"] == 0
 
 
-def test_memory_limit(run_ice, server):
-    out = run_ice("""
-        def steps(ice, qapp, out):
+def test_memory_limit(run_ike, server):
+    out = run_ike("""
+        def steps(ike, qapp, out):
             yield 300
             win = ike.windows[0]
             bg = win.add_tab("http://localhost:%(p)d/big")
@@ -99,11 +99,11 @@ def test_memory_limit(run_ice, server):
     assert out["bg_back"]
 
 
-def test_cpu_limit(run_ice, server):
-    out = run_ice("""
+def test_cpu_limit(run_ike, server):
+    out = run_ike("""
         from PyQt6.QtWebEngineCore import QWebEnginePage
 
-        def steps(ice, qapp, out):
+        def steps(ike, qapp, out):
             yield 300
             win = ike.windows[0]
             bg = win.add_tab("http://localhost:%(p)d/busy")
@@ -137,9 +137,9 @@ def test_cpu_limit(run_ice, server):
     assert out["woken"] and out["fg_untouched"], out
 
 
-def test_off_by_default(run_ice):
-    out = run_ice("""
-        def steps(ice, qapp, out):
+def test_off_by_default(run_ike):
+    out = run_ike("""
+        def steps(ike, qapp, out):
             yield 300
             out["timer"] = ike.resources.timer.isActive()
             out["limits"] = ike.resources.limits()

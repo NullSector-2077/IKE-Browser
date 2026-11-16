@@ -368,7 +368,7 @@ class Shields(QObject):
             profile = QWebEngineProfile(parent)
         else:
             sub = "profile" if not container else "containers/" + container
-            profile = QWebEngineProfile("ike" if not container else "ice-" + container, parent)
+            profile = QWebEngineProfile("ike" if not container else "ike-" + container, parent)
             profile.setPersistentStoragePath(str(DATA_DIR / sub))
             profile.setCachePath(str(CACHE_DIR / ("web" if not container else "web-" + container)))
             profile.setPersistentCookiesPolicy(
@@ -376,8 +376,8 @@ class Shields(QObject):
         self.profile_keys[id(profile)] = secrets.token_hex(16)
         self._identity(profile)
         if quiet:
-            profile._ice_interceptor = Interceptor(self, quiet=True)
-            profile.setUrlRequestInterceptor(profile._ice_interceptor)
+            profile._ike_interceptor = Interceptor(self, quiet=True)
+            profile.setUrlRequestInterceptor(profile._ike_interceptor)
         else:
             profile.setUrlRequestInterceptor(self.interceptor)
         profile.installUrlSchemeHandler(b"ike", self.scheme_handler)
@@ -446,12 +446,12 @@ class Shields(QObject):
             self._drop_site_scripts(p)
             self._video_scripts(p)
             scripts = p.scripts()
-            for old in (scripts.find("ice-fp") + scripts.find("ice-consent")
-                        + scripts.find("ice-pw")):
+            for old in (scripts.find("ike-fp") + scripts.find("ike-consent")
+                        + scripts.find("ike-pw")):
                 scripts.remove(old)
             if getattr(self, "pw_source", ""):
                 pw = QWebEngineScript()
-                pw.setName("ice-pw")
+                pw.setName("ike-pw")
                 pw.setSourceCode(self.pw_source)
                 pw.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentReady)
                 pw.setWorldId(QWebEngineScript.ScriptWorldId.ApplicationWorld)
@@ -474,8 +474,8 @@ class Shields(QObject):
                       "ffAppVersion": ident["firefox_app_version"],
                       "ffOscpu": ident["firefox_oscpu"]}
             s = QWebEngineScript()
-            s.setName("ice-fp")
-            s.setSourceCode(self._fp_src.replace("__ICE_CFG__", json.dumps(fp_cfg)))
+            s.setName("ike-fp")
+            s.setSourceCode(self._fp_src.replace("__IKE_CFG__", json.dumps(fp_cfg)))
             s.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
             s.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
             s.setRunsOnSubFrames(True)
@@ -486,9 +486,9 @@ class Shields(QObject):
                 if cfg["shield_level"] == "off":
                     continue
                 c = QWebEngineScript()
-                c.setName("ice-consent")
+                c.setName("ike-consent")
                 c.setSourceCode(self._consent_src.replace(
-                    "__ICE_CFG__", json.dumps({"off": off})))
+                    "__IKE_CFG__", json.dumps({"off": off})))
                 c.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentReady)
                 c.setWorldId(QWebEngineScript.ScriptWorldId.ApplicationWorld)
                 c.setRunsOnSubFrames(True)
@@ -531,7 +531,7 @@ class Shields(QObject):
         """(Re)install the always-present scripts of the video sites."""
         import json
         scripts = profile.scripts()
-        for name in ("ice-videoads", "ice-video-relay", "ice-video-main", "ice-video-iso"):
+        for name in ("ike-videoads", "ike-video-relay", "ike-video-main", "ike-video-iso"):
             for old in scripts.find(name):
                 scripts.remove(old)
         hosts = self.video_hosts()
@@ -539,22 +539,22 @@ class Shields(QObject):
             return
         code = self.blocker.scriptlets.host_scripts(hosts)
         if code["MAIN"]:
-            scripts.insert(self._script("ice-video-main", code["MAIN"], True))
+            scripts.insert(self._script("ike-video-main", code["MAIN"], True))
         if code["ISOLATED"]:
-            scripts.insert(self._script("ice-video-iso", code["ISOLATED"], False))
+            scripts.insert(self._script("ike-video-iso", code["ISOLATED"], False))
         if self.config["video_ad_skip"]:
             bases = [b for b in self.config["video_ad_skip_hosts"] if self._ads_on("www." + b)]
             scripts.insert(self._script(
-                "ice-videoads", self._videoads_src.replace("__ICE_VA__", json.dumps({"hosts": bases})),
+                "ike-videoads", self._videoads_src.replace("__IKE_VA__", json.dumps({"hosts": bases})),
                 False))
             scripts.insert(self._script(
-                "ice-video-relay", self._videorelay_src.replace("__ICE_VIDEO_HOSTS__", json.dumps(bases)),
+                "ike-video-relay", self._videorelay_src.replace("__IKE_VIDEO_HOSTS__", json.dumps(bases)),
                 False, False))
 
     def _drop_site_scripts(self, profile):
         scripts = profile.scripts()
         for host in self._site_lru.pop(id(profile), []):
-            for name in ("ice-sl-main:" + host, "ice-sl-iso:" + host):
+            for name in ("ike-sl-main:" + host, "ike-sl-iso:" + host):
                 for old in scripts.find(name):
                     scripts.remove(old)
 
@@ -578,13 +578,13 @@ class Shields(QObject):
             return
         scripts = profile.scripts()
         if code["MAIN"]:
-            scripts.insert(self._script("ice-sl-main:" + host, code["MAIN"], True))
+            scripts.insert(self._script("ike-sl-main:" + host, code["MAIN"], True))
         if code["ISOLATED"]:
-            scripts.insert(self._script("ice-sl-iso:" + host, code["ISOLATED"], False))
+            scripts.insert(self._script("ike-sl-iso:" + host, code["ISOLATED"], False))
         lru.append(host)
         while len(lru) > self.SITE_SCRIPTS_MAX:
             gone = lru.pop(0)
-            for name in ("ice-sl-main:" + gone, "ice-sl-iso:" + gone):
+            for name in ("ike-sl-main:" + gone, "ike-sl-iso:" + gone):
                 for old in scripts.find(name):
                     scripts.remove(old)
 

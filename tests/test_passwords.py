@@ -68,7 +68,7 @@ STEPS = r'''
 import json
 from PyQt6.QtCore import QUrl
 
-def steps(ice, qapp, out):
+def steps(ike, qapp, out):
     pm = ike.passwords
     pm.vault.create("test master")
     for origin, user in SAVED:
@@ -94,7 +94,7 @@ def steps(ice, qapp, out):
 '''
 
 
-def test_fill_only_on_exact_origin(run_ice, site):
+def test_fill_only_on_exact_origin(run_ike, site):
     port, port2 = site
     saved = [("http://localhost:%d" % port, "main"), ("http://a.localhost:%d" % port, "sub"),
              ("http://localhost:%d" % port2, "otherport"), ("https://localhost:%d" % port, "secure")]
@@ -104,7 +104,7 @@ def test_fill_only_on_exact_origin(run_ice, site):
              "http://c.localhost:%d/redirect?http://a.localhost:%d/login" % (port, port)]
     head = "SAVED = %r\nPAGES = %r\n" % (saved, pages)
     # the local server speaks plain HTTP: no automatic upgrade to HTTPS
-    out = run_ice(head + STEPS, settings={"https_only": False}, timeout=120)
+    out = run_ike(head + STEPS, settings={"https_only": False}, timeout=120)
     main, other_sub, other_port, redirected = out["pages"]
     assert main["origin"] == "http://localhost:%d" % port
     assert [e["u"] for e in main["offered"]] == ["main"] and main["fields"] == "main/pw-main"

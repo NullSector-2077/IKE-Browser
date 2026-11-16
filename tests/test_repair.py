@@ -41,9 +41,9 @@ def server():
 
 
 @needs_engine
-def test_repair_real_page(run_ice, server):
-    out = run_ice("""
-        def steps(ice, qapp, out):
+def test_repair_real_page(run_ike, server):
+    out = run_ike("""
+        def steps(ike, qapp, out):
             yield 300
             win = ike.windows[0]
             view = win.add_tab(%r)
@@ -99,7 +99,7 @@ def test_repair_real_page(run_ice, server):
 SEARCH = """
 import json
 
-def steps(ice, qapp, out):
+def steps(ike, qapp, out):
     yield 300
     win = ike.windows[0]
     view = win.add_tab(%(url)r)
@@ -142,38 +142,38 @@ def steps(ice, qapp, out):
 """
 
 
-def _search(run_ice, server, need, fixable=True, level_works=False, cancel_at=0, settings=None):
-    return run_ice(SEARCH % {"url": server, "need": need, "fixable": fixable,
+def _search(run_ike, server, need, fixable=True, level_works=False, cancel_at=0, settings=None):
+    return run_ike(SEARCH % {"url": server, "need": need, "fixable": fixable,
                              "level_works": level_works, "cancel_at": cancel_at},
                    settings=settings or {"shield_level": "balanced"})
 
 
-def test_repair_finds_one(run_ice, server):
-    out = _search(run_ice, server, ["fp"])
+def test_repair_finds_one(run_ike, server):
+    out = _search(run_ike, server, ["fp"])
     assert out["state"] == "found" and out["culprits"] == ["fp"]
     assert out["saved_opts"] == {"fp": False, "repaired": ["fp"]}
     assert out["questions"] <= 1 + 2 * len(out["candidates"])
 
 
-def test_repair_finds_two(run_ice, server):
-    out = _search(run_ice, server, ["cookies", "params"])
+def test_repair_finds_two(run_ike, server):
+    out = _search(run_ike, server, ["cookies", "params"])
     assert out["state"] == "found" and sorted(out["culprits"]) == ["cookies", "params"]
     assert out["saved_opts"]["cookies"] == "allow" and out["saved_opts"]["params"] is False
 
 
-def test_repair_not_the_cause(run_ice, server):
-    out = _search(run_ice, server, [], fixable=False, level_works=False)
+def test_repair_not_the_cause(run_ike, server):
+    out = _search(run_ike, server, [], fixable=False, level_works=False)
     assert out["state"] == "none"
     assert out["same"] and out["saved_opts"] is None and out["level"] is None
 
 
-def test_repair_whole_shield(run_ice, server):
-    out = _search(run_ice, server, [], fixable=False, level_works=True)
+def test_repair_whole_shield(run_ike, server):
+    out = _search(run_ike, server, [], fixable=False, level_works=True)
     assert out["state"] == "level-kept" and out["level"] == "off"
 
 
-def test_repair_cancel_restores(run_ice, server):
-    out = _search(run_ice, server, ["https"], cancel_at=2,
+def test_repair_cancel_restores(run_ike, server):
+    out = _search(run_ike, server, ["https"], cancel_at=2,
                   settings={"shield_level": "strict", "site_noscript": ["127.0.0.1"],
                             "site_opts": {"127.0.0.1": {"cookies": "3p"}}})
     assert "scripts" in out["candidates"] and "cookies" in out["candidates"]
@@ -182,9 +182,9 @@ def test_repair_cancel_restores(run_ice, server):
     assert json.dumps(out["saved_opts"]) in ("null", json.dumps({"cookies": "3p"}))
 
 
-def test_repair_switch_off(run_ice, server):
-    out = run_ice("""
-        def steps(ice, qapp, out):
+def test_repair_switch_off(run_ike, server):
+    out = run_ike("""
+        def steps(ike, qapp, out):
             yield 300
             win = ike.windows[0]
             win.add_tab(%r)

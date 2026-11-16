@@ -1,9 +1,9 @@
 """Address bar, vertical tabs, shield panel and find bar inside a window."""
 
 
-def test_address_bar(run_ice):
-    out = run_ice("""
-        def steps(ice, qapp, out):
+def test_address_bar(run_ike):
+    out = run_ike("""
+        def steps(ike, qapp, out):
             yield 600
             win = ike.windows[0]
             r = lambda t: win.resolve(t).toString()
@@ -26,11 +26,11 @@ def test_address_bar(run_ice):
     assert out["bar"].startswith("data:text/html")
 
 
-def test_vertical_tabs(run_ice):
-    out = run_ice("""
+def test_vertical_tabs(run_ike):
+    out = run_ike("""
         from PyQt6.QtCore import Qt
 
-        def steps(ice, qapp, out):
+        def steps(ike, qapp, out):
             yield 600
             win = ike.windows[0]
             for i in range(3):
@@ -56,9 +56,9 @@ def test_vertical_tabs(run_ice):
     assert out["rows_after"] == 3 and out["tabs_after"] == 3
 
 
-def test_shield_panel(run_ice):
-    out = run_ice("""
-        def steps(ice, qapp, out):
+def test_shield_panel(run_ike):
+    out = run_ike("""
+        def steps(ike, qapp, out):
             yield 600
             win = ike.windows[0]
             win.add_tab("data:text/html,<title>x</title>x")
@@ -74,9 +74,9 @@ def test_shield_panel(run_ice):
     assert out["ok"] and out["count"] != ""
 
 
-def test_find_bar(run_ice):
-    out = run_ice("""
-        def steps(ice, qapp, out):
+def test_find_bar(run_ike):
+    out = run_ike("""
+        def steps(ike, qapp, out):
             yield 600
             win = ike.windows[0]
             win.add_tab("data:text/html,<p>alpha beta alpha</p>")
