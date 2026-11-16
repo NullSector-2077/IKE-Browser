@@ -53,7 +53,7 @@ UPDATE_INTERVAL = 24 * 3600
 _BLOCK = re.compile(r"//\s*==UserScript==(.*?)//\s*==/UserScript==", re.S)
 _LINE = re.compile(r"^\s*//\s*@([\w:-]+)(?:[ \t]+(.*?))?\s*$", re.M)
 _MANY = ("match", "include", "exclude", "exclude-match", "grant", "require", "resource", "connect")
-PREFIX = "\u0001ice-gm:"                 # console messages for I.K.E.: PREFIX + token + ":" + JSON
+PREFIX = "\u0001ike-gm:"                 # console messages for I.K.E.: PREFIX + token + ":" + JSON
 # operations a script sends to I.K.E. and the GM function that must be granted
 OPS = {"set": "setvalue", "del": "deletevalue", "clip": "setclipboard", "tab": "openintab",
        "notify": "notification", "download": "download", "xhr": "xmlhttprequest"}
