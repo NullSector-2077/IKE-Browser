@@ -1,0 +1,66 @@
+# Temporary probe of the Windows runner (replaced by the real workflow).
+name: Windows
+
+on:
+  push:
+    branches: [windows/port]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Runner
+        shell: pwsh
+        run: |
+          systeminfo | Select-String "OS Name","OS Version","Total Physical"
+          rustc -vV
+          cargo -V
+          choco --version
+          Get-Command iscc -ErrorAction SilentlyContinue
+          Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          Get-Command cl, rc, link -ErrorAction SilentlyContinue
+          & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          python -VV
+          Get-ChildItem Env: | Where-Object { $_.Name -match "APPDATA|TEMP|TMP|USERPROFILE|XDG|RUNNER_TEMP" } | Format-Table -AutoSize
+      - name: Python embeddable distributions
+        shell: pwsh
+        run: |
+          $page = (Invoke-WebRequest -UseBasicParsing https://www.python.org/ftp/python/).Content
+          $versions = [regex]::Matches($page, 'href="(3\.1[34]\.\d+)/"') | ForEach-Object { $_.Groups[1].Value } |
+              Sort-Object { [version]$_ } -Descending
+          "3.13/3.14 versions listed: $($versions -join ' ')"
+          $found = 0
+          foreach ($v in $versions) {
+            if (-not $v.StartsWith("3.13.")) { continue }
+            $url = "https://www.python.org/ftp/python/$v/python-$v-embed-amd64.zip"
+            try {
+              Invoke-WebRequest -UseBasicParsing $url -OutFile "embed-$v.zip"
+              "$v  sha256=$((Get-FileHash "embed-$v.zip" -Algorithm SHA256).Hash.ToLower())  size=$((Get-Item "embed-$v.zip").Length)"
+              try {
+                Invoke-WebRequest -UseBasicParsing "$url.spdx.json" -OutFile "embed-$v.spdx.json"
+                Select-String -Path "embed-$v.spdx.json" -Pattern '"checksumValue"' | Select-Object -First 3
+                (Get-Content "embed-$v.spdx.json" -Raw).Substring(0, 1500)
+              } catch { "no SBOM for $v" }
+              $found++
+              if ($found -ge 2) { break }
+            } catch { "$v  no embeddable zip" }
+          }
+          $rel = (Invoke-WebRequest -UseBasicParsing "https://www.python.org/downloads/windows/").Content
+          [regex]::Matches($rel, 'Python 3\.13\.\d+ - [A-Za-z]+\.? \d+, \d+') | Select-Object -First 5 | ForEach-Object { $_.Value }
+      - name: Python packages
+        run: python -m pip install --disable-pip-version-check -q -r tools/test-requirements.txt pytest
+      - name: Engine probe
+        run: python packaging/windows/probe.py
+      - name: Engine check
+        run: python packaging/windows/engine-check.py --expect-free-only
