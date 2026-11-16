@@ -5,7 +5,7 @@ The application test suite is in `tests/`. GitHub Actions runs the Linux headles
 For local testing on Arch / CachyOS:
 
 ```bash
-sudo pacman -S --needed base-devel rust python-pytest python-ruff
+sudo pacman -S --needed base-devel rust python-pytest ruff
 cargo build --release --locked --manifest-path ike-adblock/Cargo.toml
 install -m755 ike-adblock/target/release/libike_adblock.so vendor/adblock/ike_adblock.abi3.so
 ruff check .
