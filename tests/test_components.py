@@ -1,9 +1,9 @@
 """Tests for the Arch-only component update checker."""
 
-import importlib.util
 import json
 import subprocess
 import sys
+from importlib import util
 from pathlib import Path
 
 import pytest
@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def load_tool():
-    spec = importlib.util.spec_from_file_location(
+    spec = util.spec_from_file_location(
         "ike_check_components", ROOT / "tools" / "check-components.py"
     )
     module = importlib.util.module_from_spec(spec)
