@@ -242,7 +242,7 @@ def test_forged_messages(run_ike, server):
         script("getonly", ["GM_getValue", "GM_xmlhttpRequest"], body=""),
     ]
     forged = """(function () {
-      var T = __TOKENS__, S = __SIDS__, P = '\\u0001ice-gm:';
+      var T = __TOKENS__, S = __SIDS__, P = '\\u0001ike-gm:';
       function m(tok, id, op, d) { console.info(P + tok + ':' + JSON.stringify({id: id, op: op, d: d})); }
       m('', S.clip, 'clip', {text: 'no token'});
       m('0123456789abcdef0123456789abcdef', S.clip, 'clip', {text: 'wrong token'});
