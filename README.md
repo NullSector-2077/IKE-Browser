@@ -9,7 +9,7 @@ The interface, protections, password manager and updater are I.K.E.'s own code
 provided and kept up to date by Arch Linux. I.K.E. is developed on and for
 KDE Plasma (CachyOS / Arch Linux) and works on the other Arch-based desktops.
 
-**Version 1.0.1** - see [CHANGELOG.md](CHANGELOG.md).
+**Version 1.0.2** - see [CHANGELOG.md](CHANGELOG.md).
 
 ## Install (Arch Linux, CachyOS)
 
@@ -17,7 +17,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.0.1-1-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.0.2-1-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:
@@ -72,7 +72,11 @@ profiles: `ike-browser --profile NAME`.
   download manager, PDF viewer, reader mode, picture-in-picture, page dark mode,
   translation through an external service, site permissions.
 - Free choice of search engines (DuckDuckGo by default), suggestions, keywords.
-- New tab page with a clock and, for a city you choose, the weather.
+- New tab page with a clock and, for a city you choose, the weather; your own
+  photo as its background if you like (kept on the computer, never uploaded).
+- Toolbar buttons shown, hidden and moved to either side of the address bar
+  ("Customise toolbar"); in a narrow window the ones that do not fit are listed
+  under a » button.
 - **Site resources** (Shift+Esc): memory, CPU and network of each open site,
   with optional limits that suspend or freeze greedy background tabs.
 - **Watched pages**: right-click a page, or a part of it such as a price, to be
@@ -90,6 +94,8 @@ profiles: `ike-browser --profile NAME`.
 - Interface themes: five ready-made ones (I.K.E., Night, Paper, Forest, High
   contrast) and your own, with your choice of background, text, accent, toolbar
   and tab colours and of the font family and size.
+- Light interface effects (short fades, a loading mark on tabs) that follow the
+  desktop's reduced-motion setting and can be switched off.
 - English, Italian, Spanish, French, German, Portuguese, Chinese (Simplified) and
   Japanese included. Chinese and Japanese need a CJK font such as
   `noto-fonts-cjk`.

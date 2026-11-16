@@ -67,9 +67,13 @@ class CloseButtonStyle:
                         self.svg = renderer
                         return
 
-    def paint(self, painter, zone, palette, hovered, pressed):
+    def paint(self, painter, zone, palette, hovered, pressed, level=None):
+        """level: how far the hover has come in, 0-1, while it glides in or
+        out (effects.Glide); None = fully on or off, as hovered says."""
         from PyQt6.QtCore import QRectF
         from PyQt6.QtGui import QPalette, QPen
+
+        from .effects import blend
         s = float(self.SIZE)
         box = QRectF(zone.center().x() - s / 2 + 0.5, zone.center().y() - s / 2 + 0.5, s, s)
         painter.save()
@@ -83,12 +87,19 @@ class CloseButtonStyle:
                     return
         fg = palette.color(QPalette.ColorRole.Text)
         bg = palette.color(QPalette.ColorRole.Base)
-        disc, cross = None, fg
-        if hovered or pressed:
-            disc = self.negative.lighter(125) if pressed else self.negative
-            cross = bg
+        if level is None or pressed:
+            level = 1.0 if (hovered or pressed) else 0.0
+        red = self.negative.lighter(125) if pressed else self.negative
+        if level <= 0.0:
+            disc, cross = (fg, bg) if self.outline else (None, fg)
+        elif level >= 1.0:
+            disc, cross = red, bg
         elif self.outline:
-            disc, cross = fg, bg
+            disc, cross = blend(fg, red, level), bg
+        else:
+            disc = QColor(red)
+            disc.setAlphaF(level)
+            cross = blend(fg, bg, level)
         if disc is not None:
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(disc)
@@ -115,6 +126,9 @@ class WindowCloseButton(QToolButton):
         self.setAutoRaise(True)
         self.setMouseTracking(True)
         self._hovered = False
+        from .effects import Glide
+        app = getattr(parent, "app", None)
+        self._glide = Glide(self, getattr(app, "config", None), self.update)
 
     def sizeHint(self):
         h = max(super().sizeHint().height(), self.style_.SIZE + 8)
@@ -122,16 +136,17 @@ class WindowCloseButton(QToolButton):
 
     def enterEvent(self, event):
         self._hovered = True
-        self.update()
+        self._glide.to(1)
         super().enterEvent(event)
 
     def leaveEvent(self, event):
         self._hovered = False
-        self.update()
+        self._glide.to(0)
         super().leaveEvent(event)
 
     def paintEvent(self, event):
         painter = QPainter(self)
         self.style_.paint(painter, self.rect(), self.palette(),
-                          self._hovered and self.isEnabled(), self.isDown())
+                          self._hovered and self.isEnabled(), self.isDown(),
+                          self._glide.value if self._glide.moving and self.isEnabled() else None)
         painter.end()

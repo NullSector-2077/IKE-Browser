@@ -33,7 +33,7 @@ from PyQt6.QtWidgets import (
     QWidgetAction,
 )
 
-from . import APP_LONG_NAME, APP_NAME, __version__
+from . import APP_LONG_NAME, APP_NAME, __version__, effects
 from .config import LEVEL_NAMES, LEVELS
 from .features import WindowFeatures, tab_icon
 from .i18n import T
@@ -281,7 +281,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.vtabs.setTextElideMode(Qt.TextElideMode.ElideRight)
         self.vtabs.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.vtabs.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        delegate = VTabDelegate(self.vtabs)
+        delegate = VTabDelegate(self.vtabs, self.app.config)
         delegate.close_requested.connect(
             lambda r: self.close_tab(self.views[r]) if 0 <= r < len(self.views) else None)
         delegate.mute_requested.connect(
@@ -336,6 +336,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         rl.addWidget(self.findbar)
         from .loadingline import LoadingLine
         self.loading_line = LoadingLine(self.content)
+        self.loading_line.config = self.app.config
 
         self.splitter = QSplitter(Qt.Orientation.Horizontal, self)
         self.splitter.addWidget(self.vtab_panel)
@@ -358,7 +359,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                            else [QKeySequence(shortcut)])
         if tip:
             a.setStatusTip(tip)
-            a.setToolTip(tip)
+            keys = a.shortcut().toString(QKeySequence.SequenceFormat.NativeText)
+            a.setToolTip("%s (%s)" % (tip, keys) if keys else tip)     # what it does, and its key
         a.setCheckable(checkable)
         if slot:
             a.triggered.connect(slot)
@@ -414,6 +416,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         wa.setDefaultWidget(self.shield_panel)
         self.shield_menu.addAction(wa)
         self.shield_menu.aboutToShow.connect(self.shield_panel.refresh)
+        effects.fading(self.shield_menu, self.app.config)
         self.shield_btn.setMenu(self.shield_menu)
         self.shield_act = tb.addWidget(self.shield_btn)
 
@@ -491,7 +494,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.more_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
         self.more_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.more_btn.setStyleSheet("QToolButton::menu-indicator { image: none; }")
-        self.more_menu = QMenu(self.more_btn)
+        self.more_menu = effects.fading(QMenu(self.more_btn), self.app.config)
         self.more_btn.setMenu(self.more_menu)
         self.more_act = tb.addWidget(self.more_btn)
         self.more_act.setVisible(False)
@@ -718,7 +721,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         burger.addSeparator()
         burger.addAction(m_edit.actions()[-1])
         burger.addAction(m_file.actions()[-1])
-        self.menu_btn.setMenu(burger)
+        self.menu_btn.setMenu(effects.fading(burger, self.app.config))
 
         # Extra shortcuts without a menu entry.
         A("focus-url", self._focus_url, ["Ctrl+L", "Alt+D", "F6"])
@@ -1035,7 +1038,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if ic.isNull():
             ic = self.app.icon if view.url().scheme() == "ike" else icon(
                 "globe", QStyle.StandardPixmap.SP_FileIcon)
-        ic = tab_icon(ic, g["color"] if g else None, self.app.container_color(view.container))
+        ic = view.tab_icon = tab_icon(ic, g["color"] if g else None, self.app.container_color(view.container))
+        if getattr(view, "loading_marked", False):
+            ic = effects.loading_icon(ic, getattr(self, "_spin_angle", 45), self.tabbar.palette())
         self.tabbar.setTabText(i, prefix + (title if len(title) < 28 else title[:27] + "…"))
         self.tabbar.setTabToolTip(i, tip)
         self.tabbar.setTabIcon(i, ic)
@@ -1449,10 +1454,60 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         view.loading = loading
         if not loading:
             view.progress = 100
+        self._loading_mark(view, loading)
         if view is self.current_view():
             self._update_nav()
             self._update_bookbar()
             self.loading_line.set_state(loading, getattr(view, "progress", 0))
+
+    # the mark on the tab of a page that is loading (see effects.py)
+    MARK_AFTER = 0.25            # seconds: pages that load at once show no mark
+    MARK_TURNS_FOR = 30          # seconds: after that the mark stays, but still
+
+    def _loading_mark(self, view, loading):
+        view.loading_since = time.monotonic() if loading else None
+        if loading:
+            timer = getattr(self, "_spin", None)
+            if timer is None:
+                timer = self._spin = QTimer(self)
+                timer.timeout.connect(self._spin_step)
+                self._spin_angle = 45
+            if not timer.isActive():
+                timer.start(effects.SPIN_MS if effects.on(self.app.config) else 250)
+        elif getattr(view, "loading_marked", False):
+            view.loading_marked = False
+            self._tab_changed(view)
+
+    def _spin_step(self):
+        """Show or turn the mark of the tabs that are loading; stop when there is nothing to do."""
+        turning = effects.on(self.app.config)
+        now = time.monotonic()
+        again = False
+        if turning:
+            self._spin_angle = (self._spin_angle + effects.SPIN_STEP) % 360
+        for i, view in enumerate(self.views):
+            since = getattr(view, "loading_since", None)
+            if since is None or not getattr(view, "loading", False):
+                continue
+            marked = getattr(view, "loading_marked", False)
+            turns = turning and now - since < self.MARK_TURNS_FOR
+            if now - since < self.MARK_AFTER:
+                again = True
+                continue
+            if marked and not turns:
+                continue
+            again = again or turns
+            view.loading_marked = True
+            base = getattr(view, "tab_icon", None)
+            if base is None:
+                continue
+            ic = effects.loading_icon(base, self._spin_angle, self.tabbar.palette())
+            self.tabbar.setTabIcon(i, ic)
+            item = self.vtabs.item(i)
+            if item:
+                item.setIcon(ic)
+        if not again:
+            self._spin.stop()
 
     def _load_progress(self, view, percent):
         view.progress = percent
@@ -1719,7 +1774,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if child is not None and child not in self._nav_spacers \
                 and not isinstance(child, QToolButton):
             return
-        m = QMenu(self)
+        m = effects.fading(QMenu(self), self.app.config)
         title = m.addAction(T("Toolbar buttons"))
         title.setEnabled(False)
         m.addSeparator()

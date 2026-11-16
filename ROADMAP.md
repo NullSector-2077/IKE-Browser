@@ -82,38 +82,27 @@ Branch `ike-1.0.1`. Done and tested:
 changed, so 1.0.0 announces this release instead of self-updating (the owner
 may put it back to 1.0.0 before signing if a stale menu icon is acceptable).
 
-### 1.0.2 — toolbar, interface polish, new-tab background
+### 1.0.2 — toolbar, interface polish, new-tab background (done, waiting for the owner)
 
-1. **Toolbar** (top priority): moving buttons did not work reliably; find the
-   architectural cause, not a surface fix. Current code: `ike/features.py`
-   (long press of 800 ms, `toolbar_order` / `toolbar_left` in `ike/config.py`).
-   - Layout: Back, Forward and Home fixed at the left, then a vertical
-     separator that always stays right after Home and cannot be dragged;
-     customisable buttons on both sides of the address bar; the address bar
-     always correctly sized; tabs and window controls on the right, the fixed
-     ones staying fixed.
-   - Dragging: precise reordering into the allowed zones, a drop indicator,
-     snapping to the free positions, no overlap, no deformation of the
-     toolbar. A "Customise toolbar" mode in which items clearly show they can
-     be dragged; the long press stays as well.
-   - Saved automatically and restored at start; handles added and removed
-     buttons, reset to the default layout, window resizing, DPI scaling and
-     resolution changes. If QToolBar cannot do this, a custom container built
-     on Qt widgets and layouts; robust and maintainable first.
-2. **Interface polish**, only where it has a reason: finer hover effects,
-   light transitions, smoother opening of menus, discreet feedback, more
-   uniform icons, cleaner tooltips, discreet tab loading indicators. Colours
-   from the current theme and user colours. No blur, no permanent animations,
-   no needless timers or repaints; follow the system's reduced-motion
-   preference and add a setting to turn the extra effects off; measure CPU
-   and memory before and after.
-3. **New-tab background photo**: choose a photo from the computer, change it,
-   remove it; fill, fit or centre; optional brightness / overlay for
-   readability. A copy is kept in I.K.E.'s data folder, never uploaded
-   anywhere; interface colours, text colours and the system theme are not
-   changed by it (independent of the theme system). Handles a missing file,
-   unsupported formats, invalid paths, very large images (scaled down once,
-   loaded efficiently) and keeps the choice across restarts.
+Branch `ike-1.0.2` (contains 1.0.1). Done and tested:
+
+1. Toolbar. Cause of the unreliable moving: the toolbar was rearranged while
+   the button was dragged, and QToolBar builds a new button each time an
+   action is inserted, so the button receiving the mouse events was destroyed
+   at the first step (the drag stopped, the button landed in a wrong place,
+   nothing was saved, and the new button could not be dragged). Now
+   `ike/toolbar.py` holds one description of the arrangement
+   (`ToolbarLayout`) and `ToolbarMover` shows a marker during the drag and
+   applies the move once, on release. QToolBar is kept (it can do this).
+   "Customise toolbar" mode, reset to default, the long press kept. Buttons
+   that do not fit a narrow window go under a » button, so the address bar,
+   the menu and the window buttons stay in view at every width and scale.
+2. Interface effects in `ike/effects.py`: menus and the shield panel fade in,
+   gliding hover of the close buttons, smooth loading line, loading mark on
+   tabs; setting `ui_effects`; off with the desktop's reduced motion; no
+   measurable cost. Icons were left as they are: their uniformity can only be
+   judged on a real Plasma session.
+3. New-tab background photo in `ike/newtabbg.py`.
 
 ### 1.0.3 — code review and security audit
 
@@ -196,10 +185,10 @@ In `docs/platforms/` (English), citing the official sources used:
 - 2026-11-16: plan written.
 - 2026-11-16: unattended session started. 1.0.1 finished on branch
   `ike-1.0.1` (pull request #5, 129 tests passed, package built and tested).
-- 1.0.2 in progress on branch `ike-1.0.2`: toolbar done (`ike/toolbar.py`,
-  `tests/test_toolbar.py`); still to do: interface polish, new-tab
-  background photo, translations of the new strings, version, changelog,
-  package.
+- 1.0.2 finished on branch `ike-1.0.2` (146 tests passed, package built and
+  tested); next is 1.0.3 on `ike-1.0.3`. Noted for the 1.0.3 audit: web
+  pages can load `ike:logo` and frame `ike:newtab` (a way to recognise the
+  browser); settings of the wrong type are not checked when read.
 
 ### Also planned
 

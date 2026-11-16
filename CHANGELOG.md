@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.0.2
+
+- **Toolbar buttons can be moved reliably.** A long press and drag, or the new
+  "Customise toolbar" mode (right-click the toolbar, or the View menu), where
+  the buttons show an outline and are dragged at once. A marker shows where
+  the button will land, on either side of the address bar; the arrangement is
+  saved and shown in every window, and "Reset to default layout" brings back
+  the original one. Back, Forward and Home and the separator after them stay
+  in place. (Before, the toolbar rebuilt the dragged button at the first
+  movement, so the drag stopped and nothing was saved.)
+- In a narrow window the buttons that do not fit are listed under a » button
+  instead of pushing the menu and the window buttons out of view.
+- Back, Forward and Home can now really be hidden from "Toolbar buttons" (the
+  choice was offered in Settings but had no effect).
+- **New tab page: your own photo as background** (Settings → General): fill
+  the page, show the whole photo or centre it, with a veil in the page's own
+  colour to keep the text readable. A copy is kept in I.K.E.'s data folder
+  (scaled down once if larger than a 4K screen) and is never sent anywhere; web
+  pages cannot load it. The interface colours and the theme do not change.
+- **Interface effects**, all light: the shield panel and the menus fade in, the
+  red of I.K.E.'s own close buttons glides in on hover, the loading line
+  advances smoothly, and a tab that takes a while to load shows a small
+  turning mark. They are off when the desktop is set to show no animations
+  (Plasma's animation speed at "Instant") and can be turned off in Settings →
+  Appearance. Processor time, memory and start-up measured before and after:
+  no difference (`tests/measure_idle.py`, `tests/measure_startup.py`).
+- Tooltips of buttons and menu entries also show the keyboard shortcut.
+- Two messages that were shown only in English are translated.
+
 ## 1.0.1
 
 - The logo, the application icon at every size and the new tab page show

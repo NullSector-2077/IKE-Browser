@@ -24,10 +24,12 @@ class VTabDelegate(QStyledItemDelegate):
     ZONE = 32            # width of the close area
     AUDIO = 26           # width of the speaker area
 
-    def __init__(self, view):
+    def __init__(self, view, config=None):
         super().__init__(view)
         self.view = view
         self.style_ = CloseButtonStyle()
+        from .effects import Glide
+        self._glide = Glide(self, config, lambda: self._repaint(self._hover[0]))
         self._hover = (-1, "")       # (row, "close" | "audio")
         self._pressed = (-1, "")
         view.viewport().setMouseTracking(True)
@@ -74,6 +76,9 @@ class VTabDelegate(QStyledItemDelegate):
             if hit != self._hover:
                 old, self._hover = self._hover, hit
                 self._repaint(old[0], hit[0])
+                if hit[1] == "close":           # the red comes in gently, and leaves at once
+                    self._glide.jump(0)
+                    self._glide.to(1)
             return self._pressed[0] >= 0       # no drag while a button is held
         if t in (QEvent.Type.Leave, QEvent.Type.HoverLeave):
             if self._hover[0] >= 0:
@@ -132,7 +137,8 @@ class VTabDelegate(QStyledItemDelegate):
         hovered = self._hover == (row, "close")
         pressed = self._pressed == (row, "close")
         if hovered or pressed or selected or option.state & QStyle.StateFlag.State_MouseOver:
-            self.style_.paint(painter, self._zone(option.rect), option.palette, hovered, pressed)
+            self.style_.paint(painter, self._zone(option.rect), option.palette, hovered, pressed,
+                              self._glide.value if hovered and self._glide.moving else None)
 
     def sizeHint(self, option, index):
         # a narrow hint: rows are as wide as the panel, never as wide as the title

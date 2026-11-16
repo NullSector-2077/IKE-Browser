@@ -25,6 +25,8 @@ from PyQt6.QtGui import QColor, QPainter, QPalette, QPen, QPixmap
 from PyQt6.QtWidgets import QApplication, QLabel, QToolButton, QWidget
 
 FIXED = ("back", "forward", "home")      # always at the start, in this order
+_METRICS_EVENTS = tuple(e for e in (QEvent.Type.StyleChange, QEvent.Type.FontChange,
+                                    getattr(QEvent.Type, "DevicePixelRatioChange", None)) if e is not None)
 PINNED = ("shield", "menu")              # movable, but never hidden
 LEFT, RIGHT = "left", "right"
 
@@ -248,6 +250,9 @@ class ToolbarMover(QObject):
         if obj is self.nav:
             if kind in (QEvent.Type.Resize, QEvent.Type.LayoutRequest) and self.overlay.isVisible():
                 QTimer.singleShot(0, self.refresh)
+            elif kind in _METRICS_EVENTS:
+                # another style, font or screen scale: the buttons have another size
+                QTimer.singleShot(0, self.win.toolbar_metrics_changed)
             return False
         key = obj.property("ikeToolbarKey")
         if not key:

@@ -353,7 +353,9 @@ class WindowFeatures:
     def _vtabs_slide(self, x, then=None):
         """Move the floating tab panel to x with a short, easing animation."""
         from PyQt6.QtCore import QEasingCurve, QPoint, QPropertyAnimation
-        ms = int(self.app.config["vtabs_anim_ms"])
+
+        from . import effects
+        ms = 0 if effects.reduced_motion() else int(self.app.config["vtabs_anim_ms"])
         anim = getattr(self, "_vtabs_anim", None)
         if anim is None:
             anim = self._vtabs_anim = QPropertyAnimation(self.vtab_panel, b"pos", self)
@@ -480,6 +482,11 @@ class WindowFeatures:
         self.toolbar_layout.store(cfg)
         cfg.save()
         QTimer.singleShot(0, self.app.refresh_toolbars)     # not while a button handles its own event
+
+    def toolbar_metrics_changed(self):
+        """The style, the font or the screen scale changed: measure the buttons again."""
+        self._tool_widths.clear()
+        self._fit_urlbar(place=True)
 
     def toolbar_zone_start(self, zone):
         """x, in the toolbar, where the first button of an empty zone goes."""
