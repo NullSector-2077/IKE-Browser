@@ -63,6 +63,39 @@ Three things beyond version numbers:
    VP8, VP9, AV1, Opus, Vorbis, FLAC and MP3. The same small test page is the
    check to run on every distribution before promising video.
 
+## Measured on each distribution (2026-11-16)
+
+The workflow "Linux distributions" runs I.K.E. in a container of each
+distribution with that distribution's own Python, Qt, PyQt and Qt WebEngine
+packages; "Linux packages" builds, installs, starts and tests the DEB and RPM
+packages. `tools/engine-report.py --decode tests/media` gives the engine's
+versions, what it declares (`canPlayType`, Media Source) and what it really
+decodes (a two-second clip per format: video played, audio decoded through
+Web Audio).
+
+| Distribution | Qt WebEngine | Chromium base (security patches up to) | Declares H.264 / AAC | Decodes H.264 / AAC | VP9, AV1, Opus, MP3 |
+|---|---|---|---|---|---|
+| Arch Linux | 6.140.0 | 140 (157.0.8103.50) | yes / yes | yes / yes | yes |
+| Ubuntu 26.04 | 6.10.2 | 134 (144.0.7559.96) | yes / yes | yes / yes | yes |
+| Debian 13 | 6.8.2 | 122 (132.0.6834.111) | yes / yes | yes / yes | yes |
+| Fedora 43 | 6.10.3 | 134 (146.0.7680.164) | yes / yes | **no** / yes | yes |
+| PyPI (Qt's own build, tests only) | 6.140.0 | 140 (157.0.8103.50) | no / no | no / no | yes |
+
+- **Fedora** builds its Qt WebEngine with H.264 enabled on top of its own
+  FFmpeg, which has no H.264 decoder: the engine says it plays H.264 and then
+  does not. Help → About shows what the engine declares; a site offering
+  only H.264 will not play on stock Fedora. Adding a decoder to the system is
+  the user's choice and is not done or suggested by I.K.E.
+- **Debian 13**: the engine's Chromium base (122) is the oldest of the four
+  and, as Debian's release notes say, not covered by security support in
+  stable. The native package works; the Flatpak is still the recommendation
+  there.
+- In containers Chromium's sandbox cannot start; the packages keep it on.
+  For the WebGL part of the fingerprinting test the tests choose software
+  WebGL switches that work on each engine (`tests/conftest.py`,
+  `SOFTWARE_WEBGL`): Debian's engine has no SwiftShader and gives WebGL only
+  through Mesa with GPU compositing.
+
 ## Package formats compared
 
 | | PKGBUILD / AUR | DEB | RPM | Flatpak | AppImage |
