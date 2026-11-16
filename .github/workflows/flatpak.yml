@@ -117,27 +117,20 @@ jobs:
 
       - name: Engine report inside the Flatpak, Chromium sandbox on
         run: |
-          # Chromium's sandbox inside Flatpak (the base application's
-          # patches) starts its processes through the Flatpak portal
-          # (org.freedesktop.portal.Flatpak) on the session bus. This
-          # container has no desktop session: a private bus and Flatpak's
-          # own portal service are started for this step.
-          portal=$(find / -xdev -type f -name flatpak-portal 2>/dev/null | head -n1 || true)
-          echo "Flatpak portal: ${portal:-not found}"
-          test -n "$portal"
-          dbus-run-session -- bash -c "
-            '$portal' --replace & sleep 2
-            timeout 300 flatpak run --filesystem='$PWD' --env=QT_QPA_PLATFORM=offscreen \
-              --command=python3 '$APP_ID' '$PWD/tools/engine-report.py' --app /app/lib/ike-browser \
-              --decode '$PWD/tests/media' --json '$PWD/out/engine-flatpak.json' \
-              --markdown '$PWD/out/engine-flatpak.md'" 2>&1 | tee out/engine-flatpak.log
+          # as an ordinary user, with a session bus and Flatpak's portal
+          # (tools/ci/flatpak-sandboxed.sh); the sandbox is NOT switched off
+          tools/ci/flatpak-sandboxed.sh "$APP_ID" python3 tools/engine-report.py \
+              --app /app/lib/ike-browser --decode tests/media \
+              --json out/engine-flatpak.json --markdown out/engine-flatpak.md 2>&1 | tee out/engine-flatpak.log
           python3 - <<'EOF'
           import json
           r = json.load(open("out/engine-flatpak.json"))
           assert not r["sandbox_off_by_environment"], "the sandbox was switched off"
-          assert r["decoded"], "nothing was decoded"
+          assert r["decoded"].get("VP9"), "the sandboxed engine decoded nothing"
           EOF
-          grep -i "sandboxing disabled\|no-sandbox" out/engine-flatpak.log && exit 1 || true
+          if grep -i -E "sandboxing disabled|no-sandbox|zygote_host.*not supported" out/engine-flatpak.log; then
+            echo "Chromium's sandbox did not run"; exit 1
+          fi
           { echo "### Flatpak (KDE 6.11), Chromium sandbox on"; cat out/engine-flatpak.md; } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Where the H.264 / AAC decoders come from
@@ -190,9 +183,16 @@ jobs:
           # given to the sandbox's Python through PYTHONPATH
           python3 -m pip install -q --root-user-action=ignore --target "$PWD/.ci/pytest" "pytest==9.1.1"
           # Noto Sans, the font of a Plasma desktop, as on the other
-          # distributions: the layout tests measure text widths
+          # distributions: the layout tests measure text widths. The KDE run
+          # time has DejaVu Sans only (on a desktop the Flatpak sees the
+          # system's fonts): Noto Sans from Google's font repository.
+          mkdir -p "$PWD/.ci/fonts"
+          curl -sSfL -o "$PWD/.ci/fonts/NotoSans.ttf" \
+            "https://github.com/google/fonts/raw/main/ofl/notosans/NotoSans%5Bwdth,wght%5D.ttf"
+          sha256sum "$PWD/.ci/fonts/NotoSans.ttf"
           printf '%s\n' '<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "fonts.dtd"><fontconfig>' \
             '<include ignore_missing="yes">/etc/fonts/fonts.conf</include>' \
+            "<dir>$PWD/.ci/fonts</dir>" \
             '<alias binding="strong"><family>sans-serif</family><prefer><family>Noto Sans</family></prefer></alias>' \
             '</fontconfig>' > "$PWD/.ci/fonts.conf"
           # the tests switch Chromium's sandbox off for the browsers they
