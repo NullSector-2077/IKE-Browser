@@ -116,8 +116,11 @@ def run_ike(tmp_path):
                 time.sleep(0.5)
             time.sleep(1)
         if not out_file.exists():
+            err = proc.stderr
+            if len(err) > 8000:                  # the start too: a fatal check is often early
+                err = err[:3000] + "\n[...]\n" + err[-5000:]
             raise AssertionError("the browser ended without results (exit %s)\n%s"
-                                 % (proc.returncode, proc.stderr[-4000:]))
+                                 % (proc.returncode, err))
         out = json.loads(out_file.read_text("utf-8"))
         out["_exit"] = proc.returncode
         out["_stderr"] = proc.stderr
@@ -166,3 +169,77 @@ def desktop_bus(tmp_path):
 
 needs_engine = pytest.mark.skipif(not _engine_available(),
                                   reason="I.K.E. AdBlock engine not built (see docs/BUILDING.md)")
+
+
+# Switches that give WebGL without a graphics card, in order of preference:
+# Mesa's software GL through ANGLE (what a desktop without a GPU driver uses),
+# then the engine's own SwiftShader (left out by some distributions, such as
+# Debian). Compositing stays in software: with it on the GPU, distribution
+# builds of Qt WebEngine (Ubuntu 26.04, Fedora 43) ended with SIGTRAP in two
+# runs out of four in a container; with it in software, four out of four
+# passed with either kind of WebGL (measured on GitHub Actions, 2026-11-16).
+SOFTWARE_WEBGL = (
+    "--use-angle=gl --ignore-gpu-blocklist --disable-gpu-compositing",
+    "--enable-unsafe-swiftshader --use-angle=swiftshader --ignore-gpu-blocklist --disable-gpu-compositing",
+    "--use-angle=swiftshader-webgl --ignore-gpu-blocklist --disable-gpu-compositing",
+    # Debian 13's engine (Chromium 122, no SwiftShader) gives WebGL only with
+    # compositing on the GPU; it was steady there (several full runs)
+    "--use-angle=gl --ignore-gpu-blocklist",
+)
+_WEBGL_PROBE = r"""
+import sys
+from PyQt6.QtCore import QCoreApplication, Qt, QTimer, QUrl
+QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
+from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWebEngineWidgets import QWebEngineView
+app = QApplication(sys.argv[:1])
+v = QWebEngineView()
+v.resize(200, 200)
+v.show()
+tries = []
+def ask():
+    v.page().runJavaScript("!!document.createElement('canvas').getContext('webgl')", done)
+def done(r):
+    tries.append(r)
+    if r or len(tries) >= 20:          # software WebGL can need a few seconds
+        print("WEBGL=%s" % r)
+        app.quit()
+    else:
+        QTimer.singleShot(500, ask)
+v.loadFinished.connect(lambda ok: ask())
+v.setHtml("<p>x</p>")
+QTimer.singleShot(40000, app.quit)
+app.exec()
+"""
+_webgl_flags = []
+_webgl_why = []
+
+
+def software_webgl_flags():
+    """The first set of SOFTWARE_WEBGL with which this engine gives WebGL, or
+    None. Asked once per test session, in a separate process each time."""
+    if os.environ.get("IKE_TEST_WEBGL_FLAGS"):         # chosen by hand (diagnostics)
+        return os.environ["IKE_TEST_WEBGL_FLAGS"]
+    if _webgl_flags:
+        return _webgl_flags[0]
+    found = None
+    for flags in SOFTWARE_WEBGL:
+        env = dict(os.environ, QT_QPA_PLATFORM="offscreen",
+                   QTWEBENGINE_CHROMIUM_FLAGS="--no-sandbox " + flags)
+        try:
+            r = subprocess.run([sys.executable, "-c", _WEBGL_PROBE], env=env, capture_output=True,
+                               text=True, timeout=70)
+        except subprocess.TimeoutExpired:
+            continue
+        if "WEBGL=True" in r.stdout:
+            found = flags
+            break
+        _webgl_why.append("%s -> %s" % (flags, " | ".join(
+            line for line in r.stderr.splitlines()[-12:] if "propagateSizeHints" not in line)))
+    _webgl_flags.append(found)
+    return found
+
+
+def software_webgl_why():
+    """What the engine said when no switch gave WebGL (for the failure message)."""
+    return "\n".join(_webgl_why)

@@ -16,7 +16,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
-from conftest import needs_engine
+from conftest import needs_engine, software_webgl_flags, software_webgl_why
 
 from ike.osinfo import identity
 
@@ -164,8 +164,29 @@ def measure(v, url, out, key):
         yield 50
     out[key] = None
 
+def webgl_ready(v, out):
+    """Software WebGL can need a few seconds after the start (the GPU process
+    and Mesa's compiler): wait for it on a blank page before measuring."""
+    done = {}
+    v.page().loadFinished.connect(lambda ok, done=done: done.setdefault("ok", ok))
+    v.setHtml("<p>warm-up</p>")
+    while "ok" not in done:
+        yield 20
+    for i in range(40):
+        res = {}
+        v.page().runJavaScript("!!document.createElement('canvas').getContext('webgl')", 0,
+                               lambda r, res=res: res.setdefault("r", r))
+        while "r" not in res:
+            yield 20
+        if res["r"]:
+            out["webgl_wait_ms"] = i * 500
+            return
+        yield 500
+    out["webgl_wait_ms"] = None
+
 def steps(ike, qapp, out):
     v = ike.windows[0].current_view()
+    yield from webgl_ready(v, out)
     yield from measure(v, URL, out, "plain")
     yield from measure(v, URL + "?again", out, "plain_again")
     ike.config["custom_filters"] = SCRIPTLETS
@@ -179,8 +200,11 @@ def steps(ike, qapp, out):
 @needs_engine
 @pytest.mark.parametrize("level", ["balanced", "maximum"])
 def test_scriptlets_do_not_change_fingerprint(run_ike, site, level):
-    # software WebGL, so the WebGL values are measured too
-    flags = "--no-sandbox --enable-unsafe-swiftshader --use-angle=swiftshader --ignore-gpu-blocklist"
+    # software WebGL, so the WebGL values are measured too (the switches that
+    # give it depend on how the engine was built: see conftest.SOFTWARE_WEBGL)
+    webgl = software_webgl_flags()
+    assert webgl, "no software WebGL with this engine:\n%s" % software_webgl_why()
+    flags = "--no-sandbox " + webgl
     out = run_ike("URL = %r\nSCRIPTLETS = %r\n" % (site, SCRIPTLETS) + STEPS,
                   settings={"shield_level": level}, env={"QTWEBENGINE_CHROMIUM_FLAGS": flags}, timeout=120)
     plain, again, with_scriptlets = out["plain"], out["plain_again"], out["scriptlets"]
