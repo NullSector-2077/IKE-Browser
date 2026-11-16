@@ -176,11 +176,9 @@ def main(argv=None):
     ap.add_argument("--key", default=str(DEFAULT_KEY), help="Ed25519 private key (PEM)")
     ap.add_argument("--out", help="output folder (default dist/release-<version>)")
     ap.add_argument("--channels", default="stable,beta")
-    ap.add_argument("--appimage", help="the AppImage of this release, to offer it to AppImage users")
-    ap.add_argument("--windows", help="the Windows update archive of this release, to offer it to Windows users")
     a = ap.parse_args(argv)
     channels = [c for c in a.channels.split(",") if c]
-    out, manifest = make(a.key, a.out, channels, a.appimage, windows=a.windows)
+    out, manifest = make(a.key, a.out, channels)
     print("I.K.E. %s: signed update files in %s" % (manifest["version"], out))
     for p in sorted(out.iterdir()):
         print("  " + p.name)
