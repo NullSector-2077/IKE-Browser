@@ -1,5 +1,68 @@
 # Changelog
 
+## 1.0.3
+
+A review of the whole code and a security audit; the full report is in
+[docs/review/](docs/review/README.md). No feature was removed and no setting
+changed its meaning.
+
+Security:
+
+- **A page opened from a file can no longer read other files.** Before, a
+  saved web page could read any file the user can read and send it away. Now
+  a local page never reads files with scripts; pictures, video, style sheets,
+  scripts and fonts next to it still load, and frames only from the page's
+  own folder. Saved pages keep working.
+- **Web pages cannot load I.K.E.'s own addresses** (`ike:logo`, `ike:newtab`
+  in a frame): a site could recognise the browser that way.
+- **A link that starts another application asks first** (`mailto:`, `magnet:`
+  and the private kinds of installed programs), showing the exact address
+  handed over; a tab in the background starts nothing.
+- **"Cookies and site data" also removes local storage, databases and service
+  workers** (from "Clear browsing data" and with "clear when closed"). Cookies
+  go at once; the rest when I.K.E. is started again, as the engine cannot
+  delete it while running — the dialog says so.
+- A second start of I.K.E. hands its addresses over through a socket in the
+  user's own runtime folder; the old name in the shared temporary folder is
+  only trusted when it belongs to the same user.
+- Desktop notifications: the title of a page can no longer add options or
+  markup to the notification.
+- Copying a password marks it as secret for the clipboard manager (the hint
+  Klipper follows to keep it out of its history) and clears it after 45
+  seconds; exported passwords and
+  the vault are created readable by the owner only from the first byte.
+- The update channel, the state of the self-update and the version folder
+  name are checked before use; the test switches of the browser only work
+  inside the test harness.
+- Filter-list conditions are read by a small parser instead of Python's
+  `eval`.
+- Help → About shows the Chromium security patch level of the engine and warns
+  when the engine's sandbox is off.
+
+Stability:
+
+- An error in one handler of the interface no longer ends the whole browser:
+  it is written to `errors.log` in the cache folder, counted in Help → About,
+  and the browser goes on.
+- Closing I.K.E. while a download in the background (filter lists, Chrome
+  version, updates) is still running no longer ends with an abort.
+- A fault inside the ad-blocking engine becomes an error the browser handles
+  (that request is not filtered by the engine; the other protections still
+  apply) instead of ending the program. Needs the package: the engine is not part of the self-update.
+- Settings of the wrong kind in `settings.json` (edited by hand or damaged)
+  fall back to the default instead of stopping the start.
+
+Other:
+
+- pyo3 (the Python–Rust bridge) 0.23 → 0.30, which closes two published
+  advisories; neither affected code I.K.E. uses.
+- Applying the settings no longer rebuilds an unchanged filter engine
+  (0.2 s with the default lists).
+- Unused code removed; every message of the interface is now checked for a
+  translation by `tools/check-lang.py`.
+- Measured before and after on the same machine: start-up, opening a tab,
+  loading a page, processor time and memory are unchanged.
+
 ## 1.0.2
 
 - **Toolbar buttons can be moved reliably.** A long press and drag, or the new
