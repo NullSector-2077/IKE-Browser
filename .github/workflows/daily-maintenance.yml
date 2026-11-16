@@ -1,0 +1,109 @@
+# Prepare a tested Arch-only component maintenance candidate; never merge or release it.
+name: Daily Arch maintenance candidate
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: daily-arch-maintenance
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      changed: \${{ steps.changes.outputs.changed }}
+    steps:
+      - name: Check out main and restore the persistent maintenance branch
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Update the maintenance branch with main
+        run: |
+          git fetch origin main
+          if git ls-remote --exit-code --heads origin automation/daily-maintenance >/dev/null 2>&1; then
+            git fetch origin automation/daily-maintenance
+            git checkout -B automation/daily-maintenance origin/automation/daily-maintenance
+            if git merge-base --is-ancestor HEAD origin/main; then
+              git reset --hard origin/main
+            else
+              git merge --no-edit origin/main
+            fi
+          else
+            git checkout -b automation/daily-maintenance origin/main
+          fi
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Check and apply Arch component updates (fail closed)
+        run: |
+          python3 tools/check-components.py --json component-report.json --markdown component-report.md --apply
+          cat component-report.md
+      - name: Detect changes
+        id: changes
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No Arch component changes; nothing to prepare."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Prepare the IKE patch release candidate
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          base_version=$(git show origin/main:ike/__init__.py | sed -n 's/^__version__ = "\(\.*\)"/\1/p')
+          python3 tools/prepare-maintenance.py --report component-report.json --base-version "$base_version"
+      - name: Build the updated AdBlock engine
+        if: steps.changes.outputs.changed == 'true'
+        run: cargo build --release --locked --manifest-path ike-adblock/Cargo.toml
+      - name: Create and push the draft candidate
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ike-adblock/Cargo.toml ike-adblock/Cargo.lock ike-adblock/src/lib.rs \
+            ike/resources/ubo-scriptlets.json ike/__init__.py PKGBUILD README.md CHANGELOG.md
+          git commit -m "maintenance: update Arch components for IKE $(sed -n 's/^__version__ = "\(\.*\)"/\1/p' ike/__init__.py)"
+          gh auth setup-git
+          git push origin refs/heads/automation/daily-maintenance:refs/heads/automation/daily-maintenance
+          gh label create maintenance --color 0e8a16 \
+            --description "Automated Arch component maintenance candidate" 2>/dev/null || true
+          pr=$(gh pr list --head automation/daily-maintenance --base main --state open --json number --jq '.[0].number // empty')
+          title="Arch maintenance candidate: IKE $(sed -n 's/^__version__ = "\(\.*\)"/\1/p' ike/__init__.py)"
+          if [ -n "$pr" ]; then
+            gh pr edit "$pr" --title "$title" \
+              --body-file component-report.md --add-label maintenance
+            gh pr comment "$pr" --body "A new Arch-only maintenance candidate was pushed. Tests and package build are running; this draft PR requires human review and is never merged or released automatically."
+          else
+            gh pr create --draft --base main --head automation/daily-maintenance \
+              --title "$title" --label maintenance --body-file component-report.md
+          fi
+
+  tests:
+    needs: prepare
+    if: needs.prepare.outputs.changed == 'true'
+    uses: ./.github/workflows/tests.yml
+    with:
+      ref: automation/daily-maintenance
+
+  arch-package:
+    needs: prepare
+    if: needs.prepare.outputs.changed == 'true'
+    uses: ./.github/workflows/arch-package.yml
+    with:
+      ref: automation/daily-maintenance
