@@ -16,7 +16,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
-from conftest import needs_engine
+from conftest import SOFTWARE_WEBGL, needs_engine, software_webgl_flags
 
 from ike.osinfo import identity
 
@@ -179,8 +179,11 @@ def steps(ike, qapp, out):
 @needs_engine
 @pytest.mark.parametrize("level", ["balanced", "maximum"])
 def test_scriptlets_do_not_change_fingerprint(run_ike, site, level):
-    # software WebGL, so the WebGL values are measured too
-    flags = "--no-sandbox --enable-unsafe-swiftshader --use-angle=swiftshader --ignore-gpu-blocklist"
+    # software WebGL, so the WebGL values are measured too (the switches that
+    # give it depend on how the engine was built: see conftest.SOFTWARE_WEBGL)
+    webgl = software_webgl_flags()
+    assert webgl, "no software WebGL with this engine (tried: %s)" % (SOFTWARE_WEBGL,)
+    flags = "--no-sandbox " + webgl
     out = run_ike("URL = %r\nSCRIPTLETS = %r\n" % (site, SCRIPTLETS) + STEPS,
                   settings={"shield_level": level}, env={"QTWEBENGINE_CHROMIUM_FLAGS": flags}, timeout=120)
     plain, again, with_scriptlets = out["plain"], out["plain_again"], out["scriptlets"]

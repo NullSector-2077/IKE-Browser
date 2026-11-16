@@ -13,7 +13,7 @@ arch)
     pacman -Syu --noconfirm --needed \
         python python-pyqt6 python-pyqt6-webengine qt6-webengine qt6-webchannel qt6-svg \
         python-cryptography python-jeepney python-pytest \
-        base-devel rust git sudo \
+        base-devel rust git sudo nodejs \
         ffmpeg dbus glib2 noto-fonts ttf-dejavu libnotify xdg-utils
     ;;
 ubuntu|debian)
@@ -24,7 +24,7 @@ ubuntu|debian)
         python3-pyqt6.qtwebchannel \
         python3-cryptography python3-jeepney python3-pytest \
         qt6-image-formats-plugins qt6-svg-plugins \
-        ca-certificates curl git gcc libc6-dev pkg-config \
+        ca-certificates curl git gcc libc6-dev pkg-config nodejs \
         ffmpeg dbus libglib2.0-bin fonts-noto-core fonts-dejavu-core fontconfig \
         libnotify-bin xdg-utils xauth
     ;;
@@ -32,7 +32,7 @@ fedora)
     dnf -y -q install \
         python3 python3-pyqt6 python3-pyqt6-webengine qt6-qtwebengine qt6-qtsvg qt6-qtwebchannel \
         python3-cryptography python3-jeepney python3-pytest \
-        ca-certificates curl git gcc \
+        ca-certificates curl git gcc nodejs \
         ffmpeg-free dbus-daemon dbus-tools glib2 google-noto-sans-fonts dejavu-sans-fonts fontconfig \
         libnotify xdg-utils
     ;;
@@ -48,6 +48,9 @@ if ! command -v cargo >/dev/null 2>&1; then
     curl -sSf https://sh.rustup.rs | sh -s -- -y -q --profile minimal
     echo "$HOME/.cargo/bin" >> "${GITHUB_PATH:-/dev/null}"
 fi
+
+# the checkout belongs to another user than the container's root
+git config --global --add safe.directory "${GITHUB_WORKSPACE:-$PWD}"
 
 # the font of a Plasma desktop: the layout tests measure text widths
 mkdir -p "$HOME/.config/fontconfig"

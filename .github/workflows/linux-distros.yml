@@ -1,8 +1,8 @@
 # I.K.E. on each Linux distribution, with THAT distribution's own Python, Qt,
 # PyQt and Qt WebEngine packages (the "Tests" workflow uses PyPI's Qt, which
 # proves nothing about a distribution's own build). In a container of each:
-# the engine module built, the engine report (versions, formats it plays,
-# sandbox), the whole test suite. On Arch the package is also built with
+# the engine module built, the engine report (versions, the formats the engine
+# declares and the ones it really decodes, sandbox), the whole test suite. On Arch the package is also built with
 # makepkg, installed with pacman and tested as installed.
 #
 # A failing step fails the job; the job's name tells the distribution, the
@@ -87,7 +87,7 @@ jobs:
       - name: Engine report
         run: |
           mkdir -p out
-          python3 tools/engine-report.py --json out/engine-${{ matrix.id }}.json \
+          python3 tools/engine-report.py --decode tests/media --json out/engine-${{ matrix.id }}.json \
               --markdown out/engine-${{ matrix.id }}.md
           { echo "### ${{ matrix.name }}"; cat out/engine-${{ matrix.id }}.md; } >> "$GITHUB_STEP_SUMMARY"
       - name: Tests (this distribution's Qt)
@@ -108,7 +108,8 @@ jobs:
           fi
           pacman -U --noconfirm "$pkg"
           ike-browser --version
-          python3 tools/engine-report.py --app /usr/lib/ike-browser --json out/engine-arch-installed.json
+          python3 tools/engine-report.py --app /usr/lib/ike-browser --decode tests/media \
+              --json out/engine-arch-installed.json
           IKE_TEST_APP=/usr/lib/ike-browser python3 -m pytest -ra \
               --junitxml=out/tests-arch-installed.xml 2>&1 | tee out/tests-arch-installed.log
       - uses: actions/upload-artifact@v4

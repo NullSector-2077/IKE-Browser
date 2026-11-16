@@ -166,3 +166,55 @@ def desktop_bus(tmp_path):
 
 needs_engine = pytest.mark.skipif(not _engine_available(),
                                   reason="I.K.E. AdBlock engine not built (see docs/BUILDING.md)")
+
+
+# Switches that give WebGL without a graphics card, in order of preference.
+# Qt's own builds and most distributions have SwiftShader inside the engine;
+# a distribution that leaves it out (Debian) is asked for Mesa's software GL.
+SOFTWARE_WEBGL = (
+    "--enable-unsafe-swiftshader --use-angle=swiftshader --ignore-gpu-blocklist",
+    "--use-gl=angle --use-angle=swiftshader-webgl --ignore-gpu-blocklist",
+    "--use-angle=gl --ignore-gpu-blocklist",
+    "--use-gl=egl --ignore-gpu-blocklist",
+)
+_WEBGL_PROBE = r"""
+import sys
+from PyQt6.QtCore import QCoreApplication, Qt, QTimer, QUrl
+QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
+from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWebEngineWidgets import QWebEngineView
+app = QApplication(sys.argv[:1])
+v = QWebEngineView()
+v.resize(200, 200)
+v.show()
+def done(r):
+    print("WEBGL=%s" % r)
+    app.quit()
+v.loadFinished.connect(lambda ok: v.page().runJavaScript(
+    "!!document.createElement('canvas').getContext('webgl')", done))
+v.setHtml("<p>x</p>")
+QTimer.singleShot(30000, app.quit)
+app.exec()
+"""
+_webgl_flags = []
+
+
+def software_webgl_flags():
+    """The first set of SOFTWARE_WEBGL with which this engine gives WebGL, or
+    None. Asked once per test session, in a separate process each time."""
+    if _webgl_flags:
+        return _webgl_flags[0]
+    found = None
+    for flags in SOFTWARE_WEBGL:
+        env = dict(os.environ, QT_QPA_PLATFORM="offscreen",
+                   QTWEBENGINE_CHROMIUM_FLAGS="--no-sandbox " + flags)
+        try:
+            r = subprocess.run([sys.executable, "-c", _WEBGL_PROBE], env=env, capture_output=True,
+                               text=True, timeout=60)
+        except subprocess.TimeoutExpired:
+            continue
+        if "WEBGL=True" in r.stdout:
+            found = flags
+            break
+    _webgl_flags.append(found)
+    return found
