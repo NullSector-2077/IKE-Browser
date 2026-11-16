@@ -214,8 +214,8 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             info.setHttpHeader(b"Referer", origin.encode())
 
 
-class IceSchemeHandler(QWebEngineUrlSchemeHandler):
-    """Serves ice:newtab and ice:search?q=..."""
+class IkeSchemeHandler(QWebEngineUrlSchemeHandler):
+    """Serves ike:newtab and ike:search?q=..."""
 
     def __init__(self, shields):
         super().__init__(shields)
@@ -260,7 +260,7 @@ class Shields(QObject):
         self.profiles = []
         self.user_scripts = None         # set by the application
         self.interceptor = Interceptor(self)
-        self.scheme_handler = IceSchemeHandler(self)
+        self.scheme_handler = IkeSchemeHandler(self)
         self._fp_src = (RES_DIR / "fingerprint.js").read_text("utf-8")
         self._consent_src = (RES_DIR / "consent.js").read_text("utf-8")
         self._newtab_src = (RES_DIR / "newtab.html").read_text("utf-8")
