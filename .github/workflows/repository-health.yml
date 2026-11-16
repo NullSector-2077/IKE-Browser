@@ -45,7 +45,7 @@ jobs:
           test -s docs/arch/MAINTENANCE.md
           test -s docs/arch/UPDATES.md
           grep -q "I.K.E." README.md
-          version="$(sed -n 's/^__version__ = "\\(.*\\)"/\\1/p' ike/__init__.py)"
+          version="$(grep '^__version__ = ' ike/__init__.py | cut -d '"' -f2)"
           test -n "$version"
           grep -q "^## $version$" CHANGELOG.md
           test -s ike/__init__.py

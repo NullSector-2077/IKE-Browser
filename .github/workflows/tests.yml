@@ -43,7 +43,7 @@ jobs:
               libxtst6 libxshmfence1 libasound2t64 libfontconfig1 libdbus-1-3 \
               dbus libglib2.0-bin ffmpeg fonts-noto-core
           mkdir -p ~/.config/fontconfig
-          printf '%s\\n' '<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "fonts.dtd"><fontconfig>' \
+          printf '%s\n' '<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "fonts.dtd"><fontconfig>' \
               '<alias binding="strong"><family>sans-serif</family><prefer><family>Noto Sans</family></prefer></alias>' \
               '</fontconfig>' > ~/.config/fontconfig/fonts.conf
           fc-cache -f >/dev/null
