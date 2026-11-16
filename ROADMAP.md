@@ -36,13 +36,112 @@ them without asking.
   the session stops, and write in "Status" below where the work stopped. Even
   then: never merge, sign or publish, and no destructive Git operations.
 - Never report a check that was not actually run.
+- Every package that is built again gets a new number (`pkgrel` or version):
+  two files with the same name made the owner reinstall the old one.
+- Interactions are tested with real mouse clicks and keys, not only by calling
+  the code.
+- Shapes, glow, fades and scale are judged by the owner on a real Plasma
+  session; tests only show that nothing breaks.
+- Pull requests are opened with `gh api repos/NullSector-2077/IKE-Browser/pulls`
+  (GraphQL is not available to the sessions).
+- **Codecs.** I.K.E. never ships a proprietary codec. It plays what the system
+  it runs on can decode: on Linux the distribution's own Qt WebEngine (on Arch
+  it decodes through the system's FFmpeg); on Windows the decoders Windows
+  already includes (Media Foundation). See "Multiplatform" below.
 
 ## Now: Arch Linux / CachyOS
 
-1.0.0 is the base: the browser, its protections, the signed self-update and
-the daily component maintenance on GitHub Actions, for Arch-based systems only.
+1.1.0 is the base (merged and published on 2026-11-16): the browser, its
+protections, the Cyber theme, the signed self-update and the daily component
+maintenance on GitHub Actions, for Arch-based systems. All further work starts
+from `main`.
 
-## Next
+## Next: multiplatform (plan approved by the owner on 2026-11-16)
+
+Goal: a browser that works on the main Linux distributions and on Windows,
+tested automatically on each of them, that keeps updating itself without the
+owner following every change. Releases stay under the owner's control.
+
+The owner asked for this plan to run unattended to the end, one branch and one
+pull request per step; the next branch starts from the previous one while it
+is not merged. The state is written in "Status" below after every step, so
+any session can continue from it.
+
+### Codecs (the rule for every platform)
+
+- I.K.E. never ships a proprietary codec, on any platform.
+- **Linux**: I.K.E. uses the distribution's own Qt WebEngine and plays what
+  that build decodes. Arch builds it with the system's FFmpeg; Fedora's build
+  has no H.264 / AAC. I.K.E. does not rebuild the engine on Linux.
+- **Windows**: H.264 and AAC must play through the decoders that come with
+  Windows (Media Foundation), as other open-source browsers do with the
+  system's decoders. There is no system Qt on Windows, so I.K.E. builds its
+  own Qt WebEngine: it recognises the formats (MP4 container, H.264, AAC) and
+  hands decoding to Windows, but contains no H.264 / AAC decoder of its own
+  (Chromium's FFmpeg is built with its free codecs only). Qt's switch
+  `-webengine-proprietary-codecs` as Qt defines it also builds those decoders
+  into FFmpeg, so it is not used as is.
+- Whether Windows decoding works this way is the first thing tested, before
+  any other Windows work. If it does not, the owner is told and no codec is
+  shipped in its place. Hardware-accelerated decoding needs a real Windows
+  computer with a graphics card: GitHub's runners have none, so the final
+  check is the owner's.
+- None of this is legal advice; the licence questions are written down in
+  `docs/platforms/` for someone qualified to confirm.
+
+### Steps
+
+1. **Base.** `main` at 1.1.0 checked again (lint, tests, Rust tests, Arch
+   package). This roadmap updated.
+2. **1.1.1 — engine and codec report** in Help → About: which formats play
+   (H.264, AAC, VP9, AV1, Opus), the engine's version and age, sandbox on or
+   off. On every platform it tells "I.K.E. is broken" from "this system's
+   engine cannot play this".
+3. **Linux.**
+   - Checks in containers of Ubuntu 26.04, Debian 13 and Fedora 43, each
+     with its own Qt and PyQt packages (not PyPI's): engine version, start,
+     codec report, the whole test suite.
+   - Packages: Flatpak (KDE run time and the Qt WebEngine base application;
+     Ubuntu 24.04, Mint 22, Debian 12 and every other distribution), DEB
+     (Ubuntu 26.04, Mint 23 when released, Debian 13), RPM (Fedora 43 and
+     later). Each one built, installed and started in its own environment.
+   - Arch keeps its PKGBUILD. Linux Mint 22 and Debian 12 have a Qt too old
+     to run I.K.E. natively: Flatpak there.
+   - A distribution is called supported only when its own tests pass there.
+4. **Windows** (1.2.0).
+   - First: the codec test above, with I.K.E.'s own Qt WebEngine build.
+   - Then: Windows folders, single instance, notifications, the identity
+     presented to sites, Widevine, the self-update; the Plasma integration
+     kept apart; the engine module built with Rust for MSVC; Python
+     embedded; a per-user installer (no administrator) with a clean
+     uninstaller, built on a Windows runner and kept as a download of the
+     run, with a checklist for the owner's manual test.
+5. **Automation.** A GitHub Actions job per platform that is ready: install,
+   lint, tests, Rust tests, AdBlock engine, package built, installed and
+   started, profiles and updates, sandbox, media, platform integration. A
+   failing test fails the run, names the job and the system, keeps the logs
+   and the artefacts. The owner makes these checks required before merging
+   (a repository setting, explained step by step).
+6. **Maintenance.** The daily check extended to the Qt / PyQt versions of
+   each platform and to known vulnerabilities in Python and Rust
+   dependencies; candidates on their own branch with a report, never merged
+   or released automatically.
+7. **Report** in `docs/platforms/`: what is ready, what only builds, what is
+   incomplete, tests per platform, media limits, manual checks, open legal
+   and technical questions, build, install and maintenance instructions.
+
+GitHub Actions never publishes, never signs and never receives the private
+key. Nothing is called ready on the strength of incomplete checks.
+
+### Status (multiplatform)
+
+- 2026-11-16: plan approved; work started unattended on branch
+  `docs/multiplatform-plan` (this roadmap). The old branches
+  (`docs/platform-study`, `docs/roadmap-plan-1.0.x`, `ike-1.0.0` …
+  `ike-1.1.0`) are all contained in `main`; the sessions cannot delete
+  branches, so the owner removes them.
+
+## Previous plan (1.0.1 – 1.1.0, published)
 
 Plan approved by the owner on 2026-11-16. It joins the owner's "master
 roadmap" (phases 0–14: brand, interface, toolbar, shield, link preview bar,
@@ -64,7 +163,7 @@ Principles for every session (from the owner):
   compatibility.
 - Document every important change.
 
-### 1.0.1 — clean-up and brand (done, waiting for the owner)
+### 1.0.1 — clean-up and brand (published in 1.1.0)
 
 Branch `ike-1.0.1`. Done and tested:
 
@@ -82,7 +181,7 @@ Branch `ike-1.0.1`. Done and tested:
 changed, so 1.0.0 announces this release instead of self-updating (the owner
 may put it back to 1.0.0 before signing if a stale menu icon is acceptable).
 
-### 1.0.2 — toolbar, interface polish, new-tab background (done, waiting for the owner)
+### 1.0.2 — toolbar, interface polish, new-tab background (published in 1.1.0)
 
 Branch `ike-1.0.2` (contains 1.0.1). Done and tested:
 
@@ -104,7 +203,7 @@ Branch `ike-1.0.2` (contains 1.0.1). Done and tested:
    judged on a real Plasma session.
 3. New-tab background photo in `ike/newtabbg.py`.
 
-### 1.0.3 — code review and security audit (done, waiting for the owner)
+### 1.0.3 — code review and security audit (published in 1.1.0)
 
 Branch `ike-1.0.3` (contains 1.0.1 and 1.0.2). The report is in
 [docs/review/](docs/review/README.md): one finding rated High (a page opened
@@ -156,7 +255,7 @@ are filled, CRX signatures). The plan that was followed:
    and Windows strategy, component manager, codecs and licences, tests run,
    tests that could not be run, performance, remaining work, next phases.
 
-### Platform study (documents only: no version, no code) (done, waiting for the owner)
+### Platform study (documents only: no version, no code) (published in 1.1.0)
 
 Branch `docs/platform-study` (contains 1.0.3). Written in
 [docs/platforms/](docs/platforms/README.md). Main results: I.K.E. needs Qt
@@ -198,7 +297,7 @@ In `docs/platforms/` (English), citing the official sources used:
   problems to solve, technical complexity; what already works versus what
   needs changes. A platform is not "done" because the code looks compatible.
 
-### 1.1.0 — the Cyber theme, new-tab tiles, monthly counter (done, waiting for the owner)
+### 1.1.0 — the Cyber theme, new-tab tiles, monthly counter (published in 1.1.0)
 
 Branch `ike-1.1.0` (starts from `docs/platform-study`). The design was agreed
 on a shared canvas before any code. Rule of the whole version: **"Follow the
@@ -268,6 +367,8 @@ behind the window. No existing setting is reset or changes meaning.
   tabs do not slide when they open and close, and menus have square corners,
   not cut ones. Nothing of it was seen on a real Plasma session yet: the
   owner's eye decides whether it looks right.
+- Pull requests #4 – #9 merged and 1.1.0 signed and published by the owner
+  on 2026-11-16. This plan is closed.
 
 ### Also planned
 
@@ -277,8 +378,7 @@ behind the window. No existing setting is reset or changes meaning.
 
 ## Later
 
-- Other Linux distributions and Windows: implementation planned with the owner
-  after the platform study.
+- Other Linux distributions and Windows: see "Next: multiplatform" above.
 - Android: a separate project. Qt WebEngine does not exist on Android, so it
   would need Android's WebView and a rework of ad blocking, fingerprinting
   protection and user scripts.
