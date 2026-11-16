@@ -177,7 +177,7 @@ def build(view, req):
         menu.addSeparator()
         if pos is not None:
             add(T("Notify me when this part changes…"), lambda: pick_and_watch(view, pos, True),
-                "view-visible", tip=T("For example a prike: checked in the background"))
+                "view-visible", tip=T("For example a price: checked in the background"))
         add(T("Notify me when this page changes…"), lambda: pick_and_watch(view, pos, False),
             "view-visible")
     add(T("Inspect element"), lambda: win.open_devtools(view), "tools-report-bug")

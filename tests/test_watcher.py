@@ -28,7 +28,7 @@ def shop(tmp_path):
             p = price.read_text()
             body = ("<!doctype html><title>Shop</title><body style='margin:0'>"
                     "<h1>Shop</h1><p>loaded %d</p>"
-                    "<div><span>prike:</span> <b id='price' style='font-size:40px'>%s</b></div>"
+                    "<div><span>price:</span> <b id='price' style='font-size:40px'>%s</b></div>"
                     "<ul><li>a</li><li style='font-size:40px'>%s euro</li></ul>"
                     "<script>document.cookie='seen=1; max-age=3600'</script>"
                     % (seen["n"], p, p)).encode()

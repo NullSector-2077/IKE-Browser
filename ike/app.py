@@ -256,7 +256,7 @@ class IkeApp(QObject):
         from . import updater
         updater.confirm_healthy()
         notice = updater.take_rollback_notice()
-        if notike:
+        if notice:
             self._desktop_notify(self._t("I.K.E. update %s did not start correctly and was "
                                          "removed. The previous version is in use.") % notice[0])
 
