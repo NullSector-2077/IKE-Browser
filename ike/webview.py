@@ -89,7 +89,19 @@ class WebPage(QWebEnginePage):
         self.app.passwords.attach(self)
 
     # --- navigation --------------------------------------------------
+    # addresses the engine shows itself; every other kind ("mailto:", "tel:",
+    # "magnet:", the private ones of installed programs) is handed to the desktop
+    OWN_SCHEMES = frozenset(("http", "https", "file", "ike", "data", "blob", "about", "javascript",
+                             "view-source", "chrome", "chrome-extension", "chrome-error", "devtools",
+                             "qrc", "filesystem", "ws", "wss", ""))
+
     def acceptNavigationRequest(self, url, nav_type, is_main_frame):
+        if url.scheme().lower() not in self.OWN_SCHEMES:
+            # A link that starts another program. The engine would hand it over
+            # after any click on the page, without a word; other browsers ask
+            # first, because the address goes to that program as the page wrote it.
+            self._external_link(url)
+            return False
         if (is_main_frame and url.scheme() in ("http", "https")
                 and url.path().lower().endswith(".user.js")
                 and self.app.config["userscripts_enabled"]):
@@ -105,6 +117,30 @@ class WebPage(QWebEnginePage):
             self._set_dark(url, host)
             self._set_scriptlets(url, host)
         return True
+
+    def _external_link(self, url):
+        from PyQt6.QtGui import QDesktopServices
+        if not self.visible_tab():
+            return                           # a tab in the background starts nothing
+        if self.ask_external(origin_text(self.url()), url):
+            QDesktopServices.openUrl(url)
+
+    def ask_external(self, origin, url):
+        """Ask before a link is handed to another application; True to open it."""
+        text = bytes(url.toEncoded()).decode("ascii", "replace")     # exactly what the application gets
+        if len(text) > 300:
+            text = text[:300] + "…"
+        box = QMessageBox(self.window_ref)
+        box.setIcon(QMessageBox.Icon.Question)
+        box.setWindowTitle(T("Open with another application"))
+        box.setText(T("%s wants to open this link with another application:") % origin)
+        box.setInformativeText(text)
+        box.setTextFormat(Qt.TextFormat.PlainText)
+        opened = box.addButton(T("Open"), QMessageBox.ButtonRole.AcceptRole)
+        cancel = box.addButton(T("Cancel"), QMessageBox.ButtonRole.RejectRole)
+        box.setDefaultButton(cancel)
+        box.exec()
+        return box.clickedButton() is opened
 
     def _add_script(self, name, source, main_world, subframes=True):
         """Install a DocumentCreation script in the page or its subframes."""
@@ -230,7 +266,8 @@ class WebPage(QWebEnginePage):
         return view.page()
 
     def certificateError(self, error):
-        if os.environ.get("IKE_TEST_INSECURE") == "1":
+        from .osinfo import test_switch
+        if test_switch("IKE_TEST_INSECURE") == "1":
             error.acceptCertificate()
             return True
         return False
@@ -318,20 +355,27 @@ class WebPage(QWebEnginePage):
         if any(k in blocked for k in kinds.get(perm.permissionType(), ())):
             perm.deny()
             return
-        if os.environ.get("IKE_TEST_PERMS"):
-            perm.grant() if os.environ["IKE_TEST_PERMS"] == "grant" else perm.deny()
+        from .osinfo import test_switch
+        if test_switch("IKE_TEST_PERMS") in ("grant", "deny"):
+            perm.grant() if test_switch("IKE_TEST_PERMS") == "grant" else perm.deny()
             return
-        box = QMessageBox(self.window_ref)
-        box.setIcon(QMessageBox.Icon.Question)
-        box.setWindowTitle(T("Permission request"))
-        box.setText(T("%s wants to %s.") % (origin, permission_text(perm.permissionType())))
-        allow = box.addButton(T("Allow"), QMessageBox.ButtonRole.AcceptRole)
-        box.addButton(T("Block"), QMessageBox.ButtonRole.RejectRole)
-        box.exec()
-        if box.clickedButton() is allow:
+        # (the engine remembers the answer for the site: a page that was told
+        # no is not asked about again until the user resets the site's permissions)
+        if self.ask_permission(origin, perm.permissionType()):
             perm.grant()
         else:
             perm.deny()
+
+    def ask_permission(self, origin, ptype):
+        """Ask the user; True to allow."""
+        box = QMessageBox(self.window_ref)
+        box.setIcon(QMessageBox.Icon.Question)
+        box.setWindowTitle(T("Permission request"))
+        box.setText(T("%s wants to %s.") % (origin, permission_text(ptype)))
+        allow = box.addButton(T("Allow"), QMessageBox.ButtonRole.AcceptRole)
+        box.addButton(T("Block"), QMessageBox.ButtonRole.RejectRole)
+        box.exec()
+        return box.clickedButton() is allow
 
     def _desktop_media(self, request):
         """Require an explicit user choice before sharing a screen or window."""

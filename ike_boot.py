@@ -32,10 +32,18 @@ def version_in(folder):
 
 
 def load_state():
+    """The updater's notes, or {} when the file is missing or not what it should be."""
     try:
-        return json.loads(STATE.read_text("utf-8"))
+        state = json.loads(STATE.read_text("utf-8"))
     except Exception:
         return {}
+    if not isinstance(state, dict):
+        return {}
+    if not isinstance(state.get("bad", []), list):
+        state["bad"] = []
+    if not isinstance(state.get("attempts", 0), int):
+        state["attempts"] = 0
+    return state
 
 
 def save_state(state):
@@ -49,7 +57,11 @@ def save_state(state):
 
 
 def version_dir(version):
-    return UPDATES / "versions" / version if version else None
+    # the state file is only data: a "version" that is not one (a path, say)
+    # is never turned into a folder to run code from
+    if not isinstance(version, str) or not re.fullmatch(r"\d+(\.\d+){1,3}", version):
+        return None
+    return UPDATES / "versions" / version
 
 
 def usable(version, sysver):
@@ -65,7 +77,7 @@ def rollback(state, sysver, reason):
     state.update({"current": prev if usable(prev, sysver) else None, "previous": None,
                   "status": "ok", "attempts": 0, "rolled_back": bad, "rollback_reason": reason})
     save_state(state)
-    return version_dir(state["current"]) if state["current"] else SYSTEM_DIR
+    return version_dir(state["current"]) or SYSTEM_DIR
 
 
 def choose():

@@ -22,7 +22,7 @@ from pathlib import Path
 
 from PyQt6.QtCore import QObject, QThread, pyqtSignal
 
-from . import __version__
+from . import __version__, background
 from .config import RES_DIR
 from .osinfo import app_dir
 
@@ -79,9 +79,14 @@ def source():
 
 def load_state():
     try:
-        return json.loads(STATE.read_text("utf-8"))
+        state = json.loads(STATE.read_text("utf-8"))
     except Exception:
         return {}
+    if not isinstance(state, dict):
+        return {}
+    if not isinstance(state.get("bad", []), list):
+        state["bad"] = []
+    return state
 
 
 def save_state(state):
@@ -241,9 +246,12 @@ class Updater(QObject):
         src = source()
         if not src or self._worker is not None:
             return False
-        self._worker = _Worker(src, self.config["update_channel"], install, self)
+        channel = self.config["update_channel"]
+        if channel not in ("stable", "beta"):     # part of the address: never whatever the settings hold
+            channel = "stable"
+        self._worker = _Worker(src, channel, install, self)
         self._worker.result.connect(self._done)
-        self._worker.start()
+        background.start(self._worker)
         return True
 
     def _done(self, kind, data):

@@ -12,12 +12,20 @@ crate-type = ["cdylib"]
 
 [dependencies]
 adblock = { version = "=0.13.5", default-features = false, features = ["embedded-domain-resolver", "full-regex-handling", "css-validation"] }
-pyo3 = { version = "0.23", features = ["extension-module", "abi3-py39"] }
+pyo3 = { version = "0.30", features = ["abi3-py39"] }
 serde_json = "1"
+
+[features]
+# "extension-module" is what the browser's module is built with (the default);
+# `cargo test --no-default-features` builds the tests as a normal program.
+default = ["extension-module"]
+extension-module = ["pyo3/extension-module"]
 
 [profile.release]
 opt-level = 3
 lto = true
 codegen-units = 1
 strip = true
-panic = "abort"
+# "unwind", not "abort": a fault inside the filter engine is caught (see
+# guarded() in src/lib.rs) instead of ending the browser.
+panic = "unwind"

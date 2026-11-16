@@ -32,9 +32,10 @@ class Storage:
         )
         self.db.commit()
 
-    def set_title(self, url, title):
-        self.db.execute("UPDATE history SET title=? WHERE url=?", (title, url))
-        self.db.commit()
+    def most_visited(self, limit=200):
+        """[(url, title)] of the pages opened most often, the most visited first."""
+        return self.db.execute(
+            "SELECT url,title FROM history ORDER BY visits DESC, last DESC LIMIT ?", (int(limit),)).fetchall()
 
     def history(self, query="", limit=500):
         like = "%" + query.replace("%", "") + "%"

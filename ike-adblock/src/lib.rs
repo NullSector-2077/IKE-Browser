@@ -7,17 +7,38 @@
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use adblock::lists::{FilterFormat, FilterSet as AFilterSet, ParseOptions, RuleTypes};
 use adblock::request::Request as ARequest;
 use adblock::resources::{MimeType, PermissionMask, Resource, ResourceType};
 use adblock::Engine as AEngine;
-use pyo3::exceptions::{PyIOError, PyValueError};
+use pyo3::exceptions::{PyIOError, PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 
 /// Version of the adblock-rust engine this module was built with.
 const ENGINE_VERSION: &str = "0.13.5";
+
+/// Run a call into the filter engine and turn a panic inside it into an
+/// error value. The engine reads addresses chosen by web pages and lists
+/// downloaded from the network: a fault there must end as "this request could
+/// not be checked" (the browser then lets it through and counts the error),
+/// never as the end of the whole browser.
+fn guarded<T>(what: &str, call: impl FnOnce() -> T) -> Result<T, String> {
+    catch_unwind(AssertUnwindSafe(call)).map_err(|cause| {
+        let detail = cause
+            .downcast_ref::<&str>()
+            .map(|s| s.to_string())
+            .or_else(|| cause.downcast_ref::<String>().cloned())
+            .unwrap_or_else(|| "unknown cause".to_string());
+        format!("the filter engine failed in {what}: {detail}")
+    })
+}
+
+fn guarded_py<T>(what: &str, call: impl FnOnce() -> T) -> PyResult<T> {
+    guarded(what, call).map_err(PyRuntimeError::new_err)
+}
 
 /// A set of filter lists, to build an Engine from.
 #[pyclass(module = "ike_adblock")]
@@ -59,8 +80,10 @@ impl FilterSet {
         };
         let permissions = if trusted { PermissionMask::from_bits(1) } else { PermissionMask::default() };
         let opts = ParseOptions { format, rule_types, permissions };
-        self.inner.add_filter_list(filter_list.to_string(), opts);
-        Ok(())
+        let inner = &mut self.inner;
+        guarded_py("add_filter_list", move || {
+            inner.add_filter_list(filter_list.to_string(), opts);
+        })
     }
 }
 
@@ -166,24 +189,29 @@ struct Engine {
 impl Engine {
     #[new]
     #[pyo3(signature = (filter_set, optimize = true))]
-    fn new(filter_set: &FilterSet, optimize: bool) -> Self {
-        let set = filter_set.inner.clone();
-        let inner = if optimize {
-            AEngine::new_with_filter_set(set)
-        } else {
-            AEngine::new_with_filter_set_no_optimize(set)
-        };
-        Engine { inner, resources: Vec::new() }
+    fn new(filter_set: &FilterSet, optimize: bool) -> PyResult<Self> {
+        let inner = guarded_py("Engine", || {
+            let set = filter_set.inner.clone();
+            if optimize {
+                AEngine::new_with_filter_set(set)
+            } else {
+                AEngine::new_with_filter_set_no_optimize(set)
+            }
+        })?;
+        Ok(Engine { inner, resources: Vec::new() })
     }
 
     /// Check a request given as separate values.
     #[pyo3(signature = (url, source_url, request_type, method = "GET"))]
     fn check_network_urls(&self, py: Python<'_>, url: &str, source_url: &str, request_type: &str, method: &str) -> BlockerResult {
-        let request = match ARequest::new(url, source_url, request_type, method) {
-            Ok(r) => r,
-            Err(e) => return BlockerResult::failed(&format!("{e:?}")),
+        let checked = guarded("check_network_request", || {
+            let request = ARequest::new(url, source_url, request_type, method).map_err(|e| format!("{e:?}"))?;
+            Ok::<_, String>(py.detach(|| self.inner.check_network_request(&request)))
+        });
+        let result = match checked {
+            Ok(Ok(result)) => result,
+            Ok(Err(reason)) | Err(reason) => return BlockerResult::failed(&reason),
         };
-        let result = py.allow_threads(|| self.inner.check_network_request(&request));
         BlockerResult {
             matched: result.filter.is_some(),
             important: result.important,
@@ -203,12 +231,72 @@ impl Engine {
     /// Content-Security-Policy directives that list rules add to a document.
     #[pyo3(signature = (url, source_url, request_type = "document"))]
     fn get_csp_directives(&self, url: &str, source_url: &str, request_type: &str) -> Option<String> {
-        let request = ARequest::new(url, source_url, request_type, "GET").ok()?;
-        self.inner.get_csp_directives(&request)
+        guarded("get_csp_directives", || {
+            let request = ARequest::new(url, source_url, request_type, "GET").ok()?;
+            self.inner.get_csp_directives(&request)
+        })
+        .ok()
+        .flatten()
     }
 
     /// Cosmetic resources of a page.
-    fn url_cosmetic_resources(&self, url: &str) -> UrlSpecificResources {
+    fn url_cosmetic_resources(&self, url: &str) -> PyResult<UrlSpecificResources> {
+        guarded_py("url_cosmetic_resources", || self.cosmetic_resources(url))
+    }
+
+    /// Generic hiding selectors needed for the classes and ids found in a page.
+    fn hidden_class_id_selectors(&self, classes: Vec<String>, ids: Vec<String>, exceptions: HashSet<String>) -> PyResult<Vec<String>> {
+        guarded_py("hidden_class_id_selectors", || {
+            self.inner.hidden_class_id_selectors(classes.iter(), ids.iter(), &exceptions)
+        })
+    }
+    /// Register a resource for "$redirect=" rules or scriptlets. `content` is
+    /// base64; `content_type` is a MIME type, or "template" for a scriptlet.
+    #[pyo3(signature = (name, content_type, content, aliases = None))]
+    fn add_resource(&mut self, name: &str, content_type: &str, content: &str, aliases: Option<Vec<String>>) -> PyResult<()> {
+        let kind = if content_type == "template" {
+            ResourceType::Template
+        } else {
+            ResourceType::Mime(MimeType::from(content_type))
+        };
+        self.resources.retain(|r| r.name != name);
+        self.resources.push(Resource {
+            name: name.to_string(),
+            aliases: aliases.unwrap_or_default(),
+            kind,
+            content: content.to_string(),
+            dependencies: Vec::new(),
+            permission: PermissionMask::default(),
+        });
+        let (inner, resources) = (&mut self.inner, self.resources.clone());
+        guarded_py("add_resource", move || inner.use_resources(resources))
+    }
+
+    /// The compiled engine as bytes (resources are not included).
+    fn serialize<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
+        let data = guarded_py("serialize", || self.inner.serialize())?;
+        Ok(PyBytes::new(py, &data))
+    }
+
+    fn deserialize(&mut self, data: &[u8]) -> PyResult<()> {
+        let inner = &mut self.inner;
+        guarded_py("deserialize", move || inner.deserialize(data))?
+            .map_err(|e| PyValueError::new_err(format!("cannot read the engine data: {e:?}")))
+    }
+
+    fn serialize_to_file(&self, path: &str) -> PyResult<()> {
+        let data = guarded_py("serialize", || self.inner.serialize())?;
+        fs::write(path, data).map_err(|e| PyIOError::new_err(e.to_string()))
+    }
+
+    fn deserialize_from_file(&mut self, path: &str) -> PyResult<()> {
+        let data = fs::read(path).map_err(|e| PyIOError::new_err(e.to_string()))?;
+        self.deserialize(&data)
+    }
+}
+
+impl Engine {
+    fn cosmetic_resources(&self, url: &str) -> UrlSpecificResources {
         let res = self.inner.url_cosmetic_resources(url);
         let mut style_selectors: HashMap<String, Vec<String>> = HashMap::new();
         let mut procedural_actions = Vec::new();
@@ -245,52 +333,6 @@ impl Engine {
             generichide: res.generichide,
         }
     }
-
-    /// Generic hiding selectors needed for the classes and ids found in a page.
-    fn hidden_class_id_selectors(&self, classes: Vec<String>, ids: Vec<String>, exceptions: HashSet<String>) -> Vec<String> {
-        self.inner.hidden_class_id_selectors(classes.iter(), ids.iter(), &exceptions)
-    }
-
-    /// Register a resource for "$redirect=" rules or scriptlets. `content` is
-    /// base64; `content_type` is a MIME type, or "template" for a scriptlet.
-    #[pyo3(signature = (name, content_type, content, aliases = None))]
-    fn add_resource(&mut self, name: &str, content_type: &str, content: &str, aliases: Option<Vec<String>>) {
-        let kind = if content_type == "template" {
-            ResourceType::Template
-        } else {
-            ResourceType::Mime(MimeType::from(content_type))
-        };
-        self.resources.retain(|r| r.name != name);
-        self.resources.push(Resource {
-            name: name.to_string(),
-            aliases: aliases.unwrap_or_default(),
-            kind,
-            content: content.to_string(),
-            dependencies: Vec::new(),
-            permission: PermissionMask::default(),
-        });
-        self.inner.use_resources(self.resources.clone());
-    }
-
-    /// The compiled engine as bytes (resources are not included).
-    fn serialize<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
-        PyBytes::new(py, &self.inner.serialize())
-    }
-
-    fn deserialize(&mut self, data: &[u8]) -> PyResult<()> {
-        self.inner
-            .deserialize(data)
-            .map_err(|e| PyValueError::new_err(format!("cannot read the engine data: {e:?}")))
-    }
-
-    fn serialize_to_file(&self, path: &str) -> PyResult<()> {
-        fs::write(path, self.inner.serialize()).map_err(|e| PyIOError::new_err(e.to_string()))
-    }
-
-    fn deserialize_from_file(&mut self, path: &str) -> PyResult<()> {
-        let data = fs::read(path).map_err(|e| PyIOError::new_err(e.to_string()))?;
-        self.deserialize(&data)
-    }
 }
 
 #[pymodule]
@@ -303,4 +345,23 @@ fn ike_adblock(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add("ENGINE_VERSION", ENGINE_VERSION)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::guarded;
+
+    #[test]
+    fn a_panic_becomes_an_error() {
+        let failed: Result<u32, String> = guarded("test", || panic!("boom {}", 7));
+        let reason = failed.unwrap_err();
+        assert!(reason.contains("test") && reason.contains("boom 7"), "{reason}");
+        let failed: Result<u32, String> = guarded("slice", || {
+            let empty: Vec<u32> = Vec::new();
+            empty[3]
+        });
+        assert!(failed.unwrap_err().contains("slice"));
+        // a call that works is not touched, and the next call works after a failure
+        assert_eq!(guarded("fine", || 41 + 1), Ok(42));
+    }
 }

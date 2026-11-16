@@ -50,8 +50,28 @@ def chrome_user_agent(major):
 # ---- desktop notifications ---------------------------------------------------
 
 def notify(title, text):
-    """A desktop notification through notify-send."""
+    """A desktop notification through notify-send.
+
+    Title and text can come from a web page: "--" keeps them from being read
+    as options of notify-send, and the text is escaped because notification
+    services show it as markup (links and pictures included)."""
+    import html
     try:
-        subprocess.Popen(["notify-send", "-a", "I.K.E.", "-i", "ike-browser", title, text])
-    except OSError:
+        subprocess.Popen(["notify-send", "-a", "I.K.E.", "-i", "ike-browser", "--",
+                          str(title)[:200] or " ", html.escape(str(text)[:2000], quote=False)])
+    except (OSError, ValueError):
         pass
+
+
+# ---- automatic tests ---------------------------------------------------------
+
+def test_switch(name):
+    """Value of a switch of the automatic tests (IKE_TEST_...), or "".
+
+    The switches that turn a protection off (accept any certificate, answer
+    permission requests without asking) only count in a test session, which
+    is one started with a test script (IKE_TEST_HOOK); set alone in the
+    environment of a normal start they do nothing."""
+    if not os.environ.get("IKE_TEST_HOOK"):
+        return ""
+    return os.environ.get(name, "")

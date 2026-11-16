@@ -69,6 +69,9 @@ jobs:
         run: |
           cargo build --release --locked --manifest-path ike-adblock/Cargo.toml
           install -m755 ike-adblock/target/release/libike_adblock.so vendor/adblock/ike_adblock.abi3.so
+      - name: AdBlock engine (Rust tests)
+        # the tests are an ordinary program: without the "extension-module" feature
+        run: cargo test --no-default-features --locked --manifest-path ike-adblock/Cargo.toml
       - name: Lint
         run: ruff check .
       - name: Tests

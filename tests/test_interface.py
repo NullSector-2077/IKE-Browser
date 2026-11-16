@@ -33,6 +33,101 @@ def test_shield_icon_levels(run_ike):
     assert out["button_icon"] and out["menu_icon"]
 
 
+def test_toolbar_shield_is_larger_in_the_same_button(run_ike):
+    """The toolbar's shield drawing is 15-20% larger than the plain glyph,
+    centred and inside its icon box at every screen scale, with sharp edges;
+    the button, its icon box and its place in the toolbar do not change."""
+    out = run_ike("""
+        from PyQt6.QtCore import QSize
+        from PyQt6.QtGui import QColor
+
+        def box(img):
+            xs, ys = [], []
+            for x in range(img.width()):
+                for y in range(img.height()):
+                    if QColor.fromRgba(img.pixel(x, y)).alpha() > 24:
+                        xs.append(x)
+                        ys.append(y)
+            return [min(xs), min(ys), max(xs) + 1, max(ys) + 1]
+
+        def soft_edge(img):
+            # partly transparent pixels on the middle row, left of the drawing's centre
+            y = img.height() // 2
+            return sum(1 for x in range(img.width() // 2)
+                       if 8 < QColor.fromRgba(img.pixel(x, y)).alpha() < 247)
+
+        def steps(ike, qapp, out):
+            yield 600
+            from ike.shieldpanel import TOOLBAR_SHIELD_GROW, shield_icon
+            win = ike.windows[0]
+            btn = win.shield_btn
+            side = win.nav.iconSize().height()
+            out["grow"] = TOOLBAR_SHIELD_GROW
+            out["side"] = side
+            out["scales"] = {}
+            for level in ("off", "balanced", "maximum"):
+                for dpr in (1.0, 1.25, 1.5, 2.0, 3.0):
+                    plain = shield_icon(level).pixmap(QSize(side, side), dpr).toImage()
+                    big = shield_icon(level, grow=TOOLBAR_SHIELD_GROW).pixmap(QSize(side, side), dpr).toImage()
+                    out["scales"]["%s@%s" % (level, dpr)] = {
+                        "size": [big.width(), big.height(), round(side * dpr)],
+                        "plain": box(plain), "big": box(big), "soft": soft_edge(big)}
+            # what the button really shows: the rows of its left part that are not background
+            win.update_shield()
+            yield 150
+            shot = btn.grab().toImage()
+            ratio = shot.devicePixelRatio() or 1.0
+            back = QColor(shot.pixel(1, 1))
+            rows = []
+            for y in range(shot.height()):
+                for x in range(min(shot.width(), int((side + 8) * ratio))):
+                    c = QColor(shot.pixel(x, y))
+                    if abs(c.red() - back.red()) + abs(c.green() - back.green()) + abs(c.blue() - back.blue()) > 90:
+                        rows.append(y)
+                        break
+            out["shown"] = [min(rows) / ratio, (max(rows) + 1) / ratio, btn.height()]
+            from PyQt6.QtWidgets import QWidget
+            others = [win.nav.widgetForAction(a) for a in (win.act_reload, win.act_downloads)]
+            out["heights"] = [btn.height()] + [w.height() for w in others if w is not None]
+            # neighbours: nothing of the button overlaps the widgets beside it
+            geo = btn.geometry()
+            out["inside_toolbar"] = win.nav.rect().contains(geo)
+            out["overlap"] = [w.objectName() or type(w).__name__ for w in win.nav.children()
+                              if isinstance(w, QWidget) and w is not btn and w.isVisible()
+                              and w.geometry().intersects(geo)]
+            before = [geo.width(), geo.height()]
+            for level in ("off", "compatibility", "balanced", "strict", "maximum"):
+                ike.config["shield_level"] = level
+                win.update_shield()
+                yield 50
+                assert [btn.width(), btn.height()] == before, (level, btn.width(), btn.height(), before)
+            out["button"] = before
+    """)
+    assert 1.15 <= out["grow"] <= 1.20
+    for key, m in out["scales"].items():
+        w, h, want = m["size"]
+        assert w == h == want, (key, m)
+        px0, py0, px1, py1 = m["plain"]
+        bx0, by0, bx1, by1 = m["big"]
+        # inside the icon box
+        assert bx0 >= 0 and by0 >= 0 and bx1 <= w and by1 <= h, (key, m)
+        # 15-20% larger (one device pixel of tolerance on each measure)
+        for plain, big in ((px1 - px0, bx1 - bx0), (py1 - py0, by1 - by0)):
+            assert (big - 1) / (plain + 1) <= 1.20 and (big + 1) / (plain - 1) >= 1.15, (key, m)
+            assert big > plain, (key, m)
+        # centred: the same room left and right, and above and below
+        assert abs(bx0 - (w - bx1)) <= 1 and abs(by0 - (h - by1)) <= 1, (key, m)
+        # drawn for this scale, not a stretched picture: the edge is one or two pixels soft
+        assert m["soft"] <= 2, (key, m)
+    top, bottom, height = out["shown"]
+    # the drawing nearly fills the toolbar's icon box and stays inside the button
+    assert 0.9 * out["side"] <= bottom - top <= out["side"], out["shown"]
+    assert top >= 0 and bottom <= height, out["shown"]
+    assert out["inside_toolbar"]
+    assert len(set(out["heights"])) == 1, out["heights"]
+    assert not out["overlap"], out["overlap"]
+
+
 def test_window_close_button(run_ike):
     out = run_ike("""
         from PyQt6.QtCore import QPoint, Qt
@@ -122,52 +217,22 @@ def test_window_buttons_and_centred_address_bar(run_ike):
     assert all(h >= out["icon"] * 1.2 for h in out["buttons"])
 
 
-def test_toolbar_long_press_layout_and_private_badge(run_ike):
+def test_fixed_toolbar_buttons_and_private_badge(run_ike):
+    """Back, Forward and Home at the start with their separator (moving the
+    other buttons is in test_toolbar.py); the badge of a private window."""
     out = run_ike("""
-        from PyQt6.QtCore import QPoint
-
         def steps(ike, qapp, out):
             win = ike.windows[0]
-            # The three navigation controls stay at the start, followed by a separator.
             actions = win.nav.actions()
-            out["fixed_order"] = [actions.index(win.act_back) < actions.index(win.act_fwd)
-                                  < actions.index(win.act_home)]
-            home_index = actions.index(win.act_home)
-            out["home_separator"] = actions[home_index + 1].isSeparator()
-
-            # Moving an optional button to the left of the address field is persisted.
-            left = win.urlbar.mapToGlobal(QPoint(0, win.urlbar.height() // 2))
-            win._move_toolbar_action("reader", left)
-            win._save_toolbar_layout()
-            out["left_of_address"] = (win.nav.actions().index(win.act_tb_reader)
-                                      < win.nav.actions().index(win.urlbar_act))
-            out["saved_left"] = "reader" in ike.config["toolbar_left"]
-
-            # It can also be returned to the right side.
-            right = win.nav.mapToGlobal(QPoint(win.nav.width() - 8, win.nav.height() // 2))
-            win._move_toolbar_action("reader", right)
-            win._save_toolbar_layout()
-            out["right_of_address"] = (win.nav.actions().index(win.act_tb_reader)
-                                       > win.nav.actions().index(win.urlbar_act))
-            out["saved_right"] = "reader" not in ike.config["toolbar_left"]
-
-            # The shield and menu controls are movable too, but remain available.
-            win._move_toolbar_action("shield", left)
-            win._move_toolbar_action("menu", left)
-            win._save_toolbar_layout()
-            out["shield_left"] = win.nav.actions().index(win.shield_act) < win.nav.actions().index(win.urlbar_act)
-            out["menu_left"] = win.nav.actions().index(win.menu_act) < win.nav.actions().index(win.urlbar_act)
-            out["menu_not_hidden"] = win.menu_act in win.nav.actions()
-
+            out["fixed_order"] = [actions.index(win.act_back), actions.index(win.act_fwd),
+                                  actions.index(win.act_home), actions.index(win.home_sep_act)]
+            out["home_separator"] = win.home_sep_act.isSeparator()
             private = ike.new_window(private=True)
             yield 400
             from PyQt6.QtWidgets import QLabel
             badge = private.findChild(QLabel, "privateWindowBadge")
             out["private_badge"] = bool(badge and "border-radius" in badge.styleSheet())
+            out["badge_visible"] = bool(badge and badge.isVisible())
     """)
-    assert all(out["fixed_order"])
-    assert out["home_separator"]
-    assert out["left_of_address"] and out["saved_left"]
-    assert out["right_of_address"] and out["saved_right"]
-    assert out["shield_left"] and out["menu_left"] and out["menu_not_hidden"]
-    assert out["private_badge"]
+    assert out["fixed_order"] == [0, 1, 2, 3] and out["home_separator"]
+    assert out["private_badge"] and out["badge_visible"]

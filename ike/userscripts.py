@@ -365,7 +365,8 @@ class UserScripts(QObject):
             self._threads.discard(t)
             callback(got, err)
         t.done.connect(done)
-        t.start()
+        from . import background
+        background.start(t)
 
     def offer(self, parent, url="", text=None):
         """Download a script and ask the user whether to install it."""

@@ -14,6 +14,8 @@ class LoadingLine(QWidget):
         super().__init__(anchor.parentWidget())
         self.anchor = anchor
         self.value = 0.0
+        self.config = None           # set by the window: the line then advances smoothly (effects.py)
+        self._anim = None
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
         self._hide = QTimer(self)
@@ -26,13 +28,36 @@ class LoadingLine(QWidget):
     def set_state(self, loading, percent=0):
         if loading:
             self._hide.stop()
-            self.value = max(0.05, min(1.0, percent / 100.0))
+            target = max(0.05, min(1.0, percent / 100.0))
+            # forward only while it is in view; a new page starts from the beginning
+            self._go(target, smooth=self.isVisible() and target > self.value)
             self._place()
             self.show()
             self.raise_()
         elif self.isVisible():
-            self.value = 1.0
+            self._go(1.0, smooth=True)
             self._hide.start()
+        self.update()
+
+    def _go(self, target, smooth):
+        from . import effects
+        if self._anim is not None:
+            self._anim.stop()
+        if not smooth or self.config is None or not effects.on(self.config):
+            self.value = target
+            return
+        if self._anim is None:
+            from PyQt6.QtCore import QEasingCurve, QVariantAnimation
+            self._anim = QVariantAnimation(self)
+            self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+            self._anim.setDuration(effects.LINE_MS)
+            self._anim.valueChanged.connect(self._advance)
+        self._anim.setStartValue(float(self.value))
+        self._anim.setEndValue(float(target))
+        self._anim.start()
+
+    def _advance(self, value):
+        self.value = float(value)
         self.update()
 
     def _place(self):

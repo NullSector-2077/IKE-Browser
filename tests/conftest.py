@@ -64,8 +64,10 @@ def write_profile(cfg, data_dir, settings=None, keep=False):
 @pytest.fixture
 def run_ike(tmp_path):
     def run(script, settings=None, env=None, timeout=90, args=(), keep_profile=False, command=None,
-            wait_results=0, prepare=True):
+            wait_results=0, prepare=True, internal_errors=False):
         """keep_profile=True: start again with the profile of the previous run.
+        internal_errors=True: the test expects errors inside the browser
+        (otherwise one such error fails the test, though the browser goes on).
         command: the program to start instead of this copy of I.K.E.;
         wait_results: seconds to wait for the results after the program ended
         (when it hands over to another process)."""
@@ -120,6 +122,8 @@ def run_ike(tmp_path):
         out["_exit"] = proc.returncode
         out["_stderr"] = proc.stderr
         assert "error" not in out, out["error"]
+        if not internal_errors:
+            assert not out.get("_internal_errors"), "\n".join(out["_internal_errors"])
         return out
     return run
 

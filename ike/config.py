@@ -133,6 +133,7 @@ DEFAULTS = {
     "vtabs_autohide": False,            # vertical tabs appear when the mouse hits the left edge
     "vtabs_width": 240,
     "vtabs_anim_ms": 200,               # slide of the auto-hidden tab panel (0 = none)
+    "ui_effects": True,                 # short fades and the loading mark of tabs (see effects.py)
     "toolbar_hidden": [],               # keys of TOOLBAR_ITEMS the user does not want
     "toolbar_known": ["back", "forward", "reload", "home", "downloads"],
     "toolbar_order": ["shield", "reload", "translate", "reader", "screenshot", "pip",
@@ -141,6 +142,9 @@ DEFAULTS = {
     "urlbar_width": 60,                 # address bar: per cent of the window width
     "newtab_clock": True,               # clock and date on the new tab page
     "newtab_weather": True,             # weather on the new tab page (needs a city, see weather.py)
+    "newtab_bg": "",                    # the user's photo behind the new tab page (see newtabbg.py)
+    "newtab_bg_fit": "fill",            # fill | fit | centre
+    "newtab_bg_veil": 35,               # veil in the page's colour over the photo, per cent (0-90)
     "weather_city": "",                 # chosen by the user in Settings; never the system location
     "weather_lat": None,
     "weather_lon": None,
@@ -197,6 +201,19 @@ DEFAULTS = {
     "ask_download_location": True,
     # stats / session
     "blocked_total": 0,
+    "blocked_month": {},             # {"key": "2026-11", "count": n, "prev_key": "2026-10", "prev": n}
+    "blocked_counter": "month",      # what the new tab page shows: "month" | "total"
+    # new tab page
+    "newtab_tiles": "bookmarks",     # "bookmarks" | "visited" | "none"
+    "newtab_tiles_hidden": [],       # addresses of the tiles the user hid
+    "newtab_tiles_first": [],        # sites added with the "Add" tile: shown before the other bookmarks
+    "newtab_grid": True,             # Cyber theme: a grid when there is no photo
+    # the Cyber theme (ui_scheme "theme:cyber")
+    "cyber_accent": "",              # "" = the theme's own, or "#rrggbb"
+    "cyber_shape": "smusso",         # tabs: "smusso" | "lama" | "mirino"
+    "cyber_glow": True,
+    "cyber_corners": True,
+    "cyber_hint": "ask",             # the suggestion on the new tab page: "ask" | "trial" | "done"
     "session": [],
     "experimental_extensions": False,   # engine extension support is unstable
     "enabled_extensions": [],           # extension ids to re-enable at startup
@@ -241,6 +258,45 @@ TOOLBAR_ITEMS = (("back", False), ("forward", False), ("reload", False), ("home"
                  ("downloads", False))
 
 
+_LISTS_OF_DICTS = ("search_engines", "filter_lists", "containers", "page_watches")
+
+
+def sound_settings(stored):
+    """The stored settings without the values that are not of the kind the
+    program expects (a settings file edited by hand, damaged, or written by
+    something else): those fall back to their defaults instead of stopping
+    the browser at start. Settings the program does not know are kept."""
+    clean = {}
+    for key, value in stored.items():
+        if not isinstance(key, str):
+            continue
+        default = DEFAULTS.get(key)
+        if key not in DEFAULTS or default is None:
+            clean[key] = value
+        elif isinstance(default, bool):
+            if isinstance(value, bool) or value in (0, 1):
+                clean[key] = bool(value)
+        elif isinstance(default, (int, float)):
+            if isinstance(value, (int, float)) and not isinstance(value, bool) and value == value \
+                    and abs(value) != float("inf"):
+                clean[key] = value
+        elif isinstance(default, str):
+            if isinstance(value, str):
+                clean[key] = value
+        elif isinstance(default, list):
+            if isinstance(value, list):
+                if key in _LISTS_OF_DICTS:
+                    value = [v for v in value if isinstance(v, dict)]
+                clean[key] = value
+        elif isinstance(default, dict):
+            if isinstance(value, dict):
+                if key in ("site_levels", "site_opts", "ui_themes"):
+                    want = str if key == "site_levels" else dict
+                    value = {k: v for k, v in value.items() if isinstance(k, str) and isinstance(v, want)}
+                clean[key] = value
+    return clean
+
+
 class Config:
     def __init__(self, path=None):
         self.path = Path(path) if path else CONFIG_DIR / "settings.json"
@@ -261,7 +317,7 @@ class Config:
         except (OSError, ValueError):
             return
         if isinstance(stored, dict):
-            self.data.update(stored)
+            self.data.update(sound_settings(stored))
         d = self.data
         if isinstance(stored, dict) and "bookmarks_bar" not in stored \
                 and stored.get("show_bookmarks_bar"):

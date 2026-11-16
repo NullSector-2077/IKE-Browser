@@ -33,11 +33,11 @@ from PyQt6.QtWidgets import (
     QWidgetAction,
 )
 
-from . import APP_LONG_NAME, APP_NAME, __version__
+from . import APP_LONG_NAME, APP_NAME, __version__, effects
 from .config import LEVEL_NAMES, LEVELS
 from .features import WindowFeatures, tab_icon
 from .i18n import T
-from .shieldpanel import ShieldPanel, shield_icon
+from .shieldpanel import TOOLBAR_SHIELD_GROW, ShieldPanel, shield_icon
 from .tabs import AUDIO_ROLE, VTabDelegate
 from .urlbar import _URLISH, UrlBar
 from .webview import WebView
@@ -281,7 +281,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.vtabs.setTextElideMode(Qt.TextElideMode.ElideRight)
         self.vtabs.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.vtabs.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        delegate = VTabDelegate(self.vtabs)
+        delegate = VTabDelegate(self.vtabs, self.app.config)
         delegate.close_requested.connect(
             lambda r: self.close_tab(self.views[r]) if 0 <= r < len(self.views) else None)
         delegate.mute_requested.connect(
@@ -336,6 +336,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         rl.addWidget(self.findbar)
         from .loadingline import LoadingLine
         self.loading_line = LoadingLine(self.content)
+        self.loading_line.config = self.app.config
 
         self.splitter = QSplitter(Qt.Orientation.Horizontal, self)
         self.splitter.addWidget(self.vtab_panel)
@@ -358,7 +359,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                            else [QKeySequence(shortcut)])
         if tip:
             a.setStatusTip(tip)
-            a.setToolTip(tip)
+            keys = a.shortcut().toString(QKeySequence.SequenceFormat.NativeText)
+            a.setToolTip("%s (%s)" % (tip, keys) if keys else tip)     # what it does, and its key
         a.setCheckable(checkable)
         if slot:
             a.triggered.connect(slot)
@@ -389,7 +391,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                      T("Open the home page"))
         for a in (self.act_back, self.act_fwd, self.act_home):
             tb.addAction(a)
-        tb.addSeparator()             # fixed navigation group ends after Home
+        self.home_sep_act = tb.addSeparator()      # fixed: always right after Home, never moved
 
         def spacer():
             w = QWidget(self)
@@ -414,6 +416,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         wa.setDefaultWidget(self.shield_panel)
         self.shield_menu.addAction(wa)
         self.shield_menu.aboutToShow.connect(self.shield_panel.refresh)
+        effects.fading(self.shield_menu, self.app.config)
         self.shield_btn.setMenu(self.shield_menu)
         self.shield_act = tb.addWidget(self.shield_btn)
 
@@ -479,6 +482,22 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.menu_btn.clicked.connect(self.menu_btn.showMenu)
         self.menu_btn.setToolTip(T("Menu"))
         self.menu_act = tb.addWidget(self.menu_btn)
+        # buttons that do not fit in a narrow window (see _fit_urlbar)
+        self.more_btn = QToolButton(self)
+        self.more_btn.setText("»")
+        f = self.more_btn.font()
+        if f.pointSizeF() > 0:
+            f.setPointSizeF(f.pointSizeF() * 1.3)
+            self.more_btn.setFont(f)
+        self.more_btn.setToolTip(T("More buttons"))
+        self.more_btn.setAutoRaise(True)
+        self.more_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+        self.more_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.more_btn.setStyleSheet("QToolButton::menu-indicator { image: none; }")
+        self.more_menu = effects.fading(QMenu(self.more_btn), self.app.config)
+        self.more_btn.setMenu(self.more_menu)
+        self.more_act = tb.addWidget(self.more_btn)
+        self.more_act.setVisible(False)
         self._build_window_buttons(tb)
         right = self._win_btns[0]
         self._nav_items = [("shield", self.shield_act, right),
@@ -501,6 +520,45 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.bookbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.addToolBarBreak()
         self.addToolBar(self.bookbar)
+        self._build_customise_bar()
+
+    def _build_customise_bar(self):
+        """The strip shown under the toolbar while its buttons are arranged."""
+        bar = self.custom_bar = QToolBar(T("Customise toolbar"), self)
+        bar.setObjectName("customise")
+        bar.setMovable(False)
+        bar.toggleViewAction().setVisible(False)
+        note = QLabel(T("Drag the buttons to arrange them. Back, Forward and Home stay in place."), bar)
+        note.setContentsMargins(8, 0, 8, 0)
+        bar.addWidget(note)
+        gap = QWidget(bar)
+        gap.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        bar.addWidget(gap)
+        choose = QToolButton(bar)
+        choose.setText(T("Toolbar buttons"))
+        choose.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        menu = QMenu(choose)
+        menu.aboutToShow.connect(lambda: self._fill_toolbar_buttons(menu))
+        menu.triggered.connect(self._toolbar_button_toggled)
+        choose.setMenu(menu)
+        bar.addWidget(choose)
+        reset = QToolButton(bar)
+        reset.setText(T("Reset to default layout"))
+        reset.clicked.connect(self.reset_toolbar)
+        bar.addWidget(reset)
+        done = QToolButton(bar)
+        done.setText(T("Done"))
+        done.clicked.connect(lambda: self.customise_toolbar(False))
+        bar.addWidget(done)
+        self.insertToolBar(self.bookbar, bar)
+        self.insertToolBarBreak(self.bookbar)
+        bar.hide()
+        self.act_customise = self._action(T("Customise toolbar…"), lambda: self.customise_toolbar(True), None,
+                                          icon(("configure-toolbars", "configure")),
+                                          T("Move the toolbar buttons with the mouse"))
+        self.act_customise_done = self._action("customise-done", lambda: self.customise_toolbar(False),
+                                               ["Escape"])
+        self.act_customise_done.setEnabled(False)
 
     def _build_menus(self):
         A = self._action
@@ -568,7 +626,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_bookbar = A(T("Bookmarks bar"), self._toggle_bookbar, "Ctrl+Shift+B",
                              "bookmark-toolbar",
                              T("Switch between: only on a new tab, always, hidden"))
-        for a in (self.act_vertical, self.act_menubar, self.act_bookbar, self.act_titlebar):
+        for a in (self.act_vertical, self.act_menubar, self.act_bookbar, self.act_titlebar,
+                  self.act_customise):
             m_view.addAction(a)
         m_view.addSeparator()
         m_view.addAction(A(T("Zoom in"), lambda: self.zoom(+1), ["Ctrl++", "Ctrl+="], "zoom-in",
@@ -662,7 +721,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         burger.addSeparator()
         burger.addAction(m_edit.actions()[-1])
         burger.addAction(m_file.actions()[-1])
-        self.menu_btn.setMenu(burger)
+        self.menu_btn.setMenu(effects.fading(burger, self.app.config))
 
         # Extra shortcuts without a menu entry.
         A("focus-url", self._focus_url, ["Ctrl+L", "Alt+D", "F6"])
@@ -687,6 +746,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.htab_row.setVisible(not vertical and chrome)
         self.menuBar().setVisible(bool(cfg["show_menubar"]) and chrome)
         self._apply_toolbar()
+        if not chrome and self.toolbar_mover.customising:
+            self.customise_toolbar(False)
         self.act_store.setVisible(bool(cfg["experimental_extensions"]))
         self.nav.setVisible(not self._fullscreen_page)
         self.act_escape.setEnabled(self._fullscreen_page)
@@ -836,7 +897,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         view.loadStarted.connect(lambda v=view: self._load_state(v, True))
         view.loadFinished.connect(lambda ok, v=view: self._load_finished(v, ok))
         view.loadProgress.connect(lambda pc, v=view: self._load_progress(v, pc))
-        page.linkHovered.connect(self._hovered)
         page.windowCloseRequested.connect(lambda v=view: self.close_tab(v))
         page.recentlyAudibleChanged.connect(lambda _a, v=view: self._tab_changed(v))
         if not self.private:
@@ -978,8 +1038,20 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if ic.isNull():
             ic = self.app.icon if view.url().scheme() == "ike" else icon(
                 "globe", QStyle.StandardPixmap.SP_FileIcon)
-        ic = tab_icon(ic, g["color"] if g else None, self.app.container_color(view.container))
-        self.tabbar.setTabText(i, prefix + (title if len(title) < 28 else title[:27] + "…"))
+        ic = view.tab_icon = tab_icon(ic, g["color"] if g else None, self.app.container_color(view.container))
+        if getattr(view, "loading_marked", False):
+            ic = effects.loading_icon(ic, getattr(self, "_spin_angle", 45), self.tabbar.palette())
+        look = getattr(self, "_cyber", None)
+        if look and prefix == "🔊 ":
+            # the Cyber theme: a small equaliser on the tab instead of the loudspeaker sign
+            from . import cyber
+            eq = self._equaliser
+            ic = cyber.audio_icon(ic, eq.phase, look["look"].accent, effects.on(self.app.config))
+            eq.wake()
+            h_prefix = ""
+        else:
+            h_prefix = prefix
+        self.tabbar.setTabText(i, h_prefix + (title if len(title) < 28 else title[:27] + "…"))
         self.tabbar.setTabToolTip(i, tip)
         self.tabbar.setTabIcon(i, ic)
         item = self.vtabs.item(i)
@@ -1113,6 +1185,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if t == QEvent.Type.MouseMove and prev.index == i:
             return False
         tip = self.tabbar.tabToolTip(i) or view.title()
+        from . import cyber
+        cyber.style_preview(prev, self.app.config)
         prev.show_for(i, pm, tip, obj.mapToGlobal(pos))
         return t == QEvent.Type.ToolTip
 
@@ -1133,8 +1207,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             if 0 <= i < len(self.views):
                 self.close_tab(self.views[i])
                 return True
-        if self._toolbar_reorder_event(obj, event):
-            return True
         if self._drag_filter(obj, event):
             return True
         if event.type() == QEvent.Type.MouseButtonDblClick and obj is self.tabbar:
@@ -1394,10 +1466,60 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         view.loading = loading
         if not loading:
             view.progress = 100
+        self._loading_mark(view, loading)
         if view is self.current_view():
             self._update_nav()
             self._update_bookbar()
             self.loading_line.set_state(loading, getattr(view, "progress", 0))
+
+    # the mark on the tab of a page that is loading (see effects.py)
+    MARK_AFTER = 0.25            # seconds: pages that load at once show no mark
+    MARK_TURNS_FOR = 30          # seconds: after that the mark stays, but still
+
+    def _loading_mark(self, view, loading):
+        view.loading_since = time.monotonic() if loading else None
+        if loading:
+            timer = getattr(self, "_spin", None)
+            if timer is None:
+                timer = self._spin = QTimer(self)
+                timer.timeout.connect(self._spin_step)
+                self._spin_angle = 45
+            if not timer.isActive():
+                timer.start(effects.SPIN_MS if effects.on(self.app.config) else 250)
+        elif getattr(view, "loading_marked", False):
+            view.loading_marked = False
+            self._tab_changed(view)
+
+    def _spin_step(self):
+        """Show or turn the mark of the tabs that are loading; stop when there is nothing to do."""
+        turning = effects.on(self.app.config)
+        now = time.monotonic()
+        again = False
+        if turning:
+            self._spin_angle = (self._spin_angle + effects.SPIN_STEP) % 360
+        for i, view in enumerate(self.views):
+            since = getattr(view, "loading_since", None)
+            if since is None or not getattr(view, "loading", False):
+                continue
+            marked = getattr(view, "loading_marked", False)
+            turns = turning and now - since < self.MARK_TURNS_FOR
+            if now - since < self.MARK_AFTER:
+                again = True
+                continue
+            if marked and not turns:
+                continue
+            again = again or turns
+            view.loading_marked = True
+            base = getattr(view, "tab_icon", None)
+            if base is None:
+                continue
+            ic = effects.loading_icon(base, self._spin_angle, self.tabbar.palette())
+            self.tabbar.setTabIcon(i, ic)
+            item = self.vtabs.item(i)
+            if item:
+                item.setIcon(ic)
+        if not again:
+            self._spin.stop()
 
     def _load_progress(self, view, percent):
         view.progress = percent
@@ -1415,28 +1537,23 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if view is self.current_view():
             self.update_shield()
 
-    def _hovered(self, url):
-        if url:
-            self.statusBar().showMessage(url)
-            self.statusBar().show()
-        else:
-            self._hide_status()
-
     def _hide_status(self):
-        if not self.statusBar().currentMessage() or True:
-            self.statusBar().clearMessage()
-            self.statusBar().hide()
+        self.statusBar().clearMessage()
+        self.statusBar().hide()
 
     def _blocked(self, host):
         if host == self.current_host():
             self.update_shield()
+            look = getattr(self, "_cyber", None)
+            if look:
+                look["pulse"].fire()         # the Cyber theme: the shield pulses once
 
     def update_shield(self):
         host = self.current_host()
         cfg = self.app.config
         level = cfg.level_for(host) if host else cfg["shield_level"]
         n = self.app.shields.total(host) if host else 0
-        self.shield_btn.setIcon(shield_icon(level))
+        self.shield_btn.setIcon(shield_icon(level, grow=TOOLBAR_SHIELD_GROW))
         self.shield_btn.setText(str(n) if n and level != "off" else "")
         self.m_level.setIcon(shield_icon(cfg["shield_level"], 16))
         if self.shield_menu.isVisible():
@@ -1569,41 +1686,85 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         box.setText("<table>%s</table>" % "".join(rows))
         box.exec()
 
-    def show_about(self):
+    def about_text(self):
+        """Help → About: versions, and the state of what protects the user."""
         from PyQt6.QtCore import QT_VERSION_STR
         from PyQt6.QtWebEngineCore import qWebEngineChromiumVersion
-        b = self.app.blocker
-        QMessageBox.about(self, T("About I.K.E."), (
-            "<h2>%s</h2><p>%s %s</p><p>%s: Qt WebEngine %s (Chromium %s)<br>%s: %s<br>%s</p>"
-            "<p>%s</p>") % (
-            APP_LONG_NAME, T("Version"), __version__, T("Engine"), QT_VERSION_STR,
-            qWebEngineChromiumVersion(), T("Content blocker"),
-            self._engine_about(b),
-            T("Chrome extensions: not usable with this engine version (enabling one crashes it)")
-            + "<br>" +
-            self._drm_about(),
-            T("An independent, privacy-first browser. No telemetry, no accounts, no sponsored content.")))
+
+        from .app import INTERNAL_ERRORS, sandbox_off
+        chromium = qWebEngineChromiumVersion()
+        try:
+            from PyQt6.QtWebEngineCore import qWebEngineChromiumSecurityPatchVersion
+            patched = qWebEngineChromiumSecurityPatchVersion()
+            if patched and patched != chromium:
+                chromium += ", " + T("security fixes up to %s") % patched
+        except ImportError:                      # Qt older than 6.3
+            pass
+        lines = ["%s: Qt WebEngine %s (Chromium %s)" % (T("Engine"), QT_VERSION_STR, chromium),
+                 T("Engine sandbox: OFF (switched off by the environment, or I.K.E. was started as administrator)")
+                 if sandbox_off() else T("Engine sandbox: on"),
+                 "%s: %s" % (T("Content blocker"), self._engine_about(self.app.blocker)),
+                 T("Chrome extensions: not usable with this engine version (enabling one crashes it)"),
+                 self._drm_about()]
+        if INTERNAL_ERRORS:
+            from .config import CACHE_DIR
+            lines.append(T("Internal errors this session: %d (details in %s)")
+                         % (len(INTERNAL_ERRORS), CACHE_DIR / "errors.log"))
+        return "<h2>%s</h2><p>%s %s</p><p>%s</p><p>%s</p>" % (
+            APP_LONG_NAME, T("Version"), __version__, "<br>".join(lines),
+            T("An independent, privacy-first browser. No telemetry, no accounts, no sponsored content."))
+
+    def show_about(self):
+        QMessageBox.about(self, T("About I.K.E."), self.about_text())
 
     # ------------------------------------------------------------------
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._fit_urlbar()
 
-    def _fit_urlbar(self):
-        """Address bar: a share of the window width, with free room on both sides."""
-        if not hasattr(self, "urlbar"):
+    URLBAR_MIN = 180            # the address bar is not made narrower while buttons can give way
+    URLBAR_LEAST = 120          # ... and never narrower than this
+
+    def _fit_urlbar(self, place=False):
+        """Address bar: a share of the window width, with free room on both
+        sides. Buttons that would leave it less than URLBAR_MIN are moved
+        under the » button, the last ones first (see toolbar.spill).
+        place=True: the arrangement changed, put the buttons in place anyway."""
+        if not hasattr(self, "urlbar") or not hasattr(self, "toolbar_layout"):
             return
-        share = max(30, min(100, int(self.app.config["urlbar_width"]))) / 100.0
-        skip = (self.urlbar_act, self.space_left_act, self.space_right_act)
-        other = 0
-        for a in self.nav.actions():
-            if a in skip or not a.isVisible():
+        from .toolbar import LEFT, RIGHT, spill
+        nav, layout = self.nav, self.toolbar_layout
+        movable = {act for _key, act, _anchor in self._nav_items}
+        skip = (self.urlbar_act, self.space_left_act, self.space_right_act, self.more_act)
+        fixed = 0                                # everything that is neither a movable button nor the bar
+        for a in nav.actions():
+            if a in skip or a in movable or not a.isVisible():
                 continue
-            w = self.nav.widgetForAction(a)
+            w = nav.widgetForAction(a)
             if w is not None:
-                other += w.sizeHint().width() + 2
-        room = self.nav.width() - other - 16
-        width = max(180, min(int(self.width() * share), room))
+                fixed += w.sizeHint().width() + 2
+        back = nav.widgetForAction(self.act_back)
+        usual = (back.sizeHint().width() if back is not None else nav.iconSize().width() + 14) + 2
+        more = self.more_btn.sizeHint().width() + 2
+        shown = layout.shown(LEFT) + layout.shown(RIGHT)
+        for _attempt in (1, 2):                  # a button is measured once the toolbar has built it
+            known = dict(self._tool_widths)
+            widths = [(key, known.get(key, usual)) for key in shown]
+            space = nav.width() - fixed - 16     # for the buttons and the address bar
+            spilled = set()
+            if sum(w for _k, w in widths) > space - self.URLBAR_MIN:
+                space -= more
+                spilled = set(spill(widths, space - self.URLBAR_MIN))
+            if place or spilled != self.toolbar_spilled:
+                place = False
+                self.toolbar_spilled = spilled
+                self._place_toolbar_buttons()
+                self.toolbar_mover.refresh()
+            if self._tool_widths == known:
+                break
+        room = space - sum(w for key, w in widths if key not in spilled)
+        share = max(30, min(100, int(self.app.config["urlbar_width"]))) / 100.0
+        width = max(self.URLBAR_LEAST, min(int(self.width() * share), room))
         self.urlbar.setFixedWidth(width)
         self._urlbar_width, self._urlbar_room = width, room
         QTimer.singleShot(0, self._centre_urlbar)        # after the toolbar's layout
@@ -1638,33 +1799,51 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             left.setFixedWidth(pad)
 
     def _toolbar_menu(self, pos):
-        """Right click on the toolbar: choose which buttons it shows."""
+        """Right click on the toolbar: choose which buttons it shows, or arrange them."""
         child = self.nav.childAt(pos)
         if child is not None and child not in self._nav_spacers \
                 and not isinstance(child, QToolButton):
             return
-        cfg = self.app.config
-        m = QMenu(self)
+        m = effects.fading(QMenu(self), self.app.config)
         title = m.addAction(T("Toolbar buttons"))
         title.setEnabled(False)
         m.addSeparator()
-        for key, act, _anchor in self._nav_items:
+        self._fill_toolbar_buttons(m, clear=False)
+        m.addSeparator()
+        m.addAction(self.act_customise)
+        reset = m.addAction(T("Reset to default layout"))
+        chosen = m.exec(self.nav.mapToGlobal(pos))
+        if chosen is reset:
+            self.reset_toolbar()
+        elif chosen is not None and chosen.data():
+            self._toolbar_button_toggled(chosen)
+        m.deleteLater()
+
+    def _fill_toolbar_buttons(self, menu, clear=True):
+        """One checkable entry for each button that can be shown or hidden."""
+        if clear:
+            menu.clear()
+        hidden = self.app.config["toolbar_hidden"]
+        for key, act in (("back", self.act_back), ("forward", self.act_fwd), ("home", self.act_home)) \
+                + tuple((key, act) for key, act, _anchor in self._nav_items):
             if key in ("shield", "menu"):
                 continue
-            a = m.addAction(act.icon(), act.text())
+            a = menu.addAction(act.icon(), act.text())
             a.setCheckable(True)
-            a.setChecked(key not in cfg["toolbar_hidden"])
+            a.setChecked(key not in hidden)
             a.setData(key)
-        chosen = m.exec(self.nav.mapToGlobal(pos))
-        if chosen is None or not chosen.data():
-            return
+
+    def _toolbar_button_toggled(self, chosen):
+        cfg = self.app.config
         key = chosen.data()
+        if not key:
+            return
         hidden = [k for k in cfg["toolbar_hidden"] if k != key]
         if not chosen.isChecked():
             hidden.append(key)
         cfg["toolbar_hidden"] = hidden
         cfg.save()
-        self.app.refresh_windows()
+        self.app.refresh_toolbars()
 
     def clear_site_data(self):
         """Delete cookies and stored data of the site in the current tab."""
@@ -1703,7 +1882,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         """Colour the toolbars and tabs for an interface theme (None = none)."""
         if theme is None and not getattr(self, "_themed", False):
             return                       # "Follow the system": nothing to undo
-        from . import themes
+        from . import cyber, themes
+        # The Cyber theme's shapes first, or their removal: taking a style sheet off a
+        # widget gives it back the colours it had before, which the theme then replaces.
+        cyber.apply(self)
         themes.style_window(self, theme)
         self._themed = theme is not None
 

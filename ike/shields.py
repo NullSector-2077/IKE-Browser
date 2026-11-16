@@ -1,6 +1,7 @@
 """Protection layer: request interception, cookies, injected scripts, profile."""
 
 import json
+import os
 import secrets
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
@@ -11,6 +12,7 @@ from PyQt6.QtWebEngineCore import (
     QWebEngineSettings,
     QWebEngineUrlRequestInfo,
     QWebEngineUrlRequestInterceptor,
+    QWebEngineUrlRequestJob,
     QWebEngineUrlScheme,
     QWebEngineUrlSchemeHandler,
 )
@@ -52,6 +54,62 @@ for _name, _kind in (
     if _value is not None:
         _TYPES[_value] = _kind
 _LOCAL = ("localhost", "127.0.0.1", "::1")
+
+# --- pages opened from a file ------------------------------------------
+# Qt WebEngine lets a page opened from a file read every other file of the
+# computer (fetch, XMLHttpRequest, the content of a framed file); its own
+# switch for that also stops the page's pictures and style sheets, so the rules
+# are applied here, request by request (Interceptor._local_file):
+#   - fetch / XMLHttpRequest / beacons to files: never (as in Chrome and Firefox);
+#   - pictures, media, style sheets, scripts, fonts: from anywhere, as always;
+#   - frames, embedded objects and everything else, whose content the page
+#     could read: only from the page's own folder; for a page lying directly
+#     in a shared folder (home, Downloads, Desktop, Documents, ... or /tmp),
+#     only from the "<name>_files" folder a saved page keeps its parts in.
+_FILE_NEVER = frozenset(t for t in (getattr(_RT, n, None) for n in (
+    "ResourceTypeXhr", "ResourceTypePing", "ResourceTypeCspReport", "ResourceTypeJson")) if t is not None)
+_FILE_ANYWHERE = frozenset(t for t in (getattr(_RT, n, None) for n in (
+    "ResourceTypeImage", "ResourceTypeMedia", "ResourceTypeStylesheet", "ResourceTypeScript",
+    "ResourceTypeFontResource", "ResourceTypeFavicon")) if t is not None)
+_shared_folders = None
+
+
+def shared_folders(extra=()):
+    """Folders that hold unrelated files of the user: a page lying directly in
+    one of them is not given the whole folder."""
+    global _shared_folders
+    if _shared_folders is None:
+        from PyQt6.QtCore import QStandardPaths
+        L = QStandardPaths.StandardLocation
+        found = {os.path.realpath(os.path.expanduser("~")), "/", "/tmp", "/var/tmp", "/dev/shm"}
+        for loc in (L.HomeLocation, L.DesktopLocation, L.DocumentsLocation, L.DownloadLocation,
+                    L.MusicLocation, L.MoviesLocation, L.PicturesLocation, L.TempLocation):
+            for path in QStandardPaths.standardLocations(loc):
+                if path:
+                    found.add(os.path.realpath(path))
+        _shared_folders = found
+    return _shared_folders | {os.path.realpath(p) for p in extra if p}
+
+
+def local_file_in_reach(page, target, shared=()):
+    """May the page opened from the file `page` embed the file `target` as a
+    frame or object? (see the rules above; links are followed first, so a link
+    inside the page's folder that points elsewhere does not widen it)"""
+    try:
+        if not page or not target or "\0" in page or "\0" in target:
+            return False
+        page, target = os.path.realpath(page), os.path.realpath(target)
+    except (OSError, ValueError):
+        return False
+    folder = os.path.dirname(page)
+    if folder in shared:
+        stem = os.path.splitext(os.path.basename(page))[0]
+        if not stem:
+            return False
+        root = os.path.join(folder, stem + "_files")
+    else:
+        root = folder
+    return target == page or target.startswith(root.rstrip(os.sep) + os.sep)
 
 
 def register_scheme():
@@ -107,11 +165,34 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         if not self.quiet:
             self.s.count(host, kind)
 
+    def _local_file(self, info, url):
+        """A request for a file of the computer: is it allowed? (rules at the top)"""
+        rtype = info.resourceType()
+        if rtype == _RT.ResourceTypeMainFrame:
+            return True                      # opening a file: the engine's own rules apply
+        first = info.firstPartyUrl()
+        if first.scheme() != "file":
+            # A web page never gets a file (the engine refuses that itself);
+            # the engine's own viewers may fetch the file they were opened for.
+            web = ("http", "https", "ws", "wss", "data", "blob", "ike")
+            return first.scheme() not in web and info.initiator().scheme() not in web
+        if rtype in _FILE_NEVER:
+            return False
+        if rtype in _FILE_ANYWHERE:
+            return True
+        cfg = self.s.config
+        return local_file_in_reach(first.toLocalFile(), url.toLocalFile(),
+                                   shared_folders((cfg["download_dir"],)))
+
     def interceptRequest(self, info):
         s = self.s
         cfg = s.config
         url = info.requestUrl()
         scheme = url.scheme()
+        if scheme == "file":
+            if not self._local_file(info, url):
+                info.block(True)
+            return
         if scheme not in ("http", "https", "ws", "wss"):
             return
         rtype = info.resourceType()
@@ -215,24 +296,59 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
 
 
 class IkeSchemeHandler(QWebEngineUrlSchemeHandler):
-    """Serves ike:newtab and ike:search?q=..."""
+    """Serves ike:newtab, ike:search?q=..., ike:logo and ike:background.
+
+    Only to I.K.E. itself: a request that comes from a web page (a picture,
+    a frame, a form, a link) is refused. Otherwise any site could recognise
+    the browser by loading its logo, or show the user's own new tab page
+    inside a page of its own."""
 
     def __init__(self, shields):
         super().__init__(shields)
         self.s = shields
 
+    @staticmethod
+    def own_request(job):
+        """True for the address bar, bookmarks and the like (no initiator) and
+        for requests made by I.K.E.'s own pages."""
+        who = job.initiator()
+        return who.isEmpty() or who.scheme() == "ike"
+
     def requestStarted(self, job):
         url = job.requestUrl()
         path = url.path()
+        if not self.own_request(job):
+            job.fail(QWebEngineUrlRequestJob.Error.RequestDenied)
+            return
         if path == "search":
             from PyQt6.QtCore import QUrlQuery
             q = QUrlQuery(url).queryItemValue("q", QUrl.ComponentFormattingOption.FullyDecoded)
             q = q.replace("+", " ")
             job.redirect(QUrl(self.s.search_url(q)))
             return
-        if path == "logo":
+        if path in ("tile", "theme"):
+            # answers given on the new tab page itself (a tile hidden or added, the
+            # suggestion of the Cyber theme); the page is shown again afterwards
+            from PyQt6.QtCore import QUrlQuery
+            items = QUrlQuery(url).queryItems(QUrl.ComponentFormattingOption.FullyDecoded)
+            self.s.newtab_answer(path, {k: v.replace("+", " ") if path == "theme" else v for k, v in items})
+            job.redirect(QUrl("ike:newtab"))
+            return
+        if path == "favicon":
+            data = self.s.favicon_png(QUrlQuery_value(url, "h"))
+            mime = b"image/png"
+            if not data:
+                job.fail(QWebEngineUrlRequestJob.Error.UrlNotFound)
+                return
+        elif path == "logo":
             data = (RES_DIR / "ike.svg").read_bytes()
             mime = b"image/svg+xml"
+        elif path == "background":
+            from . import newtabbg
+            data, mime = newtabbg.content(self.s.config)         # the user's own photo
+            if data is None:
+                job.fail(QWebEngineUrlRequestJob.Error.RequestDenied)
+                return
         else:
             data = self.s.newtab_html().encode("utf-8")
             mime = b"text/html"
@@ -242,8 +358,14 @@ class IkeSchemeHandler(QWebEngineUrlSchemeHandler):
         job.reply(mime, buf)
 
 
+def QUrlQuery_value(url, key):
+    from PyQt6.QtCore import QUrlQuery
+    return QUrlQuery(url).queryItemValue(key, QUrl.ComponentFormattingOption.FullyDecoded)
+
+
 class Shields(QObject):
     blocked = pyqtSignal(str)  # first-party host
+    theme_changed = pyqtSignal()     # the theme was changed from the new tab page
 
     def __init__(self, config, blocker, parent=None):
         super().__init__(parent)
@@ -263,7 +385,9 @@ class Shields(QObject):
         self.scheme_handler = IkeSchemeHandler(self)
         self._fp_src = (RES_DIR / "fingerprint.js").read_text("utf-8")
         self._consent_src = (RES_DIR / "consent.js").read_text("utf-8")
-        self._newtab_src = (RES_DIR / "newtab.html").read_text("utf-8")
+        # the full name is drawn as paths (tools/make-brand.py), in the colour of the page text
+        self._newtab_src = (RES_DIR / "newtab.html").read_text("utf-8").replace(
+            "{{wordmark}}", (RES_DIR / "wordmark.svg").read_text("utf-8").strip())
         self._videoads_src = (RES_DIR / "videoads.js").read_text("utf-8")
         self._videorelay_src = (RES_DIR / "videorelay.js").read_text("utf-8")
         self._site_lru = {}              # id(profile) -> [host, ...] most recent last
@@ -278,7 +402,8 @@ class Shields(QObject):
             st = self.stats[host] = dict.fromkeys(self.KINDS, 0)
         st[kind] += 1
         if kind in ("ads", "scripts"):
-            self.config.data["blocked_total"] += 1
+            from . import newtab
+            newtab.count_blocked(self.config)        # the total and the month's own count
             self.blocked.emit(host)
 
     def site_stats(self, host):
@@ -292,6 +417,37 @@ class Shields(QObject):
         self.stats.pop(host, None)
 
     # --- search / new tab --------------------------------------------
+    def favicon_png(self, host):
+        """PNG of the icon kept for a site (for the tiles), or b""."""
+        icons = getattr(self.parent(), "favicons", None)
+        if icons is None or not host or len(host) > 255:
+            return b""
+        row = icons.db.execute("SELECT png FROM icons WHERE host=?", (host.lower(),)).fetchone()
+        return bytes(row[0]) if row and row[0] else b""
+
+    def newtab_answer(self, what, query):
+        """A choice made on the new tab page: a tile hidden or added, the Cyber theme tried or left."""
+        from . import newtab
+        app = self.parent()
+        storage = getattr(app, "storage", None)
+        if what == "tile":
+            if query.get("hide"):
+                newtab.hide_tile(self.config, query["hide"])
+            address = newtab.web_address(query.get("add", ""))
+            if address:
+                newtab.put_first(self.config, address)
+            if address and storage is not None and not storage.is_bookmarked(address):
+                from urllib.parse import urlsplit
+                host = urlsplit(address).hostname or address
+                storage.add_bookmark(address, host[4:] if host.startswith("www.") else host)
+                refresh = getattr(app, "refresh_windows", None)
+                if refresh is not None:
+                    from PyQt6.QtCore import QTimer
+                    QTimer.singleShot(0, refresh)             # the bookmarks bar and menu
+        elif newtab.answer_hint(self.config, query):
+            self.theme_changed.emit()
+        self.config.save()
+
     def search_url(self, query, engine=None):
         e = self.config.engine(engine)
         return e["url"].replace("{q}", quote(query, safe=""))
@@ -314,14 +470,28 @@ class Shields(QObject):
             corner += '<div class="clock" id="clock"></div><div class="date" id="date"></div>'
         if self.config["newtab_weather"]:
             corner += '<div class="weather" id="weather">%s</div>' % _html.escape(self.weather_text())
-        from . import i18n
+        from . import i18n, newtabbg
         html = html.replace("{{corner}}", corner).replace("{{lang}}", i18n.current().replace("_", "-"))
+        from . import effects, newtab, themes
+        photo = newtabbg.style(self.config)
+        theme = themes.current(self.config)
+        classes = newtab.body_class(self.config, theme) + ("" if photo else " plain")
+        if not themes.is_cyber(theme):
+            # the rules of the Cyber look are left out when they are not used: less for the page to work through
+            a, b = html.find("/*CYBER*/"), html.find("/*END*/")
+            if 0 <= a < b:
+                html = html[:a] + html[b + 7:]
+        html = html.replace("{{background}}", photo)
+        app = self.parent()
         for k, v in {
-            "{{placeholder}}": T("Search with %s or enter address") % e["name"],
-            "{{blocked}}": "{:,}".format(self.config["blocked_total"]).replace(",", "."),
-            "{{blocked_label}}": T("trackers and ads blocked"),
-            "{{level_label}}": T("Protection level"),
-            "{{level}}": T(LEVEL_NAMES[self.config["shield_level"]]),
+            "{{placeholder}}": _html.escape(T("Search with %s or enter address") % e["name"], quote=True),
+            "{{class}}": classes.strip(),
+            # the counter counts up with the Cyber theme only: the desktop's look stays as it was
+            "{{effects}}": "true" if themes.is_cyber(theme) and effects.on(self.config) else "false",
+            "{{tiles}}": newtab.tiles_html(self.config, getattr(app, "storage", None)),
+            "{{stats}}": newtab.stats_html(self.config, T("Protection level"),
+                                           T(LEVEL_NAMES[self.config["shield_level"]])),
+            "{{hint}}": newtab.hint_html(self.config, theme),
         }.items():
             html = html.replace(k, v)
         return html
@@ -629,7 +799,7 @@ class Shields(QObject):
                 out.append(c)
         return out
 
-    def dark_for(self, host, system_dark=False):
+    def dark_for(self, host):
         """Whether this host should use the selected dark renderer."""
         cfg = self.config
         on = cfg["dark_mode"] == "on"

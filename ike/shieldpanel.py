@@ -1,8 +1,8 @@
 """The shield: its toolbar icon and the panel that opens from it."""
 
 
-from PyQt6.QtCore import QPointF, QRect, QSize, Qt, QTimer
-from PyQt6.QtGui import QColor, QIcon, QPainter, QPainterPath, QPixmap
+from PyQt6.QtCore import QPointF, QRect, QRectF, QSize, Qt, QTimer
+from PyQt6.QtGui import QColor, QIcon, QIconEngine, QPainter, QPainterPath, QPixmap
 from PyQt6.QtWebEngineCore import QWebEnginePage
 from PyQt6.QtWidgets import QCheckBox, QComboBox, QFrame, QLabel, QPushButton, QToolButton, QVBoxLayout, QWidget
 
@@ -13,77 +13,111 @@ from .i18n import T
 LEVEL_LETTER = {"compatibility": "C", "balanced": "B", "strict": "S", "maximum": "M"}
 
 
-def shield_icon(level, size=22):
-    """Shield glyph tinted by protection level."""
-    pm = QPixmap(size * 2, size * 2)
-    pm.setDevicePixelRatio(2)
-    pm.fill(Qt.GlobalColor.transparent)
-    p = QPainter(pm)
+# The toolbar's shield is drawn larger than the plain glyph, inside the same
+# icon box: the button and its click area keep their size.
+TOOLBAR_SHIELD_GROW = 1.18
+
+
+def paint_shield(p, rect, level, grow=1.0):
+    """Draw the shield for a protection level into rect (any size, any scale)."""
+    from PyQt6.QtGui import QFont, QGuiApplication, QLinearGradient, QPalette
+    side = min(rect.width(), rect.height())
+    s = side / 24.0
+    p.save()
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    s = size / 24.0
+    p.translate(rect.x() + (rect.width() - side) / 2.0, rect.y() + (rect.height() - side) / 2.0)
+
+    def pt(x, y):
+        return QPointF((12 + (x - 12) * grow) * s, (12 + (y - 12) * grow) * s)
     path = QPainterPath()
-    path.moveTo(12 * s, 2 * s)
-    path.lineTo(20 * s, 5 * s)
-    path.lineTo(20 * s, 11.5 * s)
-    path.cubicTo(20 * s, 16.5 * s, 16.6 * s, 20.3 * s, 12 * s, 22 * s)
-    path.cubicTo(7.4 * s, 20.3 * s, 4 * s, 16.5 * s, 4 * s, 11.5 * s)
-    path.lineTo(4 * s, 5 * s)
+    path.moveTo(pt(12, 2))
+    path.lineTo(pt(20, 5))
+    path.lineTo(pt(20, 11.5))
+    path.cubicTo(pt(20, 16.5), pt(16.6, 20.3), pt(12, 22))
+    path.cubicTo(pt(7.4, 20.3), pt(4, 16.5), pt(4, 11.5))
+    path.lineTo(pt(4, 5))
     path.closeSubpath()
-    from PyQt6.QtGui import QFont, QGuiApplication, QPalette
     pal = QGuiApplication.palette()
-    if level == "off":
-        color = pal.color(QPalette.ColorGroup.Disabled, QPalette.ColorRole.WindowText)
-        fg = pal.color(QPalette.ColorRole.Window)
-    else:
-        color = pal.color(QPalette.ColorRole.Highlight)
-        fg = pal.color(QPalette.ColorRole.HighlightedText)
     p.setPen(Qt.PenStyle.NoPen)
     if level == "off":
-        p.setBrush(color)
+        p.setBrush(pal.color(QPalette.ColorGroup.Disabled, QPalette.ColorRole.WindowText))
         p.drawPath(path)
+        pen = p.pen()
+        pen.setStyle(Qt.PenStyle.SolidLine)
+        pen.setColor(pal.color(QPalette.ColorRole.Window))
+        pen.setWidthF(2.0 * s * grow)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        p.setPen(pen)
+        p.drawLine(pt(9, 9), pt(15, 15))
+        p.drawLine(pt(15, 9), pt(9, 15))
     else:
         # the colours of the I.K.E. icon: a light-blue rim around a dark-blue
         # centre, so the white letter is readable on any theme
-        from PyQt6.QtGui import QLinearGradient
-        rim = QLinearGradient(QPointF(4 * s, 2 * s), QPointF(20 * s, 22 * s))
+        rim = QLinearGradient(pt(4, 2), pt(20, 22))
         rim.setColorAt(0.0, QColor("#7df3ff"))
         rim.setColorAt(0.45, QColor("#19c3e6"))
         rim.setColorAt(1.0, QColor("#2f6bff"))
         p.setBrush(rim)
         p.drawPath(path)
         inner = QPainterPath()
-        inner.moveTo(12 * s, 4.1 * s)
-        inner.lineTo(18.2 * s, 6.4 * s)
-        inner.lineTo(18.2 * s, 11.5 * s)
-        inner.cubicTo(18.2 * s, 15.6 * s, 15.5 * s, 18.7 * s, 12 * s, 20.1 * s)
-        inner.cubicTo(8.5 * s, 18.7 * s, 5.8 * s, 15.6 * s, 5.8 * s, 11.5 * s)
-        inner.lineTo(5.8 * s, 6.4 * s)
+        inner.moveTo(pt(12, 4.1))
+        inner.lineTo(pt(18.2, 6.4))
+        inner.lineTo(pt(18.2, 11.5))
+        inner.cubicTo(pt(18.2, 15.6), pt(15.5, 18.7), pt(12, 20.1))
+        inner.cubicTo(pt(8.5, 18.7), pt(5.8, 15.6), pt(5.8, 11.5))
+        inner.lineTo(pt(5.8, 6.4))
         inner.closeSubpath()
-        core = QLinearGradient(QPointF(12 * s, 4 * s), QPointF(12 * s, 20 * s))
+        core = QLinearGradient(pt(12, 4), pt(12, 20))
         core.setColorAt(0.0, QColor("#12324a"))
         core.setColorAt(1.0, QColor("#07131f"))
         p.setBrush(core)
         p.drawPath(inner)
-        fg = QColor("#ffffff")
-    if level == "off":
-        pen = p.pen()
-        p.setPen(fg)
-        pen = p.pen()
-        pen.setWidthF(2.0 * s)
-        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        p.setPen(pen)
-        p.drawLine(QPointF(9 * s, 9 * s), QPointF(15 * s, 15 * s))
-        p.drawLine(QPointF(15 * s, 9 * s), QPointF(9 * s, 15 * s))
-    else:
         f = QFont(p.font())
         f.setBold(True)
-        f.setPixelSize(max(7, int(11 * s)))
+        f.setPixelSize(max(7, round(11 * s * grow)))
         p.setFont(f)
-        p.setPen(fg)
-        p.drawText(QRect(0, int(1 * s), size, int(19 * s)), Qt.AlignmentFlag.AlignCenter,
-                   LEVEL_LETTER.get(level, "B"))
-    p.end()
-    return QIcon(pm)
+        p.setPen(QColor("#ffffff"))
+        # the letter sits a little above the middle, where the shield is widest
+        box = QRectF(pt(4, 0.3), pt(20, 18.3))
+        p.drawText(box, Qt.AlignmentFlag.AlignCenter, LEVEL_LETTER.get(level, "B"))
+    p.restore()
+
+
+class _ShieldEngine(QIconEngine):
+    """The shield drawn as shapes each time it is needed, so it is sharp at
+    every size and screen scale and follows the palette."""
+
+    def __init__(self, level, grow):
+        super().__init__()
+        self.level, self.grow = level, grow
+
+    def clone(self):
+        return _ShieldEngine(self.level, self.grow)
+
+    def paint(self, painter, rect, mode, state):
+        if mode == QIcon.Mode.Disabled:
+            painter.save()
+            painter.setOpacity(painter.opacity() * 0.45)
+        paint_shield(painter, QRectF(rect), self.level, self.grow)
+        if mode == QIcon.Mode.Disabled:
+            painter.restore()
+
+    def pixmap(self, size, mode, state):
+        pm = QPixmap(size)
+        pm.fill(Qt.GlobalColor.transparent)
+        p = QPainter(pm)
+        self.paint(p, QRect(0, 0, size.width(), size.height()), mode, state)
+        p.end()
+        return pm
+
+    def availableSizes(self, mode=QIcon.Mode.Normal, state=QIcon.State.Off):
+        return [QSize(s, s) for s in (16, 20, 22, 24, 32, 48)]
+
+
+def shield_icon(level, size=22, grow=1.0):
+    """Shield glyph for a protection level. `size` is kept for callers that
+    name one; the icon draws itself at whatever size it is shown."""
+    return QIcon(_ShieldEngine(level, grow))
 
 
 class ShieldPanel(QWidget):
@@ -178,6 +212,10 @@ class ShieldPanel(QWidget):
         lay.addWidget(self.master)
         lay.addWidget(self.count)
         lay.addWidget(self.count_label)
+        from .cyber import KindRing
+        self.kinds = KindRing(self)          # the Cyber theme: what was blocked, by kind
+        self.kinds.hide()
+        lay.addWidget(self.kinds)
         lay.addWidget(QLabel(T("Protection on this site"), self))
         lay.addWidget(self.site_level)
         lay.addWidget(self.hint)
@@ -234,6 +272,10 @@ class ShieldPanel(QWidget):
                             else T("Protection is OFF for this site"))
         st = sh.site_stats(host)
         self.count.setText(str(st["ads"] + st["scripts"]))
+        from . import cyber
+        self.kinds.show_stats(cyber.look(cfg), st, {
+            "ads": T("ads and trackers"), "scripts": T("scripts"), "cookies": T("cookies"),
+            "https": T("upgrades to HTTPS"), "params": T("tracking parameters")})
         self.site_level.setCurrentIndex(LEVELS.index(level))
         self.global_level.setCurrentIndex(LEVELS.index(cfg["shield_level"]))
         self.hint.setText(T(self.HINTS[level]))

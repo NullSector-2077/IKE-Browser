@@ -14,6 +14,7 @@ from urllib.parse import urlsplit
 
 from PyQt6.QtCore import QObject, QThread, pyqtSignal
 
+from . import background
 from .config import CACHE_DIR, DATA_DIR
 from .scriptlets import preprocess
 
@@ -293,7 +294,17 @@ class Blocker(QObject):
             pass
 
     def load(self):
-        """Build the engine from cached lists (uses a serialized cache)."""
+        """Build the engine from cached lists (uses a serialized cache).
+
+        Called at start, after every list update and whenever the settings
+        are applied; when neither the lists nor the filter settings changed
+        since the last time, the engine in use is kept (reading it again from
+        the cache takes about 0.2 s with the standard lists, in the interface's
+        own thread)."""
+        signature = self._signature()
+        if getattr(self, "_loaded", None) == signature and (self.engine is not None or self.fallback is not None):
+            return
+        self._loaded = signature
         self.engine = self.fallback = None
         texts = None
         self._load_scriptlets()
@@ -312,8 +323,17 @@ class Blocker(QObject):
                 if texts:
                     fs = adblock.FilterSet()
                     for t in texts:
-                        fs.add_filter_list(t)
-                    self.engine = adblock.Engine(fs)
+                        try:
+                            fs.add_filter_list(t)
+                        except Exception as exc:        # one unreadable list: the others still count
+                            self._engine_error("a filter list", "", exc)
+                    try:
+                        self.engine = adblock.Engine(fs)
+                    except Exception as exc:
+                        # no engine this time: pages load unfiltered rather than not at all
+                        self._engine_error("building the engine", "", exc)
+                        self.engine = None
+                if self.engine is not None:
                     try:
                         for old in CACHE_DIR.glob("engine-*.dat"):
                             old.unlink()
@@ -363,7 +383,7 @@ class Blocker(QObject):
         self._fast = fast
         self._thread = _Downloader(urls, self)
         self._thread.done.connect(self._downloaded)
-        self._thread.start()
+        background.start(self._thread)
 
     def _downloaded(self, ok, failed):
         self._thread = None

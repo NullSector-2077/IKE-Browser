@@ -41,7 +41,8 @@ SCRIPT = """
 @pytest.mark.parametrize("lang", ["en", "it", "de", "fr", "es", "pt", "zh", "ja"])
 def test_settings_dialog(run_ike, lang):
     out = run_ike(SCRIPT, settings={"language": lang})
-    assert out["sections"] == 7 and out["pages"] == 7
+    assert out["sections"] == 8 and out["pages"] == 8          # 1.1.0 added "New tab page"
+    assert out["sideways"]["newtab"] == 0, out["sideways"]
     assert all(out["icons"])
     assert out["sideways"]["appearance"] == 0, out["sideways"]
     assert out["sideways"]["general"] == 0, out["sideways"]

@@ -24,11 +24,17 @@ class VTabDelegate(QStyledItemDelegate):
     ZONE = 32            # width of the close area
     AUDIO = 26           # width of the speaker area
 
-    def __init__(self, view):
+    def __init__(self, view, config=None):
         super().__init__(view)
         self.view = view
         self.style_ = CloseButtonStyle()
+        from .effects import Glide
+        self._glide = Glide(self, config, lambda: self._repaint(self._hover[0]))
         self._hover = (-1, "")       # (row, "close" | "audio")
+        self.look = None             # the Cyber theme's look (see cyber.py), or None
+        self.group_of = lambda row: None     # colour of the tab group of a row
+        self.gliding = False         # the mark of the current row is being moved by cyber.MarkGlide
+        self.eq_phase = 0            # where the equaliser of a sounding tab is (see cyber.Equaliser)
         self._pressed = (-1, "")
         view.viewport().setMouseTracking(True)
         view.viewport().installEventFilter(self)
@@ -54,11 +60,6 @@ class VTabDelegate(QStyledItemDelegate):
             return (index.row(), "audio")
         return (index.row(), "")
 
-    def _row_at(self, pos):
-        """Row whose close area contains pos, or -1."""
-        row, area = self._hit(pos)
-        return row if area == "close" else -1
-
     def _repaint(self, *rows):
         for row in rows:
             if row >= 0:
@@ -74,6 +75,9 @@ class VTabDelegate(QStyledItemDelegate):
             if hit != self._hover:
                 old, self._hover = self._hover, hit
                 self._repaint(old[0], hit[0])
+                if hit[1] == "close":           # the red comes in gently, and leaves at once
+                    self._glide.jump(0)
+                    self._glide.to(1)
             return self._pressed[0] >= 0       # no drag while a button is held
         if t in (QEvent.Type.Leave, QEvent.Type.HoverLeave):
             if self._hover[0] >= 0:
@@ -115,9 +119,25 @@ class VTabDelegate(QStyledItemDelegate):
         text_rect = style.subElementRect(QStyle.SubElement.SE_ItemViewItemText, opt, widget)
         room = max(0, min(text_rect.right(), limit) - text_rect.left() - 4)
         opt.text = opt.fontMetrics.elidedText(opt.text, Qt.TextElideMode.ElideRight, room)
-        style.drawControl(QStyle.ControlElement.CE_ItemViewItem, opt, painter, widget)
         row = index.row()
         selected = bool(option.state & QStyle.StateFlag.State_Selected)
+        if self.look is not None:
+            # the Cyber theme: the row's surface is ours, the desktop's style adds icon and title
+            from PyQt6.QtGui import QBrush, QPalette
+
+            from . import cyber
+            cyber.paint_row(painter, option.rect, self.look, selected,
+                            bool(option.state & QStyle.StateFlag.State_MouseOver), self.group_of(row),
+                            with_mark=not self.gliding)
+            opt.state &= ~(QStyle.StateFlag.State_Selected | QStyle.StateFlag.State_MouseOver
+                           | QStyle.StateFlag.State_HasFocus)
+            opt.showDecorationSelected = False
+            opt.backgroundBrush = QBrush()
+            text = self.look.text if selected else self.look.mix(self.look.text, self.look.tabs, 0.3)
+            for group in (QPalette.ColorGroup.Active, QPalette.ColorGroup.Inactive):
+                opt.palette.setColor(group, QPalette.ColorRole.Text, text)
+            opt.rect = opt.rect.adjusted(8, 0, 0, 0)
+        style.drawControl(QStyle.ControlElement.CE_ItemViewItem, opt, painter, widget)
         if audio:
             from .icons import themed
             zone = self._audio_zone(option.rect)
@@ -126,15 +146,21 @@ class VTabDelegate(QStyledItemDelegate):
             painter.save()
             if self._hover != (row, "audio"):
                 painter.setOpacity(0.75)
-            ic.paint(painter, QRect(zone.center().x() - 8, zone.center().y() - 8, 16, 16),
-                     Qt.AlignmentFlag.AlignCenter, mode)
+            box = QRect(zone.center().x() - 8, zone.center().y() - 8, 16, 16)
+            if self.look is not None and audio == "on":
+                from . import cyber, effects
+                cyber.bars(painter, box.adjusted(1, 2, -1, -2), self.eq_phase, self.look.accent,
+                           effects.on(self.look.config))
+            else:
+                ic.paint(painter, box, Qt.AlignmentFlag.AlignCenter, mode)
             painter.restore()
         hovered = self._hover == (row, "close")
         pressed = self._pressed == (row, "close")
         if hovered or pressed or selected or option.state & QStyle.StateFlag.State_MouseOver:
-            self.style_.paint(painter, self._zone(option.rect), option.palette, hovered, pressed)
+            self.style_.paint(painter, self._zone(option.rect), option.palette, hovered, pressed,
+                              self._glide.value if hovered and self._glide.moving else None)
 
     def sizeHint(self, option, index):
         # a narrow hint: rows are as wide as the panel, never as wide as the title
         s = super().sizeHint(option, index)
-        return QSize(60, max(s.height(), 32))
+        return QSize(60, max(s.height(), 38 if self.look is not None else 32))

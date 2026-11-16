@@ -69,6 +69,39 @@ def _b64(b):
     return base64.b64encode(b).decode()
 
 
+def write_private(path, text):
+    """Write a file that only its owner can read, from the first moment (it
+    never exists, even briefly, with the usual permissions)."""
+    path = str(path)
+    try:
+        os.unlink(path)                  # an older file may have other permissions
+    except OSError:
+        pass
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
+        fh.write(text)
+
+
+CLIPBOARD_SECONDS = 45
+
+
+def copy_secret(text):
+    """Put a password on the clipboard: marked so that the desktop's clipboard
+    history (Klipper and others that follow the same hint) does not keep it,
+    and taken off again after a while if it is still there."""
+    from PyQt6.QtCore import QMimeData
+    clipboard = QGuiApplication.clipboard()
+    data = QMimeData()
+    data.setText(text)
+    data.setData("x-kde-passwordManagerHint", b"secret")
+    clipboard.setMimeData(data)
+
+    def clear():
+        if clipboard.text() == text:
+            clipboard.clear()
+    QTimer.singleShot(CLIPBOARD_SECONDS * 1000, clear)
+
+
 class Vault:
     def __init__(self, path=None):
         self.path = path or DATA_DIR / "vault.bin"
@@ -104,19 +137,12 @@ class Vault:
             nonce, data = base64.b64decode(blob["nonce"]), base64.b64decode(blob["data"])
         except (ValueError, KeyError, OSError):
             return False
-        from .legacy import LEGACY_VAULT_AAD
-        for aad in (_AAD, LEGACY_VAULT_AAD):
-            try:
-                plain = AESGCM(key).decrypt(nonce, data, aad)
-                break
-            except InvalidTag:
-                continue
-        else:
+        try:
+            plain = AESGCM(key).decrypt(nonce, data, _AAD)
+        except InvalidTag:
             return False
         self.entries = json.loads(plain.decode("utf-8"))
         self._key, self._salt = key, salt
-        if aad != _AAD:
-            self.save()                 # imported vault: sealed again as I.K.E.'s own
         return True
 
     def lock(self):
@@ -138,8 +164,7 @@ class Vault:
                 "data": _b64(data)}
         self.path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self.path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(blob), "utf-8")
-        os.chmod(tmp, 0o600)
+        write_private(tmp, json.dumps(blob))
         tmp.replace(self.path)
 
     # --- entries -----------------------------------------------------
@@ -447,7 +472,7 @@ class GeneratorDialog(QDialog):
         again = QPushButton(T("Generate another"))
         copy = QPushButton(T("Copy"))
         again.clicked.connect(self.regen)
-        copy.clicked.connect(lambda: QGuiApplication.clipboard().setText(self.out.text()))
+        copy.clicked.connect(lambda: copy_secret(self.out.text()))
         row.addWidget(again)
         row.addWidget(copy)
         lay.addLayout(row)
@@ -577,7 +602,7 @@ class PasswordsDialog(QDialog):
     def _copy(self):
         e = self._current()
         if e:
-            QGuiApplication.clipboard().setText(e["password"])
+            copy_secret(e["password"])
 
     def _toggle(self):
         self.shown = not self.shown
@@ -601,9 +626,10 @@ class PasswordsDialog(QDialog):
         path, _f = QFileDialog.getSaveFileName(self, T("Export passwords"), "ike-passwords.csv",
                                                "CSV (*.csv)")
         if path:
-            with open(path, "w", encoding="utf-8", newline="") as fh:
-                fh.write(self.vault.export_csv())
-            os.chmod(path, 0o600)
+            try:
+                write_private(path, self.vault.export_csv())
+            except OSError as exc:
+                QMessageBox.warning(self, "I.K.E.", str(exc))
 
     def _change(self):
         pw, ok = QInputDialog.getText(self, T("Change master password"), T("New master password:"),

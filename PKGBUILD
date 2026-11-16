@@ -4,7 +4,7 @@
 # sources are taken from the clone itself, so this also works while the
 # repository is private.
 pkgname=ike-browser
-pkgver=1.0.0
+pkgver=1.1.0
 pkgrel=1
 pkgdesc="I.K.E. - Internet Kontrol Experience: private, independent web browser"
 arch=('x86_64')
@@ -18,10 +18,6 @@ optdepends=('libnotify: desktop notifications'
             'xdg-utils: set I.K.E. as the default browser'
             'plasma-integration: Plasma theme, colours and file dialogs'
             'chromium-widevine: system-wide Widevine instead of the copy I.K.E. downloads')
-# replaces the browser's earlier package; its settings are imported at the
-# first start (ike/legacy.py)
-conflicts=('ice-browser')
-replaces=('ice-browser')
 install=ike-browser.install
 options=('!debug')
 source=()

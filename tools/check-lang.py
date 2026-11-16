@@ -3,7 +3,8 @@
 
 For each pack: missing and unknown strings, and translations that changed a
 placeholder (%s, %d, %%, {url}, {lang}, {q}), the number of "&" accelerators,
-or a final "…" / ":". Run from the repository root:
+or a final "…" / ":". Also: texts the program shows through T("...") that the
+packs do not have at all. Run from the repository root:
 
     python3 tools/check-lang.py [code ...]
 """
@@ -33,10 +34,31 @@ def problems(src, dst):
     return out
 
 
+def source_strings():
+    """{text: "file:line"} of the texts the program passes to T("...") as they
+    are written (texts built at run time cannot be found this way)."""
+    import ast
+    found = {}
+    for f in sorted((ROOT / "ike").glob("*.py")):
+        for node in ast.walk(ast.parse(f.read_text("utf-8"))):
+            if not isinstance(node, ast.Call) or not node.args:
+                continue
+            name = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
+            first = node.args[0]
+            if name in ("T", "_t") and isinstance(first, ast.Constant) and isinstance(first.value, str):
+                found.setdefault(first.value, "%s:%d" % (f.name, node.lineno))
+    return found
+
+
 def main(codes):
     if hasattr(sys.stdout, "reconfigure"):       # names such as Español on any console
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     strings = set(template())
+    # a text of the program that the reference pack does not have stays in
+    # English in every language: an error
+    untranslated = {k: v for k, v in source_strings().items() if k not in strings}
+    for text, where in sorted(untranslated.items(), key=lambda kv: kv[1]):
+        print("not in the language packs (%s): %r" % (where, text))
     folder = ROOT / "ike" / "resources" / "lang"
     files = [folder / (c + ".json") for c in codes] if codes else sorted(folder.glob("*.json"))
     bad = 0
@@ -54,7 +76,7 @@ def main(codes):
         for k in unknown:
             print("   unknown: %r" % k)
         bad += len(wrong)
-    return 1 if bad else 0
+    return 1 if bad or untranslated else 0
 
 
 if __name__ == "__main__":

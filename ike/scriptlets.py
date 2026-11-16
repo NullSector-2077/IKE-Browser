@@ -22,19 +22,72 @@ _RULE = re.compile(r"^([^#\s]*)#(@?)#\+js\((.*)\)\s*$")
 # mixes Firefox-only rules with the Chromium ones. I.K.E. answers as uBlock
 # Origin does on a Chromium engine without HTML filtering.
 _ENV = {"env_chromium": True, "ext_ublock": True, "cap_user_stylesheet": True}
-_PP_TOKEN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
-_PP_SAFE = re.compile(r"^[\sA-Za-z()]*$")
+_PP_TOKEN = re.compile(r"\s*(&&|\|\||!|\(|\)|[A-Za-z_][A-Za-z0-9_]*)")
+_PP_DEPTH = 40
 
 
 def _pp_eval(expr):
-    py = expr.replace("&&", " and ").replace("||", " or ").replace("!", " not ")
-    py = _PP_TOKEN.sub(lambda m: m.group(0) if m.group(0) in ("and", "or", "not")
-                       else str(bool(_ENV.get(m.group(0), False))), py)
-    if not _PP_SAFE.match(py):
+    """Value of a condition such as "env_chromium && !cap_html_filtering".
+
+    A small reader of its own (names, !, &&, ||, brackets): the text comes
+    from a downloaded list and is never handed to Python as code. A condition
+    that cannot be read counts as true: the rules are kept."""
+    tokens, pos = [], 0
+    while pos < len(expr):
+        m = _PP_TOKEN.match(expr, pos)
+        if m is None:
+            if expr[pos:].strip():
+                return True
+            break
+        tokens.append(m.group(1))
+        pos = m.end()
+    if not tokens or len(tokens) > 400:
         return True
+    at = [0]
+
+    def peek():
+        return tokens[at[0]] if at[0] < len(tokens) else None
+
+    def take():
+        at[0] += 1
+        return tokens[at[0] - 1]
+
+    def either(depth):                      # a || b
+        value = both(depth)
+        while peek() == "||":
+            take()
+            value = both(depth) or value
+        return value
+
+    def both(depth):                        # a && b
+        value = single(depth)
+        while peek() == "&&":
+            take()
+            value = single(depth) and value
+        return value
+
+    def single(depth):                      # !a, (a), name
+        if depth > _PP_DEPTH:
+            raise ValueError("too deep")
+        tok = take() if peek() is not None else None
+        if tok == "!":
+            return not single(depth + 1)
+        if tok == "(":
+            value = either(depth + 1)
+            if peek() != ")":
+                raise ValueError("unbalanced")
+            take()
+            return value
+        if tok is None or tok in ("&&", "||", ")"):
+            raise ValueError("unexpected")
+        return bool(_ENV.get(tok, False))
+
     try:
-        return bool(eval(py, {"__builtins__": {}}, {}))
-    except Exception:
+        value = either(0)
+        if peek() is not None:
+            raise ValueError("trailing text")
+        return bool(value)
+    except ValueError:
         return True               # unreadable condition: keep the rules
 
 
@@ -171,11 +224,9 @@ class Scriptlets:
         self.by_domain = {}        # domain -> [[name, args...]]
         self.negated = {}          # domain -> set of json rules excluded there
         self.exceptions = {}       # domain -> set of names ("" = all)
-        self._embed_cache = {}
 
     def clear(self):
         self.by_domain, self.negated, self.exceptions = {}, {}, {}
-        self._embed_cache = {}
 
     def add_list(self, text, trusted):
         lib = LIBRARY
@@ -246,9 +297,6 @@ class Scriptlets:
                 out.append(rule)
         return out
 
-    def has_rules(self, host):
-        return bool(self.for_host(host))
-
     def _split(self, host):
         """Rules of a host by the world they run in."""
         worlds = {"MAIN": [], "ISOLATED": []}
@@ -309,35 +357,6 @@ class Scriptlets:
             out[world] = "\n".join(code)
         return out
 
-    def embed_scripts(self, hosts):
-        """Like scripts_for, for sites that other pages embed (video players).
-
-        One script per world covers all the given hosts; it only does something
-        inside a frame whose host is one of them. It has to be installed with
-        the page itself: a frame of another site lives in its own process, and
-        only receives the scripts that existed when that process was set up.
-        """
-        key = tuple(hosts)
-        if key in self._embed_cache:
-            return self._embed_cache[key]
-        split = {h: self._split(h) for h in hosts}
-        out = {}
-        for world in ("MAIN", "ISOLATED"):
-            used = [h for h in hosts if split[h][world]]
-            if not used:
-                out[world] = ""
-                continue
-            every = [r for h in used for r in split[h][world]]
-            code = ["(function () {", "if (self === top) return;", _own_host(),
-                    "if (%s.indexOf(h) < 0) return;" % json.dumps(used),
-                    "const scriptletGlobals = {};", self._sources(every)]
-            for h in used:
-                code.append("if (h === %s) {\n%s\n}" % (json.dumps(h), self._calls(split[h][world])))
-            code.append("})();")
-            out[world] = "\n".join(code)
-        self._embed_cache[key] = out
-        return out
-
     # --- cache -------------------------------------------------------
     def dump(self):
         return json.dumps({"d": self.by_domain,
@@ -349,4 +368,3 @@ class Scriptlets:
         self.by_domain = data["d"]
         self.negated = {k: set(v) for k, v in data["n"].items()}
         self.exceptions = {k: set(v) for k, v in data["e"].items()}
-        self._embed_cache = {}

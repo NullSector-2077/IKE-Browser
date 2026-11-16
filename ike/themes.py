@@ -21,6 +21,9 @@ COLOURS = ("background", "text", "accent", "toolbar", "tabs")
 
 # names are translated when shown (see names())
 BUILTIN = {
+    # the theme with a look of its own (cut corners, luminous lines: see cyber.py)
+    "cyber": {"name": "I.K.E. Cyber", "background": "#070b14", "text": "#e6f1ff", "accent": "#2be4f5",
+              "toolbar": "#121c2e", "tabs": "#0a101c", "look": "cyber"},
     "ike": {"name": "I.K.E.", "background": "#0f1d2b", "text": "#e6f4ff", "accent": "#19c3e6",
             "toolbar": "#0a1622", "tabs": "#12324a"},
     "night": {"name": "Night", "background": "#1f2023", "text": "#e4e4e7", "accent": "#7aa2f7",
@@ -44,12 +47,23 @@ def names():
 def current(config):
     """The theme dict in use, or None (system / light / dark)."""
     choice = config["ui_scheme"] or "system"
+    if choice == "theme:cyber":
+        theme = dict(BUILTIN["cyber"])
+        accent = config.data.get("cyber_accent") if hasattr(config, "data") else ""
+        if isinstance(accent, str) and accent.startswith("#") and QColor.isValidColorName(accent):
+            theme["accent"] = accent
+        return theme
     if choice.startswith("theme:"):
         return BUILTIN.get(choice[6:])
     if choice.startswith("user:"):
         theme = (config["ui_themes"] or {}).get(choice[5:])
         return theme if valid(theme) else None
     return None
+
+
+def is_cyber(theme):
+    """Does this theme have the Cyber look (shapes and lines of its own)?"""
+    return isinstance(theme, dict) and theme.get("look") == "cyber"
 
 
 def valid(theme):
@@ -130,6 +144,12 @@ def apply(config, preview=None):
     was in use before, in which case the desktop's palette and font return."""
     app = QApplication.instance()
     theme = preview if preview is not None else current(config)
+    if preview is None:
+        from . import effects
+        for w in app.topLevelWidgets():          # the bars of each window: the new look comes in softly
+            if hasattr(w, "apply_theme") and w.isVisible():
+                effects.cross_fade([w.menuBar(), getattr(w, "nav", None), getattr(w, "htab_row", None),
+                                    getattr(w, "vtab_panel", None), getattr(w, "bookbar", None)], config)
     if theme is not None:
         if not _original:
             _original["palette"] = QPalette(app.palette())
@@ -168,7 +188,7 @@ def colour_scheme(config):
 
 def style_window(win, theme):
     """Toolbars and tabs of a browser window in the theme's colours."""
-    bars = [win.nav, win.menuBar(), getattr(win, "bookbar", None)]
+    bars = [win.nav, win.menuBar(), getattr(win, "bookbar", None), getattr(win, "custom_bar", None)]
     tabs = [getattr(win, n, None) for n in ("htab_row", "tabbar", "vtab_panel", "vtabs")]
     for widgets, key in ((bars, "toolbar"), (tabs, "tabs")):
         for w in widgets:

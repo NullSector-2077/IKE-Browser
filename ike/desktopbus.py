@@ -193,9 +193,6 @@ class Bus(QObject):
     def export(self, path, handler):
         self._objects[path] = handler
 
-    def unexport(self, path):
-        self._objects.pop(path, None)
-
     def call(self, dest, path, iface, member, sig=None, body=(), on_reply=None, on_error=None):
         msg = new_method_call(DBusAddress(path, dest, iface), member, sig, tuple(body))
         serial = self._send(msg)
@@ -229,9 +226,6 @@ class Bus(QObject):
             if kv[1])
         self.call(*DBUS, "AddMatch", "s", (rule,))
         self._signals.append((sender, path, iface, member, callback))
-
-    def name_has_owner(self, name, callback):
-        self.call(*DBUS, "NameHasOwner", "s", (name,), callback, lambda e: callback(False))
 
 
 def introspection(interfaces):

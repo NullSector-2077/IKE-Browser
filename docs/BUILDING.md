@@ -23,7 +23,16 @@ install -m755 ike-adblock/target/release/libike_adblock.so \
     vendor/adblock/ike_adblock.abi3.so
 ```
 
-`Cargo.lock` pins every dependency, so builds are repeatable. To move to a new
+`Cargo.lock` pins every dependency, so builds are repeatable. The module's own
+tests (a fault inside the engine must become an error, not the end of the
+browser) are an ordinary Rust program, built without the default
+`extension-module` feature:
+
+```bash
+cargo test --no-default-features --locked --manifest-path ike-adblock/Cargo.toml
+```
+
+To move to a new
 engine version, change `adblock = "=..."` in `Cargo.toml` and `ENGINE_VERSION`
 in `src/lib.rs`, then run `cargo update -p adblock` (or let
 `python3 tools/check-components.py --apply` do all three).
