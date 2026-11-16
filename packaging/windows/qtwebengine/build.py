@@ -82,6 +82,9 @@ FORBIDDEN_STRINGS = (
     b"Input buffer exhausted before END element found", # FFmpeg aacdec
     b"channel element %d.%d is not allocated",          # FFmpeg aacdec
     b"invalid band type",                               # FFmpeg aacdec
+    b"Prediction is not allowed in AAC-LC",             # FFmpeg aacdec
+    b"sps_id %u out of range",                          # FFmpeg h264_ps.c
+    b"Missing reference picture, default is %d",        # FFmpeg h264_refs.c
     b"WelsCreateSVCEncoder",                            # OpenH264
     b"WelsCreateDecoder",                               # OpenH264
     b"CWelsH264SVCEncoder",                             # OpenH264
