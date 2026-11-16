@@ -2,6 +2,7 @@
 simulates the attack or the fault on this computer only (local files, a local
 web server), never against another site."""
 
+import errno
 import json
 import os
 import socket
@@ -13,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
-from conftest import APP, ROOT, needs_engine, self_update
+from conftest import APP, IN_FLATPAK_SANDBOX, ROOT, needs_engine, self_update
 
 JS = r'''
 import json
@@ -436,8 +437,16 @@ def test_instance_socket_is_private_to_the_user(run_ike, tmp_path, monkeypatch):
         s = socket.socket(socket.AF_UNIX)
         try:
             s.bind(str(squat))
-            os.chown(squat, 12345, 12345)
-            assert app.instance_addresses()[1][1] is False
+            try:
+                os.chown(squat, 12345, 12345)
+            except OSError as e:
+                # inside a Flatpak sandbox the user namespace maps one user
+                # only: no file can belong to another (EINVAL); the check of a
+                # foreign owner runs in every other workflow
+                if e.errno != errno.EINVAL or not IN_FLATPAK_SANDBOX:
+                    raise
+            else:
+                assert app.instance_addresses()[1][1] is False
             os.chown(squat, 0, 0)
             assert app.instance_addresses()[1][1] is True
         finally:
