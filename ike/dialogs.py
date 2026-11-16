@@ -894,7 +894,8 @@ class SettingsDialog(QDialog):
         job = self._drm_job = drm.Installer(self, zip_path)
         job.finished_ok.connect(self._drm_done)
         job.failed.connect(lambda why: self._drm_refresh(T("Not installed: %s") % why))
-        job.start()
+        from . import background
+        background.start(job)
 
     def _drm_download(self):
         if self._drm_consent():

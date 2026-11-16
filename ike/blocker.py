@@ -14,6 +14,7 @@ from urllib.parse import urlsplit
 
 from PyQt6.QtCore import QObject, QThread, pyqtSignal
 
+from . import background
 from .config import CACHE_DIR, DATA_DIR
 from .scriptlets import preprocess
 
@@ -363,7 +364,7 @@ class Blocker(QObject):
         self._fast = fast
         self._thread = _Downloader(urls, self)
         self._thread.done.connect(self._downloaded)
-        self._thread.start()
+        background.start(self._thread)
 
     def _downloaded(self, ok, failed):
         self._thread = None

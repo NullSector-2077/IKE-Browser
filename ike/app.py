@@ -15,7 +15,7 @@ from PyQt6.QtNetwork import QLocalServer, QLocalSocket, QNetworkAccessManager, Q
 from PyQt6.QtWebEngineWidgets import QWebEngineView  # noqa: F401  (must load before QApplication)
 from PyQt6.QtWidgets import QApplication, QFileDialog
 
-from . import APP_ID, APP_LONG_NAME, APP_NAME, __version__
+from . import APP_ID, APP_LONG_NAME, APP_NAME, __version__, background
 from .config import CACHE_DIR, PROFILE, RES_DIR, Config, ensure_dirs
 
 
@@ -413,7 +413,7 @@ class IkeApp(QObject):
                 self.shields.apply_settings()
         self._chrome_check = chromever.Checker(self)
         self._chrome_check.done.connect(done)
-        self._chrome_check.start()
+        background.start(self._chrome_check)
 
     # --- settings / updates ------------------------------------------
     def settings_changed(self):
@@ -960,6 +960,7 @@ def main(argv=None):
         import runpy
         runpy.run_path(hook, init_globals={"ike": ike, "qapp": qapp})
     code = qapp.exec()
+    background.let_go()          # a download still waiting for its server must not be destroyed
     if getattr(ike, "_restart", False):
         import subprocess
         server.close()

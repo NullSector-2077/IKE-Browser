@@ -22,7 +22,7 @@ from pathlib import Path
 
 from PyQt6.QtCore import QObject, QThread, pyqtSignal
 
-from . import __version__
+from . import __version__, background
 from .config import RES_DIR
 from .osinfo import app_dir
 
@@ -243,7 +243,7 @@ class Updater(QObject):
             return False
         self._worker = _Worker(src, self.config["update_channel"], install, self)
         self._worker.result.connect(self._done)
-        self._worker.start()
+        background.start(self._worker)
         return True
 
     def _done(self, kind, data):

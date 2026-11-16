@@ -1,6 +1,7 @@
 """Protection layer: request interception, cookies, injected scripts, profile."""
 
 import json
+import os
 import secrets
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
@@ -53,6 +54,62 @@ for _name, _kind in (
     if _value is not None:
         _TYPES[_value] = _kind
 _LOCAL = ("localhost", "127.0.0.1", "::1")
+
+# --- pages opened from a file ------------------------------------------
+# Qt WebEngine lets a page opened from a file read every other file of the
+# computer (fetch, XMLHttpRequest, the content of a framed file); its own
+# switch for that also stops the page's pictures and style sheets, so the rules
+# are applied here, request by request (Interceptor._local_file):
+#   - fetch / XMLHttpRequest / beacons to files: never (as in Chrome and Firefox);
+#   - pictures, media, style sheets, scripts, fonts: from anywhere, as always;
+#   - frames, embedded objects and everything else, whose content the page
+#     could read: only from the page's own folder; for a page lying directly
+#     in a shared folder (home, Downloads, Desktop, Documents, ... or /tmp),
+#     only from the "<name>_files" folder a saved page keeps its parts in.
+_FILE_NEVER = frozenset(t for t in (getattr(_RT, n, None) for n in (
+    "ResourceTypeXhr", "ResourceTypePing", "ResourceTypeCspReport", "ResourceTypeJson")) if t is not None)
+_FILE_ANYWHERE = frozenset(t for t in (getattr(_RT, n, None) for n in (
+    "ResourceTypeImage", "ResourceTypeMedia", "ResourceTypeStylesheet", "ResourceTypeScript",
+    "ResourceTypeFontResource", "ResourceTypeFavicon")) if t is not None)
+_shared_folders = None
+
+
+def shared_folders(extra=()):
+    """Folders that hold unrelated files of the user: a page lying directly in
+    one of them is not given the whole folder."""
+    global _shared_folders
+    if _shared_folders is None:
+        from PyQt6.QtCore import QStandardPaths
+        L = QStandardPaths.StandardLocation
+        found = {os.path.realpath(os.path.expanduser("~")), "/", "/tmp", "/var/tmp", "/dev/shm"}
+        for loc in (L.HomeLocation, L.DesktopLocation, L.DocumentsLocation, L.DownloadLocation,
+                    L.MusicLocation, L.MoviesLocation, L.PicturesLocation, L.TempLocation):
+            for path in QStandardPaths.standardLocations(loc):
+                if path:
+                    found.add(os.path.realpath(path))
+        _shared_folders = found
+    return _shared_folders | {os.path.realpath(p) for p in extra if p}
+
+
+def local_file_in_reach(page, target, shared=()):
+    """May the page opened from the file `page` embed the file `target` as a
+    frame or object? (see the rules above; links are followed first, so a link
+    inside the page's folder that points elsewhere does not widen it)"""
+    try:
+        if not page or not target or "\0" in page or "\0" in target:
+            return False
+        page, target = os.path.realpath(page), os.path.realpath(target)
+    except (OSError, ValueError):
+        return False
+    folder = os.path.dirname(page)
+    if folder in shared:
+        stem = os.path.splitext(os.path.basename(page))[0]
+        if not stem:
+            return False
+        root = os.path.join(folder, stem + "_files")
+    else:
+        root = folder
+    return target == page or target.startswith(root.rstrip(os.sep) + os.sep)
 
 
 def register_scheme():
@@ -108,11 +165,34 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         if not self.quiet:
             self.s.count(host, kind)
 
+    def _local_file(self, info, url):
+        """A request for a file of the computer: is it allowed? (rules at the top)"""
+        rtype = info.resourceType()
+        if rtype == _RT.ResourceTypeMainFrame:
+            return True                      # opening a file: the engine's own rules apply
+        first = info.firstPartyUrl()
+        if first.scheme() != "file":
+            # A web page never gets a file (the engine refuses that itself);
+            # the engine's own viewers may fetch the file they were opened for.
+            web = ("http", "https", "ws", "wss", "data", "blob", "ike")
+            return first.scheme() not in web and info.initiator().scheme() not in web
+        if rtype in _FILE_NEVER:
+            return False
+        if rtype in _FILE_ANYWHERE:
+            return True
+        cfg = self.s.config
+        return local_file_in_reach(first.toLocalFile(), url.toLocalFile(),
+                                   shared_folders((cfg["download_dir"],)))
+
     def interceptRequest(self, info):
         s = self.s
         cfg = s.config
         url = info.requestUrl()
         scheme = url.scheme()
+        if scheme == "file":
+            if not self._local_file(info, url):
+                info.block(True)
+            return
         if scheme not in ("http", "https", "ws", "wss"):
             return
         rtype = info.resourceType()
@@ -216,15 +296,30 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
 
 
 class IkeSchemeHandler(QWebEngineUrlSchemeHandler):
-    """Serves ike:newtab and ike:search?q=..."""
+    """Serves ike:newtab, ike:search?q=..., ike:logo and ike:background.
+
+    Only to I.K.E. itself: a request that comes from a web page (a picture,
+    a frame, a form, a link) is refused. Otherwise any site could recognise
+    the browser by loading its logo, or show the user's own new tab page
+    inside a page of its own."""
 
     def __init__(self, shields):
         super().__init__(shields)
         self.s = shields
 
+    @staticmethod
+    def own_request(job):
+        """True for the address bar, bookmarks and the like (no initiator) and
+        for requests made by I.K.E.'s own pages."""
+        who = job.initiator()
+        return who.isEmpty() or who.scheme() == "ike"
+
     def requestStarted(self, job):
         url = job.requestUrl()
         path = url.path()
+        if not self.own_request(job):
+            job.fail(QWebEngineUrlRequestJob.Error.RequestDenied)
+            return
         if path == "search":
             from PyQt6.QtCore import QUrlQuery
             q = QUrlQuery(url).queryItemValue("q", QUrl.ComponentFormattingOption.FullyDecoded)
@@ -235,11 +330,8 @@ class IkeSchemeHandler(QWebEngineUrlSchemeHandler):
             data = (RES_DIR / "ike.svg").read_bytes()
             mime = b"image/svg+xml"
         elif path == "background":
-            # the user's own photo: for I.K.E.'s pages only, never for a web page
             from . import newtabbg
-            data, mime = (None, None)
-            if job.initiator().scheme() in ("ike", ""):
-                data, mime = newtabbg.content(self.s.config)
+            data, mime = newtabbg.content(self.s.config)         # the user's own photo
             if data is None:
                 job.fail(QWebEngineUrlRequestJob.Error.RequestDenied)
                 return
