@@ -12,6 +12,9 @@
   user's keeps the interface colours as before. The picture is kept with the
   program (167 KB, JPEG), nothing is copied or downloaded, and a website
   cannot load it.
+- The **veil** over any background photo is now a layer of the page's own
+  background instead of an element of its own over the page: the same look,
+  one painted surface less (about 15-20 MB less memory with a photo).
 
 ## 1.1.7
 

@@ -39,9 +39,15 @@ def js(view, code):
 LOOK = """JSON.stringify((function () {
     var h = getComputedStyle(document.documentElement), b = getComputedStyle(document.body),
         v = getComputedStyle(document.body, "::before"), root = getComputedStyle(document.documentElement);
-    return {image: h.backgroundImage, size: h.backgroundSize, repeat: h.backgroundRepeat,
-            position: h.backgroundPosition, attachment: h.backgroundAttachment,
-            veil: v.content === "none" ? null : v.opacity, veilColour: v.backgroundColor,
+    // the photo is the last background layer; the veil, a layer of one colour above it
+    function last(value) { return value.split(", ").pop(); }
+    var url = h.backgroundImage.match(/url\("[^"]*"\)/),
+        g = h.backgroundImage.match(/^linear-gradient\(color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+) \/ ([\d.]+)\)/);
+    return {image: url ? url[0] : h.backgroundImage, size: last(h.backgroundSize), repeat: last(h.backgroundRepeat),
+            position: last(h.backgroundPosition), attachment: last(h.backgroundAttachment),
+            veil: g ? String(Number(g[4])) : null,
+            veilColour: g ? "rgb(" + [g[1], g[2], g[3]].map(function (c) { return Math.round(c * 255); }).join(", ") + ")" : null,
+            veilElement: v.content === "none" ? null : v.content,
             body: b.backgroundColor, text: b.color,
             vars: ["--bg", "--fg", "--mute", "--card", "--line", "--acc"].map(function (n) {
                 return root.getPropertyValue(n).trim(); }),
@@ -149,10 +155,10 @@ def steps(ike, qapp, out):
         assert none and style == "" and no_content, name
     assert out["gone"] == [True, ""]
     a, b, c, d = out["styles"]
-    assert "/ cover " in a and "opacity:0.90" in a
-    assert "/ cover " in b and "opacity:0.00" in b
-    assert "/ cover " in c and "opacity:0.00" in c
-    assert "/ contain " in d and "opacity:0.40" in d
+    assert "/ cover " in a and "var(--bg) 90%," in a
+    assert "/ cover " in b and "var(--bg) 0%," in b
+    assert "/ cover " in c and "var(--bg) 0%," in c
+    assert "/ contain " in d and "var(--bg) 40%," in d
     assert out["removed"] == ["", [], ""]
 
 
@@ -241,7 +247,7 @@ def steps(ike, qapp, out):
     shown = out["shown"]
     assert shown["image"].startswith('url("ike:background?') and shown["size"] == "contain"
     assert shown["repeat"] == "no-repeat" and shown["attachment"] == "fixed"
-    assert shown["veil"] == "0.2" and shown["veilColour"] == plain["body"]
+    assert shown["veil"] == "0.2" and shown["veilColour"] == plain["body"] and shown["veilElement"] is None
     # the page's own colours and the interface are exactly as without a photo
     for key in ("vars", "text", "input", "clock"):
         assert shown[key] == plain[key], key
