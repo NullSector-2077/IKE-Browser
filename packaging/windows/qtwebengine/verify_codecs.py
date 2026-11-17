@@ -75,6 +75,24 @@ OPTIONAL_CLIPS = {
                            "-c:a", "libopus", "-b:a", "64k"]),
 }
 
+# Official Fraunhofer HE-AAC reference files. Their SHA-256 values are
+# pinned from the Windows fixture-discovery workflow. These are downloaded at
+# test time, not redistributed in the I.K.E. package.
+HEAAC_FIXTURES = {
+    "heaac_v1_aot5.mp4": {
+        "url": "https://www2.iis.fraunhofer.de/AAC/SBRtestStereoAot5Sig1.mp4",
+        "profile": "HE-AAC",
+        "size": 234051,
+        "sha256": "ede70e3b2f7e364aeb0eb3854b7d9a5877be99a499dcebe22ac5a7349d68747c",
+    },
+    "heaac_v2_aot29.mp4": {
+        "url": "https://www2.iis.fraunhofer.de/AAC/SBRtestStereoAot29Sig1.mp4",
+        "profile": "HE-AACv2",
+        "size": 241061,
+        "sha256": "d021b3dfbfb7ad42eacdad9c3391b5268603d6f1c6bcf171e57292ff1ada06fb",
+    },
+}
+
 H264 = 'video/mp4; codecs="avc1.640028"'
 H264_MAIN = 'video/mp4; codecs="avc1.4D401F"'
 AAC_TYPE = 'audio/mp4; codecs="mp4a.40.2"'
@@ -109,6 +127,10 @@ CASES = [
 OPTIONAL_CASES = {
     "h264_high_heaac_320.mp4": {"name": "file H.264 High + HE-AAC 320x240", "tags": ["h264", "aac"],
                                 "url": "h264_high_heaac_320.mp4", "video": "320", "audio": True},
+    "heaac_v1_aot5.mp4": {"name": "file HE-AAC v1 (AOT 5), Fraunhofer reference", "tags": ["aac"],
+                          "url": "heaac_v1_aot5.mp4", "video": None, "audio": True},
+    "heaac_v2_aot29.mp4": {"name": "file HE-AAC v2 (AOT 29), Fraunhofer reference", "tags": ["aac"],
+                           "url": "heaac_v2_aot29.mp4", "video": None, "audio": True},
     "av1_opus_320.webm": {"name": "control: file AV1 + Opus 320x240 (WebM)", "tags": ["free"],
                           "url": "av1_opus_320.webm", "video": "320", "audio": True},
 }
@@ -123,7 +145,8 @@ PROBES = [
     ("H.264 High", 'video/mp4; codecs="avc1.640028"', True),
     ("H.264 High 10 (10 bit)", 'video/mp4; codecs="avc1.6E0028"', None),
     ("AAC-LC", 'audio/mp4; codecs="mp4a.40.2"', True),
-    ("HE-AAC", 'audio/mp4; codecs="mp4a.40.5"', True),
+    ("HE-AAC v1 (AOT 5)", 'audio/mp4; codecs="mp4a.40.5"', True),
+    ("HE-AAC v2 (AOT 29)", 'audio/mp4; codecs="mp4a.40.29"', True),
     ("H.264 + AAC", 'video/mp4; codecs="avc1.640028, mp4a.40.2"', True),
     ("HEVC", 'video/mp4; codecs="hvc1.1.6.L93.B0"', False),
     ("VP9", 'video/webm; codecs="vp9"', None),
@@ -321,6 +344,73 @@ def make_clip(ffmpeg, target, size, audio, options):
     return True
 
 
+def download_heaac_fixtures(out):
+    ffprobe = shutil.which("ffprobe")
+    if not ffprobe:
+        raise SystemExit("ffprobe is required to validate the HE-AAC fixtures")
+    made = []
+    for name, fixture in HEAAC_FIXTURES.items():
+        target = out / name
+        temporary = target.with_suffix(target.suffix + ".part")
+        request = urllib.request.Request(
+            fixture["url"], headers={"User-Agent": "I.K.E.-Windows-Codec-Check/1.0"})
+        digest = hashlib.sha256()
+        size = 0
+        try:
+            with urllib.request.urlopen(request, timeout=90) as response:
+                if response.status != 200:
+                    raise RuntimeError(f"HTTP {response.status} for {name}")
+                content_type = response.headers.get("Content-Type", "").lower()
+                if "video/mp4" not in content_type and "application/octet-stream" not in content_type:
+                    raise RuntimeError(f"unexpected Content-Type {content_type!r} for {name}")
+                with temporary.open("wb") as output:
+                    while True:
+                        block = response.read(1024 * 1024)
+                        if not block:
+                            break
+                        size += len(block)
+                        if size > 8 * 1024 * 1024:
+                            raise RuntimeError(f"{name} exceeded the 8 MiB download limit")
+                        digest.update(block)
+                        output.write(block)
+            if size != fixture["size"]:
+                raise RuntimeError(f"{name} size mismatch: expected {fixture['size']}, got {size}")
+            actual_hash = digest.hexdigest()
+            if actual_hash != fixture["sha256"]:
+                raise RuntimeError(f"{name} SHA-256 mismatch: expected {fixture['sha256']}, got {actual_hash}")
+            with temporary.open("rb") as source:
+                header = source.read(12)
+            if len(header) < 12 or header[4:8] != b"ftyp":
+                raise RuntimeError(f"{name} is not an ISO BMFF / MP4 file")
+            checked = subprocess.run(
+                [ffprobe, "-v", "error", "-select_streams", "a:0",
+                 "-show_entries", "stream=codec_name,profile,sample_rate,channels,extradata_size",
+                 "-show_entries", "format=format_name,duration", "-of", "json", str(temporary)],
+                capture_output=True, text=True, timeout=60)
+            if checked.returncode:
+                raise RuntimeError(f"ffprobe failed for {name}: {checked.stderr.strip()}")
+            metadata = json.loads(checked.stdout)
+            streams = metadata.get("streams", [])
+            if not streams:
+                raise RuntimeError(f"{name} has no AAC audio stream")
+            audio = streams[0]
+            if audio.get("codec_name") != "aac" or audio.get("profile") != fixture["profile"]:
+                raise RuntimeError(f"{name} profile mismatch: {audio}")
+            if audio.get("sample_rate") != "44100" or audio.get("channels") != 2:
+                raise RuntimeError(f"{name} audio parameters mismatch: {audio}")
+            if not audio.get("extradata_size", 0):
+                raise RuntimeError(f"{name} is missing its AudioSpecificConfig")
+            if "mp4" not in metadata.get("format", {}).get("format_name", ""):
+                raise RuntimeError(f"{name} is not in an MP4 container: {metadata.get('format')}")
+            temporary.replace(target)
+            log(f"  pinned {name}: {size:,} bytes, {fixture['profile']}, SHA-256 {actual_hash}")
+            made.append(name)
+        except Exception:
+            temporary.unlink(missing_ok=True)
+            raise
+    return made
+
+
 def cmd_clips(args):
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
@@ -341,6 +431,9 @@ def cmd_clips(args):
             made.append(name)
         else:
             skipped.append(f"{name} (this FFmpeg has no {encoder})")
+    # Unlike the generated H.264+HE-AAC option above, these fixed references
+    # do not depend on the runner providing libfdk_aac.
+    made.extend(download_heaac_fixtures(out))
     for name in made:
         log(f"  {name}  {(out / name).stat().st_size:,} bytes")
     for name in skipped:
