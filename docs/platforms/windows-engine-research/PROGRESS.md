@@ -183,3 +183,44 @@ long-session seek/audio-sync behaviour.
   pinned HE-AAC sample is played through the built Qt WebEngine and produces
   decoded audio. The code currently reports MIME support, which is not proof
   of successful decode.
+
+### Verification after the MSE / workflow fixes — run 44115530898
+
+Run [44115530898](https://github.com/NullSector-2077/IKE-Browser/actions/runs/44115530898)
+completed successfully on 2026-11-17. The build and both real-playback jobs passed:
+
+- Stage 1: restored the prior 1.16 GB build tree; all patches applied; configure
+  passed; media smoke compilation passed; the full Qt WebEngine build completed;
+  install/link evidence/package and build-tree upload passed.
+- The stock PyPI engine control remained negative for H.264/AAC on both runners.
+- Windows Server 2022 and Windows Server 2025 both decoded:
+  H.264 Baseline, Main, High (including B-frames, up to 1920x1080),
+  AAC-LC stereo 44.1 kHz and mono 48 kHz, the two-buffer combined H.264+Aac
+  Media Source case, video-only MSE and audio-only MSE.
+- The built engine selected `WMFVideoDecoder` for H.264 and
+  `MediaFoundationAudioDecoder` for AAC-LC, confirmed by Chromium's Media log;
+  each test observed decoded pictures and audio bytes.
+- The full same playback suite passed again on both Windows Server runners
+  with `--disable-gpu`. This confirms the Windows software Media Foundation
+  H.264 fallback and AAC decode do not require Chromium GPU acceleration.
+- HE-AAC was still skipped because FFmpeg on the hosted runners has no
+  `libfdk_aac`; it remains code-path-present/runtime-test-pending.
+
+Artifacts from the run:
+
+- `ike-qtwebengine-windows` (engine package), artifact ID `14344077644`.
+- `engine-build-tree` (incremental build tree), artifact ID `14344213072`.
+- `engine-codec-check-windows-2022`, artifact ID `14344078429`.
+- `engine-codec-check-windows-2025`, retained by the successful 2025 job.
+
+**Scope of this evidence:** these are hosted Windows Server VMs using the
+Microsoft Basic Render Driver, not physical GPU hardware. The run proves the
+software decoder path, H.264/AAC playback and MSE on the two tested Windows
+Server code bases. It does not prove D3D11 hardware decoder selection, GPU
+acceleration, performance on a consumer Windows 10/11 desktop, HE-AAC,
+DRM/protected media, streaming-site compatibility, extended playback/seek
+stability or A/V sync over long sessions. Those need separate tests.
+
+Next work: secure the Media Foundation DLL loading path, make the H.264
+factory's one-time function lookup thread-safe, add a reproducible HE-AAC
+fixture/test, then run another incremental build and codec matrix.
