@@ -111,6 +111,11 @@ That is the list below.
       name Windows and Chrome (no "Linux", no "QtWebEngine"); "Platform":
       Win32; the WebGL renderer names a Direct3D11 card that is **not**
       your real one (at Balanced).
+- [ ] https://browserleaks.com/webgl — reload it three or four times, and
+      open https://get.webgl.org/ in between: WebGL is there every time
+      (the runner, which has no graphics card, loses WebGL after a page or
+      two unless compositing is done in software; a real graphics card is
+      expected not to, and this is the check).
 - [ ] https://browserleaks.com/client-hints — platform "Windows",
       architecture x86, 64-bit, and the same Chrome version as the user
       agent.

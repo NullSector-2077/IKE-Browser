@@ -113,6 +113,14 @@ What differs from Linux:
   `@pytest.mark.windows_only("…")` and are skipped, with their reason, on
   Linux. `pytest -rs` lists every skipped test with its reason; the
   workflow's log shows that list.
+- **WebGL in `test_fingerprint.py`**: the runner has no graphics card, and
+  there the engine's Direct3D compositing loses its context after a page or
+  two, taking WebGL with it. On Windows that test adds
+  `--disable-gpu-compositing` to its own engine switches (compositing in
+  software); WebGL itself is still measured. The browser never gets this
+  switch. `IKE_TEST_WEBGL_FLAGS="…"` replaces the test's WebGL switches.
+  Whether WebGL keeps working page after page on a real PC is on the
+  checklist.
 - The folders are found through the `XDG_*` variables as on Linux (that is
   how each test gets an empty profile); one test starts the browser without
   them to check the real Windows folders.

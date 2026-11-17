@@ -116,6 +116,14 @@ stock build does **not** hand H.264 to Windows' decoders.
   root certificate until some program has needed it; a download then fails
   with a certificate error and is tried again later. Pages in the browser
   are not affected (the engine has its own checks). To verify on a real PC.
+- **WebGL on a PC without a graphics driver**: on the runner (no graphics
+  card, Direct3D in software) the engine's compositing loses its Direct3D
+  context after a page or two and WebGL is then missing on later pages. The
+  fingerprinting test therefore composites in software there (a switch of
+  that test only; see [TESTING.md](../TESTING.md)). The browser itself is
+  not given that switch. Expected not to happen with a real graphics card;
+  to verify on a real PC (checklist, section 5). Virtual machines without a
+  graphics driver may see it.
 - `ike-browser.exe --version` prints nothing in a terminal by itself (a
   windowed program has no console): use `ike-browser.exe --version | more`.
 - A running I.K.E. holds its files: the installer and the uninstaller ask to
