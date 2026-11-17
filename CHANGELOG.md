@@ -46,6 +46,9 @@ Actions and is **not released**: it has not been tried on a real PC yet
 - Not on Windows yet: media keys and Windows' media controls, download
   progress in the task bar. The Plasma integration (KRunner, KDE Connect,
   Plasma's notifications) is Linux only and simply stays off.
+- Tests: several now wait for what they check (a page's answer, a download
+  starting, a line going away) instead of a fixed pause, so that a slow
+  computer does not fail them; what they check is unchanged.
 - Updates itself from 1.1.1 on Linux (only the browser's own files changed).
 
 ## 1.1.1

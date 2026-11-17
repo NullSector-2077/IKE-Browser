@@ -21,24 +21,27 @@ final state) before the branch is merged.
   docs/BUILDING.md, docs/UPDATES.md, docs/TESTING.md, CHANGELOG 1.2.0,
   README preview note.
 
-## In progress
+## State
 
-Tests on Windows (215 pass, 11 skipped with reasons, on run 43998802862).
-Fixed, waiting for a green run:
+**Green**: run 44004432361 (commit 7506d72): both jobs, every step —
+218 passed, 11 skipped (each with its reason) in the source tree and through
+the installed `ike-browser.exe`; installer built, installed, `--version`,
+`--selftest`, engine check, uninstalled and checked; artifact
+`ike-browser-windows-installer`. Linux: the whole suite passes locally
+(221 passed, 8 skipped: 7 Windows-only, 1 network).
 
-- `test_scriptlets_do_not_change_fingerprint`: on the GPU-less runner the
-  engine's Direct3D compositing loses its context after a page or two and
-  WebGL goes with it. The experiment job (runs 43975618488, 44000289126)
-  showed `--disable-gpu-compositing` keeps WebGL alive; the test adds it on
-  Windows only (test switch, not the browser's). Experiment job removed.
-- `test_instance_pipe_on_windows`: the handover works; the test's last
-  "rubbish" (a valid message with an empty address list) legitimately opened
-  a new window, which then received the page. Now the same rubbish as on
-  Linux, and the window count is checked.
-- `test_download_progress_ring`: waits for the download to start (passed on
-  run 43998802862).
+Fixed in this last session (all test-side, nothing in the browser):
+
+- WebGL on the GPU-less runner: `test_fingerprint.py` adds
+  `--disable-gpu-compositing` on Windows (Direct3D compositing loses its
+  context after a page or two there). Experiment job removed.
+- Pipe test: the same rubbish as on Linux (a valid message with an empty
+  address list opens a window, by design).
+- Waits instead of fixed pauses: download ring, Add tile, site data, the
+  new-tab photo, loading line, codec report with the hostile page loaded.
 
 ## Next
 
-- A green run (both jobs), then the final numbers into the documents and the
-  final report.
+- The owner's test on a real PC (docs/WINDOWS-CHECKLIST.md).
+- H.264 / AAC through Windows' decoders: branch `windows/engine`.
+- Remove this file before merging.

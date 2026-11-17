@@ -6,6 +6,14 @@ and tested for Windows 10 / 11 (64-bit) by GitHub Actions on a Windows runner
 yet: [WINDOWS-CHECKLIST.md](../WINDOWS-CHECKLIST.md) is the list for that
 test. The installer is a download of the workflow run, never a release.
 
+First run with every step green: [44004432361](https://github.com/NullSector-2077/IKE-Browser/actions/runs/44004432361)
+(2026-11-17, Windows Server 2025): 218 tests passed and 11 skipped, each
+with its reason, both in the source tree and through the installed
+`ike-browser.exe`; the installer was built, installed silently for the
+user, started (`--version`, `--selftest`), checked (engine: no H.264 / AAC,
+VP9 yes, sandbox not switched off) and uninstalled, and is kept as the
+`ike-browser-windows-installer` download of that run.
+
 The first part of this page is what exists now; the study it grew from
 ("The run time" onwards, November 2026) follows unchanged, with a note where
 the port answered one of its questions.

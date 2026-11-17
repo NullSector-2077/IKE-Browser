@@ -151,7 +151,10 @@ key. Nothing is called ready on the strength of incomplete checks.
   the owner's test: `docs/WINDOWS-CHECKLIST.md`. **This build does not play
   H.264 / AAC**: the engine of the codec rule above (Windows' own decoders)
   is the separate branch `windows/engine`; `build.py --engine` is where its
-  files go in. Not merged, not released, not tried on a real PC.
+  files go in. First fully green Windows run: 44004432361 (2026-11-17: 218
+  tests passed, 11 skipped with reasons, in both jobs; installer built,
+  installed, started, checked and uninstalled). Not merged, not released,
+  not tried on a real PC.
 - Seen while porting, not changed (Linux was not to change): "Restart" from
   a copy installed by a self-update looks for `ike_boot.py` next to that
   copy (`ike/app.py`, end of `main`), where there is none; `boot_command()`
