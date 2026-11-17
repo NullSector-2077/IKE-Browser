@@ -290,11 +290,22 @@ def steps(ike, qapp, out):
     view = win.current_view()
     yield 1200
     # the new tab page itself is untouched: logo, and its search box
+    ready = ("(function () { var i = document.querySelector('img');"
+             " return [location.href, !!(i && i.complete && i.naturalWidth && document.querySelector('form'))]; })()")
+    for _ in range(50):                  # a slow computer: the page is complete before it is used
+        state = yield from js(view, ready)
+        if state and state[1]:
+            break
+        yield 200
     out["newtab"] = yield from js(view, "(function () { var i = document.querySelector('img');"
                                        " return [location.href, i.complete && i.naturalWidth]; })()")
     yield from js(view, "document.querySelector('input').value = 'hello world';"
                        " document.querySelector('form').submit(); 1")
     yield 1500
+    for _ in range(40):
+        if view.title() == "results":
+            break
+        yield 200
     out["searched"] = [view.url().toString(), view.title()]
     # the outsider
     yield from load(view, BASE + "/")
