@@ -2,10 +2,10 @@
 # docs/TESTING.md), with their exact versions. The installed browser uses Arch
 # Linux's own packages instead. tools/check-components.py tells when newer ones
 # exist and rewrites this file with --apply.
-PyQt6==6.12.0
+PyQt6==6.12.1
 PyQt6-Qt6==6.12.0
 PyQt6-sip==13.13.1
-PyQt6-WebEngine==6.140.0
+PyQt6-WebEngine==6.140.1
 PyQt6-WebEngine-Qt6==6.140.0
 cryptography==50.0.2
 cffi==2.1.1

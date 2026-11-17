@@ -18,7 +18,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 
 /// Version of the adblock-rust engine this module was built with.
-const ENGINE_VERSION: &str = "0.13.5";
+const ENGINE_VERSION: &str = "0.13.6";
 
 /// Run a call into the filter engine and turn a panic inside it into an
 /// error value. The engine reads addresses chosen by web pages and lists
