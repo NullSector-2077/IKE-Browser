@@ -8594,18 +8594,7 @@
             fixes && fixes.disableCustomElementRegistryProxy
         );
         document.dispatchEvent(new CustomEvent("__darkreader__cleanUp"));
-        {
-            const proxyScript = createOrUpdateScript("darkreader--proxy");
-            proxyScript.append(
-                `(${injectProxy})(${enableStyleSheetsProxy}, ${enableCustomElementRegistryProxy})`
-            );
-            document.head.insertBefore(
-                proxyScript,
-                document.head.querySelector(".darkreader")?.nextSibling ??
-                    document.head.firstElementChild
-            );
-            proxyScript.remove();
-        }
+        document.dispatchEvent(new CustomEvent("__darkreader__stylesheetProxy__arg__IKE_DR_TOKEN__", {detail: {enableStyleSheetsProxy, enableCustomElementRegistryProxy}}));
         staticStyleInjector.inject(
             "override",
             fixes && fixes.css ? replaceCSSTemplates(fixes.css) : "",

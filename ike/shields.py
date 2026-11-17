@@ -800,6 +800,21 @@ class Shields(QObject):
             h = h.split(".", 1)[1]
         return on
 
+    def dark_chosen(self, host):
+        """Did the user turn this site dark himself (dark mode off, the site on
+        its own list)? Then it is made dark whatever Dark Reader's lists say."""
+        cfg = self.config
+        if cfg["dark_mode"] == "on":
+            return False
+        h = (host or "").lower().strip(".")
+        while h:
+            if h in cfg["dark_sites"]:
+                return True
+            if "." not in h:
+                break
+            h = h.split(".", 1)[1]
+        return False
+
     def scripts_allowed(self, host):
         h = (host or "").lower()
         blocked = self.config["site_noscript"]

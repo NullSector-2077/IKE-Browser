@@ -8,7 +8,7 @@ from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QComboBox, QDialog, QDialogButtonBox, QLabel, QMessageBox, QVBoxLayout
 
-from .config import RES_DIR, rank
+from .config import rank
 from .i18n import T
 
 _A = QWebEngineSettings.WebAttribute
@@ -26,7 +26,6 @@ _COSMETIC_JS = """(function(css){
  add();
 })(%s);"""
 
-_DARK_SRC = None
 
 _COLLECT_JS = """(function(){
  var c=new Set(), i=new Set(), n=document.querySelectorAll('[class],[id]');
@@ -170,8 +169,6 @@ class WebPage(QWebEnginePage):
 
     def _set_dark(self, url, host):
         """Apply the selected dark renderer to this page, respecting site overrides."""
-        import json
-
         from PyQt6.QtGui import QColor
         cfg = self.app.config
         page_url = url.scheme() in ("http", "https", "file")
@@ -191,15 +188,16 @@ class WebPage(QWebEnginePage):
             self.setBackgroundColor(QColor("#181a1b") if reader_on else QColor(Qt.GlobalColor.white))
         self._dark_on = on
         self._dark_engine = engine
-        if not reader_on:
+        # Dark Reader: scripts of the profile (darkpages.py), as the extension does it
+        from . import darkpages
+        profile = self.profile()
+        if engine != "reader" or not (cfg["dark_mode"] == "on" or cfg["dark_sites"]):
+            darkpages.forget(profile)
+        if not page_url:
             return
-        global _DARK_SRC
-        if _DARK_SRC is None:
-            _DARK_SRC = ((RES_DIR / "darkmode.js").read_text("utf-8")
-                         .replace("__IKE_DR_LIB__", (RES_DIR / "darkreader.js").read_text("utf-8")))
         theme = dict(cfg["dark_theme"]) if isinstance(cfg["dark_theme"], dict) else {}
-        self._add_script("ike-dark", _DARK_SRC.replace("__IKE_DR_CFG__", json.dumps({"theme": theme})),
-                         False)
+        darkpages.prepare(profile, url.toString(), host or url.scheme() + ":", theme, reader_on,
+                          self.app.shields.dark_chosen(host))
 
     def _set_scriptlets(self, url, host):
         """Install the list-provided scriptlets for the page about to load.

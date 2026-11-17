@@ -11,7 +11,7 @@ APP = Path(os.environ.get("IKE_TEST_APP") or ROOT)
 SHOTS = os.environ.get("IKE_TEST_SHOTS", "")
 OLD_NAME = re.compile(r"I\.C\.E|\bICE\b|\bIce\b|\bice[-_.:]\w")
 # files of other projects, where the three letters mean something else
-THIRD_PARTY = ("ike/resources/darkreader.js", "ike/resources/ubo-scriptlets.json", "ike-adblock/Cargo.lock",
+THIRD_PARTY = ("ike/resources/darkreader.js", "ike/resources/darkreader-proxy.js", "ike/resources/darkreader-data.json", "ike/resources/ubo-scriptlets.json", "ike-adblock/Cargo.lock",
                "ike/resources/icons/sets/")
 
 
