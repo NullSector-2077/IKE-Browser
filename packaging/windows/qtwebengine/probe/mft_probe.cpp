@@ -694,7 +694,8 @@ class AacProbe {
   }
 
   bool Create(int object_type, int frequency_index, int sample_rate,
-              int channels, bool adts, bool cromite) {
+              int channels, bool adts, bool cromite,
+              const std::vector<uint8_t>* config_override = nullptr) {
     if (cromite) {
       if (!CreateEnumerated()) {
         return false;
@@ -710,7 +711,12 @@ class AacProbe {
     // the payload type in the structure is 1 and the AudioSpecificConfig
     // still follows it.
     std::vector<uint8_t> extra_data;
-    if (!adts || cromite) {
+    if (config_override && !config_override->empty()) {
+      // HE-AAC MP4 tracks carry extension signalling in the original ASC.
+      // Keep those bytes intact while sending the corresponding ADTS core
+      // frames, just as the patched MediaFoundationAudioDecoder does.
+      extra_data = *config_override;
+    } else if (!adts || cromite) {
       extra_data.push_back(
           static_cast<uint8_t>((object_type << 3) | (frequency_index >> 1)));
       extra_data.push_back(
@@ -876,6 +882,19 @@ int RunAac(int argc, char** argv) {
   const std::vector<uint8_t> stream = ReadFile(argv[2]);
   const bool cromite = strcmp(argv[3], "cromite") == 0;
   const bool adts = cromite || strcmp(argv[3], "adts") == 0;
+  std::vector<uint8_t> config_override;
+  int expected_output_rate = 0;
+  int expected_output_channels = 0;
+  if (argc >= 7) {
+    config_override = ReadFile(argv[4]);
+    expected_output_rate = atoi(argv[5]);
+    expected_output_channels = atoi(argv[6]);
+    if (config_override.empty() || expected_output_rate <= 0 ||
+        expected_output_channels <= 0) {
+      Fail("invalid AudioSpecificConfig or expected output format");
+      return 1;
+    }
+  }
   static const int kRates[] = {96000, 88200, 64000, 48000, 44100, 32000, 24000,
                                22050, 16000, 12000, 11025, 8000,  7350};
   std::vector<AdtsFrame> frames;
@@ -931,7 +950,8 @@ int RunAac(int argc, char** argv) {
 
   AacProbe probe;
   if (!probe.Create(object_type, frequency_index, rate, channels, adts,
-                    cromite)) {
+                    cromite,
+                    config_override.empty() ? nullptr : &config_override)) {
     return 1;
   }
   LONGLONG time = 0;
@@ -963,8 +983,16 @@ int RunAac(int argc, char** argv) {
   if (rms < 0.01 || probe.peak_ > 1.5f) {
     Fail("the decoded sound is silent or out of range");
   }
-  if (probe.rate_ != rate || probe.channels_ != channels) {
-    Fail("output format differs from the stream's");
+  const int wanted_output_rate =
+      expected_output_rate > 0 ? expected_output_rate : rate;
+  const int wanted_output_channels =
+      expected_output_channels > 0 ? expected_output_channels : channels;
+  if (probe.rate_ != wanted_output_rate ||
+      probe.channels_ != wanted_output_channels) {
+    printf("  output format is %d Hz / %d channels, wanted %d Hz / %d channels\n",
+           probe.rate_, probe.channels_, wanted_output_rate,
+           wanted_output_channels);
+    Fail("output format differs from the stream's decoded format");
   }
   return g_failures ? 1 : 0;
 }
@@ -981,7 +1009,7 @@ int main(int argc, char** argv) {
   }
   if (code == 2) {
     printf("usage: mft_probe h264 STREAM PTS WIDTH HEIGHT [low-delay] | "
-           "mft_probe aac SOUND raw|adts|cromite\n");
+           "mft_probe aac SOUND raw|adts|cromite [ASC.bin OUTPUT_RATE OUTPUT_CHANNELS]\n");
   } else {
     printf(code == 0 ? "RESULT: ok\n" : "RESULT: FAILED\n");
   }
