@@ -304,6 +304,11 @@ behind the window. No existing setting is reset or changes meaning.
   before, 24-pixel toolbar icons, Phosphor Bold, translate in the address bar
   and bookmark on the toolbar, maximize/restore sign and hover circles, moving
   download arrow, edge line, smooth scrolling. Waits for the owner's test.
+- 2026-11-17: 1.1.7 on branch `arch/1.1.7` (from 1.1.6): address bar 50 %,
+  messages in a pill, find bar, shield "+N", site icons in the panels, Settings
+  fade, new tab page buttons (Settings, background photo) and clock at the
+  bottom right. Next to discuss: a strategy for Manifest V3 extensions that do
+  not install.
 
 ### Also planned
 

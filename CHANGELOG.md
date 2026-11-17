@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.1.7
+
+- The **address bar** takes half of the window (it was 60 %; a setting left at
+  the old 60 becomes 50 once).
+- **Short messages** (the zoom, notes such as "No article text was found") in
+  a rounded pill at the bottom of the page that fades in and out, instead of
+  the status bar line.
+- **Find bar** (Ctrl+F): "3 of 12" in a small pill, the field softly tinted
+  red when nothing is found, Shift+Enter for the previous match, the arrows
+  with their keys in the tooltip.
+- **Shield**: when its number grows, a small "+N" rises from it and fades.
+- The **site's icon** beside its name in the shield panel and in the site
+  panel.
+- **Settings**: the pages change with a short fade (their order is unchanged).
+- **New tab page**: a Settings button at the top right and a "Background
+  photo" button at the bottom left (it opens Settings → New tab page), both as
+  large as the site tiles; the clock and the weather moved to the bottom right;
+  the logo and "Internet Kontrol Experience" always stay, with a soft shadow
+  that keeps them readable on a photo. A website cannot use those buttons
+  (refused, as the tiles' answers).
+
 ## 1.1.6
 
 - The **address field** is the system's own again (the rounded one of 1.1.3
