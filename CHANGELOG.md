@@ -18,6 +18,10 @@ off on its own in `ike/polish.py`.
 - **Reader mode**: light, sepia or dark and the size of the text, chosen on
   the page and remembered; the site and the reading time under the title.
 
+Measured against 1.1.4, package against package: start-up (0.27 – 0.29 s),
+processor time at rest (0.6 – 0.7 % of one core), while using the interface
+(5.9 – 7.1 %) and memory (352 – 354 MiB) unchanged within the measuring noise.
+
 ## 1.1.4
 
 **Page dark mode with Dark Reader, as its extension does it.** Dark Reader was
