@@ -1,0 +1,133 @@
+I.K.E. Windows engine: what the two integrations need inside Qt WebEngine
+
+Neither Vivaldi nor Cromite is built the way I.K.E.'s engine is (Qt WebEngine,
+FFmpeg with ffmpeg_branding="Chromium"). Four small changes, written for
+I.K.E., each marked "I.K.E.:" in the source:
+
+Qt WebEngine:
+  content/gpu/in_process_gpu_thread.cc   COM on the thread that runs the GPU
+      and media services inside the browser process (a GPU process of its own
+      initialises COM in gpu_main.cc); MediaFoundationAudioDecoder needs it.
+  media/filters/win/media_foundation_audio_decoder.cc   PumpOutput() tested
+      an HRESULT with "!"; fixed in later Chromium versions. Without it a
+      change of the output format (HE-AAC) is an error.
+
+FFmpeg without an AAC decoder or parser (plain MP4 files, not Media Source):
+  media/ffmpeg/ffmpeg_common.cc     AAC gets a sample format although FFmpeg
+      did not fill one in (as Chromium already does for AC3).
+  media/filters/ffmpeg_demuxer.cc   the AAC profile, which the ADTS header
+      needs, is read from the AudioSpecificConfig when FFmpeg left it unknown.
+
+Licence: BSD-3-Clause, as the Chromium files they change (two of those files
+are also changed by the Cromite patch, 0003).
+
+diff --git a/chromium/content/gpu/in_process_gpu_thread.cc b/chromium/content/gpu/in_process_gpu_thread.cc
+index 9ca23324..0a740afa 100644
+--- a/chromium/content/gpu/in_process_gpu_thread.cc
++++ b/chromium/content/gpu/in_process_gpu_thread.cc
+@@ -67,7 +67,16 @@ InProcessGpuThread::InProcessGpuThread(
+     : base::Thread("Chrome_InProcGpuThread"),
+       params_(params),
+       gpu_process_(nullptr),
+-      gpu_preferences_(gpu_preferences) {}
++      gpu_preferences_(gpu_preferences) {
++#if BUILDFLAG(IS_WIN)
++  // I.K.E.: Qt WebEngine runs the GPU service on this thread, inside the
++  // browser process, and the media service with it. Media Foundation needs
++  // COM to create a decoder (MediaFoundationAudioDecoder: MFTEnumEx and
++  // IMFActivate::ActivateObject). A GPU process of its own initialises COM in
++  // content/gpu/gpu_main.cc, as a multi-threaded apartment; the same here.
++  init_com_with_mta(true);
++#endif
++}
+ 
+ InProcessGpuThread::~InProcessGpuThread() {
+   Stop();
+diff --git a/chromium/media/ffmpeg/ffmpeg_common.cc b/chromium/media/ffmpeg/ffmpeg_common.cc
+index 8aecfc75..1a8a783d 100644
+--- a/chromium/media/ffmpeg/ffmpeg_common.cc
++++ b/chromium/media/ffmpeg/ffmpeg_common.cc
+@@ -426,6 +426,8 @@ bool AVCodecContextToAudioDecoderConfig(const AVCodecContext* codec_context,
+ 
+   SampleFormat sample_format = AVSampleFormatToSampleFormat(
+       codec_context->sample_fmt, codec_context->codec_id);
++  // I.K.E.: true when the format below is chosen here and not by FFmpeg.
++  [[maybe_unused]] bool sample_format_set_without_ffmpeg = false;
+ 
+   ChannelLayout channel_layout =
+ #if LIBAVCODEC_VERSION_MAJOR > 60
+@@ -462,6 +464,19 @@ bool AVCodecContextToAudioDecoderConfig(const AVCodecContext* codec_context,
+       sample_format = kSampleFormatMpegHAudio;
+       break;
+ #endif
++#if BUILDFLAG(ENABLE_PLATFORM_AAC_AUDIO)
++    case AudioCodec::kAAC:
++      // I.K.E.: with ffmpeg_branding="Chromium" FFmpeg only takes AAC out of
++      // the container; it has no AAC decoder, so it does not fill
++      // |sample_fmt|, as for AC3 above. The platform decodes the stream
++      // (MediaFoundationAudioDecoder). 16 bits is what the MP4 parser used
++      // for Media Source reports for AAC as well.
++      if (sample_format == kUnknownSampleFormat) {
++        sample_format = kSampleFormatS16;
++        sample_format_set_without_ffmpeg = true;
++      }
++      break;
++#endif
+ 
+     default:
+       break;
+@@ -527,6 +542,10 @@ bool AVCodecContextToAudioDecoderConfig(const AVCodecContext* codec_context,
+   }
+ #endif
+ 
++  if (sample_format_set_without_ffmpeg) {
++    return true;
++  }
++
+   // Verify that AudioConfig.bytes_per_channel was calculated correctly for
+   // codecs that have |sample_fmt| set by FFmpeg.
+   DCHECK_EQ(av_get_bytes_per_sample(codec_context->sample_fmt),
+diff --git a/chromium/media/filters/ffmpeg_demuxer.cc b/chromium/media/filters/ffmpeg_demuxer.cc
+index 55143e96..b6b294a8 100644
+--- a/chromium/media/filters/ffmpeg_demuxer.cc
++++ b/chromium/media/filters/ffmpeg_demuxer.cc
+@@ -833,6 +833,22 @@ void FFmpegDemuxerStream::InitBitstreamConverter() {
+       // ADTS anyways, so skip bitstream conversion when the profile is
+       // unknown.
+       // Also Windows need ADTS conversion for AAC
++#if BUILDFLAG(ENABLE_PLATFORM_AAC_AUDIO)
++      // I.K.E.: with ffmpeg_branding="Chromium" FFmpeg has neither an AAC
++      // decoder nor an AAC parser, so it leaves the profile unknown, and
++      // FFmpegAACBitstreamConverter cannot write an ADTS header without it.
++      // The profile is in the stream's AudioSpecificConfig: its first five
++      // bits are the audio object type, and FFmpeg numbers the AAC profiles
++      // as that type minus one (Main 1, LC 2, SSR 3, LTP 4, SBR 5, PS 29).
++      if (stream_->codecpar->profile == AV_PROFILE_UNKNOWN &&
++          stream_->codecpar->extradata &&
++          stream_->codecpar->extradata_size >= 2) {
++        const int object_type = stream_->codecpar->extradata[0] >> 3;
++        if ((object_type >= 1 && object_type <= 5) || object_type == 29) {
++          stream_->codecpar->profile = object_type - 1;
++        }
++      }
++#endif
+       if (audio_config_->profile() != AudioCodecProfile::kXHE_AAC) {
+         bitstream_converter_ =
+             std::make_unique<FFmpegAACBitstreamConverter>(stream_->codecpar);
+diff --git a/chromium/media/filters/win/media_foundation_audio_decoder.cc b/chromium/media/filters/win/media_foundation_audio_decoder.cc
+index f55d12b5..5c5241d7 100644
+--- a/chromium/media/filters/win/media_foundation_audio_decoder.cc
++++ b/chromium/media/filters/win/media_foundation_audio_decoder.cc
+@@ -521,7 +521,11 @@ MediaFoundationAudioDecoder::PumpOutput(PumpState pump_state) {
+ 
+   if (hr == MF_E_TRANSFORM_STREAM_CHANGE &&
+       pump_state != PumpState::kStreamChange) {
+-    if (!ConfigureOutput()) {
++    // I.K.E.: ConfigureOutput() returns an HRESULT, for which success is 0.
++    // Chromium 140 tested it with "!", which turned every change of the
++    // output format (HE-AAC) into an error; later Chromium versions have
++    // this fix.
++    if (FAILED(ConfigureOutput())) {
+       return OutputStatus::kFailed;
+     }
+ 

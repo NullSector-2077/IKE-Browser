@@ -113,12 +113,15 @@ OPTIONAL_CASES = {
                           "url": "av1_opus_320.webm", "video": "320", "audio": True},
 }
 
-# What the engine declares. True: must be playable with the patched engine.
+# What the engine declares. True: must be playable with the patched engine;
+# None: reported, not judged. H.264 High 10 is not judged: no Windows decoder
+# takes it, but the integrated code (Vivaldi, Cromite) leaves Chromium's answer
+# as it is, and Chromium says yes whenever a software H.264 decoder is listed.
 PROBES = [
     ("H.264 Baseline", 'video/mp4; codecs="avc1.42E01E"', True),
     ("H.264 Main", 'video/mp4; codecs="avc1.4D401F"', True),
     ("H.264 High", 'video/mp4; codecs="avc1.640028"', True),
-    ("H.264 High 10 (10 bit)", 'video/mp4; codecs="avc1.6E0028"', False),
+    ("H.264 High 10 (10 bit)", 'video/mp4; codecs="avc1.6E0028"', None),
     ("AAC-LC", 'audio/mp4; codecs="mp4a.40.2"', True),
     ("HE-AAC", 'audio/mp4; codecs="mp4a.40.5"', True),
     ("H.264 + AAC", 'video/mp4; codecs="avc1.640028, mp4a.40.2"', True),

@@ -1,0 +1,1362 @@
+I.K.E. Windows engine: Vivaldi's platform_media, Windows video part
+
+Software H.264 through the decoder that is part of Windows
+(CLSID_CMSH264DecoderMFT in msmpeg2vdec.dll), as a media::VideoDecoder in the
+renderer, with the decoder libraries loaded before the sandbox closes.
+
+Source: Vivaldi 7.6.3797 (Chromium 140.0.7339.136), source archive
+vivaldi-source_7.6.3797.tar.xz from https://vivaldi.com/source/, read from the
+Git mirror https://github.com/ric2b/Vivaldi-browser at commit
+bb6a67c4a38211d36180421ee814367f8d274be4.
+
+  Copyright (c) 2018 Vivaldi Technologies AS. All rights reserved.
+  Copyright (C) 2015 Opera Software ASA.  All rights reserved.
+  "This file is an original work developed by Opera Software ASA"
+
+Licence: BSD-3-Clause. The two licence texts are part of this patch:
+chromium/platform_media/OPERA_LICENSE.txt (Opera Software ASA) and
+chromium/platform_media/VIVALDI_LICENSE.txt (Vivaldi Technologies).
+
+New files: chromium/platform_media/** (seven of them byte for byte as in
+Vivaldi, three with small changes marked "I.K.E.:"; the list with checksums
+is in chromium/platform_media/README.ike.md).
+
+Hooks in Chromium's files, taken from Vivaldi's tree (there under its
+build-wide define USE_SYSTEM_PROPRIETARY_CODECS; here under
+BUILDFLAG(USE_PROPRIETARY_CODECS) on Windows):
+  media/base/decoder.{h,cc}                  VideoDecoderType::kVivWMFDecoder
+  media/renderers/default_decoder_factory.cc VivaldiDecoderConfig::AddVideoDecoders
+  content/renderer/renderer_main_platform_delegate_win.cc
+                                             platform_media_init::InitForRendererProcess
+Vivaldi's GN file (platform_media/source_updates.gni) needs Vivaldi's own GN;
+the same sources and libraries are added in media/renderers/BUILD.gn and
+media/base/BUILD.gn (Vivaldi: //base).
+
+diff --git a/chromium/content/renderer/renderer_main_platform_delegate_win.cc b/chromium/content/renderer/renderer_main_platform_delegate_win.cc
+index e0d6ec85..2321c3da 100644
+--- a/chromium/content/renderer/renderer_main_platform_delegate_win.cc
++++ b/chromium/content/renderer/renderer_main_platform_delegate_win.cc
+@@ -30,6 +30,12 @@
+ #include "ui/display/win/dpi.h"
+ #include "ui/gfx/win/direct_write.h"
+ 
++// I.K.E.: Vivaldi's hook (there under USE_SYSTEM_PROPRIETARY_CODECS).
++#include "media/media_buildflags.h"
++#if BUILDFLAG(USE_PROPRIETARY_CODECS)
++#include "platform_media/sandbox/win/platform_media_init.h"
++#endif
++
+ namespace content {
+ 
+ RendererMainPlatformDelegate::RendererMainPlatformDelegate(
+@@ -66,6 +72,12 @@ void RendererMainPlatformDelegate::PlatformInitialize() {
+       command_line.HasSwitch(switches::kSingleProcess)) {
+     InitializeDWriteFontProxy();
+   }
++
++#if BUILDFLAG(USE_PROPRIETARY_CODECS)
++  // I.K.E.: Vivaldi's hook. The Windows libraries with the H.264 and AAC
++  // decoders can only be loaded now, before the sandbox closes.
++  platform_media_init::InitForRendererProcess();
++#endif
+ }
+ 
+ void RendererMainPlatformDelegate::PlatformUninitialize() {
+diff --git a/chromium/media/base/BUILD.gn b/chromium/media/base/BUILD.gn
+index 442f6c83..6f671c1c 100644
+--- a/chromium/media/base/BUILD.gn
++++ b/chromium/media/base/BUILD.gn
+@@ -493,6 +493,21 @@ jumbo_source_set("base") {
+       "win/mf_feature_checks.cc",
+       "win/mf_feature_checks.h",
+     ]
++
++    if (proprietary_codecs) {
++      # I.K.E.: Vivaldi's helper that loads the Windows decoder libraries
++      # before the sandbox closes. Vivaldi compiles it into //base; here it is
++      # part of //media/base, which every caller already depends on.
++      sources += [
++        "//platform_media/sandbox/win/platform_media_init.cc",
++        "//platform_media/sandbox/win/platform_media_init.h",
++      ]
++      if (!defined(jumbo_excluded_sources)) {
++        jumbo_excluded_sources = []
++      }
++      jumbo_excluded_sources +=
++          [ "//platform_media/sandbox/win/platform_media_init.cc" ]
++    }
+   }
+ 
+   if (is_android) {
+diff --git a/chromium/media/base/decoder.cc b/chromium/media/base/decoder.cc
+index 595db3d1..3d754f26 100644
+--- a/chromium/media/base/decoder.cc
++++ b/chromium/media/base/decoder.cc
+@@ -56,6 +56,8 @@ std::string GetDecoderName(VideoDecoderType type) {
+       return "OOPVideoDecoder";
+     case VideoDecoderType::kVideoToolbox:
+       return "VideoToolboxVideoDecoder";
++    case VideoDecoderType::kVivWMFDecoder:
++      return "WMFVideoDecoder";
+   }
+ }
+ 
+diff --git a/chromium/media/base/decoder.h b/chromium/media/base/decoder.h
+index be48558c..0f101266 100644
+--- a/chromium/media/base/decoder.h
++++ b/chromium/media/base/decoder.h
+@@ -57,8 +57,12 @@ enum class VideoDecoderType : int {
+   kOutOfProcess = 18,  // OOPVideoDecoder (Linux and ChromeOS)
+   kVideoToolbox = 19,  // VideoToolboxVideoDecoder (Mac)
+ 
++  // I.K.E.: from Vivaldi's tree; WMFVideoDecoder (platform_media), the
++  // software H.264 decoder of Windows.
++  kVivWMFDecoder,
++
+   // Keep this at the end and equal to the last entry.
+-  kMaxValue = kVideoToolbox
++  kMaxValue = kVivWMFDecoder
+ };
+ 
+ MEDIA_EXPORT std::string GetDecoderName(AudioDecoderType type);
+diff --git a/chromium/media/renderers/BUILD.gn b/chromium/media/renderers/BUILD.gn
+index 3f27372d..7e249a9c 100644
+--- a/chromium/media/renderers/BUILD.gn
++++ b/chromium/media/renderers/BUILD.gn
+@@ -2,6 +2,8 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
++import("//build/config/features.gni")
++
+ source_set("renderers") {
+   # Do not expand the visibility here without double-checking with OWNERS, this
+   # is a roll-up target which is part of the //media component. Most other DEPs
+@@ -96,6 +98,32 @@ source_set("renderers") {
+       "mfplat.lib",
+       "dxgi.lib",
+     ]
++
++    if (proprietary_codecs) {
++      # I.K.E.: Vivaldi's "platform_media", Windows part (software H.264
++      # through the decoder of Windows). Vivaldi adds these with
++      # update_target() of its own GN in platform_media/source_updates.gni;
++      # the same sources and libraries, written for standard GN.
++      sources += [
++        "//platform_media/decoders/debug_buffer_logger.cc",
++        "//platform_media/decoders/debug_buffer_logger.h",
++        "//platform_media/decoders/platform_logging_util.cc",
++        "//platform_media/decoders/platform_logging_util.h",
++        "//platform_media/decoders/vivaldi_decoder_config.cc",
++        "//platform_media/decoders/vivaldi_decoder_config.h",
++        "//platform_media/decoders/win/wmf_video_decoder.cc",
++        "//platform_media/decoders/win/wmf_video_decoder.h",
++      ]
++      libs += [
++        "d3d9.lib",
++        "dxva2.lib",
++        "strmiids.lib",
++        "mf.lib",
++        "mfreadwrite.lib",
++        "mfuuid.lib",
++        "Propsys.lib",
++      ]
++    }
+   }
+ 
+   configs += [ "//media:subcomponent_config" ]
+diff --git a/chromium/media/renderers/default_decoder_factory.cc b/chromium/media/renderers/default_decoder_factory.cc
+index dae23bbe..327c32e7 100644
+--- a/chromium/media/renderers/default_decoder_factory.cc
++++ b/chromium/media/renderers/default_decoder_factory.cc
+@@ -48,6 +48,12 @@
+ #include "media/filters/symphonia_audio_decoder.h"
+ #endif
+ 
++// I.K.E.: Vivaldi's hook; its condition is Vivaldi's build-wide define
++// USE_SYSTEM_PROPRIETARY_CODECS.
++#if BUILDFLAG(IS_WIN) && BUILDFLAG(USE_PROPRIETARY_CODECS)
++#include "platform_media/decoders/vivaldi_decoder_config.h"
++#endif
++
+ namespace media {
+ 
+ DefaultDecoderFactory::DefaultDecoderFactory(
+@@ -139,6 +145,13 @@ void DefaultDecoderFactory::CreateVideoDecoders(
+ #if BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS)
+   video_decoders->push_back(std::make_unique<FFmpegVideoDecoder>(media_log));
+ #endif
++
++#if BUILDFLAG(IS_WIN) && BUILDFLAG(USE_PROPRIETARY_CODECS)
++  // I.K.E.: Vivaldi's hook. Last in the list: the graphics driver's decoder
++  // (D3D11VideoDecoder) is tried first.
++  VivaldiDecoderConfig::AddVideoDecoders(task_runner, media_log,
++                                         *video_decoders);
++#endif
+ }
+ 
+ base::WeakPtr<DecoderFactory> DefaultDecoderFactory::GetWeakPtr() {
+diff --git a/chromium/platform_media/OPERA_LICENSE.txt b/chromium/platform_media/OPERA_LICENSE.txt
+new file mode 100644
+index 00000000..bcf0e393
+--- /dev/null
++++ b/chromium/platform_media/OPERA_LICENSE.txt
+@@ -0,0 +1,30 @@
++All original work by Opera Softare ASA contained in this source
++code distribution is licensed as follows:
++
++Copyright (c) 2013, Opera Software ASA. All rights reserved.
++
++Redistribution and use in source and binary forms, with or without
++modification, are permitted provided that the following conditions
++are met:
++
++1. Redistributions of source code must retain the above copyright
++   notice, this list of conditions and the following disclaimer.
++2. Redistributions in binary form must reproduce the above copyright
++   notice, this list of conditions and the following disclaimer in the
++   documentation and/or other materials provided with the distribution.
++3. Neither the name of Opera Software ASA nor the names of its
++   contributors may be used to endorse or promote products derived
++   from this software without specific prior written permission.
++
++THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
++FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
++COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
++INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
++SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
++HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
++STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
++OF THE POSSIBILITY OF SUCH DAMAGE.
+diff --git a/chromium/platform_media/README.ike.md b/chromium/platform_media/README.ike.md
+new file mode 100644
+index 00000000..cae2ec99
+--- /dev/null
++++ b/chromium/platform_media/README.ike.md
+@@ -0,0 +1,44 @@
++# platform_media (Windows video part), as used by I.K.E.'s Qt WebEngine
++
++Source: Vivaldi 7.6.3797 (Chromium 140.0.7339.136), folder `platform_media/`
++of Vivaldi's source archive `vivaldi-source_7.6.3797.tar.xz`
++(<https://vivaldi.com/source/>), read from the Git mirror
++<https://github.com/ric2b/Vivaldi-browser> at commit
++`bb6a67c4a38211d36180421ee814367f8d274be4`.
++
++Licence: BSD 3-clause. `OPERA_LICENSE.txt` (© 2013 Opera Software ASA) is
++Vivaldi's `platform_media/OPERA_LICENSE.txt`; `VIVALDI_LICENSE.txt`
++(© 2015 Vivaldi Technologies) is the `LICENSE` file at the root of Vivaldi's
++source archive. The file headers say which of the two applies.
++
++Unchanged files (SHA-256 as in Vivaldi 7.6.3797):
++
++    5e7a72f1af32d833a31c656bde778e17d4d072f2fcd0c4b259c42deb9fe23dcb  decoders/win/wmf_video_decoder.cc
++    ef2ac286039b27efb9579bf90d1b54906755c16903bfbbe83911a29a16e337a9  decoders/win/wmf_video_decoder.h
++    b19424060a314cb99e58ceeb56abd6d36dee8f1e5a27ed638bd56a4d05d266b5  decoders/vivaldi_decoder_config.h
++    176e4618bd6967dec372e6c95a56ad539bd49e35b043d6013edffa8ed3ccc565  decoders/platform_logging_util.cc
++    005679a99348a5ac1cbdba659f6043572b208c3c860e9018d040e4f26fb51c35  decoders/platform_logging_util.h
++    3635047b03c96f5d42917deb833713e3b2d45e4737acc1275ac24ecd92b6fcbd  decoders/debug_buffer_logger.cc
++    ab993109b7b474e19cfe4b86c851b6079755dacccc4a833697f9e899b39a1e23  decoders/debug_buffer_logger.h
++    029782271071622943436c58edf4e6e3de26d2e3879096109b6cae8200f21f7b  OPERA_LICENSE.txt
++    bf8c708b49927881e2531dcf5e788227f501f116825bb9be7708846765c638eb  VIVALDI_LICENSE.txt   (Vivaldi: LICENSE)
++
++Changed files; every change is marked with a comment that starts `I.K.E.:`:
++
++- `sandbox/win/platform_media_init.h`, `decoders/vivaldi_decoder_config.cc`:
++  the `#error` without Vivaldi's build-wide define
++  `USE_SYSTEM_PROPRIETARY_CODECS` is left out (Qt WebEngine has no such
++  define; the files are compiled only on Windows with
++  `proprietary_codecs=true`).
++- `decoders/vivaldi_decoder_config.cc`: no `#include "base/vivaldi_switches.h"`
++  (a Vivaldi file that is not used there).
++- `sandbox/win/platform_media_init.cc`: no `CHECK_NE(handle,
++  kFailedLibraryLoad)` in builds that are not "official": a Windows without
++  the decoder libraries must get "cannot play", not a crash.
++
++Not taken from `platform_media/`: the AAC decoder inside FFmpeg
++(`ffmpeg/wmfaacdec.c` and its helpers — it needs `ffmpeg_branding="Chrome"`),
++everything for macOS and Linux, Vivaldi's GN file `source_updates.gni` (it
++needs Vivaldi's own GN; the same sources and libraries are listed in
++`media/renderers/BUILD.gn` and `media/base/BUILD.gn`), and the start-up hooks
++for the GPU and utility processes (they serve the FFmpeg AAC decoder).
+diff --git a/chromium/platform_media/VIVALDI_LICENSE.txt b/chromium/platform_media/VIVALDI_LICENSE.txt
+new file mode 100644
+index 00000000..94831af6
+--- /dev/null
++++ b/chromium/platform_media/VIVALDI_LICENSE.txt
+@@ -0,0 +1,25 @@
++Copyright (c) 2015 Vivaldi Technologies, All rights reserved.
++
++Redistribution and use in source and binary forms, with or without modification,
++are permitted provided that the following conditions are met:
++
++1. Redistributions of source code must retain the above copyright notice, this
++   list of conditions and the following disclaimer.
++2. Redistributions in binary form must reproduce the above copyright notice,
++   this list of conditions and the following disclaimer in the documentation
++   and/or other materials provided with the distribution.
++3. Neither the name of
++   the copyright holder nor the names of its contributors may be used to endorse
++   or promote products derived from this software without specific prior written
++   permission.
++
++THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
++ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
++WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
++ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
++LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
++ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+diff --git a/chromium/platform_media/decoders/debug_buffer_logger.cc b/chromium/platform_media/decoders/debug_buffer_logger.cc
+new file mode 100644
+index 00000000..67f3e513
+--- /dev/null
++++ b/chromium/platform_media/decoders/debug_buffer_logger.cc
+@@ -0,0 +1,52 @@
++// -*- Mode: c++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
++//
++// Copyright (c) 2018 Vivaldi Technologies AS. All rights reserved.
++//
++// This file is an original work developed by Opera Software ASA
++
++#include "platform_media/decoders/debug_buffer_logger.h"
++
++#include "media/base/decoder_buffer.h"
++
++#ifndef NDEBUG
++#include "base/files/file_util.h"
++#include "base/uuid.h"
++#include "base/strings/string_number_conversions.h"
++#include "base/strings/utf_string_conversions.h"
++#endif  // NDEBUG
++
++// Uncomment to turn on content logging
++//#define CONTENT_LOG_FOLDER FILE_PATH_LITERAL("D:\\logs")
++
++namespace media {
++
++DebugBufferLogger::DebugBufferLogger() {}
++
++DebugBufferLogger::~DebugBufferLogger() {}
++
++void DebugBufferLogger::Initialize(const std::string& stream_type) {
++#if !defined(NDEBUG) && defined(CONTENT_LOG_FOLDER)
++  log_directory_ = base::FilePath(CONTENT_LOG_FOLDER)
++                       .Append(base::ASCIIToUTF16(stream_type) + L" - " +
++                               base::ASCIIToUTF16(base::Uuid::GenerateRandomV4()));
++  if (!CreateDirectory(log_directory_))
++    log_directory_.clear();
++#endif  // NDEBUG && CONTENT_LOG_FOLDERs
++}
++
++void DebugBufferLogger::Log(const DecoderBuffer& buffer) {
++#if !defined(NDEBUG)
++  if (log_directory_.empty())
++    return;
++
++  if (buffer.end_of_stream())
++    return;
++
++  base::WriteFile(
++      log_directory_.AppendASCII(
++          base::NumberToString(buffer.timestamp().InMilliseconds())),
++      buffer);
++#endif  // NDEBUG
++}
++
++}  // namespace media
+\ No newline at end of file
+diff --git a/chromium/platform_media/decoders/debug_buffer_logger.h b/chromium/platform_media/decoders/debug_buffer_logger.h
+new file mode 100644
+index 00000000..7a6595b8
+--- /dev/null
++++ b/chromium/platform_media/decoders/debug_buffer_logger.h
+@@ -0,0 +1,32 @@
++// -*- Mode: c++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
++//
++// Copyright (c) 2018 Vivaldi Technologies AS. All rights reserved.
++//
++// This file is an original work developed by Opera Software ASA
++
++#ifndef PLATFORM_MEDIA_DECODERS_BUFFER_LOGGER_H_
++#define PLATFORM_MEDIA_DECODERS_BUFFER_LOGGER_H_
++
++#include "base/files/file_path.h"
++
++namespace media {
++
++class DecoderBuffer;
++
++class DebugBufferLogger {
++ public:
++  DebugBufferLogger();
++  ~DebugBufferLogger();
++
++  void Initialize(const std::string& stream_type);
++
++  void Log(const DecoderBuffer& buffer);
++
++ private:
++#ifndef NDEBUG
++  base::FilePath log_directory_;
++#endif  // NDEBUG
++};
++}  // namespace media
++
++#endif  // PLATFORM_MEDIA_DECODERS_BUFFER_LOGGER_H_
+diff --git a/chromium/platform_media/decoders/platform_logging_util.cc b/chromium/platform_media/decoders/platform_logging_util.cc
+new file mode 100644
+index 00000000..9b3b4cbc
+--- /dev/null
++++ b/chromium/platform_media/decoders/platform_logging_util.cc
+@@ -0,0 +1,55 @@
++// -*- Mode: c++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
++//
++// Copyright (c) 2018 Vivaldi Technologies AS. All rights reserved.
++//
++// This file is an original work developed by Vivaldi Technologies AS.
++
++#include "platform_media/decoders/platform_logging_util.h"
++
++#include <iomanip>
++#include <iostream>
++#include <sstream>
++
++#include "media/base/video_decoder_config.h"
++
++namespace media {
++
++std::string Loggable(const VideoDecoderConfig& config) {
++  std::ostringstream s;
++  s << "\n VideoDecoderConfig is Valid : "
++    << (config.IsValidConfig() ? "true" : "false")
++    << "\n Codec : " << GetCodecName(config.codec()) << "\n Alpha mode : "
++    << (config.alpha_mode() != VideoDecoderConfig::AlphaMode::kIsOpaque
++            ? "true"
++            : "false")
++    //<< "\n VideoPixelFormat : " << VideoPixelFormatToString(config.format())
++    //<< "\n ColorSpace : " << config.color_space_info()
++    << "\n VideoCodecProfile : " << GetProfileName(config.profile())
++    << "\n Coded Size: [" << config.coded_size().width() << ","
++    << config.coded_size().height() << "]"
++    << "\n Visible Rect: [x: " << config.visible_rect().x()
++    << ", y: " << config.visible_rect().y()
++    << ", width: " << config.visible_rect().width()
++    << ", height: " << config.visible_rect().height() << "]"
++    << "\n Natural Size: [ width: " << config.natural_size().width()
++    << ", height: " << config.natural_size().height() << "]"
++    << "\n encrypted : " << (config.is_encrypted() ? "true" : "false")
++    << "\n size of extra data : " << config.extra_data().size();
++
++  if (!config.extra_data().empty() && config.extra_data().size() < 50) {
++    s << "\n extra data : \n";
++    size_t count = 0;
++    for (auto const& data : config.extra_data()) {
++      s << "0x" << std::uppercase << std::setfill('0') << std::setw(2)
++        << std::hex << int(data) << ", ";
++      count++;
++
++      if (count % 8 == 0)
++        s << "\n";
++    }
++  }
++
++  return s.str();
++}
++
++}  // namespace media
+diff --git a/chromium/platform_media/decoders/platform_logging_util.h b/chromium/platform_media/decoders/platform_logging_util.h
+new file mode 100644
+index 00000000..6a498cb2
+--- /dev/null
++++ b/chromium/platform_media/decoders/platform_logging_util.h
+@@ -0,0 +1,20 @@
++// -*- Mode: c++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
++//
++// Copyright (c) 2018 Vivaldi Technologies AS. All rights reserved.
++//
++// This file is an original work developed by Vivaldi Technologies AS.
++
++#ifndef PLATFORM_MEDIA_DECODERS_PLATFORM_LOGGING_UTIL_H_
++#define PLATFORM_MEDIA_DECODERS_PLATFORM_LOGGING_UTIL_H_
++
++#include <string>
++
++namespace media {
++
++class VideoDecoderConfig;
++
++std::string Loggable(const VideoDecoderConfig& config);
++
++}  // namespace media
++
++#endif  // PLATFORM_MEDIA_DECODERS_PLATFORM_LOGGING_UTIL_H_
+diff --git a/chromium/platform_media/decoders/vivaldi_decoder_config.cc b/chromium/platform_media/decoders/vivaldi_decoder_config.cc
+new file mode 100644
+index 00000000..3156222d
+--- /dev/null
++++ b/chromium/platform_media/decoders/vivaldi_decoder_config.cc
+@@ -0,0 +1,31 @@
++// Copyright (c) 2021 Vivaldi Technologies AS. All rights reserved.
++
++#include "platform_media/decoders/vivaldi_decoder_config.h"
++
++#include "base/command_line.h"
++#include "build/build_config.h"
++
++// I.K.E.: "base/vivaldi_switches.h" (not used here) is not included: that
++// file is not part of Qt WebEngine.
++
++#if BUILDFLAG(IS_WIN)
++#include "platform_media/decoders/win/wmf_video_decoder.h"
++#endif
++
++// I.K.E.: no check for Vivaldi's build-wide USE_SYSTEM_PROPRIETARY_CODECS;
++// media/renderers/BUILD.gn compiles this file only on Windows with
++// proprietary_codecs=true.
++
++namespace media {
++
++/* static */
++void VivaldiDecoderConfig::AddVideoDecoders(
++    scoped_refptr<base::SequencedTaskRunner> task_runner,
++    MediaLog* media_log,
++    std::vector<std::unique_ptr<VideoDecoder>>& decoders) {
++#if BUILDFLAG(IS_WIN)
++  decoders.push_back(std::make_unique<WMFVideoDecoder>(task_runner));
++#endif  // IS_WIN
++}
++
++}  // namespace media
+diff --git a/chromium/platform_media/decoders/vivaldi_decoder_config.h b/chromium/platform_media/decoders/vivaldi_decoder_config.h
+new file mode 100644
+index 00000000..5177ea54
+--- /dev/null
++++ b/chromium/platform_media/decoders/vivaldi_decoder_config.h
+@@ -0,0 +1,29 @@
++// Copyright (c) 2021 Vivaldi Technologies AS. All rights reserved.
++
++#ifndef PLATFORM_MEDIA_DECODERS_VIVALDI_DECODER_CONFIG_H_
++#define PLATFORM_MEDIA_DECODERS_VIVALDI_DECODER_CONFIG_H_
++
++#include <memory>
++#include <vector>
++
++#include "base/memory/scoped_refptr.h"
++#include "base/task/sequenced_task_runner.h"
++#include "media/base/media_export.h"
++
++namespace media {
++
++class AudioDecoder;
++class MediaLog;
++class VideoDecoder;
++
++class MEDIA_EXPORT VivaldiDecoderConfig {
++ public:
++  static void AddVideoDecoders(
++      scoped_refptr<base::SequencedTaskRunner> task_runner,
++      MediaLog* media_log,
++      std::vector<std::unique_ptr<VideoDecoder>>& decoders);
++};
++
++}  // namespace media
++
++#endif  // PLATFORM_MEDIA_DECODERS_VIVALDI_DECODER_CONFIG_H_
+diff --git a/chromium/platform_media/decoders/win/wmf_video_decoder.cc b/chromium/platform_media/decoders/win/wmf_video_decoder.cc
+new file mode 100644
+index 00000000..9ab840f9
+--- /dev/null
++++ b/chromium/platform_media/decoders/win/wmf_video_decoder.cc
+@@ -0,0 +1,512 @@
++// -*- Mode: c++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
++//
++// Copyright (c) 2018 Vivaldi Technologies AS. All rights reserved.
++// Copyright (C) 2015 Opera Software ASA.  All rights reserved.
++//
++// This file is an original work developed by Opera Software ASA
++
++#include "platform_media/decoders/win/wmf_video_decoder.h"
++
++#include <mfapi.h>
++#include <mferror.h>
++#include <wmcodecdsp.h>
++
++#include "base/logging.h"
++#include "media/base/data_buffer.h"
++#include "media/base/video_frame.h"
++
++#include "platform_media/decoders/platform_logging_util.h"
++#include "platform_media/sandbox/win/platform_media_init.h"
++
++#define LOG_HR_FAIL(hr, message)                                       \
++  do {                                                                 \
++    VLOG(1) << " PROPMEDIA(RENDERER) : " << __FUNCTION__ << " Failed " \
++            << message << ", hr=0x" << std::hex << hr;                 \
++  } while (false)
++
++#define RETURN_ON_HR_FAIL(hr, message, return_value) \
++  do {                                               \
++    HRESULT _hr_value = (hr);                        \
++    if (FAILED(_hr_value)) {                         \
++      LOG_HR_FAIL(_hr_value, message);               \
++      return (return_value);                         \
++    }                                                \
++  } while (false)
++
++namespace media {
++
++namespace {
++
++DWORD kDefaultStreamId = 0;
++
++bool IsValidConfig(const VideoDecoderConfig& config) {
++  return config.codec() == VideoCodec::kH264 &&
++         config.profile() >= VideoCodecProfile::H264PROFILE_MIN &&
++         config.profile() <= VideoCodecProfile::H264PROFILE_MAX;
++}
++
++Microsoft::WRL::ComPtr<IMFTransform> CreateWMFDecoder(
++    const VideoDecoderConfig& config) {
++  using DllFunction = decltype(DllGetClassObject);
++  static DllFunction* get_class_object = nullptr;
++  if (!get_class_object) {
++    HMODULE library = platform_media_init::GetWMFLibraryForH264();
++    if (!library)
++      return nullptr;
++    get_class_object = reinterpret_cast<DllFunction*>(
++        ::GetProcAddress(library, "DllGetClassObject"));
++    if (!get_class_object) {
++      VLOG(1) << " PROPMEDIA(RENDERER) : " << __FUNCTION__
++              << " Error while retrieving class object getter function.";
++      return nullptr;
++    }
++  }
++
++  Microsoft::WRL::ComPtr<IClassFactory> factory;
++  HRESULT hr =
++      get_class_object(__uuidof(CMSH264DecoderMFT), __uuidof(IClassFactory),
++                       reinterpret_cast<void**>(factory.GetAddressOf()));
++  RETURN_ON_HR_FAIL(hr, "DllGetClassObject()", nullptr);
++
++  Microsoft::WRL::ComPtr<IMFTransform> decoder;
++  hr =
++      factory->CreateInstance(nullptr, __uuidof(IMFTransform),
++                              reinterpret_cast<void**>(decoder.GetAddressOf()));
++  RETURN_ON_HR_FAIL(hr, "IClassFactory::CreateInstance(wmf_decoder)", nullptr);
++
++  return decoder;
++}
++
++Microsoft::WRL::ComPtr<IMFSample> CreateSample(DWORD buffer_size,
++                                               DWORD buffer_alignment) {
++  Microsoft::WRL::ComPtr<IMFSample> sample;
++  HRESULT hr = MFCreateSample(sample.GetAddressOf());
++  RETURN_ON_HR_FAIL(hr, "MFCreateSample()", nullptr);
++
++  Microsoft::WRL::ComPtr<IMFMediaBuffer> buffer;
++  DWORD alignment_arg = (buffer_alignment != 0) ? buffer_alignment - 1 : 0;
++  hr = MFCreateAlignedMemoryBuffer(buffer_size, alignment_arg,
++                                   buffer.GetAddressOf());
++  RETURN_ON_HR_FAIL(hr, "MFCreateAlignedMemoryBuffer()", nullptr);
++
++  hr = sample->AddBuffer(buffer.Get());
++  RETURN_ON_HR_FAIL(hr, "IMFSample::AddBuffer()", nullptr);
++
++  return sample;
++}
++
++Microsoft::WRL::ComPtr<IMFSample> PrepareInputSample(const DecoderBuffer& input,
++                                                     DWORD buffer_alignment) {
++  Microsoft::WRL::ComPtr<IMFSample> sample =
++      CreateSample(input.size(), buffer_alignment);
++  if (!sample)
++    return nullptr;
++
++  Microsoft::WRL::ComPtr<IMFMediaBuffer> buffer;
++  HRESULT hr =
++      sample->GetBufferByIndex(kDefaultStreamId, buffer.GetAddressOf());
++  RETURN_ON_HR_FAIL(hr, "IMFSample::GetBufferByIndex()", nullptr);
++
++  uint8_t* buff_ptr = nullptr;
++  hr = buffer->Lock(&buff_ptr, nullptr, nullptr);
++  RETURN_ON_HR_FAIL(hr, "IMFMediaBuffer::Lock()", nullptr);
++
++  memcpy(buff_ptr, input.data(), input.size());
++
++  hr = buffer->Unlock();
++  RETURN_ON_HR_FAIL(hr, "IMFMediaBuffer::Unlock()", nullptr);
++
++  hr = buffer->SetCurrentLength(input.size());
++  RETURN_ON_HR_FAIL(hr, "IMFMediaBuffer::SetCurrentLength()", nullptr);
++
++  // IMFSample's timestamp is expressed in hundreds of nanoseconds.
++  hr = sample->SetSampleTime(input.timestamp().InMicroseconds() * 10);
++  RETURN_ON_HR_FAIL(hr, "IMFSample::SetSampleTime()", nullptr);
++
++  return sample;
++}
++
++// Extract data from sample and reset its buffer to make it ready to receive
++// more data.
++bool ExtractSampleData(IMFSample* sample, std::vector<uint8_t>& buffer,
++                       LONG stride, LONG rows) {
++  Microsoft::WRL::ComPtr<IMFMediaBuffer> media_buffer;
++  HRESULT hr = sample->ConvertToContiguousBuffer(media_buffer.GetAddressOf());
++  RETURN_ON_HR_FAIL(hr, "IMFSample::ConvertToContiguousBuffer()", false);
++
++  uint8_t* data = nullptr;
++  DWORD data_size = 0;
++  hr = media_buffer->Lock(&data, nullptr, &data_size);
++  RETURN_ON_HR_FAIL(hr, "IMFMediaBuffer::Lock()", false);
++
++  // We must call Unlock() on all code paths.
++
++  // VB-101625: If the number of rows in the output from the decoder is smaller
++  // than the number of rows specified by the video config (and the buffer
++  // therefore is smaller than expected), then we need to recalculate the
++  // number of rows to the (more likely) proper number of rows in the frame and
++  // copy the contents over a new buffer with correct (larger) dimensions to
++  // prevent a crash due to reading past the end of the buffer in
++  // WrapExternalYuvData called below.
++  //
++  // The issue is probably due to incorrect coding of the video header compared
++  // to the encoding of the frames.
++  //
++  // Buffer organization: 1 set of N rows, 2 sets of N rows that are 1/4 stride.
++  // If the calculated N is not N % 16 == 0, it will be reduced to the next
++  // lower N matching the modulus, but the resulting colors in the video may
++  // look a bit off (if this happens, it would be caused by a bug in Windows).
++  if (LONG(data_size) < (rows * stride + rows * stride / 2)) {
++    LONG real_rows = (2 * (data_size / stride)) / 3;
++    real_rows = (real_rows & ~15);  // Make sure the number of rows is
++    // divisible by 16, even if that breaks the video
++    VLOG(1) << __FUNCTION__ << " Recalibrated rows : " << real_rows;
++
++    data_size = (rows * stride + rows * stride / 2);
++    buffer.resize(data_size);
++
++    // Null the buffer to make sure it is clean
++    // This only happens for badly encoded videoes, so no need to optimize
++    memset(buffer.data(), 0, data_size);
++    // Copy each plane of the frame
++    memcpy(buffer.data(), data, real_rows * stride);
++    memcpy(buffer.data() + (rows * stride),
++           data + (real_rows * stride), real_rows * stride / 4);
++    memcpy(buffer.data() + (rows * stride) + rows * stride / 4,
++           data + (real_rows * stride) + (real_rows * stride / 4),
++           real_rows * stride / 4);
++  } else {
++    buffer.resize(data_size);
++    memcpy(buffer.data(), data, data_size);
++  }
++
++  hr = media_buffer->Unlock();
++  RETURN_ON_HR_FAIL(hr, "IMFMediaBuffer::Unlock()", false);
++
++  // Prepare `buffer` for reuse.
++  hr = media_buffer->SetCurrentLength(0);
++  RETURN_ON_HR_FAIL(hr, "IMFMediaBuffer::SetCurrentLength()", false);
++
++  return true;
++}
++
++// This function is used as |no_longer_needed_cb| of
++// VideoFrame::WrapExternalYuvData to make sure we keep reference to
++// the buffer object as long as we need it.
++void BufferHolder(std::vector<uint8_t> buffer) {
++  /* Intentionally empty */
++}
++
++scoped_refptr<VideoFrame> CreateOutputFrame(const VideoDecoderConfig& config,
++                                            LONG stride,
++                                            IMFSample* sample) {
++  LONGLONG sample_time = 0;
++  HRESULT hr = sample->GetSampleTime(&sample_time);
++  RETURN_ON_HR_FAIL(hr, "IMFSample::GetSampleTime()", nullptr);
++
++  // Number of rows has to be divisible by 16.
++  LONG rows = config.coded_size().height();
++  LONG adjusted_rows = ((rows + 15) & ~15);
++
++  if (rows != adjusted_rows) {
++    // patricia@vivaldi.com : I don't know why we do this and it smells fishy
++    VLOG(1) << __FUNCTION__ << " Before rows : " << rows;
++    rows = adjusted_rows;
++    VLOG(1) << __FUNCTION__ << " After rows : " << rows;
++  }
++
++  // The sample time in IMFSample is expressed in hundreds of nanoseconds.
++  const base::TimeDelta timestamp = base::Microseconds(sample_time / 10);
++
++  std::vector<uint8_t> buffer;
++  if (!ExtractSampleData(sample, buffer, stride, rows))
++    return nullptr;
++
++  scoped_refptr<VideoFrame> frame = VideoFrame::WrapExternalYuvData(
++      VideoPixelFormat::PIXEL_FORMAT_YV12, config.coded_size(),
++      config.visible_rect(), config.natural_size(), stride, stride / 2,
++      stride / 2,
++      UNSAFE_BUFFERS(
++          base::span(buffer.data(), static_cast<size_t>(rows * stride))),
++      UNSAFE_BUFFERS(
++          base::span(buffer.data() + (rows * stride + rows * stride / 4),
++                     static_cast<size_t>(rows * stride / 4))),
++      UNSAFE_BUFFERS(base::span(buffer.data() + (rows * stride),
++                                static_cast<size_t>(rows * stride / 4))),
++      timestamp);
++
++  frame->AddDestructionObserver(
++      base::BindOnce(&BufferHolder, std::move(buffer)));
++
++  return frame;
++}
++
++}  // namespace
++
++WMFVideoDecoder::WMFVideoDecoder(
++    scoped_refptr<base::SequencedTaskRunner> task_runner)
++    : task_runner_(std::move(task_runner)) {}
++
++WMFVideoDecoder::~WMFVideoDecoder() {}
++
++void WMFVideoDecoder::Initialize(
++    const VideoDecoderConfig& config,
++    bool low_delay,
++    CdmContext* cdm_context,
++    InitCB init_cb,
++    const OutputCB& output_cb,
++    const WaitingCB& waiting_for_decryption_key_cb) {
++  DCHECK(task_runner_->RunsTasksInCurrentSequence());
++  DCHECK(output_cb);
++
++  if (!IsValidConfig(config)) {
++    VLOG(1) << " PROPMEDIA(RENDERER) : " << __FUNCTION__
++            << " Media Config not accepted for codec : "
++            << GetCodecName(config.codec());
++    std::move(init_cb).Run(DecoderStatus::Codes::kUnsupportedConfig);
++    return;
++  }
++  VLOG(1) << " PROPMEDIA(RENDERER) : " << __FUNCTION__
++          << " Supported decoder config for codec : " << Loggable(config);
++
++  config_ = config;
++  debug_buffer_logger_.Initialize(GetCodecName(config_.codec()));
++  output_cb_ = output_cb;
++
++  if (!ConfigureDecoder()) {
++    std::move(init_cb).Run(DecoderStatus::Codes::kFailedToCreateDecoder);
++    return;
++  }
++
++  std::move(init_cb).Run(DecoderStatus::Codes::kOk);
++}
++
++void WMFVideoDecoder::Decode(scoped_refptr<DecoderBuffer> input,
++                             DecodeCB decode_cb) {
++  DCHECK(task_runner_->RunsTasksInCurrentSequence());
++
++  debug_buffer_logger_.Log(*input);
++
++  media::DecoderStatus::Codes status = DecoderStatus::Codes::kOk;
++  if (!DoDecode(std::move(input))) {
++    status = DecoderStatus::Codes::kPlatformDecodeFailure;
++  }
++  task_runner_->PostTask(FROM_HERE,
++                         base::BindOnce(std::move(decode_cb), status));
++}
++
++void WMFVideoDecoder::Reset(base::OnceClosure closure) {
++  VLOG(1) << " PROPMEDIA(RENDERER) : " << __FUNCTION__;
++  DCHECK(task_runner_->RunsTasksInCurrentSequence());
++
++  // Transform needs to be reset, skip this and seeking may fail.
++  decoder_->ProcessMessage(MFT_MESSAGE_COMMAND_FLUSH, 0);
++
++  task_runner_->PostTask(FROM_HERE, std::move(closure));
++}
++
++VideoDecoderType WMFVideoDecoder::GetDecoderType() const {
++  return VideoDecoderType::kVivWMFDecoder;
++}
++
++bool WMFVideoDecoder::NeedsBitstreamConversion() const {
++  // WMF h264 decoder must receive data with metadata headers or it would not
++  // work for many videos.
++  return true;
++}
++
++bool WMFVideoDecoder::ConfigureDecoder() {
++  decoder_ = CreateWMFDecoder(config_);
++  if (!decoder_)
++    return false;
++
++  if (!SetInputMediaType())
++    return false;
++
++  if (!SetOutputMediaType())
++    return false;
++
++  // `GetInputStreamInfo()` requires both input and output to be set.
++  MFT_INPUT_STREAM_INFO input_stream_info;
++  HRESULT hr =
++      decoder_->GetInputStreamInfo(kDefaultStreamId, &input_stream_info);
++  RETURN_ON_HR_FAIL(hr, "IMFTransform::GetInputStreamInfo()", false);
++
++  input_buffer_alignment_ = input_stream_info.cbAlignment;
++
++  hr = MFGetStrideForBitmapInfoHeader(MFVideoFormat_YV12.Data1,
++                                      config_.coded_size().width(), &stride_);
++  RETURN_ON_HR_FAIL(hr, "MFGetStrideForBitmapInfoHeader()", false);
++
++  // Stride has to be divisible by 16.
++  LONG adjusted_stride = ((stride_ + 15) & ~15);
++  if (stride_ != adjusted_stride) {
++    // patricia@vivaldi.com : I don't know why we do this and it smells fishy
++    VLOG(1) << __FUNCTION__ << " Changing stride from " << stride_ << " to "
++            << adjusted_stride;
++    stride_ = adjusted_stride;
++  }
++
++  return true;
++}
++
++bool WMFVideoDecoder::SetInputMediaType() {
++  Microsoft::WRL::ComPtr<IMFMediaType> media_type;
++  HRESULT hr = MFCreateMediaType(media_type.GetAddressOf());
++  RETURN_ON_HR_FAIL(hr, "MFCreateMediaType()", false);
++
++  hr = media_type->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
++  RETURN_ON_HR_FAIL(hr, "IMFMediaType::SetGUID(MF_MT_MAJOR_TYPE)", false);
++
++  hr = media_type->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_H264);
++  RETURN_ON_HR_FAIL(hr, "IMFMediaType::SetGUID(MF_MT_SUBTYPE)", false);
++
++  hr = media_type->SetUINT32(MF_MT_INTERLACE_MODE,
++                             MFVideoInterlace_MixedInterlaceOrProgressive);
++  RETURN_ON_HR_FAIL(hr, "IMFMediaType::SetUINT32(MF_MT_INTERLACE_MODE)", false);
++
++  hr = MFSetAttributeSize(media_type.Get(), MF_MT_FRAME_SIZE,
++                          config_.coded_size().width(),
++                          config_.coded_size().height());
++  RETURN_ON_HR_FAIL(hr, "MFSetAttributeSize()", false);
++
++  hr = decoder_->SetInputType(kDefaultStreamId, media_type.Get(), /*flags=*/0);
++  RETURN_ON_HR_FAIL(hr, "IMFTransform::SetInputType()", false);
++
++  return true;
++}
++
++bool WMFVideoDecoder::SetOutputMediaType() {
++  VLOG(1) << " PROPMEDIA(RENDERER) : " << __FUNCTION__;
++
++  Microsoft::WRL::ComPtr<IMFMediaType> out_media_type;
++
++  for (DWORD i = 0;; ++i) {
++    HRESULT hr = decoder_->GetOutputAvailableType(
++        kDefaultStreamId, i, out_media_type.GetAddressOf());
++    RETURN_ON_HR_FAIL(hr, "IMFTransform::GetOutputAvailableType()", false);
++
++    GUID out_subtype = {0};
++    hr = out_media_type->GetGUID(MF_MT_SUBTYPE, &out_subtype);
++    RETURN_ON_HR_FAIL(hr, "IMFMediaType::GetGUID(MF_MT_SUBTYPE)", false);
++
++    if (out_subtype == MFVideoFormat_YV12)
++      break;
++    out_media_type.Reset();
++  }
++  HRESULT hr = decoder_->SetOutputType(kDefaultStreamId, out_media_type.Get(),
++                                       /*flags=*/0);
++  RETURN_ON_HR_FAIL(hr, "IMFTransform::SetOutputType()", false);
++
++  MFT_OUTPUT_STREAM_INFO output_stream_info = {0};
++  hr = decoder_->GetOutputStreamInfo(kDefaultStreamId, &output_stream_info);
++  RETURN_ON_HR_FAIL(hr, "IMFTransform::GetOutputStreamInfo()", false);
++
++  output_sample_.Reset();
++
++  const bool decoder_creates_samples =
++      (output_stream_info.dwFlags & (MFT_OUTPUT_STREAM_PROVIDES_SAMPLES |
++                                     MFT_OUTPUT_STREAM_CAN_PROVIDE_SAMPLES)) !=
++      0;
++  if (!decoder_creates_samples) {
++    output_sample_ =
++        CreateSample(output_stream_info.cbSize, output_stream_info.cbAlignment);
++    if (!output_sample_)
++      return false;
++  }
++
++  return true;
++}
++
++bool WMFVideoDecoder::DoDecode(scoped_refptr<DecoderBuffer> input) {
++  if (input->end_of_stream()) {
++    VLOG(3) << " PROPMEDIA(RENDERER) : " << __FUNCTION__ << " (EOS)";
++
++    // Ask the decoder to output any remaining data.
++    decoder_->ProcessMessage(MFT_MESSAGE_COMMAND_DRAIN, 0);
++  } else {
++    VLOG(5) << " PROPMEDIA(RENDERER) : " << __FUNCTION__ << " ("
++            << input->timestamp() << ")";
++
++    const Microsoft::WRL::ComPtr<IMFSample> sample =
++        PrepareInputSample(*input, input_buffer_alignment_);
++    if (!sample) {
++      VLOG(1) << " PROPMEDIA(RENDERER) : " << __FUNCTION__
++              << " Failed to create input sample.";
++      return false;
++    }
++    HRESULT hr = decoder_->ProcessInput(kDefaultStreamId, sample.Get(), 0);
++    DCHECK_NE(MF_E_NOTACCEPTING, hr)
++        << "The transform is neither producing output "
++           "nor accepting input? This must not happen, see "
++           "ProcessOutput() loop below";
++    RETURN_ON_HR_FAIL(hr, "IMFTransform::ProcessInput()", false);
++  }
++
++  // We must call `decoder_->ProcessOuput()` without sending more input until it
++  // tells that more input is necessary. So loop until that.
++  bool need_more_input = false;
++  do {
++    if (!ProcessOutput(need_more_input))
++      return false;
++  } while (!need_more_input);
++
++  return true;
++}
++
++bool WMFVideoDecoder::ProcessOutput(bool& need_more_input) {
++  DCHECK(!need_more_input);
++
++  MFT_OUTPUT_DATA_BUFFER output_data_buffer = {0};
++  output_data_buffer.pSample = output_sample_.Get();
++
++  DWORD process_output_status = 0;
++  HRESULT hr = decoder_->ProcessOutput(kDefaultStreamId, 1, &output_data_buffer,
++                                       &process_output_status);
++  IMFCollection* events = output_data_buffer.pEvents;
++  if (events != nullptr) {
++    // Even though we're not interested in events we have to clean them up.
++    events->Release();
++  }
++  Microsoft::WRL::ComPtr<IMFSample> sample_to_release;
++  if (!output_sample_) {
++    // The decoder allocated the sample, we must release it.
++    sample_to_release.Attach(output_data_buffer.pSample);
++  }
++
++  switch (hr) {
++    case S_OK: {
++      scoped_refptr<VideoFrame> frame =
++          CreateOutputFrame(config_, stride_, output_data_buffer.pSample);
++      if (!frame)
++        return false;
++
++      VLOG(5) << " PROPMEDIA(RENDERER) : " << __FUNCTION__
++              << "Decoded: dimensions=(" << frame->coded_size().width() << " "
++              << frame->coded_size().height() << ") visible=("
++              << frame->visible_rect().x() << " " << frame->visible_rect().y()
++              << " " << frame->visible_rect().width() << " "
++              << frame->visible_rect().height() << ")";
++
++      task_runner_->PostTask(FROM_HERE, base::BindOnce(output_cb_, frame));
++      break;
++    }
++    case MF_E_TRANSFORM_NEED_MORE_INPUT:
++      VLOG(5) << " PROPMEDIA(RENDERER) : " << __FUNCTION__
++              << " NEED_MORE_INPUT";
++      // Need to to get more input data to produce output.
++      need_more_input = true;
++      break;
++    case MF_E_TRANSFORM_STREAM_CHANGE:
++      if (!SetOutputMediaType())
++        return false;
++      break;
++    default:
++      LOG_HR_FAIL(hr, "IMFTransform::ProcessOutput()");
++      return false;
++  }
++
++  return true;
++}
++
++}  // namespace media
+diff --git a/chromium/platform_media/decoders/win/wmf_video_decoder.h b/chromium/platform_media/decoders/win/wmf_video_decoder.h
+new file mode 100644
+index 00000000..8880f0cb
+--- /dev/null
++++ b/chromium/platform_media/decoders/win/wmf_video_decoder.h
+@@ -0,0 +1,69 @@
++// -*- Mode: c++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
++//
++// Copyright (c) 2018 Vivaldi Technologies AS. All rights reserved.
++// Copyright (C) 2015 Opera Software ASA.  All rights reserved.
++//
++// This file is an original work developed by Opera Software ASA
++
++#ifndef PLATFORM_MEDIA_DECODERS_WIN_WMF_VIDEO_DECODER_H_
++#define PLATFORM_MEDIA_DECODERS_WIN_WMF_VIDEO_DECODER_H_
++
++#include <mftransform.h>
++#include <wrl/client.h>
++
++#include <string>
++#include <string_view>
++
++#include "base/task/sequenced_task_runner.h"
++#include "media/base/video_decoder.h"
++#include "media/base/video_decoder_config.h"
++
++#include "platform_media/decoders/debug_buffer_logger.h"
++
++namespace media {
++
++// Decodes H.264 video streams using Windows Media Foundation library.
++class WMFVideoDecoder : public VideoDecoder {
++ public:
++  WMFVideoDecoder(scoped_refptr<base::SequencedTaskRunner> task_runner);
++  ~WMFVideoDecoder() override;
++  WMFVideoDecoder(const WMFVideoDecoder&) = delete;
++  WMFVideoDecoder& operator=(const WMFVideoDecoder&) = delete;
++
++  // VideoDecoder implementation.
++  void Initialize(const VideoDecoderConfig& config,
++                  bool low_delay,
++                  CdmContext* cdm_context,
++                  InitCB init_cb,
++                  const OutputCB& output_cb,
++                  const WaitingCB& waiting_for_decryption_key_cb) override;
++  void Decode(scoped_refptr<DecoderBuffer> buffer, DecodeCB decode_cb) override;
++  void Reset(base::OnceClosure closure) override;
++  VideoDecoderType GetDecoderType() const override;
++  bool NeedsBitstreamConversion() const override;
++
++ private:
++  bool ConfigureDecoder();
++  bool SetInputMediaType();
++  bool SetOutputMediaType();
++
++  bool DoDecode(scoped_refptr<DecoderBuffer> buffer);
++
++  // Try to extract more output from the decoder. Return false on errors. Set
++  // need_more_input if the decoder cannot produce more output.
++  bool ProcessOutput(bool& need_more_input);
++
++  scoped_refptr<base::SequencedTaskRunner> task_runner_;
++  Microsoft::WRL::ComPtr<IMFTransform> decoder_;
++  VideoDecoderConfig config_;
++  OutputCB output_cb_;
++  Microsoft::WRL::ComPtr<IMFSample> output_sample_;
++  DWORD input_buffer_alignment_ = 0;
++  LONG stride_ = 0;
++
++  DebugBufferLogger debug_buffer_logger_;
++};
++
++}  // namespace media
++
++#endif  // PLATFORM_MEDIA_DECODERS_WIN_WMF_VIDEO_DECODER_H_
+diff --git a/chromium/platform_media/sandbox/win/platform_media_init.cc b/chromium/platform_media/sandbox/win/platform_media_init.cc
+new file mode 100644
+index 00000000..ee1cc73d
+--- /dev/null
++++ b/chromium/platform_media/sandbox/win/platform_media_init.cc
+@@ -0,0 +1,135 @@
++// -*- Mode: c++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
++//
++// Copyright (c) 2018 Vivaldi Technologies AS. All rights reserved.
++// Copyright (C) 2015 Opera Software ASA.  All rights reserved.
++//
++// This file is an original work developed by Opera Software ASA.
++
++#include "platform_media/sandbox/win/platform_media_init.h"
++
++#include "base/check.h"
++#include "base/check_op.h"
++#include "base/command_line.h"
++#include "base/logging.h"
++#include "base/win/windows_version.h"
++
++#include <windows.h>
++
++namespace platform_media_init {
++
++namespace {
++
++// Type to distinguish failed-to-load library from not-yet-attempted-to-load.
++using LibraryHandle = intptr_t;
++constexpr LibraryHandle kNotLoadedLibrary = 0;
++constexpr LibraryHandle kFailedLibraryLoad = -1;
++
++static_assert(sizeof(LibraryHandle) == sizeof(HMODULE), "HMODULE is a pointer");
++
++// Media Libraries to preload to enable media decoding and demultiplexing.
++enum LibraryMF {
++  kLibraryAAC,
++  kLibraryH264,
++};
++
++static LibraryHandle g_mf_handles[kLibraryH264 + 1];
++
++// This is a copy of switches::kUtilitySubType to avoid dependency on content
++// components.
++const char kUtilitySubTypeSwitch[] = "utility-sub-type";
++
++LibraryHandle DoLoadLibrary(const wchar_t* library_name) {
++  HMODULE library = ::LoadLibrary(library_name);
++  if (library)
++    return reinterpret_cast<LibraryHandle>(library);
++
++  LOG(WARNING) << " PROPMEDIA(COMMON) : " << __FUNCTION__ << " Failed to load "
++               << library_name
++               << ". Some media features will not be available.";
++  return kFailedLibraryLoad;
++}
++
++void LoadMFLibrary(LibraryMF library) {
++  LibraryHandle& handle = g_mf_handles[library];
++  if (handle != kNotLoadedLibrary)
++    return;
++
++  // Try to load a basic support first. If it is not available, do not bother
++  // with the given library.
++  static LibraryHandle mfplat_handle = kNotLoadedLibrary;
++  if (mfplat_handle == kNotLoadedLibrary) {
++    mfplat_handle = DoLoadLibrary(L"mfplat.dll");
++  }
++  if (mfplat_handle == kFailedLibraryLoad) {
++    handle = kFailedLibraryLoad;
++    return;
++  }
++
++  const wchar_t* name;
++  switch (library) {
++    case kLibraryAAC: {
++      bool win8_or_later = base::win::GetVersion() >= base::win::Version::WIN8;
++      name = win8_or_later ? L"msauddecmft.dll" : L"msmpeg2adec.dll";
++      break;
++    }
++    case kLibraryH264:
++      name = L"msmpeg2vdec.dll";
++      break;
++  }
++  handle = DoLoadLibrary(name);
++}
++
++void LoadDecoders() {
++  LoadMFLibrary(kLibraryAAC);
++  LoadMFLibrary(kLibraryH264);
++}
++
++HMODULE GetLibrary(LibraryMF library) {
++  LibraryHandle& handle = g_mf_handles[library];
++  if (handle == kNotLoadedLibrary) {
++    // This can happen only in unit tests as for normal browser runs or browser
++    // tests the library should be preloaded before the sandbox. And in unit
++    // tests the load should succeed as we do not run those on Windows-N. So
++    // check for that to catch a potentially missing library preload before the
++    // sandbox for a browser run as inside the sandbox |LoadLibrary()| fails.
++    LoadMFLibrary(library);
++// I.K.E.: Vivaldi has CHECK_NE(handle, kFailedLibraryLoad) here for builds
++// that are not official. Qt WebEngine is never an "official build", and a
++// Windows without these libraries (the N editions) must get "cannot play",
++// not a crash.
++  }
++  if (handle == kFailedLibraryLoad)
++    return nullptr;
++  return reinterpret_cast<HMODULE>(handle);
++}
++
++}  // namespace
++
++HMODULE GetWMFLibraryForAAC() {
++  return GetLibrary(kLibraryAAC);
++}
++
++HMODULE GetWMFLibraryForH264() {
++  return GetLibrary(kLibraryH264);
++}
++
++void InitForGPUProcess() {
++  LoadDecoders();
++}
++
++void InitForRendererProcess() {
++  LoadDecoders();
++}
++
++void InitForUtilityProcess(const base::CommandLine& command_line) {
++  // Preload audio decoder DLL for audio-related services including CDM or
++  // Content-Decryption-Module.
++  std::string subtype = command_line.GetSwitchValueASCII(kUtilitySubTypeSwitch);
++  if (subtype == "audio.mojom.AudioService" ||
++      subtype == "chrome.mojom.MediaParserFactory" ||
++      subtype == "media.mojom.CdmServiceBroker") {
++    LoadMFLibrary(kLibraryAAC);
++  }
++}
++
++}  // namespace platform_media_init
+diff --git a/chromium/platform_media/sandbox/win/platform_media_init.h b/chromium/platform_media/sandbox/win/platform_media_init.h
+new file mode 100644
+index 00000000..62ddd9af
+--- /dev/null
++++ b/chromium/platform_media/sandbox/win/platform_media_init.h
+@@ -0,0 +1,51 @@
++// -*- Mode: c++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
++//
++// Copyright (c) 2018 Vivaldi Technologies AS. All rights reserved.
++// Copyright (C) 2015 Opera Software ASA.  All rights reserved.
++//
++// This file is an original work developed by Opera Software ASA.
++
++#ifndef PLATFORM_MEDIA_SANDBOX_WIN_PLATFORM_MEDIA_INIT_H_
++#define PLATFORM_MEDIA_SANDBOX_WIN_PLATFORM_MEDIA_INIT_H_
++
++// I.K.E.: Vivaldi defines USE_SYSTEM_PROPRIETARY_CODECS for its whole build
++// and stops here without it. In Qt WebEngine this file is only compiled on
++// Windows with proprietary_codecs=true (see media/base/BUILD.gn), so the
++// check is left out.
++
++#include "base/base_export.h"
++#include "base/win/windows_types.h"
++
++namespace base {
++class CommandLine;
++}
++
++namespace platform_media_init {
++
++// To use Windows decoders for audio and video we must access the corresponding
++// DLLs. But those can only be loaded before Chromium initializes the sandbox.
++// This file provides helpers to do that. Then the code that needs a DLL handle
++// calls one of the Get methods here.
++//
++// This uses BASE_EXPORT and is placed in the base component, not media, so the
++// functions here can be used during early process initialization.
++
++BASE_EXPORT void InitForGPUProcess();
++
++BASE_EXPORT void InitForRendererProcess();
++
++// Preload necessary media libraries for the utility process with the given
++// command line so media works inside the sandbox.
++BASE_EXPORT void InitForUtilityProcess(const base::CommandLine& command_line);
++
++// Get WMF AAC library. Unless in unit tests this must be called after  calling
++// one of |InitFor*()| functions.
++BASE_EXPORT HMODULE GetWMFLibraryForAAC();
++
++// Get WMF h264 library. Unless in unit tests this must be called after calling
++// one of |InitFor*()| functions.
++BASE_EXPORT HMODULE GetWMFLibraryForH264();
++
++}  // namespace platform_media_init
++
++#endif  // PLATFORM_MEDIA_SANDBOX_WIN_PLATFORM_MEDIA_INIT_H_

@@ -2,8 +2,9 @@
 """Builds I.K.E.'s Qt WebEngine for Windows on a GitHub Actions runner.
 
 Only Qt WebEngine is built, against the official Qt binaries, with the patches
-in ``patches/``: H.264 and AAC are decoded by Windows (Media Foundation), and
-the engine contains no decoder for them. See README.md in this folder.
+in ``patches/`` (Vivaldi's ``platform_media`` for H.264, Cromite's platform AAC
+audio): H.264 and AAC are decoded by Windows (Media Foundation), and the engine
+contains no decoder for them. See README.md in this folder.
 
 The build is far longer than one job may last, so it is done in stages. Each
 stage restores the build folder of the stage before, builds until its time is
@@ -92,7 +93,7 @@ FORBIDDEN_STRINGS = (
 )
 # Text that must be there: the Windows paths and one free decoder.
 EXPECTED_STRINGS = (
-    b"MediaFoundationVideoDecoder",
+    b"WMFVideoDecoder",              # Vivaldi's platform_media, software H.264
     b"MediaFoundationAudioDecoder",
     b"D3D11VideoDecoder",
     b"VpxVideoDecoder",
@@ -626,6 +627,7 @@ def check_gn_args(folder):
         "media_use_openh264": "false",
         "rtc_use_h264": "false",
         "enable_hevc_parser_and_hw_decoder": "false",
+        "enable_platform_aac_audio": "true",
         "is_debug": "false",
         "symbol_level": "0",
     }
@@ -643,24 +645,35 @@ SMOKE_PATTERN = re.compile(
     r"mojo/clients|gpu|cdm)/.*\.obj$")
 
 
+JUMBO_OBJECT = re.compile(r"_jumbo_\d+\.obj$")
+
+
 def smoke_objects(folder):
     """The media object files that go into Qt6WebEngineCore.dll, and the ones
     of the patched files, as Ninja names them. Taken from the list GN writes
     for the linker: the build folder also knows test targets, whose sources
     Qt's copy of Chromium does not have."""
     stems = set()
+    folders = set()
     for patch in patch_files()[1]:
         for path in patched_paths(patch, Path(".")):
             if path.suffix == ".cc":
                 stems.add(path.stem)
+                # chromium/content/gpu/x.cc -> obj/content/gpu/
+                if path.parts[0] == "chromium" and len(path.parts) > 2:
+                    folders.add("obj/" + "/".join(path.parts[1:-1]) + "/")
     objects = set()
     for path in link_inputs(folder):
         try:
             name = path.relative_to(folder).as_posix()
         except ValueError:
             continue
-        if SMOKE_PATTERN.match(name) or (name.endswith(".obj") and
-                                         name.rsplit("/", 1)[-1][:-4] in stems):
+        if not name.endswith(".obj"):
+            continue
+        # Most targets are compiled in merged pieces ("jumbo"), so a patched
+        # file has no object of its own: take the pieces of its folder.
+        merged = JUMBO_OBJECT.search(name) and any(name.startswith(f) for f in folders)
+        if SMOKE_PATTERN.match(name) or merged or name.rsplit("/", 1)[-1][:-4] in stems:
             objects.add(name)
     return sorted(objects)
 
@@ -1014,13 +1027,27 @@ def cmd_package(_args):
     if problems:
         raise SystemExit(f"Qt6WebEngineCore.dll fails the text check: {problems}")
 
+    # The notices that the BSD licences of the integrated code ask for in a
+    # binary distribution, and the notice of Cromite's patch.
+    licences = stage / "LICENSES"
+    licences.mkdir(parents=True, exist_ok=True)
+    platform_media = SRC / "src" / "3rdparty" / "chromium" / "platform_media"
+    for name in ("OPERA_LICENSE.txt", "VIVALDI_LICENSE.txt", "README.ike.md"):
+        if not (platform_media / name).exists():
+            raise SystemExit(f"{name} is missing from chromium/platform_media")
+        shutil.copy2(platform_media / name, licences / ("platform_media-" + name))
+    shutil.copy2(HERE / "patches" / "THIRD-PARTY-NOTICES.md", licences / "THIRD-PARTY-NOTICES.md")
+
     notes = stage / "IKE-ENGINE.txt"
     notes.write_text(
         f"Qt WebEngine {version} (Chromium {VERSIONS['chromium_version']}) built by I.K.E.\n"
-        f"with the patches in packaging/windows/qtwebengine/patches of the I.K.E. repository,\n"
-        f"against Qt {VERSIONS['qt_version']} ({VERSIONS['qt_arch']}).\n"
+        f"with the patches in packaging/windows/qtwebengine/patches of the I.K.E. repository\n"
+        f"(https://github.com/NullSector-2077/IKE-Browser), against Qt {VERSIONS['qt_version']}\n"
+        f"({VERSIONS['qt_arch']}).\n"
         "H.264 and AAC are decoded by Windows (Media Foundation); this engine contains no\n"
-        "decoder for them. Copy the PyQt6 folder over the one of an installed\n"
+        "decoder for them. The code that hands them to Windows comes from Vivaldi / Opera\n"
+        "(platform_media, BSD 3-clause) and from Cromite (GPL-2.0-or-later): see LICENSES/.\n"
+        "Copy the PyQt6 folder over the one of an installed\n"
         f"PyQt6-WebEngine-Qt6 {VERSIONS['pyqt']['PyQt6-WebEngine-Qt6']}.\n"
         f"Source commit of this build: {os.environ.get('GITHUB_SHA', 'unknown')}\n",
         encoding="utf-8")

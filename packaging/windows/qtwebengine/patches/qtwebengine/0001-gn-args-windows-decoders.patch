@@ -1,13 +1,14 @@
 I.K.E. Windows engine: GN arguments
 
 -webengine-proprietary-codecs no longer builds FFmpeg's H.264 / AAC decoders
-or OpenH264.
+or OpenH264, and switches on the Windows AAC decoder (Cromite's
+enable_platform_aac_audio, see the chromium patches).
 
 diff --git a/src/core/CMakeLists.txt b/src/core/CMakeLists.txt
-index 37e1cd4..ae40d8b 100644
+index 37e1cd4..c4987ef 100644
 --- a/src/core/CMakeLists.txt
 +++ b/src/core/CMakeLists.txt
-@@ -428,12 +428,25 @@ foreach(arch ${archs})
+@@ -428,12 +428,28 @@ foreach(arch ${archs})
              ARGS use_kerberos
              CONDITION QT_FEATURE_webengine_kerberos
          )
@@ -17,6 +18,8 @@ index 37e1cd4..ae40d8b 100644
 +        # built: FFmpeg keeps its free codecs only (ffmpeg_branding
 +        # "Chromium"), OpenH264 is not built (media_use_openh264,
 +        # rtc_use_h264), and the H.265 / Dolby Vision code is left out.
++        # enable_platform_aac_audio is the switch of Cromite's patch: AAC goes
++        # to Chromium's MediaFoundationAudioDecoder.
          extend_gn_list(gnArgArg
 -            ARGS proprietary_codecs rtc_use_h264
 +            ARGS proprietary_codecs
@@ -31,6 +34,7 @@ index 37e1cd4..ae40d8b 100644
 +                enable_hevc_parser_and_hw_decoder=false
 +                enable_platform_dolby_vision=false
 +                enable_platform_encrypted_dolby_vision=false
++                enable_platform_aac_audio=true
 +            )
          endif()
          extend_gn_list(gnArgArg

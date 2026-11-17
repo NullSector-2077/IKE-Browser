@@ -3,7 +3,9 @@ I.K.E. Windows engine: allow the proprietary formats with FFmpeg's free codecs
 Upstream refuses proprietary_codecs=true together with
 ffmpeg_branding="Chromium". On Windows that is exactly the build I.K.E.
 wants: the formats are known, FFmpeg decodes none of the patented ones,
-Windows does.
+Windows does. (Vivaldi relaxes the same assert for its own build.)
+
+Licence: BSD-3-Clause, as the Chromium file it changes.
 
 diff --git a/chromium/media/BUILD.gn b/chromium/media/BUILD.gn
 index 10c65d1d..b208d471 100644

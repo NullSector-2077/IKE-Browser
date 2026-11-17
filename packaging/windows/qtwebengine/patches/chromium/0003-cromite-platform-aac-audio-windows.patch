@@ -1,0 +1,144 @@
+I.K.E. Windows engine: Cromite's platform AAC audio, Windows part
+
+AAC is decoded by Chromium's own MediaFoundationAudioDecoder (the AAC decoder
+that is part of Windows), for every AAC profile; the stream is handed over
+with ADTS headers; FFmpegAudioDecoder refuses AAC.
+
+Source: Cromite, build/patches/Enable-platform-aac-audio-and-h264-video.patch
+(https://github.com/uazo/cromite, read at commit 3724efc6, release
+153.0.8010.37). Its header:
+
+  From: uazo <uazo@users.noreply.github.com>
+  Date: Wed, 6 Mar 2024 12:05:52 +0000
+  Subject: Enable platform aac audio and h264 video
+
+  Allows the activation in android and windows of aac and
+  h264 decoding via the s.o. libraries, replacing ffmpeg which does
+  not have the necessary licences.
+
+  Context: https://github.com/uazo/cromite/pull/856
+  License: GPL-2.0-or-later - https://spdx.org/licenses/GPL-2.0-or-later.html
+
+Licence of this patch: GPL-2.0-or-later, as stated above.
+
+Taken, unchanged apart from line numbers: the hunks for media/BUILD.gn and
+media/media_options.gni (enable_platform_aac_audio only),
+media/base/win/mf_helpers.cc, media/filters/ffmpeg_audio_decoder.cc,
+media/filters/ffmpeg_demuxer.cc and
+media/filters/win/media_foundation_audio_decoder.cc.
+Not taken: the Android hunks, the Linux feature flags, and the H.264 part
+(enable_platform_h264_video, media/filters/ffmpeg_video_decoder.cc,
+media/gpu/windows/supported_profile_helpers.cc): this build has no FFmpeg
+H.264 decoder to refuse, and that part announces H.264 profiles that no
+Windows decoder takes.
+
+diff --git a/chromium/media/BUILD.gn b/chromium/media/BUILD.gn
+index b208d471..19c78fd0 100644
+--- a/chromium/media/BUILD.gn
++++ b/chromium/media/BUILD.gn
+@@ -29,6 +29,7 @@ buildflag_header("media_buildflags") {
+       enable_platform_dts_audio && (is_win || is_linux)
+ 
+   flags = [
++    "ENABLE_PLATFORM_AAC_AUDIO=$enable_platform_aac_audio",
+     "ALLOW_OOP_VIDEO_DECODER=$allow_oop_video_decoder",
+     "ALLOW_HOSTING_OOP_VIDEO_DECODER=$allow_hosting_oop_video_decoder",
+     "ALTERNATE_CDM_STORAGE_ID_KEY=\"$alternate_cdm_storage_id_key\"",
+diff --git a/chromium/media/base/win/mf_helpers.cc b/chromium/media/base/win/mf_helpers.cc
+index 3ce5ef5e..ea92fe1d 100644
+--- a/chromium/media/base/win/mf_helpers.cc
++++ b/chromium/media/base/win/mf_helpers.cc
+@@ -479,7 +479,11 @@ HRESULT GetAacAudioType(const AudioDecoderConfig& decoder_config,
+ 
+   size_t extra_size = wave_format_size - sizeof(WAVEFORMATEX);
+   aac_wave_format->wfx.cbSize = static_cast<WORD>(extra_size);
++#if BUILDFLAG(ENABLE_PLATFORM_AAC_AUDIO)
++  aac_wave_format->wPayloadType = 1;  // Audio Data Transport Stream (ADTS)
++#else
+   aac_wave_format->wPayloadType = 0;  // RAW AAC
++#endif
+   aac_wave_format->wAudioProfileLevelIndication =
+       0xFE;                          // no audio profile specified
+   aac_wave_format->wStructType = 0;  // audio specific config follows
+diff --git a/chromium/media/filters/ffmpeg_audio_decoder.cc b/chromium/media/filters/ffmpeg_audio_decoder.cc
+index 548400e0..d3190030 100644
+--- a/chromium/media/filters/ffmpeg_audio_decoder.cc
++++ b/chromium/media/filters/ffmpeg_audio_decoder.cc
+@@ -100,6 +100,16 @@ void FFmpegAudioDecoder::Initialize(const AudioDecoderConfig& config,
+     return;
+   }
+ 
++#if BUILDFLAG(ENABLE_PLATFORM_AAC_AUDIO)
++  if (config.codec() == AudioCodec::kAAC) {
++    std::move(bound_init_cb)
++        .Run(DecoderStatus(DecoderStatus::Codes::kUnsupportedProfile)
++                 .WithData("decoder", "FFmpegAudioDecoder")
++                 .WithData("profile", config.profile()));
++    return;
++  }
++#endif
++
+   // TODO(dalecurtis): Remove this if ffmpeg ever gets xHE-AAC support.
+   if (config.profile() == AudioCodecProfile::kXHE_AAC) {
+     std::move(bound_init_cb)
+diff --git a/chromium/media/filters/ffmpeg_demuxer.cc b/chromium/media/filters/ffmpeg_demuxer.cc
+index 207f2361..55143e96 100644
+--- a/chromium/media/filters/ffmpeg_demuxer.cc
++++ b/chromium/media/filters/ffmpeg_demuxer.cc
+@@ -832,6 +832,7 @@ void FFmpegDemuxerStream::InitBitstreamConverter() {
+       // FFmpeg doesn't understand xHE-AAC profiles yet, which can't be put in
+       // ADTS anyways, so skip bitstream conversion when the profile is
+       // unknown.
++      // Also Windows need ADTS conversion for AAC
+       if (audio_config_->profile() != AudioCodecProfile::kXHE_AAC) {
+         bitstream_converter_ =
+             std::make_unique<FFmpegAACBitstreamConverter>(stream_->codecpar);
+diff --git a/chromium/media/filters/win/media_foundation_audio_decoder.cc b/chromium/media/filters/win/media_foundation_audio_decoder.cc
+index 0767af51..f55d12b5 100644
+--- a/chromium/media/filters/win/media_foundation_audio_decoder.cc
++++ b/chromium/media/filters/win/media_foundation_audio_decoder.cc
+@@ -106,11 +106,15 @@ std::optional<MFT_REGISTER_TYPE_INFO> GetTypeInfo(
+ #endif
+ #if BUILDFLAG(USE_PROPRIETARY_CODECS)
+     case AudioCodec::kAAC:
++#if BUILDFLAG(ENABLE_PLATFORM_AAC_AUDIO)
++      return MFT_REGISTER_TYPE_INFO{MFMediaType_Audio, MFAudioFormat_AAC};
++#else
+       if (config.profile() == AudioCodecProfile::kXHE_AAC &&
+           base::win::GetVersion() >= base::win::Version::WIN11_22H2) {
+         return MFT_REGISTER_TYPE_INFO{MFMediaType_Audio, MFAudioFormat_AAC};
+       }
+       [[fallthrough]];
++#endif // BUILDFLAG(ENABLE_PLATFORM_AAC_AUDIO)
+ #endif
+ #if BUILDFLAG(ENABLE_PLATFORM_AC4_AUDIO)
+     case AudioCodec::kAC4:
+@@ -336,8 +340,13 @@ void MediaFoundationAudioDecoder::Reset(base::OnceClosure reset_cb) {
+ }
+ 
+ bool MediaFoundationAudioDecoder::NeedsBitstreamConversion() const {
++#if BUILDFLAG(ENABLE_PLATFORM_AAC_AUDIO)
++  // An AAC stream needs to be converted as ADTS stream.
++  return config_.codec() == AudioCodec::kAAC;
++#else
+   // DTS does not require any header/bit stream conversion
+   return false;
++#endif
+ }
+ 
+ HRESULT MediaFoundationAudioDecoder::CreateDecoder() {
+diff --git a/chromium/media/media_options.gni b/chromium/media/media_options.gni
+index 49b7e1bc..30d1df81 100644
+--- a/chromium/media/media_options.gni
++++ b/chromium/media/media_options.gni
+@@ -65,6 +65,10 @@ declare_args() {
+     media_use_libvpx = false
+   }
+ 
++  # Enables AAC audio decoder using only MediaCodecAudioDecoder in Android
++  # and MediaFoundationAudioDecoder in Windows
++  enable_platform_aac_audio = false
++
+   # Enable usage of OpenH264 within the media library. Used for software based
+   # encoding of H264 content.
+   media_use_openh264 = true
