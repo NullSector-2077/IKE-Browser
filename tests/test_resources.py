@@ -117,6 +117,10 @@ def test_cpu_limit(run_ike, server):
             win = ike.windows[0]
             bg = win.add_tab("http://localhost:%(p)d/busy")
             yield 1500
+            for _ in range(50):                 # a slow computer: the busy page has really started
+                if bg.title().startswith("busy "):
+                    break
+                yield 200
             fg = win.add_tab("http://127.0.0.1:%(p)d/")
             yield 1000
             mon = ike.resources
