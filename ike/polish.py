@@ -119,7 +119,15 @@ def fade_icon(owner, key, old, new, config, apply, ms=ICON_MS, name="icon_fade")
     anim.setStartValue(0.0)
     anim.setEndValue(1.0)
     anim.setEasingCurve(QEasingCurve.Type.OutCubic)
-    anim.valueChanged.connect(lambda v: apply(blend_icon(old, anim.ike_to, float(v))))
+    anim.ike_last = 0.0
+
+    def step(v):
+        # a handful of steps is enough for a 16-pixel icon, and each one asks the tab bar to lay out again
+        v = float(v)
+        if v - anim.ike_last >= 0.2:
+            anim.ike_last = v
+            apply(blend_icon(old, anim.ike_to, v))
+    anim.valueChanged.connect(step)
 
     def done():
         if fades.get(key) is anim:
@@ -207,7 +215,18 @@ class MarkGlide(QObject):
 
     def _step(self, v):
         self._t = float(v)
-        self.widget.update()
+        band = self._band()
+        if band is None:
+            self.widget.update()
+        else:
+            self.widget.update(band)
+
+    def _band(self):
+        """The part of the widget the mark moves through (only that is painted again)."""
+        target = self.target()
+        if target is None or self._from is None:
+            return None
+        return self._from.united(QRectF(target)).adjusted(-2, -2, 2, 2).toAlignedRect()
 
     def _end(self):
         self._from = None
@@ -242,6 +261,8 @@ class MarkGlide(QObject):
 
 
 # --- text that fades out at its end ------------------------------------------
+_faded = {}                  # titles already drawn faded, for the next paint (a few kB each)
+
 def draw_faded_text(painter, rect, text, colour, font, align, fade=FADE_PX, flags=0):
     """Text in rect; when it is wider than rect, its end fades out instead of
     being cut with "…". Returns True when it had to fade."""
@@ -265,6 +286,12 @@ def draw_faded_text(painter, rect, text, colour, font, align, fade=FADE_PX, flag
         ratio = painter.device().devicePixelRatioF() or 1.0
     except AttributeError:
         pass
+    key = (text, rect.width(), rect.height(), QColor(colour).rgba(), font.key(), int(align), int(flags), ratio, fade)
+    img = _faded.get(key)
+    if img is not None:
+        painter.drawImage(rect.topLeft(), img)
+        painter.restore()
+        return True
     img = QImage(max(1, round(rect.width() * ratio)), max(1, round(rect.height() * ratio)),
                  QImage.Format.Format_ARGB32_Premultiplied)
     img.setDevicePixelRatio(ratio)
@@ -281,6 +308,9 @@ def draw_faded_text(painter, rect, text, colour, font, align, fade=FADE_PX, flag
     g.setColorAt(1.0, QColor(0, 0, 0, 0))
     p.fillRect(QRectF(0, 0, rect.width(), rect.height()), g)
     p.end()
+    if len(_faded) >= 200:
+        _faded.clear()
+    _faded[key] = img
     painter.drawImage(rect.topLeft(), img)
     painter.restore()
     return True
