@@ -3,6 +3,14 @@
 Study date: 2026-11-16/17. Follows `windows-codecs.md` and `platform-media.md`; does not repeat them.
 **[V]** verified in source / primary page; **[I]** inferred; **[T]** to test on Windows. Nothing was built or run.
 
+Update 2026-11-17: the recommendation below was carried out
+(`packaging/windows/qtwebengine/patches/`, state in `PROGRESS.md`). Two things
+turned out differently while doing it: (1) Cromite's ADTS hand-over needs the
+AAC profile, which a Chromium-branded FFmpeg does not provide for plain MP4
+files — patch `chromium/0004` reads it from the AudioSpecificConfig; (2) no
+change of `supported_types.cc` is needed: Chromium 140 answers "supported"
+for H.264 and AAC whenever `proprietary_codecs=true`, as it does in Vivaldi.
+
 ## Summary
 
 1. Only **one** published open-source implementation does software H.264 through Windows' own decoder inside Chromium's media pipeline: **Vivaldi's `platform_media`** (Opera origin, BSD-3-Clause, GPL-3.0 compatible).

@@ -4,6 +4,8 @@ Studies made on 2026-11-16/17 for H.264 / AAC on Windows through Windows' own
 decoders (Media Foundation), without shipping any proprietary decoder. Kept
 here so that a new session can continue from them.
 
+- `PROGRESS.md` — **start here**: what is integrated, which runs showed
+  what, what is not proven yet, how to continue.
 - `windows-codecs.md` — what Chromium 140 / Qt WebEngine 6.140 do on Windows
   with `proprietary_codecs=true` and `ffmpeg_branding="Chromium"`; where Qt
   sets the switches; the build on GitHub's runners.
