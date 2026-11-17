@@ -948,9 +948,16 @@ int RunAac(int argc, char** argv) {
          startup);
   }
 
+  // For HE-AAC, the ADTS header carries the AAC-LC core rate (for
+  // timestamps), while the original AudioSpecificConfig signals the SBR
+  // output rate. Chromium builds its Media Foundation input type from
+  // AudioDecoderConfig.samples_per_second(), which is the extended rate.
+  // Mirror that here when an MP4 fixture supplied the expected output rate.
+  const int media_type_sample_rate =
+      expected_output_rate > 0 ? expected_output_rate : rate;
   AacProbe probe;
-  if (!probe.Create(object_type, frequency_index, rate, channels, adts,
-                    cromite,
+  if (!probe.Create(object_type, frequency_index, media_type_sample_rate,
+                    channels, adts, cromite,
                     config_override.empty() ? nullptr : &config_override)) {
     return 1;
   }
