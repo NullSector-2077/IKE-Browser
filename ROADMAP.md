@@ -296,6 +296,10 @@ behind the window. No existing setting is reset or changes meaning.
   the profile, daily maintenance), zoom per site, autoplay blocking, site
   panel, command bar (F2), own error pages, mouse gestures (off by default).
   Waits for the owner's test.
+- 2026-11-17: 1.1.5 on branch `arch/1.1.5` (from 1.1.4): shield pulse and
+  bars, downloads window, engine icon in suggestions, reader mode themes and
+  text size. Tab group labels left out (they would touch the tab bar's
+  dragging and order). Waits for the owner's test.
 
 ### Also planned
 

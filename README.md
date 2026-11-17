@@ -9,7 +9,7 @@ The interface, protections, password manager and updater are I.K.E.'s own code
 provided and kept up to date by Arch Linux. I.K.E. is developed on and for
 KDE Plasma (CachyOS / Arch Linux) and works on the other Arch-based desktops.
 
-**Version 1.1.4** - see [CHANGELOG.md](CHANGELOG.md).
+**Version 1.1.5** - see [CHANGELOG.md](CHANGELOG.md).
 
 ## Install (Arch Linux, CachyOS)
 
@@ -17,7 +17,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.1.4-1-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.1.5-1-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:
@@ -81,6 +81,7 @@ profiles: `ike-browser --profile NAME`.
 - Command bar (F2): menu commands, open tabs, bookmarks, history and settings in
   one search. Optional mouse gestures (off by default).
 - I.K.E.'s own pages for sites that cannot be reached, with "Try again".
+- Reader mode with light, sepia or dark and the text size of your choice.
 - Free choice of search engines (DuckDuckGo by default), suggestions, keywords.
 - New tab page with a clock and, for a city you choose, the weather; tiles of
   your bookmarks or of the sites you visit most (up to 32, sixteen per row on

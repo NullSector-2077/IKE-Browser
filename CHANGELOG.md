@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.1.5
+
+More finish, in the colours of the theme in use; each touch can be switched
+off on its own in `ike/polish.py`.
+
+- **The shield pulses**: a ring opens once around it when it blocks something
+  on the page in view (at most every 1.5 seconds; with "Interface effects"
+  only). The touch of the old Cyber theme, without the rest of it.
+- **Shield panel**: what was blocked on the site, as bars by kind (ads and
+  trackers, scripts, cross-site cookies, upgrades to HTTPS, tracking
+  parameters), shown when something was blocked.
+- **Downloads window**: the icon of each file's kind and a slim progress bar
+  under its size.
+- **Search suggestions** show the search engine's own icon (once its site was
+  opened), a magnifier otherwise.
+- **Reader mode**: light, sepia or dark and the size of the text, chosen on
+  the page and remembered; the site and the reading time under the title.
+
 ## 1.1.4
 
 **Page dark mode with Dark Reader, as its extension does it.** Dark Reader was

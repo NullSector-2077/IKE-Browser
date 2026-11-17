@@ -8,6 +8,7 @@ running."""
 
 import pytest
 from test_effects import slow_site  # noqa: F401  (the fixture)
+from test_security import JS
 
 COMMON = r'''
 import json
@@ -298,6 +299,7 @@ def steps(ike, qapp, out):
     win.show_download_progress("active", 0.5)
     win.show_download_progress("done")
     out["pop"] = getattr(win, "_dl_pop", None) is not None
+    out["shield_pulse"] = win.shield_pulse.fire()
     a.load(QUrl("ike:newtab"))
     yield 1200
     box = {}
@@ -316,6 +318,114 @@ def test_everything_at_once_without_effects(run_ike, how):
     assert out["icon"] == [False, True]
     assert out["pill"] == 1.0
     assert out["find"] is True
-    assert out["pulse"] is False and out["pop"] is False
+    assert out["pulse"] is False and out["pop"] is False and out["shield_pulse"] is False
     assert out["newtab_class"] == ""
     assert out["rest"] == []
+
+
+# --- 1.1.5: shield, downloads, suggestions, reader mode -----------------------------
+
+ARTICLE = ("<!doctype html><title>An article</title><body><nav>menu</nav><article><h1>An article</h1>"
+           + "".join("<p>%s</p>" % ("Words of a long article that goes on and on. " * 12) for _ in range(12))
+           + "</article><img src='http://ads.example.test/banner.png'></body>")
+
+
+@pytest.fixture
+def pages():
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    class H(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path.startswith("/file.pdf"):
+                body, kind = b"%PDF-1.4 test\n" * 200, "application/pdf"
+            else:
+                body, kind = ARTICLE.encode(), "text/html"
+            self.send_response(200)
+            self.send_header("Content-Type", kind)
+            if kind == "application/pdf":
+                self.send_header("Content-Disposition", "attachment; filename=file.pdf")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    srv.daemon_threads = True
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    yield "http://127.0.0.1:%d" % srv.server_address[1]
+    srv.shutdown()
+
+
+SHIELD_READER = JS + COMMON + r'''
+SITE = "__SITE__"
+
+def steps(ike, qapp, out):
+    from PyQt6.QtGui import QIcon, QPixmap
+    win = ike.windows[0]
+    win.resize(1200, 800)
+    win.show()
+    view = win.current_view()
+    yield from load(view, SITE + "/article")
+    yield 1200
+    # the page asked for an ad: the shield blocked it and its ring opened once
+    out["pulse"] = [win.shield_pulse.fired, ike.shields.site_stats("127.0.0.1")["ads"]]
+    win.shield_pulse.fire()
+    out["pulse_again"] = win.shield_pulse.fire()          # at once again: no, it rests a moment
+    # the shield panel shows the bars by kind
+    win.shield_menu.popup(win.shield_btn.mapToGlobal(win.shield_btn.rect().bottomLeft()))
+    yield 400
+    kinds = win.shield_panel.kinds
+    out["bars"] = [kinds.isVisible(), [n for _l, n in kinds.rows][:1], kinds.height() > 0]
+    win.shield_menu.hide()
+    # a search suggestion shows the search engine's own icon, once it is known
+    pm = QPixmap(16, 16)
+    pm.fill(QColor("#123456"))
+    engine_url = ike.config.engine()["url"].replace("{q}", "")
+    ike.favicons.store(engine_url, QIcon(pm))
+    ic = win.urlbar._icon_for("some words to search")
+    out["engine_icon"] = QColor(ic.pixmap(16, 16).toImage().pixel(8, 8)).name()
+    # reader mode: light, sepia or dark and the text size, remembered
+    win.toggle_reader()
+    yield 800
+    out["reader"] = json.loads((yield from js(view, "JSON.stringify({tools: document.querySelectorAll('.ike-tools button').length, "
+        "meta: (document.querySelector('.ike-meta') || {}).textContent || ''})")))
+    yield from js(view, "document.querySelectorAll('.ike-tools button')[3].click(); "
+                        "document.querySelectorAll('.ike-tools button')[1].click(); 1")
+    yield 400
+    theme = yield from js(view, "document.documentElement.getAttribute('data-theme')")
+    out["reader_after"] = [theme]
+    out["saved"] = [ike.config["reader_theme"], ike.config["reader_size"]]
+    # a page cannot change the reader settings with a console message of its own
+    yield from js(view, "console.log('\\u0001ike-reader:' + 'x:' + JSON.stringify({theme: 'dark', size: 28})); 1")
+    yield 200
+    out["not_changed"] = [ike.config["reader_theme"], ike.config["reader_size"]]
+    # a download: the file's icon and a bar under its size
+    view.page().download(QUrl(SITE + "/file.pdf"))
+    for _ in range(30):
+        yield 200
+        if ike.downloads and ike.downloads[0].isFinished():
+            break
+    dlg = ike.show_downloads()
+    yield 800
+    from ike.polish import FRACTION_ROLE
+    item = dlg.tree.topLevelItem(0)
+    out["download"] = [item is not None and item.data(1, FRACTION_ROLE), item is not None and not item.icon(0).isNull(),
+                       dlg.tree.visualItemRect(item).height() if item is not None else 0]
+    dlg.close()
+'''
+
+
+def test_shield_downloads_suggestions_and_reader(run_ike, pages, tmp_path):
+    out = run_ike(SHIELD_READER.replace("__SITE__", pages), env={"IKE_REDUCED_MOTION": "0"},
+                  settings={"download_dir": str(tmp_path / "dl"), "ask_download_location": False}, timeout=150)
+    fired, ads = out["pulse"]
+    assert ads >= 1 and fired >= 1 and out["pulse_again"] is False
+    assert out["bars"][0] is True and out["bars"][1][0] >= 1 and out["bars"][2] is True
+    assert out["engine_icon"] == "#123456"
+    assert out["reader"]["tools"] == 5 and "min read" in out["reader"]["meta"]
+    assert out["reader_after"] == ["sepia"]
+    assert out["saved"] == ["sepia", 20]
+    assert out["not_changed"] == ["sepia", 20]
+    assert out["download"][0] == 1.0 and out["download"][1] is True and out["download"][2] >= 34
