@@ -265,3 +265,14 @@ fixture/test, then run another incremental build and codec matrix.
   no longer needs `libfdk_aac` for HE-AAC v1/v2 fixtures. Fixture validation
   is not engine playback: HE-AAC v1/v2 remain unverified until the built Qt
   WebEngine passes those two playback cases.
+- The standalone Media Foundation probe has now been extended to demux these
+  same MP4s to ADTS, preserve their original AudioSpecificConfig, and feed
+  them to the Windows AAC MFT via `MFTEnumEx`, matching the Chromium decoder's
+  input type. On Windows Server 2022, both profiles decoded fully:
+  - HE-AAC v1: 707 frames; 32.83 s output at 44.1 kHz stereo; RMS 0.0660.
+  - HE-AAC v2: 728 frames; 33.81 s output at 44.1 kHz stereo; RMS 0.0663.
+  Workflow
+  [44125270318](https://github.com/NullSector-2077/IKE-Browser/actions/runs/44125270318)
+  is still running its Windows Server 2025 matrix leg. This validates the OS
+  MFT input sequence, not yet Chromium/Qt playback; the engine's own playback
+  cases remain the final integration check.
