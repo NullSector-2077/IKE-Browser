@@ -169,3 +169,17 @@ The runners have no physical GPU. Even after the software path passes, a
 real Windows 10/11 PC with a GPU is still required to prove hardware H.264
 selection (`D3D11VideoDecoder`), 1080p60/4K performance, real-site MSE and
 long-session seek/audio-sync behaviour.
+
+### HE-AAC status (explicitly not yet verified)
+
+- `MediaFoundationAudioDecoder` is patched to accept AAC profiles beyond the
+  original xHE-AAC-only path, and `verify_codecs.py` contains a HE-AAC probe.
+- The generated HE-AAC test clip is conditional on FFmpeg exposing
+  `libfdk_aac`. The hosted Windows runners used in the previous codec run do
+  not have that encoder, so the clip was skipped; AAC-LC playback was tested,
+  but HE-AAC v1/v2 playback was not.
+- `packaging/windows/qtwebengine/patches/README.md` now labels HE-AAC as
+  code-path-present/runtime-test-pending. Do not call it verified until a
+  pinned HE-AAC sample is played through the built Qt WebEngine and produces
+  decoded audio. The code currently reports MIME support, which is not proof
+  of successful decode.
