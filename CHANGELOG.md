@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.1.6
+
+- The **address field** is the system's own again (the rounded one of 1.1.3
+  is switched off; suggestions with icons and the zoom sign stay).
+- **Toolbar icons** a little larger (24 pixels instead of 20); the window
+  buttons keep their size.
+- **Phosphor Bold**, a set of thicker icons, ships with I.K.E. (Settings →
+  Appearance → Icons).
+- **Translate page** is now a sign in the address bar, shown on web pages, as
+  in other browsers. **Bookmark this page** takes its place on the toolbar
+  (its star fills when the page is a bookmark); a toolbar arranged by the user
+  keeps its order, with the bookmark where the translation was.
+- **Maximize button**: the diamond of Plasma's "restore" while the window is
+  maximized or full screen, the arrow otherwise; minimize and maximize show a
+  soft circle in the theme's colour under the mouse, as the close button does.
+- The arrow of the **Downloads** button moves gently while files arrive.
+- A **thin line** between the bars and the page.
+- **Smooth scrolling** of pages, on by default (Settings → General; it takes
+  effect after a restart).
+- Already there: the tooltips of the toolbar buttons name their keyboard
+  shortcut.
+
 ## 1.1.5
 
 More finish, in the colours of the theme in use; each touch can be switched

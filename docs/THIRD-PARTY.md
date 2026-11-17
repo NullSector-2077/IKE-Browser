@@ -6,7 +6,7 @@
 | uBlock Origin scriptlets | `ike/resources/ubo-scriptlets.json` | GPL-3.0 |
 | Dark Reader (engine, its style-sheet proxy, and the lists of its extension: site fixes, dark sites, detector hints) | `ike/resources/darkreader.js`, `darkreader-proxy.js`, `darkreader-data.json` (built by `tools/build-darkreader.py`) | MIT, see `LICENSE.darkreader` |
 | Lucide icons | `ike/resources/icons/sets/lucide` | ISC, see `LICENSE.lucide` |
-| Phosphor Icons | `ike/resources/icons/sets/phosphor` | MIT, see `LICENSE.phosphor` |
+| Phosphor Icons (fill and bold weights, @phosphor-icons/core 2.1.1) | `ike/resources/icons/sets/phosphor`, `ike/resources/icons/sets/phosphor-bold` | MIT, see `LICENSE.phosphor` |
 | Orbitron 2.001 (typeface, The Orbitron Project Authors) | the lettering of the logo and of the full name, drawn as paths in `ike/resources/ike.svg`, `ike/resources/wordmark.svg` and the icons of `data/icons` (`tools/make-brand.py`); the font itself is not shipped | SIL Open Font License 1.1, see `LICENSE.orbitron` |
 
 The `ike_adblock` module is written for I.K.E. (sources in `ike-adblock/`,

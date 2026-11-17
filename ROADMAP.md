@@ -300,6 +300,10 @@ behind the window. No existing setting is reset or changes meaning.
   bars, downloads window, engine icon in suggestions, reader mode themes and
   text size. Tab group labels left out (they would touch the tab bar's
   dragging and order). Waits for the owner's test.
+- 2026-11-17: 1.1.6 on branch `arch/1.1.6` (from 1.1.5): address field as
+  before, 24-pixel toolbar icons, Phosphor Bold, translate in the address bar
+  and bookmark on the toolbar, maximize/restore sign and hover circles, moving
+  download arrow, edge line, smooth scrolling. Waits for the owner's test.
 
 ### Also planned
 
