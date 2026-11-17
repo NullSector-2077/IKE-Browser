@@ -221,9 +221,11 @@ acceleration, performance on a consumer Windows 10/11 desktop, HE-AAC,
 DRM/protected media, streaming-site compatibility, extended playback/seek
 stability or A/V sync over long sessions. Those need separate tests.
 
-Next work: secure the Media Foundation DLL loading path, make the H.264
-factory's one-time function lookup thread-safe, add a reproducible HE-AAC
-fixture/test, then run another incremental build and codec matrix.
+Next work: complete the current staged engine workflow, then inspect its
+built-engine playback report for H.264, AAC-LC, HE-AAC v1 and HE-AAC v2. If the
+report passes, the remaining major gaps are a physical Windows 10/11 GPU test,
+D3D11 hardware-decoder selection, protected media/DRM, streaming-site
+compatibility and longer seek / A/V-sync stability tests.
 
 
 ### Follow-up hardening and HE-AAC fixture work — 2026-11-17
@@ -237,10 +239,13 @@ fixture/test, then run another incremental build and codec matrix.
   for the `DllGetClassObject` lookup; C++ guarantees thread-safe
   initialization of that static. The loader cache was the unsynchronized part.
 - Build run [44122657019](https://github.com/NullSector-2077/IKE-Browser/actions/runs/44122657019)
-  is active on commit `43211a7`. Its PyPI negative-control job passed; stage 1
-  is still in its tools / Qt / source preparation step. The patch-application
-  and MSVC smoke steps have not run yet, so the loader change is not yet
-  compile-verified.
+  is active on commit `43211a7`. The PyPI negative-control job passed. Stage 1
+  has passed tools / Qt / source preparation, patch application, configure,
+  the patched-media MSVC smoke compile, the full engine build, and install /
+  link / package checks. The engine artifact is in its upload step; the later
+  codec-playback stages have not yet reported a result. The loader change is
+  therefore compile-verified, while playback in the newly built engine remains
+  pending.
 - The fixture-discovery workflow
   [44123443165](https://github.com/NullSector-2077/IKE-Browser/actions/runs/44123443165)
   passed on Windows Server 2022. FFprobe identified both official Fraunhofer
@@ -265,14 +270,21 @@ fixture/test, then run another incremental build and codec matrix.
   no longer needs `libfdk_aac` for HE-AAC v1/v2 fixtures. Fixture validation
   is not engine playback: HE-AAC v1/v2 remain unverified until the built Qt
   WebEngine passes those two playback cases.
-- The standalone Media Foundation probe has now been extended to demux these
-  same MP4s to ADTS, preserve their original AudioSpecificConfig, and feed
-  them to the Windows AAC MFT via `MFTEnumEx`, matching the Chromium decoder's
-  input type. On Windows Server 2022, both profiles decoded fully:
+- The standalone Media Foundation probe now demuxes the same MP4s to ADTS,
+  preserves their original AudioSpecificConfig, and feeds them to the Windows
+  AAC MFT via `MFTEnumEx`. It also sets the Media Foundation input sample rate
+  to the SBR-extended rate (44.1 kHz), matching Chromium's decoder config,
+  while retaining the 22.05 kHz AAC-core rate for frame timestamps.
+- Workflow
+  [44126069884](https://github.com/NullSector-2077/IKE-Browser/actions/runs/44126069884)
+  passed all 14 probe cases on both Windows Server 2022 and 2025. Both HE-AAC
+  profiles decoded fully on both systems:
   - HE-AAC v1: 707 frames; 32.83 s output at 44.1 kHz stereo; RMS 0.0660.
   - HE-AAC v2: 728 frames; 33.81 s output at 44.1 kHz stereo; RMS 0.0663.
-  Workflow
-  [44125270318](https://github.com/NullSector-2077/IKE-Browser/actions/runs/44125270318)
-  is still running its Windows Server 2025 matrix leg. This validates the OS
-  MFT input sequence, not yet Chromium/Qt playback; the engine's own playback
-  cases remain the final integration check.
+  This validates the Windows MFT input sequence, not yet Chromium/Qt playback;
+  the engine's own playback cases remain the final integration check.
+- Commit `749c97b` strengthens `verify_codecs.py`: when an expected decoder is
+  specified, every H.264/AAC case must report that exact decoder in Chromium's
+  Media log. A missing decoder name now fails the test rather than silently
+  passing on decoded bytes alone. This is especially important for the new
+  HE-AAC v1/v2 cases.
