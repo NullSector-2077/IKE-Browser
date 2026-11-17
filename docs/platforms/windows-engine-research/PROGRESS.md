@@ -241,11 +241,24 @@ fixture/test, then run another incremental build and codec matrix.
   is still in its tools / Qt / source preparation step. The patch-application
   and MSVC smoke steps have not run yet, so the loader change is not yet
   compile-verified.
-- A separate, lightweight Windows workflow
+- The fixture-discovery workflow
   [44123443165](https://github.com/NullSector-2077/IKE-Browser/actions/runs/44123443165)
-  downloads Fraunhofer's explicit AOT 5 and AOT 29 MP4 samples, validates the
-  MP4/AAC/stereo/AudioSpecificConfig properties with FFprobe, and reports
-  SHA-256 values. This is fixture discovery only; it does not claim that
-  I.K.E. has decoded either profile. Once the hashes are obtained, the
-  end-to-end codec test can pin both samples and exercise HE-AAC v1/v2 without
-  depending on a runner-specific `libfdk_aac` encoder.
+  passed on Windows Server 2022. FFprobe identified both official Fraunhofer
+  files as AAC stereo at 44.1 kHz:
+  - AOT 5 / HE-AAC v1: 234,051 bytes,
+    SHA-256 `ede70e3b2f7e364aeb0eb3854b7d9a5877be99a499dcebe22ac5a7349d68747c`,
+    FFprobe profile `HE-AAC`.
+  - AOT 29 / HE-AAC v2: 241,061 bytes,
+    SHA-256 `d021b3dfbfb7ad42eacdad9c3391b5268603d6f1c6bcf171e57292ff1ada06fb`,
+    FFprobe profile `HE-AACv2`.
+- Commit `0897d26` adds both as mandatory fixtures in `verify_codecs.py`.
+  The clip builder checks HTTPS content type, exact size and SHA-256, MP4
+  signature, FFprobe profile, stereo / 44.1 kHz and AudioSpecificConfig
+  presence. Playback cases are added for both profiles and MIME probes now
+  cover `mp4a.40.5` and `mp4a.40.29`. The test still only counts as decoded
+  when the media element reports actual audio bytes.
+- Workflow
+  [44124142153](https://github.com/NullSector-2077/IKE-Browser/actions/runs/44124142153)
+  is exercising the fixture downloader and full clip builder on Windows.
+  Fixture validation is not engine playback: HE-AAC v1/v2 remain unverified
+  until the built Qt WebEngine passes those two playback cases.
