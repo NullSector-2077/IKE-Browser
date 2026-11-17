@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.10
+
+- **The shield is inside the address bar**, at its right end, with its number
+  beside it (1.1.9: outside, left of the bar, with a small arrow). A click on it
+  opens its panel as before. The field's own buttons (clear, translate, zoom)
+  sit left of it and the address stops before them; the "+N" still rises right
+  of the number. The address bar gets the room the shield had in the toolbar.
+
+Package 1.1.10-1. From this release on, every new release raises the last
+number of the version (1.1.10, 1.1.11, ...); the package number after the dash
+changes only when the same version is built again.
+
 ## 1.1.9
 
 **Plasma integration**, made complete (all through D-Bus, nothing to install,

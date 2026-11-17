@@ -4,7 +4,7 @@ import json
 import re
 
 from PyQt6.QtCore import QCoreApplication, QEvent, QStringListModel, Qt, QTimer, QUrl
-from PyQt6.QtGui import QAction, QColor, QInputMethodEvent, QPalette, QTextCharFormat, QTextFormat
+from PyQt6.QtGui import QAction, QColor, QInputMethodEvent, QPalette, QResizeEvent, QTextCharFormat, QTextFormat
 from PyQt6.QtNetwork import QNetworkReply, QNetworkRequest
 from PyQt6.QtWidgets import QCompleter, QLineEdit, QStyle
 
@@ -60,6 +60,9 @@ class UrlBar(QLineEdit):
         self.textEdited.connect(lambda _t: self._timer.start())
         self._reply = None
         self._local = []
+        self._end = None               # the shield, at the far right inside the field (1.1.10)
+        self._end_room = 0
+        self._shifted = {}
         self.lock = self.addAction(icon("globe", QStyle.StandardPixmap.SP_FileIcon),
                                    QLineEdit.ActionPosition.LeadingPosition)
         # "Translate page" in the address bar, as other browsers have it (1.1.6; the star of the
@@ -86,6 +89,58 @@ class UrlBar(QLineEdit):
             self._completer.popup().setItemDelegate(self._rows)
             self._completer.popup().installEventFilter(self)
         self.textChanged.connect(lambda _t: None if self.hasFocus() else self.highlight_domain())
+
+    # --- the shield inside the field, at its right end (1.1.10) ---------------
+    END_MARGIN = 6
+
+    def set_end_widget(self, widget):
+        """Put widget at the right end inside the field. Qt's own buttons on
+        the right (clear, translate, zoom) move left of it, and the text stops
+        before them."""
+        self._end = widget
+        widget.setParent(self)
+        widget.setCursor(Qt.CursorShape.ArrowCursor)
+        widget.show()
+        self.place_end()
+
+    def _icon_buttons(self):
+        return [w for w in self.children()
+                if w.isWidgetType() and w.metaObject().className() == "QLineEditIconButton"]
+
+    def place_end(self):
+        w = self._end
+        if w is None:
+            return
+        h = max(16, min(w.sizeHint().height(), self.height() - 4))
+        width = w.sizeHint().width()
+        w.setGeometry(self.width() - self.END_MARGIN - width, (self.height() - h) // 2, width, h)
+        room = width + self.END_MARGIN
+        if room != self._end_room:
+            self._end_room = room
+            self.setTextMargins(0, 0, room - 2, 0)
+            self._shifted.clear()
+            # Qt puts its buttons back at the right edge, then they are moved left of the shield
+            QCoreApplication.sendEvent(self, QResizeEvent(self.size(), self.size()))
+        for b in self._icon_buttons():
+            b.removeEventFilter(self)
+            b.installEventFilter(self)
+            self._shift(b)
+        w.raise_()
+
+    def _shift(self, b):
+        """Move one of Qt's buttons on the right left of the shield, once
+        for each place Qt gives it (the lock, on the left, stays)."""
+        if (self._end is None or b.defaultAction() is self.lock
+                or b.geometry() == self._shifted.get(b)):
+            return
+        to = b.geometry().translated(-self._end_room, 0)
+        self._shifted[b] = to            # first: moving it sends another Move
+        b.move(to.topLeft())
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self._end is not None:
+            self.place_end()
 
     # --- the site's domain in normal text, the rest of the address dimmed ---
     def domain_span(self, text=None):
@@ -169,6 +224,10 @@ class UrlBar(QLineEdit):
         return icon("edit-find", QStyle.StandardPixmap.SP_FileDialogContentsView)
 
     def eventFilter(self, obj, event):
+        if (event.type() == QEvent.Type.Move and obj.parent() is self
+                and obj.metaObject().className() == "QLineEditIconButton"):
+            self._shift(obj)
+            return False
         if event.type() == QEvent.Type.Show and obj is self._completer.popup():
             effects.fade_in(obj, self.win.app.config)
         elif event.type() == QEvent.Type.Hide and obj is self._completer.popup():

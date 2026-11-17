@@ -222,7 +222,7 @@ def steps(ike, qapp, out):
     yield from drag(win, "screenshot", far)
     out["cancelled"] = [keys(win) == was, list(fired), win.toolbar_mover._ghost is None]
 
-    # 6. the fixed buttons (Home, Reload, the shield): no key, a long press and drag does nothing
+    # 6. the fixed buttons (Home, Reload; the shield is in the address bar): no key, a long press and drag does nothing
     out["home_key"] = []
     for fixed in (win.nav.widgetForAction(win.act_home), win.nav.widgetForAction(win.act_reload)):
         out["home_key"].append(fixed.property("ikeToolbarKey"))
@@ -236,14 +236,14 @@ def steps(ike, qapp, out):
     out["home_key"].append(win.shield_btn.property("ikeToolbarKey"))
     out["after_home_drag"] = keys(win) == was
     acts = win.nav.actions()
-    out["shield_place"] = acts.index(win.shield_act) == acts.index(win.urlbar_act) - 1
+    out["shield_place"] = (win.shield_btn.parentWidget() is win.urlbar and win.shield_btn.geometry().right() > win.urlbar.width() - 20)
     # dropped on Back: the button becomes the first of the left zone, after the separator
     yield from drag(win, "split", centre(win.nav.widgetForAction(win.act_back)))
     out["after_drop_on_back"] = keys(win)
     acts = win.nav.actions()
     out["fixed"] = [acts.index(win.act_back), acts.index(win.act_fwd), acts.index(win.act_home),
                     acts.index(win.act_reload), acts.index(win.home_sep_act), acts[4].isSeparator(),
-                    acts.index(win.shield_act) == acts.index(win.urlbar_act) - 1,
+                    (win.shield_btn.parentWidget() is win.urlbar and win.shield_btn.geometry().right() > win.urlbar.width() - 20),
                     acts.index(win._win_btns[0]) > acts.index(win.urlbar_act),
                     [acts.index(a) for a in win._win_btns] == sorted(acts.index(a) for a in win._win_btns),
                     acts[-1] is win._win_btns[-1]]
@@ -429,15 +429,17 @@ def check(win, least=180):
         bad.append("fixed %s" % fixed)
     if at(win.urlbar_act) is None:
         bad.append("address bar hidden")
-    elif at(win.shield_act) != at(win.urlbar_act) - 1:
-        bad.append("shield not right before the address bar")
+    elif not (win.shield_btn.parentWidget() is win.urlbar and win.shield_btn.geometry().right() > win.urlbar.width() - 20):
+        bad.append("shield not inside the address bar at its right end")
     elif win.urlbar.width() < least:
         bad.append("address bar %d" % win.urlbar.width())
     ext = nav.findChild(QWidget, "qt_toolbar_ext_button")
     if ext is not None and ext.isVisible():
         bad.append("Qt's own overflow button")
     # the menu, the shield and the window buttons are always in view, the window buttons last
-    for a in (win.shield_act, win.menu_act) + tuple(win._win_btns):
+    if win.shield_btn.isHidden():
+        bad.append("missing shield")
+    for a in (win.menu_act,) + tuple(win._win_btns):
         if at(a) is None:
             bad.append("missing %s" % (nav.widgetForAction(a).property("ikeToolbarKey") or "window button"))
     if [at(a) for a in win._win_btns] != list(range(len(acts) - len(win._win_btns), len(acts))):
@@ -550,7 +552,7 @@ def steps(ike, qapp, out):
     win = ike.windows[0]
     out["keys"] = keys(win)
     out["fixed"] = [win.act_back.isVisible(), win.act_fwd.isVisible(), win.act_home.isVisible(),
-                    win.act_reload.isVisible(), win.home_sep_act.isVisible(), win.shield_act.isVisible()]
+                    win.act_reload.isVisible(), win.home_sep_act.isVisible(), not win.shield_btn.isHidden()]
     out["hidden"] = list(ike.config["toolbar_hidden"])
         ''', settings=settings)
         left, right = out["keys"]

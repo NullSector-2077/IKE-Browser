@@ -16,7 +16,7 @@ others.
 
 import math
 
-from PyQt6.QtCore import QEasingCurve, QObject, QPointF, QRect, QRectF, QSize, Qt, QVariantAnimation
+from PyQt6.QtCore import QEasingCurve, QObject, QPoint, QPointF, QRect, QRectF, QSize, Qt, QVariantAnimation
 from PyQt6.QtGui import QColor, QIcon, QIconEngine, QImage, QLinearGradient, QPainter, QPalette, QPen, QPixmap
 from PyQt6.QtWidgets import QProxyStyle, QStyle, QStyledItemDelegate, QStyleOptionTab, QWidget
 
@@ -777,8 +777,8 @@ class ShieldCount(QWidget):
     HOLD = 0.4          # fully visible for the first part, then it fades
     ROOM = 34           # px right of the button for the "+N"
 
-    def __init__(self, button, config):
-        super().__init__(button.parentWidget())
+    def __init__(self, button, config, host=None):
+        super().__init__(host or button.parentWidget())
         self.button, self.config = button, config
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
@@ -805,8 +805,9 @@ class ShieldCount(QWidget):
             return False
         running = self._anim.state() == QVariantAnimation.State.Running
         self.delta = (self.delta if running else 0) + (n - old)
-        b = self.button.geometry()
-        self.setGeometry(b.x(), b.y(), b.width() + self.ROOM, b.height())
+        b = self.button
+        at = b.mapTo(self.parentWidget(), QPoint(0, 0)) if b.parentWidget() is not self.parentWidget() else b.pos()
+        self.setGeometry(at.x(), at.y(), b.width() + self.ROOM, b.height())
         self.show()
         self.raise_()
         if not running:

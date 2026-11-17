@@ -445,11 +445,14 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         effects.fading(self.site_info_menu, self.app.config)
         self.urlbar.lock.triggered.connect(self.show_site_info)
 
-        # Shield: protection level selector, fixed right before the address bar (1.1.9).
-        self.shield_btn = QToolButton(self)
+        # Shield: protection level selector, inside the address bar at its right end (1.1.10;
+        # 1.1.9: before the bar). A click opens its panel; no arrow beside it.
+        self.shield_btn = QToolButton(self.urlbar)
         self.shield_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.shield_btn.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
-        self.shield_btn.clicked.connect(self.shield_btn.showMenu)
+        self.shield_btn.setAutoRaise(True)
+        self.shield_btn.setIconSize(QSize(20, 20))
+        self.shield_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.shield_btn.clicked.connect(self.show_shield_menu)
         self.shield_btn.setToolTip(T("I.K.E. Shield: choose the protection level"))
         self.shield_menu = QMenu(self)
         self.shield_panel = ShieldPanel(self)
@@ -459,11 +462,11 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.shield_menu.aboutToShow.connect(self.shield_panel.refresh)
         self.shield_menu.aboutToShow.connect(lambda: self.shield_panel.kinds.grow(self.app.config))
         effects.fading(self.shield_menu, self.app.config)
-        self.shield_btn.setMenu(self.shield_menu)
-        self.shield_act = tb.insertWidget(self.urlbar_act, self.shield_btn)
+        self.urlbar.set_end_widget(self.shield_btn)
         # a ring opens once around the shield when it blocks something (polish.py)
         self.shield_pulse = polish.ShieldPulse(self.shield_btn, self.app.config)
-        self.shield_count = polish.ShieldCount(self.shield_btn, self.app.config)   # "+N" when it grows
+        # "+N" when it grows; on the window, as it rises right of the field's end
+        self.shield_count = polish.ShieldCount(self.shield_btn, self.app.config, self)
 
         self.store_btn = QToolButton(self)
         self.store_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
@@ -1714,6 +1717,13 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.statusBar().clearMessage()
         self.statusBar().hide()
 
+    def show_shield_menu(self):
+        """The shield's panel, under the shield, its right edge at the shield's."""
+        b = self.shield_btn
+        menu = self.shield_menu
+        x = max(0, b.width() - menu.sizeHint().width())
+        menu.popup(b.mapToGlobal(QPoint(x, b.height())))
+
     def _blocked(self, host):
         if host == self.current_host():
             self.update_shield()
@@ -1735,10 +1745,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self.shield_btn.setIcon(new)
         self._shield_shown = level
         text = str(n) if n and level != "off" else ""
-        if len(text) != len(self.shield_btn.text()):
-            # the button gets wider or narrower: the address bar is centred again (1.1.9)
-            QTimer.singleShot(0, self._fit_urlbar)
-        self.shield_btn.setText(text)
+        if text != self.shield_btn.text():
+            self.shield_btn.setText(text)
+            self.urlbar.place_end()          # wider or narrower: the text stops before it (1.1.10)
         self.shield_count.count(n if level != "off" else 0, (id(self.current_view()), host))
         self.m_level.setIcon(shield_icon(cfg["shield_level"], 16))
         if self.shield_menu.isVisible():
@@ -2027,7 +2036,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         except (RuntimeError, AttributeError):
             return
         room = getattr(self, "_urlbar_room", 0)            # both free rooms and the bar
-        # what stands between the left free room and the bar (the shield, 1.1.9), from the
+        # what stands between the left free room and the bar (nothing since 1.1.10), from the
         # sizes of the items (their positions may still be those of the last layout)
         acts = self.nav.actions()
         gap = max(0, self.nav.layout().spacing())

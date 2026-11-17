@@ -1,10 +1,11 @@
 """The navigation toolbar: which buttons it shows, on which side of the address
 bar and in which order, and moving them with the mouse.
 
-    Back Forward Home Reload | left zone ~ Shield address bar ~ right zone | window buttons
+    Back Forward Home Reload | left zone ~ [address bar  Shield] ~ right zone | window buttons
 
-Back, Forward, Home, Reload and the separator after them are fixed, and so is
-the shield, right before the address bar (1.1.9, the owner's choice). The other buttons
+Back, Forward, Home, Reload and the separator after them are fixed. The shield
+is inside the address bar at its right end (1.1.10, the owner's choice; 1.1.9:
+fixed right before the bar), so it is not a toolbar button. The other buttons
 live in one of two zones and can be moved inside a zone or to the other one,
 after a long press or at once in "Customise toolbar" mode.
 
