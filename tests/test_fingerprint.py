@@ -182,6 +182,15 @@ def test_scriptlets_do_not_change_fingerprint(run_ike, site, level):
     # software WebGL, so the WebGL values are measured too
     webgl = os.environ.get("IKE_TEST_WEBGL_FLAGS", "").split() or [
         "--enable-unsafe-swiftshader", "--use-angle=swiftshader", "--ignore-gpu-blocklist"]
+    if os.name == "nt" and not os.environ.get("IKE_TEST_WEBGL_FLAGS"):
+        # Windows runners have no graphics card: there the engine's Direct3D
+        # compositing loses its context after a page or two ("Already being
+        # accessed for read", "Failed to make current") and WebGL goes with it,
+        # whatever renders WebGL (SwiftShader, WARP or the default). Compositing
+        # in software keeps WebGL working: tried on the runner with each of
+        # those, every try without this switch failed and none with it did.
+        # A switch of this test only, never of the browser.
+        webgl.append("--disable-gpu-compositing")
     flags = engine_flags(*webgl)
     out = run_ike("URL = %r\nSCRIPTLETS = %r\n" % (site, SCRIPTLETS) + STEPS,
                   settings={"shield_level": level}, env={"QTWEBENGINE_CHROMIUM_FLAGS": flags}, timeout=120)
