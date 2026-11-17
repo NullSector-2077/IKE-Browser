@@ -38,10 +38,12 @@ turned into an underscore).
 ## Codecs
 
 ROADMAP.md, "Codecs": I.K.E. never ships a proprietary codec. The Flatpak
-plays H.264 / AAC only through the run time's own codec extension
-(`org.freedesktop.Platform.codecs-extra`, which Flathub distributes
-separately and installs with the run time), never through decoders inside
-the bundle.
+decodes H.264 / AAC only through the run time's FFmpeg, never through
+decoders inside the bundle: H.264 through the run time's codec extension
+(`org.freedesktop.Platform.codecs-extra//25.08-extra`, which Flathub
+distributes separately and installs with the run time), AAC already through
+the base run time's FFmpeg. Chosen by the owner on 2026-11-17 after two
+studies, together with the hint below; OpenH264 stays off.
 
 Flathub's Qt WebEngine base application cannot give that: it is built with
 `-DQT_FEATURE_webengine_proprietary_codecs=ON` and Chromium's own FFmpeg
@@ -53,22 +55,39 @@ application's own source, patches (Chromium's sandbox through the Flatpak
 portal, paths, Widevine, PipeWire) and switches, except:
 
 - `webengine_system_ffmpeg=ON`: Chromium decodes through the run time's
-  FFmpeg. The base run time's FFmpeg has no H.264 / AAC decoder; the codec
-  extension replaces it with the full one. Two small patches make Chromium
+  FFmpeg (7.1, libavcodec 61). The base run time's FFmpeg (Freedesktop
+  25.08) has the AAC decoder but not H.264, HEVC, VC-1 or VVC; the codec
+  extension, put first on the library path when it is installed, has them
+  all. Chromium uses only its `h264` among them (HEVC stays with hardware
+  decoding, as in Chromium). Two small patches make Chromium
   and Qt's configure check accept an FFmpeg without Chromium's
   `av_stream_get_first_dts` addition (`qtwebengine/patches/*system-ffmpeg*`).
 - No OpenH264 compiled in (`rtc_use_h264=false`, `media_use_openh264=false`,
   `qtwebengine/patches/qtwebengine-no-openh264.patch`): the base application
   builds Cisco's H.264 encoder into the engine for WebRTC, MediaRecorder and
   WebCodecs; the KDE SDK has no OpenH264 to build against instead. So in the
-  Flatpak sites cannot *encode* H.264 (a recording or a video call uses VP8,
-  VP9 or AV1, which every WebRTC service supports); playing H.264 is not
-  affected. **Open, the owner decides**: whether Cisco's OpenH264 (Flathub's
-  `org.freedesktop.Platform.openh264` extension, Cisco's own binary) should
-  give the Flatpak H.264 encoding; a study is under way. Until then this
-  setting stays as it is.
+  Flatpak sites cannot *encode* H.264 (MediaRecorder, WebCodecs, WebRTC),
+  and `rtc_use_h264=false` also removes WebRTC's software H.264 *decoder*:
+  a video call uses VP8, VP9 or AV1, which WebRTC services support, but no
+  H.264 in either direction. Playing H.264 in pages (`<video>`, Media Source,
+  WebCodecs decoding) is not affected. The same choice as openSUSE's
+  `qt6-webengine` (`rtc-dont-use-h264.patch`). The owner decided on
+  2026-11-17 to leave OpenH264 off (Freedesktop 25.08 has none, and Chromium
+  uses it only to encode).
 - QtPdf is not built again (the base application's stays; I.K.E. does not use
   it).
+
+**Help → About** (only inside the Flatpak): when the codec extension is not
+installed, it says that H.264 plays only with it and shows the command that
+adds it, `flatpak install flathub org.freedesktop.Platform.codecs-extra//25.08-extra`
+(`ike/mediacheck.py`). It detects the extension the way Freedesktop's own
+FFmpeg test does: Flatpak writes
+`/run/flatpak/ld.so.conf.d/runtime-*-org.freedesktop.Platform.codecs-extra.conf`
+for an installed extension that adds a library folder. The engine itself
+cannot tell: with a system FFmpeg Chromium declares H.264 whether a decoder
+is there or not. The branch `25.08-extra` follows the KDE run time (6.11 is
+built on Freedesktop 25.08); a test fails when the manifest's run time
+changes without it. Outside a Flatpak nothing changes.
 
 The base application's Qt WebEngine libraries are deleted before the new ones
 are installed. The PyQt bindings of the PyQt base application stay and load
@@ -77,9 +96,10 @@ the new engine (same Qt 6.11 series).
 The workflow checks it on every run (`tools/ci/flatpak-codecs.py`): no
 program or library of the installed bundle contains FFmpeg's H.264, AAC or
 HEVC decoder, while the same search finds them in the base application (the
-control); `libQt6WebEngineCore` takes `libavcodec` from the run time; and the
-engine report is made with the codec extension and, for information, without
-it. Only then is the bundle kept as the run's download (`ike-browser-flatpak`).
+control); `libQt6WebEngineCore` takes `libavcodec` from the run time; the
+engine report is made with the codec extension (H.264 and AAC must decode)
+and, for information, without it; and Help → About's check of the extension
+is run in the sandbox with and without it. Only then is the bundle kept as the run's download (`ike-browser-flatpak`).
 
 Building Chromium takes longer than one GitHub job may run: the jobs
 `engine-1` … `engine-3` (`.github/workflows/flatpak-engine.yml`) build it in
@@ -133,3 +153,7 @@ The engine jobs then build it once and cache it.
   time's FFmpeg (7.1: libavcodec 61.19, without `av_stream_get_first_dts`,
   hence the two patches); GN stopped at OpenH264 (`use_system_openh264`: the
   SDK has no `openh264.pc`). Now no OpenH264 at all (section "Codecs").
+- 2026-11-17: the owner's decision on codecs (above): this route, OpenH264
+  off, plus Help → About's hint when the codec extension is missing (with
+  translations and tests). README corrected on AAC (base run time) and on
+  WebRTC (no software H.264 decoding either).

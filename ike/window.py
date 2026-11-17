@@ -1709,6 +1709,17 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                "videos offered only in these formats will not play") % ", ".join(no)
         return text
 
+    @staticmethod
+    def _codecs_extra_about():
+        """Inside the Flatpak without the run time's codec extension: what is
+        missing and the command that adds it; otherwise nothing."""
+        from . import mediacheck
+        if not mediacheck.codecs_extra_missing():
+            return ""
+        return T("Inside this Flatpak, H.264 video plays only with the Freedesktop codec extension, "
+                 "which is not installed. To add it, run this in a terminal, then restart I.K.E.: %s") % (
+            "<code>%s</code>" % mediacheck.CODECS_EXTRA_INSTALL)
+
     def about_text(self, media=None):
         """Help → About: versions, and the state of what protects the user.
         media: the formats the engine plays (see _media_about); by default
@@ -1733,6 +1744,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                  T("Engine sandbox: OFF (switched off by the environment, or I.K.E. was started as administrator)")
                  if sandbox_off() else T("Engine sandbox: on"),
                  self._media_about(media),
+                 self._codecs_extra_about(),
                  "%s: %s" % (T("Content blocker"), self._engine_about(self.app.blocker)),
                  T("Chrome extensions: not usable with this engine version (enabling one crashes it)"),
                  self._drm_about()]
@@ -1741,7 +1753,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             lines.append(T("Internal errors this session: %d (details in %s)")
                          % (len(INTERNAL_ERRORS), CACHE_DIR / "errors.log"))
         return "<h2>%s</h2><p>%s %s</p><p>%s</p><p>%s</p>" % (
-            APP_LONG_NAME, T("Version"), __version__, "<br>".join(lines),
+            APP_LONG_NAME, T("Version"), __version__, "<br>".join(line for line in lines if line),
             T("An independent, privacy-first browser. No telemetry, no accounts, no sponsored content."))
 
     def show_about(self):

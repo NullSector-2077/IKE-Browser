@@ -203,11 +203,18 @@ jobs:
           #    the run time itself). Chromium's sandbox off for this
           #    diagnostic start only; the sandboxed start is the step before.
           flatpak list --runtime --columns=ref | grep -i -E "codecs|openh264" || true
-          flatpak uninstall --system -y --noninteractive org.freedesktop.Platform.codecs-extra//25.08-extra || true
+          # Help -> About's check of the extension (ike/mediacheck.py), in
+          # the real sandbox: "missing" now, "installed" after the reinstall
+          missing='import sys; sys.path.insert(0, "/app/lib/ike-browser"); from ike import mediacheck; print(mediacheck.codecs_extra_missing())'
+          test "$(flatpak run --command=python3 "$APP_ID" -c "$missing")" = False
+          flatpak uninstall --system -y --noninteractive org.freedesktop.Platform.codecs-extra//25.08-extra
+          test "$(flatpak run --command=python3 "$APP_ID" -c "$missing")" = True
           flatpak run --filesystem="$PWD" --env=QT_QPA_PLATFORM=offscreen --env=QTWEBENGINE_DISABLE_SANDBOX=1 \
               --command=python3 "$APP_ID" "$PWD/tools/engine-report.py" --app /app/lib/ike-browser \
               --decode "$PWD/tests/media" --json "$PWD/out/engine-flatpak-no-codecs-extra.json" >/dev/null 2>&1 || true
           flatpak install --system -y --noninteractive flathub org.freedesktop.Platform.codecs-extra//25.08-extra
+          test "$(flatpak run --command=python3 "$APP_ID" -c "$missing")" = False
+          echo "Help -> About's check of the codec extension: right with and without it" | tee -a "$GITHUB_STEP_SUMMARY"
           python3 - <<'EOF' | tee -a "$GITHUB_STEP_SUMMARY"
           import json
           d = json.load(open("out/engine-flatpak-no-codecs-extra.json"))["decoded"]

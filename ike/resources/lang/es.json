@@ -842,6 +842,7 @@
 "Video and audio formats: checking…": "Formatos de vídeo y audio: comprobando…",
 "Video and audio formats: the engine did not answer": "Formatos de vídeo y audio: el motor no respondió",
 "Plays: %s": "Reproduce: %s",
-"Does not play: %s — this depends on the engine installed on this system; videos offered only in these formats will not play": "No reproduce: %s — depende del motor instalado en este sistema; los vídeos ofrecidos solo en estos formatos no se reproducirán"
+"Does not play: %s — this depends on the engine installed on this system; videos offered only in these formats will not play": "No reproduce: %s — depende del motor instalado en este sistema; los vídeos ofrecidos solo en estos formatos no se reproducirán",
+"Inside this Flatpak, H.264 video plays only with the Freedesktop codec extension, which is not installed. To add it, run this in a terminal, then restart I.K.E.: %s": "En este Flatpak los vídeos H.264 solo se reproducen con la extensión de códecs de Freedesktop, que no está instalada. Para añadirla, ejecuta esto en una terminal y luego reinicia I.K.E.: %s"
 }
 }

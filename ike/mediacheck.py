@@ -11,7 +11,9 @@ page is involved and nothing is written to disk. The answer is what the engine
 declares (``canPlayType`` and Media Source support), not a decoded video.
 """
 
+import glob
 import json
+import os
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile, QWebEngineScript
@@ -120,3 +122,24 @@ def split(result):
     yes = [name for name, _mime in FORMATS if result.get(name)]
     no = [name for name, _mime in FORMATS if not result.get(name)]
     return yes, no
+
+
+# Inside the Flatpak, H.264 is decoded by the run time's FFmpeg only when
+# Freedesktop's codec extension is installed (packaging/flatpak/README.md,
+# "Codecs"). Its branch follows the Freedesktop base of the KDE run time in
+# the manifest: KDE 6.11 is built on Freedesktop 25.08.
+CODECS_EXTRA_REF = "org.freedesktop.Platform.codecs-extra//25.08-extra"
+CODECS_EXTRA_INSTALL = "flatpak install flathub " + CODECS_EXTRA_REF
+# Flatpak writes this file for an installed extension that adds a library
+# folder (add-ld-path); Freedesktop's own FFmpeg test detects the extension
+# the same way (freedesktop-sdk, tests/ffmpeg-test.py)
+_CODECS_EXTRA_CONF = "run/flatpak/ld.so.conf.d/runtime-*-org.freedesktop.Platform.codecs-extra.conf"
+
+
+def codecs_extra_missing(root="/"):
+    """True only inside a Flatpak whose run time's codec extension is not
+    installed; outside a Flatpak always False."""
+    from . import osinfo
+    if not osinfo.in_flatpak():
+        return False
+    return not glob.glob(os.path.join(root, _CODECS_EXTRA_CONF))

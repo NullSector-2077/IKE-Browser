@@ -233,3 +233,95 @@ def test_other_profile_in_flatpak_gets_its_own_sandbox(tmp_path, monkeypatch):
         time.sleep(0.05)
     spawn = json.loads(log.read_text())
     assert spawn["env"] == ["IKE_PROFILE"] and spawn["cmd"] == ["/bin/true", "--profile", "work"]
+
+
+# --- the run time's codec extension (packaging/flatpak/README.md, "Codecs") --
+# Inside the Flatpak H.264 is decoded by the run time's FFmpeg only when
+# org.freedesktop.Platform.codecs-extra is installed; Help → About says when it
+# is not and gives the command that adds it. Outside a Flatpak nothing changes.
+
+def test_codecs_extra_detection(monkeypatch, tmp_path):
+    from ike import mediacheck, osinfo
+    conf = tmp_path / "run" / "flatpak" / "ld.so.conf.d"
+    monkeypatch.setattr(osinfo, "FLATPAK_INFO", str(tmp_path / "missing"))
+    monkeypatch.delenv("FLATPAK_ID", raising=False)
+    assert not mediacheck.codecs_extra_missing(str(tmp_path))      # not a Flatpak
+    monkeypatch.setenv("FLATPAK_ID", APP_ID)
+    assert mediacheck.codecs_extra_missing(str(tmp_path))          # Flatpak, no extension
+    conf.mkdir(parents=True)
+    (conf / "runtime-1-org.freedesktop.Platform.GL.default.conf").write_text("/usr/lib/x86_64-linux-gnu/GL/default/lib\n")
+    assert mediacheck.codecs_extra_missing(str(tmp_path))          # other extensions do not count
+    (conf / "runtime-3-org.freedesktop.Platform.codecs-extra.conf").write_text(
+        "/usr/lib/x86_64-linux-gnu/codecs-extra/lib\n")
+    assert not mediacheck.codecs_extra_missing(str(tmp_path))      # installed
+
+
+def test_codecs_extra_branch_follows_the_run_time():
+    """The extension's branch is the Freedesktop base of the manifest's KDE run
+    time (6.11 is built on 25.08): a new run time needs a new branch here."""
+    import re
+    from pathlib import Path
+
+    from ike import mediacheck
+    manifest = (Path(__file__).resolve().parent.parent / "packaging" / "flatpak"
+                / (APP_ID + ".yml"))
+    if not manifest.exists():
+        pytest.skip("not a checkout of the repository")
+    text = manifest.read_text("utf-8")
+    assert re.search(r"^runtime: org\.kde\.Platform$", text, re.M)
+    kde = re.search(r"^runtime-version: '([0-9.]+)'$", text, re.M).group(1)
+    freedesktop = {"6.11": "25.08"}[kde]
+    assert mediacheck.CODECS_EXTRA_REF == "org.freedesktop.Platform.codecs-extra//%s-extra" % freedesktop
+    assert mediacheck.CODECS_EXTRA_INSTALL == "flatpak install flathub " + mediacheck.CODECS_EXTRA_REF
+
+
+CODECS_ABOUT = r'''
+import os
+
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import Qt, QTimer
+    from PyQt6.QtTest import QTest
+    import ike.mediacheck as mc
+    from ike import osinfo
+    win = ike.windows[0]
+    media = {"H.264": True, "VP9": True}
+    osinfo.FLATPAK_INFO = %(info)r
+    mc._CODECS_EXTRA_CONF = %(conf)r
+    os.environ.pop("FLATPAK_ID", None)
+    out["outside"] = win.about_text(media)
+    os.environ["FLATPAK_ID"] = %(app)r
+    out["missing"] = win.about_text(media)
+    # the real dialog, closed with a real Esc
+    QTimer.singleShot(0, win.show_about)
+    box = None
+    for _ in range(40):
+        yield 100
+        box = getattr(win, "_about_box", None)
+        if box is not None:
+            break
+    out["dialog"] = box.text() if box else ""
+    if box is not None:
+        QTest.keyClick(box, Qt.Key.Key_Escape)
+    yield 300
+    open(%(installed)r, "w").write("/usr/lib/x86_64-linux-gnu/codecs-extra/lib\n")
+    out["present"] = win.about_text(media)
+'''
+
+
+def test_about_names_the_missing_codec_extension(run_ike, tmp_path):
+    from ike import mediacheck
+    conf = tmp_path / "ld.so.conf.d"
+    conf.mkdir()
+    out = run_ike(CODECS_ABOUT % {
+        "info": str(tmp_path / "no-flatpak-info"), "app": APP_ID,
+        "conf": str(conf / "runtime-*-org.freedesktop.Platform.codecs-extra.conf"),
+        "installed": str(conf / "runtime-2-org.freedesktop.Platform.codecs-extra.conf")}, timeout=120)
+    command = "<code>%s</code>" % mediacheck.CODECS_EXTRA_INSTALL
+    note = "Inside this Flatpak, H.264 video plays only with the Freedesktop codec extension"
+    assert note not in out["outside"] and "flatpak install" not in out["outside"]
+    assert note in out["missing"] and command in out["missing"]
+    assert note in out["dialog"] and command in out["dialog"]
+    assert note not in out["present"] and "flatpak install" not in out["present"]
+    # nothing else in the report changes
+    without_note = "<br>".join(line for line in out["missing"].split("<br>") if note not in line)
+    assert without_note == out["outside"] == out["present"]
