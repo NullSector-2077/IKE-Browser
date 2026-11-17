@@ -16,6 +16,13 @@
   background instead of an element of its own over the page: the same look,
   one painted surface less (about 15-20 MB less memory with a photo).
 
+Measured against 1.1.7, package against package (1.1.7 without a photo, 1.1.8
+with its own): start-up (0.28 – 0.31 s against 0.31 s) and processor time at
+rest (0.75 % of one core) unchanged; memory 397 – 399 MiB against 369 MiB
+(+28 MiB, the photo decoded and painted; it was +45 – 55 MiB before the veil
+change), while using the interface, which opens new tabs, 7.5 – 8.7 % against
+6.1 – 6.4 %. Whoever removes the photo is back to 1.1.7's figures.
+
 ## 1.1.7
 
 - The **address bar** takes half of the window (it was 60 %; a setting left at
