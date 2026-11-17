@@ -326,6 +326,13 @@ class IkeSchemeHandler(QWebEngineUrlSchemeHandler):
             q = q.replace("+", " ")
             job.redirect(QUrl(self.s.search_url(q)))
             return
+        if path == "open":
+            # the Settings or the background photo, asked for on the new tab page itself
+            what = QUrlQuery_value(url, "what")
+            if what in ("settings", "background"):
+                self.s.open_requested.emit(what)
+            job.redirect(QUrl("ike:newtab"))
+            return
         if path == "tile":
             # an answer given on the new tab page itself (a tile hidden or added);
             # the page is shown again afterwards
@@ -365,6 +372,7 @@ def QUrlQuery_value(url, key):
 
 class Shields(QObject):
     blocked = pyqtSignal(str)  # first-party host
+    open_requested = pyqtSignal(str)     # "settings" / "background" asked for on the new tab page
 
     def __init__(self, config, blocker, parent=None):
         super().__init__(parent)
@@ -470,18 +478,40 @@ class Shields(QObject):
         from . import i18n, newtabbg
         html = html.replace("{{corner}}", corner).replace("{{lang}}", i18n.current().replace("_", "-"))
         from . import effects, newtab
-        html = html.replace("{{background}}", newtabbg.style(self.config))
+        photo = newtabbg.style(self.config)
+        html = html.replace("{{background}}", photo)
         app = self.parent()
         for k, v in {
             "{{placeholder}}": _html.escape(T("Search with %s or enter address") % e["name"], quote=True),
             # tiles lift on hover, only with the interface effects on (polish.py)
             "{{fx}}": "fx" if effects.on(self.config) else "",
+            "{{photo}}": " photo" if photo else "",
+            "{{buttons}}": self._newtab_buttons(),
             "{{tiles}}": newtab.tiles_html(self.config, getattr(app, "storage", None)),
             "{{stats}}": newtab.stats_html(self.config, T("Protection level"),
                                            T(LEVEL_NAMES[self.config["shield_level"]])),
         }.items():
             html = html.replace(k, v)
         return html
+
+    def _newtab_buttons(self):
+        """Settings (top right) and the background photo (bottom left) on the new tab page;
+        they are answers of the page itself (ike:open), refused from websites."""
+        import html as _html
+
+        from .config import RES_DIR
+        from .i18n import T
+        out = []
+        for cls, what, icon, label in (("nt-settings", "settings", "configure", T("Settings")),
+                                       ("nt-photo", "background", "image-x-generic", T("Background photo"))):
+            try:
+                svg = (RES_DIR / "icons" / "sets" / "lucide" / (icon + ".svg")).read_text("utf-8")
+            except OSError:
+                svg = ""
+            out.append('<a class="nt-btn %s" href="ike:open?what=%s" title="%s"><span class="ico">%s</span>'
+                       '<span class="name">%s</span></a>' % (cls, what, _html.escape(label, quote=True), svg,
+                                                            _html.escape(label)))
+        return "".join(out)
 
     def weather_text(self):
         """"☁ 12 °C · Cloudy · Rome", or "" (no city, switched off, not known yet)."""

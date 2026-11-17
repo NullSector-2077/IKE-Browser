@@ -842,6 +842,9 @@
 "Sepia": "Sepija",
 "%d min read": "%d min čitanja",
 "Smooth scrolling of pages (after a restart)": "Glatko pomicanje stranica (nakon ponovnog pokretanja)",
-"Restore": "Vrati"
+"Restore": "Vrati",
+"%d of %d": "%d od %d",
+"Previous match (Shift+Enter)": "Prethodno podudaranje (Shift+Enter)",
+"Next match (Enter)": "Sljedeće podudaranje (Enter)"
 }
 }

@@ -842,6 +842,9 @@
 "Sepia": "Сепия",
 "%d min read": "%d мин чтения",
 "Smooth scrolling of pages (after a restart)": "Плавная прокрутка страниц (после перезапуска)",
-"Restore": "Восстановить"
+"Restore": "Восстановить",
+"%d of %d": "%d из %d",
+"Previous match (Shift+Enter)": "Предыдущее совпадение (Shift+Enter)",
+"Next match (Enter)": "Следующее совпадение (Enter)"
 }
 }

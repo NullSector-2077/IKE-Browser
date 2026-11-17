@@ -842,6 +842,9 @@
 "Sepia": "セピア",
 "%d min read": "%d 分で読めます",
 "Smooth scrolling of pages (after a restart)": "ページのスムーズスクロール（再起動後）",
-"Restore": "元に戻す"
+"Restore": "元に戻す",
+"%d of %d": "%d / %d 件",
+"Previous match (Shift+Enter)": "前の一致 (Shift+Enter)",
+"Next match (Enter)": "次の一致 (Enter)"
 }
 }

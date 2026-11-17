@@ -842,6 +842,9 @@
 "Sepia": "Сепія",
 "%d min read": "%d хв читання",
 "Smooth scrolling of pages (after a restart)": "Плавне прокручування сторінок (після перезапуску)",
-"Restore": "Відновити"
+"Restore": "Відновити",
+"%d of %d": "%d з %d",
+"Previous match (Shift+Enter)": "Попередній збіг (Shift+Enter)",
+"Next match (Enter)": "Наступний збіг (Enter)"
 }
 }

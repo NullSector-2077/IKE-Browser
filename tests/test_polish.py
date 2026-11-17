@@ -522,3 +522,93 @@ def test_bold_icon_set_is_complete():
     for name in bold:
         text = (root / "phosphor-bold" / name).read_text()
         assert text.startswith("<svg") and 'fill="currentColor"' in text and "<script" not in text
+
+
+# --- 1.1.7: messages in a pill, find bar, shield number, panels, Settings, new tab page ------
+
+TOUCHES_117 = JS + COMMON + r'''
+SITE = "__SITE__"
+
+def steps(ike, qapp, out):
+    from PyQt6.QtWidgets import QLabel
+    win = ike.windows[0]
+    win.resize(1300, 800)
+    win.show()
+    yield 600
+    out["urlbar_width"] = ike.config["urlbar_width"]
+    view = win.current_view()
+    # the new tab page: its two buttons, the clock at the bottom right, the logo
+    out["newtab"] = json.loads((yield from js(view, "JSON.stringify({"
+        "settings: !!document.querySelector('a.nt-settings[href=\"ike:open?what=settings\"]'), "
+        "photo: !!document.querySelector('a.nt-photo[href=\"ike:open?what=background\"]'), "
+        "corner: getComputedStyle(document.querySelector('.corner')).bottom, "
+        "logo: !!document.querySelector('img.logo'), name: !!document.querySelector('h1 svg')})")))
+    # a click on "Background photo": the Settings open at the new tab page's own page
+    yield from js(view, "document.querySelector('a.nt-photo').click(); 1")
+    yield 1200
+    dlg = ike._dialogs.get("settings")
+    out["photo_opens"] = bool(dlg is not None and dlg.isVisible()) and dlg.PAGES[dlg.stack.currentIndex()]
+    # another page of the Settings: the old one fades away
+    dlg.nav.setCurrentRow(0)
+    yield 20
+    out["settings_fade"] = bool(dlg.stack.findChildren(QLabel, "ike_theme_fade"))
+    dlg.close()
+    yield 300
+    # a website cannot open the Settings
+    yield from load(view, SITE + "/article")
+    yield 1000
+    view.page().runJavaScript("var i = new Image(); i.src = 'ike:open?what=settings'; "
+                              "fetch('ike:open?what=settings').catch(function () {}); 1")
+    yield 1000
+    dlg = ike._dialogs.get("settings")
+    out["site_opens"] = bool(dlg is not None and dlg.isVisible())
+    # the shield: its number grew on this page, and a "+N" rose
+    out["count"] = [win.shield_btn.text(), win.shield_count.shown]
+    # the shield panel and the site panel show the site's icon
+    win.shield_menu.popup(win.shield_btn.mapToGlobal(win.shield_btn.rect().bottomLeft()))
+    yield 300
+    out["shield_icon"] = win.shield_panel.site_icon.isVisible()
+    win.shield_menu.hide()
+    win.show_site_info()
+    yield 300
+    out["info_icon"] = win.site_info.site_icon.isVisible()
+    win.site_info_menu.hide()
+    # messages in a pill over the page, not in the status bar
+    win.zoom(1)
+    yield 200
+    pill = win.toast_pill
+    out["zoom_pill"] = [pill.isVisible(), pill.text, win.statusBar().isVisible()]
+    yield 2200
+    out["zoom_gone"] = pill.isVisible()
+    win.zoom(0)
+    ike._notify("A note")
+    yield 200
+    out["note"] = [pill.isVisible(), pill.text]
+    # the find bar: "N of M" in a pill, the field tinted when nothing is found
+    win.findbar.open_bar()
+    QTest.keyClicks(win.findbar.edit, "zzqqxx")
+    yield 600
+    out["nothing"] = [win.findbar.info.text(), win.findbar.edit.property("nothing_found")]
+    win.findbar.edit.clear()
+    QTest.keyClicks(win.findbar.edit, "article")
+    yield 600
+    out["found"] = [win.findbar.info.text(), win.findbar.edit.property("nothing_found")]
+    win.findbar.close_bar()
+'''
+
+
+def test_touches_of_117(run_ike, pages):
+    out = run_ike(TOUCHES_117.replace("__SITE__", pages), env={"IKE_REDUCED_MOTION": "0"},
+                  settings={"urlbar_width": 60}, timeout=150)
+    assert out["urlbar_width"] == 50                     # the old 60 becomes half of the window
+    nt = out["newtab"]
+    assert nt["settings"] and nt["photo"] and nt["logo"] and nt["name"] and nt["corner"] == "22px"
+    assert out["photo_opens"] == "newtab" and out["settings_fade"] is True
+    assert out["site_opens"] is False
+    assert out["count"][0] and int(out["count"][0]) >= 1 and out["count"][1] >= 1
+    assert out["shield_icon"] is True and out["info_icon"] is True
+    assert out["zoom_pill"] == [True, "Zoom: 110%", False] and out["zoom_gone"] is False
+    assert out["note"] == [True, "A note"]
+    assert out["nothing"] == ["0 of 0", True]
+    assert out["found"][0].endswith("of %s" % out["found"][0].split(" of ")[1]) and out["found"][1] is False
+    assert out["found"][0] != "0 of 0"

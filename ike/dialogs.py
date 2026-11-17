@@ -110,7 +110,7 @@ class SettingsDialog(QDialog):
             area.setWidget(build())
             self.stack.addWidget(area)
         self.nav.setFixedWidth(widest + 22 + 46)
-        self.nav.currentRowChanged.connect(self.stack.setCurrentIndex)
+        self.nav.currentRowChanged.connect(self._show_page)
         self.nav.setCurrentRow(self.PAGES.index(page) if page in self.PAGES else 0)
         bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok
                               | QDialogButtonBox.StandardButton.Apply
@@ -119,6 +119,14 @@ class SettingsDialog(QDialog):
         bb.rejected.connect(self.reject)
         bb.button(QDialogButtonBox.StandardButton.Apply).clicked.connect(self.apply)
         lay.addWidget(bb)
+
+    def _show_page(self, row):
+        """Another page of the Settings: it comes in with a short fade (polish.py)."""
+        from . import effects, polish
+        if (row != self.stack.currentIndex() and self.isVisible()
+                and polish.part("settings_fade")):
+            effects.cross_fade([self.stack], self.cfg, ms=150)
+        self.stack.setCurrentIndex(row)
 
     # --- pages -------------------------------------------------------
     def _general(self):

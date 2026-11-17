@@ -842,6 +842,9 @@
 "Sepia": "Sepia",
 "%d min read": "%d min czytania",
 "Smooth scrolling of pages (after a restart)": "Płynne przewijanie stron (po ponownym uruchomieniu)",
-"Restore": "Przywróć"
+"Restore": "Przywróć",
+"%d of %d": "%d z %d",
+"Previous match (Shift+Enter)": "Poprzednie wystąpienie (Shift+Enter)",
+"Next match (Enter)": "Następne wystąpienie (Enter)"
 }
 }

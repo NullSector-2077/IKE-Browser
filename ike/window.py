@@ -5,7 +5,7 @@ import re
 import time
 
 from PyQt6.QtCore import QEvent, QPoint, QSize, Qt, QTimer, QUrl
-from PyQt6.QtGui import QAction, QActionGroup, QIcon, QKeySequence
+from PyQt6.QtGui import QAction, QActionGroup, QGuiApplication, QIcon, QKeySequence
 from PyQt6.QtWebEngineCore import QWebEnginePage
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -60,9 +60,17 @@ class FindBar(QWidget):
         prev = QToolButton(self)
         prev.setIcon(icon("go-up", QStyle.StandardPixmap.SP_ArrowUp))
         prev.setAutoRaise(True)
+        prev.setToolTip(T("Previous match (Shift+Enter)"))
         nxt = QToolButton(self)
         nxt.setIcon(icon("go-down", QStyle.StandardPixmap.SP_ArrowDown))
         nxt.setAutoRaise(True)
+        nxt.setToolTip(T("Next match (Enter)"))
+        if polish.part("find_pill"):
+            # the number of matches in a small pill, in the theme's colours
+            self.info.setObjectName("ikeFindCount")
+            self.info.setStyleSheet("#ikeFindCount { padding: 1px 9px; border-radius: 9px;"
+                                    " background: palette(midlight); color: palette(window-text); }")
+            self.info.hide()
         self.case = QCheckBox(T("Match case"), self)
         close = QToolButton(self)
         close.setIcon(icon("window-close", QStyle.StandardPixmap.SP_TitleBarCloseButton))
@@ -72,7 +80,9 @@ class FindBar(QWidget):
         lay.addStretch(1)
         lay.addWidget(close)
         self.edit.textChanged.connect(lambda _t: self.find())
-        self.edit.returnPressed.connect(self.find)
+        # Enter: the next match; Shift+Enter: the previous one
+        self.edit.returnPressed.connect(lambda: self.find(back=bool(
+            QGuiApplication.keyboardModifiers() & Qt.KeyboardModifier.ShiftModifier)))
         nxt.clicked.connect(self.find)
         prev.clicked.connect(lambda: self.find(back=True))
         close.clicked.connect(self.close_bar)
@@ -104,8 +114,27 @@ class FindBar(QWidget):
 
         def result(res):
             n = res.numberOfMatches()
-            self.info.setText("%d / %d" % (res.activeMatch(), n) if self.edit.text() else "")
+            text = self.edit.text()
+            if polish.part("find_pill"):
+                self.info.setText(T("%d of %d") % (res.activeMatch(), n) if text else "")
+                self.info.setVisible(bool(text))
+                self._nothing(bool(text) and n == 0)
+            else:
+                self.info.setText("%d / %d" % (res.activeMatch(), n) if text else "")
         v.page().findText(self.edit.text(), flags, result)
+
+    def _nothing(self, nothing):
+        """No match: the field is tinted red, softly, as in other browsers."""
+        from PyQt6.QtGui import QColor, QPalette
+        if nothing == getattr(self, "_tinted", False):
+            return
+        self._tinted = nothing
+        pal = QPalette(self.palette())
+        if nothing:
+            base = pal.color(QPalette.ColorRole.Base)
+            pal.setColor(QPalette.ColorRole.Base, effects.blend(base, QColor("#e5484d"), 0.22))
+        self.edit.setPalette(pal)
+        self.edit.setProperty("nothing_found", nothing)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
@@ -335,6 +364,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         rl.addWidget(self.findbar)
         from .loadingline import LoadingLine
         self.chrome_edge = polish.ChromeEdge(self.content)       # a thin line between the bars and the page
+        self.toast_pill = polish.Toast(self.content, self.app.config)  # short messages over the page
         self.loading_line = LoadingLine(self.content)
         self.loading_line.config = self.app.config
 
@@ -431,6 +461,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.shield_act = tb.addWidget(self.shield_btn)
         # a ring opens once around the shield when it blocks something (polish.py)
         self.shield_pulse = polish.ShieldPulse(self.shield_btn, self.app.config)
+        self.shield_count = polish.ShieldCount(self.shield_btn, self.app.config)   # "+N" when it grows
 
         self.store_btn = QToolButton(self)
         self.store_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
@@ -1423,9 +1454,16 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 v.setZoomFactor(cands[0] if direction > 0 else cands[-1])
         self._remember_zoom(v)
         self._zoom_sign()
-        self.statusBar().showMessage(T("Zoom: %d%%") % round(v.zoomFactor() * 100), 1500)
+        self.toast(T("Zoom: %d%%") % round(v.zoomFactor() * 100), 1500)
+
+    def toast(self, text, ms=1800):
+        """A short message for the user: in a pill over the page (polish.py), or the status bar."""
+        if polish.part("toasts"):
+            self.toast_pill.show_text(text, ms)
+            return
+        self.statusBar().showMessage(text, ms)
         self.statusBar().show()
-        QTimer.singleShot(1600, self._hide_status)
+        QTimer.singleShot(ms + 100, self._hide_status)
 
     def open_command_bar(self):
         from . import palette
@@ -1674,6 +1712,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         n = self.app.shields.total(host) if host else 0
         self.shield_btn.setIcon(shield_icon(level, grow=TOOLBAR_SHIELD_GROW))
         self.shield_btn.setText(str(n) if n and level != "off" else "")
+        self.shield_count.count(n if level != "off" else 0, (id(self.current_view()), host))
         self.m_level.setIcon(shield_icon(cfg["shield_level"], 16))
         if self.shield_menu.isVisible():
             self.shield_panel.count.setText(str(n))

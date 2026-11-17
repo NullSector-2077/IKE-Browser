@@ -4,7 +4,17 @@
 from PyQt6.QtCore import QPointF, QRect, QRectF, QSize, Qt, QTimer
 from PyQt6.QtGui import QColor, QIcon, QIconEngine, QPainter, QPainterPath, QPixmap
 from PyQt6.QtWebEngineCore import QWebEnginePage
-from PyQt6.QtWidgets import QCheckBox, QComboBox, QFrame, QLabel, QPushButton, QToolButton, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from . import APP_NAME
 from .config import LEVEL_NAMES, LEVELS, rank
@@ -208,7 +218,13 @@ class ShieldPanel(QWidget):
         settings = QPushButton(T("Protection settings…"), self)
         sep = QFrame(self)
         sep.setFrameShape(QFrame.Shape.HLine)
-        lay.addWidget(self.title)
+        # the site's icon beside its name (polish.py)
+        self.site_icon = QLabel(self)
+        head = QHBoxLayout()
+        head.setSpacing(8)
+        head.addWidget(self.site_icon)
+        head.addWidget(self.title, 1)
+        lay.addLayout(head)
         lay.addWidget(self.master)
         lay.addWidget(self.count)
         lay.addWidget(self.count_label)
@@ -265,6 +281,12 @@ class ShieldPanel(QWidget):
         level = cfg.level_for(host) if web else cfg["shield_level"]
         on = level != "off"
         self.title.setText(host or APP_NAME)
+        from . import polish
+        v = self.win.current_view()
+        show = polish.part("panel_icons") and web and v is not None
+        if show:
+            self.site_icon.setPixmap(self.win.site_icon(v.url().toString()).pixmap(18, 18))
+        self.site_icon.setVisible(show)
         self.master.setChecked(on)
         self.master.setIcon(shield_icon(level, 22))
         self.master.setText(T("Protection is ON for this site") if on

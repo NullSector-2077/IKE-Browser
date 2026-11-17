@@ -9,7 +9,7 @@ import sys
 import time
 from pathlib import Path
 
-from PyQt6.QtCore import QObject, QStandardPaths, QTimer, QUrl
+from PyQt6.QtCore import QObject, QStandardPaths, Qt, QTimer, QUrl
 from PyQt6.QtGui import QIcon
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket, QNetworkAccessManager, QNetworkProxyFactory
 from PyQt6.QtWebEngineWidgets import QWebEngineView  # noqa: F401  (must load before QApplication)
@@ -36,6 +36,7 @@ class IkeApp(QObject):
         self.storage = Storage()
         self.blocker = Blocker(config, self)
         self.shields = Shields(config, self.blocker, self)
+        self.shields.open_requested.connect(self._open_from_newtab, Qt.ConnectionType.QueuedConnection)
         from .userscripts import UserScripts
         self.userscripts = UserScripts(self)
         self.shields.user_scripts = self.userscripts
@@ -218,6 +219,12 @@ class IkeApp(QObject):
         for w in self.windows:
             w.apply_layout()
             w.sync_urlbar()
+
+    def _open_from_newtab(self, what):
+        """The Settings button of the new tab page, or its background photo button."""
+        win = self.active_window()
+        if win is not None:
+            win.open_settings("newtab" if what == "background" else None)
 
     def reload_newtabs(self):
         """The look of the new tab page changed: show it in the ones that are open."""
@@ -535,9 +542,7 @@ class IkeApp(QObject):
     def _notify(self, text):
         win = self.active_window()
         if win:
-            win.statusBar().showMessage(text, 5000)
-            win.statusBar().show()
-            QTimer.singleShot(5200, win._hide_status)
+            win.toast(text, 5000)
 
     # --- downloads ---------------------------------------------------
     def download_dir(self):

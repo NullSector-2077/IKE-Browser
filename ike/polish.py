@@ -47,6 +47,12 @@ PARTS = {
     "window_hover": True,    # minimize / maximize: a soft circle under the mouse, as the close button
     "download_arrow": True,  # the arrow of the Downloads button moves while files arrive
     "chrome_edge": True,     # a thin line between the bars and the page
+    # 1.1.7
+    "toasts": True,          # short messages (zoom, notes) in a rounded pill over the page, not the status bar
+    "find_pill": True,       # find bar: "3 of 12" in a pill, the field tinted when nothing is found
+    "shield_count": True,    # a small "+N" rises from the shield when its number grows
+    "panel_icons": True,     # the site's icon beside its name in the shield and site panels
+    "settings_fade": True,   # Settings: the pages change with a short fade
 }
 
 MARK_MS = 180
@@ -624,4 +630,172 @@ class ChromeEdge(QWidget):
         c.setAlphaF(0.55)
         p = QPainter(self)
         p.fillRect(self.rect(), c)
+        p.end()
+
+
+# --- short messages in a pill (1.1.7) ---------------------------------------------
+class Toast(QWidget):
+    """A short message in a rounded pill at the bottom of the page area, which
+    fades in and out (in place of the status bar line)."""
+
+    MARGIN = 26
+
+    def __init__(self, anchor, config):
+        super().__init__(anchor.parentWidget())
+        from PyQt6.QtCore import QEvent, QTimer
+        self._events = QEvent.Type.Resize, QEvent.Type.Move
+        self.anchor, self.config = anchor, config
+        self.text = ""
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self._hide = QTimer(self)
+        self._hide.setSingleShot(True)
+        self._hide.timeout.connect(self._fade_out)
+        self._opacity = 1.0
+        self._anim = QVariantAnimation(self)
+        self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._anim.valueChanged.connect(self._set_opacity)
+        self._anim.finished.connect(self._done)
+        anchor.installEventFilter(self)
+        self.hide()
+
+    def _set_opacity(self, v):
+        self._opacity = float(v)
+        self.update()
+
+    def show_text(self, text, ms=1800):
+        from PyQt6.QtGui import QFontMetrics
+        self.text = text
+        f = self.font()
+        if f.pointSizeF() > 0:
+            f.setPointSizeF(self.parentWidget().font().pointSizeF() * 1.05)
+            self.setFont(f)
+        fm = QFontMetrics(self.font())
+        w = min(fm.horizontalAdvance(text) + 36, max(120, self.anchor.width() - 40))
+        self.resize(w, fm.height() + 18)
+        self._place()
+        self._anim.stop()
+        if moving(self.config, "toasts") and not self.isVisible():
+            self._fading_out = False
+            self._anim.setDuration(140)
+            self._anim.setStartValue(0.0)
+            self._anim.setEndValue(1.0)
+            self._opacity = 0.0
+            self._anim.start()
+        else:
+            self._opacity = 1.0
+        self.show()
+        self.raise_()
+        self.update()
+        self._hide.start(ms)
+
+    def _fade_out(self):
+        if not moving(self.config, "toasts"):
+            self.hide()
+            return
+        self._fading_out = True
+        self._anim.stop()
+        self._anim.setDuration(220)
+        self._anim.setStartValue(self._opacity)
+        self._anim.setEndValue(0.0)
+        self._anim.start()
+
+    def _done(self):
+        if getattr(self, "_fading_out", False):
+            self._fading_out = False
+            self.hide()
+
+    def _place(self):
+        g = self.anchor.geometry()
+        self.move(g.x() + (g.width() - self.width()) // 2, g.y() + g.height() - self.height() - self.MARGIN)
+
+    def eventFilter(self, obj, event):
+        if obj is self.anchor and event.type() in self._events and self.isVisible():
+            self._place()
+        return False
+
+    def paintEvent(self, _event):
+        pal = self.palette()
+        bg = effects.blend(pal.color(QPalette.ColorRole.Window), pal.color(QPalette.ColorRole.WindowText), 0.08)
+        bg.setAlphaF(0.96)
+        edge = QColor(pal.color(QPalette.ColorRole.Mid))
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setOpacity(self._opacity)
+        r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        p.setPen(QPen(edge, 1))
+        p.setBrush(bg)
+        p.drawRoundedRect(r, r.height() / 2, r.height() / 2)
+        p.setPen(pal.color(QPalette.ColorRole.WindowText))
+        from PyQt6.QtGui import QFontMetrics
+        p.drawText(self.rect().adjusted(16, 0, -16, 0), int(Qt.AlignmentFlag.AlignCenter),
+                   QFontMetrics(self.font()).elidedText(self.text, Qt.TextElideMode.ElideRight, self.width() - 32))
+        p.end()
+
+
+# --- "+N" over the shield (1.1.7) ---------------------------------------------------
+class ShieldCount(QWidget):
+    """When the shield's number grows, a small "+N" in the accent colour rises
+    from it and fades (several blocks close together count as one)."""
+
+    MS = 700
+
+    def __init__(self, button, config):
+        super().__init__(button.parentWidget())
+        self.button, self.config = button, config
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.delta = 0
+        self.last = None
+        self._anim = QVariantAnimation(self)
+        self._anim.setDuration(self.MS)
+        self._anim.setStartValue(0.0)
+        self._anim.setEndValue(1.0)
+        self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._anim.valueChanged.connect(lambda _v: self.update())
+        self._anim.finished.connect(self._finished)
+        self.shown = 0                 # how many times it rose (for the tests)
+        self.hide()
+
+    def count(self, n, key=None):
+        """The shield shows n now, for key (the site in view: another site's
+        number is no growth)."""
+        old, self.last = self.last, n
+        same, self.key = getattr(self, "key", None) == key, key
+        if (old is None or not same or n <= old or not moving(self.config, "shield_count")
+                or not self.button.isVisible()):
+            return False
+        running = self._anim.state() == QVariantAnimation.State.Running
+        self.delta = (self.delta if running else 0) + (n - old)
+        b = self.button.geometry()
+        self.setGeometry(b.x(), max(0, b.y() - 4), b.width(), b.height())
+        self.show()
+        self.raise_()
+        if not running:
+            self.shown += 1
+            self._anim.start()
+        return True
+
+    def _finished(self):
+        self.delta = 0
+        self.hide()
+
+    def paintEvent(self, _event):
+        t = float(self._anim.currentValue() or 0.0)
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        f = self.font()
+        f.setBold(True)
+        if f.pointSizeF() > 0:
+            f.setPointSizeF(f.pointSizeF() * 0.9)
+        p.setFont(f)
+        c = QColor(accent(self.button))
+        c.setAlphaF(max(0.0, 1.0 - t))
+        p.setPen(c)
+        icon = self.button.iconSize().width()
+        p.drawText(QRect(icon // 2 + 6, round(self.height() * 0.35 - t * self.height() * 0.35), self.width(),
+                         self.height() // 2), int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
+                   "+%d" % self.delta)
         p.end()

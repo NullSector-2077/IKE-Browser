@@ -842,6 +842,9 @@
 "Sepia": "Сэпія",
 "%d min read": "%d хв чытання",
 "Smooth scrolling of pages (after a restart)": "Плаўная пракрутка старонак (пасля перазапуску)",
-"Restore": "Аднавіць"
+"Restore": "Аднавіць",
+"%d of %d": "%d з %d",
+"Previous match (Shift+Enter)": "Папярэдні вынік (Shift+Enter)",
+"Next match (Enter)": "Наступны вынік (Enter)"
 }
 }

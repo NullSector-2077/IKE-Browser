@@ -842,6 +842,9 @@
 "Sepia": "复古",
 "%d min read": "阅读约 %d 分钟",
 "Smooth scrolling of pages (after a restart)": "平滑滚动页面（重启后生效）",
-"Restore": "还原"
+"Restore": "还原",
+"%d of %d": "第 %d 个，共 %d 个",
+"Previous match (Shift+Enter)": "上一个匹配 (Shift+Enter)",
+"Next match (Enter)": "下一个匹配 (Enter)"
 }
 }

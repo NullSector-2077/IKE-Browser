@@ -28,7 +28,13 @@ class SiteInfoPanel(QWidget):
         f.setPointSizeF(f.pointSizeF() * 1.1)
         self.host.setFont(f)
         self.host.setTextFormat(Qt.TextFormat.PlainText)
-        lay.addWidget(self.host)
+        self.site_icon = QLabel(self)                # the site's icon beside its name (polish.py)
+        from PyQt6.QtWidgets import QHBoxLayout
+        head = QHBoxLayout()
+        head.setSpacing(8)
+        head.addWidget(self.site_icon)
+        head.addWidget(self.host, 1)
+        lay.addLayout(head)
         grid = QGridLayout()
         grid.setHorizontalSpacing(10)
         grid.setVerticalSpacing(6)
@@ -66,6 +72,10 @@ class SiteInfoPanel(QWidget):
         host = url.host().lower() if url else ""
         web = bool(url) and url.scheme() in ("http", "https") and bool(host)
         self.host.setText(host or (url.toString() if url else ""))
+        from . import polish
+        if polish.part("panel_icons") and web:
+            self.site_icon.setPixmap(win.site_icon(url.toString()).pixmap(20, 20))
+        self.site_icon.setVisible(polish.part("panel_icons") and web)
         SP = QStyle.StandardPixmap
         if url is not None and url.scheme() == "https":
             ic, text = icon("object-locked", SP.SP_DialogYesButton), T("Secure connection (HTTPS)")

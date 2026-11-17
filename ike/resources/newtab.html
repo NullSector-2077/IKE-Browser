@@ -45,15 +45,32 @@ input:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(-
  transform:translateY(-2px);box-shadow:0 4px 12px color-mix(in srgb,var(--fg) 16%,transparent)}
 @media (prefers-reduced-motion:reduce){.ico{transition:none}
  .fx .tile>a:first-child:hover .ico,.fx .tile .open:hover .ico{transform:none}}
-.corner{position:fixed;top:22px;right:30px;text-align:right}
+.corner{position:fixed;bottom:22px;right:30px;text-align:right}
+/* the two buttons of the page (1.1.7): Settings top right, the background photo bottom left */
+.nt-btn{position:fixed;width:92px;display:flex;flex-direction:column;align-items:center;gap:8px;padding:6px 2px;
+ color:var(--mute);text-decoration:none;font-size:12px;border-radius:6px}
+.nt-btn .ico{color:var(--fg)}
+.nt-btn svg{width:26px;height:26px}
+.nt-btn:hover,.nt-btn:focus-visible{color:var(--fg);outline:none}
+.nt-btn:hover .ico,.nt-btn:focus-visible .ico{border-color:var(--acc)}
+.fx .nt-btn:hover .ico,.fx .nt-btn:focus-visible .ico{transform:translateY(-2px);
+ box-shadow:0 4px 12px color-mix(in srgb,var(--fg) 16%,transparent)}
+.nt-settings{top:22px;right:30px}
+.nt-photo{bottom:22px;left:30px}
+.nt-btn .name{text-align:center;line-height:1.25}
+/* with a photo behind the page the logo and the name stay readable */
+.photo img.logo,.photo h1 svg{filter:drop-shadow(0 1px 3px rgba(0,0,0,.55))}
+.photo h1{color:var(--fg)}
+.photo .nt-btn,.photo .corner{text-shadow:0 1px 3px rgba(0,0,0,.45)}
 .clock{font-size:42px;font-weight:300;line-height:1.1;font-variant-numeric:tabular-nums}
 .date{font-size:13px;color:var(--mute);margin-top:2px}
 .weather{font-size:15px;margin-top:10px}
 .weather:empty{display:none}
 </style>{{background}}</head>
-<body class="{{fx}}">
+<body class="{{fx}}{{photo}}">
 <div class="corner">{{corner}}</div>
-<img src="ike:logo" alt="I.K.E.">
+{{buttons}}
+<img class="logo" src="ike:logo" alt="I.K.E.">
 <h1>{{wordmark}}</h1>
 <div class="search"><form action="ike:search" method="get"><input name="q" autofocus autocomplete="off" placeholder="{{placeholder}}"></form></div>
 {{tiles}}

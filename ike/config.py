@@ -139,7 +139,8 @@ DEFAULTS = {
     "toolbar_order": ["shield", "reload", "bookmark", "reader", "screenshot", "pip",
                       "split", "dark", "private", "cleansite", "downloads", "menu"],
     "toolbar_left": ["shield", "reload", "bookmark"],  # balance the address field around the window centre
-    "urlbar_width": 60,                 # address bar: per cent of the window width
+    "urlbar_width": 50,                 # address bar: per cent of the window width (60 until 1.1.6)
+    "urlbar_width_117": False,          # the old default of 60 was moved to 50 once (1.1.7)
     "newtab_clock": True,               # clock and date on the new tab page
     "newtab_weather": True,             # weather on the new tab page (needs a city, see weather.py)
     "newtab_bg": "",                    # the user's photo behind the new tab page (see newtabbg.py)
@@ -320,6 +321,10 @@ class Config:
         if isinstance(stored, dict):
             self.data.update(sound_settings(stored))
         d = self.data
+        # 1.1.7: the address bar takes half of the window (the owner's choice); 60 was the old default
+        if d.get("urlbar_width") == 60 and not d.get("urlbar_width_117"):
+            d["urlbar_width"] = 50
+        d["urlbar_width_117"] = True
         # 1.1.6: "Translate page" moved into the address bar; "Bookmark this page" takes its place
         for key in ("toolbar_order", "toolbar_left", "toolbar_hidden", "toolbar_known"):
             if isinstance(d.get(key), list) and "translate" in d[key]:

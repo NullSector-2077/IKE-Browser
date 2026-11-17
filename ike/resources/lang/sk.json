@@ -842,6 +842,9 @@
 "Sepia": "Sépia",
 "%d min read": "%d min čítania",
 "Smooth scrolling of pages (after a restart)": "Plynulé posúvanie stránok (po reštarte)",
-"Restore": "Obnoviť"
+"Restore": "Obnoviť",
+"%d of %d": "%d z %d",
+"Previous match (Shift+Enter)": "Predchádzajúci výskyt (Shift+Enter)",
+"Next match (Enter)": "Ďalší výskyt (Enter)"
 }
 }
