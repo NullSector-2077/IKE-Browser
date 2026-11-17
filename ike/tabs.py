@@ -35,19 +35,12 @@ class TabBar(QTabBar):
         inset = min(10, r.width() // 5)
         return QRectF(r.left() + inset, r.bottom() - 2.5, r.width() - 2 * inset, 2.5)
 
-    def _cut(self, index, size):
-        """Tab sizes with the title held to TITLE_CHARS characters."""
-        fm = self.fontMetrics()
-        over = fm.horizontalAdvance(self.tabText(index)) - fm.averageCharWidth() * TITLE_CHARS
-        if over > 0:
-            size.setWidth(max(size.height(), size.width() - over))
-        return size
-
-    def tabSizeHint(self, index):
-        return self._cut(index, super().tabSizeHint(index))
-
-    def minimumTabSizeHint(self, index):
-        return self._cut(index, super().minimumTabSizeHint(index))
+    def set_title(self, index, text):
+        """The tab's title, held to TITLE_CHARS characters: a longer one is cut
+        there, and its end fades out (polish.TabLabelStyle) instead of "…"."""
+        cut = len(text) > TITLE_CHARS + 1
+        self.setTabData(index, "cut" if cut else None)
+        self.setTabText(index, text[:TITLE_CHARS] if cut else text)
 
     def paintEvent(self, event):
         super().paintEvent(event)

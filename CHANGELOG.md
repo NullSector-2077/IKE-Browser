@@ -38,7 +38,8 @@ Bars and the rest:
 New tab page:
 - **More site tiles**: up to 32, **sixteen per row** on a wide window (seven
   before); they wrap on narrower windows.
-- The page **fades in** and the tiles **lift a little** under the mouse.
+- The tiles **lift a little** under the mouse. (A fade-in of the whole page
+  was tried and left out: it cost the engine work at every new tab.)
 
 Already there, so not added again: the lock in the address field and the
 number of blocked items beside the shield.

@@ -60,7 +60,7 @@ def steps(ike, qapp, out):
     # the long title: the tab keeps its size, the title fades out
     i = win.views.index(c)
     fm = bar.fontMetrics()
-    out["long_width"] = [bar.tabRect(i).width(), fm.horizontalAdvance(bar.tabText(i)),
+    out["long_width"] = [bar.tabRect(i).width(), len(bar.tabText(i)), bar.tabData(i),
                          fm.averageCharWidth() * 27 + 80]
     out["no_dots"] = not bar.tabText(i).endswith("…")
     before = bar.label_style.faded
@@ -92,8 +92,8 @@ def test_horizontal_tabs(run_ike):
     assert out["current"] == 2
     assert out["mid"] == [0, True, True]                 # on its way from the third tab to the first
     assert out["end"] == [False, True, True]
-    tab_w, text_w, cap = out["long_width"]
-    assert text_w > tab_w and tab_w <= cap               # held to its width: the end of the title fades
+    tab_w, chars, data, cap = out["long_width"]
+    assert chars == 27 and data == "cut" and tab_w <= cap     # held to its width: the end of the title fades
     assert out["no_dots"] and out["faded"]
     assert out["icon_fading"] and out["icon_end"] == [False, True]
     assert out["pulse"] == [True, True, True]

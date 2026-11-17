@@ -263,15 +263,15 @@ class MarkGlide(QObject):
 # --- text that fades out at its end ------------------------------------------
 _faded = {}                  # titles already drawn faded, for the next paint (a few kB each)
 
-def draw_faded_text(painter, rect, text, colour, font, align, fade=FADE_PX, flags=0):
-    """Text in rect; when it is wider than rect, its end fades out instead of
-    being cut with "…". Returns True when it had to fade."""
+def draw_faded_text(painter, rect, text, colour, font, align, fade=FADE_PX, flags=0, cut=False):
+    """Text in rect; when it is wider than rect, or was cut before (cut=True),
+    its end fades out instead of ending with "…". Returns True when it faded."""
     from PyQt6.QtGui import QFontMetrics
     rect = QRect(rect)
     if rect.width() <= 0 or rect.height() <= 0 or not text:
         return False
     fm = QFontMetrics(font)
-    wide = fm.horizontalAdvance(text) > rect.width()
+    wide = cut or fm.horizontalAdvance(text) > rect.width()
     painter.save()
     painter.setFont(font)
     painter.setPen(colour)
@@ -301,7 +301,9 @@ def draw_faded_text(painter, rect, text, colour, font, align, fade=FADE_PX, flag
     p.setFont(font)
     p.setPen(colour)
     left = (int(align) & ~int(Qt.AlignmentFlag.AlignHorizontal_Mask)) | int(Qt.AlignmentFlag.AlignLeft)
-    p.drawText(QRect(0, 0, rect.width(), rect.height()), left | int(flags), text)
+    # a cut title ends at the edge of its room: the fade covers its last letters
+    p.drawText(QRect(0, 0, rect.width(), rect.height()), (int(align) if cut and fm.horizontalAdvance(text) <= rect.width()
+               else left) | int(flags), text)
     p.setCompositionMode(QPainter.CompositionMode.CompositionMode_DestinationIn)
     g = QLinearGradient(QPointF(max(0, rect.width() - fade), 0), QPointF(rect.width(), 0))
     g.setColorAt(0.0, QColor(0, 0, 0, 255))
@@ -356,7 +358,8 @@ class TabLabelStyle(QProxyStyle):
         flags = Qt.TextFlag.TextShowMnemonic if self.styleHint(QStyle.StyleHint.SH_UnderlineShortcut, opt, widget) \
             else Qt.TextFlag.TextHideMnemonic
         font = widget.font() if widget is not None else p.font()
-        if draw_faded_text(p, r, text, colour, font, Qt.AlignmentFlag.AlignCenter, flags=int(flags)):
+        cut = widget is not None and opt.tabIndex >= 0 and widget.tabData(opt.tabIndex) == "cut"
+        if draw_faded_text(p, r, text, colour, font, Qt.AlignmentFlag.AlignCenter, flags=int(flags), cut=cut):
             self.faded += 1
 
 

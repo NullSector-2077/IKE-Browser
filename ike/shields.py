@@ -474,7 +474,7 @@ class Shields(QObject):
         app = self.parent()
         for k, v in {
             "{{placeholder}}": _html.escape(T("Search with %s or enter address") % e["name"], quote=True),
-            # the page fades in and tiles lift on hover, only with the interface effects on (polish.py)
+            # tiles lift on hover, only with the interface effects on (polish.py)
             "{{fx}}": "fx" if effects.on(self.config) else "",
             "{{tiles}}": newtab.tiles_html(self.config, getattr(app, "storage", None)),
             "{{stats}}": newtab.stats_html(self.config, T("Protection level"),

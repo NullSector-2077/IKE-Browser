@@ -1042,8 +1042,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         ic = view.tab_icon = tab_icon(ic, g["color"] if g else None, self.app.container_color(view.container))
         if getattr(view, "loading_marked", False):
             ic = effects.loading_icon(ic, getattr(self, "_spin_angle", 45), self.tabbar.palette())
-        # a long title fades out at the edge of the tab (tabs.TabBar); the rest is not needed
-        self.tabbar.setTabText(i, prefix + title[:120])
+        # a long title fades out at the edge of the tab (tabs.TabBar.set_title)
+        self.tabbar.set_title(i, prefix + title)
         self.tabbar.setTabToolTip(i, tip)
         view.audible = prefix == "🔊 "
         item = self.vtabs.item(i)
