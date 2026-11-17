@@ -239,13 +239,15 @@ compatibility and longer seek / A/V-sync stability tests.
   for the `DllGetClassObject` lookup; C++ guarantees thread-safe
   initialization of that static. The loader cache was the unsynchronized part.
 - Build run [44122657019](https://github.com/NullSector-2077/IKE-Browser/actions/runs/44122657019)
-  is active on commit `43211a7`. The PyPI negative-control job passed. Stage 1
-  has passed tools / Qt / source preparation, patch application, configure,
-  the patched-media MSVC smoke compile, the full engine build, and install /
-  link / package checks. The engine artifact is in its upload step; the later
-  codec-playback stages have not yet reported a result. The loader change is
-  therefore compile-verified, while playback in the newly built engine remains
-  pending.
+  on commit `43211a7`: the PyPI negative-control job passed. Stage 1 passed
+  tools / Qt / source preparation, patch application, configure, the patched-
+  media MSVC smoke compile, the full engine build and install / link / package
+  checks. The Windows engine package was uploaded as artifact
+  [`ike-qtwebengine-windows` (ID 14348251001)](https://github.com/NullSector-2077/IKE-Browser/actions/runs/44122657019).
+  Its ZIP SHA-256 is
+  `fff0a10d27398a2e4bc437198a256bf48b879d9aab891316ed9623f46aae1cfe`.
+  The loader change is compile-verified; the built-engine codec playback
+  matrix is the remaining gate in this run.
 - The fixture-discovery workflow
   [44123443165](https://github.com/NullSector-2077/IKE-Browser/actions/runs/44123443165)
   passed on Windows Server 2022. FFprobe identified both official Fraunhofer
