@@ -4,7 +4,7 @@ import os
 import re
 import time
 
-from PyQt6.QtCore import QEvent, QPoint, QSize, Qt, QTimer, QUrl
+from PyQt6.QtCore import QCoreApplication, QEvent, QPoint, QSize, Qt, QTimer, QUrl
 from PyQt6.QtGui import QAction, QActionGroup, QGuiApplication, QIcon, QKeySequence
 from PyQt6.QtWebEngineCore import QWebEnginePage
 from PyQt6.QtWidgets import (
@@ -470,11 +470,24 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.shield_btn.setToolTip(T("I.K.E. Shield: choose the protection level"))
         self.shield_menu = QMenu(self)
         self.shield_panel = ShieldPanel(self)
+        # the panel scrolls when it is taller than the room below the shield (1.1.10: with
+        # "Advanced controls" open it went past the bottom of the screen)
+        from PyQt6.QtWidgets import QScrollArea
+        self.shield_scroll = QScrollArea(self)
+        self.shield_scroll.setObjectName("ike_shield_scroll")
+        self.shield_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.shield_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.shield_scroll.setWidgetResizable(True)
+        self.shield_scroll.setWidget(self.shield_panel)
+        self.shield_scroll.viewport().setAutoFillBackground(False)   # the menu's own colour behind
+        self.shield_panel.setAutoFillBackground(False)
         wa = QWidgetAction(self.shield_menu)
-        wa.setDefaultWidget(self.shield_panel)
+        wa.setDefaultWidget(self.shield_scroll)
+        self.shield_wa = wa
         self.shield_menu.addAction(wa)
         self.shield_menu.aboutToShow.connect(self.shield_panel.refresh)
         self.shield_menu.aboutToShow.connect(lambda: self.shield_panel.kinds.grow(self.app.config))
+        self.shield_menu.aboutToShow.connect(lambda: self.fit_shield_menu(place=False))
         effects.fading(self.shield_menu, self.app.config)
         self.urlbar.set_end_widget(self.shield_btn)
         # a ring opens once around the shield when it blocks something (polish.py)
@@ -1757,10 +1770,37 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             a.triggered.connect(lambda _c=False, name=e["name"]: self.app.set_engine(name))
         self.app.fetch_engine_icons()         # the ones not known yet, for the next time
 
+    def fit_shield_menu(self, place=True):
+        """The shield's panel as tall as its content, but never past the bottom of the
+        screen: there it scrolls. place: the open menu is resized and kept on the screen."""
+        from PyQt6.QtGui import QActionEvent
+        panel, scroll, menu = self.shield_panel, self.shield_scroll, self.shield_menu
+        panel.adjustSize()
+        want = panel.sizeHint()
+        screen = self.shield_btn.screen() or QGuiApplication.primaryScreen()
+        area = screen.availableGeometry()
+        top = (menu.geometry().top() if menu.isVisible()
+               else self.shield_btn.mapToGlobal(QPoint(0, self.shield_btn.height())).y())
+        room = area.bottom() - max(area.top(), top) - 16
+        height = min(want.height(), max(220, room))
+        bar = scroll.verticalScrollBar().sizeHint().width() if height < want.height() else 0
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded if bar
+                                          else Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setFixedSize(want.width() + bar, height)
+        # the menu measures its items again (it keeps the old size of the panel otherwise)
+        QCoreApplication.sendEvent(menu, QActionEvent(QEvent.Type.ActionChanged, self.shield_wa))
+        if place and menu.isVisible():
+            size = menu.sizeHint()
+            g = menu.geometry()
+            x = min(max(area.left(), g.right() + 1 - size.width()), area.right() + 1 - size.width())
+            y = min(g.top(), area.bottom() + 1 - size.height())
+            menu.setGeometry(x, max(area.top(), y), size.width(), size.height())
+
     def show_shield_menu(self):
         """The shield's panel, under the shield, its right edge at the shield's."""
         b = self.shield_btn
         menu = self.shield_menu
+        self.fit_shield_menu(place=False)
         x = max(0, b.width() - menu.sizeHint().width())
         menu.popup(b.mapToGlobal(QPoint(x, b.height())))
 

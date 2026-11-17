@@ -15,7 +15,12 @@
   site (its favicon) and then kept; until one is known a magnifier shows. Only
   I.K.E. and its own pages can choose the engine, never a website.
 
-Package 1.1.10-2 (1.1.10-1, never published, had only the shield). From this release on, every new release raises the last
+- **The shield's panel stays on the screen.** With "Advanced controls" open it
+  went past the bottom of the screen and did not always take its size again:
+  now it is never taller than the room below the shield, a scroll bar appears
+  when it does not fit, and it grows and shrinks with its content.
+
+Package 1.1.10-3 (1.1.10-1 and -2, never published, had the first parts). From this release on, every new release raises the last
 number of the version (1.1.10, 1.1.11, ...); the package number after the dash
 changes only when the same version is built again.
 

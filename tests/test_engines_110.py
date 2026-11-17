@@ -200,3 +200,64 @@ def steps(ike, qapp, out):
     out["engine"] = ike.config["default_engine"]
 ''', timeout=90)
     assert out["engine"] == "DuckDuckGo"
+
+
+def test_shield_panel_stays_on_the_screen(run_ike):
+    """1.1.10: with "Advanced controls" open the shield's panel went past the
+    bottom of the screen and kept a wrong size. Now it is never taller than the
+    room below the shield (a scroll bar then), grows and shrinks with real
+    clicks, and stays on the screen."""
+    out = run_ike(r'''
+from PyQt6.QtCore import QPoint, Qt
+from PyQt6.QtTest import QTest
+
+def steps(ike, qapp, out):
+    yield 600
+    win = ike.windows[0]
+    win.resize(760, 560)
+    area = win.shield_btn.screen().availableGeometry()
+    win.showNormal()
+    win.move(0, area.top() + area.height() // 3)      # low on the screen: little room below the shield
+    yield 400
+    out["win_y"] = win.geometry().top()
+    out["area"] = [area.top(), area.bottom()]
+    m, panel, scroll = win.shield_menu, win.shield_panel, win.shield_scroll
+    ike.config["shield_advanced"] = False
+    QTest.mouseClick(win.shield_btn, Qt.MouseButton.LeftButton)
+    for _ in range(20):
+        if m.isVisible():
+            break
+        yield 50
+    yield 300
+    def state():
+        g = m.geometry()
+        return {"top": g.top(), "bottom": g.bottom(), "left": g.left(), "right": g.right(),
+                "bar": scroll.verticalScrollBar().isVisible(), "h": scroll.height(),
+                "want": panel.sizeHint().height(), "menu_h": g.height()}
+    out["closed"] = state()
+    # a real click on "Advanced controls": taller than the room, so it scrolls
+    QTest.mouseClick(panel.adv_btn, Qt.MouseButton.LeftButton)
+    yield 600
+    out["open"] = state()
+    # scrolled to the end, the last button can be clicked into view
+    scroll.ensureWidgetVisible(panel.global_level)
+    yield 200
+    out["reach"] = panel.global_level.visibleRegion().isEmpty() is False
+    # closed again: back to its size, no scroll bar
+    QTest.mouseClick(panel.adv_btn, Qt.MouseButton.LeftButton)
+    yield 600
+    out["again"] = state()
+    m.hide()
+    ike.config["shield_advanced"] = False
+''', settings={"start_maximized": False}, timeout=90)
+    top, bottom = out["area"]
+    assert out["win_y"] > top + 100, out
+    for key in ("closed", "open", "again"):
+        s = out[key]
+        assert s["top"] >= top and s["bottom"] <= bottom, (key, s, out["area"])
+        assert s["menu_h"] >= s["h"], (key, s)
+    o = out["open"]
+    assert o["want"] > o["h"] and o["bar"], o                     # taller than the room: it scrolls
+    assert out["reach"]
+    c, a = out["closed"], out["again"]
+    assert not c["bar"] and a["bar"] == c["bar"] and abs(a["menu_h"] - c["menu_h"]) <= 2, (c, a)   # back to its own size
