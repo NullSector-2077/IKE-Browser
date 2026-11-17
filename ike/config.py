@@ -220,6 +220,9 @@ DEFAULTS = {
     "di_krunner": True,                 # open tabs and bookmarks in KRunner
     "di_kdeconnect": True,              # "Send to device" with KDE Connect
     "tab_sleep_minutes": 20,
+    "autoplay_block": False,            # video and audio do not start by themselves (site_opts "autoplay")
+    "mouse_gestures": False,            # right button held and dragged: back, forward, reload, close tab
+    "site_zoom": {},                    # host: zoom factor chosen for that site (not in private windows)
     "res_mem_limit": 0,                 # MB: suspend background tabs of a site above it (0 = off)
     "res_cpu_limit": 0,                 # % of a core: freeze background tabs above it (0 = off)
     "res_mem_default": 1500,            # values offered when a limit is switched on

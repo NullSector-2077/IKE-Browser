@@ -2,7 +2,7 @@
 
 import os
 
-from PyQt6.QtCore import QEvent, Qt, QTimer, QUrl
+from PyQt6.QtCore import QCoreApplication, QEvent, Qt, QTimer, QUrl
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
 from PyQt6.QtWebEngineWidgets import QWebEngineView
@@ -112,6 +112,8 @@ class WebPage(QWebEnginePage):
             sh = self.app.shields
             st = self.settings()
             st.setAttribute(_A.JavascriptEnabled, sh.scripts_allowed(host))
+            # video and audio that start by themselves: as the user chose, for all sites or this one
+            st.setAttribute(_A.PlaybackRequiresUserGesture, sh.autoplay_blocked(host))
             self._reset_scripts()
             self._set_dark(url, host)
             self._set_scriptlets(url, host)
@@ -492,7 +494,80 @@ class WebView(QWebEngineView):
             fp.installEventFilter(self)
             self._watched = fp
 
+    # --- Ctrl + wheel and mouse gestures, on the page itself -----------
+    GESTURE_STEP = 30            # pixels of a stroke
+    GESTURES = {"L": "back", "R": "forward", "U": "reload", "DR": "close"}
+
+    def _wheel(self, event):
+        """Ctrl + wheel: the zoom steps of the View menu, remembered for the site."""
+        if not (event.modifiers() & Qt.KeyboardModifier.ControlModifier):
+            return False
+        self._wheel_sum = getattr(self, "_wheel_sum", 0) + event.angleDelta().y()
+        while abs(self._wheel_sum) >= 120:
+            step = 1 if self._wheel_sum > 0 else -1
+            self._wheel_sum -= 120 * step
+            self.window_ref.zoom(step, self)
+        return True
+
+    def _gesture(self, obj, event):
+        """Right button held and dragged: a gesture; a right click alone still opens the menu."""
+        t = event.type()
+        right = Qt.MouseButton.RightButton
+        if getattr(self, "_replaying", False):
+            return False
+        if t == QEvent.Type.MouseButtonPress and event.button() == right:
+            p = event.position()
+            self._stroke = {"anchor": p, "start": p, "global": event.globalPosition(), "dirs": ""}
+            return True
+        stroke = getattr(self, "_stroke", None)
+        if stroke is None:
+            return False
+        if t == QEvent.Type.MouseMove:
+            p = event.position()
+            dx, dy = p.x() - stroke["anchor"].x(), p.y() - stroke["anchor"].y()
+            if max(abs(dx), abs(dy)) >= self.GESTURE_STEP:
+                d = ("R" if dx > 0 else "L") if abs(dx) > abs(dy) else ("D" if dy > 0 else "U")
+                if not stroke["dirs"].endswith(d):
+                    stroke["dirs"] += d
+                stroke["anchor"] = p
+            return True
+        if t == QEvent.Type.MouseButtonRelease and event.button() == right:
+            self._stroke = None
+            if stroke["dirs"]:
+                self._do_gesture(stroke["dirs"])
+                return True
+            # no stroke: the press goes to the page after all, and the menu opens as always
+            from PyQt6.QtGui import QMouseEvent
+            self._replaying = True
+            try:
+                for kind, buttons in ((QEvent.Type.MouseButtonPress, right), (QEvent.Type.MouseButtonRelease,
+                                                                              Qt.MouseButton.NoButton)):
+                    QCoreApplication.sendEvent(obj, QMouseEvent(kind, stroke["start"], stroke["global"], right,
+                                                                buttons, event.modifiers()))
+            finally:
+                self._replaying = False
+            return True
+        return False
+
+    def _do_gesture(self, dirs):
+        action = self.GESTURES.get(dirs)
+        self.last_gesture = action or ""
+        if action == "back":
+            self.back()
+        elif action == "forward":
+            self.forward()
+        elif action == "reload":
+            self.reload()
+        elif action == "close":
+            QTimer.singleShot(0, lambda: self.window_ref.close_tab(self))
+
     def eventFilter(self, obj, event):
+        t = event.type()
+        if t == QEvent.Type.Wheel and self._wheel(event):
+            return True
+        if (t in (QEvent.Type.MouseButtonPress, QEvent.Type.MouseMove, QEvent.Type.MouseButtonRelease)
+                and self.window_ref.app.config["mouse_gestures"] and self._gesture(obj, event)):
+            return True
         if event.type() == QEvent.Type.KeyPress:
             mods = event.modifiers() & ~Qt.KeyboardModifier.KeypadModifier
             key = event.key()

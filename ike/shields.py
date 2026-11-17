@@ -800,6 +800,13 @@ class Shields(QObject):
             h = h.split(".", 1)[1]
         return on
 
+    def autoplay_blocked(self, host):
+        """May video and audio of this site start by themselves? (False = they may)"""
+        opt = self.config.site_opt(host, "autoplay")
+        if opt is not None:
+            return not opt
+        return bool(self.config["autoplay_block"])
+
     def dark_chosen(self, host):
         """Did the user turn this site dark himself (dark mode off, the site on
         its own list)? Then it is made dark whatever Dark Reader's lists say."""

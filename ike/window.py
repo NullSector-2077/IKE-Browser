@@ -402,6 +402,16 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.urlbar = UrlBar(self)
         self.urlbar.returnPressed.connect(lambda: self.navigate(self.urlbar.text()))
         self.urlbar_act = tb.addWidget(self.urlbar)
+        # the lock opens the site information panel (siteinfo.py)
+        from .siteinfo import SiteInfoPanel
+        self.site_info_menu = QMenu(self)
+        self.site_info = SiteInfoPanel(self)
+        wa_info = QWidgetAction(self.site_info_menu)
+        wa_info.setDefaultWidget(self.site_info)
+        self.site_info_menu.addAction(wa_info)
+        self.site_info_menu.aboutToShow.connect(self.site_info.refresh)
+        effects.fading(self.site_info_menu, self.app.config)
+        self.urlbar.lock.triggered.connect(self.show_site_info)
 
         # Shield: protection level selector, right of the address bar.
         self.shield_btn = QToolButton(self)
@@ -1390,8 +1400,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         dev.destroyed.connect(lambda _o=None, d=dev: self._devtools.remove(d)
                               if d in self._devtools else None)
 
-    def zoom(self, direction):
-        v = self.current_view()
+    def zoom(self, direction, view=None):
+        """direction +1 / -1: one step; 0: the usual zoom. The choice is kept for
+        the site (not in a private window): its pages open at that zoom again."""
+        v = view or self.current_view()
         if not v:
             return
         steps = [0.3, 0.5, 0.67, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 4.0]
@@ -1402,10 +1414,49 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             cands = [s for s in steps if (s > cur + 0.01 if direction > 0 else s < cur - 0.01)]
             if cands:
                 v.setZoomFactor(cands[0] if direction > 0 else cands[-1])
+        self._remember_zoom(v)
         self._zoom_sign()
         self.statusBar().showMessage(T("Zoom: %d%%") % round(v.zoomFactor() * 100), 1500)
         self.statusBar().show()
         QTimer.singleShot(1600, self._hide_status)
+
+    def show_site_info(self):
+        """The panel of the site in the current tab, under the lock."""
+        v = self.current_view()
+        if not v or v.url().scheme() not in ("http", "https"):
+            return
+        self.site_info_menu.popup(self.urlbar.mapToGlobal(self.urlbar.rect().bottomLeft()))
+
+    def _remember_zoom(self, view):
+        cfg = self.app.config
+        url = view.url()
+        host = url.host().lower()
+        if self.private or not host or url.scheme() not in ("http", "https"):
+            return
+        sites = cfg["site_zoom"] if isinstance(cfg["site_zoom"], dict) else {}
+        factor = view.zoomFactor()
+        if abs(factor - cfg["default_zoom"]) < 0.005:
+            sites.pop(host, None)
+        else:
+            sites[host] = round(factor, 3)
+        cfg["site_zoom"] = sites
+        cfg.save()
+
+    def _site_zoom(self, view):
+        """A page of another site: the zoom chosen for that site, or the usual one."""
+        host = view.url().host().lower()
+        if host == getattr(view, "_zoom_host", None):
+            return
+        view._zoom_host = host
+        cfg = self.app.config
+        sites = cfg["site_zoom"] if isinstance(cfg["site_zoom"], dict) else {}
+        want = sites.get(host, cfg["default_zoom"]) if host else cfg["default_zoom"]
+        try:
+            want = min(5.0, max(0.25, float(want)))
+        except (TypeError, ValueError):
+            want = cfg["default_zoom"]
+        if abs(view.zoomFactor() - want) > 0.001:
+            view.setZoomFactor(want)
 
     def _zoom_sign(self):
         """The sign in the address field while the page is not at its usual zoom."""
@@ -1513,6 +1564,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.urlbar.star.setToolTip(T("Remove bookmark") if marked else T("Bookmark this page"))
 
     def _url_changed(self, view):
+        self._site_zoom(view)
         if view is self.current_view():
             self._update_bookbar()
             self.urlbar.setModified(False)

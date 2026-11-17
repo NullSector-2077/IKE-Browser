@@ -177,6 +177,14 @@ class SettingsDialog(QDialog):
         f.addRow(T("I.K.E. updates"), self.upd)
         f.addRow(T("Update channel"), self.channel)
         f.addRow(T("Translation service"), self.translate)
+        self.autoplay = QCheckBox(T("Do not let videos and sounds start by themselves (single sites: the lock "
+                                    "in the address bar)"))
+        self.autoplay.setChecked(bool(self.cfg["autoplay_block"]))
+        self.gestures = QCheckBox(T("Mouse gestures: hold the right button and draw ← back, → forward, "
+                                    "↑ reload, ↓→ close the tab"))
+        self.gestures.setChecked(bool(self.cfg["mouse_gestures"]))
+        f.addRow("", _wrapping(self.autoplay))
+        f.addRow("", _wrapping(self.gestures))
         self.di = {}
         desktop = (
             ("di_media", T("Media controls: the media widget, the lock screen and the media keys "
@@ -1136,6 +1144,8 @@ class SettingsDialog(QDialog):
         cfg["update_channel"] = self.channel.currentData()
         if "{url}" in self.translate.text():
             cfg["translate_url"] = self.translate.text().strip()
+        cfg["autoplay_block"] = self.autoplay.isChecked()
+        cfg["mouse_gestures"] = self.gestures.isChecked()
         cfg["perm_block"] = [k for k, c in self.perm_block.items() if c.isChecked()]
         cfg["experimental_extensions"] = self.ext_on.isChecked()
         old = {c["name"]: c["color"] for c in cfg["containers"]}
