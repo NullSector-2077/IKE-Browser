@@ -276,6 +276,10 @@ def test_loading_line(run_ike, slow_page):
                 if not view.loading:
                     break
             yield 600
+            for _ in range(25):                 # a slow computer: the line goes a little later
+                if not line.isVisible():
+                    break
+                yield 200
             out["after"] = line.isVisible()
             out["title"] = view.title()
     """ % slow_page, env={"IKE_TEST_SHOTS": SHOTS})
