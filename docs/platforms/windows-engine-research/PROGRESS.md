@@ -41,6 +41,8 @@ format. Media Source is not affected (Chromium's own MP4 parser).
 | 43968550111 (2026-11-16 22:17) | old own-adapter patches, stage 1 from nothing | GN and the early compile of the media code passed; stage 1 was still building when the integration was pushed. Never linked, never played |
 | 43976704292 | decoders probe (own-adapter call sequence), Server 2022 + 2025 | 10 of 10 probe runs passed: the Windows H.264 and AAC decoders exist and decode on the runners (software), AAC both as bare frames and with ADTS headers |
 
+| 44003268848 (2026-11-17 02:28) | decoders probe with a third AAC mode that repeats the integrated code's calls (COM, `MFTEnumEx` + `ActivateObject`, payload type ADTS + AudioSpecificConfig, frames with ADTS headers); Server 2022 + 2025 | 12 of 12 passed on both. This is the Windows side of the Cromite AAC path and of Vivaldi's H.264 calls (same input type, YV12 output, `DllGetClassObject`), outside Chromium. It says nothing about the engine itself |
+
 Runs with the integrated patches: see "Log" below.
 
 ## Not proven yet (as of the last log entry)
@@ -93,3 +95,7 @@ H.264 / AAC decoder object is linked, because it needs `ffmpeg_branding="Chrome"
   chromium patches applied in order to pristine `e2b413ea` reproduce the local
   tree; pushed with `[skip ci]` while stage 1 of run 43968550111 was still
   compiling, so as not to cancel it.
+- 2026-11-17 02:31 — probe run 44003268848 passed (see "Runs"). Waiting for
+  stage 1 of run 43968550111 to save its build folder (build stops at 03:02,
+  then packing) before the push that starts the run with the integrated
+  patches.
