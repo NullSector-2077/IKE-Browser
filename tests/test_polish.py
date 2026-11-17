@@ -164,12 +164,12 @@ def steps(ike, qapp, out):
     win.activateWindow()
     yield 800
     url = win.urlbar
-    out["pill"] = [url.hasFrame(), url.palette().color(QPalette.ColorRole.Base).alpha()]
+    # the address field is the system's own again (1.1.6): a frame, an opaque background
+    out["pill"] = [url.hasFrame(), url.palette().color(QPalette.ColorRole.Base).alpha(), url._pill]
     QTest.mouseClick(url, Qt.MouseButton.LeftButton)
     yield 40
-    out["focus_mid"] = [url.hasFocus(), 0 < url._pill.value < 1 or url._pill.moving]
+    out["focus_mid"] = [url.hasFocus()]
     yield 300
-    out["focus_end"] = url._pill.value
     # the suggestions: taller rows with an icon
     ike.storage.add_visit("https://example.org/page", "Example")
     QTest.keyClicks(url, "exam")
@@ -185,10 +185,9 @@ def steps(ike, qapp, out):
         out["row_icon"] = not opt.icon.isNull()
     QTest.keyClick(popup if popup.isVisible() else url, Qt.Key.Key_Escape)      # the list closes
     yield 100
-    out["field_kept"] = [popup.isVisible(), url.hasFocus(), url._pill.value]
+    out["field_kept"] = [popup.isVisible()]
     url.clearFocus()
     yield 400
-    out["blur_end"] = url._pill.value
     # the zoom sign: shown away from the usual zoom; a real click on it brings the page back
     out["zoom_rest"] = url.zoom_act.isVisible()
     win.zoom(+1)
@@ -260,11 +259,11 @@ def steps(ike, qapp, out):
 
 def test_address_field_toolbar_and_bars(run_ike, slow_site):  # noqa: F811
     out = run_ike(FIELD.replace("__SITE__", slow_site), env={"IKE_REDUCED_MOTION": "0"}, timeout=150)
-    assert out["pill"] == [False, 0]
-    assert out["focus_mid"] == [True, True] and out["focus_end"] == 1.0
+    assert out["pill"] == [True, 255, None]
+    assert out["focus_mid"] == [True]
     assert out["popup"] == [True, "SuggestionDelegate"]
     assert out["row"] >= 30 and out["row_icon"] is True
-    assert out["field_kept"][0] is False and out["blur_end"] == 0.0
+    assert out["field_kept"][0] is False
     assert out["zoom_rest"] is False and out["zoom_away"] is True and out["zoom_button"] == 1
     assert out["zoom_back"] == [1.0, False]
     assert out["stop"] == ["Stop", True] and out["reload"] == "Reload"
@@ -290,7 +289,6 @@ def steps(ike, qapp, out):
     out["icon"] = [id(a) in win.__dict__.get("_ike_icon_fades", {}), reddish(bar.tabIcon(0))]
     win.urlbar.setFocus()
     yield 30
-    out["pill"] = win.urlbar._pill.value
     win.findbar.open_bar()
     out["find"] = win.findbar.graphicsEffect() is None
     a.page().recentlyAudible = lambda: True
@@ -316,7 +314,6 @@ def test_everything_at_once_without_effects(run_ike, how):
                   env={"IKE_REDUCED_MOTION": "1" if how == "reduced-motion" else "0"}, timeout=120)
     assert out["glide"] is False
     assert out["icon"] == [False, True]
-    assert out["pill"] == 1.0
     assert out["find"] is True
     assert out["pulse"] is False and out["pop"] is False and out["shield_pulse"] is False
     assert out["newtab_class"] == ""
@@ -429,3 +426,99 @@ def test_shield_downloads_suggestions_and_reader(run_ike, pages, tmp_path):
     assert out["saved"] == ["sepia", 20]
     assert out["not_changed"] == ["sepia", 20]
     assert out["download"][0] == 1.0 and out["download"][1] is True and out["download"][2] >= 34
+
+
+# --- 1.1.6: toolbar, window buttons, address bar ---------------------------------
+
+WINDOW_116 = JS + COMMON + r'''
+SITE = "__SITE__"
+
+def steps(ike, qapp, out):
+    import os
+    from PyQt6.QtCore import QPointF
+    from PyQt6.QtGui import QEnterEvent
+    from PyQt6.QtWidgets import QApplication, QToolButton
+    from ike import icons
+    win = ike.windows[0]
+    win.showNormal()
+    win.resize(1300, 800)
+    yield 500
+    out["icon_size"] = win.nav.iconSize().width()
+    out["smooth"] = "--enable-smooth-scrolling" in os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "").split()
+    out["sets"] = [k for k, _l in icons.SETS]
+    out["order"] = list(ike.config["toolbar_order"])
+    # the maximize button: the arrow in a window of its own size, the diamond when maximized
+    b = win._max_btn
+    out["normal"] = [b.toolTip(), b.icon().name()]
+    win.showMaximized()
+    yield 500
+    out["maximized"] = [b.toolTip(), b.icon().name()]
+    win.showNormal()
+    yield 500
+    out["normal_again"] = b.toolTip()
+    # its soft circle under the mouse
+    centre = QPointF(b.width() / 2, b.height() / 2)
+    QApplication.sendEvent(b, QEnterEvent(centre, centre, QPointF(b.mapToGlobal(centre.toPoint()))))
+    yield 30
+    out["hover_mid"] = b._glide.moving or 0 < b._glide.value < 1
+    yield 300
+    out["hover_end"] = b._glide.value
+    # the line between the bars and the page
+    edge = win.chrome_edge
+    out["edge"] = [edge.isVisible(), edge.height(), edge.y() == win.content.y(), edge.width() == win.content.width()]
+    view = win.current_view()
+    # on the new tab page: no translation sign in the address bar
+    out["translate_newtab"] = win.urlbar.translate_act.isVisible()
+    yield from load(view, SITE + "/article")
+    yield 800
+    out["translate_site"] = win.urlbar.translate_act.isVisible()
+    # the bookmark button of the toolbar: a real click
+    btn = [w for w in win.nav.findChildren(QToolButton) if w.defaultAction() is win.act_tb_bookmark][0]
+    QTest.mouseClick(btn, Qt.MouseButton.LeftButton)
+    yield 300
+    out["bookmarked"] = [ike.storage.is_bookmarked(view.url().toString()), win.act_tb_bookmark.toolTip()]
+    # the translation sign: a real click opens the page through the translation service
+    tbtn = [w for w in win.urlbar.findChildren(QToolButton) if w.defaultAction() is win.urlbar.translate_act][0]
+    QTest.mouseClick(tbtn, Qt.MouseButton.LeftButton)
+    yield 1200
+    out["translated"] = view.url().toString()
+    # the arrow of the Downloads button moves while files arrive, and stops after
+    win.show_download_progress("active", 0.3)
+    yield 300
+    out["arrow"] = win._dl_arrow.isActive()
+    win.show_download_progress("done")
+    yield 600
+    out["arrow_end"] = win._dl_arrow.isActive()
+    win.show_download_progress("idle")
+'''
+
+
+def test_toolbar_window_buttons_and_address_bar(run_ike, pages):
+    out = run_ike(WINDOW_116.replace("__SITE__", pages), env={"IKE_REDUCED_MOTION": "0"},
+                  settings={"system_titlebar": False, "start_maximized": False, "translate_confirmed": True,
+                            "translate_url": pages + "/translated?u={url}",
+                            "toolbar_order": ["shield", "reload", "translate", "reader", "downloads", "menu"]},
+                  timeout=150)
+    assert out["icon_size"] == 24 and out["smooth"] is True
+    assert "phosphor-bold" in out["sets"]
+    assert "translate" not in out["order"] and out["order"][:3] == ["shield", "reload", "bookmark"]
+    assert out["normal"] == ["Maximize", "window-maximize"] or out["normal"][0] == "Maximize"
+    assert out["maximized"][0] == "Restore"
+    assert out["normal_again"] == "Maximize"
+    assert out["hover_mid"] is True and out["hover_end"] == 1.0
+    assert out["edge"] == [True, 1, True, True]
+    assert out["translate_newtab"] is False and out["translate_site"] is True
+    assert out["bookmarked"] == [True, "Remove bookmark"]
+    assert out["translated"].startswith(pages + "/translated?u=")
+    assert out["arrow"] is True and out["arrow_end"] is False
+
+
+def test_bold_icon_set_is_complete():
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent / "ike/resources/icons/sets"
+    fill = sorted(p.name for p in (root / "phosphor").glob("*.svg"))
+    bold = sorted(p.name for p in (root / "phosphor-bold").glob("*.svg"))
+    assert fill == bold and len(bold) > 50
+    for name in bold:
+        text = (root / "phosphor-bold" / name).read_text()
+        assert text.startswith("<svg") and 'fill="currentColor"' in text and "<script" not in text

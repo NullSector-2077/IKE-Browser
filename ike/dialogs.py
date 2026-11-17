@@ -272,7 +272,7 @@ class SettingsDialog(QDialog):
         tb_row = QGridLayout()
         labels = {"back": T("Back"), "forward": T("Forward"), "reload": T("Reload"),
                   "home": T("Home"), "downloads": T("Downloads"),
-                  "bookmark": T("Bookmark this page"), "reader": T("Reader mode"),
+                  "bookmark": T("Bookmark"), "reader": T("Reader mode"),
                   "screenshot": T("Screenshot"), "pip": T("Video in floating window"),
                   "split": T("Split view"), "dark": T("Dark mode for pages"),
                   "private": T("New private window"), "cleansite": T("Clear this site's data")}
@@ -295,6 +295,7 @@ class SettingsDialog(QDialog):
         self.dark_engine.setCurrentIndex(max(0, self.dark_engine.findData(self.cfg["dark_engine"])))
         from . import icons
         self.icon_theme = QComboBox()
+        self._narrow(self.icon_theme)          # long set names in some languages must not widen the page
         self.icon_theme.addItem(T("Follow the system"), "system")
         for key, label in icons.SETS:
             self.icon_theme.addItem(T("%s (included with I.K.E.)") % label, "set:" + key)

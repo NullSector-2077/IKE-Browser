@@ -1573,7 +1573,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_tb_bookmark.setIcon(icon("bookmarks" if marked else "bookmark-new",
                                           SP.SP_DialogApplyButton if marked else SP.SP_DialogOpenButton))
         self.act_tb_bookmark.setToolTip(T("Remove bookmark") if marked else T("Bookmark this page"))
-        self.act_tb_bookmark.setEnabled(bool(v) and scheme in ("http", "https", "file"))
         self.urlbar.translate_act.setVisible(scheme in ("http", "https"))
 
     def _url_changed(self, view):
