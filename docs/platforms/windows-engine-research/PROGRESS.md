@@ -121,3 +121,46 @@ H.264 / AAC decoder object is linked, because it needs `ffmpeg_branding="Chrome"
   script already had the edits for the integrated patches (commit `23493a1`:
   `WMFVideoDecoder` among the expected strings, the licence files copied into
   the package); nothing was left half-done there.
+
+## Follow-up by ChatGPT (2026-11-17, owner-authorised Windows codec work)
+
+The first integrated build is now further along than the earlier log implied:
+
+- Run [44007527523](https://github.com/NullSector-2077/IKE-Browser/actions/runs/44007527523):
+  both build stages completed; the final Qt WebEngine package was produced.
+  The link/evidence/package steps passed. The stock PyPI control also passed.
+- On both Windows Server verification runners, the first built-engine pass
+  decoded the H.264 Baseline/Main/High clips and AAC-LC MP4 clips with the
+  expected `WMFVideoDecoder` and `MediaFoundationAudioDecoder` names. The
+  video-only and audio-only Media Source cases passed as well.
+- The combined Media Source case failed while adding its second
+  `SourceBuffer`, with `QuotaExceededError`; the test harness had already
+  appended the video buffer before trying to add the audio buffer. This did
+  not indicate a decoder failure, but it made the whole verification fail.
+- The workflow then installed the optional Server-Media-Foundation feature
+  and retried. On the Server 2022 runner the DLLs were already present before
+  installation (`mfplat.dll`, `msmpeg2vdec.dll`, `msauddecmft.dll`), and the
+  first pass had already used them successfully. After the feature-install
+  retry, H.264/AAC were no longer advertised by that process. This retry was
+  therefore removed rather than treating a test-harness failure as a missing
+  Windows decoder.
+- The GPU-disabled command also had a shell/argparse issue:
+  `--flags "--disable-gpu"` was parsed as a missing argument. It is now passed
+  as `--flags=--disable-gpu`.
+
+Commits made on `windows/engine`:
+
+| Commit | Change |
+|---|---|
+| `67ca00d` | Create all Media Source buffers before appending the first segment; check HTTP responses before appending |
+| `f1ba982` | Remove the disruptive Media Foundation feature retry; correct the `--disable-gpu` argument |
+
+Run [44115530898](https://github.com/NullSector-2077/IKE-Browser/actions/runs/44115530898)
+was started from commit `f1ba982` to rebuild and verify these changes. Its
+result must be added here after the jobs finish. Do not claim the MSE
+two-buffer fix works until that run confirms it on both Windows runners.
+
+The runners have no physical GPU. Even after the software path passes, a
+real Windows 10/11 PC with a GPU is still required to prove hardware H.264
+selection (`D3D11VideoDecoder`), 1080p60/4K performance, real-site MSE and
+long-session seek/audio-sync behaviour.
