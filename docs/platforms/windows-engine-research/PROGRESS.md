@@ -224,3 +224,28 @@ stability or A/V sync over long sessions. Those need separate tests.
 Next work: secure the Media Foundation DLL loading path, make the H.264
 factory's one-time function lookup thread-safe, add a reproducible HE-AAC
 fixture/test, then run another incremental build and codec matrix.
+
+
+### Follow-up hardening and HE-AAC fixture work — 2026-11-17
+
+- Commit `43211a7` hardens `platform_media_init.cc`: the existing
+  `LoadLibraryExW(..., LOAD_LIBRARY_SEARCH_SYSTEM32)` restriction is kept,
+  and `std::call_once` now synchronizes the shared `mfplat.dll` handle and
+  each decoder DLL handle. This prevents concurrent renderer initialization
+  from racing on the global handle cache.
+- `WMFVideoDecoder::CreateWMFDecoder()` already uses a function-local static
+  for the `DllGetClassObject` lookup; C++ guarantees thread-safe
+  initialization of that static. The loader cache was the unsynchronized part.
+- Build run [44122657019](https://github.com/NullSector-2077/IKE-Browser/actions/runs/44122657019)
+  is active on commit `43211a7`. Its PyPI negative-control job passed; stage 1
+  is still in its tools / Qt / source preparation step. The patch-application
+  and MSVC smoke steps have not run yet, so the loader change is not yet
+  compile-verified.
+- A separate, lightweight Windows workflow
+  [44123443165](https://github.com/NullSector-2077/IKE-Browser/actions/runs/44123443165)
+  downloads Fraunhofer's explicit AOT 5 and AOT 29 MP4 samples, validates the
+  MP4/AAC/stereo/AudioSpecificConfig properties with FFprobe, and reports
+  SHA-256 values. This is fixture discovery only; it does not claim that
+  I.K.E. has decoded either profile. Once the hashes are obtained, the
+  end-to-end codec test can pin both samples and exercise HE-AAC v1/v2 without
+  depending on a runner-specific `libfdk_aac` encoder.
