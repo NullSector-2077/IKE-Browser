@@ -164,6 +164,10 @@ def test_address_bar_domain_highlight(run_ike):
                 bar.setCursorPosition(b)
                 xb = bar.cursorRect().center().x()
                 spans[name] = (xa + 1, xb - 1)
+            # only the text: not the shield and the field's buttons on the right (1.1.10)
+            end = min([w.x() for w in bar.children() if w.isWidgetType() and w.isVisible()
+                       and w.x() > bar.width() // 2] or [bar.width()])
+            spans = {k: (a, min(b, end - 2)) for k, (a, b) in spans.items()}
             bar.setCursorPosition(0)
             img = bar.grab().toImage()
             return {k: darkest(img, a, b) for k, (a, b) in spans.items()}

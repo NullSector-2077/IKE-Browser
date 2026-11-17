@@ -267,10 +267,8 @@ class ShieldPanel(QWidget):
         QTimer.singleShot(0, self._resize_popup)
 
     def _resize_popup(self):
-        self.adjustSize()
-        menu = self.win.shield_menu
-        if menu.isVisible():
-            menu.resize(menu.sizeHint())
+        # taller or shorter: the menu follows, stays on the screen and scrolls if needed (1.1.10)
+        self.win.fit_shield_menu()
 
     def refresh(self):
         self._busy = True

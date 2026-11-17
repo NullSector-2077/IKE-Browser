@@ -34,9 +34,10 @@ def test_shield_icon_levels(run_ike):
 
 
 def test_toolbar_shield_is_larger_in_the_same_button(run_ike):
-    """The toolbar's shield drawing is 15-20% larger than the plain glyph,
-    centred and inside its icon box at every screen scale, with sharp edges;
-    the button, its icon box and its place in the toolbar do not change."""
+    """The shield's drawing is 15-20% larger than the plain glyph, centred
+    and inside its icon box at every screen scale, with sharp edges; the
+    button, inside the address bar since 1.1.10, keeps its size and covers
+    none of the field's own buttons."""
     out = run_ike("""
         from PyQt6.QtCore import QSize
         from PyQt6.QtGui import QColor
@@ -61,7 +62,7 @@ def test_toolbar_shield_is_larger_in_the_same_button(run_ike):
             from ike.shieldpanel import TOOLBAR_SHIELD_GROW, shield_icon
             win = ike.windows[0]
             btn = win.shield_btn
-            side = win.nav.iconSize().height()
+            side = btn.iconSize().height()
             out["grow"] = TOOLBAR_SHIELD_GROW
             out["side"] = side
             out["scales"] = {}
@@ -87,12 +88,11 @@ def test_toolbar_shield_is_larger_in_the_same_button(run_ike):
                         break
             out["shown"] = [min(rows) / ratio, (max(rows) + 1) / ratio, btn.height()]
             from PyQt6.QtWidgets import QWidget
-            others = [win.nav.widgetForAction(a) for a in (win.act_reload, win.act_downloads)]
-            out["heights"] = [btn.height()] + [w.height() for w in others if w is not None]
-            # neighbours: nothing of the button overlaps the widgets beside it
+            out["heights"] = [btn.height() <= win.urlbar.height()]
+            # neighbours: nothing of the button overlaps the field's buttons beside it
             geo = btn.geometry()
-            out["inside_toolbar"] = win.nav.rect().contains(geo)
-            out["overlap"] = [w.objectName() or type(w).__name__ for w in win.nav.children()
+            out["inside_toolbar"] = win.urlbar.rect().contains(geo)
+            out["overlap"] = [w.objectName() or type(w).__name__ for w in win.urlbar.children()
                               if isinstance(w, QWidget) and w is not btn and w.isVisible()
                               and w.geometry().intersects(geo)]
             before = [geo.width(), geo.height()]
@@ -124,7 +124,7 @@ def test_toolbar_shield_is_larger_in_the_same_button(run_ike):
     assert 0.9 * out["side"] <= bottom - top <= out["side"], out["shown"]
     assert top >= 0 and bottom <= height, out["shown"]
     assert out["inside_toolbar"]
-    assert len(set(out["heights"])) == 1, out["heights"]
+    assert out["heights"] == [True], out["heights"]
     assert not out["overlap"], out["overlap"]
 
 
@@ -221,7 +221,7 @@ def test_window_buttons_and_centred_address_bar(run_ike):
 
 def test_fixed_toolbar_buttons_and_private_badge(run_ike):
     """Back, Forward, Home and Reload at the start with their separator, the
-    shield right before the address bar (moving the
+    shield inside the address bar at its right end (moving the
     other buttons is in test_toolbar.py); the badge of a private window."""
     out = run_ike("""
         def steps(ike, qapp, out):
@@ -230,7 +230,7 @@ def test_fixed_toolbar_buttons_and_private_badge(run_ike):
             out["fixed_order"] = [actions.index(win.act_back), actions.index(win.act_fwd),
                                   actions.index(win.act_home), actions.index(win.act_reload),
                                   actions.index(win.home_sep_act),
-                                  actions.index(win.urlbar_act) - actions.index(win.shield_act)]
+                                  int(win.shield_btn.parentWidget() is win.urlbar)]
             out["home_separator"] = win.home_sep_act.isSeparator()
             private = ike.new_window(private=True)
             yield 400

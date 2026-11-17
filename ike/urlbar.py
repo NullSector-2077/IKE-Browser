@@ -4,7 +4,7 @@ import json
 import re
 
 from PyQt6.QtCore import QCoreApplication, QEvent, QStringListModel, Qt, QTimer, QUrl
-from PyQt6.QtGui import QAction, QColor, QInputMethodEvent, QPalette, QTextCharFormat, QTextFormat
+from PyQt6.QtGui import QAction, QColor, QInputMethodEvent, QPalette, QResizeEvent, QTextCharFormat, QTextFormat
 from PyQt6.QtNetwork import QNetworkReply, QNetworkRequest
 from PyQt6.QtWidgets import QCompleter, QLineEdit, QStyle
 
@@ -60,6 +60,11 @@ class UrlBar(QLineEdit):
         self.textEdited.connect(lambda _t: self._timer.start())
         self._reply = None
         self._local = []
+        self._end = None               # the shield, at the far right inside the field (1.1.10)
+        self._end_room = 0
+        self._start = None             # the search engine, right after the lock (1.1.10)
+        self._start_room = 0
+        self._shifted = {}
         self.lock = self.addAction(icon("globe", QStyle.StandardPixmap.SP_FileIcon),
                                    QLineEdit.ActionPosition.LeadingPosition)
         # "Translate page" in the address bar, as other browsers have it (1.1.6; the star of the
@@ -86,6 +91,88 @@ class UrlBar(QLineEdit):
             self._completer.popup().setItemDelegate(self._rows)
             self._completer.popup().installEventFilter(self)
         self.textChanged.connect(lambda _t: None if self.hasFocus() else self.highlight_domain())
+
+    # --- the shield inside the field, at its right end (1.1.10) ---------------
+    END_MARGIN = 6
+
+    def set_end_widget(self, widget):
+        """Put widget at the right end inside the field. Qt's own buttons on
+        the right (clear, translate, zoom) move left of it, and the text stops
+        before them."""
+        self._end = widget
+        widget.setParent(self)
+        widget.setCursor(Qt.CursorShape.ArrowCursor)
+        widget.show()
+        self.place_end()
+
+    def _icon_buttons(self):
+        return [w for w in self.children()
+                if w.isWidgetType() and w.metaObject().className() == "QLineEditIconButton"]
+
+    def place_end(self):
+        w = self._end
+        if w is None:
+            return
+        h = max(16, min(w.sizeHint().height(), self.height() - 4))
+        width = w.sizeHint().width()
+        w.setGeometry(self.width() - self.END_MARGIN - width, (self.height() - h) // 2, width, h)
+        room = width + self.END_MARGIN
+        if room != self._end_room:
+            self._end_room = room
+            self._margins()
+            self._shifted.clear()
+            # Qt puts its buttons back at the right edge, then they are moved left of the shield
+            QCoreApplication.sendEvent(self, QResizeEvent(self.size(), self.size()))
+        for b in self._icon_buttons():
+            b.removeEventFilter(self)
+            b.installEventFilter(self)
+            self._shift(b)
+        w.raise_()
+
+    def _margins(self):
+        self.setTextMargins(self._start_room, 0, max(0, self._end_room - 2), 0)
+
+    def set_start_widget(self, widget):
+        """Put widget right after the lock; the text starts after it."""
+        self._start = widget
+        widget.setParent(self)
+        widget.setCursor(Qt.CursorShape.ArrowCursor)
+        widget.show()
+        self.place_start()
+
+    def place_start(self):
+        w = self._start
+        if w is None:
+            return
+        lock = [b for b in self._icon_buttons() if b.defaultAction() is self.lock and not b.isHidden()]
+        x = lock[0].geometry().right() + 1 if lock else 4
+        h = max(16, min(w.sizeHint().height(), self.height() - 4))
+        width = w.sizeHint().width()
+        w.setGeometry(x, (self.height() - h) // 2, width, h)
+        if width + 2 != self._start_room:
+            self._start_room = width + 2
+            self._margins()
+        for b in lock:
+            b.removeEventFilter(self)
+            b.installEventFilter(self)
+        w.raise_()
+
+    def _shift(self, b):
+        """Move one of Qt's buttons on the right left of the shield, once
+        for each place Qt gives it (the lock, on the left, stays)."""
+        if (self._end is None or b.defaultAction() is self.lock
+                or b.geometry() == self._shifted.get(b)):
+            return
+        to = b.geometry().translated(-self._end_room, 0)
+        self._shifted[b] = to            # first: moving it sends another Move
+        b.move(to.topLeft())
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self._end is not None:
+            self.place_end()
+        if self._start is not None:
+            self.place_start()
 
     # --- the site's domain in normal text, the rest of the address dimmed ---
     def domain_span(self, text=None):
@@ -169,6 +256,13 @@ class UrlBar(QLineEdit):
         return icon("edit-find", QStyle.StandardPixmap.SP_FileDialogContentsView)
 
     def eventFilter(self, obj, event):
+        if (event.type() == QEvent.Type.Move and obj.parent() is self
+                and obj.metaObject().className() == "QLineEditIconButton"):
+            if obj.defaultAction() is self.lock:
+                self.place_start()       # the engine follows the lock
+            else:
+                self._shift(obj)
+            return False
         if event.type() == QEvent.Type.Show and obj is self._completer.popup():
             effects.fade_in(obj, self.win.app.config)
         elif event.type() == QEvent.Type.Hide and obj is self._completer.popup():

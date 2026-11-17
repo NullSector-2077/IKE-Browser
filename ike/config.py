@@ -136,7 +136,7 @@ DEFAULTS = {
     "ui_effects": True,                 # short fades and the loading mark of tabs (see effects.py)
     "toolbar_hidden": [],               # keys of TOOLBAR_ITEMS the user does not want
     "toolbar_known": ["back", "forward", "reload", "home", "downloads"],
-    # 1.1.9: the owner's arrangement (Reload and the shield are fixed, toolbar.py)
+    # 1.1.9: the owner's arrangement (Reload is fixed, toolbar.py; the shield is in the address bar)
     "toolbar_order": ["dark", "private", "cleansite", "screenshot", "split", "pip",
                       "bookmark", "downloads", "reader", "menu"],
     "toolbar_left": ["dark", "private", "cleansite", "screenshot", "split", "pip"],

@@ -2,7 +2,7 @@
 
 import os
 
-__version__ = "1.1.9"
+__version__ = "1.1.10"
 # Oldest installed system part (ike_boot.py, AdBlock engine module, launcher,
 # desktop icons) this ike/ folder goes with. Raise it when a release needs
 # a new system part: older installations are then told to update the package

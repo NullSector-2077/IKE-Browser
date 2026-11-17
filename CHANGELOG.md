@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.1.10
+
+- **The shield is inside the address bar**, at its right end, with its number
+  beside it (1.1.9: outside, left of the bar, with a small arrow). A click on it
+  opens its panel as before. The field's own buttons (clear, translate, zoom)
+  sit left of it and the address stops before them; the "+N" still rises right
+  of the number. The address bar gets the room the shield had in the toolbar.
+- **The search engine, right after the lock** in the address bar: the icon of
+  the engine in use; a click lists the installed engines, each with its own
+  icon, and the one chosen becomes the default (as in Settings -> Search). The
+  same in the new tab page's search box, with the mouse or the keyboard (arrow
+  keys, Esc). The icons are the engines' own, asked once from each engine's
+  site (its favicon) and then kept; until one is known a magnifier shows. Only
+  I.K.E. and its own pages can choose the engine, never a website.
+
+- **The shield's panel stays on the screen.** With "Advanced controls" open it
+  went past the bottom of the screen and did not always take its size again:
+  now it is never taller than the room below the shield, a scroll bar appears
+  when it does not fit, and it grows and shrinks with its content.
+
+Package 1.1.10-3 (1.1.10-1 and -2, never published, had the first parts). From this release on, every new release raises the last
+number of the version (1.1.10, 1.1.11, ...); the package number after the dash
+changes only when the same version is built again.
+
 ## 1.1.9
 
 **Plasma integration**, made complete (all through D-Bus, nothing to install,

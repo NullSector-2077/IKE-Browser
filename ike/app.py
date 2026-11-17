@@ -37,6 +37,7 @@ class IkeApp(QObject):
         self.blocker = Blocker(config, self)
         self.shields = Shields(config, self.blocker, self)
         self.shields.open_requested.connect(self._open_from_newtab, Qt.ConnectionType.QueuedConnection)
+        self.shields.engine_chosen.connect(self._engine_from_newtab, Qt.ConnectionType.QueuedConnection)
         from .userscripts import UserScripts
         self.userscripts = UserScripts(self)
         self.shields.user_scripts = self.userscripts
@@ -226,6 +227,42 @@ class IkeApp(QObject):
         if win is not None:
             win.open_settings("newtab" if what == "background" else None)
 
+    # --- the search engines' own icons (address bar and new tab page, 1.1.10) ---
+    def engine_icon(self, engine):
+        """The engine's own site icon, a magnifier until it is known."""
+        ic = self.favicons.icon(engine.get("url", ""))
+        if ic.isNull():
+            from PyQt6.QtWidgets import QStyle
+
+            from .icons import themed
+            return themed("edit-find", QStyle.StandardPixmap.SP_FileDialogContentsView)
+        return ic
+
+    def fetch_engine_icons(self):
+        """Ask each engine's site for its icon, once, for those not known yet."""
+        for e in self.config["search_engines"]:
+            self.favicons.fetch(e.get("url", ""))
+
+    def set_engine(self, name):
+        """An engine chosen in the address bar: the default from now on."""
+        if name == self.config["default_engine"] or not any(
+                e["name"] == name for e in self.config["search_engines"]):
+            return
+        self.config["default_engine"] = name
+        self.config.save()
+        for w in self.windows:
+            w.sync_engine()
+        self.reload_newtabs()
+
+    def _engine_from_newtab(self, _name):
+        """The engine was chosen on a new tab page: the address bars and the other new tab
+        pages show it (the page it was chosen on is being shown again already)."""
+        for w in self.windows:
+            w.sync_engine()
+            for v in w.all_views():
+                if v.url().scheme() == "ike" and not v.sleeping and not getattr(v, "loading", False):
+                    v.reload()
+
     def reload_newtabs(self):
         """The look of the new tab page changed: show it in the ones that are open."""
         for w in self.windows:
@@ -269,6 +306,7 @@ class IkeApp(QObject):
                 home = cfg["homepage"] if startup == "home" else NEWTAB
                 self.new_window(urls=[home or NEWTAB])
         QTimer.singleShot(1500, self.check_updates)
+        QTimer.singleShot(4000, self.fetch_engine_icons)   # the engines' own icons, once (1.1.10)
         QTimer.singleShot(20000, self._healthy)
 
     def _healthy(self):

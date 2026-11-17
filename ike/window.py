@@ -4,7 +4,7 @@ import os
 import re
 import time
 
-from PyQt6.QtCore import QEvent, QPoint, QSize, Qt, QTimer, QUrl
+from PyQt6.QtCore import QCoreApplication, QEvent, QPoint, QSize, Qt, QTimer, QUrl
 from PyQt6.QtGui import QAction, QActionGroup, QGuiApplication, QIcon, QKeySequence
 from PyQt6.QtWebEngineCore import QWebEnginePage
 from PyQt6.QtWidgets import (
@@ -445,25 +445,55 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         effects.fading(self.site_info_menu, self.app.config)
         self.urlbar.lock.triggered.connect(self.show_site_info)
 
-        # Shield: protection level selector, fixed right before the address bar (1.1.9).
-        self.shield_btn = QToolButton(self)
+        # the search engine in use, right after the lock: a click lists the installed
+        # engines with their own icons, the one chosen becomes the default (1.1.10)
+        self.engine_btn = QToolButton(self.urlbar)
+        self.engine_btn.setAutoRaise(True)
+        self.engine_btn.setIconSize(QSize(16, 16))
+        self.engine_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.engine_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.engine_menu = QMenu(self)
+        self.engine_menu.aboutToShow.connect(self._fill_engine_menu)
+        effects.fading(self.engine_menu, self.app.config)
+        self.engine_btn.setMenu(self.engine_menu)
+        self.urlbar.set_start_widget(self.engine_btn)
+        self.sync_engine()
+
+        # Shield: protection level selector, inside the address bar at its right end (1.1.10;
+        # 1.1.9: before the bar). A click opens its panel; no arrow beside it.
+        self.shield_btn = QToolButton(self.urlbar)
         self.shield_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.shield_btn.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
-        self.shield_btn.clicked.connect(self.shield_btn.showMenu)
+        self.shield_btn.setAutoRaise(True)
+        self.shield_btn.setIconSize(QSize(20, 20))
+        self.shield_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.shield_btn.clicked.connect(self.show_shield_menu)
         self.shield_btn.setToolTip(T("I.K.E. Shield: choose the protection level"))
         self.shield_menu = QMenu(self)
         self.shield_panel = ShieldPanel(self)
+        # the panel scrolls when it is taller than the room below the shield (1.1.10: with
+        # "Advanced controls" open it went past the bottom of the screen)
+        from PyQt6.QtWidgets import QScrollArea
+        self.shield_scroll = QScrollArea(self)
+        self.shield_scroll.setObjectName("ike_shield_scroll")
+        self.shield_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.shield_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.shield_scroll.setWidgetResizable(True)
+        self.shield_scroll.setWidget(self.shield_panel)
+        self.shield_scroll.viewport().setAutoFillBackground(False)   # the menu's own colour behind
+        self.shield_panel.setAutoFillBackground(False)
         wa = QWidgetAction(self.shield_menu)
-        wa.setDefaultWidget(self.shield_panel)
+        wa.setDefaultWidget(self.shield_scroll)
+        self.shield_wa = wa
         self.shield_menu.addAction(wa)
         self.shield_menu.aboutToShow.connect(self.shield_panel.refresh)
         self.shield_menu.aboutToShow.connect(lambda: self.shield_panel.kinds.grow(self.app.config))
+        self.shield_menu.aboutToShow.connect(lambda: self.fit_shield_menu(place=False))
         effects.fading(self.shield_menu, self.app.config)
-        self.shield_btn.setMenu(self.shield_menu)
-        self.shield_act = tb.insertWidget(self.urlbar_act, self.shield_btn)
+        self.urlbar.set_end_widget(self.shield_btn)
         # a ring opens once around the shield when it blocks something (polish.py)
         self.shield_pulse = polish.ShieldPulse(self.shield_btn, self.app.config)
-        self.shield_count = polish.ShieldCount(self.shield_btn, self.app.config)   # "+N" when it grows
+        # "+N" when it grows; on the window, as it rises right of the field's end
+        self.shield_count = polish.ShieldCount(self.shield_btn, self.app.config, self)
 
         self.store_btn = QToolButton(self)
         self.store_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
@@ -1622,6 +1652,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                               SP.SP_DialogApplyButton if marked else SP.SP_DialogOpenButton))
         self.act_tb_bookmark.setToolTip(T("Remove bookmark") if marked else T("Bookmark this page"))
         self.urlbar.translate_act.setVisible(scheme in ("http", "https"))
+        self.sync_engine()
 
     def _url_changed(self, view):
         self._site_zoom(view)
@@ -1714,6 +1745,65 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.statusBar().clearMessage()
         self.statusBar().hide()
 
+    def sync_engine(self):
+        """The icon and the tooltip of the engine button: the default engine."""
+        e = self.app.config.engine()
+        self.engine_btn.setIcon(self.app.engine_icon(e))
+        self.engine_btn.setToolTip("%s: %s" % (T("Default search engine"), e["name"]))
+
+    def _fill_engine_menu(self):
+        m = self.engine_menu
+        m.clear()
+        cfg = self.app.config
+        current = cfg.engine()["name"]
+        group = QActionGroup(m)
+        group.setExclusive(True)
+        for e in cfg["search_engines"]:
+            a = m.addAction(self.app.engine_icon(e), e["name"].replace("&", "&&"))
+            a.setCheckable(True)
+            a.setChecked(e["name"] == current)
+            if e["name"] == current:          # the one in use stands out, also where the tick is faint
+                f = a.font()
+                f.setBold(True)
+                a.setFont(f)
+            group.addAction(a)
+            a.triggered.connect(lambda _c=False, name=e["name"]: self.app.set_engine(name))
+        self.app.fetch_engine_icons()         # the ones not known yet, for the next time
+
+    def fit_shield_menu(self, place=True):
+        """The shield's panel as tall as its content, but never past the bottom of the
+        screen: there it scrolls. place: the open menu is resized and kept on the screen."""
+        from PyQt6.QtGui import QActionEvent
+        panel, scroll, menu = self.shield_panel, self.shield_scroll, self.shield_menu
+        panel.adjustSize()
+        want = panel.sizeHint()
+        screen = self.shield_btn.screen() or QGuiApplication.primaryScreen()
+        area = screen.availableGeometry()
+        top = (menu.geometry().top() if menu.isVisible()
+               else self.shield_btn.mapToGlobal(QPoint(0, self.shield_btn.height())).y())
+        room = area.bottom() - max(area.top(), top) - 16
+        height = min(want.height(), max(220, room))
+        bar = scroll.verticalScrollBar().sizeHint().width() if height < want.height() else 0
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded if bar
+                                          else Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setFixedSize(want.width() + bar, height)
+        # the menu measures its items again (it keeps the old size of the panel otherwise)
+        QCoreApplication.sendEvent(menu, QActionEvent(QEvent.Type.ActionChanged, self.shield_wa))
+        if place and menu.isVisible():
+            size = menu.sizeHint()
+            g = menu.geometry()
+            x = min(max(area.left(), g.right() + 1 - size.width()), area.right() + 1 - size.width())
+            y = min(g.top(), area.bottom() + 1 - size.height())
+            menu.setGeometry(x, max(area.top(), y), size.width(), size.height())
+
+    def show_shield_menu(self):
+        """The shield's panel, under the shield, its right edge at the shield's."""
+        b = self.shield_btn
+        menu = self.shield_menu
+        self.fit_shield_menu(place=False)
+        x = max(0, b.width() - menu.sizeHint().width())
+        menu.popup(b.mapToGlobal(QPoint(x, b.height())))
+
     def _blocked(self, host):
         if host == self.current_host():
             self.update_shield()
@@ -1735,10 +1825,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self.shield_btn.setIcon(new)
         self._shield_shown = level
         text = str(n) if n and level != "off" else ""
-        if len(text) != len(self.shield_btn.text()):
-            # the button gets wider or narrower: the address bar is centred again (1.1.9)
-            QTimer.singleShot(0, self._fit_urlbar)
-        self.shield_btn.setText(text)
+        if text != self.shield_btn.text():
+            self.shield_btn.setText(text)
+            self.urlbar.place_end()          # wider or narrower: the text stops before it (1.1.10)
         self.shield_count.count(n if level != "off" else 0, (id(self.current_view()), host))
         self.m_level.setIcon(shield_icon(cfg["shield_level"], 16))
         if self.shield_menu.isVisible():
@@ -2027,7 +2116,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         except (RuntimeError, AttributeError):
             return
         room = getattr(self, "_urlbar_room", 0)            # both free rooms and the bar
-        # what stands between the left free room and the bar (the shield, 1.1.9), from the
+        # what stands between the left free room and the bar (nothing since 1.1.10), from the
         # sizes of the items (their positions may still be those of the last layout)
         acts = self.nav.actions()
         gap = max(0, self.nav.layout().spacing())
