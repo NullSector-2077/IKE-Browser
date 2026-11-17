@@ -853,14 +853,16 @@ def cmd_run(args):
             problems.append(f"{case['name']}: decoded by {video_decoder}")
         if "aac" in case["tags"] and "FFmpeg" in str(audio_decoder):
             problems.append(f"{case['name']}: decoded by {audio_decoder}")
-        if patched and decoded and video_decoder and args.video_decoder \
-                and "h264" in case["tags"] and case["video"] and video_decoder != args.video_decoder:
-            problems.append(f"{case['name']}: video decoded by {video_decoder}, "
-                            f"expected {args.video_decoder}")
-        if patched and decoded and audio_decoder and args.audio_decoder \
-                and "aac" in case["tags"] and audio_decoder != args.audio_decoder:
-            problems.append(f"{case['name']}: audio decoded by {audio_decoder}, "
-                            f"expected {args.audio_decoder}")
+        if patched and args.video_decoder and "h264" in case["tags"] and case["video"]:
+            if video_decoder != args.video_decoder:
+                problems.append(
+                    f"{case['name']}: video decoder is {video_decoder or 'missing'}, "
+                    f"expected {args.video_decoder}")
+        if patched and args.audio_decoder and "aac" in case["tags"]:
+            if audio_decoder != args.audio_decoder:
+                problems.append(
+                    f"{case['name']}: audio decoder is {audio_decoder or 'missing'}, "
+                    f"expected {args.audio_decoder}")
 
     if reader.connected.is_set() and by_title:
         lines += ["", "Decoder names come from the engine's media log (remote debugging, `Media` domain)."]
