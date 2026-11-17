@@ -191,36 +191,22 @@ jobs:
       # The runner has no graphics card: H.264 must come out of the software
       # decoder of Windows, which is exactly the path to prove here.
       - name: "Built engine: H.264 / AAC through Windows, no graphics card"
-        id: built
-        continue-on-error: true
         run: >-
           python packaging/windows/qtwebengine/verify_codecs.py run --clips clips
           --expect patched --name "built engine" --report reports
           --require-decoder-names
           --video-decoder WMFVideoDecoder
           --audio-decoder MediaFoundationAudioDecoder
-      # Only if that failed: the runner is Windows Server, where Media
-      # Foundation is an optional feature that is not switched on. Switch it on
-      # (a desktop Windows always has it) and try once more; the reports say
-      # which of the two attempts it was.
-      - name: Switch on Media Foundation on this Windows Server
-        if: ${{ steps.built.outcome == 'failure' }}
-        shell: pwsh
-        run: ./packaging/windows/qtwebengine/runner-media.ps1 -InstallFeature
-      - name: "Built engine, second attempt with Media Foundation switched on"
-        if: ${{ steps.built.outcome == 'failure' }}
-        run: >-
-          python packaging/windows/qtwebengine/verify_codecs.py run --clips clips
-          --expect patched --name "built engine, Media Foundation feature switched on" --report reports
-          --require-decoder-names
-          --video-decoder WMFVideoDecoder
-          --audio-decoder MediaFoundationAudioDecoder
+      # These Windows Server images expose the Media Foundation DLLs and
+      # decoders even when the optional Server-Media-Foundation feature is
+      # reported as Available. Installing that feature mid-job changes codec
+      # availability for the next process and does not improve this test.
       - name: "Built engine with --disable-gpu"
         if: ${{ !cancelled() }}
         run: >-
           python packaging/windows/qtwebengine/verify_codecs.py run --clips clips
           --expect patched --name "built engine, GPU disabled" --report reports
-          --flags "--disable-gpu"
+          --flags=--disable-gpu
           --video-decoder WMFVideoDecoder
           --audio-decoder MediaFoundationAudioDecoder
       - name: Keep the reports
