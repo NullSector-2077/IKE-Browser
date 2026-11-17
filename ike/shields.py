@@ -462,6 +462,7 @@ class Shields(QObject):
         e = self.config.engine()
         html = self._newtab_src
         from PyQt6.QtGui import QGuiApplication, QPalette
+
         from . import newtabbg
         pal = QGuiApplication.palette()
         R = QPalette.ColorRole

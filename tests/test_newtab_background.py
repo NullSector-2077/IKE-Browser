@@ -394,8 +394,8 @@ def test_settings_keys_listed():
 def test_ikes_own_photo_is_the_default(tmp_path):
     """A new profile, and one that had no photo before 1.1.8, get I.K.E.'s own
     photo once; whoever removes it afterwards keeps the page plain."""
-    from ike.config import Config
     from ike import newtabbg
+    from ike.config import Config
     assert newtabbg.DEFAULT_FILE.is_file() and newtabbg.DEFAULT_FILE.stat().st_size < 250 * 1024
     fresh = Config(tmp_path / "fresh.json")
     assert fresh["newtab_bg"] == "default" and newtabbg.current(fresh) == newtabbg.DEFAULT_FILE
