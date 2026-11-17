@@ -23,12 +23,14 @@ final state) before the branch is merged.
 
 ## State
 
-**Green**: run 44004432361 (commit 7506d72): both jobs, every step —
-218 passed, 11 skipped (each with its reason) in the source tree and through
-the installed `ike-browser.exe`; installer built, installed, `--version`,
+**Green** three times: runs 44004432361 (7506d72), 44008291247 (07e3371)
+and 44009243310 (ad229f2, the head): both jobs, every step — 218 passed,
+11 skipped (each with its reason) in the source tree and through the
+installed `ike-browser.exe`; installer built, installed, `--version`,
 `--selftest`, engine check, uninstalled and checked; artifact
 `ike-browser-windows-installer`. Linux: the whole suite passes locally
-(221 passed, 8 skipped: 7 Windows-only, 1 network).
+(221 passed, 8 skipped: 7 Windows-only, 1 network); tests changed after
+that full run were run one by one on Linux.
 
 Fixed in this last session (all test-side, nothing in the browser):
 
@@ -38,7 +40,8 @@ Fixed in this last session (all test-side, nothing in the browser):
 - Pipe test: the same rubbish as on Linux (a valid message with an empty
   address list opens a window, by design).
 - Waits instead of fixed pauses: download ring, Add tile, site data, the
-  new-tab photo, loading line, codec report with the hostile page loaded.
+  new-tab photo, loading line, codec report with the hostile page loaded,
+  external-link click, CPU limit, the new tab page's search.
 
 ## Next
 
