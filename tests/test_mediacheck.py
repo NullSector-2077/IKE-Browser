@@ -128,8 +128,14 @@ def test_answer_is_the_engines_not_the_pages(run_ike, site):
             from PyQt6.QtCore import QUrl
             import ike.mediacheck as mc
             win = ike.windows[0]
+            loaded = []
+            win.current_view().page().loadFinished.connect(loaded.append)
             win.current_view().load(QUrl("http://127.0.0.1:%d/"))
-            yield 1500
+            for _ in range(100):                 # the hostile page is really there (a slow computer)
+                if loaded and win.current_view().url().host() == "127.0.0.1":
+                    break
+                yield 100
+            yield 500
             got = []
             mc.ask(win, got.append)
             for _ in range(150):
@@ -141,7 +147,10 @@ def test_answer_is_the_engines_not_the_pages(run_ike, site):
             res = []
             win.current_view().page().runJavaScript(
                 'document.createElement("video").canPlayType(\\'video/mp4; codecs="avc1.42E01E"\\')', res.append)
-            yield 500
+            for _ in range(50):
+                if res:
+                    break
+                yield 100
             out["page_says"] = res
     """ % site)
     assert out["got"] and out["got"][0]
