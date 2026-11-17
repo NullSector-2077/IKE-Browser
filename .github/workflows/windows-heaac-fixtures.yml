@@ -1,0 +1,42 @@
+name: Windows HE-AAC fixture probe
+
+on:
+  push:
+    branches: [windows/engine]
+    paths:
+      - ".github/workflows/windows-heaac-fixtures.yml"
+      - "packaging/windows/qtwebengine/heaac_fixture_probe.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  identify-reference-fixtures:
+    name: Download and identify Fraunhofer HE-AAC samples
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+          sparse-checkout: |
+            packaging/windows/qtwebengine/heaac_fixture_probe.py
+      - name: Install FFmpeg tools for container inspection
+        shell: pwsh
+        run: |
+          choco install ffmpeg -y --no-progress
+          if ($LASTEXITCODE -ne 0) { throw "Chocolatey could not install FFmpeg" }
+          $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
+                      [Environment]::GetEnvironmentVariable("Path", "User")
+          ffprobe -version | Select-Object -First 1
+      - name: Download, validate, and hash the reference samples
+        run: python -u packaging/windows/qtwebengine/heaac_fixture_probe.py
+      - name: Keep the fixture manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-heaac-fixture-manifest
+          path: heaac-fixtures/manifest.json
+          if-no-files-found: error
+          retention-days: 14
