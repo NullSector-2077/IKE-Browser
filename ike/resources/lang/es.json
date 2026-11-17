@@ -219,7 +219,7 @@
 "Enable experimental support for Chrome extensions (Manifest V3)": "Activar la compatibilidad experimental con extensiones de Chrome (Manifest V3)",
 "Encrypted DNS": "DNS cifrado",
 "Encrypted DNS (DNS over HTTPS). Pick a provider or type a custom URL.": "DNS cifrado (DNS sobre HTTPS). Elige un proveedor o escribe una URL personalizada.",
-"Engine": "Buscador",
+"Engine": "Motor",
 "Engine errors this session (let through unfiltered): %d": "Errores del motor en esta sesión (dejados pasar sin filtrar): %d",
 "Every 15 minutes": "Cada 15 minutos",
 "Every 6 hours": "Cada 6 horas",

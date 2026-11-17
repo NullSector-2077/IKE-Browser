@@ -109,9 +109,13 @@ profiles: `ike-browser --profile NAME`.
   toolbar and tab colours and of the font family and size.
 - Light interface effects (short fades, a loading mark on tabs) that follow the
   desktop's reduced-motion setting and can be switched off.
-- English, Italian, Spanish, French, German, Portuguese, Chinese (Simplified) and
-  Japanese included. Chinese and Japanese need a CJK font such as
-  `noto-fonts-cjk`.
+- English, Italian, Spanish, French, German, Portuguese, Chinese (Simplified),
+  Japanese, Russian, Ukrainian, Belarusian, Bulgarian, Polish, Czech, Slovak,
+  Slovenian, Croatian, Serbian (Cyrillic), Bosnian and Macedonian included.
+  Chinese and Japanese need a CJK font such as `noto-fonts-cjk`; the Cyrillic
+  and Latin Slavic languages work with the usual Noto Sans. The Slavic
+  translations were made with AI and not yet reviewed by native speakers:
+  corrections are welcome.
 
 ## External services
 
