@@ -141,15 +141,20 @@ def run_ike(tmp_path):
 def desktop_bus(tmp_path):
     """A private D-Bus session bus with stand-ins for Plasma's services.
 
-    Yields (address, log): ``log()`` returns the calls the stand-ins received."""
+    Yields (address, log): ``log()`` returns the calls the stand-ins received.
+    ``IKE_TEST_SESSION_BUS=<address>`` uses a private bus started outside
+    instead (a Flatpak's run time has no dbus-daemon of its own)."""
     import shutil
     import time
-    if not shutil.which("dbus-daemon"):
+    daemon = None
+    address = os.environ.get("IKE_TEST_SESSION_BUS")
+    if not address and not shutil.which("dbus-daemon"):
         pytest.skip("dbus-daemon not installed")
     pytest.importorskip("jeepney")
-    daemon = subprocess.Popen(["dbus-daemon", "--session", "--nofork", "--print-address=1"],
-                              stdout=subprocess.PIPE, text=True)
-    address = daemon.stdout.readline().strip()
+    if not address:
+        daemon = subprocess.Popen(["dbus-daemon", "--session", "--nofork", "--print-address=1"],
+                                  stdout=subprocess.PIPE, text=True)
+        address = daemon.stdout.readline().strip()
     logfile = tmp_path / "standins.log"
     env = dict(os.environ, DBUS_SESSION_BUS_ADDRESS=address)
     standins = subprocess.Popen([sys.executable, str(Path(__file__).parent / "dbus_standins.py"),
@@ -168,9 +173,10 @@ def desktop_bus(tmp_path):
         yield address, log, logfile
     finally:
         standins.kill()
-        daemon.kill()
         standins.wait()
-        daemon.wait()
+        if daemon:
+            daemon.kill()
+            daemon.wait()
 
 
 needs_engine = pytest.mark.skipif(not _engine_available(),

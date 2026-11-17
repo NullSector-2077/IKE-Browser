@@ -245,28 +245,23 @@ jobs:
             "<dir>$PWD/.ci/fonts</dir>" \
             '<alias binding="strong"><family>sans-serif</family><prefer><family>Noto Sans</family></prefer></alias>' \
             '</fontconfig>' > "$PWD/.ci/fonts.conf"
+          # test_plasma.py starts a private session bus with dbus-daemon,
+          # which the run time does not have: the bus is started here,
+          # outside the sandbox, on a socket in the shared checkout
+          # (IKE_TEST_SESSION_BUS, tests/conftest.py)
+          bus="$PWD/.ci/test-bus"
+          rm -f "$bus"
+          dbus-daemon --session --address="unix:path=$bus" --fork --print-pid=1 > .ci/test-bus.pid
           # the tests switch Chromium's sandbox off for the browsers they
           # start (tests/conftest.py), as in every other workflow; the
           # self-update tests skip themselves inside a Flatpak
           flatpak run --filesystem="$PWD" --env=PYTHONPATH="$PWD/.ci/pytest" \
-              --env=FONTCONFIG_FILE="$PWD/.ci/fonts.conf" \
+              --env=FONTCONFIG_FILE="$PWD/.ci/fonts.conf" --env=IKE_TEST_SESSION_BUS="unix:path=$bus" \
               --env=IKE_TEST_APP=/app/lib/ike-browser --env=QT_QPA_PLATFORM=offscreen \
               --env=PYTHONDONTWRITEBYTECODE=1 --cwd="$PWD" --command=sh "$APP_ID" -c \
               'fc-match sans-serif; exec python3 -m pytest -ra -p no:cacheprovider --junitxml=out/tests-flatpak.xml' \
               2>&1 | tee out/tests-flatpak.log
-
-      - name: Desktop integration tests inside the Flatpak (SDK run time)
-        run: |
-          set -o pipefail
-          # test_plasma.py needs dbus-daemon for its private session bus,
-          # which only the SDK has: the same installed I.K.E. on the SDK
-          # (the Platform plus development tools)
-          flatpak run --runtime=org.kde.Sdk//6.11 --filesystem="$PWD" --env=PYTHONPATH="$PWD/.ci/pytest" \
-              --env=FONTCONFIG_FILE="$PWD/.ci/fonts.conf" \
-              --env=IKE_TEST_APP=/app/lib/ike-browser --env=QT_QPA_PLATFORM=offscreen \
-              --env=PYTHONDONTWRITEBYTECODE=1 --cwd="$PWD" --command=python3 "$APP_ID" \
-              -m pytest -ra -p no:cacheprovider --junitxml=out/tests-flatpak-plasma.xml tests/test_plasma.py \
-              2>&1 | tee out/tests-flatpak-plasma.log
+          kill "$(cat .ci/test-bus.pid)" || true
 
       - name: No decoder of its own in the bundle
         if: steps.codecs.outputs.clean != 'true'

@@ -11,7 +11,9 @@ python3 -m pytest
 
 Needs `python-pytest` besides the dependencies of the PKGBUILD; the desktop
 integration tests also need `dbus-daemon` and `gdbus` (skipped without them),
-and the screen test `ffmpeg`. Every other test runs without a session bus. The AdBlock
+and the screen test `ffmpeg`; with `IKE_TEST_SESSION_BUS=<address>` they use
+a private bus started elsewhere instead of their own `dbus-daemon` (the
+Flatpak's run time has none). Every other test runs without a session bus. The AdBlock
 engine tests need the engine built into `vendor/adblock/` (see BUILDING.md);
 without it they are skipped. The whole run takes a few minutes.
 To test an installed copy instead of the repository:
@@ -69,6 +71,28 @@ GitHub runs both on every pull request to `main` and every push to `main`
 cannot start), then builds the Arch package with `makepkg`, runs the whole
 suite again against the installed copy and keeps the package as the run's
 `ike-browser-package` download.
+
+The Flatpak (`.github/workflows/flatpak.yml`, packaging/flatpak/README.md) is
+built in Flathub's own container, with its Qt WebEngine built by the
+manifest in up to three chained jobs (`flatpak-engine.yml`). The bundle is
+installed and checked inside the Flatpak sandbox: `--version`, the Python
+libraries and the AdBlock engine, `tools/engine-report.py --decode
+tests/media` as an ordinary user with Chromium's sandbox ON (through the
+Flatpak portal; H.264 and AAC must decode through the run time's codec
+extension), `tools/ci/flatpak-codecs.py` (no FFmpeg H.264, AAC or HEVC
+decoder in any file of the bundle, the base application as the control),
+and the whole suite against the installed copy
+(`IKE_TEST_APP=/app/lib/ike-browser`), run by the sandbox's own Python with
+pytest given through `PYTHONPATH`. As in every other workflow, the browsers
+the tests start run with Chromium's sandbox off (`QTWEBENGINE_DISABLE_SANDBOX=1`,
+set by `tests/conftest.py`): the container runs them as root, where
+Chromium refuses its sandbox. What does not run there: the self-update tests
+(I.K.E.'s own updates are off inside a Flatpak), the tests that need Node.js
+and git (`test_components.py`, the scriptlet builder: tools of the
+repository, not of the browser), the screen test (`ffmpeg` is not in the
+run time), the checks of a git checkout, and the tests of the behaviour
+outside a Flatpak (`test_flatpak.py`, run by the other workflows). The
+bundle is kept as the run's download only when the decoder check passes.
 
 With `IKE_TEST_SHOTS=<folder>` some tests also save screenshots there, to be
 checked by eye.
