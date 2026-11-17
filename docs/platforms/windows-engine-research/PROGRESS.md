@@ -43,6 +43,8 @@ format. Media Source is not affected (Chromium's own MP4 parser).
 
 | 44003268848 (2026-11-17 02:28) | decoders probe with a third AAC mode that repeats the integrated code's calls (COM, `MFTEnumEx` + `ActivateObject`, payload type ADTS + AudioSpecificConfig, frames with ADTS headers); Server 2022 + 2025 | 12 of 12 passed on both. This is the Windows side of the Cromite AAC path and of Vivaldi's H.264 calls (same input type, YV12 output, `DllGetClassObject`), outside Chromium. It says nothing about the engine itself |
 
+| 44010178959 (2026-11-17 03:26) | probe, commit `34b2cc8` (saved unreviewed when Fable's usage ended; reviewed afterwards: correct, it copies Vivaldi's stride / rows arithmetic from `WMFVideoDecoder::ConfigureDecoder()` and `CreateOutputFrame()`); Server 2022 + 2025 | 12 of 12 passed on both. Vivaldi's fixed picture layout (stride = `MFGetStrideForBitmapInfoHeader(YV12, width)` rounded up to 16, rows = coded height rounded up to 16) equals the decoder's real output in all six H.264 cases (320x240, 854x480, 1920x1080, 1280x720, 854x480 low delay, 322x242). It differs only from the provisional output type offered before the first `MF_E_TRANSFORM_STREAM_CHANGE` (e.g. 854 / 480 before, 864 / 480 with aperture 854x480 after), and Vivaldi's decoder reconfigures on that change before the first picture. Also shows that `MFGetStrideForBitmapInfoHeader` links with `mfplat.lib` (the engine's link needs nothing more for it) |
+
 Runs with the integrated patches: see "Log" below.
 
 ## Not proven yet (as of the last log entry)
@@ -105,3 +107,17 @@ H.264 / AAC decoder object is linked, because it needs `ffmpeg_branding="Chrome"
 - 2026-11-17 03:04 — run **44007527523** started by push `7df8f58`: the first
   build with the integrated patches, continuing from the build folder of run
   43968550111.
+- 2026-11-17 03:22 — run 44007527523, stage 1: "The patched media code first"
+  **passed** (03:17–03:22): GN accepted the arguments and MSVC compiled the
+  integrated patches (Vivaldi's `platform_media`, Cromite's AAC hunks, the
+  I.K.E. glue) with the rest of the media code. Not yet linked. Full build
+  running; this stage stops building at minute 285 (about 07:50) and saves
+  its build folder.
+- 2026-11-17 03:30 — Opus 5.5 took over from Fable. Reviewed the unreviewed
+  probe commit `34b2cc8` (see run 44010178959 above) and patch 0004 (the ADTS
+  profile mapping writes LC for HE-AAC / HE-AAC v2 with the core sample rate
+  from the AudioSpecificConfig, as `FFmpegAACBitstreamConverter` expects; the
+  early return in `ffmpeg_common.cc` only skips a debug check). The build
+  script already had the edits for the integrated patches (commit `23493a1`:
+  `WMFVideoDecoder` among the expected strings, the licence files copied into
+  the package); nothing was left half-done there.
