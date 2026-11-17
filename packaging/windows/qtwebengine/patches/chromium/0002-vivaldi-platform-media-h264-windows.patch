@@ -1171,7 +1171,7 @@ new file mode 100644
 index 00000000..ee1cc73d
 --- /dev/null
 +++ b/chromium/platform_media/sandbox/win/platform_media_init.cc
-@@ -0,0 +1,0 @@
+@@ -0,0 +1,140 @@
 +// -*- Mode: c++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 +//
 +// Copyright (c) 2018 Vivaldi Technologies AS. All rights reserved.
