@@ -12,10 +12,14 @@ way.
 """
 
 import argparse
+import hashlib
+import json
 import os
+import re
 import shutil
 import subprocess
 import sys
+import urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -35,6 +39,28 @@ VIDEO = {
 AUDIO = {
     "aac_lc_stereo_44100": ["-ar", "44100", "-ac", "2", "-b:a", "96k"],
     "aac_lc_mono_48000": ["-ar", "48000", "-ac", "1", "-b:a", "64k"],
+}
+
+# Fraunhofer reference samples, pinned by the Windows fixture-discovery job.
+# The MP4 is demuxed to ADTS without re-encoding; its original AudioSpecificConfig
+# is passed separately to the MFT, matching the engine's AAC input type.
+HEAAC_FIXTURES = {
+    "heaac_v1_aot5": {
+        "url": "https://www2.iis.fraunhofer.de/AAC/SBRtestStereoAot5Sig1.mp4",
+        "profile": "HE-AAC",
+        "size": 234051,
+        "sha256": "ede70e3b2f7e364aeb0eb3854b7d9a5877be99a499dcebe22ac5a7349d68747c",
+        "sample_rate": 44100,
+        "channels": 2,
+    },
+    "heaac_v2_aot29": {
+        "url": "https://www2.iis.fraunhofer.de/AAC/SBRtestStereoAot29Sig1.mp4",
+        "profile": "HE-AACv2",
+        "size": 241061,
+        "sha256": "d021b3dfbfb7ad42eacdad9c3391b5268603d6f1c6bcf171e57292ff1ada06fb",
+        "sample_rate": 44100,
+        "channels": 2,
+    },
 }
 
 
@@ -90,6 +116,73 @@ def make_audio(work, name, options):
     return target
 
 
+def make_heaac_mft_input(work, name, fixture):
+    ffmpeg, ffprobe = tool("ffmpeg"), tool("ffprobe")
+    source = work / f"{name}.mp4"
+    adts = work / f"{name}.aac"
+    asc_path = work / f"{name}.asc"
+    digest = hashlib.sha256()
+    size = 0
+    request = urllib.request.Request(
+        fixture["url"], headers={"User-Agent": "IKE-Windows-MFT-Probe/1.0"})
+    with urllib.request.urlopen(request, timeout=90) as response:
+        if response.status != 200:
+            raise RuntimeError(f"HTTP {response.status} for {name}")
+        content_type = response.headers.get("Content-Type", "").lower()
+        if "video/mp4" not in content_type and "application/octet-stream" not in content_type:
+            raise RuntimeError(f"unexpected Content-Type {content_type!r} for {name}")
+        with source.open("wb") as output:
+            while True:
+                block = response.read(1024 * 1024)
+                if not block:
+                    break
+                size += len(block)
+                if size > 8 * 1024 * 1024:
+                    raise RuntimeError(f"{name} exceeds the 8 MiB download limit")
+                digest.update(block)
+                output.write(block)
+    if size != fixture["size"] or digest.hexdigest() != fixture["sha256"]:
+        raise RuntimeError(f"{name} does not match its pinned size / SHA-256")
+    probed = json.loads(checked([
+        ffprobe, "-v", "error", "-select_streams", "a:0", "-show_data",
+        "-show_entries", "stream=profile,sample_rate,channels,extradata",
+        "-of", "json", source]))
+    streams = probed.get("streams", [])
+    if not streams:
+        raise RuntimeError(f"{name} has no AAC stream")
+    stream = streams[0]
+    if stream.get("profile") != fixture["profile"]:
+        raise RuntimeError(f"{name}: expected {fixture['profile']}, got {stream.get('profile')}")
+    if int(stream.get("sample_rate", "0")) != fixture["sample_rate"] or \
+            stream.get("channels") != fixture["channels"]:
+        raise RuntimeError(f"{name}: unexpected decoded format {stream}")
+    # FFprobe prints extradata as an offset followed by groups of hex bytes.
+    # Strip the printable ASCII column and reconstruct the original ASC bytes.
+    groups = []
+    for line in stream.get("extradata", "").splitlines():
+        if ":" not in line:
+            continue
+        hex_column = line.split(":", 1)[1].split("  ", 1)[0]
+        for group in hex_column.split():
+            if len(group) in (2, 4) and re.fullmatch(r"[0-9a-fA-F]+", group):
+                groups.append(group)
+    asc = bytes.fromhex("".join(groups))
+    if len(asc) < 2:
+        raise RuntimeError(f"{name}: ffprobe did not expose a usable AudioSpecificConfig")
+    asc_path.write_bytes(asc)
+    checked([ffmpeg, "-hide_banner", "-loglevel", "error", "-y", "-i", source,
+             "-map", "0:a:0", "-c:a", "copy", "-f", "adts", adts])
+    if not adts.exists() or adts.stat().st_size < 100:
+        raise RuntimeError(f"{name}: FFmpeg did not produce an ADTS stream")
+    with adts.open("rb") as sample:
+        header = sample.read(7)
+    if len(header) != 7 or header[0] != 0xFF or (header[1] & 0xF6) != 0xF0:
+        raise RuntimeError(f"{name}: remux output does not start with an ADTS frame")
+    log(f"{name}: {size:,} bytes, {fixture['profile']}, ASC {len(asc)} bytes, "
+        f"ADTS {adts.stat().st_size:,} bytes")
+    return adts, asc_path
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--work", required=True)
@@ -125,6 +218,13 @@ def main():
         runs.append((f"AAC {name}, ADTS frames (as from Media Source)", [exe, "aac", sound, "adts"]))
         runs.append((f"AAC {name}, as the integrated code does (MFTEnumEx, ADTS + AudioSpecificConfig)",
                      [exe, "aac", sound, "cromite"]))
+
+    for name, fixture in HEAAC_FIXTURES.items():
+        adts, asc = make_heaac_mft_input(work, name, fixture)
+        runs.append((
+            f"{fixture['profile']} {name}, original AudioSpecificConfig + ADTS core frames",
+            [exe, "aac", adts, "cromite", asc,
+             str(fixture["sample_rate"]), str(fixture["channels"])]))
 
     lines = [f"## Windows decoders driven as the engine patches drive them{args.name}", "",
              "| Stream | Result |", "|---|---|"]
