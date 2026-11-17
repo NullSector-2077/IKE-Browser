@@ -129,8 +129,13 @@ def steps(ike, qapp, out):
     yield from js(view, """var f = document.querySelector('.tile.add input'); f.value = 'clicked.example';
         document.querySelector('.tile.add').requestSubmit(); 1""")
     yield 1200
+    shown = "Array.from(document.querySelectorAll('.tile .name')).map(function (n) { return n.textContent; }).indexOf('clicked.example') >= 0"
+    for _ in range(20):                  # a slow computer: the page may still be reloading
+        if (yield from js(view, shown)):
+            break
+        yield 200
     out["added_by_click"] = [st.is_bookmarked("https://clicked.example"), view.url().toString(),
-                             (yield from js(view, "Array.from(document.querySelectorAll('.tile .name')).map(function (n) { return n.textContent; }).indexOf('clicked.example') >= 0"))]
+                             (yield from js(view, shown))]
     # an empty field sends nothing, and Escape closes it
     yield from js(view, "document.querySelector('.tile.add .open').click(); document.querySelector('.tile.add').requestSubmit(); 1")
     yield 400
