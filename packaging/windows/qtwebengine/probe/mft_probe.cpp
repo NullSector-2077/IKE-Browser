@@ -255,6 +255,25 @@ class H264Probe {
       visible_width_ = std::min(coded_width_, width_);
       visible_height_ = std::min(coded_height_, height_);
     }
+    // Vivaldi's WMFVideoDecoder does not ask the output type: it takes the
+    // stride from MFGetStrideForBitmapInfoHeader() for the coded width and
+    // rounds stride and rows up to 16. Shown beside what the decoder says, so
+    // that a difference is known before the engine is built. (Also shows that
+    // the function links with the libraries the engine links.)
+    LONG vivaldi_stride = 0;
+    const HRESULT vivaldi_hr = MFGetStrideForBitmapInfoHeader(
+        MFVideoFormat_YV12.Data1, coded_width_, &vivaldi_stride);
+    const LONG vivaldi_aligned = (vivaldi_stride + 15) & ~15;
+    const int vivaldi_rows = (coded_height_ + 15) & ~15;
+    printf("  WMFVideoDecoder layout: stride %ld (function gave %ld, "
+           "0x%08lX), %d rows; decoder output: stride %d, %d rows: %s\n",
+           vivaldi_aligned, vivaldi_stride,
+           static_cast<unsigned long>(vivaldi_hr), vivaldi_rows, stride_,
+           height_,
+           (SUCCEEDED(vivaldi_hr) && vivaldi_aligned == stride_ &&
+            vivaldi_rows == height_)
+               ? "VIVALDI-LAYOUT same"
+               : "VIVALDI-LAYOUT DIFFERENT");
     MFT_OUTPUT_STREAM_INFO info = {};
     CHECK_HR(transform_->GetOutputStreamInfo(0, &info), "GetOutputStreamInfo");
     transform_allocates_ =
