@@ -94,6 +94,19 @@ flatpak-builder --user --install --force-clean build-flatpak \
 flatpak run io.github.nullsector_2077.IKE-Browser
 ```
 
+A local build compiles Chromium: hours, about 30 GB of disk and 16 GB of
+memory. `--ccache` keeps the compiled files for the next build.
+
+### Updating Qt WebEngine
+
+When Flathub's `io.qt.qtwebengine.BaseApp` (branch 6.11) moves to a new Qt
+release: in `qtwebengine/qtwebengine.json` the archive's version, address
+and `sha512` (Qt publishes them; Gentoo's `dev-qt/qtwebengine/Manifest` lists
+the same SHA-512), the base application's patches copied again into
+`qtwebengine/patches/` with its list of patches and switches; the three
+`*system-ffmpeg*` / `*no-openh264*` patches checked against the new source.
+The engine jobs then build it once and cache it.
+
 `tools/flatpak-sources.py` regenerates `generated/` after a change of
 `ike-adblock/Cargo.lock` or of the pinned Python packages.
 
