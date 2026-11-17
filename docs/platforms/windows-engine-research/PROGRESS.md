@@ -134,9 +134,14 @@ The first integrated build is now further along than the earlier log implied:
   expected `WMFVideoDecoder` and `MediaFoundationAudioDecoder` names. The
   video-only and audio-only Media Source cases passed as well.
 - The combined Media Source case failed while adding its second
-  `SourceBuffer`, with `QuotaExceededError`; the test harness had already
-  appended the video buffer before trying to add the audio buffer. This did
-  not indicate a decoder failure, but it made the whole verification fail.
+  `SourceBuffer`, with `QuotaExceededError`. This is Chromium's generic mapping
+  for `ChunkDemuxer::kReachedIdLimit`, not a byte-memory quota: `ChunkDemuxer`
+  accepts new IDs only while `WAITING_FOR_INIT` or `INITIALIZING`. The old
+  test appended the video init segment before registering the audio buffer,
+  so the demuxer had already left the allowed state. The MSE harness now
+  registers every SourceBuffer before appending any segment. See Chromium's
+  `ChunkDemuxer::AddId` state guard in
+  [source](https://chromium.googlesource.com/chromium/src.git/+/adac9f8446f93e101ce0f641af773c2024003955/media/filters/chunk_demuxer.cc#650).
 - The workflow then installed the optional Server-Media-Foundation feature
   and retried. On the Server 2022 runner the DLLs were already present before
   installation (`mfplat.dll`, `msmpeg2vdec.dll`, `msauddecmft.dll`), and the
