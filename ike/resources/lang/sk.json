@@ -840,6 +840,8 @@
 "Command bar…": "Panel príkazov…",
 "Commands, open tabs, bookmarks, history and settings in one search": "Príkazy, otvorené karty, záložky, história a nastavenia v jednom hľadaní",
 "Sepia": "Sépia",
-"%d min read": "%d min čítania"
+"%d min read": "%d min čítania",
+"Smooth scrolling of pages (after a restart)": "Plynulé posúvanie stránok (po reštarte)",
+"Restore": "Obnoviť"
 }
 }

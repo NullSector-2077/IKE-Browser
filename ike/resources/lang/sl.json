@@ -840,6 +840,8 @@
 "Command bar…": "Ukazna vrstica…",
 "Commands, open tabs, bookmarks, history and settings in one search": "Ukazi, odprti zavihki, zaznamki, zgodovina in nastavitve v enem iskanju",
 "Sepia": "Sepija",
-"%d min read": "%d min branja"
+"%d min read": "%d min branja",
+"Smooth scrolling of pages (after a restart)": "Gladko drsenje strani (po ponovnem zagonu)",
+"Restore": "Obnovi"
 }
 }

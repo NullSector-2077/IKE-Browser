@@ -840,6 +840,8 @@
 "Command bar…": "Barra de comandos…",
 "Commands, open tabs, bookmarks, history and settings in one search": "Comandos, pestañas abiertas, marcadores, historial y ajustes en una sola búsqueda",
 "Sepia": "Sepia",
-"%d min read": "%d min de lectura"
+"%d min read": "%d min de lectura",
+"Smooth scrolling of pages (after a restart)": "Desplazamiento suave de las páginas (tras reiniciar)",
+"Restore": "Restaurar"
 }
 }

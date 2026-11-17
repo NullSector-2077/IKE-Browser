@@ -16,16 +16,17 @@ DONE_COLOUR = "#27ae60"          # Breeze "positive" green
 
 
 class RingIconEngine(QIconEngine):
-    def __init__(self, base, fraction=None, done=False, phase=0.0, pop=None):
+    def __init__(self, base, fraction=None, done=False, phase=0.0, pop=None, bob=None):
         super().__init__()
         self.base = base
+        self.bob = bob                      # 0..1: where the arrow is in its gentle move; None: still
         self.pop = pop                      # 0..1 while the tick comes in; None: in place
         self.fraction = fraction            # 0..1, or None when the size is unknown
         self.done = done
         self.phase = phase                  # 0..1, start of the turning arc
 
     def clone(self):
-        return RingIconEngine(self.base, self.fraction, self.done, self.phase, self.pop)
+        return RingIconEngine(self.base, self.fraction, self.done, self.phase, self.pop, self.bob)
 
     def paint(self, painter, rect, mode, state):
         side = min(rect.width(), rect.height())
@@ -47,6 +48,9 @@ class RingIconEngine(QIconEngine):
             painter.save()
             if tick:
                 painter.setOpacity(painter.opacity() * max(0.0, 1.0 - pop))
+            if self.bob is not None and not self.done:
+                import math
+                painter.translate(0, side * 0.07 * math.sin(2 * math.pi * self.bob))
             self.base.paint(painter, QRect(int(c.x() - inner / 2 + 0.5), int(c.y() - inner / 2 + 0.5),
                                            inner, inner), Qt.AlignmentFlag.AlignCenter, mode, state)
             painter.restore()
@@ -95,8 +99,8 @@ class RingIconEngine(QIconEngine):
         return QSize(size)
 
 
-def ring_icon(base, fraction=None, done=False, pop=None):
+def ring_icon(base, fraction=None, done=False, pop=None, bob=None):
     """base with a progress ring; fraction None = size unknown; pop 0..1 while
-    the tick of a finished download comes in."""
+    the tick of a finished download comes in; bob 0..1 moves the arrow gently."""
     phase = (time.monotonic() % 1.2) / 1.2
-    return QIcon(RingIconEngine(base, fraction, done, phase, pop))
+    return QIcon(RingIconEngine(base, fraction, done, phase, pop, bob))

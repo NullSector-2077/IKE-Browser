@@ -538,7 +538,8 @@ class WindowFeatures:
         SP = QStyle.StandardPixmap
         # a separator between the toolbar buttons and the window buttons
         self._win_btns = [toolbar.addSeparator()]
-        side = round(toolbar.iconSize().height() * self.WINDOW_BUTTON_SCALE)
+        # the window buttons keep the size they had with 20-pixel toolbar icons (1.1.6 made those 24)
+        side = round(20 * self.WINDOW_BUTTON_SCALE)
         for name, fallback, tip, slot in (
                 ("window-minimize", SP.SP_TitleBarMinButton, T("Minimize"), self.showMinimized),
                 ("window-maximize", SP.SP_TitleBarMaxButton, T("Maximize"), self._toggle_max),
@@ -547,9 +548,11 @@ class WindowFeatures:
                 from .closebutton import CloseButtonStyle, WindowCloseButton  # like the tab close button
                 b = WindowCloseButton(self, round(CloseButtonStyle.SIZE * self.WINDOW_BUTTON_SCALE))
             else:
-                b = WindowButton(self, side)
+                b = WindowButton(self, side, getattr(self.app, "config", None))
                 b.setAutoRaise(True)
                 b.setIcon(_theme(name, fallback))
+                if name == "window-maximize":
+                    self._max_btn = b
             b.setToolTip(tip)
             b.clicked.connect(slot)
             self._win_btns.append(toolbar.addWidget(b))
@@ -560,6 +563,18 @@ class WindowFeatures:
 
     def _toggle_max(self):
         self.showNormal() if self.isMaximized() else self.showMaximized()
+
+    def _update_max_button(self):
+        """Maximized or full screen: the "restore" sign (the diamond of Plasma's
+        Breeze, as in Dolphin); a window of its own size: "maximize"."""
+        b = getattr(self, "_max_btn", None)
+        if b is None:
+            return
+        big = self.isMaximized() or self.isFullScreen()
+        SP = QStyle.StandardPixmap
+        b.setIcon(_theme("window-restore", SP.SP_TitleBarNormalButton) if big
+                  else _theme("window-maximize", SP.SP_TitleBarMaxButton))
+        b.setToolTip(T("Restore") if big else T("Maximize"))
 
     def _toggle_titlebar(self):
         cfg = self.app.config
@@ -1218,11 +1233,22 @@ class WindowFeatures:
 
 class WindowButton(QToolButton):
     """Minimize / maximize: a tool button whose icon keeps its own size (inside a
-    toolbar Qt would draw it at the toolbar's icon size)."""
+    toolbar Qt would draw it at the toolbar's icon size). Under the mouse a soft
+    circle in the theme's colour comes in, as the close button's red one (1.1.6)."""
 
-    def __init__(self, parent, side):
+    def __init__(self, parent, side, config=None):
         super().__init__(parent)
         self._side = side
+        from .effects import Glide
+        self._glide = Glide(self, config, self.update)
+
+    def enterEvent(self, event):
+        super().enterEvent(event)
+        self._glide.to(1)
+
+    def leaveEvent(self, event):
+        super().leaveEvent(event)
+        self._glide.to(0)
 
     def _option(self):
         from PyQt6.QtWidgets import QStyleOptionToolButton
@@ -1239,6 +1265,28 @@ class WindowButton(QToolButton):
         return self.sizeHint()
 
     def paintEvent(self, event):
-        from PyQt6.QtWidgets import QStylePainter
-        p = QStylePainter(self)
-        p.drawComplexControl(QStyle.ComplexControl.CC_ToolButton, self._option())
+        from . import polish
+        if not polish.part("window_hover"):
+            from PyQt6.QtWidgets import QStylePainter
+            p = QStylePainter(self)
+            p.drawComplexControl(QStyle.ComplexControl.CC_ToolButton, self._option())
+            return
+        from PyQt6.QtCore import QRectF
+        from PyQt6.QtGui import QColor, QIcon, QPainter, QPalette
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        level = self._glide.value
+        if self.isDown():
+            level = 1.4
+        if level > 0:
+            c = QColor(self.palette().color(QPalette.ColorRole.Highlight))
+            c.setAlphaF(min(0.45, 0.22 * level))
+            d = min(self.width(), self.height()) - 4
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(c)
+            p.drawEllipse(QRectF((self.width() - d) / 2, (self.height() - d) / 2, d, d))
+        mode = QIcon.Mode.Normal if self.isEnabled() else QIcon.Mode.Disabled
+        s = self._side
+        self.icon().paint(p, QRect((self.width() - s) // 2, (self.height() - s) // 2, s, s),
+                          Qt.AlignmentFlag.AlignCenter, mode)
+        p.end()

@@ -840,6 +840,8 @@
 "Command bar…": "Pasek poleceń…",
 "Commands, open tabs, bookmarks, history and settings in one search": "Polecenia, otwarte karty, zakładki, historia i ustawienia w jednym wyszukiwaniu",
 "Sepia": "Sepia",
-"%d min read": "%d min czytania"
+"%d min read": "%d min czytania",
+"Smooth scrolling of pages (after a restart)": "Płynne przewijanie stron (po ponownym uruchomieniu)",
+"Restore": "Przywróć"
 }
 }

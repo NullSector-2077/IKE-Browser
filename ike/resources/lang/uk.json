@@ -840,6 +840,8 @@
 "Command bar…": "Командний рядок…",
 "Commands, open tabs, bookmarks, history and settings in one search": "Команди, відкриті вкладки, закладки, історія та налаштування в одному пошуку",
 "Sepia": "Сепія",
-"%d min read": "%d хв читання"
+"%d min read": "%d хв читання",
+"Smooth scrolling of pages (after a restart)": "Плавне прокручування сторінок (після перезапуску)",
+"Restore": "Відновити"
 }
 }

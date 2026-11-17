@@ -840,6 +840,8 @@
 "Command bar…": "Befehlsleiste…",
 "Commands, open tabs, bookmarks, history and settings in one search": "Befehle, offene Tabs, Lesezeichen, Chronik und Einstellungen in einer Suche",
 "Sepia": "Sepia",
-"%d min read": "%d Min. Lesezeit"
+"%d min read": "%d Min. Lesezeit",
+"Smooth scrolling of pages (after a restart)": "Weiches Scrollen der Seiten (nach einem Neustart)",
+"Restore": "Wiederherstellen"
 }
 }

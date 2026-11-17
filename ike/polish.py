@@ -29,7 +29,7 @@ PARTS = {
     "row_hover": True,       # vertical tabs: the hover colour comes and goes softly
     "row_enter": True,       # vertical tabs: a new row fades in
     "audio_pulse": True,     # the speaker of a tab playing sound pulses gently
-    "url_pill": True,        # the address field: rounded, its edge lights up when used
+    "url_pill": False,       # the address field: rounded, its edge lights up when used (off: the owner preferred the system's field, 1.1.6)
     "url_popup": True,       # suggestions: taller rows with the site's icon
     "zoom_mark": True,       # a sign in the address field when the page is not at its usual zoom
     "reload_fade": True,     # Reload and Stop change with a short fade
@@ -43,6 +43,10 @@ PARTS = {
     "download_rows": True,   # the downloads window: file icons and a progress bar in each row
     "engine_icon": True,     # suggestions: the search engine's own icon on the search rows
     "reader_tools": True,    # reader mode: light, sepia or dark, and the size of the text
+    # 1.1.6
+    "window_hover": True,    # minimize / maximize: a soft circle under the mouse, as the close button
+    "download_arrow": True,  # the arrow of the Downloads button moves while files arrive
+    "chrome_edge": True,     # a thin line between the bars and the page
 }
 
 MARK_MS = 180
@@ -586,3 +590,38 @@ class ProgressDelegate(QStyledItemDelegate):
     def sizeHint(self, option, index):
         s = super().sizeHint(option, index)
         return QSize(s.width(), max(s.height(), self.ROW if part("download_rows") else 0))
+
+
+# --- the edge between the bars and the page (1.1.6) ------------------------------
+class ChromeEdge(QWidget):
+    """A thin line along the top of the page area: the bars of the window stand
+    apart from the page a little better. Drawn over the page's first pixel row,
+    under the loading line."""
+
+    def __init__(self, anchor):
+        super().__init__(anchor.parentWidget())
+        from PyQt6.QtCore import QEvent
+        self._resize = QEvent.Type.Resize, QEvent.Type.Move
+        self.anchor = anchor
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
+        anchor.installEventFilter(self)
+        self._place()
+        self.setVisible(part("chrome_edge"))
+
+    def _place(self):
+        g = self.anchor.geometry()
+        self.setGeometry(QRect(g.x(), g.y(), g.width(), 1))
+        self.raise_()
+
+    def eventFilter(self, obj, event):
+        if obj is self.anchor and event.type() in self._resize:
+            self._place()
+        return False
+
+    def paintEvent(self, _event):
+        c = QColor(self.palette().color(QPalette.ColorRole.Mid))
+        c.setAlphaF(0.55)
+        p = QPainter(self)
+        p.fillRect(self.rect(), c)
+        p.end()

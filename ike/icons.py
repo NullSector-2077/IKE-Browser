@@ -14,7 +14,7 @@ from .config import RES_DIR
 
 _DIR = RES_DIR / "icons" / "fallback"
 _SETS_DIR = RES_DIR / "icons" / "sets"
-SETS = (("ike", "I.K.E."), ("lucide", "Lucide"), ("phosphor", "Phosphor"))
+SETS = (("ike", "I.K.E."), ("lucide", "Lucide"), ("phosphor", "Phosphor"), ("phosphor-bold", "Phosphor Bold"))
 _cache = {}
 _system_theme = None
 _set = None                 # name of the shipped set in use, if any

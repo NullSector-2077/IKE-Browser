@@ -840,6 +840,8 @@
 "Command bar…": "Команден ред…",
 "Commands, open tabs, bookmarks, history and settings in one search": "Команди, отворени раздели, отметки, история и настройки в едно търсене",
 "Sepia": "Сепия",
-"%d min read": "%d мин четене"
+"%d min read": "%d мин четене",
+"Smooth scrolling of pages (after a restart)": "Плавно превъртане на страниците (след рестартиране)",
+"Restore": "Възстановяване"
 }
 }

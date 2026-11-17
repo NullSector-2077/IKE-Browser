@@ -840,6 +840,8 @@
 "Command bar…": "Traka komandi…",
 "Commands, open tabs, bookmarks, history and settings in one search": "Komande, otvorene kartice, zabilješke, historija i postavke u jednoj pretrazi",
 "Sepia": "Sepija",
-"%d min read": "%d min čitanja"
+"%d min read": "%d min čitanja",
+"Smooth scrolling of pages (after a restart)": "Glatko pomjeranje stranica (nakon ponovnog pokretanja)",
+"Restore": "Vrati"
 }
 }

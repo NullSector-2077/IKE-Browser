@@ -840,6 +840,8 @@
 "Command bar…": "命令栏…",
 "Commands, open tabs, bookmarks, history and settings in one search": "在一次搜索中查找命令、已打开的标签页、书签、历史记录和设置",
 "Sepia": "复古",
-"%d min read": "阅读约 %d 分钟"
+"%d min read": "阅读约 %d 分钟",
+"Smooth scrolling of pages (after a restart)": "平滑滚动页面（重启后生效）",
+"Restore": "还原"
 }
 }

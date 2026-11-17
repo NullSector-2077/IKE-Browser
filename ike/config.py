@@ -136,9 +136,9 @@ DEFAULTS = {
     "ui_effects": True,                 # short fades and the loading mark of tabs (see effects.py)
     "toolbar_hidden": [],               # keys of TOOLBAR_ITEMS the user does not want
     "toolbar_known": ["back", "forward", "reload", "home", "downloads"],
-    "toolbar_order": ["shield", "reload", "translate", "reader", "screenshot", "pip",
+    "toolbar_order": ["shield", "reload", "bookmark", "reader", "screenshot", "pip",
                       "split", "dark", "private", "cleansite", "downloads", "menu"],
-    "toolbar_left": ["shield", "reload", "translate"],  # balance the address field around the window centre
+    "toolbar_left": ["shield", "reload", "bookmark"],  # balance the address field around the window centre
     "urlbar_width": 60,                 # address bar: per cent of the window width
     "newtab_clock": True,               # clock and date on the new tab page
     "newtab_weather": True,             # weather on the new tab page (needs a city, see weather.py)
@@ -224,7 +224,8 @@ DEFAULTS = {
     "mouse_gestures": False,            # right button held and dragged: back, forward, reload, close tab
     "site_zoom": {},
     "reader_theme": "auto",             # reader mode: auto | light | sepia | dark
-    "reader_size": 19,                  # reader mode: text size in pixels (14 - 28)                    # host: zoom factor chosen for that site (not in private windows)
+    "reader_size": 19,                  # reader mode: text size in pixels (14 - 28)
+    "smooth_scrolling": True,           # pages scroll smoothly (an engine switch: after a restart)                    # host: zoom factor chosen for that site (not in private windows)
     "res_mem_limit": 0,                 # MB: suspend background tabs of a site above it (0 = off)
     "res_cpu_limit": 0,                 # % of a core: freeze background tabs above it (0 = off)
     "res_mem_default": 1500,            # values offered when a limit is switched on
@@ -251,7 +252,7 @@ DEFAULTS = {
 
 # Toolbar buttons the user can show or hide: (key, hidden when first seen)
 TOOLBAR_ITEMS = (("back", False), ("forward", False), ("reload", False), ("home", False),
-                 ("translate", False), ("reader", False), ("screenshot", False), ("pip", False),
+                 ("bookmark", False), ("reader", False), ("screenshot", False), ("pip", False),
                  ("split", True), ("dark", True), ("private", True), ("cleansite", True),
                  ("downloads", False))
 
@@ -319,6 +320,11 @@ class Config:
         if isinstance(stored, dict):
             self.data.update(sound_settings(stored))
         d = self.data
+        # 1.1.6: "Translate page" moved into the address bar; "Bookmark this page" takes its place
+        for key in ("toolbar_order", "toolbar_left", "toolbar_hidden", "toolbar_known"):
+            if isinstance(d.get(key), list) and "translate" in d[key]:
+                items = [x for x in d[key] if x != "bookmark"]
+                d[key] = ["bookmark" if x == "translate" else x for x in items]
         # the Cyber theme is gone (1.1.2): whoever used it follows the system again
         if d.get("ui_scheme") == "theme:cyber":
             d["ui_scheme"] = "system"

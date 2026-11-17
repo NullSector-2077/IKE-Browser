@@ -62,10 +62,13 @@ class UrlBar(QLineEdit):
         self._local = []
         self.lock = self.addAction(icon("globe", QStyle.StandardPixmap.SP_FileIcon),
                                    QLineEdit.ActionPosition.LeadingPosition)
-        self.star = self.addAction(icon("bookmark-new", QStyle.StandardPixmap.SP_DialogApplyButton),
-                                   QLineEdit.ActionPosition.TrailingPosition)
-        self.star.setToolTip(T("Bookmark this page"))
-        self.star.triggered.connect(window.toggle_bookmark)
+        # "Translate page" in the address bar, as other browsers have it (1.1.6; the star of the
+        # bookmarks went to the toolbar)
+        self.translate_act = self.addAction(icon(("translate", "crow-translate-tray", "preferences-desktop-locale")),
+                                            QLineEdit.ActionPosition.TrailingPosition)
+        self.translate_act.setToolTip(T("Translate page"))
+        self.translate_act.triggered.connect(window.translate_page)
+        self.translate_act.setVisible(False)
         # shown only while the page is not at its usual zoom (window._zoom_sign); a click resets it
         self.zoom_act = self.addAction(icon("zoom-in", QStyle.StandardPixmap.SP_ArrowUp),
                                        QLineEdit.ActionPosition.TrailingPosition)

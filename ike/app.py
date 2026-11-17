@@ -856,6 +856,10 @@ def _chromium_flags(config):
         if lib:
             flags.append("--widevine-path=%s" % lib)
             os.environ["IKE_WIDEVINE"] = lib
+    # pages scroll smoothly (wheel and keys), unless the user switched it off or chose otherwise himself
+    if (config["smooth_scrolling"] and "--enable-smooth-scrolling" not in flags
+            and "--disable-smooth-scrolling" not in flags):
+        flags.append("--enable-smooth-scrolling")
     if hasattr(os, "geteuid") and os.geteuid() == 0 and "--no-sandbox" not in flags:
         flags.append("--no-sandbox")
     os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = " ".join(flags)

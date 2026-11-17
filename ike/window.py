@@ -334,6 +334,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         rl.addWidget(self.content, 1)
         rl.addWidget(self.findbar)
         from .loadingline import LoadingLine
+        self.chrome_edge = polish.ChromeEdge(self.content)       # a thin line between the bars and the page
         self.loading_line = LoadingLine(self.content)
         self.loading_line.config = self.app.config
 
@@ -371,7 +372,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         tb = QToolBar(T("Navigation"), self)
         tb.setObjectName("nav")
         tb.setMovable(False)
-        tb.setIconSize(QSize(20, 20))
+        tb.setIconSize(QSize(24, 24))         # a little larger than Qt's usual 22: easier to see (1.1.6)
         tb.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         tb.customContextMenuRequested.connect(self._toolbar_menu)
         self.addToolBar(tb)
@@ -441,9 +442,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.store_act.setVisible(False)
         self.space_right_act = tb.addWidget(self._nav_spacers[1])
         A = self._action
-        self.act_tb_translate = A(T("Translate page"), self.translate_page, None,
-                                  icon(("translate", "crow-translate-tray", "preferences-desktop-locale")),
-                                  T("Translate this page through an external web service"))
+        # "Bookmark this page" on the toolbar; "Translate page" is in the address bar (1.1.6)
+        self.act_tb_bookmark = A(T("Bookmark this page"), self.toggle_bookmark, None, "bookmark-new",
+                                 T("Add or remove this page from bookmarks"))
         self.act_tb_reader = A(T("Reader mode"), self.toggle_reader, None,
                                icon(("view-readermode", "document-preview")),
                                T("Show only the text of the article"))
@@ -469,7 +470,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                           icon("download", SP.SP_ArrowDown),
                                           T("Show downloaded files"))
         self._dl_icon = self.act_downloads.icon()
-        for a in (self.act_tb_translate, self.act_tb_reader, self.act_tb_shot, self.act_tb_pip,
+        for a in (self.act_tb_bookmark, self.act_tb_reader, self.act_tb_shot, self.act_tb_pip,
                   self.act_tb_split, self.act_dark, self.act_tb_private, self.act_tb_clean,
                   self.act_downloads):
             tb.addAction(a)
@@ -510,10 +511,11 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.more_act = tb.addWidget(self.more_btn)
         self.more_act.setVisible(False)
         self._build_window_buttons(tb)
+        self._update_max_button()
         right = self._win_btns[0]
         self._nav_items = [("shield", self.shield_act, right),
                            ("reload", self.act_reload, right),
-                           ("translate", self.act_tb_translate, right),
+                           ("bookmark", self.act_tb_bookmark, right),
                            ("reader", self.act_tb_reader, right),
                            ("screenshot", self.act_tb_shot, right),
                            ("pip", self.act_tb_pip, right),
@@ -1568,9 +1570,11 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                   and bool(self.app.config["experimental_extensions"]))
         self._zoom_sign()
         marked = bool(v) and self.app.storage.is_bookmarked(url.toString())
-        self.urlbar.star.setIcon(icon("bookmarks" if marked else "bookmark-new",
-                                      SP.SP_DialogApplyButton if marked else SP.SP_DialogOpenButton))
-        self.urlbar.star.setToolTip(T("Remove bookmark") if marked else T("Bookmark this page"))
+        self.act_tb_bookmark.setIcon(icon("bookmarks" if marked else "bookmark-new",
+                                          SP.SP_DialogApplyButton if marked else SP.SP_DialogOpenButton))
+        self.act_tb_bookmark.setToolTip(T("Remove bookmark") if marked else T("Bookmark this page"))
+        self.act_tb_bookmark.setEnabled(bool(v) and scheme in ("http", "https", "file"))
+        self.urlbar.translate_act.setVisible(scheme in ("http", "https"))
 
     def _url_changed(self, view):
         self._site_zoom(view)
@@ -2033,6 +2037,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
 
     def show_download_progress(self, state, fraction=None):
         """state: "idle", "active" (fraction 0..1 or None) or "done"."""
+        self._dl_fraction = fraction
+        self._download_arrow(state == "active")
         if state == "idle":
             self._dl_state = "idle"
             self.act_downloads.setIcon(self._dl_icon)
@@ -2053,7 +2059,31 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 ring_icon(self._dl_icon, None, True, pop=float(t))))
             anim.start()
             return
-        self.act_downloads.setIcon(ring_icon(self._dl_icon, fraction, state == "done"))
+        self.act_downloads.setIcon(ring_icon(self._dl_icon, fraction, state == "done",
+                                             bob=getattr(self, "_dl_bob", None) if state == "active" else None))
+
+    def _download_arrow(self, active):
+        """While files arrive the arrow of the Downloads button moves gently (polish.py)."""
+        timer = getattr(self, "_dl_arrow", None)
+        if active and polish.moving(self.app.config, "download_arrow"):
+            if timer is None:
+                timer = self._dl_arrow = QTimer(self)
+                timer.setInterval(80)
+                timer.timeout.connect(self._download_arrow_step)
+            if not timer.isActive():
+                timer.start()
+            return
+        self._dl_bob = None
+        if timer is not None:
+            timer.stop()
+
+    def _download_arrow_step(self):
+        if getattr(self, "_dl_state", "idle") != "active" or not self.isVisible():
+            return
+        from .downloadring import ring_icon
+        self._dl_bob = (time.monotonic() % 1.2) / 1.2
+        self.act_downloads.setIcon(ring_icon(self._dl_icon, getattr(self, "_dl_fraction", None), False,
+                                             bob=self._dl_bob))
 
     def apply_theme(self, theme):
         """Colour the toolbars and tabs for an interface theme (None = none)."""
@@ -2064,6 +2094,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self._themed = theme is not None
 
     def changeEvent(self, event):
+        if event.type() == QEvent.Type.WindowStateChange:
+            self._update_max_button()           # the diamond while maximized, the arrow otherwise
         # Follow a change of the desktop theme / colour scheme at once.
         if (event.type() in (QEvent.Type.PaletteChange, QEvent.Type.StyleChange)
                 and hasattr(self, "shield_panel") and hasattr(self, "level_group")):

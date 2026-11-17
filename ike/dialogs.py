@@ -184,8 +184,11 @@ class SettingsDialog(QDialog):
         self.gestures = QCheckBox(T("Mouse gestures: hold the right button and draw ← back, → forward, "
                                     "↑ reload, ↓→ close the tab"))
         self.gestures.setChecked(bool(self.cfg["mouse_gestures"]))
+        self.smooth = QCheckBox(T("Smooth scrolling of pages (after a restart)"))
+        self.smooth.setChecked(bool(self.cfg["smooth_scrolling"]))
         f.addRow("", _wrapping(self.autoplay))
         f.addRow("", _wrapping(self.gestures))
+        f.addRow("", self.smooth)
         self.di = {}
         desktop = (
             ("di_media", T("Media controls: the media widget, the lock screen and the media keys "
@@ -269,7 +272,7 @@ class SettingsDialog(QDialog):
         tb_row = QGridLayout()
         labels = {"back": T("Back"), "forward": T("Forward"), "reload": T("Reload"),
                   "home": T("Home"), "downloads": T("Downloads"),
-                  "translate": T("Translate page"), "reader": T("Reader mode"),
+                  "bookmark": T("Bookmark this page"), "reader": T("Reader mode"),
                   "screenshot": T("Screenshot"), "pip": T("Video in floating window"),
                   "split": T("Split view"), "dark": T("Dark mode for pages"),
                   "private": T("New private window"), "cleansite": T("Clear this site's data")}
@@ -1147,6 +1150,7 @@ class SettingsDialog(QDialog):
             cfg["translate_url"] = self.translate.text().strip()
         cfg["autoplay_block"] = self.autoplay.isChecked()
         cfg["mouse_gestures"] = self.gestures.isChecked()
+        cfg["smooth_scrolling"] = self.smooth.isChecked()
         cfg["perm_block"] = [k for k, c in self.perm_block.items() if c.isChecked()]
         cfg["experimental_extensions"] = self.ext_on.isChecked()
         old = {c["name"]: c["color"] for c in cfg["containers"]}
