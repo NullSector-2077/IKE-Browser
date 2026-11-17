@@ -259,6 +259,9 @@ fixture/test, then run another incremental build and codec matrix.
   when the media element reports actual audio bytes.
 - Workflow
   [44124142153](https://github.com/NullSector-2077/IKE-Browser/actions/runs/44124142153)
-  is exercising the fixture downloader and full clip builder on Windows.
-  Fixture validation is not engine playback: HE-AAC v1/v2 remain unverified
-  until the built Qt WebEngine passes those two playback cases.
+  **passed** on Windows Server 2022. Both the standalone downloader and the
+  actual `verify_codecs.py clips` builder passed; both pinned clips were
+  added to `clips.json` and are ready for engine playback testing. The test
+  no longer needs `libfdk_aac` for HE-AAC v1/v2 fixtures. Fixture validation
+  is not engine playback: HE-AAC v1/v2 remain unverified until the built Qt
+  WebEngine passes those two playback cases.
