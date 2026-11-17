@@ -123,6 +123,8 @@ def main():
         sound = make_audio(work, name, options)
         runs.append((f"AAC {name}, bare frames (as from an MP4 file)", [exe, "aac", sound, "raw"]))
         runs.append((f"AAC {name}, ADTS frames (as from Media Source)", [exe, "aac", sound, "adts"]))
+        runs.append((f"AAC {name}, as the integrated code does (MFTEnumEx, ADTS + AudioSpecificConfig)",
+                     [exe, "aac", sound, "cromite"]))
 
     lines = [f"## Windows decoders driven as the engine patches drive them{args.name}", "",
              "| Stream | Result |", "|---|---|"]

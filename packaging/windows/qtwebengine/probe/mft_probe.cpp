@@ -3,19 +3,25 @@
 //
 // Test tool, never shipped. Drives the H.264 and AAC decoders that are part of
 // Windows with the same Media Foundation calls, in the same order, as the
-// engine patches do (patches/chromium/0003 and 0004), but without Chromium:
-// it builds in seconds, so what Windows answers to those calls is known long
-// before a build of the engine is finished.
+// engine does, but without Chromium: it builds in seconds, so what Windows
+// answers to those calls is known long before a build of the engine is
+// finished. The H.264 part is the call sequence of Vivaldi's WMFVideoDecoder
+// (input type, YV12 output, DllGetClassObject); the AAC mode "cromite" is the
+// one of Chromium's MediaFoundationAudioDecoder with Cromite's patch; "raw"
+// and "adts" are those of I.K.E.'s superseded own patches.
 //
 //   mft_probe h264 STREAM.h264 PTS.txt WIDTH HEIGHT [low-delay]
 //       STREAM.h264: Annex B, every picture starting with an access unit
 //       delimiter; PTS.txt: one presentation time in seconds per picture, in
 //       the order of the stream. The pictures are four coloured quarters:
 //       red, green / blue, white.
-//   mft_probe aac SOUND.aac raw|adts
+//   mft_probe aac SOUND.aac raw|adts|cromite
 //       SOUND.aac: AAC frames with ADTS headers. "raw" hands the decoder bare
-//       frames and an AudioSpecificConfig (as from an MP4 file); "adts" hands
-//       it the frames with their headers (as from Media Source).
+//       frames and an AudioSpecificConfig; "adts" hands it the frames with
+//       their headers and no AudioSpecificConfig; "cromite" does what the
+//       integrated code does: COM initialised, the decoder found with
+//       MFTEnumEx and activated, a HEAACWAVEINFO with payload type 1 (ADTS)
+//       followed by the AudioSpecificConfig, frames with their headers.
 //
 // Like the engine: no COM initialisation, the decoders are created with
 // DllGetClassObject from libraries loaded from the system directory, and the
@@ -644,17 +650,48 @@ struct AdtsFrame {
 
 class AacProbe {
  public:
+  // As MediaFoundationAudioDecoder::CreateDecoder(): the first decoder that
+  // Media Foundation lists for AAC, activated (which needs COM).
+  bool CreateEnumerated() {
+    MFT_REGISTER_TYPE_INFO info = {MFMediaType_Audio, MFAudioFormat_AAC};
+    IMFActivate** activates = nullptr;
+    UINT32 count = 0;
+    CHECK_HR(MFTEnumEx(MFT_CATEGORY_AUDIO_DECODER,
+                       MFT_ENUM_FLAG_SYNCMFT | MFT_ENUM_FLAG_LOCALMFT |
+                           MFT_ENUM_FLAG_SORTANDFILTER,
+                       &info, nullptr, &activates, &count),
+             "MFTEnumEx");
+    printf("  MFTEnumEx: %u AAC decoder(s)\n", count);
+    HRESULT hr = MF_E_TOPO_CODEC_NOT_FOUND;
+    if (count > 0) {
+      hr = activates[0]->ActivateObject(IID_PPV_ARGS(&transform_));
+    }
+    for (UINT32 i = 0; i < count; ++i) {
+      activates[i]->Release();
+    }
+    CoTaskMemFree(activates);
+    CHECK_HR(hr, "IMFActivate::ActivateObject");
+    return transform_ != nullptr;
+  }
+
   bool Create(int object_type, int frequency_index, int sample_rate,
-              int channels, bool adts) {
-    transform_ = CreateFromLibrary(L"msauddecmft.dll", kAacDecoderClsid);
+              int channels, bool adts, bool cromite) {
+    if (cromite) {
+      if (!CreateEnumerated()) {
+        return false;
+      }
+    } else {
+      transform_ = CreateFromLibrary(L"msauddecmft.dll", kAacDecoderClsid);
+    }
     if (!transform_) {
       Fail("the AAC decoder of Windows could not be created");
       return false;
     }
-    // As GetAacAudioType() in Chromium's mf_helpers.cc, with the change of
-    // patch 0004 for frames that keep their ADTS header.
+    // As GetAacAudioType() in Chromium's mf_helpers.cc. With Cromite's patch
+    // the payload type in the structure is 1 and the AudioSpecificConfig
+    // still follows it.
     std::vector<uint8_t> extra_data;
-    if (!adts) {
+    if (!adts || cromite) {
       extra_data.push_back(
           static_cast<uint8_t>((object_type << 3) | (frequency_index >> 1)));
       extra_data.push_back(
@@ -678,7 +715,7 @@ class AacProbe {
     wave->wfx.nAvgBytesPerSec = sample_rate * channels * 2;
     wave->wfx.nBlockAlign = 1;
     wave->wfx.cbSize = static_cast<WORD>(format.size() - sizeof(WAVEFORMATEX));
-    wave->wPayloadType = 0;
+    wave->wPayloadType = cromite ? 1 : 0;
     wave->wAudioProfileLevelIndication = 0xFE;
     wave->wStructType = 0;
     if (!extra_data.empty()) {
@@ -689,7 +726,7 @@ class AacProbe {
                  type.Get(), reinterpret_cast<const WAVEFORMATEX*>(wave),
                  static_cast<UINT32>(format.size())),
              "MFInitMediaTypeFromWaveFormatEx");
-    if (adts) {
+    if (adts && !cromite) {
       const uint8_t kAdtsUserData[] = {0x01, 0x00, 0xFE, 0x00, 0x00, 0x00,
                                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       CHECK_HR(type->SetUINT32(MF_MT_AAC_PAYLOAD_TYPE, 1), "payload type");
@@ -818,7 +855,8 @@ int RunAac(int argc, char** argv) {
     return 2;
   }
   const std::vector<uint8_t> stream = ReadFile(argv[2]);
-  const bool adts = strcmp(argv[3], "adts") == 0;
+  const bool cromite = strcmp(argv[3], "cromite") == 0;
+  const bool adts = cromite || strcmp(argv[3], "adts") == 0;
   static const int kRates[] = {96000, 88200, 64000, 48000, 44100, 32000, 24000,
                                22050, 16000, 12000, 11025, 8000,  7350};
   std::vector<AdtsFrame> frames;
@@ -851,7 +889,16 @@ int RunAac(int argc, char** argv) {
   printf("AAC %s: %zu frames, object type %d, %d Hz, %d channels, handed "
          "over %s\n",
          argv[2], frames.size(), object_type, rate, channels,
-         adts ? "with ADTS headers" : "as bare frames with AudioSpecificConfig");
+         cromite ? "with ADTS headers and AudioSpecificConfig, decoder "
+                   "from MFTEnumEx (the integrated code)"
+                 : adts ? "with ADTS headers"
+                        : "as bare frames with AudioSpecificConfig");
+  if (cromite) {
+    // The engine runs this on a thread with COM initialised (multi-threaded).
+    const HRESULT com = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    printf("  CoInitializeEx(COINIT_MULTITHREADED): 0x%08lX\n",
+           static_cast<unsigned long>(com));
+  }
 
   // The engine's audio decoder starts Media Foundation first
   // (InitializeMediaFoundation() in Chromium) and gives up if that fails.
@@ -864,7 +911,8 @@ int RunAac(int argc, char** argv) {
   }
 
   AacProbe probe;
-  if (!probe.Create(object_type, frequency_index, rate, channels, adts)) {
+  if (!probe.Create(object_type, frequency_index, rate, channels, adts,
+                    cromite)) {
     return 1;
   }
   LONGLONG time = 0;
@@ -914,7 +962,7 @@ int main(int argc, char** argv) {
   }
   if (code == 2) {
     printf("usage: mft_probe h264 STREAM PTS WIDTH HEIGHT [low-delay] | "
-           "mft_probe aac SOUND raw|adts\n");
+           "mft_probe aac SOUND raw|adts|cromite\n");
   } else {
     printf(code == 0 ? "RESULT: ok\n" : "RESULT: FAILED\n");
   }
