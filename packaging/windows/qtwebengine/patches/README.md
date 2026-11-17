@@ -98,9 +98,14 @@ The clip builder downloads each over HTTPS and checks its exact size, SHA-256,
 MP4 signature, AAC profile, stereo layout, 44.1 kHz sample rate and
 AudioSpecificConfig with FFprobe. Playback tests for both are mandatory and
 count as decoded only when the media element reports audio bytes. This removes
-the previous dependency on the runner exposing `libfdk_aac`; it does **not**
-yet prove the built engine decodes either profile. Keep HE-AAC v1/v2 marked
-unverified until the Windows Qt WebEngine playback run passes both cases. `FFmpegVideoDecoder` is still in the
+the previous dependency on the runner exposing `libfdk_aac`. Separately, the
+Windows Media Foundation AAC MFT has decoded both pinned samples through
+`MFTEnumEx` on Windows Server 2022 and 2025, using the original
+AudioSpecificConfig and ADTS core frames; the probe uses the 44.1 kHz SBR
+output rate in the MFT input type, as Chromium does. This proves the OS decoder
+accepts the profiles, but it does **not** yet prove the built Qt WebEngine
+routes and plays them correctly. Keep HE-AAC v1/v2 marked unverified until
+both built-engine playback cases pass. `FFmpegVideoDecoder` is still in the
 decoder list in front of `WMFVideoDecoder` and fails for H.264 because FFmpeg
 has no H.264 decoder — the same order as in Vivaldi.
 
