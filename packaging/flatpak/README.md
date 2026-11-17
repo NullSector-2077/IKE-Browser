@@ -57,9 +57,13 @@ portal, paths, Widevine, PipeWire) and switches, except:
   extension replaces it with the full one. Two small patches make Chromium
   and Qt's configure check accept an FFmpeg without Chromium's
   `av_stream_get_first_dts` addition (`qtwebengine/patches/*system-ffmpeg*`).
-- `webengine_system_openh264=ON`: WebRTC's H.264 encoder is the run time's
-  OpenH264 (a stub, or Cisco's library through Flathub's OpenH264 extension),
-  not one compiled into the engine.
+- No OpenH264 compiled in (`rtc_use_h264=false`, `media_use_openh264=false`,
+  `qtwebengine/patches/qtwebengine-no-openh264.patch`): the base application
+  builds Cisco's H.264 encoder into the engine for WebRTC, MediaRecorder and
+  WebCodecs; the KDE SDK has no OpenH264 to build against instead. So in the
+  Flatpak sites cannot *encode* H.264 (a recording or a video call uses VP8,
+  VP9 or AV1, which every WebRTC service supports); playing H.264 is not
+  affected.
 - QtPdf is not built again (the base application's stays; I.K.E. does not use
   it).
 
@@ -109,3 +113,7 @@ flatpak run io.github.nullsector_2077.IKE-Browser
   (the blocker above). Change: the manifest builds Qt WebEngine with the run
   time's FFmpeg (section "Codecs"); the workflow builds it in up to three
   chained jobs and checks the bundle's files for decoders.
+- 2026-11-17, run 44001339255 (589c545): the engine configures with the run
+  time's FFmpeg (7.1: libavcodec 61.19, without `av_stream_get_first_dts`,
+  hence the two patches); GN stopped at OpenH264 (`use_system_openh264`: the
+  SDK has no `openh264.pc`). Now no OpenH264 at all (section "Codecs").

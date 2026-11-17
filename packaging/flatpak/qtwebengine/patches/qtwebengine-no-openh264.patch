@@ -1,0 +1,17 @@
+--- a/src/core/CMakeLists.txt
++++ b/src/core/CMakeLists.txt
+@@ -429,9 +429,13 @@
+             CONDITION QT_FEATURE_webengine_kerberos
+         )
+         extend_gn_list(gnArgArg
+-            ARGS proprietary_codecs rtc_use_h264
++            ARGS proprietary_codecs
+             CONDITION QT_FEATURE_webengine_proprietary_codecs
+         )
++        # I.K.E. Flatpak: no OpenH264 compiled into the engine (Chromium's
++        # H.264 encoder for WebRTC, MediaRecorder and WebCodecs); WebRTC
++        # uses VP8, VP9 and AV1
++        list(APPEND gnArgArg rtc_use_h264=false media_use_openh264=false)
+         if(QT_FEATURE_webengine_proprietary_codecs)
+             list(APPEND gnArgArg ffmpeg_branding="Chrome")
+         endif()
