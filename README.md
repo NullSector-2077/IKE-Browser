@@ -9,7 +9,7 @@ The interface, protections, password manager and updater are I.K.E.'s own code
 provided and kept up to date by Arch Linux. I.K.E. is developed on and for
 KDE Plasma (CachyOS / Arch Linux) and works on the other Arch-based desktops.
 
-**Version 1.1.2** - see [CHANGELOG.md](CHANGELOG.md).
+**Version 1.1.3** - see [CHANGELOG.md](CHANGELOG.md).
 
 ## Install (Arch Linux, CachyOS)
 
@@ -17,7 +17,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.1.2-2-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.1.3-1-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:
@@ -73,7 +73,8 @@ profiles: `ike-browser --profile NAME`.
   translation through an external service, site permissions.
 - Free choice of search engines (DuckDuckGo by default), suggestions, keywords.
 - New tab page with a clock and, for a city you choose, the weather; tiles of
-  your bookmarks or of the sites you visit most; the trackers and ads blocked
+  your bookmarks or of the sites you visit most (up to 32, sixteen per row on
+  a wide window); the trackers and ads blocked
   this month; your own photo as its background if you like (kept on the
   computer, never uploaded).
 - Toolbar buttons shown, hidden and moved to either side of the address bar
@@ -96,7 +97,12 @@ profiles: `ike-browser --profile NAME`.
 - Other interface themes: five ready-made ones (I.K.E., Night, Paper, Forest,
   High contrast) and your own, with your choice of background, text, accent,
   toolbar and tab colours and of the font family and size.
-- Light interface effects (short fades, a loading mark on tabs) that follow the
+- A modern finish in the theme's own colours: a line under the current tab
+  that glides to the next one, long tab titles that fade out instead of
+  ending in "…", a rounded address field, suggestions with the sites' icons,
+  a zoom sign in the address field.
+- Light interface effects (short fades, a loading mark on tabs, icons and bars
+  that fade in, a speaker that pulses while a tab plays sound) that follow the
   desktop's reduced-motion setting and can be switched off.
 - English, Italian, Spanish, French, German, Portuguese, Chinese (Simplified),
   Japanese, Russian, Ukrainian, Belarusian, Bulgarian, Polish, Czech, Slovak,

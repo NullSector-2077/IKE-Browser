@@ -1,5 +1,48 @@
 # Changelog
 
+## 1.1.3
+
+A more modern finish, one small touch at a time, all in the colours of the
+theme in use (the system's or an interface theme). Light on purpose: nothing
+moves while the browser is still; the moving parts follow "Interface effects"
+and the desktop's "no animations", and without them everything changes at
+once. Each touch can be switched off on its own in `ike/polish.py`.
+
+Tabs:
+- **A line under the current tab** in the accent colour (on the left edge of
+  the row with vertical tabs) that glides to the tab you open.
+- **Long titles fade out** at the edge of the tab instead of ending in "…".
+- A tab's **icon changes with a short fade**: the site's icon arriving, the
+  loading mark leaving.
+- Vertical tabs: the **hover colour comes and goes softly**, and a **new tab
+  fades in** from the left.
+- The **speaker of a tab playing sound pulses** gently, only while it plays.
+
+Address bar and toolbar:
+- The **address field is rounded**, and its edge lights up softly in the
+  accent colour while you type.
+- **Suggestions** have taller rows with the **site's icon** (a magnifier for
+  searches) and fade in.
+- A **zoom sign** appears in the address field when the page is not at its
+  usual zoom; a click on it brings the page back.
+- **Reload and Stop** change into each other with a short fade.
+
+Bars and the rest:
+- The **find bar**, the **repair bar** and the **full-screen notice** fade in.
+- The **tab preview** fades in, and its picture blends from one tab to the
+  next.
+- The **loading line** starts soft and reaches its full colour a little
+  further on.
+- A **finished download** shows a **tick** in its green ring, with a small pop.
+
+New tab page:
+- **More site tiles**: up to 32, **sixteen per row** on a wide window (seven
+  before); they wrap on narrower windows.
+- The page **fades in** and the tiles **lift a little** under the mouse.
+
+Already there, so not added again: the lock in the address field and the
+number of blocked items beside the shield.
+
 ## 1.1.2
 
 - **The "I.K.E. Cyber" theme is gone.** It had problems and the owner chose

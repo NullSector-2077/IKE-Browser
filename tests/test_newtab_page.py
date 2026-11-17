@@ -96,7 +96,7 @@ def steps(ike, qapp, out):
     st.add_bookmark("javascript:window.pwned=2", "Not a site")
     st.add_bookmark("https://wiki.example.net/", "")
     st.add_bookmark('https://evil.example/"><script>window.pwned=3</script>', "Quote")
-    for i in range(12):
+    for i in range(40):
         st.add_bookmark("https://many%d.example/" % i, "Many %d" % i)
     for url, n in (("https://often.example/page", 9), ("https://www.often.example/other", 3),
                    ("https://seldom.example/", 1), ("http://plain.example/x", 5)):
@@ -106,7 +106,10 @@ def steps(ike, qapp, out):
         links: Array.from(document.querySelectorAll('.tile > a:first-child')).map(function (a) { return a.getAttribute('href'); }),
         names: Array.from(document.querySelectorAll('.tile .name')).map(function (n) { return n.textContent; }),
         imgs: document.querySelectorAll('.tile .name img, .tile .name script').length,
-        add: !!document.querySelector('.tile.add')})"""
+        add: !!document.querySelector('.tile.add'),
+        row: (function () { var t = document.querySelectorAll('.tile'); if (!t.length) return 0;
+            var top = t[0].offsetTop, n = 0; t.forEach(function (x) { if (x.offsetTop === top) n++; }); return n; })()})"""
+    ike.windows[0].resize(1800, 1000)        # a wide window, as on a 1440p screen
     yield from load(view, "ike:newtab")
     yield 400
     out["bookmarks"] = json.loads((yield from js(view, read)))
@@ -156,7 +159,8 @@ def steps(ike, qapp, out):
     b = out["bookmarks"]
     assert b["pwned"] == 0 and b["imgs"] == 0
     assert b["links"][:2] == ["https://example.org/a", "https://wiki.example.net/"]
-    assert all(link.startswith("https://") for link in b["links"]) and len(b["links"]) == 8     # never more
+    assert all(link.startswith("https://") for link in b["links"]) and len(b["links"]) == 32    # never more
+    assert b["row"] >= 16                    # a wide window: sixteen tiles side by side
     assert b["names"][0].startswith("First <img") and b["names"][1] == "wiki.example.net"
     assert b["add"] is True
     assert out["after_hide"]["links"][0] == "https://wiki.example.net/" and out["still_bookmarked"] is True

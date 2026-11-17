@@ -286,6 +286,11 @@ behind the window. No existing setting is reset or changes meaning.
 
 - 2026-11-17: 1.1.2 on branch `arch/1.1.2` (Slavic languages, engine
   formats in About, Cyber theme removed); waits for the owner's test.
+- 2026-11-17: 1.1.3 on branch `arch/1.1.3` (from 1.1.2): the modern touches
+  the owner chose from the proposed list (tabs, address bar, bars, new tab
+  page; left out: bouncing buttons, the counting-up counter, the shield
+  panel sliding in) and new-tab tiles sixteen per row, up to 32. Waits for
+  the owner's test on Plasma.
 
 ### Also planned
 

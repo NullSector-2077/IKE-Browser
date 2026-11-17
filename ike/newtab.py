@@ -10,7 +10,7 @@ from urllib.parse import quote, urlsplit
 
 from .i18n import T
 
-TILES = 8                     # how many tiles at most
+TILES = 32                    # how many tiles at most: two rows of 16 on a wide window
 HIDDEN_MAX = 200              # hidden tiles remembered
 
 
@@ -155,7 +155,7 @@ def tiles(config, storage):
         first = [u for u in first if isinstance(u, str)] if isinstance(first, list) else []
         if first:
             # the sites added from the page itself come first, the newest before the others:
-            # with many bookmarks a new tile would otherwise never be among the eight shown
+            # with many bookmarks a new tile would otherwise never be among those shown
             rank = {u: i for i, u in enumerate(first)}
             rows.sort(key=lambda row: rank.get(row[0], len(rank)))
         for url, title, _folder in rows:
