@@ -82,18 +82,25 @@ does not have, and announces H.264 profiles no Windows decoder takes).
 |---|---|---|
 | H.264, graphics driver can decode it | Chromium's `D3D11VideoDecoder` (unchanged; Direct3D 11 video decoding by the driver) | GPU service |
 | H.264 otherwise (no usable driver decoder, software rendering, virtual machine), and video smaller than 360 lines, for which Chromium prefers software | Vivaldi's `WMFVideoDecoder` → `CLSID_CMSH264DecoderMFT` in `msmpeg2vdec.dll` | renderer, inside its sandbox |
-| AAC-LC (runtime-tested); HE-AAC v1/v2 (code path present, runtime test pending) | `MediaFoundationAudioDecoder` → the Windows AAC decoder, found through Media Foundation (`MFTEnumEx`) | GPU service (in Qt WebEngine: the browser process) |
+| AAC-LC (runtime-tested); HE-AAC v1/v2 (pinned AOT 5 / AOT 29 samples added; built-engine playback pending) | `MediaFoundationAudioDecoder` → the Windows AAC decoder, found through Media Foundation (`MFTEnumEx`) | GPU service (in Qt WebEngine: the browser process) |
 | VP8, VP9, AV1, Opus, Vorbis, FLAC, MP3 | as before: libvpx, dav1d, FFmpeg's free codecs | renderer |
 
 Chromium's own demuxers stay: FFmpeg's MP4 demuxer for files, Chromium's
 `MP4StreamParser` for Media Source.
 
-**HE-AAC verification status:** the current CI confirms AAC-LC decoding. The
-optional HE-AAC fixture is generated only when the runner's FFmpeg has
-`libfdk_aac`; the hosted Windows runners used so far do not, so the HE-AAC
-clip is skipped. The integration code is intended to pass AAC profiles to
-Media Foundation, but HE-AAC v1/v2 playback must not be described as verified
-until a real HE-AAC sample is added and decoded in the Qt WebEngine test. `FFmpegVideoDecoder` is still in the
+**HE-AAC fixture and verification status:** the Windows test now uses two
+pinned reference files from the [Fraunhofer AAC stereo tests](https://www2.iis.fraunhofer.de/AAC/stereo.html):
+HE-AAC v1 (AOT 5, 234,051 bytes, SHA-256
+`ede70e3b2f7e364aeb0eb3854b7d9a5877be99a499dcebe22ac5a7349d68747c`) and
+HE-AAC v2 (AOT 29, 241,061 bytes, SHA-256
+`d021b3dfbfb7ad42eacdad9c3391b5268603d6f1c6bcf171e57292ff1ada06fb`).
+The clip builder downloads each over HTTPS and checks its exact size, SHA-256,
+MP4 signature, AAC profile, stereo layout, 44.1 kHz sample rate and
+AudioSpecificConfig with FFprobe. Playback tests for both are mandatory and
+count as decoded only when the media element reports audio bytes. This removes
+the previous dependency on the runner exposing `libfdk_aac`; it does **not**
+yet prove the built engine decodes either profile. Keep HE-AAC v1/v2 marked
+unverified until the Windows Qt WebEngine playback run passes both cases. `FFmpegVideoDecoder` is still in the
 decoder list in front of `WMFVideoDecoder` and fails for H.264 because FFmpeg
 has no H.264 decoder — the same order as in Vivaldi.
 
