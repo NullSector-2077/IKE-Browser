@@ -2,13 +2,13 @@
 
 import os
 
-from PyQt6.QtCore import QEvent, Qt, QTimer, QUrl
+from PyQt6.QtCore import QCoreApplication, QEvent, Qt, QTimer, QUrl
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QComboBox, QDialog, QDialogButtonBox, QLabel, QMessageBox, QVBoxLayout
 
-from .config import RES_DIR, rank
+from .config import rank
 from .i18n import T
 
 _A = QWebEngineSettings.WebAttribute
@@ -26,7 +26,6 @@ _COSMETIC_JS = """(function(css){
  add();
 })(%s);"""
 
-_DARK_SRC = None
 
 _COLLECT_JS = """(function(){
  var c=new Set(), i=new Set(), n=document.querySelectorAll('[class],[id]');
@@ -64,6 +63,11 @@ def permission_text(ptype):
     return names.get(ptype, T("use a protected feature"))
 
 
+# reader mode reports the reader settings chosen on the page with this console prefix
+# (with a token of the session: a site cannot change them)
+READER_PREFIX = "\u0001ike-reader:%s:" % __import__("secrets").token_hex(8)
+
+
 class WebPage(QWebEnginePage):
     def __init__(self, profile, window, parent=None):
         super().__init__(profile, parent)
@@ -77,6 +81,7 @@ class WebPage(QWebEnginePage):
         self.fullScreenRequested.connect(self._fullscreen)
         self.urlChanged.connect(self._inject_cosmetics)
         self.loadFinished.connect(self._load_finished)
+        self.loadingChanged.connect(self._loading_changed)
         try:
             self.desktopMediaRequested.connect(self._desktop_media)
         except AttributeError:
@@ -113,6 +118,8 @@ class WebPage(QWebEnginePage):
             sh = self.app.shields
             st = self.settings()
             st.setAttribute(_A.JavascriptEnabled, sh.scripts_allowed(host))
+            # video and audio that start by themselves: as the user chose, for all sites or this one
+            st.setAttribute(_A.PlaybackRequiresUserGesture, sh.autoplay_blocked(host))
             self._reset_scripts()
             self._set_dark(url, host)
             self._set_scriptlets(url, host)
@@ -168,10 +175,35 @@ class WebPage(QWebEnginePage):
                 scripts.remove(old)
         self._ike_scripts = []
 
+    def _reader_prefs(self, text):
+        """Light, sepia or dark and the text size chosen in reader mode (reader.js)."""
+        import json
+        try:
+            d = json.loads(text)
+            theme, size = d["theme"], int(d["size"])
+        except (ValueError, KeyError, TypeError):
+            return
+        if theme not in ("auto", "light", "sepia", "dark") or not 14 <= size <= 28:
+            return
+        cfg = self.app.config
+        if (cfg["reader_theme"], cfg["reader_size"]) != (theme, size):
+            cfg["reader_theme"], cfg["reader_size"] = theme, size
+            cfg.save()
+
+    def _loading_changed(self, info):
+        """A site that cannot be reached: I.K.E.'s own error page (errorpage.py)."""
+        from . import errorpage
+        try:
+            if not errorpage.wanted(info):
+                return
+            from PyQt6.QtWidgets import QApplication
+            self.error_info = (info.errorCode(), info.url().toString())
+            self.runJavaScript(errorpage.script(info, QApplication.palette()), 1)
+        except RuntimeError:
+            pass
+
     def _set_dark(self, url, host):
         """Apply the selected dark renderer to this page, respecting site overrides."""
-        import json
-
         from PyQt6.QtGui import QColor
         cfg = self.app.config
         page_url = url.scheme() in ("http", "https", "file")
@@ -191,15 +223,16 @@ class WebPage(QWebEnginePage):
             self.setBackgroundColor(QColor("#181a1b") if reader_on else QColor(Qt.GlobalColor.white))
         self._dark_on = on
         self._dark_engine = engine
-        if not reader_on:
+        # Dark Reader: scripts of the profile (darkpages.py), as the extension does it
+        from . import darkpages
+        profile = self.profile()
+        if engine != "reader" or not (cfg["dark_mode"] == "on" or cfg["dark_sites"]):
+            darkpages.forget(profile)
+        if not page_url:
             return
-        global _DARK_SRC
-        if _DARK_SRC is None:
-            _DARK_SRC = ((RES_DIR / "darkmode.js").read_text("utf-8")
-                         .replace("__IKE_DR_LIB__", (RES_DIR / "darkreader.js").read_text("utf-8")))
         theme = dict(cfg["dark_theme"]) if isinstance(cfg["dark_theme"], dict) else {}
-        self._add_script("ike-dark", _DARK_SRC.replace("__IKE_DR_CFG__", json.dumps({"theme": theme})),
-                         False)
+        darkpages.prepare(profile, url.toString(), host or url.scheme() + ":", theme, reader_on,
+                          self.app.shields.dark_chosen(host))
 
     def _set_scriptlets(self, url, host):
         """Install the list-provided scriptlets for the page about to load.
@@ -274,6 +307,9 @@ class WebPage(QWebEnginePage):
 
     def javaScriptConsoleMessage(self, level, message, line, source):
         from .userscripts import PREFIX
+        if message.startswith(READER_PREFIX):
+            self._reader_prefs(message[len(READER_PREFIX):])
+            return
         if message.startswith(PREFIX):
             self.app.userscripts.receive(self, message)
             return
@@ -494,7 +530,80 @@ class WebView(QWebEngineView):
             fp.installEventFilter(self)
             self._watched = fp
 
+    # --- Ctrl + wheel and mouse gestures, on the page itself -----------
+    GESTURE_STEP = 30            # pixels of a stroke
+    GESTURES = {"L": "back", "R": "forward", "U": "reload", "DR": "close"}
+
+    def _wheel(self, event):
+        """Ctrl + wheel: the zoom steps of the View menu, remembered for the site."""
+        if not (event.modifiers() & Qt.KeyboardModifier.ControlModifier):
+            return False
+        self._wheel_sum = getattr(self, "_wheel_sum", 0) + event.angleDelta().y()
+        while abs(self._wheel_sum) >= 120:
+            step = 1 if self._wheel_sum > 0 else -1
+            self._wheel_sum -= 120 * step
+            self.window_ref.zoom(step, self)
+        return True
+
+    def _gesture(self, obj, event):
+        """Right button held and dragged: a gesture; a right click alone still opens the menu."""
+        t = event.type()
+        right = Qt.MouseButton.RightButton
+        if getattr(self, "_replaying", False):
+            return False
+        if t == QEvent.Type.MouseButtonPress and event.button() == right:
+            p = event.position()
+            self._stroke = {"anchor": p, "start": p, "global": event.globalPosition(), "dirs": ""}
+            return True
+        stroke = getattr(self, "_stroke", None)
+        if stroke is None:
+            return False
+        if t == QEvent.Type.MouseMove:
+            p = event.position()
+            dx, dy = p.x() - stroke["anchor"].x(), p.y() - stroke["anchor"].y()
+            if max(abs(dx), abs(dy)) >= self.GESTURE_STEP:
+                d = ("R" if dx > 0 else "L") if abs(dx) > abs(dy) else ("D" if dy > 0 else "U")
+                if not stroke["dirs"].endswith(d):
+                    stroke["dirs"] += d
+                stroke["anchor"] = p
+            return True
+        if t == QEvent.Type.MouseButtonRelease and event.button() == right:
+            self._stroke = None
+            if stroke["dirs"]:
+                self._do_gesture(stroke["dirs"])
+                return True
+            # no stroke: the press goes to the page after all, and the menu opens as always
+            from PyQt6.QtGui import QMouseEvent
+            self._replaying = True
+            try:
+                for kind, buttons in ((QEvent.Type.MouseButtonPress, right), (QEvent.Type.MouseButtonRelease,
+                                                                              Qt.MouseButton.NoButton)):
+                    QCoreApplication.sendEvent(obj, QMouseEvent(kind, stroke["start"], stroke["global"], right,
+                                                                buttons, event.modifiers()))
+            finally:
+                self._replaying = False
+            return True
+        return False
+
+    def _do_gesture(self, dirs):
+        action = self.GESTURES.get(dirs)
+        self.last_gesture = action or ""
+        if action == "back":
+            self.back()
+        elif action == "forward":
+            self.forward()
+        elif action == "reload":
+            self.reload()
+        elif action == "close":
+            QTimer.singleShot(0, lambda: self.window_ref.close_tab(self))
+
     def eventFilter(self, obj, event):
+        t = event.type()
+        if t == QEvent.Type.Wheel and self._wheel(event):
+            return True
+        if (t in (QEvent.Type.MouseButtonPress, QEvent.Type.MouseMove, QEvent.Type.MouseButtonRelease)
+                and self.window_ref.app.config["mouse_gestures"] and self._gesture(obj, event)):
+            return True
         if event.type() == QEvent.Type.KeyPress:
             mods = event.modifiers() & ~Qt.KeyboardModifier.KeypadModifier
             key = event.key()

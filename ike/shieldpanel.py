@@ -4,7 +4,17 @@
 from PyQt6.QtCore import QPointF, QRect, QRectF, QSize, Qt, QTimer
 from PyQt6.QtGui import QColor, QIcon, QIconEngine, QPainter, QPainterPath, QPixmap
 from PyQt6.QtWebEngineCore import QWebEnginePage
-from PyQt6.QtWidgets import QCheckBox, QComboBox, QFrame, QLabel, QPushButton, QToolButton, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from . import APP_NAME
 from .config import LEVEL_NAMES, LEVELS, rank
@@ -208,13 +218,18 @@ class ShieldPanel(QWidget):
         settings = QPushButton(T("Protection settings…"), self)
         sep = QFrame(self)
         sep.setFrameShape(QFrame.Shape.HLine)
-        lay.addWidget(self.title)
+        # the site's icon beside its name (polish.py)
+        self.site_icon = QLabel(self)
+        head = QHBoxLayout()
+        head.setSpacing(8)
+        head.addWidget(self.site_icon)
+        head.addWidget(self.title, 1)
+        lay.addLayout(head)
         lay.addWidget(self.master)
         lay.addWidget(self.count)
         lay.addWidget(self.count_label)
-        from .cyber import KindRing
-        self.kinds = KindRing(self)          # the Cyber theme: what was blocked, by kind
-        self.kinds.hide()
+        from .polish import BlockBars
+        self.kinds = BlockBars(self)             # what was blocked here, by kind (polish.py)
         lay.addWidget(self.kinds)
         lay.addWidget(QLabel(T("Protection on this site"), self))
         lay.addWidget(self.site_level)
@@ -266,16 +281,18 @@ class ShieldPanel(QWidget):
         level = cfg.level_for(host) if web else cfg["shield_level"]
         on = level != "off"
         self.title.setText(host or APP_NAME)
+        from . import polish
+        v = self.win.current_view()
+        show = polish.part("panel_icons") and web and v is not None
+        if show:
+            self.site_icon.setPixmap(self.win.site_icon(v.url().toString()).pixmap(18, 18))
+        self.site_icon.setVisible(show)
         self.master.setChecked(on)
         self.master.setIcon(shield_icon(level, 22))
         self.master.setText(T("Protection is ON for this site") if on
                             else T("Protection is OFF for this site"))
         st = sh.site_stats(host)
         self.count.setText(str(st["ads"] + st["scripts"]))
-        from . import cyber
-        self.kinds.show_stats(cyber.look(cfg), st, {
-            "ads": T("ads and trackers"), "scripts": T("scripts"), "cookies": T("cookies"),
-            "https": T("upgrades to HTTPS"), "params": T("tracking parameters")})
         self.site_level.setCurrentIndex(LEVELS.index(level))
         self.global_level.setCurrentIndex(LEVELS.index(cfg["shield_level"]))
         self.hint.setText(T(self.HINTS[level]))
@@ -292,6 +309,7 @@ class ShieldPanel(QWidget):
                 (T("Cross-site cookies refused"), st["cookies"]),
                 (T("Upgrades to HTTPS"), st["https"]),
                 (T("Tracking parameters removed"), st["params"]))
+        self.kinds.show_stats(rows if web else [])
         self.detail.setText("<table>%s</table>" % "".join(
             "<tr><td>%s&nbsp;&nbsp;&nbsp;</td><td align='right'><b>%d</b></td></tr>" % r
             for r in rows))

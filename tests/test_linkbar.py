@@ -121,12 +121,12 @@ def steps(ike, qapp, out):
         move(v, 55, 80)
         yield 300
         win.grab().save(os.path.join(os.environ["IKE_TEST_SHOTS"], "hover-no-linkbar.png"))
-    # the status bar still does its own job: zoom
+    # the zoom is told in a pill over the page (1.1.7)
     win.zoom(1)
     yield 150
-    out["zoom"] = [win.statusBar().isVisible(), win.statusBar().currentMessage()]
+    out["zoom"] = [win.toast_pill.isVisible(), win.toast_pill.text]
     yield 1900
-    out["zoom_gone"] = [win.statusBar().isVisible(), win.statusBar().currentMessage()]
+    out["zoom_gone"] = [win.toast_pill.isVisible(), win.statusBar().isVisible()]
     win.zoom(0)
     yield 1900
     # links still open
@@ -152,5 +152,5 @@ def test_hovering_links_shows_no_bar_and_moves_nothing(run_ike, site):
     sizes, inner, mark = json.loads(out["page"])
     assert sizes == [] and abs(mark - inner) < 0.5, out["page"]
     assert out["zoom"][0] is True and out["zoom"][1].startswith("Zoom")
-    assert out["zoom_gone"] == [False, ""]
+    assert out["zoom_gone"] == [False, False]
     assert out["opened"][0].startswith("/item/") and out["opened"][1].startswith("target")

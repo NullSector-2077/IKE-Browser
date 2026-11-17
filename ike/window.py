@@ -5,7 +5,7 @@ import re
 import time
 
 from PyQt6.QtCore import QEvent, QPoint, QSize, Qt, QTimer, QUrl
-from PyQt6.QtGui import QAction, QActionGroup, QIcon, QKeySequence
+from PyQt6.QtGui import QAction, QActionGroup, QGuiApplication, QIcon, QKeySequence
 from PyQt6.QtWebEngineCore import QWebEnginePage
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -15,7 +15,6 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QListWidget,
     QListWidgetItem,
     QMainWindow,
     QMenu,
@@ -25,7 +24,6 @@ from PyQt6.QtWidgets import (
     QSplitter,
     QStackedWidget,
     QStyle,
-    QTabBar,
     QToolBar,
     QToolButton,
     QVBoxLayout,
@@ -33,12 +31,12 @@ from PyQt6.QtWidgets import (
     QWidgetAction,
 )
 
-from . import APP_LONG_NAME, APP_NAME, __version__, effects
+from . import APP_LONG_NAME, APP_NAME, __version__, effects, polish
 from .config import LEVEL_NAMES, LEVELS
 from .features import WindowFeatures, tab_icon
 from .i18n import T
 from .shieldpanel import TOOLBAR_SHIELD_GROW, ShieldPanel, shield_icon
-from .tabs import AUDIO_ROLE, VTabDelegate
+from .tabs import AUDIO_ROLE, TabBar, VTabDelegate, VTabList
 from .urlbar import _URLISH, UrlBar
 from .webview import WebView
 
@@ -62,9 +60,17 @@ class FindBar(QWidget):
         prev = QToolButton(self)
         prev.setIcon(icon("go-up", QStyle.StandardPixmap.SP_ArrowUp))
         prev.setAutoRaise(True)
+        prev.setToolTip(T("Previous match (Shift+Enter)"))
         nxt = QToolButton(self)
         nxt.setIcon(icon("go-down", QStyle.StandardPixmap.SP_ArrowDown))
         nxt.setAutoRaise(True)
+        nxt.setToolTip(T("Next match (Enter)"))
+        if polish.part("find_pill"):
+            # the number of matches in a small pill, in the theme's colours
+            self.info.setObjectName("ikeFindCount")
+            self.info.setStyleSheet("#ikeFindCount { padding: 1px 9px; border-radius: 9px;"
+                                    " background: palette(midlight); color: palette(window-text); }")
+            self.info.hide()
         self.case = QCheckBox(T("Match case"), self)
         close = QToolButton(self)
         close.setIcon(icon("window-close", QStyle.StandardPixmap.SP_TitleBarCloseButton))
@@ -74,13 +80,17 @@ class FindBar(QWidget):
         lay.addStretch(1)
         lay.addWidget(close)
         self.edit.textChanged.connect(lambda _t: self.find())
-        self.edit.returnPressed.connect(self.find)
+        # Enter: the next match; Shift+Enter: the previous one
+        self.edit.returnPressed.connect(lambda: self.find(back=bool(
+            QGuiApplication.keyboardModifiers() & Qt.KeyboardModifier.ShiftModifier)))
         nxt.clicked.connect(self.find)
         prev.clicked.connect(lambda: self.find(back=True))
         close.clicked.connect(self.close_bar)
         self.hide()
 
     def open_bar(self):
+        if not self.isVisible():
+            polish.fade_child(self, self.win.app.config)
         self.show()
         self.edit.setFocus()
         self.edit.selectAll()
@@ -104,8 +114,27 @@ class FindBar(QWidget):
 
         def result(res):
             n = res.numberOfMatches()
-            self.info.setText("%d / %d" % (res.activeMatch(), n) if self.edit.text() else "")
+            text = self.edit.text()
+            if polish.part("find_pill"):
+                self.info.setText(T("%d of %d") % (res.activeMatch(), n) if text else "")
+                self.info.setVisible(bool(text))
+                self._nothing(bool(text) and n == 0)
+            else:
+                self.info.setText("%d / %d" % (res.activeMatch(), n) if text else "")
         v.page().findText(self.edit.text(), flags, result)
+
+    def _nothing(self, nothing):
+        """No match: the field is tinted red, softly, as in other browsers."""
+        from PyQt6.QtGui import QColor, QPalette
+        if nothing == getattr(self, "_tinted", False):
+            return
+        self._tinted = nothing
+        pal = QPalette(self.palette())
+        if nothing:
+            base = pal.color(QPalette.ColorRole.Base)
+            pal.setColor(QPalette.ColorRole.Base, effects.blend(base, QColor("#e5484d"), 0.22))
+        self.edit.setPalette(pal)
+        self.edit.setProperty("nothing_found", nothing)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
@@ -243,12 +272,11 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     # ------------------------------------------------------------------
     def _build_central(self):
         self.stack = QStackedWidget(self)
-        self.tabbar = QTabBar(self)
+        self.tabbar = TabBar(self, self.app.config)
         self.tabbar.setTabsClosable(True)
         self.tabbar.setMovable(True)
         self.tabbar.setExpanding(False)
         self.tabbar.setDocumentMode(True)
-        self.tabbar.setElideMode(Qt.TextElideMode.ElideRight)
         self.tabbar.setUsesScrollButtons(True)
         self.tabbar.setIconSize(QSize(16, 16))
         self.tabbar.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -273,7 +301,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         plus.clicked.connect(lambda: self.add_tab())
         row.addWidget(plus)
 
-        self.vtabs = QListWidget(self)
+        self.vtabs = VTabList(self, self.app.config)
         self.vtabs.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         self.vtabs.setIconSize(QSize(16, 16))
         self.vtabs.setFrameShape(QFrame.Shape.NoFrame)
@@ -335,6 +363,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         rl.addWidget(self.content, 1)
         rl.addWidget(self.findbar)
         from .loadingline import LoadingLine
+        self.chrome_edge = polish.ChromeEdge(self.content)       # a thin line between the bars and the page
+        self.toast_pill = polish.Toast(self.content, self.app.config)  # short messages over the page
         self.loading_line = LoadingLine(self.content)
         self.loading_line.config = self.app.config
 
@@ -372,7 +402,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         tb = QToolBar(T("Navigation"), self)
         tb.setObjectName("nav")
         tb.setMovable(False)
-        tb.setIconSize(QSize(20, 20))
+        tb.setIconSize(QSize(24, 24))         # a little larger than Qt's usual 22: easier to see (1.1.6)
         tb.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         tb.customContextMenuRequested.connect(self._toolbar_menu)
         self.addToolBar(tb)
@@ -403,6 +433,16 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.urlbar = UrlBar(self)
         self.urlbar.returnPressed.connect(lambda: self.navigate(self.urlbar.text()))
         self.urlbar_act = tb.addWidget(self.urlbar)
+        # the lock opens the site information panel (siteinfo.py)
+        from .siteinfo import SiteInfoPanel
+        self.site_info_menu = QMenu(self)
+        self.site_info = SiteInfoPanel(self)
+        wa_info = QWidgetAction(self.site_info_menu)
+        wa_info.setDefaultWidget(self.site_info)
+        self.site_info_menu.addAction(wa_info)
+        self.site_info_menu.aboutToShow.connect(self.site_info.refresh)
+        effects.fading(self.site_info_menu, self.app.config)
+        self.urlbar.lock.triggered.connect(self.show_site_info)
 
         # Shield: protection level selector, right of the address bar.
         self.shield_btn = QToolButton(self)
@@ -419,6 +459,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         effects.fading(self.shield_menu, self.app.config)
         self.shield_btn.setMenu(self.shield_menu)
         self.shield_act = tb.addWidget(self.shield_btn)
+        # a ring opens once around the shield when it blocks something (polish.py)
+        self.shield_pulse = polish.ShieldPulse(self.shield_btn, self.app.config)
+        self.shield_count = polish.ShieldCount(self.shield_btn, self.app.config)   # "+N" when it grows
 
         self.store_btn = QToolButton(self)
         self.store_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
@@ -430,9 +473,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.store_act.setVisible(False)
         self.space_right_act = tb.addWidget(self._nav_spacers[1])
         A = self._action
-        self.act_tb_translate = A(T("Translate page"), self.translate_page, None,
-                                  icon(("translate", "crow-translate-tray", "preferences-desktop-locale")),
-                                  T("Translate this page through an external web service"))
+        # "Bookmark this page" on the toolbar; "Translate page" is in the address bar (1.1.6)
+        self.act_tb_bookmark = A(T("Bookmark this page"), self.toggle_bookmark, None, "bookmark-new",
+                                 T("Add or remove this page from bookmarks"))
         self.act_tb_reader = A(T("Reader mode"), self.toggle_reader, None,
                                icon(("view-readermode", "document-preview")),
                                T("Show only the text of the article"))
@@ -458,7 +501,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                           icon("download", SP.SP_ArrowDown),
                                           T("Show downloaded files"))
         self._dl_icon = self.act_downloads.icon()
-        for a in (self.act_tb_translate, self.act_tb_reader, self.act_tb_shot, self.act_tb_pip,
+        for a in (self.act_tb_bookmark, self.act_tb_reader, self.act_tb_shot, self.act_tb_pip,
                   self.act_tb_split, self.act_dark, self.act_tb_private, self.act_tb_clean,
                   self.act_downloads):
             tb.addAction(a)
@@ -499,10 +542,11 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.more_act = tb.addWidget(self.more_btn)
         self.more_act.setVisible(False)
         self._build_window_buttons(tb)
+        self._update_max_button()
         right = self._win_btns[0]
         self._nav_items = [("shield", self.shield_act, right),
                            ("reload", self.act_reload, right),
-                           ("translate", self.act_tb_translate, right),
+                           ("bookmark", self.act_tb_bookmark, right),
                            ("reader", self.act_tb_reader, right),
                            ("screenshot", self.act_tb_shot, right),
                            ("pip", self.act_tb_pip, right),
@@ -675,6 +719,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
 
         # --- Tools
         m_tools = mb.addMenu(T("&Tools"))
+        self.act_command_bar = A(T("Command bar…"), self.open_command_bar, "F2", "system-search",
+                                 T("Commands, open tabs, bookmarks, history and settings in one search"))
+        m_tools.addAction(self.act_command_bar)
         m_tools.addAction(self.act_downloads)
         m_tools.addAction(A(T("Components and extensions"), lambda: self.open_settings("components"),
                             "Ctrl+Shift+A", "plugins",
@@ -919,6 +966,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             return                       # keep the icon the tab had when it went to sleep
         # detach from the engine: a plain pixmap copy stays valid whatever the page does
         view.last_icon = QIcon(ic.pixmap(32, 32)) if not ic.isNull() else QIcon()
+        if not getattr(view, "loading_marked", False):
+            view._icon_fade_from = getattr(view, "shown_icon", None)
         self._tab_changed(view)
         if not self.private and not ic.isNull() and view.url().scheme() in ("http", "https"):
             self.app.favicons.store(view.url().toString(), ic)
@@ -1041,19 +1090,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         ic = view.tab_icon = tab_icon(ic, g["color"] if g else None, self.app.container_color(view.container))
         if getattr(view, "loading_marked", False):
             ic = effects.loading_icon(ic, getattr(self, "_spin_angle", 45), self.tabbar.palette())
-        look = getattr(self, "_cyber", None)
-        if look and prefix == "🔊 ":
-            # the Cyber theme: a small equaliser on the tab instead of the loudspeaker sign
-            from . import cyber
-            eq = self._equaliser
-            ic = cyber.audio_icon(ic, eq.phase, look["look"].accent, effects.on(self.app.config))
-            eq.wake()
-            h_prefix = ""
-        else:
-            h_prefix = prefix
-        self.tabbar.setTabText(i, h_prefix + (title if len(title) < 28 else title[:27] + "…"))
+        # a long title fades out at the edge of the tab (tabs.TabBar.set_title)
+        self.tabbar.set_title(i, prefix + title)
         self.tabbar.setTabToolTip(i, tip)
-        self.tabbar.setTabIcon(i, ic)
+        view.audible = prefix == "🔊 "
         item = self.vtabs.item(i)
         if item:
             # sound is shown by the speaker button of the row, not in the title
@@ -1061,9 +1101,59 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             item.setText(title if audio else prefix + title)
             item.setData(AUDIO_ROLE, audio)
             item.setToolTip(tip)
-            item.setIcon(ic)
+        # a new icon (the site's, or the end of the loading mark) comes in with a short fade
+        old = getattr(view, "_icon_fade_from", None)
+        view._icon_fade_from = None
+        polish.fade_icon(self, id(view), old, ic, self.app.config, lambda icon, v=view: self._show_tab_icon(v, icon))
+        self._audio_check()
         if view is self.current_view():
             self._update_title()
+
+    def _show_tab_icon(self, view, ic):
+        """Put ic on the tab of view, in both tab bars."""
+        if view not in self.views:
+            return
+        i = self.views.index(view)
+        view.shown_icon = ic
+        self.tabbar.setTabIcon(i, ic)
+        item = self.vtabs.item(i)
+        if item:
+            item.setIcon(ic)
+
+    def _audio_check(self):
+        """The speaker of a tab playing sound pulses gently, only while some tab plays."""
+        timer = getattr(self, "_audio_timer", None)
+        wanted = (any(getattr(v, "audible", False) for v in self.views)
+                  and polish.moving(self.app.config, "audio_pulse"))
+        if wanted:
+            if timer is None:
+                timer = self._audio_timer = QTimer(self)
+                timer.timeout.connect(self._audio_tick)
+            if not timer.isActive():
+                timer.start(polish.AUDIO_TICK)
+            return
+        if timer is not None and timer.isActive():
+            timer.stop()
+        if self.tabbar.label_style.audio_phase is not None:
+            self.tabbar.label_style.audio_phase = None
+            self.vtabs.itemDelegate().audio_phase = None
+            self.tabbar.update()
+            self.vtabs.viewport().update()
+
+    def _audio_tick(self):
+        if not self.isVisible() or not polish.moving(self.app.config, "audio_pulse"):
+            self._audio_check()
+            return
+        phase = (time.monotonic() % polish.AUDIO_PERIOD) / polish.AUDIO_PERIOD
+        self.tabbar.label_style.audio_phase = phase
+        delegate = self.vtabs.itemDelegate()
+        delegate.audio_phase = phase
+        for i, v in enumerate(self.views):
+            if getattr(v, "audible", False):
+                self.tabbar.update(self.tabbar.tabRect(i))
+                item = self.vtabs.item(i)
+                if item is not None:
+                    self.vtabs.viewport().update(self.vtabs.visualItemRect(item))
 
     def close_tab(self, view):
         if view is None:
@@ -1185,8 +1275,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if t == QEvent.Type.MouseMove and prev.index == i:
             return False
         tip = self.tabbar.tabToolTip(i) or view.title()
-        from . import cyber
-        cyber.style_preview(prev, self.app.config)
         prev.show_for(i, pm, tip, obj.mapToGlobal(pos))
         return t == QEvent.Type.ToolTip
 
@@ -1300,6 +1388,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         label.kind = kind
         label.adjustSize()
         self._place_notice()
+        if not label.isVisible():
+            polish.fade_child(label, self.app.config)
         label.show()
         label.raise_()
         QTimer.singleShot(150, self._place_notice)      # after the window went full screen
@@ -1348,8 +1438,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         dev.destroyed.connect(lambda _o=None, d=dev: self._devtools.remove(d)
                               if d in self._devtools else None)
 
-    def zoom(self, direction):
-        v = self.current_view()
+    def zoom(self, direction, view=None):
+        """direction +1 / -1: one step; 0: the usual zoom. The choice is kept for
+        the site (not in a private window): its pages open at that zoom again."""
+        v = view or self.current_view()
         if not v:
             return
         steps = [0.3, 0.5, 0.67, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 4.0]
@@ -1360,9 +1452,74 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             cands = [s for s in steps if (s > cur + 0.01 if direction > 0 else s < cur - 0.01)]
             if cands:
                 v.setZoomFactor(cands[0] if direction > 0 else cands[-1])
-        self.statusBar().showMessage(T("Zoom: %d%%") % round(v.zoomFactor() * 100), 1500)
+        self._remember_zoom(v)
+        self._zoom_sign()
+        self.toast(T("Zoom: %d%%") % round(v.zoomFactor() * 100), 1500)
+
+    def toast(self, text, ms=1800):
+        """A short message for the user: in a pill over the page (polish.py), or the status bar."""
+        if polish.part("toasts"):
+            self.toast_pill.show_text(text, ms)
+            return
+        self.statusBar().showMessage(text, ms)
         self.statusBar().show()
-        QTimer.singleShot(1600, self._hide_status)
+        QTimer.singleShot(ms + 100, self._hide_status)
+
+    def open_command_bar(self):
+        from . import palette
+        return palette.open_bar(self)
+
+    def show_site_info(self):
+        """The panel of the site in the current tab, under the lock."""
+        v = self.current_view()
+        if not v or v.url().scheme() not in ("http", "https"):
+            return
+        self.site_info_menu.popup(self.urlbar.mapToGlobal(self.urlbar.rect().bottomLeft()))
+
+    def _remember_zoom(self, view):
+        cfg = self.app.config
+        url = view.url()
+        host = url.host().lower()
+        if self.private or not host or url.scheme() not in ("http", "https"):
+            return
+        sites = cfg["site_zoom"] if isinstance(cfg["site_zoom"], dict) else {}
+        factor = view.zoomFactor()
+        if abs(factor - cfg["default_zoom"]) < 0.005:
+            sites.pop(host, None)
+        else:
+            sites[host] = round(factor, 3)
+        cfg["site_zoom"] = sites
+        cfg.save()
+
+    def _site_zoom(self, view):
+        """A page of another site: the zoom chosen for that site, or the usual one."""
+        host = view.url().host().lower()
+        if host == getattr(view, "_zoom_host", None):
+            return
+        view._zoom_host = host
+        cfg = self.app.config
+        sites = cfg["site_zoom"] if isinstance(cfg["site_zoom"], dict) else {}
+        want = sites.get(host, cfg["default_zoom"]) if host else cfg["default_zoom"]
+        try:
+            want = min(5.0, max(0.25, float(want)))
+        except (TypeError, ValueError):
+            want = cfg["default_zoom"]
+        if abs(view.zoomFactor() - want) > 0.001:
+            view.setZoomFactor(want)
+
+    def _zoom_sign(self):
+        """The sign in the address field while the page is not at its usual zoom."""
+        v = self.current_view()
+        usual = self.app.config["default_zoom"]
+        factor = v.zoomFactor() if v else usual
+        away = polish.part("zoom_mark") and abs(factor - usual) > 0.005
+        act = self.urlbar.zoom_act
+        if away:
+            SP = QStyle.StandardPixmap
+            act.setIcon(icon("zoom-in" if factor > usual else "zoom-out",
+                             SP.SP_ArrowUp if factor > usual else SP.SP_ArrowDown))
+            act.setToolTip("%s\n%s (Ctrl+0)" % (T("Zoom: %d%%") % round(factor * 100), T("Actual size")))
+        act.setVisible(away)
 
     def toggle_mute(self, view=None):
         v = view if isinstance(view, WebView) else self.current_view()
@@ -1418,12 +1575,13 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_fwd.setEnabled(bool(h and h.canGoForward()))
         loading = bool(v and getattr(v, "loading", False))
         SP = QStyle.StandardPixmap
-        if loading:
-            self.act_reload.setIcon(icon("process-stop", SP.SP_BrowserStop))
-            self.act_reload.setText(T("Stop"))
-        else:
-            self.act_reload.setIcon(icon("view-refresh", SP.SP_BrowserReload))
-            self.act_reload.setText(T("Reload"))
+        new = icon("process-stop", SP.SP_BrowserStop) if loading else icon("view-refresh", SP.SP_BrowserReload)
+        self.act_reload.setText(T("Stop") if loading else T("Reload"))
+        changed = getattr(self, "_reload_shows_stop", None) not in (None, loading)
+        self._reload_shows_stop = loading
+        # Reload and Stop change with a short fade; otherwise the icon is simply set again
+        polish.fade_icon(self, "reload", self.act_reload.icon() if changed else None, new, self.app.config,
+                         self.act_reload.setIcon, ms=140, name="reload_fade")
 
     def sync_urlbar(self):
         v = self.current_view()
@@ -1448,12 +1606,15 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         from .extensions import store_id
         self.store_act.setVisible(bool(store_id(url.toString()))
                                   and bool(self.app.config["experimental_extensions"]))
+        self._zoom_sign()
         marked = bool(v) and self.app.storage.is_bookmarked(url.toString())
-        self.urlbar.star.setIcon(icon("bookmarks" if marked else "bookmark-new",
-                                      SP.SP_DialogApplyButton if marked else SP.SP_DialogOpenButton))
-        self.urlbar.star.setToolTip(T("Remove bookmark") if marked else T("Bookmark this page"))
+        self.act_tb_bookmark.setIcon(icon("bookmarks" if marked else "bookmark-new",
+                                          SP.SP_DialogApplyButton if marked else SP.SP_DialogOpenButton))
+        self.act_tb_bookmark.setToolTip(T("Remove bookmark") if marked else T("Bookmark this page"))
+        self.urlbar.translate_act.setVisible(scheme in ("http", "https"))
 
     def _url_changed(self, view):
+        self._site_zoom(view)
         if view is self.current_view():
             self._update_bookbar()
             self.urlbar.setModified(False)
@@ -1488,6 +1649,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 timer.start(effects.SPIN_MS if effects.on(self.app.config) else 250)
         elif getattr(view, "loading_marked", False):
             view.loading_marked = False
+            view._icon_fade_from = getattr(view, "shown_icon", None)     # the mark fades into the icon
             self._tab_changed(view)
 
     def _spin_step(self):
@@ -1514,10 +1676,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             if base is None:
                 continue
             ic = effects.loading_icon(base, self._spin_angle, self.tabbar.palette())
-            self.tabbar.setTabIcon(i, ic)
-            item = self.vtabs.item(i)
-            if item:
-                item.setIcon(ic)
+            self._show_tab_icon(view, ic)
         if not again:
             self._spin.stop()
 
@@ -1544,9 +1703,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     def _blocked(self, host):
         if host == self.current_host():
             self.update_shield()
-            look = getattr(self, "_cyber", None)
-            if look:
-                look["pulse"].fire()         # the Cyber theme: the shield pulses once
+            self.shield_pulse.fire()
 
     def update_shield(self):
         host = self.current_host()
@@ -1555,6 +1712,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         n = self.app.shields.total(host) if host else 0
         self.shield_btn.setIcon(shield_icon(level, grow=TOOLBAR_SHIELD_GROW))
         self.shield_btn.setText(str(n) if n and level != "off" else "")
+        self.shield_count.count(n if level != "off" else 0, (id(self.current_view()), host))
         self.m_level.setIcon(shield_icon(cfg["shield_level"], 16))
         if self.shield_menu.isVisible():
             self.shield_panel.count.setText(str(n))
@@ -1686,8 +1844,36 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         box.setText("<table>%s</table>" % "".join(rows))
         box.exec()
 
-    def about_text(self):
-        """Help → About: versions, and the state of what protects the user."""
+    def _engine_age(self):
+        from . import chromever
+        behind = chromever.current(self.app.config) - chromever.engine_major()
+        if behind <= 0:
+            return T("Engine age: as recent as the current Chrome")
+        return T("Engine age: %d Chrome versions behind the current one") % behind
+
+    @staticmethod
+    def _media_about(media):
+        """media: {format: bool} from ike.mediacheck, None while it is asked,
+        {} when the engine did not answer."""
+        from . import mediacheck
+        if media is None:
+            return T("Video and audio formats: checking…")
+        if not media:
+            return T("Video and audio formats: the engine did not answer")
+        yes, no = mediacheck.split(media)
+        text = T("Plays: %s") % (", ".join(yes) or "—")
+        if no:
+            text += "<br>" + T("Does not play: %s — this depends on the engine installed on this system; "
+                               "videos offered only in these formats will not play") % ", ".join(no)
+        return text
+
+    def about_text(self, media=None):
+        """Help → About: versions, and the state of what protects the user.
+        media: the formats the engine plays (see _media_about); by default
+        what this session already knows."""
+        if media is None:
+            from . import mediacheck
+            media = mediacheck.known()
         from PyQt6.QtCore import QT_VERSION_STR
         from PyQt6.QtWebEngineCore import qWebEngineChromiumVersion
 
@@ -1701,8 +1887,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         except ImportError:                      # Qt older than 6.3
             pass
         lines = ["%s: Qt WebEngine %s (Chromium %s)" % (T("Engine"), QT_VERSION_STR, chromium),
+                 self._engine_age(),
                  T("Engine sandbox: OFF (switched off by the environment, or I.K.E. was started as administrator)")
                  if sandbox_off() else T("Engine sandbox: on"),
+                 self._media_about(media),
                  "%s: %s" % (T("Content blocker"), self._engine_about(self.app.blocker)),
                  T("Chrome extensions: not usable with this engine version (enabling one crashes it)"),
                  self._drm_about()]
@@ -1715,7 +1903,22 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             T("An independent, privacy-first browser. No telemetry, no accounts, no sponsored content."))
 
     def show_about(self):
-        QMessageBox.about(self, T("About I.K.E."), self.about_text())
+        from . import mediacheck
+        box = QMessageBox(self)
+        box.setWindowTitle(T("About I.K.E."))
+        box.setIconPixmap(self.app.icon.pixmap(64, 64))
+        box.setTextFormat(Qt.TextFormat.RichText)
+        box.setText(self.about_text())
+        box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        self._about_box = box
+
+        def answered(result):
+            if self._about_box is box:
+                box.setText(self.about_text(result))
+        if mediacheck.known() is None:
+            mediacheck.ask(self, answered)
+        box.exec()
+        self._about_box = None
 
     # ------------------------------------------------------------------
     def resizeEvent(self, event):
@@ -1872,24 +2075,65 @@ class BrowserWindow(WindowFeatures, QMainWindow):
 
     def show_download_progress(self, state, fraction=None):
         """state: "idle", "active" (fraction 0..1 or None) or "done"."""
+        self._dl_fraction = fraction
+        self._download_arrow(state == "active")
         if state == "idle":
+            self._dl_state = "idle"
             self.act_downloads.setIcon(self._dl_icon)
             return
         from .downloadring import ring_icon
-        self.act_downloads.setIcon(ring_icon(self._dl_icon, fraction, state == "done"))
+        was, self._dl_state = getattr(self, "_dl_state", "idle"), state
+        if state == "done" and was != "done" and polish.moving(self.app.config, "download_pop"):
+            from PyQt6.QtCore import QEasingCurve, QVariantAnimation
+            old = getattr(self, "_dl_pop", None)
+            if old is not None:
+                old.stop()
+            anim = self._dl_pop = QVariantAnimation(self)
+            anim.setDuration(320)
+            anim.setStartValue(0.0)
+            anim.setEndValue(1.0)
+            anim.setEasingCurve(QEasingCurve.Type.OutBack)
+            anim.valueChanged.connect(lambda t: self._dl_state == "done" and self.act_downloads.setIcon(
+                ring_icon(self._dl_icon, None, True, pop=float(t))))
+            anim.start()
+            return
+        self.act_downloads.setIcon(ring_icon(self._dl_icon, fraction, state == "done",
+                                             bob=getattr(self, "_dl_bob", None) if state == "active" else None))
+
+    def _download_arrow(self, active):
+        """While files arrive the arrow of the Downloads button moves gently (polish.py)."""
+        timer = getattr(self, "_dl_arrow", None)
+        if active and polish.moving(self.app.config, "download_arrow"):
+            if timer is None:
+                timer = self._dl_arrow = QTimer(self)
+                timer.setInterval(80)
+                timer.timeout.connect(self._download_arrow_step)
+            if not timer.isActive():
+                timer.start()
+            return
+        self._dl_bob = None
+        if timer is not None:
+            timer.stop()
+
+    def _download_arrow_step(self):
+        if getattr(self, "_dl_state", "idle") != "active" or not self.isVisible():
+            return
+        from .downloadring import ring_icon
+        self._dl_bob = (time.monotonic() % 1.2) / 1.2
+        self.act_downloads.setIcon(ring_icon(self._dl_icon, getattr(self, "_dl_fraction", None), False,
+                                             bob=self._dl_bob))
 
     def apply_theme(self, theme):
         """Colour the toolbars and tabs for an interface theme (None = none)."""
         if theme is None and not getattr(self, "_themed", False):
             return                       # "Follow the system": nothing to undo
-        from . import cyber, themes
-        # The Cyber theme's shapes first, or their removal: taking a style sheet off a
-        # widget gives it back the colours it had before, which the theme then replaces.
-        cyber.apply(self)
+        from . import themes
         themes.style_window(self, theme)
         self._themed = theme is not None
 
     def changeEvent(self, event):
+        if event.type() == QEvent.Type.WindowStateChange:
+            self._update_max_button()           # the diamond while maximized, the arrow otherwise
         # Follow a change of the desktop theme / colour scheme at once.
         if (event.type() in (QEvent.Type.PaletteChange, QEvent.Type.StyleChange)
                 and hasattr(self, "shield_panel") and hasattr(self, "level_group")):

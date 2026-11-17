@@ -42,6 +42,21 @@ them without asking.
 1.0.0 is the base: the browser, its protections, the signed self-update and
 the daily component maintenance on GitHub Actions, for Arch-based systems only.
 
+Direction from the owner (2026-11-17): I.K.E. grows as an Arch Linux /
+CachyOS browser only, one installable version at a time, each tried by the
+owner on CachyOS before the next.
+- The base is `main`; every version gets its own branch and pull request.
+- 1.1.2: the Slavic languages and the engine's formats in About (from the
+  earlier `ike-1.1.1` / `ike-1.1.2` branches) and the Cyber theme removed.
+- Then the look improves gradually: **one change at a time** — proposed
+  briefly, approved by the owner, done alone, delivered as a package, judged
+  on the real system. No restyling decided alone, no replacement theme.
+- Menus, settings and navigation are not reorganised for now: the owner will
+  look at them himself later.
+- New features only with a concrete use, compatible with the architecture and
+  never at the cost of speed, stability, security or privacy. The ad blocker
+  is not touched for now.
+
 ## Next
 
 Plan approved by the owner on 2026-11-16. It joins the owner's "master
@@ -269,6 +284,35 @@ behind the window. No existing setting is reset or changes meaning.
   not cut ones. Nothing of it was seen on a real Plasma session yet: the
   owner's eye decides whether it looks right.
 
+- 2026-11-17: 1.1.2 on branch `arch/1.1.2` (Slavic languages, engine
+  formats in About, Cyber theme removed); waits for the owner's test.
+- 2026-11-17: 1.1.3 on branch `arch/1.1.3` (from 1.1.2): the modern touches
+  the owner chose from the proposed list (tabs, address bar, bars, new tab
+  page; left out: bouncing buttons, the counting-up counter, the shield
+  panel sliding in) and new-tab tiles sixteen per row, up to 32. Waits for
+  the owner's test on Plasma.
+- 2026-11-17: 1.1.4 on branch `arch/1.1.4` (from 1.1.3): Dark Reader as its
+  extension uses it (lists, proxy in the page's world, detector, scripts of
+  the profile, daily maintenance), zoom per site, autoplay blocking, site
+  panel, command bar (F2), own error pages, mouse gestures (off by default).
+  Waits for the owner's test.
+- 2026-11-17: 1.1.5 on branch `arch/1.1.5` (from 1.1.4): shield pulse and
+  bars, downloads window, engine icon in suggestions, reader mode themes and
+  text size. Tab group labels left out (they would touch the tab bar's
+  dragging and order). Waits for the owner's test.
+- 2026-11-17: 1.1.6 on branch `arch/1.1.6` (from 1.1.5): address field as
+  before, 24-pixel toolbar icons, Phosphor Bold, translate in the address bar
+  and bookmark on the toolbar, maximize/restore sign and hover circles, moving
+  download arrow, edge line, smooth scrolling. Waits for the owner's test.
+- 2026-11-17: 1.1.7 on branch `arch/1.1.7` (from 1.1.6): address bar 50 %,
+  messages in a pill, find bar, shield "+N", site icons in the panels, Settings
+  fade, new tab page buttons (Settings, background photo) and clock at the
+  bottom right. Next to discuss: a strategy for Manifest V3 extensions that do
+  not install.
+- 2026-11-17: 1.1.8 on branch `arch/1.1.8` (from 1.1.7): I.K.E.'s own picture as
+  the default background of the new tab page, with a "Default" button in
+  Settings. Next: a plan for Manifest V3 extensions that do not install.
+
 ### Also planned
 
 - **AUR**: publish I.K.E. on the Arch User Repository — when the owner says it
@@ -277,8 +321,13 @@ behind the window. No existing setting is reset or changes meaning.
 
 ## Later
 
-- Other Linux distributions and Windows: implementation planned with the owner
-  after the platform study.
+- Other Linux distributions and Windows: **suspended** by the owner on
+  2026-11-17, not abandoned. The work done is kept untouched on its branches —
+  `windows/port`, `windows/engine`, `linux/flatpak`, `linux/packages`,
+  `linux/distro-checks`, `automation/audit`, `docs/multiplatform-plan` (also
+  `ike-1.1.1`, `ike-1.1.2`, whose content is in 1.1.2) — and may be taken up
+  again later. Note: the Slavic translations on those branches still hold the
+  Cyber strings removed in 1.1.2.
 - Android: a separate project. Qt WebEngine does not exist on Android, so it
   would need Android's WebView and a rework of ad blocking, fingerprinting
   protection and user scripts.

@@ -36,7 +36,7 @@ class IkeApp(QObject):
         self.storage = Storage()
         self.blocker = Blocker(config, self)
         self.shields = Shields(config, self.blocker, self)
-        self.shields.theme_changed.connect(self._theme_from_newtab, Qt.ConnectionType.QueuedConnection)
+        self.shields.open_requested.connect(self._open_from_newtab, Qt.ConnectionType.QueuedConnection)
         from .userscripts import UserScripts
         self.userscripts = UserScripts(self)
         self.shields.user_scripts = self.userscripts
@@ -220,11 +220,11 @@ class IkeApp(QObject):
             w.apply_layout()
             w.sync_urlbar()
 
-    def _theme_from_newtab(self):
-        """The Cyber theme was tried, or left, from the new tab page."""
-        from . import themes
-        themes.apply(self.config)
-        self.refresh_windows()
+    def _open_from_newtab(self, what):
+        """The Settings button of the new tab page, or its background photo button."""
+        win = self.active_window()
+        if win is not None:
+            win.open_settings("newtab" if what == "background" else None)
 
     def reload_newtabs(self):
         """The look of the new tab page changed: show it in the ones that are open."""
@@ -542,9 +542,7 @@ class IkeApp(QObject):
     def _notify(self, text):
         win = self.active_window()
         if win:
-            win.statusBar().showMessage(text, 5000)
-            win.statusBar().show()
-            QTimer.singleShot(5200, win._hide_status)
+            win.toast(text, 5000)
 
     # --- downloads ---------------------------------------------------
     def download_dir(self):
@@ -863,6 +861,10 @@ def _chromium_flags(config):
         if lib:
             flags.append("--widevine-path=%s" % lib)
             os.environ["IKE_WIDEVINE"] = lib
+    # pages scroll smoothly (wheel and keys), unless the user switched it off or chose otherwise himself
+    if (config["smooth_scrolling"] and "--enable-smooth-scrolling" not in flags
+            and "--disable-smooth-scrolling" not in flags):
+        flags.append("--enable-smooth-scrolling")
     if hasattr(os, "geteuid") and os.geteuid() == 0 and "--no-sandbox" not in flags:
         flags.append("--no-sandbox")
     os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = " ".join(flags)

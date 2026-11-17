@@ -326,12 +326,19 @@ class IkeSchemeHandler(QWebEngineUrlSchemeHandler):
             q = q.replace("+", " ")
             job.redirect(QUrl(self.s.search_url(q)))
             return
-        if path in ("tile", "theme"):
-            # answers given on the new tab page itself (a tile hidden or added, the
-            # suggestion of the Cyber theme); the page is shown again afterwards
+        if path == "open":
+            # the Settings or the background photo, asked for on the new tab page itself
+            what = QUrlQuery_value(url, "what")
+            if what in ("settings", "background"):
+                self.s.open_requested.emit(what)
+            job.redirect(QUrl("ike:newtab"))
+            return
+        if path == "tile":
+            # an answer given on the new tab page itself (a tile hidden or added);
+            # the page is shown again afterwards
             from PyQt6.QtCore import QUrlQuery
             items = QUrlQuery(url).queryItems(QUrl.ComponentFormattingOption.FullyDecoded)
-            self.s.newtab_answer(path, {k: v.replace("+", " ") if path == "theme" else v for k, v in items})
+            self.s.newtab_answer(path, dict(items))
             job.redirect(QUrl("ike:newtab"))
             return
         if path == "favicon":
@@ -365,7 +372,7 @@ def QUrlQuery_value(url, key):
 
 class Shields(QObject):
     blocked = pyqtSignal(str)  # first-party host
-    theme_changed = pyqtSignal()     # the theme was changed from the new tab page
+    open_requested = pyqtSignal(str)     # "settings" / "background" asked for on the new tab page
 
     def __init__(self, config, blocker, parent=None):
         super().__init__(parent)
@@ -426,7 +433,7 @@ class Shields(QObject):
         return bytes(row[0]) if row and row[0] else b""
 
     def newtab_answer(self, what, query):
-        """A choice made on the new tab page: a tile hidden or added, the Cyber theme tried or left."""
+        """A choice made on the new tab page: a tile hidden or added."""
         from . import newtab
         app = self.parent()
         storage = getattr(app, "storage", None)
@@ -444,8 +451,6 @@ class Shields(QObject):
                 if refresh is not None:
                     from PyQt6.QtCore import QTimer
                     QTimer.singleShot(0, refresh)             # the bookmarks bar and menu
-        elif newtab.answer_hint(self.config, query):
-            self.theme_changed.emit()
         self.config.save()
 
     def search_url(self, query, engine=None):
@@ -457,8 +462,16 @@ class Shields(QObject):
         e = self.config.engine()
         html = self._newtab_src
         from PyQt6.QtGui import QGuiApplication, QPalette
+
+        from . import newtabbg
         pal = QGuiApplication.palette()
         R = QPalette.ColorRole
+        if newtabbg.is_default(self.config) and newtabbg.current(self.config) is not None \
+                and pal.color(R.Window).lightnessF() >= 0.5:
+            # I.K.E.'s own photo is dark: on a light interface the page takes the
+            # colours of the I.K.E. theme, so that its text stays readable on it
+            from . import themes
+            pal = themes.palette(themes.BUILTIN["ike"])
         colors = {"{{bg}}": pal.color(R.Window), "{{fg}}": pal.color(R.WindowText),
                   "{{card}}": pal.color(R.Base), "{{acc}}": pal.color(R.Highlight),
                   "{{line}}": pal.color(R.Mid), "{{mute}}": pal.color(R.PlaceholderText)}
@@ -472,29 +485,41 @@ class Shields(QObject):
             corner += '<div class="weather" id="weather">%s</div>' % _html.escape(self.weather_text())
         from . import i18n, newtabbg
         html = html.replace("{{corner}}", corner).replace("{{lang}}", i18n.current().replace("_", "-"))
-        from . import effects, newtab, themes
+        from . import effects, newtab
         photo = newtabbg.style(self.config)
-        theme = themes.current(self.config)
-        classes = newtab.body_class(self.config, theme) + ("" if photo else " plain")
-        if not themes.is_cyber(theme):
-            # the rules of the Cyber look are left out when they are not used: less for the page to work through
-            a, b = html.find("/*CYBER*/"), html.find("/*END*/")
-            if 0 <= a < b:
-                html = html[:a] + html[b + 7:]
         html = html.replace("{{background}}", photo)
         app = self.parent()
         for k, v in {
             "{{placeholder}}": _html.escape(T("Search with %s or enter address") % e["name"], quote=True),
-            "{{class}}": classes.strip(),
-            # the counter counts up with the Cyber theme only: the desktop's look stays as it was
-            "{{effects}}": "true" if themes.is_cyber(theme) and effects.on(self.config) else "false",
+            # tiles lift on hover, only with the interface effects on (polish.py)
+            "{{fx}}": "fx" if effects.on(self.config) else "",
+            "{{photo}}": " photo" if photo else "",
+            "{{buttons}}": self._newtab_buttons(),
             "{{tiles}}": newtab.tiles_html(self.config, getattr(app, "storage", None)),
             "{{stats}}": newtab.stats_html(self.config, T("Protection level"),
                                            T(LEVEL_NAMES[self.config["shield_level"]])),
-            "{{hint}}": newtab.hint_html(self.config, theme),
         }.items():
             html = html.replace(k, v)
         return html
+
+    def _newtab_buttons(self):
+        """Settings (top right) and the background photo (bottom left) on the new tab page;
+        they are answers of the page itself (ike:open), refused from websites."""
+        import html as _html
+
+        from .config import RES_DIR
+        from .i18n import T
+        out = []
+        for cls, what, icon, label in (("nt-settings", "settings", "configure", T("Settings")),
+                                       ("nt-photo", "background", "image-x-generic", T("Background photo"))):
+            try:
+                svg = (RES_DIR / "icons" / "sets" / "lucide" / (icon + ".svg")).read_text("utf-8")
+            except OSError:
+                svg = ""
+            out.append('<a class="nt-btn %s" href="ike:open?what=%s" title="%s"><span class="ico">%s</span>'
+                       '<span class="name">%s</span></a>' % (cls, what, _html.escape(label, quote=True), svg,
+                                                            _html.escape(label)))
+        return "".join(out)
 
     def weather_text(self):
         """"☁ 12 °C · Cloudy · Rome", or "" (no city, switched off, not known yet)."""
@@ -812,6 +837,28 @@ class Shields(QObject):
                 break
             h = h.split(".", 1)[1]
         return on
+
+    def autoplay_blocked(self, host):
+        """May video and audio of this site start by themselves? (False = they may)"""
+        opt = self.config.site_opt(host, "autoplay")
+        if opt is not None:
+            return not opt
+        return bool(self.config["autoplay_block"])
+
+    def dark_chosen(self, host):
+        """Did the user turn this site dark himself (dark mode off, the site on
+        its own list)? Then it is made dark whatever Dark Reader's lists say."""
+        cfg = self.config
+        if cfg["dark_mode"] == "on":
+            return False
+        h = (host or "").lower().strip(".")
+        while h:
+            if h in cfg["dark_sites"]:
+                return True
+            if "." not in h:
+                break
+            h = h.split(".", 1)[1]
+        return False
 
     def scripts_allowed(self, host):
         h = (host or "").lower()

@@ -136,13 +136,15 @@ DEFAULTS = {
     "ui_effects": True,                 # short fades and the loading mark of tabs (see effects.py)
     "toolbar_hidden": [],               # keys of TOOLBAR_ITEMS the user does not want
     "toolbar_known": ["back", "forward", "reload", "home", "downloads"],
-    "toolbar_order": ["shield", "reload", "translate", "reader", "screenshot", "pip",
+    "toolbar_order": ["shield", "reload", "bookmark", "reader", "screenshot", "pip",
                       "split", "dark", "private", "cleansite", "downloads", "menu"],
-    "toolbar_left": ["shield", "reload", "translate"],  # balance the address field around the window centre
-    "urlbar_width": 60,                 # address bar: per cent of the window width
+    "toolbar_left": ["shield", "reload", "bookmark"],  # balance the address field around the window centre
+    "urlbar_width": 50,                 # address bar: per cent of the window width (60 until 1.1.6)
+    "urlbar_width_117": False,          # the old default of 60 was moved to 50 once (1.1.7)
     "newtab_clock": True,               # clock and date on the new tab page
     "newtab_weather": True,             # weather on the new tab page (needs a city, see weather.py)
-    "newtab_bg": "",                    # the user's photo behind the new tab page (see newtabbg.py)
+    "newtab_bg": "default",             # photo behind the new tab page: "default" (I.K.E.'s own), "" or the user's copy (see newtabbg.py)
+    "newtab_bg_118": False,             # I.K.E.'s own photo was given once to whoever had none (1.1.8)
     "newtab_bg_fit": "fill",            # fill | fit | centre
     "newtab_bg_veil": 35,               # veil in the page's colour over the photo, per cent (0-90)
     "weather_city": "",                 # chosen by the user in Settings; never the system location
@@ -207,13 +209,6 @@ DEFAULTS = {
     "newtab_tiles": "bookmarks",     # "bookmarks" | "visited" | "none"
     "newtab_tiles_hidden": [],       # addresses of the tiles the user hid
     "newtab_tiles_first": [],        # sites added with the "Add" tile: shown before the other bookmarks
-    "newtab_grid": True,             # Cyber theme: a grid when there is no photo
-    # the Cyber theme (ui_scheme "theme:cyber")
-    "cyber_accent": "",              # "" = the theme's own, or "#rrggbb"
-    "cyber_shape": "smusso",         # tabs: "smusso" | "lama" | "mirino"
-    "cyber_glow": True,
-    "cyber_corners": True,
-    "cyber_hint": "ask",             # the suggestion on the new tab page: "ask" | "trial" | "done"
     "session": [],
     "experimental_extensions": False,   # engine extension support is unstable
     "enabled_extensions": [],           # extension ids to re-enable at startup
@@ -227,6 +222,12 @@ DEFAULTS = {
     "di_krunner": True,                 # open tabs and bookmarks in KRunner
     "di_kdeconnect": True,              # "Send to device" with KDE Connect
     "tab_sleep_minutes": 20,
+    "autoplay_block": False,            # video and audio do not start by themselves (site_opts "autoplay")
+    "mouse_gestures": False,            # right button held and dragged: back, forward, reload, close tab
+    "site_zoom": {},
+    "reader_theme": "auto",             # reader mode: auto | light | sepia | dark
+    "reader_size": 19,                  # reader mode: text size in pixels (14 - 28)
+    "smooth_scrolling": True,           # pages scroll smoothly (an engine switch: after a restart)                    # host: zoom factor chosen for that site (not in private windows)
     "res_mem_limit": 0,                 # MB: suspend background tabs of a site above it (0 = off)
     "res_cpu_limit": 0,                 # % of a core: freeze background tabs above it (0 = off)
     "res_mem_default": 1500,            # values offered when a limit is switched on
@@ -253,11 +254,13 @@ DEFAULTS = {
 
 # Toolbar buttons the user can show or hide: (key, hidden when first seen)
 TOOLBAR_ITEMS = (("back", False), ("forward", False), ("reload", False), ("home", False),
-                 ("translate", False), ("reader", False), ("screenshot", False), ("pip", False),
+                 ("bookmark", False), ("reader", False), ("screenshot", False), ("pip", False),
                  ("split", True), ("dark", True), ("private", True), ("cleansite", True),
                  ("downloads", False))
 
 
+# settings of the Cyber theme, removed in 1.1.2: dropped from settings.json when it is read
+_REMOVED = ("cyber_accent", "cyber_shape", "cyber_glow", "cyber_corners", "cyber_hint", "newtab_grid")
 _LISTS_OF_DICTS = ("search_engines", "filter_lists", "containers", "page_watches")
 
 
@@ -319,6 +322,24 @@ class Config:
         if isinstance(stored, dict):
             self.data.update(sound_settings(stored))
         d = self.data
+        # 1.1.7: the address bar takes half of the window (the owner's choice); 60 was the old default
+        if d.get("urlbar_width") == 60 and not d.get("urlbar_width_117"):
+            d["urlbar_width"] = 50
+        d["urlbar_width_117"] = True
+        # 1.1.8: the new tab page gets I.K.E.'s own photo; whoever had none before gets it once
+        if d.get("newtab_bg") == "" and not d.get("newtab_bg_118"):
+            d["newtab_bg"] = "default"
+        d["newtab_bg_118"] = True
+        # 1.1.6: "Translate page" moved into the address bar; "Bookmark this page" takes its place
+        for key in ("toolbar_order", "toolbar_left", "toolbar_hidden", "toolbar_known"):
+            if isinstance(d.get(key), list) and "translate" in d[key]:
+                items = [x for x in d[key] if x != "bookmark"]
+                d[key] = ["bookmark" if x == "translate" else x for x in items]
+        # the Cyber theme is gone (1.1.2): whoever used it follows the system again
+        if d.get("ui_scheme") == "theme:cyber":
+            d["ui_scheme"] = "system"
+        for key in _REMOVED:
+            d.pop(key, None)
         if isinstance(stored, dict) and "bookmarks_bar" not in stored \
                 and stored.get("show_bookmarks_bar"):
             d["bookmarks_bar"] = "always"       # keep what the user had chosen

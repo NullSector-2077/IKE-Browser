@@ -7,18 +7,24 @@ never sent anywhere. The page's colours stay those of the interface theme: a
 veil in the page's own background colour, as strong as the user chooses, keeps
 the text readable.
 
-Settings: "newtab_bg" (name of the copy in the data folder, "" = none),
+Unless the user chooses otherwise, I.K.E.'s own picture is shown (DEFAULT, kept
+with the program, nothing copied).
+
+Settings: "newtab_bg" (name of the copy in the data folder, DEFAULT = I.K.E.'s
+own picture, "" = none),
 "newtab_bg_fit" (fill / fit / centre), "newtab_bg_veil" (0-90, per cent).
 """
 
 import os
 from pathlib import Path
 
-from .config import DATA_DIR
+from .config import DATA_DIR, RES_DIR
 
 MAX_SIDE = 3840                  # longest side of the stored copy, in pixels
 MAX_FILE = 200 * 1024 * 1024     # larger files are refused without being opened
 NAME = "newtab-background"
+DEFAULT = "default"              # I.K.E.'s own picture, kept with the program
+DEFAULT_FILE = RES_DIR / "newtab-background.jpg"
 VEIL_MAX = 90
 _CSS_SIZE = {"fill": "cover", "fit": "contain", "centre": "auto"}     # the three placements
 _MIME = {".jpg": b"image/jpeg", ".png": b"image/png"}
@@ -118,19 +124,35 @@ def set_photo(config, path, folder=None):
     return ""
 
 
-def remove_photo(config, folder=None):
-    folder = Path(folder or DATA_DIR)
+def _forget_copy(folder):
     for ext in (".jpg", ".png", ".jpg.part", ".png.part"):
         try:
             (folder / (NAME + ext)).unlink()
         except OSError:
             pass
+
+
+def remove_photo(config, folder=None):
+    """No photo at all."""
+    _forget_copy(Path(folder or DATA_DIR))
     config["newtab_bg"] = ""
+
+
+def use_default(config, folder=None):
+    """Back to I.K.E.'s own picture; the user's copy is deleted."""
+    _forget_copy(Path(folder or DATA_DIR))
+    config["newtab_bg"] = DEFAULT
+
+
+def is_default(config):
+    return config.get("newtab_bg") == DEFAULT
 
 
 def current(config, folder=None):
     """The stored photo's file, or None (none chosen, or the file is gone)."""
     name = config.get("newtab_bg")
+    if name == DEFAULT:
+        return DEFAULT_FILE if DEFAULT_FILE.is_file() else None
     if not isinstance(name, str) or name not in (NAME + ".jpg", NAME + ".png"):
         return None                              # only our own two names, never a path
     path = Path(folder or DATA_DIR) / name
@@ -163,7 +185,10 @@ def style(config, folder=None):
         stamp = path.stat().st_mtime_ns // 1000
     except (TypeError, ValueError, OSError):
         veil, stamp = 0, 0
-    return ('<style>html{background:var(--bg) url("ike:background?%d") center / %s no-repeat fixed}'
+    # the veil is a layer of the same background (not an element of its own over
+    # the page): one painted surface, about 15-20 MB less memory per page
+    veil_colour = "color-mix(in srgb,var(--bg) %d%%,transparent)" % veil
+    return ('<style>html{background:linear-gradient(%s,%s) fixed,'
+            'var(--bg) url("ike:background?%d") center / %s no-repeat fixed}'
             'body{background:transparent}'
-            'body::before{content:"";position:fixed;inset:0;z-index:-1;background:var(--bg);opacity:%s}'
-            '</style>' % (stamp, size, ("%.2f" % (veil / 100.0))))
+            '</style>' % (veil_colour, veil_colour, stamp, size))

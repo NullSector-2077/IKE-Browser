@@ -1,5 +1,253 @@
 # Changelog
 
+## 1.1.8
+
+- **New tab page**: I.K.E.'s own picture (the Earth with its network of
+  lights, by the project's owner) is the background photo unless the user
+  chooses another. Whoever had no photo gets it once; whoever removes it keeps
+  the page plain. Settings → New tab page has a "Default" button beside
+  "Choose…" and "Remove" to go back to it (the user's copy is then deleted).
+  The picture is dark: on a light interface the page takes the colours of the
+  I.K.E. theme while it is shown, so its text stays readable; a photo of the
+  user's keeps the interface colours as before. The picture is kept with the
+  program (167 KB, JPEG), nothing is copied or downloaded, and a website
+  cannot load it.
+- The **veil** over any background photo is now a layer of the page's own
+  background instead of an element of its own over the page: the same look,
+  one painted surface less (about 15-20 MB less memory with a photo).
+- **Shield**: the "+N" that rises when the number grows is drawn beside the
+  number, bold, with a thin edge in the toolbar's colour, and stays a moment
+  before it fades (1.1 s). It was drawn over the shield icon, in the colour of
+  the icon's edge, and could not be seen.
+- Settings → General: the "load restored tabs" line wraps, so the page needs no
+  sideways scrolling in long languages (Russian).
+- Package 1.1.8-2 (the first build was 1.1.8-1).
+
+Measured against 1.1.7, package against package (1.1.7 without a photo, 1.1.8
+with its own): start-up (0.28 – 0.31 s against 0.31 s) and processor time at
+rest (0.75 % of one core) unchanged; memory 397 – 399 MiB against 369 MiB
+(+28 MiB, the photo decoded and painted; it was +45 – 55 MiB before the veil
+change), while using the interface, which opens new tabs, 7.5 – 8.7 % against
+6.1 – 6.4 %. Whoever removes the photo is back to 1.1.7's figures.
+
+## 1.1.7
+
+- The **address bar** takes half of the window (it was 60 %; a setting left at
+  the old 60 becomes 50 once).
+- **Short messages** (the zoom, notes such as "No article text was found") in
+  a rounded pill at the bottom of the page that fades in and out, instead of
+  the status bar line.
+- **Find bar** (Ctrl+F): "3 of 12" in a small pill, the field softly tinted
+  red when nothing is found, Shift+Enter for the previous match, the arrows
+  with their keys in the tooltip.
+- **Shield**: when its number grows, a small "+N" rises from it and fades.
+- The **site's icon** beside its name in the shield panel and in the site
+  panel.
+- **Settings**: the pages change with a short fade (their order is unchanged).
+- **New tab page**: a Settings button at the top right and a "Background
+  photo" button at the bottom left (it opens Settings → New tab page), both as
+  large as the site tiles; the clock and the weather moved to the bottom right;
+  the logo and "Internet Kontrol Experience" always stay, with a soft shadow
+  that keeps them readable on a photo. A website cannot use those buttons
+  (refused, as the tiles' answers).
+
+Measured against 1.1.6, package against package: start-up (0.28 – 0.32 s),
+processor time at rest (0.6 – 0.7 % of one core), while using the interface
+(5.7 – 6.6 %) and memory (354 – 356 MiB) unchanged within the measuring noise.
+
+## 1.1.6
+
+- The **address field** is the system's own again (the rounded one of 1.1.3
+  is switched off; suggestions with icons and the zoom sign stay).
+- **Toolbar icons** a little larger (24 pixels instead of 20); the window
+  buttons keep their size.
+- **Phosphor Bold**, a set of thicker icons, ships with I.K.E. (Settings →
+  Appearance → Icons).
+- **Translate page** is now a sign in the address bar, shown on web pages, as
+  in other browsers. **Bookmark this page** takes its place on the toolbar
+  (its star fills when the page is a bookmark); a toolbar arranged by the user
+  keeps its order, with the bookmark where the translation was.
+- **Maximize button**: the diamond of Plasma's "restore" while the window is
+  maximized or full screen, the arrow otherwise; minimize and maximize show a
+  soft circle in the theme's colour under the mouse, as the close button does.
+- The arrow of the **Downloads** button moves gently while files arrive.
+- A **thin line** between the bars and the page.
+- **Smooth scrolling** of pages, on by default (Settings → General; it takes
+  effect after a restart).
+- Already there: the tooltips of the toolbar buttons name their keyboard
+  shortcut.
+
+Measured against 1.1.5, package against package: start-up (0.29 – 0.30 s),
+processor time at rest (0.6 – 0.7 % of one core), while using the interface
+(5.3 – 6.7 %) and memory (353 – 354 MiB) unchanged within the measuring noise.
+
+## 1.1.5
+
+More finish, in the colours of the theme in use; each touch can be switched
+off on its own in `ike/polish.py`.
+
+- **The shield pulses**: a ring opens once around it when it blocks something
+  on the page in view (at most every 1.5 seconds; with "Interface effects"
+  only). The touch of the old Cyber theme, without the rest of it.
+- **Shield panel**: what was blocked on the site, as bars by kind (ads and
+  trackers, scripts, cross-site cookies, upgrades to HTTPS, tracking
+  parameters), shown when something was blocked.
+- **Downloads window**: the icon of each file's kind and a slim progress bar
+  under its size.
+- **Search suggestions** show the search engine's own icon (once its site was
+  opened), a magnifier otherwise.
+- **Reader mode**: light, sepia or dark and the size of the text, chosen on
+  the page and remembered; the site and the reading time under the title.
+
+Measured against 1.1.4, package against package: start-up (0.27 – 0.29 s),
+processor time at rest (0.6 – 0.7 % of one core), while using the interface
+(5.9 – 7.1 %) and memory (352 – 354 MiB) unchanged within the measuring noise.
+
+## 1.1.4
+
+**Page dark mode with Dark Reader, as its extension does it.** Dark Reader was
+in I.K.E. but parts of some sites (Google Translate, for one) came out wrong.
+Four causes, all fixed:
+- The first site opened in a tab (from the new tab page) was not darkened at
+  all: the script was given to the page when it started to navigate, and the
+  engine had already started the site in another process. Dark Reader's
+  scripts now belong to the profile, as the extension's do.
+- Dark Reader's style-sheet proxy, which catches the styles sites make with
+  JavaScript, was put into the page as an inline script, which strict
+  Content-Security-Policies (Google's sites) block. It now runs in the page's
+  own world, where no policy stops it, started with the extension's own event
+  (with a token of the session in its name, so a page cannot start it).
+- The extension's lists were missing: its fixes for single sites (about
+  3,000), its list of sites that are dark already (left alone), and the hints
+  of its detector. They are now in I.K.E. (`ike/resources/darkreader-data.json`).
+- The detector of a site's own dark theme was missing: a site with its own
+  dark theme is now left as it is, as in the extension. A site you turned dark
+  yourself is always made dark.
+Dark Reader's engine and lists are followed by the daily maintenance like the
+other components (`tools/build-darkreader.py`). The engine of Qt stays as the
+other choice; no setting changed.
+
+New:
+- **Zoom kept for each site**: Ctrl + wheel, the View menu or the keys; the
+  site opens at that zoom again; "Actual size" forgets it. Not kept in private
+  windows.
+- **Videos and sounds that start by themselves** can be blocked (Settings →
+  General; off by default), for all sites or, from the site panel, for one.
+- **Site panel**: a click on the lock in the address bar shows the connection,
+  the permissions, the cookies (with "Clear this site's data"), the protection
+  level, the zoom (with "Actual size") and whether videos and sounds may start
+  by themselves on the site.
+- **Command bar (F2)**: type a few letters to reach a menu command, an open
+  tab, a bookmark, a page of the history or a page of the Settings. F2, as in
+  Vivaldi, not Ctrl+K: many sites (GitHub, Slack, Discord, Notion) use Ctrl+K
+  themselves.
+- **Pages for sites that cannot be reached** (site not found, no connection,
+  refused, too slow, interrupted) in I.K.E.'s look, with "Try again". The
+  address and the history stay those of the site. Certificate warnings stay
+  the engine's own.
+- **Mouse gestures**, off by default (Settings → General): hold the right
+  button and draw ← back, → forward, ↑ reload, ↓→ close the tab. A right
+  click alone opens the menu as always.
+- The daily maintenance tool accepts a README that names any package release
+  (`-2-`), not only `-1-`.
+
+Measured against 1.1.3 on the same machine, package against package, with
+dark mode off and on: start-up (0.28 – 0.31 s), processor time at rest
+(0.5 – 0.7 % of one core), while using the interface (5.7 – 6.5 %) and memory
+(354 – 356 MiB) are unchanged within the measuring noise. The package is
+about 0.3 MB larger (Dark Reader's lists).
+
+## 1.1.3
+
+A more modern finish, one small touch at a time, all in the colours of the
+theme in use (the system's or an interface theme). Light on purpose: nothing
+moves while the browser is still; the moving parts follow "Interface effects"
+and the desktop's "no animations", and without them everything changes at
+once. Each touch can be switched off on its own in `ike/polish.py`.
+
+Tabs:
+- **A line under the current tab** in the accent colour (on the left edge of
+  the row with vertical tabs) that glides to the tab you open.
+- **Long titles fade out** at the edge of the tab instead of ending in "…".
+- A tab's **icon changes with a short fade**: the site's icon arriving, the
+  loading mark leaving.
+- Vertical tabs: the **hover colour comes and goes softly**, and a **new tab
+  fades in** from the left.
+- The **speaker of a tab playing sound pulses** gently, only while it plays.
+
+Address bar and toolbar:
+- The **address field is rounded**, and its edge lights up softly in the
+  accent colour while you type.
+- **Suggestions** have taller rows with the **site's icon** (a magnifier for
+  searches) and fade in.
+- A **zoom sign** appears in the address field when the page is not at its
+  usual zoom; a click on it brings the page back.
+- **Reload and Stop** change into each other with a short fade.
+
+Bars and the rest:
+- The **find bar**, the **repair bar** and the **full-screen notice** fade in.
+- The **tab preview** fades in, and its picture blends from one tab to the
+  next.
+- The **loading line** starts soft and reaches its full colour a little
+  further on.
+- A **finished download** shows a **tick** in its green ring, with a small pop.
+
+New tab page:
+- **More site tiles**: up to 32, **sixteen per row** on a wide window (seven
+  before); they wrap on narrower windows.
+- The tiles **lift a little** under the mouse. (A fade-in of the whole page
+  was tried and left out: it cost the engine work at every new tab.)
+
+Already there, so not added again: the lock in the address field and the
+number of blocked items beside the shield.
+
+Measured against 1.1.2 on the same machine, package against package: start-up
+(0.29 – 0.30 s) and processor time at rest (0.5 – 0.7 % of one core) are
+unchanged; while the interface is used without pause (menus, hover, tabs
+opened and closed every two seconds) 5.2 – 5.5 % of one core instead of
+4.9 – 5.0 %; memory 354 – 355 MiB instead of 353 MiB.
+
+## 1.1.2
+
+- **The "I.K.E. Cyber" theme is gone.** It had problems and the owner chose
+  not to keep it. Whoever used it starts with "Follow the system" (the
+  default); its settings (accent colour, tab shape, glow, cut corners, the
+  grid of the new tab page and the suggestion) are removed from
+  settings.json, every other setting stays as it was. With it went what only
+  the Cyber theme drew: its tab shapes, the cut address field, the square
+  menus, the shield's pulse, the equaliser on tabs playing sound, the ring of
+  blocked items in the shield panel, the accent frame of the tab preview, the
+  counter that counted up and the "Try the Cyber theme" suggestion on the new
+  tab page and in Settings. Kept: the other interface themes (I.K.E., Night,
+  Paper, Forest, High contrast and your own), the interface effects (menus
+  fading in, the loading mark, the soft change of theme), the site tiles, the
+  monthly counter and the "New tab page" settings.
+- **Twelve Slavic languages**: Russian, Ukrainian, Belarusian, Bulgarian,
+  Polish, Czech, Slovak, Slovenian, Croatian, Serbian (Cyrillic), Bosnian and
+  Macedonian, every text of the interface translated. Chosen in Settings, or
+  taken from the system's language. Made with AI and not yet reviewed by
+  native speakers: corrections are welcome.
+- "Engine" in Help → About is now translated as the browser engine in German
+  and Spanish (it read "search engine").
+- Updates itself from 1.1.1 and 1.1.0 (only the browser's own files changed).
+- Package `ike-browser-1.1.2-2`: a new number, so it cannot be mistaken for an
+  earlier test build of 1.1.2 without the Cyber removal.
+
+## 1.1.1
+
+- **Help → About tells which video and audio formats play** (H.264, AAC,
+  HEVC, VP9, AV1, Opus, MP3) and which do not. I.K.E. ships no codec of its
+  own: what plays depends on the engine installed on the system (on Arch
+  Linux, Qt WebEngine built with the system's FFmpeg). When a video does not
+  play, About now shows whether the engine of this system can play its
+  format at all. The engine is asked once per session, when About is first
+  opened, in a blank private page that is thrown away at once; no web page is
+  involved and nothing is written to disk.
+- **Help → About shows how old the engine is**: how many Chrome versions it is
+  behind the current one (the Chrome version I.K.E. already checks once a
+  day for the fingerprinting protection).
+- Updates itself from 1.1.0 (only the browser's own files changed).
+
 ## 1.1.0
 
 A theme of I.K.E.'s own and a richer new tab page. "Follow the system" stays

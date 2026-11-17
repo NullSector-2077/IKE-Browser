@@ -75,6 +75,9 @@ def tool(monkeypatch, tmp_path, repo):
     real_run = mod.run
     monkeypatch.setattr(mod, "run", lambda cmd, **kw: calls.append(cmd) if cmd[0] == "cargo" else real_run(cmd, **kw))
     mod.up, mod.calls = up, calls
+    # Dark Reader: the engine and the lists the repository has (its own test: test_darkreader.py)
+    monkeypatch.setattr(mod, "check_darkreader", lambda root, work, dr_src=None: {
+        "current": "same", "latest": "same", "update": False, "note": ""})
     # scriptlets: the repository's file is replaced by one built from a stand-in checkout
     ubo = make_ubo(tmp_path / "ubo")
     if shutil.which("node"):
@@ -105,7 +108,7 @@ def test_repository_versions_agree():
 @needs_node
 def test_nothing_new(tool, repo, tmp_path):
     results = tool.check_all(repo, tool.ubo, tmp_path / "w")
-    assert [r["error"] for r in results] == [""] * 3
+    assert [r["error"] for r in results] == [""] * 4
     assert not any(r["update"] for r in results)
     assert not any(r["also"] for r in results)
 
@@ -189,11 +192,11 @@ def test_report_files(tool, repo, tmp_path, monkeypatch):
     tool.main(["--root", str(repo), "--ubo-src", str(tool.ubo),
                "--json", str(tmp_path / "r.json"), "--markdown", str(tmp_path / "r.md")])
     data = json.loads((tmp_path / "r.json").read_text())
-    assert data["updates"] == 1 and data["errors"] == 0 and len(data["components"]) == 3
+    assert data["updates"] == 1 and data["errors"] == 0 and len(data["components"]) == 4
     assert not any(k.startswith("_") for c in data["components"] for k in c)
     md = (tmp_path / "r.md").read_text()
     assert md.startswith("Nuove versioni trovate") and "| adblock-rust (AdBlock engine) | 0.13" in md
-    assert md.count("\n|") == 5           # header, separator, three components
+    assert md.count("\n|") == 6           # header, separator, four components
     assert out.read_text() == "updates=1\nerrors=0\n"
 
 

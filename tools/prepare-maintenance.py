@@ -52,7 +52,7 @@ def main():
     replace_one(root / "PKGBUILD", r'^pkgrel=.*$', "pkgrel=1", re.M)
     replace_one(root / "README.md", r'^\*\*Version [^\n]+',
                 "**Version %s** - see [CHANGELOG.md](CHANGELOG.md)." % version, re.M)
-    replace_one(root / "README.md", r'ike-browser-[0-9]+\.[0-9]+\.[0-9]+-1-x86_64\.pkg\.tar\.zst',
+    replace_one(root / "README.md", r'ike-browser-[0-9]+\.[0-9]+\.[0-9]+-[0-9]+-x86_64\.pkg\.tar\.zst',
                 "ike-browser-%s-1-x86_64.pkg.tar.zst" % version)
 
     bullets = []

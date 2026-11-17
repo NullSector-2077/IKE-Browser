@@ -1,5 +1,4 @@
-"""The new tab page beyond its frame: the counter per month, the site tiles,
-the Cyber look and the one-time suggestion of the Cyber theme.
+"""The new tab page beyond its frame: the counter per month and the site tiles.
 
 Everything shown here that comes from outside (titles of pages, addresses) is
 untrusted text: it is escaped, and only web addresses become links.
@@ -11,7 +10,7 @@ from urllib.parse import quote, urlsplit
 
 from .i18n import T
 
-TILES = 8                     # how many tiles at most
+TILES = 32                    # how many tiles at most: two rows of 16 on a wide window
 HIDDEN_MAX = 200              # hidden tiles remembered
 
 
@@ -156,7 +155,7 @@ def tiles(config, storage):
         first = [u for u in first if isinstance(u, str)] if isinstance(first, list) else []
         if first:
             # the sites added from the page itself come first, the newest before the others:
-            # with many bookmarks a new tile would otherwise never be among the eight shown
+            # with many bookmarks a new tile would otherwise never be among those shown
             rank = {u: i for i, u in enumerate(first)}
             rows.sort(key=lambda row: rank.get(row[0], len(rank)))
         for url, title, _folder in rows:
@@ -227,53 +226,3 @@ def put_first(config, url):
     hidden = config.data.get("newtab_tiles_hidden")
     if isinstance(hidden, list) and url in hidden:
         config.data["newtab_tiles_hidden"] = [h for h in hidden if h != url]
-
-
-# --- the Cyber look and its suggestion -------------------------------------
-def body_class(config, theme):
-    """Classes of <body>: the Cyber look and its options."""
-    names = []
-    if theme is not None and theme.get("look") == "cyber":
-        names.append("cyber")
-        if config.data.get("cyber_corners", True):
-            names.append("cut")
-        if config.data.get("cyber_glow", True):
-            names.append("glow")
-        if config.data.get("newtab_grid", True):
-            names.append("grid")
-    return " ".join(names)
-
-
-def hint_html(config, theme):
-    """The suggestion to try the Cyber theme, shown until it is answered; and,
-    while the theme is on trial, the way back in one click."""
-    state = config.data.get("cyber_hint")
-    cyber = theme is not None and theme.get("look") == "cyber"
-    if state == "ask" and theme is None and (config.data.get("ui_scheme") or "system") == "system":
-        text = (T("I.K.E. has a theme of its own: Cyber."), T("You can try it and go back with one click."))
-        links = (("go", "ike:theme?try=cyber", T("Try the Cyber theme")), ("", "ike:theme?later=1", T("Not now")))
-    elif state == "trial" and cyber:
-        text = (T("This is the Cyber theme."), T("Its colours and tab shapes are in Settings, Appearance."))
-        links = (("go", "ike:theme?keep=1", T("Keep it")), ("", "ike:theme?back=1", T("Back to the system theme")))
-    else:
-        return ""
-    return '<div class="hint"><span><b>%s</b> %s</span>%s</div>' % (
-        html.escape(text[0]), html.escape(text[1]),
-        "".join('<a%s href="%s">%s</a>' % (' class="go"' if cls else "", href, html.escape(label))
-                for cls, href, label in links))
-
-
-def answer_hint(config, query):
-    """Apply the answer given on the page. Returns True when the theme changed."""
-    state = config.data.get("cyber_hint")
-    if query.get("try") == "cyber" and state == "ask":
-        config.data["ui_scheme"] = "theme:cyber"
-        config.data["cyber_hint"] = "trial"
-        return True
-    if "back" in query and state == "trial":
-        config.data["ui_scheme"] = "system"
-        config.data["cyber_hint"] = "done"
-        return True
-    if "later" in query or "keep" in query:
-        config.data["cyber_hint"] = "done"
-    return False

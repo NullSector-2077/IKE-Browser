@@ -281,6 +281,9 @@ class RepairBar(QWidget):
         self.repair = Repair(self.win.app, view, host)
         self.repair.changed.connect(self._show)
         view.destroyed.connect(self._view_gone)
+        if not self.isVisible():
+            from . import polish
+            polish.fade_child(self, self.win.app.config)
         self.show()
         self.repair.start()
         self._show()

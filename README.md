@@ -9,7 +9,7 @@ The interface, protections, password manager and updater are I.K.E.'s own code
 provided and kept up to date by Arch Linux. I.K.E. is developed on and for
 KDE Plasma (CachyOS / Arch Linux) and works on the other Arch-based desktops.
 
-**Version 1.1.0** - see [CHANGELOG.md](CHANGELOG.md).
+**Version 1.1.8** - see [CHANGELOG.md](CHANGELOG.md).
 
 ## Install (Arch Linux, CachyOS)
 
@@ -17,7 +17,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.1.0-1-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.1.8-1-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:
@@ -69,11 +69,23 @@ profiles: `ike-browser --profile NAME`.
   script gets only the functions its `@grant` lines ask for and reaches only
   the sites its `@connect` lines allow; your home network only when named.
 - Import from Firefox and Chromium-based browsers, local backup and restore,
-  download manager, PDF viewer, reader mode, picture-in-picture, page dark mode,
-  translation through an external service, site permissions.
+  download manager, PDF viewer, reader mode, picture-in-picture, translation
+  through an external service, site permissions.
+- Page dark mode with Dark Reader as its extension works (its fixes for single
+  sites, sites that are dark already left alone, its detector of a site's own
+  dark theme; lists kept up to date with the daily maintenance), or with the
+  engine's own dark mode.
+- Zoom kept for each site; videos and sounds that may not start by themselves
+  (all sites, or one); the lock in the address bar opens the site's panel
+  (connection, permissions, cookies, protection, zoom, autoplay).
+- Command bar (F2): menu commands, open tabs, bookmarks, history and settings in
+  one search. Optional mouse gestures (off by default).
+- I.K.E.'s own pages for sites that cannot be reached, with "Try again".
+- Reader mode with light, sepia or dark and the text size of your choice.
 - Free choice of search engines (DuckDuckGo by default), suggestions, keywords.
 - New tab page with a clock and, for a city you choose, the weather; tiles of
-  your bookmarks or of the sites you visit most; the trackers and ads blocked
+  your bookmarks or of the sites you visit most (up to 32, sixteen per row on
+  a wide window); the trackers and ads blocked
   this month; your own photo as its background if you like (kept on the
   computer, never uploaded).
 - Toolbar buttons shown, hidden and moved to either side of the address bar
@@ -93,18 +105,23 @@ profiles: `ike-browser --profile NAME`.
 **Appearance and languages**
 - Follows the system theme by default; icon themes installed on the computer or
   the bundled Lucide and Phosphor sets; light or dark interface.
-- "I.K.E. Cyber", a theme of I.K.E.'s own that looks the same on every system:
-  cut corners, thin luminous lines, three tab shapes to choose from
-  (horizontal and vertical), your accent colour. Optional and suggested once;
-  one click goes back to the system's look.
 - Other interface themes: five ready-made ones (I.K.E., Night, Paper, Forest,
   High contrast) and your own, with your choice of background, text, accent,
   toolbar and tab colours and of the font family and size.
-- Light interface effects (short fades, a loading mark on tabs) that follow the
+- A modern finish in the theme's own colours: a line under the current tab
+  that glides to the next one, long tab titles that fade out instead of
+  ending in "…", a rounded address field, suggestions with the sites' icons,
+  a zoom sign in the address field.
+- Light interface effects (short fades, a loading mark on tabs, icons and bars
+  that fade in, a speaker that pulses while a tab plays sound) that follow the
   desktop's reduced-motion setting and can be switched off.
-- English, Italian, Spanish, French, German, Portuguese, Chinese (Simplified) and
-  Japanese included. Chinese and Japanese need a CJK font such as
-  `noto-fonts-cjk`.
+- English, Italian, Spanish, French, German, Portuguese, Chinese (Simplified),
+  Japanese, Russian, Ukrainian, Belarusian, Bulgarian, Polish, Czech, Slovak,
+  Slovenian, Croatian, Serbian (Cyrillic), Bosnian and Macedonian included.
+  Chinese and Japanese need a CJK font such as `noto-fonts-cjk`; the Cyrillic
+  and Latin Slavic languages work with the usual Noto Sans. The Slavic
+  translations were made with AI and not yet reviewed by native speakers:
+  corrections are welcome.
 
 ## External services
 

@@ -3,8 +3,8 @@
 import time
 from pathlib import Path
 
-from PyQt6.QtCore import Qt, QTimer, QUrl
-from PyQt6.QtGui import QDesktopServices
+from PyQt6.QtCore import QSize, Qt, QTimer, QUrl
+from PyQt6.QtGui import QDesktopServices, QIcon
 from PyQt6.QtWebEngineCore import QWebEngineDownloadRequest
 from PyQt6.QtWidgets import (
     QCheckBox,
@@ -26,6 +26,7 @@ from PyQt6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QSpinBox,
+    QStyle,
     QTableWidget,
     QTableWidgetItem,
     QTreeWidget,
@@ -109,7 +110,7 @@ class SettingsDialog(QDialog):
             area.setWidget(build())
             self.stack.addWidget(area)
         self.nav.setFixedWidth(widest + 22 + 46)
-        self.nav.currentRowChanged.connect(self.stack.setCurrentIndex)
+        self.nav.currentRowChanged.connect(self._show_page)
         self.nav.setCurrentRow(self.PAGES.index(page) if page in self.PAGES else 0)
         bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok
                               | QDialogButtonBox.StandardButton.Apply
@@ -118,6 +119,14 @@ class SettingsDialog(QDialog):
         bb.rejected.connect(self.reject)
         bb.button(QDialogButtonBox.StandardButton.Apply).clicked.connect(self.apply)
         lay.addWidget(bb)
+
+    def _show_page(self, row):
+        """Another page of the Settings: it comes in with a short fade (polish.py)."""
+        from . import effects, polish
+        if (row != self.stack.currentIndex() and self.isVisible()
+                and polish.part("settings_fade")):
+            effects.cross_fade([self.stack], self.cfg, ms=150)
+        self.stack.setCurrentIndex(row)
 
     # --- pages -------------------------------------------------------
     def _general(self):
@@ -172,11 +181,22 @@ class SettingsDialog(QDialog):
         self.channel.setCurrentIndex(max(0, self.channel.findData(self.cfg["update_channel"])))
         self.translate = QLineEdit(self.cfg["translate_url"])
         self.translate.setToolTip(T("{url} is the page address, {lang} the interface language"))
-        f.addRow("", self.lazy)
+        f.addRow("", _wrapping(self.lazy))
         f.addRow(T("Suspend inactive tabs after"), self.sleep)
         f.addRow(T("I.K.E. updates"), self.upd)
         f.addRow(T("Update channel"), self.channel)
         f.addRow(T("Translation service"), self.translate)
+        self.autoplay = QCheckBox(T("Do not let videos and sounds start by themselves (single sites: the lock "
+                                    "in the address bar)"))
+        self.autoplay.setChecked(bool(self.cfg["autoplay_block"]))
+        self.gestures = QCheckBox(T("Mouse gestures: hold the right button and draw ← back, → forward, "
+                                    "↑ reload, ↓→ close the tab"))
+        self.gestures.setChecked(bool(self.cfg["mouse_gestures"]))
+        self.smooth = QCheckBox(T("Smooth scrolling of pages (after a restart)"))
+        self.smooth.setChecked(bool(self.cfg["smooth_scrolling"]))
+        f.addRow("", _wrapping(self.autoplay))
+        f.addRow("", _wrapping(self.gestures))
+        f.addRow("", self.smooth)
         self.di = {}
         desktop = (
             ("di_media", T("Media controls: the media widget, the lock screen and the media keys "
@@ -260,7 +280,7 @@ class SettingsDialog(QDialog):
         tb_row = QGridLayout()
         labels = {"back": T("Back"), "forward": T("Forward"), "reload": T("Reload"),
                   "home": T("Home"), "downloads": T("Downloads"),
-                  "translate": T("Translate page"), "reader": T("Reader mode"),
+                  "bookmark": T("Bookmark"), "reader": T("Reader mode"),
                   "screenshot": T("Screenshot"), "pip": T("Video in floating window"),
                   "split": T("Split view"), "dark": T("Dark mode for pages"),
                   "private": T("New private window"), "cleansite": T("Clear this site's data")}
@@ -283,6 +303,7 @@ class SettingsDialog(QDialog):
         self.dark_engine.setCurrentIndex(max(0, self.dark_engine.findData(self.cfg["dark_engine"])))
         from . import icons
         self.icon_theme = QComboBox()
+        self._narrow(self.icon_theme)          # long set names in some languages must not widen the page
         self.icon_theme.addItem(T("Follow the system"), "system")
         for key, label in icons.SETS:
             self.icon_theme.addItem(T("%s (included with I.K.E.)") % label, "set:" + key)
@@ -299,7 +320,6 @@ class SettingsDialog(QDialog):
         scheme_row.addWidget(self.ui_scheme, 1)
         scheme_row.addWidget(custom)
         f.addRow(T("Interface colours"), scheme_row)
-        self._cyber_rows(f)
         f.addRow(T("Icons"), self.icon_theme)
         f.addRow(T("Tabs"), self.tabs_pos)
         f.addRow("", self.menubar)
@@ -366,7 +386,7 @@ class SettingsDialog(QDialog):
         from PyQt6.QtWidgets import QFrame, QSlider
 
         from . import newtabbg
-        self._bg_choice = None            # None: as it is; "": remove it; a path: use that file
+        self._bg_choice = None            # None: as it is; "": remove it; DEFAULT: I.K.E.'s own; a path: that file
         self.bg_preview = QLabel()
         self.bg_preview.setFixedSize(96, 54)
         self.bg_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -378,10 +398,14 @@ class SettingsDialog(QDialog):
         choose.clicked.connect(self._choose_background)
         self.bg_remove = QPushButton(T("Remove"))
         self.bg_remove.clicked.connect(lambda: self._set_background(""))
+        self.bg_default = QPushButton(T("Default"))
+        self.bg_default.setToolTip(T("I.K.E.'s own photo"))
+        self.bg_default.clicked.connect(lambda: self._set_background(newtabbg.DEFAULT))
         row = QHBoxLayout()
         row.addWidget(self.bg_preview)
         row.addWidget(self.bg_info, 1)
         row.addWidget(choose)
+        row.addWidget(self.bg_default)
         row.addWidget(self.bg_remove)
         self.bg_fit = QComboBox()
         for key, label in (("fill", T("Fill the page")), ("fit", T("Show the whole photo")),
@@ -406,14 +430,24 @@ class SettingsDialog(QDialog):
         f.addRow(T("Background photo"), row)
         f.addRow(T("Photo placement"), self.bg_fit)
         f.addRow(T("Veil over the photo"), veil)
-        current = newtabbg.current(self.cfg)
-        self._show_background(str(current) if current else "")
+        self._show_background(self._bg_shown(self.cfg))
+
+    @staticmethod
+    def _bg_shown(cfg):
+        from . import newtabbg
+        if newtabbg.is_default(cfg):
+            return newtabbg.DEFAULT
+        current = newtabbg.current(cfg)
+        return str(current) if current else ""
 
     def _show_background(self, path):
-        """Preview and controls for the photo at path ("" = none)."""
+        """Preview and controls for the photo at path ("" = none, DEFAULT = I.K.E.'s own)."""
         from PyQt6.QtGui import QPixmap
 
         from . import newtabbg
+        default = path == newtabbg.DEFAULT
+        if default:
+            path = str(newtabbg.DEFAULT_FILE)
         image = None
         if path:
             image, _problem = newtabbg.load_scaled(path, 192)
@@ -430,8 +464,9 @@ class SettingsDialog(QDialog):
             pm.setDevicePixelRatio(ratio)
             self.bg_preview.setText("")
             self.bg_preview.setPixmap(pm)
-            self.bg_info.setText("%d × %d" % size if size else "")
+            self.bg_info.setText(T("I.K.E.'s own photo") if default else ("%d × %d" % size if size else ""))
         on = image is not None
+        self.bg_default.setEnabled(not default)
         self.bg_remove.setEnabled(on)
         self.bg_fit.setEnabled(on)
         self.bg_veil.setEnabled(on)
@@ -446,7 +481,7 @@ class SettingsDialog(QDialog):
     def _set_background(self, path):
         """Take a file as the photo to use when the settings are applied ("" = none)."""
         from . import newtabbg
-        if path:
+        if path and path != newtabbg.DEFAULT:
             _size, problem = newtabbg.probe(path)
             if not problem:
                 _image, problem = newtabbg.load_scaled(path, 192)
@@ -488,93 +523,11 @@ class SettingsDialog(QDialog):
     def _city_chosen(self, i):
         self._city_pick = self.city_results.itemData(i)
 
-    def _cyber_rows(self, f):
-        """The suggestion of the Cyber theme and, when it is chosen, its own options."""
-        from PyQt6.QtGui import QColor
-
-        from . import themes
-        self.cyber_hint = QWidget()
-        row = QVBoxLayout(self.cyber_hint)        # the button under the text: it fits in every language
-        row.setContentsMargins(0, 0, 0, 0)
-        text = QLabel(T("Recommended: I.K.E. Cyber, a theme of I.K.E.'s own with cut corners and luminous "
-                        "lines, the same on every system. “Follow the system” stays the default."))
-        text.setWordWrap(True)
-        self.cyber_try = QPushButton(T("Try the Cyber theme"))
-        self.cyber_try.clicked.connect(
-            lambda: self.ui_scheme.setCurrentIndex(max(0, self.ui_scheme.findData("theme:cyber"))))
-        row.addWidget(text)
-        row.addWidget(self.cyber_try, 0, Qt.AlignmentFlag.AlignLeft)
-        f.addRow("", self.cyber_hint)
-
-        self.cyber_box = QWidget()
-        box = QFormLayout(self.cyber_box)
-        box.setContentsMargins(0, 0, 0, 0)
-        self._cyber_accent = self.cfg["cyber_accent"] if QColor.isValidColorName(self.cfg["cyber_accent"] or "x") else ""
-        accents = QHBoxLayout()
-        self.cyber_swatches = []
-        default = themes.BUILTIN["cyber"]["accent"]
-        for colour, name in ((default, T("Cyan")), ("#ff5fa8", T("Magenta")), ("#b6ff3c", T("Lime")),
-                             ("#ffb020", T("Amber")), ("#9d8cff", T("Violet"))):
-            b = QPushButton()
-            b.setFixedSize(34, 26)
-            b.setCheckable(True)
-            b.setToolTip(name)
-            b.setAccessibleName(name)
-            b.setStyleSheet("QPushButton{background:%s;border:2px solid transparent}"
-                            "QPushButton:checked{border:2px solid palette(window-text)}" % colour)
-            b.clicked.connect(lambda _c=False, c=colour: self._pick_accent("" if c == default else c))
-            b.setProperty("accent", "" if colour == default else colour)
-            self.cyber_swatches.append(b)
-            accents.addWidget(b)
-        other = QPushButton(T("Other…"))
-        other.clicked.connect(self._other_accent)
-        accents.addWidget(other)
-        accents.addStretch(1)
-        self.cyber_shape = QComboBox()
-        for key, label in (("smusso", T("Cut: one cut corner, a line above the current tab")),
-                           ("lama", T("Blade: slanted sides, a line below the current tab")),
-                           ("mirino", T("Viewfinder: no fill, the current tab between two brackets"))):
-            self.cyber_shape.addItem(label, key)
-        self.cyber_shape.setCurrentIndex(max(0, self.cyber_shape.findData(self.cfg["cyber_shape"])))
-        self._narrow(self.cyber_shape)
-        self.cyber_glow = QCheckBox(T("Glow on the lines and on the element in use"))
-        self.cyber_glow.setChecked(bool(self.cfg["cyber_glow"]))
-        self.cyber_corners = QCheckBox(T("Cut corners"))
-        self.cyber_corners.setChecked(bool(self.cfg["cyber_corners"]))
-        box.addRow(T("Accent colour"), accents)
-        box.addRow(T("Shape of the tabs"), self.cyber_shape)
-        box.addRow("", self.cyber_glow)
-        box.addRow("", self.cyber_corners)
-        f.addRow("", self.cyber_box)
-        self.ui_scheme.currentIndexChanged.connect(lambda _i: self._cyber_shown())
-        self._pick_accent(self._cyber_accent)
-        self._cyber_shown()
-
     @staticmethod
     def _narrow(combo):
         """A combo box with long entries must not make the page wider than the window."""
         combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         combo.setMinimumContentsLength(16)
-
-    def _cyber_shown(self):
-        cyber = self.ui_scheme.currentData() == "theme:cyber"
-        self.cyber_box.setVisible(cyber)
-        self.cyber_hint.setVisible(not cyber)
-
-    def _pick_accent(self, colour):
-        self._cyber_accent = colour
-        for b in self.cyber_swatches:
-            b.setChecked(b.property("accent") == colour)
-
-    def _other_accent(self):
-        from PyQt6.QtGui import QColor
-        from PyQt6.QtWidgets import QColorDialog
-
-        from . import themes
-        start = QColor(self._cyber_accent or themes.BUILTIN["cyber"]["accent"])
-        colour = QColorDialog.getColor(start, self, T("Accent colour"))
-        if colour.isValid():
-            self._pick_accent(colour.name())
 
     def _newtab_page(self):
         """Everything about the new tab page in one place."""
@@ -599,12 +552,9 @@ class SettingsDialog(QDialog):
         self.nt_counter.setCurrentIndex(max(0, self.nt_counter.findData(self.cfg["blocked_counter"])))
         self._narrow(self.nt_counter)
         self._narrow(self.nt_tiles)
-        self.nt_grid = QCheckBox(T("Cyber theme: a grid when there is no background photo"))
-        self.nt_grid.setChecked(bool(self.cfg["newtab_grid"]))
         f.addRow(T("Site tiles"), tiles)
         f.addRow(T("Blocked counter"), self.nt_counter)
         self._newtab_rows(f)
-        f.addRow("", self.nt_grid)
         return w
 
     def _fill_schemes(self, selected):
@@ -616,7 +566,7 @@ class SettingsDialog(QDialog):
             combo.addItem(label, key)
         combo.insertSeparator(combo.count())
         for key, label in themes.names():
-            combo.addItem(T("%s (recommended)") % label if key == "cyber" else label, "theme:" + key)
+            combo.addItem(label, "theme:" + key)
         mine = sorted((self.cfg["ui_themes"] or {}), key=str.lower)
         if mine:
             combo.insertSeparator(combo.count())
@@ -1158,24 +1108,15 @@ class SettingsDialog(QDialog):
         cfg["homepage"] = self.homepage.text().strip() or "ike:newtab"
         cfg["tabs_position"] = self.tabs_pos.currentData()
         def looks():
-            return [cfg[k] for k in ("icon_theme", "ui_scheme", "cyber_accent", "cyber_shape", "cyber_glow",
-                                     "cyber_corners")]
+            return [cfg[k] for k in ("icon_theme", "ui_scheme")]
 
         def newtab_look():
-            return [cfg[k] for k in ("newtab_tiles", "blocked_counter", "newtab_grid", "ui_scheme", "cyber_accent",
-                                     "cyber_glow", "cyber_corners")] + [list(cfg["newtab_tiles_hidden"])]
+            return [cfg[k] for k in ("newtab_tiles", "blocked_counter", "ui_scheme")] + [list(cfg["newtab_tiles_hidden"])]
         look, page_look = looks(), newtab_look()
         cfg["icon_theme"] = self.icon_theme.currentData()
         cfg["ui_scheme"] = self.ui_scheme.currentData()
-        cfg["cyber_accent"] = self._cyber_accent
-        cfg["cyber_shape"] = self.cyber_shape.currentData()
-        cfg["cyber_glow"] = self.cyber_glow.isChecked()
-        cfg["cyber_corners"] = self.cyber_corners.isChecked()
-        if cfg["ui_scheme"] != look[1] and cfg["cyber_hint"] != "done":
-            cfg["cyber_hint"] = "done"            # a theme chosen here: nothing left to suggest
         cfg["newtab_tiles"] = self.nt_tiles.currentData()
         cfg["blocked_counter"] = self.nt_counter.currentData()
-        cfg["newtab_grid"] = self.nt_grid.isChecked()
         if self.nt_unhide.property("clear"):
             cfg["newtab_tiles_hidden"] = []
             self.nt_unhide.setProperty("clear", False)
@@ -1231,6 +1172,9 @@ class SettingsDialog(QDialog):
         cfg["update_channel"] = self.channel.currentData()
         if "{url}" in self.translate.text():
             cfg["translate_url"] = self.translate.text().strip()
+        cfg["autoplay_block"] = self.autoplay.isChecked()
+        cfg["mouse_gestures"] = self.gestures.isChecked()
+        cfg["smooth_scrolling"] = self.smooth.isChecked()
         cfg["perm_block"] = [k for k, c in self.perm_block.items() if c.isChecked()]
         cfg["experimental_extensions"] = self.ext_on.isChecked()
         old = {c["name"]: c["color"] for c in cfg["containers"]}
@@ -1260,11 +1204,12 @@ class SettingsDialog(QDialog):
         problem = ""
         if self._bg_choice == "":
             newtabbg.remove_photo(cfg)
+        elif self._bg_choice == newtabbg.DEFAULT:
+            newtabbg.use_default(cfg)
         elif self._bg_choice:
             problem = newtabbg.set_photo(cfg, self._bg_choice)
         self._bg_choice = None
-        current = newtabbg.current(cfg)
-        self._show_background(str(current) if current else "")
+        self._show_background(self._bg_shown(cfg))
         if problem:
             self.bg_info.setText(T(problem))
         cfg["newtab_bg_fit"] = self.bg_fit.currentData()
@@ -1635,6 +1580,11 @@ class DownloadsDialog(QDialog):
         self.tree.setHeaderLabels([T("File"), T("Progress"), T("Status")])
         self.tree.setRootIsDecorated(False)
         self.tree.setColumnWidth(0, 360)
+        self.tree.setColumnWidth(1, 190)
+        from .polish import ProgressDelegate
+        self.tree.setItemDelegateForColumn(1, ProgressDelegate(self.tree))    # a bar under the size
+        self.tree.setIconSize(QSize(24, 24))
+        self._icons = {}
         self.tree.itemActivated.connect(lambda _i, _c: self._open(False))
         lay.addWidget(self.tree, 1)
         row = QHBoxLayout()
@@ -1661,13 +1611,36 @@ class DownloadsDialog(QDialog):
     def fill(self):
         cur = self.tree.indexOfTopLevelItem(self.tree.currentItem())
         self.tree.clear()
+        from .polish import FRACTION_ROLE, part
+        S = QWebEngineDownloadRequest.DownloadState
         for d in self.app.downloads:
             total = d.totalBytes()
             got = d.receivedBytes()
             prog = ("%s / %s" % (_fmt_size(got), _fmt_size(total))) if total > 0 else _fmt_size(got)
-            QTreeWidgetItem(self.tree, [self.app.download_path(d).name, prog, self._state(d)])
+            name = self.app.download_path(d).name
+            item = QTreeWidgetItem(self.tree, [name, prog, self._state(d)])
+            if part("download_rows"):
+                item.setIcon(0, self._file_icon(name))
+                if d.state() == S.DownloadCompleted:
+                    item.setData(1, FRACTION_ROLE, 1.0)
+                elif d.state() == S.DownloadInProgress and total > 0:
+                    item.setData(1, FRACTION_ROLE, got / total)
         if cur >= 0:
             self.tree.setCurrentItem(self.tree.topLevelItem(cur))
+
+    def _file_icon(self, name):
+        """The icon of the file's kind, from the icon theme (kept: the list is filled often)."""
+        from PyQt6.QtCore import QMimeDatabase
+        mime = QMimeDatabase().mimeTypeForFile(name, QMimeDatabase.MatchMode.MatchExtension)
+        key = mime.name()
+        if key not in self._icons:
+            ic = QIcon.fromTheme(mime.iconName())
+            if ic.isNull():
+                ic = QIcon.fromTheme(mime.genericIconName())
+            if ic.isNull():
+                ic = self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon)
+            self._icons[key] = ic
+        return self._icons[key]
 
     def _current(self):
         """The selected download, or the most recent one when nothing is selected."""

@@ -12,7 +12,7 @@ from ike.config import DEFAULTS, TOOLBAR_ITEMS
 from ike.toolbar import LEFT, RIGHT, ToolbarLayout, default_layout
 
 SHOTS = os.environ.get("IKE_TEST_SHOTS", "")
-KEYS = ["shield", "reload", "translate", "reader", "screenshot", "pip", "split", "dark", "private",
+KEYS = ["shield", "reload", "bookmark", "reader", "screenshot", "pip", "split", "dark", "private",
         "cleansite", "downloads", "menu"]
 
 
@@ -21,7 +21,7 @@ KEYS = ["shield", "reload", "translate", "reader", "screenshot", "pip", "split",
 # ----------------------------------------------------------------------
 def test_layout_from_settings():
     lay = ToolbarLayout(KEYS, DEFAULTS["toolbar_order"], DEFAULTS["toolbar_left"], ["split", "dark"])
-    assert lay.left == ["shield", "reload", "translate"]
+    assert lay.left == ["shield", "reload", "bookmark"]
     assert lay.right == ["reader", "screenshot", "pip", "split", "dark", "private", "cleansite", "downloads", "menu"]
     assert lay.shown(RIGHT) == ["reader", "screenshot", "pip", "private", "cleansite", "downloads", "menu"]
     # every key once, whatever the settings hold
@@ -46,13 +46,13 @@ def test_layout_from_settings():
 
 def test_layout_moves():
     lay = ToolbarLayout(KEYS, DEFAULTS["toolbar_order"], DEFAULTS["toolbar_left"], ["split", "dark"])
-    assert lay.slot_of("reader") == (RIGHT, 0) and lay.slot_of("translate") == (LEFT, 2)
+    assert lay.slot_of("reader") == (RIGHT, 0) and lay.slot_of("bookmark") == (LEFT, 2)
     assert not lay.move("reader", RIGHT, 0)                     # already there
     assert lay.move("reader", RIGHT, 2)
     assert lay.shown(RIGHT)[:3] == ["screenshot", "pip", "reader"]
     # it goes right before the shown button that had that place; hidden ones stay where they were
     assert lay.right == ["screenshot", "pip", "split", "dark", "reader", "private", "cleansite", "downloads", "menu"]
-    assert lay.move("reader", LEFT, 0) and lay.left == ["reader", "shield", "reload", "translate"]
+    assert lay.move("reader", LEFT, 0) and lay.left == ["reader", "shield", "reload", "bookmark"]
     assert lay.move("reader", LEFT, 99) and lay.left[-1] == "reader"
     assert lay.move("reader", RIGHT, 99) and lay.right[-1] == "reader"
     assert lay.move("reader", RIGHT, -5) and lay.right[0] == "reader"
@@ -236,7 +236,7 @@ def steps(ike, qapp, out):
     out["final_saved"] = [list(ike.config["toolbar_order"]), list(ike.config["toolbar_left"])]
     ''', settings={"system_titlebar": False, "start_maximized": False}, timeout=150)
     left, right = out["start"]
-    assert left == ["shield", "reload", "translate"] and right == ["reader", "screenshot", "pip", "downloads", "menu"]
+    assert left == ["shield", "reload", "bookmark"] and right == ["reader", "screenshot", "pip", "downloads", "menu"]
     # the drag: a marker and a ghost from the first real move, the toolbar itself untouched
     assert all(m[0] and m[2] and m[3] and isinstance(m[1], int) for m in out["moves"]), out["moves"]
     assert out["toolbar_untouched_during_drag"]
@@ -247,14 +247,14 @@ def steps(ike, qapp, out):
     assert sorted(order) == sorted(KEYS)
     assert out["rebuilt"] and out["ghost_gone"] == [True, False]
     assert out["status_after"] == [False, ""]
-    assert out["after_second"] == [["shield", "reader", "reload", "translate"], ["screenshot", "pip", "downloads", "menu"]]
+    assert out["after_second"] == [["shield", "reader", "reload", "bookmark"], ["screenshot", "pip", "downloads", "menu"]]
     assert out["after_short"] == out["after_second"]
     assert out["click"] == ["screenshot"]
     assert out["hint"][0] is True and out["hint"][1]
     assert out["long_press_no_click"] == [] and out["hint_gone"] == [False, "", False]
     assert out["cancelled"] == [True, [], True]
     assert not out["home_key"] and out["after_home_drag"]
-    assert out["after_drop_on_back"][0] == ["pip", "shield", "reader", "reload", "translate"]
+    assert out["after_drop_on_back"][0] == ["pip", "shield", "reader", "reload", "bookmark"]
     assert out["fixed"] == [0, 1, 2, 3, True, True, True, True]
     assert out["final_saved"][0][:5] == out["final"][0] and out["final_saved"][1] == out["final"][0]
 
@@ -301,7 +301,7 @@ def steps(ike, qapp, out):
     yield 150
     out["shield_menu_open"] = win.shield_menu.isVisible()
     # dragging starts at once, without the long press
-    yield from drag(win, "reader", after(win, "translate"), hold=30)
+    yield from drag(win, "reader", after(win, "bookmark"), hold=30)
     out["dragged"] = keys(win)
     yield from drag(win, "shield", after(win, "menu"), hold=30)
     out["shield_moved"] = keys(win)
@@ -366,19 +366,19 @@ def steps(ike, qapp, out):
     assert out["outlines_match"]
     assert out["click_in_mode"] == [[], True]
     assert out["shield_menu_open"] is False
-    assert out["dragged"] == [["shield", "reload", "translate", "reader"], ["screenshot", "pip", "downloads", "menu"]]
-    assert out["shield_moved"] == [["reload", "translate", "reader"], ["screenshot", "pip", "downloads", "menu", "shield"]]
+    assert out["dragged"] == [["shield", "reload", "bookmark", "reader"], ["screenshot", "pip", "downloads", "menu"]]
+    assert out["shield_moved"] == [["reload", "bookmark", "reader"], ["screenshot", "pip", "downloads", "menu", "shield"]]
     assert out["outlines_after"] == 8
     assert out["entries"] == sorted(k for k, _h in TOOLBAR_ITEMS)
     assert out["shown_dark"] and out["outlines_with_dark"] == 9
     assert out["home_hidden"] == [False, True, True]
     order, left, hidden = out["saved"]
-    assert left == ["reload", "translate", "reader"] and order[-1] == "shield" and sorted(order) == sorted(KEYS)
+    assert left == ["reload", "bookmark", "reader"] and order[-1] == "shield" and sorted(order) == sorted(KEYS)
     assert hidden == ["cleansite", "home", "private", "split"]
-    assert out["second"] == [["reload", "translate", "reader"], ["screenshot", "pip", "dark", "downloads", "menu", "shield"]]
+    assert out["second"] == [["reload", "bookmark", "reader"], ["screenshot", "pip", "dark", "downloads", "menu", "shield"]]
     assert out["second_mode"] == [False, False]
     keys_after, hidden, order, left, home, sep = out["reset"]
-    assert keys_after == [["shield", "reload", "translate"], ["reader", "screenshot", "pip", "downloads", "menu"]]
+    assert keys_after == [["shield", "reload", "bookmark"], ["reader", "screenshot", "pip", "downloads", "menu"]]
     assert hidden == ["cleansite", "dark", "private", "split"]
     assert order == DEFAULTS["toolbar_order"] and left == DEFAULTS["toolbar_left"] and home and sep
     assert out["still_on"] is True
@@ -456,7 +456,7 @@ def steps(ike, qapp, out):
                                ub.mapTo(win, QPoint(ub.width() // 2, 0)).x(), sorted(win.toolbar_spilled)]
     # every button shown, some moved to the left: the fullest toolbar there can be
     ike.config["toolbar_hidden"] = []
-    ike.config["toolbar_left"] = ["shield", "reload", "translate", "dark", "split"]
+    ike.config["toolbar_left"] = ["shield", "reload", "bookmark", "dark", "split"]
     ike.refresh_toolbars()
     for width in (2560, 1920, 1280, 1024, 900, 800, 700, 640, 560, 1366, 3840):
         win.resize(width, 700)
@@ -486,7 +486,7 @@ def steps(ike, qapp, out):
     # moving still lands where the mouse is
     yield from drag(win, "downloads", before(win, "shield"))
     out["moved"] = keys(win)
-    yield from drag(win, "translate", after(win, "menu"))
+    yield from drag(win, "bookmark", after(win, "menu"))
     out["moved_back"] = keys(win)
     out["end"] = check(win)
     import os
@@ -506,8 +506,8 @@ def steps(ike, qapp, out):
             assert bar >= width * 0.5 and abs(centre - width / 2) <= 1, (name, bar, width, centre)
     assert out["checks"]["full-560"][4] and out["checks"]["default-480"][4]
     assert "downloads" in out["under_more"] and out["fired"] == ["downloads"]
-    assert out["moved"] == [["downloads", "shield", "reload", "translate"], ["reader", "screenshot", "pip", "menu"]]
-    assert out["moved_back"] == [["downloads", "shield", "reload"], ["reader", "screenshot", "pip", "menu", "translate"]]
+    assert out["moved"] == [["downloads", "shield", "reload", "bookmark"], ["reader", "screenshot", "pip", "menu"]]
+    assert out["moved_back"] == [["downloads", "shield", "reload"], ["reader", "screenshot", "pip", "menu", "bookmark"]]
     assert out["end"] == []
 
 
