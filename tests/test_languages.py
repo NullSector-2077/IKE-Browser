@@ -1,5 +1,6 @@
 """Language packs and start-up in other languages."""
 
+import re
 import subprocess
 import sys
 
@@ -8,7 +9,11 @@ from conftest import ROOT
 
 EXPECTED = {"it": ("&File", "Impostazioni"), "de": ("&Datei", "Einstellungen"),
             "fr": ("&Fichier", "Paramètres"), "zh": ("文件(&F)", "设置"),
-            "ja": ("ファイル(&F)", "設定"), "en": ("&File", "Settings")}
+            "ja": ("ファイル(&F)", "設定"), "en": ("&File", "Settings"),
+            "ru": ("&Файл", "Настройки"), "uk": ("&Файл", "Налаштування"), "pl": ("&Plik", "Ustawienia"),
+            "cs": ("&Soubor", "Nastavení"), "sr": ("&Датотека", "Подешавања"), "bg": ("&Файл", "Настройки")}
+
+SLAVIC = {"ru", "uk", "be", "bg", "pl", "cs", "sk", "sl", "hr", "sr", "bs", "mk"}
 
 
 def test_check_lang_reports_no_errors():
@@ -34,10 +39,10 @@ def test_settings_list_each_language_once(run_ike):
     codes = out["codes"]
     assert codes[:3] == ["auto", "it", "en"]
     assert len(codes) == len(set(codes))
-    assert {"de", "es", "fr", "pt", "zh", "ja"} <= set(codes)
+    assert {"de", "es", "fr", "pt", "zh", "ja"} | SLAVIC <= set(codes)
 
 
-@pytest.mark.parametrize("code", ["it", "de", "zh", "ja"])
+@pytest.mark.parametrize("code", ["it", "de", "zh", "ja", "ru", "uk", "pl", "cs", "sr", "bg"])
 def test_start_in_language(run_ike, code):
     out = run_ike("""
         def steps(ike, qapp, out):
@@ -54,7 +59,8 @@ def test_start_in_language(run_ike, code):
 
 
 @pytest.mark.parametrize("env_lang,code", [("de_DE.UTF-8", "de"), ("it_IT.UTF-8", "it"),
-                                           ("zh_TW.UTF-8", "zh"), ("en_US.UTF-8", "en")])
+                                           ("zh_TW.UTF-8", "zh"), ("en_US.UTF-8", "en"),
+                                           ("ru_RU.UTF-8", "ru"), ("sr_RS.UTF-8", "sr"), ("pl_PL.UTF-8", "pl")])
 def test_language_from_system(run_ike, env_lang, code):
     out = run_ike("""
         def steps(ike, qapp, out):
@@ -65,3 +71,20 @@ def test_language_from_system(run_ike, env_lang, code):
     """, env={"LANG": env_lang})
     assert out["lang"] == code
     assert out["settings"] == EXPECTED[code][1]
+
+
+def test_slavic_packs_are_complete_and_in_their_script():
+    """The twelve Slavic packs (1.1.2): every text translated, the native name,
+    and Cyrillic where the language is written in it."""
+    import json
+    cyrillic = re.compile("[\u0400-\u04ff]")
+    for code in SLAVIC:
+        pack = json.loads((ROOT / ("ike/resources/lang/%s.json" % code)).read_text("utf-8"))
+        assert pack["code"] == code
+        strings = pack["strings"]
+        assert len(strings) >= 840 and all(v.strip() for v in strings.values()), code
+        uses_cyrillic = bool(cyrillic.search(strings["Settings"] + pack["name"]))
+        assert uses_cyrillic == (code in {"ru", "uk", "be", "bg", "sr", "mk"}), code
+        # the browser engine in About, not a search engine
+        assert strings["Engine"] not in ("Wyszukiwarka", "Vyhledávač", "Vyhľadávač", "Iskalnik",
+                                         "Tražilica", "Претраживач", "Pretraživač", "Пребарувач"), code

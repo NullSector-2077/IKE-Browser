@@ -38,7 +38,8 @@ SCRIPT = """
 """
 
 
-@pytest.mark.parametrize("lang", ["en", "it", "de", "fr", "es", "pt", "zh", "ja"])
+@pytest.mark.parametrize("lang", ["en", "it", "de", "fr", "es", "pt", "zh", "ja", "ru", "uk", "be", "bg",
+                                  "pl", "cs", "sk", "sl", "hr", "sr", "bs", "mk"])
 def test_settings_dialog(run_ike, lang):
     out = run_ike(SCRIPT, settings={"language": lang})
     assert out["sections"] == 8 and out["pages"] == 8          # 1.1.0 added "New tab page"

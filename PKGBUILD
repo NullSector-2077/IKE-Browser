@@ -4,7 +4,7 @@
 # sources are taken from the clone itself, so this also works while the
 # repository is private.
 pkgname=ike-browser
-pkgver=1.1.1
+pkgver=1.1.2
 pkgrel=1
 pkgdesc="I.K.E. - Internet Kontrol Experience: private, independent web browser"
 arch=('x86_64')
