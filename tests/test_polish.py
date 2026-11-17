@@ -564,6 +564,8 @@ def steps(ike, qapp, out):
     out["site_opens"] = bool(dlg is not None and dlg.isVisible())
     # the shield: its number grew on this page, and a "+N" rose
     out["count"] = [win.shield_btn.text(), win.shield_count.shown]
+    # the "+N" starts right of the shield icon and of the number, never over the icon
+    out["plus_left"] = [win.shield_count.text_left(), win.shield_btn.iconSize().width()]
     # the shield panel and the site panel show the site's icon
     win.shield_menu.popup(win.shield_btn.mapToGlobal(win.shield_btn.rect().bottomLeft()))
     yield 300
@@ -606,6 +608,7 @@ def test_touches_of_117(run_ike, pages):
     assert out["photo_opens"] == "newtab" and out["settings_fade"] is True
     assert out["site_opens"] is False
     assert out["count"][0] and int(out["count"][0]) >= 1 and out["count"][1] >= 1
+    assert out["plus_left"][0] > out["plus_left"][1] + 8
     assert out["shield_icon"] is True and out["info_icon"] is True
     assert out["zoom_pill"] == [True, "Zoom: 110%", False] and out["zoom_gone"] is False
     assert out["note"] == [True, "A note"]

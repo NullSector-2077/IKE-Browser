@@ -15,6 +15,13 @@
 - The **veil** over any background photo is now a layer of the page's own
   background instead of an element of its own over the page: the same look,
   one painted surface less (about 15-20 MB less memory with a photo).
+- **Shield**: the "+N" that rises when the number grows is drawn beside the
+  number, bold, with a thin edge in the toolbar's colour, and stays a moment
+  before it fades (1.1 s). It was drawn over the shield icon, in the colour of
+  the icon's edge, and could not be seen.
+- Settings → General: the "load restored tabs" line wraps, so the page needs no
+  sideways scrolling in long languages (Russian).
+- Package 1.1.8-2 (the first build was 1.1.8-1).
 
 Measured against 1.1.7, package against package (1.1.7 without a photo, 1.1.8
 with its own): start-up (0.28 – 0.31 s against 0.31 s) and processor time at

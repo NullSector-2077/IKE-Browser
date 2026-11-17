@@ -181,7 +181,7 @@ class SettingsDialog(QDialog):
         self.channel.setCurrentIndex(max(0, self.channel.findData(self.cfg["update_channel"])))
         self.translate = QLineEdit(self.cfg["translate_url"])
         self.translate.setToolTip(T("{url} is the page address, {lang} the interface language"))
-        f.addRow("", self.lazy)
+        f.addRow("", _wrapping(self.lazy))
         f.addRow(T("Suspend inactive tabs after"), self.sleep)
         f.addRow(T("I.K.E. updates"), self.upd)
         f.addRow(T("Update channel"), self.channel)

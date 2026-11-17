@@ -737,9 +737,13 @@ class Toast(QWidget):
 # --- "+N" over the shield (1.1.7) ---------------------------------------------------
 class ShieldCount(QWidget):
     """When the shield's number grows, a small "+N" in the accent colour rises
-    from it and fades (several blocks close together count as one)."""
+    beside the number and fades (several blocks close together count as one).
+    It is drawn right of the number, never over the shield icon (1.1.8: over
+    the icon, in the colour of the icon's edge, it could not be seen)."""
 
-    MS = 700
+    MS = 1100
+    HOLD = 0.4          # fully visible for the first part, then it fades
+    ROOM = 34           # px right of the button for the "+N"
 
     def __init__(self, button, config):
         super().__init__(button.parentWidget())
@@ -770,7 +774,7 @@ class ShieldCount(QWidget):
         running = self._anim.state() == QVariantAnimation.State.Running
         self.delta = (self.delta if running else 0) + (n - old)
         b = self.button.geometry()
-        self.setGeometry(b.x(), max(0, b.y() - 4), b.width(), b.height())
+        self.setGeometry(b.x(), b.y(), b.width() + self.ROOM, b.height())
         self.show()
         self.raise_()
         if not running:
@@ -782,20 +786,41 @@ class ShieldCount(QWidget):
         self.delta = 0
         self.hide()
 
+    def text_left(self):
+        """Where the "+N" starts: right of the shield icon and of the number."""
+        from PyQt6.QtGui import QFontMetrics
+        b = self.button
+        fm = QFontMetrics(b.font())
+        return b.iconSize().width() + 8 + fm.horizontalAdvance(b.text() or "0") + 3
+
+    def alpha(self, t):
+        return 1.0 if t <= self.HOLD else max(0.0, 1.0 - (t - self.HOLD) / (1.0 - self.HOLD))
+
     def paintEvent(self, _event):
+        from PyQt6.QtGui import QFontMetrics, QPainterPath
         t = float(self._anim.currentValue() or 0.0)
+        a = self.alpha(t)
+        if a <= 0:
+            return
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        f = self.font()
+        f = self.button.font()
         f.setBold(True)
-        if f.pointSizeF() > 0:
-            f.setPointSizeF(f.pointSizeF() * 0.9)
-        p.setFont(f)
+        fm = QFontMetrics(f)
+        text = "+%d" % self.delta
+        h = self.height()
+        # from just below the middle up towards the top edge
+        base = round(h * 0.5 + fm.ascent() / 2 - t * h * 0.32)
+        path = QPainterPath()
+        path.addText(QPointF(self.text_left(), base), f, text)
+        halo = QColor(self.button.palette().color(QPalette.ColorRole.Window))
+        halo.setAlphaF(0.85 * a)
+        p.setPen(QPen(halo, 3.0, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.drawPath(path)
         c = QColor(accent(self.button))
-        c.setAlphaF(max(0.0, 1.0 - t))
-        p.setPen(c)
-        icon = self.button.iconSize().width()
-        p.drawText(QRect(icon // 2 + 6, round(self.height() * 0.35 - t * self.height() * 0.35), self.width(),
-                         self.height() // 2), int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
-                   "+%d" % self.delta)
+        c.setAlphaF(a)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(c)
+        p.drawPath(path)
         p.end()
