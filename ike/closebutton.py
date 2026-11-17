@@ -120,6 +120,7 @@ class WindowCloseButton(QToolButton):
 
     def __init__(self, parent=None, size=None):
         super().__init__(parent)
+        self.setProperty("ike_own_hover", True)      # its own red circle (polish.HoverGlides leaves it)
         self.style_ = CloseButtonStyle()
         if size:
             self.style_.SIZE = size          # the disc's diameter

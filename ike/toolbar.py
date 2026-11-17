@@ -1,9 +1,10 @@
 """The navigation toolbar: which buttons it shows, on which side of the address
 bar and in which order, and moving them with the mouse.
 
-    Back Forward Home | left zone ~ address bar ~ right zone | window buttons
+    Back Forward Home Reload | left zone ~ Shield address bar ~ right zone | window buttons
 
-Back, Forward, Home and the separator after them are fixed. The other buttons
+Back, Forward, Home, Reload and the separator after them are fixed, and so is
+the shield, right before the address bar (1.1.9, the owner's choice). The other buttons
 live in one of two zones and can be moved inside a zone or to the other one,
 after a long press or at once in "Customise toolbar" mode.
 
@@ -24,10 +25,10 @@ from PyQt6.QtCore import QEvent, QObject, QPoint, QRect, QRectF, Qt, QTimer
 from PyQt6.QtGui import QColor, QPainter, QPalette, QPen, QPixmap
 from PyQt6.QtWidgets import QApplication, QLabel, QToolButton, QWidget
 
-FIXED = ("back", "forward", "home")      # always at the start, in this order
+FIXED = ("back", "forward", "home", "reload")     # always at the start, in this order
 _METRICS_EVENTS = tuple(e for e in (QEvent.Type.StyleChange, QEvent.Type.FontChange,
                                     getattr(QEvent.Type, "DevicePixelRatioChange", None)) if e is not None)
-PINNED = ("shield", "menu")              # movable, but never hidden
+PINNED = ("menu",)                       # movable, but never hidden
 LEFT, RIGHT = "left", "right"
 
 

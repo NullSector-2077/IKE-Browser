@@ -53,6 +53,13 @@ PARTS = {
     "shield_count": True,    # a small "+N" rises from the shield when its number grows
     "panel_icons": True,     # the site's icon beside its name in the shield and site panels
     "settings_fade": True,   # Settings: the pages change with a short fade
+    # 1.1.9
+    "star_pop": True,        # the bookmark star fills with a small pop when a page is saved
+    "shield_fade": True,     # the shield's icon fades from one protection level to the next
+    "tab_unseen": True,      # a dot on a background tab that finished loading, until it is opened
+    "vtab_close": True,      # vertical tabs: a closed row fades out
+    "toolbar_hover": True,   # toolbar buttons: a soft round highlight under the mouse, as the window buttons
+    "bars_grow": True,       # the shield panel's bars grow from zero when it opens
 }
 
 MARK_MS = 180
@@ -511,6 +518,31 @@ class BlockBars(QWidget):
         super().__init__(parent)
         self.rows = []               # [(label, count)]
         self.setMinimumWidth(240)
+        self.k = 1.0                 # how far the bars have grown (1.1.9: from 0 when the panel opens)
+        self._grow = None
+
+    def grow(self, config, ms=380):
+        """The bars grow from zero to their length (when the shield panel opens)."""
+        if self._grow is not None:
+            self._grow.stop()
+        if not moving(config, "bars_grow") or self.isHidden() or not any(n for _l, n in self.rows):
+            self.k = 1.0             # nothing to show (no blocks here): no animation either
+            return
+        a = self._grow = QVariantAnimation(self)
+        a.setDuration(ms)
+        a.setStartValue(0.0)
+        a.setEndValue(1.0)
+        a.setEasingCurve(QEasingCurve.Type.OutCubic)
+        a.valueChanged.connect(lambda v: (setattr(self, "k", float(v)), self.update()))
+        self.k = 0.0
+        a.start()
+
+    def hideEvent(self, event):
+        # the panel closed: nothing goes on growing out of sight
+        if self._grow is not None:
+            self._grow.stop()
+        self.k = 1.0
+        super().hideEvent(event)
 
     def show_stats(self, rows):
         self.rows = [(label, int(n)) for label, n in rows]
@@ -545,7 +577,7 @@ class BlockBars(QWidget):
             p.drawRoundedRect(bar, 3, 3)
             if n:
                 p.setBrush(accent(self))
-                p.drawRoundedRect(QRectF(bar.x(), bar.y(), max(6.0, bar.width() * n / top), 6), 3, 3)
+                p.drawRoundedRect(QRectF(bar.x(), bar.y(), max(6.0, bar.width() * n / top * self.k), 6), 3, 3)
             p.setPen(text)
             p.drawText(QRect(int(bar_x + bar_w), y, num_w, self.ROW),
                        int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight), str(n))
@@ -824,3 +856,236 @@ class ShieldCount(QWidget):
         p.setBrush(c)
         p.drawPath(path)
         p.end()
+
+
+# --- 1.1.9 ------------------------------------------------------------------------
+class PopIconEngine(QIconEngine):
+    """An icon coming in with a small pop: it grows past its size and settles,
+    while a thin ring in the accent colour opens around it and fades."""
+
+    def __init__(self, base, t, colour):
+        super().__init__()
+        self.base, self.t, self.colour = QIcon(base), max(0.0, min(1.0, t)), QColor(colour)
+
+    def clone(self):
+        return PopIconEngine(self.base, self.t, self.colour)
+
+    def paint(self, painter, rect, mode, state):
+        t = self.t
+        # 0.55 -> 1.18 -> 1.0 (a quick grow past the size, then back)
+        k = 0.55 + 0.63 * min(1.0, t / 0.6) if t < 0.6 else 1.18 - 0.18 * (t - 0.6) / 0.4
+        side = min(rect.width(), rect.height())
+        c = QPointF(rect.center())
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        ring = QColor(self.colour)
+        ring.setAlphaF(max(0.0, 0.8 * (1.0 - t)))
+        painter.setPen(QPen(ring, max(1.2, side / 14.0)))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        rad = side * (0.3 + 0.22 * t)
+        painter.drawEllipse(c, rad, rad)
+        s = side * k
+        self.base.paint(painter, QRect(round(c.x() - s / 2), round(c.y() - s / 2), round(s), round(s)),
+                        Qt.AlignmentFlag.AlignCenter, mode, state)
+        painter.restore()
+
+    def pixmap(self, size, mode, state):
+        pm = QPixmap(size)
+        pm.fill(Qt.GlobalColor.transparent)
+        p = QPainter(pm)
+        self.paint(p, QRect(0, 0, size.width(), size.height()), mode, state)
+        p.end()
+        return pm
+
+    def actualSize(self, size, mode, state):
+        return QSize(size)
+
+
+def pop_in(owner, key, new, config, apply, ms=380):
+    """Show the icon new with a small pop (star_pop); without effects at once."""
+    anims = owner.__dict__.setdefault("_ike_pops", {})
+    old = anims.pop(key, None)
+    if old is not None:
+        old.stop()
+    if not moving(config, "star_pop"):
+        apply(new)
+        return None
+    colour = accent(owner)
+    anim = QVariantAnimation(owner)
+    anim.setDuration(ms)
+    anim.setStartValue(0.0)
+    anim.setEndValue(1.0)
+    anim.valueChanged.connect(lambda v: apply(QIcon(PopIconEngine(new, float(v), colour))))
+
+    def done():
+        if anims.get(key) is anim:
+            anims.pop(key, None)
+        apply(new)
+    anim.finished.connect(done)
+    anims[key] = anim
+    anim.start()
+    return anim
+
+
+def popping(owner, key):
+    a = owner.__dict__.get("_ike_pops", {}).get(key)
+    return a is not None and a.state() == QVariantAnimation.State.Running
+
+
+class UnseenIconEngine(QIconEngine):
+    """A tab's icon with a small dot in the accent colour: the page finished
+    loading in the background and was not looked at yet."""
+
+    def __init__(self, base, colour, edge):
+        super().__init__()
+        self.base, self.colour, self.edge = QIcon(base), QColor(colour), QColor(edge)
+
+    def clone(self):
+        return UnseenIconEngine(self.base, self.colour, self.edge)
+
+    def paint(self, painter, rect, mode, state):
+        self.base.paint(painter, rect, Qt.AlignmentFlag.AlignCenter, mode, state)
+        side = min(rect.width(), rect.height())
+        d = max(5.0, side * 0.42)
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(QPen(self.edge, max(1.2, side / 12.0)))
+        painter.setBrush(self.colour)
+        painter.drawEllipse(QRectF(rect.right() + 1 - d, rect.bottom() + 1 - d, d - 1, d - 1))
+        painter.restore()
+
+    def pixmap(self, size, mode, state):
+        pm = QPixmap(size)
+        pm.fill(Qt.GlobalColor.transparent)
+        p = QPainter(pm)
+        self.paint(p, QRect(0, 0, size.width(), size.height()), mode, state)
+        p.end()
+        return pm
+
+    def actualSize(self, size, mode, state):
+        return QSize(size)
+
+
+def unseen_icon(base, palette):
+    return QIcon(UnseenIconEngine(base, palette.color(QPalette.ColorRole.Highlight),
+                                  palette.color(QPalette.ColorRole.Window)))
+
+
+def ghost_out(view, rect, config, ms=170):
+    """A picture of rect of view (a list's viewport) laid over it, fading out:
+    a closed row goes away softly while the list itself changes at once."""
+    from PyQt6.QtWidgets import QGraphicsOpacityEffect, QLabel
+    if not moving(config, "vtab_close") or not view.isVisible() or rect.isEmpty():
+        return None
+    shot = QLabel(view)
+    shot.setObjectName("ike_row_ghost")
+    shot.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+    shot.setPixmap(view.grab(rect))
+    shot.setGeometry(rect)
+    effect = QGraphicsOpacityEffect(shot)
+    shot.setGraphicsEffect(effect)
+    anim = QVariantAnimation(shot)
+    anim.setDuration(ms)
+    anim.setStartValue(1.0)
+    anim.setEndValue(0.0)
+    anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+    def step(v):
+        try:
+            effect.setOpacity(float(v))
+        except RuntimeError:
+            anim.stop()
+    anim.valueChanged.connect(step)
+    anim.finished.connect(shot.deleteLater)
+    shot.show()
+    shot.raise_()
+    anim.start()
+    return shot
+
+
+class RoundHoverStyle(QProxyStyle):
+    """Toolbar buttons with the desktop's style, except their hover: a soft
+    round highlight in the theme's colour comes in and goes, as on the window
+    buttons (its level is the button's "ike_hover" property, set by HoverGlides)."""
+
+    def drawComplexControl(self, cc, opt, p, widget=None):
+        from PyQt6.QtWidgets import QStyleOptionToolButton
+        if (cc != QStyle.ComplexControl.CC_ToolButton or widget is None or not part("toolbar_hover")
+                or not isinstance(opt, QStyleOptionToolButton)):
+            super().drawComplexControl(cc, opt, p, widget)
+            return
+        level = float(widget.property("ike_hover") or 0.0)
+        sunken = bool(opt.state & QStyle.StateFlag.State_Sunken)
+        if sunken:
+            level = 1.4
+        if level > 0 and opt.state & QStyle.StateFlag.State_Enabled:
+            c = QColor(widget.palette().color(QPalette.ColorRole.Highlight))
+            c.setAlphaF(min(0.45, 0.22 * level))
+            r = QRectF(opt.rect).adjusted(2, 2, -2, -2)
+            p.save()
+            p.setRenderHint(QPainter.RenderHint.Antialiasing)
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(c)
+            if r.width() <= r.height() * 1.25:          # an icon only: a circle
+                d = min(r.width(), r.height())
+                p.drawEllipse(QRectF(r.center().x() - d / 2, r.center().y() - d / 2, d, d))
+            else:                                       # with text or a menu arrow: a pill
+                p.drawRoundedRect(r, r.height() / 2, r.height() / 2)
+            p.restore()
+        o = QStyleOptionToolButton(opt)
+        # the desktop's own hover frame and the pressed frame give way to the round one;
+        # a checked (on) button keeps the desktop's look
+        o.state &= ~QStyle.StateFlag.State_MouseOver
+        if not opt.state & QStyle.StateFlag.State_On:
+            o.state &= ~QStyle.StateFlag.State_Sunken
+            o.activeSubControls = QStyle.SubControl.SC_None
+        super().drawComplexControl(cc, o, p, widget)
+
+
+class HoverGlides(QObject):
+    """Watches the buttons of a toolbar: under the mouse their "ike_hover"
+    level glides to 1 and back (drawn by RoundHoverStyle)."""
+
+    def __init__(self, bar, config):
+        super().__init__(bar)
+        self.bar, self.config = bar, config
+        self.style = RoundHoverStyle()
+        self.glides = {}
+        bar.installEventFilter(self)
+        self.adopt()
+
+    def adopt(self):
+        """Take the toolbar's buttons that are not taken yet (after a change of the bar too)."""
+        from PyQt6.QtWidgets import QToolButton
+        if not part("toolbar_hover"):
+            return
+        for b in self.bar.findChildren(QToolButton):
+            if b in self.glides or b.parentWidget() is not self.bar or b.property("ike_own_hover"):
+                continue
+            b.setStyle(self.style)
+            b.installEventFilter(self)
+            g = effects.Glide(b, self.config, lambda b=b, s=self: s._level(b))
+            self.glides[b] = g
+            b.destroyed.connect(lambda _o=None, b=b, s=self: s.glides.pop(b, None))
+
+    def _level(self, b):
+        g = self.glides.get(b)
+        if g is not None:
+            b.setProperty("ike_hover", g.value)
+            b.update()
+
+    def eventFilter(self, obj, event):
+        from PyQt6.QtCore import QEvent
+        t = event.type()
+        if obj is self.bar:
+            if t == QEvent.Type.ChildAdded:
+                from PyQt6.QtCore import QTimer
+                QTimer.singleShot(0, self.adopt)
+            return False
+        g = self.glides.get(obj)
+        if g is not None:
+            if t == QEvent.Type.Enter:
+                g.to(1)
+            elif t == QEvent.Type.Leave:
+                g.to(0)
+        return False

@@ -407,6 +407,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         tb.customContextMenuRequested.connect(self._toolbar_menu)
         self.addToolBar(tb)
         self.nav = tb
+        self._hover = polish.HoverGlides(tb, self.app.config)   # round hover of the buttons (1.1.9)
         self.act_back = self._action(T("Back"), lambda: self._web(QWebEnginePage.WebAction.Back),
                                      ["Alt+Left"], icon("go-previous", SP.SP_ArrowBack),
                                      T("Go back one page"))
@@ -419,9 +420,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_home = self._action(T("Home"), self.go_home, ["Alt+Home"],
                                      icon("go-home", SP.SP_DirHomeIcon),
                                      T("Open the home page"))
-        for a in (self.act_back, self.act_fwd, self.act_home):
+        for a in (self.act_back, self.act_fwd, self.act_home, self.act_reload):
             tb.addAction(a)
-        self.home_sep_act = tb.addSeparator()      # fixed: always right after Home, never moved
+        self.home_sep_act = tb.addSeparator()      # fixed: always right after Reload, never moved (1.1.9)
 
         def spacer():
             w = QWidget(self)
@@ -444,7 +445,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         effects.fading(self.site_info_menu, self.app.config)
         self.urlbar.lock.triggered.connect(self.show_site_info)
 
-        # Shield: protection level selector, right of the address bar.
+        # Shield: protection level selector, fixed right before the address bar (1.1.9).
         self.shield_btn = QToolButton(self)
         self.shield_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.shield_btn.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
@@ -456,9 +457,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         wa.setDefaultWidget(self.shield_panel)
         self.shield_menu.addAction(wa)
         self.shield_menu.aboutToShow.connect(self.shield_panel.refresh)
+        self.shield_menu.aboutToShow.connect(lambda: self.shield_panel.kinds.grow(self.app.config))
         effects.fading(self.shield_menu, self.app.config)
         self.shield_btn.setMenu(self.shield_menu)
-        self.shield_act = tb.addWidget(self.shield_btn)
+        self.shield_act = tb.insertWidget(self.urlbar_act, self.shield_btn)
         # a ring opens once around the shield when it blocks something (polish.py)
         self.shield_pulse = polish.ShieldPulse(self.shield_btn, self.app.config)
         self.shield_count = polish.ShieldCount(self.shield_btn, self.app.config)   # "+N" when it grows
@@ -544,9 +546,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self._build_window_buttons(tb)
         self._update_max_button()
         right = self._win_btns[0]
-        self._nav_items = [("shield", self.shield_act, right),
-                           ("reload", self.act_reload, right),
-                           ("bookmark", self.act_tb_bookmark, right),
+        self._nav_items = [("bookmark", self.act_tb_bookmark, right),
                            ("reader", self.act_tb_reader, right),
                            ("screenshot", self.act_tb_shot, right),
                            ("pip", self.act_tb_pip, right),
@@ -1090,6 +1090,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         ic = view.tab_icon = tab_icon(ic, g["color"] if g else None, self.app.container_color(view.container))
         if getattr(view, "loading_marked", False):
             ic = effects.loading_icon(ic, getattr(self, "_spin_angle", 45), self.tabbar.palette())
+        elif getattr(view, "unseen", False):
+            ic = polish.unseen_icon(ic, self.tabbar.palette())
         # a long title fades out at the edge of the tab (tabs.TabBar.set_title)
         self.tabbar.set_title(i, prefix + title)
         self.tabbar.setTabToolTip(i, tip)
@@ -1173,6 +1175,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self.closed_tabs.append(url)
             del self.closed_tabs[:-25]
         was_current = view is self.current_view()
+        item = self.vtabs.item(i)
+        if item is not None and self.vtabs.isVisible():
+            # the row fades out while the list changes at once (1.1.9)
+            polish.ghost_out(self.vtabs.viewport(), self.vtabs.visualItemRect(item), self.app.config)
         self.views.pop(i)
         for w, remove in ((self.tabbar, lambda: self.tabbar.removeTab(i)),
                           (self.vtabs, lambda: self.vtabs.takeItem(i))):
@@ -1548,6 +1554,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     # ------------------------------------------------------------------
     def _current_changed(self):
         v = self.current_view()
+        if v is not None and getattr(v, "unseen", False):
+            v.unseen = False
+            self._tab_changed(v)
         if v is not None and getattr(v, "loading", False):
             self.loading_line.set_state(True, getattr(v, "progress", 0))
         else:
@@ -1608,8 +1617,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                   and bool(self.app.config["experimental_extensions"]))
         self._zoom_sign()
         marked = bool(v) and self.app.storage.is_bookmarked(url.toString())
-        self.act_tb_bookmark.setIcon(icon("bookmarks" if marked else "bookmark-new",
-                                          SP.SP_DialogApplyButton if marked else SP.SP_DialogOpenButton))
+        if not polish.popping(self, "star"):
+            self.act_tb_bookmark.setIcon(icon("bookmarks" if marked else "bookmark-new",
+                                              SP.SP_DialogApplyButton if marked else SP.SP_DialogOpenButton))
         self.act_tb_bookmark.setToolTip(T("Remove bookmark") if marked else T("Bookmark this page"))
         self.urlbar.translate_act.setVisible(scheme in ("http", "https"))
 
@@ -1693,6 +1703,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self.app.storage.add_visit(view.url().toString(), view.title())
         if ok:
             view.reader = False
+        if (ok and view is not self.current_view() and view in self.views
+                and view.url().scheme() in ("http", "https") and polish.part("tab_unseen")):
+            view.unseen = True                  # a dot on its tab until it is opened (1.1.9)
+            self._tab_changed(view)
         if view is self.current_view():
             self.update_shield()
 
@@ -1710,8 +1724,21 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         cfg = self.app.config
         level = cfg.level_for(host) if host else cfg["shield_level"]
         n = self.app.shields.total(host) if host else 0
-        self.shield_btn.setIcon(shield_icon(level, grow=TOOLBAR_SHIELD_GROW))
-        self.shield_btn.setText(str(n) if n and level != "off" else "")
+        new = shield_icon(level, grow=TOOLBAR_SHIELD_GROW)
+        shown = getattr(self, "_shield_shown", None)
+        fading = self.__dict__.get("_ike_icon_fades", {}).get("shield")
+        if shown is not None and shown != level:
+            # another level: the icon fades into the new one (1.1.9)
+            polish.fade_icon(self, "shield", self.shield_btn.icon(), new, cfg, self.shield_btn.setIcon,
+                             ms=260, name="shield_fade")
+        elif fading is None or fading.state() != fading.State.Running:
+            self.shield_btn.setIcon(new)
+        self._shield_shown = level
+        text = str(n) if n and level != "off" else ""
+        if len(text) != len(self.shield_btn.text()):
+            # the button gets wider or narrower: the address bar is centred again (1.1.9)
+            QTimer.singleShot(0, self._fit_urlbar)
+        self.shield_btn.setText(text)
         self.shield_count.count(n if level != "off" else 0, (id(self.current_view()), host))
         self.m_level.setIcon(shield_icon(cfg["shield_level"], 16))
         if self.shield_menu.isVisible():
@@ -1726,12 +1753,15 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             return
         url = v.url().toString()
         st = self.app.storage
-        if st.is_bookmarked(url):
-            st.remove_bookmark(url)
-        else:
+        added = not st.is_bookmarked(url)
+        if added:
             st.add_bookmark(url, v.title())
+        else:
+            st.remove_bookmark(url)
         self.app.refresh_windows()
         self.sync_urlbar()
+        if added:          # the star fills with a small pop (1.1.9)
+            polish.pop_in(self, "star", self.act_tb_bookmark.icon(), self.app.config, self.act_tb_bookmark.setIcon)
 
     def site_icon(self, url, fetch=False):
         """Stored icon of the site, or the generic globe."""
@@ -1967,8 +1997,16 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 break
         room = space - sum(w for key, w in widths if key not in spilled)
         share = max(30, min(100, int(self.app.config["urlbar_width"]))) / 100.0
-        width = max(self.URLBAR_LEAST, min(int(self.width() * share), room))
+        # in a very narrow window the fixed buttons (Back to Reload, the shield, the menu, the
+        # window buttons) come first: the bar then takes what is left, down to 80 px (1.1.9)
+        least = self.URLBAR_LEAST if room >= self.URLBAR_LEAST else max(80, room)
+        width = max(least, min(int(self.width() * share), room))
+        narrower = width < self.urlbar.width()
         self.urlbar.setFixedWidth(width)
+        if narrower:
+            # the toolbar may have put its last items under Qt's own overflow button while the
+            # bar was still wider (1.1.9: with the shield before the bar it stayed so): look again
+            self.nav.layout().invalidate()
         self._urlbar_width, self._urlbar_room = width, room
         QTimer.singleShot(0, self._centre_urlbar)        # after the toolbar's layout
 
@@ -1989,7 +2027,16 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         except (RuntimeError, AttributeError):
             return
         room = getattr(self, "_urlbar_room", 0)            # both free rooms and the bar
-        half = centre - start
+        # what stands between the left free room and the bar (the shield, 1.1.9), from the
+        # sizes of the items (their positions may still be those of the last layout)
+        acts = self.nav.actions()
+        gap = max(0, self.nav.layout().spacing())
+        between = gap
+        for a in acts[acts.index(self.space_left_act) + 1:acts.index(self.urlbar_act)]:
+            w = self.nav.widgetForAction(a)
+            if w is not None and a.isVisible():
+                between += w.sizeHint().width() + gap
+        half = centre - start - between
         if room <= 0 or half <= 0:
             return
         wanted = getattr(self, "_urlbar_width", ub.width())
@@ -2027,9 +2074,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if clear:
             menu.clear()
         hidden = self.app.config["toolbar_hidden"]
-        for key, act in (("back", self.act_back), ("forward", self.act_fwd), ("home", self.act_home)) \
+        for key, act in (("back", self.act_back), ("forward", self.act_fwd), ("home", self.act_home),
+                         ("reload", self.act_reload)) \
                 + tuple((key, act) for key, act, _anchor in self._nav_items):
-            if key in ("shield", "menu"):
+            if key == "menu":
                 continue
             a = menu.addAction(act.icon(), act.text())
             a.setCheckable(True)

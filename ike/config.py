@@ -127,7 +127,7 @@ DEFAULTS = {
     "startup": "restore",               # restore | home | newtab
     "homepage": "ike:newtab",
     "tabs_position": "horizontal",      # horizontal | vertical
-    "show_menubar": True,
+    "show_menubar": False,              # 1.1.9: off for a new installation (it takes room for little)
     "show_bookmarks_bar": False,        # (before 1.0.3; replaced by bookmarks_bar)
     "bookmarks_bar": "newtab",          # always | newtab | never
     "vtabs_autohide": False,            # vertical tabs appear when the mouse hits the left edge
@@ -136,9 +136,10 @@ DEFAULTS = {
     "ui_effects": True,                 # short fades and the loading mark of tabs (see effects.py)
     "toolbar_hidden": [],               # keys of TOOLBAR_ITEMS the user does not want
     "toolbar_known": ["back", "forward", "reload", "home", "downloads"],
-    "toolbar_order": ["shield", "reload", "bookmark", "reader", "screenshot", "pip",
-                      "split", "dark", "private", "cleansite", "downloads", "menu"],
-    "toolbar_left": ["shield", "reload", "bookmark"],  # balance the address field around the window centre
+    # 1.1.9: the owner's arrangement (Reload and the shield are fixed, toolbar.py)
+    "toolbar_order": ["dark", "private", "cleansite", "screenshot", "split", "pip",
+                      "bookmark", "downloads", "reader", "menu"],
+    "toolbar_left": ["dark", "private", "cleansite", "screenshot", "split", "pip"],
     "urlbar_width": 50,                 # address bar: per cent of the window width (60 until 1.1.6)
     "urlbar_width_117": False,          # the old default of 60 was moved to 50 once (1.1.7)
     "newtab_clock": True,               # clock and date on the new tab page
@@ -254,8 +255,8 @@ DEFAULTS = {
 
 # Toolbar buttons the user can show or hide: (key, hidden when first seen)
 TOOLBAR_ITEMS = (("back", False), ("forward", False), ("reload", False), ("home", False),
-                 ("bookmark", False), ("reader", False), ("screenshot", False), ("pip", False),
-                 ("split", True), ("dark", True), ("private", True), ("cleansite", True),
+                 ("bookmark", False), ("reader", False), ("screenshot", False), ("pip", True),
+                 ("split", False), ("dark", False), ("private", False), ("cleansite", False),
                  ("downloads", False))
 
 

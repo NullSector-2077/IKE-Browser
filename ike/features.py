@@ -424,9 +424,9 @@ class WindowFeatures:
         self.toolbar_layout = ToolbarLayout.from_config(cfg, list(by_key))
         if getattr(self, "toolbar_mover", None) is None:
             self.toolbar_mover = ToolbarMover(self)
-        # Back, Forward, Home: fixed place, can only be shown or hidden
+        # Back, Forward, Home, Reload: fixed place, can only be shown or hidden
         hidden = cfg["toolbar_hidden"] if isinstance(cfg["toolbar_hidden"], list) else []
-        fixed = dict(zip(FIXED, (self.act_back, self.act_fwd, self.act_home)))
+        fixed = dict(zip(FIXED, (self.act_back, self.act_fwd, self.act_home, self.act_reload)))
         for key, act in fixed.items():
             act.setVisible(key not in hidden)
         self.home_sep_act.setVisible(any(key not in hidden for key in fixed))
@@ -1238,6 +1238,7 @@ class WindowButton(QToolButton):
 
     def __init__(self, parent, side, config=None):
         super().__init__(parent)
+        self.setProperty("ike_own_hover", True)      # its own circle (polish.HoverGlides leaves it)
         self._side = side
         from .effects import Glide
         self._glide = Glide(self, config, self.update)

@@ -1,5 +1,87 @@
 # Changelog
 
+## 1.1.9
+
+**Plasma integration**, made complete (all through D-Bus, nothing to install,
+nothing running while unused):
+
+- **Downloads**: when a download is done, Plasma's notification offers "Open"
+  (with the file's own program) and "Open Containing Folder" (the file shown in
+  the file manager). I.K.E. now tells Plasma that a download is one file and
+  gives its folder as the destination, as KDE's own copy jobs do; before, Plasma
+  took the job for several files and "Open folder" tried to open the file as a
+  folder, which did nothing.
+- **Task manager**: I.K.E.'s icon shows the progress of the downloads and how
+  many are running (the LauncherEntry signal Plasma follows, as Dolphin and
+  Firefox), and clears when they end.
+- **Media: next and previous.** The media keys and Plasma's media widget can go
+  to the next or previous track or video where the site offers it (YouTube,
+  music sites: whatever a site declares with the Media Session API). A small
+  script in the page's own world keeps the site's two commands for the desktop;
+  the page sees the usual native functions, and only I.K.E. can send the
+  commands (their event name holds a secret of the profile). Off with "Media
+  controls" (Settings -> General), never in private windows.
+- **Media: embedded players** (a video of another site inside an article) are
+  found and controlled too: the frames of the page are read from I.K.E.'s own
+  world, nothing is added to them.
+- **KRunner**: the tabs it finds have "Mute tab" / "Unmute tab" (a tab playing
+  sound) and "Close tab", as with Plasma Browser Integration. The first time,
+  KRunner is told that its plugins changed (the signal System Settings sends),
+  so I.K.E. is found at once instead of after a new login.
+
+**Graphic touches** (with "Interface effects" on; all still without them or
+when Plasma's animations are set to "Instant"):
+
+- The **bookmark star** fills with a small pop when a page is saved.
+- The **shield** fades from one protection level's icon to the next.
+- A **dot** on a tab that finished loading in the background, until it is
+  opened.
+- **Vertical tabs**: a closed row fades out.
+- **Toolbar buttons**: under the mouse a soft round highlight in the theme's
+  colour comes in and goes, as on the minimize and maximize buttons (a pill
+  for a button with text, such as the shield with its number).
+- The **shield panel's bars** grow from zero when it opens.
+- **New tab page**: the tiles come in one after the other.
+- The **address bar** stays in the middle of the window when the shield's
+  number appears (it stayed 8 pixels off until something else moved).
+
+Package 1.1.9-2 (1.1.9-1 had the graphic touches and Plasma parts, without the toolbar below).
+`docs/screenshots/ike-1.1.9.jpg` shows the new tab page with the default toolbar.
+
+**Toolbar** (the owner's arrangement as the default):
+
+- The **shield** has a fixed place right before the address bar, and **Reload**
+  joins Back, Forward and Home at the start, followed by the fixed separator.
+  None of them can be dragged; every other button still can.
+- The default arrangement, for a new installation and for "Reset to default
+  layout": dark mode, private window, clear this site's data, screenshot and
+  split view on the left of the address bar; bookmark, downloads, reader mode
+  and the menu on its right; the floating video starts hidden. A toolbar
+  already arranged by the user keeps its arrangement (the shield and Reload
+  simply leave its zones).
+- The **menu bar** is off for a new installation (it takes room for little; the
+  menu button has everything). Settings -> Appearance switches it on.
+- In a very narrow window (under about 560 px with many buttons) the fixed
+  buttons come first and the address bar takes what is left, down to 80 px,
+  instead of Qt hiding the window buttons; and the toolbar looks again when
+  the address bar gets narrower (it could stay with its last buttons under
+  Qt's own overflow arrow). Where the buttons on the left leave too little
+  room, the address bar keeps half of the window and stands as near to the
+  middle as it can, as before.
+
+Already there and checked again: the site's domain in normal text and the rest
+of the address dimmed, the Downloads button's progress ring, the suggestions
+fading in (on Plasma's Wayland session KWin itself fades pop-ups), the soft
+change of interface theme.
+
+Measured against 1.1.8-2, package against package: start-up (0.25 – 0.27 s
+against 0.26 – 0.27 s), processor time at rest (0.80 – 0.85 % of one core
+against 0.80 – 0.90 %) and memory (412 MiB against 411 MiB) unchanged; while
+using the interface, which moves the mouse over the toolbar buttons, 8.6 – 9.6 %
+against 7.8 – 8.5 % (the round hover gliding in and out). The Plasma parts work
+only on events (a download, a click in the media widget, a KRunner search): the
+media of a page is read once a second only while a tab plays sound, as before.
+
 ## 1.1.8
 
 - **New tab page**: I.K.E.'s own picture (the Earth with its network of

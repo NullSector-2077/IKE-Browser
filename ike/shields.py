@@ -391,6 +391,7 @@ class Shields(QObject):
         self.interceptor = Interceptor(self)
         self.scheme_handler = IkeSchemeHandler(self)
         self._fp_src = (RES_DIR / "fingerprint.js").read_text("utf-8")
+        self._media_src = (RES_DIR / "mediahook.js").read_text("utf-8")
         self._consent_src = (RES_DIR / "consent.js").read_text("utf-8")
         # the full name is drawn as paths (tools/make-brand.py), in the colour of the page text
         self._newtab_src = (RES_DIR / "newtab.html").read_text("utf-8").replace(
@@ -628,6 +629,10 @@ class Shields(QObject):
             st = self.stats[host] = dict.fromkeys(self.KINDS, 0)
         st["cookies"] += 1
 
+    def media_token(self, profile):
+        """The secret of a profile's media-command events (mediahook.js)."""
+        return "m" + self.profile_keys.get(id(profile), "")[:24]
+
     def apply_settings(self, profile=None):
         """(Re)apply everything that depends on the configuration."""
         cfg = self.config
@@ -642,8 +647,18 @@ class Shields(QObject):
             self._video_scripts(p)
             scripts = p.scripts()
             for old in (scripts.find("ike-fp") + scripts.find("ike-consent")
-                        + scripts.find("ike-pw")):
+                        + scripts.find("ike-pw") + scripts.find("ike-media")):
                 scripts.remove(old)
+            if cfg.get("di_media", True) and not p.isOffTheRecord():
+                # "next" / "previous" of the desktop's media controls (plasma.py);
+                # inserted before ike-fp: both keep replaced functions native-looking
+                m = QWebEngineScript()
+                m.setName("ike-media")
+                m.setSourceCode(self._media_src.replace("__IKE_MEDIA_TOKEN__", self.media_token(p)))
+                m.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
+                m.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
+                m.setRunsOnSubFrames(True)
+                scripts.insert(m)
             if getattr(self, "pw_source", ""):
                 pw = QWebEngineScript()
                 pw.setName("ike-pw")
