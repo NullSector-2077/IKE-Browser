@@ -39,7 +39,9 @@ quota or rate limit, a problem in `.github/` (you may not change it).
 - Arch Linux only. Do not add dependencies, libraries or downloads: lightness
   comes first. Do not reorganise menus, settings or the interface, and do not
   remove or change features.
-- Keep the change small (a few files, at most a few hundred lines).
+- Keep the change small (a few files, at most a few hundred lines), and delete
+  every temporary file you created: any other file in the change makes the
+  automatic checks refuse it.
 - Never write keys, tokens, passwords or environment variables into any file, and
   never print environment variables.
 - Never commit, push or run `git` commands that change history or configuration.

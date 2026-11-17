@@ -1,21 +1,20 @@
-# Automatic component maintenance
+# Automatic maintenance
 
-The components bundled in I.K.E. are checked every day by GitHub Actions. When
-one has a new version, a tested candidate release is prepared on its own branch
-for the owner to review. Nothing is merged, released or signed automatically.
+GitHub Actions keeps I.K.E. up to date and prepares the fixes. The owner only
+**approves** (merges a pull request) and **signs and publishes** (one command on
+the owner's computer, [UPDATES.md](UPDATES.md)). Nothing is merged, released or
+signed automatically, and no workflow ever writes to `main`.
 
-## What runs every day
+## What runs by itself
 
-| Step | Who | Where |
-|---|---|---|
-| Check upstream component versions | GitHub Actions, `.github/workflows/daily-check.yml` (05:17 UTC) | Issue labelled `components` and a 14-day report artifact |
-| Apply the updates on an isolated branch | GitHub Actions, `.github/workflows/daily-maintenance.yml` (06:17 UTC) | Branch `automation/daily-maintenance` |
-| Lint, tests, Arch package and tests of the installed package | GitHub Actions, `.github/workflows/tests.yml` called on the candidate | The run's checks and the `ike-browser-package` download |
-| Review and merge to `main` | The project owner | The draft pull request labelled `maintenance` |
-| Sign and publish the release | The project owner, on the owner's computer | [UPDATES.md](UPDATES.md) |
-
-The workflows never write to `main`, never merge a pull request, never create
-a GitHub release, and never read or receive the private signing key.
+| When | What | Workflow | Result |
+|---|---|---|---|
+| Every day, 05:17 UTC | Upstream versions of the bundled components | `daily-check.yml` | Issue labelled `components` |
+| Every day, 06:17 UTC | The updates applied to a candidate built from current `main` | `daily-maintenance.yml` | Branch `automation/daily-maintenance`, draft PR labelled `maintenance` |
+| On every PR, every push to `main`, every candidate or fix | Lint, all the tests, the Arch package and its tests | `tests.yml` | Checks on the PR, package download `ike-browser-package` |
+| When one of the three above fails | An automatic fix | `autofix.yml` | Draft PR labelled `autofix`, or an issue "Automatic fix needs you" |
+| Mondays, 07:41 UTC | The automation itself | `health.yml` | Issue "Automation health" when something stopped |
+| Once a month | New versions of the GitHub actions used | Dependabot | One PR labelled `maintenance` |
 
 ## Components followed
 
@@ -29,44 +28,79 @@ a GitHub release, and never read or receive the private signing key.
 | Qt WebEngine / PyQt6 of the automatic tests | `tools/test-requirements.txt` | A newer Qt / PyQt6 package set on PyPI |
 
 The browser itself runs on Arch Linux's `qt6-webengine`, updated with the
-system (`sudo pacman -Syu`); the report shows its current version next to the
-one the tests use. Other test packages (cryptography, certifi and their
-dependencies) are reported as informational and carried along only with an
-actionable update. Filter lists, the presented Chrome version and user scripts
-update themselves inside the browser.
+system (`sudo pacman -Syu`). Filter lists, the presented Chrome version and user
+scripts update themselves inside the browser.
 
-## The candidate
+## The maintenance candidate
 
-1. `daily-maintenance.yml` checks out `automation/daily-maintenance` (or
-   creates it from `main`) and brings in the latest `main`.
-2. The component checker runs with `--apply`. If any upstream source cannot be
-   checked, nothing is applied.
-3. Without actionable changes the workflow stops. Otherwise
-   `tools/prepare-maintenance.py` raises the patch version (1.0.0 → 1.0.1),
-   the package version, README and CHANGELOG, and raises `__min_system__` when
-   the AdBlock engine module changes (an installed system part: such a release
-   reaches users as a new package, not as a self-update).
-4. The changed files are committed to the branch and one draft pull request
-   against `main` is created or updated.
-5. `tests.yml` runs on the branch: lint, the full test suite, the Arch package
-   built with `makepkg`, and the full suite again against the installed
-   package. The package is kept as the run's `ike-browser-package` download.
+1. `daily-maintenance.yml` starts `automation/daily-maintenance` from the
+   current `main` every time and applies the component updates
+   (`--apply`; if any upstream source cannot be checked, nothing is applied).
+2. `tools/prepare-maintenance.py` raises the patch version (1.1.10 → 1.1.11, or
+   adds to a version of `main` that is not released yet), the package version,
+   README and CHANGELOG, and raises `__min_system__` when the AdBlock engine
+   changes. **Packages used only by the tests make no new version**: that pull
+   request is merged and needs no release.
+3. Automatic fixes of the previous candidate (commits `autofix: ...`) are carried
+   over. The candidate is pushed only when it differs from the one already
+   published, and the tests are started on it.
+
+## The automatic fix
+
+`autofix.yml` starts when `Tests` fails on `main`, on the maintenance candidate
+or on the fix branch, or when the daily check or the daily maintenance fail.
+Failures of forks, of people's pull requests and of the standby branches are
+never touched.
+
+1. **plan** (no AI, `tools/autofix-plan.py`): what failed, where the fix goes,
+   the end of the logs. A setting or workflow problem becomes an issue directly.
+2. **fix**: the Antigravity CLI (`agy`) runs the instructions of
+   `.github/autofix/prompt.md`, read from `main`. The job has **no GitHub
+   credentials** (read-only, no token): it can only leave a patch and a summary
+   in Italian. The API key is used only here; the agent's output is never
+   printed, and a result containing the key is thrown away.
+3. **guard** (no AI, `tools/check-autofix-patch.py` from `main`): the patch may
+   change only `ike/`, `tests/`, `tools/` and `docs/`; never the workflows, the
+   signing and update channel, the version, the package recipe, the updater, the
+   test harness or the release tools; the ad blocker only on a candidate that
+   updates its engine; no test removed or weakened; no keys, binaries or links;
+   at most 15 files and 500 lines. Then lint. A fix of `main` that changes the
+   browser gets the next version and a CHANGELOG line.
+4. **publish** (no AI): the fix goes to `automation/autofix-main` (fixes of
+   `main`) or onto the maintenance candidate, a draft PR is opened or updated
+   with the agent's summary, and the tests start on it.
+5. If the tests fail again, a second attempt follows. After two, or when nothing
+   could be fixed, the issue **"Automatic fix needs you: <workflow>"** is opened.
+
+The agent cannot see Plasma: shapes, effects and the look are always judged by
+the owner on the real system.
 
 ## The owner's part
 
-1. Open the draft pull request labelled `maintenance` and check that all the
-   checks are green.
-2. Optionally download the package from the run and try it:
+1. A notification arrives (GitHub app or e-mail) for a draft PR labelled
+   `maintenance` or `autofix`.
+2. Wait for the green checks. To try it, download the package of its test run
+   and install it:
    `gh run download <run-id> -n ike-browser-package`.
-3. Mark the pull request ready and merge it.
-4. Sign and publish the release from an up-to-date clone, as in
-   [UPDATES.md](UPDATES.md).
+3. Mark the PR ready and merge it.
+4. If it raised the version: sign and publish with one command
+   ([UPDATES.md](UPDATES.md)).
 
-If a component update needs changes to I.K.E.'s own code, the tests fail and
-the pull request stays a draft: the adaptation is done by hand on that branch.
+An issue labelled `autofix` or `automation-health` means the automation needs a
+person: open a conversation and paste its link.
 
-## Repository settings
+## Repository settings (once)
 
-The maintenance workflow opens pull requests with the workflow's own token.
-In the repository's Settings → Actions → General, "Workflow permissions" must
-allow GitHub Actions to create pull requests.
+- Settings → Actions → General → Workflow permissions: **Read and write**, and
+  **Allow GitHub Actions to create and approve pull requests** (otherwise the
+  candidate and the fixes cannot open their pull requests).
+- Settings → Secrets and variables → Actions → **Secrets**: `GEMINI_API_KEY`, a
+  Gemini API key from Google AI Studio, in a Google Cloud project **without
+  billing** (free tier: nothing can be charged; Google may use the requests to
+  improve its products, which is fine for a public repository). Optional
+  **variable** `AUTOFIX_MODEL` chooses the model (empty: the CLI's default).
+- Settings → Branches: protect `main` (pull request required, status check
+  `tests` required, no force push, no deletion).
+
+If the key leaks (it would show only through the agent), delete it in Google AI
+Studio and create a new one: it can spend nothing and opens nothing else.
