@@ -407,6 +407,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         tb.customContextMenuRequested.connect(self._toolbar_menu)
         self.addToolBar(tb)
         self.nav = tb
+        self._hover = polish.HoverGlides(tb, self.app.config)   # round hover of the buttons (1.1.9)
         self.act_back = self._action(T("Back"), lambda: self._web(QWebEnginePage.WebAction.Back),
                                      ["Alt+Left"], icon("go-previous", SP.SP_ArrowBack),
                                      T("Go back one page"))
@@ -456,6 +457,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         wa.setDefaultWidget(self.shield_panel)
         self.shield_menu.addAction(wa)
         self.shield_menu.aboutToShow.connect(self.shield_panel.refresh)
+        self.shield_menu.aboutToShow.connect(lambda: self.shield_panel.kinds.grow(self.app.config))
         effects.fading(self.shield_menu, self.app.config)
         self.shield_btn.setMenu(self.shield_menu)
         self.shield_act = tb.addWidget(self.shield_btn)
@@ -1090,6 +1092,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         ic = view.tab_icon = tab_icon(ic, g["color"] if g else None, self.app.container_color(view.container))
         if getattr(view, "loading_marked", False):
             ic = effects.loading_icon(ic, getattr(self, "_spin_angle", 45), self.tabbar.palette())
+        elif getattr(view, "unseen", False):
+            ic = polish.unseen_icon(ic, self.tabbar.palette())
         # a long title fades out at the edge of the tab (tabs.TabBar.set_title)
         self.tabbar.set_title(i, prefix + title)
         self.tabbar.setTabToolTip(i, tip)
@@ -1173,6 +1177,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self.closed_tabs.append(url)
             del self.closed_tabs[:-25]
         was_current = view is self.current_view()
+        item = self.vtabs.item(i)
+        if item is not None and self.vtabs.isVisible():
+            # the row fades out while the list changes at once (1.1.9)
+            polish.ghost_out(self.vtabs.viewport(), self.vtabs.visualItemRect(item), self.app.config)
         self.views.pop(i)
         for w, remove in ((self.tabbar, lambda: self.tabbar.removeTab(i)),
                           (self.vtabs, lambda: self.vtabs.takeItem(i))):
@@ -1548,6 +1556,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     # ------------------------------------------------------------------
     def _current_changed(self):
         v = self.current_view()
+        if v is not None and getattr(v, "unseen", False):
+            v.unseen = False
+            self._tab_changed(v)
         if v is not None and getattr(v, "loading", False):
             self.loading_line.set_state(True, getattr(v, "progress", 0))
         else:
@@ -1608,8 +1619,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                   and bool(self.app.config["experimental_extensions"]))
         self._zoom_sign()
         marked = bool(v) and self.app.storage.is_bookmarked(url.toString())
-        self.act_tb_bookmark.setIcon(icon("bookmarks" if marked else "bookmark-new",
-                                          SP.SP_DialogApplyButton if marked else SP.SP_DialogOpenButton))
+        if not polish.popping(self, "star"):
+            self.act_tb_bookmark.setIcon(icon("bookmarks" if marked else "bookmark-new",
+                                              SP.SP_DialogApplyButton if marked else SP.SP_DialogOpenButton))
         self.act_tb_bookmark.setToolTip(T("Remove bookmark") if marked else T("Bookmark this page"))
         self.urlbar.translate_act.setVisible(scheme in ("http", "https"))
 
@@ -1693,6 +1705,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self.app.storage.add_visit(view.url().toString(), view.title())
         if ok:
             view.reader = False
+        if (ok and view is not self.current_view() and view in self.views
+                and view.url().scheme() in ("http", "https") and polish.part("tab_unseen")):
+            view.unseen = True                  # a dot on its tab until it is opened (1.1.9)
+            self._tab_changed(view)
         if view is self.current_view():
             self.update_shield()
 
@@ -1710,8 +1726,21 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         cfg = self.app.config
         level = cfg.level_for(host) if host else cfg["shield_level"]
         n = self.app.shields.total(host) if host else 0
-        self.shield_btn.setIcon(shield_icon(level, grow=TOOLBAR_SHIELD_GROW))
-        self.shield_btn.setText(str(n) if n and level != "off" else "")
+        new = shield_icon(level, grow=TOOLBAR_SHIELD_GROW)
+        shown = getattr(self, "_shield_shown", None)
+        fading = self.__dict__.get("_ike_icon_fades", {}).get("shield")
+        if shown is not None and shown != level:
+            # another level: the icon fades into the new one (1.1.9)
+            polish.fade_icon(self, "shield", self.shield_btn.icon(), new, cfg, self.shield_btn.setIcon,
+                             ms=260, name="shield_fade")
+        elif fading is None or fading.state() != fading.State.Running:
+            self.shield_btn.setIcon(new)
+        self._shield_shown = level
+        text = str(n) if n and level != "off" else ""
+        if len(text) != len(self.shield_btn.text()):
+            # the button gets wider or narrower: the address bar is centred again (1.1.9)
+            QTimer.singleShot(0, self._fit_urlbar)
+        self.shield_btn.setText(text)
         self.shield_count.count(n if level != "off" else 0, (id(self.current_view()), host))
         self.m_level.setIcon(shield_icon(cfg["shield_level"], 16))
         if self.shield_menu.isVisible():
@@ -1726,12 +1755,15 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             return
         url = v.url().toString()
         st = self.app.storage
-        if st.is_bookmarked(url):
-            st.remove_bookmark(url)
-        else:
+        added = not st.is_bookmarked(url)
+        if added:
             st.add_bookmark(url, v.title())
+        else:
+            st.remove_bookmark(url)
         self.app.refresh_windows()
         self.sync_urlbar()
+        if added:          # the star fills with a small pop (1.1.9)
+            polish.pop_in(self, "star", self.act_tb_bookmark.icon(), self.app.config, self.act_tb_bookmark.setIcon)
 
     def site_icon(self, url, fetch=False):
         """Stored icon of the site, or the generic globe."""

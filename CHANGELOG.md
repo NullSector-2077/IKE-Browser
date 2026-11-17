@@ -1,5 +1,55 @@
 # Changelog
 
+## 1.1.9
+
+**Plasma integration**, made complete (all through D-Bus, nothing to install,
+nothing running while unused):
+
+- **Downloads**: when a download is done, Plasma's notification offers "Open"
+  (with the file's own program) and "Open Containing Folder" (the file shown in
+  the file manager). I.K.E. now tells Plasma that a download is one file and
+  gives its folder as the destination, as KDE's own copy jobs do; before, Plasma
+  took the job for several files and "Open folder" tried to open the file as a
+  folder, which did nothing.
+- **Task manager**: I.K.E.'s icon shows the progress of the downloads and how
+  many are running (the LauncherEntry signal Plasma follows, as Dolphin and
+  Firefox), and clears when they end.
+- **Media: next and previous.** The media keys and Plasma's media widget can go
+  to the next or previous track or video where the site offers it (YouTube,
+  music sites: whatever a site declares with the Media Session API). A small
+  script in the page's own world keeps the site's two commands for the desktop;
+  the page sees the usual native functions, and only I.K.E. can send the
+  commands (their event name holds a secret of the profile). Off with "Media
+  controls" (Settings -> General), never in private windows.
+- **Media: embedded players** (a video of another site inside an article) are
+  found and controlled too: the frames of the page are read from I.K.E.'s own
+  world, nothing is added to them.
+- **KRunner**: the tabs it finds have "Mute tab" / "Unmute tab" (a tab playing
+  sound) and "Close tab", as with Plasma Browser Integration. The first time,
+  KRunner is told that its plugins changed (the signal System Settings sends),
+  so I.K.E. is found at once instead of after a new login.
+
+**Graphic touches** (with "Interface effects" on; all still without them or
+when Plasma's animations are set to "Instant"):
+
+- The **bookmark star** fills with a small pop when a page is saved.
+- The **shield** fades from one protection level's icon to the next.
+- A **dot** on a tab that finished loading in the background, until it is
+  opened.
+- **Vertical tabs**: a closed row fades out.
+- **Toolbar buttons**: under the mouse a soft round highlight in the theme's
+  colour comes in and goes, as on the minimize and maximize buttons (a pill
+  for a button with text, such as the shield with its number).
+- The **shield panel's bars** grow from zero when it opens.
+- **New tab page**: the tiles come in one after the other.
+- The **address bar** stays in the middle of the window when the shield's
+  number appears (it stayed 8 pixels off until something else moved).
+
+Already there and checked again: the site's domain in normal text and the rest
+of the address dimmed, the Downloads button's progress ring, the suggestions
+fading in (on Plasma's Wayland session KWin itself fades pop-ups), the soft
+change of interface theme.
+
 ## 1.1.8
 
 - **New tab page**: I.K.E.'s own picture (the Earth with its network of

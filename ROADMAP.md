@@ -370,11 +370,10 @@ chiaro.
   scripts from anywhere on the disk (saved pages need it), so it can tell
   whether such a file exists; it can no longer read other files.
 - Open issues of the 1.0.3 audit: see `docs/review/security-audit.md`.
-- Media controls: next / previous track are not offered (they would need a
-  hook inside the pages' own scripts); media inside frames (embedded players)
-  are not seen.
-- KRunner may need to restart once (or a new login) before it sees I.K.E.'s
-  runner file the first time.
+- Media controls: next / previous are offered only where the site declares them
+  (Media Session API); "Raise" (bring the tab to the front) may only make the
+  task manager entry blink on Wayland, where a window cannot take the focus
+  without a token from the desktop.
 - User scripts: `GM_registerMenuCommand` is accepted but shows no menu;
   `GM_xmlhttpRequest` to other sites works from the page but not from frames.
   A name that resolves to a public address when checked and to a local one

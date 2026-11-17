@@ -34,7 +34,10 @@ RUNNER_PATH = "/runner"
 KDECONNECT = "org.kde.kdeconnect"
 JOBS = "org.kde.JobViewServer"
 _WORLD = QWebEngineScript.ScriptWorldId.ApplicationWorld
+_WORLD_ID = int(_WORLD.value)
 POLL_MS = 1000
+FRAMES_MAX = 16             # embedded players: how many frames of a page are looked at
+LAUNCHER = "com.canonical.Unity.LauncherEntry"
 
 # Read the media of the page from I.K.E.'s isolated world: the elements are the
 # page's own, the session metadata is what the site declared.
@@ -43,12 +46,19 @@ _MEDIA_JS = r"""(function () {
   if (!ms.length) return null;
   var m = ms.filter(function (e) { return !e.paused && !e.ended; })[0]
        || ms.filter(function (e) { return e.currentTime > 0; })[0] || ms[0];
-  var md = navigator.mediaSession && navigator.mediaSession.metadata, art = '';
+  var md = navigator.mediaSession && navigator.mediaSession.metadata, art = '', acts = '';
+  try {      // "next" / "previous" offered by the page (mediahook.js, main world)
+    var ans = 'ike-media-answer-__TOKEN__', f = function (e) { acts = String(e.detail || ''); };
+    window.addEventListener(ans, f);
+    window.dispatchEvent(new CustomEvent('ike-media-__TOKEN__', {detail: 'query'}));
+    window.removeEventListener(ans, f);
+  } catch (e) {}
   if (md && md.artwork && md.artwork.length) art = md.artwork[md.artwork.length - 1].src || '';
   return {playing: !m.paused && !m.ended, video: m.tagName === 'VIDEO',
           pos: m.currentTime || 0, dur: isFinite(m.duration) ? m.duration : 0,
           title: (md && md.title) || document.title || '', artist: (md && md.artist) || '',
-          album: (md && md.album) || '', art: art, volume: m.muted ? 0 : m.volume};
+          album: (md && md.album) || '', art: art, volume: m.muted ? 0 : m.volume,
+          next: acts.indexOf('n') >= 0, prev: acts.indexOf('p') >= 0};
 })()"""
 
 _CMD_JS = r"""(function (cmd, arg) {
@@ -65,6 +75,8 @@ _CMD_JS = r"""(function (cmd, arg) {
   else if (cmd === 'volume') { m.muted = false; m.volume = Math.max(0, Math.min(1, arg)); }
   return true;
 })(%s, %s)"""
+
+_ACTION_JS = "window.dispatchEvent(new CustomEvent('ike-media-%s', {detail: %s})); true"
 
 _MPRIS_XML = introspection({
     MPRIS: '<method name="Raise"/><method name="Quit"/>'
@@ -128,6 +140,7 @@ class DesktopIntegration(QObject):
         self.mpris_name = "org.mpris.MediaPlayer2.ike_browser.instance%d" % os.getpid()
         self.runner_name = "org.kde.ike_browser.krunner.instance%d" % os.getpid()
         self.player = None          # the view whose media is shown
+        self.player_frame = None    # its frame with the media, None for the main frame
         self.state = None           # last media state read from it
         self._track = 0
         self._track_key = None
@@ -202,6 +215,7 @@ class DesktopIntegration(QObject):
         if not self._ensure_bus():
             return
         self.player = view
+        self.player_frame = None
         self._poll.start()
         self._poll_media()
 
@@ -223,7 +237,61 @@ class DesktopIntegration(QObject):
         if page is None:
             self._release_player()
             return
-        page.runJavaScript(_MEDIA_JS, _WORLD, lambda st, v=v: self._media_state(v, st))
+        js = _MEDIA_JS.replace("__TOKEN__", self._token(page))
+        frame = self.player_frame
+        if frame is not None and frame.isValid():
+            # the embedded player found before: ask it first
+            frame.runJavaScript(js, _WORLD_ID, lambda st, v=v, f=frame: self._frame_state(v, st, f, js))
+        else:
+            self.player_frame = None
+            page.mainFrame().runJavaScript(js, _WORLD_ID, lambda st, v=v: self._frame_state(v, st, None, js))
+
+    def _token(self, page):
+        try:
+            return self.app.shields.media_token(page.profile())
+        except Exception:
+            return ""
+
+    def _frames(self, page):
+        """The frames of a page below the main one, nearest first (at most FRAMES_MAX)."""
+        out, todo = [], list(page.mainFrame().children())
+        while todo and len(out) < FRAMES_MAX:
+            f = todo.pop(0)
+            if f.isValid():
+                out.append(f)
+                todo.extend(f.children())
+        return out
+
+    def _frame_state(self, view, st, frame, js, rest=None):
+        """The media of the page's main frame, else of its frames (embedded
+        players, e.g. a video inside an article): the first that has one."""
+        if view is not self.player:
+            return
+        if st:
+            self.player_frame = frame
+            self._media_state(view, st)
+            return
+        if rest is None:
+            try:
+                rest = [f for f in self._frames(view.page()) if f != frame]
+            except RuntimeError:
+                rest = []
+            if frame is not None:           # the frame's player is gone: try the main frame too
+                rest.insert(0, view.page().mainFrame())
+        if not rest:
+            self.player_frame = None
+            self._media_state(view, None)
+            return
+        f = rest.pop(0)
+        f.runJavaScript(js, _WORLD_ID, lambda st2, v=view, f=f, r=rest: self._frame_state(
+            v, st2, None if f.isMainFrame() else f, js, r))
+
+    def _target(self):
+        """Where the player's media is: its frame, or the page's main frame."""
+        f = self.player_frame
+        if f is not None and f.isValid():
+            return f
+        return self.player.page().mainFrame()
 
     def _media_state(self, view, st):
         if view is not self.player:
@@ -252,12 +320,16 @@ class DesktopIntegration(QObject):
             changed["CanSeek"] = self._prop_player("CanSeek")
         if old.get("volume") != st.get("volume"):
             changed["Volume"] = self._prop_player("Volume")
+        for key, prop in (("next", "CanGoNext"), ("prev", "CanGoPrevious")):
+            if bool(old.get(key)) != bool(st.get(key)):
+                changed[prop] = self._prop_player(prop)
         if changed:
             self.bus.emit(MPRIS_PATH, PROPS, "PropertiesChanged", "sa{sv}as", (PLAYER, changed, []))
 
     def _release_player(self):
         self._poll.stop()
         self.player = None
+        self.player_frame = None
         self.state = None
         if self._mpris_on and self.bus is not None:
             self.bus.release_name(self.mpris_name)
@@ -267,8 +339,18 @@ class DesktopIntegration(QObject):
         v = self.player
         if v is None:
             return
-        v.page().runJavaScript(_CMD_JS % (json.dumps(cmd), json.dumps(arg)), _WORLD,
-                               lambda _r: QTimer.singleShot(150, self._poll_media))
+        self._target().runJavaScript(_CMD_JS % (json.dumps(cmd), json.dumps(arg)), _WORLD_ID,
+                                     lambda _r: QTimer.singleShot(150, self._poll_media))
+
+    def _action(self, name):
+        """The page's own "next" / "previous" (declared with the Media Session API)."""
+        v = self.player
+        if v is None:
+            return
+        token = self._token(v.page())
+        if token:
+            self._target().runJavaScript(_ACTION_JS % (token, json.dumps(name)), _WORLD_ID,
+                                         lambda _r: QTimer.singleShot(400, self._poll_media))
 
     def _prop_mpris(self, name):
         return {"CanQuit": ("b", False), "CanRaise": ("b", True), "HasTrackList": ("b", False),
@@ -299,7 +381,7 @@ class DesktopIntegration(QObject):
             "Metadata": ("a{sv}", self._metadata()),
             "Volume": ("d", float(st.get("volume") or 0.0)),
             "Position": ("x", int(float(st.get("pos") or 0) * 1e6)),
-            "CanGoNext": ("b", False), "CanGoPrevious": ("b", False),
+            "CanGoNext": ("b", bool(st.get("next"))), "CanGoPrevious": ("b", bool(st.get("prev"))),
             "CanPlay": ("b", True), "CanPause": ("b", True),
             "CanSeek": ("b", bool(st.get("dur"))), "CanControl": ("b", True),
         }
@@ -345,6 +427,9 @@ class DesktopIntegration(QObject):
             self._command(cmds[member])
             return "", ()
         if member in ("Next", "Previous"):
+            st = self.state or {}
+            if st.get("next" if member == "Next" else "prev"):
+                self._action("nexttrack" if member == "Next" else "previoustrack")
             return "", ()
         if member == "Seek":
             self._command("seek", body[0] / 1e6)
@@ -375,6 +460,7 @@ class DesktopIntegration(QObject):
                 if not f.exists() or f.read_text("utf-8") != text:
                     f.parent.mkdir(parents=True, exist_ok=True)
                     f.write_text(text, "utf-8")
+                    self._runner_reload()
             except OSError:
                 pass
         else:
@@ -384,8 +470,17 @@ class DesktopIntegration(QObject):
             if not on:
                 try:
                     f.unlink()
+                    self._runner_reload()
                 except OSError:
                     pass
+
+    def _runner_reload(self):
+        """Tell KRunner its plugins changed, as System Settings does when a
+        search plugin is switched on or off: it looks at the plugin folders
+        again, so I.K.E. is found without logging out the first time."""
+        if self.bus is not None and self.bus.connected:
+            self.bus.emit("/krunnerrc", "org.kde.kconfig.notify", "ConfigChanged", "a{saay}",
+                          ({"Plugins": [b"ike-browserEnabled"]},))
 
     def matches(self, query):
         """Open tabs and bookmarks whose title or address contains every word."""
@@ -402,8 +497,14 @@ class DesktopIntegration(QObject):
                 hay = (title + " " + url).lower()
                 if all(x in hay for x in words):
                     rel = 0.9 if words[0] in title.lower() else 0.7
+                    page = v.page()
+                    acts = ["close"]
+                    if page.isAudioMuted():
+                        acts.insert(0, "unmute")
+                    elif page.recentlyAudible():
+                        acts.insert(0, "mute")
                     out.append(("tab:%d:%d" % (wi, id(v)), title, "ike-browser", 70, rel,
-                                {"subtext": ("s", url)}))
+                                {"subtext": ("s", url), "actions": ("as", acts)}))
         seen = {m[5]["subtext"][1] for m in out}
         try:
             marks = self.app.storage.bookmarks()
@@ -419,12 +520,19 @@ class DesktopIntegration(QObject):
                 break
         return out[:30]
 
-    def _run_match(self, match_id):
+    def _run_match(self, match_id, action=""):
         if match_id.startswith("tab:"):
             _t, _wi, vid = match_id.split(":", 2)
             for w in self.app.windows:
                 for v in w.all_views():
                     if str(id(v)) == vid:
+                        if action in ("mute", "unmute"):
+                            if v.page().isAudioMuted() != (action == "mute"):
+                                w.toggle_mute(v)
+                            return
+                        if action == "close":
+                            w.close_tab(v)
+                            return
                         if v not in w.views and hasattr(w, "switch_workspace"):
                             for name, views in w.workspaces.items():
                                 if v in views:
@@ -447,9 +555,13 @@ class DesktopIntegration(QObject):
         if member == "Match":
             return "a(sssida{sv})", (self.matches(msg.body[0]),)
         if member == "Actions":
-            return "a(sss)", ([],)
+            from .i18n import T
+            return "a(sss)", ([("mute", T("Mute tab"), "audio-volume-muted"),
+                               ("unmute", T("Unmute tab"), "audio-volume-high"),
+                               ("close", T("Close tab"), "tab-close")],)
         if member == "Run":
-            QTimer.singleShot(0, lambda m=msg.body[0]: self._run_match(m))
+            body = msg.body
+            QTimer.singleShot(0, lambda m=body[0], a=(body[1] if len(body) > 1 else ""): self._run_match(m, a))
             return "", ()
         if member == "Teardown":
             return "", ()
@@ -533,10 +645,15 @@ class DesktopIntegration(QObject):
         from .i18n import T
         done, total = int(item.receivedBytes()), int(item.totalBytes())
         path = self.app.download_path(item)
+        # One file, its folder as the destination, as KIO's own copy jobs: Plasma then
+        # offers "Open" (the file) and "Open Containing Folder" (the file shown in
+        # the file manager). With no file count it took the job for several files
+        # and tried to open the destination as a folder - which was the file.
         st = {"descriptionLabel1": ("s", T("Source")), "descriptionValue1": ("s", item.url().toString()),
               "descriptionLabel2": ("s", T("Destination")), "descriptionValue2": ("s", str(path)),
-              "destUrl": ("s", QUrl.fromLocalFile(str(path)).toString()),
-              "infoMessage": ("s", item.downloadFileName()),
+              "destUrl": ("s", QUrl.fromLocalFile(str(path.parent)).toString()),
+              "infoMessage": ("s", path.name),
+              "totalFiles": ("u", 1), "processedFiles": ("u", 1 if item.isFinished() else 0),
               "processedBytes": ("t", max(0, done))}
         if total > 0:
             st["totalBytes"] = ("t", total)
@@ -557,6 +674,7 @@ class DesktopIntegration(QObject):
             st["speed"] = ("t", max(0, int((done - job[3]) / max(0.001, now - job[2]))))
         job[2], job[3] = now, done
         self.bus.call(JOBS, job[1], "org.kde.JobViewV3", "update", "a{sv}", (st,))
+        self._launcher()
 
     def download_done(self, item, ok, message=""):
         job = self.jobs.pop(id(item), None)
@@ -568,6 +686,24 @@ class DesktopIntegration(QObject):
             # error codes as KJob: 0 none, 1 killed (cancelled by the user), 100+ user-defined error
             code = 0 if ok else (1 if not message else 100)
             self.bus.call(JOBS, job[1], "org.kde.JobViewV3", "terminate", "usa{sv}", (code, message, {}))
+        self._launcher()
+
+    def _launcher(self):
+        """Progress and number of the downloads on I.K.E.'s icon in the task
+        manager (the LauncherEntry signal Plasma's task manager follows)."""
+        if self.bus is None or not self.bus.connected:
+            return
+        items = [j[0] for j in self.jobs.values()]
+        got = sum(max(0, int(i.receivedBytes())) for i in items if int(i.totalBytes()) > 0)
+        total = sum(int(i.totalBytes()) for i in items if int(i.totalBytes()) > 0)
+        props = {"count": ("x", len(items)), "count-visible": ("b", bool(items)),
+                 "progress": ("d", min(1.0, got / total) if total else 0.0),
+                 "progress-visible": ("b", bool(items) and total > 0)}
+        if props == getattr(self, "_launcher_last", None):
+            return
+        self._launcher_last = props
+        self.bus.emit("/org/ike/launcher", LAUNCHER, "Update", "sa{sv}",
+                      ("application://%s.desktop" % APP_ID, props))
 
     def _job_signal(self, msg):
         from jeepney import HeaderFields

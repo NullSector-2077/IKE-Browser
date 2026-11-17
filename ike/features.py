@@ -1238,6 +1238,7 @@ class WindowButton(QToolButton):
 
     def __init__(self, parent, side, config=None):
         super().__init__(parent)
+        self.setProperty("ike_own_hover", True)      # its own circle (polish.HoverGlides leaves it)
         self._side = side
         from .effects import Glide
         self._glide = Glide(self, config, self.update)

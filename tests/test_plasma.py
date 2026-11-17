@@ -35,6 +35,18 @@ SONG = (b"<!doctype html><title>Song page</title><audio id=a loop></audio><scrip
         b"fetch('/tone.wav').then(r=>r.blob()).then(b=>{a.src=URL.createObjectURL(b);a.play()})</script>")
 SIZE = 200 * 1024
 
+# a playlist page: the site declares "next" and "previous" (Media Session API)
+PLAYLIST = (b"<!doctype html><title>Playlist</title><audio id=a loop></audio><script>"
+            b"var n=1;function meta(){navigator.mediaSession.metadata=new MediaMetadata({title:'Track '+n})}"
+            b"meta();navigator.mediaSession.setActionHandler('nexttrack',function(){n++;meta()});"
+            b"navigator.mediaSession.setActionHandler('previoustrack',function(){n=Math.max(1,n-1);meta()});"
+            b"window.looks=[navigator.mediaSession.setActionHandler.toString(),"
+            b"Function.prototype.toString.toString(),"
+            b"Object.getOwnPropertyNames(navigator.mediaSession.setActionHandler).join(),"
+            b"navigator.mediaSession.setActionHandler.length];"
+            b"var a=document.getElementById('a');"
+            b"fetch('/tone.wav').then(r=>r.blob()).then(b=>{a.src=URL.createObjectURL(b);a.play()})</script>")
+
 
 @pytest.fixture
 def site():
@@ -56,7 +68,11 @@ def site():
                 except OSError:
                     pass
                 return
+            port = self.server.server_address[1]
+            framed = (b"<!doctype html><title>Article with a player</title><p>Text</p>"
+                      b"<iframe allow=autoplay src='http://localhost:%d/song'></iframe>" % port)
             pages = {"/song": (SONG, "text/html"), "/tone.wav": (tone, "audio/wav"),
+                     "/playlist": (PLAYLIST, "text/html"), "/framed": (framed, "text/html"),
                      "/zebra": (b"<title>Zebra crossing guide</title>zebra", "text/html"),
                      "/other": (b"<title>Other page</title>x", "text/html")}
             body, kind = pages.get(self.path, (b"<title>x</title>", "text/html"))
@@ -143,6 +159,70 @@ def steps(ike, qapp, out):
     assert "false" in out["after_close"]
 
 
+def test_media_next_previous_and_embedded_players(run_ike, site, desktop_bus):
+    """Next / previous from the desktop use the commands the site declared; the
+    page sees the usual native functions. A player inside a frame of another
+    site (an embedded video) is found and controlled too."""
+    address, _log, _f = desktop_bus
+    out = run_ike(GDBUS + """
+def steps(ike, qapp, out):
+    yield 300
+    win = ike.windows[0]
+    view = win.add_tab(%r)
+    yield 3500
+    d = ike.desktop
+    P = ["-d", d.mpris_name, "-o", "/org/mpris/MediaPlayer2"]
+    I = "org.mpris.MediaPlayer2.Player"
+    r = []
+    yield from gdbus(r, *P, "-m", "org.freedesktop.DBus.Properties.GetAll", I)
+    yield from gdbus(r, *P, "-m", I + ".Next")
+    yield 1500
+    yield from gdbus(r, *P, "-m", "org.freedesktop.DBus.Properties.Get", I, "Metadata")
+    yield from gdbus(r, *P, "-m", I + ".Next")
+    yield 1500
+    yield from gdbus(r, *P, "-m", I + ".Previous")
+    yield 1500
+    yield from gdbus(r, *P, "-m", "org.freedesktop.DBus.Properties.Get", I, "Metadata")
+    out["calls"] = r
+    looks = []
+    view.page().runJavaScript("window.looks", 0, lambda v: looks.append(v))
+    # a page cannot send the commands itself (it does not know the event's name)
+    view.page().runJavaScript("window.dispatchEvent(new CustomEvent('ike-media-', {detail: 'nexttrack'}));"
+                              "navigator.mediaSession.metadata.title", 0, lambda v: looks.append(v))
+    yield 600
+    out["looks"] = looks
+    win.close_tab(view)
+    yield 1500
+    # a player in a frame of another site
+    framed = win.add_tab(%r)
+    yield 4500
+    out["frame_player"] = d.player is framed and d.player_frame is not None
+    r2 = []
+    yield from gdbus(r2, *P, "-m", "org.freedesktop.DBus.Properties.Get", I, "Metadata")
+    yield from gdbus(r2, *P, "-m", I + ".Pause")
+    yield 800
+    yield from gdbus(r2, *P, "-m", "org.freedesktop.DBus.Properties.Get", I, "PlaybackStatus")
+    paused = []
+    d.player_frame.runJavaScript("document.getElementById('a').paused", 1, lambda v: paused.append(v))
+    yield 500
+    out["frame_calls"] = r2
+    out["frame_paused"] = paused
+""" % (site + "/playlist", site + "/framed"), env={"DBUS_SESSION_BUS_ADDRESS": address}, timeout=150)
+    c = out["calls"]
+    assert "'CanGoNext': <true>" in c[0] and "'CanGoPrevious': <true>" in c[0]
+    assert "'Track 1'" in c[0]
+    assert "'Track 2'" in c[2]
+    assert "'Track 2'" in c[5]                       # next (3), then previous (2)
+    native, to_string, own, length = out["looks"][0]
+    assert native == "function setActionHandler() { [native code] }"
+    assert to_string == "function toString() { [native code] }"
+    assert own == "length,name" and length == 2
+    assert out["looks"][1] == "Track 2"              # the page's own event did nothing
+    assert out["frame_player"]
+    f = out["frame_calls"]
+    assert "'Ike Tone'" in f[0] and "Paused" in f[2] and out["frame_paused"] == [True]
+
+
 def test_media_switched_off_and_private(run_ike, site, desktop_bus):
     address, _log, _f = desktop_bus
     out = run_ike("""
@@ -152,6 +232,7 @@ def test_media_switched_off_and_private(run_ike, site, desktop_bus):
             win.add_tab(%r)
             yield 3000
             out["off"] = ike.desktop._mpris_on
+            out["hook_off"] = len(ike.profile.scripts().find("ike-media"))
             ike.config["di_media"] = True
             p = ike.new_window(private=True, urls=[%r])
             yield 3000
@@ -159,10 +240,11 @@ def test_media_switched_off_and_private(run_ike, site, desktop_bus):
     """ % (site + "/song", site + "/song"), settings={"di_media": False},
         env={"DBUS_SESSION_BUS_ADDRESS": address})
     assert out["off"] is False and out["private"] is False
+    assert out["hook_off"] == 0
 
 
 def test_krunner(run_ike, site, desktop_bus, tmp_path):
-    address, _log, _f = desktop_bus
+    address, log, _f = desktop_bus
     out = run_ike(GDBUS + """
 import os
 
@@ -191,6 +273,11 @@ def steps(ike, qapp, out):
     yield from gdbus(r, *R, "-m", "org.kde.krunner1.Run", "bm:https://zebra.example/stripes", "")
     yield 300
     out["bookmark_opened"] = len(win.views) == n + 1
+    # the commands on a tab found by KRunner: close it
+    n = len(win.views)
+    yield from gdbus(r, *R, "-m", "org.kde.krunner1.Run", "tab:0:%%d" %% id(other), "close")
+    yield 400
+    out["closed"] = len(win.views) == n - 1 and other not in win.views
     ike.config["di_krunner"] = False
     ike.desktop.settings_changed()
     yield 300
@@ -204,7 +291,15 @@ def steps(ike, qapp, out):
     assert "'Zebra crossing guide'" in m and "'Zebra stripes explained'" in m and "Other page" not in m
     assert "'subtext': <'https://zebra.example/stripes'>" in m
     assert short.strip() == "(@a(sssida{sv}) [],)"
-    assert actions.strip() == "(@a(sss) [],)"
+    assert "('mute', 'Mute tab', 'audio-volume-muted')" in actions
+    assert "('unmute', 'Unmute tab', 'audio-volume-high')" in actions
+    assert "('close', 'Close tab', 'tab-close')" in actions
+    assert "'actions': <['close']>" in m            # a silent tab: only "close"
+    assert out["closed"]
+    # KRunner is told to look at its plugins again when the file comes and goes
+    reloads = [c for c in log() if c.get("event") == "signal" and c["iface"] == "org.kde.kconfig.notify"]
+    assert len(reloads) == 2 and all(c["path"] == "/krunnerrc" and c["member"] == "ConfigChanged"
+                                     and "Plugins" in c["body"][0] for c in reloads)
     assert out["current_before"] and out["current_after"] and out["bookmark_opened"]
     assert out["file_after_off"] is False and out["owned_after_off"] is False
 
@@ -246,6 +341,26 @@ def test_downloads_in_notifications(run_ike, site, desktop_bus, tmp_path):
     assert percents and percents[-1] == 100 and any(0 < p < 100 for p in percents)
     assert updates[-1]["processedBytes"] == SIZE and updates[-1]["totalBytes"] == SIZE
     assert updates[-1]["descriptionValue2"].endswith("file.bin")
+    # one file, its folder as the destination: Plasma offers "Open" and "Open
+    # Containing Folder" (before 1.1.9 it took the job for several files and
+    # opened the file as if it were the folder, which did nothing)
+    import os
+    from urllib.parse import unquote, urlparse
+    last = updates[-1]
+    assert all(u["totalFiles"] == 1 for u in updates)
+    assert last["processedFiles"] == 1 and any(u["processedFiles"] == 0 for u in updates)
+    folder = unquote(urlparse(last["destUrl"]).path)
+    assert os.path.isdir(folder) and folder == str(tmp_path / "dl")
+    # what Plasma opens (libnotificationmanager: effectiveDestUrl for one file)
+    assert os.path.isfile(last["descriptionValue2"])
+    assert os.path.dirname(last["descriptionValue2"]) == folder
+    # the task manager: I.K.E.'s icon shows the progress and the number, then clears
+    launcher = [c for c in log() if c.get("event") == "signal"
+                and c["iface"] == "com.canonical.Unity.LauncherEntry"]
+    assert launcher and all(c["body"][0] == "application://ike-browser.desktop" for c in launcher)
+    props = [c["body"][1] for c in launcher]
+    assert any(p["progress-visible"] and 0 < p["progress"] < 1 and p["count"] == 1 for p in props)
+    assert props[-1]["count-visible"] is False and props[-1]["progress-visible"] is False
     assert any("speed" in u for u in updates)
     ends = {c["path"]: c["body"] for c in calls if c["member"] == "terminate"}
     assert ends[first][0] == 0

@@ -9,7 +9,7 @@ The interface, protections, password manager and updater are I.K.E.'s own code
 provided and kept up to date by Arch Linux. I.K.E. is developed on and for
 KDE Plasma (CachyOS / Arch Linux) and works on the other Arch-based desktops.
 
-**Version 1.1.8** - see [CHANGELOG.md](CHANGELOG.md).
+**Version 1.1.9** - see [CHANGELOG.md](CHANGELOG.md).
 
 ## Install (Arch Linux, CachyOS)
 
@@ -17,7 +17,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.1.8-1-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.1.9-1-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:
@@ -98,9 +98,13 @@ profiles: `ike-browser --profile NAME`.
 
 **Desktop integration** (through D-Bus; nothing to install)
 - Media controls: the tab playing sound appears in Plasma's media widget and on
-  the lock screen and answers the media keys (also on GNOME and other desktops).
-- Downloads in Plasma's notifications, open tabs and bookmarks in KRunner, and
-  "Send to device" to a phone paired with KDE Connect.
+  the lock screen and answers the media keys, next and previous included where
+  the site offers them; players embedded in a page (a video inside an article)
+  too (also on GNOME and other desktops).
+- Downloads in Plasma's notifications ("Open" and "Open Containing Folder"
+  when done) and as progress on I.K.E.'s icon in the task manager; open tabs
+  and bookmarks in KRunner, with "Mute", "Unmute" and "Close tab"; "Send to
+  device" to a phone paired with KDE Connect.
 
 **Appearance and languages**
 - Follows the system theme by default; icon themes installed on the computer or
