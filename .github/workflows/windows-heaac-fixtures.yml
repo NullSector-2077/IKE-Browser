@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/windows-heaac-fixtures.yml"
       - "packaging/windows/qtwebengine/heaac_fixture_probe.py"
+      - "packaging/windows/qtwebengine/verify_codecs.py"
   workflow_dispatch:
 
 permissions:
@@ -23,6 +24,7 @@ jobs:
           persist-credentials: false
           sparse-checkout: |
             packaging/windows/qtwebengine/heaac_fixture_probe.py
+            packaging/windows/qtwebengine/verify_codecs.py
       - name: Install FFmpeg tools for container inspection
         shell: pwsh
         run: |
@@ -33,6 +35,8 @@ jobs:
           ffprobe -version | Select-Object -First 1
       - name: Download, validate, and hash the reference samples
         run: python -u packaging/windows/qtwebengine/heaac_fixture_probe.py
+      - name: Exercise the pinned HE-AAC clip builder
+        run: python -u packaging/windows/qtwebengine/verify_codecs.py clips --out clips
       - name: Keep the fixture manifest
         uses: actions/upload-artifact@v4
         with:
