@@ -48,6 +48,12 @@ New:
 - The daily maintenance tool accepts a README that names any package release
   (`-2-`), not only `-1-`.
 
+Measured against 1.1.3 on the same machine, package against package, with
+dark mode off and on: start-up (0.28 – 0.31 s), processor time at rest
+(0.5 – 0.7 % of one core), while using the interface (5.7 – 6.5 %) and memory
+(354 – 356 MiB) are unchanged within the measuring noise. The package is
+about 0.3 MB larger (Dark Reader's lists).
+
 ## 1.1.3
 
 A more modern finish, one small touch at a time, all in the colours of the
