@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.11
+
+- adblock-rust (AdBlock engine): 0.13.5 -> 0.13.6 (system part: raise __min_system__ and adapt ike-adblock/src/lib.rs if the API changed)
+- Qt WebEngine / PyQt6 (tests): Qt 6.12.0, WebEngine wheel 6.140.0 -> Qt 6.12.0, WebEngine wheel 6.140.0 (PyQt6 6.12.0 -> 6.12.1, PyQt6-WebEngine 6.140.0 -> 6.140.1; Arch Linux qt6-webengine 6.140.0)
+- AdBlock engine system component updated; minimum compatible system package is now 1.1.11.
+
 ## 1.1.10
 
 - **The shield is inside the address bar**, at its right end, with its number
