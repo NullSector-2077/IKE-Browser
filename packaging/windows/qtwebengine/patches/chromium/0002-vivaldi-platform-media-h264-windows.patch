@@ -201,7 +201,7 @@ new file mode 100644
 index 00000000..bcf0e393
 --- /dev/null
 +++ b/chromium/platform_media/OPERA_LICENSE.txt
-@@ -0,0 +1,30 @@
+@@ -0,0 +1,34 @@
 +All original work by Opera Softare ASA contained in this source
 +code distribution is licensed as follows:
 +
@@ -625,19 +625,23 @@ index 00000000..9ab840f9
 +Microsoft::WRL::ComPtr<IMFTransform> CreateWMFDecoder(
 +    const VideoDecoderConfig& config) {
 +  using DllFunction = decltype(DllGetClassObject);
-+  static DllFunction* get_class_object = nullptr;
-+  if (!get_class_object) {
++  // C++ guarantees thread-safe initialization of a function-local static.
++  // Decoder creation can be requested concurrently by renderer media tasks.
++  static DllFunction* const get_class_object = []() -> DllFunction* {
 +    HMODULE library = platform_media_init::GetWMFLibraryForH264();
 +    if (!library)
 +      return nullptr;
-+    get_class_object = reinterpret_cast<DllFunction*>(
++
++    auto* function = reinterpret_cast<DllFunction*>(
 +        ::GetProcAddress(library, "DllGetClassObject"));
-+    if (!get_class_object) {
-+      VLOG(1) << " PROPMEDIA(RENDERER) : " << __FUNCTION__
++    if (!function) {
++      VLOG(1) << " PROPMEDIA(RENDERER) : CreateWMFDecoder"
 +              << " Error while retrieving class object getter function.";
-+      return nullptr;
 +    }
-+  }
++    return function;
++  }();
++  if (!get_class_object)
++    return nullptr;
 +
 +  Microsoft::WRL::ComPtr<IClassFactory> factory;
 +  HRESULT hr =
@@ -1209,7 +1213,10 @@ index 00000000..ee1cc73d
 +const char kUtilitySubTypeSwitch[] = "utility-sub-type";
 +
 +LibraryHandle DoLoadLibrary(const wchar_t* library_name) {
-+  HMODULE library = ::LoadLibrary(library_name);
++  // These are OS-owned Media Foundation components. Never resolve them
++  // from the working directory or the application's install directory.
++  HMODULE library = ::LoadLibraryExW(
++      library_name, nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
 +  if (library)
 +    return reinterpret_cast<LibraryHandle>(library);
 +
