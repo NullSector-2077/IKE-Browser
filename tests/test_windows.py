@@ -470,9 +470,13 @@ def steps(ike, qapp, out):
     path = "\\\\.\\pipe\\" + name
     out["listed"] = name in os.listdir("\\\\.\\pipe\\")
     out["write_errors"] = []
-    for rubbish in (b"[]", b"\xff\x00garbage", b'{"urls": 7}', b"null", b'{"urls": ["' + b"x" * 30000 + b'"]}'):
+    # (the same rubbish as on Linux; a message with a valid but empty list of
+    # addresses is not rubbish: it is a second start without addresses, which
+    # opens a new window, so it is not sent here)
+    for rubbish in (b"[]", b"\xff\x00garbage", b'{"urls": 7}', b"null", b""):
         threading.Thread(target=write, args=(path, rubbish, out["write_errors"]), daemon=True).start()
         yield 300
+    out["windows_after_rubbish"] = len(ike.windows)
     win = ike.windows[0]
     out["tabs_before"] = len(win.views)
     env = dict(os.environ)
@@ -503,7 +507,7 @@ def steps(ike, qapp, out):
     assert out["listed"], out
     assert out["write_errors"] == [], out
     assert out["second_exit"] == 0, out
-    assert out["tabs_before"] == 1
+    assert out["tabs_before"] == 1 and out["windows_after_rubbish"] == 1, out
     assert out["tabs_after"][-1] == "handed over" and len(out["tabs_after"]) == 2, out
 
 

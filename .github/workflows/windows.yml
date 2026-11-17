@@ -44,18 +44,21 @@ jobs:
           $sets = @(
             "--enable-unsafe-swiftshader --use-angle=swiftshader --ignore-gpu-blocklist",
             "--ignore-gpu-blocklist",
-            "--ignore-gpu-blocklist --disable-accelerated-2d-canvas",
-            "--enable-unsafe-swiftshader --use-angle=swiftshader --ignore-gpu-blocklist --disable-accelerated-2d-canvas",
             "--ignore-gpu-blocklist --disable-gpu-compositing",
-            "--ignore-gpu-blocklist --disable-gpu-rasterization --disable-accelerated-2d-canvas"
+            "--ignore-gpu-blocklist --use-angle=d3d11-warp",
+            "--ignore-gpu-blocklist --use-angle=d3d11-warp --disable-gpu-compositing",
+            "--ignore-gpu-blocklist --in-process-gpu",
+            "--enable-unsafe-swiftshader --use-angle=swiftshader --ignore-gpu-blocklist --disable-gpu-compositing"
           )
           foreach ($set in $sets) {
-            foreach ($i in 1..2) {
+            foreach ($i in 1..4) {
               $env:IKE_TEST_WEBGL_FLAGS = $set
-              $r = python -m pytest -q -rs -p no:cacheprovider tests/test_fingerprint.py 2>&1 | Select-Object -Last 1
-              "WEBGL-TRY [$set] #${i}: $r"
+              $r = python -m pytest -q -rf -p no:cacheprovider tests/test_fingerprint.py -k scriptlets 2>&1 | Out-String
+              $sum = ($r -split "`n" | Select-String -Pattern "passed|failed|error" | Select-Object -Last 4) -join " | "
+              "WEBGL-TRY [$set] #${i}: $sum"
             }
           }
+          exit 0
 
   tests:
     name: Tests on Windows
