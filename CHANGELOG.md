@@ -22,6 +22,10 @@
 - Already there: the tooltips of the toolbar buttons name their keyboard
   shortcut.
 
+Measured against 1.1.5, package against package: start-up (0.29 – 0.30 s),
+processor time at rest (0.6 – 0.7 % of one core), while using the interface
+(5.3 – 6.7 %) and memory (353 – 354 MiB) unchanged within the measuring noise.
+
 ## 1.1.5
 
 More finish, in the colours of the theme in use; each touch can be switched
