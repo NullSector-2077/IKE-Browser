@@ -63,7 +63,10 @@ portal, paths, Widevine, PipeWire) and switches, except:
   WebCodecs; the KDE SDK has no OpenH264 to build against instead. So in the
   Flatpak sites cannot *encode* H.264 (a recording or a video call uses VP8,
   VP9 or AV1, which every WebRTC service supports); playing H.264 is not
-  affected.
+  affected. **Open, the owner decides**: whether Cisco's OpenH264 (Flathub's
+  `org.freedesktop.Platform.openh264` extension, Cisco's own binary) should
+  give the Flatpak H.264 encoding; a study is under way. Until then this
+  setting stays as it is.
 - QtPdf is not built again (the base application's stays; I.K.E. does not use
   it).
 
