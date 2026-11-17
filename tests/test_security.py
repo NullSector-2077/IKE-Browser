@@ -755,14 +755,28 @@ def steps(ike, qapp, out):
     webview.WebPage.ask_external = ask
     win = ike.windows[0]
     view = win.current_view()
+    done = []
+    view.page().loadFinished.connect(done.append)
     view.setHtml(PAGE, QUrl("http://site.example/page"))
+    for _ in range(50):                  # a slow computer: the page is there before the click
+        if done:
+            break
+        yield 100
     yield 800
     click(view, 60, 60)
-    yield 500
+    for _ in range(25):
+        yield 200
+        if asked:
+            break
+    yield 300
     out["refused"] = [list(asked), list(desktop.started), view.url().toString()]
     answer[0] = True
     click(view, 60, 60)
-    yield 500
+    for _ in range(25):
+        yield 200
+        if desktop.started:
+            break
+    yield 300
     out["allowed"] = [len(asked), list(desktop.started)]
     # a script alone (no click)
     view.setHtml("<script>setTimeout(function () { location.href = 'iketestproto://by/script'; }, 300);</script>",
