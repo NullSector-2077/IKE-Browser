@@ -207,8 +207,10 @@ def test_workflows():
     assert "issues: write" in daily and "contents: read" in daily and "contents: write" not in daily
     assert "--label components" in daily
     tests = (ROOT / ".github/workflows/tests.yml").read_text()
+    env = (ROOT / ".github/actions/ike-test-env/action.yml").read_text()
     assert "pull_request:" in tests and "ruff check ." in tests and "python -m pytest" in tests
-    assert "-r tools/test-requirements.txt" in tests
+    assert "uses: ./.github/actions/ike-test-env" in tests
+    assert "-r tools/test-requirements.txt" in env
     assert "makepkg -d -f" in tests and "IKE_TEST_APP=" in tests and "ike-browser-package" in tests
     assert "windows" not in tests.lower() and "appimage" not in tests.lower()
 

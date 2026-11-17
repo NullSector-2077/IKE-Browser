@@ -20,3 +20,6 @@ venv/
 /pkg/
 *.pkg.tar*
 *.log
+
+# the automatic fix agent's working folder (.github/workflows/autofix.yml)
+.autofix/

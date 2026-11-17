@@ -1,0 +1,36 @@
+# Every week: keep the scheduled workflows turned on (GitHub turns them off in
+# a public repository after 60 days without activity) and open the issue
+# "Automation health" when something stopped working (tools/automation-health.py).
+name: Automation health
+
+on:
+  schedule:
+    - cron: "41 7 * * 1"     # Mondays, 07:41 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  health:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: write        # turn the scheduled workflows on again
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Keep the scheduled workflows turned on
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for w in daily-check.yml daily-maintenance.yml health.yml; do
+            gh api -X PUT "repos/${{ github.repository }}/actions/workflows/$w/enable"
+          done
+      - name: Check the automation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HAS_KEY: ${{ secrets.GEMINI_API_KEY != '' }}
+        run: python3 -I tools/automation-health.py

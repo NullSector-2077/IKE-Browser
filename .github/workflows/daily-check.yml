@@ -59,6 +59,8 @@ jobs:
       - name: Update the "components" issue
         env:
           GH_TOKEN: ${{ github.token }}
+          # no checkout in this job: tell gh which repository it works on
+          GH_REPO: ${{ github.repository }}
           UPDATES: ${{ needs.check.outputs.updates }}
           ERRORS: ${{ needs.check.outputs.errors }}
         run: |
