@@ -103,10 +103,14 @@ def test_download_progress_ring(run_ike, slow_server, tmp_path):
             out["start_colours"] = colours(win)
             win.current_view().page().download(QUrl(%r))
             fractions = []
+            for _ in range(50):              # a slow computer: the download may take a while to start
+                if ike._dl_state[0] != "idle":
+                    break
+                yield 100
             for _ in range(8):
-                yield 200
                 if ike._dl_state[0] == "active":
                     fractions.append(ike._dl_state[1])
+                yield 200
             out["fractions"] = fractions
             out["active_colours"] = colours(win)
             shots = os.environ.get("IKE_TEST_SHOTS")
