@@ -358,7 +358,13 @@ def steps(ike, qapp, out):
     # a web page tries every way
     view.load(QUrl("http://127.0.0.1:%d/" % int(os.environ["IKE_BG_PORT"])))
     yield 3000
-    out["page"] = json.loads((yield from js(view, "JSON.stringify(res)")))
+    for _ in range(50):                  # a slow computer: the page may not have answered yet
+        page = yield from js(view, "window.res && ['img', 'fetch', 'xhr', 'canvas'].every(function (k) "
+                                   "{ return k in res; }) ? JSON.stringify(res) : ''")
+        if page:
+            break
+        yield 200
+    out["page"] = json.loads((yield from js(view, "JSON.stringify(window.res || null)")))
     out["frame"] = yield from js(view, "document.getElementById('f').contentDocument === null ? 'cross' : 'same'")
     # ... and tries to send the tab there
     yield from js(view, "location.href = 'ike:background'; 1")

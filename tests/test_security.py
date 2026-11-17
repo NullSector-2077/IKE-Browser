@@ -825,8 +825,12 @@ def stored(view):
             var g = db.transaction('s').objectStore('s').get('id');
             g.onsuccess = function () { ok(g.result || null); }; g.onerror = function () { ok('error'); }; });
         window._r = JSON.stringify([localStorage.getItem('id'), v]); })(); 1""")
-    yield 500
-    return json.loads((yield from js(view, "window._r")))
+    for _ in range(50):                  # at most 10 s: a slow computer opens the database late
+        yield 200
+        r = yield from js(view, "window._r")
+        if r:
+            return json.loads(r)
+    return None
 '''
     try:
         out = run_ike(read + r'''
