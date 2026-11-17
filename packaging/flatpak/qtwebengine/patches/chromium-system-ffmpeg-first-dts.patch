@@ -1,0 +1,24 @@
+--- a/chromium/media/filters/ffmpeg_demuxer.cc	2026-11-17 03:07:36.741057645 +0100
++++ b/chromium/media/filters/ffmpeg_demuxer.cc	2026-11-17 03:07:36.756150400 +0100
+@@ -56,6 +56,11 @@
+ #include "third_party/ffmpeg/ffmpeg_features.h"
+ #include "third_party/ffmpeg/libavcodec/packet.h"
+ 
++// The FFmpeg of the Flatpak run time (use_system_ffmpeg) may not have this
++// Chromium addition to libavformat: declared weak, used only when present.
++extern "C" int64_t av_stream_get_first_dts(const AVStream* st)
++    __attribute__((weak));
++
+ #if BUILDFLAG(ENABLE_PLATFORM_HEVC)
+ #include "media/filters/ffmpeg_h265_to_annex_b_bitstream_converter.h"
+ #endif
+@@ -126,7 +131,8 @@
+ 
+   // Next try to use the first DTS value, for codecs where we know PTS == DTS
+   // (excludes all H26x codecs). The start time must be returned in PTS.
+-  if (av_stream_get_first_dts(stream) != kNoFFmpegTimestamp &&
++  if (av_stream_get_first_dts &&
++      av_stream_get_first_dts(stream) != kNoFFmpegTimestamp &&
+       stream->codecpar->codec_id != AV_CODEC_ID_HEVC &&
+       stream->codecpar->codec_id != AV_CODEC_ID_H264 &&
+       stream->codecpar->codec_id != AV_CODEC_ID_MPEG4) {

@@ -1,0 +1,142 @@
+# One part of the build of the Flatpak's own Qt WebEngine (the module
+# packaging/flatpak/qtwebengine/qtwebengine.json; why it is built:
+# packaging/flatpak/README.md, "Codecs"). Called by flatpak.yml up to three
+# times in a row: Chromium takes longer than one GitHub job may run (6 hours
+# on 4 processors), so each part stops before the job's limit and leaves its
+# compiled files in ccache for the next part. When the module is complete,
+# flatpak-builder's cache with it is kept (actions/cache) and later runs take
+# it from there in minutes, until the module or the base application changes.
+name: Flatpak engine
+
+on:
+  workflow_call:
+    inputs:
+      part:
+        type: number
+        required: true
+    outputs:
+      done:
+        description: "'true' when the Qt WebEngine module is in flatpak-builder's cache"
+        value: ${{ jobs.engine.outputs.done }}
+
+permissions:
+  contents: read
+
+env:
+  MANIFEST: packaging/flatpak/io.github.nullsector_2077.IKE-Browser.yml
+  # flatpak-builder's options: the same in every job, so the stages it
+  # caches are found again
+  FB_OPTS: --disable-rofiles-fuse --install-deps-from=flathub --default-branch=master --arch=x86_64 --state-dir=.flatpak-builder --ccache
+  # the module after Qt WebEngine in the manifest
+  STOP_AT: python3-build-deps
+  XDG_RUNTIME_DIR: /tmp/xdg-runtime
+
+jobs:
+  engine:
+    name: Qt WebEngine for the Flatpak (part ${{ inputs.part }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 355
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.11
+      options: --privileged
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      done: ${{ steps.build.outputs.done }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Container
+        run: tools/ci/flatpak-container.sh
+
+      - name: flatpak-builder's cache (stages already built)
+        uses: actions/cache/restore@v4
+        with:
+          path: .flatpak-builder/cache
+          key: flatpak-stages-none
+          restore-keys: flatpak-stages-
+
+      - name: Compiled files of earlier parts (ccache)
+        uses: actions/cache/restore@v4
+        with:
+          path: .flatpak-builder/ccache
+          key: flatpak-ccache-none
+          restore-keys: flatpak-ccache-
+
+      - name: Downloaded sources
+        uses: actions/cache/restore@v4
+        with:
+          path: .flatpak-builder/downloads
+          key: flatpak-downloads-${{ hashFiles('packaging/flatpak/qtwebengine/qtwebengine.json') }}
+
+      - name: The run time's FFmpeg and OpenH264 (what the engine is built against)
+        continue-on-error: true
+        run: |
+          flatpak install --system -y --noninteractive flathub org.kde.Sdk//6.11 >/dev/null 2>&1 || true
+          flatpak run --command=sh org.kde.Sdk//6.11 -c '
+            for m in libavcodec libavformat libavutil openh264 opus libwebp; do
+              printf "%s: " $m; pkg-config --modversion $m 2>/dev/null || echo "not found"; done
+            printf "av_stream_get_first_dts in libavformat: "
+            nm -D /usr/lib/x86_64-linux-gnu/libavformat.so.* 2>/dev/null | grep -c av_stream_get_first_dts || true
+            command -v ccache node gperf bison flex || true'
+
+      - name: Build Qt WebEngine (stops before the job's time limit)
+        id: build
+        run: |
+          mkdir -p .flatpak-builder/ccache
+          printf 'max_size = 8G\n' > .flatpak-builder/ccache/ccache.conf
+          set +e
+          timeout -k 5m 300m flatpak-builder $FB_OPTS --force-clean --stop-at="$STOP_AT" \
+              flatpak_app "$MANIFEST" 2>&1 | tee out/engine-part-${{ inputs.part }}.log | grep -v -E '^\[[0-9]+/[0-9]+\] '
+          rc=${PIPESTATUS[0]}
+          set -e
+          tail -n 40 out/engine-part-${{ inputs.part }}.log | grep -E '^\[[0-9]+/[0-9]+\] ' | tail -n 3 || true
+          flatpak run --command=ccache --filesystem="$PWD/.flatpak-builder/ccache" \
+              --env=CCACHE_DIR="$PWD/.flatpak-builder/ccache" org.kde.Sdk//6.11 -s || true
+          echo "flatpak-builder ended with $rc"
+          if grep -q "Cache hit for qt6-qtwebengine" out/engine-part-${{ inputs.part }}.log; then
+            echo "Qt WebEngine came from flatpak-builder's cache."
+          else
+            echo "built=true" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "$rc" = 0 ]; then
+            echo "done=true" >> "$GITHUB_OUTPUT"
+          elif [ "$rc" = 124 ] || [ "$rc" = 137 ]; then
+            echo "Time is up for this part: the next part goes on from ccache."
+            echo "done=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "done=false" >> "$GITHUB_OUTPUT"
+            exit "$rc"
+          fi
+
+      - name: Keep flatpak-builder's cache (Qt WebEngine built)
+        if: steps.build.outputs.done == 'true' && steps.build.outputs.built == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .flatpak-builder/cache
+          key: flatpak-stages-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.part }}
+
+      - name: Keep the compiled files (for the next part, or a later change of the module)
+        if: always() && steps.build.outputs.built == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .flatpak-builder/ccache
+          key: flatpak-ccache-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.part }}
+
+      - name: Keep the downloaded sources
+        if: always()
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: .flatpak-builder/downloads
+          key: flatpak-downloads-${{ hashFiles('packaging/flatpak/qtwebengine/qtwebengine.json') }}
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: flatpak-engine-log-${{ inputs.part }}
+          path: out/
+          retention-days: 14

@@ -1,0 +1,15 @@
+--- a/configure.cmake	2026-11-17 03:07:36.766474877 +0100
++++ b/configure.cmake	2026-11-17 03:07:36.780017268 +0100
+@@ -270,10 +270,8 @@
+ #include \"libavformat/avformat.h\"
+ }
+ int main(void) {
+-#if LIBAVFORMAT_VERSION_MAJOR >= 59
+-    AVStream stream;
+-    auto first_dts = av_stream_get_first_dts(&stream);
+-#endif
++    AVFormatContext *context = avformat_alloc_context();
++    avformat_free_context(context);
+     return 0;
+ }"
+ )

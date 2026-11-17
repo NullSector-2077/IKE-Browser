@@ -10,7 +10,7 @@ step 3). Not yet on Flathub; the bundle is built and tested by
 |---|---|
 | Qt 6.11, Python 3.13 | the KDE 6.11 run time (`org.kde.Platform//6.11`) |
 | PyQt6, PyQt6-WebEngine | the PyQt base application (`com.riverbankcomputing.PyQt.BaseApp//6.11`) |
-| Qt WebEngine | see "Codecs" below |
+| Qt WebEngine 6.11.3 | built by this manifest (`qtwebengine/`): the base application's source, patches and switches, but decoding through the run time's FFmpeg — see "Codecs" below |
 | jeepney, cryptography | built from their source archives (`generated/python3-runtime-deps.json`) |
 | I.K.E. AdBlock engine | built from `ike-adblock/` with the vendored crates (`generated/cargo-sources.json`) |
 | I.K.E. | this repository, laid out under `/app/lib/ike-browser` as the PKGBUILD lays it out under `/usr/lib` |
@@ -37,21 +37,54 @@ turned into an underscore).
 
 ## Codecs
 
-ROADMAP.md, "Codecs": I.K.E. never ships a proprietary codec. The Flatpak may
-play H.264 / AAC only through the run time's own codec extension
-(`org.freedesktop.Platform.codecs-extra`), which Flathub distributes
-separately, never through decoders inside the bundle.
+ROADMAP.md, "Codecs": I.K.E. never ships a proprietary codec. The Flatpak
+plays H.264 / AAC only through the run time's own codec extension
+(`org.freedesktop.Platform.codecs-extra`, which Flathub distributes
+separately and installs with the run time), never through decoders inside
+the bundle.
 
-The workflow checks it on every run: the engine report is made again with the
-codec extension removed. Whatever is decoded then must come from the run
-time's FFmpeg, not from a library inside `/app`. Only then is the bundle kept
-as the run's download (`ike-browser-flatpak`).
+Flathub's Qt WebEngine base application cannot give that: it is built with
+`-DQT_FEATURE_webengine_proprietary_codecs=ON` and Chromium's own FFmpeg
+(`webengine_system_ffmpeg=OFF`), so its `libQt6WebEngineCore` contains
+Chromium's H.264 and AAC decoders (measured: with the codec extension
+removed it still decoded both, run 43974228106). The manifest therefore
+builds Qt WebEngine again (`qtwebengine/qtwebengine.json`) with the base
+application's own source, patches (Chromium's sandbox through the Flatpak
+portal, paths, Widevine, PipeWire) and switches, except:
+
+- `webengine_system_ffmpeg=ON`: Chromium decodes through the run time's
+  FFmpeg. The base run time's FFmpeg has no H.264 / AAC decoder; the codec
+  extension replaces it with the full one. Two small patches make Chromium
+  and Qt's configure check accept an FFmpeg without Chromium's
+  `av_stream_get_first_dts` addition (`qtwebengine/patches/*system-ffmpeg*`).
+- `webengine_system_openh264=ON`: WebRTC's H.264 encoder is the run time's
+  OpenH264 (a stub, or Cisco's library through Flathub's OpenH264 extension),
+  not one compiled into the engine.
+- QtPdf is not built again (the base application's stays; I.K.E. does not use
+  it).
+
+The base application's Qt WebEngine libraries are deleted before the new ones
+are installed. The PyQt bindings of the PyQt base application stay and load
+the new engine (same Qt 6.11 series).
+
+The workflow checks it on every run (`tools/ci/flatpak-codecs.py`): no
+program or library of the installed bundle contains FFmpeg's H.264, AAC or
+HEVC decoder, while the same search finds them in the base application (the
+control); `libQt6WebEngineCore` takes `libavcodec` from the run time; and the
+engine report is made with the codec extension and, for information, without
+it. Only then is the bundle kept as the run's download (`ike-browser-flatpak`).
+
+Building Chromium takes longer than one GitHub job may run: the jobs
+`engine-1` … `engine-3` (`.github/workflows/flatpak-engine.yml`) build it in
+parts, passing compiled files on through ccache, and keep the finished module
+in flatpak-builder's cache. Later runs take it from there until the module,
+the base application or the SDK changes.
 
 ## Building locally
 
 ```bash
 flatpak install flathub org.kde.Sdk//6.11 com.riverbankcomputing.PyQt.BaseApp//6.11 \
-    org.freedesktop.Sdk.Extension.rust-stable//25.08
+    org.freedesktop.Sdk.Extension.rust-stable//25.08 org.freedesktop.Sdk.Extension.node20//25.08
 flatpak-builder --user --install --force-clean build-flatpak \
     packaging/flatpak/io.github.nullsector_2077.IKE-Browser.yml
 flatpak run io.github.nullsector_2077.IKE-Browser
@@ -72,3 +105,7 @@ flatpak run io.github.nullsector_2077.IKE-Browser
   application is built with `-DQT_FEATURE_webengine_proprietary_codecs=ON`
   and Chromium's own FFmpeg (`system_ffmpeg=OFF`), so its decoders are inside
   the bundle and the workflow does not keep it.
+- 2026-11-17: run 43977320802 (5e5870d) green, but the bundle was not kept
+  (the blocker above). Change: the manifest builds Qt WebEngine with the run
+  time's FFmpeg (section "Codecs"); the workflow builds it in up to three
+  chained jobs and checks the bundle's files for decoders.

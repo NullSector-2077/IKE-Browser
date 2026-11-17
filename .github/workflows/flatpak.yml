@@ -9,6 +9,12 @@
 # The bundle is kept as a download of the run ONLY when it contains no
 # H.264 / AAC decoder of its own (ROADMAP.md, "Codecs": I.K.E. never ships a
 # proprietary codec). The step "Where the decoders come from" decides it.
+#
+# The Flatpak builds its own Qt WebEngine, decoding through the run time's
+# FFmpeg (packaging/flatpak/README.md, "Codecs"). Chromium needs more than one
+# GitHub job: the jobs engine-1 to engine-3 (flatpak-engine.yml) build it in
+# parts and keep it in flatpak-builder's cache; once it is there, engine-1
+# finds it in minutes and the other two are skipped.
 name: Flatpak
 
 on:
@@ -16,23 +22,52 @@ on:
     branches: [main]
   push:
     branches: [main, linux/flatpak]
+    # notes alone do not start a build of several hours
+    paths-ignore: ['**.md']
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# a newer push waits instead of stopping a part of the engine build
 concurrency:
   group: flatpak-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   APP_ID: io.github.nullsector_2077.IKE-Browser
   BUNDLE: ike-browser.flatpak
+  MANIFEST: packaging/flatpak/io.github.nullsector_2077.IKE-Browser.yml
+  # the same options as in flatpak-engine.yml, so the cached stages are found
+  FB_OPTS: --disable-rofiles-fuse --install-deps-from=flathub --default-branch=master --arch=x86_64 --state-dir=.flatpak-builder --ccache
   XDG_RUNTIME_DIR: /tmp/xdg-runtime
 
 jobs:
+  engine-1:
+    uses: ./.github/workflows/flatpak-engine.yml
+    with:
+      part: 1
+
+  engine-2:
+    needs: engine-1
+    if: needs.engine-1.outputs.done != 'true'
+    uses: ./.github/workflows/flatpak-engine.yml
+    with:
+      part: 2
+
+  engine-3:
+    needs: engine-2
+    if: needs.engine-2.outputs.done != 'true'
+    uses: ./.github/workflows/flatpak-engine.yml
+    with:
+      part: 3
+
   flatpak:
     name: Flatpak (KDE 6.11)
+    needs: [engine-1, engine-2, engine-3]
+    if: >-
+      ${{ !cancelled() && needs.engine-1.result == 'success'
+      && needs.engine-2.result != 'failure' && needs.engine-3.result != 'failure' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     container:
@@ -48,29 +83,41 @@ jobs:
           persist-credentials: false
 
       - name: Container
+        run: tools/ci/flatpak-container.sh
+
+      - name: flatpak-builder's cache (Qt WebEngine)
+        uses: actions/cache/restore@v4
+        with:
+          path: .flatpak-builder/cache
+          key: flatpak-stages-none
+          restore-keys: flatpak-stages-
+
+      - name: Downloaded sources
+        uses: actions/cache/restore@v4
+        with:
+          path: .flatpak-builder/downloads
+          key: flatpak-downloads-${{ hashFiles('packaging/flatpak/qtwebengine/qtwebengine.json') }}
+
+      - name: Qt WebEngine from the cache
         run: |
-          df -h "$PWD"
-          echo "processors: $(nproc)"
-          flatpak --version
-          flatpak-builder --version
-          # The run times come preinstalled in the image's own layer, where
-          # ostree cannot rename across the overlay ("Invalid cross-device
-          # link" when flatpak-builder updates them): copied into the
-          # container's writable layer first.
-          mv /var/lib/flatpak /var/lib/flatpak.image
-          cp -a /var/lib/flatpak.image /var/lib/flatpak
-          rm -rf /var/lib/flatpak.image
-          mkdir -p -m 700 "$XDG_RUNTIME_DIR"
-          mkdir -p out
+          # minutes when the engine jobs left it in the cache; a stop here
+          # instead of a build of many hours when they did not
+          if ! timeout -k 2m 40m flatpak-builder $FB_OPTS --force-clean --stop-at=python3-build-deps \
+              flatpak_app "$MANIFEST" > out/engine-from-cache.log 2>&1; then
+            tail -n 30 out/engine-from-cache.log
+            echo "::error::Qt WebEngine is not in flatpak-builder's cache: the engine jobs did not finish it"
+            exit 1
+          fi
+          grep -E "Cache hit|Building module" out/engine-from-cache.log || true
 
       - name: Build the Flatpak and its bundle
-        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
-        with:
-          manifest-path: packaging/flatpak/io.github.nullsector_2077.IKE-Browser.yml
-          bundle: ${{ env.BUNDLE }}
-          cache-key: flatpak-builder-${{ hashFiles('packaging/flatpak/**') }}
-          # kept only after the codec check below
-          upload-artifact: false
+        run: |
+          flatpak-builder $FB_OPTS --force-clean --repo=repo \
+              --subject="Built from $GITHUB_SHA" flatpak_app "$MANIFEST" 2>&1 | tee out/build.log \
+              | grep -v -E '^\[[0-9]+/[0-9]+\] '
+          flatpak build-bundle repo "$BUNDLE" "$APP_ID" master \
+              --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo
+          ls -l "$BUNDLE"
 
       - name: Lint (Flathub's linter, for information)
         continue-on-error: true
@@ -127,6 +174,9 @@ jobs:
           r = json.load(open("out/engine-flatpak.json"))
           assert not r["sandbox_off_by_environment"], "the sandbox was switched off"
           assert r["decoded"].get("VP9"), "the sandboxed engine decoded nothing"
+          # through the run time's FFmpeg, with its codec extension installed
+          missing = [k for k in ("H.264", "AAC") if not r["decoded"].get(k)]
+          assert not missing, "not decoded with the codec extension: %s" % missing
           EOF
           if grep -i -E "sandboxing disabled|no-sandbox|zygote_host.*not supported" out/engine-flatpak.log; then
             echo "Chromium's sandbox did not run"; exit 1
@@ -136,36 +186,36 @@ jobs:
       - name: Where the H.264 / AAC decoders come from
         id: codecs
         run: |
-          # The engine is the Qt WebEngine base application's. Does it decode
-          # H.264 / AAC by itself, or through the run time's codec extension?
-          # The same report again with the codec extension removed.
-          # (Chromium's sandbox off for this diagnostic start only: the
-          # sandboxed start was proven in the step before.)
+          # 1. The bundle's own files: no FFmpeg decoder of H.264 / AAC / HEVC
+          #    in any of them; the base application's engine as the control
+          #    (it has them), so that the search is known to find them.
           files=/var/lib/flatpak/app/$APP_ID/current/active/files
-          for lib in "$files"/lib/libQt6WebEngineCore.so.6 "$files"/lib/x86_64-linux-gnu/libQt6WebEngineCore.so.6; do
-            [ -e "$lib" ] && { echo "$lib needs:"; readelf -d "$lib" | grep NEEDED | grep -i -E "avcodec|avformat|avutil|openh264" || echo "  no FFmpeg / OpenH264 library of the system"; }
-          done
-          flatpak list --runtime --columns=ref | grep -i codecs || true
+          base=$(flatpak info --system --show-location com.riverbankcomputing.PyQt.BaseApp//6.11)/files
+          set +e
+          python3 tools/ci/flatpak-codecs.py "$files" "$base" | tee out/codecs.md
+          clean=${PIPESTATUS[0]}
+          set -e
+          cat out/codecs.md >> "$GITHUB_STEP_SUMMARY"
+          # 2. Where the engine's FFmpeg comes from inside the sandbox
+          flatpak run --command=sh "$APP_ID" -c \
+            'ldd /app/lib/libQt6WebEngineCore.so.6 | grep -E "libav|openh264"' | tee -a out/codecs.md
+          # 3. For information: what plays without the codec extension (only
+          #    the run time itself). Chromium's sandbox off for this
+          #    diagnostic start only; the sandboxed start is the step before.
+          flatpak list --runtime --columns=ref | grep -i -E "codecs|openh264" || true
           flatpak uninstall --system -y --noninteractive org.freedesktop.Platform.codecs-extra//25.08-extra || true
           flatpak run --filesystem="$PWD" --env=QT_QPA_PLATFORM=offscreen --env=QTWEBENGINE_DISABLE_SANDBOX=1 \
               --command=python3 "$APP_ID" "$PWD/tools/engine-report.py" --app /app/lib/ike-browser \
-              --decode "$PWD/tests/media" --json "$PWD/out/engine-flatpak-no-codecs-extra.json" >/dev/null 2>&1
+              --decode "$PWD/tests/media" --json "$PWD/out/engine-flatpak-no-codecs-extra.json" >/dev/null 2>&1 || true
+          flatpak install --system -y --noninteractive flathub org.freedesktop.Platform.codecs-extra//25.08-extra
           python3 - <<'EOF' | tee -a "$GITHUB_STEP_SUMMARY"
-          import json, os
+          import json
           d = json.load(open("out/engine-flatpak-no-codecs-extra.json"))["decoded"]
-          own = [k for k in ("H.264", "AAC", "HEVC") if d.get(k)]
-          print("### Codecs of the bundle itself")
-          print("Decoded without the run time's codec extension: %s" % ", ".join(k for k, v in d.items() if v))
-          if own:
-              print("\n**The bundle decodes %s by itself**: its engine (the Qt WebEngine base application) "
-                    "contains these decoders, so the bundle is NOT kept as a download "
-                    "(I.K.E. never ships a proprietary codec)." % ", ".join(own))
-          else:
-              print("\nNo H.264 / AAC / HEVC decoder in the bundle itself.")
-          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              f.write("clean=%s\n" % ("false" if own else "true"))
+          print("Decoded without the run time's codec extension (the run time's own FFmpeg / OpenH264): %s\n"
+                % (", ".join(k for k, v in d.items() if v) or "nothing"))
           EOF
-          flatpak install --system -y --noninteractive flathub org.freedesktop.Platform.codecs-extra//25.08-extra || true
+          # the verdict is the job's last step, so that the tests still run
+          echo "clean=$([ "$clean" = 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
       - name: Keep the bundle (only without a proprietary decoder)
         if: steps.codecs.outputs.clean == 'true'
@@ -217,6 +267,12 @@ jobs:
               --env=PYTHONDONTWRITEBYTECODE=1 --cwd="$PWD" --command=python3 "$APP_ID" \
               -m pytest -ra -p no:cacheprovider --junitxml=out/tests-flatpak-plasma.xml tests/test_plasma.py \
               2>&1 | tee out/tests-flatpak-plasma.log
+
+      - name: No decoder of its own in the bundle
+        if: steps.codecs.outputs.clean != 'true'
+        run: |
+          echo "::error::the bundle contains decoders of its own, or the search could not be verified (out/codecs.md)"
+          exit 1
 
       - uses: actions/upload-artifact@v4
         if: always()
