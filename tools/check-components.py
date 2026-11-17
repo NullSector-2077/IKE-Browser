@@ -10,6 +10,12 @@ Components and where the version in use is written:
 - uBlock Origin scriptlets: ``ike/resources/ubo-scriptlets.json`` (rebuilt from
   uBlock Origin's newest sources with tools/build-ubo-scriptlets.mjs; only a
   change in the scriptlets themselves counts, not a new commit);
+- Dark Reader, the engine of the page dark mode and the lists of its extension
+  (fixes for single sites, sites that are dark already, hints of a site's own
+  dark theme): ``ike/resources/darkreader*.{js,json}`` (rebuilt with
+  tools/build-darkreader.py from the newest "darkreader" package on npm and
+  the newest lists in Dark Reader's repository; only a new engine or changed
+  lists count);
 - Qt WebEngine and PyQt6 of the automatic tests: ``tools/test-requirements.txt``
   (the newest set pip would install). The browser itself runs on Arch Linux's
   own qt6-webengine, updated by pacman: its current version is shown in the
@@ -22,8 +28,8 @@ along by the next one.
 With --apply the files above are rewritten with the newest versions (and
 ``cargo update`` is run for a new engine); adapting I.K.E.'s code, building
 and testing are handled by the daily GitHub Actions maintenance workflow.
-Needs git, and for the scriptlets Node.js; uses only crates.io, PyPI and
-github.com (no API token).
+Needs git, and for the scriptlets Node.js; uses only crates.io, PyPI,
+registry.npmjs.org and github.com (no API token).
 """
 
 import argparse
@@ -43,6 +49,8 @@ ROOT = Path(__file__).resolve().parent.parent
 
 CRATES_INDEX = "https://index.crates.io/ad/bl/adblock"
 UBO_GIT = "https://github.com/gorhill/uBlock"
+DARKREADER_GIT = "https://github.com/darkreader/darkreader"
+DARKREADER_NPM = "https://registry.npmjs.org/darkreader/latest"
 ARCH_PACKAGE = "https://archlinux.org/packages/search/json/?name=qt6-webengine"
 # the Qt packages: a new version of any of them calls for a test run on it
 QT_PACKAGES = ("pyqt6", "pyqt6-qt6", "pyqt6-webengine", "pyqt6-webengine-qt6")
@@ -148,6 +156,53 @@ def apply_scriptlets(root, info):
     shutil.copyfile(info["_file"], root / "ike" / "resources" / "ubo-scriptlets.json")
 
 
+# --- Dark Reader ---------------------------------------------------------------
+
+def darkreader_lists_hash(data):
+    lists = {k: data[k] for k in ("fixes", "dark_sites", "detector_hints")}
+    return hashlib.sha256(json.dumps(lists, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def build_darkreader(root, work, dr_src=None):
+    """Dark Reader's newest engine (npm) and lists (GitHub), built as I.K.E. uses them."""
+    import tarfile
+    out = work / "darkreader-out"
+    out.mkdir(parents=True, exist_ok=True)
+    meta = json.loads(fetch(DARKREADER_NPM))
+    tgz = work / "darkreader.tgz"
+    tgz.write_bytes(fetch(meta["dist"]["tarball"]))
+    with tarfile.open(tgz) as tar:
+        member = tar.getmember("package/darkreader.js")
+        (work / "darkreader.js").write_bytes(tar.extractfile(member).read())
+    src = work / "darkreader-src"
+    if dr_src:
+        src = Path(dr_src)
+    elif not src.exists():
+        run(["git", "clone", "--quiet", "--depth", "1", DARKREADER_GIT, str(src)])
+    commit = run(["git", "-C", str(src), "log", "-1", "--format=%H"]).strip()
+    date = run(["git", "-C", str(src), "log", "-1", "--format=%cs"]).strip()
+    run([sys.executable, str(root / "tools" / "build-darkreader.py"), "--lib", str(work / "darkreader.js"),
+         "--config", str(src / "src" / "config"), "--commit", commit, "--date", date, "--out", str(out)])
+    return out
+
+
+def check_darkreader(root, work, dr_src=None):
+    cur = json.loads((root / "ike" / "resources" / "darkreader-data.json").read_text("utf-8"))
+    out = build_darkreader(root, work, dr_src)
+    new = json.loads((out / "darkreader-data.json").read_text("utf-8"))
+    engine = vkey(new["version"]) > vkey(cur["version"])
+    lists = darkreader_lists_hash(cur) != darkreader_lists_hash(new)
+    note = ", ".join(x for x, on in (("new engine", engine), ("lists changed", lists)) if on)
+    return {"current": "%s, lists %s (%s)" % (cur["version"], cur.get("lists_commit", "")[:10], cur.get("lists_date", "")),
+            "latest": "%s, lists %s (%s)" % (new["version"], new["lists_commit"][:10], new["lists_date"]),
+            "update": engine or lists, "note": note, "_dir": str(out)}
+
+
+def apply_darkreader(root, info):
+    for name in ("darkreader.js", "darkreader-proxy.js", "darkreader-data.json"):
+        shutil.copyfile(Path(info["_dir"]) / name, root / "ike" / "resources" / name)
+
+
 # --- Qt WebEngine / PyQt6 of the automatic tests -----------------------------
 
 def read_pins(root):
@@ -217,12 +272,13 @@ def apply_test_packages(root, info):
 
 # --- report -----------------------------------------------------------------
 
-def check_all(root, ubo_src=None, work=None):
+def check_all(root, ubo_src=None, work=None, dr_src=None):
     work = Path(work or tempfile.mkdtemp(prefix="ike-check-"))
     work.mkdir(parents=True, exist_ok=True)
     checks = [
         ("adblock-rust (AdBlock engine)", check_adblock, apply_adblock, ()),
         ("uBlock Origin scriptlets", check_scriptlets, apply_scriptlets, (work, ubo_src)),
+        ("Dark Reader (engine and lists)", check_darkreader, apply_darkreader, (work, dr_src)),
         ("Qt WebEngine / PyQt6 (tests)", check_test_packages, apply_test_packages, ()),
     ]
     results = []
@@ -267,10 +323,11 @@ def main(argv=None):
     ap.add_argument("--apply", action="store_true",
                     help="rewrite the version files with every newer version found")
     ap.add_argument("--ubo-src", help="use this uBlock Origin checkout instead of cloning it")
+    ap.add_argument("--darkreader-src", help="use this Dark Reader checkout instead of cloning it")
     ap.add_argument("--root", default=str(ROOT), help=argparse.SUPPRESS)
     args = ap.parse_args(argv)
     root = Path(args.root)
-    results = check_all(root, args.ubo_src)
+    results = check_all(root, args.ubo_src, dr_src=args.darkreader_src)
     for r in results:
         state = "ERROR " + r["error"] if r["error"] else ("NEW" if r["update"] else "ok")
         print("%-34s %-6s %s -> %s %s" % (r["name"], state.split(" ")[0], r["current"], r["latest"],

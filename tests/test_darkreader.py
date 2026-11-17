@@ -56,6 +56,51 @@ def test_the_lists_are_there_and_give_what_the_extension_gives():
     assert "function injectProxy(" in proxy and "__darkreader__stylesheetProxy__arg" in proxy
 
 
+def test_the_build_tool(tmp_path):
+    """tools/build-darkreader.py: the proxy taken out of the engine and asked for
+    by an event, the lists read; an engine it does not recognise is refused."""
+    import subprocess
+    import sys
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    lib = ("/**\r\n * Dark Reader v9.9.9\r\n */\r\n(function () {\r\n"
+           "    function injectProxy(\r\n        a,\r\n        b\r\n    ) {\r\n        if (a) { b(); }\r\n    }\r\n"
+           "    function other() {\r\n        {\r\n"
+           "            const proxyScript = createOrUpdateScript(\"darkreader--proxy\");\r\n"
+           "            proxyScript.append(`(${injectProxy})(${a}, ${b})`);\r\n"
+           "            proxyScript.remove();\r\n        }\r\n    }\r\n})();\r\n")
+    (tmp_path / "lib.js").write_bytes(lib.encode())
+    cfg = tmp_path / "config"
+    cfg.mkdir()
+    (cfg / "dynamic-theme-fixes.config").write_text(
+        "*\n\nINVERT\n.logo\n\nCSS\nbody { color: red }\n\n====\n\nexample.com\n*.example.org\n\n"
+        "IGNORE INLINE STYLE\n.x\n.y\n")
+    (cfg / "dark-sites.config").write_text("dark.example\nnight.example/app\n")
+    (cfg / "detector-hints.config").write_text("own.example\n\nTARGET\nhtml\n\nMATCH\n.dark\n\n"
+                                               "====\n\nnever.example\n\nNO DARK THEME\n")
+    out = tmp_path / "out"
+    out.mkdir()
+    run = subprocess.run([sys.executable, str(root / "tools/build-darkreader.py"), "--lib", str(tmp_path / "lib.js"),
+                          "--config", str(cfg), "--out", str(out), "--commit", "abc"], capture_output=True, text=True)
+    assert run.returncode == 0, run.stderr
+    engine = (out / "darkreader.js").read_bytes().decode()
+    assert "createOrUpdateScript" not in engine and "__darkreader__stylesheetProxy__arg__IKE_DR_TOKEN__" in engine
+    assert "\r\n" in engine                                   # the engine's own line ends are kept
+    proxy = (out / "darkreader-proxy.js").read_text()
+    assert "function injectProxy(" in proxy and "if (a) { b(); }" in proxy and "other()" not in proxy
+    data = json.loads((out / "darkreader-data.json").read_text())
+    assert data["version"] == "9.9.9" and data["lists_commit"] == "abc"
+    assert data["fixes"][0] == {"url": ["*"], "invert": [".logo"], "css": "body { color: red }"}
+    assert data["fixes"][1] == {"url": ["example.com", "*.example.org"], "ignoreInlineStyle": [".x", ".y"]}
+    assert data["dark_sites"] == ["dark.example", "night.example/app"]
+    assert data["detector_hints"] == [{"url": ["own.example"], "target": "html", "match": [".dark"]},
+                                      {"url": ["never.example"], "noDarkTheme": True}]
+    (tmp_path / "bad.js").write_text("/**\n * Dark Reader v9.9.9\n */\nfunction injectProxy(\n    a\n) {\n}\n")
+    run = subprocess.run([sys.executable, str(root / "tools/build-darkreader.py"), "--lib", str(tmp_path / "bad.js"),
+                          "--config", str(cfg), "--out", str(out)], capture_output=True, text=True)
+    assert run.returncode != 0 and "proxy injection" in (run.stderr + run.stdout)
+
+
 # --- in the browser -------------------------------------------------------------
 
 PAGES = {
