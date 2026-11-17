@@ -1,8 +1,7 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><title>I.K.E.</title>
 <style>
-:root{--bg:{{bg}};--fg:{{fg}};--mute:{{mute}};--card:{{card}};--line:{{line}};--acc:{{acc}};
- --grid:color-mix(in srgb,var(--line) 26%,transparent)}
+:root{--bg:{{bg}};--fg:{{fg}};--mute:{{mute}};--card:{{card}};--line:{{line}};--acc:{{acc}}}
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
  background:var(--bg);color:var(--fg);font-family:system-ui,"Noto Sans",sans-serif}
@@ -41,55 +40,20 @@ input:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(-
  font-size:13px;padding:7px 10px}
 .tile.add.on input{display:block}
 .tile.add.on .name{visibility:hidden}
-.hint{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px 14px;width:min(760px,92vw);
- margin-top:30px;padding:10px 14px;font-size:14px;background:var(--card);border:1px solid var(--line);border-radius:6px}
-.hint span{flex:1 1 280px}
-.hint a{padding:8px 14px;border-radius:5px;border:1px solid var(--line);color:var(--fg);text-decoration:none;white-space:nowrap}
-.hint a.go{background:var(--fg);color:var(--bg);border-color:var(--fg);font-weight:600}
-.hint a:hover,.hint a:focus-visible{border-color:var(--acc);outline:none}
-/*CYBER*//* the Cyber theme: cut corners, thin luminous lines, a grid (see ike/cyber.py for the windows) */
-.cyber{--cut:0px;font-feature-settings:"tnum"}
-.cyber.cut{--cut:12px}
-.cyber .num,.cyber .clock{font-family:ui-monospace,"JetBrains Mono","Noto Sans Mono","DejaVu Sans Mono",monospace}
-.cyber.grid.plain{background-image:linear-gradient(var(--grid) 1px,transparent 1px),
- linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:56px 56px;background-position:center}
-.cyber form:not(.tile){padding:1px;background:var(--acc);
- clip-path:polygon(var(--cut) 0,100% 0,100% calc(100% - var(--cut)),calc(100% - var(--cut)) 100%,0 100%,0 var(--cut))}
-.cyber form:not(.tile) input{border:0;border-radius:0;display:block;
- clip-path:polygon(var(--cut) 0,100% 0,100% calc(100% - var(--cut)),calc(100% - var(--cut)) 100%,0 100%,0 var(--cut))}
-.cyber form:not(.tile) input:focus{box-shadow:none}
-.cyber.glow .search{filter:drop-shadow(0 0 12px color-mix(in srgb,var(--acc) 40%,transparent))}
-.cyber .search:focus-within{filter:drop-shadow(0 0 16px color-mix(in srgb,var(--acc) 65%,transparent))}
-.cyber .ico,.cyber .hint,.cyber .hint a,.cyber .tile>a:first-child,.cyber .tile .open,.cyber .tile.add input{border-radius:0}
-.cyber .ico{border:0;background:var(--line);color:var(--acc);
- clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px)}
-.cyber:not(.cut) .ico{clip-path:none}
-.cyber .tile.add .ico{background:transparent;clip-path:none;border:1px dashed var(--mute);color:var(--mute)}
-.cyber .ico img{background:var(--line)}
-.cyber.glow .tile>a:first-child:hover .ico{background:color-mix(in srgb,var(--acc) 30%,var(--line))}
-.cyber .stats{gap:14px}
-.cyber .stats>div{min-width:150px;padding:14px 18px;text-align:left;background:var(--card);
- clip-path:polygon(var(--cut) 0,100% 0,100% calc(100% - var(--cut)),calc(100% - var(--cut)) 100%,0 100%,0 var(--cut))}
-.cyber .stats>div.main{min-width:230px}
-.cyber .stats b{color:var(--fg);font-size:22px}
-.cyber .stats .main b{color:var(--acc);font-size:32px;line-height:1.1}
-.cyber .stats span{font-size:12px;letter-spacing:.3px}
-.cyber .hint a.go{background:var(--acc);color:var(--bg);border-color:var(--acc)}
-/*END*/@media (prefers-reduced-motion:reduce){.ico{transition:none}}
+@media (prefers-reduced-motion:reduce){.ico{transition:none}}
 .corner{position:fixed;top:22px;right:30px;text-align:right}
 .clock{font-size:42px;font-weight:300;line-height:1.1;font-variant-numeric:tabular-nums}
 .date{font-size:13px;color:var(--mute);margin-top:2px}
 .weather{font-size:15px;margin-top:10px}
 .weather:empty{display:none}
 </style>{{background}}</head>
-<body class="{{class}}">
+<body>
 <div class="corner">{{corner}}</div>
 <img src="ike:logo" alt="I.K.E.">
 <h1>{{wordmark}}</h1>
 <div class="search"><form action="ike:search" method="get"><input name="q" autofocus autocomplete="off" placeholder="{{placeholder}}"></form></div>
 {{tiles}}
 <div class="stats">{{stats}}</div>
-{{hint}}
 <script>
 (function () {
   var lang = "{{lang}}", clock = document.getElementById("clock"), date = document.getElementById("date");
@@ -100,21 +64,6 @@ input:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(-
     if (date) date.textContent = fmt(now, {weekday: "long", day: "numeric", month: "long"});
   }
   if (clock || date) { tick(); setInterval(tick, 1000); }
-  // the counter counts up once, briefly (not when the desktop asks for no animations)
-  if ({{effects}} && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    document.querySelectorAll(".num[data-n]").forEach(function (el) {
-      var goal = parseInt(el.getAttribute("data-n"), 10) || 0, shown = el.textContent, start = null;
-      if (goal < 20) return;
-      function dots(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, "."); }
-      function step(t) {
-        if (start === null) start = t;
-        var k = Math.min(1, (t - start) / 450);
-        el.textContent = k < 1 ? dots(Math.round(goal * (1 - Math.pow(1 - k, 3)))) : shown;
-        if (k < 1) requestAnimationFrame(step);
-      }
-      requestAnimationFrame(step);
-    });
-  }
   // the "Add" tile: its button opens a small field for the address; Enter adds the site
   var add = document.querySelector(".tile.add");
   if (add) {

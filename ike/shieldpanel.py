@@ -212,10 +212,6 @@ class ShieldPanel(QWidget):
         lay.addWidget(self.master)
         lay.addWidget(self.count)
         lay.addWidget(self.count_label)
-        from .cyber import KindRing
-        self.kinds = KindRing(self)          # the Cyber theme: what was blocked, by kind
-        self.kinds.hide()
-        lay.addWidget(self.kinds)
         lay.addWidget(QLabel(T("Protection on this site"), self))
         lay.addWidget(self.site_level)
         lay.addWidget(self.hint)
@@ -272,10 +268,6 @@ class ShieldPanel(QWidget):
                             else T("Protection is OFF for this site"))
         st = sh.site_stats(host)
         self.count.setText(str(st["ads"] + st["scripts"]))
-        from . import cyber
-        self.kinds.show_stats(cyber.look(cfg), st, {
-            "ads": T("ads and trackers"), "scripts": T("scripts"), "cookies": T("cookies"),
-            "https": T("upgrades to HTTPS"), "params": T("tracking parameters")})
         self.site_level.setCurrentIndex(LEVELS.index(level))
         self.global_level.setCurrentIndex(LEVELS.index(cfg["shield_level"]))
         self.hint.setText(T(self.HINTS[level]))

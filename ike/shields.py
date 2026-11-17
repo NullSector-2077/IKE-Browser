@@ -326,12 +326,12 @@ class IkeSchemeHandler(QWebEngineUrlSchemeHandler):
             q = q.replace("+", " ")
             job.redirect(QUrl(self.s.search_url(q)))
             return
-        if path in ("tile", "theme"):
-            # answers given on the new tab page itself (a tile hidden or added, the
-            # suggestion of the Cyber theme); the page is shown again afterwards
+        if path == "tile":
+            # an answer given on the new tab page itself (a tile hidden or added);
+            # the page is shown again afterwards
             from PyQt6.QtCore import QUrlQuery
             items = QUrlQuery(url).queryItems(QUrl.ComponentFormattingOption.FullyDecoded)
-            self.s.newtab_answer(path, {k: v.replace("+", " ") if path == "theme" else v for k, v in items})
+            self.s.newtab_answer(path, dict(items))
             job.redirect(QUrl("ike:newtab"))
             return
         if path == "favicon":
@@ -365,7 +365,6 @@ def QUrlQuery_value(url, key):
 
 class Shields(QObject):
     blocked = pyqtSignal(str)  # first-party host
-    theme_changed = pyqtSignal()     # the theme was changed from the new tab page
 
     def __init__(self, config, blocker, parent=None):
         super().__init__(parent)
@@ -426,7 +425,7 @@ class Shields(QObject):
         return bytes(row[0]) if row and row[0] else b""
 
     def newtab_answer(self, what, query):
-        """A choice made on the new tab page: a tile hidden or added, the Cyber theme tried or left."""
+        """A choice made on the new tab page: a tile hidden or added."""
         from . import newtab
         app = self.parent()
         storage = getattr(app, "storage", None)
@@ -444,8 +443,6 @@ class Shields(QObject):
                 if refresh is not None:
                     from PyQt6.QtCore import QTimer
                     QTimer.singleShot(0, refresh)             # the bookmarks bar and menu
-        elif newtab.answer_hint(self.config, query):
-            self.theme_changed.emit()
         self.config.save()
 
     def search_url(self, query, engine=None):
@@ -472,26 +469,14 @@ class Shields(QObject):
             corner += '<div class="weather" id="weather">%s</div>' % _html.escape(self.weather_text())
         from . import i18n, newtabbg
         html = html.replace("{{corner}}", corner).replace("{{lang}}", i18n.current().replace("_", "-"))
-        from . import effects, newtab, themes
-        photo = newtabbg.style(self.config)
-        theme = themes.current(self.config)
-        classes = newtab.body_class(self.config, theme) + ("" if photo else " plain")
-        if not themes.is_cyber(theme):
-            # the rules of the Cyber look are left out when they are not used: less for the page to work through
-            a, b = html.find("/*CYBER*/"), html.find("/*END*/")
-            if 0 <= a < b:
-                html = html[:a] + html[b + 7:]
-        html = html.replace("{{background}}", photo)
+        from . import newtab
+        html = html.replace("{{background}}", newtabbg.style(self.config))
         app = self.parent()
         for k, v in {
             "{{placeholder}}": _html.escape(T("Search with %s or enter address") % e["name"], quote=True),
-            "{{class}}": classes.strip(),
-            # the counter counts up with the Cyber theme only: the desktop's look stays as it was
-            "{{effects}}": "true" if themes.is_cyber(theme) and effects.on(self.config) else "false",
             "{{tiles}}": newtab.tiles_html(self.config, getattr(app, "storage", None)),
             "{{stats}}": newtab.stats_html(self.config, T("Protection level"),
                                            T(LEVEL_NAMES[self.config["shield_level"]])),
-            "{{hint}}": newtab.hint_html(self.config, theme),
         }.items():
             html = html.replace(k, v)
         return html

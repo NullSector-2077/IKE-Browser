@@ -207,13 +207,6 @@ DEFAULTS = {
     "newtab_tiles": "bookmarks",     # "bookmarks" | "visited" | "none"
     "newtab_tiles_hidden": [],       # addresses of the tiles the user hid
     "newtab_tiles_first": [],        # sites added with the "Add" tile: shown before the other bookmarks
-    "newtab_grid": True,             # Cyber theme: a grid when there is no photo
-    # the Cyber theme (ui_scheme "theme:cyber")
-    "cyber_accent": "",              # "" = the theme's own, or "#rrggbb"
-    "cyber_shape": "smusso",         # tabs: "smusso" | "lama" | "mirino"
-    "cyber_glow": True,
-    "cyber_corners": True,
-    "cyber_hint": "ask",             # the suggestion on the new tab page: "ask" | "trial" | "done"
     "session": [],
     "experimental_extensions": False,   # engine extension support is unstable
     "enabled_extensions": [],           # extension ids to re-enable at startup
@@ -258,6 +251,8 @@ TOOLBAR_ITEMS = (("back", False), ("forward", False), ("reload", False), ("home"
                  ("downloads", False))
 
 
+# settings of the Cyber theme, removed in 1.1.2: dropped from settings.json when it is read
+_REMOVED = ("cyber_accent", "cyber_shape", "cyber_glow", "cyber_corners", "cyber_hint", "newtab_grid")
 _LISTS_OF_DICTS = ("search_engines", "filter_lists", "containers", "page_watches")
 
 
@@ -319,6 +314,11 @@ class Config:
         if isinstance(stored, dict):
             self.data.update(sound_settings(stored))
         d = self.data
+        # the Cyber theme is gone (1.1.2): whoever used it follows the system again
+        if d.get("ui_scheme") == "theme:cyber":
+            d["ui_scheme"] = "system"
+        for key in _REMOVED:
+            d.pop(key, None)
         if isinstance(stored, dict) and "bookmarks_bar" not in stored \
                 and stored.get("show_bookmarks_bar"):
             d["bookmarks_bar"] = "always"       # keep what the user had chosen

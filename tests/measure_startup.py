@@ -48,7 +48,7 @@ def main(runs):
         (cfg / "settings.json").write_text(json.dumps({
             "lists_version": 3, "last_lists_update": 4102444800, "last_fast_update": 4102444800,
             "chrome_checked": 4102444800, "app_updates": "off", "auto_update": False,
-            **json.loads(os.environ.get("IKE_MEASURE_SETTINGS") or "{}")}))   # e.g. the Cyber theme
+            **json.loads(os.environ.get("IKE_MEASURE_SETTINGS") or "{}")}))   # e.g. an interface theme
         lists = home / ".local/share/ike-browser/lists"
         lists.mkdir(parents=True)
         name = hashlib.sha1(b"https://easylist.to/easylist/easylist.txt").hexdigest()[:16] + ".txt"

@@ -2,6 +2,19 @@
 
 ## 1.1.2
 
+- **The "I.K.E. Cyber" theme is gone.** It had problems and the owner chose
+  not to keep it. Whoever used it starts with "Follow the system" (the
+  default); its settings (accent colour, tab shape, glow, cut corners, the
+  grid of the new tab page and the suggestion) are removed from
+  settings.json, every other setting stays as it was. With it went what only
+  the Cyber theme drew: its tab shapes, the cut address field, the square
+  menus, the shield's pulse, the equaliser on tabs playing sound, the ring of
+  blocked items in the shield panel, the accent frame of the tab preview, the
+  counter that counted up and the "Try the Cyber theme" suggestion on the new
+  tab page and in Settings. Kept: the other interface themes (I.K.E., Night,
+  Paper, Forest, High contrast and your own), the interface effects (menus
+  fading in, the loading mark, the soft change of theme), the site tiles, the
+  monthly counter and the "New tab page" settings.
 - **Twelve Slavic languages**: Russian, Ukrainian, Belarusian, Bulgarian,
   Polish, Czech, Slovak, Slovenian, Croatian, Serbian (Cyrillic), Bosnian and
   Macedonian, every text of the interface translated. Chosen in Settings, or
@@ -10,6 +23,8 @@
 - "Engine" in Help → About is now translated as the browser engine in German
   and Spanish (it read "search engine").
 - Updates itself from 1.1.1 and 1.1.0 (only the browser's own files changed).
+- Package `ike-browser-1.1.2-2`: a new number, so it cannot be mistaken for an
+  earlier test build of 1.1.2 without the Cyber removal.
 
 ## 1.1.1
 

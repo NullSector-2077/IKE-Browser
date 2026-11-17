@@ -78,11 +78,12 @@ def test_slavic_packs_are_complete_and_in_their_script():
     and Cyrillic where the language is written in it."""
     import json
     cyrillic = re.compile("[\u0400-\u04ff]")
+    every = set(json.loads((ROOT / "ike/resources/lang/it.json").read_text("utf-8"))["strings"])   # the reference
     for code in SLAVIC:
         pack = json.loads((ROOT / ("ike/resources/lang/%s.json" % code)).read_text("utf-8"))
         assert pack["code"] == code
         strings = pack["strings"]
-        assert len(strings) >= 840 and all(v.strip() for v in strings.values()), code
+        assert set(strings) == every and all(v.strip() for v in strings.values()), code
         uses_cyrillic = bool(cyrillic.search(strings["Settings"] + pack["name"]))
         assert uses_cyrillic == (code in {"ru", "uk", "be", "bg", "sr", "mk"}), code
         # the browser engine in About, not a search engine

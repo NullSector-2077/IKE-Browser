@@ -43,7 +43,6 @@ class UrlBar(QLineEdit):
     def __init__(self, window):
         super().__init__(window)
         self.win = window
-        self.cyber = None            # the Cyber theme's look (see cyber.py), or None
         self.setClearButtonEnabled(True)
         self.setMinimumHeight(30)
         self._model = QStringListModel(self)
@@ -107,28 +106,6 @@ class UrlBar(QLineEdit):
     def focusOutEvent(self, event):
         super().focusOutEvent(event)
         self.highlight_domain()
-
-    def paintEvent(self, event):
-        if self.cyber is not None:
-            from . import cyber
-            cyber.paint_field(self, self.cyber, self.hasFocus())    # the frame; the text is Qt's
-        super().paintEvent(event)
-
-    def set_cyber(self, look):
-        """Give the field the Cyber theme's cut frame, or (None) the desktop's own."""
-        from PyQt6.QtGui import QPalette
-        if (look is None) == (self.cyber is None) and look is None:
-            return
-        self.cyber = look
-        self.setFrame(look is None)
-        pal = QPalette()                                  # the inherited colours
-        if look is not None:
-            pal = QPalette(self.palette())
-            for group in (QPalette.ColorGroup.Active, QPalette.ColorGroup.Inactive, QPalette.ColorGroup.Disabled):
-                pal.setColor(group, QPalette.ColorRole.Base, Qt.GlobalColor.transparent)
-        self.setPalette(pal)
-        self.setTextMargins(6 if look is not None else 0, 0, 6 if look is not None else 0, 0)
-        self.update()
 
     def changeEvent(self, event):
         super().changeEvent(event)

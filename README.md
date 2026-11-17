@@ -17,7 +17,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.1.2-1-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.1.2-2-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:
@@ -93,10 +93,6 @@ profiles: `ike-browser --profile NAME`.
 **Appearance and languages**
 - Follows the system theme by default; icon themes installed on the computer or
   the bundled Lucide and Phosphor sets; light or dark interface.
-- "I.K.E. Cyber", a theme of I.K.E.'s own that looks the same on every system:
-  cut corners, thin luminous lines, three tab shapes to choose from
-  (horizontal and vertical), your accent colour. Optional and suggested once;
-  one click goes back to the system's look.
 - Other interface themes: five ready-made ones (I.K.E., Night, Paper, Forest,
   High contrast) and your own, with your choice of background, text, accent,
   toolbar and tab colours and of the font family and size.

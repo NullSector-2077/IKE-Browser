@@ -9,7 +9,7 @@ import sys
 import time
 from pathlib import Path
 
-from PyQt6.QtCore import QObject, QStandardPaths, Qt, QTimer, QUrl
+from PyQt6.QtCore import QObject, QStandardPaths, QTimer, QUrl
 from PyQt6.QtGui import QIcon
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket, QNetworkAccessManager, QNetworkProxyFactory
 from PyQt6.QtWebEngineWidgets import QWebEngineView  # noqa: F401  (must load before QApplication)
@@ -36,7 +36,6 @@ class IkeApp(QObject):
         self.storage = Storage()
         self.blocker = Blocker(config, self)
         self.shields = Shields(config, self.blocker, self)
-        self.shields.theme_changed.connect(self._theme_from_newtab, Qt.ConnectionType.QueuedConnection)
         from .userscripts import UserScripts
         self.userscripts = UserScripts(self)
         self.shields.user_scripts = self.userscripts
@@ -219,12 +218,6 @@ class IkeApp(QObject):
         for w in self.windows:
             w.apply_layout()
             w.sync_urlbar()
-
-    def _theme_from_newtab(self):
-        """The Cyber theme was tried, or left, from the new tab page."""
-        from . import themes
-        themes.apply(self.config)
-        self.refresh_windows()
 
     def reload_newtabs(self):
         """The look of the new tab page changed: show it in the ones that are open."""

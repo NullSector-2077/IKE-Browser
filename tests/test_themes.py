@@ -19,9 +19,7 @@ def test_builtin_themes_and_back_to_system(run_ike):
                 yield 50
                 out["applied"][key] = [qapp.palette().color(role).name(),
                                        win.nav.palette().color(role).name(),
-                                       # painted in the theme's colour: by the palette or, for the
-                                       # Cyber theme, by the toolbar's own style sheet
-                                       win.nav.autoFillBackground() or "background" in win.nav.styleSheet()]
+                                       win.nav.autoFillBackground()]
             ike.config["ui_scheme"] = "system"
             themes.apply(ike.config)
             yield 50

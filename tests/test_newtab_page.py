@@ -1,5 +1,5 @@
-"""The new tab page of 1.1.0: the counter per month, the site tiles and the
-suggestion of the Cyber theme. Titles and addresses shown on the page come
+"""The new tab page of 1.1.0: the counter per month and the site tiles (the
+suggestion of the Cyber theme went with the theme in 1.1.2). Titles and addresses shown on the page come
 from outside, so the hostile cases are tested here too (on this computer only)."""
 
 import sys
@@ -174,9 +174,9 @@ def steps(ike, qapp, out):
 
 
 def test_a_web_page_cannot_answer_for_the_user(run_ike):
-    """Hiding a tile, adding a bookmark or switching the theme are answers of
-    the new tab page itself: a site that links, frames or loads those
-    addresses changes nothing."""
+    """Hiding a tile or adding a bookmark are answers of the new tab page
+    itself: a site that links, frames or loads those addresses changes
+    nothing (nor do the addresses of the Cyber suggestion, gone in 1.1.2)."""
     out = run_ike(JS + r'''
 def steps(ike, qapp, out):
     from PyQt6.QtCore import QUrl
@@ -192,59 +192,51 @@ def steps(ike, qapp, out):
     view.setHtml("<script>location.href = 'ike:theme?try=cyber';</script>", QUrl("http://site.example/2"))
     yield 1500
     out["scheme"] = ike.config["ui_scheme"]
-    out["hint"] = ike.config["cyber_hint"]
     out["hidden"] = ike.config["newtab_tiles_hidden"]
     out["bookmarks"] = sorted(u for u, _t, _f in ike.storage.bookmarks())
 ''', timeout=120)
-    assert out["scheme"] == "system" and out["hint"] == "ask"
+    assert out["scheme"] == "system"
     assert out["hidden"] == [] and out["bookmarks"] == ["https://example.org/a"]
 
 
-def test_the_cyber_theme_is_suggested_once_and_one_click_goes_back(run_ike):
+def test_the_cyber_theme_is_gone_and_its_users_follow_the_system(run_ike):
+    """1.1.2 removed the Cyber theme. Whoever had it chosen starts with "Follow
+    the system", its settings leave settings.json, nothing is left of it on the
+    new tab page, in the windows or in Settings, and its old addresses do nothing."""
     out = run_ike(JS + r'''
 def steps(ike, qapp, out):
-    from PyQt6.QtGui import QPalette
+    import pathlib
+    from ike import themes
     win = ike.windows[0]
     view = win.current_view()
-    R = QPalette.ColorRole
-    def state():
-        return [ike.config["ui_scheme"], ike.config["cyber_hint"], qapp.palette().color(R.Window).name()]
-    read = "JSON.stringify([document.body.className, document.querySelector('.hint') ? Array.from(document.querySelectorAll('.hint a')).map(function (a) { return a.getAttribute('href'); }) : null])"
+    out["scheme"] = ike.config["ui_scheme"]
+    out["left"] = sorted(k for k in ike.config.data if k.startswith("cyber_") or k == "newtab_grid")
+    out["themes"] = [k for k, _label in themes.names()]
+    out["nav_sheet"] = win.nav.styleSheet()
+    out["tab_style"] = type(win.tabbar.style()).__name__
     yield from load(view, "ike:newtab")
-    out["start"] = [state(), json.loads((yield from js(view, read)))]
-    desktop = state()[2]
-    yield from js(view, "document.querySelector('.hint a.go').click(); 1")
-    yield 1500
-    out["trial"] = [state(), json.loads((yield from js(view, read)))]
-    yield from js(view, "document.querySelectorAll('.hint a')[1].click(); 1")           # back to the system theme
-    yield 1500
-    out["back"] = [state(), json.loads((yield from js(view, read)))]
-    out["desktop_again"] = state()[2] == desktop
-    # asked once: opening it again changes nothing
-    yield from load(view, "ike:theme?try=cyber")
-    out["again"] = state()[:2]
-''', timeout=120)
-    (scheme, hint, _), (cls, links) = out["start"]
-    assert (scheme, hint) == ("system", "ask") and "cyber" not in cls
-    assert links == ["ike:theme?try=cyber", "ike:theme?later=1"]
-    (scheme, hint, window), (cls, links) = out["trial"]
-    assert (scheme, hint, window) == ("theme:cyber", "trial", "#070b14")
-    assert cls.split()[:1] == ["cyber"] and links == ["ike:theme?keep=1", "ike:theme?back=1"]
-    (scheme, hint, _), (cls, links) = out["back"]
-    assert (scheme, hint) == ("system", "done") and "cyber" not in cls and links is None
-    assert out["desktop_again"] is True                 # the desktop's own colours are back
-    assert out["again"] == ["system", "done"]
-
-
-def test_no_suggestion_for_who_chose_a_look_already(run_ike):
-    out = run_ike(JS + r'''
-def steps(ike, qapp, out):
-    view = ike.windows[0].current_view()
-    yield from load(view, "ike:newtab")
-    out["hint"] = yield from js(view, "!!document.querySelector('.hint')")
     out["class"] = yield from js(view, "document.body.className")
-''', settings={"ui_scheme": "theme:night"}, timeout=120)
-    assert out["hint"] is False and "cyber" not in out["class"]
+    out["hint"] = yield from js(view, "!!document.querySelector('.hint')")
+    out["tiles"] = yield from js(view, "!!document.querySelector('.tile.add')")
+    yield from load(view, "ike:theme?try=cyber")
+    out["after_try"] = ike.config["ui_scheme"]
+    ike.config.save()
+    stored = json.loads(pathlib.Path(ike.config.path).read_text("utf-8"))
+    out["stored"] = sorted(k for k in stored if k.startswith("cyber_") or k == "newtab_grid")
+    dlg = ike.show_settings(win)
+    yield 300
+    out["choices"] = [dlg.ui_scheme.itemData(i) for i in range(dlg.ui_scheme.count())]
+    out["choice"] = dlg.ui_scheme.currentData()
+    dlg.close()
+''', settings={"ui_scheme": "theme:cyber", "cyber_hint": "trial", "cyber_accent": "#ff5fa8",
+               "cyber_shape": "lama", "cyber_glow": True, "cyber_corners": True, "newtab_grid": True},
+       timeout=120)
+    assert out["scheme"] == "system" and out["after_try"] == "system"
+    assert out["left"] == [] and out["stored"] == []
+    assert "cyber" not in out["themes"] and "ike" in out["themes"]
+    assert out["nav_sheet"] == "" and out["tab_style"] != "TabStyle"
+    assert out["class"] == "" and out["hint"] is False and out["tiles"] is True
+    assert "theme:cyber" not in out["choices"] and out["choice"] == "system"
 
 
 def test_counting_does_not_look_at_the_calendar_each_time():
