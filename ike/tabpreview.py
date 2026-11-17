@@ -48,6 +48,12 @@ class TabPreview(QFrame):
         self.index = -1
 
     def show_for(self, index, pixmap, text, global_pos):
+        from . import effects, polish
+        config = getattr(getattr(self.parentWidget(), "app", None), "config", None)
+        if self.isVisible() and self.index != index and polish.moving(config, "preview_fade"):
+            self._cross(self.picture.pixmap(), pixmap)       # from one tab to the next: the picture blends
+        elif not self.isVisible() and polish.part("preview_fade"):
+            effects.fade_in(self, config)
         self.index = index
         self.picture.setPixmap(pixmap)
         self.text.setText(text)
@@ -61,6 +67,34 @@ class TabPreview(QFrame):
                 pos.setY(global_pos.y() - self.height() - 8)
         self.move(pos)
         self.show()
+
+    def _cross(self, old, new, ms=120):
+        from PyQt6.QtCore import QEasingCurve, QVariantAnimation
+        from PyQt6.QtGui import QPainter, QPixmap
+        anim = getattr(self, "_blend", None)
+        if anim is not None:
+            anim.stop()
+        if old is None or old.isNull() or new is None or new.isNull():
+            return
+
+        def step(t):
+            pm = QPixmap(new.size())
+            pm.setDevicePixelRatio(new.devicePixelRatio())
+            pm.fill(Qt.GlobalColor.transparent)
+            p = QPainter(pm)
+            p.drawPixmap(0, 0, new)
+            p.setOpacity(1.0 - float(t))
+            p.drawPixmap(0, 0, old)
+            p.end()
+            self.picture.setPixmap(pm)
+        anim = self._blend = QVariantAnimation(self)
+        anim.setDuration(ms)
+        anim.setStartValue(0.0)
+        anim.setEndValue(1.0)
+        anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        anim.valueChanged.connect(step)
+        anim.finished.connect(lambda: self.picture.setPixmap(new))
+        anim.start()
 
     def hide_preview(self):
         self.index = -1

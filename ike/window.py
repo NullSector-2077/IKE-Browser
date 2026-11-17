@@ -15,7 +15,6 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QListWidget,
     QListWidgetItem,
     QMainWindow,
     QMenu,
@@ -25,7 +24,6 @@ from PyQt6.QtWidgets import (
     QSplitter,
     QStackedWidget,
     QStyle,
-    QTabBar,
     QToolBar,
     QToolButton,
     QVBoxLayout,
@@ -33,12 +31,12 @@ from PyQt6.QtWidgets import (
     QWidgetAction,
 )
 
-from . import APP_LONG_NAME, APP_NAME, __version__, effects
+from . import APP_LONG_NAME, APP_NAME, __version__, effects, polish
 from .config import LEVEL_NAMES, LEVELS
 from .features import WindowFeatures, tab_icon
 from .i18n import T
 from .shieldpanel import TOOLBAR_SHIELD_GROW, ShieldPanel, shield_icon
-from .tabs import AUDIO_ROLE, VTabDelegate
+from .tabs import AUDIO_ROLE, TabBar, VTabDelegate, VTabList
 from .urlbar import _URLISH, UrlBar
 from .webview import WebView
 
@@ -81,6 +79,8 @@ class FindBar(QWidget):
         self.hide()
 
     def open_bar(self):
+        if not self.isVisible():
+            polish.fade_child(self, self.win.app.config)
         self.show()
         self.edit.setFocus()
         self.edit.selectAll()
@@ -243,12 +243,11 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     # ------------------------------------------------------------------
     def _build_central(self):
         self.stack = QStackedWidget(self)
-        self.tabbar = QTabBar(self)
+        self.tabbar = TabBar(self, self.app.config)
         self.tabbar.setTabsClosable(True)
         self.tabbar.setMovable(True)
         self.tabbar.setExpanding(False)
         self.tabbar.setDocumentMode(True)
-        self.tabbar.setElideMode(Qt.TextElideMode.ElideRight)
         self.tabbar.setUsesScrollButtons(True)
         self.tabbar.setIconSize(QSize(16, 16))
         self.tabbar.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -273,7 +272,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         plus.clicked.connect(lambda: self.add_tab())
         row.addWidget(plus)
 
-        self.vtabs = QListWidget(self)
+        self.vtabs = VTabList(self, self.app.config)
         self.vtabs.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         self.vtabs.setIconSize(QSize(16, 16))
         self.vtabs.setFrameShape(QFrame.Shape.NoFrame)
@@ -919,6 +918,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             return                       # keep the icon the tab had when it went to sleep
         # detach from the engine: a plain pixmap copy stays valid whatever the page does
         view.last_icon = QIcon(ic.pixmap(32, 32)) if not ic.isNull() else QIcon()
+        if not getattr(view, "loading_marked", False):
+            view._icon_fade_from = getattr(view, "shown_icon", None)
         self._tab_changed(view)
         if not self.private and not ic.isNull() and view.url().scheme() in ("http", "https"):
             self.app.favicons.store(view.url().toString(), ic)
@@ -1041,9 +1042,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         ic = view.tab_icon = tab_icon(ic, g["color"] if g else None, self.app.container_color(view.container))
         if getattr(view, "loading_marked", False):
             ic = effects.loading_icon(ic, getattr(self, "_spin_angle", 45), self.tabbar.palette())
-        self.tabbar.setTabText(i, prefix + (title if len(title) < 28 else title[:27] + "…"))
+        # a long title fades out at the edge of the tab (tabs.TabBar); the rest is not needed
+        self.tabbar.setTabText(i, prefix + title[:120])
         self.tabbar.setTabToolTip(i, tip)
-        self.tabbar.setTabIcon(i, ic)
+        view.audible = prefix == "🔊 "
         item = self.vtabs.item(i)
         if item:
             # sound is shown by the speaker button of the row, not in the title
@@ -1051,9 +1053,59 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             item.setText(title if audio else prefix + title)
             item.setData(AUDIO_ROLE, audio)
             item.setToolTip(tip)
-            item.setIcon(ic)
+        # a new icon (the site's, or the end of the loading mark) comes in with a short fade
+        old = getattr(view, "_icon_fade_from", None)
+        view._icon_fade_from = None
+        polish.fade_icon(self, id(view), old, ic, self.app.config, lambda icon, v=view: self._show_tab_icon(v, icon))
+        self._audio_check()
         if view is self.current_view():
             self._update_title()
+
+    def _show_tab_icon(self, view, ic):
+        """Put ic on the tab of view, in both tab bars."""
+        if view not in self.views:
+            return
+        i = self.views.index(view)
+        view.shown_icon = ic
+        self.tabbar.setTabIcon(i, ic)
+        item = self.vtabs.item(i)
+        if item:
+            item.setIcon(ic)
+
+    def _audio_check(self):
+        """The speaker of a tab playing sound pulses gently, only while some tab plays."""
+        timer = getattr(self, "_audio_timer", None)
+        wanted = (any(getattr(v, "audible", False) for v in self.views)
+                  and polish.moving(self.app.config, "audio_pulse"))
+        if wanted:
+            if timer is None:
+                timer = self._audio_timer = QTimer(self)
+                timer.timeout.connect(self._audio_tick)
+            if not timer.isActive():
+                timer.start(polish.AUDIO_TICK)
+            return
+        if timer is not None and timer.isActive():
+            timer.stop()
+        if self.tabbar.label_style.audio_phase is not None:
+            self.tabbar.label_style.audio_phase = None
+            self.vtabs.itemDelegate().audio_phase = None
+            self.tabbar.update()
+            self.vtabs.viewport().update()
+
+    def _audio_tick(self):
+        if not self.isVisible() or not polish.moving(self.app.config, "audio_pulse"):
+            self._audio_check()
+            return
+        phase = (time.monotonic() % polish.AUDIO_PERIOD) / polish.AUDIO_PERIOD
+        self.tabbar.label_style.audio_phase = phase
+        delegate = self.vtabs.itemDelegate()
+        delegate.audio_phase = phase
+        for i, v in enumerate(self.views):
+            if getattr(v, "audible", False):
+                self.tabbar.update(self.tabbar.tabRect(i))
+                item = self.vtabs.item(i)
+                if item is not None:
+                    self.vtabs.viewport().update(self.vtabs.visualItemRect(item))
 
     def close_tab(self, view):
         if view is None:
@@ -1288,6 +1340,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         label.kind = kind
         label.adjustSize()
         self._place_notice()
+        if not label.isVisible():
+            polish.fade_child(label, self.app.config)
         label.show()
         label.raise_()
         QTimer.singleShot(150, self._place_notice)      # after the window went full screen
@@ -1348,9 +1402,24 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             cands = [s for s in steps if (s > cur + 0.01 if direction > 0 else s < cur - 0.01)]
             if cands:
                 v.setZoomFactor(cands[0] if direction > 0 else cands[-1])
+        self._zoom_sign()
         self.statusBar().showMessage(T("Zoom: %d%%") % round(v.zoomFactor() * 100), 1500)
         self.statusBar().show()
         QTimer.singleShot(1600, self._hide_status)
+
+    def _zoom_sign(self):
+        """The sign in the address field while the page is not at its usual zoom."""
+        v = self.current_view()
+        usual = self.app.config["default_zoom"]
+        factor = v.zoomFactor() if v else usual
+        away = polish.part("zoom_mark") and abs(factor - usual) > 0.005
+        act = self.urlbar.zoom_act
+        if away:
+            SP = QStyle.StandardPixmap
+            act.setIcon(icon("zoom-in" if factor > usual else "zoom-out",
+                             SP.SP_ArrowUp if factor > usual else SP.SP_ArrowDown))
+            act.setToolTip("%s\n%s (Ctrl+0)" % (T("Zoom: %d%%") % round(factor * 100), T("Actual size")))
+        act.setVisible(away)
 
     def toggle_mute(self, view=None):
         v = view if isinstance(view, WebView) else self.current_view()
@@ -1406,12 +1475,13 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_fwd.setEnabled(bool(h and h.canGoForward()))
         loading = bool(v and getattr(v, "loading", False))
         SP = QStyle.StandardPixmap
-        if loading:
-            self.act_reload.setIcon(icon("process-stop", SP.SP_BrowserStop))
-            self.act_reload.setText(T("Stop"))
-        else:
-            self.act_reload.setIcon(icon("view-refresh", SP.SP_BrowserReload))
-            self.act_reload.setText(T("Reload"))
+        new = icon("process-stop", SP.SP_BrowserStop) if loading else icon("view-refresh", SP.SP_BrowserReload)
+        self.act_reload.setText(T("Stop") if loading else T("Reload"))
+        changed = getattr(self, "_reload_shows_stop", None) not in (None, loading)
+        self._reload_shows_stop = loading
+        # Reload and Stop change with a short fade; otherwise the icon is simply set again
+        polish.fade_icon(self, "reload", self.act_reload.icon() if changed else None, new, self.app.config,
+                         self.act_reload.setIcon, ms=140, name="reload_fade")
 
     def sync_urlbar(self):
         v = self.current_view()
@@ -1436,6 +1506,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         from .extensions import store_id
         self.store_act.setVisible(bool(store_id(url.toString()))
                                   and bool(self.app.config["experimental_extensions"]))
+        self._zoom_sign()
         marked = bool(v) and self.app.storage.is_bookmarked(url.toString())
         self.urlbar.star.setIcon(icon("bookmarks" if marked else "bookmark-new",
                                       SP.SP_DialogApplyButton if marked else SP.SP_DialogOpenButton))
@@ -1476,6 +1547,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 timer.start(effects.SPIN_MS if effects.on(self.app.config) else 250)
         elif getattr(view, "loading_marked", False):
             view.loading_marked = False
+            view._icon_fade_from = getattr(view, "shown_icon", None)     # the mark fades into the icon
             self._tab_changed(view)
 
     def _spin_step(self):
@@ -1502,10 +1574,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             if base is None:
                 continue
             ic = effects.loading_icon(base, self._spin_angle, self.tabbar.palette())
-            self.tabbar.setTabIcon(i, ic)
-            item = self.vtabs.item(i)
-            if item:
-                item.setIcon(ic)
+            self._show_tab_icon(view, ic)
         if not again:
             self._spin.stop()
 
@@ -1903,9 +1972,25 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     def show_download_progress(self, state, fraction=None):
         """state: "idle", "active" (fraction 0..1 or None) or "done"."""
         if state == "idle":
+            self._dl_state = "idle"
             self.act_downloads.setIcon(self._dl_icon)
             return
         from .downloadring import ring_icon
+        was, self._dl_state = getattr(self, "_dl_state", "idle"), state
+        if state == "done" and was != "done" and polish.moving(self.app.config, "download_pop"):
+            from PyQt6.QtCore import QEasingCurve, QVariantAnimation
+            old = getattr(self, "_dl_pop", None)
+            if old is not None:
+                old.stop()
+            anim = self._dl_pop = QVariantAnimation(self)
+            anim.setDuration(320)
+            anim.setStartValue(0.0)
+            anim.setEndValue(1.0)
+            anim.setEasingCurve(QEasingCurve.Type.OutBack)
+            anim.valueChanged.connect(lambda t: self._dl_state == "done" and self.act_downloads.setIcon(
+                ring_icon(self._dl_icon, None, True, pop=float(t))))
+            anim.start()
+            return
         self.act_downloads.setIcon(ring_icon(self._dl_icon, fraction, state == "done"))
 
     def apply_theme(self, theme):

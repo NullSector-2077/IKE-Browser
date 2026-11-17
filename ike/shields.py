@@ -469,11 +469,13 @@ class Shields(QObject):
             corner += '<div class="weather" id="weather">%s</div>' % _html.escape(self.weather_text())
         from . import i18n, newtabbg
         html = html.replace("{{corner}}", corner).replace("{{lang}}", i18n.current().replace("_", "-"))
-        from . import newtab
+        from . import effects, newtab
         html = html.replace("{{background}}", newtabbg.style(self.config))
         app = self.parent()
         for k, v in {
             "{{placeholder}}": _html.escape(T("Search with %s or enter address") % e["name"], quote=True),
+            # the page fades in and tiles lift on hover, only with the interface effects on (polish.py)
+            "{{fx}}": "fx" if effects.on(self.config) else "",
             "{{tiles}}": newtab.tiles_html(self.config, getattr(app, "storage", None)),
             "{{stats}}": newtab.stats_html(self.config, T("Protection level"),
                                            T(LEVEL_NAMES[self.config["shield_level"]])),

@@ -235,7 +235,7 @@ def steps(ike, qapp, out):
     assert out["left"] == [] and out["stored"] == []
     assert "cyber" not in out["themes"] and "ike" in out["themes"]
     assert out["nav_sheet"] == "" and out["tab_style"] != "TabStyle"
-    assert out["class"] == "" and out["hint"] is False and out["tiles"] is True
+    assert "cyber" not in out["class"] and out["hint"] is False and out["tiles"] is True
     assert "theme:cyber" not in out["choices"] and out["choice"] == "system"
 
 

@@ -1,0 +1,321 @@
+"""The small touches of 1.1.3 (ike/polish.py): the gliding mark of the current
+tab, titles that fade out, icons that change with a fade, the vertical rows
+(hover, new row), the pulsing speaker, the rounded address field, the
+suggestions, the zoom sign, Reload/Stop, the find bar, the finished
+download, the tab preview and the new tab page. Clicks and keys are real
+(QTest); with the effects off everything changes at once and nothing is left
+running."""
+
+import pytest
+from test_effects import slow_site  # noqa: F401  (the fixture)
+
+COMMON = r'''
+import json
+from PyQt6.QtCore import QAbstractAnimation, QPoint, Qt, QUrl
+from PyQt6.QtGui import QColor, QIcon, QPixmap
+from PyQt6.QtTest import QTest
+
+LONG = "A rather long page title that does not fit in a tab at all, not even close"
+
+def running(win):
+    return sorted(type(a.parent()).__name__ for a in win.findChildren(QAbstractAnimation)
+                  if a.state() == QAbstractAnimation.State.Running)
+
+def page(view, title):
+    view.setHtml("<!doctype html><title>%s</title><body>x</body>" % title, QUrl("http://local.test/"))
+
+def red_icon():
+    pm = QPixmap(32, 32)
+    pm.fill(QColor("#e01010"))
+    return QIcon(pm)
+
+def reddish(icon):
+    c = QColor(icon.pixmap(32, 32).toImage().pixel(16, 16))
+    return c.red() > 150 and c.green() < 90
+'''
+
+HORIZONTAL = COMMON + r'''
+def steps(ike, qapp, out):
+    win = ike.windows[0]
+    win.resize(1200, 800)
+    yield 600
+    a = win.current_view()
+    b = win.add_tab("ike:newtab")
+    c = win.add_tab("ike:newtab")
+    page(a, "First")
+    page(c, LONG)
+    yield 1200
+    bar = win.tabbar
+    out["current"] = bar.currentIndex()
+    # a real click on the first tab: the mark glides there
+    QTest.mouseClick(bar, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, bar.tabRect(0).center())
+    yield 40
+    target = bar.mark.target()
+    shown = bar.mark._shown
+    out["mid"] = [bar.currentIndex(), bar.mark.gliding, shown is not None and shown.x() > target.x() + 1]
+    yield 400
+    bar.repaint()
+    out["end"] = [bar.mark.gliding, abs(bar.mark._shown.x() - bar.mark.target().x()) < 0.5,
+                  abs(bar.mark._shown.width() - bar.mark.target().width()) < 0.5]
+    # the long title: the tab keeps its size, the title fades out
+    i = win.views.index(c)
+    fm = bar.fontMetrics()
+    out["long_width"] = [bar.tabRect(i).width(), fm.horizontalAdvance(bar.tabText(i)),
+                         fm.averageCharWidth() * 27 + 80]
+    out["no_dots"] = not bar.tabText(i).endswith("…")
+    before = bar.label_style.faded
+    bar.repaint()
+    out["faded"] = bar.label_style.faded > before
+    # a new site icon comes in with a fade, and ends as the icon itself
+    win._icon_changed(a, red_icon())
+    yield 30
+    out["icon_fading"] = id(a) in win.__dict__.get("_ike_icon_fades", {})
+    yield 400
+    out["icon_end"] = [id(a) in win.__dict__.get("_ike_icon_fades", {}), reddish(bar.tabIcon(0))]
+    # a tab playing sound: the speaker pulses, and stops with the sound
+    a.page().recentlyAudible = lambda: True
+    win._tab_changed(a)
+    yield 300
+    out["pulse"] = [win._audio_timer.isActive(), bar.label_style.audio_phase is not None,
+                    bar.tabText(0).startswith("🔊 ")]
+    a.page().recentlyAudible = lambda: False
+    win._tab_changed(a)
+    yield 100
+    out["pulse_end"] = [win._audio_timer.isActive(), bar.label_style.audio_phase]
+    yield 300
+    out["rest"] = running(win)
+'''
+
+
+def test_horizontal_tabs(run_ike):
+    out = run_ike(HORIZONTAL, env={"IKE_REDUCED_MOTION": "0"}, timeout=120)
+    assert out["current"] == 2
+    assert out["mid"] == [0, True, True]                 # on its way from the third tab to the first
+    assert out["end"] == [False, True, True]
+    tab_w, text_w, cap = out["long_width"]
+    assert text_w > tab_w and tab_w <= cap               # held to its width: the end of the title fades
+    assert out["no_dots"] and out["faded"]
+    assert out["icon_fading"] and out["icon_end"] == [False, True]
+    assert out["pulse"] == [True, True, True]
+    assert out["pulse_end"] == [False, None]
+    assert out["rest"] == []
+
+
+VERTICAL = COMMON + r'''
+def steps(ike, qapp, out):
+    win = ike.windows[0]
+    win.resize(1200, 800)
+    yield 600
+    first = win.current_view()
+    page(first, LONG)
+    second = win.add_tab("ike:newtab")
+    yield 30
+    d = win.vtabs.itemDelegate()
+    row = win.views.index(second)
+    out["enter"] = row in d._enter
+    yield 400
+    out["enter_end"] = row in d._enter
+    yield 800
+    vp = win.vtabs.viewport()
+    rect0 = win.vtabs.visualItemRect(win.vtabs.item(0))
+    # the mouse over the first row: its hover colour comes in softly, and goes
+    QTest.mouseMove(vp, rect0.center())
+    yield 30
+    out["hover"] = 0 in d._levels
+    yield 300
+    out["hover_end"] = 0 in d._levels
+    QTest.mouseMove(vp, QPoint(rect0.center().x(), vp.height() - 5))
+    yield 30
+    out["leave"] = 0 in d._levels
+    yield 400
+    # a real click on the first row: the bar on its left glides there
+    QTest.mouseClick(vp, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, rect0.center())
+    yield 40
+    out["mark_mid"] = [win.vtabs.currentRow(), win.vtabs.mark.gliding]
+    yield 400
+    vp.repaint()
+    t = win.vtabs.mark.target()
+    out["mark_end"] = [win.vtabs.mark.gliding, abs(win.vtabs.mark._shown.y() - t.y()) < 0.5,
+                       rect0.top() <= t.y() <= rect0.bottom()]
+    yield 300
+    out["rest"] = running(win)
+'''
+
+
+def test_vertical_tabs(run_ike):
+    out = run_ike(VERTICAL, settings={"tabs_position": "vertical"}, env={"IKE_REDUCED_MOTION": "0"}, timeout=120)
+    assert out["enter"] is True and out["enter_end"] is False
+    assert out["hover"] is True and out["hover_end"] is False and out["leave"] is True
+    assert out["mark_mid"] == [0, True]
+    assert out["mark_end"] == [False, True, True]
+    assert out["rest"] == []
+
+
+FIELD = COMMON + r'''
+SITE = "__SITE__"
+
+def steps(ike, qapp, out):
+    from PyQt6.QtGui import QPalette
+    from PyQt6.QtWidgets import QToolButton
+    win = ike.windows[0]
+    win.resize(1200, 800)
+    win.show()
+    win.activateWindow()
+    yield 800
+    url = win.urlbar
+    out["pill"] = [url.hasFrame(), url.palette().color(QPalette.ColorRole.Base).alpha()]
+    QTest.mouseClick(url, Qt.MouseButton.LeftButton)
+    yield 40
+    out["focus_mid"] = [url.hasFocus(), 0 < url._pill.value < 1 or url._pill.moving]
+    yield 300
+    out["focus_end"] = url._pill.value
+    # the suggestions: taller rows with an icon
+    ike.storage.add_visit("https://example.org/page", "Example")
+    QTest.keyClicks(url, "exam")
+    yield 900
+    popup = url._completer.popup()
+    out["popup"] = [popup.isVisible(), type(popup.itemDelegate()).__name__]
+    if popup.isVisible() and popup.model().rowCount():
+        idx = popup.model().index(0, 0)
+        out["row"] = popup.sizeHintForRow(0)
+        from PyQt6.QtWidgets import QStyleOptionViewItem
+        opt = QStyleOptionViewItem()
+        popup.itemDelegate().initStyleOption(opt, idx)
+        out["row_icon"] = not opt.icon.isNull()
+    QTest.keyClick(popup if popup.isVisible() else url, Qt.Key.Key_Escape)      # the list closes
+    yield 100
+    out["field_kept"] = [popup.isVisible(), url.hasFocus(), url._pill.value]
+    url.clearFocus()
+    yield 400
+    out["blur_end"] = url._pill.value
+    # the zoom sign: shown away from the usual zoom; a real click on it brings the page back
+    out["zoom_rest"] = url.zoom_act.isVisible()
+    win.zoom(+1)
+    yield 100
+    out["zoom_away"] = url.zoom_act.isVisible()
+    btn = [b for b in url.findChildren(QToolButton) if b.defaultAction() is url.zoom_act]
+    out["zoom_button"] = len(btn)
+    if btn:
+        QTest.mouseClick(btn[0], Qt.MouseButton.LeftButton)
+    yield 200
+    out["zoom_back"] = [round(win.current_view().zoomFactor(), 2), url.zoom_act.isVisible()]
+    # Reload becomes Stop with a short fade, and back
+    view = win.current_view()
+    view.load(QUrl(SITE + "/slow"))
+    for _ in range(100):
+        if win.act_reload.text() == "Stop":
+            break
+        yield 10
+    out["stop"] = [win.act_reload.text(), "reload" in win.__dict__.get("_ike_icon_fades", {})]
+    for _ in range(40):
+        if not view.loading:
+            break
+        yield 100
+    yield 300
+    out["reload"] = win.act_reload.text()
+    # Ctrl+F: the find bar fades in
+    QTest.keyClick(win.current_view().focusProxy() or win, Qt.Key.Key_F, Qt.KeyboardModifier.ControlModifier)
+    yield 40
+    out["find_mid"] = [win.findbar.isVisible(), win.findbar.graphicsEffect() is not None]
+    yield 300
+    out["find_end"] = [win.findbar.isVisible(), win.findbar.graphicsEffect() is None]
+    win.findbar.close_bar()
+    # a finished download: the tick comes in with a pop
+    win.show_download_progress("active", 0.5)
+    win.show_download_progress("done")
+    yield 40
+    out["pop"] = win._dl_pop.state() == QAbstractAnimation.State.Running
+    yield 500
+    img = win.act_downloads.icon().pixmap(32, 32).toImage()
+    out["tick"] = sum(1 for x in range(32) for y in range(32)
+                      if QColor(img.pixel(x, y)).green() > 140 and QColor(img.pixel(x, y)).red() < 90)
+    win.show_download_progress("idle")
+    # the tab preview: from one tab to the next the picture blends
+    from ike.tabpreview import TabPreview
+    prev = TabPreview(win)
+    pa, pb = QPixmap(240, 120), QPixmap(240, 120)
+    pa.fill(QColor("#ff0000"))
+    pb.fill(QColor("#0000ff"))
+    prev.show_for(0, pa, "a", win.mapToGlobal(QPoint(50, 50)))
+    yield 200
+    prev.show_for(1, pb, "b", win.mapToGlobal(QPoint(90, 50)))
+    yield 30
+    out["preview_blend"] = prev._blend.state() == QAbstractAnimation.State.Running
+    yield 300
+    c = QColor(prev.picture.pixmap().toImage().pixel(10, 10))
+    out["preview_end"] = [c.blue() > 200, c.red() < 50]
+    prev.hide_preview()
+    # the new tab page fades in and its tiles lift, with the effects on
+    view.load(QUrl("ike:newtab"))
+    yield 1200
+    box = {}
+    view.page().runJavaScript("document.body.className", lambda r: box.setdefault("c", r))
+    yield 300
+    out["newtab_class"] = box.get("c")
+    yield 300
+    out["rest"] = running(win)
+'''
+
+
+def test_address_field_toolbar_and_bars(run_ike, slow_site):  # noqa: F811
+    out = run_ike(FIELD.replace("__SITE__", slow_site), env={"IKE_REDUCED_MOTION": "0"}, timeout=150)
+    assert out["pill"] == [False, 0]
+    assert out["focus_mid"] == [True, True] and out["focus_end"] == 1.0
+    assert out["popup"] == [True, "SuggestionDelegate"]
+    assert out["row"] >= 30 and out["row_icon"] is True
+    assert out["field_kept"][0] is False and out["blur_end"] == 0.0
+    assert out["zoom_rest"] is False and out["zoom_away"] is True and out["zoom_button"] == 1
+    assert out["zoom_back"] == [1.0, False]
+    assert out["stop"] == ["Stop", True] and out["reload"] == "Reload"
+    assert out["find_mid"] == [True, True] and out["find_end"] == [True, True]
+    assert out["pop"] is True and out["tick"] > 5
+    assert out["preview_blend"] is True and out["preview_end"] == [True, True]
+    assert out["newtab_class"] == "fx"
+    assert out["rest"] == []
+
+
+WITHOUT = COMMON + r'''
+def steps(ike, qapp, out):
+    win = ike.windows[0]
+    yield 600
+    a = win.current_view()
+    win.add_tab("ike:newtab")
+    yield 600
+    bar = win.tabbar
+    QTest.mouseClick(bar, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, bar.tabRect(0).center())
+    yield 30
+    out["glide"] = bar.mark.gliding
+    win._icon_changed(a, red_icon())
+    out["icon"] = [id(a) in win.__dict__.get("_ike_icon_fades", {}), reddish(bar.tabIcon(0))]
+    win.urlbar.setFocus()
+    yield 30
+    out["pill"] = win.urlbar._pill.value
+    win.findbar.open_bar()
+    out["find"] = win.findbar.graphicsEffect() is None
+    a.page().recentlyAudible = lambda: True
+    win._tab_changed(a)
+    out["pulse"] = getattr(win, "_audio_timer", None) is not None and win._audio_timer.isActive()
+    win.show_download_progress("active", 0.5)
+    win.show_download_progress("done")
+    out["pop"] = getattr(win, "_dl_pop", None) is not None
+    a.load(QUrl("ike:newtab"))
+    yield 1200
+    box = {}
+    a.page().runJavaScript("document.body.className", lambda r: box.setdefault("c", r))
+    yield 300
+    out["newtab_class"] = box.get("c")
+    out["rest"] = running(win)
+'''
+
+
+@pytest.mark.parametrize("how", ["setting-off", "reduced-motion"])
+def test_everything_at_once_without_effects(run_ike, how):
+    out = run_ike(WITHOUT, settings={"ui_effects": how != "setting-off"},
+                  env={"IKE_REDUCED_MOTION": "1" if how == "reduced-motion" else "0"}, timeout=120)
+    assert out["glide"] is False
+    assert out["icon"] == [False, True]
+    assert out["pill"] == 1.0
+    assert out["find"] is True
+    assert out["pulse"] is False and out["pop"] is False
+    assert out["newtab_class"] == ""
+    assert out["rest"] == []

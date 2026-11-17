@@ -8,6 +8,7 @@ from PyQt6.QtGui import QAction, QColor, QInputMethodEvent, QPalette, QTextCharF
 from PyQt6.QtNetwork import QNetworkReply, QNetworkRequest
 from PyQt6.QtWidgets import QCompleter, QLineEdit, QStyle
 
+from . import effects, polish
 from .i18n import T
 from .icons import themed as icon
 
@@ -65,6 +66,22 @@ class UrlBar(QLineEdit):
                                    QLineEdit.ActionPosition.TrailingPosition)
         self.star.setToolTip(T("Bookmark this page"))
         self.star.triggered.connect(window.toggle_bookmark)
+        # shown only while the page is not at its usual zoom (window._zoom_sign); a click resets it
+        self.zoom_act = self.addAction(icon("zoom-in", QStyle.StandardPixmap.SP_ArrowUp),
+                                       QLineEdit.ActionPosition.TrailingPosition)
+        self.zoom_act.setVisible(False)
+        self.zoom_act.triggered.connect(lambda: window.zoom(0))
+        self._pill = None
+        if polish.part("url_pill"):
+            # rounded, with an edge that lights up softly while the field is used (polish.py)
+            self.setFrame(False)
+            self.setContentsMargins(6, 0, 6, 0)
+            self._clear_base()
+            self._pill = effects.Glide(self, window.app.config, self.update, ms=150)
+        if polish.part("url_popup"):
+            self._rows = polish.SuggestionDelegate(self._completer.popup(), self._icon_for)
+            self._completer.popup().setItemDelegate(self._rows)
+            self._completer.popup().installEventFilter(self)
         self.textChanged.connect(lambda _t: None if self.hasFocus() else self.highlight_domain())
 
     # --- the site's domain in normal text, the rest of the address dimmed ---
@@ -90,7 +107,8 @@ class UrlBar(QLineEdit):
             self._set_formats([])
             return
         pal = self.palette()
-        text_c, base = pal.color(QPalette.ColorRole.Text), pal.color(QPalette.ColorRole.Base)
+        # the field's own Base is see-through when it is rounded (polish.py): the one around it is used
+        text_c, base = pal.color(QPalette.ColorRole.Text), polish.field_palette(self).color(QPalette.ColorRole.Base)
         dim = QColor(int(text_c.red() * 0.5 + base.red() * 0.5),
                      int(text_c.green() * 0.5 + base.green() * 0.5),
                      int(text_c.blue() * 0.5 + base.blue() * 0.5))
@@ -106,11 +124,44 @@ class UrlBar(QLineEdit):
     def focusOutEvent(self, event):
         super().focusOutEvent(event)
         self.highlight_domain()
+        if self._pill is not None:
+            self._pill.to(0)
 
     def changeEvent(self, event):
         super().changeEvent(event)
         if event.type() == QEvent.Type.PaletteChange:
+            if self._pill is not None:
+                self._clear_base()
             self.highlight_domain()
+
+    # --- the rounded field (polish.py) ------------------------------------
+    def _clear_base(self):
+        """The field's own background is painted by paint_pill: Qt's is see-through."""
+        pal = self.palette()
+        if pal.color(QPalette.ColorRole.Base).alpha() == 0:
+            return
+        for group in (QPalette.ColorGroup.Active, QPalette.ColorGroup.Inactive, QPalette.ColorGroup.Disabled):
+            pal.setColor(group, QPalette.ColorRole.Base, Qt.GlobalColor.transparent)
+        self.setPalette(pal)
+
+    def paintEvent(self, event):
+        if self._pill is not None:
+            polish.paint_pill(self, self._pill.value)
+        super().paintEvent(event)
+
+    # --- the suggestions -----------------------------------------------------
+    def _icon_for(self, text):
+        """The site's icon for an address, a magnifier for a search."""
+        if _URLISH.match(text):
+            return self.win.site_icon(text if "://" in text else "https://" + text)
+        return icon("edit-find", QStyle.StandardPixmap.SP_FileDialogContentsView)
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.Show and obj is self._completer.popup():
+            effects.fade_in(obj, self.win.app.config)
+        elif event.type() == QEvent.Type.Hide and obj is self._completer.popup():
+            self._rows.clear()
+        return False
 
     def _picked(self, text):
         self.setText(text)
@@ -175,6 +226,8 @@ class UrlBar(QLineEdit):
     def focusInEvent(self, event):
         super().focusInEvent(event)
         self._set_formats([])               # while editing, the whole address in normal text
+        if self._pill is not None:
+            self._pill.to(1)
         if event.reason() in (Qt.FocusReason.MouseFocusReason,
                               Qt.FocusReason.ShortcutFocusReason,
                               Qt.FocusReason.TabFocusReason):

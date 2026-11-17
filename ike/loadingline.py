@@ -86,8 +86,21 @@ class LoadingLine(QWidget):
         p.setBrush(track)
         p.drawRoundedRect(self.INSET, 1, max(0, width - 2 * self.INSET),
                           self.HEIGHT - 2, 2, 2)
-        p.setBrush(accent)
         progress_width = max(0, int(round(end - self.INSET)))
+        from . import polish
+        if polish.part("line_ends") and progress_width > 8:
+            # the line starts soft and reaches its full colour a little further on
+            from PyQt6.QtCore import QPointF
+            from PyQt6.QtGui import QLinearGradient
+            g = QLinearGradient(QPointF(self.INSET, 0), QPointF(end, 0))
+            soft = QColor(accent)
+            soft.setAlpha(40)
+            g.setColorAt(0.0, soft)
+            g.setColorAt(min(0.5, 80.0 / max(1.0, progress_width)), accent)
+            g.setColorAt(1.0, accent)
+            p.setBrush(g)
+        else:
+            p.setBrush(accent)
         p.drawRoundedRect(self.INSET, 1, progress_width,
                           self.HEIGHT - 2, 2, 2)
         # The small leading bead gives the progress edge a polished finish.
