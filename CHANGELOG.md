@@ -50,6 +50,14 @@ of the address dimmed, the Downloads button's progress ring, the suggestions
 fading in (on Plasma's Wayland session KWin itself fades pop-ups), the soft
 change of interface theme.
 
+Measured against 1.1.8-2, package against package: start-up (0.25 – 0.27 s
+against 0.26 – 0.27 s), processor time at rest (0.80 – 0.85 % of one core
+against 0.80 – 0.90 %) and memory (412 MiB against 411 MiB) unchanged; while
+using the interface, which moves the mouse over the toolbar buttons, 8.6 – 9.6 %
+against 7.8 – 8.5 % (the round hover gliding in and out). The Plasma parts work
+only on events (a download, a click in the media widget, a KRunner search): the
+media of a page is read once a second only while a tab plays sound, as before.
+
 ## 1.1.8
 
 - **New tab page**: I.K.E.'s own picture (the Earth with its network of
