@@ -38,7 +38,7 @@ format. Media Source is not affected (Chromium's own MP4 parser).
 
 | Run | What | Result |
 |---|---|---|
-| 43968550111 (2026-11-16 22:17) | old own-adapter patches, stage 1 from nothing | GN and the early compile of the media code passed; stage 1 was still building when the integration was pushed. Never linked, never played |
+| 43968550111 (2026-11-16 22:17) | old own-adapter patches, stage 1 from nothing | GN and the early compile of the media code passed; stage 1 reached step 13501 of 19527 in 4 h 13 min of building and saved its build folder (0.71 GB packed); cancelled at the start of stage 2 by the push below. Never linked, never played |
 | 43976704292 | decoders probe (own-adapter call sequence), Server 2022 + 2025 | 10 of 10 probe runs passed: the Windows H.264 and AAC decoders exist and decode on the runners (software), AAC both as bare frames and with ADTS headers |
 
 | 44003268848 (2026-11-17 02:28) | decoders probe with a third AAC mode that repeats the integrated code's calls (COM, `MFTEnumEx` + `ActivateObject`, payload type ADTS + AudioSpecificConfig, frames with ADTS headers); Server 2022 + 2025 | 12 of 12 passed on both. This is the Windows side of the Cromite AAC path and of Vivaldi's H.264 calls (same input type, YV12 output, `DllGetClassObject`), outside Chromium. It says nothing about the engine itself |
@@ -70,7 +70,10 @@ Runs with the integrated patches: see "Log" below.
   `FAILED:` with the compiler's message; fix the patch in the local clone
   (`/home/claude/src/qwc`, one commit per patch; `/home/claude/work/gen/gen_patches.py`
   writes the patch files from the commits), push.
-- The whole build needs about six stages of up to 4 h 45 min. The last stage
+- The whole build needs fewer stages than first thought: stage 1 of run
+  43968550111 did 13501 of 19527 steps (the remaining ones include the
+  heaviest: Blink, V8, the link). Expect two or three stages of up to
+  4 h 45 min. The last stage
   uploads `ike-qtwebengine-windows`; then `verify` plays the clips on Server
   2022 and 2025 and writes the decoder names into the job summary.
 - Expected decoder names in `verify`: video `WMFVideoDecoder`, audio
@@ -99,3 +102,6 @@ H.264 / AAC decoder object is linked, because it needs `ffmpeg_branding="Chrome"
   stage 1 of run 43968550111 to save its build folder (build stops at 03:02,
   then packing) before the push that starts the run with the integrated
   patches.
+- 2026-11-17 03:04 — run **44007527523** started by push `7df8f58`: the first
+  build with the integrated patches, continuing from the build folder of run
+  43968550111.
