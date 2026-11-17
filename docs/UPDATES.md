@@ -72,28 +72,33 @@ committed.
 
 ## Publishing a release
 
-On the owner's computer, from a clone at the commit to release (the version in
-`ike/__init__.py` and the PKGBUILD already raised and merged into `main`):
+On the owner's computer, from a clone of the repository, once the pull request
+that raised the version is merged into `main` and its tests have passed:
 
 ```fish
 cd ~/IKE-Browser; git switch main; git pull
-makepkg -Csf
-python3 tools/make-release.py
+python3 tools/publish.py
 ```
 
-`makepkg` builds `ike-browser-<version>-1-x86_64.pkg.tar.zst`. The release tool
-asks the passphrase, writes `dist/release-<version>/` (payload, manifests,
-signatures) and checks each signature with the public key of
-`data/update.json`. Then publish everything as a normal release (not a draft,
-not a pre-release):
-
-```fish
-gh release create v<version> dist/release-<version>/* \
-    ike-browser-<version>-1-x86_64.pkg.tar.zst \
-    --title "I.K.E. <version>" --notes "See CHANGELOG.md"
-```
+`tools/publish.py` does everything and stops, changing nothing on GitHub, at
+the first problem: it checks that the clone is `main` without local changes and
+equal to GitHub's, that the version of `ike/__init__.py` and the PKGBUILD agree
+and is not published yet, and that the automatic tests passed on that exact
+commit; it builds the package (`makepkg -Csf`), signs the update files with
+`tools/make-release.py` (which asks the passphrase), takes the release notes
+from the version's section of CHANGELOG.md, creates the GitHub release with its
+tag on that commit (the package with its real pkgrel, e.g. `-3`), and finally
+reads the published files back from GitHub and checks signature, version and
+hash. `python3 tools/publish.py --dry-run` does all of it except the release.
 
 GitHub only builds and tests; the key never leaves the owner's computer.
 
-Without `gh`: GitHub → Releases → Draft a new release → create the matching
-`v<version>` tag → attach the same files → Publish release.
+By hand, step by step (what the command does):
+
+```fish
+makepkg -Csf
+python3 tools/make-release.py
+gh release create v<version> dist/release-<version>/* \
+    ike-browser-<version>-<pkgrel>-x86_64.pkg.tar.zst \
+    --title "I.K.E. <version>" --notes-file <notes>
+```
