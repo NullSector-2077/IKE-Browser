@@ -9,7 +9,7 @@ The interface, protections, password manager and updater are I.K.E.'s own code
 provided and kept up to date by Arch Linux. I.K.E. is developed on and for
 KDE Plasma (CachyOS / Arch Linux) and works on the other Arch-based desktops.
 
-**Version 1.1.3** - see [CHANGELOG.md](CHANGELOG.md).
+**Version 1.1.4** - see [CHANGELOG.md](CHANGELOG.md).
 
 ## Install (Arch Linux, CachyOS)
 
@@ -17,7 +17,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.1.3-2-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.1.4-1-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:
@@ -69,8 +69,18 @@ profiles: `ike-browser --profile NAME`.
   script gets only the functions its `@grant` lines ask for and reaches only
   the sites its `@connect` lines allow; your home network only when named.
 - Import from Firefox and Chromium-based browsers, local backup and restore,
-  download manager, PDF viewer, reader mode, picture-in-picture, page dark mode,
-  translation through an external service, site permissions.
+  download manager, PDF viewer, reader mode, picture-in-picture, translation
+  through an external service, site permissions.
+- Page dark mode with Dark Reader as its extension works (its fixes for single
+  sites, sites that are dark already left alone, its detector of a site's own
+  dark theme; lists kept up to date with the daily maintenance), or with the
+  engine's own dark mode.
+- Zoom kept for each site; videos and sounds that may not start by themselves
+  (all sites, or one); the lock in the address bar opens the site's panel
+  (connection, permissions, cookies, protection, zoom, autoplay).
+- Command bar (F2): menu commands, open tabs, bookmarks, history and settings in
+  one search. Optional mouse gestures (off by default).
+- I.K.E.'s own pages for sites that cannot be reached, with "Try again".
 - Free choice of search engines (DuckDuckGo by default), suggestions, keywords.
 - New tab page with a clock and, for a city you choose, the weather; tiles of
   your bookmarks or of the sites you visit most (up to 32, sixteen per row on

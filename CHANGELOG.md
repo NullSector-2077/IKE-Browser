@@ -1,5 +1,53 @@
 # Changelog
 
+## 1.1.4
+
+**Page dark mode with Dark Reader, as its extension does it.** Dark Reader was
+in I.K.E. but parts of some sites (Google Translate, for one) came out wrong.
+Four causes, all fixed:
+- The first site opened in a tab (from the new tab page) was not darkened at
+  all: the script was given to the page when it started to navigate, and the
+  engine had already started the site in another process. Dark Reader's
+  scripts now belong to the profile, as the extension's do.
+- Dark Reader's style-sheet proxy, which catches the styles sites make with
+  JavaScript, was put into the page as an inline script, which strict
+  Content-Security-Policies (Google's sites) block. It now runs in the page's
+  own world, where no policy stops it, started with the extension's own event
+  (with a token of the session in its name, so a page cannot start it).
+- The extension's lists were missing: its fixes for single sites (about
+  3,000), its list of sites that are dark already (left alone), and the hints
+  of its detector. They are now in I.K.E. (`ike/resources/darkreader-data.json`).
+- The detector of a site's own dark theme was missing: a site with its own
+  dark theme is now left as it is, as in the extension. A site you turned dark
+  yourself is always made dark.
+Dark Reader's engine and lists are followed by the daily maintenance like the
+other components (`tools/build-darkreader.py`). The engine of Qt stays as the
+other choice; no setting changed.
+
+New:
+- **Zoom kept for each site**: Ctrl + wheel, the View menu or the keys; the
+  site opens at that zoom again; "Actual size" forgets it. Not kept in private
+  windows.
+- **Videos and sounds that start by themselves** can be blocked (Settings →
+  General; off by default), for all sites or, from the site panel, for one.
+- **Site panel**: a click on the lock in the address bar shows the connection,
+  the permissions, the cookies (with "Clear this site's data"), the protection
+  level, the zoom (with "Actual size") and whether videos and sounds may start
+  by themselves on the site.
+- **Command bar (F2)**: type a few letters to reach a menu command, an open
+  tab, a bookmark, a page of the history or a page of the Settings. F2, as in
+  Vivaldi, not Ctrl+K: many sites (GitHub, Slack, Discord, Notion) use Ctrl+K
+  themselves.
+- **Pages for sites that cannot be reached** (site not found, no connection,
+  refused, too slow, interrupted) in I.K.E.'s look, with "Try again". The
+  address and the history stay those of the site. Certificate warnings stay
+  the engine's own.
+- **Mouse gestures**, off by default (Settings → General): hold the right
+  button and draw ← back, → forward, ↑ reload, ↓→ close the tab. A right
+  click alone opens the menu as always.
+- The daily maintenance tool accepts a README that names any package release
+  (`-2-`), not only `-1-`.
+
 ## 1.1.3
 
 A more modern finish, one small touch at a time, all in the colours of the

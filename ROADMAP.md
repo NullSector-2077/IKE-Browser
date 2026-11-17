@@ -291,6 +291,11 @@ behind the window. No existing setting is reset or changes meaning.
   page; left out: bouncing buttons, the counting-up counter, the shield
   panel sliding in) and new-tab tiles sixteen per row, up to 32. Waits for
   the owner's test on Plasma.
+- 2026-11-17: 1.1.4 on branch `arch/1.1.4` (from 1.1.3): Dark Reader as its
+  extension uses it (lists, proxy in the page's world, detector, scripts of
+  the profile, daily maintenance), zoom per site, autoplay blocking, site
+  panel, command bar (F2), own error pages, mouse gestures (off by default).
+  Waits for the owner's test.
 
 ### Also planned
 
