@@ -91,9 +91,10 @@ person: open a conversation and paste its link.
 
 ## Repository settings (once)
 
-- Settings → Actions → General → Workflow permissions: **Read and write**, and
-  **Allow GitHub Actions to create and approve pull requests** (otherwise the
-  candidate and the fixes cannot open their pull requests).
+- Settings → Actions → General → Workflow permissions: keep **Read repository
+  contents** (each job asks for what it needs) and tick **Allow GitHub Actions
+  to create and approve pull requests** (otherwise the candidate and the fixes
+  cannot open their pull requests).
 - Settings → Secrets and variables → Actions → **Secrets**: `GEMINI_API_KEY`, a
   Gemini API key from Google AI Studio, in a Google Cloud project **without
   billing** (free tier: nothing can be charged; Google may use the requests to
