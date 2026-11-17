@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.1.8
+
+- **New tab page**: I.K.E.'s own picture (the Earth with its network of
+  lights, by the project's owner) is the background photo unless the user
+  chooses another. Whoever had no photo gets it once; whoever removes it keeps
+  the page plain. Settings → New tab page has a "Default" button beside
+  "Choose…" and "Remove" to go back to it (the user's copy is then deleted).
+  The picture is dark: on a light interface the page takes the colours of the
+  I.K.E. theme while it is shown, so its text stays readable; a photo of the
+  user's keeps the interface colours as before. The picture is kept with the
+  program (167 KB, JPEG), nothing is copied or downloaded, and a website
+  cannot load it.
+
 ## 1.1.7
 
 - The **address bar** takes half of the window (it was 60 %; a setting left at

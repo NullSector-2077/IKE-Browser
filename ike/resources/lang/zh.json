@@ -845,6 +845,8 @@
 "Restore": "还原",
 "%d of %d": "第 %d 个，共 %d 个",
 "Previous match (Shift+Enter)": "上一个匹配 (Shift+Enter)",
-"Next match (Enter)": "下一个匹配 (Enter)"
+"Next match (Enter)": "下一个匹配 (Enter)",
+"Default": "默认",
+"I.K.E.'s own photo": "I.K.E. 自带的图片"
 }
 }

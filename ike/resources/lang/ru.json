@@ -845,6 +845,8 @@
 "Restore": "Восстановить",
 "%d of %d": "%d из %d",
 "Previous match (Shift+Enter)": "Предыдущее совпадение (Shift+Enter)",
-"Next match (Enter)": "Следующее совпадение (Enter)"
+"Next match (Enter)": "Следующее совпадение (Enter)",
+"Default": "По умолчанию",
+"I.K.E.'s own photo": "Фото I.K.E."
 }
 }

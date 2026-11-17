@@ -845,6 +845,8 @@
 "Restore": "Przywróć",
 "%d of %d": "%d z %d",
 "Previous match (Shift+Enter)": "Poprzednie wystąpienie (Shift+Enter)",
-"Next match (Enter)": "Następne wystąpienie (Enter)"
+"Next match (Enter)": "Następne wystąpienie (Enter)",
+"Default": "Domyślne",
+"I.K.E.'s own photo": "Zdjęcie I.K.E."
 }
 }

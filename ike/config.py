@@ -143,7 +143,8 @@ DEFAULTS = {
     "urlbar_width_117": False,          # the old default of 60 was moved to 50 once (1.1.7)
     "newtab_clock": True,               # clock and date on the new tab page
     "newtab_weather": True,             # weather on the new tab page (needs a city, see weather.py)
-    "newtab_bg": "",                    # the user's photo behind the new tab page (see newtabbg.py)
+    "newtab_bg": "default",             # photo behind the new tab page: "default" (I.K.E.'s own), "" or the user's copy (see newtabbg.py)
+    "newtab_bg_118": False,             # I.K.E.'s own photo was given once to whoever had none (1.1.8)
     "newtab_bg_fit": "fill",            # fill | fit | centre
     "newtab_bg_veil": 35,               # veil in the page's colour over the photo, per cent (0-90)
     "weather_city": "",                 # chosen by the user in Settings; never the system location
@@ -325,6 +326,10 @@ class Config:
         if d.get("urlbar_width") == 60 and not d.get("urlbar_width_117"):
             d["urlbar_width"] = 50
         d["urlbar_width_117"] = True
+        # 1.1.8: the new tab page gets I.K.E.'s own photo; whoever had none before gets it once
+        if d.get("newtab_bg") == "" and not d.get("newtab_bg_118"):
+            d["newtab_bg"] = "default"
+        d["newtab_bg_118"] = True
         # 1.1.6: "Translate page" moved into the address bar; "Bookmark this page" takes its place
         for key in ("toolbar_order", "toolbar_left", "toolbar_hidden", "toolbar_known"):
             if isinstance(d.get(key), list) and "translate" in d[key]:

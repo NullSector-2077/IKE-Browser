@@ -462,8 +462,15 @@ class Shields(QObject):
         e = self.config.engine()
         html = self._newtab_src
         from PyQt6.QtGui import QGuiApplication, QPalette
+        from . import newtabbg
         pal = QGuiApplication.palette()
         R = QPalette.ColorRole
+        if newtabbg.is_default(self.config) and newtabbg.current(self.config) is not None \
+                and pal.color(R.Window).lightnessF() >= 0.5:
+            # I.K.E.'s own photo is dark: on a light interface the page takes the
+            # colours of the I.K.E. theme, so that its text stays readable on it
+            from . import themes
+            pal = themes.palette(themes.BUILTIN["ike"])
         colors = {"{{bg}}": pal.color(R.Window), "{{fg}}": pal.color(R.WindowText),
                   "{{card}}": pal.color(R.Base), "{{acc}}": pal.color(R.Highlight),
                   "{{line}}": pal.color(R.Mid), "{{mute}}": pal.color(R.PlaceholderText)}

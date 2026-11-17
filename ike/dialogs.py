@@ -386,7 +386,7 @@ class SettingsDialog(QDialog):
         from PyQt6.QtWidgets import QFrame, QSlider
 
         from . import newtabbg
-        self._bg_choice = None            # None: as it is; "": remove it; a path: use that file
+        self._bg_choice = None            # None: as it is; "": remove it; DEFAULT: I.K.E.'s own; a path: that file
         self.bg_preview = QLabel()
         self.bg_preview.setFixedSize(96, 54)
         self.bg_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -398,10 +398,14 @@ class SettingsDialog(QDialog):
         choose.clicked.connect(self._choose_background)
         self.bg_remove = QPushButton(T("Remove"))
         self.bg_remove.clicked.connect(lambda: self._set_background(""))
+        self.bg_default = QPushButton(T("Default"))
+        self.bg_default.setToolTip(T("I.K.E.'s own photo"))
+        self.bg_default.clicked.connect(lambda: self._set_background(newtabbg.DEFAULT))
         row = QHBoxLayout()
         row.addWidget(self.bg_preview)
         row.addWidget(self.bg_info, 1)
         row.addWidget(choose)
+        row.addWidget(self.bg_default)
         row.addWidget(self.bg_remove)
         self.bg_fit = QComboBox()
         for key, label in (("fill", T("Fill the page")), ("fit", T("Show the whole photo")),
@@ -426,14 +430,24 @@ class SettingsDialog(QDialog):
         f.addRow(T("Background photo"), row)
         f.addRow(T("Photo placement"), self.bg_fit)
         f.addRow(T("Veil over the photo"), veil)
-        current = newtabbg.current(self.cfg)
-        self._show_background(str(current) if current else "")
+        self._show_background(self._bg_shown(self.cfg))
+
+    @staticmethod
+    def _bg_shown(cfg):
+        from . import newtabbg
+        if newtabbg.is_default(cfg):
+            return newtabbg.DEFAULT
+        current = newtabbg.current(cfg)
+        return str(current) if current else ""
 
     def _show_background(self, path):
-        """Preview and controls for the photo at path ("" = none)."""
+        """Preview and controls for the photo at path ("" = none, DEFAULT = I.K.E.'s own)."""
         from PyQt6.QtGui import QPixmap
 
         from . import newtabbg
+        default = path == newtabbg.DEFAULT
+        if default:
+            path = str(newtabbg.DEFAULT_FILE)
         image = None
         if path:
             image, _problem = newtabbg.load_scaled(path, 192)
@@ -450,8 +464,9 @@ class SettingsDialog(QDialog):
             pm.setDevicePixelRatio(ratio)
             self.bg_preview.setText("")
             self.bg_preview.setPixmap(pm)
-            self.bg_info.setText("%d × %d" % size if size else "")
+            self.bg_info.setText(T("I.K.E.'s own photo") if default else ("%d × %d" % size if size else ""))
         on = image is not None
+        self.bg_default.setEnabled(not default)
         self.bg_remove.setEnabled(on)
         self.bg_fit.setEnabled(on)
         self.bg_veil.setEnabled(on)
@@ -466,7 +481,7 @@ class SettingsDialog(QDialog):
     def _set_background(self, path):
         """Take a file as the photo to use when the settings are applied ("" = none)."""
         from . import newtabbg
-        if path:
+        if path and path != newtabbg.DEFAULT:
             _size, problem = newtabbg.probe(path)
             if not problem:
                 _image, problem = newtabbg.load_scaled(path, 192)
@@ -1189,11 +1204,12 @@ class SettingsDialog(QDialog):
         problem = ""
         if self._bg_choice == "":
             newtabbg.remove_photo(cfg)
+        elif self._bg_choice == newtabbg.DEFAULT:
+            newtabbg.use_default(cfg)
         elif self._bg_choice:
             problem = newtabbg.set_photo(cfg, self._bg_choice)
         self._bg_choice = None
-        current = newtabbg.current(cfg)
-        self._show_background(str(current) if current else "")
+        self._show_background(self._bg_shown(cfg))
         if problem:
             self.bg_info.setText(T(problem))
         cfg["newtab_bg_fit"] = self.bg_fit.currentData()

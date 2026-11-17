@@ -33,6 +33,8 @@ QUIET_SETTINGS = {
     "chrome_checked": 4102444800,
     "app_updates": "off",
     "auto_update": False,
+    "newtab_bg": "",               # the plain new tab page; I.K.E.'s own photo is tested on its own
+    "newtab_bg_118": True,
 }
 
 

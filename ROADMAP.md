@@ -309,6 +309,9 @@ behind the window. No existing setting is reset or changes meaning.
   fade, new tab page buttons (Settings, background photo) and clock at the
   bottom right. Next to discuss: a strategy for Manifest V3 extensions that do
   not install.
+- 2026-11-17: 1.1.8 on branch `arch/1.1.8` (from 1.1.7): I.K.E.'s own picture as
+  the default background of the new tab page, with a "Default" button in
+  Settings. Next: a plan for Manifest V3 extensions that do not install.
 
 ### Also planned
 

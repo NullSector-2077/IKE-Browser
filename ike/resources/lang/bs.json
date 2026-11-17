@@ -845,6 +845,8 @@
 "Restore": "Vrati",
 "%d of %d": "%d od %d",
 "Previous match (Shift+Enter)": "Prethodno podudaranje (Shift+Enter)",
-"Next match (Enter)": "Sljedeće podudaranje (Enter)"
+"Next match (Enter)": "Sljedeće podudaranje (Enter)",
+"Default": "Zadano",
+"I.K.E.'s own photo": "Fotografija I.K.E.-a"
 }
 }

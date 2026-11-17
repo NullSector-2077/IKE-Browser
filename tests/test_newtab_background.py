@@ -383,3 +383,94 @@ def steps(ike, qapp, out):
 def test_settings_keys_listed():
     keys = json.loads((__import__("pathlib").Path(__file__).parent / "settings-keys.json").read_text())
     assert {"newtab_bg", "newtab_bg_fit", "newtab_bg_veil"} <= set(keys)
+
+
+def test_ikes_own_photo_is_the_default(tmp_path):
+    """A new profile, and one that had no photo before 1.1.8, get I.K.E.'s own
+    photo once; whoever removes it afterwards keeps the page plain."""
+    from ike.config import Config
+    from ike import newtabbg
+    assert newtabbg.DEFAULT_FILE.is_file() and newtabbg.DEFAULT_FILE.stat().st_size < 250 * 1024
+    fresh = Config(tmp_path / "fresh.json")
+    assert fresh["newtab_bg"] == "default" and newtabbg.current(fresh) == newtabbg.DEFAULT_FILE
+    data, mime = newtabbg.content(fresh)
+    assert mime == b"image/jpeg" and data[:3] == b"\xff\xd8\xff"
+    old = tmp_path / "old.json"
+    old.write_text(json.dumps({"newtab_bg": "", "newtab_bg_veil": 50}))
+    cfg = Config(old)
+    assert cfg["newtab_bg"] == "default" and cfg["newtab_bg_veil"] == 50
+    cfg["newtab_bg"] = ""                                      # removed by the user, then saved
+    cfg.save()
+    assert Config(old)["newtab_bg"] == ""
+    own = tmp_path / "own.json"
+    own.write_text(json.dumps({"newtab_bg": "newtab-background.png"}))
+    assert Config(own)["newtab_bg"] == "newtab-background.png"
+
+
+def test_default_photo_in_the_page_and_in_settings(run_ike, tmp_path, site):
+    work = tmp_path / "pictures"
+    work.mkdir()
+    out = run_ike(MAKE + r'''
+def steps(ike, qapp, out):
+    yield 1500
+    from pathlib import Path
+    from ike import newtabbg
+    win = ike.windows[0]
+    view = win.current_view()
+    data = Path(os.environ["XDG_DATA_HOME"]) / "ike-browser"
+    look = json.loads((yield from js(view, LOOK)))
+    shot = view.grab().toImage()
+    blue = [0, 0, 0]
+    for x in range(10):
+        for y in range(10):
+            c = QColor(shot.pixel(int(shot.width() * (0.05 + x * 0.09)), int(shot.height() * (0.05 + y * 0.09))))
+            blue = [blue[0] + c.red(), blue[1] + c.green(), blue[2] + c.blue()]
+    out["page"] = [look["image"][:20], look["size"], blue]
+    from PyQt6.QtGui import QGuiApplication, QPalette
+    out["text"] = [look["text"], QGuiApplication.palette().color(QPalette.ColorRole.Window).lightnessF()]
+    out["logo"] = yield from js(view, "document.body.classList.contains('photo')")
+    dlg = ike.show_settings(win)
+    yield 300
+    out["settings"] = [dlg.bg_info.text(), dlg.bg_default.isEnabled(), dlg.bg_remove.isEnabled(),
+                       dlg.bg_fit.isEnabled(), dlg.bg_preview.pixmap().isNull()]
+    # the user's own photo, then back to I.K.E.'s with the button
+    dlg._set_background(picture("mine.jpg", 1200, 800, colour="#c02020"))
+    dlg.apply()
+    yield 1200
+    out["mine"] = [ike.config["newtab_bg"], dlg.bg_default.isEnabled(), dlg.bg_info.text(),
+                   sorted(p.name for p in data.iterdir() if p.name.startswith("newtab"))]
+    dlg.bg_default.click()
+    out["pending"] = [dlg.bg_info.text(), dlg.bg_default.isEnabled(), ike.config["newtab_bg"]]
+    dlg.apply()
+    yield 1200
+    look = json.loads((yield from js(view, LOOK)))
+    out["back"] = [ike.config["newtab_bg"], look["image"][:20],
+                   sorted(p.name for p in data.iterdir() if p.name.startswith("newtab"))]
+    dlg.bg_remove.click()
+    dlg.apply()
+    yield 1200
+    look = json.loads((yield from js(view, LOOK)))
+    out["removed"] = [ike.config["newtab_bg"], look["image"], dlg.bg_default.isEnabled(), dlg.bg_info.text()]
+    dlg.bg_default.click()
+    dlg.apply()
+    yield 800
+    # a web page cannot get I.K.E.'s photo either
+    view.load(QUrl("http://127.0.0.1:%d/" % int(os.environ["IKE_BG_PORT"])))
+    yield 3000
+    out["attack"] = json.loads((yield from js(view, "JSON.stringify(res)")))
+    dlg.close()
+    ''', settings={"newtab_bg": "default"}, env={"IKE_BG_WORK": str(work), "IKE_BG_PORT": str(site)}, timeout=180)
+    image, size, (r, g, b) = out["page"]
+    assert image == 'url("ike:background?' and size == "cover"
+    assert b > r * 1.5 and b > g * 1.2, out["page"]               # the blue of the picture
+    # the test's interface is light: on the dark photo the page takes the I.K.E. theme's light text
+    text, window = out["text"]
+    assert window >= 0.5 and text == "rgb(230, 244, 255)", out["text"]
+    assert out["logo"] is True
+    assert out["settings"] == ["I.K.E.'s own photo", False, True, True, False]
+    assert out["mine"] == ["newtab-background.jpg", True, "1200 × 800", ["newtab-background.jpg"]]
+    assert out["pending"] == ["I.K.E.'s own photo", False, "newtab-background.jpg"]
+    assert out["back"] == ["default", 'url("ike:background?', []]   # the user's copy is gone
+    assert out["removed"] == ["", "none", True, "No photo"]
+    attack = out["attack"]
+    assert attack["img"] == "error" and attack["fetch"] == "error" and attack["canvas"] == "error", attack

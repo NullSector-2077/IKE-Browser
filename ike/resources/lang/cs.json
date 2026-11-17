@@ -845,6 +845,8 @@
 "Restore": "Obnovit",
 "%d of %d": "%d z %d",
 "Previous match (Shift+Enter)": "Předchozí výskyt (Shift+Enter)",
-"Next match (Enter)": "Další výskyt (Enter)"
+"Next match (Enter)": "Další výskyt (Enter)",
+"Default": "Výchozí",
+"I.K.E.'s own photo": "Vlastní fotka I.K.E."
 }
 }
