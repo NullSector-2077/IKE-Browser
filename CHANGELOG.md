@@ -44,6 +44,12 @@ New tab page:
 Already there, so not added again: the lock in the address field and the
 number of blocked items beside the shield.
 
+Measured against 1.1.2 on the same machine, package against package: start-up
+(0.29 – 0.30 s) and processor time at rest (0.5 – 0.7 % of one core) are
+unchanged; while the interface is used without pause (menus, hover, tabs
+opened and closed every two seconds) 5.2 – 5.5 % of one core instead of
+4.9 – 5.0 %; memory 354 – 355 MiB instead of 353 MiB.
+
 ## 1.1.2
 
 - **The "I.K.E. Cyber" theme is gone.** It had problems and the owner chose
