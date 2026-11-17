@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.2
+
+- **Twelve Slavic languages**: Russian, Ukrainian, Belarusian, Bulgarian,
+  Polish, Czech, Slovak, Slovenian, Croatian, Serbian (Cyrillic), Bosnian and
+  Macedonian, every text of the interface translated. Chosen in Settings, or
+  taken from the system's language. Made with AI and not yet reviewed by
+  native speakers: corrections are welcome.
+- "Engine" in Help → About is now translated as the browser engine in German
+  and Spanish (it read "search engine").
+- Updates itself from 1.1.1 and 1.1.0 (only the browser's own files changed).
+
 ## 1.1.1
 
 - **Help → About tells which video and audio formats play** (H.264, AAC,
