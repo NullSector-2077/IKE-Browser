@@ -21,6 +21,10 @@
   that keeps them readable on a photo. A website cannot use those buttons
   (refused, as the tiles' answers).
 
+Measured against 1.1.6, package against package: start-up (0.28 – 0.32 s),
+processor time at rest (0.6 – 0.7 % of one core), while using the interface
+(5.7 – 6.6 %) and memory (354 – 356 MiB) unchanged within the measuring noise.
+
 ## 1.1.6
 
 - The **address field** is the system's own again (the rounded one of 1.1.3
