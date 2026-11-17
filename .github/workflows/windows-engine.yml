@@ -1,5 +1,6 @@
 # I.K.E.'s own Qt WebEngine for Windows: H.264 and AAC are decoded by Windows
-# (Media Foundation); the engine contains no decoder for them. Patches, build
+# (Media Foundation); the engine contains no decoder for them. The code that
+# does it comes from Vivaldi (platform_media) and Cromite. Patches, build
 # script and explanation: packaging/windows/qtwebengine/.
 #
 # The build takes far longer than one job may last, so it runs as a chain of
@@ -196,7 +197,7 @@ jobs:
           python packaging/windows/qtwebengine/verify_codecs.py run --clips clips
           --expect patched --name "built engine" --report reports
           --require-decoder-names
-          --video-decoder MediaFoundationVideoDecoder
+          --video-decoder WMFVideoDecoder
           --audio-decoder MediaFoundationAudioDecoder
       # Only if that failed: the runner is Windows Server, where Media
       # Foundation is an optional feature that is not switched on. Switch it on
@@ -212,7 +213,7 @@ jobs:
           python packaging/windows/qtwebengine/verify_codecs.py run --clips clips
           --expect patched --name "built engine, Media Foundation feature switched on" --report reports
           --require-decoder-names
-          --video-decoder MediaFoundationVideoDecoder
+          --video-decoder WMFVideoDecoder
           --audio-decoder MediaFoundationAudioDecoder
       - name: "Built engine with --disable-gpu"
         if: ${{ !cancelled() }}
@@ -220,7 +221,7 @@ jobs:
           python packaging/windows/qtwebengine/verify_codecs.py run --clips clips
           --expect patched --name "built engine, GPU disabled" --report reports
           --flags "--disable-gpu"
-          --video-decoder MediaFoundationVideoDecoder
+          --video-decoder WMFVideoDecoder
           --audio-decoder MediaFoundationAudioDecoder
       - name: Keep the reports
         if: ${{ !cancelled() }}
