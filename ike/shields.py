@@ -333,6 +333,11 @@ class IkeSchemeHandler(QWebEngineUrlSchemeHandler):
                 self.s.open_requested.emit(what)
             job.redirect(QUrl("ike:newtab"))
             return
+        if path == "engine":
+            # an engine chosen in the new tab page's search box: the default from now on
+            self.s.choose_engine(QUrlQuery_value(url, "name"))
+            job.redirect(QUrl("ike:newtab"))
+            return
         if path == "tile":
             # an answer given on the new tab page itself (a tile hidden or added);
             # the page is shown again afterwards
@@ -373,6 +378,7 @@ def QUrlQuery_value(url, key):
 class Shields(QObject):
     blocked = pyqtSignal(str)  # first-party host
     open_requested = pyqtSignal(str)     # "settings" / "background" asked for on the new tab page
+    engine_chosen = pyqtSignal(str)      # an engine chosen on the new tab page (1.1.10)
 
     def __init__(self, config, blocker, parent=None):
         super().__init__(parent)
@@ -454,6 +460,14 @@ class Shields(QObject):
                     QTimer.singleShot(0, refresh)             # the bookmarks bar and menu
         self.config.save()
 
+    def choose_engine(self, name):
+        """The default engine, chosen on the new tab page (before the page is shown again)."""
+        if name and name != self.config["default_engine"] and any(
+                isinstance(e, dict) and e.get("name") == name for e in self.config["search_engines"]):
+            self.config["default_engine"] = name
+            self.config.save()
+            self.engine_chosen.emit(name)
+
     def search_url(self, query, engine=None):
         e = self.config.engine(engine)
         return e["url"].replace("{q}", quote(query, safe=""))
@@ -496,6 +510,7 @@ class Shields(QObject):
             "{{fx}}": "fx" if effects.on(self.config) else "",
             "{{photo}}": " photo" if photo else "",
             "{{buttons}}": self._newtab_buttons(),
+            "{{engines}}": newtab.engines_html(self.config),
             "{{tiles}}": newtab.tiles_html(self.config, getattr(app, "storage", None)),
             "{{stats}}": newtab.stats_html(self.config, T("Protection level"),
                                            T(LEVEL_NAMES[self.config["shield_level"]])),

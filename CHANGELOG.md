@@ -7,8 +7,15 @@
   opens its panel as before. The field's own buttons (clear, translate, zoom)
   sit left of it and the address stops before them; the "+N" still rises right
   of the number. The address bar gets the room the shield had in the toolbar.
+- **The search engine, right after the lock** in the address bar: the icon of
+  the engine in use; a click lists the installed engines, each with its own
+  icon, and the one chosen becomes the default (as in Settings -> Search). The
+  same in the new tab page's search box, with the mouse or the keyboard (arrow
+  keys, Esc). The icons are the engines' own, asked once from each engine's
+  site (its favicon) and then kept; until one is known a magnifier shows. Only
+  I.K.E. and its own pages can choose the engine, never a website.
 
-Package 1.1.10-1. From this release on, every new release raises the last
+Package 1.1.10-2 (1.1.10-1, never published, had only the shield). From this release on, every new release raises the last
 number of the version (1.1.10, 1.1.11, ...); the package number after the dash
 changes only when the same version is built again.
 

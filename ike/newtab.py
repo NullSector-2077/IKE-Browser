@@ -210,6 +210,37 @@ def tiles_html(config, storage):
     return "".join(out)
 
 
+def engines_html(config):
+    """The engine picker of the search box (1.1.10): the default engine's own
+    icon; a click lists the installed engines with theirs, and the one chosen
+    (ike:engine) becomes the default. Until an engine's icon is known a
+    magnifier shows."""
+    from .config import RES_DIR
+    try:
+        lens = (RES_DIR / "icons" / "sets" / "lucide" / "edit-find.svg").read_text("utf-8").strip()
+    except OSError:
+        lens = ""
+
+    def ico(e):
+        return ('<span class="eng-ico">%s<img src="ike:favicon?h=%s" alt="" '
+                'onerror="ikeIconLater(this)" onload="this.style.visibility=\'visible\'"></span>' % (
+                    lens, quote(_host(e.get("url", "")), safe="")))
+    engines = [e for e in config["search_engines"] if isinstance(e, dict) and e.get("name")]
+    current = config.engine()
+    label = html.escape(T("Default search engine"), quote=True)
+    rows = []
+    for e in engines:
+        on = e["name"] == current.get("name")
+        rows.append('<a role="menuitemradio" aria-checked="%s" href="ike:engine?name=%s">%s'
+                    '<span class="eng-name">%s</span><span class="eng-tick">%s</span></a>' % (
+                        "true" if on else "false", quote(e["name"], safe=""), ico(e),
+                        html.escape(e["name"]), "\u2713" if on else ""))
+    return ('<div class="eng"><button type="button" class="eng-btn" aria-haspopup="menu" aria-expanded="false" '
+            'title="%s: %s" aria-label="%s">%s<span class="eng-arrow">\u25be</span></button>'
+            '<div class="eng-menu" role="menu" aria-label="%s">%s</div></div>' % (
+                label, html.escape(current.get("name", ""), quote=True), label, ico(current), label, "".join(rows)))
+
+
 def hide_tile(config, url):
     hidden = config.data.get("newtab_tiles_hidden")
     hidden = [h for h in hidden if isinstance(h, str)] if isinstance(hidden, list) else []

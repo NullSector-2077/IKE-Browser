@@ -17,7 +17,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.1.10-1-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.1.10-2-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:
@@ -82,7 +82,8 @@ profiles: `ike-browser --profile NAME`.
   one search. Optional mouse gestures (off by default).
 - I.K.E.'s own pages for sites that cannot be reached, with "Try again".
 - Reader mode with light, sepia or dark and the text size of your choice.
-- Free choice of search engines (DuckDuckGo by default), suggestions, keywords.
+- Free choice of search engines (DuckDuckGo by default), suggestions, keywords; the
+  engine in use right after the lock and in the new tab page, a click to change it.
 - New tab page with a clock and, for a city you choose, the weather; tiles of
   your bookmarks or of the sites you visit most (up to 32, sixteen per row on
   a wide window); the trackers and ads blocked
@@ -137,6 +138,7 @@ I.K.E. has no servers of its own and sends no telemetry. It contacts only:
 | Filter list sites (easylist.to, ublockorigin.github.io, pgl.yoyo.org, …) | once a day; urgent-fix lists every few hours | a plain download of the list |
 | Google's Chrome version list (versionhistory.googleapis.com) | once a day | a plain request, no personal data |
 | The search engine you chose | when you search; suggestions while typing, if on | what you type in the address bar |
+| The sites of the installed search engines | once per engine, until its icon is known | a plain request for the site's icon (favicon.ico), nothing else |
 | Encrypted DNS provider | only if you turn DNS over HTTPS on | the names of the sites you visit |
 | Google Translate (or the address you set) | only when you translate a page | the address of the page |
 | Google's Widevine download (dl.google.com) | only if you ask I.K.E. to install Widevine | a plain download |

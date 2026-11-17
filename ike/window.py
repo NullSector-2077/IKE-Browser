@@ -445,6 +445,20 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         effects.fading(self.site_info_menu, self.app.config)
         self.urlbar.lock.triggered.connect(self.show_site_info)
 
+        # the search engine in use, right after the lock: a click lists the installed
+        # engines with their own icons, the one chosen becomes the default (1.1.10)
+        self.engine_btn = QToolButton(self.urlbar)
+        self.engine_btn.setAutoRaise(True)
+        self.engine_btn.setIconSize(QSize(16, 16))
+        self.engine_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.engine_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.engine_menu = QMenu(self)
+        self.engine_menu.aboutToShow.connect(self._fill_engine_menu)
+        effects.fading(self.engine_menu, self.app.config)
+        self.engine_btn.setMenu(self.engine_menu)
+        self.urlbar.set_start_widget(self.engine_btn)
+        self.sync_engine()
+
         # Shield: protection level selector, inside the address bar at its right end (1.1.10;
         # 1.1.9: before the bar). A click opens its panel; no arrow beside it.
         self.shield_btn = QToolButton(self.urlbar)
@@ -1625,6 +1639,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                               SP.SP_DialogApplyButton if marked else SP.SP_DialogOpenButton))
         self.act_tb_bookmark.setToolTip(T("Remove bookmark") if marked else T("Bookmark this page"))
         self.urlbar.translate_act.setVisible(scheme in ("http", "https"))
+        self.sync_engine()
 
     def _url_changed(self, view):
         self._site_zoom(view)
@@ -1716,6 +1731,31 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     def _hide_status(self):
         self.statusBar().clearMessage()
         self.statusBar().hide()
+
+    def sync_engine(self):
+        """The icon and the tooltip of the engine button: the default engine."""
+        e = self.app.config.engine()
+        self.engine_btn.setIcon(self.app.engine_icon(e))
+        self.engine_btn.setToolTip("%s: %s" % (T("Default search engine"), e["name"]))
+
+    def _fill_engine_menu(self):
+        m = self.engine_menu
+        m.clear()
+        cfg = self.app.config
+        current = cfg.engine()["name"]
+        group = QActionGroup(m)
+        group.setExclusive(True)
+        for e in cfg["search_engines"]:
+            a = m.addAction(self.app.engine_icon(e), e["name"].replace("&", "&&"))
+            a.setCheckable(True)
+            a.setChecked(e["name"] == current)
+            if e["name"] == current:          # the one in use stands out, also where the tick is faint
+                f = a.font()
+                f.setBold(True)
+                a.setFont(f)
+            group.addAction(a)
+            a.triggered.connect(lambda _c=False, name=e["name"]: self.app.set_engine(name))
+        self.app.fetch_engine_icons()         # the ones not known yet, for the next time
 
     def show_shield_menu(self):
         """The shield's panel, under the shield, its right edge at the shield's."""

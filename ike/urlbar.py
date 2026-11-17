@@ -62,6 +62,8 @@ class UrlBar(QLineEdit):
         self._local = []
         self._end = None               # the shield, at the far right inside the field (1.1.10)
         self._end_room = 0
+        self._start = None             # the search engine, right after the lock (1.1.10)
+        self._start_room = 0
         self._shifted = {}
         self.lock = self.addAction(icon("globe", QStyle.StandardPixmap.SP_FileIcon),
                                    QLineEdit.ActionPosition.LeadingPosition)
@@ -117,7 +119,7 @@ class UrlBar(QLineEdit):
         room = width + self.END_MARGIN
         if room != self._end_room:
             self._end_room = room
-            self.setTextMargins(0, 0, room - 2, 0)
+            self._margins()
             self._shifted.clear()
             # Qt puts its buttons back at the right edge, then they are moved left of the shield
             QCoreApplication.sendEvent(self, QResizeEvent(self.size(), self.size()))
@@ -125,6 +127,34 @@ class UrlBar(QLineEdit):
             b.removeEventFilter(self)
             b.installEventFilter(self)
             self._shift(b)
+        w.raise_()
+
+    def _margins(self):
+        self.setTextMargins(self._start_room, 0, max(0, self._end_room - 2), 0)
+
+    def set_start_widget(self, widget):
+        """Put widget right after the lock; the text starts after it."""
+        self._start = widget
+        widget.setParent(self)
+        widget.setCursor(Qt.CursorShape.ArrowCursor)
+        widget.show()
+        self.place_start()
+
+    def place_start(self):
+        w = self._start
+        if w is None:
+            return
+        lock = [b for b in self._icon_buttons() if b.defaultAction() is self.lock and not b.isHidden()]
+        x = lock[0].geometry().right() + 1 if lock else 4
+        h = max(16, min(w.sizeHint().height(), self.height() - 4))
+        width = w.sizeHint().width()
+        w.setGeometry(x, (self.height() - h) // 2, width, h)
+        if width + 2 != self._start_room:
+            self._start_room = width + 2
+            self._margins()
+        for b in lock:
+            b.removeEventFilter(self)
+            b.installEventFilter(self)
         w.raise_()
 
     def _shift(self, b):
@@ -141,6 +171,8 @@ class UrlBar(QLineEdit):
         super().resizeEvent(event)
         if self._end is not None:
             self.place_end()
+        if self._start is not None:
+            self.place_start()
 
     # --- the site's domain in normal text, the rest of the address dimmed ---
     def domain_span(self, text=None):
@@ -226,7 +258,10 @@ class UrlBar(QLineEdit):
     def eventFilter(self, obj, event):
         if (event.type() == QEvent.Type.Move and obj.parent() is self
                 and obj.metaObject().className() == "QLineEditIconButton"):
-            self._shift(obj)
+            if obj.defaultAction() is self.lock:
+                self.place_start()       # the engine follows the lock
+            else:
+                self._shift(obj)
             return False
         if event.type() == QEvent.Type.Show and obj is self._completer.popup():
             effects.fade_in(obj, self.win.app.config)

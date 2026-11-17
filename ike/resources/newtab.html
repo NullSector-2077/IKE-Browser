@@ -72,13 +72,47 @@ input:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(-
 .date{font-size:13px;color:var(--mute);margin-top:2px}
 .weather{font-size:15px;margin-top:10px}
 .weather:empty{display:none}
-</style>{{background}}</head>
+/* 1.1.10: the search engine in use, left in the search box; a click lists the engines */
+.search{position:relative}
+.search input{padding-left:66px}
+.eng{position:absolute;left:5px;top:0;bottom:0;display:flex;align-items:center;z-index:3}
+.eng-btn{display:flex;align-items:center;gap:4px;height:34px;padding:0 7px 0 8px;border:0;border-radius:4px;
+ background:none;color:var(--mute);cursor:pointer;font:inherit}
+.eng-btn:hover,.eng-btn:focus-visible,.eng.on .eng-btn{color:var(--fg);outline:none;
+ background:color-mix(in srgb,var(--fg) 9%,transparent)}
+.eng-btn::after{content:"";position:absolute;right:-3px;top:9px;bottom:9px;border-right:1px solid var(--line)}
+.eng-ico{position:relative;display:inline-flex;flex:none;width:20px;height:20px}
+.eng-ico svg{width:18px;height:18px;margin:1px;color:var(--mute)}
+.eng-ico img{position:absolute;inset:0;width:20px;height:20px;border-radius:3px;background:var(--card)}
+.eng-arrow{font-size:11px;line-height:1}
+.eng-menu{display:none;position:absolute;left:-5px;top:calc(100% - 2px);min-width:250px;padding:5px;
+ background:var(--card);border:1px solid var(--line);border-radius:6px;box-shadow:0 10px 28px rgba(0,0,0,.4)}
+.eng.on .eng-menu{display:block}
+.eng-menu a{display:flex;align-items:center;gap:12px;padding:7px 10px;border-radius:4px;color:var(--fg);
+ text-decoration:none;font-size:15px}
+.eng-menu a:hover,.eng-menu a:focus-visible{background:color-mix(in srgb,var(--acc) 20%,transparent);outline:none}
+.eng-name{flex:1;white-space:nowrap}
+.eng-tick{color:var(--acc);font-weight:600;min-width:1em;text-align:right}
+@keyframes ike-menu-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.fx .eng.on .eng-menu{animation:ike-menu-in .14s ease-out}
+@media (prefers-reduced-motion:reduce){.fx .eng.on .eng-menu{animation:none}}
+</style>
+<script>
+// an engine's icon not known yet: the magnifier shows, and the icon is asked for once more
+// a little later (I.K.E. fetches it from the engine's own site meanwhile)
+function ikeIconLater(img) {
+  img.style.visibility = "hidden";
+  if (img.dataset.again) { img.remove(); return; }
+  img.dataset.again = "1";
+  setTimeout(function () { img.src = img.src + "&again=1"; }, 2500);
+}
+</script>{{background}}</head>
 <body class="{{fx}}{{photo}}">
 <div class="corner">{{corner}}</div>
 {{buttons}}
 <img class="logo" src="ike:logo" alt="I.K.E.">
 <h1>{{wordmark}}</h1>
-<div class="search"><form action="ike:search" method="get"><input name="q" autofocus autocomplete="off" placeholder="{{placeholder}}"></form></div>
+<div class="search"><form action="ike:search" method="get"><input name="q" autofocus autocomplete="off" placeholder="{{placeholder}}"></form>{{engines}}</div>
 {{tiles}}
 <div class="stats">{{stats}}</div>
 <script>
@@ -106,6 +140,31 @@ input:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(-
     });
     field.addEventListener("blur", function () { if (!field.value.trim()) shut(); });
     add.addEventListener("submit", function (e) { if (!field.value.trim()) e.preventDefault(); });
+  }
+  // the engine picker of the search box (1.1.10)
+  var eng = document.querySelector(".eng");
+  if (eng) {
+    var eb = eng.querySelector(".eng-btn"), items = eng.querySelectorAll(".eng-menu a");
+    var setOpen = function (on) {
+      eng.classList.toggle("on", on);
+      eb.setAttribute("aria-expanded", on ? "true" : "false");
+    };
+    eb.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var on = !eng.classList.contains("on");
+      setOpen(on);
+      if (on) { (eng.querySelector('[aria-checked="true"]') || items[0] || eb).focus(); }
+    });
+    document.addEventListener("click", function (e) { if (!eng.contains(e.target)) setOpen(false); });
+    eng.addEventListener("keydown", function (e) {
+      var list = Array.prototype.slice.call(items), at = list.indexOf(document.activeElement);
+      if (e.key === "Escape" && eng.classList.contains("on")) { setOpen(false); eb.focus(); e.preventDefault(); }
+      else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && eng.classList.contains("on") && list.length) {
+        var n = at < 0 ? 0 : (at + (e.key === "ArrowDown" ? 1 : list.length - 1)) % list.length;
+        list[n].focus();
+        e.preventDefault();
+      }
+    });
   }
   window.ikeWeather = function (text) {
     var w = document.getElementById("weather");
