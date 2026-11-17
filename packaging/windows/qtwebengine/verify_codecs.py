@@ -174,16 +174,27 @@ function quarters(element) {
 }
 
 async function appendAll(mediaSource, parts) {
-  for (const part of parts) {
+  // Register every track before appending data. Adding another SourceBuffer
+  // after the first one has already started consuming data can hit Chromium's
+  // per-MediaSource buffer quota on constrained Windows runners.
+  const buffers = parts.map(function (part) {
     if (!MediaSource.isTypeSupported(part.type)) {
       throw new Error("MediaSource.isTypeSupported is false for " + part.type);
     }
-    const buffer = mediaSource.addSourceBuffer(part.type);
-    const data = await (await fetch(part.url)).arrayBuffer();
+    return {part: part, buffer: mediaSource.addSourceBuffer(part.type)};
+  });
+  for (const item of buffers) {
+    const response = await fetch(item.part.url);
+    if (!response.ok) {
+      throw new Error("Could not fetch " + item.part.url + ": HTTP " + response.status);
+    }
+    const data = await response.arrayBuffer();
     await new Promise(function (resolve, reject) {
-      buffer.addEventListener("updateend", resolve, {once: true});
-      buffer.addEventListener("error", function () { reject(new Error("SourceBuffer error for " + part.url)); }, {once: true});
-      buffer.appendBuffer(data);
+      item.buffer.addEventListener("updateend", resolve, {once: true});
+      item.buffer.addEventListener("error", function () {
+        reject(new Error("SourceBuffer error for " + item.part.url));
+      }, {once: true});
+      item.buffer.appendBuffer(data);
     });
   }
   mediaSource.endOfStream();
