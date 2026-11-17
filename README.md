@@ -17,7 +17,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.1.9-1-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.1.9-2-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:
@@ -89,8 +89,9 @@ profiles: `ike-browser --profile NAME`.
   this month; your own photo as its background if you like (kept on the
   computer, never uploaded).
 - Toolbar buttons shown, hidden and moved to either side of the address bar
-  ("Customise toolbar"); in a narrow window the ones that do not fit are listed
-  under a » button.
+  ("Customise toolbar"); Back, Forward, Home and Reload keep their place at the
+  start, and the shield its place right before the address bar. In a narrow
+  window the buttons that do not fit are listed under a » button.
 - **Site resources** (Shift+Esc): memory, CPU and network of each open site,
   with optional limits that suspend or freeze greedy background tabs.
 - **Watched pages**: right-click a page, or a part of it such as a price, to be

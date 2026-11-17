@@ -61,20 +61,22 @@ def steps(ike, qapp, out):
     yield from load(view, SITE + "/page")
     acc = win.palette().color(win.palette().ColorRole.Highlight)
 
-    # --- the round hover of a toolbar button, with the real mouse
-    b = button_of(win, win.act_tb_bookmark)
-    out["styled"] = type(b.style()).__name__
+    # --- the round hover of a toolbar button, with the real mouse (a button on the left:
+    # the test screen of the offscreen platform is 800 px wide, the mouse goes no further)
+    h = button_of(win, win.act_tb_private)
+    out["styled"] = type(h.style()).__name__
     QTest.mouseMove(win, QPoint(5, win.height() - 5))
     yield 300
-    before = tinted(b, acc)
-    QTest.mouseMove(b, b.rect().center())
+    before = tinted(h, acc)
+    QTest.mouseMove(h, h.rect().center())
     yield 60
-    mid = float(b.property("ike_hover") or 0)
+    mid = float(h.property("ike_hover") or 0)
     yield 300
-    out["hover"] = [before, mid, float(b.property("ike_hover") or 0), tinted(b, acc)]
+    out["hover"] = [before, mid, float(h.property("ike_hover") or 0), tinted(h, acc)]
     QTest.mouseMove(win, QPoint(5, win.height() - 5))
     yield 400
-    out["hover_gone"] = float(b.property("ike_hover") or 0)
+    out["hover_gone"] = float(h.property("ike_hover") or 0)
+    b = button_of(win, win.act_tb_bookmark)
     out["own_hover_untouched"] = all(not w.property("ike_hover") for w in win.nav.findChildren(QToolButton)
                                      if w.property("ike_own_hover"))
 
@@ -178,10 +180,11 @@ def steps(ike, qapp, out):
     win.show()
     view = win.current_view()
     yield from load(view, SITE + "/page")
-    b = button_of(win, win.act_tb_bookmark)
-    QTest.mouseMove(b, b.rect().center())
+    h = button_of(win, win.act_tb_private)
+    QTest.mouseMove(h, h.rect().center())
     yield 30
-    out["hover_at_once"] = float(b.property("ike_hover") or 0)
+    out["hover_at_once"] = float(h.property("ike_hover") or 0)
+    b = button_of(win, win.act_tb_bookmark)
     QTest.mouseClick(b, Qt.MouseButton.LeftButton)
     yield 30
     out["no_pop"] = not win.__dict__.get("_ike_pops", {}).get("star")
@@ -223,7 +226,7 @@ def test_touches_of_119(run_ike, site):
     out = run_ike(STEPS.replace("__SITE__", site), env={"IKE_REDUCED_MOTION": "0"}, timeout=150)
     assert out["styled"] == "RoundHoverStyle"
     before, mid, end, after = out["hover"]
-    assert 0 < mid < 1 and end == 1.0 and after > before          # it glides in, round and accent-coloured
+    assert 0 < mid < 1 and end == 1.0 and after > before, out["hover"]   # it glides in, round and accent-coloured
     assert out["hover_gone"] == 0.0 and out["own_hover_untouched"]
     assert out["star_popping"]
     assert out["star_after"][0] and out["star_after"][1] and out["star_after"][2] == "Remove bookmark"

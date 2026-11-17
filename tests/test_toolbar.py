@@ -12,18 +12,20 @@ from ike.config import DEFAULTS, TOOLBAR_ITEMS
 from ike.toolbar import LEFT, RIGHT, ToolbarLayout, default_layout
 
 SHOTS = os.environ.get("IKE_TEST_SHOTS", "")
-KEYS = ["shield", "reload", "bookmark", "reader", "screenshot", "pip", "split", "dark", "private",
-        "cleansite", "downloads", "menu"]
+# the movable buttons; Back, Forward, Home, Reload and the shield have fixed places (1.1.9)
+KEYS = ["bookmark", "reader", "screenshot", "pip", "split", "dark", "private", "cleansite", "downloads", "menu"]
+LEFT_DEFAULT = ["dark", "private", "cleansite", "screenshot", "split"]          # pip starts hidden
+RIGHT_DEFAULT = ["bookmark", "downloads", "reader", "menu"]
 
 
 # ----------------------------------------------------------------------
 # the model
 # ----------------------------------------------------------------------
 def test_layout_from_settings():
-    lay = ToolbarLayout(KEYS, DEFAULTS["toolbar_order"], DEFAULTS["toolbar_left"], ["split", "dark"])
-    assert lay.left == ["shield", "reload", "bookmark"]
-    assert lay.right == ["reader", "screenshot", "pip", "split", "dark", "private", "cleansite", "downloads", "menu"]
-    assert lay.shown(RIGHT) == ["reader", "screenshot", "pip", "private", "cleansite", "downloads", "menu"]
+    lay = ToolbarLayout(KEYS, DEFAULTS["toolbar_order"], DEFAULTS["toolbar_left"], ["pip"])
+    assert lay.left == LEFT_DEFAULT + ["pip"]
+    assert lay.right == RIGHT_DEFAULT
+    assert lay.shown(LEFT) == LEFT_DEFAULT and lay.shown(RIGHT) == RIGHT_DEFAULT
     # every key once, whatever the settings hold
     for order, left, hidden in (
             ([], [], []),
@@ -33,27 +35,34 @@ def test_layout_from_settings():
             (list(reversed(KEYS)), KEYS, KEYS)):
         lay = ToolbarLayout(KEYS, order, left, hidden)
         assert sorted(lay.left + lay.right) == sorted(KEYS), (order, left)
-        assert not ({"shield", "menu"} & lay.hidden)            # never hidden
-        assert "shield" in lay.shown(lay.zone_of("shield")) and "menu" in lay.shown(lay.zone_of("menu"))
+        assert "menu" not in lay.hidden                         # never hidden
+        assert "menu" in lay.shown(lay.zone_of("menu"))
     # settings written before a button existed: it joins the right zone, before the menu
     old = [k for k in DEFAULTS["toolbar_order"] if k not in ("pip", "cleansite")]
-    lay = ToolbarLayout(KEYS, old, ["shield"], [])
-    assert lay.right[-3:] == ["pip", "cleansite", "menu"] and lay.left == ["shield"]
+    lay = ToolbarLayout(KEYS, old, ["dark"], [])
+    assert lay.right[-3:] == ["pip", "cleansite", "menu"] and lay.left == ["dark"]
+    # settings of 1.1.8, when the shield and Reload were movable: they are simply not in the zones
+    lay = ToolbarLayout(KEYS, ["shield", "reload", "bookmark", "reader", "downloads", "menu"],
+                        ["shield", "reload", "bookmark"], ["shield", "reload"])
+    assert lay.left == ["bookmark"] and not ({"shield", "reload"} & set(lay.left + lay.right))
+    assert sorted(lay.left + lay.right) == sorted(KEYS)
     # a button the program no longer has is forgotten
     lay = ToolbarLayout(KEYS[:-2] + ["menu"], DEFAULTS["toolbar_order"], [], [])
     assert "downloads" not in lay.left + lay.right
 
 
 def test_layout_moves():
-    lay = ToolbarLayout(KEYS, DEFAULTS["toolbar_order"], DEFAULTS["toolbar_left"], ["split", "dark"])
-    assert lay.slot_of("reader") == (RIGHT, 0) and lay.slot_of("bookmark") == (LEFT, 2)
-    assert not lay.move("reader", RIGHT, 0)                     # already there
-    assert lay.move("reader", RIGHT, 2)
-    assert lay.shown(RIGHT)[:3] == ["screenshot", "pip", "reader"]
-    # it goes right before the shown button that had that place; hidden ones stay where they were
-    assert lay.right == ["screenshot", "pip", "split", "dark", "reader", "private", "cleansite", "downloads", "menu"]
-    assert lay.move("reader", LEFT, 0) and lay.left == ["reader", "shield", "reload", "bookmark"]
-    assert lay.move("reader", LEFT, 99) and lay.left[-1] == "reader"
+    lay = ToolbarLayout(KEYS, DEFAULTS["toolbar_order"], DEFAULTS["toolbar_left"], ["pip"])
+    assert lay.slot_of("reader") == (RIGHT, 2) and lay.slot_of("screenshot") == (LEFT, 3)
+    assert not lay.move("reader", RIGHT, 2)                     # already there
+    assert lay.move("reader", RIGHT, 0)
+    assert lay.shown(RIGHT)[:3] == ["reader", "bookmark", "downloads"]
+    # past the last shown button it goes right after it; hidden ones stay where they were
+    assert lay.move("dark", LEFT, 99)
+    assert lay.left == ["private", "cleansite", "screenshot", "split", "dark", "pip"]
+    assert lay.move("reader", LEFT, 0) and lay.left[0] == "reader"
+    assert not lay.move("shield", LEFT, 0) and not lay.move("reload", RIGHT, 0)   # fixed: not movable
+    assert lay.move("reader", LEFT, 99) and lay.shown(LEFT)[-1] == "reader" and lay.left[-1] == "pip"
     assert lay.move("reader", RIGHT, 99) and lay.right[-1] == "reader"
     assert lay.move("reader", RIGHT, -5) and lay.right[0] == "reader"
     assert not lay.move("unknown", LEFT, 0) and not lay.move("reader", "middle", 0)
@@ -73,18 +82,18 @@ def test_layout_moves():
 
 
 def test_layout_is_stored_and_read_back():
-    lay = ToolbarLayout(KEYS, DEFAULTS["toolbar_order"], DEFAULTS["toolbar_left"], ["split"])
+    lay = ToolbarLayout(KEYS, DEFAULTS["toolbar_order"], DEFAULTS["toolbar_left"], ["pip"])
     lay.move("downloads", LEFT, 1)
-    lay.move("shield", RIGHT, 3)
-    cfg = {"toolbar_hidden": ["split"]}
+    lay.move("bookmark", RIGHT, 3)
+    cfg = {"toolbar_hidden": ["pip"]}
     lay.store(cfg)
-    assert cfg["toolbar_hidden"] == ["split"]                   # not this function's business
+    assert cfg["toolbar_hidden"] == ["pip"]                     # not this function's business
     assert json.loads(json.dumps(cfg)) == cfg
     again = ToolbarLayout.from_config(cfg, KEYS)
     assert (again.left, again.right, again.hidden) == (lay.left, lay.right, lay.hidden)
     first = default_layout(KEYS, DEFAULTS, TOOLBAR_ITEMS)
     assert first.left == DEFAULTS["toolbar_left"] and first.left + first.right == DEFAULTS["toolbar_order"]
-    assert first.hidden == {"split", "dark", "private", "cleansite"}
+    assert first.hidden == {"pip"}
 
 
 # ----------------------------------------------------------------------
@@ -167,26 +176,26 @@ def steps(ike, qapp, out):
     win.act_tb_shot.triggered.disconnect()
     win.act_tb_shot.triggered.connect(lambda *_a: fired.append("screenshot"))
     out["start"] = keys(win)
-    first_button = button(win, "reader")
+    first_button = button(win, "bookmark")
     shape = geometry(win)
 
-    # 1. long press, then drag past Downloads
+    # 1. long press, then drag past the menu (far enough for every step to be a real move)
     moves = []
-    yield from drag(win, "reader", after(win, "downloads"), moves_out=moves)
+    yield from drag(win, "bookmark", after(win, "menu"), moves_out=moves)
     out["moves"] = [[m[0], m[1], m[2], m[3]] for m in moves]
     out["toolbar_untouched_during_drag"] = all(m[4] == out["start"] and m[5] == shape for m in moves)
     out["after_first"] = keys(win)
     out["saved_first"] = [list(ike.config["toolbar_order"]), list(ike.config["toolbar_left"])]
-    out["rebuilt"] = button(win, "reader") is not first_button
+    out["rebuilt"] = button(win, "bookmark") is not first_button
     out["ghost_gone"] = [win.toolbar_mover._ghost is None, win.toolbar_mover.overlay.isVisible()]
     out["status_after"] = [win.statusBar().isVisible(), win.statusBar().currentMessage()]
 
     # 2. the rebuilt button can be moved again, to the other side of the address bar
-    yield from drag(win, "reader", before(win, "reload"))
+    yield from drag(win, "bookmark", before(win, "screenshot"))
     out["after_second"] = keys(win)
 
     # 3. a press shorter than the long press, then a move: nothing moves, and it is a click
-    yield from drag(win, "reader", after(win, "menu"), hold=150)
+    yield from drag(win, "bookmark", after(win, "menu"), hold=150)
     out["after_short"] = keys(win)
 
     # 4. a plain click still does the button's job; a long press without moving does not
@@ -213,50 +222,60 @@ def steps(ike, qapp, out):
     yield from drag(win, "screenshot", far)
     out["cancelled"] = [keys(win) == was, list(fired), win.toolbar_mover._ghost is None]
 
-    # 6. the fixed buttons: no key, a long press and drag does nothing
-    home = win.nav.widgetForAction(win.act_home)
-    out["home_key"] = home.property("ikeToolbarKey")
-    ev(home, QEvent.Type.MouseButtonPress, centre(home), LEFT_BTN, LEFT_BTN)
-    yield 900
-    for x in (40, 120, 300):
-        ev(home, QEvent.Type.MouseMove, centre(home) + QPoint(x, 0), NO_BTN, LEFT_BTN)
-        yield 15
-    ev(home, QEvent.Type.MouseButtonRelease, centre(home) + QPoint(300, 0), LEFT_BTN, NO_BTN)
-    yield 150
+    # 6. the fixed buttons (Home, Reload, the shield): no key, a long press and drag does nothing
+    out["home_key"] = []
+    for fixed in (win.nav.widgetForAction(win.act_home), win.nav.widgetForAction(win.act_reload)):
+        out["home_key"].append(fixed.property("ikeToolbarKey"))
+        ev(fixed, QEvent.Type.MouseButtonPress, centre(fixed), LEFT_BTN, LEFT_BTN)
+        yield 900
+        for x in (40, 120, 300):
+            ev(fixed, QEvent.Type.MouseMove, centre(fixed) + QPoint(x, 0), NO_BTN, LEFT_BTN)
+            yield 15
+        ev(fixed, QEvent.Type.MouseButtonRelease, centre(fixed) + QPoint(300, 0), LEFT_BTN, NO_BTN)
+        yield 150
+    out["home_key"].append(win.shield_btn.property("ikeToolbarKey"))
     out["after_home_drag"] = keys(win) == was
+    acts = win.nav.actions()
+    out["shield_place"] = acts.index(win.shield_act) == acts.index(win.urlbar_act) - 1
     # dropped on Back: the button becomes the first of the left zone, after the separator
-    yield from drag(win, "pip", centre(win.nav.widgetForAction(win.act_back)))
+    yield from drag(win, "split", centre(win.nav.widgetForAction(win.act_back)))
     out["after_drop_on_back"] = keys(win)
     acts = win.nav.actions()
     out["fixed"] = [acts.index(win.act_back), acts.index(win.act_fwd), acts.index(win.act_home),
-                    acts.index(win.home_sep_act), acts[3].isSeparator(), acts.index(win._win_btns[0]) > acts.index(win.urlbar_act),
+                    acts.index(win.act_reload), acts.index(win.home_sep_act), acts[4].isSeparator(),
+                    acts.index(win.shield_act) == acts.index(win.urlbar_act) - 1,
+                    acts.index(win._win_btns[0]) > acts.index(win.urlbar_act),
                     [acts.index(a) for a in win._win_btns] == sorted(acts.index(a) for a in win._win_btns),
                     acts[-1] is win._win_btns[-1]]
     out["final"] = keys(win)
     out["final_saved"] = [list(ike.config["toolbar_order"]), list(ike.config["toolbar_left"])]
     ''', settings={"system_titlebar": False, "start_maximized": False}, timeout=150)
     left, right = out["start"]
-    assert left == ["shield", "reload", "bookmark"] and right == ["reader", "screenshot", "pip", "downloads", "menu"]
+    assert left == LEFT_DEFAULT and right == RIGHT_DEFAULT
     # the drag: a marker and a ghost from the first real move, the toolbar itself untouched
     assert all(m[0] and m[2] and m[3] and isinstance(m[1], int) for m in out["moves"]), out["moves"]
     assert out["toolbar_untouched_during_drag"]
     assert len({m[1] for m in out["moves"]}) <= 5              # the marker snaps to the few places between buttons
-    assert out["after_first"] == [left, ["screenshot", "pip", "downloads", "reader", "menu"]]
+    assert out["after_first"] == [left, ["downloads", "reader", "menu", "bookmark"]]
     order, saved_left = out["saved_first"]
-    assert saved_left == left and order.index("downloads") < order.index("reader") < order.index("menu")
+    assert [k for k in saved_left if k != "pip"] == left            # pip: hidden, kept in its place
+    assert order.index("downloads") < order.index("menu") < order.index("bookmark")
     assert sorted(order) == sorted(KEYS)
     assert out["rebuilt"] and out["ghost_gone"] == [True, False]
     assert out["status_after"] == [False, ""]
-    assert out["after_second"] == [["shield", "reader", "reload", "bookmark"], ["screenshot", "pip", "downloads", "menu"]]
+    assert out["after_second"] == [["dark", "private", "cleansite", "bookmark", "screenshot", "split"],
+                                   ["downloads", "reader", "menu"]]
     assert out["after_short"] == out["after_second"]
     assert out["click"] == ["screenshot"]
     assert out["hint"][0] is True and out["hint"][1]
     assert out["long_press_no_click"] == [] and out["hint_gone"] == [False, "", False]
     assert out["cancelled"] == [True, [], True]
-    assert not out["home_key"] and out["after_home_drag"]
-    assert out["after_drop_on_back"][0] == ["pip", "shield", "reader", "reload", "bookmark"]
-    assert out["fixed"] == [0, 1, 2, 3, True, True, True, True]
-    assert out["final_saved"][0][:5] == out["final"][0] and out["final_saved"][1] == out["final"][0]
+    assert not any(out["home_key"]) and out["after_home_drag"] and out["shield_place"]
+    assert out["after_drop_on_back"][0] == ["split", "dark", "private", "cleansite", "bookmark", "screenshot"]
+    assert out["fixed"] == [0, 1, 2, 3, 4, True, True, True, True, True]
+    saved_order, saved_left = out["final_saved"]
+    assert [k for k in saved_left if k != "pip"] == out["final"][0]
+    assert [k for k in saved_order if k != "pip"][:len(out["final"][0])] == out["final"][0]
 
     # the arrangement is there at the next start
     again = run_ike(HELPERS + r'''
@@ -294,16 +313,13 @@ def steps(ike, qapp, out):
     ev(b, QEvent.Type.MouseButtonRelease, centre(b), LEFT_BTN, NO_BTN)
     yield 100
     out["click_in_mode"] = [list(fired), keys(win) == (left, right)]
-    # the shield's panel does not open either
-    s = button(win, "shield")
-    ev(s, QEvent.Type.MouseButtonPress, centre(s), LEFT_BTN, LEFT_BTN)
-    ev(s, QEvent.Type.MouseButtonRelease, centre(s), LEFT_BTN, NO_BTN)
-    yield 150
-    out["shield_menu_open"] = win.shield_menu.isVisible()
+    # the fixed shield has no outline: it is not arranged
+    sc = win.shield_btn.mapTo(win.nav, win.shield_btn.rect().center())
+    out["shield_outlined"] = any(r.contains(sc) for r in m.overlay.outlines)
     # dragging starts at once, without the long press
     yield from drag(win, "reader", after(win, "bookmark"), hold=30)
     out["dragged"] = keys(win)
-    yield from drag(win, "shield", after(win, "menu"), hold=30)
+    yield from drag(win, "dark", after(win, "menu"), hold=30)
     out["shield_moved"] = keys(win)
     yield 100
     out["outlines_after"] = len(m.overlay.outlines)
@@ -314,15 +330,15 @@ def steps(ike, qapp, out):
     choose.aboutToShow.emit()
     entries = {a.data(): a for a in choose.actions()}
     out["entries"] = sorted(entries)
-    entries["dark"].setChecked(True)
-    choose.triggered.emit(entries["dark"])
+    entries["pip"].setChecked(True)
+    choose.triggered.emit(entries["pip"])
     yield 200
     choose.aboutToShow.emit()
     entries = {a.data(): a for a in choose.actions()}
     entries["home"].setChecked(False)
     choose.triggered.emit(entries["home"])
     yield 200
-    out["shown_dark"] = "dark" in keys(win)[1]
+    out["shown_dark"] = "pip" in keys(win)[0]
     out["home_hidden"] = [win.act_home.isVisible(), win.home_sep_act.isVisible(), win.act_back.isVisible()]
     out["outlines_with_dark"] = len(m.overlay.outlines)
     out["saved"] = [list(ike.config["toolbar_order"]), list(ike.config["toolbar_left"]),
@@ -362,24 +378,25 @@ def steps(ike, qapp, out):
     out["click_after"] = list(fired)
     ''', settings={"start_maximized": False}, env={"IKE_TEST_SHOTS": SHOTS}, timeout=150)
     assert out["off"] == [False, False, False]
-    assert out["on"][:3] == [True, True, True] and out["on"][3] == out["on"][4] == 8
-    assert out["outlines_match"]
+    assert out["on"][:3] == [True, True, True] and out["on"][3] == out["on"][4] == 9
+    assert out["outlines_match"] and out["shield_outlined"] is False
     assert out["click_in_mode"] == [[], True]
-    assert out["shield_menu_open"] is False
-    assert out["dragged"] == [["shield", "reload", "bookmark", "reader"], ["screenshot", "pip", "downloads", "menu"]]
-    assert out["shield_moved"] == [["reload", "bookmark", "reader"], ["screenshot", "pip", "downloads", "menu", "shield"]]
-    assert out["outlines_after"] == 8
+    assert out["dragged"] == [LEFT_DEFAULT, ["bookmark", "reader", "downloads", "menu"]]
+    assert out["shield_moved"] == [["private", "cleansite", "screenshot", "split"],
+                                   ["bookmark", "reader", "downloads", "menu", "dark"]]
+    assert out["outlines_after"] == 9
     assert out["entries"] == sorted(k for k, _h in TOOLBAR_ITEMS)
-    assert out["shown_dark"] and out["outlines_with_dark"] == 9
+    assert out["shown_dark"] and out["outlines_with_dark"] == 10
     assert out["home_hidden"] == [False, True, True]
     order, left, hidden = out["saved"]
-    assert left == ["reload", "bookmark", "reader"] and order[-1] == "shield" and sorted(order) == sorted(KEYS)
-    assert hidden == ["cleansite", "home", "private", "split"]
-    assert out["second"] == [["reload", "bookmark", "reader"], ["screenshot", "pip", "dark", "downloads", "menu", "shield"]]
+    assert left == ["private", "cleansite", "screenshot", "split", "pip"] and order[-1] == "dark"
+    assert sorted(order) == sorted(KEYS) and hidden == ["home"]
+    assert out["second"] == [["private", "cleansite", "screenshot", "split", "pip"],
+                             ["bookmark", "reader", "downloads", "menu", "dark"]]
     assert out["second_mode"] == [False, False]
     keys_after, hidden, order, left, home, sep = out["reset"]
-    assert keys_after == [["shield", "reload", "bookmark"], ["reader", "screenshot", "pip", "downloads", "menu"]]
-    assert hidden == ["cleansite", "dark", "private", "split"]
+    assert keys_after == [LEFT_DEFAULT, RIGHT_DEFAULT]
+    assert hidden == ["pip"]
     assert order == DEFAULTS["toolbar_order"] and left == DEFAULTS["toolbar_left"] and home and sep
     assert out["still_on"] is True
     assert out["left_mode"] == [False, False, False]
@@ -407,11 +424,13 @@ def check(win, least=180):
     acts = [a for _n, _r, a in items]
     def at(a):
         return acts.index(a) if a in acts else None
-    fixed = [at(a) for a in (win.act_back, win.act_fwd, win.act_home, win.home_sep_act)]
-    if fixed != [0, 1, 2, 3]:
+    fixed = [at(a) for a in (win.act_back, win.act_fwd, win.act_home, win.act_reload, win.home_sep_act)]
+    if fixed != [0, 1, 2, 3, 4]:
         bad.append("fixed %s" % fixed)
     if at(win.urlbar_act) is None:
         bad.append("address bar hidden")
+    elif at(win.shield_act) != at(win.urlbar_act) - 1:
+        bad.append("shield not right before the address bar")
     elif win.urlbar.width() < least:
         bad.append("address bar %d" % win.urlbar.width())
     ext = nav.findChild(QWidget, "qt_toolbar_ext_button")
@@ -453,24 +472,27 @@ def steps(ike, qapp, out):
     def note(name, least=180):
         ub = win.urlbar
         out["checks"][name] = [check(win, least), ub.width(), win.width(),
-                               ub.mapTo(win, QPoint(ub.width() // 2, 0)).x(), sorted(win.toolbar_spilled)]
+                               ub.mapTo(win, QPoint(ub.width() // 2, 0)).x(), sorted(win.toolbar_spilled),
+                               win._nav_spacers[0].width()]
     # every button shown, some moved to the left: the fullest toolbar there can be
     ike.config["toolbar_hidden"] = []
-    ike.config["toolbar_left"] = ["shield", "reload", "bookmark", "dark", "split"]
+    ike.config["toolbar_left"] = ["dark", "private", "cleansite", "screenshot", "split", "pip", "bookmark"]
     ike.refresh_toolbars()
     for width in (2560, 1920, 1280, 1024, 900, 800, 700, 640, 560, 1366, 3840):
         win.resize(width, 700)
         yield 450
-        note("full-%d" % width)
+        # Back, Forward, Home, Reload and the shield never go under the » button (1.1.9):
+        # in a very narrow window with every button shown the bar keeps a little less
+        note("full-%d" % width, least=140 if width <= 560 else 180)
     # the default toolbar
     win.reset_toolbar()
     for width in (1920, 1280, 800, 640, 560):
         win.resize(width, 700)
         yield 450
-        note("default-%d" % width)
+        note("default-%d" % width, least=140 if width <= 560 else 180)
     win.resize(480, 700)
     yield 450
-    note("default-480", least=120)
+    note("default-480", least=80)      # the fixed buttons first (1.1.9)
     # a button listed under » still works from there
     fired = []
     win.act_downloads.triggered.disconnect()
@@ -484,7 +506,7 @@ def steps(ike, qapp, out):
     yield 500
     note("default-1500")
     # moving still lands where the mouse is
-    yield from drag(win, "downloads", before(win, "shield"))
+    yield from drag(win, "downloads", before(win, "dark"))
     out["moved"] = keys(win)
     yield from drag(win, "bookmark", after(win, "menu"))
     out["moved_back"] = keys(win)
@@ -497,17 +519,21 @@ def steps(ike, qapp, out):
     ''', settings={"system_titlebar": False, "start_maximized": False},
                   env={"QT_SCALE_FACTOR": scale, "IKE_TEST_SHOTS": SHOTS}, timeout=180)
     assert abs(out["ratio"] - float(scale)) < 0.01
-    for name, (bad, bar, width, centre, spilled) in out["checks"].items():
+    for name, (bad, bar, width, centre, spilled, pad) in out["checks"].items():
         assert bad == [], (name, bad)
         if width >= 1280:
             assert spilled == [], (name, spilled)
         if name.startswith("default") and width >= 1280:
-            # the usual case: the address bar has its share of the window, in the middle
-            assert bar >= width * 0.5 and abs(centre - width / 2) <= 1, (name, bar, width, centre)
+            # the usual case: the address bar has its share of the window, in the middle - or,
+            # where the left side's buttons leave too little room, as near to it as it gets
+            # (1.1.9's default shows nine buttons besides the fixed ones: at 1280 px the bar
+            # gets the room that is left, a little under half the window)
+            assert bar >= width * (0.5 if width >= 1600 else 0.45), (name, bar, width)
+            assert abs(centre - width / 2) <= 1 or (pad == 0 and centre > width / 2), (name, centre, pad)
     assert out["checks"]["full-560"][4] and out["checks"]["default-480"][4]
     assert "downloads" in out["under_more"] and out["fired"] == ["downloads"]
-    assert out["moved"] == [["downloads", "shield", "reload", "bookmark"], ["reader", "screenshot", "pip", "menu"]]
-    assert out["moved_back"] == [["downloads", "shield", "reload"], ["reader", "screenshot", "pip", "menu", "bookmark"]]
+    assert out["moved"] == [["downloads"] + LEFT_DEFAULT, ["bookmark", "reader", "menu"]]
+    assert out["moved_back"] == [["downloads"] + LEFT_DEFAULT, ["reader", "menu", "bookmark"]]
     assert out["end"] == []
 
 
@@ -524,15 +550,15 @@ def steps(ike, qapp, out):
     win = ike.windows[0]
     out["keys"] = keys(win)
     out["fixed"] = [win.act_back.isVisible(), win.act_fwd.isVisible(), win.act_home.isVisible(),
-                    win.home_sep_act.isVisible()]
+                    win.act_reload.isVisible(), win.home_sep_act.isVisible(), win.shield_act.isVisible()]
     out["hidden"] = list(ike.config["toolbar_hidden"])
         ''', settings=settings)
         left, right = out["keys"]
         shown = left + right
-        assert len(shown) == len(set(shown)) and {"shield", "menu"} <= set(shown), (settings, out["keys"])
+        assert len(shown) == len(set(shown)) and "menu" in shown, (settings, out["keys"])
         if settings["toolbar_left"] == ["menu", "nothing"]:
             assert left == ["menu"] and right[0] == "reader"
         if "back" in settings["toolbar_hidden"]:
-            assert out["fixed"] == [False, False, False, False]
+            assert out["fixed"] == [False, False, False, True, True, True]     # Reload is still there
         else:
-            assert out["fixed"] == [True, True, True, True]
+            assert out["fixed"] == [True, True, True, True, True, True]

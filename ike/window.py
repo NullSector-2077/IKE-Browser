@@ -420,9 +420,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_home = self._action(T("Home"), self.go_home, ["Alt+Home"],
                                      icon("go-home", SP.SP_DirHomeIcon),
                                      T("Open the home page"))
-        for a in (self.act_back, self.act_fwd, self.act_home):
+        for a in (self.act_back, self.act_fwd, self.act_home, self.act_reload):
             tb.addAction(a)
-        self.home_sep_act = tb.addSeparator()      # fixed: always right after Home, never moved
+        self.home_sep_act = tb.addSeparator()      # fixed: always right after Reload, never moved (1.1.9)
 
         def spacer():
             w = QWidget(self)
@@ -445,7 +445,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         effects.fading(self.site_info_menu, self.app.config)
         self.urlbar.lock.triggered.connect(self.show_site_info)
 
-        # Shield: protection level selector, right of the address bar.
+        # Shield: protection level selector, fixed right before the address bar (1.1.9).
         self.shield_btn = QToolButton(self)
         self.shield_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.shield_btn.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
@@ -460,7 +460,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.shield_menu.aboutToShow.connect(lambda: self.shield_panel.kinds.grow(self.app.config))
         effects.fading(self.shield_menu, self.app.config)
         self.shield_btn.setMenu(self.shield_menu)
-        self.shield_act = tb.addWidget(self.shield_btn)
+        self.shield_act = tb.insertWidget(self.urlbar_act, self.shield_btn)
         # a ring opens once around the shield when it blocks something (polish.py)
         self.shield_pulse = polish.ShieldPulse(self.shield_btn, self.app.config)
         self.shield_count = polish.ShieldCount(self.shield_btn, self.app.config)   # "+N" when it grows
@@ -546,9 +546,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self._build_window_buttons(tb)
         self._update_max_button()
         right = self._win_btns[0]
-        self._nav_items = [("shield", self.shield_act, right),
-                           ("reload", self.act_reload, right),
-                           ("bookmark", self.act_tb_bookmark, right),
+        self._nav_items = [("bookmark", self.act_tb_bookmark, right),
                            ("reader", self.act_tb_reader, right),
                            ("screenshot", self.act_tb_shot, right),
                            ("pip", self.act_tb_pip, right),
@@ -1999,8 +1997,16 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 break
         room = space - sum(w for key, w in widths if key not in spilled)
         share = max(30, min(100, int(self.app.config["urlbar_width"]))) / 100.0
-        width = max(self.URLBAR_LEAST, min(int(self.width() * share), room))
+        # in a very narrow window the fixed buttons (Back to Reload, the shield, the menu, the
+        # window buttons) come first: the bar then takes what is left, down to 80 px (1.1.9)
+        least = self.URLBAR_LEAST if room >= self.URLBAR_LEAST else max(80, room)
+        width = max(least, min(int(self.width() * share), room))
+        narrower = width < self.urlbar.width()
         self.urlbar.setFixedWidth(width)
+        if narrower:
+            # the toolbar may have put its last items under Qt's own overflow button while the
+            # bar was still wider (1.1.9: with the shield before the bar it stayed so): look again
+            self.nav.layout().invalidate()
         self._urlbar_width, self._urlbar_room = width, room
         QTimer.singleShot(0, self._centre_urlbar)        # after the toolbar's layout
 
@@ -2021,7 +2027,16 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         except (RuntimeError, AttributeError):
             return
         room = getattr(self, "_urlbar_room", 0)            # both free rooms and the bar
-        half = centre - start
+        # what stands between the left free room and the bar (the shield, 1.1.9), from the
+        # sizes of the items (their positions may still be those of the last layout)
+        acts = self.nav.actions()
+        gap = max(0, self.nav.layout().spacing())
+        between = gap
+        for a in acts[acts.index(self.space_left_act) + 1:acts.index(self.urlbar_act)]:
+            w = self.nav.widgetForAction(a)
+            if w is not None and a.isVisible():
+                between += w.sizeHint().width() + gap
+        half = centre - start - between
         if room <= 0 or half <= 0:
             return
         wanted = getattr(self, "_urlbar_width", ub.width())
@@ -2059,9 +2074,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if clear:
             menu.clear()
         hidden = self.app.config["toolbar_hidden"]
-        for key, act in (("back", self.act_back), ("forward", self.act_fwd), ("home", self.act_home)) \
+        for key, act in (("back", self.act_back), ("forward", self.act_fwd), ("home", self.act_home),
+                         ("reload", self.act_reload)) \
                 + tuple((key, act) for key, act, _anchor in self._nav_items):
-            if key in ("shield", "menu"):
+            if key == "menu":
                 continue
             a = menu.addAction(act.icon(), act.text())
             a.setCheckable(True)

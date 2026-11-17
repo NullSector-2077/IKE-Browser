@@ -45,6 +45,30 @@ when Plasma's animations are set to "Instant"):
 - The **address bar** stays in the middle of the window when the shield's
   number appears (it stayed 8 pixels off until something else moved).
 
+Package 1.1.9-2 (1.1.9-1 had the graphic touches and Plasma parts, without the toolbar below).
+`docs/screenshots/ike-1.1.9.jpg` shows the new tab page with the default toolbar.
+
+**Toolbar** (the owner's arrangement as the default):
+
+- The **shield** has a fixed place right before the address bar, and **Reload**
+  joins Back, Forward and Home at the start, followed by the fixed separator.
+  None of them can be dragged; every other button still can.
+- The default arrangement, for a new installation and for "Reset to default
+  layout": dark mode, private window, clear this site's data, screenshot and
+  split view on the left of the address bar; bookmark, downloads, reader mode
+  and the menu on its right; the floating video starts hidden. A toolbar
+  already arranged by the user keeps its arrangement (the shield and Reload
+  simply leave its zones).
+- The **menu bar** is off for a new installation (it takes room for little; the
+  menu button has everything). Settings -> Appearance switches it on.
+- In a very narrow window (under about 560 px with many buttons) the fixed
+  buttons come first and the address bar takes what is left, down to 80 px,
+  instead of Qt hiding the window buttons; and the toolbar looks again when
+  the address bar gets narrower (it could stay with its last buttons under
+  Qt's own overflow arrow). Where the buttons on the left leave too little
+  room, the address bar keeps half of the window and stands as near to the
+  middle as it can, as before.
+
 Already there and checked again: the site's domain in normal text and the rest
 of the address dimmed, the Downloads button's progress ring, the suggestions
 fading in (on Plasma's Wayland session KWin itself fades pop-ups), the soft

@@ -94,6 +94,10 @@ def steps(ike, qapp, out):
     hovered = []
     v.page().linkHovered.connect(hovered.append)      # what the engine reports, to prove the hovering is real
     out["connected"] = "_hovered" in dir(win)
+    # without the menu bar (1.1.9) the test's pointer starts on the Back button: its tip goes
+    # into the (hidden) status bar. That is not a link: start from an empty message.
+    win.statusBar().clearMessage()
+    yield 100
     start = snapshot(win, v)
     out["start"] = start
     seen = []

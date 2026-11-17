@@ -211,21 +211,26 @@ def test_window_buttons_and_centred_address_bar(run_ike):
             out["fits"] = all(win.nav.widgetForAction(a).isVisible() for a in win._win_btns[1:])
     """, settings={"system_titlebar": False})
     for (width, centre, bar), (_w, _nav, room, wanted, _start, pad) in zip(out["sizes"], out["diag"]):
-        assert abs(centre - width / 2) <= 1, (width, centre, out["diag"])
+        # in the middle; or, when the buttons of one side leave too little room (1.1.9's default
+        # has more on the left), as near as it gets: no room left of it, never narrower than half
+        assert abs(centre - width / 2) <= 1 or (pad == 0 and centre > width / 2), (width, centre, out["diag"])
         assert bar >= width // 2
     assert out["separator"] != "WindowButton" and out["fits"]
     assert all(h >= out["icon"] * 1.2 for h in out["buttons"])
 
 
 def test_fixed_toolbar_buttons_and_private_badge(run_ike):
-    """Back, Forward and Home at the start with their separator (moving the
+    """Back, Forward, Home and Reload at the start with their separator, the
+    shield right before the address bar (moving the
     other buttons is in test_toolbar.py); the badge of a private window."""
     out = run_ike("""
         def steps(ike, qapp, out):
             win = ike.windows[0]
             actions = win.nav.actions()
             out["fixed_order"] = [actions.index(win.act_back), actions.index(win.act_fwd),
-                                  actions.index(win.act_home), actions.index(win.home_sep_act)]
+                                  actions.index(win.act_home), actions.index(win.act_reload),
+                                  actions.index(win.home_sep_act),
+                                  actions.index(win.urlbar_act) - actions.index(win.shield_act)]
             out["home_separator"] = win.home_sep_act.isSeparator()
             private = ike.new_window(private=True)
             yield 400
@@ -234,5 +239,5 @@ def test_fixed_toolbar_buttons_and_private_badge(run_ike):
             out["private_badge"] = bool(badge and "border-radius" in badge.styleSheet())
             out["badge_visible"] = bool(badge and badge.isVisible())
     """)
-    assert out["fixed_order"] == [0, 1, 2, 3] and out["home_separator"]
+    assert out["fixed_order"] == [0, 1, 2, 3, 4, 1] and out["home_separator"]
     assert out["private_badge"] and out["badge_visible"]
