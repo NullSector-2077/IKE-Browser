@@ -222,7 +222,9 @@ DEFAULTS = {
     "tab_sleep_minutes": 20,
     "autoplay_block": False,            # video and audio do not start by themselves (site_opts "autoplay")
     "mouse_gestures": False,            # right button held and dragged: back, forward, reload, close tab
-    "site_zoom": {},                    # host: zoom factor chosen for that site (not in private windows)
+    "site_zoom": {},
+    "reader_theme": "auto",             # reader mode: auto | light | sepia | dark
+    "reader_size": 19,                  # reader mode: text size in pixels (14 - 28)                    # host: zoom factor chosen for that site (not in private windows)
     "res_mem_limit": 0,                 # MB: suspend background tabs of a site above it (0 = off)
     "res_cpu_limit": 0,                 # % of a core: freeze background tabs above it (0 = off)
     "res_mem_default": 1500,            # values offered when a limit is switched on

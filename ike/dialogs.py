@@ -3,8 +3,8 @@
 import time
 from pathlib import Path
 
-from PyQt6.QtCore import Qt, QTimer, QUrl
-from PyQt6.QtGui import QDesktopServices
+from PyQt6.QtCore import QSize, Qt, QTimer, QUrl
+from PyQt6.QtGui import QDesktopServices, QIcon
 from PyQt6.QtWebEngineCore import QWebEngineDownloadRequest
 from PyQt6.QtWidgets import (
     QCheckBox,
@@ -26,6 +26,7 @@ from PyQt6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QSpinBox,
+    QStyle,
     QTableWidget,
     QTableWidgetItem,
     QTreeWidget,
@@ -1550,6 +1551,11 @@ class DownloadsDialog(QDialog):
         self.tree.setHeaderLabels([T("File"), T("Progress"), T("Status")])
         self.tree.setRootIsDecorated(False)
         self.tree.setColumnWidth(0, 360)
+        self.tree.setColumnWidth(1, 190)
+        from .polish import ProgressDelegate
+        self.tree.setItemDelegateForColumn(1, ProgressDelegate(self.tree))    # a bar under the size
+        self.tree.setIconSize(QSize(24, 24))
+        self._icons = {}
         self.tree.itemActivated.connect(lambda _i, _c: self._open(False))
         lay.addWidget(self.tree, 1)
         row = QHBoxLayout()
@@ -1576,13 +1582,36 @@ class DownloadsDialog(QDialog):
     def fill(self):
         cur = self.tree.indexOfTopLevelItem(self.tree.currentItem())
         self.tree.clear()
+        from .polish import FRACTION_ROLE, part
+        S = QWebEngineDownloadRequest.DownloadState
         for d in self.app.downloads:
             total = d.totalBytes()
             got = d.receivedBytes()
             prog = ("%s / %s" % (_fmt_size(got), _fmt_size(total))) if total > 0 else _fmt_size(got)
-            QTreeWidgetItem(self.tree, [self.app.download_path(d).name, prog, self._state(d)])
+            name = self.app.download_path(d).name
+            item = QTreeWidgetItem(self.tree, [name, prog, self._state(d)])
+            if part("download_rows"):
+                item.setIcon(0, self._file_icon(name))
+                if d.state() == S.DownloadCompleted:
+                    item.setData(1, FRACTION_ROLE, 1.0)
+                elif d.state() == S.DownloadInProgress and total > 0:
+                    item.setData(1, FRACTION_ROLE, got / total)
         if cur >= 0:
             self.tree.setCurrentItem(self.tree.topLevelItem(cur))
+
+    def _file_icon(self, name):
+        """The icon of the file's kind, from the icon theme (kept: the list is filled often)."""
+        from PyQt6.QtCore import QMimeDatabase
+        mime = QMimeDatabase().mimeTypeForFile(name, QMimeDatabase.MatchMode.MatchExtension)
+        key = mime.name()
+        if key not in self._icons:
+            ic = QIcon.fromTheme(mime.iconName())
+            if ic.isNull():
+                ic = QIcon.fromTheme(mime.genericIconName())
+            if ic.isNull():
+                ic = self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon)
+            self._icons[key] = ic
+        return self._icons[key]
 
     def _current(self):
         """The selected download, or the most recent one when nothing is selected."""

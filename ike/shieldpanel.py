@@ -212,6 +212,9 @@ class ShieldPanel(QWidget):
         lay.addWidget(self.master)
         lay.addWidget(self.count)
         lay.addWidget(self.count_label)
+        from .polish import BlockBars
+        self.kinds = BlockBars(self)             # what was blocked here, by kind (polish.py)
+        lay.addWidget(self.kinds)
         lay.addWidget(QLabel(T("Protection on this site"), self))
         lay.addWidget(self.site_level)
         lay.addWidget(self.hint)
@@ -284,6 +287,7 @@ class ShieldPanel(QWidget):
                 (T("Cross-site cookies refused"), st["cookies"]),
                 (T("Upgrades to HTTPS"), st["https"]),
                 (T("Tracking parameters removed"), st["params"]))
+        self.kinds.show_stats(rows if web else [])
         self.detail.setText("<table>%s</table>" % "".join(
             "<tr><td>%s&nbsp;&nbsp;&nbsp;</td><td align='right'><b>%d</b></td></tr>" % r
             for r in rows))

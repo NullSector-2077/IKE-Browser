@@ -154,6 +154,15 @@ class UrlBar(QLineEdit):
         """The site's icon for an address, a magnifier for a search."""
         if _URLISH.match(text):
             return self.win.site_icon(text if "://" in text else "https://" + text)
+        if polish.part("engine_icon"):
+            # a search: the search engine's own icon, when it is known (its site was opened once)
+            try:
+                engine = self.win.app.config.engine()
+                ic = self.win.app.favicons.icon(engine["url"].replace("{q}", ""))
+                if not ic.isNull():
+                    return ic
+            except (KeyError, TypeError, AttributeError):
+                pass
         return icon("edit-find", QStyle.StandardPixmap.SP_FileDialogContentsView)
 
     def eventFilter(self, obj, event):

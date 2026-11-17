@@ -2,6 +2,7 @@
 containers, split view, tab suspension, reader mode, translation, floating
 video, site permissions and session (de)serialisation."""
 
+import json
 import time
 from urllib.parse import quote
 
@@ -1051,13 +1052,22 @@ class WindowFeatures:
             v.reload()
             return
         src = (RES_DIR / "reader.js").read_text("utf-8")
+        from . import polish
+        from .webview import READER_PREFIX
+        cfg = self.app.config
+        prefs = {"theme": cfg["reader_theme"], "size": cfg["reader_size"], "tools": polish.part("reader_tools"),
+                 "prefix": READER_PREFIX,
+                 "labels": {"smaller": T("Zoom out"), "larger": T("Zoom in"), "light": T("Light"),
+                            "sepia": T("Sepia"), "dark": T("Dark"), "minutes": T("%d min read")}}
+        src = "var IKE_READER = %s;\n%s" % (json.dumps(prefs), src)
 
         def done(ok):
             if ok:
                 v.reader = True
             else:
                 self.app._notify(T("No article text was found on this page."))
-        v.page().runJavaScript(src, 0, done)
+        # in I.K.E.'s own world: the page's scripts do not see the settings
+        v.page().runJavaScript(src, 1, done)
 
     def translate_page(self):
         v = self.current_view()

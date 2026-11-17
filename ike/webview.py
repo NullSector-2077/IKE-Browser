@@ -63,6 +63,11 @@ def permission_text(ptype):
     return names.get(ptype, T("use a protected feature"))
 
 
+# reader mode reports the reader settings chosen on the page with this console prefix
+# (with a token of the session: a site cannot change them)
+READER_PREFIX = "\u0001ike-reader:%s:" % __import__("secrets").token_hex(8)
+
+
 class WebPage(QWebEnginePage):
     def __init__(self, profile, window, parent=None):
         super().__init__(profile, parent)
@@ -169,6 +174,21 @@ class WebPage(QWebEnginePage):
             for old in scripts.find(name):
                 scripts.remove(old)
         self._ike_scripts = []
+
+    def _reader_prefs(self, text):
+        """Light, sepia or dark and the text size chosen in reader mode (reader.js)."""
+        import json
+        try:
+            d = json.loads(text)
+            theme, size = d["theme"], int(d["size"])
+        except (ValueError, KeyError, TypeError):
+            return
+        if theme not in ("auto", "light", "sepia", "dark") or not 14 <= size <= 28:
+            return
+        cfg = self.app.config
+        if (cfg["reader_theme"], cfg["reader_size"]) != (theme, size):
+            cfg["reader_theme"], cfg["reader_size"] = theme, size
+            cfg.save()
 
     def _loading_changed(self, info):
         """A site that cannot be reached: I.K.E.'s own error page (errorpage.py)."""
@@ -287,6 +307,9 @@ class WebPage(QWebEnginePage):
 
     def javaScriptConsoleMessage(self, level, message, line, source):
         from .userscripts import PREFIX
+        if message.startswith(READER_PREFIX):
+            self._reader_prefs(message[len(READER_PREFIX):])
+            return
         if message.startswith(PREFIX):
             self.app.userscripts.receive(self, message)
             return

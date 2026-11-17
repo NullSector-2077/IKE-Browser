@@ -60,6 +60,8 @@
  "page_watches",
  "passwords_offer_save",
  "perm_block",
+ "reader_size",
+ "reader_theme",
  "repair_button",
  "res_cpu_default",
  "res_cpu_limit",

@@ -18,7 +18,7 @@ import math
 
 from PyQt6.QtCore import QEasingCurve, QObject, QPointF, QRect, QRectF, QSize, Qt, QVariantAnimation
 from PyQt6.QtGui import QColor, QIcon, QIconEngine, QImage, QLinearGradient, QPainter, QPalette, QPen, QPixmap
-from PyQt6.QtWidgets import QProxyStyle, QStyle, QStyledItemDelegate, QStyleOptionTab
+from PyQt6.QtWidgets import QProxyStyle, QStyle, QStyledItemDelegate, QStyleOptionTab, QWidget
 
 from . import effects
 
@@ -37,6 +37,12 @@ PARTS = {
     "preview_fade": True,    # the tab preview fades in and changes softly
     "line_ends": True,       # the loading line has soft ends
     "download_pop": True,    # a finished download shows a tick with a small pop
+    # 1.1.5
+    "shield_pulse": True,    # a ring opens once around the shield when it blocks something
+    "shield_bars": True,     # the shield panel: what was blocked on the site, as bars by kind
+    "download_rows": True,   # the downloads window: file icons and a progress bar in each row
+    "engine_icon": True,     # suggestions: the search engine's own icon on the search rows
+    "reader_tools": True,    # reader mode: light, sepia or dark, and the size of the text
 }
 
 MARK_MS = 180
@@ -424,3 +430,159 @@ class SuggestionDelegate(QStyledItemDelegate):
     def sizeHint(self, option, index):
         s = super().sizeHint(option, index)
         return QSize(s.width(), max(s.height(), self.ROW))
+
+
+# --- the shield (1.1.5) ---------------------------------------------------------
+PULSE_MS = 420
+PULSE_REST = 1.5             # seconds between two pulses, at least: a page that blocks a lot does not flicker
+
+
+class ShieldPulse(QWidget):
+    """A ring in the accent colour that opens once around the shield when it
+    blocks something on the page in view (the touch of the old Cyber theme,
+    in the colours of the theme in use)."""
+
+    def __init__(self, button, config):
+        super().__init__(button)
+        self.config = config
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
+        self._anim = QVariantAnimation(self)
+        self._anim.setDuration(PULSE_MS)
+        self._anim.setStartValue(0.0)
+        self._anim.setEndValue(1.0)
+        self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._anim.valueChanged.connect(lambda _v: self.update())
+        self._anim.finished.connect(self.hide)
+        self._last = -1e9
+        self.fired = 0
+        self.hide()
+
+    def fire(self):
+        import time
+        now = time.monotonic()
+        button = self.parentWidget()
+        if (now - self._last < PULSE_REST or not moving(self.config, "shield_pulse")
+                or button is None or not button.isVisible()):
+            return False
+        self._last = now
+        self.fired += 1
+        self.setGeometry(button.rect())
+        self.show()
+        self.raise_()
+        self._anim.stop()
+        self._anim.start()
+        return True
+
+    def paintEvent(self, _event):
+        t = float(self._anim.currentValue() or 0.0)
+        button = self.parentWidget()
+        side = min(self.width(), self.height())
+        # the ring opens around the icon, which sits at the left of the button (its number beside it)
+        icon = button.iconSize().width() if button is not None else side
+        cx = min(self.width() / 2.0, 4 + icon / 2.0 + 2)
+        radius = side * (0.30 + 0.22 * t)
+        colour = QColor(accent(self))
+        colour.setAlpha(round(200 * (1.0 - t)))
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setPen(QPen(colour, 2.0))
+        p.drawEllipse(QPointF(cx, self.height() / 2.0), radius, radius)
+        p.end()
+
+
+class BlockBars(QWidget):
+    """What the shield blocked on this site, one bar per kind (the longest
+    kind fills the width), in the accent colour of the theme."""
+
+    ROW = 20
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.rows = []               # [(label, count)]
+        self.setMinimumWidth(240)
+
+    def show_stats(self, rows):
+        self.rows = [(label, int(n)) for label, n in rows]
+        visible = part("shield_bars") and any(n for _l, n in self.rows)
+        self.setFixedHeight(self.ROW * len(self.rows) + 4 if visible else 0)
+        self.setVisible(visible)
+        self.update()
+
+    def paintEvent(self, _event):
+        from PyQt6.QtGui import QFontMetrics
+        if not self.rows:
+            return
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        fm = QFontMetrics(self.font())
+        pal = self.palette()
+        text = pal.color(QPalette.ColorRole.WindowText)
+        track = QColor(text)
+        track.setAlphaF(0.10)
+        label_w = min(self.width() // 2, max(fm.horizontalAdvance(lb) for lb, _n in self.rows) + 10)
+        num_w = max(fm.horizontalAdvance(str(n)) for _l, n in self.rows) + 8
+        top = max(1, max(n for _l, n in self.rows))
+        bar_x, bar_w = label_w, max(10, self.width() - label_w - num_w)
+        for i, (label, n) in enumerate(self.rows):
+            y = 2 + i * self.ROW
+            p.setPen(text)
+            p.drawText(QRect(0, y, label_w - 6, self.ROW), int(Qt.AlignmentFlag.AlignVCenter), fm.elidedText(
+                label, Qt.TextElideMode.ElideRight, label_w - 6))
+            bar = QRectF(bar_x, y + self.ROW / 2 - 3, bar_w, 6)
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(track)
+            p.drawRoundedRect(bar, 3, 3)
+            if n:
+                p.setBrush(accent(self))
+                p.drawRoundedRect(QRectF(bar.x(), bar.y(), max(6.0, bar.width() * n / top), 6), 3, 3)
+            p.setPen(text)
+            p.drawText(QRect(int(bar_x + bar_w), y, num_w, self.ROW),
+                       int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight), str(n))
+        p.end()
+
+
+# --- the downloads window (1.1.5) ------------------------------------------------
+FRACTION_ROLE = Qt.ItemDataRole.UserRole + 11
+
+
+class ProgressDelegate(QStyledItemDelegate):
+    """The progress column: a slim rounded bar under the size, in the accent colour."""
+
+    ROW = 34
+
+    def paint(self, painter, option, index):
+        fraction = index.data(FRACTION_ROLE)
+        if fraction is None or not part("download_rows"):
+            super().paint(painter, option, index)
+            return
+        from PyQt6.QtWidgets import QApplication, QStyleOptionViewItem
+        opt = QStyleOptionViewItem(option)
+        self.initStyleOption(opt, index)
+        text = opt.text
+        opt.text = ""
+        style = opt.widget.style() if opt.widget is not None else QApplication.style()
+        style.drawControl(QStyle.ControlElement.CE_ItemViewItem, opt, painter, opt.widget)
+        r = QRect(option.rect).adjusted(6, 3, -8, -3)
+        selected = bool(option.state & QStyle.StateFlag.State_Selected)
+        colour = option.palette.color(QPalette.ColorRole.HighlightedText if selected else QPalette.ColorRole.Text)
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(colour)
+        painter.drawText(QRect(r.x(), r.y(), r.width(), r.height() - 8),
+                         int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter), text)
+        bar = QRectF(r.x(), r.bottom() - 5, r.width(), 4)
+        track = QColor(colour)
+        track.setAlphaF(0.15)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(track)
+        painter.drawRoundedRect(bar, 2, 2)
+        f = max(0.0, min(1.0, float(fraction)))
+        if f > 0:
+            painter.setBrush(option.palette.color(QPalette.ColorRole.Highlight) if not selected else colour)
+            painter.drawRoundedRect(QRectF(bar.x(), bar.y(), max(4.0, bar.width() * f), bar.height()), 2, 2)
+        painter.restore()
+
+    def sizeHint(self, option, index):
+        s = super().sizeHint(option, index)
+        return QSize(s.width(), max(s.height(), self.ROW if part("download_rows") else 0))

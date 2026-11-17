@@ -428,6 +428,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         effects.fading(self.shield_menu, self.app.config)
         self.shield_btn.setMenu(self.shield_menu)
         self.shield_act = tb.addWidget(self.shield_btn)
+        # a ring opens once around the shield when it blocks something (polish.py)
+        self.shield_pulse = polish.ShieldPulse(self.shield_btn, self.app.config)
 
         self.store_btn = QToolButton(self)
         self.store_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
@@ -1660,6 +1662,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     def _blocked(self, host):
         if host == self.current_host():
             self.update_shield()
+            self.shield_pulse.fire()
 
     def update_shield(self):
         host = self.current_host()
