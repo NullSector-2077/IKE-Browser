@@ -46,7 +46,7 @@ FORBIDDEN_FILES = {
 FORBIDDEN_SUFFIXES = (".key", ".pem", ".so", ".dll", ".exe", ".zst", ".tar", ".gz", ".zip")
 WEAKENING = re.compile(r"\b(skip|skipif|xfail|importorskip)\b")
 SECRET = re.compile(r"AIza[0-9A-Za-z_\-]{30,}|\bgh[pousr]_[0-9A-Za-z]{20,}|github_pat_[0-9A-Za-z_]{20,}"
-                    r"|-----BEGIN [A-Z ]*PRIVATE KEY-----")
+                    r"|-----BEGIN [A-Z ]*PRIVATE" r" KEY-----")   # split: not a key marker itself
 
 
 def git(repo, *args, stdin=None):

@@ -153,6 +153,9 @@ def test_keys_binaries_links_and_size_are_refused(repo, tmp_path):
     key = "AIza" + "B" * 35
     patch = make_patch(repo, edit("ike/window.py", "KEY = '%s'\n" % key, "a"))
     assert "key or token" in run_guard(repo, patch, tmp_path)[1]
+    pem = "-----BEGIN " + "PRIVATE" + " KEY-----"       # built here: no key marker in this file
+    patch = make_patch(repo, edit("docs/MAINTENANCE.md", pem + "\nMC4CAQAwBQYDK2VwBCIEI\n", "a"))
+    assert "key or token" in run_guard(repo, patch, tmp_path)[1]
     patch = make_patch(repo, lambda r: (r / "ike/icon.bin").write_bytes(b"\0\1\2\3" * 50))
     assert "binary" in run_guard(repo, patch, tmp_path)[1]
     patch = make_patch(repo, lambda r: (r / "ike/link.py").symlink_to("/etc/passwd"))
