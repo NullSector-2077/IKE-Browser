@@ -29,8 +29,7 @@ and 44009243310 (ad229f2, the head): both jobs, every step — 218 passed,
 installed `ike-browser.exe`; installer built, installed, `--version`,
 `--selftest`, engine check, uninstalled and checked; artifact
 `ike-browser-windows-installer`. Linux: the whole suite passes locally
-(221 passed, 8 skipped: 7 Windows-only, 1 network); tests changed after
-that full run were run one by one on Linux.
+(221 passed, 8 skipped: 7 Windows-only, 1 network), last at e02a7fc.
 
 Fixed in this last session (all test-side, nothing in the browser):
 
