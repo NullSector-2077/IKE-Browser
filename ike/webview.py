@@ -76,6 +76,7 @@ class WebPage(QWebEnginePage):
         self.fullScreenRequested.connect(self._fullscreen)
         self.urlChanged.connect(self._inject_cosmetics)
         self.loadFinished.connect(self._load_finished)
+        self.loadingChanged.connect(self._loading_changed)
         try:
             self.desktopMediaRequested.connect(self._desktop_media)
         except AttributeError:
@@ -168,6 +169,18 @@ class WebPage(QWebEnginePage):
             for old in scripts.find(name):
                 scripts.remove(old)
         self._ike_scripts = []
+
+    def _loading_changed(self, info):
+        """A site that cannot be reached: I.K.E.'s own error page (errorpage.py)."""
+        from . import errorpage
+        try:
+            if not errorpage.wanted(info):
+                return
+            from PyQt6.QtWidgets import QApplication
+            self.error_info = (info.errorCode(), info.url().toString())
+            self.runJavaScript(errorpage.script(info, QApplication.palette()), 1)
+        except RuntimeError:
+            pass
 
     def _set_dark(self, url, host):
         """Apply the selected dark renderer to this page, respecting site overrides."""

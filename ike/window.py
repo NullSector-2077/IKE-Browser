@@ -684,6 +684,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
 
         # --- Tools
         m_tools = mb.addMenu(T("&Tools"))
+        self.act_command_bar = A(T("Command bar…"), self.open_command_bar, "F2", "system-search",
+                                 T("Commands, open tabs, bookmarks, history and settings in one search"))
+        m_tools.addAction(self.act_command_bar)
         m_tools.addAction(self.act_downloads)
         m_tools.addAction(A(T("Components and extensions"), lambda: self.open_settings("components"),
                             "Ctrl+Shift+A", "plugins",
@@ -1419,6 +1422,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.statusBar().showMessage(T("Zoom: %d%%") % round(v.zoomFactor() * 100), 1500)
         self.statusBar().show()
         QTimer.singleShot(1600, self._hide_status)
+
+    def open_command_bar(self):
+        from . import palette
+        return palette.open_bar(self)
 
     def show_site_info(self):
         """The panel of the site in the current tab, under the lock."""
