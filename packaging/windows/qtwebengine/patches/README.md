@@ -110,8 +110,11 @@ has no H.264 decoder — the same order as in Vivaldi.
 - `WMFVideoDecoder` decodes on the media thread and copies each picture once
   (Vivaldi's design). Not measured above 1080p.
 - WebRTC has H.264 only where the graphics driver provides it.
-- `platform_media_init` loads the three libraries by bare name
-  (`LoadLibrary`), as in Vivaldi, in every renderer process.
+- `platform_media_init` loads the Windows Media Foundation DLLs
+  from `System32` with `LoadLibraryExW(..., LOAD_LIBRARY_SEARCH_SYSTEM32)`
+  before the renderer sandbox closes. Its shared and per-decoder module
+  handles are synchronized with `std::call_once`; DLL lookup cannot resolve
+  an app-local or current-working-directory replacement.
 
 ## `superseded/own-adapter/`
 
