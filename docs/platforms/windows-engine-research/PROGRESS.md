@@ -290,3 +290,11 @@ compatibility and longer seek / A/V-sync stability tests.
   Media log. A missing decoder name now fails the test rather than silently
   passing on decoded bytes alone. This is especially important for the new
   HE-AAC v1/v2 cases.
+- H.264 layout investigation: for 854x480 and 1920x1080, the first YV12 output
+  type from the Windows MFT is provisional. It raises
+  `MF_E_TRANSFORM_STREAM_CHANGE`; the available type then changes to an
+  aligned layout (864x480 with an 854x480 aperture, or 1920x1088 with a
+  1920x1080 aperture). IKE's `WMFVideoDecoder::ProcessOutput()` handles that
+  event by calling `SetOutputMediaType()` again. The MFT probe confirms the
+  second layout and reads the expected four YUV quadrants. This is not a
+  confirmed stride bug, so no code change was made for it.
