@@ -2,6 +2,8 @@
 # tests (docs/TESTING.md) with the real browser without a display, then the
 # Arch package built from the PKGBUILD and tested as installed. The package is
 # kept as a download of the run ("ike-browser-package").
+# The automation (daily maintenance, automatic fixes) starts it on its own
+# branches with workflow_dispatch, so its results show on the pull request.
 name: Tests
 
 on:
@@ -37,38 +39,8 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ inputs.ref || github.sha }}
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.13"
-      - uses: dtolnay/rust-toolchain@stable
-      - name: System libraries and packaging tools
-        run: |
-          sudo apt-get update -q
-          sudo apt-get install -yq --no-install-recommends libegl1 libgl1 libgbm1 libnss3 \
-              libxkbcommon0 libxkbcommon-x11-0 libxcomposite1 libxdamage1 libxrandr2 \
-              libxtst6 libxshmfence1 libasound2t64 libfontconfig1 libdbus-1-3 \
-              dbus libglib2.0-bin ffmpeg fonts-noto-core \
-              makepkg pacman-package-manager libarchive-tools fakeroot zstd
-          # the font of a Plasma desktop: the layout tests measure text widths
-          mkdir -p ~/.config/fontconfig
-          printf '%s\n' '<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "fonts.dtd"><fontconfig>' \
-              '<alias binding="strong"><family>sans-serif</family><prefer><family>Noto Sans</family></prefer></alias>' \
-              '</fontconfig>' > ~/.config/fontconfig/fonts.conf
-          fc-cache -f >/dev/null
-          fc-match sans-serif
-      - name: Python packages
-        run: |
-          python -m pip install --disable-pip-version-check -q -r tools/test-requirements.txt pytest ruff
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ike-adblock/target
-          key: adblock-${{ hashFiles('ike-adblock/Cargo.lock', 'ike-adblock/src/**') }}
-      - name: AdBlock engine
-        run: |
-          cargo build --release --locked --manifest-path ike-adblock/Cargo.toml
-          install -m755 ike-adblock/target/release/libike_adblock.so vendor/adblock/ike_adblock.abi3.so
+      - name: Test environment
+        uses: ./.github/actions/ike-test-env
       - name: AdBlock engine (Rust tests)
         # the tests are an ordinary program: without the "extension-module" feature
         run: cargo test --no-default-features --locked --manifest-path ike-adblock/Cargo.toml

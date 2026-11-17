@@ -1,8 +1,10 @@
 # Every day after the component check: when a bundled component has a new
 # version, prepare a candidate on the branch automation/daily-maintenance, open
-# (or update) a draft pull request for it and run the full tests and the Arch
+# (or update) a draft pull request for it and start the full tests and the Arch
 # package build on it. It never publishes a release and never writes to main:
 # the owner reviews, merges, signs and publishes.
+# The candidate is rebuilt from the current main every time; the automatic
+# fixes made on the previous candidate (commits "autofix: ...") are carried over.
 name: Daily maintenance candidate
 
 on:
@@ -25,34 +27,29 @@ jobs:
       contents: read
     outputs:
       changed: ${{ steps.changes.outputs.changed }}
+      push: ${{ steps.compare.outputs.push }}
     steps:
-      - name: Check out main and restore the persistent maintenance branch
+      - name: Check out main (all branches and tags, no credentials)
         uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 0
           persist-credentials: false
-      - name: Update branch with current main
+      - name: Start the candidate from current main
         run: |
-          git fetch origin main
-          if git ls-remote --exit-code --heads origin automation/daily-maintenance >/dev/null 2>&1; then
-            git fetch origin automation/daily-maintenance
-            git checkout -B automation/daily-maintenance origin/automation/daily-maintenance
-            if git merge-base --is-ancestor HEAD origin/main; then
-              git reset --hard origin/main
-            else
-              git merge --no-edit origin/main
-            fi
-          else
-            git checkout -b automation/daily-maintenance origin/main
-          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B automation/daily-maintenance origin/main
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
       - uses: actions/setup-node@v5
         with:
           node-version: "22"
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Rust
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
+          rustup default stable
       - name: Check and apply component updates (fail closed)
         run: |
           python3 tools/check-components.py --json component-report.json --markdown component-report.md --apply
@@ -70,22 +67,43 @@ jobs:
         if: steps.changes.outputs.changed == 'true'
         run: |
           base_version=$(git show origin/main:ike/__init__.py | sed -n 's/^__version__ = "\(.*\)"/\1/p')
-          python3 tools/prepare-maintenance.py --report component-report.json --base-version "$base_version"
+          keep=""
+          # main already carries a version that is not released yet: add to it
+          if [ -z "$(git tag -l "v$base_version")" ]; then keep="--keep-version"; fi
+          python3 tools/prepare-maintenance.py --report component-report.json --base-version "$base_version" $keep
       - name: Build AdBlock engine before creating candidate
         if: steps.changes.outputs.changed == 'true'
         run: cargo build --release --locked --manifest-path ike-adblock/Cargo.toml
       - name: Create candidate commit and bundle (no push credentials)
         if: steps.changes.outputs.changed == 'true'
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ike-adblock/Cargo.toml ike-adblock/Cargo.lock ike-adblock/src/lib.rs \
-            ike/resources/ubo-scriptlets.json tools/test-requirements.txt ike/__init__.py \
-            PKGBUILD README.md CHANGELOG.md
+          # every tracked file the update rewrote (engine, scriptlets, Dark Reader,
+          # test packages, version files); never untracked or build files
+          git add -u
           git commit -m "maintenance: update bundled components for IKE $(sed -n 's/^__version__ = "\(.*\)"/\1/p' ike/__init__.py)"
+          # carry over the automatic fixes of the previous candidate
+          if git rev-parse -q --verify origin/automation/daily-maintenance >/dev/null; then
+            base=$(git merge-base origin/main origin/automation/daily-maintenance || true)
+            if [ -n "$base" ]; then
+              for c in $(git rev-list --reverse --grep '^autofix:' "$base..origin/automation/daily-maintenance"); do
+                git cherry-pick -x "$c" || { git cherry-pick --abort; echo "Not carried over (conflict): $c"; }
+              done
+            fi
+          fi
           mkdir -p "$RUNNER_TEMP/maintenance-candidate"
           git bundle create "$RUNNER_TEMP/maintenance-candidate/candidate.bundle" HEAD
           cp component-report.md "$RUNNER_TEMP/maintenance-candidate/component-report.md"
+      - name: Compare with the candidate already published
+        id: compare
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          old=$(git rev-parse -q --verify 'origin/automation/daily-maintenance^{tree}' || true)
+          if [ "$old" = "$(git rev-parse 'HEAD^{tree}')" ]; then
+            echo "push=false" >> "$GITHUB_OUTPUT"
+            echo "Same candidate as the one already published: not pushed or tested again."
+          else
+            echo "push=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Upload maintenance candidate
         if: steps.changes.outputs.changed == 'true'
         uses: actions/upload-artifact@v4
@@ -109,6 +127,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
+      actions: write        # start the tests on the candidate
       contents: write
       issues: write
       pull-requests: write
@@ -130,31 +149,38 @@ jobs:
           test -s "$RUNNER_TEMP/maintenance-candidate/component-report.md"
           git bundle verify "$RUNNER_TEMP/maintenance-candidate/candidate.bundle"
           git bundle list-heads "$RUNNER_TEMP/maintenance-candidate/candidate.bundle"
-      - name: Push candidate and update draft PR
+      - name: Push candidate, update draft PR and start the tests
         env:
           GH_TOKEN: ${{ github.token }}
+          PUSH: ${{ needs.prepare.outputs.push }}
         run: |
           git fetch "$RUNNER_TEMP/maintenance-candidate/candidate.bundle" HEAD:refs/heads/automation/daily-maintenance
-          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
-          git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" \
-            push origin refs/heads/automation/daily-maintenance:refs/heads/automation/daily-maintenance
-          title="Maintenance candidate: IKE $(git show refs/heads/automation/daily-maintenance:ike/__init__.py | sed -n 's/^__version__ = "\(.*\)"/\1/p')"
+          if [ "$PUSH" = "true" ]; then
+            auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+            # the candidate is rebuilt from main every time, so it replaces the old one
+            git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" \
+              push --force origin refs/heads/automation/daily-maintenance:refs/heads/automation/daily-maintenance
+          fi
+          version=$(git show refs/heads/automation/daily-maintenance:ike/__init__.py | sed -n 's/^__version__ = "\(.*\)"/\1/p')
+          main_version=$(git show origin/main:ike/__init__.py | sed -n 's/^__version__ = "\(.*\)"/\1/p')
+          body="$RUNNER_TEMP/maintenance-candidate/component-report.md"
+          if [ "$version" = "$main_version" ] && [ -n "$(git tag -l "v$main_version")" ]; then
+            title="Maintenance: packages of the automatic tests (no new release)"
+            printf '\n\nOnly the automatic tests use these packages: merging changes nothing for users and needs no release.\n' >> "$body"
+          else
+            title="Maintenance candidate: IKE $version"
+          fi
           gh label create maintenance --color 0e8a16 --description "Automated component maintenance candidate" 2>/dev/null || true
           pr=$(gh pr list --head automation/daily-maintenance --base main --state open --json number --jq '.[0].number // empty')
           if [ -n "$pr" ]; then
-            gh pr edit "$pr" --title "$title" \
-              --body-file "$RUNNER_TEMP/maintenance-candidate/component-report.md" --add-label maintenance
-            gh pr comment "$pr" --body "A new daily candidate commit was pushed. Tests and the Arch package build are running; this PR stays draft until all checks and the manual review are complete."
+            gh pr edit "$pr" --title "$title" --body-file "$body" --add-label maintenance
+            if [ "$PUSH" = "true" ]; then
+              gh pr comment "$pr" --body "A new daily candidate was pushed. The tests and the Arch package build are running; this PR stays draft until all checks and the manual review are complete."
+            fi
           else
             gh pr create --draft --base main --head automation/daily-maintenance \
-              --title "$title" --label maintenance \
-              --body-file "$RUNNER_TEMP/maintenance-candidate/component-report.md"
+              --title "$title" --label maintenance --body-file "$body"
           fi
-
-  candidate-tests:
-    # lint, tests, the Arch package and its tests (kept as a download of the run)
-    needs: [prepare, publish-candidate]
-    if: needs.prepare.outputs.changed == 'true'
-    uses: ./.github/workflows/tests.yml
-    with:
-      ref: automation/daily-maintenance
+          if [ "$PUSH" = "true" ]; then
+            gh workflow run tests.yml --ref automation/daily-maintenance
+          fi

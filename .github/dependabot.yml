@@ -1,0 +1,16 @@
+# Once a month, one pull request with the new versions of the GitHub actions the
+# workflows use (an action left on an old version stops working one day).
+# The automatic fix never changes .github/, so this is how the workflows stay current.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directories:
+      - "/"
+      - "/.github/actions/ike-test-env"
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+    labels:
+      - maintenance
