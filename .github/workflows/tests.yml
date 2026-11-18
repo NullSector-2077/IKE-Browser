@@ -51,7 +51,15 @@ jobs:
       - name: Arch package
         run: |
           mkdir -p "$RUNNER_TEMP/pkg" "$RUNNER_TEMP/pkgroot"
-          PKGDEST="$RUNNER_TEMP/pkg" PKGEXT=.pkg.tar.zst makepkg -d -f
+          # built as on a computer whose makepkg.conf targets its own new
+          # processor (CachyOS and others): the package must still run on old ones
+          conf="$RUNNER_TEMP/makepkg.conf"
+          cat /etc/makepkg.conf > "$conf"
+          cat >> "$conf" <<'CONF'
+          CFLAGS="$CFLAGS -march=native"
+          RUSTFLAGS="-C target-cpu=native"
+          CONF
+          RUSTFLAGS="-C target-cpu=native" MAKEPKG_CONF="$conf" PKGDEST="$RUNNER_TEMP/pkg" PKGEXT=.pkg.tar.zst makepkg -d -f
           pkg=$(find "$RUNNER_TEMP/pkg" -name 'ike-browser-*-x86_64.pkg.tar.zst' -print -quit)
           test -n "$pkg"
           tar -xf "$pkg" -C "$RUNNER_TEMP/pkgroot"
@@ -59,6 +67,29 @@ jobs:
             echo "Private-key-like file found in the package"; exit 1
           fi
           python3 "$RUNNER_TEMP/pkgroot/usr/lib/ike-browser/ike_boot.py" --version
+      - name: The package runs on an old processor
+        # an emulated Intel Ivy Bridge (an i5-3570K: no AVX2, no AVX-512):
+        # the AdBlock engine matches and the launcher starts, no "illegal instruction"
+        run: |
+          sudo apt-get install -y -qq qemu-user > /dev/null
+          root="$RUNNER_TEMP/pkgroot"
+          cat > "$RUNNER_TEMP/old-cpu.py" <<'PY'
+          import sys
+          sys.path.insert(0, sys.argv[1])
+          import adblock
+          fs = adblock.FilterSet()
+          fs.add_filter_list("||ads.example.test^\n##.ike-test-ad\n")
+          engine = adblock.Engine(fs)
+          url, src = "https://ads.example.test/a.js", "https://site.test/"
+          if hasattr(adblock, "Request") and hasattr(engine, "check_network_request"):
+              r = engine.check_network_request(adblock.Request(url, src, "script", "GET"))
+          else:
+              r = engine.check_network_urls(url, src, "script")
+          assert r.matched, "the engine did not block"
+          print("engine ok on the old processor")
+          PY
+          qemu-x86_64 -cpu IvyBridge /usr/bin/python3 -I "$RUNNER_TEMP/old-cpu.py" "$root/usr/lib/ike-browser/vendor"
+          IKE_LIBDIR="$root/usr/lib/ike-browser" qemu-x86_64 -cpu IvyBridge "$root/usr/bin/ike-browser" --version
       - name: Tests of the installed package
         run: IKE_TEST_APP="$RUNNER_TEMP/pkgroot/usr/lib/ike-browser" python -m pytest
       - uses: actions/upload-artifact@v4
