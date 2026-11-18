@@ -1,0 +1,615 @@
+{
+ "_about": "Sosia (1.1.14): the sites scams imitate most and their real domains; see ike/lookalike.py; not_lookalikes: proxies that put a real address in front of their own (Microsoft Defender for Cloud Apps)",
+ "brands": [
+  {
+   "display": "PayPal",
+   "names": [
+    "paypal"
+   ],
+   "domains": [
+    "paypal.com",
+    "paypal.it",
+    "paypal.me",
+    "paypal.de",
+    "paypal.fr",
+    "paypal.es",
+    "paypal.co.uk",
+    "paypalobjects.com",
+    "paypal-community.com",
+    "paypal.cn",
+    "paypal-prepaid.com"
+   ]
+  },
+  {
+   "display": "Amazon",
+   "names": [
+    "amazon"
+   ],
+   "domains": [
+    "amazon.com",
+    "amazon.it",
+    "amazon.de",
+    "amazon.fr",
+    "amazon.es",
+    "amazon.nl",
+    "amazon.se",
+    "amazon.pl",
+    "amazon.ca",
+    "amazon.in",
+    "amazon.sa",
+    "amazon.ae",
+    "amazon.sg",
+    "amazon.eg",
+    "amazon.cn",
+    "amazon.co.uk",
+    "amazon.co.jp",
+    "amazon.com.br",
+    "amazon.com.mx",
+    "amazon.com.au",
+    "amazon.com.tr",
+    "amazon.com.be",
+    "amazonaws.com",
+    "amazon-adsystem.com",
+    "media-amazon.com",
+    "ssl-images-amazon.com",
+    "amazontrust.com",
+    "amazon.dev",
+    "amazon.jobs",
+    "amazonpay.com",
+    "primevideo.com",
+    "amazonvideo.com"
+   ]
+  },
+  {
+   "display": "Google",
+   "names": [
+    "google",
+    "gmail"
+   ],
+   "domains": [
+    "google.com",
+    "google.it",
+    "google.de",
+    "google.fr",
+    "google.es",
+    "google.nl",
+    "google.co.uk",
+    "google.ch",
+    "google.at",
+    "google.be",
+    "google.pt",
+    "google.pl",
+    "google.se",
+    "google.no",
+    "google.dk",
+    "google.fi",
+    "google.ie",
+    "google.gr",
+    "google.ro",
+    "google.hu",
+    "google.cz",
+    "google.sk",
+    "google.si",
+    "google.hr",
+    "google.bg",
+    "google.rs",
+    "google.ru",
+    "google.ua",
+    "google.ca",
+    "google.com.au",
+    "google.co.jp",
+    "google.co.in",
+    "google.com.br",
+    "google.com.mx",
+    "google.com.ar",
+    "google.com.tr",
+    "google.co.za",
+    "google.cn",
+    "gmail.com",
+    "youtube.com",
+    "youtu.be",
+    "googleapis.com",
+    "gstatic.com",
+    "googleusercontent.com",
+    "googlevideo.com",
+    "ytimg.com",
+    "withgoogle.com",
+    "g.co",
+    "goo.gl",
+    "googleblog.com",
+    "googlesource.com",
+    "googletagmanager.com",
+    "google-analytics.com",
+    "doubleclick.net",
+    "googlesyndication.com",
+    "googleadservices.com",
+    "recaptcha.net",
+    "youtube-nocookie.com",
+    "youtubekids.com"
+   ]
+  },
+  {
+   "display": "YouTube",
+   "names": [
+    "youtube"
+   ],
+   "domains": [
+    "youtube.com",
+    "youtu.be",
+    "ytimg.com",
+    "googlevideo.com",
+    "youtube-nocookie.com",
+    "youtubekids.com",
+    "google.com"
+   ]
+  },
+  {
+   "display": "Apple",
+   "names": [
+    "apple",
+    "icloud"
+   ],
+   "domains": [
+    "apple.com",
+    "icloud.com",
+    "apple.co",
+    "appleid.apple.com",
+    "mzstatic.com",
+    "cdn-apple.com",
+    "apple-cloudkit.com",
+    "icloud-content.com",
+    "me.com"
+   ]
+  },
+  {
+   "display": "Microsoft",
+   "names": [
+    "microsoft",
+    "outlook",
+    "hotmail",
+    "office365",
+    "onedrive",
+    "microsoftonline"
+   ],
+   "domains": [
+    "microsoft.com",
+    "microsoftonline.com",
+    "live.com",
+    "outlook.com",
+    "hotmail.com",
+    "hotmail.it",
+    "office.com",
+    "office365.com",
+    "onedrive.com",
+    "live.net",
+    "msn.com",
+    "bing.com",
+    "azure.com",
+    "windows.com",
+    "windowsupdate.com",
+    "sharepoint.com",
+    "skype.com",
+    "xbox.com",
+    "msftauth.net",
+    "msauth.net",
+    "msecnd.net",
+    "office.net",
+    "microsoft365.com",
+    "outlook.it"
+   ]
+  },
+  {
+   "display": "Netflix",
+   "names": [
+    "netflix"
+   ],
+   "domains": [
+    "netflix.com",
+    "netflix.net",
+    "nflxext.com",
+    "nflximg.net",
+    "nflxvideo.net",
+    "nflxso.net"
+   ]
+  },
+  {
+   "display": "Facebook",
+   "names": [
+    "facebook"
+   ],
+   "domains": [
+    "facebook.com",
+    "fb.com",
+    "fbcdn.net",
+    "facebook.net",
+    "fb.me",
+    "messenger.com",
+    "meta.com"
+   ]
+  },
+  {
+   "display": "Instagram",
+   "names": [
+    "instagram"
+   ],
+   "domains": [
+    "instagram.com",
+    "cdninstagram.com",
+    "ig.me"
+   ]
+  },
+  {
+   "display": "WhatsApp",
+   "names": [
+    "whatsapp"
+   ],
+   "domains": [
+    "whatsapp.com",
+    "whatsapp.net",
+    "wa.me"
+   ]
+  },
+  {
+   "display": "LinkedIn",
+   "names": [
+    "linkedin"
+   ],
+   "domains": [
+    "linkedin.com",
+    "licdn.com",
+    "lnkd.in"
+   ]
+  },
+  {
+   "display": "Spotify",
+   "names": [
+    "spotify"
+   ],
+   "domains": [
+    "spotify.com",
+    "scdn.co",
+    "spotifycdn.com",
+    "spoti.fi"
+   ]
+  },
+  {
+   "display": "Steam",
+   "names": [
+    "steampowered",
+    "steamcommunity"
+   ],
+   "domains": [
+    "steampowered.com",
+    "steamcommunity.com",
+    "steamstatic.com",
+    "steamgames.com",
+    "steamusercontent.com",
+    "steamcontent.com"
+   ]
+  },
+  {
+   "display": "Discord",
+   "names": [
+    "discord"
+   ],
+   "domains": [
+    "discord.com",
+    "discord.gg",
+    "discordapp.com",
+    "discordapp.net",
+    "discord.media",
+    "discordcdn.com"
+   ]
+  },
+  {
+   "display": "Telegram",
+   "names": [
+    "telegram"
+   ],
+   "domains": [
+    "telegram.org",
+    "t.me",
+    "telegram.me",
+    "telegra.ph"
+   ]
+  },
+  {
+   "display": "eBay",
+   "names": [
+    "ebay"
+   ],
+   "domains": [
+    "ebay.com",
+    "ebay.it",
+    "ebay.de",
+    "ebay.fr",
+    "ebay.es",
+    "ebay.co.uk",
+    "ebayimg.com",
+    "ebaystatic.com"
+   ]
+  },
+  {
+   "display": "AliExpress",
+   "names": [
+    "aliexpress"
+   ],
+   "domains": [
+    "aliexpress.com",
+    "aliexpress.us",
+    "alicdn.com",
+    "aliexpress.ru"
+   ]
+  },
+  {
+   "display": "Airbnb",
+   "names": [
+    "airbnb"
+   ],
+   "domains": [
+    "airbnb.com",
+    "airbnb.it",
+    "airbnb.de",
+    "airbnb.fr",
+    "airbnb.es",
+    "airbnb.co.uk",
+    "muscache.com"
+   ]
+  },
+  {
+   "display": "Binance",
+   "names": [
+    "binance"
+   ],
+   "domains": [
+    "binance.com",
+    "binance.us",
+    "bnbstatic.com",
+    "binance.org"
+   ]
+  },
+  {
+   "display": "Coinbase",
+   "names": [
+    "coinbase"
+   ],
+   "domains": [
+    "coinbase.com",
+    "cbhq.net"
+   ]
+  },
+  {
+   "display": "Revolut",
+   "names": [
+    "revolut"
+   ],
+   "domains": [
+    "revolut.com",
+    "revolut.me"
+   ]
+  },
+  {
+   "display": "Poste Italiane",
+   "names": [
+    "poste",
+    "posteitaliane",
+    "postepay"
+   ],
+   "domains": [
+    "poste.it",
+    "posteitaliane.it",
+    "postepay.it",
+    "poste-assicura.it",
+    "postevita.it"
+   ]
+  },
+  {
+   "display": "Intesa Sanpaolo",
+   "names": [
+    "intesasanpaolo"
+   ],
+   "domains": [
+    "intesasanpaolo.com",
+    "intesasanpaolo.it",
+    "intesasanpaoloprivatebanking.it"
+   ]
+  },
+  {
+   "display": "UniCredit",
+   "names": [
+    "unicredit"
+   ],
+   "domains": [
+    "unicredit.it",
+    "unicredit.eu",
+    "unicreditgroup.eu",
+    "unicredit.de"
+   ]
+  },
+  {
+   "display": "Banco BPM",
+   "names": [
+    "bancobpm"
+   ],
+   "domains": [
+    "bancobpm.it",
+    "bancobpmspa.com"
+   ]
+  },
+  {
+   "display": "BPER",
+   "names": [
+    "bper"
+   ],
+   "domains": [
+    "bper.it"
+   ]
+  },
+  {
+   "display": "Fineco",
+   "names": [
+    "finecobank"
+   ],
+   "domains": [
+    "finecobank.com"
+   ]
+  },
+  {
+   "display": "Mediolanum",
+   "names": [
+    "mediolanum",
+    "bancamediolanum"
+   ],
+   "domains": [
+    "bancamediolanum.it",
+    "mediolanum.it",
+    "mediolanum.com",
+    "bancomediolanum.es",
+    "bancomediolanum.com"
+   ]
+  },
+  {
+   "display": "Satispay",
+   "names": [
+    "satispay"
+   ],
+   "domains": [
+    "satispay.com"
+   ]
+  },
+  {
+   "display": "Nexi",
+   "names": [
+    "nexi"
+   ],
+   "domains": [
+    "nexi.it",
+    "nexigroup.com"
+   ]
+  },
+  {
+   "display": "INPS",
+   "names": [
+    "inps"
+   ],
+   "domains": [
+    "inps.it"
+   ]
+  },
+  {
+   "display": "Agenzia delle Entrate",
+   "names": [
+    "agenziaentrate"
+   ],
+   "domains": [
+    "agenziaentrate.gov.it",
+    "agenziaentrateriscossione.gov.it"
+   ]
+  },
+  {
+   "display": "Vodafone",
+   "names": [
+    "vodafone"
+   ],
+   "domains": [
+    "vodafone.it",
+    "vodafone.com",
+    "vodafone.de",
+    "vodafone.co.uk",
+    "vodafone.es"
+   ]
+  },
+  {
+   "display": "WindTre",
+   "names": [
+    "windtre"
+   ],
+   "domains": [
+    "windtre.it"
+   ]
+  },
+  {
+   "display": "Iliad",
+   "names": [
+    "iliad"
+   ],
+   "domains": [
+    "iliad.it",
+    "iliad.fr"
+   ]
+  },
+  {
+   "display": "DHL",
+   "names": [
+    "dhl"
+   ],
+   "domains": [
+    "dhl.com",
+    "dhl.it",
+    "dhl.de"
+   ]
+  },
+  {
+   "display": "FedEx",
+   "names": [
+    "fedex"
+   ],
+   "domains": [
+    "fedex.com"
+   ]
+  },
+  {
+   "display": "Booking.com",
+   "names": [
+    "booking"
+   ],
+   "domains": [
+    "booking.com",
+    "bstatic.com"
+   ]
+  },
+  {
+   "display": "Disney+",
+   "names": [
+    "disneyplus"
+   ],
+   "domains": [
+    "disneyplus.com",
+    "disney-plus.net",
+    "bamgrid.com"
+   ]
+  },
+  {
+   "display": "TikTok",
+   "names": [
+    "tiktok"
+   ],
+   "domains": [
+    "tiktok.com",
+    "tiktokcdn.com",
+    "tiktokv.com",
+    "ttwstatic.com"
+   ]
+  },
+  {
+   "display": "X (Twitter)",
+   "names": [
+    "twitter"
+   ],
+   "domains": [
+    "twitter.com",
+    "x.com",
+    "twimg.com",
+    "t.co"
+   ]
+  }
+ ],
+ "not_lookalikes": [
+  "mcas.ms",
+  "mcas-gov.us",
+  "mcas-gov.ms",
+  "allexpress.pt",
+  "alexpress.kr",
+  "1cloud.fm"
+ ]
+}

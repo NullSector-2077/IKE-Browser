@@ -847,6 +847,13 @@
 "Previous match (Shift+Enter)": "Předchozí výskyt (Shift+Enter)",
 "Next match (Enter)": "Další výskyt (Enter)",
 "Default": "Výchozí",
-"I.K.E.'s own photo": "Vlastní fotka I.K.E."
+"I.K.E.'s own photo": "Vlastní fotka I.K.E.",
+"Components and licences": "Komponenty a licence",
+"I.K.E. is free software (GPL-3.0). Every component keeps its own licence.": "I.K.E. je svobodný software (GPL-3.0). Každá komponenta si ponechává vlastní licenci.",
+"This site is fine": "Tento web je v pořádku",
+"Hide this warning": "Skrýt toto varování",
+"Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "Pozor: %s vypadá jako %s, ale není to %s. Pokud si nejste jisti, nezadávejte hesla ani údaje o kartě.",
+"Warn about sites that imitate well-known ones": "Varovat před weby, které napodobují známé weby",
+"Tint the toolbar with the colour of the site": "Zabarvit panel nástrojů barvou webu"
 }
 }

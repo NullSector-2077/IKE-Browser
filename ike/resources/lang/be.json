@@ -847,6 +847,13 @@
 "Previous match (Shift+Enter)": "Папярэдні вынік (Shift+Enter)",
 "Next match (Enter)": "Наступны вынік (Enter)",
 "Default": "Стандартная",
-"I.K.E.'s own photo": "Уласнае фота I.K.E."
+"I.K.E.'s own photo": "Уласнае фота I.K.E.",
+"Components and licences": "Кампаненты і ліцэнзіі",
+"I.K.E. is free software (GPL-3.0). Every component keeps its own licence.": "I.K.E. — свабоднае праграмнае забеспячэнне (GPL-3.0). Кожны кампанент захоўвае ўласную ліцэнзію.",
+"This site is fine": "Гэты сайт у парадку",
+"Hide this warning": "Схаваць гэта папярэджанне",
+"Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "Асцярожна: %s падобны на %s, але гэта не %s. Не ўводзьце паролі і даныя карткі, калі не ўпэўнены.",
+"Warn about sites that imitate well-known ones": "Папярэджваць пра сайты, якія імітуюць вядомыя",
+"Tint the toolbar with the colour of the site": "Адценьваць панэль інструментаў колерам сайта"
 }
 }

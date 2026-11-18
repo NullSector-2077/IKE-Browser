@@ -847,6 +847,13 @@
 "Previous match (Shift+Enter)": "Претходно подударање (Shift+Enter)",
 "Next match (Enter)": "Следеће подударање (Enter)",
 "Default": "Подразумевана",
-"I.K.E.'s own photo": "Фотографија I.K.E.-а"
+"I.K.E.'s own photo": "Фотографија I.K.E.-а",
+"Components and licences": "Компоненте и лиценце",
+"I.K.E. is free software (GPL-3.0). Every component keeps its own licence.": "I.K.E. је слободан софтвер (GPL-3.0). Свака компонента задржава своју лиценцу.",
+"This site is fine": "Овај сајт је у реду",
+"Hide this warning": "Сакриј ово упозорење",
+"Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "Пажња: %s личи на %s, али није %s. Не уносите лозинке ни податке о картици ако нисте сигурни.",
+"Warn about sites that imitate well-known ones": "Упозори на сајтове који опонашају познате",
+"Tint the toolbar with the colour of the site": "Обој траку са алаткама бојом сајта"
 }
 }

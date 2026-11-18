@@ -350,12 +350,15 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.findbar = FindBar(self)
         from .repair import RepairBar
         self.repair_bar = RepairBar(self)
+        from .lookalikebar import LookalikeBar
+        self.lookalike_bar = LookalikeBar(self)
         right = QWidget(self)
         rl = QVBoxLayout(right)
         rl.setContentsMargins(0, 0, 0, 0)
         rl.setSpacing(0)
         rl.addWidget(self.htab_row)
         rl.addWidget(self.repair_bar)
+        rl.addWidget(self.lookalike_bar)
         self.content = QSplitter(Qt.Orientation.Horizontal, self)
         self.content.addWidget(self.stack)
         self.content.addWidget(self._build_split_holder())
@@ -407,6 +410,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         tb.customContextMenuRequested.connect(self._toolbar_menu)
         self.addToolBar(tb)
         self.nav = tb
+        from .sitetint import SiteTint
+        self.site_tint = SiteTint(self)             # the site's colour in the bar (1.1.14)
         self._hover = polish.HoverGlides(tb, self.app.config)   # round hover of the buttons (1.1.9)
         self.act_back = self._action(T("Back"), lambda: self._web(QWebEnginePage.WebAction.Back),
                                      ["Alt+Left"], icon("go-previous", SP.SP_ArrowBack),
@@ -996,6 +1001,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             return                       # keep the icon the tab had when it went to sleep
         # detach from the engine: a plain pixmap copy stays valid whatever the page does
         view.last_icon = QIcon(ic.pixmap(32, 32)) if not ic.isNull() else QIcon()
+        self.site_tint.icon_changed(view)
         if not getattr(view, "loading_marked", False):
             view._icon_fade_from = getattr(view, "shown_icon", None)
         self._tab_changed(view)
@@ -1596,6 +1602,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self._update_nav()
         self.update_shield()
         self._update_bookbar()
+        self.lookalike_bar.show_for(v)
+        self.site_tint.update(v)
         if self.findbar.isVisible():
             self.findbar.close_bar()
 
@@ -1654,9 +1662,31 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.urlbar.translate_act.setVisible(scheme in ("http", "https"))
         self.sync_engine()
 
+    def refresh_lookalike(self):
+        """Settings changed (Sosia on or off, sites marked as fine, site tint):
+        look at the page in front again."""
+        from .lookalikebar import check_view
+        v = self.current_view()
+        if v is not None:
+            v.lookalike_host = None
+            check_view(self.app.config, v)
+            if self.app.config["site_tint"] and getattr(v, "site_colour", None) is None \
+                    and not getattr(v, "loading", False):
+                self.site_tint.page_loaded(v)
+        self.lookalike_bar.show_for(v)
+        self.site_tint.update(v)
+
     def _url_changed(self, view):
         self._site_zoom(view)
+        from .lookalikebar import check_view
+        check_view(self.app.config, view)            # Sosia (1.1.14)
+        host = view.url().host().lower()
+        if getattr(view, "site_colour_host", None) != host:
+            view.site_colour_host = host             # another site: its own colour comes with it
+            view.site_colour = None
         if view is self.current_view():
+            self.lookalike_bar.show_for(view)
+            self.site_tint.update(view)
             self._update_bookbar()
             self.urlbar.setModified(False)
             self.sync_urlbar()
@@ -1728,6 +1758,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
 
     def _load_finished(self, view, ok):
         self._load_state(view, False)
+        if ok:
+            self.site_tint.page_loaded(view)
         if ok and view.url().scheme() == "ike":
             self.app.push_weather(view)
         if ok and not self.private:
@@ -2017,9 +2049,33 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             from .config import CACHE_DIR
             lines.append(T("Internal errors this session: %d (details in %s)")
                          % (len(INTERNAL_ERRORS), CACHE_DIR / "errors.log"))
-        return "<h2>%s</h2><p>%s %s</p><p>%s</p><p>%s</p>" % (
+        return "<h2>%s</h2><p>%s %s</p><p>%s</p><p>%s</p>%s" % (
             APP_LONG_NAME, T("Version"), __version__, "<br>".join(lines),
-            T("An independent, privacy-first browser. No telemetry, no accounts, no sponsored content."))
+            T("An independent, privacy-first browser. No telemetry, no accounts, no sponsored content."),
+            self._credits())
+
+    # Who I.K.E. stands on (1.1.14): names and licences, shown in Help -> About.
+    # The full list, with the Rust libraries, is docs/THIRD-PARTY.md.
+    CREDITS = (
+        ("adblock-rust (Brave Software)", "MPL-2.0"),
+        ("uBlock Origin scriptlets and filters (Raymond Hill and contributors)", "GPL-3.0"),
+        ("EasyList, EasyPrivacy (The EasyList authors)", "GPL-3.0 / CC BY-SA 3.0"),
+        ("Peter Lowe's list, EasyList Italy, Fanboy's Cookiemonster", ""),
+        ("Dark Reader (Dark Reader Ltd)", "MIT"),
+        ("Qt, Qt WebEngine (The Qt Company), Chromium (The Chromium Authors)", "LGPL-3.0 / BSD"),
+        ("PyQt6 (Riverbank Computing)", "GPL-3.0"),
+        ("Lucide icons", "ISC"),
+        ("Phosphor Icons", "MIT"),
+        ("Orbitron typeface (The Orbitron Project Authors)", "SIL OFL 1.1"),
+    )
+
+    def _credits(self):
+        from html import escape
+        rows = "<br>".join("%s%s" % (escape(name), (" — " + escape(lic)) if lic else "")
+                           for name, lic in self.CREDITS)
+        return "<p><b>%s</b><br><small>%s<br>%s</small></p>" % (
+            T("Components and licences"), rows,
+            T("I.K.E. is free software (GPL-3.0). Every component keeps its own licence."))
 
     def show_about(self):
         from . import mediacheck

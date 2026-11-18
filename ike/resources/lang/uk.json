@@ -847,6 +847,13 @@
 "Previous match (Shift+Enter)": "Попередній збіг (Shift+Enter)",
 "Next match (Enter)": "Наступний збіг (Enter)",
 "Default": "Типове",
-"I.K.E.'s own photo": "Фото I.K.E."
+"I.K.E.'s own photo": "Фото I.K.E.",
+"Components and licences": "Компоненти та ліцензії",
+"I.K.E. is free software (GPL-3.0). Every component keeps its own licence.": "I.K.E. — вільне програмне забезпечення (GPL-3.0). Кожен компонент зберігає власну ліцензію.",
+"This site is fine": "Цей сайт у порядку",
+"Hide this warning": "Приховати це попередження",
+"Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "Обережно: %s схожий на %s, але це не %s. Не вводьте паролі й дані картки, якщо не впевнені.",
+"Warn about sites that imitate well-known ones": "Попереджати про сайти, що імітують відомі",
+"Tint the toolbar with the colour of the site": "Відтінювати панель інструментів кольором сайту"
 }
 }

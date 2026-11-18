@@ -847,6 +847,13 @@
 "Previous match (Shift+Enter)": "Resultado anterior (Shift+Enter)",
 "Next match (Enter)": "Resultado seguinte (Enter)",
 "Default": "Predefinida",
-"I.K.E.'s own photo": "A foto do I.K.E."
+"I.K.E.'s own photo": "A foto do I.K.E.",
+"Components and licences": "Componentes e licenças",
+"I.K.E. is free software (GPL-3.0). Every component keeps its own licence.": "O I.K.E. é software livre (GPL-3.0). Cada componente mantém a sua própria licença.",
+"This site is fine": "Este site é fiável",
+"Hide this warning": "Ocultar este aviso",
+"Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "Cuidado: %s parece %s, mas não é %s. Não introduza palavras-passe nem dados do cartão se não tiver a certeza.",
+"Warn about sites that imitate well-known ones": "Avisar sobre sites que imitam sites conhecidos",
+"Tint the toolbar with the colour of the site": "Tingir a barra de ferramentas com a cor do site"
 }
 }

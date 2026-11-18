@@ -272,6 +272,8 @@ class SettingsDialog(QDialog):
         self.effects = QCheckBox(T("Interface effects: short fades and the mark on tabs that are loading"))
         self.effects.setToolTip(T("They are also off when the desktop is set to show no animations"))
         self.effects.setChecked(bool(self.cfg["ui_effects"]))
+        self.site_tint = QCheckBox(T("Tint the toolbar with the colour of the site"))
+        self.site_tint.setChecked(bool(self.cfg["site_tint"]))
         self.maximized.setChecked(bool(self.cfg["start_maximized"]))
         self.vauto = QCheckBox(T("Hide vertical tabs; show them when the mouse touches the left edge"))
         self.vauto.setChecked(bool(self.cfg["vtabs_autohide"]))
@@ -328,6 +330,7 @@ class SettingsDialog(QDialog):
         f.addRow("", _wrapping(self.titlebar))
         f.addRow("", self.maximized)
         f.addRow("", _wrapping(self.effects))
+        f.addRow("", _wrapping(self.site_tint))
         f.addRow(T("Toolbar buttons"), tb_row)
         f.addRow(T("Default zoom"), self.zoom)
         f.addRow(T("Dark mode for pages"), self.dark)
@@ -678,6 +681,7 @@ class SettingsDialog(QDialog):
             ("webrtc_hide_ip", T("Hide local IP addresses from WebRTC")),
             ("clear_on_exit", T("Clear cookies, cache and history when I.K.E. is closed")),
             ("repair_button", T("Show “Repair this site” in the shield")),
+            ("lookalike_warn", T("Warn about sites that imitate well-known ones")),
         ):
             c = QCheckBox(label)
             c.setChecked(bool(self.cfg[key]))
@@ -1135,6 +1139,7 @@ class SettingsDialog(QDialog):
         cfg["vtabs_autohide"] = self.vauto.isChecked()
         cfg["start_maximized"] = self.maximized.isChecked()
         cfg["ui_effects"] = self.effects.isChecked()
+        cfg["site_tint"] = self.site_tint.isChecked()
         cfg["toolbar_hidden"] = [k for k, c in self.tb_btns.items() if not c.isChecked()]
         cfg["default_zoom"] = round(self.zoom.value(), 2)
         dark_choice, dark_engine = self.dark.currentData(), self.dark_engine.currentData()

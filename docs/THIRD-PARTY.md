@@ -2,7 +2,7 @@
 
 | Component | Where | Licence |
 |---|---|---|
-| adblock-rust 0.13.5 (filter engine, by Brave) | compiled into `ike_adblock.abi3.so` | MPL-2.0, see `LICENSE.adblock-rust` |
+| adblock-rust 0.13.6 (filter engine, by Brave) | compiled into `ike_adblock.abi3.so` | MPL-2.0, see `LICENSE.adblock-rust` |
 | uBlock Origin scriptlets | `ike/resources/ubo-scriptlets.json` | GPL-3.0 |
 | Dark Reader (engine, its style-sheet proxy, and the lists of its extension: site fixes, dark sites, detector hints) | `ike/resources/darkreader.js`, `darkreader-proxy.js`, `darkreader-data.json` (built by `tools/build-darkreader.py`) | MIT, see `LICENSE.darkreader` |
 | Lucide icons | `ike/resources/icons/sets/lucide` | ISC, see `LICENSE.lucide` |
@@ -14,7 +14,10 @@ MPL-2.0) and statically links the Rust libraries listed below, each under its
 own licence.
 
 Filter lists are downloaded at run time from their maintainers and are covered
-by their own licences. Widevine is **not** included: it is proprietary software
+by their own licences: EasyList and EasyPrivacy (The EasyList authors, GPL-3.0
+or CC BY-SA 3.0), the uBlock filters (uBlock Origin contributors, GPL-3.0),
+Peter Lowe's list, EasyList Italy, Fanboy's Cookiemonster. They are used
+unchanged; I.K.E. only reads them. Widevine is **not** included: it is proprietary software
 by Google, which I.K.E. downloads from Google's server only at the user's
 request.
 
@@ -27,11 +30,11 @@ updated by pacman under their own licences.
 ## Rust libraries linked into `ike_adblock`
 
 ```
-adblock v0.13.5 — MPL-2.0
+adblock v0.13.6 — MPL-2.0
 addr v0.15.6 — MIT/Apache-2.0
 aho-corasick v1.1.5 — Unlicense OR MIT
 arrayvec v0.7.8 — MIT OR Apache-2.0
-base64 v0.22.1 — MIT OR Apache-2.0
+base64 v0.23.1 — MIT OR Apache-2.0
 bitflags v2.13.2 — MIT OR Apache-2.0
 cssparser v0.35.0 — MPL-2.0
 cssparser-macros v0.6.1 — MPL-2.0

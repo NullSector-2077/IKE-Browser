@@ -55,6 +55,10 @@ profiles: `ike-browser --profile NAME`.
   engine, so what a site reads always matches what it can test.
 - Automatic HTTPS, encrypted DNS (DNS over HTTPS), third-party cookie blocking,
   reduced referrer, Global Privacy Control.
+- **Sosia (lookalike warning)**: when an address imitates a famous site
+  ("paypa1.com", a Cyrillic letter in "pаypal", "paypal.com.login.xyz"), a bar
+  above the page says so. Checked on this computer only, never blocking; real
+  sites are never flagged, and any site can be marked as fine.
 - **Repair this site**: when a page does not work, the shield finds the
   protection that breaks it and turns off only that one, for that site only.
 
@@ -177,6 +181,25 @@ I.K.E. has no servers of its own and sends no telemetry. It contacts only:
 
 See [docs/BUILDING.md](docs/BUILDING.md) to build or run from source, and
 [ROADMAP.md](ROADMAP.md) for planned work.
+
+## Built with
+
+I.K.E. stands on the work of these projects, each under its own licence:
+
+| Project | What it does in I.K.E. | Licence |
+|---|---|---|
+| [adblock-rust](https://github.com/brave/adblock-rust) by Brave Software | the filter engine of the content blocker | MPL-2.0 |
+| [uBlock Origin](https://github.com/gorhill/uBlock) by Raymond Hill and contributors | scriptlets and filter lists | GPL-3.0 |
+| [EasyList, EasyPrivacy](https://easylist.to/) | filter lists | GPL-3.0 / CC BY-SA 3.0 |
+| Peter Lowe's list, EasyList Italy, Fanboy's Cookiemonster | filter lists | their own |
+| [Dark Reader](https://github.com/darkreader/darkreader) | dark mode for pages | MIT |
+| Qt, Qt WebEngine (Chromium), PyQt6 | the window and the web engine, from the system | LGPL-3.0 / BSD / GPL-3.0 |
+| Lucide, Phosphor Icons | icon sets | ISC / MIT |
+| Orbitron | the lettering of the logo | SIL OFL 1.1 |
+
+The same list is in Help -> About; the complete one, with every Rust library
+of the engine, is [docs/THIRD-PARTY.md](docs/THIRD-PARTY.md), kept up to date
+by the daily maintenance.
 
 ## Licence
 

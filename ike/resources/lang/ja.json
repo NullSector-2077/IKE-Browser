@@ -847,6 +847,13 @@
 "Previous match (Shift+Enter)": "前の一致 (Shift+Enter)",
 "Next match (Enter)": "次の一致 (Enter)",
 "Default": "既定",
-"I.K.E.'s own photo": "I.K.E. の写真"
+"I.K.E.'s own photo": "I.K.E. の写真",
+"Components and licences": "コンポーネントとライセンス",
+"I.K.E. is free software (GPL-3.0). Every component keeps its own licence.": "I.K.E. はフリーソフトウェア（GPL-3.0）です。各コンポーネントはそれぞれのライセンスに従います。",
+"This site is fine": "このサイトは問題ありません",
+"Hide this warning": "この警告を隠す",
+"Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "注意：%s は %s に似ていますが、%s ではありません。確信がない場合は、パスワードやカード情報を入力しないでください。",
+"Warn about sites that imitate well-known ones": "有名なサイトを装うサイトについて警告する",
+"Tint the toolbar with the colour of the site": "ツールバーをサイトの色で淡く色付けする"
 }
 }

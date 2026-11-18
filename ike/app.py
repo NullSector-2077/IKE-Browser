@@ -220,6 +220,7 @@ class IkeApp(QObject):
         for w in self.windows:
             w.apply_layout()
             w.sync_urlbar()
+            w.refresh_lookalike()
 
     def _open_from_newtab(self, what):
         """The Settings button of the new tab page, or its background photo button."""
