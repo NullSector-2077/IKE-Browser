@@ -47,6 +47,7 @@ LISTS = r"""
 def steps(ike, qapp, out):
     out["lists"] = {e["name"]: e["enabled"] for e in ike.config["filter_lists"]}
     out["flag"] = ike.config["pgl_off_1116"]
+    yield 0
 """
 
 

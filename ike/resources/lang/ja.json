@@ -854,6 +854,12 @@
 "Hide this warning": "この警告を隠す",
 "Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "注意：%s は %s に似ていますが、%s ではありません。確信がない場合は、パスワードやカード情報を入力しないでください。",
 "Warn about sites that imitate well-known ones": "有名なサイトを装うサイトについて警告する",
-"Colour the edge of the address bar with the colour of the site": "アドレスバーの縁をサイトの色で彩る"
+"Colour the edge of the address bar with the colour of the site": "アドレスバーの縁をサイトの色で彩る",
+"Email links": "メールのリンク",
+"Ask each time": "毎回確認する",
+"The computer's mail program": "コンピューターのメールソフト",
+"Write an email": "メールを書く",
+"Write an email to %s with:": "%s へのメールを次で書く:",
+"Remember this choice": "この選択を記憶する"
 }
 }

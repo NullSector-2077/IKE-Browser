@@ -854,6 +854,12 @@
 "Hide this warning": "Сакриј ово упозорење",
 "Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "Пажња: %s личи на %s, али није %s. Не уносите лозинке ни податке о картици ако нисте сигурни.",
 "Warn about sites that imitate well-known ones": "Упозори на сајтове који опонашају познате",
-"Colour the edge of the address bar with the colour of the site": "Обој ивицу траке за адресу бојом сајта"
+"Colour the edge of the address bar with the colour of the site": "Обој ивицу траке за адресу бојом сајта",
+"Email links": "Везе за е-пошту",
+"Ask each time": "Питај сваки пут",
+"The computer's mail program": "Програм за е-пошту на рачунару",
+"Write an email": "Напиши е-поруку",
+"Write an email to %s with:": "Напиши е-поруку за %s помоћу:",
+"Remember this choice": "Запамти овај избор"
 }
 }

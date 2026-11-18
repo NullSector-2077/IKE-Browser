@@ -277,9 +277,14 @@ class IkeApp(QObject):
             w._apply_toolbar()
 
     def start(self, urls=None, private=False):
+        from .mailto import is_mailto
         from .window import NEWTAB
         self.blocker.load()
         cfg = self.config
+        mails = [u for u in urls or () if is_mailto(u)]
+        urls = [u for u in urls or () if not is_mailto(u)]
+        if mails:
+            QTimer.singleShot(300, lambda: self._write_emails(mails))
         if private:
             self.new_window(private=True, urls=urls)
         else:
@@ -318,8 +323,26 @@ class IkeApp(QObject):
             self._desktop_notify(self._t("I.K.E. update %s did not start correctly and was "
                                          "removed. The previous version is in use.") % notice[0])
 
+    def _write_emails(self, mails):
+        """Email links that came from another program (I.K.E. is the system's
+        handler for them): the chosen web mail writes them."""
+        from . import mailto
+        for m in mails:
+            mailto.open_link(self, QUrl(m), self.active_window(), from_desktop=True)
+
     def open_urls(self, urls, private=False):
         """Called when a second instance forwards its arguments."""
+        from .mailto import is_mailto
+        mails = [u for u in urls if is_mailto(u)]
+        urls = [u for u in urls if not is_mailto(u)]
+        if mails and not urls and self.active_window() is not None:
+            win = self.active_window()
+            win.raise_()
+            win.activateWindow()
+            self._write_emails(mails)
+            return
+        if mails:
+            QTimer.singleShot(0, lambda: self._write_emails(mails))
         win = None if private else self.active_window()
         if win is None or win.private != private:
             win = self.new_window(private=private, urls=urls or None)

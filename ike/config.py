@@ -214,6 +214,7 @@ DEFAULTS = {
     "login_compat": True,               # gentle handling of Google/Microsoft/Apple sign-in
     "lookalike_warn": True,             # warn about sites imitating well-known ones (1.1.14, lookalike.py)
     "lookalike_ok": [],                 # sites the user marked as fine
+    "mail_handler": "ask",              # email links: ask | system | gmail | outlook | proton | yahoo (1.1.16, mailto.py)
     "site_tint": True,                  # the toolbar takes a light tint of the site's colour (1.1.14)
     "https_only": True,
     "strip_tracking_params": True,

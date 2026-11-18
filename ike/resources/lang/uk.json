@@ -854,6 +854,12 @@
 "Hide this warning": "Приховати це попередження",
 "Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "Обережно: %s схожий на %s, але це не %s. Не вводьте паролі й дані картки, якщо не впевнені.",
 "Warn about sites that imitate well-known ones": "Попереджати про сайти, що імітують відомі",
-"Colour the edge of the address bar with the colour of the site": "Фарбувати рамку адресного рядка кольором сайту"
+"Colour the edge of the address bar with the colour of the site": "Фарбувати рамку адресного рядка кольором сайту",
+"Email links": "Посилання на ел. пошту",
+"Ask each time": "Питати щоразу",
+"The computer's mail program": "Поштова програма комп'ютера",
+"Write an email": "Написати лист",
+"Write an email to %s with:": "Написати лист %s за допомогою:",
+"Remember this choice": "Запам'ятати цей вибір"
 }
 }

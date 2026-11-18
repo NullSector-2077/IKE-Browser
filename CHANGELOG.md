@@ -2,6 +2,14 @@
 
 ## 1.1.16
 
+- **Email links**: a "mailto:" link is now written with the service the user
+  chooses, as in other browsers: Gmail, Outlook.com, Proton Mail or Yahoo Mail
+  open in a new tab with the address, subject and text already filled in, or
+  the computer's mail program takes it. I.K.E. asks at each link until a choice
+  is remembered (Settings -> General -> Email links). I.K.E. can also be chosen
+  as the system's program for email links (System Settings -> Default
+  Applications): links clicked in other programs then open in the chosen web
+  mail.
 - **Site colour on the address bar's edge**: the colour of the site now draws
   only a thin outline around the address bar, with the same short fade; the
   toolbar keeps the theme's own colour (the tinted toolbar of 1.1.14 was too

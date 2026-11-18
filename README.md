@@ -80,6 +80,9 @@ profiles: `ike-browser --profile NAME`.
 - Import from Firefox and Chromium-based browsers, local backup and restore,
   download manager, PDF viewer, reader mode, picture-in-picture, translation
   through an external service, site permissions.
+- Email links written with the web mail you choose (Gmail, Outlook.com, Proton
+  Mail, Yahoo Mail) or with the computer's mail program; I.K.E. can also take
+  the email links of other programs.
 - Page dark mode with Dark Reader as its extension works (its fixes for single
   sites, sites that are dark already left alone, its detector of a site's own
   dark theme; lists kept up to date with the daily maintenance), or with the

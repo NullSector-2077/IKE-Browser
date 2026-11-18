@@ -50,6 +50,7 @@
  "login_compat",
  "lookalike_ok",
  "lookalike_warn",
+ "mail_handler",
  "media_sites",
  "mouse_gestures",
  "newtab_bg",

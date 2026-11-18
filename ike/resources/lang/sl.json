@@ -854,6 +854,12 @@
 "Hide this warning": "Skrij to opozorilo",
 "Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "Previdno: %s je videti kot %s, vendar ni %s. Če niste prepričani, ne vnašajte gesel ali podatkov o kartici.",
 "Warn about sites that imitate well-known ones": "Opozori na strani, ki posnemajo znane strani",
-"Colour the edge of the address bar with the colour of the site": "Obarvaj rob naslovne vrstice z barvo strani"
+"Colour the edge of the address bar with the colour of the site": "Obarvaj rob naslovne vrstice z barvo strani",
+"Email links": "Povezave do e-pošte",
+"Ask each time": "Vprašaj vsakič",
+"The computer's mail program": "Poštni program računalnika",
+"Write an email": "Napiši e-pošto",
+"Write an email to %s with:": "Napiši e-pošto za %s z:",
+"Remember this choice": "Zapomni si to izbiro"
 }
 }

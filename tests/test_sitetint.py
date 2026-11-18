@@ -35,7 +35,7 @@ def steps(ike, qapp, out):
     img = win.urlbar.grab().toImage()
     reds = 0
     for x in range(img.width()):
-        for y in (1, 2, img.height() - 2, img.height() - 3):
+        for y in range(img.height()):
             c = img.pixelColor(x, y)
             if c.red() > 150 and c.green() < 110 and c.blue() < 110:
                 reds += 1
@@ -58,6 +58,11 @@ def steps(ike, qapp, out):
     ike.refresh_windows()
     yield 600
     out["off"] = edge(win)
+    img = win.urlbar.grab().toImage()
+    out["off_red_pixels"] = sum(
+        1 for x in range(img.width()) for y in range(img.height())
+        if img.pixelColor(x, y).red() > 150 and img.pixelColor(x, y).green() < 110
+        and img.pixelColor(x, y).blue() < 110)
 """
 
 
@@ -65,6 +70,7 @@ def test_the_address_bar_edge_takes_the_site_colour(run_ike):
     out = run_ike(STEPS)
     assert out["red"] == "#d32f2f", out
     assert out["red_pixels"] > 20, out                     # drawn around the field
+    assert out["off_red_pixels"] == 0, out                 # and gone when switched off
     assert out["nav_after"] == out["nav_before"] and not out["nav_fill"], out   # the toolbar keeps its theme
     assert out["grey"] is None, out                        # a grey gives no colour
     assert out["blue"] == "#1565c0", out

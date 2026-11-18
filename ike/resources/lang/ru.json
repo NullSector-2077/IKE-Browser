@@ -854,6 +854,12 @@
 "Hide this warning": "Скрыть это предупреждение",
 "Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "Осторожно: %s похож на %s, но это не %s. Не вводите пароли и данные карты, если не уверены.",
 "Warn about sites that imitate well-known ones": "Предупреждать о сайтах, подражающих известным",
-"Colour the edge of the address bar with the colour of the site": "Окрашивать рамку адресной строки в цвет сайта"
+"Colour the edge of the address bar with the colour of the site": "Окрашивать рамку адресной строки в цвет сайта",
+"Email links": "Ссылки на эл. почту",
+"Ask each time": "Спрашивать каждый раз",
+"The computer's mail program": "Почтовая программа компьютера",
+"Write an email": "Написать письмо",
+"Write an email to %s with:": "Написать письмо %s с помощью:",
+"Remember this choice": "Запомнить этот выбор"
 }
 }

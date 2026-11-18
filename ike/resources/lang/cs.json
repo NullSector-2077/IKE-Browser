@@ -854,6 +854,12 @@
 "Hide this warning": "Skrýt toto varování",
 "Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "Pozor: %s vypadá jako %s, ale není to %s. Pokud si nejste jisti, nezadávejte hesla ani údaje o kartě.",
 "Warn about sites that imitate well-known ones": "Varovat před weby, které napodobují známé weby",
-"Colour the edge of the address bar with the colour of the site": "Zabarvit okraj adresního řádku barvou webu"
+"Colour the edge of the address bar with the colour of the site": "Zabarvit okraj adresního řádku barvou webu",
+"Email links": "Odkazy na e-mail",
+"Ask each time": "Pokaždé se zeptat",
+"The computer's mail program": "Poštovní program počítače",
+"Write an email": "Napsat e-mail",
+"Write an email to %s with:": "Napsat e-mail na %s pomocí:",
+"Remember this choice": "Zapamatovat si tuto volbu"
 }
 }

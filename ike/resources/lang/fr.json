@@ -854,6 +854,12 @@
 "Hide this warning": "Masquer cet avertissement",
 "Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "Attention : %s ressemble à %s, mais ce n'est pas %s. N'entrez ni mot de passe ni données de carte si vous n'êtes pas sûr.",
 "Warn about sites that imitate well-known ones": "Avertir des sites qui imitent des sites connus",
-"Colour the edge of the address bar with the colour of the site": "Colorer le bord de la barre d'adresse avec la couleur du site"
+"Colour the edge of the address bar with the colour of the site": "Colorer le bord de la barre d'adresse avec la couleur du site",
+"Email links": "Liens e-mail",
+"Ask each time": "Demander à chaque fois",
+"The computer's mail program": "Le logiciel de messagerie de l'ordinateur",
+"Write an email": "Écrire un e-mail",
+"Write an email to %s with:": "Écrire un e-mail à %s avec :",
+"Remember this choice": "Mémoriser ce choix"
 }
 }

@@ -162,6 +162,14 @@ class SettingsDialog(QDialog):
         f.addRow(T("At startup"), self.startup)
         f.addRow(T("Home page"), self.homepage)
         f.addRow("", default_btn)
+        from .mailto import SERVICES
+        self.mail = QComboBox()
+        self.mail.addItem(T("Ask each time"), "ask")
+        for key, name in SERVICES:
+            self.mail.addItem(name, key)
+        self.mail.addItem(T("The computer's mail program"), "system")
+        self.mail.setCurrentIndex(max(0, self.mail.findData(self.cfg["mail_handler"])))
+        f.addRow(T("Email links"), self.mail)
         self.lazy = QCheckBox(T("Load restored tabs only when they are opened (faster start)"))
         self.lazy.setChecked(bool(self.cfg["lazy_restore"]))
         self.sleep = QSpinBox()
@@ -1109,6 +1117,7 @@ class SettingsDialog(QDialog):
         cfg["language"] = self.language.currentData()
         cfg["accept_language"] = self.accept_lang.text().strip() or "en-US,en"
         cfg["startup"] = self.startup.currentData()
+        cfg["mail_handler"] = self.mail.currentData()
         cfg["homepage"] = self.homepage.text().strip() or "ike:newtab"
         cfg["tabs_position"] = self.tabs_pos.currentData()
         def looks():
