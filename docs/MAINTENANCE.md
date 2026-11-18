@@ -69,7 +69,8 @@ never touched.
    when a model's daily quota is used up (or Google is down) does the next one
    go on, with the work already done. A per-minute limit is waited out once; a
    wrong key or model name stops at once, since another model would not help.
-   The agent's output is never printed, the key is hidden in its errors, and a
+   The failure description travels inside the instructions (the agent may
+   not open `.autofix/`, which git ignores). The agent's output is never printed, the key is hidden in its errors, and a
    result containing the key is thrown away. A second attempt receives the
    first fix, the new test logs and the first summary, and corrects only that.
 3. **guard** (no AI, `tools/check-autofix-patch.py` from `main`): the patch may
