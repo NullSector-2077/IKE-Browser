@@ -10,14 +10,22 @@ the full tests run again, and the owner reviews everything before merging.
 A workflow failed. The file `.autofix/failure.md` describes it and holds the last
 lines of the failed jobs' logs.
 
-1. Find the real cause of the failure.
-2. If it can be fixed in the code, make the smallest correct fix.
-3. Check it: `ruff check .` and the test files concerned, e.g.
-   `QT_QPA_PLATFORM=offscreen python -m pytest tests/test_x.py -x -q`
-   (the whole suite takes several minutes: run only what the failure touches).
-4. Write `.autofix/summary.md` in Italian, plain and short (at most 15 lines), for
-   an owner who is not a programmer: what failed, why, what you changed, which
-   tests you ran and their result, what you could not check.
+**Be thrifty.** The free plan allows only about 20 model requests a day, and
+every step you take (reading a file, running a command, writing a file) uses
+one. Aim for at most 10 steps, in this order:
+
+1. Run `git diff`: a previous attempt with another model may have started the
+   fix already. Then read `.autofix/failure.md`.
+2. Open only the file(s) and lines the error names. Do not explore the
+   repository.
+3. If it can be fixed in the code, make the smallest correct fix.
+4. Write `.autofix/summary.md` right away, in Italian, plain and short (at most
+   15 lines), for an owner who is not a programmer: what failed, why, what you
+   changed, what you could not check.
+5. Optionally run `ruff check <the files you changed>` once.
+
+Do not run pytest or the test suite: there is no browser here, and GitHub runs
+all the tests on your fix (a second attempt follows if they fail).
 
 If the failure cannot be fixed in the code, change nothing and explain why in
 `.autofix/summary.md`. Examples: a server or upstream source that was down, a

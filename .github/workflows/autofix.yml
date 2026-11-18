@@ -99,8 +99,13 @@ jobs:
         with:
           name: autofix-failure
           path: .autofix
-      - name: Test environment
-        uses: ./.github/actions/ike-test-env
+      # No test environment: the agent does not run the tests (each step costs
+      # one of the ~20 free requests a day); GitHub runs them all on its fix.
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Lint tool for the agent
+        run: python -m pip install --disable-pip-version-check -q ruff
       - name: Antigravity CLI
         run: |
           # the installer checks the SHA-512 of the download against Google's manifest
@@ -124,13 +129,35 @@ jobs:
             echo "patch=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          args=(-p "$(cat "$RUNNER_TEMP/prompt.md")" --dangerously-skip-permissions
-                --output-format json --print-timeout 45m)
-          if [ -n "$AUTOFIX_MODEL" ]; then args+=(--model "$AUTOFIX_MODEL"); fi
+          # Models in order: the repository variable AUTOFIX_MODEL (one name, or
+          # several separated by commas), then the free Flash models. Each model
+          # has its own daily free quota: when one is used up (error 429) the
+          # next one goes on with the same work.
+          models=()
+          IFS=',' read -ra wanted <<< "${AUTOFIX_MODEL:-}"
+          for m in "${wanted[@]}" "Gemini 3.8 Flash (High)" "Gemini 3.7 Flash (High)" "Gemini 3.6 Flash (High)"; do
+            m="$(echo "$m" | sed 's/^ *//; s/ *$//')"
+            [ -z "$m" ] && continue
+            case " ${models[*]} " in *" $m "*) continue ;; esac
+            models+=("$m")
+          done
+          : > "$out/agent.json"; : > "$out/agent.err"
+          status=1
           set +e
-          # the agent's own output is never printed: the logs of a public repository are public
-          timeout 50m "$HOME/.local/bin/agy" "${args[@]}" > "$out/agent.json" 2> "$out/agent.err" < /dev/null
-          status=$?
+          for m in "${models[@]}"; do
+            echo "Agent with model: $m"
+            # the agent's own output is never printed: the logs of a public repository are public
+            timeout 20m "$HOME/.local/bin/agy" -p "$(cat "$RUNNER_TEMP/prompt.md")" --model "$m" \
+              --dangerously-skip-permissions --output-format json --print-timeout 18m \
+              >> "$out/agent.json" 2>> "$out/agent.err" < /dev/null
+            status=$?
+            [ "$status" -eq 0 ] && break
+            if tail -n 60 "$out/agent.err" | grep -q -e RESOURCE_EXHAUSTED -e "Error 429"; then
+              echo "The free quota of this model is used up: the next model goes on"
+              continue
+            fi
+            break
+          done
           set -e
           echo "Agent finished with status $status"
           # .autofix/ is in .gitignore; reset it too, in case a branch lacks that line

@@ -55,7 +55,11 @@ never touched.
 1. **plan** (no AI, `tools/autofix-plan.py`): what failed, where the fix goes,
    the end of the logs. A setting or workflow problem becomes an issue directly.
 2. **fix**: the Antigravity CLI (`agy`) runs the instructions of
-   `.github/autofix/prompt.md`, read from `main`. The job has **no GitHub
+   `.github/autofix/prompt.md`, read from `main`. The free plan gives each model
+   about 20 requests a day and every step of the agent uses one, so the agent
+   is told to be thrifty (about 10 steps, no tests: GitHub runs them on its
+   fix), and when a model's quota is used up the next free Flash model goes on
+   with the same work (`AUTOFIX_MODEL`, then Gemini 3.8, 3.7, 3.6 Flash). The job has **no GitHub
    credentials** (read-only, no token): it can only leave a patch and a summary
    in Italian. The API key is used only here; the agent's output is never
    printed, and a result containing the key is thrown away.
