@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.1.16
+
+- **Site colour on the address bar's edge**: the colour of the site now draws
+  only a thin outline around the address bar, with the same short fade; the
+  toolbar keeps the theme's own colour (the tinted toolbar of 1.1.14 was too
+  much). The option is still in Settings -> Appearance.
+- **Peter Lowe's list off by default**: its author states no licence for it,
+  and uBlock Origin's wiki lists it as non-commercial; until the author
+  confirms the terms for I.K.E., the list is off for new and existing users
+  (once: whoever turns it on again keeps it on). The other lists already cover
+  almost all of its servers.
+- **Licences and credits checked against their sources**: EasyList Italy is
+  under EasyList's licence (GPL-3.0 / CC BY-SA 3.0), the EasyList Cookie List
+  under CC BY 3.0, as its own header states; the filter lists are now listed
+  one by one with maintainer, licence and default in docs/THIRD-PARTY.md, with
+  the origin of the new tab picture and of the fallback icons, Dark Reader's
+  version, uBlock Origin's copyright line (also recorded in the scriptlet
+  file) and where adblock-rust's source is. None of the Rust libraries has a
+  NOTICE file to carry.
+
 ## 1.1.15
 
 - **Same site, free way (faster pages, fewer broken sites)**: at Balanced and

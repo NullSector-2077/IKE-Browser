@@ -854,6 +854,6 @@
 "Hide this warning": "隐藏此警告",
 "Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "注意：%s 看起来像 %s，但它不是 %s。如果不确定，请勿输入密码或银行卡信息。",
 "Warn about sites that imitate well-known ones": "对模仿知名网站的网站发出警告",
-"Tint the toolbar with the colour of the site": "用网站的颜色为工具栏着色"
+"Colour the edge of the address bar with the colour of the site": "用网站的颜色为地址栏边框着色"
 }
 }

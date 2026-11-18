@@ -854,6 +854,6 @@
 "Hide this warning": "Diese Warnung ausblenden",
 "Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "Vorsicht: %s sieht aus wie %s, ist aber nicht %s. Gib keine Passwörter oder Kartendaten ein, wenn du nicht sicher bist.",
 "Warn about sites that imitate well-known ones": "Vor Seiten warnen, die bekannte Seiten nachahmen",
-"Tint the toolbar with the colour of the site": "Die Werkzeugleiste in der Farbe der Seite tönen"
+"Colour the edge of the address bar with the colour of the site": "Den Rand der Adressleiste in der Farbe der Seite einfärben"
 }
 }

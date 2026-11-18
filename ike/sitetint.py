@@ -1,21 +1,21 @@
-"""Site tint (1.1.14): the navigation bar takes a light tint of the site's colour.
+"""Site colour (1.1.14, 1.1.16): the edge of the address bar takes the site's colour.
 
 The colour is the one the site declares for browsers (<meta name="theme-color">),
 read in I.K.E.'s own isolated script world after the page has loaded, so the
 page never sees it; when a site declares none, the main colour of its icon is
-used. Greys, whites and blacks give no tint. The bar is only nudged towards
-the colour (TINT of it, over the theme's own background), with a short fade
-when the interface effects are on, and goes back to normal on pages without a
-colour, on I.K.E.'s own pages and when the option is off (Settings ->
+used. Greys, whites and blacks give none. Only a thin outline around the
+address field is drawn in it (1.1.16: the owner found the tinted toolbar of
+1.1.14 too much); the rest of the window keeps its theme. It comes and goes
+with a short fade when the interface effects are on, and goes away on pages
+without a colour, on I.K.E.'s own pages and when the option is off (Settings ->
 Appearance). Nothing runs while the option is off.
 """
 
 import re
 
 from PyQt6.QtCore import QObject, QVariantAnimation
-from PyQt6.QtGui import QColor, QPalette
+from PyQt6.QtGui import QColor
 
-TINT = 0.16                       # how much of the site's colour goes into the bar
 MIN_SATURATION = 50               # below this a colour is a grey: no tint
 FADE_MS = 260
 
@@ -69,19 +69,13 @@ def icon_colour(icon):
     return QColor(r // n, g // n, b // n)
 
 
-def blend(base, colour, amount=TINT):
-    return QColor(round(base.red() + (colour.red() - base.red()) * amount),
-                  round(base.green() + (colour.green() - base.green()) * amount),
-                  round(base.blue() + (colour.blue() - base.blue()) * amount))
-
-
 class SiteTint(QObject):
-    """Tints the window's navigation bar for the page in front."""
+    """Draws the site's colour around the window's address bar."""
 
     def __init__(self, window):
         super().__init__(window)
         self.win = window
-        self.shown = None                # the colour the bar has now (None: the theme's own)
+        self.shown = None                # the colour of the edge now (None: no colour)
         self._anim = None
 
     def _on(self):
@@ -117,43 +111,42 @@ class SiteTint(QObject):
                 self.update(view)
 
     def update(self, view):
-        """Give the bar the tint of the page in front (or take it away)."""
-        bar = getattr(self.win, "nav", None)
+        """Give the address bar's edge the colour of the page in front (or take it away)."""
+        bar = getattr(self.win, "urlbar", None)
         if bar is None:
             return
         colour = getattr(view, "site_colour", None) if (view is not None and self._on()) else None
         if colour is not None and view.url().scheme() not in ("http", "https"):
             colour = None
-        base = self.win.palette().color(QPalette.ColorRole.Window)
-        target = blend(base, colour) if colour is not None else None
+        target = QColor(colour) if colour is not None else None
         if target == self.shown:
             return
-        start = self.shown or base
-        end = target or base
+        start = QColor(self.shown) if self.shown is not None else None
         self.shown = target
         if self._anim is not None:
             self._anim.stop()
             self._anim = None
         from . import effects
-        if not effects.on(self.win.app.config):
-            self._paint(end, target is not None)
+        if not effects.on(self.win.app.config) or (start is None and target is None):
+            self._paint(target)
             return
+        # fade in from transparent, out to transparent, or from one colour to the next
+        if start is None:
+            start = QColor(target)
+            start.setAlpha(0)
+        end = target
+        if end is None:
+            end = QColor(start)
+            end.setAlpha(0)
         anim = self._anim = QVariantAnimation(self)
         anim.setStartValue(start)
         anim.setEndValue(end)
         anim.setDuration(FADE_MS)
-        anim.valueChanged.connect(lambda c: self._paint(c, True))
-        anim.finished.connect(lambda t=target is not None, e=end: self._paint(e, t))
-        bar.setAutoFillBackground(True)
+        anim.valueChanged.connect(self._paint)
+        anim.finished.connect(lambda t=target: self._paint(t))
         anim.start()
 
-    def _paint(self, colour, tinted):
-        bar = self.win.nav
-        if not tinted:
-            bar.setAutoFillBackground(False)
-            bar.setPalette(self.win.palette())
-            return
-        pal = bar.palette()
-        pal.setColor(bar.backgroundRole(), colour)
-        bar.setPalette(pal)
-        bar.setAutoFillBackground(True)
+    def _paint(self, colour):
+        bar = self.win.urlbar
+        bar.site_edge = QColor(colour) if colour is not None and colour.alpha() > 0 else None
+        bar.update()

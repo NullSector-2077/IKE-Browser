@@ -854,6 +854,6 @@
 "Hide this warning": "Скриј го ова предупредување",
 "Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "Внимание: %s личи на %s, но не е %s. Не внесувајте лозинки или податоци за картичка ако не сте сигурни.",
 "Warn about sites that imitate well-known ones": "Предупреди за страници што имитираат познати",
-"Tint the toolbar with the colour of the site": "Обој ја лентата со алатки во бојата на страницата"
+"Colour the edge of the address bar with the colour of the site": "Обој го работ на лентата за адреса во бојата на страницата"
 }
 }

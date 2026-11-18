@@ -9,7 +9,7 @@ The interface, protections, password manager and updater are I.K.E.'s own code
 provided and kept up to date by Arch Linux. I.K.E. is developed on and for
 KDE Plasma (CachyOS / Arch Linux) and works on the other Arch-based desktops.
 
-**Version 1.1.15** - see [CHANGELOG.md](CHANGELOG.md).
+**Version 1.1.16** - see [CHANGELOG.md](CHANGELOG.md).
 
 ## Install (Arch Linux, CachyOS)
 
@@ -17,7 +17,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.1.15-1-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.1.16-1-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:
@@ -43,8 +43,9 @@ profiles: `ike-browser --profile NAME`.
   Balanced, Strict, Maximum — set globally or per site, with counters for ads,
   trackers, scripts, third-party cookies, HTTPS upgrades and removed tracking
   parameters.
-- Content blocking with the EasyList, EasyPrivacy, uBlock filters, Peter Lowe
-  and regional lists, network and cosmetic filters, your own lists and filters.
+- Content blocking with the EasyList, EasyPrivacy, uBlock filters and regional
+  lists (Peter Lowe's list available, off by default), network and cosmetic
+  filters, your own lists and filters.
   Lists update daily. YouTube video ads are removed from the player data, with
   an automatic skip as a fallback.
 - **Same site, free way**: at Balanced, a site's own requests are not checked
@@ -194,16 +195,19 @@ I.K.E. stands on the work of these projects, each under its own licence:
 |---|---|---|
 | [adblock-rust](https://github.com/brave/adblock-rust) by Brave Software | the filter engine of the content blocker | MPL-2.0 |
 | [uBlock Origin](https://github.com/gorhill/uBlock) by Raymond Hill and contributors | scriptlets and filter lists | GPL-3.0 |
-| [EasyList, EasyPrivacy](https://easylist.to/) | filter lists | GPL-3.0 / CC BY-SA 3.0 |
-| Peter Lowe's list, EasyList Italy, Fanboy's Cookiemonster | filter lists | their own |
+| [EasyList, EasyPrivacy, EasyList Italy](https://easylist.to/) by The EasyList authors | filter lists | GPL-3.0 / CC BY-SA 3.0 |
+| EasyList Cookie List (Fanboy's Cookiemonster) | filter list | CC BY 3.0 |
+| [Peter Lowe's list](https://pgl.yoyo.org/adservers/) | filter list, **off by default** until its terms are confirmed | not stated |
 | [Dark Reader](https://github.com/darkreader/darkreader) | dark mode for pages | MIT |
 | Qt, Qt WebEngine (Chromium), PyQt6 | the window and the web engine, from the system | LGPL-3.0 / BSD / GPL-3.0 |
 | Lucide, Phosphor Icons | icon sets | ISC / MIT |
 | Orbitron | the lettering of the logo | SIL OFL 1.1 |
 
-The same list is in Help -> About; the complete one, with every Rust library
-of the engine, is [docs/THIRD-PARTY.md](docs/THIRD-PARTY.md), kept up to date
-by the daily maintenance.
+The filter lists are not shipped: the browser downloads them from their
+maintainers. The same list is in Help -> About; the complete one, with every
+Rust library of the engine, the new tab picture and the icons, is
+[docs/THIRD-PARTY.md](docs/THIRD-PARTY.md), kept up to date by the daily
+maintenance.
 
 ## Licence
 

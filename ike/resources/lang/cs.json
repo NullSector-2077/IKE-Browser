@@ -854,6 +854,6 @@
 "Hide this warning": "Skrýt toto varování",
 "Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "Pozor: %s vypadá jako %s, ale není to %s. Pokud si nejste jisti, nezadávejte hesla ani údaje o kartě.",
 "Warn about sites that imitate well-known ones": "Varovat před weby, které napodobují známé weby",
-"Tint the toolbar with the colour of the site": "Zabarvit panel nástrojů barvou webu"
+"Colour the edge of the address bar with the colour of the site": "Zabarvit okraj adresního řádku barvou webu"
 }
 }

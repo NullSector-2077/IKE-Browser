@@ -238,6 +238,18 @@ class UrlBar(QLineEdit):
         if self._pill is not None:
             polish.paint_pill(self, self._pill.value)
         super().paintEvent(event)
+        edge = getattr(self, "site_edge", None)
+        if edge is not None:
+            # the site's colour as a thin outline over the field's own frame (sitetint.py)
+            from PyQt6.QtCore import QRectF
+            from PyQt6.QtGui import QPainter, QPen
+            p = QPainter(self)
+            p.setRenderHint(QPainter.RenderHint.Antialiasing)
+            p.setPen(QPen(edge, 1.6))
+            r = QRectF(self.rect()).adjusted(0.8, 0.8, -0.8, -0.8)
+            radius = r.height() / 2 if self._pill is not None else 3.0
+            p.drawRoundedRect(r, radius, radius)
+            p.end()
 
     # --- the suggestions -----------------------------------------------------
     def _icon_for(self, text):

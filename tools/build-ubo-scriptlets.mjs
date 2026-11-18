@@ -9,6 +9,7 @@ import { execSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 const mod = await import(pathToFileURL(process.cwd() + '/src/src/js/resources/scriptlets.js').href);
 const out = { source: 'https://github.com/gorhill/uBlock', license: 'GPL-3.0',
+  copyright: 'Copyright (C) Raymond Hill and the uBlock Origin contributors',
   commit: execSync('git -C src log -1 --format=%H').toString().trim(),
   date: execSync('git -C src log -1 --format=%cs').toString().trim(), scriptlets: {} };
 for ( const s of mod.builtinScriptlets ) {

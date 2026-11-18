@@ -854,6 +854,6 @@
 "Hide this warning": "Приховати це попередження",
 "Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "Обережно: %s схожий на %s, але це не %s. Не вводьте паролі й дані картки, якщо не впевнені.",
 "Warn about sites that imitate well-known ones": "Попереджати про сайти, що імітують відомі",
-"Tint the toolbar with the colour of the site": "Відтінювати панель інструментів кольором сайту"
+"Colour the edge of the address bar with the colour of the site": "Фарбувати рамку адресного рядка кольором сайту"
 }
 }

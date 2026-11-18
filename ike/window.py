@@ -2059,8 +2059,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     CREDITS = (
         ("adblock-rust (Brave Software)", "MPL-2.0"),
         ("uBlock Origin scriptlets and filters (Raymond Hill and contributors)", "GPL-3.0"),
-        ("EasyList, EasyPrivacy (The EasyList authors)", "GPL-3.0 / CC BY-SA 3.0"),
-        ("Peter Lowe's list, EasyList Italy, Fanboy's Cookiemonster", ""),
+        ("EasyList, EasyPrivacy, EasyList Italy (The EasyList authors)", "GPL-3.0 / CC BY-SA 3.0"),
+        ("EasyList Cookie List (The EasyList authors)", "CC BY 3.0"),
+        ("Peter Lowe's list (off by default)", ""),
         ("Dark Reader (Dark Reader Ltd)", "MIT"),
         ("Qt, Qt WebEngine (The Qt Company), Chromium (The Chromium Authors)", "LGPL-3.0 / BSD"),
         ("PyQt6 (Riverbank Computing)", "GPL-3.0"),

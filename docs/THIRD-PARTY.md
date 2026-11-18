@@ -2,24 +2,36 @@
 
 | Component | Where | Licence |
 |---|---|---|
-| adblock-rust 0.13.6 (filter engine, by Brave) | compiled into `ike_adblock.abi3.so` | MPL-2.0, see `LICENSE.adblock-rust` |
-| uBlock Origin scriptlets | `ike/resources/ubo-scriptlets.json` | GPL-3.0 |
-| Dark Reader (engine, its style-sheet proxy, and the lists of its extension: site fixes, dark sites, detector hints) | `ike/resources/darkreader.js`, `darkreader-proxy.js`, `darkreader-data.json` (built by `tools/build-darkreader.py`) | MIT, see `LICENSE.darkreader` |
+| adblock-rust 0.13.6 (filter engine, by Brave) | compiled into `ike_adblock.abi3.so`; its unmodified source is the `adblock` crate of that version on crates.io (https://crates.io/crates/adblock, https://github.com/brave/adblock-rust) | MPL-2.0, see `LICENSE.adblock-rust` |
+| uBlock Origin scriptlets (Copyright (C) Raymond Hill and the uBlock Origin contributors) | `ike/resources/ubo-scriptlets.json`, generated from uBlock Origin's own source by `tools/build-ubo-scriptlets.mjs` (source, commit and licence recorded in the file) | GPL-3.0, as I.K.E. (see `LICENSE`) |
+| Dark Reader 4.9.135 (Dark Reader Ltd; engine, its style-sheet proxy, and the lists of its extension: site fixes, dark sites, detector hints) | `ike/resources/darkreader.js`, `darkreader-proxy.js`, `darkreader-data.json`, built and adapted for I.K.E. by `tools/build-darkreader.py` (the lists of the extension packed into one file; see the tool for what changes) | MIT, see `LICENSE.darkreader` |
 | Lucide icons | `ike/resources/icons/sets/lucide` | ISC, see `LICENSE.lucide` |
 | Phosphor Icons (fill and bold weights, @phosphor-icons/core 2.1.1) | `ike/resources/icons/sets/phosphor`, `ike/resources/icons/sets/phosphor-bold` | MIT, see `LICENSE.phosphor` |
 | Orbitron 2.001 (typeface, The Orbitron Project Authors) | the lettering of the logo and of the full name, drawn as paths in `ike/resources/ike.svg`, `ike/resources/wordmark.svg` and the icons of `data/icons` (`tools/make-brand.py`); the font itself is not shipped | SIL Open Font License 1.1, see `LICENSE.orbitron` |
+| New tab picture (the Earth with its network of lights) | `ike/resources/newtab-background.jpg` | made for I.K.E. by the project's owner with an AI image generator (ChatGPT or Gemini); no third-party rights are known; shipped under I.K.E.'s licence |
+| Fallback icons | `ike/resources/icons/fallback` | simple outline icons drawn for I.K.E. (in the repository since 1.0.0; no outside source is known); I.K.E.'s licence |
 
 The `ike_adblock` module is written for I.K.E. (sources in `ike-adblock/`,
 MPL-2.0) and statically links the Rust libraries listed below, each under its
 own licence.
 
-Filter lists are downloaded at run time from their maintainers and are covered
-by their own licences: EasyList and EasyPrivacy (The EasyList authors, GPL-3.0
-or CC BY-SA 3.0), the uBlock filters (uBlock Origin contributors, GPL-3.0),
-Peter Lowe's list, EasyList Italy, Fanboy's Cookiemonster. They are used
-unchanged; I.K.E. only reads them. Widevine is **not** included: it is proprietary software
-by Google, which I.K.E. downloads from Google's server only at the user's
-request.
+## Filter lists
+
+The filter lists are **not shipped** with I.K.E.: each user's browser downloads
+them from their maintainers' own servers and keeps them in its cache. I.K.E.
+uses them unchanged and only reads them. Defaults (Settings -> Privacy):
+
+| List | Maintainer, address | Licence | Default |
+|---|---|---|---|
+| EasyList, EasyPrivacy | The EasyList authors, https://easylist.to | GPL-3.0-or-later or CC BY-SA 3.0 or later (https://easylist.to/pages/licence.html); attribution: "The EasyList authors", easylist.to | on |
+| EasyList Italy | The EasyList authors (Khrin), easylist-downloads.adblockplus.org | as EasyList (the same licence page names it) | on |
+| EasyList Cookie List | The EasyList authors (Fanboy), secure.fanboy.co.nz | CC BY 3.0 (stated in the list's own header) | on |
+| uBlock filters, Quick fixes, Privacy, Badware, Unbreak, Cookie notices | uBlock Origin contributors, https://github.com/uBlockOrigin/uAssets | GPL-3.0 | on |
+| Peter Lowe's list | Peter Lowe, https://pgl.yoyo.org/adservers/ | **not clear**: the list and its page state no licence; uBlock Origin's wiki lists it as non-commercial (the author's informal "McRae GPL", https://pgl.yoyo.org/license/), which the list itself does not mention | **off** since 1.1.16, until the author confirms the terms; the user can turn it on |
+
+Lists a user adds keep their own terms. Widevine is **not** included: it is
+proprietary software by Google, which I.K.E. downloads from Google's server only
+at the user's request.
 
 ## Used from the system
 

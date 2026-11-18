@@ -141,7 +141,9 @@ DEFAULT_LISTS = [
      "url": "https://ublockorigin.github.io/uAssets/filters/badware.txt"},
     {"name": "uBlock filters - Unbreak", "group": "ads", "enabled": True,
      "url": "https://ublockorigin.github.io/uAssets/filters/unbreak.txt"},
-    {"name": "Peter Lowe's list", "group": "ads", "enabled": True,
+    # off by default until its author confirms the terms for I.K.E. (1.1.16, see
+    # docs/THIRD-PARTY.md): the user can still turn it on in Settings
+    {"name": "Peter Lowe's list", "group": "ads", "enabled": False,
      "url": "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=adblockplus&showintro=0&mimetype=plaintext"},
     {"name": "EasyList Italy", "group": "ads", "enabled": True,
      "url": "https://easylist-downloads.adblockplus.org/easylistitaly.txt"},
@@ -292,6 +294,7 @@ DEFAULTS = {
     # browse, every signed release installs by itself; "off" is the user's choice
     "app_updates": "auto",
     "app_updates_1113": False,          # an old default "ask" was moved to "auto" once (1.1.13)
+    "pgl_off_1116": False,              # Peter Lowe's list was turned off once (1.1.16)
     "update_channel": "stable",         # stable | beta
     "last_app_check": 0,
     "passwords_offer_save": True,
@@ -383,6 +386,13 @@ class Config:
         if d.get("app_updates") == "ask" and not d.get("app_updates_1113"):
             d["app_updates"] = "auto"
         d["app_updates_1113"] = True
+        # 1.1.16: Peter Lowe's list is off by default until its terms are clear; it
+        # is turned off once for everyone, and a user who turns it on again keeps it
+        if not d.get("pgl_off_1116"):
+            for e in d.get("filter_lists") or []:
+                if isinstance(e, dict) and "pgl.yoyo.org" in str(e.get("url", "")):
+                    e["enabled"] = False
+        d["pgl_off_1116"] = True
         # 1.1.8: the new tab page gets I.K.E.'s own photo; whoever had none before gets it once
         if d.get("newtab_bg") == "" and not d.get("newtab_bg_118"):
             d["newtab_bg"] = "default"

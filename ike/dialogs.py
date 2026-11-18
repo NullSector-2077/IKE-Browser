@@ -272,7 +272,7 @@ class SettingsDialog(QDialog):
         self.effects = QCheckBox(T("Interface effects: short fades and the mark on tabs that are loading"))
         self.effects.setToolTip(T("They are also off when the desktop is set to show no animations"))
         self.effects.setChecked(bool(self.cfg["ui_effects"]))
-        self.site_tint = QCheckBox(T("Tint the toolbar with the colour of the site"))
+        self.site_tint = QCheckBox(T("Colour the edge of the address bar with the colour of the site"))
         self.site_tint.setChecked(bool(self.cfg["site_tint"]))
         self.maximized.setChecked(bool(self.cfg["start_maximized"]))
         self.vauto = QCheckBox(T("Hide vertical tabs; show them when the mouse touches the left edge"))

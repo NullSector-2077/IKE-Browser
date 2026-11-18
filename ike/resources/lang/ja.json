@@ -854,6 +854,6 @@
 "Hide this warning": "この警告を隠す",
 "Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "注意：%s は %s に似ていますが、%s ではありません。確信がない場合は、パスワードやカード情報を入力しないでください。",
 "Warn about sites that imitate well-known ones": "有名なサイトを装うサイトについて警告する",
-"Tint the toolbar with the colour of the site": "ツールバーをサイトの色で淡く色付けする"
+"Colour the edge of the address bar with the colour of the site": "アドレスバーの縁をサイトの色で彩る"
 }
 }
