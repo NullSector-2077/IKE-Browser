@@ -8,6 +8,8 @@
 - I.K.E.'s own rules block the telemetry of YouTube and Google that the lists
   let through, and never what the page needs (history, video servers).
 - Persistent profiles get a large disk cache.
+- The package and the AdBlock engine run on every x86_64 processor, old ones
+  too, whatever processor builds them.
 """
 
 import threading
@@ -113,3 +115,13 @@ def test_youtube_telemetry_blocked_and_what_the_page_needs_kept(run_ike):
                  "rr1---sn-x.googlevideo.com/generate_204", "www.youtube.com/youtubei/v1/player",
                  "www.youtube.com/s/player/abc/base.js"):
         assert out[path] == "allow", (path, out[path])
+
+
+def test_built_for_every_x86_64_processor():
+    # the package and the engine of the self-update are built on the owner's
+    # computer: never for its own processor only (1.1.13: an i5-3570K)
+    from pathlib import Path
+    recipe = (Path(__file__).resolve().parent.parent / "PKGBUILD").read_text()
+    build = recipe.split("build() {", 1)[1].split("\n}", 1)[0]
+    assert '-C target-cpu=x86-64"' in build and "cargo build" in build
+    assert "-march=x86-64 -mtune=generic" in build

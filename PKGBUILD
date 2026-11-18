@@ -25,9 +25,15 @@ sha256sums=()
 
 build() {
   cd "$startdir"
+  # Every x86_64 processor, old ones too (an i5-3570K): the package and the
+  # AdBlock engine carried by the self-update are built on the owner's
+  # computer, whose makepkg.conf may target its own newer processor
+  # (-march=native, x86-64-v3...); such code stops with "illegal
+  # instruction" on an older one. The last option given wins.
+  RUSTFLAGS="${RUSTFLAGS:-} -C target-cpu=x86-64" \
   cargo build --release --locked --manifest-path ike-adblock/Cargo.toml \
       --target-dir "$srcdir/target"
-  gcc $CFLAGS $LDFLAGS -o "$srcdir/ike-browser-launcher" launcher/ike-browser.c
+  gcc $CFLAGS -march=x86-64 -mtune=generic $LDFLAGS -o "$srcdir/ike-browser-launcher" launcher/ike-browser.c
 }
 
 package() {

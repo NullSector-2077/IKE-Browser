@@ -21,6 +21,10 @@
   - the disk cache grows to 512 MB, so a second visit takes the big scripts
     of a site from the disk;
   - the login helper stops watching a page once its login is filled in.
+- **Runs on old processors too** (an i5-3570K, for one): the AdBlock engine
+  and the launcher are built for every x86_64 processor, not for the newer
+  one of the computer that builds the release, whose code could stop with
+  "illegal instruction" elsewhere.
 
 ## 1.1.12
 
