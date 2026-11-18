@@ -13,7 +13,7 @@ import pytest
 from conftest import needs_engine
 
 PAGE = b"""<!doctype html><title>loading</title>
-<img src="/banner-ad.png" onload="document.title='works'" onerror="document.title='broken'">"""
+<img src="{AD}" onload="document.title='works'" onerror="document.title='broken'">"""
 PNG = bytes.fromhex("89504e470d0a1a0a0000000d4948445200000001000000010806000000"
                     "1f15c4890000000d49444154789c6360000002000154a24f5d0000000049454e44ae426082")
 
@@ -22,7 +22,10 @@ PNG = bytes.fromhex("89504e470d0a1a0a0000000d4948445200000001000000010806000000"
 def server():
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
-            body, kind = (PAGE, "text/html") if self.path.startswith("/?") or self.path == "/" \
+            # the image comes from another site (localhost, the page is on
+            # 127.0.0.1): since 1.1.15 a site's own requests are not checked at Balanced
+            page = PAGE.replace(b"{AD}", b"http://localhost:%d/banner-ad.png" % self.server.server_address[1])
+            body, kind = (page, "text/html") if self.path.startswith("/?") or self.path == "/" \
                 else (PNG, "image/png")
             self.send_response(200)
             self.send_header("Content-Type", kind)

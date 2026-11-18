@@ -11,7 +11,7 @@ import pytest
 from conftest import needs_engine
 
 PAGE = b"""<!doctype html><title>adtest</title>
-<img src="/banner-ad.png"><img src="/ok.png">
+<img src="{AD}"><img src="/ok.png">
 <div class="ike-test-ad" id="ad">ad</div><div id="plain">text</div>"""
 PNG = bytes.fromhex("89504e470d0a1a0a0000000d4948445200000001000000010806000000"
                     "1f15c4890000000d49444154789c6360000002000154a24f5d0000000049454e44ae426082")
@@ -24,7 +24,11 @@ def server():
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
             seen.append(self.path)
-            body, kind = (PAGE, "text/html") if self.path == "/" else (PNG, "image/png")
+            # the ad comes from another site (localhost, the page is on 127.0.0.1):
+            # since 1.1.15 a site's own requests are not checked at Balanced
+            body, kind = (PAGE.replace(b"{AD}", b"http://localhost:%d/banner-ad.png"
+                                       % self.server.server_address[1]), "text/html") \
+                if self.path == "/" else (PNG, "image/png")
             self.send_response(200)
             self.send_header("Content-Type", kind)
             self.send_header("Content-Length", str(len(body)))

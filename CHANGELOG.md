@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.1.15
+
+- **Same site, free way (faster pages, fewer broken sites)**: at Balanced and
+  Compatibility, what a site asks of itself (its own pictures, scripts, styles
+  and data) is no longer checked against the filter lists, as Brave does in its
+  standard mode. Most of the requests of a page are the site's own, so the
+  content blocker has much less to do, and the sites that broke because one of
+  their own parts was blocked work again. The ads and trackers of other
+  companies stay blocked, the hiding of ad boxes stays on, Strict and Maximum
+  check every request as before, and the video sites (YouTube, whose ads come
+  from YouTube itself) are always checked at every level.
+- **Speech voices hidden**: the list of the speech-synthesis voices installed
+  on the computer tells systems and their language packs apart. At Balanced a
+  site now sees only the voices of the page's languages and English (enough to
+  read aloud), at Strict and Maximum only the default voice.
+
 ## 1.1.14
 
 - **Google's sensitive services work with the shield on**: on AI Studio, the
