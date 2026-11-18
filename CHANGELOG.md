@@ -2,6 +2,10 @@
 
 ## 1.1.16
 
+- **Menu next to the window buttons**: the menu button is now fixed right
+  before Minimize, with the fixed separator on its left, so it sits with the
+  window buttons; with the system's title bar it is the last button. It can no
+  longer be moved (the other buttons still can).
 - **Email links**: a "mailto:" link is now written with the service the user
   chooses, as in other browsers: Gmail, Outlook.com, Proton Mail or Yahoo Mail
   open in a new tab with the address, subject and text already filled in, or

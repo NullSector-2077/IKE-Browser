@@ -495,7 +495,7 @@ class WindowFeatures:
         if zone == LEFT:
             w = self._nav_spacers[0]
             return w.mapTo(self.nav, w.rect().topLeft()).x() + 1
-        w = self.nav.widgetForAction(self._win_btns[0])
+        w = self.nav.widgetForAction(self.win_sep_act)
         if w is not None and w.isVisible():
             return w.mapTo(self.nav, w.rect().topLeft()).x() - 2
         return self.nav.width() - 4
@@ -536,8 +536,11 @@ class WindowFeatures:
 
     def _build_window_buttons(self, toolbar):
         SP = QStyle.StandardPixmap
-        # a separator between the toolbar buttons and the window buttons
-        self._win_btns = [toolbar.addSeparator()]
+        # 1.1.16: a fixed separator, then the menu, fixed right before the window
+        # buttons; both stay with the system's title bar, where the menu is last
+        self.win_sep_act = toolbar.addSeparator()
+        self.menu_act = toolbar.addWidget(self.menu_btn)
+        self._win_btns = []
         # the window buttons keep the size they had with 20-pixel toolbar icons (1.1.6 made those 24)
         side = round(20 * self.WINDOW_BUTTON_SCALE)
         for name, fallback, tip, slot in (

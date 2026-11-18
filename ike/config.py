@@ -177,7 +177,7 @@ DEFAULTS = {
     "toolbar_known": ["back", "forward", "reload", "home", "downloads"],
     # 1.1.9: the owner's arrangement (Reload is fixed, toolbar.py; the shield is in the address bar)
     "toolbar_order": ["dark", "private", "cleansite", "screenshot", "split", "pip",
-                      "bookmark", "downloads", "reader", "menu"],
+                      "bookmark", "downloads", "reader"],    # the menu: fixed before the window buttons (1.1.16)
     "toolbar_left": ["dark", "private", "cleansite", "screenshot", "split", "pip"],
     "urlbar_width": 50,                 # address bar: per cent of the window width (60 until 1.1.6)
     "urlbar_width_117": False,          # the old default of 60 was moved to 50 once (1.1.7)

@@ -561,7 +561,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.menu_btn.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
         self.menu_btn.clicked.connect(self.menu_btn.showMenu)
         self.menu_btn.setToolTip(T("Menu"))
-        self.menu_act = tb.addWidget(self.menu_btn)
         # buttons that do not fit in a narrow window (see _fit_urlbar)
         self.more_btn = QToolButton(self)
         self.more_btn.setText("»")
@@ -580,7 +579,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.more_act.setVisible(False)
         self._build_window_buttons(tb)
         self._update_max_button()
-        right = self._win_btns[0]
+        right = self.win_sep_act
         self._nav_items = [("bookmark", self.act_tb_bookmark, right),
                            ("reader", self.act_tb_reader, right),
                            ("screenshot", self.act_tb_shot, right),
@@ -589,8 +588,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                            ("dark", self.act_dark, right),
                            ("private", self.act_tb_private, right),
                            ("cleansite", self.act_tb_clean, right),
-                           ("downloads", self.act_downloads, right),
-                           ("menu", self.menu_act, right)]
+                           ("downloads", self.act_downloads, right)]
 
         self.bookbar = BookmarksBar(T("Bookmarks bar"), self)
         self.bookbar.setObjectName("bookmarks")
