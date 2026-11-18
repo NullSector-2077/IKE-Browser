@@ -68,6 +68,38 @@ def autofix_commits(branch):
     return int(out or 0)
 
 
+def previous_fix(branch, repo):
+    """The earlier automatic fixes of a branch and the agent's last summary, for
+    a second attempt: it starts from them instead of exploring again."""
+    base = git("merge-base", "origin/main", "origin/" + branch)
+    if not base:
+        return ""
+    diff = git("log", "--reverse", "--grep", "^autofix:", "-p", "--format=commit %h %s",
+               "%s..origin/%s" % (base, branch),
+               "--", ".", ":(exclude)ike/__init__.py", ":(exclude)CHANGELOG.md")   # not the version bump
+    if not diff:
+        return ""
+    summary = ""
+    try:
+        owner = repo.split("/")[0]
+        prs = gh_api("repos/%s/pulls?state=open&head=%s:%s" % (repo, owner, branch))
+        if prs:
+            comments = gh_api("repos/%s/issues/%s/comments?per_page=100" % (repo, prs[0]["number"]))
+            for c in reversed(comments):
+                body = c.get("body") or ""
+                if "### Summary of the agent" in body:
+                    summary = body.split("### Summary of the agent", 1)[1].split("### Automatic checks")[0]
+                    break
+    except RuntimeError:
+        pass
+    text = ("\n## Previous automatic fix (the tests above failed after it)\n\n"
+            "Start from this fix: correct only what the logs above show. Do not explore again "
+            "and do not undo it unless it is the cause.\n\n```diff\n%s\n```\n" % diff[:15000].replace("```", "'''"))
+    if summary.strip():
+        text += "\nWhat the agent wrote about it:\n\n%s\n" % summary.strip()[:2000]
+    return text
+
+
 def clean_log(text):
     lines = [STAMP.sub("", ANSI.sub("", ln.lstrip("\ufeff"))) for ln in text.splitlines()]
     lines = [ln for ln in lines if ln.strip() and not ln.startswith(("##[group]", "##[endgroup]"))]
@@ -174,6 +206,8 @@ def main(argv=None):
             log = "(log not available: %s)" % e
         parts.append("\n## Job `%s` (failed step: %s)\n\nLast lines of its log:\n\n```text\n%s\n```\n"
                      % (job["name"], ", ".join(steps) or "?", log.replace("```", "'''")))
+    if plan["action"] == "fix" and branch in (MAINTENANCE, FIX_MAIN) and run["_attempts"]:
+        parts.append(previous_fix(branch, repo))
     Path(a.logs).write_text("".join(parts), "utf-8")
 
     print(json.dumps(plan, indent=1))

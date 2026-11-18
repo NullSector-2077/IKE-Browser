@@ -80,11 +80,12 @@ jobs:
     needs: plan
     if: needs.plan.outputs.action == 'fix'
     runs-on: ubuntu-24.04
-    timeout-minutes: 80
+    timeout-minutes: 45
     permissions:
       contents: read
     outputs:
       patch: ${{ steps.agent.outputs.patch }}
+      result: ${{ steps.agent.outputs.result }}
     steps:
       - name: Check out the commit to fix (no credentials)
         uses: actions/checkout@v5
@@ -92,84 +93,117 @@ jobs:
           ref: ${{ needs.plan.outputs.checkout }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Instructions from main, never from the branch being fixed
-        run: git show origin/main:.github/autofix/prompt.md > "$RUNNER_TEMP/prompt.md"
+      - name: Instructions and the agent's runner from main, never from the branch being fixed
+        run: |
+          git show origin/main:.github/autofix/prompt.md > "$RUNNER_TEMP/prompt.md"
+          git show origin/main:tools/autofix-agent.py > "$RUNNER_TEMP/autofix-agent.py"
       - name: Failure description
         uses: actions/download-artifact@v4
         with:
           name: autofix-failure
           path: .autofix
-      - name: Test environment
-        uses: ./.github/actions/ike-test-env
-      - name: Antigravity CLI
+      # The agent gets a user of its own ("agent"), a copy of the repository and:
+      # - no terminal, no web, no MCP: its own permission rules deny them;
+      # - outbound network only to the Gemini API: the firewall drops the rest;
+      # - only HOME, PATH and GEMINI_API_KEY in its environment (no runner tokens).
+      # No test environment: GitHub runs all the tests on its fix.
+      - name: A closed room for the agent
         run: |
-          # the installer checks the SHA-512 of the download against Google's manifest
-          curl -fsSL https://antigravity.google/cli/install.sh -o "$RUNNER_TEMP/agy-install.sh"
-          bash "$RUNNER_TEMP/agy-install.sh"
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          # a Gemini API key, never a Google account
-          mkdir -p ~/.gemini/antigravity-cli
-          echo '{ "modelProvider": "gemini" }' > ~/.gemini/antigravity-cli/settings.json
+          group="$(id -gn)"
+          sudo useradd --create-home --gid "$group" --shell /bin/sh agent
+          sudo install -d -o "$(id -un)" -g "$group" -m 2775 /srv/autofix
+          cp -a "$GITHUB_WORKSPACE" /srv/autofix/repo
+          chmod -R g+rwX /srv/autofix/repo
+          # Antigravity CLI for the agent user (the installer checks the SHA-512
+          # of the download against Google's manifest)
+          curl -fsSL https://antigravity.google/cli/install.sh -o /tmp/agy-install.sh
+          chmod 644 /tmp/agy-install.sh
+          sudo -u agent -H bash /tmp/agy-install.sh
+          sudo -u agent -H mkdir -p /home/agent/.gemini/antigravity-cli
+          printf '%s\n' '{ "modelProvider": "gemini",' \
+            '  "permissions": { "deny": ["command(*)", "unsandboxed(*)", "read_url(*)",' \
+            '                            "execute_url(*)", "mcp(*)"] } }' \
+            | sudo -u agent tee /home/agent/.gemini/antigravity-cli/settings.json > /dev/null
+          sudo tee /home/agent/run-agent.sh > /dev/null <<'SH'
+          #!/bin/sh
+          exec env -i HOME=/home/agent PATH=/home/agent/.local/bin:/usr/bin:/bin \
+            GEMINI_API_KEY="$GEMINI_API_KEY" /home/agent/.local/bin/agy "$@"
+          SH
+          sudo chmod 755 /home/agent/run-agent.sh
+          # the Gemini API only: its addresses, pinned for the whole run
+          api=generativelanguage.googleapis.com
+          ips=$(for _ in 1 2 3; do getent ahostsv4 "$api"; done | awk '{print $1}' | sort -u)
+          test -n "$ips"
+          echo "$(echo "$ips" | head -n1) $api" | sudo tee -a /etc/hosts > /dev/null
+          sudo iptables -N AGENT
+          sudo iptables -A AGENT -o lo -j ACCEPT
+          for ip in $ips; do sudo iptables -A AGENT -p tcp -d "$ip" --dport 443 -j ACCEPT; done
+          sudo iptables -A AGENT -j REJECT
+          sudo iptables -I OUTPUT 1 -m owner --uid-owner agent -j AGENT
+          sudo ip6tables -N AGENT
+          sudo ip6tables -A AGENT -o lo -j ACCEPT
+          sudo ip6tables -A AGENT -j REJECT
+          sudo ip6tables -I OUTPUT 1 -m owner --uid-owner agent -j AGENT
+          # the room is closed: the agent cannot reach anything else
+          if sudo -u agent curl -s -m 5 -o /dev/null https://github.com; then
+            echo "::error::the firewall does not hold"; exit 1
+          fi
       - name: Agent, then the patch
         id: agent
+        timeout-minutes: 32
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           AUTOFIX_MODEL: ${{ vars.AUTOFIX_MODEL }}
-          QT_QPA_PLATFORM: offscreen
         run: |
           out="$RUNNER_TEMP/autofix"
+          repo=/srv/autofix/repo
           mkdir -p "$out"
           if [ -z "$GEMINI_API_KEY" ]; then
             echo "Il secret GEMINI_API_KEY non è impostato nel repository: l'agente non è partito." > "$out/summary.md"
             echo "patch=false" >> "$GITHUB_OUTPUT"
+            echo "result=auth" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          args=(-p "$(cat "$RUNNER_TEMP/prompt.md")" --dangerously-skip-permissions
-                --output-format json --print-timeout 45m)
-          if [ -n "$AUTOFIX_MODEL" ]; then args+=(--model "$AUTOFIX_MODEL"); fi
-          set +e
-          # the agent's own output is never printed: the logs of a public repository are public
-          timeout 50m "$HOME/.local/bin/agy" "${args[@]}" > "$out/agent.json" 2> "$out/agent.err" < /dev/null
-          status=$?
-          set -e
-          echo "Agent finished with status $status"
+          # model after model, at most 8 minutes each (tools/autofix-agent.py)
+          python3 -I "$RUNNER_TEMP/autofix-agent.py" --workdir "$repo" --prompt "$RUNNER_TEMP/prompt.md" \
+            --out "$out" --status "$out/status.json" \
+            --agent-cmd "sudo -u agent --preserve-env=GEMINI_API_KEY /home/agent/run-agent.sh"
+          result=$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["result"])' "$out/status.json")
+          echo "result=$result" >> "$GITHUB_OUTPUT"
           # .autofix/ is in .gitignore; reset it too, in case a branch lacks that line
-          git -c core.hooksPath=/dev/null -c core.fsmonitor=false add -A
-          git -c core.hooksPath=/dev/null -c core.fsmonitor=false reset -q -- .autofix
-          git -c core.hooksPath=/dev/null -c core.fsmonitor=false diff --cached --binary > "$out/autofix.patch"
-          python3 -I - "$out" "$status" <<'PY'
-          import base64, os, sys
+          git -C "$repo" -c safe.directory='*' -c core.hooksPath=/dev/null -c core.fsmonitor=false add -A
+          git -C "$repo" -c safe.directory='*' -c core.hooksPath=/dev/null -c core.fsmonitor=false reset -q -- .autofix
+          git -C "$repo" -c safe.directory='*' -c core.hooksPath=/dev/null -c core.fsmonitor=false \
+            diff --cached --binary > "$out/autofix.patch"
+          python3 -I - "$out" "$repo" <<'PY'
+          import base64, json, os, sys
           from pathlib import Path
-          out, status = Path(sys.argv[1]), sys.argv[2]
+          out, repo = Path(sys.argv[1]), Path(sys.argv[2])
           key = os.environ["GEMINI_API_KEY"].encode()
           # never hand over the key, plain or encoded
           variants = {key, key[::-1]}
           for i in range(3):
               for enc in (base64.b64encode, base64.urlsafe_b64encode):
                   variants.add(enc(b"\0" * i + key)[4 if i else 0:-4])
-          summary = Path(".autofix/summary.md")
+          status = json.loads((out / "status.json").read_text("utf-8"))
+          summary = repo / ".autofix" / "summary.md"
           text = summary.read_text("utf-8", errors="replace")[:4000] if summary.is_file() else \
-              "L'agente non ha scritto un riassunto (stato di uscita %s).\n" % status
-          if status != "0":
-              # the CLI's own errors may show the request with the key: hide it, keep the error
-              err = (out / "agent.err").read_bytes()
-              for v in variants:
-                  err = err.replace(v, b"***")
-              err = err.decode("utf-8", errors="replace").splitlines()[-30:]
-              text += "\n\nUltime righe di errore dell'agente (stato %s):\n\n```text\n%s\n```\n" % (
-                  status, "\n".join(err).replace("```", "'''"))
+              "L'agente non ha scritto un riassunto.\n"
+          if status["result"] != "ok":
+              text += "\n\n**%s** (modello: %s)\n\nUltime righe di errore dell'agente (chiave nascosta):\n\n```text\n%s\n```\n" % (
+                  status["message"], status["model"], status["detail"].replace("```", "'''"))
           (out / "summary.md").write_text(text, "utf-8")
           for name in ("autofix.patch", "summary.md"):
               data = (out / name).read_bytes()
               if any(v and v in data for v in variants):
-                  for f in ("autofix.patch", "agent.json", "agent.err"):
-                      (out / f).unlink(missing_ok=True)
+                  for f in out.glob("*"):
+                      f.unlink()
                   (out / "summary.md").write_text("Risultato scartato: conteneva la chiave API. "
                                                   "Cambia la chiave GEMINI_API_KEY.\n", "utf-8")
                   print("::error::the agent's output contained the API key: discarded")
                   sys.exit(1)
           PY
-          rm -f "$out/agent.json" "$out/agent.err"
+          rm -f "$out"/agent-*.err
           if [ -s "$out/autofix.patch" ]; then echo "patch=true"; else echo "patch=false"; fi >> "$GITHUB_OUTPUT"
       - name: Keep the patch and the summary
         if: always()
@@ -362,15 +396,22 @@ jobs:
           WORKFLOW: ${{ needs.plan.outputs.workflow }}
           FIX: ${{ needs.fix.result }}
           PATCH: ${{ needs.fix.outputs.patch }}
+          AGENT: ${{ needs.fix.outputs.result }}
           GUARD: ${{ needs.guard.result }}
           PUBLISH: ${{ needs.publish.result }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          # in plain Italian: quota / chiave / modello / tempo / rifiutata
           if [ "$ACTION" = "issue" ]; then why="$REASON"
-          elif [ "$FIX" != "success" ]; then why="the agent's job failed"
-          elif [ "$PATCH" != "true" ]; then why="the agent made no change (see its summary)"
-          elif [ "$GUARD" != "success" ]; then why="the automatic checks refused the agent's change"
-          else why="the fix could not be pushed (the branch moved, or a permission is missing)"
+          elif [ "$AGENT" = "quota" ]; then why="quota: la quota gratuita di oggi è finita su tutti i modelli (si riprova domani)"
+          elif [ "$AGENT" = "auth" ]; then why="chiave: GEMINI_API_KEY manca, non è valida o non ha i permessi"
+          elif [ "$AGENT" = "config" ]; then why="modello: il nome del modello (AUTOFIX_MODEL) o la configurazione non sono validi"
+          elif [ "$AGENT" = "timeout" ]; then why="tempo: l'agente ha superato il tempo massimo"
+          elif [ "$AGENT" = "temporary" ]; then why="Google non rispondeva: riprova più tardi"
+          elif [ "$FIX" != "success" ]; then why="il lavoro dell'agente si è interrotto (vedi il run)"
+          elif [ "$PATCH" != "true" ]; then why="l'agente non ha cambiato niente (vedi il suo riassunto)"
+          elif [ "$GUARD" != "success" ]; then why="rifiutata: i controlli automatici hanno respinto la modifica"
+          else why="la correzione non è stata pubblicata (il ramo è cambiato o manca un permesso)"
           fi
           body="$RUNNER_TEMP/issue.md"
           {

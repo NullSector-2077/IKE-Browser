@@ -340,7 +340,42 @@ def test_autofix_workflow_permissions():
     assert 'git show "origin/main:tools/$f"' in jobs["guard"]
     assert "--force-with-lease" in jobs["publish"] and "gh pr merge" not in text
     assert "gh release" not in text and "main:refs/heads/main" not in text
-    assert "--dangerously-skip-permissions" in jobs["fix"] and '"modelProvider": "gemini"' in jobs["fix"]
+    assert '"modelProvider": "gemini"' in jobs["fix"]
+    assert "git show origin/main:tools/autofix-agent.py" in jobs["fix"]
+    # the closed room: own user, no terminal or web for the agent, only the Gemini API
+    for rule in ('"command(*)"', '"read_url(*)"', '"execute_url(*)"', '"mcp(*)"', "--uid-owner agent",
+                 "generativelanguage.googleapis.com", "env -i", "the firewall does not hold"):
+        assert rule in jobs["fix"], rule
+    assert re.search(r"timeout-minutes: \d+", jobs["fix"])
+
+
+def test_the_agent_switches_model_only_when_it_helps():
+    agent = load("autofix-agent")
+    assert agent.models("") == list(agent.FREE_MODELS)
+    assert agent.models("Gemini 4 Argon (High), Gemini 3.8 Flash (High)")[:2] == [
+        "Gemini 4 Argon (High)", "Gemini 3.8 Flash (High)"]
+    assert len(agent.models("Gemini 3.8 Flash (High)")) == len(agent.FREE_MODELS)
+    err = lambda code, status, msg: 'AGY_ERROR:{"error_code": %d, "status": "%s"}\n%s' % (code, status, msg)
+    day = err(429, "RESOURCE_EXHAUSTED", "quotaId: GenerateRequestsPerDayPerProjectPerModel-FreeTier")
+    minute = err(429, "RESOURCE_EXHAUSTED", "GenerateRequestsPerMinutePerProjectPerModel retryDelay: 40s")
+    assert agent.classify(1, day)[0] == "day"
+    assert agent.classify(1, minute) == ("minute", 40)
+    assert agent.classify(1, err(400, "INVALID_ARGUMENT", "API key not valid. API_KEY_INVALID"))[0] == "auth"
+    assert agent.classify(1, err(403, "PERMISSION_DENIED", ""))[0] == "auth"
+    assert agent.classify(1, err(404, "NOT_FOUND", "model not found"))[0] == "config"
+    assert agent.classify(1, err(503, "UNAVAILABLE", "overloaded"))[0] == "temporary"
+    assert agent.classify(124, "")[0] == "timeout"
+    assert agent.classify(1, "something else")[0] == "error"
+
+
+def test_the_agent_runner_hides_the_key(tmp_path):
+    agent = load("autofix-agent")
+    key = "AIzaSyTESTONLY0123456789abcdefghijklm"
+    import base64
+    data = ("x %s y %s z %s" % (key, key[::-1], base64.b64encode(key.encode()).decode())).encode()
+    out = agent.redact(data, key)
+    assert key.encode() not in out and key[::-1].encode() not in out
+    assert base64.b64encode(key.encode())[:-4] not in out
 
 
 def test_no_workflow_publishes_merges_or_runs_forks():
