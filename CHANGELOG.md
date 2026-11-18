@@ -15,6 +15,14 @@
   protections, YouTube is not touched, and a level the user chose for one of
   these sites is still respected. Brave reaches the same result with a list of
   hand-written exceptions.
+- **Payments with PayPal and Stripe**: their anti-fraud checks can refuse a
+  payment or a sign-in when part of them is blocked or changed (Brave users
+  report PayPal sign-ins that work only with the shield off). PayPal's sign-in
+  and Stripe's checkout page get the same treatment as Google's sensitive
+  services, and in every shop PayPal's and Stripe's own parts (payment buttons
+  and fields, their anti-fraud checks, their frames and cookies) are left
+  alone. The rest of the shop keeps its protections. Any other site that
+  refuses an operation can still be fixed from the shield with "Repair site".
 
 ## 1.1.13
 

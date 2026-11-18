@@ -212,7 +212,7 @@ def test_installed_engine_when_the_bundled_one_is_broken(tmp_path):
     assert Path(path).resolve().is_relative_to(ENGINE.resolve()), path
 
 
-# --- 1.1.14: sensitive Google services work as with the shield off ---------------
+# --- 1.1.14: sensitive services (Google, payments) work as with the shield off ----
 
 HANDS_OFF = r"""
 from PyQt6.QtCore import QUrl
@@ -244,6 +244,13 @@ CASES = {
     "signin_frame": ("https://accounts.google.com/RotateCookiesPage", "https://aistudio.google.com/"),
     # the page itself: tracking parameters are not removed
     "main_page": ("https://aistudio.google.com/apikey?utm_source=x", "https://aistudio.google.com/"),
+    # PayPal's own request on PayPal's sign-in page: untouched
+    "paypal_on_paypal": ("https://www.paypalobjects.com/tracker/x.js", "https://www.paypal.com/signin"),
+    # another company's tracker on PayPal: still blocked
+    "other_on_paypal": ("https://tracker.example.test/b.js", "https://www.paypal.com/signin"),
+    # Stripe's anti-fraud frame inside a shop: untouched, the shop's own trackers still blocked
+    "stripe_in_shop": ("https://m.stripe.network/inner.html", "https://shop.example/checkout"),
+    "tracker_in_shop": ("https://tracker.example.test/c.js", "https://shop.example/checkout"),
     # YouTube is not a sensitive service: nothing changes there
     "youtube": ("https://www.youtube.com/api/stats/qoe?x=1", "https://www.youtube.com/watch?v=a"),
 }
@@ -262,6 +269,8 @@ def steps(ike, qapp, out):
         info = Info(url, first, rtype)
         icp.interceptRequest(info)
         out[name] = {"blocked": info.blocked, "headers": info.headers, "to": info.to}
+    fp = [s.sourceCode() for s in ike.profile.scripts().find("ike-fp")]
+    out["fp_paypal_off"] = bool(fp) and '"www.paypal.com": "off"' in fp[0] and "stripe.network" in fp[0]
     out["cosmetic_scripts"] = [s.name() for s in ike.profile.scripts().toList()
                                if s.name().startswith("ike-sl-") and "aistudio" in s.name()]
     ike.shields.site_scripts(ike.profile, "aistudio.google.com")
@@ -270,6 +279,7 @@ def steps(ike, qapp, out):
 """
 
 HANDS_OFF_FILTERS = ("||googleapis.com/tracker^\n||tracker.example.test^\n"
+                     "||paypalobjects.com/tracker^\n||stripe.network^$third-party\n"
                      "aistudio.google.com##+js(set-constant, ikeTestFlag, true)\n")
 
 
@@ -286,6 +296,12 @@ def test_sensitive_google_services_left_alone(run_ike):
     assert out["main_page"]["to"] is None, out
     assert out["youtube"]["blocked"], out                             # I.K.E.'s own rule, unchanged
     assert out["cosmetic_scripts"] == [], out
+    # payments (1.1.14): PayPal and Stripe left alone, other trackers still blocked
+    assert not out["paypal_on_paypal"]["blocked"], out
+    assert out["other_on_paypal"]["blocked"], out
+    assert not out["stripe_in_shop"]["blocked"] and out["stripe_in_shop"]["headers"] == {}, out
+    assert out["tracker_in_shop"]["blocked"], out
+    assert out["fp_paypal_off"], out
 
     # the user's own level for the site wins: the shield works there as chosen
     chosen = run_ike(HANDS_OFF, settings={"shield_level": "balanced",

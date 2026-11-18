@@ -30,6 +30,14 @@
     }
     return CFG.level;
   }
+  // The frames of a payment service inside a shop (PayPal, Stripe) are left
+  // exactly as they are: their anti-fraud checks refuse changed values (1.1.14).
+  if (window.top !== window) {
+    var me = location.hostname;
+    if ((CFG.payframes || []).some(function (s) {
+      return me === s || me.slice(-(s.length + 1)) === '.' + s;
+    })) return;
+  }
   // Google's sign-in refuses embedded Chromium engines: present the same
   // Firefox identity that is sent in the request header.
   // Not when the page around it is left alone (shield off there, or a

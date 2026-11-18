@@ -18,7 +18,18 @@ from PyQt6.QtWebEngineCore import (
 )
 
 from . import osinfo
-from .config import CACHE_DIR, DATA_DIR, FIREFOX_UA, LEVEL_NAMES, LOGIN_HOSTS, RES_DIR, SENSITIVE_HOSTS, rank
+from .config import (
+    CACHE_DIR,
+    DATA_DIR,
+    FIREFOX_UA,
+    LEVEL_NAMES,
+    LOGIN_HOSTS,
+    PAYMENT_SITES,
+    RES_DIR,
+    SENSITIVE_HOSTS,
+    payment_owned,
+    rank,
+)
 
 TRACKING_PARAMS = {
     "fbclid", "gclid", "gclsrc", "dclid", "gbraid", "wbraid", "msclkid", "yclid",
@@ -227,6 +238,10 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
                     s.redirected.discard(key)
                 else:
                     s.reset_count(host)
+            return
+        if not main and payment_owned(host):
+            # PayPal's and Stripe's own parts of a shop (payment buttons and
+            # fields, anti-fraud checks): never blocked or changed (1.1.14)
             return
         if host == "accounts.google.com" and cfg["login_compat"]:
             # Google refuses sign-in from embedded Chromium engines; it accepts
@@ -646,6 +661,8 @@ class Shields(QObject):
             return True
         if cfg["login_compat"] and request.origin.host().lower() in LOGIN_HOSTS:
             return True                           # "Sign in with Google" and similar
+        if payment_owned(request.origin.host()):
+            return True                           # PayPal's and Stripe's frames in a shop (1.1.14)
         if mode != "3p":
             if not cfg["block_third_party_cookies"]:
                 return True
@@ -720,6 +737,7 @@ class Shields(QObject):
                       "key": self.profile_keys[id(p)],
                       "gpc": bool(cfg["send_gpc"]),
                       "nofp": [h for h, o in cfg["site_opts"].items() if o.get("fp") is False],
+                      "payframes": list(PAYMENT_SITES),
                       "ffua": FIREFOX_UA if cfg["login_compat"] else "",
                       "os": ident["os"], "platform": ident["platform"],
                       "platformVersion": ident["platform_version"],
