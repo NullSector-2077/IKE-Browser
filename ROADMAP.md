@@ -16,8 +16,9 @@ them without asking.
 - Keep the project independent: no other browser's branding or identity, no
   external services beyond those documented in README.md.
 - Each step goes on its own branch with a pull request whose base is `main`
-  (no pull requests stacked on other pull requests); never write to `main`
-  without the owner's approval. The repository is public: never commit
+  (no pull requests stacked on other pull requests). Since 2026-11-18 Claude
+  merges pull requests by itself once GitHub Actions is green; signing and
+  publishing stay with the owner (see CLAUDE.md). The repository is public: never commit
   personal data, keys or secrets.
 - The private signing key stays with the owner: never in the repository, in a
   package or on GitHub Actions.
@@ -34,7 +35,7 @@ them without asking.
   carry it through without stopping for approvals on analysis, coding and
   tests. Commit and push to the session's branch often, so nothing is lost if
   the session stops, and write in "Status" below where the work stopped. Even
-  then: never merge, sign or publish, and no destructive Git operations.
+  then: never sign or publish, and no destructive Git operations.
 - Never report a check that was not actually run.
 - **Every release reaches every user by itself** (owner's rule, 2026-11-18,
   for Arch and for every future platform: other Linux, Windows...): each
