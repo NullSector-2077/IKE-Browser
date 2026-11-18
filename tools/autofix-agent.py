@@ -19,8 +19,11 @@ For each model in turn (AUTOFIX_MODEL, then the free Flash models):
     time limit reached                       -> stop (what was done is kept)
     anything else                            -> stop
 
-Before a model takes over, .autofix/progress.md tells it what the previous one
-already changed (the agent has no terminal to look). The outcome goes to
+The failure description (.autofix/failure.md) goes inside the instructions
+themselves, and so does, before a model takes over, what the previous one
+already changed: the agent has no terminal, and its file tools may skip
+.autofix/, which git ignores (the first real trial: "logs not available").
+One request less, too. The outcome goes to
 --status (JSON: result, model, message in Italian, detail with the key hidden).
 
     autofix-agent.py --workdir DIR --prompt FILE --out DIR --status FILE
@@ -108,6 +111,24 @@ def classify(status, err):
     return "error", 0
 
 
+PROMPT_MAX = 110_000          # one argument of a command: at most 128 KiB on Linux
+
+
+def with_failure(rules, failure, done=""):
+    """The instructions, then the failure (and the work a previous model did),
+    within the size one command argument may have."""
+    text = rules.rstrip() + "\n\n# The failure (also in .autofix/failure.md)\n\n"
+    extra = ""
+    if done:
+        extra = ("\n\n# Work already done by a previous model\n\nIt is already in the files: "
+                 "go on from here, do not redo it.\n\n```diff\n%s\n```\n" % done[:20000])
+    room = PROMPT_MAX - len(text.encode()) - len(extra.encode())
+    body = failure.encode()
+    if len(body) > room:
+        body = b"(beginning cut)\n" + body[-max(0, room - 20):]
+    return text + body.decode("utf-8", "ignore") + extra
+
+
 def key_variants(key):
     key = key.encode()
     out = {key, key[::-1]}
@@ -148,19 +169,18 @@ def main(argv=None):
     key = os.environ.get("GEMINI_API_KEY", "")
     workdir, out = Path(a.workdir), Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    prompt = Path(a.prompt).read_text("utf-8")
-    progress = workdir / ".autofix" / "progress.md"
+    rules = Path(a.prompt).read_text("utf-8")
+    try:
+        failure = (workdir / ".autofix" / "failure.md").read_text("utf-8", "replace")
+    except OSError:
+        failure = "(no failure description was found)\n"
     result, used, detail = "error", "", ""
     deadline = time.monotonic() + a.total_timeout
     for model in models(os.environ.get("AUTOFIX_MODEL")):
         tries = 0
         while True:
             tries += 1
-            done = changes(workdir)
-            if done:
-                progress.parent.mkdir(parents=True, exist_ok=True)
-                progress.write_text("# Work already done by a previous model\n\nGo on from here; "
-                                    "do not redo it.\n\n```diff\n%s\n```\n" % done[:20000], "utf-8")
+            prompt = with_failure(rules, failure, changes(workdir))
             limit = int(min(a.model_timeout, deadline - time.monotonic()))
             if limit < 60:
                 result = "timeout"
@@ -198,10 +218,6 @@ def main(argv=None):
             print("This model is not available now: the next model goes on", flush=True)
             continue
         break                    # auth, config, timeout, error: switching model would not help
-    try:
-        progress.unlink()
-    except OSError:
-        pass
     Path(a.status).write_text(json.dumps({"result": result, "model": used, "message": MESSAGES[result],
                                           "detail": detail}, ensure_ascii=False), "utf-8")
     print("Outcome: %s (%s)" % (result, used), flush=True)

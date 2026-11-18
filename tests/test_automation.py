@@ -368,6 +368,16 @@ def test_the_agent_switches_model_only_when_it_helps():
     assert agent.classify(1, "something else")[0] == "error"
 
 
+def test_the_failure_goes_inside_the_instructions():
+    # the agent may not open .autofix/ (ignored by git): the failure and the
+    # work of a previous model travel in the instructions, within one argument
+    agent = load("autofix-agent")
+    text = agent.with_failure("RULES", "F401 `shutil` imported but unused\n", "-import shutil\n")
+    assert text.startswith("RULES") and "F401" in text and "-import shutil" in text
+    huge = agent.with_failure("RULES", "x" * 500_000 + "THE END\n", "diff")
+    assert len(huge.encode()) <= agent.PROMPT_MAX and "THE END" in huge and "diff" in huge
+
+
 def test_the_agent_runner_hides_the_key(tmp_path):
     agent = load("autofix-agent")
     key = "AIzaSyTESTONLY0123456789abcdefghijklm"
