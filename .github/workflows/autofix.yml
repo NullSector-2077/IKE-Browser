@@ -133,26 +133,32 @@ jobs:
           status=$?
           set -e
           echo "Agent finished with status $status"
-          git -c core.hooksPath=/dev/null -c core.fsmonitor=false add -A -- . ':(exclude).autofix'
+          # .autofix/ is in .gitignore; reset it too, in case a branch lacks that line
+          git -c core.hooksPath=/dev/null -c core.fsmonitor=false add -A
+          git -c core.hooksPath=/dev/null -c core.fsmonitor=false reset -q -- .autofix
           git -c core.hooksPath=/dev/null -c core.fsmonitor=false diff --cached --binary > "$out/autofix.patch"
           python3 -I - "$out" "$status" <<'PY'
           import base64, os, sys
           from pathlib import Path
           out, status = Path(sys.argv[1]), sys.argv[2]
           key = os.environ["GEMINI_API_KEY"].encode()
-          summary = Path(".autofix/summary.md")
-          text = summary.read_text("utf-8", errors="replace")[:4000] if summary.is_file() else \
-              "L'agente non ha scritto un riassunto (stato di uscita %s).\n" % status
-          if status != "0":
-              err = (out / "agent.err").read_text("utf-8", errors="replace").splitlines()[-30:]
-              text += "\n\nUltime righe di errore dell'agente (stato %s):\n\n```text\n%s\n```\n" % (
-                  status, "\n".join(err).replace("```", "'''"))
-          (out / "summary.md").write_text(text, "utf-8")
           # never hand over the key, plain or encoded
           variants = {key, key[::-1]}
           for i in range(3):
               for enc in (base64.b64encode, base64.urlsafe_b64encode):
                   variants.add(enc(b"\0" * i + key)[4 if i else 0:-4])
+          summary = Path(".autofix/summary.md")
+          text = summary.read_text("utf-8", errors="replace")[:4000] if summary.is_file() else \
+              "L'agente non ha scritto un riassunto (stato di uscita %s).\n" % status
+          if status != "0":
+              # the CLI's own errors may show the request with the key: hide it, keep the error
+              err = (out / "agent.err").read_bytes()
+              for v in variants:
+                  err = err.replace(v, b"***")
+              err = err.decode("utf-8", errors="replace").splitlines()[-30:]
+              text += "\n\nUltime righe di errore dell'agente (stato %s):\n\n```text\n%s\n```\n" % (
+                  status, "\n".join(err).replace("```", "'''"))
+          (out / "summary.md").write_text(text, "utf-8")
           for name in ("autofix.patch", "summary.md"):
               data = (out / name).read_bytes()
               if any(v and v in data for v in variants):
