@@ -51,8 +51,8 @@ profiles: `ike-browser --profile NAME`.
 - Fingerprinting protection: values that identify the computer change from site
   to site and from session to session — canvas, WebGL, audio, plugins, number of
   CPU cores, WebGL extensions, and the graphics card (a common model chosen per
-  site, never the real one). The browser presents the current stable Chrome
-  version, checked once a day.
+  site, never the real one). The browser presents the Chrome version of its own
+  engine, so what a site reads always matches what it can test.
 - Automatic HTTPS, encrypted DNS (DNS over HTTPS), third-party cookie blocking,
   reduced referrer, Global Privacy Control.
 - **Repair this site**: when a page does not work, the shield finds the

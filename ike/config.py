@@ -204,7 +204,7 @@ DEFAULTS = {
     "ui_scheme": "system",              # system | light | dark | theme:<key> | user:<name> (see themes)
     "ui_themes": {},                    # themes saved by the user: name -> colours and font
     "userscripts_enabled": True,        # run the installed user scripts
-    "chrome_major": 0,                  # stable Chrome version presented to sites (see chromever)
+    "chrome_major": 0,                  # current stable Chrome, for the engine age in About (see chromever)
     "chrome_checked": 0,
     "video_ad_skip": True,              # mute / fast-forward / skip ads in the players below
     "video_ad_skip_hosts": ["youtube.com", "youtube-nocookie.com"],

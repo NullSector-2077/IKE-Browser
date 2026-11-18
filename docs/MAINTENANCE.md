@@ -28,7 +28,8 @@ signed automatically, and no workflow ever writes to `main`.
 | Qt WebEngine / PyQt6 of the automatic tests | `tools/test-requirements.txt` | A newer Qt / PyQt6 package set on PyPI |
 
 The browser itself runs on Arch Linux's `qt6-webengine`, updated with the
-system (`sudo pacman -Syu`). Filter lists, the presented Chrome version and user
+system (`sudo pacman -Syu`); the Chrome version presented to sites is the one of
+that engine (1.1.14). Filter lists and user
 scripts update themselves inside the browser.
 
 ## The maintenance candidate

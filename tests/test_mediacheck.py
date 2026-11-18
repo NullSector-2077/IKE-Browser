@@ -92,7 +92,11 @@ def test_about_shows_formats_and_engine_age(run_ike, site):
             out["closed"] = getattr(win, "_about_box", None) is None and not box.isVisible()
             # a second About asks nothing again
             out["text_again"] = win.about_text()
-            out["behind"] = chromever.current(ike.config) - chromever.engine_major()
+            out["behind"] = chromever.latest(ike.config) - chromever.engine_major()
+            # 1.1.14: sites see the engine's own version, the same everywhere
+            out["ua"] = ike.profile.httpUserAgent()
+            out["engine"] = chromever.engine_major()
+            out["presented"] = chromever.current(ike.config)
     """ % site)
     assert "About I.K.E." in out["entries"]
     assert out["before"] is None
@@ -113,6 +117,8 @@ def test_about_shows_formats_and_engine_age(run_ike, site):
     assert out["probes_left"] == 0
     assert out["closed"]
     assert "checking" not in out["text_again"] and "Plays: " in out["text_again"]
+    assert out["presented"] == out["engine"]
+    assert ("Chrome/%d.0.0.0 " % out["engine"]) in out["ua"], out["ua"]
     behind = out["behind"]
     if behind > 0:
         assert ("Engine age: %d Chrome versions behind the current one" % behind) in answered

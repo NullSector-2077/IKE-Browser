@@ -23,6 +23,14 @@
   and fields, their anti-fraud checks, their frames and cookies) are left
   alone. The rest of the shop keeps its protections. Any other site that
   refuses an operation can still be fixed from the shield with "Repair site".
+- **Honest version number**: I.K.E. now tells sites the Chrome version of its
+  own engine (for example 140) instead of the newest Chrome (157). A site can
+  test which features the engine really has, so the old claim was easy to
+  catch, and anti-abuse checks treat a browser that says one version and
+  behaves like another as suspicious. The same version is given everywhere
+  (address requests, client hints, JavaScript) and follows the engine by itself
+  when Arch updates it. The fingerprinting protection is unchanged; Help ->
+  About still shows how many versions the engine is behind the newest Chrome.
 
 ## 1.1.13
 

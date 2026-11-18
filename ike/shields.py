@@ -586,15 +586,17 @@ class Shields(QObject):
         return osinfo.chrome_user_agent(self.chrome_major())
 
     def _identity(self, profile):
-        """Present the current stable Chrome version (header, JavaScript, client hints)."""
+        """Present the engine's own Chrome version, the same in the header, in
+        JavaScript and in the client hints (1.1.14; see chromever)."""
         if profile.httpUserAgent() != self.user_agent():
             profile.setHttpUserAgent(self.user_agent())
         try:
+            from . import chromever
             hints = profile.clientHints()
-            major = self.chrome_major()
-            hints.setFullVersionList({"Chromium": major, "Google Chrome": major,
-                                      "Not=A?Brand": "24"})
-            hints.setFullVersion(major + ".0.0.0")
+            full = chromever.engine_full()
+            hints.setFullVersionList({"Chromium": full, "Google Chrome": full,
+                                      "Not=A?Brand": "24.0.0.0"})
+            hints.setFullVersion(full)
             ident = osinfo.identity()
             hints.setPlatform(ident["platform"])
             hints.setPlatformVersion(ident["platform_version"])
