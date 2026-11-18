@@ -9,7 +9,7 @@ The interface, protections, password manager and updater are I.K.E.'s own code
 provided and kept up to date by Arch Linux. I.K.E. is developed on and for
 KDE Plasma (CachyOS / Arch Linux) and works on the other Arch-based desktops.
 
-**Version 1.1.14** - see [CHANGELOG.md](CHANGELOG.md).
+**Version 1.1.15** - see [CHANGELOG.md](CHANGELOG.md).
 
 ## Install (Arch Linux, CachyOS)
 
@@ -17,7 +17,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.1.14-1-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.1.15-1-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:
@@ -47,6 +47,10 @@ profiles: `ike-browser --profile NAME`.
   and regional lists, network and cosmetic filters, your own lists and filters.
   Lists update daily. YouTube video ads are removed from the player data, with
   an automatic skip as a fallback.
+- **Same site, free way**: at Balanced, a site's own requests are not checked
+  against the filter lists (as Brave's standard mode): faster pages and fewer
+  broken sites, while other companies' ads and trackers stay blocked. Strict
+  and Maximum check everything; YouTube is always checked.
 - Cookie banners refused and hidden automatically.
 - Fingerprinting protection: values that identify the computer change from site
   to site and from session to session — canvas, WebGL, audio, plugins, number of

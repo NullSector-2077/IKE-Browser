@@ -649,6 +649,33 @@
       getter(NP, 'languages', function () { return frozenLangs; });
       if (maximum) getter(NP, 'language', function () { return frozenLangs[0]; });
     }
+    // ---- speech voices (1.1.15): the installed voices tell the system and
+    // its language packs apart. Balanced keeps the voices of the page's own
+    // languages and English (what a site can use to read aloud); Strict and
+    // above only the default voice.
+    if (w.SpeechSynthesis) {
+      var voiceLangs = [];
+      try {
+        (navigator.languages || [navigator.language || 'en']).concat(['en']).forEach(function (l) {
+          var p = String(l || '').toLowerCase().split('-')[0];
+          if (p && voiceLangs.indexOf(p) < 0) voiceLangs.push(p);
+        });
+      } catch (e) { voiceLangs = ['en']; }
+      wrap(w.SpeechSynthesis.prototype, 'getVoices', function (orig) {
+        return function () {
+          var all = orig.apply(this, arguments), out = [];
+          if (!all || !all.length) return all;
+          for (var i = 0; i < all.length; i++) {
+            var v = all[i];
+            if (strict) { if (v['default']) { out.push(v); break; } continue; }
+            var p = String(v.lang || '').toLowerCase().split(/[-_]/)[0];
+            if (voiceLangs.indexOf(p) >= 0) out.push(v);
+          }
+          if (strict && !out.length) out.push(all[0]);
+          return out;
+        };
+      });
+    }
     if (strict) {
       maskFonts(w);
       try { delete NP.getBattery; } catch (e) {}

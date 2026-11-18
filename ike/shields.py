@@ -276,6 +276,18 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
                     info.redirect(QUrl(clean))
                     return
 
+        if (not main and lv <= 2 and site_of(host) == site_of(first_host)
+                and site_of(first_host) not in s.full_blocking_sites()):
+            # "Same site, free way" (1.1.15): at Balanced and below, what a site
+            # asks of itself is not checked against the filter lists, as Brave
+            # does in its standard mode - faster (most requests of a page are
+            # the site's own) and fewer broken sites. The ads and trackers of
+            # other companies stay blocked, element hiding stays on, Strict and
+            # Maximum block everything, and the video sites always do.
+            if cfg["send_gpc"]:
+                info.setHttpHeader(b"Sec-GPC", b"1")
+            return
+
         # Main-frame GET requests must also be evaluated by the filter engine.
         # Previously the `elif` paired with the main-frame URL rewriting branch
         # skipped network filters for every normal top-level navigation.
@@ -790,6 +802,15 @@ class Shields(QObject):
         cfg = self.config
         return bool(cfg["comp_adblock"]) and cfg.level_for(host) != "off" \
             and cfg.site_opt(host, "ads") is not False
+
+    def full_blocking_sites(self):
+        """Sites where even their own requests go through the filter lists at
+        every level: the video sites, whose ads come from the site itself."""
+        bases = tuple(self.config["video_ad_skip_hosts"] or ())
+        if getattr(self, "_full_sites_key", None) != bases:
+            self._full_sites_key = bases
+            self._full_sites = frozenset(site_of(b.lower()) for b in bases)
+        return self._full_sites
 
     def video_hosts(self):
         """Host names of the video sites where ad blocking is active."""
