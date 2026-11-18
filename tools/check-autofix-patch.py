@@ -30,8 +30,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-MAX_FILES = 15
-MAX_LINES = 500
+MAX_FILES = 5
+MAX_LINES = 150
 
 ALLOWED_PREFIXES = ("ike/", "tests/", "tools/", "docs/")
 ADBLOCK_PATHS = ("ike-adblock/", "ike/blocker.py", "ike/scriptlets.py",
@@ -41,7 +41,7 @@ FORBIDDEN_FILES = {
     "ike/updater.py",             # signature and hash checks of the self-update
     "tests/conftest.py", "tests/harness.py",   # the test harness itself
     "tools/make-release.py", "tools/publish.py", "tools/prepare-maintenance.py",
-    "tools/check-autofix-patch.py", "tools/autofix-plan.py",
+    "tools/check-autofix-patch.py", "tools/autofix-plan.py", "tools/autofix-agent.py",
 }
 FORBIDDEN_SUFFIXES = (".key", ".pem", ".so", ".dll", ".exe", ".zst", ".tar", ".gz", ".zip")
 WEAKENING = re.compile(r"\b(skip|skipif|xfail|importorskip)\b")

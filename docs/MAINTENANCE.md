@@ -54,27 +54,37 @@ never touched.
 
 1. **plan** (no AI, `tools/autofix-plan.py`): what failed, where the fix goes,
    the end of the logs. A setting or workflow problem becomes an issue directly.
-2. **fix**: the Antigravity CLI (`agy`) runs the instructions of
-   `.github/autofix/prompt.md`, read from `main`. The free plan gives each model
-   about 20 requests a day and every step of the agent uses one, so the agent
-   is told to be thrifty (about 10 steps, no tests: GitHub runs them on its
-   fix), and when a model's quota is used up the next free Flash model goes on
-   with the same work (`AUTOFIX_MODEL`, then Gemini 3.8, 3.7, 3.6 Flash). The job has **no GitHub
-   credentials** (read-only, no token): it can only leave a patch and a summary
-   in Italian. The API key is used only here; the agent's output is never
-   printed, and a result containing the key is thrown away.
+2. **fix** (`tools/autofix-agent.py`, read from `main`): the Antigravity CLI
+   (`agy`) runs the instructions of `.github/autofix/prompt.md`, also from
+   `main`, in a closed room:
+   - its own user, a copy of the repository, only `HOME`, `PATH` and the API
+     key in its environment, and **no GitHub credentials** (read-only job, no
+     token): it can only leave a patch and a summary in Italian;
+   - no terminal, no web, no MCP (its own permission rules), and a firewall
+     that lets its user reach only the Gemini API;
+   - real limits: at most 8 minutes per model and 25 minutes in all. The free
+     plan gives each model about 20 requests a day and every step uses one, so
+     it is told to take about 10 steps and to run no tests (GitHub runs them).
+   Model after model (`AUTOFIX_MODEL`, then Gemini 3.8, 3.7, 3.6 Flash): only
+   when a model's daily quota is used up (or Google is down) does the next one
+   go on, with the work already done. A per-minute limit is waited out once; a
+   wrong key or model name stops at once, since another model would not help.
+   The agent's output is never printed, the key is hidden in its errors, and a
+   result containing the key is thrown away. A second attempt receives the
+   first fix, the new test logs and the first summary, and corrects only that.
 3. **guard** (no AI, `tools/check-autofix-patch.py` from `main`): the patch may
    change only `ike/`, `tests/`, `tools/` and `docs/`; never the workflows, the
    signing and update channel, the version, the package recipe, the updater, the
    test harness or the release tools; the ad blocker only on a candidate that
    updates its engine; no test removed or weakened; no keys, binaries or links;
-   at most 15 files and 500 lines. Then lint. A fix of `main` that changes the
+   at most 5 files and 150 lines. Then lint. A fix of `main` that changes the
    browser gets the next version and a CHANGELOG line.
 4. **publish** (no AI): the fix goes to `automation/autofix-main` (fixes of
    `main`) or onto the maintenance candidate, a draft PR is opened or updated
    with the agent's summary, and the tests start on it.
 5. If the tests fail again, a second attempt follows. After two, or when nothing
-   could be fixed, the issue **"Automatic fix needs you: <workflow>"** is opened.
+   could be fixed, the issue **"Automatic fix needs you: <workflow>"** is opened. Its
+   reason is plain: quota, chiave, modello, tempo or rifiutata.
 
 The agent cannot see Plasma: shapes, effects and the look are always judged by
 the owner on the real system.
