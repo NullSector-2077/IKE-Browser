@@ -45,7 +45,9 @@ them without asking.
   everything it can (since 1.1.12 also the engine, in `ike/_engine`);
   `__min_system__` is raised only when nothing else is possible, and then the
   release must say how it still reaches users without commands. The web engine
-  of the system (Arch's `qt6-webengine`) updates with the system.
+  of the system (Arch's `qt6-webengine`) updates with the system. Automatic
+  installation is the default (1.1.13); users may turn updates off, at their
+  own risk.
 - Pages must not be able to see I.K.E.: outside the protections the user
   chose, nothing in a page is changed (1.1.12), and on sensitive services
   (sign-in, AI Studio, cloud consoles, payments) the protections stay light, so

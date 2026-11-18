@@ -9,7 +9,7 @@ The interface, protections, password manager and updater are I.K.E.'s own code
 provided and kept up to date by Arch Linux. I.K.E. is developed on and for
 KDE Plasma (CachyOS / Arch Linux) and works on the other Arch-based desktops.
 
-**Version 1.1.12** - see [CHANGELOG.md](CHANGELOG.md).
+**Version 1.1.13** - see [CHANGELOG.md](CHANGELOG.md).
 
 ## Install (Arch Linux, CachyOS)
 
@@ -17,7 +17,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.1.12-1-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.1.13-1-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:
@@ -151,9 +151,10 @@ I.K.E. has no servers of its own and sends no telemetry. It contacts only:
 
 - Filter lists and the presented Chrome version update themselves daily.
 - The web engine updates with the system (`sudo pacman -Syu`).
-- I.K.E. itself updates from the latest GitHub release, signed with the
-  project's key and checked before use (Settings → General: ask, automatic or
-  off); see [docs/UPDATES.md](docs/UPDATES.md).
+- I.K.E. itself updates by itself from the latest GitHub release, signed with
+  the project's key and checked before use, the AdBlock engine included
+  (Settings → General: automatic by default, or ask, or off at your own risk);
+  see [docs/UPDATES.md](docs/UPDATES.md).
 - The components inside I.K.E. — the AdBlock engine and the uBlock Origin
   scriptlets — are checked for new versions every day by GitHub Actions, which
   prepares a tested candidate release for the owner to approve

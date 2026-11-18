@@ -112,6 +112,9 @@ def local_file_in_reach(page, target, shared=()):
     return target == page or target.startswith(root.rstrip(os.sep) + os.sep)
 
 
+HTTP_CACHE_BYTES = 512 * 1024 * 1024
+
+
 def register_scheme():
     """Must run before QApplication is created."""
     s = QWebEngineUrlScheme(b"ike")
@@ -582,6 +585,11 @@ class Shields(QObject):
             profile = QWebEngineProfile("ike" if not container else "ike-" + container, parent)
             profile.setPersistentStoragePath(str(DATA_DIR / sub))
             profile.setCachePath(str(CACHE_DIR / ("web" if not container else "web-" + container)))
+            # a disk cache big enough for the scripts of the heavy sites
+            # (YouTube's player alone is several MB) and their compiled code,
+            # so a second visit starts from the disk, not the network (1.1.13)
+            profile.setHttpCacheType(QWebEngineProfile.HttpCacheType.DiskHttpCache)
+            profile.setHttpCacheMaximumSize(HTTP_CACHE_BYTES)
             profile.setPersistentCookiesPolicy(
                 QWebEngineProfile.PersistentCookiesPolicy.AllowPersistentCookies)
         self.profile_keys[id(profile)] = secrets.token_hex(16)

@@ -35,6 +35,7 @@ QUIET_SETTINGS = {
     "auto_update": False,
     "newtab_bg": "",               # the plain new tab page; I.K.E.'s own photo is tested on its own
     "newtab_bg_118": True,
+    "app_updates_1113": True,
 }
 
 
