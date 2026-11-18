@@ -210,6 +210,9 @@ DEFAULTS = {
     "video_ad_skip_hosts": ["youtube.com", "youtube-nocookie.com"],
     "shield_advanced": False,           # advanced controls open in the shield panel
     "login_compat": True,               # gentle handling of Google/Microsoft/Apple sign-in
+    "lookalike_warn": True,             # warn about sites imitating well-known ones (1.1.14, lookalike.py)
+    "lookalike_ok": [],                 # sites the user marked as fine
+    "site_tint": True,                  # the toolbar takes a light tint of the site's colour (1.1.14)
     "https_only": True,
     "strip_tracking_params": True,
     "send_gpc": True,

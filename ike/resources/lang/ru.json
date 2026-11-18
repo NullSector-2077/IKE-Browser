@@ -847,6 +847,13 @@
 "Previous match (Shift+Enter)": "Предыдущее совпадение (Shift+Enter)",
 "Next match (Enter)": "Следующее совпадение (Enter)",
 "Default": "По умолчанию",
-"I.K.E.'s own photo": "Фото I.K.E."
+"I.K.E.'s own photo": "Фото I.K.E.",
+"Components and licences": "Компоненты и лицензии",
+"I.K.E. is free software (GPL-3.0). Every component keeps its own licence.": "I.K.E. — свободное программное обеспечение (GPL-3.0). Каждый компонент сохраняет свою лицензию.",
+"This site is fine": "Этот сайт в порядке",
+"Hide this warning": "Скрыть это предупреждение",
+"Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "Осторожно: %s похож на %s, но это не %s. Не вводите пароли и данные карты, если не уверены.",
+"Warn about sites that imitate well-known ones": "Предупреждать о сайтах, подражающих известным",
+"Tint the toolbar with the colour of the site": "Окрашивать панель инструментов в цвет сайта"
 }
 }

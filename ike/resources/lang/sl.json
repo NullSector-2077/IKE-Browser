@@ -847,6 +847,13 @@
 "Previous match (Shift+Enter)": "Prejšnje ujemanje (Shift+Enter)",
 "Next match (Enter)": "Naslednje ujemanje (Enter)",
 "Default": "Privzeto",
-"I.K.E.'s own photo": "Fotografija I.K.E."
+"I.K.E.'s own photo": "Fotografija I.K.E.",
+"Components and licences": "Komponente in licence",
+"I.K.E. is free software (GPL-3.0). Every component keeps its own licence.": "I.K.E. je prosto programje (GPL-3.0). Vsaka komponenta ohrani svojo licenco.",
+"This site is fine": "Ta stran je v redu",
+"Hide this warning": "Skrij to opozorilo",
+"Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "Previdno: %s je videti kot %s, vendar ni %s. Če niste prepričani, ne vnašajte gesel ali podatkov o kartici.",
+"Warn about sites that imitate well-known ones": "Opozori na strani, ki posnemajo znane strani",
+"Tint the toolbar with the colour of the site": "Obarvaj orodno vrstico z barvo strani"
 }
 }

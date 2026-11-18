@@ -847,6 +847,13 @@
 "Previous match (Shift+Enter)": "Претходно совпаѓање (Shift+Enter)",
 "Next match (Enter)": "Следно совпаѓање (Enter)",
 "Default": "Стандардна",
-"I.K.E.'s own photo": "Фотографијата на I.K.E."
+"I.K.E.'s own photo": "Фотографијата на I.K.E.",
+"Components and licences": "Компоненти и лиценци",
+"I.K.E. is free software (GPL-3.0). Every component keeps its own licence.": "I.K.E. е слободен софтвер (GPL-3.0). Секоја компонента ја задржува својата лиценца.",
+"This site is fine": "Оваа страница е во ред",
+"Hide this warning": "Скриј го ова предупредување",
+"Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "Внимание: %s личи на %s, но не е %s. Не внесувајте лозинки или податоци за картичка ако не сте сигурни.",
+"Warn about sites that imitate well-known ones": "Предупреди за страници што имитираат познати",
+"Tint the toolbar with the colour of the site": "Обој ја лентата со алатки во бојата на страницата"
 }
 }

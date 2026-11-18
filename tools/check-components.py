@@ -117,6 +117,8 @@ def apply_adblock(root, info):
     if shutil.which("cargo"):
         run(["cargo", "update", "-p", "adblock", "--precise", v,
              "--manifest-path", str(cargo)])
+        # the credits follow the engine (docs/THIRD-PARTY.md, 1.1.14)
+        run([sys.executable, str(root / "tools" / "third-party.py")])
     else:
         print("!! cargo not found: run `cargo update -p adblock --precise %s` in ike-adblock/" % v)
 

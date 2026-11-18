@@ -117,6 +117,9 @@ def test_about_shows_formats_and_engine_age(run_ike, site):
     assert out["probes_left"] == 0
     assert out["closed"]
     assert "checking" not in out["text_again"] and "Plays: " in out["text_again"]
+    # 1.1.14: the components I.K.E. is built on, with their licences
+    assert "Components and licences" in answered and "adblock-rust (Brave Software)" in answered
+    assert "MPL-2.0" in answered and "Dark Reader" in answered
     assert out["presented"] == out["engine"]
     assert ("Chrome/%d.0.0.0 " % out["engine"]) in out["ua"], out["ua"]
     behind = out["behind"]

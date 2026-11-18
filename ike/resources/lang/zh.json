@@ -847,6 +847,13 @@
 "Previous match (Shift+Enter)": "上一个匹配 (Shift+Enter)",
 "Next match (Enter)": "下一个匹配 (Enter)",
 "Default": "默认",
-"I.K.E.'s own photo": "I.K.E. 自带的图片"
+"I.K.E.'s own photo": "I.K.E. 自带的图片",
+"Components and licences": "组件和许可证",
+"I.K.E. is free software (GPL-3.0). Every component keeps its own licence.": "I.K.E. 是自由软件（GPL-3.0）。每个组件保留其自己的许可证。",
+"This site is fine": "这个网站没问题",
+"Hide this warning": "隐藏此警告",
+"Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "注意：%s 看起来像 %s，但它不是 %s。如果不确定，请勿输入密码或银行卡信息。",
+"Warn about sites that imitate well-known ones": "对模仿知名网站的网站发出警告",
+"Tint the toolbar with the colour of the site": "用网站的颜色为工具栏着色"
 }
 }

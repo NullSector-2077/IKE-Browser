@@ -23,6 +23,27 @@
   and fields, their anti-fraud checks, their frames and cookies) are left
   alone. The rest of the shop keeps its protections. Any other site that
   refuses an operation can still be fixed from the shield with "Repair site".
+- **Sosia, the lookalike warning**: when the address of a page imitates a
+  famous site (banks, Poste, PayPal, Amazon, Google, Apple, Microsoft, social
+  networks, couriers, crypto exchanges...), a bar above the page says so:
+  "Careful: paypa1.com looks like PayPal, but it is not PayPal". It recognises
+  the tricks scams use: digits and look-alike letters ("paypa1", "arnazon"),
+  letters of other alphabets that look the same, a real address in front of a
+  false one ("paypal.com.secure-login.xyz"), two letters swapped or a double
+  letter. Nothing is blocked; "This site is fine" remembers the site. The check
+  runs on this computer only, once per opened page, and is tested against more
+  than 10,000 real sites with names close to the famous ones: none of them is
+  flagged. On by default (Settings -> Privacy).
+- **Site tint**: the navigation bar takes a light tint of the site's own colour
+  (the colour a site declares for browsers, or the main colour of its icon),
+  with a short fade; greys give none and I.K.E.'s own pages keep the normal
+  bar. The colour is read in I.K.E.'s isolated world, never seen by the page.
+  On by default (Settings -> Appearance).
+- **Credits**: Help -> About lists the projects I.K.E. is built on with their
+  licences (adblock-rust by Brave, uBlock Origin, EasyList, Dark Reader, Qt and
+  Chromium, PyQt6, icons and the logo typeface), the README has the same list,
+  and docs/THIRD-PARTY.md now follows the AdBlock engine by itself: the daily
+  maintenance rewrites it when the engine moves to a new version.
 - **Honest version number**: I.K.E. now tells sites the Chrome version of its
   own engine (for example 140) instead of the newest Chrome (157). A site can
   test which features the engine really has, so the old claim was easy to
