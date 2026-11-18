@@ -7,7 +7,7 @@ description: Python, Rust, system libraries and the AdBlock engine for the tests
 runs:
   using: composite
   steps:
-    - uses: actions/setup-python@v6
+    - uses: actions/setup-python@v7
       with:
         python-version: "3.13"
     - name: Rust
@@ -38,7 +38,7 @@ runs:
       shell: bash
       run: |
         python -m pip install --disable-pip-version-check -q -r tools/test-requirements.txt pytest ruff
-    - uses: actions/cache@v4
+    - uses: actions/cache@v6
       with:
         path: |
           ~/.cargo/registry

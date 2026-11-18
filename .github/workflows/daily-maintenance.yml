@@ -30,7 +30,7 @@ jobs:
       push: ${{ steps.compare.outputs.push }}
     steps:
       - name: Check out main (all branches and tags, no credentials)
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
@@ -40,10 +40,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B automation/daily-maintenance origin/main
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
       - name: Rust
@@ -106,7 +106,7 @@ jobs:
           fi
       - name: Upload maintenance candidate
         if: steps.changes.outputs.changed == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: maintenance-candidate
           path: ${{ runner.temp }}/maintenance-candidate/*
@@ -114,7 +114,7 @@ jobs:
           retention-days: 7
       - name: Upload component report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: component-report
           path: component-report.*
@@ -133,13 +133,13 @@ jobs:
       pull-requests: write
     steps:
       - name: Check out repository without persisted credentials
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
           persist-credentials: false
       - name: Download prepared candidate
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: maintenance-candidate
           path: ${{ runner.temp }}/maintenance-candidate
