@@ -160,6 +160,37 @@ def test_release_files_signed_and_reproducible(updater, keypair, tmp_path):
     updater.safe_extract(payload, tmp_path / "x")            # the updater accepts it
 
 
+def test_release_carries_the_adblock_engine(updater, keypair, tmp_path):
+    """1.1.12: the engine built for the release travels in the signed update
+    (ike/_engine/adblock), so a new engine reaches users without a package."""
+    tool = load_tool()
+    _, key_path, pub = keypair
+    upd = make_update_json(tmp_path, pub)
+    engine = tmp_path / "vendor" / "adblock"
+    engine.mkdir(parents=True)
+    for name, data in (("__init__.py", b"MODERN = True\n"), ("adblock.pyi", b""), ("py.typed", b""),
+                       ("ike_adblock.abi3.so", b"\x7fELF engine")):
+        (engine / name).write_bytes(data)
+    out1, manifest = tool.make(key_path, tmp_path / "r1", ["stable"], passphrase=PASS, update_file=upd,
+                               engine=engine)
+    out2, _ = tool.make(key_path, tmp_path / "r2", ["stable"], passphrase=PASS, update_file=upd,
+                        engine=engine)
+    payload = (out1 / manifest["payload"]).read_bytes()
+    assert payload == (out2 / manifest["payload"]).read_bytes()          # still reproducible
+    with tarfile.open(fileobj=io.BytesIO(payload)) as tar:
+        names = tar.getnames()
+        so = tar.extractfile("ike/_engine/adblock/ike_adblock.abi3.so").read()
+    assert so == b"\x7fELF engine"
+    assert {"ike/_engine/adblock/__init__.py", "ike/_engine/adblock/py.typed"} <= set(names)
+    updater.safe_extract(payload, tmp_path / "x")            # the updater accepts it
+    assert (tmp_path / "x" / "ike" / "_engine" / "adblock" / "ike_adblock.abi3.so").is_file()
+    # an engine folder without the module is refused, nothing is written
+    (engine / "ike_adblock.abi3.so").unlink()
+    with pytest.raises(SystemExit, match="lacks"):
+        tool.make(key_path, tmp_path / "r3", ["stable"], passphrase=PASS, update_file=upd, engine=engine)
+    assert not (tmp_path / "r3").exists()
+
+
 def test_release_tool_refuses_wrong_or_misplaced_key(keypair, tmp_path):
     tool = load_tool()
     _, key_path, pub = keypair

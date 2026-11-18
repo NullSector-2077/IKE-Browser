@@ -29,7 +29,10 @@ to the newest release):
 - `stable.json.sig` — base64 Ed25519 signature of the exact bytes of `stable.json`
 - `beta.json`, `beta.json.sig` — the same for the beta channel (for now a copy
   of stable, so users who chose "beta" are not left without updates)
-- the payload `ike-<version>.tar.gz` — only the `ike/` folder of the new version
+- the payload `ike-<version>.tar.gz` — the `ike/` folder of the new version,
+  with the AdBlock engine module built for the release in `ike/_engine/adblock/`
+  (1.1.12): I.K.E. uses that engine first and the installed one as the
+  fallback, so a new engine reaches every user without a new package
 - the package `ike-browser-<version>-1-x86_64.pkg.tar.zst`, for installing by hand
 
 I.K.E. checks the signature, then the hash, unpacks the new version in the
@@ -38,9 +41,10 @@ uses it from the next start. A version that fails to start is rolled back
 automatically and never installed again. Nothing under `/usr` is touched.
 
 `min_system` is `__min_system__` from `ike/__init__.py`: the oldest installed
-system part (`ike_boot.py`, the AdBlock engine module, the launcher, the
-desktop entry and its icons) the new `ike/` folder goes with. Raise it when a
-release changes one of those parts.
+system part (`ike_boot.py`, the launcher, the desktop entry and its icons) the
+new `ike/` folder goes with. The project's rule is that every release reaches
+every user by itself (ROADMAP.md): raise it only when a release cannot work
+without a new system part. The AdBlock engine is not such a part since 1.1.12.
 An installation older than that is not self-updated: it shows once "I.K.E. X is
 available, but it needs a newer installation package".
 

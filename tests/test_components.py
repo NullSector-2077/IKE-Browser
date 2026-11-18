@@ -121,7 +121,7 @@ def test_each_new_version_found(tool, repo, tmp_path):
     make_ubo(tool.ubo, "v2")
     r = by_name(tool.check_all(repo, tool.ubo, tmp_path / "w"))
     assert r["adblock-rust"]["update"] and r["adblock-rust"]["latest"] == "0.14.0"
-    assert "__min_system__" in r["adblock-rust"]["note"]
+    assert "self-update" in r["adblock-rust"]["note"] and "__min_system__" not in r["adblock-rust"]["note"]
     assert r["uBlock"]["update"] and r["uBlock"]["note"] == "1 changed, 0 new, 0 removed"
     assert r["Qt"]["update"] and "6.141.0" in r["Qt"]["note"] and "6.141.0" in r["Qt"]["latest"]
     assert "Arch Linux qt6-webengine 6.14.1-1" in r["Qt"]["note"]
@@ -263,7 +263,9 @@ def test_prepare_maintenance_bumps_candidate_version(tmp_path):
                     "--base-version", "1.0.0"], check=True)
     init = (root / "ike/__init__.py").read_text()
     assert '__version__ = "1.0.1"' in init
-    assert '__min_system__ = "1.0.1"' in init
+    # the engine travels in the self-update (1.1.12): the minimum system stays
+    minimum = re.search(r'^__min_system__ = "[^"]+"$', (ROOT / "ike/__init__.py").read_text(), re.M).group(0)
+    assert minimum in init
     assert "pkgver=1.0.1" in (root / "PKGBUILD").read_text()
     readme = (root / "README.md").read_text()
     assert "**Version 1.0.1**" in readme and "ike-browser-1.0.1-1-x86_64.pkg.tar.zst" in readme

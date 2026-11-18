@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.1.12
+
+- **Every release now reaches every user by itself**, the AdBlock engine
+  included: the engine built for a release travels inside the signed
+  self-update (`ike/_engine`) and is used first; the installed one stays as the
+  fallback. A new engine no longer needs a new package, so the minimum system
+  goes back to 1.0.1 and 1.1.10 and 1.1.11 update to this version by
+  themselves, without commands.
+- **Pages can no longer see I.K.E. where nothing was asked**: the media
+  commands of the desktop (next / previous in Plasma) touch only the pages of
+  media sites (YouTube, Spotify, SoundCloud, Twitch and others, setting
+  `media_sites`). Before, they changed every page, even with the shield off, and
+  anti-abuse checks noticed it: Google AI Studio sometimes refused to list or
+  create API keys ("permission denied").
+- **Google's sensitive services** (AI Studio, Cloud console, account, payments,
+  admin) get "Compatibility" by themselves, like the sign-in pages; a level
+  chosen by the user for them is kept.
+- **Lighter fingerprinting protection**: the guard that protects the frames a
+  page adds looks only at insertions that can bring a frame, and remembers
+  frames already protected. On a page that changes itself a lot, its cost
+  drops from about 60% to about 15% of the page's own work; every frame stays
+  protected.
+
 ## 1.1.11
 
 - adblock-rust (AdBlock engine): 0.13.5 -> 0.13.6 (system part: raise __min_system__ and adapt ike-adblock/src/lib.rs if the API changed)

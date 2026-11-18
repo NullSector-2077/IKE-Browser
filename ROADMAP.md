@@ -36,6 +36,20 @@ them without asking.
   the session stops, and write in "Status" below where the work stopped. Even
   then: never merge, sign or publish, and no destructive Git operations.
 - Never report a check that was not actually run.
+- **Every release reaches every user by itself** (owner's rule, 2026-11-18,
+  for Arch and for every future platform: other Linux, Windows...): each
+  version merged into `main` and signed by the owner is installed
+  automatically at the next start of I.K.E., the AdBlock engine and the other
+  bundled components included. Nobody (the owner included) has to visit
+  GitHub, run a command or install a package by hand. The self-update carries
+  everything it can (since 1.1.12 also the engine, in `ike/_engine`);
+  `__min_system__` is raised only when nothing else is possible, and then the
+  release must say how it still reaches users without commands. The web engine
+  of the system (Arch's `qt6-webengine`) updates with the system.
+- Pages must not be able to see I.K.E.: outside the protections the user
+  chose, nothing in a page is changed (1.1.12), and on sensitive services
+  (sign-in, AI Studio, cloud consoles, payments) the protections stay light, so
+  anti-abuse checks never refuse the user.
 
 ## Now: Arch Linux / CachyOS
 

@@ -102,7 +102,7 @@ def check_adblock(root):
     cur, new = current_adblock(root), latest_adblock()
     newer = vkey(new) > vkey(cur)
     return {"current": cur, "latest": new, "update": newer,
-            "note": "system part: raise __min_system__ and adapt ike-adblock/src/lib.rs if the API changed"
+            "note": "engine: travels in the signed self-update; adapt ike-adblock/src/lib.rs if the API changed"
             if newer else ""}
 
 

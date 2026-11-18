@@ -207,7 +207,8 @@ def steps(ike, qapp, out):
     yield 500
     out["frame_calls"] = r2
     out["frame_paused"] = paused
-""" % (site + "/playlist", site + "/framed"), env={"DBUS_SESSION_BUS_ADDRESS": address}, timeout=150)
+""" % (site + "/playlist", site + "/framed"), env={"DBUS_SESSION_BUS_ADDRESS": address}, timeout=150,
+        settings={"media_sites": ["127.0.0.1", "localhost"]})      # the test's local "media sites"
     c = out["calls"]
     assert "'CanGoNext': <true>" in c[0] and "'CanGoPrevious': <true>" in c[0]
     assert "'Track 1'" in c[0]

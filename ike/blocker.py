@@ -10,6 +10,7 @@ import os
 import re
 import time
 import urllib.request
+from pathlib import Path
 from urllib.parse import urlsplit
 
 from PyQt6.QtCore import QObject, QThread, pyqtSignal
@@ -18,10 +19,39 @@ from . import background
 from .config import CACHE_DIR, DATA_DIR
 from .scriptlets import preprocess
 
-try:
-    import adblock
-except Exception:  # pragma: no cover - optional dependency
-    adblock = None
+ENGINE_DIR = Path(__file__).resolve().parent / "_engine"
+
+
+def _load_engine():
+    """The AdBlock engine module. The one that came with this version of I.K.E.
+    comes first: a self-update carries it in ike/_engine/ (1.1.12), so a new
+    engine reaches every user without a new package. Without it, or when it
+    cannot be loaded, the one installed with the package (vendor/adblock)."""
+    import sys
+    bundled = ENGINE_DIR / "adblock"
+    if (bundled / "__init__.py").is_file():
+        sys.path.insert(0, str(ENGINE_DIR))
+        try:
+            import adblock as mod
+            if getattr(mod, "MODERN", False):
+                return mod
+        except Exception:
+            pass
+        finally:
+            try:
+                sys.path.remove(str(ENGINE_DIR))
+            except ValueError:
+                pass
+        for name in [m for m in sys.modules if m == "adblock" or m.startswith("adblock.")]:
+            del sys.modules[name]
+    try:
+        import adblock as mod
+        return mod
+    except Exception:  # pragma: no cover - optional dependency
+        return None
+
+
+adblock = _load_engine()
 
 LISTS_DIR = DATA_DIR / "lists"
 UPDATE_INTERVAL = 24 * 3600

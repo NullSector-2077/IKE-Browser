@@ -40,14 +40,29 @@ def read_var(name):
     return re.search(r'^%s\s*=\s*"([^"]+)"' % name, text, re.M).group(1)
 
 
-def build_payload():
-    """A reproducible .tar.gz of ike/ (no caches, fixed owners and dates)."""
-    files = sorted(p for p in (ROOT / "ike").rglob("*")
-                   if "__pycache__" not in p.parts and not p.name.endswith((".pyc", ".pyo")))
+ENGINE_FILES = ("__init__.py", "adblock.pyi", "py.typed", "ike_adblock.abi3.so")
+
+
+def build_payload(engine=None):
+    """A reproducible .tar.gz of ike/ (no caches, fixed owners and dates).
+    engine: the folder of the AdBlock engine module just built for this release
+    (vendor/adblock of the package); it travels as ike/_engine/adblock/, so a
+    new engine reaches every user with the self-update (1.1.12)."""
+    files = sorted((p, p.relative_to(ROOT).as_posix()) for p in (ROOT / "ike").rglob("*")
+                   if "__pycache__" not in p.parts and not p.name.endswith((".pyc", ".pyo"))
+                   and "_engine" not in p.relative_to(ROOT / "ike").parts)
+    if engine is not None:
+        engine = Path(engine)
+        missing = [n for n in ENGINE_FILES if not (engine / n).is_file()]
+        if missing:
+            raise SystemExit("the engine folder %s lacks %s" % (engine, ", ".join(missing)))
+        files.append((engine, "ike/_engine"))          # its folders first
+        files.append((engine, "ike/_engine/adblock"))
+        files += [(engine / n, "ike/_engine/adblock/" + n) for n in ENGINE_FILES]
     raw = io.BytesIO()
     with tarfile.open(fileobj=raw, mode="w", format=tarfile.PAX_FORMAT) as tar:
-        for p in files:
-            info = tar.gettarinfo(str(p), arcname=p.relative_to(ROOT).as_posix())
+        for p, arcname in files:
+            info = tar.gettarinfo(str(p), arcname=arcname)
             if not (info.isfile() or info.isdir()):
                 raise SystemExit("not a regular file: %s" % p)
             info.uid = info.gid = 0
@@ -100,7 +115,7 @@ def inside_repo(path):
         return False
 
 
-def make(key_path, out_dir, channels, passphrase=None, update_file=None):
+def make(key_path, out_dir, channels, passphrase=None, update_file=None, engine=None):
     key_path = Path(key_path).expanduser()
     if inside_repo(key_path):
         raise SystemExit("refusing to use a private key stored inside the repository: move it out")
@@ -112,7 +127,7 @@ def make(key_path, out_dir, channels, passphrase=None, update_file=None):
         raise SystemExit("this private key does not match the public key in data/update.json")
 
     version = read_var("__version__")
-    payload = build_payload()
+    payload = build_payload(engine)
     manifest = {"version": version, "payload": "ike-%s.tar.gz" % version,
                 "sha256": hashlib.sha256(payload).hexdigest(),
                 "min_system": read_var("__min_system__")}
@@ -135,9 +150,11 @@ def main(argv=None):
     ap.add_argument("--key", default=str(DEFAULT_KEY), help="Ed25519 private key (PEM)")
     ap.add_argument("--out", help="output folder (default dist/release-<version>)")
     ap.add_argument("--channels", default="stable,beta")
+    ap.add_argument("--engine", help="folder of the AdBlock engine module built for this release "
+                    "(pkg/ike-browser/usr/lib/ike-browser/vendor/adblock after makepkg)")
     a = ap.parse_args(argv)
     channels = [c for c in a.channels.split(",") if c]
-    out, manifest = make(a.key, a.out, channels)
+    out, manifest = make(a.key, a.out, channels, engine=a.engine)
     print("I.K.E. %s: signed update files in %s" % (manifest["version"], out))
     for p in sorted(out.iterdir()):
         print("  " + p.name)

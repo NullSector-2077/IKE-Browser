@@ -23,3 +23,6 @@ venv/
 
 # the automatic fix agent's working folder (.github/workflows/autofix.yml)
 .autofix/
+
+# the AdBlock engine put into a self-update by tools/make-release.py --engine
+/ike/_engine/
