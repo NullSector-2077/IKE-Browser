@@ -14,6 +14,7 @@ Privacy:
 import json
 import os
 import time
+import shutil
 from urllib.parse import urlencode
 
 from PyQt6.QtCore import QObject, QUrl, pyqtSignal
