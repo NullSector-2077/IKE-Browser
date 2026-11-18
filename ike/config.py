@@ -54,6 +54,12 @@ DEFAULT_CONTAINERS = [
 # fingerprint changes and need their own cookies when embedded in other sites.
 LOGIN_HOSTS = ("accounts.google.com", "accounts.youtube.com", "login.live.com",
                "login.microsoftonline.com", "appleid.apple.com", "idmsa.apple.com")
+# Google services whose anti-abuse checks protect sensitive operations (API keys,
+# cloud projects, payments, account security): any trace of a changed page can
+# make them refuse ("permission denied"). They get "Compatibility" unless the
+# user chose a level for them (1.1.12).
+SENSITIVE_HOSTS = ("aistudio.google.com", "console.cloud.google.com", "myaccount.google.com",
+                   "pay.google.com", "payments.google.com", "admin.google.com")
 FIREFOX_UA = osinfo.identity()["firefox_ua"]
 PERMISSION_KINDS = ("camera", "microphone", "location", "notifications", "clipboard", "screen", "fonts")
 
@@ -219,6 +225,14 @@ DEFAULTS = {
     "page_watch_on": True,              # check them while I.K.E. is open
     # desktop integration through D-Bus (see plasma.py)
     "di_media": True,                   # media widget, lock screen and media keys (MPRIS)
+    # sites (and their subdomains) where "next" and "previous" of the desktop's
+    # media controls are read from the page (mediahook.js); nowhere else is a
+    # page touched for them (1.1.12)
+    "media_sites": ["youtube.com", "youtube-nocookie.com", "spotify.com", "soundcloud.com",
+                    "twitch.tv", "vimeo.com", "dailymotion.com", "deezer.com", "tidal.com",
+                    "bandcamp.com", "mixcloud.com", "music.apple.com", "jamendo.com",
+                    "netflix.com", "primevideo.com", "disneyplus.com", "raiplay.it",
+                    "raiplaysound.it", "nebula.tv", "odysee.com", "kick.com", "pocketcasts.com"],
     "di_downloads": True,               # downloads in Plasma's notifications
     "di_krunner": True,                 # open tabs and bookmarks in KRunner
     "di_kdeconnect": True,              # "Send to device" with KDE Connect
@@ -410,6 +424,8 @@ class Config:
             host = host.split(".", 1)[1]
         level = self.data["shield_level"]
         if self.data["login_compat"] and full in LOGIN_HOSTS and LEVELS.index(level) > 1:
+            return "compatibility"
+        if full in SENSITIVE_HOSTS and LEVELS.index(level) > 1:
             return "compatibility"
         return level
 

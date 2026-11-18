@@ -38,8 +38,8 @@ scripts update themselves inside the browser.
    (`--apply`; if any upstream source cannot be checked, nothing is applied).
 2. `tools/prepare-maintenance.py` raises the patch version (1.1.10 → 1.1.11, or
    adds to a version of `main` that is not released yet), the package version,
-   README and CHANGELOG, and raises `__min_system__` when the AdBlock engine
-   changes. **Packages used only by the tests make no new version**: that pull
+   README and CHANGELOG. A new AdBlock engine travels in the signed
+   self-update (1.1.12), so it never needs a new package. **Packages used only by the tests make no new version**: that pull
    request is merged and needs no release.
 3. Automatic fixes of the previous candidate (commits `autofix: ...`) are carried
    over. The candidate is pushed only when it differs from the one already

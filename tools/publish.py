@@ -15,7 +15,9 @@ It stops, changing nothing on GitHub, at the first thing that is not right:
 3. the automatic tests ("tests") passed on exactly that commit on GitHub;
 4. the package is built (`makepkg -Csf`);
 5. the update files are signed by tools/make-release.py, which asks the
-   passphrase of the private key (the key never leaves this computer);
+   passphrase of the private key (the key never leaves this computer); the
+   AdBlock engine just built travels inside the update, so every user gets
+   every release by the self-update, without a new package;
 6. the release notes are taken from the version's section of CHANGELOG.md;
 7. the release is created on GitHub, its tag on that exact commit;
 8. the published files are read back from GitHub: the signature, the version
@@ -180,8 +182,14 @@ def publish(a):
     if not pkg.is_file():
         raise Stop("makepkg non ha prodotto %s" % pkg.name)
 
+    # the engine just built goes inside the signed update: every user gets it
+    # by the self-update, without a new package (1.1.12)
+    engine = ROOT / "pkg" / "ike-browser" / "usr" / "lib" / "ike-browser" / "vendor" / "adblock"
+    if not (engine / "ike_adblock.abi3.so").is_file():
+        raise Stop("makepkg non ha lasciato il motore dell'ad blocker in %s" % engine)
+
     say("Firmo gli aggiornamenti: ti chiedo la passphrase della chiave")
-    cmd = [sys.executable, str(ROOT / "tools" / "make-release.py")]
+    cmd = [sys.executable, str(ROOT / "tools" / "make-release.py"), "--engine", str(engine)]
     if a.key:
         cmd += ["--key", a.key]
     # its own advice on publishing by hand is not shown: this command does it;

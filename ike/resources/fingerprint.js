@@ -768,12 +768,21 @@
 
   // ---- new empty windows: protect them before the page can use them --------
   var foreign = new WeakSet();          // frames of other sites: not ours to touch
+  // Realms already protected, by their own Function object: a frame that loads
+  // a new document keeps its window object but gets a new realm, which is then
+  // protected again. Asking a realm whether it is protected (isProtected) costs a
+  // call into it; asking this set is free, and pages insert nodes very often.
+  var realms = new WeakSet();
   function adopt(cw) {
     if (!cw || foreign.has(cw)) return;
+    var F;
     try {
-      if (!cw.Function) { foreign.add(cw); return; }      // throws if cross-origin
+      F = cw.Function;                                    // throws if cross-origin
+      if (!F) { foreign.add(cw); return; }
     } catch (e) { foreign.add(cw); return; }
+    if (realms.has(F)) return;
     try { install(cw); } catch (e) {}
+    realms.add(F);
   }
   function sweep(win) {
     try {
@@ -784,28 +793,57 @@
     // Looking into every frame is not free, so it is done only when the number
     // of frames changed, or after an operation that can swap one frame for another.
     var known = 0;
+    var own = w.document;
     function check(node, force) {
+      // the usual case, first and cheap: a node of this document, no frame added
+      if (!force && w.length === known && (!node || node === own || node.ownerDocument === own)) return;
       var d = node && (node.ownerDocument || node);
       var win = (d && d.defaultView) || w;
       if (win !== w) { if (win.length) sweep(win); return; }
       var n = w.length;
       if (n !== known || (force && n)) { known = n; sweep(w); }
     }
-    function after(node) { check(node, true); }
-    function hooked(orig) {
-      return function () {
-        var r = orig.apply(this, arguments);
-        check(this, false);
-        return r;
-      };
+    // innerHTML / outerHTML: only HTML that writes a frame can bring a new one
+    function after(node, v) {
+      if (typeof v !== 'string' || FRAME_HTML.test(v)) check(node, true);
     }
-    function swapped(orig) {
-      return function () {
-        var r = orig.apply(this, arguments);
-        check(this, true);
+    // The DOM methods a page calls most (appendChild, insertBefore...) get one
+    // native-looking function of their own instead of a wrapper around a
+    // wrapper: one call less for every node a page inserts (1.1.12).
+    function hook(obj, name, force) {
+      var d = obj && Object.getOwnPropertyDescriptor(obj, name);
+      if (!d || typeof d.value !== 'function') return;
+      var orig = d.value;
+      var f = ({ [orig.name || name](...args) {
+        var r = Reflect.apply(orig, this, args);
+        if (force || mayAddFrame(this, args)) check(this, force);
         return r;
-      };
+      } })[orig.name || name];
+      try { Object.defineProperty(f, 'length', { value: orig.length, configurable: true }); } catch (e) {}
+      natives.set(f, origToString.call(orig));
+      d.value = f;
+      try { Object.defineProperty(obj, name, d); } catch (e) {}
     }
+    // Can this insertion bring a frame into a document? Not when the target is
+    // outside any document (frameworks build whole trees there first), nor for
+    // text or an element without children that is not a frame itself.
+    var FRAMES = { iframe: 1, frame: 1, object: 1, embed: 1 };
+    var FRAME_HTML = /<\s*(i?frame|object|embed)\b/i;
+    function mayAddFrame(target, args) {
+      if (target && target.isConnected === false) return false;
+      for (var i = 0; i < args.length; i++) {
+        var a = args[i];
+        if (typeof a === 'string') {
+          if (FRAME_HTML.test(a)) return true;                 // insertAdjacentHTML
+        } else if (a && (a.nodeType === 11 ||                  // a fragment
+                         (a.nodeType === 1 && (FRAMES[a.localName] === 1 || a.firstElementChild)))) {
+          return true;
+        }
+      }
+      return false;
+    }
+    function hooked(obj, name) { hook(obj, name, false); }
+    function swapped(obj, name) { hook(obj, name, true); }
     [w.HTMLIFrameElement, w.HTMLFrameElement, w.HTMLObjectElement, w.HTMLEmbedElement].forEach(function (E) {
       if (!E) return;
       getter(E.prototype, 'contentWindow', function (orig) {
@@ -820,21 +858,21 @@
       });
     });
     var N = w.Node && w.Node.prototype, E = w.Element && w.Element.prototype;
-    ['appendChild', 'insertBefore'].forEach(function (n) { wrap(N, n, hooked); });
-    wrap(N, 'replaceChild', swapped);
+    ['appendChild', 'insertBefore'].forEach(function (n) { hooked(N, n); });
+    swapped(N, 'replaceChild');
     [E, w.Document && w.Document.prototype, w.DocumentFragment && w.DocumentFragment.prototype]
       .forEach(function (p) {
-        ['append', 'prepend'].forEach(function (n) { wrap(p, n, hooked); });
-        wrap(p, 'replaceChildren', swapped);
+        ['append', 'prepend'].forEach(function (n) { hooked(p, n); });
+        swapped(p, 'replaceChildren');
       });
     [E, w.CharacterData && w.CharacterData.prototype].forEach(function (p) {
-      ['before', 'after'].forEach(function (n) { wrap(p, n, hooked); });
-      wrap(p, 'replaceWith', swapped);
+      ['before', 'after'].forEach(function (n) { hooked(p, n); });
+      swapped(p, 'replaceWith');
     });
-    ['insertAdjacentElement', 'insertAdjacentHTML'].forEach(function (n) { wrap(E, n, hooked); });
-    wrap(E, 'setHTMLUnsafe', swapped);
+    ['insertAdjacentElement', 'insertAdjacentHTML'].forEach(function (n) { hooked(E, n); });
+    swapped(E, 'setHTMLUnsafe');
     ['innerHTML', 'outerHTML'].forEach(function (n) { setter(E, n, after); });
-    ['write', 'writeln'].forEach(function (n) { wrap(w.Document && w.Document.prototype, n, swapped); });
+    ['write', 'writeln'].forEach(function (n) { swapped(w.Document && w.Document.prototype, n); });
     var opener = function (orig) {
       return function () {
         var r = orig.apply(this, arguments);

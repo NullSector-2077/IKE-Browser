@@ -18,7 +18,7 @@ from PyQt6.QtWebEngineCore import (
 )
 
 from . import osinfo
-from .config import CACHE_DIR, DATA_DIR, FIREFOX_UA, LEVEL_NAMES, LOGIN_HOSTS, RES_DIR, rank
+from .config import CACHE_DIR, DATA_DIR, FIREFOX_UA, LEVEL_NAMES, LOGIN_HOSTS, RES_DIR, SENSITIVE_HOSTS, rank
 
 TRACKING_PARAMS = {
     "fbclid", "gclid", "gclsrc", "dclid", "gbraid", "wbraid", "msclkid", "yclid",
@@ -669,7 +669,9 @@ class Shields(QObject):
                 # inserted before ike-fp: both keep replaced functions native-looking
                 m = QWebEngineScript()
                 m.setName("ike-media")
-                m.setSourceCode(self._media_src.replace("__IKE_MEDIA_TOKEN__", self.media_token(p)))
+                sites = [str(h).lower().strip(".") for h in cfg.get("media_sites") or [] if h]
+                m.setSourceCode(self._media_src.replace("__IKE_MEDIA_TOKEN__", self.media_token(p))
+                                .replace("__IKE_MEDIA_SITES__", json.dumps(sites)))
                 m.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
                 m.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
                 m.setRunsOnSubFrames(True)
@@ -687,6 +689,9 @@ class Shields(QObject):
             sites = dict(cfg["site_levels"])
             if cfg["login_compat"] and rank(cfg["shield_level"]) > 1:
                 for h in LOGIN_HOSTS:
+                    sites.setdefault(h, "compatibility")
+            if rank(cfg["shield_level"]) > 1:
+                for h in SENSITIVE_HOSTS:       # as config.level_for (1.1.12)
                     sites.setdefault(h, "compatibility")
             ident = osinfo.identity()
             fp_cfg = {"level": cfg["shield_level"], "sites": sites,

@@ -1,6 +1,9 @@
 // I.K.E. media commands for the desktop (Plasma's media controls, the media
 // keys). Runs in the page's main world before any page script, in every frame,
-// only when "Media controls" is on (Settings -> General).
+// only when "Media controls" is on (Settings -> General), and changes a frame
+// only on the media sites of the setting "media_sites" (1.1.12): elsewhere the
+// page is left exactly as the engine made it, so anti-abuse checks (Google's
+// sign-in and AI Studio, banks, payments) find nothing changed.
 //
 // A site that offers "next" and "previous" declares them with
 // navigator.mediaSession.setActionHandler(). The call works exactly as before;
@@ -12,6 +15,12 @@
 (function () {
   'use strict';
   var TOKEN = '__IKE_MEDIA_TOKEN__';
+  var SITES = __IKE_MEDIA_SITES__;
+  var here = String(location.hostname || '').toLowerCase();
+  var listed = SITES.some(function (s) {
+    return here === s || here.slice(-(s.length + 1)) === '.' + s;
+  });
+  if (!listed) return;
   var MS = window.MediaSession && window.MediaSession.prototype;
   if (!MS || typeof MS.setActionHandler !== 'function') return;
   var origToString = Function.prototype.toString;

@@ -57,10 +57,9 @@ def main():
     version = "%d.%d.%d" % (major, minor, patch + (0 if args.keep_version else 1))
     replace_one(init, r'^__version__ = "[^"]+"$', '__version__ = "%s"' % version, re.M)
 
-    adblock_changed = any(c["name"].startswith("adblock-rust") and c.get("update") for c in changed)
-    if adblock_changed:
-        replace_one(init, r'^__min_system__ = "[^"]+"$',
-                    '__min_system__ = "%s"' % version, re.M)
+    # The AdBlock engine travels inside the signed self-update (ike/_engine,
+    # tools/make-release.py --engine, 1.1.12): a new engine no longer needs a new
+    # package, so __min_system__ stays as it is and every user gets the release.
 
     replace_one(root / "PKGBUILD", r'^pkgver=.*$', "pkgver=%s" % version, re.M)
     replace_one(root / "PKGBUILD", r'^pkgrel=.*$', "pkgrel=1", re.M)
@@ -75,8 +74,6 @@ def main():
             component["name"], component.get("current") or "current",
             component.get("latest") or "updated",
             (" (" + component["note"] + ")") if component.get("note") else ""))
-    if adblock_changed:
-        bullets.append("- AdBlock engine system component updated; minimum compatible system package is now %s." % version)
 
     changelog = root / "CHANGELOG.md"
     old_log = changelog.read_text("utf-8")
