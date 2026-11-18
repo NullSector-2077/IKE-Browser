@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
           ref: ${{ inputs.ref || github.sha }}
@@ -92,7 +92,7 @@ jobs:
           IKE_LIBDIR="$root/usr/lib/ike-browser" qemu-x86_64 -cpu IvyBridge "$root/usr/bin/ike-browser" --version
       - name: Tests of the installed package
         run: IKE_TEST_APP="$RUNNER_TEMP/pkgroot/usr/lib/ike-browser" python -m pytest
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ike-browser-package
           path: ${{ runner.temp }}/pkg/ike-browser-*-x86_64.pkg.tar.zst

@@ -54,7 +54,7 @@ jobs:
       workflow: ${{ steps.plan.outputs.workflow }}
     steps:
       - name: Check out main (all branches, no credentials)
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
@@ -69,7 +69,7 @@ jobs:
           python3 -I tools/autofix-plan.py --run-id "$RUN_ID" --logs "$RUNNER_TEMP/failure/failure.md"
       - name: Keep the failure description
         if: steps.plan.outputs.action == 'fix'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: autofix-failure
           path: ${{ runner.temp }}/failure/failure.md
@@ -88,7 +88,7 @@ jobs:
       result: ${{ steps.agent.outputs.result }}
     steps:
       - name: Check out the commit to fix (no credentials)
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.plan.outputs.checkout }}
           fetch-depth: 0
@@ -98,7 +98,7 @@ jobs:
           git show origin/main:.github/autofix/prompt.md > "$RUNNER_TEMP/prompt.md"
           git show origin/main:tools/autofix-agent.py > "$RUNNER_TEMP/autofix-agent.py"
       - name: Failure description
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: autofix-failure
           path: .autofix
@@ -207,7 +207,7 @@ jobs:
           if [ -s "$out/autofix.patch" ]; then echo "patch=true"; else echo "patch=false"; fi >> "$GITHUB_OUTPUT"
       - name: Keep the patch and the summary
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: autofix-result
           path: |
@@ -225,12 +225,12 @@ jobs:
       contents: read
     steps:
       - name: Check out the same commit (no credentials)
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.plan.outputs.checkout }}
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: autofix-result
           path: ${{ runner.temp }}/autofix
@@ -279,7 +279,7 @@ jobs:
           git -c core.hooksPath=/dev/null commit -q -F "$RUNNER_TEMP/message"
           git bundle create "$RUNNER_TEMP/autofix/fix.bundle" "$CHECKOUT..HEAD"
       - name: Keep the accepted fix
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: autofix-accepted
           path: |
@@ -290,7 +290,7 @@ jobs:
           retention-days: 14
       - name: Keep the refusal
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: autofix-refused
           path: ${{ runner.temp }}/autofix/guard.md
@@ -309,12 +309,12 @@ jobs:
       pull-requests: write
     steps:
       - name: Check out repository without persisted credentials
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: autofix-accepted
           path: ${{ runner.temp }}/autofix
@@ -377,12 +377,12 @@ jobs:
     permissions:
       issues: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           name: autofix-result
           path: ${{ runner.temp }}/autofix
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           name: autofix-refused

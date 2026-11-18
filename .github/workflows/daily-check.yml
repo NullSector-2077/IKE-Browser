@@ -25,19 +25,19 @@ jobs:
       updates: ${{ steps.check.outputs.updates }}
       errors: ${{ steps.check.outputs.errors }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
       - name: Check components
         id: check
         run: python3 tools/check-components.py --json report.json --markdown report.md
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: component-report
           path: report.*
@@ -52,7 +52,7 @@ jobs:
       issues: write
     steps:
       - name: Download component report
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: component-report
           path: report
