@@ -88,6 +88,7 @@ def site():
 
 
 STEPS = r'''
+import json
 from PyQt6.QtCore import QUrl
 
 def ask(v, js, res, key):
