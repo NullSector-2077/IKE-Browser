@@ -903,34 +903,9 @@ def _chromium_flags(config):
     if (config["smooth_scrolling"] and "--enable-smooth-scrolling" not in flags
             and "--disable-smooth-scrolling" not in flags):
         flags.append("--enable-smooth-scrolling")
-    flags += _render_flags(flags)
     if hasattr(os, "geteuid") and os.geteuid() == 0 and "--no-sandbox" not in flags:
         flags.append("--no-sandbox")
     os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = " ".join(flags)
-
-
-def _render_flags(flags):
-    """Engine switches that draw pages sooner (1.1.13).
-
-    Page tiles are painted by the graphics card, as in Chrome and Brave on
-    the same machine, instead of by the processor and then copied to it:
-    the main picture of a page (its "largest contentful paint") comes
-    sooner and scrolling stays light. Not added when the user (or the
-    system) chose otherwise with switches of his own, without a screen
-    (QT_QPA_PLATFORM=offscreen/minimal, the tests), with software
-    rendering, or with IKE_SAFE_GPU=1 in the environment (a way out for a
-    graphics driver that draws badly)."""
-    if os.environ.get("IKE_SAFE_GPU", "") not in ("", "0"):
-        return []
-    if os.environ.get("QT_QPA_PLATFORM", "").split(":")[0] in ("offscreen", "minimal", "vnc"):
-        return []
-    if os.environ.get("LIBGL_ALWAYS_SOFTWARE", "") not in ("", "0") \
-            or os.environ.get("QT_QUICK_BACKEND", "") == "software":
-        return []
-    if any(f.startswith(("--disable-gpu", "--enable-gpu-rasterization", "--use-gl=swiftshader",
-                         "--use-angle=swiftshader")) for f in flags):
-        return []
-    return ["--enable-gpu-rasterization"]
 
 
 def sandbox_off():

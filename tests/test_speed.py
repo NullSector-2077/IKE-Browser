@@ -7,8 +7,7 @@
   layout work, in the page's idle time.
 - I.K.E.'s own rules block the telemetry of YouTube and Google that the lists
   let through, and never what the page needs (history, video servers).
-- Persistent profiles get a large disk cache; pages are painted by the
-  graphics card unless the user or the system chose otherwise.
+- Persistent profiles get a large disk cache.
 """
 
 import threading
@@ -114,23 +113,3 @@ def test_youtube_telemetry_blocked_and_what_the_page_needs_kept(run_ike):
                  "rr1---sn-x.googlevideo.com/generate_204", "www.youtube.com/youtubei/v1/player",
                  "www.youtube.com/s/player/abc/base.js"):
         assert out[path] == "allow", (path, out[path])
-
-
-def test_pages_painted_by_the_graphics_card(monkeypatch):
-    from ike.app import _render_flags
-    for key in ("IKE_SAFE_GPU", "LIBGL_ALWAYS_SOFTWARE", "QT_QUICK_BACKEND"):
-        monkeypatch.delenv(key, raising=False)
-    monkeypatch.setenv("QT_QPA_PLATFORM", "wayland")
-    assert _render_flags([]) == ["--enable-gpu-rasterization"]
-    # the user's or the system's own choice is kept
-    assert _render_flags(["--disable-gpu"]) == []
-    assert _render_flags(["--disable-gpu-rasterization"]) == []
-    assert _render_flags(["--enable-gpu-rasterization"]) == []
-    monkeypatch.setenv("IKE_SAFE_GPU", "1")
-    assert _render_flags([]) == []
-    monkeypatch.delenv("IKE_SAFE_GPU")
-    monkeypatch.setenv("LIBGL_ALWAYS_SOFTWARE", "1")
-    assert _render_flags([]) == []
-    monkeypatch.delenv("LIBGL_ALWAYS_SOFTWARE")
-    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")            # no screen: the tests
-    assert _render_flags([]) == []

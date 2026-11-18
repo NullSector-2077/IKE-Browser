@@ -18,10 +18,8 @@
     performance pings), never the watch history or the video servers;
   - each request is checked by the AdBlock engine without looking up again how
     to ask it;
-  - pages are painted by the graphics card, as in Chrome and Brave
-    (`IKE_SAFE_GPU=1` turns it off for a driver that draws badly), and the disk
-    cache grows to 512 MB, so a second visit takes the big scripts of a site
-    from the disk;
+  - the disk cache grows to 512 MB, so a second visit takes the big scripts
+    of a site from the disk;
   - the login helper stops watching a page once its login is filled in.
 
 ## 1.1.12
