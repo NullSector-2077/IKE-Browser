@@ -88,15 +88,19 @@ def steps(ike, qapp, out):
     asked = []
     webview.WebPage.ask_external = lambda self, origin, url: asked.append(origin) or True
 
-    # the link given at start-up by another program (I.K.E. as the system's handler)
+    # the link given at start-up by another program (I.K.E. as the system's handler),
+    # with Proton Mail chosen in the settings
     yield 1200
-    out["start"] = [list(chosen), list(opened)]
-    del chosen[:], opened[:]
+    out["start"] = [v.url().toString() for v in win.views]
+    for v in list(win.views):
+        if v.url().host() == "mail.proton.me":
+            win.close_tab(v)
+    yield 300
 
     view = win.current_view()
     view.setHtml(PAGE, QUrl("http://site.example/page"))
     yield 800
-    # remembered from the first question: Proton Mail, without asking again
+    # chosen in the settings: Proton Mail, without asking
     click(view, 60, 60)
     yield 500
     out["proton"] = [list(chosen), list(opened), ike.config["mail_handler"]]
@@ -123,6 +127,16 @@ def steps(ike, qapp, out):
     yield 400
     out["loop"] = [chosen[-1], len(desktop.started)]
 
+    # asked, then remembered
+    ike.config["mail_handler"] = "ask"
+    answer[0] = ("gmail", True)
+    del opened[:]
+    win.set_current(view)
+    yield 300
+    click(view, 60, 60)
+    yield 500
+    out["remembered"] = [ike.config["mail_handler"], list(opened)]
+
     # the setting
     dlg = ike.show_settings(win)
     yield 200
@@ -135,15 +149,16 @@ def steps(ike, qapp, out):
 
 
 def test_email_links_go_to_the_chosen_service(run_ike):
-    out = run_ike(STEPS, args=["mailto:start@example.it?subject=Da%20Dolphin"], timeout=120)
-    chosen, opened = out["start"]
-    assert chosen == [["start@example.it", True]], out["start"]
-    assert len(opened) == 1 and opened[0].startswith("https://mail.proton.me/inbox/#mailto=mailto%3Astart%40example.it")
+    out = run_ike(STEPS, args=["mailto:start@example.it?subject=Da%20Dolphin"], timeout=120,
+                  settings={"mail_handler": "proton"})
+    assert any(u.startswith("https://mail.proton.me/inbox/#mailto=mailto%3Astart%40example.it")
+               for u in out["start"]), out["start"]
     assert out["proton"][0] == [] and out["proton"][2] == "proton", out["proton"]
     assert out["proton"][1] == [mailto.compose_url("proton", "mailto:arc@example.it?subject=Ciao")]
     asked, started, opened = out["system"]
     assert asked == ["http://site.example"] and started == ["mailto:arc@example.it?subject=Ciao"] and opened == []
     assert out["cancel"] == [1, [], 1, "ask"], out["cancel"]
     assert out["loop"] == [["x@example.it", True], 1], out["loop"]
+    assert out["remembered"] == ["gmail", [mailto.compose_url("gmail", "mailto:arc@example.it?subject=Ciao")]]
     assert out["combo"] == ["ask", "gmail", "outlook", "proton", "yahoo", "system"]
     assert out["saved"] == "gmail"
