@@ -7,6 +7,22 @@
   release is downloaded, checked and installed by itself (once a day at most) and
   used at the next start. Whoever had the old default "Ask before installing"
   moves to automatic once; "Do not check" stays the user's own choice.
+- **Faster pages** (from a comparison with Brave on YouTube: less blocking
+  time, an earlier main picture, fewer requests):
+  - the cookie-banner handler no longer weighs on the page while it loads: one
+    query for all the known "reject" buttons instead of about forty, no layout
+    work to read the text of every button, and its looks run in the page's
+    idle time;
+  - I.K.E.'s own rules, next to the lists, block the telemetry of YouTube and
+    Google the lists let through (quality and ad reports, event logs,
+    performance pings), never the watch history or the video servers;
+  - each request is checked by the AdBlock engine without looking up again how
+    to ask it;
+  - pages are painted by the graphics card, as in Chrome and Brave
+    (`IKE_SAFE_GPU=1` turns it off for a driver that draws badly), and the disk
+    cache grows to 512 MB, so a second visit takes the big scripts of a site
+    from the disk;
+  - the login helper stops watching a page once its login is filled in.
 
 ## 1.1.12
 

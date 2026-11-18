@@ -76,11 +76,20 @@
       if (t) capture();
     }, true);
     tryFill();
+    // a login form that appears later (sites built while they run); once a
+    // login is filled in, the page's changes are no longer watched (1.1.13):
+    // on a busy page every change would otherwise be recorded for nothing
     var pending = false;
-    new MutationObserver(function () {
-      if (pending || filled) return;
+    var watcher = new MutationObserver(function () {
+      if (filled) { watcher.disconnect(); return; }
+      if (pending) return;
       pending = true;
-      setTimeout(function () { pending = false; tryFill(); }, 600);
-    }).observe(document.documentElement, { childList: true, subtree: true });
+      setTimeout(function () {
+        pending = false;
+        tryFill();
+        if (filled) watcher.disconnect();
+      }, 600);
+    });
+    watcher.observe(document.documentElement, { childList: true, subtree: true });
   });
 })();

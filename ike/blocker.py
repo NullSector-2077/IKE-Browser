@@ -60,6 +60,28 @@ FAST_INTERVAL = 4 * 3600
 FAST_MARKERS = ("quick-fixes",)
 MAX_LIST_BYTES = 32 * 1024 * 1024
 RETRY_FAILED_AFTER = 3600
+# I.K.E.'s own rules, always with the lists when ad blocking is on (1.1.13):
+# telemetry of YouTube and Google that the lists above still let through on
+# a video page. Only reports about the user are blocked, never what a page
+# needs: not the watch history and "continue watching" (api/stats/watchtime,
+# api/stats/playback), not the video servers (googlevideo.com, generate_204
+# there opens the connection of the video), not the page's own API calls.
+BUILTIN_RULES = """\
+! I.K.E. - YouTube and Google telemetry
+||youtube.com/api/stats/qoe^
+||youtube.com/api/stats/ads^
+||youtube.com/api/stats/atr^
+||youtube.com/api/stats/delayplay^
+||youtube.com/ptracking^
+||youtube.com/pagead/
+||youtube.com/csi_204^
+||youtube.com/youtubei/v1/log_event^
+||youtube.com/error_204^
+||play.google.com/log^$third-party
+||googleads.g.doubleclick.net^
+||static.doubleclick.net/instream/
+||youtube.com/get_midroll_
+"""
 _DOMAIN_RULE = re.compile(r"^\|\|([a-z0-9.-]+)\^(\$third-party|\$3p)?$")
 _GHIDE = re.compile(r"^@@.*\$.*\b(?:ghide|generichide)\b.*$", re.M)
 
@@ -246,6 +268,7 @@ class Blocker(QObject):
         self._thread = None
         self.native = adblock is not None
         self._method_support = None
+        self._way = None                 # (engine, how it matches a request): request_action
         # requests and pages the engine failed on this session (they were let
         # through: blocking everything would break browsing); Help -> About
         self.errors = 0
@@ -275,8 +298,10 @@ class Blocker(QObject):
                     list_path(entry["url"]).read_text("utf-8", "replace"))))
             except OSError:
                 pass
-        if self.config["comp_adblock"] and self.config["custom_filters"].strip():
-            texts.append(self.config["custom_filters"])
+        if self.config["comp_adblock"]:
+            texts.append(BUILTIN_RULES)
+            if self.config["custom_filters"].strip():
+                texts.append(self.config["custom_filters"])
         return texts
 
     def _signature(self):
@@ -291,6 +316,7 @@ class Blocker(QObject):
         h.update(self.config["custom_filters"].encode())
         h.update(str(self.config["comp_adblock"]).encode())
         h.update(b"pp1")                 # list preprocessing version
+        h.update(hashlib.sha1(BUILTIN_RULES.encode()).digest())     # I.K.E.'s own rules
         return h.hexdigest()[:20]
 
     def _load_scriptlets(self):
@@ -336,6 +362,7 @@ class Blocker(QObject):
             return
         self._loaded = signature
         self.engine = self.fallback = None
+        self._way = None
         texts = None
         self._load_scriptlets()
         if adblock is not None:
@@ -438,17 +465,26 @@ class Blocker(QObject):
         0.6 Python binding, whose API predates HTTP-method matching.
         """
         method = (method or "GET").upper()
-        if self.engine is not None:
+        engine = self.engine
+        if engine is not None:
             try:
                 result = None
-                request_cls = getattr(adblock, "Request", None) if adblock else None
-                check_request = getattr(self.engine, "check_network_request", None)
-                if request_cls is not None and callable(check_request):
-                    request = request_cls(url, source, rtype, method)
-                    result = check_request(request)
+                # every request of every page comes here, in the interface's
+                # thread: the engine's way of matching is looked up once per engine
+                way = self._way
+                if way is None or way[0] is not engine:
+                    request_cls = getattr(adblock, "Request", None) if adblock else None
+                    check_request = getattr(engine, "check_network_request", None)
+                    if request_cls is None or not callable(check_request):
+                        request_cls = check_request = None
+                    check_urls = getattr(engine, "check_network_urls", None)
+                    way = self._way = (engine, request_cls, check_request,
+                                       check_urls if callable(check_urls) else None)
+                _, request_cls, check_request, check_urls = way
+                if check_request is not None:
+                    result = check_request(request_cls(url, source, rtype, method))
                 else:
-                    check_urls = getattr(self.engine, "check_network_urls", None)
-                    if not callable(check_urls):
+                    if check_urls is None:
                         return "allow", None
                     # Some intermediate bindings added method as a fourth
                     # argument; the packaged 0.6.0 binding accepts three.

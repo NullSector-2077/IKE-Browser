@@ -44,29 +44,45 @@
   var WORDS = /^(rifiuta( tutt[oi])?( e chiudi)?|rifiuto|rifiuta tutti i cookie|nega|non accetto|continua senza accettare|solo (cookie )?necessari|usa solo (i )?cookie necessari|accetta solo (i )?necessari|reject( all)?( cookies)?|decline( all)?|deny( all)?|refuse( all)?|i (do not|don't) accept|disagree|only (necessary|essential)( cookies)?|use (necessary|essential) cookies only|necessary (cookies )?only|essential (cookies )?only|continue without accepting|alle ablehnen|ablehnen|nur notwendige( cookies)?|tout refuser|refuser|continuer sans accepter|rechazar( todo| todas)?|rechazar cookies|denegar)$/i;
   var CONTAINER = /cookie|consent|gdpr|privacy|cmp|banner|notice/i;
 
+  // Light on the page (1.1.13): each look is one query for all the known
+  // buttons instead of one per selector, the generic scan reads textContent
+  // (no layout) and asks for innerText only of a likely candidate, and the
+  // looks run when the page is idle, not in the middle of its own work.
+  var KNOWN_ALL = KNOWN.join(',');
+  var SHADOW_HOSTS = '#usercentrics-root, #cmpwrapper, aside#usercentrics-cmp-ui';
+  var HINT = /rifiut|rechaz|reject|declin|deny|refus|necessar|essential|ablehn|notwendig|denegar|\bnega\b|non accetto|disagree|senza accettare|sans accepter|without accepting|don.t accept|do not accept/i;
+
   function visible(el) {
     var r = el.getBoundingClientRect();
     return r.width > 0 && r.height > 0;
   }
-  function deepQuery(root, sel) {
-    var found = null;
-    try { found = root.querySelector(sel); } catch (e) { return null; }
-    if (found) return found;
-    var hosts = ['#usercentrics-root', '#cmpwrapper', 'aside#usercentrics-cmp-ui'];
-    for (var i = 0; i < hosts.length; i++) {
-      var h = document.querySelector(hosts[i]);
-      if (h && h.shadowRoot) {
-        try { found = h.shadowRoot.querySelector(sel); } catch (e) {}
-        if (found) return found;
-      }
+  function firstVisible(root, sel) {
+    var list;
+    try { list = root.querySelectorAll(sel); } catch (e) { return null; }
+    for (var i = 0; i < list.length; i++) if (visible(list[i])) return list[i];
+    return null;
+  }
+  // a selector this engine does not understand spoils the joined query:
+  // then one selector at a time, as before
+  function knownIn(root) {
+    for (var i = 0; i < KNOWN.length; i++) {
+      var el = firstVisible(root, KNOWN[i]);
+      if (el) return el;
     }
     return null;
   }
+  var combinedOk = true;
+  try { document.querySelector(KNOWN_ALL); } catch (e) { combinedOk = false; }
   function tryKnown() {
-    for (var i = 0; i < KNOWN.length; i++) {
-      var el = deepQuery(document, KNOWN[i]);
-      if (el && visible(el)) { el.click(); return true; }
+    var el = combinedOk ? firstVisible(document, KNOWN_ALL) : knownIn(document);
+    if (!el) {
+      var hosts = document.querySelectorAll(SHADOW_HOSTS);
+      for (var i = 0; i < hosts.length && !el; i++) {
+        if (hosts[i].shadowRoot) el = combinedOk ? firstVisible(hosts[i].shadowRoot, KNOWN_ALL)
+                                                 : knownIn(hosts[i].shadowRoot);
+      }
     }
+    if (el) { el.click(); return true; }
     return false;
   }
   function inConsentBox(el) {
@@ -78,26 +94,39 @@
     }
     return false;
   }
+  function label(b) {
+    var raw = b.value || b.textContent || '';
+    if (raw.length > 200) return '';
+    var text = raw.replace(/\s+/g, ' ').trim();
+    if (text.length < 3 || !HINT.test(text)) return '';
+    if (!WORDS.test(text) && b.innerText !== undefined) {
+      // hidden parts (icons, screen-reader text) can differ: the visible text decides
+      text = (b.innerText || '').replace(/\s+/g, ' ').trim();
+    }
+    return text;
+  }
   function tryGeneric() {
     var btns = document.querySelectorAll('button, a[role="button"], [role="button"], input[type="button"], a.button, a.btn');
     for (var i = 0; i < btns.length && i < 600; i++) {
       var b = btns[i];
-      var text = (b.innerText || b.value || '').replace(/\s+/g, ' ').trim();
+      var text = label(b);
       if (text.length < 3 || text.length > 45) continue;
       if (WORDS.test(text) && visible(b) && inConsentBox(b)) { b.click(); return true; }
     }
     return false;
   }
   var tries = 0, done = false;
+  var idle = window.requestIdleCallback ? function (f) { window.requestIdleCallback(f, { timeout: 1000 }); }
+                                        : function (f) { setTimeout(f, 0); };
   function attempt() {
     if (done) return;
     tries++;
     if (tryKnown() || tryGeneric()) { done = true; return; }
-    if (tries < 24) setTimeout(attempt, tries < 8 ? 400 : 1000);
+    if (tries < 24) setTimeout(function () { idle(attempt); }, tries < 8 ? 400 : 1000);
   }
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', attempt);
+    document.addEventListener('DOMContentLoaded', function () { idle(attempt); });
   } else {
-    attempt();
+    idle(attempt);
   }
 })();
