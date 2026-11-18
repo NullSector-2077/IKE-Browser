@@ -401,3 +401,61 @@ def test_rollback_of_update_that_does_not_start(run_ike, tmp_path):
     assert out["running"] == ike.__version__
     state = json.loads((data / "state.json").read_text())
     assert "99.0.0" in state["bad"] and not state["current"]
+
+
+# --- 1.1.13: updates install by themselves for everyone ------------------------
+
+def test_automatic_updates_by_default_and_old_ask_moved_once(tmp_path):
+    """The owner's rule: users only browse. A new profile installs updates by
+    itself; the old default "ask" becomes "auto" once; "off" stays the user's
+    choice, and so does "ask" chosen again afterwards."""
+    from ike.config import Config
+    assert Config(tmp_path / "new.json")["app_updates"] == "auto"
+    old = tmp_path / "old.json"
+    old.write_text(json.dumps({"app_updates": "ask"}))
+    cfg = Config(old)
+    assert cfg["app_updates"] == "auto"
+    cfg["app_updates"] = "ask"                       # chosen again by the user, then saved
+    cfg.save()
+    assert Config(old)["app_updates"] == "ask"
+    off = tmp_path / "off.json"
+    off.write_text(json.dumps({"app_updates": "off"}))
+    assert Config(off)["app_updates"] == "off"
+
+
+UPDATE_STEPS = r'''
+from PyQt6.QtCore import Qt
+def steps(ike, qapp, out):
+    out["migrated"] = ike.config["app_updates"]
+    # the daily check installs without asking
+    calls = []
+    ike.updater.configured = lambda: True
+    ike.updater.run = lambda install: calls.append(install) or True
+    ike.config["last_app_check"] = 0
+    ike.check_updates()
+    out["install"] = list(calls)
+    # Settings: "Install automatically" is the first choice and the current one;
+    # the user can still turn updates off
+    dlg = ike.show_settings(ike.windows[0], "general")
+    yield 300
+    out["items"] = [dlg.upd.itemData(i) for i in range(dlg.upd.count())]
+    out["current"] = dlg.upd.currentData()
+    dlg.upd.setFocus()
+    dlg.upd.setCurrentIndex(dlg.upd.findData("off"))
+    yield 100
+    dlg.apply()
+    dlg.close()
+    out["saved"] = ike.config["app_updates"]
+    calls.clear()
+    ike.config["last_app_check"] = 0
+    ike.check_updates()
+    out["after_off"] = list(calls)
+'''
+
+
+def test_updates_install_by_themselves_in_the_browser(run_ike):
+    out = run_ike(UPDATE_STEPS, settings={"app_updates": "ask", "app_updates_1113": False})
+    assert out["migrated"] == "auto"
+    assert out["install"] == [True]
+    assert out["items"][0] == "auto" and out["current"] == "auto"
+    assert out["saved"] == "off" and out["after_off"] == []

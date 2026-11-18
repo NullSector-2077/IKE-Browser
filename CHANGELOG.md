@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.13
+
+- **Updates install by themselves for everyone**: "Install automatically" is
+  now the default of Settings -> I.K.E. updates. Users only browse: every signed
+  release is downloaded, checked and installed by itself (once a day at most) and
+  used at the next start. Whoever had the old default "Ask before installing"
+  moves to automatic once; "Do not check" stays the user's own choice.
+
 ## 1.1.12
 
 - **Every release now reaches every user by itself**, the AdBlock engine

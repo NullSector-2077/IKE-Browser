@@ -254,7 +254,10 @@ DEFAULTS = {
     "translate_url": "https://translate.google.com/translate?sl=auto&tl={lang}&u={url}",
     "translate_confirmed": False,
     # program updates
-    "app_updates": "ask",               # ask | auto | off
+    # auto | ask | off. "auto" is the default (1.1.13, the owner's rule): users only
+    # browse, every signed release installs by itself; "off" is the user's choice
+    "app_updates": "auto",
+    "app_updates_1113": False,          # an old default "ask" was moved to "auto" once (1.1.13)
     "update_channel": "stable",         # stable | beta
     "last_app_check": 0,
     "passwords_offer_save": True,
@@ -341,6 +344,11 @@ class Config:
         if d.get("urlbar_width") == 60 and not d.get("urlbar_width_117"):
             d["urlbar_width"] = 50
         d["urlbar_width_117"] = True
+        # 1.1.13: program updates install by themselves for everyone (the owner's rule);
+        # "ask" was the old default, so it becomes "auto" once; "off" stays the user's choice
+        if d.get("app_updates") == "ask" and not d.get("app_updates_1113"):
+            d["app_updates"] = "auto"
+        d["app_updates_1113"] = True
         # 1.1.8: the new tab page gets I.K.E.'s own photo; whoever had none before gets it once
         if d.get("newtab_bg") == "" and not d.get("newtab_bg_118"):
             d["newtab_bg"] = "default"

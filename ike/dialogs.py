@@ -171,7 +171,7 @@ class SettingsDialog(QDialog):
         self.sleep.setValue(int(self.cfg["tab_sleep_minutes"]))
         self.sleep.setToolTip(T("Background tabs unused for this long are suspended to free memory"))
         self.upd = QComboBox()
-        for key, label in (("ask", T("Ask before installing")), ("auto", T("Install automatically")),
+        for key, label in (("auto", T("Install automatically")), ("ask", T("Ask before installing")),
                            ("off", T("Do not check"))):
             self.upd.addItem(label, key)
         self.upd.setCurrentIndex(max(0, self.upd.findData(self.cfg["app_updates"])))

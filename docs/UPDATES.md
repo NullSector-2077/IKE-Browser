@@ -6,7 +6,7 @@
 | Chrome version presented to sites | daily check of Google's public version list; estimated from the calendar when offline |
 | User scripts | daily, from their update address |
 | Web engine (Qt WebEngine) | with the system (`sudo pacman -Syu`) |
-| I.K.E. itself | signed update channel on GitHub Releases, described below |
+| I.K.E. itself, AdBlock engine included | signed update channel on GitHub Releases, described below; installed automatically by default (1.1.13), once a day at most, used at the next start |
 | Components inside I.K.E. (AdBlock engine, uBlock Origin scriptlets) | checked daily and prepared as a tested candidate by GitHub Actions on a separate branch; the owner reviews and approves before merge and signing ([MAINTENANCE.md](MAINTENANCE.md)) |
 
 ## The I.K.E. update channel
