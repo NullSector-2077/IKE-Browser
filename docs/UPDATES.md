@@ -3,7 +3,7 @@
 | What | How it updates |
 |---|---|
 | Filter lists | daily, by I.K.E. (Settings → Components) |
-| Chrome version presented to sites | daily check of Google's public version list; estimated from the calendar when offline |
+| Chrome version presented to sites | the engine's own version (1.1.14), so it follows the system's `qt6-webengine`; the current stable Chrome is still checked daily (Google's public version list) only to show the engine's age in Help -> About |
 | User scripts | daily, from their update address |
 | Web engine (Qt WebEngine) | with the system (`sudo pacman -Syu`) |
 | I.K.E. itself, AdBlock engine included | signed update channel on GitHub Releases, described below; installed automatically by default (1.1.13), once a day at most, used at the next start |

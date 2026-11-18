@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.1.14
+
+- **Google's sensitive services work with the shield on**: on AI Studio, the
+  Cloud Console, the Google account and Google's payment pages, creating an API
+  key (or a similar protected operation) could still end in "permission denied"
+  with the shield on, and worked only after switching the shield off. Since
+  1.1.12 these pages got "Compatibility", but the filter lists still blocked
+  some of Google's own requests there. Now Google's own requests on these
+  pages go through untouched, as with the shield off: no filter list, no
+  changed header, no address clean-up, no list scripts, nothing changed in the
+  page (an embedded Google sign-in frame keeps its normal identity too). The
+  trackers of other companies stay blocked, every other site keeps its
+  protections, YouTube is not touched, and a level the user chose for one of
+  these sites is still respected. Brave reaches the same result with a list of
+  hand-written exceptions.
+- **Payments with PayPal and Stripe**: their anti-fraud checks can refuse a
+  payment or a sign-in when part of them is blocked or changed (Brave users
+  report PayPal sign-ins that work only with the shield off). PayPal's sign-in
+  and Stripe's checkout page get the same treatment as Google's sensitive
+  services, and in every shop PayPal's and Stripe's own parts (payment buttons
+  and fields, their anti-fraud checks, their frames and cookies) are left
+  alone. The rest of the shop keeps its protections. Any other site that
+  refuses an operation can still be fixed from the shield with "Repair site".
+- **Honest version number**: I.K.E. now tells sites the Chrome version of its
+  own engine (for example 140) instead of the newest Chrome (157). A site can
+  test which features the engine really has, so the old claim was easy to
+  catch, and anti-abuse checks treat a browser that says one version and
+  behaves like another as suspicious. The same version is given everywhere
+  (address requests, client hints, JavaScript) and follows the engine by itself
+  when Arch updates it. The fingerprinting protection is unchanged; Help ->
+  About still shows how many versions the engine is behind the newest Chrome.
+
 ## 1.1.13
 
 - **Updates install by themselves for everyone**: "Install automatically" is

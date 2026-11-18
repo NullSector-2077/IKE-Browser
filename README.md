@@ -9,7 +9,7 @@ The interface, protections, password manager and updater are I.K.E.'s own code
 provided and kept up to date by Arch Linux. I.K.E. is developed on and for
 KDE Plasma (CachyOS / Arch Linux) and works on the other Arch-based desktops.
 
-**Version 1.1.13** - see [CHANGELOG.md](CHANGELOG.md).
+**Version 1.1.14** - see [CHANGELOG.md](CHANGELOG.md).
 
 ## Install (Arch Linux, CachyOS)
 
@@ -17,7 +17,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.1.13-1-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.1.14-1-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:
@@ -51,8 +51,8 @@ profiles: `ike-browser --profile NAME`.
 - Fingerprinting protection: values that identify the computer change from site
   to site and from session to session — canvas, WebGL, audio, plugins, number of
   CPU cores, WebGL extensions, and the graphics card (a common model chosen per
-  site, never the real one). The browser presents the current stable Chrome
-  version, checked once a day.
+  site, never the real one). The browser presents the Chrome version of its own
+  engine, so what a site reads always matches what it can test.
 - Automatic HTTPS, encrypted DNS (DNS over HTTPS), third-party cookie blocking,
   reduced referrer, Global Privacy Control.
 - **Repair this site**: when a page does not work, the shield finds the

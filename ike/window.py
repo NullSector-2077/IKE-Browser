@@ -1965,7 +1965,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
 
     def _engine_age(self):
         from . import chromever
-        behind = chromever.current(self.app.config) - chromever.engine_major()
+        behind = chromever.latest(self.app.config) - chromever.engine_major()
         if behind <= 0:
             return T("Engine age: as recent as the current Chrome")
         return T("Engine age: %d Chrome versions behind the current one") % behind

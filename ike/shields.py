@@ -18,7 +18,18 @@ from PyQt6.QtWebEngineCore import (
 )
 
 from . import osinfo
-from .config import CACHE_DIR, DATA_DIR, FIREFOX_UA, LEVEL_NAMES, LOGIN_HOSTS, RES_DIR, SENSITIVE_HOSTS, rank
+from .config import (
+    CACHE_DIR,
+    DATA_DIR,
+    FIREFOX_UA,
+    LEVEL_NAMES,
+    LOGIN_HOSTS,
+    PAYMENT_SITES,
+    RES_DIR,
+    SENSITIVE_HOSTS,
+    payment_owned,
+    rank,
+)
 
 TRACKING_PARAMS = {
     "fbclid", "gclid", "gclsrc", "dclid", "gbraid", "wbraid", "msclkid", "yclid",
@@ -217,6 +228,21 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             return
         host = url.host().lower()
         get = bytes(info.requestMethod()) == b"GET"
+        if cfg.sensitive_hands_off(first_host, host):
+            # a sensitive Google service (AI Studio, Cloud Console, account,
+            # payments): Google's own requests go through untouched - no filter
+            # list, no address clean-up, no changed header (1.1.14)
+            if main and not self.quiet:
+                key = url.toString()
+                if key in s.redirected:
+                    s.redirected.discard(key)
+                else:
+                    s.reset_count(host)
+            return
+        if not main and payment_owned(host):
+            # PayPal's and Stripe's own parts of a shop (payment buttons and
+            # fields, anti-fraud checks): never blocked or changed (1.1.14)
+            return
         if host == "accounts.google.com" and cfg["login_compat"]:
             # Google refuses sign-in from embedded Chromium engines; it accepts
             # the same request when it comes with a Firefox identity.
@@ -560,15 +586,17 @@ class Shields(QObject):
         return osinfo.chrome_user_agent(self.chrome_major())
 
     def _identity(self, profile):
-        """Present the current stable Chrome version (header, JavaScript, client hints)."""
+        """Present the engine's own Chrome version, the same in the header, in
+        JavaScript and in the client hints (1.1.14; see chromever)."""
         if profile.httpUserAgent() != self.user_agent():
             profile.setHttpUserAgent(self.user_agent())
         try:
+            from . import chromever
             hints = profile.clientHints()
-            major = self.chrome_major()
-            hints.setFullVersionList({"Chromium": major, "Google Chrome": major,
-                                      "Not=A?Brand": "24"})
-            hints.setFullVersion(major + ".0.0.0")
+            full = chromever.engine_full()
+            hints.setFullVersionList({"Chromium": full, "Google Chrome": full,
+                                      "Not=A?Brand": "24.0.0.0"})
+            hints.setFullVersion(full)
             ident = osinfo.identity()
             hints.setPlatform(ident["platform"])
             hints.setPlatformVersion(ident["platform_version"])
@@ -635,6 +663,8 @@ class Shields(QObject):
             return True
         if cfg["login_compat"] and request.origin.host().lower() in LOGIN_HOSTS:
             return True                           # "Sign in with Google" and similar
+        if payment_owned(request.origin.host()):
+            return True                           # PayPal's and Stripe's frames in a shop (1.1.14)
         if mode != "3p":
             if not cfg["block_third_party_cookies"]:
                 return True
@@ -698,14 +728,18 @@ class Shields(QObject):
             if cfg["login_compat"] and rank(cfg["shield_level"]) > 1:
                 for h in LOGIN_HOSTS:
                     sites.setdefault(h, "compatibility")
-            if rank(cfg["shield_level"]) > 1:
-                for h in SENSITIVE_HOSTS:       # as config.level_for (1.1.12)
-                    sites.setdefault(h, "compatibility")
+            for h in SENSITIVE_HOSTS:
+                # as config.sensitive_hands_off: nothing changed in the page
+                # (1.1.14; "compatibility" from 1.1.12 still added the GPC
+                # signal and the Firefox identity of embedded sign-in frames)
+                if cfg.sensitive_hands_off(h):
+                    sites.setdefault(h, "off")
             ident = osinfo.identity()
             fp_cfg = {"level": cfg["shield_level"], "sites": sites,
                       "key": self.profile_keys[id(p)],
                       "gpc": bool(cfg["send_gpc"]),
                       "nofp": [h for h, o in cfg["site_opts"].items() if o.get("fp") is False],
+                      "payframes": list(PAYMENT_SITES),
                       "ffua": FIREFOX_UA if cfg["login_compat"] else "",
                       "os": ident["os"], "platform": ident["platform"],
                       "platformVersion": ident["platform_version"],
@@ -721,6 +755,7 @@ class Shields(QObject):
             if cfg["comp_consent"]:
                 off = [h for h, lv in cfg["site_levels"].items() if lv == "off"]
                 off += [h for h, o in cfg["site_opts"].items() if o.get("consent") is False]
+                off += [h for h in SENSITIVE_HOSTS if cfg.sensitive_hands_off(h)]
                 if cfg["shield_level"] == "off":
                     continue
                 c = QWebEngineScript()
@@ -804,7 +839,8 @@ class Shields(QObject):
 
     def site_scripts(self, profile, host):
         """Make sure the list scriptlets of this host are installed (page about to load)."""
-        if not host or not self._ads_on(host) or host in self.video_hosts():
+        if (not host or not self._ads_on(host) or host in self.video_hosts()
+                or self.config.sensitive_hands_off(host)):
             return
         lru = self._site_lru.setdefault(id(profile), [])
         if host in lru:

@@ -1,10 +1,15 @@
-"""The Chrome version I.K.E. presents to websites.
+"""The Chrome version I.K.E. presents to websites, and how old its engine is.
 
-The engine inside Qt is always some versions behind the Chrome people actually
-run, and an old version number is rare enough to stand out. I.K.E. therefore
-presents the current stable version: it asks Google's public version list once
-a day (no personal data is sent) and, when that cannot be reached, estimates
-the version from the calendar. Nothing here needs the user's attention.
+I.K.E. presents the version of its own engine (1.1.14). Until 1.1.13 it
+presented the current stable Chrome while the engine inside Qt is some versions
+behind: a site can test which features the engine really has, so the claim was
+easy to catch, and anti-abuse checks treat a browser that says one version and
+behaves like another as suspicious. The real version is consistent everywhere
+(header, client hints, JavaScript) and follows the engine when Arch updates it.
+
+The current stable Chrome is still learned once a day from Google's public
+version list (no personal data is sent; estimated from the calendar when that
+cannot be reached), only to show in Help -> About how far behind the engine is.
 """
 
 import json
@@ -33,6 +38,15 @@ def engine_major():
         return ANCHOR_MAJOR
 
 
+def engine_full():
+    """The engine's full version ("140.0.7339.207"), or major.0.0.0."""
+    v = (qWebEngineChromiumVersion() or "").strip()
+    parts = v.split(".")
+    if len(parts) == 4 and all(p.isdigit() for p in parts):
+        return v
+    return "%d.0.0.0" % engine_major()
+
+
 def _since_anchor(today=None):
     return max(0, ((today or date.today()) - ANCHOR_DAY).days)
 
@@ -49,8 +63,13 @@ def plausible(major, today=None):
         and engine_major() <= major <= max(ceiling, engine_major())
 
 
-def current(config, today=None):
-    """The major version to present: the checked one, or else the estimate."""
+def current(config=None, today=None):
+    """The major version presented to sites: the engine's own (1.1.14)."""
+    return engine_major()
+
+
+def latest(config, today=None):
+    """The current stable Chrome: the checked one, or else the estimate."""
     stored = config["chrome_major"]
     floor = estimate(today)
     if plausible(stored, today):

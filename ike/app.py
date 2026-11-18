@@ -446,16 +446,15 @@ class IkeApp(QObject):
         from . import chromever
         if getattr(self, "_chrome_check", None) is not None or not chromever.due(self.config):
             return
-        before = chromever.current(self.config)
 
         def done(major):
+            # only shown in Help -> About (the engine's age); sites see the
+            # engine's own version (1.1.14)
             self._chrome_check = None
             self.config["chrome_checked"] = int(time.time())
             if chromever.plausible(major):
                 self.config["chrome_major"] = major
             self.config.save()
-            if chromever.current(self.config) != before:
-                self.shields.apply_settings()
         self._chrome_check = chromever.Checker(self)
         self._chrome_check.done.connect(done)
         background.start(self._chrome_check)

@@ -59,7 +59,38 @@ LOGIN_HOSTS = ("accounts.google.com", "accounts.youtube.com", "login.live.com",
 # make them refuse ("permission denied"). They get "Compatibility" unless the
 # user chose a level for them (1.1.12).
 SENSITIVE_HOSTS = ("aistudio.google.com", "console.cloud.google.com", "myaccount.google.com",
-                   "pay.google.com", "payments.google.com", "admin.google.com")
+                   "pay.google.com", "payments.google.com", "admin.google.com",
+                   # payments (1.1.14): PayPal's sign-in and Stripe's checkout page
+                   "www.paypal.com", "paypal.com", "checkout.stripe.com")
+# Google's own sites. On a sensitive service the shield leaves their requests
+# alone (1.1.14): "Compatibility" was not enough, because the filter lists still
+# blocked some of Google's own requests and its anti-abuse checks then refused
+# the operation. Brave gets there with a hand-written list of exceptions; here
+# the service simply works as with the shield off, while the trackers of other
+# companies stay blocked. Ad and analytics domains (doubleclick.net,
+# google-analytics.com, googletagmanager.com, ...) are not in this list.
+GOOGLE_SITES = ("google.com", "googleapis.com", "gstatic.com", "googleusercontent.com",
+                "recaptcha.net")
+
+
+# The payment services found in shops everywhere (1.1.14). Their anti-fraud
+# checks refuse a payment when part of them is blocked or changed, so their own
+# requests, frames and cookies are left alone on every site; the rest of the
+# shop keeps its protections.
+PAYMENT_SITES = ("paypal.com", "paypalobjects.com", "stripe.com", "stripe.network")
+
+
+def _owned(host, sites):
+    host = (host or "").lower().rstrip(".")
+    return any(host == s or host.endswith("." + s) for s in sites)
+
+
+def google_owned(host):
+    return _owned(host, GOOGLE_SITES)
+
+
+def payment_owned(host):
+    return _owned(host, PAYMENT_SITES)
 FIREFOX_UA = osinfo.identity()["firefox_ua"]
 PERMISSION_KINDS = ("camera", "microphone", "location", "notifications", "clipboard", "screen", "fonts")
 
@@ -173,7 +204,7 @@ DEFAULTS = {
     "ui_scheme": "system",              # system | light | dark | theme:<key> | user:<name> (see themes)
     "ui_themes": {},                    # themes saved by the user: name -> colours and font
     "userscripts_enabled": True,        # run the installed user scripts
-    "chrome_major": 0,                  # stable Chrome version presented to sites (see chromever)
+    "chrome_major": 0,                  # current stable Chrome, for the engine age in About (see chromever)
     "chrome_checked": 0,
     "video_ad_skip": True,              # mute / fast-forward / skip ads in the players below
     "video_ad_skip_hosts": ["youtube.com", "youtube-nocookie.com"],
@@ -436,6 +467,23 @@ class Config:
         if full in SENSITIVE_HOSTS and LEVELS.index(level) > 1:
             return "compatibility"
         return level
+
+    def sensitive_hands_off(self, site, host=None):
+        """True when the page `site` is a sensitive service (Google's, PayPal,
+        Stripe's checkout) whose level the user did not choose, and `host` (if
+        given) belongs to Google or to a payment service: the shield then
+        changes nothing, as if it were off (1.1.14)."""
+        full = (site or "").lower()
+        if full not in SENSITIVE_HOSTS or self.data["shield_level"] == "off":
+            return False
+        h, levels = full, self.data["site_levels"]
+        while h:
+            if h in levels:
+                return False                      # the user's own choice wins
+            if "." not in h:
+                break
+            h = h.split(".", 1)[1]
+        return host is None or google_owned(host) or payment_owned(host)
 
     def site_opt(self, host, key):
         """Per-site override of one protection, or None to follow the level."""
