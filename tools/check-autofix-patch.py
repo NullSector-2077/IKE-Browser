@@ -14,10 +14,12 @@ whether the patch stays inside what an automatic fix may change:
 - tests may be fixed but not weakened: no test file removed, no skip or xfail
   added, no assertion removed without one added;
 - no binary files, links or paths outside the repository; no keys or tokens;
-- a small patch: at most MAX_FILES files and MAX_LINES changed lines.
+- a small patch: at most MAX_FILES files and MAX_LINES changed lines;
+- a pertinent patch (--related, 1.1.15): when the failure names files of the
+  repository (tools/autofix-context.py), at least one of them must change.
 
     check-autofix-patch.py --repo DIR --patch FILE [--allow-adblock]
-                           [--report FILE.md]
+                           [--related FILE] [--report FILE.md]
 
 The patch is applied to the index and work tree of DIR only when every rule
 passes; the exit status is 0 then, 1 when the patch is refused (the reasons go
@@ -42,6 +44,7 @@ FORBIDDEN_FILES = {
     "tests/conftest.py", "tests/harness.py",   # the test harness itself
     "tools/make-release.py", "tools/publish.py", "tools/prepare-maintenance.py",
     "tools/check-autofix-patch.py", "tools/autofix-plan.py", "tools/autofix-agent.py",
+    "tools/autofix-context.py", "tools/autofix-reserve.py",
 }
 FORBIDDEN_SUFFIXES = (".key", ".pem", ".so", ".dll", ".exe", ".zst", ".tar", ".gz", ".zip")
 WEAKENING = re.compile(r"\b(skip|skipif|xfail|importorskip)\b")
@@ -135,6 +138,7 @@ def main(argv=None):
     ap.add_argument("--patch", required=True)
     ap.add_argument("--allow-adblock", action="store_true")
     ap.add_argument("--report", help="write the outcome here (Markdown)")
+    ap.add_argument("--related", help="files involved in the failure, one per line")
     a = ap.parse_args(argv)
     patch_text = Path(a.patch).read_text("utf-8", errors="replace")
     if not patch_text.strip():
@@ -143,6 +147,17 @@ def main(argv=None):
             Path(a.report).write_text("The agent changed nothing.\n", "utf-8")
         return 2
     reasons = check(a.repo, patch_text, a.allow_adblock)
+    related = []
+    if a.related:
+        try:
+            related = [x.strip() for x in Path(a.related).read_text("utf-8").splitlines() if x.strip()]
+        except OSError:
+            related = []
+    if related and not reasons:
+        changed = re.findall(r"^diff --git a/(\S+) b/", patch_text, re.M)
+        if not set(changed) & set(related):
+            reasons.append("the patch changes none of the files involved in the failure (%s)"
+                           % ", ".join(related[:6]))
     if not reasons:
         files = git(a.repo, "apply", "--numstat", "-", stdin=patch_text).stdout.splitlines()
         if not files:

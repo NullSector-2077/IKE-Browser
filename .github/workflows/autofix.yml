@@ -96,7 +96,9 @@ jobs:
       - name: Instructions and the agent's runner from main, never from the branch being fixed
         run: |
           git show origin/main:.github/autofix/prompt.md > "$RUNNER_TEMP/prompt.md"
-          git show origin/main:tools/autofix-agent.py > "$RUNNER_TEMP/autofix-agent.py"
+          for f in autofix-agent.py autofix-context.py autofix-reserve.py; do
+            git show "origin/main:tools/$f" > "$RUNNER_TEMP/$f"
+          done
       - name: Failure description
         uses: actions/download-artifact@v8
         with:
@@ -148,27 +150,62 @@ jobs:
           if sudo -u agent curl -s -m 5 -o /dev/null https://github.com; then
             echo "::error::the firewall does not hold"; exit 1
           fi
-      - name: Agent, then the patch
+      # The code the failure points at, prepared before any AI is asked: the
+      # agent spends no requests looking for it, the reserves (which cannot open
+      # files) work from it, and the checks require the fix to touch one of the
+      # files involved (tools/autofix-context.py).
+      - name: The code at the failure
+        run: |
+          mkdir -p "$RUNNER_TEMP/autofix"
+          python3 -I "$RUNNER_TEMP/autofix-context.py" --repo /srv/autofix/repo
+          cp /srv/autofix/repo/.autofix/related.txt "$RUNNER_TEMP/autofix/related.txt"
+      - name: Agent, reserves, then the patch
         id: agent
-        timeout-minutes: 32
+        timeout-minutes: 48
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           AUTOFIX_MODEL: ${{ vars.AUTOFIX_MODEL }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          AUTOFIX_GROQ_MODELS: ${{ vars.AUTOFIX_GROQ_MODELS }}
+          AUTOFIX_OPENROUTER_MODELS: ${{ vars.AUTOFIX_OPENROUTER_MODELS }}
         run: |
           out="$RUNNER_TEMP/autofix"
           repo=/srv/autofix/repo
+          gitr() { git -C "$repo" -c safe.directory='*' -c core.hooksPath=/dev/null -c core.fsmonitor=false "$@"; }
           mkdir -p "$out"
-          if [ -z "$GEMINI_API_KEY" ]; then
-            echo "Il secret GEMINI_API_KEY non è impostato nel repository: l'agente non è partito." > "$out/summary.md"
-            echo "patch=false" >> "$GITHUB_OUTPUT"
-            echo "result=auth" >> "$GITHUB_OUTPUT"
-            exit 0
+          result=nokey
+          if [ -n "$GEMINI_API_KEY" ]; then
+            # model after model, at most 8 minutes each (tools/autofix-agent.py)
+            python3 -I "$RUNNER_TEMP/autofix-agent.py" --workdir "$repo" --prompt "$RUNNER_TEMP/prompt.md" \
+              --out "$out" --status "$out/status.json" \
+              --agent-cmd "sudo -u agent --preserve-env=GEMINI_API_KEY /home/agent/run-agent.sh"
+            result=$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["result"])' "$out/status.json")
+          else
+            echo "GEMINI_API_KEY is not set: Antigravity skipped, the reserves go on"
           fi
-          # model after model, at most 8 minutes each (tools/autofix-agent.py)
-          python3 -I "$RUNNER_TEMP/autofix-agent.py" --workdir "$repo" --prompt "$RUNNER_TEMP/prompt.md" \
-            --out "$out" --status "$out/status.json" \
-            --agent-cmd "sudo -u agent --preserve-env=GEMINI_API_KEY /home/agent/run-agent.sh"
-          result=$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["result"])' "$out/status.json")
+          changed=$(gitr status --porcelain -- . ':(exclude).autofix' | head -c 1)
+          # The reserves (Groq, then OpenRouter: tools/autofix-reserve.py), one
+          # at a time, only when Antigravity brought no fix. They start from the
+          # clean checkout; what they answer is applied as text, never run.
+          if [ "$result" != "ok" ] || [ -z "$changed" ]; then
+            if [ -n "$GROQ_API_KEY$OPENROUTER_API_KEY" ]; then
+              gitr checkout -q -- .
+              gitr clean -q -fd -e .autofix
+              python3 -I "$RUNNER_TEMP/autofix-reserve.py" --workdir "$repo" --prompt "$RUNNER_TEMP/prompt.md" \
+                --status "$out/reserve.json"
+              reserve=$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["result"])' "$out/reserve.json")
+              if [ "$reserve" = "ok" ]; then result=ok; fi
+            elif [ "$result" = "nokey" ]; then
+              echo "Nessuna chiave impostata (GEMINI_API_KEY, GROQ_API_KEY, OPENROUTER_API_KEY): nessun assistente è partito." > "$out/summary.md"
+              echo "patch=false" >> "$GITHUB_OUTPUT"
+              echo "result=auth" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          if [ ! -f "$out/status.json" ]; then
+            printf '{"result": "%s", "model": "", "message": "", "detail": ""}' "$result" > "$out/status.json"
+          fi
           echo "result=$result" >> "$GITHUB_OUTPUT"
           # .autofix/ is in .gitignore; reset it too, in case a branch lacks that line
           git -C "$repo" -c safe.directory='*' -c core.hooksPath=/dev/null -c core.fsmonitor=false add -A
@@ -179,18 +216,26 @@ jobs:
           import base64, json, os, sys
           from pathlib import Path
           out, repo = Path(sys.argv[1]), Path(sys.argv[2])
-          key = os.environ["GEMINI_API_KEY"].encode()
-          # never hand over the key, plain or encoded
-          variants = {key, key[::-1]}
-          for i in range(3):
-              for enc in (base64.b64encode, base64.urlsafe_b64encode):
-                  variants.add(enc(b"\0" * i + key)[4 if i else 0:-4])
+          # never hand over a key, plain or encoded
+          variants = set()
+          for name in ("GEMINI_API_KEY", "GROQ_API_KEY", "OPENROUTER_API_KEY"):
+              key = os.environ.get(name, "").encode()
+              if not key:
+                  continue
+              variants |= {key, key[::-1]}
+              for i in range(3):
+                  for enc in (base64.b64encode, base64.urlsafe_b64encode):
+                      variants.add(enc(b"\0" * i + key)[4 if i else 0:-4])
           status = json.loads((out / "status.json").read_text("utf-8"))
+          reserve_file = out / "reserve.json"
+          reserve = json.loads(reserve_file.read_text("utf-8")) if reserve_file.is_file() else None
           summary = repo / ".autofix" / "summary.md"
           text = summary.read_text("utf-8", errors="replace")[:4000] if summary.is_file() else \
               "L'agente non ha scritto un riassunto.\n"
-          if status["result"] != "ok":
-              text += "\n\n**%s** (modello: %s)\n\nUltime righe di errore dell'agente (chiave nascosta):\n\n```text\n%s\n```\n" % (
+          if reserve is not None:
+              text += "\n\n**Riserve: %s**\n" % reserve["message"]
+          if status["result"] not in ("ok", "nokey") and status.get("model"):
+              text += "\n\n**Antigravity: %s** (modello: %s)\n\nUltime righe di errore dell'agente (chiave nascosta):\n\n```text\n%s\n```\n" % (
                   status["message"], status["model"], status["detail"].replace("```", "'''"))
           (out / "summary.md").write_text(text, "utf-8")
           for name in ("autofix.patch", "summary.md"):
@@ -198,8 +243,8 @@ jobs:
               if any(v and v in data for v in variants):
                   for f in out.glob("*"):
                       f.unlink()
-                  (out / "summary.md").write_text("Risultato scartato: conteneva la chiave API. "
-                                                  "Cambia la chiave GEMINI_API_KEY.\n", "utf-8")
+                  (out / "summary.md").write_text("Risultato scartato: conteneva una chiave API. "
+                                                  "Cambia le chiavi degli assistenti.\n", "utf-8")
                   print("::error::the agent's output contained the API key: discarded")
                   sys.exit(1)
           PY
@@ -213,6 +258,7 @@ jobs:
           path: |
             ${{ runner.temp }}/autofix/autofix.patch
             ${{ runner.temp }}/autofix/summary.md
+            ${{ runner.temp }}/autofix/related.txt
           if-no-files-found: ignore
           retention-days: 14
 
@@ -246,8 +292,10 @@ jobs:
         run: |
           allow=""
           if [ "$ALLOW_ADBLOCK" = "true" ]; then allow="--allow-adblock"; fi
+          related=""
+          if [ -s "$RUNNER_TEMP/autofix/related.txt" ]; then related="--related $RUNNER_TEMP/autofix/related.txt"; fi
           python3 -I "$RUNNER_TEMP/trusted/check-autofix-patch.py" --repo . \
-            --patch "$RUNNER_TEMP/autofix/autofix.patch" $allow --report "$RUNNER_TEMP/autofix/guard.md"
+            --patch "$RUNNER_TEMP/autofix/autofix.patch" $allow $related --report "$RUNNER_TEMP/autofix/guard.md"
       - name: Lint
         run: |
           python3 -m pip install --disable-pip-version-check -q ruff
@@ -274,7 +322,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          printf 'autofix: attempt %s after a failure of "%s"\n\nPrepared by the Antigravity agent, accepted by tools/check-autofix-patch.py.\nRun: %s\n' \
+          printf 'autofix: attempt %s after a failure of "%s"\n\nPrepared by the automatic fix (Antigravity or a reserve), accepted by tools/check-autofix-patch.py.\nRun: %s\n' \
             "$ATTEMPT" "$WORKFLOW" "$RUN_URL" > "$RUNNER_TEMP/message"
           git -c core.hooksPath=/dev/null commit -q -F "$RUNNER_TEMP/message"
           git bundle create "$RUNNER_TEMP/autofix/fix.bundle" "$CHECKOUT..HEAD"

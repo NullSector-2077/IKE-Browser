@@ -55,7 +55,11 @@ never touched.
 
 1. **plan** (no AI, `tools/autofix-plan.py`): what failed, where the fix goes,
    the end of the logs. A setting or workflow problem becomes an issue directly.
-2. **fix** (`tools/autofix-agent.py`, read from `main`): the Antigravity CLI
+2. **fix**: first GitHub prepares the code the failure points at
+   (`tools/autofix-context.py`, no AI): the places named by tracebacks, pytest
+   and ruff, with the lines around them, go into the instructions, and the
+   files involved (plus the I.K.E. modules a failed test names) are listed for
+   the guard. Then (`tools/autofix-agent.py`, read from `main`) the Antigravity CLI
    (`agy`) runs the instructions of `.github/autofix/prompt.md`, also from
    `main`, in a closed room:
    - its own user, a copy of the repository, only `HOME`, `PATH` and the API
@@ -74,12 +78,27 @@ never touched.
    not open `.autofix/`, which git ignores). The agent's output is never printed, the key is hidden in its errors, and a
    result containing the key is thrown away. A second attempt receives the
    first fix, the new test logs and the first summary, and corrects only that.
+
+   **Reserves** (`tools/autofix-reserve.py`, 1.1.15): when Antigravity brings
+   no fix (quota, Google down, an error, or nothing changed), the reserves are
+   asked one after the other, never together, from the clean checkout: Groq
+   (`GROQ_API_KEY`, models in the variable `AUTOFIX_GROQ_MODELS`, default
+   `qwen/qwen3-32b`), then OpenRouter (`OPENROUTER_API_KEY`, models in
+   `AUTOFIX_OPENROUTER_MODELS`, default `qwen/qwen3-coder:free`). A provider
+   without its key is skipped; free models change often, so the names live in
+   the variables, not in the code. The reserves cannot open files: they get the
+   failure, the prepared code and the full text of the files involved, and
+   answer with JSON edits (exact text to replace) that the script applies to
+   those files only; nothing they write is ever run. 429 and unknown models
+   move to the next model, a refused key to the next provider, an answer that
+   cannot be applied gets one informed retry; "not fixable in the code" stops.
 3. **guard** (no AI, `tools/check-autofix-patch.py` from `main`): the patch may
    change only `ike/`, `tests/`, `tools/` and `docs/`; never the workflows, the
    signing and update channel, the version, the package recipe, the updater, the
    test harness or the release tools; the ad blocker only on a candidate that
    updates its engine; no test removed or weakened; no keys, binaries or links;
-   at most 5 files and 150 lines. Then lint. A fix of `main` that changes the
+   at most 5 files and 150 lines; and at least one of the files involved in
+   the failure must change (`--related`), so a fix stays on the problem. Then lint. A fix of `main` that changes the
    browser gets the next version and a CHANGELOG line.
 4. **publish** (no AI): the fix goes to `automation/autofix-main` (fixes of
    `main`) or onto the maintenance candidate, a draft PR is opened or updated
@@ -116,6 +135,10 @@ person: open a conversation and paste its link.
   billing** (free tier: nothing can be charged; Google may use the requests to
   improve its products, which is fine for a public repository). Optional
   **variable** `AUTOFIX_MODEL` chooses the model (empty: the CLI's default).
+  Reserves (optional, free plans): `GROQ_API_KEY` (console.groq.com) and
+  `OPENROUTER_API_KEY` (openrouter.ai), with the optional variables
+  `AUTOFIX_GROQ_MODELS` and `AUTOFIX_OPENROUTER_MODELS` (names separated by
+  commas, in order).
 - Settings → Branches: protect `main` (pull request required, status check
   `tests` required, no force push, no deletion).
 

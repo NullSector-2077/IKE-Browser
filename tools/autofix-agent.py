@@ -114,13 +114,16 @@ def classify(status, err):
 PROMPT_MAX = 110_000          # one argument of a command: at most 128 KiB on Linux
 
 
-def with_failure(rules, failure, done=""):
-    """The instructions, then the failure (and the work a previous model did),
-    within the size one command argument may have."""
+def with_failure(rules, failure, done="", context=""):
+    """The instructions, then the failure, the code it points at (prepared by
+    tools/autofix-context.py, 1.1.15) and the work a previous model did, within
+    the size one command argument may have."""
     text = rules.rstrip() + "\n\n# The failure (also in .autofix/failure.md)\n\n"
     extra = ""
+    if context:
+        extra += "\n\n" + context[:40000].rstrip() + "\n"
     if done:
-        extra = ("\n\n# Work already done by a previous model\n\nIt is already in the files: "
+        extra += ("\n\n# Work already done by a previous model\n\nIt is already in the files: "
                  "go on from here, do not redo it.\n\n```diff\n%s\n```\n" % done[:20000])
     room = PROMPT_MAX - len(text.encode()) - len(extra.encode())
     body = failure.encode()
@@ -174,13 +177,17 @@ def main(argv=None):
         failure = (workdir / ".autofix" / "failure.md").read_text("utf-8", "replace")
     except OSError:
         failure = "(no failure description was found)\n"
+    try:
+        context = (workdir / ".autofix" / "context.md").read_text("utf-8", "replace")
+    except OSError:
+        context = ""
     result, used, detail = "error", "", ""
     deadline = time.monotonic() + a.total_timeout
     for model in models(os.environ.get("AUTOFIX_MODEL")):
         tries = 0
         while True:
             tries += 1
-            prompt = with_failure(rules, failure, changes(workdir))
+            prompt = with_failure(rules, failure, changes(workdir), context)
             limit = int(min(a.model_timeout, deadline - time.monotonic()))
             if limit < 60:
                 result = "timeout"

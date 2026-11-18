@@ -341,7 +341,14 @@ def test_autofix_workflow_permissions():
     assert "--force-with-lease" in jobs["publish"] and "gh pr merge" not in text
     assert "gh release" not in text and "main:refs/heads/main" not in text
     assert '"modelProvider": "gemini"' in jobs["fix"]
-    assert "git show origin/main:tools/autofix-agent.py" in jobs["fix"]
+    assert 'git show "origin/main:tools/$f"' in jobs["fix"]
+    for tool in ("autofix-agent.py", "autofix-context.py", "autofix-reserve.py"):
+        assert tool in jobs["fix"], tool
+    # the reserves: their keys only in the fix job, after Antigravity
+    for name in ("GROQ_API_KEY", "OPENROUTER_API_KEY"):
+        assert "secrets." + name in jobs["fix"], name
+    assert jobs["fix"].index("autofix-agent.py\" --workdir") < jobs["fix"].index("autofix-reserve.py\" --workdir")
+    assert "--related" in jobs["guard"]
     # the closed room: own user, no terminal or web for the agent, only the Gemini API
     for rule in ('"command(*)"', '"read_url(*)"', '"execute_url(*)"', '"mcp(*)"', "--uid-owner agent",
                  "generativelanguage.googleapis.com", "env -i", "the firewall does not hold"):
@@ -407,3 +414,129 @@ def test_the_agent_instructions():
                  "Arch Linux only", "ike-adblock/"):
         assert rule in text, rule
     assert ".autofix/" in (ROOT / ".gitignore").read_text()
+
+
+# --- 1.1.15: the code at the failure, the reserves, the pertinence check ---------
+
+FAILURE = """# Failure to fix
+
+## Job `tests` (failed step: Lint)
+
+```text
+ike/window.py:1:1: F401 [*] `shutil` imported but unused
+Traceback (most recent call last):
+  File "/home/runner/work/IKE-Browser/IKE-Browser/tests/test_window.py", line 2, in test_width
+    assert 1
+FAILED tests/test_window.py::test_width
+see also /etc/passwd:1 and ../../secret.py:3
+```
+"""
+
+
+def test_the_code_at_the_failure_is_prepared(repo, tmp_path):
+    ctx = load("autofix-context")
+    (repo / "tests/test_window.py").write_text("from ike import window\n\ndef test_width():\n    assert 1\n")
+    text, related = ctx.build(repo, FAILURE)
+    assert related[:2] == ["ike/window.py", "tests/test_window.py"]
+    assert "ike/window.py" in related                      # named by the test file too
+    assert "`ike/window.py`, lines 1-" in text and "    1  def width():" in text
+    assert "passwd" not in text and "secret" not in text   # only files of the repository
+    out = tmp_path / "ctx"
+    assert ctx.main(["--repo", str(repo), "--failure", str(tmp_path / "missing.md"), "--out-dir", str(out)]) == 0
+    assert "names no line" in (out / "context.md").read_text() and (out / "related.txt").read_text() == ""
+
+
+def test_a_fix_must_touch_the_files_involved(repo, tmp_path):
+    related = tmp_path / "related.txt"
+    related.write_text("ike/window.py\n")
+    elsewhere = make_patch(repo, edit("ike/other.py", "x = 1\n"))
+    code, report = run_guard(repo, elsewhere, tmp_path, "--related", str(related))
+    assert code == 1 and "none of the files involved" in report
+    here = make_patch(repo, edit("ike/window.py", "def width():\n    return 11\n"))
+    assert run_guard(repo, here, tmp_path, "--related", str(related))[0] == 0
+
+
+class _Answer:
+    def __init__(self, body):
+        self.body = body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def read(self, n=-1):
+        return self.body
+
+
+def _opener(answers, seen):
+    import json
+    import urllib.error
+
+    def open_(req, timeout=0):
+        seen.append((req.full_url, json.loads(req.data)["model"], req.get_header("Authorization")))
+        a = answers.pop(0)
+        if isinstance(a, int):
+            raise urllib.error.HTTPError(req.full_url, a, "err", {}, None)
+        return _Answer(json.dumps({"choices": [{"message": {"content": a}}]}).encode())
+    return open_
+
+
+def _reserve_repo(repo):
+    auto = repo / ".autofix"
+    auto.mkdir(exist_ok=True)
+    (auto / "failure.md").write_text(FAILURE)
+    (auto / "context.md").write_text("# Code at the failure\n")
+    (auto / "related.txt").write_text("ike/window.py\n")
+
+
+def test_the_reserves_one_after_the_other(repo, tmp_path):
+    import json
+    reserve = load("autofix-reserve")
+    _reserve_repo(repo)
+    prompt = tmp_path / "prompt.md"
+    prompt.write_text("RULES")
+    good = json.dumps({"summary": "Corretto il valore.", "fixable": True, "edits": [
+        {"file": "ike/window.py", "find": "    return 10\n", "replace": "    return 11\n"}]})
+    seen = []
+    env = {"GROQ_API_KEY": "gsk_TESTONLY", "OPENROUTER_API_KEY": "sk-or-TESTONLY",
+           "AUTOFIX_OPENROUTER_MODELS": "a:free, b:free"}
+    # Groq out of quota, OpenRouter's first model answers badly twice, the second one fixes it
+    answers = [429, "not json", '{"edits": [{"file": "ike/window.py", "find": "nope", "replace": "x"}]}', good]
+    status = tmp_path / "status.json"
+    reserve.main(["--workdir", str(repo), "--prompt", str(prompt), "--status", str(status)],
+                 env=env, opener=_opener(answers, seen))
+    out = json.loads(status.read_text())
+    assert out["result"] == "ok" and "OpenRouter / b:free" in out["model"], out
+    assert [s[0].split("/")[2] for s in seen] == ["api.groq.com", "openrouter.ai", "openrouter.ai", "openrouter.ai"]
+    assert (repo / "ike/window.py").read_text() == "def width():\n    return 11\n"
+    summary = (repo / ".autofix/summary.md").read_text()
+    assert "Corretto il valore." in summary and "TESTONLY" not in summary
+
+
+def test_the_reserves_never_touch_other_files_and_skip_missing_keys(repo, tmp_path):
+    import json
+    reserve = load("autofix-reserve")
+    _reserve_repo(repo)
+    prompt = tmp_path / "prompt.md"
+    prompt.write_text("RULES")
+    status = tmp_path / "status.json"
+    # no key at all: nothing is asked
+    reserve.main(["--workdir", str(repo), "--prompt", str(prompt), "--status", str(status)],
+                 env={}, opener=_opener([], []))
+    assert json.loads(status.read_text())["result"] == "nokey"
+    # an edit of a file that was not shown, or outside the repository: refused, nothing written
+    for path in ("ike/updater.py", "../evil.py", ".github/workflows/tests.yml"):
+        bad = json.dumps({"summary": "x", "edits": [{"file": path, "find": "CHECK", "replace": "NO"}]})
+        reserve.main(["--workdir", str(repo), "--prompt", str(prompt), "--status", str(status)],
+                     env={"GROQ_API_KEY": "k"}, opener=_opener([bad, bad], []))
+        assert json.loads(status.read_text())["result"] == "error", path
+    assert (repo / "ike/updater.py").read_text() == "CHECK = True\n"
+    assert not (repo.parent / "evil.py").exists()
+    # "cannot be fixed in the code": stop, no other model asked
+    seen = []
+    no = json.dumps({"summary": "Un server era giù.", "fixable": False, "edits": []})
+    reserve.main(["--workdir", str(repo), "--prompt", str(prompt), "--status", str(status)],
+                 env={"GROQ_API_KEY": "k", "OPENROUTER_API_KEY": "k2"}, opener=_opener([no], seen))
+    assert json.loads(status.read_text())["result"] == "none" and len(seen) == 1

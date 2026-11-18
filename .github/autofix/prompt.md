@@ -20,8 +20,10 @@ steps, in this order:
 
 1. Read "The failure" below. If a section "Work already done by a previous
    model" follows it, another model already started this fix: go on from there.
-2. Open only the file(s) and lines the error names. Do not explore the
-   repository.
+2. The code around the places the error names is already below, in section
+   "Code at the failure" (prepared by GitHub, with line numbers). Open a file
+   only when you need more than that, and only the files the error names or
+   that section lists. Do not explore the repository.
 3. If it can be fixed in the code, make the smallest correct fix (a few lines,
    at most 5 files).
 4. Write `.autofix/summary.md` right away, in Italian, plain and short (at most
