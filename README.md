@@ -9,7 +9,7 @@ The interface, protections, password manager and updater are I.K.E.'s own code
 provided and kept up to date by Arch Linux. I.K.E. is developed on and for
 KDE Plasma (CachyOS / Arch Linux) and works on the other Arch-based desktops.
 
-**Version 1.1.13** - see [CHANGELOG.md](CHANGELOG.md).
+**Version 1.1.14** - see [CHANGELOG.md](CHANGELOG.md).
 
 ## Install (Arch Linux, CachyOS)
 
@@ -17,7 +17,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.1.13-1-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.1.14-1-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:

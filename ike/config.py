@@ -60,6 +60,20 @@ LOGIN_HOSTS = ("accounts.google.com", "accounts.youtube.com", "login.live.com",
 # user chose a level for them (1.1.12).
 SENSITIVE_HOSTS = ("aistudio.google.com", "console.cloud.google.com", "myaccount.google.com",
                    "pay.google.com", "payments.google.com", "admin.google.com")
+# Google's own sites. On a sensitive service the shield leaves their requests
+# alone (1.1.14): "Compatibility" was not enough, because the filter lists still
+# blocked some of Google's own requests and its anti-abuse checks then refused
+# the operation. Brave gets there with a hand-written list of exceptions; here
+# the service simply works as with the shield off, while the trackers of other
+# companies stay blocked. Ad and analytics domains (doubleclick.net,
+# google-analytics.com, googletagmanager.com, ...) are not in this list.
+GOOGLE_SITES = ("google.com", "googleapis.com", "gstatic.com", "googleusercontent.com",
+                "recaptcha.net")
+
+
+def google_owned(host):
+    host = (host or "").lower().rstrip(".")
+    return any(host == s or host.endswith("." + s) for s in GOOGLE_SITES)
 FIREFOX_UA = osinfo.identity()["firefox_ua"]
 PERMISSION_KINDS = ("camera", "microphone", "location", "notifications", "clipboard", "screen", "fonts")
 
@@ -436,6 +450,22 @@ class Config:
         if full in SENSITIVE_HOSTS and LEVELS.index(level) > 1:
             return "compatibility"
         return level
+
+    def sensitive_hands_off(self, site, host=None):
+        """True when the page `site` is a sensitive Google service whose level
+        the user did not choose, and `host` (if given) is one of Google's own
+        sites: the shield then changes nothing, as if it were off (1.1.14)."""
+        full = (site or "").lower()
+        if full not in SENSITIVE_HOSTS or self.data["shield_level"] == "off":
+            return False
+        h, levels = full, self.data["site_levels"]
+        while h:
+            if h in levels:
+                return False                      # the user's own choice wins
+            if "." not in h:
+                break
+            h = h.split(".", 1)[1]
+        return host is None or google_owned(host)
 
     def site_opt(self, host, key):
         """Per-site override of one protection, or None to follow the level."""

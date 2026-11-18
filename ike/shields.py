@@ -217,6 +217,17 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             return
         host = url.host().lower()
         get = bytes(info.requestMethod()) == b"GET"
+        if cfg.sensitive_hands_off(first_host, host):
+            # a sensitive Google service (AI Studio, Cloud Console, account,
+            # payments): Google's own requests go through untouched - no filter
+            # list, no address clean-up, no changed header (1.1.14)
+            if main and not self.quiet:
+                key = url.toString()
+                if key in s.redirected:
+                    s.redirected.discard(key)
+                else:
+                    s.reset_count(host)
+            return
         if host == "accounts.google.com" and cfg["login_compat"]:
             # Google refuses sign-in from embedded Chromium engines; it accepts
             # the same request when it comes with a Firefox identity.
@@ -698,9 +709,12 @@ class Shields(QObject):
             if cfg["login_compat"] and rank(cfg["shield_level"]) > 1:
                 for h in LOGIN_HOSTS:
                     sites.setdefault(h, "compatibility")
-            if rank(cfg["shield_level"]) > 1:
-                for h in SENSITIVE_HOSTS:       # as config.level_for (1.1.12)
-                    sites.setdefault(h, "compatibility")
+            for h in SENSITIVE_HOSTS:
+                # as config.sensitive_hands_off: nothing changed in the page
+                # (1.1.14; "compatibility" from 1.1.12 still added the GPC
+                # signal and the Firefox identity of embedded sign-in frames)
+                if cfg.sensitive_hands_off(h):
+                    sites.setdefault(h, "off")
             ident = osinfo.identity()
             fp_cfg = {"level": cfg["shield_level"], "sites": sites,
                       "key": self.profile_keys[id(p)],
@@ -721,6 +735,7 @@ class Shields(QObject):
             if cfg["comp_consent"]:
                 off = [h for h, lv in cfg["site_levels"].items() if lv == "off"]
                 off += [h for h, o in cfg["site_opts"].items() if o.get("consent") is False]
+                off += [h for h in SENSITIVE_HOSTS if cfg.sensitive_hands_off(h)]
                 if cfg["shield_level"] == "off":
                     continue
                 c = QWebEngineScript()
@@ -804,7 +819,8 @@ class Shields(QObject):
 
     def site_scripts(self, profile, host):
         """Make sure the list scriptlets of this host are installed (page about to load)."""
-        if not host or not self._ads_on(host) or host in self.video_hosts():
+        if (not host or not self._ads_on(host) or host in self.video_hosts()
+                or self.config.sensitive_hands_off(host)):
             return
         lru = self._site_lru.setdefault(id(profile), [])
         if host in lru:

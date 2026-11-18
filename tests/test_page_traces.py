@@ -9,7 +9,9 @@ changed function or a script named in a stack makes them refuse operations
   media sites, even with the shield off; on a listed media site they are there;
 - with the shield off, a page finds nothing changed at all;
 - the sensitive Google services get "Compatibility", unless the user chose a
-  level for them;
+  level for them, and (1.1.14) Google's own requests there go through untouched:
+  no filter list, no changed header, no list scripts, nothing in the page,
+  while the trackers of other companies stay blocked;
 - the lighter frame guard of the fingerprinting protection still protects every
   frame a page adds: appended, inside a container, through innerHTML,
   insertAdjacentHTML or a fragment (same canvas noise as the page, not the real
@@ -113,7 +115,8 @@ def steps(ike, qapp, out):
     out["levels"] = [c.level_for(h) for h in ("aistudio.google.com", "console.cloud.google.com",
                                                "www.google.com", "youtube.com", "chose.example")]
     fp = [s.sourceCode() for s in ike.profile.scripts().find("ike-fp")]
-    out["fp_compat"] = bool(fp) and '"aistudio.google.com": "compatibility"' in fp[0]
+    # 1.1.14: the page of a sensitive Google service is left alone
+    out["fp_handsoff"] = bool(fp) and '"aistudio.google.com": "off"' in fp[0]
 '''
 
 NATIVE_TS = "function toString() { [native code] }"
@@ -147,11 +150,12 @@ def test_balanced_frames_protected_and_google_services_in_compatibility(run_ike,
     for how in ("appended", "container", "adjacent", "innerhtml", "fragment"):
         assert f[how] == f["top"], (how, f)             # the same noise as the page
     assert out["levels"] == ["compatibility", "compatibility", "balanced", "balanced", "balanced"]
-    assert out["fp_compat"]
+    assert out["fp_handsoff"]
     # a level the user chose for the site is kept
     chosen = run_ike(STEPS % site, settings={"shield_level": "balanced",
                                              "site_levels": {"aistudio.google.com": "strict"}})
     assert chosen["levels"][0] == "strict"
+    assert not chosen["fp_handsoff"]
 
 
 # --- the AdBlock engine carried by the self-update --------------------------------
@@ -206,3 +210,85 @@ def test_installed_engine_when_the_bundled_one_is_broken(tmp_path):
     shutil.rmtree(app / "ike" / "_engine")
     path, _modern = _probe(app, tmp_path)
     assert Path(path).resolve().is_relative_to(ENGINE.resolve()), path
+
+
+# --- 1.1.14: sensitive Google services work as with the shield off ---------------
+
+HANDS_OFF = r"""
+from PyQt6.QtCore import QUrl
+from PyQt6.QtWebEngineCore import QWebEngineUrlRequestInfo as I
+
+RT = I.ResourceType
+
+class Info:
+    def __init__(self, url, first, rtype=RT.ResourceTypeScript):
+        self.u, self.f, self.t = QUrl(url), QUrl(first), rtype
+        self.blocked, self.headers, self.to = False, {}, None
+    def requestUrl(self): return self.u
+    def firstPartyUrl(self): return self.f
+    def initiator(self): return self.f
+    def resourceType(self): return self.t
+    def requestMethod(self): return b"GET"
+    def block(self, b): self.blocked = bool(b)
+    def redirect(self, u): self.to = u.toString()
+    def setHttpHeader(self, k, v): self.headers[bytes(k).decode()] = bytes(v).decode()
+
+CASES = {
+    # Google's own request on AI Studio: untouched
+    "google_on_aistudio": ("https://www.googleapis.com/tracker/x.js", "https://aistudio.google.com/"),
+    # the same request on another site: blocked as always
+    "google_elsewhere": ("https://www.googleapis.com/tracker/x.js", "https://www.example.com/"),
+    # another company's tracker on AI Studio: still blocked
+    "other_on_aistudio": ("https://tracker.example.test/a.js", "https://aistudio.google.com/"),
+    # an embedded sign-in frame: no Firefox identity in the header
+    "signin_frame": ("https://accounts.google.com/RotateCookiesPage", "https://aistudio.google.com/"),
+    # the page itself: tracking parameters are not removed
+    "main_page": ("https://aistudio.google.com/apikey?utm_source=x", "https://aistudio.google.com/"),
+    # YouTube is not a sensitive service: nothing changes there
+    "youtube": ("https://www.youtube.com/api/stats/qoe?x=1", "https://www.youtube.com/watch?v=a"),
+}
+
+def steps(ike, qapp, out):
+    b = ike.blocker
+    for _ in range(300):
+        if b.engine is not None and b.should_block(
+                "https://www.googleapis.com/tracker/x.js", "https://www.example.com/", "script"):
+            break
+        yield 100
+    icp = ike.shields.interceptor
+    for name, (url, first) in CASES.items():
+        rtype = RT.ResourceTypeMainFrame if name == "main_page" else (
+            RT.ResourceTypeSubFrame if name == "signin_frame" else RT.ResourceTypeScript)
+        info = Info(url, first, rtype)
+        icp.interceptRequest(info)
+        out[name] = {"blocked": info.blocked, "headers": info.headers, "to": info.to}
+    out["cosmetic_scripts"] = [s.name() for s in ike.profile.scripts().toList()
+                               if s.name().startswith("ike-sl-") and "aistudio" in s.name()]
+    ike.shields.site_scripts(ike.profile, "aistudio.google.com")
+    out["cosmetic_scripts"] += [s.name() for s in ike.profile.scripts().toList()
+                                if s.name().startswith("ike-sl-") and "aistudio" in s.name()]
+"""
+
+HANDS_OFF_FILTERS = ("||googleapis.com/tracker^\n||tracker.example.test^\n"
+                     "aistudio.google.com##+js(set-constant, ikeTestFlag, true)\n")
+
+
+@needs_engine
+def test_sensitive_google_services_left_alone(run_ike):
+    out = run_ike(HANDS_OFF, settings={"shield_level": "balanced", "custom_filters": HANDS_OFF_FILTERS,
+                                       "login_compat": True, "strip_tracking_params": True,
+                                       "send_gpc": True})
+    assert out["google_elsewhere"]["blocked"], out
+    assert not out["google_on_aistudio"]["blocked"], out
+    assert out["google_on_aistudio"]["headers"] == {}, out          # not even Sec-GPC
+    assert out["other_on_aistudio"]["blocked"], out
+    assert "User-Agent" not in out["signin_frame"]["headers"], out
+    assert out["main_page"]["to"] is None, out
+    assert out["youtube"]["blocked"], out                             # I.K.E.'s own rule, unchanged
+    assert out["cosmetic_scripts"] == [], out
+
+    # the user's own level for the site wins: the shield works there as chosen
+    chosen = run_ike(HANDS_OFF, settings={"shield_level": "balanced",
+                                          "custom_filters": HANDS_OFF_FILTERS,
+                                          "site_levels": {"aistudio.google.com": "strict"}})
+    assert chosen["google_on_aistudio"]["blocked"], chosen

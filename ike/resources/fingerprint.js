@@ -32,7 +32,9 @@
   }
   // Google's sign-in refuses embedded Chromium engines: present the same
   // Firefox identity that is sent in the request header.
-  if (CFG.ffua && location.hostname === 'accounts.google.com') {
+  // Not when the page around it is left alone (shield off there, or a
+  // sensitive Google service: 1.1.14), as the request header is not changed either.
+  if (CFG.ffua && location.hostname === 'accounts.google.com' && levelFor(host) !== 'off') {
     try {
       var np = Navigator.prototype;
       var ffv = { userAgent: CFG.ffua, appVersion: CFG.ffAppVersion || '5.0 (X11)', vendor: '',

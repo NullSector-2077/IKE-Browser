@@ -323,6 +323,7 @@ class WebPage(QWebEnginePage):
         return (url.scheme() in ("http", "https")
                 and (cfg["comp_adblock"] or cfg["comp_consent"])
                 and cfg.level_for(url.host()) != "off"
+                and not cfg.sensitive_hands_off(url.host().lower())
                 and cfg.site_opt(url.host(), "ads") is not False)
 
     def _inject_cosmetics(self, *_):

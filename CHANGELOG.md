@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.1.14
+
+- **Google's sensitive services work with the shield on**: on AI Studio, the
+  Cloud Console, the Google account and Google's payment pages, creating an API
+  key (or a similar protected operation) could still end in "permission denied"
+  with the shield on, and worked only after switching the shield off. Since
+  1.1.12 these pages got "Compatibility", but the filter lists still blocked
+  some of Google's own requests there. Now Google's own requests on these
+  pages go through untouched, as with the shield off: no filter list, no
+  changed header, no address clean-up, no list scripts, nothing changed in the
+  page (an embedded Google sign-in frame keeps its normal identity too). The
+  trackers of other companies stay blocked, every other site keeps its
+  protections, YouTube is not touched, and a level the user chose for one of
+  these sites is still respected. Brave reaches the same result with a list of
+  hand-written exceptions.
+
 ## 1.1.13
 
 - **Updates install by themselves for everyone**: "Install automatically" is

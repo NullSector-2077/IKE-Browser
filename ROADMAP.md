@@ -51,7 +51,9 @@ them without asking.
   own risk.
 - Pages must not be able to see I.K.E.: outside the protections the user
   chose, nothing in a page is changed (1.1.12), and on sensitive services
-  (sign-in, AI Studio, cloud consoles, payments) the protections stay light, so
+  (sign-in, AI Studio, cloud consoles, payments) the protections stay light
+  (1.1.14: Google's own requests there are left alone, as Brave does with its
+  hand-written exceptions; other companies' trackers stay blocked), so
   anti-abuse checks never refuse the user.
 
 ## Now: Arch Linux / CachyOS
