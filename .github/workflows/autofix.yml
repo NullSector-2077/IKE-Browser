@@ -125,13 +125,22 @@ jobs:
           chmod 644 /tmp/agy-install.sh
           sudo -u agent -H bash /tmp/agy-install.sh
           sudo -u agent -H mkdir -p /home/agent/.gemini/antigravity-cli
+          # Nobody is there to review a plan: the CLI's default ("asks-for-review")
+          # made the agent wait for one until its time ran out (2026-11-19, every
+          # run: about 3 minutes of work, then nothing). Plans and file edits go
+          # on by themselves; terminal, web and MCP stay denied.
           printf '%s\n' '{ "modelProvider": "gemini",' \
+            '  "artifactReviewPolicy": "always-proceed", "agentMode": "accept-edits",' \
+            '  "showFeedbackSurvey": false, "showTips": false,' \
             '  "permissions": { "deny": ["command(*)", "unsandboxed(*)", "read_url(*)",' \
             '                            "execute_url(*)", "mcp(*)"] } }' \
             | sudo -u agent tee /home/agent/.gemini/antigravity-cli/settings.json > /dev/null
+          sudo -u agent python3 -c 'import json,sys; json.load(open(sys.argv[1]))' \
+            /home/agent/.gemini/antigravity-cli/settings.json
           sudo tee /home/agent/run-agent.sh > /dev/null <<'SH'
           #!/bin/sh
           exec env -i HOME=/home/agent PATH=/home/agent/.local/bin:/usr/bin:/bin \
+            AGY_CLI_DISABLE_AUTO_UPDATE=true \
             GEMINI_API_KEY="$GEMINI_API_KEY" /home/agent/.local/bin/agy "$@"
           SH
           sudo chmod 755 /home/agent/run-agent.sh
@@ -164,6 +173,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP/autofix"
           python3 -I "$RUNNER_TEMP/autofix-context.py" --repo /srv/autofix/repo
           cp /srv/autofix/repo/.autofix/related.txt "$RUNNER_TEMP/autofix/related.txt"
+      - name: The lint, for each fix (no AI)
+        run: python3 -m pip install --disable-pip-version-check -q ruff
       - name: Agent, reserves, then the patch
         id: agent
         timeout-minutes: 48
@@ -242,6 +253,18 @@ jobs:
               result=refused-fix
             else
               rm -f "$out/refused.md"
+              # the lint the guard runs, now: ruff's own safe fixes first (an
+              # unused import, the order of imports), then what is left goes to
+              # the reserves as the reason
+              py=$(gitr diff --name-only -- '*.py' | sed "s#^#$repo/#")
+              if [ -n "$py" ] && command -v ruff > /dev/null; then
+                ruff check --no-cache --force-exclude --fix --quiet $py || true
+                if ! ruff check --no-cache --force-exclude $py > "$out/lint.txt" 2>&1; then
+                  echo "Antigravity's fix was refused by the lint: the reserves are told why"
+                  { echo "The lint (ruff) refused the fix:"; echo; cat "$out/lint.txt"; } > "$out/refused.md"
+                  result=refused-fix
+                fi
+              fi
             fi
           fi
           # The reserves (Groq, then OpenRouter: tools/autofix-reserve.py), one
@@ -256,7 +279,7 @@ jobs:
               if [ -s "$out/refused.md" ]; then refused="--refused $out/refused.md"; fi
               python3 -I "$RUNNER_TEMP/autofix-reserve.py" --workdir "$repo" --prompt "$RUNNER_TEMP/prompt.md" \
                 --status "$out/reserve.json" --checker "$RUNNER_TEMP/check-autofix-patch.py" \
-                --related "$out/related.txt" $allow $refused
+                --related "$out/related.txt" $allow $refused --lint
               reserve=$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["result"])' "$out/reserve.json")
               if [ "$reserve" = "ok" ]; then result=ok; fi
               if [ "$reserve" = "refused" ]; then result=refused; fi

@@ -958,3 +958,72 @@ def test_an_answer_without_edits_is_asked_again_and_a_short_limit_is_waited_out(
     reserve.main(["--workdir", str(repo), "--prompt", str(prompt), "--status", str(status)],
                  env={"GROQ_API_KEY": "k", "OPENROUTER_API_KEY": "k2"}, opener=_opener([no], seen))
     assert json.loads(status.read_text())["result"] == "none" and len(seen) == 1
+
+
+def test_the_agent_never_waits_for_a_review_nobody_gives():
+    """2026-11-19: every run of Antigravity worked about 3 minutes and then
+    waited until its time ran out. Its CLI waits for a review of its plans by
+    default; here nobody reviews, so it must go on. Its self-updater is off too
+    (the firewall refused it anyway). The denials stay."""
+    fix = jobs_of((WORKFLOWS / "autofix.yml").read_text())["fix"]
+    assert '"artifactReviewPolicy": "always-proceed"' in fix and '"agentMode": "accept-edits"' in fix
+    assert "AGY_CLI_DISABLE_AUTO_UPDATE=true" in fix
+    for rule in ('"command(*)"', '"unsandboxed(*)"', '"read_url(*)"', '"execute_url(*)"', '"mcp(*)"'):
+        assert rule in fix, rule
+    assert '"toolPermission"' not in fix                 # tools keep asking (and are denied)
+
+
+def test_failures_of_tests_the_automation_started_reach_the_fix(monkeypatch):
+    """2026-11-19: runs started with GITHUB_TOKEN send no workflow_run, so the
+    second attempt never came and a failing maintenance candidate never reached
+    the automatic fix. tests.yml hands such failures over itself."""
+    text = (WORKFLOWS / "tests.yml").read_text()
+    hand = text.split("\n  hand-over:\n", 1)[1]
+    assert "needs: tests" in hand and "failure()" in hand
+    assert "github.actor == 'github-actions[bot]'" in hand and "github.event_name == 'workflow_dispatch'" in hand
+    assert "automation/autofix-main" in hand and "automation/daily-maintenance" in hand and "'main'" not in hand
+    assert "permissions:\n      actions: write\n" in hand and "contents: write" not in hand
+    assert 'gh workflow run autofix.yml --ref main -f run_id="$RUN_ID"' in hand
+    assert "permissions:\n  contents: read\n" in text.split("jobs:")[0]
+    # the plan waits for the run to close before reading its outcome
+    states = [{"status": "in_progress"}, {"status": "in_progress"}, {"status": "completed", "conclusion": "failure"}]
+    monkeypatch.setattr(plan_tool, "gh_api", lambda path, raw=False: states.pop(0))
+    slept = []
+    run = plan_tool.completed_run("o/r", "1", sleep=slept.append)
+    assert run["conclusion"] == "failure" and len(slept) == 2
+
+
+@pytest.mark.skipif(not __import__("shutil").which("ruff"), reason="ruff is not installed here")
+def test_each_fix_goes_through_the_lint(repo, tmp_path):
+    """2026-11-19: a right fix left an unused import and the guard's lint refused
+    it. ruff's own safe fixes are applied first; what is left goes back as the
+    reason, and the next model tries."""
+    import json
+    reserve = load("autofix-reserve")
+    (repo / "pyproject.toml").write_text("[tool.ruff]\nline-length = 120\n")
+    (repo / "ike/window.py").write_text("import os\n\n\ndef width():\n    return 10\n")
+    ok, said = reserve.linted(repo, ["ike/window.py"])
+    assert ok and "import os" not in (repo / "ike/window.py").read_text()   # removed, no AI
+    (repo / "ike/window.py").write_text("def width():\n    return nothing_here\n")
+    ok, said = reserve.linted(repo, ["ike/window.py"])
+    assert not ok and "F821" in said
+    git(repo, "checkout", "-q", "--", ".")
+    git(repo, "clean", "-qfd")
+    _reserve_repo(repo)
+    prompt = tmp_path / "prompt.md"
+    prompt.write_text("RULES")
+    status = tmp_path / "status.json"
+    bad = json.dumps({"summary": "x", "edits": [{"file": "ike/window.py", "find": "    return 10\n",
+                                                "replace": "    return undefined_name\n"}]})
+    good = json.dumps({"summary": "ok", "edits": [{"file": "ike/window.py", "find": "    return 10\n",
+                                                  "replace": "    return 11\n"}]})
+    asked = []
+    opener = _opener([bad, good], [])
+
+    def spy(req, timeout=0):
+        asked.append(json.loads(req.data)["messages"][1]["content"])
+        return opener(req, timeout)
+    reserve.main(["--workdir", str(repo), "--prompt", str(prompt), "--status", str(status), "--lint"],
+                 env={"GROQ_API_KEY": "k", "AUTOFIX_GROQ_MODELS": "g1, g2"}, opener=spy)
+    assert json.loads(status.read_text())["result"] == "ok"
+    assert "F821" in asked[1] and (repo / "ike/window.py").read_text() == "def width():\n    return 11\n"

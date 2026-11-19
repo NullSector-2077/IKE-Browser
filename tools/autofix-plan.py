@@ -30,6 +30,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 MAX_ATTEMPTS = 2
@@ -144,6 +145,19 @@ def clean_log(text):
     return tail[-LOG_BYTES:]
 
 
+def completed_run(repo, run_id, tries=40, pause=15, sleep=time.sleep):
+    """The run, once it has finished. A failure handed over by the tests
+    themselves (tests.yml, job hand-over) arrives while their run is still
+    closing: wait for it (at most about ten minutes)."""
+    run = gh_api("repos/%s/actions/runs/%s" % (repo, run_id))
+    for _ in range(tries):
+        if run.get("status") == "completed":
+            break
+        sleep(pause)
+        run = gh_api("repos/%s/actions/runs/%s" % (repo, run_id))
+    return run
+
+
 def decide(run, failed_jobs, open_fix_pr, open_issues=()):
     """The plan for a failed run (a dict of outputs), without network or git."""
     name, branch = run["name"], run.get("head_branch") or ""
@@ -234,7 +248,7 @@ def main(argv=None):
     ap.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", ""))
     a = ap.parse_args(argv)
     repo = a.repo
-    run = gh_api("repos/%s/actions/runs/%s" % (repo, a.run_id))
+    run = completed_run(repo, a.run_id)
     jobs = gh_api("repos/%s/actions/runs/%s/jobs?per_page=100" % (repo, a.run_id))["jobs"]
     failed = [j for j in jobs if j.get("conclusion") == "failure"]
     branch = run.get("head_branch") or ""

@@ -98,3 +98,27 @@ jobs:
           path: ${{ runner.temp }}/pkg/ike-browser-*-x86_64.pkg.tar.zst
           if-no-files-found: error
           retention-days: 30
+
+  # When the automation itself started these tests (on its own branches), GitHub
+  # sends no "workflow_run" for their failure: events of runs started with
+  # GITHUB_TOKEN start nothing else. Found on 2026-11-19: a second automatic fix
+  # never came, and a failing maintenance candidate never reached the automatic
+  # fix. A dispatch is allowed: the failure is handed over here. Runs started by
+  # a person reach the automatic fix through workflow_run as before.
+  hand-over:
+    needs: tests
+    if: >-
+      failure() && github.event_name == 'workflow_dispatch' &&
+      github.actor == 'github-actions[bot]' &&
+      (github.ref_name == 'automation/autofix-main' || github.ref_name == 'automation/daily-maintenance')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Hand the failure to the automatic fix
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: gh workflow run autofix.yml --ref main -f run_id="$RUN_ID"

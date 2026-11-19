@@ -345,6 +345,23 @@ def checked(workdir, checker, related, allow_adblock):
     return run.returncode, run.stdout.strip()[-2000:]
 
 
+def linted(workdir, files):
+    """(ok, output) of ruff on the changed Python files, after its own safe fixes
+    (an unused import, the order of imports: no AI needed). 2026-11-19: a right
+    fix left an unused import and the guard's lint refused it. No ruff: ok."""
+    py = [f for f in files if f.endswith(".py")]
+    if not py:
+        return True, ""
+    base = ["ruff", "check", "--no-cache", "--force-exclude"]
+    try:
+        subprocess.run(base + ["--fix", "--quiet", *py], cwd=workdir, capture_output=True, text=True,
+                       check=False, timeout=120)
+        run = subprocess.run(base + py, cwd=workdir, capture_output=True, text=True, check=False, timeout=120)
+    except (OSError, subprocess.TimeoutExpired):
+        return True, ""
+    return run.returncode == 0, (run.stdout + run.stderr).strip()[-2000:]
+
+
 def redact(text, keys):
     for k in keys:
         if k:
@@ -362,6 +379,7 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     ap.add_argument("--related", help="the files involved (for the checker)")
     ap.add_argument("--allow-adblock", action="store_true")
     ap.add_argument("--refused", help="why the checks refused Antigravity's fix")
+    ap.add_argument("--lint", action="store_true", help="ruff on each fix (its safe fixes first)")
     a = ap.parse_args(argv)
     workdir = Path(a.workdir)
     auto = workdir / ".autofix"
@@ -443,6 +461,14 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
                         undo(workdir, changed)
                         print("  refused by the checks: the next model is told why", flush=True)
                         refused = reasons
+                        outcome = "error"
+                        break
+                if a.lint:
+                    clean, said = linted(workdir, changed)
+                    if not clean:
+                        undo(workdir, changed)
+                        print("  refused by the lint: the next model is told why", flush=True)
+                        refused = "The lint (ruff) refused the fix:\n\n" + said
                         outcome = "error"
                         break
                 outcome = "ok"
