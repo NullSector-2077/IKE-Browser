@@ -398,7 +398,7 @@ def test_the_agent_runner_hides_the_key(tmp_path):
 def test_no_workflow_publishes_merges_or_runs_forks():
     for path in WORKFLOWS.glob("*.yml"):
         text = path.read_text()
-        if path.name != "chatgpt-guard.yml":
+        if path.name not in ("chatgpt-guard.yml", "chatgpt-cleanup.yml"):
             assert "pull_request_target" not in text, path.name
         assert "gh pr merge" not in text and "gh release create" not in text, path.name
         assert "GEMINI_API_KEY" not in text or path.name in ("autofix.yml", "health.yml"), path.name
@@ -1126,3 +1126,18 @@ def test_the_chatgpt_guard_checks_only_chatgpts_own_commits(tmp_path):
         assert run.returncode == expected, (name, run.stdout, run.stderr)
         if expected == 0:
             assert "1 commits" in run.stdout                   # the attempts' version bump not counted
+
+
+def test_closed_chatgpt_branches_are_deleted_and_nothing_else():
+    """The branches of ChatGPT's pull requests closed without merge go away by
+    themselves (the session that maintains the project cannot delete
+    branches). Only chatgpt/* of this repository; nothing of the pull request
+    is checked out or run."""
+    text = (WORKFLOWS / "chatgpt-cleanup.yml").read_text()
+    assert "pull_request_target:\n    types: [closed]" in text and "permissions: {}" in text
+    assert "github.event.pull_request.merged == false" in text
+    assert "startsWith(github.event.pull_request.head.ref, 'chatgpt/')" in text
+    assert "head.repo.full_name == github.repository" in text
+    assert "permissions:\n      contents: write\n" in text
+    assert "checkout" not in text and "python" not in text and "secrets." not in text
+    assert 'chatgpt/*) gh api -X DELETE "repos/$GH_REPO/git/refs/heads/$BRANCH"' in text
