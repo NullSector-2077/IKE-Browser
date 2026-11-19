@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.17
+
+- Automatic fix after a failure of "Tests" (see its pull request).
+
 ## 1.1.16
 
 - **Vertical tabs with only their icons**: a button at the top of the vertical

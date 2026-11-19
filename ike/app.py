@@ -689,7 +689,7 @@ class IkeApp(QObject):
         if not item.isFinished():
             return
         tmp = getattr(item, "_ike_tmp", None)
-        if item.state() != DR.DownloadCompleted:
+        if item.state() != DR.DownloadState.Completed:
             if tmp:
                 shutil.rmtree(tmp, ignore_errors=True)
             failed = item.state() == DR.DownloadInterrupted
@@ -737,9 +737,9 @@ class IkeApp(QObject):
                 st = item.state()
             except RuntimeError:                # deleted by the engine
                 continue
-            if st == DR.DownloadInProgress:
+            if st == DR.DownloadState.InProgress:
                 active.append(item)
-            elif st == DR.DownloadCompleted and not getattr(item, "_ike_ring_seen", False):
+            elif st == DR.DownloadState.Completed and not getattr(item, "_ike_ring_seen", False):
                 item._ike_ring_seen = True
                 self._dl_done = True
         if active:
