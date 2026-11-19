@@ -254,22 +254,14 @@ class _FallbackEngine:
         return False
 
 
-class _Builder(QThread):
-    """Builds a new engine without stopping the interface (the Rust part lets
-    go of Python's lock while it works)."""
-    built = pyqtSignal(object, str)
-
-    def __init__(self, blocker, snap, signature):
-        super().__init__(blocker)
-        self.blocker, self.snap, self.signature = blocker, snap, signature
-
-    def run(self):
-        try:
-            result = self.blocker._build(self.snap, self.signature)
-        except Exception as exc:              # the engine in use stays
-            self.blocker._engine_error("building the engine", "", exc)
-            result = None
-        self.built.emit(result, self.signature)
+def _give_back_memory():
+    """Hand the memory freed by the engine just replaced back to the system
+    (glibc keeps it otherwise; elsewhere nothing happens)."""
+    try:
+        import ctypes
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except Exception:
+        pass
 
 
 class Blocker(QObject):
@@ -277,6 +269,7 @@ class Blocker(QObject):
 
     updated = pyqtSignal(int, int)   # ok, failed downloads
     rebuilt = pyqtSignal()
+    _built_sig = pyqtSignal(object, str)    # from the build thread to this one
 
     def __init__(self, config, parent=None):
         super().__init__(parent)
@@ -294,6 +287,8 @@ class Blocker(QObject):
         self.scriptlets = Scriptlets()
         self._builder = None             # a background build (see load)
         self._again = False
+        self._pool = None                # one thread, kept for every build: its memory is reused
+        self._built_sig.connect(self._built)
 
     # --- lists -------------------------------------------------------
     def _active_lists(self):
@@ -449,9 +444,21 @@ class Blocker(QObject):
         if self.engine is None and self.fallback is None:
             self._install(self._build(snap, signature), signature)
             return
-        self._builder = _Builder(self, snap, signature)
-        self._builder.built.connect(self._built)
-        background.start(self._builder)
+        if self._pool is None:
+            from concurrent.futures import ThreadPoolExecutor
+            self._pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ike-adblock")
+        self._builder = self._pool.submit(self._work, snap, signature)
+
+    def _work(self, snap, signature):
+        """In the build thread: always the same one, so the memory the engine
+        needs while it is built is reused, not taken anew each time (a new
+        thread per build left about 25 MB more after every list update)."""
+        try:
+            result = self._build(snap, signature)
+        except Exception as exc:              # the engine in use stays
+            self._engine_error("building the engine", "", exc)
+            result = None
+        self._built_sig.emit(result, signature)
 
     def _built(self, result, signature):
         self._builder = None
@@ -466,6 +473,7 @@ class Blocker(QObject):
         self._way = None
         self._loaded = signature
         self.rebuilt.emit()
+        _give_back_memory()
 
     def have_lists(self):
         return any(list_path(e["url"]).exists() for e in self.config["filter_lists"])

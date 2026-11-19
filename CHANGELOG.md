@@ -63,6 +63,30 @@ Security review (each point has a test that plays the attack on this computer).
 - **GitHub actions pinned by their commit**: the tests and the automatic
   fixes run exactly the code of the actions that was checked, not whatever a
   moved tag points to; Dependabot keeps them current.
+- **Full audit of the browser** (docs/review/security-audit.md, "Full audit"):
+  - user scripts never fetch their libraries and resources (@require,
+    @resource) from this computer or the home network, also through a
+    redirect or a name that points there, unless the script itself was
+    installed from there; an update that loads code from a new place asks
+    first, and the install question says where the code comes from;
+  - one click of the user is worth one download: a page that answers it with
+    many gets the first and asks for the rest (until now every download of
+    the next three seconds went through);
+  - the new tab page's own links that change something (add a tile, choose
+    the search engine) carry a key of the session: a web page's link to them,
+    opened from the right-click menu, no longer adds bookmarks or changes the
+    engine;
+  - **home network protection**: a page of a public site that opens an
+    address of this computer or of the home network (a form sent to the
+    router, a frame of a local service) is stopped, and a bar offers "Allow
+    for this site"; addresses the user opens are not touched;
+  - a site name that does not resolve is no longer taken as "not local" by
+    the checks of dark mode and of the user scripts' requests;
+  - the clicks I.K.E. makes to skip a video ad no longer count as the user's
+    (the ad blocking itself is unchanged);
+  - an error while checking a request is counted (Help -> About) and a file
+    of the computer stays refused;
+  - two profiles open together never install an update at the same time.
 - **Faster where it was measured, with the same protection** (the full
   measurements are in docs/review/tests-and-performance.md):
   - after a filter list update the AdBlock engine is rebuilt in the
@@ -79,7 +103,11 @@ Security review (each point has a test that plays the attack on this computer).
     window stops refreshing while minimized;
   - the settings file is written only when something changed (it was written
     every minute);
-  - looking for Widevine at start no longer loads the download code.
+  - looking for Widevine at start no longer loads the download code;
+  - at Strict and Maximum the font protection masks only the font names the
+    engine can find on this computer (it asks the engine once, with the test
+    fingerprinting scripts use, and again when the fonts change): a page still
+    finds none of them, and a page with 30 frames opens about twice as fast.
 - **The browser's own requests keep no cookies** (search suggestions, site
   icons, weather, downloads of extensions and languages): a search engine can
   no longer tie together the words typed in the address bar. User scripts keep
