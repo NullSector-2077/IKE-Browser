@@ -881,6 +881,12 @@
 "I.K.E. stopped %s: it is on the protection lists (sites that spread malware, or made only of ads and tracking).": "I.K.E. a arrêté %s : le site figure sur les listes de protection (sites qui diffusent des logiciels malveillants, ou faits uniquement de publicité et de pistage).",
 "Continue anyway": "Continuer quand même",
 "For safety, code written in the address bar is not run.": "Par sécurité, le code saisi dans la barre d'adresse n'est pas exécuté.",
-"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "Correctifs de sécurité : %d versions de Chrome de retard. Mettez le système à jour (sudo pacman -Syu)."
+"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "Correctifs de sécurité : %d versions de Chrome de retard. Mettez le système à jour (sudo pacman -Syu).",
+"%s tried to open %s, an address of this computer or of your home network (a router, a printer, a local program). Sites can use this to change their settings.": "%s a essayé d'ouvrir %s, une adresse de cet ordinateur ou de votre réseau domestique (un routeur, une imprimante, un programme local). Des sites peuvent s'en servir pour en changer les réglages.",
+"Allow for this site": "Autoriser pour ce site",
+"a redirect to a refused address": "une redirection vers une adresse refusée",
+"an address of this computer or of the home network: %s": "une adresse de cet ordinateur ou du réseau domestique : %s",
+"Code and files from: %s": "Code et fichiers de : %s",
+"a part of this page": "une partie de cette page"
 }
 }

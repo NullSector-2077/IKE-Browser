@@ -83,3 +83,68 @@ between the two sessions; only figures of the same session are compared.)
 
 These numbers describe a small container without a GPU. They say that the
 versions do not differ, not how fast I.K.E. is on the owner's computer.
+
+## 1.1.17, before and after
+
+Same container (4 cores, no GPU), same commands: `tests/measure_perf.py`
+on a copy of `main` before the work (dc94b62, with its own filter engine
+library) and on the finished branch (with the rebuilt library). The same
+filter lists were used for both (`--lists`), and local test pages, so the
+network does not count. Medians; three runs each unless said otherwise.
+
+| Measure | Before | After | Note |
+|---|---|---|---|
+| Start-up to first window, cold | 0.79 s | 0.84 s | within the noise: warm start-ups alternated old/new gave 0.570 against 0.573 s |
+| Start-up, warm | 0.57 s | 0.62 s | same as above |
+| Rebuilding the filter engine | 195 ms | 204 ms | now on its own thread |
+| Window frozen while the engine is rebuilt | 191 ms | 13 ms | the real gain of P1 |
+| Page with 400 requests (150 to ad servers) | 612 ms | 554 ms | |
+| Time spent checking its requests | 61 ms | 19 ms | |
+| Shield redrawn for it | 152 times | 4 times | |
+| 30 frames, shield Off | 283 ms | 267 ms | |
+| 30 frames, Balanced | 349 ms | 348 ms | 5 rounds × 10 loads, old and new alternated; a first, non-alternated run gave 333 against 389 ms |
+| 30 frames, Strict | 1108 ms | 430 ms | fonts: only the ones a page can find are masked |
+| 30 frames, Maximum | 899 ms | 387 ms | same |
+| Switching tab | 3.8 ms | 3.0 ms | |
+| Opening a new tab | 11.1 ms | 10.9 ms | |
+| Processor at rest, 1 tab | 3.8 % | 3.3 % | share of one core |
+| Processor at rest, 10 tabs | 0.55 % | 0.50 % | |
+| Memory, all processes, 1 tab (PSS) | 711 MB | 573 MB | |
+| Memory, all processes, 10 tabs (PSS) | 875 MB | 730 MB | |
+| Memory of the main process, 5 engine rebuilds | 308 → 318 MB | 336 → 349 MB | stops growing after the second rebuild: the memory kept by the one build thread, given back to the system after each swap (`malloc_trim`); no leak |
+
+The protections were measured with the numbers above, not switched off for
+them:
+
+- the heavy page has the same requests blocked before and after;
+- fingerprinting: of the 714 fonts of the list, 50 can be found on this
+  computer; with only those 50 masked a page finds 0 of them, as with all 714;
+- the whole test suite (AdBlock, Shields, fingerprinting, passwords, user
+  scripts, updates) passes on the branch.
+
+### Final checks of the owner (1.1.17)
+
+| Check | Result | Test |
+|---|---|---|
+| Home network: a public site's page or frame cannot open a private IPv4 address, localhost, `[::1]`, a `fd00::/8` address, a `.local` or `.localhost` name, nor go there through a redirect | stopped, and the window says so (also for a frame: before this check a stopped frame was silent) | `test_home_network_protection_in_every_case`, `test_a_redirect_from_a_public_address_to_home_is_stopped` |
+| Home network: addresses the user types or picks, and home pages that use home addresses, are never stopped | not stopped | same |
+| "Allow for this site": that site only, until I.K.E. closes; nothing written to the settings | as described | same |
+| User scripts: install, daily check and "Check for updates" gather files with the same checks | one function for all three | `test_script_updates_go_through_the_same_checks` and the earlier user-script tests |
+| User scripts: redirects and DNS rebinding | each redirect is checked; a file's name is looked up once and the connection goes to that checked address (new in this check) | `test_script_libraries_go_to_the_address_that_was_checked` |
+| User scripts: a new update cannot bring code from new places or widen its permissions in silence | it asks | `test_a_user_script_update_loading_code_from_new_places_asks` and earlier |
+| Errors: a name that cannot be looked up, a timeout, a failed redirect | refused for user-script files; a fault inside the request checks keeps files of the computer and a public site's way into the home network refused (new in this check), while ordinary pages go on | `test_errors_while_checking_keep_protected_things_protected`, `test_a_name_that_does_not_resolve_is_not_let_through` |
+| Two profiles at once | settings, data and cache are separate per profile; the only shared folder is the program updates: installing is one at a time (lock), and the state file is written through a temporary file of each process | `test_two_profiles_never_write_the_update_state_over_each_other`, `test_one_installation_at_a_time` |
+
+### Limits that remain
+
+- A name of the home network that is not written as an address (for example
+  `fritz.box`) is not recognised as local by the request checks, because they
+  run without a DNS lookup (a lookup there would slow every page). The web
+  engine's own protection (Private Network Access) still stops a public page's
+  scripts and images towards it; a public page that sends the tab there is not
+  stopped.
+- Behind a proxy set in the environment the user-script downloads cannot pin
+  the checked address (the proxy looks the name up); the redirect and address
+  checks still apply.
+- These numbers come from a container without a GPU; they compare the two
+  versions, they do not say how fast I.K.E. is on the owner's computer.

@@ -1,5 +1,6 @@
 """Protection layer: request interception, cookies, injected scripts, profile."""
 
+import functools
 import json
 import os
 import secrets
@@ -17,7 +18,7 @@ from PyQt6.QtWebEngineCore import (
     QWebEngineUrlSchemeHandler,
 )
 
-from . import osinfo
+from . import fontcheck, osinfo
 from .config import (
     CACHE_DIR,
     DATA_DIR,
@@ -143,8 +144,12 @@ _HOSTED = (".github.io", ".gitlab.io", ".blogspot.com", ".herokuapp.com", ".page
            ".neocities.org")
 
 
+@functools.lru_cache(maxsize=4096)
 def site_of(host):
-    """Registrable domain of a host: "www.bbc.co.uk" -> "bbc.co.uk"."""
+    """Registrable domain of a host: "www.bbc.co.uk" -> "bbc.co.uk".
+
+    Asked several times for every request of every page, always for the same
+    few hosts: remembered (a pure function of its argument, 1.1.17)."""
     host = host or ""
     parts = host.split(".")
     if len(parts) <= 2 or host.replace(".", "").isdigit() or ":" in host:
@@ -198,7 +203,60 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         return local_file_in_reach(first.toLocalFile(), url.toLocalFile(),
                                    shared_folders((cfg["download_dir"],)))
 
+    def _lan_refused(self, info, url, main):
+        """Home network protection (1.1.17): a page of a public site that opens
+        an address of this computer or of the home network (a form sent to the
+        router, a frame of a local service) is stopped, and the window asks
+        the user (securebar.py). Chromium already stops pictures and scripts
+        of that kind, not pages. Addresses the user opens are not touched;
+        only literal local names and addresses are looked at (no lookup here)."""
+        from .userscripts import is_local_name
+        if not is_local_name(url.host()):
+            return False
+        try:
+            init = info.initiator()
+        except AttributeError:
+            return False
+        if init.scheme() not in ("http", "https") or is_local_name(init.host()):
+            return False                  # the user, I.K.E. itself, or a page of the home network
+        s = self.s
+        if site_of(init.host().lower()) in s.lan_allowed:
+            return False
+        info.block(True)
+        if not self.quiet:
+            if len(s.lan_blocked) > 100:
+                s.lan_blocked.clear()
+            if main:
+                s.lan_blocked[url.toString()] = site_of(init.host().lower())
+            else:
+                # a frame of the page: the page itself loads, and the window
+                # says what was stopped in it (no silent breakage)
+                s.lan_blocked["frame:" + info.firstPartyUrl().toString()] = site_of(init.host().lower())
+        return True
+
     def interceptRequest(self, info):
+        """Every request of every page. An unexpected error in the checks is
+        counted and logged like the engine's own (Help -> About), and a file
+        of the computer stays refused (1.1.17: such an error let the request
+        through unnoticed)."""
+        try:
+            self._intercept(info)
+        except Exception as exc:
+            try:
+                url = info.requestUrl()
+                self.s.blocker._engine_error("checking a request", url.toString(), exc)
+                # what was protected stays protected: a file of the computer,
+                # and an address of the home network asked for by a public site
+                from .userscripts import is_local_name
+                init = info.initiator()
+                if url.scheme() == "file" or (
+                        is_local_name(url.host()) and init.scheme() in ("http", "https")
+                        and not is_local_name(init.host())):
+                    info.block(True)
+            except Exception:
+                pass
+
+    def _intercept(self, info):
         s = self.s
         cfg = s.config
         url = info.requestUrl()
@@ -211,6 +269,8 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             return
         rtype = info.resourceType()
         main = rtype == _RT.ResourceTypeMainFrame
+        if (main or rtype == _RT.ResourceTypeSubFrame) and self._lan_refused(info, url, main):
+            return
         first = url if main else info.firstPartyUrl()
         if not main and first.isEmpty():
             try:
@@ -372,6 +432,14 @@ class IkeSchemeHandler(QWebEngineUrlSchemeHandler):
             q = q.replace("+", " ")
             job.redirect(QUrl(self.s.search_url(q)))
             return
+        if path in ("open", "engine", "tile") and not secrets.compare_digest(
+                QUrlQuery_value(url, "k") or "", self.s.action_key):
+            # an address that changes something works only from the new tab
+            # page itself, which carries this session's key in its links: a
+            # web page's link opened from the right-click menu (no initiator)
+            # cannot add a bookmark or change the search engine (1.1.17)
+            job.redirect(QUrl("ike:newtab"))
+            return
         if path == "open":
             # the Settings or the background photo, asked for on the new tab page itself
             what = QUrlQuery_value(url, "what")
@@ -433,6 +501,7 @@ class Shields(QObject):
         # One fingerprint-noise key per WebEngine profile. Private and
         # container profiles must not share the same per-site noise stream.
         self.profile_keys = {}
+        self.action_key = secrets.token_hex(16)   # the new tab page's own links (IkeSchemeHandler)
         self.stats = {}
         self.requests = {}               # site -> requests made for it (see resources)
         self.redirected = set()
@@ -440,6 +509,8 @@ class Shields(QObject):
         self.http_allowed = set()
         self.pages_allowed = set()      # sites the user opened anyway though the lists block them (securebar.py)
         self.blocked_pages = set()      # whole pages the lists stopped, until their error is shown
+        self.lan_blocked = {}           # local address a public page tried to open -> that site
+        self.lan_allowed = set()        # public sites the user let open local addresses (session)
         self.profiles = []
         self.user_scripts = None         # set by the application
         self.interceptor = Interceptor(self)
@@ -564,7 +635,21 @@ class Shields(QObject):
                                            T(LEVEL_NAMES[self.config["shield_level"]])),
         }.items():
             html = html.replace(k, v)
-        return html
+        return self.with_action_key(html)
+
+    def with_action_key(self, html):
+        """The new tab page's addresses that change something carry the
+        session's key (see IkeSchemeHandler); the page is built by I.K.E., the
+        key never reaches a web page."""
+        import re
+        key = self.action_key
+        html = re.sub(r'href="(ike:(?:open|engine|tile)\?[^"]*)"', lambda m: 'href="%s&amp;k=%s"' % (m.group(1), key), html)
+        # the key goes last in the form: the page's script looks for its first field
+        start = html.find('action="ike:tile"')
+        end = html.find("</form>", start) if start >= 0 else -1
+        if end < 0:
+            return html
+        return html[:end] + '<input type="hidden" name="k" value="%s">' % key + html[end:]
 
     def _newtab_buttons(self):
         """Settings (top right) and the background photo (bottom left) on the new tab page;
@@ -763,7 +848,9 @@ class Shields(QObject):
                       "os": ident["os"], "platform": ident["platform"],
                       "platformVersion": ident["platform_version"],
                       "ffAppVersion": ident["firefox_app_version"],
-                      "ffOscpu": ident["firefox_oscpu"]}
+                      "ffOscpu": ident["firefox_oscpu"],
+                      # the masked names a page can find here (fontcheck.py); None: all of them
+                      "fonts": fontcheck.findable()}
             s = QWebEngineScript()
             s.setName("ike-fp")
             s.setSourceCode(self._fp_src.replace("__IKE_CFG__", json.dumps(fp_cfg)))

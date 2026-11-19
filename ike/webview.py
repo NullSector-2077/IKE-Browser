@@ -281,12 +281,18 @@ class WebPage(QWebEnginePage):
         global_pos = QPointF(global_point)
         left, none = Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton
         mod = Qt.KeyboardModifier.NoModifier
-        for etype, buttons in ((QEvent.Type.MouseMove, none),
-                               (QEvent.Type.MouseButtonPress, left),
-                               (QEvent.Type.MouseButtonRelease, none)):
-            button = none if etype == QEvent.Type.MouseMove else left
-            event = QMouseEvent(etype, target_pos, global_pos, button, buttons, mod)
-            QCoreApplication.sendEvent(target, event)
+        # these clicks are I.K.E.'s, not the user's: they must not count as
+        # the user's action (downloads, 1.1.17)
+        self._ike_synthetic = True
+        try:
+            for etype, buttons in ((QEvent.Type.MouseMove, none),
+                                   (QEvent.Type.MouseButtonPress, left),
+                                   (QEvent.Type.MouseButtonRelease, none)):
+                button = none if etype == QEvent.Type.MouseMove else left
+                event = QMouseEvent(etype, target_pos, global_pos, button, buttons, mod)
+                QCoreApplication.sendEvent(target, event)
+        finally:
+            self._ike_synthetic = False
         return True
 
     def createWindow(self, wtype):
@@ -359,6 +365,15 @@ class WebPage(QWebEnginePage):
             sh.upgraded.discard(url.host().lower())
             self._secure_notice("nohttps", url)
             return
+        if not ok and url.toString() in sh.lan_blocked:
+            site = sh.lan_blocked.pop(url.toString())
+            from .securebar import set_notice
+            view = self.window_ref.view_of(self)
+            if view is not None:
+                set_notice(view, "lan", url, site)
+                if view is self.window_ref.current_view():
+                    self.window_ref.secure_bar.show_for(view)
+            return
         if not ok and url.toString() in sh.blocked_pages:
             sh.blocked_pages.discard(url.toString())
             self._secure_notice("blocked", url)
@@ -368,6 +383,14 @@ class WebPage(QWebEnginePage):
             view = self.window_ref.view_of(self)
             if view is not None and getattr(view, "secure_notice", None):
                 view.secure_notice = None          # a page that loads is no longer stopped
+                if view is self.window_ref.current_view():
+                    self.window_ref.secure_bar.show_for(view)
+            site = sh.lan_blocked.pop("frame:" + url.toString(), None)
+            if site and view is not None:
+                # a frame of this page asked for the home network and was stopped
+                from .securebar import set_notice
+                set_notice(view, "lan", url, site)
+                view.secure_notice["frame"] = True
                 if view is self.window_ref.current_view():
                     self.window_ref.secure_bar.show_for(view)
         if not ok or not self._protected():
@@ -686,7 +709,8 @@ class WebView(QWebEngineView):
 
     def eventFilter(self, obj, event):
         t = event.type()
-        if t in (QEvent.Type.MouseButtonPress, QEvent.Type.KeyPress):
+        if t in (QEvent.Type.MouseButtonPress, QEvent.Type.KeyPress) \
+                and not getattr(self.page(), "_ike_synthetic", False):
             self.page()._ike_input = time.monotonic()   # the user acts on the page (downloads)
         if t == QEvent.Type.Wheel and self._wheel(event):
             return True

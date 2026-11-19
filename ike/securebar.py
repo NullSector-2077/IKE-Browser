@@ -8,6 +8,9 @@ Two cases, each with a way through that only the user can take:
   can make the secure address fail on purpose to read and change the page.
   Now the page stops, the bar says why, and "Continue without protection"
   opens the http address for this session.
+- "lan" (home network protection): a page of a public site tried to open an
+  address of this computer or of the home network (a form sent to the
+  router). "Allow for this site" lets that site do it for this session.
 - "blocked": the whole page is on the filter lists (a site that spreads
   malware, or one only made of ads or tracking). "Continue anyway" opens it
   for this session; the lists still filter what it loads.
@@ -22,9 +25,10 @@ from PyQt6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QStyle, QToolButto
 from .i18n import T
 
 
-def set_notice(view, kind, url):
-    """Mark `view` as stopped (kind "nohttps" or "blocked") for `url`."""
-    view.secure_notice = {"kind": kind, "url": QUrl(url).toString(), "closed": False}
+def set_notice(view, kind, url, site=""):
+    """Mark `view` as stopped (kind "nohttps", "blocked" or "lan") for `url`;
+    `site`: the public site that tried to open it ("lan")."""
+    view.secure_notice = {"kind": kind, "url": QUrl(url).toString(), "closed": False, "site": site}
 
 
 def notice_of(view):
@@ -74,6 +78,12 @@ class SecureBar(QWidget):
                                        "is blocking it. Without it, others on the network can read and "
                                        "change this page.") % host)
             self.go.setText(T("Continue without protection"))
+        elif n["kind"] == "lan":
+            target = T("a part of this page") if n.get("frame") else host
+            self.text.setText("⚠ " + T("%s tried to open %s, an address of this computer or of your home "
+                                       "network (a router, a printer, a local program). Sites can use this "
+                                       "to change their settings.") % (n.get("site") or "?", target))
+            self.go.setText(T("Allow for this site"))
         else:
             self.text.setText("⛔ " + T("I.K.E. stopped %s: it is on the protection lists (sites that "
                                        "spread malware, or made only of ads and tracking).") % host)
@@ -95,6 +105,9 @@ class SecureBar(QWidget):
         if n["kind"] == "nohttps":
             sh.http_allowed.add(host)
             url.setScheme("http")
+        elif n["kind"] == "lan":
+            if n.get("site"):
+                sh.lan_allowed.add(n["site"])      # this site only, until I.K.E. closes
         else:
             sh.pages_allowed.add(host)
         v.secure_notice = None

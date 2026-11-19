@@ -49,7 +49,8 @@ def load_state():
 def save_state(state):
     try:
         UPDATES.mkdir(parents=True, exist_ok=True)
-        tmp = STATE.with_suffix(".tmp")
+        # its own temporary name: two profiles of I.K.E. may write at the same time (1.1.17)
+        tmp = STATE.with_name("state.%d.tmp" % os.getpid())
         tmp.write_text(json.dumps(state), "utf-8")
         tmp.replace(STATE)
     except OSError:

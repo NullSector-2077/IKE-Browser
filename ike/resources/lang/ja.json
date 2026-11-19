@@ -881,6 +881,12 @@
 "I.K.E. stopped %s: it is on the protection lists (sites that spread malware, or made only of ads and tracking).": "I.K.E. は %s を停止しました：保護リストに載っています（マルウェアを広めるサイト、または広告と追跡だけのサイト）。",
 "Continue anyway": "それでも続行",
 "For safety, code written in the address bar is not run.": "安全のため、アドレスバーに書かれたコードは実行されません。",
-"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "セキュリティ修正：Chrome の %d バージョン分遅れています。システムを更新してください（sudo pacman -Syu）。"
+"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "セキュリティ修正：Chrome の %d バージョン分遅れています。システムを更新してください（sudo pacman -Syu）。",
+"%s tried to open %s, an address of this computer or of your home network (a router, a printer, a local program). Sites can use this to change their settings.": "%s が %s を開こうとしました。これはこのコンピューターまたはホームネットワークのアドレスです（ルーター、プリンター、ローカルプログラム）。サイトはこれを使って設定を変更できます。",
+"Allow for this site": "このサイトに許可",
+"a redirect to a refused address": "拒否されたアドレスへのリダイレクト",
+"an address of this computer or of the home network: %s": "このコンピューターまたはホームネットワークのアドレス：%s",
+"Code and files from: %s": "コードとファイルの提供元：%s",
+"a part of this page": "このページの一部"
 }
 }

@@ -881,6 +881,12 @@
 "I.K.E. stopped %s: it is on the protection lists (sites that spread malware, or made only of ads and tracking).": "I.K.E. je ustavil %s: je na seznamih zaščite (strani, ki širijo zlonamerno programje, ali so samo oglasi in sledenje).",
 "Continue anyway": "Vseeno nadaljuj",
 "For safety, code written in the address bar is not run.": "Zaradi varnosti se koda, napisana v naslovni vrstici, ne izvede.",
-"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "Varnostni popravki: zaostanek %d različic Chroma. Posodobite sistem (sudo pacman -Syu)."
+"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "Varnostni popravki: zaostanek %d različic Chroma. Posodobite sistem (sudo pacman -Syu).",
+"%s tried to open %s, an address of this computer or of your home network (a router, a printer, a local program). Sites can use this to change their settings.": "%s je poskušal odpreti %s, naslov tega računalnika ali vašega domačega omrežja (usmerjevalnik, tiskalnik, lokalni program). Strani lahko tako spreminjajo njihove nastavitve.",
+"Allow for this site": "Dovoli za to stran",
+"a redirect to a refused address": "preusmeritev na zavrnjen naslov",
+"an address of this computer or of the home network: %s": "naslov tega računalnika ali domačega omrežja: %s",
+"Code and files from: %s": "Koda in datoteke z: %s",
+"a part of this page": "del te strani"
 }
 }

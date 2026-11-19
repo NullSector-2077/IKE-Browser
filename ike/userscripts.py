@@ -33,6 +33,7 @@ import re
 import secrets
 import socket
 import time
+import urllib.error
 import urllib.request
 from urllib.parse import urljoin, urlsplit
 
@@ -99,7 +100,7 @@ def is_local_name(host):
     return False
 
 
-def outside_home(host, done, who=""):
+def outside_home(host, done, who="", network=None):
     """done(True) if `host` is neither this computer nor the home network.
 
     A name is looked up first: a public name that points to a local address
@@ -125,10 +126,32 @@ def outside_home(host, done, who=""):
 
     def found(info):
         if info.error() != QHostInfo.HostInfoError.NoError:
-            done(True)                   # unknown here: the request fails by itself, or a proxy resolves it
+            # A name that does not resolve here is refused (1.1.17; it was let
+            # through): a hostile name server could fail the check and answer
+            # the request itself with a local address. Behind a proxy, which
+            # resolves names for the browser, the request goes on as before.
+            done(_behind_proxy(host, network))
             return
         _resolved(who, host, [a.toString() for a in info.addresses()], done)
     QHostInfo.lookupHost(host, found)
+
+
+def _behind_proxy(host, network=None):
+    """True when the request will go through a proxy, which resolves the name
+    itself: the proxy set on the connection that makes it, or the system's."""
+    from PyQt6.QtNetwork import QNetworkProxy, QNetworkProxyFactory, QNetworkProxyQuery
+    real = (QNetworkProxy.ProxyType.HttpProxy, QNetworkProxy.ProxyType.Socks5Proxy)
+    try:
+        if network is not None and network.proxy().type() in real:
+            return True
+    except Exception:
+        pass
+    try:
+        found = QNetworkProxyFactory.systemProxyForQuery(QNetworkProxyQuery(QUrl("https://%s/" % host)))
+    except Exception:
+        return False
+    return any(p.type() not in (QNetworkProxy.ProxyType.NoProxy, QNetworkProxy.ProxyType.DefaultProxy)
+               for p in found)
 
 
 def _resolved(who, host, addresses, done):
@@ -223,12 +246,108 @@ def include_regex(pattern):
     return "^" + _glob(pattern).replace(re.escape(".tld") + "/", r"\.[a-z.]{2,}/") + "$"
 
 
-def _get(url, limit):
+def at_home(host, unknown=True):
+    """True if `host` is this computer or the home network, by its name, its
+    address or what the name resolves to. A name that cannot be resolved here
+    counts as at home (`unknown`): the check must not be skipped by a failing
+    lookup. unknown=False asks the opposite question, "is it surely at home?"."""
+    h = (host or "").lower().rstrip(".").strip("[]")
+    if not h or is_local_name(h):
+        return True
+    try:
+        ipaddress.ip_address(h)
+        return False                     # a public address
+    except ValueError:
+        pass
+    fake = dict(p.split("=", 1) for p in os.environ.get("IKE_TEST_RESOLVE", "").split(",") if "=" in p)
+    if h in fake:
+        return any(is_local_address(a) for a in fake[h].split("|"))
+    try:
+        infos = socket.getaddrinfo(h, None)
+    except (OSError, UnicodeError):
+        return unknown
+    return any(is_local_address(i[4][0]) for i in infos)
+
+
+class _Redirects(urllib.request.HTTPRedirectHandler):
+    """Every redirect of a script's download is checked like the first address."""
+
+    def __init__(self, home_ok):
+        super().__init__()
+        self.home_ok = home_ok
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        parts = urlsplit(newurl)
+        if parts.scheme not in ("http", "https") or (not self.home_ok and at_home(parts.hostname)):
+            raise urllib.error.URLError(T("a redirect to a refused address"))
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _pin(host, home_ok):
+    """The address to connect to for `host`, looked up once and checked: the
+    connection goes to that address, so a name server cannot answer the check
+    with a public address and the connection with a local one (DNS rebinding)."""
+    import http.client
+    h = (host or "").lower().rstrip(".").strip("[]")
+    try:
+        addresses = [str(ipaddress.ip_address(h))]
+    except ValueError:
+        fake = dict(p.split("=", 1) for p in os.environ.get("IKE_TEST_RESOLVE", "").split(",") if "=" in p)
+        if h in fake:
+            addresses = fake[h].split("|")
+        else:
+            try:
+                addresses = [i[4][0] for i in socket.getaddrinfo(h, None, proto=socket.IPPROTO_TCP)]
+            except (OSError, UnicodeError) as exc:
+                raise http.client.HTTPException("%s: %s" % (h, exc)) from None
+    if not addresses or (not home_ok and (is_local_name(h) or any(is_local_address(a) for a in addresses))):
+        raise urllib.error.URLError(T("an address of this computer or of the home network: %s") % h)
+    return addresses[0]
+
+
+def _pinned_handlers(home_ok):
+    import http.client
+
+    class Plain(http.client.HTTPConnection):
+        def connect(self):
+            self.sock = socket.create_connection((_pin(self.host, home_ok), self.port),
+                                                 self.timeout, self.source_address)
+
+    class Secure(http.client.HTTPSConnection):
+        def connect(self):
+            sock = socket.create_connection((_pin(self.host, home_ok), self.port),
+                                            self.timeout, self.source_address)
+            self.sock = self._context.wrap_socket(sock, server_hostname=self.host)
+
+    class PlainHandler(urllib.request.HTTPHandler):
+        def http_open(self, req):
+            return self.do_open(Plain, req)
+
+    class SecureHandler(urllib.request.HTTPSHandler):
+        def https_open(self, req):
+            return self.do_open(Secure, req, context=self._context)
+    return PlainHandler(), SecureHandler()
+
+
+def _get(url, limit, home_ok=True):
+    """Download `url` (at most `limit` bytes). home_ok=False: never from this
+    computer or the home network, also through a redirect (1.1.17): the
+    libraries and resources a script names must not let it read a router or
+    a local service, which its @connect rule would refuse."""
     parts = urlsplit(url)
     if parts.scheme not in ("http", "https") or not parts.hostname:
         raise ValueError(T("only http and https addresses can be used"))
+    if not home_ok and at_home(parts.hostname):
+        raise ValueError(T("an address of this computer or of the home network: %s") % parts.hostname)
+    handlers = [_Redirects(home_ok)]
+    proxies = urllib.request.getproxies()
+    if not home_ok and not (proxies.get(parts.scheme) and not urllib.request.proxy_bypass(parts.hostname)):
+        # without a proxy (which resolves names itself), every connection goes
+        # to the address that was checked, also after a redirect
+        handlers += list(_pinned_handlers(home_ok))
+    opener = urllib.request.build_opener(*handlers)
     req = urllib.request.Request(url, headers={"User-Agent": "I.K.E. user scripts"})
-    with urllib.request.urlopen(req, timeout=40) as r:
+    with opener.open(req, timeout=40) as r:
         data = r.read(limit + 1)
         ctype = r.headers.get_content_type() if r.headers else ""
     if len(data) > limit:
@@ -236,24 +355,35 @@ def _get(url, limit):
     return data, ctype
 
 
+def dependency_urls(meta, source_url=""):
+    """The addresses of a script's @require and @resource lines."""
+    refs = list(meta["require"][:30]) + [r.split(None, 1)[1] for r in meta["resource"][:20]
+                                          if len(r.split(None, 1)) == 2]
+    return [urljoin(source_url, ref) if source_url else ref for ref in refs]
+
+
 def gather(text, source_url=""):
-    """Everything a script needs, fetched: {"meta", "text", "requires", "resources"}."""
+    """Everything a script needs, fetched: {"meta", "text", "requires", "resources"}.
+
+    Its libraries come from the home network only when the script itself does
+    (the user installed it from a computer at home)."""
     meta = parse_meta(text)
     if meta is None:
         raise ValueError(T("this is not a user script (its header is missing)"))
+    home_ok = bool(source_url) and at_home(urlsplit(source_url).hostname, unknown=False)
     requires, resources = [], {}
     for ref in meta["require"][:30]:
         url = urljoin(source_url, ref) if source_url else ref
-        data, _ctype = _get(url, MAX_SCRIPT)
+        data, _ctype = _get(url, MAX_SCRIPT, home_ok)
         requires.append([url, data.decode("utf-8", "replace")])
     for ref in meta["resource"][:20]:
         bits = ref.split(None, 1)
         if len(bits) != 2:
             continue
         url = urljoin(source_url, bits[1]) if source_url else bits[1]
-        data, ctype = _get(url, 2 * 1024 * 1024)
+        data, ctype = _get(url, 2 * 1024 * 1024, home_ok)
         resources[bits[0]] = {"type": ctype, "b64": base64.b64encode(data).decode("ascii"),
-                              "text": data.decode("utf-8", "replace")}
+                              "text": data.decode("utf-8", "replace"), "url": url}
     return {"meta": meta, "text": text, "requires": requires, "resources": resources,
             "source": source_url}
 
@@ -279,8 +409,15 @@ def update_needs_consent(old, got):
     if old.get("noframes") and "noframes" not in meta:
         return True
     source = got.get("source") or ""
-    refs = list(meta["require"]) + [r.split(None, 1)[1] for r in meta["resource"] if len(r.split(None, 1)) == 2]
-    return any(not (urljoin(source, ref) if source else ref).startswith("https://") for ref in refs)
+    deps = dependency_urls(meta, source)
+    if any(not u.startswith("https://") for u in deps):
+        return True
+    # code from a host the installed version did not load from (1.1.17)
+    before_hosts = {urlsplit(u).hostname for u, _t in old.get("requires") or []}
+    before_hosts |= {urlsplit(r.get("url", "")).hostname for r in (old.get("resources") or {}).values()
+                     if isinstance(r, dict) and r.get("url")}
+    before_hosts |= {urlsplit(old.get("update") or old.get("source") or "").hostname}
+    return any(urlsplit(u).hostname not in before_hosts for u in deps)
 
 
 class Fetcher(QThread):
@@ -424,6 +561,9 @@ class UserScripts(QObject):
                                                 + (" …" if len(meta["connect"]) > 12 else "")))
         if meta["require"]:
             lines.append(T("Loads %d additional libraries") % len(meta["require"]))
+        hosts = sorted({urlsplit(u).hostname or "" for u in dependency_urls(meta)} - {""})
+        if hosts:
+            lines.append(T("Code and files from: %s") % ", ".join(hosts[:8]))
         return "\n".join(lines)
 
     def fetch(self, callback, url="", text=None, newer=None):
@@ -703,7 +843,7 @@ class UserScripts(QObject):
         if named:
             done(True)
             return
-        outside_home(host, done, name + " (not named by @connect)")
+        outside_home(host, done, name + " (not named by @connect)", self.network)
 
     def _send(self, page, sid, d, rid, url, method, page_host):
         req = QNetworkRequest(url)

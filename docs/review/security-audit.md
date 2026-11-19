@@ -207,3 +207,29 @@ verifying the signature of Chrome extensions (open issue B) until extensions
 work and are no longer experimental, and a content security policy for the new
 tab page (defence in depth; no weakness known).
 
+## Full audit of 1.1.17
+
+Date: 2026-11-19, on main at `dc94b62`, read-only first; the report the owner
+approved is the source of this section. Each finding was reproduced in the real
+browser against local servers, and each fix has a test that fails on the old
+code.
+
+| Rating | Finding | Fix | Test |
+|---|---|---|---|
+| Medium | `@require` / `@resource` were fetched from this computer and the home network, also through a redirect; a silent update could add such an address (`update_needs_consent` checked only https) | `_get(home_ok=False)` with `at_home()` (literal, resolved, unknown = refused) and a checked redirect handler (no ftp); libraries from home only for a script whose source surely is there; an update loading code from a new host asks; the install dialog names the hosts | `test_user_script_libraries_never_come_from_the_home_network`, `test_a_user_script_update_loading_code_from_new_places_asks` |
+| Low | One real click let a page start downloads for 3 s without the question (31 in a test) | one user action = one download (`_ike_input_used`) | `test_one_click_is_worth_one_download` |
+| Low | A page's link to `ike:tile?add=` / `ike:engine?name=` opened from the context menu ran as the user's (no initiator): bookmark and tile added | `ike:open|engine|tile` need the session's `action_key`, put only in the new tab page's own links | `test_a_web_page_link_to_an_internal_action_does_nothing` |
+| Low | A public page could send a form (top-level navigation) to a local service; Chromium stops only subresources | home network protection in the interceptor (main frames and frames, literal local hosts, public initiator) with a window bar | `test_a_public_page_cannot_open_the_home_network` |
+| Low | `outside_home()` let a name that does not resolve through (fail-open) | refused unless a proxy resolves names; DNS rebinding between the check and the request remains a documented limit (no way to pin the address with Qt's network stack) | `test_a_name_that_does_not_resolve_is_not_let_through` |
+| Low | `trusted_click()` (video ad skip) marked the user's input | its events are flagged and not counted | `test_automatic_ad_skip_clicks_are_not_the_users` |
+| Low | An exception in `interceptRequest` let the request through unnoticed | counted and logged like engine errors; file requests stay blocked | `test_an_error_while_checking_a_request_is_counted_and_files_stay_refused` |
+| Low | Two profiles could install the same update at once | `stage()` under an exclusive lock | `test_updater.py::test_one_installation_at_a_time` |
+
+Checked and found sound: the program update (signature, hash, extraction,
+rollback), certificates, the https upgrade, list downloads, the vault, the
+sandbox and permissions, local files, the internal channels (QWebChannel in
+the isolated world, user script tokens, instance socket, D-Bus), downloads'
+folder, private windows. Removing an `@exclude-match` in an update already
+asked for consent (reproduced). Out of scope by the owner's choice: the
+automatic fixes and their workflows.
+
