@@ -196,3 +196,46 @@ def test_looking_for_widevine_loads_no_download_code():
     res = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
                          env={"QT_QPA_PLATFORM": "offscreen", "HOME": "/tmp"})
     assert res.stdout.split() == ["False", "False"], res.stdout + res.stderr
+
+
+def test_fonts_stay_hidden_with_the_shorter_list(run_ike):
+    """Strict masks only the font names the engine can find on this computer
+    (fontcheck.py): a page finds none of the list, exactly as with all 714
+    masks, and fewer masks are made in every frame."""
+    out = run_ike(r'''
+def steps(ike, qapp, out):
+    import json
+    from PyQt6.QtCore import QUrl
+    from ike import fontcheck
+    names = fontcheck.masked_names()
+    out["listed"] = len(names)
+    ike.font_check._run()
+    for _ in range(300):
+        if fontcheck.findable() is not None:
+            break
+        yield 50
+    found = fontcheck.findable()
+    out["findable"] = None if found is None else len(found)
+
+    def detect(level):
+        ike.config["shield_level"] = level
+        ike.shields.apply_settings()
+        v = ike.windows[0].current_view()
+        done = {}
+        v.page().loadFinished.connect(lambda ok: done.setdefault("ok", ok))
+        v.setHtml("<!doctype html><body>x</body>", QUrl("https://fonts.example.test/" + level))
+        while "ok" not in done:
+            yield 20
+        yield 800
+        r = {}
+        v.page().runJavaScript(fontcheck.DETECT % json.dumps(names), 0, lambda x: r.setdefault("x", x))
+        while "x" not in r:
+            yield 20
+        return r["x"]
+    out["off"] = len((yield from detect("off")))
+    out["strict"] = (yield from detect("strict"))
+    out["maximum"] = (yield from detect("maximum"))
+''', timeout=180)
+    assert out["listed"] > 700
+    assert out["findable"] is not None and out["findable"] == out["off"] < out["listed"], out
+    assert out["strict"] == [] and out["maximum"] == [], out

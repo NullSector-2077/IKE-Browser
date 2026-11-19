@@ -214,7 +214,7 @@ def steps(ike, qapp, out):
     yield 10
 '''
 
-MAIN = COMMON + r'''
+MAIN = r'''
 BASE = %r
 def steps(ike, qapp, out):
     import gc
@@ -345,7 +345,7 @@ def main():
     home = Path(tempfile.mkdtemp(prefix="ike-perf-home-"))
     make_home(home, lists)
     run(START, home)                       # the engine's cache
-    out = run(MAIN % base, home, timeout=1800)
+    out = run(COMMON + MAIN % base, home, timeout=1800)
     res.update({k: v for k, v in out.items() if not k.startswith("_")})
     shutil.rmtree(home, ignore_errors=True)
     srv.shutdown()

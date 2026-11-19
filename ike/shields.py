@@ -18,7 +18,7 @@ from PyQt6.QtWebEngineCore import (
     QWebEngineUrlSchemeHandler,
 )
 
-from . import osinfo
+from . import fontcheck, osinfo
 from .config import (
     CACHE_DIR,
     DATA_DIR,
@@ -768,7 +768,9 @@ class Shields(QObject):
                       "os": ident["os"], "platform": ident["platform"],
                       "platformVersion": ident["platform_version"],
                       "ffAppVersion": ident["firefox_app_version"],
-                      "ffOscpu": ident["firefox_oscpu"]}
+                      "ffOscpu": ident["firefox_oscpu"],
+                      # the masked names a page can find here (fontcheck.py); None: all of them
+                      "fonts": fontcheck.findable()}
             s = QWebEngineScript()
             s.setName("ike-fp")
             s.setSourceCode(self._fp_src.replace("__IKE_CFG__", json.dumps(fp_cfg)))

@@ -50,6 +50,9 @@ class IkeApp(QObject):
         self.storage = Storage()
         self.blocker = Blocker(config, self)
         self.shields = Shields(config, self.blocker, self)
+        from .fontcheck import Checker as FontCheck
+        self.font_check = FontCheck(self.shields, self)   # fonts a page could find (Strict / Maximum)
+        self.font_check.start()
         self.shields.open_requested.connect(self._open_from_newtab, Qt.ConnectionType.QueuedConnection)
         self.shields.engine_chosen.connect(self._engine_from_newtab, Qt.ConnectionType.QueuedConnection)
         from .userscripts import UserScripts
