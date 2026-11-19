@@ -1688,3 +1688,299 @@ def steps(ike, qapp, out):
     assert out["right"] == "secret-pw"
     assert out["copy_within_minutes"] == ["secret-pw", 0]
     assert out["verify"] == [True, False] and out["after_lock"] is True
+
+
+# ----------------------------------------------------------------------
+# full audit of 1.1.17 (docs/review/security-audit.md, "Full audit")
+# ----------------------------------------------------------------------
+@pytest.fixture
+def lan_service():
+    """A service of "the home network": it notes what reaches it."""
+    seen = []
+
+    class H(BaseHTTPRequestHandler):
+        def do_GET(self):
+            seen.append("GET " + self.path)
+            if self.path.startswith("/redir"):
+                self.send_response(302)
+                self.send_header("Location", "http://127.0.0.1:%d/secret" % self.server.server_address[1])
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            body = b"<!doctype html><title>router</title>ROUTER-ADMIN-PASSWORD=hunter2"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_POST(self):
+            seen.append("POST " + self.path)
+            self.send_response(200)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def log_message(self, *a):
+            pass
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    yield srv.server_address[1], seen
+    srv.shutdown()
+
+
+def _userscripts():
+    sys.path.insert(0, str(APP))
+    try:
+        from ike import userscripts
+        return userscripts
+    finally:
+        sys.path.remove(str(APP))
+
+
+def test_user_script_libraries_never_come_from_the_home_network(lan_service, monkeypatch):
+    """@require and @resource of a script from the Internet are not fetched
+    from this computer or the home network, directly, through a redirect or a
+    name that points there; a script installed from a computer at home may."""
+    port, seen = lan_service
+    us = _userscripts()
+    monkeypatch.setenv("IKE_TEST_RESOLVE", "cdn.example.test=192.168.1.20")
+    head = "// ==UserScript==\n// @name s\n// @match https://a.test/*\n%s// ==/UserScript==\n"
+    for line in ("// @resource cfg http://127.0.0.1:%d/secret\n" % port,
+                 "// @require http://localhost:%d/redir\n" % port,
+                 "// @require https://cdn.example.test/lib.js\n",
+                 "// @resource r https://192.168.1.1/admin\n"):
+        with pytest.raises(ValueError):
+            us.gather(head % line, "https://scripts.example.test/s.user.js")
+    assert seen == [], seen                                  # nothing was even asked
+    # a redirect from elsewhere to home is refused as well
+    handler = us._Redirects(home_ok=False)
+    with pytest.raises(Exception):
+        handler.redirect_request(None, None, 302, "", {}, "http://127.0.0.1:%d/secret" % port)
+    with pytest.raises(Exception):
+        handler.redirect_request(None, None, 302, "", {}, "ftp://files.example.test/x")
+    # installed from a computer at home: its own libraries may be there
+    got = us.gather(head % ("// @resource cfg http://127.0.0.1:%d/secret\n" % port),
+                    "http://127.0.0.1:%d/s.user.js" % port)
+    assert "hunter2" in got["resources"]["cfg"]["text"]
+    assert us.at_home("localhost") and us.at_home("192.168.1.1") and us.at_home("cdn.example.test")
+    assert us.at_home("no-such-name.invalid")               # unknown: refused, not let through
+    assert not us.at_home("93.184.216.34")
+
+
+def test_a_user_script_update_loading_code_from_new_places_asks():
+    us = _userscripts()
+
+    def got(extra):
+        text = ("// ==UserScript==\n// @name s\n// @version 2\n// @match https://a.test/*\n"
+                "// @grant GM_setValue\n%s// ==/UserScript==\n" % extra)
+        return {"meta": us.parse_meta(text), "source": "https://scripts.example.test/s.user.js"}
+    old = {"match": ["https://a.test/*"], "include": [], "exclude": [], "grant": ["GM_setValue"],
+           "connect": [], "noframes": False, "update": "https://scripts.example.test/s.user.js",
+           "requires": [["https://cdn.example.test/lib.js", "x"]],
+           "resources": {"css": {"url": "https://static.example.test/a.css", "text": ""}}}
+    assert not us.update_needs_consent(old, got("// @require https://cdn.example.test/lib2.js\n"))
+    assert not us.update_needs_consent(old, got("// @resource css https://static.example.test/b.css\n"))
+    assert not us.update_needs_consent(old, got("// @require lib3.js\n"))         # next to the script
+    assert us.update_needs_consent(old, got("// @require https://other.example.test/x.js\n"))
+    assert us.update_needs_consent(old, got("// @resource r https://192.168.1.1/admin\n"))
+    assert us.update_needs_consent(old, got("// @resource r https://localhost:631/admin\n"))
+
+
+def test_one_click_is_worth_one_download(run_ike, tmp_path):
+    """A page that answers one click of the user with many downloads gets the
+    first one; the rest wait for the question (until 1.1.17 every download of
+    the next 3 seconds went through)."""
+    seen = []
+    page = (b"<!doctype html><title>p</title>"
+            b"<button id=b style='position:absolute;left:0;top:0;width:300px;height:100px'>read</button>"
+            b"<script>document.getElementById('b').addEventListener('click', function () {"
+            b" for (var i = 0; i < 8; i++) (function (i) { setTimeout(function () {"
+            b"  var a = document.createElement('a'); a.href = '/f' + i; a.download = '';"
+            b"  document.body.appendChild(a); a.dispatchEvent(new MouseEvent('click')); }, 120 * i); })(i);"
+            b"}, {once: true});</script>")
+
+    class H(BaseHTTPRequestHandler):
+        def do_GET(self):
+            seen.append(self.path)
+            if self.path.startswith("/f"):
+                body = b"x"
+                self.send_response(200)
+                self.send_header("Content-Type", "application/octet-stream")
+                self.send_header("Content-Disposition", "attachment; filename=%s.bin" % self.path[1:])
+            else:
+                body = page
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    folder = tmp_path / "dl"
+    try:
+        out = run_ike(r'''
+PORT = %d
+
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QPoint, Qt, QUrl
+    from PyQt6.QtTest import QTest
+    from PyQt6.QtWebEngineCore import QWebEnginePage
+    asked = []
+    type(ike)._ask_download_burst = lambda self, site, done: (asked.append(site), done(False))
+    win = ike.windows[0]
+    v = win.current_view()
+    yield 4000                                    # well after the start page
+    done = {}
+    v.page().loadFinished.connect(lambda ok: done.setdefault("ok", ok))
+    QWebEnginePage.load(v.page(), QUrl("http://127.0.0.1:%%d/" %% PORT))
+    while "ok" not in done:
+        yield 20
+    yield 4000
+    QTest.mouseClick(v.focusProxy() or v, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier,
+                     QPoint(100, 50))
+    yield 3000
+    out["asked"] = asked
+''' % srv.server_address[1], settings={"https_only": False, "download_dir": str(folder),
+                                       "ask_download_location": False}, timeout=90)
+    finally:
+        srv.shutdown()
+    assert out["asked"] == ["127.0.0.1"], out
+    assert sorted(p.name for p in folder.iterdir()) == ["f0.bin"], list(folder.iterdir())
+
+
+def test_a_web_page_link_to_an_internal_action_does_nothing(run_ike):
+    """"Open link in new tab" on a page's link to ike:tile?add=... or
+    ike:engine?name=... used to act as the user; now only the new tab page's
+    own links (with the session's key) change anything."""
+    out = run_ike(JS + r'''
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QUrl
+    win = ike.windows[0]
+    yield 1500
+    before = ike.config["default_engine"]
+    other = [e["name"] for e in ike.config["search_engines"] if e["name"] != before][0]
+    for addr in ("ike:tile?add=https%3A%2F%2Fevil.example%2F", "ike:engine?name=" + other,
+                 "ike:tile?add=https%3A%2F%2Fevil.example%2F&k=guessed"):
+        win.add_tab(QUrl(addr), background=True)                 # what the menu does
+        yield 800
+    out["bookmarked"] = ike.storage.is_bookmarked("https://evil.example/")
+    out["engine_kept"] = ike.config["default_engine"] == before
+    html = ike.shields.newtab_html()
+    out["own_links_keyed"] = ("&amp;k=" + ike.shields.action_key) in html and \
+        ('name="k" value="%s"' % ike.shields.action_key) in html
+    win.add_tab(QUrl("ike:tile?add=https%3A%2F%2Fmine.example%2F&k=" + ike.shields.action_key), background=True)
+    yield 800
+    out["own_works"] = ike.storage.is_bookmarked("https://mine.example/")
+''', timeout=90)
+    assert out["bookmarked"] is False and out["engine_kept"] is True, out
+    assert out["own_links_keyed"] is True and out["own_works"] is True
+
+
+def test_a_public_page_cannot_open_the_home_network(run_ike, lan_service):
+    """Home network protection: a page of a public site that sends a form to a
+    local service is stopped and the window asks; the user's "Allow for this
+    site" lets it through for the session. Addresses the user opens are not
+    touched."""
+    port, seen = lan_service
+    out = run_ike(JS + r'''
+PORT = %d
+
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QUrl
+    win = ike.windows[0]
+    v = win.current_view()
+    yield 1000
+    v.setHtml("<title>public</title><form id=f method=POST action='http://127.0.0.1:%%d/router-setting'>"
+              "<input name=a value=1></form><script>document.getElementById('f').submit();</script>" %% PORT,
+              QUrl("https://news.example.test/"))
+    yield 3000
+    out["bar"] = [win.secure_bar.isVisible(), win.secure_bar.text.text()]
+    win.secure_bar.go.click()
+    yield 2500
+    out["after_allow"] = v.title()
+    other = win.add_tab(QUrl("http://127.0.0.1:%%d/typed" %% PORT))            # the user's own
+    yield 2500
+    out["typed"] = other.title()
+''' % port, settings={"https_only": False}, timeout=90)
+    assert out["bar"][0] is True and "news.example.test" in out["bar"][1], out
+    assert not any(s.startswith("POST") for s in seen), seen     # the form never reached it
+    assert out["after_allow"] == "router" and out["typed"] == "router"
+
+
+def test_a_name_that_does_not_resolve_is_not_let_through(run_ike):
+    """outside_home(): a failed lookup used to count as "not local"; a
+    hostile name server could fail the check and answer the request itself."""
+    out = run_ike(r'''
+def steps(ike, qapp, out):
+    from ike.userscripts import outside_home
+    got = {}
+    outside_home("no-such-name-for-ike.invalid", lambda ok: got.setdefault("bad", ok), "test")
+    outside_home("93.184.216.34", lambda ok: got.setdefault("public", ok), "test")
+    for _ in range(200):
+        if len(got) == 2:
+            break
+        yield 50
+    out["got"] = got
+''', timeout=60)
+    assert out["got"] == {"bad": False, "public": True}, out
+
+
+def test_automatic_ad_skip_clicks_are_not_the_users(run_ike):
+    """The clicks I.K.E. makes to skip a video ad are real Qt events; they no
+    longer count as the user's action (which lets a download through)."""
+    out = run_ike(r'''
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QUrl
+    v = ike.windows[0].current_view()
+    v.setHtml("<title>video</title><p>player</p>", QUrl("https://www.youtube.com/watch?v=x"))
+    yield 1500
+    page = v.page()
+    page._ike_input = -99.0
+    out["clicked"] = page.trusted_click(30, 30, allow_embedded=True)
+    yield 200
+    out["input"] = page._ike_input
+''', timeout=60)
+    assert out["clicked"] is True and out["input"] == -99.0, out
+
+
+def test_an_error_while_checking_a_request_is_counted_and_files_stay_refused(run_ike, tmp_path):
+    secret = tmp_path / "secret.txt"
+    secret.write_text("TOP-SECRET")
+    out = run_ike(r'''
+SECRET = %r
+
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QByteArray, QUrl
+    from PyQt6.QtWebEngineCore import QWebEngineUrlRequestInfo as RI
+    yield 500
+
+    class Info:
+        def __init__(self, url, first):
+            self.u, self.f, self.blocked = QUrl(url), QUrl(first), False
+        def requestUrl(self): return self.u
+        def firstPartyUrl(self): return self.f
+        def initiator(self): return self.f
+        def resourceType(self): return RI.ResourceType.ResourceTypeSubFrame
+        def requestMethod(self): return QByteArray(b"GET")
+        def block(self, b): self.blocked = b
+        def redirect(self, u): pass
+        def setHttpHeader(self, k, v): pass
+    sh = ike.shields
+    before = ike.blocker.errors
+    real_rule, real_level = sh.interceptor._local_file, ike.config.level_for
+    def broken(*a, **k):
+        raise RuntimeError("fault")
+    sh.interceptor._local_file = broken
+    ike.config.level_for = broken
+    f = Info(QUrl.fromLocalFile(SECRET).toString(), "file:///tmp/page.html")
+    sh.interceptor.interceptRequest(f)
+    w = Info("https://ads.example.test/a.js", "https://site.test/")
+    sh.interceptor.interceptRequest(w)
+    sh.interceptor._local_file, ike.config.level_for = real_rule, real_level
+    out["file_blocked"] = f.blocked
+    out["errors"] = ike.blocker.errors - before
+''' % str(secret), timeout=60, internal_errors=True)
+    assert out["file_blocked"] is True and out["errors"] == 2, out

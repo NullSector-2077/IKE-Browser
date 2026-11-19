@@ -539,8 +539,8 @@ def steps(ike, qapp, out):
     view = win.current_view()
     # the new tab page: its two buttons, the clock at the bottom right, the logo
     out["newtab"] = json.loads((yield from js(view, "JSON.stringify({"
-        "settings: !!document.querySelector('a.nt-settings[href=\"ike:open?what=settings\"]'), "
-        "photo: !!document.querySelector('a.nt-photo[href=\"ike:open?what=background\"]'), "
+        "settings: !!document.querySelector('a.nt-settings[href^=\"ike:open?what=settings&k=\"]'), "
+        "photo: !!document.querySelector('a.nt-photo[href^=\"ike:open?what=background&k=\"]'), "
         "corner: getComputedStyle(document.querySelector('.corner')).bottom, "
         "logo: !!document.querySelector('img.logo'), name: !!document.querySelector('h1 svg')})")))
     # a click on "Background photo": the Settings open at the new tab page's own page

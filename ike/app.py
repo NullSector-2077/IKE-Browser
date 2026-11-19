@@ -714,8 +714,18 @@ class IkeApp(QObject):
         except (AttributeError, RuntimeError):
             page = None
         now = time.monotonic()
-        if page is not None and now - getattr(page, "_ike_input", -99.0) < self.USER_SECONDS:
-            return False                  # right after a click, a key or an address of the user
+        user = getattr(page, "_ike_input", -99.0) if page is not None else -99.0
+        if (now - user < self.USER_SECONDS
+                and getattr(page, "_ike_input_used", None) != user):
+            # right after a click, a key or an address of the user: that one
+            # action is worth one download (1.1.17: until then every download
+            # of the next 3 seconds went through, 31 in a test)
+            page._ike_input_used = user
+            host = page.url().host() or item.url().host()
+            self.__dict__.setdefault("_dl_burst", {"times": {}, "allowed": set(), "blocked": set(),
+                                                   "held": {}})["times"].setdefault(
+                site_of(host.lower()), []).append(now)
+            return False
         host = (page.url().host() if page is not None else "") or item.url().host()
         site = site_of(host.lower())
         if not site:

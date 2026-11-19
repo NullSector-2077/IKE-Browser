@@ -881,6 +881,11 @@
 "I.K.E. stopped %s: it is on the protection lists (sites that spread malware, or made only of ads and tracking).": "I.K.E. 已拦截 %s：它在保护列表中（传播恶意软件的网站，或只有广告和跟踪的网站）。",
 "Continue anyway": "仍然继续",
 "For safety, code written in the address bar is not run.": "出于安全考虑，不会运行在地址栏中写入的代码。",
-"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "安全修复：落后 %d 个 Chrome 版本。请更新系统（sudo pacman -Syu）。"
+"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "安全修复：落后 %d 个 Chrome 版本。请更新系统（sudo pacman -Syu）。",
+"%s tried to open %s, an address of this computer or of your home network (a router, a printer, a local program). Sites can use this to change their settings.": "%s 试图打开 %s，这是本机或家庭网络中的地址（路由器、打印机、本地程序）。网站可以借此更改它们的设置。",
+"Allow for this site": "对此网站允许",
+"a redirect to a refused address": "重定向到被拒绝的地址",
+"an address of this computer or of the home network: %s": "本机或家庭网络中的地址：%s",
+"Code and files from: %s": "代码和文件来自：%s"
 }
 }

@@ -459,3 +459,18 @@ def test_updates_install_by_themselves_in_the_browser(run_ike):
     assert out["install"] == [True]
     assert out["items"][0] == "auto" and out["current"] == "auto"
     assert out["saved"] == "off" and out["after_off"] == []
+
+
+def test_one_installation_at_a_time(updater):
+    """Two profiles of I.K.E. share the updates folder: while one installs,
+    the other's attempt is refused and touches nothing (1.1.17)."""
+    import fcntl
+    payload = tar_gz({"ike/__init__.py": b'__version__ = "9.9.9"\n'})
+    updater.UPDATES.mkdir(parents=True, exist_ok=True)
+    with open(updater.UPDATES / ".lock", "w") as other:
+        fcntl.flock(other, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        with pytest.raises(ValueError, match="another I.K.E."):
+            updater.stage({"version": "9.9.9", "sha256": hashlib.sha256(payload).hexdigest()}, payload)
+    assert not any(updater.UPDATES.rglob("*.staging"))
+    with pytest.raises(ValueError, match="hash"):          # free again: checks go on as before
+        updater.stage({"version": "9.9.9", "sha256": "0" * 64}, payload)

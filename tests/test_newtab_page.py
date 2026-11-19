@@ -141,11 +141,11 @@ def steps(ike, qapp, out):
     yield from js(view, "document.querySelector('.tile.add input').dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true})); 1")
     out["escaped"] = yield from js(view, "getComputedStyle(document.querySelector('.tile.add input')).display")
     # the address the tile sends, directly
-    yield from load(view, "ike:tile?add=new.example")
+    yield from load(view, "ike:tile?add=new.example&k=" + ike.shields.action_key)
     yield 300
     out["added"] = [st.is_bookmarked("https://new.example"), view.url().toString()]
     out["first_tiles"] = json.loads((yield from js(view, read)))["links"][:2]
-    yield from load(view, "ike:tile?add=" + "javascript%3Aalert(1)")
+    yield from load(view, "ike:tile?add=" + "javascript%3Aalert(1)" + "&k=" + ike.shields.action_key)
     out["not_added"] = [u for u, _t, _f in st.bookmarks() if u.startswith("javascript:alert")]
 
     ike.config["newtab_tiles"] = "visited"

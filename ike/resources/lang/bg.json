@@ -881,6 +881,11 @@
 "I.K.E. stopped %s: it is on the protection lists (sites that spread malware, or made only of ads and tracking).": "I.K.E. спря %s: сайтът е в списъците за защита (сайтове, които разпространяват зловреден софтуер или са само реклами и проследяване).",
 "Continue anyway": "Продължаване въпреки това",
 "For safety, code written in the address bar is not run.": "От съображения за сигурност кодът, написан в адресната лента, не се изпълнява.",
-"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "Защитни поправки: изоставане с %d версии на Chrome. Обновете системата (sudo pacman -Syu)."
+"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "Защитни поправки: изоставане с %d версии на Chrome. Обновете системата (sudo pacman -Syu).",
+"%s tried to open %s, an address of this computer or of your home network (a router, a printer, a local program). Sites can use this to change their settings.": "%s се опита да отвори %s — адрес на този компютър или на домашната ви мрежа (рутер, принтер, локална програма). Сайтовете могат така да променят техните настройки.",
+"Allow for this site": "Разрешаване за този сайт",
+"a redirect to a refused address": "пренасочване към отказан адрес",
+"an address of this computer or of the home network: %s": "адрес на този компютър или на домашната мрежа: %s",
+"Code and files from: %s": "Код и файлове от: %s"
 }
 }

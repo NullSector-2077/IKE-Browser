@@ -881,6 +881,11 @@
 "I.K.E. stopped %s: it is on the protection lists (sites that spread malware, or made only of ads and tracking).": "I.K.E. zastavil %s: stránka je na seznamech ochrany (stránky šířící malware, nebo tvořené jen reklamou a sledováním).",
 "Continue anyway": "Přesto pokračovat",
 "For safety, code written in the address bar is not run.": "Z bezpečnostních důvodů se kód napsaný do adresního řádku nespouští.",
-"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "Bezpečnostní opravy: %d verzí Chrome pozadu. Aktualizujte systém (sudo pacman -Syu)."
+"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "Bezpečnostní opravy: %d verzí Chrome pozadu. Aktualizujte systém (sudo pacman -Syu).",
+"%s tried to open %s, an address of this computer or of your home network (a router, a printer, a local program). Sites can use this to change their settings.": "%s se pokusil otevřít %s, adresu tohoto počítače nebo vaší domácí sítě (router, tiskárna, místní program). Stránky tak mohou měnit jejich nastavení.",
+"Allow for this site": "Povolit pro tuto stránku",
+"a redirect to a refused address": "přesměrování na odmítnutou adresu",
+"an address of this computer or of the home network: %s": "adresa tohoto počítače nebo domácí sítě: %s",
+"Code and files from: %s": "Kód a soubory z: %s"
 }
 }
