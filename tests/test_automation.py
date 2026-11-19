@@ -1027,3 +1027,21 @@ def test_each_fix_goes_through_the_lint(repo, tmp_path):
                  env={"GROQ_API_KEY": "k", "AUTOFIX_GROQ_MODELS": "g1, g2"}, opener=spy)
     assert json.loads(status.read_text())["result"] == "ok"
     assert "F821" in asked[1] and (repo / "ike/window.py").read_text() == "def width():\n    return 11\n"
+
+
+def test_a_missing_name_comes_with_its_working_uses(repo):
+    """2026-11-19 (giro 2): after a simulated PyQt change a reserve wrote
+    DownloadState.Completed, then went back to the error itself; the right
+    form was in ike/dialogs.py all along."""
+    ctx = load("autofix-context")
+    (repo / "ike/app.py").write_text("from x import R as DR\n\n\ndef tick(st):\n    return st == DR.DownloadInProgress\n"
+                                     "\n\ndef done(st):\n    return st == DR.DownloadInProgress\n")
+    (repo / "ike/dialogs.py").write_text("def state(d):\n    S = R.DownloadState\n    return S.DownloadInProgress\n")
+    failure = ('  File "/x/ike/app.py", line 5, in tick\n'
+               "AttributeError: type object 'R' has no attribute 'DownloadInProgress'\n")
+    text, related = ctx.build(repo, failure)
+    part = text.split("# The same names elsewhere in I.K.E.", 1)[1]
+    assert "`ike/dialogs.py` uses `DownloadInProgress`" in part and "S = R.DownloadState" in part
+    assert "ike/app.py" not in part.split("Files involved")[0]   # never the failing file's own mistakes
+    assert related == ["ike/app.py"]                             # the pertinence stays on the error
+    assert "same names elsewhere" not in ctx.build(repo, "ImportError: x\n")[0]

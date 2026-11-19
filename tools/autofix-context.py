@@ -31,6 +31,9 @@ AROUND = 30                 # lines before and after a place
 MAX_PLACES = 8
 MAX_LINES = 700             # all excerpts together
 MAX_RELATED = 12
+MAX_EXAMPLES = 3            # other places that use a missing name (1.1.16)
+EXAMPLE_AROUND = 4
+_MISSING = re.compile(r"has no attribute '(\w+)'|name '(\w+)' is not defined|cannot import name '(\w+)'")
 
 _PLACE = re.compile(
     r'File "(?:[^"]*/)?((?:ike|tests|tools|docs|vendor/adblock)/[\w./-]+\.py)", line (\d+)'    # traceback
@@ -84,6 +87,41 @@ def excerpt(repo, path, line):
     return start, end, body
 
 
+def examples(repo, failure, found):
+    """Where the names an error says are missing are used elsewhere in the code.
+    2026-11-19: after a (simulated) PyQt change a reserve did not know the right
+    form of an enum, while ike/dialogs.py used it correctly a few lines away
+    from where it is defined. Only I.K.E.'s own code, a few lines each."""
+    names = []
+    for m in _MISSING.finditer(failure):
+        n = next(g for g in m.groups() if g)
+        if n not in names and len(n) > 3:
+            names.append(n)
+    if not names:
+        return ""
+    failing = {path for path, _line in found}     # the failing files may hold the same mistake elsewhere
+    parts = []
+    for name in names[:3]:
+        word = re.compile(r"\b%s\b" % re.escape(name))
+        for path in sorted(str(p.relative_to(repo)) for p in (repo / "ike").rglob("*.py")):
+            if len(parts) >= MAX_EXAMPLES:
+                break
+            if path in failing:
+                continue
+            lines = (repo / path).read_text("utf-8", errors="replace").splitlines()
+            for i, text in enumerate(lines, 1):
+                if not word.search(text):
+                    continue
+                start, end = max(1, i - EXAMPLE_AROUND), min(len(lines), i + EXAMPLE_AROUND)
+                body = "\n".join("%5d  %s" % (n, lines[n - 1]) for n in range(start, end + 1))
+                parts.append("### `%s` uses `%s` (line %d)\n\n```text\n%s\n```\n" % (path, name, i, body))
+                break
+    if not parts:
+        return ""
+    return ("\n# The same names elsewhere in I.K.E.\n\nThe error says a name is missing; here it is "
+            "used in code that works. Compare the form.\n\n" + "\n".join(parts))
+
+
 def build(repo, failure):
     found = places(failure, repo)
     related = []
@@ -110,6 +148,7 @@ def build(repo, failure):
     else:
         text = ("# Code at the failure\n\nPrepared by GitHub from the places the failure names "
                 "(line numbers on the left; they are not part of the files).\n\n" + "\n".join(parts))
+    text += examples(repo, failure, found)
     if related:
         text += "\nFiles involved: %s\n" % ", ".join("`%s`" % p for p in related)
     return text, related
