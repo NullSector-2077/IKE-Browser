@@ -40,6 +40,26 @@ Security review (each point has a test that plays the attack on this computer).
   https addresses, and an update that asks for more than the installed version
   (more sites, more GM_ functions, more hosts) or loads code over plain http is
   shown to the user first, as a new script is.
+- **Code in the address bar is not run**: a "javascript:" address typed or
+  pasted in the address bar would run inside the site in view, with the
+  user's account (the "paste this to get a gift" scam). It is refused there;
+  bookmarks that run code (bookmarklets) still work.
+- **No silent fallback to an unprotected connection**: when the secure (https)
+  address of a site asked for over http does not answer, the page stops and a
+  bar says why, with "Continue without protection" for this session. Until
+  now I.K.E. went to http by itself, which someone on the network can force.
+- **Sites that spread malware are blocked**: the Malicious URL Blocklist
+  (abuse.ch URLhaus, CC0 / MIT; on by default in uBlock Origin) is on for new
+  and existing users. A whole page the lists block shows a bar that says so,
+  with "Continue anyway" for this session.
+- **Warning when the web engine misses security fixes**: when the system's
+  qt6-webengine is five or more Chrome versions behind with its security
+  fixes, a notice (once per session) and Help -> About say to update the
+  system.
+- **The Passwords window asks for the master password** before it shows,
+  copies or exports a saved password (once every five minutes), so whoever
+  sits at a computer left with the vault open cannot read them all. Filling a
+  login into a site is unchanged.
 - **GitHub actions pinned by their commit**: the tests and the automatic
   fixes run exactly the code of the actions that was checked, not whatever a
   moved tag points to; Dependabot keeps them current.

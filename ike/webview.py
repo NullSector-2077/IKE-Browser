@@ -351,21 +351,40 @@ class WebPage(QWebEnginePage):
         url = self.url()
         sh = self.app.shields
         if not ok and url.scheme() == "https" and url.host().lower() in sh.upgraded:
-            # HTTPS upgrade failed: fall back to plain HTTP for this session.
-            host = url.host().lower()
-            sh.upgraded.discard(host)
-            sh.http_allowed.add(host)
-            plain = QUrl(url)
-            plain.setScheme("http")
-            self.load(plain)
+            # The secure address of a page asked for over http did not answer.
+            # Until 1.1.17 the browser went back to http by itself; someone on
+            # the network can make the secure address fail on purpose. Now the
+            # page stops and the window says so (securebar.py): only the user
+            # can go on without protection.
+            sh.upgraded.discard(url.host().lower())
+            self._secure_notice("nohttps", url)
+            return
+        if not ok and url.toString() in sh.blocked_pages:
+            sh.blocked_pages.discard(url.toString())
+            self._secure_notice("blocked", url)
             return
         if ok:
             sh.upgraded.discard(url.host().lower())
+            view = self.window_ref.view_of(self)
+            if view is not None and getattr(view, "secure_notice", None):
+                view.secure_notice = None          # a page that loads is no longer stopped
+                if view is self.window_ref.current_view():
+                    self.window_ref.secure_bar.show_for(view)
         if not ok or not self._protected():
             return
         self._inject_cosmetics()
         if not self._generichide:
             self.runJavaScript(_COLLECT_JS, 1, self._generic)
+
+    def _secure_notice(self, kind, url):
+        from .securebar import set_notice
+        win = self.window_ref
+        view = win.view_of(self)
+        if view is None:
+            return
+        set_notice(view, kind, url)
+        if view is win.current_view():
+            win.secure_bar.show_for(view)
 
     def _generic(self, result):
         if not result or len(result) != 2:

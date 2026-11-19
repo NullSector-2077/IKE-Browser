@@ -292,7 +292,8 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         # Previously the `elif` paired with the main-frame URL rewriting branch
         # skipped network filters for every normal top-level navigation.
         if ((cfg["comp_adblock"] or cfg["comp_consent"])
-                and cfg.site_opt(first_host, "ads") is not False):
+                and cfg.site_opt(first_host, "ads") is not False
+                and not (main and host in s.pages_allowed)):
             try:
                 method = bytes(info.requestMethod()).decode("ascii", "ignore").upper() or "GET"
             except Exception:
@@ -311,6 +312,10 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
                 return
             if action == "block":
                 info.block(True)
+                if main and not self.quiet:
+                    if len(s.blocked_pages) > 100:
+                        s.blocked_pages.clear()
+                    s.blocked_pages.add(url.toString())   # the window explains it (securebar.py)
                 self._count(first_host, "scripts" if rtype == _RT.ResourceTypeScript else "ads")
                 return
             if action == "rewrite" and target and method == "GET":
@@ -433,6 +438,8 @@ class Shields(QObject):
         self.redirected = set()
         self.upgraded = set()
         self.http_allowed = set()
+        self.pages_allowed = set()      # sites the user opened anyway though the lists block them (securebar.py)
+        self.blocked_pages = set()      # whole pages the lists stopped, until their error is shown
         self.profiles = []
         self.user_scripts = None         # set by the application
         self.interceptor = Interceptor(self)

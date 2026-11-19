@@ -1453,3 +1453,238 @@ def steps(ike, qapp, out):
     else:
         assert out["files"] == ["f1.bin"], out
     assert out["asked_for_user"] == 0
+
+
+# ----------------------------------------------------------------------
+# 1.1.17, decided with the owner: address bar code, no silent http, pages on
+# the lists, an engine without recent fixes, the passwords window
+# ----------------------------------------------------------------------
+@pytest.fixture
+def plain_site():
+    """A local http server; it notes the paths asked for (TLS attempts are not
+    requests and are not noted)."""
+    seen = []
+
+    class H(BaseHTTPRequestHandler):
+        def do_GET(self):
+            seen.append(self.path)
+            body = b"<!doctype html><title>plain page</title><p>hello"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+
+        def log_error(self, *a):
+            pass
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    yield srv.server_address[1], seen
+    srv.shutdown()
+
+
+def test_code_typed_in_the_address_bar_is_never_run(run_ike, plain_site):
+    """"javascript:" typed or pasted in the address bar would run inside the
+    site in view (the "paste this to get a gift" scam). It is refused there;
+    a bookmark (bookmarklet) still runs its own."""
+    port, _seen = plain_site
+    out = run_ike(JS + r'''
+PORT = %d
+
+def steps(ike, qapp, out):
+    win = ike.windows[0]
+    view = win.current_view()
+    yield from load(view, "http://127.0.0.1:%%d/" %% PORT)
+    code = "javascript:void(document.title='pwned-'+document.domain)"
+    win.urlbar.setText(code)
+    win.urlbar.returnPressed.emit()                  # typed and Enter
+    yield 1200
+    out["typed"] = view.title()
+    win.navigate(code, typed=True)                    # pasted and gone
+    yield 1200
+    out["pasted"] = view.title()
+    win.navigate("javascript:void(document.title='bookmarklet')")    # from a bookmark
+    yield 1200
+    out["bookmark"] = view.title()
+''' % port, settings={"https_only": False}, timeout=90)
+    assert out["typed"] == "plain page" and out["pasted"] == "plain page", out
+    assert out["bookmark"] == "bookmarklet"
+
+
+def test_a_failed_secure_address_is_not_left_for_http_silently(run_ike, plain_site):
+    """The secure address of a page asked for over http does not answer: the
+    page stops with a warning, nothing is fetched over http until the user
+    presses "Continue without protection" (until 1.1.17 it went to http by
+    itself, which someone on the network can force)."""
+    port, seen = plain_site
+    out = run_ike(JS + r'''
+PORT = %d
+
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QUrl
+    win = ike.windows[0]
+    view = win.current_view()
+    sh = ike.shields
+    yield 800
+    # as if http://127.0.0.1:PORT had been upgraded by https_only: the server
+    # speaks only http, so the secure address fails
+    sh.upgraded.add("127.0.0.1")
+    yield from load(view, QUrl("https://127.0.0.1:%%d/page" %% PORT))
+    yield 1500
+    out["bar"] = win.secure_bar.isVisible()
+    out["text"] = win.secure_bar.text.text()
+    out["url_after_failure"] = view.url().toString()
+    out["allowed_before"] = "127.0.0.1" in sh.http_allowed
+    win.secure_bar.go.click()
+    yield 2000
+    out["url_after_click"] = view.url().toString()
+    out["title"] = view.title()
+    out["bar_after"] = win.secure_bar.isVisible()
+''' % port, timeout=90)
+    assert out["bar"] and "127.0.0.1" in out["text"], out
+    assert out["url_after_failure"].startswith("https://") and out["allowed_before"] is False
+    assert out["url_after_click"] == "http://127.0.0.1:%d/page" % port and out["title"] == "plain page"
+    assert out["bar_after"] is False
+    assert [p for p in seen if p != "/favicon.ico"] == ["/page"], seen    # http only after the click
+
+
+@needs_engine
+def test_a_page_on_the_lists_is_stopped_with_a_way_through(run_ike, plain_site):
+    """A whole page that the lists block (a site spreading malware) shows the
+    window's warning; "Continue anyway" opens it for this session only."""
+    port, seen = plain_site
+    out = run_ike(JS + r'''
+PORT = %d
+
+def steps(ike, qapp, out):
+    win = ike.windows[0]
+    view = win.current_view()
+    yield 800
+    yield from load(view, "http://127.0.0.1:%%d/evil-download" %% PORT)
+    yield 800
+    out["bar"] = win.secure_bar.isVisible()
+    out["text"] = win.secure_bar.text.text()
+    out["title_blocked"] = view.title()
+    win.secure_bar.go.click()
+    yield 2000
+    out["title"] = view.title()
+    out["allowed"] = sorted(ike.shields.pages_allowed)
+''' % port, settings={"https_only": False, "custom_filters": "/evil-download$document"}, timeout=90)
+    assert out["bar"] and "127.0.0.1" in out["text"], out
+    assert out["title"] == "plain page" and out["allowed"] == ["127.0.0.1"], out
+    assert [p for p in seen if p != "/favicon.ico"] == ["/evil-download"], seen   # only after "Continue anyway"
+
+
+def test_the_malware_list_reaches_new_and_existing_users(tmp_path, monkeypatch):
+    """The Malicious URL Blocklist is on by default, and settings of an older
+    version get it once (a user who turns it off later keeps it off)."""
+    import importlib
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    sys.path.insert(0, str(APP))
+    try:
+        from ike import config as C
+        importlib.reload(C)
+        url = "https://malware-filter.gitlab.io/malware-filter/urlhaus-filter-online.txt"
+        assert any(e["url"] == url and e["enabled"] for e in C.DEFAULT_LISTS)
+        old = [e for e in C.DEFAULT_LISTS if e["url"] != url]
+        path = Path(C.CONFIG_DIR) / "settings.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"filter_lists": old, "lists_version": 3, "last_lists_update": 123}))
+        cfg = C.Config()
+        mine = [e for e in cfg["filter_lists"] if e["url"] == url]
+        assert len(mine) == 1 and mine[0]["enabled"] and cfg["lists_version"] == 4
+        assert cfg["last_lists_update"] == 0               # fetched at the next start
+        mine[0]["enabled"] = False
+        cfg.save()
+        again = C.Config()
+        assert [e["enabled"] for e in again["filter_lists"] if e["url"] == url] == [False]
+    finally:
+        sys.path.remove(str(APP))
+    text = (ROOT / "docs" / "THIRD-PARTY.md").read_text()
+    assert "Malicious URL Blocklist" in text and "CC0" in text
+
+
+def test_an_engine_without_recent_security_fixes_is_reported(run_ike):
+    """The system's web engine gets its security fixes from the system's
+    updates: when they are months behind the current Chrome, I.K.E. says so
+    once (a desktop notice) and in Help -> About."""
+    out = run_ike(r'''
+def steps(ike, qapp, out):
+    from ike import chromever
+    notes = []
+    ike._desktop_notify = lambda text, *a, **k: notes.append(text)
+    ike.config["chrome_major"] = 157
+    real = chromever.security_major
+    chromever.security_major = lambda: 157
+    out["fresh"] = [ike._engine_security_notice(), list(notes)]
+    chromever.security_major = lambda: 148
+    out["old"] = [ike._engine_security_notice(), list(notes)]
+    ike._engine_security_notice()
+    out["once"] = len(notes)
+    out["about"] = ike.windows[0].about_text(media={})
+    chromever.security_major = real
+    yield 10
+''', settings={"language": "en"}, timeout=60)
+    assert out["fresh"] == [0, []]
+    behind, notes = out["old"]
+    assert behind == 9 and len(notes) == 1 and "sudo pacman -Syu" in notes[0] and "9" in notes[0]
+    assert out["once"] == 1
+    assert "Security fixes: 9 Chrome versions behind" in out["about"]
+
+
+def test_saved_passwords_need_the_master_password_to_be_seen(run_ike):
+    """With the vault open, the Passwords window shows, copies or exports a
+    password only after the master password is typed again (once every few
+    minutes); a wrong one shows nothing. Filling a login into a site is
+    unchanged."""
+    out = run_ike(r'''
+def steps(ike, qapp, out):
+    import time
+    from PyQt6.QtWidgets import QInputDialog, QMessageBox
+    from PyQt6.QtGui import QGuiApplication
+    from ike.passwords import PasswordsDialog
+    pm = ike.passwords
+    pm.vault.create("right master")
+    pm.vault.put("https://site.test", "me", "secret-pw")
+    asked = []
+    answers = []
+    def get_text(*a, **k):
+        asked.append(a[1] if len(a) > 1 else "")
+        return (answers.pop(0), True) if answers else ("", False)
+    QInputDialog.getText = staticmethod(get_text)
+    QMessageBox.warning = staticmethod(lambda *a, **k: QMessageBox.StandardButton.No)
+    pm._confirmed = time.monotonic() - 3600             # typed an hour ago
+    dlg = PasswordsDialog(ike)
+    dlg.show()
+    yield 300
+    dlg.tree.setCurrentItem(dlg.tree.topLevelItem(0))
+    def shown():
+        return dlg.tree.topLevelItem(0).text(2)
+    QGuiApplication.clipboard().setText("untouched")
+    answers[:] = ["wrong"]
+    dlg._toggle()
+    out["wrong"] = [shown(), dlg.shown]
+    dlg._copy()
+    out["copied_without"] = QGuiApplication.clipboard().text()
+    answers[:] = ["right master"]
+    dlg._toggle()
+    out["right"] = shown()
+    n = len(asked)
+    dlg.tree.setCurrentItem(dlg.tree.topLevelItem(0))     # the list was filled again
+    dlg._copy()
+    out["copy_within_minutes"] = [QGuiApplication.clipboard().text(), len(asked) - n]
+    out["verify"] = [pm.vault.verify("right master"), pm.vault.verify("nope")]
+    dlg._lock()
+    out["after_lock"] = pm._confirmed < 0
+    yield 100
+''', timeout=90)
+    assert out["wrong"] == ["••••••••", False], out
+    assert out["copied_without"] == "untouched"
+    assert out["right"] == "secret-pw"
+    assert out["copy_within_minutes"] == ["secret-pw", 0]
+    assert out["verify"] == [True, False] and out["after_lock"] is True

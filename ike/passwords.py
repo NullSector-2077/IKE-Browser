@@ -191,6 +191,17 @@ class Vault:
         self.entries = None
         self._key = None
 
+    def verify(self, master):
+        """True if `master` is the master password of the open vault (no file
+        is read: the key is derived again and compared in constant time)."""
+        import hmac
+        if self._key is None or self._salt is None:
+            return False
+        try:
+            return hmac.compare_digest(self._derive(master, self._salt, self._params), self._key)
+        except (TypeError, ValueError):
+            return False
+
     def change_master(self, master):
         self._salt = os.urandom(16)
         self._key = self._derive(master, self._salt)
@@ -411,6 +422,7 @@ class PasswordManager(QObject):
         self.app = app
         self.vault = Vault()
         self.available = crypto_available()
+        self._confirmed = -1e9           # when the master password was last typed (time.monotonic)
         self._last = None
         self._script = None
 
@@ -573,6 +585,7 @@ class PasswordManager(QObject):
                     QMessageBox.warning(parent, "I.K.E.", T("The passwords do not match."))
                 return False
             self.vault.create(pw)
+            self._confirmed = time.monotonic()
             return True
         for _ in range(3):
             pw, ok = QInputDialog.getText(parent, T("Unlock passwords"), T("Master password:"),
@@ -580,8 +593,31 @@ class PasswordManager(QObject):
             if not ok:
                 return False
             if self.vault.unlock(pw):
+                self._confirmed = time.monotonic()
                 return True
             QMessageBox.warning(parent, "I.K.E.", T("Wrong master password."))
+        return False
+
+    # showing, copying or exporting saved passwords in the Passwords window
+    # asks for the master password again, unless it was typed in the last few
+    # minutes: whoever sits at an unattended computer with the vault open
+    # cannot read them all (1.1.17). Filling a login into a site is unchanged.
+    CONFIRM_SECONDS = 300
+
+    def confirm_owner(self, parent=None):
+        if not self.vault.unlocked:
+            return self.ensure_unlocked(parent)
+        if time.monotonic() - self._confirmed < self.CONFIRM_SECONDS:
+            return True
+        pw, ok = QInputDialog.getText(parent, T("Show passwords"), T(
+            "Type the master password to see, copy or export saved passwords:"),
+            QLineEdit.EchoMode.Password)
+        if not ok:
+            return False
+        if self.vault.verify(pw):
+            self._confirmed = time.monotonic()
+            return True
+        QMessageBox.warning(parent, "I.K.E.", T("Wrong master password."))
         return False
 
 
@@ -635,6 +671,7 @@ class PasswordsDialog(QDialog):
     def __init__(self, app, parent=None):
         super().__init__(parent)
         self.app = app
+        self.manager = app.passwords
         self.vault = app.passwords.vault
         self.shown = False
         self.setWindowTitle(T("Passwords") + " — I.K.E.")
@@ -731,7 +768,9 @@ class PasswordsDialog(QDialog):
 
     def _edit(self):
         e = self._current()
-        r = self._ask(e) if e else None
+        if e is None or not self.manager.confirm_owner(self):
+            return                           # the edit window shows the password
+        r = self._ask(e)
         if r:
             e["origin"], e["username"], e["password"] = r
             self.vault.save()
@@ -745,10 +784,12 @@ class PasswordsDialog(QDialog):
 
     def _copy(self):
         e = self._current()
-        if e:
+        if e and self.manager.confirm_owner(self):
             copy_secret(e["password"])
 
     def _toggle(self):
+        if not self.shown and not self.manager.confirm_owner(self):
+            return
         self.shown = not self.shown
         self.fill()
 
@@ -761,6 +802,8 @@ class PasswordsDialog(QDialog):
             QMessageBox.information(self, "I.K.E.", T("%d logins imported.") % n)
 
     def _export(self):
+        if not self.manager.confirm_owner(self):
+            return
         if QMessageBox.warning(self, "I.K.E.", T(
                 "The exported file is NOT encrypted: anyone who opens it can read your "
                 "passwords. Continue?"),
@@ -791,6 +834,7 @@ class PasswordsDialog(QDialog):
 
     def _lock(self):
         self.vault.lock()
+        self.manager._confirmed = -1e9
         self.close()
 
 

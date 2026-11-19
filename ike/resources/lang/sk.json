@@ -871,6 +871,16 @@
 "This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "Táto aktualizácia žiada viac ako nainštalovaná verzia (viac stránok, funkcií alebo pripojení) alebo načítava kód bez šifrovania. Nainštalujte ju, len ak jej dôverujete.",
 "Fill in: %s": "Vyplniť: %s",
 "This page is not secure: others on the network can read what you type here.": "Táto stránka nie je zabezpečená: ostatní v sieti môžu čítať, čo sem píšete.",
-"%s wants to download several files.": "%s chce stiahnuť viac súborov."
+"%s wants to download several files.": "%s chce stiahnuť viac súborov.",
+"The system's web engine (qt6-webengine) is %d Chrome versions behind with its security fixes. Update the system (sudo pacman -Syu) to stay protected.": "Webový engine systému (qt6-webengine) zaostáva s bezpečnostnými opravami o %d verzií Chrome. Aktualizujte systém (sudo pacman -Syu), aby ste zostali chránení.",
+"Show passwords": "Zobraziť heslá",
+"Type the master password to see, copy or export saved passwords:": "Zadajte hlavné heslo na zobrazenie, kopírovanie alebo export uložených hesiel:",
+"Go back": "Späť",
+"%s has no secure connection (https), or someone on the network is blocking it. Without it, others on the network can read and change this page.": "%s nemá zabezpečené pripojenie (https), alebo ho niekto v sieti blokuje. Bez neho môžu ostatní v sieti túto stránku čítať a meniť.",
+"Continue without protection": "Pokračovať bez ochrany",
+"I.K.E. stopped %s: it is on the protection lists (sites that spread malware, or made only of ads and tracking).": "I.K.E. zastavil %s: stránka je na zoznamoch ochrany (stránky šíriace malvér, alebo tvorené len reklamou a sledovaním).",
+"Continue anyway": "Aj tak pokračovať",
+"For safety, code written in the address bar is not run.": "Z bezpečnostných dôvodov sa kód napísaný do panela s adresou nespúšťa.",
+"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "Bezpečnostné opravy: zaostávanie o %d verzií Chrome. Aktualizujte systém (sudo pacman -Syu)."
 }
 }

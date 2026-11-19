@@ -871,6 +871,16 @@
 "This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "Questo aggiornamento chiede più della versione installata (più siti, funzioni o connessioni) oppure carica codice senza cifratura. Installalo solo se ti fidi.",
 "Fill in: %s": "Inserisci: %s",
 "This page is not secure: others on the network can read what you type here.": "Questa pagina non è sicura: altri sulla rete possono leggere quello che scrivi qui.",
-"%s wants to download several files.": "%s vuole scaricare più file."
+"%s wants to download several files.": "%s vuole scaricare più file.",
+"The system's web engine (qt6-webengine) is %d Chrome versions behind with its security fixes. Update the system (sudo pacman -Syu) to stay protected.": "Il motore web del sistema (qt6-webengine) è indietro di %d versioni di Chrome con le correzioni di sicurezza. Aggiorna il sistema (sudo pacman -Syu) per restare protetto.",
+"Show passwords": "Mostra le password",
+"Type the master password to see, copy or export saved passwords:": "Scrivi la password principale per vedere, copiare o esportare le password salvate:",
+"Go back": "Torna indietro",
+"%s has no secure connection (https), or someone on the network is blocking it. Without it, others on the network can read and change this page.": "%s non ha una connessione protetta (https), oppure qualcuno sulla rete la sta bloccando. Senza, altri sulla rete possono leggere e modificare questa pagina.",
+"Continue without protection": "Continua senza protezione",
+"I.K.E. stopped %s: it is on the protection lists (sites that spread malware, or made only of ads and tracking).": "I.K.E. ha fermato %s: è nelle liste di protezione (siti che diffondono malware, o fatti solo di pubblicità e tracciamento).",
+"Continue anyway": "Continua comunque",
+"For safety, code written in the address bar is not run.": "Per sicurezza, il codice scritto nella barra degli indirizzi non viene eseguito.",
+"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "Correzioni di sicurezza: indietro di %d versioni di Chrome. Aggiorna il sistema (sudo pacman -Syu)."
 }
 }

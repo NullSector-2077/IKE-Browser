@@ -871,6 +871,16 @@
 "This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "Это обновление запрашивает больше, чем установленная версия (больше сайтов, функций или соединений), или загружает код без шифрования. Устанавливайте его, только если доверяете ему.",
 "Fill in: %s": "Заполнить: %s",
 "This page is not secure: others on the network can read what you type here.": "Эта страница не защищена: другие в сети могут прочитать то, что вы здесь вводите.",
-"%s wants to download several files.": "%s хочет скачать несколько файлов."
+"%s wants to download several files.": "%s хочет скачать несколько файлов.",
+"The system's web engine (qt6-webengine) is %d Chrome versions behind with its security fixes. Update the system (sudo pacman -Syu) to stay protected.": "Веб-движок системы (qt6-webengine) отстаёт с исправлениями безопасности на %d версий Chrome. Обновите систему (sudo pacman -Syu), чтобы оставаться под защитой.",
+"Show passwords": "Показать пароли",
+"Type the master password to see, copy or export saved passwords:": "Введите мастер-пароль, чтобы увидеть, скопировать или экспортировать сохранённые пароли:",
+"Go back": "Назад",
+"%s has no secure connection (https), or someone on the network is blocking it. Without it, others on the network can read and change this page.": "У %s нет защищённого соединения (https), или кто-то в сети его блокирует. Без него другие в сети могут читать и изменять эту страницу.",
+"Continue without protection": "Продолжить без защиты",
+"I.K.E. stopped %s: it is on the protection lists (sites that spread malware, or made only of ads and tracking).": "I.K.E. остановил %s: сайт есть в списках защиты (сайты, распространяющие вредоносные программы, или состоящие только из рекламы и слежки).",
+"Continue anyway": "Всё равно продолжить",
+"For safety, code written in the address bar is not run.": "Ради безопасности код, введённый в адресной строке, не выполняется.",
+"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "Исправления безопасности: отставание на %d версий Chrome. Обновите систему (sudo pacman -Syu)."
 }
 }

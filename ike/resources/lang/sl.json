@@ -871,6 +871,16 @@
 "This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "Ta posodobitev zahteva več kot nameščena različica (več spletnih mest, funkcij ali povezav) ali nalaga kodo brez šifriranja. Namestite jo le, če ji zaupate.",
 "Fill in: %s": "Izpolni: %s",
 "This page is not secure: others on the network can read what you type here.": "Ta stran ni varna: drugi v omrežju lahko preberejo, kar tukaj vpišete.",
-"%s wants to download several files.": "%s želi prenesti več datotek."
+"%s wants to download several files.": "%s želi prenesti več datotek.",
+"The system's web engine (qt6-webengine) is %d Chrome versions behind with its security fixes. Update the system (sudo pacman -Syu) to stay protected.": "Spletni pogon sistema (qt6-webengine) pri varnostnih popravkih zaostaja za %d različic Chroma. Posodobite sistem (sudo pacman -Syu), da ostanete zaščiteni.",
+"Show passwords": "Pokaži gesla",
+"Type the master password to see, copy or export saved passwords:": "Vnesite glavno geslo, da vidite, kopirate ali izvozite shranjena gesla:",
+"Go back": "Nazaj",
+"%s has no secure connection (https), or someone on the network is blocking it. Without it, others on the network can read and change this page.": "%s nima varne povezave (https) ali pa jo nekdo v omrežju blokira. Brez nje lahko drugi v omrežju berejo in spreminjajo to stran.",
+"Continue without protection": "Nadaljuj brez zaščite",
+"I.K.E. stopped %s: it is on the protection lists (sites that spread malware, or made only of ads and tracking).": "I.K.E. je ustavil %s: je na seznamih zaščite (strani, ki širijo zlonamerno programje, ali so samo oglasi in sledenje).",
+"Continue anyway": "Vseeno nadaljuj",
+"For safety, code written in the address bar is not run.": "Zaradi varnosti se koda, napisana v naslovni vrstici, ne izvede.",
+"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "Varnostni popravki: zaostanek %d različic Chroma. Posodobite sistem (sudo pacman -Syu)."
 }
 }

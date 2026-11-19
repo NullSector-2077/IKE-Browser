@@ -871,6 +871,16 @@
 "This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "Ова ажурирање бара повеќе од инсталираната верзија (повеќе страници, функции или врски) или вчитува код без шифрирање. Инсталирајте го само ако му верувате.",
 "Fill in: %s": "Пополни: %s",
 "This page is not secure: others on the network can read what you type here.": "Оваа страница не е безбедна: другите на мрежата можат да прочитаат што пишувате тука.",
-"%s wants to download several files.": "%s сака да преземе повеќе датотеки."
+"%s wants to download several files.": "%s сака да преземе повеќе датотеки.",
+"The system's web engine (qt6-webengine) is %d Chrome versions behind with its security fixes. Update the system (sudo pacman -Syu) to stay protected.": "Веб-моторот на системот (qt6-webengine) доцни со безбедносните поправки %d верзии на Chrome. Ажурирајте го системот (sudo pacman -Syu) за да останете заштитени.",
+"Show passwords": "Прикажи лозинки",
+"Type the master password to see, copy or export saved passwords:": "Внесете ја главната лозинка за да ги видите, копирате или извезете зачуваните лозинки:",
+"Go back": "Назад",
+"%s has no secure connection (https), or someone on the network is blocking it. Without it, others on the network can read and change this page.": "%s нема безбедна врска (https) или некој на мрежата ја блокира. Без неа, другите на мрежата можат да ја читаат и менуваат оваа страница.",
+"Continue without protection": "Продолжи без заштита",
+"I.K.E. stopped %s: it is on the protection lists (sites that spread malware, or made only of ads and tracking).": "I.K.E. го запре %s: е на листите за заштита (страници што шират злонамерен софтвер или се само реклами и следење).",
+"Continue anyway": "Сепак продолжи",
+"For safety, code written in the address bar is not run.": "Од безбедносни причини, кодот напишан во лентата за адреса не се извршува.",
+"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "Безбедносни поправки: доцнење од %d верзии на Chrome. Ажурирајте го системот (sudo pacman -Syu)."
 }
 }

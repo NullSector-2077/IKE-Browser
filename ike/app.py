@@ -340,6 +340,7 @@ class IkeApp(QObject):
             self.config.save()
             self._desktop_notify(self._t("Video decoding with the graphics card is back on Automatic: "
                                          "I.K.E. did not close normally while it was on."))
+        self._engine_security_notice()
         notice = updater.take_rollback_notice()
         if notice:
             self._desktop_notify(self._t("I.K.E. update %s did not start correctly and was "
@@ -486,6 +487,19 @@ class IkeApp(QObject):
         self.config.save()
         for d in list(self._dialogs.values()):
             d.close()
+
+    def _engine_security_notice(self):
+        """Once per session: the system's web engine (qt6-webengine) has gone
+        months without security fixes. I.K.E. cannot update it itself; the
+        system's update does (1.1.17)."""
+        from . import chromever
+        behind = chromever.security_behind(self.config)
+        if behind >= chromever.OUTDATED_AFTER and not getattr(self, "_engine_warned", False):
+            self._engine_warned = True
+            self._desktop_notify(self._t(
+                "The system's web engine (qt6-webengine) is %d Chrome versions behind with its "
+                "security fixes. Update the system (sudo pacman -Syu) to stay protected.") % behind)
+        return behind
 
     def _check_chrome_version(self):
         """Once a day: learn the current stable Chrome version (see chromever)."""

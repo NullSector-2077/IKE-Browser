@@ -871,6 +871,16 @@
 "This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "Dieses Update verlangt mehr als die installierte Version (mehr Websites, Funktionen oder Verbindungen) oder lädt Code ohne Verschlüsselung. Installiere es nur, wenn du ihm vertraust.",
 "Fill in: %s": "Einfügen: %s",
 "This page is not secure: others on the network can read what you type here.": "Diese Seite ist nicht sicher: Andere im Netzwerk können mitlesen, was du hier eingibst.",
-"%s wants to download several files.": "%s möchte mehrere Dateien herunterladen."
+"%s wants to download several files.": "%s möchte mehrere Dateien herunterladen.",
+"The system's web engine (qt6-webengine) is %d Chrome versions behind with its security fixes. Update the system (sudo pacman -Syu) to stay protected.": "Die Web-Engine des Systems (qt6-webengine) liegt bei den Sicherheitskorrekturen %d Chrome-Versionen zurück. Aktualisiere das System (sudo pacman -Syu), um geschützt zu bleiben.",
+"Show passwords": "Passwörter anzeigen",
+"Type the master password to see, copy or export saved passwords:": "Gib das Master-Passwort ein, um gespeicherte Passwörter anzuzeigen, zu kopieren oder zu exportieren:",
+"Go back": "Zurück",
+"%s has no secure connection (https), or someone on the network is blocking it. Without it, others on the network can read and change this page.": "%s hat keine sichere Verbindung (https), oder jemand im Netzwerk blockiert sie. Ohne sie können andere im Netzwerk diese Seite lesen und verändern.",
+"Continue without protection": "Ohne Schutz fortfahren",
+"I.K.E. stopped %s: it is on the protection lists (sites that spread malware, or made only of ads and tracking).": "I.K.E. hat %s angehalten: Die Seite steht auf den Schutzlisten (Seiten, die Schadsoftware verbreiten oder nur aus Werbung und Tracking bestehen).",
+"Continue anyway": "Trotzdem fortfahren",
+"For safety, code written in the address bar is not run.": "Aus Sicherheitsgründen wird Code in der Adressleiste nicht ausgeführt.",
+"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "Sicherheitskorrekturen: %d Chrome-Versionen zurück. Aktualisiere das System (sudo pacman -Syu)."
 }
 }

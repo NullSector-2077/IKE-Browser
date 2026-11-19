@@ -871,6 +871,16 @@
 "This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "Cette mise à jour demande plus que la version installée (plus de sites, de fonctions ou de connexions) ou charge du code sans chiffrement. Installez-la seulement si vous lui faites confiance.",
 "Fill in: %s": "Remplir : %s",
 "This page is not secure: others on the network can read what you type here.": "Cette page n'est pas sécurisée : d'autres personnes sur le réseau peuvent lire ce que vous saisissez ici.",
-"%s wants to download several files.": "%s veut télécharger plusieurs fichiers."
+"%s wants to download several files.": "%s veut télécharger plusieurs fichiers.",
+"The system's web engine (qt6-webengine) is %d Chrome versions behind with its security fixes. Update the system (sudo pacman -Syu) to stay protected.": "Le moteur web du système (qt6-webengine) a %d versions de Chrome de retard sur les correctifs de sécurité. Mettez le système à jour (sudo pacman -Syu) pour rester protégé.",
+"Show passwords": "Afficher les mots de passe",
+"Type the master password to see, copy or export saved passwords:": "Saisissez le mot de passe principal pour voir, copier ou exporter les mots de passe enregistrés :",
+"Go back": "Revenir en arrière",
+"%s has no secure connection (https), or someone on the network is blocking it. Without it, others on the network can read and change this page.": "%s n'a pas de connexion sécurisée (https), ou quelqu'un sur le réseau la bloque. Sans elle, d'autres personnes sur le réseau peuvent lire et modifier cette page.",
+"Continue without protection": "Continuer sans protection",
+"I.K.E. stopped %s: it is on the protection lists (sites that spread malware, or made only of ads and tracking).": "I.K.E. a arrêté %s : le site figure sur les listes de protection (sites qui diffusent des logiciels malveillants, ou faits uniquement de publicité et de pistage).",
+"Continue anyway": "Continuer quand même",
+"For safety, code written in the address bar is not run.": "Par sécurité, le code saisi dans la barre d'adresse n'est pas exécuté.",
+"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "Correctifs de sécurité : %d versions de Chrome de retard. Mettez le système à jour (sudo pacman -Syu)."
 }
 }
