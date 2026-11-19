@@ -254,6 +254,24 @@ class _FallbackEngine:
         return False
 
 
+class _Builder(QThread):
+    """Builds a new engine without stopping the interface (the Rust part lets
+    go of Python's lock while it works)."""
+    built = pyqtSignal(object, str)
+
+    def __init__(self, blocker, snap, signature):
+        super().__init__(blocker)
+        self.blocker, self.snap, self.signature = blocker, snap, signature
+
+    def run(self):
+        try:
+            result = self.blocker._build(self.snap, self.signature)
+        except Exception as exc:              # the engine in use stays
+            self.blocker._engine_error("building the engine", "", exc)
+            result = None
+        self.built.emit(result, self.signature)
+
+
 class Blocker(QObject):
     """Owns the matching engine. All matching happens on the UI thread."""
 
@@ -274,6 +292,8 @@ class Blocker(QObject):
         self.errors = 0
         from .scriptlets import Scriptlets
         self.scriptlets = Scriptlets()
+        self._builder = None             # a background build (see load)
+        self._again = False
 
     # --- lists -------------------------------------------------------
     def _active_lists(self):
@@ -290,18 +310,27 @@ class Blocker(QObject):
             out.append(entry)
         return out
 
-    def _texts(self):
+    def _snapshot(self):
+        """What a build reads from the settings, copied in the interface's
+        thread: the build itself may run in another one."""
+        cfg = self.config
+        return {"lists": [dict(e) for e in self._active_lists()],
+                "comp_adblock": bool(cfg["comp_adblock"]),
+                "custom": cfg["custom_filters"] or ""}
+
+    def _texts(self, snap=None):
+        snap = snap or self._snapshot()
         texts = []
-        for entry in self._active_lists():
+        for entry in snap["lists"]:
             try:
                 texts.append(sanitize(preprocess(
                     list_path(entry["url"]).read_text("utf-8", "replace"))))
             except OSError:
                 pass
-        if self.config["comp_adblock"]:
+        if snap["comp_adblock"]:
             texts.append(BUILTIN_RULES)
-            if self.config["custom_filters"].strip():
-                texts.append(self.config["custom_filters"])
+            if snap["custom"].strip():
+                texts.append(snap["custom"])
         return texts
 
     def _signature(self):
@@ -319,64 +348,54 @@ class Blocker(QObject):
         h.update(hashlib.sha1(BUILTIN_RULES.encode()).digest())     # I.K.E.'s own rules
         return h.hexdigest()[:20]
 
-    def _load_scriptlets(self):
+    def _build_scriptlets(self, snap, signature):
         """Index the "+js(...)" rules of the lists (cached next to the engine)."""
-        self.scriptlets.clear()
-        if not self.config["comp_adblock"]:
-            return
-        from .scriptlets import LIBRARY
-        cache = CACHE_DIR / ("scriptlets-v4-%s-%s.json" % (self._signature(), LIBRARY.lib_version()))
+        from .scriptlets import LIBRARY, Scriptlets
+        out = Scriptlets()
+        if not snap["comp_adblock"]:
+            return out
+        cache = CACHE_DIR / ("scriptlets-v4-%s-%s.json" % (signature, LIBRARY.lib_version()))
         try:
             if cache.exists():
-                self.scriptlets.load(cache.read_text("utf-8"))
-                return
+                out.load(cache.read_text("utf-8"))
+                return out
         except Exception:
-            self.scriptlets.clear()
-        for entry in self._active_lists():
+            out.clear()
+        for entry in snap["lists"]:
             if entry.get("group") == "consent":
                 continue
             try:
                 text = list_path(entry["url"]).read_text("utf-8", "replace")
             except OSError:
                 continue
-            self.scriptlets.add_list(text, _trusted_scriptlet_source(entry["url"]))
-        if self.config["custom_filters"].strip():
-            self.scriptlets.add_list(self.config["custom_filters"], True)
+            out.add_list(text, _trusted_scriptlet_source(entry["url"]))
+        if snap["custom"].strip():
+            out.add_list(snap["custom"], True)
         try:
             for old in CACHE_DIR.glob("scriptlets-*.json"):
                 old.unlink()
-            cache.write_text(self.scriptlets.dump(), "utf-8")
+            cache.write_text(out.dump(), "utf-8")
         except OSError:
             pass
+        return out
 
-    def load(self):
-        """Build the engine from cached lists (uses a serialized cache).
-
-        Called at start, after every list update and whenever the settings
-        are applied; when neither the lists nor the filter settings changed
-        since the last time, the engine in use is kept (reading it again from
-        the cache takes about 0.2 s with the standard lists, in the interface's
-        own thread)."""
-        signature = self._signature()
-        if getattr(self, "_loaded", None) == signature and (self.engine is not None or self.fallback is not None):
-            return
-        self._loaded = signature
-        self.engine = self.fallback = None
-        self._way = None
-        texts = None
-        self._load_scriptlets()
+    def _build(self, snap, signature):
+        """(engine, fallback, scriptlets) for these settings: from the cache
+        when it is there, otherwise from the lists. Reads only `snap` and the
+        files, so it can run in a thread of its own."""
+        engine = fallback = None
+        scriptlets = self._build_scriptlets(snap, signature)
         if adblock is not None:
-            cache = CACHE_DIR / ("engine-%s-%s.dat" % (
-                getattr(adblock, "ENGINE_VERSION", "0"), self._signature()))
+            cache = CACHE_DIR / ("engine-%s-%s.dat" % (getattr(adblock, "ENGINE_VERSION", "0"), signature))
             try:
                 if cache.exists():
                     eng = adblock.Engine(adblock.FilterSet())
                     eng.deserialize_from_file(str(cache))
-                    self.engine = eng
+                    engine = eng
             except Exception:
-                self.engine = None
-            if self.engine is None:
-                texts = self._texts()
+                engine = None
+            if engine is None:
+                texts = self._texts(snap)
                 if texts:
                     fs = adblock.FilterSet()
                     for t in texts:
@@ -385,24 +404,67 @@ class Blocker(QObject):
                         except Exception as exc:        # one unreadable list: the others still count
                             self._engine_error("a filter list", "", exc)
                     try:
-                        self.engine = adblock.Engine(fs)
+                        engine = adblock.Engine(fs)
                     except Exception as exc:
                         # no engine this time: pages load unfiltered rather than not at all
                         self._engine_error("building the engine", "", exc)
-                        self.engine = None
-                if self.engine is not None:
+                        engine = None
+                if engine is not None:
                     try:
                         for old in CACHE_DIR.glob("engine-*.dat"):
                             old.unlink()
-                        self.engine.serialize_to_file(str(cache))
+                        engine.serialize_to_file(str(cache))
                     except Exception:
                         pass
+            if engine is not None:
+                _install_redirect_resources(engine)
         else:
-            texts = self._texts()
+            texts = self._texts(snap)
             if texts:
-                self.fallback = _FallbackEngine(texts)
-        if self.engine is not None:
-            _install_redirect_resources(self.engine)
+                fallback = _FallbackEngine(texts)
+        return engine, fallback, scriptlets
+
+    @property
+    def building(self):
+        """A new engine is being built in the background (the one in use keeps working)."""
+        return self._builder is not None
+
+    def load(self):
+        """Build the engine from cached lists (uses a serialized cache).
+
+        Called at start, after every list update and whenever the settings
+        are applied; when neither the lists nor the filter settings changed
+        since the last time, the engine in use is kept. The first engine of a
+        session is made at once (11 ms from its cache); a later one, after a
+        list update (186 ms from the lists, in the interface's thread until
+        1.1.17), is built in a thread while the engine in use keeps blocking,
+        then takes its place in one step."""
+        signature = self._signature()
+        if getattr(self, "_loaded", None) == signature and (self.engine is not None or self.fallback is not None):
+            return
+        if self._builder is not None:
+            self._again = True               # once this build is done, look again
+            return
+        snap = self._snapshot()
+        if self.engine is None and self.fallback is None:
+            self._install(self._build(snap, signature), signature)
+            return
+        self._builder = _Builder(self, snap, signature)
+        self._builder.built.connect(self._built)
+        background.start(self._builder)
+
+    def _built(self, result, signature):
+        self._builder = None
+        if result is not None:
+            self._install(result, signature)
+        if self._again:
+            self._again = False
+            self.load()
+
+    def _install(self, result, signature):
+        self.engine, self.fallback, self.scriptlets = result
+        self._way = None
+        self._loaded = signature
         self.rebuilt.emit()
 
     def have_lists(self):

@@ -1,5 +1,6 @@
 """Protection layer: request interception, cookies, injected scripts, profile."""
 
+import functools
 import json
 import os
 import secrets
@@ -143,8 +144,12 @@ _HOSTED = (".github.io", ".gitlab.io", ".blogspot.com", ".herokuapp.com", ".page
            ".neocities.org")
 
 
+@functools.lru_cache(maxsize=4096)
 def site_of(host):
-    """Registrable domain of a host: "www.bbc.co.uk" -> "bbc.co.uk"."""
+    """Registrable domain of a host: "www.bbc.co.uk" -> "bbc.co.uk".
+
+    Asked several times for every request of every page, always for the same
+    few hosts: remembered (a pure function of its argument, 1.1.17)."""
     host = host or ""
     parts = host.split(".")
     if len(parts) <= 2 or host.replace(".", "").isdigit() or ":" in host:

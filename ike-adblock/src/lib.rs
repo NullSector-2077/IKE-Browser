@@ -60,6 +60,7 @@ impl FilterSet {
     #[pyo3(signature = (filter_list, format = "standard", include_redirect_urls = false, rule_types = "all", trusted = false))]
     fn add_filter_list(
         &mut self,
+        py: Python<'_>,
         filter_list: &str,
         format: &str,
         include_redirect_urls: bool,
@@ -81,8 +82,12 @@ impl FilterSet {
         let permissions = if trusted { PermissionMask::from_bits(1) } else { PermissionMask::default() };
         let opts = ParseOptions { format, rule_types, permissions };
         let inner = &mut self.inner;
-        guarded_py("add_filter_list", move || {
-            inner.add_filter_list(filter_list.to_string(), opts);
+        // parsing a list takes milliseconds: other Python threads (the
+        // interface) go on meanwhile
+        py.detach(move || {
+            guarded_py("add_filter_list", move || {
+                inner.add_filter_list(filter_list.to_string(), opts);
+            })
         })
     }
 }
@@ -189,14 +194,18 @@ struct Engine {
 impl Engine {
     #[new]
     #[pyo3(signature = (filter_set, optimize = true))]
-    fn new(filter_set: &FilterSet, optimize: bool) -> PyResult<Self> {
-        let inner = guarded_py("Engine", || {
-            let set = filter_set.inner.clone();
-            if optimize {
-                AEngine::new_with_filter_set(set)
-            } else {
-                AEngine::new_with_filter_set_no_optimize(set)
-            }
+    fn new(py: Python<'_>, filter_set: &FilterSet, optimize: bool) -> PyResult<Self> {
+        let set = filter_set.inner.clone();
+        // building the engine takes a tenth of a second or more: without the
+        // GIL, so the interface keeps running when it is built in a thread
+        let inner = py.detach(move || {
+            guarded_py("Engine", move || {
+                if optimize {
+                    AEngine::new_with_filter_set(set)
+                } else {
+                    AEngine::new_with_filter_set_no_optimize(set)
+                }
+            })
         })?;
         Ok(Engine { inner, resources: Vec::new() })
     }
@@ -278,20 +287,25 @@ impl Engine {
         Ok(PyBytes::new(py, &data))
     }
 
-    fn deserialize(&mut self, data: &[u8]) -> PyResult<()> {
+    fn deserialize(&mut self, py: Python<'_>, data: &[u8]) -> PyResult<()> {
         let inner = &mut self.inner;
-        guarded_py("deserialize", move || inner.deserialize(data))?
+        py.detach(move || guarded_py("deserialize", move || inner.deserialize(data)))?
             .map_err(|e| PyValueError::new_err(format!("cannot read the engine data: {e:?}")))
     }
 
-    fn serialize_to_file(&self, path: &str) -> PyResult<()> {
-        let data = guarded_py("serialize", || self.inner.serialize())?;
-        fs::write(path, data).map_err(|e| PyIOError::new_err(e.to_string()))
+    fn serialize_to_file(&self, py: Python<'_>, path: &str) -> PyResult<()> {
+        let inner = &self.inner;
+        py.detach(move || {
+            let data = guarded_py("serialize", || inner.serialize())?;
+            fs::write(path, data).map_err(|e| PyIOError::new_err(e.to_string()))
+        })
     }
 
-    fn deserialize_from_file(&mut self, path: &str) -> PyResult<()> {
-        let data = fs::read(path).map_err(|e| PyIOError::new_err(e.to_string()))?;
-        self.deserialize(&data)
+    fn deserialize_from_file(&mut self, py: Python<'_>, path: &str) -> PyResult<()> {
+        let data = py
+            .detach(|| fs::read(path))
+            .map_err(|e| PyIOError::new_err(e.to_string()))?;
+        self.deserialize(py, &data)
     }
 }
 

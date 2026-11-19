@@ -457,11 +457,17 @@ class Config:
                             if _LEVEL_ALIASES.get(lv, lv) in LEVELS}
 
     def save(self):
+        """Write the settings, unless the file already holds exactly them: the
+        session is saved every minute, and an unchanged minute writes nothing
+        (1.1.17)."""
+        text = json.dumps(self.data, indent=1, ensure_ascii=False)
+        if text == getattr(self, "_written", None) and self.path.exists():
+            return
         self.path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self.path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(self.data, indent=1, ensure_ascii=False),
-                       encoding="utf-8")
+        tmp.write_text(text, encoding="utf-8")
         tmp.replace(self.path)
+        self._written = text
 
     def __getitem__(self, key):
         return self.data[key]

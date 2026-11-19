@@ -1855,10 +1855,22 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         x = max(0, b.width() - menu.sizeHint().width())
         menu.popup(b.mapToGlobal(QPoint(x, b.height())))
 
+    SHIELD_EVERY_MS = 100
+
     def _blocked(self, host):
+        """Something was blocked on `host`. A page full of ads blocks dozens
+        of things in a second: the shield's number is redrawn at most ten
+        times a second (each redraw also lays out the address bar again), and
+        it always ends on the exact count (1.1.17)."""
         if host == self.current_host():
-            self.update_shield()
+            if not getattr(self, "_shield_due", False):
+                self._shield_due = True
+                QTimer.singleShot(self.SHIELD_EVERY_MS, self._shield_now)
             self.shield_pulse.fire()
+
+    def _shield_now(self):
+        self._shield_due = False
+        self.update_shield()
 
     def update_shield(self):
         host = self.current_host()

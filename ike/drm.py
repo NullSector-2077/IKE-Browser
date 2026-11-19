@@ -8,13 +8,10 @@ rights needed), checks it and uses it from there. A copy installed by a
 distribution package is used when there is no copy of I.K.E.'s own.
 """
 
-import io
 import json
 import os
 import shutil
 import struct
-import urllib.request
-import zipfile
 from pathlib import Path
 
 from PyQt6.QtCore import QThread, pyqtSignal
@@ -93,6 +90,8 @@ def install_from_zip(data, expect_version=None):
     Only the three known files are taken from the archive. The previous copy is
     replaced only once the new one is complete. Returns the installed version.
     """
+    import io
+    import zipfile
     if len(data) > MAX_ZIP:
         raise DrmError("the archive is unexpectedly large")
     try:
@@ -146,6 +145,9 @@ def remove():
 
 
 def _get(url, limit):
+    # imported only when Widevine is downloaded, not at every start (1.1.17)
+    import urllib.request
+
     req = urllib.request.Request(url, headers={"User-Agent": "I.K.E. DRM manager"})
     with urllib.request.urlopen(req, timeout=60) as r:
         final = r.geturl()

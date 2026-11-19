@@ -134,8 +134,12 @@ class Monitor(QObject):
             for v in w.all_views():
                 yield w, v
 
-    def sample(self):
-        """[{site, tabs, pids, memory, cpu, requests, data, frozen, sleeping, views}] sorted by memory."""
+    def sample(self, net=True):
+        """[{site, tabs, pids, memory, cpu, requests, data, frozen, sleeping, views}] sorted by memory.
+
+        net=False: the limits' own check, which needs memory and CPU only; the
+        pages are not asked for the data they downloaded (it would wake every
+        background tab every few seconds for a column nobody sees, 1.1.17)."""
         now = time.monotonic()
         sites = {}
         seen = set()
@@ -155,7 +159,8 @@ class Monitor(QObject):
             if pid:
                 row["pids"].add(pid)
             row["data"] += self.net.get(id(v), 0)
-            v.page().runJavaScript(_NET_JS, _WORLD, lambda n, k=id(v): self.net.__setitem__(k, int(n or 0)))
+            if net:
+                v.page().runJavaScript(_NET_JS, _WORLD, lambda n, k=id(v): self.net.__setitem__(k, int(n or 0)))
         for row in sites.values():
             mem, cpu, known = 0, 0.0, False
             for pid in row["pids"]:
@@ -203,7 +208,7 @@ class Monitor(QObject):
         mem_mb, cpu_pct = self.limits()
         if not (mem_mb or cpu_pct):
             return
-        rows = self.sample()
+        rows = self.sample(net=bool(self.watchers))     # the window shows the data column
         owner = {id(v): w for w, v in self.views()}
         for row in rows:
             site = row["site"]
@@ -346,6 +351,8 @@ class ResourcesDialog(QDialog):
         self.mon.settings_changed()
 
     def refresh(self):
+        if self.isMinimized():
+            return                       # nobody looks: the next refresh after it is shown again
         sel = self.table.currentRow()
         site = self.rows[sel]["site"] if 0 <= sel < len(self.rows) else None
         self.rows = self.mon.sample()

@@ -171,6 +171,8 @@ def steps(ike, qapp, out):
     ike.config["custom_filters"] = SCRIPTLETS
     ike.blocker.load()                     # rebuilds the engine and the scriptlet index
     yield 300
+    while ike.blocker.building:            # in the background since 1.1.17
+        yield 50
     out["rules"] = ike.blocker.scriptlets.scripts_for("127.0.0.1")
     yield from measure(v, URL + "?scriptlets", out, "scriptlets")
 '''

@@ -63,6 +63,23 @@ Security review (each point has a test that plays the attack on this computer).
 - **GitHub actions pinned by their commit**: the tests and the automatic
   fixes run exactly the code of the actions that was checked, not whatever a
   moved tag points to; Dependabot keeps them current.
+- **Faster where it was measured, with the same protection** (the full
+  measurements are in docs/review/tests-and-performance.md):
+  - after a filter list update the AdBlock engine is rebuilt in the
+    background while the engine in use keeps blocking; the window no longer
+    stops for about 0.2 s (the engine module lets go of Python's lock while
+    it builds or loads);
+  - the shield's number is redrawn at most ten times a second instead of at
+    every blocked element (150 redraws on a page full of ads), and always
+    ends on the exact count;
+  - the registrable domain of a host, asked several times for every request,
+    is remembered;
+  - with resource limits set, the check every 5 seconds no longer asks every
+    tab for the data it downloaded (only the window shows it), and the
+    window stops refreshing while minimized;
+  - the settings file is written only when something changed (it was written
+    every minute);
+  - looking for Widevine at start no longer loads the download code.
 - **The browser's own requests keep no cookies** (search suggestions, site
   icons, weather, downloads of extensions and languages): a search engine can
   no longer tie together the words typed in the address bar. User scripts keep
