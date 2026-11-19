@@ -868,6 +868,9 @@
 "Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "Дэкадаванне відэа відэакартай зноў у рэжыме «Аўтаматычна»: I.K.E. зачыніўся некарэктна, пакуль яно было ўключана.",
 "Show only the icons of the tabs": "Паказваць толькі значкі картак",
 "Show the titles of the tabs": "Паказваць назвы картак",
-"This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "Гэта абнаўленне патрабуе больш, чым усталяваная версія (больш сайтаў, функцый або злучэнняў), або загружае код без шыфравання. Усталёўвайце яго, толькі калі давяраеце яму."
+"This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "Гэта абнаўленне патрабуе больш, чым усталяваная версія (больш сайтаў, функцый або злучэнняў), або загружае код без шыфравання. Усталёўвайце яго, толькі калі давяраеце яму.",
+"Fill in: %s": "Запоўніць: %s",
+"This page is not secure: others on the network can read what you type here.": "Гэтая старонка не абаронена: іншыя ў сетцы могуць прачытаць тое, што вы тут уводзіце.",
+"%s wants to download several files.": "%s хоча спампаваць некалькі файлаў."
 }
 }

@@ -868,6 +868,9 @@
 "Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "Le décodage vidéo par la carte graphique est revenu sur Automatique : I.K.E. ne s'est pas fermé normalement pendant qu'il était activé.",
 "Show only the icons of the tabs": "Afficher seulement les icônes des onglets",
 "Show the titles of the tabs": "Afficher les titres des onglets",
-"This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "Cette mise à jour demande plus que la version installée (plus de sites, de fonctions ou de connexions) ou charge du code sans chiffrement. Installez-la seulement si vous lui faites confiance."
+"This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "Cette mise à jour demande plus que la version installée (plus de sites, de fonctions ou de connexions) ou charge du code sans chiffrement. Installez-la seulement si vous lui faites confiance.",
+"Fill in: %s": "Remplir : %s",
+"This page is not secure: others on the network can read what you type here.": "Cette page n'est pas sécurisée : d'autres personnes sur le réseau peuvent lire ce que vous saisissez ici.",
+"%s wants to download several files.": "%s veut télécharger plusieurs fichiers."
 }
 }

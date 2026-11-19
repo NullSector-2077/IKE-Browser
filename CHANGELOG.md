@@ -4,12 +4,33 @@
 
 Security review (each point has a test that plays the attack on this computer).
 
-- **Saved passwords are filled in only when you click into the form** (or
-  reach it with Tab): never by themselves when the page loads. Until now a
-  script of the page (an advert, a comment) could build a tiny invisible login
-  form and read the password the browser filled into it. Clicks, focus or key
-  presses made by the page's own scripts do not count. A user name already
-  typed picks its own login.
+- **Saved passwords are offered, never filled by themselves**: clicking (or
+  tabbing) into a login form opens a small menu of I.K.E. under the field,
+  "Fill in: name" for each saved login of the site and "Not now"; only the
+  login chosen reaches the page, and after "Not now" the page is not asked
+  about again. Until now the password was filled as soon as a form appeared,
+  and a script of the page (an advert, a comment) could build a tiny invisible
+  form and read it. Clicks, focus or key presses made by the page's own
+  scripts open nothing; the page never sees the menu. A user name already
+  typed shows only its own login.
+- **Warning for passwords on unencrypted pages**: clicking into a login form
+  of a plain http site (not this computer or the home network) says once that
+  others on the network can read what is typed there; the menu says it too.
+- **Permission questions of background tabs wait**: a site in a tab the user
+  is not looking at (camera, microphone, notifications, location...) is asked
+  about only when its tab is shown, so its question never appears over another
+  site's page; asked over and over meanwhile, it is one question.
+- **A burst of downloads asks first**: a site that starts one download after
+  another by itself gets its first file, and the rest wait for one question
+  ("Allow" for the rest of the session, or "Block"). Downloads right after the
+  user's own click, typing or Save never ask.
+- **Stronger password vault**: the key of the vault is derived with four times
+  the work (scrypt N = 2^17, about a third of a second once when it is opened)
+  so guessing the master password of a stolen file is four times slower. An
+  existing vault opens as before and is sealed again with the new strength at
+  once; nothing is lost. A vault file naming any other key settings than
+  I.K.E.'s two is refused at once, before any work: a doctored file cannot
+  make the unlock take gigabytes of memory.
 - **Dark mode never reads the home network for a web site**: the style sheets
   that dark mode fetches for a page (those the page cannot read itself) are no
   longer fetched from this computer or the home network (router, printer, a
@@ -19,6 +40,9 @@ Security review (each point has a test that plays the attack on this computer).
   https addresses, and an update that asks for more than the installed version
   (more sites, more GM_ functions, more hosts) or loads code over plain http is
   shown to the user first, as a new script is.
+- **GitHub actions pinned by their commit**: the tests and the automatic
+  fixes run exactly the code of the actions that was checked, not whatever a
+  moved tag points to; Dependabot keeps them current.
 - **The browser's own requests keep no cookies** (search suggestions, site
   icons, weather, downloads of extensions and languages): a search engine can
   no longer tie together the words typed in the address bar. User scripts keep

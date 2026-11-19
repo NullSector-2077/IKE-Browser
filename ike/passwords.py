@@ -37,7 +37,32 @@ from PyQt6.QtWidgets import (
 from .config import DATA_DIR, RES_DIR
 from .i18n import T
 
-SCRYPT_N, SCRYPT_R, SCRYPT_P = 2 ** 15, 8, 1
+# scrypt for new vaults and for old ones at their next unlock (1.1.17: N was
+# 2^15). About a third of a second, once, when the vault is opened; each
+# guess of a stolen file costs a thief the same, and 128 MB of memory.
+SCRYPT_N, SCRYPT_R, SCRYPT_P = 2 ** 17, 8, 1
+LEGACY = (2 ** 15, 8, 1)        # every vault file written from 1.0.0 to 1.1.16 names exactly these
+# The only scrypt profiles a vault file may name: the one of today and the
+# legacy one (opened, then sealed again with today's). Anything else is
+# refused before scrypt runs: scrypt needs about 128 * N * r bytes and p times
+# the work, so a doctored file naming, say, N = 2^20, r = 16, p = 4 (2 GiB,
+# four rounds) must not even be tried.
+PROFILES = frozenset({(SCRYPT_N, SCRYPT_R, SCRYPT_P), LEGACY})
+
+
+def _params(blob):
+    """{"n", "r", "p"} of a vault file, or None unless the file names one of
+    PROFILES exactly: whole numbers written as such (no text, no fractions,
+    no true/false), all three present."""
+    try:
+        values = tuple(blob[k] for k in ("n", "r", "p"))
+    except (KeyError, TypeError):
+        return None
+    if not all(type(v) is int for v in values) or values not in PROFILES:
+        return None
+    return dict(zip(("n", "r", "p"), values))
+
+
 _AAD = b"ike-vault-1"               # associated data sealed with every vault file
 WORLD = 1  # QWebEngineScript.ApplicationWorld
 
@@ -108,6 +133,7 @@ class Vault:
         self.entries = None      # None while locked
         self._key = None
         self._salt = None
+        self._params = None      # scrypt parameters of self._key
 
     def exists(self):
         return self.path.exists()
@@ -116,14 +142,16 @@ class Vault:
     def unlocked(self):
         return self.entries is not None
 
-    def _derive(self, master, salt):
+    def _derive(self, master, salt, params=None):
         from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
-        return Scrypt(salt=salt, length=32, n=SCRYPT_N, r=SCRYPT_R, p=SCRYPT_P).derive(
+        k = params or {"n": SCRYPT_N, "r": SCRYPT_R, "p": SCRYPT_P}
+        return Scrypt(salt=salt, length=32, n=k["n"], r=k["r"], p=k["p"]).derive(
             master.encode("utf-8"))
 
     def create(self, master):
         self._salt = os.urandom(16)
         self._key = self._derive(master, self._salt)
+        self._params = {"n": SCRYPT_N, "r": SCRYPT_R, "p": SCRYPT_P}
         self.entries = []
         self.save()
 
@@ -132,17 +160,31 @@ class Vault:
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
         try:
             blob = json.loads(self.path.read_text("utf-8"))
+            params = _params(blob)
+            if params is None:
+                return False
             salt = base64.b64decode(blob["salt"])
-            key = self._derive(master, salt)
+            key = self._derive(master, salt, params)
             nonce, data = base64.b64decode(blob["nonce"]), base64.b64decode(blob["data"])
-        except (ValueError, KeyError, OSError):
+        except (ValueError, KeyError, OSError, AttributeError):
             return False
         try:
             plain = AESGCM(key).decrypt(nonce, data, _AAD)
         except InvalidTag:
             return False
         self.entries = json.loads(plain.decode("utf-8"))
-        self._key, self._salt = key, salt
+        self._key, self._salt, self._params = key, salt, params
+        if (params["n"], params["r"], params["p"]) != (SCRYPT_N, SCRYPT_R, SCRYPT_P):
+            # sealed again with today's parameters; if that cannot be written
+            # the file stays exactly as it was and opens as before
+            old = (self._key, self._salt, self._params)
+            try:
+                self._salt = os.urandom(16)
+                self._key = self._derive(master, self._salt)
+                self._params = {"n": SCRYPT_N, "r": SCRYPT_R, "p": SCRYPT_P}
+                self.save()
+            except OSError:
+                self._key, self._salt, self._params = old
         return True
 
     def lock(self):
@@ -152,6 +194,7 @@ class Vault:
     def change_master(self, master):
         self._salt = os.urandom(16)
         self._key = self._derive(master, self._salt)
+        self._params = {"n": SCRYPT_N, "r": SCRYPT_R, "p": SCRYPT_P}
         self.save()
 
     def save(self):
@@ -159,7 +202,8 @@ class Vault:
         nonce = os.urandom(12)
         data = AESGCM(self._key).encrypt(nonce, json.dumps(self.entries).encode("utf-8"),
                                          _AAD)
-        blob = {"v": 1, "kdf": "scrypt", "n": SCRYPT_N, "r": SCRYPT_R, "p": SCRYPT_P,
+        k = self._params or {"n": SCRYPT_N, "r": SCRYPT_R, "p": SCRYPT_P}
+        blob = {"v": 1, "kdf": "scrypt", "n": k["n"], "r": k["r"], "p": k["p"],
                 "cipher": "aes-256-gcm", "salt": _b64(self._salt), "nonce": _b64(nonce),
                 "data": _b64(data)}
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -214,6 +258,13 @@ class Vault:
         return out.getvalue()
 
 
+def insecure_page(url):
+    """True for a page reached without encryption from another computer
+    (plain http, not this computer or the home network)."""
+    from .userscripts import is_local_name
+    return url.scheme() == "http" and not is_local_name(url.host())
+
+
 def origin_of(url):
     """scheme://host[:port] of an address, the key of saved logins ("" if none).
 
@@ -245,9 +296,12 @@ class PageBridge(QObject):
         self.manager = manager
         self.page = page
 
-    @pyqtSlot(result=str)
-    def logins(self):
-        return self.manager.logins_json(self.page)
+    @pyqtSlot(float, float, float, float, str)
+    def offerFill(self, x, y, w, h, typed):
+        """The user clicked into a login form: I.K.E. offers its saved logins
+        in a menu of its own. The page never receives a password it was not
+        given by the user's choice."""
+        self.manager.offer_fill(self.page, x, y, w, h, typed)
 
     @pyqtSlot(str, str)
     def captured(self, username, password):
@@ -387,6 +441,55 @@ class PasswordManager(QObject):
             return "[]"
         return json.dumps([{"u": e["username"], "p": e["password"]}
                            for e in self.vault.find(self._origin(page))])
+
+    def offer_fill(self, page, x, y, w, h, typed=""):
+        """A small menu under the field: "Fill in: <user>" for each saved login
+        of the page's origin (a user name already typed narrows it), and "Not
+        now", after which the page is not asked about again until it changes.
+        Nothing when the vault is locked or has no login for the site."""
+        from PyQt6.QtCore import QPoint
+        from PyQt6.QtWidgets import QMenu
+        win = getattr(page, "window_ref", None)
+        if (insecure_page(page.url()) and win is not None
+                and getattr(page, "_ike_warned", None) != page.url().toString()):
+            # once per page, saved login or not: typing a password here is risky
+            page._ike_warned = page.url().toString()
+            win.toast(T("This page is not secure: others on the network can read "
+                        "what you type here."), 7000)
+        if not self.vault.unlocked or getattr(page, "_ike_fill_menu", None) is not None:
+            return
+        origin = self._origin(page)
+        if not origin or getattr(page, "_ike_fill_declined", None) == page.url().toString():
+            return
+        found = self.vault.find(origin)
+        if typed:
+            found = [e for e in found if e["username"] == typed]
+        view = win.view_of(page) if win is not None else None
+        if not found or view is None:
+            return
+        menu = QMenu(view)
+        if insecure_page(page.url()):
+            warn = menu.addAction(T("This page is not secure: others on the network can read "
+                                    "what you type here."))
+            warn.setEnabled(False)
+            menu.addSeparator()
+        for e in found[:12]:
+            a = menu.addAction(T("Fill in: %s") % (e["username"] or T("(no user name)")))
+            a.triggered.connect(lambda _c=False, e=e: self._chosen(page, origin, e))
+        menu.addSeparator()
+        menu.addAction(T("Not now")).triggered.connect(
+            lambda: setattr(page, "_ike_fill_declined", page.url().toString()))
+        page._ike_fill_menu = menu
+        menu.aboutToHide.connect(lambda: setattr(page, "_ike_fill_menu", None))
+        menu.aboutToHide.connect(menu.deleteLater)
+        zoom = page.zoomFactor() or 1.0
+        menu.popup(view.mapToGlobal(QPoint(int(x * zoom), int((y + h) * zoom) + 2)))
+
+    def _chosen(self, page, origin, entry):
+        bridge = getattr(page, "_ike_bridge", None)
+        if bridge is None or self._origin(page) != origin or not self.vault.unlocked:
+            return                        # the page went elsewhere meanwhile
+        bridge.fillRequested.emit(json.dumps({"u": entry["username"], "p": entry["password"]}))
 
     def captured(self, page, username, password):
         if not self.available:

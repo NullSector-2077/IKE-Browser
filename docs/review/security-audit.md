@@ -90,10 +90,10 @@ Not fixed in 1.0.3, with the reason. None is rated above Medium.
 | A | Medium | **Widevine** (optional, installed only when the user asks): the module is downloaded over HTTPS from Google and checked for being a 64-bit Linux library, but there is no pinned hash or signature to compare with, and an installed module is never updated (`drm.update_available()` exists and is not called). | Google publishes no detached signature for it; pinning a hash means a release of I.K.E. for every Widevine release. Needs a decision of the owner: pin and release, or keep as is and say so in Settings. Belongs to the component manager of the platform study. |
 | B | Medium | **Chrome extensions** (experimental, off by default): the signature inside the CRX file is not verified; the download is HTTPS from the Chrome Web Store only. | Verifying CRX3 needs the protobuf header and RSA / ECDSA checks; planned with the extension work, not a quick fix. |
 | C | Medium | ~~**Saved passwords are filled when the page loads**~~ — fixed in 1.1.17: filled only on a real click or Tab into the form (see below). | — |
-| D | Low | The vault has **no automatic lock** after a time, and its key-derivation parameters (scrypt, N = 2^15) are constants in the code, not written in the file, so they cannot be raised without a format change. | A new vault format with the parameters in the header and an idle lock is a feature of its own, with a migration that must not lose passwords. |
+| D | Low | ~~The vault's scrypt parameters are constants~~ — 1.1.17: read from the file, N raised to 2^17 with an automatic upgrade at unlock. **No automatic lock** after a time: left as is by the owner's choice (the fill menu asks before any login reaches a page). | — |
 | E | Low | **Downloads made by I.K.E. itself** (filter lists, updates, Chrome version, Widevine) use Python's `urllib`: they follow proxy environment variables but not a proxy set only in Plasma's settings, unlike the pages. | Moving them to Qt's network stack touches four modules and their tests. |
-| F | Low | **GitHub Actions are pinned by tag**, not by commit hash. | To be pinned together with a Dependabot rule that keeps the hashes current, or it becomes stale. |
-| G | Low | **Permission questions of background tabs** appear over the current tab (the question names the site). | Should wait until the tab is shown; a behaviour change to do with interface tests on a real session. |
+| F | Low | ~~**GitHub Actions are pinned by tag**~~ — 1.1.17: pinned by commit hash, Dependabot updates hash and version comment. | — |
+| G | Low | ~~**Permission questions of background tabs** appear over the current tab~~ — 1.1.17: they wait until the tab is shown. | — |
 | H | Low | The set of redirect targets remembered by the shield (`shields.redirected`) grows during a long session. | Small (one short string per redirect); to be bounded. |
 | I | Low | "Delete data of this site" clears the storage of the page's own origin through the page; data of other subdomains of the same site stays until "Clear browsing data". | Qt WebEngine has no per-site storage deletion. |
 | J | Low | Starting I.K.E. **as administrator** switches the sandbox off (Chromium does not run it as root). | Shown in Help → About. Refusing to start as root is the owner's choice. |
@@ -180,8 +180,18 @@ lists and scriptlet trust, the new tab page's escaping, downloads into the
 download folder, profiles' names, private windows (no history, no icons on
 disk), permissions, certificates.
 
-Still open from the table above: D (no automatic lock of the vault; the scrypt
-parameters are written in the file but not read back) and G (permission
-questions of background tabs), both changes of behaviour for the owner to
-decide.
+Decided by the owner and done in the same version:
+
+| Rating | Change | Test |
+|---|---|---|
+| — | Saved logins are offered in a menu of I.K.E. under the field (opened only by a trusted click or Tab); only the chosen login reaches the page; "Not now" is remembered for the page. The page's bridge no longer has a slot that returns logins. | `test_passwords.py::test_a_page_cannot_harvest_a_saved_password` |
+| Low | Warning, once per page, when a login form of a plain http site (not this computer or the home network) is clicked. | `test_passwords.py::test_a_login_on_an_unencrypted_page_is_warned_about` |
+| Low | Permission questions of background tabs wait until the tab is shown (open issue G); nothing is answered on the user's behalf meanwhile. | `test_security.py::test_a_background_tab_asks_for_a_permission_only_when_shown` |
+| Low | A site that starts downloads one after another without the user's input is asked about once ("Allow" for the session, "Block"); downloads within 3 s of a click, key or address of the user, and those I.K.E. starts, never ask. | `test_security.py::test_a_site_asks_before_a_burst_of_downloads` |
+| Low | Vault: scrypt N = 2^17, r = 8, p = 1 for new vaults. A vault file is accepted only if it names exactly that profile or the legacy one (N = 2^15, r = 8, p = 1, every vault of 1.0.0 to 1.1.16), as whole numbers; anything else is refused before scrypt runs (a doctored file naming N = 2^20, r = 16, p = 4 would have cost 2 GiB and four rounds per try). A legacy vault is sealed again with the current profile at unlock (open issue D, first half). | `test_passwords.py::test_vault_accepts_exactly_its_two_scrypt_profiles`, `test_vault_refuses_other_scrypt_parameters_before_running_scrypt`, `test_legacy_vault_moves_to_the_current_profile_without_losing_anything` |
+| Low | GitHub Actions pinned by commit hash (open issue F). | `test_security.py::test_github_actions_are_pinned_by_commit_hash` |
+
+Left for later, by the owner's choice: the automatic lock of the vault, and
+verifying the signature of Chrome extensions (open issue B) until extensions
+work and are no longer experimental.
 

@@ -639,6 +639,8 @@ class IkeApp(QObject):
         the file is moved to the chosen place when both are done. Waiting for the
         dialog inside this handler made downloads fail on some desktops."""
         from .i18n import T
+        if self._download_burst(item):
+            return
         folder = self.download_dir()
         name = item.downloadFileName()
         item._ike_tmp = item._ike_target = item._ike_final = None
@@ -675,6 +677,83 @@ class IkeApp(QObject):
             dlg.open()
         else:
             self._notify(T("Download started: %s") % name)
+
+    # a site that starts one download after another (without the user saving
+    # each file) is asked about first, as in other browsers
+    BURST_SECONDS = 10
+    USER_SECONDS = 3                      # a download this soon after the user's input is theirs
+
+    def _download_burst(self, item):
+        """True when this download is held back: another one from the same site
+        started less than BURST_SECONDS ago. The user is asked once; "Allow"
+        lets the site download freely until I.K.E. closes and starts this file
+        again, "Block" drops its bursts for this session. A single download,
+        one a while after the last, or one right after the user clicked or
+        typed on the page (or I.K.E. itself started it) never asks."""
+        import time
+
+        from .shields import site_of
+        try:
+            if item.isSavePageDownload():
+                return False
+            page = item.page()
+        except (AttributeError, RuntimeError):
+            page = None
+        now = time.monotonic()
+        if page is not None and now - getattr(page, "_ike_input", -99.0) < self.USER_SECONDS:
+            return False                  # right after a click, a key or an address of the user
+        host = (page.url().host() if page is not None else "") or item.url().host()
+        site = site_of(host.lower())
+        if not site:
+            return False
+        burst = self.__dict__.setdefault("_dl_burst", {"times": {}, "allowed": set(),
+                                                       "blocked": set(), "held": {}})
+        times = [t for t in burst["times"].get(site, []) if now - t < self.BURST_SECONDS]
+        held = bool(times) and site not in burst["allowed"]
+        times.append(now)
+        burst["times"][site] = times
+        if not held:
+            return False
+        item.cancel()
+        if site in burst["blocked"]:
+            return True
+        waiting = burst["held"].get(site)
+        if waiting is not None:           # already asking: this file waits for the answer too
+            if len(waiting) < 20:
+                waiting.append(item.url())
+            return True
+        burst["held"][site] = [item.url()]
+
+        def answered(allow):
+            urls = burst["held"].pop(site, [])
+            if not allow:
+                burst["blocked"].add(site)
+                return
+            burst["allowed"].add(site)
+            for url in urls:
+                try:
+                    if page is not None:
+                        page.download(url)
+                except RuntimeError:
+                    break                 # the page is gone
+        self._ask_download_burst(site, answered)
+        return True
+
+    def _ask_download_burst(self, site, done):
+        """Non-blocking question (a dialog inside the download handler made
+        downloads fail on some desktops)."""
+        from PyQt6.QtWidgets import QMessageBox
+
+        from .i18n import T
+        box = QMessageBox(self.active_window())
+        box.setIcon(QMessageBox.Icon.Question)
+        box.setWindowTitle(T("Downloads"))
+        box.setText(T("%s wants to download several files.") % site)
+        allow = box.addButton(T("Allow"), QMessageBox.ButtonRole.AcceptRole)
+        box.addButton(T("Block"), QMessageBox.ButtonRole.RejectRole)
+        box.finished.connect(lambda _r: done(box.clickedButton() is allow))
+        box.finished.connect(box.deleteLater)
+        box.open()
 
     def download_path(self, item):
         """Where the file of a download is (or will be)."""

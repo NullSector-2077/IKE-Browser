@@ -1,6 +1,7 @@
 """Web page and view classes."""
 
 import os
+import time
 
 from PyQt6.QtCore import QCoreApplication, QEvent, Qt, QTimer, QUrl
 from PyQt6.QtGui import QGuiApplication
@@ -303,6 +304,12 @@ class WebPage(QWebEnginePage):
                            group=getattr(cur, "group", None))
         return view.page()
 
+    def download(self, url, filename=""):
+        """A download I.K.E. itself starts (Save, a context menu, a user
+        script's GM_download): the user's own, never held back as a burst."""
+        self._ike_input = time.monotonic()
+        super().download(url, filename)
+
     def certificateError(self, error):
         from .osinfo import test_switch
         if test_switch("IKE_TEST_INSECURE") == "1":
@@ -401,12 +408,61 @@ class WebPage(QWebEnginePage):
         if test_switch("IKE_TEST_PERMS") in ("grant", "deny"):
             perm.grant() if test_switch("IKE_TEST_PERMS") == "grant" else perm.deny()
             return
+        if not self.visible_tab():
+            # a tab in the background waits: its question would appear over the
+            # page the user is looking at, which is easy to answer by mistake
+            self._wait_for_view(perm)
+            return
+        self._ask(perm)
+
+    def _ask(self, perm):
         # (the engine remembers the answer for the site: a page that was told
         # no is not asked about again until the user resets the site's permissions)
+        origin = perm.origin().host() or perm.origin().toString()
         if self.ask_permission(origin, perm.permissionType()):
             perm.grant()
         else:
             perm.deny()
+
+    def _wait_for_view(self, perm):
+        """Keep a permission question until this tab is shown (checked twice a
+        second, only while a question waits). Nothing is answered meanwhile:
+        the engine would remember a "no" given on the user's behalf."""
+        waiting = self.__dict__.setdefault("_perm_waiting", [])
+        if len(waiting) >= 8:
+            return                       # left unanswered: the page keeps waiting
+        # a copy: the object handed to the signal belongs to the engine and is
+        # gone once the handler returns
+        waiting.append(type(perm)(perm))
+        timer = getattr(self, "_perm_timer", None)
+        if timer is None:
+            from PyQt6.QtCore import QTimer
+            timer = self._perm_timer = QTimer(self)
+            timer.setInterval(500)
+            timer.timeout.connect(self._perm_check)
+            # a page that goes elsewhere takes its questions with it
+            self.loadStarted.connect(self._perm_drop)
+        timer.start()
+
+    def _perm_drop(self):
+        self._perm_waiting = []
+        if getattr(self, "_perm_timer", None) is not None:
+            self._perm_timer.stop()
+
+    def _perm_check(self):
+        if not self.visible_tab():
+            return
+        self._perm_timer.stop()
+        waiting, self._perm_waiting = getattr(self, "_perm_waiting", []), []
+        answered = {}                    # one question per site and kind, however often it asked
+        for w in waiting:
+            if not w.isValid():
+                continue
+            key = (w.origin().toString(), w.permissionType())
+            if key not in answered:
+                origin = w.origin().host() or w.origin().toString()
+                answered[key] = self.ask_permission(origin, w.permissionType())
+            w.grant() if answered[key] else w.deny()
 
     def ask_permission(self, origin, ptype):
         """Ask the user; True to allow."""
@@ -526,6 +582,12 @@ class WebView(QWebEngineView):
         self._menu_selection = ""
         self._watch_keys()
 
+    def load(self, url):
+        # an address the browser opens (address bar, bookmarks, links of its
+        # own menus) is the user's act, as a click on the page is
+        self.page()._ike_input = time.monotonic()
+        super().load(url)
+
     # --- clipboard safety net ---------------------------------------
     # On some Wayland set-ups the engine's own copy does not reach the system
     # clipboard. After every copy/cut we check and, if needed, write the
@@ -605,6 +667,8 @@ class WebView(QWebEngineView):
 
     def eventFilter(self, obj, event):
         t = event.type()
+        if t in (QEvent.Type.MouseButtonPress, QEvent.Type.KeyPress):
+            self.page()._ike_input = time.monotonic()   # the user acts on the page (downloads)
         if t == QEvent.Type.Wheel and self._wheel(event):
             return True
         if (t in (QEvent.Type.MouseButtonPress, QEvent.Type.MouseMove, QEvent.Type.MouseButtonRelease)
