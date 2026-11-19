@@ -48,11 +48,14 @@
     var ike = channel.objects.ike;
     if (!ike) return;
     window.__ikeBridge = ike;      // shared with the other isolated-world helpers
-    // A saved login is filled in when the user clicks (or tabs) into the
-    // password field or its user name field, never by itself when the page
-    // loads: a script of the page (an advert, a comment) could otherwise make
-    // a tiny form and read the password the browser fills into it. Only real
-    // input counts (isTrusted): a page cannot click or tab for the user.
+    // A saved login is offered when the user clicks (or tabs) into the
+    // password field or its user name field: I.K.E. shows its own small menu
+    // ("Fill in: name" / "Not now") and only the login the user picks comes
+    // to the page. Nothing is filled by itself when the page loads: a script
+    // of the page (an advert, a comment) could otherwise make a tiny form and
+    // read the password. Only real input counts (isTrusted): a page cannot
+    // click or tab for the user, and it never sees the menu.
+    var target = null;
     function onUser(e) {
       var t = e.target;
       if (!e.isTrusted || !t || t.tagName !== 'INPUT' || !visible(t) || t.value) return;
@@ -66,17 +69,10 @@
         }
       }
       if (!p || p.value) return;
-      ike.logins(function (json) {
-        var list = [];
-        try { list = JSON.parse(json || '[]'); } catch (err) {}
-        // a user name already typed picks its own login, never another one's
-        var u = userFor(p), pick = list[0];
-        if (u && u.value) {
-          pick = null;
-          for (var j = 0; j < list.length; j++) if (list[j].u === u.value) pick = list[j];
-        }
-        if (pick) fill(pick, false, p);
-      });
+      target = p;
+      var u = userFor(p);
+      var r = t.getBoundingClientRect();
+      ike.offerFill(r.left, r.top, r.width, r.height, (u && u.value) || '');
     }
     document.addEventListener('pointerdown', onUser, true);
     document.addEventListener('keyup', onUser, true);
@@ -87,7 +83,10 @@
       ike.captured(u ? u.value : '', p.value);
     }
     ike.fillRequested.connect(function (json) {
-      try { fill(JSON.parse(json), true); } catch (e) {}
+      // the field the user clicked, if it is still on the page
+      var p = target && target.isConnected ? target : null;
+      target = null;
+      try { fill(JSON.parse(json), true, p); } catch (e) {}
     });
     document.addEventListener('submit', capture, true);
     document.addEventListener('keydown', function (e) {

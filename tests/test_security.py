@@ -1311,3 +1311,145 @@ def test_user_script_updates_that_ask_for_more_need_the_user():
     assert not update_needs_consent(dict(old, connect=[]), got())         # it had any host already
     text = (APP / "ike" / "userscripts.py").read_text()
     assert 'if not url.startswith("https://"):\n                continue' in text
+
+
+def test_github_actions_are_pinned_by_commit_hash():
+    """The actions the workflows run (tests, automatic fixes, packages) are
+    pinned to a commit, not to a tag that can be moved to other code; the
+    version is kept as a comment for Dependabot."""
+    import re
+    root = ROOT / ".github"
+    uses = []
+    for f in list(root.glob("workflows/*.yml")) + list(root.glob("actions/*/action.yml")):
+        for line in f.read_text().splitlines():
+            m = re.match(r"\s*-?\s*uses:\s*(\S+)(.*)$", line)
+            if m:
+                uses.append((f.name, m.group(1), m.group(2)))
+    assert uses
+    for name, ref, rest in uses:
+        if ref.startswith("./"):
+            continue                       # this repository's own action
+        assert re.fullmatch(r"[\w.-]+/[\w.-]+@[0-9a-f]{40}", ref), (name, ref)
+        assert re.fullmatch(r"\s+# v\d+(\.\d+)*", rest), (name, ref, rest)
+
+
+def test_a_background_tab_asks_for_a_permission_only_when_shown(run_ike, web):
+    """A page in a tab the user is not looking at asks for a permission: the
+    question waits until its tab is shown, so it never appears over another
+    site's page; asked over and over meanwhile, it is one question."""
+    base, _seen = web
+    out = run_ike(JS + r'''
+BASE = %r
+
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QUrl
+    from ike import webview
+    asked = []
+    def ask(self, origin, ptype):
+        asked.append([origin, self.visible_tab()])
+        return True
+    webview.WebPage.ask_permission = ask
+    win = ike.windows[0]
+    front = win.current_view()
+    back = win.add_tab(QUrl(BASE + "/ask"), background=True)
+    for _ in range(100):
+        if back.url().toString().endswith("/ask") and not getattr(back, "loading", False):
+            break
+        yield 50
+    yield 800
+    for _ in range(3):
+        yield from js(back, "ask(); 1")
+        yield 300
+    yield 1500
+    out["while_hidden"] = list(asked)
+    out["front"] = win.current_view() is front
+    win.set_current(back)
+    yield 2000
+    out["after_shown"] = list(asked)
+    out["answers"] = yield from js(back, "asked")
+''' % base, env={"IKE_TEST_PERMS": ""}, timeout=120)
+    assert out["front"] and out["while_hidden"] == [], out
+    assert out["after_shown"] == [["127.0.0.1", True]], out["after_shown"]
+    assert out["answers"] and set(out["answers"]) == {"granted"}, out["answers"]
+
+
+@pytest.fixture
+def files_site():
+    """A page that, once loaded, starts three downloads by itself."""
+    seen = []
+    page = (b"<!doctype html><title>files</title><script>"
+            b"window.addEventListener('load', function () {"
+            b" ['/f1', '/f2', '/f3'].forEach(function (p, i) { setTimeout(function () {"
+            b"  var a = document.createElement('a'); a.href = p; a.download = '';"
+            b"  document.body.appendChild(a); a.click(); }, 300 * i); }); });"
+            b"</script>")
+
+    class H(BaseHTTPRequestHandler):
+        def do_GET(self):
+            seen.append(self.path)
+            if self.path.startswith("/f"):
+                body = b"file " + self.path.encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/octet-stream")
+                self.send_header("Content-Disposition", "attachment; filename=%s.bin" % self.path[1:])
+            else:
+                body = page
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    yield "http://127.0.0.1:%d" % srv.server_address[1], seen
+    srv.shutdown()
+
+
+@pytest.mark.parametrize("answer", [True, False])
+def test_a_site_asks_before_a_burst_of_downloads(run_ike, files_site, tmp_path, answer):
+    """A page that starts download after download by itself gets its first
+    file; the rest wait for one question. "Allow" brings them all, "Block"
+    none. A download right after the user's own action never asks."""
+    site, seen = files_site
+    folder = tmp_path / "dl"
+    out = run_ike(r'''
+SITE, ANSWER = %r, %r
+
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QUrl
+    from PyQt6.QtWebEngineCore import QWebEnginePage
+    asked = []
+    def ask(self, site, done):
+        asked.append(site)
+        done(ANSWER)
+    type(ike)._ask_download_burst = ask
+    win = ike.windows[0]
+    view = win.current_view()
+    yield 4000                            # well after the start page the browser opened
+    # the page is opened by a script, not by the user: nothing marks it as theirs
+    QWebEnginePage.load(view.page(), QUrl(SITE + "/page"))
+    for _ in range(150):
+        yield 100
+        if len([d for d in ike.downloads if d.isFinished()]) >= (3 if ANSWER else 1) and asked:
+            break
+    yield 1500
+    out["asked"] = asked
+    out["files"] = sorted(p.name for p in __import__("pathlib").Path(%r).glob("*.bin"))
+    # the user's own downloads, one after another: never a question
+    before = len(asked)
+    for name in ("f1", "f2"):
+        view.page().download(QUrl(SITE + "/" + name))
+        yield 400
+    yield 1000
+    out["asked_for_user"] = len(asked) - before
+''' % (site, answer, str(folder)), settings={"download_dir": str(folder), "ask_download_location": False},
+        timeout=120)
+    assert out["asked"] == ["127.0.0.1"], out
+    if answer:
+        assert out["files"] == ["f1.bin", "f2.bin", "f3.bin"], out
+    else:
+        assert out["files"] == ["f1.bin"], out
+    assert out["asked_for_user"] == 0

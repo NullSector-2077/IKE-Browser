@@ -868,6 +868,9 @@
 "Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "Декодирање видеа графичком картицом враћено је на Аутоматски: I.K.E. се није нормално затворио док је било укључено.",
 "Show only the icons of the tabs": "Прикажи само иконе картица",
 "Show the titles of the tabs": "Прикажи наслове картица",
-"This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "Ово ажурирање тражи више од инсталиране верзије (више сајтова, функција или веза) или учитава код без шифровања. Инсталирајте га само ако му верујете."
+"This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "Ово ажурирање тражи више од инсталиране верзије (више сајтова, функција или веза) или учитава код без шифровања. Инсталирајте га само ако му верујете.",
+"Fill in: %s": "Попуни: %s",
+"This page is not secure: others on the network can read what you type here.": "Ова страница није безбедна: други на мрежи могу да прочитају шта овде уносите.",
+"%s wants to download several files.": "%s жели да преузме више датотека."
 }
 }

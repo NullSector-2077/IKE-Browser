@@ -179,9 +179,10 @@ HARVESTER = (b"<!doctype html><title>login</title><form><input name=user id=u>"
 
 
 def test_a_page_cannot_harvest_a_saved_password(run_ike):
-    """A saved login is filled in only when the user clicks into the form: a
-    page that builds a hidden login form, or clicks and focuses it with its own
-    script, reads nothing. A real click fills the user's form at once."""
+    """A saved login comes to the page only when the user chooses it in
+    I.K.E.'s own menu, opened by a real click into the form: a page that builds
+    a hidden login form, or clicks and focuses it with its own script, gets
+    nothing and opens no menu. "Not now" is not asked again on that page."""
     class H(BaseHTTPRequestHandler):
         def do_GET(self):
             self.send_response(200)
@@ -196,7 +197,7 @@ def test_a_page_cannot_harvest_a_saved_password(run_ike):
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     port = srv.server_address[1]
     try:
-        out = run_ike(r'''
+        out = run_ike(r"""
 PORT = %d
 
 def steps(ike, qapp, out):
@@ -205,6 +206,13 @@ def steps(ike, qapp, out):
     pm = ike.passwords
     pm.vault.create("test master")
     pm.vault.put("http://localhost:%%d" %% PORT, "me", "secret-pw")
+    pm.vault.put("http://localhost:%%d" %% PORT, "other", "other-pw")
+    offers = []
+    original = pm.offer_fill
+    def offer(page, *a):
+        offers.append(page.url().toString())
+        original(page, *a)
+    pm.offer_fill = offer
     v = ike.windows[0].current_view()
     done = {}
     v.page().loadFinished.connect(lambda ok: done.setdefault("ok", ok))
@@ -217,27 +225,132 @@ def steps(ike, qapp, out):
         res = {}
         v.page().runJavaScript(code, 0, lambda r: res.setdefault("r", r))
         return res
+
+    def fields():
+        r = js("[document.getElementById('u').value, document.getElementById('p').value]")
+        while "r" not in r:
+            yield 20
+        return r["r"]
     r = js("JSON.stringify([window.stolen, document.getElementById('u').value,"
            " document.getElementById('p').value])")
     while "r" not in r:
         yield 20
     out["before_click"] = r["r"]
+    out["offers_by_page"] = list(offers)
     r = js("(function () { var b = document.getElementById('p').getBoundingClientRect();"
            " return [b.left + b.width / 2, b.top + b.height / 2]; })()")
     while "r" not in r:
         yield 20
     x, y = r["r"]
     target = v.focusProxy() or v
-    QTest.mouseClick(target, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier,
-                     QPoint(int(x), int(y)))
-    yield 1200
-    r = js("[document.getElementById('u').value, document.getElementById('p').value]")
-    while "r" not in r:
+
+    def click():
+        QTest.mouseClick(target, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier,
+                         QPoint(int(x), int(y)))
+    click()
+    for _ in range(100):
+        if getattr(v.page(), "_ike_fill_menu", None) is not None:
+            break
         yield 20
-    out["after_click"] = r["r"]
-''' % port, settings={"https_only": False}, timeout=120)
+    menu = v.page()._ike_fill_menu
+    out["menu"] = [a.text() for a in menu.actions() if not a.isSeparator()]
+    out["while_menu_open"] = yield from fields()           # nothing reaches the page yet
+    pick = [a for a in menu.actions() if a.text().endswith("other")][0]
+    pick.trigger()
+    menu.close()
+    yield 800
+    out["after_choice"] = yield from fields()
+    # another page load: "Not now", then no menu again on that page
+    done.clear()
+    v.load(QUrl("http://localhost:%%d/login?again" %% PORT))
+    while "ok" not in done:
+        yield 20
+    yield 800
+    click()
+    for _ in range(100):
+        if getattr(v.page(), "_ike_fill_menu", None) is not None:
+            break
+        yield 20
+    menu = v.page()._ike_fill_menu
+    [a for a in menu.actions() if a.text() == "Not now"][0].trigger()
+    menu.close()
+    yield 400
+    click()
+    yield 800
+    out["menu_after_not_now"] = getattr(v.page(), "_ike_fill_menu", None) is not None
+    out["after_not_now"] = yield from fields()
+""" % port, settings={"https_only": False, "language": "en"}, timeout=120)
     finally:
         srv.shutdown()
     stolen, user, pw = json.loads(out["before_click"])
     assert stolen == [] and user == "" and pw == "", out["before_click"]
-    assert out["after_click"] == ["me", "secret-pw"], out
+    assert out["offers_by_page"] == []                     # the page's own clicks opened nothing
+    assert out["menu"] == ["Fill in: me", "Fill in: other", "Not now"], out["menu"]
+    assert out["while_menu_open"] == ["", ""]
+    assert out["after_choice"] == ["other", "other-pw"], out
+    assert out["menu_after_not_now"] is False and out["after_not_now"] == ["", ""]
+
+
+def test_a_login_on_an_unencrypted_page_is_warned_about(run_ike):
+    """Clicking into a login form of a plain http site (not this computer or
+    the home network) shows a warning once; the vault's menu says it too."""
+    out = run_ike(r"""
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QObject, QUrl
+    from ike.passwords import insecure_page
+    out["insecure"] = [insecure_page(QUrl(u)) for u in (
+        "http://news.example.test/login", "https://bank.example.test/", "http://localhost:8080/",
+        "http://192.168.1.1/", "http://printer.local/")]
+    toasts = []
+
+    class Win:
+        def toast(self, text, ms=0):
+            toasts.append(text)
+
+        def view_of(self, page):
+            return None
+
+    class Page(QObject):
+        def __init__(self, url):
+            super().__init__()
+            self._url, self.window_ref = QUrl(url), Win()
+
+        def url(self):
+            return self._url
+    page = Page("http://news.example.test/login")
+    for _ in range(3):
+        ike.passwords.offer_fill(page, 10, 10, 100, 20, "")
+    ike.passwords.offer_fill(Page("https://bank.example.test/"), 10, 10, 100, 20, "")
+    out["toasts"] = toasts
+    yield 10
+""", settings={"language": "en"}, timeout=60)
+    assert out["insecure"] == [True, False, False, False, False]
+    assert out["toasts"] == ["This page is not secure: others on the network can read what you type here."]
+
+
+def test_vault_key_is_strengthened_without_losing_anything(tmp_path, monkeypatch):
+    """New vaults use scrypt with N = 2^17; a vault sealed before 1.1.17
+    (N = 2^15) opens as before and is sealed again with the new strength at
+    once; a file naming absurd parameters is refused without trying them."""
+    from ike import passwords
+    path = tmp_path / "vault.bin"
+    monkeypatch.setattr(passwords, "SCRYPT_N", 2 ** 15)
+    old = passwords.Vault(path)
+    old.create("master")
+    old.put("https://site.test", "me", "pw")
+    assert json.loads(path.read_text())["n"] == 2 ** 15
+    monkeypatch.undo()
+    v = passwords.Vault(path)
+    assert v.unlock("master") and v.find("https://site.test")[0]["password"] == "pw"
+    blob = json.loads(path.read_text())
+    assert blob["n"] == 2 ** 17 and blob["r"] == 8 and blob["p"] == 1
+    v.put("https://site.test", "you", "pw2")            # later saves keep the new key
+    again = passwords.Vault(path)
+    assert again.unlock("master") and len(again.entries) == 2
+    assert not passwords.Vault(path).unlock("wrong")
+    new = passwords.Vault(tmp_path / "new.bin")
+    new.create("master")
+    assert json.loads((tmp_path / "new.bin").read_text())["n"] == 2 ** 17
+    for n in (2 ** 30, 3000, "x", 2 ** 10):
+        path.write_text(json.dumps(dict(blob, n=n)))
+        assert not passwords.Vault(path).unlock("master"), n

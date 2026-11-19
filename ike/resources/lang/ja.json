@@ -868,6 +868,9 @@
 "Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "グラフィックカードによる動画のデコードを「自動」に戻しました: オンの間に I.K.E. が正常に終了しませんでした。",
 "Show only the icons of the tabs": "タブのアイコンだけを表示",
 "Show the titles of the tabs": "タブのタイトルを表示",
-"This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "この更新はインストール済みのバージョンより多くを求めています（サイト、機能、接続の追加）か、暗号化なしでコードを読み込みます。信頼できる場合のみインストールしてください。"
+"This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "この更新はインストール済みのバージョンより多くを求めています（サイト、機能、接続の追加）か、暗号化なしでコードを読み込みます。信頼できる場合のみインストールしてください。",
+"Fill in: %s": "入力: %s",
+"This page is not secure: others on the network can read what you type here.": "このページは安全ではありません。ネットワーク上の他の人がここで入力した内容を読み取れます。",
+"%s wants to download several files.": "%s が複数のファイルをダウンロードしようとしています。"
 }
 }

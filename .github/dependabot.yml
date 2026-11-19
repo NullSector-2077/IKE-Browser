@@ -1,5 +1,8 @@
 # Once a month, one pull request with the new versions of the GitHub actions the
-# workflows use (an action left on an old version stops working one day).
+# workflows use (an action left on an old version stops working one day). The
+# actions are pinned by their commit hash, with the version as a comment
+# (1.1.17): a tag can be moved to other code by whoever controls the action, a
+# hash cannot. Dependabot updates hash and comment together.
 # The automatic fix never changes .github/, so this is how the workflows stay current.
 version: 2
 updates:

@@ -868,6 +868,9 @@
 "Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "Dekódovanie videa grafickou kartou je späť na Automaticky: I.K.E. sa počas jeho zapnutia neukončil normálne.",
 "Show only the icons of the tabs": "Zobraziť len ikony kariet",
 "Show the titles of the tabs": "Zobraziť názvy kariet",
-"This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "Táto aktualizácia žiada viac ako nainštalovaná verzia (viac stránok, funkcií alebo pripojení) alebo načítava kód bez šifrovania. Nainštalujte ju, len ak jej dôverujete."
+"This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "Táto aktualizácia žiada viac ako nainštalovaná verzia (viac stránok, funkcií alebo pripojení) alebo načítava kód bez šifrovania. Nainštalujte ju, len ak jej dôverujete.",
+"Fill in: %s": "Vyplniť: %s",
+"This page is not secure: others on the network can read what you type here.": "Táto stránka nie je zabezpečená: ostatní v sieti môžu čítať, čo sem píšete.",
+"%s wants to download several files.": "%s chce stiahnuť viac súborov."
 }
 }
