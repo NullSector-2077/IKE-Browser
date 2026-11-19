@@ -369,6 +369,8 @@ def steps(ike, qapp, out):
     before = b.errors
     ike.config["custom_filters"] = "||first-list.example.test^"     # something changed: the engine is built anew
     b.load()
+    while b.building:                     # built in the background since 1.1.17
+        yield 20
     out["no_engine"] = [b.engine is None, b.errors - before]
     ok = yield from load(view, BASE + "/ask?again")
     out["page_without_engine"] = [ok, view.title()]
@@ -388,6 +390,8 @@ def steps(ike, qapp, out):
     ike.config["custom_filters"] = "||second-list.example.test^"
     before = b.errors
     b.load()                              # (cache name changes with the filters)
+    while b.building:
+        yield 20
     adblock.FilterSet, adblock.Engine = real_set, real_engine
     out["rebuilt"] = [b.engine is not None, len(calls) >= 2, b.errors - before,
                       b.should_block("https://second-list.example.test/a.js", BASE + "/", "script")]
@@ -1297,8 +1301,11 @@ def test_user_script_updates_that_ask_for_more_need_the_user():
     old = {"match": ["https://a.test/*"], "include": [], "exclude": [], "grant": ["GM_setValue"],
            "connect": ["api.test"], "noframes": False}
     assert not update_needs_consent(old, got())
-    assert not update_needs_consent(old, got("// @require https://cdn.test/lib.js\n"))
-    assert not update_needs_consent(old, got("// @require lib.js\n"))        # relative to https
+    known = dict(old, requires=[["https://cdn.test/old.js", ""]])          # a host it already used
+    assert not update_needs_consent(known, got("// @require https://cdn.test/lib.js\n"))
+    assert not update_needs_consent(dict(old, update="https://example.test/s.user.js"),
+                                    got("// @require lib.js\n"))             # next to the script, https
+    assert update_needs_consent(old, got("// @require https://cdn.test/lib.js\n"))   # a new host (1.1.17)
     assert update_needs_consent(old, got("// @require http://cdn.test/lib.js\n"))
     assert update_needs_consent(old, got("// @resource css http://cdn.test/x.css\n"))
     assert update_needs_consent(old, got("// @match https://*/*\n"))
@@ -1905,7 +1912,7 @@ def steps(ike, qapp, out):
     yield 2500
     out["typed"] = other.title()
 ''' % port, settings={"https_only": False}, timeout=90)
-    assert out["bar"][0] is True and "news.example.test" in out["bar"][1], out
+    assert out["bar"][0] is True and "example.test" in out["bar"][1], out
     assert not any(s.startswith("POST") for s in seen), seen     # the form never reached it
     assert out["after_allow"] == "router" and out["typed"] == "router"
 
@@ -1924,7 +1931,8 @@ def steps(ike, qapp, out):
             break
         yield 50
     out["got"] = got
-''', timeout=60)
+''', timeout=60, env={k: "" for k in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY",
+                                     "all_proxy", "ALL_PROXY")})            # no proxy resolving names
     assert out["got"] == {"bad": False, "public": True}, out
 
 

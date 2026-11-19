@@ -238,10 +238,11 @@ def include_regex(pattern):
     return "^" + _glob(pattern).replace(re.escape(".tld") + "/", r"\.[a-z.]{2,}/") + "$"
 
 
-def at_home(host):
+def at_home(host, unknown=True):
     """True if `host` is this computer or the home network, by its name, its
     address or what the name resolves to. A name that cannot be resolved here
-    counts as at home: the check must not be skipped by a failing lookup."""
+    counts as at home (`unknown`): the check must not be skipped by a failing
+    lookup. unknown=False asks the opposite question, "is it surely at home?"."""
     h = (host or "").lower().rstrip(".").strip("[]")
     if not h or is_local_name(h):
         return True
@@ -256,7 +257,7 @@ def at_home(host):
     try:
         infos = socket.getaddrinfo(h, None)
     except (OSError, UnicodeError):
-        return True
+        return unknown
     return any(is_local_address(i[4][0]) for i in infos)
 
 
@@ -309,7 +310,7 @@ def gather(text, source_url=""):
     meta = parse_meta(text)
     if meta is None:
         raise ValueError(T("this is not a user script (its header is missing)"))
-    home_ok = bool(source_url) and at_home(urlsplit(source_url).hostname)
+    home_ok = bool(source_url) and at_home(urlsplit(source_url).hostname, unknown=False)
     requires, resources = [], {}
     for ref in meta["require"][:30]:
         url = urljoin(source_url, ref) if source_url else ref

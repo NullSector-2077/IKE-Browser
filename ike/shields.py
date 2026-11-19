@@ -633,8 +633,12 @@ class Shields(QObject):
         import re
         key = self.action_key
         html = re.sub(r'href="(ike:(?:open|engine|tile)\?[^"]*)"', lambda m: 'href="%s&amp;k=%s"' % (m.group(1), key), html)
-        return html.replace('action="ike:tile" method="get">',
-                            'action="ike:tile" method="get"><input type="hidden" name="k" value="%s">' % key)
+        # the key goes last in the form: the page's script looks for its first field
+        start = html.find('action="ike:tile"')
+        end = html.find("</form>", start) if start >= 0 else -1
+        if end < 0:
+            return html
+        return html[:end] + '<input type="hidden" name="k" value="%s">' % key + html[end:]
 
     def _newtab_buttons(self):
         """Settings (top right) and the background photo (bottom left) on the new tab page;
