@@ -871,6 +871,16 @@
 "This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "Це оновлення запитує більше, ніж встановлена версія (більше сайтів, функцій або з'єднань), або завантажує код без шифрування. Встановлюйте його, лише якщо довіряєте йому.",
 "Fill in: %s": "Заповнити: %s",
 "This page is not secure: others on the network can read what you type here.": "Ця сторінка не захищена: інші в мережі можуть прочитати те, що ви тут вводите.",
-"%s wants to download several files.": "%s хоче завантажити кілька файлів."
+"%s wants to download several files.": "%s хоче завантажити кілька файлів.",
+"The system's web engine (qt6-webengine) is %d Chrome versions behind with its security fixes. Update the system (sudo pacman -Syu) to stay protected.": "Веб-рушій системи (qt6-webengine) відстає з виправленнями безпеки на %d версій Chrome. Оновіть систему (sudo pacman -Syu), щоб залишатися захищеними.",
+"Show passwords": "Показати паролі",
+"Type the master password to see, copy or export saved passwords:": "Введіть головний пароль, щоб побачити, скопіювати або експортувати збережені паролі:",
+"Go back": "Назад",
+"%s has no secure connection (https), or someone on the network is blocking it. Without it, others on the network can read and change this page.": "%s не має захищеного з'єднання (https), або хтось у мережі його блокує. Без нього інші в мережі можуть читати й змінювати цю сторінку.",
+"Continue without protection": "Продовжити без захисту",
+"I.K.E. stopped %s: it is on the protection lists (sites that spread malware, or made only of ads and tracking).": "I.K.E. зупинив %s: сайт є у списках захисту (сайти, що поширюють шкідливе ПЗ, або що складаються лише з реклами та стеження).",
+"Continue anyway": "Усе одно продовжити",
+"For safety, code written in the address bar is not run.": "З міркувань безпеки код, введений в адресному рядку, не виконується.",
+"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "Виправлення безпеки: відставання на %d версій Chrome. Оновіть систему (sudo pacman -Syu)."
 }
 }

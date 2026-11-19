@@ -145,7 +145,7 @@ def main(seconds):
     cfg = home / ".config" / "ike-browser"
     cfg.mkdir(parents=True)
     (cfg / "settings.json").write_text(json.dumps({
-        "lists_version": 3, "last_lists_update": 4102444800, "last_fast_update": 4102444800,
+        "lists_version": 4, "last_lists_update": 4102444800, "last_fast_update": 4102444800,
         "chrome_checked": 4102444800, "app_updates": "off", "auto_update": False,
         "newtab_weather": False,
         **json.loads(os.environ.get("IKE_MEASURE_SETTINGS") or "{}")}))   # e.g. an interface theme

@@ -27,6 +27,7 @@ uses them unchanged and only reads them. Defaults (Settings -> Privacy):
 | EasyList Italy | The EasyList authors (Khrin), easylist-downloads.adblockplus.org | as EasyList (the same licence page names it) | on |
 | EasyList Cookie List | The EasyList authors (Fanboy), secure.fanboy.co.nz | CC BY 3.0 (stated in the list's own header) | on |
 | uBlock filters, Quick fixes, Privacy, Badware, Unbreak, Cookie notices | uBlock Origin contributors, https://github.com/uBlockOrigin/uAssets | GPL-3.0 | on |
+| Malicious URL Blocklist (since 1.1.17) | curben (malware-filter), https://gitlab.com/malware-filter/urlhaus-filter, from abuse.ch URLhaus | CC0 1.0 and MIT (the project's LICENSE; uBlock Origin has it on by default) | on |
 | Peter Lowe's list | Peter Lowe, https://pgl.yoyo.org/adservers/ | **not clear**: the list and its page state no licence; uBlock Origin's wiki lists it as non-commercial (the author's informal "McRae GPL", https://pgl.yoyo.org/license/), which the list itself does not mention | **off** since 1.1.16, until the author confirms the terms; the user can turn it on |
 
 Lists a user adds keep their own terms. Widevine is **not** included: it is

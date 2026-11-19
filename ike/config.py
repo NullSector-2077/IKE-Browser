@@ -139,6 +139,10 @@ DEFAULT_LISTS = [
      "url": "https://ublockorigin.github.io/uAssets/filters/privacy.txt"},
     {"name": "uBlock filters - Badware", "group": "ads", "enabled": True,
      "url": "https://ublockorigin.github.io/uAssets/filters/badware.txt"},
+    # sites that spread malware right now (abuse.ch URLhaus), as uBlock Origin
+    # has it on by default; CC0 / MIT (1.1.17, docs/THIRD-PARTY.md)
+    {"name": "Malicious URL Blocklist", "group": "ads", "enabled": True,
+     "url": "https://malware-filter.gitlab.io/malware-filter/urlhaus-filter-online.txt"},
     {"name": "uBlock filters - Unbreak", "group": "ads", "enabled": True,
      "url": "https://ublockorigin.github.io/uAssets/filters/unbreak.txt"},
     # off by default until its author confirms the terms for I.K.E. (1.1.16, see
@@ -243,7 +247,7 @@ DEFAULTS = {
     "custom_filters": "",
     "last_lists_update": 0,
     "last_fast_update": 0,              # urgent-fix lists (see blocker.FAST_INTERVAL)
-    "lists_version": 3,                 # bumped when default lists are added
+    "lists_version": 4,                 # bumped when default lists are added
     "auto_update": True,
     # downloads
     "download_dir": "",
@@ -437,6 +441,14 @@ class Config:
                     d["filter_lists"].insert(0, dict(entry))
             d["last_lists_update"] = 0
             d["lists_version"] = 3
+        if isinstance(stored, dict) and stored.get("lists_version", 1) < 4:
+            # 1.1.17: the list of sites that spread malware, for everybody
+            # (once: whoever turns it off later keeps it off)
+            entry = next(e for e in DEFAULT_LISTS if "urlhaus-filter" in e["url"])
+            if not any(e.get("url") == entry["url"] for e in d["filter_lists"]):
+                d["filter_lists"].append(dict(entry))
+                d["last_lists_update"] = 0      # fetch it at the next start
+            d["lists_version"] = 4
         # older level names ("standard" became "balanced")
         d["shield_level"] = _LEVEL_ALIASES.get(d["shield_level"], d["shield_level"])
         if d["shield_level"] not in LEVELS:

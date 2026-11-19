@@ -871,6 +871,16 @@
 "This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "Ta aktualizacja wymaga więcej niż zainstalowana wersja (więcej stron, funkcji lub połączeń) albo wczytuje kod bez szyfrowania. Zainstaluj ją tylko, jeśli jej ufasz.",
 "Fill in: %s": "Wypełnij: %s",
 "This page is not secure: others on the network can read what you type here.": "Ta strona nie jest bezpieczna: inni w sieci mogą odczytać to, co tu wpisujesz.",
-"%s wants to download several files.": "%s chce pobrać kilka plików."
+"%s wants to download several files.": "%s chce pobrać kilka plików.",
+"The system's web engine (qt6-webengine) is %d Chrome versions behind with its security fixes. Update the system (sudo pacman -Syu) to stay protected.": "Silnik WWW systemu (qt6-webengine) jest opóźniony o %d wersji Chrome w poprawkach bezpieczeństwa. Zaktualizuj system (sudo pacman -Syu), aby pozostać chronionym.",
+"Show passwords": "Pokaż hasła",
+"Type the master password to see, copy or export saved passwords:": "Wpisz hasło główne, aby zobaczyć, skopiować lub wyeksportować zapisane hasła:",
+"Go back": "Wróć",
+"%s has no secure connection (https), or someone on the network is blocking it. Without it, others on the network can read and change this page.": "%s nie ma bezpiecznego połączenia (https) albo ktoś w sieci je blokuje. Bez niego inni w sieci mogą czytać i zmieniać tę stronę.",
+"Continue without protection": "Kontynuuj bez ochrony",
+"I.K.E. stopped %s: it is on the protection lists (sites that spread malware, or made only of ads and tracking).": "I.K.E. zatrzymał %s: strona jest na listach ochrony (strony rozsyłające złośliwe oprogramowanie lub złożone tylko z reklam i śledzenia).",
+"Continue anyway": "Kontynuuj mimo to",
+"For safety, code written in the address bar is not run.": "Ze względów bezpieczeństwa kod wpisany w pasku adresu nie jest uruchamiany.",
+"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "Poprawki bezpieczeństwa: opóźnienie o %d wersji Chrome. Zaktualizuj system (sudo pacman -Syu)."
 }
 }

@@ -27,7 +27,7 @@ class UrlBar(QLineEdit):
         clip = QGuiApplication.clipboard().text().strip()
         go = QAction(icon("go-jump-locationbar"), T("Paste and go"), m)
         go.setEnabled(bool(clip))
-        go.triggered.connect(lambda: (self.setText(clip), self.win.navigate(clip)))
+        go.triggered.connect(lambda: (self.setText(clip), self.win.navigate(clip, typed=True)))
         v = self.win.current_view()
         url = v.url().toString() if v and v.url().scheme() in ("http", "https") else ""
         clean = QAction(icon("edit-copy"), T("Copy clean link"), m)
@@ -283,7 +283,7 @@ class UrlBar(QLineEdit):
 
     def _picked(self, text):
         self.setText(text)
-        self.win.navigate(text)
+        self.win.navigate(text, typed=True)
 
     def _suggest(self):
         text = self.text().strip()

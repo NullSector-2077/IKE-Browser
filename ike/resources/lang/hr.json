@@ -871,6 +871,16 @@
 "This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "Ovo ažuriranje traži više od instalirane verzije (više stranica, funkcija ili veza) ili učitava kôd bez šifriranja. Instalirajte ga samo ako mu vjerujete.",
 "Fill in: %s": "Ispuni: %s",
 "This page is not secure: others on the network can read what you type here.": "Ova stranica nije sigurna: drugi na mreži mogu pročitati što ovdje upisujete.",
-"%s wants to download several files.": "%s želi preuzeti više datoteka."
+"%s wants to download several files.": "%s želi preuzeti više datoteka.",
+"The system's web engine (qt6-webengine) is %d Chrome versions behind with its security fixes. Update the system (sudo pacman -Syu) to stay protected.": "Web-pogon sustava (qt6-webengine) kasni sa sigurnosnim ispravcima %d verzija Chromea. Ažurirajte sustav (sudo pacman -Syu) da ostanete zaštićeni.",
+"Show passwords": "Prikaži lozinke",
+"Type the master password to see, copy or export saved passwords:": "Upišite glavnu lozinku da biste vidjeli, kopirali ili izvezli spremljene lozinke:",
+"Go back": "Natrag",
+"%s has no secure connection (https), or someone on the network is blocking it. Without it, others on the network can read and change this page.": "%s nema sigurnu vezu (https) ili je netko na mreži blokira. Bez nje drugi na mreži mogu čitati i mijenjati ovu stranicu.",
+"Continue without protection": "Nastavi bez zaštite",
+"I.K.E. stopped %s: it is on the protection lists (sites that spread malware, or made only of ads and tracking).": "I.K.E. je zaustavio %s: nalazi se na popisima zaštite (stranice koje šire zlonamjerni softver ili su samo oglasi i praćenje).",
+"Continue anyway": "Svejedno nastavi",
+"For safety, code written in the address bar is not run.": "Radi sigurnosti, kôd upisan u adresnu traku ne izvršava se.",
+"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "Sigurnosni ispravci: kašnjenje od %d verzija Chromea. Ažurirajte sustav (sudo pacman -Syu)."
 }
 }

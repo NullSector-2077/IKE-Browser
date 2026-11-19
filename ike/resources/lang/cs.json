@@ -871,6 +871,16 @@
 "This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "Tato aktualizace žádá víc než nainstalovaná verze (více webů, funkcí nebo připojení) nebo načítá kód bez šifrování. Instalujte ji, jen pokud jí důvěřujete.",
 "Fill in: %s": "Vyplnit: %s",
 "This page is not secure: others on the network can read what you type here.": "Tato stránka není zabezpečená: ostatní v síti mohou číst, co sem píšete.",
-"%s wants to download several files.": "%s chce stáhnout více souborů."
+"%s wants to download several files.": "%s chce stáhnout více souborů.",
+"The system's web engine (qt6-webengine) is %d Chrome versions behind with its security fixes. Update the system (sudo pacman -Syu) to stay protected.": "Webový engine systému (qt6-webengine) je s bezpečnostními opravami %d verzí Chrome pozadu. Aktualizujte systém (sudo pacman -Syu), abyste zůstali chráněni.",
+"Show passwords": "Zobrazit hesla",
+"Type the master password to see, copy or export saved passwords:": "Zadejte hlavní heslo pro zobrazení, kopírování nebo export uložených hesel:",
+"Go back": "Zpět",
+"%s has no secure connection (https), or someone on the network is blocking it. Without it, others on the network can read and change this page.": "%s nemá zabezpečené připojení (https), nebo ho někdo v síti blokuje. Bez něj mohou ostatní v síti tuto stránku číst a měnit.",
+"Continue without protection": "Pokračovat bez ochrany",
+"I.K.E. stopped %s: it is on the protection lists (sites that spread malware, or made only of ads and tracking).": "I.K.E. zastavil %s: stránka je na seznamech ochrany (stránky šířící malware, nebo tvořené jen reklamou a sledováním).",
+"Continue anyway": "Přesto pokračovat",
+"For safety, code written in the address bar is not run.": "Z bezpečnostních důvodů se kód napsaný do adresního řádku nespouští.",
+"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "Bezpečnostní opravy: %d verzí Chrome pozadu. Aktualizujte systém (sudo pacman -Syu)."
 }
 }

@@ -27,7 +27,7 @@ TEST_LIST = "||ads.example.test^\n/banner-ad.$image\n##.ike-test-ad\n"
 
 # no list, version or update downloads while testing
 QUIET_SETTINGS = {
-    "lists_version": 3,
+    "lists_version": 4,
     "last_lists_update": 4102444800,
     "last_fast_update": 4102444800,
     "chrome_checked": 4102444800,

@@ -871,6 +871,16 @@
 "This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "Гэта абнаўленне патрабуе больш, чым усталяваная версія (больш сайтаў, функцый або злучэнняў), або загружае код без шыфравання. Усталёўвайце яго, толькі калі давяраеце яму.",
 "Fill in: %s": "Запоўніць: %s",
 "This page is not secure: others on the network can read what you type here.": "Гэтая старонка не абаронена: іншыя ў сетцы могуць прачытаць тое, што вы тут уводзіце.",
-"%s wants to download several files.": "%s хоча спампаваць некалькі файлаў."
+"%s wants to download several files.": "%s хоча спампаваць некалькі файлаў.",
+"The system's web engine (qt6-webengine) is %d Chrome versions behind with its security fixes. Update the system (sudo pacman -Syu) to stay protected.": "Вэб-рухавік сістэмы (qt6-webengine) адстае з выпраўленнямі бяспекі на %d версій Chrome. Абнавіце сістэму (sudo pacman -Syu), каб заставацца пад абаронай.",
+"Show passwords": "Паказаць паролі",
+"Type the master password to see, copy or export saved passwords:": "Увядзіце галоўны пароль, каб убачыць, скапіяваць або экспартаваць захаваныя паролі:",
+"Go back": "Назад",
+"%s has no secure connection (https), or someone on the network is blocking it. Without it, others on the network can read and change this page.": "У %s няма абароненага злучэння (https), або нехта ў сетцы яго блакуе. Без яго іншыя ў сетцы могуць чытаць і змяняць гэтую старонку.",
+"Continue without protection": "Працягнуць без абароны",
+"I.K.E. stopped %s: it is on the protection lists (sites that spread malware, or made only of ads and tracking).": "I.K.E. спыніў %s: сайт ёсць у спісах абароны (сайты, што распаўсюджваюць шкоднасныя праграмы, або толькі з рэкламай і сачэннем).",
+"Continue anyway": "Усё роўна працягнуць",
+"For safety, code written in the address bar is not run.": "Дзеля бяспекі код, уведзены ў адрасным радку, не выконваецца.",
+"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "Выпраўленні бяспекі: адставанне на %d версій Chrome. Абнавіце сістэму (sudo pacman -Syu)."
 }
 }

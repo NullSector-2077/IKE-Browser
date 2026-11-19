@@ -47,6 +47,29 @@ def engine_full():
     return "%d.0.0.0" % engine_major()
 
 
+def security_major():
+    """The Chrome version up to which the engine has its security fixes.
+
+    Qt WebEngine is built on an older Chromium and gets the security fixes of
+    newer ones backported: those, not the Chromium version, say whether the
+    engine is still protected. Falls back to the Chromium version."""
+    try:
+        from PyQt6.QtWebEngineCore import qWebEngineChromiumSecurityPatchVersion
+        return int(qWebEngineChromiumSecurityPatchVersion().split(".")[0])
+    except (ImportError, ValueError, IndexError, AttributeError):
+        return engine_major()
+
+
+# Chrome ships a new version about every four weeks; a system engine whose
+# security fixes are this many versions behind has gone months without them.
+OUTDATED_AFTER = 5
+
+
+def security_behind(config, today=None):
+    """How many Chrome versions the engine's security fixes are behind."""
+    return max(0, latest(config, today) - security_major())
+
+
 def _since_anchor(today=None):
     return max(0, ((today or date.today()) - ANCHOR_DAY).days)
 

@@ -871,6 +871,16 @@
 "This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "此更新比已安装的版本要求更多（更多网站、功能或连接），或通过未加密的连接加载代码。仅在你信任它时安装。",
 "Fill in: %s": "填写：%s",
 "This page is not secure: others on the network can read what you type here.": "此页面不安全：网络上的其他人可以读取你在这里输入的内容。",
-"%s wants to download several files.": "%s 想要下载多个文件。"
+"%s wants to download several files.": "%s 想要下载多个文件。",
+"The system's web engine (qt6-webengine) is %d Chrome versions behind with its security fixes. Update the system (sudo pacman -Syu) to stay protected.": "系统的网页引擎（qt6-webengine）的安全修复落后 %d 个 Chrome 版本。请更新系统（sudo pacman -Syu）以保持安全。",
+"Show passwords": "显示密码",
+"Type the master password to see, copy or export saved passwords:": "输入主密码以查看、复制或导出已保存的密码:",
+"Go back": "返回",
+"%s has no secure connection (https), or someone on the network is blocking it. Without it, others on the network can read and change this page.": "%s 没有安全连接（https），或者网络上有人在阻止它。没有它，网络上的其他人可以读取和更改此页面。",
+"Continue without protection": "不受保护地继续",
+"I.K.E. stopped %s: it is on the protection lists (sites that spread malware, or made only of ads and tracking).": "I.K.E. 已拦截 %s：它在保护列表中（传播恶意软件的网站，或只有广告和跟踪的网站）。",
+"Continue anyway": "仍然继续",
+"For safety, code written in the address bar is not run.": "出于安全考虑，不会运行在地址栏中写入的代码。",
+"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "安全修复：落后 %d 个 Chrome 版本。请更新系统（sudo pacman -Syu）。"
 }
 }

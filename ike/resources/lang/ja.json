@@ -871,6 +871,16 @@
 "This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "この更新はインストール済みのバージョンより多くを求めています（サイト、機能、接続の追加）か、暗号化なしでコードを読み込みます。信頼できる場合のみインストールしてください。",
 "Fill in: %s": "入力: %s",
 "This page is not secure: others on the network can read what you type here.": "このページは安全ではありません。ネットワーク上の他の人がここで入力した内容を読み取れます。",
-"%s wants to download several files.": "%s が複数のファイルをダウンロードしようとしています。"
+"%s wants to download several files.": "%s が複数のファイルをダウンロードしようとしています。",
+"The system's web engine (qt6-webengine) is %d Chrome versions behind with its security fixes. Update the system (sudo pacman -Syu) to stay protected.": "システムのウェブエンジン（qt6-webengine）のセキュリティ修正が Chrome の %d バージョン分遅れています。保護を保つためにシステムを更新してください（sudo pacman -Syu）。",
+"Show passwords": "パスワードを表示",
+"Type the master password to see, copy or export saved passwords:": "保存済みパスワードを表示、コピー、エクスポートするにはマスターパスワードを入力してください:",
+"Go back": "戻る",
+"%s has no secure connection (https), or someone on the network is blocking it. Without it, others on the network can read and change this page.": "%s には安全な接続（https）がないか、ネットワーク上の誰かがそれをブロックしています。安全な接続がないと、ネットワーク上の他の人がこのページを読んだり変更したりできます。",
+"Continue without protection": "保護なしで続行",
+"I.K.E. stopped %s: it is on the protection lists (sites that spread malware, or made only of ads and tracking).": "I.K.E. は %s を停止しました：保護リストに載っています（マルウェアを広めるサイト、または広告と追跡だけのサイト）。",
+"Continue anyway": "それでも続行",
+"For safety, code written in the address bar is not run.": "安全のため、アドレスバーに書かれたコードは実行されません。",
+"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "セキュリティ修正：Chrome の %d バージョン分遅れています。システムを更新してください（sudo pacman -Syu）。"
 }
 }

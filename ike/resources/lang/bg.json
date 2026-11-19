@@ -871,6 +871,16 @@
 "This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "Тази актуализация иска повече от инсталираната версия (повече сайтове, функции или връзки) или зарежда код без криптиране. Инсталирайте я само ако ѝ имате доверие.",
 "Fill in: %s": "Попълни: %s",
 "This page is not secure: others on the network can read what you type here.": "Тази страница не е защитена: други в мрежата могат да прочетат какво пишете тук.",
-"%s wants to download several files.": "%s иска да изтегли няколко файла."
+"%s wants to download several files.": "%s иска да изтегли няколко файла.",
+"The system's web engine (qt6-webengine) is %d Chrome versions behind with its security fixes. Update the system (sudo pacman -Syu) to stay protected.": "Уеб двигателят на системата (qt6-webengine) изостава със защитните поправки с %d версии на Chrome. Обновете системата (sudo pacman -Syu), за да останете защитени.",
+"Show passwords": "Показване на паролите",
+"Type the master password to see, copy or export saved passwords:": "Въведете главната парола, за да видите, копирате или изнесете запазените пароли:",
+"Go back": "Назад",
+"%s has no secure connection (https), or someone on the network is blocking it. Without it, others on the network can read and change this page.": "%s няма защитена връзка (https) или някой в мрежата я блокира. Без нея други в мрежата могат да четат и променят тази страница.",
+"Continue without protection": "Продължаване без защита",
+"I.K.E. stopped %s: it is on the protection lists (sites that spread malware, or made only of ads and tracking).": "I.K.E. спря %s: сайтът е в списъците за защита (сайтове, които разпространяват зловреден софтуер или са само реклами и проследяване).",
+"Continue anyway": "Продължаване въпреки това",
+"For safety, code written in the address bar is not run.": "От съображения за сигурност кодът, написан в адресната лента, не се изпълнява.",
+"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "Защитни поправки: изоставане с %d версии на Chrome. Обновете системата (sudo pacman -Syu)."
 }
 }

@@ -360,6 +360,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.repair_bar = RepairBar(self)
         from .lookalikebar import LookalikeBar
         self.lookalike_bar = LookalikeBar(self)
+        from .securebar import SecureBar
+        self.secure_bar = SecureBar(self)
         right = QWidget(self)
         rl = QVBoxLayout(right)
         rl.setContentsMargins(0, 0, 0, 0)
@@ -367,6 +369,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         rl.addWidget(self.htab_row)
         rl.addWidget(self.repair_bar)
         rl.addWidget(self.lookalike_bar)
+        rl.addWidget(self.secure_bar)
         self.content = QSplitter(Qt.Orientation.Horizontal, self)
         self.content.addWidget(self.stack)
         self.content.addWidget(self._build_split_holder())
@@ -445,7 +448,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self._nav_spacers = [spacer(), spacer()]
         self.space_left_act = tb.addWidget(self._nav_spacers[0])
         self.urlbar = UrlBar(self)
-        self.urlbar.returnPressed.connect(lambda: self.navigate(self.urlbar.text()))
+        self.urlbar.returnPressed.connect(lambda: self.navigate(self.urlbar.text(), typed=True))
         self.urlbar_act = tb.addWidget(self.urlbar)
         # the lock opens the site information panel (siteinfo.py)
         from .siteinfo import SiteInfoPanel
@@ -1371,9 +1374,16 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 return url
         return QUrl(self.app.shields.search_url(text))
 
-    def navigate(self, text):
+    def navigate(self, text, typed=False):
+        """typed=True: words the user typed or pasted in the address bar. Code
+        there ("javascript:...") is never run: a scam that says "paste this in
+        the address bar" would run it inside the site that is open, with the
+        user's account. Bookmarks (bookmarklets) still run theirs."""
         url = self.resolve(text)
         if url is None:
+            return
+        if typed and url.scheme().lower() == "javascript":
+            self.toast(T("For safety, code written in the address bar is not run."), 5000)
             return
         view = self.current_view() or self.add_tab(None)
         view.load(url)
@@ -1609,6 +1619,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.update_shield()
         self._update_bookbar()
         self.lookalike_bar.show_for(v)
+        self.secure_bar.show_for(v)
         self.site_tint.update(v)
         if self.findbar.isVisible():
             self.findbar.close_bar()
@@ -1680,6 +1691,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                     and not getattr(v, "loading", False):
                 self.site_tint.page_loaded(v)
         self.lookalike_bar.show_for(v)
+        self.secure_bar.show_for(v)
         self.site_tint.update(v)
 
     def _url_changed(self, view):
@@ -1692,6 +1704,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             view.site_colour = None
         if view is self.current_view():
             self.lookalike_bar.show_for(view)
+            self.secure_bar.show_for(view)
             self.site_tint.update(view)
             self._update_bookbar()
             self.urlbar.setModified(False)
@@ -2005,8 +2018,14 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         from . import chromever
         behind = chromever.latest(self.app.config) - chromever.engine_major()
         if behind <= 0:
-            return T("Engine age: as recent as the current Chrome")
-        return T("Engine age: %d Chrome versions behind the current one") % behind
+            text = T("Engine age: as recent as the current Chrome")
+        else:
+            text = T("Engine age: %d Chrome versions behind the current one") % behind
+        late = chromever.security_behind(self.app.config)
+        if late >= chromever.OUTDATED_AFTER:
+            text += "<br><b>" + T("Security fixes: %d Chrome versions behind. Update the system "
+                                  "(sudo pacman -Syu).") % late + "</b>"
+        return text
 
     @staticmethod
     def _media_about(media):

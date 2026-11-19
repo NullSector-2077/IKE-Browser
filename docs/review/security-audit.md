@@ -191,7 +191,19 @@ Decided by the owner and done in the same version:
 | Low | Vault: scrypt N = 2^17, r = 8, p = 1 for new vaults. A vault file is accepted only if it names exactly that profile or the legacy one (N = 2^15, r = 8, p = 1, every vault of 1.0.0 to 1.1.16), as whole numbers; anything else is refused before scrypt runs (a doctored file naming N = 2^20, r = 16, p = 4 would have cost 2 GiB and four rounds per try). A legacy vault is sealed again with the current profile at unlock (open issue D, first half). | `test_passwords.py::test_vault_accepts_exactly_its_two_scrypt_profiles`, `test_vault_refuses_other_scrypt_parameters_before_running_scrypt`, `test_legacy_vault_moves_to_the_current_profile_without_losing_anything` |
 | Low | GitHub Actions pinned by commit hash (open issue F). | `test_security.py::test_github_actions_are_pinned_by_commit_hash` |
 
-Left for later, by the owner's choice: the automatic lock of the vault, and
+Then, from a second pass over the whole browser (each with its test in
+`test_security.py`):
+
+| Rating | Finding or gap | Change | Test |
+|---|---|---|---|
+| Medium | A `javascript:` address typed or pasted in the address bar ran inside the site in view (checked: it changed the page of a local site) | refused from the address bar, kept for bookmarks | `test_code_typed_in_the_address_bar_is_never_run` |
+| Medium | A failed https upgrade fell back to http silently: an attacker on the network can force it | the page stops; a bar in the window offers "Continue without protection" for the session | `test_a_failed_secure_address_is_not_left_for_http_silently` |
+| Low | No list of sites that spread malware; a page blocked by the lists showed only the engine's error | Malicious URL Blocklist (URLhaus) on by default, also for existing settings once; a bar with "Continue anyway" | `test_a_page_on_the_lists_is_stopped_with_a_way_through`, `test_the_malware_list_reaches_new_and_existing_users` |
+| Low | Nothing told the user when the system's engine went months without security fixes | a notice once per session and a line in About when its fixes are five or more Chrome versions behind | `test_an_engine_without_recent_security_fixes_is_reported` |
+| Low | With the vault open, anyone at the computer could show, copy or export every password | the master password is asked again (valid five minutes) | `test_saved_passwords_need_the_master_password_to_be_seen` |
+
+Left for later, by the owner's choice: the automatic lock of the vault,
 verifying the signature of Chrome extensions (open issue B) until extensions
-work and are no longer experimental.
+work and are no longer experimental, and a content security policy for the new
+tab page (defence in depth; no weakness known).
 

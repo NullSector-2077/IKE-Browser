@@ -871,6 +871,16 @@
 "This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "Ово ажурирање тражи више од инсталиране верзије (више сајтова, функција или веза) или учитава код без шифровања. Инсталирајте га само ако му верујете.",
 "Fill in: %s": "Попуни: %s",
 "This page is not secure: others on the network can read what you type here.": "Ова страница није безбедна: други на мрежи могу да прочитају шта овде уносите.",
-"%s wants to download several files.": "%s жели да преузме више датотека."
+"%s wants to download several files.": "%s жели да преузме више датотека.",
+"The system's web engine (qt6-webengine) is %d Chrome versions behind with its security fixes. Update the system (sudo pacman -Syu) to stay protected.": "Веб-погон система (qt6-webengine) касни са безбедносним исправкама %d верзија Chrome-а. Ажурирајте систем (sudo pacman -Syu) да останете заштићени.",
+"Show passwords": "Прикажи лозинке",
+"Type the master password to see, copy or export saved passwords:": "Унесите главну лозинку да бисте видели, копирали или извезли сачуване лозинке:",
+"Go back": "Назад",
+"%s has no secure connection (https), or someone on the network is blocking it. Without it, others on the network can read and change this page.": "%s нема безбедну везу (https) или је неко на мрежи блокира. Без ње други на мрежи могу да читају и мењају ову страницу.",
+"Continue without protection": "Настави без заштите",
+"I.K.E. stopped %s: it is on the protection lists (sites that spread malware, or made only of ads and tracking).": "I.K.E. је зауставио %s: налази се на листама заштите (сајтови који шире злонамерни софтвер или су само рекламе и праћење).",
+"Continue anyway": "Ипак настави",
+"For safety, code written in the address bar is not run.": "Ради безбедности, код унет у траку за адресу се не извршава.",
+"Security fixes: %d Chrome versions behind. Update the system (sudo pacman -Syu).": "Безбедносне исправке: кашњење од %d верзија Chrome-а. Ажурирајте систем (sudo pacman -Syu)."
 }
 }
