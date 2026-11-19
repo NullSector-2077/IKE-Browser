@@ -28,7 +28,9 @@ Security review (each point has a test that plays the attack on this computer).
   the work (scrypt N = 2^17, about a third of a second once when it is opened)
   so guessing the master password of a stolen file is four times slower. An
   existing vault opens as before and is sealed again with the new strength at
-  once; nothing is lost.
+  once; nothing is lost. A vault file naming any other key settings than
+  I.K.E.'s two is refused at once, before any work: a doctored file cannot
+  make the unlock take gigabytes of memory.
 - **Dark mode never reads the home network for a web site**: the style sheets
   that dark mode fetches for a page (those the page cannot read itself) are no
   longer fetched from this computer or the home network (router, printer, a
