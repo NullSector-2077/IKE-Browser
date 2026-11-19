@@ -179,7 +179,7 @@ def steps(ike, qapp, out):
 
     # 1. long press, then drag past the last button (far enough for every step to be a real move)
     moves = []
-    yield from drag(win, "bookmark", after(win, "reader"), moves_out=moves)
+    yield from drag(win, "bookmark", centre(win.menu_btn), moves_out=moves)     # dropped on the fixed menu: last of its zone
     out["moves"] = [[m[0], m[1], m[2], m[3]] for m in moves]
     out["toolbar_untouched_during_drag"] = all(m[4] == out["start"] and m[5] == shape for m in moves)
     out["after_first"] = keys(win)
