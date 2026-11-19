@@ -20,8 +20,10 @@ steps, in this order:
 
 1. Read "The failure" below. If a section "Work already done by a previous
    model" follows it, another model already started this fix: go on from there.
-2. Open only the file(s) and lines the error names. Do not explore the
-   repository.
+2. The code around the places the error names is already below, in section
+   "Code at the failure" (prepared by GitHub, with line numbers). Open a file
+   only when you need more than that, and only the files the error names or
+   that section lists. Do not explore the repository.
 3. If it can be fixed in the code, make the smallest correct fix (a few lines,
    at most 5 files).
 4. Write `.autofix/summary.md` right away, in Italian, plain and short (at most
@@ -43,8 +45,14 @@ quota or rate limit, a problem in `.github/` (you may not change it).
   `ike-browser.install`, `pyproject.toml`, `README.md`, `CHANGELOG.md`,
   `ROADMAP.md`, `ike/__init__.py` (the version), `ike/updater.py`,
   `tests/conftest.py`, `tests/harness.py`, the release tools or the autofix tools.
-- Do not touch the ad blocker (`ike-adblock/`, `ike/blocker.py`,
-  `ike/scriptlets.py`) unless the failure comes from an update of its engine.
+- Do not touch the ad blocker (`ike-adblock/src/`, `vendor/adblock/__init__.py`,
+  `ike/blocker.py`, `ike/scriptlets.py`: I.K.E.'s own wrapper around Brave's
+  adblock-rust) unless the failure comes from an update of its engine. Never
+  touch the engine itself, `ike-adblock/Cargo.toml` or `Cargo.lock`: a problem
+  of the engine is for the maintenance, say so in the summary.
+- Never change files that come from others or are generated: Dark Reader
+  (`ike/resources/darkreader*`), `ike/resources/ubo-scriptlets.json`, the icon
+  sets (`ike/resources/icons/`), `docs/THIRD-PARTY.md`.
 - Never make a test pass by weakening it: do not delete tests or assertions, do
   not add skip or xfail, do not loosen what a test checks. Fix the code; change a
   test only when the test itself is wrong, and say so in the summary.

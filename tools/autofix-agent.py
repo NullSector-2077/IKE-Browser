@@ -76,6 +76,11 @@ def classify(status, err):
     if status == 124:
         return "timeout", 0
     text = err[-20000:]
+    # the CLI's own time limit ("print timeout ... turn still in progress"): the
+    # agent was still working, not Google failing. Another try would end the
+    # same way (the first real trial spent 25 minutes on four of them).
+    if "print_timeout" in text or "print timeout" in text.lower():
+        return "timeout", 0
     info = {}
     for line in text.splitlines():
         if line.startswith("AGY_ERROR:"):
@@ -114,13 +119,16 @@ def classify(status, err):
 PROMPT_MAX = 110_000          # one argument of a command: at most 128 KiB on Linux
 
 
-def with_failure(rules, failure, done=""):
-    """The instructions, then the failure (and the work a previous model did),
-    within the size one command argument may have."""
+def with_failure(rules, failure, done="", context=""):
+    """The instructions, then the failure, the code it points at (prepared by
+    tools/autofix-context.py, 1.1.15) and the work a previous model did, within
+    the size one command argument may have."""
     text = rules.rstrip() + "\n\n# The failure (also in .autofix/failure.md)\n\n"
     extra = ""
+    if context:
+        extra += "\n\n" + context[:40000].rstrip() + "\n"
     if done:
-        extra = ("\n\n# Work already done by a previous model\n\nIt is already in the files: "
+        extra += ("\n\n# Work already done by a previous model\n\nIt is already in the files: "
                  "go on from here, do not redo it.\n\n```diff\n%s\n```\n" % done[:20000])
     room = PROMPT_MAX - len(text.encode()) - len(extra.encode())
     body = failure.encode()
@@ -174,13 +182,17 @@ def main(argv=None):
         failure = (workdir / ".autofix" / "failure.md").read_text("utf-8", "replace")
     except OSError:
         failure = "(no failure description was found)\n"
+    try:
+        context = (workdir / ".autofix" / "context.md").read_text("utf-8", "replace")
+    except OSError:
+        context = ""
     result, used, detail = "error", "", ""
     deadline = time.monotonic() + a.total_timeout
     for model in models(os.environ.get("AUTOFIX_MODEL")):
         tries = 0
         while True:
             tries += 1
-            prompt = with_failure(rules, failure, changes(workdir))
+            prompt = with_failure(rules, failure, changes(workdir), context)
             limit = int(min(a.model_timeout, deadline - time.monotonic()))
             if limit < 60:
                 result = "timeout"
@@ -194,11 +206,15 @@ def main(argv=None):
                                      stdin=subprocess.DEVNULL, capture_output=True, timeout=limit + 60)
                 status, err = run.returncode, run.stderr
             except subprocess.TimeoutExpired:
-                status, err = 124, b""
+                run, status, err = None, 124, b""
             # the agent's own output is never printed: the logs of a public repository are public
             err = redact(err, key)
+            said = redact(getattr(run, "stdout", b"") or b"", key) if status != 124 else b""
             (out / ("agent-%s.err" % re.sub(r"\W+", "_", model))).write_bytes(err)
             used, detail = model, "\n".join(err.decode("utf-8", "replace").splitlines()[-30:])
+            if status and said.strip():
+                # what the agent had produced when it stopped (its own words, no key): for the diagnosis
+                detail += "\n--- the agent's last output ---\n" + said.decode("utf-8", "replace")[-1500:]
             if status == 0:
                 result = "ok"
                 break

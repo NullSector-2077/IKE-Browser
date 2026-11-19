@@ -1,0 +1,45 @@
+# The checks of the automatic fix, for the pull requests ChatGPT opens when the
+# owner asks it to fix a failure (branches chatgpt/*, see docs/MAINTENANCE.md).
+#
+# It runs as pull_request_target, so this file and the checker always come from
+# main: a pull request cannot change the rules it is checked against. Nothing of
+# the pull request is ever run here; only its diff is read. The tests run on it
+# as on any pull request (tests.yml).
+name: ChatGPT fix guard
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    if: startsWith(github.head_ref, 'chatgpt/')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out main (no credentials)
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: The changes of the pull request, checked like an automatic fix
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git fetch -q --no-tags origin "+$HEAD_SHA:refs/remotes/pr/head"
+          base=$(git merge-base origin/main refs/remotes/pr/head)
+          git diff --binary "$base" refs/remotes/pr/head > "$RUNNER_TEMP/pr.patch"
+          set +e
+          python3 -I tools/check-autofix-patch.py --repo . --patch "$RUNNER_TEMP/pr.patch" \
+            --check-only --report "$RUNNER_TEMP/guard.md"
+          verdict=$?
+          set -e
+          cat "$RUNNER_TEMP/guard.md" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$verdict" != "0" ] && [ "$verdict" != "2" ]; then    # 2: nothing changed against main
+            echo "::error::the pull request goes beyond what an automatic fix may change"
+            exit 1
+          fi
