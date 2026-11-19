@@ -991,3 +991,39 @@ def test_failures_of_tests_the_automation_started_reach_the_fix(monkeypatch):
     slept = []
     run = plan_tool.completed_run("o/r", "1", sleep=slept.append)
     assert run["conclusion"] == "failure" and len(slept) == 2
+
+
+@pytest.mark.skipif(not __import__("shutil").which("ruff"), reason="ruff is not installed here")
+def test_each_fix_goes_through_the_lint(repo, tmp_path):
+    """2026-11-19: a right fix left an unused import and the guard's lint refused
+    it. ruff's own safe fixes are applied first; what is left goes back as the
+    reason, and the next model tries."""
+    import json
+    reserve = load("autofix-reserve")
+    (repo / "pyproject.toml").write_text("[tool.ruff]\nline-length = 120\n")
+    (repo / "ike/window.py").write_text("import os\n\n\ndef width():\n    return 10\n")
+    ok, said = reserve.linted(repo, ["ike/window.py"])
+    assert ok and "import os" not in (repo / "ike/window.py").read_text()   # removed, no AI
+    (repo / "ike/window.py").write_text("def width():\n    return nothing_here\n")
+    ok, said = reserve.linted(repo, ["ike/window.py"])
+    assert not ok and "F821" in said
+    git(repo, "checkout", "-q", "--", ".")
+    git(repo, "clean", "-qfd")
+    _reserve_repo(repo)
+    prompt = tmp_path / "prompt.md"
+    prompt.write_text("RULES")
+    status = tmp_path / "status.json"
+    bad = json.dumps({"summary": "x", "edits": [{"file": "ike/window.py", "find": "    return 10\n",
+                                                "replace": "    return undefined_name\n"}]})
+    good = json.dumps({"summary": "ok", "edits": [{"file": "ike/window.py", "find": "    return 10\n",
+                                                  "replace": "    return 11\n"}]})
+    asked = []
+    opener = _opener([bad, good], [])
+
+    def spy(req, timeout=0):
+        asked.append(json.loads(req.data)["messages"][1]["content"])
+        return opener(req, timeout)
+    reserve.main(["--workdir", str(repo), "--prompt", str(prompt), "--status", str(status), "--lint"],
+                 env={"GROQ_API_KEY": "k", "AUTOFIX_GROQ_MODELS": "g1, g2"}, opener=spy)
+    assert json.loads(status.read_text())["result"] == "ok"
+    assert "F821" in asked[1] and (repo / "ike/window.py").read_text() == "def width():\n    return 11\n"
