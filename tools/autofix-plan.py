@@ -261,6 +261,9 @@ def main(argv=None):
     open_fix_pr = str(prs[0]["number"]) if prs else ""
     issues = gh_api("repos/%s/issues?state=open&labels=autofix&per_page=100" % repo)
     plan = decide(run, failed, open_fix_pr, [i["title"] for i in issues])
+    # the commit that failed: the issue's message for ChatGPT starts from it when
+    # no automatic fix is tried (after two attempts, for instance)
+    plan["head_sha"] = run.get("head_sha", "")
 
     parts = ["# Failure to fix\n",
              "- Workflow: %s\n- Branch: %s\n- Commit: %s\n- Run: %s\n" % (
