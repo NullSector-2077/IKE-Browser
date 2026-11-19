@@ -18,12 +18,22 @@ whether the patch stays inside what an automatic fix may change:
 - a pertinent patch (--related, 1.1.15): when the failure names files of the
   repository (tools/autofix-context.py), at least one of them must change.
 
+- never the files that come from others or are generated (1.1.16): Dark
+  Reader, uBlock Origin's scriptlets, the icon sets, the ad blocker's Cargo
+  files and lock, the third-party notice. Inside ike-adblock/ only I.K.E.'s own
+  wrapper (src/, and vendor/adblock/__init__.py) may change, and only with
+  --allow-adblock; the engine itself (adblock-rust) is a crate, never in here.
+
     check-autofix-patch.py --repo DIR --patch FILE [--allow-adblock]
-                           [--related FILE] [--report FILE.md]
+                           [--related FILE] [--report FILE.md] [--check-only]
 
 The patch is applied to the index and work tree of DIR only when every rule
 passes; the exit status is 0 then, 1 when the patch is refused (the reasons go
-to standard output and to --report), 2 when the patch is empty.
+to standard output and to --report), 2 when the patch is empty, 3 when it is
+refused for a reason of safety (a forbidden file, a key, a weakened test...):
+then no other assistant is asked, the owner looks. --check-only checks without
+applying (the patch may already be in the work tree): the fix job uses it to
+hand a refused fix to the next assistant with the reason.
 """
 
 import argparse
@@ -36,8 +46,10 @@ MAX_FILES = 5
 MAX_LINES = 150
 
 ALLOWED_PREFIXES = ("ike/", "tests/", "tools/", "docs/")
-ADBLOCK_PATHS = ("ike-adblock/", "ike/blocker.py", "ike/scriptlets.py",
-                 "ike/resources/ubo-scriptlets.json")
+ADBLOCK_PATHS = ("ike-adblock/src/", "vendor/adblock/__init__.py", "ike/blocker.py", "ike/scriptlets.py")
+# from others or generated: never by an automatic fix (their own update tools make them)
+THIRD_PARTY = ("ike-adblock/Cargo.toml", "ike-adblock/Cargo.lock", "ike/resources/ubo-scriptlets.json",
+               "ike/resources/darkreader", "ike/resources/icons/", "docs/THIRD-PARTY.md")
 FORBIDDEN_FILES = {
     "ike/__init__.py",            # version and minimum system: set by the release tools
     "ike/updater.py",             # signature and hash checks of the self-update
@@ -64,10 +76,14 @@ def allowed_path(path, allow_adblock):
         return "outside the repository"
     if path in FORBIDDEN_FILES:
         return "protected file"
+    if any(path == p or path.startswith(p) for p in THIRD_PARTY):
+        return "third-party or generated file (its own update tool makes it)"
     if path.endswith(FORBIDDEN_SUFFIXES):
         return "binary, archive or key file"
     if any(path == p or path.startswith(p) for p in ADBLOCK_PATHS):
         return "" if allow_adblock else "ad blocker (only with an engine update)"
+    if path.startswith("ike-adblock/") or path.startswith("vendor/"):
+        return "the ad blocker's package (only I.K.E.'s wrapper may change)"
     if not path.startswith(ALLOWED_PREFIXES):
         return "not I.K.E.'s code, tests, tools or documents"
     return ""
@@ -132,6 +148,17 @@ def check(repo, patch_text, allow_adblock=False):
     return reasons
 
 
+# A refusal for one of these is not a matter of a better fix: another assistant
+# is not asked (exit status 3) and the owner looks.
+SAFETY = ("outside the repository", "protected file", "third-party or generated", "binary",
+          "ad blocker", "not I.K.E.'s code", "key or token", "link or file mode", "skip or xfail",
+          "assertion(s) removed", "test file removed")
+
+
+def safety_refusal(reasons):
+    return any(any(mark in r for mark in SAFETY) for r in reasons)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--repo", default=".")
@@ -139,6 +166,7 @@ def main(argv=None):
     ap.add_argument("--allow-adblock", action="store_true")
     ap.add_argument("--report", help="write the outcome here (Markdown)")
     ap.add_argument("--related", help="files involved in the failure, one per line")
+    ap.add_argument("--check-only", action="store_true", help="check, do not apply")
     a = ap.parse_args(argv)
     patch_text = Path(a.patch).read_text("utf-8", errors="replace")
     if not patch_text.strip():
@@ -162,7 +190,7 @@ def main(argv=None):
         files = git(a.repo, "apply", "--numstat", "-", stdin=patch_text).stdout.splitlines()
         if not files:
             reasons = ["the patch changes nothing"]
-    if not reasons:
+    if not reasons and not a.check_only:
         applied = git(a.repo, "apply", "--index", "-", stdin=patch_text)
         if applied.returncode:
             reasons = ["the patch does not apply: " + applied.stderr.strip()[:300]]
@@ -171,7 +199,7 @@ def main(argv=None):
         print(text)
         if a.report:
             Path(a.report).write_text(text, "utf-8")
-        return 1
+        return 3 if safety_refusal(reasons) else 1
     names = [row.split("\t")[-1] for row in files]
     text = "Patch accepted by the automatic checks (%d files):\n\n%s" % (
         len(names), "".join("- `%s`\n" % n for n in names))

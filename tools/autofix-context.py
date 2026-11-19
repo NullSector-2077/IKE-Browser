@@ -26,15 +26,19 @@ import re
 import sys
 from pathlib import Path
 
-ROOTS = ("ike/", "tests/", "tools/", "docs/")
+ROOTS = ("ike/", "tests/", "tools/", "docs/", "ike-adblock/src/", "vendor/adblock/")
 AROUND = 30                 # lines before and after a place
 MAX_PLACES = 8
 MAX_LINES = 700             # all excerpts together
 MAX_RELATED = 12
 
 _PLACE = re.compile(
-    r'File "(?:[^"]*/)?((?:ike|tests|tools|docs)/[\w./-]+\.py)", line (\d+)'    # traceback
-    r"|(?<![\w/.-])((?:ike|tests|tools|docs)/[\w./-]+\.(?:py|js|json|md|txt)):(\d+)")   # pytest, ruff
+    r'File "(?:[^"]*/)?((?:ike|tests|tools|docs|vendor/adblock)/[\w./-]+\.py)", line (\d+)'    # traceback
+    r"|(?<![\w/.-])((?:ike|tests|tools|docs)/[\w./-]+\.(?:py|js|json|md|txt)):(\d+)"   # pytest, ruff
+    # cargo ("--> src/lib.rs:12:5", from inside ike-adblock/): I.K.E.'s own wrapper.
+    # The engine's files (~/.cargo/registry/...adblock-0.13.6/src/...) are never matched:
+    # an upstream problem is for the maintenance, not for a fix in here.
+    r"|(?:-->|at) (?:ike-adblock/)?(src/[\w/-]+\.rs):(\d+)")
 _MODULE = re.compile(r"\bfrom ike(?:\.(\w+))? import ([\w, ]+)|\bike[./](\w+)\b")
 
 
@@ -42,7 +46,10 @@ def places(text, repo):
     """[(file, line)] named by the failure, existing in the repository, in order."""
     out = []
     for m in _PLACE.finditer(text):
-        path, line = (m.group(1), m.group(2)) if m.group(1) else (m.group(3), m.group(4))
+        if m.group(5):
+            path, line = "ike-adblock/" + m.group(5), m.group(6)
+        else:
+            path, line = (m.group(1), m.group(2)) if m.group(1) else (m.group(3), m.group(4))
         if path.startswith("./"):
             path = path[2:]
         if ".." in Path(path).parts or not path.startswith(ROOTS):

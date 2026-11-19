@@ -37,10 +37,20 @@ MAINTENANCE = "automation/daily-maintenance"
 FIX_MAIN = "automation/autofix-main"
 FIXABLE_BRANCHES = ("main", MAINTENANCE, FIX_MAIN)
 ISSUE_TITLE = "Automatic fix needs you: %s"
-LOG_LINES = 400
-LOG_BYTES = 60000
+LOG_LINES = 160              # of the failed step only (1.1.16: the whole job's end was mostly noise)
+LOG_BYTES = 20000
+# lines that never explain a failure: package installs, downloads, the runner's cleanup
+NOISE = re.compile(
+    r"^(Selecting previously unselected|Preparing to unpack|Unpacking |Setting up |Processing triggers|"
+    r"Get:\d|Hit:\d|Ign:\d|Fetched |Reading (package lists|database|state information)|"
+    r"Building dependency tree|\(Reading database|Collecting |Downloading |Using cached |"
+    r"Requirement already satisfied|Installing collected packages|Successfully installed |"
+    r"\s+Compiling |\s+Downloaded |\s+Downloading crates|\[command\]|Temporarily overriding HOME|"
+    r"Adding repository directory|Cleaning up orphan processes|Post job cleanup|##\[(start|end)-action|"
+    r"##\[warning\]Node\.js)")
 ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 STAMP = re.compile(r"^\d{4}-\d\d-\d\dT[\d:.]+Z ?")
+ENV_LINE = re.compile(r"^  [A-Za-z_][A-Za-z0-9_]*: ")
 
 
 def gh_api(path, raw=False):
@@ -101,9 +111,28 @@ def previous_fix(branch, repo):
 
 
 def clean_log(text):
+    """The part of a job's log that explains the failure: the step that failed
+    (from its "Run" line to its last error), without install and cleanup noise.
+    A log with no error marker keeps its last lines, as before."""
     lines = [STAMP.sub("", ANSI.sub("", ln.lstrip("\ufeff"))) for ln in text.splitlines()]
-    lines = [ln for ln in lines if ln.strip() and not ln.startswith(("##[group]", "##[endgroup]"))]
-    tail = "\n".join(lines[-LOG_LINES:])
+    errors = [i for i, ln in enumerate(lines) if ln.startswith("##[error]")]
+    if errors:
+        end = errors[-1] + 1
+        starts = [i for i in range(end) if lines[i].startswith("##[group]Run ")]
+        lines = lines[starts[-1] if starts else 0:end]
+    keep, in_env = [], False
+    for ln in lines:
+        if in_env and ENV_LINE.match(ln):
+            continue                       # the runner's environment: no part of the failure
+        in_env = ln == "env:"
+        if not ln.strip() or NOISE.match(ln) or in_env or ln.startswith("shell: "):
+            continue
+        if ln.startswith("##[group]Run "):
+            ln = "$ " + ln[len("##[group]Run "):]
+        elif ln.startswith(("##[group]", "##[endgroup]")):
+            continue
+        keep.append(ln)
+    tail = "\n".join(keep[-LOG_LINES:])
     return tail[-LOG_BYTES:]
 
 
@@ -204,7 +233,7 @@ def main(argv=None):
             log = clean_log(gh_api("repos/%s/actions/jobs/%s/logs" % (repo, job["id"]), raw=True))
         except RuntimeError as e:
             log = "(log not available: %s)" % e
-        parts.append("\n## Job `%s` (failed step: %s)\n\nLast lines of its log:\n\n```text\n%s\n```\n"
+        parts.append("\n## Job `%s` (failed step: %s)\n\nThe failed step's log:\n\n```text\n%s\n```\n"
                      % (job["name"], ", ".join(steps) or "?", log.replace("```", "'''")))
     if plan["action"] == "fix" and branch in (MAINTENANCE, FIX_MAIN) and run["_attempts"]:
         parts.append(previous_fix(branch, repo))

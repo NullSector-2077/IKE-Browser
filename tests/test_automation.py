@@ -117,7 +117,7 @@ def test_a_test_may_be_corrected_without_weakening_it(repo, tmp_path):
 def test_protected_files_are_refused(repo, tmp_path, rel):
     patch = make_patch(repo, edit(rel, "# changed\n", "a"))
     code, report = run_guard(repo, patch, tmp_path)
-    assert code == 1 and rel in report
+    assert code == 3 and rel in report          # a safety refusal: no other assistant is asked
     assert (repo / "ike/window.py").read_text() == "def width():\n    return 10\n"   # nothing applied
     assert git(repo, "status", "--porcelain") == ""
 
@@ -126,7 +126,7 @@ def test_the_ad_blocker_only_with_an_engine_update(repo, tmp_path):
     for rel in ("ike-adblock/src/lib.rs", "ike/blocker.py"):
         patch = make_patch(repo, edit(rel, "// fixed\n", "a"))
         code, report = run_guard(repo, patch, tmp_path)
-        assert code == 1 and "ad blocker" in report
+        assert code == 3 and "ad blocker" in report
         code, _ = run_guard(repo, patch, tmp_path, "--allow-adblock")
         assert code == 0
         git(repo, "reset", "-q", "--hard")
@@ -137,16 +137,16 @@ def test_the_ad_blocker_only_with_an_engine_update(repo, tmp_path):
 def test_skips_and_xfails_are_refused(repo, tmp_path, line):
     patch = make_patch(repo, edit("tests/test_window.py", line, "a"))
     code, report = run_guard(repo, patch, tmp_path)
-    assert code == 1 and "skip or xfail" in report
+    assert code == 3 and "skip or xfail" in report
 
 
 def test_removed_assertions_and_tests_are_refused(repo, tmp_path):
     patch = make_patch(repo, edit("tests/test_window.py", "def test_width():\n    assert 1\n"))
     code, report = run_guard(repo, patch, tmp_path)
-    assert code == 1 and "assertion(s) removed" in report
+    assert code == 3 and "assertion(s) removed" in report
     patch = make_patch(repo, lambda r: (r / "tests/test_window.py").unlink())
     code, report = run_guard(repo, patch, tmp_path)
-    assert code == 1 and "test file removed" in report
+    assert code == 3 and "test file removed" in report
 
 
 def test_keys_binaries_links_and_size_are_refused(repo, tmp_path):
@@ -170,7 +170,7 @@ def test_paths_outside_the_repository_are_refused(repo, tmp_path):
     patch = ("diff --git a/../evil.py b/../evil.py\nnew file mode 100644\n--- /dev/null\n"
              "+++ b/../evil.py\n@@ -0,0 +1 @@\n+x = 1\n")
     code, report = run_guard(repo, patch, tmp_path)
-    assert code == 1
+    assert code == 3
     assert not (repo.parent / "evil.py").exists()
 
 
@@ -398,7 +398,8 @@ def test_the_agent_runner_hides_the_key(tmp_path):
 def test_no_workflow_publishes_merges_or_runs_forks():
     for path in WORKFLOWS.glob("*.yml"):
         text = path.read_text()
-        assert "pull_request_target" not in text, path.name
+        if path.name != "chatgpt-guard.yml":
+            assert "pull_request_target" not in text, path.name
         assert "gh pr merge" not in text and "gh release create" not in text, path.name
         assert "GEMINI_API_KEY" not in text or path.name in ("autofix.yml", "health.yml"), path.name
     maintenance = (WORKFLOWS / "daily-maintenance.yml").read_text()
@@ -501,7 +502,7 @@ def test_the_reserves_one_after_the_other(repo, tmp_path):
         {"file": "ike/window.py", "find": "    return 10\n", "replace": "    return 11\n"}]})
     seen = []
     env = {"GROQ_API_KEY": "gsk_TESTONLY", "OPENROUTER_API_KEY": "sk-or-TESTONLY",
-           "AUTOFIX_OPENROUTER_MODELS": "a:free, b:free"}
+           "AUTOFIX_GROQ_MODELS": "g1", "AUTOFIX_OPENROUTER_MODELS": "a:free, b:free"}
     # Groq out of quota, OpenRouter's first model answers badly twice, the second one fixes it
     answers = [429, "not json", '{"edits": [{"file": "ike/window.py", "find": "nope", "replace": "x"}]}', good]
     status = tmp_path / "status.json"
@@ -530,7 +531,7 @@ def test_the_reserves_never_touch_other_files_and_skip_missing_keys(repo, tmp_pa
     for path in ("ike/updater.py", "../evil.py", ".github/workflows/tests.yml"):
         bad = json.dumps({"summary": "x", "edits": [{"file": path, "find": "CHECK", "replace": "NO"}]})
         reserve.main(["--workdir", str(repo), "--prompt", str(prompt), "--status", str(status)],
-                     env={"GROQ_API_KEY": "k"}, opener=_opener([bad, bad], []))
+                     env={"GROQ_API_KEY": "k", "AUTOFIX_GROQ_MODELS": "g1"}, opener=_opener([bad, bad], []))
         assert json.loads(status.read_text())["result"] == "error", path
     assert (repo / "ike/updater.py").read_text() == "CHECK = True\n"
     assert not (repo.parent / "evil.py").exists()
@@ -540,3 +541,147 @@ def test_the_reserves_never_touch_other_files_and_skip_missing_keys(repo, tmp_pa
     reserve.main(["--workdir", str(repo), "--prompt", str(prompt), "--status", str(status)],
                  env={"GROQ_API_KEY": "k", "OPENROUTER_API_KEY": "k2"}, opener=_opener([no], seen))
     assert json.loads(status.read_text())["result"] == "none" and len(seen) == 1
+
+
+def test_the_chatgpt_guard_never_runs_the_pull_request():
+    """1.1.16: ChatGPT's fixes (branches chatgpt/*) are checked by the checker of
+    main. The workflow runs from main (pull_request_target) so a pull request
+    cannot change its own checks; in exchange it must never run anything of the
+    pull request, hold no secret and write nothing."""
+    text = (WORKFLOWS / "chatgpt-guard.yml").read_text()
+    assert "pull_request_target" in text and "startsWith(github.head_ref, 'chatgpt/')" in text
+    assert "permissions:\n  contents: read\n" in text and "write" not in text.split("jobs:")[0]
+    assert "secrets." not in text and "GITHUB_TOKEN" not in text
+    assert "ref: main" in text and "persist-credentials: false" in text
+    # the pull request only as a diff; the only program run is main's checker
+    assert "git diff --binary" in text and "python3 -I tools/check-autofix-patch.py" in text
+    runs = [ln.strip() for ln in text.splitlines() if ln.strip().startswith(("python", "bash", "sh ", "./", "make", "pip"))]
+    assert runs == ["python3 -I tools/check-autofix-patch.py --repo . --patch \"$RUNNER_TEMP/pr.patch\" \\"], runs
+    assert "git checkout" not in text and "refs/remotes/pr/head" in text
+
+
+def test_the_reserves_defaults_and_budgets():
+    """1.1.16: today's free models; Groq (about 8,000 tokens a minute) gets a
+    short message, OpenRouter the whole files too."""
+    reserve = load("autofix-reserve")
+    plan = reserve.chain({"GROQ_API_KEY": "k", "OPENROUTER_API_KEY": "k2"})
+    assert [(p[0], p[3]) for p in plan] == [
+        ("Groq", "qwen/qwen3.8-27b"), ("Groq", "openai/gpt-oss-120b"),
+        ("OpenRouter", "cohere/north-mini-code:free"), ("OpenRouter", "particle-ai/particle-1:free")]
+    groq, router = plan[0][4], plan[2][4]
+    shown = {"ike/window.py": "x = 1\n" * 2000}
+    small = reserve.message_for("F" * 50000, "C" * 50000, shown, groq, refused="too big")
+    big = reserve.message_for("F" * 50000, "C" * 50000, shown, router)
+    assert len(small) <= groq + 200 and "too big" in small and "x = 1" not in small
+    assert "x = 1" in big
+    assert reserve.classify(413) == "toolarge"
+
+
+def test_a_refused_reserve_fix_goes_to_the_next_model_with_the_reason(repo, tmp_path):
+    import json
+    reserve = load("autofix-reserve")
+    _reserve_repo(repo)
+    (repo / ".autofix/related.txt").write_text("ike/window.py\ntests/test_window.py\n")
+    prompt = tmp_path / "prompt.md"
+    prompt.write_text("RULES")
+    status = tmp_path / "status.json"
+    checker = str(ROOT / "tools/check-autofix-patch.py")
+    args = ["--workdir", str(repo), "--prompt", str(prompt), "--status", str(status),
+            "--checker", checker, "--related", str(repo / ".autofix/related.txt")]
+    env = {"GROQ_API_KEY": "k", "AUTOFIX_GROQ_MODELS": "g1, g2"}
+    # too big for the checks: undone, the next model is told why and fixes it small
+    huge = json.dumps({"summary": "x", "edits": [{"file": "ike/window.py", "find": "    return 10\n",
+                                                 "replace": "    return 11\n" + "# pad\n" * 200}]})
+    good = json.dumps({"summary": "ok", "edits": [{"file": "ike/window.py", "find": "    return 10\n",
+                                                  "replace": "    return 11\n"}]})
+    seen, asked = [], []
+    opener = _opener([huge, good], seen)
+
+    def spy(req, timeout=0):
+        asked.append(json.loads(req.data)["messages"][1]["content"])
+        return opener(req, timeout)
+    reserve.main(args, env=env, opener=spy)
+    assert json.loads(status.read_text())["result"] == "ok"
+    assert "too many changed lines" in asked[1] and "too many changed lines" not in asked[0]
+    assert (repo / "ike/window.py").read_text() == "def width():\n    return 11\n"
+    git(repo, "checkout", "-q", "--", ".")
+    # a weakened test is a safety refusal: undone, and no other model is asked
+    skip = json.dumps({"summary": "x", "edits": [{"file": "tests/test_window.py", "find": "def test_width():\n",
+                                                 "replace": "@pytest.mark.skip\ndef test_width():\n"}]})
+    seen = []
+    reserve.main(args, env=env, opener=_opener([skip, good], seen))
+    out = json.loads(status.read_text())
+    assert out["result"] == "refused" and len(seen) == 1, out
+    assert "skip" not in (repo / "tests/test_window.py").read_text()
+
+
+@pytest.mark.parametrize("rel", ["ike-adblock/Cargo.toml", "ike-adblock/Cargo.lock",
+                                 "ike/resources/darkreader.js", "ike/resources/ubo-scriptlets.json",
+                                 "ike/resources/icons/sets/x.svg", "docs/THIRD-PARTY.md"])
+def test_files_of_others_and_generated_ones_are_never_changed(repo, tmp_path, rel):
+    """1.1.16: what comes from others or is generated has its own update tool;
+    not even an engine update lets an automatic fix touch it."""
+    patch = make_patch(repo, edit(rel, "changed\n"))
+    for extra in ((), ("--allow-adblock",)):
+        code, report = run_guard(repo, patch, tmp_path, *extra)
+        assert code == 3 and "third-party or generated" in report, (rel, extra)
+
+
+def test_only_the_wrappers_of_the_ad_blocker_with_an_engine_update(repo, tmp_path):
+    for rel in ("ike-adblock/src/lib.rs", "vendor/adblock/__init__.py"):
+        patch = make_patch(repo, edit(rel, "# fixed\n", "a"))
+        assert run_guard(repo, patch, tmp_path)[0] == 3
+        assert run_guard(repo, patch, tmp_path, "--allow-adblock", "--check-only")[0] == 0
+    patch = make_patch(repo, edit("ike-adblock/build.rs", "fn main() {}\n"))
+    code, report = run_guard(repo, patch, tmp_path, "--allow-adblock")
+    assert code == 3 and "only I.K.E.'s wrapper" in report
+
+
+def test_check_only_applies_nothing_and_size_is_not_a_safety_matter(repo, tmp_path):
+    patch = make_patch(repo, edit("ike/window.py", "def width():\n    return 11\n"))
+    assert run_guard(repo, patch, tmp_path, "--check-only")[0] == 0
+    assert git(repo, "status", "--porcelain") == ""
+    big = make_patch(repo, edit("ike/big.py", "x = 1\n" * (guard.MAX_LINES + 1)))
+    assert run_guard(repo, big, tmp_path)[0] == 1          # a better fix may pass: the next assistant tries
+
+
+def test_the_failure_is_the_failed_step_without_noise():
+    log = "\n".join([
+        "2026-11-18T00:40:00.1Z ##[group]Run sudo apt-get install -y x",
+        "2026-11-18T00:40:01.1Z Selecting previously unselected package libx.",
+        "2026-11-18T00:40:01.2Z Unpacking libx (1.0) ...",
+        "2026-11-18T00:43:20.0Z ##[group]Run ruff check .",
+        "2026-11-18T00:43:20.1Z shell: /usr/bin/bash -e {0}",
+        "2026-11-18T00:43:20.2Z env:",
+        "2026-11-18T00:43:20.3Z   pythonLocation: /opt/x",
+        "2026-11-18T00:43:20.4Z ##[endgroup]",
+        "2026-11-18T00:43:21.0Z F401 [*] `shutil` imported but unused",
+        "2026-11-18T00:43:21.1Z   --> ike/weather.py:17:8",
+        "2026-11-18T00:43:21.2Z ##[error]Process completed with exit code 1.",
+        "2026-11-18T00:43:22.0Z Post job cleanup.",
+        "2026-11-18T00:43:22.1Z [command]/usr/bin/git version",
+    ])
+    out = plan_tool.clean_log(log)
+    assert out.splitlines() == ["$ ruff check .", "F401 [*] `shutil` imported but unused",
+                                "  --> ike/weather.py:17:8", "##[error]Process completed with exit code 1."], out
+    assert plan_tool.clean_log("only\nlines") == "only\nlines"      # no error marker: the end, as before
+
+
+def test_the_agent_still_working_at_its_time_limit_is_not_retried():
+    agent = load("autofix-agent")
+    err = ('[agy] print timeout after 58s with turn in progress\nAGY_ERROR: {"status":"DEADLINE_EXCEEDED",'
+           '"retryable":false,"reason":"print_timeout"}')
+    assert agent.classify(1, err) == ("timeout", 0)
+    assert agent.classify(1, 'AGY_ERROR: {"status":"UNAVAILABLE"}')[0] == "temporary"
+
+
+def test_cargo_errors_point_at_the_wrapper_never_at_the_engine(repo):
+    ctx = load("autofix-context")
+    (repo / "vendor/adblock").mkdir(parents=True)
+    (repo / "vendor/adblock/__init__.py").write_text("x = 1\n")
+    failure = ("error[E0425]: cannot find value\n  --> src/lib.rs:1:5\n"
+               "warning: --> /home/runner/.cargo/registry/src/x/adblock-0.13.6/src/engine.rs:40:1\n"
+               '  File "/usr/lib/ike-browser/vendor/adblock/__init__.py", line 1, in <module>\n')
+    text, related = ctx.build(repo, failure)
+    assert related == ["ike-adblock/src/lib.rs", "vendor/adblock/__init__.py"]
+    assert "engine.rs" not in text

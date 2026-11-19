@@ -76,6 +76,11 @@ def classify(status, err):
     if status == 124:
         return "timeout", 0
     text = err[-20000:]
+    # the CLI's own time limit ("print timeout ... turn still in progress"): the
+    # agent was still working, not Google failing. Another try would end the
+    # same way (the first real trial spent 25 minutes on four of them).
+    if "print_timeout" in text or "print timeout" in text.lower():
+        return "timeout", 0
     info = {}
     for line in text.splitlines():
         if line.startswith("AGY_ERROR:"):
@@ -201,11 +206,15 @@ def main(argv=None):
                                      stdin=subprocess.DEVNULL, capture_output=True, timeout=limit + 60)
                 status, err = run.returncode, run.stderr
             except subprocess.TimeoutExpired:
-                status, err = 124, b""
+                run, status, err = None, 124, b""
             # the agent's own output is never printed: the logs of a public repository are public
             err = redact(err, key)
+            said = redact(getattr(run, "stdout", b"") or b"", key) if status != 124 else b""
             (out / ("agent-%s.err" % re.sub(r"\W+", "_", model))).write_bytes(err)
             used, detail = model, "\n".join(err.decode("utf-8", "replace").splitlines()[-30:])
+            if status and said.strip():
+                # what the agent had produced when it stopped (its own words, no key): for the diagnosis
+                detail += "\n--- the agent's last output ---\n" + said.decode("utf-8", "replace")[-1500:]
             if status == 0:
                 result = "ok"
                 break

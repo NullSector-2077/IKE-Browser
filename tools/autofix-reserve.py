@@ -8,7 +8,9 @@ asks the reserves, one after the other, never together:
     1. Groq        (GROQ_API_KEY,       models in AUTOFIX_GROQ_MODELS)
     2. OpenRouter  (OPENROUTER_API_KEY, models in AUTOFIX_OPENROUTER_MODELS)
 
-A provider without its key is skipped. Unlike Antigravity they cannot open
+A provider without its key is skipped. Groq's free plan takes about 8,000
+tokens a minute, so it gets a short message (the failure and the code around
+it); OpenRouter's free models also get the whole files involved. Unlike Antigravity they cannot open
 files: they get the failure, the code it points at (.autofix/context.md, from
 tools/autofix-context.py) and the full text of the files involved, and answer
 with a JSON object of edits, each one an exact piece of text to replace in one
@@ -22,33 +24,44 @@ For each model in turn:
     key refused (401/403)                -> the next provider (the key must be fixed)
     unknown model, bad request (400/404) -> the next model (the variable must be fixed)
     server error, no answer              -> once more, then the next model
+    request too large (413)              -> the next provider
     an answer that cannot be applied     -> once more, told what was wrong, then the next model
+    a fix the checks refuse (--checker)  -> undone; the next model is told why
+    a fix refused for safety (exit 3)    -> undone; stop: no other model is asked
     "no fix possible in the code"        -> stop: asking another model would not help
+
+--refused FILE: why the checks refused Antigravity's fix (the reserves are told,
+so they do not repeat it).
 
 The outcome goes to --status (JSON: result, model, message in Italian) and the
 Italian summary to .autofix/summary.md. Keys never reach a file or the log.
 
     autofix-reserve.py --workdir DIR --prompt FILE --status FILE
+                       [--checker FILE [--related FILE] [--allow-adblock]] [--refused FILE]
 """
 
 import argparse
 import json
 import os
 import re
+import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
 from pathlib import Path
 
 PROVIDERS = (
-    # name, endpoint, key variable, models variable, default models
+    # name, endpoint, key variable, models variable, default models (checked 2026-11-19),
+    # characters of failure + code sent, tokens of the answer
     ("Groq", "https://api.groq.com/openai/v1/chat/completions", "GROQ_API_KEY",
-     "AUTOFIX_GROQ_MODELS", ("qwen/qwen3-32b",)),
+     "AUTOFIX_GROQ_MODELS", ("qwen/qwen3.8-27b", "openai/gpt-oss-120b"), 14_000, 2_000),
     ("OpenRouter", "https://openrouter.ai/api/v1/chat/completions", "OPENROUTER_API_KEY",
-     "AUTOFIX_OPENROUTER_MODELS", ("qwen/qwen3-coder:free",)),
+     "AUTOFIX_OPENROUTER_MODELS", ("cohere/north-mini-code:free", "particle-ai/particle-1:free"),
+     120_000, 6_000),
 )
-ROOTS = ("ike/", "tests/", "tools/", "docs/")
+ROOTS = ("ike/", "tests/", "tools/", "docs/", "ike-adblock/src/", "vendor/adblock/")
 MAX_FILES = 5
 TOTAL_TIMEOUT = 12 * 60
 REQUEST_TIMEOUT = 150
@@ -61,6 +74,8 @@ MESSAGES = {
     "quota": "Le riserve hanno esaurito la quota o non rispondono: riprova più tardi.",
     "nokey": "Nessuna riserva configurata: mancano le chiavi GROQ_API_KEY e OPENROUTER_API_KEY.",
     "error": "Le riserve non sono riuscite a preparare una correzione applicabile.",
+    "refused": "La correzione della riserva (%s) è stata respinta dai controlli di sicurezza: "
+               "nessun'altra riserva è stata interpellata.",
 }
 
 INSTRUCTIONS = """
@@ -91,19 +106,22 @@ class Stop(Exception):
 
 
 def chain(env=os.environ):
-    """[(provider, endpoint, key, model)] in order; providers without a key left out."""
+    """[(provider, endpoint, key, model, budget, max_tokens)] in order; providers
+    without a key left out."""
     out = []
-    for name, url, key_var, models_var, default in PROVIDERS:
+    for name, url, key_var, models_var, default, budget, tokens in PROVIDERS:
         key = env.get(key_var, "").strip()
         if not key:
             continue
         models = [m.strip() for m in (env.get(models_var) or "").split(",") if m.strip()] or list(default)
         for m in models:
-            out.append((name, url, key, m))
+            out.append((name, url, key, m, budget, tokens))
     return out
 
 
 def classify(status):
+    if status == 413:
+        return "toolarge"
     if status == 429:
         return "quota"
     if status in (401, 403):
@@ -113,10 +131,11 @@ def classify(status):
     return "temporary"
 
 
-def ask(url, key, model, messages, timeout=REQUEST_TIMEOUT, opener=urllib.request.urlopen):
+def ask(url, key, model, messages, timeout=REQUEST_TIMEOUT, opener=urllib.request.urlopen,
+        max_tokens=MAX_TOKENS):
     """The model's answer text, or raises (kind, detail)."""
     body = json.dumps({"model": model, "messages": messages, "temperature": 0.1,
-                       "max_tokens": MAX_TOKENS}).encode()
+                       "max_tokens": max_tokens}).encode()
     req = urllib.request.Request(url, data=body, method="POST", headers={
         "Authorization": "Bearer " + key, "Content-Type": "application/json",
         "User-Agent": "IKE-autofix", "X-Title": "I.K.E. automatic fix"})
@@ -189,6 +208,52 @@ def files_shown(workdir, related):
     return out
 
 
+def message_for(failure, context, shown, budget, refused=""):
+    """The user message within the provider's budget (characters): the failure,
+    the code at it, then whole files while they fit."""
+    head = "# The failure\n\n%s\n\n" % failure[-max(2000, budget // 3):]
+    if refused:
+        head += ("# A fix already refused\n\nThe automatic checks refused an earlier fix for this "
+                 "failure:\n\n%s\nDo not repeat it.\n\n" % refused[:2000])
+    room = budget - len(head)
+    body = context[:max(0, room)]
+    room -= len(body)
+    files = ""
+    for path, text in shown.items():
+        part = "\n## File `%s`\n\n```text\n%s\n```\n" % (path, text)
+        if len(part) <= room:
+            files += part
+            room -= len(part)
+    return head + body + "\n\n# Files involved (full text)\n" + (files or "\n(not sent: see the code above)\n")
+
+
+def diff_of(workdir):
+    out = subprocess.run(["git", "-c", "safe.directory=*", "-c", "core.hooksPath=/dev/null",
+                          "-C", str(workdir), "diff", "--binary", "--", ".", ":(exclude).autofix"],
+                         capture_output=True, text=True, check=False)
+    return out.stdout
+
+
+def undo(workdir, files):
+    subprocess.run(["git", "-c", "safe.directory=*", "-c", "core.hooksPath=/dev/null",
+                    "-C", str(workdir), "checkout", "-q", "--", *files], check=False)
+
+
+def checked(workdir, checker, related, allow_adblock):
+    """(exit status, reasons) of the trusted checks on the work tree's changes."""
+    with tempfile.NamedTemporaryFile("w", suffix=".patch", delete=False) as f:
+        f.write(diff_of(workdir))
+        patch = f.name
+    cmd = [sys.executable, "-I", checker, "--repo", str(workdir), "--patch", patch, "--check-only"]
+    if related:
+        cmd += ["--related", related]
+    if allow_adblock:
+        cmd.append("--allow-adblock")
+    run = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    os.unlink(patch)
+    return run.returncode, run.stdout.strip()[-2000:]
+
+
 def redact(text, keys):
     for k in keys:
         if k:
@@ -202,6 +267,10 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     ap.add_argument("--prompt", required=True, help="the agent's instructions (rules)")
     ap.add_argument("--status", required=True)
     ap.add_argument("--total-timeout", type=int, default=TOTAL_TIMEOUT)
+    ap.add_argument("--checker", help="tools/check-autofix-patch.py from main: each fix is checked")
+    ap.add_argument("--related", help="the files involved (for the checker)")
+    ap.add_argument("--allow-adblock", action="store_true")
+    ap.add_argument("--refused", help="why the checks refused Antigravity's fix")
     a = ap.parse_args(argv)
     workdir = Path(a.workdir)
     auto = workdir / ".autofix"
@@ -216,17 +285,20 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     shown = files_shown(workdir, related)
     rules = Path(a.prompt).read_text("utf-8")
     keys = [env.get(p[2], "") for p in PROVIDERS]
-    files_text = "".join("\n## File `%s`\n\n```text\n%s\n```\n" % (p, t) for p, t in shown.items())
-    user = ("# The failure\n\n%s\n\n%s\n\n# Files involved (full text)\n%s"
-            % (failure[-30000:], context[:40000], files_text or "\n(none could be sent)\n"))
-    base = [{"role": "system", "content": rules + "\n" + INSTRUCTIONS},
-            {"role": "user", "content": user}]
+    refused = ""
+    if a.refused:
+        try:
+            refused = Path(a.refused).read_text("utf-8", "replace")
+        except OSError:
+            refused = ""
     result, used, summary = "nokey", "", ""
     skip, deadline = set(), time.monotonic() + a.total_timeout
     plan = chain(env)
-    for provider, url, key, model in plan:
+    for provider, url, key, model, budget, tokens in plan:
         if provider in skip:
             continue
+        base = [{"role": "system", "content": rules + "\n" + INSTRUCTIONS},
+                {"role": "user", "content": message_for(failure, context, shown, budget, refused)}]
         if time.monotonic() > deadline:
             result = result if result != "nokey" else "quota"
             break
@@ -236,14 +308,14 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
         while tries < 2 and outcome is None:
             tries += 1
             try:
-                answer = ask(url, key, model, messages, opener=opener)
+                answer = ask(url, key, model, messages, opener=opener, max_tokens=tokens)
             except Stop as s:
                 kind = s.args[0]
                 print("  stopped: %s (%s)" % (kind, s.args[1]), flush=True)
                 if kind == "temporary" and tries < 2:
                     time.sleep(10)
                     continue
-                if kind == "auth":
+                if kind in ("auth", "toolarge"):
                     skip.add(provider)
                 outcome = "quota" if kind in ("quota", "temporary") else "error"
                 break
@@ -256,18 +328,31 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
                 changed = apply_edits(workdir, obj["edits"], shown)
                 summary = str(obj.get("summary") or "")
                 print("  edits applied: %s" % ", ".join(changed), flush=True)
+                if a.checker:
+                    status, reasons = checked(workdir, a.checker, a.related, a.allow_adblock)
+                    if status == 3:
+                        undo(workdir, changed)
+                        print("  refused for safety: no other model is asked", flush=True)
+                        summary, outcome = reasons, "refused"
+                        break
+                    if status in (1, 2):         # refused, or the edits changed nothing
+                        undo(workdir, changed)
+                        print("  refused by the checks: the next model is told why", flush=True)
+                        refused = reasons
+                        outcome = "error"
+                        break
                 outcome = "ok"
             except (ValueError, OSError) as e:
                 print("  answer not usable: %s" % e, flush=True)
                 messages = base + [{"role": "assistant", "content": answer[:20000]},
                                    {"role": "user", "content": "That answer could not be applied: %s. "
                                     "Answer again with one JSON object as described." % e}]
-        if outcome in ("ok", "none"):
+        if outcome in ("ok", "none", "refused"):
             result = outcome
             break
         result = outcome or "error"
     message = MESSAGES[result] % used if "%s" in MESSAGES[result] else MESSAGES[result]
-    if result in ("ok", "none"):
+    if result in ("ok", "none", "refused"):
         text = redact(summary.strip()[:3000], keys) or "La riserva non ha scritto un riassunto."
         (auto / "summary.md").write_text("%s\n\n_(%s)_\n" % (text, message), "utf-8")
     Path(a.status).write_text(json.dumps({"result": result, "model": used, "message": message},
