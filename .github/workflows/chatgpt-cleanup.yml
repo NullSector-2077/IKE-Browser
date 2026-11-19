@@ -1,0 +1,36 @@
+# When a pull request from a ChatGPT branch (chatgpt/*) is closed without being
+# merged (a trial, or a fix that was not taken), its branch is deleted: the
+# owner never has to clean them by hand. Merged branches are deleted by the
+# repository's own setting ("Automatically delete head branches").
+#
+# It runs from main (pull_request_target) and never checks out or runs anything
+# of the pull request: it only deletes the branch, by name, in this repository.
+name: ChatGPT branch cleanup
+
+on:
+  pull_request_target:
+    types: [closed]
+
+permissions: {}
+
+jobs:
+  delete:
+    if: >-
+      github.event.pull_request.merged == false &&
+      startsWith(github.event.pull_request.head.ref, 'chatgpt/') &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Delete the branch of the closed pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          case "$BRANCH" in
+            chatgpt/*) gh api -X DELETE "repos/$GH_REPO/git/refs/heads/$BRANCH" || echo "already gone" ;;
+            *) echo "::error::not a ChatGPT branch: $BRANCH"; exit 1 ;;
+          esac
