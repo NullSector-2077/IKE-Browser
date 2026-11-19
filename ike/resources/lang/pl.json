@@ -867,6 +867,7 @@
 "After a restart. It lightens the processor while videos play and needs the graphics card's VA-API driver (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: already there). If videos look wrong or I.K.E. closes, choose Automatic.": "Po ponownym uruchomieniu. Odciąża procesor podczas odtwarzania wideo i wymaga sterownika VA-API karty graficznej (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: już jest). Jeśli wideo wygląda źle lub I.K.E. się zamyka, wybierz Automatycznie.",
 "Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "Dekodowanie wideo przez kartę graficzną wróciło do trybu Automatycznie: I.K.E. nie zamknął się normalnie, gdy było włączone.",
 "Show only the icons of the tabs": "Pokaż tylko ikony kart",
-"Show the titles of the tabs": "Pokaż tytuły kart"
+"Show the titles of the tabs": "Pokaż tytuły kart",
+"This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "Ta aktualizacja wymaga więcej niż zainstalowana wersja (więcej stron, funkcji lub połączeń) albo wczytuje kod bez szyfrowania. Zainstaluj ją tylko, jeśli jej ufasz."
 }
 }

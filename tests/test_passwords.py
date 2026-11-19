@@ -159,3 +159,85 @@ def test_fill_only_on_exact_origin(run_ike, site):
     # the page's origin at fill time: the redirect's target, not the address typed
     assert redirected["url"].startswith("http://a.localhost:%d" % port)
     assert [e["u"] for e in redirected["offered"]] == ["sub"] and redirected["fields"] == "sub/pw-sub"
+
+
+HARVESTER = (b"<!doctype html><title>login</title><form><input name=user id=u>"
+             b"<input type=password name=pw id=p><button>go</button></form><script>"
+             b"window.stolen = [];"
+             # a script of the page (an advert, say) makes its own tiny login form
+             b"var f = document.createElement('form');"
+             b"f.innerHTML = '<input id=hu><input type=password id=hp style=\"width:2px;height:2px;opacity:0\">';"
+             b"document.body.appendChild(f);"
+             b"var hp = document.getElementById('hp');"
+             # and pretends to be the user: focus, click and pointer events of its own
+             b"setTimeout(function () { hp.focus(); hp.click();"
+             b" hp.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true}));"
+             b" hp.dispatchEvent(new KeyboardEvent('keyup', {key: 'Tab', bubbles: true})); }, 300);"
+             b"setInterval(function () { var v = hp.value || document.getElementById('p').value;"
+             b" if (v) stolen.push(v); }, 100);"
+             b"</script>")
+
+
+def test_a_page_cannot_harvest_a_saved_password(run_ike):
+    """A saved login is filled in only when the user clicks into the form: a
+    page that builds a hidden login form, or clicks and focuses it with its own
+    script, reads nothing. A real click fills the user's form at once."""
+    class H(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(HARVESTER)))
+            self.end_headers()
+            self.wfile.write(HARVESTER)
+
+        def log_message(self, *a):
+            pass
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    port = srv.server_address[1]
+    try:
+        out = run_ike(r'''
+PORT = %d
+
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QPoint, Qt, QUrl
+    from PyQt6.QtTest import QTest
+    pm = ike.passwords
+    pm.vault.create("test master")
+    pm.vault.put("http://localhost:%%d" %% PORT, "me", "secret-pw")
+    v = ike.windows[0].current_view()
+    done = {}
+    v.page().loadFinished.connect(lambda ok: done.setdefault("ok", ok))
+    v.load(QUrl("http://localhost:%%d/login" %% PORT))
+    while "ok" not in done:
+        yield 20
+    yield 2500
+
+    def js(code):
+        res = {}
+        v.page().runJavaScript(code, 0, lambda r: res.setdefault("r", r))
+        return res
+    r = js("JSON.stringify([window.stolen, document.getElementById('u').value,"
+           " document.getElementById('p').value])")
+    while "r" not in r:
+        yield 20
+    out["before_click"] = r["r"]
+    r = js("(function () { var b = document.getElementById('p').getBoundingClientRect();"
+           " return [b.left + b.width / 2, b.top + b.height / 2]; })()")
+    while "r" not in r:
+        yield 20
+    x, y = r["r"]
+    target = v.focusProxy() or v
+    QTest.mouseClick(target, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier,
+                     QPoint(int(x), int(y)))
+    yield 1200
+    r = js("[document.getElementById('u').value, document.getElementById('p').value]")
+    while "r" not in r:
+        yield 20
+    out["after_click"] = r["r"]
+''' % port, settings={"https_only": False}, timeout=120)
+    finally:
+        srv.shutdown()
+    stolen, user, pw = json.loads(out["before_click"])
+    assert stolen == [] and user == "" and pw == "", out["before_click"]
+    assert out["after_click"] == ["me", "secret-pw"], out

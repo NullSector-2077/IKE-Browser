@@ -867,6 +867,7 @@
 "After a restart. It lightens the processor while videos play and needs the graphics card's VA-API driver (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: already there). If videos look wrong or I.K.E. closes, choose Automatic.": "Після перезапуску. Зменшує навантаження на процесор під час відео; потрібен драйвер VA-API відеокарти (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: вже є). Якщо відео показується неправильно або I.K.E. закривається, виберіть «Автоматично».",
 "Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "Декодування відео відеокартою знову в режимі «Автоматично»: I.K.E. закрився некоректно, поки воно було увімкнене.",
 "Show only the icons of the tabs": "Показувати лише значки вкладок",
-"Show the titles of the tabs": "Показувати назви вкладок"
+"Show the titles of the tabs": "Показувати назви вкладок",
+"This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "Це оновлення запитує більше, ніж встановлена версія (більше сайтів, функцій або з'єднань), або завантажує код без шифрування. Встановлюйте його, лише якщо довіряєте йому."
 }
 }

@@ -1182,3 +1182,132 @@ def test_no_private_key_material_or_test_backdoor_in_the_program():
     env = dict(os.environ, QT_QPA_PLATFORM="offscreen")
     done = subprocess.run([sys.executable, str(APP / "ike_boot.py"), "--version"], env=env, capture_output=True, text=True)
     assert done.returncode == 0 and "I.K.E." in done.stdout
+
+
+# ----------------------------------------------------------------------
+# review of 1.1.17: dark mode's style sheets, user script updates, cookies
+# ----------------------------------------------------------------------
+@pytest.fixture
+def css_server():
+    """A local server that plays every site: style sheets, a redirect, and it
+    notes each request (through the proxy the path is the whole address)."""
+    seen = []
+
+    class H(BaseHTTPRequestHandler):
+        def do_GET(self):
+            seen.append(self.path)
+            if "/redirect?" in self.path:
+                self.send_response(302)
+                self.send_header("Location", self.path.split("?", 1)[1])
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            body = b"body{color:#123456}"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/css")
+            self.send_header("Set-Cookie", "track=me; Path=/")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    yield srv.server_address[1], seen
+    srv.shutdown()
+
+
+def test_dark_mode_never_reads_the_home_network_for_a_web_site(run_ike, css_server):
+    """Dark mode fetches the style sheets a page cannot read itself and puts
+    them, restyled, into the page. A web site must not use that to read what
+    this computer or a router serves; a page of the home network itself still
+    gets its own sheets, and every redirect is checked too."""
+    port, seen = css_server
+    out = run_ike(r'''
+PORT = %d
+
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QObject, QUrl
+    from PyQt6.QtNetwork import QNetworkProxy
+    from ike.passwords import PageBridge
+
+    class Page(QObject):
+        def __init__(self, url, dark=True):
+            super().__init__()
+            self._url, self._dark_on = QUrl(url), dark
+
+        def url(self):
+            return self._url
+    # other sites through the local server, as a proxy
+    ike.network.setProxy(QNetworkProxy(QNetworkProxy.ProxyType.HttpProxy, "127.0.0.1", PORT))
+    local = "http://127.0.0.1:%%d" %% PORT
+    cases = {
+        "public_to_this_computer": ("https://news.example.test/", local + "/a.css"),
+        "public_to_router_name": ("https://news.example.test/", "http://router.example.test/b.css"),
+        "public_to_localhost": ("https://news.example.test/", "http://localhost:%%d/c.css" %% PORT),
+        "public_to_cdn": ("https://news.example.test/", "http://cdn.example.test/d.css"),
+        "redirect_to_home": ("https://news.example.test/",
+                             "http://cdn.example.test/redirect?http://192.168.1.1/e.css"),
+        "home_page_own_sheet": (local + "/page", local + "/f.css"),
+        "dark_off": ("https://news.example.test/", "http://cdn.example.test/g.css"),
+    }
+    answers, keep = {}, []
+    for name, (page_url, css) in cases.items():
+        page = Page(page_url, dark=(name != "dark_off"))
+        bridge = PageBridge(ike.passwords, page)
+        bridge.cssFetched.connect(lambda ident, ok, text: answers.__setitem__(ident, [ok, text]))
+        keep.append((page, bridge))
+        bridge.fetchCss(name, css)
+    for _ in range(300):
+        if len(answers) == len(cases):
+            break
+        yield 20
+    out["answers"] = answers
+    out["cookies"] = len(ike.network.cookieJar().cookiesForUrl(QUrl("http://cdn.example.test/")))
+''' % port, env={"IKE_TEST_RESOLVE": "router.example.test=192.168.1.1"}, timeout=120)
+    a = out["answers"]
+    for refused in ("public_to_this_computer", "public_to_router_name", "public_to_localhost",
+                    "redirect_to_home", "dark_off"):
+        assert a[refused] == [False, ""], (refused, a)
+    assert a["public_to_cdn"] == [True, "body{color:#123456}"], a
+    assert a["home_page_own_sheet"] == [True, "body{color:#123456}"], a
+    reached = " ".join(seen)
+    for never in ("/a.css", "/b.css", "/c.css", "/g.css"):
+        assert never not in reached, seen
+    assert not any(path.startswith("http://192.168.1.1") for path in seen), seen   # the redirect's target
+    assert "/d.css" in reached and "/f.css" in reached
+    assert out["cookies"] == 0                    # the browser's own requests keep no cookies
+
+
+def test_user_script_updates_that_ask_for_more_need_the_user():
+    """The daily check installs a newer version by itself only when it asks
+    for nothing new and loads everything over https; otherwise the user is
+    asked, as for a new script. Plain http update addresses are not checked."""
+    sys.path.insert(0, str(APP))
+    try:
+        from ike.userscripts import parse_meta, update_needs_consent
+    finally:
+        sys.path.remove(str(APP))
+
+    def got(extra="", source="https://example.test/s.user.js"):
+        text = ("// ==UserScript==\n// @name s\n// @version 2\n// @match https://a.test/*\n"
+                "// @grant GM_setValue\n// @connect api.test\n%s// ==/UserScript==\n" % extra)
+        return {"meta": parse_meta(text), "source": source}
+    old = {"match": ["https://a.test/*"], "include": [], "exclude": [], "grant": ["GM_setValue"],
+           "connect": ["api.test"], "noframes": False}
+    assert not update_needs_consent(old, got())
+    assert not update_needs_consent(old, got("// @require https://cdn.test/lib.js\n"))
+    assert not update_needs_consent(old, got("// @require lib.js\n"))        # relative to https
+    assert update_needs_consent(old, got("// @require http://cdn.test/lib.js\n"))
+    assert update_needs_consent(old, got("// @resource css http://cdn.test/x.css\n"))
+    assert update_needs_consent(old, got("// @match https://*/*\n"))
+    assert update_needs_consent(old, got("// @include *\n"))
+    assert update_needs_consent(old, got("// @grant GM_xmlhttpRequest\n"))
+    assert update_needs_consent(old, got("// @connect *\n"))
+    assert update_needs_consent(old, got("// @connect bank.test\n"))
+    assert update_needs_consent(dict(old, exclude=["https://a.test/private/*"]), got())
+    assert update_needs_consent(dict(old, noframes=True), got())
+    assert not update_needs_consent(dict(old, connect=[]), got())         # it had any host already
+    text = (APP / "ike" / "userscripts.py").read_text()
+    assert 'if not url.startswith("https://"):\n                continue' in text

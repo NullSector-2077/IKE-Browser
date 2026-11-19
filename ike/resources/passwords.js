@@ -36,8 +36,8 @@
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
   }
-  function fill(login, force) {
-    var p = pwField(false);
+  function fill(login, force, p) {
+    p = p || pwField(false);
     if (!p || (p.value && !force)) return false;
     var u = userFor(p);
     if (u && (force || !u.value)) setValue(u, login.u);
@@ -48,15 +48,38 @@
     var ike = channel.objects.ike;
     if (!ike) return;
     window.__ikeBridge = ike;      // shared with the other isolated-world helpers
-    var filled = false;
-    function tryFill() {
-      if (filled || !pwField(false)) return;
+    // A saved login is filled in when the user clicks (or tabs) into the
+    // password field or its user name field, never by itself when the page
+    // loads: a script of the page (an advert, a comment) could otherwise make
+    // a tiny form and read the password the browser fills into it. Only real
+    // input counts (isTrusted): a page cannot click or tab for the user.
+    function onUser(e) {
+      var t = e.target;
+      if (!e.isTrusted || !t || t.tagName !== 'INPUT' || !visible(t) || t.value) return;
+      if (e.type === 'keyup' && e.key !== 'Tab') return;
+      var p = (t.getAttribute('type') || '').toLowerCase() === 'password' ? t : null;
+      if (!p) {
+        var form = t.form || document;
+        var all = form.querySelectorAll('input[type="password"]');
+        for (var i = 0; i < all.length && !p; i++) {
+          if (visible(all[i]) && userFor(all[i]) === t) p = all[i];
+        }
+      }
+      if (!p || p.value) return;
       ike.logins(function (json) {
         var list = [];
-        try { list = JSON.parse(json || '[]'); } catch (e) {}
-        if (list.length && fill(list[0], false)) filled = true;
+        try { list = JSON.parse(json || '[]'); } catch (err) {}
+        // a user name already typed picks its own login, never another one's
+        var u = userFor(p), pick = list[0];
+        if (u && u.value) {
+          pick = null;
+          for (var j = 0; j < list.length; j++) if (list[j].u === u.value) pick = list[j];
+        }
+        if (pick) fill(pick, false, p);
       });
     }
+    document.addEventListener('pointerdown', onUser, true);
+    document.addEventListener('keyup', onUser, true);
     function capture() {
       var p = pwField(true);
       if (!p) return;
@@ -75,21 +98,5 @@
         e.target.closest('button, input[type="submit"], [role="button"]') : null;
       if (t) capture();
     }, true);
-    tryFill();
-    // a login form that appears later (sites built while they run); once a
-    // login is filled in, the page's changes are no longer watched (1.1.13):
-    // on a busy page every change would otherwise be recorded for nothing
-    var pending = false;
-    var watcher = new MutationObserver(function () {
-      if (filled) { watcher.disconnect(); return; }
-      if (pending) return;
-      pending = true;
-      setTimeout(function () {
-        pending = false;
-        tryFill();
-        if (filled) watcher.disconnect();
-      }, 600);
-    });
-    watcher.observe(document.documentElement, { childList: true, subtree: true });
   });
 })();

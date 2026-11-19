@@ -260,14 +260,34 @@ class PageBridge(QObject):
         """Dark mode: fetch a style sheet of another site that the page cannot read.
 
         Only style sheets, only over http(s), without cookies, at most 3 MB.
+        Never from this computer or the home network (a router, a printer, a
+        program listening here) unless the page itself comes from there: the
+        restyled sheet ends up in the page, which could otherwise read what
+        those devices serve. Every redirect is checked the same way, and never
+        from https to http.
         """
         from PyQt6.QtCore import QUrl
-        from PyQt6.QtNetwork import QNetworkReply, QNetworkRequest
+
+        from .userscripts import is_local_name, outside_home
         target = QUrl(url)
-        app = self.manager.app
         if target.scheme() not in ("http", "https") or not getattr(self.page, "_dark_on", False):
             self.cssFetched.emit(ident, False, "")
             return
+        if is_local_name(self.page.url().host()):
+            self._get_css(ident, target, check=None)      # a page of the home network itself
+            return
+        outside_home(target.host(), lambda ok: self._get_css(ident, target, check=outside_home)
+                     if ok else self._css_answer(ident, False, ""), "dark mode")
+
+    def _css_answer(self, ident, ok, text):
+        try:
+            self.cssFetched.emit(ident, ok, text)
+        except RuntimeError:
+            pass                          # the page is gone
+
+    def _get_css(self, ident, target, check):
+        from PyQt6.QtNetwork import QNetworkReply, QNetworkRequest
+        app = self.manager.app
         req = QNetworkRequest(target)
         req.setRawHeader(b"Accept", b"text/css,*/*;q=0.1")
         req.setAttribute(QNetworkRequest.Attribute.CookieLoadControlAttribute,
@@ -275,22 +295,43 @@ class PageBridge(QObject):
         req.setAttribute(QNetworkRequest.Attribute.CookieSaveControlAttribute,
                          QNetworkRequest.LoadControl.Manual)
         req.setAttribute(QNetworkRequest.Attribute.RedirectPolicyAttribute,
-                         QNetworkRequest.RedirectPolicy.NoLessSafeRedirectPolicy)
+                         QNetworkRequest.RedirectPolicy.UserVerifiedRedirectPolicy)
         req.setTransferTimeout(12000)
         reply = app.network.get(req)
+        refused = []
+
+        def redirected(where):
+            where = reply.url().resolved(where) if where.isRelative() else where
+            if where.scheme() not in ("http", "https") or (
+                    reply.url().scheme() == "https" and where.scheme() != "https"):
+                refused.append(1)
+                reply.abort()
+                return
+            if check is None:
+                reply.redirectAllowed.emit()
+                return
+
+            def checked(ok):
+                if refused or not reply.isRunning():
+                    return
+                if ok:
+                    reply.redirectAllowed.emit()
+                else:
+                    refused.append(1)
+                    reply.abort()
+            check(where.host(), checked, "dark mode")
+        reply.redirected.connect(redirected)
 
         def done():
             ok, text = False, ""
             ctype = str(reply.header(QNetworkRequest.KnownHeaders.ContentTypeHeader) or "").lower()
-            if reply.error() == QNetworkReply.NetworkError.NoError and "css" in ctype:
-                data = bytes(reply.readAll())
+            if (not refused and reply.error() == QNetworkReply.NetworkError.NoError
+                    and "css" in ctype):
+                data = bytes(reply.read(3 * 1024 * 1024 + 1))
                 if len(data) <= 3 * 1024 * 1024:
                     ok, text = True, data.decode("utf-8", "replace")
             reply.deleteLater()
-            try:
-                self.cssFetched.emit(ident, ok, text)
-            except RuntimeError:
-                pass                      # the page is gone
+            self._css_answer(ident, ok, text)
         reply.finished.connect(done)
 
     @pyqtSlot(float, float)

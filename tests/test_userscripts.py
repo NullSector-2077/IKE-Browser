@@ -5,8 +5,8 @@ private addresses are reached only when @connect names them, also through
 redirects and name resolution.
 
 The scripts run on pages of a local server. Other sites ("*.example.test")
-are reached through the same server acting as an HTTP proxy, set on I.K.E.'s
-own network manager; IKE_TEST_RESOLVE makes a name resolve to a private
+are reached through the same server acting as an HTTP proxy, set on the user
+scripts' own network manager; IKE_TEST_RESOLVE makes a name resolve to a private
 address without a DNS server.
 """
 
@@ -109,7 +109,7 @@ from PyQt6.QtNetwork import QNetworkProxy
 
 def steps(ike, qapp, out):
     from ike.userscripts import gather, script_id, parse_meta
-    ike.network.setProxy(QNetworkProxy(QNetworkProxy.ProxyType.HttpProxy, "127.0.0.1", PORT))
+    ike.userscripts.network.setProxy(QNetworkProxy(QNetworkProxy.ProxyType.HttpProxy, "127.0.0.1", PORT))
     QGuiApplication.clipboard().setText("untouched")
     sids = {}
     for text in SCRIPTS:
