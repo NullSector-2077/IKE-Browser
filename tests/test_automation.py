@@ -958,3 +958,16 @@ def test_an_answer_without_edits_is_asked_again_and_a_short_limit_is_waited_out(
     reserve.main(["--workdir", str(repo), "--prompt", str(prompt), "--status", str(status)],
                  env={"GROQ_API_KEY": "k", "OPENROUTER_API_KEY": "k2"}, opener=_opener([no], seen))
     assert json.loads(status.read_text())["result"] == "none" and len(seen) == 1
+
+
+def test_the_agent_never_waits_for_a_review_nobody_gives():
+    """2026-11-19: every run of Antigravity worked about 3 minutes and then
+    waited until its time ran out. Its CLI waits for a review of its plans by
+    default; here nobody reviews, so it must go on. Its self-updater is off too
+    (the firewall refused it anyway). The denials stay."""
+    fix = jobs_of((WORKFLOWS / "autofix.yml").read_text())["fix"]
+    assert '"artifactReviewPolicy": "always-proceed"' in fix and '"agentMode": "accept-edits"' in fix
+    assert "AGY_CLI_DISABLE_AUTO_UPDATE=true" in fix
+    for rule in ('"command(*)"', '"unsandboxed(*)"', '"read_url(*)"', '"execute_url(*)"', '"mcp(*)"'):
+        assert rule in fix, rule
+    assert '"toolPermission"' not in fix                 # tools keep asking (and are denied)

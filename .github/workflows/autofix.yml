@@ -125,13 +125,22 @@ jobs:
           chmod 644 /tmp/agy-install.sh
           sudo -u agent -H bash /tmp/agy-install.sh
           sudo -u agent -H mkdir -p /home/agent/.gemini/antigravity-cli
+          # Nobody is there to review a plan: the CLI's default ("asks-for-review")
+          # made the agent wait for one until its time ran out (2026-11-19, every
+          # run: about 3 minutes of work, then nothing). Plans and file edits go
+          # on by themselves; terminal, web and MCP stay denied.
           printf '%s\n' '{ "modelProvider": "gemini",' \
+            '  "artifactReviewPolicy": "always-proceed", "agentMode": "accept-edits",' \
+            '  "showFeedbackSurvey": false, "showTips": false,' \
             '  "permissions": { "deny": ["command(*)", "unsandboxed(*)", "read_url(*)",' \
             '                            "execute_url(*)", "mcp(*)"] } }' \
             | sudo -u agent tee /home/agent/.gemini/antigravity-cli/settings.json > /dev/null
+          sudo -u agent python3 -c 'import json,sys; json.load(open(sys.argv[1]))' \
+            /home/agent/.gemini/antigravity-cli/settings.json
           sudo tee /home/agent/run-agent.sh > /dev/null <<'SH'
           #!/bin/sh
           exec env -i HOME=/home/agent PATH=/home/agent/.local/bin:/usr/bin:/bin \
+            AGY_CLI_DISABLE_AUTO_UPDATE=true \
             GEMINI_API_KEY="$GEMINI_API_KEY" /home/agent/.local/bin/agy "$@"
           SH
           sudo chmod 755 /home/agent/run-agent.sh
