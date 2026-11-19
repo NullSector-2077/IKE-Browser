@@ -100,7 +100,7 @@ def is_local_name(host):
     return False
 
 
-def outside_home(host, done, who=""):
+def outside_home(host, done, who="", network=None):
     """done(True) if `host` is neither this computer nor the home network.
 
     A name is looked up first: a public name that points to a local address
@@ -130,14 +130,22 @@ def outside_home(host, done, who=""):
             # through): a hostile name server could fail the check and answer
             # the request itself with a local address. Behind a proxy, which
             # resolves names for the browser, the request goes on as before.
-            done(_behind_proxy(host))
+            done(_behind_proxy(host, network))
             return
         _resolved(who, host, [a.toString() for a in info.addresses()], done)
     QHostInfo.lookupHost(host, found)
 
 
-def _behind_proxy(host):
+def _behind_proxy(host, network=None):
+    """True when the request will go through a proxy, which resolves the name
+    itself: the proxy set on the connection that makes it, or the system's."""
     from PyQt6.QtNetwork import QNetworkProxy, QNetworkProxyFactory, QNetworkProxyQuery
+    real = (QNetworkProxy.ProxyType.HttpProxy, QNetworkProxy.ProxyType.Socks5Proxy)
+    try:
+        if network is not None and network.proxy().type() in real:
+            return True
+    except Exception:
+        pass
     try:
         found = QNetworkProxyFactory.systemProxyForQuery(QNetworkProxyQuery(QUrl("https://%s/" % host)))
     except Exception:
@@ -835,7 +843,7 @@ class UserScripts(QObject):
         if named:
             done(True)
             return
-        outside_home(host, done, name + " (not named by @connect)")
+        outside_home(host, done, name + " (not named by @connect)", self.network)
 
     def _send(self, page, sid, d, rid, url, method, page_host):
         req = QNetworkRequest(url)

@@ -342,7 +342,8 @@ class PageBridge(QObject):
             self._get_css(ident, target, check=None)      # a page of the home network itself
             return
         outside_home(target.host(), lambda ok: self._get_css(ident, target, check=outside_home)
-                     if ok else self._css_answer(ident, False, ""), "dark mode")
+                     if ok else self._css_answer(ident, False, ""), "dark mode",
+                     self.manager.app.network)
 
     def _css_answer(self, ident, ok, text):
         try:
@@ -384,7 +385,7 @@ class PageBridge(QObject):
                 else:
                     refused.append(1)
                     reply.abort()
-            check(where.host(), checked, "dark mode")
+            check(where.host(), checked, "dark mode", app.network)
         reply.redirected.connect(redirected)
 
         def done():
