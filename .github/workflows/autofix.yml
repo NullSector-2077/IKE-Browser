@@ -184,11 +184,26 @@ jobs:
           allow=""
           if [ "$ALLOW_ADBLOCK" = "true" ]; then allow="--allow-adblock"; fi
           if [ -n "$GEMINI_API_KEY" ]; then
+            # the names the machine looks up while the agent works (the firewall
+            # logs only addresses): for the diagnosis of an agent that stalls
+            sudo timeout 1900 resolvectl monitor > "$out/dns.log" 2>/dev/null &
+            dns_pid=$!
             # model after model, at most 8 minutes each (tools/autofix-agent.py)
             python3 -I "$RUNNER_TEMP/autofix-agent.py" --workdir "$repo" --prompt "$RUNNER_TEMP/prompt.md" \
               --out "$out" --status "$out/status.json" $allow \
               --agent-cmd "sudo -u agent --preserve-env=GEMINI_API_KEY /home/agent/run-agent.sh"
             result=$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["result"])' "$out/status.json")
+            sudo kill "$dns_pid" 2>/dev/null || true
+            names=$(grep -oE '\b([a-z0-9-]+\.)+[a-z]{2,}\b' "$out/dns.log" 2>/dev/null | sort -u \
+              | grep -vE '(^|\.)(githubusercontent\.com|github\.com|githubapp\.com|actions\.githubusercontent\.com|core\.windows\.net|azure\.com|ubuntu\.com|canonical\.com|in-addr\.arpa)$|^generativelanguage\.googleapis\.com$' \
+              | head -n 15 || true)
+            if [ -n "$names" ]; then
+              {
+                echo "Nomi cercati mentre l'agente lavorava (oltre a quello di Gemini):"
+                for n in $names; do echo "- $n"; done
+              } | tee "$out/names.txt"
+            fi
+            rm -f "$out/dns.log"
             # where the agent tried to go and the firewall said no (only Google's API is open)
             blocked=$(sudo dmesg 2>/dev/null | grep -o 'agent-blocked: .*DST=[0-9.]*' | sed 's/.*DST=//' | sort -u | head -n 10)
             if [ -n "$blocked" ]; then
@@ -295,9 +310,10 @@ jobs:
           if refused.is_file():
               text += "\n\n**Una correzione è stata respinta dai controlli automatici:**\n\n" + \
                   refused.read_text("utf-8", errors="replace")[:2000]
-          blocked = out / "blocked.txt"
-          if blocked.is_file():
-              text += "\n\n" + blocked.read_text("utf-8", errors="replace")[:1500]
+          for extra in ("blocked.txt", "names.txt"):
+              f = out / extra
+              if f.is_file():
+                  text += "\n\n" + f.read_text("utf-8", errors="replace")[:1500]
           (out / "summary.md").write_text(text, "utf-8")
           for name in ("autofix.patch", "summary.md"):
               data = (out / name).read_bytes()
@@ -454,7 +470,7 @@ jobs:
           {
             echo "**Automatic fix, attempt $ATTEMPT** after a failure of \"$WORKFLOW\" ([run]($RUN_URL))."
             echo
-            echo "Prepared by the Antigravity agent without any GitHub credential; accepted by the automatic checks."
+            echo "Prepared by the automatic fix (Antigravity or a reserve, see the summary) without any GitHub credential; accepted by the automatic checks."
             echo "The tests run again on this branch. **Review the changes before merging.**"
             echo
             echo "### Summary of the agent"
@@ -529,6 +545,11 @@ jobs:
           elif [ "$PATCH" != "true" ]; then why="l'agente non ha cambiato niente (vedi il suo riassunto)"
           elif [ "$GUARD" != "success" ]; then why="rifiutata: i controlli automatici hanno respinto la modifica"
           else why="la correzione non è stata pubblicata (il ramo è cambiato o manca un permesso)"
+          fi
+          # Antigravity's own reason is only half the story when the reserves were asked too
+          if [ "$ACTION" = "fix" ] && grep -q '^\*\*Riserve:' "$RUNNER_TEMP/autofix/summary.md" 2>/dev/null \
+             && [ "$AGENT" != "refused" ] && [ "$AGENT" != "rejected" ]; then
+            why="né Antigravity ($why) né le riserve hanno trovato una correzione: i dettagli sono qui sotto"
           fi
           body="$RUNNER_TEMP/issue.md"
           {
