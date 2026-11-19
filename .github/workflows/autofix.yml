@@ -598,9 +598,16 @@ jobs:
               echo '````text'
               echo "Repository: NullSector-2077/IKE-Browser (I.K.E., a light PyQt6 + Qt WebEngine browser for Arch Linux)."
               echo "The workflow \"$WORKFLOW\" failed. Fix it with the smallest correct change."
+              branch="chatgpt/fix-$(date -u +%Y%m%d-%H%M)"
+              echo
+              echo "Do these steps, all of them, in this order:"
+              echo "1. Create a new branch named $branch from commit $CHECKOUT."
+              echo "2. Commit the fix on that branch (never on main)."
+              echo "3. Open a pull request from $branch into main, titled \"ChatGPT fix: $WORKFLOW failed\". This step is required: without the pull request nothing checks or tests the fix."
+              echo "4. Reply with the link of the pull request. If you cannot open pull requests, say so plainly and give the branch name."
+              echo "Never push to main, never merge."
               echo
               echo "Rules (an automatic check refuses a pull request that breaks them):"
-              echo "- Create a new branch named chatgpt/fix-$(date -u +%Y%m%d-%H%M) from commit $CHECKOUT and open a pull request into main. Never push to main, never merge."
               echo "- Change only files under ike/, tests/, tools/ or docs/ that the error involves; at most 5 files and 150 changed lines."
               echo "- Never change .github/, PKGBUILD, ike/__init__.py (the version), ike/updater.py, the autofix or release tools, or files that come from others or are generated (Dark Reader, icons, ubo-scriptlets.json, docs/THIRD-PARTY.md)."
               echo "- Never change the ad blocker: ike-adblock/ (Cargo.toml, Cargo.lock, src/), vendor/, ike/blocker.py, ike/scriptlets.py. If the failure is there, do not open a pull request: explain it in a comment on this issue instead."

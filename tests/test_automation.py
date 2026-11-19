@@ -1071,4 +1071,58 @@ def test_after_two_attempts_the_issue_still_carries_the_message_for_chatgpt(tmp_
     body = (tmp_path / "body.md").read_text()
     assert "2 automatic fixes did not make it pass" in body
     assert "Messaggio per ChatGPT" in body and "from commit d0b6c21" in body
+    # 2026-11-19: ChatGPT fixed it right and stopped before the pull request
+    assert "3. Open a pull request from chatgpt/fix-" in body and "This step is required" in body
+    assert "4. Reply with the link of the pull request" in body
     assert "no attribute 'Completed'" in body
+
+
+def test_the_chatgpt_guard_checks_only_chatgpts_own_commits(tmp_path):
+    """ChatGPT's branch may start from the automation's branch after two
+    automatic attempts, which raised the version: only ChatGPT's own commits
+    are checked, so a good fix is not refused for files it never touched."""
+    import os
+    import subprocess
+    text = (WORKFLOWS / "chatgpt-guard.yml").read_text()
+    script = text.split("run: |\n", 1)[1]
+    script = "\n".join(ln[10:] if ln.startswith(" " * 10) else ln for ln in script.splitlines()) + "\n"
+
+    def g(cwd, *a):
+        return subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "-C", str(cwd), *a],
+                              capture_output=True, text=True, check=True).stdout.strip()
+    bare = tmp_path / "remote.git"
+    g(tmp_path, "init", "-q", "--bare", str(bare))
+    work = tmp_path / "work"
+    g(tmp_path, "init", "-q", "-b", "main", str(work))
+    (work / "ike").mkdir()
+    (work / "tools").mkdir()
+    (work / "ike/__init__.py").write_text('__version__ = "1.1.16"\n')
+    (work / "ike/app.py").write_text("X = DR.DownloadState.DownloadCompleted\n")
+    (work / "tools/check-autofix-patch.py").write_text((ROOT / "tools/check-autofix-patch.py").read_text())
+    g(work, "add", "-A")
+    g(work, "commit", "-qm", "base")
+    g(work, "remote", "add", "origin", str(bare))
+    g(work, "push", "-q", "origin", "main")
+    g(work, "checkout", "-q", "-b", "automation/autofix-main")
+    (work / "ike/app.py").write_text("X = DR.DownloadCompleted\n")            # the failure
+    (work / "ike/__init__.py").write_text('__version__ = "1.1.17"\n')         # an automatic attempt's bump
+    g(work, "commit", "-qam", "attempts")
+    g(work, "push", "-q", "origin", "automation/autofix-main")
+    for name, content, expected in (("chatgpt/good", "X = DR.DownloadState.DownloadCompleted\n", 0),
+                                    ("chatgpt/bad", None, 1)):
+        g(work, "checkout", "-q", "-B", name, "automation/autofix-main")
+        if content:
+            (work / "ike/app.py").write_text(content)
+        else:
+            (work / "ike/updater.py").write_text("CHECK = False\n")         # a protected file
+        g(work, "add", "-A")
+        g(work, "commit", "-qm", "chatgpt")
+        head = g(work, "rev-parse", "HEAD")
+        g(work, "push", "-q", "-f", "origin", name)
+        clone = tmp_path / ("clone-" + name.split("/")[1])
+        g(tmp_path, "clone", "-q", "-b", "main", str(bare), str(clone))
+        env = dict(os.environ, HEAD_SHA=head, RUNNER_TEMP=str(tmp_path), GITHUB_STEP_SUMMARY=str(tmp_path / "sum.md"))
+        run = subprocess.run(["bash", "-e", "-c", script], cwd=clone, env=env, capture_output=True, text=True)
+        assert run.returncode == expected, (name, run.stdout, run.stderr)
+        if expected == 0:
+            assert "1 commits" in run.stdout                   # the attempts' version bump not counted
