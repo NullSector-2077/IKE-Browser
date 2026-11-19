@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.1.17
+
+Security review (each point has a test that plays the attack on this computer).
+
+- **Saved passwords are filled in only when you click into the form** (or
+  reach it with Tab): never by themselves when the page loads. Until now a
+  script of the page (an advert, a comment) could build a tiny invisible login
+  form and read the password the browser filled into it. Clicks, focus or key
+  presses made by the page's own scripts do not count. A user name already
+  typed picks its own login.
+- **Dark mode never reads the home network for a web site**: the style sheets
+  that dark mode fetches for a page (those the page cannot read itself) are no
+  longer fetched from this computer or the home network (router, printer, a
+  program listening here), also after a redirect or through a name that points
+  there; a page of the home network itself still gets its own.
+- **User scripts update themselves only safely**: the daily check uses only
+  https addresses, and an update that asks for more than the installed version
+  (more sites, more GM_ functions, more hosts) or loads code over plain http is
+  shown to the user first, as a new script is.
+- **The browser's own requests keep no cookies** (search suggestions, site
+  icons, weather, downloads of extensions and languages): a search engine can
+  no longer tie together the words typed in the address bar. User scripts keep
+  theirs, as before.
+
 ## 1.1.16
 
 - **Vertical tabs with only their icons**: a button at the top of the vertical

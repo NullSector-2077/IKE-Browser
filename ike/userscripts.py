@@ -99,6 +99,46 @@ def is_local_name(host):
     return False
 
 
+def outside_home(host, done, who=""):
+    """done(True) if `host` is neither this computer nor the home network.
+
+    A name is looked up first: a public name that points to a local address
+    counts as local. Shared by the user scripts' requests and the style sheets
+    dark mode fetches for a page, so a web page can never use the browser to
+    read what a router, a printer or a program on this computer serves."""
+    host = (host or "").lower().rstrip(".").strip("[]")
+    if is_local_name(host):
+        _debug("%s: local address %s refused" % (who, host))
+        done(False)
+        return
+    try:
+        ipaddress.ip_address(host)
+        done(True)                       # a public address
+        return
+    except ValueError:
+        pass
+    fake = dict(p.split("=", 1) for p in os.environ.get("IKE_TEST_RESOLVE", "").split(",") if "=" in p)
+    if host in fake:
+        addresses = fake[host].split("|")
+        QTimer.singleShot(0, lambda: _resolved(who, host, addresses, done))
+        return
+
+    def found(info):
+        if info.error() != QHostInfo.HostInfoError.NoError:
+            done(True)                   # unknown here: the request fails by itself, or a proxy resolves it
+            return
+        _resolved(who, host, [a.toString() for a in info.addresses()], done)
+    QHostInfo.lookupHost(host, found)
+
+
+def _resolved(who, host, addresses, done):
+    if any(is_local_address(a) for a in addresses):
+        _debug("%s: %s resolves to a local address, refused" % (who, host))
+        done(False)
+    else:
+        done(True)
+
+
 def connect_rule(connect, page_host, host):
     """(allowed, named) for a request to `host` by a script with these
     "@connect" lines, from a page on `page_host`. "named" means a line names the
@@ -218,6 +258,31 @@ def gather(text, source_url=""):
             "source": source_url}
 
 
+def update_needs_consent(old, got):
+    """True when an update found by the daily check must not be installed
+    silently: it runs on more sites, uses more GM_ functions, reaches more
+    hosts or more frames than the installed version, or loads code (@require,
+    @resource) over plain http. Anything else updates by itself, as before."""
+    meta = got["meta"]
+
+    def low(items):
+        return {str(i).strip().lower() for i in items or () if str(i).strip()}
+    if set(granted(meta["grant"])) - set(granted(old.get("grant", []))):
+        return True
+    if (low(meta["match"]) | low(meta["include"])) - (low(old.get("match")) | low(old.get("include"))):
+        return True
+    if low(old.get("exclude")) - (low(meta["exclude"]) | low(meta["exclude-match"])):
+        return True
+    before, after = low(old.get("connect")), low(meta["connect"])
+    if before and (not after or after - before):
+        return True                      # no @connect at all means any host
+    if old.get("noframes") and "noframes" not in meta:
+        return True
+    source = got.get("source") or ""
+    refs = list(meta["require"]) + [r.split(None, 1)[1] for r in meta["resource"] if len(r.split(None, 1)) == 2]
+    return any(not (urljoin(source, ref) if source else ref).startswith("https://") for ref in refs)
+
+
 class Fetcher(QThread):
     """Downloads a script (or takes its text) with what it requires."""
     done = pyqtSignal(object, str)       # gathered dict or None, error text
@@ -248,6 +313,10 @@ class UserScripts(QObject):
     def __init__(self, app):
         super().__init__(app)
         self.app = app
+        # their own manager: GM_xmlhttpRequest keeps the cookies its sites set,
+        # as user scripts expect; the browser's own requests keep none (app.py)
+        from PyQt6.QtNetwork import QNetworkAccessManager
+        self.network = QNetworkAccessManager(self)
         self.secret = secrets.token_hex(16)   # names of the answer callbacks
         self.tokens, self._by_token = {}, {}  # one secret token per script, this session only
         self.scripts = {}
@@ -396,18 +465,40 @@ class UserScripts(QObject):
         now = time.time()
         for sid, s in list(self.scripts.items()):
             url = s.get("update") or ""
-            if not url.startswith(("http://", "https://")):
+            # only over https: on a plain http address anybody on the same
+            # network could hand over a "newer version" of their own
+            if not url.startswith("https://"):
                 continue
             if not force and now - s.get("checked", 0) < UPDATE_INTERVAL:
                 continue
             s["checked"] = int(now)
 
             def ready(got, _err, sid=sid, name=s["name"]):
-                if got is not None and script_id(got["meta"]) == sid:
-                    self.store(got)
-                    self.app._notify(T("User script updated: %s") % name)
+                if got is None or script_id(got["meta"]) != sid or sid not in self.scripts:
+                    return
+                if update_needs_consent(self.scripts[sid], got):
+                    self._confirm_update(got)
+                    return
+                self.store(got)
+                self.app._notify(T("User script updated: %s") % name)
             self.fetch(ready, url, newer=s.get("version", ""))
         self._save()
+
+    def _confirm_update(self, got):
+        """An update that asks for more than the installed version: the user decides."""
+        from PyQt6.QtWidgets import QMessageBox
+        box = QMessageBox(self.app.active_window())
+        box.setWindowTitle("I.K.E.")
+        box.setIcon(QMessageBox.Icon.Question)
+        box.setText(T("Update this user script?"))
+        box.setInformativeText(self.describe(got["meta"]) + "\n\n" + T(
+            "This update asks for more than the installed version (more sites, functions or "
+            "connections) or loads code without encryption. Install it only if you trust it."))
+        box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel)
+        box.setDefaultButton(QMessageBox.StandardButton.Cancel)
+        if box.exec() == QMessageBox.StandardButton.Yes:
+            self.store(got)
+            self.app._notify(T("User script updated: %s") % got["meta"]["name"])
 
     # --- building ----------------------------------------------------
     def _world(self, s):
@@ -612,36 +703,7 @@ class UserScripts(QObject):
         if named:
             done(True)
             return
-        if is_local_name(host):
-            _debug("%s: local address %s refused (not named by @connect)" % (name, host))
-            done(False)
-            return
-        try:
-            ipaddress.ip_address(host)
-            done(True)                   # a public address
-            return
-        except ValueError:
-            pass
-        fake = dict(p.split("=", 1) for p in os.environ.get("IKE_TEST_RESOLVE", "").split(",") if "=" in p)
-        if host in fake:
-            addresses = fake[host].split("|")
-            QTimer.singleShot(0, lambda: self._resolved(name, host, addresses, done))
-            return
-
-        def found(info):
-            if info.error() != QHostInfo.HostInfoError.NoError:
-                done(True)               # unknown here: the request fails by itself, or a proxy resolves it
-                return
-            self._resolved(name, host, [a.toString() for a in info.addresses()], done)
-        QHostInfo.lookupHost(host, found)
-
-    @staticmethod
-    def _resolved(name, host, addresses, done):
-        if any(is_local_address(a) for a in addresses):
-            _debug("%s: %s resolves to a local address, refused" % (name, host))
-            done(False)
-        else:
-            done(True)
+        outside_home(host, done, name + " (not named by @connect)")
 
     def _send(self, page, sid, d, rid, url, method, page_host):
         req = QNetworkRequest(url)
@@ -662,7 +724,7 @@ class UserScripts(QObject):
         data = body.encode("utf-8") if isinstance(body, str) else b""
         if data and not req.hasRawHeader(b"Content-Type"):
             req.setRawHeader(b"Content-Type", b"application/x-www-form-urlencoded; charset=UTF-8")
-        reply = self.app.network.sendCustomRequest(req, method.encode(), data)
+        reply = self.network.sendCustomRequest(req, method.encode(), data)
         binary = bool(d.get("binary"))
         refused = []
 

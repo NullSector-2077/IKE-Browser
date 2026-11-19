@@ -17,7 +17,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.1.16-1-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.1.17-1-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:
@@ -71,7 +71,7 @@ profiles: `ike-browser --profile NAME`.
 - Horizontal or vertical tabs (vertical ones also with only their icons), tab groups, workspaces, containers with separate
   cookies, split view, suspension of inactive tabs, private windows, profiles.
 - Bookmarks bar; bookmarks that do not fit are listed under a » button.
-- Password vault (AES-256-GCM, scrypt key), autofill, generator, CSV import and
+- Password vault (AES-256-GCM, scrypt key), filled in when you click into the form, generator, CSV import and
   export; passkeys and FIDO2 security keys.
 - User scripts (Greasemonkey / Tampermonkey / Violentmonkey style), installed
   from a file, an address or by opening a `.user.js` link, updated daily. Each

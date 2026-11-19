@@ -89,7 +89,7 @@ Not fixed in 1.0.3, with the reason. None is rated above Medium.
 |---|---|---|---|
 | A | Medium | **Widevine** (optional, installed only when the user asks): the module is downloaded over HTTPS from Google and checked for being a 64-bit Linux library, but there is no pinned hash or signature to compare with, and an installed module is never updated (`drm.update_available()` exists and is not called). | Google publishes no detached signature for it; pinning a hash means a release of I.K.E. for every Widevine release. Needs a decision of the owner: pin and release, or keep as is and say so in Settings. Belongs to the component manager of the platform study. |
 | B | Medium | **Chrome extensions** (experimental, off by default): the signature inside the CRX file is not verified; the download is HTTPS from the Chrome Web Store only. | Verifying CRX3 needs the protobuf header and RSA / ECDSA checks; planned with the extension work, not a quick fix. |
-| C | Medium | **Saved passwords are filled when the page loads**, not after a gesture of the user. A script injected into a site (XSS) could read the filled field. Only on the exact origin the login was saved for. | Changing it changes how the feature feels (a click per login); to be decided by the owner. A middle way: fill the user name at once and the password on focus. |
+| C | Medium | ~~**Saved passwords are filled when the page loads**~~ — fixed in 1.1.17: filled only on a real click or Tab into the form (see below). | — |
 | D | Low | The vault has **no automatic lock** after a time, and its key-derivation parameters (scrypt, N = 2^15) are constants in the code, not written in the file, so they cannot be raised without a format change. | A new vault format with the parameters in the header and an idle lock is a feature of its own, with a migration that must not lose passwords. |
 | E | Low | **Downloads made by I.K.E. itself** (filter lists, updates, Chrome version, Widevine) use Python's `urllib`: they follow proxy environment variables but not a proxy set only in Plasma's settings, unlike the pages. | Moving them to Qt's network stack touches four modules and their tests. |
 | F | Low | **GitHub Actions are pinned by tag**, not by commit hash. | To be pinned together with a Dependabot rule that keeps the hashes current, or it becomes stale. |
@@ -158,3 +158,30 @@ anyway.
   local server.
 - The review was done by one reviewer in one pass. A second review of
   findings 1, 2 and 4 — the ones with new logic — is worth having.
+
+## Review of 1.1.17
+
+Date: 2026-11-19. Scope: the browser's code at 1.1.16 (`ike/`, its scripts in
+`ike/resources/`), with the same method as above: each suspicion written as an
+attack in a test, run in the real browser against local servers only; a
+finding is fixed only if its test failed before and passes after.
+
+| Rating | Finding | Fix | Test |
+|---|---|---|---|
+| High | **A page could read a saved password without any action of the user.** With the vault unlocked, `passwords.js` filled the first visible password field of the page's origin as soon as one appeared. A script running on the site (an advert, an injected comment) built a 2×2 transparent login form and read the password the browser filled into it (the test read it 26 times in two seconds). Open issue C of 1.0.3. | The login is filled only on a trusted `pointerdown` or Tab `keyup` on the password field or its user name field; clicks, focus and key events made by the page's scripts are not trusted. A user name already typed picks its own login. The helper no longer watches the page's changes. | `test_passwords.py::test_a_page_cannot_harvest_a_saved_password` |
+| Medium | **Dark mode read the home network for a web site.** The style sheets a page cannot read cross-origin were fetched by the browser (`PageBridge.fetchCss`) from any http(s) address, including this computer and private networks, and the restyled sheet ended up in the page. | `outside_home()` (shared with GM_xmlhttpRequest's check) refuses local names, private addresses and names that resolve to them, and every redirect is checked the same way (never https → http); a page of the home network itself still gets its own sheets. | `test_security.py::test_dark_mode_never_reads_the_home_network_for_a_web_site` |
+| Medium | **User script updates trusted plain http and could widen a script.** The daily check installed any newer version silently, also from an `http://` update address (anybody on the same network could hand over code that runs in pages) and also when the update added sites, `@grant`s, `@connect` hosts or frames. | Automatic checks only for `https://` update addresses; an update that widens what the script may do, or loads `@require` / `@resource` over http, is shown to the user first. | `test_security.py::test_user_script_updates_that_ask_for_more_need_the_user` |
+| Low | **The browser's own requests kept cookies** in one shared in-memory jar: a search engine could tie together the words typed in the address bar for its suggestions; site icon requests carried the cookies of earlier ones. | `app.network` has a jar that keeps none; user scripts have their own manager and keep theirs, as before. | the dark-mode test above (the jar stays empty) |
+
+Areas read again without new findings: the program update (signed manifest,
+hash, safe unpacking, rollback), the `ike:` scheme, the hand-over socket,
+D-Bus methods (KRunner, MPRIS), the extension and Widevine downloads, filter
+lists and scriptlet trust, the new tab page's escaping, downloads into the
+download folder, profiles' names, private windows (no history, no icons on
+disk), permissions, certificates.
+
+Still open from the table above: D (no automatic lock of the vault; the scrypt
+parameters are written in the file but not read back) and G (permission
+questions of background tabs), both changes of behaviour for the owner to
+decide.
+

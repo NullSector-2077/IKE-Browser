@@ -867,6 +867,7 @@
 "After a restart. It lightens the processor while videos play and needs the graphics card's VA-API driver (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: already there). If videos look wrong or I.K.E. closes, choose Automatic.": "再起動後に有効。動画再生中のプロセッサの負荷を減らします。グラフィックカードの VA-API ドライバーが必要です (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: 導入済み)。動画の表示がおかしい場合や I.K.E. が終了する場合は「自動」を選んでください。",
 "Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "グラフィックカードによる動画のデコードを「自動」に戻しました: オンの間に I.K.E. が正常に終了しませんでした。",
 "Show only the icons of the tabs": "タブのアイコンだけを表示",
-"Show the titles of the tabs": "タブのタイトルを表示"
+"Show the titles of the tabs": "タブのタイトルを表示",
+"This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "この更新はインストール済みのバージョンより多くを求めています（サイト、機能、接続の追加）か、暗号化なしでコードを読み込みます。信頼できる場合のみインストールしてください。"
 }
 }

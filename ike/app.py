@@ -11,7 +11,7 @@ from pathlib import Path
 
 from PyQt6.QtCore import QObject, QStandardPaths, Qt, QTimer, QUrl
 from PyQt6.QtGui import QIcon
-from PyQt6.QtNetwork import QLocalServer, QLocalSocket, QNetworkAccessManager, QNetworkProxyFactory
+from PyQt6.QtNetwork import QLocalServer, QLocalSocket, QNetworkAccessManager, QNetworkCookieJar, QNetworkProxyFactory
 from PyQt6.QtWebEngineWidgets import QWebEngineView  # noqa: F401  (must load before QApplication)
 from PyQt6.QtWidgets import QApplication, QFileDialog
 
@@ -24,6 +24,20 @@ def find_widevine(home=None):
     from .drm import library_path
     return library_path()
 
+
+
+class NoCookies(QNetworkCookieJar):
+    """The browser's own requests (search suggestions, site icons, weather,
+    downloads of extensions and languages, dark mode's style sheets) neither
+    keep nor send cookies: a search engine cannot tie together the words typed
+    in the address bar, nor a site recognise the browser by its icon requests.
+    The pages' cookies live in the web profiles, not here."""
+
+    def setCookiesFromUrl(self, cookies, url):
+        return False
+
+    def cookiesForUrl(self, url):
+        return []
 
 class IkeApp(QObject):
     def __init__(self, qapp, config):
@@ -59,6 +73,7 @@ class IkeApp(QObject):
         self.store = StoreInstaller(self)
         self.store.finished.connect(lambda ok, msg: self._desktop_notify(msg))
         self.network = QNetworkAccessManager(self)
+        self.network.setCookieJar(NoCookies(self.network))
         from .weather import Weather
         self.weather = Weather(config, self.network, self)
         self.weather.changed.connect(self._weather_changed)

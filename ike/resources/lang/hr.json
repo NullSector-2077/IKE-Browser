@@ -867,6 +867,7 @@
 "After a restart. It lightens the processor while videos play and needs the graphics card's VA-API driver (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: already there). If videos look wrong or I.K.E. closes, choose Automatic.": "Nakon ponovnog pokretanja. Rasterećuje procesor tijekom videa i treba VA-API upravljački program grafičke kartice (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: već postoji). Ako se videi prikazuju pogrešno ili se I.K.E. zatvara, odaberite Automatski.",
 "Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "Dekodiranje videa grafičkom karticom vraćeno je na Automatski: I.K.E. se nije normalno zatvorio dok je bilo uključeno.",
 "Show only the icons of the tabs": "Prikaži samo ikone kartica",
-"Show the titles of the tabs": "Prikaži naslove kartica"
+"Show the titles of the tabs": "Prikaži naslove kartica",
+"This update asks for more than the installed version (more sites, functions or connections) or loads code without encryption. Install it only if you trust it.": "Ovo ažuriranje traži više od instalirane verzije (više stranica, funkcija ili veza) ili učitava kôd bez šifriranja. Instalirajte ga samo ako mu vjerujete."
 }
 }
