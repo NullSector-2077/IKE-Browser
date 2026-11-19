@@ -55,6 +55,7 @@ jobs:
       attempt: ${{ steps.plan.outputs.attempt }}
       allow_adblock: ${{ steps.plan.outputs.allow_adblock }}
       workflow: ${{ steps.plan.outputs.workflow }}
+      head_sha: ${{ steps.plan.outputs.head_sha }}
     steps:
       - name: Check out main (all branches, no credentials)
         uses: actions/checkout@v7
@@ -71,7 +72,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/failure"
           python3 -I tools/autofix-plan.py --run-id "$RUN_ID" --logs "$RUNNER_TEMP/failure/failure.md"
       - name: Keep the failure description
-        if: steps.plan.outputs.action == 'fix'
+        if: steps.plan.outputs.action == 'fix' || steps.plan.outputs.action == 'issue'
         uses: actions/upload-artifact@v7
         with:
           name: autofix-failure
@@ -547,7 +548,7 @@ jobs:
           ACTION: ${{ needs.plan.outputs.action }}
           REASON: ${{ needs.plan.outputs.reason }}
           WORKFLOW: ${{ needs.plan.outputs.workflow }}
-          CHECKOUT: ${{ needs.plan.outputs.checkout }}
+          CHECKOUT: ${{ needs.plan.outputs.checkout || needs.plan.outputs.head_sha }}
           FIX: ${{ needs.fix.result }}
           PATCH: ${{ needs.fix.outputs.patch }}
           AGENT: ${{ needs.fix.outputs.result }}
@@ -582,7 +583,9 @@ jobs:
             for f in summary.md guard.md; do
               if [ -s "$RUNNER_TEMP/autofix/$f" ]; then echo; cat "$RUNNER_TEMP/autofix/$f"; fi
             done
-            if [ "$ACTION" = "fix" ]; then
+            # ChatGPT's message whenever there is a failure to show (no automatic fix,
+            # or two that did not pass: then it starts from the last of them)
+            if [ "$ACTION" = "fix" ] || [ -s "$RUNNER_TEMP/failure/failure.md" ]; then
               echo
               echo "### Prossimi passi"
               echo

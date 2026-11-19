@@ -1027,3 +1027,48 @@ def test_each_fix_goes_through_the_lint(repo, tmp_path):
                  env={"GROQ_API_KEY": "k", "AUTOFIX_GROQ_MODELS": "g1, g2"}, opener=spy)
     assert json.loads(status.read_text())["result"] == "ok"
     assert "F821" in asked[1] and (repo / "ike/window.py").read_text() == "def width():\n    return 11\n"
+
+
+def test_a_missing_name_comes_with_its_working_uses(repo):
+    """2026-11-19 (giro 2): after a simulated PyQt change a reserve wrote
+    DownloadState.Completed, then went back to the error itself; the right
+    form was in ike/dialogs.py all along."""
+    ctx = load("autofix-context")
+    (repo / "ike/app.py").write_text("from x import R as DR\n\n\ndef tick(st):\n    return st == DR.DownloadInProgress\n"
+                                     "\n\ndef done(st):\n    return st == DR.DownloadInProgress\n")
+    (repo / "ike/dialogs.py").write_text("def state(d):\n    S = R.DownloadState\n    return S.DownloadInProgress\n")
+    failure = ('  File "/x/ike/app.py", line 5, in tick\n'
+               "AttributeError: type object 'R' has no attribute 'DownloadInProgress'\n")
+    text, related = ctx.build(repo, failure)
+    part = text.split("# The same names elsewhere in I.K.E.", 1)[1]
+    assert "`ike/dialogs.py` uses `DownloadInProgress`" in part and "S = R.DownloadState" in part
+    assert "ike/app.py" not in part.split("Files involved")[0]   # never the failing file's own mistakes
+    assert related == ["ike/app.py"]                             # the pertinence stays on the error
+    assert "same names elsewhere" not in ctx.build(repo, "ImportError: x\n")[0]
+
+
+def test_after_two_attempts_the_issue_still_carries_the_message_for_chatgpt(tmp_path):
+    """2026-11-19: when two automatic fixes did not pass, the issue said only
+    "servono le tue mani", without the failure and without ChatGPT's message."""
+    import os
+    import subprocess
+    script = step_script("Tell the owner")
+    temp = tmp_path / "runner"
+    (temp / "failure").mkdir(parents=True)
+    (temp / "failure" / "failure.md").write_text("## Job `tests`\nAttributeError: no attribute 'Completed'\n")
+    bin_ = tmp_path / "bin"
+    bin_.mkdir()
+    (bin_ / "gh").write_text('#!/bin/sh\nfor a in "$@"; do last="$a"; done\n'
+                             'case "$*" in *"issue create"*|*"issue comment"*) cp "$last" "%s";; esac\nexit 0\n'
+                             % (tmp_path / "body.md"))
+    (bin_ / "gh").chmod(0o755)
+    env = dict(os.environ, RUNNER_TEMP=str(temp), PATH="%s:%s" % (bin_, os.environ["PATH"]),
+               ACTION="issue", REASON="2 automatic fixes did not make it pass", WORKFLOW="Tests",
+               CHECKOUT="d0b6c21", FIX="skipped", PATCH="", AGENT="", GUARD="skipped", PUBLISH="skipped",
+               RUN_URL="https://example.test/run", GH_TOKEN="x", GH_REPO="o/r")
+    run = subprocess.run(["bash", "-e", "-c", script], env=env, capture_output=True, text=True, timeout=60)
+    assert run.returncode == 0, run.stdout + run.stderr
+    body = (tmp_path / "body.md").read_text()
+    assert "2 automatic fixes did not make it pass" in body
+    assert "Messaggio per ChatGPT" in body and "from commit d0b6c21" in body
+    assert "no attribute 'Completed'" in body
