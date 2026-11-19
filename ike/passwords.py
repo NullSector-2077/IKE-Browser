@@ -41,20 +41,28 @@ from .i18n import T
 # 2^15). About a third of a second, once, when the vault is opened; each
 # guess of a stolen file costs a thief the same, and 128 MB of memory.
 SCRYPT_N, SCRYPT_R, SCRYPT_P = 2 ** 17, 8, 1
-LEGACY = {"n": 2 ** 15, "r": 8, "p": 1}       # files written before 1.1.17 named these too
+LEGACY = (2 ** 15, 8, 1)        # every vault file written from 1.0.0 to 1.1.16 names exactly these
+# The only scrypt profiles a vault file may name: the one of today and the
+# legacy one (opened, then sealed again with today's). Anything else is
+# refused before scrypt runs: scrypt needs about 128 * N * r bytes and p times
+# the work, so a doctored file naming, say, N = 2^20, r = 16, p = 4 (2 GiB,
+# four rounds) must not even be tried.
+PROFILES = frozenset({(SCRYPT_N, SCRYPT_R, SCRYPT_P), LEGACY})
 
 
 def _params(blob):
-    """The scrypt parameters a vault file was sealed with, or None if they are
-    not sane ones (a damaged or doctored file must not make the unlock take
-    minutes or all the memory)."""
+    """{"n", "r", "p"} of a vault file, or None unless the file names one of
+    PROFILES exactly: whole numbers written as such (no text, no fractions,
+    no true/false), all three present."""
     try:
-        n, r, p = int(blob.get("n", LEGACY["n"])), int(blob.get("r", LEGACY["r"])), int(blob.get("p", LEGACY["p"]))
-    except (TypeError, ValueError):
+        values = tuple(blob[k] for k in ("n", "r", "p"))
+    except (KeyError, TypeError):
         return None
-    if n < 2 ** 14 or n > 2 ** 20 or n & (n - 1) or not 1 <= r <= 16 or not 1 <= p <= 4:
+    if not all(type(v) is int for v in values) or values not in PROFILES:
         return None
-    return {"n": n, "r": r, "p": p}
+    return dict(zip(("n", "r", "p"), values))
+
+
 _AAD = b"ike-vault-1"               # associated data sealed with every vault file
 WORLD = 1  # QWebEngineScript.ApplicationWorld
 

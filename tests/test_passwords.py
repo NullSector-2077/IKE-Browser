@@ -328,29 +328,122 @@ def steps(ike, qapp, out):
     assert out["toasts"] == ["This page is not secure: others on the network can read what you type here."]
 
 
-def test_vault_key_is_strengthened_without_losing_anything(tmp_path, monkeypatch):
-    """New vaults use scrypt with N = 2^17; a vault sealed before 1.1.17
-    (N = 2^15) opens as before and is sealed again with the new strength at
-    once; a file naming absurd parameters is refused without trying them."""
+def _legacy_vault(passwords, path, monkeypatch):
+    """A vault as 1.0.0 to 1.1.16 wrote it: scrypt N = 2^15, r = 8, p = 1."""
+    with monkeypatch.context() as m:
+        m.setattr(passwords, "SCRYPT_N", 2 ** 15)
+        v = passwords.Vault(path)
+        v.create("master")
+        v.put("https://site.test", "me", "pw")
+    blob = json.loads(path.read_text())
+    assert (blob["n"], blob["r"], blob["p"]) == (2 ** 15, 8, 1)
+    return blob
+
+
+def test_vault_accepts_exactly_its_two_scrypt_profiles(tmp_path, monkeypatch):
+    """Only the profile of today (N = 2^17, r = 8, p = 1) and the legacy one
+    (N = 2^15, r = 8, p = 1) are accepted, as whole numbers."""
+    from ike import passwords
+    assert passwords.PROFILES == {(2 ** 17, 8, 1), (2 ** 15, 8, 1)}
+    assert passwords._params({"n": 2 ** 17, "r": 8, "p": 1}) == {"n": 2 ** 17, "r": 8, "p": 1}
+    assert passwords._params({"n": 2 ** 15, "r": 8, "p": 1}) == {"n": 2 ** 15, "r": 8, "p": 1}
+    # a vault of today opens and is left exactly as it was
+    path = tmp_path / "vault.bin"
+    v = passwords.Vault(path)
+    v.create("master")
+    v.put("https://site.test", "me", "pw")
+    before = path.read_text()
+    assert passwords.Vault(path).unlock("master")
+    assert path.read_text() == before
+    # a legacy vault opens
+    _legacy_vault(passwords, tmp_path / "old.bin", monkeypatch)
+    old = passwords.Vault(tmp_path / "old.bin")
+    assert old.unlock("master") and old.find("https://site.test")[0]["password"] == "pw"
+
+
+BAD_PARAMS = [
+    (2 ** 20, 16, 4),                 # 2 GiB and four rounds per try
+    (2 ** 20, 8, 1), (2 ** 18, 8, 1), (2 ** 16, 8, 1), (2 ** 14, 8, 1), (2 ** 10, 8, 1),
+    (2 ** 17, 16, 1), (2 ** 17, 8, 2), (2 ** 17, 8, 4), (2 ** 15, 8, 2), (2 ** 15, 1, 1),
+    (3000, 8, 1), (0, 8, 1), (-(2 ** 17), 8, 1),
+    ("131072", 8, 1), (131072.0, 8, 1), (2 ** 17, "8", 1), (2 ** 17, 8, True), (None, 8, 1),
+    ([2 ** 17], 8, 1), (2 ** 17, 8.0, 1),
+]
+
+
+@pytest.mark.parametrize("n, r, p", BAD_PARAMS)
+def test_vault_refuses_other_scrypt_parameters_before_running_scrypt(tmp_path, monkeypatch, n, r, p):
+    """A vault file naming any other parameters (bigger, smaller, mixed, or not
+    written as whole numbers) is refused without deriving anything: no memory
+    or time is spent on it, and the file is left as it was."""
     from ike import passwords
     path = tmp_path / "vault.bin"
-    monkeypatch.setattr(passwords, "SCRYPT_N", 2 ** 15)
-    old = passwords.Vault(path)
-    old.create("master")
-    old.put("https://site.test", "me", "pw")
-    assert json.loads(path.read_text())["n"] == 2 ** 15
-    monkeypatch.undo()
+    blob = _legacy_vault(passwords, path, monkeypatch)
+    path.write_text(json.dumps(dict(blob, n=n, r=r, p=p)))
+    before = path.read_text()
+    calls = []
+    monkeypatch.setattr(passwords.Vault, "_derive", lambda self, *a, **k: calls.append(a) or b"\0" * 32)
+    v = passwords.Vault(path)
+    assert not v.unlock("master") and not v.unlocked
+    assert calls == [] and path.read_text() == before
+    assert passwords._params(dict(blob, n=n, r=r, p=p)) is None
+
+
+@pytest.mark.parametrize("missing", ["n", "r", "p"])
+def test_vault_without_its_parameters_is_refused(tmp_path, monkeypatch, missing):
+    """Every vault file I.K.E. ever wrote names n, r and p: one without them
+    is not guessed at."""
+    from ike import passwords
+    path = tmp_path / "vault.bin"
+    blob = _legacy_vault(passwords, path, monkeypatch)
+    del blob[missing]
+    path.write_text(json.dumps(blob))
+    calls = []
+    monkeypatch.setattr(passwords.Vault, "_derive", lambda self, *a, **k: calls.append(a) or b"\0" * 32)
+    assert not passwords.Vault(path).unlock("master") and calls == []
+    for odd in ([], "text", 5, None):
+        assert passwords._params(odd) is None
+
+
+def test_legacy_vault_moves_to_the_current_profile_without_losing_anything(tmp_path, monkeypatch):
+    """A legacy vault opens with its own parameters and is sealed again with
+    today's at once; the entries, the master password and later saves keep
+    working, and a wrong password still opens nothing."""
+    from ike import passwords
+    path = tmp_path / "vault.bin"
+    _legacy_vault(passwords, path, monkeypatch)
     v = passwords.Vault(path)
     assert v.unlock("master") and v.find("https://site.test")[0]["password"] == "pw"
     blob = json.loads(path.read_text())
-    assert blob["n"] == 2 ** 17 and blob["r"] == 8 and blob["p"] == 1
-    v.put("https://site.test", "you", "pw2")            # later saves keep the new key
+    assert (blob["n"], blob["r"], blob["p"]) == (2 ** 17, 8, 1)
+    v.put("https://site.test", "you", "pw2")             # later saves keep the new key
     again = passwords.Vault(path)
-    assert again.unlock("master") and len(again.entries) == 2
+    assert again.unlock("master") and sorted(e["username"] for e in again.entries) == ["me", "you"]
     assert not passwords.Vault(path).unlock("wrong")
     new = passwords.Vault(tmp_path / "new.bin")
     new.create("master")
     assert json.loads((tmp_path / "new.bin").read_text())["n"] == 2 ** 17
-    for n in (2 ** 30, 3000, "x", 2 ** 10):
-        path.write_text(json.dumps(dict(blob, n=n)))
-        assert not passwords.Vault(path).unlock("master"), n
+
+
+def test_legacy_vault_that_cannot_be_rewritten_stays_as_it_was(tmp_path, monkeypatch):
+    """If the new seal cannot be written, the legacy file stays untouched and
+    open; the next save writes it with the parameters its key really has, so
+    it never becomes a file that no password opens."""
+    from ike import passwords
+    path = tmp_path / "vault.bin"
+    _legacy_vault(passwords, path, monkeypatch)
+    before = path.read_text()
+    real = passwords.write_private
+
+    def refuse(*a, **k):
+        raise OSError("read-only")
+    monkeypatch.setattr(passwords, "write_private", refuse)
+    v = passwords.Vault(path)
+    assert v.unlock("master") and v.unlocked
+    assert path.read_text() == before
+    monkeypatch.setattr(passwords, "write_private", real)
+    v.put("https://site.test", "you", "pw2")
+    assert json.loads(path.read_text())["n"] == 2 ** 15     # still legacy, consistent with its key
+    again = passwords.Vault(path)
+    assert again.unlock("master") and len(again.entries) == 2
+    assert json.loads(path.read_text())["n"] == 2 ** 17     # moved on at this unlock
