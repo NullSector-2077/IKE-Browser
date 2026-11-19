@@ -705,3 +705,204 @@ def test_job_logs_are_read_with_their_colour_codes(monkeypatch):
         assert plan_tool.gh_api("repos/x/actions/jobs/1/logs", raw=True) == "\x1b[31mF401\x1b[0m"
         assert calls[0] == ["gh", "api", "--allow-escape-sequences", "repos/x/actions/jobs/1/logs"]
         assert len(calls) == (2 if old else 1)
+
+
+# --- 1.1.16: the engine update, one rule for everyone, the chain ----------------
+
+LOCK = '''version = 4
+
+[[package]]
+name = "adblock"
+version = "%s"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+'''
+
+
+@pytest.mark.parametrize("candidate, main, expected", [
+    (LOCK % "0.13.7", LOCK % "0.13.6", True),      # a real engine update
+    (LOCK % "0.13.6", LOCK % "0.13.6", False),     # Dark Reader, scriptlets, lists: same engine
+    ("", LOCK % "0.13.6", False),                  # no lock on the candidate: cannot tell
+    (LOCK % "0.13.7", "", False),                  # no lock on main: cannot tell
+    ("garbage", LOCK % "0.13.6", False),
+    (LOCK.replace('name = "adblock"', 'name = "adblock-extra"') % "9.9.9", LOCK % "0.13.6", False),
+])
+def test_the_engine_update_is_read_from_the_lock(candidate, main, expected):
+    """Until 1.1.16 the candidate had to raise the minimum system; a new engine
+    travels in the signed self-update and seldom does. Now: the adblock crate
+    of the candidate's Cargo.lock against main's, anything unreadable is no."""
+    show = {"origin/automation/daily-maintenance": candidate, "origin/main": main}.get
+    assert plan_tool.engine_update("automation/daily-maintenance", show=show) is expected
+    assert plan_tool.adblock_version(LOCK % "0.13.6") == "0.13.6"
+
+
+def test_only_an_engine_update_allows_the_wrapper():
+    base = dict(_tip="t1", _main_tip="m1", _attempts=0)
+    for update, allowed in ((True, "true"), (False, "false")):
+        plan = plan_tool.decide(failed_run(branch="automation/daily-maintenance", head_sha="t1", **base,
+                                           _engine_update=update), [job("tests")], "")
+        assert plan["allow_adblock"] == allowed
+    plan = plan_tool.decide(failed_run(branch="main", head_sha="m1", **base, _engine_update=True),
+                            [job("tests")], "")
+    assert plan["allow_adblock"] == "false"           # never for a fix of main
+
+
+WRAPPER_PATHS = ["ike-adblock/src/lib.rs", "vendor/adblock/__init__.py", "ike/blocker.py", "ike/scriptlets.py"]
+NEVER_PATHS = ["ike-adblock/Cargo.toml", "ike-adblock/Cargo.lock", "ike-adblock/build.rs",
+               "vendor/adblock/adblock.pyi", "ike/resources/darkreader.js", "ike/resources/ubo-scriptlets.json",
+               "ike/resources/icons/sets/a.svg", "docs/THIRD-PARTY.md", ".github/workflows/tests.yml"]
+
+
+def test_the_reserves_never_promise_what_the_checker_refuses(repo, tmp_path):
+    """One rule for Antigravity, the reserves, the checker and ChatGPT: what a
+    reserve may edit is always something the checker accepts."""
+    reserve = load("autofix-reserve")
+    for allow in (False, True):
+        for path in WRAPPER_PATHS + NEVER_PATHS + ["ike/window.py", "tests/test_x.py", "tools/x.py", "docs/x.md"]:
+            shown = {path: "x\n"}
+            (repo / path).parent.mkdir(parents=True, exist_ok=True)
+            (repo / path).write_text("x\n")
+            try:
+                reserve.apply_edits(repo, [{"file": path, "find": "x\n", "replace": "y\n"}], shown, allow)
+                applied = True
+            except ValueError:
+                applied = False
+            (repo / path).write_text("x\n")
+            checker_ok = guard.allowed_path(path, allow) == ""
+            if applied:
+                assert checker_ok, (path, allow)          # never more than the checker
+            if path in WRAPPER_PATHS:
+                assert applied is allow, (path, allow)    # the wrapper: exactly with an engine update
+            if path in NEVER_PATHS:
+                assert not applied and not checker_ok, (path, allow)
+    assert "not the ad blocker" in reserve.instructions(False)
+    assert "ike-adblock/src/" in reserve.instructions(True) and "Cargo.lock" in reserve.instructions(True)
+
+
+def test_antigravity_is_told_the_same():
+    agent = load("autofix-agent")
+    assert "does not update" in agent.engine_note(False) and "ike/blocker.py" in agent.engine_note(False)
+    assert "updates the ad blocker's engine" in agent.engine_note(True) and "Cargo.lock" in agent.engine_note(True)
+    text = (ROOT / ".github/autofix/prompt.md").read_text()
+    assert 'the section "This run"' in text
+    workflow = (WORKFLOWS / "autofix.yml").read_text()
+    assert '--out "$out" --status "$out/status.json" $allow' in workflow
+    # ChatGPT gets stricter rules than the checker, never wider ones (its guard has no --allow-adblock)
+    assert "Never change the ad blocker: ike-adblock/" in workflow
+    assert "--allow-adblock" not in (WORKFLOWS / "chatgpt-guard.yml").read_text()
+
+
+@pytest.mark.parametrize("groq, why", [
+    ([429], "quota"),
+    ([500, 500], "server errors"),
+    (["not json", "still not json"], "no usable answer"),
+    ([413], "request too large"),
+])
+def test_openrouter_is_reached_when_groq_cannot_fix(repo, tmp_path, groq, why):
+    import json
+    reserve = load("autofix-reserve")
+    _reserve_repo(repo)
+    prompt = tmp_path / "prompt.md"
+    prompt.write_text("RULES")
+    status = tmp_path / "status.json"
+    good = json.dumps({"summary": "ok", "edits": [{"file": "ike/window.py", "find": "    return 10\n",
+                                                  "replace": "    return 11\n"}]})
+    seen = []
+    env = {"GROQ_API_KEY": "k", "OPENROUTER_API_KEY": "k2", "AUTOFIX_GROQ_MODELS": "g1",
+           "AUTOFIX_OPENROUTER_MODELS": "o1"}
+    orig_sleep = reserve.time.sleep
+    reserve.time.sleep = lambda s: None
+    try:
+        reserve.main(["--workdir", str(repo), "--prompt", str(prompt), "--status", str(status)],
+                     env=env, opener=_opener(list(groq) + [good], seen))
+    finally:
+        reserve.time.sleep = orig_sleep
+    out = json.loads(status.read_text())
+    assert out["result"] == "ok" and out["model"] == "OpenRouter / o1", (why, out)
+    assert seen[-1][0].startswith("https://openrouter.ai/"), why
+
+
+def step_script(name):
+    """The shell of one step of autofix.yml (its "run: |" block), without a YAML library."""
+    import textwrap
+    lines = (WORKFLOWS / "autofix.yml").read_text().splitlines()
+    start = next(i for i, ln in enumerate(lines) if ln.strip() == "- name: %s" % name)
+    run = next(i for i in range(start, len(lines)) if lines[i].strip() == "run: |")
+    indent = len(lines[run]) - len(lines[run].lstrip())
+    body = []
+    for ln in lines[run + 1:]:
+        if ln.strip() and len(ln) - len(ln.lstrip()) <= indent:
+            break
+        body.append(ln)
+    return textwrap.dedent("\n".join(body)) + "\n"
+
+
+AGENT_STUB = r'''
+import json, os, sys
+from pathlib import Path
+args = sys.argv[1:]
+workdir = Path(args[args.index("--workdir") + 1])
+status = Path(args[args.index("--status") + 1])
+what = os.environ["SCENARIO"]
+if what == "big":
+    (workdir / "ike/other.py").write_text("x = 1\n")          # misses the file of the failure
+elif what == "unsafe":
+    (workdir / "ike/updater.py").write_text("CHECK = False\n")  # a protected file
+elif what == "good":
+    (workdir / "ike/window.py").write_text("def width():\n    return 11\n")
+status.write_text(json.dumps({"result": "ok", "model": "stub", "message": "m", "detail": ""}))
+'''
+
+RESERVE_STUB = r'''
+import json, sys
+from pathlib import Path
+args = sys.argv[1:]
+with open(Path(args[args.index("--status") + 1]).parent / "reserve-calls.txt", "a") as f:
+    f.write(" ".join(args) + "\n")
+Path(args[args.index("--status") + 1]).write_text(json.dumps({"result": "error", "model": "", "message": "nessuna"}))
+'''
+
+
+@pytest.mark.parametrize("scenario, reserve_asked, refused_given, result, patch", [
+    ("nothing", True, False, "ok", "false"),       # no fix: the first reserve
+    ("big", True, True, "rejected", "false"),      # off target: undone, the reserves get the reason
+    ("unsafe", False, False, "refused", "false"),  # a protected file: undone, nobody else asked
+    ("good", False, False, "ok", "true"),          # accepted at once: the reserves stay quiet
+])
+def test_the_fix_step_of_the_workflow(repo, tmp_path, scenario, reserve_asked, refused_given, result, patch):
+    """The real shell of the step "Agent, reserves, then the patch", with a stub
+    agent and a stub reserve: what reaches the reserves, and what is kept."""
+    import os
+    import subprocess
+
+    script = step_script("Agent, reserves, then the patch")
+    script = script.replace("repo=/srv/autofix/repo", "repo=%s" % repo)
+    temp = tmp_path / "runner"
+    (temp / "autofix").mkdir(parents=True)
+    (temp / "prompt.md").write_text("RULES")
+    (temp / "autofix-agent.py").write_text(AGENT_STUB)
+    (temp / "autofix-reserve.py").write_text(RESERVE_STUB)
+    (temp / "check-autofix-patch.py").write_text((ROOT / "tools/check-autofix-patch.py").read_text())
+    (temp / "autofix" / "related.txt").write_text("ike/window.py\n")
+    bin_ = tmp_path / "bin"
+    bin_.mkdir()
+    (bin_ / "sudo").write_text("#!/bin/sh\nexit 0\n")
+    (bin_ / "sudo").chmod(0o755)
+    out_file = tmp_path / "github_output"
+    env = dict(os.environ, RUNNER_TEMP=str(temp), GITHUB_OUTPUT=str(out_file), SCENARIO=scenario,
+               GEMINI_API_KEY="AIzaTESTONLY", GROQ_API_KEY="gsk_TESTONLY", OPENROUTER_API_KEY="",
+               ALLOW_ADBLOCK="false", PATH="%s:%s" % (bin_, os.environ["PATH"]))
+    run = subprocess.run(["bash", "-e", "-c", script], env=env, capture_output=True, text=True, timeout=120)
+    assert run.returncode == 0, run.stdout + run.stderr
+    outputs = dict(line.split("=", 1) for line in out_file.read_text().splitlines() if "=" in line)
+    calls = temp / "autofix" / "reserve-calls.txt"
+    asked = calls.read_text() if calls.exists() else ""
+    assert bool(asked) is reserve_asked, (scenario, asked)
+    assert ("--refused" in asked) is refused_given, (scenario, asked)
+    if reserve_asked:
+        assert "--checker" in asked and "--related" in asked and "--allow-adblock" not in asked
+    assert outputs["result"] == result, (scenario, outputs, run.stdout)
+    assert outputs["patch"] == patch, (scenario, outputs)
+    if scenario in ("big", "unsafe"):           # nothing of a refused fix is kept
+        assert git(repo, "status", "--porcelain") == "", scenario
+        summary = (temp / "autofix" / "summary.md").read_text()
+        assert "respinta dai controlli" in summary, summary

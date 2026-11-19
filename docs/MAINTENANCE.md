@@ -139,6 +139,42 @@ never touched.
    tests on it. Nothing reaches `main` without green checks.
 7. **Claude**, last: a conversation with the issue's link.
 
+**The ad blocker's wrapper, one rule for all.** A fix may touch I.K.E.'s own
+wrapper of the ad blocker (`ike-adblock/src/`, `vendor/adblock/__init__.py`,
+`ike/blocker.py`, `ike/scriptlets.py`) only on a maintenance candidate whose
+`ike-adblock/Cargo.lock` builds another version of the `adblock` crate than
+`main` (`engine_update()` in `tools/autofix-plan.py`; anything it cannot read
+counts as no update, and a candidate that only brings Dark Reader, scriptlets or
+lists never gets it). The plan's `allow_adblock` reaches Antigravity (a section
+"This run" in its instructions), the reserves (their instructions, and the
+files they may edit) and the checker (`--allow-adblock`); the reserves take
+their list of forbidden files from the checker itself, so the two cannot drift.
+ChatGPT is never allowed the ad blocker: its guard has no `--allow-adblock`.
+`Cargo.toml`, `Cargo.lock` and Brave's engine are never changed by a fix.
+
+### Trying the whole chain (end to end)
+
+Costs: Antigravity uses the free Gemini quota of the day; Groq and OpenRouter
+their free quotas (no money). Needs the secrets `GEMINI_API_KEY`,
+`GROQ_API_KEY` and `OPENROUTER_API_KEY`.
+
+1. A deliberate, harmless error on `automation/autofix-main` (never on `main`),
+   for example an unused import that ruff refuses, or a renamed Qt enum that
+   makes a test fail.
+2. `gh workflow run tests.yml --ref automation/autofix-main`: the tests fail and
+   `autofix.yml` starts by itself (or `gh workflow run autofix.yml --ref main
+   -f run_id=<the failed run>`).
+3. What to read in the run of `autofix.yml`:
+   - plan: "the failed step's log" holds the error (not "log not available");
+   - fix: "Places found: N" with the file of the error; Antigravity's outcome;
+     when it brings nothing, "Reserve: Groq / ..." and, if needed,
+     "Reserve: OpenRouter / ..."; "refused by the checks" lines when a fix was
+     undone;
+   - guard: "Patch accepted"; publish: the draft pull request on
+     `automation/autofix-main` and its tests (`tests.yml` on that branch).
+4. Never merged by itself: the draft pull request waits for a person. After a
+   trial it is closed, and the branch goes back to the deliberate error.
+
 Trying a change to the automatic fix itself: the fix job reads its tools from
 `main`, never from the branch being fixed, so a change is tested by its own
 unit tests (`tests/test_automation.py`) on its pull request, merged, and then

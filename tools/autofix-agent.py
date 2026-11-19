@@ -137,6 +137,19 @@ def with_failure(rules, failure, done="", context=""):
     return text + body.decode("utf-8", "ignore") + extra
 
 
+def engine_note(allow_adblock):
+    """Whether this run may touch the ad blocker's wrapper: the same answer the
+    reserves get and the checker enforces (--allow-adblock)."""
+    if allow_adblock:
+        return ("\n\n## This run\n\nThis run updates the ad blocker's engine: I.K.E.'s own wrapper "
+                "(`ike-adblock/src/`, `vendor/adblock/__init__.py`, `ike/blocker.py`, "
+                "`ike/scriptlets.py`) may change if the failure is there. Still never "
+                "`ike-adblock/Cargo.toml`, `Cargo.lock` or the engine itself.\n")
+    return ("\n\n## This run\n\nThis run does not update the ad blocker's engine: do not change "
+            "`ike-adblock/`, `vendor/`, `ike/blocker.py` or `ike/scriptlets.py`. If the failure is "
+            "there, change nothing and say so in the summary.\n")
+
+
 def key_variants(key):
     key = key.encode()
     out = {key, key[::-1]}
@@ -173,11 +186,13 @@ def main(argv=None):
     ap.add_argument("--agent-cmd", default="agy", help="how to start the agent (as the agent user)")
     ap.add_argument("--model-timeout", type=int, default=MODEL_TIMEOUT)
     ap.add_argument("--total-timeout", type=int, default=TOTAL_TIMEOUT)
+    ap.add_argument("--allow-adblock", action="store_true",
+                    help="this run updates the ad blocker's engine (tools/autofix-plan.py)")
     a = ap.parse_args(argv)
     key = os.environ.get("GEMINI_API_KEY", "")
     workdir, out = Path(a.workdir), Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    rules = Path(a.prompt).read_text("utf-8")
+    rules = Path(a.prompt).read_text("utf-8") + engine_note(a.allow_adblock)
     try:
         failure = (workdir / ".autofix" / "failure.md").read_text("utf-8", "replace")
     except OSError:

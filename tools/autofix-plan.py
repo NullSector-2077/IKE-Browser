@@ -203,12 +203,28 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=()):
     return plan
 
 
-def engine_update(branch):
-    """The candidate raises the minimum system: it updates the AdBlock engine."""
-    text = git("show", "origin/%s:ike/__init__.py" % branch)
-    version = re.search(r'^__version__ = "([^"]+)"', text, re.M)
-    minimum = re.search(r'^__min_system__ = "([^"]+)"', text, re.M)
-    return bool(version and minimum and version.group(1) == minimum.group(1))
+_ADBLOCK_LOCK = re.compile(r'^\[\[package\]\]\s*\nname = "adblock"\s*\nversion = "([^"]+)"', re.M)
+
+
+def adblock_version(lock_text):
+    """The version of Brave's adblock crate in a Cargo.lock, or None."""
+    m = _ADBLOCK_LOCK.search(lock_text or "")
+    return m.group(1) if m else None
+
+
+def engine_update(branch, show=None):
+    """The candidate builds another version of the AdBlock engine than main.
+
+    Read from ike-adblock/Cargo.lock (what is really built), the candidate's
+    against main's. Until 1.1.16 this compared __version__ with
+    __min_system__, but a new engine reaches users through the signed
+    self-update and seldom raises the minimum system. Anything that cannot be
+    read gives False: only a real engine update lets a fix touch I.K.E.'s
+    wrapper of the ad blocker."""
+    show = show or (lambda ref: git("show", "%s:ike-adblock/Cargo.lock" % ref))
+    candidate = adblock_version(show("origin/" + branch))
+    current = adblock_version(show("origin/main"))
+    return bool(candidate and current and candidate != current)
 
 
 def main(argv=None):

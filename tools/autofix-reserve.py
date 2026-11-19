@@ -61,7 +61,30 @@ PROVIDERS = (
      "AUTOFIX_OPENROUTER_MODELS", ("cohere/north-mini-code:free", "particle-ai/particle-1:free"),
      120_000, 6_000),
 )
-ROOTS = ("ike/", "tests/", "tools/", "docs/", "ike-adblock/src/", "vendor/adblock/")
+ROOTS = ("ike/", "tests/", "tools/", "docs/")
+# I.K.E.'s own wrapper of the ad blocker: only when the workflow says this run
+# updates the engine (--allow-adblock, from tools/autofix-plan.py). The checker
+# (tools/check-autofix-patch.py) stays the authority either way.
+WRAPPER = ("ike-adblock/src/", "vendor/adblock/__init__.py")
+SHOWN_ROOTS = ROOTS + WRAPPER          # may be shown, as context, even when not editable
+
+
+def editable(path, allow_adblock):
+    return path.startswith(ROOTS + WRAPPER if allow_adblock else ROOTS)
+
+
+def _checker_rule():
+    """allowed_path() of the checker next to this script (both come from main in
+    the workflow): the reserves never edit what the checker would refuse, so
+    the two lists of forbidden files cannot drift apart."""
+    path = Path(__file__).resolve().parent / "check-autofix-patch.py"
+    if not path.is_file():
+        return None
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("ike_autofix_checker", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.allowed_path
 MAX_FILES = 5
 TOTAL_TIMEOUT = 12 * 60
 REQUEST_TIMEOUT = 150
@@ -94,11 +117,22 @@ Answer with ONE JSON object and nothing else:
 
 - "find" must be copied exactly from the file text (without the line numbers
   shown on the left of the excerpts) and appear exactly once in that file.
-- At most 5 files, the smallest correct change. Only files under ike/, tests/,
-  tools/ or docs/ that are shown below.
+- At most 5 files, the smallest correct change. Only files that are shown
+  below, and only under ike/, tests/, tools/ or docs/ (%(wrapper)s).
+- Never ike-adblock/Cargo.toml or Cargo.lock, Brave's engine itself, Dark
+  Reader's files, uBlock Origin's scriptlets, the icon sets, docs/THIRD-PARTY.md
+  or any file that comes from others or is generated.
 - If the failure cannot be fixed in the code, answer {"summary": "...",
   "fixable": false, "edits": []}.
 """
+
+
+def instructions(allow_adblock):
+    return INSTRUCTIONS % {"wrapper": (
+        "this run updates the ad blocker's engine, so I.K.E.'s own wrapper may change "
+        "too: ike-adblock/src/ and vendor/adblock/__init__.py" if allow_adblock else
+        "not the ad blocker: ike-adblock/, vendor/, ike/blocker.py and ike/scriptlets.py "
+        "may change only when the engine is being updated, and this run does not update it")}
 
 
 class Stop(Exception):
@@ -164,7 +198,7 @@ def parse(text):
     return obj
 
 
-def apply_edits(workdir, edits, shown):
+def apply_edits(workdir, edits, shown, allow_adblock=False):
     """Apply the edits (all or none). Returns the changed files; raises ValueError."""
     if len({e.get("file") for e in edits if isinstance(e, dict)}) > MAX_FILES:
         raise ValueError("more than %d files" % MAX_FILES)
@@ -178,8 +212,16 @@ def apply_edits(workdir, edits, shown):
         path = path.strip()
         if path.startswith("./"):
             path = path[2:]
-        if ".." in Path(path).parts or not path.startswith(ROOTS) or path not in shown:
+        if ".." in Path(path).parts or path not in shown:
             raise ValueError("%s is not one of the files shown" % path)
+        if not editable(path, allow_adblock) or (not allow_adblock and path in ("ike/blocker.py",
+                                                                              "ike/scriptlets.py")):
+            raise ValueError("%s may not be changed in this run (the ad blocker only with an "
+                             "update of its engine)" % path)
+        rule = _checker_rule()
+        why = rule(path, allow_adblock) if rule else ""
+        if why:
+            raise ValueError("%s may not be changed: %s" % (path, why))
         current = new.get(path)
         if current is None:
             current = (workdir / path).read_text("utf-8")
@@ -198,7 +240,7 @@ def files_shown(workdir, related):
     out, used = {}, 0
     for path in related:
         p = workdir / path
-        if not path.startswith(ROOTS) or not p.is_file():
+        if not path.startswith(SHOWN_ROOTS) or not p.is_file():
             continue
         text = p.read_text("utf-8", errors="replace")
         if used + len(text) > FILES_BUDGET:
@@ -297,7 +339,7 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     for provider, url, key, model, budget, tokens in plan:
         if provider in skip:
             continue
-        base = [{"role": "system", "content": rules + "\n" + INSTRUCTIONS},
+        base = [{"role": "system", "content": rules + "\n" + instructions(a.allow_adblock)},
                 {"role": "user", "content": message_for(failure, context, shown, budget, refused)}]
         if time.monotonic() > deadline:
             result = result if result != "nokey" else "quota"
@@ -325,7 +367,7 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
                     summary = str(obj.get("summary") or "")
                     outcome = "none"
                     break
-                changed = apply_edits(workdir, obj["edits"], shown)
+                changed = apply_edits(workdir, obj["edits"], shown, a.allow_adblock)
                 summary = str(obj.get("summary") or "")
                 print("  edits applied: %s" % ", ".join(changed), flush=True)
                 if a.checker:
