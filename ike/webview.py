@@ -385,6 +385,14 @@ class WebPage(QWebEnginePage):
                 view.secure_notice = None          # a page that loads is no longer stopped
                 if view is self.window_ref.current_view():
                     self.window_ref.secure_bar.show_for(view)
+            site = sh.lan_blocked.pop("frame:" + url.toString(), None)
+            if site and view is not None:
+                # a frame of this page asked for the home network and was stopped
+                from .securebar import set_notice
+                set_notice(view, "lan", url, site)
+                view.secure_notice["frame"] = True
+                if view is self.window_ref.current_view():
+                    self.window_ref.secure_bar.show_for(view)
         if not ok or not self._protected():
             return
         self._inject_cosmetics()

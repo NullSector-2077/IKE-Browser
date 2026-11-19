@@ -886,6 +886,7 @@
 "Allow for this site": "Разрешить для этого сайта",
 "a redirect to a refused address": "перенаправление на запрещённый адрес",
 "an address of this computer or of the home network: %s": "адрес этого компьютера или домашней сети: %s",
-"Code and files from: %s": "Код и файлы с: %s"
+"Code and files from: %s": "Код и файлы с: %s",
+"a part of this page": "часть этой страницы"
 }
 }

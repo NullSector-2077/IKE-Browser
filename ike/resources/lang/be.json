@@ -886,6 +886,7 @@
 "Allow for this site": "Дазволіць для гэтага сайта",
 "a redirect to a refused address": "перанакіраванне на забаронены адрас",
 "an address of this computer or of the home network: %s": "адрас гэтага камп'ютара або хатняй сеткі: %s",
-"Code and files from: %s": "Код і файлы з: %s"
+"Code and files from: %s": "Код і файлы з: %s",
+"a part of this page": "частку гэтай старонкі"
 }
 }

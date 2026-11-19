@@ -886,6 +886,7 @@
 "Allow for this site": "Permitir para este site",
 "a redirect to a refused address": "um redirecionamento para um endereço recusado",
 "an address of this computer or of the home network: %s": "um endereço deste computador ou da rede doméstica: %s",
-"Code and files from: %s": "Código e ficheiros de: %s"
+"Code and files from: %s": "Código e ficheiros de: %s",
+"a part of this page": "uma parte desta página"
 }
 }

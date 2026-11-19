@@ -886,6 +886,7 @@
 "Allow for this site": "Разрешаване за този сайт",
 "a redirect to a refused address": "пренасочване към отказан адрес",
 "an address of this computer or of the home network: %s": "адрес на този компютър или на домашната мрежа: %s",
-"Code and files from: %s": "Код и файлове от: %s"
+"Code and files from: %s": "Код и файлове от: %s",
+"a part of this page": "част от тази страница"
 }
 }

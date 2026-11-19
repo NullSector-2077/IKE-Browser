@@ -223,10 +223,15 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         if site_of(init.host().lower()) in s.lan_allowed:
             return False
         info.block(True)
-        if main and not self.quiet:
+        if not self.quiet:
             if len(s.lan_blocked) > 100:
                 s.lan_blocked.clear()
-            s.lan_blocked[url.toString()] = site_of(init.host().lower())
+            if main:
+                s.lan_blocked[url.toString()] = site_of(init.host().lower())
+            else:
+                # a frame of the page: the page itself loads, and the window
+                # says what was stopped in it (no silent breakage)
+                s.lan_blocked["frame:" + info.firstPartyUrl().toString()] = site_of(init.host().lower())
         return True
 
     def interceptRequest(self, info):
@@ -240,7 +245,13 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             try:
                 url = info.requestUrl()
                 self.s.blocker._engine_error("checking a request", url.toString(), exc)
-                if url.scheme() == "file":
+                # what was protected stays protected: a file of the computer,
+                # and an address of the home network asked for by a public site
+                from .userscripts import is_local_name
+                init = info.initiator()
+                if url.scheme() == "file" or (
+                        is_local_name(url.host()) and init.scheme() in ("http", "https")
+                        and not is_local_name(init.host())):
                     info.block(True)
             except Exception:
                 pass

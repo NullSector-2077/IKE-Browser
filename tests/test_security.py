@@ -1992,3 +1992,208 @@ def steps(ike, qapp, out):
     out["errors"] = ike.blocker.errors - before
 ''' % str(secret), timeout=60, internal_errors=True)
     assert out["file_blocked"] is True and out["errors"] == 2, out
+
+
+# ----------------------------------------------------------------------
+# final validation of 1.1.17 (the owner's five checks)
+# ----------------------------------------------------------------------
+def test_home_network_protection_in_every_case(run_ike, lan_service):
+    """1. The protection stops a public site's pages and frames that open a
+    local address (private IPv4, localhost, IPv6 loopback, a .local name, a
+    redirect from a public address), says so in the window, and never touches
+    what the user opens or a page of the home network itself. "Allow" is for
+    that one site and this session only."""
+    port, seen = lan_service
+    out = run_ike(JS + r'''
+PORT = %d
+
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QUrl
+    from ike.shields import Interceptor
+    from PyQt6.QtCore import QByteArray
+    from PyQt6.QtWebEngineCore import QWebEngineUrlRequestInfo as RI
+    sh = ike.shields
+    icp = sh.interceptor
+    T = RI.ResourceType
+
+    class Info:
+        def __init__(self, url, init, rtype=T.ResourceTypeMainFrame):
+            self.u, self.i, self.t, self.blocked = QUrl(url), QUrl(init), rtype, False
+        def requestUrl(self): return self.u
+        def firstPartyUrl(self): return self.i if self.t != T.ResourceTypeMainFrame else self.u
+        def initiator(self): return self.i
+        def resourceType(self): return self.t
+        def requestMethod(self): return QByteArray(b"GET")
+        def block(self, b): self.blocked = b
+        def redirect(self, u): pass
+        def setHttpHeader(self, k, v): pass
+    def stopped(url, init, rtype=T.ResourceTypeMainFrame):
+        info = Info(url, init, rtype)
+        icp.interceptRequest(info)
+        return info.blocked
+    pub = "https://news.example.test/"
+    out["public_to"] = {u: stopped(u, pub) for u in (
+        "http://192.168.1.1/", "http://10.0.0.8:8080/", "http://172.16.4.2/", "http://127.0.0.1:631/",
+        "http://localhost:8080/", "http://[::1]:8080/", "http://[fd12::1]/", "http://nas.local/",
+        "http://printer.localhost/")}
+    out["public_frame"] = stopped("http://192.168.1.1/", pub, T.ResourceTypeSubFrame)
+    out["public_to_public"] = stopped("https://other.example.test/", pub)
+    out["typed"] = stopped("http://192.168.1.1/", "")                       # no initiator: the user
+    out["home_to_home"] = stopped("http://192.168.1.1/", "http://nas.local/")
+    out["home_to_home_ip"] = stopped("http://127.0.0.1:631/", "http://192.168.1.20/")
+    # "Allow for this site": that site, this session
+    sh.lan_allowed.add("example.test")
+    out["allowed_site"] = stopped("http://192.168.1.1/", pub)
+    out["other_site"] = stopped("http://192.168.1.1/", "https://evil.example.org/")
+    sh.lan_allowed.clear()
+    # a real page: a frame of the home network inside a public page
+    v = ike.windows[0].current_view()
+    v.setHtml("<title>dash</title><iframe src='http://127.0.0.1:%%d/frame'></iframe>" %% PORT,
+              QUrl("https://dash.example.test/"))
+    yield 3000
+    win = ike.windows[0]
+    out["frame_bar"] = [win.secure_bar.isVisible(), win.secure_bar.text.text()]
+    import json as _json
+    out["kept"] = [k for k in ike.config.data if "allowed" in k.lower() and "lan" in _json.dumps(ike.config.data[k])]
+''' % port, settings={"https_only": False}, timeout=90)
+    assert all(out["public_to"].values()), out["public_to"]
+    assert out["public_frame"] is True and out["public_to_public"] is False
+    assert out["typed"] is False and out["home_to_home"] is False and out["home_to_home_ip"] is False
+    assert out["allowed_site"] is False and out["other_site"] is True
+    assert out["frame_bar"][0] is True and "example.test" in out["frame_bar"][1], out["frame_bar"]
+    assert "GET /frame" not in seen
+    assert out["kept"] == []                                  # nothing allowed is written to the settings
+
+
+@needs_engine
+def test_a_redirect_from_a_public_address_to_home_is_stopped(run_ike, lan_service):
+    """A public page sends the tab to a public address that redirects to the
+    home network: stopped as well (each step of a redirect is checked)."""
+    port, seen = lan_service
+    out = run_ike(JS + r'''
+PORT = %d
+
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QUrl
+    v = ike.windows[0].current_view()
+    yield 800
+    # the "public" hop is the same local server under a public-looking page:
+    # what matters is that the target of the redirect is checked
+    v.setHtml("<title>public</title><script>location.href='http://localhost:%%d/redir';</script>" %% PORT,
+              QUrl("https://news.example.test/"))
+    yield 3000
+    out["title"] = v.title()
+''' % port, settings={"https_only": False}, timeout=90)
+    assert "GET /secret" not in seen and "GET /redir" not in seen, seen
+    assert out["title"] != "router"
+
+
+def test_script_libraries_go_to_the_address_that_was_checked(monkeypatch):
+    """2. DNS rebinding: a library's name is looked up once, checked, and the
+    connection goes to that very address (the name is not looked up again);
+    a name that resolves home is refused before any connection."""
+    import socket as _socket
+    us = _userscripts()
+    monkeypatch.setenv("IKE_TEST_RESOLVE", "cdn.example.test=203.0.113.5,home.example.test=192.168.1.9")
+    for k in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY", "all_proxy", "ALL_PROXY"):
+        monkeypatch.delenv(k, raising=False)
+    tried = []
+
+    def connect(address, *a, **k):
+        tried.append(address)
+        raise OSError("no network in the test")
+    monkeypatch.setattr(_socket, "create_connection", connect)
+    monkeypatch.setattr(_socket, "getaddrinfo", lambda *a, **k: (_ for _ in ()).throw(AssertionError("looked up again")))
+    with pytest.raises(Exception):
+        us._get("https://cdn.example.test/lib.js", 1000, home_ok=False)
+    assert tried and tried[0][0] == "203.0.113.5", tried
+    tried.clear()
+    with pytest.raises(Exception):
+        us._get("https://home.example.test/lib.js", 1000, home_ok=False)
+    assert tried == []                                        # refused before connecting
+
+
+def test_script_updates_go_through_the_same_checks(lan_service, monkeypatch):
+    """2. Installing, the daily check and "Check for updates" all gather a
+    script's files with the same function: a local library is refused in each."""
+    port, seen = lan_service
+    us = _userscripts()
+    text = ("// ==UserScript==\n// @name s\n// @version 3\n// @match https://a.test/*\n"
+            "// @require http://127.0.0.1:%d/secret\n// ==/UserScript==\n" % port)
+    # the install and both kinds of update go through Fetcher -> gather
+    import inspect
+    src = inspect.getsource(us.Fetcher.run)
+    assert "gather(text, self.url)" in src
+    assert "self.fetch(ready, url, newer=" in inspect.getsource(us.UserScripts.check_updates)
+    with pytest.raises(ValueError):
+        us.gather(text, "https://scripts.example.test/s.user.js")
+    assert seen == []
+
+
+def test_errors_while_checking_keep_protected_things_protected(run_ike):
+    """3. A fault inside the checks: counted; a file, and a public page's way
+    into the home network, stay refused; ordinary navigation goes on."""
+    out = run_ike(r'''
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QByteArray, QUrl
+    from PyQt6.QtWebEngineCore import QWebEngineUrlRequestInfo as RI
+    yield 500
+
+    class Info:
+        def __init__(self, url, init):
+            self.u, self.i, self.blocked = QUrl(url), QUrl(init), False
+        def requestUrl(self): return self.u
+        def firstPartyUrl(self): return self.u
+        def initiator(self): return self.i
+        def resourceType(self): return RI.ResourceType.ResourceTypeMainFrame
+        def requestMethod(self): return QByteArray(b"GET")
+        def block(self, b): self.blocked = b
+        def redirect(self, u): pass
+        def setHttpHeader(self, k, v): pass
+    icp = ike.shields.interceptor
+    real = type(icp)._intercept
+    def broken(self, info):
+        raise RuntimeError("fault")
+    type(icp)._intercept = broken
+    res = {}
+    for name, url, init in (("lan", "http://192.168.1.1/", "https://news.example.test/"),
+                            ("web", "https://news.example.test/next", "https://news.example.test/"),
+                            ("typed_lan", "http://192.168.1.1/", "")):
+        i = Info(url, init); icp.interceptRequest(i); res[name] = i.blocked
+    type(icp)._intercept = real
+    out["res"] = res
+''', timeout=60, internal_errors=True)
+    assert out["res"] == {"lan": True, "web": False, "typed_lan": False}, out
+
+
+def test_two_profiles_never_write_the_update_state_over_each_other(tmp_path):
+    """4. Two profiles share only the program updates: their state file is
+    written through a temporary file of each process, and installing is one at
+    a time (see test_updater.py). Here two processes write the state 200 times
+    each at once: the file is always whole JSON."""
+    script = r'''
+import json, os, sys, time
+sys.path[:0] = [%r]
+os.environ["XDG_DATA_HOME"] = %r
+from ike import updater
+end = time.time() + 3
+n = 0
+while time.time() < end and n < 200:
+    updater.save_state({"current": None, "writer": os.getpid(), "n": n, "pad": "x" * 4000})
+    n += 1
+'''
+    data = tmp_path / "data"
+    code = script % (str(APP), str(data))
+    env = dict(os.environ, QT_QPA_PLATFORM="offscreen")
+    procs = [subprocess.Popen([sys.executable, "-c", code], env=env) for _ in range(2)]
+    bad = 0
+    state = data / "ike-browser" / "updates" / "state.json"
+    while any(p.poll() is None for p in procs):
+        try:
+            json.loads(state.read_text())
+        except FileNotFoundError:
+            pass
+        except ValueError:
+            bad += 1
+    assert all(p.returncode == 0 for p in procs)
+    assert bad == 0 and json.loads(state.read_text())["writer"] in [p.pid for p in procs]

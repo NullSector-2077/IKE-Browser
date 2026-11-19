@@ -886,6 +886,7 @@
 "Allow for this site": "このサイトに許可",
 "a redirect to a refused address": "拒否されたアドレスへのリダイレクト",
 "an address of this computer or of the home network: %s": "このコンピューターまたはホームネットワークのアドレス：%s",
-"Code and files from: %s": "コードとファイルの提供元：%s"
+"Code and files from: %s": "コードとファイルの提供元：%s",
+"a part of this page": "このページの一部"
 }
 }

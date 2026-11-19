@@ -86,7 +86,14 @@ Security review (each point has a test that plays the attack on this computer).
     (the ad blocking itself is unchanged);
   - an error while checking a request is counted (Help -> About) and a file
     of the computer stays refused;
-  - two profiles open together never install an update at the same time.
+  - two profiles open together never install an update at the same time,
+    and never write the update state over each other;
+  - a frame of the home network stopped inside a public page is said in the
+    bar (it was silent), and an error inside the request checks keeps a
+    public page's way into the home network refused;
+  - the files of user scripts are downloaded from the very address that was
+    checked (DNS rebinding: a name that answers "public" to the check and
+    "home" to the connection no longer gets through).
 - **Faster where it was measured, with the same protection** (the full
   measurements are in docs/review/tests-and-performance.md):
   - after a filter list update the AdBlock engine is rebuilt in the

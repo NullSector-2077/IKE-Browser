@@ -886,6 +886,7 @@
 "Allow for this site": "Дозволи за овај сајт",
 "a redirect to a refused address": "преусмеравање на одбијену адресу",
 "an address of this computer or of the home network: %s": "адреса овог рачунара или кућне мреже: %s",
-"Code and files from: %s": "Код и датотеке са: %s"
+"Code and files from: %s": "Код и датотеке са: %s",
+"a part of this page": "део ове странице"
 }
 }

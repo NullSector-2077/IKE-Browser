@@ -275,6 +275,52 @@ class _Redirects(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
+def _pin(host, home_ok):
+    """The address to connect to for `host`, looked up once and checked: the
+    connection goes to that address, so a name server cannot answer the check
+    with a public address and the connection with a local one (DNS rebinding)."""
+    import http.client
+    h = (host or "").lower().rstrip(".").strip("[]")
+    try:
+        addresses = [str(ipaddress.ip_address(h))]
+    except ValueError:
+        fake = dict(p.split("=", 1) for p in os.environ.get("IKE_TEST_RESOLVE", "").split(",") if "=" in p)
+        if h in fake:
+            addresses = fake[h].split("|")
+        else:
+            try:
+                addresses = [i[4][0] for i in socket.getaddrinfo(h, None, proto=socket.IPPROTO_TCP)]
+            except (OSError, UnicodeError) as exc:
+                raise http.client.HTTPException("%s: %s" % (h, exc)) from None
+    if not addresses or (not home_ok and (is_local_name(h) or any(is_local_address(a) for a in addresses))):
+        raise urllib.error.URLError(T("an address of this computer or of the home network: %s") % h)
+    return addresses[0]
+
+
+def _pinned_handlers(home_ok):
+    import http.client
+
+    class Plain(http.client.HTTPConnection):
+        def connect(self):
+            self.sock = socket.create_connection((_pin(self.host, home_ok), self.port),
+                                                 self.timeout, self.source_address)
+
+    class Secure(http.client.HTTPSConnection):
+        def connect(self):
+            sock = socket.create_connection((_pin(self.host, home_ok), self.port),
+                                            self.timeout, self.source_address)
+            self.sock = self._context.wrap_socket(sock, server_hostname=self.host)
+
+    class PlainHandler(urllib.request.HTTPHandler):
+        def http_open(self, req):
+            return self.do_open(Plain, req)
+
+    class SecureHandler(urllib.request.HTTPSHandler):
+        def https_open(self, req):
+            return self.do_open(Secure, req, context=self._context)
+    return PlainHandler(), SecureHandler()
+
+
 def _get(url, limit, home_ok=True):
     """Download `url` (at most `limit` bytes). home_ok=False: never from this
     computer or the home network, also through a redirect (1.1.17): the
@@ -285,7 +331,13 @@ def _get(url, limit, home_ok=True):
         raise ValueError(T("only http and https addresses can be used"))
     if not home_ok and at_home(parts.hostname):
         raise ValueError(T("an address of this computer or of the home network: %s") % parts.hostname)
-    opener = urllib.request.build_opener(_Redirects(home_ok))
+    handlers = [_Redirects(home_ok)]
+    proxies = urllib.request.getproxies()
+    if not home_ok and not (proxies.get(parts.scheme) and not urllib.request.proxy_bypass(parts.hostname)):
+        # without a proxy (which resolves names itself), every connection goes
+        # to the address that was checked, also after a redirect
+        handlers += list(_pinned_handlers(home_ok))
+    opener = urllib.request.build_opener(*handlers)
     req = urllib.request.Request(url, headers={"User-Agent": "I.K.E. user scripts"})
     with opener.open(req, timeout=40) as r:
         data = r.read(limit + 1)

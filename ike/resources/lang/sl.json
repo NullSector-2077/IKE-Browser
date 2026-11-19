@@ -886,6 +886,7 @@
 "Allow for this site": "Dovoli za to stran",
 "a redirect to a refused address": "preusmeritev na zavrnjen naslov",
 "an address of this computer or of the home network: %s": "naslov tega računalnika ali domačega omrežja: %s",
-"Code and files from: %s": "Koda in datoteke z: %s"
+"Code and files from: %s": "Koda in datoteke z: %s",
+"a part of this page": "del te strani"
 }
 }

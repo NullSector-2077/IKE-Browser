@@ -79,9 +79,10 @@ class SecureBar(QWidget):
                                        "change this page.") % host)
             self.go.setText(T("Continue without protection"))
         elif n["kind"] == "lan":
+            target = T("a part of this page") if n.get("frame") else host
             self.text.setText("⚠ " + T("%s tried to open %s, an address of this computer or of your home "
                                        "network (a router, a printer, a local program). Sites can use this "
-                                       "to change their settings.") % (n.get("site") or "?", host))
+                                       "to change their settings.") % (n.get("site") or "?", target))
             self.go.setText(T("Allow for this site"))
         else:
             self.text.setText("⛔ " + T("I.K.E. stopped %s: it is on the protection lists (sites that "
@@ -105,7 +106,8 @@ class SecureBar(QWidget):
             sh.http_allowed.add(host)
             url.setScheme("http")
         elif n["kind"] == "lan":
-            sh.lan_allowed.add(n.get("site") or "")
+            if n.get("site"):
+                sh.lan_allowed.add(n["site"])      # this site only, until I.K.E. closes
         else:
             sh.pages_allowed.add(host)
         v.secure_notice = None

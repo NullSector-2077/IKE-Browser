@@ -886,6 +886,7 @@
 "Allow for this site": "Povolit pro tuto stránku",
 "a redirect to a refused address": "přesměrování na odmítnutou adresu",
 "an address of this computer or of the home network: %s": "adresa tohoto počítače nebo domácí sítě: %s",
-"Code and files from: %s": "Kód a soubory z: %s"
+"Code and files from: %s": "Kód a soubory z: %s",
+"a part of this page": "část této stránky"
 }
 }

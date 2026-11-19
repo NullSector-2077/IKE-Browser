@@ -886,6 +886,7 @@
 "Allow for this site": "对此网站允许",
 "a redirect to a refused address": "重定向到被拒绝的地址",
 "an address of this computer or of the home network: %s": "本机或家庭网络中的地址：%s",
-"Code and files from: %s": "代码和文件来自：%s"
+"Code and files from: %s": "代码和文件来自：%s",
+"a part of this page": "此页面的一部分"
 }
 }
