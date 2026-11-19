@@ -17,7 +17,9 @@ optdepends=('libnotify: desktop notifications'
             'noto-fonts-cjk: Chinese and Japanese interface text'
             'xdg-utils: set I.K.E. as the default browser'
             'plasma-integration: Plasma theme, colours and file dialogs'
-            'chromium-widevine: system-wide Widevine instead of the copy I.K.E. downloads')
+            'chromium-widevine: system-wide Widevine instead of the copy I.K.E. downloads'
+            'libva-nvidia-driver: video decoding with NVIDIA graphics cards (Settings, experimental)'
+            'intel-media-driver: video decoding with Intel graphics cards')
 install=ike-browser.install
 options=('!debug')
 source=()

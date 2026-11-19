@@ -860,6 +860,11 @@
 "The computer's mail program": "Паштовая праграма камп'ютара",
 "Write an email": "Напісаць ліст",
 "Write an email to %s with:": "Напісаць ліст %s з дапамогай:",
-"Remember this choice": "Запомніць гэты выбар"
+"Remember this choice": "Запомніць гэты выбар",
+"Automatic (recommended)": "Аўтаматычна (рэкамендуецца)",
+"On (experimental)": "Уключана (эксперыментальна)",
+"Video decoding with the graphics card": "Дэкадаванне відэа відэакартай",
+"After a restart. It lightens the processor while videos play and needs the graphics card's VA-API driver (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: already there). If videos look wrong or I.K.E. closes, choose Automatic.": "Пасля перазапуску. Зніжае нагрузку на працэсар падчас відэа; патрэбны драйвер VA-API відэакарты (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: ужо ёсць). Калі відэа паказваецца няправільна або I.K.E. зачыняецца, выберыце «Аўтаматычна».",
+"Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "Дэкадаванне відэа відэакартай зноў у рэжыме «Аўтаматычна»: I.K.E. зачыніўся некарэктна, пакуль яно было ўключана."
 }
 }

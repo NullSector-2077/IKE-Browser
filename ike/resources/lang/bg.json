@@ -860,6 +860,11 @@
 "The computer's mail program": "Пощенската програма на компютъра",
 "Write an email": "Напиши имейл",
 "Write an email to %s with:": "Напиши имейл до %s с:",
-"Remember this choice": "Запомни този избор"
+"Remember this choice": "Запомни този избор",
+"Automatic (recommended)": "Автоматично (препоръчително)",
+"On (experimental)": "Включено (експериментално)",
+"Video decoding with the graphics card": "Декодиране на видео с видеокартата",
+"After a restart. It lightens the processor while videos play and needs the graphics card's VA-API driver (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: already there). If videos look wrong or I.K.E. closes, choose Automatic.": "След рестарт. Облекчава процесора при видео и изисква VA-API драйвера на видеокартата (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: вече е налице). Ако видеото изглежда грешно или I.K.E. се затваря, изберете „Автоматично“.",
+"Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "Декодирането на видео с видеокартата е върнато на „Автоматично“: I.K.E. не се затвори нормално, докато беше включено."
 }
 }

@@ -860,6 +860,11 @@
 "The computer's mail program": "Le logiciel de messagerie de l'ordinateur",
 "Write an email": "Écrire un e-mail",
 "Write an email to %s with:": "Écrire un e-mail à %s avec :",
-"Remember this choice": "Mémoriser ce choix"
+"Remember this choice": "Mémoriser ce choix",
+"Automatic (recommended)": "Automatique (recommandé)",
+"On (experimental)": "Activé (expérimental)",
+"Video decoding with the graphics card": "Décodage vidéo par la carte graphique",
+"After a restart. It lightens the processor while videos play and needs the graphics card's VA-API driver (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: already there). If videos look wrong or I.K.E. closes, choose Automatic.": "Après un redémarrage. Allège le processeur pendant les vidéos et nécessite le pilote VA-API de la carte graphique (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: déjà présent). Si les vidéos s'affichent mal ou si I.K.E. se ferme, choisissez Automatique.",
+"Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "Le décodage vidéo par la carte graphique est revenu sur Automatique : I.K.E. ne s'est pas fermé normalement pendant qu'il était activé."
 }
 }

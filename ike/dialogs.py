@@ -205,6 +205,18 @@ class SettingsDialog(QDialog):
         f.addRow("", _wrapping(self.autoplay))
         f.addRow("", _wrapping(self.gestures))
         f.addRow("", self.smooth)
+        self.video_hw = QComboBox()
+        for key, label in (("auto", T("Automatic (recommended)")), ("on", T("On (experimental)")),
+                           ("off", T("Off"))):
+            self.video_hw.addItem(label, key)
+        self.video_hw.setCurrentIndex(max(0, self.video_hw.findData(self.cfg["video_hw"])))
+        f.addRow(T("Video decoding with the graphics card"), self.video_hw)
+        video_note = QLabel(T("After a restart. It lightens the processor while videos play and needs the "
+                              "graphics card's VA-API driver (NVIDIA: libva-nvidia-driver, Intel: "
+                              "intel-media-driver, AMD: already there). If videos look wrong or I.K.E. "
+                              "closes, choose Automatic."))
+        video_note.setWordWrap(True)
+        f.addRow("", video_note)
         self.di = {}
         desktop = (
             ("di_media", T("Media controls: the media widget, the lock screen and the media keys "
@@ -1118,6 +1130,7 @@ class SettingsDialog(QDialog):
         cfg["accept_language"] = self.accept_lang.text().strip() or "en-US,en"
         cfg["startup"] = self.startup.currentData()
         cfg["mail_handler"] = self.mail.currentData()
+        cfg["video_hw"] = self.video_hw.currentData()
         cfg["homepage"] = self.homepage.text().strip() or "ike:newtab"
         cfg["tabs_position"] = self.tabs_pos.currentData()
         def looks():

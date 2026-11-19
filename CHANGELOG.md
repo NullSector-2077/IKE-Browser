@@ -2,6 +2,13 @@
 
 ## 1.1.16
 
+- **Video decoding with the graphics card** (Settings -> General): Automatic
+  (the default: the engine decides, as before), On (experimental) or Off.
+  Qt WebEngine already decodes videos with the graphics card where it can
+  (Intel, AMD, with the VA-API driver); with NVIDIA's own driver it turns it
+  off, and On asks for it anyway (with libva-nvidia-driver). If I.K.E. does not
+  close normally while it is on, the next start goes back to Automatic and says
+  so. Off helps when a driver shows videos wrongly.
 - **Menu next to the window buttons**: the menu button is now fixed right
   before Minimize, with the fixed separator on its left, so it sits with the
   window buttons; with the system's title bar it is the last button. It can no

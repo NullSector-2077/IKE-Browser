@@ -111,6 +111,8 @@
  "userscripts_enabled",
  "video_ad_skip",
  "video_ad_skip_hosts",
+ "video_hw",
+ "video_hw_fell_back",
  "vtabs_anim_ms",
  "vtabs_autohide",
  "vtabs_width",

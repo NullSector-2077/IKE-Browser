@@ -16,7 +16,7 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView  # noqa: F401  (must load be
 from PyQt6.QtWidgets import QApplication, QFileDialog
 
 from . import APP_ID, APP_LONG_NAME, APP_NAME, __version__, background
-from .config import CACHE_DIR, PROFILE, RES_DIR, Config, ensure_dirs
+from .config import CACHE_DIR, CONFIG_DIR, PROFILE, RES_DIR, Config, ensure_dirs
 
 
 def find_widevine(home=None):
@@ -314,10 +314,17 @@ class IkeApp(QObject):
         QTimer.singleShot(1500, self.check_updates)
         QTimer.singleShot(4000, self.fetch_engine_icons)   # the engines' own icons, once (1.1.10)
         QTimer.singleShot(20000, self._healthy)
+        if cfg["video_hw"] == "on":
+            QTimer.singleShot(VIDEO_TRIAL_OK_MS, lambda: _video_trial_done(CONFIG_DIR))
 
     def _healthy(self):
         from . import updater
         updater.confirm_healthy()
+        if self.config["video_hw_fell_back"]:
+            self.config["video_hw_fell_back"] = False
+            self.config.save()
+            self._desktop_notify(self._t("Video decoding with the graphics card is back on Automatic: "
+                                         "I.K.E. did not close normally while it was on."))
         notice = updater.take_rollback_notice()
         if notice:
             self._desktop_notify(self._t("I.K.E. update %s did not start correctly and was "
@@ -898,6 +905,68 @@ def _strip_dark_flags(flags):
     return out, forced
 
 
+# Video decoding with the graphics card (1.1.16). Qt WebEngine already uses it
+# by itself where it can (Intel, AMD, with the VA-API driver installed); where
+# it cannot share the frames (NVIDIA's own driver, no GBM) it switches it off,
+# and "on" asks for it anyway: experimental, hence the safety net below.
+VIDEO_ON = ("AcceleratedVideoDecodeLinux", "AcceleratedVideoDecodeLinuxGL",
+            "VaapiIgnoreDriverChecks", "VaapiOnNvidiaGPUs")
+VIDEO_TRIAL = "video-gpu-trial"         # in the profile's folder while "on" runs (removed at a good exit)
+VIDEO_TRIAL_OK_MS = 30 * 60 * 1000      # ... or after half an hour without trouble
+
+
+def _feature_flags(flags, enable=(), disable=()):
+    """The flags with features added to the one --enable-features and the one
+    --disable-features switch (the engine reads only one of each)."""
+    out, on, off = [], [], []
+    for f in flags:
+        if f.startswith("--enable-features="):
+            on += [x for x in f.split("=", 1)[1].split(",") if x]
+        elif f.startswith("--disable-features="):
+            off += [x for x in f.split("=", 1)[1].split(",") if x]
+        else:
+            out.append(f)
+    for x in enable:
+        off = [y for y in off if y != x]
+        if x not in on:
+            on.append(x)
+    for x in disable:
+        on = [y for y in on if y != x]
+        if x not in off:
+            off.append(x)
+    if on:
+        out.append("--enable-features=" + ",".join(on))
+    if off:
+        out.append("--disable-features=" + ",".join(off))
+    return out
+
+
+def _video_flags(flags, config, folder):
+    """Flags for the user's choice of video decoding; "on" falls back to
+    "auto" when the previous start with it on did not end well."""
+    mode = config["video_hw"]
+    trial = Path(folder) / VIDEO_TRIAL
+    if mode == "on" and trial.exists():
+        config["video_hw"] = mode = "auto"
+        config["video_hw_fell_back"] = True
+        config.save()
+    if mode != "on":
+        trial.unlink(missing_ok=True)
+    if mode == "on":
+        try:
+            trial.write_text("on\n", "utf-8")
+        except OSError:
+            pass
+        return _feature_flags(flags, enable=VIDEO_ON)
+    if mode == "off":
+        return _feature_flags(flags, disable=("AcceleratedVideoDecodeLinux",))
+    return flags
+
+
+def _video_trial_done(folder):
+    (Path(folder) / VIDEO_TRIAL).unlink(missing_ok=True)
+
+
 def _chromium_flags(config):
     """Build engine switches and remove inherited global dark-mode overrides.
 
@@ -928,6 +997,7 @@ def _chromium_flags(config):
         flags.append("--enable-smooth-scrolling")
     if hasattr(os, "geteuid") and os.geteuid() == 0 and "--no-sandbox" not in flags:
         flags.append("--no-sandbox")
+    flags = _video_flags(flags, config, CONFIG_DIR)
     os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = " ".join(flags)
 
 
@@ -1126,6 +1196,7 @@ def main(argv=None):
         import runpy
         runpy.run_path(hook, init_globals={"ike": ike, "qapp": qapp})
     code = qapp.exec()
+    _video_trial_done(CONFIG_DIR)          # a normal exit: video decoding "on" did no harm
     background.let_go()          # a download still waiting for its server must not be destroyed
     if config["clear_on_exit"] and sitedata.asked() and not getattr(ike, "_restart", False):
         sitedata.remove()        # "clear when closed": now, and once more at the next start

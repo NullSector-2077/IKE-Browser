@@ -214,6 +214,8 @@ DEFAULTS = {
     "login_compat": True,               # gentle handling of Google/Microsoft/Apple sign-in
     "lookalike_warn": True,             # warn about sites imitating well-known ones (1.1.14, lookalike.py)
     "lookalike_ok": [],                 # sites the user marked as fine
+    "video_hw": "auto",                 # video decoding with the graphics card: auto | on | off (1.1.16, app.py)
+    "video_hw_fell_back": False,        # "on" was turned back to "auto" after a bad exit: say so once
     "mail_handler": "ask",              # email links: ask | system | gmail | outlook | proton | yahoo (1.1.16, mailto.py)
     "site_tint": True,                  # the toolbar takes a light tint of the site's colour (1.1.14)
     "https_only": True,
