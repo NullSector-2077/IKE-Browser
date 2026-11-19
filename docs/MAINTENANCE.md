@@ -127,7 +127,10 @@ never touched.
 4. **publish** (no AI): the fix goes to `automation/autofix-main` (fixes of
    `main`) or onto the maintenance candidate, a draft PR is opened or updated
    with the agent's summary, and the tests start on it.
-5. If the tests fail again, a second attempt follows. After two, or when nothing
+5. If the tests fail again, a second attempt follows. (Tests started by the
+   automation itself send no `workflow_run` to GitHub, so `tests.yml` hands
+   their failure over with a dispatch, job `hand-over`, on the automation's own
+   branches only; the plan waits for that run to close.) After two, or when nothing
    could be fixed, the issue **"Automatic fix needs you: <workflow>"** is opened. Its
    reason is plain: quota, chiave, modello, tempo, rifiutata or sicurezza.
 6. **ChatGPT, started by the owner.** The issue carries a ready message: the

@@ -971,3 +971,23 @@ def test_the_agent_never_waits_for_a_review_nobody_gives():
     for rule in ('"command(*)"', '"unsandboxed(*)"', '"read_url(*)"', '"execute_url(*)"', '"mcp(*)"'):
         assert rule in fix, rule
     assert '"toolPermission"' not in fix                 # tools keep asking (and are denied)
+
+
+def test_failures_of_tests_the_automation_started_reach_the_fix(monkeypatch):
+    """2026-11-19: runs started with GITHUB_TOKEN send no workflow_run, so the
+    second attempt never came and a failing maintenance candidate never reached
+    the automatic fix. tests.yml hands such failures over itself."""
+    text = (WORKFLOWS / "tests.yml").read_text()
+    hand = text.split("\n  hand-over:\n", 1)[1]
+    assert "needs: tests" in hand and "failure()" in hand
+    assert "github.actor == 'github-actions[bot]'" in hand and "github.event_name == 'workflow_dispatch'" in hand
+    assert "automation/autofix-main" in hand and "automation/daily-maintenance" in hand and "'main'" not in hand
+    assert "permissions:\n      actions: write\n" in hand and "contents: write" not in hand
+    assert 'gh workflow run autofix.yml --ref main -f run_id="$RUN_ID"' in hand
+    assert "permissions:\n  contents: read\n" in text.split("jobs:")[0]
+    # the plan waits for the run to close before reading its outcome
+    states = [{"status": "in_progress"}, {"status": "in_progress"}, {"status": "completed", "conclusion": "failure"}]
+    monkeypatch.setattr(plan_tool, "gh_api", lambda path, raw=False: states.pop(0))
+    slept = []
+    run = plan_tool.completed_run("o/r", "1", sleep=slept.append)
+    assert run["conclusion"] == "failure" and len(slept) == 2
