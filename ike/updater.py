@@ -135,7 +135,21 @@ def safe_extract(payload, target):
 
 
 def stage(manifest, payload):
-    """Verify, unpack, self-test and register a downloaded version."""
+    """Verify, unpack, self-test and register a downloaded version.
+
+    One installation at a time: two profiles of I.K.E. open together share
+    this folder, and one must not remove what the other is unpacking (1.1.17)."""
+    import fcntl
+    UPDATES.mkdir(parents=True, exist_ok=True)
+    with open(UPDATES / ".lock", "w") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            raise ValueError("another I.K.E. is installing an update") from None
+        return _stage(manifest, payload)
+
+
+def _stage(manifest, payload):
     version = manifest["version"]
     if not re.fullmatch(r"\d+(\.\d+){1,3}", str(version)):
         raise ValueError("the update manifest names an invalid version")

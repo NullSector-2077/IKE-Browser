@@ -281,12 +281,18 @@ class WebPage(QWebEnginePage):
         global_pos = QPointF(global_point)
         left, none = Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton
         mod = Qt.KeyboardModifier.NoModifier
-        for etype, buttons in ((QEvent.Type.MouseMove, none),
-                               (QEvent.Type.MouseButtonPress, left),
-                               (QEvent.Type.MouseButtonRelease, none)):
-            button = none if etype == QEvent.Type.MouseMove else left
-            event = QMouseEvent(etype, target_pos, global_pos, button, buttons, mod)
-            QCoreApplication.sendEvent(target, event)
+        # these clicks are I.K.E.'s, not the user's: they must not count as
+        # the user's action (downloads, 1.1.17)
+        self._ike_synthetic = True
+        try:
+            for etype, buttons in ((QEvent.Type.MouseMove, none),
+                                   (QEvent.Type.MouseButtonPress, left),
+                                   (QEvent.Type.MouseButtonRelease, none)):
+                button = none if etype == QEvent.Type.MouseMove else left
+                event = QMouseEvent(etype, target_pos, global_pos, button, buttons, mod)
+                QCoreApplication.sendEvent(target, event)
+        finally:
+            self._ike_synthetic = False
         return True
 
     def createWindow(self, wtype):
@@ -358,6 +364,15 @@ class WebPage(QWebEnginePage):
             # can go on without protection.
             sh.upgraded.discard(url.host().lower())
             self._secure_notice("nohttps", url)
+            return
+        if not ok and url.toString() in sh.lan_blocked:
+            site = sh.lan_blocked.pop(url.toString())
+            from .securebar import set_notice
+            view = self.window_ref.view_of(self)
+            if view is not None:
+                set_notice(view, "lan", url, site)
+                if view is self.window_ref.current_view():
+                    self.window_ref.secure_bar.show_for(view)
             return
         if not ok and url.toString() in sh.blocked_pages:
             sh.blocked_pages.discard(url.toString())
@@ -686,7 +701,8 @@ class WebView(QWebEngineView):
 
     def eventFilter(self, obj, event):
         t = event.type()
-        if t in (QEvent.Type.MouseButtonPress, QEvent.Type.KeyPress):
+        if t in (QEvent.Type.MouseButtonPress, QEvent.Type.KeyPress) \
+                and not getattr(self.page(), "_ike_synthetic", False):
             self.page()._ike_input = time.monotonic()   # the user acts on the page (downloads)
         if t == QEvent.Type.Wheel and self._wheel(event):
             return True
