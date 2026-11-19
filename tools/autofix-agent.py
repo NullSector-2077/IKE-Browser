@@ -201,6 +201,7 @@ def main(argv=None):
             cmd = shlex.split(a.agent_cmd) + ["-p", prompt, "--model", model,
                                                "--dangerously-skip-permissions", "--output-format", "json",
                                                "--print-timeout", "%ds" % max(30, limit - 30)]
+            started = time.monotonic()
             try:
                 run = subprocess.run(["timeout", "-k", "10", str(limit)] + cmd, cwd=workdir,
                                      stdin=subprocess.DEVNULL, capture_output=True, timeout=limit + 60)
@@ -223,7 +224,10 @@ def main(argv=None):
             if kind == "minute" and tries == 1 and wait <= WAIT_MAX and time.monotonic() + wait < deadline:
                 time.sleep(max(wait, 5))
                 continue
-            if kind == "temporary" and tries == 1:
+            # Google busy: once more only after a quick failure. A slow one means
+            # the CLI already retried by itself for minutes (2026-11-19: 503 after
+            # 5 minutes, then 5 more): the next model, or the reserves, instead.
+            if kind == "temporary" and tries == 1 and time.monotonic() - started < 60:
                 time.sleep(WAIT_TEMPORARY)
                 continue
             result = {"day": "quota", "minute": "quota", "temporary": "temporary"}.get(kind, kind)

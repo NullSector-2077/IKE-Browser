@@ -685,3 +685,23 @@ def test_cargo_errors_point_at_the_wrapper_never_at_the_engine(repo):
     text, related = ctx.build(repo, failure)
     assert related == ["ike-adblock/src/lib.rs", "vendor/adblock/__init__.py"]
     assert "engine.rs" not in text
+
+
+def test_job_logs_are_read_with_their_colour_codes(monkeypatch):
+    """2026-11-19: newer gh refuses to print a job log with escape sequences
+    unless asked, and no assistant got the error. Older gh lacks the flag."""
+    import types
+    calls = []
+
+    def fake(cmd, **kw):
+        calls.append(cmd)
+        if "--allow-escape-sequences" in cmd and fake.old:
+            return types.SimpleNamespace(returncode=1, stdout="", stderr="unknown flag: --allow-escape-sequences")
+        return types.SimpleNamespace(returncode=0, stdout="\x1b[31mF401\x1b[0m", stderr="")
+    for old in (False, True):
+        fake.old = old
+        calls.clear()
+        monkeypatch.setattr(plan_tool.subprocess, "run", fake)
+        assert plan_tool.gh_api("repos/x/actions/jobs/1/logs", raw=True) == "\x1b[31mF401\x1b[0m"
+        assert calls[0] == ["gh", "api", "--allow-escape-sequences", "repos/x/actions/jobs/1/logs"]
+        assert len(calls) == (2 if old else 1)
