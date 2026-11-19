@@ -68,7 +68,7 @@ profiles: `ike-browser --profile NAME`.
   protection that breaks it and turns off only that one, for that site only.
 
 **Browsing**
-- Horizontal or vertical tabs, tab groups, workspaces, containers with separate
+- Horizontal or vertical tabs (vertical ones also with only their icons), tab groups, workspaces, containers with separate
   cookies, split view, suspension of inactive tabs, private windows, profiles.
 - Bookmarks bar; bookmarks that do not fit are listed under a » button.
 - Password vault (AES-256-GCM, scrypt key), autofill, generator, CSV import and
