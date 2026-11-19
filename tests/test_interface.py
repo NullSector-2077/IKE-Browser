@@ -180,9 +180,13 @@ def test_system_titlebar_keeps_own_buttons_hidden(run_ike):
             win = ike.windows[0]
             out["frameless"] = win._frameless
             out["visible"] = [a.isVisible() for a in win._win_btns]
+            acts = [a for a in win.nav.actions() if a.isVisible()]
+            out["menu"] = [win.win_sep_act.isVisible(), win.menu_act.isVisible(),
+                           acts[-2:] == [win.win_sep_act, win.menu_act]]
     """)
     assert out["frameless"] is False
     assert not any(out["visible"])
+    assert out["menu"] == [True, True, True]        # the menu last, the separator before it (1.1.16)
 
 
 def test_window_buttons_and_centred_address_bar(run_ike):
@@ -204,11 +208,11 @@ def test_window_buttons_and_centred_address_bar(run_ike):
                 out.setdefault("diag", []).append([width, win.nav.width(), getattr(win, "_urlbar_room", None),
                                                    getattr(win, "_urlbar_width", None),
                                                    win._nav_spacers[0].x(), win._nav_spacers[0].width()])
-            first = win.nav.widgetForAction(win._win_btns[0])
+            first = win.nav.widgetForAction(win.win_sep_act)
             out["separator"] = type(first).__name__
             out["icon"] = win.nav.iconSize().height()
-            out["buttons"] = [win.nav.widgetForAction(a).height() for a in win._win_btns[1:]]
-            out["fits"] = all(win.nav.widgetForAction(a).isVisible() for a in win._win_btns[1:])
+            out["buttons"] = [win.nav.widgetForAction(a).height() for a in win._win_btns]
+            out["fits"] = all(win.nav.widgetForAction(a).isVisible() for a in win._win_btns)
     """, settings={"system_titlebar": False})
     for (width, centre, bar), (_w, _nav, room, wanted, _start, pad) in zip(out["sizes"], out["diag"]):
         # in the middle; or, when the buttons of one side leave too little room (1.1.9's default

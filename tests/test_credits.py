@@ -38,3 +38,30 @@ def test_render_follows_a_new_engine():
     assert "adblock-rust 9.9.9 (filter engine, by Brave)" in new
     assert "adblock v9.9.9 — MPL-2.0\nzz-lib v1.0.0 — see the crate\n```" in new
     assert new.count("## Rust libraries linked into `ike_adblock`") == 1
+
+
+# --- 1.1.16: Peter Lowe's list off by default until its terms are confirmed -----
+
+PGL = "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=adblockplus&showintro=0&mimetype=plaintext"
+LISTS = r"""
+def steps(ike, qapp, out):
+    out["lists"] = {e["name"]: e["enabled"] for e in ike.config["filter_lists"]}
+    out["flag"] = ike.config["pgl_off_1116"]
+    yield 0
+"""
+
+
+def test_peter_lowe_off_for_new_profiles(run_ike):
+    out = run_ike(LISTS)
+    assert out["lists"]["Peter Lowe's list"] is False
+    assert out["lists"]["EasyList"] is True and out["flag"] is True
+
+
+def test_peter_lowe_turned_off_once_then_the_users_choice(run_ike):
+    on = [{"name": "Peter Lowe's list", "group": "ads", "enabled": True, "url": PGL}]
+    # an existing profile that had it on: turned off once
+    out = run_ike(LISTS, settings={"filter_lists": on})
+    assert out["lists"]["Peter Lowe's list"] is False
+    # a user who turned it on again after 1.1.16 keeps it on
+    out = run_ike(LISTS, settings={"filter_lists": on, "pgl_off_1116": True})
+    assert out["lists"]["Peter Lowe's list"] is True

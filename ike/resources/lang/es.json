@@ -854,6 +854,19 @@
 "Hide this warning": "Ocultar este aviso",
 "Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "Cuidado: %s se parece a %s, pero no es %s. No introduzcas contraseñas ni datos de tarjeta si no estás seguro.",
 "Warn about sites that imitate well-known ones": "Avisar de sitios que imitan a sitios conocidos",
-"Tint the toolbar with the colour of the site": "Teñir la barra de herramientas con el color del sitio"
+"Colour the edge of the address bar with the colour of the site": "Colorear el borde de la barra de direcciones con el color del sitio",
+"Email links": "Enlaces de correo",
+"Ask each time": "Preguntar cada vez",
+"The computer's mail program": "El programa de correo del ordenador",
+"Write an email": "Escribir un correo",
+"Write an email to %s with:": "Escribir un correo a %s con:",
+"Remember this choice": "Recordar esta elección",
+"Automatic (recommended)": "Automática (recomendada)",
+"On (experimental)": "Activada (experimental)",
+"Video decoding with the graphics card": "Decodificación de vídeo con la tarjeta gráfica",
+"After a restart. It lightens the processor while videos play and needs the graphics card's VA-API driver (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: already there). If videos look wrong or I.K.E. closes, choose Automatic.": "Tras un reinicio. Alivia el procesador mientras se reproducen vídeos y necesita el controlador VA-API de la tarjeta gráfica (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: ya incluido). Si los vídeos se ven mal o I.K.E. se cierra, elige Automática.",
+"Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "La decodificación de vídeo con la tarjeta gráfica ha vuelto a Automática: I.K.E. no se cerró con normalidad mientras estaba activada.",
+"Show only the icons of the tabs": "Mostrar solo los iconos de las pestañas",
+"Show the titles of the tabs": "Mostrar los títulos de las pestañas"
 }
 }

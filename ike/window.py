@@ -330,7 +330,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         vplus = QPushButton(icon("tab-new", QStyle.StandardPixmap.SP_FileDialogNewFolder),
                             T("New tab"), self.vtab_panel)
         vplus.setFlat(True)
+        vplus.setToolTip(T("New tab"))
         vplus.clicked.connect(lambda: self.add_tab())
+        self.vplus = vplus
         self.ws_btn_v = self._make_ws_button(self.vtab_panel)
         head = QWidget(self.vtab_panel)
         hl = QHBoxLayout(head)
@@ -338,6 +340,12 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         hl.setSpacing(2)
         hl.addWidget(self.ws_btn_v)
         hl.addStretch(1)
+        self._vhead = hl
+        # 1.1.16: only the icons of the tabs, a narrow panel (as in Brave and others)
+        self.vicons_btn = QToolButton(head)
+        self.vicons_btn.setAutoRaise(True)
+        self.vicons_btn.clicked.connect(self._toggle_vtabs_icons)
+        hl.addWidget(self.vicons_btn)
         self.vhide_btn = QToolButton(head)
         self.vhide_btn.setAutoRaise(True)
         self.vhide_btn.clicked.connect(self._toggle_vtabs_autohide)
@@ -561,7 +569,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.menu_btn.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
         self.menu_btn.clicked.connect(self.menu_btn.showMenu)
         self.menu_btn.setToolTip(T("Menu"))
-        self.menu_act = tb.addWidget(self.menu_btn)
         # buttons that do not fit in a narrow window (see _fit_urlbar)
         self.more_btn = QToolButton(self)
         self.more_btn.setText("»")
@@ -580,7 +587,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.more_act.setVisible(False)
         self._build_window_buttons(tb)
         self._update_max_button()
-        right = self._win_btns[0]
+        right = self.win_sep_act
         self._nav_items = [("bookmark", self.act_tb_bookmark, right),
                            ("reader", self.act_tb_reader, right),
                            ("screenshot", self.act_tb_shot, right),
@@ -589,8 +596,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                            ("dark", self.act_dark, right),
                            ("private", self.act_tb_private, right),
                            ("cleansite", self.act_tb_clean, right),
-                           ("downloads", self.act_downloads, right),
-                           ("menu", self.menu_act, right)]
+                           ("downloads", self.act_downloads, right)]
 
         self.bookbar = BookmarksBar(T("Bookmarks bar"), self)
         self.bookbar.setObjectName("bookmarks")
@@ -2059,8 +2065,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     CREDITS = (
         ("adblock-rust (Brave Software)", "MPL-2.0"),
         ("uBlock Origin scriptlets and filters (Raymond Hill and contributors)", "GPL-3.0"),
-        ("EasyList, EasyPrivacy (The EasyList authors)", "GPL-3.0 / CC BY-SA 3.0"),
-        ("Peter Lowe's list, EasyList Italy, Fanboy's Cookiemonster", ""),
+        ("EasyList, EasyPrivacy, EasyList Italy (The EasyList authors)", "GPL-3.0 / CC BY-SA 3.0"),
+        ("EasyList Cookie List (The EasyList authors)", "CC BY 3.0"),
+        ("Peter Lowe's list (off by default)", ""),
         ("Dark Reader (Dark Reader Ltd)", "MIT"),
         ("Qt, Qt WebEngine (The Qt Company), Chromium (The Chromium Authors)", "LGPL-3.0 / BSD"),
         ("PyQt6 (Riverbank Computing)", "GPL-3.0"),

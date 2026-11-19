@@ -29,7 +29,7 @@ from PyQt6.QtWidgets import QApplication, QLabel, QToolButton, QWidget
 FIXED = ("back", "forward", "home", "reload")     # always at the start, in this order
 _METRICS_EVENTS = tuple(e for e in (QEvent.Type.StyleChange, QEvent.Type.FontChange,
                                     getattr(QEvent.Type, "DevicePixelRatioChange", None)) if e is not None)
-PINNED = ("menu",)                       # movable, but never hidden
+PINNED = ()                              # never hidden (the menu was, until it became fixed in 1.1.16)
 LEFT, RIGHT = "left", "right"
 
 
@@ -57,10 +57,7 @@ class ToolbarLayout:
         for key in self.keys:                   # buttons the stored order does not know yet
             if key not in seen:
                 seen.add(key)
-                if clean and clean[-1] == "menu" and key != "menu":
-                    clean.insert(len(clean) - 1, key)
-                else:
-                    clean.append(key)
+                clean.append(key)
         on_left = set(_keys(left))
         self.left = [k for k in clean if k in on_left]
         self.right = [k for k in clean if k not in on_left]

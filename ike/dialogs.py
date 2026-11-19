@@ -162,6 +162,14 @@ class SettingsDialog(QDialog):
         f.addRow(T("At startup"), self.startup)
         f.addRow(T("Home page"), self.homepage)
         f.addRow("", default_btn)
+        from .mailto import SERVICES
+        self.mail = QComboBox()
+        self.mail.addItem(T("Ask each time"), "ask")
+        for key, name in SERVICES:
+            self.mail.addItem(name, key)
+        self.mail.addItem(T("The computer's mail program"), "system")
+        self.mail.setCurrentIndex(max(0, self.mail.findData(self.cfg["mail_handler"])))
+        f.addRow(T("Email links"), self.mail)
         self.lazy = QCheckBox(T("Load restored tabs only when they are opened (faster start)"))
         self.lazy.setChecked(bool(self.cfg["lazy_restore"]))
         self.sleep = QSpinBox()
@@ -197,6 +205,18 @@ class SettingsDialog(QDialog):
         f.addRow("", _wrapping(self.autoplay))
         f.addRow("", _wrapping(self.gestures))
         f.addRow("", self.smooth)
+        self.video_hw = QComboBox()
+        for key, label in (("auto", T("Automatic (recommended)")), ("on", T("On (experimental)")),
+                           ("off", T("Off"))):
+            self.video_hw.addItem(label, key)
+        self.video_hw.setCurrentIndex(max(0, self.video_hw.findData(self.cfg["video_hw"])))
+        f.addRow(T("Video decoding with the graphics card"), self.video_hw)
+        video_note = QLabel(T("After a restart. It lightens the processor while videos play and needs the "
+                              "graphics card's VA-API driver (NVIDIA: libva-nvidia-driver, Intel: "
+                              "intel-media-driver, AMD: already there). If videos look wrong or I.K.E. "
+                              "closes, choose Automatic."))
+        video_note.setWordWrap(True)
+        f.addRow("", video_note)
         self.di = {}
         desktop = (
             ("di_media", T("Media controls: the media widget, the lock screen and the media keys "
@@ -272,7 +292,7 @@ class SettingsDialog(QDialog):
         self.effects = QCheckBox(T("Interface effects: short fades and the mark on tabs that are loading"))
         self.effects.setToolTip(T("They are also off when the desktop is set to show no animations"))
         self.effects.setChecked(bool(self.cfg["ui_effects"]))
-        self.site_tint = QCheckBox(T("Tint the toolbar with the colour of the site"))
+        self.site_tint = QCheckBox(T("Colour the edge of the address bar with the colour of the site"))
         self.site_tint.setChecked(bool(self.cfg["site_tint"]))
         self.maximized.setChecked(bool(self.cfg["start_maximized"]))
         self.vauto = QCheckBox(T("Hide vertical tabs; show them when the mouse touches the left edge"))
@@ -1109,6 +1129,8 @@ class SettingsDialog(QDialog):
         cfg["language"] = self.language.currentData()
         cfg["accept_language"] = self.accept_lang.text().strip() or "en-US,en"
         cfg["startup"] = self.startup.currentData()
+        cfg["mail_handler"] = self.mail.currentData()
+        cfg["video_hw"] = self.video_hw.currentData()
         cfg["homepage"] = self.homepage.text().strip() or "ike:newtab"
         cfg["tabs_position"] = self.tabs_pos.currentData()
         def looks():

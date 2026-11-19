@@ -1,5 +1,53 @@
 # Changelog
 
+## 1.1.16
+
+- **Vertical tabs with only their icons**: a button at the top of the vertical
+  tab panel narrows it to the tabs' icons (the title shows when the mouse rests
+  on one; the middle button or the tab menu closes it) and back to the titles,
+  with the width the user had given the panel. The choice is kept.
+- **New hover shape**: the highlight behind a toolbar button under the mouse
+  is no longer a circle but a rectangle with rounded corners and a faint
+  outline fading downwards, in the theme's colour; the short messages over the
+  page (zoom, notes) take the same shape. The window buttons keep their round
+  highlight and the red one of Close.
+- **Video decoding with the graphics card** (Settings -> General): Automatic
+  (the default: the engine decides, as before), On (experimental) or Off.
+  Qt WebEngine already decodes videos with the graphics card where it can
+  (Intel, AMD, with the VA-API driver); with NVIDIA's own driver it turns it
+  off, and On asks for it anyway (with libva-nvidia-driver). If I.K.E. does not
+  close normally while it is on, the next start goes back to Automatic and says
+  so. Off helps when a driver shows videos wrongly.
+- **Menu next to the window buttons**: the menu button is now fixed right
+  before Minimize, with the fixed separator on its left, so it sits with the
+  window buttons; with the system's title bar it is the last button. It can no
+  longer be moved (the other buttons still can).
+- **Email links**: a "mailto:" link is now written with the service the user
+  chooses, as in other browsers: Gmail, Outlook.com, Proton Mail or Yahoo Mail
+  open in a new tab with the address, subject and text already filled in, or
+  the computer's mail program takes it. I.K.E. asks at each link until a choice
+  is remembered (Settings -> General -> Email links). I.K.E. can also be chosen
+  as the system's program for email links (System Settings -> Default
+  Applications): links clicked in other programs then open in the chosen web
+  mail.
+- **Site colour on the address bar's edge**: the colour of the site now draws
+  only a thin outline around the address bar, with the same short fade; the
+  toolbar keeps the theme's own colour (the tinted toolbar of 1.1.14 was too
+  much). The option is still in Settings -> Appearance.
+- **Peter Lowe's list off by default**: its author states no licence for it,
+  and uBlock Origin's wiki lists it as non-commercial; until the author
+  confirms the terms for I.K.E., the list is off for new and existing users
+  (once: whoever turns it on again keeps it on). The other lists already cover
+  almost all of its servers.
+- **Licences and credits checked against their sources**: EasyList Italy is
+  under EasyList's licence (GPL-3.0 / CC BY-SA 3.0), the EasyList Cookie List
+  under CC BY 3.0, as its own header states; the filter lists are now listed
+  one by one with maintainer, licence and default in docs/THIRD-PARTY.md, with
+  the origin of the new tab picture and of the fallback icons, Dark Reader's
+  version, uBlock Origin's copyright line (also recorded in the scriptlet
+  file) and where adblock-rust's source is. None of the Rust libraries has a
+  NOTICE file to carry.
+
 ## 1.1.15
 
 - **Same site, free way (faster pages, fewer broken sites)**: at Balanced and

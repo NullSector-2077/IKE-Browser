@@ -129,6 +129,11 @@ class WebPage(QWebEnginePage):
         from PyQt6.QtGui import QDesktopServices
         if not self.visible_tab():
             return                           # a tab in the background starts nothing
+        if url.scheme().lower() == "mailto":
+            # an email: the web mail or program the user chose
+            from . import mailto
+            mailto.open_link(self.app, url, self.window_ref, page=self)
+            return
         if self.ask_external(origin_text(self.url()), url):
             QDesktopServices.openUrl(url)
 

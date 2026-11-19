@@ -854,6 +854,19 @@
 "Hide this warning": "この警告を隠す",
 "Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "注意：%s は %s に似ていますが、%s ではありません。確信がない場合は、パスワードやカード情報を入力しないでください。",
 "Warn about sites that imitate well-known ones": "有名なサイトを装うサイトについて警告する",
-"Tint the toolbar with the colour of the site": "ツールバーをサイトの色で淡く色付けする"
+"Colour the edge of the address bar with the colour of the site": "アドレスバーの縁をサイトの色で彩る",
+"Email links": "メールのリンク",
+"Ask each time": "毎回確認する",
+"The computer's mail program": "コンピューターのメールソフト",
+"Write an email": "メールを書く",
+"Write an email to %s with:": "%s へのメールを次で書く:",
+"Remember this choice": "この選択を記憶する",
+"Automatic (recommended)": "自動（推奨）",
+"On (experimental)": "オン（実験的）",
+"Video decoding with the graphics card": "グラフィックカードによる動画のデコード",
+"After a restart. It lightens the processor while videos play and needs the graphics card's VA-API driver (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: already there). If videos look wrong or I.K.E. closes, choose Automatic.": "再起動後に有効。動画再生中のプロセッサの負荷を減らします。グラフィックカードの VA-API ドライバーが必要です (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: 導入済み)。動画の表示がおかしい場合や I.K.E. が終了する場合は「自動」を選んでください。",
+"Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "グラフィックカードによる動画のデコードを「自動」に戻しました: オンの間に I.K.E. が正常に終了しませんでした。",
+"Show only the icons of the tabs": "タブのアイコンだけを表示",
+"Show the titles of the tabs": "タブのタイトルを表示"
 }
 }

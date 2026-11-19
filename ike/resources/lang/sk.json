@@ -854,6 +854,19 @@
 "Hide this warning": "Skryť toto upozornenie",
 "Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "Pozor: %s vyzerá ako %s, ale nie je to %s. Ak si nie ste istí, nezadávajte heslá ani údaje o karte.",
 "Warn about sites that imitate well-known ones": "Upozorňovať na weby, ktoré napodobňujú známe weby",
-"Tint the toolbar with the colour of the site": "Zafarbiť panel nástrojov farbou webu"
+"Colour the edge of the address bar with the colour of the site": "Zafarbiť okraj panela s adresou farbou webu",
+"Email links": "Odkazy na e-mail",
+"Ask each time": "Zakaždým sa spýtať",
+"The computer's mail program": "Poštový program počítača",
+"Write an email": "Napísať e-mail",
+"Write an email to %s with:": "Napísať e-mail na %s pomocou:",
+"Remember this choice": "Zapamätať si túto voľbu",
+"Automatic (recommended)": "Automaticky (odporúčané)",
+"On (experimental)": "Zapnuté (experimentálne)",
+"Video decoding with the graphics card": "Dekódovanie videa grafickou kartou",
+"After a restart. It lightens the processor while videos play and needs the graphics card's VA-API driver (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: already there). If videos look wrong or I.K.E. closes, choose Automatic.": "Po reštarte. Odľahčí procesor pri prehrávaní videa a vyžaduje ovládač VA-API grafickej karty (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: už je). Ak sa videá zobrazujú zle alebo sa I.K.E. zatvorí, zvoľte Automaticky.",
+"Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "Dekódovanie videa grafickou kartou je späť na Automaticky: I.K.E. sa počas jeho zapnutia neukončil normálne.",
+"Show only the icons of the tabs": "Zobraziť len ikony kariet",
+"Show the titles of the tabs": "Zobraziť názvy kariet"
 }
 }

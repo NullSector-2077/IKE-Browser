@@ -854,6 +854,19 @@
 "Hide this warning": "Схаваць гэта папярэджанне",
 "Careful: %s looks like %s, but it is not %s. Do not enter passwords or card details if you are not sure.": "Асцярожна: %s падобны на %s, але гэта не %s. Не ўводзьце паролі і даныя карткі, калі не ўпэўнены.",
 "Warn about sites that imitate well-known ones": "Папярэджваць пра сайты, якія імітуюць вядомыя",
-"Tint the toolbar with the colour of the site": "Адценьваць панэль інструментаў колерам сайта"
+"Colour the edge of the address bar with the colour of the site": "Афарбоўваць рамку адраснага радка ў колер сайта",
+"Email links": "Спасылкі на эл. пошту",
+"Ask each time": "Пытацца кожны раз",
+"The computer's mail program": "Паштовая праграма камп'ютара",
+"Write an email": "Напісаць ліст",
+"Write an email to %s with:": "Напісаць ліст %s з дапамогай:",
+"Remember this choice": "Запомніць гэты выбар",
+"Automatic (recommended)": "Аўтаматычна (рэкамендуецца)",
+"On (experimental)": "Уключана (эксперыментальна)",
+"Video decoding with the graphics card": "Дэкадаванне відэа відэакартай",
+"After a restart. It lightens the processor while videos play and needs the graphics card's VA-API driver (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: already there). If videos look wrong or I.K.E. closes, choose Automatic.": "Пасля перазапуску. Зніжае нагрузку на працэсар падчас відэа; патрэбны драйвер VA-API відэакарты (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: ужо ёсць). Калі відэа паказваецца няправільна або I.K.E. зачыняецца, выберыце «Аўтаматычна».",
+"Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "Дэкадаванне відэа відэакартай зноў у рэжыме «Аўтаматычна»: I.K.E. зачыніўся некарэктна, пакуль яно было ўключана.",
+"Show only the icons of the tabs": "Паказваць толькі значкі картак",
+"Show the titles of the tabs": "Паказваць назвы картак"
 }
 }

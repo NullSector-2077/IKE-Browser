@@ -87,3 +87,43 @@ def test_find_bar(run_ike):
             out["closed"] = not win.findbar.isVisible()
     """)
     assert out["open"] and out["closed"]
+
+
+def test_vertical_tabs_with_only_their_icons(run_ike):
+    """1.1.16: a button at the top of the panel narrows it to the tabs' icons
+    and back; the choice is kept, and the user's own width comes back."""
+    out = run_ike("""
+        from PyQt6.QtCore import QPoint, Qt
+        from PyQt6.QtTest import QTest
+
+        def steps(ike, qapp, out):
+            win = ike.windows[0]
+            win.showNormal()
+            win.resize(1200, 800)
+            yield 600
+            for i in range(2):
+                win.add_tab("data:text/html,<title>t%d</title>" % i)
+            yield 1200
+            out["before"] = [win.vtab_panel.width(), bool(win.vplus.text()), win.vicons_btn.toolTip()]
+            QTest.mouseClick(win.vicons_btn, Qt.MouseButton.LeftButton)
+            yield 600
+            win = ike.windows[0]
+            d = win.vtabs.itemDelegate()
+            rect = win.vtabs.visualItemRect(win.vtabs.item(1))
+            img = win.vtabs.viewport().grab(rect).toImage()
+            out["on"] = [ike.config["vtabs_icons_only"], win.vtab_panel.width(), win.vplus.text(),
+                         win.vicons_btn.toolTip(), d._hit(rect.center()), d._hit(QPoint(rect.right() - 4, rect.center().y())),
+                         img.width() > 0, win.vtabs.count()]
+            QTest.mouseClick(win.vicons_btn, Qt.MouseButton.LeftButton)
+            yield 600
+            out["off"] = [ike.config["vtabs_icons_only"], ike.windows[0].vtab_panel.width(),
+                          bool(ike.windows[0].vplus.text()), ike.config["vtabs_width"]]
+    """, settings={"tabs_position": "vertical", "vtabs_width": 260})
+    width, has_text, tip = out["before"]
+    assert width >= 200 and has_text and tip == "Show only the icons of the tabs"
+    on, narrow, text, tip_on, hit_mid, hit_right, painted, rows = out["on"]
+    assert on is True and narrow == 48 and text == "" and tip_on == "Show the titles of the tabs"
+    assert hit_mid == [1, ""] and hit_right == [1, ""]      # no close button area: closing by middle click or menu
+    assert painted and rows == 3
+    off, wide, text_back, kept = out["off"]
+    assert off is False and wide >= 200 and text_back and kept == 260

@@ -116,11 +116,18 @@ class VTabDelegate(QStyledItemDelegate):
     def _audio_zone(self, rect):
         return QRect(self._right() - self.ZONE - self.AUDIO, rect.top(), self.AUDIO, rect.height())
 
+    def icons_only(self):
+        """Only the tabs' icons in a narrow panel (1.1.16): no title, no buttons;
+        the title shows in a tooltip, closing is by the middle button or the menu."""
+        return bool(self.config is not None and self.config["vtabs_icons_only"])
+
     def _hit(self, pos):
         """(row, area) under pos; area is "close", "audio" or "" (the title)."""
         index = self.view.indexAt(pos)
         if not index.isValid():
             return (-1, "")
+        if self.icons_only():
+            return (index.row(), "")
         rect = self.view.visualRect(index)
         if self._zone(rect).contains(pos):
             return (index.row(), "close")
@@ -247,6 +254,10 @@ class VTabDelegate(QStyledItemDelegate):
             style.drawPrimitive(QStyle.PrimitiveElement.PE_PanelItemViewItem, hov, painter, widget)
             painter.restore()
             opt.state &= ~QStyle.StateFlag.State_MouseOver
+        if self.icons_only():
+            self._paint_icon_only(painter, opt, style, widget, audio, selected)
+            painter.restore()
+            return
         # the title stops before the button areas; a long one fades out there
         limit = self._right() - self.ZONE - (self.AUDIO if audio else 0)
         text_rect = style.subElementRect(QStyle.SubElement.SE_ItemViewItemText, opt, widget)
@@ -285,6 +296,32 @@ class VTabDelegate(QStyledItemDelegate):
             self.style_.paint(painter, self._zone(option.rect), option.palette, hovered, pressed,
                               self._glide.value if hovered and self._glide.moving else None)
         painter.restore()
+
+    def _paint_icon_only(self, painter, opt, style, widget, audio, selected):
+        """The row's background and selection as the desktop draws them, the icon
+        in the middle, a small speaker in the corner while the tab makes sound."""
+        icon_ = QIcon(opt.icon)
+        opt.text = ""
+        opt.icon = QIcon()
+        from PyQt6.QtWidgets import QStyleOptionViewItem
+        opt.features &= ~QStyleOptionViewItem.ViewItemFeature.HasDecoration
+        style.drawControl(QStyle.ControlElement.CE_ItemViewItem, opt, painter, widget)
+        r = opt.rect
+        side = 20
+        mode = QIcon.Mode.Selected if selected else QIcon.Mode.Normal
+        icon_.paint(painter, QRect(r.center().x() - side // 2 + 1, r.center().y() - side // 2, side, side),
+                    Qt.AlignmentFlag.AlignCenter, mode)
+        if audio:
+            from .icons import themed
+            ic = themed("audio-volume-muted" if audio == "muted" else "audio-volume-high")
+            ic.paint(painter, QRect(r.right() - 13, r.top() + 2, 11, 11), Qt.AlignmentFlag.AlignCenter, mode)
+
+    def helpEvent(self, event, view, option, index):
+        if self.icons_only() and event.type() == QEvent.Type.ToolTip and index.isValid():
+            from PyQt6.QtWidgets import QToolTip
+            QToolTip.showText(event.globalPos(), index.data(Qt.ItemDataRole.DisplayRole) or "", view)
+            return True
+        return super().helpEvent(event, view, option, index)
 
     def sizeHint(self, option, index):
         # a narrow hint: rows are as wide as the panel, never as wide as the title
