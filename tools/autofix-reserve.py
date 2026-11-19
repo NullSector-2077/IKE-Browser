@@ -177,7 +177,12 @@ def ask(url, key, model, messages, timeout=REQUEST_TIMEOUT, opener=urllib.reques
         with opener(req, timeout=timeout) as r:
             data = json.loads(r.read(4_000_000).decode("utf-8", "replace"))
     except urllib.error.HTTPError as e:
-        raise Stop(classify(e.code), "HTTP %d" % e.code)
+        wait = 0
+        try:
+            wait = int(float((e.headers or {}).get("Retry-After") or 0))
+        except (TypeError, ValueError):
+            wait = 0
+        raise Stop(classify(e.code), "HTTP %d" % e.code, wait)
     except (urllib.error.URLError, TimeoutError, OSError, ValueError) as e:
         raise Stop("temporary", type(e).__name__)
     try:
@@ -196,6 +201,44 @@ def parse(text):
     if not isinstance(obj, dict) or not isinstance(obj.get("edits", []), list):
         raise ValueError("the JSON object has no list of edits")
     return obj
+
+
+_NUMBERED = re.compile(r"^ {0,6}\d{1,6}  ")       # "  740  " in front of the excerpts' lines
+
+
+def _unnumbered(text):
+    """The text without the line numbers of the excerpts, when every line has one
+    (2026-11-19: a model copied them along, and nothing matched)."""
+    lines = text.split("\n")
+    body = [ln for ln in lines if ln.strip()]
+    if body and all(_NUMBERED.match(ln) for ln in body):
+        return "\n".join(_NUMBERED.sub("", ln, count=1) for ln in lines)
+    return text
+
+
+def _locate(current, find):
+    """(start, end) of find in current: exact, or line by line ignoring the
+    spaces at the end of lines. None when absent or not unique."""
+    if current.count(find) == 1:
+        start = current.index(find)
+        return start, start + len(find)
+    if current.count(find) > 1:
+        return None
+    want = [ln.rstrip() for ln in find.strip("\n").split("\n")]
+    if not want or not any(want):
+        return None
+    lines = current.split("\n")
+    offsets, pos = [], 0
+    for ln in lines:
+        offsets.append(pos)
+        pos += len(ln) + 1
+    hits = [i for i in range(len(lines) - len(want) + 1)
+            if all(lines[i + k].rstrip() == want[k] for k in range(len(want)))]
+    if len(hits) != 1:
+        return None
+    i = hits[0]
+    end_line = i + len(want) - 1
+    return offsets[i], offsets[end_line] + len(lines[end_line])
 
 
 def apply_edits(workdir, edits, shown, allow_adblock=False):
@@ -225,11 +268,17 @@ def apply_edits(workdir, edits, shown, allow_adblock=False):
         current = new.get(path)
         if current is None:
             current = (workdir / path).read_text("utf-8")
-        count = current.count(find)
-        if count != 1:
-            raise ValueError("the text to replace appears %d times in %s (must be exactly once)"
-                             % (count, path))
-        new[path] = current.replace(find, repl, 1)
+        find, repl = _unnumbered(find), _unnumbered(repl)
+        span = _locate(current, find)
+        if span is None:
+            raise ValueError("the text to replace appears %d times in %s (must be exactly once, "
+                             "copied without the line numbers)" % (current.count(find), path))
+        start, end = span
+        if current[start:end] != find and find.endswith("\n") and not repl.endswith("\n"):
+            repl += "\n"
+        if current[start:end] != find and not find.endswith("\n") and repl.endswith("\n"):
+            repl = repl[:-1]
+        new[path] = current[:start] + repl + current[end:]
     for path, text in new.items():
         (workdir / path).write_text(text, "utf-8")
     return sorted(new)
@@ -346,16 +395,24 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
             break
         used = "%s / %s" % (provider, model)
         print("Reserve: %s" % used, flush=True)
-        messages, tries, outcome = list(base), 0, None
+        messages, tries, outcome, waited = list(base), 0, None, False
         while tries < 2 and outcome is None:
             tries += 1
             try:
                 answer = ask(url, key, model, messages, opener=opener, max_tokens=tokens)
             except Stop as s:
                 kind = s.args[0]
+                wait = s.args[2] if len(s.args) > 2 else 0
                 print("  stopped: %s (%s)" % (kind, s.args[1]), flush=True)
                 if kind == "temporary" and tries < 2:
                     time.sleep(10)
+                    continue
+                # a limit per minute (Groq: about 8,000 tokens): wait it out once,
+                # when the server says it is short, and ask the same model again
+                if kind == "quota" and 0 < wait <= 60 and not waited and time.monotonic() + wait < deadline:
+                    waited = True
+                    time.sleep(wait + 1)
+                    tries -= 1                  # the wait does not use up a try
                     continue
                 if kind in ("auth", "toolarge"):
                     skip.add(provider)
@@ -363,10 +420,15 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
                 break
             try:
                 obj = parse(answer)
-                if obj.get("fixable") is False or not obj.get("edits"):
+                if obj.get("fixable") is False:
                     summary = str(obj.get("summary") or "")
                     outcome = "none"
                     break
+                if not obj.get("edits"):
+                    # 2026-11-19: a model named the cause and gave no edit; only an
+                    # explicit "fixable": false ends the chain
+                    raise ValueError("the answer has no edits: give the exact edits of the fix, "
+                                     "or \"fixable\": false if it cannot be fixed in the code")
                 changed = apply_edits(workdir, obj["edits"], shown, a.allow_adblock)
                 summary = str(obj.get("summary") or "")
                 print("  edits applied: %s" % ", ".join(changed), flush=True)

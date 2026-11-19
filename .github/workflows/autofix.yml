@@ -546,6 +546,11 @@ jobs:
           elif [ "$GUARD" != "success" ]; then why="rifiutata: i controlli automatici hanno respinto la modifica"
           else why="la correzione non è stata pubblicata (il ramo è cambiato o manca un permesso)"
           fi
+          # Antigravity's own reason is only half the story when the reserves were asked too
+          if [ "$ACTION" = "fix" ] && grep -q '^\*\*Riserve:' "$RUNNER_TEMP/autofix/summary.md" 2>/dev/null \
+             && [ "$AGENT" != "refused" ] && [ "$AGENT" != "rejected" ]; then
+            why="né Antigravity ($why) né le riserve hanno trovato una correzione: i dettagli sono qui sotto"
+          fi
           body="$RUNNER_TEMP/issue.md"
           {
             echo "**$WORKFLOW** failed and could not be fixed automatically: $why."

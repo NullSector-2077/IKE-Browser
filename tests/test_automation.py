@@ -478,6 +478,8 @@ def _opener(answers, seen):
     def open_(req, timeout=0):
         seen.append((req.full_url, json.loads(req.data)["model"], req.get_header("Authorization")))
         a = answers.pop(0)
+        if isinstance(a, tuple):                    # (status, headers)
+            raise urllib.error.HTTPError(req.full_url, a[0], "err", a[1], None)
         if isinstance(a, int):
             raise urllib.error.HTTPError(req.full_url, a, "err", {}, None)
         return _Answer(json.dumps({"choices": [{"message": {"content": a}}]}).encode())
@@ -906,3 +908,53 @@ def test_the_fix_step_of_the_workflow(repo, tmp_path, scenario, reserve_asked, r
         assert git(repo, "status", "--porcelain") == "", scenario
         summary = (temp / "autofix" / "summary.md").read_text()
         assert "respinta dai controlli" in summary, summary
+
+
+def test_edits_copied_with_line_numbers_or_trailing_spaces_still_apply(repo):
+    """2026-11-19 (giro 2): Groq's edits were right but copied with the excerpts'
+    line numbers, and nothing matched."""
+    reserve = load("autofix-reserve")
+    shown = {"ike/window.py": ""}
+    numbered = [{"file": "ike/window.py", "find": "    1  def width():\n    2      return 10\n",
+                 "replace": "    1  def width():\n    2      return 11\n"}]
+    assert reserve.apply_edits(repo, numbered, shown) == ["ike/window.py"]
+    assert (repo / "ike/window.py").read_text() == "def width():\n    return 11\n"
+    spaced = [{"file": "ike/window.py", "find": "    return 11   ", "replace": "    return 12"}]
+    reserve.apply_edits(repo, spaced, shown)
+    assert (repo / "ike/window.py").read_text() == "def width():\n    return 12\n"
+    with pytest.raises(ValueError):                     # still exactly once, still exact text
+        reserve.apply_edits(repo, [{"file": "ike/window.py", "find": "return 99", "replace": "x"}], shown)
+
+
+def test_an_answer_without_edits_is_asked_again_and_a_short_limit_is_waited_out(repo, tmp_path):
+    """2026-11-19 (giro 2): OpenRouter named the cause and gave no edit, and that
+    ended the chain; Groq's second try hit its per-minute limit at once."""
+    import json
+    reserve = load("autofix-reserve")
+    _reserve_repo(repo)
+    prompt = tmp_path / "prompt.md"
+    prompt.write_text("RULES")
+    status = tmp_path / "status.json"
+    good = json.dumps({"summary": "ok", "edits": [{"file": "ike/window.py", "find": "    return 10\n",
+                                                  "replace": "    return 11\n"}]})
+    words = json.dumps({"summary": "The enum moved to DownloadState.", "edits": []})
+    slept = []
+    orig = reserve.time.sleep
+    reserve.time.sleep = slept.append
+    try:
+        seen = []
+        reserve.main(["--workdir", str(repo), "--prompt", str(prompt), "--status", str(status)],
+                     env={"GROQ_API_KEY": "k", "AUTOFIX_GROQ_MODELS": "g1"},
+                     opener=_opener([words, (429, {"Retry-After": "7"}), good], seen))
+    finally:
+        reserve.time.sleep = orig
+    out = json.loads(status.read_text())
+    assert out["result"] == "ok" and out["model"] == "Groq / g1", out
+    assert len(seen) == 3 and 8 in slept
+    git(repo, "checkout", "-q", "--", ".")
+    # an explicit "fixable": false still ends it
+    no = json.dumps({"summary": "Un server era giù.", "fixable": False, "edits": []})
+    seen = []
+    reserve.main(["--workdir", str(repo), "--prompt", str(prompt), "--status", str(status)],
+                 env={"GROQ_API_KEY": "k", "OPENROUTER_API_KEY": "k2"}, opener=_opener([no], seen))
+    assert json.loads(status.read_text())["result"] == "none" and len(seen) == 1
