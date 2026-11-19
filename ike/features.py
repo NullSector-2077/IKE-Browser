@@ -10,6 +10,7 @@ from PyQt6.QtCore import QRect, QSize, Qt, QTimer, QUrl
 from PyQt6.QtGui import QColor, QIcon, QPainter, QPixmap
 from PyQt6.QtWebEngineCore import QWebEnginePage
 from PyQt6.QtWidgets import (
+    QBoxLayout,
     QDialog,
     QHBoxLayout,
     QInputDialog,
@@ -303,8 +304,50 @@ class WindowFeatures:
         cfg.save()
         self.app.refresh_windows()
 
+    VTABS_ICONS_WIDTH = 48          # the panel with only the tabs' icons (1.1.16)
+
+    def _toggle_vtabs_icons(self):
+        cfg = self.app.config
+        cfg["vtabs_icons_only"] = not cfg["vtabs_icons_only"]
+        cfg.save()
+        self.app.refresh_windows()
+
+    def vtabs_width_now(self):
+        """The width the tab panel has: narrow with only icons, else the user's."""
+        if self.app.config["vtabs_icons_only"]:
+            return self.VTABS_ICONS_WIDTH
+        return int(self.app.config["vtabs_width"])
+
+    def _apply_vtabs_icons(self):
+        on = bool(self.app.config["vtabs_icons_only"])
+        SP = QStyle.StandardPixmap
+        self.vicons_btn.setIcon(_theme("view-list-details", SP.SP_FileDialogDetailedView) if on
+                                else _theme("view-grid", SP.SP_FileDialogListView))
+        self.vicons_btn.setToolTip(T("Show the titles of the tabs") if on else
+                                   T("Show only the icons of the tabs"))
+        self._vhead.setDirection(QBoxLayout.Direction.TopToBottom if on else QBoxLayout.Direction.LeftToRight)
+        self.ws_btn_v.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly if on
+                                         else Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.vplus.setText("" if on else T("New tab"))
+        if on:
+            self.vtab_panel.setMinimumWidth(self.VTABS_ICONS_WIDTH)
+            self.vtab_panel.setMaximumWidth(self.VTABS_ICONS_WIDTH)
+        else:
+            self.vtab_panel.setMaximumWidth(16777215)
+            self.vtab_panel.setMinimumWidth(120)
+        if getattr(self, "_vtabs_icons_state", None) != on:
+            self._vtabs_icons_state = on
+            if not self._vtabs_floating:
+                w = self.vtabs_width_now()
+                self.splitter.setSizes([w, max(200, self.width() - w)])
+            elif self.vtab_panel.isVisible():
+                self.vtab_panel.resize(self.vtabs_width_now(), self.vtab_panel.height())
+            self.vtabs.doItemsLayout()
+            self.vtabs.viewport().update()
+
     def _apply_vtabs(self, show):
         """show: vertical tabs are in use and the window chrome is visible."""
+        self._apply_vtabs_icons()
         auto = bool(self.app.config["vtabs_autohide"])
         SP = QStyle.StandardPixmap
         self.vhide_btn.setIcon(_theme("window-pin", SP.SP_ArrowRight) if auto
@@ -314,7 +357,7 @@ class WindowFeatures:
                                     "the left edge)"))
         if show and auto:
             if not self._vtabs_floating:
-                if self.vtab_panel.width() > 100:
+                if self.vtab_panel.width() > 100 and not self.app.config["vtabs_icons_only"]:
                     self.app.config["vtabs_width"] = self.vtab_panel.width()
                 self.vtab_panel.setParent(self.centralWidget())
                 self._vtabs_floating = True
@@ -328,7 +371,7 @@ class WindowFeatures:
             if self._vtabs_floating:
                 self.splitter.insertWidget(0, self.vtab_panel)
                 self.splitter.setStretchFactor(0, 0)
-                w = int(self.app.config["vtabs_width"])
+                w = self.vtabs_width_now()
                 self.splitter.setSizes([w, max(200, self.width() - w)])
                 self._vtabs_floating = False
             self.vtab_edge.hide()
@@ -336,7 +379,7 @@ class WindowFeatures:
 
     def _vtabs_resized(self, *_a):
         """Remember the width the user gave to the tab panel."""
-        if self._vtabs_floating or not self.vtab_panel.isVisible():
+        if self._vtabs_floating or not self.vtab_panel.isVisible() or self.app.config["vtabs_icons_only"]:
             return
         w = self.vtab_panel.width()
         if w < 60 or w == self.app.config["vtabs_width"]:
@@ -385,7 +428,8 @@ class WindowFeatures:
         if self.vtab_panel.isVisible() and not hiding:
             return
         root = self.centralWidget()
-        w = max(160, min(int(self.app.config["vtabs_width"]), root.width() // 2))
+        w = self.VTABS_ICONS_WIDTH if self.app.config["vtabs_icons_only"] else \
+            max(160, min(int(self.app.config["vtabs_width"]), root.width() // 2))
         if not hiding:
             self.vtab_panel.setGeometry(-w, 0, w, root.height())
         self._vtabs_hiding = False

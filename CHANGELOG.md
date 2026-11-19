@@ -2,6 +2,15 @@
 
 ## 1.1.16
 
+- **Vertical tabs with only their icons**: a button at the top of the vertical
+  tab panel narrows it to the tabs' icons (the title shows when the mouse rests
+  on one; the middle button or the tab menu closes it) and back to the titles,
+  with the width the user had given the panel. The choice is kept.
+- **New hover shape**: the highlight behind a toolbar button under the mouse
+  is no longer a circle but a rectangle with rounded corners and a faint
+  outline fading downwards, in the theme's colour; the short messages over the
+  page (zoom, notes) take the same shape. The window buttons keep their round
+  highlight and the red one of Close.
 - **Video decoding with the graphics card** (Settings -> General): Automatic
   (the default: the engine decides, as before), On (experimental) or Off.
   Qt WebEngine already decodes videos with the graphics card where it can

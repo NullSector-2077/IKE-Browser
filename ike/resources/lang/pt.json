@@ -865,6 +865,8 @@
 "On (experimental)": "Ativada (experimental)",
 "Video decoding with the graphics card": "Descodificação de vídeo pela placa gráfica",
 "After a restart. It lightens the processor while videos play and needs the graphics card's VA-API driver (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: already there). If videos look wrong or I.K.E. closes, choose Automatic.": "Após reiniciar. Alivia o processador durante os vídeos e precisa do controlador VA-API da placa gráfica (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: já incluído). Se os vídeos aparecerem mal ou o I.K.E. fechar, escolha Automática.",
-"Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "A descodificação de vídeo pela placa gráfica voltou para Automática: o I.K.E. não fechou normalmente enquanto estava ativada."
+"Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "A descodificação de vídeo pela placa gráfica voltou para Automática: o I.K.E. não fechou normalmente enquanto estava ativada.",
+"Show only the icons of the tabs": "Mostrar só os ícones dos separadores",
+"Show the titles of the tabs": "Mostrar os títulos dos separadores"
 }
 }

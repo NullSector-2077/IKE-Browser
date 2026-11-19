@@ -865,6 +865,8 @@
 "On (experimental)": "Attiva (sperimentale)",
 "Video decoding with the graphics card": "Decodifica video con la scheda grafica",
 "After a restart. It lightens the processor while videos play and needs the graphics card's VA-API driver (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: already there). If videos look wrong or I.K.E. closes, choose Automatic.": "Dopo un riavvio. Alleggerisce il processore mentre si guardano i video e richiede il driver VA-API della scheda grafica (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: già presente). Se i video si vedono male o I.K.E. si chiude, scegli Automatica.",
-"Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "La decodifica video con la scheda grafica è tornata su Automatica: I.K.E. non si è chiuso normalmente mentre era attiva."
+"Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "La decodifica video con la scheda grafica è tornata su Automatica: I.K.E. non si è chiuso normalmente mentre era attiva.",
+"Show only the icons of the tabs": "Mostra solo le icone delle schede",
+"Show the titles of the tabs": "Mostra i titoli delle schede"
 }
 }

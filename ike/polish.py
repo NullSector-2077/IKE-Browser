@@ -756,9 +756,9 @@ class Toast(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setOpacity(self._opacity)
         r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
-        p.setPen(QPen(edge, 1))
+        p.setPen(soft_edge(r, edge, 1.0))
         p.setBrush(bg)
-        p.drawRoundedRect(r, r.height() / 2, r.height() / 2)
+        p.drawRoundedRect(r, TOAST_RADIUS, TOAST_RADIUS)
         p.setPen(pal.color(QPalette.ColorRole.WindowText))
         from PyQt6.QtGui import QFontMetrics
         p.drawText(self.rect().adjusted(16, 0, -16, 0), int(Qt.AlignmentFlag.AlignCenter),
@@ -1004,10 +1004,28 @@ def ghost_out(view, rect, config, ms=170):
     return shot
 
 
+HOVER_RADIUS = 6.0       # 1.1.16: flat on top and bottom, soft corners (was a circle or a pill)
+TOAST_RADIUS = 8.0
+
+
+def soft_edge(rect, colour, strength):
+    """A thin outline that fades from the top down: discreet, in the theme's colour."""
+    from PyQt6.QtGui import QLinearGradient
+    g = QLinearGradient(rect.topLeft(), rect.bottomLeft())
+    top, bottom = QColor(colour), QColor(colour)
+    top.setAlphaF(max(0.0, min(1.0, strength)))
+    bottom.setAlphaF(max(0.0, min(1.0, strength * 0.25)))
+    g.setColorAt(0.0, top)
+    g.setColorAt(1.0, bottom)
+    return QPen(g, 1.0)
+
+
 class RoundHoverStyle(QProxyStyle):
     """Toolbar buttons with the desktop's style, except their hover: a soft
-    round highlight in the theme's colour comes in and goes, as on the window
-    buttons (its level is the button's "ike_hover" property, set by HoverGlides)."""
+    highlight in the theme's colour, a rectangle with rounded corners and a
+    faint fading outline, comes in and goes (its level is the button's
+    "ike_hover" property, set by HoverGlides). The window buttons keep their
+    own round one."""
 
     def drawComplexControl(self, cc, opt, p, widget=None):
         from PyQt6.QtWidgets import QStyleOptionToolButton
@@ -1022,16 +1040,13 @@ class RoundHoverStyle(QProxyStyle):
         if level > 0 and opt.state & QStyle.StateFlag.State_Enabled:
             c = QColor(widget.palette().color(QPalette.ColorRole.Highlight))
             c.setAlphaF(min(0.45, 0.22 * level))
-            r = QRectF(opt.rect).adjusted(2, 2, -2, -2)
+            r = QRectF(opt.rect).adjusted(2.5, 2.5, -2.5, -2.5)
+            radius = min(HOVER_RADIUS, r.height() / 3)
             p.save()
             p.setRenderHint(QPainter.RenderHint.Antialiasing)
-            p.setPen(Qt.PenStyle.NoPen)
+            p.setPen(soft_edge(r, widget.palette().color(QPalette.ColorRole.Highlight), min(0.7, 0.4 * level)))
             p.setBrush(c)
-            if r.width() <= r.height() * 1.25:          # an icon only: a circle
-                d = min(r.width(), r.height())
-                p.drawEllipse(QRectF(r.center().x() - d / 2, r.center().y() - d / 2, d, d))
-            else:                                       # with text or a menu arrow: a pill
-                p.drawRoundedRect(r, r.height() / 2, r.height() / 2)
+            p.drawRoundedRect(r, radius, radius)
             p.restore()
         o = QStyleOptionToolButton(opt)
         # the desktop's own hover frame and the pressed frame give way to the round one;

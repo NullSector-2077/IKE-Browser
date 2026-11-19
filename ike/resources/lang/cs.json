@@ -865,6 +865,8 @@
 "On (experimental)": "Zapnuto (experimentální)",
 "Video decoding with the graphics card": "Dekódování videa grafickou kartou",
 "After a restart. It lightens the processor while videos play and needs the graphics card's VA-API driver (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: already there). If videos look wrong or I.K.E. closes, choose Automatic.": "Po restartu. Ulehčí procesoru při přehrávání videa a vyžaduje ovladač VA-API grafické karty (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: již je). Pokud se videa zobrazují špatně nebo se I.K.E. zavře, zvolte Automaticky.",
-"Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "Dekódování videa grafickou kartou je zpět na Automaticky: I.K.E. se při jeho zapnutí neukončil normálně."
+"Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "Dekódování videa grafickou kartou je zpět na Automaticky: I.K.E. se při jeho zapnutí neukončil normálně.",
+"Show only the icons of the tabs": "Zobrazit jen ikony karet",
+"Show the titles of the tabs": "Zobrazit názvy karet"
 }
 }

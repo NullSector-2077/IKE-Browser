@@ -865,6 +865,8 @@
 "On (experimental)": "Включено (експериментално)",
 "Video decoding with the graphics card": "Декодиране на видео с видеокартата",
 "After a restart. It lightens the processor while videos play and needs the graphics card's VA-API driver (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: already there). If videos look wrong or I.K.E. closes, choose Automatic.": "След рестарт. Облекчава процесора при видео и изисква VA-API драйвера на видеокартата (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: вече е налице). Ако видеото изглежда грешно или I.K.E. се затваря, изберете „Автоматично“.",
-"Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "Декодирането на видео с видеокартата е върнато на „Автоматично“: I.K.E. не се затвори нормално, докато беше включено."
+"Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "Декодирането на видео с видеокартата е върнато на „Автоматично“: I.K.E. не се затвори нормално, докато беше включено.",
+"Show only the icons of the tabs": "Показвай само иконите на разделите",
+"Show the titles of the tabs": "Показвай заглавията на разделите"
 }
 }

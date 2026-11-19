@@ -330,7 +330,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         vplus = QPushButton(icon("tab-new", QStyle.StandardPixmap.SP_FileDialogNewFolder),
                             T("New tab"), self.vtab_panel)
         vplus.setFlat(True)
+        vplus.setToolTip(T("New tab"))
         vplus.clicked.connect(lambda: self.add_tab())
+        self.vplus = vplus
         self.ws_btn_v = self._make_ws_button(self.vtab_panel)
         head = QWidget(self.vtab_panel)
         hl = QHBoxLayout(head)
@@ -338,6 +340,12 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         hl.setSpacing(2)
         hl.addWidget(self.ws_btn_v)
         hl.addStretch(1)
+        self._vhead = hl
+        # 1.1.16: only the icons of the tabs, a narrow panel (as in Brave and others)
+        self.vicons_btn = QToolButton(head)
+        self.vicons_btn.setAutoRaise(True)
+        self.vicons_btn.clicked.connect(self._toggle_vtabs_icons)
+        hl.addWidget(self.vicons_btn)
         self.vhide_btn = QToolButton(head)
         self.vhide_btn.setAutoRaise(True)
         self.vhide_btn.clicked.connect(self._toggle_vtabs_autohide)

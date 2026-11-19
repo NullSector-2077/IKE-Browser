@@ -171,6 +171,7 @@ DEFAULTS = {
     "bookmarks_bar": "newtab",          # always | newtab | never
     "vtabs_autohide": False,            # vertical tabs appear when the mouse hits the left edge
     "vtabs_width": 240,
+    "vtabs_icons_only": False,          # vertical tabs: only their icons, a narrow panel (1.1.16)
     "vtabs_anim_ms": 200,               # slide of the auto-hidden tab panel (0 = none)
     "ui_effects": True,                 # short fades and the loading mark of tabs (see effects.py)
     "toolbar_hidden": [],               # keys of TOOLBAR_ITEMS the user does not want

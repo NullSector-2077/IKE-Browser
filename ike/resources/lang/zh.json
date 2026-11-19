@@ -865,6 +865,8 @@
 "On (experimental)": "开启（实验性）",
 "Video decoding with the graphics card": "使用显卡解码视频",
 "After a restart. It lightens the processor while videos play and needs the graphics card's VA-API driver (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: already there). If videos look wrong or I.K.E. closes, choose Automatic.": "重启后生效。播放视频时减轻处理器负担，需要显卡的 VA-API 驱动 (NVIDIA: libva-nvidia-driver, Intel: intel-media-driver, AMD: 已自带)。如果视频显示异常或 I.K.E. 关闭，请选择“自动”。",
-"Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "使用显卡解码视频已恢复为“自动”：开启期间 I.K.E. 未正常关闭。"
+"Video decoding with the graphics card is back on Automatic: I.K.E. did not close normally while it was on.": "使用显卡解码视频已恢复为“自动”：开启期间 I.K.E. 未正常关闭。",
+"Show only the icons of the tabs": "只显示标签页的图标",
+"Show the titles of the tabs": "显示标签页的标题"
 }
 }

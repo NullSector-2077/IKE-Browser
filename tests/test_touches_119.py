@@ -73,6 +73,13 @@ def steps(ike, qapp, out):
     mid = float(h.property("ike_hover") or 0)
     yield 300
     out["hover"] = [before, mid, float(h.property("ike_hover") or 0), tinted(h, acc)]
+    # 1.1.16: a rectangle with soft corners, not a circle: near the corner it is tinted too
+    img = h.grab().toImage()
+    k = img.width() / max(1, h.width())
+    near = QColor(img.pixel(int(5 * k), int(img.height() / 2)))
+    corner = QColor(img.pixel(int(6 * k), int(6 * k)))
+    out["shape"] = [abs(near.hue() - acc.hue()) < 25 and near.saturation() > 25,
+                    abs(corner.hue() - acc.hue()) < 25 and corner.saturation() > 25]
     QTest.mouseMove(win, QPoint(5, win.height() - 5))
     yield 400
     out["hover_gone"] = float(h.property("ike_hover") or 0)
@@ -228,6 +235,7 @@ def test_touches_of_119(run_ike, site):
     before, mid, end, after = out["hover"]
     assert 0 < mid < 1 and end == 1.0 and after > before, out["hover"]   # it glides in, round and accent-coloured
     assert out["hover_gone"] == 0.0 and out["own_hover_untouched"]
+    assert out["shape"] == [True, True], out["shape"]          # flat sides, rounded corners (1.1.16)
     assert out["star_popping"]
     assert out["star_after"][0] and out["star_after"][1] and out["star_after"][2] == "Remove bookmark"
     assert out["shield_fading"] and out["shield_done"][0]
