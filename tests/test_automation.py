@@ -1071,6 +1071,9 @@ def test_after_two_attempts_the_issue_still_carries_the_message_for_chatgpt(tmp_
     body = (tmp_path / "body.md").read_text()
     assert "2 automatic fixes did not make it pass" in body
     assert "Messaggio per ChatGPT" in body and "from commit d0b6c21" in body
+    # 2026-11-19: ChatGPT fixed it right and stopped before the pull request
+    assert "3. Open a pull request from chatgpt/fix-" in body and "This step is required" in body
+    assert "4. Reply with the link of the pull request" in body
     assert "no attribute 'Completed'" in body
 
 
