@@ -31,7 +31,16 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           git fetch -q --no-tags origin "+$HEAD_SHA:refs/remotes/pr/head"
+          # ChatGPT's own changes only: its branch may start from the automation's
+          # branch (after two automatic attempts, with their version bump), so the
+          # base is the closest of main and the automation's branches
           base=$(git merge-base origin/main refs/remotes/pr/head)
+          for b in automation/autofix-main automation/daily-maintenance; do
+            git fetch -q --no-tags origin "+refs/heads/$b:refs/remotes/origin/$b" 2>/dev/null || continue
+            mb=$(git merge-base "origin/$b" refs/remotes/pr/head) || continue
+            if git merge-base --is-ancestor "$base" "$mb"; then base=$mb; fi
+          done
+          echo "Changes checked: $base..pull request ($(git rev-list --count "$base..refs/remotes/pr/head") commits)"
           git diff --binary "$base" refs/remotes/pr/head > "$RUNNER_TEMP/pr.patch"
           set +e
           python3 -I tools/check-autofix-patch.py --repo . --patch "$RUNNER_TEMP/pr.patch" \
