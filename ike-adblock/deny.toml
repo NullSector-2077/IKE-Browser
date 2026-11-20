@@ -1,0 +1,41 @@
+# cargo-deny settings of the I.K.E. AdBlock Engine (1.1.18). GitHub Actions runs
+#   cargo deny --manifest-path ike-adblock/Cargo.toml check licenses bans sources
+# on every pull request (tests.yml, step "Licences"), and tools/third-party.py
+# reads the same "allow" list: a crate under any other licence, or whose licence
+# cannot be read, stops the tests. To approve a new licence, follow
+# docs/THIRD-PARTY.md, "Approving a new licence".
+
+[graph]
+# the package is built for Arch Linux on x86_64 only
+targets = ["x86_64-unknown-linux-gnu"]
+
+[licenses]
+# Every licence must be compatible with shipping the engine inside I.K.E.
+# (GPL-3.0-or-later), and its obligations must be met by RUST-CRATES.txt.
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "MIT",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Unlicense",
+]
+# below this, cargo-deny's reading of a licence file counts as unreadable
+confidence-threshold = 0.93
+
+[licenses.private]
+# the engine is I.K.E.'s own crate (MPL-2.0, see Cargo.toml): it is checked too
+ignore = false
+
+[bans]
+# syn 2 and syn 3 are both used at build time; nothing to ban for that
+multiple-versions = "allow"
+wildcards = "deny"
+allow-wildcard-paths = false
+
+[sources]
+# crates.io only: no other registry, no git repository
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

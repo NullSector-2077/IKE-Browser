@@ -143,6 +143,20 @@ Automatic maintenance and fixes (pull request #59; nothing of the browser):
   keys, issues and maintenance pull requests waiting more than a week, and
   `main` without branch protection.
 
+Licences (pull request #67):
+
+- **Every licence shipped with the package**: LICENSE is now the complete GNU
+  GPL v3 text (the I.K.E. notice moved to COPYRIGHT); the package and the
+  self-update carry the licence and notice files of every Rust library
+  compiled into the AdBlock engine (licenses/RUST-CRATES.txt), of the uBlock
+  Origin scriptlets with their source (licenses/NOTICE.ubo-scriptlets) and of
+  the Rust standard library, with docs/THIRD-PARTY.md. The tests refuse a
+  library under a licence not approved in ike-adblock/deny.toml or from
+  outside crates.io (cargo-deny).
+- **Peter Lowe's list removed**: its author states no licence for it. It is
+  gone from the lists, the credits and the documentation; settings of earlier
+  versions lose it once, on or off, with its downloaded copy.
+
 ## 1.1.17
 
 Security review (each point has a test that plays the attack on this computer).

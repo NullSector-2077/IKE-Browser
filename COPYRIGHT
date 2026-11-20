@@ -1,0 +1,43 @@
+I.K.E. - Internet Kontrol Experience
+Copyright (C) 2026 the I.K.E. project
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+The full text of the GNU General Public License, version 3, is in the file
+LICENSE next to this one.
+
+Source code: https://github.com/NullSector-2077/IKE-Browser (each release has a
+tag, v<version>, with the exact sources it was built from).
+
+The I.K.E. AdBlock Engine module (the sources in ike-adblock/ of the
+repository) is licensed under the Mozilla Public License 2.0; its text is in
+LICENSE.adblock-rust next to this file.
+
+Third-party components keep their own licences. docs/THIRD-PARTY.md (installed
+next to this file as THIRD-PARTY.md) lists every component, what is shipped,
+its licence and where its source is; the full licence texts are in the files
+next to this one:
+
+  LICENSE.adblock-rust     Mozilla Public License 2.0 (adblock-rust and the
+                           other MPL-2.0 Rust libraries of the engine)
+  RUST-CRATES.txt          every Rust library compiled into the AdBlock
+                           engine, with its licence texts and notices
+  RUST-STD-COPYRIGHT.html  the Rust standard library compiled into the engine
+                           (the notice of the compiler that built it)
+  NOTICE.ubo-scriptlets    uBlock Origin scriptlets: copyright, licence
+                           (GPL-3.0-or-later, the text in LICENSE) and where
+                           their corresponding source is
+  LICENSE.darkreader       Dark Reader (MIT)
+  LICENSE.lucide           Lucide icons (ISC; parts from Feather, MIT)
+  LICENSE.phosphor         Phosphor Icons (MIT)
+  LICENSE.orbitron         Orbitron typeface (SIL Open Font License 1.1)
+
+Filter lists are not shipped: the browser downloads them at run time from their
+maintainers, and they are covered by their own licences.

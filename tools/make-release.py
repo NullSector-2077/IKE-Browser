@@ -43,14 +43,37 @@ def read_var(name):
 ENGINE_FILES = ("__init__.py", "adblock.pyi", "py.typed", "ike_adblock.abi3.so")
 
 
+def licence_files(engine=None):
+    """[(file, name)] of the licences that travel with the update (1.1.18):
+    those the package just built installs in /usr/share/licenses/ike-browser
+    (next to the engine folder of pkg/), else the repository's own."""
+    if engine is not None:
+        parents = Path(engine).resolve().parents
+        if len(parents) > 3:
+            installed = parents[3] / "share" / "licenses" / "ike-browser"
+            if installed.is_dir():
+                return sorted((p, p.name) for p in installed.iterdir() if p.is_file())
+    files = [ROOT / "LICENSE", ROOT / "COPYRIGHT", ROOT / "docs" / "THIRD-PARTY.md"]
+    files += sorted(p for p in (ROOT / "licenses").iterdir() if p.is_file())
+    missing = [p.name for p in files if not p.is_file()]
+    if missing:
+        raise SystemExit("licence files missing: %s" % ", ".join(missing))
+    return sorted((p, p.name) for p in files)
+
+
 def build_payload(engine=None):
     """A reproducible .tar.gz of ike/ (no caches, fixed owners and dates).
     engine: the folder of the AdBlock engine module just built for this release
     (vendor/adblock of the package); it travels as ike/_engine/adblock/, so a
-    new engine reaches every user with the self-update (1.1.12)."""
+    new engine reaches every user with the self-update (1.1.12). The licences
+    and notices of everything shipped travel as ike/_licenses/ (1.1.18)."""
     files = sorted((p, p.relative_to(ROOT).as_posix()) for p in (ROOT / "ike").rglob("*")
                    if "__pycache__" not in p.parts and not p.name.endswith((".pyc", ".pyo"))
-                   and "_engine" not in p.relative_to(ROOT / "ike").parts)
+                   and "_engine" not in p.relative_to(ROOT / "ike").parts
+                   and "_licenses" not in p.relative_to(ROOT / "ike").parts)
+    licences = licence_files(engine)
+    files.append((licences[0][0].parent, "ike/_licenses"))
+    files += [(p, "ike/_licenses/" + name) for p, name in licences]
     if engine is not None:
         engine = Path(engine)
         missing = [n for n in ENGINE_FILES if not (engine / n).is_file()]

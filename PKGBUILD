@@ -65,8 +65,21 @@ package() {
       "$pkgdir/usr/share/icons/hicolor/scalable/apps/ike-browser.svg"
   install -Dm644 data/icons/ike-browser-256.png "$pkgdir/usr/share/pixmaps/ike-browser.png"
 
-  # licences and documentation
-  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-  install -Dm644 -t "$pkgdir/usr/share/licenses/$pkgname" licenses/* docs/THIRD-PARTY.md
+  # licences: I.K.E.'s (the GPL v3 text and its notice), every shipped
+  # component's, and the Rust libraries of the AdBlock engine (docs/THIRD-PARTY.md)
+  install -Dm644 -t "$pkgdir/usr/share/licenses/$pkgname" LICENSE COPYRIGHT licenses/* docs/THIRD-PARTY.md
+  # the Rust standard library inside the engine: the notice of the compiler that built it
+  local rustdoc
+  for rustdoc in "$(rustc --print sysroot)/share/doc/rust" /usr/share/doc/rust; do
+    if [ -f "$rustdoc/COPYRIGHT-library.html" ]; then
+      install -Dm644 "$rustdoc/COPYRIGHT-library.html" \
+          "$pkgdir/usr/share/licenses/$pkgname/RUST-STD-COPYRIGHT.html"
+      break
+    fi
+  done
+  [ -f "$pkgdir/usr/share/licenses/$pkgname/RUST-STD-COPYRIGHT.html" ] ||
+      echo "WARNING: this Rust has no COPYRIGHT-library.html: RUST-STD-COPYRIGHT.html is missing" >&2
+
+  # documentation
   install -Dm644 -t "$pkgdir/usr/share/doc/$pkgname" README.md CHANGELOG.md docs/*.md
 }

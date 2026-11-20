@@ -67,3 +67,26 @@ installed copy; the package is kept as the run's `ike-browser-package` download.
 with `tools/build-ubo-scriptlets.mjs` (Node.js); see the header of that script.
 `tools/check-components.py` rebuilds it from the newest sources every day and
 `--apply` puts the new file in place.
+The file records the uBlock Origin commit it was built from;
+`licenses/NOTICE.ubo-scriptlets`, installed with the package, says where its
+corresponding source is.
+
+## Licences
+
+The package installs in `/usr/share/licenses/ike-browser/` the full GPL v3 text
+(`LICENSE`), I.K.E.'s notice (`COPYRIGHT`), every file of `licenses/`,
+`docs/THIRD-PARTY.md` and the Rust standard library's notice of the compiler
+used (`RUST-STD-COPYRIGHT.html`). `licenses/RUST-CRATES.txt`,
+`licenses/NOTICE.ubo-scriptlets` and the lists of Rust libraries in
+`docs/THIRD-PARTY.md` are generated:
+
+```bash
+python3 tools/third-party.py            # rewrite them after a change of Cargo.lock
+python3 tools/third-party.py --check    # what GitHub Actions runs
+cargo install --locked cargo-deny@0.20.2
+cargo deny --manifest-path ike-adblock/Cargo.toml --locked \
+    --config ike-adblock/deny.toml check licenses bans sources
+```
+
+A licence that is not approved yet stops both; see docs/THIRD-PARTY.md,
+"Approving a new licence".

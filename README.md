@@ -44,8 +44,7 @@ profiles: `ike-browser --profile NAME`.
   trackers, scripts, third-party cookies, HTTPS upgrades and removed tracking
   parameters.
 - Content blocking with the EasyList, EasyPrivacy, uBlock filters and regional
-  lists (Peter Lowe's list available, off by default), network and cosmetic
-  filters, your own lists and filters.
+  lists, network and cosmetic filters, your own lists and filters.
   Lists update daily. YouTube video ads are removed from the player data, with
   an automatic skip as a fallback.
 - **Same site, free way**: at Balanced, a site's own requests are not checked
@@ -148,7 +147,7 @@ I.K.E. has no servers of its own and sends no telemetry. It contacts only:
 
 | Service | When | What is sent |
 |---|---|---|
-| Filter list sites (easylist.to, ublockorigin.github.io, pgl.yoyo.org, …) | once a day; urgent-fix lists every few hours | a plain download of the list |
+| Filter list sites (easylist.to, ublockorigin.github.io, malware-filter.gitlab.io, …) | once a day; urgent-fix lists every few hours | a plain download of the list |
 | Google's Chrome version list (versionhistory.googleapis.com) | once a day | a plain request, no personal data |
 | The search engine you chose | when you search; suggestions while typing, if on | what you type in the address bar |
 | The sites of the installed search engines | once per engine, until its icon is known | a plain request for the site's icon (favicon.ico), nothing else |
@@ -198,10 +197,11 @@ I.K.E. stands on the work of these projects, each under its own licence:
 | Project | What it does in I.K.E. | Licence |
 |---|---|---|
 | [adblock-rust](https://github.com/brave/adblock-rust) by Brave Software | the filter engine of the content blocker | MPL-2.0 |
+| Rust libraries of the AdBlock engine (listed in [docs/THIRD-PARTY.md](docs/THIRD-PARTY.md)) | compiled into the engine | MIT / Apache-2.0 / MPL-2.0 / Unicode-3.0 / Unlicense |
 | [uBlock Origin](https://github.com/gorhill/uBlock) by Raymond Hill and contributors | scriptlets and filter lists | GPL-3.0 |
 | [EasyList, EasyPrivacy, EasyList Italy](https://easylist.to/) by The EasyList authors | filter lists | GPL-3.0 / CC BY-SA 3.0 |
 | EasyList Cookie List (Fanboy's Cookiemonster) | filter list | CC BY 3.0 |
-| [Peter Lowe's list](https://pgl.yoyo.org/adservers/) | filter list, **off by default** until its terms are confirmed | not stated |
+| [Malicious URL Blocklist](https://gitlab.com/malware-filter/urlhaus-filter) by curben, from abuse.ch URLhaus | filter list | CC0 1.0 / MIT |
 | [Dark Reader](https://github.com/darkreader/darkreader) | dark mode for pages | MIT |
 | Qt, Qt WebEngine (Chromium), PyQt6 | the window and the web engine, from the system | LGPL-3.0 / BSD / GPL-3.0 |
 | Lucide, Phosphor Icons | icon sets | ISC / MIT |
@@ -215,5 +215,8 @@ maintenance.
 
 ## Licence
 
-GPL-3.0-or-later, see [LICENSE](LICENSE). Bundled third-party components keep
-their own licences, listed in [docs/THIRD-PARTY.md](docs/THIRD-PARTY.md).
+GPL-3.0-or-later: [LICENSE](LICENSE) is the full text of the GNU General Public
+License version 3, [COPYRIGHT](COPYRIGHT) the notice. Bundled third-party
+components keep their own licences, listed in
+[docs/THIRD-PARTY.md](docs/THIRD-PARTY.md); the package installs every licence
+text in `/usr/share/licenses/ike-browser/`.
