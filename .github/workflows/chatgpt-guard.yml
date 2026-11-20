@@ -42,8 +42,12 @@ jobs:
           done
           echo "Changes checked: $base..pull request ($(git rev-list --count "$base..refs/remotes/pr/head") commits)"
           git diff --binary "$base" refs/remotes/pr/head > "$RUNNER_TEMP/pr.patch"
+          # the checker also checks that the changes apply (1.1.18): to the tree
+          # they start from, main's or the automation branch's (never the PR's)
+          rm -rf "$RUNNER_TEMP/pr-base"
+          git worktree add -q --detach "$RUNNER_TEMP/pr-base" "$base"
           set +e
-          python3 -I tools/check-autofix-patch.py --repo . --patch "$RUNNER_TEMP/pr.patch" \
+          python3 -I tools/check-autofix-patch.py --repo "$RUNNER_TEMP/pr-base" --patch "$RUNNER_TEMP/pr.patch" \
             --check-only --report "$RUNNER_TEMP/guard.md"
           verdict=$?
           set -e
