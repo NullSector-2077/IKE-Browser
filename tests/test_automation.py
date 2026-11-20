@@ -337,6 +337,37 @@ def test_health_finds_what_stopped():
     assert "failed in its last 3" in "\n".join(health.problems(now, failing, [], True))
 
 
+def test_health_finds_what_waits_or_is_missing():
+    """1.1.18: failed automatic fixes, the reserves' keys, issues and maintenance
+    pull requests waiting for a week, main without protection."""
+    now = dt.datetime(2026, 11, 20, tzinfo=dt.timezone.utc)
+    ok = {"daily-check.yml": [{"status": "completed", "conclusion": "success", "html_url": "d",
+                               "created_at": "2026-11-20T05:17:00Z"}],
+          "daily-maintenance.yml": [{"status": "completed", "conclusion": "success", "html_url": "m",
+                                     "created_at": "2026-11-20T06:17:00Z"}]}
+
+    def item(day, **kw):
+        return dict({"created_at": "2026-11-%02dT08:00:00Z" % day, "html_url": "u%d" % day}, **kw)
+    found = "\n".join(health.problems(
+        now, ok, [], True,
+        autofix_runs=[item(19, conclusion="failure"), item(18, conclusion="success"), item(1, conclusion="failure")],
+        reserve_keys={"GROQ_API_KEY": False, "OPENROUTER_API_KEY": True},
+        autofix_issues=[item(2, title="Automatic fix needs you: Tests"), item(18, title="new"),
+                        item(1, title="a pull request", pull_request={})],
+        maintenance_prs=[item(3, title="Maintenance candidate: IKE 1.1.18"), item(19, title="fresh")],
+        main_protected=False, unreadable=["the runs of the automatic fix"]))
+    assert "automatic fix failed 1 time(s)" in found and "u19" in found
+    assert "`GROQ_API_KEY` is missing" in found and "OPENROUTER_API_KEY" not in found
+    assert "Automatic fix needs you: Tests" in found and "\"new\"" not in found and "a pull request" not in found
+    assert "Maintenance candidate: IKE 1.1.18" in found and "fresh" not in found
+    assert "`main` has no branch protection" in found and "Could not check the runs" in found
+    assert health.problems(now, ok, [], True, reserve_keys={"GROQ_API_KEY": True}, main_protected=True) == []
+    text = (WORKFLOWS / "health.yml").read_text()
+    for name in ("GROQ_API_KEY", "OPENROUTER_API_KEY"):
+        assert "${{ secrets.%s != '' }}" % name in text, name      # whether it is set, never its value
+    assert "pull-requests: read" in text
+
+
 # --- the maintenance version --------------------------------------------------------
 
 def prepare(tmp_path, *args):
