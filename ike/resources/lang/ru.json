@@ -887,6 +887,10 @@
 "a redirect to a refused address": "перенаправление на запрещённый адрес",
 "an address of this computer or of the home network: %s": "адрес этого компьютера или домашней сети: %s",
 "Code and files from: %s": "Код и файлы с: %s",
-"a part of this page": "часть этой страницы"
+"a part of this page": "часть этой страницы",
+"Site isolation: every site in its own process": "Изоляция сайтов: каждый сайт в своём процессе",
+"Site isolation: OFF (switched off on request)": "Изоляция сайтов: ВЫКЛЮЧЕНА (по запросу)",
+"Engine protections switched off on request (IKE_ALLOW_UNSAFE_ENGINE): %s": "Защиты движка отключены по запросу (IKE_ALLOW_UNSAFE_ENGINE): %s",
+"Engine switches that remove a protection were ignored: %s": "Проигнорированы ключи движка, отключающие защиту: %s"
 }
 }

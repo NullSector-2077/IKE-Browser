@@ -887,6 +887,10 @@
 "a redirect to a refused address": "重定向到被拒绝的地址",
 "an address of this computer or of the home network: %s": "本机或家庭网络中的地址：%s",
 "Code and files from: %s": "代码和文件来自：%s",
-"a part of this page": "此页面的一部分"
+"a part of this page": "此页面的一部分",
+"Site isolation: every site in its own process": "站点隔离：每个站点使用独立进程",
+"Site isolation: OFF (switched off on request)": "站点隔离：已关闭（应要求）",
+"Engine protections switched off on request (IKE_ALLOW_UNSAFE_ENGINE): %s": "已应要求关闭引擎保护（IKE_ALLOW_UNSAFE_ENGINE）：%s",
+"Engine switches that remove a protection were ignored: %s": "已忽略会移除保护的引擎开关：%s"
 }
 }

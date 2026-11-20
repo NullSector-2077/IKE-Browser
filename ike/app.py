@@ -1110,6 +1110,80 @@ def _video_trial_done(folder):
     (Path(folder) / VIDEO_TRIAL).unlink(missing_ok=True)
 
 
+# Engine switches that take away a protection of the engine (1.1.18, security
+# audit F7/F8): the sandbox, site isolation, web security, certificate checks,
+# remote control of the browser. Inherited from the environment (a system-wide
+# QTWEBENGINE_CHROMIUM_FLAGS set for another program, a leftover of a test)
+# they are dropped, and the window says so; only IKE_ALLOW_UNSAFE_ENGINE=1
+# keeps them, and then Help -> About and the window show that protections are
+# off. Graphics, video and speed switches are never touched.
+UNSAFE_SWITCHES = (
+    "--no-sandbox", "--disable-setuid-sandbox", "--disable-seccomp-filter-sandbox",
+    "--disable-namespace-sandbox", "--disable-gpu-sandbox", "--single-process", "--no-zygote",
+    "--disable-site-isolation-trials", "--disable-web-security", "--allow-running-insecure-content",
+    "--ignore-certificate-errors", "--ignore-certificate-errors-spki-list", "--ignore-urlfetcher-cert-requests",
+    "--reduce-security-for-testing", "--unsafely-treat-insecure-origin-as-secure",
+    "--allow-file-access-from-files", "--disable-features-for-testing",
+    "--remote-debugging-port", "--remote-debugging-pipe", "--remote-debugging-address",
+    "--remote-debugging-socket-name", "--remote-allow-origins", "--auto-open-devtools-for-tabs",
+)
+UNSAFE_FEATURES = ("IsolateOrigins", "site-per-process", "SitePerProcess", "OriginKeyedProcessesByDefault")
+UNSAFE_ENV = ("QTWEBENGINE_DISABLE_SANDBOX", "QTWEBENGINE_REMOTE_DEBUGGING")
+# what this run did with them: {"dropped": [...]} or {"kept": [...]} (About, window)
+ENGINE_SAFETY = {"dropped": [], "kept": []}
+
+
+def unsafe_allowed():
+    """The user asked on purpose for engine switches that take a protection away."""
+    return os.environ.get("IKE_ALLOW_UNSAFE_ENGINE", "") == "1"
+
+
+def _engine_safety(flags, env=None, allowed=None):
+    """flags without the switches that take an engine protection away (unless
+    allowed); the environment variables of that kind removed from `env` too.
+    Returns (flags, names of what was dropped or kept)."""
+    env = os.environ if env is None else env
+    allowed = unsafe_allowed() if allowed is None else allowed
+    out, unsafe = [], []
+    for f in flags:
+        name = f.split("=", 1)[0]
+        if name in UNSAFE_SWITCHES:
+            unsafe.append(name)
+            if allowed:
+                out.append(f)
+            continue
+        if name == "--disable-features" and "=" in f:
+            feats = f.split("=", 1)[1].split(",")
+            bad = [x for x in feats if x in UNSAFE_FEATURES]
+            if bad:
+                unsafe.extend("--disable-features=" + x for x in bad)
+                if not allowed:
+                    feats = [x for x in feats if x not in UNSAFE_FEATURES]
+                    if feats:
+                        out.append("--disable-features=" + ",".join(feats))
+                    continue
+        out.append(f)
+    for var in UNSAFE_ENV:
+        if env.get(var, "") not in ("", "0"):
+            unsafe.append(var)
+            if not allowed:
+                env.pop(var, None)
+    return out, unsafe
+
+
+def refuse_root():
+    """True when I.K.E. must not start: run as root (administrator), where the
+    engine's sandbox cannot work, without the user asking for it on purpose
+    (1.1.18, security audit F8: the sandbox was switched off silently)."""
+    return hasattr(os, "geteuid") and os.geteuid() == 0 and not unsafe_allowed()
+
+
+ROOT_MESSAGE = ("I.K.E. does not start as root (administrator): the engine's sandbox, which keeps web "
+                "pages away from the computer, cannot work there. Start it as your normal user. "
+                "To start it as root anyway, without the sandbox and at your own risk, set "
+                "IKE_ALLOW_UNSAFE_ENGINE=1.")
+
+
 def _chromium_flags(config):
     """Build engine switches and remove inherited global dark-mode overrides.
 
@@ -1117,6 +1191,11 @@ def _chromium_flags(config):
     be exempted without changing every other tab or restarting the browser.
     """
     flags = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "").split()
+    flags, unsafe = _engine_safety(flags)
+    ENGINE_SAFETY["kept" if unsafe_allowed() else "dropped"] = unsafe
+    if unsafe and not unsafe_allowed():
+        sys.stderr.write("I.K.E.: engine switches that remove a protection were ignored: %s "
+                         "(IKE_ALLOW_UNSAFE_ENGINE=1 keeps them)\n" % " ".join(unsafe))
     flags, forced = _strip_dark_flags(flags)
     changed = False
     if forced and not config["dark_env_migrated"]:
@@ -1139,12 +1218,15 @@ def _chromium_flags(config):
             and "--disable-smooth-scrolling" not in flags):
         flags.append("--enable-smooth-scrolling")
     if hasattr(os, "geteuid") and os.geteuid() == 0 and "--no-sandbox" not in flags:
+        # only reached with IKE_ALLOW_UNSAFE_ENGINE=1 (refuse_root): the
+        # engine cannot sandbox as root, and the window says it is off
         flags.append("--no-sandbox")
+        ENGINE_SAFETY["kept"].append("--no-sandbox")
     # every site in its own process, as in Chrome and Brave (1.1.18, security
     # audit F1; owner's decision): Qt WebEngine leaves it off, so a frame of
     # another site shared its page's process and one bug in the engine could
     # read the other site. A security switch, not a graphics path; about a
-    # tenth more memory. A user who turned it off on purpose is followed.
+    # tenth more memory. Turning it off takes IKE_ALLOW_UNSAFE_ENGINE=1.
     if "--site-per-process" not in flags and "--disable-site-isolation-trials" not in flags:
         flags.append("--site-per-process")
     flags = _video_flags(flags, config, CONFIG_DIR)
@@ -1171,6 +1253,25 @@ def sandbox_off():
     from the user's files, is switched off for this run."""
     flags = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "").split()
     return "--no-sandbox" in flags or os.environ.get("QTWEBENGINE_DISABLE_SANDBOX", "") not in ("", "0")
+
+
+def site_isolated():
+    """True when every site runs in its own engine process for this run."""
+    flags = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "").split()
+    return "--site-per-process" in flags and "--disable-site-isolation-trials" not in flags
+
+
+def engine_safety_lines(T):
+    """What Help -> About and the start-up notice say about engine switches
+    that were dropped, or kept on the user's request (1.1.18)."""
+    out = []
+    if ENGINE_SAFETY["kept"]:
+        out.append(T("Engine protections switched off on request (IKE_ALLOW_UNSAFE_ENGINE): %s")
+                   % " ".join(sorted(set(ENGINE_SAFETY["kept"]))))
+    if ENGINE_SAFETY["dropped"]:
+        out.append(T("Engine switches that remove a protection were ignored: %s")
+                   % " ".join(sorted(set(ENGINE_SAFETY["dropped"]))))
+    return out
 
 
 def _wait_for_previous():
@@ -1280,6 +1381,19 @@ def main(argv=None):
     ensure_dirs()
     from . import sitedata
     sitedata.at_start()                  # site data the user asked to clear: before the engine opens it
+    if refuse_root():
+        sys.stderr.write("I.K.E.: %s\n" % ROOT_MESSAGE)
+        if os.environ.get("QT_QPA_PLATFORM", "") == "offscreen" or not (
+                os.environ.get("WAYLAND_DISPLAY") or os.environ.get("DISPLAY")):
+            return 1                      # no desktop to show the message on: the terminal has it
+        try:
+            box_app = QApplication([sys.argv[0]])
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.critical(None, APP_NAME, ROOT_MESSAGE)
+            del box_app
+        except Exception:
+            pass
+        return 1
     config = Config()
     _chromium_flags(config)
     from .shields import register_scheme
@@ -1356,6 +1470,10 @@ def main(argv=None):
         server.newConnection.connect(incoming)
 
     ike.start(urls, args.private)
+    notice = engine_safety_lines(i18n.T)
+    if notice and not os.environ.get("IKE_TEST_NOASK"):
+        # protections of the engine changed by switches: the user sees it at once
+        QTimer.singleShot(1500, lambda: ike._notify(" · ".join(notice)))
     hook = os.environ.get("IKE_TEST_HOOK")
     if hook:
         import runpy

@@ -887,6 +887,10 @@
 "a redirect to a refused address": "пренасочување кон одбиена адреса",
 "an address of this computer or of the home network: %s": "адреса на овој компјутер или на домашната мрежа: %s",
 "Code and files from: %s": "Код и датотеки од: %s",
-"a part of this page": "дел од оваа страница"
+"a part of this page": "дел од оваа страница",
+"Site isolation: every site in its own process": "Изолација на страниците: секоја страница во свој процес",
+"Site isolation: OFF (switched off on request)": "Изолација на страниците: ИСКЛУЧЕНА (на барање)",
+"Engine protections switched off on request (IKE_ALLOW_UNSAFE_ENGINE): %s": "Заштитите на механизмот се исклучени на барање (IKE_ALLOW_UNSAFE_ENGINE): %s",
+"Engine switches that remove a protection were ignored: %s": "Игнорирани се прекинувачи на механизмот што отстрануваат заштита: %s"
 }
 }

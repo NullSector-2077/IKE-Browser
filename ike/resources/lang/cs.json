@@ -887,6 +887,10 @@
 "a redirect to a refused address": "přesměrování na odmítnutou adresu",
 "an address of this computer or of the home network: %s": "adresa tohoto počítače nebo domácí sítě: %s",
 "Code and files from: %s": "Kód a soubory z: %s",
-"a part of this page": "část této stránky"
+"a part of this page": "část této stránky",
+"Site isolation: every site in its own process": "Izolace webů: každý web ve vlastním procesu",
+"Site isolation: OFF (switched off on request)": "Izolace webů: VYPNUTA (na požádání)",
+"Engine protections switched off on request (IKE_ALLOW_UNSAFE_ENGINE): %s": "Ochrany jádra vypnuty na požádání (IKE_ALLOW_UNSAFE_ENGINE): %s",
+"Engine switches that remove a protection were ignored: %s": "Přepínače jádra, které odstraňují ochranu, byly ignorovány: %s"
 }
 }

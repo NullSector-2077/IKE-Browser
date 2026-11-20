@@ -887,6 +887,10 @@
 "a redirect to a refused address": "拒否されたアドレスへのリダイレクト",
 "an address of this computer or of the home network: %s": "このコンピューターまたはホームネットワークのアドレス：%s",
 "Code and files from: %s": "コードとファイルの提供元：%s",
-"a part of this page": "このページの一部"
+"a part of this page": "このページの一部",
+"Site isolation: every site in its own process": "サイト分離：サイトごとに別のプロセス",
+"Site isolation: OFF (switched off on request)": "サイト分離：オフ（要求により無効）",
+"Engine protections switched off on request (IKE_ALLOW_UNSAFE_ENGINE): %s": "要求によりエンジンの保護を無効化（IKE_ALLOW_UNSAFE_ENGINE）：%s",
+"Engine switches that remove a protection were ignored: %s": "保護を外すエンジンのスイッチを無視しました：%s"
 }
 }

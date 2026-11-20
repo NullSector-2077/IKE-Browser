@@ -2073,7 +2073,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         from PyQt6.QtCore import QT_VERSION_STR
         from PyQt6.QtWebEngineCore import qWebEngineChromiumVersion
 
-        from .app import INTERNAL_ERRORS, sandbox_off
+        from .app import INTERNAL_ERRORS, engine_safety_lines, sandbox_off, site_isolated
         chromium = qWebEngineChromiumVersion()
         try:
             from PyQt6.QtWebEngineCore import qWebEngineChromiumSecurityPatchVersion
@@ -2086,6 +2086,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                  self._engine_age(),
                  T("Engine sandbox: OFF (switched off by the environment, or I.K.E. was started as administrator)")
                  if sandbox_off() else T("Engine sandbox: on"),
+                 T("Site isolation: every site in its own process") if site_isolated()
+                 else T("Site isolation: OFF (switched off on request)"),
+                 *engine_safety_lines(T),
                  self._media_about(media),
                  "%s: %s" % (T("Content blocker"), self._engine_about(self.app.blocker)),
                  T("Chrome extensions: not usable with this engine version (enabling one crashes it)"),
