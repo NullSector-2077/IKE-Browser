@@ -50,6 +50,40 @@ available, but it needs a newer installation package".
 
 Pre-releases and drafts are not "latest" on GitHub, so they are never offered.
 
+## Expiry, staged release and stopping a release (1.1.18)
+
+Every manifest signed by `tools/make-release.py` carries `issued`, `expires`
+(180 days later) and `rollout` (`start` and `hours`, 24 by default). The
+updater (`ike/updater.py`, `manifest_problem`):
+
+- installs nothing from an **expired** manifest and says so ("the update
+  information is out of date"): a copy kept back after its time cannot hold
+  users on an old release unnoticed. The next release's manifest is valid
+  again, so this never blocks updates for good;
+- gives each installation a fixed **place** from 0 to 99 (kept in
+  `updates/state.json`): place N installs once N % of the rollout window has
+  passed, so a release reaches everybody within 24 hours, a few first.
+  "Check for updates" asked by the user does not wait. A clock that is days
+  behind does not wait either;
+- installs nothing from a manifest with **`"halt": true`**.
+
+To publish a security fix to everybody at once:
+`python3 tools/publish.py --urgente`. To stop a release that went wrong,
+sign a halt manifest of the same version and upload it over the release's
+own (the package and the payload stay as they are):
+
+```
+python3 tools/make-release.py --halt --out /tmp/halt
+gh release upload v<version> /tmp/halt/stable.json /tmp/halt/stable.json.sig /tmp/halt/beta.json /tmp/halt/beta.json.sig --clobber
+```
+
+Installations that already took it keep it (the rollback of a copy that does
+not start still works); the others wait for the next release. Manifests of
+releases before 1.1.18 have none of these fields and are taken as before.
+Downgrades were already refused (only a newer version than the running or
+staged one is installed), and every payload is checked against the signed
+SHA-256 before it is unpacked.
+
 ## The signing key
 
 Generated once by the owner, on the owner's computer (fish shell):

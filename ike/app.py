@@ -578,7 +578,7 @@ class IkeApp(QObject):
                     "Filter lists still update every day; the web engine is updated by the "
                     "system package manager."))
             return
-        if self.updater.run(install=self.config["app_updates"] == "auto") and manual:
+        if self.updater.run(install=self.config["app_updates"] == "auto", manual=manual) and manual:
             self._notify(T("Checking for updates…"))
 
     def _app_update_done(self, kind, data):
@@ -635,7 +635,7 @@ class IkeApp(QObject):
             self.config.save()
             if clicked in (always, once):
                 self._manual_app = True
-                self.updater.run(install=True)
+                self.updater.run(install=True, manual=True)
 
     def _desktop_notify(self, text):
         self._notify(text)

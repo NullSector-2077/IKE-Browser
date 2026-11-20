@@ -130,6 +130,8 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--dry-run", action="store_true", help="tutto tranne la release su GitHub")
     ap.add_argument("--key", help="chiave privata (predefinita: ~/.ike-signing/ike-update.key)")
+    ap.add_argument("--urgente", action="store_true",
+                    help="a tutti subito (correzione di sicurezza), invece che nell'arco di 24 ore")
     a = ap.parse_args(argv)
     try:
         return publish(a)
@@ -192,6 +194,8 @@ def publish(a):
     cmd = [sys.executable, str(ROOT / "tools" / "make-release.py"), "--engine", str(engine)]
     if a.key:
         cmd += ["--key", a.key]
+    if getattr(a, "urgente", False):
+        cmd += ["--rollout-hours", "0"]
     # its own advice on publishing by hand is not shown: this command does it;
     # the passphrase is asked on the terminal (stderr), so it still shows
     signed = subprocess.run(cmd, cwd=ROOT, stdout=subprocess.PIPE, text=True, check=False)

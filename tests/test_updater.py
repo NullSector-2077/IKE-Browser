@@ -267,7 +267,7 @@ class Releases:
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
         self.url = "http://127.0.0.1:%d/releases/latest/download" % self.server.server_port
 
-    def publish(self, key, version, min_system="1.0.0", broken=False, bad_sig=False):
+    def publish(self, key, version, min_system="1.0.0", broken=False, bad_sig=False, extra=None):
         """Put a release of this repository's ike/ renamed as `version`."""
         buf = io.BytesIO()
         with tarfile.open(fileobj=buf, mode="w:gz") as tar:
@@ -286,6 +286,7 @@ class Releases:
         payload = buf.getvalue()
         m = {"version": version, "payload": "ike-%s.tar.gz" % version,
              "sha256": hashlib.sha256(payload).hexdigest(), "min_system": min_system}
+        m.update(extra or {})                   # 1.1.18: expiry, staged release, halt
         manifest = json.dumps(m).encode()
         sig = key.sign(manifest + (b"x" if bad_sig else b""))
         self.files = {"stable.json": manifest, "stable.json.sig": base64.b64encode(sig),
