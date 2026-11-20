@@ -90,10 +90,12 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Open work
 
-- **Security** (docs/SECURITY.md): DNS rebinding and public names of home
-  network addresses wait for the engine's Local Network Access in a later
-  Qt; Certificate Transparency, HSTS preload and Arch's V8 hardening to be
-  verified on a real system.
+- **Security** (docs/SECURITY.md): 1.1.19 (approved by the owner) turns on
+  the engine's Local Network Access (it covers DNS rebinding) with I.K.E.'s
+  own per-site "Allow" (the engine has no per-site permission: one restart
+  the first time a device is allowed); `--ip-address-space-overrides` joins
+  the unsafe switches. Certificate Transparency, HSTS preload and Arch's V8
+  hardening to be verified on a real system.
 - **Workers started from a file**: `experiment/file-workers` (see Known
   limits); merged only if the owner wants it, probably as an option.
 - **Dark Reader**: the early plain background could leave from inside
