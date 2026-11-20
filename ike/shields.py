@@ -560,6 +560,10 @@ class Shields(QObject):
         # One fingerprint-noise key per WebEngine profile. Private and
         # container profiles must not share the same per-site noise stream.
         self.profile_keys = {}
+        # the media-command events' own secret (mediahook.js), never derived
+        # from the fingerprinting key (1.1.18, security audit: it was the
+        # key's first 96 bits, readable on media sites)
+        self.media_keys = {}
         self.action_key = secrets.token_hex(16)   # the new tab page's own links (IkeSchemeHandler)
         self.stats = {}
         self.requests = {}               # site -> requests made for it (see resources)
@@ -800,6 +804,7 @@ class Shields(QObject):
             profile.setPersistentCookiesPolicy(
                 QWebEngineProfile.PersistentCookiesPolicy.AllowPersistentCookies)
         self.profile_keys[id(profile)] = secrets.token_hex(16)
+        self.media_keys[id(profile)] = secrets.token_hex(16)
         self._identity(profile)
         if quiet:
             profile._ike_interceptor = Interceptor(self, quiet=True)
@@ -863,7 +868,7 @@ class Shields(QObject):
 
     def media_token(self, profile):
         """The secret of a profile's media-command events (mediahook.js)."""
-        return "m" + self.profile_keys.get(id(profile), "")[:24]
+        return "m" + self.media_keys.get(id(profile), "")
 
     def apply_settings(self, profile=None):
         """(Re)apply everything that depends on the configuration."""
