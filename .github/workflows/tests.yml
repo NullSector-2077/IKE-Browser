@@ -139,10 +139,15 @@ jobs:
   # a person reach the automatic fix through workflow_run as before.
   hand-over:
     needs: tests
+    # also a run the automatic fix started again (audit of #65: a test failed
+    # once is run again before any AI fix), on main too
     if: >-
-      failure() && github.event_name == 'workflow_dispatch' &&
-      github.actor == 'github-actions[bot]' &&
-      (github.ref_name == 'automation/autofix-main' || github.ref_name == 'automation/daily-maintenance')
+      failure() && (
+      (github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]' &&
+      (github.ref_name == 'automation/autofix-main' || github.ref_name == 'automation/daily-maintenance')) ||
+      (github.run_attempt > 1 && github.triggering_actor == 'github-actions[bot]' &&
+      (github.ref_name == 'main' || github.ref_name == 'automation/autofix-main' ||
+      github.ref_name == 'automation/daily-maintenance')))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -153,4 +158,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
-        run: gh workflow run autofix.yml --ref main -f run_id="$RUN_ID"
+        # asked again after a pause: a dropped hand-over loses the failure (audit of #65)
+        run: |
+          for pause in 15 30 0; do
+            if gh workflow run autofix.yml --ref main -f run_id="$RUN_ID"; then exit 0; fi
+            sleep "$pause"
+          done
+          exit 1

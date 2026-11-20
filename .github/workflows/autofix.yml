@@ -53,7 +53,9 @@ jobs:
       (github.event_name == 'workflow_dispatch' && github.event.inputs.self_test != 'true' &&
       github.event.inputs.run_id != '') || github.event.workflow_run.conclusion == 'failure'
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    # above its longest wait: a run handed over while it closes, about ten
+    # minutes, and GitHub's calls asked again (audit of #65, L10)
+    timeout-minutes: 20
     permissions:
       actions: read
       contents: read
@@ -83,9 +85,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.event.inputs.run_id || github.event.workflow_run.id }}
+          EVENT: ${{ github.event_name }}
         run: |
           mkdir -p "$RUNNER_TEMP/failure"
-          python3 -I tools/autofix-plan.py --run-id "$RUN_ID" --logs "$RUNNER_TEMP/failure/failure.md"
+          python3 -I tools/autofix-plan.py --run-id "$RUN_ID" --logs "$RUNNER_TEMP/failure/failure.md" \
+            --event "$EVENT"
       - name: Keep the failure description
         if: steps.plan.outputs.action == 'fix' || steps.plan.outputs.action == 'issue'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -94,6 +98,27 @@ jobs:
           path: ${{ runner.temp }}/failure/failure.md
           if-no-files-found: error
           retention-days: 7
+
+  # A test that failed only once is run again before any AI is asked (audit of
+  # #65, M5): GitHub runs the failed jobs again; if they fail again, the tests
+  # hand that failure over (tests.yml, hand-over) and the plan sees a second
+  # attempt.
+  rerun:
+    needs: plan
+    if: needs.plan.outputs.action == 'rerun'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Run the failed tests once more
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.inputs.run_id || github.event.workflow_run.id }}
+        run: |
+          retry() { n=1; until "$@"; do [ "$n" -ge 3 ] && return 1; sleep $((n * 15)); n=$((n + 1)); done; }
+          retry gh run rerun "$RUN_ID" --failed
 
   fix:
     needs: plan
@@ -260,6 +285,10 @@ jobs:
           if sudo -u agent curl -s -m 5 -o /dev/null https://github.com; then
             echo "::error::the firewall does not hold"; exit 1
           fi
+          # ...also by address: the check above stops at the name lookup (audit of #65)
+          if sudo -u agent curl -s -m 5 -o /dev/null https://1.1.1.1; then
+            echo "::error::the firewall does not hold (by address)"; exit 1
+          fi
           # ...and still finds the Gemini API, from /etc/hosts
           if [ "$(sudo -u agent getent ahostsv4 "$api" | awk 'NR==1 {print $1}')" != "$pinned" ]; then
             echo "::error::the agent does not find the Gemini API at its pinned address"; exit 1
@@ -271,6 +300,9 @@ jobs:
           if sudo -u agent sh -c "echo > $repo/.git/config" 2>/dev/null || sudo -u agent mv "$repo/.git" "$repo/.git-x" 2>/dev/null; then
             echo "::error::the agent can change .git"; exit 1
           fi
+          # the checks' own refused connections are not the agent's: the firewall's
+          # log starts empty for the diagnosis and the self-test
+          sudo dmesg -C 2> /dev/null || true
           "$RUNNER_TEMP/stop-agent"
       # Also when the closed room stopped (a different installer, say): that is
       # when a person wants to read it.
@@ -790,12 +822,9 @@ jobs:
       (needs.plan.outputs.action == 'fix' && needs.publish.result != 'success'))
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    # Two reports of the same workflow at once would both find no open issue
-    # and both open one (final review of 1.1.18): one at a time per workflow,
-    # never cancelled while running.
-    concurrency:
-      group: autofix-report-${{ needs.plan.outputs.workflow }}
-      cancel-in-progress: false
+    # Two reports of the same workflow at once could both find no open issue and
+    # both open one: the newer one closes itself (below). No concurrency group:
+    # GitHub keeps one waiting job per group and drops the rest (audit of #65).
     permissions:
       issues: write
     steps:
@@ -935,12 +964,23 @@ jobs:
           title="Automatic fix needs you: $WORKFLOW"
           if [ "$KIND" = "infra" ]; then title="GitHub or the runner failed: $WORKFLOW"; fi
           gh label create autofix --color d93f0b --description "Automatic fix prepared by the AI agent" 2>/dev/null || true
-          open=$(gh issue list --label autofix --state open --json number,title \
-            --jq "map(select(.title == \"$title\")) | .[0].number // empty")
+          retry() { n=1; until "$@"; do [ "$n" -ge 3 ] && return 1; sleep $((n * 15)); n=$((n + 1)); done; }
+          oldest() {
+            retry gh issue list --label autofix --state open --json number,title \
+              --jq "map(select(.title == \"$title\")) | sort_by(.number) | .[0].number // empty"
+          }
+          open=$(oldest)
           if [ -n "$open" ]; then
-            gh issue comment "$open" --body-file "$body"
+            retry gh issue comment "$open" --body-file "$body"
           else
-            gh issue create --title "$title" --label autofix --body-file "$body"
+            url=$(retry gh issue create --title "$title" --label autofix --body-file "$body")
+            mine="${url##*/}"
+            # a report at the same moment may have opened one too: the older stays
+            first=$(oldest)
+            if [ -n "$first" ] && [ -n "$mine" ] && [ "$first" != "$mine" ]; then
+              retry gh issue comment "$first" --body-file "$body"
+              retry gh issue close "$mine" --comment "Duplicate of #$first (two reports at the same moment)."
+            fi
           fi
 
   # By hand only (workflow_dispatch with self_test): does Antigravity's deny list

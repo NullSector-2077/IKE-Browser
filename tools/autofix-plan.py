@@ -69,8 +69,12 @@ INFRA_TITLE = "GitHub or the runner failed: %s"
 REPORTING_JOBS = {"Tests": ("hand-over",), "Daily component check": ("update-issue",),
                   "Daily maintenance candidate": ("publish-candidate",)}
 INFRA_STEP = re.compile(r"^(Set up job|Complete job|Post |Check out|Run actions/(checkout|setup-|upload-artifact"
-                        r"|download-artifact|cache)|Upload |Download |Validate downloaded|Rust$)")
+                        r"|download-artifact|cache)|Upload |Download |Validate downloaded|Rust$|Test environment$)")
 LOG_TRIES = 3
+# Steps where a test may fail only sometimes (Qt WebEngine under load): failed
+# there once, the tests run once more before any AI is asked (audit of #65, M5)
+RERUN_STEPS = ("Tests", "Tests of the installed package")
+BOT = "github-actions[bot]"
 LOG_LINES = 160              # of the failed step only (1.1.16: the whole job's end was mostly noise)
 LOG_BYTES = 20000
 # lines that never explain a failure: package installs, downloads, the runner's cleanup
@@ -87,16 +91,23 @@ STAMP = re.compile(r"^\d{4}-\d\d-\d\dT[\d:.]+Z ?")
 ENV_LINE = re.compile(r"^  [A-Za-z_][A-Za-z0-9_]*: ")
 
 
-def gh_api(path, raw=False):
+def gh_api(path, raw=False, tries=3, pause=5):
+    """GitHub's API through gh, asked again after a pause when it fails (audit
+    of #65: one 502 dropped a failure)."""
     cmd = ["gh", "api", path]
     if raw:
         # Job logs hold the runner's colour codes, and newer gh refuses to print
         # them unless asked (seen on 2026-11-19: no assistant got the error);
         # clean_log removes them. Older gh does not know the flag: then without.
         cmd.insert(2, "--allow-escape-sequences")
-    out = subprocess.run(cmd, capture_output=True, text=True, check=False)
-    if out.returncode and raw and "unknown flag" in out.stderr:
-        out = subprocess.run(["gh", "api", path], capture_output=True, text=True, check=False)
+    for n in range(tries):
+        out = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        if out.returncode and raw and "unknown flag" in out.stderr:
+            cmd = ["gh", "api", path]
+            out = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        if not out.returncode or n + 1 == tries:
+            break
+        time.sleep(pause * (n + 1))
     if out.returncode:
         raise RuntimeError("gh api %s: %s" % (path, out.stderr.strip()[:300]))
     return out.stdout if raw else json.loads(out.stdout)
@@ -183,7 +194,7 @@ def job_log(repo, job, tries=LOG_TRIES, pause=10, sleep=None):
     few seconds after a run closes: asked again before giving up."""
     for n in range(tries):
         try:
-            return clean_log(gh_api("repos/%s/actions/jobs/%s/logs" % (repo, job["id"]), raw=True))
+            return clean_log(gh_api("repos/%s/actions/jobs/%s/logs" % (repo, job["id"]), raw=True, tries=1))
         except RuntimeError as e:
             if n + 1 == tries:
                 print("::warning::the log of job %s is not available: %s" % (job["name"], e))
@@ -261,6 +272,10 @@ def infra_failure(name, failed_jobs):
     out, set up, an artifact kept or fetched); a job that failed with no failed
     step (a time limit) counts as real."""
     names = [j["name"] for j in failed_jobs]
+    if not names:
+        # audit of #65 (L5): a run that failed with no failed job (a workflow
+        # file GitHub refused, a cancelled set-up)
+        return "the run failed with no failed job: GitHub or a workflow file, not the code"
     reporting = REPORTING_JOBS.get(name, ())
     if names and all(n in reporting for n in names):
         return ("only the job that reports or publishes failed (%s): GitHub, a permission or a repository "
@@ -304,6 +319,16 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
         infra = infra_failure(name, failed_jobs)
         if infra:
             plan.update(action="issue", kind="infra", reason=infra)
+            return plan
+        attempt = int(run.get("run_attempt") or 1)
+        if name == "Tests" and attempt > 1 and run.get("_event") == "workflow_run" and \
+                (run.get("triggering_actor") or {}).get("login") == BOT:
+            plan["reason"] = "a run the automatic fix started again: the tests hand its failure over themselves"
+            return plan
+        steps = [st for j in failed_jobs if j["name"] == "tests" for st in failed_steps(j)]
+        if name == "Tests" and attempt == 1 and steps and all(st in RERUN_STEPS for st in steps):
+            plan.update(action="rerun", reason="the tests failed once (step: %s): they run once more before any "
+                        "automatic fix, a test that fails only sometimes is no matter for an AI" % ", ".join(steps))
             return plan
 
     if name == "Tests":
@@ -439,6 +464,7 @@ def main(argv=None):
     ap.add_argument("--run-id", required=True)
     ap.add_argument("--logs", required=True)
     ap.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", ""))
+    ap.add_argument("--event", default="", help="what started this plan: workflow_run or workflow_dispatch")
     a = ap.parse_args(argv)
     repo = a.repo
     run = completed_run(repo, a.run_id)
@@ -446,6 +472,7 @@ def main(argv=None):
     failed = [j for j in jobs if j.get("conclusion") == "failure"]
     branch = run.get("head_branch") or ""
     run["_repo"] = repo
+    run["_event"] = a.event
     run["_tip"] = tip(branch) if branch else ""
     run["_main_tip"] = tip("main")
     run["_attempts"] = autofix_commits(branch) if branch in (MAINTENANCE, FIX_MAIN) else 0

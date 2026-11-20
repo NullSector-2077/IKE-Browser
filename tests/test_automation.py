@@ -449,7 +449,7 @@ def jobs_of(text):
 def test_autofix_workflow_permissions():
     text = (WORKFLOWS / "autofix.yml").read_text()
     jobs = jobs_of(text)
-    assert set(jobs) == {"plan", "fix", "guard", "publish", "report", "self-test"}
+    assert set(jobs) == {"plan", "rerun", "fix", "guard", "publish", "report", "self-test"}
     assert "permissions: {}" in text and "pull_request_target" not in text
     # the agent: read only, the only job with the key, no GitHub token
     assert re.search(r"permissions:\n\s+contents: read\n\s+outputs:", jobs["fix"])
@@ -1626,7 +1626,11 @@ def test_failures_of_tests_the_automation_started_reach_the_fix(monkeypatch):
     hand = text.split("\n  hand-over:\n", 1)[1]
     assert "needs: tests" in hand and "failure()" in hand
     assert "github.actor == 'github-actions[bot]'" in hand and "github.event_name == 'workflow_dispatch'" in hand
-    assert "automation/autofix-main" in hand and "automation/daily-maintenance" in hand and "'main'" not in hand
+    assert "automation/autofix-main" in hand and "automation/daily-maintenance" in hand
+    # a dispatch is handed over from the automation's branches only; main only for a run
+    # the automatic fix started again (audit of #65)
+    dispatch, again = hand.split("github.run_attempt > 1", 1)
+    assert "'main'" not in dispatch and "github.triggering_actor == 'github-actions[bot]'" in again
     assert "permissions:\n      actions: write\n" in hand and "contents: write" not in hand
     assert 'gh workflow run autofix.yml --ref main -f run_id="$RUN_ID"' in hand
     assert "permissions:\n  contents: read\n" in text.split("jobs:")[0]
@@ -2561,13 +2565,15 @@ def _with_steps(name, *steps):
     ("Daily component check", "main", [_with_steps("check", "Check components")], "fix", "main"),
 ])
 def test_a_failure_of_github_or_a_report_is_never_maintenance_failed(workflow, branch, jobs_, action, kind):
-    p = plan_tool.decide(failed_run(name=workflow, branch=branch), jobs_, "")
+    # a second attempt: the first one of a failed "Tests" step is run again (see the next tests)
+    p = plan_tool.decide(failed_run(name=workflow, branch=branch, run_attempt=2), jobs_, "")
     assert (p["action"], p["kind"]) == (action, kind), p
     if kind == "infra":
         assert "not the code" in p["reason"] or "nothing on main to fix" in p["reason"], p
         # it never holds back the fix of a real failure afterwards
         infra_issue = {"title": plan_tool.INFRA_TITLE % workflow, "body": "x", "reported_at": NOW.isoformat()}
-        later = plan_tool.decide(failed_run(name=workflow), [_with_steps("tests", "Tests")] if workflow == "Tests"
+        later = plan_tool.decide(failed_run(name=workflow, run_attempt=2),
+                                 [_with_steps("tests", "Tests")] if workflow == "Tests"
                                  else [_with_steps("check" if "check" in workflow else "prepare", "Tests")],
                                  "", [infra_issue], now=NOW)
         assert later["action"] == "fix", later
@@ -2578,10 +2584,10 @@ def test_logs_that_cannot_be_read_make_no_blind_fix(monkeypatch, tmp_path, capsy
     three times, then an issue of GitHub's title instead of a fix that would
     only guess."""
     run = {"name": "Tests", "head_branch": "main", "conclusion": "failure", "status": "completed",
-           "head_sha": "abc", "head_repository": {"full_name": "o/r"}, "html_url": "u"}
+           "head_sha": "abc", "head_repository": {"full_name": "o/r"}, "html_url": "u", "run_attempt": 2}
     asked = []
 
-    def api(path, raw=False):
+    def api(path, raw=False, **kw):
         asked.append(path)
         if path.endswith("/logs"):
             raise RuntimeError("HTTP 404: Not Found")
@@ -2604,7 +2610,7 @@ def test_logs_that_cannot_be_read_make_no_blind_fix(monkeypatch, tmp_path, capsy
     # a log that comes at the second try is used, and the fix goes on
     tries = []
 
-    def late(path, raw=False):
+    def late(path, raw=False, **kw):
         if path.endswith("/logs"):
             tries.append(path)
             if len(tries) < 2:
@@ -2629,7 +2635,7 @@ def _report(tmp_path, issues, **env_):
     bin_ = tmp_path / "bin"
     bin_.mkdir(exist_ok=True)
     (bin_ / "gh").write_text(r'''#!/usr/bin/env python3
-import json, sys
+import json, os, sys
 db = sys.argv[0] + ".json"
 try:
     issues = json.load(open(db))
@@ -2637,11 +2643,20 @@ except OSError:
     issues = []
 a = sys.argv[1:]
 if a[:2] == ["issue", "list"]:
-    print(next((str(i["n"]) for i in issues if i["title"] == a[a.index("--jq") + 1].split('"')[1]), ""))
+    title = a[a.index("--jq") + 1].split('"')[1]
+    if os.environ.get("FAKE_RACE") == "1" and not issues:
+        # another report opens the same issue just after this one looked
+        issues.append({"n": 1, "title": title, "comments": 0, "closed": False})
+        print("")
+    else:
+        print(next((str(i["n"]) for i in issues if i["title"] == title and not i["closed"]), ""))
 elif a[:2] == ["issue", "create"]:
-    issues.append({"n": len(issues) + 1, "title": a[a.index("--title") + 1], "comments": 0})
+    issues.append({"n": len(issues) + 1, "title": a[a.index("--title") + 1], "comments": 0, "closed": False})
+    print("https://example.test/o/r/issues/%d" % len(issues))
 elif a[:2] == ["issue", "comment"]:
     issues[int(a[2]) - 1]["comments"] += 1
+elif a[:2] == ["issue", "close"]:
+    issues[int(a[2]) - 1]["closed"] = True
 json.dump(issues, open(db, "w"))
 ''')
     (bin_ / "gh").chmod(0o755)
@@ -2660,14 +2675,20 @@ def test_reports_one_after_the_other_never_open_the_same_issue_twice(tmp_path):
     maintenance) each end in a report. One at a time per workflow (the job's
     concurrency group), the second comments on the first one's issue."""
     report_job = jobs_of((WORKFLOWS / "autofix.yml").read_text())["report"]
-    assert "group: autofix-report-${{ needs.plan.outputs.workflow }}" in report_job
-    assert "cancel-in-progress: false" in report_job
+    # audit of #65: a concurrency group drops all but one waiting report
+    assert "concurrency:" not in report_job
     _report(tmp_path, [])
     issues = _report(tmp_path, [])
-    assert [(i["title"], i["comments"]) for i in issues] == [("Automatic fix needs you: Tests", 1)]
+    assert [(i["title"], i["comments"], i["closed"]) for i in issues] == [("Automatic fix needs you: Tests", 1, False)]
+    # two at the same moment: both saw no issue, both opened one; the newer closes itself
+    race = tmp_path / "race"
+    race.mkdir()
+    issues = _report(race, [], FAKE_RACE="1")
+    assert [(i["n"], i["comments"], i["closed"]) for i in issues] == [(1, 1, False), (2, 0, True)], issues
     # GitHub's failures have their own issue, apart from the code's
     issues = _report(tmp_path, [], KIND="infra", REASON="a step of GitHub or the runner failed")
     assert [i["title"] for i in issues] == ["Automatic fix needs you: Tests", "GitHub or the runner failed: Tests"]
+    assert "issue close" not in (WORKFLOWS / "autofix.yml").read_text().split("oldest()")[0]
 
 
 def test_two_failures_close_together_never_write_the_same_branch_twice():
@@ -2681,7 +2702,7 @@ def test_two_failures_close_together_never_write_the_same_branch_twice():
         assert "group: %s${{ needs.plan.outputs.push_branch }}" % group in jobs[name], name
         assert "cancel-in-progress: false" in jobs[name], name
     assert "\nconcurrency:" not in text.split("\njobs:\n")[0]          # no group for the whole workflow
-    a = plan_tool.decide(failed_run(), [_with_steps("tests", "Tests")], "")
+    a = plan_tool.decide(failed_run(run_attempt=2), [_with_steps("tests", "Tests")], "")
     b = plan_tool.decide(failed_run(name="Daily maintenance candidate"),
                          [_with_steps("prepare", "Prepare the IKE patch release candidate")], "")
     assert a["push_branch"] == b["push_branch"] == "automation/autofix-main"
@@ -2766,3 +2787,62 @@ def test_a_published_candidate_is_always_tested(tmp_path, push, runs, pushed, di
         assert "runs?head_sha=seen123" in log
     prepare = jobs_of((WORKFLOWS / "daily-maintenance.yml").read_text())["prepare"]
     assert "seen: ${{ steps.compare.outputs.seen }}" in prepare
+
+
+@pytest.mark.parametrize("steps, attempt, event, actor, action", [
+    (["Tests"], 1, "workflow_run", "owner", "rerun"),                      # once: run again, no AI yet
+    (["Tests of the installed package"], 1, "workflow_dispatch", "github-actions[bot]", "rerun"),
+    (["Tests"], 2, "workflow_dispatch", "github-actions[bot]", "fix"),     # failed again: the AI
+    (["Lint"], 1, "workflow_run", "owner", "fix"),                         # never "only sometimes"
+    (["Tests", "Lint"], 1, "workflow_run", "owner", "fix"),
+    (["Tests"], 2, "workflow_run", "github-actions[bot]", "skip"),         # its hand-over brings it
+])
+def test_a_test_that_failed_once_runs_again_before_any_ai(steps, attempt, event, actor, action):
+    """Audit of #65 (M5): a failure that comes and goes (Qt WebEngine under
+    load) went straight to an AI, which could only weaken the test. A failed
+    pytest step is run once more first; the second failure is handed over by
+    the tests themselves (the run started again by the automation sends no
+    workflow_run, or one this plan skips)."""
+    run = failed_run(run_attempt=attempt, _event=event, triggering_actor={"login": actor})
+    p = plan_tool.decide(run, [_with_steps("tests", *steps)], "")
+    assert p["action"] == action, p
+    text = (WORKFLOWS / "autofix.yml").read_text()
+    rerun = jobs_of(text)["rerun"]
+    assert "needs.plan.outputs.action == 'rerun'" in rerun and 'gh run rerun "$RUN_ID" --failed' in rerun
+    assert re.search(r"permissions:\n\s+actions: write\n\s+steps:", rerun) and "contents: write" not in rerun
+    assert '--event "$EVENT"' in jobs_of(text)["plan"]
+
+
+def test_github_calls_are_asked_again(monkeypatch):
+    """Audit of #65 (M4): one 502 of GitHub dropped a failure."""
+    answers = [(1, "", "HTTP 502"), (1, "", "HTTP 502"), (0, "[1]", "")]
+    slept = []
+
+    def run(cmd, **kw):
+        code, out, err = answers.pop(0)
+        return subprocess.CompletedProcess(cmd, code, out, err)
+    monkeypatch.setattr(plan_tool.subprocess, "run", run)
+    monkeypatch.setattr(plan_tool.time, "sleep", slept.append)
+    assert plan_tool.gh_api("repos/o/r/pulls") == [1] and slept == [5, 10]
+    answers[:] = [(1, "", "HTTP 404")] * 3
+    with pytest.raises(RuntimeError):
+        plan_tool.gh_api("repos/o/r/x")
+    hand = (WORKFLOWS / "tests.yml").read_text().split("\n  hand-over:\n", 1)[1]
+    assert "for pause in 15 30 0" in hand
+
+
+def test_the_room_checks_its_firewall_by_address_and_leaves_no_trace():
+    """Audit of #65 (L3): the check by name stopped at the name lookup and
+    proved nothing of the firewall; its own refused connections then showed
+    as the agent's in the diagnosis."""
+    room = step_script("A closed room for the agent")
+    assert "sudo -u agent curl -s -m 5 -o /dev/null https://1.1.1.1" in room
+    assert room.index("https://1.1.1.1") < room.index("sudo dmesg -C") < room.rindex('"$RUNNER_TEMP/stop-agent"')
+
+
+def test_a_run_with_no_failed_job_or_a_broken_test_environment_is_not_for_an_ai():
+    """Audit of #65 (L5)."""
+    p = plan_tool.decide(failed_run(run_attempt=2), [], "")
+    assert (p["action"], p["kind"]) == ("issue", "infra") and "no failed job" in p["reason"]
+    p = plan_tool.decide(failed_run(run_attempt=2), [_with_steps("tests", "Test environment")], "")
+    assert (p["action"], p["kind"]) == ("issue", "infra")
