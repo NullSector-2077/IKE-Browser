@@ -183,6 +183,7 @@ DOH_PROVIDERS = {
 
 DEFAULTS = {
     "language": "auto",                 # auto | it | en
+    "lan_sites": {},                    # public site -> ["address:port", ...] it may reach at home (1.1.19)
     "accept_language": "",              # "": the system's languages (1.1.18; see accept_language())
     "startup": "restore",               # restore | home | newtab
     "homepage": "ike:newtab",

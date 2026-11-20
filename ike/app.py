@@ -1126,11 +1126,20 @@ UNSAFE_SWITCHES = (
     "--allow-file-access-from-files", "--disable-features-for-testing",
     "--remote-debugging-port", "--remote-debugging-pipe", "--remote-debugging-address",
     "--remote-debugging-socket-name", "--remote-allow-origins", "--auto-open-devtools-for-tabs",
+    # 1.1.19: it would open devices of the home network to every site (I.K.E.
+    # writes its own, from the user's per-site choices: lan_overrides())
+    "--ip-address-space-overrides",
 )
 # kept (some graphics drivers need it, and the web engine chooses the
 # graphics path) but shown in the window and About as a protection that is off
 NOTICE_SWITCHES = ("--disable-gpu-sandbox",)
-UNSAFE_FEATURES = ("isolateorigins", "site-per-process", "siteperprocess", "originkeyedprocessesbydefault")
+UNSAFE_FEATURES = ("isolateorigins", "site-per-process", "siteperprocess", "originkeyedprocessesbydefault",
+                   "localnetworkaccesschecks")
+# the engine's own home-network protection (1.1.19): a public page cannot reach
+# this computer or the home network, checked on the real address when the
+# connection is made (so a public name that points home, DNS rebinding
+# included, is stopped too). Without its parameter it only warns.
+LNA_FEATURE = "LocalNetworkAccessChecks:LocalNetworkAccessChecksWarn/false"
 
 
 def split_flags(text):
@@ -1258,6 +1267,13 @@ def _chromium_flags(config):
     # tenth more memory. Turning it off takes IKE_ALLOW_UNSAFE_ENGINE=1.
     if "--site-per-process" not in names and "--disable-site-isolation-trials" not in names:
         flags.append("--site-per-process")
+    if "localnetworkaccesschecks" not in {x.split(":")[0].lower() for f in flags
+                                          if f.startswith("--disable-features=")
+                                          for x in f.split("=", 1)[1].split(",")}:
+        flags = _feature_flags(flags, enable=(LNA_FEATURE,))
+        overrides = lan_overrides(config)
+        if overrides:
+            flags.append("--ip-address-space-overrides=" + ",".join(overrides))
     flags = _video_flags(flags, config, CONFIG_DIR)
     os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = join_flags(flags)
 
@@ -1282,6 +1298,23 @@ def sandbox_off():
     from the user's files, is switched off for this run."""
     names = {switch_name(f) for f in split_flags(os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", ""))}
     return "--no-sandbox" in names or "QTWEBENGINE_DISABLE_SANDBOX" in os.environ
+
+
+def lan_overrides(config):
+    """The devices of the home network the user let some site reach (1.1.19):
+    "address:port=public" for the engine, whose own protection has no per-site
+    permission. I.K.E.'s request check keeps every other site away from a
+    literal address of them (shields._lan_refused)."""
+    out = []
+    for site, ends in (config["lan_sites"] or {}).items():
+        for e in ends if isinstance(ends, list) else []:
+            e = str(e)
+            host, _, port = e.rpartition(":")
+            if host and port.isdigit() and all(c.isalnum() or c in ".:[]" for c in host):
+                item = "%s:%s=public" % (host, port)
+                if item not in out:
+                    out.append(item)
+    return out
 
 
 def site_isolated():
