@@ -48,6 +48,16 @@ def test_what_stops_an_install():
     assert p(m(halt=True), NOW, manual=True) == "halted"                  # a stop is a stop
 
 
+def test_replayed_or_old_style_manifests_are_not_trusted():
+    s = updater.manifest_stale
+    assert s(m(expires=NOW + 10, issued=NOW), NOW, running="1.1.18") is None
+    assert s(m(), NOW, running="1.1.18") == "expired"                     # no expiry: only before 1.1.18
+    assert s(m(), NOW, running="1.1.17") is None
+    assert s(m(expires=NOW + 10, issued=NOW - 5), NOW, running="1.1.18", seen=NOW) == "stale"   # a replay
+    assert s(m(expires=NOW + 10), NOW, running="1.1.18", seen=NOW) == "stale"                   # no date
+    assert s(m(expires=NOW + 10, issued=NOW + 5), NOW, running="1.1.18", seen=NOW) is None
+
+
 def test_release_tool_writes_the_new_fields(keypair, tmp_path):  # noqa: F811
     tool = load_tool()
     _, key_path, pub = keypair
@@ -79,12 +89,18 @@ def test_expired_halted_and_waiting_releases_install_nothing(run_ike, releases, 
     releases.publish(key, "99.0.0", min_system="0", extra={"expires": now - 60})
     out = run_ike(CHECK, env=env, timeout=240)
     assert out["kind"] == "error" and "out of date" in out["data"] and out["versions"] == [], out
-    releases.publish(key, "99.0.0", min_system="0", extra={"halt": True})
+    releases.publish(key, "99.0.0", min_system="0", extra={"halt": True, "issued": now + 10})
     out = run_ike(CHECK, env=env, keep_profile=True, timeout=240)
     assert out["kind"] == "current" and out["versions"] == [], out
+    releases.publish(key, "99.0.0", min_system="0", extra={"issued": now})     # the halt undone by a replay
+    out = run_ike(CHECK, env=env, keep_profile=True, timeout=240)
+    assert out["kind"] == "error" and "stale" in out["data"] and out["versions"] == [], out
+    releases.publish(key, "99.0.0", min_system="0", extra={"expires": None, "issued": None})
+    out = run_ike(CHECK, env=env, keep_profile=True, timeout=240)
+    assert out["kind"] == "error" and "expired" in out["data"], out        # an old-style manifest
     run_ike(PLACE, env=env, keep_profile=True, timeout=60)               # this installation: place 99
     releases.publish(key, "99.0.0", min_system="0",
-                     extra={"expires": now + 86400, "rollout": {"start": now, "hours": 1000}})
+                     extra={"issued": now + 20, "rollout": {"start": now, "hours": 1000}})
     out = run_ike(CHECK, env=env, keep_profile=True, timeout=240)
     assert out["kind"] == "current" and out["versions"] == [], out       # not its turn yet
     out = run_ike(MANUAL, env=env, keep_profile=True, timeout=240)

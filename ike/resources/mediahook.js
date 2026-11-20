@@ -62,12 +62,18 @@
   var Ev = window.CustomEvent;
   var detailOf = Object.getOwnPropertyDescriptor(CustomEvent.prototype, 'detail').get;
   var later = window.setTimeout;
+  var mk = Object.create;
   var session = navigator.mediaSession;
   apply(add, window, ['ike-media-' + TOKEN, function (e) {
     var cmd = apply(detailOf, e, []);
     if (cmd === 'query') {
       var a = (handlers.nexttrack ? 'n' : '') + (handlers.previoustrack ? 'p' : '');
-      apply(send, window, [new Ev('ike-media-answer-' + TOKEN, { detail: a })]);
+      // an init object with no prototype: the engine reads bubbles,
+      // cancelable and composed from it, and a getter the page put on
+      // Object.prototype would run inside the secret event (adversarial review)
+      var init = mk(null);
+      init.detail = a;
+      apply(send, window, [new Ev('ike-media-answer-' + TOKEN, init)]);
       return;
     }
     var h = (cmd === 'nexttrack' || cmd === 'previoustrack') && handlers[cmd];

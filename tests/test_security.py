@@ -658,7 +658,12 @@ def test_about_tells_the_state_of_the_engine(run_ike, monkeypatch):
     monkeypatch.setenv("QTWEBENGINE_DISABLE_SANDBOX", "1")
     assert sandbox_off() is True
     monkeypatch.setenv("QTWEBENGINE_DISABLE_SANDBOX", "0")
-    assert sandbox_off() is False
+    assert sandbox_off() is True              # 1.1.18: Qt looks only at whether it is set
+    monkeypatch.delenv("QTWEBENGINE_DISABLE_SANDBOX")
+    monkeypatch.setenv("QTWEBENGINE_CHROMIUM_FLAGS", '"--no-sandbox"')
+    assert sandbox_off() is True              # quoted, as Qt reads it
+    monkeypatch.setenv("QTWEBENGINE_CHROMIUM_FLAGS", "-no-sandbox")
+    assert sandbox_off() is True              # one dash: the same switch for Chromium
     out = run_ike("""
         def steps(ike, qapp, out):
             yield 400

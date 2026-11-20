@@ -92,7 +92,7 @@ def test_about_shows_formats_and_engine_age(run_ike, site):
             out["closed"] = getattr(win, "_about_box", None) is None and not box.isVisible()
             # a second About asks nothing again
             out["text_again"] = win.about_text()
-            out["behind"] = chromever.latest(ike.config) - chromever.engine_major()
+            out["behind"] = chromever.latest(ike.config) - chromever.security_major()     # 1.1.18: by the security fixes
             # 1.1.14: sites see the engine's own version, the same everywhere
             out["ua"] = ike.profile.httpUserAgent()
             out["engine"] = chromever.engine_major()

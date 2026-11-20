@@ -480,6 +480,25 @@
         };
       });
     });
+    if (c.strict && self.NavigatorUAData) {
+      // the same reduced Chrome version as the page and the headers (1.1.18,
+      // docs review: a worker read the full one)
+      wrap(self.NavigatorUAData.prototype, 'getHighEntropyValues', function (orig) {
+        return function () {
+          var ua = this;
+          return orig.apply(this, arguments).then(function (v) {
+            var major = (ua.brands && ua.brands[0] && ua.brands[0].version) || '0';
+            if (v && 'uaFullVersion' in v) v.uaFullVersion = major + '.0.0.0';
+            if (v && v.fullVersionList) {
+              v.fullVersionList = v.fullVersionList.map(function (b) {
+                return { brand: b.brand, version: String(b.version).split('.')[0] + '.0.0.0' };
+              });
+            }
+            return v;
+          });
+        };
+      });
+    }
     if (c.strict) getter(N, 'gpu', function () { return undefined; });
     else if (self.GPUAdapterInfo) {
       var GI = self.GPUAdapterInfo.prototype;

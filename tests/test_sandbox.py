@@ -55,6 +55,20 @@ def nspid(status):
     m = re.search(r"NSpid:\s*([\d\s]+)", status)
     return len(m.group(1).split()) if m else 0
 
+def mine(pid):
+    """A process of this browser (another Chromium running must not count)."""
+    me, p = os.getpid(), int(pid)
+    for _ in range(20):
+        if p == me:
+            return True
+        try:
+            p = int(re.search(r"PPid:\s*(\d+)", open("/proc/%%d/status" %% p).read()).group(1))
+        except (OSError, AttributeError):
+            return False
+        if p <= 1:
+            return False
+    return False
+
 def renderers():
     # read from /proc/<pid>/status, which stays readable: the namespace links
     # of a sandboxed process are not (that is the sandbox at work)
@@ -66,7 +80,7 @@ def renderers():
             # renderers forked from the zygote carry their switches as one
             # text (set as the process title), not one argument each
             cmd = open("/proc/%%s/cmdline" %% pid, "rb").read().replace(b"\0", b" ")
-            if b"QtWebEngineProcess" not in cmd or b"--type=renderer" not in cmd:
+            if b"QtWebEngineProcess" not in cmd or b"--type=renderer" not in cmd or not mine(pid):
                 continue
             st = open("/proc/%%s/status" %% pid).read()
             res.append({"pid": pid, "seccomp": re.search(r"Seccomp:\s*(\d+)", st).group(1),
@@ -112,9 +126,9 @@ def test_a_switch_that_turns_isolation_off_is_dropped(run_ike, sites):
     """Without IKE_ALLOW_UNSAFE_ENGINE=1, a --disable-site-isolation-trials or
     a --no-sandbox inherited from the environment does nothing."""
     out = run_ike(STEPS % sites, timeout=90,
-                  env={"QTWEBENGINE_CHROMIUM_FLAGS": "--no-sandbox --disable-site-isolation-trials",
-                       "QTWEBENGINE_REMOTE_DEBUGGING": "9229"})
+                  env={"QTWEBENGINE_CHROMIUM_FLAGS": '"--no-sandbox" -disable-site-isolation-trials',
+                       "QTWEBENGINE_REMOTE_DEBUGGING": "9229", "QTWEBENGINE_DISABLE_SANDBOX": "0"})
     assert out["sandbox_off"] is False and out["site_isolated"] is True, out
     assert set(out["safety"]["dropped"]) == {"--no-sandbox", "--disable-site-isolation-trials",
-                                             "QTWEBENGINE_REMOTE_DEBUGGING"}, out
+                                             "QTWEBENGINE_REMOTE_DEBUGGING", "QTWEBENGINE_DISABLE_SANDBOX"}, out
     assert out["renderers"] and all(p["seccomp"] == "2" for p in out["renderers"]), out["renderers"]

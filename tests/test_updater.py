@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tarfile
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -286,7 +287,12 @@ class Releases:
         payload = buf.getvalue()
         m = {"version": version, "payload": "ike-%s.tar.gz" % version,
              "sha256": hashlib.sha256(payload).hexdigest(), "min_system": min_system}
-        m.update(extra or {})                   # 1.1.18: expiry, staged release, halt
+        # 1.1.18: valid for a day, as make-release.py writes them (expiry, staged release, halt)
+        now = int(time.time())
+        m.update({"issued": now, "expires": now + 86400})
+        m.update(extra or {})
+        for k in [k for k, v in m.items() if v is None]:
+            del m[k]                            # extra={"expires": None}: a manifest from before 1.1.18
         manifest = json.dumps(m).encode()
         sig = key.sign(manifest + (b"x" if bad_sig else b""))
         self.files = {"stable.json": manifest, "stable.json.sig": base64.b64encode(sig),

@@ -111,6 +111,29 @@ def bucket():
     return b
 
 
+def _num(x):
+    return isinstance(x, (int, float)) and not isinstance(x, bool)
+
+
+def manifest_stale(manifest, now=None, running=None, seen=None):
+    """A verified manifest that must not be trusted at all (checked before
+    the version): expired; without an expiry while this copy is 1.1.18 or
+    later (only releases before 1.1.18 lacked it: a replayed old manifest
+    would keep the user where he is, silently); or issued before one already
+    seen (a replay that would undo a "halt"). Adversarial review of 1.1.18."""
+    now = time.time() if now is None else now
+    exp = manifest.get("expires")
+    if exp is None:
+        if vtuple(running or __version__) >= (1, 1, 18):
+            return "expired"
+    elif not _num(exp) or now > exp:
+        return "expired"
+    issued = manifest.get("issued")
+    if _num(seen) and (not _num(issued) or issued < seen):
+        return "stale"
+    return None
+
+
 def manifest_problem(manifest, now=None, manual=False, place=None):
     """Why this verified manifest must not be installed now, or None (1.1.18,
     security audit F5): expired (a copy kept back after its time), stopped
@@ -262,6 +285,14 @@ class _Worker(QThread):
             if not verify_signature(self.src["pubkey"], raw, sig):
                 raise ValueError("the update manifest has an invalid signature")
             manifest = json.loads(raw.decode("utf-8"))
+            state = load_state()
+            stale = manifest_stale(manifest, seen=state.get("issued"))
+            if stale:
+                raise ValueError("the update information is out of date (%s manifest); nothing was "
+                                 "installed, the next check tries again" % stale)
+            if _num(manifest.get("issued")) and manifest["issued"] > (state.get("issued") or 0):
+                state["issued"] = manifest["issued"]
+                save_state(state)
             staged = load_state().get("current")
             newest = max(__version__, staged or "0", key=vtuple)
             if (vtuple(manifest["version"]) <= vtuple(newest)
@@ -271,9 +302,6 @@ class _Worker(QThread):
             if not plain_name(manifest.get("payload")):
                 raise ValueError("the update manifest names an invalid file")
             problem = manifest_problem(manifest, manual=self.manual)
-            if problem == "expired":
-                raise ValueError("the update information is out of date (expired manifest); "
-                                 "nothing was installed, the next check tries again")
             if problem in ("halted", "waiting"):
                 # stopped by the owner, or not this installation's turn yet
                 self.result.emit("current", {"version": newest})

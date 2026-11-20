@@ -63,9 +63,14 @@ def security_major():
 # Chrome ships a new version about every four weeks, and Qt WebEngine brings
 # the security fixes of the newest ones into its own releases
 # (qWebEngineChromiumSecurityPatchVersion: Qt 6.12.0 came with those of
-# Chrome 157, the current one then). Two versions behind means about two
-# months without them: the user is told (1.1.18, security audit F4; it was 5).
-OUTDATED_AFTER = 2
+# Chrome 157, the current one then). Qt's patch releases come every six to
+# nine weeks, so an up-to-date Arch system is often two versions behind for a
+# while (Qt 6.8.0, 8 October 2024, had the fixes of Chrome 129; Chrome 131 came
+# on 12 November, Qt 6.8.1 on 2 December): at two the notice would come with
+# nothing the user can do. Three versions behind means the system has missed
+# a Qt update: the user is told (1.1.18, security audit F4 and the adversarial
+# review; it was 5).
+OUTDATED_AFTER = 3
 
 
 def security_behind(config, today=None):

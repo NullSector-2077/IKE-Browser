@@ -1119,7 +1119,7 @@ def _video_trial_done(folder):
 # off. Graphics, video and speed switches are never touched.
 UNSAFE_SWITCHES = (
     "--no-sandbox", "--disable-setuid-sandbox", "--disable-seccomp-filter-sandbox",
-    "--disable-namespace-sandbox", "--disable-gpu-sandbox", "--single-process", "--no-zygote",
+    "--disable-namespace-sandbox", "--single-process", "--no-zygote",
     "--disable-site-isolation-trials", "--disable-web-security", "--allow-running-insecure-content",
     "--ignore-certificate-errors", "--ignore-certificate-errors-spki-list", "--ignore-urlfetcher-cert-requests",
     "--reduce-security-for-testing", "--unsafely-treat-insecure-origin-as-secure",
@@ -1127,7 +1127,33 @@ UNSAFE_SWITCHES = (
     "--remote-debugging-port", "--remote-debugging-pipe", "--remote-debugging-address",
     "--remote-debugging-socket-name", "--remote-allow-origins", "--auto-open-devtools-for-tabs",
 )
-UNSAFE_FEATURES = ("IsolateOrigins", "site-per-process", "SitePerProcess", "OriginKeyedProcessesByDefault")
+# kept (some graphics drivers need it, and the web engine chooses the
+# graphics path) but shown in the window and About as a protection that is off
+NOTICE_SWITCHES = ("--disable-gpu-sandbox",)
+UNSAFE_FEATURES = ("isolateorigins", "site-per-process", "siteperprocess", "originkeyedprocessesbydefault")
+
+
+def split_flags(text):
+    """QTWEBENGINE_CHROMIUM_FLAGS as Qt reads it: words, with "double quotes"
+    (1.1.18, adversarial review: '"--no-sandbox"' passed a plain split)."""
+    import shlex
+    try:
+        return shlex.split(text or "")
+    except ValueError:                    # an unclosed quote
+        return (text or "").replace('"', " ").split()
+
+
+def join_flags(flags):
+    return " ".join('"%s"' % f if any(c.isspace() for c in f) else f for f in flags)
+
+
+def switch_name(token):
+    """The switch a word names, as Chromium reads it: "-x" is "--x" on Linux,
+    and the value after "=" does not count."""
+    t = token.strip().strip("'\"")
+    if t.startswith("-") and not t.startswith("--"):
+        t = "-" + t
+    return t.split("=", 1)[0].lower()
 UNSAFE_ENV = ("QTWEBENGINE_DISABLE_SANDBOX", "QTWEBENGINE_REMOTE_DEBUGGING")
 # what this run did with them: {"dropped": [...]} or {"kept": [...]} (About, window)
 ENGINE_SAFETY = {"dropped": [], "kept": []}
@@ -1146,25 +1172,26 @@ def _engine_safety(flags, env=None, allowed=None):
     allowed = unsafe_allowed() if allowed is None else allowed
     out, unsafe = [], []
     for f in flags:
-        name = f.split("=", 1)[0]
+        name = switch_name(f)
         if name in UNSAFE_SWITCHES:
             unsafe.append(name)
             if allowed:
                 out.append(f)
             continue
         if name == "--disable-features" and "=" in f:
-            feats = f.split("=", 1)[1].split(",")
-            bad = [x for x in feats if x in UNSAFE_FEATURES]
+            feats = f.split("=", 1)[1].strip("'\"").split(",")
+            bad = [x for x in feats if x.strip().lower().split("<", 1)[0] in UNSAFE_FEATURES]
             if bad:
                 unsafe.extend("--disable-features=" + x for x in bad)
                 if not allowed:
-                    feats = [x for x in feats if x not in UNSAFE_FEATURES]
+                    feats = [x for x in feats if x not in bad]
                     if feats:
                         out.append("--disable-features=" + ",".join(feats))
                     continue
         out.append(f)
     for var in UNSAFE_ENV:
-        if env.get(var, "") not in ("", "0"):
+        # Qt looks only at whether the variable is there: "0" and "" count
+        if var in env:
             unsafe.append(var)
             if not allowed:
                 env.pop(var, None)
@@ -1190,9 +1217,10 @@ def _chromium_flags(config):
     Both dark renderers are configured on each QWebEnginePage, so a site can
     be exempted without changing every other tab or restarting the browser.
     """
-    flags = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "").split()
+    flags = split_flags(os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", ""))
     flags, unsafe = _engine_safety(flags)
     ENGINE_SAFETY["kept" if unsafe_allowed() else "dropped"] = unsafe
+    ENGINE_SAFETY["kept"] = ENGINE_SAFETY["kept"] + [n for n in map(switch_name, flags) if n in NOTICE_SWITCHES]
     if unsafe and not unsafe_allowed():
         sys.stderr.write("I.K.E.: engine switches that remove a protection were ignored: %s "
                          "(IKE_ALLOW_UNSAFE_ENGINE=1 keeps them)\n" % " ".join(unsafe))
@@ -1217,7 +1245,8 @@ def _chromium_flags(config):
     if (config["smooth_scrolling"] and "--enable-smooth-scrolling" not in flags
             and "--disable-smooth-scrolling" not in flags):
         flags.append("--enable-smooth-scrolling")
-    if hasattr(os, "geteuid") and os.geteuid() == 0 and "--no-sandbox" not in flags:
+    names = {switch_name(f) for f in flags}
+    if hasattr(os, "geteuid") and os.geteuid() == 0 and "--no-sandbox" not in names:
         # only reached with IKE_ALLOW_UNSAFE_ENGINE=1 (refuse_root): the
         # engine cannot sandbox as root, and the window says it is off
         flags.append("--no-sandbox")
@@ -1227,10 +1256,10 @@ def _chromium_flags(config):
     # another site shared its page's process and one bug in the engine could
     # read the other site. A security switch, not a graphics path; about a
     # tenth more memory. Turning it off takes IKE_ALLOW_UNSAFE_ENGINE=1.
-    if "--site-per-process" not in flags and "--disable-site-isolation-trials" not in flags:
+    if "--site-per-process" not in names and "--disable-site-isolation-trials" not in names:
         flags.append("--site-per-process")
     flags = _video_flags(flags, config, CONFIG_DIR)
-    os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = " ".join(flags)
+    os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = join_flags(flags)
 
 
 def memory_low(path="/proc/meminfo"):
@@ -1251,14 +1280,14 @@ def memory_low(path="/proc/meminfo"):
 def sandbox_off():
     """True when the engine's sandbox, which keeps a web page's process away
     from the user's files, is switched off for this run."""
-    flags = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "").split()
-    return "--no-sandbox" in flags or os.environ.get("QTWEBENGINE_DISABLE_SANDBOX", "") not in ("", "0")
+    names = {switch_name(f) for f in split_flags(os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", ""))}
+    return "--no-sandbox" in names or "QTWEBENGINE_DISABLE_SANDBOX" in os.environ
 
 
 def site_isolated():
     """True when every site runs in its own engine process for this run."""
-    flags = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "").split()
-    return "--site-per-process" in flags and "--disable-site-isolation-trials" not in flags
+    names = {switch_name(f) for f in split_flags(os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", ""))}
+    return "--site-per-process" in names and "--disable-site-isolation-trials" not in names
 
 
 def engine_safety_lines(T):

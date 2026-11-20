@@ -22,7 +22,7 @@ sys.path.insert(0, str(APP))
 from ike import app as ike_app  # noqa: E402
 
 DANGEROUS = ["--no-sandbox", "--disable-setuid-sandbox", "--disable-seccomp-filter-sandbox",
-             "--disable-gpu-sandbox", "--single-process", "--no-zygote", "--disable-site-isolation-trials",
+             "--single-process", "--no-zygote", "--disable-site-isolation-trials",
              "--disable-web-security", "--allow-running-insecure-content", "--ignore-certificate-errors",
              "--ignore-certificate-errors-spki-list=abc", "--remote-debugging-port=9222",
              "--remote-debugging-pipe", "--remote-debugging-address=0.0.0.0", "--remote-allow-origins=*",
@@ -58,10 +58,27 @@ def test_the_user_can_keep_them_on_purpose():
     assert set(named) == {"--no-sandbox", "QTWEBENGINE_DISABLE_SANDBOX"}
 
 
-def test_a_zero_or_empty_variable_is_not_a_switch():
-    env = {"QTWEBENGINE_DISABLE_SANDBOX": "0", "QTWEBENGINE_REMOTE_DEBUGGING": ""}
-    out, named = ike_app._engine_safety([], env=env, allowed=False)
-    assert named == [] and env == {"QTWEBENGINE_DISABLE_SANDBOX": "0", "QTWEBENGINE_REMOTE_DEBUGGING": ""}
+def test_other_spellings_of_the_same_switch():
+    """Adversarial review of 1.1.18: Qt reads "double quotes", Chromium takes
+    one dash for two, and Qt looks only at whether a variable is set."""
+    for text in ('"--no-sandbox"', "-no-sandbox", "'--disable-web-security'", "-remote-debugging-port=9222",
+                 '"--ignore-certificate-errors"', "--NO-SANDBOX"):
+        out, named = ike_app._engine_safety(ike_app.split_flags(text), env={}, allowed=False)
+        assert out == [] and len(named) == 1, (text, out, named)
+    for value in ("0", ""):
+        env = {"QTWEBENGINE_DISABLE_SANDBOX": value}
+        _, named = ike_app._engine_safety([], env=env, allowed=False)
+        assert named == ["QTWEBENGINE_DISABLE_SANDBOX"] and env == {}, value
+    assert ike_app.split_flags('--a "--b=c d"') == ["--a", "--b=c d"]
+    assert ike_app.join_flags(["--a", "--b=c d"]) == '--a "--b=c d"'
+
+
+def test_the_gpu_sandbox_switch_is_kept_and_shown():
+    """Some graphics drivers need --disable-gpu-sandbox and the engine chooses
+    the graphics path: it is kept, and the window says the GPU sandbox is off."""
+    out, named = ike_app._engine_safety(["--disable-gpu-sandbox"], env={}, allowed=False)
+    assert out == ["--disable-gpu-sandbox"] and named == []
+    assert "--disable-gpu-sandbox" in ike_app.NOTICE_SWITCHES
 
 
 def test_root_is_refused_unless_asked(monkeypatch):
@@ -80,9 +97,15 @@ def test_started_as_root_it_stops_and_says_why(tmp_path):
     e = {k: v for k, v in os.environ.items() if not k.startswith(("IKE_", "QTWEBENGINE_"))}
     e.update(HOME=str(tmp_path), XDG_CONFIG_HOME=str(tmp_path / "c"), XDG_DATA_HOME=str(tmp_path / "d"),
              XDG_CACHE_HOME=str(tmp_path / "k"), QT_QPA_PLATFORM="offscreen", IKE_NO_SINGLE="1")
+    # a pending update must not be counted as a start that failed (adversarial review)
+    state = tmp_path / "d" / "ike-browser" / "updates" / "state.json"
+    state.parent.mkdir(parents=True)
+    state.write_text('{"current": "99.0.0", "status": "pending", "attempts": 0}')
     run = subprocess.run([sys.executable, str(APP / "ike_boot.py")], env=e, capture_output=True, text=True,
                          timeout=60)
     assert run.returncode == 1, (run.returncode, run.stderr[-800:])
+    assert state.read_text() == '{"current": "99.0.0", "status": "pending", "attempts": 0}'
+    assert not (tmp_path / "c" / "ike-browser").exists()            # nothing made as root either
     assert "does not start as root" in run.stderr and "IKE_ALLOW_UNSAFE_ENGINE=1" in run.stderr
     version = subprocess.run([sys.executable, str(APP / "ike_boot.py"), "--version"], env=e,
                              capture_output=True, text=True, timeout=60)

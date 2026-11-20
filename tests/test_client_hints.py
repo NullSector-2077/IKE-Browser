@@ -18,6 +18,10 @@ navigator.userAgentData.getHighEntropyValues(['uaFullVersion', 'fullVersionList'
   window.js = JSON.stringify([v.uaFullVersion, v.fullVersionList.map(function (b) { return b.version; })]);
 });
 fetch('/sub?' + Math.random());
+var w = new Worker(URL.createObjectURL(new Blob(["navigator.userAgentData.getHighEntropyValues(" +
+  "['uaFullVersion', 'fullVersionList']).then(function (v) { postMessage(JSON.stringify([v.uaFullVersion, " +
+  "v.fullVersionList.map(function (b) { return b.version; })])); });"], {type: 'text/javascript'})));
+w.onmessage = function (e) { window.wjs = e.data; };
 </script></body>"""
 
 
@@ -72,6 +76,9 @@ def steps(ike, qapp, out):
     view.page().runJavaScript("window.js", 0, lambda r: out.__setitem__("js", r))
     while "js" not in out:
         yield 20
+    view.page().runJavaScript("window.wjs || ''", 0, lambda r: out.__setitem__("wjs", r))
+    while "wjs" not in out:
+        yield 20
 '''
 
 
@@ -90,3 +97,5 @@ def test_the_version_in_the_client_hints(run_ike, site, level):
         assert '"Chromium";v="%s"' % want in h["sec-ch-ua-full-version-list"], (level, h)
     js = json.loads(out["js"])
     assert js[0] == want and want in js[1], (level, js)          # the same as JavaScript
+    wjs = json.loads(out["wjs"] or "null")
+    assert wjs and wjs[0] == want and want in wjs[1], (level, wjs)   # and in a worker (docs review)

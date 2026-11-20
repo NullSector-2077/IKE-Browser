@@ -27,6 +27,10 @@ var send = EventTarget.prototype.dispatchEvent;
 EventTarget.prototype.dispatchEvent = function (e) {
   try { if (String(e.type).indexOf('ike-') === 0) leaks.push('dispatch:' + e.type); } catch (x) {}
   return send.apply(this, arguments); };
+['bubbles', 'cancelable', 'composed'].forEach(function (k) {     // adversarial review: the event's init object
+  Object.defineProperty(Object.prototype, k, {configurable: true, get: function () {
+    if (window.event && String(window.event.type).indexOf('ike-') === 0) leaks.push('init:' + window.event.type);
+    return undefined; }}); });
 navigator.mediaSession.setActionHandler('nexttrack', function () {
   window.nexts++;
   if (window.event) leaks.push('window.event:' + window.event.type); });
