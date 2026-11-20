@@ -44,7 +44,11 @@ ISSUE_TITLE = "Automatic fix needs you: %s"
 # failed commit in this form, so the plan can tell a repeat of the same failure
 # from a new one (1.1.18).
 SHA_MARK = "<!-- autofix-sha: %s -->"
-SHA_MARK_RE = re.compile(r"<!-- autofix-sha: ([0-9a-f]{7,40}) -->")
+# since the audit of #65 also the branch that failed: only reports about main
+# hold back a fix of main for REPORT_FRESH_HOURS (the trials on
+# automation/autofix-main commented on issue #31 and kept main from a fix)
+SHA_BRANCH_MARK = "<!-- autofix-sha: %s on %s -->"
+SHA_MARK_RE = re.compile(r"<!-- autofix-sha: ([0-9a-f]{7,40})(?: on ([A-Za-z0-9._/-]{1,100}))? -->")
 REPORT_FRESH_HOURS = 24
 REPORTER = "github-actions[bot]"      # the author of the report job's comments
 # Steps of the daily maintenance's "prepare" job that no AI fix of main can
@@ -208,13 +212,18 @@ def _when(stamp):
         return None
 
 
-def report_sha(text):
-    """The failed commit a report names: only in the exact last line the report
+def report_mark(text):
+    """(commit, branch) a report names: only in the exact last line the report
     job writes (second review of 1.1.18: its comments quote the agent's summary
-    and the logs, where a mark could be planted)."""
+    and the logs, where a mark could be planted). The branch is "" in the
+    marks written before the audit of #65."""
     lines = [ln for ln in (text or "").replace("\r", "").split("\n") if ln.strip()]
     m = SHA_MARK_RE.fullmatch(lines[-1]) if lines else None
-    return m.group(1) if m else ""
+    return (m.group(1), m.group(2) or "") if m else ("", "")
+
+
+def report_sha(text):
+    return report_mark(text)[0]
 
 
 def already_reported(issues, title, sha, now):
@@ -379,12 +388,15 @@ def engine_update(branch, show=None):
 def open_reports(repo, name):
     """The open issues "Automatic fix needs you: <name>" for already_reported():
     each with the commits its reports name (the issue and the report job's
-    comments, by their last line) and the time of its latest report."""
+    comments, by their last line) and the time of its latest report about
+    main (audit of #65: a report about another branch, or one whose mark names
+    no branch, never holds back a fix of main by its age, only by its commit)."""
     out = []
     for i in gh_api("repos/%s/issues?state=open&labels=autofix&per_page=100" % repo):
         if "pull_request" in i or i.get("title") != ISSUE_TITLE % name:
             continue
-        shas, reported = [report_sha(i.get("body"))], i.get("created_at") or ""
+        sha, branch = report_mark(i.get("body"))
+        shas, reported = [sha], (i.get("created_at") or "") if branch == "main" else ""
         try:
             comments = gh_api("repos/%s/issues/%s/comments?per_page=100" % (repo, i["number"]))
         except RuntimeError:
@@ -392,10 +404,10 @@ def open_reports(repo, name):
         for c in comments:
             if (c.get("user") or {}).get("login") != REPORTER:
                 continue                      # anyone may comment; only the report job's comments count
-            mark = report_sha(c.get("body"))
+            mark, branch = report_mark(c.get("body"))
             if mark:
                 shas.append(mark)
-                if (c.get("created_at") or "") > reported:
+                if branch == "main" and (c.get("created_at") or "") > reported:
                     reported = c["created_at"]
         out.append({"title": i["title"], "shas": [m for m in shas if m], "reported_at": reported})
     return out
@@ -423,6 +435,9 @@ def main(argv=None):
     # the commit that failed: the issue's message for ChatGPT starts from it when
     # no automatic fix is tried (after two attempts, for instance)
     plan["head_sha"] = run.get("head_sha", "")
+    plan["branch"] = branch                     # for the report's mark (audit of #65)
+    if plan["action"] == "skip":
+        print("::notice::no automatic fix: %s" % plan["reason"].replace("::", ": "))
 
     parts = ["# Failure to fix\n",
              "- Workflow: %s\n- Branch: %s\n- Commit: %s\n- Run: %s\n" % (

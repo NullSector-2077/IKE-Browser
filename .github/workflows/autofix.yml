@@ -69,6 +69,7 @@ jobs:
       allow_adblock: ${{ steps.plan.outputs.allow_adblock }}
       workflow: ${{ steps.plan.outputs.workflow }}
       head_sha: ${{ steps.plan.outputs.head_sha }}
+      branch: ${{ steps.plan.outputs.branch }}
       push_tip: ${{ steps.plan.outputs.push_tip }}
     steps:
       - name: Check out main (all branches, no credentials)
@@ -807,6 +808,7 @@ jobs:
           WORKFLOW: ${{ needs.plan.outputs.workflow }}
           CHECKOUT: ${{ needs.plan.outputs.checkout || needs.plan.outputs.head_sha }}
           HEAD_SHA: ${{ needs.plan.outputs.head_sha }}
+          BRANCH: ${{ needs.plan.outputs.branch }}
           FIX: ${{ needs.fix.result }}
           PATCH: ${{ needs.fix.outputs.patch }}
           AGENT: ${{ needs.fix.outputs.result }}
@@ -905,7 +907,13 @@ jobs:
           # line names it: a mark quoted from the agent's summary or the logs is
           # defused (second review)
           sed -i 's/<!-- *autofix-sha/<!-- quoted autofix-sha/g' "$body"
-          if [ -n "$HEAD_SHA" ]; then printf '\n<!-- autofix-sha: %s -->\n' "$HEAD_SHA" >> "$body"; fi
+          # and the branch that failed (audit of #65): only reports about main hold
+          # back a fix of main by their age
+          if [ -n "$HEAD_SHA" ] && [ -n "$BRANCH" ]; then
+            printf '\n<!-- autofix-sha: %s on %s -->\n' "$HEAD_SHA" "$BRANCH" >> "$body"
+          elif [ -n "$HEAD_SHA" ]; then
+            printf '\n<!-- autofix-sha: %s -->\n' "$HEAD_SHA" >> "$body"
+          fi
           title="Automatic fix needs you: $WORKFLOW"
           if [ "$KIND" = "infra" ]; then title="GitHub or the runner failed: $WORKFLOW"; fi
           gh label create autofix --color d93f0b --description "Automatic fix prepared by the AI agent" 2>/dev/null || true

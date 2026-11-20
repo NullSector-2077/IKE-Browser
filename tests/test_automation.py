@@ -257,7 +257,7 @@ def test_an_old_issue_never_blocks_a_new_failure():
         assert p["action"] == "skip" and "already reported" in p["reason"], issues
     # the report job writes the same mark the plan reads
     text = (WORKFLOWS / "autofix.yml").read_text()
-    assert "printf '\\n%s\\n' \"$HEAD_SHA\"" % (plan_tool.SHA_MARK % "%s") in text
+    assert "printf '\\n%s\\n' \"$HEAD_SHA\" \"$BRANCH\"" % (plan_tool.SHA_BRANCH_MARK % ("%s", "%s")) in text
     assert "HEAD_SHA: ${{ needs.plan.outputs.head_sha }}" in jobs_of(text)["report"]
 
 
@@ -270,10 +270,10 @@ def test_open_reports_read_the_comments_too(monkeypatch):
             {"number": 41, "title": plan_tool.ISSUE_TITLE % "Other", "body": ""}],
         "repos/o/r/issues/31/comments?per_page=100": [
             {"body": "a person", "created_at": "2026-11-20T11:00:00Z", "user": {"login": "owner"}},
-            {"body": plan_tool.SHA_MARK % "feed123", "created_at": "2026-11-19T00:00:00Z",
+            {"body": plan_tool.SHA_BRANCH_MARK % ("feed123", "main"), "created_at": "2026-11-19T00:00:00Z",
              "user": {"login": "github-actions[bot]"}},
             # 1.1.18 (review): anyone may write the hidden mark in a comment
-            {"body": plan_tool.SHA_MARK % "beef456", "created_at": "2026-11-20T11:30:00Z",
+            {"body": plan_tool.SHA_BRANCH_MARK % ("beef456", "main"), "created_at": "2026-11-20T11:30:00Z",
              "user": {"login": "someone"}}],
     }
     monkeypatch.setattr(plan_tool, "gh_api", lambda path, raw=False: answers[path])
@@ -2475,7 +2475,16 @@ def test_antigravity_outcomes(repo, tmp_path, monkeypatch, name, plan, result, c
     import sys
     agent = load("autofix-agent")
     slept = []
-    monkeypatch.setattr(agent.time, "sleep", slept.append)
+    real_sleep = agent.time.sleep
+
+    def sleep(seconds):
+        # the global time module: subprocess waits a few milliseconds in it too (the audit of
+        # #65 saw [0.001, 0.002, 20]); only the agent's own waits are recorded and skipped
+        if seconds >= 1:
+            slept.append(seconds)
+        else:
+            real_sleep(seconds)
+    monkeypatch.setattr(agent.time, "sleep", sleep)
     stub = tmp_path / "agy.py"
     stub.write_text(AGY_STUB)
     monkeypatch.setenv("STUB_PLAN", json.dumps(plan))
@@ -2654,3 +2663,38 @@ def test_two_failures_close_together_never_write_the_same_branch_twice():
     assert c["action"] == "skip" and "already waiting (PR #64)" in c["reason"]
     publish = step_script("Push the fix, update the draft PR and start the tests")
     assert publish.index("--force-with-lease") > publish.index('if [ -n "$overtaken" ]; then')
+
+
+def test_reports_about_other_branches_never_hold_back_a_fix_of_main(monkeypatch):
+    """Audit of #65 (verified on issue #31): the trials on
+    automation/autofix-main commented on "Automatic fix needs you: Tests" at
+    06:09 and 07:14, and every failure of main for the next 24 hours would
+    have been skipped as "already reported". The mark now names the branch;
+    only reports about main count by their age. The same commit still does."""
+    title = plan_tool.ISSUE_TITLE % "Tests"
+    bot = {"login": "github-actions[bot]"}
+    answers = {
+        "repos/o/r/issues?state=open&labels=autofix&per_page=100": [
+            {"number": 31, "title": title, "body": "first", "created_at": "2026-11-17T23:44:35Z"}],
+        "repos/o/r/issues/31/comments?per_page=100": [
+            {"body": "x\n" + plan_tool.SHA_MARK % "2089995ee2", "created_at": "2026-11-20T06:09:24Z", "user": bot},
+            {"body": "x\n" + plan_tool.SHA_BRANCH_MARK % ("6abcfd7747", "automation/autofix-main"),
+             "created_at": "2026-11-20T07:14:47Z", "user": bot}],
+    }
+    monkeypatch.setattr(plan_tool, "gh_api", lambda path, raw=False: answers[path])
+    issues = plan_tool.open_reports("o/r", "Tests")
+    assert issues[0]["reported_at"] == ""
+    run = failed_run(head_sha="0d0e0f0a0b", _tip="0d0e0f0a0b")
+    assert plan_tool.decide(run, [job("tests")], "", issues, now=NOW)["action"] == "fix"
+    # a report about main, an hour ago: wait for the owner
+    answers["repos/o/r/issues/31/comments?per_page=100"].append(
+        {"body": "x\n" + plan_tool.SHA_BRANCH_MARK % ("1111111111", "main"), "created_at": "2026-11-20T11:00:00Z",
+         "user": bot})
+    issues = plan_tool.open_reports("o/r", "Tests")
+    assert plan_tool.decide(run, [job("tests")], "", issues, now=NOW)["action"] == "skip"
+    assert plan_tool.report_mark("y\n<!-- autofix-sha: abc1234 on automation/daily-maintenance -->") == \
+        ("abc1234", "automation/daily-maintenance")
+    # the report writes the branch the plan read
+    report = jobs_of((WORKFLOWS / "autofix.yml").read_text())["report"]
+    assert "BRANCH: ${{ needs.plan.outputs.branch }}" in report
+    assert "branch: ${{ steps.plan.outputs.branch }}" in jobs_of((WORKFLOWS / "autofix.yml").read_text())["plan"]
