@@ -56,20 +56,38 @@ def test_the_lists_are_there_and_give_what_the_extension_gives():
     assert "function injectProxy(" in proxy and "__darkreader__stylesheetProxy__arg" in proxy
 
 
+def build_tool():
+    import importlib.util
+    from pathlib import Path
+    spec = importlib.util.spec_from_file_location(
+        "build_darkreader", Path(__file__).resolve().parent.parent / "tools" / "build-darkreader.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def fake_engine(patches, skip=None):
+    """An engine with the proxy injection and the text every I.K.E. patch changes."""
+    body = "".join(old for name, old, _new in patches if name != skip)
+    return ("/**\r\n * Dark Reader v9.9.9\r\n */\r\n(function () {\r\n"
+            "    function injectProxy(\r\n        a,\r\n        b\r\n    ) {\r\n        if (a) { b(); }\r\n    }\r\n"
+            "    function other() {\r\n        {\r\n"
+            "            const proxyScript = createOrUpdateScript(\"darkreader--proxy\");\r\n"
+            "            proxyScript.append(`(${injectProxy})(${a}, ${b})`);\r\n"
+            "            proxyScript.remove();\r\n        }\r\n    }\r\n"
+            + body.replace("\n", "\r\n") + "})();\r\n")
+
+
 def test_the_build_tool(tmp_path):
     """tools/build-darkreader.py: the proxy taken out of the engine and asked for
-    by an event, the lists read; an engine it does not recognise is refused."""
+    by an event, I.K.E.'s changes made, the lists read; an engine it does not
+    recognise is refused."""
     import subprocess
     import sys
     from pathlib import Path
     root = Path(__file__).resolve().parent.parent
-    lib = ("/**\r\n * Dark Reader v9.9.9\r\n */\r\n(function () {\r\n"
-           "    function injectProxy(\r\n        a,\r\n        b\r\n    ) {\r\n        if (a) { b(); }\r\n    }\r\n"
-           "    function other() {\r\n        {\r\n"
-           "            const proxyScript = createOrUpdateScript(\"darkreader--proxy\");\r\n"
-           "            proxyScript.append(`(${injectProxy})(${a}, ${b})`);\r\n"
-           "            proxyScript.remove();\r\n        }\r\n    }\r\n})();\r\n")
-    (tmp_path / "lib.js").write_bytes(lib.encode())
+    patches = build_tool().PATCHES
+    (tmp_path / "lib.js").write_bytes(fake_engine(patches).encode())
     cfg = tmp_path / "config"
     cfg.mkdir()
     (cfg / "dynamic-theme-fixes.config").write_text(
@@ -85,7 +103,9 @@ def test_the_build_tool(tmp_path):
     assert run.returncode == 0, run.stderr
     engine = (out / "darkreader.js").read_bytes().decode()
     assert "createOrUpdateScript" not in engine and "__darkreader__stylesheetProxy__arg__IKE_DR_TOKEN__" in engine
-    assert "\r\n" in engine                                   # the engine's own line ends are kept
+    assert "\r\n" in engine and "\n" not in engine.replace("\r\n", "")   # the engine's own line ends are kept
+    for _name, old, new in patches:                           # every change made, in those line ends
+        assert new.replace("\n", "\r\n") in engine
     proxy = (out / "darkreader-proxy.js").read_text()
     assert "function injectProxy(" in proxy and "if (a) { b(); }" in proxy and "other()" not in proxy
     data = json.loads((out / "darkreader-data.json").read_text())
@@ -99,6 +119,25 @@ def test_the_build_tool(tmp_path):
     run = subprocess.run([sys.executable, str(root / "tools/build-darkreader.py"), "--lib", str(tmp_path / "bad.js"),
                           "--config", str(cfg), "--out", str(out)], capture_output=True, text=True)
     assert run.returncode != 0 and "proxy injection" in (run.stderr + run.stdout)
+    # an engine where one of the texts I.K.E. changes is missing is not half-adapted
+    (tmp_path / "changed.js").write_bytes(fake_engine(patches, skip="style-moves").encode())
+    run = subprocess.run([sys.executable, str(root / "tools/build-darkreader.py"), "--lib", str(tmp_path / "changed.js"),
+                          "--config", str(cfg), "--out", str(tmp_path)], capture_output=True, text=True)
+    assert run.returncode != 0 and "'style-moves'" in (run.stderr + run.stdout)
+    assert not (tmp_path / "darkreader.js").exists()
+
+
+def test_the_engine_is_the_npm_engine_with_the_changes():
+    """ike/resources/darkreader.js is what the build tool makes: undoing I.K.E.'s
+    changes gives back Dark Reader's own text, and every change is in it once."""
+    from ike.config import RES_DIR
+    tool = build_tool()
+    engine = (RES_DIR / "darkreader.js").read_bytes().decode()
+    for name, old, new in tool.PATCHES:
+        new, old = new.replace("\n", "\r\n"), old.replace("\n", "\r\n")
+        assert engine.count(new) == 1, name
+        engine = engine.replace(new, old)
+    assert engine.count(tool.PROXY_EVENT) == 1
 
 
 # --- in the browser -------------------------------------------------------------
@@ -223,3 +262,166 @@ def test_dark_mode_off_changes_nothing(run_ike, site):
     assert out["light"]["dr"] == 0 and out["light"]["body"] == "rgb(255, 255, 255)"
     assert out["csp"]["dr"] == 0 and out["csp"]["a"] == "rgb(255, 255, 255)"
     assert json.dumps(out["dark"]["body"]) == '"rgb(18, 18, 18)"'
+
+
+# --- what Dark Reader darkens (I.K.E.'s changes to its engine keep all of it) ------
+
+CASES = r"""<!doctype html><html><head><title>cases</title>
+<style>
+body { background: #fff; color: #111 }
+.box { background-color: rgb(255, 255, 255); color: rgb(0, 0, 0); height: 30px }
+#fixvar { background-color: #fff; height: 20px }
+.mv { background-color: rgb(255, 255, 254); height: 20px }
+</style>
+<style id="moved">.mv { background-color: rgb(254, 254, 254) }</style>
+</head><body>
+<div id="plain" class="box">plain</div>
+<div id="inline" style="background-color: rgb(250, 250, 250); color: rgb(10, 10, 10); height: 30px">inline</div>
+<div id="fixvar">fix</div>
+<div id="mv" class="mv">moved style</div>
+<svg id="icon" width="16" height="16"><path id="iconpath" d="M0 0h16v16H0z" fill="#000000"/></svg>
+<svg id="chart" width="300" height="200"><rect id="bigrect" width="300" height="200" fill="#ffffff"/>
+<rect id="smallrect" x="1" y="1" width="10" height="10" fill="#ffffff"/>
+<line id="line" x1="0" y1="0" x2="300" y2="200" stroke="#000000"/></svg>
+<div id="dsd"><template shadowrootmode="open"><style>.d { background-color: #fff; height: 20px }</style>
+<div class="d" id="dsdin">declarative shadow root</div></template></div>
+<div id="host"></div>
+<iframe id="frame" src="/frame" width="300" height="100"></iframe>
+<script src="/cases.js"></script>
+</body></html>"""
+
+CASES_JS = r"""
+window.addEventListener('load', function () {
+  // a shadow root with its own style element, an inline style and an adopted style sheet
+  var root = document.getElementById('host').attachShadow({mode: 'open'});
+  root.innerHTML = '<style>.s { background-color: #fff; color: #000; height: 30px }</style>' +
+    '<div class="s" id="sdiv">shadow</div><div id="sinline" style="background-color: #ffffff; height: 30px">x</div>' +
+    '<div class="a" id="sadopted">adopted</div>';
+  var sheet = new CSSStyleSheet();
+  sheet.replaceSync('.a { background-color: rgb(253, 253, 253); color: rgb(0, 0, 0); height: 30px }');
+  root.adoptedStyleSheets = [sheet];
+  // a colour the page shows only now, from a style element added now
+  var st = document.createElement('style');
+  st.textContent = '.newc { background-color: rgb(255, 250, 240); color: rgb(5, 5, 5); height: 30px }';
+  document.head.appendChild(st);
+  var d = document.createElement('div'); d.className = 'newc'; d.id = 'newc'; d.textContent = 'new colour';
+  document.body.appendChild(d);
+  // a chart drawn after the page loaded: big shapes are backgrounds, small ones are like text
+  var ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('width', '300'); svg.setAttribute('height', '200');
+  [['dynbig', 0, 0, 300, 150], ['dynsmall', 2, 2, 8, 8], ['dynsmall2', 20, 2, 8, 8]].forEach(function (r) {
+    var e = document.createElementNS(ns, 'rect');
+    e.id = r[0]; e.setAttribute('x', r[1]); e.setAttribute('y', r[2]);
+    e.setAttribute('width', r[3]); e.setAttribute('height', r[4]); e.setAttribute('fill', '#fafafa');
+    svg.appendChild(e);
+  });
+  document.body.appendChild(svg);
+  setTimeout(function () {
+    // fill colours changed later; a large change of the page; a style element moved
+    // to the end of the head (its rules now come later, Dark Reader's copy must follow)
+    document.getElementById('dynbig').setAttribute('fill', '#f0f0f0');
+    document.getElementById('dynsmall').setAttribute('fill', '#f0f0f0');
+    var many = document.createElement('div');
+    for (var i = 0; i < 1200; i++) many.appendChild(document.createElement('span'));
+    document.body.appendChild(many);
+    for (var j = 0; j < 1100; j++) document.body.appendChild(document.createElement('i'));
+    document.head.appendChild(document.getElementById('moved'));
+    document.title = 'ready';
+  }, 600);
+});
+"""
+
+FRAME = ("<!doctype html><html><head><style>body { background: #fff; color: #000 }</style></head>"
+         "<body><p id='fp'>frame</p></body></html>")
+
+CASE_STEPS = JS + r'''
+SITE = "__SITE__"
+READ = """(function () {
+  function cs(el) { return el ? getComputedStyle(el) : null; }
+  var root = document.getElementById('host').shadowRoot, dsd = document.getElementById('dsd').shadowRoot;
+  var fdoc = document.getElementById('frame').contentDocument;
+  var moved = document.getElementById('moved');
+  var rootStyle = getComputedStyle(document.documentElement);
+  return JSON.stringify({
+    title: document.title,
+    body: cs(document.body).backgroundColor,
+    plain: [cs(document.getElementById('plain')).backgroundColor, cs(document.getElementById('plain')).color],
+    inline: [cs(document.getElementById('inline')).backgroundColor, cs(document.getElementById('inline')).color],
+    fixvar: cs(document.getElementById('fixvar')).backgroundColor,
+    rootvar: rootStyle.getPropertyValue('--darkreader-background-ffffff').trim(),
+    newcvar: rootStyle.getPropertyValue('--darkreader-background-fffaf0').trim(),
+    newc: [cs(document.getElementById('newc')).backgroundColor, cs(document.getElementById('newc')).color],
+    mv: cs(document.getElementById('mv')).backgroundColor,
+    movedcopy: !!(moved.nextElementSibling && moved.nextElementSibling.classList.contains('darkreader--sync')),
+    icon: cs(document.getElementById('iconpath')).fill,
+    bigrect: cs(document.getElementById('bigrect')).fill,
+    smallrect: cs(document.getElementById('smallrect')).fill,
+    line: cs(document.getElementById('line')).stroke,
+    dynbig: cs(document.getElementById('dynbig')).fill,
+    dynsmall: cs(document.getElementById('dynsmall')).fill,
+    dynsmall2: cs(document.getElementById('dynsmall2')).fill,
+    sdiv: [cs(root.getElementById('sdiv')).backgroundColor, cs(root.getElementById('sdiv')).color],
+    sinline: cs(root.getElementById('sinline')).backgroundColor,
+    sadopted: [cs(root.getElementById('sadopted')).backgroundColor, cs(root.getElementById('sadopted')).color],
+    dsdin: dsd ? cs(dsd.getElementById('dsdin')).backgroundColor : null,
+    frame: fdoc ? [getComputedStyle(fdoc.body).backgroundColor, getComputedStyle(fdoc.getElementById('fp')).color]
+                : null
+  });
+})()"""
+
+def steps(ike, qapp, out):
+    from ike import darkfixes
+    common = darkfixes.fix_for
+    def fix_for(url):
+        # a site's fix that names a colour variable without a fallback, as some in the list do
+        fix = dict(common(url))
+        fix["css"] = ((fix.get("css") or "")
+                      + "\n#fixvar { background-color: var(--darkreader-background-ffffff) !important; }")
+        return fix
+    darkfixes.fix_for = fix_for
+    view = ike.windows[0].current_view()
+    yield 500
+    yield from load(view, SITE + "/cases")
+    for _ in range(40):
+        yield 250
+        if (yield from js(view, "document.title")) == "ready":
+            break
+    yield 2500
+    out.update(json.loads((yield from js(view, READ))))
+'''
+
+
+def test_what_dark_reader_darkens(run_ike, site):
+    """Every kind of content Dark Reader darkens is still darkened with I.K.E.'s
+    changes to its engine: style sheets, inline styles, SVG shapes (big ones as
+    backgrounds, small ones as text, as Dark Reader tells them apart), content
+    added after the page loaded, a style element the page moves, shadow roots
+    (made by script or declared in the page) with their style elements, inline
+    styles and adopted style sheets, a frame of the same site, and a site's fix
+    that names a colour variable."""
+    PAGES["/cases"] = (CASES, {})
+    PAGES["/cases.js"] = (CASES_JS, {"Content-Type": "application/javascript"})
+    PAGES["/frame"] = (FRAME, {})
+    out = run_ike(CASE_STEPS.replace("__SITE__", site), settings={"dark_mode": "on", "dark_engine": "reader"},
+                  timeout=150)
+    assert out.get("title") == "ready", out
+
+    def dark(c):
+        return lightness(c) is not None and lightness(c) < 0.3
+
+    def light(c):
+        return lightness(c) is not None and lightness(c) > 0.6
+    assert dark(out["body"]), out
+    for key in ("plain", "inline", "newc", "sdiv", "sadopted", "frame"):
+        bg, fg = out[key]
+        assert dark(bg) and light(fg), (key, out[key])
+    for key in ("mv", "sinline", "dsdin", "bigrect", "dynbig"):
+        assert dark(out[key]), (key, out[key])
+    # small shapes take the colour of text: white stays light, black becomes light
+    for key in ("icon", "smallrect", "dynsmall", "dynsmall2"):
+        assert light(out[key]), (key, out[key])
+    assert out["line"] != "rgb(0, 0, 0)" and lightness(out["line"]) > 0.3, out["line"]
+    # the moved style element's copy followed it
+    assert out["movedcopy"], out
+    # the fix's variable is defined
+    assert dark(out["fixvar"]) and out["rootvar"], out

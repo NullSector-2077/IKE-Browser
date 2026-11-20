@@ -1845,22 +1845,16 @@
         if (root == null) {
             return;
         }
-        const walker = document.createTreeWalker(
-            root,
-            NodeFilter.SHOW_ELEMENT,
-            {
-                acceptNode(node) {
-                    return node.shadowRoot == null
-                        ? NodeFilter.FILTER_SKIP
-                        : NodeFilter.FILTER_ACCEPT;
-                }
-            }
-        );
+        // I.K.E.: no filter function, the shadow root is checked here
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
         for (
             let node = root.shadowRoot ? walker.currentNode : walker.nextNode();
             node != null;
             node = walker.nextNode()
         ) {
+            if (node.shadowRoot == null) {
+                continue;
+            }
             if (node.classList.contains("surfingkeys_hints_host")) {
                 continue;
             }
@@ -6053,8 +6047,8 @@
             attrObservers.get(root).disconnect();
         }
         const discoveredNodes = new WeakSet();
-        function discoverNodes(node) {
-            getInlineStyleElements(node).forEach((el) => {
+        function discoverNodes(node, ikeElements = getInlineStyleElements(node)) {
+            ikeElements.forEach((el) => {
                 if (discoveredNodes.has(el)) {
                     return;
                 }
@@ -6076,7 +6070,16 @@
         }
         const treeObserver = createOptimizedTreeObserver(root, {
             onMinorMutations: (_root, {additions}) => {
-                additions.forEach((added) => discoverNodes(added));
+                const ikeLists = [];
+                additions.forEach((added) =>
+                    ikeLists.push([added, getInlineStyleElements(added)])
+                );
+                ikeWithSVGRects(
+                    ikeLists.flatMap((item) => item[1]),
+                    () => ikeLists.forEach(([added, elements]) =>
+                        discoverNodes(added, elements)
+                    )
+                );
                 variablesStore.matchVariablesAndDependents();
             },
             onHugeMutations: () => {
@@ -6094,7 +6097,9 @@
         let timeoutId = null;
         const handleAttributeMutations = throttle((mutations) => {
             const handledTargets = new Set();
-            mutations.forEach((m) => {
+            ikeWithSVGRects(
+                mutations.map((m) => m.target),
+                () => mutations.forEach((m) => {
                 const target = m.target;
                 if (handledTargets.has(target)) {
                     return;
@@ -6103,7 +6108,7 @@
                     handledTargets.add(target);
                     elementStyleDidChange(target);
                 }
-            });
+            }));
             variablesStore.matchVariablesAndDependents();
         });
         const attrObserver = new MutationObserver((mutations) => {
@@ -6216,6 +6221,77 @@
         const root = getSVGElementRoot(parent);
         svgNodesRoots.set(svgElement, root);
         return root;
+    }
+    // I.K.E.: sizes read for a group of elements before any of them is changed
+    let ikeSVGRects = null;
+    function ikeSVGRect(el) {
+        const rect = ikeSVGRects && ikeSVGRects.get(el);
+        return rect || el.getBoundingClientRect();
+    }
+    function ikeWithSVGRects(elements, run, pending = false) {
+        if (ikeSVGRects || !isReadyStateComplete()) {
+            run();
+            return;
+        }
+        const shapes = [];
+        forEach(elements, (el) => {
+            if (
+                !(el instanceof SVGElement) ||
+                el instanceof SVGTextElement ||
+                !el.hasAttribute("fill")
+            ) {
+                return;
+            }
+            const fill = el.getAttribute("fill");
+            if (fill === "none" || fill === "currentColor") {
+                return;
+            }
+            if (
+                !pending &&
+                inlineStyleCache.get(el) === getInlineStyleCacheKey(el, theme)
+            ) {
+                return;
+            }
+            shapes.push(el);
+        });
+        if (shapes.length < 2) {
+            run();
+            return;
+        }
+        const rects = new Map();
+        shapes.forEach((el) => {
+            const root = getSVGElementRoot(el);
+            if (!root) {
+                return;
+            }
+            if (!svgRootSizeTestResults.has(root) && !rects.has(root)) {
+                rects.set(root, root.getBoundingClientRect());
+            }
+            rects.set(el, el.getBoundingClientRect());
+        });
+        ikeSVGRects = rects;
+        try {
+            run();
+        } finally {
+            ikeSVGRects = null;
+        }
+    }
+    // shapes found while the page loads are handled together when it is loaded
+    const ikePendingSVG = [];
+    function ikeRunPendingSVG() {
+        const list = ikePendingSVG.splice(0);
+        ikeWithSVGRects(
+            list.map((item) => item[0]),
+            () => list.forEach((item) => item[1]()),
+            true
+        );
+    }
+    function ikeAddPendingSVG(element, handler) {
+        if (!readyStateCompleteListeners.has(ikeRunPendingSVG)) {
+            ikePendingSVG.splice(0);
+            addReadyStateCompleteListener(ikeRunPendingSVG);
+        }
+        ikePendingSVG.push([element, handler]);
     }
     const inlineStringValueCache = new Map();
     const MAX_LOOP_TEARDOWNS = 10;
@@ -6485,7 +6561,7 @@
                             if (svgRootSizeTestResults.has(root)) {
                                 isSVGSmall = svgRootSizeTestResults.get(root);
                             } else {
-                                const svgBounds = root.getBoundingClientRect();
+                                const svgBounds = ikeSVGRect(root);
                                 isSVGSmall =
                                     svgBounds.width * svgBounds.height <=
                                     SMALL_SVG_THRESHOLD ** 2;
@@ -6495,8 +6571,7 @@
                             if (isSVGSmall) {
                                 isBg = false;
                             } else {
-                                const {width, height} =
-                                    element.getBoundingClientRect();
+                                const {width, height} = ikeSVGRect(element);
                                 isBg =
                                     width > SMALL_SVG_THRESHOLD ||
                                     height > SMALL_SVG_THRESHOLD;
@@ -6513,7 +6588,7 @@
                         if (isReadyStateComplete()) {
                             handleSVGElement();
                         } else {
-                            addReadyStateCompleteListener(handleSVGElement);
+                            ikeAddPendingSVG(element, handleSVGElement);
                         }
                     } else {
                         overrideValue(
@@ -8029,9 +8104,19 @@
         });
         const prevStyleSiblings = new WeakMap();
         const nextStyleSiblings = new WeakMap();
+        // I.K.E.: Dark Reader's own elements are not neighbours that count
+        function ikeStyleSibling(style, next) {
+            let el = next
+                ? style.nextElementSibling
+                : style.previousElementSibling;
+            while (el && el.classList.contains("darkreader")) {
+                el = next ? el.nextElementSibling : el.previousElementSibling;
+            }
+            return el;
+        }
         function saveStylePosition(style) {
-            prevStyleSiblings.set(style, style.previousElementSibling);
-            nextStyleSiblings.set(style, style.nextElementSibling);
+            prevStyleSiblings.set(style, ikeStyleSibling(style, false));
+            nextStyleSiblings.set(style, ikeStyleSibling(style, true));
         }
         function forgetStylePosition(style) {
             prevStyleSiblings.delete(style);
@@ -8039,8 +8124,8 @@
         }
         function didStylePositionChange(style) {
             return (
-                style.previousElementSibling !== prevStyleSiblings.get(style) ||
-                style.nextElementSibling !== nextStyleSiblings.get(style)
+                ikeStyleSibling(style, false) !== prevStyleSiblings.get(style) ||
+                ikeStyleSibling(style, true) !== nextStyleSiblings.get(style)
             );
         }
         currentStyles.forEach(saveStylePosition);
@@ -8705,14 +8790,15 @@
                 push(inlineStyleElements, elements);
             }
         });
-        inlineStyleElements.forEach((el) =>
+        ikeWithSVGRects(inlineStyleElements, () =>
+            inlineStyleElements.forEach((el) =>
             overrideInlineStyle(
                 el,
                 theme,
                 ignoredInlineSelectors,
                 ignoredImageAnalysisSelectors
             )
-        );
+        ));
         handleAdoptedStyleSheets(document);
         variablesStore.matchVariablesAndDependents();
         tryInvertChromePDF();
@@ -8878,6 +8964,7 @@
                     INLINE_STYLE_SELECTOR
                 );
                 if (inlineStyleElements.length > 0) {
+                    ikeWithSVGRects(inlineStyleElements, () =>
                     forEach(inlineStyleElements, (el) =>
                         overrideInlineStyle(
                             el,
@@ -8885,7 +8972,7 @@
                             ignoredInlineSelectors,
                             ignoredImageAnalysisSelectors
                         )
-                    );
+                    ));
                 }
             }
         );

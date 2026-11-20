@@ -9,13 +9,15 @@ Dark Reader extension for Chromium uses it.
 
 Writes, in ike/resources/:
 
-- darkreader.js        the engine. One change, the one the extension's own
-                       Manifest V3 build makes: the style-sheet proxy is not
-                       put into the page as an inline <script> (which strict
+- darkreader.js        the engine. The change the extension's own Manifest V3
+                       build makes: the style-sheet proxy is not put into the
+                       page as an inline <script> (which strict
                        Content-Security-Policies, as on Google's sites, block),
                        it is asked for with the "__darkreader__stylesheetProxy__arg"
                        event (with a token of the session in its name, so that
-                       a page cannot ask for it).
+                       a page cannot ask for it). And I.K.E.'s changes that make
+                       the engine's work cheaper without changing what it does
+                       to a page (PATCHES below).
 - darkreader-proxy.js  that proxy (Dark Reader's own injectProxy, taken out of
                        the engine) with the extension's listener for the
                        event. I.K.E. runs it in the page's own world, where no
@@ -46,6 +48,309 @@ PROXY_BLOCK = re.compile(
 # run time in both scripts): a page cannot start the proxy itself
 PROXY_EVENT = ('document.dispatchEvent(new CustomEvent("__darkreader__stylesheetProxy__arg__IKE_DR_TOKEN__", '
                '{detail: {enableStyleSheetsProxy, enableCustomElementRegistryProxy}}));')
+
+# Changes that make Dark Reader's work cheaper without changing what it does to
+# a page (docs/review/tests-and-performance.md has the measurements). Each one is
+# (name, text of the engine, its replacement): the text must be found exactly
+# once, or the build stops.
+PATCHES = [
+    # Finding the elements that have a shadow root: the walk asked a script
+    # function about every element; without it the same walk, in the same
+    # order, is about ten times faster.
+    ("shadow-host-walk", """\
+        const walker = document.createTreeWalker(
+            root,
+            NodeFilter.SHOW_ELEMENT,
+            {
+                acceptNode(node) {
+                    return node.shadowRoot == null
+                        ? NodeFilter.FILTER_SKIP
+                        : NodeFilter.FILTER_ACCEPT;
+                }
+            }
+        );
+        for (
+            let node = root.shadowRoot ? walker.currentNode : walker.nextNode();
+            node != null;
+            node = walker.nextNode()
+        ) {
+            if (node.classList.contains("surfingkeys_hints_host")) {
+""", """\
+        // I.K.E.: no filter function, the shadow root is checked here
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+        for (
+            let node = root.shadowRoot ? walker.currentNode : walker.nextNode();
+            node != null;
+            node = walker.nextNode()
+        ) {
+            if (node.shadowRoot == null) {
+                continue;
+            }
+            if (node.classList.contains("surfingkeys_hints_host")) {
+"""),
+    # After a large change of the page, a style element counted as moved when
+    # the copy Dark Reader had put next to it was its new neighbour; its copy
+    # was then built again from scratch (and the browser styled the page
+    # again), once for every style added to the page since Dark Reader started.
+    # Dark Reader's own elements are not counted as neighbours.
+    ("style-moves", """\
+        function saveStylePosition(style) {
+            prevStyleSiblings.set(style, style.previousElementSibling);
+            nextStyleSiblings.set(style, style.nextElementSibling);
+        }
+""", """\
+        // I.K.E.: Dark Reader's own elements are not neighbours that count
+        function ikeStyleSibling(style, next) {
+            let el = next
+                ? style.nextElementSibling
+                : style.previousElementSibling;
+            while (el && el.classList.contains("darkreader")) {
+                el = next ? el.nextElementSibling : el.previousElementSibling;
+            }
+            return el;
+        }
+        function saveStylePosition(style) {
+            prevStyleSiblings.set(style, ikeStyleSibling(style, false));
+            nextStyleSiblings.set(style, ikeStyleSibling(style, true));
+        }
+"""),
+    ("style-moves-check", """\
+                style.previousElementSibling !== prevStyleSiblings.get(style) ||
+                style.nextElementSibling !== nextStyleSiblings.get(style)
+""", """\
+                ikeStyleSibling(style, false) !== prevStyleSiblings.get(style) ||
+                ikeStyleSibling(style, true) !== nextStyleSiblings.get(style)
+"""),
+    # SVG shapes with a fill colour: Dark Reader reads each shape's size (an
+    # icon or a background?) right after changing the previous shape, so the
+    # browser lays the page out again for every shape. The sizes of a group of
+    # elements are read first, then the elements are changed. Dark Reader only
+    # changes colours there, so the sizes are the same ones it would read.
+    ("svg-sizes", """\
+        const parent = svgElement.parentNode;
+        const root = getSVGElementRoot(parent);
+        svgNodesRoots.set(svgElement, root);
+        return root;
+    }
+""", """\
+        const parent = svgElement.parentNode;
+        const root = getSVGElementRoot(parent);
+        svgNodesRoots.set(svgElement, root);
+        return root;
+    }
+    // I.K.E.: sizes read for a group of elements before any of them is changed
+    let ikeSVGRects = null;
+    function ikeSVGRect(el) {
+        const rect = ikeSVGRects && ikeSVGRects.get(el);
+        return rect || el.getBoundingClientRect();
+    }
+    function ikeWithSVGRects(elements, run, pending = false) {
+        if (ikeSVGRects || !isReadyStateComplete()) {
+            run();
+            return;
+        }
+        const shapes = [];
+        forEach(elements, (el) => {
+            if (
+                !(el instanceof SVGElement) ||
+                el instanceof SVGTextElement ||
+                !el.hasAttribute("fill")
+            ) {
+                return;
+            }
+            const fill = el.getAttribute("fill");
+            if (fill === "none" || fill === "currentColor") {
+                return;
+            }
+            if (
+                !pending &&
+                inlineStyleCache.get(el) === getInlineStyleCacheKey(el, theme)
+            ) {
+                return;
+            }
+            shapes.push(el);
+        });
+        if (shapes.length < 2) {
+            run();
+            return;
+        }
+        const rects = new Map();
+        shapes.forEach((el) => {
+            const root = getSVGElementRoot(el);
+            if (!root) {
+                return;
+            }
+            if (!svgRootSizeTestResults.has(root) && !rects.has(root)) {
+                rects.set(root, root.getBoundingClientRect());
+            }
+            rects.set(el, el.getBoundingClientRect());
+        });
+        ikeSVGRects = rects;
+        try {
+            run();
+        } finally {
+            ikeSVGRects = null;
+        }
+    }
+    // shapes found while the page loads are handled together when it is loaded
+    const ikePendingSVG = [];
+    function ikeRunPendingSVG() {
+        const list = ikePendingSVG.splice(0);
+        ikeWithSVGRects(
+            list.map((item) => item[0]),
+            () => list.forEach((item) => item[1]()),
+            true
+        );
+    }
+    function ikeAddPendingSVG(element, handler) {
+        if (!readyStateCompleteListeners.has(ikeRunPendingSVG)) {
+            ikePendingSVG.splice(0);
+            addReadyStateCompleteListener(ikeRunPendingSVG);
+        }
+        ikePendingSVG.push([element, handler]);
+    }
+"""),
+    ("svg-sizes-root", """\
+                                const svgBounds = root.getBoundingClientRect();
+""", """\
+                                const svgBounds = ikeSVGRect(root);
+"""),
+    ("svg-sizes-element", """\
+                                const {width, height} =
+                                    element.getBoundingClientRect();
+""", """\
+                                const {width, height} = ikeSVGRect(element);
+"""),
+    ("svg-sizes-pending", """\
+                            addReadyStateCompleteListener(handleSVGElement);
+""", """\
+                            ikeAddPendingSVG(element, handleSVGElement);
+"""),
+    ("svg-sizes-discover", """\
+        function discoverNodes(node) {
+            getInlineStyleElements(node).forEach((el) => {
+                if (discoveredNodes.has(el)) {
+                    return;
+                }
+                discoveredNodes.add(el);
+                elementStyleDidChange(el);
+            });
+""", """\
+        function discoverNodes(node, ikeElements = getInlineStyleElements(node)) {
+            ikeElements.forEach((el) => {
+                if (discoveredNodes.has(el)) {
+                    return;
+                }
+                discoveredNodes.add(el);
+                elementStyleDidChange(el);
+            });
+"""),
+    ("svg-sizes-additions", """\
+            onMinorMutations: (_root, {additions}) => {
+                additions.forEach((added) => discoverNodes(added));
+                variablesStore.matchVariablesAndDependents();
+            },
+""", """\
+            onMinorMutations: (_root, {additions}) => {
+                const ikeLists = [];
+                additions.forEach((added) =>
+                    ikeLists.push([added, getInlineStyleElements(added)])
+                );
+                ikeWithSVGRects(
+                    ikeLists.flatMap((item) => item[1]),
+                    () => ikeLists.forEach(([added, elements]) =>
+                        discoverNodes(added, elements)
+                    )
+                );
+                variablesStore.matchVariablesAndDependents();
+            },
+"""),
+    ("svg-sizes-attributes", """\
+            const handledTargets = new Set();
+            mutations.forEach((m) => {
+                const target = m.target;
+                if (handledTargets.has(target)) {
+                    return;
+                }
+                if (INLINE_STYLE_ATTRS.includes(m.attributeName)) {
+                    handledTargets.add(target);
+                    elementStyleDidChange(target);
+                }
+            });
+""", """\
+            const handledTargets = new Set();
+            ikeWithSVGRects(
+                mutations.map((m) => m.target),
+                () => mutations.forEach((m) => {
+                const target = m.target;
+                if (handledTargets.has(target)) {
+                    return;
+                }
+                if (INLINE_STYLE_ATTRS.includes(m.attributeName)) {
+                    handledTargets.add(target);
+                    elementStyleDidChange(target);
+                }
+            }));
+"""),
+    ("svg-sizes-start", """\
+        inlineStyleElements.forEach((el) =>
+            overrideInlineStyle(
+                el,
+                theme,
+                ignoredInlineSelectors,
+                ignoredImageAnalysisSelectors
+            )
+        );
+        handleAdoptedStyleSheets(document);
+""", """\
+        ikeWithSVGRects(inlineStyleElements, () =>
+            inlineStyleElements.forEach((el) =>
+            overrideInlineStyle(
+                el,
+                theme,
+                ignoredInlineSelectors,
+                ignoredImageAnalysisSelectors
+            )
+        ));
+        handleAdoptedStyleSheets(document);
+"""),
+    ("svg-sizes-shadow", """\
+                if (inlineStyleElements.length > 0) {
+                    forEach(inlineStyleElements, (el) =>
+                        overrideInlineStyle(
+                            el,
+                            theme,
+                            ignoredInlineSelectors,
+                            ignoredImageAnalysisSelectors
+                        )
+                    );
+                }
+""", """\
+                if (inlineStyleElements.length > 0) {
+                    ikeWithSVGRects(inlineStyleElements, () =>
+                    forEach(inlineStyleElements, (el) =>
+                        overrideInlineStyle(
+                            el,
+                            theme,
+                            ignoredInlineSelectors,
+                            ignoredImageAnalysisSelectors
+                        )
+                    ));
+                }
+"""),
+]
+
+
+def apply_patches(engine):
+    """I.K.E.'s changes (PATCHES), each found exactly once, in the engine's own line ends."""
+    nl = "\r\n" if "\r\n" in engine else "\n"
+    for name, old, new in PATCHES:
+        old, new = old.replace("\n", nl), new.replace("\n", nl)
+        n = engine.count(old)
+        if n != 1:
+            raise SystemExit("patch %r: the text it changes was found %d times instead of once" % (name, n))
+        engine = engine.replace(old, new)
+    return engine
 
 FIX_COMMANDS = {"INVERT": "invert", "CSS": "css", "IGNORE INLINE STYLE": "ignoreInlineStyle",
                 "IGNORE IMAGE ANALYSIS": "ignoreImageAnalysis", "IGNORE CSS URL": "ignoreCSSUrl"}
@@ -111,7 +416,7 @@ def build(lib_path, config, commit="", date=""):
     found = PROXY_BLOCK.findall(lib)
     if len(found) != 1:
         raise SystemExit("the proxy injection of the engine was not found exactly once (%d)" % len(found))
-    engine = PROXY_BLOCK.sub(lambda _m: PROXY_EVENT, lib)
+    engine = apply_patches(PROXY_BLOCK.sub(lambda _m: PROXY_EVENT, lib))
     proxy = extract_proxy(lib)
     proxy_js = (
         "// I.K.E.: Dark Reader's style-sheet proxy (MIT, https://darkreader.org), run in the\n"
