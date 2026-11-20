@@ -1089,16 +1089,21 @@ class WindowFeatures:
         n = 0
         for v in self.all_views():
             if force or now - v.last_active >= minutes * 60:
-                if v in self.views:
-                    n += bool(self._suspend(v))
-                elif not v.sleeping and not v.pending_url:
-                    try:
-                        v.page().setLifecycleState(QWebEnginePage.LifecycleState.Discarded)
-                        v.sleeping = True
-                        n += 1
-                    except Exception:
-                        pass
+                n += self.sleep_view(v)
         return n
+
+    def sleep_view(self, v):
+        """Suspend one tab (of any workspace) if it may be; True when it was."""
+        if v in self.views:
+            return bool(self._suspend(v))
+        if v.sleeping or v.pending_url:
+            return False
+        try:
+            v.page().setLifecycleState(QWebEnginePage.LifecycleState.Discarded)
+            v.sleeping = True
+            return True
+        except Exception:
+            return False
 
     # ------------------------------------------------------------------
     # reader mode / translation / floating video
