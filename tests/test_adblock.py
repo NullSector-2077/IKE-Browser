@@ -149,3 +149,42 @@ def test_engine_error_lets_request_through_and_is_counted(run_ike, server):
     assert out["errors"] >= 2                       # the page, its images, its cosmetic filters
     assert ("Engine errors this session (let through unfiltered): %d" % out["errors"]) in out["about"]
     assert out["blocked_again"] is True and out["errors_after"] == out["errors"]
+
+
+@needs_engine
+def test_a_check_does_not_wait_for_other_python_threads():
+    """1.1.18: one check takes microseconds and keeps Python's lock. When the
+    engine let go of it for each check, a busy Python thread (an engine being
+    built in the background after a list update) made every check of the
+    interface wait up to 5 ms, Python's switch interval."""
+    import sys
+    import time
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "vendor" / "adblock"))
+    import ike_adblock as ab
+    # an engine of the size of the real lists: a check then takes a few
+    # microseconds, long enough for the other thread to take the lock
+    fs = ab.FilterSet()
+    fs.add_filter_list("\n".join("||ads%d.example^\n/banner%d/*$script\n##.ad-%d" % (i, i, i)
+                                  for i in range(20000)))
+    engine = ab.Engine(fs)
+    stop = []
+
+    def busy():
+        x = 0
+        while not stop:
+            x += 1
+    t = threading.Thread(target=busy, daemon=True)
+    t.start()
+    try:
+        a = time.perf_counter()
+        for i in range(300):
+            r = engine.check_network_request(ab.Request("https://ads%d.example/x.js" % i,
+                                                        "https://news.example/", "script", "GET"))
+            assert r.matched
+        per_check = (time.perf_counter() - a) / 300
+    finally:
+        stop.append(1)
+        t.join()
+    # a few microseconds each now; 0.1 to 5 ms each when the lock was let go
+    assert per_check < 0.00005, "a check waited for another thread: %.2f ms" % (per_check * 1000)

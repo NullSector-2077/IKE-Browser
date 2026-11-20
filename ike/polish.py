@@ -818,7 +818,10 @@ class ShieldCount(QWidget):
         self._anim.setStartValue(0.0)
         self._anim.setEndValue(1.0)
         self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
-        self._anim.valueChanged.connect(lambda _v: self.update())
+        # 1.1.18: only the column of the "+N" is painted again at each step;
+        # the whole widget made the window repaint the address field and the
+        # shield under it at every frame while a page loaded
+        self._anim.valueChanged.connect(lambda _v: self.update(self._band()))
         self._anim.finished.connect(self._finished)
         self.shown = 0                 # how many times it rose (for the tests)
         self.hide()
@@ -853,6 +856,11 @@ class ShieldCount(QWidget):
         b = self.button
         fm = QFontMetrics(b.font())
         return b.iconSize().width() + 8 + fm.horizontalAdvance(b.text() or "0") + 3
+
+    def _band(self):
+        """The part of the widget the "+N" moves through."""
+        x = max(0, self.text_left() - 4)
+        return QRect(x, 0, max(0, self.width() - x), self.height())
 
     def alpha(self, t):
         return 1.0 if t <= self.HOLD else max(0.0, 1.0 - (t - self.HOLD) / (1.0 - self.HOLD))

@@ -280,13 +280,14 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         if first.isEmpty():
             first = url
         first_host = first.host().lower()
+        first_site = site_of(first_host)
         if not self.quiet:
-            site = site_of(first_host)
-            s.requests[site] = s.requests.get(site, 0) + 1      # per-site resources
+            s.requests[first_site] = s.requests.get(first_site, 0) + 1      # per-site resources
         lv = rank(cfg.level_for(first_host))
         if lv == 0:
             return
         host = url.host().lower()
+        host_site = site_of(host)
         method = bytes(info.requestMethod())
         get = method == b"GET"
         if cfg.sensitive_hands_off(first_host, host):
@@ -337,8 +338,8 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
                     info.redirect(QUrl(clean))
                     return
 
-        if (not main and lv <= 2 and site_of(host) == site_of(first_host)
-                and site_of(first_host) not in s.full_blocking_sites()):
+        if (not main and lv <= 2 and host_site == first_site
+                and first_site not in s.full_blocking_sites()):
             # "Same site, free way" (1.1.15): at Balanced and below, what a site
             # asks of itself is not checked against the filter lists, as Brave
             # does in its standard mode - faster (most requests of a page are
@@ -391,7 +392,7 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         if lv >= 4 and cfg.site_opt(first_host, "fp") is not False:
             info.setHttpHeader(b"Accept-Language", b"en-US,en;q=0.9")
         if (lv >= 2 and cfg["trim_referrer"] and not main
-                and site_of(host) != site_of(first_host)
+                and host_site != first_site
                 and cfg.site_opt(first_host, "params") is not False):
             origin = "%s://%s/" % (first.scheme(), first.host())
             if first.port() > 0:

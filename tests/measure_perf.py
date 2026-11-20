@@ -1,4 +1,4 @@
-"""Repeatable performance measurements of I.K.E. (1.1.17), to compare two
+"""Repeatable performance measurements of I.K.E. (1.1.17, 1.1.18), to compare two
 versions on the same computer. Not part of the automatic tests.
 
     python tests/measure_perf.py [--runs N] [--lists DIR] [--json FILE]
@@ -18,6 +18,8 @@ What is measured (median of the runs; times in ms unless said otherwise):
   heavy_load_ms                 a page with 400 requests, 150 of them to ad servers
   heavy_intercept_ms            time spent checking its requests (shield included)
   heavy_shield_redraws          how often the shield was redrawn for it
+  heavy_main_cpu_ms             processor time of the interface's thread for it (load and the
+                                1.2 s after it: requests, drawing, the engine's own work there)
   frames_<level>_ms             a page with 30 frames at each protection level
   idle_cpu_pct_<n>tabs          processor use at rest, all processes, share of one core
   pss_mb_<n>tabs                memory of all processes (PSS)
@@ -255,13 +257,15 @@ def steps(ike, qapp, out):
     rows = []
     for i in range(5):
         T.update(n=0, t=0.0, shield=0)
+        c0 = time.thread_time()
         ms = yield from load(view, BASE + "/heavy?%%d" %% i)
         yield 1200
-        rows.append([ms, T["t"] * 1000, T["shield"]])
+        rows.append([ms, T["t"] * 1000, T["shield"], (time.thread_time() - c0) * 1000])
     rows = rows[1:]
     out["heavy_load_ms"] = sorted(r[0] for r in rows)[len(rows) // 2]
     out["heavy_intercept_ms"] = sorted(r[1] for r in rows)[len(rows) // 2]
     out["heavy_shield_redraws"] = sorted(r[2] for r in rows)[len(rows) // 2]
+    out["heavy_main_cpu_ms"] = sorted(r[3] for r in rows)[len(rows) // 2]
     type(icp).interceptRequest = orig
     type(win).update_shield = o_us
     # frames, at each level
