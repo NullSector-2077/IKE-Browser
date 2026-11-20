@@ -32,17 +32,38 @@ protection was removed or weakened.
   animation; a blocked advert no longer tells every window at once (they hear
   of it once per site every 16 ms, the shield still ends on the exact count).
   A page with 400 requests and 150 adverts: 234 -> 190 ms of the interface's
-  processor time, request checks 17.6 -> 13.7 ms.
+  processor time, request checks 17.6 -> 13.7 ms. The "+N" now repaints only
+  its own strip, not the address field under it.
+- **Request checks never wait for other work**: the AdBlock engine let go of
+  Python's lock for each check (a few microseconds), so whenever other Python
+  work ran in the background (the engine rebuilt after a list update) every
+  request of the page in view could wait up to 5 ms. It keeps the lock now:
+  while the engine is rebuilt, the slowest check of a heavy page went from
+  7-18 ms to about 2 ms and all its checks from 24-35 to 17-24 ms. Settings
+  read for every request (per-site levels and options) are looked up without
+  work when the user has none.
 - **The graphics card named to sites is a common one** (fingerprinting): at
   Balanced each site gets one of eight Intel and NVIDIA models written exactly
-  as Chrome reports them on Linux, without driver versions; AMD names, which
+  as Chrome reports them on Linux, without driver versions, of the same maker
+  as the real card (an NVIDIA computer is told of an NVIDIA model, an Intel
+  one of an Intel model: the limits WebGL reports tell the maker anyway, and
+  another maker's name was a contradiction a script could see); AMD names, which
   on Linux always carry the LLVM and DRM versions and so were very rare (an
   "RX 580 ... LLVM 17.0.6, DRM 3.57" was one in 368,000 browsers on Cover
   Your Tracks), are no longer used. WebGPU names the same card as WebGL
   (vendor and architecture), in pages, frames and workers. At Strict and
   Maximum no card is named at all: the WEBGL_debug_renderer_info extension is
   hidden in every frame and worker (until now a model was shown there too,
-  although the code said it was hidden) and WebGPU stays off.
+  although the code said it was hidden) and WebGPU stays off. Checked in 23
+  places a page can ask (frames of every kind, workers of every kind,
+  OffscreenCanvas, WebGL 1 and 2). Not reachable: a worker a site starts from
+  a file of its own (`new Worker("/w.js")`) sees the real values, as before;
+  Qt WebEngine gives no way to add a script to it.
+- **Hostile frames**: 23 ways a page can make or reach a new frame and use it
+  at once (srcdoc, outerHTML, replaceWith, `<object>`, document.write,
+  DOMParser, declarative shadow roots, cloneNode, moveBefore, a frame opened
+  or sent to a new page again...) were played against the protection: every
+  one gives the page's own protected values, never the real ones.
 - **Tabs when memory runs short**: with less than a tenth of the computer's
   memory available, the tabs not looked at for five minutes or more are
   suspended a few at a time, oldest first, before their usual time (each gives
