@@ -222,23 +222,48 @@ __IKE_DR_LIB__
       return;
     }
     if (canCheck()) { runCheck(callback); return; }
-    var obs = new MutationObserver(function () {
+    function look() {
       if (canCheck()) { stop(); runCheck(callback); }
-    });
+    }
+    var obs = new MutationObserver(look);
     function onReady() {
       if (document.readyState === 'complete') { stop(); runCheck(callback); }
     }
-    function stop() { obs.disconnect(); document.removeEventListener('readystatechange', onReady); }
+    function stop() { lookAgain = null; obs.disconnect(); document.removeEventListener('readystatechange', onReady); }
+    lookAgain = look;
     obs.observe(document.documentElement, { childList: true });
     if (document.readyState !== 'complete') document.addEventListener('readystatechange', onReady);
   }
 
+  // the detector's look at the page, while it waits (see uncover)
+  var lookAgain = null;
+  // The plain background goes 0.4 s after the engine started. Taking an element
+  // out of <html> next to <head> and <body> makes the browser style the whole
+  // page again when the page has rules such as "* + *" or "x ~ y > *" (it
+  // cannot tell which of the elements after it are affected): 6,000 elements
+  // on a large page. So the background waits inside <head>, as its first style
+  // (the first of the page, as it was before <head>: the same rule wins), and
+  // is taken out of there, where nothing after it is drawn.
+  function uncover(s) {
+    try {
+      if (s.parentNode === document.documentElement && document.head) {
+        document.head.insertBefore(s, document.head.firstChild);
+      }
+    } catch (e) {}
+    setTimeout(function () {
+      var there = !!s.parentNode;
+      try { s.remove(); } catch (e) {}
+      // the detector looked at the page whenever <html> lost or got a child,
+      // so also when the background went: it still does
+      if (there) Promise.resolve().then(function () { if (lookAgain) lookAgain(); });
+    }, 400);
+  }
   function start() {
     try { DR.enable(CFG.theme, fix); } catch (e) {}
     if (early) {
       var s = early;
       early = null;
-      setTimeout(function () { try { s.remove(); } catch (e) {} }, 400);
+      uncover(s);
     }
     // a site with a dark theme of its own is left as it is (only the top frame,
     // or a frame the hints name, as in the extension)
