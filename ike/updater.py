@@ -97,6 +97,71 @@ def save_state(state):
     tmp.replace(STATE)
 
 
+def bucket():
+    """This installation's fixed place (0-99) in a staged release."""
+    state = load_state()
+    b = state.get("bucket")
+    if not isinstance(b, int) or isinstance(b, bool) or not 0 <= b < 100:
+        import secrets
+        state["bucket"] = b = secrets.randbelow(100)
+        try:
+            save_state(state)
+        except OSError:
+            pass
+    return b
+
+
+def _num(x):
+    return isinstance(x, (int, float)) and not isinstance(x, bool)
+
+
+def manifest_stale(manifest, now=None, running=None, seen=None):
+    """A verified manifest that must not be trusted at all (checked before
+    the version): expired; without an expiry while this copy is 1.1.18 or
+    later (only releases before 1.1.18 lacked it: a replayed old manifest
+    would keep the user where he is, silently); or issued before one already
+    seen (a replay that would undo a "halt"). Adversarial review of 1.1.18."""
+    now = time.time() if now is None else now
+    exp = manifest.get("expires")
+    if exp is None:
+        if vtuple(running or __version__) >= (1, 1, 18):
+            return "expired"
+    elif not _num(exp) or now > exp:
+        return "expired"
+    issued = manifest.get("issued")
+    if _num(seen) and (not _num(issued) or issued < seen):
+        return "stale"
+    return None
+
+
+def manifest_problem(manifest, now=None, manual=False, place=None):
+    """Why this verified manifest must not be installed now, or None (1.1.18,
+    security audit F5): expired (a copy kept back after its time), stopped
+    by the owner ("halt"), or this installation's turn in a staged release
+    has not come yet (a check asked for by the user does not wait). Manifests
+    of earlier releases have none of these fields and are taken as before.
+    A wrong clock never blocks for good: a turn that starts in the future by
+    more than a day counts as come."""
+    now = time.time() if now is None else now
+    if manifest.get("halt") is True:
+        return "halted"
+    exp = manifest.get("expires")
+    if exp is not None:
+        if not isinstance(exp, (int, float)) or isinstance(exp, bool) or now > exp:
+            return "expired"
+    if manual:
+        return None
+    r = manifest.get("rollout")
+    if isinstance(r, dict):
+        start, hours = r.get("start"), r.get("hours")
+        if (isinstance(start, (int, float)) and isinstance(hours, (int, float)) and hours > 0
+                and not isinstance(start, bool) and start - 86400 <= now):
+            share = (now - start) / (hours * 3600.0) * 100
+            if (bucket() if place is None else place) >= share:
+                return "waiting"
+    return None
+
+
 def verify_signature(pubkey_b64, data, sig_b64):
     from cryptography.exceptions import InvalidSignature
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
@@ -208,9 +273,9 @@ def take_rollback_notice():
 class _Worker(QThread):
     result = pyqtSignal(str, object)     # kind, data
 
-    def __init__(self, src, channel, install, parent=None):
+    def __init__(self, src, channel, install, parent=None, manual=False):
         super().__init__(parent)
-        self.src, self.channel, self.install = src, channel, install
+        self.src, self.channel, self.install, self.manual = src, channel, install, manual
 
     def run(self):
         try:
@@ -220,6 +285,14 @@ class _Worker(QThread):
             if not verify_signature(self.src["pubkey"], raw, sig):
                 raise ValueError("the update manifest has an invalid signature")
             manifest = json.loads(raw.decode("utf-8"))
+            state = load_state()
+            stale = manifest_stale(manifest, seen=state.get("issued"))
+            if stale:
+                raise ValueError("the update information is out of date (%s manifest); nothing was "
+                                 "installed, the next check tries again" % stale)
+            if _num(manifest.get("issued")) and manifest["issued"] > (state.get("issued") or 0):
+                state["issued"] = manifest["issued"]
+                save_state(state)
             staged = load_state().get("current")
             newest = max(__version__, staged or "0", key=vtuple)
             if (vtuple(manifest["version"]) <= vtuple(newest)
@@ -228,6 +301,11 @@ class _Worker(QThread):
                 return
             if not plain_name(manifest.get("payload")):
                 raise ValueError("the update manifest names an invalid file")
+            problem = manifest_problem(manifest, manual=self.manual)
+            if problem in ("halted", "waiting"):
+                # stopped by the owner, or not this installation's turn yet
+                self.result.emit("current", {"version": newest})
+                return
             need = manifest.get("min_system")
             if need and vtuple(need) > vtuple(system_version()):
                 # needs a newer system part: only a new package can provide it
@@ -257,14 +335,14 @@ class Updater(QObject):
     def busy(self):
         return self._worker is not None
 
-    def run(self, install):
+    def run(self, install, manual=False):
         src = source()
         if not src or self._worker is not None:
             return False
         channel = self.config["update_channel"]
         if channel not in ("stable", "beta"):     # part of the address: never whatever the settings hold
             channel = "stable"
-        self._worker = _Worker(src, channel, install, self)
+        self._worker = _Worker(src, channel, install, self, manual=manual)
         self._worker.result.connect(self._done)
         background.start(self._worker)
         return True

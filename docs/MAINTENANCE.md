@@ -15,6 +15,7 @@ releases or signs anything, and no workflow ever writes to `main`.
 | On every PR, every push to `main`, every candidate or fix | Lint, all the tests, the Arch package and its tests | `tests.yml` | Checks on the PR, package download `ike-browser-package` |
 | When one of the three above fails | An automatic fix | `autofix.yml` | Draft PR labelled `autofix`, or an issue "Automatic fix needs you" |
 | Mondays, 03:41 UTC | The whole suite and the package on Arch Linux's own Qt (`archlinux:latest`) | `arch.yml` | A failed run to look at (not a required check, no automatic fix) |
+| Every day, 04:23 UTC, and on every PR and push to `main` | The security tests with the engine's sandbox really on (as a normal user), and the RustSec advisories of every crate of the AdBlock engine | `security.yml` | Checks on the PR; on `main` the issue "Rust advisories" when one is found (no automatic fix) |
 | Mondays, 07:41 UTC | The automation itself | `health.yml` | Issue "Automation health" when something stopped or waits too long |
 | Once a month | New versions of the GitHub actions used | Dependabot | One PR labelled `maintenance` |
 

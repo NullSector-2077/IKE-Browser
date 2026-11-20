@@ -480,6 +480,25 @@
         };
       });
     });
+    if (c.strict && self.NavigatorUAData) {
+      // the same reduced Chrome version as the page and the headers (1.1.18,
+      // docs review: a worker read the full one)
+      wrap(self.NavigatorUAData.prototype, 'getHighEntropyValues', function (orig) {
+        return function () {
+          var ua = this;
+          return orig.apply(this, arguments).then(function (v) {
+            var major = (ua.brands && ua.brands[0] && ua.brands[0].version) || '0';
+            if (v && 'uaFullVersion' in v) v.uaFullVersion = major + '.0.0.0';
+            if (v && v.fullVersionList) {
+              v.fullVersionList = v.fullVersionList.map(function (b) {
+                return { brand: b.brand, version: String(b.version).split('.')[0] + '.0.0.0' };
+              });
+            }
+            return v;
+          });
+        };
+      });
+    }
     if (c.strict) getter(N, 'gpu', function () { return undefined; });
     else if (self.GPUAdapterInfo) {
       var GI = self.GPUAdapterInfo.prototype;
@@ -501,11 +520,16 @@
         toStr.call(farble) + ',' + toStr.call(gpuFor) + ');\n';
       while (me.length % 3) me += ' ';                 // so it can be joined to base64 data
       var Ur = self.URL, made = new Map(), mk = Ur && Ur.createObjectURL, rv = Ur && Ur.revokeObjectURL;
-      if (mk && self.Blob) {
+      // taken before the worker's own code: the prelude goes to no function
+      // the worker could have replaced since (1.1.18, security audit)
+      var NB = self.Blob, RA = Reflect.apply, RC = Reflect.construct, LT = self.setTimeout;
+      var b2a = self.btoa, enc = self.encodeURIComponent;
+      var withU = function (u, a) { return a.length > 1 ? [u, a[1]] : [u]; };
+      if (mk && NB) {
         wrap(Ur, 'createObjectURL', function (orig) {
           return function (o) {
             var u = orig.apply(this, arguments);
-            try { if (o instanceof Blob) made.set(u, o); } catch (e) {}
+            try { if (o instanceof NB) made.set(u, o); } catch (e) {}
             return u;
           };
         });
@@ -516,19 +540,19 @@
         var P = new Proxy(Orig, {
           construct: function (t, args, nt) {
             try {
-              var u = String(args[0]), rest = Array.prototype.slice.call(args, 1), b = made.get(u);
-              args = [u].concat(rest);
+              var u = String(args[0]), b = made.get(u);
+              args = withU(u, args);
               if (b) {
-                var pu = mk.call(Ur, new Blob([me, b], { type: b.type || 'text/javascript' }));
-                args = [pu].concat(rest);
-                setTimeout(function () { rv.call(Ur, pu); }, 30000);
+                var pu = RA(mk, Ur, [new NB([me, b], { type: b.type || 'text/javascript' })]);
+                args = withU(pu, args);
+                RA(LT, self, [function () { RA(rv, Ur, [pu]); }, 30000]);
               } else if (u.slice(0, 5) === 'data:' && u.indexOf(',') > 0) {
                 var k = u.indexOf(','), b64 = /;base64$/i.test(u.slice(0, k));
-                args = [u.slice(0, k + 1) + (b64 ? btoa(me) : encodeURIComponent(me)) +
-                  u.slice(k + 1)].concat(rest);
+                args = withU(u.slice(0, k + 1) + (b64 ? RA(b2a, self, [me]) : RA(enc, self, [me])) +
+                  u.slice(k + 1), args);
               }
             } catch (e) {}
-            return Reflect.construct(t, args, nt === P ? t : nt);
+            return RC(t, args, nt === P ? t : nt);
           }
         });
         nat.set(P, toStr.call(Orig));
@@ -902,14 +926,22 @@
     // ---- inline workers get the same values ----
     var U = w.URL, blobs = new w.Map();
     var rawCreate = U && U.createObjectURL, rawRevoke = U && U.revokeObjectURL;
-    if (rawCreate && rawRevoke && w.Blob) {
+    // taken before the page's scripts: the prelude (with this site's seed)
+    // is never handed to a function the page could have replaced since
+    // (1.1.18, security audit: a page that wrapped Blob read it)
+    var NBlob = w.Blob, NXHR = w.XMLHttpRequest, nBtoa = w.btoa, nEnc = w.encodeURIComponent;
+    var nLater = w.setTimeout, nConstruct = w.Reflect.construct;
+    // the new arguments of a worker: [address] or [address, options], built
+    // as literals (no Array method the page could have replaced)
+    var withUrl = function (u, args) { return args.length > 1 ? [u, args[1]] : [u]; };
+    if (rawCreate && rawRevoke && NBlob) {
       wrap(U, 'createObjectURL', function (orig) {
         return function (obj) {
           var url = orig.apply(this, arguments);
           try {
             // every blob, whatever its type and size: a worker runs any of them
             // (1.1.18, independent review: other types and large ones got no prelude)
-            if (obj instanceof w.Blob) blobs.set(url, obj);
+            if (obj instanceof NBlob) blobs.set(url, obj);
           } catch (e) {}
           return url;
         };
@@ -929,36 +961,36 @@
               var url = String(args[0]);
               // the address as read here is the one used (an object whose
               // text changes between two readings cannot slip past)
-              args = [url].concat(Array.prototype.slice.call(args, 1));
+              args = withUrl(url, args);
               if (url.slice(0, 5) === 'blob:') {
                 var blob = blobs.get(url);
                 if (!blob) {
                   // a blob address made elsewhere (in a worker, another frame):
                   // its text is read here, once
                   try {
-                    var x = new w.XMLHttpRequest();
+                    var x = new NXHR();
                     x.open('GET', url, false);
                     x.send();
-                    if (x.status === 200 || x.status === 0) blob = new w.Blob([x.responseText], { type: 'text/javascript' });
+                    if (x.status === 200 || x.status === 0) blob = new NBlob([x.responseText], { type: 'text/javascript' });
                   } catch (e) {}
                 }
                 if (blob) {
-                  var patched = rawCreate.call(U, new w.Blob([PRELUDE, blob],
-                    { type: blob.type || 'text/javascript' }));
-                  args = [patched].concat(Array.prototype.slice.call(args, 1));
-                  w.setTimeout(function () { rawRevoke.call(U, patched); }, 30000);
+                  var patched = RAPPLY(rawCreate, U, [new NBlob([PRELUDE, blob],
+                    { type: blob.type || 'text/javascript' })]);
+                  args = withUrl(patched, args);
+                  RAPPLY(nLater, w, [function () { RAPPLY(rawRevoke, U, [patched]); }, 30000]);
                 }
               } else if (url.slice(0, 5) === 'data:') {
                 var comma = url.indexOf(',');
                 if (comma > 0) {
                   var b64 = /;base64$/i.test(url.slice(0, comma));
-                  args = [url.slice(0, comma + 1) +
-                    (b64 ? w.btoa(PRELUDE) : w.encodeURIComponent(PRELUDE)) +
-                    url.slice(comma + 1)].concat(Array.prototype.slice.call(args, 1));
+                  args = withUrl(url.slice(0, comma + 1) +
+                    (b64 ? RAPPLY(nBtoa, w, [PRELUDE]) : RAPPLY(nEnc, w, [PRELUDE])) +
+                    url.slice(comma + 1), args);
                 }
               }
             } catch (e) {}
-            return w.Reflect.construct(target, args, newTarget === P ? target : newTarget);
+            return nConstruct(target, args, newTarget === P ? target : newTarget);
           }
         });
         natives.set(P, origToString.call(Orig));

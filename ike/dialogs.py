@@ -144,6 +144,8 @@ class SettingsDialog(QDialog):
         lang_row.addStretch(1)
         self.language.setCurrentIndex(max(0, self.language.findData(self.cfg["language"])))
         self.accept_lang = QLineEdit(self.cfg["accept_language"])
+        from .config import system_accept_language
+        self.accept_lang.setPlaceholderText(system_accept_language())      # empty: the system's (1.1.18)
         self.accept_lang.setToolTip(T("Languages requested from websites, in order of preference"))
         self.startup = QComboBox()
         for key, label in (("restore", T("Restore the previous session")),
@@ -1127,7 +1129,7 @@ class SettingsDialog(QDialog):
     def apply(self):
         cfg = self.cfg
         cfg["language"] = self.language.currentData()
-        cfg["accept_language"] = self.accept_lang.text().strip() or "en-US,en"
+        cfg["accept_language"] = self.accept_lang.text().strip()          # empty: the system's languages
         cfg["startup"] = self.startup.currentData()
         cfg["mail_handler"] = self.mail.currentData()
         cfg["video_hw"] = self.video_hw.currentData()

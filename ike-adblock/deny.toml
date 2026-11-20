@@ -1,6 +1,10 @@
 # cargo-deny settings of the I.K.E. AdBlock Engine (1.1.18). GitHub Actions runs
 #   cargo deny --manifest-path ike-adblock/Cargo.toml check licenses bans sources
-# on every pull request (tests.yml, step "Licences"), and tools/third-party.py
+# on every pull request (tests.yml, step "Licences"),
+#   cargo deny ... check advisories
+# on every pull request, every push to main and every day (security.yml, job
+# "rust-advisories": the RustSec database against every crate of Cargo.lock,
+# direct and transitive; the daily run opens the issue "Rust advisories"), and tools/third-party.py
 # reads the same "allow" list: a crate under any other licence, or whose licence
 # cannot be read, stops the tests. To approve a new licence, follow
 # docs/THIRD-PARTY.md, "Approving a new licence".
@@ -39,3 +43,15 @@ unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 allow-git = []
+
+[advisories]
+# RustSec (https://rustsec.org): a crate with a known vulnerability, one that
+# was yanked, or one marked unsound stops the check; an unmaintained one is
+# reported for the crates of the engine's whole tree. No advisory is ignored
+# silently: an exception goes in "ignore" below with its reason, e.g.
+#   { id = "RUSTSEC-0000-0000", reason = "the vulnerable function is never called: ..." },
+# and docs/THIRD-PARTY.md, "Rust advisories", lists it.
+yanked = "deny"
+unmaintained = "all"
+unsound = "all"
+ignore = []

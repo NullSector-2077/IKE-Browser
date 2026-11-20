@@ -1824,7 +1824,7 @@ def test_no_dead_parts_in_the_workflows():
     assert callers == []
     env = (ROOT / ".github/actions/ike-test-env/action.yml").read_text()
     users = [p.name for p in WORKFLOWS.glob("*.yml") if "uses: ./.github/actions/ike-test-env" in p.read_text()]
-    assert users == ["tests.yml"]
+    assert sorted(users) == ["security.yml", "tests.yml"]      # 1.1.18: the sandbox job uses it too
     assert "autofix.yml:" not in env and "shared by tests.yml and autofix.yml" not in env
     assert "guard-refused.md" not in (WORKFLOWS / "autofix.yml").read_text()
 

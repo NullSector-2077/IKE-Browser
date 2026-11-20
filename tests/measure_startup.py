@@ -58,7 +58,7 @@ def main(runs):
         env.update(HOME=str(home), XDG_CONFIG_HOME=str(home / ".config"),
                    XDG_DATA_HOME=str(home / ".local/share"), XDG_CACHE_HOME=str(home / ".cache"),
                    QT_QPA_PLATFORM="offscreen",
-                   QTWEBENGINE_CHROMIUM_FLAGS="--no-sandbox", IKE_NO_SINGLE="1",
+                   QTWEBENGINE_CHROMIUM_FLAGS="--no-sandbox", IKE_ALLOW_UNSAFE_ENGINE="1", IKE_NO_SINGLE="1",
                    IKE_TEST_HOOK=str(hook), IKE_T_OUT=str(out), DBUS_SESSION_BUS_ADDRESS="")
         t0 = time.time()
         subprocess.run(cmd, env=env, capture_output=True, timeout=120)

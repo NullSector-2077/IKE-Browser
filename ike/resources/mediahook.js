@@ -15,6 +15,7 @@
 (function () {
   'use strict';
   var TOKEN = '__IKE_MEDIA_TOKEN__';
+  var apply = Reflect.apply;
   var SITES = __IKE_MEDIA_SITES__;
   var here = String(location.hostname || '').toLowerCase();
   var listed = SITES.some(function (s) {
@@ -29,7 +30,7 @@
 
   var orig = MS.setActionHandler;
   var replaced = ({ setActionHandler(action, handler) {
-    var r = orig.apply(this, arguments);         // fails exactly as the original
+    var r = apply(orig, this, arguments);        // fails exactly as the original
     if (action === 'nexttrack' || action === 'previoustrack') {
       handlers[action] = typeof handler === 'function' ? handler : null;
     }
@@ -51,19 +52,35 @@
   t.value = toStr;
   try { Object.defineProperty(Function.prototype, 'toString', t); } catch (e) {}
 
+  // Everything the listener uses is taken now, before any page script: a page
+  // that replaced the detail getter, Function.prototype.call or the event
+  // functions later would otherwise be handed the secret event (1.1.18,
+  // security audit). The page's own handler runs after the event, so
+  // window.event does not show it either.
   var add = EventTarget.prototype.addEventListener;
   var send = EventTarget.prototype.dispatchEvent;
   var Ev = window.CustomEvent;
-  add.call(window, 'ike-media-' + TOKEN, function (e) {
-    var cmd = e.detail;
+  var detailOf = Object.getOwnPropertyDescriptor(CustomEvent.prototype, 'detail').get;
+  var later = window.setTimeout;
+  var mk = Object.create;
+  var session = navigator.mediaSession;
+  apply(add, window, ['ike-media-' + TOKEN, function (e) {
+    var cmd = apply(detailOf, e, []);
     if (cmd === 'query') {
       var a = (handlers.nexttrack ? 'n' : '') + (handlers.previoustrack ? 'p' : '');
-      send.call(window, new Ev('ike-media-answer-' + TOKEN, { detail: a }));
+      // an init object with no prototype: the engine reads bubbles,
+      // cancelable and composed from it, and a getter the page put on
+      // Object.prototype would run inside the secret event (adversarial review)
+      var init = mk(null);
+      init.detail = a;
+      apply(send, window, [new Ev('ike-media-answer-' + TOKEN, init)]);
       return;
     }
     var h = (cmd === 'nexttrack' || cmd === 'previoustrack') && handlers[cmd];
     if (h) {
-      try { h.call(navigator.mediaSession, { action: cmd }); } catch (err) {}
+      apply(later, window, [function () {
+        try { apply(h, session, [{ action: cmd }]); } catch (err) {}
+      }, 0]);
     }
-  });
+  }]);
 })();

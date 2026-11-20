@@ -887,6 +887,13 @@
 "a redirect to a refused address": "переспрямування на заборонену адресу",
 "an address of this computer or of the home network: %s": "адреса цього комп'ютера або домашньої мережі: %s",
 "Code and files from: %s": "Код і файли з: %s",
-"a part of this page": "частину цієї сторінки"
+"a part of this page": "частину цієї сторінки",
+"Site isolation: every site in its own process": "Ізоляція сайтів: кожен сайт у власному процесі",
+"Site isolation: OFF (switched off on request)": "Ізоляція сайтів: ВИМКНЕНО (на запит)",
+"Engine protections switched off on request (IKE_ALLOW_UNSAFE_ENGINE): %s": "Захист рушія вимкнено на запит (IKE_ALLOW_UNSAFE_ENGINE): %s",
+"Engine switches that remove a protection were ignored: %s": "Проігноровано перемикачі рушія, що вимикають захист: %s",
+"Current stable Chrome: %d (%s)": "Поточний стабільний Chrome: %d (%s)",
+"checked with Google's version list": "перевірено за списком версій Google",
+"estimated from the calendar: Google's version list could not be reached": "оцінено за календарем: список версій Google був недоступний"
 }
 }

@@ -35,7 +35,9 @@
     function has(name) { return CFG.allow.indexOf(name) >= 0; }
     function send(op, d) {
       if (!CFG.token) return;
-      try { O.say(CFG.token + O.str({ id: CFG.id, op: op, d: d })); } catch (e) {}
+      // the address of the page: checked by I.K.E. against the frames the
+      // page really has and the script's sites (1.1.18)
+      try { O.say(CFG.token + O.str({ id: CFG.id, op: op, d: d, u: String(location.href) })); } catch (e) {}
     }
     if (has('xmlhttprequest')) {
       try {           // answers to GM_xmlhttpRequest: cannot be replaced by the page

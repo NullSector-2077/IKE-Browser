@@ -29,6 +29,7 @@ import json
 import re
 import sys
 import tarfile
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -138,7 +139,17 @@ def inside_repo(path):
         return False
 
 
-def make(key_path, out_dir, channels, passphrase=None, update_file=None, engine=None):
+# how long a signed manifest is valid (1.1.18, security audit F5): a copy
+# served after that (an old one kept back to hide a newer release) installs
+# nothing, and the next release's manifest is valid again
+VALID_DAYS = 180
+# a new release reaches every installation over this many hours (each one has
+# its own fixed place, 0-99); "--rollout-hours 0" sends it to all at once
+ROLLOUT_HOURS = 24
+
+
+def make(key_path, out_dir, channels, passphrase=None, update_file=None, engine=None,
+         rollout_hours=ROLLOUT_HOURS, halt=False, now=None):
     key_path = Path(key_path).expanduser()
     if inside_repo(key_path):
         raise SystemExit("refusing to use a private key stored inside the repository: move it out")
@@ -151,9 +162,16 @@ def make(key_path, out_dir, channels, passphrase=None, update_file=None, engine=
 
     version = read_var("__version__")
     payload = build_payload(engine)
+    issued = int(now if now is not None else time.time())
     manifest = {"version": version, "payload": "ike-%s.tar.gz" % version,
                 "sha256": hashlib.sha256(payload).hexdigest(),
-                "min_system": read_var("__min_system__")}
+                "min_system": read_var("__min_system__"),
+                "issued": issued, "expires": issued + VALID_DAYS * 86400,
+                "rollout": {"start": issued, "hours": max(0, int(rollout_hours))}}
+    if halt:
+        # stops a release that went wrong: re-signed manifest of the same
+        # version, uploaded over the release's own (docs/UPDATES.md)
+        manifest["halt"] = True
 
     out = Path(out_dir or ROOT / "dist" / ("release-" + version))
     out.mkdir(parents=True, exist_ok=True)
@@ -175,9 +193,14 @@ def main(argv=None):
     ap.add_argument("--channels", default="stable,beta")
     ap.add_argument("--engine", help="folder of the AdBlock engine module built for this release "
                     "(pkg/ike-browser/usr/lib/ike-browser/vendor/adblock after makepkg)")
+    ap.add_argument("--rollout-hours", type=int, default=ROLLOUT_HOURS,
+                    help="hours over which the release reaches every installation (0: all at once)")
+    ap.add_argument("--halt", action="store_true",
+                    help="sign a manifest that stops this version from being installed")
     a = ap.parse_args(argv)
     channels = [c for c in a.channels.split(",") if c]
-    out, manifest = make(a.key, a.out, channels, engine=a.engine)
+    out, manifest = make(a.key, a.out, channels, engine=a.engine, rollout_hours=a.rollout_hours,
+                         halt=a.halt)
     print("I.K.E. %s: signed update files in %s" % (manifest["version"], out))
     for p in sorted(out.iterdir()):
         print("  " + p.name)

@@ -121,6 +121,84 @@ protection was removed or weakened.
   back about 50 MB; 30 tabs: 1912 -> 422 MB when suspended). Nothing changes
   with enough memory or with suspension turned off.
 
+Security audit of 2026-11-20 (an independent, read-only review of the whole
+browser; every finding worked on before release, what is left is in
+docs/SECURITY.md):
+
+- **Every site in its own process** (owner's decision): Qt WebEngine leaves
+  Chromium's Site Isolation off, so a frame of another site shared its page's
+  process and one bug in the engine could let a page read the other site.
+  I.K.E. now turns it on (`--site-per-process`), as Chrome and Brave always
+  do; turning it off takes `IKE_ALLOW_UNSAFE_ENGINE=1`. Measured: four tabs
+  with four frames of other sites each used 494 MB instead of 436 MB (+13 %),
+  13 processes instead of 8.
+- **The home network is protected from every kind of request**: until now
+  only pages and frames of a public site were stopped from opening the
+  router or a service of this computer; a POST from fetch, a picture, a
+  script, a beacon or a WebSocket got there (the engine stops none of them).
+  Every request is checked now, a stopped part shows the usual notice with
+  "Allow for this site", and names local by their form count too
+  (`router`, `fritz.box`, `*.lan`, `*.home.arpa`, `*.internal`...).
+- **No page can read I.K.E.'s secrets on media sites**: the secret of the
+  media-command events was a piece of the fingerprinting key, and a page on
+  a media site could read it (and, with its own seed, work out the whole
+  key and recognise the browser on other sites). The media secret is now a
+  random value of its own, the page cannot see the events any more, and the
+  hidden part of workers never reaches a function the page replaced.
+- **An independent adversarial review** of this work found seven more ways
+  around it, all fixed with a test that failed before: frames with no
+  origin of their own (sandboxed, data:) reached the router; switches written
+  in quotes or with one dash, and `QTWEBENGINE_DISABLE_SANDBOX=0`, still
+  turned the sandbox off; the media secret leaked through a getter on
+  Object.prototype; a replayed manifest could undo a halt; refusing to start
+  as root counted a pending update as failed; workers at Strict and Maximum
+  read the full Chrome version.
+- **No browser without its sandbox by accident**: engine switches inherited
+  from the environment that take a protection away (the sandbox, site
+  isolation, web security, certificate checks, remote debugging, also
+  `QTWEBENGINE_DISABLE_SANDBOX` and `QTWEBENGINE_REMOTE_DEBUGGING`) are
+  dropped, and the window says which; graphics and video switches are never
+  touched. Started as root (where the sandbox cannot work) I.K.E. no longer
+  switches its sandbox off silently: it does not start, and says why. Both
+  only with `IKE_ALLOW_UNSAFE_ENGINE=1`, and then the window and Help ->
+  About say which protections are off. About also shows whether site
+  isolation is on.
+- **Websites are asked for the system's language**: every new profile asked
+  for Italian ("it-IT,it,en-US,en") whatever the system's language, which
+  gave non-Italian users Italian pages and a rare, identifying combination.
+  Now the system's languages are asked for, as Chrome does (a German system:
+  "de-DE,de,en-US,en"); settings that still had the old default follow the
+  system, a list the user typed stays (Settings → General shows the system's
+  list when the field is empty). Maximum still sends a common "en-US,en".
+- **User scripts cannot be impersonated**: a message on the user-script
+  bridge is taken only from a page the script really runs on (a frame that
+  page has, matching the script's sites), not just from whoever has its
+  token.
+- **The web engine's age**: the notice that the system's engine is behind
+  with its security fixes comes at three Chrome versions (it was five; two is
+  normal between two Qt releases); About counts the age by the security fixes
+  and shows the current Chrome it compares with, checked or estimated.
+- **Signed updates that expire, arrive in stages and can be stopped**: every
+  manifest expires after 180 days (an old copy kept back installs nothing),
+  a release is offered over 24 hours instead of to everybody at once
+  (`publish.py --urgente` for a security fix; with the daily check everybody
+  has it within about two days), the owner can stop a release with a signed
+  "halt" manifest, and a replayed older manifest cannot undo it. "Check for
+  updates" does not wait.
+- **Rust advisories checked every day**: the RustSec database against every
+  crate of the AdBlock engine, on every pull request and daily
+  (`security.yml`), with an issue when something is found.
+- **The sandbox proven in CI**: a new job runs the security tests with the
+  engine's sandbox really on, as a normal user, and fails if any page
+  process runs without it (`test_sandbox.py`).
+- **Not solved, said plainly** (docs/SECURITY.md): a public name that
+  resolves to an address of the home network (DNS rebinding) is not stopped,
+  nor are WebRTC and WebTransport; the engine's own protection is not in
+  Qt 6.12 (tried), and I.K.E. cannot resolve names in its request check
+  without slowing every page. A site's own worker can read its own noise
+  seed. A page that frames one of a user script's sites and has stolen the
+  script's token can still act as that frame.
+
 Automatic maintenance and fixes (pull request #59; nothing of the browser):
 
 - An old "Automatic fix needs you" issue no longer stops every later fix of

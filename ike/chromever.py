@@ -60,9 +60,17 @@ def security_major():
         return engine_major()
 
 
-# Chrome ships a new version about every four weeks; a system engine whose
-# security fixes are this many versions behind has gone months without them.
-OUTDATED_AFTER = 5
+# Chrome ships a new version about every four weeks, and Qt WebEngine brings
+# the security fixes of the newest ones into its own releases
+# (qWebEngineChromiumSecurityPatchVersion: Qt 6.12.0 came with those of
+# Chrome 157, the current one then). Qt's patch releases come every six to
+# nine weeks, so an up-to-date Arch system is often two versions behind for a
+# while (Qt 6.8.0, 8 October 2024, had the fixes of Chrome 129; Chrome 131 came
+# on 12 November, Qt 6.8.1 on 2 December): at two the notice would come with
+# nothing the user can do. Three versions behind means the system has missed
+# a Qt update: the user is told (1.1.18, security audit F4 and the adversarial
+# review; it was 5).
+OUTDATED_AFTER = 3
 
 
 def security_behind(config, today=None):
@@ -98,6 +106,13 @@ def latest(config, today=None):
     if plausible(stored, today):
         return max(stored, floor)
     return floor
+
+
+def latest_checked(config, today=None):
+    """True when latest() comes from Google's version list, False when it is
+    only the estimate from the calendar (the list could not be reached)."""
+    stored = config["chrome_major"]
+    return plausible(stored, today) and stored >= estimate(today)
 
 
 def parse(data):
