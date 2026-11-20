@@ -1,5 +1,9 @@
 # Remaining work and next phases
 
+> Written for 1.0.3 and kept as a snapshot: several items were done later
+> (CHANGELOG.md), and the Linux / Windows plans were archived on 2026-11-20.
+> Current open work: [ROADMAP.md](../../ROADMAP.md).
+
 ## Decisions for the owner
 
 1. **Widevine** (audit, open issue A): pin a hash per version in I.K.E. (a
