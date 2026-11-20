@@ -606,12 +606,12 @@ def test_the_reserves_never_touch_other_files_and_skip_missing_keys(repo, tmp_pa
         assert json.loads(status.read_text())["result"] == "error", path
     assert (repo / "ike/updater.py").read_text() == "CHECK = True\n"
     assert not (repo.parent / "evil.py").exists()
-    # "cannot be fixed in the code": stop, no other model asked
+    # "cannot be fixed in the code" from two models: stop, no third one asked
     seen = []
     no = json.dumps({"summary": "Un server era giù.", "fixable": False, "edits": []})
     reserve.main(["--workdir", str(repo), "--prompt", str(prompt), "--status", str(status)],
-                 env={"GROQ_API_KEY": "k", "OPENROUTER_API_KEY": "k2"}, opener=_opener([no], seen))
-    assert json.loads(status.read_text())["result"] == "none" and len(seen) == 1
+                 env={"GROQ_API_KEY": "k", "OPENROUTER_API_KEY": "k2"}, opener=_opener([no, no], seen))
+    assert json.loads(status.read_text())["result"] == "none" and len(seen) == 2
 
 
 def test_the_chatgpt_guard_never_runs_the_pull_request():
@@ -1021,12 +1021,107 @@ def test_an_answer_without_edits_is_asked_again_and_a_short_limit_is_waited_out(
     assert out["result"] == "ok" and out["model"] == "Groq / g1", out
     assert len(seen) == 3 and 8 in slept
     git(repo, "checkout", "-q", "--", ".")
-    # an explicit "fixable": false still ends it
+    # an explicit "fixable": false of two models still ends it
     no = json.dumps({"summary": "Un server era giù.", "fixable": False, "edits": []})
     seen = []
     reserve.main(["--workdir", str(repo), "--prompt", str(prompt), "--status", str(status)],
-                 env={"GROQ_API_KEY": "k", "OPENROUTER_API_KEY": "k2"}, opener=_opener([no], seen))
-    assert json.loads(status.read_text())["result"] == "none" and len(seen) == 1
+                 env={"GROQ_API_KEY": "k", "OPENROUTER_API_KEY": "k2"}, opener=_opener([no, no], seen))
+    assert json.loads(status.read_text())["result"] == "none" and len(seen) == 2
+
+
+def _run_reserves(repo, tmp_path, answers, env, seen=None):
+    import json
+    reserve = load("autofix-reserve")
+    _reserve_repo(repo)
+    prompt = tmp_path / "prompt.md"
+    prompt.write_text("RULES")
+    status = tmp_path / "status.json"
+    seen = [] if seen is None else seen
+    reserve.main(["--workdir", str(repo), "--prompt", str(prompt), "--status", str(status)],
+                 env=env, opener=_opener(answers, seen))
+    return json.loads(status.read_text())
+
+
+GOOD = json.dumps({"summary": "Corretto.", "edits": [{"file": "ike/window.py", "find": "    return 10\n",
+                                                      "replace": "    return 11\n"}]})
+NOT_FIXABLE = json.dumps({"summary": "Non si corregge.", "fixable": False, "edits": []})
+
+
+def test_one_model_giving_up_does_not_stop_the_reserves(repo, tmp_path):
+    """1.1.18: one model answering "fixable": false stopped the whole chain;
+    now the next one is asked, and only two models agreeing stop it."""
+    seen = []
+    out = _run_reserves(repo, tmp_path, [NOT_FIXABLE, GOOD],
+                        {"GROQ_API_KEY": "k", "AUTOFIX_GROQ_MODELS": "g1, g2"}, seen)
+    assert out["result"] == "ok" and out["model"] == "Groq / g2" and len(seen) == 2, out
+    assert (repo / "ike/window.py").read_text() == "def width():\n    return 11\n"
+    git(repo, "checkout", "-q", "--", ".")
+    # one "not fixable", then nothing usable from the others: still "none", with its words
+    out = _run_reserves(repo, tmp_path, [NOT_FIXABLE, 429],
+                        {"GROQ_API_KEY": "k", "AUTOFIX_GROQ_MODELS": "g1, g2"})
+    assert out["result"] == "none" and out["model"] == "Groq / g1", out
+    assert "Non si corregge." in (repo / ".autofix/summary.md").read_text()
+    # the same model twice is not two opinions
+    seen = []
+    out = _run_reserves(repo, tmp_path, [NOT_FIXABLE, NOT_FIXABLE, GOOD],
+                        {"GROQ_API_KEY": "k", "AUTOFIX_GROQ_MODELS": "g1, g1, g2"}, seen)
+    assert out["result"] == "ok" and len(seen) == 3, out
+
+
+@pytest.mark.parametrize("bad", [
+    json.dumps({"summary": "x", "edits": [{"file": ["ike/window.py"], "find": "a", "replace": "b"}]}),
+    json.dumps({"summary": "x", "edits": "ike/window.py"}),
+    json.dumps({"summary": ["x"], "fixable": True, "edits": [{"file": "ike/window.py", "find": 3, "replace": None}]}),
+    json.dumps([1, 2, 3]),
+    "{\"edits\": [}",
+])
+def test_a_malformed_answer_moves_to_the_next_model(repo, tmp_path, bad):
+    """1.1.18: a list as "file" (TypeError) or content that is not text crashed
+    the whole reserve step; now the next model is asked."""
+    out = _run_reserves(repo, tmp_path, [bad, bad, GOOD],
+                        {"GROQ_API_KEY": "k", "AUTOFIX_GROQ_MODELS": "g1, g2"})
+    assert out["result"] == "ok" and out["model"] == "Groq / g2", out
+
+
+def test_answers_that_are_not_text_or_raise_move_to_the_next_model(repo, tmp_path):
+    import json as json_
+    reserve = load("autofix-reserve")
+    with pytest.raises(ValueError):
+        reserve.parse({"edits": []})
+    # content given as a list of parts is read; any other content is no answer
+    parts = [{"type": "text", "text": GOOD}]
+
+    def opener(answers):
+        def open_(req, timeout=0):
+            a = answers.pop(0)
+            if isinstance(a, Exception):
+                raise a
+            return _Answer(json_.dumps({"choices": [{"message": {"content": a}}]}).encode())
+        return open_
+    _reserve_repo(repo)
+    prompt = tmp_path / "prompt.md"
+    prompt.write_text("RULES")
+    status = tmp_path / "status.json"
+    args = ["--workdir", str(repo), "--prompt", str(prompt), "--status", str(status)]
+    env = {"GROQ_API_KEY": "k", "AUTOFIX_GROQ_MODELS": "g1, g2, g3"}
+    reserve.main(args, env=env, opener=opener([{"odd": 1}, 42, RuntimeError("boom"), parts]))
+    out = json_.loads(status.read_text())
+    assert out["result"] == "ok" and out["model"] == "Groq / g3", out
+    assert (repo / "ike/window.py").read_text() == "def width():\n    return 11\n"
+
+
+def test_what_a_model_writes_cannot_command_the_workflow(repo, tmp_path, capsys):
+    """1.1.18: a model's text printed to the log could start a GitHub workflow
+    command (::add-mask::, ::set-output::, ::stop-commands::...)."""
+    reserve = load("autofix-reserve")
+    nasty = "x\n::error::pwned\r\n::stop-commands::tok ::warning::y :::z"
+    clean = reserve.for_log(nasty)
+    assert "\n" not in clean and "\r" not in clean and " " not in clean and "::" not in clean
+    bad = json.dumps({"summary": "x", "edits": [{"file": "ike/x.py\n::error::injected", "find": "a", "replace": "b"}]})
+    _run_reserves(repo, tmp_path, [bad, bad], {"GROQ_API_KEY": "k", "AUTOFIX_GROQ_MODELS": "g1"})
+    printed = capsys.readouterr().out
+    assert "injected" in printed
+    assert not any(line.lstrip().startswith("::") for line in printed.splitlines()), printed
 
 
 def test_the_agent_never_waits_for_a_review_nobody_gives():
