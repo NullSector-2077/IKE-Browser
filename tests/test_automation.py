@@ -1825,22 +1825,35 @@ def test_no_dead_parts_in_the_workflows():
     assert "guard-refused.md" not in (WORKFLOWS / "autofix.yml").read_text()
 
 
+# the ids of 1.1.18 stay ("No tests lost" counts them): (old, waiting, pushed)
+@pytest.mark.parametrize("old, waiting, pushed", [
+    ("tip1", "", True),          # where the plan saw it, nothing waiting: pushed
+    ("tip2", "", False),         # pushed by another run after this plan: an error, the owner looks
+    ("tip1", "12", False),       # another automatic fix of main is waiting: overtaken, ends well
+])
+def test_a_first_fix_of_main_never_overwrites_another(tmp_path, old, waiting, pushed):
+    """1.1.18 (review): two runs planned side by side could each push a first
+    fix of main, the later one replacing the other's."""
+    _publish(tmp_path, old, waiting, "main", pushed, ok=pushed or bool(waiting))
+
+
 @pytest.mark.parametrize("old, waiting, kind, pushed, ok", [
-    ("tip1", "", "main", True, True),            # where the plan saw it, nothing waiting: pushed
-    ("tip2", "", "main", False, False),          # moved, and no fix waits there: an error, the owner looks
-    ("tip1", "12", "main", False, True),         # another automatic fix of main is waiting: overtaken
     ("tip2", "12", "main", False, True),         # the other run published first: overtaken
     ("main1", "", "maintenance", True, True),    # the candidate the agent started from: pushed
     ("cand2", "", "maintenance", False, True),   # a newer candidate came: overtaken, no issue
     ("fixnew", "", "maintenance", False, True),  # audit of #65: pushed by an earlier try: PR and tests follow
     ("fixnew", "77", "main", False, True),       # the same for a first fix of main whose PR exists
 ])
-def test_a_first_fix_of_main_never_overwrites_another(tmp_path, old, waiting, kind, pushed, ok):
-    """1.1.18 (review): two runs planned side by side could each push a first
-    fix of main, the later one replacing the other's. Final review: a fix
-    overtaken by a newer one (a fix already waiting, a newer candidate) ends
-    well without pushing, so the report job opens no "needs you" issue for a
-    race that lost nothing."""
+def test_a_fix_overtaken_or_already_pushed(tmp_path, old, waiting, kind, pushed, ok):
+    """Final review: a fix overtaken by a newer one (a fix already waiting, a
+    newer candidate) ends well without pushing, so the report job opens no
+    "needs you" issue for a race that lost nothing. Audit of #65: a fix
+    already pushed by an earlier try of the job still gets its pull request
+    and its tests."""
+    _publish(tmp_path, old, waiting, kind, pushed, ok)
+
+
+def _publish(tmp_path, old, waiting, kind, pushed, ok):
     import os
     import subprocess
     script = step_script("Push the fix, update the draft PR and start the tests")
