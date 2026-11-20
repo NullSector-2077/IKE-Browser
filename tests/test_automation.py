@@ -2846,3 +2846,106 @@ def test_a_run_with_no_failed_job_or_a_broken_test_environment_is_not_for_an_ai(
     assert (p["action"], p["kind"]) == ("issue", "infra") and "no failed job" in p["reason"]
     p = plan_tool.decide(failed_run(run_attempt=2), [_with_steps("tests", "Test environment")], "")
     assert (p["action"], p["kind"]) == ("issue", "infra")
+
+
+def _branch_repo(tmp_path, base_files, branch_files):
+    """A repository whose origin/main has base_files and whose HEAD (a branch
+    automation/autofix-main) has branch_files on top; python on PATH."""
+    import sys
+    def g(cwd, *a):
+        return subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "-C", str(cwd), *a],
+                              capture_output=True, text=True, check=True).stdout.strip()
+    bare = tmp_path / "remote.git"
+    g(tmp_path, "init", "-q", "--bare", str(bare))
+    work = tmp_path / "work"
+    g(tmp_path, "init", "-q", "-b", "main", str(work))
+    files = {"pyproject.toml": '[tool.pytest.ini_options]\ntestpaths = ["tests"]\npythonpath = ["."]\naddopts = "-q"\n',
+             "ike/__init__.py": ""}
+    files.update(base_files)
+    for rel, text in files.items():
+        (work / rel).parent.mkdir(parents=True, exist_ok=True)
+        (work / rel).write_text(text)
+    g(work, "add", "-A")
+    g(work, "commit", "-qm", "base")
+    g(work, "remote", "add", "origin", str(bare))
+    g(work, "push", "-q", "origin", "main")
+    g(work, "checkout", "-q", "-b", "automation/autofix-main")
+    for rel, text in branch_files.items():
+        (work / rel).parent.mkdir(parents=True, exist_ok=True)
+        (work / rel).write_text(text)
+    g(work, "add", "-A")
+    g(work, "commit", "-qm", "fix")
+    bin_ = tmp_path / "bin"
+    bin_.mkdir()
+    (bin_ / "python").symlink_to(sys.executable)
+    temp = tmp_path / "runner"
+    temp.mkdir()
+    import os
+    env = dict(os.environ, RUNNER_TEMP=str(temp), PATH="%s:%s" % (bin_, os.environ["PATH"]))
+    env.pop("PYTHONPATH", None)
+    return work, env
+
+
+BASE = {"ike/x.py": "X = 1\n", "tests/test_x.py": "from ike import x\n\n\ndef test_x():\n    assert x.X == 1\n",
+        "tests/test_y.py": "def test_y():\n    assert len('ab') == 2\n"}
+
+
+@pytest.mark.parametrize("branch, ok, said", [
+    ({"ike/x.py": "X = 2\n"}, False, None),            # tests/ unchanged: the run above already had them (it fails)
+    # a new module puts the old value back before the unchanged test runs: caught
+    ({"ike/x.py": "X = 2\n", "tests/test_aa.py": "from ike import x\nx.X = 1\n\n\ndef test_aa():\n    assert True\n"},
+     False, "did not change: tests/test_x.py::test_x"),
+    # the test itself weakened: shown, the run goes on, a person reviews the tests' diff
+    ({"ike/x.py": "X = 2\n", "tests/test_x.py": "from ike import x\n\n\ndef test_x():\n    assert x.X in (1, 2)\n"},
+     True, "this branch changed (a person reviews its diff): tests/test_x.py::test_x"),
+    ({"tests/test_y.py": "def test_y():\n    assert len('abc') == 3\n"}, True, "failing: 0 in files"),
+])
+def test_the_starting_commits_tests_run_on_the_new_code(tmp_path, branch, ok, said):
+    """Audit of #65 (H1): a stand-in, a module that changes other tests before
+    they run, a weaker assertion passed both the patch checks and "No tests
+    lost". When a branch changes tests/, the tests of the commit it starts
+    from run as they were against its code."""
+    work, env = _branch_repo(tmp_path, BASE, branch)
+    script = step_script("The starting commit's tests on this code", "tests.yml")
+    run = subprocess.run(["bash", "-e", "-c", script], cwd=work, env=env, capture_output=True, text=True, timeout=300)
+    if said is None:                                   # nothing to do here
+        assert run.returncode == 0 and "were already its own" in run.stdout, run.stdout + run.stderr
+        return
+    assert (run.returncode == 0) is ok, run.stdout + run.stderr
+    assert said in run.stdout, run.stdout
+
+
+def test_ids_printed_at_exit_no_longer_fool_the_count(tmp_path):
+    """Audit of #65 (H1): a dropped case whose id a module printed at exit
+    (atexit, os.write) passed "No tests lost", which read pytest's output.
+    The ids now come from a plugin of the step, into a file."""
+    fake = ("def test_a():\n    pass\n\n\nimport atexit, os\n"
+            "atexit.register(lambda: os.write(1, b'tests/test_x.py::test_b\\n'))\n")
+    base = {"tests/test_x.py": "def test_a():\n    pass\n\n\ndef test_b():\n    pass\n"}
+    work, env = _branch_repo(tmp_path, base, {"tests/test_x.py": fake})
+    script = step_script("No tests lost", "tests.yml")
+    run = subprocess.run(["bash", "-e", "-c", script], cwd=work, env=env, capture_output=True, text=True, timeout=300)
+    assert run.returncode == 1 and "lost: tests/test_x.py::test_b" in run.stdout, run.stdout + run.stderr
+
+
+AUDIT_BYPASSES = {
+    # audit of #65: each passed the checker (verified before the fix)
+    "skip under another name": ("tests/test_window.py", "from pytest import skip as later\n\n\n" + WIDTH +
+                                "    later('x')\n", "by code"),
+    "type.__setattr__": ("tests/test_more.py", "import pytest as p\ntype.__setattr__(p.Function, 'run' 'test', "
+                         "lambda self: None)\n", "by code"),
+    "ids written at exit": ("tests/test_more.py", "import atexit, os\natexit.register(lambda: os.write(1, b'x::t'))\n",
+                            "by code"),
+    "the code knows the tests": ("ike/window.py", "import sys\n\n\ndef width():\n    return 10 if 'pytest' in "
+                                 "sys.modules else 12\n", "behaves differently under the tests"),
+    "the updater rebound": ("ike/window.py", "from ike import updater\nupdater.CHECK = False\n\n\ndef width():\n"
+                            "    return 10\n", "rebinds the updater"),
+    "linguist-generated": ("ike/.gitattributes", "*.py linguist-generated\n", "protected file"),
+}
+
+
+@pytest.mark.parametrize("name", sorted(AUDIT_BYPASSES))
+def test_the_audit_bypasses_are_refused(repo, tmp_path, name):
+    rel, text, why = AUDIT_BYPASSES[name]
+    code, report = run_guard(repo, make_patch(repo, edit(rel, text)), tmp_path)
+    assert code == 3 and why in report, (name, report)

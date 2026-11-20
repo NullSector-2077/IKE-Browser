@@ -27,7 +27,9 @@ env:
 jobs:
   tests:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    # room for the starting commit's tests too, when a branch of the automation
+    # or of ChatGPT changed tests/ (audit of #65)
+    timeout-minutes: 100
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -61,10 +63,24 @@ jobs:
           rm -rf "$where"
           git worktree add -q --detach "$where" "$base"
           for f in vendor/adblock/*.so; do if [ -f "$f" ]; then cp "$f" "$where/$f"; fi; done
+          # the ids come from a plugin of this step, into a file (audit of #65: ids
+          # printed at exit fooled a count read from pytest's output); it forgets
+          # the file's name before any test module is imported
+          mkdir -p "$RUNNER_TEMP/ike-collect"
+          cat > "$RUNNER_TEMP/ike-collect/ike_collect_ids.py" <<'PY'
+          import os
+          _out = []
+          def pytest_configure(config):
+              _out.append(open(os.environ.pop("IKE_IDS_FILE"), "w", encoding="utf-8"))
+          def pytest_collection_finish(session):
+              _out[0].write("".join(item.nodeid + "\n" for item in session.items))
+              _out[0].close()
+          PY
           ids() {
-            (cd "$1" && python -m pytest --collect-only -q -o addopts= -p no:cacheprovider -p no:warnings \
+            (cd "$1" && IKE_IDS_FILE="$2.raw" PYTHONPATH="$RUNNER_TEMP/ike-collect${PYTHONPATH:+:$PYTHONPATH}" \
+              python -m pytest --collect-only -q -o addopts= -p no:cacheprovider -p no:warnings -p ike_collect_ids \
               > "$2.log" 2>&1) || true
-            { grep -E '^[^[:space:]][^:]*::' "$2.log" || true; } | LC_ALL=C sort -u > "$2"
+            { cat "$2.raw" 2>/dev/null || true; } | LC_ALL=C sort -u > "$2"
           }
           ids . "$RUNNER_TEMP/ids-now"
           ids "$where" "$RUNNER_TEMP/ids-before"
@@ -80,6 +96,70 @@ jobs:
             head -n 50 "$RUNNER_TEMP/ids-lost" | sed 's/^/  lost: /'
             exit 1
           fi
+      # The starting commit's tests on this code (audit of #65). When the branch
+      # changed tests/, the tests of the commit it starts from run once more,
+      # as they were, against its code: a test weakened, a module that changes
+      # other tests before they run, a case dropped, those tests still run as
+      # they were. A failure in a test file the branch did not change stops the
+      # run; one in a file it changed is shown (changing that test may be the
+      # fix itself) and a person reviews the tests' diff, as always.
+      - name: The starting commit's tests on this code
+        if: >-
+          startsWith(github.head_ref, 'chatgpt/') || startsWith(github.head_ref, 'automation/') ||
+          (github.event_name == 'workflow_dispatch' && startsWith(github.ref_name, 'automation/'))
+        run: |
+          git fetch -q --no-tags --unshallow origin main 2>/dev/null || git fetch -q --no-tags origin main
+          base=$(git merge-base FETCH_HEAD HEAD) || { echo "::warning::no merge base with main: not run"; exit 0; }
+          if git diff --quiet "$base" HEAD -- tests; then
+            echo "tests/ is as at $base: the tests above were already its own"
+            exit 0
+          fi
+          where="$RUNNER_TEMP/base-tests"
+          rm -rf "$where"
+          mkdir -p "$where"
+          tar --exclude=./.git -cf - . | tar -xf - -C "$where"
+          rm -rf "$where/tests"
+          git archive "$base" tests | tar -xf - -C "$where"
+          changed=$(git diff --name-only "$base" HEAD -- tests)
+          set +e
+          (cd "$where" && python -m pytest -o addopts= -q -p no:cacheprovider --junitxml="$RUNNER_TEMP/base-tests.xml")
+          code=$?
+          set -e
+          python3 -I - "$RUNNER_TEMP/base-tests.xml" "$code" "$where" $changed <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          xml, code, where, changed = sys.argv[1], int(sys.argv[2]), Path(sys.argv[3]), set(sys.argv[4:])
+          try:
+              cases = list(ET.parse(xml).getroot().iter("testcase"))
+          except (OSError, ET.ParseError):
+              print("::error::the starting commit's tests did not run here (pytest exit %d)" % code)
+              sys.exit(1)
+          def file_of(case):
+              parts = (case.get("classname") or case.get("name") or "").split(".")
+              for i in range(len(parts), 0, -1):
+                  if (where / ("/".join(parts[:i]) + ".py")).is_file():
+                      return "/".join(parts[:i]) + ".py"
+              return "?"
+          hard, soft = [], []
+          for case in cases:
+              if case.find("failure") is None and case.find("error") is None:
+                  continue
+              f = file_of(case)
+              (soft if f in changed else hard).append("%s::%s" % (f, case.get("name")))
+          for t in soft:
+              print("::warning::a test of the starting commit fails here, in a test file this branch "
+                    "changed (a person reviews its diff): %s" % t)
+          for t in hard:
+              print("::error::a test of the starting commit fails here, in a test file this branch did "
+                    "not change: %s" % t)
+          if not cases and code not in (0, 5):
+              print("::error::the starting commit's tests did not run here (pytest exit %d)" % code)
+              sys.exit(1)
+          print("The starting commit's tests here: %d, failing: %d in files this branch changed, %d elsewhere"
+                % (len(cases), len(soft), len(hard)))
+          sys.exit(1 if hard else 0)
+          PY
       - name: Arch package
         run: |
           mkdir -p "$RUNNER_TEMP/pkg" "$RUNNER_TEMP/pkgroot"

@@ -123,9 +123,21 @@ TEST_TAMPERING = re.compile(
     r"|\bsys\s*\.\s*modules\s*\[\s*__name__\s*\]|__dict__\s*(?:\.\s*(?:pop|popitem|clear|update|setdefault)\b"
     r"|\[[^\]\n]*\]\s*=(?!=))|\bsetattr\s*\([^)\n]*['\"]test_"
     r"|\bsetattr\s*\(\s*['\"]?(?:pytest|unittest|harness|conftest|builtins)\b"
-    r"|(?<![\w.])(?:pytest|unittest|harness|conftest|builtins)\s*(?:\.\s*\w+\s*)+[-+*/%|&^@]?=(?!=)")
+    r"|(?<![\w.])(?:pytest|unittest|harness|conftest|builtins)\s*(?:\.\s*\w+\s*)+[-+*/%|&^@]?=(?!=)"
+    # audit of #65: a skip imported under another name, attributes set through
+    # type.__setattr__, pytest under another name or its own item classes, and
+    # output written at exit to fool the count of tests ("No tests lost")
+    r"|\bimport\b[^#\n]*\b(?:skip|xfail|importorskip|exit|fail)\b|\b__(?:set|del)attr__\b"
+    r"|\bimport\s+_?pytest\s+as\b|\b_?pytest\s*\.\s*(?:Function|Item|Collector|Session|Module|Class|Package)\b"
+    r"|\batexit\b|\bos\s*\.\s*write\s*\(\s*[12]\b")
+# I.K.E.'s own code that behaves differently under the tests, or rebinds the
+# protected updater from elsewhere (audit of #65): refused in added lines of ike/
+PRODUCT_TAMPERING = re.compile(
+    r"\b_?pytest\b|PYTEST_\w+|\bunittest\b|\bconftest\b"
+    r"|\bupdater\s*\.\s*\w+\s*[-+*/%|&^@]?=(?!=)|\bsetattr\s*\(\s*updater\b")
 # what decides which tests run, at any depth (1.1.18)
-TEST_CONFIG = {"conftest.py", "pytest.ini", "tox.ini", "setup.cfg", "pyproject.toml", "ruff.toml", ".ruff.toml"}
+TEST_CONFIG = {"conftest.py", "pytest.ini", "tox.ini", "setup.cfg", "pyproject.toml", "ruff.toml", ".ruff.toml",
+               ".gitattributes"}       # audit of #65: linguist-generated hides a file from review
 SECRET = re.compile(r"AIza[0-9A-Za-z_\-]{30,}|\bgh[pousr]_[0-9A-Za-z]{20,}|github_pat_[0-9A-Za-z_]{20,}"
                     r"|\bgsk_[0-9A-Za-z]{20,}"                 # Groq
                     r"|\bsk-[0-9A-Za-z_\-]{20,}"               # OpenRouter (sk-or-v1-...), OpenAI and alike
@@ -258,6 +270,9 @@ def check(repo, patch_text, allow_adblock=False):
         if sign == "+":
             if SECRET.search(code):
                 reasons.append("%s: a key or token in the added lines" % current)
+            if current.startswith("ike/") and PRODUCT_TAMPERING.search(code):
+                reasons.append("%s: code that behaves differently under the tests or rebinds the updater: %s"
+                               % (current, code.strip()[:120]))
             if current.startswith("tests/"):
                 if WEAKENING.search(code):
                     reasons.append("%s: adds a skip or xfail: %s" % (current, code.strip()[:120]))
@@ -542,7 +557,7 @@ SAFETY = ("outside the repository", "protected file", "third-party or generated"
           "assertion that cannot fail", "early return at the top of a test", "removes or stops tests by code",
           "carriage return inside a line", "test file renamed or copied", "reads differently",
           "return in the body of a test", "assertion moved into a block", "decorator that may replace a test",
-          "empties the parameters of a test")
+          "empties the parameters of a test", "behaves differently under the tests")
 
 
 def safety_refusal(reasons):
