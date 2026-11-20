@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.18
+
+- Automatic fix after a failure of "Tests" (see its pull request).
+
 ## 1.1.17
 
 Security review (each point has a test that plays the attack on this computer).
