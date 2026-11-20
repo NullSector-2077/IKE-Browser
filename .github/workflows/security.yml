@@ -1,0 +1,109 @@
+# Security checks (1.1.18, security audit of 2026-11-20), apart from "Tests"
+# so that a finding here never starts an automatic fix:
+#
+# - sandbox: the security tests with the engine's sandbox really on, as a
+#   normal user (every other test runs with it off, because GitHub's runners
+#   refuse the user namespaces it needs; this job allows them for its own run).
+#   tests/test_sandbox.py fails if any web page process runs without the
+#   seccomp filter or its own PID namespace, or if a switch took a protection
+#   away; the other files run with the sandbox on too.
+# - rust-advisories: the RustSec advisory database against every crate of
+#   the AdBlock engine (direct and transitive, Cargo.lock), with cargo-deny
+#   (the same pinned tool that checks the licences). Exceptions only in
+#   ike-adblock/deny.toml, each with its reason (docs/THIRD-PARTY.md).
+#   Every day it also runs on main and opens or updates the issue
+#   "Rust advisories" when something is found.
+name: Security
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: "23 4 * * *"     # every day, 04:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sandbox:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Test environment
+        uses: ./.github/actions/ike-test-env
+      - name: Allow the sandbox's user namespaces (this runner only)
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          sudo sysctl -w kernel.unprivileged_userns_clone=1 2>/dev/null || true
+          test "$(id -u)" != 0
+      - name: The sandbox is really on
+        env:
+          IKE_TEST_SANDBOX: "1"
+        run: |
+          unset QTWEBENGINE_DISABLE_SANDBOX QTWEBENGINE_CHROMIUM_FLAGS
+          set -o pipefail
+          python -m pytest -o addopts= -q -rs -p no:cacheprovider tests/test_sandbox.py 2>&1 | tee sandbox.log
+          if grep -q "SKIPPED" sandbox.log; then echo "::error::the sandbox test did not run"; exit 1; fi
+      - name: Security tests with the sandbox on
+        env:
+          IKE_TEST_SANDBOX: "1"
+        run: |
+          unset QTWEBENGINE_DISABLE_SANDBOX QTWEBENGINE_CHROMIUM_FLAGS
+          python -m pytest -o addopts= -q -rs -p no:cacheprovider tests/test_site_isolation.py \
+              tests/test_home_network.py tests/test_media_secret.py tests/test_engine_switches.py \
+              tests/test_userscript_bridge.py tests/test_frame_guard.py tests/test_frame_guard_review.py \
+              tests/test_referrer.py
+
+  rust-advisories:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cargo/bin/cargo-deny
+          key: cargo-deny-0.20.2-${{ runner.os }}
+      - name: RustSec advisories (every crate of Cargo.lock)
+        id: audit
+        run: |
+          if [ "$(cargo deny --version 2>/dev/null)" != "cargo-deny 0.20.2" ]; then
+            cargo install --locked cargo-deny@0.20.2
+          fi
+          set -o pipefail
+          cargo deny --manifest-path ike-adblock/Cargo.toml --locked --config ike-adblock/deny.toml \
+              check advisories 2>&1 | tee advisories.txt
+      - name: The issue "Rust advisories"
+        if: failure() && steps.audit.outcome == 'failure' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          {
+            echo "The daily RustSec check found advisories for the AdBlock engine's crates"
+            echo "(run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)."
+            echo
+            echo '```'
+            grep -E "^(error|warning)\[|ID:|Severity|Crate:|Version:|Title:|Solution:|Date:" advisories.txt | head -200
+            echo '```'
+          } > body.md
+          n=$(gh issue list --state open --search '"Rust advisories" in:title' --json number --jq '.[0].number')
+          if [ -n "$n" ]; then
+            gh issue comment "$n" --body-file body.md
+          else
+            gh issue create --title "Rust advisories" --body-file body.md
+          fi

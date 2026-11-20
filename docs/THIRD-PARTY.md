@@ -130,6 +130,23 @@ The same for anything else added to the package: a licence file in
 `licenses/` (installed by the PKGBUILD), a row in the tables above, and the
 tests in `tests/test_licences.py` follow it.
 
+## Rust advisories
+
+Since 1.1.18 the RustSec advisory database (https://rustsec.org) is checked
+against every crate of `ike-adblock/Cargo.lock`, direct and transitive, with
+the same pinned cargo-deny that checks the licences:
+`cargo deny --manifest-path ike-adblock/Cargo.toml --locked --config
+ike-adblock/deny.toml check advisories`. It runs on every pull request, on
+every push to `main` and every day (`.github/workflows/security.yml`, job
+`rust-advisories`); the daily run opens or updates the issue "Rust advisories"
+with each advisory's ID, title, crate, version and solution. A known
+vulnerability, a yanked crate or an unsound one stops the check; unmaintained
+crates are reported too. Exceptions: none. An exception is added only to the
+`ignore` list of `ike-adblock/deny.toml`, with its reason there and here. A
+positive control was run when the check was added: a crate pinned at a
+vulnerable version (smallvec 1.6.0) was reported (RUSTSEC-2021-0003) and the
+check failed.
+
 ## Rust libraries compiled into `ike_adblock`
 
 Shipped (category 1): statically linked into the engine module. Their licence
