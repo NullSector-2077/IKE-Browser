@@ -76,8 +76,8 @@ are agreed with the project owner; do not reopen them without asking.
   every user by itself (rule above).
 - At Strict and Maximum Chrome's version is the reduced one (140.0.0.0) in
   JavaScript and in the client hints alike (2026-11-20).
-- Filter lists without a licence are not shipped: Peter Lowe's list was
-  removed in 1.1.18.
+- Filter lists without a licence are not shipped (one was removed in 1.1.18,
+  CHANGELOG).
 - Android would be a separate project (Qt WebEngine does not exist there).
 
 ## Status
