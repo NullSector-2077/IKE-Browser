@@ -1,6 +1,7 @@
 """Persistent settings (JSON) and standard paths."""
 
 import copy
+import functools
 import json
 import os
 from pathlib import Path
@@ -35,6 +36,7 @@ PKG_DIR = Path(__file__).resolve().parent
 RES_DIR = PKG_DIR / "resources"
 
 LEVELS = ("off", "compatibility", "balanced", "strict", "maximum")
+_RANK = {name: i for i, name in enumerate(LEVELS)}
 LEVEL_NAMES = {"off": "Off", "compatibility": "Compatibility", "balanced": "Balanced",
                "strict": "Strict", "maximum": "Maximum"}
 _LEVEL_ALIASES = {"standard": "balanced"}
@@ -42,7 +44,10 @@ _LEVEL_ALIASES = {"standard": "balanced"}
 
 def rank(level):
     """0 = off ... 4 = maximum."""
-    return LEVELS.index(level) if level in LEVELS else 2
+    try:
+        return _RANK.get(level, 2)
+    except TypeError:                     # not a name at all
+        return 2
 
 DEFAULT_CONTAINERS = [
     {"name": "Personale", "color": "#3daee9"},
@@ -85,10 +90,14 @@ def _owned(host, sites):
     return any(host == s or host.endswith("." + s) for s in sites)
 
 
+# asked for every request of every page, always for the same few hosts:
+# remembered (pure functions of their argument, 1.1.18)
+@functools.lru_cache(maxsize=4096)
 def google_owned(host):
     return _owned(host, GOOGLE_SITES)
 
 
+@functools.lru_cache(maxsize=4096)
 def payment_owned(host):
     return _owned(host, PAYMENT_SITES)
 FIREFOX_UA = osinfo.identity()["firefox_ua"]
@@ -490,12 +499,13 @@ class Config:
     def level_for(self, host):
         full = host = (host or "").lower()
         levels = self.data["site_levels"]
-        while host:
+        while levels and host:            # asked for every request: no list, no walk (1.1.18)
             if host in levels:
                 return levels[host]
-            if "." not in host:
+            i = host.find(".")
+            if i < 0:
                 break
-            host = host.split(".", 1)[1]
+            host = host[i + 1:]
         level = self.data["shield_level"]
         if self.data["login_compat"] and full in LOGIN_HOSTS and LEVELS.index(level) > 1:
             return "compatibility"
@@ -523,6 +533,8 @@ class Config:
     def site_opt(self, host, key):
         """Per-site override of one protection, or None to follow the level."""
         opts = self.data["site_opts"]
+        if not opts:
+            return None                   # asked for every request: most users have none (1.1.18)
         host = (host or "").lower()
         while host:
             o = opts.get(host)

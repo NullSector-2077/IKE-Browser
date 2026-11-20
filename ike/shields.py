@@ -144,6 +144,14 @@ _HOSTED = (".github.io", ".gitlab.io", ".blogspot.com", ".herokuapp.com", ".page
            ".neocities.org")
 
 
+@functools.lru_cache(maxsize=1)
+def _newtab():
+    """The newtab module, imported once at the first blocked request (it
+    imports this one)."""
+    from . import newtab
+    return newtab
+
+
 @functools.lru_cache(maxsize=4096)
 def site_of(host):
     """Registrable domain of a host: "www.bbc.co.uk" -> "bbc.co.uk".
@@ -280,14 +288,16 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         if first.isEmpty():
             first = url
         first_host = first.host().lower()
+        first_site = site_of(first_host)
         if not self.quiet:
-            site = site_of(first_host)
-            s.requests[site] = s.requests.get(site, 0) + 1      # per-site resources
+            s.requests[first_site] = s.requests.get(first_site, 0) + 1      # per-site resources
         lv = rank(cfg.level_for(first_host))
         if lv == 0:
             return
         host = url.host().lower()
-        get = bytes(info.requestMethod()) == b"GET"
+        host_site = site_of(host)
+        raw_method = bytes(info.requestMethod())
+        get = raw_method == b"GET"
         if cfg.sensitive_hands_off(first_host, host):
             # a sensitive Google service (AI Studio, Cloud Console, account,
             # payments): Google's own requests go through untouched - no filter
@@ -336,8 +346,8 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
                     info.redirect(QUrl(clean))
                     return
 
-        if (not main and lv <= 2 and site_of(host) == site_of(first_host)
-                and site_of(first_host) not in s.full_blocking_sites()):
+        if (not main and lv <= 2 and host_site == first_site
+                and first_site not in s.full_blocking_sites()):
             # "Same site, free way" (1.1.15): at Balanced and below, what a site
             # asks of itself is not checked against the filter lists, as Brave
             # does in its standard mode - faster (most requests of a page are
@@ -354,10 +364,7 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         if ((cfg["comp_adblock"] or cfg["comp_consent"])
                 and cfg.site_opt(first_host, "ads") is not False
                 and not (main and host in s.pages_allowed)):
-            try:
-                method = bytes(info.requestMethod()).decode("ascii", "ignore").upper() or "GET"
-            except Exception:
-                method = "GET"
+            method = raw_method.decode("ascii", "ignore").upper() or "GET"
             action, target = s.blocker.request_action(
                 url.toString(), first.toString(), _TYPES.get(rtype, "other"), method)
             if action == "redirect" and target:
@@ -393,7 +400,7 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         if lv >= 4 and cfg.site_opt(first_host, "fp") is not False:
             info.setHttpHeader(b"Accept-Language", b"en-US,en;q=0.9")
         if (lv >= 2 and cfg["trim_referrer"] and not main
-                and site_of(host) != site_of(first_host)
+                and host_site != first_site
                 and cfg.site_opt(first_host, "params") is not False):
             origin = "%s://%s/" % (first.scheme(), first.host())
             if first.port() > 0:
@@ -535,8 +542,7 @@ class Shields(QObject):
             st = self.stats[host] = dict.fromkeys(self.KINDS, 0)
         st[kind] += 1
         if kind in ("ads", "scripts"):
-            from . import newtab
-            newtab.count_blocked(self.config)        # the total and the month's own count
+            _newtab().count_blocked(self.config)        # the total and the month's own count
             self.blocked.emit(host)
 
     def site_stats(self, host):

@@ -956,8 +956,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
 
     def current_host(self):
         v = self.current_view()
-        if v and v.url().scheme() in ("http", "https"):
-            return v.url().host().lower()
+        if v:
+            url = v.url()                 # asked for every blocked request: once (1.1.18)
+            if url.scheme() in ("http", "https"):
+                return url.host().lower()
         return ""
 
     def add_tab(self, url=NEWTAB, background=False, after=None, container=None,

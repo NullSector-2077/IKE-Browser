@@ -790,8 +790,12 @@ class ShieldCount(QWidget):
         self._anim.setStartValue(0.0)
         self._anim.setEndValue(1.0)
         self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
-        self._anim.valueChanged.connect(lambda _v: self.update())
+        # 1.1.18: only the column of the "+N" is painted again at each step;
+        # the whole widget made the window repaint the address field and the
+        # shield under it about 60 times a second while a page loaded
+        self._anim.valueChanged.connect(lambda _v: self.update(self._band()))
         self._anim.finished.connect(self._finished)
+        self._sprite = (None, None, None)      # (key, pixmap, offset): the "+N" drawn once
         self.shown = 0                 # how many times it rose (for the tests)
         self.hide()
 
@@ -829,33 +833,60 @@ class ShieldCount(QWidget):
     def alpha(self, t):
         return 1.0 if t <= self.HOLD else max(0.0, 1.0 - (t - self.HOLD) / (1.0 - self.HOLD))
 
+    def _band(self):
+        """The part of the widget the "+N" moves through."""
+        x = max(0, self.text_left() - 4)
+        return QRect(x, 0, max(0, self.width() - x), self.height())
+
+    def _drawn(self, f, text):
+        """The "+N" with its halo, drawn once into a picture (1.1.18: the text
+        was turned into shapes and outlined at every step of the animation,
+        the costliest drawing of the interface while a page loads). Returns
+        the picture and its offset from the text's baseline point."""
+        from PyQt6.QtGui import QPainterPath
+        halo = QColor(self.button.palette().color(QPalette.ColorRole.Window))
+        halo.setAlphaF(0.85)
+        c = QColor(accent(self.button))
+        dpr = self.devicePixelRatioF()
+        key = (text, f.key(), halo.rgba(), c.rgba(), dpr)
+        if self._sprite[0] != key:
+            path = QPainterPath()
+            path.addText(QPointF(0, 0), f, text)
+            box = path.boundingRect()
+            x0, y0 = math.floor(box.x()) - 3, math.floor(box.y()) - 3
+            w, h = math.ceil(box.right()) + 3 - x0, math.ceil(box.bottom()) + 3 - y0
+            pm = QPixmap(max(1, round(w * dpr)), max(1, round(h * dpr)))
+            pm.setDevicePixelRatio(dpr)
+            pm.fill(Qt.GlobalColor.transparent)
+            p = QPainter(pm)
+            p.setRenderHint(QPainter.RenderHint.Antialiasing)
+            p.translate(-x0, -y0)
+            p.setPen(QPen(halo, 3.0, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.drawPath(path)
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(c)
+            p.drawPath(path)
+            p.end()
+            self._sprite = (key, pm, QPoint(x0, y0))
+        return self._sprite[1], self._sprite[2]
+
     def paintEvent(self, _event):
-        from PyQt6.QtGui import QFontMetrics, QPainterPath
+        from PyQt6.QtGui import QFontMetrics
         t = float(self._anim.currentValue() or 0.0)
         a = self.alpha(t)
         if a <= 0:
             return
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
         f = self.button.font()
         f.setBold(True)
         fm = QFontMetrics(f)
-        text = "+%d" % self.delta
+        pm, off = self._drawn(f, "+%d" % self.delta)
         h = self.height()
         # from just below the middle up towards the top edge
         base = round(h * 0.5 + fm.ascent() / 2 - t * h * 0.32)
-        path = QPainterPath()
-        path.addText(QPointF(self.text_left(), base), f, text)
-        halo = QColor(self.button.palette().color(QPalette.ColorRole.Window))
-        halo.setAlphaF(0.85 * a)
-        p.setPen(QPen(halo, 3.0, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
-        p.setBrush(Qt.BrushStyle.NoBrush)
-        p.drawPath(path)
-        c = QColor(accent(self.button))
-        c.setAlphaF(a)
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(c)
-        p.drawPath(path)
+        p = QPainter(self)
+        p.setOpacity(a)
+        p.drawPixmap(QPoint(self.text_left(), base) + off, pm)
         p.end()
 
 
