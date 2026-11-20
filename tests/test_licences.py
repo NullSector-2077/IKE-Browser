@@ -71,6 +71,10 @@ def test_pkgbuild_installs_every_licence():
     assert {"LICENSE", "COPYRIGHT", "licenses/*", "docs/THIRD-PARTY.md"} <= set(sources)
     assert 'COPYRIGHT-library.html" \\\n          "$pkgdir/usr/share/licenses/$pkgname/RUST-STD-COPYRIGHT.html"' \
         in pkgbuild
+    # a Rust without that file (Arch's own rust package): the repository's copy
+    assert 'install -Dm644 tools/licence-texts/RUST-STD-COPYRIGHT.html' in pkgbuild
+    assert "Copyright notices for The Rust Standard Library" in \
+        (ROOT / "tools" / "licence-texts" / "RUST-STD-COPYRIGHT.html").read_text("utf-8")
     # one plain folder: "install -t" takes files only
     assert all(p.is_file() for p in (ROOT / "licenses").iterdir())
 

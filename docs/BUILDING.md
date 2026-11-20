@@ -76,7 +76,8 @@ corresponding source is.
 The package installs in `/usr/share/licenses/ike-browser/` the full GPL v3 text
 (`LICENSE`), I.K.E.'s notice (`COPYRIGHT`), every file of `licenses/`,
 `docs/THIRD-PARTY.md` and the Rust standard library's notice of the compiler
-used (`RUST-STD-COPYRIGHT.html`). `licenses/RUST-CRATES.txt`,
+used (`RUST-STD-COPYRIGHT.html`; Arch's own `rust` package has none, so the
+copy in `tools/licence-texts/` is installed then). `licenses/RUST-CRATES.txt`,
 `licenses/NOTICE.ubo-scriptlets` and the lists of Rust libraries in
 `docs/THIRD-PARTY.md` are generated:
 

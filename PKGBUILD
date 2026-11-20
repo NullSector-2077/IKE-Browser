@@ -76,8 +76,11 @@ package() {
       break
     fi
   done
+  # Arch's own rust package has none (found by the weekly Arch check): the copy
+  # kept in the repository (from Rust 1.97, tools/licence-texts/) is used then
   [ -f "$pkgdir/usr/share/licenses/$pkgname/RUST-STD-COPYRIGHT.html" ] ||
-      echo "WARNING: this Rust has no COPYRIGHT-library.html: RUST-STD-COPYRIGHT.html is missing" >&2
+      install -Dm644 tools/licence-texts/RUST-STD-COPYRIGHT.html \
+          "$pkgdir/usr/share/licenses/$pkgname/RUST-STD-COPYRIGHT.html"
 
   # documentation
   install -Dm644 -t "$pkgdir/usr/share/doc/$pkgname" README.md CHANGELOG.md docs/*.md
