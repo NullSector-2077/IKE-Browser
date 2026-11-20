@@ -562,7 +562,11 @@ def steps(ike, qapp, out):
     yield 1000
     dlg = ike._dialogs.get("settings")
     out["site_opens"] = bool(dlg is not None and dlg.isVisible())
-    # the shield: its number grew on this page, and a "+N" rose
+    # the shield: its number grew on this page, and a "+N" rose. One more
+    # advert asked for once the shield shows the first one: with a single
+    # block the shield could see it at once and have nothing to grow from.
+    view.page().runJavaScript("new Image().src = 'http://ads.example.test/late.png'; 1")
+    yield 1200
     out["count"] = [win.shield_btn.text(), win.shield_count.shown]
     # the "+N" starts right of the shield icon and of the number, never over the icon
     out["plus_left"] = [win.shield_count.text_left(), win.shield_btn.iconSize().width()]
