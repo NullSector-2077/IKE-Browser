@@ -297,6 +297,8 @@ def apply_edits(workdir, edits, shown, allow_adblock=False):
             raise ValueError("%s may not be changed: %s" % (path, why))
         current = new.get(path)
         if current is None:
+            if (workdir / path).is_symlink():
+                raise ValueError("%s is a link" % path)
             current = (workdir / path).read_text("utf-8")
         find, repl = _unnumbered(find), _unnumbered(repl)
         span = _locate(current, find)
@@ -319,7 +321,7 @@ def files_shown(workdir, related):
     out, used = {}, 0
     for path in related:
         p = workdir / path
-        if not path.startswith(SHOWN_ROOTS) or not p.is_file():
+        if not path.startswith(SHOWN_ROOTS) or not p.is_file() or p.is_symlink():   # a link: never followed
             continue
         text = p.read_text("utf-8", errors="replace")
         if used + len(text) > FILES_BUDGET:
@@ -492,7 +494,7 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
 
     def read(name):
         try:
-            return (auto / name).read_text("utf-8", "replace")
+            return "" if (auto / name).is_symlink() else (auto / name).read_text("utf-8", "replace")
         except OSError:
             return ""
     failure, context = read("failure.md"), read("context.md")

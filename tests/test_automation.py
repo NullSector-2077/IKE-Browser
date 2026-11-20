@@ -1057,6 +1057,12 @@ elif what == "crash":                                          # the step itself
     sys.exit(3)
 elif what == "leak":
     (workdir / "ike/window.py").write_text("K = '%s'\n" % os.environ["GEMINI_API_KEY"])
+elif what == "link":                                           # the runner would read what it points at
+    secret = workdir.parent / "secret"
+    (workdir / ".autofix/summary.md").symlink_to(secret)
+    (workdir / ".autofix/failure.md").unlink(missing_ok=True)
+    (workdir / ".autofix/failure.md").symlink_to(secret)
+    (workdir / ".autofix/extra").mkdir()
 status.write_text(json.dumps({"result": "ok", "model": "stub", "message": "m", "detail": ""}))
 '''
 
@@ -1087,6 +1093,13 @@ def run_fix_steps(repo, tmp_path, scenario, reserve_key="gsk_TESTONLY"):
     (temp / "autofix-reserve.py").write_text(RESERVE_STUB)
     (temp / "check-autofix-patch.py").write_text((ROOT / "tools/check-autofix-patch.py").read_text())
     (temp / "autofix" / "related.txt").write_text("ike/window.py\n")
+    (temp / "autofix-inputs").mkdir()
+    for name, text in (("failure.md", FAILURE), ("context.md", "# Code\n"), ("related.txt", "ike/window.py\n")):
+        (temp / "autofix-inputs" / name).write_text(text)
+    (repo / ".autofix").mkdir(exist_ok=True)
+    with open(repo / ".git" / "info" / "exclude", "a") as f:
+        f.write(".autofix/\n")                                  # as the real .gitignore
+    (tmp_path / "secret").write_text("RUNNER-ONLY-SECRET\n")
     bin_ = tmp_path / "bin"
     bin_.mkdir()
     (bin_ / "sudo").write_text("#!/bin/sh\nexit 0\n")
@@ -1146,6 +1159,34 @@ def test_unfinished_work_is_thrown_away_without_reserves_too(repo, tmp_path, sce
     assert git(repo, "status", "--porcelain") == ""
 
 
+def test_links_the_agent_leaves_in_autofix_are_never_followed(repo, tmp_path):
+    """1.1.18: .autofix/ is writable by the agent; a link there (its summary,
+    the failure the reserves read) would make the runner read any file it can
+    and put it in a public pull request or send it to a reserve."""
+    import urllib.error
+    runs, outputs, asked, temp = run_fix_steps(repo, tmp_path, "link")
+    assert runs[FIX_STEPS[2]].returncode == 0, runs[FIX_STEPS[2]].stdout + runs[FIX_STEPS[2]].stderr
+    summary = (temp / "autofix" / "summary.md").read_text()
+    assert "RUNNER-ONLY-SECRET" not in summary
+    assert not (repo / ".autofix/summary.md").exists() and not (repo / ".autofix/extra").exists()
+    assert (repo / ".autofix/failure.md").read_text() == FAILURE           # the runner's copy
+    # the reserves read the runner's copy, and never a link
+    reserve = load("autofix-reserve")
+    (repo / ".autofix/context.md").unlink()
+    (repo / ".autofix/context.md").symlink_to(tmp_path / "secret")
+    seen = []
+
+    def opener(req, timeout=0):
+        seen.append(req.data)
+        raise urllib.error.HTTPError(req.full_url, 400, "unknown model", {}, None)
+    (tmp_path / "prompt.md").write_text("RULES")
+    reserve.main(["--workdir", str(repo), "--prompt", str(tmp_path / "prompt.md"),
+                  "--status", str(tmp_path / "status.json")],
+                 env={"GROQ_API_KEY": "k", "AUTOFIX_GROQ_MODELS": "g1"}, opener=opener)
+    assert seen and all(b"RUNNER-ONLY-SECRET" not in s for s in seen)
+    assert b"F401" in seen[0]                                               # the real failure went
+
+
 def test_a_key_in_the_agents_work_throws_everything_away(repo, tmp_path):
     runs, outputs, asked, temp = run_fix_steps(repo, tmp_path, "leak")
     assert runs["Antigravity"].returncode == 1 and runs[FIX_STEPS[2]].returncode == 1
@@ -1195,6 +1236,15 @@ def test_the_tools_run_git_without_the_agents_settings(repo, tmp_path):
     (repo / ".gitattributes").write_text("*.py diff=x\n")
     (repo / "ike/window.py").write_text("def width():\n    return 13\n")
     assert "return 13" in agent.changes(repo) and "return 13" in reserve.diff_of(repo)
+    # a new file shows too, with .autofix/ ignored as in the real repository
+    (repo / ".gitignore").write_text(".autofix/\n")
+    (repo / ".autofix").mkdir(exist_ok=True)
+    (repo / ".autofix/summary.md").write_text("riassunto\n")
+    (repo / "ike/new.py").write_text("NEW = 1\n")
+    done = agent.changes(repo)
+    assert "NEW = 1" in done and "riassunto" not in done
+    reserve._git(repo, "reset", "-q")
+    (repo / "ike/new.py").unlink()
     reserve.undo(repo, ["ike/window.py"])
     assert "return 10" in (repo / "ike/window.py").read_text()
     assert not hit.exists()

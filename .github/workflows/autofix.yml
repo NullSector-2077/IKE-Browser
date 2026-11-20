@@ -248,6 +248,11 @@ jobs:
           mkdir -p "$RUNNER_TEMP/autofix"
           python3 -I "$RUNNER_TEMP/autofix-context.py" --repo /srv/autofix/repo
           cp /srv/autofix/repo/.autofix/related.txt "$RUNNER_TEMP/autofix/related.txt"
+          # the runner's own copy of what the reserves read from .autofix/, which
+          # the agent can write too (1.1.18)
+          mkdir -p "$RUNNER_TEMP/autofix-inputs"
+          cp /srv/autofix/repo/.autofix/failure.md /srv/autofix/repo/.autofix/context.md \
+            /srv/autofix/repo/.autofix/related.txt "$RUNNER_TEMP/autofix-inputs/"
       - name: The lint, for each fix (no AI)
         run: python3 -m pip install --disable-pip-version-check -q ruff
       # Antigravity alone, with the Gemini key only (1.1.18: the reserves' keys
@@ -295,7 +300,7 @@ jobs:
           fi
           # never hand over the key, plain or encoded: the agent's work is checked
           # here, the only step with the key
-          "$RUNNER_TEMP/rgit" add -A -N -- . ':(exclude).autofix'
+          "$RUNNER_TEMP/rgit" add -A -N
           "$RUNNER_TEMP/rgit" diff --binary --no-ext-diff --no-textconv HEAD -- . ':(exclude).autofix' > "$out/agent.diff"
           "$RUNNER_TEMP/rgit" reset -q
           python3 -I - "$out" "$repo" <<'PY'
@@ -308,7 +313,7 @@ jobs:
               for enc in (base64.b64encode, base64.urlsafe_b64encode):
                   variants.add(enc(b"\0" * i + key)[4 if i else 0:-4])
           for f in (out / "agent.diff", out / "status.json", repo / ".autofix" / "summary.md"):
-              data = f.read_bytes() if f.is_file() else b""
+              data = f.read_bytes() if f.is_file() and not f.is_symlink() else b""
               if any(v and v in data for v in variants):
                   for g in out.glob("*"):
                       g.unlink()
@@ -342,6 +347,11 @@ jobs:
           sudo pkill -KILL -u agent 2>/dev/null || true
           sudo chown -R "$(id -un)" "$repo"
           gitr reset -q
+          # .autofix/ was the agent's too: only its summary is kept (a plain file,
+          # never a link the runner would follow), the reserves' inputs come back
+          # from the runner's copies
+          find "$repo/.autofix" -mindepth 1 -maxdepth 1 \( ! -name summary.md -o -type l -o ! -type f \) -exec rm -rf {} +
+          cp "$RUNNER_TEMP/autofix-inputs/"* "$repo/.autofix/"
           if [ -f "$out/status.json" ]; then
             result=$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["result"])' "$out/status.json")
           else

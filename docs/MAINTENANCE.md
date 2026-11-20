@@ -90,7 +90,11 @@ never touched.
      removes nested repositories, and runs git without system or global
      configuration, attributes file, hooks, fsmonitor or submodules (diffs
      with `--no-ext-diff --no-textconv`). Otherwise a `diff.external` or a
-     filter written by the agent would run as the runner, which has `sudo`;
+     filter written by the agent would run as the runner, which has `sudo`.
+     After the agent, its processes are killed and its tree is the runner's
+     again; of `.autofix/` only its summary is kept, as a plain file (a link
+     there would make the runner read any file and publish it), and the
+     reserves' inputs come back from the runner's own copies;
    - its own step, with the Gemini key only: the reserves' keys are in the
      next step, which the agent never shares (1.1.18);
    - real limits: at most 8 minutes per model and 25 minutes in all. The free

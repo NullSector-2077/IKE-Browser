@@ -187,7 +187,9 @@ def changes(workdir):
     checker = _checker()
     git = checker.SAFE_GIT + ["-C", str(workdir)]
     env = checker.safe_git_env()
-    subprocess.run(git + ["add", "-A", "-N", "--", ".", ":(exclude).autofix"],
+    # no pathspec: with .autofix/ in .gitignore, naming it makes "add" end with an
+    # error (the diff below leaves .autofix/ out)
+    subprocess.run(git + ["add", "-A", "-N"],
                    capture_output=True, check=False, env=env)
     out = subprocess.run(git + ["diff", "--no-ext-diff", "--no-textconv", "HEAD", "--", ".", ":(exclude).autofix"],
                          capture_output=True, text=True, check=False, env=env)
