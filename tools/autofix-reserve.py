@@ -28,7 +28,11 @@ For each model in turn:
     an answer that cannot be applied     -> once more, told what was wrong, then the next model
     a fix the checks refuse (--checker)  -> undone; the next model is told why
     a fix refused for safety (exit 3)    -> undone; stop: no other model is asked
-    "no fix possible in the code"        -> stop: asking another model would not help
+    "no fix possible in the code"        -> the next model; stop when two models say so
+    any other malformed answer or error  -> undone; the next model
+
+What a model writes reaches the log only through for_log(): one line, and no
+"::" that could start a GitHub workflow command.
 
 --refused FILE: why the checks refused Antigravity's fix (the reserves are told,
 so they do not repeat it).
@@ -41,6 +45,7 @@ Italian summary to .autofix/summary.md. Keys never reach a file or the log.
 """
 
 import argparse
+import functools
 import json
 import os
 import re
@@ -73,10 +78,10 @@ def editable(path, allow_adblock):
     return path.startswith(ROOTS + WRAPPER if allow_adblock else ROOTS)
 
 
-def _checker_rule():
-    """allowed_path() of the checker next to this script (both come from main in
-    the workflow): the reserves never edit what the checker would refuse, so
-    the two lists of forbidden files cannot drift apart."""
+@functools.lru_cache(maxsize=1)
+def _checker():
+    """The checker next to this script (both come from main in the workflow), or
+    None."""
     path = Path(__file__).resolve().parent / "check-autofix-patch.py"
     if not path.is_file():
         return None
@@ -84,7 +89,24 @@ def _checker_rule():
     spec = importlib.util.spec_from_file_location("ike_autofix_checker", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    return mod.allowed_path
+    return mod
+
+
+def _checker_rule():
+    """allowed_path() of the checker: the reserves never edit what the checker
+    would refuse, so the two lists of forbidden files cannot drift apart."""
+    mod = _checker()
+    return mod.allowed_path if mod else None
+
+
+def _git(workdir, *args, text=True):
+    """git on the work tree, as the checker runs it (SAFE_GIT, 1.1.18): no system
+    or global configuration, hooks, fsmonitor, attributes file or submodules."""
+    mod = _checker()
+    if mod is None:
+        raise OSError("tools/check-autofix-patch.py is missing next to this script")
+    return subprocess.run([*mod.SAFE_GIT, "-C", str(workdir), *args], capture_output=True, text=text,
+                          check=False, env=mod.safe_git_env())
 MAX_FILES = 5
 TOTAL_TIMEOUT = 12 * 60
 REQUEST_TIMEOUT = 150
@@ -93,7 +115,7 @@ MAX_TOKENS = 6000
 
 MESSAGES = {
     "ok": "Una riserva (%s) ha preparato una correzione.",
-    "none": "La riserva (%s) dice che il problema non si corregge nel codice.",
+    "none": "La riserva (%s) dice che il problema non si corregge nel codice, e nessun'altra l'ha corretto.",
     "quota": "Le riserve hanno esaurito la quota o non rispondono: riprova più tardi.",
     "nokey": "Nessuna riserva configurata: mancano le chiavi GROQ_API_KEY e OPENROUTER_API_KEY.",
     "error": "Le riserve non sono riuscite a preparare una correzione applicabile.",
@@ -186,14 +208,20 @@ def ask(url, key, model, messages, timeout=REQUEST_TIMEOUT, opener=urllib.reques
     except (urllib.error.URLError, TimeoutError, OSError, ValueError) as e:
         raise Stop("temporary", type(e).__name__)
     try:
-        return data["choices"][0]["message"]["content"] or ""
+        content = data["choices"][0]["message"]["content"] or ""
     except (KeyError, IndexError, TypeError):
         raise Stop("temporary", "no answer")
+    if isinstance(content, list):          # content given in parts: their text
+        content = "".join(p.get("text", "") for p in content if isinstance(p, dict) and
+                          isinstance(p.get("text"), str))
+    return content if isinstance(content, str) else ""
 
 
 def parse(text):
     """The JSON object of an answer (code fences and reasoning around it tolerated)."""
-    text = re.sub(r"<think>.*?</think>", "", text or "", flags=re.S)
+    if not isinstance(text, str):
+        raise ValueError("the answer is not text")
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.S)
     start, end = text.find("{"), text.rfind("}")
     if start < 0 or end <= start:
         raise ValueError("no JSON object in the answer")
@@ -243,7 +271,9 @@ def _locate(current, find):
 
 def apply_edits(workdir, edits, shown, allow_adblock=False):
     """Apply the edits (all or none). Returns the changed files; raises ValueError."""
-    if len({e.get("file") for e in edits if isinstance(e, dict)}) > MAX_FILES:
+    if not isinstance(edits, list):
+        raise ValueError("the edits are not a list")
+    if len({e.get("file") for e in edits if isinstance(e, dict) and isinstance(e.get("file"), str)}) > MAX_FILES:
         raise ValueError("more than %d files" % MAX_FILES)
     new = {}
     for e in edits:
@@ -267,6 +297,8 @@ def apply_edits(workdir, edits, shown, allow_adblock=False):
             raise ValueError("%s may not be changed: %s" % (path, why))
         current = new.get(path)
         if current is None:
+            if (workdir / path).is_symlink():
+                raise ValueError("%s is a link" % path)
             current = (workdir / path).read_text("utf-8")
         find, repl = _unnumbered(find), _unnumbered(repl)
         span = _locate(current, find)
@@ -289,7 +321,7 @@ def files_shown(workdir, related):
     out, used = {}, 0
     for path in related:
         p = workdir / path
-        if not path.startswith(SHOWN_ROOTS) or not p.is_file():
+        if not path.startswith(SHOWN_ROOTS) or not p.is_file() or p.is_symlink():   # a link: never followed
             continue
         text = p.read_text("utf-8", errors="replace")
         if used + len(text) > FILES_BUDGET:
@@ -319,15 +351,12 @@ def message_for(failure, context, shown, budget, refused=""):
 
 
 def diff_of(workdir):
-    out = subprocess.run(["git", "-c", "safe.directory=*", "-c", "core.hooksPath=/dev/null",
-                          "-C", str(workdir), "diff", "--binary", "--", ".", ":(exclude).autofix"],
-                         capture_output=True, text=True, check=False)
-    return out.stdout
+    return _git(workdir, "diff", "--binary", "--no-ext-diff", "--no-textconv", "--", ".",
+                ":(exclude).autofix").stdout
 
 
 def undo(workdir, files):
-    subprocess.run(["git", "-c", "safe.directory=*", "-c", "core.hooksPath=/dev/null",
-                    "-C", str(workdir), "checkout", "-q", "--", *files], check=False)
+    _git(workdir, "checkout", "-q", "--", *files)
 
 
 def checked(workdir, checker, related, allow_adblock):
@@ -369,6 +398,85 @@ def redact(text, keys):
     return text
 
 
+def for_log(text, limit=300):
+    """Text a model wrote (or chose, like a file name), safe to print in the job's
+    log: one line, no control characters, and no "::" that could start a GitHub
+    workflow command (1.1.18)."""
+    text = re.sub(r"[\x00-\x1f\x7f\x85  ]+", " ", str(text))
+    return re.sub(r":(?=:)", ": ", text)[:limit]
+
+
+def one_model(url, key, model, base, tokens, deadline, opener, workdir, shown, a, refused, applied):
+    """Ask one model, at most twice. Returns (outcome, text, refused): outcome is
+    ok | none | refused | error | quota | auth | toolarge, text its summary (or
+    the checker's reasons for "refused"), refused why the checks refused its
+    fix (for the next model). The files it changed stay listed in `applied`
+    until they are undone, so the caller can undo them after any error."""
+    messages, tries, waited = list(base), 0, False
+    while tries < 2:
+        tries += 1
+        try:
+            answer = ask(url, key, model, messages, opener=opener, max_tokens=tokens)
+        except Stop as s:
+            kind = s.args[0]
+            wait = s.args[2] if len(s.args) > 2 else 0
+            print("  stopped: %s (%s)" % (kind, for_log(s.args[1])), flush=True)
+            if kind == "temporary" and tries < 2:
+                time.sleep(10)
+                continue
+            # a limit per minute (Groq: about 8,000 tokens): wait it out once,
+            # when the server says it is short, and ask the same model again
+            if kind == "quota" and 0 < wait <= 60 and not waited and time.monotonic() + wait < deadline:
+                waited = True
+                time.sleep(wait + 1)
+                tries -= 1                  # the wait does not use up a try
+                continue
+            if kind in ("auth", "toolarge"):
+                return kind, "", refused
+            return ("quota" if kind in ("quota", "temporary") else "error"), "", refused
+        try:
+            obj = parse(answer)
+            if obj.get("fixable") is False:
+                return "none", str(obj.get("summary") or ""), refused
+            if not obj.get("edits"):
+                # 2026-11-19: a model named the cause and gave no edit; only an
+                # explicit "fixable": false counts as "cannot be fixed"
+                raise ValueError("the answer has no edits: give the exact edits of the fix, "
+                                 "or \"fixable\": false if it cannot be fixed in the code")
+            applied[:] = apply_edits(workdir, obj["edits"], shown, a.allow_adblock)
+            summary = str(obj.get("summary") or "")
+            print("  edits applied: %s" % for_log(", ".join(applied)), flush=True)
+            if a.checker:
+                status, reasons = checked(workdir, a.checker, a.related, a.allow_adblock)
+                if status == 3:
+                    undo(workdir, applied)
+                    applied.clear()
+                    print("  refused for safety: no other model is asked", flush=True)
+                    return "refused", reasons, refused
+                if status in (1, 2):         # refused, or the edits changed nothing
+                    undo(workdir, applied)
+                    applied.clear()
+                    print("  refused by the checks: the next model is told why", flush=True)
+                    return "error", summary, reasons
+            if a.lint:
+                clean, said = linted(workdir, applied)
+                if not clean:
+                    undo(workdir, applied)
+                    applied.clear()
+                    print("  refused by the lint: the next model is told why", flush=True)
+                    return "error", summary, "The lint (ruff) refused the fix:\n\n" + said
+            return "ok", summary, refused
+        except (ValueError, OSError) as e:
+            if applied:
+                undo(workdir, applied)
+                applied.clear()
+            print("  answer not usable: %s" % for_log(e), flush=True)
+            messages = base + [{"role": "assistant", "content": str(answer)[:20000]},
+                               {"role": "user", "content": "That answer could not be applied: %s. "
+                                "Answer again with one JSON object as described." % e}]
+    return "error", "", refused
+
+
 def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--workdir", required=True)
@@ -386,7 +494,7 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
 
     def read(name):
         try:
-            return (auto / name).read_text("utf-8", "replace")
+            return "" if (auto / name).is_symlink() else (auto / name).read_text("utf-8", "replace")
         except OSError:
             return ""
     failure, context = read("failure.md"), read("context.md")
@@ -401,6 +509,7 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
         except OSError:
             refused = ""
     result, used, summary = "nokey", "", ""
+    said_none, none_summary = [], ""          # the models that answered "fixable": false
     skip, deadline = set(), time.monotonic() + a.total_timeout
     plan = chain(env)
     for provider, url, key, model, budget, tokens in plan:
@@ -412,82 +521,43 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
             result = result if result != "nokey" else "quota"
             break
         used = "%s / %s" % (provider, model)
-        print("Reserve: %s" % used, flush=True)
-        messages, tries, outcome, waited = list(base), 0, None, False
-        while tries < 2 and outcome is None:
-            tries += 1
-            try:
-                answer = ask(url, key, model, messages, opener=opener, max_tokens=tokens)
-            except Stop as s:
-                kind = s.args[0]
-                wait = s.args[2] if len(s.args) > 2 else 0
-                print("  stopped: %s (%s)" % (kind, s.args[1]), flush=True)
-                if kind == "temporary" and tries < 2:
-                    time.sleep(10)
-                    continue
-                # a limit per minute (Groq: about 8,000 tokens): wait it out once,
-                # when the server says it is short, and ask the same model again
-                if kind == "quota" and 0 < wait <= 60 and not waited and time.monotonic() + wait < deadline:
-                    waited = True
-                    time.sleep(wait + 1)
-                    tries -= 1                  # the wait does not use up a try
-                    continue
-                if kind in ("auth", "toolarge"):
-                    skip.add(provider)
-                outcome = "quota" if kind in ("quota", "temporary") else "error"
-                break
-            try:
-                obj = parse(answer)
-                if obj.get("fixable") is False:
-                    summary = str(obj.get("summary") or "")
-                    outcome = "none"
-                    break
-                if not obj.get("edits"):
-                    # 2026-11-19: a model named the cause and gave no edit; only an
-                    # explicit "fixable": false ends the chain
-                    raise ValueError("the answer has no edits: give the exact edits of the fix, "
-                                     "or \"fixable\": false if it cannot be fixed in the code")
-                changed = apply_edits(workdir, obj["edits"], shown, a.allow_adblock)
-                summary = str(obj.get("summary") or "")
-                print("  edits applied: %s" % ", ".join(changed), flush=True)
-                if a.checker:
-                    status, reasons = checked(workdir, a.checker, a.related, a.allow_adblock)
-                    if status == 3:
-                        undo(workdir, changed)
-                        print("  refused for safety: no other model is asked", flush=True)
-                        summary, outcome = reasons, "refused"
-                        break
-                    if status in (1, 2):         # refused, or the edits changed nothing
-                        undo(workdir, changed)
-                        print("  refused by the checks: the next model is told why", flush=True)
-                        refused = reasons
-                        outcome = "error"
-                        break
-                if a.lint:
-                    clean, said = linted(workdir, changed)
-                    if not clean:
-                        undo(workdir, changed)
-                        print("  refused by the lint: the next model is told why", flush=True)
-                        refused = "The lint (ruff) refused the fix:\n\n" + said
-                        outcome = "error"
-                        break
-                outcome = "ok"
-            except (ValueError, OSError) as e:
-                print("  answer not usable: %s" % e, flush=True)
-                messages = base + [{"role": "assistant", "content": answer[:20000]},
-                                   {"role": "user", "content": "That answer could not be applied: %s. "
-                                    "Answer again with one JSON object as described." % e}]
-        if outcome in ("ok", "none", "refused"):
-            result = outcome
+        print("Reserve: %s" % for_log(used), flush=True)
+        applied = []
+        try:
+            outcome, said, refused = one_model(url, key, model, base, tokens, deadline, opener,
+                                               workdir, shown, a, refused, applied)
+        except Exception as e:                    # 1.1.18: a malformed answer never ends the chain
+            if applied:
+                undo(workdir, applied)
+            print("  answer not usable (%s): the next model goes on" % type(e).__name__, flush=True)
+            outcome, said = "error", ""
+        if outcome in ("ok", "refused"):
+            result, summary = outcome, said
             break
+        if outcome == "none":
+            # 1.1.18: one model's word is not enough (a weak free model gives up on
+            # a plain fix); the chain stops when two different models agree
+            said_none.append(used)
+            none_summary = said
+            if len(set(said_none)) >= 2:
+                print("  two models say it cannot be fixed in the code: no other model is asked", flush=True)
+                result = "none"
+                break
+            print("  says it cannot be fixed in the code: the next model is asked too", flush=True)
+        if outcome in ("auth", "toolarge"):
+            skip.add(provider)
+            outcome = "error"
         result = outcome or "error"
+    if result != "ok" and result != "refused" and said_none:
+        # nobody fixed it, and at least one model said it cannot be fixed in the code
+        result, used, summary = "none", said_none[-1], none_summary
     message = MESSAGES[result] % used if "%s" in MESSAGES[result] else MESSAGES[result]
     if result in ("ok", "none", "refused"):
         text = redact(summary.strip()[:3000], keys) or "La riserva non ha scritto un riassunto."
         (auto / "summary.md").write_text("%s\n\n_(%s)_\n" % (text, message), "utf-8")
     Path(a.status).write_text(json.dumps({"result": result, "model": used, "message": message},
                                          ensure_ascii=False), "utf-8")
-    print("Reserves: %s (%s)" % (result, used or "none"), flush=True)
+    print("Reserves: %s (%s)" % (result, for_log(used or "none")), flush=True)
     return 0
 
 

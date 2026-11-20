@@ -25,6 +25,7 @@ pull requests of people and from the standby branches are never touched.
 """
 
 import argparse
+import datetime as dt
 import json
 import os
 import re
@@ -38,6 +39,20 @@ MAINTENANCE = "automation/daily-maintenance"
 FIX_MAIN = "automation/autofix-main"
 FIXABLE_BRANCHES = ("main", MAINTENANCE, FIX_MAIN)
 ISSUE_TITLE = "Automatic fix needs you: %s"
+# The report (autofix.yml, job report) ends each issue and comment with the
+# failed commit in this form, so the plan can tell a repeat of the same failure
+# from a new one (1.1.18).
+SHA_MARK = "<!-- autofix-sha: %s -->"
+SHA_MARK_RE = re.compile(r"<!-- autofix-sha: ([0-9a-f]{7,40}) -->")
+REPORT_FRESH_HOURS = 24
+REPORTER = "github-actions[bot]"      # the author of the report job's comments
+# Steps of the daily maintenance's "prepare" job that no AI fix of main can
+# help (1.1.18): the check and apply of the component updates fails when an
+# upstream source cannot be reached (tools/check-components.py exits 1), and a
+# new AdBlock engine that does not build needs I.K.E.'s wrapper changed, which a
+# fix of main may not do.
+SOURCES_STEP = "Check and apply component updates"
+ENGINE_STEP = "Build AdBlock engine"
 LOG_LINES = 160              # of the failed step only (1.1.16: the whole job's end was mostly noise)
 LOG_BYTES = 20000
 # lines that never explain a failure: package installs, downloads, the runner's cleanup
@@ -158,7 +173,51 @@ def completed_run(repo, run_id, tries=40, pause=15, sleep=time.sleep):
     return run
 
 
-def decide(run, failed_jobs, open_fix_pr, open_issues=()):
+def _when(stamp):
+    try:
+        return dt.datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def report_sha(text):
+    """The failed commit a report names: only in the exact last line the report
+    job writes (second review of 1.1.18: its comments quote the agent's summary
+    and the logs, where a mark could be planted)."""
+    lines = [ln for ln in (text or "").replace("\r", "").split("\n") if ln.strip()]
+    m = SHA_MARK_RE.fullmatch(lines[-1]) if lines else None
+    return m.group(1) if m else ""
+
+
+def already_reported(issues, title, sha, now):
+    """The open issue that already reports this failure, or None.
+
+    An open issue blocks a new automatic fix only when it names the same failed
+    commit (SHA_MARK in its body or comments) or was reported within the last
+    REPORT_FRESH_HOURS. Until 1.1.17 any open issue with the title blocked every
+    later failure, weeks later and on other commits (issue #31 of the first
+    trials kept the fix of main asleep). issues: [{"title", "body",
+    "reported_at"}], the body holding the comments too."""
+    for issue in issues:
+        if issue.get("title") != title:
+            continue
+        marks = issue.get("shas")
+        if marks is None:
+            marks = [report_sha(issue.get("body"))]
+        marks = [m for m in marks if m]
+        if sha and any(sha.startswith(m) or m.startswith(sha) for m in marks):
+            return issue
+        when = _when(issue.get("reported_at") or "")
+        if when and now - when < dt.timedelta(hours=REPORT_FRESH_HOURS):
+            return issue
+    return None
+
+
+def failed_steps(job):
+    return [s.get("name") or "" for s in job.get("steps", []) if s.get("conclusion") == "failure"]
+
+
+def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
     """The plan for a failed run (a dict of outputs), without network or git."""
     name, branch = run["name"], run.get("head_branch") or ""
     plan = {"action": "skip", "reason": "", "kind": "", "checkout": "", "push_branch": "",
@@ -184,6 +243,16 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=()):
             plan.update(action="issue", reason="the maintenance candidate could not be published "
                         "(failed: %s); this is a repository setting or a workflow, not code" % ", ".join(job_names))
             return plan
+        steps = [st for j in failed_jobs if j["name"] == "prepare" for st in failed_steps(j)]
+        if any(st.startswith(SOURCES_STEP) for st in steps):
+            plan.update(action="issue", reason="a component source could not be checked or its update could "
+                        "not be applied (step: %s); nothing on main to fix, the next daily run tries "
+                        "again" % SOURCES_STEP)
+            return plan
+        if any(st.startswith(ENGINE_STEP) for st in steps):
+            plan.update(action="issue", reason="the new AdBlock engine does not build with I.K.E.'s wrapper "
+                        "(step: %s); a fix of main may not change the wrapper" % ENGINE_STEP)
+            return plan
         target = "main"
     elif name == "Daily component check":
         if "check" not in job_names:
@@ -195,7 +264,8 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=()):
         plan["reason"] = "workflow %s is not handled" % name
         return plan
 
-    if target == "main" and ISSUE_TITLE % name in open_issues:
+    now = now or dt.datetime.now(dt.timezone.utc)
+    if target == "main" and already_reported(open_issues, ISSUE_TITLE % name, run.get("head_sha") or "", now):
         plan["reason"] = "already reported and waiting for the owner (issue: %s)" % (ISSUE_TITLE % name)
         return plan
     if target == "main":
@@ -241,6 +311,31 @@ def engine_update(branch, show=None):
     return bool(candidate and current and candidate != current)
 
 
+def open_reports(repo, name):
+    """The open issues "Automatic fix needs you: <name>" for already_reported():
+    each with the commits its reports name (the issue and the report job's
+    comments, by their last line) and the time of its latest report."""
+    out = []
+    for i in gh_api("repos/%s/issues?state=open&labels=autofix&per_page=100" % repo):
+        if "pull_request" in i or i.get("title") != ISSUE_TITLE % name:
+            continue
+        shas, reported = [report_sha(i.get("body"))], i.get("created_at") or ""
+        try:
+            comments = gh_api("repos/%s/issues/%s/comments?per_page=100" % (repo, i["number"]))
+        except RuntimeError:
+            comments = []
+        for c in comments:
+            if (c.get("user") or {}).get("login") != REPORTER:
+                continue                      # anyone may comment; only the report job's comments count
+            mark = report_sha(c.get("body"))
+            if mark:
+                shas.append(mark)
+                if (c.get("created_at") or "") > reported:
+                    reported = c["created_at"]
+        out.append({"title": i["title"], "shas": [m for m in shas if m], "reported_at": reported})
+    return out
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--run-id", required=True)
@@ -259,11 +354,13 @@ def main(argv=None):
     run["_engine_update"] = branch == MAINTENANCE and engine_update(MAINTENANCE)
     prs = gh_api("repos/%s/pulls?state=open&head=%s:%s" % (repo, repo.split("/")[0], FIX_MAIN))
     open_fix_pr = str(prs[0]["number"]) if prs else ""
-    issues = gh_api("repos/%s/issues?state=open&labels=autofix&per_page=100" % repo)
-    plan = decide(run, failed, open_fix_pr, [i["title"] for i in issues])
+    plan = decide(run, failed, open_fix_pr, open_reports(repo, run["name"]))
     # the commit that failed: the issue's message for ChatGPT starts from it when
     # no automatic fix is tried (after two attempts, for instance)
     plan["head_sha"] = run.get("head_sha", "")
+    # where the fix branch was when this plan was made: publish pushes only if
+    # it is still there (1.1.18: two plans of main side by side could each push)
+    plan["push_tip"] = tip(plan["push_branch"]) if plan["push_branch"] else ""
 
     parts = ["# Failure to fix\n",
              "- Workflow: %s\n- Branch: %s\n- Commit: %s\n- Run: %s\n" % (

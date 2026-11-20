@@ -7,12 +7,6 @@
 name: Tests
 
 on:
-  workflow_call:
-    inputs:
-      ref:
-        description: "Branch or commit to test"
-        required: false
-        type: string
   pull_request:
     branches: [main]
   push:
@@ -23,7 +17,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: tests-${{ inputs.ref || github.ref }}
+  group: tests-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -38,7 +32,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ inputs.ref || github.sha }}
+          ref: ${{ github.sha }}
       - name: Test environment
         uses: ./.github/actions/ike-test-env
       - name: AdBlock engine (Rust tests)
@@ -48,6 +42,44 @@ jobs:
         run: ruff check .
       - name: Tests
         run: python -m pytest
+      # 1.1.18: an automatic fix, a maintenance candidate or a ChatGPT fix must
+      # not drop a test that the commit it starts from runs (by a conftest.py, a
+      # `del`, a deselection... that the patch checks did not catch). The test
+      # ids pytest would run, after its own hooks, are compared as sets: every
+      # id of the starting commit must still be there (a new test does not hide
+      # a dropped one). The repository's own addopts are set aside (its `-q`
+      # made this -qq, which prints no ids). When the starting commit cannot be
+      # counted, it says so and goes on.
+      - name: No tests lost
+        if: >-
+          startsWith(github.head_ref, 'chatgpt/') || startsWith(github.head_ref, 'automation/') ||
+          (github.event_name == 'workflow_dispatch' && startsWith(github.ref_name, 'automation/'))
+        run: |
+          git fetch -q --no-tags --unshallow origin main 2>/dev/null || git fetch -q --no-tags origin main
+          base=$(git merge-base FETCH_HEAD HEAD) || { echo "::warning::no merge base with main: no comparison"; exit 0; }
+          where="$RUNNER_TEMP/tests-before"
+          rm -rf "$where"
+          git worktree add -q --detach "$where" "$base"
+          for f in vendor/adblock/*.so; do if [ -f "$f" ]; then cp "$f" "$where/$f"; fi; done
+          ids() {
+            (cd "$1" && python -m pytest --collect-only -q -o addopts= -p no:cacheprovider -p no:warnings \
+              > "$2.log" 2>&1) || true
+            { grep -E '^[^[:space:]][^:]*::' "$2.log" || true; } | LC_ALL=C sort -u > "$2"
+          }
+          ids . "$RUNNER_TEMP/ids-now"
+          ids "$where" "$RUNNER_TEMP/ids-before"
+          git worktree remove --force "$where"
+          echo "Tests here: $(wc -l < "$RUNNER_TEMP/ids-now"); at $base: $(wc -l < "$RUNNER_TEMP/ids-before")"
+          if tail -n 1 "$RUNNER_TEMP/ids-before.log" | grep -qi error || [ ! -s "$RUNNER_TEMP/ids-before" ]; then
+            echo "::warning::the tests of $base could not be counted: no comparison"
+            exit 0
+          fi
+          LC_ALL=C comm -23 "$RUNNER_TEMP/ids-before" "$RUNNER_TEMP/ids-now" > "$RUNNER_TEMP/ids-lost"
+          if [ -s "$RUNNER_TEMP/ids-lost" ]; then
+            echo "::error::$(wc -l < "$RUNNER_TEMP/ids-lost") test(s) of $base are no longer run here"
+            head -n 50 "$RUNNER_TEMP/ids-lost" | sed 's/^/  lost: /'
+            exit 1
+          fi
       - name: Arch package
         run: |
           mkdir -p "$RUNNER_TEMP/pkg" "$RUNNER_TEMP/pkgroot"

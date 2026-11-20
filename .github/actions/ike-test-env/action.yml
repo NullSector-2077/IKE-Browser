@@ -1,4 +1,5 @@
-# The environment of the automatic tests, shared by tests.yml and autofix.yml:
+# The environment of the automatic tests (tests.yml; the automatic fix runs no
+# tests itself, GitHub runs tests.yml on its fix):
 # Python with the packages of the tests, Rust (the runner's own rustup, no
 # third-party action), the system libraries Qt WebEngine needs without a
 # display, the packaging tools, and the AdBlock engine built into vendor/adblock.
