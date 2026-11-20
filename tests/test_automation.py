@@ -1502,6 +1502,21 @@ def _issue_body(tmp_path, summary, **env_):
     return (tmp_path / "body.md").read_text()
 
 
+def test_no_dead_parts_in_the_workflows():
+    """1.1.18: tests.yml offered workflow_call (nothing called it), the test
+    environment claimed autofix.yml used it, and a refusal was copied to a
+    file nobody read."""
+    tests = (WORKFLOWS / "tests.yml").read_text()
+    assert "workflow_call" not in tests and "inputs." not in tests
+    callers = [p.name for p in WORKFLOWS.glob("*.yml") if "uses: ./.github/workflows/tests.yml" in p.read_text()]
+    assert callers == []
+    env = (ROOT / ".github/actions/ike-test-env/action.yml").read_text()
+    users = [p.name for p in WORKFLOWS.glob("*.yml") if "uses: ./.github/actions/ike-test-env" in p.read_text()]
+    assert users == ["tests.yml"]
+    assert "autofix.yml:" not in env and "shared by tests.yml and autofix.yml" not in env
+    assert "guard-refused.md" not in (WORKFLOWS / "autofix.yml").read_text()
+
+
 def test_the_issue_tells_when_a_reserve_fix_was_refused_by_the_guard(tmp_path):
     """1.1.18: a reserve found a fix, the guard refused it, and the issue said
     that neither Antigravity nor the reserves had found one."""
