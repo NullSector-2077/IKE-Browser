@@ -1140,6 +1140,13 @@ def _chromium_flags(config):
         flags.append("--enable-smooth-scrolling")
     if hasattr(os, "geteuid") and os.geteuid() == 0 and "--no-sandbox" not in flags:
         flags.append("--no-sandbox")
+    # every site in its own process, as in Chrome and Brave (1.1.18, security
+    # audit F1; owner's decision): Qt WebEngine leaves it off, so a frame of
+    # another site shared its page's process and one bug in the engine could
+    # read the other site. A security switch, not a graphics path; about a
+    # tenth more memory. A user who turned it off on purpose is followed.
+    if "--site-per-process" not in flags and "--disable-site-isolation-trials" not in flags:
+        flags.append("--site-per-process")
     flags = _video_flags(flags, config, CONFIG_DIR)
     os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = " ".join(flags)
 

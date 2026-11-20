@@ -121,6 +121,30 @@ protection was removed or weakened.
   back about 50 MB; 30 tabs: 1912 -> 422 MB when suspended). Nothing changes
   with enough memory or with suspension turned off.
 
+Security audit of 2026-11-20 (an independent, read-only review of the whole
+browser; three findings fixed before release, the rest in ROADMAP.md):
+
+- **Every site in its own process** (owner's decision): Qt WebEngine leaves
+  Chromium's Site Isolation off, so a frame of another site shared its page's
+  process and one bug in the engine could let a page read the other site.
+  I.K.E. now turns it on (`--site-per-process`), as Chrome and Brave always
+  do; a user who turned it off on purpose is followed. Measured: four tabs
+  with four frames of other sites each used 494 MB instead of 436 MB (+13 %),
+  13 processes instead of 8.
+- **The home network is protected from every kind of request**: until now
+  only pages and frames of a public site were stopped from opening the
+  router or a service of this computer; a POST from fetch, a picture, a
+  script, a beacon or a WebSocket got there (the engine stops none of them).
+  Every request is checked now, a stopped part shows the usual notice with
+  "Allow for this site", and names local by their form count too
+  (`router`, `fritz.box`, `*.lan`, `*.home.arpa`, `*.internal`...).
+- **No page can read I.K.E.'s secrets on media sites**: the secret of the
+  media-command events was a piece of the fingerprinting key, and a page on
+  a media site could read it (and, with its own seed, work out the whole
+  key and recognise the browser on other sites). The media secret is now a
+  random value of its own, the page cannot see the events any more, and the
+  hidden part of workers never reaches a function the page replaced.
+
 Automatic maintenance and fixes (pull request #59; nothing of the browser):
 
 - An old "Automatic fix needs you" issue no longer stops every later fix of
