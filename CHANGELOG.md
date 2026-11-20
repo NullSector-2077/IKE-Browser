@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.1.18
+
+Speed, measured before and after on the same computer (the numbers are in
+docs/review/tests-and-performance.md, "1.1.18, before and after"); no
+protection was removed or weakened.
+
+- **Pages that change a lot run faster with the shield on**: the
+  fingerprinting protection watched every change of every page for the whole
+  life of the page, to find new frames. It now watches while the page is being
+  built (where it is needed) and stops afterwards, when every other way a frame
+  can come in is guarded directly. A page adding and removing thousands of
+  elements: 23.7 -> 17.6 ms at Balanced (11.5 ms with the shield off).
+- **Frames added in more ways are protected**: a frame put into a page through
+  a Range (insertNode, surroundContents), a shadow root or execCommand gets the
+  same protection as the page at once. In 1.1.17 the Range and execCommand
+  ones showed the real canvas to the page's next lines.
+- **Less work in the window while a page loads**: the shield, its "+N" and
+  its ring are drawn once and reused instead of at every frame of their
+  animation; a blocked advert no longer tells every window at once (they hear
+  of it once per site every 16 ms, the shield still ends on the exact count).
+  A page with 400 requests and 150 adverts: 234 -> 190 ms of the interface's
+  processor time, request checks 17.6 -> 13.7 ms.
+- **Tabs when memory runs short**: with less than a tenth of the computer's
+  memory available, the tabs not looked at for five minutes or more are
+  suspended a few at a time, oldest first, before their usual time (each gives
+  back about 50 MB; 30 tabs: 1912 -> 422 MB when suspended). Nothing changes
+  with enough memory or with suspension turned off.
+
 ## 1.1.17
 
 Security review (each point has a test that plays the attack on this computer).

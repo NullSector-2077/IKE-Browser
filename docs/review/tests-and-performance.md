@@ -84,6 +84,94 @@ between the two sessions; only figures of the same session are compared.)
 These numbers describe a small container without a GPU. They say that the
 versions do not differ, not how fast I.K.E. is on the owner's computer.
 
+## 1.1.18, before and after
+
+Same container as below (4 cores, no GPU; Qt 6.12.0 / PyQt6 6.12 from PyPI,
+Ubuntu 24.04), filter lists read from one folder for both versions
+(`--lists`; 9 of the 11 default lists: EasyList Italy and the Malicious URL
+Blocklist could not be reached from the container), local pages only. "Before"
+is `main` at 41aca0c (1.1.17), "after" is the 1.1.18 branch. Runs of the two
+versions were alternated; medians of each run, averaged over the runs.
+
+`tests/measure_perf.py` (two runs of each version, 3 start-ups each):
+
+| Measure | 1.1.17 | 1.1.18 | Note |
+|---|---|---|---|
+| Page with 400 requests (150 to ad servers) | 437 ms | 377 ms | |
+| Time spent checking its requests | 17.0 ms | 13.2 ms | |
+| Interface thread's processor time for that page | 234 ms | 190 ms | `time.thread_time()` around each load, 3 alternated pairs |
+| 30 frames, Off / Balanced / Strict / Maximum | 269 / 388 / 454 / 436 ms | 222 / 380 / 410 / 413 ms | the Off figures moved too: noise of the container |
+| Start-up cold / warm | 0.89 / 0.60 s | 0.84 / 0.59 s | unchanged |
+| Switching tab, new tab | 3.0, 9.0 ms | 3.1, 10.1 ms | unchanged |
+| Memory, all processes, 1 tab / 10 tabs | 592 / 697 MB | 530 / 700 MB | the 1-tab figure moved between runs of the same version too |
+| Processor at rest, 1 tab | 3.0 % | 1.1 % | **not claimed**: a direct test (heavy page in view, 15 s at rest, three runs alternated) gives 2.4 against 2.6 % |
+
+DOM work (a page that adds 12,000 elements, removes them, and sets innerHTML
+300 times, after it is loaded; median of 7 rounds, two runs each):
+
+| | ms |
+|---|---|
+| Shield Off | 11.5 |
+| 1.1.17, Balanced | 23.7 |
+| 1.1.18, Balanced | 17.6 |
+| without the frame guard's hooks at all (for reference, not shipped) | 13.7 |
+
+Speedometer (WebKit/Speedometer, release/3.0 and release/3.1 branches, served
+locally; 5 iterations a run; scores are low because the container has no GPU
+and 4 shared cores — only the comparison counts):
+
+| | 3.0 score | 3.1 score | ES6-Webpack-Complex-DOM (3.1) |
+|---|---|---|---|
+| Plain Qt WebEngine (no I.K.E.) | 12.0 | | |
+| 1.1.17, Off | 12.3 | | |
+| 1.1.17, Balanced | 10.57 (3 runs) | 10.75 (2 runs) | 128 ms |
+| 1.1.18, Balanced | 10.90 (3 runs) | 10.85 (2 runs) | 110 ms |
+
+In 3.1, the DOM-heavy tests improved (Angular-Complex-DOM -6 %,
+React-Complex-DOM -10 %, Svelte-Complex-DOM -11 %, jQuery -9 %,
+ES6-Webpack-Complex-DOM -14 %); the others moved by up to 6 % either way,
+which is the noise of the container (they do not touch what changed).
+
+What the comparison showed:
+
+- I.K.E.'s own protections cost 2-4 % of the Speedometer score here (plain Qt
+  WebEngine 12.0, I.K.E. Off 12.3, Balanced 11.8, Strict 11.8, Maximum 11.7 in
+  one series of 5 iterations each). A gap of about 29 % against another
+  browser on the owner's computer cannot come from them; the engine's Chromium
+  version and its graphics path are the other candidates, to be checked on
+  that computer (chrome://gpu in I.K.E., `pacman -Q qt6-webengine`).
+- Page dark mode with Dark Reader costs much more: 1.1.18 Balanced with dark
+  mode on scored 6.12 with Dark Reader (Complex-DOM tests 2-7 times slower)
+  and 10.5 with the engine's own dark mode. Dark Reader watches every change of
+  a page by design; I.K.E.'s own part around it (darkmode.js) is small.
+- The main cost of the fingerprinting protection on DOM-heavy pages was its
+  MutationObserver on the whole document for the page's whole life (removing
+  it alone took the four DOM-heavy tests from 9.7 to 10.45); the hooks on
+  appendChild and the like cost little (about 0.3 microseconds a call), and
+  the innerHTML hook nothing measurable.
+- Per frame, the protection's script takes about 0.3 ms to install (4-5 ms in
+  the top page). At Strict and Maximum the font masks cost much more until
+  I.K.E. knows which fonts the computer has (the first 15 seconds of a new
+  profile, or after fonts change): the 30-frame page took 1.2 s instead of
+  0.4 s then; afterwards Strict and Maximum cost about 5 % more than Balanced.
+- The request checks run in the interface's thread (verified:
+  `QThread.currentThread()` inside `interceptRequest` is the application's
+  thread). Of what is left (about 33 microseconds a request), the Rust engine
+  is about a quarter; moving more of the checks into Rust would save a few
+  milliseconds per heavy page and duplicate security rules in two languages, so
+  it was not done.
+- Tabs at rest (a busy page with timers and 30 MB of data, all processes):
+
+  | Tabs | Active | Frozen | Suspended |
+  |---|---|---|---|
+  | 10 | 882 MB, 6.4 % | 851 MB, 1.1 % | 384 MB, 0.9 % |
+  | 20 | 1394 MB, 2.3 % | 1339 MB, 0.7 % | 401 MB, 1.0 % |
+  | 30 | 1912 MB, 2.2 % | 1828 MB, 1.6 % | 422 MB, 1.1 % |
+
+  The engine already slows hidden tabs down, so freezing saves little;
+  suspending gives back about 50 MB a tab. 1.1.18 therefore suspends earlier
+  only when the computer runs short of memory.
+
 ## 1.1.17, before and after
 
 Same container (4 cores, no GPU), same commands: `tests/measure_perf.py`
