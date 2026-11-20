@@ -84,6 +84,12 @@ WEAKENING = re.compile(r"\b(skip|skipif|xfail|importorskip|SkipTest|skipTest)\b"
 # an assertion that can never fail (1.1.18)
 TRIVIAL_ASSERT = re.compile(r"^\s*assert\s*\(?\s*(True|1|not\s+(False|None|0))\s*\)?\s*(,.*)?(#.*)?$")
 TEST_DEF = re.compile(r"^\s*(?:async\s+)?def\s+(test_\w*)\s*\(")
+# tests removed or stopped by code (1.1.18): `del test_x`, delattr, globals(),
+# skip reached through getattr, an exit of the whole run
+TEST_TAMPERING = re.compile(r"^\s*del\b[^=]*\btest_|\bdelattr\s*\(|\bglobals\s*\(\s*\)|\bvars\s*\(\s*\)"
+                            r"|\bgetattr\s*\(\s*(pytest|unittest)\b|\b(os\._exit|pytest\.exit)\s*\(")
+# what decides which tests run, at any depth (1.1.18)
+TEST_CONFIG = {"conftest.py", "pytest.ini", "tox.ini", "setup.cfg", "pyproject.toml", "ruff.toml", ".ruff.toml"}
 SECRET = re.compile(r"AIza[0-9A-Za-z_\-]{30,}|\bgh[pousr]_[0-9A-Za-z]{20,}|github_pat_[0-9A-Za-z_]{20,}"
                     r"|\bgsk_[0-9A-Za-z]{20,}"                 # Groq
                     r"|\bsk-[0-9A-Za-z_\-]{20,}"               # OpenRouter (sk-or-v1-...), OpenAI and alike
@@ -126,6 +132,9 @@ def allowed_path(path, allow_adblock):
     if path in FORBIDDEN_FILES or path.startswith(FORBIDDEN_PREFIXES) or \
             any(fnmatch.fnmatchcase(path, p) for p in FORBIDDEN_PATTERNS):
         return "protected file"
+    name = Path(path).name
+    if name in TEST_CONFIG or (path.startswith("tests/") and name == "__init__.py"):
+        return "protected file (what decides which tests run)"
     if any(path == p or path.startswith(p) for p in THIRD_PARTY):
         return "third-party or generated file (its own update tool makes it)"
     if path.endswith(FORBIDDEN_SUFFIXES):
@@ -175,23 +184,29 @@ def check(repo, patch_text, allow_adblock=False):
     if lines > MAX_LINES:
         reasons.append("too many changed lines: %d (at most %d)" % (lines, MAX_LINES))
 
+    # 1.1.18: a new file in tests/ that is not a test module (a helper, a
+    # conftest.py, a plugin...) could change what pytest collects
+    for row in stat.stdout.splitlines():
+        row = row.strip()
+        if row.startswith("create mode "):
+            path = row.split(" ", 3)[-1]
+            if path.startswith("tests/") and not re.fullmatch(r"test_\w+\.py", Path(path).name):
+                reasons.append("%s: new file in tests/ that is not a test module (protected file)" % path)
+
     # the content of the changes
-    current, asserts = None, {}
-    for line in patch_text.splitlines():
-        if line.startswith("+++ "):
-            current = line[4:].removeprefix("b/")
-            continue
-        if line.startswith("--- ") or current is None:
-            continue
-        if line.startswith("+"):
-            if SECRET.search(line):
+    asserts = {}
+    for current, sign, code in patch_lines(patch_text):
+        if sign == "+":
+            if SECRET.search(code):
                 reasons.append("%s: a key or token in the added lines" % current)
             if current.startswith("tests/"):
-                if WEAKENING.search(line):
-                    reasons.append("%s: adds a skip or xfail: %s" % (current, line[1:].strip()[:120]))
-                if line[1:].lstrip().startswith("assert"):
+                if WEAKENING.search(code):
+                    reasons.append("%s: adds a skip or xfail: %s" % (current, code.strip()[:120]))
+                if TEST_TAMPERING.search(_code(code)):
+                    reasons.append("%s: removes or stops tests by code: %s" % (current, code.strip()[:120]))
+                if code.lstrip().startswith("assert"):
                     asserts[current] = asserts.get(current, 0) + 1
-        elif line.startswith("-") and current.startswith("tests/") and line[1:].lstrip().startswith("assert"):
+        elif sign == "-" and current.startswith("tests/") and code.lstrip().startswith("assert"):
             asserts[current] = asserts.get(current, 0) - 1
     for path, balance in sorted(asserts.items()):
         if balance < 0:
@@ -199,8 +214,65 @@ def check(repo, patch_text, allow_adblock=False):
     return reasons + weakened_tests(patch_text)
 
 
+_HUNK = re.compile(r"^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@")
+
+
+def _header_path(text):
+    text = text.split("\t", 1)[0].strip()
+    if text.startswith('"') and text.endswith('"'):
+        text = text[1:-1]
+    return text
+
+
+def patch_lines(patch_text):
+    """(path, sign, text) of each line inside the hunks of a patch, and
+    (path, "@@", "") at the start of each hunk.
+
+    Read as git apply reads it (1.1.18): a hunk holds exactly the number of
+    lines its "@@ -a,b +c,d @@" header says, so a line of content that looks
+    like a header ("+++ x", from an added "++ x") is content. Until 1.1.18 such
+    a line was taken for the next file and blinded every check of the rest of
+    it. Lines are split on "\\n" only, as git does."""
+    path, old_path, old_left, new_left = None, None, 0, 0
+    for line in patch_text.split("\n"):
+        if old_left > 0 or new_left > 0:
+            sign = line[:1] or " "
+            if sign == "\\":                 # "\ No newline at end of file"
+                continue
+            if sign == " ":
+                old_left, new_left = old_left - 1, new_left - 1
+            elif sign == "-":
+                old_left -= 1
+            elif sign == "+":
+                new_left -= 1
+            else:                             # not a hunk line: the hunk is over
+                old_left = new_left = 0
+                continue
+            yield path or "", sign, line[1:]
+            continue
+        if line.startswith("diff --git "):
+            path = old_path = None
+        elif line.startswith("--- "):
+            old_path = _header_path(line[4:]).removeprefix("a/")
+        elif line.startswith("+++ "):
+            new = _header_path(line[4:])
+            path = old_path if new == "/dev/null" else new.removeprefix("b/")
+        elif line.startswith("@@"):
+            m = _HUNK.match(line)
+            if m:
+                old_left = int(m.group(1)) if m.group(1) is not None else 1
+                new_left = int(m.group(2)) if m.group(2) is not None else 1
+                yield path or "", "@@", ""
+
+
 def _code(line):
     return line.split("#", 1)[0].rstrip()
+
+
+def _same_sides(code):
+    """An assertion comparing a thing with itself: `assert x == x`."""
+    m = re.match(r"^\s*assert\s+\(?\s*([^,#]+?)\s*(==|is|<=|>=)\s*([^,#]+?)\s*\)?\s*(,.*)?(#.*)?$", code)
+    return bool(m) and m.group(1) == m.group(3)
 
 
 def weakened_tests(patch_text):
@@ -208,19 +280,13 @@ def weakened_tests(patch_text):
     removed or renamed, an assertion that cannot fail, a `return` added at the
     top of a test body (before its first statement)."""
     reasons, removed, added = [], {}, set()
-    current, state, quote = None, None, ""
-    for line in patch_text.splitlines():
-        if line.startswith("+++ "):
-            current, state = line[4:].removeprefix("b/"), None
-            continue
-        if line.startswith(("--- ", "diff --git")) or current is None:
-            continue
-        if line.startswith("@@"):
+    state, quote = None, ""
+    for current, sign, code in patch_lines(patch_text):
+        if sign == "@@":
             state = None                      # a hunk may start anywhere: no assumption
             continue
-        if not current.startswith("tests/") or line[:1] not in ("+", "-", " "):
+        if not current.startswith("tests/"):
             continue
-        sign, code = line[:1], line[1:]
         found = TEST_DEF.match(code)
         if sign == "-":
             if found:
@@ -228,7 +294,7 @@ def weakened_tests(patch_text):
             continue
         if sign == "+" and found:
             added.add(found.group(1))
-        if sign == "+" and TRIVIAL_ASSERT.match(code):
+        if sign == "+" and (TRIVIAL_ASSERT.match(code) or _same_sides(code)):
             reasons.append("%s: adds an assertion that cannot fail: %s" % (current, code.strip()[:120]))
         # where we are in a test: its signature, the start of its body, its docstring
         stripped = code.strip()
@@ -263,7 +329,7 @@ def weakened_tests(patch_text):
 SAFETY = ("outside the repository", "protected file", "third-party or generated", "binary",
           "ad blocker", "not I.K.E.'s code", "key or token", "link or file mode", "skip or xfail",
           "assertion(s) removed", "test file removed", "test file renamed", "test removed or renamed",
-          "assertion that cannot fail", "early return at the top of a test")
+          "assertion that cannot fail", "early return at the top of a test", "removes or stops tests by code")
 
 
 def safety_refusal(reasons):
