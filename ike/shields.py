@@ -18,7 +18,7 @@ from PyQt6.QtWebEngineCore import (
     QWebEngineUrlSchemeHandler,
 )
 
-from . import fontcheck, osinfo
+from . import fontcheck, newtab, osinfo
 from .config import (
     CACHE_DIR,
     DATA_DIR,
@@ -522,6 +522,7 @@ class Shields(QObject):
         self._videoads_src = (RES_DIR / "videoads.js").read_text("utf-8")
         self._videorelay_src = (RES_DIR / "videorelay.js").read_text("utf-8")
         self._site_lru = {}              # id(profile) -> [host, ...] most recent last
+        self._blocked_due = set()        # sites whose blocks the windows have not heard of yet
         blocker.rebuilt.connect(self._rules_changed)
 
     # --- stats -------------------------------------------------------
@@ -533,8 +534,23 @@ class Shields(QObject):
             st = self.stats[host] = dict.fromkeys(self.KINDS, 0)
         st[kind] += 1
         if kind in ("ads", "scripts"):
-            from . import newtab
-            newtab.count_blocked(self.config)        # the total and the month's own count
+            newtab.count_blocked(self.config)       # the total and the month's own count
+            # A page full of ads blocks hundreds of things while it loads: the
+            # windows hear of it once per site every few milliseconds, after
+            # the counts are in (1.1.18: once per request, a third of the
+            # time spent checking a page's requests)
+            due = self._blocked_due
+            if host not in due:
+                due.add(host)
+                if len(due) == 1:
+                    from PyQt6.QtCore import QTimer
+                    QTimer.singleShot(self.BLOCKED_EVERY_MS, self._tell_blocked)
+
+    BLOCKED_EVERY_MS = 16
+
+    def _tell_blocked(self):
+        due, self._blocked_due = self._blocked_due, set()
+        for host in due:
             self.blocked.emit(host)
 
     def site_stats(self, host):
