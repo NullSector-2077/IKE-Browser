@@ -27,7 +27,9 @@ env:
 jobs:
   tests:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    # room for the starting commit's tests too, when a branch of the automation
+    # or of ChatGPT changed tests/ (audit of #65)
+    timeout-minutes: 100
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -61,10 +63,24 @@ jobs:
           rm -rf "$where"
           git worktree add -q --detach "$where" "$base"
           for f in vendor/adblock/*.so; do if [ -f "$f" ]; then cp "$f" "$where/$f"; fi; done
+          # the ids come from a plugin of this step, into a file (audit of #65: ids
+          # printed at exit fooled a count read from pytest's output); it forgets
+          # the file's name before any test module is imported
+          mkdir -p "$RUNNER_TEMP/ike-collect"
+          cat > "$RUNNER_TEMP/ike-collect/ike_collect_ids.py" <<'PY'
+          import os
+          _out = []
+          def pytest_configure(config):
+              _out.append(open(os.environ.pop("IKE_IDS_FILE"), "w", encoding="utf-8"))
+          def pytest_collection_finish(session):
+              _out[0].write("".join(item.nodeid + "\n" for item in session.items))
+              _out[0].close()
+          PY
           ids() {
-            (cd "$1" && python -m pytest --collect-only -q -o addopts= -p no:cacheprovider -p no:warnings \
+            (cd "$1" && IKE_IDS_FILE="$2.raw" PYTHONPATH="$RUNNER_TEMP/ike-collect${PYTHONPATH:+:$PYTHONPATH}" \
+              python -m pytest --collect-only -q -o addopts= -p no:cacheprovider -p no:warnings -p ike_collect_ids \
               > "$2.log" 2>&1) || true
-            { grep -E '^[^[:space:]][^:]*::' "$2.log" || true; } | LC_ALL=C sort -u > "$2"
+            { cat "$2.raw" 2>/dev/null || true; } | LC_ALL=C sort -u > "$2"
           }
           ids . "$RUNNER_TEMP/ids-now"
           ids "$where" "$RUNNER_TEMP/ids-before"
@@ -80,6 +96,70 @@ jobs:
             head -n 50 "$RUNNER_TEMP/ids-lost" | sed 's/^/  lost: /'
             exit 1
           fi
+      # The starting commit's tests on this code (audit of #65). When the branch
+      # changed tests/, the tests of the commit it starts from run once more,
+      # as they were, against its code: a test weakened, a module that changes
+      # other tests before they run, a case dropped, those tests still run as
+      # they were. A failure in a test file the branch did not change stops the
+      # run; one in a file it changed is shown (changing that test may be the
+      # fix itself) and a person reviews the tests' diff, as always.
+      - name: The starting commit's tests on this code
+        if: >-
+          startsWith(github.head_ref, 'chatgpt/') || startsWith(github.head_ref, 'automation/') ||
+          (github.event_name == 'workflow_dispatch' && startsWith(github.ref_name, 'automation/'))
+        run: |
+          git fetch -q --no-tags --unshallow origin main 2>/dev/null || git fetch -q --no-tags origin main
+          base=$(git merge-base FETCH_HEAD HEAD) || { echo "::warning::no merge base with main: not run"; exit 0; }
+          if git diff --quiet "$base" HEAD -- tests; then
+            echo "tests/ is as at $base: the tests above were already its own"
+            exit 0
+          fi
+          where="$RUNNER_TEMP/base-tests"
+          rm -rf "$where"
+          mkdir -p "$where"
+          tar --exclude=./.git -cf - . | tar -xf - -C "$where"
+          rm -rf "$where/tests"
+          git archive "$base" tests | tar -xf - -C "$where"
+          changed=$(git diff --name-only "$base" HEAD -- tests)
+          set +e
+          (cd "$where" && python -m pytest -o addopts= -q -p no:cacheprovider --junitxml="$RUNNER_TEMP/base-tests.xml")
+          code=$?
+          set -e
+          python3 -I - "$RUNNER_TEMP/base-tests.xml" "$code" "$where" $changed <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          xml, code, where, changed = sys.argv[1], int(sys.argv[2]), Path(sys.argv[3]), set(sys.argv[4:])
+          try:
+              cases = list(ET.parse(xml).getroot().iter("testcase"))
+          except (OSError, ET.ParseError):
+              print("::error::the starting commit's tests did not run here (pytest exit %d)" % code)
+              sys.exit(1)
+          def file_of(case):
+              parts = (case.get("classname") or case.get("name") or "").split(".")
+              for i in range(len(parts), 0, -1):
+                  if (where / ("/".join(parts[:i]) + ".py")).is_file():
+                      return "/".join(parts[:i]) + ".py"
+              return "?"
+          hard, soft = [], []
+          for case in cases:
+              if case.find("failure") is None and case.find("error") is None:
+                  continue
+              f = file_of(case)
+              (soft if f in changed else hard).append("%s::%s" % (f, case.get("name")))
+          for t in soft:
+              print("::warning::a test of the starting commit fails here, in a test file this branch "
+                    "changed (a person reviews its diff): %s" % t)
+          for t in hard:
+              print("::error::a test of the starting commit fails here, in a test file this branch did "
+                    "not change: %s" % t)
+          if not cases and code not in (0, 5):
+              print("::error::the starting commit's tests did not run here (pytest exit %d)" % code)
+              sys.exit(1)
+          print("The starting commit's tests here: %d, failing: %d in files this branch changed, %d elsewhere"
+                % (len(cases), len(soft), len(hard)))
+          sys.exit(1 if hard else 0)
+          PY
       - name: Arch package
         run: |
           mkdir -p "$RUNNER_TEMP/pkg" "$RUNNER_TEMP/pkgroot"
@@ -99,6 +179,16 @@ jobs:
             echo "Private-key-like file found in the package"; exit 1
           fi
           python3 "$RUNNER_TEMP/pkgroot/usr/lib/ike-browser/ike_boot.py" --version
+      # kept (and its sha256 printed) as built, before any test runs code
+      # against it: a test cannot change the file people download (audit of #65)
+      - name: The package's sha256
+        run: sha256sum "$RUNNER_TEMP"/pkg/ike-browser-*-x86_64.pkg.tar.zst
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ike-browser-package
+          path: ${{ runner.temp }}/pkg/ike-browser-*-x86_64.pkg.tar.zst
+          if-no-files-found: error
+          retention-days: 30
       - name: The package runs on an old processor
         # an emulated Intel Ivy Bridge (an i5-3570K: no AVX2, no AVX-512):
         # the AdBlock engine matches and the launcher starts, no "illegal instruction"
@@ -124,12 +214,6 @@ jobs:
           IKE_LIBDIR="$root/usr/lib/ike-browser" qemu-x86_64 -cpu IvyBridge "$root/usr/bin/ike-browser" --version
       - name: Tests of the installed package
         run: IKE_TEST_APP="$RUNNER_TEMP/pkgroot/usr/lib/ike-browser" python -m pytest
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: ike-browser-package
-          path: ${{ runner.temp }}/pkg/ike-browser-*-x86_64.pkg.tar.zst
-          if-no-files-found: error
-          retention-days: 30
 
   # When the automation itself started these tests (on its own branches), GitHub
   # sends no "workflow_run" for their failure: events of runs started with
@@ -139,10 +223,15 @@ jobs:
   # a person reach the automatic fix through workflow_run as before.
   hand-over:
     needs: tests
+    # also a run the automatic fix started again (audit of #65: a test failed
+    # once is run again before any AI fix), on main too
     if: >-
-      failure() && github.event_name == 'workflow_dispatch' &&
-      github.actor == 'github-actions[bot]' &&
-      (github.ref_name == 'automation/autofix-main' || github.ref_name == 'automation/daily-maintenance')
+      failure() && (
+      (github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]' &&
+      (github.ref_name == 'automation/autofix-main' || github.ref_name == 'automation/daily-maintenance')) ||
+      (github.run_attempt > 1 && github.triggering_actor == 'github-actions[bot]' &&
+      (github.ref_name == 'main' || github.ref_name == 'automation/autofix-main' ||
+      github.ref_name == 'automation/daily-maintenance')))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -153,4 +242,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
-        run: gh workflow run autofix.yml --ref main -f run_id="$RUN_ID"
+        # asked again after a pause: a dropped hand-over loses the failure (audit of #65)
+        run: |
+          for pause in 15 30 0; do
+            if gh workflow run autofix.yml --ref main -f run_id="$RUN_ID"; then exit 0; fi
+            sleep "$pause"
+          done
+          exit 1

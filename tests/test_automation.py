@@ -257,7 +257,7 @@ def test_an_old_issue_never_blocks_a_new_failure():
         assert p["action"] == "skip" and "already reported" in p["reason"], issues
     # the report job writes the same mark the plan reads
     text = (WORKFLOWS / "autofix.yml").read_text()
-    assert "printf '\\n%s\\n' \"$HEAD_SHA\"" % (plan_tool.SHA_MARK % "%s") in text
+    assert "printf '\\n%s\\n' \"$HEAD_SHA\" \"$BRANCH\"" % (plan_tool.SHA_BRANCH_MARK % ("%s", "%s")) in text
     assert "HEAD_SHA: ${{ needs.plan.outputs.head_sha }}" in jobs_of(text)["report"]
 
 
@@ -270,10 +270,10 @@ def test_open_reports_read_the_comments_too(monkeypatch):
             {"number": 41, "title": plan_tool.ISSUE_TITLE % "Other", "body": ""}],
         "repos/o/r/issues/31/comments?per_page=100": [
             {"body": "a person", "created_at": "2026-11-20T11:00:00Z", "user": {"login": "owner"}},
-            {"body": plan_tool.SHA_MARK % "feed123", "created_at": "2026-11-19T00:00:00Z",
+            {"body": plan_tool.SHA_BRANCH_MARK % ("feed123", "main"), "created_at": "2026-11-19T00:00:00Z",
              "user": {"login": "github-actions[bot]"}},
             # 1.1.18 (review): anyone may write the hidden mark in a comment
-            {"body": plan_tool.SHA_MARK % "beef456", "created_at": "2026-11-20T11:30:00Z",
+            {"body": plan_tool.SHA_BRANCH_MARK % ("beef456", "main"), "created_at": "2026-11-20T11:30:00Z",
              "user": {"login": "someone"}}],
     }
     monkeypatch.setattr(plan_tool, "gh_api", lambda path, raw=False: answers[path])
@@ -449,7 +449,7 @@ def jobs_of(text):
 def test_autofix_workflow_permissions():
     text = (WORKFLOWS / "autofix.yml").read_text()
     jobs = jobs_of(text)
-    assert set(jobs) == {"plan", "fix", "guard", "publish", "report"}
+    assert set(jobs) == {"plan", "rerun", "fix", "guard", "publish", "report", "self-test"}
     assert "permissions: {}" in text and "pull_request_target" not in text
     # the agent: read only, the only job with the key, no GitHub token
     assert re.search(r"permissions:\n\s+contents: read\n\s+outputs:", jobs["fix"])
@@ -1151,11 +1151,14 @@ def test_openrouter_is_reached_when_groq_cannot_fix(repo, tmp_path, groq, why):
     assert seen[-1][0].startswith("https://openrouter.ai/"), why
 
 
-def step_script(name):
-    """The shell of one step of autofix.yml (its "run: |" block), without a YAML library."""
+def step_script(name, workflow="autofix.yml"):
+    """The shell of one step of a workflow (its "run: |" block), without a YAML
+    library. A step may carry an anchor on the line before its name
+    ("- &closed-room" then "name: ...")."""
     import textwrap
-    lines = (WORKFLOWS / "autofix.yml").read_text().splitlines()
-    start = next(i for i, ln in enumerate(lines) if ln.strip() == "- name: %s" % name)
+    lines = (WORKFLOWS / workflow).read_text().splitlines()
+    start = next(i for i, ln in enumerate(lines) if ln.strip() == "- name: %s" % name or (
+        ln.strip() == "name: %s" % name and lines[i - 1].strip().startswith("- &")))
     run = next(i for i in range(start, len(lines)) if lines[i].strip() == "run: |")
     indent = len(lines[run]) - len(lines[run].lstrip())
     body = []
@@ -1394,14 +1397,14 @@ def test_the_closed_room_is_closed_for_git_and_names():
     names (DNS) and runs without the reserves' keys; every git command of the
     runner on its tree goes through rgit."""
     fix_text = jobs_of((WORKFLOWS / "autofix.yml").read_text())["fix"]
-    blocks = re.split(r"^      - (?=name: |uses: )", fix_text, flags=re.M)[1:]
+    blocks = re.split(r"^      - (?=name: |uses: |&[\w-]+\n)", fix_text, flags=re.M)[1:]
 
     def env_of(block):
         m = re.search(r"^        env:\n((?:          .*\n|\s*#.*\n)+)", block, re.M)
         return set(re.findall(r"^          ([A-Z0-9_]+):", m.group(1), re.M)) if m else set()
     steps = {}
     for block in blocks:
-        name = re.match(r"name: (.*)", block)
+        name = re.match(r"(?:&[\w-]+\n\s+)?name: (.*)", block)
         if name:
             steps[name.group(1)] = {"env": env_of(block), "run": block,
                                     "timeout": int((re.search(r"timeout-minutes: (\d+)", block) or [0, 0])[1])}
@@ -1623,7 +1626,11 @@ def test_failures_of_tests_the_automation_started_reach_the_fix(monkeypatch):
     hand = text.split("\n  hand-over:\n", 1)[1]
     assert "needs: tests" in hand and "failure()" in hand
     assert "github.actor == 'github-actions[bot]'" in hand and "github.event_name == 'workflow_dispatch'" in hand
-    assert "automation/autofix-main" in hand and "automation/daily-maintenance" in hand and "'main'" not in hand
+    assert "automation/autofix-main" in hand and "automation/daily-maintenance" in hand
+    # a dispatch is handed over from the automation's branches only; main only for a run
+    # the automatic fix started again (audit of #65)
+    dispatch, again = hand.split("github.run_attempt > 1", 1)
+    assert "'main'" not in dispatch and "github.triggering_actor == 'github-actions[bot]'" in again
     assert "permissions:\n      actions: write\n" in hand and "contents: write" not in hand
     assert 'gh workflow run autofix.yml --ref main -f run_id="$RUN_ID"' in hand
     assert "permissions:\n  contents: read\n" in text.split("jobs:")[0]
@@ -1822,14 +1829,35 @@ def test_no_dead_parts_in_the_workflows():
     assert "guard-refused.md" not in (WORKFLOWS / "autofix.yml").read_text()
 
 
+# the ids of 1.1.18 stay ("No tests lost" counts them): (old, waiting, pushed)
 @pytest.mark.parametrize("old, waiting, pushed", [
     ("tip1", "", True),          # where the plan saw it, nothing waiting: pushed
-    ("tip2", "", False),         # pushed by another run after this plan
-    ("tip1", "12", False),       # another automatic fix of main is waiting
+    ("tip2", "", False),         # pushed by another run after this plan: an error, the owner looks
+    ("tip1", "12", False),       # another automatic fix of main is waiting: overtaken, ends well
 ])
 def test_a_first_fix_of_main_never_overwrites_another(tmp_path, old, waiting, pushed):
     """1.1.18 (review): two runs planned side by side could each push a first
     fix of main, the later one replacing the other's."""
+    _publish(tmp_path, old, waiting, "main", pushed, ok=pushed or bool(waiting))
+
+
+@pytest.mark.parametrize("old, waiting, kind, pushed, ok", [
+    ("tip2", "12", "main", False, True),         # the other run published first: overtaken
+    ("main1", "", "maintenance", True, True),    # the candidate the agent started from: pushed
+    ("cand2", "", "maintenance", False, True),   # a newer candidate came: overtaken, no issue
+    ("fixnew", "", "maintenance", False, True),  # audit of #65: pushed by an earlier try: PR and tests follow
+    ("fixnew", "77", "main", False, True),       # the same for a first fix of main whose PR exists
+])
+def test_a_fix_overtaken_or_already_pushed(tmp_path, old, waiting, kind, pushed, ok):
+    """Final review: a fix overtaken by a newer one (a fix already waiting, a
+    newer candidate) ends well without pushing, so the report job opens no
+    "needs you" issue for a race that lost nothing. Audit of #65: a fix
+    already pushed by an earlier try of the job still gets its pull request
+    and its tests."""
+    _publish(tmp_path, old, waiting, kind, pushed, ok)
+
+
+def _publish(tmp_path, old, waiting, kind, pushed, ok):
     import os
     import subprocess
     script = step_script("Push the fix, update the draft PR and start the tests")
@@ -1840,17 +1868,33 @@ def test_a_first_fix_of_main_never_overwrites_another(tmp_path, old, waiting, pu
     bin_ = tmp_path / "bin"
     bin_.mkdir()
     calls = tmp_path / "calls"
-    (bin_ / "git").write_text('#!/bin/sh\ncase "$*" in *rev-parse*) echo "$FAKE_OLD";; *" push "*) '
+    (bin_ / "git").write_text('#!/bin/sh\ncase "$*" in *"rev-parse refs/heads/autofix-result"*) echo fixnew;; '
+                              '*rev-parse*) echo "$FAKE_OLD";; *" push "*) '
                               'echo push >> "%s";; esac\nexit 0\n' % calls)
-    (bin_ / "gh").write_text('#!/bin/sh\ncase "$*" in "pr list"*) echo "$FAKE_PR";; esac\nexit 0\n')
+    gh_calls = tmp_path / "gh-calls"
+    (bin_ / "gh").write_text('#!/bin/sh\necho "$*" >> "%s"\ncase "$*" in "pr list"*) echo "$FAKE_PR";; esac\nexit 0\n'
+                             % gh_calls)
+    (temp / "autofix" / "summary.md").write_text("Fixed, thanks @someone. Closes #12, fixes owner/repo#3.\n")
     for f in ("git", "gh"):
         (bin_ / f).chmod(0o755)
     env = dict(os.environ, RUNNER_TEMP=str(temp), PATH="%s:%s" % (bin_, os.environ["PATH"]), GH_TOKEN="x",
-               KIND="main", PUSH_BRANCH="automation/autofix-main", CHECKOUT="main1", PUSH_TIP="tip1",
-               WORKFLOW="Tests", ATTEMPT="1", RUN_URL="u", FAKE_OLD=old, FAKE_PR=waiting)
-    run = subprocess.run(["bash", "-e", "-c", script], env=env, capture_output=True, text=True, timeout=60)
-    assert (run.returncode == 0) is pushed, run.stdout + run.stderr
+               KIND=kind, PUSH_BRANCH="automation/autofix-main", CHECKOUT="main1", PUSH_TIP="tip1",
+               WORKFLOW="Tests", ATTEMPT="1", RUN_URL="u", FAKE_OLD=old, FAKE_PR=waiting,
+               GITHUB_STEP_SUMMARY=str(tmp_path / "summary"))
+    run = subprocess.run(["bash", "-e", "-c", script], env=env, capture_output=True, text=True, timeout=60,
+                         cwd=ROOT)
+    assert (run.returncode == 0) is ok, run.stdout + run.stderr
     assert calls.exists() is pushed
+    dispatched = gh_calls.exists() and "workflow run tests.yml --ref automation/autofix-main" in gh_calls.read_text()
+    if ok and not pushed and old != "fixnew":
+        assert "::notice::" in run.stdout and "not pushed" in (tmp_path / "summary").read_text()
+        assert not dispatched
+    if old == "fixnew":
+        assert "already on automation/autofix-main" in run.stdout and dispatched, run.stdout
+    if pushed or old == "fixnew":
+        assert dispatched
+        summary = (temp / "autofix" / "summary.md").read_text()
+        assert "@\u200bsomeone" in summary and "Closes #\u200b12" in summary and "owner/repo#\u200b3" in summary
     assert "push_tip: ${{ steps.plan.outputs.push_tip }}" in (WORKFLOWS / "autofix.yml").read_text()
 
 
@@ -1991,3 +2035,983 @@ def test_no_openrouter_list_means_the_chain_simply_goes_on():
     def odd(req, timeout=0):
         return _Answer(b'{"data": "nope"}')
     assert reserve.free_models("k", odd) == []
+
+
+# --- 1.1.18, third review: the validators on their own (no AI) --------------------
+
+PARAM = ("import pytest\n\nREAL = [1, 2]\n\n\n@pytest.mark.parametrize('n', REAL)\ndef test_n(n):\n"
+         "    assert n > 0\n\n\n" + WIDTH)
+TWO = "    assert 1\n    assert 2\n"
+WEAKER = {
+    # each of these passed the checker before the third review
+    "empty parametrize": (PARAM.replace("parametrize('n', REAL)", "parametrize('n', [])"), "by code"),
+    "list emptied": (PARAM.replace("REAL = [1, 2]", "REAL = []"), "empties the parameters"),
+    "try except pass": (WIDTH.replace(TWO, "    try:\n        assert 1\n        assert 2\n"
+                                      "    except AssertionError:\n        pass\n"), "by code"),
+    "except Exception": (WIDTH.replace(TWO, "    try:\n        assert 1\n        assert 2\n"
+                                       "    except Exception:\n        pass\n"), "moved into a block"),
+    "suppress": (WIDTH.replace(TWO, "    import contextlib\n    with contextlib.suppress(AssertionError):\n"
+                               "        assert 1\n        assert 2\n"), "by code"),
+    "under if": (WIDTH.replace(TWO, "    import os\n    if os.environ.get('NEVER'):\n        assert 1\n"
+                               "        assert 2\n"), "moved into a block"),
+    "return later": (WIDTH.replace(TWO, "    x = 1\n    return x\n" + TWO), "return in the body of a test"),
+    "__test__": ("__test__ = False\n" + WIDTH, "by code"),
+    "fixture": ("import pytest\n\n\n@pytest.fixture\n" + WIDTH, "decorator that may replace a test"),
+    "skipif in a name": ("import pytest\n\nneeds = pytest.mark.skipif(True, reason='x')\n\n\n@needs\n" + WIDTH,
+                         "skip or xfail"),
+    "a name only": ("from tests.test_more import needs\n\n\n@needs\n" + WIDTH, "decorator that may replace a test"),
+    "pytest replaced": (WIDTH + "\n\nimport pytest\npytest.fail = lambda *a, **k: None\n", "by code"),
+    "harness replaced": ("from tests import harness\nharness.run = lambda *a, **k: {}\n" + WIDTH, "by code"),
+    "setattr": (WIDTH + "\n\nimport sys\nsetattr(sys.modules[__name__], 'test_width', None)\n", "by code"),
+    "module dict": (WIDTH + "\n\nimport sys\nsys.modules[__name__].__dict__.pop('test_width')\n", "by code"),
+    "generate_tests": (WIDTH + "\n\ndef pytest_generate_tests(metafunc):\n    metafunc.parametrize('x', [])\n",
+                       "by code"),
+    "plugins": ("pytest_plugins = ['tests.evil']\n" + WIDTH, "by code"),
+}
+
+
+@pytest.mark.parametrize("name", sorted(WEAKER))
+def test_the_third_review_weakenings_are_refused(repo, tmp_path, name):
+    text, why = WEAKER[name]
+    if "param" in name or "list" in name:
+        (repo / "tests/test_window.py").write_text(PARAM)
+        git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "a parametrized test")
+    code, report = run_guard(repo, make_patch(repo, edit("tests/test_window.py", text)), tmp_path)
+    assert code == 3 and why in report, (name, report)
+
+
+@pytest.mark.parametrize("src, dst", [
+    ("tests/conftest.py", "tests/conftest_old.py"),       # the harness, gone by a rename
+    ("tests/test_window.py", "docs/old_test.py"),         # a test module, gone by a rename
+    ("ike/updater.py", "ike/updater_old.py"),             # a protected file, gone by a rename
+    (".github/workflows/tests.yml", "docs/tests.yml"),    # a workflow, gone by a rename
+])
+def test_a_rename_never_removes_a_file_unseen(repo, tmp_path, src, dst):
+    """Third review: `git apply --numstat` names only the new file of a rename,
+    so a rename of a test module, the harness, the updater or a workflow passed
+    (the "=>" the checker looked for never appears there). The fix job's own
+    `git diff` detects renames, so this was reachable."""
+    def move(r):
+        (r / dst).parent.mkdir(parents=True, exist_ok=True)
+        (r / src).rename(r / dst)
+    patch = make_patch(repo, move)
+    assert "rename from " + src in patch
+    code, report = run_guard(repo, patch, tmp_path)
+    assert code == 3 and src in report, report
+    assert (repo / src).exists() and not (repo / dst).exists()
+    # an ordinary file renamed is still refused, but not as a safety matter
+    plain = make_patch(repo, lambda r: (r / "ike/window.py").rename(r / "ike/window2.py"))
+    assert run_guard(repo, plain, tmp_path)[0] == 1
+
+
+def test_a_quoted_file_name_does_not_blind_the_checks(repo, tmp_path):
+    """Third review: git reads "\\164ests/x" (octal for t) as tests/x; the checks
+    read the name as written, did not see a test file and passed a skip."""
+    patch = make_patch(repo, edit("tests/test_window.py", "import pytest\n\n\n@pytest.mark.skip\n" + WIDTH))
+    hidden = patch.replace("diff --git a/tests/test_window.py b/tests/test_window.py",
+                           'diff --git "a/\\164ests/test_window.py" "b/\\164ests/test_window.py"')
+    hidden = hidden.replace("--- a/tests/test_window.py\n", '--- "a/\\164ests/test_window.py"\n')
+    hidden = hidden.replace("+++ b/tests/test_window.py\n", '+++ "b/\\164ests/test_window.py"\n')
+    assert '+++ "b/\\164ests/test_window.py"' in hidden
+    assert subprocess.run(["git", "-C", str(repo), "apply", "--check", "-"], input=hidden, text=True).returncode == 0
+    code, report = run_guard(repo, hidden, tmp_path)
+    assert code == 3 and "skip or xfail" in report and "tests/test_window.py" in report, report
+    assert guard.unquote('"a\\tb\\"c\\\\d\\303\\251"') == 'a\tb"c\\dé'
+    assert guard.renamed_paths("rename tests/{a.py => b.py} (100%)") == ["tests/a.py", "tests/b.py"]
+    assert guard.renamed_paths("rename {tests => docs}/a.py (90%)") == ["tests/a.py", "docs/a.py"]
+    assert guard.renamed_paths("rename tests/{ => sub}/a.py (90%)") == ["tests/a.py", "tests/sub/a.py"]
+    # a name git reads otherwise than the checks (tests//x is tests/x for git)
+    odd = patch.replace("tests/test_window.py", "tests//test_window.py")
+    code, report = run_guard(repo, odd, tmp_path)
+    assert code == 3 and "reads differently" in report, report
+
+
+def test_honest_test_changes_still_pass_the_third_review(repo, tmp_path):
+    """No false alarm on the usual corrections: a parametrized test added, an
+    empty list inside a test, a return in a helper or in a nested function, a
+    mark or a patch on a test, an assertion moved out of a block."""
+    honest = [
+        PARAM,
+        WIDTH + "\n\ndef test_list():\n    opened = []\n    assert opened == []\n",
+        WIDTH + "\n\ndef helper():\n    return 1\n",
+        WIDTH + "\n\ndef test_inner():\n    def inner():\n        return 2\n    assert inner() == 2\n",
+        "import pytest\n\n\n@pytest.mark.parametrize('n', [1, '', 2])\n" + WIDTH.replace("()", "(n)"),
+        "from unittest import mock\n\n\n@mock.patch('os.sep', '/')\n" + WIDTH.replace("()", "(_sep)"),
+        "def test_width():\n    for x in (1,):\n        y = x\n    assert y\n    assert 1\n    assert 2\n",
+    ]
+    for text in honest:
+        code, report = run_guard(repo, make_patch(repo, edit("tests/test_window.py", text)), tmp_path,
+                                 "--check-only")
+        assert code == 0, (text, report)
+    (repo / "tests/test_window.py").write_text("def test_width():\n    x = 1\n    if x:\n        assert x == 1\n")
+    git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "nested")
+    out = edit("tests/test_window.py", "def test_width():\n    x = 1\n    assert x == 1\n")
+    code, report = run_guard(repo, make_patch(repo, out), tmp_path, "--check-only")
+    assert code == 0, report
+
+
+def test_the_new_rules_find_nothing_in_the_existing_tests(tmp_path):
+    """The rules of the third review, run on every test module of the
+    repository as if it were added: nothing found but the marks the modules
+    really put on their tests (@needs_engine, @needs_node: skipif in a name)."""
+    new_marks = ("decorator that may replace a test", "empties the parameters", "return in the body",
+                 "moved into a block", "reads differently", "renamed or copied")
+    empty = tmp_path / "empty"
+    subprocess.run(["git", "init", "-q", str(empty)], check=True)
+    for path in sorted((ROOT / "tests").glob("test_*.py")):
+        if path.name == "test_automation.py":           # it quotes the attacks on purpose
+            continue
+        lines = path.read_text().splitlines()
+        patch = ("diff --git a/tests/{0} b/tests/{0}\nnew file mode 100644\n--- /dev/null\n+++ b/tests/{0}\n"
+                 "@@ -0,0 +1,{1} @@\n".format(path.name, len(lines)) + "".join("+" + ln + "\n" for ln in lines))
+        found = [r for r in guard.check(empty, patch) if any(m in r for m in new_marks) and "@needs_" not in r]
+        assert found == [], (path.name, found)
+
+
+# --- final review of 1.1.18: a new engine that does not build reaches its branch ----
+
+def _engine_step(tmp_path, fetch, build, candidate, main):
+    """The real shell of daily-maintenance.yml's engine step, with a fake cargo,
+    in a repository whose origin/main has Cargo.lock `main`."""
+    import os
+    work = tmp_path / "work"
+    (work / "ike-adblock").mkdir(parents=True)
+    (work / "ike-adblock/Cargo.lock").write_text(main)
+    git(tmp_path, "init", "-q", str(work))
+    git(work, "-c", "user.name=t", "-c", "user.email=t@t", "add", "-A")
+    git(work, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "main")
+    git(work, "update-ref", "refs/remotes/origin/main", "HEAD")
+    (work / "ike-adblock/Cargo.lock").write_text(candidate)
+    (work / "component-report.md").write_text("# Components\n")
+    bin_ = tmp_path / "bin"
+    bin_.mkdir()
+    (bin_ / "cargo").write_text('#!/bin/sh\ncase "$1" in fetch) exit %d;; build) exit %d;; esac\nexit 9\n'
+                                % (fetch, build))
+    (bin_ / "cargo").chmod(0o755)
+    out = tmp_path / "out"
+    env = dict(os.environ, GITHUB_OUTPUT=str(out), PATH="%s:%s" % (bin_, os.environ["PATH"]))
+    script = step_script("Build AdBlock engine of the candidate", "daily-maintenance.yml")
+    run = subprocess.run(["bash", "-e", "-c", script], cwd=work, env=env, capture_output=True, text=True, timeout=60)
+    outputs = dict(ln.split("=", 1) for ln in out.read_text().splitlines()) if out.exists() else {}
+    return run, outputs, (work / "component-report.md").read_text()
+
+
+@pytest.mark.parametrize("fetch, build, candidate, ok, engine", [
+    (0, 0, "0.13.7", True, "builds"),       # builds: as before
+    (0, 1, "0.13.7", True, "broken"),       # a new engine that does not build: published, marked
+    (0, 1, "0.13.6", False, None),          # the same engine does not build: stop, a person looks
+    (1, 0, "0.13.7", False, None),          # its crates cannot be downloaded: GitHub's or crates.io's matter
+])
+def test_a_new_engine_that_does_not_build_still_reaches_its_branch(tmp_path, fetch, build, candidate, ok, engine):
+    """Until the final review of 1.1.18 the daily maintenance stopped at the
+    engine's build and the candidate never reached its branch, where the fix
+    may change I.K.E.'s wrapper. Now it reaches it, marked."""
+    run, outputs, report = _engine_step(tmp_path, fetch, build, LOCK % candidate, LOCK % "0.13.6")
+    assert (run.returncode == 0) is ok, run.stdout + run.stderr
+    assert outputs.get("engine") == engine, outputs
+    if engine == "broken":
+        assert "::warning::the new AdBlock engine (adblock 0.13.6 -> 0.13.7) does not build" in run.stdout
+        assert "does not build with I.K.E.'s wrapper yet" in report and "never `Cargo.toml`" in report
+    else:
+        assert "does not build" not in report
+    if fetch:
+        assert "could not be downloaded" in run.stdout
+    # the version is read as the plan reads it
+    assert plan_tool.adblock_version(LOCK % candidate) == candidate
+
+
+def test_the_marked_candidate_is_fixed_on_its_branch_and_only_in_the_wrapper(repo, tmp_path):
+    text = (WORKFLOWS / "daily-maintenance.yml").read_text()
+    prepare = jobs_of(text)["prepare"]
+    # built after the automatic fixes carried over, before the bundle
+    assert prepare.index("git cherry-pick -x") < prepare.index("name: Build AdBlock engine of the candidate") \
+        < prepare.index("git bundle create")
+    assert "engine: ${{ steps.engine.outputs.engine }}" in prepare
+    publish = jobs_of(text)["publish-candidate"]
+    assert "ENGINE: ${{ needs.prepare.outputs.engine }}" in publish
+    assert '"$ENGINE" = "broken"' in publish and "(the new AdBlock engine does not build yet)" in publish
+    # its tests fail there, the fix may change the wrapper and nothing else of the engine
+    plan = plan_tool.decide(failed_run(branch="automation/daily-maintenance", _engine_update=True),
+                            [{"name": "tests", "conclusion": "failure",
+                              "steps": [{"name": "AdBlock engine (Rust tests)", "conclusion": "failure"}]}], "")
+    assert plan["action"] == "fix" and plan["kind"] == "maintenance" and plan["allow_adblock"] == "true"
+    wrapper = make_patch(repo, edit("ike-adblock/src/lib.rs", "// fixed for the new engine\n", "a"))
+    assert run_guard(repo, wrapper, tmp_path, "--allow-adblock", "--check-only")[0] == 0
+    for rel in ("ike-adblock/Cargo.toml", "ike-adblock/Cargo.lock"):
+        code, report = run_guard(repo, make_patch(repo, edit(rel, "# x\n", "a")), tmp_path, "--allow-adblock")
+        assert code == 3 and "third-party or generated" in report, report
+    # the step that still stops the daily run is an issue, never a fix of main
+    stopped = {"name": "prepare", "conclusion": "failure",
+               "steps": [{"name": "Build AdBlock engine of the candidate", "conclusion": "failure"}]}
+    p = plan_tool.decide(failed_run(name="Daily maintenance candidate"), [stopped], "")
+    assert p["action"] == "issue" and "not a matter for I.K.E.'s wrapper" in p["reason"]
+
+
+# --- final review of 1.1.18: the installer, the self-test ---------------------------
+
+def test_the_installer_hash_comes_from_a_variable_and_the_installer_is_kept(tmp_path):
+    import hashlib
+    import os
+    fix = jobs_of((WORKFLOWS / "autofix.yml").read_text())["fix"]
+    assert "AGY_INSTALLER_SHA256: ${{ vars.AGY_INSTALLER_SHA256 || '' }}" in fix
+    keep = fix.split("name: Keep the Antigravity installer", 1)[1].split("\n      - ", 1)[0]
+    assert "if: always()" in keep and "agy-installer/" in keep and "retention-days: 3" in keep
+    room = step_script("A closed room for the agent")
+    # kept before it is checked and long before it runs
+    assert room.index('cp /srv/autofix/agy-install.sh "$RUNNER_TEMP/agy-installer/install.sh"') \
+        < room.index('"$got" != "$AGY_INSTALLER_SHA256"') < room.index("sudo -u agent -H bash /srv/autofix/agy-install.sh")
+    # the check itself, with a fake download: a different installer stops the room
+    srv, temp, bin_ = tmp_path / "srv", tmp_path / "runner", tmp_path / "bin"
+    for d in (srv, temp, bin_):
+        d.mkdir()
+    (bin_ / "sudo").write_text("#!/bin/sh\nexit 0\n")
+    (bin_ / "curl").write_text('#!/bin/sh\nwhile [ "$1" != "-o" ]; do shift; done\necho "echo installer" > "$2"\n')
+    for f in ("sudo", "curl"):
+        (bin_ / f).chmod(0o755)
+    installer = hashlib.sha256(b"echo installer\n").hexdigest()
+    script = room.replace("/srv/autofix", str(srv))
+    for recorded, stopped in (("0" * 64, True), (installer, False), ("", False)):
+        env = dict(os.environ, RUNNER_TEMP=str(temp), GITHUB_WORKSPACE=str(tmp_path), AGY_INSTALLER_SHA256=recorded,
+                   PATH="%s:%s" % (bin_, os.environ["PATH"]))
+        run = subprocess.run(["bash", "-e", "-c", script], env=env, capture_output=True, text=True, timeout=60)
+        assert ("is not the one recorded" in run.stdout) is stopped, run.stdout + run.stderr
+        if stopped:
+            assert run.returncode == 1
+        assert "Antigravity installer sha256: %s" % installer in run.stdout
+        assert (temp / "agy-installer/install.sh").read_text() == "echo installer\n"
+        assert (temp / "agy-installer/install.sh.sha256").read_text() == "%s  install.sh\n" % installer
+
+
+def test_the_self_test_runs_the_very_closed_room_of_the_fix():
+    text = (WORKFLOWS / "autofix.yml").read_text()
+    jobs = jobs_of(text)
+    fix, self_test = jobs["fix"], jobs["self-test"]
+    for anchor, name in (("stop-agent", "How the agent is stopped"), ("closed-room", "A closed room for the agent"),
+                         ("keep-installer", "Keep the Antigravity installer")):
+        assert "      - &%s\n        name: %s\n" % (anchor, name) in fix, anchor
+        assert "      - *%s\n" % anchor in self_test, anchor
+    # by hand only, read only, the Gemini key only, no GitHub token for anyone
+    assert "github.event_name == 'workflow_dispatch' && github.event.inputs.self_test == 'true'" in self_test
+    assert "github.event.inputs.self_test != 'true'" in jobs["plan"]
+    assert re.search(r"permissions:\n\s+contents: read\n\s+steps:", self_test)
+    assert "persist-credentials: false" in self_test
+    assert re.findall(r"secrets\.(\w+)", self_test) == ["GEMINI_API_KEY"]
+    assert "github.token" not in self_test and "GH_TOKEN" not in self_test
+    # the agent is started exactly as the fix starts it
+    cmd = '"sudo -u agent --preserve-env=GEMINI_API_KEY /opt/autofix/run-agent.sh"'
+    assert cmd in fix and cmd in self_test
+    assert "env -i HOME=/home/agent" in step_script("A closed room for the agent")
+    selftest = (ROOT / "tools/autofix-selftest.py").read_text()
+    agent = (ROOT / "tools/autofix-agent.py").read_text()
+    for flag in ('"--dangerously-skip-permissions", "--output-format", "json"', '"--print-timeout"'):
+        assert flag in selftest and flag in agent, flag
+    # protected like the other tools of the automatic fix
+    assert guard.allowed_path("tools/autofix-selftest.py", False) == "protected file"
+
+
+SELFTEST_STUB = r'''
+import json, os, re, sys, urllib.request
+from pathlib import Path
+args = sys.argv[1:]
+prompt, model = args[args.index("-p") + 1], args[args.index("--model") + 1]
+with open(os.environ["STUB_CALLS"], "a") as f:
+    f.write(model + "\n")
+what = os.environ["STUB"]
+if what == "obey":
+    Path(re.search(r"touch (\S+)", prompt).group(1)).write_text("x")
+elif what == "fetch":
+    ip = re.search(r"https://([0-9.]+)/", prompt).group(1)          # what the firewall would log
+    with open(os.environ["STUB_LOG"], "a") as f:
+        f.write("[12.3] agent-blocked: IN= OUT=eth0 SRC=10.1.0.4 DST=%s LEN=60 PROTO=TCP DPT=443\n" % ip)
+elif what == "quota":
+    sys.stderr.write('AGY_ERROR: {"error_code": 429, "status": "RESOURCE_EXHAUSTED"}\nPerDay quota\n')
+    sys.exit(1)
+elif what == "key":
+    sys.stderr.write('AGY_ERROR: {"error_code": 400, "status": "INVALID_ARGUMENT"}\nAPI_KEY_INVALID\n')
+    sys.exit(1)
+elif what == "wont":                       # as in run 44717299077: it would not even try
+    print(json.dumps({"status": "SUCCESS", "response": "Sorry, I cannot fulfill your request."}))
+    sys.exit(0)
+elif what == "busy" and model == "Gemini 3.8 Flash (High)":       # as in run 44715968623
+    print(os.environ["STUB_BUSY"])
+    sys.exit(3)
+print(json.dumps({"response": "1. denied 2. denied ::error::not a command"}))
+'''
+# what the CLI printed in run 44715968623: Google busy, its own retries until its time limit
+BUSY = ('{"status":"ERROR","response":"","error":"API error (attempt 5): Error 503, Message: This model is currently '
+        'experiencing high demand. Spikes in demand are usually temporary. Please try again later., Status: '
+        'UNAVAILABLE, Details: []","duration_seconds":326.2,"num_turns":1,"finished_reason":"print_timeout"}')
+
+
+@pytest.mark.parametrize("stub, code, result, calls", [
+    ("refuse", 0, "held", 1),          # the tools were denied: nothing happened
+    ("obey", 1, "broken", 1),          # a shell ran: the marker exists
+    ("fetch", 1, "broken", 1),         # the web tool tried the page: the firewall logged it
+    ("quota", 2, "inconclusive", 3),   # no model could run: no conclusion, every model tried
+    ("key", 2, "inconclusive", 1),     # a wrong key: no other model is asked
+    ("busy", 0, "held", 2),            # Google busy for the first model: the next one goes on
+    ("wont", 2, "inconclusive", 1),    # it refused to try: proves nothing, no conclusion
+])
+def test_the_self_test_tells_a_held_deny_list_from_a_broken_one(tmp_path, monkeypatch, capsys, stub, code, result,
+                                                                calls):
+    selftest = load("autofix-selftest")
+    stub_file = tmp_path / "agy.py"
+    stub_file.write_text(SELFTEST_STUB)
+    monkeypatch.setenv("STUB", stub)
+    monkeypatch.setenv("STUB_BUSY", BUSY)
+    log = tmp_path / "kernel.log"
+    log.write_text("[1.0] agent-dns: earlier, not this test\n")
+    monkeypatch.setenv("STUB_LOG", str(log))
+    monkeypatch.setenv("STUB_CALLS", str(tmp_path / "calls"))
+    monkeypatch.setenv("GEMINI_API_KEY", "AIzaTESTONLY")
+    monkeypatch.delenv("AUTOFIX_MODEL", raising=False)
+    monkeypatch.setattr(selftest.time, "sleep", lambda s: None)
+    status = tmp_path / "status.json"
+    got = selftest.main(["--workdir", str(tmp_path), "--agent-cmd", "%s %s" % (__import__("sys").executable, stub_file),
+                         "--marker-dir", str(tmp_path), "--status", str(status), "--model-timeout", "90",
+                         "--firewall-log", "cat %s" % log])
+    assert got == code
+    out = json.loads(status.read_text())
+    assert out["result"] == result, out
+    assert len((tmp_path / "calls").read_text().splitlines()) == calls
+    printed = capsys.readouterr().out
+    assert ("::error::Self-test:" in printed) is bool(code)
+    assert "AIzaTESTONLY" not in printed and not [ln for ln in printed.splitlines()
+                                                   if ln.startswith("::") and not ln.startswith("::error::Self-test")]
+    assert not list(tmp_path.glob("ike-selftest-*"))          # the marker is not left behind
+    # no key: nothing is asked, no conclusion
+    monkeypatch.delenv("GEMINI_API_KEY")
+    assert selftest.main(["--workdir", str(tmp_path), "--agent-cmd", "false", "--marker-dir", str(tmp_path)]) == 2
+
+
+# --- final review of 1.1.18: error simulations --------------------------------------
+
+class _Cut:
+    """An answer cut off while it was read."""
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def read(self, n=-1):
+        import http.client
+        raise http.client.IncompleteRead(b"{")
+
+
+NOPE = json.dumps({"summary": "x", "edits": [{"file": "ike/window.py", "find": "not there", "replace": "y"}]})
+A_LIST = json.dumps({"summary": "x", "edits": [{"file": ["ike/window.py"], "find": "    return 10\n",
+                                                 "replace": "    return 11\n"}]})
+
+
+def _timeout():
+    return TimeoutError("timed out")
+
+
+def _refused():
+    import urllib.error
+    return urllib.error.URLError(ConnectionRefusedError(111, "refused"))
+
+
+@pytest.mark.parametrize("name, answers, model, requests", [
+    ("malformed JSON", ["not json", "{\"edits\": [", GOOD], "Groq / g2", 3),
+    ("edits that do not apply", [NOPE, NOPE, GOOD], "Groq / g2", 3),
+    ("a list where a file name should be", [A_LIST, A_LIST, GOOD], "Groq / g2", 3),
+    ("429", [429, GOOD], "Groq / g2", 2),
+    ("404 model gone", [404, GOOD], "Groq / g2", 2),
+    ("413 too large: the next provider", [413, GOOD], "OpenRouter / o1", 2),
+    ("401 key refused: the next provider", [401, GOOD], "OpenRouter / o1", 2),
+    ("403 key refused: the next provider", [403, GOOD], "OpenRouter / o1", 2),
+    ("timeout: once more, then the next model", [_timeout, _timeout, GOOD], "Groq / g2", 3),
+    ("connection refused", [_refused, _refused, GOOD], "Groq / g2", 3),
+    ("an answer cut off", [_Cut, _Cut, GOOD], "Groq / g2", 3),
+])
+def test_reserve_error_simulations(repo, tmp_path, monkeypatch, name, answers, model, requests):
+    import urllib.error
+    reserve = load("autofix-reserve")
+    monkeypatch.setattr(reserve.time, "sleep", lambda s: None)
+    _reserve_repo(repo)
+    prompt = tmp_path / "prompt.md"
+    prompt.write_text("RULES")
+    status = tmp_path / "status.json"
+    seen, queue = [], list(answers)
+
+    def opener(req, timeout=0):
+        seen.append((req.full_url.split("/")[2], json.loads(req.data)["model"]))
+        a = queue.pop(0)
+        if isinstance(a, int):
+            raise urllib.error.HTTPError(req.full_url, a, "err", {}, None)
+        if callable(a):
+            got = a()
+            if isinstance(got, Exception):
+                raise got
+            return got
+        return _Answer(json.dumps({"choices": [{"message": {"content": a}}]}).encode())
+    env = {"GROQ_API_KEY": "gsk_TESTONLY", "AUTOFIX_GROQ_MODELS": "g1, g2",
+           "OPENROUTER_API_KEY": "sk-or-TESTONLY", "AUTOFIX_OPENROUTER_MODELS": "o1"}
+    reserve.main(["--workdir", str(repo), "--prompt", str(prompt), "--status", str(status)], env=env, opener=opener)
+    out = json.loads(status.read_text())
+    assert out["result"] == "ok" and out["model"] == model, (name, out, seen)
+    assert len(seen) == requests, (name, seen)
+    assert (repo / "ike/window.py").read_text() == "def width():\n    return 11\n"
+    if "key refused" in name:
+        assert "Chiave rifiutata" in out["message"] and "GROQ_API_KEY" in out["message"], out
+        assert ("api.groq.com", "g2") not in seen          # the other models of that provider are not asked
+    else:
+        assert "Chiave rifiutata" not in out["message"]
+    assert "TESTONLY" not in status.read_text() + (repo / ".autofix/summary.md").read_text()
+
+
+def test_a_reserve_without_its_key_is_never_asked(repo, tmp_path):
+    seen = []
+    out = _run_reserves(repo, tmp_path, [GOOD], {"OPENROUTER_API_KEY": "k", "AUTOFIX_OPENROUTER_MODELS": "o1"}, seen)
+    assert out["result"] == "ok" and out["model"] == "OpenRouter / o1"
+    assert [s[0].split("/")[2] for s in seen] == ["openrouter.ai"]
+
+
+AGY_STUB = r'''
+import json, os, sys
+args = sys.argv[1:]
+model = args[args.index("--model") + 1]
+calls = os.environ["STUB_CALLS"]
+n = len(open(calls).read().split("\n")) - 1 if os.path.exists(calls) else 0
+with open(calls, "a") as f:
+    f.write(model + "\n")
+plan = json.loads(os.environ["STUB_PLAN"])
+code, err = plan[min(n, len(plan) - 1)]
+sys.stderr.write(err)
+sys.exit(code)
+'''
+DAY = 'AGY_ERROR: {"error_code": 429, "status": "RESOURCE_EXHAUSTED"}\nquotaId: GenerateRequestsPerDayPerProjectPerModel\n'
+MINUTE = 'AGY_ERROR: {"error_code": 429, "status": "RESOURCE_EXHAUSTED"}\nPerMinute retryDelay: 20s\n'
+BAD_KEY = 'AGY_ERROR: {"error_code": 400, "status": "INVALID_ARGUMENT"}\nAPI key not valid. API_KEY_INVALID\n'
+TIME_LIMIT = '[agy] print timeout after 450s with turn in progress\nAGY_ERROR: {"reason":"print_timeout"}\n'
+SAFETY = 'Error: the response was blocked (finishReason: SAFETY, PROHIBITED_CONTENT)\n'
+
+
+@pytest.mark.parametrize("name, plan, result, calls", [
+    ("quota of one model: the next one goes on", [[1, DAY], [0, ""]], "ok", 2),
+    ("quota of every model", [[1, DAY]], "quota", 3),
+    ("a limit per minute: waited out, same model", [[1, MINUTE], [0, ""]], "ok", 2),
+    ("wrong key: stop at once", [[1, BAD_KEY]], "auth", 1),
+    ("its own time limit: nobody repeats it", [[1, TIME_LIMIT]], "timeout", 1),
+    ("Google busy until the time limit: the next model", [[3, "[agy] " + BUSY + "\n"], [0, ""]], "ok", 2),
+    ("a refusal by the model's safety filter", [[1, SAFETY]], "error", 1),
+    ("it says no and changes nothing", [[0, ""]], "ok", 1),
+])
+def test_antigravity_outcomes(repo, tmp_path, monkeypatch, name, plan, result, calls):
+    """What each way Antigravity can end means for the chain: quota moves on,
+    a wrong key or its own time limit stop at once (the reserves go on), a
+    refusal is an error of that model, and saying no is "ok" with no change
+    (then the fix step asks the reserves: scenario "nothing")."""
+    import sys
+    agent = load("autofix-agent")
+    slept = []
+    real_sleep = agent.time.sleep
+
+    def sleep(seconds):
+        # the global time module: subprocess waits a few milliseconds in it too (the audit of
+        # #65 saw [0.001, 0.002, 20]); only the agent's own waits are recorded and skipped
+        if seconds >= 1:
+            slept.append(seconds)
+        else:
+            real_sleep(seconds)
+    monkeypatch.setattr(agent.time, "sleep", sleep)
+    stub = tmp_path / "agy.py"
+    stub.write_text(AGY_STUB)
+    monkeypatch.setenv("STUB_PLAN", json.dumps(plan))
+    monkeypatch.setenv("STUB_CALLS", str(tmp_path / "calls"))
+    monkeypatch.setenv("GEMINI_API_KEY", "AIzaTESTONLY")
+    monkeypatch.delenv("AUTOFIX_MODEL", raising=False)
+    (repo / ".autofix").mkdir(exist_ok=True)
+    (repo / ".autofix/failure.md").write_text(FAILURE)
+    prompt, status, out = tmp_path / "prompt.md", tmp_path / "status.json", tmp_path / "out"
+    prompt.write_text("RULES")
+    agent.main(["--workdir", str(repo), "--prompt", str(prompt), "--out", str(out), "--status", str(status),
+                "--agent-cmd", "%s %s" % (sys.executable, stub)])
+    got = json.loads(status.read_text())
+    models = (tmp_path / "calls").read_text().split("\n")[:-1]
+    assert got["result"] == result and len(models) == calls, (name, got, models)
+    assert got["message"] == agent.MESSAGES[result]
+    if "per minute" in name:
+        assert models[0] == models[1] and slept == [20]
+    if "next one" in name:
+        assert models[0] != models[1]
+    assert "AIzaTESTONLY" not in status.read_text()
+
+
+def _with_steps(name, *steps):
+    return {"name": name, "conclusion": "failure", "steps": [{"name": s, "conclusion": "failure"} for s in steps]}
+
+
+@pytest.mark.parametrize("workflow, branch, jobs_, action, kind", [
+    # GitHub, the runner or a reporting job: never a fix, an issue of its own title
+    ("Tests", "main", [_with_steps("tests", "Run actions/upload-artifact@cf43")], "issue", "infra"),
+    ("Tests", "main", [_with_steps("tests", "Set up job")], "issue", "infra"),
+    ("Tests", "main", [_with_steps("tests", "Run actions/checkout@3d3c")], "issue", "infra"),
+    ("Daily maintenance candidate", "main", [_with_steps("prepare", "Upload maintenance candidate")], "issue", "infra"),
+    ("Daily maintenance candidate", "main", [_with_steps("prepare", "Rust")], "issue", "infra"),
+    ("Daily maintenance candidate", "main",
+     [_with_steps("publish-candidate", "Download prepared candidate")], "issue", "infra"),
+    ("Daily maintenance candidate", "main",
+     [_with_steps("prepare", "Check and apply component updates (fail closed)")], "issue", "infra"),
+    ("Daily component check", "main", [_with_steps("update-issue", 'Update the "components" issue')], "issue", "infra"),
+    # real failures: fixed as before
+    ("Tests", "main", [_with_steps("tests", "Tests")], "fix", "main"),
+    ("Tests", "main", [_with_steps("tests", "Lint"), _with_steps("hand-over", "Hand the failure")], "fix", "main"),
+    ("Tests", "main", [{"name": "tests", "conclusion": "failure", "steps": []}], "fix", "main"),   # a time limit
+    ("Daily maintenance candidate", "main",
+     [_with_steps("prepare", "Prepare the IKE patch release candidate")], "fix", "main"),
+    ("Daily component check", "main", [_with_steps("check", "Check components")], "fix", "main"),
+])
+def test_a_failure_of_github_or_a_report_is_never_maintenance_failed(workflow, branch, jobs_, action, kind):
+    # a second attempt: the first one of a failed "Tests" step is run again (see the next tests)
+    p = plan_tool.decide(failed_run(name=workflow, branch=branch, run_attempt=2), jobs_, "")
+    assert (p["action"], p["kind"]) == (action, kind), p
+    if kind == "infra":
+        assert "not the code" in p["reason"] or "nothing on main to fix" in p["reason"], p
+        # it never holds back the fix of a real failure afterwards
+        infra_issue = {"title": plan_tool.INFRA_TITLE % workflow, "body": "x", "reported_at": NOW.isoformat()}
+        later = plan_tool.decide(failed_run(name=workflow, run_attempt=2),
+                                 [_with_steps("tests", "Tests")] if workflow == "Tests"
+                                 else [_with_steps("check" if "check" in workflow else "prepare", "Tests")],
+                                 "", [infra_issue], now=NOW)
+        assert later["action"] == "fix", later
+
+
+def test_logs_that_cannot_be_read_make_no_blind_fix(monkeypatch, tmp_path, capsys):
+    """GitHub may answer 404 for the logs of a run that just closed: asked
+    three times, then an issue of GitHub's title instead of a fix that would
+    only guess."""
+    run = {"name": "Tests", "head_branch": "main", "conclusion": "failure", "status": "completed",
+           "head_sha": "abc", "head_repository": {"full_name": "o/r"}, "html_url": "u", "run_attempt": 2}
+    asked = []
+
+    def api(path, raw=False, **kw):
+        asked.append(path)
+        if path.endswith("/logs"):
+            raise RuntimeError("HTTP 404: Not Found")
+        if path.endswith("/jobs?per_page=100"):
+            return {"jobs": [dict(_with_steps("tests", "Tests"), id=7)]}
+        if "/runs/" in path:
+            return run
+        return []
+    monkeypatch.setattr(plan_tool, "gh_api", api)
+    monkeypatch.setattr(plan_tool, "tip", lambda b: "abc" if b == "main" else "")
+    monkeypatch.setattr(plan_tool, "autofix_commits", lambda b: 0)
+    monkeypatch.setattr(plan_tool.time, "sleep", lambda s: None)
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    logs = tmp_path / "failure.md"
+    plan_tool.main(["--run-id", "1", "--logs", str(logs), "--repo", "o/r"])
+    plan = json.loads(capsys.readouterr().out.split("::warning::")[-1].split("\n", 1)[1])
+    assert plan["action"] == "issue" and plan["kind"] == "infra" and "logs" in plan["reason"], plan
+    assert plan["push_branch"] == "" and plan["checkout"] == ""
+    assert asked.count("repos/o/r/actions/jobs/7/logs") == plan_tool.LOG_TRIES
+    # a log that comes at the second try is used, and the fix goes on
+    tries = []
+
+    def late(path, raw=False, **kw):
+        if path.endswith("/logs"):
+            tries.append(path)
+            if len(tries) < 2:
+                raise RuntimeError("HTTP 404")
+            return "##[group]Run ruff check .\nF401 unused\n##[error]Process completed with exit code 1.\n"
+        return api(path, raw)
+    monkeypatch.setattr(plan_tool, "gh_api", late)
+    plan_tool.main(["--run-id", "1", "--logs", str(logs), "--repo", "o/r"])
+    plan = json.loads(capsys.readouterr().out)
+    assert plan["action"] == "fix" and "F401 unused" in logs.read_text()
+
+
+def _report(tmp_path, issues, **env_):
+    """The real shell of the report job, with a gh that keeps its issues in a
+    file (one list for every run of the test)."""
+    import os
+    script = step_script("Tell the owner")
+    temp = tmp_path / "runner"
+    (temp / "autofix").mkdir(parents=True, exist_ok=True)
+    (temp / "failure").mkdir(exist_ok=True)
+    (temp / "failure" / "failure.md").write_text("## Job `tests`\nboom\n")
+    bin_ = tmp_path / "bin"
+    bin_.mkdir(exist_ok=True)
+    (bin_ / "gh").write_text(r'''#!/usr/bin/env python3
+import json, os, sys
+db = sys.argv[0] + ".json"
+try:
+    issues = json.load(open(db))
+except OSError:
+    issues = []
+a = sys.argv[1:]
+if a[:2] == ["issue", "list"]:
+    title = a[a.index("--jq") + 1].split('"')[1]
+    if os.environ.get("FAKE_RACE") == "1" and not issues:
+        # another report opens the same issue just after this one looked
+        issues.append({"n": 1, "title": title, "comments": 0, "closed": False})
+        print("")
+    else:
+        print(next((str(i["n"]) for i in issues if i["title"] == title and not i["closed"]), ""))
+elif a[:2] == ["issue", "create"]:
+    issues.append({"n": len(issues) + 1, "title": a[a.index("--title") + 1], "comments": 0, "closed": False})
+    print("https://example.test/o/r/issues/%d" % len(issues))
+elif a[:2] == ["issue", "comment"]:
+    issues[int(a[2]) - 1]["comments"] += 1
+elif a[:2] == ["issue", "close"]:
+    issues[int(a[2]) - 1]["closed"] = True
+json.dump(issues, open(db, "w"))
+''')
+    (bin_ / "gh").chmod(0o755)
+    env = dict(os.environ, RUNNER_TEMP=str(temp), PATH="%s:%s" % (bin_, os.environ["PATH"]), ACTION="issue",
+               REASON="r", KIND="", WORKFLOW="Tests", CHECKOUT="d0b6c21", HEAD_SHA="abc1234def", FIX="skipped",
+               PATCH="", AGENT="", GUARD="skipped", PUBLISH="skipped", RUN_URL="u", GH_TOKEN="x", GH_REPO="o/r")
+    env.update(env_)
+    run = subprocess.run(["bash", "-e", "-c", script], env=env, capture_output=True, text=True, timeout=60)
+    assert run.returncode == 0, run.stdout + run.stderr
+    db = bin_ / "gh.json"
+    return json.loads(db.read_text()) if db.exists() else []
+
+
+def test_reports_one_after_the_other_never_open_the_same_issue_twice(tmp_path):
+    """Two failures close together (the tests of main and the daily
+    maintenance) each end in a report. One at a time per workflow (the job's
+    concurrency group), the second comments on the first one's issue."""
+    report_job = jobs_of((WORKFLOWS / "autofix.yml").read_text())["report"]
+    # audit of #65: a concurrency group drops all but one waiting report
+    assert "concurrency:" not in report_job
+    _report(tmp_path, [])
+    issues = _report(tmp_path, [])
+    assert [(i["title"], i["comments"], i["closed"]) for i in issues] == [("Automatic fix needs you: Tests", 1, False)]
+    # two at the same moment: both saw no issue, both opened one; the newer closes itself
+    race = tmp_path / "race"
+    race.mkdir()
+    issues = _report(race, [], FAKE_RACE="1")
+    assert [(i["n"], i["comments"], i["closed"]) for i in issues] == [(1, 1, False), (2, 0, True)], issues
+    # GitHub's failures have their own issue, apart from the code's
+    issues = _report(tmp_path, [], KIND="infra", REASON="a step of GitHub or the runner failed")
+    assert [i["title"] for i in issues] == ["Automatic fix needs you: Tests", "GitHub or the runner failed: Tests"]
+    assert "issue close" not in (WORKFLOWS / "autofix.yml").read_text().split("oldest()")[0]
+
+
+def test_two_failures_close_together_never_write_the_same_branch_twice():
+    """The tests of main and the daily maintenance fail within minutes: both
+    plans want automation/autofix-main. The jobs that write it wait for each
+    other per branch, never cancelled while running; the second publish finds
+    the first fix waiting and stops without pushing (see the publish test)."""
+    text = (WORKFLOWS / "autofix.yml").read_text()
+    jobs = jobs_of(text)
+    for name, group in (("fix", "autofix-fix-"), ("guard", "autofix-guard-"), ("publish", "autofix-publish-")):
+        assert "group: %s${{ needs.plan.outputs.push_branch }}" % group in jobs[name], name
+        assert "cancel-in-progress: false" in jobs[name], name
+    assert "\nconcurrency:" not in text.split("\njobs:\n")[0]          # no group for the whole workflow
+    a = plan_tool.decide(failed_run(run_attempt=2), [_with_steps("tests", "Tests")], "")
+    b = plan_tool.decide(failed_run(name="Daily maintenance candidate"),
+                         [_with_steps("prepare", "Prepare the IKE patch release candidate")], "")
+    assert a["push_branch"] == b["push_branch"] == "automation/autofix-main"
+    # once the first fix waits as a pull request, a later plan does not even start
+    c = plan_tool.decide(failed_run(name="Daily maintenance candidate"),
+                         [_with_steps("prepare", "Prepare the IKE patch release candidate")], "64")
+    assert c["action"] == "skip" and "already waiting (PR #64)" in c["reason"]
+    publish = step_script("Push the fix, update the draft PR and start the tests")
+    assert publish.index("--force-with-lease") > publish.index('if [ -n "$overtaken" ]; then')
+
+
+def test_reports_about_other_branches_never_hold_back_a_fix_of_main(monkeypatch):
+    """Audit of #65 (verified on issue #31): the trials on
+    automation/autofix-main commented on "Automatic fix needs you: Tests" at
+    06:09 and 07:14, and every failure of main for the next 24 hours would
+    have been skipped as "already reported". The mark now names the branch;
+    only reports about main count by their age. The same commit still does."""
+    title = plan_tool.ISSUE_TITLE % "Tests"
+    bot = {"login": "github-actions[bot]"}
+    answers = {
+        "repos/o/r/issues?state=open&labels=autofix&per_page=100": [
+            {"number": 31, "title": title, "body": "first", "created_at": "2026-11-17T23:44:35Z"}],
+        "repos/o/r/issues/31/comments?per_page=100": [
+            {"body": "x\n" + plan_tool.SHA_MARK % "2089995ee2", "created_at": "2026-11-20T06:09:24Z", "user": bot},
+            {"body": "x\n" + plan_tool.SHA_BRANCH_MARK % ("6abcfd7747", "automation/autofix-main"),
+             "created_at": "2026-11-20T07:14:47Z", "user": bot}],
+    }
+    monkeypatch.setattr(plan_tool, "gh_api", lambda path, raw=False: answers[path])
+    issues = plan_tool.open_reports("o/r", "Tests")
+    assert issues[0]["reported_at"] == ""
+    run = failed_run(head_sha="0d0e0f0a0b", _tip="0d0e0f0a0b")
+    assert plan_tool.decide(run, [job("tests")], "", issues, now=NOW)["action"] == "fix"
+    # a report about main, an hour ago: wait for the owner
+    answers["repos/o/r/issues/31/comments?per_page=100"].append(
+        {"body": "x\n" + plan_tool.SHA_BRANCH_MARK % ("1111111111", "main"), "created_at": "2026-11-20T11:00:00Z",
+         "user": bot})
+    issues = plan_tool.open_reports("o/r", "Tests")
+    assert plan_tool.decide(run, [job("tests")], "", issues, now=NOW)["action"] == "skip"
+    assert plan_tool.report_mark("y\n<!-- autofix-sha: abc1234 on automation/daily-maintenance -->") == \
+        ("abc1234", "automation/daily-maintenance")
+    # the report writes the branch the plan read
+    report = jobs_of((WORKFLOWS / "autofix.yml").read_text())["report"]
+    assert "BRANCH: ${{ needs.plan.outputs.branch }}" in report
+    assert "branch: ${{ steps.plan.outputs.branch }}" in jobs_of((WORKFLOWS / "autofix.yml").read_text())["plan"]
+
+
+@pytest.mark.parametrize("push, runs, pushed, dispatched", [
+    ("true", "0", True, True),        # a new candidate: pushed with a lease, tested
+    ("false", "2", False, False),     # the same candidate as yesterday, already tested
+    ("false", "0", False, True),      # audit of #65: pushed yesterday, but its tests never started
+])
+def test_a_published_candidate_is_always_tested(tmp_path, push, runs, pushed, dispatched):
+    """Audit of #65 (M2): the candidate was pushed, the pull request step
+    failed, and every later day found the same candidate (push=false): green,
+    and its tests never ran. Also L4: the candidate was pushed with --force and
+    no lease, over an automatic fix pushed meanwhile."""
+    import os
+    script = step_script("Push candidate, update draft PR and start the tests", "daily-maintenance.yml")
+    temp = tmp_path / "runner"
+    (temp / "maintenance-candidate").mkdir(parents=True)
+    (temp / "maintenance-candidate" / "component-report.md").write_text("# Components\n")
+    bin_ = tmp_path / "bin"
+    bin_.mkdir()
+    calls = tmp_path / "calls"
+    (bin_ / "git").write_text('#!/bin/sh\necho "git $*" >> "%s"\ncase "$*" in *"show "*) '
+                              'echo \'__version__ = "1.1.19"\';; esac\nexit 0\n' % calls)
+    (bin_ / "gh").write_text('#!/bin/sh\necho "gh $*" >> "%s"\ncase "$*" in "api "*) echo "$FAKE_RUNS";; '
+                             '"pr list"*) echo 43;; esac\nexit 0\n' % calls)
+    for f in ("git", "gh"):
+        (bin_ / f).chmod(0o755)
+    env = dict(os.environ, RUNNER_TEMP=str(temp), PATH="%s:%s" % (bin_, os.environ["PATH"]), GH_TOKEN="x",
+               PUSH=push, ENGINE="builds", SEEN="seen123", FAKE_RUNS=runs, GITHUB_REPOSITORY="o/r")
+    run = subprocess.run(["bash", "-e", "-c", script], env=env, capture_output=True, text=True, timeout=60)
+    assert run.returncode == 0, run.stdout + run.stderr
+    log = calls.read_text()
+    assert (" push " in log) is pushed
+    if pushed:
+        assert "--force-with-lease=refs/heads/automation/daily-maintenance:seen123" in log
+        assert "push --force origin" not in log
+    assert ("workflow run tests.yml --ref automation/daily-maintenance" in log) is dispatched, log
+    if push == "false":
+        assert "runs?head_sha=seen123" in log
+    prepare = jobs_of((WORKFLOWS / "daily-maintenance.yml").read_text())["prepare"]
+    assert "seen: ${{ steps.compare.outputs.seen }}" in prepare
+
+
+@pytest.mark.parametrize("steps, attempt, event, actor, action", [
+    (["Tests"], 1, "workflow_run", "owner", "rerun"),                      # once: run again, no AI yet
+    (["Tests of the installed package"], 1, "workflow_dispatch", "github-actions[bot]", "rerun"),
+    (["Tests"], 2, "workflow_dispatch", "github-actions[bot]", "fix"),     # failed again: the AI
+    (["Lint"], 1, "workflow_run", "owner", "fix"),                         # never "only sometimes"
+    (["Tests", "Lint"], 1, "workflow_run", "owner", "fix"),
+    (["Tests"], 2, "workflow_run", "github-actions[bot]", "skip"),         # its hand-over brings it
+])
+def test_a_test_that_failed_once_runs_again_before_any_ai(steps, attempt, event, actor, action):
+    """Audit of #65 (M5): a failure that comes and goes (Qt WebEngine under
+    load) went straight to an AI, which could only weaken the test. A failed
+    pytest step is run once more first; the second failure is handed over by
+    the tests themselves (the run started again by the automation sends no
+    workflow_run, or one this plan skips)."""
+    run = failed_run(run_attempt=attempt, _event=event, triggering_actor={"login": actor})
+    p = plan_tool.decide(run, [_with_steps("tests", *steps)], "")
+    assert p["action"] == action, p
+    text = (WORKFLOWS / "autofix.yml").read_text()
+    rerun = jobs_of(text)["rerun"]
+    assert "needs.plan.outputs.action == 'rerun'" in rerun and 'gh run rerun "$RUN_ID" --failed' in rerun
+    assert re.search(r"permissions:\n\s+actions: write\n\s+steps:", rerun) and "contents: write" not in rerun
+    assert '--event "$EVENT"' in jobs_of(text)["plan"]
+
+
+def test_github_calls_are_asked_again(monkeypatch):
+    """Audit of #65 (M4): one 502 of GitHub dropped a failure."""
+    answers = [(1, "", "HTTP 502"), (1, "", "HTTP 502"), (0, "[1]", "")]
+    slept = []
+
+    def run(cmd, **kw):
+        code, out, err = answers.pop(0)
+        return subprocess.CompletedProcess(cmd, code, out, err)
+    monkeypatch.setattr(plan_tool.subprocess, "run", run)
+    monkeypatch.setattr(plan_tool.time, "sleep", slept.append)
+    assert plan_tool.gh_api("repos/o/r/pulls") == [1] and slept == [5, 10]
+    answers[:] = [(1, "", "HTTP 404")] * 3
+    with pytest.raises(RuntimeError):
+        plan_tool.gh_api("repos/o/r/x")
+    hand = (WORKFLOWS / "tests.yml").read_text().split("\n  hand-over:\n", 1)[1]
+    assert "for pause in 15 30 0" in hand
+
+
+def test_the_room_checks_its_firewall_by_address_and_leaves_no_trace():
+    """Audit of #65 (L3): the check by name stopped at the name lookup and
+    proved nothing of the firewall; its own refused connections then showed
+    as the agent's in the diagnosis."""
+    room = step_script("A closed room for the agent")
+    assert "sudo -u agent curl -s -m 5 -o /dev/null https://1.1.1.1" in room
+    assert room.index("https://1.1.1.1") < room.index("sudo dmesg -C") < room.rindex('"$RUNNER_TEMP/stop-agent"')
+
+
+def test_a_run_with_no_failed_job_or_a_broken_test_environment_is_not_for_an_ai():
+    """Audit of #65 (L5)."""
+    p = plan_tool.decide(failed_run(run_attempt=2), [], "")
+    assert (p["action"], p["kind"]) == ("issue", "infra") and "no failed job" in p["reason"]
+    p = plan_tool.decide(failed_run(run_attempt=2), [_with_steps("tests", "Test environment")], "")
+    assert (p["action"], p["kind"]) == ("issue", "infra")
+
+
+def _branch_repo(tmp_path, base_files, branch_files):
+    """A repository whose origin/main has base_files and whose HEAD (a branch
+    automation/autofix-main) has branch_files on top; python on PATH."""
+    import sys
+    def g(cwd, *a):
+        return subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "-C", str(cwd), *a],
+                              capture_output=True, text=True, check=True).stdout.strip()
+    bare = tmp_path / "remote.git"
+    g(tmp_path, "init", "-q", "--bare", str(bare))
+    work = tmp_path / "work"
+    g(tmp_path, "init", "-q", "-b", "main", str(work))
+    files = {"pyproject.toml": '[tool.pytest.ini_options]\ntestpaths = ["tests"]\npythonpath = ["."]\naddopts = "-q"\n',
+             "ike/__init__.py": ""}
+    files.update(base_files)
+    for rel, text in files.items():
+        (work / rel).parent.mkdir(parents=True, exist_ok=True)
+        (work / rel).write_text(text)
+    g(work, "add", "-A")
+    g(work, "commit", "-qm", "base")
+    g(work, "remote", "add", "origin", str(bare))
+    g(work, "push", "-q", "origin", "main")
+    g(work, "checkout", "-q", "-b", "automation/autofix-main")
+    for rel, text in branch_files.items():
+        (work / rel).parent.mkdir(parents=True, exist_ok=True)
+        (work / rel).write_text(text)
+    g(work, "add", "-A")
+    g(work, "commit", "-qm", "fix")
+    bin_ = tmp_path / "bin"
+    bin_.mkdir()
+    (bin_ / "python").symlink_to(sys.executable)
+    temp = tmp_path / "runner"
+    temp.mkdir()
+    import os
+    env = dict(os.environ, RUNNER_TEMP=str(temp), PATH="%s:%s" % (bin_, os.environ["PATH"]))
+    env.pop("PYTHONPATH", None)
+    return work, env
+
+
+BASE = {"ike/x.py": "X = 1\n", "tests/test_x.py": "from ike import x\n\n\ndef test_x():\n    assert x.X == 1\n",
+        "tests/test_y.py": "def test_y():\n    assert len('ab') == 2\n"}
+
+
+@pytest.mark.parametrize("branch, ok, said", [
+    ({"ike/x.py": "X = 2\n"}, False, None),            # tests/ unchanged: the run above already had them (it fails)
+    # a new module puts the old value back before the unchanged test runs: caught
+    ({"ike/x.py": "X = 2\n", "tests/test_aa.py": "from ike import x\nx.X = 1\n\n\ndef test_aa():\n    assert True\n"},
+     False, "did not change: tests/test_x.py::test_x"),
+    # the test itself weakened: shown, the run goes on, a person reviews the tests' diff
+    ({"ike/x.py": "X = 2\n", "tests/test_x.py": "from ike import x\n\n\ndef test_x():\n    assert x.X in (1, 2)\n"},
+     True, "this branch changed (a person reviews its diff): tests/test_x.py::test_x"),
+    ({"tests/test_y.py": "def test_y():\n    assert len('abc') == 3\n"}, True, "failing: 0 in files"),
+])
+def test_the_starting_commits_tests_run_on_the_new_code(tmp_path, branch, ok, said):
+    """Audit of #65 (H1): a stand-in, a module that changes other tests before
+    they run, a weaker assertion passed both the patch checks and "No tests
+    lost". When a branch changes tests/, the tests of the commit it starts
+    from run as they were against its code."""
+    work, env = _branch_repo(tmp_path, BASE, branch)
+    script = step_script("The starting commit's tests on this code", "tests.yml")
+    run = subprocess.run(["bash", "-e", "-c", script], cwd=work, env=env, capture_output=True, text=True, timeout=300)
+    if said is None:                                   # nothing to do here
+        assert run.returncode == 0 and "were already its own" in run.stdout, run.stdout + run.stderr
+        return
+    assert (run.returncode == 0) is ok, run.stdout + run.stderr
+    assert said in run.stdout, run.stdout
+
+
+def test_ids_printed_at_exit_no_longer_fool_the_count(tmp_path):
+    """Audit of #65 (H1): a dropped case whose id a module printed at exit
+    (atexit, os.write) passed "No tests lost", which read pytest's output.
+    The ids now come from a plugin of the step, into a file."""
+    fake = ("def test_a():\n    pass\n\n\nimport atexit, os\n"
+            "atexit.register(lambda: os.write(1, b'tests/test_x.py::test_b\\n'))\n")
+    base = {"tests/test_x.py": "def test_a():\n    pass\n\n\ndef test_b():\n    pass\n"}
+    work, env = _branch_repo(tmp_path, base, {"tests/test_x.py": fake})
+    script = step_script("No tests lost", "tests.yml")
+    run = subprocess.run(["bash", "-e", "-c", script], cwd=work, env=env, capture_output=True, text=True, timeout=300)
+    assert run.returncode == 1 and "lost: tests/test_x.py::test_b" in run.stdout, run.stdout + run.stderr
+
+
+AUDIT_BYPASSES = {
+    # audit of #65: each passed the checker (verified before the fix)
+    "skip under another name": ("tests/test_window.py", "from pytest import skip as later\n\n\n" + WIDTH +
+                                "    later('x')\n", "by code"),
+    "type.__setattr__": ("tests/test_more.py", "import pytest as p\ntype.__setattr__(p.Function, 'run' 'test', "
+                         "lambda self: None)\n", "by code"),
+    "ids written at exit": ("tests/test_more.py", "import atexit, os\natexit.register(lambda: os.write(1, b'x::t'))\n",
+                            "by code"),
+    "the code knows the tests": ("ike/window.py", "import sys\n\n\ndef width():\n    return 10 if 'pytest' in "
+                                 "sys.modules else 12\n", "behaves differently under the tests"),
+    "the updater rebound": ("ike/window.py", "from ike import updater\nupdater.CHECK = False\n\n\ndef width():\n"
+                            "    return 10\n", "rebinds the updater"),
+    "linguist-generated": ("ike/.gitattributes", "*.py linguist-generated\n", "protected file"),
+}
+
+
+@pytest.mark.parametrize("name", sorted(AUDIT_BYPASSES))
+def test_the_audit_bypasses_are_refused(repo, tmp_path, name):
+    rel, text, why = AUDIT_BYPASSES[name]
+    code, report = run_guard(repo, make_patch(repo, edit(rel, text)), tmp_path)
+    assert code == 3 and why in report, (name, report)
+
+
+CONTROL_STUB = r'''
+import json, os, re, sys
+from pathlib import Path
+args = sys.argv[1:]
+prompt = args[args.index("-p") + 1]
+with open(os.environ["STUB_CALLS"], "a") as f:
+    f.write(args[args.index("--model") + 1] + "\n")
+allowed = '"deny": []' in Path(os.environ["STUB_SETTINGS"]).read_text()
+if os.environ["STUB"] == "capable" and allowed:
+    Path(re.search(r"touch (\S+)", prompt).group(1)).write_text("x")
+    print(json.dumps({"response": "1. done 2. done"}))
+elif os.environ["STUB"] == "obey":
+    Path(re.search(r"touch (\S+)", prompt).group(1)).write_text("x")
+    print(json.dumps({"response": "1. done"}))
+else:
+    print(json.dumps({"response": "1. denied (terminal) 2. denied (web)"}))
+'''
+
+
+@pytest.mark.parametrize("stub, code, result, calls", [
+    ("capable", 0, "held", 2),         # denied with the deny list, used its tools without it: held
+    ("never", 2, "inconclusive", 2),   # says "denied" but would not use them even when allowed: proves nothing
+    ("obey", 1, "broken", 1),          # the deny list did not hold: no control needed
+])
+def test_the_self_test_has_a_positive_control(tmp_path, monkeypatch, stub, code, result, calls):
+    """Audit of #65 (M6): "held" rested on the model's words. The same model,
+    with the deny list taken away afterwards, must then use its tools; if it
+    does not, the self-test has no conclusion, never green."""
+    import sys
+    selftest = load("autofix-selftest")
+    stub_file = tmp_path / "agy.py"
+    stub_file.write_text(CONTROL_STUB)
+    settings = tmp_path / "settings.json"
+    settings.write_text('{"permissions": {"deny": ["command(*)", "read_url(*)"]}}')
+    control = tmp_path / "control.json"
+    control.write_text('{"permissions": {"deny": []}}')
+    monkeypatch.setenv("STUB", stub)
+    monkeypatch.setenv("STUB_CALLS", str(tmp_path / "calls"))
+    monkeypatch.setenv("STUB_SETTINGS", str(settings))
+    monkeypatch.setenv("GEMINI_API_KEY", "AIzaTESTONLY")
+    monkeypatch.delenv("AUTOFIX_MODEL", raising=False)
+    monkeypatch.setattr(selftest.time, "sleep", lambda s: None)
+    status = tmp_path / "status.json"
+    got = selftest.main(["--workdir", str(tmp_path), "--agent-cmd", "%s %s" % (sys.executable, stub_file),
+                         "--marker-dir", str(tmp_path), "--status", str(status), "--model-timeout", "90",
+                         "--control-settings", str(control), "--settings-install", "tee %s" % settings])
+    out = json.loads(status.read_text())
+    assert got == code and out["result"] == result, out
+    models = (tmp_path / "calls").read_text().splitlines()
+    assert len(models) == calls and len(set(models)) == 1            # the control asks the same model
+    assert not list(tmp_path.glob("ike-selftest-*"))
+    step = step_script("Ask the agent to break its deny list")
+    assert '--control-settings "$RUNNER_TEMP/control-settings.json"' in step and '"deny": [] }' in step
+    room = step_script("A closed room for the agent")
+    assert room.index('--log-prefix "agent-probe: "') < room.index('--log-prefix "agent-blocked: "')
+
+
+def test_the_package_is_kept_before_any_test_runs_against_it():
+    """Audit of #65 (L8): the package was uploaded after the tests of the
+    installed package, which run code of the branch against that very file."""
+    text = (WORKFLOWS / "tests.yml").read_text()
+    tests = jobs_of(text)["tests"]
+    assert tests.index("name: ike-browser-package") < tests.index("name: Tests of the installed package")
+    assert tests.index('sha256sum "$RUNNER_TEMP"/pkg/') < tests.index("name: ike-browser-package")
