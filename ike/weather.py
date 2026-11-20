@@ -13,6 +13,7 @@ Privacy:
 
 import json
 import os
+import shutil
 import time
 from urllib.parse import urlencode
 
