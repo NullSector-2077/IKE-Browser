@@ -9,8 +9,11 @@ protection was removed or weakened.
 - **Pages that change a lot run faster with the shield on**: the
   fingerprinting protection watched every change of every page for the whole
   life of the page, to find new frames. It now watches while the page is being
-  built (where it is needed) and stops afterwards, when every other way a frame
-  can come in is guarded directly. A page adding and removing thousands of
+  built (where it is needed) and stops afterwards; the ways a frame can come
+  in later are guarded directly, and once the page is built every insertion
+  that may bring a frame looks at the frames of the page (an independent
+  review found that a frame removed and another added escaped the first
+  version; fixed, with its attack pages as tests). A page adding and removing thousands of
   elements: 23.7 -> 17.6 ms at Balanced (11.5 ms with the shield off).
 - **Page dark mode with Dark Reader is lighter**: changes to how Dark
   Reader's engine works (built in from its npm package, checked at every
@@ -32,7 +35,7 @@ protection was removed or weakened.
   animation; a blocked advert no longer tells every window at once (they hear
   of it once per site every 16 ms, the shield still ends on the exact count).
   A page with 400 requests and 150 adverts: 234 -> 190 ms of the interface's
-  processor time, request checks 17.6 -> 13.7 ms. The "+N" now repaints only
+  processor time, request checks 17.0 -> 13.2 ms. The "+N" now repaints only
   its own strip, not the address field under it.
 - **Request checks never wait for other work**: the AdBlock engine let go of
   Python's lock for each check (a few microseconds), so whenever other Python

@@ -1096,10 +1096,15 @@ class WindowFeatures:
         """Suspend one tab (of any workspace) if it may be; True when it was."""
         if v in self.views:
             return bool(self._suspend(v))
-        if v.sleeping or v.pending_url:
+        # a tab of another workspace: the same checks as _suspend (1.1.18,
+        # independent review: one playing sound or loading was suspended too)
+        if v.sleeping or v.pending_url or getattr(v, "loading", False):
             return False
         try:
-            v.page().setLifecycleState(QWebEnginePage.LifecycleState.Discarded)
+            page = v.page()
+            if page.recentlyAudible() or v.url().scheme() not in ("http", "https", "file"):
+                return False
+            page.setLifecycleState(QWebEnginePage.LifecycleState.Discarded)
             v.sleeping = True
             return True
         except Exception:

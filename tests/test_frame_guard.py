@@ -12,7 +12,10 @@ insertAdjacentElement, <object>, document.write into a frame, DOMParser with
 importNode / adoptNode, Element.setHTMLUnsafe with a declarative shadow root,
 cloneNode of a subtree, moveBefore, a frame's document opened again, a frame
 sent to a new about:blank, frames inside a frame made with the frame's own
-methods, and the innerHTML of the body.
+methods, and the innerHTML of the body. Frames are read through window[i]
+(and frames[i] of a frame), never through contentWindow, whose getter
+protects a frame by itself; only the frame inside a shadow root, which is
+not in window[i], is read through contentWindow.
 """
 
 import json
@@ -42,31 +45,33 @@ window.run = async function () {
   // srcdoc: its first (empty) window at once, then its own document
   var s = document.createElement('iframe'); s.srcdoc = '<p>srcdoc</p>';
   var sl = loaded(s); box().appendChild(s);
-  R.srcdoc_now = sig(s.contentWindow);
-  await sl; R.srcdoc_loaded = sig(s.contentWindow);
+  R.srcdoc_now = sig(last());
+  await sl; R.srcdoc_loaded = sig(last());
   var p = slot(); p.outerHTML = '<iframe></iframe>'; R.outerhtml = sig(last());
   slot().replaceWith(document.createElement('iframe')); R.replacewith = sig(last());
   slot().before(document.createElement('iframe')); R.before = sig(last());
   slot().after(document.createElement('iframe')); R.after = sig(last());
-  var q = slot(); q.prepend(document.createElement('iframe')); R.prepend = sig(q.querySelector('iframe').contentWindow);
-  var q2 = slot(); q2.append(document.createElement('iframe')); R.append = sig(q2.querySelector('iframe').contentWindow);
+  var q = slot(); q.prepend(document.createElement('iframe')); R.prepend = sig(last());
+  var q2 = slot(); q2.append(document.createElement('iframe')); R.append = sig(last());
   var q3 = slot(), old = q3.appendChild(document.createElement('span'));
-  q3.replaceChild(document.createElement('iframe'), old); R.replacechild = sig(q3.querySelector('iframe').contentWindow);
-  var q4 = slot(); q4.insertBefore(document.createElement('iframe'), null); R.insertbefore = sig(q4.querySelector('iframe').contentWindow);
+  q3.replaceChild(document.createElement('iframe'), old); R.replacechild = sig(last());
+  var q4 = slot(); q4.insertBefore(document.createElement('iframe'), null); R.insertbefore = sig(last());
   var q5 = slot(); q5.insertAdjacentElement('afterbegin', document.createElement('iframe'));
-  R.adjacentelement = sig(q5.querySelector('iframe').contentWindow);
+  R.adjacentelement = sig(last());
   // an <object> showing a page of the site
   var o = document.createElement('object'); o.type = 'text/html'; o.data = '/frame';
   var ol = loaded(o); box().appendChild(o); await ol;
-  R.object = o.contentWindow ? sig(o.contentWindow) : 'no window';
+  R.object = sig(last());
   // a frame written into another frame's document
   var w = document.createElement('iframe'); box().appendChild(w);
-  w.contentDocument.open(); w.contentDocument.write('<iframe id=inner></iframe>'); w.contentDocument.close();
-  R.written_outer = sig(w.contentWindow);
-  R.written_inner = sig(w.contentDocument.getElementById('inner').contentWindow);
+  window[window.length - 1].document.open(); window[window.length - 1].document.write('<iframe id=inner></iframe>');
+  window[window.length - 1].document.close();
+  var wi = window.length - 1;
+  R.written_outer = sig(window[wi]);
+  R.written_inner = sig(window[wi][0]);
   // frames inside a frame, made with the frame's own methods
-  var fd = w.contentDocument, own = fd.createElement('iframe'); fd.body.appendChild(own);
-  R.frame_own_methods = sig(own.contentWindow);
+  var fd = window[wi].document, own = fd.createElement('iframe'); fd.body.appendChild(own);
+  R.frame_own_methods = sig(window[wi][window[wi].length - 1]);
   // parsed elsewhere, brought in
   var parsed = new DOMParser().parseFromString('<iframe></iframe>', 'text/html').querySelector('iframe');
   slot().appendChild(document.importNode(parsed, true)); R.domparser_import = sig(last());
@@ -84,14 +89,25 @@ window.run = async function () {
   // moveBefore (keeps a frame's window): moved frames stay as they were
   if (Element.prototype.moveBefore) {
     var m = document.createElement('iframe'); box().appendChild(m);
-    var dest = slot(); dest.moveBefore(m, null); R.movebefore = sig(m.contentWindow);
+    var dest = slot(); dest.moveBefore(m, null); R.movebefore = sig(last());
   } else R.movebefore = R.top;
   // a frame's document opened again, and a frame sent to a new empty page
   var r1 = document.createElement('iframe'); box().appendChild(r1);
-  r1.contentDocument.open(); r1.contentDocument.close(); R.reopened = sig(r1.contentWindow);
+  last().document.open(); last().document.close(); R.reopened = sig(last());
   var r2 = document.createElement('iframe'); box().appendChild(r2);
-  var rl = loaded(r2); r2.contentWindow.location.replace('about:blank'); await rl;
-  R.renavigated = sig(r2.contentWindow);
+  var rl = loaded(r2); last().location.replace('about:blank'); await rl;
+  R.renavigated = sig(last());
+  // the same, read as early as possible: polled until the new document is there
+  var r3 = document.createElement('iframe'); box().appendChild(r3);
+  var k = window.length - 1, oldDoc = window[k].document;
+  window[k].location.replace('about:blank');
+  for (var tries = 0; tries < 400; tries++) {
+    var nowDoc = null;
+    try { nowDoc = window[k].document; } catch (e) {}
+    if (nowDoc && nowDoc !== oldDoc) break;
+    await new Promise(function (ok) { setTimeout(ok, 0); });
+  }
+  R.renavigated_early = sig(window[k]);
   // the body's innerHTML written again with a frame in it
   document.body.insertAdjacentHTML('beforeend', '<div id=tail></div>');
   document.getElementById('tail').innerHTML += '<iframe></iframe>'; R.innerhtml_plus = sig(last());

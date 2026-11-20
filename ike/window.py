@@ -1048,6 +1048,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self._tab_changed(view)
         old = self.current_view()
         if old is not None and old is not view:
+            # idle from now on, not from when it was shown (1.1.18, independent
+            # review: a tab looked at for half an hour was suspended at the next
+            # check after the user left it)
+            old.last_active = time.time()
             from .tabpreview import capture
             capture(old)                    # for the preview shown on its tab
         if view is self.split:

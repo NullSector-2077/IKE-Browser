@@ -274,8 +274,9 @@ steps only):
   every style element of the page; each element is then matched against
   twice as many sheets (the Complex-DOM pages have 416 identical style
   elements inside SVG icons: their copies alone cost about 20 % of those
-  suites). This is how Dark Reader keeps the page's order of rules; it is
-  left as it is.
+  suites). This is how Dark Reader keeps the page's order of rules; the
+  first round left it as it is, the second round (`style-groups`, below)
+  shares one copy among identical style elements.
 
 Changes (build-time patches in `tools/build-darkreader.py`, each refused if
 a new engine no longer has the text it changes): `style-moves`,

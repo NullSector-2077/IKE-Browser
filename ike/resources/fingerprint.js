@@ -11,6 +11,9 @@
   var CFG = __IKE_CFG__;
   var SECRET = 'ike:' + CFG.key;       // lets instances recognise a protected realm
   var origToString = Function.prototype.toString;
+  // taken before any page script runs: a page that replaces call, bind or
+  // Reflect.apply later cannot reach the protection's own calls (1.1.18)
+  var CALL = Function.prototype.call, BIND = Function.prototype.bind, RAPPLY = Reflect.apply;
 
   // The site the user is visiting (not the frame's own), so every frame of a
   // page shares the same protection level and the same noise.
@@ -287,7 +290,7 @@
     var d = Object.getOwnPropertyDescriptor(obj, name);
     if (!d || !d.set) return;
     var orig = d.set;
-    var holder = { set [name](v) { orig.call(this, v); after(this, v); } };
+    var holder = { set [name](v) { RAPPLY(orig, this, [v]); after(this, v); } };
     var s = Object.getOwnPropertyDescriptor(holder, name).set;
     natives.set(s, origToString.call(orig));
     d.set = s;
@@ -872,7 +875,7 @@
   function guard(w) {
     // Looking into every frame is not free, so it is done only when the number
     // of frames changed, or after an operation that can swap one frame for another.
-    var known = 0;
+    var known = 0, watching = false;
     var own = w.document;
     function check(node, force) {
       // the usual case, first and cheap: a node of this document, no frame added
@@ -896,19 +899,29 @@
       var orig = d.value;
       // the usual one or two arguments are passed on as they are (no array
       // made for each call: 1.1.18); any other number exactly as given
-      var invoke = call.bind(orig);      // bound now: nothing the page changes later is looked up
+      var invoke = RAPPLY(BIND, CALL, [orig]);   // bound now: nothing the page changes later is looked up
+      // A frame is new when this very call changed the number of frames, or
+      // moved a node that was in a document already (a moved frame gets a new
+      // window). Counting before and after the call, not against the count
+      // of the last check: a frame removed earlier, then another added, keeps
+      // the count the same (1.1.18, independent review).
       var f = ({ [orig.name || name](a, b) {
-        var n = arguments.length, r;
+        var n = arguments.length, r, pre, moved;
         if (n === 1) {
+          if (!force && !mayNode(a)) return invoke(this, a);
+          pre = w.length; moved = !force && placed(a);
           r = invoke(this, a);
-          if (force || mayAdd1(this, a)) check(this, force);
         } else if (n === 2) {
+          if (!force && !mayNode(a) && !mayNode(b)) return invoke(this, a, b);
+          pre = w.length; moved = !force && (placed(a) || placed(b));
           r = invoke(this, a, b);
-          if (force || mayAdd1(this, a) || mayAdd1(this, b)) check(this, force);
         } else {
+          if (!force && !mayAny(arguments)) return reflectApply(orig, this, arguments);
+          pre = w.length; moved = false;
+          if (!force) for (var i = 0; i < arguments.length; i++) if (placed(arguments[i])) moved = true;
           r = reflectApply(orig, this, arguments);
-          if (force || mayAddFrame(this, arguments)) check(this, force);
         }
+        if (force || moved || w.length !== pre || !ours(this)) check(this, true);
         return r;
       } })[orig.name || name];
       try { Object.defineProperty(f, 'length', { value: orig.length, configurable: true }); } catch (e) {}
@@ -921,25 +934,40 @@
     // text or an element without children that is not a frame itself.
     var FRAMES = { iframe: 1, frame: 1, object: 1, embed: 1 };
     var FRAME_HTML = /<\s*(i?frame|object|embed)\b/i;
-    var call = Function.prototype.call, reflectApply = Reflect.apply;
-    function mayAdd1(target, a) {
-      if (target && target.isConnected === false) return false;
-      if (typeof a === 'string') return FRAME_HTML.test(a);
-      return !!(a && (a.nodeType === 11 ||
-                      (a.nodeType === 1 && (FRAMES[a.localName] === 1 || a.firstElementChild))));
+    var reflectApply = RAPPLY;
+    // The node's own properties are read through the engine's getters, taken
+    // when the protection is installed: a page cannot make a frame look like
+    // text by giving it a nodeType of its own (1.1.18, independent review).
+    function native(P, n) {
+      var d = P && Object.getOwnPropertyDescriptor(P, n);
+      return d && d.get ? RAPPLY(BIND, CALL, [d.get]) : null;
     }
-    function mayAddFrame(target, args) {
-      if (target && target.isConnected === false) return false;
-      for (var i = 0; i < args.length; i++) {
-        var a = args[i];
-        if (typeof a === 'string') {
-          if (FRAME_HTML.test(a)) return true;                 // insertAdjacentHTML
-        } else if (a && (a.nodeType === 11 ||                  // a fragment
-                         (a.nodeType === 1 && (FRAMES[a.localName] === 1 || a.firstElementChild)))) {
-          return true;
-        }
-      }
+    var nodeTypeOf = native(w.Node && w.Node.prototype, 'nodeType');
+    var localNameOf = native(w.Element && w.Element.prototype, 'localName');
+    var connectedOf = native(w.Node && w.Node.prototype, 'isConnected');
+    var firstElementOf = native(w.Element && w.Element.prototype, 'firstElementChild');
+    function mayNode(a) {
+      if (typeof a === 'string') return FRAME_HTML.test(a);      // insertAdjacentHTML, before('...')
+      if (!a || (typeof a !== 'object' && typeof a !== 'function')) return false;
+      var t;
+      try { t = nodeTypeOf(a); } catch (e) { return true; }      // not a node (TrustedHTML...): may be HTML
+      if (t === 11) return true;                                 // a fragment
+      if (t !== 1) return false;                                 // text, comments
+      try { return FRAMES[localNameOf(a)] === 1 || firstElementOf(a) !== null; } catch (e) { return true; }
+    }
+    var ownerOf = native(w.Node && w.Node.prototype, 'ownerDocument');
+    function mayAny(args) {
+      for (var i = 0; i < args.length; i++) if (mayNode(args[i])) return true;
       return false;
+    }
+    // a node already in a document: moving it gives its frames new windows
+    function placed(a) {
+      if (!a || typeof a !== 'object') return false;
+      try { return connectedOf(a) === true; } catch (e) { return false; }
+    }
+    // a target of this document (or outside any document), not of another one
+    function ours(target) {
+      try { return target === own || ownerOf(target) === own; } catch (e) { return true; }
     }
     function hooked(obj, name) { hook(obj, name, false); }
     function swapped(obj, name) { hook(obj, name, true); }
@@ -971,7 +999,6 @@
     ['insertAdjacentElement', 'insertAdjacentHTML'].forEach(function (n) { hooked(E, n); });
     swapped(E, 'setHTMLUnsafe');
     ['innerHTML', 'outerHTML'].forEach(function (n) { setter(E, n, after); });
-    ['write', 'writeln'].forEach(function (n) { swapped(w.Document && w.Document.prototype, n); });
     var opener = function (orig) {
       return function () {
         var r = orig.apply(this, arguments);
@@ -989,23 +1016,94 @@
     setter(SR, 'innerHTML', after);
     swapped(SR, 'setHTMLUnsafe');
     swapped(w.Document && w.Document.prototype, 'execCommand');
+    // and (1.1.18, independent review) a new body, a table's caption, head
+    // or foot, and nodes put next to the doctype
+    setter(w.Document && w.Document.prototype, 'body', function (node) { check(node, true); });
+    var TB = w.HTMLTableElement && w.HTMLTableElement.prototype;
+    ['caption', 'tHead', 'tFoot'].forEach(function (n) { setter(TB, n, function (node) { check(node, true); }); });
+    var DT = w.DocumentType && w.DocumentType.prototype;
+    ['before', 'after'].forEach(function (n) { hooked(DT, n); });
+    swapped(DT, 'replaceWith');
+    swapped(E, 'setHTML');
     // frames written in the page's own HTML: watched while the page is being
     // built (the parser inserts them, before the page's next script runs);
     // once it is built, every way in is one of the methods above, and
     // watching every change of the page cost DOM-heavy pages about a tenth
     // of their speed (1.1.18). If the end of the building is never seen,
     // the watch simply stays on, as before.
-    try {
-      var watch = new w.MutationObserver(function () { check(null, false); });
-      var doc = w.document;
-      watch.observe(doc, { childList: true, subtree: true });
-      if (doc.readyState === 'loading') {
-        doc.addEventListener('DOMContentLoaded', function () {
-          check(null, false);
-          if (doc.readyState !== 'loading') watch.disconnect();
-        }, { once: true });
+    // The end of the building is read from the engine itself (its own
+    // readyState getter, a trusted event): a page cannot switch the watch off
+    // early by faking either (1.1.18, independent review). A document opened
+    // again (document.open, or document.write after the page was built) is
+    // built anew by the parser, so the watch comes back for it.
+    var MO = w.MutationObserver && w.MutationObserver.prototype;
+    var moObserve = MO && MO.observe, moDisconnect = MO && MO.disconnect;
+    var D = w.Document && w.Document.prototype;
+    var readyStateOf = native(D, 'readyState');
+    var addListener = w.EventTarget && w.EventTarget.prototype.addEventListener;
+    var watch = null;
+    function building() {
+      try { return readyStateOf(own) === 'loading'; } catch (e) { return true; }
+    }
+    function built(ev) {
+      if (!ev || ev.isTrusted !== true) return;
+      check(null, false);
+      if (watching && !building()) {
+        try { RAPPLY(moDisconnect, watch, []); watching = false; } catch (e) {}
       }
+    }
+    function arm() {
+      if (watching) return;
+      try {
+        // the parser's own insertions: a frame among them is looked at at once,
+        // whatever the count (a frame removed and another written)
+        if (!watch) watch = new w.MutationObserver(function (records) {
+          var force = false;
+          for (var i = 0; i < records.length && !force; i++) {
+            var added = records[i].addedNodes;
+            for (var j = 0; j < added.length; j++) if (mayNode(added[j])) { force = true; break; }
+          }
+          check(null, force);
+        });
+        RAPPLY(moObserve, watch, [own, { childList: true, subtree: true }]);
+        watching = true;
+        RAPPLY(addListener, own, ['DOMContentLoaded', built, { once: true }]);
+        RAPPLY(addListener, own, ['readystatechange', built]);
+      } catch (e) {}
+    }
+    // opening the document again: watched before the parser starts
+    ['open', 'write', 'writeln'].forEach(function (n) {
+      var d = D && Object.getOwnPropertyDescriptor(D, n);
+      if (!d || typeof d.value !== 'function') return;
+      var orig = d.value;
+      var f = ({ [orig.name || n]() {
+        if (this === own && (n === 'open' || !building())) arm();
+        var r = RAPPLY(orig, this, arguments);
+        if (this === own && building()) arm();
+        check(this, true);
+        return r;
+      } })[orig.name || n];
+      try { Object.defineProperty(f, 'length', { value: orig.length, configurable: true }); } catch (e) {}
+      natives.set(f, natives.get(orig) || origToString.call(orig));
+      d.value = f;
+      try { Object.defineProperty(D, n, d); } catch (e) {}
+    });
+    // A frame sent to a new empty page (location.replace('about:blank'),
+    // its src set again...) gets a new set of built-in objects that the
+    // engine adds no script to; it is protected when it has loaded, before
+    // the page's own listeners hear of it (they come after this one, which
+    // listens on the way down to the frame).
+    try {
+      RAPPLY(addListener, own, ['load', function (ev) {
+        var t = ev.target;
+        if (t === own || !w.length) return;
+        var name;
+        try { name = localNameOf(t); } catch (e) { return; }
+        if (FRAMES[name] === 1) sweep(w);
+      }, true]);
     } catch (e) {}
+    arm();
+    if (!building()) built({ isTrusted: true });
     check(null, true);
   }
 

@@ -336,11 +336,10 @@ behind the window. No existing setting is reset or changes meaning.
 - 2026-11-20: 1.1.18 on branch `perf/1.1.18-optimization` (optimisation
   without less protection, measured: docs/review/tests-and-performance.md)
   and automation fixes on `automation/1.1.18-chain` (pull request #59).
-  Waiting for the owner: the default dark-mode method (Dark Reader cost about
-  40 % of Speedometer, about 20 % against the engine's dark mode after the
-  changes on `perf/1.1.18-darkreader`), the graphics-card proposal for
-  fingerprinting, the branch protection of `main` (a repository setting), and checks on the
-  owner's computer (chrome://gpu, qt6-webengine version).
+  The owner approved the graphics-card proposal (2026-11-20), set the branch
+  protection of `main` and sent chrome://gpu and the qt6-webengine version;
+  for page dark mode the owner asked that Dark Reader be made as light as the
+  engine's own dark mode rather than changing the default (work going on).
 
 ### Also planned
 

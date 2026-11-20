@@ -187,10 +187,12 @@ def test_the_same_card_everywhere(run_ike, site, level):
     r = out.get("r")
     assert r, out
     seen = places(r)
-    print(json.dumps(seen, indent=1))
     bad = {k: v for k, v in seen.items() if not isinstance(v, list)}
     assert not bad, ("a place could not be measured", bad)
-    assert "SwiftShader" not in json.dumps(r), "the real renderer reached the page"
+    # the real renderer of this computer (SwiftShader, llvmpipe...), read with the shield off
+    real = run_ike("URL = %r\n" % site + STEPS, settings={"shield_level": "off"},
+                   env={"QTWEBENGINE_CHROMIUM_FLAGS": FLAGS}, timeout=120)["r"]["page_webgl"][1]
+    assert real and real not in json.dumps(seen), ("the real renderer reached the page", real)
     if level == "balanced":
         names = {(v[0], v[1]) for v in seen.values()}
         assert len(names) == 1, ("not the same card everywhere", seen)
