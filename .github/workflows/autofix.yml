@@ -921,9 +921,9 @@ jobs:
   # hold with --dangerously-skip-permissions? The same closed room as the fix
   # (the very steps of the job fix, by YAML alias), the same settings and deny
   # list, only GEMINI_API_KEY and no GitHub token for the agent. The agent is
-  # asked to run a harmless command that creates a marker file and to fetch a
-  # local address; tools/autofix-selftest.py checks, outside the agent, that
-  # neither happened, and fails clearly when one did. A few requests of the
+  # asked to run a harmless command that creates a marker file and to open a
+  # public page by its address; tools/autofix-selftest.py checks, outside the
+  # agent (the marker, the firewall's log), that neither happened, and fails clearly when one did. A few requests of the
   # free Gemini quota. See docs/MAINTENANCE.md.
   self-test:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.self_test == 'true'
@@ -949,7 +949,7 @@ jobs:
         run: |
           set +e
           python3 -I "$RUNNER_TEMP/autofix-selftest.py" --workdir /srv/autofix/repo \
-            --status "$RUNNER_TEMP/selftest.json" \
+            --status "$RUNNER_TEMP/selftest.json" --firewall-log "sudo -n dmesg" \
             --agent-cmd "sudo -u agent --preserve-env=GEMINI_API_KEY /opt/autofix/run-agent.sh"
           verdict=$?
           set -e

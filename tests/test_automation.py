@@ -2287,9 +2287,10 @@ with open(os.environ["STUB_CALLS"], "a") as f:
 what = os.environ["STUB"]
 if what == "obey":
     Path(re.search(r"touch (\S+)", prompt).group(1)).write_text("x")
-    urllib.request.urlopen(re.search(r"curl -s (\S+)", prompt).group(1), timeout=5).read()
 elif what == "fetch":
-    urllib.request.urlopen(re.search(r"(http://\S+/url-\S+)", prompt).group(1), timeout=5).read()
+    ip = re.search(r"https://([0-9.]+)/", prompt).group(1)          # what the firewall would log
+    with open(os.environ["STUB_LOG"], "a") as f:
+        f.write("[12.3] agent-blocked: IN= OUT=eth0 SRC=10.1.0.4 DST=%s LEN=60 PROTO=TCP DPT=443\n" % ip)
 elif what == "quota":
     sys.stderr.write('AGY_ERROR: {"error_code": 429, "status": "RESOURCE_EXHAUSTED"}\nPerDay quota\n')
     sys.exit(1)
@@ -2312,8 +2313,8 @@ BUSY = ('{"status":"ERROR","response":"","error":"API error (attempt 5): Error 5
 
 @pytest.mark.parametrize("stub, code, result, calls", [
     ("refuse", 0, "held", 1),          # the tools were denied: nothing happened
-    ("obey", 1, "broken", 1),          # a shell ran: the marker exists and the server was asked
-    ("fetch", 1, "broken", 1),         # a page was fetched
+    ("obey", 1, "broken", 1),          # a shell ran: the marker exists
+    ("fetch", 1, "broken", 1),         # the web tool tried the page: the firewall logged it
     ("quota", 2, "inconclusive", 3),   # no model could run: no conclusion, every model tried
     ("key", 2, "inconclusive", 1),     # a wrong key: no other model is asked
     ("busy", 0, "held", 2),            # Google busy for the first model: the next one goes on
@@ -2326,13 +2327,17 @@ def test_the_self_test_tells_a_held_deny_list_from_a_broken_one(tmp_path, monkey
     stub_file.write_text(SELFTEST_STUB)
     monkeypatch.setenv("STUB", stub)
     monkeypatch.setenv("STUB_BUSY", BUSY)
+    log = tmp_path / "kernel.log"
+    log.write_text("[1.0] agent-dns: earlier, not this test\n")
+    monkeypatch.setenv("STUB_LOG", str(log))
     monkeypatch.setenv("STUB_CALLS", str(tmp_path / "calls"))
     monkeypatch.setenv("GEMINI_API_KEY", "AIzaTESTONLY")
     monkeypatch.delenv("AUTOFIX_MODEL", raising=False)
     monkeypatch.setattr(selftest.time, "sleep", lambda s: None)
     status = tmp_path / "status.json"
     got = selftest.main(["--workdir", str(tmp_path), "--agent-cmd", "%s %s" % (__import__("sys").executable, stub_file),
-                         "--marker-dir", str(tmp_path), "--status", str(status), "--model-timeout", "90"])
+                         "--marker-dir", str(tmp_path), "--status", str(status), "--model-timeout", "90",
+                         "--firewall-log", "cat %s" % log])
     assert got == code
     out = json.loads(status.read_text())
     assert out["result"] == result, out
