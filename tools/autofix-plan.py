@@ -7,7 +7,8 @@ at the failed run and writes, as GitHub outputs:
 
     action          fix | issue | skip
     reason          one line, shown in the issue or the log
-    kind            main | maintenance
+    kind            main | maintenance | infra (an issue for a failure of
+                    GitHub, the runner or a reporting job: not the code)
     checkout        the commit the agent starts from
     push_branch     where the fix goes (automation/daily-maintenance or
                     automation/autofix-main)
@@ -43,16 +44,37 @@ ISSUE_TITLE = "Automatic fix needs you: %s"
 # failed commit in this form, so the plan can tell a repeat of the same failure
 # from a new one (1.1.18).
 SHA_MARK = "<!-- autofix-sha: %s -->"
-SHA_MARK_RE = re.compile(r"<!-- autofix-sha: ([0-9a-f]{7,40}) -->")
+# since the audit of #65 also the branch that failed: only reports about main
+# hold back a fix of main for REPORT_FRESH_HOURS (the trials on
+# automation/autofix-main commented on issue #31 and kept main from a fix)
+SHA_BRANCH_MARK = "<!-- autofix-sha: %s on %s -->"
+SHA_MARK_RE = re.compile(r"<!-- autofix-sha: ([0-9a-f]{7,40})(?: on ([A-Za-z0-9._/-]{1,100}))? -->")
 REPORT_FRESH_HOURS = 24
 REPORTER = "github-actions[bot]"      # the author of the report job's comments
 # Steps of the daily maintenance's "prepare" job that no AI fix of main can
 # help (1.1.18): the check and apply of the component updates fails when an
-# upstream source cannot be reached (tools/check-components.py exits 1), and a
-# new AdBlock engine that does not build needs I.K.E.'s wrapper changed, which a
-# fix of main may not do.
+# upstream source cannot be reached (tools/check-components.py exits 1). The
+# engine's build stops the job only when its crates cannot be downloaded or an
+# engine that did not change does not build; a NEW engine that does not build
+# with I.K.E.'s wrapper reaches automation/daily-maintenance marked, its tests
+# fail there and the fix of the candidate may change the wrapper
+# (engine_update, allow_adblock; final review of 1.1.18).
 SOURCES_STEP = "Check and apply component updates"
 ENGINE_STEP = "Build AdBlock engine"
+# A failure of GitHub or the runner, or of a job that only reports, is not a
+# failure of the code or of the maintenance (final review of 1.1.18): no AI fix
+# of main, and an issue of its own title, which never holds back the fix of a
+# real failure (already_reported reads ISSUE_TITLE only).
+INFRA_TITLE = "GitHub or the runner failed: %s"
+REPORTING_JOBS = {"Tests": ("hand-over",), "Daily component check": ("update-issue",),
+                  "Daily maintenance candidate": ("publish-candidate",)}
+INFRA_STEP = re.compile(r"^(Set up job|Complete job|Post |Check out|Run actions/(checkout|setup-|upload-artifact"
+                        r"|download-artifact|cache)|Upload |Download |Validate downloaded|Rust$|Test environment$)")
+LOG_TRIES = 3
+# Steps where a test may fail only sometimes (Qt WebEngine under load): failed
+# there once, the tests run once more before any AI is asked (audit of #65, M5)
+RERUN_STEPS = ("Tests", "Tests of the installed package")
+BOT = "github-actions[bot]"
 LOG_LINES = 160              # of the failed step only (1.1.16: the whole job's end was mostly noise)
 LOG_BYTES = 20000
 # lines that never explain a failure: package installs, downloads, the runner's cleanup
@@ -69,16 +91,23 @@ STAMP = re.compile(r"^\d{4}-\d\d-\d\dT[\d:.]+Z ?")
 ENV_LINE = re.compile(r"^  [A-Za-z_][A-Za-z0-9_]*: ")
 
 
-def gh_api(path, raw=False):
+def gh_api(path, raw=False, tries=3, pause=5):
+    """GitHub's API through gh, asked again after a pause when it fails (audit
+    of #65: one 502 dropped a failure)."""
     cmd = ["gh", "api", path]
     if raw:
         # Job logs hold the runner's colour codes, and newer gh refuses to print
         # them unless asked (seen on 2026-11-19: no assistant got the error);
         # clean_log removes them. Older gh does not know the flag: then without.
         cmd.insert(2, "--allow-escape-sequences")
-    out = subprocess.run(cmd, capture_output=True, text=True, check=False)
-    if out.returncode and raw and "unknown flag" in out.stderr:
-        out = subprocess.run(["gh", "api", path], capture_output=True, text=True, check=False)
+    for n in range(tries):
+        out = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        if out.returncode and raw and "unknown flag" in out.stderr:
+            cmd = ["gh", "api", path]
+            out = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        if not out.returncode or n + 1 == tries:
+            break
+        time.sleep(pause * (n + 1))
     if out.returncode:
         raise RuntimeError("gh api %s: %s" % (path, out.stderr.strip()[:300]))
     return out.stdout if raw else json.loads(out.stdout)
@@ -160,6 +189,20 @@ def clean_log(text):
     return tail[-LOG_BYTES:]
 
 
+def job_log(repo, job, tries=LOG_TRIES, pause=10, sleep=None):
+    """The cleaned log of a failed job, or None. GitHub may answer 404 for a
+    few seconds after a run closes: asked again before giving up."""
+    for n in range(tries):
+        try:
+            return clean_log(gh_api("repos/%s/actions/jobs/%s/logs" % (repo, job["id"]), raw=True, tries=1))
+        except RuntimeError as e:
+            if n + 1 == tries:
+                print("::warning::the log of job %s is not available: %s" % (job["name"], e))
+                return None
+            (sleep or time.sleep)(pause)
+    return None
+
+
 def completed_run(repo, run_id, tries=40, pause=15, sleep=time.sleep):
     """The run, once it has finished. A failure handed over by the tests
     themselves (tests.yml, job hand-over) arrives while their run is still
@@ -180,13 +223,18 @@ def _when(stamp):
         return None
 
 
-def report_sha(text):
-    """The failed commit a report names: only in the exact last line the report
+def report_mark(text):
+    """(commit, branch) a report names: only in the exact last line the report
     job writes (second review of 1.1.18: its comments quote the agent's summary
-    and the logs, where a mark could be planted)."""
+    and the logs, where a mark could be planted). The branch is "" in the
+    marks written before the audit of #65."""
     lines = [ln for ln in (text or "").replace("\r", "").split("\n") if ln.strip()]
     m = SHA_MARK_RE.fullmatch(lines[-1]) if lines else None
-    return m.group(1) if m else ""
+    return (m.group(1), m.group(2) or "") if m else ("", "")
+
+
+def report_sha(text):
+    return report_mark(text)[0]
 
 
 def already_reported(issues, title, sha, now):
@@ -217,6 +265,38 @@ def failed_steps(job):
     return [s.get("name") or "" for s in job.get("steps", []) if s.get("conclusion") == "failure"]
 
 
+def infra_failure(name, failed_jobs):
+    """Why the failure is GitHub's, the runner's or a reporting job's, not the
+    code's or the maintenance's; '' when it is a real failure. Only when every
+    failed job reports, or every failed step is one of the runner's own (check
+    out, set up, an artifact kept or fetched); a job that failed with no failed
+    step (a time limit) counts as real."""
+    names = [j["name"] for j in failed_jobs]
+    if not names:
+        # audit of #65 (L5): a run that failed with no failed job (a workflow
+        # file GitHub refused, a cancelled set-up)
+        return "the run failed with no failed job: GitHub or a workflow file, not the code"
+    reporting = REPORTING_JOBS.get(name, ())
+    if names and all(n in reporting for n in names):
+        return ("only the job that reports or publishes failed (%s): GitHub, a permission or a repository "
+                "setting, not the code and not the maintenance" % ", ".join(names))
+    steps = [st for j in failed_jobs if j["name"] not in reporting for st in failed_steps(j)]
+    if steps and all(INFRA_STEP.match(st) for st in steps):
+        return ("a step of GitHub or the runner failed (%s), not the code and not the maintenance: "
+                "the next run usually passes" % ", ".join(steps))
+    return ""
+
+
+def logs_missing(plan):
+    """The plan when no log of the failed jobs could be read: an AI fix with no
+    error to read would only guess (final review of 1.1.18)."""
+    if plan["action"] != "fix":
+        return plan
+    return dict(plan, action="issue", kind="infra", checkout="", push_branch="", attempt="0", allow_adblock="false",
+                reason="the logs of the failed run could not be read from GitHub: no fix without the error "
+                       "(run the automatic fix again by hand when GitHub answers)")
+
+
 def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
     """The plan for a failed run (a dict of outputs), without network or git."""
     name, branch = run["name"], run.get("head_branch") or ""
@@ -229,14 +309,29 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
         plan["reason"] = "the run comes from another repository (fork)"
         return plan
     job_names = [j["name"] for j in failed_jobs]
-
-    if name == "Tests":
-        if branch not in FIXABLE_BRANCHES:
+    if name in ("Tests", "Daily maintenance candidate", "Daily component check"):
+        if name == "Tests" and branch not in FIXABLE_BRANCHES:
             plan["reason"] = "branch %s is not one the automation fixes" % (branch or "?")
             return plan
-        if run.get("_tip") != run.get("head_sha"):
+        if name == "Tests" and run.get("_tip") != run.get("head_sha"):
             plan["reason"] = "the branch has moved since this run: an older failure"
             return plan
+        infra = infra_failure(name, failed_jobs)
+        if infra:
+            plan.update(action="issue", kind="infra", reason=infra)
+            return plan
+        attempt = int(run.get("run_attempt") or 1)
+        if name == "Tests" and attempt > 1 and run.get("_event") == "workflow_run" and \
+                (run.get("triggering_actor") or {}).get("login") == BOT:
+            plan["reason"] = "a run the automatic fix started again: the tests hand its failure over themselves"
+            return plan
+        steps = [st for j in failed_jobs if j["name"] == "tests" for st in failed_steps(j)]
+        if name == "Tests" and attempt == 1 and steps and all(st in RERUN_STEPS for st in steps):
+            plan.update(action="rerun", reason="the tests failed once (step: %s): they run once more before any "
+                        "automatic fix, a test that fails only sometimes is no matter for an AI" % ", ".join(steps))
+            return plan
+
+    if name == "Tests":
         target = branch
     elif name == "Daily maintenance candidate":
         if "prepare" not in job_names:
@@ -245,13 +340,17 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
             return plan
         steps = [st for j in failed_jobs if j["name"] == "prepare" for st in failed_steps(j)]
         if any(st.startswith(SOURCES_STEP) for st in steps):
-            plan.update(action="issue", reason="a component source could not be checked or its update could "
-                        "not be applied (step: %s); nothing on main to fix, the next daily run tries "
-                        "again" % SOURCES_STEP)
+            plan.update(action="issue", kind="infra", reason="a component source could not be checked or its "
+                        "update could not be applied (step: %s); nothing on main to fix, the next daily run "
+                        "tries again" % SOURCES_STEP)
             return plan
         if any(st.startswith(ENGINE_STEP) for st in steps):
-            plan.update(action="issue", reason="the new AdBlock engine does not build with I.K.E.'s wrapper "
-                        "(step: %s); a fix of main may not change the wrapper" % ENGINE_STEP)
+            # a new engine that does not build is published and fixed on its branch;
+            # this step stops only for crates that could not be downloaded or an
+            # engine that does not build although it did not change
+            plan.update(action="issue", reason="the AdBlock engine's crates could not be downloaded, or an "
+                        "engine that this candidate does not change does not build (step: %s): not a matter "
+                        "for I.K.E.'s wrapper, a person looks" % ENGINE_STEP)
             return plan
         target = "main"
     elif name == "Daily component check":
@@ -314,12 +413,15 @@ def engine_update(branch, show=None):
 def open_reports(repo, name):
     """The open issues "Automatic fix needs you: <name>" for already_reported():
     each with the commits its reports name (the issue and the report job's
-    comments, by their last line) and the time of its latest report."""
+    comments, by their last line) and the time of its latest report about
+    main (audit of #65: a report about another branch, or one whose mark names
+    no branch, never holds back a fix of main by its age, only by its commit)."""
     out = []
     for i in gh_api("repos/%s/issues?state=open&labels=autofix&per_page=100" % repo):
         if "pull_request" in i or i.get("title") != ISSUE_TITLE % name:
             continue
-        shas, reported = [report_sha(i.get("body"))], i.get("created_at") or ""
+        sha, branch = report_mark(i.get("body"))
+        shas, reported = [sha], (i.get("created_at") or "") if branch == "main" else ""
         try:
             comments = gh_api("repos/%s/issues/%s/comments?per_page=100" % (repo, i["number"]))
         except RuntimeError:
@@ -327,20 +429,42 @@ def open_reports(repo, name):
         for c in comments:
             if (c.get("user") or {}).get("login") != REPORTER:
                 continue                      # anyone may comment; only the report job's comments count
-            mark = report_sha(c.get("body"))
+            mark, branch = report_mark(c.get("body"))
             if mark:
                 shas.append(mark)
-                if (c.get("created_at") or "") > reported:
+                if branch == "main" and (c.get("created_at") or "") > reported:
                     reported = c["created_at"]
         out.append({"title": i["title"], "shas": [m for m in shas if m], "reported_at": reported})
     return out
 
 
+CLOSING = re.compile(r"\b(close[sd]?|fix(?:e[sd])?|resolve[sd]?)(\s*:?\s+)((?:[\w.-]+/[\w.-]+)?#)(?=\d)", re.I)
+ZWSP = "​"
+
+
+def neutralise(text):
+    """Text an AI wrote, safe in a pull request's body (audit of #65): no
+    @mention that notifies someone, no "closes #N" that closes an issue when
+    the pull request is merged. A zero-width space breaks both and shows
+    nothing."""
+    text = re.sub(r"@(?=[A-Za-z0-9])", "@" + ZWSP, text)
+    return CLOSING.sub(lambda m: m.group(1) + m.group(2) + m.group(3) + ZWSP, text)
+
+
 def main(argv=None):
+    if argv is None:
+        argv = sys.argv[1:]
+    if argv[:1] == ["--neutralise"]:                 # autofix-plan.py --neutralise FILE...
+        for name in argv[1:]:
+            p = Path(name)
+            if p.is_file():
+                p.write_text(neutralise(p.read_text("utf-8", "replace")), "utf-8")
+        return 0
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--run-id", required=True)
     ap.add_argument("--logs", required=True)
     ap.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", ""))
+    ap.add_argument("--event", default="", help="what started this plan: workflow_run or workflow_dispatch")
     a = ap.parse_args(argv)
     repo = a.repo
     run = completed_run(repo, a.run_id)
@@ -348,6 +472,7 @@ def main(argv=None):
     failed = [j for j in jobs if j.get("conclusion") == "failure"]
     branch = run.get("head_branch") or ""
     run["_repo"] = repo
+    run["_event"] = a.event
     run["_tip"] = tip(branch) if branch else ""
     run["_main_tip"] = tip("main")
     run["_attempts"] = autofix_commits(branch) if branch in (MAINTENANCE, FIX_MAIN) else 0
@@ -358,22 +483,28 @@ def main(argv=None):
     # the commit that failed: the issue's message for ChatGPT starts from it when
     # no automatic fix is tried (after two attempts, for instance)
     plan["head_sha"] = run.get("head_sha", "")
-    # where the fix branch was when this plan was made: publish pushes only if
-    # it is still there (1.1.18: two plans of main side by side could each push)
-    plan["push_tip"] = tip(plan["push_branch"]) if plan["push_branch"] else ""
+    plan["branch"] = branch                     # for the report's mark (audit of #65)
+    if plan["action"] == "skip":
+        print("::notice::no automatic fix: %s" % plan["reason"].replace("::", ": "))
 
     parts = ["# Failure to fix\n",
              "- Workflow: %s\n- Branch: %s\n- Commit: %s\n- Run: %s\n" % (
                  run["name"], branch, run.get("head_sha", ""), run.get("html_url", ""))]
+    read = 0
     for job in failed:
         steps = [s["name"] for s in job.get("steps", []) if s.get("conclusion") == "failure"]
-        try:
-            log = clean_log(gh_api("repos/%s/actions/jobs/%s/logs" % (repo, job["id"]), raw=True))
-        except RuntimeError as e:
-            log = "(log not available: %s)" % e
-            print("::warning::the log of job %s is not available: %s" % (job["name"], e))
+        log = job_log(repo, job) if plan["action"] in ("fix", "issue") else None
+        if log is None:
+            log = "(log not available)"
+        else:
+            read += 1
         parts.append("\n## Job `%s` (failed step: %s)\n\nThe failed step's log:\n\n```text\n%s\n```\n"
                      % (job["name"], ", ".join(steps) or "?", log.replace("```", "'''")))
+    if failed and not read:
+        plan = logs_missing(plan)
+    # where the fix branch was when this plan was made: publish pushes only if
+    # it is still there (1.1.18: two plans of main side by side could each push)
+    plan["push_tip"] = tip(plan["push_branch"]) if plan["push_branch"] else ""
     if plan["action"] == "fix" and branch in (MAINTENANCE, FIX_MAIN) and run["_attempts"]:
         parts.append(previous_fix(branch, repo))
     Path(a.logs).write_text("".join(parts), "utf-8")

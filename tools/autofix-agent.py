@@ -76,6 +76,11 @@ def classify(status, err):
     if status == 124:
         return "timeout", 0
     text = err[-20000:]
+    # Google busy, even when the CLI's own retries then ran into its time limit
+    # (final review of 1.1.18, run 44715968623: "Error 503 ... high demand" after
+    # 326 s, finished_reason print_timeout): the next model, as for any 5xx
+    if re.search(r"\bError 503\b|Status: UNAVAILABLE|experiencing high demand", text):
+        return "temporary", 0
     # the CLI's own time limit ("print timeout ... turn still in progress"): the
     # agent was still working, not Google failing. Another try would end the
     # same way (the first real trial spent 25 minutes on four of them).
@@ -253,7 +258,9 @@ def main(argv=None):
             if status == 0:
                 result = "ok"
                 break
-            kind, wait = classify(status, err.decode("utf-8", "replace"))
+            # the CLI writes its last error in its JSON answer on standard output
+            # too (final review of 1.1.18): both are read
+            kind, wait = classify(status, err.decode("utf-8", "replace") + "\n" + said.decode("utf-8", "replace"))
             print("Agent stopped (%s): %s" % (status, kind), flush=True)
             if kind == "minute" and tries == 1 and wait <= WAIT_MAX and time.monotonic() + wait < deadline:
                 time.sleep(max(wait, 5))

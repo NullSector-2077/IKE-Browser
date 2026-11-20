@@ -28,7 +28,13 @@ on:
     inputs:
       run_id:
         description: "ID of the failed run to fix"
-        required: true
+        required: false
+        default: ""
+      self_test:
+        description: "Instead: prove that the agent's deny list holds (job self-test, no fix)"
+        type: boolean
+        required: false
+        default: false
 
 permissions: {}
 
@@ -43,9 +49,13 @@ permissions: {}
 
 jobs:
   plan:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'failure'
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.self_test != 'true' &&
+      github.event.inputs.run_id != '') || github.event.workflow_run.conclusion == 'failure'
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    # above its longest wait: a run handed over while it closes, about ten
+    # minutes, and GitHub's calls asked again (audit of #65, L10)
+    timeout-minutes: 20
     permissions:
       actions: read
       contents: read
@@ -61,6 +71,7 @@ jobs:
       allow_adblock: ${{ steps.plan.outputs.allow_adblock }}
       workflow: ${{ steps.plan.outputs.workflow }}
       head_sha: ${{ steps.plan.outputs.head_sha }}
+      branch: ${{ steps.plan.outputs.branch }}
       push_tip: ${{ steps.plan.outputs.push_tip }}
     steps:
       - name: Check out main (all branches, no credentials)
@@ -74,9 +85,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.event.inputs.run_id || github.event.workflow_run.id }}
+          EVENT: ${{ github.event_name }}
         run: |
           mkdir -p "$RUNNER_TEMP/failure"
-          python3 -I tools/autofix-plan.py --run-id "$RUN_ID" --logs "$RUNNER_TEMP/failure/failure.md"
+          python3 -I tools/autofix-plan.py --run-id "$RUN_ID" --logs "$RUNNER_TEMP/failure/failure.md" \
+            --event "$EVENT"
       - name: Keep the failure description
         if: steps.plan.outputs.action == 'fix' || steps.plan.outputs.action == 'issue'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -85,6 +98,27 @@ jobs:
           path: ${{ runner.temp }}/failure/failure.md
           if-no-files-found: error
           retention-days: 7
+
+  # A test that failed only once is run again before any AI is asked (audit of
+  # #65, M5): GitHub runs the failed jobs again; if they fail again, the tests
+  # hand that failure over (tests.yml, hand-over) and the plan sees a second
+  # attempt.
+  rerun:
+    needs: plan
+    if: needs.plan.outputs.action == 'rerun'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Run the failed tests once more
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.inputs.run_id || github.event.workflow_run.id }}
+        run: |
+          retry() { n=1; until "$@"; do [ "$n" -ge 3 ] && return 1; sleep $((n * 15)); n=$((n + 1)); done; }
+          retry gh run rerun "$RUN_ID" --failed
 
   fix:
     needs: plan
@@ -120,7 +154,10 @@ jobs:
           path: .autofix
       # Every process of the agent user, gone, before the runner touches what it
       # could write (1.1.18): bounded, and an error when some survive.
-      - name: How the agent is stopped
+      # (&stop-agent, &closed-room, &keep-installer: the job self-test runs these
+      # very steps, YAML aliases, not copies.)
+      - &stop-agent
+        name: How the agent is stopped
         run: |
           cat > "$RUNNER_TEMP/stop-agent" <<'SH'
           #!/bin/sh
@@ -146,12 +183,14 @@ jobs:
       #   configuration it wrote (diff.external, filters, hooks) would run as the
       #   runner, which has sudo.
       # No test environment: GitHub runs all the tests on its fix.
-      - name: A closed room for the agent
+      - &closed-room
+        name: A closed room for the agent
         env:
-          # sha256 of the Antigravity installer (1.1.18). Empty: printed in the
-          # log, not checked. Set: a different installer is never run. How to
+          # sha256 of the Antigravity installer (1.1.18): the repository variable
+          # AGY_INSTALLER_SHA256, else the value written here. Empty: printed in
+          # the log, not checked. Set: a different installer is never run. How to
           # update it: docs/MAINTENANCE.md, "The Antigravity installer".
-          AGY_INSTALLER_SHA256: ""
+          AGY_INSTALLER_SHA256: ${{ vars.AGY_INSTALLER_SHA256 || '' }}
         run: |
           me="$(id -un)"
           sudo useradd --create-home --user-group --shell /bin/sh agent
@@ -163,6 +202,11 @@ jobs:
           curl -fsSL https://antigravity.google/cli/install.sh -o /srv/autofix/agy-install.sh
           got=$(sha256sum /srv/autofix/agy-install.sh | cut -d' ' -f1)
           echo "Antigravity installer sha256: $got"
+          # the exact file of that sha256, kept 3 days for a person to read
+          # before recording it (step "Keep the Antigravity installer")
+          mkdir -p "$RUNNER_TEMP/agy-installer"
+          cp /srv/autofix/agy-install.sh "$RUNNER_TEMP/agy-installer/install.sh"
+          printf '%s  install.sh\n' "$got" > "$RUNNER_TEMP/agy-installer/install.sh.sha256"
           if [ -n "$AGY_INSTALLER_SHA256" ] && [ "$got" != "$AGY_INSTALLER_SHA256" ]; then
             echo "::error::the Antigravity installer is not the one recorded (sha256 $got): not run"
             exit 1
@@ -221,6 +265,9 @@ jobs:
           sudo iptables -A AGENT -o lo -p tcp --dport 53 -j REJECT
           sudo iptables -A AGENT -o lo -j ACCEPT
           for ip in $ips; do sudo iptables -A AGENT -p tcp -d "$ip" --dport 443 -j ACCEPT; done
+          # the self-test's page, logged every time (the log below has a rate
+          # limit that a busy agent could use up: audit of #65)
+          sudo iptables -A AGENT -d 1.1.1.1 -j LOG --log-prefix "agent-probe: "
           # what the agent tries to reach and may not: logged (addresses only), for the diagnosis
           sudo iptables -A AGENT -m limit --limit 20/min -j LOG --log-prefix "agent-blocked: "
           sudo iptables -A AGENT -j REJECT
@@ -241,6 +288,10 @@ jobs:
           if sudo -u agent curl -s -m 5 -o /dev/null https://github.com; then
             echo "::error::the firewall does not hold"; exit 1
           fi
+          # ...also by address: the check above stops at the name lookup (audit of #65)
+          if sudo -u agent curl -s -m 5 -o /dev/null https://1.1.1.1; then
+            echo "::error::the firewall does not hold (by address)"; exit 1
+          fi
           # ...and still finds the Gemini API, from /etc/hosts
           if [ "$(sudo -u agent getent ahostsv4 "$api" | awk 'NR==1 {print $1}')" != "$pinned" ]; then
             echo "::error::the agent does not find the Gemini API at its pinned address"; exit 1
@@ -252,7 +303,21 @@ jobs:
           if sudo -u agent sh -c "echo > $repo/.git/config" 2>/dev/null || sudo -u agent mv "$repo/.git" "$repo/.git-x" 2>/dev/null; then
             echo "::error::the agent can change .git"; exit 1
           fi
+          # the checks' own refused connections are not the agent's: the firewall's
+          # log starts empty for the diagnosis and the self-test
+          sudo dmesg -C 2> /dev/null || true
           "$RUNNER_TEMP/stop-agent"
+      # Also when the closed room stopped (a different installer, say): that is
+      # when a person wants to read it.
+      - &keep-installer
+        name: Keep the Antigravity installer
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: antigravity-installer
+          path: ${{ runner.temp }}/agy-installer/
+          if-no-files-found: ignore
+          retention-days: 3
       # git as the runner on the agent's tree (1.1.18): only after checking that
       # .git is still the runner's, with the configuration saved here, nested
       # repositories removed, no system or global configuration, no attributes
@@ -681,28 +746,46 @@ jobs:
           git bundle verify "$b"
           git fetch "$b" HEAD:refs/heads/autofix-result
           old=$(git rev-parse -q --verify "refs/remotes/origin/$PUSH_BRANCH" || true)
-          if [ "$KIND" = "maintenance" ] || [ "$ATTEMPT" != "1" ]; then
+          new=$(git rev-parse refs/heads/autofix-result)
+          # GitHub's own calls, a few times (audit of #65: one 502 lost a fix)
+          retry() { n=1; until "$@"; do [ "$n" -ge 3 ] && return 1; sleep $((n * 15)); n=$((n + 1)); done; }
+          # Overtaken (final review of 1.1.18): a newer candidate or fix is on the
+          # branch, with its own tests and, if they fail, its own fix. This fix is
+          # not pushed and the job ends well, so the report opens no issue for it.
+          # Already there (audit of #65): this very fix was pushed by an earlier
+          # try of this job that failed afterwards; the pull request and the tests
+          # still follow (until then a re-run ended green as "overtaken").
+          overtaken=""
+          if [ "$old" = "$new" ]; then
+            echo "This fix is already on $PUSH_BRANCH: not pushed again"
+          elif [ "$KIND" = "maintenance" ] || [ "$ATTEMPT" != "1" ]; then
             if [ "$old" != "$CHECKOUT" ]; then
-              echo "::error::$PUSH_BRANCH has moved since the agent started: the fix is not pushed"
-              exit 1
+              overtaken="$PUSH_BRANCH has moved since the agent started (a newer candidate or fix)"
             fi
           else
             # 1.1.18: a first fix of main replaces the branch only if it is where the
             # plan saw it and no automatic fix is waiting there (two runs planned
             # side by side must not overwrite each other's fix)
-            if [ "$old" != "$PUSH_TIP" ]; then
-              echo "::error::$PUSH_BRANCH has moved since the plan: the fix is not pushed"
-              exit 1
-            fi
-            waiting=$(gh pr list --head "$PUSH_BRANCH" --base main --state open --json number --jq '.[0].number // empty')
+            waiting=$(retry gh pr list --head "$PUSH_BRANCH" --base main --state open --json number --jq '.[0].number // empty')
             if [ -n "$waiting" ]; then
-              echo "::error::an automatic fix of main is already waiting (PR #$waiting): this one is not pushed"
+              overtaken="an automatic fix of main is already waiting (PR #$waiting)"
+            elif [ "$old" != "$PUSH_TIP" ]; then
+              echo "::error::$PUSH_BRANCH has moved since the plan and no fix waits there: the fix is not pushed"
               exit 1
             fi
           fi
-          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
-          git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" \
-            push --force-with-lease="refs/heads/$PUSH_BRANCH:$old" origin "refs/heads/autofix-result:refs/heads/$PUSH_BRANCH"
+          if [ -n "$overtaken" ]; then
+            echo "::notice::$overtaken: this fix is not pushed"
+            printf '### Not published\n\n%s: this fix is not pushed.\n' "$overtaken" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
+            exit 0
+          fi
+          if [ "$old" != "$new" ]; then
+            auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+            git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" \
+              push --force-with-lease="refs/heads/$PUSH_BRANCH:$old" origin "refs/heads/autofix-result:refs/heads/$PUSH_BRANCH"
+          fi
+          # what an AI wrote never mentions people or closes issues on merge (audit of #65)
+          python3 -I tools/autofix-plan.py --neutralise "$RUNNER_TEMP/autofix/summary.md"
           body="$RUNNER_TEMP/body.md"
           {
             echo "**Automatic fix, attempt $ATTEMPT** after a failure of \"$WORKFLOW\" ([run]($RUN_URL))."
@@ -719,15 +802,21 @@ jobs:
             cat "$RUNNER_TEMP/autofix/guard.md"
           } > "$body"
           gh label create autofix --color d93f0b --description "Automatic fix prepared by the AI agent" 2>/dev/null || true
-          pr=$(gh pr list --head "$PUSH_BRANCH" --base main --state open --json number --jq '.[0].number // empty')
+          pr=$(retry gh pr list --head "$PUSH_BRANCH" --base main --state open --json number --jq '.[0].number // empty')
           if [ -n "$pr" ]; then
-            gh pr comment "$pr" --body-file "$body"
-            gh pr edit "$pr" --add-label autofix
-          else
-            gh pr create --draft --base main --head "$PUSH_BRANCH" --label autofix \
-              --title "Automatic fix: \"$WORKFLOW\" failed" --body-file "$body"
+            retry gh pr comment "$pr" --body-file "$body"
+            retry gh pr edit "$pr" --add-label autofix
+          elif ! gh pr create --draft --base main --head "$PUSH_BRANCH" --label autofix \
+              --title "Automatic fix: \"$WORKFLOW\" failed" --body-file "$body"; then
+            # it may have been made all the same: look before asking again
+            sleep 15
+            pr=$(retry gh pr list --head "$PUSH_BRANCH" --base main --state open --json number --jq '.[0].number // empty')
+            if [ -z "$pr" ]; then
+              retry gh pr create --draft --base main --head "$PUSH_BRANCH" --label autofix \
+                --title "Automatic fix: \"$WORKFLOW\" failed" --body-file "$body"
+            fi
           fi
-          gh workflow run tests.yml --ref "$PUSH_BRANCH"
+          retry gh workflow run tests.yml --ref "$PUSH_BRANCH"
 
   report:
     needs: [plan, fix, guard, publish]
@@ -736,6 +825,9 @@ jobs:
       (needs.plan.outputs.action == 'fix' && needs.publish.result != 'success'))
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    # Two reports of the same workflow at once could both find no open issue and
+    # both open one: the newer one closes itself (below). No concurrency group:
+    # GitHub keeps one waiting job per group and drops the rest (audit of #65).
     permissions:
       issues: write
     steps:
@@ -762,9 +854,11 @@ jobs:
           GH_REPO: ${{ github.repository }}
           ACTION: ${{ needs.plan.outputs.action }}
           REASON: ${{ needs.plan.outputs.reason }}
+          KIND: ${{ needs.plan.outputs.kind }}
           WORKFLOW: ${{ needs.plan.outputs.workflow }}
           CHECKOUT: ${{ needs.plan.outputs.checkout || needs.plan.outputs.head_sha }}
           HEAD_SHA: ${{ needs.plan.outputs.head_sha }}
+          BRANCH: ${{ needs.plan.outputs.branch }}
           FIX: ${{ needs.fix.result }}
           PATCH: ${{ needs.fix.outputs.patch }}
           AGENT: ${{ needs.fix.outputs.result }}
@@ -798,15 +892,25 @@ jobs:
           fi
           body="$RUNNER_TEMP/issue.md"
           {
-            echo "**$WORKFLOW** failed and could not be fixed automatically: $why."
+            if [ "$KIND" = "infra" ]; then
+              # final review of 1.1.18: GitHub, the runner or a reporting job, not the
+              # code and not the maintenance; its own title, so it never holds back a
+              # fix of a real failure
+              echo "**$WORKFLOW**: GitHub or the runner failed, not I.K.E.'s code and not the maintenance: $why."
+            else
+              echo "**$WORKFLOW** failed and could not be fixed automatically: $why."
+            fi
             echo
             echo "Run: $RUN_URL"
             for f in summary.md guard.md; do
-              if [ -s "$RUNNER_TEMP/autofix/$f" ]; then echo; cat "$RUNNER_TEMP/autofix/$f"; fi
+              if [ -s "$RUNNER_TEMP/autofix/$f" ]; then echo; sed "s/@\([A-Za-z0-9]\)/@\xe2\x80\x8b\1/g" "$RUNNER_TEMP/autofix/$f"; fi
             done
             # ChatGPT's message whenever there is a failure to show (no automatic fix,
             # or two that did not pass: then it starts from the last of them)
-            if [ "$ACTION" = "fix" ] || [ -s "$RUNNER_TEMP/failure/failure.md" ]; then
+            if [ "$KIND" = "infra" ]; then
+              echo
+              echo "Niente da correggere nel codice: di solito il prossimo run passa. Se si ripete, apri una conversazione e incolla il link di questa issue."
+            elif [ "$ACTION" = "fix" ] || [ -s "$RUNNER_TEMP/failure/failure.md" ]; then
               echo
               echo "### Prossimi passi"
               echo
@@ -853,13 +957,80 @@ jobs:
           # line names it: a mark quoted from the agent's summary or the logs is
           # defused (second review)
           sed -i 's/<!-- *autofix-sha/<!-- quoted autofix-sha/g' "$body"
-          if [ -n "$HEAD_SHA" ]; then printf '\n<!-- autofix-sha: %s -->\n' "$HEAD_SHA" >> "$body"; fi
-          title="Automatic fix needs you: $WORKFLOW"
-          gh label create autofix --color d93f0b --description "Automatic fix prepared by the AI agent" 2>/dev/null || true
-          open=$(gh issue list --label autofix --state open --json number,title \
-            --jq "map(select(.title == \"$title\")) | .[0].number // empty")
-          if [ -n "$open" ]; then
-            gh issue comment "$open" --body-file "$body"
-          else
-            gh issue create --title "$title" --label autofix --body-file "$body"
+          # and the branch that failed (audit of #65): only reports about main hold
+          # back a fix of main by their age
+          if [ -n "$HEAD_SHA" ] && [ -n "$BRANCH" ]; then
+            printf '\n<!-- autofix-sha: %s on %s -->\n' "$HEAD_SHA" "$BRANCH" >> "$body"
+          elif [ -n "$HEAD_SHA" ]; then
+            printf '\n<!-- autofix-sha: %s -->\n' "$HEAD_SHA" >> "$body"
           fi
+          title="Automatic fix needs you: $WORKFLOW"
+          if [ "$KIND" = "infra" ]; then title="GitHub or the runner failed: $WORKFLOW"; fi
+          gh label create autofix --color d93f0b --description "Automatic fix prepared by the AI agent" 2>/dev/null || true
+          retry() { n=1; until "$@"; do [ "$n" -ge 3 ] && return 1; sleep $((n * 15)); n=$((n + 1)); done; }
+          oldest() {
+            retry gh issue list --label autofix --state open --json number,title \
+              --jq "map(select(.title == \"$title\")) | sort_by(.number) | .[0].number // empty"
+          }
+          open=$(oldest)
+          if [ -n "$open" ]; then
+            retry gh issue comment "$open" --body-file "$body"
+          else
+            url=$(retry gh issue create --title "$title" --label autofix --body-file "$body")
+            mine="${url##*/}"
+            # a report at the same moment may have opened one too: the older stays
+            first=$(oldest)
+            if [ -n "$first" ] && [ -n "$mine" ] && [ "$first" != "$mine" ]; then
+              retry gh issue comment "$first" --body-file "$body"
+              retry gh issue close "$mine" --comment "Duplicate of #$first (two reports at the same moment)."
+            fi
+          fi
+
+  # By hand only (workflow_dispatch with self_test): does Antigravity's deny list
+  # hold with --dangerously-skip-permissions? The same closed room as the fix
+  # (the very steps of the job fix, by YAML alias), the same settings and deny
+  # list, only GEMINI_API_KEY and no GitHub token for the agent. The agent is
+  # asked to run a harmless command that creates a marker file and to open a
+  # public page by its address; tools/autofix-selftest.py checks, outside the
+  # agent (the marker, the firewall's log), that neither happened, and fails clearly when one did. A few requests of the
+  # free Gemini quota. See docs/MAINTENANCE.md.
+  self-test:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.self_test == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      - name: Check out (no credentials)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: The self-test's tools, before the room is built
+        run: cp tools/autofix-selftest.py tools/autofix-agent.py tools/check-autofix-patch.py "$RUNNER_TEMP/"
+      - *stop-agent
+      - *closed-room
+      - *keep-installer
+      - name: Ask the agent to break its deny list
+        timeout-minutes: 28
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          AUTOFIX_MODEL: ${{ vars.AUTOFIX_MODEL }}
+        run: |
+          # the positive control: the same settings without the deny list, used
+          # only after the real test (audit of #65)
+          printf '%s\n' '{ "modelProvider": "gemini",' \
+            '  "artifactReviewPolicy": "always-proceed", "agentMode": "accept-edits",' \
+            '  "showFeedbackSurvey": false, "showTips": false, "permissions": { "deny": [] } }' \
+            > "$RUNNER_TEMP/control-settings.json"
+          set +e
+          python3 -I "$RUNNER_TEMP/autofix-selftest.py" --workdir /srv/autofix/repo \
+            --status "$RUNNER_TEMP/selftest.json" --firewall-log "sudo -n dmesg" \
+            --control-settings "$RUNNER_TEMP/control-settings.json" \
+            --settings-install "sudo -u agent tee /home/agent/.gemini/antigravity-cli/settings.json" \
+            --agent-cmd "sudo -u agent --preserve-env=GEMINI_API_KEY /opt/autofix/run-agent.sh"
+          verdict=$?
+          set -e
+          "$RUNNER_TEMP/stop-agent"
+          blocked=$(sudo dmesg 2>/dev/null | grep -o 'agent-blocked: .*DST=[0-9.]*' | sed 's/.*DST=//' | sort -u | head -n 10 || true)
+          if [ -n "$blocked" ]; then echo "Addresses the agent tried to reach (refused by the firewall): $blocked"; fi
+          exit "$verdict"
