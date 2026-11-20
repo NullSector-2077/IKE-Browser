@@ -1415,6 +1415,10 @@ def test_the_closed_room_is_closed_for_git_and_names():
         < room.index('"$RUNNER_TEMP/stop-agent"') < room.index('cp -a "$GITHUB_WORKSPACE" "$repo"')
     assert step_script("A closed room for the agent").rstrip().endswith('"$RUNNER_TEMP/stop-agent"')
     assert "sudo setfacl -m u:agent:--- \"$s\"" in room and "io.systemd.Resolve" in room
+    # second review: root never writes in the agent's home after the installer ran there
+    assert not re.search(r"sudo (tee|chmod|cp|install)[^\n]*/home/agent", room)
+    assert 'sudo install -o root -g root -m 755 "$RUNNER_TEMP/run-agent.sh" /opt/autofix/run-agent.sh' in room
+    assert "/opt/autofix/run-agent.sh\"" in steps["Antigravity"]["run"]
     for name in ("Antigravity", "Reserves, then the patch"):
         run = steps[name]["run"]
         first_git = min(i for i in (run.find('"$RUNNER_TEMP/rgit" add'), run.find("gitr reset")) if i > 0)

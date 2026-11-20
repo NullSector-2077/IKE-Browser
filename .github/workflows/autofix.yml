@@ -194,13 +194,17 @@ jobs:
             | sudo -u agent tee /home/agent/.gemini/antigravity-cli/settings.json > /dev/null
           sudo -u agent python3 -c 'import json,sys; json.load(open(sys.argv[1]))' \
             /home/agent/.gemini/antigravity-cli/settings.json
-          sudo tee /home/agent/run-agent.sh > /dev/null <<'SH'
+          # how the agent is started: root's, outside the agent's home (1.1.18:
+          # root writing in a home the installer already ran in would follow a
+          # link planted there)
+          cat > "$RUNNER_TEMP/run-agent.sh" <<'SH'
           #!/bin/sh
           exec env -i HOME=/home/agent PATH=/home/agent/.local/bin:/usr/bin:/bin \
             AGY_CLI_DISABLE_AUTO_UPDATE=true \
             GEMINI_API_KEY="$GEMINI_API_KEY" /home/agent/.local/bin/agy "$@"
           SH
-          sudo chmod 755 /home/agent/run-agent.sh
+          sudo install -d -o root -g root -m 755 /opt/autofix
+          sudo install -o root -g root -m 755 "$RUNNER_TEMP/run-agent.sh" /opt/autofix/run-agent.sh
           # the Gemini API: its addresses, pinned for the whole run. They are
           # Google front ends that serve other Google services too: the firewall
           # limits the agent to those addresses, not to that one API.
@@ -320,7 +324,7 @@ jobs:
           fi
           python3 -I "$RUNNER_TEMP/autofix-agent.py" --workdir "$repo" --prompt "$RUNNER_TEMP/prompt.md" \
             --out "$out" --status "$out/status.json" $allow \
-            --agent-cmd "sudo -u agent --preserve-env=GEMINI_API_KEY /home/agent/run-agent.sh"
+            --agent-cmd "sudo -u agent --preserve-env=GEMINI_API_KEY /opt/autofix/run-agent.sh"
           # the agent is done: nothing of it keeps running or starts again, and the
           # tree is the runner's again, writable by nobody else
           "$RUNNER_TEMP/stop-agent"
