@@ -9,8 +9,26 @@
 (function () {
   'use strict';
   var CFG = __IKE_CFG__;
-  var SECRET = 'ike:' + CFG.key;       // lets instances recognise a protected realm
+  // lets instances recognise a protected realm; set below, per site (1.1.18)
+  var SECRET = null;
   var origToString = Function.prototype.toString;
+  // taken before any page script runs: a page that replaces call, bind or
+  // Reflect.apply later cannot reach the protection's own calls (1.1.18)
+  var CALL = Function.prototype.call, BIND = Function.prototype.bind, RAPPLY = Reflect.apply;
+  // the number of frames of a window, from the engine's own getter: a page
+  // writing window.length = 0 hid every new frame from the guard (1.1.18,
+  // independent review; the same in 1.1.17)
+  var LENGTH = (function () {
+    var d = Object.getOwnPropertyDescriptor(window, 'length');
+    return d && d.get;
+  })();
+  function framesOf(win) {
+    try { return LENGTH ? RAPPLY(LENGTH, win, []) : win.length; } catch (e) { return 0; }
+  }
+  // the guards of the documents protected by this script, so that one
+  // realm's document.open/write on another realm's document re-arms the
+  // right watch (1.1.18, independent review)
+  var GUARDS = new WeakMap();
 
   // The site the user is visiting (not the frame's own), so every frame of a
   // page shares the same protection level and the same noise.
@@ -100,7 +118,59 @@
     var three = HOSTED.test(h) || (p[p.length - 1].length === 2 && SLD[p[p.length - 2]] === 1);
     return p.slice(three ? -3 : -2).join('.');
   }
-  var seed = hash(CFG.key + '|' + siteOf(host)) || 1;
+  // SHA-256, for the values derived from the session's key (1.1.18,
+  // independent review): the key itself never reaches anything a page can
+  // call or read, and what a page can learn on one site (its noise, the
+  // marker of protected realms) tells nothing about another site. Until
+  // 1.1.18 the marker was the session's key itself, the same on every site
+  // (a page could read it), and the seed a plain FNV hash a page could undo.
+  function sha256(text) {
+    var H = [], K = [], n = 0, i, j;
+    for (var c = 2; n < 64; c++) {
+      for (j = 2; j * j <= c && c % j; j++) {}
+      if (j * j > c) {
+        if (n < 8) H[n] = (Math.pow(c, 1 / 2) * 4294967296) | 0;
+        K[n++] = (Math.pow(c, 1 / 3) * 4294967296) | 0;
+      }
+    }
+    var bytes = [];
+    for (i = 0; i < text.length; i++) {
+      var code = text.charCodeAt(i);
+      if (code > 127) code = 63;                        // host names are ASCII (punycode)
+      bytes.push(code);
+    }
+    var bits = bytes.length * 8;
+    bytes.push(128);
+    while (bytes.length % 64 !== 56) bytes.push(0);
+    for (i = 7; i >= 0; i--) bytes.push(i > 3 ? 0 : (bits >>> (i * 8)) & 255);
+    function rot(v, k) { return (v >>> k) | (v << (32 - k)); }
+    for (var o = 0; o < bytes.length; o += 64) {
+      var W = [];
+      for (i = 0; i < 16; i++) {
+        W[i] = (bytes[o + 4 * i] << 24) | (bytes[o + 4 * i + 1] << 16) | (bytes[o + 4 * i + 2] << 8) | bytes[o + 4 * i + 3];
+      }
+      for (i = 16; i < 64; i++) {
+        var s0 = rot(W[i - 15], 7) ^ rot(W[i - 15], 18) ^ (W[i - 15] >>> 3);
+        var s1 = rot(W[i - 2], 17) ^ rot(W[i - 2], 19) ^ (W[i - 2] >>> 10);
+        W[i] = (W[i - 16] + s0 + W[i - 7] + s1) | 0;
+      }
+      var a = H[0], b = H[1], cc = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7];
+      for (i = 0; i < 64; i++) {
+        var t1 = (h + (rot(e, 6) ^ rot(e, 11) ^ rot(e, 25)) + ((e & f) ^ (~e & g)) + K[i] + W[i]) | 0;
+        var t2 = ((rot(a, 2) ^ rot(a, 13) ^ rot(a, 22)) + ((a & b) ^ (a & cc) ^ (b & cc))) | 0;
+        h = g; g = f; f = e; e = (d + t1) | 0; d = cc; cc = b; b = a; a = (t1 + t2) | 0;
+      }
+      H[0] = (H[0] + a) | 0; H[1] = (H[1] + b) | 0; H[2] = (H[2] + cc) | 0; H[3] = (H[3] + d) | 0;
+      H[4] = (H[4] + e) | 0; H[5] = (H[5] + f) | 0; H[6] = (H[6] + g) | 0; H[7] = (H[7] + h) | 0;
+    }
+    var out = '';
+    for (i = 0; i < 8; i++) out += ('00000000' + (H[i] >>> 0).toString(16)).slice(-8);
+    return out;
+  }
+  var SITE_KEY = sha256(CFG.key + '|' + siteOf(host));
+  CFG.key = null;                                       // not kept once used
+  SECRET = 'ike:' + sha256('realm|' + SITE_KEY).slice(0, 32);
+  var seed = parseInt(SITE_KEY.slice(0, 8), 16) || 1;
   function rng(s) {
     var x = s || 1;
     return function () {
@@ -123,37 +193,47 @@
       }
     }
   }
-  // In strict profiles, do not invent a different GPU model. The
-  // WEBGL_debug_renderer_info extension is the source of the raw vendor and
-  // renderer pair; hide that extension consistently instead of reporting a
-  // plausible-looking but false RTX 3060/RX 580/UHD 620 identity.
-  var DEBUG_GPU_EXTENSION = 'webgl_debug_renderer_info';
   // ---- values shared by every realm and by workers ---------------------------
   var realCores = navigator.hardwareConcurrency || 4;
   // A usual number of cores, chosen per site (Strict never goes above 8).
   var usual = (strict ? [2, 4, 6, 8] : [2, 4, 6, 8, 12, 16]).filter(function (n) { return n <= realCores; });
   var cores = usual.length ? usual[seed % usual.length] : realCores;
-  // ---- graphics card: a common model chosen per site, never the real one ------
-  // A fixed value of our own would be shared by I.K.E. users only and so mark
-  // them; the real one identifies the machine. Each site gets one of these
-  // widespread models instead, a different one in every session.
+  // ---- graphics card (1.1.18) --------------------------------------------------
+  // Balanced: each site gets one of a few models that are common on Linux,
+  // written exactly as Chrome reports them there (vendor, renderer, and what
+  // WebGPU says of the same card), a different one in every session. Only
+  // models whose real name carries no driver version: Intel cards on Mesa and
+  // NVIDIA cards on NVIDIA's driver. AMD cards are left out on purpose: on
+  // Linux their name always carries the LLVM and DRM versions, which made
+  // each such name very rare (seen in Cover Your Tracks). A fixed value of
+  // our own would mark I.K.E.'s users; the real one marks the computer.
+  // Strict and Maximum: no name at all. The WEBGL_debug_renderer_info
+  // extension, the only source of the vendor and renderer pair, is hidden in
+  // every frame and worker, and WebGPU is not offered.
+  var DEBUG_GPU_EXTENSION = 'webgl_debug_renderer_info';
   var GPUS = [
-    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) UHD Graphics 620 (KBL GT2), OpenGL 4.6)'],
-    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) HD Graphics 520 (SKL GT2), OpenGL 4.6)'],
-    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) UHD Graphics 630 (CFL GT2), OpenGL 4.6)'],
-    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) UHD Graphics (CML GT2), OpenGL 4.6)'],
-    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) Xe Graphics (TGL GT2), OpenGL 4.6)'],
-    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) Graphics (ADL GT2), OpenGL 4.6)'],
-    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) Graphics (RPL-P), OpenGL 4.6)'],
-    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) HD Graphics 4000 (IVB GT2), OpenGL 4.2)'],
-    ['Google Inc. (AMD)', 'ANGLE (AMD, AMD Radeon Graphics (radeonsi, renoir, LLVM 17.0.6, DRM 3.57), OpenGL 4.6)'],
-    ['Google Inc. (AMD)', 'ANGLE (AMD, AMD Radeon RX 580 Series (radeonsi, polaris10, LLVM 17.0.6, DRM 3.57), OpenGL 4.6)'],
-    ['Google Inc. (AMD)', 'ANGLE (AMD, AMD Radeon Vega 8 Graphics (radeonsi, raven, LLVM 17.0.6, DRM 3.57), OpenGL 4.6)'],
-    ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce GTX 1650/PCIe/SSE2, OpenGL 4.5.0)'],
-    ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce GTX 1060 6GB/PCIe/SSE2, OpenGL 4.5.0)'],
-    ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 3060/PCIe/SSE2, OpenGL 4.5.0)']
+    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) UHD Graphics 620 (KBL GT2), OpenGL 4.6)', 'intel', 'gen-9'],
+    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) UHD Graphics 630 (CFL GT2), OpenGL 4.6)', 'intel', 'gen-9'],
+    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) HD Graphics 520 (SKL GT2), OpenGL 4.6)', 'intel', 'gen-9'],
+    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) Xe Graphics (TGL GT2), OpenGL 4.6)', 'intel', 'gen-12lp'],
+    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) Graphics (ADL GT2), OpenGL 4.6)', 'intel', 'gen-12lp'],
+    ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce GTX 1650/PCIe/SSE2, OpenGL 4.5.0)', 'nvidia', 'turing'],
+    ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce GTX 1060 6GB/PCIe/SSE2, OpenGL 4.5.0)', 'nvidia', 'pascal'],
+    ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 3060/PCIe/SSE2, OpenGL 4.5.0)', 'nvidia', 'ampere']
   ];
-  var gpu = GPUS[(seed >>> 7) % GPUS.length];
+  var PICK = seed >>> 7;
+  // The model for this site among those of the real card's maker (1.1.18):
+  // the limits and extensions WebGL and WebGPU report depend on the maker, so
+  // an Intel name over an NVIDIA card's limits would be a contradiction a
+  // script can see. The maker is no secret: those limits tell it anyway.
+  // Cards of other makers (AMD, software renderers) get one of all the models.
+  // Pure: it also runs inside workers (passed in the prelude).
+  function gpuFor(real, gpus, pick) {
+    var s = String(real || '').toLowerCase();
+    var f = s.indexOf('nvidia') >= 0 ? 'nvidia' : (s.indexOf('intel') >= 0 ? 'intel' : '');
+    var pool = f ? gpus.filter(function (g) { return g[2] === f; }) : gpus;
+    return pool[pick % pool.length];
+  }
   // Optional WebGL extensions that pages rarely use: a different subset is
   // hidden on every site, so the extension list is no stable identifier.
   var EXT_POOL = ['ext_clip_control', 'ext_depth_clamp', 'ext_polygon_offset_clamp',
@@ -164,7 +244,10 @@
     'webgl_render_shared_exponent', 'webgl_stencil_texturing', 'ext_disjoint_timer_query',
     'ext_disjoint_timer_query_webgl2', 'webgl_multi_draw'];
   var hiddenExt = {};
-  EXT_POOL.forEach(function (name) { if (hash(seed + '|' + name) & 1) hiddenExt[name] = 1; });
+  // a well-mixed bit per name (FNV's lowest bit is only the parity of the
+  // text's characters: nearly the same list everywhere until 1.1.18)
+  EXT_POOL.forEach(function (name) { if ((hash(seed + '|' + name) >>> 16) & 1) hiddenExt[name] = 1; });
+  if (strict) hiddenExt[DEBUG_GPU_EXTENSION] = 1;      // no name of the card at all
   var langs = null;
   if (maximum) langs = ['en-US', 'en'];
   else if (strict) {
@@ -276,11 +359,27 @@
     var d = Object.getOwnPropertyDescriptor(obj, name);
     if (!d || !d.set) return;
     var orig = d.set;
-    var holder = { set [name](v) { orig.call(this, v); after(this, v); } };
+    var holder = { set [name](v) { RAPPLY(orig, this, [v]); after(this, v); } };
     var s = Object.getOwnPropertyDescriptor(holder, name).set;
     natives.set(s, origToString.call(orig));
     d.set = s;
     try { Object.defineProperty(obj, name, d); } catch (e) {}
+  }
+  // WebGPU names the same card as WebGL on this site (1.1.18): its vendor and
+  // architecture, no device id or description (as Chrome on Linux gives).
+  function gpuInfo(w) {
+    var I = w.GPUAdapterInfo && w.GPUAdapterInfo.prototype;
+    if (!I) return;
+    var d = Object.getOwnPropertyDescriptor(I, 'vendor'), realVendor = d && d.get;
+    function mine(info) {
+      var v = '';
+      try { v = realVendor.call(info); } catch (e) {}
+      return gpuFor(v, GPUS, PICK);
+    }
+    getter(I, 'vendor', function () { return mine(this)[2]; });
+    getter(I, 'architecture', function () { return mine(this)[3]; });
+    getter(I, 'device', function () { return ''; });
+    getter(I, 'description', function () { return ''; });
   }
   function isProtected(w) {
     try { return w.Function.prototype.toString.call(SECRET) === SECRET; } catch (e) { return false; }
@@ -288,8 +387,7 @@
 
   // ---- inline workers -----------------------------------------------------------
   // Runs inside the worker; must not use anything from outside its own body.
-  function workerPatch(c, rng, farble) {
-    var DEBUG_GPU_EXTENSION = 'webgl_debug_renderer_info';
+  function workerPatch(c, rng, farble, gpuFor) {
     var toStr = Function.prototype.toString, nat = new WeakMap();
     function method(name, impl, orig) {
       var f = ({ [name]() { return impl.apply(this, arguments); } })[name];
@@ -374,17 +472,74 @@
         return function (p) {
           var r = orig.apply(this, arguments);
           // UNMASKED_VENDOR_WEBGL / UNMASKED_RENDERER_WEBGL.
-          if ((p === 37445 || p === 37446) && typeof r === 'string') return c.gpu[p - 37445];
+          if ((p === 37445 || p === 37446) && typeof r === 'string') {
+            if (c.strict) return null;
+            return gpuFor(p === 37445 ? r : orig.call(this, 37445), c.gpus, c.pick)[p - 37445];
+          }
           return r;
         };
       });
     });
     if (c.strict) getter(N, 'gpu', function () { return undefined; });
+    else if (self.GPUAdapterInfo) {
+      var GI = self.GPUAdapterInfo.prototype;
+      var gd = Object.getOwnPropertyDescriptor(GI, 'vendor'), realVendor = gd && gd.get;
+      var mine = function (info) {
+        var v = '';
+        try { v = realVendor.call(info); } catch (e) {}
+        return gpuFor(v, c.gpus, c.pick);
+      };
+      getter(GI, 'vendor', function () { return mine(this)[2]; });
+      getter(GI, 'architecture', function () { return mine(this)[3]; });
+      getter(GI, 'device', function () { return ''; });
+      getter(GI, 'description', function () { return ''; });
+    }
+    // workers started by this worker get the same prelude (1.1.18,
+    // independent review: a worker inside a worker had none)
+    try {
+      var me = '(' + toStr.call(workerPatch) + ')(' + JSON.stringify(c) + ',' + toStr.call(rng) + ',' +
+        toStr.call(farble) + ',' + toStr.call(gpuFor) + ');\n';
+      while (me.length % 3) me += ' ';                 // so it can be joined to base64 data
+      var Ur = self.URL, made = new Map(), mk = Ur && Ur.createObjectURL, rv = Ur && Ur.revokeObjectURL;
+      if (mk && self.Blob) {
+        wrap(Ur, 'createObjectURL', function (orig) {
+          return function (o) {
+            var u = orig.apply(this, arguments);
+            try { if (o instanceof Blob) made.set(u, o); } catch (e) {}
+            return u;
+          };
+        });
+      }
+      ['Worker', 'SharedWorker'].forEach(function (name) {
+        var Orig = self[name];
+        if (typeof Orig !== 'function' || !mk) return;
+        var P = new Proxy(Orig, {
+          construct: function (t, args, nt) {
+            try {
+              var u = String(args[0]), rest = Array.prototype.slice.call(args, 1), b = made.get(u);
+              args = [u].concat(rest);
+              if (b) {
+                var pu = mk.call(Ur, new Blob([me, b], { type: b.type || 'text/javascript' }));
+                args = [pu].concat(rest);
+                setTimeout(function () { rv.call(Ur, pu); }, 30000);
+              } else if (u.slice(0, 5) === 'data:' && u.indexOf(',') > 0) {
+                var k = u.indexOf(','), b64 = /;base64$/i.test(u.slice(0, k));
+                args = [u.slice(0, k + 1) + (b64 ? btoa(me) : encodeURIComponent(me)) +
+                  u.slice(k + 1)].concat(rest);
+              }
+            } catch (e) {}
+            return Reflect.construct(t, args, nt === P ? t : nt);
+          }
+        });
+        nat.set(P, toStr.call(Orig));
+        try { Object.defineProperty(self, name, { value: P, writable: true, configurable: true }); } catch (e) {}
+      });
+    } catch (e) {}
   }
   var PRELUDE = '(' + origToString.call(workerPatch) + ')(' +
     JSON.stringify({ cores: cores, mem: strict ? 8 : 0, langs: langs, seed: seed, strict: strict,
-      gpu: gpu, hidden: hiddenExt }) +
-    ',' + origToString.call(rng) + ',' + origToString.call(farble) + ');\n';
+      gpus: GPUS, pick: PICK, hidden: hiddenExt }) +
+    ',' + origToString.call(rng) + ',' + origToString.call(farble) + ',' + origToString.call(gpuFor) + ');\n';
   while (PRELUDE.length % 3) PRELUDE += ' ';     // so it can be joined to base64 data
 
   // ---- fonts: the same answer for every I.K.E. user (Strict and above) -------
@@ -575,8 +730,12 @@
       wrap(GL.prototype, 'getParameter', function (orig) {
         return function (p) {
           var r = orig.apply(this, arguments);
-          // UNMASKED_VENDOR_WEBGL / UNMASKED_RENDERER_WEBGL: the site's model
-          if ((p === 37445 || p === 37446) && typeof r === 'string') return gpu[p - 37445];
+          // UNMASKED_VENDOR_WEBGL / UNMASKED_RENDERER_WEBGL: the site's model,
+          // or nothing where the extension is hidden (as without it)
+          if ((p === 37445 || p === 37446) && typeof r === 'string') {
+            if (strict) return null;
+            return gpuFor(p === 37445 ? r : orig.call(this, 37445), GPUS, PICK)[p - 37445];
+          }
           return r;
         };
       });
@@ -590,16 +749,7 @@
       });
     });
     if (strict) getter(w.Navigator.prototype, 'gpu', function () { return undefined; });
-    else if (w.GPUAdapter) {
-      getter(w.GPUAdapter.prototype, 'info', function (orig) {
-        var real = orig.call(this);
-        try {
-          return Object.freeze({ vendor: '', architecture: '', device: '', description: '',
-            subgroupMinSize: real.subgroupMinSize, subgroupMaxSize: real.subgroupMaxSize,
-            isFallbackAdapter: false });
-        } catch (e) { return real; }
-      });
-    }
+    else gpuInfo(w);
 
     // ---- audio ----
     var seenBuffers = new WeakSet();
@@ -757,8 +907,9 @@
         return function (obj) {
           var url = orig.apply(this, arguments);
           try {
-            if (obj instanceof w.Blob && obj.size < 8388608 &&
-                (!obj.type || /script|text\/plain/.test(obj.type))) blobs.set(url, obj);
+            // every blob, whatever its type and size: a worker runs any of them
+            // (1.1.18, independent review: other types and large ones got no prelude)
+            if (obj instanceof w.Blob) blobs.set(url, obj);
           } catch (e) {}
           return url;
         };
@@ -776,8 +927,21 @@
           construct: function (target, args, newTarget) {
             try {
               var url = String(args[0]);
+              // the address as read here is the one used (an object whose
+              // text changes between two readings cannot slip past)
+              args = [url].concat(Array.prototype.slice.call(args, 1));
               if (url.slice(0, 5) === 'blob:') {
                 var blob = blobs.get(url);
+                if (!blob) {
+                  // a blob address made elsewhere (in a worker, another frame):
+                  // its text is read here, once
+                  try {
+                    var x = new w.XMLHttpRequest();
+                    x.open('GET', url, false);
+                    x.send();
+                    if (x.status === 200 || x.status === 0) blob = new w.Blob([x.responseText], { type: 'text/javascript' });
+                  } catch (e) {}
+                }
                 if (blob) {
                   var patched = rawCreate.call(U, new w.Blob([PRELUDE, blob],
                     { type: blob.type || 'text/javascript' }));
@@ -786,7 +950,7 @@
                 }
               } else if (url.slice(0, 5) === 'data:') {
                 var comma = url.indexOf(',');
-                if (comma > 0 && /javascript|ecmascript|^data:(;|,)|text\/plain/i.test(url.slice(0, comma + 1))) {
+                if (comma > 0) {
                   var b64 = /;base64$/i.test(url.slice(0, comma));
                   args = [url.slice(0, comma + 1) +
                     (b64 ? w.btoa(PRELUDE) : w.encodeURIComponent(PRELUDE)) +
@@ -829,22 +993,37 @@
   }
   function sweep(win) {
     try {
-      for (var i = 0, n = win.length; i < n; i++) adopt(win[i]);
+      for (var i = 0, n = framesOf(win); i < n; i++) adopt(win[i]);
     } catch (e) {}
   }
   function guard(w) {
     // Looking into every frame is not free, so it is done only when the number
     // of frames changed, or after an operation that can swap one frame for another.
-    var known = 0;
+    var known = 0, watching = false;
     var own = w.document;
     function check(node, force) {
       // the usual case, first and cheap: a node of this document, no frame added
-      if (!force && w.length === known && (!node || node === own || node.ownerDocument === own)) return;
-      var d = node && (node.ownerDocument || node);
-      var win = (d && d.defaultView) || w;
-      if (win !== w) { if (win.length) sweep(win); return; }
-      var n = w.length;
+      if (!force && framesOf(w) === known && (!node || docOf(node) === own)) return;
+      var d = node ? docOf(node) : own, win = w;
+      if (d && d !== own) {
+        try { win = defaultViewOf(d) || w; } catch (e) { win = w; }
+      }
+      if (win !== w) { if (framesOf(win)) sweep(win); return; }
+      var n = framesOf(w);
       if (n !== known || (force && n)) { known = n; sweep(w); }
+    }
+    // the document of a node or of a Range, through the engine's getters (a
+    // page's own ownerDocument or defaultView cannot mislead the guard)
+    function docOf(node) {
+      try {
+        if (nodeTypeOf(node) === 9) return node;
+        return ownerOf(node) || node;
+      } catch (e) {}
+      try {
+        var c = startContainerOf(node);
+        return nodeTypeOf(c) === 9 ? c : ownerOf(c);
+      } catch (e) {}
+      return own;
     }
     // innerHTML / outerHTML: only HTML that writes a frame can bring a new one
     function after(node, v) {
@@ -857,9 +1036,31 @@
       var d = obj && Object.getOwnPropertyDescriptor(obj, name);
       if (!d || typeof d.value !== 'function') return;
       var orig = d.value;
-      var f = ({ [orig.name || name](...args) {
-        var r = Reflect.apply(orig, this, args);
-        if (force || mayAddFrame(this, args)) check(this, force);
+      // the usual one or two arguments are passed on as they are (no array
+      // made for each call: 1.1.18); any other number exactly as given
+      var invoke = RAPPLY(BIND, CALL, [orig]);   // bound now: nothing the page changes later is looked up
+      // A frame is new when this very call changed the number of frames, or
+      // moved a node that was in a document already (a moved frame gets a new
+      // window). Counting before and after the call, not against the count
+      // of the last check: a frame removed earlier, then another added, keeps
+      // the count the same (1.1.18, independent review).
+      var f = ({ [orig.name || name](a, b) {
+        var n = arguments.length, r, pre, moved;
+        if (n === 1) {
+          if (!force && !mayNode(a)) return invoke(this, a);
+          pre = framesOf(w); moved = !force && placed(a);
+          r = invoke(this, a);
+        } else if (n === 2) {
+          if (!force && !mayNode(a) && !mayNode(b)) return invoke(this, a, b);
+          pre = framesOf(w); moved = !force && (placed(a) || placed(b));
+          r = invoke(this, a, b);
+        } else {
+          if (!force && !mayAny(arguments)) return reflectApply(orig, this, arguments);
+          pre = framesOf(w); moved = false;
+          if (!force) for (var i = 0; i < arguments.length; i++) if (placed(arguments[i])) moved = true;
+          r = reflectApply(orig, this, arguments);
+        }
+        if (force || moved || framesOf(w) !== pre || !ours(this)) check(this, true);
         return r;
       } })[orig.name || name];
       try { Object.defineProperty(f, 'length', { value: orig.length, configurable: true }); } catch (e) {}
@@ -872,18 +1073,46 @@
     // text or an element without children that is not a frame itself.
     var FRAMES = { iframe: 1, frame: 1, object: 1, embed: 1 };
     var FRAME_HTML = /<\s*(i?frame|object|embed)\b/i;
-    function mayAddFrame(target, args) {
-      if (target && target.isConnected === false) return false;
-      for (var i = 0; i < args.length; i++) {
-        var a = args[i];
-        if (typeof a === 'string') {
-          if (FRAME_HTML.test(a)) return true;                 // insertAdjacentHTML
-        } else if (a && (a.nodeType === 11 ||                  // a fragment
-                         (a.nodeType === 1 && (FRAMES[a.localName] === 1 || a.firstElementChild)))) {
-          return true;
-        }
-      }
+    var reflectApply = RAPPLY;
+    // The node's own properties are read through the engine's getters, taken
+    // when the protection is installed: a page cannot make a frame look like
+    // text by giving it a nodeType of its own (1.1.18, independent review).
+    function native(P, n) {
+      var d = P && Object.getOwnPropertyDescriptor(P, n);
+      return d && d.get ? RAPPLY(BIND, CALL, [d.get]) : null;
+    }
+    var nodeTypeOf = native(w.Node && w.Node.prototype, 'nodeType');
+    var localNameOf = native(w.Element && w.Element.prototype, 'localName');
+    var connectedOf = native(w.Node && w.Node.prototype, 'isConnected');
+    var firstElementOf = native(w.Element && w.Element.prototype, 'firstElementChild');
+    function mayNode(a) {
+      if (typeof a === 'string') return FRAME_HTML.test(a);      // insertAdjacentHTML, before('...')
+      if (!a || (typeof a !== 'object' && typeof a !== 'function')) return false;
+      var t;
+      try { t = nodeTypeOf(a); } catch (e) { return true; }      // not a node (TrustedHTML...): may be HTML
+      if (t === 11) return true;                                 // a fragment
+      if (t !== 1) return false;                                 // text, comments
+      try { return FRAMES[localNameOf(a)] === 1 || firstElementOf(a) !== null; } catch (e) { return true; }
+    }
+    var ownerOf = native(w.Node && w.Node.prototype, 'ownerDocument');
+    var defaultViewOf = native(w.Document && w.Document.prototype, 'defaultView');
+    var startContainerOf = native(w.AbstractRange && w.AbstractRange.prototype, 'startContainer') ||
+      native(w.Range && w.Range.prototype, 'startContainer');
+    var targetOf = native(w.Event && w.Event.prototype, 'target');
+    var addedOf = native(w.MutationRecord && w.MutationRecord.prototype, 'addedNodes');
+    var listLength = native(w.NodeList && w.NodeList.prototype, 'length');
+    function mayAny(args) {
+      for (var i = 0; i < args.length; i++) if (mayNode(args[i])) return true;
       return false;
+    }
+    // a node already in a document: moving it gives its frames new windows
+    function placed(a) {
+      if (!a || typeof a !== 'object') return false;
+      try { return connectedOf(a) === true; } catch (e) { return false; }
+    }
+    // a target of this document (or outside any document), not of another one
+    function ours(target) {
+      return target === own || docOf(target) === own;
     }
     function hooked(obj, name) { hook(obj, name, false); }
     function swapped(obj, name) { hook(obj, name, true); }
@@ -915,7 +1144,6 @@
     ['insertAdjacentElement', 'insertAdjacentHTML'].forEach(function (n) { hooked(E, n); });
     swapped(E, 'setHTMLUnsafe');
     ['innerHTML', 'outerHTML'].forEach(function (n) { setter(E, n, after); });
-    ['write', 'writeln'].forEach(function (n) { swapped(w.Document && w.Document.prototype, n); });
     var opener = function (orig) {
       return function () {
         var r = orig.apply(this, arguments);
@@ -925,13 +1153,121 @@
     };
     wrap(w, 'open', opener);
     wrap(w.Window && w.Window.prototype, 'open', opener);
-    // frames written in the page's own HTML
-    try {
-      new w.MutationObserver(function () { check(null, false); })
-        .observe(w.document, { childList: true, subtree: true });
-    } catch (e) {}
+    // the ways left that can put a frame into a page without the methods above
+    var R = w.Range && w.Range.prototype;
+    hooked(R, 'insertNode');
+    // surroundContents takes the nodes it surrounds out and puts them back:
+    // a frame among them gets a new window (independent review)
+    swapped(R, 'surroundContents');
+    hooked(E, 'moveBefore');
+    var SR = w.ShadowRoot && w.ShadowRoot.prototype;
+    setter(SR, 'innerHTML', after);
+    swapped(SR, 'setHTMLUnsafe');
+    swapped(w.Document && w.Document.prototype, 'execCommand');
+    // and (1.1.18, independent review) a new body, a table's caption, head
+    // or foot, and nodes put next to the doctype
+    setter(w.Document && w.Document.prototype, 'body', function (node) { check(node, true); });
+    var TB = w.HTMLTableElement && w.HTMLTableElement.prototype;
+    ['caption', 'tHead', 'tFoot'].forEach(function (n) { setter(TB, n, function (node) { check(node, true); }); });
+    var DT = w.DocumentType && w.DocumentType.prototype;
+    ['before', 'after'].forEach(function (n) { hooked(DT, n); });
+    swapped(DT, 'replaceWith');
+    swapped(E, 'setHTML');
+    // frames written in the page's own HTML: watched while the page is being
+    // built (the parser inserts them, before the page's next script runs);
+    // once it is built, every way in is one of the methods above, and
+    // watching every change of the page cost DOM-heavy pages about a tenth
+    // of their speed (1.1.18). If the end of the building is never seen,
+    // the watch simply stays on, as before.
+    // The end of the building is read from the engine itself (its own
+    // readyState getter, a trusted event): a page cannot switch the watch off
+    // early by faking either (1.1.18, independent review). A document opened
+    // again (document.open, or document.write after the page was built) is
+    // built anew by the parser, so the watch comes back for it.
+    var MO = w.MutationObserver && w.MutationObserver.prototype;
+    var moObserve = MO && MO.observe, moDisconnect = MO && MO.disconnect;
+    var D = w.Document && w.Document.prototype;
+    var readyStateOf = native(D, 'readyState');
+    var addListener = w.EventTarget && w.EventTarget.prototype.addEventListener;
+    var watch = null;
+    function building() {
+      try { return readyStateOf(own) === 'loading'; } catch (e) { return true; }
+    }
+    function built(ev) {
+      if (!ev || ev.isTrusted !== true) return;
+      check(null, false);
+      if (watching && !building()) {
+        try { RAPPLY(moDisconnect, watch, []); watching = false; } catch (e) {}
+      }
+    }
+    function arm() {
+      if (watching) return;
+      try {
+        // the parser's own insertions: a frame among them is looked at at once,
+        // whatever the count (a frame removed and another written)
+        if (!watch) watch = new w.MutationObserver(function (records) {
+          var force = false;
+          for (var i = 0; i < records.length && !force; i++) {
+            var added, m;
+            try { added = addedOf(records[i]); m = listLength(added); } catch (e) { force = true; break; }
+            for (var j = 0; j < m; j++) if (mayNode(added[j])) { force = true; break; }
+          }
+          check(null, force);
+        });
+        RAPPLY(moObserve, watch, [own, { childList: true, subtree: true }]);
+        watching = true;
+      } catch (e) {}
+      listen();
+    }
+    // the guard's listeners; added again after document.open, which removes
+    // every listener of the document (independent review). The same function
+    // added twice is kept once.
+    function listen() {
+      try {
+        RAPPLY(addListener, own, ['DOMContentLoaded', built]);
+        RAPPLY(addListener, own, ['readystatechange', built]);
+        RAPPLY(addListener, own, ['load', loaded, true]);
+      } catch (e) {}
+    }
+    // opening the document again: watched before the parser starts
+    ['open', 'write', 'writeln'].forEach(function (n) {
+      var d = D && Object.getOwnPropertyDescriptor(D, n);
+      if (!d || typeof d.value !== 'function') return;
+      var orig = d.value;
+      var f = ({ [orig.name || n]() {
+        // the document's own guard, whichever realm's open/write is used
+        var g = GUARDS.get(this);
+        if (g && (n === 'open' || !g.building())) g.arm();
+        var r = RAPPLY(orig, this, arguments);
+        if (g) { if (g.building()) g.arm(); g.listen(); }
+        check(this, true);
+        return r;
+      } })[orig.name || n];
+      try { Object.defineProperty(f, 'length', { value: orig.length, configurable: true }); } catch (e) {}
+      natives.set(f, natives.get(orig) || origToString.call(orig));
+      d.value = f;
+      try { Object.defineProperty(D, n, d); } catch (e) {}
+    });
+    // A frame sent to a new empty page (location.replace('about:blank'),
+    // its src set again...) gets a new set of built-in objects that the
+    // engine adds no script to; it is protected when it has loaded, before
+    // the page's own listeners hear of it (they come after this one, which
+    // listens on the way down to the frame).
+    function loaded(ev) {
+      var t, name;
+      try { t = targetOf(ev); } catch (e) { return; }
+      if (t === own || !framesOf(w)) return;
+      try { name = localNameOf(t); } catch (e) { return; }
+      if (FRAMES[name] === 1) sweep(w);
+    }
+    GUARDS.set(own, { arm: arm, building: building, listen: listen });
+    arm();
+    if (!building()) built({ isTrusted: true });
     check(null, true);
   }
 
   install(window);
+  // the page's own realm is known as protected: asking it again (a page that
+  // calls window.open('', '_self')) never goes through functions it can replace
+  try { realms.add(window.Function); } catch (e) {}
 })();

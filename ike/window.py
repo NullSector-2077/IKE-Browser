@@ -956,8 +956,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
 
     def current_host(self):
         v = self.current_view()
-        if v and v.url().scheme() in ("http", "https"):
-            return v.url().host().lower()
+        if v:
+            url = v.url()                 # asked for every blocked request: once (1.1.18)
+            if url.scheme() in ("http", "https"):
+                return url.host().lower()
         return ""
 
     def add_tab(self, url=NEWTAB, background=False, after=None, container=None,
@@ -1046,6 +1048,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self._tab_changed(view)
         old = self.current_view()
         if old is not None and old is not view:
+            # idle from now on, not from when it was shown (1.1.18, independent
+            # review: a tab looked at for half an hour was suspended at the next
+            # check after the user left it)
+            old.last_active = time.time()
             from .tabpreview import capture
             capture(old)                    # for the preview shown on its tab
         if view is self.split:
@@ -1862,6 +1868,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         of things in a second: the shield's number is redrawn at most ten
         times a second (each redraw also lays out the address bar again), and
         it always ends on the exact count (1.1.17)."""
+        if getattr(self, "_shield_due", False) and self.shield_pulse.resting():
+            return               # already on its way, and the ring cannot open again yet (1.1.18)
         if host == self.current_host():
             if not getattr(self, "_shield_due", False):
                 self._shield_due = True

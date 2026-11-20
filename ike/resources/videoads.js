@@ -3,7 +3,9 @@
 // slips through, this script makes it invisible and gets rid of it:
 //  - a style sheet, present before the player exists, hides the video and
 //    the ad interface for as long as the player reports an ad, so no ad
-//    frame is ever painted;
+//    frame is ever painted (1.1.18: only then — the page's ad boxes are left
+//    to the filter lists, which on purpose keep some of them, such as
+//    #player-ads, because YouTube refuses playback when they are hidden);
 //  - the ad is muted and fast-forwarded to its end;
 //  - the "skip" button is activated by the page fallback and, when embedded,
 //    its coordinates are relayed to I.K.E.'s top-frame Qt input bridge.
@@ -28,9 +30,6 @@
   var AD = '.html5-video-player.ad-showing, .html5-video-player.ad-interrupting';
   var SKIP = '.ytp-skip-ad-button, .ytp-ad-skip-button, .ytp-ad-skip-button-modern, ' +
              '.ytp-ad-skip-button-slot button, .ytp-ad-skip-button-container button';
-  var CLUTTER = '.ytp-ad-overlay-container, .ytp-ad-message-container, #player-ads, ' +
-                '#masthead-ad, ytd-ad-slot-renderer, ytd-in-feed-ad-layout-renderer, ' +
-                'ytd-promoted-sparkles-web-renderer, ytd-banner-promo-renderer';
   var CSS =
     '.html5-video-player.ad-showing video,' +
     '.html5-video-player.ad-interrupting video,' +
@@ -42,8 +41,7 @@
     '.html5-video-player.ad-interrupting .ytp-ad-player-overlay,' +
     '.html5-video-player.ad-showing .ytp-ad-player-overlay-layout,' +
     '.html5-video-player.ad-interrupting .ytp-ad-player-overlay-layout' +
-    '{opacity:0!important}' +
-    CLUTTER + '{display:none!important}';
+    '{opacity:0!important}';
 
   function addStyle() {
     var root = document.head || document.documentElement;
@@ -126,7 +124,14 @@
       try {
         video.muted = true;
         if (isFinite(video.duration) && video.duration > 0) {
-          if (video.currentTime < video.duration - 0.1) video.currentTime = video.duration;
+          // at most one jump a second (1.1.18): an ad that cannot be sought
+          // made hundreds of seek events a second, every 120 ms and at each
+          // event of the video; it now stays muted and hidden instead
+          var now = Date.now();
+          if (video.currentTime < video.duration - 0.1 && now - (state.lastSeek || 0) >= 1000) {
+            state.lastSeek = now;
+            video.currentTime = video.duration;
+          }
         } else if (video.playbackRate < 16) {
           if (!state.rate) state.rate = video.playbackRate || 1;
           video.playbackRate = 16;
