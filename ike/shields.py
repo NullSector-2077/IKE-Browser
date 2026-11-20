@@ -900,7 +900,8 @@ class Shields(QObject):
         """(Re)apply everything that depends on the configuration."""
         cfg = self.config
         for p in ([profile] if profile else list(self.profiles)):
-            p.setHttpAcceptLanguage(cfg["accept_language"])
+            from .config import accept_language
+            p.setHttpAcceptLanguage(accept_language(cfg))
             p.settings().setAttribute(
                 QWebEngineSettings.WebAttribute.WebRTCPublicInterfacesOnly,
                 bool(cfg["webrtc_hide_ip"]))

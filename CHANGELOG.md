@@ -163,6 +163,13 @@ docs/SECURITY.md):
   only with `IKE_ALLOW_UNSAFE_ENGINE=1`, and then the window and Help ->
   About say which protections are off. About also shows whether site
   isolation is on.
+- **Websites are asked for the system's language**: every new profile asked
+  for Italian ("it-IT,it,en-US,en") whatever the system's language, which
+  gave non-Italian users Italian pages and a rare, identifying combination.
+  Now the system's languages are asked for, as Chrome does (a German system:
+  "de-DE,de,en-US,en"); settings that still had the old default follow the
+  system, a list the user typed stays (Settings → General shows the system's
+  list when the field is empty). Maximum still sends a common "en-US,en".
 - **User scripts cannot be impersonated**: a message on the user-script
   bridge is taken only from a page the script really runs on (a frame that
   page has, matching the script's sites), not just from whoever has its
