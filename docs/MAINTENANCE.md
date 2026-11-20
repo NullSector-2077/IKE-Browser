@@ -13,7 +13,7 @@ signed automatically, and no workflow ever writes to `main`.
 | Every day, 06:17 UTC | The updates applied to a candidate built from current `main` | `daily-maintenance.yml` | Branch `automation/daily-maintenance`, draft PR labelled `maintenance` |
 | On every PR, every push to `main`, every candidate or fix | Lint, all the tests, the Arch package and its tests | `tests.yml` | Checks on the PR, package download `ike-browser-package` |
 | When one of the three above fails | An automatic fix | `autofix.yml` | Draft PR labelled `autofix`, or an issue "Automatic fix needs you" |
-| Mondays, 07:41 UTC | The automation itself | `health.yml` | Issue "Automation health" when something stopped |
+| Mondays, 07:41 UTC | The automation itself | `health.yml` | Issue "Automation health" when something stopped or waits too long |
 | Once a month | New versions of the GitHub actions used | Dependabot | One PR labelled `maintenance` |
 
 ## Components followed
@@ -57,7 +57,17 @@ never touched.
    and the log of the failed step only (from its command to its error, without
    package installs and the runner's cleanup: in the first real trial the end
    of the job's log was 23 KB of noise around two lines of ruff). A setting or
-   workflow problem becomes an issue directly.
+   workflow problem becomes an issue directly, and so (1.1.18) does a daily
+   maintenance whose step "Check and apply component updates" failed (an
+   upstream source could not be reached: nothing on `main` to fix, the next
+   daily run tries again) or whose new AdBlock engine does not build with
+   I.K.E.'s wrapper (a fix of `main` may not touch the wrapper, and that
+   candidate never reaches its branch, where a fix could: a person looks).
+   An open issue "Automatic fix needs you: <workflow>" stops a new fix of
+   `main` only when it names the same failed commit (the report job ends each
+   issue and comment with a hidden `<!-- autofix-sha: ... -->` mark) or was
+   reported in the last 24 hours (1.1.18: an old issue of the first trials
+   kept every later failure of `main` from a fix).
 2. **fix**: first GitHub prepares the code the failure points at
    (`tools/autofix-context.py`, no AI): the places named by tracebacks, pytest
    and ruff, with the lines around them, go into the instructions, and the
@@ -65,11 +75,24 @@ never touched.
    the guard. Then (`tools/autofix-agent.py`, read from `main`) the Antigravity CLI
    (`agy`) runs the instructions of `.github/autofix/prompt.md`, also from
    `main`, in a closed room:
-   - its own user, a copy of the repository, only `HOME`, `PATH` and the API
-     key in its environment, and **no GitHub credentials** (read-only job, no
-     token): it can only leave a patch and a summary in Italian;
+   - its own user and group, a copy of the repository, only `HOME`, `PATH` and
+     the API key in its environment, and **no GitHub credentials** (read-only
+     job, no token): it can only leave a patch and a summary in Italian;
    - no terminal, no web, no MCP (its own permission rules), and a firewall
-     that lets its user reach only the Gemini API;
+     that lets its user reach only the Gemini API, whose address is pinned in
+     `/etc/hosts`; name lookups (DNS, port 53 on this machine) are refused
+     too, since the names asked for could carry data out (1.1.18);
+   - `.git` is not the agent's (1.1.18): it belongs to the runner, the agent
+     cannot write it, and the sticky bit on the top folder keeps it from
+     swapping it for its own. The runner runs git on the agent's work only
+     through `$RUNNER_TEMP/rgit`, which first checks that `.git` is still the
+     runner's, puts back the configuration saved before the agent started,
+     removes nested repositories, and runs git without system or global
+     configuration, attributes file, hooks, fsmonitor or submodules (diffs
+     with `--no-ext-diff --no-textconv`). Otherwise a `diff.external` or a
+     filter written by the agent would run as the runner, which has `sudo`;
+   - its own step, with the Gemini key only: the reserves' keys are in the
+     next step, which the agent never shares (1.1.18);
    - real limits: at most 8 minutes per model and 25 minutes in all. The free
      plan gives each model about 20 requests a day and every step uses one, so
      it is told to take about 10 steps and to run no tests (GitHub runs them).
@@ -77,8 +100,12 @@ never touched.
    when a model's daily quota is used up (or Google is down) does the next one
    go on, with the work already done. When the CLI's own time limit stops an
    agent still at work, nobody else is asked to repeat it: the reserves go on.
-   The firewall logs the addresses the agent tried to reach and could not; they
-   go in the summary, for the diagnosis. A per-minute limit is waited out once; a
+   The firewall logs the addresses the agent tried to reach and could not, and
+   counts its refused name lookups; they go in the summary, for the diagnosis.
+   What Antigravity leaves is kept only as a fix that passed the checks below:
+   after its time limit, a quota, an error, a refusal, or a step that did not
+   finish, its half-done edits are thrown away, with or without reserves
+   (1.1.18: without reserve keys they were published). A per-minute limit is waited out once; a
    wrong key or model name stops at once, since another model would not help.
    The failure description travels inside the instructions (the agent may
    not open `.autofix/`, which git ignores). The agent's output is never printed, the key is hidden in its errors, and a
@@ -110,7 +137,36 @@ never touched.
    those files only; nothing they write is ever run. 429 and unknown models
    move to the next model, a refused key to the next provider, an answer that
    cannot be applied gets one informed retry; a request too large (413) moves
-   to the next provider; "not fixable in the code" stops.
+   to the next provider; any other malformed answer (a list where a file name
+   should be, content that is not text) or error moves to the next model with
+   its edits undone. "Not fixable in the code" from one model asks the next
+   one too; the chain stops when two different models say so (1.1.18: one
+   weak free model giving up stopped them all). What a model writes reaches
+   the log only as one line with no `::`, so it cannot give the runner a
+   workflow command.
+
+   **Residual risk: `--dangerously-skip-permissions`.** Antigravity runs with
+   this flag (nobody is there to answer its questions) and relies on the deny
+   list of its settings (`command(*)`, `unsandboxed(*)`, `read_url(*)`,
+   `execute_url(*)`, `mcp(*)`) to have no terminal, web or MCP. Nothing here
+   proves that the deny list still applies with the flag on. If it did not,
+   the agent could run commands as its own user: it would still have no
+   GitHub token and no other key than Gemini's, no write access to `.git`,
+   no network but the Gemini API (no DNS either), and its work would still
+   go through the checks and the tests before a person merges it. The flag
+   stays so that the agent does not stop at a question; this paragraph is
+   the record of the risk.
+
+   **The Antigravity installer** (1.1.18) is downloaded to a file and its
+   sha256 printed in the log ("Antigravity installer sha256: ..."). The
+   installer picks the CLI's version itself and checks the download against
+   Google's manifest; no version of the CLI can be pinned from here without
+   knowing the installer's options. The variable `AGY_INSTALLER_SHA256` in
+   the step "A closed room for the agent" of `autofix.yml` is empty: then the
+   installer is only printed. Set it to the sha256 of a run whose installer
+   was reviewed, and a different installer is never run (the job stops). When
+   Google changes the installer, that stop is the signal: read the new
+   installer, then put its sha256 there in a pull request.
 3. **guard** (no AI, `tools/check-autofix-patch.py` from `main`): the patch may
    change only `ike/`, `tests/`, `tools/` and `docs/`; never the workflows, the
    signing and update channel, the version, the package recipe, the updater, the
@@ -124,6 +180,17 @@ never touched.
    at most 5 files and 150 lines; and at least one of the files involved in
    the failure must change (`--related`), so a fix stays on the problem. Then lint. A fix of `main` that changes the
    browser gets the next version and a CHANGELOG line.
+   Since 1.1.18 also never YouTube's ad blocking (`ike/resources/videoads.js`,
+   `videorelay.js`, `mediahook.js`: the owner's rule), the tests' reference
+   data (`tests/data/`, `tests/settings-keys.json`), the test packages
+   (`tools/test-requirements.txt`), the builders of what comes from others
+   (`tools/build-*`, `tools/third-party.py`), the weekly health check, or
+   `.github/`; a test is weakened also by a test function removed or renamed,
+   an assertion that cannot fail (`assert True`), an early `return` at the top
+   of a test or a `SkipTest`; Groq (`gsk_`), OpenRouter (`sk-or-`) and other
+   `sk-` keys are caught; a nested repository (gitlink) is refused. With
+   `--check-only` the patch must also apply to the tree, or already be in it.
+   I.K.E.'s ordinary code (`ike/shields.py` included) stays fixable.
 4. **publish** (no AI): the fix goes to `automation/autofix-main` (fixes of
    `main`) or onto the maintenance candidate, a draft PR is opened or updated
    with the agent's summary, and the tests start on it.
@@ -132,14 +199,27 @@ never touched.
    their failure over with a dispatch, job `hand-over`, on the automation's own
    branches only; the plan waits for that run to close.) After two, or when nothing
    could be fixed, the issue **"Automatic fix needs you: <workflow>"** is opened. Its
-   reason is plain: quota, chiave, modello, tempo, rifiutata or sicurezza.
+   reason is plain: quota, chiave, modello, tempo, rifiutata or sicurezza
+   (and, 1.1.18, "una riserva ha preparato una correzione, ma i controlli
+   automatici l'hanno respinta" when that is what happened).
+
+   **One run at a time per branch** (1.1.18). The workflow has no concurrency
+   group of its own any more: GitHub keeps only one waiting run per group and
+   replaces it with the next, so a run for a real failure was dropped for a
+   later run that only skipped (the tests of a pull request, say). The jobs
+   fix, guard and publish wait for each other per branch they work on
+   (`automation/autofix-main` or `automation/daily-maintenance`), never
+   cancelled. The fix job's own limit (70 minutes) is above its two long steps
+   together (32 for Antigravity, 20 for the reserves) and the set-up.
 6. **ChatGPT, started by the owner.** The issue carries a ready message: the
    owner pastes it into ChatGPT (connected to GitHub), which fixes on a branch
    `chatgpt/...` and opens a pull request. `chatgpt-guard.yml` checks its
    changes with the same checker of `main` (it runs as `pull_request_target`
    so a pull request cannot change its own checks, and it never runs anything
-   of the pull request: it reads its diff only), and `tests.yml` runs all the
-   tests on it. Nothing reaches `main` without green checks.
+   of the pull request: it reads its diff only; since 1.1.18 the diff must
+   also apply to a worktree of the commit it starts from, `main` or the
+   automation's branch), and `tests.yml` runs all the tests on it. Nothing
+   reaches `main` without green checks.
 7. **Claude**, last: a conversation with the issue's link.
 
 **The ad blocker's wrapper, one rule for all.** A fix may touch I.K.E.'s own
@@ -218,6 +298,12 @@ person: open a conversation and paste its link.
   commas, in order).
 - Settings → Branches: protect `main` (pull request required, status check
   `tests` required, no force push, no deletion).
+
+The weekly check (`health.yml`, `tools/automation-health.py`) reports, since
+1.1.18, a `main` without branch protection (the `protected` field of the
+branch in GitHub's API) and the reserves' secrets missing, besides runs of the
+automatic fix that failed in the last 7 days and autofix issues or maintenance
+pull requests open for more than 7 days.
 
 If the key leaks (it would show only through the agent), delete it in Google AI
 Studio and create a new one: it can spend nothing and opens nothing else.
