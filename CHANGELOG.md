@@ -22,6 +22,16 @@ protection was removed or weakened.
   of it once per site every 16 ms, the shield still ends on the exact count).
   A page with 400 requests and 150 adverts: 234 -> 190 ms of the interface's
   processor time, request checks 17.6 -> 13.7 ms.
+- **The graphics card named to sites is a common one** (fingerprinting): at
+  Balanced each site gets one of eight Intel and NVIDIA models written exactly
+  as Chrome reports them on Linux, without driver versions; AMD names, which
+  on Linux always carry the LLVM and DRM versions and so were very rare (an
+  "RX 580 ... LLVM 17.0.6, DRM 3.57" was one in 368,000 browsers on Cover
+  Your Tracks), are no longer used. WebGPU names the same card as WebGL
+  (vendor and architecture), in pages, frames and workers. At Strict and
+  Maximum no card is named at all: the WEBGL_debug_renderer_info extension is
+  hidden in every frame and worker (until now a model was shown there too,
+  although the code said it was hidden) and WebGPU stays off.
 - **Tabs when memory runs short**: with less than a tenth of the computer's
   memory available, the tabs not looked at for five minutes or more are
   suspended a few at a time, oldest first, before their usual time (each gives

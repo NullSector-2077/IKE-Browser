@@ -123,35 +123,33 @@
       }
     }
   }
-  // In strict profiles, do not invent a different GPU model. The
-  // WEBGL_debug_renderer_info extension is the source of the raw vendor and
-  // renderer pair; hide that extension consistently instead of reporting a
-  // plausible-looking but false RTX 3060/RX 580/UHD 620 identity.
-  var DEBUG_GPU_EXTENSION = 'webgl_debug_renderer_info';
   // ---- values shared by every realm and by workers ---------------------------
   var realCores = navigator.hardwareConcurrency || 4;
   // A usual number of cores, chosen per site (Strict never goes above 8).
   var usual = (strict ? [2, 4, 6, 8] : [2, 4, 6, 8, 12, 16]).filter(function (n) { return n <= realCores; });
   var cores = usual.length ? usual[seed % usual.length] : realCores;
-  // ---- graphics card: a common model chosen per site, never the real one ------
-  // A fixed value of our own would be shared by I.K.E. users only and so mark
-  // them; the real one identifies the machine. Each site gets one of these
-  // widespread models instead, a different one in every session.
+  // ---- graphics card (1.1.18) --------------------------------------------------
+  // Balanced: each site gets one of a few models that are common on Linux,
+  // written exactly as Chrome reports them there (vendor, renderer, and what
+  // WebGPU says of the same card), a different one in every session. Only
+  // models whose real name carries no driver version: Intel cards on Mesa and
+  // NVIDIA cards on NVIDIA's driver. AMD cards are left out on purpose: on
+  // Linux their name always carries the LLVM and DRM versions, which made
+  // each such name very rare (seen in Cover Your Tracks). A fixed value of
+  // our own would mark I.K.E.'s users; the real one marks the computer.
+  // Strict and Maximum: no name at all. The WEBGL_debug_renderer_info
+  // extension, the only source of the vendor and renderer pair, is hidden in
+  // every frame and worker, and WebGPU is not offered.
+  var DEBUG_GPU_EXTENSION = 'webgl_debug_renderer_info';
   var GPUS = [
-    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) UHD Graphics 620 (KBL GT2), OpenGL 4.6)'],
-    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) HD Graphics 520 (SKL GT2), OpenGL 4.6)'],
-    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) UHD Graphics 630 (CFL GT2), OpenGL 4.6)'],
-    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) UHD Graphics (CML GT2), OpenGL 4.6)'],
-    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) Xe Graphics (TGL GT2), OpenGL 4.6)'],
-    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) Graphics (ADL GT2), OpenGL 4.6)'],
-    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) Graphics (RPL-P), OpenGL 4.6)'],
-    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) HD Graphics 4000 (IVB GT2), OpenGL 4.2)'],
-    ['Google Inc. (AMD)', 'ANGLE (AMD, AMD Radeon Graphics (radeonsi, renoir, LLVM 17.0.6, DRM 3.57), OpenGL 4.6)'],
-    ['Google Inc. (AMD)', 'ANGLE (AMD, AMD Radeon RX 580 Series (radeonsi, polaris10, LLVM 17.0.6, DRM 3.57), OpenGL 4.6)'],
-    ['Google Inc. (AMD)', 'ANGLE (AMD, AMD Radeon Vega 8 Graphics (radeonsi, raven, LLVM 17.0.6, DRM 3.57), OpenGL 4.6)'],
-    ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce GTX 1650/PCIe/SSE2, OpenGL 4.5.0)'],
-    ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce GTX 1060 6GB/PCIe/SSE2, OpenGL 4.5.0)'],
-    ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 3060/PCIe/SSE2, OpenGL 4.5.0)']
+    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) UHD Graphics 620 (KBL GT2), OpenGL 4.6)', 'intel', 'gen-9'],
+    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) UHD Graphics 630 (CFL GT2), OpenGL 4.6)', 'intel', 'gen-9'],
+    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) HD Graphics 520 (SKL GT2), OpenGL 4.6)', 'intel', 'gen-9'],
+    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) Xe Graphics (TGL GT2), OpenGL 4.6)', 'intel', 'gen-12lp'],
+    ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) Graphics (ADL GT2), OpenGL 4.6)', 'intel', 'gen-12lp'],
+    ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce GTX 1650/PCIe/SSE2, OpenGL 4.5.0)', 'nvidia', 'turing'],
+    ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce GTX 1060 6GB/PCIe/SSE2, OpenGL 4.5.0)', 'nvidia', 'pascal'],
+    ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 3060/PCIe/SSE2, OpenGL 4.5.0)', 'nvidia', 'ampere']
   ];
   var gpu = GPUS[(seed >>> 7) % GPUS.length];
   // Optional WebGL extensions that pages rarely use: a different subset is
@@ -165,6 +163,7 @@
     'ext_disjoint_timer_query_webgl2', 'webgl_multi_draw'];
   var hiddenExt = {};
   EXT_POOL.forEach(function (name) { if (hash(seed + '|' + name) & 1) hiddenExt[name] = 1; });
+  if (strict) hiddenExt[DEBUG_GPU_EXTENSION] = 1;      // no name of the card at all
   var langs = null;
   if (maximum) langs = ['en-US', 'en'];
   else if (strict) {
@@ -282,6 +281,16 @@
     d.set = s;
     try { Object.defineProperty(obj, name, d); } catch (e) {}
   }
+  // WebGPU names the same card as WebGL on this site (1.1.18): its vendor and
+  // architecture, no device id or description (as Chrome on Linux gives).
+  function gpuInfo(w) {
+    var I = w.GPUAdapterInfo && w.GPUAdapterInfo.prototype;
+    if (!I) return;
+    getter(I, 'vendor', function () { return gpu[2]; });
+    getter(I, 'architecture', function () { return gpu[3]; });
+    getter(I, 'device', function () { return ''; });
+    getter(I, 'description', function () { return ''; });
+  }
   function isProtected(w) {
     try { return w.Function.prototype.toString.call(SECRET) === SECRET; } catch (e) { return false; }
   }
@@ -289,7 +298,6 @@
   // ---- inline workers -----------------------------------------------------------
   // Runs inside the worker; must not use anything from outside its own body.
   function workerPatch(c, rng, farble) {
-    var DEBUG_GPU_EXTENSION = 'webgl_debug_renderer_info';
     var toStr = Function.prototype.toString, nat = new WeakMap();
     function method(name, impl, orig) {
       var f = ({ [name]() { return impl.apply(this, arguments); } })[name];
@@ -374,12 +382,19 @@
         return function (p) {
           var r = orig.apply(this, arguments);
           // UNMASKED_VENDOR_WEBGL / UNMASKED_RENDERER_WEBGL.
-          if ((p === 37445 || p === 37446) && typeof r === 'string') return c.gpu[p - 37445];
+          if ((p === 37445 || p === 37446) && typeof r === 'string') return c.strict ? null : c.gpu[p - 37445];
           return r;
         };
       });
     });
     if (c.strict) getter(N, 'gpu', function () { return undefined; });
+    else if (self.GPUAdapterInfo) {
+      var GI = self.GPUAdapterInfo.prototype;
+      getter(GI, 'vendor', function () { return c.gpu[2]; });
+      getter(GI, 'architecture', function () { return c.gpu[3]; });
+      getter(GI, 'device', function () { return ''; });
+      getter(GI, 'description', function () { return ''; });
+    }
   }
   var PRELUDE = '(' + origToString.call(workerPatch) + ')(' +
     JSON.stringify({ cores: cores, mem: strict ? 8 : 0, langs: langs, seed: seed, strict: strict,
@@ -575,8 +590,9 @@
       wrap(GL.prototype, 'getParameter', function (orig) {
         return function (p) {
           var r = orig.apply(this, arguments);
-          // UNMASKED_VENDOR_WEBGL / UNMASKED_RENDERER_WEBGL: the site's model
-          if ((p === 37445 || p === 37446) && typeof r === 'string') return gpu[p - 37445];
+          // UNMASKED_VENDOR_WEBGL / UNMASKED_RENDERER_WEBGL: the site's model,
+          // or nothing where the extension is hidden (as without it)
+          if ((p === 37445 || p === 37446) && typeof r === 'string') return strict ? null : gpu[p - 37445];
           return r;
         };
       });
@@ -590,16 +606,7 @@
       });
     });
     if (strict) getter(w.Navigator.prototype, 'gpu', function () { return undefined; });
-    else if (w.GPUAdapter) {
-      getter(w.GPUAdapter.prototype, 'info', function (orig) {
-        var real = orig.call(this);
-        try {
-          return Object.freeze({ vendor: '', architecture: '', device: '', description: '',
-            subgroupMinSize: real.subgroupMinSize, subgroupMaxSize: real.subgroupMaxSize,
-            isFallbackAdapter: false });
-        } catch (e) { return real; }
-      });
-    }
+    else gpuInfo(w);
 
     // ---- audio ----
     var seenBuffers = new WeakSet();

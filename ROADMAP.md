@@ -408,8 +408,9 @@ chiaro.
   when the request is made (DNS rebinding) is not caught. Scripts in the same
   world trust each other: a malicious installed script could watch another
   one's messages (scripts are installed by the user).
-- The graphics card presented to sites is a plausible common model; a script
-  comparing rendering with the model could notice the mismatch.
+- The graphics card presented to sites at Balanced is a common Intel or NVIDIA
+  model; a script comparing rendering with the model could notice the
+  mismatch. At Strict and Maximum no model is named.
 - The bundled Dark Reader page dark mode is not reliable; Qt's own dark mode
   works and is the one to use.
 - The ad-blocking engine is adblock-rust (Brave's open-source library, MPL-2.0)

@@ -55,8 +55,9 @@ profiles: `ike-browser --profile NAME`.
 - Cookie banners refused and hidden automatically.
 - Fingerprinting protection: values that identify the computer change from site
   to site and from session to session — canvas, WebGL, audio, plugins, number of
-  CPU cores, WebGL extensions, and the graphics card (a common model chosen per
-  site, never the real one). The browser presents the Chrome version of its own
+  CPU cores, WebGL extensions, and the graphics card (at Balanced a common
+  Linux model chosen per site, never the real one; at Strict and Maximum no
+  name at all). The browser presents the Chrome version of its own
   engine, so what a site reads always matches what it can test.
 - Automatic HTTPS, encrypted DNS (DNS over HTTPS), third-party cookie blocking,
   reduced referrer, Global Privacy Control.
