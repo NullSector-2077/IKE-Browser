@@ -1,0 +1,92 @@
+# I.K.E. on Arch Linux's own packages: Python, Qt, PyQt and Qt WebEngine from
+# Arch (the "Tests" workflow uses PyPI's Qt, which proves nothing about the
+# engine the users really get). In an archlinux:latest container: the AdBlock
+# engine built, the whole test suite, then the package built with makepkg,
+# installed with pacman and tested as installed.
+#
+# Taken from the archived branch linux/distro-checks (Arch job only, 2026-11-20,
+# Arch-first). Runs once a week (an Arch update can break I.K.E. without any
+# change here), on pull requests that touch the package or this file, and by
+# hand. Not a required check: a failure is a warning for the maintainer.
+name: Arch Linux
+
+on:
+  pull_request:
+    branches: [main]
+    paths: [PKGBUILD, .github/workflows/arch.yml]
+  schedule:
+    - cron: "41 3 * * 1"     # Mondays, 03:41 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: arch-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  arch:
+    name: Arch Linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container:
+      image: archlinux:latest
+      # Chromium's sandbox needs user namespaces that a container on the
+      # runner does not get; the package keeps the sandbox on (see About).
+      env:
+        QTWEBENGINE_DISABLE_SANDBOX: "1"
+        LANG: C.UTF-8
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Git (for the checkout)
+        run: pacman -Syu --noconfirm --needed git
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Arch's packages
+        # the package's depends, makedepends and optdepends, plus what the tests use
+        run: |
+          pacman -S --noconfirm --needed \
+              python python-pyqt6 python-pyqt6-webengine qt6-webengine qt6-webchannel qt6-svg \
+              python-cryptography python-jeepney python-pytest \
+              base-devel rust sudo nodejs \
+              ffmpeg dbus glib2 noto-fonts ttf-dejavu libnotify xdg-utils
+      - name: AdBlock engine
+        run: |
+          cargo build --release --locked --manifest-path ike-adblock/Cargo.toml
+          install -m755 ike-adblock/target/release/libike_adblock.so vendor/adblock/ike_adblock.abi3.so
+      - name: Engine versions
+        run: |
+          mkdir -p out
+          python3 -c "from PyQt6.QtCore import QT_VERSION_STR, PYQT_VERSION_STR; \
+          from PyQt6.QtWebEngineCore import qWebEngineChromiumVersion as c; \
+          print('Qt', QT_VERSION_STR, '- PyQt', PYQT_VERSION_STR, '- Chromium', c())" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Tests (Arch's Qt)
+        run: |
+          set -o pipefail
+          python3 -m pytest -ra --junitxml=out/tests-arch.xml 2>&1 | tee out/tests-arch.log
+      - name: Arch package (makepkg, pacman, tests as installed)
+        run: |
+          set -o pipefail
+          useradd -m builder
+          chown -R builder: .
+          sudo -u builder env PKGDEST="$PWD/out" PKGEXT=.pkg.tar.zst makepkg -f --noconfirm
+          pkg=$(find out -name 'ike-browser-*-x86_64.pkg.tar.zst' -print -quit)
+          test -n "$pkg"
+          if bsdtar -tf "$pkg" | grep -E '\.(key|pem)$'; then
+            echo "Private-key-like file found in the package"; exit 1
+          fi
+          pacman -U --noconfirm "$pkg"
+          ike-browser --version
+          IKE_TEST_APP=/usr/lib/ike-browser python3 -m pytest -ra \
+              --junitxml=out/tests-arch-installed.xml 2>&1 | tee out/tests-arch-installed.log
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: arch
+          path: out/
+          if-no-files-found: warn
+          retention-days: 30
