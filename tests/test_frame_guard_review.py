@@ -65,6 +65,18 @@ window.run = async function () {
   var cap = document.createElement('caption'); cap.appendChild(document.createElement('iframe'));
   table.caption = cap; await both(R, 'table_caption');
   box().replaceChildren(); await wait(50);
+  // (second review) surroundContents around a frame already in the page, and a
+  // page's own defaultView on every object
+  var fx = document.createElement('iframe'); box().appendChild(fx); await wait(50);
+  var rs = document.createRange(); rs.selectNode(fx); rs.surroundContents(document.createElement('section'));
+  await both(R, 'surround_existing');
+  box().replaceChildren(); await wait(50);
+  Object.defineProperty(Object.prototype, 'defaultView', {value: {length: 0}, configurable: true});
+  var rg = document.createRange(); rg.selectNodeContents(box()); rg.insertNode(document.createElement('iframe'));
+  R['defaultview_spoof.sync'] = sig(last());
+  delete Object.prototype.defaultView;
+  await both(R, 'defaultview_spoof');
+  box().replaceChildren(); await wait(50);
   var nb = document.createElement('body'); nb.appendChild(document.createElement('iframe'));
   document.body = nb; await both(R, 'body_setter');
   document.documentElement.remove(); await wait(50);
@@ -121,7 +133,48 @@ window.RAW = sig(window[0]);
 window.run = function () { window.result = JSON.stringify({top: sig(window), 'readystate_spoof.sync': window.RAW, 'readystate_spoof.async': sig(window[0])}); };
 </script>x</body>"""
 
-PAGES = {"/timing": TIMING, "/": PAGE, "/reopen": REOPEN, "/spoof": SPOOF}
+LENGTH = r"""<!doctype html><title>length</title><body><div id=box></div><script>
+""" + COMMON + r"""
+window.run = async function () {
+  var R = {top: sig(window)}, box = document.getElementById('box');
+  window.length = 0;                    // the page's own "length" (second review)
+  box.appendChild(document.createElement('iframe')); R['length_zero.sync'] = sig(window[0]);
+  await Promise.resolve(); R['length_zero.microtask'] = sig(window[0]);
+  var d = document.createElement('div'); box.appendChild(d); d.innerHTML = '<iframe></iframe>';
+  R['length_zero.innerhtml'] = sig(window[1]);
+  window.result = JSON.stringify(R);
+};
+</script>x</body>"""
+
+OTHERREALM = r"""<!doctype html><title>other</title><body><iframe id=helper></iframe><script>
+""" + COMMON + r"""
+window.run = function () {
+  window.TOP = sig(window);
+  var hd = document.getElementById('helper').contentDocument, o = hd.open, wr = hd.write, cl = hd.close;
+  o.call(document);
+  wr.call(document, '<!doctype html><body><script src="/slow.js"><\/script><iframe></iframe><script>window.RAW = sig(window[0]);<\/script>');
+  cl.call(document);
+  setTimeout(function () { window.result = JSON.stringify({top: window.TOP, 'other_realm_open.sync': window.RAW}); }, 1500);
+};
+</script>x</body>"""
+
+REOPENLOAD = r"""<!doctype html><title>rl</title><body><script>
+""" + COMMON + r"""
+window.run = function () {
+  window.TOP = sig(window);
+  document.open(); document.write('<!doctype html><body><div id=box></div></body>'); document.close();
+  var f = document.createElement('iframe'); document.getElementById('box').appendChild(f);
+  setTimeout(function () {
+    f.addEventListener('load', function () {
+      window.result = JSON.stringify({top: window.TOP, 'reopened_then_blank.load': sig(window[0])});
+    }, {once: true});
+    window[0].location.replace('about:blank');
+  }, 300);
+};
+</script>x</body>"""
+
+PAGES = {"/timing": TIMING, "/": PAGE, "/reopen": REOPEN, "/spoof": SPOOF, "/length": LENGTH,
+         "/otherrealm": OTHERREALM, "/reopenload": REOPENLOAD}
 
 
 @pytest.fixture

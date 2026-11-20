@@ -15,6 +15,20 @@
   // taken before any page script runs: a page that replaces call, bind or
   // Reflect.apply later cannot reach the protection's own calls (1.1.18)
   var CALL = Function.prototype.call, BIND = Function.prototype.bind, RAPPLY = Reflect.apply;
+  // the number of frames of a window, from the engine's own getter: a page
+  // writing window.length = 0 hid every new frame from the guard (1.1.18,
+  // independent review; the same in 1.1.17)
+  var LENGTH = (function () {
+    var d = Object.getOwnPropertyDescriptor(window, 'length');
+    return d && d.get;
+  })();
+  function framesOf(win) {
+    try { return LENGTH ? RAPPLY(LENGTH, win, []) : win.length; } catch (e) { return 0; }
+  }
+  // the guards of the documents protected by this script, so that one
+  // realm's document.open/write on another realm's document re-arms the
+  // right watch (1.1.18, independent review)
+  var GUARDS = new WeakMap();
 
   // The site the user is visiting (not the frame's own), so every frame of a
   // page shares the same protection level and the same noise.
@@ -979,7 +993,7 @@
   }
   function sweep(win) {
     try {
-      for (var i = 0, n = win.length; i < n; i++) adopt(win[i]);
+      for (var i = 0, n = framesOf(win); i < n; i++) adopt(win[i]);
     } catch (e) {}
   }
   function guard(w) {
@@ -989,12 +1003,27 @@
     var own = w.document;
     function check(node, force) {
       // the usual case, first and cheap: a node of this document, no frame added
-      if (!force && w.length === known && (!node || node === own || node.ownerDocument === own)) return;
-      var d = node && (node.ownerDocument || node);
-      var win = (d && d.defaultView) || w;
-      if (win !== w) { if (win.length) sweep(win); return; }
-      var n = w.length;
+      if (!force && framesOf(w) === known && (!node || docOf(node) === own)) return;
+      var d = node ? docOf(node) : own, win = w;
+      if (d && d !== own) {
+        try { win = defaultViewOf(d) || w; } catch (e) { win = w; }
+      }
+      if (win !== w) { if (framesOf(win)) sweep(win); return; }
+      var n = framesOf(w);
       if (n !== known || (force && n)) { known = n; sweep(w); }
+    }
+    // the document of a node or of a Range, through the engine's getters (a
+    // page's own ownerDocument or defaultView cannot mislead the guard)
+    function docOf(node) {
+      try {
+        if (nodeTypeOf(node) === 9) return node;
+        return ownerOf(node) || node;
+      } catch (e) {}
+      try {
+        var c = startContainerOf(node);
+        return nodeTypeOf(c) === 9 ? c : ownerOf(c);
+      } catch (e) {}
+      return own;
     }
     // innerHTML / outerHTML: only HTML that writes a frame can bring a new one
     function after(node, v) {
@@ -1019,19 +1048,19 @@
         var n = arguments.length, r, pre, moved;
         if (n === 1) {
           if (!force && !mayNode(a)) return invoke(this, a);
-          pre = w.length; moved = !force && placed(a);
+          pre = framesOf(w); moved = !force && placed(a);
           r = invoke(this, a);
         } else if (n === 2) {
           if (!force && !mayNode(a) && !mayNode(b)) return invoke(this, a, b);
-          pre = w.length; moved = !force && (placed(a) || placed(b));
+          pre = framesOf(w); moved = !force && (placed(a) || placed(b));
           r = invoke(this, a, b);
         } else {
           if (!force && !mayAny(arguments)) return reflectApply(orig, this, arguments);
-          pre = w.length; moved = false;
+          pre = framesOf(w); moved = false;
           if (!force) for (var i = 0; i < arguments.length; i++) if (placed(arguments[i])) moved = true;
           r = reflectApply(orig, this, arguments);
         }
-        if (force || moved || w.length !== pre || !ours(this)) check(this, true);
+        if (force || moved || framesOf(w) !== pre || !ours(this)) check(this, true);
         return r;
       } })[orig.name || name];
       try { Object.defineProperty(f, 'length', { value: orig.length, configurable: true }); } catch (e) {}
@@ -1066,6 +1095,12 @@
       try { return FRAMES[localNameOf(a)] === 1 || firstElementOf(a) !== null; } catch (e) { return true; }
     }
     var ownerOf = native(w.Node && w.Node.prototype, 'ownerDocument');
+    var defaultViewOf = native(w.Document && w.Document.prototype, 'defaultView');
+    var startContainerOf = native(w.AbstractRange && w.AbstractRange.prototype, 'startContainer') ||
+      native(w.Range && w.Range.prototype, 'startContainer');
+    var targetOf = native(w.Event && w.Event.prototype, 'target');
+    var addedOf = native(w.MutationRecord && w.MutationRecord.prototype, 'addedNodes');
+    var listLength = native(w.NodeList && w.NodeList.prototype, 'length');
     function mayAny(args) {
       for (var i = 0; i < args.length; i++) if (mayNode(args[i])) return true;
       return false;
@@ -1077,7 +1112,7 @@
     }
     // a target of this document (or outside any document), not of another one
     function ours(target) {
-      try { return target === own || ownerOf(target) === own; } catch (e) { return true; }
+      return target === own || docOf(target) === own;
     }
     function hooked(obj, name) { hook(obj, name, false); }
     function swapped(obj, name) { hook(obj, name, true); }
@@ -1120,7 +1155,10 @@
     wrap(w.Window && w.Window.prototype, 'open', opener);
     // the ways left that can put a frame into a page without the methods above
     var R = w.Range && w.Range.prototype;
-    ['insertNode', 'surroundContents'].forEach(function (n) { hooked(R, n); });
+    hooked(R, 'insertNode');
+    // surroundContents takes the nodes it surrounds out and puts them back:
+    // a frame among them gets a new window (independent review)
+    swapped(R, 'surroundContents');
     hooked(E, 'moveBefore');
     var SR = w.ShadowRoot && w.ShadowRoot.prototype;
     setter(SR, 'innerHTML', after);
@@ -1170,15 +1208,25 @@
         if (!watch) watch = new w.MutationObserver(function (records) {
           var force = false;
           for (var i = 0; i < records.length && !force; i++) {
-            var added = records[i].addedNodes;
-            for (var j = 0; j < added.length; j++) if (mayNode(added[j])) { force = true; break; }
+            var added, m;
+            try { added = addedOf(records[i]); m = listLength(added); } catch (e) { force = true; break; }
+            for (var j = 0; j < m; j++) if (mayNode(added[j])) { force = true; break; }
           }
           check(null, force);
         });
         RAPPLY(moObserve, watch, [own, { childList: true, subtree: true }]);
         watching = true;
-        RAPPLY(addListener, own, ['DOMContentLoaded', built, { once: true }]);
+      } catch (e) {}
+      listen();
+    }
+    // the guard's listeners; added again after document.open, which removes
+    // every listener of the document (independent review). The same function
+    // added twice is kept once.
+    function listen() {
+      try {
+        RAPPLY(addListener, own, ['DOMContentLoaded', built]);
         RAPPLY(addListener, own, ['readystatechange', built]);
+        RAPPLY(addListener, own, ['load', loaded, true]);
       } catch (e) {}
     }
     // opening the document again: watched before the parser starts
@@ -1187,9 +1235,11 @@
       if (!d || typeof d.value !== 'function') return;
       var orig = d.value;
       var f = ({ [orig.name || n]() {
-        if (this === own && (n === 'open' || !building())) arm();
+        // the document's own guard, whichever realm's open/write is used
+        var g = GUARDS.get(this);
+        if (g && (n === 'open' || !g.building())) g.arm();
         var r = RAPPLY(orig, this, arguments);
-        if (this === own && building()) arm();
+        if (g) { if (g.building()) g.arm(); g.listen(); }
         check(this, true);
         return r;
       } })[orig.name || n];
@@ -1203,15 +1253,14 @@
     // engine adds no script to; it is protected when it has loaded, before
     // the page's own listeners hear of it (they come after this one, which
     // listens on the way down to the frame).
-    try {
-      RAPPLY(addListener, own, ['load', function (ev) {
-        var t = ev.target;
-        if (t === own || !w.length) return;
-        var name;
-        try { name = localNameOf(t); } catch (e) { return; }
-        if (FRAMES[name] === 1) sweep(w);
-      }, true]);
-    } catch (e) {}
+    function loaded(ev) {
+      var t, name;
+      try { t = targetOf(ev); } catch (e) { return; }
+      if (t === own || !framesOf(w)) return;
+      try { name = localNameOf(t); } catch (e) { return; }
+      if (FRAMES[name] === 1) sweep(w);
+    }
+    GUARDS.set(own, { arm: arm, building: building, listen: listen });
     arm();
     if (!building()) built({ isTrusted: true });
     check(null, true);
