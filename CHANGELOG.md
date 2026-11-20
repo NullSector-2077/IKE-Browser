@@ -70,6 +70,12 @@ protection was removed or weakened.
   could undo. The key now stays inside I.K.E.: each site gets its own values,
   derived with SHA-256, and nothing a page can call ever receives a secret.
   A test plays the attack on two sites.
+- **One Chrome version at Strict and Maximum** (owner's decision): JavaScript
+  gave the reduced version (140.0.0.0) while the client hints a site asked for
+  (Sec-CH-UA-Full-Version, Sec-CH-UA-Full-Version-List) carried the full one,
+  so a page saw two different versions. The headers now say 140.0.0.0 too;
+  only hints the engine already sends are changed, none is added. Balanced
+  still gives the engine's real full version everywhere.
 - **Workers of every kind get the protection**: a worker from a blob of any
   type or size, a worker started by another worker, and a worker from a blob
   address made inside a worker (they saw the real values).
