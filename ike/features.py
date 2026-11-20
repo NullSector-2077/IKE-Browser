@@ -363,6 +363,10 @@ class WindowFeatures:
                 self._vtabs_floating = True
                 self.vtab_panel.hide()
             self.vtab_edge.show()
+            # the panel slides in over the page: its own separator line (1.1.19);
+            # pinned, the splitter's handle already parts it from the page
+            from .polish import part
+            self.vtabs_edge.setVisible(part("vtabs_edge"))
         else:
             self._vtabs_timer.stop()
             self._vtabs_hiding = False
@@ -375,6 +379,7 @@ class WindowFeatures:
                 self.splitter.setSizes([w, max(200, self.width() - w)])
                 self._vtabs_floating = False
             self.vtab_edge.hide()
+            self.vtabs_edge.hide()
             self.vtab_panel.setVisible(show)
 
     def _vtabs_resized(self, *_a):

@@ -392,6 +392,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.splitter.setChildrenCollapsible(False)
         self.splitter.splitterMoved.connect(self._vtabs_resized)
         self.vtab_panel.setMinimumWidth(120)
+        self.vtabs_edge = polish.VTabsEdge(self.vtab_panel)          # its separator line (1.1.19)
         self._build_vtabs_root()
 
     def _action(self, text, slot=None, shortcut=None, ico=None, tip=None, checkable=False):
