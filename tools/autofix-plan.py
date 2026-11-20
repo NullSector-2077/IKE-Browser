@@ -180,6 +180,15 @@ def _when(stamp):
         return None
 
 
+def report_sha(text):
+    """The failed commit a report names: only in the exact last line the report
+    job writes (second review of 1.1.18: its comments quote the agent's summary
+    and the logs, where a mark could be planted)."""
+    lines = [ln for ln in (text or "").replace("\r", "").split("\n") if ln.strip()]
+    m = SHA_MARK_RE.fullmatch(lines[-1]) if lines else None
+    return m.group(1) if m else ""
+
+
 def already_reported(issues, title, sha, now):
     """The open issue that already reports this failure, or None.
 
@@ -192,7 +201,10 @@ def already_reported(issues, title, sha, now):
     for issue in issues:
         if issue.get("title") != title:
             continue
-        marks = SHA_MARK_RE.findall(issue.get("body") or "")
+        marks = issue.get("shas")
+        if marks is None:
+            marks = [report_sha(issue.get("body"))]
+        marks = [m for m in marks if m]
         if sha and any(sha.startswith(m) or m.startswith(sha) for m in marks):
             return issue
         when = _when(issue.get("reported_at") or "")
@@ -301,13 +313,13 @@ def engine_update(branch, show=None):
 
 def open_reports(repo, name):
     """The open issues "Automatic fix needs you: <name>" for already_reported():
-    each with its comments added to its body and the time of its latest report
-    (the issue itself, or the latest comment of the report job)."""
+    each with the commits its reports name (the issue and the report job's
+    comments, by their last line) and the time of its latest report."""
     out = []
     for i in gh_api("repos/%s/issues?state=open&labels=autofix&per_page=100" % repo):
         if "pull_request" in i or i.get("title") != ISSUE_TITLE % name:
             continue
-        body, reported = i.get("body") or "", i.get("created_at") or ""
+        shas, reported = [report_sha(i.get("body"))], i.get("created_at") or ""
         try:
             comments = gh_api("repos/%s/issues/%s/comments?per_page=100" % (repo, i["number"]))
         except RuntimeError:
@@ -315,11 +327,12 @@ def open_reports(repo, name):
         for c in comments:
             if (c.get("user") or {}).get("login") != REPORTER:
                 continue                      # anyone may comment; only the report job's comments count
-            text = c.get("body") or ""
-            body += "\n" + text
-            if SHA_MARK_RE.search(text) and (c.get("created_at") or "") > reported:
-                reported = c["created_at"]
-        out.append({"title": i["title"], "body": body, "reported_at": reported})
+            mark = report_sha(c.get("body"))
+            if mark:
+                shas.append(mark)
+                if (c.get("created_at") or "") > reported:
+                    reported = c["created_at"]
+        out.append({"title": i["title"], "shas": [m for m in shas if m], "reported_at": reported})
     return out
 
 

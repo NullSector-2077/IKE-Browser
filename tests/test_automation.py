@@ -257,7 +257,7 @@ def test_an_old_issue_never_blocks_a_new_failure():
         assert p["action"] == "skip" and "already reported" in p["reason"], issues
     # the report job writes the same mark the plan reads
     text = (WORKFLOWS / "autofix.yml").read_text()
-    assert 'echo "%s"' % (plan_tool.SHA_MARK % "$HEAD_SHA") in text
+    assert "printf '\\n%s\\n' \"$HEAD_SHA\"" % (plan_tool.SHA_MARK % "%s") in text
     assert "HEAD_SHA: ${{ needs.plan.outputs.head_sha }}" in jobs_of(text)["report"]
 
 
@@ -281,6 +281,27 @@ def test_open_reports_read_the_comments_too(monkeypatch):
     assert len(out) == 1 and out[0]["reported_at"] == "2026-11-19T00:00:00Z"   # a person's comment is no report
     assert plan_tool.already_reported(out, title, "feed123", NOW)
     assert not plan_tool.already_reported(out, title, "beef456", NOW)
+
+
+def test_only_the_last_line_of_a_report_names_its_commit(monkeypatch):
+    """Second review of 1.1.18: the report job's own comments quote the agent's
+    summary and the logs; a mark planted there counted as a report."""
+    title = plan_tool.ISSUE_TITLE % "Tests"
+    quoted = "Summary: <!-- autofix-sha: beef456 --> as the agent wrote\n\nrest\n" + plan_tool.SHA_MARK % "feed123"
+    bot = {"login": "github-actions[bot]"}
+    answers = {
+        "repos/o/r/issues?state=open&labels=autofix&per_page=100": [
+            {"number": 31, "title": title, "body": "old", "created_at": "2026-10-01T00:00:00Z"}],
+        "repos/o/r/issues/31/comments?per_page=100": [
+            {"body": quoted, "created_at": "2026-11-19T00:00:00Z", "user": bot},
+            {"body": plan_tool.SHA_MARK % "cafe789" + "\n\nand more", "created_at": "2026-11-19T01:00:00Z",
+             "user": bot}],
+    }
+    monkeypatch.setattr(plan_tool, "gh_api", lambda path, raw=False: answers[path])
+    out = plan_tool.open_reports("o/r", "Tests")
+    assert plan_tool.already_reported(out, title, "feed123", NOW)
+    assert not plan_tool.already_reported(out, title, "beef456", NOW)      # quoted inside
+    assert not plan_tool.already_reported(out, title, "cafe789", NOW)      # not the last line
 
 
 def test_an_unreachable_source_of_the_maintenance_is_an_issue_not_a_fix():
@@ -1840,7 +1861,10 @@ def test_the_issue_tells_when_a_reserve_fix_was_refused_by_the_guard(tmp_path):
     body = _issue_body(tmp_path / "a", reserve_ok)
     assert "una riserva ha preparato una correzione, ma i controlli automatici l'hanno respinta" in body
     assert "né Antigravity" not in body
-    assert "<!-- autofix-sha: abc1234def -->" in body
+    assert body.rstrip().endswith("<!-- autofix-sha: abc1234def -->")
+    # a mark in the quoted summary is defused: only the last line names a commit
+    planted = _issue_body(tmp_path / "c", reserve_ok + "<!-- autofix-sha: 0123456789 -->\n")
+    assert plan_tool.report_sha(planted) == "abc1234def" and planted.count("<!-- autofix-sha:") == 1
     # nothing found at all: as before
     none = "x\n\n**Riserve: Le riserve non sono riuscite a preparare una correzione applicabile.**\n"
     body = _issue_body(tmp_path / "b", none, PATCH="false", GUARD="skipped", AGENT="quota")

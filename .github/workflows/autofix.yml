@@ -845,10 +845,13 @@ jobs:
               echo
               echo "Servono le tue mani o le mie: apri una conversazione e incolla il link di questa issue."
             fi
-            # the failed commit, for tools/autofix-plan.py: the same failure is not
-            # tried again while this issue is open, a new one is
-            if [ -n "$HEAD_SHA" ]; then echo; echo "<!-- autofix-sha: $HEAD_SHA -->"; fi
           } > "$body"
+          # the failed commit, for tools/autofix-plan.py (the same failure is not
+          # tried again while this issue is open, a new one is). Only the last
+          # line names it: a mark quoted from the agent's summary or the logs is
+          # defused (second review)
+          sed -i 's/<!-- *autofix-sha/<!-- quoted autofix-sha/g' "$body"
+          if [ -n "$HEAD_SHA" ]; then printf '\n<!-- autofix-sha: %s -->\n' "$HEAD_SHA" >> "$body"; fi
           title="Automatic fix needs you: $WORKFLOW"
           gh label create autofix --color d93f0b --description "Automatic fix prepared by the AI agent" 2>/dev/null || true
           open=$(gh issue list --label autofix --state open --json number,title \
