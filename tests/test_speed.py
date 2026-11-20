@@ -91,7 +91,12 @@ def steps(ike, qapp, out):
     b = ike.blocker
     page = "https://www.youtube.com/watch?v=abc"
     for url, kind, method in (
+            ("https://www.youtube.com/api/stats/ads?ver=1", "xmlhttprequest", "GET"),
             ("https://www.youtube.com/api/stats/qoe?fmt=1", "xmlhttprequest", "POST"),
+            ("https://www.youtube.com/api/stats/atr?ns=yt&el=detailpage", "xmlhttprequest", "POST"),
+            ("https://www.youtube.com/api/stats/delayplay?ns=yt", "xmlhttprequest", "GET"),
+            ("https://www.youtube.com/get_midroll_info?ei=x", "xmlhttprequest", "GET"),
+            ("https://www.youtube.com/error_204?a=1", "image", "GET"),
             ("https://www.youtube.com/youtubei/v1/log_event?alt=json", "xmlhttprequest", "POST"),
             ("https://www.youtube.com/ptracking?ei=x", "image", "GET"),
             ("https://www.youtube.com/csi_204?v=3", "ping", "GET"),
@@ -108,9 +113,16 @@ def steps(ike, qapp, out):
 @needs_engine
 def test_youtube_telemetry_blocked_and_what_the_page_needs_kept(run_ike):
     out = run_ike(RULES)
-    for path in ("www.youtube.com/api/stats/qoe", "www.youtube.com/youtubei/v1/log_event",
+    for path in ("www.youtube.com/api/stats/ads", "www.youtube.com/youtubei/v1/log_event",
                  "www.youtube.com/ptracking", "www.youtube.com/csi_204", "play.google.com/log"):
         assert out[path] == "block", (path, out[path])
+    # 1.1.18: what the lists' maintainers keep open on purpose (YouTube refuses
+    # playback when these fail) is not blocked by I.K.E.'s own rules; with the
+    # test's tiny list, nothing else blocks them here
+    for path in ("www.youtube.com/api/stats/qoe", "www.youtube.com/api/stats/atr",
+                 "www.youtube.com/api/stats/delayplay", "www.youtube.com/get_midroll_info",
+                 "www.youtube.com/error_204"):
+        assert out[path] == "allow", (path, out[path])
     for path in ("www.youtube.com/api/stats/watchtime", "www.youtube.com/api/stats/playback",
                  "rr1---sn-x.googlevideo.com/generate_204", "www.youtube.com/youtubei/v1/player",
                  "www.youtube.com/s/player/abc/base.js"):

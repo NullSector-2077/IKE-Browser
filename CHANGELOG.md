@@ -91,6 +91,24 @@ protection was removed or weakened.
   DOMParser, declarative shadow roots, cloneNode, moveBefore, a frame opened
   or sent to a new page again...) were played against the protection: every
   one gives the page's own protected values, never the real ones.
+- **YouTube: less of I.K.E.'s own on top of the filter lists** (the owner saw
+  YouTube's "ad blockers violate YouTube's Terms of Service" wall with
+  1.1.17; approved by the owner on 2026-11-20). I.K.E. did three things on
+  YouTube that neither uBlock Origin nor the lists do, two of them against
+  choices the lists' maintainers made on purpose because YouTube refuses
+  playback otherwise: its own rules blocked some of YouTube's own requests
+  the lists leave open (api/stats/atr, which uBlock un-blocked for that
+  reason, every api/stats/qoe request where the lists block one narrow form,
+  delayplay, get_midroll_ and error_204); its video-ad fallback hid
+  #player-ads and other boxes the lists keep visible on purpose; and an ad
+  that could not be sought was sent to its end over and over (about 1,200
+  jumps in three seconds in a local simulation; now one a second). Those
+  requests and boxes are now left to the lists; other companies' ad and
+  tracking hosts and YouTube's ad reports stay blocked, ads are still muted
+  and hidden while they play, and nothing is done to hide the blocker from
+  YouTube. Tested on local pages shaped like YouTube's player only:
+  youtube.com cannot be reached from the test machine, so whether the wall
+  is gone is checked on the owner's computer.
 - **Tabs when memory runs short**: with less than a tenth of the computer's
   memory available, the tabs not looked at for five minutes or more are
   suspended a few at a time, oldest first, before their usual time (each gives

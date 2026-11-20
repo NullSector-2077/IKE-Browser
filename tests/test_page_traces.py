@@ -285,7 +285,7 @@ CASES = {
     "stripe_in_shop": ("https://m.stripe.network/inner.html", "https://shop.example/checkout"),
     "tracker_in_shop": ("https://tracker.example.test/c.js", "https://shop.example/checkout"),
     # YouTube is not a sensitive service: nothing changes there
-    "youtube": ("https://www.youtube.com/api/stats/qoe?x=1", "https://www.youtube.com/watch?v=a"),
+    "youtube": ("https://www.youtube.com/api/stats/ads?x=1", "https://www.youtube.com/watch?v=a"),
 }
 
 def steps(ike, qapp, out):
