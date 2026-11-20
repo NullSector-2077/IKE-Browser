@@ -356,6 +356,7 @@ jobs:
             result=$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["result"])' "$out/status.json")
           else
             echo "Antigravity's step did not finish: what the agent left is not kept"
+            rm -f "$repo/.autofix/summary.md"       # never checked for the key: not published
             result=timeout
             printf '{"result": "timeout", "model": "", "message": "", "detail": ""}' > "$out/status.json"
           fi

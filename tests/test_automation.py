@@ -1054,6 +1054,7 @@ elif what == "partial":                                        # its time limit,
     sys.exit(0)
 elif what == "crash":                                          # the step itself stops, no status
     (workdir / "ike/window.py").write_text("half")
+    (workdir / ".autofix/summary.md").write_text("K %s\n" % os.environ["GEMINI_API_KEY"])   # never checked
     sys.exit(3)
 elif what == "leak":
     (workdir / "ike/window.py").write_text("K = '%s'\n" % os.environ["GEMINI_API_KEY"])
@@ -1143,8 +1144,9 @@ def test_the_fix_step_of_the_workflow(repo, tmp_path, scenario, reserve_asked, r
     assert outputs["patch"] == patch, (scenario, outputs)
     if scenario in ("big", "unsafe", "partial", "crash"):    # nothing of a refused or unfinished fix is kept
         assert git(repo, "status", "--porcelain") == "", scenario
+    summary = (temp / "autofix" / "summary.md").read_text()
+    assert "AIzaTESTONLY" not in summary
     if scenario in ("big", "unsafe"):
-        summary = (temp / "autofix" / "summary.md").read_text()
         assert "respinta dai controlli" in summary, summary
 
 
