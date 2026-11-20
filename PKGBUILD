@@ -1,8 +1,7 @@
 # Maintainer: the I.K.E. project <https://github.com/NullSector-2077/IKE-Browser>
 #
 # Builds I.K.E. from this repository. Run `makepkg -si` from a clone; the
-# sources are taken from the clone itself, so this also works while the
-# repository is private.
+# sources are taken from the clone itself (no download).
 pkgname=ike-browser
 pkgver=1.1.18
 pkgrel=1
