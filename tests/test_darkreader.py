@@ -272,6 +272,9 @@ body { background: #fff; color: #111 }
 .box { background-color: rgb(255, 255, 255); color: rgb(0, 0, 0); height: 30px }
 #fixvar { background-color: #fff; height: 20px }
 .mv { background-color: rgb(255, 255, 254); height: 20px }
+.img1 { height: 64px; background-repeat: no-repeat; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><rect width='64' height='64' fill='white'/></svg>") }
+.img2 { height: 64px; background-repeat: no-repeat; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><rect width='64' height='64' fill='white'/></svg>") }
+.img3 { height: 64px; background-repeat: no-repeat; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><rect width='64' height='64' fill='white'/></svg>") }
 </style>
 <style id="moved">.mv { background-color: rgb(254, 254, 254) }</style>
 </head><body>
@@ -326,6 +329,9 @@ window.addEventListener('load', function () {
     document.body.appendChild(many);
     for (var j = 0; j < 1100; j++) document.body.appendChild(document.createElement('i'));
     document.head.appendChild(document.getElementById('moved'));
+    // elements for background-image rules that matched nothing until now
+    var img = document.createElement('div'); img.className = 'img2'; img.id = 'img2';
+    document.body.appendChild(img);
     document.title = 'ready';
   }, 600);
 });
@@ -352,6 +358,7 @@ READ = """(function () {
     newcvar: rootStyle.getPropertyValue('--darkreader-background-fffaf0').trim(),
     newc: [cs(document.getElementById('newc')).backgroundColor, cs(document.getElementById('newc')).color],
     mv: cs(document.getElementById('mv')).backgroundColor,
+    img2: cs(document.getElementById('img2')).backgroundImage.slice(0, 40),
     movedcopy: !!(moved.nextElementSibling && moved.nextElementSibling.classList.contains('darkreader--sync')),
     icon: cs(document.getElementById('iconpath')).fill,
     bigrect: cs(document.getElementById('bigrect')).fill,
@@ -417,6 +424,8 @@ def test_what_dark_reader_darkens(run_ike, site):
         assert dark(bg) and light(fg), (key, out[key])
     for key in ("mv", "sinline", "dsdin", "bigrect", "dynbig"):
         assert dark(out[key]), (key, out[key])
+    # a light background image whose rule matched nothing until the element came is replaced
+    assert out["img2"].startswith('url("data:image/svg+xml;base64,'), out["img2"]
     # small shapes take the colour of text: white stays light, black becomes light
     for key in ("icon", "smallrect", "dynsmall", "dynsmall2"):
         assert light(out[key]), (key, out[key])

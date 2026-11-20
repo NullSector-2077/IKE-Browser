@@ -3756,8 +3756,25 @@
     const imageSelectorNodeQueue = new Set();
     let imageSelectorQueueFrameId = null;
     let classObserver = null;
+    // I.K.E.: does any waiting selector match here?
+    function ikeAnyImageSelector(node) {
+        if (imageSelectorQueue.size < 2) {
+            return true;
+        }
+        const list = Array.from(imageSelectorQueue.keys()).join(", ");
+        try {
+            return Boolean(
+                node.querySelector(list) ||
+                (node instanceof Element && node.matches(list))
+            );
+        } catch (err) {
+            return true;
+        }
+    }
     function checkImageSelectors(node) {
-        for (const [selector, callbacks] of imageSelectorQueue) {
+        for (const [selector, callbacks] of ikeAnyImageSelector(node)
+            ? imageSelectorQueue
+            : []) {
             if (
                 node.querySelector(selector) ||
                 (node instanceof Element && node.matches(selector))

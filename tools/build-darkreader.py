@@ -781,6 +781,34 @@ PATCHES = [
             clear();
             const sheets = ikeSheets ? ikeSheets.slice() : getAdoptedSheets(node);
 """),
+    # Background images whose rule matches nothing yet wait for an element that
+    # matches; every added part of the page was searched once per waiting
+    # selector. One search for all of them comes first, and the per-selector
+    # search runs only when that one finds something.
+    ("image-selectors", """\
+    function checkImageSelectors(node) {
+        for (const [selector, callbacks] of imageSelectorQueue) {
+""", """\
+    // I.K.E.: does any waiting selector match here?
+    function ikeAnyImageSelector(node) {
+        if (imageSelectorQueue.size < 2) {
+            return true;
+        }
+        const list = Array.from(imageSelectorQueue.keys()).join(", ");
+        try {
+            return Boolean(
+                node.querySelector(list) ||
+                (node instanceof Element && node.matches(list))
+            );
+        } catch (err) {
+            return true;
+        }
+    }
+    function checkImageSelectors(node) {
+        for (const [selector, callbacks] of ikeAnyImageSelector(node)
+            ? imageSelectorQueue
+            : []) {
+"""),
     ("style-groups-join", """\
         return {
             details,
