@@ -395,6 +395,326 @@ PATCHES = [
             getVariablesRule()?.style.setProperty(variable, value);
         }
 """),
+    # Identical style elements (same text, media, type and title, in the same
+    # document or shadow root; many pages repeat an SVG icon with its own
+    # <style>) each got their own copy from Dark Reader, so every element of
+    # the page was matched against all those copies. All the originals give
+    # the same declarations and all the copies the same changed ones; a copy
+    # always comes right after its original, so in the cascade the copy after
+    # the LAST original is the one that wins over the others and over any
+    # other rule placed between them. Only that copy is kept. When the last
+    # original changes (added, removed or moved by the page), the copy goes
+    # after the new last one before anything is drawn; an element whose text
+    # or style sheet the page changes leaves its group and gets its own copy
+    # again, as Dark Reader does.
+    ("style-groups", """\
+    function manageStyle(element, {update, loadingStart, loadingEnd}) {
+""", """\
+    // I.K.E.: groups of identical style elements share one copy
+    const ikeStyleGroups = new WeakMap();
+    let ikeStyleEpoch = 0;
+    let ikeStyleEpochQueued = false;
+    function ikeLastStyle(group) {
+        if (group.ikeLast !== undefined && group.ikeEpoch === ikeStyleEpoch) {
+            return group.ikeLast;
+        }
+        let last = null;
+        group.forEach((member) => {
+            const el = member.element;
+            if (!el.isConnected || el.getRootNode() !== group.ikeRoot) {
+                return;
+            }
+            if (
+                !last ||
+                last.element.compareDocumentPosition(el) &
+                    Node.DOCUMENT_POSITION_FOLLOWING
+            ) {
+                last = member;
+            }
+        });
+        group.ikeLast = last;
+        group.ikeEpoch = ikeStyleEpoch;
+        if (!ikeStyleEpochQueued) {
+            ikeStyleEpochQueued = true;
+            queueMicrotask(() => {
+                ikeStyleEpochQueued = false;
+                ikeStyleEpoch++;
+            });
+        }
+        return last;
+    }
+    function ikeSettleStyleGroup(group) {
+        group.ikeLast = undefined;
+        const last = ikeLastStyle(group);
+        if (last && last.rendered() && !last.hasCopy()) {
+            last.uncover();
+        }
+    }
+    function ikeCheckStyleGroups(root) {
+        const groups = ikeStyleGroups.get(root);
+        if (groups) {
+            groups.forEach((group) => ikeSettleStyleGroup(group));
+        }
+    }
+    function manageStyle(element, {update, loadingStart, loadingEnd}) {
+"""),
+    ("style-groups-member", """\
+        let isOverrideEmpty = true;
+        const isAsyncCancelled = () => cancelAsyncOperations;
+""", """\
+        let isOverrideEmpty = true;
+        const isAsyncCancelled = () => cancelAsyncOperations;
+        // I.K.E.: this element in its group of identical style elements
+        let ikeGroup = null;
+        let ikeCovered = false;
+        let ikeRenderArgs = null;
+        const ikeMember = {
+            element,
+            rendered: () => ikeRenderArgs !== null,
+            hasCopy: () => !ikeCovered && Boolean(syncStyle && syncStyle.parentNode),
+            cover: () => ikeCover(),
+            uncover: () => ikeUncover()
+        };
+        function ikeJoinGroup() {
+            if (
+                inMode !== "next" ||
+                !(
+                    element instanceof HTMLStyleElement ||
+                    element instanceof SVGStyleElement
+                ) ||
+                !element.isConnected ||
+                containsCSSImport()
+            ) {
+                return;
+            }
+            const root = element.getRootNode();
+            let groups = ikeStyleGroups.get(root);
+            if (!groups) {
+                groups = new Map();
+                ikeStyleGroups.set(root, groups);
+            }
+            const key = [
+                element.media,
+                element.getAttribute("type"),
+                element.getAttribute("title"),
+                element.textContent
+            ].join("\\u0000");
+            let group = groups.get(key);
+            if (!group) {
+                group = new Set();
+                group.ikeRoot = root;
+                group.ikeKey = key;
+                group.ikeGroups = groups;
+                groups.set(key, group);
+            }
+            group.add(ikeMember);
+            group.ikeLast = undefined;
+            ikeGroup = group;
+        }
+        function ikeLeaveGroup(later) {
+            const group = ikeGroup;
+            if (!group) {
+                return;
+            }
+            ikeGroup = null;
+            group.delete(ikeMember);
+            group.ikeLast = undefined;
+            if (ikeCovered) {
+                ikeCovered = false;
+                forceRenderStyle = true;
+            }
+            if (group.size === 0) {
+                group.ikeGroups.delete(group.ikeKey);
+            } else if (later) {
+                queueMicrotask(() => ikeSettleStyleGroup(group));
+            } else {
+                ikeSettleStyleGroup(group);
+            }
+        }
+        function ikeCover() {
+            ikeCovered = true;
+            if (syncStylePositionWatcher) {
+                syncStylePositionWatcher.stop();
+                syncStylePositionWatcher = null;
+            }
+            removeNode(syncStyle);
+            syncStyle = null;
+            isOverrideEmpty = true;
+        }
+        function ikeUncover() {
+            if (ikeRenderArgs) {
+                forceRenderStyle = true;
+                render(...ikeRenderArgs);
+            }
+        }
+        function ikeGroupCovers() {
+            if (
+                !element.isConnected ||
+                element.getRootNode() !== ikeGroup.ikeRoot
+            ) {
+                ikeLeaveGroup(false);
+                return false;
+            }
+            const last = ikeLastStyle(ikeGroup);
+            if (last !== ikeMember) {
+                ikeCover();
+                if (last && last.rendered() && !last.hasCopy()) {
+                    last.uncover();
+                }
+                return true;
+            }
+            if (ikeCovered) {
+                ikeCovered = false;
+                forceRenderStyle = true;
+            }
+            ikeGroup.forEach((member) => {
+                if (member !== ikeMember && member.hasCopy()) {
+                    member.cover();
+                }
+            });
+            return false;
+        }
+        function ikeChanged() {
+            ikeLeaveGroup(false);
+            update();
+        }
+"""),
+    ("style-groups-observer", """\
+                const cssText = (element.textContent ?? "").trim();
+                createOrUpdateCORSCopy(cssText, location.href).then(update);
+            } else {
+                update();
+            }
+""", """\
+                ikeLeaveGroup(false);
+                const cssText = (element.textContent ?? "").trim();
+                createOrUpdateCORSCopy(cssText, location.href).then(update);
+            } else {
+                ikeChanged();
+            }
+"""),
+    ("style-groups-render", """\
+            cancelAsyncOperations = false;
+            function removeCSSRulesFromSheet(sheet) {
+""", """\
+            cancelAsyncOperations = false;
+            ikeRenderArgs = [theme, ignoreImageAnalysis];
+            if (ikeGroup && ikeGroupCovers()) {
+                return;
+            }
+            function removeCSSRulesFromSheet(sheet) {
+"""),
+    ("style-groups-async", """\
+                    force,
+                    isAsyncCancelled
+                });
+""", """\
+                    force,
+                    isAsyncCancelled: () => cancelAsyncOperations || ikeCovered
+                });
+"""),
+    ("style-groups-sheet", """\
+        const sheetChangeWatcher = createSheetWatcher(
+            element,
+            safeGetSheetRules,
+            update,
+            isAsyncCancelled
+        );
+""", """\
+        const sheetChangeWatcher = createSheetWatcher(
+            element,
+            safeGetSheetRules,
+            ikeChanged,
+            isAsyncCancelled
+        );
+"""),
+    ("style-groups-destroy", """\
+        function destroy() {
+            pause();
+            corsCopies.delete(element);
+""", """\
+        function destroy() {
+            ikeLeaveGroup(true);
+            pause();
+            corsCopies.delete(element);
+"""),
+    ("style-groups-restore", """\
+        function restore() {
+            if (!syncStyle) {
+                return;
+            }
+""", """\
+        function restore() {
+            if (ikeGroup && element.getRootNode() !== ikeGroup.ikeRoot) {
+                ikeChanged();
+                return;
+            }
+            if (!syncStyle) {
+                return;
+            }
+"""),
+    ("style-groups-join", """\
+        return {
+            details,
+            render,
+            pause,
+            destroy,
+            watch,
+            restore
+        };
+""", """\
+        ikeJoinGroup();
+        return {
+            details,
+            render,
+            pause,
+            destroy,
+            watch,
+            restore
+        };
+"""),
+    ("style-groups-epoch", """\
+            observer = new MutationObserver((mutations) => {
+                if (isHugeMutation(mutations)) {
+""", """\
+            observer = new MutationObserver((mutations) => {
+                ikeStyleEpoch++;
+                if (isHugeMutation(mutations)) {
+"""),
+    ("style-groups-moves", """\
+            handleStyleOperations(root, {
+                createdStyles,
+                removedStyles,
+                movedStyles
+            });
+            const potentialHosts = new Set();
+""", """\
+            handleStyleOperations(root, {
+                createdStyles,
+                removedStyles,
+                movedStyles
+            });
+            if (moves.size > 0) {
+                ikeCheckStyleGroups(root);
+            }
+            const potentialHosts = new Set();
+"""),
+    ("style-groups-huge", """\
+            handleStyleOperations(root, {
+                createdStyles,
+                removedStyles,
+                movedStyles
+            });
+            deepObserve(root);
+""", """\
+            handleStyleOperations(root, {
+                createdStyles,
+                removedStyles,
+                movedStyles
+            });
+            ikeCheckStyleGroups(root);
+            deepObserve(root);
+"""),
 ]
 
 

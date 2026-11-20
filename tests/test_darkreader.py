@@ -426,3 +426,122 @@ def test_what_dark_reader_darkens(run_ike, site):
     # the fix's variable is defined; a colour no fix names needs no variable on :root
     assert dark(out["fixvar"]) and out["rootvar"], out
     assert out["newcvar"] == "", out
+
+
+# --- identical style elements share one Dark Reader copy (the cascade is unchanged) --
+
+ICON = "<svg class='icon' width='16' height='16'><style>.ic { fill: #464646 }</style><path class='ic' d='M0 0h16v16H0z'/></svg>"
+GROUPS = ("<!doctype html><html><head><title>groups</title>"
+          "<style>.m { height: 10px }</style></head><body>"
+          "<div id='icons'>" + ICON * 5 + "<svg id='x1'><style>.ic { fill: #eeeeee }</style></svg>"
+          + ICON.replace("class='icon'", "class='icon' id='i6'") + "</div>"
+          "<svg><style>.ref1 { fill: #464646 }</style><path id='ref1' class='ref1' d='M0 0h1v1H0z'/></svg>"
+          "<svg><style>.ref2 { fill: #eeeeee }</style><path id='ref2' class='ref2' d='M0 0h1v1H0z'/></svg>"
+          "<style media='(min-width: 1px)'>.m { background-color: #fafafa }</style>"
+          "<style media='(min-width: 1px)'>.m { background-color: #fafafa }</style>"
+          "<style>.m { background-color: #ff0000 }</style>"
+          "<style media='(min-width: 1px)'>.m { background-color: #fafafa }</style>"
+          "<style media='(min-width: 1px)'>.mref { background-color: #fafafa }</style>"
+          "<style>.mref2 { background-color: #ff0000 }</style>"
+          "<div id='m' class='m'>m</div><div id='mref' class='mref' style='height: 10px'>ref</div>"
+          "<div id='mref2' class='mref2' style='height: 10px'>ref</div>"
+          "<div id='host'></div><script src='/groups.js'></script></body></html>")
+
+GROUPS_JS = r"""
+var SICON = "<svg class='sicon' width='16' height='16'><style>.sc { fill: #464646 }</style><path class='sc' d='M0 0h16v16H0z'/></svg>";
+var shadow = document.getElementById('host').attachShadow({mode: 'open'});
+shadow.innerHTML = SICON + SICON + "<svg><style>.sc { fill: #eeeeee }</style></svg>" + SICON;
+function groupStyles() {
+  return Array.prototype.filter.call(document.querySelectorAll('svg.icon > style'), function (s) {
+    return s.textContent === '.ic { fill: #464646 }';
+  });
+}
+window.phase = function (n) {
+  var icons = document.getElementById('icons'), x1 = document.getElementById('x1');
+  if (n === 1) {       // the last identical one moved before a different rule that it overrode
+    icons.insertBefore(document.getElementById('i6'), x1);
+    shadow.appendChild(document.createRange().createContextualFragment("<svg><style>.sc { fill: #eeeeee }</style></svg>"));
+  } else if (n === 2) {   // a new identical one after it
+    var t = document.createElement('template'); t.innerHTML = "<svg class='icon' id='i7' width='16' height='16'><style>.ic { fill: #464646 }</style><path class='ic' d='M0 0h16v16H0z'/></svg>";
+    icons.appendChild(t.content);
+    var u = document.createElement('template'); u.innerHTML = SICON; shadow.appendChild(u.content);
+  } else if (n === 3) {   // that one removed again
+    document.getElementById('i7').remove();
+  } else if (n === 4) {   // texts changed: the different rule's, and the last of a group's
+    x1.querySelector('style').textContent = '.ic { fill: #464646 }';
+    document.querySelectorAll('style[media="(min-width: 1px)"]')[2].textContent = '.m { background-color: #ff0000 }';
+  } else if (n === 5) {   // a rule added through the CSSOM to the last identical one
+    x1.remove();
+    var g = groupStyles(); g[g.length - 1].sheet.insertRule('.ic { fill: #eeeeee }', 1);
+    var ms = document.querySelectorAll('style[media="(min-width: 1px)"]'); ms[2].sheet.insertRule('.m { background-color: #ff0000 }', 1);
+  } else if (n === 6) {   // a large change of the page that also puts the first icon last
+    var many = document.createElement('div');
+    for (var i = 0; i < 1500; i++) many.appendChild(document.createElement('span'));
+    document.body.appendChild(many);
+    icons.appendChild(icons.querySelector('svg.icon'));
+  }
+  document.title = 'phase' + n;
+};
+document.title = 'phase0';
+"""
+
+GROUP_STEPS = JS + r'''
+SITE = "__SITE__"
+READ = """(function () {
+  function fill(el) { return getComputedStyle(el).fill; }
+  var shadow = document.getElementById('host').shadowRoot;
+  var copies = Array.prototype.filter.call(document.querySelectorAll('svg.icon > style'), function (s) {
+    return s.nextElementSibling && s.nextElementSibling.classList.contains('darkreader--sync');
+  }).length;
+  return JSON.stringify({
+    title: document.title,
+    ic: Array.prototype.map.call(document.querySelectorAll('path.ic'), fill),
+    sc: Array.prototype.map.call(shadow.querySelectorAll('path.sc'), fill),
+    ref1: fill(document.getElementById('ref1')), ref2: fill(document.getElementById('ref2')),
+    m: getComputedStyle(document.getElementById('m')).backgroundColor,
+    mref: getComputedStyle(document.getElementById('mref')).backgroundColor,
+    mref2: getComputedStyle(document.getElementById('mref2')).backgroundColor,
+    icons: document.querySelectorAll('svg.icon').length, copies: copies
+  });
+})()"""
+
+def steps(ike, qapp, out):
+    view = ike.windows[0].current_view()
+    yield 500
+    yield from load(view, SITE + "/groups")
+    yield 2000
+    out["phases"] = [json.loads((yield from js(view, READ)))]
+    for n in range(1, 7):
+        yield from js(view, "phase(%d)" % n)
+        yield 1200
+        out["phases"].append(json.loads((yield from js(view, READ))))
+'''
+
+
+def test_identical_style_elements_share_one_copy(run_ike, site):
+    """Many identical style elements (an SVG icon repeated, as on the
+    Complex-DOM pages of Speedometer) share one Dark Reader copy, after the
+    last of them; the colours are those of the rule that wins in the page's
+    own cascade, also when the page moves, adds or removes them, puts a
+    different rule between them, changes their text or their rules, inside a
+    shadow root and with a media attribute."""
+    PAGES["/groups"] = (GROUPS, {})
+    PAGES["/groups.js"] = (GROUPS_JS, {"Content-Type": "application/javascript"})
+    out = run_ike(GROUP_STEPS.replace("__SITE__", site), settings={"dark_mode": "on", "dark_engine": "reader"},
+                  timeout=150)
+    phases = out.get("phases")
+    assert phases and len(phases) == 7, out
+    # which rule wins in the page's own cascade, phase by phase (#464646 -> ref1, #eeeeee -> ref2);
+    # in phase 5 Dark Reader itself does not follow a rule added through the CSSOM to an SVG
+    # style element, so its copy (#464646) still wins, as without I.K.E.'s change
+    expect_ic = ["ref1", "ref2", "ref1", "ref2", "ref1", "ref1", "ref1"]
+    expect_m = ["mref"] * 4 + ["mref2"] * 3
+    expect_sc = ["ref1", "ref2", "ref1", "ref1", "ref1", "ref1", "ref1"]
+    for n, p in enumerate(phases):
+        assert p["title"] == "phase%d" % n, p
+        assert p["ref1"] != p["ref2"] and p["ref1"] != "rgb(70, 70, 70)", p
+        assert set(p["ic"]) == {p[expect_ic[n]]}, (n, p)
+        assert set(p["sc"]) == {p[expect_sc[n]]}, (n, p)
+        assert p["m"] == p[expect_m[n]] and lightness(p["m"]) < 0.3, (n, p)
+    # one copy for the five-to-seven identical icons, not one each
+    assert phases[0]["icons"] == 6 and phases[0]["copies"] == 1, phases[0]

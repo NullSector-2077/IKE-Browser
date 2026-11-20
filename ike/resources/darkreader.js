@@ -1973,6 +1973,7 @@
             let hadHugeMutationsBefore = false;
             let subscribedForReadyState = false;
             observer = new MutationObserver((mutations) => {
+                ikeStyleEpoch++;
                 if (isHugeMutation(mutations)) {
                     if (!hadHugeMutationsBefore || isDOMReady()) {
                         observerCallbacks.forEach(({onHugeMutations}) =>
@@ -7031,6 +7032,52 @@
     function cleanLoadingLinks() {
         rejectorsForLoadingLinks.clear();
     }
+    // I.K.E.: groups of identical style elements share one copy
+    const ikeStyleGroups = new WeakMap();
+    let ikeStyleEpoch = 0;
+    let ikeStyleEpochQueued = false;
+    function ikeLastStyle(group) {
+        if (group.ikeLast !== undefined && group.ikeEpoch === ikeStyleEpoch) {
+            return group.ikeLast;
+        }
+        let last = null;
+        group.forEach((member) => {
+            const el = member.element;
+            if (!el.isConnected || el.getRootNode() !== group.ikeRoot) {
+                return;
+            }
+            if (
+                !last ||
+                last.element.compareDocumentPosition(el) &
+                    Node.DOCUMENT_POSITION_FOLLOWING
+            ) {
+                last = member;
+            }
+        });
+        group.ikeLast = last;
+        group.ikeEpoch = ikeStyleEpoch;
+        if (!ikeStyleEpochQueued) {
+            ikeStyleEpochQueued = true;
+            queueMicrotask(() => {
+                ikeStyleEpochQueued = false;
+                ikeStyleEpoch++;
+            });
+        }
+        return last;
+    }
+    function ikeSettleStyleGroup(group) {
+        group.ikeLast = undefined;
+        const last = ikeLastStyle(group);
+        if (last && last.rendered() && !last.hasCopy()) {
+            last.uncover();
+        }
+    }
+    function ikeCheckStyleGroups(root) {
+        const groups = ikeStyleGroups.get(root);
+        if (groups) {
+            groups.forEach((group) => ikeSettleStyleGroup(group));
+        }
+    }
     function manageStyle(element, {update, loadingStart, loadingEnd}) {
         const inMode = getStyleInjectionMode();
         let syncStyle = null;
@@ -7053,16 +7100,131 @@
         let cancelAsyncOperations = false;
         let isOverrideEmpty = true;
         const isAsyncCancelled = () => cancelAsyncOperations;
+        // I.K.E.: this element in its group of identical style elements
+        let ikeGroup = null;
+        let ikeCovered = false;
+        let ikeRenderArgs = null;
+        const ikeMember = {
+            element,
+            rendered: () => ikeRenderArgs !== null,
+            hasCopy: () => !ikeCovered && Boolean(syncStyle && syncStyle.parentNode),
+            cover: () => ikeCover(),
+            uncover: () => ikeUncover()
+        };
+        function ikeJoinGroup() {
+            if (
+                inMode !== "next" ||
+                !(
+                    element instanceof HTMLStyleElement ||
+                    element instanceof SVGStyleElement
+                ) ||
+                !element.isConnected ||
+                containsCSSImport()
+            ) {
+                return;
+            }
+            const root = element.getRootNode();
+            let groups = ikeStyleGroups.get(root);
+            if (!groups) {
+                groups = new Map();
+                ikeStyleGroups.set(root, groups);
+            }
+            const key = [
+                element.media,
+                element.getAttribute("type"),
+                element.getAttribute("title"),
+                element.textContent
+            ].join("\u0000");
+            let group = groups.get(key);
+            if (!group) {
+                group = new Set();
+                group.ikeRoot = root;
+                group.ikeKey = key;
+                group.ikeGroups = groups;
+                groups.set(key, group);
+            }
+            group.add(ikeMember);
+            group.ikeLast = undefined;
+            ikeGroup = group;
+        }
+        function ikeLeaveGroup(later) {
+            const group = ikeGroup;
+            if (!group) {
+                return;
+            }
+            ikeGroup = null;
+            group.delete(ikeMember);
+            group.ikeLast = undefined;
+            if (ikeCovered) {
+                ikeCovered = false;
+                forceRenderStyle = true;
+            }
+            if (group.size === 0) {
+                group.ikeGroups.delete(group.ikeKey);
+            } else if (later) {
+                queueMicrotask(() => ikeSettleStyleGroup(group));
+            } else {
+                ikeSettleStyleGroup(group);
+            }
+        }
+        function ikeCover() {
+            ikeCovered = true;
+            if (syncStylePositionWatcher) {
+                syncStylePositionWatcher.stop();
+                syncStylePositionWatcher = null;
+            }
+            removeNode(syncStyle);
+            syncStyle = null;
+            isOverrideEmpty = true;
+        }
+        function ikeUncover() {
+            if (ikeRenderArgs) {
+                forceRenderStyle = true;
+                render(...ikeRenderArgs);
+            }
+        }
+        function ikeGroupCovers() {
+            if (
+                !element.isConnected ||
+                element.getRootNode() !== ikeGroup.ikeRoot
+            ) {
+                ikeLeaveGroup(false);
+                return false;
+            }
+            const last = ikeLastStyle(ikeGroup);
+            if (last !== ikeMember) {
+                ikeCover();
+                if (last && last.rendered() && !last.hasCopy()) {
+                    last.uncover();
+                }
+                return true;
+            }
+            if (ikeCovered) {
+                ikeCovered = false;
+                forceRenderStyle = true;
+            }
+            ikeGroup.forEach((member) => {
+                if (member !== ikeMember && member.hasCopy()) {
+                    member.cover();
+                }
+            });
+            return false;
+        }
+        function ikeChanged() {
+            ikeLeaveGroup(false);
+            update();
+        }
         const sheetModifier = createStyleSheetModifier();
         const observer = new MutationObserver((mutations) => {
             if (
                 mutations.some((m) => m.type === "characterData") &&
                 containsCSSImport()
             ) {
+                ikeLeaveGroup(false);
                 const cssText = (element.textContent ?? "").trim();
                 createOrUpdateCORSCopy(cssText, location.href).then(update);
             } else {
-                update();
+                ikeChanged();
             }
         });
         const observerOptions = {
@@ -7286,6 +7448,10 @@
                 return;
             }
             cancelAsyncOperations = false;
+            ikeRenderArgs = [theme, ignoreImageAnalysis];
+            if (ikeGroup && ikeGroupCovers()) {
+                return;
+            }
             function removeCSSRulesFromSheet(sheet) {
                 if (!sheet) {
                     return;
@@ -7328,7 +7494,7 @@
                     theme,
                     ignoreImageAnalysis,
                     force,
-                    isAsyncCancelled
+                    isAsyncCancelled: () => cancelAsyncOperations || ikeCovered
                 });
                 isOverrideEmpty =
                     !syncStyle.sheet || syncStyle.sheet.cssRules.length === 0;
@@ -7362,7 +7528,7 @@
         const sheetChangeWatcher = createSheetWatcher(
             element,
             safeGetSheetRules,
-            update,
+            ikeChanged,
             isAsyncCancelled
         );
         function pause() {
@@ -7372,6 +7538,7 @@
             sheetChangeWatcher.stop();
         }
         function destroy() {
+            ikeLeaveGroup(true);
             pause();
             corsCopies.delete(element);
             removeNode(syncStyle);
@@ -7391,6 +7558,10 @@
         const maxMoveCount = 10;
         let moveCount = 0;
         function restore() {
+            if (ikeGroup && element.getRootNode() !== ikeGroup.ikeRoot) {
+                ikeChanged();
+                return;
+            }
             if (!syncStyle) {
                 return;
             }
@@ -7407,6 +7578,7 @@
                 update();
             }
         }
+        ikeJoinGroup();
         return {
             details,
             render,
@@ -8226,6 +8398,9 @@
                 removedStyles,
                 movedStyles
             });
+            if (moves.size > 0) {
+                ikeCheckStyleGroups(root);
+            }
             const potentialHosts = new Set();
             additions.forEach((n) => {
                 if (n.parentElement) {
@@ -8278,6 +8453,7 @@
                 removedStyles,
                 movedStyles
             });
+            ikeCheckStyleGroups(root);
             deepObserve(root);
             collectUndefinedElements(root);
             checkImageSelectors(root);
