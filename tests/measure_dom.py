@@ -6,8 +6,11 @@ the automatic tests; to compare two versions on the same computer.
 
 The page adds 12,000 elements, removes them and sets innerHTML 300 times, seven
 times; the median of the seven is one round. Prints the median of the rounds
-(ms). LISTS_DIR as for measure_perf.py --lists.
+(ms). LISTS_DIR as for measure_perf.py --lists. IKE_MEASURE_SETTINGS (JSON)
+adds settings, e.g. '{"dark_mode": "on", "dark_engine": "reader"}'.
 """
+import json
+import os
 import shutil
 import sys
 import tempfile
@@ -67,7 +70,8 @@ def steps(ike, qapp, out):
     out["ms"] = xs
 '''
 home = Path(tempfile.mkdtemp())
-M.make_home(home, lists, {"shield_level": level})
+M.make_home(home, lists, {"shield_level": level,
+                          **json.loads(os.environ.get("IKE_MEASURE_SETTINGS") or "{}")})   # e.g. dark mode
 M.run(M.START, home)
 out = M.run(M.COMMON + "BASE = %r\n" % base + STEPS % rounds, home)
 xs = sorted(out["ms"])
