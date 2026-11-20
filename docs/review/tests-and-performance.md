@@ -186,6 +186,78 @@ What the comparison showed:
   suspending gives back about 50 MB a tab. 1.1.18 therefore suspends earlier
   only when the computer runs short of memory.
 
+## 1.1.18, page dark mode with Dark Reader
+
+Where Dark Reader's cost came from (Speedometer 3.0 suites traced through
+the DevTools protocol: style recalculations with their element counts and
+causes, selector statistics, and the JavaScript profile inside the measured
+steps only):
+
+- **Whole-page restyles inside the steps.** Most of the extra time was the
+  engine styling every element of a page again, not Dark Reader's script:
+  - after a large change of the page, every style element added since Dark
+    Reader started counted as "moved" (its new neighbour was Dark Reader's
+    own copy of it) and its copy was rebuilt: Svelte-Complex-DOM, 118
+    rebuilds and 1,771 elements restyled in one step instead of 600;
+  - each colour seen for the first time became a new variable on `:root`,
+    which restyles everything (Charts-observable-plot 16 times,
+    React-Stockcharts-SVG 13, Editor-CodeMirror 54 in their steps);
+  - a page variable whose kind (background, text, border) Dark Reader learns
+    only later changes a `:root` rule of its copy: TodoMVC-Lit-Complex-DOM,
+    7,521 elements restyled when the first item (a shadow root with adopted
+    style sheets) appears, against 817 without Dark Reader.
+- **SVG shapes measured one at a time.** For every shape with a fill colour
+  Dark Reader reads its size right after changing the previous shape, so the
+  page is laid out again for each one: 40 % of Charts-observable-plot's
+  steps.
+- **The walk looking for shadow roots** asked a script function about every
+  element: 6.2 ms on a 9,000-element page; the same walk without it, 0.4 ms.
+- **More style sheets for every element.** Dark Reader adds a copy after
+  every style element of the page; each element is then matched against
+  twice as many sheets (the Complex-DOM pages have 416 identical style
+  elements inside SVG icons: their copies alone cost about 20 % of those
+  suites). This is how Dark Reader keeps the page's order of rules; it is
+  left as it is.
+
+Changes (build-time patches in `tools/build-darkreader.py`, each refused if
+a new engine no longer has the text it changes): `style-moves`,
+`color-variables` and `svg-sizes` remove the restyles and layouts above,
+`shadow-host-walk` the slow walk. The computed colours of a test page with
+every kind of content (`tests/test_darkreader.py::test_what_dark_reader_darkens`)
+are identical before and after.
+
+Speedometer 3.0, Balanced, dark mode on with Dark Reader, 5 iterations a
+run, runs alternated (container: 4 shared cores, no GPU):
+
+| | before | after |
+|---|---|---|
+| Score, pair 1 | 5.90 | 6.87 |
+| Score, pair 2 | 6.16 | 7.22 |
+| TodoMVC-Svelte-Complex-DOM | 236 / 233 ms | 71 / 60 ms |
+| Charts-observable-plot | 299 / 336 ms | 228 / 221 ms |
+| React-Stockcharts-SVG | 397 / 378 ms | 326 / 312 ms |
+| TodoMVC-Lit-Complex-DOM | 287 / 260 ms | 259 / 244 ms |
+
+On six of the heaviest suites (two more pairs, before / after / after
+without `color-variables`): 4.97 and 5.56 / 7.12 and 7.50 / 6.90 and 6.92;
+`color-variables` alone took Charts-observable-plot from 252 and 228 ms to
+224 and 210 ms. The other suites moved within the noise of the container.
+For reference, on the same container: no dark mode 10.9, the engine's own
+dark mode 10.5. `tests/measure_dom.py` (dark mode on) did not change (24.5
+and 25.4 before, 24.7 and 24.9 ms after): it times only the page's own
+script, and Dark Reader's work runs after it.
+
+What is left, and why:
+
+- the extra style sheets (above);
+- a page variable whose kind is learned late (Lit) still restyles the whole
+  page once: the new value must reach every element;
+- every element with an inline colour or a fill gets Dark Reader's own
+  inline values (most of what is left in the chart suites);
+- every change of a page is examined, and every shadow root gets three style
+  elements and its own watchers (TodoMVC-WebComponents about 75 against
+  40 ms).
+
 ## 1.1.17, before and after
 
 Same container (4 cores, no GPU), same commands: `tests/measure_perf.py`
