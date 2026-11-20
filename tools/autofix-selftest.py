@@ -164,8 +164,10 @@ def main(argv=None):
                 break
             kind, _wait = agent.classify(status, agent.redact(err, key).decode("utf-8", "replace") + "\n" + said)
             print("Agent stopped (%s): %s" % (status, kind), flush=True)
-            if kind not in ("day", "minute", "temporary"):
-                break                             # a key, a model name, a time limit: no other model helps
+            # a time limit too (run 44719025467: 3.7 Flash worked 5.5 minutes with no
+            # answer): unlike a fix, nothing is lost by asking the next model
+            if kind not in ("day", "minute", "temporary", "timeout"):
+                break                             # a key, a model name: no other model helps
         time.sleep(2)                             # anything still on its way reaches the server
     finally:
         listener.close()
