@@ -140,6 +140,20 @@ What the comparison showed:
   browser on the owner's computer cannot come from them; the engine's Chromium
   version and its graphics path are the other candidates, to be checked on
   that computer (chrome://gpu in I.K.E., `pacman -Q qt6-webengine`).
+- On the owner's computer (CachyOS, 2026-11-20; I.K.E. 1.1.17 as installed,
+  Speedometer 3.0, 10 iterations, compared with Brave on the same computer):
+
+  | Speedometer 3.0 | I.K.E., Dark Reader | Brave | I.K.E., engine dark mode |
+  |---|---|---|---|
+  | Score, mean | 20.51 | 29.02 | 33.29 |
+  | Score, iterations 2-10 | 20.90 | 29.58 | 33.88 |
+  | Best | 21.74 | 30.71 | 34.90 |
+  | First (cold) iteration | 16.98 | 23.91 | 28.06 |
+  | Geomean of the times | 48.97 ms | 34.63 ms | 30.16 ms |
+  | Async total | 647.35 ms | 489.06 ms | 223.99 ms |
+
+  The gap against Brave came from Dark Reader; with the engine's dark mode
+  I.K.E. scored 14.7 % above Brave there.
 - Page dark mode with Dark Reader costs much more: 1.1.18 Balanced with dark
   mode on scored 6.12 with Dark Reader (Complex-DOM tests 2-7 times slower)
   and 10.5 with the engine's own dark mode. Dark Reader watches every change of
