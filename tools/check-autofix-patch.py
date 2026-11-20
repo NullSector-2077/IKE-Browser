@@ -88,6 +88,7 @@ WEAKENING = re.compile(r"\bpytest\s*\.\s*(skip|xfail|importorskip)\b|\bmark\s*\.
 # an assertion that can never fail (1.1.18), when the line does not parse alone
 TRIVIAL_ASSERT = re.compile(r"^\s*assert\s*\(?\s*(True|1|not\s+(False|None|0))\s*\)?\s*(,.*)?(#.*)?$")
 TEST_DEF = re.compile(r"^\s*(?:async\s+)?def\s+(test_\w*)\s*\(")
+TEST_CLASS = re.compile(r"^\s*class\s+(Test\w*)\b")
 # tests removed, replaced or stopped by code (1.1.18, two reviews): `del test_x`
 # anywhere on the line, a test name assigned, delattr (but monkeypatch's),
 # globals()/vars(), getattr on pytest/unittest or with a name built from pieces,
@@ -105,7 +106,20 @@ TEST_TAMPERING = re.compile(
     r"|;.*\b(del|pop|globals|vars|delattr|setattr)\b|\b(del|pop|globals|vars|delattr|setattr)\b.*;"
     r"|\[\s*(?:0\s*)?:\s*0\s*\]"
     r"|^\s*(?:el)?if\s*\(?\s*(?:False|0|None|not\s+True)\s*\)?\s*:|^\s*while\s+(?:False|0)\s*:"
-    r"|^\s*if\b.*:\s*return\b")
+    r"|^\s*if\b.*:\s*return\b"
+    # 1.1.18, third review: an empty parameter list given in place, a module
+    # that tells pytest not to collect it, pytest hooks or plugins in a test
+    # module, an assertion error caught and dropped, a test removed through the
+    # module itself, pytest's or the harness's own functions replaced
+    r"|\bparametrize\s*\(\s*(?:\"[^\"]*\"|'[^']*'|\([^)]*\)|\[[^\]]*\])\s*,\s*"
+    r"(?:\[\s*\]|\(\s*\)|\{\s*\}|(?:list|tuple|set|dict)\s*\(\s*\))\s*[,)]"
+    r"|\bargvalues\s*=\s*(?:\[\s*\]|\(\s*\))"
+    r"|\b__test__\b|\bpytest_plugins\b|\bdef\s+pytest_\w+|^\s*pytest_\w+\s*="
+    r"|\bexcept\b[^:\n]*\bAssertionError\b|\bsuppress\s*\([^)\n]*\b(?:AssertionError|Exception|BaseException)\b"
+    r"|\bsys\s*\.\s*modules\s*\[\s*__name__\s*\]|__dict__\s*(?:\.\s*(?:pop|popitem|clear|update|setdefault)\b"
+    r"|\[[^\]\n]*\]\s*=(?!=))|\bsetattr\s*\([^)\n]*['\"]test_"
+    r"|\bsetattr\s*\(\s*['\"]?(?:pytest|unittest|harness|conftest|builtins)\b"
+    r"|(?<![\w.])(?:pytest|unittest|harness|conftest|builtins)\s*(?:\.\s*\w+\s*)+[-+*/%|&^@]?=(?!=)")
 # what decides which tests run, at any depth (1.1.18)
 TEST_CONFIG = {"conftest.py", "pytest.ini", "tox.ini", "setup.cfg", "pyproject.toml", "ruff.toml", ".ruff.toml"}
 SECRET = re.compile(r"AIza[0-9A-Za-z_\-]{30,}|\bgh[pousr]_[0-9A-Za-z]{20,}|github_pat_[0-9A-Za-z_]{20,}"
@@ -178,6 +192,7 @@ def check(repo, patch_text, allow_adblock=False):
         m = re.match(r"^(\d+|-)\t(\d+|-)\t(.+)$", row)
         if m:
             added, removed, path = m.groups()
+            path = unquote(path)
             if "=>" in path:
                 reasons.append(("test file renamed: %s" if "tests/" in path else "renamed file: %s") % path)
                 continue
@@ -189,8 +204,18 @@ def check(repo, patch_text, allow_adblock=False):
         elif row.startswith(("create mode 120000", "create mode 160000", "mode change")) or \
                 " 120000 " in row or " 160000 " in row:          # links, repositories inside (gitlinks)
             reasons.append("link or file mode change: %s" % row)
-        elif row.startswith("delete mode") and row.split()[-1].startswith("tests/"):
-            reasons.append("test file removed: %s" % row.split()[-1])
+        elif row.startswith("delete mode") and unquote(row.split(" ", 3)[-1]).startswith("tests/"):
+            reasons.append("test file removed: %s" % unquote(row.split(" ", 3)[-1]))
+        elif row.startswith(("rename ", "copy ")):
+            # 1.1.18, third review: `git apply --numstat` lists only the new name
+            # of a renamed file, so renaming tests/harness.py, a workflow or a
+            # test module to docs/ removed it unseen. Git's summary names both.
+            old, new = renamed_paths(row)
+            if old.startswith("tests/") or new.startswith("tests/"):
+                reasons.append("test file renamed or copied: %s => %s" % (old, new))
+            else:
+                why = allowed_path(old, allow_adblock) or allowed_path(new, allow_adblock)
+                reasons.append("%s => %s: %s" % (old, new, why) if why else "renamed file: %s => %s" % (old, new))
     if not files and not reasons:
         return []
     for path in sorted(files):
@@ -216,6 +241,13 @@ def check(repo, patch_text, allow_adblock=False):
     if re.search(r"\r(?!\n)", patch_text):
         reasons.append("a carriage return inside a line (CR line endings hide lines from the checks)")
 
+    # 1.1.18, third review: the checks below read the file names of the patch
+    # themselves ("+++ b/..."); git must read the same ones. A quoted, escaped
+    # name ("\164ests/...") was tests/ for git but not for the checks.
+    listed = numstat_paths(stat.stdout)
+    for path in sorted({p for p, sign, _ in patch_lines(patch_text) if sign == "@@"} - listed):
+        reasons.append("%s: the patch names a file in a way git reads differently" % (path or "?"))
+
     # the content of the changes
     asserts = {}
     for current, sign, code in patch_lines(patch_text):
@@ -234,17 +266,71 @@ def check(repo, patch_text, allow_adblock=False):
     for path, balance in sorted(asserts.items()):
         if balance < 0:
             reasons.append("%s: %d assertion(s) removed" % (path, -balance))
-    return reasons + weakened_tests(patch_text)
+    return reasons + weakened_tests(patch_text) + emptied_parameters(repo, patch_text)
 
 
 _HUNK = re.compile(r"^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@")
 
 
+_ESCAPES = {"a": 7, "b": 8, "f": 12, "n": 10, "r": 13, "t": 9, "v": 11, "\\": 92, '"': 34}
+
+
+def unquote(text):
+    """A file name as git writes it: plain, or quoted with C escapes (\\t, \\",
+    \\164 in octal...). Git reads "\\164ests/x" as tests/x, and so must the
+    checks (1.1.18, third review)."""
+    if not (len(text) >= 2 and text.startswith('"') and text.endswith('"')):
+        return text
+    out, body, i = bytearray(), text[1:-1], 0
+    while i < len(body):
+        c = body[i]
+        if c == "\\" and i + 1 < len(body):
+            nxt = body[i + 1]
+            if nxt in "01234567":
+                digits = re.match(r"[0-7]{1,3}", body[i + 1:]).group(0)
+                out.append(int(digits, 8) & 0xFF)
+                i += 1 + len(digits)
+                continue
+            out.append(_ESCAPES.get(nxt, ord(nxt) if ord(nxt) < 128 else 63))
+            i += 2
+            continue
+        out += c.encode("utf-8")
+        i += 1
+    return out.decode("utf-8", "replace")
+
+
 def _header_path(text):
-    text = text.split("\t", 1)[0].strip()
-    if text.startswith('"') and text.endswith('"'):
-        text = text[1:-1]
-    return text
+    return unquote(text.split("\t", 1)[0].strip())
+
+
+def renamed_paths(row):
+    """[old, new] of a "rename a/{x => y}/b (90%)" or "copy ..." line of
+    `git apply --summary`."""
+    body = re.sub(r"\s*\(\d+%\)\s*$", "", row.strip().split(" ", 1)[1].strip())
+    m = re.match(r"^(.*)\{(.*) => (.*)\}(.*)$", body)
+    if m:
+        pre, a, b, post = m.groups()
+        old, new = pre + a + post, pre + b + post
+    else:
+        old, _, new = body.partition(" => ")
+    return [re.sub(r"/{2,}", "/", unquote(x.strip())) for x in (old, new)]
+
+
+def numstat_paths(stat_out):
+    """Every file name in `git apply --numstat --summary`: changed, created,
+    removed, and both names of a rename or copy."""
+    out = set()
+    for row in stat_out.splitlines():
+        m = re.match(r"^(?:\d+|-)\t(?:\d+|-)\t(.+)$", row.strip())
+        if m:
+            out.add(unquote(m.group(1)))
+            continue
+        row = row.strip()
+        if row.startswith(("rename ", "copy ")):
+            out.update(renamed_paths(row))
+        elif row.startswith(("create mode ", "delete mode ", "mode change ")):
+            out.add(unquote(row.split(" ", 3)[-1]))
+    return out
 
 
 def patch_lines(patch_text):
@@ -329,23 +415,62 @@ def never_fails(code):
     return isinstance(stmt, ast.Assert) and _always_true(stmt.test)
 
 
+def _indent(code):
+    return len(code) - len(code.lstrip(" \t"))
+
+
+# decorators that keep a test a test: pytest's marks (a skip or xfail among them
+# is refused by WEAKENING) and mock's patches. Any other one added on a test may
+# replace it (a fixture, a property, a skipif kept in a name: @needs_engine).
+KEEPS_A_TEST = re.compile(r"^\s*@\s*(?:pytest\s*\.\s*)?mark\s*\.|^\s*@\s*(?:unittest\s*\.\s*)?(?:mock\s*\.\s*)?patch\b")
+
+
 def weakened_tests(patch_text):
     """Tests weakened other than by a removed assertion (1.1.18): a test function
     removed or renamed, an assertion that cannot fail, a `return` added at the
-    top of a test body (before its first statement)."""
+    top of a test body (before its first statement); since the third review
+    also a `return` anywhere in the body of a test (not in a nested block), an
+    assertion moved into a block (`if`, `try`, `with`, a loop: re-indented
+    deeper), and a decorator added on a test other than a mark or a patch."""
     reasons, removed, added = [], {}, set()
     state, quote = None, ""
+    test = None                               # (indentation of its def, of its body) in the new file
+    decorators = []                           # the decorator lines just above, (sign, code)
+    moved = {}                                # (file, assertion) -> ([removed indents], [added indents])
     for current, sign, code in patch_lines(patch_text):
         if sign == "@@":
-            state = None                      # a hunk may start anywhere: no assumption
+            state, test, decorators = None, None, []      # a hunk may start anywhere: no assumption
             continue
         if not current.startswith("tests/"):
             continue
         found = TEST_DEF.match(code)
+        if code.strip().startswith("assert"):
+            sides = moved.setdefault((current, code.strip()), ([], []))
+            if sign in ("-", "+"):
+                sides[sign == "+"].append(_indent(code))
         if sign == "-":
             if found:
                 removed.setdefault(found.group(1), current)
             continue
+        stripped = code.strip()
+        # the body of the test this line is in (the new file: context and added lines)
+        if stripped and not stripped.startswith("#"):
+            if found or TEST_CLASS.match(code):
+                for d_sign, d_code in decorators:
+                    if d_sign == "+" and not KEEPS_A_TEST.match(d_code):
+                        reasons.append("%s: adds a decorator that may replace a test: %s"
+                                       % (current, d_code.strip()[:120]))
+            decorators = decorators + [(sign, code)] if stripped.startswith("@") else []
+            if found:
+                test = [_indent(code), None]
+            elif test and _indent(code) <= test[0] and not stripped.startswith(("@", ")", "]", "}")):
+                test = None
+            elif test and test[1] is None:
+                test[1] = _indent(code)
+            if test and test[1] is not None and sign == "+" and _indent(code) == test[1] \
+                    and re.match(r"^return\b", stripped) and state != "body":
+                reasons.append("%s: adds a return in the body of a test (the lines after it never run): %s"
+                               % (current, stripped[:120]))
         if sign == "+" and found:
             added.add(found.group(1))
         if sign == "+" and never_fails(code):
@@ -375,6 +500,33 @@ def weakened_tests(patch_text):
     for name, path in sorted(removed.items()):
         if name not in added:
             reasons.append("%s: test removed or renamed: %s" % (path, name))
+    # an assertion removed and added again deeper: now under an `if`, a `try`
+    # whose except drops it, a `with` or a loop that may never run
+    for (path, text), (gone, back) in sorted(moved.items()):
+        if gone and back and max(back) > min(gone):
+            reasons.append("%s: an assertion moved into a block (if, try, with, loop): %s" % (path, text[:120]))
+    return reasons
+
+
+def emptied_parameters(repo, patch_text):
+    """A list a test is parametrized with, emptied where it is defined
+    (`REAL = []` for `@pytest.mark.parametrize('n', REAL)`): pytest then runs
+    no case of it (third review of 1.1.18)."""
+    reasons, names = [], {}
+    for current, sign, code in patch_lines(patch_text):
+        m = re.match(r"^(\w+)\s*(?::[^=]*)?=\s*(?:\[\s*\]|\(\s*\)|\{\s*\}|(?:list|tuple|set|dict)\s*\(\s*\))\s*(?:#.*)?$",
+                     code)
+        if sign == "+" and current.startswith("tests/") and m:
+            names.setdefault(current, set()).add(m.group(1))
+    for path, found in sorted(names.items()):
+        try:
+            before = (Path(repo) / path).read_text("utf-8", "replace") if not (Path(repo) / path).is_symlink() else ""
+        except OSError:
+            before = ""
+        added = "\n".join(code for p, sign, code in patch_lines(patch_text) if p == path and sign == "+")
+        for name in sorted(found):
+            if re.search(r"\bparametrize\s*\([^)]*\b%s\b" % re.escape(name), before + "\n" + added):
+                reasons.append("%s: empties the parameters of a test: %s" % (path, name))
     return reasons
 
 
@@ -384,7 +536,9 @@ SAFETY = ("outside the repository", "protected file", "third-party or generated"
           "ad blocker", "not I.K.E.'s code", "key or token", "link or file mode", "skip or xfail",
           "assertion(s) removed", "test file removed", "test file renamed", "test removed or renamed",
           "assertion that cannot fail", "early return at the top of a test", "removes or stops tests by code",
-          "carriage return inside a line")
+          "carriage return inside a line", "test file renamed or copied", "reads differently",
+          "return in the body of a test", "assertion moved into a block", "decorator that may replace a test",
+          "empties the parameters of a test")
 
 
 def safety_refusal(reasons):

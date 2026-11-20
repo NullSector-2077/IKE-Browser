@@ -1991,3 +1991,134 @@ def test_no_openrouter_list_means_the_chain_simply_goes_on():
     def odd(req, timeout=0):
         return _Answer(b'{"data": "nope"}')
     assert reserve.free_models("k", odd) == []
+
+
+# --- 1.1.18, third review: the validators on their own (no AI) --------------------
+
+PARAM = ("import pytest\n\nREAL = [1, 2]\n\n\n@pytest.mark.parametrize('n', REAL)\ndef test_n(n):\n"
+         "    assert n > 0\n\n\n" + WIDTH)
+TWO = "    assert 1\n    assert 2\n"
+WEAKER = {
+    # each of these passed the checker before the third review
+    "empty parametrize": (PARAM.replace("parametrize('n', REAL)", "parametrize('n', [])"), "by code"),
+    "list emptied": (PARAM.replace("REAL = [1, 2]", "REAL = []"), "empties the parameters"),
+    "try except pass": (WIDTH.replace(TWO, "    try:\n        assert 1\n        assert 2\n"
+                                      "    except AssertionError:\n        pass\n"), "by code"),
+    "except Exception": (WIDTH.replace(TWO, "    try:\n        assert 1\n        assert 2\n"
+                                       "    except Exception:\n        pass\n"), "moved into a block"),
+    "suppress": (WIDTH.replace(TWO, "    import contextlib\n    with contextlib.suppress(AssertionError):\n"
+                               "        assert 1\n        assert 2\n"), "by code"),
+    "under if": (WIDTH.replace(TWO, "    import os\n    if os.environ.get('NEVER'):\n        assert 1\n"
+                               "        assert 2\n"), "moved into a block"),
+    "return later": (WIDTH.replace(TWO, "    x = 1\n    return x\n" + TWO), "return in the body of a test"),
+    "__test__": ("__test__ = False\n" + WIDTH, "by code"),
+    "fixture": ("import pytest\n\n\n@pytest.fixture\n" + WIDTH, "decorator that may replace a test"),
+    "skipif in a name": ("import pytest\n\nneeds = pytest.mark.skipif(True, reason='x')\n\n\n@needs\n" + WIDTH,
+                         "skip or xfail"),
+    "a name only": ("from tests.test_more import needs\n\n\n@needs\n" + WIDTH, "decorator that may replace a test"),
+    "pytest replaced": (WIDTH + "\n\nimport pytest\npytest.fail = lambda *a, **k: None\n", "by code"),
+    "harness replaced": ("from tests import harness\nharness.run = lambda *a, **k: {}\n" + WIDTH, "by code"),
+    "setattr": (WIDTH + "\n\nimport sys\nsetattr(sys.modules[__name__], 'test_width', None)\n", "by code"),
+    "module dict": (WIDTH + "\n\nimport sys\nsys.modules[__name__].__dict__.pop('test_width')\n", "by code"),
+    "generate_tests": (WIDTH + "\n\ndef pytest_generate_tests(metafunc):\n    metafunc.parametrize('x', [])\n",
+                       "by code"),
+    "plugins": ("pytest_plugins = ['tests.evil']\n" + WIDTH, "by code"),
+}
+
+
+@pytest.mark.parametrize("name", sorted(WEAKER))
+def test_the_third_review_weakenings_are_refused(repo, tmp_path, name):
+    text, why = WEAKER[name]
+    if "param" in name or "list" in name:
+        (repo / "tests/test_window.py").write_text(PARAM)
+        git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "a parametrized test")
+    code, report = run_guard(repo, make_patch(repo, edit("tests/test_window.py", text)), tmp_path)
+    assert code == 3 and why in report, (name, report)
+
+
+@pytest.mark.parametrize("src, dst", [
+    ("tests/conftest.py", "tests/conftest_old.py"),       # the harness, gone by a rename
+    ("tests/test_window.py", "docs/old_test.py"),         # a test module, gone by a rename
+    ("ike/updater.py", "ike/updater_old.py"),             # a protected file, gone by a rename
+    (".github/workflows/tests.yml", "docs/tests.yml"),    # a workflow, gone by a rename
+])
+def test_a_rename_never_removes_a_file_unseen(repo, tmp_path, src, dst):
+    """Third review: `git apply --numstat` names only the new file of a rename,
+    so a rename of a test module, the harness, the updater or a workflow passed
+    (the "=>" the checker looked for never appears there). The fix job's own
+    `git diff` detects renames, so this was reachable."""
+    def move(r):
+        (r / dst).parent.mkdir(parents=True, exist_ok=True)
+        (r / src).rename(r / dst)
+    patch = make_patch(repo, move)
+    assert "rename from " + src in patch
+    code, report = run_guard(repo, patch, tmp_path)
+    assert code == 3 and src in report, report
+    assert (repo / src).exists() and not (repo / dst).exists()
+    # an ordinary file renamed is still refused, but not as a safety matter
+    plain = make_patch(repo, lambda r: (r / "ike/window.py").rename(r / "ike/window2.py"))
+    assert run_guard(repo, plain, tmp_path)[0] == 1
+
+
+def test_a_quoted_file_name_does_not_blind_the_checks(repo, tmp_path):
+    """Third review: git reads "\\164ests/x" (octal for t) as tests/x; the checks
+    read the name as written, did not see a test file and passed a skip."""
+    patch = make_patch(repo, edit("tests/test_window.py", "import pytest\n\n\n@pytest.mark.skip\n" + WIDTH))
+    hidden = patch.replace("diff --git a/tests/test_window.py b/tests/test_window.py",
+                           'diff --git "a/\\164ests/test_window.py" "b/\\164ests/test_window.py"')
+    hidden = hidden.replace("--- a/tests/test_window.py\n", '--- "a/\\164ests/test_window.py"\n')
+    hidden = hidden.replace("+++ b/tests/test_window.py\n", '+++ "b/\\164ests/test_window.py"\n')
+    assert '+++ "b/\\164ests/test_window.py"' in hidden
+    assert subprocess.run(["git", "-C", str(repo), "apply", "--check", "-"], input=hidden, text=True).returncode == 0
+    code, report = run_guard(repo, hidden, tmp_path)
+    assert code == 3 and "skip or xfail" in report and "tests/test_window.py" in report, report
+    assert guard.unquote('"a\\tb\\"c\\\\d\\303\\251"') == 'a\tb"c\\dé'
+    assert guard.renamed_paths("rename tests/{a.py => b.py} (100%)") == ["tests/a.py", "tests/b.py"]
+    assert guard.renamed_paths("rename {tests => docs}/a.py (90%)") == ["tests/a.py", "docs/a.py"]
+    assert guard.renamed_paths("rename tests/{ => sub}/a.py (90%)") == ["tests/a.py", "tests/sub/a.py"]
+    # a name git reads otherwise than the checks (tests//x is tests/x for git)
+    odd = patch.replace("tests/test_window.py", "tests//test_window.py")
+    code, report = run_guard(repo, odd, tmp_path)
+    assert code == 3 and "reads differently" in report, report
+
+
+def test_honest_test_changes_still_pass_the_third_review(repo, tmp_path):
+    """No false alarm on the usual corrections: a parametrized test added, an
+    empty list inside a test, a return in a helper or in a nested function, a
+    mark or a patch on a test, an assertion moved out of a block."""
+    honest = [
+        PARAM,
+        WIDTH + "\n\ndef test_list():\n    opened = []\n    assert opened == []\n",
+        WIDTH + "\n\ndef helper():\n    return 1\n",
+        WIDTH + "\n\ndef test_inner():\n    def inner():\n        return 2\n    assert inner() == 2\n",
+        "import pytest\n\n\n@pytest.mark.parametrize('n', [1, '', 2])\n" + WIDTH.replace("()", "(n)"),
+        "from unittest import mock\n\n\n@mock.patch('os.sep', '/')\n" + WIDTH.replace("()", "(_sep)"),
+        "def test_width():\n    for x in (1,):\n        y = x\n    assert y\n    assert 1\n    assert 2\n",
+    ]
+    for text in honest:
+        code, report = run_guard(repo, make_patch(repo, edit("tests/test_window.py", text)), tmp_path,
+                                 "--check-only")
+        assert code == 0, (text, report)
+    (repo / "tests/test_window.py").write_text("def test_width():\n    x = 1\n    if x:\n        assert x == 1\n")
+    git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "nested")
+    out = edit("tests/test_window.py", "def test_width():\n    x = 1\n    assert x == 1\n")
+    code, report = run_guard(repo, make_patch(repo, out), tmp_path, "--check-only")
+    assert code == 0, report
+
+
+def test_the_new_rules_find_nothing_in_the_existing_tests(tmp_path):
+    """The rules of the third review, run on every test module of the
+    repository as if it were added: nothing found but the marks the modules
+    really put on their tests (@needs_engine, @needs_node: skipif in a name)."""
+    new_marks = ("decorator that may replace a test", "empties the parameters", "return in the body",
+                 "moved into a block", "reads differently", "renamed or copied")
+    empty = tmp_path / "empty"
+    subprocess.run(["git", "init", "-q", str(empty)], check=True)
+    for path in sorted((ROOT / "tests").glob("test_*.py")):
+        if path.name == "test_automation.py":           # it quotes the attacks on purpose
+            continue
+        lines = path.read_text().splitlines()
+        patch = ("diff --git a/tests/{0} b/tests/{0}\nnew file mode 100644\n--- /dev/null\n+++ b/tests/{0}\n"
+                 "@@ -0,0 +1,{1} @@\n".format(path.name, len(lines)) + "".join("+" + ln + "\n" for ln in lines))
+        found = [r for r in guard.check(empty, patch) if any(m in r for m in new_marks) and "@needs_" not in r]
+        assert found == [], (path.name, found)
