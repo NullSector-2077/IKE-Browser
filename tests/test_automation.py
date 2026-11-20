@@ -1672,6 +1672,8 @@ def _issue_body(tmp_path, summary, **env_):
     ({"tests/test_x.py": "def test_a():\n    pass\n\n\ndef test_b():\n    pass\n\n\ndel test_b\n"}, False),
     ({"tests/test_y.py": "def test_c():\n    pass\n"}, True),                               # one more
     ({"ike/x.py": "X = 2\n"}, True),
+    # 1.1.18 (second review): a new test does not hide a dropped one
+    ({"tests/test_x.py": "def test_a():\n    pass\n", "tests/test_y.py": "def test_c():\n    pass\n"}, False),
 ])
 def test_tests_yml_refuses_a_change_that_runs_fewer_tests(tmp_path, change, ok):
     """1.1.18 (review): whatever way a fix finds to drop a test, the tests of an
@@ -1703,6 +1705,8 @@ def test_tests_yml_refuses_a_change_that_runs_fewer_tests(tmp_path, change, ok):
     (work / "ike").mkdir()
     (work / "tests/test_x.py").write_text("def test_a():\n    pass\n\n\ndef test_b():\n    pass\n")
     (work / "ike/x.py").write_text("X = 1\n")
+    # as the real pyproject.toml: its -q made the count -qq, with no test ids (second review)
+    (work / "pyproject.toml").write_text('[tool.pytest.ini_options]\ntestpaths = ["tests"]\naddopts = "-q"\n')
     g(work, "add", "-A")
     g(work, "commit", "-qm", "base")
     g(work, "remote", "add", "origin", str(bare))
@@ -1721,7 +1725,9 @@ def test_tests_yml_refuses_a_change_that_runs_fewer_tests(tmp_path, change, ok):
     run = subprocess.run(["bash", "-e", "-c", script], cwd=work, env=env, capture_output=True, text=True,
                          timeout=300)
     assert (run.returncode == 0) is ok, run.stdout + run.stderr
-    assert "Tests here:" in run.stdout
+    assert "Tests here: " in run.stdout and "no comparison" not in run.stdout, run.stdout
+    if not ok:
+        assert "lost: tests/test_x.py::test_b" in run.stdout or "test_b" in run.stdout
 
 
 def test_no_dead_parts_in_the_workflows():
