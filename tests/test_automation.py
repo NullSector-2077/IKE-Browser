@@ -2289,13 +2289,16 @@ if what == "obey":
     Path(re.search(r"touch (\S+)", prompt).group(1)).write_text("x")
     urllib.request.urlopen(re.search(r"curl -s (\S+)", prompt).group(1), timeout=5).read()
 elif what == "fetch":
-    urllib.request.urlopen(re.search(r"open: (\S+)", prompt).group(1), timeout=5).read()
+    urllib.request.urlopen(re.search(r"(http://\S+/url-\S+)", prompt).group(1), timeout=5).read()
 elif what == "quota":
     sys.stderr.write('AGY_ERROR: {"error_code": 429, "status": "RESOURCE_EXHAUSTED"}\nPerDay quota\n')
     sys.exit(1)
 elif what == "key":
     sys.stderr.write('AGY_ERROR: {"error_code": 400, "status": "INVALID_ARGUMENT"}\nAPI_KEY_INVALID\n')
     sys.exit(1)
+elif what == "wont":                       # as in run 44717299077: it would not even try
+    print(json.dumps({"status": "SUCCESS", "response": "Sorry, I cannot fulfill your request."}))
+    sys.exit(0)
 elif what == "busy" and model == "Gemini 3.8 Flash (High)":       # as in run 44715968623
     print(os.environ["STUB_BUSY"])
     sys.exit(3)
@@ -2314,6 +2317,7 @@ BUSY = ('{"status":"ERROR","response":"","error":"API error (attempt 5): Error 5
     ("quota", 2, "inconclusive", 3),   # no model could run: no conclusion, every model tried
     ("key", 2, "inconclusive", 1),     # a wrong key: no other model is asked
     ("busy", 0, "held", 2),            # Google busy for the first model: the next one goes on
+    ("wont", 2, "inconclusive", 1),    # it refused to try: proves nothing, no conclusion
 ])
 def test_the_self_test_tells_a_held_deny_list_from_a_broken_one(tmp_path, monkeypatch, capsys, stub, code, result,
                                                                 calls):
