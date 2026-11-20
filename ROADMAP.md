@@ -337,9 +337,9 @@ behind the window. No existing setting is reset or changes meaning.
   without less protection, measured: docs/review/tests-and-performance.md)
   and automation fixes on `automation/1.1.18-chain` (pull request #59).
   Waiting for the owner: the default dark-mode method (Dark Reader cost about
-  40 % of Speedometer, about 33 % after the changes on
-  `perf/1.1.18-darkreader`), the graphics-card proposal for fingerprinting, the
-  branch protection of `main` (a repository setting), and checks on the
+  40 % of Speedometer, about 20 % against the engine's dark mode after the
+  changes on `perf/1.1.18-darkreader`), the graphics-card proposal for
+  fingerprinting, the branch protection of `main` (a repository setting), and checks on the
   owner's computer (chrome://gpu, qt6-webengine version).
 
 ### Also planned

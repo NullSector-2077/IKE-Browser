@@ -247,16 +247,67 @@ dark mode 10.5. `tests/measure_dom.py` (dark mode on) did not change (24.5
 and 25.4 before, 24.7 and 24.9 ms after): it times only the page's own
 script, and Dark Reader's work runs after it.
 
+Second round (same branch):
+
+- `style-groups`: identical style elements (same text, media, type and
+  title, in the same document or shadow root) share one Dark Reader copy,
+  placed after the last of them. All the originals give the same
+  declarations and all the copies the same changed ones, and a copy comes
+  right after its original, so the copy after the last original is the one
+  that wins in the cascade over the others and over any rule in between.
+  When the page adds, removes or moves members, the copy goes after the new
+  last one before anything is drawn; an element whose text, attributes or
+  rules change leaves its group and gets its own copy, as before. Test:
+  `test_identical_style_elements_share_one_copy` (seven phases of moves,
+  additions, removals, text and CSSOM changes, a different rule in between,
+  a media group, a shadow root); run on the version before, it passes every
+  colour check and fails only on the number of copies.
+- `shadow-texts`, `adopted-once`: the texts of the three style elements of
+  every shadow root are built once per theme and fix; a root's adopted
+  sheets are set once per render to the same final list. Dark Reader's
+  script in the "add 100 items" steps of WebComponents and Lit: 361 -> 283
+  profile samples; the suites' timings moved within the noise.
+- `image-selectors`: one search for all background-image selectors that
+  wait for a matching element, the per-selector search only when it finds
+  something (TodoMVC-jQuery: 55 samples in its steps).
+
+The computed colours, borders, fills, strokes and background images of every
+element (document and shadow roots, about 6,300 each) of the Lit, Svelte and
+WebComponents Complex-DOM pages, after adding 12 items, are identical with
+and without all the changes.
+
+Speedometer 3.0 after both rounds (this session's container was slower than
+the first one: the engine's own dark mode scored 8.66 here):
+
+| | before | after |
+|---|---|---|
+| Score, pair 1 | 5.75 | 7.01 |
+| Score, pair 2 | 5.69 | 6.73 |
+| TodoMVC-Lit-Complex-DOM | 267 / 280 ms | 164 / 187 ms |
+| TodoMVC-Svelte-Complex-DOM | 197 / 305 ms | 46 / 59 ms |
+| TodoMVC-JavaScript-ES6-Webpack-Complex-DOM | 287 / 224 ms | 190 / 191 ms |
+| TodoMVC-Angular-Complex-DOM | 117 / 117 ms | 93 / 97 ms |
+| Charts-observable-plot | 343 / 375 ms | 258 / 220 ms |
+| React-Stockcharts-SVG | 393 / 440 ms | 354 / 364 ms |
+
+Seven Complex-DOM suites alone, `style-groups` against the first round (two
+alternated pairs): 7.93 / 7.65 -> 9.37 / 9.93.
+
 What is left, and why:
 
-- the extra style sheets (above);
 - a page variable whose kind is learned late (Lit) still restyles the whole
-  page once: the new value must reach every element;
+  page once: the new value must reach every element (Lit 164-187 ms against
+  49 with the engine's dark mode);
 - every element with an inline colour or a fill gets Dark Reader's own
-  inline values (most of what is left in the chart suites);
+  inline values, and SVG shapes must be measured to tell icons from
+  backgrounds (charts: about 1.9 times the engine's dark mode for
+  observable-plot, 1.35 for Stockcharts);
 - every change of a page is examined, and every shadow root gets three style
-  elements and its own watchers (TodoMVC-WebComponents about 75 against
-  40 ms).
+  elements and its own watchers. They cannot be one constructed sheet
+  adopted by all roots: adopted sheets come after a root's own style
+  elements in the cascade, while Dark Reader puts its elements first, so a
+  page rule of the same specificity would lose where it now wins;
+- style sheets that are not identical still each get a copy.
 
 ## 1.1.17, before and after
 
