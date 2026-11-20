@@ -1117,6 +1117,9 @@ elif what == "crash":                                          # the step itself
     sys.exit(3)
 elif what == "leak":
     (workdir / "ike/window.py").write_text("K = '%s'\n" % os.environ["GEMINI_API_KEY"])
+elif what == "abort":                    # its status is written, then the step stops before the key check
+    (workdir / ".autofix/summary.md").write_text("K %s\n" % os.environ["GEMINI_API_KEY"])
+    (Path(os.environ["RUNNER_TEMP"]) / "autofix" / "agent.diff").mkdir()
 elif what == "link":                                           # the runner would read what it points at
     secret = workdir.parent / "secret"
     (workdir / ".autofix/summary.md").symlink_to(secret)
@@ -1136,7 +1139,8 @@ Path(args[args.index("--status") + 1]).write_text(json.dumps({"result": "error",
 '''
 
 
-FIX_STEPS = ("Git for the runner on the agent's tree", "Antigravity", "Reserves, then the patch")
+FIX_STEPS = ("How the agent is stopped", "Git for the runner on the agent's tree", "Antigravity",
+             "Reserves, then the patch")
 
 
 def run_fix_steps(repo, tmp_path, scenario, reserve_key="gsk_TESTONLY"):
@@ -1167,9 +1171,9 @@ def run_fix_steps(repo, tmp_path, scenario, reserve_key="gsk_TESTONLY"):
     out_file = tmp_path / "github_output"
     base = dict(os.environ, RUNNER_TEMP=str(temp), GITHUB_OUTPUT=str(out_file), SCENARIO=scenario,
                 ALLOW_ADBLOCK="false", PATH="%s:%s" % (bin_, os.environ["PATH"]))
-    envs = {FIX_STEPS[0]: base,
-            FIX_STEPS[1]: dict(base, GEMINI_API_KEY="AIzaTESTONLY"),
-            FIX_STEPS[2]: dict(base, GROQ_API_KEY=reserve_key, OPENROUTER_API_KEY="")}
+    envs = {FIX_STEPS[0]: base, FIX_STEPS[1]: base,
+            FIX_STEPS[2]: dict(base, GEMINI_API_KEY="AIzaTESTONLY"),
+            FIX_STEPS[3]: dict(base, GROQ_API_KEY=reserve_key, OPENROUTER_API_KEY="")}
     runs = {}
     for name in FIX_STEPS:
         script = step_script(name).replace("/srv/autofix/repo", str(repo))
@@ -1188,20 +1192,21 @@ def run_fix_steps(repo, tmp_path, scenario, reserve_key="gsk_TESTONLY"):
     ("good", False, False, "ok", "true"),          # accepted at once: the reserves stay quiet
     ("partial", True, False, "timeout", "false"),  # half done at its time limit: thrown away
     ("crash", True, False, "timeout", "false"),    # its step stopped: thrown away
+    ("abort", True, False, "timeout", "false"),    # stopped after its status, before its key check
 ])
 def test_the_fix_step_of_the_workflow(repo, tmp_path, scenario, reserve_asked, refused_given, result, patch):
     """What reaches the reserves, and what is kept."""
     runs, outputs, asked, temp = run_fix_steps(repo, tmp_path, scenario)
     for name, run in runs.items():
-        expected = 3 if (scenario, name) == ("crash", "Antigravity") else 0
+        expected = {("crash", "Antigravity"): 3, ("abort", "Antigravity"): 1}.get((scenario, name), 0)
         assert run.returncode == expected, (name, run.stdout + run.stderr)
     assert bool(asked) is reserve_asked, (scenario, asked)
     assert ("--refused" in asked) is refused_given, (scenario, asked)
     if reserve_asked:
         assert "--checker" in asked and "--related" in asked and "--allow-adblock" not in asked
-    assert outputs["result"] == result, (scenario, outputs, runs[FIX_STEPS[2]].stdout)
+    assert outputs["result"] == result, (scenario, outputs, runs[FIX_STEPS[3]].stdout)
     assert outputs["patch"] == patch, (scenario, outputs)
-    if scenario in ("big", "unsafe", "partial", "crash"):    # nothing of a refused or unfinished fix is kept
+    if scenario in ("big", "unsafe", "partial", "crash", "abort"):   # nothing refused or unfinished is kept
         assert git(repo, "status", "--porcelain") == "", scenario
     summary = (temp / "autofix" / "summary.md").read_text()
     assert "AIzaTESTONLY" not in summary
@@ -1214,7 +1219,7 @@ def test_unfinished_work_is_thrown_away_without_reserves_too(repo, tmp_path, sce
     """1.1.18: without a reserve key, what Antigravity left after its time limit
     or an error was published as the fix."""
     runs, outputs, asked, temp = run_fix_steps(repo, tmp_path, scenario, reserve_key="")
-    assert runs[FIX_STEPS[2]].returncode == 0, runs[FIX_STEPS[2]].stdout + runs[FIX_STEPS[2]].stderr
+    assert runs[FIX_STEPS[3]].returncode == 0, runs[FIX_STEPS[3]].stdout + runs[FIX_STEPS[3]].stderr
     assert not asked and outputs["patch"] == "false", outputs
     assert (temp / "autofix" / "autofix.patch").read_text() == ""
     assert git(repo, "status", "--porcelain") == ""
@@ -1226,7 +1231,7 @@ def test_links_the_agent_leaves_in_autofix_are_never_followed(repo, tmp_path):
     and put it in a public pull request or send it to a reserve."""
     import urllib.error
     runs, outputs, asked, temp = run_fix_steps(repo, tmp_path, "link")
-    assert runs[FIX_STEPS[2]].returncode == 0, runs[FIX_STEPS[2]].stdout + runs[FIX_STEPS[2]].stderr
+    assert runs[FIX_STEPS[3]].returncode == 0, runs[FIX_STEPS[3]].stdout + runs[FIX_STEPS[3]].stderr
     summary = (temp / "autofix" / "summary.md").read_text()
     assert "RUNNER-ONLY-SECRET" not in summary
     assert not (repo / ".autofix/summary.md").exists() and not (repo / ".autofix/extra").exists()
@@ -1250,7 +1255,7 @@ def test_links_the_agent_leaves_in_autofix_are_never_followed(repo, tmp_path):
 
 def test_a_key_in_the_agents_work_throws_everything_away(repo, tmp_path):
     runs, outputs, asked, temp = run_fix_steps(repo, tmp_path, "leak")
-    assert runs["Antigravity"].returncode == 1 and runs[FIX_STEPS[2]].returncode == 1
+    assert runs["Antigravity"].returncode == 1 and runs[FIX_STEPS[3]].returncode == 1
     assert "AIzaTESTONLY" not in "".join(r.stdout + r.stderr for r in runs.values())
     assert "Risultato scartato" in (temp / "autofix" / "summary.md").read_text()
     assert not asked and "patch" not in outputs
@@ -1352,6 +1357,23 @@ def test_the_closed_room_is_closed_for_git_and_names():
         for ln in lines:
             if re.search(r"\b(rgit|gitr) diff\b", ln) and "--name-only" not in ln:
                 assert "--no-ext-diff --no-textconv" in ln, ln
+    # 1.1.18 (review): the installer never sees the repository, and nothing of
+    # the agent runs while the runner touches its tree
+    assert room.index('sudo -u agent -H bash /srv/autofix/agy-install.sh') \
+        < room.index('"$RUNNER_TEMP/stop-agent"') < room.index('cp -a "$GITHUB_WORKSPACE" "$repo"')
+    assert step_script("A closed room for the agent").rstrip().endswith('"$RUNNER_TEMP/stop-agent"')
+    assert "sudo setfacl -m u:agent:--- \"$s\"" in room and "io.systemd.Resolve" in room
+    for name in ("Antigravity", "Reserves, then the patch"):
+        run = steps[name]["run"]
+        first_git = min(i for i in (run.find('"$RUNNER_TEMP/rgit" add'), run.find("gitr reset")) if i > 0)
+        for rule in ('"$RUNNER_TEMP/stop-agent"', "sudo usermod -L -e 1 agent", "sudo crontab -r -u agent",
+                     'sudo chown -Rh "$(id -un):$(id -gn)" "$repo"', 'chmod -R g-w,o-w "$repo"'):
+            assert -1 < run.index(rule) < first_git, (name, rule)
+    context = steps["The code at the failure"]["run"]
+    assert '--out-dir "$inputs"' in context and 'rm -rf "$repo/.autofix"' in context
+    reserves = steps["Reserves, then the patch"]["run"]
+    assert 'rm -rf "$repo/.autofix"' in reserves and '[ -f "$RUNNER_TEMP/agent-scanned" ]' in reserves
+    assert "agent-scanned" in steps["Antigravity"]["run"]
     # the step limits fit in the job's, with room for the set-up
     limits = [s.get("timeout-minutes", 0) for s in fix["steps"]]
     assert all(t < fix["timeout-minutes"] for t in limits)

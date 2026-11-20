@@ -118,11 +118,29 @@ jobs:
         with:
           name: autofix-failure
           path: .autofix
+      # Every process of the agent user, gone, before the runner touches what it
+      # could write (1.1.18): bounded, and an error when some survive.
+      - name: How the agent is stopped
+        run: |
+          cat > "$RUNNER_TEMP/stop-agent" <<'SH'
+          #!/bin/sh
+          id agent > /dev/null 2>&1 || exit 0
+          for _ in 1 2 3 4 5 6 7 8 9 10; do
+            sudo -u agent kill -KILL -1 2> /dev/null || true
+            sudo pkill -KILL -u agent 2> /dev/null || true
+            pgrep -u agent > /dev/null || exit 0
+            sleep 1
+          done
+          echo "::error::processes of the agent user are still running" >&2
+          exit 1
+          SH
+          chmod 755 "$RUNNER_TEMP/stop-agent"
       # The agent gets a user and a group of its own ("agent"), a copy of the
       # repository and:
       # - no terminal, no web, no MCP: its own permission rules deny them;
-      # - outbound network only to the Gemini API: the firewall drops the rest,
-      #   name lookups included (the API's address is pinned in /etc/hosts);
+      # - outbound network only to the Gemini API's addresses (Google front ends,
+      #   pinned in /etc/hosts): the firewall drops the rest, DNS included, and
+      #   the resolver's and buses' local sockets are closed to it;
       # - only HOME, PATH and GEMINI_API_KEY in its environment (no runner tokens);
       # - no write access to .git (1.1.18): the runner runs git on its tree, and a
       #   configuration it wrote (diff.external, filters, hooks) would run as the
@@ -139,15 +157,6 @@ jobs:
           sudo useradd --create-home --user-group --shell /bin/sh agent
           sudo install -d -o "$me" -g "$(id -gn)" -m 755 /srv/autofix
           repo=/srv/autofix/repo
-          cp -a "$GITHUB_WORKSPACE" "$repo"
-          # the work tree: the agent's group may write it
-          sudo chgrp -R agent "$repo"
-          chmod -R g+rwX,o-w "$repo"
-          # .git: the runner's alone, and the sticky bit on the top folder keeps the
-          # agent from renaming it away and putting one of its own in its place
-          sudo chown -R "$me:$(id -gn)" "$repo/.git"
-          chmod -R go-w "$repo/.git"
-          chmod 1775 "$repo"
           # Antigravity CLI for the agent user (the installer checks the SHA-512
           # of the download against Google's manifest; the installer itself is
           # checked here when AGY_INSTALLER_SHA256 is set)
@@ -160,6 +169,18 @@ jobs:
           fi
           chmod 644 /srv/autofix/agy-install.sh
           sudo -u agent -H bash /srv/autofix/agy-install.sh
+          # nothing the installer started keeps running (1.1.18), and only now
+          # does the repository arrive: the installer never saw it
+          "$RUNNER_TEMP/stop-agent"
+          cp -a "$GITHUB_WORKSPACE" "$repo"
+          # the work tree: the agent's group may write it
+          sudo chgrp -R agent "$repo"
+          chmod -R g+rwX,o-w "$repo"
+          # .git: the runner's alone, and the sticky bit on the top folder keeps the
+          # agent from renaming it away and putting one of its own in its place
+          sudo chown -R "$me:$(id -gn)" "$repo/.git"
+          chmod -R go-w "$repo/.git"
+          chmod 1775 "$repo"
           sudo -u agent -H mkdir -p /home/agent/.gemini/antigravity-cli
           # Nobody is there to review a plan: the CLI's default ("asks-for-review")
           # made the agent wait for one until its time ran out (2026-11-19, every
@@ -180,7 +201,9 @@ jobs:
             GEMINI_API_KEY="$GEMINI_API_KEY" /home/agent/.local/bin/agy "$@"
           SH
           sudo chmod 755 /home/agent/run-agent.sh
-          # the Gemini API only: its addresses, pinned for the whole run
+          # the Gemini API: its addresses, pinned for the whole run. They are
+          # Google front ends that serve other Google services too: the firewall
+          # limits the agent to those addresses, not to that one API.
           api=generativelanguage.googleapis.com
           ips=$(for _ in 1 2 3; do getent ahostsv4 "$api"; done | awk '{print $1}' | sort -u)
           test -n "$ips"
@@ -204,6 +227,12 @@ jobs:
           sudo ip6tables -A AGENT -o lo -j ACCEPT
           sudo ip6tables -A AGENT -j REJECT
           sudo ip6tables -I OUTPUT 1 -m owner --uid-owner agent -j AGENT
+          # nor through the local sockets of the system's resolver and buses
+          # (systemd-resolved's varlink, D-Bus, Avahi): iptables does not see them
+          for s in /run/systemd/resolve/io.systemd.Resolve /run/systemd/resolve/io.systemd.Resolve.Monitor \
+                   /run/dbus/system_bus_socket /run/avahi-daemon/socket; do
+            if [ -S "$s" ] && command -v setfacl > /dev/null; then sudo setfacl -m u:agent:--- "$s"; fi
+          done
           # the room is closed: the agent cannot reach anything else
           if sudo -u agent curl -s -m 5 -o /dev/null https://github.com; then
             echo "::error::the firewall does not hold"; exit 1
@@ -219,6 +248,7 @@ jobs:
           if sudo -u agent sh -c "echo > $repo/.git/config" 2>/dev/null || sudo -u agent mv "$repo/.git" "$repo/.git-x" 2>/dev/null; then
             echo "::error::the agent can change .git"; exit 1
           fi
+          "$RUNNER_TEMP/stop-agent"
       # git as the runner on the agent's tree (1.1.18): only after checking that
       # .git is still the runner's, with the configuration saved here, nested
       # repositories removed, no system or global configuration, no attributes
@@ -249,14 +279,19 @@ jobs:
       # files involved (tools/autofix-context.py).
       - name: The code at the failure
         run: |
-          mkdir -p "$RUNNER_TEMP/autofix"
-          python3 -I "$RUNNER_TEMP/autofix-context.py" --repo /srv/autofix/repo
-          cp /srv/autofix/repo/.autofix/related.txt "$RUNNER_TEMP/autofix/related.txt"
-          # the runner's own copy of what the reserves read from .autofix/, which
-          # the agent can write too (1.1.18)
-          mkdir -p "$RUNNER_TEMP/autofix-inputs"
-          cp /srv/autofix/repo/.autofix/failure.md /srv/autofix/repo/.autofix/context.md \
-            /srv/autofix/repo/.autofix/related.txt "$RUNNER_TEMP/autofix-inputs/"
+          repo=/srv/autofix/repo
+          inputs="$RUNNER_TEMP/autofix-inputs"
+          mkdir -p "$RUNNER_TEMP/autofix" "$inputs"
+          # written in the runner's own folder (1.1.18), then copied into a fresh
+          # .autofix/ of the agent's tree
+          cp "$GITHUB_WORKSPACE/.autofix/failure.md" "$inputs/failure.md"
+          python3 -I "$RUNNER_TEMP/autofix-context.py" --repo "$repo" --failure "$inputs/failure.md" --out-dir "$inputs"
+          cp "$inputs/related.txt" "$RUNNER_TEMP/autofix/related.txt"
+          rm -rf "$repo/.autofix"
+          mkdir "$repo/.autofix"
+          cp "$inputs/"* "$repo/.autofix/"
+          sudo chgrp -R agent "$repo/.autofix"
+          chmod -R g+rwX "$repo/.autofix"
       - name: The lint, for each fix (no AI)
         run: python3 -m pip install --disable-pip-version-check -q ruff
       # Antigravity alone, with the Gemini key only (1.1.18: the reserves' keys
@@ -280,14 +315,20 @@ jobs:
           if [ -z "$GEMINI_API_KEY" ]; then
             echo "GEMINI_API_KEY is not set: Antigravity skipped, the reserves go on"
             printf '{"result": "nokey", "model": "", "message": "", "detail": ""}' > "$out/status.json"
+            touch "$RUNNER_TEMP/agent-scanned"          # no agent ran: nothing to check
             exit 0
           fi
           python3 -I "$RUNNER_TEMP/autofix-agent.py" --workdir "$repo" --prompt "$RUNNER_TEMP/prompt.md" \
             --out "$out" --status "$out/status.json" $allow \
             --agent-cmd "sudo -u agent --preserve-env=GEMINI_API_KEY /home/agent/run-agent.sh"
-          # the agent is done: nothing of it keeps running, and the tree is the runner's again
-          sudo pkill -KILL -u agent 2>/dev/null || true
-          sudo chown -R "$(id -un)" "$repo"
+          # the agent is done: nothing of it keeps running or starts again, and the
+          # tree is the runner's again, writable by nobody else
+          "$RUNNER_TEMP/stop-agent"
+          sudo crontab -r -u agent 2>/dev/null || true
+          sudo usermod -L -e 1 agent 2>/dev/null || true
+          "$RUNNER_TEMP/stop-agent"
+          sudo chown -Rh "$(id -un):$(id -gn)" "$repo"
+          chmod -R g-w,o-w "$repo"
           # where the agent tried to go and the firewall said no (only Google's API is open)
           blocked=$(sudo dmesg 2>/dev/null | grep -o 'agent-blocked: .*DST=[0-9.]*' | sed 's/.*DST=//' | sort -u | head -n 10 || true)
           lookups=$(sudo dmesg 2>/dev/null | grep -c 'agent-dns: ' || true)
@@ -327,6 +368,13 @@ jobs:
                   print("::error::the agent's output contained the API key: discarded")
                   sys.exit(1)
           (out / "agent.diff").unlink()
+          # 1.1.18: only the summary checked here goes on, and only when the check
+          # got this far (the next step trusts nothing else of the agent's)
+          summary = repo / ".autofix" / "summary.md"
+          scanned = Path(os.environ["RUNNER_TEMP"])
+          if summary.is_file() and not summary.is_symlink():
+              (scanned / "agent-summary.md").write_bytes(summary.read_bytes())
+          (scanned / "agent-scanned").write_text("", "utf-8")
           PY
           rm -f "$out"/agent-*.err
       - name: Reserves, then the patch
@@ -347,20 +395,29 @@ jobs:
           allow=""
           if [ "$ALLOW_ADBLOCK" = "true" ]; then allow="--allow-adblock"; fi
           # also when Antigravity's step ran out of time: nothing of the agent keeps
-          # running, and the tree is the runner's
-          sudo pkill -KILL -u agent 2>/dev/null || true
-          sudo chown -R "$(id -un)" "$repo"
+          # running or starts again, and the tree is the runner's
+          "$RUNNER_TEMP/stop-agent"
+          sudo crontab -r -u agent 2>/dev/null || true
+          sudo usermod -L -e 1 agent 2>/dev/null || true
+          "$RUNNER_TEMP/stop-agent"
+          sudo chown -Rh "$(id -un):$(id -gn)" "$repo"
+          chmod -R g-w,o-w "$repo"
           gitr reset -q
-          # .autofix/ was the agent's too: only its summary is kept (a plain file,
-          # never a link the runner would follow), the reserves' inputs come back
-          # from the runner's copies
-          find "$repo/.autofix" -mindepth 1 -maxdepth 1 \( ! -name summary.md -o -type l -o ! -type f \) -exec rm -rf {} +
+          # .autofix/ was the agent's: made again from the runner's copies (the
+          # reserves' inputs, and the agent's summary only as the step before
+          # checked it); nothing there is followed or trusted
+          rm -rf "$repo/.autofix"
+          mkdir "$repo/.autofix"
           cp "$RUNNER_TEMP/autofix-inputs/"* "$repo/.autofix/"
-          if [ -f "$out/status.json" ]; then
+          if [ -f "$RUNNER_TEMP/agent-scanned" ] && [ -f "$out/status.json" ]; then
             result=$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["result"])' "$out/status.json")
+            if [ -f "$RUNNER_TEMP/agent-summary.md" ]; then
+              cp "$RUNNER_TEMP/agent-summary.md" "$repo/.autofix/summary.md"
+            fi
           else
+            # 1.1.18: also when it stopped after writing its status but before its
+            # key check: its summary was never checked, so it is not published
             echo "Antigravity's step did not finish: what the agent left is not kept"
-            rm -f "$repo/.autofix/summary.md"       # never checked for the key: not published
             result=timeout
             printf '{"result": "timeout", "model": "", "message": "", "detail": ""}' > "$out/status.json"
           fi

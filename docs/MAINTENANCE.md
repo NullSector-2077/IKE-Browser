@@ -79,9 +79,16 @@ never touched.
      the API key in its environment, and **no GitHub credentials** (read-only
      job, no token): it can only leave a patch and a summary in Italian;
    - no terminal, no web, no MCP (its own permission rules), and a firewall
-     that lets its user reach only the Gemini API, whose address is pinned in
-     `/etc/hosts`; name lookups (DNS, port 53 on this machine) are refused
-     too, since the names asked for could carry data out (1.1.18);
+     that lets its user reach only the addresses of the Gemini API, pinned in
+     `/etc/hosts`. Those are Google front ends that also serve other Google
+     services: the firewall limits the agent to those addresses, not to that
+     one API. Name lookups are refused too, since the names asked for could
+     carry data out (1.1.18): DNS to this machine's resolver (port 53) by the
+     firewall, and the resolver's and buses' local sockets
+     (systemd-resolved's varlink, D-Bus, Avahi) by an access rule on each,
+     when they exist and `setfacl` is there. The workflow checks that the
+     agent still finds the Gemini API, and warns when it can still look up
+     other names by a way not listed here;
    - `.git` is not the agent's (1.1.18): it belongs to the runner, the agent
      cannot write it, and the sticky bit on the top folder keeps it from
      swapping it for its own. The runner runs git on the agent's work only
@@ -91,10 +98,17 @@ never touched.
      configuration, attributes file, hooks, fsmonitor or submodules (diffs
      with `--no-ext-diff --no-textconv`). Otherwise a `diff.external` or a
      filter written by the agent would run as the runner, which has `sudo`.
-     After the agent, its processes are killed and its tree is the runner's
-     again; of `.autofix/` only its summary is kept, as a plain file (a link
-     there would make the runner read any file and publish it), and the
-     reserves' inputs come back from the runner's own copies;
+     The Antigravity installer runs as the agent before the repository is
+     copied, and everything it started is stopped (`$RUNNER_TEMP/stop-agent`,
+     an error if anything survives). After the agent, its processes are
+     stopped the same way, its crontab removed and its account locked, and
+     the tree belongs to the runner again with no group or other write. The
+     code at the failure is prepared in the runner's own folder; `.autofix/`
+     is made again from the runner's copies, and the agent's summary goes on
+     only as the Antigravity step checked it for the key (a marker written at
+     the end of that check; without it the summary is dropped and the result
+     counts as a time limit). Nothing the agent left in `.autofix/` (a link
+     would make the runner read any file and publish it) is read;
    - its own step, with the Gemini key only: the reserves' keys are in the
      next step, which the agent never shares (1.1.18);
    - real limits: at most 8 minutes per model and 25 minutes in all. The free
@@ -156,7 +170,8 @@ never touched.
    proves that the deny list still applies with the flag on. If it did not,
    the agent could run commands as its own user: it would still have no
    GitHub token and no other key than Gemini's, no write access to `.git`,
-   no network but the Gemini API (no DNS either), and its work would still
+   no network but the Gemini API's front-end addresses (and no name lookup
+   by the ways listed above), and its work would still
    go through the checks and the tests before a person merges it. The flag
    stays so that the agent does not stop at a question; this paragraph is
    the record of the risk.
