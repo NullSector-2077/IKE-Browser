@@ -15,7 +15,11 @@ whether the patch stays inside what an automatic fix may change:
   skip or xfail added, no assertion removed without one added, and (1.1.18) no
   test function removed or renamed, no assertion that cannot fail, no early
   `return` at the top of a test, no change of the tests' reference data
-  (tests/data/, tests/settings-keys.json);
+  (tests/data/, tests/settings-keys.json); final review: no rename or copy of
+  any file (git's summary, both names), no empty parameter list, no
+  AssertionError caught, no assertion moved into a block, no return in a
+  test's body, no decorator on a test but a mark or a patch, file names read
+  as git reads them;
 - never YouTube's ad blocking (ike/resources/videoads.js, videorelay.js,
   mediahook.js), the test packages, the builders of what comes from others
   (tools/build-*), the weekly health check or the workflows (1.1.18);
@@ -72,7 +76,7 @@ FORBIDDEN_FILES = {
     "tests/settings-keys.json",   # what the settings tests compare against (1.1.18)
     "tools/make-release.py", "tools/publish.py", "tools/prepare-maintenance.py",
     "tools/check-autofix-patch.py", "tools/autofix-plan.py", "tools/autofix-agent.py",
-    "tools/autofix-context.py", "tools/autofix-reserve.py",
+    "tools/autofix-context.py", "tools/autofix-reserve.py", "tools/autofix-selftest.py",
     # 1.1.18: the owner's rule, YouTube's ad blocking never changes by itself
     "ike/resources/videoads.js", "ike/resources/videorelay.js", "ike/resources/mediahook.js",
     # 1.1.18: the test packages, the weekly health check, the notices of others

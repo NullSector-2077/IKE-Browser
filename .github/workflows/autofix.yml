@@ -28,7 +28,13 @@ on:
     inputs:
       run_id:
         description: "ID of the failed run to fix"
-        required: true
+        required: false
+        default: ""
+      self_test:
+        description: "Instead: prove that the agent's deny list holds (job self-test, no fix)"
+        type: boolean
+        required: false
+        default: false
 
 permissions: {}
 
@@ -43,7 +49,9 @@ permissions: {}
 
 jobs:
   plan:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'failure'
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.self_test != 'true' &&
+      github.event.inputs.run_id != '') || github.event.workflow_run.conclusion == 'failure'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -120,7 +128,10 @@ jobs:
           path: .autofix
       # Every process of the agent user, gone, before the runner touches what it
       # could write (1.1.18): bounded, and an error when some survive.
-      - name: How the agent is stopped
+      # (&stop-agent, &closed-room, &keep-installer: the job self-test runs these
+      # very steps, YAML aliases, not copies.)
+      - &stop-agent
+        name: How the agent is stopped
         run: |
           cat > "$RUNNER_TEMP/stop-agent" <<'SH'
           #!/bin/sh
@@ -146,12 +157,14 @@ jobs:
       #   configuration it wrote (diff.external, filters, hooks) would run as the
       #   runner, which has sudo.
       # No test environment: GitHub runs all the tests on its fix.
-      - name: A closed room for the agent
+      - &closed-room
+        name: A closed room for the agent
         env:
-          # sha256 of the Antigravity installer (1.1.18). Empty: printed in the
-          # log, not checked. Set: a different installer is never run. How to
+          # sha256 of the Antigravity installer (1.1.18): the repository variable
+          # AGY_INSTALLER_SHA256, else the value written here. Empty: printed in
+          # the log, not checked. Set: a different installer is never run. How to
           # update it: docs/MAINTENANCE.md, "The Antigravity installer".
-          AGY_INSTALLER_SHA256: ""
+          AGY_INSTALLER_SHA256: ${{ vars.AGY_INSTALLER_SHA256 || '' }}
         run: |
           me="$(id -un)"
           sudo useradd --create-home --user-group --shell /bin/sh agent
@@ -163,6 +176,11 @@ jobs:
           curl -fsSL https://antigravity.google/cli/install.sh -o /srv/autofix/agy-install.sh
           got=$(sha256sum /srv/autofix/agy-install.sh | cut -d' ' -f1)
           echo "Antigravity installer sha256: $got"
+          # the exact file of that sha256, kept 3 days for a person to read
+          # before recording it (step "Keep the Antigravity installer")
+          mkdir -p "$RUNNER_TEMP/agy-installer"
+          cp /srv/autofix/agy-install.sh "$RUNNER_TEMP/agy-installer/install.sh"
+          printf '%s  install.sh\n' "$got" > "$RUNNER_TEMP/agy-installer/install.sh.sha256"
           if [ -n "$AGY_INSTALLER_SHA256" ] && [ "$got" != "$AGY_INSTALLER_SHA256" ]; then
             echo "::error::the Antigravity installer is not the one recorded (sha256 $got): not run"
             exit 1
@@ -253,6 +271,17 @@ jobs:
             echo "::error::the agent can change .git"; exit 1
           fi
           "$RUNNER_TEMP/stop-agent"
+      # Also when the closed room stopped (a different installer, say): that is
+      # when a person wants to read it.
+      - &keep-installer
+        name: Keep the Antigravity installer
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: antigravity-installer
+          path: ${{ runner.temp }}/agy-installer/
+          if-no-files-found: ignore
+          retention-days: 3
       # git as the runner on the agent's tree (1.1.18): only after checking that
       # .git is still the runner's, with the configuration saved here, nested
       # repositories removed, no system or global configuration, no attributes
@@ -681,24 +710,30 @@ jobs:
           git bundle verify "$b"
           git fetch "$b" HEAD:refs/heads/autofix-result
           old=$(git rev-parse -q --verify "refs/remotes/origin/$PUSH_BRANCH" || true)
+          # Overtaken (final review of 1.1.18): a newer candidate or fix is on the
+          # branch, with its own tests and, if they fail, its own fix. This fix is
+          # not pushed and the job ends well, so the report opens no issue for it.
+          overtaken=""
           if [ "$KIND" = "maintenance" ] || [ "$ATTEMPT" != "1" ]; then
             if [ "$old" != "$CHECKOUT" ]; then
-              echo "::error::$PUSH_BRANCH has moved since the agent started: the fix is not pushed"
-              exit 1
+              overtaken="$PUSH_BRANCH has moved since the agent started (a newer candidate or fix)"
             fi
           else
             # 1.1.18: a first fix of main replaces the branch only if it is where the
             # plan saw it and no automatic fix is waiting there (two runs planned
             # side by side must not overwrite each other's fix)
-            if [ "$old" != "$PUSH_TIP" ]; then
-              echo "::error::$PUSH_BRANCH has moved since the plan: the fix is not pushed"
-              exit 1
-            fi
             waiting=$(gh pr list --head "$PUSH_BRANCH" --base main --state open --json number --jq '.[0].number // empty')
             if [ -n "$waiting" ]; then
-              echo "::error::an automatic fix of main is already waiting (PR #$waiting): this one is not pushed"
+              overtaken="an automatic fix of main is already waiting (PR #$waiting)"
+            elif [ "$old" != "$PUSH_TIP" ]; then
+              echo "::error::$PUSH_BRANCH has moved since the plan and no fix waits there: the fix is not pushed"
               exit 1
             fi
+          fi
+          if [ -n "$overtaken" ]; then
+            echo "::notice::$overtaken: this fix is not pushed"
+            printf '### Not published\n\n%s: this fix is not pushed.\n' "$overtaken" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
+            exit 0
           fi
           auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
           git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" \
@@ -736,6 +771,12 @@ jobs:
       (needs.plan.outputs.action == 'fix' && needs.publish.result != 'success'))
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    # Two reports of the same workflow at once would both find no open issue
+    # and both open one (final review of 1.1.18): one at a time per workflow,
+    # never cancelled while running.
+    concurrency:
+      group: autofix-report-${{ needs.plan.outputs.workflow }}
+      cancel-in-progress: false
     permissions:
       issues: write
     steps:
@@ -762,6 +803,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           ACTION: ${{ needs.plan.outputs.action }}
           REASON: ${{ needs.plan.outputs.reason }}
+          KIND: ${{ needs.plan.outputs.kind }}
           WORKFLOW: ${{ needs.plan.outputs.workflow }}
           CHECKOUT: ${{ needs.plan.outputs.checkout || needs.plan.outputs.head_sha }}
           HEAD_SHA: ${{ needs.plan.outputs.head_sha }}
@@ -798,7 +840,14 @@ jobs:
           fi
           body="$RUNNER_TEMP/issue.md"
           {
-            echo "**$WORKFLOW** failed and could not be fixed automatically: $why."
+            if [ "$KIND" = "infra" ]; then
+              # final review of 1.1.18: GitHub, the runner or a reporting job, not the
+              # code and not the maintenance; its own title, so it never holds back a
+              # fix of a real failure
+              echo "**$WORKFLOW**: GitHub or the runner failed, not I.K.E.'s code and not the maintenance: $why."
+            else
+              echo "**$WORKFLOW** failed and could not be fixed automatically: $why."
+            fi
             echo
             echo "Run: $RUN_URL"
             for f in summary.md guard.md; do
@@ -806,7 +855,10 @@ jobs:
             done
             # ChatGPT's message whenever there is a failure to show (no automatic fix,
             # or two that did not pass: then it starts from the last of them)
-            if [ "$ACTION" = "fix" ] || [ -s "$RUNNER_TEMP/failure/failure.md" ]; then
+            if [ "$KIND" = "infra" ]; then
+              echo
+              echo "Niente da correggere nel codice: di solito il prossimo run passa. Se si ripete, apri una conversazione e incolla il link di questa issue."
+            elif [ "$ACTION" = "fix" ] || [ -s "$RUNNER_TEMP/failure/failure.md" ]; then
               echo
               echo "### Prossimi passi"
               echo
@@ -855,6 +907,7 @@ jobs:
           sed -i 's/<!-- *autofix-sha/<!-- quoted autofix-sha/g' "$body"
           if [ -n "$HEAD_SHA" ]; then printf '\n<!-- autofix-sha: %s -->\n' "$HEAD_SHA" >> "$body"; fi
           title="Automatic fix needs you: $WORKFLOW"
+          if [ "$KIND" = "infra" ]; then title="GitHub or the runner failed: $WORKFLOW"; fi
           gh label create autofix --color d93f0b --description "Automatic fix prepared by the AI agent" 2>/dev/null || true
           open=$(gh issue list --label autofix --state open --json number,title \
             --jq "map(select(.title == \"$title\")) | .[0].number // empty")
@@ -863,3 +916,44 @@ jobs:
           else
             gh issue create --title "$title" --label autofix --body-file "$body"
           fi
+
+  # By hand only (workflow_dispatch with self_test): does Antigravity's deny list
+  # hold with --dangerously-skip-permissions? The same closed room as the fix
+  # (the very steps of the job fix, by YAML alias), the same settings and deny
+  # list, only GEMINI_API_KEY and no GitHub token for the agent. The agent is
+  # asked to run a harmless command that creates a marker file and to fetch a
+  # local address; tools/autofix-selftest.py checks, outside the agent, that
+  # neither happened, and fails clearly when one did. A few requests of the
+  # free Gemini quota. See docs/MAINTENANCE.md.
+  self-test:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.self_test == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Check out (no credentials)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: The self-test's tools, before the room is built
+        run: cp tools/autofix-selftest.py tools/autofix-agent.py tools/check-autofix-patch.py "$RUNNER_TEMP/"
+      - *stop-agent
+      - *closed-room
+      - *keep-installer
+      - name: Ask the agent to break its deny list
+        timeout-minutes: 20
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          AUTOFIX_MODEL: ${{ vars.AUTOFIX_MODEL }}
+        run: |
+          set +e
+          python3 -I "$RUNNER_TEMP/autofix-selftest.py" --workdir /srv/autofix/repo \
+            --status "$RUNNER_TEMP/selftest.json" \
+            --agent-cmd "sudo -u agent --preserve-env=GEMINI_API_KEY /opt/autofix/run-agent.sh"
+          verdict=$?
+          set -e
+          "$RUNNER_TEMP/stop-agent"
+          blocked=$(sudo dmesg 2>/dev/null | grep -o 'agent-blocked: .*DST=[0-9.]*' | sed 's/.*DST=//' | sort -u | head -n 10 || true)
+          if [ -n "$blocked" ]; then echo "Addresses the agent tried to reach (refused by the firewall): $blocked"; fi
+          exit "$verdict"

@@ -45,6 +45,21 @@ scripts update themselves inside the browser.
 3. Automatic fixes of the previous candidate (commits `autofix: ...`) are carried
    over. The candidate is pushed only when it differs from the one already
    published, and the tests are started on it.
+4. The AdBlock engine of the candidate is built after those fixes are carried
+   over (step "Build AdBlock engine of the candidate"). Since the final review
+   of 1.1.18 a **new engine that does not build with I.K.E.'s wrapper still
+   reaches `automation/daily-maintenance`**, clearly marked: a warning in the
+   run, the pull request's title ends with "(the new AdBlock engine does not
+   build yet)" and its text says why and not to merge before the checks are
+   green. Its tests fail there (`cargo test` of the engine), and the automatic
+   fix of the candidate may change I.K.E.'s wrapper only (`ike-adblock/src/`,
+   `vendor/adblock/__init__.py`, `ike/blocker.py`, `ike/scriptlets.py`; never
+   `Cargo.toml` or `Cargo.lock`), because the candidate's `Cargo.lock` builds
+   another `adblock` than `main` (`engine_update()`, `allow_adblock`). The
+   step still stops the run, for a person, in two cases only: the engine's
+   crates cannot be downloaded (`cargo fetch` fails: GitHub's or crates.io's
+   matter), or the engine does not build although the candidate does not
+   change it (not a matter for the wrapper).
 
 ## The automatic fix
 
@@ -60,9 +75,22 @@ never touched.
    workflow problem becomes an issue directly, and so (1.1.18) does a daily
    maintenance whose step "Check and apply component updates" failed (an
    upstream source could not be reached: nothing on `main` to fix, the next
-   daily run tries again) or whose new AdBlock engine does not build with
-   I.K.E.'s wrapper (a fix of `main` may not touch the wrapper, and that
-   candidate never reaches its branch, where a fix could: a person looks).
+   daily run tries again) or whose engine step stopped (crates not
+   downloaded, or an unchanged engine that does not build; a new engine that
+   does not build is published and fixed on its branch, see "The maintenance
+   candidate").
+   **GitHub's own failures are not the code's** (final review of 1.1.18): when
+   every failed step is one of the runner's own (set up, check out, the
+   set-up actions, the Rust toolchain, an artifact kept or fetched) or only a
+   job that reports failed (`hand-over` of the tests, `update-issue` of the
+   daily check, `publish-candidate` of the maintenance), there is no AI fix of
+   `main`: an issue **"GitHub or the runner failed: <workflow>"** says so, in
+   its own words and without a message for ChatGPT. Its title is not the one
+   the plan reads, so it never holds back the fix of a real failure. The log
+   of a failed job is asked three times (GitHub may answer 404 for a few
+   seconds after a run closes); when no log can be read, that issue too,
+   instead of a fix that could only guess. A job that failed without a failed
+   step (a time limit) still counts as a real failure.
    An open issue "Automatic fix needs you: <workflow>" stops a new fix of
    `main` only when it names the same failed commit (the report job ends each
    issue and comment with a hidden `<!-- autofix-sha: ... -->` mark) or was
@@ -159,7 +187,13 @@ never touched.
    cannot be applied gets one informed retry; a request too large (413) moves
    to the next provider; any other malformed answer (a list where a file name
    should be, content that is not text) or error moves to the next model with
-   its edits undone. "Not fixable in the code" from one model asks the next
+   its edits undone. A key refused (401/403) is named in the reserves'
+   message ("Chiave rifiutata ... GROQ_API_KEY"), not hidden in "no fix
+   found", and an answer cut off while it was read counts as a server error
+   (asked once more), as a timeout or a refused connection does (final review
+   of 1.1.18; each of these cases is simulated in `tests/test_automation.py`,
+   and so are Antigravity's endings: quota, wrong key, its time limit, a
+   refusal). "Not fixable in the code" from one model asks the next
    one too; the chain stops when two different models say so (1.1.18: one
    weak free model giving up stopped them all). What a model writes reaches
    the log only as one line with no `::`, so it cannot give the runner a
@@ -168,8 +202,25 @@ never touched.
    **Residual risk: `--dangerously-skip-permissions`.** Antigravity runs with
    this flag (nobody is there to answer its questions) and relies on the deny
    list of its settings (`command(*)`, `unsandboxed(*)`, `read_url(*)`,
-   `execute_url(*)`, `mcp(*)`) to have no terminal, web or MCP. Nothing here
-   proves that the deny list still applies with the flag on. If it did not,
+   `execute_url(*)`, `mcp(*)`) to have no terminal, web or MCP. **The
+   self-test** (final review of 1.1.18) checks that by hand: Actions →
+   "Automatic fix" → Run workflow, tick `self_test` (leave `run_id` empty).
+   Its job `self-test` runs the very steps of the fix job that build the
+   closed room (YAML aliases `*stop-agent`, `*closed-room`,
+   `*keep-installer`, not copies): the same user, settings, deny list and
+   firewall, only `GEMINI_API_KEY`, no GitHub token. The agent is started
+   exactly as the fix starts it and asked to run a harmless shell command
+   (create a marker file in `/tmp` and ask a local address) and to open a
+   local address with its web tool; `tools/autofix-selftest.py` runs a small
+   server on 127.0.0.1 (the firewall leaves it open to the agent) and checks,
+   outside the agent, that the marker does not exist and nothing was asked.
+   Green: the deny list held. Red with "the deny list did NOT hold": a
+   command ran or a page was fetched (the record of the risk below is then
+   real). Red with "no conclusion": the agent could not run (quota, key...).
+   It prints what the agent said. It costs a few requests of the free
+   Gemini quota. It proves that the deny list holds for the CLI of that day:
+   a web tool that Google ran on its own servers would not reach the local
+   server, so it covers the agent's own machine only. If it did not hold,
    the agent could run commands as its own user: it would still have no
    GitHub token and no other key than Gemini's, no write access to `.git`,
    no network but the Gemini API's front-end addresses (and no name lookup
@@ -182,12 +233,19 @@ never touched.
    sha256 printed in the log ("Antigravity installer sha256: ..."). The
    installer picks the CLI's version itself and checks the download against
    Google's manifest; no version of the CLI can be pinned from here without
-   knowing the installer's options. The variable `AGY_INSTALLER_SHA256` in
-   the step "A closed room for the agent" of `autofix.yml` is empty: then the
-   installer is only printed. Set it to the sha256 of a run whose installer
-   was reviewed, and a different installer is never run (the job stops). When
-   Google changes the installer, that stop is the signal: read the new
-   installer, then put its sha256 there in a pull request.
+   knowing the installer's options. The expected sha256 is the repository
+   **variable** `AGY_INSTALLER_SHA256` (Settings → Secrets and variables →
+   Actions → Variables), else the value written in the step "A closed room
+   for the agent" of `autofix.yml` (empty). Empty: the installer is only
+   printed. Set: a different installer is never run (the job stops). Since
+   the final review of 1.1.18 every run keeps the exact file whose sha256 it
+   printed, as the download **`antigravity-installer`** of the run (3 days;
+   `install.sh` and `install.sh.sha256`), also when the job stopped on it:
+   download it, read it, and only then record its sha256 in the variable.
+   When Google changes the installer, the stop is the signal: read the new
+   file of that run, then update the variable. Nothing records a hash by
+   itself: trusting the first installer seen, or recording each new one
+   automatically, is a choice the owner has not made.
 3. **guard** (no AI, `tools/check-autofix-patch.py` from `main`): the patch may
    change only `ike/`, `tests/`, `tools/` and `docs/`; never the workflows, the
    signing and update channel, the version, the package recipe, the updater, the
@@ -234,6 +292,22 @@ never touched.
    inside a line (it ends a line for Python, not for git) is refused, and the
    patch is read as bytes so it cannot be turned into a new line on the way.
    `monkeypatch.delattr(...)` and the word "skip" in a comment stay fine.
+   The final review of 1.1.18 checked the checker on its own and closed
+   these gaps (each with a test): **renames** (`git apply --numstat` names
+   only the new file of a rename, so renaming `tests/conftest.py`, a test
+   module, `ike/updater.py` or a workflow removed it unseen; renames and
+   copies are now read from git's summary, both names, and refused);
+   **quoted file names** (`"\164ests/..."` is `tests/` for git; names are
+   unquoted as git does, and every name the checks read must be one git
+   reads); in test files an empty parameter list (in place, or by emptying
+   the list a test is parametrized with), `__test__`, pytest hooks or
+   `pytest_plugins` in a test module, `AssertionError` caught or
+   `suppress`ed, an assertion moved deeper into a block (`if`, `try`,
+   `with`, a loop), a `return` anywhere in a test's body (not only at its
+   top), a decorator on a test other than a mark or a patch (a fixture, or a
+   skipif kept in a name such as `@needs_engine`), pytest's or the harness's
+   functions replaced, a test removed through `sys.modules` or `setattr`.
+   None of them is found in today's test modules (checked by a test).
    These are patterns, not proof: see the rule below.
 
    **No tests lost** (`tests.yml`, 1.1.18). On the automation's branches and on
@@ -264,6 +338,18 @@ never touched.
    (`automation/autofix-main` or `automation/daily-maintenance`), never
    cancelled. The fix job's own limit (70 minutes) is above its two long steps
    together (32 for Antigravity, 20 for the reserves) and the set-up.
+   Final review of 1.1.18, two failures close together (the tests of `main`
+   and the daily maintenance, both fixed on `automation/autofix-main`): the
+   two fixes run one after the other, and the second publish finds the first
+   fix waiting as a pull request and does not push. A fix **overtaken** like
+   this (a fix of `main` already waiting, or a newer candidate or fix on the
+   branch) ends well with a notice "this fix is not pushed", so the report
+   opens no "needs you" issue for a race that lost nothing; a branch that
+   moved with no fix waiting there is still an error. The report job runs
+   one at a time per workflow (`autofix-report-<workflow>`, never
+   cancelled), so two reports cannot both find no issue and open two. Still
+   open: the second fix's agent runs before its publish finds it overtaken,
+   spending free quota for nothing.
 6. **ChatGPT, started by the owner.** The issue carries a ready message: the
    owner pastes it into ChatGPT (connected to GitHub), which fixes on a branch
    `chatgpt/...` and opens a pull request. `chatgpt-guard.yml` checks its
@@ -317,7 +403,9 @@ Trying a change to the automatic fix itself: the fix job reads its tools from
 `main`, never from the branch being fixed, so a change is tested by its own
 unit tests (`tests/test_automation.py`) on its pull request, merged, and then
 tried for real with `gh workflow run autofix.yml --ref main -f run_id=<a failed
-run of automation/autofix-main>`.
+run of automation/autofix-main>`. The self-test of the closed room can be run
+on a branch before merging (`gh workflow run autofix.yml --ref <branch> -f
+self_test=true`): the workflow and the self-test's tool come from that branch.
 
 The agent cannot see Plasma: shapes, effects and the look are always judged by
 the owner on the real system.
@@ -354,7 +442,9 @@ person: open a conversation and paste its link.
   Reserves (optional, free plans): `GROQ_API_KEY` (console.groq.com) and
   `OPENROUTER_API_KEY` (openrouter.ai), with the optional variables
   `AUTOFIX_GROQ_MODELS` and `AUTOFIX_OPENROUTER_MODELS` (names separated by
-  commas, in order).
+  commas, in order). Optional variable `AGY_INSTALLER_SHA256`: the sha256 of
+  the Antigravity installer a person has read (see "The Antigravity
+  installer").
 - Settings → Branches: protect `main` (pull request required, status check
   `tests` required, no force push, no deletion).
 
