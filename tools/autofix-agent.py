@@ -166,14 +166,31 @@ def redact(data, key):
     return data
 
 
+def _checker():
+    """tools/check-autofix-patch.py next to this script (both come from main in
+    the workflow): its SAFE_GIT, so the two run git the same way."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "ike_autofix_checker", Path(__file__).resolve().parent / "check-autofix-patch.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 def changes(workdir):
-    """What the agent changed so far, new files included (not .autofix/)."""
-    git = ["git", "-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false",
-           "-c", "safe.directory=*", "-C", str(workdir)]
+    """What the agent changed so far, new files included (not .autofix/).
+
+    git runs here on a tree the agent writes (1.1.18): without system or global
+    configuration, hooks, fsmonitor, attributes file or submodules, and without
+    external diff or text conversion; .git itself is out of the agent's reach
+    (the workflow)."""
+    checker = _checker()
+    git = checker.SAFE_GIT + ["-C", str(workdir)]
+    env = checker.safe_git_env()
     subprocess.run(git + ["add", "-A", "-N", "--", ".", ":(exclude).autofix"],
-                   capture_output=True, check=False)
-    out = subprocess.run(git + ["diff", "HEAD", "--", ".", ":(exclude).autofix"],
-                         capture_output=True, text=True, check=False)
+                   capture_output=True, check=False, env=env)
+    out = subprocess.run(git + ["diff", "--no-ext-diff", "--no-textconv", "HEAD", "--", ".", ":(exclude).autofix"],
+                         capture_output=True, text=True, check=False, env=env)
     return out.stdout
 
 

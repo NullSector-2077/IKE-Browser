@@ -45,6 +45,7 @@ Italian summary to .autofix/summary.md. Keys never reach a file or the log.
 """
 
 import argparse
+import functools
 import json
 import os
 import re
@@ -77,10 +78,10 @@ def editable(path, allow_adblock):
     return path.startswith(ROOTS + WRAPPER if allow_adblock else ROOTS)
 
 
-def _checker_rule():
-    """allowed_path() of the checker next to this script (both come from main in
-    the workflow): the reserves never edit what the checker would refuse, so
-    the two lists of forbidden files cannot drift apart."""
+@functools.lru_cache(maxsize=1)
+def _checker():
+    """The checker next to this script (both come from main in the workflow), or
+    None."""
     path = Path(__file__).resolve().parent / "check-autofix-patch.py"
     if not path.is_file():
         return None
@@ -88,7 +89,24 @@ def _checker_rule():
     spec = importlib.util.spec_from_file_location("ike_autofix_checker", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    return mod.allowed_path
+    return mod
+
+
+def _checker_rule():
+    """allowed_path() of the checker: the reserves never edit what the checker
+    would refuse, so the two lists of forbidden files cannot drift apart."""
+    mod = _checker()
+    return mod.allowed_path if mod else None
+
+
+def _git(workdir, *args, text=True):
+    """git on the work tree, as the checker runs it (SAFE_GIT, 1.1.18): no system
+    or global configuration, hooks, fsmonitor, attributes file or submodules."""
+    mod = _checker()
+    if mod is None:
+        raise OSError("tools/check-autofix-patch.py is missing next to this script")
+    return subprocess.run([*mod.SAFE_GIT, "-C", str(workdir), *args], capture_output=True, text=text,
+                          check=False, env=mod.safe_git_env())
 MAX_FILES = 5
 TOTAL_TIMEOUT = 12 * 60
 REQUEST_TIMEOUT = 150
@@ -331,15 +349,12 @@ def message_for(failure, context, shown, budget, refused=""):
 
 
 def diff_of(workdir):
-    out = subprocess.run(["git", "-c", "safe.directory=*", "-c", "core.hooksPath=/dev/null",
-                          "-C", str(workdir), "diff", "--binary", "--", ".", ":(exclude).autofix"],
-                         capture_output=True, text=True, check=False)
-    return out.stdout
+    return _git(workdir, "diff", "--binary", "--no-ext-diff", "--no-textconv", "--", ".",
+                ":(exclude).autofix").stdout
 
 
 def undo(workdir, files):
-    subprocess.run(["git", "-c", "safe.directory=*", "-c", "core.hooksPath=/dev/null",
-                    "-C", str(workdir), "checkout", "-q", "--", *files], check=False)
+    _git(workdir, "checkout", "-q", "--", *files)
 
 
 def checked(workdir, checker, related, allow_adblock):

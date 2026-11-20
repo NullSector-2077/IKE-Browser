@@ -1016,6 +1016,16 @@ elif what == "unsafe":
     (workdir / "ike/updater.py").write_text("CHECK = False\n")  # a protected file
 elif what == "good":
     (workdir / "ike/window.py").write_text("def width():\n    return 11\n")
+elif what == "partial":                                        # its time limit, half done
+    (workdir / "ike/window.py").write_text("def width():\n    return 1")
+    (workdir / "ike/half.py").write_text("x = (\n")
+    status.write_text(json.dumps({"result": "timeout", "model": "stub", "message": "m", "detail": ""}))
+    sys.exit(0)
+elif what == "crash":                                          # the step itself stops, no status
+    (workdir / "ike/window.py").write_text("half")
+    sys.exit(3)
+elif what == "leak":
+    (workdir / "ike/window.py").write_text("K = '%s'\n" % os.environ["GEMINI_API_KEY"])
 status.write_text(json.dumps({"result": "ok", "model": "stub", "message": "m", "detail": ""}))
 '''
 
@@ -1029,20 +1039,16 @@ Path(args[args.index("--status") + 1]).write_text(json.dumps({"result": "error",
 '''
 
 
-@pytest.mark.parametrize("scenario, reserve_asked, refused_given, result, patch", [
-    ("nothing", True, False, "ok", "false"),       # no fix: the first reserve
-    ("big", True, True, "rejected", "false"),      # off target: undone, the reserves get the reason
-    ("unsafe", False, False, "refused", "false"),  # a protected file: undone, nobody else asked
-    ("good", False, False, "ok", "true"),          # accepted at once: the reserves stay quiet
-])
-def test_the_fix_step_of_the_workflow(repo, tmp_path, scenario, reserve_asked, refused_given, result, patch):
-    """The real shell of the step "Agent, reserves, then the patch", with a stub
-    agent and a stub reserve: what reaches the reserves, and what is kept."""
+FIX_STEPS = ("Git for the runner on the agent's tree", "Antigravity", "Reserves, then the patch")
+
+
+def run_fix_steps(repo, tmp_path, scenario, reserve_key="gsk_TESTONLY"):
+    """The real shell of the fix job's steps (1.1.18: Antigravity with the
+    Gemini key only, then the reserves and the patch), with a stub agent and a
+    stub reserve. Returns ({step: completed process}, outputs, reserve calls, temp)."""
     import os
     import subprocess
 
-    script = step_script("Agent, reserves, then the patch")
-    script = script.replace("repo=/srv/autofix/repo", "repo=%s" % repo)
     temp = tmp_path / "runner"
     (temp / "autofix").mkdir(parents=True)
     (temp / "prompt.md").write_text("RULES")
@@ -1055,24 +1061,159 @@ def test_the_fix_step_of_the_workflow(repo, tmp_path, scenario, reserve_asked, r
     (bin_ / "sudo").write_text("#!/bin/sh\nexit 0\n")
     (bin_ / "sudo").chmod(0o755)
     out_file = tmp_path / "github_output"
-    env = dict(os.environ, RUNNER_TEMP=str(temp), GITHUB_OUTPUT=str(out_file), SCENARIO=scenario,
-               GEMINI_API_KEY="AIzaTESTONLY", GROQ_API_KEY="gsk_TESTONLY", OPENROUTER_API_KEY="",
-               ALLOW_ADBLOCK="false", PATH="%s:%s" % (bin_, os.environ["PATH"]))
-    run = subprocess.run(["bash", "-e", "-c", script], env=env, capture_output=True, text=True, timeout=120)
-    assert run.returncode == 0, run.stdout + run.stderr
-    outputs = dict(line.split("=", 1) for line in out_file.read_text().splitlines() if "=" in line)
+    base = dict(os.environ, RUNNER_TEMP=str(temp), GITHUB_OUTPUT=str(out_file), SCENARIO=scenario,
+                ALLOW_ADBLOCK="false", PATH="%s:%s" % (bin_, os.environ["PATH"]))
+    envs = {FIX_STEPS[0]: base,
+            FIX_STEPS[1]: dict(base, GEMINI_API_KEY="AIzaTESTONLY"),
+            FIX_STEPS[2]: dict(base, GROQ_API_KEY=reserve_key, OPENROUTER_API_KEY="")}
+    runs = {}
+    for name in FIX_STEPS:
+        script = step_script(name).replace("/srv/autofix/repo", str(repo))
+        runs[name] = subprocess.run(["bash", "-e", "-c", script], env=envs[name], capture_output=True,
+                                    text=True, timeout=120)
+    outputs = dict(line.split("=", 1) for line in out_file.read_text().splitlines() if "=" in line) \
+        if out_file.exists() else {}
     calls = temp / "autofix" / "reserve-calls.txt"
-    asked = calls.read_text() if calls.exists() else ""
+    return runs, outputs, calls.read_text() if calls.exists() else "", temp
+
+
+@pytest.mark.parametrize("scenario, reserve_asked, refused_given, result, patch", [
+    ("nothing", True, False, "ok", "false"),       # no fix: the first reserve
+    ("big", True, True, "rejected", "false"),      # off target: undone, the reserves get the reason
+    ("unsafe", False, False, "refused", "false"),  # a protected file: undone, nobody else asked
+    ("good", False, False, "ok", "true"),          # accepted at once: the reserves stay quiet
+    ("partial", True, False, "timeout", "false"),  # half done at its time limit: thrown away
+    ("crash", True, False, "timeout", "false"),    # its step stopped: thrown away
+])
+def test_the_fix_step_of_the_workflow(repo, tmp_path, scenario, reserve_asked, refused_given, result, patch):
+    """What reaches the reserves, and what is kept."""
+    runs, outputs, asked, temp = run_fix_steps(repo, tmp_path, scenario)
+    for name, run in runs.items():
+        expected = 3 if (scenario, name) == ("crash", "Antigravity") else 0
+        assert run.returncode == expected, (name, run.stdout + run.stderr)
     assert bool(asked) is reserve_asked, (scenario, asked)
     assert ("--refused" in asked) is refused_given, (scenario, asked)
     if reserve_asked:
         assert "--checker" in asked and "--related" in asked and "--allow-adblock" not in asked
-    assert outputs["result"] == result, (scenario, outputs, run.stdout)
+    assert outputs["result"] == result, (scenario, outputs, runs[FIX_STEPS[2]].stdout)
     assert outputs["patch"] == patch, (scenario, outputs)
-    if scenario in ("big", "unsafe"):           # nothing of a refused fix is kept
+    if scenario in ("big", "unsafe", "partial", "crash"):    # nothing of a refused or unfinished fix is kept
         assert git(repo, "status", "--porcelain") == "", scenario
+    if scenario in ("big", "unsafe"):
         summary = (temp / "autofix" / "summary.md").read_text()
         assert "respinta dai controlli" in summary, summary
+
+
+@pytest.mark.parametrize("scenario", ["partial", "crash", "big"])
+def test_unfinished_work_is_thrown_away_without_reserves_too(repo, tmp_path, scenario):
+    """1.1.18: without a reserve key, what Antigravity left after its time limit
+    or an error was published as the fix."""
+    runs, outputs, asked, temp = run_fix_steps(repo, tmp_path, scenario, reserve_key="")
+    assert runs[FIX_STEPS[2]].returncode == 0, runs[FIX_STEPS[2]].stdout + runs[FIX_STEPS[2]].stderr
+    assert not asked and outputs["patch"] == "false", outputs
+    assert (temp / "autofix" / "autofix.patch").read_text() == ""
+    assert git(repo, "status", "--porcelain") == ""
+
+
+def test_a_key_in_the_agents_work_throws_everything_away(repo, tmp_path):
+    runs, outputs, asked, temp = run_fix_steps(repo, tmp_path, "leak")
+    assert runs["Antigravity"].returncode == 1 and runs[FIX_STEPS[2]].returncode == 1
+    assert "AIzaTESTONLY" not in "".join(r.stdout + r.stderr for r in runs.values())
+    assert "Risultato scartato" in (temp / "autofix" / "summary.md").read_text()
+    assert not asked and "patch" not in outputs
+
+
+def test_the_runner_never_uses_a_git_configuration_the_agent_wrote(repo, tmp_path):
+    """1.1.18: the agent could write .git/config, and the runner then ran git
+    there: a diff.external or a filter would have run as the runner (sudo, keys)."""
+    import os
+    import subprocess
+    hit = tmp_path / "ran"
+    runs, outputs, asked, temp = run_fix_steps(repo, tmp_path, "nothing")
+    # the agent's configuration, a nested repository and attributes asking for it
+    with open(repo / ".git" / "config", "a") as f:
+        f.write('[diff]\n    external = "touch %s"\n[filter "x"]\n    clean = "touch %s"\n'
+                '[core]\n    fsmonitor = "touch %s"\n' % (hit, hit, hit))
+    (repo / ".gitattributes").write_text("* filter=x diff=x\n")
+    (repo / "ike" / "nested").mkdir()
+    subprocess.run(["git", "init", "-q", str(repo / "ike" / "nested")], check=True)
+    (repo / "ike/window.py").write_text("def width():\n    return 12\n")
+    env = dict(os.environ, RUNNER_TEMP=str(temp))
+    for args in (["add", "-A"], ["diff", "--cached", "--no-ext-diff", "--no-textconv"], ["status", "--porcelain"]):
+        run = subprocess.run([str(temp / "rgit"), *args], env=env, capture_output=True, text=True)
+        assert run.returncode == 0, run.stderr
+    assert not hit.exists()
+    assert "external" not in (repo / ".git" / "config").read_text()           # the runner's own, restored
+    assert not (repo / "ike" / "nested" / ".git").exists()
+    # .git that is not the runner's own: nothing runs
+    (repo / ".git").rename(repo / ".git-real")
+    (repo / ".git").symlink_to(repo / ".git-real")
+    run = subprocess.run([str(temp / "rgit"), "status"], env=env, capture_output=True, text=True)
+    assert run.returncode == 1 and "not the runner's own" in run.stderr
+
+
+def test_the_tools_run_git_without_the_agents_settings(repo, tmp_path):
+    """1.1.18: autofix-agent.py (between models) and autofix-reserve.py run git
+    on the agent's tree as the checker does: no external diff, text conversion,
+    fsmonitor or global configuration."""
+    agent, reserve = load("autofix-agent"), load("autofix-reserve")
+    hit = tmp_path / "ran"
+    with open(repo / ".git" / "config", "a") as f:
+        f.write('[diff "x"]\n    textconv = "sh -c \'touch %s; cat\' --"\n'
+                '[core]\n    fsmonitor = "touch %s"\n' % (hit, hit))
+    (repo / ".gitattributes").write_text("*.py diff=x\n")
+    (repo / "ike/window.py").write_text("def width():\n    return 13\n")
+    assert "return 13" in agent.changes(repo) and "return 13" in reserve.diff_of(repo)
+    reserve.undo(repo, ["ike/window.py"])
+    assert "return 10" in (repo / "ike/window.py").read_text()
+    assert not hit.exists()
+
+
+def test_the_closed_room_is_closed_for_git_and_names():
+    """1.1.18: the agent has its own group, cannot write .git, cannot look up
+    names (DNS) and runs without the reserves' keys; every git command of the
+    runner on its tree goes through rgit."""
+    fix_text = jobs_of((WORKFLOWS / "autofix.yml").read_text())["fix"]
+    blocks = re.split(r"^      - (?=name: |uses: )", fix_text, flags=re.M)[1:]
+
+    def env_of(block):
+        m = re.search(r"^        env:\n((?:          .*\n|\s*#.*\n)+)", block, re.M)
+        return set(re.findall(r"^          ([A-Z0-9_]+):", m.group(1), re.M)) if m else set()
+    steps = {}
+    for block in blocks:
+        name = re.match(r"name: (.*)", block)
+        if name:
+            steps[name.group(1)] = {"env": env_of(block), "run": block,
+                                    "timeout": int((re.search(r"timeout-minutes: (\d+)", block) or [0, 0])[1])}
+    fix = {"timeout-minutes": int(re.search(r"^    timeout-minutes: (\d+)", fix_text, re.M).group(1)),
+           "steps": [{"timeout-minutes": s["timeout"]} for s in steps.values()]}
+    room = steps["A closed room for the agent"]["run"]
+    assert "--user-group" in room and '--gid "$group"' not in room
+    assert 'sudo chown -R "$me:$(id -gn)" "$repo/.git"' in room and 'chmod -R go-w "$repo/.git"' in room
+    assert 'chmod 1775 "$repo"' in room and "the agent can change .git" in room
+    for rule in ("-o lo -p udp --dport 53 -j REJECT", "-o lo -p tcp --dport 53 -j REJECT"):
+        assert room.count(rule) == 2, rule                        # IPv4 and IPv6
+        assert room.index(rule) < room.index("-o lo -j ACCEPT")
+    assert "the agent does not find the Gemini API at its pinned address" in room
+    # the installer: checked against its recorded sha256 when one is set
+    assert "AGY_INSTALLER_SHA256" in steps["A closed room for the agent"]["env"]
+    assert 'sha256sum /srv/autofix/agy-install.sh' in room and '"$got" != "$AGY_INSTALLER_SHA256"' in room
+    # Antigravity's step has the Gemini key only; the reserves' step has none of it
+    agy, reserves = steps["Antigravity"], steps["Reserves, then the patch"]
+    assert set(agy["env"]) == {"GEMINI_API_KEY", "AUTOFIX_MODEL", "ALLOW_ADBLOCK"}
+    assert "GEMINI_API_KEY" not in reserves["env"]
+    assert "GROQ" not in agy["run"] and "OPENROUTER" not in agy["run"]
+    # every git command on the agent's tree goes through rgit
+    for name in ("Antigravity", "Reserves, then the patch"):
+        lines = [ln.strip() for ln in steps[name]["run"].splitlines()]
+        assert not [ln for ln in lines if re.match(r"(git|.*\| *git|.*\$\(git) ", ln)], name
+        for ln in lines:
+            if re.search(r"\b(rgit|gitr) diff\b", ln) and "--name-only" not in ln:
+                assert "--no-ext-diff --no-textconv" in ln, ln
+    # the step limits fit in the job's, with room for the set-up
+    limits = [s.get("timeout-minutes", 0) for s in fix["steps"]]
+    assert all(t < fix["timeout-minutes"] for t in limits)
+    assert sum(limits) + 10 <= fix["timeout-minutes"]
 
 
 def test_edits_copied_with_line_numbers_or_trailing_spaces_still_apply(repo):
