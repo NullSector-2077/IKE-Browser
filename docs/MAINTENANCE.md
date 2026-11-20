@@ -210,6 +210,24 @@ never touched.
    `sk-` keys are caught; a nested repository (gitlink) is refused. With
    `--check-only` the patch must also apply to the tree, or already be in it.
    I.K.E.'s ordinary code (`ike/shields.py` included) stays fixable.
+   After the first review of 1.1.18 the checker reads a patch as `git apply`
+   does: a hunk holds exactly the lines its `@@ -a,b +c,d @@` header counts
+   (an added line `++ x`, shown as `+++ x`, had passed for the next file's
+   header and hidden the rest of the file from every check). Also refused:
+   `del test_...`, `delattr`, `globals()`/`vars()`, `getattr` on pytest or
+   unittest, `os._exit`/`pytest.exit` in tests, `assert x == x`, any change to
+   `conftest.py`, `pytest.ini`, `tox.ini`, `setup.cfg`, `pyproject.toml`,
+   `ruff.toml`/`.ruff.toml` at any depth or to `tests/**/__init__.py`, and any
+   new file in `tests/` that is not a `test_*.py` module.
+
+   **No tests lost** (`tests.yml`, 1.1.18). On the automation's branches and on
+   ChatGPT's, after the tests, the test ids pytest would run (after its own
+   hooks: a `conftest.py` that drops items counts) are compared with those of
+   the commit the branch starts from (its merge base with `main`): fewer is a
+   failure, whatever way the change found. When the starting commit cannot be
+   counted (a collection error there) the step warns and goes on. Tests that
+   skip themselves while running are not counted here; the patch checks
+   catch the usual forms.
 4. **publish** (no AI): the fix goes to `automation/autofix-main` (fixes of
    `main`) or onto the maintenance candidate, a draft PR is opened or updated
    with the agent's summary, and the tests start on it.

@@ -1666,6 +1666,64 @@ def _issue_body(tmp_path, summary, **env_):
     return (tmp_path / "body.md").read_text()
 
 
+@pytest.mark.parametrize("change, ok", [
+    ({"tests/test_x.py": "def test_a():\n    pass\n"}, False),                              # one test less
+    ({"tests/conftest.py": "def pytest_collection_modifyitems(items):\n    items.clear()\n"}, False),
+    ({"tests/test_x.py": "def test_a():\n    pass\n\n\ndef test_b():\n    pass\n\n\ndel test_b\n"}, False),
+    ({"tests/test_y.py": "def test_c():\n    pass\n"}, True),                               # one more
+    ({"ike/x.py": "X = 2\n"}, True),
+])
+def test_tests_yml_refuses_a_change_that_runs_fewer_tests(tmp_path, change, ok):
+    """1.1.18 (review): whatever way a fix finds to drop a test, the tests of an
+    automatic, maintenance or ChatGPT branch count the tests pytest would run
+    against the commit the branch starts from."""
+    import os
+    import subprocess
+    import sys
+    import textwrap
+    lines = (WORKFLOWS / "tests.yml").read_text().splitlines()
+    start = next(i for i, ln in enumerate(lines) if ln.strip() == "- name: No tests lost")
+    assert "startsWith(github.head_ref, 'chatgpt/')" in "\n".join(lines[start:start + 5])
+    run_at = next(i for i in range(start, len(lines)) if lines[i].strip() == "run: |")
+    body = []
+    for ln in lines[run_at + 1:]:
+        if ln.strip() and len(ln) - len(ln.lstrip()) <= 8:
+            break
+        body.append(ln)
+    script = textwrap.dedent("\n".join(body)) + "\n"
+
+    def g(cwd, *a):
+        return subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "-C", str(cwd), *a],
+                              capture_output=True, text=True, check=True).stdout.strip()
+    bare = tmp_path / "remote.git"
+    g(tmp_path, "init", "-q", "--bare", str(bare))
+    work = tmp_path / "work"
+    g(tmp_path, "init", "-q", "-b", "main", str(work))
+    (work / "tests").mkdir()
+    (work / "ike").mkdir()
+    (work / "tests/test_x.py").write_text("def test_a():\n    pass\n\n\ndef test_b():\n    pass\n")
+    (work / "ike/x.py").write_text("X = 1\n")
+    g(work, "add", "-A")
+    g(work, "commit", "-qm", "base")
+    g(work, "remote", "add", "origin", str(bare))
+    g(work, "push", "-q", "origin", "main")
+    g(work, "checkout", "-q", "-b", "automation/autofix-main")
+    for rel, text in change.items():
+        (work / rel).write_text(text)
+    g(work, "add", "-A")
+    g(work, "commit", "-qm", "fix")
+    bin_ = tmp_path / "bin"
+    bin_.mkdir()
+    (bin_ / "python").symlink_to(sys.executable)
+    temp = tmp_path / "runner"
+    temp.mkdir()
+    env = dict(os.environ, RUNNER_TEMP=str(temp), PATH="%s:%s" % (bin_, os.environ["PATH"]))
+    run = subprocess.run(["bash", "-e", "-c", script], cwd=work, env=env, capture_output=True, text=True,
+                         timeout=300)
+    assert (run.returncode == 0) is ok, run.stdout + run.stderr
+    assert "Tests here:" in run.stdout
+
+
 def test_no_dead_parts_in_the_workflows():
     """1.1.18: tests.yml offered workflow_call (nothing called it), the test
     environment claimed autofix.yml used it, and a refusal was copied to a

@@ -42,6 +42,38 @@ jobs:
         run: ruff check .
       - name: Tests
         run: python -m pytest
+      # 1.1.18: an automatic fix, a maintenance candidate or a ChatGPT fix must
+      # not make pytest run fewer tests than the commit it starts from (a test
+      # dropped by a conftest.py, a `del`, a deselection... that the patch checks
+      # did not catch). Counted as the test ids pytest would run, after its own
+      # hooks; when the starting commit cannot be counted, it says so and goes on.
+      - name: No tests lost
+        if: >-
+          startsWith(github.head_ref, 'chatgpt/') || startsWith(github.head_ref, 'automation/') ||
+          (github.event_name == 'workflow_dispatch' && startsWith(github.ref_name, 'automation/'))
+        run: |
+          git fetch -q --no-tags --unshallow origin main 2>/dev/null || git fetch -q --no-tags origin main
+          base=$(git merge-base FETCH_HEAD HEAD)
+          where="$RUNNER_TEMP/tests-before"
+          rm -rf "$where"
+          git worktree add -q --detach "$where" "$base"
+          for f in vendor/adblock/*.so; do if [ -f "$f" ]; then cp "$f" "$where/$f"; fi; done
+          count() {
+            (cd "$1" && python -m pytest --collect-only -q -p no:cacheprovider -p no:warnings > "$2" 2>&1) || true
+            grep -cE '^[^[:space:]][^:]*::' "$2" || true
+          }
+          now=$(count . "$RUNNER_TEMP/tests-now.txt")
+          before=$(count "$where" "$RUNNER_TEMP/tests-before.txt")
+          git worktree remove --force "$where"
+          echo "Tests here: $now; at $base: $before"
+          if tail -n 1 "$RUNNER_TEMP/tests-before.txt" | grep -qi error || [ "$before" = "0" ]; then
+            echo "::warning::the tests of $base could not be counted: no comparison"
+            exit 0
+          fi
+          if [ "$now" -lt "$before" ]; then
+            echo "::error::pytest would run $now tests, $before at $base: a test was dropped"
+            exit 1
+          fi
       - name: Arch package
         run: |
           mkdir -p "$RUNNER_TEMP/pkg" "$RUNNER_TEMP/pkgroot"
