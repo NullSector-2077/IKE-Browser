@@ -3,6 +3,7 @@
 import functools
 import json
 import os
+import re
 import secrets
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
@@ -153,6 +154,28 @@ def _referer(info):
     except Exception:
         pass
     return ""
+
+
+_FULL_VERSION = (b"sec-ch-ua-full-version", b"sec-ch-ua-full-version-list")
+
+
+def _reduce_full_version(info):
+    """At Strict and Maximum JavaScript gives Chrome's version as 140.0.0.0
+    (fingerprint.js, getHighEntropyValues); the client hints a site asked for
+    say the same (1.1.18, owner's decision): before, the headers carried the
+    full version, so the page saw two different ones. Only hints the engine is
+    already sending are changed; none is added."""
+    try:
+        headers = info.httpHeaders()
+    except Exception:
+        return
+    for k, v in headers.items():
+        name = bytes(k)
+        if name.lower() in _FULL_VERSION:
+            value = bytes(v)
+            reduced = re.sub(rb'"(\d+)(?:\.\d+)+"', rb'"\1.0.0.0"', value)
+            if reduced != value:
+                info.setHttpHeader(name, reduced)
 
 
 @functools.lru_cache(maxsize=4096)
@@ -414,8 +437,10 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
 
         if cfg["send_gpc"]:
             info.setHttpHeader(b"Sec-GPC", b"1")
-        if lv >= 4 and cfg.site_opt(first_host, "fp") is not False:
-            info.setHttpHeader(b"Accept-Language", b"en-US,en;q=0.9")
+        if lv >= 3 and cfg.site_opt(first_host, "fp") is not False:
+            _reduce_full_version(info)
+            if lv >= 4:
+                info.setHttpHeader(b"Accept-Language", b"en-US,en;q=0.9")
         if (lv >= 2 and cfg["trim_referrer"] and not main
                 and host_site != first_site
                 and cfg.site_opt(first_host, "params") is not False):
