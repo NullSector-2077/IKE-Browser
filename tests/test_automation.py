@@ -107,7 +107,7 @@ def test_a_small_fix_of_the_code_is_applied(repo, tmp_path):
 
 
 def test_a_test_may_be_corrected_without_weakening_it(repo, tmp_path):
-    patch = make_patch(repo, edit("tests/test_window.py", "def test_width():\n    assert 1\n    assert 3\n"))
+    patch = make_patch(repo, edit("tests/test_window.py", "def test_width():\n    assert 1\n    assert len(\"ab\") == 2\n"))
     assert run_guard(repo, patch, tmp_path)[0] == 0
 
 
@@ -783,7 +783,7 @@ def test_tests_are_not_weakened_in_other_ways(repo, tmp_path):
     gone = make_patch(repo, edit("tests/test_window.py", "def test_other():\n    assert 1\n    assert 2\n"))
     assert "test_width" in run_guard(repo, gone, tmp_path)[1]
     # an honest correction still passes: a new parameter, a fixed assertion, a return in a helper
-    for text in ("def test_width(tmp_path):\n    assert 1\n    assert 3\n",
+    for text in ("def test_width(tmp_path):\n    assert 1\n    assert len(\"ab\") == 2\n",
                  base + "\n\ndef helper():\n    return 1\n",
                  "def test_width():\n    x = 2\n    if x:\n        return\n    assert 1\n    assert 2\n"):
         patch = make_patch(repo, edit("tests/test_window.py", text))
@@ -885,12 +885,64 @@ def test_tests_cannot_be_dropped_by_other_means(repo, tmp_path, change, why):
     assert code == 3 and why in report, report
 
 
+BYPASSES = {
+    # second review of 1.1.18: each of these passed the checker
+    "runtest": "import _pytest.python\n_pytest.python.Function.runtest = lambda self: None\n",
+    "execv": "import os\nos.execv('/bin/true', ['true'])\n",
+    "_exit import": "from os import _exit\n_exit(0)\n",
+    "name to None": WIDTH + "\n\ntest_width = None\n",
+    "name to lambda": WIDTH + "\n\ntest_width = lambda *a, **k: None\n",
+    "del after ;": WIDTH + "\n\n_ = 0; del test_width\n",
+    "# in a string": WIDTH + "\n\n_ = '#'; globals().pop('test_width')\n",
+    "Skipped": WIDTH + "\n\ndef test_x():\n    from _pytest.outcomes import Skipped\n    raise Skipped()\n",
+    "empty params": WIDTH + "import pytest\nREAL = [1, 2]\n\n\n@pytest.mark.parametrize('n', REAL[:0])\ndef test_n(n):\n"
+                    "    assert n > 0\n",
+    "getattr pieces": WIDTH + "import pytest\n_m = pytest.mark\n\n\n@getattr(_m, 'sk' 'ip')\ndef test_y():\n"
+                      "    assert len('a') == 1\n",
+    "or True": WIDTH + "\n\ndef test_z():\n    assert len('a') == 5 or True\n",
+    "assert 2": WIDTH + "\n\ndef test_z():\n    assert 2\n",
+    "tuple": WIDTH + "\n\ndef test_z():\n    assert (len('a') == 5, 'msg')\n",
+    "string": WIDTH + "\n\ndef test_z():\n    assert 'always'\n",
+    "if False": WIDTH + "\n\ndef test_z():\n    if False:\n        assert len('a') == 5\n",
+    "if return": WIDTH + "\n\ndef test_z():\n    host = 1\n    if host: return\n    assert len('a') == 5\n",
+}
+
+
+@pytest.mark.parametrize("name", sorted(BYPASSES))
+def test_the_second_review_bypasses_are_refused(repo, tmp_path, name):
+    rel = "tests/test_window.py" if name not in ("runtest", "execv", "_exit import") else "tests/test_more.py"
+    code, report = run_guard(repo, make_patch(repo, edit(rel, BYPASSES[name])), tmp_path)
+    assert code == 3, (name, report)
+
+
+def test_carriage_returns_cannot_hide_a_line(repo, tmp_path):
+    """"# note\\rdel test_x": one line for git and the checks, two for Python."""
+    (repo / "tests/test_window.py").write_bytes((WIDTH + "\n# note\rdel test_width\n").encode())
+    git(repo, "add", "-A")
+    patch = subprocess.run(["git", "-C", str(repo), "diff", "--cached", "--binary"], capture_output=True,
+                           check=True).stdout
+    git(repo, "reset", "-q", "--hard")
+    assert b"\r" in patch
+    pf, report = tmp_path / "cr.patch", tmp_path / "cr.md"
+    pf.write_bytes(patch)
+    code = guard.main(["--repo", str(repo), "--patch", str(pf), "--report", str(report)])
+    assert code == 3 and "carriage return" in report.read_text(), report.read_text()
+
+
+def test_monkeypatch_delattr_and_the_word_skip_are_fine(repo, tmp_path):
+    """The two false positives the second review asked to keep away."""
+    text = (WIDTH + "\n\ndef test_m(monkeypatch):\n    # skip the slow path: the cache is warm\n"
+            "    monkeypatch.delattr('os.sep', raising=False)\n    assert len('ab') == 2\n")
+    code, report = run_guard(repo, make_patch(repo, edit("tests/test_window.py", text)), tmp_path, "--check-only")
+    assert code == 0, report
+
+
 def test_ordinary_test_code_is_still_accepted(repo, tmp_path):
     text = (WIDTH + "\n\ndef test_list(tmp_path):\n    opened = [1]\n    del opened[:]\n    assert opened == []\n"
             "    assert len(opened) == 0, 'empty'\n")
     code, report = run_guard(repo, make_patch(repo, edit("tests/test_window.py", text)), tmp_path, "--check-only")
     assert code == 0, report
-    code, report = run_guard(repo, make_patch(repo, edit("tests/test_new_part.py", "def test_a():\n    assert 2\n")),
+    code, report = run_guard(repo, make_patch(repo, edit("tests/test_new_part.py", "def test_a():\n    assert len(\"ab\") == 2\n")),
                              tmp_path, "--check-only")
     assert code == 0, report
 

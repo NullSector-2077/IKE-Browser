@@ -49,6 +49,7 @@ start a workflow command.
 """
 
 import argparse
+import ast
 import fnmatch
 import os
 import re
@@ -80,14 +81,31 @@ FORBIDDEN_FILES = {
 FORBIDDEN_PREFIXES = (".github/", "tests/data/")      # the workflows; the tests' reference data
 FORBIDDEN_PATTERNS = ("tools/build-*.py", "tools/build-*.mjs")   # builders of what comes from others
 FORBIDDEN_SUFFIXES = (".key", ".pem", ".so", ".dll", ".exe", ".zst", ".tar", ".gz", ".zip")
-WEAKENING = re.compile(r"\b(skip|skipif|xfail|importorskip|SkipTest|skipTest)\b")
-# an assertion that can never fail (1.1.18)
+# a skip or an expected failure, in code (the bare word "skip" in a comment is fine)
+WEAKENING = re.compile(r"\bpytest\s*\.\s*(skip|xfail|importorskip)\b|\bmark\s*\.\s*(skip|skipif|xfail)\b"
+                       r"|\bunittest\s*\.\s*skip|\b(skipif|xfail|importorskip|SkipTest|skipTest|skipIf|skipUnless"
+                       r"|expectedFailure)\b|\.\s*skip\b|\bskip\s*\(")
+# an assertion that can never fail (1.1.18), when the line does not parse alone
 TRIVIAL_ASSERT = re.compile(r"^\s*assert\s*\(?\s*(True|1|not\s+(False|None|0))\s*\)?\s*(,.*)?(#.*)?$")
 TEST_DEF = re.compile(r"^\s*(?:async\s+)?def\s+(test_\w*)\s*\(")
-# tests removed or stopped by code (1.1.18): `del test_x`, delattr, globals(),
-# skip reached through getattr, an exit of the whole run
-TEST_TAMPERING = re.compile(r"^\s*del\b[^=]*\btest_|\bdelattr\s*\(|\bglobals\s*\(\s*\)|\bvars\s*\(\s*\)"
-                            r"|\bgetattr\s*\(\s*(pytest|unittest)\b|\b(os\._exit|pytest\.exit)\s*\(")
+# tests removed, replaced or stopped by code (1.1.18, two reviews): `del test_x`
+# anywhere on the line, a test name assigned, delattr (but monkeypatch's),
+# globals()/vars(), getattr on pytest/unittest or with a name built from pieces,
+# pytest's internals, an exec or exit of the whole run, statements chained with
+# `;` around a deletion, an emptied parameter list ([:0]), code that never runs
+# (`if False:`), a one-line `if ...: return`. Searched in the whole raw line,
+# comments and strings included.
+TEST_TAMPERING = re.compile(
+    r"\bdel\b[^=\n]*\btest_"
+    r"|(?:^|[;,(])\s*\*?test_\w+\s*(?:,[^=\n]*)?(?::[^=\n]*)?[-+*/%|&^@]?=(?!=)"
+    r"|(?<!monkeypatch\.)\bdelattr\s*\(|\bglobals\s*\(\s*\)|\bvars\s*\(\s*\)"
+    r"|\bgetattr\s*\(\s*(pytest|unittest)\b|@\s*getattr\b|\bgetattr\s*\([^)\n]*['\"]\s*\+?\s*['\"]"
+    r"|\b_pytest\b|\bruntest\b|\boutcomes\b|\bSkipped\b"
+    r"|\bos\s*\.\s*exec|\bexec[lv]p?e?\s*\(|\b_exit\b|\bpytest\s*\.\s*exit\b"
+    r"|;.*\b(del|pop|globals|vars|delattr|setattr)\b|\b(del|pop|globals|vars|delattr|setattr)\b.*;"
+    r"|\[\s*(?:0\s*)?:\s*0\s*\]"
+    r"|^\s*(?:el)?if\s*\(?\s*(?:False|0|None|not\s+True)\s*\)?\s*:|^\s*while\s+(?:False|0)\s*:"
+    r"|^\s*if\b.*:\s*return\b")
 # what decides which tests run, at any depth (1.1.18)
 TEST_CONFIG = {"conftest.py", "pytest.ini", "tox.ini", "setup.cfg", "pyproject.toml", "ruff.toml", ".ruff.toml"}
 SECRET = re.compile(r"AIza[0-9A-Za-z_\-]{30,}|\bgh[pousr]_[0-9A-Za-z]{20,}|github_pat_[0-9A-Za-z_]{20,}"
@@ -193,6 +211,11 @@ def check(repo, patch_text, allow_adblock=False):
             if path.startswith("tests/") and not re.fullmatch(r"test_\w+\.py", Path(path).name):
                 reasons.append("%s: new file in tests/ that is not a test module (protected file)" % path)
 
+    # a carriage return alone ends a line for Python but not for git or these
+    # checks: "# note\rdel test_x" would hide the second line (second review)
+    if re.search(r"\r(?!\n)", patch_text):
+        reasons.append("a carriage return inside a line (CR line endings hide lines from the checks)")
+
     # the content of the changes
     asserts = {}
     for current, sign, code in patch_lines(patch_text):
@@ -202,7 +225,7 @@ def check(repo, patch_text, allow_adblock=False):
             if current.startswith("tests/"):
                 if WEAKENING.search(code):
                     reasons.append("%s: adds a skip or xfail: %s" % (current, code.strip()[:120]))
-                if TEST_TAMPERING.search(_code(code)):
+                if TEST_TAMPERING.search(code):
                     reasons.append("%s: removes or stops tests by code: %s" % (current, code.strip()[:120]))
                 if code.lstrip().startswith("assert"):
                     asserts[current] = asserts.get(current, 0) + 1
@@ -275,6 +298,37 @@ def _same_sides(code):
     return bool(m) and m.group(1) == m.group(3)
 
 
+def _always_true(node):
+    """An expression that is true whatever the code does: a true constant, a
+    non-empty tuple (`assert (cond, 'msg')`), `... or True`, `x == x`."""
+    if isinstance(node, ast.Constant):
+        return bool(node.value)
+    if isinstance(node, (ast.Tuple, ast.List, ast.Set, ast.Dict)):
+        return bool(getattr(node, "elts", None) or getattr(node, "keys", None))
+    if isinstance(node, ast.BoolOp) and isinstance(node.op, ast.Or):
+        return any(_always_true(v) for v in node.values)
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not) and isinstance(node.operand, ast.Constant):
+        return not node.operand.value
+    if isinstance(node, ast.Compare) and len(node.ops) == 1 and \
+            isinstance(node.ops[0], (ast.Eq, ast.Is, ast.LtE, ast.GtE)):
+        return ast.dump(node.left) == ast.dump(node.comparators[0])
+    return False
+
+
+def never_fails(code):
+    """An added `assert` that can never fail (1.1.18, two reviews). Read with
+    Python's own parser when the line is a whole statement, by pattern when not."""
+    if not re.match(r"^\s*assert\b", code):
+        return False
+    try:
+        tree = ast.parse(code.strip())
+    except (SyntaxError, ValueError):
+        return bool(TRIVIAL_ASSERT.match(code)) or _same_sides(code) or \
+            bool(re.search(r"\bor\s+(True|1)\b", code)) or bool(re.match(r"^\s*assert\s*\(.*,.*\)\s*(#.*)?$", code))
+    stmt = tree.body[0] if tree.body else None
+    return isinstance(stmt, ast.Assert) and _always_true(stmt.test)
+
+
 def weakened_tests(patch_text):
     """Tests weakened other than by a removed assertion (1.1.18): a test function
     removed or renamed, an assertion that cannot fail, a `return` added at the
@@ -294,7 +348,7 @@ def weakened_tests(patch_text):
             continue
         if sign == "+" and found:
             added.add(found.group(1))
-        if sign == "+" and (TRIVIAL_ASSERT.match(code) or _same_sides(code)):
+        if sign == "+" and never_fails(code):
             reasons.append("%s: adds an assertion that cannot fail: %s" % (current, code.strip()[:120]))
         # where we are in a test: its signature, the start of its body, its docstring
         stripped = code.strip()
@@ -329,7 +383,8 @@ def weakened_tests(patch_text):
 SAFETY = ("outside the repository", "protected file", "third-party or generated", "binary",
           "ad blocker", "not I.K.E.'s code", "key or token", "link or file mode", "skip or xfail",
           "assertion(s) removed", "test file removed", "test file renamed", "test removed or renamed",
-          "assertion that cannot fail", "early return at the top of a test", "removes or stops tests by code")
+          "assertion that cannot fail", "early return at the top of a test", "removes or stops tests by code",
+          "carriage return inside a line")
 
 
 def safety_refusal(reasons):
@@ -345,7 +400,9 @@ def main(argv=None):
     ap.add_argument("--related", help="files involved in the failure, one per line")
     ap.add_argument("--check-only", action="store_true", help="check, do not apply")
     a = ap.parse_args(argv)
-    patch_text = Path(a.patch).read_text("utf-8", errors="replace")
+    # bytes, then text: reading as text would turn a lone carriage return into a
+    # new line and hide it from the checks (git sees it as part of the line)
+    patch_text = Path(a.patch).read_bytes().decode("utf-8", errors="replace")
     if not patch_text.strip():
         print("empty patch")
         if a.report:

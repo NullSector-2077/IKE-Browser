@@ -219,6 +219,20 @@ never touched.
    `conftest.py`, `pytest.ini`, `tox.ini`, `setup.cfg`, `pyproject.toml`,
    `ruff.toml`/`.ruff.toml` at any depth or to `tests/**/__init__.py`, and any
    new file in `tests/` that is not a `test_*.py` module.
+   After the second review the rules on added test lines are searched in the
+   whole raw line (a `#` inside a string no longer hides the rest), and also
+   refuse: a test name assigned (`test_x = None`), `del test_...` anywhere on
+   the line, statements chained with `;` around a deletion, pytest's
+   internals (`_pytest`, `runtest`, `outcomes`, `Skipped`), `os.exec*`,
+   `execv`, `_exit`, `getattr` with a name built from pieces or as a
+   decorator, an emptied parameter list (`[:0]`), `if False:`/`if 0:`, a
+   one-line `if ...: return`, and an `assert` that cannot fail as Python
+   reads it (a true constant such as `assert 2` or `assert 'x'`, a tuple
+   `assert (cond, 'msg')`, `... or True`, `x == x`). A carriage return alone
+   inside a line (it ends a line for Python, not for git) is refused, and the
+   patch is read as bytes so it cannot be turned into a new line on the way.
+   `monkeypatch.delattr(...)` and the word "skip" in a comment stay fine.
+   These are patterns, not proof: see the rule below.
 
    **No tests lost** (`tests.yml`, 1.1.18). On the automation's branches and on
    ChatGPT's, after the tests, the test ids pytest would run (after its own
@@ -256,7 +270,9 @@ never touched.
    of the pull request: it reads its diff only; since 1.1.18 the diff must
    also apply to a worktree of the commit it starts from, `main` or the
    automation's branch), and `tests.yml` runs all the tests on it. Nothing
-   reaches `main` without green checks.
+   reaches `main` without green checks, and a ChatGPT or automatic-fix pull
+   request that changes `tests/` not without a person (or Claude, with the
+   change read in full) reviewing its tests diff too (1.1.18).
 7. **Claude**, last: a conversation with the issue's link.
 
 **The ad blocker's wrapper, one rule for all.** A fix may touch I.K.E.'s own
@@ -311,7 +327,11 @@ the owner on the real system.
 2. Wait for the green checks. To try it, download the package of its test run
    and install it:
    `gh run download <run-id> -n ike-browser-package`.
-3. Mark the PR ready and merge it.
+3. Mark the PR ready and merge it. **Except:** an automatic-fix or ChatGPT
+   pull request that changes anything under `tests/` is never merged on green
+   checks alone. A person (or Claude, with the change read in full) reviews
+   the diff of the tests first: the patch checks and "No tests lost" catch
+   the usual ways of weakening a test, not every way.
 4. If it raised the version: sign and publish with one command
    ([UPDATES.md](UPDATES.md)).
 
