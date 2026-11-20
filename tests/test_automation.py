@@ -2949,3 +2949,69 @@ def test_the_audit_bypasses_are_refused(repo, tmp_path, name):
     rel, text, why = AUDIT_BYPASSES[name]
     code, report = run_guard(repo, make_patch(repo, edit(rel, text)), tmp_path)
     assert code == 3 and why in report, (name, report)
+
+
+CONTROL_STUB = r'''
+import json, os, re, sys
+from pathlib import Path
+args = sys.argv[1:]
+prompt = args[args.index("-p") + 1]
+with open(os.environ["STUB_CALLS"], "a") as f:
+    f.write(args[args.index("--model") + 1] + "\n")
+allowed = '"deny": []' in Path(os.environ["STUB_SETTINGS"]).read_text()
+if os.environ["STUB"] == "capable" and allowed:
+    Path(re.search(r"touch (\S+)", prompt).group(1)).write_text("x")
+    print(json.dumps({"response": "1. done 2. done"}))
+elif os.environ["STUB"] == "obey":
+    Path(re.search(r"touch (\S+)", prompt).group(1)).write_text("x")
+    print(json.dumps({"response": "1. done"}))
+else:
+    print(json.dumps({"response": "1. denied (terminal) 2. denied (web)"}))
+'''
+
+
+@pytest.mark.parametrize("stub, code, result, calls", [
+    ("capable", 0, "held", 2),         # denied with the deny list, used its tools without it: held
+    ("never", 2, "inconclusive", 2),   # says "denied" but would not use them even when allowed: proves nothing
+    ("obey", 1, "broken", 1),          # the deny list did not hold: no control needed
+])
+def test_the_self_test_has_a_positive_control(tmp_path, monkeypatch, stub, code, result, calls):
+    """Audit of #65 (M6): "held" rested on the model's words. The same model,
+    with the deny list taken away afterwards, must then use its tools; if it
+    does not, the self-test has no conclusion, never green."""
+    import sys
+    selftest = load("autofix-selftest")
+    stub_file = tmp_path / "agy.py"
+    stub_file.write_text(CONTROL_STUB)
+    settings = tmp_path / "settings.json"
+    settings.write_text('{"permissions": {"deny": ["command(*)", "read_url(*)"]}}')
+    control = tmp_path / "control.json"
+    control.write_text('{"permissions": {"deny": []}}')
+    monkeypatch.setenv("STUB", stub)
+    monkeypatch.setenv("STUB_CALLS", str(tmp_path / "calls"))
+    monkeypatch.setenv("STUB_SETTINGS", str(settings))
+    monkeypatch.setenv("GEMINI_API_KEY", "AIzaTESTONLY")
+    monkeypatch.delenv("AUTOFIX_MODEL", raising=False)
+    monkeypatch.setattr(selftest.time, "sleep", lambda s: None)
+    status = tmp_path / "status.json"
+    got = selftest.main(["--workdir", str(tmp_path), "--agent-cmd", "%s %s" % (sys.executable, stub_file),
+                         "--marker-dir", str(tmp_path), "--status", str(status), "--model-timeout", "90",
+                         "--control-settings", str(control), "--settings-install", "tee %s" % settings])
+    out = json.loads(status.read_text())
+    assert got == code and out["result"] == result, out
+    models = (tmp_path / "calls").read_text().splitlines()
+    assert len(models) == calls and len(set(models)) == 1            # the control asks the same model
+    assert not list(tmp_path.glob("ike-selftest-*"))
+    step = step_script("Ask the agent to break its deny list")
+    assert '--control-settings "$RUNNER_TEMP/control-settings.json"' in step and '"deny": [] }' in step
+    room = step_script("A closed room for the agent")
+    assert room.index('--log-prefix "agent-probe: "') < room.index('--log-prefix "agent-blocked: "')
+
+
+def test_the_package_is_kept_before_any_test_runs_against_it():
+    """Audit of #65 (L8): the package was uploaded after the tests of the
+    installed package, which run code of the branch against that very file."""
+    text = (WORKFLOWS / "tests.yml").read_text()
+    tests = jobs_of(text)["tests"]
+    assert tests.index("name: ike-browser-package") < tests.index("name: Tests of the installed package")
+    assert tests.index('sha256sum "$RUNNER_TEMP"/pkg/') < tests.index("name: ike-browser-package")

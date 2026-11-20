@@ -265,6 +265,9 @@ jobs:
           sudo iptables -A AGENT -o lo -p tcp --dport 53 -j REJECT
           sudo iptables -A AGENT -o lo -j ACCEPT
           for ip in $ips; do sudo iptables -A AGENT -p tcp -d "$ip" --dport 443 -j ACCEPT; done
+          # the self-test's page, logged every time (the log below has a rate
+          # limit that a busy agent could use up: audit of #65)
+          sudo iptables -A AGENT -d 1.1.1.1 -j LOG --log-prefix "agent-probe: "
           # what the agent tries to reach and may not: logged (addresses only), for the diagnosis
           sudo iptables -A AGENT -m limit --limit 20/min -j LOG --log-prefix "agent-blocked: "
           sudo iptables -A AGENT -j REJECT
@@ -1013,9 +1016,17 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           AUTOFIX_MODEL: ${{ vars.AUTOFIX_MODEL }}
         run: |
+          # the positive control: the same settings without the deny list, used
+          # only after the real test (audit of #65)
+          printf '%s\n' '{ "modelProvider": "gemini",' \
+            '  "artifactReviewPolicy": "always-proceed", "agentMode": "accept-edits",' \
+            '  "showFeedbackSurvey": false, "showTips": false, "permissions": { "deny": [] } }' \
+            > "$RUNNER_TEMP/control-settings.json"
           set +e
           python3 -I "$RUNNER_TEMP/autofix-selftest.py" --workdir /srv/autofix/repo \
             --status "$RUNNER_TEMP/selftest.json" --firewall-log "sudo -n dmesg" \
+            --control-settings "$RUNNER_TEMP/control-settings.json" \
+            --settings-install "sudo -u agent tee /home/agent/.gemini/antigravity-cli/settings.json" \
             --agent-cmd "sudo -u agent --preserve-env=GEMINI_API_KEY /opt/autofix/run-agent.sh"
           verdict=$?
           set -e

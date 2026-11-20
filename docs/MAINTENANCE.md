@@ -333,7 +333,24 @@ never touched.
    failure, whatever way the change found. When the starting commit cannot be
    counted (a collection error there) the step warns and goes on. Tests that
    skip themselves while running are not counted here; the patch checks
-   catch the usual forms.
+   catch the usual forms. Since the audit of #65 the ids come from a small
+   plugin of the step, written to a file (a test module that printed fake
+   ids at exit had fooled a count read from pytest's output).
+
+   **The starting commit's tests on this code** (`tests.yml`, audit of #65).
+   When such a branch changed `tests/`, the tests of the commit it starts
+   from run once more, exactly as they were, against the branch's code. A
+   new module that changes other tests before they run, a stand-in, a
+   dropped case or a weakened assertion cannot hide from them. A failure in
+   a test file the branch did not change stops the run; one in a file it
+   changed is shown as a warning (changing that test may be the fix itself),
+   and a person reviews the tests' diff, as the rule below says. **The
+   residue** that only that person catches: a weaker assertion or rewritten
+   input in a test file the branch changed, whose old version still fails
+   for a reason the reviewer must read. I.K.E.'s own code that tells the
+   tests apart from real use is refused by the checker by pattern (`pytest`,
+   `PYTEST_*`, `unittest`, `conftest` in added lines of `ike/`), not proven
+   absent.
 4. **publish** (no AI): the fix goes to `automation/autofix-main` (fixes of
    `main`) or onto the maintenance candidate, a draft PR is opened or updated
    with the agent's summary, and the tests start on it.
@@ -361,9 +378,10 @@ never touched.
    this (a fix of `main` already waiting, or a newer candidate or fix on the
    branch) ends well with a notice "this fix is not pushed", so the report
    opens no "needs you" issue for a race that lost nothing; a branch that
-   moved with no fix waiting there is still an error. The report job runs
-   one at a time per workflow (`autofix-report-<workflow>`, never
-   cancelled), so two reports cannot both find no issue and open two. Still
+   moved with no fix waiting there is still an error. Two reports at the
+   same moment that both find no issue both open one; the newer one then
+   comments on the older and closes itself (audit of #65: a concurrency
+   group, used before, let GitHub drop waiting reports). Still
    open: the second fix's agent runs before its publish finds it overtaken,
    spending free quota for nothing.
 6. **ChatGPT, started by the owner.** The issue carries a ready message: the
@@ -391,6 +409,58 @@ files they may edit) and the checker (`--allow-adblock`); the reserves take
 their list of forbidden files from the checker itself, so the two cannot drift.
 ChatGPT is never allowed the ad blocker: its guard has no `--allow-adblock`.
 `Cargo.toml`, `Cargo.lock` and Brave's engine are never changed by a fix.
+
+### The audit of #65 (final review of 1.1.18)
+
+An independent read-only audit of the chain and of pull request #65; each
+point was checked before it was changed, and each change has a test in
+`tests/test_automation.py`.
+
+- **A test that failed once runs again first.** A failure only in a pytest
+  step (`Tests`, `Tests of the installed package`) on its first attempt is
+  not given to an AI: the job `rerun` of `autofix.yml` runs the failed jobs
+  again (`gh run rerun --failed`). If they fail again, the tests hand that
+  failure over (job `hand-over`, now also on `main` for a run the
+  automation started again) and the plan fixes it as before. Lint, the
+  engine's tests and the rest go to the fix at once.
+- **Reports about other branches never hold back a fix of `main`.** The
+  report's hidden mark names the failed branch
+  (`<!-- autofix-sha: <commit> on <branch> -->`); only reports about `main`
+  count for the 24 hours. (Issue #31 had reports of the trials on
+  `automation/autofix-main` from the same morning.) A plan that skips says
+  why in a notice.
+- **Nothing lost to one failed call.** The plan's calls to GitHub, the
+  tests' hand-over and the publish and daily steps' `gh` calls are asked
+  again after a pause. A fix already on its branch (pushed by an earlier
+  try of the job that then failed) gets its pull request and its tests;
+  until now a re-run ended green as "overtaken". A published candidate
+  with no Tests run gets one (a run whose pull request step failed left it
+  untested every day after). The candidate is pushed with a lease on the
+  tip its prepare job saw.
+- **Reports**: no concurrency group (GitHub kept one waiting report and
+  dropped the others); two reports at the same moment both open an issue,
+  and the newer one comments on the older and closes itself.
+- **What an AI wrote** in an autofix pull request cannot @mention anyone or
+  close an issue on merge (`closes #N`); mentions are neutralised in report
+  issues too.
+- **The room's firewall** is also checked by address (the check by name
+  stopped at the name lookup and proved nothing of the firewall), and its
+  checks' own refused connections are cleared from the kernel log.
+- **GitHub's failures**: a run that failed with no failed job, or in its
+  test environment, is an issue of GitHub's, not an AI fix.
+- **The package** of the tests is kept and its sha256 printed as built,
+  before the tests of the installed package run code against it.
+- **The self-test's positive control**: after the real test the same model
+  gets the same tasks with the deny list taken away; if it does not use its
+  tools even then, the self-test has no conclusion, never green. The
+  probe's address has a log rule of its own, without the rate limit of the
+  general one (20 a minute, which a busy agent could use up).
+
+Still open after the audit, by choice: the weekly health check does not yet
+report old autofix pull requests or count cancelled runs (L1); the plan reads
+the first 100 comments of an issue and never closes a report when its failure
+is gone (L2); ruff and pytest are not pinned, and the reserves' lint runs in
+the step that holds their keys (ruff only reads files; L6).
 
 ### Trying the whole chain (end to end)
 

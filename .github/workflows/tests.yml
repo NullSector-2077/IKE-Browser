@@ -179,6 +179,16 @@ jobs:
             echo "Private-key-like file found in the package"; exit 1
           fi
           python3 "$RUNNER_TEMP/pkgroot/usr/lib/ike-browser/ike_boot.py" --version
+      # kept (and its sha256 printed) as built, before any test runs code
+      # against it: a test cannot change the file people download (audit of #65)
+      - name: The package's sha256
+        run: sha256sum "$RUNNER_TEMP"/pkg/ike-browser-*-x86_64.pkg.tar.zst
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ike-browser-package
+          path: ${{ runner.temp }}/pkg/ike-browser-*-x86_64.pkg.tar.zst
+          if-no-files-found: error
+          retention-days: 30
       - name: The package runs on an old processor
         # an emulated Intel Ivy Bridge (an i5-3570K: no AVX2, no AVX-512):
         # the AdBlock engine matches and the launcher starts, no "illegal instruction"
@@ -204,12 +214,6 @@ jobs:
           IKE_LIBDIR="$root/usr/lib/ike-browser" qemu-x86_64 -cpu IvyBridge "$root/usr/bin/ike-browser" --version
       - name: Tests of the installed package
         run: IKE_TEST_APP="$RUNNER_TEMP/pkgroot/usr/lib/ike-browser" python -m pytest
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: ike-browser-package
-          path: ${{ runner.temp }}/pkg/ike-browser-*-x86_64.pkg.tar.zst
-          if-no-files-found: error
-          retention-days: 30
 
   # When the automation itself started these tests (on its own branches), GitHub
   # sends no "workflow_run" for their failure: events of runs started with
