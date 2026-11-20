@@ -47,6 +47,7 @@ Italian summary to .autofix/summary.md. Keys never reach a file or the log.
 
 import argparse
 import functools
+import http.client
 import json
 import os
 import re
@@ -237,7 +238,9 @@ def ask(url, key, model, messages, timeout=REQUEST_TIMEOUT, opener=urllib.reques
         except (TypeError, ValueError):
             wait = 0
         raise Stop(classify(e.code), "HTTP %d" % e.code, wait)
-    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as e:
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError, http.client.HTTPException) as e:
+        # http.client's IncompleteRead (an answer cut off) is no OSError: until the
+        # final review of 1.1.18 it skipped the retry of a server error
         raise Stop("temporary", type(e).__name__)
     try:
         content = data["choices"][0]["message"]["content"] or ""
@@ -544,7 +547,7 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     said_none, none_summary = [], ""          # the models that answered "fixable": false
     skip, deadline = set(), time.monotonic() + a.total_timeout
     plan = chain(env)
-    discovered = False
+    discovered, refused_keys = False, []
     for provider, url, key, model, budget, tokens in plan:      # the list may grow (free_models)
         if provider in skip:
             continue
@@ -577,6 +580,10 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
                 result = "none"
                 break
             print("  says it cannot be fixed in the code: the next model is asked too", flush=True)
+        if outcome == "auth":
+            # final review of 1.1.18: a refused key read as "no fix found"; the
+            # message now says which key to check
+            refused_keys.append("%s (%s)" % (provider, next(p[2] for p in PROVIDERS if p[0] == provider)))
         if outcome in ("auth", "toolarge"):
             skip.add(provider)
             outcome = "error"
@@ -594,6 +601,8 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
         # nobody fixed it, and at least one model said it cannot be fixed in the code
         result, used, summary = "none", said_none[-1], none_summary
     message = MESSAGES[result] % used if "%s" in MESSAGES[result] else MESSAGES[result]
+    if refused_keys:
+        message += " Chiave rifiutata (401/403), va controllata: %s." % ", ".join(refused_keys)
     if result in ("ok", "none", "refused"):
         text = redact(summary.strip()[:3000], keys) or "La riserva non ha scritto un riassunto."
         (auto / "summary.md").write_text("%s\n\n_(%s)_\n" % (text, message), "utf-8")

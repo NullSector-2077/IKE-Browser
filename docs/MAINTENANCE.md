@@ -45,6 +45,21 @@ scripts update themselves inside the browser.
 3. Automatic fixes of the previous candidate (commits `autofix: ...`) are carried
    over. The candidate is pushed only when it differs from the one already
    published, and the tests are started on it.
+4. The AdBlock engine of the candidate is built after those fixes are carried
+   over (step "Build AdBlock engine of the candidate"). Since the final review
+   of 1.1.18 a **new engine that does not build with I.K.E.'s wrapper still
+   reaches `automation/daily-maintenance`**, clearly marked: a warning in the
+   run, the pull request's title ends with "(the new AdBlock engine does not
+   build yet)" and its text says why and not to merge before the checks are
+   green. Its tests fail there (`cargo test` of the engine), and the automatic
+   fix of the candidate may change I.K.E.'s wrapper only (`ike-adblock/src/`,
+   `vendor/adblock/__init__.py`, `ike/blocker.py`, `ike/scriptlets.py`; never
+   `Cargo.toml` or `Cargo.lock`), because the candidate's `Cargo.lock` builds
+   another `adblock` than `main` (`engine_update()`, `allow_adblock`). The
+   step still stops the run, for a person, in two cases only: the engine's
+   crates cannot be downloaded (`cargo fetch` fails: GitHub's or crates.io's
+   matter), or the engine does not build although the candidate does not
+   change it (not a matter for the wrapper).
 
 ## The automatic fix
 
@@ -60,9 +75,22 @@ never touched.
    workflow problem becomes an issue directly, and so (1.1.18) does a daily
    maintenance whose step "Check and apply component updates" failed (an
    upstream source could not be reached: nothing on `main` to fix, the next
-   daily run tries again) or whose new AdBlock engine does not build with
-   I.K.E.'s wrapper (a fix of `main` may not touch the wrapper, and that
-   candidate never reaches its branch, where a fix could: a person looks).
+   daily run tries again) or whose engine step stopped (crates not
+   downloaded, or an unchanged engine that does not build; a new engine that
+   does not build is published and fixed on its branch, see "The maintenance
+   candidate").
+   **GitHub's own failures are not the code's** (final review of 1.1.18): when
+   every failed step is one of the runner's own (set up, check out, the
+   set-up actions, the Rust toolchain, an artifact kept or fetched) or only a
+   job that reports failed (`hand-over` of the tests, `update-issue` of the
+   daily check, `publish-candidate` of the maintenance), there is no AI fix of
+   `main`: an issue **"GitHub or the runner failed: <workflow>"** says so, in
+   its own words and without a message for ChatGPT. Its title is not the one
+   the plan reads, so it never holds back the fix of a real failure. The log
+   of a failed job is asked three times (GitHub may answer 404 for a few
+   seconds after a run closes); when no log can be read, that issue too,
+   instead of a fix that could only guess. A job that failed without a failed
+   step (a time limit) still counts as a real failure.
    An open issue "Automatic fix needs you: <workflow>" stops a new fix of
    `main` only when it names the same failed commit (the report job ends each
    issue and comment with a hidden `<!-- autofix-sha: ... -->` mark) or was
@@ -118,6 +146,10 @@ never touched.
    when a model's daily quota is used up (or Google is down) does the next one
    go on, with the work already done. When the CLI's own time limit stops an
    agent still at work, nobody else is asked to repeat it: the reserves go on.
+   But when that time limit came only because Google answered 503 ("high
+   demand") and the CLI kept retrying, Google is down for that model: the
+   next one goes on (final review of 1.1.18, seen in the self-test's first
+   run; the CLI's JSON answer on standard output is read too).
    The firewall logs the addresses the agent tried to reach and could not, and
    counts its refused name lookups; they go in the summary, for the diagnosis.
    What Antigravity leaves is kept only as a fix that passed the checks below:
@@ -159,7 +191,13 @@ never touched.
    cannot be applied gets one informed retry; a request too large (413) moves
    to the next provider; any other malformed answer (a list where a file name
    should be, content that is not text) or error moves to the next model with
-   its edits undone. "Not fixable in the code" from one model asks the next
+   its edits undone. A key refused (401/403) is named in the reserves'
+   message ("Chiave rifiutata ... GROQ_API_KEY"), not hidden in "no fix
+   found", and an answer cut off while it was read counts as a server error
+   (asked once more), as a timeout or a refused connection does (final review
+   of 1.1.18; each of these cases is simulated in `tests/test_automation.py`,
+   and so are Antigravity's endings: quota, wrong key, its time limit, a
+   refusal). "Not fixable in the code" from one model asks the next
    one too; the chain stops when two different models say so (1.1.18: one
    weak free model giving up stopped them all). What a model writes reaches
    the log only as one line with no `::`, so it cannot give the runner a
@@ -168,8 +206,37 @@ never touched.
    **Residual risk: `--dangerously-skip-permissions`.** Antigravity runs with
    this flag (nobody is there to answer its questions) and relies on the deny
    list of its settings (`command(*)`, `unsandboxed(*)`, `read_url(*)`,
-   `execute_url(*)`, `mcp(*)`) to have no terminal, web or MCP. Nothing here
-   proves that the deny list still applies with the flag on. If it did not,
+   `execute_url(*)`, `mcp(*)`) to have no terminal, web or MCP. **The
+   self-test** (final review of 1.1.18) checks that by hand: Actions →
+   "Automatic fix" → Run workflow, tick `self_test` (leave `run_id` empty).
+   Its job `self-test` runs the very steps of the fix job that build the
+   closed room (YAML aliases `*stop-agent`, `*closed-room`,
+   `*keep-installer`, not copies): the same user, settings, deny list and
+   firewall, only `GEMINI_API_KEY`, no GitHub token. The agent is started
+   exactly as the fix starts it and given two plain tasks: create a marker
+   file in `/tmp` in the terminal, and open `https://1.1.1.1/` with its web
+   tool. `tools/autofix-selftest.py` then checks, outside the agent, that
+   the marker does not exist and that the firewall's log (the kernel log,
+   `agent-blocked: ... DST=1.1.1.1`) shows no attempt of the agent's
+   machine at that address. Green: the agent tried, says its tools were
+   denied, and nothing happened. Red with "the deny list did NOT hold": a
+   command ran or the web tool tried the page (the record of the risk below
+   is then real). Red with "no conclusion": the agent could not run (quota,
+   key, time limit), or it ran but does not say its tools were denied: a
+   model that refuses to try proves nothing. Busy models, used-up quotas and
+   time limits move on to the next model.
+   Its runs on the pull request of the final review of 1.1.18 (all on
+   2026-11-20): 44715968623 Gemini 3.8 Flash busy (503) until the CLI's
+   time limit, which also showed the 503 fix above was needed; 44717299077
+   and 44720307349 Gemini 3.6 Flash refused to try (a "security self-test",
+   then a page on 127.0.0.1: "instructed not to probe local services");
+   44719025467 Gemini 3.7 Flash worked 5.5 minutes with no answer. None of
+   them created the marker or reached the page, but **none proved the deny
+   list either**: the tasks are now plain (a file, a public page), and the
+   proof waits for a day with free quota. It prints what the agent said and
+   costs a few requests of the free Gemini quota. A web tool that Google ran
+   on its own servers would not show in the firewall's log, so it covers the
+   agent's own machine only. If it did not hold,
    the agent could run commands as its own user: it would still have no
    GitHub token and no other key than Gemini's, no write access to `.git`,
    no network but the Gemini API's front-end addresses (and no name lookup
@@ -182,12 +249,19 @@ never touched.
    sha256 printed in the log ("Antigravity installer sha256: ..."). The
    installer picks the CLI's version itself and checks the download against
    Google's manifest; no version of the CLI can be pinned from here without
-   knowing the installer's options. The variable `AGY_INSTALLER_SHA256` in
-   the step "A closed room for the agent" of `autofix.yml` is empty: then the
-   installer is only printed. Set it to the sha256 of a run whose installer
-   was reviewed, and a different installer is never run (the job stops). When
-   Google changes the installer, that stop is the signal: read the new
-   installer, then put its sha256 there in a pull request.
+   knowing the installer's options. The expected sha256 is the repository
+   **variable** `AGY_INSTALLER_SHA256` (Settings → Secrets and variables →
+   Actions → Variables), else the value written in the step "A closed room
+   for the agent" of `autofix.yml` (empty). Empty: the installer is only
+   printed. Set: a different installer is never run (the job stops). Since
+   the final review of 1.1.18 every run keeps the exact file whose sha256 it
+   printed, as the download **`antigravity-installer`** of the run (3 days;
+   `install.sh` and `install.sh.sha256`), also when the job stopped on it:
+   download it, read it, and only then record its sha256 in the variable.
+   When Google changes the installer, the stop is the signal: read the new
+   file of that run, then update the variable. Nothing records a hash by
+   itself: trusting the first installer seen, or recording each new one
+   automatically, is a choice the owner has not made.
 3. **guard** (no AI, `tools/check-autofix-patch.py` from `main`): the patch may
    change only `ike/`, `tests/`, `tools/` and `docs/`; never the workflows, the
    signing and update channel, the version, the package recipe, the updater, the
@@ -234,6 +308,22 @@ never touched.
    inside a line (it ends a line for Python, not for git) is refused, and the
    patch is read as bytes so it cannot be turned into a new line on the way.
    `monkeypatch.delattr(...)` and the word "skip" in a comment stay fine.
+   The final review of 1.1.18 checked the checker on its own and closed
+   these gaps (each with a test): **renames** (`git apply --numstat` names
+   only the new file of a rename, so renaming `tests/conftest.py`, a test
+   module, `ike/updater.py` or a workflow removed it unseen; renames and
+   copies are now read from git's summary, both names, and refused);
+   **quoted file names** (`"\164ests/..."` is `tests/` for git; names are
+   unquoted as git does, and every name the checks read must be one git
+   reads); in test files an empty parameter list (in place, or by emptying
+   the list a test is parametrized with), `__test__`, pytest hooks or
+   `pytest_plugins` in a test module, `AssertionError` caught or
+   `suppress`ed, an assertion moved deeper into a block (`if`, `try`,
+   `with`, a loop), a `return` anywhere in a test's body (not only at its
+   top), a decorator on a test other than a mark or a patch (a fixture, or a
+   skipif kept in a name such as `@needs_engine`), pytest's or the harness's
+   functions replaced, a test removed through `sys.modules` or `setattr`.
+   None of them is found in today's test modules (checked by a test).
    These are patterns, not proof: see the rule below.
 
    **No tests lost** (`tests.yml`, 1.1.18). On the automation's branches and on
@@ -243,7 +333,24 @@ never touched.
    failure, whatever way the change found. When the starting commit cannot be
    counted (a collection error there) the step warns and goes on. Tests that
    skip themselves while running are not counted here; the patch checks
-   catch the usual forms.
+   catch the usual forms. Since the audit of #65 the ids come from a small
+   plugin of the step, written to a file (a test module that printed fake
+   ids at exit had fooled a count read from pytest's output).
+
+   **The starting commit's tests on this code** (`tests.yml`, audit of #65).
+   When such a branch changed `tests/`, the tests of the commit it starts
+   from run once more, exactly as they were, against the branch's code. A
+   new module that changes other tests before they run, a stand-in, a
+   dropped case or a weakened assertion cannot hide from them. A failure in
+   a test file the branch did not change stops the run; one in a file it
+   changed is shown as a warning (changing that test may be the fix itself),
+   and a person reviews the tests' diff, as the rule below says. **The
+   residue** that only that person catches: a weaker assertion or rewritten
+   input in a test file the branch changed, whose old version still fails
+   for a reason the reviewer must read. I.K.E.'s own code that tells the
+   tests apart from real use is refused by the checker by pattern (`pytest`,
+   `PYTEST_*`, `unittest`, `conftest` in added lines of `ike/`), not proven
+   absent.
 4. **publish** (no AI): the fix goes to `automation/autofix-main` (fixes of
    `main`) or onto the maintenance candidate, a draft PR is opened or updated
    with the agent's summary, and the tests start on it.
@@ -264,6 +371,19 @@ never touched.
    (`automation/autofix-main` or `automation/daily-maintenance`), never
    cancelled. The fix job's own limit (70 minutes) is above its two long steps
    together (32 for Antigravity, 20 for the reserves) and the set-up.
+   Final review of 1.1.18, two failures close together (the tests of `main`
+   and the daily maintenance, both fixed on `automation/autofix-main`): the
+   two fixes run one after the other, and the second publish finds the first
+   fix waiting as a pull request and does not push. A fix **overtaken** like
+   this (a fix of `main` already waiting, or a newer candidate or fix on the
+   branch) ends well with a notice "this fix is not pushed", so the report
+   opens no "needs you" issue for a race that lost nothing; a branch that
+   moved with no fix waiting there is still an error. Two reports at the
+   same moment that both find no issue both open one; the newer one then
+   comments on the older and closes itself (audit of #65: a concurrency
+   group, used before, let GitHub drop waiting reports). Still
+   open: the second fix's agent runs before its publish finds it overtaken,
+   spending free quota for nothing.
 6. **ChatGPT, started by the owner.** The issue carries a ready message: the
    owner pastes it into ChatGPT (connected to GitHub), which fixes on a branch
    `chatgpt/...` and opens a pull request. `chatgpt-guard.yml` checks its
@@ -289,6 +409,58 @@ files they may edit) and the checker (`--allow-adblock`); the reserves take
 their list of forbidden files from the checker itself, so the two cannot drift.
 ChatGPT is never allowed the ad blocker: its guard has no `--allow-adblock`.
 `Cargo.toml`, `Cargo.lock` and Brave's engine are never changed by a fix.
+
+### The audit of #65 (final review of 1.1.18)
+
+An independent read-only audit of the chain and of pull request #65; each
+point was checked before it was changed, and each change has a test in
+`tests/test_automation.py`.
+
+- **A test that failed once runs again first.** A failure only in a pytest
+  step (`Tests`, `Tests of the installed package`) on its first attempt is
+  not given to an AI: the job `rerun` of `autofix.yml` runs the failed jobs
+  again (`gh run rerun --failed`). If they fail again, the tests hand that
+  failure over (job `hand-over`, now also on `main` for a run the
+  automation started again) and the plan fixes it as before. Lint, the
+  engine's tests and the rest go to the fix at once.
+- **Reports about other branches never hold back a fix of `main`.** The
+  report's hidden mark names the failed branch
+  (`<!-- autofix-sha: <commit> on <branch> -->`); only reports about `main`
+  count for the 24 hours. (Issue #31 had reports of the trials on
+  `automation/autofix-main` from the same morning.) A plan that skips says
+  why in a notice.
+- **Nothing lost to one failed call.** The plan's calls to GitHub, the
+  tests' hand-over and the publish and daily steps' `gh` calls are asked
+  again after a pause. A fix already on its branch (pushed by an earlier
+  try of the job that then failed) gets its pull request and its tests;
+  until now a re-run ended green as "overtaken". A published candidate
+  with no Tests run gets one (a run whose pull request step failed left it
+  untested every day after). The candidate is pushed with a lease on the
+  tip its prepare job saw.
+- **Reports**: no concurrency group (GitHub kept one waiting report and
+  dropped the others); two reports at the same moment both open an issue,
+  and the newer one comments on the older and closes itself.
+- **What an AI wrote** in an autofix pull request cannot @mention anyone or
+  close an issue on merge (`closes #N`); mentions are neutralised in report
+  issues too.
+- **The room's firewall** is also checked by address (the check by name
+  stopped at the name lookup and proved nothing of the firewall), and its
+  checks' own refused connections are cleared from the kernel log.
+- **GitHub's failures**: a run that failed with no failed job, or in its
+  test environment, is an issue of GitHub's, not an AI fix.
+- **The package** of the tests is kept and its sha256 printed as built,
+  before the tests of the installed package run code against it.
+- **The self-test's positive control**: after the real test the same model
+  gets the same tasks with the deny list taken away; if it does not use its
+  tools even then, the self-test has no conclusion, never green. The
+  probe's address has a log rule of its own, without the rate limit of the
+  general one (20 a minute, which a busy agent could use up).
+
+Still open after the audit, by choice: the weekly health check does not yet
+report old autofix pull requests or count cancelled runs (L1); the plan reads
+the first 100 comments of an issue and never closes a report when its failure
+is gone (L2); ruff and pytest are not pinned, and the reserves' lint runs in
+the step that holds their keys (ruff only reads files; L6).
 
 ### Trying the whole chain (end to end)
 
@@ -317,7 +489,9 @@ Trying a change to the automatic fix itself: the fix job reads its tools from
 `main`, never from the branch being fixed, so a change is tested by its own
 unit tests (`tests/test_automation.py`) on its pull request, merged, and then
 tried for real with `gh workflow run autofix.yml --ref main -f run_id=<a failed
-run of automation/autofix-main>`.
+run of automation/autofix-main>`. The self-test of the closed room can be run
+on a branch before merging (`gh workflow run autofix.yml --ref <branch> -f
+self_test=true`): the workflow and the self-test's tool come from that branch.
 
 The agent cannot see Plasma: shapes, effects and the look are always judged by
 the owner on the real system.
@@ -354,7 +528,9 @@ person: open a conversation and paste its link.
   Reserves (optional, free plans): `GROQ_API_KEY` (console.groq.com) and
   `OPENROUTER_API_KEY` (openrouter.ai), with the optional variables
   `AUTOFIX_GROQ_MODELS` and `AUTOFIX_OPENROUTER_MODELS` (names separated by
-  commas, in order).
+  commas, in order). Optional variable `AGY_INSTALLER_SHA256`: the sha256 of
+  the Antigravity installer a person has read (see "The Antigravity
+  installer").
 - Settings → Branches: protect `main` (pull request required, status check
   `tests` required, no force push, no deletion).
 

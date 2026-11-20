@@ -145,3 +145,71 @@ def test_off_by_default(run_ike):
             out["limits"] = ike.resources.limits()
     """)
     assert out["timer"] is False and out["limits"] == [0, 0]
+
+
+def test_memory_pressure_suspends_the_oldest_tabs(run_ike, server, tmp_path):
+    """1.1.18: when the computer runs short of memory, the tabs left alone
+    longest (at least five minutes) are suspended before their usual time, a
+    few at each check; never the tab in view, never with suspension turned off."""
+    from ike.app import memory_low
+    low, fine = tmp_path / "low", tmp_path / "fine"
+    low.write_text("MemTotal:       16000000 kB\nMemFree:  100 kB\nMemAvailable:    1000000 kB\n")
+    fine.write_text("MemTotal:       16000000 kB\nMemAvailable:    8000000 kB\n")
+    assert memory_low(str(low)) and not memory_low(str(fine))
+    assert not memory_low(str(tmp_path / "missing")) and not memory_low("/dev/null")
+    steps = """
+        import time
+        import ike.app as A
+        def steps(ike, qapp, out):
+            yield 300
+            win = ike.windows[0]
+            tabs = [win.add_tab("http://127.0.0.1:%(p)d/?%%d" %% i, background=True) for i in range(5)]
+            yield 2500
+            now = time.time()
+            for i, v in enumerate(tabs):
+                v.last_active = now - 600 + i * 60           # 10 to 6 minutes: not yet their usual time (20)
+            tabs[4].last_active = now - 60                  # looked at a minute ago
+            A.memory_low = lambda: %(low)s
+            ike.sleep_tabs()
+            yield 300
+            out["sleeping"] = [bool(v.sleeping) for v in tabs]
+            out["current"] = bool(win.current_view().sleeping)
+            ike.sleep_tabs()
+            yield 300
+            out["again"] = [bool(v.sleeping) for v in tabs]
+    """
+    out = run_ike(steps % {"p": server, "low": True})
+    assert out["sleeping"] == [True, True, True, False, False], out
+    assert out["again"] == [True, True, True, True, False], out    # the next oldest, never the recent one
+    assert out["current"] is False
+    out = run_ike(steps % {"p": server, "low": False})
+    assert out["sleeping"] == [False] * 5 and out["again"] == [False] * 5
+    out = run_ike(steps % {"p": server, "low": True}, settings={"tab_sleep_minutes": 0})
+    assert out["sleeping"] == [False] * 5 and out["again"] == [False] * 5    # suspension turned off: never
+
+
+def test_a_tab_just_left_is_not_suspended(run_ike, server):
+    """1.1.18 (independent review): a tab is idle from the moment the user
+    leaves it, not from when it was shown; with memory short, a tab looked at
+    for half an hour and just left is not suspended, nor one of another
+    workspace that plays sound."""
+    steps = """
+        import time
+        import ike.app as A
+        def steps(ike, qapp, out):
+            yield 300
+            win = ike.windows[0]
+            a = win.add_tab("http://127.0.0.1:%(p)d/?a")
+            yield 2500
+            a.last_active = time.time() - 1800          # in view for half an hour
+            b = win.add_tab("http://127.0.0.1:%(p)d/?b")    # the user goes to another tab
+            yield 1500
+            A.memory_low = lambda: True
+            ike.sleep_tabs()
+            yield 300
+            out["left"] = bool(a.sleeping)
+            out["idle_s"] = round(time.time() - a.last_active)
+    """
+    out = run_ike(steps % {"p": server})
+    assert out["left"] is False, out
+    assert out["idle_s"] < 60, out

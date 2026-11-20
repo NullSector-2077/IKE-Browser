@@ -15,7 +15,9 @@ changed function or a script named in a stack makes them refuse operations
 - the lighter frame guard of the fingerprinting protection still protects every
   frame a page adds: appended, inside a container, through innerHTML,
   insertAdjacentHTML or a fragment (same canvas noise as the page, not the real
-  canvas);
+  canvas); also (1.1.18) a frame written in the page's HTML and read by the
+  next script, and frames added once the page is built through a Range, a
+  shadow root or execCommand;
 - the bundled AdBlock engine (ike/_engine, carried by the self-update) is used
   first, and the installed one when the bundled one cannot be loaded.
 """
@@ -32,7 +34,17 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 
-PAGE = rb"""<!doctype html><title>traces</title><body><div id=box></div><script>
+PAGE = rb"""<!doctype html><title>traces</title><body><div id=box></div><iframe id=written></iframe><script>
+// a frame written in the page's own HTML, read by the very next script (the parser runs
+// the protection's watch before it): it must already be protected
+window.parsed_ = (function () {
+  var c = window[0].document.createElement('canvas'); c.width = 200; c.height = 40;
+  var x = c.getContext('2d');
+  x.textBaseline = 'top'; x.font = '16px sans-serif'; x.fillStyle = '#f60'; x.fillRect(5, 5, 100, 20);
+  x.fillStyle = '#069'; x.fillText('I.K.E. traces', 2, 10);
+  return c.toDataURL();
+})();
+</script><script>
 function hash(s) { var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); }
 function canvasHash(doc) {
   var c = doc.createElement('canvas'); c.width = 200; c.height = 40;
@@ -66,6 +78,26 @@ window.frames_ = function () {
   var frag = document.createDocumentFragment(); frag.appendChild(document.createElement('iframe'));
   box.appendChild(frag);
   r.fragment = canvasHash(window[window.length - 1].document);
+  r.parsed = hash(window.parsed_);
+  // after the page was built (1.1.18: the watch of every change stops there): the
+  // ways left that put a frame in a page without the usual methods
+  var range = document.createRange(); range.selectNodeContents(box); range.collapse(false);
+  range.insertNode(document.createElement('iframe'));
+  r.range = canvasHash(window[window.length - 1].document);
+  var w2 = document.createElement('p'); box.appendChild(w2);
+  var range2 = document.createRange(); range2.selectNodeContents(w2);
+  range2.surroundContents(document.createElement('iframe'));
+  r.surround = canvasHash(window[window.length - 1].document);
+  var host = document.createElement('div'); box.appendChild(host);
+  var root = host.attachShadow({mode: 'open'}), before = window.length;
+  root.innerHTML = '<iframe></iframe>';
+  r.shadow_counted = window.length > before;
+  r.shadow = canvasHash((r.shadow_counted ? window[window.length - 1]
+                         : root.querySelector('iframe').contentWindow).document);
+  var ed = document.createElement('div'); ed.contentEditable = 'true'; box.appendChild(ed); ed.focus();
+  document.execCommand('insertHTML', false, '<iframe></iframe>');
+  var made = ed.querySelector('iframe');
+  r.execcommand = made ? canvasHash(window[window.length - 1].document) : r.top;
   return JSON.stringify(r);
 };
 </script>traces</body>"""
@@ -147,7 +179,8 @@ def test_balanced_frames_protected_and_google_services_in_compatibility(run_ike,
     t, f = out["traces"], out["frames"]
     assert t["toString"] == NATIVE_TS and t["setActionHandler"] == NATIVE_AH
     assert f["top"] != real, "the canvas is not protected at all"
-    for how in ("appended", "container", "adjacent", "innerhtml", "fragment"):
+    for how in ("appended", "container", "adjacent", "innerhtml", "fragment", "parsed",
+                "range", "surround", "shadow", "execcommand"):
         assert f[how] == f["top"], (how, f)             # the same noise as the page
     assert out["levels"] == ["compatibility", "compatibility", "balanced", "balanced", "balanced"]
     assert out["fp_handsoff"]
@@ -252,7 +285,7 @@ CASES = {
     "stripe_in_shop": ("https://m.stripe.network/inner.html", "https://shop.example/checkout"),
     "tracker_in_shop": ("https://tracker.example.test/c.js", "https://shop.example/checkout"),
     # YouTube is not a sensitive service: nothing changes there
-    "youtube": ("https://www.youtube.com/api/stats/qoe?x=1", "https://www.youtube.com/watch?v=a"),
+    "youtube": ("https://www.youtube.com/api/stats/ads?x=1", "https://www.youtube.com/watch?v=a"),
 }
 
 def steps(ike, qapp, out):

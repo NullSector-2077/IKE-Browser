@@ -28,6 +28,8 @@ jobs:
     outputs:
       changed: ${{ steps.changes.outputs.changed }}
       push: ${{ steps.compare.outputs.push }}
+      seen: ${{ steps.compare.outputs.seen }}
+      engine: ${{ steps.engine.outputs.engine }}
     steps:
       - name: Check out main (all branches and tags, no credentials)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -71,10 +73,7 @@ jobs:
           # main already carries a version that is not released yet: add to it
           if [ -z "$(git tag -l "v$base_version")" ]; then keep="--keep-version"; fi
           python3 tools/prepare-maintenance.py --report component-report.json --base-version "$base_version" $keep
-      - name: Build AdBlock engine before creating candidate
-        if: steps.changes.outputs.changed == 'true'
-        run: cargo build --release --locked --manifest-path ike-adblock/Cargo.toml
-      - name: Create candidate commit and bundle (no push credentials)
+      - name: Create candidate commit (no push credentials)
         if: steps.changes.outputs.changed == 'true'
         run: |
           # every tracked file the update rewrote (engine, scriptlets, Dark Reader,
@@ -90,6 +89,46 @@ jobs:
               done
             fi
           fi
+      # The candidate's engine, after the automatic fixes carried over (1.1.18).
+      # A new engine that does not build with I.K.E.'s wrapper still reaches its
+      # branch, marked in its pull request: its tests fail there, and the
+      # automatic fix of the candidate may change only the wrapper
+      # (tools/autofix-plan.py, engine_update). Crates that cannot be
+      # downloaded, or an engine that does not build although it did not
+      # change, stop here: nothing for the wrapper, a person looks.
+      - name: Build AdBlock engine of the candidate
+        id: engine
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          manifest=ike-adblock/Cargo.toml
+          if ! cargo fetch --locked --manifest-path "$manifest"; then
+            echo "::error::the AdBlock engine's crates could not be downloaded: nothing to fix in the code, the next daily run tries again"
+            exit 1
+          fi
+          if cargo build --release --locked --manifest-path "$manifest"; then
+            echo "engine=builds" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # the adblock crate in a Cargo.lock (as engine_update() of tools/autofix-plan.py reads it)
+          lockver() { awk '/^\[\[package\]\]/ {p = 0; next} /^name = "adblock"$/ {p = 1; next} p && /^version = / {gsub(/"/, ""); print $3; exit}'; }
+          new=$(lockver < ike-adblock/Cargo.lock)
+          old=$(git show origin/main:ike-adblock/Cargo.lock | lockver)
+          if [ -z "$new" ] || [ -z "$old" ] || [ "$new" = "$old" ]; then
+            echo "::error::the AdBlock engine does not build, and this candidate brings no new engine (adblock ${old:-?}): not a matter for I.K.E.'s wrapper"
+            exit 1
+          fi
+          echo "engine=broken" >> "$GITHUB_OUTPUT"
+          echo "::warning::the new AdBlock engine (adblock $old -> $new) does not build with I.K.E.'s wrapper: the candidate is published marked, its tests fail and the automatic fix may change only the wrapper"
+          {
+            echo
+            echo "> **The new AdBlock engine (adblock $old → $new) does not build with I.K.E.'s wrapper yet.**"
+            echo "> The candidate is published anyway, so that its tests fail here and the automatic fix can"
+            echo "> change I.K.E.'s wrapper (\`ike-adblock/src/\`, \`vendor/adblock/__init__.py\`, \`ike/blocker.py\`,"
+            echo "> \`ike/scriptlets.py\`; never \`Cargo.toml\` or \`Cargo.lock\`). Do not merge before its checks are green."
+          } >> component-report.md
+      - name: Bundle the candidate
+        if: steps.changes.outputs.changed == 'true'
+        run: |
           mkdir -p "$RUNNER_TEMP/maintenance-candidate"
           git bundle create "$RUNNER_TEMP/maintenance-candidate/candidate.bundle" HEAD
           cp component-report.md "$RUNNER_TEMP/maintenance-candidate/component-report.md"
@@ -98,6 +137,7 @@ jobs:
         if: steps.changes.outputs.changed == 'true'
         run: |
           old=$(git rev-parse -q --verify 'origin/automation/daily-maintenance^{tree}' || true)
+          echo "seen=$(git rev-parse -q --verify origin/automation/daily-maintenance || true)" >> "$GITHUB_OUTPUT"
           if [ "$old" = "$(git rev-parse 'HEAD^{tree}')" ]; then
             echo "push=false" >> "$GITHUB_OUTPUT"
             echo "Same candidate as the one already published: not pushed or tested again."
@@ -153,13 +193,22 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PUSH: ${{ needs.prepare.outputs.push }}
+          ENGINE: ${{ needs.prepare.outputs.engine }}
+          SEEN: ${{ needs.prepare.outputs.seen }}
         run: |
+          # GitHub's own calls, a few times (audit of #65)
+          retry() { n=1; until "$@"; do [ "$n" -ge 3 ] && return 1; sleep $((n * 15)); n=$((n + 1)); done; }
+          # the candidate the prepare job saw, and carried the automatic fixes of
+          published="$SEEN"
           git fetch "$RUNNER_TEMP/maintenance-candidate/candidate.bundle" HEAD:refs/heads/automation/daily-maintenance
           if [ "$PUSH" = "true" ]; then
             auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
-            # the candidate is rebuilt from main every time, so it replaces the old one
+            # the candidate is rebuilt from main every time, so it replaces the old
+            # one, but only the one this run saw (audit of #65: no lease before; an
+            # automatic fix pushed meanwhile was overwritten unseen)
             git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" \
-              push --force origin refs/heads/automation/daily-maintenance:refs/heads/automation/daily-maintenance
+              push --force-with-lease="refs/heads/automation/daily-maintenance:$published" \
+              origin refs/heads/automation/daily-maintenance:refs/heads/automation/daily-maintenance
           fi
           version=$(git show refs/heads/automation/daily-maintenance:ike/__init__.py | sed -n 's/^__version__ = "\(.*\)"/\1/p')
           main_version=$(git show origin/main:ike/__init__.py | sed -n 's/^__version__ = "\(.*\)"/\1/p')
@@ -167,20 +216,32 @@ jobs:
           if [ "$version" = "$main_version" ] && [ -n "$(git tag -l "v$main_version")" ]; then
             title="Maintenance: packages of the automatic tests (no new release)"
             printf '\n\nOnly the automatic tests use these packages: merging changes nothing for users and needs no release.\n' >> "$body"
+          elif [ "$ENGINE" = "broken" ]; then
+            # 1.1.18: the new engine does not build yet; the report says why
+            title="Maintenance candidate: IKE $version (the new AdBlock engine does not build yet)"
           else
             title="Maintenance candidate: IKE $version"
           fi
           gh label create maintenance --color 0e8a16 --description "Automated component maintenance candidate" 2>/dev/null || true
-          pr=$(gh pr list --head automation/daily-maintenance --base main --state open --json number --jq '.[0].number // empty')
+          pr=$(retry gh pr list --head automation/daily-maintenance --base main --state open --json number --jq '.[0].number // empty')
           if [ -n "$pr" ]; then
-            gh pr edit "$pr" --title "$title" --body-file "$body" --add-label maintenance
+            retry gh pr edit "$pr" --title "$title" --body-file "$body" --add-label maintenance
             if [ "$PUSH" = "true" ]; then
-              gh pr comment "$pr" --body "A new daily candidate was pushed. The tests and the Arch package build are running; this PR stays draft until all checks and the manual review are complete."
+              retry gh pr comment "$pr" --body "A new daily candidate was pushed. The tests and the Arch package build are running; this PR stays draft until all checks and the manual review are complete."
             fi
           else
-            gh pr create --draft --base main --head automation/daily-maintenance \
+            retry gh pr create --draft --base main --head automation/daily-maintenance \
               --title "$title" --label maintenance --body-file "$body"
           fi
           if [ "$PUSH" = "true" ]; then
-            gh workflow run tests.yml --ref automation/daily-maintenance
+            retry gh workflow run tests.yml --ref automation/daily-maintenance
+          else
+            # the same candidate as yesterday: its tests were started then, unless
+            # that run stopped after the push (audit of #65: then they never ran)
+            runs=$(retry gh api "repos/$GITHUB_REPOSITORY/actions/workflows/tests.yml/runs?head_sha=$published&per_page=1" \
+              --jq '.total_count')
+            if [ "${runs:-0}" = "0" ]; then
+              echo "::notice::the published candidate ($published) was never tested: the tests start now"
+              retry gh workflow run tests.yml --ref automation/daily-maintenance
+            fi
           fi

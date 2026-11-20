@@ -215,11 +215,17 @@ impl Engine {
     }
 
     /// Check a request given as separate values.
+    ///
+    /// One check takes a few microseconds: Python's lock is kept meanwhile
+    /// (1.1.18). Letting go of it for so short a time made the interface wait
+    /// up to 5 ms per request whenever another Python thread was busy (the
+    /// engine built in the background after a list update), because that
+    /// thread then kept the lock for Python's whole switch interval.
     #[pyo3(signature = (url, source_url, request_type, method = "GET"))]
-    fn check_network_urls(&self, py: Python<'_>, url: &str, source_url: &str, request_type: &str, method: &str) -> BlockerResult {
+    fn check_network_urls(&self, url: &str, source_url: &str, request_type: &str, method: &str) -> BlockerResult {
         let checked = guarded("check_network_request", || {
             let request = ARequest::new(url, source_url, request_type, method).map_err(|e| format!("{e:?}"))?;
-            Ok::<_, String>(py.detach(|| self.inner.check_network_request(&request)))
+            Ok::<_, String>(self.inner.check_network_request(&request))
         });
         let result = match checked {
             Ok(Ok(result)) => result,
@@ -237,8 +243,8 @@ impl Engine {
     }
 
     /// Check a Request object.
-    fn check_network_request(&self, py: Python<'_>, request: &Request) -> BlockerResult {
-        self.check_network_urls(py, &request.url, &request.source_url, &request.request_type, &request.method)
+    fn check_network_request(&self, request: &Request) -> BlockerResult {
+        self.check_network_urls(&request.url, &request.source_url, &request.request_type, &request.method)
     }
 
     /// Content-Security-Policy directives that list rules add to a document.
