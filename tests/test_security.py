@@ -658,7 +658,12 @@ def test_about_tells_the_state_of_the_engine(run_ike, monkeypatch):
     monkeypatch.setenv("QTWEBENGINE_DISABLE_SANDBOX", "1")
     assert sandbox_off() is True
     monkeypatch.setenv("QTWEBENGINE_DISABLE_SANDBOX", "0")
-    assert sandbox_off() is False
+    assert sandbox_off() is True              # 1.1.18: Qt looks only at whether it is set
+    monkeypatch.delenv("QTWEBENGINE_DISABLE_SANDBOX")
+    monkeypatch.setenv("QTWEBENGINE_CHROMIUM_FLAGS", '"--no-sandbox"')
+    assert sandbox_off() is True              # quoted, as Qt reads it
+    monkeypatch.setenv("QTWEBENGINE_CHROMIUM_FLAGS", "-no-sandbox")
+    assert sandbox_off() is True              # one dash: the same switch for Chromium
     out = run_ike("""
         def steps(ike, qapp, out):
             yield 400
@@ -1177,12 +1182,20 @@ def test_no_private_key_material_or_test_backdoor_in_the_program():
     """What a reviewer would grep for."""
     for path in list((ROOT / "ike").glob("*.py")) + [ROOT / "ike_boot.py"]:
         text = path.read_text("utf-8")
+        if path.name == "app.py":
+            # 1.1.18: the list of switches I.K.E. takes AWAY from the engine
+            # (UNSAFE_SWITCHES) names them; nowhere else may they appear
+            start = text.index("UNSAFE_SWITCHES = (")
+            text = text[:start] + text[text.index(")", start):]
         assert "eval(" not in text.replace("_pp_eval(", ""), path.name
         assert "shell=True" not in text and "os.system(" not in text and "pickle" not in text, path.name
         assert "--disable-web-security" not in text and "--ignore-certificate-errors" not in text, path.name
-    # the only place that turns the engine's sandbox off is the start as administrator
+    # the only place that turns the engine's sandbox off is the start as
+    # administrator, and only when the user asked (IKE_ALLOW_UNSAFE_ENGINE=1)
     hits = [p.name for p in (ROOT / "ike").glob("*.py") if '"--no-sandbox"' in p.read_text("utf-8")]
     assert hits == ["app.py"]
+    app = (ROOT / "ike" / "app.py").read_text("utf-8")
+    assert app.count('flags.append("--no-sandbox")') == 1 and "refuse_root()" in app
     env = dict(os.environ, QT_QPA_PLATFORM="offscreen")
     done = subprocess.run([sys.executable, str(APP / "ike_boot.py"), "--version"], env=env, capture_output=True, text=True)
     assert done.returncode == 0 and "I.K.E." in done.stdout

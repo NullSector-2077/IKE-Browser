@@ -158,7 +158,7 @@ def main(seconds):
     env = {k: v for k, v in os.environ.items() if not k.startswith(("XDG_", "IKE_"))}
     env.update(HOME=str(home), XDG_CONFIG_HOME=str(home / ".config"),
                XDG_DATA_HOME=str(home / ".local/share"), XDG_CACHE_HOME=str(home / ".cache"),
-               QT_QPA_PLATFORM="offscreen", QTWEBENGINE_CHROMIUM_FLAGS="--no-sandbox", IKE_NO_SINGLE="1",
+               QT_QPA_PLATFORM="offscreen", QTWEBENGINE_CHROMIUM_FLAGS="--no-sandbox", IKE_ALLOW_UNSAFE_ENGINE="1", IKE_NO_SINGLE="1",
                IKE_TEST_HOOK=str(hook), IKE_M_OUT=str(marks), IKE_M_SECONDS=str(seconds),
                DBUS_SESSION_BUS_ADDRESS="")
     proc = subprocess.Popen([sys.executable, str(APP / "ike_boot.py")], env=env,

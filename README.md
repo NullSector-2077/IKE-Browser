@@ -43,29 +43,41 @@ profiles: `ike-browser --profile NAME`.
   Balanced, Strict, Maximum — set globally or per site, with counters for ads,
   trackers, scripts, third-party cookies, HTTPS upgrades and removed tracking
   parameters.
-- Content blocking with the EasyList, EasyPrivacy, uBlock filters and regional
-  lists, network and cosmetic filters, your own lists and filters.
-  Lists update daily. YouTube video ads are removed from the player data, with
-  an automatic skip as a fallback.
-- **Same site, free way**: at Compatibility and Balanced, a site's own requests are not checked
-  against the filter lists (as Brave's standard mode): faster pages and fewer
-  broken sites, while other companies' ads and trackers stay blocked. Strict
-  and Maximum check everything; YouTube is always checked.
+- Content blocking with EasyList, EasyPrivacy, uBlock filters, the Malicious
+  URL Blocklist and EasyList Italy (any other list by its address), network
+  and cosmetic filters, your own filters. Lists update daily. YouTube video ads
+  are removed by the lists' scriptlets; an ad that still starts is muted,
+  hidden and skipped.
+- **Same site, free way**: at Compatibility and Balanced (the default), a
+  site's own requests are not checked against the filter lists, as in Brave's
+  standard mode: fewer broken sites, while other companies' ads and trackers
+  stay blocked; ads served from the site's own domain are only hidden. Strict
+  and Maximum check every request; YouTube is always checked.
 - Cookie banners refused and hidden automatically.
-- Fingerprinting protection: values that identify the computer change from site
-  to site and from session to session — canvas, WebGL, audio, plugins, number of
-  CPU cores, WebGL extensions, and the graphics card (at Balanced a common
-  model of the same maker chosen per site instead of the exact one; at Strict
-  and Maximum no name at all). The browser presents the Chrome version of its
-  own engine, so what a site reads always matches what it can test (at Strict
-  and Maximum only its major number, 140.0.0.0, in JavaScript and headers
-  alike).
-- Automatic HTTPS, encrypted DNS (DNS over HTTPS), third-party cookie blocking,
-  reduced referrer, Global Privacy Control.
+- Fingerprinting protection (from Balanced, the default): canvas, WebGL, audio,
+  plugins, number of CPU cores, WebGL extensions and the graphics card change
+  from site to site and from session to session (at Balanced a common model
+  of the same maker chosen per site instead of the exact one; at Strict and
+  Maximum no name at all); Strict and Maximum also give common values for the
+  screen, fonts, memory, languages and voices. Not covered: the time zone, and
+  workers a site starts from a file of its own.
+- Sites see Chrome on Linux with the version of I.K.E.'s own engine: header,
+  client hints and JavaScript agree (at Strict and Maximum only its major
+  number, today 140.0.0.0, in pages, workers and request headers). One
+  exception, on by default: Google's sign-in page sees Firefox, because Google
+  refuses sign-in from embedded Chromium (Settings → Privacy and protection).
+- Automatic HTTPS, optional encrypted DNS (DNS over HTTPS, off by default),
+  third-party cookies blocked from Balanced up, reduced referrer, Global
+  Privacy Control.
+- Every site in its own sandboxed process; public pages kept away from the
+  router and the home network (addresses and local names; not public names
+  that point there); signed updates that expire after 180 days and arrive in
+  stages. What is protected and what is not: [docs/SECURITY.md](docs/SECURITY.md).
 - **Sosia (lookalike warning)**: when an address imitates a famous site
   ("paypa1.com", a Cyrillic letter in "pаypal", "paypal.com.login.xyz"), a bar
-  above the page says so. Checked on this computer only, never blocking; real
-  sites are never flagged, and any site can be marked as fine.
+  above the page says so. Checked on this computer only, never blocking; the
+  famous sites themselves are never flagged (tested against more than 10,000
+  real addresses without a false alarm), and any site can be marked as fine.
 - **Repair this site**: when a page does not work, the shield finds the
   protection that breaks it and turns off only that one, for that site only.
 
@@ -73,13 +85,16 @@ profiles: `ike-browser --profile NAME`.
 - Horizontal or vertical tabs (vertical ones also with only their icons), tab groups, workspaces, containers with separate
   cookies, split view, suspension of inactive tabs, private windows, profiles.
 - Bookmarks bar; bookmarks that do not fit are listed under a » button.
-- Password vault (AES-256-GCM, scrypt key), offered in a menu when you click into the form, generator, CSV import and
-  export; passkeys and FIDO2 security keys.
+- Password vault (AES-256-GCM, scrypt key), offered in a menu when you click
+  into a form of the page (not inside embedded frames), generator, CSV import
+  and export; passkeys on FIDO2 security keys.
 - User scripts (Greasemonkey / Tampermonkey / Violentmonkey style), installed
   from a file, an address or by opening a `.user.js` link, updated daily. Each
   script gets only the functions its `@grant` lines ask for and reaches only
-  the sites its `@connect` lines allow; your home network only when named.
-- Import from Firefox and Chromium-based browsers, local backup and restore,
+  the sites its `@connect` lines allow (any public site when it has none);
+  your home network only when named.
+- Import of bookmarks and history from Firefox and Chromium-based browsers
+  (passwords through CSV), local backup and restore,
   download manager, PDF viewer, reader mode, picture-in-picture, translation
   through an external service, site permissions.
 - Email links written with the web mail you choose (Gmail, Outlook.com, Proton
@@ -87,8 +102,9 @@ profiles: `ike-browser --profile NAME`.
   the email links of other programs.
 - Page dark mode with Dark Reader as its extension works (its fixes for single
   sites, sites that are dark already left alone, its detector of a site's own
-  dark theme; lists kept up to date with the daily maintenance), or with the
-  engine's own dark mode.
+  dark theme; its lists come with each I.K.E. release), or with the engine's
+  own dark mode, which is much lighter
+  ([docs/review/tests-and-performance.md](docs/review/tests-and-performance.md)).
 - Zoom kept for each site; videos and sounds that may not start by themselves
   (all sites, or one); the lock in the address bar opens the site's panel
   (connection, permissions, cookies, protection, zoom, autoplay).
@@ -150,7 +166,7 @@ I.K.E. has no servers of its own and sends no telemetry. It contacts only:
 | Service | When | What is sent |
 |---|---|---|
 | Filter list sites (easylist.to, ublockorigin.github.io, malware-filter.gitlab.io, …) | once a day; urgent-fix lists every few hours | a plain download of the list |
-| Google's Chrome version list (versionhistory.googleapis.com) | once a day | a plain request, no personal data |
+| Google's Chrome version list (versionhistory.googleapis.com) | about once a day, also when I.K.E. updates are off | a plain request (User-Agent "I.K.E. version check"), no personal data; used only to show in Help → About how far behind the system's engine is and to warn when its security fixes are three Chrome versions behind; never for what sites are told |
 | The search engine you chose | when you search; suggestions while typing, if on | what you type in the address bar |
 | The sites of the installed search engines | once per engine, until its icon is known | a plain request for the site's icon (favicon.ico), nothing else |
 | Encrypted DNS provider | only if you turn DNS over HTTPS on | the names of the sites you visit |
@@ -160,6 +176,7 @@ I.K.E. has no servers of its own and sends no telemetry. It contacts only:
 | The pages you chose to watch | at the interval you chose, only while I.K.E. is open | a normal page load, like a private window: without your cookies |
 | The sites of your user scripts | once a day, if automatic updates are on | a plain download of each script |
 | GitHub (github.com and its download servers) | once a day, unless I.K.E. updates are off | a plain download of the latest release's signed manifest, and of the update when you install it |
+| Chrome Web Store (chromewebstore.google.com, clients2.google.com) | only if you install an experimental Chrome extension | the extension's id; the package is downloaded |
 
 ## Updates
 
@@ -170,8 +187,10 @@ I.K.E. has no servers of its own and sends no telemetry. It contacts only:
   the project's key and checked before use, the AdBlock engine included
   (Settings → General: automatic by default, or ask, or off at your own risk);
   see [docs/UPDATES.md](docs/UPDATES.md).
-- The components inside I.K.E. — the AdBlock engine and the uBlock Origin
-  scriptlets — are checked for new versions every day by GitHub Actions, which
+- The components inside I.K.E. — the AdBlock engine, the uBlock Origin
+  scriptlets and Dark Reader — are checked for new versions every day by
+  GitHub Actions (and the engine's Rust crates against known
+  vulnerabilities), which
   prepares a tested candidate release; it is merged once its tests are green,
   then signed and published by the owner
   ([docs/MAINTENANCE.md](docs/MAINTENANCE.md)).
@@ -186,7 +205,7 @@ I.K.E. has no servers of its own and sends no telemetry. It contacts only:
 | `vendor/adblock/` | loader for the engine module |
 | `launcher/` | the `/usr/bin/ike-browser` launcher (C) |
 | `data/` | desktop entry, icons, update channel configuration |
-| `docs/` | building, updates, maintenance, translating, testing, third-party components |
+| `docs/` | building, updates, maintenance, security, translating, testing, third-party components |
 | `licenses/` | licences of bundled third-party components |
 | `tools/` | release and maintenance scripts |
 | `tests/` | automatic tests (pytest) |

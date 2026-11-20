@@ -92,6 +92,11 @@ def run_ike(tmp_path):
             "QT_QPA_PLATFORM": "offscreen",
             "QTWEBENGINE_CHROMIUM_FLAGS": "--no-sandbox",
             "QTWEBENGINE_DISABLE_SANDBOX": "1",
+            # the sandbox is off on purpose here (containers and GitHub's
+            # runners refuse its namespaces); I.K.E. drops such switches
+            # unless asked (1.1.18). IKE_TEST_SANDBOX=1: everything with the
+            # sandbox on, as on a user's computer (the "sandbox" CI job).
+            "IKE_ALLOW_UNSAFE_ENGINE": "1",
             "LANG": "C.UTF-8",
             "IKE_NO_SINGLE": "1",
             "IKE_TEST_NOASK": "1",
@@ -102,6 +107,9 @@ def run_ike(tmp_path):
         (tmp_path / "run").mkdir(mode=0o700, exist_ok=True)
         # no desktop bus unless a test brings its own (see desktop_bus below)
         e["DBUS_SESSION_BUS_ADDRESS"] = ""
+        if os.environ.get("IKE_TEST_SANDBOX") == "1":
+            for k in ("QTWEBENGINE_CHROMIUM_FLAGS", "QTWEBENGINE_DISABLE_SANDBOX", "IKE_ALLOW_UNSAFE_ENGINE"):
+                e.pop(k, None)
         e.update(env or {})
         cmd = [sys.executable, str(APP / "ike_boot.py")]
         e.setdefault("PYTHONUTF8", "1")

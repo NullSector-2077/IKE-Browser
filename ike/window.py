@@ -2036,11 +2036,17 @@ class BrowserWindow(WindowFeatures, QMainWindow):
 
     def _engine_age(self):
         from . import chromever
-        behind = chromever.latest(self.app.config) - chromever.engine_major()
+        # measured by the security fixes, not by the Chromium base (140 with
+        # the fixes of 157 is not "17 versions behind": docs review of 1.1.18)
+        behind = chromever.latest(self.app.config) - chromever.security_major()
         if behind <= 0:
             text = T("Engine age: as recent as the current Chrome")
         else:
             text = T("Engine age: %d Chrome versions behind the current one") % behind
+        ref = chromever.latest(self.app.config)
+        text += "<br>" + T("Current stable Chrome: %d (%s)") % (ref, T(
+            "checked with Google's version list") if chromever.latest_checked(self.app.config) else T(
+            "estimated from the calendar: Google's version list could not be reached"))
         late = chromever.security_behind(self.app.config)
         if late >= chromever.OUTDATED_AFTER:
             text += "<br><b>" + T("Security fixes: %d Chrome versions behind. Update the system "
@@ -2073,7 +2079,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         from PyQt6.QtCore import QT_VERSION_STR
         from PyQt6.QtWebEngineCore import qWebEngineChromiumVersion
 
-        from .app import INTERNAL_ERRORS, sandbox_off
+        from .app import INTERNAL_ERRORS, engine_safety_lines, sandbox_off, site_isolated
         chromium = qWebEngineChromiumVersion()
         try:
             from PyQt6.QtWebEngineCore import qWebEngineChromiumSecurityPatchVersion
@@ -2086,6 +2092,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                  self._engine_age(),
                  T("Engine sandbox: OFF (switched off by the environment, or I.K.E. was started as administrator)")
                  if sandbox_off() else T("Engine sandbox: on"),
+                 T("Site isolation: every site in its own process") if site_isolated()
+                 else T("Site isolation: OFF (switched off on request)"),
+                 *engine_safety_lines(T),
                  self._media_about(media),
                  "%s: %s" % (T("Content blocker"), self._engine_about(self.app.blocker)),
                  T("Chrome extensions: not usable with this engine version (enabling one crashes it)"),

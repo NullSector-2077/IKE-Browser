@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tarfile
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -267,7 +268,7 @@ class Releases:
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
         self.url = "http://127.0.0.1:%d/releases/latest/download" % self.server.server_port
 
-    def publish(self, key, version, min_system="1.0.0", broken=False, bad_sig=False):
+    def publish(self, key, version, min_system="1.0.0", broken=False, bad_sig=False, extra=None):
         """Put a release of this repository's ike/ renamed as `version`."""
         buf = io.BytesIO()
         with tarfile.open(fileobj=buf, mode="w:gz") as tar:
@@ -286,6 +287,12 @@ class Releases:
         payload = buf.getvalue()
         m = {"version": version, "payload": "ike-%s.tar.gz" % version,
              "sha256": hashlib.sha256(payload).hexdigest(), "min_system": min_system}
+        # 1.1.18: valid for a day, as make-release.py writes them (expiry, staged release, halt)
+        now = int(time.time())
+        m.update({"issued": now, "expires": now + 86400})
+        m.update(extra or {})
+        for k in [k for k, v in m.items() if v is None]:
+            del m[k]                            # extra={"expires": None}: a manifest from before 1.1.18
         manifest = json.dumps(m).encode()
         sig = key.sign(manifest + (b"x" if bad_sig else b""))
         self.files = {"stable.json": manifest, "stable.json.sig": base64.b64encode(sig),

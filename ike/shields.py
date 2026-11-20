@@ -44,6 +44,7 @@ TRACKING_PARAMS = {
 TRACKING_PREFIXES = ("utm_", "pk_", "mtm_", "stm_")
 
 _RT = QWebEngineUrlRequestInfo.ResourceType
+_NT = QWebEngineUrlRequestInfo.NavigationType
 _TYPES = {
     _RT.ResourceTypeMainFrame: "document", _RT.ResourceTypeSubFrame: "subdocument",
     _RT.ResourceTypeStylesheet: "stylesheet", _RT.ResourceTypeScript: "script",
@@ -257,9 +258,12 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         """Home network protection (1.1.17): a page of a public site that opens
         an address of this computer or of the home network (a form sent to the
         router, a frame of a local service) is stopped, and the window asks
-        the user (securebar.py). Chromium already stops pictures and scripts
-        of that kind, not pages. Addresses the user opens are not touched;
-        only literal local names and addresses are looked at (no lookup here)."""
+        the user (securebar.py). Since 1.1.18 every kind of request is looked
+        at (security audit F2: the engine stopped none of them - a POST from
+        fetch, a picture, a script, a WebSocket all reached the router), and a
+        stopped one shows the same notice ("a part of this page"). Addresses
+        the user opens are not touched; only names and addresses that are
+        local by their form are looked at (no lookup here)."""
         from .userscripts import is_local_name
         if not is_local_name(url.host()):
             return False
@@ -267,21 +271,43 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             init = info.initiator()
         except AttributeError:
             return False
-        if init.scheme() not in ("http", "https") or is_local_name(init.host()):
-            return False                  # the user, I.K.E. itself, or a page of the home network
+        scheme = init.scheme()
+        if scheme in ("http", "https"):
+            if is_local_name(init.host()):
+                return False              # a page of the home network itself
+            who = site_of(init.host().lower())
+        elif scheme:
+            return False                  # I.K.E.'s own pages (ike:), the user's files
+        elif main:
+            # no initiator: the user typed or chose the address - unless it is
+            # a link or a form of a page with no origin of its own (a
+            # sandboxed frame's popup, a data: page): those are a public
+            # page's (1.1.18, adversarial review)
+            nav = info.navigationType()
+            if nav not in (_NT.NavigationTypeLink, _NT.NavigationTypeFormSubmitted):
+                return False
+            who = ""
+        else:
+            # a sandboxed or data: frame has no origin, so no initiator: it is
+            # judged by the page it is in (1.1.18, adversarial review: such a
+            # frame of a public page reached the router)
+            first = info.firstPartyUrl()
+            if first.scheme() not in ("http", "https") or is_local_name(first.host()):
+                return False
+            who = site_of(first.host().lower())
         s = self.s
-        if site_of(init.host().lower()) in s.lan_allowed:
+        if who and who in s.lan_allowed:
             return False
         info.block(True)
         if not self.quiet:
             if len(s.lan_blocked) > 100:
                 s.lan_blocked.clear()
             if main:
-                s.lan_blocked[url.toString()] = site_of(init.host().lower())
+                s.lan_blocked[url.toString()] = who
             else:
-                # a frame of the page: the page itself loads, and the window
-                # says what was stopped in it (no silent breakage)
-                s.lan_blocked["frame:" + info.firstPartyUrl().toString()] = site_of(init.host().lower())
+                # a frame or a part of the page: the page itself loads, and the
+                # window says what was stopped in it (no silent breakage)
+                s.lan_blocked["frame:" + info.firstPartyUrl().toString()] = who
         return True
 
     def interceptRequest(self, info):
@@ -319,7 +345,7 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             return
         rtype = info.resourceType()
         main = rtype == _RT.ResourceTypeMainFrame
-        if (main or rtype == _RT.ResourceTypeSubFrame) and self._lan_refused(info, url, main):
+        if self._lan_refused(info, url, main):
             return
         first = url if main else info.firstPartyUrl()
         # the page the request belongs to is known (not a service worker's own
@@ -560,6 +586,10 @@ class Shields(QObject):
         # One fingerprint-noise key per WebEngine profile. Private and
         # container profiles must not share the same per-site noise stream.
         self.profile_keys = {}
+        # the media-command events' own secret (mediahook.js), never derived
+        # from the fingerprinting key (1.1.18, security audit: it was the
+        # key's first 96 bits, readable on media sites)
+        self.media_keys = {}
         self.action_key = secrets.token_hex(16)   # the new tab page's own links (IkeSchemeHandler)
         self.stats = {}
         self.requests = {}               # site -> requests made for it (see resources)
@@ -800,6 +830,7 @@ class Shields(QObject):
             profile.setPersistentCookiesPolicy(
                 QWebEngineProfile.PersistentCookiesPolicy.AllowPersistentCookies)
         self.profile_keys[id(profile)] = secrets.token_hex(16)
+        self.media_keys[id(profile)] = secrets.token_hex(16)
         self._identity(profile)
         if quiet:
             profile._ike_interceptor = Interceptor(self, quiet=True)
@@ -863,13 +894,14 @@ class Shields(QObject):
 
     def media_token(self, profile):
         """The secret of a profile's media-command events (mediahook.js)."""
-        return "m" + self.profile_keys.get(id(profile), "")[:24]
+        return "m" + self.media_keys.get(id(profile), "")
 
     def apply_settings(self, profile=None):
         """(Re)apply everything that depends on the configuration."""
         cfg = self.config
         for p in ([profile] if profile else list(self.profiles)):
-            p.setHttpAcceptLanguage(cfg["accept_language"])
+            from .config import accept_language
+            p.setHttpAcceptLanguage(accept_language(cfg))
             p.settings().setAttribute(
                 QWebEngineSettings.WebAttribute.WebRTCPublicInterfacesOnly,
                 bool(cfg["webrtc_hide_ip"]))

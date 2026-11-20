@@ -183,7 +183,7 @@ DOH_PROVIDERS = {
 
 DEFAULTS = {
     "language": "auto",                 # auto | it | en
-    "accept_language": "it-IT,it,en-US,en",
+    "accept_language": "",              # "": the system's languages (1.1.18; see accept_language())
     "startup": "restore",               # restore | home | newtab
     "homepage": "ike:newtab",
     "tabs_position": "horizontal",      # horizontal | vertical
@@ -438,6 +438,11 @@ class Config:
             if isinstance(d.get(key), list) and "translate" in d[key]:
                 items = [x for x in d[key] if x != "bookmark"]
                 d[key] = ["bookmark" if x == "translate" else x for x in items]
+        # 1.1.18: the old default asked every site for Italian whatever the
+        # system's language (a rare, identifying combination for everyone
+        # else): it follows the system now; a list the user typed stays
+        if d.get("accept_language") == "it-IT,it,en-US,en":
+            d["accept_language"] = ""
         # the Cyber theme is gone (1.1.2): whoever used it follows the system again
         if d.get("ui_scheme") == "theme:cyber":
             d["ui_scheme"] = "system"
@@ -603,3 +608,31 @@ class Config:
 def ensure_dirs():
     for d in (CONFIG_DIR, DATA_DIR, CACHE_DIR):
         d.mkdir(parents=True, exist_ok=True)
+
+
+def system_accept_language(locale_name=None):
+    """The languages asked of websites when the user chose none: the
+    system's own, as Chrome does ("de_DE" -> "de-DE,de,en-US,en"; English
+    or the plain "C" locale -> "en-US,en")."""
+    if locale_name is None:
+        from PyQt6.QtCore import QLocale
+        locale_name = QLocale.system().name()
+    name = (locale_name or "").split(".")[0].split("@")[0].replace("_", "-")
+    if not name or name in ("C", "POSIX") or not name[:2].isalpha():
+        return "en-US,en"
+    base = name.split("-")[0].lower()
+    tags = [name, base] if name.lower() != base else [base]
+    if base != "en":
+        tags += ["en-US", "en"]
+    elif "en-US" not in tags:
+        tags += ["en-US"] if name != "en-US" else []
+    out = []
+    for t in tags:
+        if t not in out:
+            out.append(t)
+    return ",".join(out)
+
+
+def accept_language(config):
+    """The Accept-Language list in use: the user's own, or the system's."""
+    return (config["accept_language"] or "").strip() or system_accept_language()

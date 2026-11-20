@@ -25,6 +25,7 @@ rebinding) is not caught.
 """
 
 import base64
+import functools
 import hashlib
 import ipaddress
 import json
@@ -85,10 +86,19 @@ def is_local_address(text):
     return any(ip in net for net in _LOCAL_NETS)
 
 
+# names of the home network by their form alone, no lookup (1.1.18, security
+# audit F2): routers and NAS boxes answer to these (fritz.box, router.lan,
+# nas.home.arpa) and to single names with no dot ("router", "printer")
+_HOME_SUFFIXES = (".localhost", ".local", ".lan", ".home.arpa", ".internal", ".intranet", ".home",
+                  ".corp", ".fritz.box")
+_HOME_NAMES = frozenset(("localhost", "fritz.box", "home.arpa"))
+
+
+@functools.lru_cache(maxsize=4096)
 def is_local_name(host):
     """True for a host name or address that means this computer or the home network."""
     h = (host or "").lower().rstrip(".").strip("[]")
-    if h == "localhost" or h.endswith((".localhost", ".local")):
+    if h in _HOME_NAMES or h.endswith(_HOME_SUFFIXES):
         return True
     if is_local_address(h):
         return True
@@ -96,8 +106,9 @@ def is_local_name(host):
         try:
             return is_local_address(socket.inet_ntoa(socket.inet_aton(h)))
         except OSError:
-            return False
-    return False
+            pass                         # a name made of such letters ("cafe"): below
+    # a single name with no dot ("router"): never a public site on the web
+    return bool(h) and "." not in h and ":" not in h and re.fullmatch(r"[a-z0-9_-]+", h) is not None
 
 
 def outside_home(host, done, who="", network=None):
@@ -237,6 +248,15 @@ def match_regex(pattern):
     else:
         host_re = _glob(host)
     return "^%s://%s(:\\d+)?%s$" % (scheme, host_re, _glob(path))
+
+
+def _compiled(sources):
+    """The patterns userscript.js tests (JavaScript, case-insensitive) as
+    Python regular expressions; None when one cannot be read here."""
+    try:
+        return [re.compile(r, re.I) for r in sources]
+    except re.error:
+        return None
 
 
 def include_regex(pattern):
@@ -456,6 +476,7 @@ class UserScripts(QObject):
         self.network = QNetworkAccessManager(self)
         self.secret = secrets.token_hex(16)   # names of the answer callbacks
         self.tokens, self._by_token = {}, {}  # one secret token per script, this session only
+        self._patterns = {}                   # sid -> (include, exclude) compiled, for the bridge
         self.scripts = {}
         self._threads = set()
         self._template = None
@@ -674,6 +695,7 @@ class UserScripts(QObject):
         if not s.get("match") and not s.get("include"):
             inc = [r"^https?://"]
         exc = [r for r in (include_regex(p) for p in s.get("exclude", [])) if r]
+        self._patterns[sid] = (_compiled(inc), _compiled(exc))
         code = self._code(sid)
         meta = parse_meta(code)
         allow = granted(s.get("grant", []))
@@ -749,6 +771,41 @@ class UserScripts(QObject):
             return
         self.handle(page, sid, payload)
 
+    def _from_its_page(self, page, sid, claimed):
+        """The message really comes from a page the script runs on (1.1.18,
+        security audit F6: the token alone was checked, so a page that got it
+        could act as the script anywhere). Checked here, in the browser: the
+        address the script sends must be that of a frame this page really has
+        (the engine's own frame tree, compared by origin, so a history.pushState
+        in between does not matter) and must match the script's @match /
+        @include and none of its @exclude."""
+        url = QUrl(str(claimed or ""))
+        if not url.isValid() or not url.scheme() or not isinstance(claimed, str):
+            return False
+
+        def origin(u):
+            return (u.scheme().lower(), u.host().lower(), u.port())
+        want, frames = origin(url), []
+        try:
+            todo = [page.mainFrame()]
+            while todo and len(frames) < 500:
+                f = todo.pop()
+                frames.append(origin(f.url()))
+                todo.extend(f.children())
+        except (AttributeError, RuntimeError):
+            frames = [origin(page.url())]
+        if want not in frames:
+            return False
+        if sid not in self._patterns:
+            try:
+                self.build(sid)
+            except Exception:
+                return False
+        inc, exc = self._patterns.get(sid, ([], []))
+        if inc is None or exc is None:           # a pattern Python cannot read: the frame check only
+            return True
+        return any(r.search(claimed) for r in inc) and not any(r.search(claimed) for r in exc)
+
     def handle(self, page, sid, payload):
         """A message from running script `sid` (see send() in userscript.js)."""
         try:
@@ -761,6 +818,9 @@ class UserScripts(QObject):
             _debug("malformed message refused")
             return
         if not s.get("enabled", True) or not self.enabled():
+            return
+        if not self._from_its_page(page, sid, msg.get("u")):
+            _debug("%s: %r from a page the script does not run on refused" % (s["name"], op))
             return
         if OPS.get(op) not in granted(s.get("grant", [])):
             _debug("%s: %r not granted" % (s["name"], op))

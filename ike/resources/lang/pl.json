@@ -887,6 +887,13 @@
 "a redirect to a refused address": "przekierowanie na odrzucony adres",
 "an address of this computer or of the home network: %s": "adres tego komputera lub sieci domowej: %s",
 "Code and files from: %s": "Kod i pliki z: %s",
-"a part of this page": "część tej strony"
+"a part of this page": "część tej strony",
+"Site isolation: every site in its own process": "Izolacja witryn: każda witryna we własnym procesie",
+"Site isolation: OFF (switched off on request)": "Izolacja witryn: WYŁĄCZONA (na żądanie)",
+"Engine protections switched off on request (IKE_ALLOW_UNSAFE_ENGINE): %s": "Zabezpieczenia silnika wyłączone na żądanie (IKE_ALLOW_UNSAFE_ENGINE): %s",
+"Engine switches that remove a protection were ignored: %s": "Pominięto przełączniki silnika usuwające zabezpieczenie: %s",
+"Current stable Chrome: %d (%s)": "Aktualny stabilny Chrome: %d (%s)",
+"checked with Google's version list": "sprawdzono na liście wersji Google",
+"estimated from the calendar: Google's version list could not be reached": "oszacowano z kalendarza: lista wersji Google była niedostępna"
 }
 }

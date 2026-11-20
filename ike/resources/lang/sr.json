@@ -887,6 +887,13 @@
 "a redirect to a refused address": "преусмеравање на одбијену адресу",
 "an address of this computer or of the home network: %s": "адреса овог рачунара или кућне мреже: %s",
 "Code and files from: %s": "Код и датотеке са: %s",
-"a part of this page": "део ове странице"
+"a part of this page": "део ове странице",
+"Site isolation: every site in its own process": "Изолација сајтова: сваки сајт у сопственом процесу",
+"Site isolation: OFF (switched off on request)": "Изолација сајтова: ИСКЉУЧЕНА (на захтев)",
+"Engine protections switched off on request (IKE_ALLOW_UNSAFE_ENGINE): %s": "Заштите механизма искључене на захтев (IKE_ALLOW_UNSAFE_ENGINE): %s",
+"Engine switches that remove a protection were ignored: %s": "Занемарени су прекидачи механизма који уклањају заштиту: %s",
+"Current stable Chrome: %d (%s)": "Тренутни стабилни Chrome: %d (%s)",
+"checked with Google's version list": "проверено на Гугловој листи верзија",
+"estimated from the calendar: Google's version list could not be reached": "процењено према календару: Гуглова листа верзија није била доступна"
 }
 }

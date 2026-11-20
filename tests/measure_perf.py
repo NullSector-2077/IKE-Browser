@@ -146,7 +146,7 @@ def run(script, home, timeout=600):
     env.update({"HOME": str(home), "XDG_CONFIG_HOME": str(home / ".config"),
                 "XDG_DATA_HOME": str(home / ".local/share"), "XDG_CACHE_HOME": str(home / ".cache"),
                 "XDG_RUNTIME_DIR": str(work), "QT_QPA_PLATFORM": "offscreen", "LANG": "C.UTF-8",
-                "QTWEBENGINE_CHROMIUM_FLAGS": "--no-sandbox", "IKE_NO_SINGLE": "1", "IKE_TEST_NOASK": "1",
+                "QTWEBENGINE_CHROMIUM_FLAGS": "--no-sandbox", "IKE_ALLOW_UNSAFE_ENGINE": "1", "IKE_NO_SINGLE": "1", "IKE_TEST_NOASK": "1",
                 "IKE_TEST_HOOK": str(ROOT / "tests" / "harness.py"), "IKE_TEST_SCRIPT": str(sf),
                 "IKE_TEST_OUT": str(out), "DBUS_SESSION_BUS_ADDRESS": "", "PYTHONUTF8": "1",
                 "IKE_T0": repr(time.time())})
