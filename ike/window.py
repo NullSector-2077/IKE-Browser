@@ -2041,6 +2041,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             text = T("Engine age: as recent as the current Chrome")
         else:
             text = T("Engine age: %d Chrome versions behind the current one") % behind
+        ref = chromever.latest(self.app.config)
+        text += "<br>" + T("Current stable Chrome: %d (%s)") % (ref, T(
+            "checked with Google's version list") if chromever.latest_checked(self.app.config) else T(
+            "estimated from the calendar: Google's version list could not be reached"))
         late = chromever.security_behind(self.app.config)
         if late >= chromever.OUTDATED_AFTER:
             text += "<br><b>" + T("Security fixes: %d Chrome versions behind. Update the system "

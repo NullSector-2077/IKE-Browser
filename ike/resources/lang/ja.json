@@ -891,6 +891,9 @@
 "Site isolation: every site in its own process": "サイト分離：サイトごとに別のプロセス",
 "Site isolation: OFF (switched off on request)": "サイト分離：オフ（要求により無効）",
 "Engine protections switched off on request (IKE_ALLOW_UNSAFE_ENGINE): %s": "要求によりエンジンの保護を無効化（IKE_ALLOW_UNSAFE_ENGINE）：%s",
-"Engine switches that remove a protection were ignored: %s": "保護を外すエンジンのスイッチを無視しました：%s"
+"Engine switches that remove a protection were ignored: %s": "保護を外すエンジンのスイッチを無視しました：%s",
+"Current stable Chrome: %d (%s)": "現在の安定版 Chrome：%d（%s）",
+"checked with Google's version list": "Google のバージョン一覧で確認",
+"estimated from the calendar: Google's version list could not be reached": "カレンダーから推定：Google のバージョン一覧に接続できませんでした"
 }
 }

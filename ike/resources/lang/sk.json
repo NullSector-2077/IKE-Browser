@@ -891,6 +891,9 @@
 "Site isolation: every site in its own process": "Izolácia webov: každý web vo vlastnom procese",
 "Site isolation: OFF (switched off on request)": "Izolácia webov: VYPNUTÁ (na požiadanie)",
 "Engine protections switched off on request (IKE_ALLOW_UNSAFE_ENGINE): %s": "Ochrany jadra vypnuté na požiadanie (IKE_ALLOW_UNSAFE_ENGINE): %s",
-"Engine switches that remove a protection were ignored: %s": "Prepínače jadra, ktoré odstraňujú ochranu, boli ignorované: %s"
+"Engine switches that remove a protection were ignored: %s": "Prepínače jadra, ktoré odstraňujú ochranu, boli ignorované: %s",
+"Current stable Chrome: %d (%s)": "Aktuálny stabilný Chrome: %d (%s)",
+"checked with Google's version list": "overené v zozname verzií Googlu",
+"estimated from the calendar: Google's version list could not be reached": "odhadnuté podľa kalendára: zoznam verzií Googlu nebol dostupný"
 }
 }

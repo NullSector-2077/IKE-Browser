@@ -60,9 +60,12 @@ def security_major():
         return engine_major()
 
 
-# Chrome ships a new version about every four weeks; a system engine whose
-# security fixes are this many versions behind has gone months without them.
-OUTDATED_AFTER = 5
+# Chrome ships a new version about every four weeks, and Qt WebEngine brings
+# the security fixes of the newest ones into its own releases
+# (qWebEngineChromiumSecurityPatchVersion: Qt 6.12.0 came with those of
+# Chrome 157, the current one then). Two versions behind means about two
+# months without them: the user is told (1.1.18, security audit F4; it was 5).
+OUTDATED_AFTER = 2
 
 
 def security_behind(config, today=None):
@@ -98,6 +101,13 @@ def latest(config, today=None):
     if plausible(stored, today):
         return max(stored, floor)
     return floor
+
+
+def latest_checked(config, today=None):
+    """True when latest() comes from Google's version list, False when it is
+    only the estimate from the calendar (the list could not be reached)."""
+    stored = config["chrome_major"]
+    return plausible(stored, today) and stored >= estimate(today)
 
 
 def parse(data):

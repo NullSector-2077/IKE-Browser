@@ -891,6 +891,9 @@
 "Site isolation: every site in its own process": "Izolacija web-mjesta: svako web-mjesto u vlastitom procesu",
 "Site isolation: OFF (switched off on request)": "Izolacija web-mjesta: ISKLJUČENA (na zahtjev)",
 "Engine protections switched off on request (IKE_ALLOW_UNSAFE_ENGINE): %s": "Zaštite pogona isključene na zahtjev (IKE_ALLOW_UNSAFE_ENGINE): %s",
-"Engine switches that remove a protection were ignored: %s": "Zanemarene su sklopke pogona koje uklanjaju zaštitu: %s"
+"Engine switches that remove a protection were ignored: %s": "Zanemarene su sklopke pogona koje uklanjaju zaštitu: %s",
+"Current stable Chrome: %d (%s)": "Trenutačni stabilni Chrome: %d (%s)",
+"checked with Google's version list": "provjereno na Googleovu popisu verzija",
+"estimated from the calendar: Google's version list could not be reached": "procijenjeno prema kalendaru: Googleov popis verzija nije bio dostupan"
 }
 }

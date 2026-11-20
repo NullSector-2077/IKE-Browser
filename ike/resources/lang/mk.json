@@ -891,6 +891,9 @@
 "Site isolation: every site in its own process": "Изолација на страниците: секоја страница во свој процес",
 "Site isolation: OFF (switched off on request)": "Изолација на страниците: ИСКЛУЧЕНА (на барање)",
 "Engine protections switched off on request (IKE_ALLOW_UNSAFE_ENGINE): %s": "Заштитите на механизмот се исклучени на барање (IKE_ALLOW_UNSAFE_ENGINE): %s",
-"Engine switches that remove a protection were ignored: %s": "Игнорирани се прекинувачи на механизмот што отстрануваат заштита: %s"
+"Engine switches that remove a protection were ignored: %s": "Игнорирани се прекинувачи на механизмот што отстрануваат заштита: %s",
+"Current stable Chrome: %d (%s)": "Тековен стабилен Chrome: %d (%s)",
+"checked with Google's version list": "проверено на листата верзии на Google",
+"estimated from the calendar: Google's version list could not be reached": "проценето според календарот: листата верзии на Google не беше достапна"
 }
 }

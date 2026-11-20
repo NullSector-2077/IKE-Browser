@@ -891,6 +891,9 @@
 "Site isolation: every site in its own process": "Aislamiento de sitios: cada sitio en su propio proceso",
 "Site isolation: OFF (switched off on request)": "Aislamiento de sitios: DESACTIVADO (apagado a petición)",
 "Engine protections switched off on request (IKE_ALLOW_UNSAFE_ENGINE): %s": "Protecciones del motor desactivadas a petición (IKE_ALLOW_UNSAFE_ENGINE): %s",
-"Engine switches that remove a protection were ignored: %s": "Se ignoraron opciones del motor que quitan una protección: %s"
+"Engine switches that remove a protection were ignored: %s": "Se ignoraron opciones del motor que quitan una protección: %s",
+"Current stable Chrome: %d (%s)": "Chrome estable actual: %d (%s)",
+"checked with Google's version list": "comprobado con la lista de versiones de Google",
+"estimated from the calendar: Google's version list could not be reached": "estimado por el calendario: no se pudo acceder a la lista de versiones de Google"
 }
 }
