@@ -81,16 +81,30 @@ PAYMENT_SITES = ("paypal.com", "paypalobjects.com", "stripe.com", "stripe.networ
 
 
 def _owned(host, sites):
+    """host is one of sites or a name under one of them. `sites` may also be
+    the tuple of ".site" endings made by _endings (faster: asked for every
+    request of every page)."""
     host = (host or "").lower().rstrip(".")
-    return any(host == s or host.endswith("." + s) for s in sites)
+    if not sites or not sites[0].startswith("."):
+        sites = _endings(sites)
+    return ("." + host).endswith(sites)
+
+
+def _endings(sites):
+    return tuple("." + s for s in sites)
+
+
+_GOOGLE_ENDINGS = _endings(GOOGLE_SITES)
+_PAYMENT_ENDINGS = _endings(PAYMENT_SITES)
 
 
 def google_owned(host):
-    return _owned(host, GOOGLE_SITES)
+    return _owned(host, _GOOGLE_ENDINGS)
 
 
 def payment_owned(host):
-    return _owned(host, PAYMENT_SITES)
+    return _owned(host, _PAYMENT_ENDINGS)
+
 FIREFOX_UA = osinfo.identity()["firefox_ua"]
 PERMISSION_KINDS = ("camera", "microphone", "location", "notifications", "clipboard", "screen", "fonts")
 

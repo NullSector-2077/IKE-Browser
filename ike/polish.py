@@ -475,6 +475,11 @@ class ShieldPulse(QWidget):
         self.fired = 0
         self.hide()
 
+    def resting(self):
+        """True while the ring may not open again (PULSE_REST after the last one)."""
+        import time
+        return time.monotonic() - self._last < PULSE_REST
+
     def fire(self):
         import time
         now = time.monotonic()
@@ -491,8 +496,27 @@ class ShieldPulse(QWidget):
         self._anim.start()
         return True
 
+    STEPS = 32               # pictures of the ring per pulse, drawn once and kept (1.1.18)
+
     def paintEvent(self, _event):
         t = float(self._anim.currentValue() or 0.0)
+        # the ring at the nearest of STEPS moments (about one frame apart: the same
+        # to the eye as drawing it anew at each frame, and much cheaper)
+        step = max(0, min(self.STEPS, round(t * self.STEPS)))
+        dpr = self.devicePixelRatioF()
+        button = self.parentWidget()
+        icon = button.iconSize().width() if button is not None else 0
+        key = (self.width(), self.height(), icon, dpr, QColor(accent(self)).rgba())
+        if getattr(self, "_rings_key", None) != key:
+            self._rings_key, self._rings = key, {}
+        pm = self._rings.get(step)
+        if pm is None:
+            pm = self._rings[step] = self._ring(step / self.STEPS, dpr)
+        p = QPainter(self)
+        p.drawPixmap(0, 0, pm)
+        p.end()
+
+    def _ring(self, t, dpr):
         button = self.parentWidget()
         side = min(self.width(), self.height())
         # the ring opens around the icon, which sits at the left of the button (its number beside it)
@@ -501,11 +525,15 @@ class ShieldPulse(QWidget):
         radius = side * (0.30 + 0.22 * t)
         colour = QColor(accent(self))
         colour.setAlpha(round(200 * (1.0 - t)))
-        p = QPainter(self)
+        pm = QPixmap(max(1, round(self.width() * dpr)), max(1, round(self.height() * dpr)))
+        pm.setDevicePixelRatio(dpr)
+        pm.fill(Qt.GlobalColor.transparent)
+        p = QPainter(pm)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setPen(QPen(colour, 2.0))
         p.drawEllipse(QPointF(cx, self.height() / 2.0), radius, radius)
         p.end()
+        return pm
 
 
 class BlockBars(QWidget):
@@ -830,33 +858,55 @@ class ShieldCount(QWidget):
         return 1.0 if t <= self.HOLD else max(0.0, 1.0 - (t - self.HOLD) / (1.0 - self.HOLD))
 
     def paintEvent(self, _event):
-        from PyQt6.QtGui import QFontMetrics, QPainterPath
+        from PyQt6.QtGui import QFontMetrics
         t = float(self._anim.currentValue() or 0.0)
         a = self.alpha(t)
         if a <= 0:
             return
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
         f = self.button.font()
         f.setBold(True)
         fm = QFontMetrics(f)
-        text = "+%d" % self.delta
         h = self.height()
         # from just below the middle up towards the top edge
         base = round(h * 0.5 + fm.ascent() / 2 - t * h * 0.32)
-        path = QPainterPath()
-        path.addText(QPointF(self.text_left(), base), f, text)
-        halo = QColor(self.button.palette().color(QPalette.ColorRole.Window))
-        halo.setAlphaF(0.85 * a)
-        p.setPen(QPen(halo, 3.0, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
-        p.setBrush(Qt.BrushStyle.NoBrush)
-        p.drawPath(path)
-        c = QColor(accent(self.button))
-        c.setAlphaF(a)
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(c)
-        p.drawPath(path)
+        pm, ox, oy = self._picture(f)
+        p = QPainter(self)
+        p.setOpacity(a)
+        p.drawPixmap(self.text_left() + ox, base + oy, pm)
         p.end()
+
+    def _picture(self, f):
+        """The "+N" with its halo, drawn once per number and look and then
+        only moved and faded (1.1.18: it was drawn as shapes at every frame of
+        the animation). Returns the picture and where it starts from the baseline."""
+        from PyQt6.QtGui import QPainterPath
+        text = "+%d" % self.delta
+        halo = QColor(self.button.palette().color(QPalette.ColorRole.Window))
+        halo.setAlphaF(0.85)
+        c = QColor(accent(self.button))
+        dpr = self.devicePixelRatioF()
+        key = (text, f.key(), halo.rgba(), c.rgba(), dpr)
+        if getattr(self, "_pic_key", None) != key:
+            path = QPainterPath()
+            path.addText(QPointF(0, 0), f, text)
+            r = path.boundingRect().adjusted(-3, -3, 3, 3)
+            ox, oy = math.floor(r.x()), math.floor(r.y())
+            w, h = math.ceil(r.right()) - ox, math.ceil(r.bottom()) - oy
+            pm = QPixmap(max(1, round(w * dpr)), max(1, round(h * dpr)))
+            pm.setDevicePixelRatio(dpr)
+            pm.fill(Qt.GlobalColor.transparent)
+            p = QPainter(pm)
+            p.setRenderHint(QPainter.RenderHint.Antialiasing)
+            p.translate(-ox, -oy)
+            p.setPen(QPen(halo, 3.0, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.drawPath(path)
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(c)
+            p.drawPath(path)
+            p.end()
+            self._pic_key, self._pic = key, (pm, ox, oy)
+        return self._pic
 
 
 # --- 1.1.9 ------------------------------------------------------------------------

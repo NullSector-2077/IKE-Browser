@@ -93,6 +93,15 @@ def paint_shield(p, rect, level, grow=1.0):
     p.restore()
 
 
+_PIXMAPS = {}
+
+
+def p_font_key():
+    """The letter inside the shield follows the application's font."""
+    from PyQt6.QtWidgets import QApplication
+    return QApplication.font().key()
+
+
 class _ShieldEngine(QIconEngine):
     """The shield drawn as shapes each time it is needed, so it is sharp at
     every size and screen scale and follows the palette."""
@@ -113,12 +122,23 @@ class _ShieldEngine(QIconEngine):
             painter.restore()
 
     def pixmap(self, size, mode, state):
-        pm = QPixmap(size)
-        pm.fill(Qt.GlobalColor.transparent)
-        p = QPainter(pm)
-        self.paint(p, QRect(0, 0, size.width(), size.height()), mode, state)
-        p.end()
-        return pm
+        # The toolbar asks for the shield at each repaint of the address bar
+        # (dozens of times while a page loads); the same picture is drawn
+        # once and kept, for each size, state and palette (1.1.18).
+        from PyQt6.QtGui import QGuiApplication
+        key = (self.level, self.grow, size.width(), size.height(), mode, state,
+               QGuiApplication.palette().cacheKey(), p_font_key())
+        pm = _PIXMAPS.get(key)
+        if pm is None:
+            pm = QPixmap(size)
+            pm.fill(Qt.GlobalColor.transparent)
+            p = QPainter(pm)
+            self.paint(p, QRect(0, 0, size.width(), size.height()), mode, state)
+            p.end()
+            if len(_PIXMAPS) > 64:
+                _PIXMAPS.clear()
+            _PIXMAPS[key] = pm
+        return QPixmap(pm)
 
     def availableSizes(self, mode=QIcon.Mode.Normal, state=QIcon.State.Off):
         return [QSize(s, s) for s in (16, 20, 22, 24, 32, 48)]

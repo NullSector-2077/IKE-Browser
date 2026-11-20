@@ -1862,6 +1862,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         of things in a second: the shield's number is redrawn at most ten
         times a second (each redraw also lays out the address bar again), and
         it always ends on the exact count (1.1.17)."""
+        if getattr(self, "_shield_due", False) and self.shield_pulse.resting():
+            return               # already on its way, and the ring cannot open again yet (1.1.18)
         if host == self.current_host():
             if not getattr(self, "_shield_due", False):
                 self._shield_due = True

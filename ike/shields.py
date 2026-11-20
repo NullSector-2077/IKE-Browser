@@ -287,7 +287,8 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         if lv == 0:
             return
         host = url.host().lower()
-        get = bytes(info.requestMethod()) == b"GET"
+        method = bytes(info.requestMethod())
+        get = method == b"GET"
         if cfg.sensitive_hands_off(first_host, host):
             # a sensitive Google service (AI Studio, Cloud Console, account,
             # payments): Google's own requests go through untouched - no filter
@@ -354,10 +355,7 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         if ((cfg["comp_adblock"] or cfg["comp_consent"])
                 and cfg.site_opt(first_host, "ads") is not False
                 and not (main and host in s.pages_allowed)):
-            try:
-                method = bytes(info.requestMethod()).decode("ascii", "ignore").upper() or "GET"
-            except Exception:
-                method = "GET"
+            method = method.decode("ascii", "ignore").upper() or "GET"
             action, target = s.blocker.request_action(
                 url.toString(), first.toString(), _TYPES.get(rtype, "other"), method)
             if action == "redirect" and target:
