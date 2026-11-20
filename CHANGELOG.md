@@ -28,6 +28,28 @@ protection was removed or weakened.
   back about 50 MB; 30 tabs: 1912 -> 422 MB when suspended). Nothing changes
   with enough memory or with suspension turned off.
 
+Automatic maintenance and fixes (pull request #59; nothing of the browser):
+
+- An old "Automatic fix needs you" issue no longer stops every later fix of
+  `main`: only one naming the same failed commit, or reported in the last 24
+  hours. A daily maintenance that cannot reach an upstream source, or whose
+  new AdBlock engine does not build, becomes an issue instead of a fix of
+  `main`. A pending fix is no longer dropped for later runs that only skip.
+- The AI agent cannot write the repository's `.git`, and the runner runs git
+  on its work without any configuration the agent could have written; it
+  runs without the reserves' keys and without name lookups (DNS). Half-done
+  work of the agent is always thrown away.
+- Reserves: one model saying "not fixable" no longer stops the others (two
+  must agree); a malformed answer moves to the next model; nothing a model
+  writes can command the workflow.
+- Checks: tests can no longer be weakened by removing or renaming a test,
+  `assert True`, an early `return` or a changed reference file; YouTube's ad
+  blocking, the test packages and the build tools are never changed by an
+  automatic fix; Groq and OpenRouter keys are caught; a patch must apply.
+- The weekly health check also reports failed automatic fixes, missing reserve
+  keys, issues and maintenance pull requests waiting more than a week, and
+  `main` without branch protection.
+
 ## 1.1.17
 
 Security review (each point has a test that plays the attack on this computer).

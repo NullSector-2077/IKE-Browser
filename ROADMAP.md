@@ -333,6 +333,14 @@ behind the window. No existing setting is reset or changes meaning.
   the default background of the new tab page, with a "Default" button in
   Settings. Next: a plan for Manifest V3 extensions that do not install.
 
+- 2026-11-20: 1.1.18 on branch `perf/1.1.18-optimization` (optimisation
+  without less protection, measured: docs/review/tests-and-performance.md)
+  and automation fixes on `automation/1.1.18-chain` (pull request #59).
+  Waiting for the owner: the default dark-mode method (Dark Reader costs about
+  40 % of Speedometer), the graphics-card proposal for fingerprinting, the
+  branch protection of `main` (a repository setting), and checks on the
+  owner's computer (chrome://gpu, qt6-webengine version).
+
 ### Also planned
 
 - **AUR**: publish I.K.E. on the Arch User Repository — when the owner says it
