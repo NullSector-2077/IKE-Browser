@@ -857,9 +857,21 @@
       var d = obj && Object.getOwnPropertyDescriptor(obj, name);
       if (!d || typeof d.value !== 'function') return;
       var orig = d.value;
-      var f = ({ [orig.name || name](...args) {
-        var r = Reflect.apply(orig, this, args);
-        if (force || mayAddFrame(this, args)) check(this, force);
+      // the usual one or two arguments are passed on as they are (no array
+      // made for each call: 1.1.18); any other number exactly as given
+      var invoke = call.bind(orig);      // bound now: nothing the page changes later is looked up
+      var f = ({ [orig.name || name](a, b) {
+        var n = arguments.length, r;
+        if (n === 1) {
+          r = invoke(this, a);
+          if (force || mayAdd1(this, a)) check(this, force);
+        } else if (n === 2) {
+          r = invoke(this, a, b);
+          if (force || mayAdd1(this, a) || mayAdd1(this, b)) check(this, force);
+        } else {
+          r = reflectApply(orig, this, arguments);
+          if (force || mayAddFrame(this, arguments)) check(this, force);
+        }
         return r;
       } })[orig.name || name];
       try { Object.defineProperty(f, 'length', { value: orig.length, configurable: true }); } catch (e) {}
@@ -872,6 +884,13 @@
     // text or an element without children that is not a frame itself.
     var FRAMES = { iframe: 1, frame: 1, object: 1, embed: 1 };
     var FRAME_HTML = /<\s*(i?frame|object|embed)\b/i;
+    var call = Function.prototype.call, reflectApply = Reflect.apply;
+    function mayAdd1(target, a) {
+      if (target && target.isConnected === false) return false;
+      if (typeof a === 'string') return FRAME_HTML.test(a);
+      return !!(a && (a.nodeType === 11 ||
+                      (a.nodeType === 1 && (FRAMES[a.localName] === 1 || a.firstElementChild))));
+    }
     function mayAddFrame(target, args) {
       if (target && target.isConnected === false) return false;
       for (var i = 0; i < args.length; i++) {
@@ -925,10 +944,30 @@
     };
     wrap(w, 'open', opener);
     wrap(w.Window && w.Window.prototype, 'open', opener);
-    // frames written in the page's own HTML
+    // the ways left that can put a frame into a page without the methods above
+    var R = w.Range && w.Range.prototype;
+    ['insertNode', 'surroundContents'].forEach(function (n) { hooked(R, n); });
+    hooked(E, 'moveBefore');
+    var SR = w.ShadowRoot && w.ShadowRoot.prototype;
+    setter(SR, 'innerHTML', after);
+    swapped(SR, 'setHTMLUnsafe');
+    swapped(w.Document && w.Document.prototype, 'execCommand');
+    // frames written in the page's own HTML: watched while the page is being
+    // built (the parser inserts them, before the page's next script runs);
+    // once it is built, every way in is one of the methods above, and
+    // watching every change of the page cost DOM-heavy pages about a tenth
+    // of their speed (1.1.18). If the end of the building is never seen,
+    // the watch simply stays on, as before.
     try {
-      new w.MutationObserver(function () { check(null, false); })
-        .observe(w.document, { childList: true, subtree: true });
+      var watch = new w.MutationObserver(function () { check(null, false); });
+      var doc = w.document;
+      watch.observe(doc, { childList: true, subtree: true });
+      if (doc.readyState === 'loading') {
+        doc.addEventListener('DOMContentLoaded', function () {
+          check(null, false);
+          if (doc.readyState !== 'loading') watch.disconnect();
+        }, { once: true });
+      }
     } catch (e) {}
     check(null, true);
   }
