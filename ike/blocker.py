@@ -66,21 +66,25 @@ RETRY_FAILED_AFTER = 3600
 # needs: not the watch history and "continue watching" (api/stats/watchtime,
 # api/stats/playback), not the video servers (googlevideo.com, generate_204
 # there opens the connection of the video), not the page's own API calls.
+# 1.1.18: no rule of its own where the lists decided otherwise on purpose.
+# YouTube's player checks some of its own requests and refuses playback
+# ("ad blockers violate YouTube's Terms of Service") when they fail: the
+# lists' maintainers un-blocked api/stats/atr for that reason (uBlock
+# quick-fixes $badfilter, EasyPrivacy commented out, uAssets #27415) and keep
+# api/stats/qoe blocked only in one narrow form. I.K.E. had blocked atr, every
+# qoe request, delayplay, get_midroll_ and error_204 by itself: those are now
+# left to the lists, as in uBlock Origin. Other companies' ad and tracking
+# hosts and the reports below stay blocked.
 BUILTIN_RULES = """\
 ! I.K.E. - YouTube and Google telemetry
-||youtube.com/api/stats/qoe^
 ||youtube.com/api/stats/ads^
-||youtube.com/api/stats/atr^
-||youtube.com/api/stats/delayplay^
 ||youtube.com/ptracking^
 ||youtube.com/pagead/
 ||youtube.com/csi_204^
 ||youtube.com/youtubei/v1/log_event^
-||youtube.com/error_204^
 ||play.google.com/log^$third-party
 ||googleads.g.doubleclick.net^
 ||static.doubleclick.net/instream/
-||youtube.com/get_midroll_
 """
 _DOMAIN_RULE = re.compile(r"^\|\|([a-z0-9.-]+)\^(\$third-party|\$3p)?$")
 _GHIDE = re.compile(r"^@@.*\$.*\b(?:ghide|generichide)\b.*$", re.M)

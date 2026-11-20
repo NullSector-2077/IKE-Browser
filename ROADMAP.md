@@ -333,6 +333,14 @@ behind the window. No existing setting is reset or changes meaning.
   the default background of the new tab page, with a "Default" button in
   Settings. Next: a plan for Manifest V3 extensions that do not install.
 
+- 2026-11-20: 1.1.18 on branch `perf/1.1.18-optimization` (optimisation
+  without less protection, measured: docs/review/tests-and-performance.md)
+  and automation fixes on `automation/1.1.18-chain` (pull request #59).
+  The owner approved the graphics-card proposal (2026-11-20), set the branch
+  protection of `main` and sent chrome://gpu and the qt6-webengine version;
+  for page dark mode the owner asked that Dark Reader be made as light as the
+  engine's own dark mode rather than changing the default (work going on).
+
 ### Also planned
 
 - **AUR**: publish I.K.E. on the Arch User Repository — when the owner says it
@@ -400,8 +408,9 @@ chiaro.
   when the request is made (DNS rebinding) is not caught. Scripts in the same
   world trust each other: a malicious installed script could watch another
   one's messages (scripts are installed by the user).
-- The graphics card presented to sites is a plausible common model; a script
-  comparing rendering with the model could notice the mismatch.
+- The graphics card presented to sites at Balanced is a common Intel or NVIDIA
+  model; a script comparing rendering with the model could notice the
+  mismatch. At Strict and Maximum no model is named.
 - The bundled Dark Reader page dark mode is not reliable; Qt's own dark mode
   works and is the one to use.
 - The ad-blocking engine is adblock-rust (Brave's open-source library, MPL-2.0)

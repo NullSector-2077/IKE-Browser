@@ -35,6 +35,7 @@ PKG_DIR = Path(__file__).resolve().parent
 RES_DIR = PKG_DIR / "resources"
 
 LEVELS = ("off", "compatibility", "balanced", "strict", "maximum")
+_RANK = {name: i for i, name in enumerate(LEVELS)}
 LEVEL_NAMES = {"off": "Off", "compatibility": "Compatibility", "balanced": "Balanced",
                "strict": "Strict", "maximum": "Maximum"}
 _LEVEL_ALIASES = {"standard": "balanced"}
@@ -42,7 +43,11 @@ _LEVEL_ALIASES = {"standard": "balanced"}
 
 def rank(level):
     """0 = off ... 4 = maximum."""
-    return LEVELS.index(level) if level in LEVELS else 2
+    try:
+        return _RANK.get(level, 2)
+    except TypeError:                     # not a name at all
+        return 2
+
 
 DEFAULT_CONTAINERS = [
     {"name": "Personale", "color": "#3daee9"},
@@ -81,16 +86,30 @@ PAYMENT_SITES = ("paypal.com", "paypalobjects.com", "stripe.com", "stripe.networ
 
 
 def _owned(host, sites):
+    """host is one of sites or a name under one of them. `sites` may also be
+    the tuple of ".site" endings made by _endings (faster: asked for every
+    request of every page)."""
     host = (host or "").lower().rstrip(".")
-    return any(host == s or host.endswith("." + s) for s in sites)
+    if not sites or not sites[0].startswith("."):
+        sites = _endings(sites)
+    return ("." + host).endswith(sites)
+
+
+def _endings(sites):
+    return tuple("." + s for s in sites)
+
+
+_GOOGLE_ENDINGS = _endings(GOOGLE_SITES)
+_PAYMENT_ENDINGS = _endings(PAYMENT_SITES)
 
 
 def google_owned(host):
-    return _owned(host, GOOGLE_SITES)
+    return _owned(host, _GOOGLE_ENDINGS)
 
 
 def payment_owned(host):
-    return _owned(host, PAYMENT_SITES)
+    return _owned(host, _PAYMENT_ENDINGS)
+
 FIREFOX_UA = osinfo.identity()["firefox_ua"]
 PERMISSION_KINDS = ("camera", "microphone", "location", "notifications", "clipboard", "screen", "fonts")
 
@@ -490,12 +509,13 @@ class Config:
     def level_for(self, host):
         full = host = (host or "").lower()
         levels = self.data["site_levels"]
-        while host:
+        while levels and host:            # asked for every request: no list, no walk (1.1.18)
             if host in levels:
                 return levels[host]
-            if "." not in host:
+            i = host.find(".")
+            if i < 0:
                 break
-            host = host.split(".", 1)[1]
+            host = host[i + 1:]
         level = self.data["shield_level"]
         if self.data["login_compat"] and full in LOGIN_HOSTS and LEVELS.index(level) > 1:
             return "compatibility"
@@ -523,6 +543,8 @@ class Config:
     def site_opt(self, host, key):
         """Per-site override of one protection, or None to follow the level."""
         opts = self.data["site_opts"]
+        if not opts:
+            return None                   # asked for every request: most users have none (1.1.18)
         host = (host or "").lower()
         while host:
             o = opts.get(host)

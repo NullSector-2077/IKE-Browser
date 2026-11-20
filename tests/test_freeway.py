@@ -32,7 +32,7 @@ class Info:
 CASES = {
     "own_ad": ("https://cdn.news.example/ads/banner-ad.png", "https://www.news.example/article"),
     "other_ad": ("https://ads.example.test/a.png", "https://www.news.example/article"),
-    "youtube_own": ("https://www.youtube.com/api/stats/qoe?x=1", "https://www.youtube.com/watch?v=a"),
+    "youtube_own": ("https://www.youtube.com/api/stats/ads?x=1", "https://www.youtube.com/watch?v=a"),
 }
 
 def steps(ike, qapp, out):

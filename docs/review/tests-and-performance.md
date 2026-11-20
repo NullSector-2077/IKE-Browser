@@ -84,6 +84,290 @@ between the two sessions; only figures of the same session are compared.)
 These numbers describe a small container without a GPU. They say that the
 versions do not differ, not how fast I.K.E. is on the owner's computer.
 
+## 1.1.18, before and after
+
+Same container as below (4 cores, no GPU; Qt 6.12.0 / PyQt6 6.12 from PyPI,
+Ubuntu 24.04), filter lists read from one folder for both versions
+(`--lists`; 9 of the 11 default lists: EasyList Italy and the Malicious URL
+Blocklist could not be reached from the container), local pages only. "Before"
+is `main` at 41aca0c (1.1.17), "after" is the 1.1.18 branch. Runs of the two
+versions were alternated; medians of each run, averaged over the runs.
+
+`tests/measure_perf.py` (two runs of each version, 3 start-ups each):
+
+| Measure | 1.1.17 | 1.1.18 | Note |
+|---|---|---|---|
+| Page with 400 requests (150 to ad servers) | 437 ms | 377 ms | |
+| Time spent checking its requests | 17.0 ms | 13.2 ms | |
+| Interface thread's processor time for that page | 234 ms | 190 ms | `time.thread_time()` around each load, 3 alternated pairs |
+| 30 frames, Off / Balanced / Strict / Maximum | 269 / 388 / 454 / 436 ms | 222 / 380 / 410 / 413 ms | the Off figures moved too: noise of the container |
+| Start-up cold / warm | 0.89 / 0.60 s | 0.84 / 0.59 s | unchanged |
+| Switching tab, new tab | 3.0, 9.0 ms | 3.1, 10.1 ms | unchanged |
+| Memory, all processes, 1 tab / 10 tabs | 592 / 697 MB | 530 / 700 MB | the 1-tab figure moved between runs of the same version too |
+| Processor at rest, 1 tab | 3.0 % | 1.1 % | **not claimed**: a direct test (heavy page in view, 15 s at rest, three runs alternated) gives 2.4 against 2.6 % |
+
+DOM work (a page that adds 12,000 elements, removes them, and sets innerHTML
+300 times, after it is loaded; median of 7 rounds, two runs each):
+
+| | ms |
+|---|---|
+| Shield Off | 11.5 |
+| 1.1.17, Balanced | 23.7 |
+| 1.1.18, Balanced | 17.6 |
+| without the frame guard's hooks at all (for reference, not shipped) | 13.7 |
+
+Speedometer (WebKit/Speedometer, release/3.0 and release/3.1 branches, served
+locally; 5 iterations a run; scores are low because the container has no GPU
+and 4 shared cores — only the comparison counts):
+
+| | 3.0 score | 3.1 score | ES6-Webpack-Complex-DOM (3.1) |
+|---|---|---|---|
+| Plain Qt WebEngine (no I.K.E.) | 12.0 | | |
+| 1.1.17, Off | 12.3 | | |
+| 1.1.17, Balanced | 10.57 (3 runs) | 10.75 (2 runs) | 128 ms |
+| 1.1.18, Balanced | 10.90 (3 runs) | 10.85 (2 runs) | 110 ms |
+
+In 3.1, the DOM-heavy tests improved (Angular-Complex-DOM -6 %,
+React-Complex-DOM -10 %, Svelte-Complex-DOM -11 %, jQuery -9 %,
+ES6-Webpack-Complex-DOM -14 %); the others moved by up to 6 % either way,
+which is the noise of the container (they do not touch what changed).
+
+What the comparison showed:
+
+- I.K.E.'s own protections cost 2-4 % of the Speedometer score here (plain Qt
+  WebEngine 12.0, I.K.E. Off 12.3, Balanced 11.8, Strict 11.8, Maximum 11.7 in
+  one series of 5 iterations each). A gap of about 29 % against another
+  browser on the owner's computer cannot come from them; the engine's Chromium
+  version and its graphics path are the other candidates, to be checked on
+  that computer (chrome://gpu in I.K.E., `pacman -Q qt6-webengine`).
+- On the owner's computer (CachyOS, 2026-11-20; I.K.E. 1.1.17 as installed,
+  Speedometer 3.0, 10 iterations, compared with Brave on the same computer):
+
+  | Speedometer 3.0 | I.K.E., Dark Reader | Brave | I.K.E., engine dark mode |
+  |---|---|---|---|
+  | Score, mean | 20.51 | 29.02 | 33.29 |
+  | Score, iterations 2-10 | 20.90 | 29.58 | 33.88 |
+  | Best | 21.74 | 30.71 | 34.90 |
+  | First (cold) iteration | 16.98 | 23.91 | 28.06 |
+  | Geomean of the times | 48.97 ms | 34.63 ms | 30.16 ms |
+  | Async total | 647.35 ms | 489.06 ms | 223.99 ms |
+
+  The gap against Brave came from Dark Reader; with the engine's dark mode
+  I.K.E. scored 14.7 % above Brave there.
+- Page dark mode with Dark Reader costs much more: 1.1.18 Balanced with dark
+  mode on scored 6.12 with Dark Reader (Complex-DOM tests 2-7 times slower)
+  and 10.5 with the engine's own dark mode. Dark Reader watches every change of
+  a page by design; I.K.E.'s own part around it (darkmode.js) is small.
+- The main cost of the fingerprinting protection on DOM-heavy pages was its
+  MutationObserver on the whole document for the page's whole life (removing
+  it alone took the four DOM-heavy tests from 9.7 to 10.45); the hooks on
+  appendChild and the like cost little (about 0.3 microseconds a call), and
+  the innerHTML hook nothing measurable.
+- Per frame, the protection's script takes about 0.3 ms to install (4-5 ms in
+  the top page). At Strict and Maximum the font masks cost much more until
+  I.K.E. knows which fonts the computer has (the first 15 seconds of a new
+  profile, or after fonts change): the 30-frame page took 1.2 s instead of
+  0.4 s then; afterwards Strict and Maximum cost about 5 % more than Balanced.
+- The request checks run in the interface's thread (verified:
+  `QThread.currentThread()` inside `interceptRequest` is the application's
+  thread). Of what is left (about 33 microseconds a request), the Rust engine
+  is about a quarter; moving more of the checks into Rust would save a few
+  milliseconds per heavy page and duplicate security rules in two languages, so
+  it was not done.
+- Tabs at rest (a busy page with timers and 30 MB of data, all processes):
+
+  | Tabs | Active | Frozen | Suspended |
+  |---|---|---|---|
+  | 10 | 882 MB, 6.4 % | 851 MB, 1.1 % | 384 MB, 0.9 % |
+  | 20 | 1394 MB, 2.3 % | 1339 MB, 0.7 % | 401 MB, 1.0 % |
+  | 30 | 1912 MB, 2.2 % | 1828 MB, 1.6 % | 422 MB, 1.1 % |
+
+  The engine already slows hidden tabs down, so freezing saves little;
+  suspending gives back about 50 MB a tab. 1.1.18 therefore suspends earlier
+  only when the computer runs short of memory.
+
+### 1.1.18, final comparison (second pass)
+
+Same kind of container (4 cores, no GPU), `main` at 9a49196 (1.1.17 with the
+automation of #59, #62, #63) against this branch at 19f4684, 8 of the 11
+default lists read from one folder for both (EasyList Italy, the Malicious
+URL Blocklist and the EasyList Cookie List could not be reached), local pages
+only. Runs alternated old / new. Other agents compiled in the same container
+during the second round, so its absolute numbers are lower; only the
+alternated pairs are compared.
+
+Speedometer 3.1 (WebKit/Speedometer `release/3.1`, served locally, 3
+iterations a run, Balanced):
+
+| Page dark mode | 1.1.17 (round 1 / 2) | 1.1.18 (round 1 / 2) |
+|---|---|---|
+| none | 9.13 / 8.25 | 9.12 / 8.12 (same) |
+| the engine's own | 8.80 / 9.08 | 8.83 / 8.56 (within the noise) |
+| Dark Reader | 5.24 / 4.94 | 6.56 / 5.85 (+18-25 %) |
+
+`tests/measure_perf.py --runs 2` (round 1 / round 2):
+
+| Measure | 1.1.17 | 1.1.18 |
+|---|---|---|
+| Page with 400 requests: interface thread's processor time | 317 / 337 ms | 281 / 273 ms |
+| Its request checks | 19.0 / 16.1 ms | 12.6 / 14.6 ms |
+| Its load | 479 / 517 ms | 492 / 434 ms (noise) |
+| Shield redrawn for it | 4 / 4 | 3 / 3 |
+| Start-up cold, warm | 0.98-1.00, 0.63-0.65 s | 0.94-1.02, 0.64-0.71 s (same) |
+| Engine rebuilt, window frozen meanwhile | 300 ms, 20 ms | 290 ms, 20 ms (same) |
+| 30 frames, Off / Balanced / Strict / Maximum | 292-363 / 444 / 531-543 / 524-550 ms | 274-310 / 414-518 / 464-612 / 500-564 ms (noise, both ways) |
+| Processor at rest, 1 tab / 10 tabs | 4.5, 3.9 % / 0.75, 0.70 % | 1.5, 1.5 % / 0.75, 0.55 % |
+| Memory, all processes, 1 tab / 10 tabs | 550, 546 / 708, 703 MB | 540, 422 / 709, 621 MB (the second round of 1.1.18 is lower, not claimed) |
+
+The request checks while the engine is rebuilt in the background (after a
+list update), heavy page, 5 rounds of 6 loads, alternated: all checks of a
+load 24-35 ms -> 17-24 ms, the slowest single check 6-18 ms -> 1.8-2.5 ms
+(the Rust module no longer lets go of Python's lock for one check). The
+longest pause of the interface during such a load moved from 60-82 to
+75-108 ms in medians; per load the values overlap widely (42-134 ms either
+way), so no change is claimed for it.
+
+Many tabs (a "live" page: a timer changing the page every 100 ms, an
+animation, 2,000 objects of data; one window, all processes; same numbers
+for 1.1.17 and 1.1.18 within 1 %):
+
+| Tabs | Active | Frozen | Suspended | A suspended tab shown again |
+|---|---|---|---|---|
+| 10 | 598 MB, 20 % | 604 MB, 14 % | 437 MB, 2.6 % | 0.40 s |
+| 20 | 812 MB, 18 % | 808 MB, 11 % | 451 MB, 2.6 % | 0.40 s |
+| 30 | 1021 MB, 18.5 % | 1007 MB, 8 % | 461 MB, 2.8 % | 0.35 s |
+
+Processor time in those rows comes almost all from the tab in view. Ten
+live tabs in the background with an empty tab in view: 1.7 % in the first
+minute, then 0.0-0.1 % per minute for the next seven (the engine already
+slows hidden tabs down). Freezing tabs earlier would therefore save nothing;
+suspending gives back memory (about 19 MB a tab here), which 1.1.18 does
+earlier only when memory runs short.
+
+## 1.1.18, page dark mode with Dark Reader
+
+Where Dark Reader's cost came from (Speedometer 3.0 suites traced through
+the DevTools protocol: style recalculations with their element counts and
+causes, selector statistics, and the JavaScript profile inside the measured
+steps only):
+
+- **Whole-page restyles inside the steps.** Most of the extra time was the
+  engine styling every element of a page again, not Dark Reader's script:
+  - after a large change of the page, every style element added since Dark
+    Reader started counted as "moved" (its new neighbour was Dark Reader's
+    own copy of it) and its copy was rebuilt: Svelte-Complex-DOM, 118
+    rebuilds and 1,771 elements restyled in one step instead of 600;
+  - each colour seen for the first time became a new variable on `:root`,
+    which restyles everything (Charts-observable-plot 16 times,
+    React-Stockcharts-SVG 13, Editor-CodeMirror 54 in their steps);
+  - a page variable whose kind (background, text, border) Dark Reader learns
+    only later changes a `:root` rule of its copy: TodoMVC-Lit-Complex-DOM,
+    7,521 elements restyled when the first item (a shadow root with adopted
+    style sheets) appears, against 817 without Dark Reader.
+- **SVG shapes measured one at a time.** For every shape with a fill colour
+  Dark Reader reads its size right after changing the previous shape, so the
+  page is laid out again for each one: 40 % of Charts-observable-plot's
+  steps.
+- **The walk looking for shadow roots** asked a script function about every
+  element: 6.2 ms on a 9,000-element page; the same walk without it, 0.4 ms.
+- **More style sheets for every element.** Dark Reader adds a copy after
+  every style element of the page; each element is then matched against
+  twice as many sheets (the Complex-DOM pages have 416 identical style
+  elements inside SVG icons: their copies alone cost about 20 % of those
+  suites). This is how Dark Reader keeps the page's order of rules; the
+  first round left it as it is, the second round (`style-groups`, below)
+  shares one copy among identical style elements.
+
+Changes (build-time patches in `tools/build-darkreader.py`, each refused if
+a new engine no longer has the text it changes): `style-moves`,
+`color-variables` and `svg-sizes` remove the restyles and layouts above,
+`shadow-host-walk` the slow walk. The computed colours of a test page with
+every kind of content (`tests/test_darkreader.py::test_what_dark_reader_darkens`)
+are identical before and after.
+
+Speedometer 3.0, Balanced, dark mode on with Dark Reader, 5 iterations a
+run, runs alternated (container: 4 shared cores, no GPU):
+
+| | before | after |
+|---|---|---|
+| Score, pair 1 | 5.90 | 6.87 |
+| Score, pair 2 | 6.16 | 7.22 |
+| TodoMVC-Svelte-Complex-DOM | 236 / 233 ms | 71 / 60 ms |
+| Charts-observable-plot | 299 / 336 ms | 228 / 221 ms |
+| React-Stockcharts-SVG | 397 / 378 ms | 326 / 312 ms |
+| TodoMVC-Lit-Complex-DOM | 287 / 260 ms | 259 / 244 ms |
+
+On six of the heaviest suites (two more pairs, before / after / after
+without `color-variables`): 4.97 and 5.56 / 7.12 and 7.50 / 6.90 and 6.92;
+`color-variables` alone took Charts-observable-plot from 252 and 228 ms to
+224 and 210 ms. The other suites moved within the noise of the container.
+For reference, on the same container: no dark mode 10.9, the engine's own
+dark mode 10.5. `tests/measure_dom.py` (dark mode on) did not change (24.5
+and 25.4 before, 24.7 and 24.9 ms after): it times only the page's own
+script, and Dark Reader's work runs after it.
+
+Second round (same branch):
+
+- `style-groups`: identical style elements (same text, media, type and
+  title, in the same document or shadow root) share one Dark Reader copy,
+  placed after the last of them. All the originals give the same
+  declarations and all the copies the same changed ones, and a copy comes
+  right after its original, so the copy after the last original is the one
+  that wins in the cascade over the others and over any rule in between.
+  When the page adds, removes or moves members, the copy goes after the new
+  last one before anything is drawn; an element whose text, attributes or
+  rules change leaves its group and gets its own copy, as before. Test:
+  `test_identical_style_elements_share_one_copy` (seven phases of moves,
+  additions, removals, text and CSSOM changes, a different rule in between,
+  a media group, a shadow root); run on the version before, it passes every
+  colour check and fails only on the number of copies.
+- `shadow-texts`, `adopted-once`: the texts of the three style elements of
+  every shadow root are built once per theme and fix; a root's adopted
+  sheets are set once per render to the same final list. Dark Reader's
+  script in the "add 100 items" steps of WebComponents and Lit: 361 -> 283
+  profile samples; the suites' timings moved within the noise.
+- `image-selectors`: one search for all background-image selectors that
+  wait for a matching element, the per-selector search only when it finds
+  something (TodoMVC-jQuery: 55 samples in its steps).
+
+The computed colours, borders, fills, strokes and background images of every
+element (document and shadow roots, about 6,300 each) of the Lit, Svelte and
+WebComponents Complex-DOM pages, after adding 12 items, are identical with
+and without all the changes.
+
+Speedometer 3.0 after both rounds (this session's container was slower than
+the first one: the engine's own dark mode scored 8.66 here):
+
+| | before | after |
+|---|---|---|
+| Score, pair 1 | 5.75 | 7.01 |
+| Score, pair 2 | 5.69 | 6.73 |
+| TodoMVC-Lit-Complex-DOM | 267 / 280 ms | 164 / 187 ms |
+| TodoMVC-Svelte-Complex-DOM | 197 / 305 ms | 46 / 59 ms |
+| TodoMVC-JavaScript-ES6-Webpack-Complex-DOM | 287 / 224 ms | 190 / 191 ms |
+| TodoMVC-Angular-Complex-DOM | 117 / 117 ms | 93 / 97 ms |
+| Charts-observable-plot | 343 / 375 ms | 258 / 220 ms |
+| React-Stockcharts-SVG | 393 / 440 ms | 354 / 364 ms |
+
+Seven Complex-DOM suites alone, `style-groups` against the first round (two
+alternated pairs): 7.93 / 7.65 -> 9.37 / 9.93.
+
+What is left, and why:
+
+- a page variable whose kind is learned late (Lit) still restyles the whole
+  page once: the new value must reach every element (Lit 164-187 ms against
+  49 with the engine's dark mode);
+- every element with an inline colour or a fill gets Dark Reader's own
+  inline values, and SVG shapes must be measured to tell icons from
+  backgrounds (charts: about 1.9 times the engine's dark mode for
+  observable-plot, 1.35 for Stockcharts);
+- every change of a page is examined, and every shadow root gets three style
+  elements and its own watchers. They cannot be one constructed sheet
+  adopted by all roots: adopted sheets come after a root's own style
+  elements in the cascade, while Dark Reader puts its elements first, so a
+  page rule of the same specificity would lose where it now wins;
+- style sheets that are not identical still each get a copy.
+
 ## 1.1.17, before and after
 
 Same container (4 cores, no GPU), same commands: `tests/measure_perf.py`

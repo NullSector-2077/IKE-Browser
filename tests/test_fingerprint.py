@@ -74,8 +74,10 @@ PROBE = r"""<!doctype html><html><head><title>fp</title></head><body>
     R.worker = await new Promise(function (ok) {
       var src = "var c=null;try{var oc=new OffscreenCanvas(60,20),x=oc.getContext('2d');x.fillText('ike',2,10);" +
         "c=Array.from(x.getImageData(0,0,60,20).data).join(',').length}catch(e){c='e'}" +
+        "var g=null;try{var gc=new OffscreenCanvas(4,4).getContext('webgl'),gd=gc&&gc.getExtension('WEBGL_debug_renderer_info');" +
+        "g=gc?[gd?gc.getParameter(gd.UNMASKED_RENDERER_WEBGL):null,(gc.getSupportedExtensions()||[]).join(',')]:'none'}catch(e){g='e '+e}" +
         "postMessage([navigator.userAgent,navigator.platform,navigator.hardwareConcurrency,navigator.deviceMemory," +
-        "(navigator.languages||[]).join(','),c])";
+        "(navigator.languages||[]).join(','),c,g])";
       var w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
       w.onmessage = function (e) { ok(e.data); };
       w.onerror = function () { ok('worker error'); };
@@ -215,3 +217,15 @@ def test_scriptlets_do_not_change_fingerprint(run_ike, site, level):
     assert plain["worker"][0] == nav[0] and plain["frame"][1] == nav[0]
     if level == "balanced":                 # Maximum hides the graphics card's name
         assert "Direct3D11" not in plain["webgl"][3], plain["webgl"]
+    # 1.1.18: the card named to the site is a common model, without driver
+    # versions, the same in a worker; at Strict and Maximum no name at all
+    webgl, in_worker = plain["webgl"], plain["worker"][6]
+    if level == "balanced":
+        assert webgl[2].startswith("Google Inc. (") and webgl[3].startswith("ANGLE ("), webgl
+        assert not any(w in webgl[3] for w in ("LLVM", "DRM", "radeonsi", "SwiftShader")), webgl[3]
+        assert "WEBGL_debug_renderer_info" in webgl[5]
+        assert in_worker[0] == webgl[3], (in_worker, webgl)
+    else:
+        assert webgl[2] is None and webgl[3] is None, webgl
+        assert "WEBGL_debug_renderer_info" not in webgl[5]
+        assert in_worker[0] is None and "WEBGL_debug_renderer_info" not in in_worker[1], in_worker

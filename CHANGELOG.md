@@ -1,5 +1,148 @@
 # Changelog
 
+## 1.1.18
+
+Speed, measured before and after on the same computer (the numbers are in
+docs/review/tests-and-performance.md, "1.1.18, before and after"); no
+protection was removed or weakened.
+
+- **Pages that change a lot run faster with the shield on**: the
+  fingerprinting protection watched every change of every page for the whole
+  life of the page, to find new frames. It now watches while the page is being
+  built (where it is needed) and stops afterwards; the ways a frame can come
+  in later are guarded directly, and once the page is built every insertion
+  that may bring a frame looks at the frames of the page (an independent
+  review found that a frame removed and another added escaped the first
+  version; fixed, with its attack pages as tests). A page adding and removing thousands of
+  elements: 23.7 -> 17.6 ms at Balanced (11.5 ms with the shield off).
+- **Page dark mode with Dark Reader is lighter**: changes to how Dark
+  Reader's engine works (built in from its npm package, checked at every
+  update) stop it from making the browser restyle the whole page or lay it
+  out again for nothing (a style it took for moved, a colour variable set on
+  the whole page when a fallback already gives the same colour, SVG shapes
+  measured one at a time), let identical style elements (an icon repeated
+  with its own style) share one dark copy, and cut its work for every
+  shadow root. Pages look exactly the same. Speedometer 3.0 with Dark
+  Reader: 5.7 -> 6.9 on the same computer (Svelte-Complex-DOM 250 -> 52 ms,
+  Lit-Complex-DOM 273 -> 175 ms, observable-plot charts 359 -> 239 ms); the
+  engine's own dark mode stays the lightest.
+- **Frames added in more ways are protected**: a frame put into a page through
+  a Range (insertNode, surroundContents), a shadow root or execCommand gets the
+  same protection as the page at once. In 1.1.17 the Range and execCommand
+  ones showed the real canvas to the page's next lines.
+- **Less work in the window while a page loads**: the shield, its "+N" and
+  its ring are drawn once and reused instead of at every frame of their
+  animation; a blocked advert no longer tells every window at once (they hear
+  of it once per site every 16 ms, the shield still ends on the exact count).
+  A page with 400 requests and 150 adverts: 234 -> 190 ms of the interface's
+  processor time, request checks 17.0 -> 13.2 ms. The "+N" now repaints only
+  its own strip, not the address field under it.
+- **Request checks never wait for other work**: the AdBlock engine let go of
+  Python's lock for each check (a few microseconds), so whenever other Python
+  work ran in the background (the engine rebuilt after a list update) every
+  request of the page in view could wait up to 5 ms. It keeps the lock now:
+  while the engine is rebuilt, the slowest check of a heavy page went from
+  7-18 ms to about 2 ms and all its checks from 24-35 to 17-24 ms. Settings
+  read for every request (per-site levels and options) are looked up without
+  work when the user has none.
+- **The graphics card named to sites is a common one** (fingerprinting): at
+  Balanced each site gets one of eight Intel and NVIDIA models written exactly
+  as Chrome reports them on Linux, without driver versions, of the same maker
+  as the real card (an NVIDIA computer is told of an NVIDIA model, an Intel
+  one of an Intel model: the limits WebGL reports tell the maker anyway, and
+  another maker's name was a contradiction a script could see); AMD names, which
+  on Linux always carry the LLVM and DRM versions and so were very rare (an
+  "RX 580 ... LLVM 17.0.6, DRM 3.57" was one in 368,000 browsers on Cover
+  Your Tracks), are no longer used. WebGPU names the same card as WebGL
+  (vendor and architecture), in pages, frames and workers. At Strict and
+  Maximum no card is named at all: the WEBGL_debug_renderer_info extension is
+  hidden in every frame and worker (until now a model was shown there too,
+  although the code said it was hidden) and WebGPU stays off. Checked in 23
+  places a page can ask (frames of every kind, workers of every kind,
+  OffscreenCanvas, WebGL 1 and 2). Not reachable: a worker a site starts from
+  a file of its own (`new Worker("/w.js")`) sees the real values, as before;
+  Qt WebEngine gives no way to add a script to it.
+- **No page can read anything shared across sites** (found by an independent
+  review; present since the protection's first versions): a page that
+  replaced `Function.prototype.toString` could read the session's secret key,
+  the same on every site, so any site could recognise the browser session
+  everywhere without cookies; and the per-site noise came from a hash a page
+  could undo. The key now stays inside I.K.E.: each site gets its own values,
+  derived with SHA-256, and nothing a page can call ever receives a secret.
+  A test plays the attack on two sites.
+- **One Chrome version at Strict and Maximum** (owner's decision): JavaScript
+  gave the reduced version (140.0.0.0) while the client hints a site asked for
+  (Sec-CH-UA-Full-Version, Sec-CH-UA-Full-Version-List) carried the full one,
+  so a page saw two different versions. The headers now say 140.0.0.0 too;
+  only hints the engine already sends are changed, none is added. Balanced
+  still gives the engine's real full version everywhere.
+- **Workers of every kind get the protection**: a worker from a blob of any
+  type or size, a worker started by another worker, and a worker from a blob
+  address made inside a worker (they saw the real values).
+- **Pictures and scripts of other sites load on pages that send no
+  referrer**: on a page whose referrer policy is "no-referrer" or
+  "same-origin", the shield added a Referer anyway and the engine cancelled
+  every request to another site; now only a Referer the request carries is
+  cut to its own origin.
+- **Two request rules**: an http address of a sensitive service (Google
+  account, PayPal, Stripe's checkout) is still made secure; a service
+  worker's own request, which belongs to no page, is checked against the
+  filter lists at Balanced too (it went the "same site, free way").
+- **Tabs**: a tab counts as idle from the moment the user leaves it (a tab
+  looked at for half an hour was suspended at the next check after the user
+  left it); a tab of another workspace that plays sound or is loading is not
+  suspended.
+- **Hostile frames**: 23 ways a page can make or reach a new frame and use it
+  at once (srcdoc, outerHTML, replaceWith, `<object>`, document.write,
+  DOMParser, declarative shadow roots, cloneNode, moveBefore, a frame opened
+  or sent to a new page again...) were played against the protection: every
+  one gives the page's own protected values, never the real ones.
+- **YouTube: less of I.K.E.'s own on top of the filter lists** (the owner saw
+  YouTube's "ad blockers violate YouTube's Terms of Service" wall with
+  1.1.17; approved by the owner on 2026-11-20). I.K.E. did three things on
+  YouTube that neither uBlock Origin nor the lists do, two of them against
+  choices the lists' maintainers made on purpose because YouTube refuses
+  playback otherwise: its own rules blocked some of YouTube's own requests
+  the lists leave open (api/stats/atr, which uBlock un-blocked for that
+  reason, every api/stats/qoe request where the lists block one narrow form,
+  delayplay, get_midroll_ and error_204); its video-ad fallback hid
+  #player-ads and other boxes the lists keep visible on purpose; and an ad
+  that could not be sought was sent to its end over and over (about 1,200
+  jumps in three seconds in a local simulation; now one a second). Those
+  requests and boxes are now left to the lists; other companies' ad and
+  tracking hosts and YouTube's ad reports stay blocked, ads are still muted
+  and hidden while they play, and nothing is done to hide the blocker from
+  YouTube. Tested on local pages shaped like YouTube's player only:
+  youtube.com cannot be reached from the test machine, so whether the wall
+  is gone is checked on the owner's computer.
+- **Tabs when memory runs short**: with less than a tenth of the computer's
+  memory available, the tabs not looked at for five minutes or more are
+  suspended a few at a time, oldest first, before their usual time (each gives
+  back about 50 MB; 30 tabs: 1912 -> 422 MB when suspended). Nothing changes
+  with enough memory or with suspension turned off.
+
+Automatic maintenance and fixes (pull request #59; nothing of the browser):
+
+- An old "Automatic fix needs you" issue no longer stops every later fix of
+  `main`: only one naming the same failed commit, or reported in the last 24
+  hours. A daily maintenance that cannot reach an upstream source, or whose
+  new AdBlock engine does not build, becomes an issue instead of a fix of
+  `main`. A pending fix is no longer dropped for later runs that only skip.
+- The AI agent cannot write the repository's `.git`, and the runner runs git
+  on its work without any configuration the agent could have written; it
+  runs without the reserves' keys and without name lookups (DNS). Half-done
+  work of the agent is always thrown away.
+- Reserves: one model saying "not fixable" no longer stops the others (two
+  must agree); a malformed answer moves to the next model; nothing a model
+  writes can command the workflow.
+- Checks: tests can no longer be weakened by removing or renaming a test,
+  `assert True`, an early `return` or a changed reference file; YouTube's ad
+  blocking, the test packages and the build tools are never changed by an
+  automatic fix; Groq and OpenRouter keys are caught; a patch must apply.
+- The weekly health check also reports failed automatic fixes, missing reserve
+  keys, issues and maintenance pull requests waiting more than a week, and
+  `main` without branch protection.
+
 ## 1.1.17
 
 Security review (each point has a test that plays the attack on this computer).
