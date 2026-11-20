@@ -5,8 +5,11 @@ decisions, status) and CHANGELOG.md.
 
 - Talk to the owner in Italian: short, plain, no jargon. The owner is not a
   programmer. Repository documentation stays in English.
-- Arch Linux / CachyOS only. The multiplatform branches and pull requests
-  (#16, #14, #13, #11, #10) stay in standby: never touch or delete them.
+- Arch Linux / CachyOS only. The multiplatform pull requests (#16, #14, #13,
+  #11, #10) were closed on 2026-11-20 by the owner's decision; their branches
+  (windows/port, windows/engine, linux/packages, linux/flatpak,
+  linux/distro-checks, automation/audit, docs/multiplatform-plan) are the
+  archive: never delete them.
 - Priorities: simplicity, speed, protection, privacy. I.K.E. must run on old
   PCs (e.g. an Ivy Bridge i5-3570K) and on any graphics card (NVIDIA, AMD,
   Intel, old and new); the web engine chooses the GPU path, no forced flags.

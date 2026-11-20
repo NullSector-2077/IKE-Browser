@@ -47,7 +47,7 @@ profiles: `ike-browser --profile NAME`.
   lists, network and cosmetic filters, your own lists and filters.
   Lists update daily. YouTube video ads are removed from the player data, with
   an automatic skip as a fallback.
-- **Same site, free way**: at Balanced, a site's own requests are not checked
+- **Same site, free way**: at Compatibility and Balanced, a site's own requests are not checked
   against the filter lists (as Brave's standard mode): faster pages and fewer
   broken sites, while other companies' ads and trackers stay blocked. Strict
   and Maximum check everything; YouTube is always checked.
@@ -55,9 +55,11 @@ profiles: `ike-browser --profile NAME`.
 - Fingerprinting protection: values that identify the computer change from site
   to site and from session to session — canvas, WebGL, audio, plugins, number of
   CPU cores, WebGL extensions, and the graphics card (at Balanced a common
-  Linux model chosen per site, never the real one; at Strict and Maximum no
-  name at all). The browser presents the Chrome version of its own
-  engine, so what a site reads always matches what it can test.
+  model of the same maker chosen per site instead of the exact one; at Strict
+  and Maximum no name at all). The browser presents the Chrome version of its
+  own engine, so what a site reads always matches what it can test (at Strict
+  and Maximum only its major number, 140.0.0.0, in JavaScript and headers
+  alike).
 - Automatic HTTPS, encrypted DNS (DNS over HTTPS), third-party cookie blocking,
   reduced referrer, Global Privacy Control.
 - **Sosia (lookalike warning)**: when an address imitates a famous site
@@ -161,7 +163,8 @@ I.K.E. has no servers of its own and sends no telemetry. It contacts only:
 
 ## Updates
 
-- Filter lists and the presented Chrome version update themselves daily.
+- Filter lists update themselves daily; the presented Chrome version is the
+  web engine's own, so it changes when the system's `qt6-webengine` does.
 - The web engine updates with the system (`sudo pacman -Syu`).
 - I.K.E. itself updates by itself from the latest GitHub release, signed with
   the project's key and checked before use, the AdBlock engine included
@@ -169,7 +172,8 @@ I.K.E. has no servers of its own and sends no telemetry. It contacts only:
   see [docs/UPDATES.md](docs/UPDATES.md).
 - The components inside I.K.E. — the AdBlock engine and the uBlock Origin
   scriptlets — are checked for new versions every day by GitHub Actions, which
-  prepares a tested candidate release for the owner to approve
+  prepares a tested candidate release; it is merged once its tests are green,
+  then signed and published by the owner
   ([docs/MAINTENANCE.md](docs/MAINTENANCE.md)).
 
 ## Repository layout

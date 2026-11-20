@@ -6,7 +6,9 @@
   outside any banner is left alone. Its looks are now one query, without
   layout work, in the page's idle time.
 - I.K.E.'s own rules block the telemetry of YouTube and Google that the lists
-  let through, and never what the page needs (history, video servers).
+  let through, and never what the page needs (history, video servers, and
+  since 1.1.18 the requests the lists keep open on purpose: qoe, atr,
+  delayplay, error_204, get_midroll).
 - Persistent profiles get a large disk cache.
 - The package and the AdBlock engine run on every x86_64 processor, old ones
   too, whatever processor builds them.

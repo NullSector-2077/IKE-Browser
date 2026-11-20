@@ -1,9 +1,10 @@
 # Automatic maintenance
 
-GitHub Actions keeps I.K.E. up to date and prepares the fixes. The owner only
-**approves** (merges a pull request) and **signs and publishes** (one command on
-the owner's computer, [UPDATES.md](UPDATES.md)). Nothing is merged, released or
-signed automatically, and no workflow ever writes to `main`.
+GitHub Actions keeps I.K.E. up to date and prepares the fixes. A pull request
+is merged only once its tests are green, by the owner or by Claude working in a
+session for the owner (CLAUDE.md); the owner alone **signs and publishes** (one
+command on the owner's computer, [UPDATES.md](UPDATES.md)). No workflow merges,
+releases or signs anything, and no workflow ever writes to `main`.
 
 ## What runs by itself
 
@@ -13,6 +14,7 @@ signed automatically, and no workflow ever writes to `main`.
 | Every day, 06:17 UTC | The updates applied to a candidate built from current `main` | `daily-maintenance.yml` | Branch `automation/daily-maintenance`, draft PR labelled `maintenance` |
 | On every PR, every push to `main`, every candidate or fix | Lint, all the tests, the Arch package and its tests | `tests.yml` | Checks on the PR, package download `ike-browser-package` |
 | When one of the three above fails | An automatic fix | `autofix.yml` | Draft PR labelled `autofix`, or an issue "Automatic fix needs you" |
+| Mondays, 03:41 UTC | The whole suite and the package on Arch Linux's own Qt (`archlinux:latest`) | `arch.yml` | A failed run to look at (not a required check, no automatic fix) |
 | Mondays, 07:41 UTC | The automation itself | `health.yml` | Issue "Automation health" when something stopped or waits too long |
 | Once a month | New versions of the GitHub actions used | Dependabot | One PR labelled `maintenance` |
 

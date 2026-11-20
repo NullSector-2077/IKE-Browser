@@ -1,13 +1,14 @@
 # Roadmap
 
-I.K.E. starts at 1.0.0 for Arch Linux and CachyOS. Versions go up in order
-(1.0.1, 1.0.2, …); maintenance releases prepared by GitHub Actions raise the
-last number. Decisions below are agreed with the project owner; do not reopen
-them without asking.
+I.K.E. is a browser for Arch Linux and CachyOS. Versions go up in order
+(1.1.17, 1.1.18, …); maintenance releases prepared by GitHub Actions raise the
+last number. The history of every version is in CHANGELOG.md. Decisions below
+are agreed with the project owner; do not reopen them without asking.
 
 ## Working rules
 
-- Discuss changes before writing code; the owner gives the go-ahead.
+- Plans are agreed with the owner first; once a plan is approved, the work
+  is carried through without asking again (see CLAUDE.md).
 - Small, targeted changes; do not rewrite what already works.
 - Security and features have the same priority: no feature removed, ad
   blocking and fingerprinting protection never weakened, no general
@@ -18,8 +19,8 @@ them without asking.
 - Each step goes on its own branch with a pull request whose base is `main`
   (no pull requests stacked on other pull requests). Since 2026-11-18 Claude
   merges pull requests by itself once GitHub Actions is green; signing and
-  publishing stay with the owner (see CLAUDE.md). The repository is public: never commit
-  personal data, keys or secrets.
+  publishing stay with the owner (see CLAUDE.md). The repository is public:
+  never commit personal data, keys or secrets.
 - The private signing key stays with the owner: never in the repository, in a
   package or on GitHub Actions.
 - Test on the real browser (headless PyQt6 + Qt WebEngine) with the existing
@@ -57,335 +58,56 @@ them without asking.
   other companies' trackers stay blocked), so
   anti-abuse checks never refuse the user.
 
-## Now: Arch Linux / CachyOS
+## Owner's decisions
 
-1.0.0 is the base: the browser, its protections, the signed self-update and
-the daily component maintenance on GitHub Actions, for Arch-based systems only.
+- **Arch Linux / CachyOS only** (2026-11-17). Other Linux distributions and
+  Windows were suspended, and on 2026-11-20 their pull requests (#10, #11,
+  #13, #14, #16) were closed; the branches stay as the archive and are never
+  deleted: `windows/port`, `windows/engine`, `linux/flatpak`,
+  `linux/packages`, `linux/distro-checks`, `automation/audit`,
+  `docs/multiplatform-plan`. Their Arch container check now runs weekly on
+  `main` (`.github/workflows/arch.yml`).
+- One change at a time, each tried by the owner on CachyOS. Menus, settings
+  and navigation are not reorganised, and YouTube ad blocking is not changed,
+  without asking.
+- I.K.E. runs on old computers (e.g. an Ivy Bridge i5-3570K) and any graphics
+  card; the web engine chooses the GPU path, no forced flags.
+- The update check runs once every 24 hours; every signed release reaches
+  every user by itself (rule above).
+- At Strict and Maximum Chrome's version is the reduced one (140.0.0.0) in
+  JavaScript and in the client hints alike (2026-11-20).
+- Filter lists without a licence are not shipped (one was removed in 1.1.18,
+  CHANGELOG).
+- Android would be a separate project (Qt WebEngine does not exist there).
 
-Direction from the owner (2026-11-17): I.K.E. grows as an Arch Linux /
-CachyOS browser only, one installable version at a time, each tried by the
-owner on CachyOS before the next.
-- The base is `main`; every version gets its own branch and pull request.
-- 1.1.2: the Slavic languages and the engine's formats in About (from the
-  earlier `ike-1.1.1` / `ike-1.1.2` branches) and the Cyber theme removed.
-- Then the look improves gradually: **one change at a time** — proposed
-  briefly, approved by the owner, done alone, delivered as a package, judged
-  on the real system. No restyling decided alone, no replacement theme.
-- Menus, settings and navigation are not reorganised for now: the owner will
-  look at them himself later.
-- New features only with a concrete use, compatible with the architecture and
-  never at the cost of speed, stability, security or privacy. The ad blocker
-  is not touched for now.
+## Status
 
-## Next
+- 1.1.18 (speed without less protection, privacy fixes from an independent
+  review, YouTube, automation, licences) is merged into `main` and waits for
+  the owner's signature (`python3 tools/publish.py`).
+- The owner checks the YouTube anti-adblock notice on CachyOS with 1.1.18.
 
-Plan approved by the owner on 2026-11-16. It joins the owner's "master
-roadmap" (phases 0–14: brand, interface, toolbar, shield, link preview bar,
-new-tab background, code review, security audit, platforms, component manager,
-Windows codecs, porting plan, tests, final review) with the earlier list.
-Versions go up by one per session: 1.0.1, 1.0.2, 1.0.3. In every session the
-tests cover what it changes (phase 13), CHANGELOG.md and docs/TESTING.md are
-updated, and the work goes on one branch with one pull request to `main`. When
-an earlier version is not merged yet, the next branch starts from it, so its
-pull request also contains the earlier one; the owner merges them in order.
+## Open work
 
-Principles for every session (from the owner):
-- Do not overturn the existing interface. Every customisation keeps working
-  (interface themes, colours, fonts) and I.K.E. keeps following the system
-  theme (Plasma / Breeze): no own palette, no fixed colours; new elements use
-  the existing theme system; existing settings are never reset.
-- No heavy effects, no needless dependencies; the Rust core, ad blocking and
-  fingerprinting protection are never weakened; security is never traded for
-  compatibility.
-- Document every important change.
-
-### 1.0.1 — clean-up and brand (done, waiting for the owner)
-
-Branch `ike-1.0.1`. Done and tested:
-
-1. The one-time import is removed (`ike/legacy.py`, its calls, its test, the
-   old-vault fallback, `conflicts` / `replaces`).
-2. Brand: the logo, every icon size and the new tab page show "I.K.E" and
-   "Internet Kontrol Experience", lettered in Orbitron (OFL, licence in
-   `licenses/`) and drawn as paths by `tools/make-brand.py`; the font is not
-   shipped and the interface fonts are unchanged.
-3. The toolbar's shield is drawn 18% larger inside the same button, as shapes
-   (sharp at every scale).
-4. No link preview bar; the status bar stays for zoom and toolbar messages.
-
-`__min_system__` is 1.0.1: the icons installed under `/usr/share/icons`
-changed, so 1.0.0 announces this release instead of self-updating (the owner
-may put it back to 1.0.0 before signing if a stale menu icon is acceptable).
-
-### 1.0.2 — toolbar, interface polish, new-tab background (done, waiting for the owner)
-
-Branch `ike-1.0.2` (contains 1.0.1). Done and tested:
-
-1. Toolbar. Cause of the unreliable moving: the toolbar was rearranged while
-   the button was dragged, and QToolBar builds a new button each time an
-   action is inserted, so the button receiving the mouse events was destroyed
-   at the first step (the drag stopped, the button landed in a wrong place,
-   nothing was saved, and the new button could not be dragged). Now
-   `ike/toolbar.py` holds one description of the arrangement
-   (`ToolbarLayout`) and `ToolbarMover` shows a marker during the drag and
-   applies the move once, on release. QToolBar is kept (it can do this).
-   "Customise toolbar" mode, reset to default, the long press kept. Buttons
-   that do not fit a narrow window go under a » button, so the address bar,
-   the menu and the window buttons stay in view at every width and scale.
-2. Interface effects in `ike/effects.py`: menus and the shield panel fade in,
-   gliding hover of the close buttons, smooth loading line, loading mark on
-   tabs; setting `ui_effects`; off with the desktop's reduced motion; no
-   measurable cost. Icons were left as they are: their uniformity can only be
-   judged on a real Plasma session.
-3. New-tab background photo in `ike/newtabbg.py`.
-
-### 1.0.3 — code review and security audit (done, waiting for the owner)
-
-Branch `ike-1.0.3` (contains 1.0.1 and 1.0.2). The report is in
-[docs/review/](docs/review/README.md): one finding rated High (a page opened
-from a file could read any other file), four Medium, ten Low, all fixed with
-regression tests; eleven open issues, none above Medium, three of which need a
-decision of the owner (Widevine integrity and updates, when saved passwords
-are filled, CRX signatures). The plan that was followed:
-
-
-1. **Code review of the whole project** (Python modules, Rust core,
-   Python ↔ Rust interface, configuration, dependencies, interface, packaging,
-   workflows, tests): duplicated or unused code, overloaded classes and
-   modules, needless dependencies, unused imports and variables, incomplete
-   error handling, possible leaks, costly or repeated operations, blocking
-   loads, concurrency, Qt signals and widget lifetimes, tight coupling,
-   Python / Rust mismatches. Write the findings first; change only what has a
-   technical reason; keep internal APIs and settings compatible. Performance:
-   start-up, tab opening, memory, CPU, page loading measured before and after;
-   no optimisation claimed without a measurement.
-2. **Security audit** (a review, not only automatic scanning):
-   - Qt WebEngine / Chromium: real version and security state, sandbox,
-     process isolation, TLS certificates, permissions, local files,
-     JavaScript settings, local APIs, custom schemes, harmful content, any
-     setting that turns a protection off. The sandbox is never disabled to fix
-     compatibility (the CI runner is the only exception, as now).
-   - Python ↔ Rust: FFI, memory, input validation, deserialisation, error
-     handling, crashes, trust boundaries.
-   - Ad blocking and fingerprinting: filter robustness, list updates, rule
-     integrity, bypasses, exceptions, tracker protection, consistency,
-     breakage of sites.
-   - Downloads, cookies, cache, profiles, local storage, passwords,
-     permissions, sensitive data, clearing browsing data, opening external
-     applications, URL handling.
-   - Dependencies (Python, Rust, Qt, Chromium, bundled components): known
-     vulnerabilities from official advisories, outdated or unmaintained
-     packages, licences, needless components.
-   - Findings rated Critical / High / Medium / Low; fix what can be fixed
-     safely, with regression tests run locally (never against third-party
-     sites). Never call the browser 100% secure; open issues and the limits of
-     the audit are written down.
-3. **Final review** (phase 14) of the whole repository after these changes:
-   errors introduced, untidy or duplicated code, security, crashes, packaging;
-   check that the visual changes broke nothing; fix what is safe and run the
-   affected tests again.
-4. **Report** in `docs/review/` (English, new files only): initial state,
-   architecture, changes and files, toolbar problems found and fixed, visual
-   changes, link preview bar, clean-up results, optimisations, audit results,
-   fixed and still open vulnerabilities, compatibility, dependencies, Linux
-   and Windows strategy, component manager, codecs and licences, tests run,
-   tests that could not be run, performance, remaining work, next phases.
-
-### Platform study (documents only: no version, no code) (done, waiting for the owner)
-
-Branch `docs/platform-study` (contains 1.0.3). Written in
-[docs/platforms/](docs/platforms/README.md). Main results: I.K.E. needs Qt
-WebEngine 6.8 or later (Arch / CachyOS, Debian 13, Ubuntu 26.04, Fedora 43+
-have it; Debian 12, Ubuntu 24.04 and Mint 22 do not); nothing inside Qt
-WebEngine can be downloaded separately, codecs are fixed when it is built;
-the proposed order is AUR, checks on each distribution's own Qt, Flatpak,
-DEB and RPM, Windows last. Nothing was tried on those systems: what is still
-to verify is marked. The plan that was followed:
-
-
-In `docs/platforms/` (English), citing the official sources used:
-- **Linux** — Arch / CachyOS, Debian, Ubuntu, Linux Mint, Fedora: Python, Qt
-  and Qt WebEngine versions, system and multimedia libraries, fonts,
-  certificates, hardware acceleration, Wayland / X11, PipeWire, ABI, native
-  dependencies; realistic minimum versions. DEB, RPM, PKGBUILD, AppImage and
-  Flatpak compared on size, maintenance, security, updates, dependencies and
-  compatibility; a concrete strategy (not the easiest format by default).
-- **Component manager** (Linux and Windows): what can really be separated
-  from Qt WebEngine and how it is loaded; detection, compatible versions,
-  download, integrity (signed manifests, SHA-256, TLS, pinned versions),
-  atomic installation, update, repair, roll-back, no unauthorised downgrades,
-  no unverified binaries, the user's folder without admin rights, no SDKs for
-  the user. Native (distribution packages) versus self-contained; never mix
-  system Qt with downloaded Qt.
-- **Windows**: Qt runtime, Qt WebEngine, helper processes, Chromium
-  resources, Visual C++ runtime, official Qt deployment tools, optional
-  components, repeatable and verifiable builds. Codecs: whether Qt WebEngine
-  can use Windows' own decoders (Media Foundation, H.264, audio) — Qt
-  Multimedia using Media Foundation does not mean Qt WebEngine does; Qt
-  WebEngine decodes through its own FFmpeg and needs proprietary codecs
-  enabled when it is built — to be verified. A matrix: redistributable /
-  usable through the system / needs checks or a licence / must not be shipped,
-  for Qt, Chromium, FFmpeg, proprietary codecs and patents (also by
-  territory). No definitive legal statements.
-- **Porting plan** per platform (Arch / CachyOS, Debian, Ubuntu, Mint,
-  Fedora, Windows): dependencies, format, Qt WebEngine strategy, component
-  manager, codecs and media, updates, signing and integrity, tests needed,
-  problems to solve, technical complexity; what already works versus what
-  needs changes. A platform is not "done" because the code looks compatible.
-
-### 1.1.0 — the Cyber theme, new-tab tiles, monthly counter (done, waiting for the owner)
-
-Branch `ike-1.1.0` (starts from `docs/platform-study`). The design was agreed
-on a shared canvas before any code. Rule of the whole version: **"Follow the
-system" stays the default and behaves exactly as before**; everything "Cyber"
-is one optional theme of I.K.E.'s own, drawn with what is already there (Qt
-Widgets, QPainter, the HTML of the new tab page) — no new library, no blur
-behind the window. No existing setting is reset or changes meaning.
-
-1. **Counter per month.** The new tab page shows the trackers and ads blocked
-   in the current month and in the month before; it starts again on the first
-   of the month. The all-time total goes on being counted (`blocked_total`)
-   and can be chosen instead. Setting `blocked_counter` (`month` | `total`).
-2. **Site tiles on the new tab page**, between the search field and the
-   counter: the user's bookmarks or the most visited sites (local history
-   only), or none; site icon or initial; a tile to add one; a tile can be
-   hidden without deleting anything. Setting `newtab_tiles`
-   (`bookmarks` | `visited` | `none`). Titles and addresses are untrusted
-   text: escaped, web addresses only — with an attack test.
-3. **The "I.K.E. Cyber" theme**: a ready-made theme (dark, one accent colour)
-   with a look of its own — cut corners, thin luminous lines, a grid on the
-   new tab page when there is no photo. Options, shown only with this theme:
-   accent colour, shape of the tabs, glow, cut corners. The other ready-made
-   and custom themes stay.
-4. **Tab shapes of the Cyber theme**, horizontal and vertical, chosen by the
-   user: *Smusso* (one cut corner, line above the current tab), *Lama*
-   (slanted sides, line below), *Mirino* (no fill, the current tab between
-   two brackets). Dragging, closing, groups, sound and the loading mark work
-   as before. With "Follow the system" the tabs are the desktop's.
-5. **Light effects**, all under the existing "Interface effects" switch and
-   off when the desktop asks for no animations: the accent line glides to the
-   new current tab; the address field lights up on focus; tabs open and
-   close with a short slide; the shield pulses once when it blocks; the
-   counter counts up when the new tab opens; a lit corner on hover.
-6. **Small things**: an equaliser on a tab that plays sound; the tab preview,
-   group colour, download ring, menus and shield panel in the Cyber look; the
-   site's domain emphasised in the address field; a short fade when the theme
-   changes.
-7. **Clear options and a clear suggestion.** Settings → Appearance shows the
-   theme choice first, "Follow the system" marked as the default and "I.K.E.
-   Cyber" as recommended; the new tab page suggests the Cyber theme once,
-   with "Try it" and "Not now", and it is one click to go back.
-8. Dropped on purpose: a live trace of blocked requests under the toolbar (it
-   would distract).
-9. Tests for each part (shapes drawn at several sizes and scales, drag and
-   close with the Cyber tabs, month roll-over with a fixed clock, tiles with
-   hostile titles, nothing changed with "Follow the system"); processor time
-   at rest and in use measured against 1.0.3; translations in the seven
-   languages; package built and tested.
-
-### Status
-
-- 2026-11-16: plan written.
-- 2026-11-16: unattended session started. 1.0.1 finished on branch
-  `ike-1.0.1` (pull request #5, 129 tests passed, package built and tested).
-- 1.0.2 finished on branch `ike-1.0.2` (146 tests passed, package built and
-  tested); next is 1.0.3 on `ike-1.0.3`. Noted for the 1.0.3 audit: web
-  pages can load `ike:logo` and frame `ike:newtab` (a way to recognise the
-  browser); settings of the wrong type are not checked when read.
-- 1.0.3 finished on branch `ike-1.0.3` (172 tests, package built and
-  tested; report in `docs/review/`, pull request #7).
-- Platform study finished on branch `docs/platform-study` (documents only).
-  Everything of this plan is done and waits for the owner: review, merge
-  (#4, #5, #6, #7, then the study), sign and publish. Nothing was merged,
-  signed or published by the unattended session.
-- 1.1.0 on branch `ike-1.1.0` (plan above approved): every point of the plan
-  is written and tested except two, left out and said so in the changelog —
-  tabs do not slide when they open and close, and menus have square corners,
-  not cut ones. Nothing of it was seen on a real Plasma session yet: the
-  owner's eye decides whether it looks right.
-
-- 2026-11-17: 1.1.2 on branch `arch/1.1.2` (Slavic languages, engine
-  formats in About, Cyber theme removed); waits for the owner's test.
-- 2026-11-17: 1.1.3 on branch `arch/1.1.3` (from 1.1.2): the modern touches
-  the owner chose from the proposed list (tabs, address bar, bars, new tab
-  page; left out: bouncing buttons, the counting-up counter, the shield
-  panel sliding in) and new-tab tiles sixteen per row, up to 32. Waits for
-  the owner's test on Plasma.
-- 2026-11-17: 1.1.4 on branch `arch/1.1.4` (from 1.1.3): Dark Reader as its
-  extension uses it (lists, proxy in the page's world, detector, scripts of
-  the profile, daily maintenance), zoom per site, autoplay blocking, site
-  panel, command bar (F2), own error pages, mouse gestures (off by default).
-  Waits for the owner's test.
-- 2026-11-17: 1.1.5 on branch `arch/1.1.5` (from 1.1.4): shield pulse and
-  bars, downloads window, engine icon in suggestions, reader mode themes and
-  text size. Tab group labels left out (they would touch the tab bar's
-  dragging and order). Waits for the owner's test.
-- 2026-11-17: 1.1.6 on branch `arch/1.1.6` (from 1.1.5): address field as
-  before, 24-pixel toolbar icons, Phosphor Bold, translate in the address bar
-  and bookmark on the toolbar, maximize/restore sign and hover circles, moving
-  download arrow, edge line, smooth scrolling. Waits for the owner's test.
-- 2026-11-17: 1.1.7 on branch `arch/1.1.7` (from 1.1.6): address bar 50 %,
-  messages in a pill, find bar, shield "+N", site icons in the panels, Settings
-  fade, new tab page buttons (Settings, background photo) and clock at the
-  bottom right. Next to discuss: a strategy for Manifest V3 extensions that do
-  not install.
-- 2026-11-17: 1.1.8 on branch `arch/1.1.8` (from 1.1.7): I.K.E.'s own picture as
-  the default background of the new tab page, with a "Default" button in
-  Settings. Next: a plan for Manifest V3 extensions that do not install.
-
-- 2026-11-20: 1.1.18 on branch `perf/1.1.18-optimization` (optimisation
-  without less protection, measured: docs/review/tests-and-performance.md)
-  and automation fixes on `automation/1.1.18-chain` (pull request #59).
-  The owner approved the graphics-card proposal (2026-11-20), set the branch
-  protection of `main` and sent chrome://gpu and the qt6-webengine version;
-  for page dark mode the owner asked that Dark Reader be made as light as the
-  engine's own dark mode rather than changing the default (work going on).
-
-### Also planned
-
-- **AUR**: publish I.K.E. on the Arch User Repository — when the owner says it
-  is time.
-- **Licence**: GPL-3.0-or-later for now; the owner may decide to change it.
-
-## Later
-
-- Other Linux distributions and Windows: **suspended** by the owner on
-  2026-11-17, not abandoned. The work done is kept untouched on its branches —
-  `windows/port`, `windows/engine`, `linux/flatpak`, `linux/packages`,
-  `linux/distro-checks`, `automation/audit`, `docs/multiplatform-plan` (also
-  `ike-1.1.1`, `ike-1.1.2`, whose content is in 1.1.2) — and may be taken up
-  again later. Note: the Slavic translations on those branches still hold the
-  Cyber strings removed in 1.1.2.
-- Android: a separate project. Qt WebEngine does not exist on Android, so it
-  would need Android's WebView and a rework of ad blocking, fingerprinting
-  protection and user scripts.
+- **Workers started from a file**: `experiment/file-workers` (see Known
+  limits); merged only if the owner wants it, probably as an option.
+- **Dark Reader**: the early plain background could leave from inside
+  `<head>` to avoid one whole-page restyle (unfinished, untested work on
+  `handover/perf/1.1.18-darkreader-3`).
+- **Privacy items of the 1.1.18 review left for later**: canvas and audio
+  noise that a page can remove, font masking, pages that can tell I.K.E. from
+  stack traces, a home-made public-suffix list, re-encoded tracking-parameter
+  clean-up, impossible combinations at Strict and Maximum (screen,
+  languages).
+- A pinned daily `cargo audit` of the Rust crates of the AdBlock engine.
+- **AUR**: publish I.K.E. there when the owner says it is time.
 
 ## Starting a new session
 
-The owner opens a new conversation, attaches this repository and pastes this
-prompt, replacing `<TASK>` and `<VERSION>` (for unattended work, add: "il piano
-è già approvato, lavora da solo senza chiedere il vai, fai commit e push
-spesso"):
-
-```
-Ciao! Lavoriamo a I.K.E. Browser, repository GitHub NullSector-2077/IKE-Browser
-(pubblico). Collegalo a questa sessione e leggi prima README.md, CHANGELOG.md,
-docs/TESTING.md, docs/UPDATES.md, docs/MAINTENANCE.md e soprattutto
-ROADMAP.md: lì ci sono la lista dei lavori, le decisioni già prese e le regole
-di lavoro.
-
-Oggi facciamo: <TASK> (versione <VERSION>).
-
-Segui le regole di lavoro della ROADMAP. Prima di scrivere codice dimmi cosa
-farai e aspetta il mio "vai". Alla fine consegnami
-ike-browser-<VERSION>-1-x86_64.pkg.tar.zst costruito dal PKGBUILD e guidami
-passo passo a firmare e pubblicare la release.
-
-Il mio sistema: CachyOS, KDE Plasma 6 su Wayland, shell fish, terminale
-Konsole. Il comando di installazione deve puntare a
-"/mnt/CachyStorage/D O W N L O A D/". Rispondimi in italiano, in modo breve e
-chiaro.
-```
+The owner opens a new conversation with this repository attached and asks
+for the task in Italian. Claude reads CLAUDE.md, README.md, this file and
+CHANGELOG.md first, and docs/TESTING.md, docs/UPDATES.md and
+docs/MAINTENANCE.md when the task touches them.
 
 ## Known limits to keep in mind
 
@@ -411,8 +133,14 @@ chiaro.
 - The graphics card presented to sites at Balanced is a common Intel or NVIDIA
   model; a script comparing rendering with the model could notice the
   mismatch. At Strict and Maximum no model is named.
-- The bundled Dark Reader page dark mode is not reliable; Qt's own dark mode
-  works and is the one to use.
+- Page dark mode with Dark Reader costs more than the engine's own dark mode
+  (it rewrites the page's style sheets): measured in
+  docs/review/tests-and-performance.md; the engine's dark mode is the lighter
+  choice.
+- A worker a site starts from a file of its own (`new Worker("/w.js")`) sees
+  the real values (graphics card, cores): Qt WebEngine gives no way to add a
+  script to it. A partial way around it is on the branch
+  `experiment/file-workers`, waiting for the owner's decision.
 - The ad-blocking engine is adblock-rust (Brave's open-source library, MPL-2.0)
   with uBlock Origin / EasyList filter lists and uBlock Origin scriptlets; the
   integration around them is I.K.E.'s own.

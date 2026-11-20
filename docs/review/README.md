@@ -1,5 +1,10 @@
 # Review of I.K.E. 1.0.x (November 2026)
 
+> A snapshot of 1.0.x, kept as written then: much of what it lists as open was
+> done in later versions (CHANGELOG.md). `tests-and-performance.md` also holds
+> the measurements of later versions. Current open work and decisions:
+> [ROADMAP.md](../../ROADMAP.md).
+
 This folder is the report of the work planned in [ROADMAP.md](../../ROADMAP.md)
 for versions 1.0.1, 1.0.2 and 1.0.3: a clean-up, the toolbar and interface
 work, a review of the whole code and a security audit.
