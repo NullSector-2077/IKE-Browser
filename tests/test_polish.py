@@ -366,6 +366,10 @@ def steps(ike, qapp, out):
     view = win.current_view()
     yield from load(view, SITE + "/article")
     yield 1200
+    # one more advert once the page is in view: a block that comes while the
+    # tab still shows the address it is leaving cannot open the ring
+    view.page().runJavaScript("new Image().src = 'http://ads.example.test/late.png'; 1")
+    yield 1200
     # the page asked for an ad: the shield blocked it and its ring opened once
     out["pulse"] = [win.shield_pulse.fired, ike.shields.site_stats("127.0.0.1")["ads"]]
     win.shield_pulse.fire()
