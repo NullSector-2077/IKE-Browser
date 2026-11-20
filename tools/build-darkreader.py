@@ -653,6 +653,134 @@ PATCHES = [
                 return;
             }
 """),
+    # Every shadow root gets the same three style elements; the texts of the
+    # first two (Dark Reader's inline-style rules and the site's fix with its
+    # colours worked out) were built again for every root. They are built once
+    # for a theme and a fix.
+    ("shadow-texts", """\
+    function createShadowStaticStyleOverridesInner(root) {
+        const inlineStyle = createOrUpdateStyle("darkreader--inline", root);
+        inlineStyle.textContent = getInlineOverrideStyle();
+        root.insertBefore(inlineStyle, root.firstChild);
+        const overrideStyle = createOrUpdateStyle("darkreader--override", root);
+        overrideStyle.textContent =
+            fixes && fixes.css ? replaceCSSTemplates(fixes.css) : "";
+""", """\
+    // I.K.E.: the same texts for every shadow root of a theme and a fix
+    let ikeShadowTextCache = null;
+    function ikeShadowTexts() {
+        const css = fixes && fixes.css ? fixes.css : "";
+        const cache = ikeShadowTextCache;
+        if (cache && cache.theme === theme && cache.css === css) {
+            return cache;
+        }
+        ikeShadowTextCache = {
+            theme,
+            css,
+            inline: getInlineOverrideStyle(),
+            override: css ? replaceCSSTemplates(css) : ""
+        };
+        return ikeShadowTextCache;
+    }
+    function createShadowStaticStyleOverridesInner(root) {
+        const inlineStyle = createOrUpdateStyle("darkreader--inline", root);
+        inlineStyle.textContent = ikeShadowTexts().inline;
+        root.insertBefore(inlineStyle, root.firstChild);
+        const overrideStyle = createOrUpdateStyle("darkreader--override", root);
+        overrideStyle.textContent = ikeShadowTexts().override;
+"""),
+    # A shadow root's (or the document's) adopted style sheets were set again
+    # for every sheet Dark Reader added and once more to take its copies away
+    # first; they are now set once, to the same final list.
+    ("adopted-once-inject", """\
+        function injectSheet(sheet, override) {
+            const newSheets = isFirefox
+                ? getAdoptedSheets(node)
+                : [...node.adoptedStyleSheets];
+""", """\
+        // I.K.E.: while Dark Reader renders, the list is changed here and set once
+        let ikeSheets = null;
+        function injectSheet(sheet, override) {
+            const newSheets =
+                ikeSheets ||
+                (isFirefox
+                    ? getAdoptedSheets(node)
+                    : [...node.adoptedStyleSheets]);
+"""),
+    ("adopted-once-inject-set", """\
+            newSheets.splice(sheetIndex + 1, 0, override);
+            if (!isFirefox) {
+                node.adoptedStyleSheets = newSheets;
+            }
+""", """\
+            newSheets.splice(sheetIndex + 1, 0, override);
+            if (!isFirefox && !ikeSheets) {
+                node.adoptedStyleSheets = newSheets;
+            }
+"""),
+    ("adopted-once-clear", """\
+        function clear() {
+            const newSheets = isFirefox
+                ? getAdoptedSheets(node)
+                : [...node.adoptedStyleSheets];
+            for (let i = newSheets.length - 1; i >= 0; i--) {
+                const sheet = newSheets[i];
+                if (overrides$1.has(sheet)) {
+                    newSheets.splice(i, 1);
+                }
+            }
+            if (
+                !isFirefox &&
+                node.adoptedStyleSheets.length !== newSheets.length
+            ) {
+""", """\
+        function clear() {
+            const newSheets =
+                ikeSheets ||
+                (isFirefox
+                    ? getAdoptedSheets(node)
+                    : [...node.adoptedStyleSheets]);
+            for (let i = newSheets.length - 1; i >= 0; i--) {
+                const sheet = newSheets[i];
+                if (overrides$1.has(sheet)) {
+                    newSheets.splice(i, 1);
+                }
+            }
+            if (
+                !isFirefox &&
+                !ikeSheets &&
+                node.adoptedStyleSheets.length !== newSheets.length
+            ) {
+"""),
+    ("adopted-once-render", """\
+        function render(theme, ignoreImageAnalysis) {
+            clear();
+            const sheets = getAdoptedSheets(node);
+""", """\
+        function render(theme, ignoreImageAnalysis) {
+            if (isFirefox || ikeSheets) {
+                ikeRender(theme, ignoreImageAnalysis);
+                return;
+            }
+            const before = [...node.adoptedStyleSheets];
+            ikeSheets = before.slice();
+            try {
+                ikeRender(theme, ignoreImageAnalysis);
+            } finally {
+                const after = ikeSheets;
+                ikeSheets = null;
+                if (
+                    after.length !== before.length ||
+                    after.some((sheet, i) => sheet !== before[i])
+                ) {
+                    node.adoptedStyleSheets = after;
+                }
+            }
+        }
+        function ikeRender(theme, ignoreImageAnalysis) {
+            clear();
+            const sheets = ikeSheets ? ikeSheets.slice() : getAdoptedSheets(node);
+"""),
     ("style-groups-join", """\
         return {
             details,

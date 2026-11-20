@@ -5658,24 +5658,30 @@
                 defineSheetScope(sheet, node);
             });
         }
+        // I.K.E.: while Dark Reader renders, the list is changed here and set once
+        let ikeSheets = null;
         function injectSheet(sheet, override) {
-            const newSheets = isFirefox
-                ? getAdoptedSheets(node)
-                : [...node.adoptedStyleSheets];
+            const newSheets =
+                ikeSheets ||
+                (isFirefox
+                    ? getAdoptedSheets(node)
+                    : [...node.adoptedStyleSheets]);
             const sheetIndex = newSheets.indexOf(sheet);
             const overrideIndex = newSheets.indexOf(override);
             if (overrideIndex >= 0) {
                 newSheets.splice(overrideIndex, 1);
             }
             newSheets.splice(sheetIndex + 1, 0, override);
-            if (!isFirefox) {
+            if (!isFirefox && !ikeSheets) {
                 node.adoptedStyleSheets = newSheets;
             }
         }
         function clear() {
-            const newSheets = isFirefox
-                ? getAdoptedSheets(node)
-                : [...node.adoptedStyleSheets];
+            const newSheets =
+                ikeSheets ||
+                (isFirefox
+                    ? getAdoptedSheets(node)
+                    : [...node.adoptedStyleSheets]);
             for (let i = newSheets.length - 1; i >= 0; i--) {
                 const sheet = newSheets[i];
                 if (overrides$1.has(sheet)) {
@@ -5684,6 +5690,7 @@
             }
             if (
                 !isFirefox &&
+                !ikeSheets &&
                 node.adoptedStyleSheets.length !== newSheets.length
             ) {
                 node.adoptedStyleSheets = newSheets;
@@ -5720,8 +5727,28 @@
         let sourceSheets = new WeakSet();
         let sourceDeclarations = new WeakSet();
         function render(theme, ignoreImageAnalysis) {
+            if (isFirefox || ikeSheets) {
+                ikeRender(theme, ignoreImageAnalysis);
+                return;
+            }
+            const before = [...node.adoptedStyleSheets];
+            ikeSheets = before.slice();
+            try {
+                ikeRender(theme, ignoreImageAnalysis);
+            } finally {
+                const after = ikeSheets;
+                ikeSheets = null;
+                if (
+                    after.length !== before.length ||
+                    after.some((sheet, i) => sheet !== before[i])
+                ) {
+                    node.adoptedStyleSheets = after;
+                }
+            }
+        }
+        function ikeRender(theme, ignoreImageAnalysis) {
             clear();
-            const sheets = getAdoptedSheets(node);
+            const sheets = ikeSheets ? ikeSheets.slice() : getAdoptedSheets(node);
             for (let i = sheets.length - 1; i >= 0; i--) {
                 const sheet = sheets[i];
                 if (overrides$1.has(sheet) || isDarkReaderSheet(sheet)) {
@@ -8895,13 +8922,28 @@
         );
     }
     const shadowRootsWithOverrides = new Set();
+    // I.K.E.: the same texts for every shadow root of a theme and a fix
+    let ikeShadowTextCache = null;
+    function ikeShadowTexts() {
+        const css = fixes && fixes.css ? fixes.css : "";
+        const cache = ikeShadowTextCache;
+        if (cache && cache.theme === theme && cache.css === css) {
+            return cache;
+        }
+        ikeShadowTextCache = {
+            theme,
+            css,
+            inline: getInlineOverrideStyle(),
+            override: css ? replaceCSSTemplates(css) : ""
+        };
+        return ikeShadowTextCache;
+    }
     function createShadowStaticStyleOverridesInner(root) {
         const inlineStyle = createOrUpdateStyle("darkreader--inline", root);
-        inlineStyle.textContent = getInlineOverrideStyle();
+        inlineStyle.textContent = ikeShadowTexts().inline;
         root.insertBefore(inlineStyle, root.firstChild);
         const overrideStyle = createOrUpdateStyle("darkreader--override", root);
-        overrideStyle.textContent =
-            fixes && fixes.css ? replaceCSSTemplates(fixes.css) : "";
+        overrideStyle.textContent = ikeShadowTexts().override;
         root.insertBefore(overrideStyle, inlineStyle.nextSibling);
         const invertStyle = createOrUpdateStyle("darkreader--invert", root);
         invertStyle.textContent = getInversionStyleValue();
