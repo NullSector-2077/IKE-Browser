@@ -36,7 +36,7 @@ than the distribution's. On a system that is not updated, the engine is old.
 |---|---|---|
 | Filter lists (EasyList, EasyPrivacy, uBlock Origin lists, the user's own) | the lists' own servers, HTTPS | TLS only; the content is text parsed by a memory-safe parser, selectors and scriptlet arguments are validated before use |
 | Self-update of the Python part | the address in the package (GitHub releases) | Ed25519 signature of the manifest, SHA-256 of the payload, no downgrade |
-| Current Chrome version (for the identity presented to sites) | Google's version service, HTTPS | A version number, checked for its form |
+| Current Chrome version (for the identity presented to sites until 1.1.13; since 1.1.14 only for the engine's age in Help → About) | Google's version service, HTTPS | A version number, checked for its form and bounded |
 | Weather on the new tab page (optional) | Open-Meteo, HTTPS | Numbers shown as text |
 | Widevine (only when the user asks) | Google, HTTPS | TLS and a check of the file's kind; no pinned hash — open issue A of the audit |
 | Chrome extensions (experimental, off by default) | Chrome Web Store, HTTPS | TLS; CRX signature not verified — open issue B |

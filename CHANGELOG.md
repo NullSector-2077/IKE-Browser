@@ -145,6 +145,14 @@ docs/SECURITY.md):
   key and recognise the browser on other sites). The media secret is now a
   random value of its own, the page cannot see the events any more, and the
   hidden part of workers never reaches a function the page replaced.
+- **An independent adversarial review** of this work found seven more ways
+  around it, all fixed with a test that failed before: frames with no
+  origin of their own (sandboxed, data:) reached the router; switches written
+  in quotes or with one dash, and `QTWEBENGINE_DISABLE_SANDBOX=0`, still
+  turned the sandbox off; the media secret leaked through a getter on
+  Object.prototype; a replayed manifest could undo a halt; refusing to start
+  as root counted a pending update as failed; workers at Strict and Maximum
+  read the full Chrome version.
 - **No browser without its sandbox by accident**: engine switches inherited
   from the environment that take a protection away (the sandbox, site
   isolation, web security, certificate checks, remote debugging, also
@@ -160,23 +168,29 @@ docs/SECURITY.md):
   page has, matching the script's sites), not just from whoever has its
   token.
 - **The web engine's age**: the notice that the system's engine is behind
-  with its security fixes comes at two Chrome versions (it was five); About
-  shows the current Chrome it compares with, checked or estimated.
+  with its security fixes comes at three Chrome versions (it was five; two is
+  normal between two Qt releases); About counts the age by the security fixes
+  and shows the current Chrome it compares with, checked or estimated.
 - **Signed updates that expire, arrive in stages and can be stopped**: every
   manifest expires after 180 days (an old copy kept back installs nothing),
-  a release reaches every installation within 24 hours instead of all at
-  once (`publish.py --urgente` for a security fix), and the owner can stop a
-  release with a signed "halt" manifest. "Check for updates" does not wait.
+  a release is offered over 24 hours instead of to everybody at once
+  (`publish.py --urgente` for a security fix; with the daily check everybody
+  has it within about two days), the owner can stop a release with a signed
+  "halt" manifest, and a replayed older manifest cannot undo it. "Check for
+  updates" does not wait.
 - **Rust advisories checked every day**: the RustSec database against every
   crate of the AdBlock engine, on every pull request and daily
   (`security.yml`), with an issue when something is found.
 - **The sandbox proven in CI**: a new job runs the security tests with the
   engine's sandbox really on, as a normal user, and fails if any page
   process runs without it (`test_sandbox.py`).
-- **Not solved, said plainly**: a public name that resolves to an address of
-  the home network (DNS rebinding) is not stopped; the engine's own
-  protection for it is not in Qt 6.12 (tried), and I.K.E. cannot resolve
-  names in its request check without slowing every page (docs/SECURITY.md).
+- **Not solved, said plainly** (docs/SECURITY.md): a public name that
+  resolves to an address of the home network (DNS rebinding) is not stopped,
+  nor are WebRTC and WebTransport; the engine's own protection is not in
+  Qt 6.12 (tried), and I.K.E. cannot resolve names in its request check
+  without slowing every page. A site's own worker can read its own noise
+  seed. A page that frames one of a user script's sites and has stolen the
+  script's token can still act as that frame.
 
 Automatic maintenance and fixes (pull request #59; nothing of the browser):
 

@@ -69,7 +69,6 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-      issues: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -79,7 +78,6 @@ jobs:
           path: ~/.cargo/bin/cargo-deny
           key: cargo-deny-0.20.2-${{ runner.os }}
       - name: RustSec advisories (every crate of Cargo.lock)
-        id: audit
         run: |
           if [ "$(cargo deny --version 2>/dev/null)" != "cargo-deny 0.20.2" ]; then
             cargo install --locked cargo-deny@0.20.2
@@ -87,14 +85,33 @@ jobs:
           set -o pipefail
           cargo deny --manifest-path ike-adblock/Cargo.toml --locked --config ike-adblock/deny.toml \
               check advisories 2>&1 | tee advisories.txt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: rust-advisories
+          path: advisories.txt
+          retention-days: 30
+
+  # only on main (push, schedule, by hand), never on a pull request: the one
+  # job that may write, and it runs no code of the repository
+  advisories-issue:
+    needs: rust-advisories
+    if: failure() && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: rust-advisories
       - name: The issue "Rust advisories"
-        if: failure() && steps.audit.outcome == 'failure' && github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           {
-            echo "The daily RustSec check found advisories for the AdBlock engine's crates"
+            echo "The RustSec check found advisories for the AdBlock engine's crates"
             echo "(run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)."
             echo
             echo '```'

@@ -62,10 +62,15 @@ updater (`ike/updater.py`, `manifest_problem`):
   again, so this never blocks updates for good;
 - gives each installation a fixed **place** from 0 to 99 (kept in
   `updates/state.json`): place N installs once N % of the rollout window has
-  passed, so a release reaches everybody within 24 hours, a few first.
+  passed, so a release is installed by everybody within about two days (the
+  24-hour window plus the daily check), a few first.
   "Check for updates" asked by the user does not wait. A clock that is days
   behind does not wait either;
-- installs nothing from a manifest with **`"halt": true`**.
+- installs nothing from a manifest with **`"halt": true`**;
+- trusts no manifest issued before one it has already seen (a replay of the
+  original would undo a halt), and, from 1.1.18 on, none without an expiry
+  (only releases before 1.1.18 lacked one): both are reported as "out of
+  date" and nothing is installed.
 
 To publish a security fix to everybody at once:
 `python3 tools/publish.py --urgente`. To stop a release that went wrong,
@@ -78,8 +83,8 @@ gh release upload v<version> /tmp/halt/stable.json /tmp/halt/stable.json.sig /tm
 ```
 
 Installations that already took it keep it (the rollback of a copy that does
-not start still works); the others wait for the next release. Manifests of
-releases before 1.1.18 have none of these fields and are taken as before.
+not start still works); the others wait for the next release. A 1.1.17 or
+older copy ignores these fields (its own updater predates them).
 Downgrades were already refused (only a newer version than the running or
 staged one is installed), and every payload is checked against the signed
 SHA-256 before it is unpacked.

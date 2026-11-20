@@ -368,6 +368,31 @@ What is left, and why:
   page rule of the same specificity would lose where it now wins;
 - style sheets that are not identical still each get a copy.
 
+## 1.1.18, the security work (before = `main` at 09569d1, after = PR #69)
+
+Same container (Ubuntu, PyPI Qt 6.12.0 / Chromium 140, 4 shared cores, no
+GPU), the two copies run one after the other with the same commands, on
+2026-11-20. Small differences are within the noise of this machine.
+
+| Measure | before | after |
+|---|---|---|
+| Start-up to first window (`measure_startup.py 5`, two runs each) | 0.237 / 0.222 s | 0.199 / 0.237 s |
+| CPU at rest, new tab page (`measure_idle.py 20`, two runs each) | 2.4 / 2.0 % of a core | 2.1 / 2.0 % |
+| CPU while using the interface | 6.6 / 8.1 % | 7.8 / 6.3 % |
+| Memory after the interface run, back to back late in the evening | 417-421 MiB | 410-426 MiB |
+| `measure_perf.py --runs 3`: frames, Balanced | 263.7 ms | 265.7 ms |
+| `measure_perf.py`: one tab / ten tabs (PSS) | 526 / 700 MB | 531 / 705 MB |
+| Speedometer 3.0, Balanced, 5 iterations, one run each | 13.0 | 14.1 |
+| Site isolation alone: 4 tabs with 4 frames of other sites each, 3 runs each way | 435-436 MB, 8 processes | 494-495 MB, 13 processes |
+
+The first two `measure_idle` runs gave 303 and 314 MiB for "before" and 410
+and 411 MiB for "after"; run again back to back, "before" gave 417 and 421:
+the earlier difference was the machine, not the code (with site isolation
+switched off the "after" copy gave 416-423). Site isolation costs memory only
+when pages have frames of other sites (+13 % in the test above, one more
+process per other site); pages without them are unchanged. Not measured:
+real hardware GPUs and video decoding, a real Plasma session.
+
 ## 1.1.17, before and after
 
 Same container (4 cores, no GPU), same commands: `tests/measure_perf.py`

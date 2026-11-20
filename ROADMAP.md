@@ -83,8 +83,9 @@ are agreed with the project owner; do not reopen them without asking.
 ## Status
 
 - 1.1.18 (speed without less protection, privacy fixes from an independent
-  review, YouTube, automation, licences) is merged into `main` and waits for
-  the owner's signature (`python3 tools/publish.py`).
+  review, YouTube, automation, licences, and the security work of
+  docs/SECURITY.md) waits for the owner's signature
+  (`python3 tools/publish.py`).
 - The owner checks the YouTube anti-adblock notice on CachyOS with 1.1.18.
 
 ## Open work
@@ -103,7 +104,6 @@ are agreed with the project owner; do not reopen them without asking.
   stack traces, a home-made public-suffix list, re-encoded tracking-parameter
   clean-up, impossible combinations at Strict and Maximum (screen,
   languages).
-- A pinned daily `cargo audit` of the Rust crates of the AdBlock engine.
 - **AUR**: publish I.K.E. there when the owner says it is time.
 
 ## Starting a new session
