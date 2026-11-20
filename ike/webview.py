@@ -323,8 +323,74 @@ class WebPage(QWebEnginePage):
             return True
         return False
 
+    def _lan_notice(self, view, page, found):
+        from .securebar import set_notice
+        from .shields import site_of
+        set_notice(view, "lan", page, site_of(page.host().lower()))
+        view.secure_notice["frame"] = True
+        view.secure_notice["targets"] = list(found)
+        if view is self.window_ref.current_view():
+            self.window_ref.secure_bar.show_for(view)
+
+    def _lan_engine_block(self, message):
+        """The engine's own home-network protection stopped a request of this
+        page (1.1.19). Its message is only a hint (a page can print the same
+        text): the window shows its "Allow" bar only for hosts this page asked
+        for that really resolve to an address of this computer or the home
+        network, found by I.K.E.'s own lookup."""
+        import re
+
+        from PyQt6.QtNetwork import QHostInfo
+
+        from .shields import endpoint, site_of
+        from .userscripts import is_local_address, is_local_name
+        page = self.url()
+        if page.scheme() not in ("http", "https") or is_local_name(page.host()):
+            return
+        site = site_of(page.host().lower())
+        sh = self.app.shields
+        m = re.search(r"at '([^']+)' from origin '([^']+)'", message)
+        if m:
+            if QUrl(m.group(2)).host().lower() != page.host().lower():
+                return                            # not this page's own words
+            t = QUrl(m.group(1))
+            if t.host().lower() == page.host().lower():
+                return                            # the page's own address (its icon): not a device
+            hosts = [(t.scheme(), t.host().lower(), t.port(-1))]
+        else:
+            hosts = [h for h in list(sh.recent_hosts.get(site, {}))[-12:] if h[1] != page.host().lower()]
+        seen = getattr(self, "_lan_looked", None)
+        if seen is None or seen[0] != page.toString():
+            seen = self._lan_looked = (page.toString(), set(), [])
+        found = seen[2]                           # every device this page was stopped from, together
+
+        def answer(info, scheme, host, port):
+            ips = [a.toString() for a in info.addresses()]
+            local = [ip for ip in ips if is_local_address(ip)]
+            if not local or self.url().toString() != page.toString():
+                return
+            base = QUrl("%s://%s/" % (scheme, host))
+            if port > 0:
+                base.setPort(port)
+            ends = [endpoint(base)]
+            for ip in local:
+                u = QUrl(base)
+                u.setHost(ip)
+                ends.append(endpoint(u))
+            found.extend(e for e in ends if e not in found)
+            view = self.window_ref.view_of(self)
+            if view is not None:
+                self._lan_notice(view, page, found)
+        for scheme, host, port in hosts:
+            if not host or host in seen[1] or len(seen[1]) > 24:
+                continue
+            seen[1].add(host)
+            QHostInfo.lookupHost(host, lambda info, s=scheme, h=host, p=port: answer(info, s, h, p))
+
     def javaScriptConsoleMessage(self, level, message, line, source):
         from .userscripts import PREFIX
+        if "address space" in message and ("more-private" in message or "Permission was denied" in message):
+            self._lan_engine_block(message)
         if message.startswith(READER_PREFIX):
             self._reader_prefs(message[len(READER_PREFIX):])
             return
@@ -391,8 +457,13 @@ class WebPage(QWebEnginePage):
                 from .securebar import set_notice
                 set_notice(view, "lan", url, site)
                 view.secure_notice["frame"] = True
+                view.secure_notice["targets"] = sorted(sh.lan_targets.pop("frame:" + url.toString(), ()))
                 if view is self.window_ref.current_view():
                     self.window_ref.secure_bar.show_for(view)
+            looked = getattr(self, "_lan_looked", None)
+            if looked and looked[0] == url.toString() and looked[2] and view is not None:
+                # the engine stopped some of it while it loaded (1.1.19): said again now
+                self._lan_notice(view, url, looked[2])
         if not ok or not self._protected():
             return
         self._inject_cosmetics()

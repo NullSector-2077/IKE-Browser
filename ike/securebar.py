@@ -107,7 +107,18 @@ class SecureBar(QWidget):
             url.setScheme("http")
         elif n["kind"] == "lan":
             if n.get("site"):
-                sh.lan_allowed.add(n["site"])      # this site only, until I.K.E. closes
+                sh.lan_allowed.add(n["site"])      # this site only
+                # kept, and given to the engine's own protection, which has no
+                # per-site permission: a restart the first time a device is
+                # allowed (1.1.19, the owner's choice)
+                from .shields import endpoint
+                targets = list(n.get("targets") or [])
+                if not n.get("frame"):
+                    targets.append(endpoint(url))
+                if self.win.app.allow_lan(n["site"], targets):
+                    v.secure_notice = None
+                    self.hide()
+                    return
         else:
             sh.pages_allowed.add(host)
         v.secure_notice = None

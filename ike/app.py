@@ -486,6 +486,45 @@ class IkeApp(QObject):
                             or (want and engine != getattr(page, "_dark_engine", None))):
                         v.reload()
 
+    def allow_lan(self, site, targets):
+        """The user let `site` reach these devices of the home network
+        ("host:port", from the Allow bar): kept in the settings. Returns True
+        when I.K.E. restarts to give the engine the new devices (its own
+        protection reads them only at start; 1.1.19)."""
+        import socket
+
+        from .shields import endpoint
+        cfg = self.config
+        sites = dict(cfg["lan_sites"] or {})
+        have = list(sites.get(site) or [])
+        for t in targets:
+            t = str(t)
+            if t and t not in have:
+                have.append(t)
+            host, _, port = t.rpartition(":")
+            if host and port.isdigit() and not _literal_ip(host):
+                # a name of the home network (fritz.box): the engine wants its address
+                try:
+                    infos = socket.getaddrinfo(host.strip("[]"), int(port), proto=socket.IPPROTO_TCP)
+                except OSError:
+                    infos = []
+                from .userscripts import is_local_address
+                for info in infos:
+                    ip = info[4][0]
+                    e = endpoint("http://%s:%s/" % ("[%s]" % ip if ":" in ip else ip, port))
+                    if is_local_address(ip) and e not in have:
+                        have.append(e)
+        sites[site] = have[:24]
+        cfg["lan_sites"] = sites
+        cfg.save()
+        running = {f.split("=", 1)[1] for f in split_flags(os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", ""))
+                   if f.startswith("--ip-address-space-overrides=")}
+        running = set(",".join(running).split(",")) if running else set()
+        if set(lan_overrides(cfg)) - running:
+            QTimer.singleShot(300, self.restart)
+            return True
+        return False
+
     def restart(self):
         """Close and start again, reopening the current tabs."""
         self.config["restore_once"] = True
@@ -1310,11 +1349,20 @@ def lan_overrides(config):
         for e in ends if isinstance(ends, list) else []:
             e = str(e)
             host, _, port = e.rpartition(":")
-            if host and port.isdigit() and all(c.isalnum() or c in ".:[]" for c in host):
+            if host and port.isdigit() and _literal_ip(host):
                 item = "%s:%s=public" % (host, port)
                 if item not in out:
                     out.append(item)
     return out
+
+
+def _literal_ip(host):
+    import ipaddress
+    try:
+        ipaddress.ip_address(host.strip("[]"))
+        return True
+    except ValueError:
+        return False
 
 
 def site_isolated():

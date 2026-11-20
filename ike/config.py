@@ -373,8 +373,8 @@ def sound_settings(stored):
                 clean[key] = value
         elif isinstance(default, dict):
             if isinstance(value, dict):
-                if key in ("site_levels", "site_opts", "ui_themes"):
-                    want = str if key == "site_levels" else dict
+                if key in ("site_levels", "site_opts", "ui_themes", "lan_sites"):
+                    want = {"site_levels": str, "lan_sites": list}.get(key, dict)
                     value = {k: v for k, v in value.items() if isinstance(k, str) and isinstance(v, want)}
                 clean[key] = value
     return clean
