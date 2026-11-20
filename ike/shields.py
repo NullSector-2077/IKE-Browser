@@ -44,6 +44,7 @@ TRACKING_PARAMS = {
 TRACKING_PREFIXES = ("utm_", "pk_", "mtm_", "stm_")
 
 _RT = QWebEngineUrlRequestInfo.ResourceType
+_NT = QWebEngineUrlRequestInfo.NavigationType
 _TYPES = {
     _RT.ResourceTypeMainFrame: "document", _RT.ResourceTypeSubFrame: "subdocument",
     _RT.ResourceTypeStylesheet: "stylesheet", _RT.ResourceTypeScript: "script",
@@ -270,21 +271,43 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             init = info.initiator()
         except AttributeError:
             return False
-        if init.scheme() not in ("http", "https") or is_local_name(init.host()):
-            return False                  # the user, I.K.E. itself, or a page of the home network
+        scheme = init.scheme()
+        if scheme in ("http", "https"):
+            if is_local_name(init.host()):
+                return False              # a page of the home network itself
+            who = site_of(init.host().lower())
+        elif scheme:
+            return False                  # I.K.E.'s own pages (ike:), the user's files
+        elif main:
+            # no initiator: the user typed or chose the address - unless it is
+            # a link or a form of a page with no origin of its own (a
+            # sandboxed frame's popup, a data: page): those are a public
+            # page's (1.1.18, adversarial review)
+            nav = info.navigationType()
+            if nav not in (_NT.NavigationTypeLink, _NT.NavigationTypeFormSubmitted):
+                return False
+            who = ""
+        else:
+            # a sandboxed or data: frame has no origin, so no initiator: it is
+            # judged by the page it is in (1.1.18, adversarial review: such a
+            # frame of a public page reached the router)
+            first = info.firstPartyUrl()
+            if first.scheme() not in ("http", "https") or is_local_name(first.host()):
+                return False
+            who = site_of(first.host().lower())
         s = self.s
-        if site_of(init.host().lower()) in s.lan_allowed:
+        if who and who in s.lan_allowed:
             return False
         info.block(True)
         if not self.quiet:
             if len(s.lan_blocked) > 100:
                 s.lan_blocked.clear()
             if main:
-                s.lan_blocked[url.toString()] = site_of(init.host().lower())
+                s.lan_blocked[url.toString()] = who
             else:
                 # a frame or a part of the page: the page itself loads, and the
                 # window says what was stopped in it (no silent breakage)
-                s.lan_blocked["frame:" + info.firstPartyUrl().toString()] = site_of(init.host().lower())
+                s.lan_blocked["frame:" + info.firstPartyUrl().toString()] = who
         return True
 
     def interceptRequest(self, info):

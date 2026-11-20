@@ -106,6 +106,39 @@ def test_other_ways_of_writing_the_address_and_redirects(run_ike, lan):
     assert reached == [], seen
 
 
+OPAQUE = r'''
+PORT = %d
+
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QUrl
+    v = ike.windows[0].current_view()
+    yield 1000
+    L = "http://127.0.0.1:%%d" %% PORT
+    h = "<title>public</title>"
+    h += ("<iframe sandbox='allow-scripts' srcdoc=\"<img src='" + L + "/sbx-img'><script>fetch('" + L +
+          "/sbx-fetch',{method:'POST',mode:'no-cors',body:'x'})</script>\"></iframe>")
+    h += "<iframe src=\"data:text/html,<img src='" + L + "/data-img'>\"></iframe>"
+    h += ("<iframe sandbox='allow-forms allow-scripts' srcdoc=\"<form method=post action='" + L +
+          "/sbx-form'><input name=a value=1></form><script>document.forms[0].submit()</script>\"></iframe>")
+    h += ("<iframe sandbox='allow-scripts allow-popups' srcdoc=\"<a id=a target=_blank href='" + L +
+          "/sbx-popup'>x</a><script>document.getElementById('a').click()</script>\"></iframe>")
+    v.setHtml(h, QUrl("http://news.example.test/"))
+    yield 3500
+'''
+
+
+def test_frames_with_no_origin_of_their_own(run_ike, lan):
+    """Adversarial review of 1.1.18: a sandboxed frame or a data: frame has
+    no origin, so its requests came with no initiator and passed as the
+    user's own: a picture, a POST from fetch and a form reached the router.
+    They are judged by the page they are in now; a popup they open by a link
+    too."""
+    port, seen = lan
+    run_ike(OPAQUE % port, settings={"https_only": False}, timeout=90)
+    reached = [x for x in seen if x.split(" ", 1)[1].startswith(("/sbx", "/data"))]
+    assert reached == [], seen
+
+
 def test_names_local_by_their_form():
     from ike.userscripts import is_local_name
     for h in ("router", "printer.", "fritz.box", "nas.fritz.box", "router.lan", "nas.home.arpa",
