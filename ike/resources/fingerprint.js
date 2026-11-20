@@ -494,11 +494,123 @@
       getter(GI, 'device', function () { return ''; });
       getter(GI, 'description', function () { return ''; });
     }
+    // ---- a worker the site starts from a file of its own (experiment) ----
+    // It runs from a blob address that holds this prelude; the site's script
+    // is then loaded from its real address (c.base). Everything that reads an
+    // address relative to the worker's own address follows the real one, as
+    // in the worker the site asked for.
+    var BLOB = '', ORIGIN = '', BASE = c.base, Uc = self.URL, slice = Array.prototype.slice;
+    try { BLOB = String(self.location.href); ORIGIN = String(self.origin); } catch (e) {}
+    function res(u) {
+      var s = String(u);
+      try { return new Uc(s, BASE).href; } catch (e) { return s; }
+    }
+    function ownerOf(obj, name) {
+      while (obj && !Object.prototype.hasOwnProperty.call(obj, name)) obj = Object.getPrototypeOf(obj);
+      return obj;
+    }
+    function ctor(name, fix) {
+      var Orig = self[name];
+      if (typeof Orig !== 'function') return;
+      var P = new Proxy(Orig, {
+        construct: function (t, args, nt) {
+          return Reflect.construct(t, fix(slice.call(args)), nt === P ? t : nt);
+        }
+      });
+      nat.set(P, toStr.call(Orig));
+      try {
+        Object.defineProperty(Orig.prototype, 'constructor', { value: P, writable: true, configurable: true });
+        Object.defineProperty(self, name, { value: P, writable: true, configurable: true });
+      } catch (e) {}
+    }
+    var rawImport = self.importScripts;
+    if (BASE) {
+      var real = new Uc(BASE), LP = self.WorkerLocation && WorkerLocation.prototype;
+      ['href', 'protocol', 'host', 'hostname', 'port', 'pathname', 'search', 'hash'].forEach(function (k) {
+        getter(LP, k, function () { return real[k]; });
+      });
+      wrap(LP, 'toString', function () { return function () { return real.href; }; });
+      wrap(ownerOf(self, 'importScripts'), 'importScripts', function (orig) {
+        return function () { return orig.apply(this, slice.call(arguments).map(res)); };
+      });
+      var Rq = self.Request;
+      wrap(ownerOf(self, 'fetch'), 'fetch', function (orig) {
+        return function (input) {
+          var a = slice.call(arguments);
+          if (a.length && !(Rq && input instanceof Rq)) a[0] = res(input);
+          return orig.apply(this, a);
+        };
+      });
+      function first(a) {
+        if (a.length && !(Rq && a[0] instanceof Rq)) a[0] = res(a[0]);
+        return a;
+      }
+      ctor('Request', first);
+      ctor('EventSource', first);
+      ctor('WebSocket', first);
+      if (self.XMLHttpRequest) {
+        wrap(XMLHttpRequest.prototype, 'open', function (orig) {
+          return function () {
+            var a = slice.call(arguments);
+            if (a.length > 1) a[1] = res(a[1]);
+            return orig.apply(this, a);
+          };
+        });
+      }
+      if (self.Response) {
+        wrap(Response, 'redirect', function (orig) {
+          return function () { return orig.apply(this, first(slice.call(arguments))); };
+        });
+      }
+      var CP = self.Cache && Cache.prototype;
+      ['match', 'matchAll', 'add', 'delete', 'put', 'keys'].forEach(function (m) {
+        wrap(CP, m, function (orig) {
+          return function () {
+            var a = slice.call(arguments);
+            if (a.length && a[0] !== undefined) first(a);
+            return orig.apply(this, a);
+          };
+        });
+      });
+      wrap(CP, 'addAll', function (orig) {
+        return function (list) {
+          var a = slice.call(arguments);
+          try { a[0] = Array.from(list, function (x) { return first([x])[0]; }); } catch (e) {}
+          return orig.apply(this, a);
+        };
+      });
+      wrap(self.CacheStorage && CacheStorage.prototype, 'match', function (orig) {
+        return function () { return orig.apply(this, first(slice.call(arguments))); };
+      });
+      // In the worker the site asked for, loading its own script is no
+      // request of the worker: that entry is left out of its resource timing.
+      var PP = self.Performance && Performance.prototype, perf = self.performance;
+      var byName = PP && PP.getEntriesByName, mainLoad = null;
+      var drop = function (list) {
+        try {
+          if (!mainLoad) mainLoad = byName.call(perf, BASE, 'resource')[0] || null;
+          var i = mainLoad && list ? list.indexOf(mainLoad) : -1;
+          if (i >= 0) list.splice(i, 1);
+        } catch (e) {}
+        return list;
+      };
+      [PP, self.PerformanceObserverEntryList && PerformanceObserverEntryList.prototype].forEach(function (proto) {
+        ['getEntries', 'getEntriesByType', 'getEntriesByName'].forEach(function (m) {
+          wrap(proto, m, function (orig) { return function () { return drop(orig.apply(this, arguments)); }; });
+        });
+      });
+    }
     // workers started by this worker get the same prelude (1.1.18,
     // independent review: a worker inside a worker had none)
     try {
-      var me = '(' + toStr.call(workerPatch) + ')(' + JSON.stringify(c) + ',' + toStr.call(rng) + ',' +
-        toStr.call(farble) + ',' + toStr.call(gpuFor) + ');\n';
+      var bare = {};
+      Object.keys(c).forEach(function (k) { if (k !== 'base' && k !== 'module') bare[k] = c[k]; });
+      var pre = function (extra) {
+        var cc = Object.assign({}, bare, extra || {});
+        return '(' + toStr.call(workerPatch) + ')(' + JSON.stringify(cc) + ',' + toStr.call(rng) + ',' +
+          toStr.call(farble) + ',' + toStr.call(gpuFor) + ')';
+      };
+      var me = pre() + ';\n';
       while (me.length % 3) me += ' ';                 // so it can be joined to base64 data
       var Ur = self.URL, made = new Map(), mk = Ur && Ur.createObjectURL, rv = Ur && Ur.revokeObjectURL;
       if (mk && self.Blob) {
@@ -510,6 +622,29 @@
           };
         });
       }
+      // a worker this worker starts from a file of the site (only inside a
+      // worker that got its own prelude this way: no content security policy)
+      var fromFile = function (u, rest) {
+        var x = new Uc(u);
+        if (!/^https?:$/.test(x.protocol) || x.origin !== ORIGIN) return null;
+        var o = rest[0], opts = {};
+        if (o !== undefined && o !== null) {
+          if (typeof o !== 'object' && typeof o !== 'function') return null;
+          // read once, in the engine's own order
+          opts = { credentials: o.credentials, name: o.name, type: o.type };
+        }
+        rest = [opts].concat(rest.slice(1));
+        if (opts.type !== undefined && opts.type !== 'classic' && opts.type !== 'module') return [u].concat(rest);
+        var module = opts.type === 'module', blob = function (s) {
+          var bu = mk.call(Ur, new Blob([s], { type: 'text/javascript' }));
+          setTimeout(function () { rv.call(Ur, bu); }, 30000);
+          return bu;
+        };
+        var top = blob(pre({ base: x.href, module: module }) +
+          (module ? ';\n' : '(' + JSON.stringify(x.href) + ');\n'));
+        if (module) top = blob('import ' + JSON.stringify(top) + ';\nimport ' + JSON.stringify(x.href) + ';\n');
+        return [top].concat(rest);
+      };
       ['Worker', 'SharedWorker'].forEach(function (name) {
         var Orig = self[name];
         if (typeof Orig !== 'function' || !mk) return;
@@ -518,7 +653,11 @@
             try {
               var u = String(args[0]), rest = Array.prototype.slice.call(args, 1), b = made.get(u);
               args = [u].concat(rest);
-              if (b) {
+              if (BASE && u.slice(0, 5) !== 'blob:' && u.slice(0, 5) !== 'data:') {
+                u = res(u);
+                args = [u].concat(rest);
+                if (name === 'Worker') args = fromFile(u, rest) || args;
+              } else if (b) {
                 var pu = mk.call(Ur, new Blob([me, b], { type: b.type || 'text/javascript' }));
                 args = [pu].concat(rest);
                 setTimeout(function () { rv.call(Ur, pu); }, 30000);
@@ -535,11 +674,46 @@
         try { Object.defineProperty(self, name, { value: P, writable: true, configurable: true }); } catch (e) {}
       });
     } catch (e) {}
+    // the site's own script, from its real address (a module is imported by
+    // the blob that starts the worker, after this prelude)
+    if (BASE && !c.module) {
+      // A classic worker runs a script whatever type the server gives it;
+      // importScripts does not: such a script is read and run as it is.
+      // A script that cannot be had at all: the page is told as before (an
+      // "error" event, see the page side).
+      self.addEventListener('error', function (e) {
+        if (e.filename !== BLOB || String(e.message).indexOf('NetworkError') < 0) return;
+        var text = null;
+        try {
+          var x = new XMLHttpRequest();
+          x.open('GET', BASE, false);
+          x.send();
+          var kind = String(x.getResponseHeader('Content-Type') || '');
+          if (x.status >= 200 && x.status < 300 && !/^\s*(image|audio|video)\/|^\s*text\/csv/i.test(kind)) text = x.responseText;
+        } catch (err) {}
+        if (text === null) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        (0, eval)(text + '\n//# sourceURL=' + BASE);
+      });
+      // called by the blob's own first line, not from here: the site's script
+      // runs below no function of the prelude (its stack shows no trace of it),
+      // and outside any try: its own errors stay exactly as they were
+      return rawImport;
+    }
   }
-  var PRELUDE = '(' + origToString.call(workerPatch) + ')(' +
-    JSON.stringify({ cores: cores, mem: strict ? 8 : 0, langs: langs, seed: seed, strict: strict,
-      gpus: GPUS, pick: PICK, hidden: hiddenExt }) +
-    ',' + origToString.call(rng) + ',' + origToString.call(farble) + ',' + origToString.call(gpuFor) + ');\n';
+  var PRE_CFG = { cores: cores, mem: strict ? 8 : 0, langs: langs, seed: seed, strict: strict,
+    gpus: GPUS, pick: PICK, hidden: hiddenExt };
+  var PRE_FNS = ',' + origToString.call(rng) + ',' + origToString.call(farble) + ',' + origToString.call(gpuFor) + ')';
+  // the prelude as one call; a classic worker from a file calls what it
+  // returns (importScripts) with the site's address: (prelude)(address);
+  function preludeFor(extra) {
+    return '(' + origToString.call(workerPatch) + ')(' + JSON.stringify(Object.assign({}, PRE_CFG, extra)) + PRE_FNS;
+  }
+  function fileSource(abs, module) {
+    return preludeFor({ base: abs, module: module }) + (module ? ';\n' : '(' + JSON.stringify(abs) + ');\n');
+  }
+  var PRELUDE = preludeFor({}) + ';\n';
   while (PRELUDE.length % 3) PRELUDE += ' ';     // so it can be joined to base64 data
 
   // ---- fonts: the same answer for every I.K.E. user (Strict and above) -------
@@ -920,17 +1094,102 @@
           return orig.apply(this, arguments);
         };
       });
+      // ---- a worker started from a file of the site (experiment) ----
+      // Qt WebEngine cannot add a script to such a worker. Instead it is
+      // started from a blob address holding the prelude, which then loads the
+      // site's script from its real address (workerPatch, c.base). Only where
+      // this cannot change what the site gets:
+      // - in the top page, once I.K.E. has seen that the page came without
+      //   any content security policy that could concern a worker (the
+      //   policy would refuse or report the blob address, and the worker would
+      //   lose its own policy): the browser says so when the page has loaded
+      //   (webview.py, shields.file_workers_allowed); before, nothing changes;
+      // - no policy in a <meta> tag either; not in a cross-origin isolated page;
+      // - a same-origin http(s) address and a dedicated Worker (a SharedWorker
+      //   is shared by its address: a blob address would split it).
+      var fileGate = false, metaTags = null, attr = null, baseOf = null;
+      try {
+        if (CFG.fwt && w === w.top) {
+          var docUrl = String(doc.URL).split('#')[0];
+          metaTags = w.Document.prototype.querySelectorAll;
+          attr = w.Element.prototype.getAttribute;
+          baseOf = Object.getOwnPropertyDescriptor(w.Node.prototype, 'baseURI').get;
+          w.EventTarget.prototype.addEventListener.call(w, 'ike-workers-' + CFG.fwt, function (e) {
+            try { if (e.detail === docUrl) fileGate = true; } catch (x) {}
+          });
+        }
+      } catch (e) { fileGate = false; metaTags = null; }
+      var addEv = w.EventTarget.prototype.addEventListener, fire = w.EventTarget.prototype.dispatchEvent;
+      function filesAllowed() {
+        if (!fileGate || !metaTags || w.crossOriginIsolated) return false;
+        var m = metaTags.call(doc, 'meta[http-equiv]');
+        for (var i = 0; i < m.length; i++) {
+          if (/content-security-policy/i.test(attr.call(m[i], 'http-equiv') || '')) return false;
+        }
+        return true;
+      }
+      // [blob address, options] for a worker from a file of the site, or null
+      function fromFile(url, rest) {
+        var x = new U(url, baseOf.call(doc));
+        if (!/^https?:$/.test(x.protocol) || x.origin !== w.location.origin) return null;
+        var o = rest[0], opts = {};
+        if (o !== undefined && o !== null) {
+          if (typeof o !== 'object' && typeof o !== 'function') return null;
+          // read once, in the engine's own order
+          opts = { credentials: o.credentials, name: o.name, type: o.type };
+        }
+        rest = [opts].concat(rest.slice(1));
+        if (opts.type !== undefined && opts.type !== 'classic' && opts.type !== 'module') return { args: [url].concat(rest) };
+        var module = opts.type === 'module';
+        var blob = function (s) {
+          var bu = rawCreate.call(U, new w.Blob([s], { type: 'text/javascript' }));
+          w.setTimeout(function () { rawRevoke.call(U, bu); }, 30000);
+          return bu;
+        };
+        var top = blob(fileSource(x.href, module));
+        if (module) top = blob('import ' + JSON.stringify(top) + ';\nimport ' + JSON.stringify(x.href) + ';\n');
+        return { args: [top].concat(rest), blob: top, abs: x.href };
+      }
+      // The errors a page sees are those of the worker it asked for: a
+      // script that cannot be had is a plain "error" event, a syntax error
+      // reads as before (importScripts adds its own words to both).
+      var IMPORT = "Uncaught SyntaxError: Failed to execute 'importScripts' on 'WorkerGlobalScope': ";
+      function sameErrors(worker, made) {
+        var EE = w.ErrorEvent, Ev = w.Event;
+        addEv.call(worker, 'error', function (e) {
+          try {
+            if (!(e instanceof EE)) return;
+            var m = String(e.message), again = null;
+            if (e.filename === made.blob && m.indexOf('NetworkError') >= 0) {
+              again = new Ev('error', { cancelable: true });
+            } else if (e.filename === made.abs && m.indexOf(IMPORT) === 0) {
+              again = new EE('error', { message: 'Uncaught SyntaxError: ' + m.slice(IMPORT.length),
+                filename: e.filename, lineno: e.lineno, colno: e.colno, cancelable: true });
+            }
+            if (!again) return;
+            e.stopImmediatePropagation();
+            e.preventDefault();
+            fire.call(worker, again);
+          } catch (x) {}
+        });
+      }
       ['Worker', 'SharedWorker'].forEach(function (name) {
         var Orig = w[name];
         if (typeof Orig !== 'function') return;
         var P = new w.Proxy(Orig, {
           construct: function (target, args, newTarget) {
+            var made = null;
             try {
               var url = String(args[0]);
               // the address as read here is the one used (an object whose
               // text changes between two readings cannot slip past)
               args = [url].concat(Array.prototype.slice.call(args, 1));
-              if (url.slice(0, 5) === 'blob:') {
+              if (name === 'Worker' && url.slice(0, 5) !== 'blob:' && url.slice(0, 5) !== 'data:' &&
+                  filesAllowed()) {
+                made = fromFile(url, args.slice(1));
+                if (made) args = made.args;
+                if (made && !made.blob) made = null;
+              } else if (url.slice(0, 5) === 'blob:') {
                 var blob = blobs.get(url);
                 if (!blob) {
                   // a blob address made elsewhere (in a worker, another frame):
@@ -958,7 +1217,9 @@
                 }
               }
             } catch (e) {}
-            return w.Reflect.construct(target, args, newTarget === P ? target : newTarget);
+            var worker = w.Reflect.construct(target, args, newTarget === P ? target : newTarget);
+            if (made) sameErrors(worker, made);
+            return worker;
           }
         });
         natives.set(P, origToString.call(Orig));

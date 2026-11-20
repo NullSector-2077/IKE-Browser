@@ -1,5 +1,34 @@
 # Changelog
 
+## Unreleased (experiment, branch experiment/file-workers; not in 1.1.18)
+
+- **Workers a site starts from files of its own get the fingerprinting
+  protection, where that changes nothing else for the site**: until now
+  `new Worker("/w.js")` saw the real values (Qt WebEngine cannot add a script
+  to it). Such a worker is now started from a blob address holding the
+  protection, which loads the site's script from its real address
+  (importScripts, or a static import for a module worker). Inside it, the
+  address the worker reports and every relative address (importScripts, fetch,
+  XMLHttpRequest, Request, WebSocket, EventSource, the Cache API, workers it
+  starts) follow the real address; the error events a page sees are those of
+  the worker it asked for; a classic script served with a wrong type still
+  runs; its own script load is left out of its resource timing.
+  Only where nothing else can change: in the top page, once I.K.E. has seen
+  that the page came without a content security policy that concerns workers
+  (a policy would refuse or report the blob address, and the worker would
+  lose a policy of its own); no policy in a `<meta>` tag; not in a
+  cross-origin isolated page; same-origin dedicated workers only.
+  Not covered: workers started while the page loads (I.K.E. learns the
+  page's headers when it has loaded), pages with such a policy, frames,
+  SharedWorker (a blob address would split a worker shared by its address)
+  and service workers. Known differences a site could look for: a classic
+  worker's script is no longer among the page's resource timing entries (it
+  is fetched by the worker), a stack trace taken in its top-level code has one
+  more line (the blob); the server sees its script asked for by importScripts
+  (`Sec-Fetch-Dest: script` instead of `worker`), and every request the
+  worker makes without a Referer header (a blob address is never sent as
+  referrer: a server that checks it for a worker's files would refuse them).
+
 ## 1.1.18
 
 Speed, measured before and after on the same computer (the numbers are in

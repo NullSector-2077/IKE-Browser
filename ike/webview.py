@@ -200,6 +200,9 @@ class WebPage(QWebEnginePage):
         """A site that cannot be reached: I.K.E.'s own error page (errorpage.py)."""
         from . import errorpage
         try:
+            if info.status() == info.LoadStatus.LoadSucceededStatus:
+                # workers from files of the site (fingerprint.js, experiment)
+                self.app.shields.file_workers(self, info)
             if not errorpage.wanted(info):
                 return
             from PyQt6.QtWidgets import QApplication

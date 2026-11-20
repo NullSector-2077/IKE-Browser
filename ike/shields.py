@@ -1,6 +1,7 @@
 """Protection layer: request interception, cookies, injected scripts, profile."""
 
 import functools
+import hashlib
 import json
 import os
 import re
@@ -865,6 +866,59 @@ class Shields(QObject):
         """The secret of a profile's media-command events (mediahook.js)."""
         return "m" + self.profile_keys.get(id(profile), "")[:24]
 
+    def worker_token(self, profile):
+        """The secret of the event that lets fingerprint.js protect the workers
+        a page starts from files of its own (experiment)."""
+        key = self.profile_keys.get(id(profile), "")
+        return "w" + hashlib.sha256(("workers|" + key).encode()).hexdigest()[:24] if key else ""
+
+    # Directives that do not concern a worker started from a blob address
+    # (nothing it fetches or runs, nothing it would report).
+    _WORKER_NEUTRAL = frozenset(("frame-ancestors", "upgrade-insecure-requests",
+                                 "block-all-mixed-content", "base-uri", "form-action",
+                                 "report-uri", "report-to"))
+
+    @classmethod
+    def file_workers_allowed(cls, headers):
+        """True when a page's response headers carry no content security
+        policy (enforced or report-only) that could refuse, report or change a
+        worker started from a blob address (fingerprint.js, files of the site)."""
+        def text(x):
+            if hasattr(x, "data"):                      # QByteArray
+                x = x.data()
+            return x.decode("latin-1") if isinstance(x, bytes) else str(x)
+        for name, values in (headers or {}).items():
+            n = text(name).strip().lower()
+            if n not in ("content-security-policy", "content-security-policy-report-only"):
+                continue
+            for v in values if isinstance(values, (list, tuple)) else [values]:
+                for policy in text(v).split(","):
+                    for d in policy.split(";"):
+                        word = d.strip().split(None, 1)[0].lower() if d.strip() else ""
+                        if word and word not in cls._WORKER_NEUTRAL:
+                            return False
+        return True
+
+    def file_workers(self, page, info):
+        """A page has loaded: tell its main frame whether workers from files
+        of the site may get the protection (fingerprint.js)."""
+        try:
+            url = info.url()
+            if url.scheme() not in ("http", "https") or info.isErrorPage():
+                return
+            if not self.file_workers_allowed(info.responseHeaders()):
+                return
+            token = self.worker_token(page.profile())
+            if not token:
+                return
+            doc = url.adjusted(QUrl.UrlFormattingOption.RemoveFragment).toString(
+                QUrl.ComponentFormattingOption.FullyEncoded)
+            page.runJavaScript("window.dispatchEvent(new CustomEvent(%s, {detail: %s}));"
+                               % (json.dumps("ike-workers-" + token), json.dumps(doc)),
+                               QWebEngineScript.ScriptWorldId.ApplicationWorld)
+        except Exception:                   # an experiment never stops a page load
+            pass
+
     def apply_settings(self, profile=None):
         """(Re)apply everything that depends on the configuration."""
         cfg = self.config
@@ -925,7 +979,9 @@ class Shields(QObject):
                       "ffAppVersion": ident["firefox_app_version"],
                       "ffOscpu": ident["firefox_oscpu"],
                       # the masked names a page can find here (fontcheck.py); None: all of them
-                      "fonts": fontcheck.findable()}
+                      "fonts": fontcheck.findable(),
+                      # workers from files of the site (experiment, file_workers)
+                      "fwt": self.worker_token(p)}
             s = QWebEngineScript()
             s.setName("ike-fp")
             s.setSourceCode(self._fp_src.replace("__IKE_CFG__", json.dumps(fp_cfg)))
