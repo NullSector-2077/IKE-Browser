@@ -1832,6 +1832,8 @@ def test_no_dead_parts_in_the_workflows():
     ("tip2", "12", "main", False, True),         # the other run published first: overtaken
     ("main1", "", "maintenance", True, True),    # the candidate the agent started from: pushed
     ("cand2", "", "maintenance", False, True),   # a newer candidate came: overtaken, no issue
+    ("fixnew", "", "maintenance", False, True),  # audit of #65: pushed by an earlier try: PR and tests follow
+    ("fixnew", "77", "main", False, True),       # the same for a first fix of main whose PR exists
 ])
 def test_a_first_fix_of_main_never_overwrites_another(tmp_path, old, waiting, kind, pushed, ok):
     """1.1.18 (review): two runs planned side by side could each push a first
@@ -1849,20 +1851,33 @@ def test_a_first_fix_of_main_never_overwrites_another(tmp_path, old, waiting, ki
     bin_ = tmp_path / "bin"
     bin_.mkdir()
     calls = tmp_path / "calls"
-    (bin_ / "git").write_text('#!/bin/sh\ncase "$*" in *rev-parse*) echo "$FAKE_OLD";; *" push "*) '
+    (bin_ / "git").write_text('#!/bin/sh\ncase "$*" in *"rev-parse refs/heads/autofix-result"*) echo fixnew;; '
+                              '*rev-parse*) echo "$FAKE_OLD";; *" push "*) '
                               'echo push >> "%s";; esac\nexit 0\n' % calls)
-    (bin_ / "gh").write_text('#!/bin/sh\ncase "$*" in "pr list"*) echo "$FAKE_PR";; esac\nexit 0\n')
+    gh_calls = tmp_path / "gh-calls"
+    (bin_ / "gh").write_text('#!/bin/sh\necho "$*" >> "%s"\ncase "$*" in "pr list"*) echo "$FAKE_PR";; esac\nexit 0\n'
+                             % gh_calls)
+    (temp / "autofix" / "summary.md").write_text("Fixed, thanks @someone. Closes #12, fixes owner/repo#3.\n")
     for f in ("git", "gh"):
         (bin_ / f).chmod(0o755)
     env = dict(os.environ, RUNNER_TEMP=str(temp), PATH="%s:%s" % (bin_, os.environ["PATH"]), GH_TOKEN="x",
                KIND=kind, PUSH_BRANCH="automation/autofix-main", CHECKOUT="main1", PUSH_TIP="tip1",
                WORKFLOW="Tests", ATTEMPT="1", RUN_URL="u", FAKE_OLD=old, FAKE_PR=waiting,
                GITHUB_STEP_SUMMARY=str(tmp_path / "summary"))
-    run = subprocess.run(["bash", "-e", "-c", script], env=env, capture_output=True, text=True, timeout=60)
+    run = subprocess.run(["bash", "-e", "-c", script], env=env, capture_output=True, text=True, timeout=60,
+                         cwd=ROOT)
     assert (run.returncode == 0) is ok, run.stdout + run.stderr
     assert calls.exists() is pushed
-    if ok and not pushed:
+    dispatched = gh_calls.exists() and "workflow run tests.yml --ref automation/autofix-main" in gh_calls.read_text()
+    if ok and not pushed and old != "fixnew":
         assert "::notice::" in run.stdout and "not pushed" in (tmp_path / "summary").read_text()
+        assert not dispatched
+    if old == "fixnew":
+        assert "already on automation/autofix-main" in run.stdout and dispatched, run.stdout
+    if pushed or old == "fixnew":
+        assert dispatched
+        summary = (temp / "autofix" / "summary.md").read_text()
+        assert "@\u200bsomeone" in summary and "Closes #\u200b12" in summary and "owner/repo#\u200b3" in summary
     assert "push_tip: ${{ steps.plan.outputs.push_tip }}" in (WORKFLOWS / "autofix.yml").read_text()
 
 
@@ -2698,3 +2713,43 @@ def test_reports_about_other_branches_never_hold_back_a_fix_of_main(monkeypatch)
     report = jobs_of((WORKFLOWS / "autofix.yml").read_text())["report"]
     assert "BRANCH: ${{ needs.plan.outputs.branch }}" in report
     assert "branch: ${{ steps.plan.outputs.branch }}" in jobs_of((WORKFLOWS / "autofix.yml").read_text())["plan"]
+
+
+@pytest.mark.parametrize("push, runs, pushed, dispatched", [
+    ("true", "0", True, True),        # a new candidate: pushed with a lease, tested
+    ("false", "2", False, False),     # the same candidate as yesterday, already tested
+    ("false", "0", False, True),      # audit of #65: pushed yesterday, but its tests never started
+])
+def test_a_published_candidate_is_always_tested(tmp_path, push, runs, pushed, dispatched):
+    """Audit of #65 (M2): the candidate was pushed, the pull request step
+    failed, and every later day found the same candidate (push=false): green,
+    and its tests never ran. Also L4: the candidate was pushed with --force and
+    no lease, over an automatic fix pushed meanwhile."""
+    import os
+    script = step_script("Push candidate, update draft PR and start the tests", "daily-maintenance.yml")
+    temp = tmp_path / "runner"
+    (temp / "maintenance-candidate").mkdir(parents=True)
+    (temp / "maintenance-candidate" / "component-report.md").write_text("# Components\n")
+    bin_ = tmp_path / "bin"
+    bin_.mkdir()
+    calls = tmp_path / "calls"
+    (bin_ / "git").write_text('#!/bin/sh\necho "git $*" >> "%s"\ncase "$*" in *"show "*) '
+                              'echo \'__version__ = "1.1.19"\';; esac\nexit 0\n' % calls)
+    (bin_ / "gh").write_text('#!/bin/sh\necho "gh $*" >> "%s"\ncase "$*" in "api "*) echo "$FAKE_RUNS";; '
+                             '"pr list"*) echo 43;; esac\nexit 0\n' % calls)
+    for f in ("git", "gh"):
+        (bin_ / f).chmod(0o755)
+    env = dict(os.environ, RUNNER_TEMP=str(temp), PATH="%s:%s" % (bin_, os.environ["PATH"]), GH_TOKEN="x",
+               PUSH=push, ENGINE="builds", SEEN="seen123", FAKE_RUNS=runs, GITHUB_REPOSITORY="o/r")
+    run = subprocess.run(["bash", "-e", "-c", script], env=env, capture_output=True, text=True, timeout=60)
+    assert run.returncode == 0, run.stdout + run.stderr
+    log = calls.read_text()
+    assert (" push " in log) is pushed
+    if pushed:
+        assert "--force-with-lease=refs/heads/automation/daily-maintenance:seen123" in log
+        assert "push --force origin" not in log
+    assert ("workflow run tests.yml --ref automation/daily-maintenance" in log) is dispatched, log
+    if push == "false":
+        assert "runs?head_sha=seen123" in log
+    prepare = jobs_of((WORKFLOWS / "daily-maintenance.yml").read_text())["prepare"]
+    assert "seen: ${{ steps.compare.outputs.seen }}" in prepare

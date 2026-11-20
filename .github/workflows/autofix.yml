@@ -711,11 +711,19 @@ jobs:
           git bundle verify "$b"
           git fetch "$b" HEAD:refs/heads/autofix-result
           old=$(git rev-parse -q --verify "refs/remotes/origin/$PUSH_BRANCH" || true)
+          new=$(git rev-parse refs/heads/autofix-result)
+          # GitHub's own calls, a few times (audit of #65: one 502 lost a fix)
+          retry() { n=1; until "$@"; do [ "$n" -ge 3 ] && return 1; sleep $((n * 15)); n=$((n + 1)); done; }
           # Overtaken (final review of 1.1.18): a newer candidate or fix is on the
           # branch, with its own tests and, if they fail, its own fix. This fix is
           # not pushed and the job ends well, so the report opens no issue for it.
+          # Already there (audit of #65): this very fix was pushed by an earlier
+          # try of this job that failed afterwards; the pull request and the tests
+          # still follow (until then a re-run ended green as "overtaken").
           overtaken=""
-          if [ "$KIND" = "maintenance" ] || [ "$ATTEMPT" != "1" ]; then
+          if [ "$old" = "$new" ]; then
+            echo "This fix is already on $PUSH_BRANCH: not pushed again"
+          elif [ "$KIND" = "maintenance" ] || [ "$ATTEMPT" != "1" ]; then
             if [ "$old" != "$CHECKOUT" ]; then
               overtaken="$PUSH_BRANCH has moved since the agent started (a newer candidate or fix)"
             fi
@@ -723,7 +731,7 @@ jobs:
             # 1.1.18: a first fix of main replaces the branch only if it is where the
             # plan saw it and no automatic fix is waiting there (two runs planned
             # side by side must not overwrite each other's fix)
-            waiting=$(gh pr list --head "$PUSH_BRANCH" --base main --state open --json number --jq '.[0].number // empty')
+            waiting=$(retry gh pr list --head "$PUSH_BRANCH" --base main --state open --json number --jq '.[0].number // empty')
             if [ -n "$waiting" ]; then
               overtaken="an automatic fix of main is already waiting (PR #$waiting)"
             elif [ "$old" != "$PUSH_TIP" ]; then
@@ -736,9 +744,13 @@ jobs:
             printf '### Not published\n\n%s: this fix is not pushed.\n' "$overtaken" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
             exit 0
           fi
-          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
-          git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" \
-            push --force-with-lease="refs/heads/$PUSH_BRANCH:$old" origin "refs/heads/autofix-result:refs/heads/$PUSH_BRANCH"
+          if [ "$old" != "$new" ]; then
+            auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+            git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" \
+              push --force-with-lease="refs/heads/$PUSH_BRANCH:$old" origin "refs/heads/autofix-result:refs/heads/$PUSH_BRANCH"
+          fi
+          # what an AI wrote never mentions people or closes issues on merge (audit of #65)
+          python3 -I tools/autofix-plan.py --neutralise "$RUNNER_TEMP/autofix/summary.md"
           body="$RUNNER_TEMP/body.md"
           {
             echo "**Automatic fix, attempt $ATTEMPT** after a failure of \"$WORKFLOW\" ([run]($RUN_URL))."
@@ -755,15 +767,21 @@ jobs:
             cat "$RUNNER_TEMP/autofix/guard.md"
           } > "$body"
           gh label create autofix --color d93f0b --description "Automatic fix prepared by the AI agent" 2>/dev/null || true
-          pr=$(gh pr list --head "$PUSH_BRANCH" --base main --state open --json number --jq '.[0].number // empty')
+          pr=$(retry gh pr list --head "$PUSH_BRANCH" --base main --state open --json number --jq '.[0].number // empty')
           if [ -n "$pr" ]; then
-            gh pr comment "$pr" --body-file "$body"
-            gh pr edit "$pr" --add-label autofix
-          else
-            gh pr create --draft --base main --head "$PUSH_BRANCH" --label autofix \
-              --title "Automatic fix: \"$WORKFLOW\" failed" --body-file "$body"
+            retry gh pr comment "$pr" --body-file "$body"
+            retry gh pr edit "$pr" --add-label autofix
+          elif ! gh pr create --draft --base main --head "$PUSH_BRANCH" --label autofix \
+              --title "Automatic fix: \"$WORKFLOW\" failed" --body-file "$body"; then
+            # it may have been made all the same: look before asking again
+            sleep 15
+            pr=$(retry gh pr list --head "$PUSH_BRANCH" --base main --state open --json number --jq '.[0].number // empty')
+            if [ -z "$pr" ]; then
+              retry gh pr create --draft --base main --head "$PUSH_BRANCH" --label autofix \
+                --title "Automatic fix: \"$WORKFLOW\" failed" --body-file "$body"
+            fi
           fi
-          gh workflow run tests.yml --ref "$PUSH_BRANCH"
+          retry gh workflow run tests.yml --ref "$PUSH_BRANCH"
 
   report:
     needs: [plan, fix, guard, publish]
@@ -853,7 +871,7 @@ jobs:
             echo
             echo "Run: $RUN_URL"
             for f in summary.md guard.md; do
-              if [ -s "$RUNNER_TEMP/autofix/$f" ]; then echo; cat "$RUNNER_TEMP/autofix/$f"; fi
+              if [ -s "$RUNNER_TEMP/autofix/$f" ]; then echo; sed "s/@\([A-Za-z0-9]\)/@\xe2\x80\x8b\1/g" "$RUNNER_TEMP/autofix/$f"; fi
             done
             # ChatGPT's message whenever there is a failure to show (no automatic fix,
             # or two that did not pass: then it starts from the last of them)

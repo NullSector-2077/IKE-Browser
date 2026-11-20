@@ -413,7 +413,28 @@ def open_reports(repo, name):
     return out
 
 
+CLOSING = re.compile(r"\b(close[sd]?|fix(?:e[sd])?|resolve[sd]?)(\s*:?\s+)((?:[\w.-]+/[\w.-]+)?#)(?=\d)", re.I)
+ZWSP = "​"
+
+
+def neutralise(text):
+    """Text an AI wrote, safe in a pull request's body (audit of #65): no
+    @mention that notifies someone, no "closes #N" that closes an issue when
+    the pull request is merged. A zero-width space breaks both and shows
+    nothing."""
+    text = re.sub(r"@(?=[A-Za-z0-9])", "@" + ZWSP, text)
+    return CLOSING.sub(lambda m: m.group(1) + m.group(2) + m.group(3) + ZWSP, text)
+
+
 def main(argv=None):
+    if argv is None:
+        argv = sys.argv[1:]
+    if argv[:1] == ["--neutralise"]:                 # autofix-plan.py --neutralise FILE...
+        for name in argv[1:]:
+            p = Path(name)
+            if p.is_file():
+                p.write_text(neutralise(p.read_text("utf-8", "replace")), "utf-8")
+        return 0
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--run-id", required=True)
     ap.add_argument("--logs", required=True)
