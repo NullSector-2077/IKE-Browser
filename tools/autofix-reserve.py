@@ -22,7 +22,8 @@ For each model in turn:
 
     quota or rate limit (429)            -> the next model
     key refused (401/403)                -> the next provider (the key must be fixed)
-    unknown model, bad request (400/404) -> the next model (the variable must be fixed)
+    unknown model, bad request (400/404) -> the next model (the variable must be fixed);
+      an OpenRouter model that is gone -> also the free models OpenRouter offers now (1.1.18)
     server error, no answer              -> once more, then the next model
     request too large (413)              -> the next provider
     an answer that cannot be applied     -> once more, told what was wrong, then the next model
@@ -173,6 +174,37 @@ def chain(env=os.environ):
         for m in models:
             out.append((name, url, key, m, budget, tokens))
     return out
+
+
+OPENROUTER_MODELS = "https://openrouter.ai/api/v1/models"
+DISCOVERED = 2          # free models taken from OpenRouter's list when a listed one is gone
+MODEL_ID = re.compile(r"^[A-Za-z0-9._/:-]{3,100}:free$")
+
+
+def free_models(key, opener=urllib.request.urlopen, exclude=(), count=DISCOVERED):
+    """OpenRouter's free models at this moment, the largest context first (1.1.18).
+    Free models come and go: when one of the list answers 404 (it no longer
+    exists), the chain asks OpenRouter which ones there are instead of failing
+    until someone edits the list. Only ids of the usual shape are taken."""
+    req = urllib.request.Request(OPENROUTER_MODELS, headers={
+        "Authorization": "Bearer " + key, "User-Agent": "IKE-autofix"})
+    try:
+        with opener(req, timeout=30) as r:
+            data = json.loads(r.read(8_000_000).decode("utf-8", "replace"))
+        models = data.get("data") if isinstance(data, dict) else None
+        if not isinstance(models, list):
+            return []
+        found = []
+        for m in models:
+            mid = m.get("id") if isinstance(m, dict) else None
+            ctx = m.get("context_length") if isinstance(m, dict) else None
+            if (isinstance(mid, str) and MODEL_ID.match(mid) and mid not in exclude
+                    and isinstance(ctx, int) and ctx >= 32_000):
+                found.append((ctx, mid))
+        found.sort(key=lambda t: (-t[0], t[1]))
+        return [mid for _ctx, mid in found[:count]]
+    except Exception:                       # no list: the chain simply goes on without it
+        return []
 
 
 def classify(status):
@@ -431,7 +463,7 @@ def one_model(url, key, model, base, tokens, deadline, opener, workdir, shown, a
                 time.sleep(wait + 1)
                 tries -= 1                  # the wait does not use up a try
                 continue
-            if kind in ("auth", "toolarge"):
+            if kind in ("auth", "toolarge", "config"):
                 return kind, "", refused
             return ("quota" if kind in ("quota", "temporary") else "error"), "", refused
         try:
@@ -512,7 +544,8 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     said_none, none_summary = [], ""          # the models that answered "fixable": false
     skip, deadline = set(), time.monotonic() + a.total_timeout
     plan = chain(env)
-    for provider, url, key, model, budget, tokens in plan:
+    discovered = False
+    for provider, url, key, model, budget, tokens in plan:      # the list may grow (free_models)
         if provider in skip:
             continue
         base = [{"role": "system", "content": rules + "\n" + instructions(a.allow_adblock)},
@@ -546,6 +579,15 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
             print("  says it cannot be fixed in the code: the next model is asked too", flush=True)
         if outcome in ("auth", "toolarge"):
             skip.add(provider)
+            outcome = "error"
+        if outcome == "config" and provider == "OpenRouter" and not discovered:
+            # a listed free model is gone: try the free ones OpenRouter has now
+            discovered = True
+            tried = {m for _p, _u, _k, m, _b, _t in plan}
+            for m in free_models(key, opener, exclude=tried):
+                print("  OpenRouter now offers %s: it is asked too" % for_log(m), flush=True)
+                plan.append((provider, url, key, m, budget, tokens))
+        if outcome == "config":
             outcome = "error"
         result = outcome or "error"
     if result != "ok" and result != "refused" and said_none:

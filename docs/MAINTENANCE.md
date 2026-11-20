@@ -145,7 +145,9 @@ never touched.
    so it gets only the failure and the code around it), then OpenRouter
    (`OPENROUTER_API_KEY`, models in `AUTOFIX_OPENROUTER_MODELS`, default
    `cohere/north-mini-code:free` then `particle-ai/particle-1:free`, which also
-   get the whole files). Each reserve's fix goes through the same checker
+   get the whole files; when a listed free model is gone (HTTP 404, as
+   `cohere/north-mini-code:free` on 2026-11-20), the two free models with the
+   largest context that OpenRouter lists at that moment are asked too). Each reserve's fix goes through the same checker
    before it is kept; the next model is told why one was refused, and a
    refusal for safety stops them all. A provider
    without its key is skipped; free models change often, so the names live in
