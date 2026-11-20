@@ -1845,22 +1845,16 @@
         if (root == null) {
             return;
         }
-        const walker = document.createTreeWalker(
-            root,
-            NodeFilter.SHOW_ELEMENT,
-            {
-                acceptNode(node) {
-                    return node.shadowRoot == null
-                        ? NodeFilter.FILTER_SKIP
-                        : NodeFilter.FILTER_ACCEPT;
-                }
-            }
-        );
+        // I.K.E.: no filter function, the shadow root is checked here
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
         for (
             let node = root.shadowRoot ? walker.currentNode : walker.nextNode();
             node != null;
             node = walker.nextNode()
         ) {
+            if (node.shadowRoot == null) {
+                continue;
+            }
             if (node.classList.contains("surfingkeys_hints_host")) {
                 continue;
             }
@@ -1979,6 +1973,7 @@
             let hadHugeMutationsBefore = false;
             let subscribedForReadyState = false;
             observer = new MutationObserver((mutations) => {
+                ikeStyleEpoch++;
                 if (isHugeMutation(mutations)) {
                     if (!hadHugeMutationsBefore || isDOMReady()) {
                         observerCallbacks.forEach(({onHugeMutations}) =>
@@ -2381,6 +2376,34 @@
         }
         return null;
     }
+    // I.K.E.: is a colour variable needed on :root?
+    const ikeColorFallbacks = new Map();
+    const ikeColorsOnRoot = new Set();
+    let ikeFixCSS = null;
+    let ikeFixColors = new Set();
+    function ikeColorOnRoot(variable, value) {
+        const css = (fixes && fixes.css) || "";
+        if (css !== ikeFixCSS) {
+            ikeFixCSS = css;
+            ikeFixColors = new Set(
+                css.match(/--darkreader-(?:background|text|border)-[0-9a-f]+/g)
+            );
+        }
+        if (!ikeColorsOnRoot.has(variable)) {
+            const fallback = ikeColorFallbacks.get(variable);
+            if (fallback === undefined) {
+                ikeColorFallbacks.set(variable, value);
+            }
+            if (
+                !ikeFixColors.has(variable) &&
+                (fallback === undefined || fallback === value)
+            ) {
+                return false;
+            }
+            ikeColorsOnRoot.add(variable);
+        }
+        return true;
+    }
     function registerVariablesSheet(sheet) {
         variablesSheet = sheet;
         const rule = getVariablesRule();
@@ -2392,7 +2415,9 @@
             types.forEach((type) => {
                 if (registered[type]) {
                     const {variable, value} = registered[type];
-                    rule.style.setProperty(variable, value);
+                    if (ikeColorOnRoot(variable, value)) {
+                        rule.style.setProperty(variable, value);
+                    }
                 }
             });
         });
@@ -2424,7 +2449,9 @@
         }
         const variable = `--darkreader-${type}-${hex.replace("#", "")}`;
         registered[type] = {variable, value};
-        getVariablesRule()?.style.setProperty(variable, value);
+        if (ikeColorOnRoot(variable, value)) {
+            getVariablesRule()?.style.setProperty(variable, value);
+        }
         return getRegisteredVariableValue(type, registered);
     }
     function getColorPalette() {
@@ -3729,8 +3756,25 @@
     const imageSelectorNodeQueue = new Set();
     let imageSelectorQueueFrameId = null;
     let classObserver = null;
+    // I.K.E.: does any waiting selector match here?
+    function ikeAnyImageSelector(node) {
+        if (imageSelectorQueue.size < 2) {
+            return true;
+        }
+        const list = Array.from(imageSelectorQueue.keys()).join(", ");
+        try {
+            return Boolean(
+                node.querySelector(list) ||
+                (node instanceof Element && node.matches(list))
+            );
+        } catch (err) {
+            return true;
+        }
+    }
     function checkImageSelectors(node) {
-        for (const [selector, callbacks] of imageSelectorQueue) {
+        for (const [selector, callbacks] of ikeAnyImageSelector(node)
+            ? imageSelectorQueue
+            : []) {
             if (
                 node.querySelector(selector) ||
                 (node instanceof Element && node.matches(selector))
@@ -5631,24 +5675,30 @@
                 defineSheetScope(sheet, node);
             });
         }
+        // I.K.E.: while Dark Reader renders, the list is changed here and set once
+        let ikeSheets = null;
         function injectSheet(sheet, override) {
-            const newSheets = isFirefox
-                ? getAdoptedSheets(node)
-                : [...node.adoptedStyleSheets];
+            const newSheets =
+                ikeSheets ||
+                (isFirefox
+                    ? getAdoptedSheets(node)
+                    : [...node.adoptedStyleSheets]);
             const sheetIndex = newSheets.indexOf(sheet);
             const overrideIndex = newSheets.indexOf(override);
             if (overrideIndex >= 0) {
                 newSheets.splice(overrideIndex, 1);
             }
             newSheets.splice(sheetIndex + 1, 0, override);
-            if (!isFirefox) {
+            if (!isFirefox && !ikeSheets) {
                 node.adoptedStyleSheets = newSheets;
             }
         }
         function clear() {
-            const newSheets = isFirefox
-                ? getAdoptedSheets(node)
-                : [...node.adoptedStyleSheets];
+            const newSheets =
+                ikeSheets ||
+                (isFirefox
+                    ? getAdoptedSheets(node)
+                    : [...node.adoptedStyleSheets]);
             for (let i = newSheets.length - 1; i >= 0; i--) {
                 const sheet = newSheets[i];
                 if (overrides$1.has(sheet)) {
@@ -5657,6 +5707,7 @@
             }
             if (
                 !isFirefox &&
+                !ikeSheets &&
                 node.adoptedStyleSheets.length !== newSheets.length
             ) {
                 node.adoptedStyleSheets = newSheets;
@@ -5693,8 +5744,28 @@
         let sourceSheets = new WeakSet();
         let sourceDeclarations = new WeakSet();
         function render(theme, ignoreImageAnalysis) {
+            if (isFirefox || ikeSheets) {
+                ikeRender(theme, ignoreImageAnalysis);
+                return;
+            }
+            const before = [...node.adoptedStyleSheets];
+            ikeSheets = before.slice();
+            try {
+                ikeRender(theme, ignoreImageAnalysis);
+            } finally {
+                const after = ikeSheets;
+                ikeSheets = null;
+                if (
+                    after.length !== before.length ||
+                    after.some((sheet, i) => sheet !== before[i])
+                ) {
+                    node.adoptedStyleSheets = after;
+                }
+            }
+        }
+        function ikeRender(theme, ignoreImageAnalysis) {
             clear();
-            const sheets = getAdoptedSheets(node);
+            const sheets = ikeSheets ? ikeSheets.slice() : getAdoptedSheets(node);
             for (let i = sheets.length - 1; i >= 0; i--) {
                 const sheet = sheets[i];
                 if (overrides$1.has(sheet) || isDarkReaderSheet(sheet)) {
@@ -6053,8 +6124,8 @@
             attrObservers.get(root).disconnect();
         }
         const discoveredNodes = new WeakSet();
-        function discoverNodes(node) {
-            getInlineStyleElements(node).forEach((el) => {
+        function discoverNodes(node, ikeElements = getInlineStyleElements(node)) {
+            ikeElements.forEach((el) => {
                 if (discoveredNodes.has(el)) {
                     return;
                 }
@@ -6076,7 +6147,16 @@
         }
         const treeObserver = createOptimizedTreeObserver(root, {
             onMinorMutations: (_root, {additions}) => {
-                additions.forEach((added) => discoverNodes(added));
+                const ikeLists = [];
+                additions.forEach((added) =>
+                    ikeLists.push([added, getInlineStyleElements(added)])
+                );
+                ikeWithSVGRects(
+                    ikeLists.flatMap((item) => item[1]),
+                    () => ikeLists.forEach(([added, elements]) =>
+                        discoverNodes(added, elements)
+                    )
+                );
                 variablesStore.matchVariablesAndDependents();
             },
             onHugeMutations: () => {
@@ -6094,7 +6174,9 @@
         let timeoutId = null;
         const handleAttributeMutations = throttle((mutations) => {
             const handledTargets = new Set();
-            mutations.forEach((m) => {
+            ikeWithSVGRects(
+                mutations.map((m) => m.target),
+                () => mutations.forEach((m) => {
                 const target = m.target;
                 if (handledTargets.has(target)) {
                     return;
@@ -6103,7 +6185,7 @@
                     handledTargets.add(target);
                     elementStyleDidChange(target);
                 }
-            });
+            }));
             variablesStore.matchVariablesAndDependents();
         });
         const attrObserver = new MutationObserver((mutations) => {
@@ -6216,6 +6298,77 @@
         const root = getSVGElementRoot(parent);
         svgNodesRoots.set(svgElement, root);
         return root;
+    }
+    // I.K.E.: sizes read for a group of elements before any of them is changed
+    let ikeSVGRects = null;
+    function ikeSVGRect(el) {
+        const rect = ikeSVGRects && ikeSVGRects.get(el);
+        return rect || el.getBoundingClientRect();
+    }
+    function ikeWithSVGRects(elements, run, pending = false) {
+        if (ikeSVGRects || !isReadyStateComplete()) {
+            run();
+            return;
+        }
+        const shapes = [];
+        forEach(elements, (el) => {
+            if (
+                !(el instanceof SVGElement) ||
+                el instanceof SVGTextElement ||
+                !el.hasAttribute("fill")
+            ) {
+                return;
+            }
+            const fill = el.getAttribute("fill");
+            if (fill === "none" || fill === "currentColor") {
+                return;
+            }
+            if (
+                !pending &&
+                inlineStyleCache.get(el) === getInlineStyleCacheKey(el, theme)
+            ) {
+                return;
+            }
+            shapes.push(el);
+        });
+        if (shapes.length < 2) {
+            run();
+            return;
+        }
+        const rects = new Map();
+        shapes.forEach((el) => {
+            const root = getSVGElementRoot(el);
+            if (!root) {
+                return;
+            }
+            if (!svgRootSizeTestResults.has(root) && !rects.has(root)) {
+                rects.set(root, root.getBoundingClientRect());
+            }
+            rects.set(el, el.getBoundingClientRect());
+        });
+        ikeSVGRects = rects;
+        try {
+            run();
+        } finally {
+            ikeSVGRects = null;
+        }
+    }
+    // shapes found while the page loads are handled together when it is loaded
+    const ikePendingSVG = [];
+    function ikeRunPendingSVG() {
+        const list = ikePendingSVG.splice(0);
+        ikeWithSVGRects(
+            list.map((item) => item[0]),
+            () => list.forEach((item) => item[1]()),
+            true
+        );
+    }
+    function ikeAddPendingSVG(element, handler) {
+        if (!readyStateCompleteListeners.has(ikeRunPendingSVG)) {
+            ikePendingSVG.splice(0);
+            addReadyStateCompleteListener(ikeRunPendingSVG);
+        }
+        ikePendingSVG.push([element, handler]);
     }
     const inlineStringValueCache = new Map();
     const MAX_LOOP_TEARDOWNS = 10;
@@ -6485,7 +6638,7 @@
                             if (svgRootSizeTestResults.has(root)) {
                                 isSVGSmall = svgRootSizeTestResults.get(root);
                             } else {
-                                const svgBounds = root.getBoundingClientRect();
+                                const svgBounds = ikeSVGRect(root);
                                 isSVGSmall =
                                     svgBounds.width * svgBounds.height <=
                                     SMALL_SVG_THRESHOLD ** 2;
@@ -6495,8 +6648,7 @@
                             if (isSVGSmall) {
                                 isBg = false;
                             } else {
-                                const {width, height} =
-                                    element.getBoundingClientRect();
+                                const {width, height} = ikeSVGRect(element);
                                 isBg =
                                     width > SMALL_SVG_THRESHOLD ||
                                     height > SMALL_SVG_THRESHOLD;
@@ -6513,7 +6665,7 @@
                         if (isReadyStateComplete()) {
                             handleSVGElement();
                         } else {
-                            addReadyStateCompleteListener(handleSVGElement);
+                            ikeAddPendingSVG(element, handleSVGElement);
                         }
                     } else {
                         overrideValue(
@@ -6924,6 +7076,52 @@
     function cleanLoadingLinks() {
         rejectorsForLoadingLinks.clear();
     }
+    // I.K.E.: groups of identical style elements share one copy
+    const ikeStyleGroups = new WeakMap();
+    let ikeStyleEpoch = 0;
+    let ikeStyleEpochQueued = false;
+    function ikeLastStyle(group) {
+        if (group.ikeLast !== undefined && group.ikeEpoch === ikeStyleEpoch) {
+            return group.ikeLast;
+        }
+        let last = null;
+        group.forEach((member) => {
+            const el = member.element;
+            if (!el.isConnected || el.getRootNode() !== group.ikeRoot) {
+                return;
+            }
+            if (
+                !last ||
+                last.element.compareDocumentPosition(el) &
+                    Node.DOCUMENT_POSITION_FOLLOWING
+            ) {
+                last = member;
+            }
+        });
+        group.ikeLast = last;
+        group.ikeEpoch = ikeStyleEpoch;
+        if (!ikeStyleEpochQueued) {
+            ikeStyleEpochQueued = true;
+            queueMicrotask(() => {
+                ikeStyleEpochQueued = false;
+                ikeStyleEpoch++;
+            });
+        }
+        return last;
+    }
+    function ikeSettleStyleGroup(group) {
+        group.ikeLast = undefined;
+        const last = ikeLastStyle(group);
+        if (last && last.rendered() && !last.hasCopy()) {
+            last.uncover();
+        }
+    }
+    function ikeCheckStyleGroups(root) {
+        const groups = ikeStyleGroups.get(root);
+        if (groups) {
+            groups.forEach((group) => ikeSettleStyleGroup(group));
+        }
+    }
     function manageStyle(element, {update, loadingStart, loadingEnd}) {
         const inMode = getStyleInjectionMode();
         let syncStyle = null;
@@ -6946,16 +7144,131 @@
         let cancelAsyncOperations = false;
         let isOverrideEmpty = true;
         const isAsyncCancelled = () => cancelAsyncOperations;
+        // I.K.E.: this element in its group of identical style elements
+        let ikeGroup = null;
+        let ikeCovered = false;
+        let ikeRenderArgs = null;
+        const ikeMember = {
+            element,
+            rendered: () => ikeRenderArgs !== null,
+            hasCopy: () => !ikeCovered && Boolean(syncStyle && syncStyle.parentNode),
+            cover: () => ikeCover(),
+            uncover: () => ikeUncover()
+        };
+        function ikeJoinGroup() {
+            if (
+                inMode !== "next" ||
+                !(
+                    element instanceof HTMLStyleElement ||
+                    element instanceof SVGStyleElement
+                ) ||
+                !element.isConnected ||
+                containsCSSImport()
+            ) {
+                return;
+            }
+            const root = element.getRootNode();
+            let groups = ikeStyleGroups.get(root);
+            if (!groups) {
+                groups = new Map();
+                ikeStyleGroups.set(root, groups);
+            }
+            const key = [
+                element.media,
+                element.getAttribute("type"),
+                element.getAttribute("title"),
+                element.textContent
+            ].join("\u0000");
+            let group = groups.get(key);
+            if (!group) {
+                group = new Set();
+                group.ikeRoot = root;
+                group.ikeKey = key;
+                group.ikeGroups = groups;
+                groups.set(key, group);
+            }
+            group.add(ikeMember);
+            group.ikeLast = undefined;
+            ikeGroup = group;
+        }
+        function ikeLeaveGroup(later) {
+            const group = ikeGroup;
+            if (!group) {
+                return;
+            }
+            ikeGroup = null;
+            group.delete(ikeMember);
+            group.ikeLast = undefined;
+            if (ikeCovered) {
+                ikeCovered = false;
+                forceRenderStyle = true;
+            }
+            if (group.size === 0) {
+                group.ikeGroups.delete(group.ikeKey);
+            } else if (later) {
+                queueMicrotask(() => ikeSettleStyleGroup(group));
+            } else {
+                ikeSettleStyleGroup(group);
+            }
+        }
+        function ikeCover() {
+            ikeCovered = true;
+            if (syncStylePositionWatcher) {
+                syncStylePositionWatcher.stop();
+                syncStylePositionWatcher = null;
+            }
+            removeNode(syncStyle);
+            syncStyle = null;
+            isOverrideEmpty = true;
+        }
+        function ikeUncover() {
+            if (ikeRenderArgs) {
+                forceRenderStyle = true;
+                render(...ikeRenderArgs);
+            }
+        }
+        function ikeGroupCovers() {
+            if (
+                !element.isConnected ||
+                element.getRootNode() !== ikeGroup.ikeRoot
+            ) {
+                ikeLeaveGroup(false);
+                return false;
+            }
+            const last = ikeLastStyle(ikeGroup);
+            if (last !== ikeMember) {
+                ikeCover();
+                if (last && last.rendered() && !last.hasCopy()) {
+                    last.uncover();
+                }
+                return true;
+            }
+            if (ikeCovered) {
+                ikeCovered = false;
+                forceRenderStyle = true;
+            }
+            ikeGroup.forEach((member) => {
+                if (member !== ikeMember && member.hasCopy()) {
+                    member.cover();
+                }
+            });
+            return false;
+        }
+        function ikeChanged() {
+            ikeLeaveGroup(false);
+            update();
+        }
         const sheetModifier = createStyleSheetModifier();
         const observer = new MutationObserver((mutations) => {
             if (
                 mutations.some((m) => m.type === "characterData") &&
                 containsCSSImport()
             ) {
+                ikeLeaveGroup(false);
                 const cssText = (element.textContent ?? "").trim();
                 createOrUpdateCORSCopy(cssText, location.href).then(update);
             } else {
-                update();
+                ikeChanged();
             }
         });
         const observerOptions = {
@@ -7179,6 +7492,10 @@
                 return;
             }
             cancelAsyncOperations = false;
+            ikeRenderArgs = [theme, ignoreImageAnalysis];
+            if (ikeGroup && ikeGroupCovers()) {
+                return;
+            }
             function removeCSSRulesFromSheet(sheet) {
                 if (!sheet) {
                     return;
@@ -7221,7 +7538,7 @@
                     theme,
                     ignoreImageAnalysis,
                     force,
-                    isAsyncCancelled
+                    isAsyncCancelled: () => cancelAsyncOperations || ikeCovered
                 });
                 isOverrideEmpty =
                     !syncStyle.sheet || syncStyle.sheet.cssRules.length === 0;
@@ -7255,7 +7572,7 @@
         const sheetChangeWatcher = createSheetWatcher(
             element,
             safeGetSheetRules,
-            update,
+            ikeChanged,
             isAsyncCancelled
         );
         function pause() {
@@ -7265,6 +7582,7 @@
             sheetChangeWatcher.stop();
         }
         function destroy() {
+            ikeLeaveGroup(true);
             pause();
             corsCopies.delete(element);
             removeNode(syncStyle);
@@ -7284,6 +7602,10 @@
         const maxMoveCount = 10;
         let moveCount = 0;
         function restore() {
+            if (ikeGroup && element.getRootNode() !== ikeGroup.ikeRoot) {
+                ikeChanged();
+                return;
+            }
             if (!syncStyle) {
                 return;
             }
@@ -7300,6 +7622,7 @@
                 update();
             }
         }
+        ikeJoinGroup();
         return {
             details,
             render,
@@ -8029,9 +8352,19 @@
         });
         const prevStyleSiblings = new WeakMap();
         const nextStyleSiblings = new WeakMap();
+        // I.K.E.: Dark Reader's own elements are not neighbours that count
+        function ikeStyleSibling(style, next) {
+            let el = next
+                ? style.nextElementSibling
+                : style.previousElementSibling;
+            while (el && el.classList.contains("darkreader")) {
+                el = next ? el.nextElementSibling : el.previousElementSibling;
+            }
+            return el;
+        }
         function saveStylePosition(style) {
-            prevStyleSiblings.set(style, style.previousElementSibling);
-            nextStyleSiblings.set(style, style.nextElementSibling);
+            prevStyleSiblings.set(style, ikeStyleSibling(style, false));
+            nextStyleSiblings.set(style, ikeStyleSibling(style, true));
         }
         function forgetStylePosition(style) {
             prevStyleSiblings.delete(style);
@@ -8039,8 +8372,8 @@
         }
         function didStylePositionChange(style) {
             return (
-                style.previousElementSibling !== prevStyleSiblings.get(style) ||
-                style.nextElementSibling !== nextStyleSiblings.get(style)
+                ikeStyleSibling(style, false) !== prevStyleSiblings.get(style) ||
+                ikeStyleSibling(style, true) !== nextStyleSiblings.get(style)
             );
         }
         currentStyles.forEach(saveStylePosition);
@@ -8109,6 +8442,9 @@
                 removedStyles,
                 movedStyles
             });
+            if (moves.size > 0) {
+                ikeCheckStyleGroups(root);
+            }
             const potentialHosts = new Set();
             additions.forEach((n) => {
                 if (n.parentElement) {
@@ -8161,6 +8497,7 @@
                 removedStyles,
                 movedStyles
             });
+            ikeCheckStyleGroups(root);
             deepObserve(root);
             collectUndefinedElements(root);
             checkImageSelectors(root);
@@ -8602,13 +8939,28 @@
         );
     }
     const shadowRootsWithOverrides = new Set();
+    // I.K.E.: the same texts for every shadow root of a theme and a fix
+    let ikeShadowTextCache = null;
+    function ikeShadowTexts() {
+        const css = fixes && fixes.css ? fixes.css : "";
+        const cache = ikeShadowTextCache;
+        if (cache && cache.theme === theme && cache.css === css) {
+            return cache;
+        }
+        ikeShadowTextCache = {
+            theme,
+            css,
+            inline: getInlineOverrideStyle(),
+            override: css ? replaceCSSTemplates(css) : ""
+        };
+        return ikeShadowTextCache;
+    }
     function createShadowStaticStyleOverridesInner(root) {
         const inlineStyle = createOrUpdateStyle("darkreader--inline", root);
-        inlineStyle.textContent = getInlineOverrideStyle();
+        inlineStyle.textContent = ikeShadowTexts().inline;
         root.insertBefore(inlineStyle, root.firstChild);
         const overrideStyle = createOrUpdateStyle("darkreader--override", root);
-        overrideStyle.textContent =
-            fixes && fixes.css ? replaceCSSTemplates(fixes.css) : "";
+        overrideStyle.textContent = ikeShadowTexts().override;
         root.insertBefore(overrideStyle, inlineStyle.nextSibling);
         const invertStyle = createOrUpdateStyle("darkreader--invert", root);
         invertStyle.textContent = getInversionStyleValue();
@@ -8705,14 +9057,15 @@
                 push(inlineStyleElements, elements);
             }
         });
-        inlineStyleElements.forEach((el) =>
+        ikeWithSVGRects(inlineStyleElements, () =>
+            inlineStyleElements.forEach((el) =>
             overrideInlineStyle(
                 el,
                 theme,
                 ignoredInlineSelectors,
                 ignoredImageAnalysisSelectors
             )
-        );
+        ));
         handleAdoptedStyleSheets(document);
         variablesStore.matchVariablesAndDependents();
         tryInvertChromePDF();
@@ -8878,6 +9231,7 @@
                     INLINE_STYLE_SELECTOR
                 );
                 if (inlineStyleElements.length > 0) {
+                    ikeWithSVGRects(inlineStyleElements, () =>
                     forEach(inlineStyleElements, (el) =>
                         overrideInlineStyle(
                             el,
@@ -8885,7 +9239,7 @@
                             ignoredInlineSelectors,
                             ignoredImageAnalysisSelectors
                         )
-                    );
+                    ));
                 }
             }
         );

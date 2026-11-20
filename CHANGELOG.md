@@ -12,6 +12,17 @@ protection was removed or weakened.
   built (where it is needed) and stops afterwards, when every other way a frame
   can come in is guarded directly. A page adding and removing thousands of
   elements: 23.7 -> 17.6 ms at Balanced (11.5 ms with the shield off).
+- **Page dark mode with Dark Reader is lighter**: changes to how Dark
+  Reader's engine works (built in from its npm package, checked at every
+  update) stop it from making the browser restyle the whole page or lay it
+  out again for nothing (a style it took for moved, a colour variable set on
+  the whole page when a fallback already gives the same colour, SVG shapes
+  measured one at a time), let identical style elements (an icon repeated
+  with its own style) share one dark copy, and cut its work for every
+  shadow root. Pages look exactly the same. Speedometer 3.0 with Dark
+  Reader: 5.7 -> 6.9 on the same computer (Svelte-Complex-DOM 250 -> 52 ms,
+  Lit-Complex-DOM 273 -> 175 ms, observable-plot charts 359 -> 239 ms); the
+  engine's own dark mode stays the lightest.
 - **Frames added in more ways are protected**: a frame put into a page through
   a Range (insertNode, surroundContents), a shadow root or execCommand gets the
   same protection as the page at once. In 1.1.17 the Range and execCommand
