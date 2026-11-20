@@ -423,5 +423,6 @@ def test_what_dark_reader_darkens(run_ike, site):
     assert out["line"] != "rgb(0, 0, 0)" and lightness(out["line"]) > 0.3, out["line"]
     # the moved style element's copy followed it
     assert out["movedcopy"], out
-    # the fix's variable is defined
+    # the fix's variable is defined; a colour no fix names needs no variable on :root
     assert dark(out["fixvar"]) and out["rootvar"], out
+    assert out["newcvar"] == "", out

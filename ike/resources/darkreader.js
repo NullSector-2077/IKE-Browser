@@ -2375,6 +2375,34 @@
         }
         return null;
     }
+    // I.K.E.: is a colour variable needed on :root?
+    const ikeColorFallbacks = new Map();
+    const ikeColorsOnRoot = new Set();
+    let ikeFixCSS = null;
+    let ikeFixColors = new Set();
+    function ikeColorOnRoot(variable, value) {
+        const css = (fixes && fixes.css) || "";
+        if (css !== ikeFixCSS) {
+            ikeFixCSS = css;
+            ikeFixColors = new Set(
+                css.match(/--darkreader-(?:background|text|border)-[0-9a-f]+/g)
+            );
+        }
+        if (!ikeColorsOnRoot.has(variable)) {
+            const fallback = ikeColorFallbacks.get(variable);
+            if (fallback === undefined) {
+                ikeColorFallbacks.set(variable, value);
+            }
+            if (
+                !ikeFixColors.has(variable) &&
+                (fallback === undefined || fallback === value)
+            ) {
+                return false;
+            }
+            ikeColorsOnRoot.add(variable);
+        }
+        return true;
+    }
     function registerVariablesSheet(sheet) {
         variablesSheet = sheet;
         const rule = getVariablesRule();
@@ -2386,7 +2414,9 @@
             types.forEach((type) => {
                 if (registered[type]) {
                     const {variable, value} = registered[type];
-                    rule.style.setProperty(variable, value);
+                    if (ikeColorOnRoot(variable, value)) {
+                        rule.style.setProperty(variable, value);
+                    }
                 }
             });
         });
@@ -2418,7 +2448,9 @@
         }
         const variable = `--darkreader-${type}-${hex.replace("#", "")}`;
         registered[type] = {variable, value};
-        getVariablesRule()?.style.setProperty(variable, value);
+        if (ikeColorOnRoot(variable, value)) {
+            getVariablesRule()?.style.setProperty(variable, value);
+        }
         return getRegisteredVariableValue(type, registered);
     }
     function getColorPalette() {

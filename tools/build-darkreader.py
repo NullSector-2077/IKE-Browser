@@ -338,6 +338,63 @@ PATCHES = [
                     ));
                 }
 """),
+    # Every colour Dark Reader changes is written as
+    # var(--darkreader-<kind>-<hex>, <colour>), and the same variable was also
+    # set on :root. Setting a new variable on :root makes the browser style the
+    # whole page again (every element, every shadow tree), each time the page
+    # shows a colour it had not shown before. The variable is now set on :root
+    # only when something reads it without that fallback (the site's fix in
+    # Dark Reader's list names it) or when its colour is not the one already
+    # written as fallback; otherwise the fallback is the same colour.
+    ("color-variables", """\
+    function registerVariablesSheet(sheet) {
+""", """\
+    // I.K.E.: is a colour variable needed on :root?
+    const ikeColorFallbacks = new Map();
+    const ikeColorsOnRoot = new Set();
+    let ikeFixCSS = null;
+    let ikeFixColors = new Set();
+    function ikeColorOnRoot(variable, value) {
+        const css = (fixes && fixes.css) || "";
+        if (css !== ikeFixCSS) {
+            ikeFixCSS = css;
+            ikeFixColors = new Set(
+                css.match(/--darkreader-(?:background|text|border)-[0-9a-f]+/g)
+            );
+        }
+        if (!ikeColorsOnRoot.has(variable)) {
+            const fallback = ikeColorFallbacks.get(variable);
+            if (fallback === undefined) {
+                ikeColorFallbacks.set(variable, value);
+            }
+            if (
+                !ikeFixColors.has(variable) &&
+                (fallback === undefined || fallback === value)
+            ) {
+                return false;
+            }
+            ikeColorsOnRoot.add(variable);
+        }
+        return true;
+    }
+    function registerVariablesSheet(sheet) {
+"""),
+    ("color-variables-sheet", """\
+                    const {variable, value} = registered[type];
+                    rule.style.setProperty(variable, value);
+""", """\
+                    const {variable, value} = registered[type];
+                    if (ikeColorOnRoot(variable, value)) {
+                        rule.style.setProperty(variable, value);
+                    }
+"""),
+    ("color-variables-register", """\
+        getVariablesRule()?.style.setProperty(variable, value);
+""", """\
+        if (ikeColorOnRoot(variable, value)) {
+            getVariablesRule()?.style.setProperty(variable, value);
+        }
+"""),
 ]
 
 
