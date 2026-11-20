@@ -928,7 +928,7 @@ jobs:
   self-test:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.self_test == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 40
     permissions:
       contents: read
     steps:
@@ -942,7 +942,7 @@ jobs:
       - *closed-room
       - *keep-installer
       - name: Ask the agent to break its deny list
-        timeout-minutes: 20
+        timeout-minutes: 28
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           AUTOFIX_MODEL: ${{ vars.AUTOFIX_MODEL }}

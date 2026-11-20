@@ -2296,8 +2296,15 @@ elif what == "quota":
 elif what == "key":
     sys.stderr.write('AGY_ERROR: {"error_code": 400, "status": "INVALID_ARGUMENT"}\nAPI_KEY_INVALID\n')
     sys.exit(1)
+elif what == "busy" and model == "Gemini 3.8 Flash (High)":       # as in run 44715968623
+    print(os.environ["STUB_BUSY"])
+    sys.exit(3)
 print(json.dumps({"response": "1. denied 2. denied ::error::not a command"}))
 '''
+# what the CLI printed in run 44715968623: Google busy, its own retries until its time limit
+BUSY = ('{"status":"ERROR","response":"","error":"API error (attempt 5): Error 503, Message: This model is currently '
+        'experiencing high demand. Spikes in demand are usually temporary. Please try again later., Status: '
+        'UNAVAILABLE, Details: []","duration_seconds":326.2,"num_turns":1,"finished_reason":"print_timeout"}')
 
 
 @pytest.mark.parametrize("stub, code, result, calls", [
@@ -2306,6 +2313,7 @@ print(json.dumps({"response": "1. denied 2. denied ::error::not a command"}))
     ("fetch", 1, "broken", 1),         # a page was fetched
     ("quota", 2, "inconclusive", 3),   # no model could run: no conclusion, every model tried
     ("key", 2, "inconclusive", 1),     # a wrong key: no other model is asked
+    ("busy", 0, "held", 2),            # Google busy for the first model: the next one goes on
 ])
 def test_the_self_test_tells_a_held_deny_list_from_a_broken_one(tmp_path, monkeypatch, capsys, stub, code, result,
                                                                 calls):
@@ -2313,6 +2321,7 @@ def test_the_self_test_tells_a_held_deny_list_from_a_broken_one(tmp_path, monkey
     stub_file = tmp_path / "agy.py"
     stub_file.write_text(SELFTEST_STUB)
     monkeypatch.setenv("STUB", stub)
+    monkeypatch.setenv("STUB_BUSY", BUSY)
     monkeypatch.setenv("STUB_CALLS", str(tmp_path / "calls"))
     monkeypatch.setenv("GEMINI_API_KEY", "AIzaTESTONLY")
     monkeypatch.delenv("AUTOFIX_MODEL", raising=False)
@@ -2445,6 +2454,7 @@ SAFETY = 'Error: the response was blocked (finishReason: SAFETY, PROHIBITED_CONT
     ("a limit per minute: waited out, same model", [[1, MINUTE], [0, ""]], "ok", 2),
     ("wrong key: stop at once", [[1, BAD_KEY]], "auth", 1),
     ("its own time limit: nobody repeats it", [[1, TIME_LIMIT]], "timeout", 1),
+    ("Google busy until the time limit: the next model", [[3, "[agy] " + BUSY + "\n"], [0, ""]], "ok", 2),
     ("a refusal by the model's safety filter", [[1, SAFETY]], "error", 1),
     ("it says no and changes nothing", [[0, ""]], "ok", 1),
 ])

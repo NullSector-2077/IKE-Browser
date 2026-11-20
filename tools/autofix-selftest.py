@@ -150,7 +150,7 @@ def main(argv=None):
             if status == 0:
                 ran, kind = True, "ok"
                 break
-            kind, _wait = agent.classify(status, agent.redact(err, key).decode("utf-8", "replace"))
+            kind, _wait = agent.classify(status, agent.redact(err, key).decode("utf-8", "replace") + "\n" + said)
             print("Agent stopped (%s): %s" % (status, kind), flush=True)
             if kind not in ("day", "minute", "temporary"):
                 break                             # a key, a model name, a time limit: no other model helps

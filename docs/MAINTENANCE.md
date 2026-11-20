@@ -146,6 +146,10 @@ never touched.
    when a model's daily quota is used up (or Google is down) does the next one
    go on, with the work already done. When the CLI's own time limit stops an
    agent still at work, nobody else is asked to repeat it: the reserves go on.
+   But when that time limit came only because Google answered 503 ("high
+   demand") and the CLI kept retrying, Google is down for that model: the
+   next one goes on (final review of 1.1.18, seen in the self-test's first
+   run; the CLI's JSON answer on standard output is read too).
    The firewall logs the addresses the agent tried to reach and could not, and
    counts its refused name lookups; they go in the summary, for the diagnosis.
    What Antigravity leaves is kept only as a fix that passed the checks below:
