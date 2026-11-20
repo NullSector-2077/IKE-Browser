@@ -25,6 +25,7 @@ rebinding) is not caught.
 """
 
 import base64
+import functools
 import hashlib
 import ipaddress
 import json
@@ -85,10 +86,19 @@ def is_local_address(text):
     return any(ip in net for net in _LOCAL_NETS)
 
 
+# names of the home network by their form alone, no lookup (1.1.18, security
+# audit F2): routers and NAS boxes answer to these (fritz.box, router.lan,
+# nas.home.arpa) and to single names with no dot ("router", "printer")
+_HOME_SUFFIXES = (".localhost", ".local", ".lan", ".home.arpa", ".internal", ".intranet", ".home",
+                  ".corp", ".fritz.box")
+_HOME_NAMES = frozenset(("localhost", "fritz.box", "home.arpa"))
+
+
+@functools.lru_cache(maxsize=4096)
 def is_local_name(host):
     """True for a host name or address that means this computer or the home network."""
     h = (host or "").lower().rstrip(".").strip("[]")
-    if h == "localhost" or h.endswith((".localhost", ".local")):
+    if h in _HOME_NAMES or h.endswith(_HOME_SUFFIXES):
         return True
     if is_local_address(h):
         return True
@@ -96,8 +106,9 @@ def is_local_name(host):
         try:
             return is_local_address(socket.inet_ntoa(socket.inet_aton(h)))
         except OSError:
-            return False
-    return False
+            pass                         # a name made of such letters ("cafe"): below
+    # a single name with no dot ("router"): never a public site on the web
+    return bool(h) and "." not in h and ":" not in h and re.fullmatch(r"[a-z0-9_-]+", h) is not None
 
 
 def outside_home(host, done, who="", network=None):

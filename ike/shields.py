@@ -257,9 +257,12 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         """Home network protection (1.1.17): a page of a public site that opens
         an address of this computer or of the home network (a form sent to the
         router, a frame of a local service) is stopped, and the window asks
-        the user (securebar.py). Chromium already stops pictures and scripts
-        of that kind, not pages. Addresses the user opens are not touched;
-        only literal local names and addresses are looked at (no lookup here)."""
+        the user (securebar.py). Since 1.1.18 every kind of request is looked
+        at (security audit F2: the engine stopped none of them - a POST from
+        fetch, a picture, a script, a WebSocket all reached the router), and a
+        stopped one shows the same notice ("a part of this page"). Addresses
+        the user opens are not touched; only names and addresses that are
+        local by their form are looked at (no lookup here)."""
         from .userscripts import is_local_name
         if not is_local_name(url.host()):
             return False
@@ -279,8 +282,8 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             if main:
                 s.lan_blocked[url.toString()] = site_of(init.host().lower())
             else:
-                # a frame of the page: the page itself loads, and the window
-                # says what was stopped in it (no silent breakage)
+                # a frame or a part of the page: the page itself loads, and the
+                # window says what was stopped in it (no silent breakage)
                 s.lan_blocked["frame:" + info.firstPartyUrl().toString()] = site_of(init.host().lower())
         return True
 
@@ -319,7 +322,7 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             return
         rtype = info.resourceType()
         main = rtype == _RT.ResourceTypeMainFrame
-        if (main or rtype == _RT.ResourceTypeSubFrame) and self._lan_refused(info, url, main):
+        if self._lan_refused(info, url, main):
             return
         first = url if main else info.firstPartyUrl()
         # the page the request belongs to is known (not a service worker's own

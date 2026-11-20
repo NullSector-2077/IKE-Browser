@@ -12,7 +12,6 @@
   a page that replaced Blob read it. Now it never reaches a page function.
 """
 
-import json
 
 MEDIA_PAGE = r"""<title>yt</title><video id=v></video><script>
 window.leaks = []; window.nexts = 0;
