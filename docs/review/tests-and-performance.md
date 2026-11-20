@@ -186,6 +186,64 @@ What the comparison showed:
   suspending gives back about 50 MB a tab. 1.1.18 therefore suspends earlier
   only when the computer runs short of memory.
 
+### 1.1.18, final comparison (second pass)
+
+Same kind of container (4 cores, no GPU), `main` at 9a49196 (1.1.17 with the
+automation of #59, #62, #63) against this branch at 19f4684, 8 of the 11
+default lists read from one folder for both (EasyList Italy, the Malicious
+URL Blocklist and the EasyList Cookie List could not be reached), local pages
+only. Runs alternated old / new. Other agents compiled in the same container
+during the second round, so its absolute numbers are lower; only the
+alternated pairs are compared.
+
+Speedometer 3.1 (WebKit/Speedometer `release/3.1`, served locally, 3
+iterations a run, Balanced):
+
+| Page dark mode | 1.1.17 (round 1 / 2) | 1.1.18 (round 1 / 2) |
+|---|---|---|
+| none | 9.13 / 8.25 | 9.12 / 8.12 (same) |
+| the engine's own | 8.80 / 9.08 | 8.83 / 8.56 (within the noise) |
+| Dark Reader | 5.24 / 4.94 | 6.56 / 5.85 (+18-25 %) |
+
+`tests/measure_perf.py --runs 2` (round 1 / round 2):
+
+| Measure | 1.1.17 | 1.1.18 |
+|---|---|---|
+| Page with 400 requests: interface thread's processor time | 317 / 337 ms | 281 / 273 ms |
+| Its request checks | 19.0 / 16.1 ms | 12.6 / 14.6 ms |
+| Its load | 479 / 517 ms | 492 / 434 ms (noise) |
+| Shield redrawn for it | 4 / 4 | 3 / 3 |
+| Start-up cold, warm | 0.98-1.00, 0.63-0.65 s | 0.94-1.02, 0.64-0.71 s (same) |
+| Engine rebuilt, window frozen meanwhile | 300 ms, 20 ms | 290 ms, 20 ms (same) |
+| 30 frames, Off / Balanced / Strict / Maximum | 292-363 / 444 / 531-543 / 524-550 ms | 274-310 / 414-518 / 464-612 / 500-564 ms (noise, both ways) |
+| Processor at rest, 1 tab / 10 tabs | 4.5, 3.9 % / 0.75, 0.70 % | 1.5, 1.5 % / 0.75, 0.55 % |
+| Memory, all processes, 1 tab / 10 tabs | 550, 546 / 708, 703 MB | 540, 422 / 709, 621 MB (the second round of 1.1.18 is lower, not claimed) |
+
+The request checks while the engine is rebuilt in the background (after a
+list update), heavy page, 5 rounds of 6 loads, alternated: all checks of a
+load 24-35 ms -> 17-24 ms, the slowest single check 6-18 ms -> 1.8-2.5 ms
+(the Rust module no longer lets go of Python's lock for one check). The
+longest pause of the interface during such a load moved from 60-82 to
+75-108 ms in medians; per load the values overlap widely (42-134 ms either
+way), so no change is claimed for it.
+
+Many tabs (a "live" page: a timer changing the page every 100 ms, an
+animation, 2,000 objects of data; one window, all processes; same numbers
+for 1.1.17 and 1.1.18 within 1 %):
+
+| Tabs | Active | Frozen | Suspended | A suspended tab shown again |
+|---|---|---|---|---|
+| 10 | 598 MB, 20 % | 604 MB, 14 % | 437 MB, 2.6 % | 0.40 s |
+| 20 | 812 MB, 18 % | 808 MB, 11 % | 451 MB, 2.6 % | 0.40 s |
+| 30 | 1021 MB, 18.5 % | 1007 MB, 8 % | 461 MB, 2.8 % | 0.35 s |
+
+Processor time in those rows comes almost all from the tab in view. Ten
+live tabs in the background with an empty tab in view: 1.7 % in the first
+minute, then 0.0-0.1 % per minute for the next seven (the engine already
+slows hidden tabs down). Freezing tabs earlier would therefore save nothing;
+suspending gives back memory (about 19 MB a tab here), which 1.1.18 does
+earlier only when memory runs short.
+
 ## 1.1.18, page dark mode with Dark Reader
 
 Where Dark Reader's cost came from (Speedometer 3.0 suites traced through
