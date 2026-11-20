@@ -78,8 +78,11 @@ def is_local_address(text):
         ip = ipaddress.ip_address(str(text).strip("[]").split("%")[0])
     except ValueError:
         return False
-    if ip.version == 6 and int(ip) < 2 ** 32:      # IPv4-compatible (::a.b.c.d), ::1, ::
-        ip = ipaddress.IPv4Address(int(ip))
+    if ip.version == 6:
+        if ip.ipv4_mapped:
+            ip = ip.ipv4_mapped
+        elif int(ip) < 2 ** 32:      # IPv4-compatible (::a.b.c.d), ::1, ::
+            ip = ipaddress.IPv4Address(int(ip))
     return any(ip in net for net in _LOCAL_NETS)
 
 
