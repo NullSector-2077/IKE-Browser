@@ -554,3 +554,78 @@ def test_identical_style_elements_share_one_copy(run_ike, site):
         assert p["m"] == p[expect_m[n]] and lightness(p["m"]) < 0.3, (n, p)
     # one copy for the five-to-seven identical icons, not one each
     assert phases[0]["icons"] == 6 and phases[0]["copies"] == 1, phases[0]
+
+
+# --- groups and disabled style elements (1.1.18 review) --------------------------
+# The same page twice: once with identical style elements (they share one copy)
+# and once with each text made unique by a comment (no group: Dark Reader's own
+# behaviour, one copy each). Every phase must give the same colours in both.
+def disabled_page(unique):
+    def st(i, text, sid=""):
+        body = text + ("/*%d*/" % i if unique else "")
+        return "<style%s>%s</style>" % (" id='%s'" % sid if sid else "", body)
+    light, red = ".d { background-color: #fafafa }", ".d { background-color: #ff0000 }"
+    return ("<!doctype html><html><head><title>disabled</title></head><body>"
+            + st(1, light, "s1") + st(2, red, "r") + st(3, light, "s3") + st(4, light, "s4")
+            + "<div id='d' class='d' style='height: 10px'>d</div>"
+            "<script src='/disabled.js'></script></body></html>")
+
+
+DISABLED_JS = r"""
+var UNIQUE = /\/\*\d+\*\//.test(document.getElementById('s1').textContent);
+var n = 10;
+function light() { n++; var s = document.createElement('style');
+  s.textContent = '.d { background-color: #fafafa }' + (UNIQUE ? '/*' + n + '*/' : ''); return s; }
+document.getElementById('s4').disabled = true;          // the last one starts disabled
+window.phase = function (k) {
+  var s1 = document.getElementById('s1'), s3 = document.getElementById('s3'), s4 = document.getElementById('s4');
+  if (k === 1) { s3.disabled = true; }                  // every identical one after the red rule disabled
+  else if (k === 2) { s3.sheet.disabled = false; s4.sheet.disabled = false; s1.sheet.disabled = true; } // CSSOM
+  else if (k === 3) { document.body.insertBefore(s1, document.getElementById('d')); }  // a disabled one moved last
+  else if (k === 4) { s4.remove(); s3.remove(); }                             // enabled ones removed
+  else if (k === 5) { var s = light(); s.disabled = true; document.body.insertBefore(s, document.getElementById('d'));
+                      s1.disabled = false; }                                    // a disabled one added
+  else if (k === 6) { var a = light(); document.head.appendChild(a); a.disabled = true;   // added, disabled at once
+                      document.body.insertBefore(document.getElementById('r'), document.getElementById('d')); }
+  document.title = 'phase' + k;
+};
+document.title = 'phase0';
+"""
+
+DISABLED_STEPS = JS + r'''
+SITE = "__SITE__"
+READ = """JSON.stringify({title: document.title, d: getComputedStyle(document.getElementById('d')).backgroundColor,
+  styles: Array.prototype.map.call(document.querySelectorAll('style:not(.darkreader)'), function (s) {
+    return (s.id || '-') + (s.sheet && s.sheet.disabled ? ':off' : ':on'); }).join(' ')})"""
+
+def steps(ike, qapp, out):
+    view = ike.windows[0].current_view()
+    yield 500
+    for page in ("same", "unique"):
+        yield from load(view, SITE + "/disabled-" + page)
+        yield 2000
+        rows = [json.loads((yield from js(view, READ)))]
+        for k in range(1, 7):
+            yield from js(view, "phase(%d)" % k)
+            yield 1200
+            rows.append(json.loads((yield from js(view, READ))))
+        out[page] = rows
+'''
+
+
+def test_groups_with_disabled_style_elements_change_no_colour(run_ike, site):
+    """Identical style elements with different enabled states (the disabled
+    property, also through the CSSOM), moved, removed, added disabled: the
+    colours with the shared copy are exactly those of Dark Reader's own one
+    copy per element, in every phase."""
+    PAGES["/disabled-same"] = (disabled_page(False), {})
+    PAGES["/disabled-unique"] = (disabled_page(True), {})
+    PAGES["/disabled.js"] = (DISABLED_JS, {"Content-Type": "application/javascript"})
+    out = run_ike(DISABLED_STEPS.replace("__SITE__", site),
+                  settings={"dark_mode": "on", "dark_engine": "reader"}, timeout=150)
+    same, unique = out.get("same"), out.get("unique")
+    assert same and unique and len(same) == len(unique) == 7, out
+    for k, (a, b) in enumerate(zip(same, unique)):
+        assert a["title"] == b["title"] == "phase%d" % k, (a, b)
+        assert a["styles"] == b["styles"], (k, a, b)            # the same states in both pages
+        assert a["d"] == b["d"], ("a colour changed by the shared copy", k, a, b)
