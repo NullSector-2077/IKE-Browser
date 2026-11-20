@@ -269,8 +269,12 @@ def test_open_reports_read_the_comments_too(monkeypatch):
             {"number": 40, "title": "Automatic fix: \"Tests\" failed", "pull_request": {}},
             {"number": 41, "title": plan_tool.ISSUE_TITLE % "Other", "body": ""}],
         "repos/o/r/issues/31/comments?per_page=100": [
-            {"body": "a person", "created_at": "2026-11-20T11:00:00Z"},
-            {"body": plan_tool.SHA_MARK % "feed123", "created_at": "2026-11-19T00:00:00Z"}],
+            {"body": "a person", "created_at": "2026-11-20T11:00:00Z", "user": {"login": "owner"}},
+            {"body": plan_tool.SHA_MARK % "feed123", "created_at": "2026-11-19T00:00:00Z",
+             "user": {"login": "github-actions[bot]"}},
+            # 1.1.18 (review): anyone may write the hidden mark in a comment
+            {"body": plan_tool.SHA_MARK % "beef456", "created_at": "2026-11-20T11:30:00Z",
+             "user": {"login": "someone"}}],
     }
     monkeypatch.setattr(plan_tool, "gh_api", lambda path, raw=False: answers[path])
     out = plan_tool.open_reports("o/r", "Tests")
@@ -834,6 +838,61 @@ def test_the_checker_ignores_what_the_agent_could_configure(repo, tmp_path, monk
     env = guard.safe_git_env()
     assert env["GIT_CONFIG_GLOBAL"] == "/dev/null" and env["GIT_CONFIG_NOSYSTEM"] == "1" and "GIT_DIR" not in env
     assert run_guard(repo, patch, tmp_path)[0] == 0 and not hit.exists()
+
+
+NOTE = 'import pytest\n_NOTE = """\n++ notes\n"""\n'      # its diff line reads "+++ notes"
+WIDTH = "def test_width():\n    assert 1\n    assert 2\n"
+
+
+@pytest.mark.parametrize("text, why", [
+    (NOTE + "pytestmark = pytest.mark.skip\n" + WIDTH, "skip or xfail"),
+    (NOTE + "def test_width():\n    return\n    assert 1\n    assert 2\n", "early return"),
+    (NOTE + WIDTH + "\n\ndef test_more():\n    assert True\n", "cannot fail"),
+    (NOTE + "KEY = '%s'\n" % ("AIza" + "Q" * 35) + WIDTH, "key or token"),
+    (NOTE + WIDTH + "\n\ndel test_width\n", "by code"),
+])
+def test_a_line_that_looks_like_a_header_does_not_blind_the_checks(repo, tmp_path, text, why):
+    """1.1.18 (review, verified exploit): an added line "++ x" shows in the diff
+    as "+++ x", which was taken for the next file's header: every check of the
+    rest of the file was blind. Hunks are now read by their line counts."""
+    patch = make_patch(repo, edit("tests/test_window.py", text))
+    assert "\n+++ notes\n" in patch
+    code, report = run_guard(repo, patch, tmp_path)
+    assert code == 3 and why in report, report
+    assert [p for p, s, t in guard.patch_lines(patch) if s == "+"] == ["tests/test_window.py"] * \
+        len([t for p, s, t in guard.patch_lines(patch) if s == "+"])
+
+
+@pytest.mark.parametrize("change, why", [
+    (edit("tests/test_window.py", WIDTH + "\n\ndel test_width\n"), "by code"),
+    (edit("tests/test_window.py", WIDTH + "\n\ndef test_x():\n    getattr(pytest, 'sk' + 'ip')('x')\n"),
+     "by code"),
+    (edit("tests/test_window.py", WIDTH + "\n\ndef test_x():\n    x = 3\n    assert x == x\n"), "cannot fail"),
+    (edit("tests/test_window.py", WIDTH + "\n\ndef test_x():\n    import os\n    os._exit(0)\n"), "by code"),
+    (edit("tests/test_window.py", WIDTH + "\nglobals().pop('test_width')\n"), "by code"),
+    (edit("tests/zz/conftest.py", "def pytest_collection_modifyitems(items):\n    items.clear()\n"),
+     "protected file"),
+    (edit("tests/helpers.py", "X = 1\n"), "not a test module"),
+    (edit("tests/__init__.py", ""), "protected file"),
+    (edit("ike/sub/pytest.ini", "[pytest]\naddopts = -k nothing\n"), "protected file"),
+    (edit("tools/setup.cfg", "[tool:pytest]\n"), "protected file"),
+    (edit("docs/ruff.toml", "line-length = 999\n"), "protected file"),
+])
+def test_tests_cannot_be_dropped_by_other_means(repo, tmp_path, change, why):
+    """1.1.18 (review): `del test_x`, a conftest.py dropping items, skip reached
+    through getattr, `assert x == x`, a configuration that decides what runs."""
+    code, report = run_guard(repo, make_patch(repo, change), tmp_path)
+    assert code == 3 and why in report, report
+
+
+def test_ordinary_test_code_is_still_accepted(repo, tmp_path):
+    text = (WIDTH + "\n\ndef test_list(tmp_path):\n    opened = [1]\n    del opened[:]\n    assert opened == []\n"
+            "    assert len(opened) == 0, 'empty'\n")
+    code, report = run_guard(repo, make_patch(repo, edit("tests/test_window.py", text)), tmp_path, "--check-only")
+    assert code == 0, report
+    code, report = run_guard(repo, make_patch(repo, edit("tests/test_new_part.py", "def test_a():\n    assert 2\n")),
+                             tmp_path, "--check-only")
+    assert code == 0, report
 
 
 def test_the_checker_prints_no_workflow_commands(repo, tmp_path, capsys):
@@ -1598,6 +1657,38 @@ def test_no_dead_parts_in_the_workflows():
     assert users == ["tests.yml"]
     assert "autofix.yml:" not in env and "shared by tests.yml and autofix.yml" not in env
     assert "guard-refused.md" not in (WORKFLOWS / "autofix.yml").read_text()
+
+
+@pytest.mark.parametrize("old, waiting, pushed", [
+    ("tip1", "", True),          # where the plan saw it, nothing waiting: pushed
+    ("tip2", "", False),         # pushed by another run after this plan
+    ("tip1", "12", False),       # another automatic fix of main is waiting
+])
+def test_a_first_fix_of_main_never_overwrites_another(tmp_path, old, waiting, pushed):
+    """1.1.18 (review): two runs planned side by side could each push a first
+    fix of main, the later one replacing the other's."""
+    import os
+    import subprocess
+    script = step_script("Push the fix, update the draft PR and start the tests")
+    temp = tmp_path / "runner"
+    (temp / "autofix").mkdir(parents=True)
+    for name in ("summary.md", "guard.md"):
+        (temp / "autofix" / name).write_text("x\n")
+    bin_ = tmp_path / "bin"
+    bin_.mkdir()
+    calls = tmp_path / "calls"
+    (bin_ / "git").write_text('#!/bin/sh\ncase "$*" in *rev-parse*) echo "$FAKE_OLD";; *" push "*) '
+                              'echo push >> "%s";; esac\nexit 0\n' % calls)
+    (bin_ / "gh").write_text('#!/bin/sh\ncase "$*" in "pr list"*) echo "$FAKE_PR";; esac\nexit 0\n')
+    for f in ("git", "gh"):
+        (bin_ / f).chmod(0o755)
+    env = dict(os.environ, RUNNER_TEMP=str(temp), PATH="%s:%s" % (bin_, os.environ["PATH"]), GH_TOKEN="x",
+               KIND="main", PUSH_BRANCH="automation/autofix-main", CHECKOUT="main1", PUSH_TIP="tip1",
+               WORKFLOW="Tests", ATTEMPT="1", RUN_URL="u", FAKE_OLD=old, FAKE_PR=waiting)
+    run = subprocess.run(["bash", "-e", "-c", script], env=env, capture_output=True, text=True, timeout=60)
+    assert (run.returncode == 0) is pushed, run.stdout + run.stderr
+    assert calls.exists() is pushed
+    assert "push_tip: ${{ steps.plan.outputs.push_tip }}" in (WORKFLOWS / "autofix.yml").read_text()
 
 
 def test_the_issue_tells_when_a_reserve_fix_was_refused_by_the_guard(tmp_path):

@@ -45,6 +45,7 @@ ISSUE_TITLE = "Automatic fix needs you: %s"
 SHA_MARK = "<!-- autofix-sha: %s -->"
 SHA_MARK_RE = re.compile(r"<!-- autofix-sha: ([0-9a-f]{7,40}) -->")
 REPORT_FRESH_HOURS = 24
+REPORTER = "github-actions[bot]"      # the author of the report job's comments
 # Steps of the daily maintenance's "prepare" job that no AI fix of main can
 # help (1.1.18): the check and apply of the component updates fails when an
 # upstream source cannot be reached (tools/check-components.py exits 1), and a
@@ -312,6 +313,8 @@ def open_reports(repo, name):
         except RuntimeError:
             comments = []
         for c in comments:
+            if (c.get("user") or {}).get("login") != REPORTER:
+                continue                      # anyone may comment; only the report job's comments count
             text = c.get("body") or ""
             body += "\n" + text
             if SHA_MARK_RE.search(text) and (c.get("created_at") or "") > reported:
@@ -342,6 +345,9 @@ def main(argv=None):
     # the commit that failed: the issue's message for ChatGPT starts from it when
     # no automatic fix is tried (after two attempts, for instance)
     plan["head_sha"] = run.get("head_sha", "")
+    # where the fix branch was when this plan was made: publish pushes only if
+    # it is still there (1.1.18: two plans of main side by side could each push)
+    plan["push_tip"] = tip(plan["push_branch"]) if plan["push_branch"] else ""
 
     parts = ["# Failure to fix\n",
              "- Workflow: %s\n- Branch: %s\n- Commit: %s\n- Run: %s\n" % (

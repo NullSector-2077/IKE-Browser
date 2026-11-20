@@ -35,8 +35,11 @@ permissions: {}
 # No concurrency for the whole workflow (1.1.18): GitHub keeps one waiting run
 # per group and replaces it with any newer one, so a run for a real failure was
 # dropped for the next run that only skipped (a pull request's tests, say). The
-# jobs that work on a branch (fix, guard, publish) wait for each other per
-# branch instead, and are never cancelled.
+# jobs that work on a branch (fix, guard, publish) run one at a time per branch
+# and are never cancelled while running; a waiting one can still be replaced
+# by a newer one for the same branch (GitHub keeps one waiting job per group).
+# Plans of different runs may run side by side: publish pushes only when the
+# branch is where its plan (or its agent) saw it.
 
 jobs:
   plan:
@@ -58,6 +61,7 @@ jobs:
       allow_adblock: ${{ steps.plan.outputs.allow_adblock }}
       workflow: ${{ steps.plan.outputs.workflow }}
       head_sha: ${{ steps.plan.outputs.head_sha }}
+      push_tip: ${{ steps.plan.outputs.push_tip }}
     steps:
       - name: Check out main (all branches, no credentials)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -607,6 +611,7 @@ jobs:
           KIND: ${{ needs.plan.outputs.kind }}
           PUSH_BRANCH: ${{ needs.plan.outputs.push_branch }}
           CHECKOUT: ${{ needs.plan.outputs.checkout }}
+          PUSH_TIP: ${{ needs.plan.outputs.push_tip }}
           WORKFLOW: ${{ needs.plan.outputs.workflow }}
           ATTEMPT: ${{ needs.plan.outputs.attempt }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -618,6 +623,19 @@ jobs:
           if [ "$KIND" = "maintenance" ] || [ "$ATTEMPT" != "1" ]; then
             if [ "$old" != "$CHECKOUT" ]; then
               echo "::error::$PUSH_BRANCH has moved since the agent started: the fix is not pushed"
+              exit 1
+            fi
+          else
+            # 1.1.18: a first fix of main replaces the branch only if it is where the
+            # plan saw it and no automatic fix is waiting there (two runs planned
+            # side by side must not overwrite each other's fix)
+            if [ "$old" != "$PUSH_TIP" ]; then
+              echo "::error::$PUSH_BRANCH has moved since the plan: the fix is not pushed"
+              exit 1
+            fi
+            waiting=$(gh pr list --head "$PUSH_BRANCH" --base main --state open --json number --jq '.[0].number // empty')
+            if [ -n "$waiting" ]; then
+              echo "::error::an automatic fix of main is already waiting (PR #$waiting): this one is not pushed"
               exit 1
             fi
           fi
