@@ -1478,6 +1478,44 @@ def test_after_two_attempts_the_issue_still_carries_the_message_for_chatgpt(tmp_
     assert "no attribute 'Completed'" in body
 
 
+def _issue_body(tmp_path, summary, **env_):
+    import os
+    import subprocess
+    script = step_script("Tell the owner")
+    temp = tmp_path / "runner"
+    (temp / "autofix").mkdir(parents=True)
+    (temp / "failure").mkdir()
+    (temp / "autofix" / "summary.md").write_text(summary)
+    bin_ = tmp_path / "bin"
+    bin_.mkdir()
+    (bin_ / "gh").write_text('#!/bin/sh\nfor a in "$@"; do last="$a"; done\n'
+                             'case "$*" in *"issue create"*|*"issue comment"*) cp "$last" "%s";; esac\nexit 0\n'
+                             % (tmp_path / "body.md"))
+    (bin_ / "gh").chmod(0o755)
+    env = dict(os.environ, RUNNER_TEMP=str(temp), PATH="%s:%s" % (bin_, os.environ["PATH"]),
+               ACTION="fix", REASON="", WORKFLOW="Tests", CHECKOUT="d0b6c21", HEAD_SHA="abc1234def",
+               FIX="success", PATCH="true", AGENT="ok", GUARD="failure", PUBLISH="skipped",
+               RUN_URL="https://example.test/run", GH_TOKEN="x", GH_REPO="o/r")
+    env.update(env_)
+    run = subprocess.run(["bash", "-e", "-c", script], env=env, capture_output=True, text=True, timeout=60)
+    assert run.returncode == 0, run.stdout + run.stderr
+    return (tmp_path / "body.md").read_text()
+
+
+def test_the_issue_tells_when_a_reserve_fix_was_refused_by_the_guard(tmp_path):
+    """1.1.18: a reserve found a fix, the guard refused it, and the issue said
+    that neither Antigravity nor the reserves had found one."""
+    reserve_ok = "x\n\n**Riserve: Una riserva (Groq / g1) ha preparato una correzione.**\n"
+    body = _issue_body(tmp_path / "a", reserve_ok)
+    assert "una riserva ha preparato una correzione, ma i controlli automatici l'hanno respinta" in body
+    assert "né Antigravity" not in body
+    assert "<!-- autofix-sha: abc1234def -->" in body
+    # nothing found at all: as before
+    none = "x\n\n**Riserve: Le riserve non sono riuscite a preparare una correzione applicabile.**\n"
+    body = _issue_body(tmp_path / "b", none, PATCH="false", GUARD="skipped", AGENT="quota")
+    assert "né Antigravity (quota" in body
+
+
 def test_the_chatgpt_guard_checks_only_chatgpts_own_commits(tmp_path):
     """ChatGPT's branch may start from the automation's branch after two
     automatic attempts, which raised the version: only ChatGPT's own commits
