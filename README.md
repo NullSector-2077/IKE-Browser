@@ -62,6 +62,9 @@ profiles: `ike-browser --profile NAME`.
   alike).
 - Automatic HTTPS, encrypted DNS (DNS over HTTPS), third-party cookie blocking,
   reduced referrer, Global Privacy Control.
+- Every site in its own sandboxed process, public pages kept away from the
+  router and the home network, signed updates that expire and arrive in
+  stages; what is protected and what is not: [docs/SECURITY.md](docs/SECURITY.md).
 - **Sosia (lookalike warning)**: when an address imitates a famous site
   ("paypa1.com", a Cyrillic letter in "pаypal", "paypal.com.login.xyz"), a bar
   above the page says so. Checked on this computer only, never blocking; real
@@ -186,7 +189,7 @@ I.K.E. has no servers of its own and sends no telemetry. It contacts only:
 | `vendor/adblock/` | loader for the engine module |
 | `launcher/` | the `/usr/bin/ike-browser` launcher (C) |
 | `data/` | desktop entry, icons, update channel configuration |
-| `docs/` | building, updates, maintenance, translating, testing, third-party components |
+| `docs/` | building, updates, maintenance, security, translating, testing, third-party components |
 | `licenses/` | licences of bundled third-party components |
 | `tools/` | release and maintenance scripts |
 | `tests/` | automatic tests (pytest) |

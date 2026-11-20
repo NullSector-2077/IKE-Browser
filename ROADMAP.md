@@ -89,15 +89,10 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Open work
 
-- **Security audit of 2026-11-20** (report kept by the owner; F1-F3 fixed in
-  1.1.18): the outdated-engine notice only after 5 Chrome versions (lower it
-  to 2); releases reach every user within a day with no staged rollout and no
-  expiry in the update manifest; no daily check of known vulnerabilities in
-  the Rust crates (cargo-deny checks licences only); the user-script bridge
-  does not check the page's address; engine switches inherited from the
-  environment (and remote debugging) pass silently; starting as root turns
-  the sandbox off with only a line in About; the tests run without the
-  engine's sandbox (a sandbox check in CI is missing).
+- **Security** (docs/SECURITY.md): DNS rebinding and public names of home
+  network addresses wait for the engine's Local Network Access in a later
+  Qt; Certificate Transparency, HSTS preload and Arch's V8 hardening to be
+  verified on a real system.
 - **Workers started from a file**: `experiment/file-workers` (see Known
   limits); merged only if the owner wants it, probably as an option.
 - **Dark Reader**: the early plain background could leave from inside

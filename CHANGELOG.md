@@ -122,13 +122,14 @@ protection was removed or weakened.
   with enough memory or with suspension turned off.
 
 Security audit of 2026-11-20 (an independent, read-only review of the whole
-browser; three findings fixed before release, the rest in ROADMAP.md):
+browser; every finding worked on before release, what is left is in
+docs/SECURITY.md):
 
 - **Every site in its own process** (owner's decision): Qt WebEngine leaves
   Chromium's Site Isolation off, so a frame of another site shared its page's
   process and one bug in the engine could let a page read the other site.
   I.K.E. now turns it on (`--site-per-process`), as Chrome and Brave always
-  do; a user who turned it off on purpose is followed. Measured: four tabs
+  do; turning it off takes `IKE_ALLOW_UNSAFE_ENGINE=1`. Measured: four tabs
   with four frames of other sites each used 494 MB instead of 436 MB (+13 %),
   13 processes instead of 8.
 - **The home network is protected from every kind of request**: until now
@@ -144,6 +145,38 @@ browser; three findings fixed before release, the rest in ROADMAP.md):
   key and recognise the browser on other sites). The media secret is now a
   random value of its own, the page cannot see the events any more, and the
   hidden part of workers never reaches a function the page replaced.
+- **No browser without its sandbox by accident**: engine switches inherited
+  from the environment that take a protection away (the sandbox, site
+  isolation, web security, certificate checks, remote debugging, also
+  `QTWEBENGINE_DISABLE_SANDBOX` and `QTWEBENGINE_REMOTE_DEBUGGING`) are
+  dropped, and the window says which; graphics and video switches are never
+  touched. Started as root (where the sandbox cannot work) I.K.E. no longer
+  switches its sandbox off silently: it does not start, and says why. Both
+  only with `IKE_ALLOW_UNSAFE_ENGINE=1`, and then the window and Help ->
+  About say which protections are off. About also shows whether site
+  isolation is on.
+- **User scripts cannot be impersonated**: a message on the user-script
+  bridge is taken only from a page the script really runs on (a frame that
+  page has, matching the script's sites), not just from whoever has its
+  token.
+- **The web engine's age**: the notice that the system's engine is behind
+  with its security fixes comes at two Chrome versions (it was five); About
+  shows the current Chrome it compares with, checked or estimated.
+- **Signed updates that expire, arrive in stages and can be stopped**: every
+  manifest expires after 180 days (an old copy kept back installs nothing),
+  a release reaches every installation within 24 hours instead of all at
+  once (`publish.py --urgente` for a security fix), and the owner can stop a
+  release with a signed "halt" manifest. "Check for updates" does not wait.
+- **Rust advisories checked every day**: the RustSec database against every
+  crate of the AdBlock engine, on every pull request and daily
+  (`security.yml`), with an issue when something is found.
+- **The sandbox proven in CI**: a new job runs the security tests with the
+  engine's sandbox really on, as a normal user, and fails if any page
+  process runs without it (`test_sandbox.py`).
+- **Not solved, said plainly**: a public name that resolves to an address of
+  the home network (DNS rebinding) is not stopped; the engine's own
+  protection for it is not in Qt 6.12 (tried), and I.K.E. cannot resolve
+  names in its request check without slowing every page (docs/SECURITY.md).
 
 Automatic maintenance and fixes (pull request #59; nothing of the browser):
 
