@@ -1,9 +1,11 @@
 """Persistent settings (JSON) and standard paths."""
 
 import copy
+import hashlib
 import json
 import os
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from . import osinfo
 
@@ -145,10 +147,6 @@ DEFAULT_LISTS = [
      "url": "https://malware-filter.gitlab.io/malware-filter/urlhaus-filter-online.txt"},
     {"name": "uBlock filters - Unbreak", "group": "ads", "enabled": True,
      "url": "https://ublockorigin.github.io/uAssets/filters/unbreak.txt"},
-    # off by default until its author confirms the terms for I.K.E. (1.1.16, see
-    # docs/THIRD-PARTY.md): the user can still turn it on in Settings
-    {"name": "Peter Lowe's list", "group": "ads", "enabled": False,
-     "url": "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=adblockplus&showintro=0&mimetype=plaintext"},
     {"name": "EasyList Italy", "group": "ads", "enabled": True,
      "url": "https://easylist-downloads.adblockplus.org/easylistitaly.txt"},
     {"name": "EasyList Cookie List", "group": "consent", "enabled": True,
@@ -247,7 +245,7 @@ DEFAULTS = {
     "custom_filters": "",
     "last_lists_update": 0,
     "last_fast_update": 0,              # urgent-fix lists (see blocker.FAST_INTERVAL)
-    "lists_version": 4,                 # bumped when default lists are added
+    "lists_version": 5,                 # bumped when the default lists change
     "auto_update": True,
     # downloads
     "download_dir": "",
@@ -302,7 +300,6 @@ DEFAULTS = {
     # browse, every signed release installs by itself; "off" is the user's choice
     "app_updates": "auto",
     "app_updates_1113": False,          # an old default "ask" was moved to "auto" once (1.1.13)
-    "pgl_off_1116": False,              # Peter Lowe's list was turned off once (1.1.16)
     "update_channel": "stable",         # stable | beta
     "last_app_check": 0,
     "passwords_offer_save": True,
@@ -363,6 +360,25 @@ def sound_settings(stored):
     return clean
 
 
+# Filter lists I.K.E. no longer offers because their terms do not allow it to
+# use them (1.1.18): the hosts they are downloaded from. Settings of earlier
+# versions that name one of them lose it once (see Config.load).
+WITHDRAWN_LIST_HOSTS = ("pgl.yoyo.org",)
+
+
+def _withdrawn_list(url):
+    try:
+        host = (urlsplit(str(url or "").strip()).hostname or "").rstrip(".")
+    except ValueError:
+        return False
+    return any(host == h or host.endswith("." + h) for h in WITHDRAWN_LIST_HOSTS)
+
+
+def _list_copy(url):
+    """Where blocker.list_path keeps the downloaded copy of a list."""
+    return DATA_DIR / "lists" / (hashlib.sha1(url.encode()).hexdigest()[:16] + ".txt")
+
+
 class Config:
     def __init__(self, path=None):
         self.path = Path(path) if path else CONFIG_DIR / "settings.json"
@@ -394,13 +410,6 @@ class Config:
         if d.get("app_updates") == "ask" and not d.get("app_updates_1113"):
             d["app_updates"] = "auto"
         d["app_updates_1113"] = True
-        # 1.1.16: Peter Lowe's list is off by default until its terms are clear; it
-        # is turned off once for everyone, and a user who turns it on again keeps it
-        if not d.get("pgl_off_1116"):
-            for e in d.get("filter_lists") or []:
-                if isinstance(e, dict) and "pgl.yoyo.org" in str(e.get("url", "")):
-                    e["enabled"] = False
-        d["pgl_off_1116"] = True
         # 1.1.8: the new tab page gets I.K.E.'s own photo; whoever had none before gets it once
         if d.get("newtab_bg") == "" and not d.get("newtab_bg_118"):
             d["newtab_bg"] = "default"
@@ -449,6 +458,20 @@ class Config:
                 d["filter_lists"].append(dict(entry))
                 d["last_lists_update"] = 0      # fetch it at the next start
             d["lists_version"] = 4
+        if isinstance(stored, dict) and stored.get("lists_version", 1) < 5:
+            # 1.1.18: a list whose terms do not allow I.K.E. to use it is removed
+            # from every profile, on or off, with the copy kept on disk; it is
+            # never downloaded or used again (the owner's decision)
+            dropped = [e for e in d["filter_lists"] if _withdrawn_list(e.get("url"))]
+            d["filter_lists"] = [e for e in d["filter_lists"] if e not in dropped]
+            if self.path == CONFIG_DIR / "settings.json":
+                for e in dropped:
+                    try:
+                        _list_copy(e["url"]).unlink(missing_ok=True)
+                    except (OSError, TypeError, AttributeError):
+                        pass
+            d["lists_version"] = 5
+        d.pop("pgl_off_1116", None)             # the flag of 1.1.16, no longer used
         # older level names ("standard" became "balanced")
         d["shield_level"] = _LEVEL_ALIASES.get(d["shield_level"], d["shield_level"])
         if d["shield_level"] not in LEVELS:

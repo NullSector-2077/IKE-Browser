@@ -2092,13 +2092,16 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self._credits())
 
     # Who I.K.E. stands on (1.1.14): names and licences, shown in Help -> About.
-    # The full list, with the Rust libraries, is docs/THIRD-PARTY.md.
+    # The full list, with the Rust libraries, is docs/THIRD-PARTY.md; the texts
+    # are installed in /usr/share/licenses/ike-browser (1.1.18).
     CREDITS = (
         ("adblock-rust (Brave Software)", "MPL-2.0"),
+        ("Rust libraries of the AdBlock engine (licences in /usr/share/licenses/ike-browser)",
+         "MIT / Apache-2.0 / MPL-2.0 / Unicode-3.0 / Unlicense"),
         ("uBlock Origin scriptlets and filters (Raymond Hill and contributors)", "GPL-3.0"),
         ("EasyList, EasyPrivacy, EasyList Italy (The EasyList authors)", "GPL-3.0 / CC BY-SA 3.0"),
         ("EasyList Cookie List (The EasyList authors)", "CC BY 3.0"),
-        ("Peter Lowe's list (off by default)", ""),
+        ("Malicious URL Blocklist (curben, from abuse.ch URLhaus)", "CC0 1.0 / MIT"),
         ("Dark Reader (Dark Reader Ltd)", "MIT"),
         ("Qt, Qt WebEngine (The Qt Company), Chromium (The Chromium Authors)", "LGPL-3.0 / BSD"),
         ("PyQt6 (Riverbank Computing)", "GPL-3.0"),

@@ -3,9 +3,10 @@
 The filter engine in use cannot run uBlock Origin's scriptlets, which is what
 removes ads that are part of a page's own data (video ads). This module reads
 those rules from the lists and runs them with uBlock Origin's own scriptlet
-library (resources/ubo-scriptlets.json, GPL-3.0, generated from the uBlock
-sources by build-ubo-scriptlets.mjs in the documentation folder), so every scriptlet the lists use is
-available, with the same behaviour as in uBlock Origin.
+library (resources/ubo-scriptlets.json, Raymond Hill and the uBlock Origin
+contributors, GPL-3.0-or-later: see licenses/NOTICE.ubo-scriptlets; generated
+from the uBlock sources by tools/build-ubo-scriptlets.mjs), so every scriptlet
+the lists use is available, with the same behaviour as in uBlock Origin.
 """
 
 import json
