@@ -1,0 +1,39 @@
+uBlock Origin scriptlets in I.K.E.
+==================================
+
+File: /usr/lib/ike-browser/ike/resources/ubo-scriptlets.json (and
+ike/resources/ubo-scriptlets.json in the signed self-update).
+
+Copyright (C) Raymond Hill and the uBlock Origin contributors
+Upstream: https://github.com/gorhill/uBlock
+Licence: GPL-3.0-or-later. These scriptlets keep their own licence, the GNU General
+Public License version 3 or (at your option) any later version, as stated in
+every source file of uBlock Origin they come from; it is not I.K.E.'s licence
+passed on to them (I.K.E. happens to use the same licence). The full text of
+the GNU General Public License version 3 is in the file LICENSE next to this
+one (/usr/share/licenses/ike-browser/LICENSE).
+
+The file holds 153 scriptlets of uBlock Origin, taken from its source at
+
+  commit 2bc679d99afe5bddd8fe3ab60137966a12123f41 (2026-11-10)
+  https://github.com/gorhill/uBlock/tree/2bc679d99afe5bddd8fe3ab60137966a12123f41/src/js/resources
+
+Corresponding source. The JSON file is generated: tools/build-ubo-scriptlets.mjs
+of the I.K.E. repository (https://github.com/NullSector-2077/IKE-Browser, the
+same file in the tag of this release) loads src/js/resources/scriptlets.js of
+uBlock Origin at that commit with Node.js and writes, for each scriptlet, the
+source text of its function exactly as uBlock Origin wrote it, its name,
+aliases, dependencies and flags; nothing in the code is changed. The
+corresponding source is therefore:
+
+  1. uBlock Origin's sources at the commit above:
+       git clone https://github.com/gorhill/uBlock src
+       git -C src checkout 2bc679d99afe5bddd8fe3ab60137966a12123f41
+  2. the build tool: tools/build-ubo-scriptlets.mjs of I.K.E.;
+  3. the command, run in the folder that holds "src":
+       node /path/to/build-ubo-scriptlets.mjs
+     which writes the same ubo-scriptlets.json, byte for byte.
+
+The JSON file itself also carries the readable source of every scriptlet.
+
+Scriptlets: abort-current-script.fn, abort-current-script.js, abort-on-property-read.js, abort-on-property-write.js, abort-on-stack-trace.js, adjust-setInterval.js, adjust-setTimeout.js, alert-buster.js, arglist-parser.fn, break-on-call.js, call-nothrow.js, close-window.js, collate-fetch-arguments.fn, disable-newtab-links.js, edit-element-object.fn, edit-element-object.js, edit-inbound-element.fn, edit-inbound-object.fn, edit-inbound-object.js, edit-object-on-getter.fn, edit-object-on-getter.js, edit-object-on-setter.fn, edit-object-on-setter.js, edit-outbound-object.fn, edit-outbound-object.js, edit-this-object.fn, edit-this-object.js, evaldata-prune.js, freeze-element-property.js, generate-content.fn, get-all-cookies.fn, get-all-local-storage.fn, get-cookie.fn, get-exception-token.fn, get-random-token.fn, get-safe-cookie-values.fn, href-sanitizer.js, json-edit-fetch-request.fn, json-edit-fetch-request.js, json-edit-fetch-response.fn, json-edit-fetch-response.js, json-edit-xhr-request.fn, json-edit-xhr-request.js, json-edit-xhr-response.fn, json-edit-xhr-response.js, json-edit.fn, json-edit.js, json-prune-fetch-response.js, json-prune-xhr-response.js, json-prune.js, jsonl-edit-fetch-response.fn, jsonl-edit-fetch-response.js, jsonl-edit-xhr-response.fn, jsonl-edit-xhr-response.js, jsonl-edit.fn, jsonpath.fn, lookup-elements.fn, m3u-prune.js, match-object-properties.fn, matches-stack-trace.fn, modify-xhr-response.fn, mpegdash-prune.js, multiup.js, noeval-if.js, nowebrtc.js, object-find-owner.fn, object-prune.fn, off-idle.fn, on-idle.fn, overlay-buster.js, parse-properties-to-match.fn, parse-replace.fn, prevent-addEventListener.js, prevent-bab.js, prevent-canvas.js, prevent-clipboard-write.js, prevent-dialog.js, prevent-fetch.fn, prevent-fetch.js, prevent-innerHTML.js, prevent-navigation.js, prevent-refresh.js, prevent-requestAnimationFrame.js, prevent-setInterval.js, prevent-setTimeout.js, prevent-window-open.js, prevent-xhr.fn, prevent-xhr.js, proxy-apply-config.js, proxy-apply.fn, proxy-tostring.fn, range-parser.fn, remove-attr.js, remove-class.js, remove-cookie.js, remove-node-text.js, replace-fetch-response.fn, replace-node-text.fn, run-at-html-element.fn, run-at.fn, safe-self.fn, set-attr.fn, set-attr.js, set-constant.fn, set-constant.js, set-cookie-reload.js, set-cookie.fn, set-cookie.js, set-local-storage-item.fn, set-local-storage-item.js, set-session-storage-item.js, sleep.fn, spoof-css.js, trap-property-access.fn, trusted-click-element.js, trusted-create-html.js, trusted-edit-element-object.js, trusted-edit-inbound-element.js, trusted-edit-inbound-object.js, trusted-edit-object-on-getter.js, trusted-edit-object-on-setter.js, trusted-edit-outbound-object.js, trusted-edit-this-object.js, trusted-json-edit-fetch-request.js, trusted-json-edit-fetch-response.js, trusted-json-edit-xhr-request.js, trusted-json-edit-xhr-response.js, trusted-json-edit.js, trusted-jsonl-edit-fetch-response.js, trusted-jsonl-edit-xhr-response.js, trusted-override-element-method.js, trusted-prevent-dom-bypass.js, trusted-prevent-fetch.js, trusted-prevent-xhr.js, trusted-prune-inbound-object.js, trusted-prune-outbound-object.js, trusted-replace-argument.js, trusted-replace-fetch-response.js, trusted-replace-node-text.js, trusted-replace-outbound-text.js, trusted-replace-xhr-response.js, trusted-set-attr.js, trusted-set-constant.js, trusted-set-cookie-reload.js, trusted-set-cookie.js, trusted-set-local-storage-item.js, trusted-set-session-storage-item.js, trusted-suppress-native-method.js, urlskip.fn, validate-constant.fn, webrtc-if.js, window.name-defuser.js, xml-prune.js

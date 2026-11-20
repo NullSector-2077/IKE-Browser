@@ -1,135 +1,246 @@
 # Third-party components
 
-| Component | Where | Licence |
+What I.K.E. ships, what it only downloads or uses, and under which licence.
+Checked against the sources on 2026-11-20 (1.1.18); what could not be checked
+from there is marked **not verified**.
+
+Every component falls in one of four categories:
+
+1. **shipped**: code or files inside the I.K.E. package (and the signed
+   self-update), so I.K.E. must pass on its licence and notices;
+2. **downloaded at run time**: the user's browser fetches it from its own
+   maintainers; I.K.E. does not ship it;
+3. **build only**: used to make the package, not inside it;
+4. **from the system**: installed and updated by pacman as a dependency of the
+   package, under its own licence.
+
+The licence texts are installed in `/usr/share/licenses/ike-browser/` (from
+`LICENSE`, `COPYRIGHT`, `licenses/` and this file); the self-update carries the
+same files in `ike/_licenses/`.
+
+## I.K.E. itself
+
+| Part | Licence | Text |
 |---|---|---|
-| adblock-rust 0.13.6 (filter engine, by Brave) | compiled into `ike_adblock.abi3.so`; its unmodified source is the `adblock` crate of that version on crates.io (https://crates.io/crates/adblock, https://github.com/brave/adblock-rust) | MPL-2.0, see `LICENSE.adblock-rust` |
-| uBlock Origin scriptlets (Copyright (C) Raymond Hill and the uBlock Origin contributors) | `ike/resources/ubo-scriptlets.json`, generated from uBlock Origin's own source by `tools/build-ubo-scriptlets.mjs` (source, commit and licence recorded in the file) | GPL-3.0, as I.K.E. (see `LICENSE`) |
-| Dark Reader 4.9.135 (Dark Reader Ltd; engine, its style-sheet proxy, and the lists of its extension: site fixes, dark sites, detector hints) | `ike/resources/darkreader.js`, `darkreader-proxy.js`, `darkreader-data.json`, built and adapted for I.K.E. by `tools/build-darkreader.py` (the lists of the extension packed into one file; see the tool for what changes) | MIT, see `LICENSE.darkreader` |
-| Lucide icons | `ike/resources/icons/sets/lucide` | ISC, see `LICENSE.lucide` |
-| Phosphor Icons (fill and bold weights, @phosphor-icons/core 2.1.1) | `ike/resources/icons/sets/phosphor`, `ike/resources/icons/sets/phosphor-bold` | MIT, see `LICENSE.phosphor` |
-| Orbitron 2.001 (typeface, The Orbitron Project Authors) | the lettering of the logo and of the full name, drawn as paths in `ike/resources/ike.svg`, `ike/resources/wordmark.svg` and the icons of `data/icons` (`tools/make-brand.py`); the font itself is not shipped | SIL Open Font License 1.1, see `LICENSE.orbitron` |
-| New tab picture (the Earth with its network of lights) | `ike/resources/newtab-background.jpg` | made for I.K.E. by the project's owner with an AI image generator (ChatGPT or Gemini); no third-party rights are known; shipped under I.K.E.'s licence |
-| Fallback icons | `ike/resources/icons/fallback` | simple outline icons drawn for I.K.E. (in the repository since 1.0.0; no outside source is known); I.K.E.'s licence |
+| I.K.E. (Python package `ike/`, `ike_boot.py`, launcher, icons, logo, new tab page, translations, own scripts in `ike/resources/`) | GPL-3.0-or-later, Copyright (C) 2026 the I.K.E. project | `LICENSE` (the complete GNU GPL v3, as published by the FSF) and the notice in `COPYRIGHT` |
+| I.K.E. AdBlock Engine (`ike-adblock/`, compiled into `ike_adblock.abi3.so`) | MPL-2.0 | `LICENSE.adblock-rust` (the MPL-2.0 text) |
 
-The `ike_adblock` module is written for I.K.E. (sources in `ike-adblock/`,
-MPL-2.0) and statically links the Rust libraries listed below, each under its
-own licence.
+Source code: https://github.com/NullSector-2077/IKE-Browser, the tag of each
+release (`v<version>`).
 
-## Filter lists
+## Shipped components (category 1)
+
+| Component | Where | Licence | Licence file (`/usr/share/licenses/ike-browser/`) | Obligations, and how they are met |
+|---|---|---|---|---|
+| adblock-rust 0.13.6 (filter engine, by Brave) | compiled into `ike_adblock.abi3.so`; its unmodified source is the `adblock` crate of that version on crates.io (https://crates.io/crates/adblock, https://github.com/brave/adblock-rust) | MPL-2.0 | `LICENSE.adblock-rust`, `RUST-CRATES.txt` | licence text; source of the MPL files available: the exact crates.io download and its checksum are in `RUST-CRATES.txt` |
+| Other Rust libraries of the engine (list below) | compiled into `ike_adblock.abi3.so` | MIT, Apache-2.0, MPL-2.0, Unicode-3.0, Unlicense (each crate's own expression below) | `RUST-CRATES.txt` (generated: every licence and notice file of each crate's source) | copyright notices and licence texts (MIT, Apache-2.0 4(a), Unicode-3.0); NOTICE files of Apache-2.0 crates (none of them has one today; the tool would include it); MPL-2.0 source availability as for adblock-rust |
+| Rust standard library | compiled into `ike_adblock.abi3.so` | MIT OR Apache-2.0 (some parts under further permissive licences, listed by the Rust project) | `RUST-STD-COPYRIGHT.html` (the notice of the compiler that built the package; see PKGBUILD) and the texts in `RUST-CRATES.txt` | notice and licence texts |
+| uBlock Origin scriptlets (Copyright (C) Raymond Hill and the uBlock Origin contributors) | `ike/resources/ubo-scriptlets.json`, generated by `tools/build-ubo-scriptlets.mjs` from uBlock Origin at the commit recorded in the file | GPL-3.0-or-later (each source file of uBlock Origin says so): their own licence, not I.K.E.'s passed on | `NOTICE.ubo-scriptlets` (generated) and `LICENSE` (the same GPL v3 text) | licence text; corresponding source: `NOTICE.ubo-scriptlets` says exactly where it is (upstream commit, build tool, command); the rebuild was checked byte for byte on 2026-11-20 |
+| Dark Reader 4.9.135 (Dark Reader Ltd; engine, its style-sheet proxy, and the lists of its extension: site fixes, dark sites, detector hints) | `ike/resources/darkreader.js`, `darkreader-proxy.js`, `darkreader-data.json`, built and adapted for I.K.E. by `tools/build-darkreader.py` from the npm package `darkreader` and the lists of https://github.com/darkreader/darkreader (see the tool for what changes) | MIT | `LICENSE.darkreader` (identical to the LICENSE of the npm package 4.9.135 and of the repository) | copyright notice and licence text |
+| Lucide icons | `ike/resources/icons/sets/lucide` | ISC (parts from Feather, MIT, as its licence file says) | `LICENSE.lucide` (identical to https://github.com/lucide-icons/lucide) | copyright notices and licence text |
+| Phosphor Icons (fill and bold weights, @phosphor-icons/core 2.1.1) | `ike/resources/icons/sets/phosphor`, `ike/resources/icons/sets/phosphor-bold` | MIT | `LICENSE.phosphor` (the LICENSE of @phosphor-icons/core 2.1.1; line endings differ) | copyright notice and licence text |
+| Orbitron 2.001 (typeface, The Orbitron Project Authors) | only the lettering of the logo and of the full name, drawn as paths in `ike/resources/ike.svg`, `ike/resources/wordmark.svg` and the icons of `data/icons` (`tools/make-brand.py`); **no font file is shipped** | SIL Open Font License 1.1 | `LICENSE.orbitron` (identical to `ofl/orbitron/OFL.txt` of https://github.com/google/fonts) | outlines drawn with a font are artwork, not the Font Software; the licence and copyright are kept anyway |
+| New tab picture (the Earth with its network of lights) | `ike/resources/newtab-background.jpg` | made for I.K.E. by the project's owner with an AI image generator (ChatGPT or Gemini); no third-party rights are known; shipped under I.K.E.'s licence | `LICENSE` | — |
+| Fallback icons | `ike/resources/icons/fallback` | simple outline icons drawn for I.K.E. (in the repository since 1.0.0; no outside source is known); I.K.E.'s licence | `LICENSE` | — |
+
+Nothing else of other projects is in the package: the other files of
+`ike/resources/` (page scripts, the new tab page, the language files, the logo,
+`lookalike.json`) and of `data/` are I.K.E.'s own.
+
+## Filter lists (category 2)
 
 The filter lists are **not shipped** with I.K.E.: each user's browser downloads
 them from their maintainers' own servers and keeps them in its cache. I.K.E.
 uses them unchanged and only reads them. Defaults (Settings -> Privacy):
 
-| List | Maintainer, address | Licence | Default |
-|---|---|---|---|
-| EasyList, EasyPrivacy | The EasyList authors, https://easylist.to | GPL-3.0-or-later or CC BY-SA 3.0 or later (https://easylist.to/pages/licence.html); attribution: "The EasyList authors", easylist.to | on |
-| EasyList Italy | The EasyList authors (Khrin), easylist-downloads.adblockplus.org | as EasyList (the same licence page names it) | on |
-| EasyList Cookie List | The EasyList authors (Fanboy), secure.fanboy.co.nz | CC BY 3.0 (stated in the list's own header) | on |
-| uBlock filters, Quick fixes, Privacy, Badware, Unbreak, Cookie notices | uBlock Origin contributors, https://github.com/uBlockOrigin/uAssets | GPL-3.0 | on |
-| Malicious URL Blocklist (since 1.1.17) | curben (malware-filter), https://gitlab.com/malware-filter/urlhaus-filter, from abuse.ch URLhaus | CC0 1.0 and MIT (the project's LICENSE; uBlock Origin has it on by default) | on |
-| Peter Lowe's list | Peter Lowe, https://pgl.yoyo.org/adservers/ | **not clear**: the list and its page state no licence; uBlock Origin's wiki lists it as non-commercial (the author's informal "McRae GPL", https://pgl.yoyo.org/license/), which the list itself does not mention | **off** since 1.1.16, until the author confirms the terms; the user can turn it on |
+| List | Maintainer, address | Licence | Checked on 2026-11-20 | Default |
+|---|---|---|---|---|
+| EasyList, EasyPrivacy | The EasyList authors, https://easylist.to | GPL-3.0-or-later or CC BY-SA 3.0 or later, as recorded in 1.1.16 from https://easylist.to/pages/licence.html; attribution: "The EasyList authors", easylist.to | **not verified**: easylist.to could not be reached; the list sources (https://github.com/easylist/easylist, `template_header.txt`) point to that licence page | on |
+| EasyList Italy | The EasyList authors (Khrin), easylist-downloads.adblockplus.org | as EasyList (the same licence page names it, recorded in 1.1.16) | **not verified**: neither the list's server nor its licence page could be reached | on |
+| EasyList Cookie List | The EasyList authors (Fanboy), secure.fanboy.co.nz | CC BY 3.0, as recorded in 1.1.16 from the list's own header | **not verified**: the list's server could not be reached; its source template in https://github.com/easylist/easylist points to the EasyList licence page | on |
+| uBlock filters, Quick fixes, Privacy, Badware, Unbreak, Cookie notices | uBlock Origin contributors, https://github.com/uBlockOrigin/uAssets | GPL-3.0 | verified: the repository's LICENSE is the GNU GPL v3 | on |
+| Malicious URL Blocklist (since 1.1.17) | curben (malware-filter), https://gitlab.com/malware-filter/urlhaus-filter, from abuse.ch URLhaus | CC0 1.0 and MIT (the project's LICENSE and LICENSE-CC0.md; URLhaus data CC0) | verified in the project's repository | on |
 
 Lists a user adds keep their own terms. Widevine is **not** included: it is
 proprietary software by Google, which I.K.E. downloads from Google's server only
 at the user's request.
 
-## Used from the system
+## From the system (category 4)
 
-The Arch package uses the system's Python, Qt 6, Qt WebEngine (with Chromium),
-PyQt6 and Python modules (python-cryptography, python-jeepney), installed and
-updated by pacman under their own licences.
+The Arch package uses these packages, installed and updated by pacman under
+their own licences; I.K.E. ships none of them. Licences as published by the
+upstream projects (PyPI for the Python modules, checked on 2026-11-20); Arch's
+package pages could not be reached from the audit, so Arch's own licence fields
+are **not verified**.
 
-## Rust libraries linked into `ike_adblock`
+| Package (PKGBUILD) | What it is | Licence (upstream) |
+|---|---|---|
+| python | the Python interpreter | PSF-2.0 |
+| python-pyqt6 | PyQt6, Riverbank Computing | GPL-3.0-only (PyPI); I.K.E. (GPL-3.0-or-later) runs on it under GPL-3.0 |
+| python-pyqt6-webengine | PyQt6-WebEngine, Riverbank Computing | GPL-3.0-only (PyPI) |
+| qt6-webengine | Qt WebEngine, The Qt Company, with Chromium (The Chromium Authors) | LGPL-3.0 / GPL (Qt); BSD-3-Clause and others (Chromium) |
+| qt6-webchannel | Qt WebChannel, The Qt Company | LGPL-3.0 / GPL |
+| qt6-svg | Qt SVG, The Qt Company | LGPL-3.0 / GPL |
+| python-cryptography | cryptography (signature of the self-update, password vault) | Apache-2.0 OR BSD-3-Clause (PyPI) |
+| python-jeepney | jeepney (D-Bus: desktop integration, secret storage) | MIT (PyPI) |
+| hicolor-icon-theme | the standard icon folders | GPL-2.0 (freedesktop.org) |
+| libnotify (optional) | desktop notifications | LGPL-2.1 |
+| noto-fonts-cjk (optional) | Chinese and Japanese text | OFL-1.1 |
+| xdg-utils (optional) | default browser setting | MIT |
+| plasma-integration (optional) | Plasma theme and dialogs | LGPL / GPL (KDE) |
+| chromium-widevine (optional) | Widevine from the system | proprietary (Google) |
+| libva-nvidia-driver (optional) | video decoding, NVIDIA | MIT |
+| intel-media-driver (optional) | video decoding, Intel | MIT / BSD-3-Clause |
+
+The optional packages' licences are recorded from their upstream projects and
+are **not verified** here.
+
+## Build only (category 3)
+
+| Tool | Licence | Where |
+|---|---|---|
+| rust (rustc, cargo) | MIT OR Apache-2.0 | builds the engine (PKGBUILD `makedepends`) |
+| gcc | GPL-3.0-or-later with the GCC Runtime Library Exception | builds the launcher (PKGBUILD `makedepends`) |
+| Node.js | MIT | runs `tools/build-ubo-scriptlets.mjs` (maintenance only) |
+| fontTools | MIT | `tools/make-brand.py` (maintenance only) |
+| the Python packages of the tests (`tools/test-requirements.txt`, pytest, ruff) | their own | automatic tests only; never shipped |
+| cargo-deny | MIT OR Apache-2.0 | licence check in GitHub Actions |
+
+## Approving a new licence
+
+GitHub Actions stops a pull request when a Rust library of the engine comes
+under a licence not approved yet, or when its licence cannot be read (cargo-deny
+and `python3 tools/third-party.py --check`, step "Licences" of tests.yml), and
+the tests stop when a file listed here or in the PKGBUILD goes missing. A new
+licence is approved by a person, never by the automation:
+
+1. Read the crate's licence files (in `~/.cargo/registry/src/*/<crate>-<version>/`)
+   and its repository. The licence must allow shipping the compiled library
+   inside I.K.E. (GPL-3.0-or-later), and its obligations must be met by the
+   files installed in `/usr/share/licenses/ike-browser/` (a licence that asks
+   for more, such as an offer of source or a notice in the program, needs its
+   own entry in the table of shipped components).
+2. Add the SPDX identifier to `allow` in `ike-adblock/deny.toml`, and, if the
+   crate's source has no text of that licence, its standard text as
+   `tools/licence-texts/<identifier>.txt` (from https://spdx.org/licenses/).
+3. Run `python3 tools/third-party.py` and commit the regenerated files with a
+   note in the pull request of why the licence is acceptable.
+
+The same for anything else added to the package: a licence file in
+`licenses/` (installed by the PKGBUILD), a row in the tables above, and the
+tests in `tests/test_licences.py` follow it.
+
+## Rust libraries compiled into `ike_adblock`
+
+Shipped (category 1): statically linked into the engine module. Their licence
+texts and notices are in `licenses/RUST-CRATES.txt`, installed as
+`/usr/share/licenses/ike-browser/RUST-CRATES.txt`. Generated by
+`tools/third-party.py`.
 
 ```
-adblock v0.13.6 — MPL-2.0
-addr v0.15.6 — MIT/Apache-2.0
-aho-corasick v1.1.5 — Unlicense OR MIT
-arrayvec v0.7.8 — MIT OR Apache-2.0
-base64 v0.23.1 — MIT OR Apache-2.0
-bitflags v2.13.2 — MIT OR Apache-2.0
-cssparser v0.35.0 — MPL-2.0
-cssparser-macros v0.6.1 — MPL-2.0
-derive_more v2.1.1 — MIT
-derive_more-impl v2.1.1 — MIT
-displaydoc v0.2.7 — MIT OR Apache-2.0
-dtoa v1.0.11 — MIT OR Apache-2.0
-dtoa-short v0.3.5 — MPL-2.0
-either v1.19.0 — MIT OR Apache-2.0
-flatbuffers v25.12.19 — Apache-2.0
-heck v0.5.0 — MIT OR Apache-2.0
-icu_collections v2.4.0 — Unicode-3.0
-icu_locale_core v2.4.0 — Unicode-3.0
-icu_normalizer v2.4.0 — Unicode-3.0
-icu_normalizer_data v2.4.0 — Unicode-3.0
-icu_properties v2.4.0 — Unicode-3.0
-icu_properties_data v2.4.0 — Unicode-3.0
-icu_provider v2.4.0 — Unicode-3.0
-idna v1.1.0 — MIT OR Apache-2.0
-idna_adapter v1.2.2 — Apache-2.0 OR MIT
-ike-adblock v1.0.0 — MPL-2.0
-itertools v0.14.0 — MIT OR Apache-2.0
-itoa v1.0.19 — MIT OR Apache-2.0
-libc v0.2.191 — MIT OR Apache-2.0
-litemap v0.8.3 — Unicode-3.0
-log v0.4.35 — MIT OR Apache-2.0
-memchr v2.8.3 — Unlicense OR MIT
-new_debug_unreachable v1.0.6 — MIT
-once_cell v1.21.4 — MIT OR Apache-2.0
-percent-encoding v2.3.2 — MIT OR Apache-2.0
-phf v0.11.3 — MIT
-phf_codegen v0.11.3 — MIT
-phf_generator v0.11.3 — MIT
-phf_macros v0.11.3 — MIT
-phf_shared v0.11.3 — MIT
-portable-atomic v1.15.0 — Apache-2.0 OR MIT
-potential_utf v0.1.6 — Unicode-3.0
-precomputed-hash v0.1.1 — MIT
-proc-macro2 v1.0.107 — MIT OR Apache-2.0
-psl v2.1.253 — MIT/Apache-2.0
-psl-types v2.0.11 — MIT/Apache-2.0
-pyo3 v0.30.1 — MIT OR Apache-2.0
-pyo3-build-config v0.30.1 — MIT OR Apache-2.0
-pyo3-ffi v0.30.1 — MIT OR Apache-2.0
-pyo3-macros v0.30.1 — MIT OR Apache-2.0
-pyo3-macros-backend v0.30.1 — MIT OR Apache-2.0
-quote v1.0.47 — MIT OR Apache-2.0
-rand v0.8.8 — MIT OR Apache-2.0
-rand_core v0.6.4 — MIT OR Apache-2.0
-regex v1.13.1 — MIT OR Apache-2.0
-regex-automata v0.4.18 — MIT OR Apache-2.0
-regex-syntax v0.8.11 — MIT OR Apache-2.0
-rustc-hash v2.1.3 — Apache-2.0 OR MIT
-rustc_version v0.4.1 — MIT OR Apache-2.0
-seahash v4.1.0 — MIT
-selectors v0.32.0 — MPL-2.0
-semver v1.0.28 — MIT OR Apache-2.0
-serde v1.0.229 — MIT OR Apache-2.0
-serde_core v1.0.229 — MIT OR Apache-2.0
-serde_derive v1.0.229 — MIT OR Apache-2.0
-serde_json v1.0.154 — MIT OR Apache-2.0
-servo_arc v0.4.3 — MIT OR Apache-2.0
-siphasher v1.0.4 — MIT OR Apache-2.0
-smallvec v1.16.5 — MIT OR Apache-2.0
-stable_deref_trait v1.2.1 — MIT OR Apache-2.0
-syn v2.0.119 — MIT OR Apache-2.0
-syn v3.0.10 — MIT OR Apache-2.0
-synstructure v0.14.0 — MIT
-target-lexicon v0.13.6 — Apache-2.0 WITH LLVM-exception
-thiserror v1.0.69 — MIT OR Apache-2.0
-thiserror-impl v1.0.69 — MIT OR Apache-2.0
-tinystr v0.8.5 — Unicode-3.0
-unicode-ident v1.0.27 — (MIT OR Apache-2.0) AND Unicode-3.0
-utf8_iter v1.1.0 — Apache-2.0 OR MIT
-utf_types v1.0.0 — Apache-2.0 OR MIT
-writeable v0.6.4 — Unicode-3.0
-yoke v0.8.4 — Unicode-3.0
-yoke-derive v0.8.4 — Unicode-3.0
-zerofrom v0.1.8 — Unicode-3.0
-zerofrom-derive v0.1.8 — Unicode-3.0
-zerotrie v0.2.5 — Unicode-3.0
-zerovec v0.11.9 — Unicode-3.0
-zerovec-derive v0.11.7 — Unicode-3.0
-zmij v1.0.23 — MIT
+adblock v0.13.6 — MPL-2.0 — https://github.com/brave/adblock-rust
+addr v0.15.6 — MIT OR Apache-2.0 — https://github.com/addr-rs/addr
+aho-corasick v1.1.5 — Unlicense OR MIT — https://github.com/BurntSushi/aho-corasick
+arrayvec v0.7.8 — MIT OR Apache-2.0 — https://github.com/bluss/arrayvec
+base64 v0.23.1 — MIT OR Apache-2.0 — https://github.com/marshallpierce/rust-base64
+bitflags v2.13.2 — MIT OR Apache-2.0 — https://github.com/bitflags/bitflags
+cssparser v0.35.0 — MPL-2.0 — https://github.com/servo/rust-cssparser
+derive_more v2.1.1 — MIT — https://github.com/JelteF/derive_more
+dtoa v1.0.11 — MIT OR Apache-2.0 — https://github.com/dtolnay/dtoa
+dtoa-short v0.3.5 — MPL-2.0 — https://github.com/upsuper/dtoa-short
+either v1.19.0 — MIT OR Apache-2.0 — https://github.com/rayon-rs/either
+flatbuffers v25.12.19 — Apache-2.0 — https://github.com/google/flatbuffers
+icu_collections v2.4.0 — Unicode-3.0 — https://github.com/unicode-org/icu4x
+icu_locale_core v2.4.0 — Unicode-3.0 — https://github.com/unicode-org/icu4x
+icu_normalizer v2.4.0 — Unicode-3.0 — https://github.com/unicode-org/icu4x
+icu_normalizer_data v2.4.0 — Unicode-3.0 — https://github.com/unicode-org/icu4x
+icu_properties v2.4.0 — Unicode-3.0 — https://github.com/unicode-org/icu4x
+icu_properties_data v2.4.0 — Unicode-3.0 — https://github.com/unicode-org/icu4x
+icu_provider v2.4.0 — Unicode-3.0 — https://github.com/unicode-org/icu4x
+idna v1.1.0 — MIT OR Apache-2.0 — https://github.com/servo/rust-url
+idna_adapter v1.2.2 — Apache-2.0 OR MIT — https://github.com/hsivonen/idna_adapter
+ike-adblock v1.0.0 — MPL-2.0 — the I.K.E. repository, ike-adblock/
+itertools v0.14.0 — MIT OR Apache-2.0 — https://github.com/rust-itertools/itertools
+itoa v1.0.19 — MIT OR Apache-2.0 — https://github.com/dtolnay/itoa
+libc v0.2.191 — MIT OR Apache-2.0 — https://github.com/rust-lang/libc
+litemap v0.8.3 — Unicode-3.0 — https://github.com/unicode-org/icu4x
+log v0.4.35 — MIT OR Apache-2.0 — https://github.com/rust-lang/log
+memchr v2.8.3 — Unlicense OR MIT — https://github.com/BurntSushi/memchr
+new_debug_unreachable v1.0.6 — MIT — https://github.com/mbrubeck/rust-debug-unreachable
+once_cell v1.21.4 — MIT OR Apache-2.0 — https://github.com/matklad/once_cell
+percent-encoding v2.3.2 — MIT OR Apache-2.0 — https://github.com/servo/rust-url
+phf v0.11.3 — MIT — https://github.com/rust-phf/rust-phf
+phf_shared v0.11.3 — MIT — https://github.com/rust-phf/rust-phf
+potential_utf v0.1.6 — Unicode-3.0 — https://github.com/unicode-org/icu4x
+precomputed-hash v0.1.1 — MIT — https://github.com/emilio/precomputed-hash
+psl v2.1.253 — MIT OR Apache-2.0 — https://github.com/addr-rs/psl
+psl-types v2.0.11 — MIT OR Apache-2.0 — https://github.com/addr-rs/psl-types
+pyo3 v0.30.1 — MIT OR Apache-2.0 — https://github.com/pyo3/pyo3
+pyo3-ffi v0.30.1 — MIT OR Apache-2.0 — https://github.com/pyo3/pyo3
+regex v1.13.1 — MIT OR Apache-2.0 — https://github.com/rust-lang/regex
+regex-automata v0.4.18 — MIT OR Apache-2.0 — https://github.com/rust-lang/regex
+regex-syntax v0.8.11 — MIT OR Apache-2.0 — https://github.com/rust-lang/regex
+rustc-hash v2.1.3 — Apache-2.0 OR MIT — https://github.com/rust-lang/rustc-hash
+seahash v4.1.0 — MIT — https://gitlab.redox-os.org/redox-os/seahash
+selectors v0.32.0 — MPL-2.0 — https://github.com/servo/stylo
+serde v1.0.229 — MIT OR Apache-2.0 — https://github.com/serde-rs/serde
+serde_core v1.0.229 — MIT OR Apache-2.0 — https://github.com/serde-rs/serde
+serde_json v1.0.154 — MIT OR Apache-2.0 — https://github.com/serde-rs/json
+servo_arc v0.4.3 — MIT OR Apache-2.0 — https://github.com/servo/stylo
+siphasher v1.0.4 — MIT OR Apache-2.0 — https://github.com/jedisct1/rust-siphash
+smallvec v1.16.5 — MIT OR Apache-2.0 — https://github.com/servo/rust-smallvec
+stable_deref_trait v1.2.1 — MIT OR Apache-2.0 — https://github.com/storyyeller/stable_deref_trait
+thiserror v1.0.69 — MIT OR Apache-2.0 — https://github.com/dtolnay/thiserror
+tinystr v0.8.5 — Unicode-3.0 — https://github.com/unicode-org/icu4x
+utf8_iter v1.1.0 — Apache-2.0 OR MIT — https://github.com/hsivonen/utf8_iter
+utf_types v1.0.0 — Apache-2.0 OR MIT — https://github.com/hsivonen/utf_types
+writeable v0.6.4 — Unicode-3.0 — https://github.com/unicode-org/icu4x
+yoke v0.8.4 — Unicode-3.0 — https://github.com/unicode-org/icu4x
+zerofrom v0.1.8 — Unicode-3.0 — https://github.com/unicode-org/icu4x
+zerotrie v0.2.5 — Unicode-3.0 — https://github.com/unicode-org/icu4x
+zerovec v0.11.9 — Unicode-3.0 — https://github.com/unicode-org/icu4x
+zmij v1.0.23 — MIT — https://github.com/dtolnay/zmij
+```
+
+## Rust libraries used only to build `ike_adblock`
+
+Not shipped (category 3): procedural macros, build scripts and their
+libraries run only in the compiler. Generated by `tools/third-party.py`.
+
+```
+cssparser-macros v0.6.1 — MPL-2.0 — https://github.com/servo/rust-cssparser
+derive_more-impl v2.1.1 — MIT — https://github.com/JelteF/derive_more
+displaydoc v0.2.7 — MIT OR Apache-2.0 — https://github.com/yaahc/displaydoc
+heck v0.5.0 — MIT OR Apache-2.0 — https://github.com/withoutboats/heck
+phf_codegen v0.11.3 — MIT — https://github.com/rust-phf/rust-phf
+phf_generator v0.11.3 — MIT — https://github.com/rust-phf/rust-phf
+phf_macros v0.11.3 — MIT — https://github.com/rust-phf/rust-phf
+proc-macro2 v1.0.107 — MIT OR Apache-2.0 — https://github.com/dtolnay/proc-macro2
+pyo3-build-config v0.30.1 — MIT OR Apache-2.0 — https://github.com/pyo3/pyo3
+pyo3-macros v0.30.1 — MIT OR Apache-2.0 — https://github.com/pyo3/pyo3
+pyo3-macros-backend v0.30.1 — MIT OR Apache-2.0 — https://github.com/pyo3/pyo3
+quote v1.0.47 — MIT OR Apache-2.0 — https://github.com/dtolnay/quote
+rand v0.8.8 — MIT OR Apache-2.0 — https://github.com/rust-random/rand
+rand_core v0.6.4 — MIT OR Apache-2.0 — https://github.com/rust-random/rand
+rustc_version v0.4.1 — MIT OR Apache-2.0 — https://github.com/djc/rustc-version-rs
+semver v1.0.28 — MIT OR Apache-2.0 — https://github.com/dtolnay/semver
+serde_derive v1.0.229 — MIT OR Apache-2.0 — https://github.com/serde-rs/serde
+syn v2.0.119 — MIT OR Apache-2.0 — https://github.com/dtolnay/syn
+syn v3.0.10 — MIT OR Apache-2.0 — https://github.com/dtolnay/syn
+synstructure v0.14.0 — MIT — https://github.com/mystor/synstructure
+target-lexicon v0.13.6 — Apache-2.0 WITH LLVM-exception — https://github.com/bytecodealliance/target-lexicon
+thiserror-impl v1.0.69 — MIT OR Apache-2.0 — https://github.com/dtolnay/thiserror
+unicode-ident v1.0.27 — (MIT OR Apache-2.0) AND Unicode-3.0 — https://github.com/dtolnay/unicode-ident
+yoke-derive v0.8.4 — Unicode-3.0 — https://github.com/unicode-org/icu4x
+zerofrom-derive v0.1.8 — Unicode-3.0 — https://github.com/unicode-org/icu4x
+zerovec-derive v0.11.7 — Unicode-3.0 — https://github.com/unicode-org/icu4x
+```
+
+## Rust libraries of other platforms
+
+Not built (in `Cargo.lock` for other platforms only). Generated by
+`tools/third-party.py`.
+
+```
+portable-atomic v1.15.0 — Apache-2.0 OR MIT — https://github.com/taiki-e/portable-atomic
 ```

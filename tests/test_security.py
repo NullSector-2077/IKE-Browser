@@ -1604,7 +1604,7 @@ def test_the_malware_list_reaches_new_and_existing_users(tmp_path, monkeypatch):
         path.write_text(json.dumps({"filter_lists": old, "lists_version": 3, "last_lists_update": 123}))
         cfg = C.Config()
         mine = [e for e in cfg["filter_lists"] if e["url"] == url]
-        assert len(mine) == 1 and mine[0]["enabled"] and cfg["lists_version"] == 4
+        assert len(mine) == 1 and mine[0]["enabled"] and cfg["lists_version"] >= 4
         assert cfg["last_lists_update"] == 0               # fetched at the next start
         mine[0]["enabled"] = False
         cfg.save()

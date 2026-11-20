@@ -40,6 +40,23 @@ jobs:
       - name: AdBlock engine (Rust tests)
         # the tests are an ordinary program: without the "extension-module" feature
         run: cargo test --no-default-features --locked --manifest-path ike-adblock/Cargo.toml
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cargo/bin/cargo-deny
+          key: cargo-deny-0.20.2-${{ runner.os }}
+      - name: Licences
+        # 1.1.18: every Rust library of the AdBlock engine under a licence
+        # approved in ike-adblock/deny.toml and only from crates.io (cargo-deny),
+        # and the licence files of the package in step with the crates' own
+        # sources (tools/third-party.py). A new licence, or one that cannot be
+        # read, stops here: docs/THIRD-PARTY.md, "Approving a new licence".
+        run: |
+          if [ "$(cargo deny --version 2>/dev/null)" != "cargo-deny 0.20.2" ]; then
+            cargo install --locked cargo-deny@0.20.2
+          fi
+          cargo deny --manifest-path ike-adblock/Cargo.toml --locked --config ike-adblock/deny.toml \
+              check licenses bans sources
+          python3 tools/third-party.py --check
       - name: Lint
         run: ruff check .
       - name: Tests
@@ -178,6 +195,12 @@ jobs:
           if find "$RUNNER_TEMP/pkgroot" -type f \( -name '*.key' -o -name '*.pem' \) | grep -q .; then
             echo "Private-key-like file found in the package"; exit 1
           fi
+          # the licences the package must carry (tests/test_licences.py checks their content)
+          licences="$RUNNER_TEMP/pkgroot/usr/share/licenses/ike-browser"
+          ls -l "$licences"
+          for f in LICENSE COPYRIGHT THIRD-PARTY.md RUST-CRATES.txt NOTICE.ubo-scriptlets RUST-STD-COPYRIGHT.html; do
+            test -s "$licences/$f" || { echo "::error::licence file $f missing from the package"; exit 1; }
+          done
           python3 "$RUNNER_TEMP/pkgroot/usr/lib/ike-browser/ike_boot.py" --version
       # kept (and its sha256 printed) as built, before any test runs code
       # against it: a test cannot change the file people download (audit of #65)
