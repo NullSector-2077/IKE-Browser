@@ -1935,3 +1935,59 @@ def test_closed_chatgpt_branches_are_deleted_and_nothing_else():
     assert "permissions:\n      contents: write\n" in text
     assert "checkout" not in text and "python" not in text and "secrets." not in text
     assert 'chatgpt/*) gh api -X DELETE "repos/$GH_REPO/git/refs/heads/$BRANCH"' in text
+
+
+def test_a_gone_openrouter_model_is_replaced_by_one_offered_now(repo, tmp_path):
+    """1.1.18 (seen in the first real trial: a listed free model answered 404):
+    the chain asks OpenRouter for its free models now and tries the largest
+    ones, never an id of an odd shape and never one already tried."""
+    import json
+    reserve = load("autofix-reserve")
+    _reserve_repo(repo)
+    prompt = tmp_path / "prompt.md"
+    prompt.write_text("RULES")
+    good = json.dumps({"summary": "Corretto.", "fixable": True, "edits": [
+        {"file": "ike/window.py", "find": "    return 10\n", "replace": "    return 11\n"}]})
+    listing = {"data": [
+        {"id": "small/model:free", "context_length": 8000},
+        {"id": "big/model:free", "context_length": 200000},
+        {"id": "paid/model", "context_length": 900000},
+        {"id": "bad id; rm -rf /:free", "context_length": 900000},
+        {"id": "gone/a:free", "context_length": 500000},
+        {"id": "mid/model:free", "context_length": 64000}]}
+    seen = []
+
+    def opener(req, timeout=0):
+        if req.full_url.endswith("/models"):
+            seen.append(("list", req.get_header("Authorization")))
+            return _Answer(json.dumps(listing).encode())
+        model = json.loads(req.data)["model"]
+        seen.append(("ask", model))
+        if model == "gone/a:free":
+            raise __import__("urllib.error").error.HTTPError(req.full_url, 404, "gone", {}, None)
+        if model == "big/model:free":
+            return _Answer(json.dumps({"choices": [{"message": {"content": "not json"}}]}).encode())
+        return _Answer(json.dumps({"choices": [{"message": {"content": good}}]}).encode())
+
+    env = {"OPENROUTER_API_KEY": "sk-or-TESTONLY", "AUTOFIX_OPENROUTER_MODELS": "gone/a:free"}
+    status = tmp_path / "status.json"
+    reserve.main(["--workdir", str(repo), "--prompt", str(prompt), "--status", str(status)],
+                 env=env, opener=opener)
+    out = json.loads(status.read_text())
+    assert out["result"] == "ok" and out["model"] == "OpenRouter / mid/model:free", (out, seen)
+    asked = [m for kind, m in seen if kind == "ask"]
+    assert asked[0] == "gone/a:free" and "big/model:free" in asked and asked[-1] == "mid/model:free"
+    assert not any(m in asked for m in ("paid/model", "small/model:free", "bad id; rm -rf /:free"))
+    assert [k for k, _m in seen].count("list") == 1          # the list is asked for once
+
+
+def test_no_openrouter_list_means_the_chain_simply_goes_on():
+    reserve = load("autofix-reserve")
+
+    def broken(req, timeout=0):
+        raise OSError("no network")
+    assert reserve.free_models("k", broken) == []
+
+    def odd(req, timeout=0):
+        return _Answer(b'{"data": "nope"}')
+    assert reserve.free_models("k", odd) == []
