@@ -629,3 +629,100 @@ def test_groups_with_disabled_style_elements_change_no_colour(run_ike, site):
         assert a["title"] == b["title"] == "phase%d" % k, (a, b)
         assert a["styles"] == b["styles"], (k, a, b)            # the same states in both pages
         assert a["d"] == b["d"], ("a colour changed by the shared copy", k, a, b)
+
+
+# --- groups and style elements filled through the CSSOM (CSS-in-JS) ----------------
+# emotion / MUI and styled-components make empty <style> elements and fill them
+# with sheet.insertRule: the texts are the same (empty, or a common base) and
+# the rules differ. Such elements must never share a copy. The same page twice,
+# as above: "same" as those libraries write it, "unique" with a comment in each
+# text, which never groups (Dark Reader's own one copy per element).
+def cssinjs_page(unique):
+    boxes = "".join("<div id='%s' class='%s' style='height: 10px'>%s</div>" % (c, c, c) for c in "abcdefghijklmnop")
+    return ("<!doctype html><html><head><title>cssinjs</title><script>var UNIQUE = %s;</script>"
+            "<script src='/cssinjs.js'></script></head><body>" % ("true" if unique else "false")
+            + boxes + "<script>document.title = 'phase0';</script></body></html>")
+
+
+CSSINJS_JS = r"""
+var n = 0;
+function filled(cls, text) {              // a style element made by script, its rule added through the CSSOM
+  var s = document.createElement('style');
+  s.textContent = (text || '') + (UNIQUE ? '/*' + (++n) + '*/' : '');
+  document.head.appendChild(s);
+  if (cls) s.sheet.insertRule('.' + cls + ' { background-color: #fff; color: #000 }', s.sheet.cssRules.length);
+  return s;
+}
+// while the page loads: empty texts, then a common text, each with a rule of its own
+filled('a'); filled('b'); filled('c');
+filled('d', '.base { margin: 0 }'); filled('e', '.base { margin: 0 }'); filled('f', '.base { margin: 0 }');
+var later = [];
+window.phase = function (k) {
+  if (k === 1) {            // the same after the page loaded
+    filled('g'); filled('h'); filled('i');
+    filled('j', '.base { margin: 0 }'); filled('k', '.base { margin: 0 }'); filled('l', '.base { margin: 0 }');
+    later = [filled(''), filled(''), filled('m'), filled('m')];      // two empty ones, two really identical ones
+  } else if (k === 2) {     // rules added later to elements that were empty or identical until now
+    later[0].sheet.insertRule('.n { background-color: #fff; color: #000 }', 0);
+    later[1].sheet.insertRule('.o { background-color: #fff; color: #000 }', 0);
+    later[2].sheet.insertRule('.p { background-color: #fff; color: #000 }', 1);
+  } else if (k === 3) {     // a rule replaced by another one: the number of rules stays the same
+    later[3].sheet.deleteRule(0);
+    later[3].sheet.insertRule('.m { background-color: #000; color: #fff }', 0);
+  }
+  document.title = 'phase' + k;
+};
+"""
+
+CSSINJS_STEPS = JS + r'''
+SITE = "__SITE__"
+READ = """(function () {
+  var boxes = {};
+  Array.prototype.forEach.call(document.querySelectorAll('body > div'), function (d) {
+    var cs = getComputedStyle(d); boxes[d.id] = [cs.backgroundColor, cs.color]; });
+  return JSON.stringify({title: document.title, boxes: boxes,
+    styles: document.querySelectorAll('head > style:not(.darkreader)').length,
+    copies: document.querySelectorAll('head > style.darkreader--sync').length});
+})()"""
+
+def steps(ike, qapp, out):
+    view = ike.windows[0].current_view()
+    yield 500
+    for page in ("same", "unique"):
+        yield from load(view, SITE + "/cssinjs-" + page)
+        yield 2000
+        rows = [json.loads((yield from js(view, READ)))]
+        for k in range(1, 4):
+            yield from js(view, "phase(%d)" % k)
+            yield 1200
+            rows.append(json.loads((yield from js(view, READ))))
+        out[page] = rows
+'''
+
+
+def test_style_elements_filled_through_the_cssom_keep_their_own_copies(run_ike, site):
+    """Style elements with the same text and different rules (CSS-in-JS: an
+    empty element filled with insertRule) each keep their own Dark Reader copy:
+    every box is dark, while the page loads and after it, also when the rules
+    come later or are replaced, and the colours are those of Dark Reader's own
+    one copy per element."""
+    PAGES["/cssinjs-same"] = (cssinjs_page(False), {})
+    PAGES["/cssinjs-unique"] = (cssinjs_page(True), {})
+    PAGES["/cssinjs.js"] = (CSSINJS_JS, {"Content-Type": "application/javascript"})
+    out = run_ike(CSSINJS_STEPS.replace("__SITE__", site),
+                  settings={"dark_mode": "on", "dark_engine": "reader"}, timeout=150)
+    same, unique = out.get("same"), out.get("unique")
+    assert same and unique and len(same) == len(unique) == 4, out
+    ruled = ["abcdef", "abcdefghijklm", "abcdefghijklmnop", "abcdefghijklmnop"]     # boxes with a rule
+    for k, (a, b) in enumerate(zip(same, unique)):
+        assert a["title"] == b["title"] == "phase%d" % k, (a, b)
+        assert a["styles"] == b["styles"] == (6 if k == 0 else 16), (k, a, b)
+        assert a["boxes"] == b["boxes"], ("a colour changed by the shared copy", k, a, b)
+        for box in ruled[k]:
+            bg, fg = a["boxes"][box]
+            assert lightness(bg) < 0.3 and lightness(fg) > 0.6, (k, box, a["boxes"])
+    # the reference: one copy for each element
+    assert [b["copies"] for b in unique] == [6, 16, 16, 16], unique
+    # only the really identical ones share a copy (the two empty elements and the two ".m"
+    # ones), until the page changes the rules of one of them
+    assert [a["copies"] for a in same] == [6, 14, 16, 16], same

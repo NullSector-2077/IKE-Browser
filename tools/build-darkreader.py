@@ -487,6 +487,20 @@ PATCHES = [
             ) {
                 return;
             }
+            // the rules the element really has: a style element filled
+            // through the CSSOM (CSS-in-JS) has other rules than its text
+            let ikeRules = "";
+            try {
+                const rules = element.sheet.cssRules;
+                for (let i = 0, len = rules.length; i < len; i++) {
+                    if (rules[i] instanceof CSSImportRule) {
+                        return;
+                    }
+                    ikeRules += rules[i].cssText + "\\n";
+                }
+            } catch (err) {
+                return;
+            }
             const root = element.getRootNode();
             let groups = ikeStyleGroups.get(root);
             if (!groups) {
@@ -497,7 +511,8 @@ PATCHES = [
                 element.media,
                 element.getAttribute("type"),
                 element.getAttribute("title"),
-                element.textContent
+                element.textContent,
+                ikeRules
             ].join("\\u0000");
             let group = groups.get(key);
             if (!group) {
