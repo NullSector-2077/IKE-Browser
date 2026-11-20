@@ -304,7 +304,7 @@ def open_reports(repo, name):
     (the issue itself, or the latest comment of the report job)."""
     out = []
     for i in gh_api("repos/%s/issues?state=open&labels=autofix&per_page=100" % repo):
-        if i.get("pull_request") or i.get("title") != ISSUE_TITLE % name:
+        if "pull_request" in i or i.get("title") != ISSUE_TITLE % name:
             continue
         body, reported = i.get("body") or "", i.get("created_at") or ""
         try:
