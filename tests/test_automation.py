@@ -224,11 +224,80 @@ def test_plan_leaves_other_runs_alone(run, why):
     assert p["action"] == "skip" and why in p["reason"]
 
 
+NOW = dt.datetime(2026, 11, 20, 12, tzinfo=dt.timezone.utc)
+
+
+def report(name, sha="", hours=1):
+    """An open issue of the report job, `hours` old, naming the commit sha."""
+    when = (NOW - dt.timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    body = "x" + ("\n" + plan_tool.SHA_MARK % sha if sha else "")
+    return {"title": plan_tool.ISSUE_TITLE % name, "body": body, "reported_at": when}
+
+
 def test_plan_one_fix_of_main_at_a_time_and_no_repeats():
     assert plan_tool.decide(failed_run(), [job("tests")], "31")["action"] == "skip"
-    title = plan_tool.ISSUE_TITLE % "Daily component check"
-    p = plan_tool.decide(failed_run(name="Daily component check"), [job("check")], "", [title])
+    p = plan_tool.decide(failed_run(name="Daily component check"), [job("check")], "",
+                         [report("Daily component check")], now=NOW)
     assert p["action"] == "skip" and "already reported" in p["reason"]
+
+
+def test_an_old_issue_never_blocks_a_new_failure():
+    """1.1.18: issue #31 of the first trials ("Automatic fix needs you: Tests",
+    weeks old, another commit) kept every later failure of main from a fix."""
+    run = failed_run(head_sha="abc1234def", _tip="abc1234def")
+    for issues in ([report("Tests", hours=24 * 20)],                      # old, no commit named
+                   [report("Tests", sha="0123456789", hours=30)],         # old, another commit
+                   [report("Daily component check", sha="abc1234def")]):  # another workflow
+        p = plan_tool.decide(run, [job("tests")], "", issues, now=NOW)
+        assert p["action"] == "fix", (issues, p)
+    # the same commit, however old the issue, or any report of the last 24 hours: wait
+    for issues in ([report("Tests", sha="abc1234def", hours=24 * 20)], [report("Tests", hours=3)],
+                   [report("Tests", sha="abc1234", hours=24 * 20)]):
+        p = plan_tool.decide(run, [job("tests")], "", issues, now=NOW)
+        assert p["action"] == "skip" and "already reported" in p["reason"], issues
+    # the report job writes the same mark the plan reads
+    text = (WORKFLOWS / "autofix.yml").read_text()
+    assert 'echo "%s"' % (plan_tool.SHA_MARK % "$HEAD_SHA") in text
+    assert "HEAD_SHA: ${{ needs.plan.outputs.head_sha }}" in jobs_of(text)["report"]
+
+
+def test_open_reports_read_the_comments_too(monkeypatch):
+    title = plan_tool.ISSUE_TITLE % "Tests"
+    answers = {
+        "repos/o/r/issues?state=open&labels=autofix&per_page=100": [
+            {"number": 31, "title": title, "body": "old", "created_at": "2026-10-01T00:00:00Z"},
+            {"number": 40, "title": "Automatic fix: \"Tests\" failed", "pull_request": {}},
+            {"number": 41, "title": plan_tool.ISSUE_TITLE % "Other", "body": ""}],
+        "repos/o/r/issues/31/comments?per_page=100": [
+            {"body": "a person", "created_at": "2026-11-20T11:00:00Z"},
+            {"body": plan_tool.SHA_MARK % "feed123", "created_at": "2026-11-19T00:00:00Z"}],
+    }
+    monkeypatch.setattr(plan_tool, "gh_api", lambda path, raw=False: answers[path])
+    out = plan_tool.open_reports("o/r", "Tests")
+    assert len(out) == 1 and out[0]["reported_at"] == "2026-11-19T00:00:00Z"   # a person's comment is no report
+    assert plan_tool.already_reported(out, title, "feed123", NOW)
+    assert not plan_tool.already_reported(out, title, "beef456", NOW)
+
+
+def test_an_unreachable_source_of_the_maintenance_is_an_issue_not_a_fix():
+    """1.1.18: check-components.py exits 1 when an upstream source cannot be
+    checked; an AI fix of main cannot help. A test failure of the candidate is
+    still fixed."""
+    def prepare_failed(step):
+        return {"name": "prepare", "conclusion": "failure",
+                "steps": [{"name": "Rust", "conclusion": "success"}, {"name": step, "conclusion": "failure"}]}
+    name = "Daily maintenance candidate"
+    p = plan_tool.decide(failed_run(name=name), [prepare_failed("Check and apply component updates (fail closed)")], "")
+    assert p["action"] == "issue" and "could not be checked" in p["reason"]
+    p = plan_tool.decide(failed_run(name=name), [prepare_failed("Build AdBlock engine before creating candidate")], "")
+    assert p["action"] == "issue" and "wrapper" in p["reason"]
+    p = plan_tool.decide(failed_run(name=name), [prepare_failed("Prepare the IKE patch release candidate")], "")
+    assert p["action"] == "fix" and p["kind"] == "main"
+    p = plan_tool.decide(failed_run(branch="automation/daily-maintenance"), [job("tests")], "")
+    assert p["action"] == "fix" and p["kind"] == "maintenance"
+    workflow = (WORKFLOWS / "daily-maintenance.yml").read_text()
+    for step in (plan_tool.SOURCES_STEP, plan_tool.ENGINE_STEP):
+        assert "- name: " + step in workflow, step
 
 
 def test_plan_settings_and_workflow_problems_become_an_issue():

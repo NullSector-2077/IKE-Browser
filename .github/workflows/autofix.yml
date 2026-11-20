@@ -549,6 +549,7 @@ jobs:
           REASON: ${{ needs.plan.outputs.reason }}
           WORKFLOW: ${{ needs.plan.outputs.workflow }}
           CHECKOUT: ${{ needs.plan.outputs.checkout || needs.plan.outputs.head_sha }}
+          HEAD_SHA: ${{ needs.plan.outputs.head_sha }}
           FIX: ${{ needs.fix.result }}
           PATCH: ${{ needs.fix.outputs.patch }}
           AGENT: ${{ needs.fix.outputs.result }}
@@ -625,6 +626,9 @@ jobs:
               echo
               echo "Servono le tue mani o le mie: apri una conversazione e incolla il link di questa issue."
             fi
+            # the failed commit, for tools/autofix-plan.py: the same failure is not
+            # tried again while this issue is open, a new one is
+            if [ -n "$HEAD_SHA" ]; then echo; echo "<!-- autofix-sha: $HEAD_SHA -->"; fi
           } > "$body"
           title="Automatic fix needs you: $WORKFLOW"
           gh label create autofix --color d93f0b --description "Automatic fix prepared by the AI agent" 2>/dev/null || true
