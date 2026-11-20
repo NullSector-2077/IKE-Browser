@@ -22,6 +22,12 @@ def lan():
     class H(http.server.BaseHTTPRequestHandler):
         def _any(self):
             seen.append(self.command + " " + self.path)
+            if "/redirect?to=" in self.path:            # as a public site (reached as a proxy) that redirects home
+                self.send_response(302)
+                self.send_header("Location", self.path.split("to=", 1)[1])
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
             body = b"<title>home</title><img src='/own.png'>" if self.path == "/page" else b"ok"
             self.send_response(200)
             self.send_header("Content-Type", "text/html")
@@ -67,6 +73,37 @@ def test_a_public_page_reaches_no_local_service_with_any_request(run_ike, lan):
     assert public == [], seen                                  # nothing of the public page got there
     assert out["bar"][0] is True and "example.test" in out["bar"][1], out
     assert out["home"] == "home" and "GET /own.png" in seen, (out, seen)
+
+
+ODD = r'''
+PORT = %d
+
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QUrl
+    v = ike.windows[0].current_view()
+    yield 1000
+    P = PORT
+    html = "<title>public</title>"
+    for i, host in enumerate(("0x7f.0.0.1", "2130706433", "0177.0.0.1", "127.1", "[::ffff:127.0.0.1]", "[::1]")):
+        html += "<img src='http://%%s:%%d/odd%%d.png'>" %% (host, P, i)
+    html += "<img src='http://cdn.example.test/redirect?to=http://127.0.0.1:%%d/hop.png'>" %% P
+    v.setHtml(html, QUrl("http://news.example.test/"))
+    yield 3500
+'''
+
+
+def test_other_ways_of_writing_the_address_and_redirects(run_ike, lan):
+    """Old and alternative forms of a local address (hexadecimal, a single
+    number, octal, short, IPv4 inside IPv6, ::1), and a public site that
+    redirects to the home network: none gets there. The public site is the
+    test server reached as an HTTP proxy, so the first hop is really made."""
+    port, seen = lan
+    proxy = "http://127.0.0.1:%d" % port
+    run_ike(ODD % port, settings={"https_only": False}, timeout=90,
+            env={"http_proxy": proxy, "HTTP_PROXY": proxy, "no_proxy": "", "NO_PROXY": ""})
+    assert any("/redirect?to=" in s for s in seen), seen          # the public hop was made
+    reached = [s for s in seen if s.split(" ", 1)[1].startswith(("/odd", "/hop.png"))]   # direct requests
+    assert reached == [], seen
 
 
 def test_names_local_by_their_form():
