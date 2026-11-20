@@ -627,7 +627,8 @@ def test_the_chatgpt_guard_never_runs_the_pull_request():
     # the pull request only as a diff; the only program run is main's checker
     assert "git diff --binary" in text and "python3 -I tools/check-autofix-patch.py" in text
     runs = [ln.strip() for ln in text.splitlines() if ln.strip().startswith(("python", "bash", "sh ", "./", "make", "pip"))]
-    assert runs == ["python3 -I tools/check-autofix-patch.py --repo . --patch \"$RUNNER_TEMP/pr.patch\" \\"], runs
+    assert runs == ["python3 -I tools/check-autofix-patch.py --repo \"$RUNNER_TEMP/pr-base\" --patch \"$RUNNER_TEMP/pr.patch\" \\"], runs
+    assert 'git worktree add -q --detach "$RUNNER_TEMP/pr-base" "$base"' in text
     assert "git checkout" not in text and "refs/remotes/pr/head" in text
 
 
@@ -714,6 +715,101 @@ def test_check_only_applies_nothing_and_size_is_not_a_safety_matter(repo, tmp_pa
     assert git(repo, "status", "--porcelain") == ""
     big = make_patch(repo, edit("ike/big.py", "x = 1\n" * (guard.MAX_LINES + 1)))
     assert run_guard(repo, big, tmp_path)[0] == 1          # a better fix may pass: the next assistant tries
+
+
+def test_check_only_verifies_that_the_patch_applies(repo, tmp_path):
+    """1.1.18: --check-only accepted a patch that did not apply to the tree."""
+    patch = make_patch(repo, edit("ike/window.py", "def width():\n    return 11\n"))
+    assert run_guard(repo, patch, tmp_path, "--check-only")[0] == 0          # applies
+    (repo / "ike/window.py").write_text("def width():\n    return 11\n")
+    assert run_guard(repo, patch, tmp_path, "--check-only")[0] == 0          # already in the tree
+    (repo / "ike/window.py").write_text("def height():\n    return 99\n")
+    code, report = run_guard(repo, patch, tmp_path, "--check-only")         # neither
+    assert code == 1 and "does not apply" in report
+
+
+def test_tests_are_not_weakened_in_other_ways(repo, tmp_path):
+    """1.1.18: only removed assert lines were counted."""
+    base = "def test_width():\n    assert 1\n    assert 2\n"
+    weakened = {
+        "test removed or renamed": "def test_breadth():\n    assert 1\n    assert 2\n",
+        "assertion that cannot fail": base + "    assert True\n",
+        "early return at the top of a test": "def test_width():\n    return\n    assert 1\n    assert 2\n",
+        "skip or xfail": "import unittest\n\n\n@unittest.skip('x')\n" + base,
+    }
+    for why, text in weakened.items():
+        patch = make_patch(repo, edit("tests/test_window.py", text))
+        code, report = run_guard(repo, patch, tmp_path)
+        assert code == 3 and why in report, (why, report)
+    # after a docstring, and a test removed while another is added
+    doc = 'def test_width():\n    """Width."""\n    return None\n    assert 1\n    assert 2\n'
+    code, report = run_guard(repo, make_patch(repo, edit("tests/test_window.py", doc)), tmp_path)
+    assert code == 3 and "early return" in report
+    gone = make_patch(repo, edit("tests/test_window.py", "def test_other():\n    assert 1\n    assert 2\n"))
+    assert "test_width" in run_guard(repo, gone, tmp_path)[1]
+    # an honest correction still passes: a new parameter, a fixed assertion, a return in a helper
+    for text in ("def test_width(tmp_path):\n    assert 1\n    assert 3\n",
+                 base + "\n\ndef helper():\n    return 1\n",
+                 "def test_width():\n    x = 2\n    if x:\n        return\n    assert 1\n    assert 2\n"):
+        patch = make_patch(repo, edit("tests/test_window.py", text))
+        code, report = run_guard(repo, patch, tmp_path, "--check-only")
+        assert code == 0, (text, report)
+
+
+@pytest.mark.parametrize("rel", ["tests/data/page.html", "tests/settings-keys.json",
+                                 "ike/resources/videoads.js", "ike/resources/videorelay.js",
+                                 "ike/resources/mediahook.js", "tools/test-requirements.txt",
+                                 "tools/automation-health.py", "tools/build-darkreader.py",
+                                 "tools/build-ubo-scriptlets.mjs", "tools/third-party.py",
+                                 ".github/autofix/prompt.md"])
+def test_more_files_are_never_changed_by_a_fix(repo, tmp_path, rel):
+    """1.1.18: YouTube's ad blocking (the owner's rule), the tests' reference
+    data, the test packages, the builders of what comes from others, the health
+    check and the workflows."""
+    patch = make_patch(repo, edit(rel, "// changed\n", "a"))
+    code, report = run_guard(repo, patch, tmp_path)
+    assert code == 3 and "protected file" in report, report
+    assert guard.allowed_path("ike/shields.py", False) == ""        # ordinary code stays fixable
+    assert guard.allowed_path("tools/check-components.py", False) == ""
+
+
+@pytest.mark.parametrize("key", ["gsk_" + "A1b2C3d4" * 6, "sk-or-v1-" + "0a1b2c3d" * 8, "sk-proj-" + "Zz09" * 10])
+def test_keys_of_the_reserves_are_refused_too(repo, tmp_path, key):
+    patch = make_patch(repo, edit("ike/window.py", "KEY = '%s'\n" % key, "a"))
+    code, report = run_guard(repo, patch, tmp_path)
+    assert code == 3 and "key or token" in report
+
+
+def test_a_repository_inside_the_tree_is_refused(repo, tmp_path):
+    """A nested repository (a gitlink, mode 160000) would make git look into
+    a configuration the agent wrote."""
+    patch = ("diff --git a/ike/sub b/ike/sub\nnew file mode 160000\nindex 0000000..1234567\n"
+             "--- /dev/null\n+++ b/ike/sub\n@@ -0,0 +1 @@\n+Subproject commit " + "1" * 40 + "\n")
+    code, report = run_guard(repo, patch, tmp_path)
+    assert code == 3 and "link or file mode" in report
+
+
+def test_the_checker_ignores_what_the_agent_could_configure(repo, tmp_path, monkeypatch):
+    """1.1.18: the checker runs git on the agent's tree: no global or system
+    configuration, no hooks, no fsmonitor, no attributes file."""
+    for flag in ("core.hooksPath=/dev/null", "core.fsmonitor=false", "core.attributesFile=/dev/null"):
+        assert flag in guard.SAFE_GIT, flag
+    patch = make_patch(repo, edit("ike/window.py", "def width():\n    return 11\n"))
+    hit = tmp_path / "ran"
+    evil = tmp_path / "gitconfig"
+    evil.write_text("[core]\n    fsmonitor = touch %s\n    hooksPath = /tmp\n" % hit)
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(evil))
+    monkeypatch.setenv("GIT_DIR", str(tmp_path / "nowhere"))
+    env = guard.safe_git_env()
+    assert env["GIT_CONFIG_GLOBAL"] == "/dev/null" and env["GIT_CONFIG_NOSYSTEM"] == "1" and "GIT_DIR" not in env
+    assert run_guard(repo, patch, tmp_path)[0] == 0 and not hit.exists()
+
+
+def test_the_checker_prints_no_workflow_commands(repo, tmp_path, capsys):
+    patch = make_patch(repo, edit("tests/test_window.py", "    pytest.skip('::error::x')\n", "a"))
+    run_guard(repo, patch, tmp_path)
+    printed = capsys.readouterr().out
+    assert "skip or xfail" in printed and "::error::" not in printed
 
 
 def test_the_failure_is_the_failed_step_without_noise():
