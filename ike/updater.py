@@ -32,7 +32,7 @@ MAX_PAYLOAD = 20 * 1024 * 1024
 
 
 def vtuple(v):
-    return tuple(re.findall(r"\d+", v or "0")[:4])
+    return tuple(int(x) for x in re.findall(r"\d+", v or "0")[:4])
 
 
 def system_dir():

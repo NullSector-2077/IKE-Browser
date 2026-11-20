@@ -189,7 +189,7 @@ def site_of(host):
     parts = host.split(".")
     if len(parts) <= 2 or host.replace(".", "").isdigit() or ":" in host:
         return host
-    three = host.endswith(_HOSTED) or (len(parts[-1]) == 2 and parts[-2] in _SLD)
+    three = host.endswith(_HOSTED) or (len(parts[-2]) == 2 and parts[-1] in _SLD)
     return ".".join(parts[-3 if three else -2:])
 
 
