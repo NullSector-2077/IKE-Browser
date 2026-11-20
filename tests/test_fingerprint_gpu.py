@@ -1,7 +1,8 @@
 """The graphics card a site is told about, in every place a page can ask
 (1.1.18): WebGL 1 and 2, OffscreenCanvas in the page and in workers, frames of
 every kind (from an address, srcdoc, empty frames used at once, nested), and
-workers of every kind (blob, data, module, from an address, shared). At
+workers of every kind (blob of any type and size, data, module, from an
+address, shared, started by a worker, from a blob address made in a worker). At
 Balanced every place names the same common model for the site; at Strict and
 Maximum no place names a model and the WEBGL_debug_renderer_info extension
 is hidden everywhere. Software WebGL (SwiftShader) stands in for a graphics
@@ -99,6 +100,23 @@ function frameLoaded(f) { return new Promise(function (ok) { f.onload = function
   R.address_worker = await fromWorker(function () { return new Worker('/worker.js'); });
   R.address_shared_worker = await fromWorker(function () { return new SharedWorker('/worker.js'); });
   R.blob_shared_worker = await fromWorker(function () { return new SharedWorker(blob); });
+  // (1.1.18, independent review) a blob of any type and size, a worker
+  // started by a worker, and a blob address made in a worker
+  R.octet_worker = await fromWorker(function () {
+    return new Worker(URL.createObjectURL(new Blob([WORKER_JS], { type: 'application/octet-stream' }))); });
+  R.big_worker = await fromWorker(function () {
+    return new Worker(URL.createObjectURL(new Blob([WORKER_JS, '/*' + 'x'.repeat(9000000) + '*/'],
+                                                   { type: 'text/javascript' }))); });
+  R.nested_worker = await fromWorker(function () {
+    var outer = 'var u = URL.createObjectURL(new Blob([' + JSON.stringify(WORKER_JS) + '], {type: "text/javascript"}));' +
+                'var w = new Worker(u); w.onmessage = function (e) { postMessage(e.data); };';
+    return new Worker(URL.createObjectURL(new Blob([outer], { type: 'text/javascript' }))); });
+  R.minted_worker = await new Promise(function (ok) {
+    var maker = new Worker(URL.createObjectURL(new Blob(['postMessage(URL.createObjectURL(new Blob([' +
+      JSON.stringify(WORKER_JS) + '], {type: "text/javascript"})))'], { type: 'text/javascript' })));
+    maker.onmessage = function (e) { fromWorker(function () { return new Worker(e.data); }).then(ok); };
+    setTimeout(function () { ok('timeout'); }, 5000);
+  });
   R.frame_blob_worker = await fromWorker(function () {
     var W = f0.contentWindow.Worker, U = f0.contentWindow.URL, B = f0.contentWindow.Blob;
     return new W(U.createObjectURL(new B([WORKER_JS], { type: 'text/javascript' }))); });

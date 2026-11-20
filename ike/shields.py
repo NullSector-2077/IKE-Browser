@@ -144,6 +144,17 @@ _HOSTED = (".github.io", ".gitlab.io", ".blogspot.com", ".herokuapp.com", ".page
            ".neocities.org")
 
 
+def _referer(info):
+    """The Referer the engine is about to send with this request, or ""."""
+    try:
+        for k, v in info.httpHeaders().items():
+            if bytes(k).lower() == b"referer":
+                return bytes(v).decode("latin-1")
+    except Exception:
+        pass
+    return ""
+
+
 @functools.lru_cache(maxsize=4096)
 def site_of(host):
     """Registrable domain of a host: "www.bbc.co.uk" -> "bbc.co.uk".
@@ -202,6 +213,22 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         cfg = self.s.config
         return local_file_in_reach(first.toLocalFile(), url.toLocalFile(),
                                    shared_folders((cfg["download_dir"],)))
+
+    def _https_upgrade(self, info, url, host, scheme):
+        """An http page sent to its https address (automatic HTTPS); True when it was."""
+        s, cfg = self.s, self.s.config
+        if not (scheme == "http" and cfg["https_only"] and cfg.site_opt(host, "https") is not False
+                and host not in _LOCAL
+                and host not in s.http_allowed and "." in host
+                and not host.replace(".", "").isdigit()):
+            return False
+        https = QUrl(url)
+        https.setScheme("https")
+        s.upgraded.add(host)
+        self._count(host, "https")
+        s.redirected.add(https.toString())
+        info.redirect(https)
+        return True
 
     def _lan_refused(self, info, url, main):
         """Home network protection (1.1.17): a page of a public site that opens
@@ -272,6 +299,9 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         if (main or rtype == _RT.ResourceTypeSubFrame) and self._lan_refused(info, url, main):
             return
         first = url if main else info.firstPartyUrl()
+        # the page the request belongs to is known (not a service worker's own
+        # request, which has none): only then can it go the "free way"
+        first_known = main or not first.isEmpty()
         if not main and first.isEmpty():
             try:
                 first = info.initiator()
@@ -293,7 +323,11 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         if cfg.sensitive_hands_off(first_host, host):
             # a sensitive Google service (AI Studio, Cloud Console, account,
             # payments): Google's own requests go through untouched - no filter
-            # list, no address clean-up, no changed header (1.1.14)
+            # list, no address clean-up, no changed header (1.1.14); the
+            # connection is still made secure (1.1.18, independent review: an
+            # http address of such a service was not upgraded)
+            if main and get and self._https_upgrade(info, url, host, scheme):
+                return
             if main and not self.quiet:
                 key = url.toString()
                 if key in s.redirected:
@@ -319,16 +353,7 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             elif not self.quiet:
                 s.reset_count(host)
         if main and get:
-            if (scheme == "http" and cfg["https_only"] and cfg.site_opt(host, "https") is not False
-                    and host not in _LOCAL
-                    and host not in s.http_allowed and "." in host
-                    and not host.replace(".", "").isdigit()):
-                https = QUrl(url)
-                https.setScheme("https")
-                s.upgraded.add(host)
-                self._count(host, "https")
-                s.redirected.add(https.toString())
-                info.redirect(https)
+            if self._https_upgrade(info, url, host, scheme):
                 return
             if cfg["strip_tracking_params"] and cfg.site_opt(host, "params") is not False:
                 clean = strip_tracking(url.toString())
@@ -338,7 +363,7 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
                     info.redirect(QUrl(clean))
                     return
 
-        if (not main and lv <= 2 and host_site == first_site
+        if (not main and lv <= 2 and first_known and host_site == first_site
                 and first_site not in s.full_blocking_sites()):
             # "Same site, free way" (1.1.15): at Balanced and below, what a site
             # asks of itself is not checked against the filter lists, as Brave
@@ -394,10 +419,20 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         if (lv >= 2 and cfg["trim_referrer"] and not main
                 and host_site != first_site
                 and cfg.site_opt(first_host, "params") is not False):
-            origin = "%s://%s/" % (first.scheme(), first.host())
-            if first.port() > 0:
-                origin = "%s://%s:%d/" % (first.scheme(), first.host(), first.port())
-            info.setHttpHeader(b"Referer", origin.encode())
+            # Only a Referer the request already carries is cut to its origin
+            # (1.1.18, independent review): adding one where the page's
+            # referrer policy sends none (no-referrer, same-origin) made the
+            # engine cancel the request, and a frame's own requests got the
+            # top site's origin instead of the frame's.
+            ref = _referer(info)
+            if ref:
+                r = QUrl(ref)
+                if r.scheme() in ("http", "https") and r.host():
+                    origin = "%s://%s/" % (r.scheme(), r.host())
+                    if r.port() > 0:
+                        origin = "%s://%s:%d/" % (r.scheme(), r.host(), r.port())
+                    if origin != ref:
+                        info.setHttpHeader(b"Referer", origin.encode())
 
 
 class IkeSchemeHandler(QWebEngineUrlSchemeHandler):

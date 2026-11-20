@@ -62,6 +62,30 @@ protection was removed or weakened.
   OffscreenCanvas, WebGL 1 and 2). Not reachable: a worker a site starts from
   a file of its own (`new Worker("/w.js")`) sees the real values, as before;
   Qt WebEngine gives no way to add a script to it.
+- **No page can read anything shared across sites** (found by an independent
+  review; present since the protection's first versions): a page that
+  replaced `Function.prototype.toString` could read the session's secret key,
+  the same on every site, so any site could recognise the browser session
+  everywhere without cookies; and the per-site noise came from a hash a page
+  could undo. The key now stays inside I.K.E.: each site gets its own values,
+  derived with SHA-256, and nothing a page can call ever receives a secret.
+  A test plays the attack on two sites.
+- **Workers of every kind get the protection**: a worker from a blob of any
+  type or size, a worker started by another worker, and a worker from a blob
+  address made inside a worker (they saw the real values).
+- **Pictures and scripts of other sites load on pages that send no
+  referrer**: on a page whose referrer policy is "no-referrer" or
+  "same-origin", the shield added a Referer anyway and the engine cancelled
+  every request to another site; now only a Referer the request carries is
+  cut to its own origin.
+- **Two request rules**: an http address of a sensitive service (Google
+  account, PayPal, Stripe's checkout) is still made secure; a service
+  worker's own request, which belongs to no page, is checked against the
+  filter lists at Balanced too (it went the "same site, free way").
+- **Tabs**: a tab counts as idle from the moment the user leaves it (a tab
+  looked at for half an hour was suspended at the next check after the user
+  left it); a tab of another workspace that plays sound or is loading is not
+  suspended.
 - **Hostile frames**: 23 ways a page can make or reach a new frame and use it
   at once (srcdoc, outerHTML, replaceWith, `<object>`, document.write,
   DOMParser, declarative shadow roots, cloneNode, moveBefore, a frame opened

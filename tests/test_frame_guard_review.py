@@ -192,3 +192,92 @@ def test_the_reviews_attacks_find_no_unprotected_frame(run_ike, site, level):
         assert top != real, ("the page itself is not protected", path)
         bad.update({path + " " + k: v for k, v in r.items() if k != "top" and v != top})
     assert not bad, json.dumps(bad, indent=1)
+
+
+# --- the session's key (1.1.18, independent review) --------------------------------
+# A page replaced Function.prototype.toString and made the protection look at
+# its own window again (window.open('', '_self')): the protection asked "is
+# this realm protected?" by calling toString with the session's key, the same
+# on every site, so any page read a 128-bit identifier of the whole session.
+# Here two different sites spy on everything toString is given; nothing they
+# see may be the same on both, nor contain anything that repeats across sites.
+KEY_PAGE = r"""<!doctype html><title>key</title><body><script>
+var n = Function.prototype.toString, seen = [];
+Function.prototype.toString = function () {
+  if (typeof this !== 'function') seen.push(String(this));
+  return n.call(this);
+};
+window.run = async function () {
+  try { window.open('', '_self'); } catch (e) {}
+  var f = document.createElement('iframe'); document.body.appendChild(f);
+  try { f.contentWindow.Function.prototype.toString = Function.prototype.toString; } catch (e) {}
+  var g = document.createElement('iframe'); document.body.appendChild(g); g.remove();
+  document.body.appendChild(document.createElement('iframe'));
+  var src = '';
+  try {
+    var w = new Worker(URL.createObjectURL(new Blob(['postMessage(1)'], {type: 'text/javascript'})));
+    w.terminate();
+  } catch (e) {}
+  await new Promise(function (ok) { setTimeout(ok, 300); });
+  window.result = JSON.stringify({seen: seen});
+};
+</script>x</body>"""
+
+KEY_STEPS = r'''
+import json
+from PyQt6.QtCore import QUrl
+
+def steps(ike, qapp, out):
+    v = ike.windows[0].current_view()
+    for url in URLS:
+        done = {}
+        v.page().loadFinished.connect(lambda ok, done=done: done.setdefault("ok", ok))
+        v.load(QUrl(url))
+        while "ok" not in done:
+            yield 20
+        yield 300
+        v.page().runJavaScript("run()")
+        for _ in range(200):
+            res = {}
+            v.page().runJavaScript("window.result || ''", 0, lambda r, res=res: res.setdefault("r", r))
+            while "r" not in res:
+                yield 20
+            if res["r"]:
+                out[url] = json.loads(res["r"])["seen"]
+                break
+            yield 50
+    out["key"] = ike.shields.profile_keys[id(ike.profile)]
+'''
+
+
+@pytest.mark.parametrize("level", ["balanced", "strict"])
+def test_no_page_reads_anything_shared_across_sites(run_ike, level):
+    import re
+    body = KEY_PAGE.encode()
+
+    class H(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    port = srv.server_address[1]
+    try:
+        urls = ["http://127.0.0.1:%d/a" % port, "http://localhost:%d/b" % port]
+        out = run_ike("URLS = %r\n" % urls + KEY_STEPS, settings={"shield_level": level}, timeout=120)
+    finally:
+        srv.shutdown()
+    a, b, key = out.get(urls[0]), out.get(urls[1]), out.get("key")
+    assert a is not None and b is not None and key, out
+    everything = json.dumps([a, b])
+    assert key not in everything, "the session's key reached a page"
+    hexes_a = set(re.findall(r"[0-9a-f]{16,}", json.dumps(a)))
+    hexes_b = set(re.findall(r"[0-9a-f]{16,}", json.dumps(b)))
+    assert not (hexes_a & hexes_b), ("a value the two sites share", hexes_a & hexes_b)
+    assert not (set(a) & set(b) - {"[object Object]", "undefined", "null"}), (a, b)

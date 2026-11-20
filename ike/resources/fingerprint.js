@@ -9,7 +9,8 @@
 (function () {
   'use strict';
   var CFG = __IKE_CFG__;
-  var SECRET = 'ike:' + CFG.key;       // lets instances recognise a protected realm
+  // lets instances recognise a protected realm; set below, per site (1.1.18)
+  var SECRET = null;
   var origToString = Function.prototype.toString;
   // taken before any page script runs: a page that replaces call, bind or
   // Reflect.apply later cannot reach the protection's own calls (1.1.18)
@@ -103,7 +104,59 @@
     var three = HOSTED.test(h) || (p[p.length - 1].length === 2 && SLD[p[p.length - 2]] === 1);
     return p.slice(three ? -3 : -2).join('.');
   }
-  var seed = hash(CFG.key + '|' + siteOf(host)) || 1;
+  // SHA-256, for the values derived from the session's key (1.1.18,
+  // independent review): the key itself never reaches anything a page can
+  // call or read, and what a page can learn on one site (its noise, the
+  // marker of protected realms) tells nothing about another site. Until
+  // 1.1.18 the marker was the session's key itself, the same on every site
+  // (a page could read it), and the seed a plain FNV hash a page could undo.
+  function sha256(text) {
+    var H = [], K = [], n = 0, i, j;
+    for (var c = 2; n < 64; c++) {
+      for (j = 2; j * j <= c && c % j; j++) {}
+      if (j * j > c) {
+        if (n < 8) H[n] = (Math.pow(c, 1 / 2) * 4294967296) | 0;
+        K[n++] = (Math.pow(c, 1 / 3) * 4294967296) | 0;
+      }
+    }
+    var bytes = [];
+    for (i = 0; i < text.length; i++) {
+      var code = text.charCodeAt(i);
+      if (code > 127) code = 63;                        // host names are ASCII (punycode)
+      bytes.push(code);
+    }
+    var bits = bytes.length * 8;
+    bytes.push(128);
+    while (bytes.length % 64 !== 56) bytes.push(0);
+    for (i = 7; i >= 0; i--) bytes.push(i > 3 ? 0 : (bits >>> (i * 8)) & 255);
+    function rot(v, k) { return (v >>> k) | (v << (32 - k)); }
+    for (var o = 0; o < bytes.length; o += 64) {
+      var W = [];
+      for (i = 0; i < 16; i++) {
+        W[i] = (bytes[o + 4 * i] << 24) | (bytes[o + 4 * i + 1] << 16) | (bytes[o + 4 * i + 2] << 8) | bytes[o + 4 * i + 3];
+      }
+      for (i = 16; i < 64; i++) {
+        var s0 = rot(W[i - 15], 7) ^ rot(W[i - 15], 18) ^ (W[i - 15] >>> 3);
+        var s1 = rot(W[i - 2], 17) ^ rot(W[i - 2], 19) ^ (W[i - 2] >>> 10);
+        W[i] = (W[i - 16] + s0 + W[i - 7] + s1) | 0;
+      }
+      var a = H[0], b = H[1], cc = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7];
+      for (i = 0; i < 64; i++) {
+        var t1 = (h + (rot(e, 6) ^ rot(e, 11) ^ rot(e, 25)) + ((e & f) ^ (~e & g)) + K[i] + W[i]) | 0;
+        var t2 = ((rot(a, 2) ^ rot(a, 13) ^ rot(a, 22)) + ((a & b) ^ (a & cc) ^ (b & cc))) | 0;
+        h = g; g = f; f = e; e = (d + t1) | 0; d = cc; cc = b; b = a; a = (t1 + t2) | 0;
+      }
+      H[0] = (H[0] + a) | 0; H[1] = (H[1] + b) | 0; H[2] = (H[2] + cc) | 0; H[3] = (H[3] + d) | 0;
+      H[4] = (H[4] + e) | 0; H[5] = (H[5] + f) | 0; H[6] = (H[6] + g) | 0; H[7] = (H[7] + h) | 0;
+    }
+    var out = '';
+    for (i = 0; i < 8; i++) out += ('00000000' + (H[i] >>> 0).toString(16)).slice(-8);
+    return out;
+  }
+  var SITE_KEY = sha256(CFG.key + '|' + siteOf(host));
+  CFG.key = null;                                       // not kept once used
+  SECRET = 'ike:' + sha256('realm|' + SITE_KEY).slice(0, 32);
+  var seed = parseInt(SITE_KEY.slice(0, 8), 16) || 1;
   function rng(s) {
     var x = s || 1;
     return function () {
@@ -177,7 +230,9 @@
     'webgl_render_shared_exponent', 'webgl_stencil_texturing', 'ext_disjoint_timer_query',
     'ext_disjoint_timer_query_webgl2', 'webgl_multi_draw'];
   var hiddenExt = {};
-  EXT_POOL.forEach(function (name) { if (hash(seed + '|' + name) & 1) hiddenExt[name] = 1; });
+  // a well-mixed bit per name (FNV's lowest bit is only the parity of the
+  // text's characters: nearly the same list everywhere until 1.1.18)
+  EXT_POOL.forEach(function (name) { if ((hash(seed + '|' + name) >>> 16) & 1) hiddenExt[name] = 1; });
   if (strict) hiddenExt[DEBUG_GPU_EXTENSION] = 1;      // no name of the card at all
   var langs = null;
   if (maximum) langs = ['en-US', 'en'];
@@ -425,6 +480,47 @@
       getter(GI, 'device', function () { return ''; });
       getter(GI, 'description', function () { return ''; });
     }
+    // workers started by this worker get the same prelude (1.1.18,
+    // independent review: a worker inside a worker had none)
+    try {
+      var me = '(' + toStr.call(workerPatch) + ')(' + JSON.stringify(c) + ',' + toStr.call(rng) + ',' +
+        toStr.call(farble) + ',' + toStr.call(gpuFor) + ');\n';
+      while (me.length % 3) me += ' ';                 // so it can be joined to base64 data
+      var Ur = self.URL, made = new Map(), mk = Ur && Ur.createObjectURL, rv = Ur && Ur.revokeObjectURL;
+      if (mk && self.Blob) {
+        wrap(Ur, 'createObjectURL', function (orig) {
+          return function (o) {
+            var u = orig.apply(this, arguments);
+            try { if (o instanceof Blob) made.set(u, o); } catch (e) {}
+            return u;
+          };
+        });
+      }
+      ['Worker', 'SharedWorker'].forEach(function (name) {
+        var Orig = self[name];
+        if (typeof Orig !== 'function' || !mk) return;
+        var P = new Proxy(Orig, {
+          construct: function (t, args, nt) {
+            try {
+              var u = String(args[0]), rest = Array.prototype.slice.call(args, 1), b = made.get(u);
+              args = [u].concat(rest);
+              if (b) {
+                var pu = mk.call(Ur, new Blob([me, b], { type: b.type || 'text/javascript' }));
+                args = [pu].concat(rest);
+                setTimeout(function () { rv.call(Ur, pu); }, 30000);
+              } else if (u.slice(0, 5) === 'data:' && u.indexOf(',') > 0) {
+                var k = u.indexOf(','), b64 = /;base64$/i.test(u.slice(0, k));
+                args = [u.slice(0, k + 1) + (b64 ? btoa(me) : encodeURIComponent(me)) +
+                  u.slice(k + 1)].concat(rest);
+              }
+            } catch (e) {}
+            return Reflect.construct(t, args, nt === P ? t : nt);
+          }
+        });
+        nat.set(P, toStr.call(Orig));
+        try { Object.defineProperty(self, name, { value: P, writable: true, configurable: true }); } catch (e) {}
+      });
+    } catch (e) {}
   }
   var PRELUDE = '(' + origToString.call(workerPatch) + ')(' +
     JSON.stringify({ cores: cores, mem: strict ? 8 : 0, langs: langs, seed: seed, strict: strict,
@@ -797,8 +893,9 @@
         return function (obj) {
           var url = orig.apply(this, arguments);
           try {
-            if (obj instanceof w.Blob && obj.size < 8388608 &&
-                (!obj.type || /script|text\/plain/.test(obj.type))) blobs.set(url, obj);
+            // every blob, whatever its type and size: a worker runs any of them
+            // (1.1.18, independent review: other types and large ones got no prelude)
+            if (obj instanceof w.Blob) blobs.set(url, obj);
           } catch (e) {}
           return url;
         };
@@ -816,8 +913,21 @@
           construct: function (target, args, newTarget) {
             try {
               var url = String(args[0]);
+              // the address as read here is the one used (an object whose
+              // text changes between two readings cannot slip past)
+              args = [url].concat(Array.prototype.slice.call(args, 1));
               if (url.slice(0, 5) === 'blob:') {
                 var blob = blobs.get(url);
+                if (!blob) {
+                  // a blob address made elsewhere (in a worker, another frame):
+                  // its text is read here, once
+                  try {
+                    var x = new w.XMLHttpRequest();
+                    x.open('GET', url, false);
+                    x.send();
+                    if (x.status === 200 || x.status === 0) blob = new w.Blob([x.responseText], { type: 'text/javascript' });
+                  } catch (e) {}
+                }
                 if (blob) {
                   var patched = rawCreate.call(U, new w.Blob([PRELUDE, blob],
                     { type: blob.type || 'text/javascript' }));
@@ -826,7 +936,7 @@
                 }
               } else if (url.slice(0, 5) === 'data:') {
                 var comma = url.indexOf(',');
-                if (comma > 0 && /javascript|ecmascript|^data:(;|,)|text\/plain/i.test(url.slice(0, comma + 1))) {
+                if (comma > 0) {
                   var b64 = /;base64$/i.test(url.slice(0, comma));
                   args = [url.slice(0, comma + 1) +
                     (b64 ? w.btoa(PRELUDE) : w.encodeURIComponent(PRELUDE)) +
@@ -1108,4 +1218,7 @@
   }
 
   install(window);
+  // the page's own realm is known as protected: asking it again (a page that
+  // calls window.open('', '_self')) never goes through functions it can replace
+  try { realms.add(window.Function); } catch (e) {}
 })();
