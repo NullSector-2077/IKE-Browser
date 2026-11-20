@@ -151,7 +151,19 @@
     ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce GTX 1060 6GB/PCIe/SSE2, OpenGL 4.5.0)', 'nvidia', 'pascal'],
     ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 3060/PCIe/SSE2, OpenGL 4.5.0)', 'nvidia', 'ampere']
   ];
-  var gpu = GPUS[(seed >>> 7) % GPUS.length];
+  var PICK = seed >>> 7;
+  // The model for this site among those of the real card's maker (1.1.18):
+  // the limits and extensions WebGL and WebGPU report depend on the maker, so
+  // an Intel name over an NVIDIA card's limits would be a contradiction a
+  // script can see. The maker is no secret: those limits tell it anyway.
+  // Cards of other makers (AMD, software renderers) get one of all the models.
+  // Pure: it also runs inside workers (passed in the prelude).
+  function gpuFor(real, gpus, pick) {
+    var s = String(real || '').toLowerCase();
+    var f = s.indexOf('nvidia') >= 0 ? 'nvidia' : (s.indexOf('intel') >= 0 ? 'intel' : '');
+    var pool = f ? gpus.filter(function (g) { return g[2] === f; }) : gpus;
+    return pool[pick % pool.length];
+  }
   // Optional WebGL extensions that pages rarely use: a different subset is
   // hidden on every site, so the extension list is no stable identifier.
   var EXT_POOL = ['ext_clip_control', 'ext_depth_clamp', 'ext_polygon_offset_clamp',
@@ -286,8 +298,14 @@
   function gpuInfo(w) {
     var I = w.GPUAdapterInfo && w.GPUAdapterInfo.prototype;
     if (!I) return;
-    getter(I, 'vendor', function () { return gpu[2]; });
-    getter(I, 'architecture', function () { return gpu[3]; });
+    var d = Object.getOwnPropertyDescriptor(I, 'vendor'), realVendor = d && d.get;
+    function mine(info) {
+      var v = '';
+      try { v = realVendor.call(info); } catch (e) {}
+      return gpuFor(v, GPUS, PICK);
+    }
+    getter(I, 'vendor', function () { return mine(this)[2]; });
+    getter(I, 'architecture', function () { return mine(this)[3]; });
     getter(I, 'device', function () { return ''; });
     getter(I, 'description', function () { return ''; });
   }
@@ -297,7 +315,7 @@
 
   // ---- inline workers -----------------------------------------------------------
   // Runs inside the worker; must not use anything from outside its own body.
-  function workerPatch(c, rng, farble) {
+  function workerPatch(c, rng, farble, gpuFor) {
     var toStr = Function.prototype.toString, nat = new WeakMap();
     function method(name, impl, orig) {
       var f = ({ [name]() { return impl.apply(this, arguments); } })[name];
@@ -382,7 +400,10 @@
         return function (p) {
           var r = orig.apply(this, arguments);
           // UNMASKED_VENDOR_WEBGL / UNMASKED_RENDERER_WEBGL.
-          if ((p === 37445 || p === 37446) && typeof r === 'string') return c.strict ? null : c.gpu[p - 37445];
+          if ((p === 37445 || p === 37446) && typeof r === 'string') {
+            if (c.strict) return null;
+            return gpuFor(p === 37445 ? r : orig.call(this, 37445), c.gpus, c.pick)[p - 37445];
+          }
           return r;
         };
       });
@@ -390,16 +411,22 @@
     if (c.strict) getter(N, 'gpu', function () { return undefined; });
     else if (self.GPUAdapterInfo) {
       var GI = self.GPUAdapterInfo.prototype;
-      getter(GI, 'vendor', function () { return c.gpu[2]; });
-      getter(GI, 'architecture', function () { return c.gpu[3]; });
+      var gd = Object.getOwnPropertyDescriptor(GI, 'vendor'), realVendor = gd && gd.get;
+      var mine = function (info) {
+        var v = '';
+        try { v = realVendor.call(info); } catch (e) {}
+        return gpuFor(v, c.gpus, c.pick);
+      };
+      getter(GI, 'vendor', function () { return mine(this)[2]; });
+      getter(GI, 'architecture', function () { return mine(this)[3]; });
       getter(GI, 'device', function () { return ''; });
       getter(GI, 'description', function () { return ''; });
     }
   }
   var PRELUDE = '(' + origToString.call(workerPatch) + ')(' +
     JSON.stringify({ cores: cores, mem: strict ? 8 : 0, langs: langs, seed: seed, strict: strict,
-      gpu: gpu, hidden: hiddenExt }) +
-    ',' + origToString.call(rng) + ',' + origToString.call(farble) + ');\n';
+      gpus: GPUS, pick: PICK, hidden: hiddenExt }) +
+    ',' + origToString.call(rng) + ',' + origToString.call(farble) + ',' + origToString.call(gpuFor) + ');\n';
   while (PRELUDE.length % 3) PRELUDE += ' ';     // so it can be joined to base64 data
 
   // ---- fonts: the same answer for every I.K.E. user (Strict and above) -------
@@ -592,7 +619,10 @@
           var r = orig.apply(this, arguments);
           // UNMASKED_VENDOR_WEBGL / UNMASKED_RENDERER_WEBGL: the site's model,
           // or nothing where the extension is hidden (as without it)
-          if ((p === 37445 || p === 37446) && typeof r === 'string') return strict ? null : gpu[p - 37445];
+          if ((p === 37445 || p === 37446) && typeof r === 'string') {
+            if (strict) return null;
+            return gpuFor(p === 37445 ? r : orig.call(this, 37445), GPUS, PICK)[p - 37445];
+          }
           return r;
         };
       });
