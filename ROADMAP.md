@@ -90,11 +90,12 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Open work
 
-- **Security** (docs/SECURITY.md): 1.1.19 (approved by the owner) turns on
-  the engine's Local Network Access (it covers DNS rebinding) with I.K.E.'s
-  own per-site "Allow" (the engine has no per-site permission: one restart
-  the first time a device is allowed); `--ip-address-space-overrides` joins
-  the unsafe switches. Certificate Transparency, HSTS preload and Arch's V8
+- **Security** (docs/SECURITY.md): 1.1.19 turns on the engine's Local
+  Network Access (it covers DNS rebinding) for every site, with no per-site
+  exceptions: the engine has no per-site permission, and its only way to let
+  a device through (`--ip-address-space-overrides`, which joins the unsafe
+  switches) opens it to every site (tried: an exception for one site let
+  another through). Certificate Transparency, HSTS preload and Arch's V8
   hardening to be verified on a real system.
 - **Workers started from a file**: `experiment/file-workers` (see Known
   limits); merged only if the owner wants it, probably as an option.
