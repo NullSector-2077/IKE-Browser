@@ -1,0 +1,7 @@
+{
+ "about": "Budget of tests/test_darkreader_cost.py: the median per-round ratios of Dark Reader to no dark mode and to the engine's own dark mode on its local page. The test fails when a ratio is above baseline x margin. How to update: docs/MAINTENANCE.md.",
+ "reader_vs_off": 3.1,
+ "reader_vs_engine": 3.3,
+ "margin": 2.0,
+ "recorded": "2026-11-21, a Linux container, offscreen (software drawing), PyQt 6.12.1 / Qt WebEngine 6.140 (Chromium 140), Dark Reader 4.9.135 with I.K.E.'s patches: median of five runs of 7 rounds each (Dark Reader / off 2.71 to 3.31, Dark Reader / engine 3.17 to 3.95, engine / off 0.92 to 1.09)"
+}
