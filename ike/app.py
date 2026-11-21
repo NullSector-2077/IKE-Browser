@@ -558,7 +558,10 @@ class IkeApp(QObject):
     def _apply_dns(self):
         """Encrypted DNS as chosen; said when the engine refused it, instead of
         browsing on in clear without a word (review of 1.1.19, M3)."""
+        from . import doh
         from .i18n import T
+        doh.ON_PROBLEM[0] = lambda why: self._notify(T(
+            "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s") % why)
         if not self.shields.apply_dns() and self.config["doh"] not in ("", "off", None):
             QTimer.singleShot(3000, lambda: self._notify(T(
                 "Encrypted DNS could not be turned on: names are looked up by the system.")))

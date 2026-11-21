@@ -975,6 +975,7 @@ def test_perf_l8_encrypted_dns_asks_once_on_one_connection(monkeypatch):
     for k in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY", "all_proxy", "ALL_PROXY"):
         monkeypatch.delenv(k, raising=False)
     monkeypatch.setenv("IKE_TEST_DOH", "http://127.0.0.1:%d/dns-query" % srv.server_address[1])
+    monkeypatch.setenv("IKE_TEST_HOOK", "x")              # the tests' provider only in the tests (N10)
     try:
         doh.configure(None)
         got = []
@@ -1087,3 +1088,54 @@ def test_n8_an_old_window_left_open_does_not_cost_the_next_update(tmp_path):
         new.wait(10)
     state = json.loads((updates / "state.json").read_text())
     assert state["current"] == "99.0.0" and "99.0.0" not in state.get("bad", []), state
+
+
+def test_n9_n10_encrypted_dns_addresses_and_answers(monkeypatch):
+    """Review 4, N9: an address in Chrome's own form ("{?dns}") or two
+    addresses made every own request fail without a word (updates and filter
+    lists too). N10: a cut answer raised an error nobody caught; the tests'
+    own provider was taken from the environment outside the tests."""
+    _updater_imports()
+    from ike import doh
+    t = doh.own_template
+    assert t("https://dns.example/dns-query{?dns}") == "https://dns.example/dns-query"
+    assert t("https://a.example/q https://b.example/q") == "https://a.example/q"
+    assert t("") is None and t("not a url") is None
+    import pytest
+    with pytest.raises(ValueError):
+        doh.parse(b"\x00\x00\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\x01a\x00\x00\x01\x00\x01\xc0\x0c\x00", 1)
+    monkeypatch.setenv("IKE_TEST_DOH", "http://127.0.0.1:9/dns-query")
+    monkeypatch.delenv("IKE_TEST_HOOK", raising=False)
+    try:
+        doh.configure("https://dns.example/dns-query{?dns}")
+        assert doh.TEMPLATE[0] == "https://dns.example/dns-query"        # not the environment's
+        monkeypatch.setenv("IKE_TEST_HOOK", "x")
+        doh.configure(None)
+        assert doh.TEMPLATE[0] == "http://127.0.0.1:9/dns-query"
+    finally:
+        monkeypatch.delenv("IKE_TEST_DOH")
+        doh.configure(None)
+
+
+STEPS_N9 = r'''
+def steps(ike, qapp, out):
+    from ike import doh
+    told = out["told"] = []
+    ike._notify = lambda text: told.append(text)
+    ike._apply_dns()
+    got = []
+    doh.lookup_async("nothing.example", lambda r: got.append(r))
+    doh.lookup_async("other.example", lambda r: got.append(r))
+    for _ in range(100):
+        yield 100
+        if len(got) == 2 and told:
+            break
+    yield 300
+    out["got"] = got
+'''
+
+
+def test_n9_a_provider_that_does_not_answer_is_said_once(run_ike):
+    out = run_ike(STEPS_N9, env={"IKE_TEST_DOH": "http://127.0.0.1:9/dns-query"}, timeout=60)
+    assert out["got"] == [None, None], out
+    assert len(out["told"]) == 1 and "Encrypted DNS" in out["told"][0], out

@@ -384,7 +384,8 @@ class PageBridge(QObject):
         req.setAttribute(QNetworkRequest.Attribute.RedirectPolicyAttribute,
                          QNetworkRequest.RedirectPolicy.UserVerifiedRedirectPolicy)
         req.setTransferTimeout(12000)
-        doh.get(app.network, req, lambda reply: self._css_reply(reply, ident, target, check, hops))
+        doh.get(app.network, req, lambda reply: self._css_reply(reply, ident, target, check, hops),
+                home_ok=check is None)
 
     def _css_reply(self, reply, ident, target, check, hops):
         from PyQt6.QtNetwork import QNetworkReply, QNetworkRequest

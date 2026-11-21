@@ -22,15 +22,32 @@ import threading
 import time
 
 TEMPLATE = [None]           # the provider's address, while encrypted DNS is on
+PROBLEM = [None]            # the provider failed: told to the user once (N9)
+ON_PROBLEM = [None]         # set by the application: shows the notice
 _CACHE = {}                 # name -> (until, [addresses])
 _LOCK = threading.Lock()
 _A, _AAAA = 1, 28
 
 
+def own_template(template):
+    """The provider's address I.K.E. itself uses: the first of the addresses
+    the engine accepts (separated by spaces), without the "{?dns}" part of
+    the form Chrome documents (review 4, N9: either made every own request
+    fail, updates and filter lists included)."""
+    if not template:
+        return None
+    first = template.split()[0]
+    first = first.replace("{?dns}", "").replace("{&dns}", "")
+    return first if first.startswith(("https://", "http://")) else None
+
+
 def configure(template):
     """Called when the engine's DNS mode is set: the same provider, or None."""
-    test = os.environ.get("IKE_TEST_DOH")        # the tests' own provider (plain http, local)
-    TEMPLATE[0] = test or template or None
+    # the tests' own provider (plain http, local), only in the tests (N10)
+    test = os.environ.get("IKE_TEST_DOH") if os.environ.get("IKE_TEST_HOOK") else None
+    TEMPLATE[0] = test or own_template(template)
+    del PROBLEM[1:]
+    PROBLEM[0] = None
     with _LOCK:
         _CACHE.clear()
     with _CONN_LOCK:
@@ -65,6 +82,13 @@ def _skip_name(data, i):
 
 def parse(data, qtype):
     """[(address, ttl)] of type `qtype` in a DNS answer."""
+    try:
+        return _parse(data, qtype)
+    except (struct.error, IndexError) as exc:      # a cut answer (N10)
+        raise ValueError("a damaged answer: %s" % exc) from None
+
+
+def _parse(data, qtype):
     if len(data) < 12:
         raise ValueError("short answer")
     _id, flags, qd, an, _ns, _ar = struct.unpack(">HHHHHH", data[:12])
@@ -166,6 +190,7 @@ def _addresses(name, now):
             found += _ask(name, qtype)
         except (OSError, ValueError) as exc:
             if qtype == _A:
+                PROBLEM[0] = PROBLEM[0] or str(exc)     # the provider, not the name (N9)
                 raise OSError("%s: encrypted DNS: %s" % (name, exc)) from None
     if not found:
         raise OSError("%s: no address (encrypted DNS)" % name)
@@ -204,17 +229,20 @@ def urlopen(req, timeout):
     if proxies.get(scheme) and not urllib.request.proxy_bypass(host or ""):
         return urllib.request.urlopen(req, timeout=timeout)
     from .userscripts import _pinned_handlers
-    return urllib.request.build_opener(*_pinned_handlers(True)).open(req, timeout=timeout)
+    try:
+        return urllib.request.build_opener(*_pinned_handlers(True)).open(req, timeout=timeout)
+    except Exception:
+        _tell_problem()
+        raise
 
 
 # --- for requests made with Qt's network manager -------------------------
 
-def lookup_async(name, done):
-    """done(addresses or None), in the interface's thread."""
+def _bridge():
     from PyQt6.QtCore import QCoreApplication, QObject, Qt, pyqtSignal, pyqtSlot
 
     global _BRIDGE
-    if _BRIDGE is None:
+    if _BRIDGE is None and QCoreApplication.instance() is not None:
         class Bridge(QObject):
             ready = pyqtSignal(object, object)
 
@@ -226,13 +254,29 @@ def lookup_async(name, done):
         # queued: the answer is handled in the interface's thread, where the
         # network manager lives
         _BRIDGE.ready.connect(_BRIDGE.deliver, Qt.ConnectionType.QueuedConnection)
+    return _BRIDGE
+
+
+def _tell_problem():
+    """The provider failed: the user is told once, in the interface's thread."""
+    bridge = _bridge()
+    if PROBLEM[0] and ON_PROBLEM[0] and not PROBLEM[1:] and bridge is not None:
+        PROBLEM.append(True)
+        bridge.ready.emit(ON_PROBLEM[0], PROBLEM[0])
+
+
+def lookup_async(name, done):
+    """done(addresses or None), in the interface's thread."""
+    bridge = _bridge()
 
     def work():
         try:
             result = lookup(name)
-        except OSError:
+        except Exception:                      # never a request left waiting (N10)
             result = None
-        _BRIDGE.ready.emit(done, result)
+        bridge.ready.emit(done, result)
+        if result is None:
+            _tell_problem()
     threading.Thread(target=work, daemon=True).start()
 
 
@@ -265,10 +309,13 @@ def unpin(url, host):
     return out
 
 
-def get(network, req, done, custom=None, data=b""):
+def get(network, req, done, custom=None, data=b"", home_ok=True):
     """Send a Qt request, its name resolved by the provider while encrypted
     DNS is on: done(reply), or done(None) when the name has no address.
-    custom: a method name for sendCustomRequest."""
+    custom: a method name for sendCustomRequest. home_ok=False: never to an
+    address of this computer or the home network (the check before and this
+    look-up are two answers; a name must not pass the first and be pinned
+    home by the second: review 4, N10)."""
     def send(request):
         if custom:
             return network.sendCustomRequest(request, custom, data)
@@ -291,5 +338,10 @@ def get(network, req, done, custom=None, data=b""):
         if not addrs:
             done(None)
             return
+        if not home_ok:
+            from .userscripts import is_local_address
+            if any(is_local_address(a) for a in addrs):
+                done(None)
+                return
         done(send(pin(req, addrs[0])))
     lookup_async(host, found)
