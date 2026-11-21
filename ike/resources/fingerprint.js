@@ -604,6 +604,86 @@
     return [w, h];
   }
 
+  // Media queries on the screen's size (1.1.21, fingerprinting audit M-2): a
+  // binary search with matchMedia('(min-device-width: Npx)') gave the real
+  // size behind Strict's usual one. matchMedia now answers device-width,
+  // device-height and device-aspect-ratio (min-/max-, and the range form
+  // "device-width >= 800px") for the shown size: each such feature becomes
+  // one that is always true or always false, and the engine evaluates the
+  // rest. A feature it cannot read (calc(), units of the viewport) makes the
+  // query false. Style sheets' own @media still see the real size: the engine
+  // evaluates them (a stated limit, docs/SECURITY.md). Only the captured
+  // built-ins are used: it runs while the page does.
+  var MQ_TRUE = '(width >= 0px)', MQ_FALSE = '(width < 0px)';
+  var MQ_PLAIN = /^\s*(min-|max-)?device-(width|height|aspect-ratio)\s*(?::\s*([^]*?))?\s*$/;
+  var MQ_RANGE = /^\s*(?:([^<>=]+?)\s*(<=|>=|<|>|=)\s*)?device-(width|height|aspect-ratio)\s*(?:(<=|>=|<|>|=)\s*([^<>=]+?))?\s*$/;
+  var MQ_LEN = /^(-?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)(px|em|rem|in|cm|mm|pt|pc|q)?$/;
+  var MQ_RATIO = /^((?:\d+\.?\d*|\.\d+))\s*(?:\/\s*((?:\d+\.?\d*|\.\d+)))?$/;
+  var MQ_UNIT = { px: 1, em: 16, rem: 16, 'in': 96, cm: 96 / 2.54, mm: 96 / 25.4, pt: 96 / 72, pc: 16, q: 96 / 101.6 };
+  function mqValue(kind, text) {
+    if (text === undefined) return NaN;
+    var t = text, m;
+    while (t.length && (t[t.length - 1] === ' ' || t[0] === ' ')) t = t[0] === ' ' ? sslice(t, 1) : sslice(t, 0, -1);
+    if (kind === 'aspect-ratio') {
+      m = RAPPLY(RE_EXEC, MQ_RATIO, [t]);
+      if (!m) return NaN;
+      var b = m[2] === undefined ? 1 : +m[2];
+      return b > 0 ? +m[1] / b : NaN;
+    }
+    m = RAPPLY(RE_EXEC, MQ_LEN, [t]);
+    if (!m || (m[2] === undefined && +m[1] !== 0)) return NaN;
+    return +m[1] * (m[2] === undefined ? 1 : MQ_UNIT[m[2]]);
+  }
+  function mqCompare(a, op, b) {
+    var eq = Math.abs(a - b) < 1e-6;
+    return op === '=' ? eq : op === '<' ? a < b && !eq : op === '<=' ? a < b || eq
+      : op === '>' ? a > b && !eq : a > b || eq;
+  }
+  function mqFeature(c, W, H) {
+    // true, false, or null (not a feature of the screen's size it can read)
+    var m = RAPPLY(RE_EXEC, MQ_PLAIN, [c]), v, x;
+    if (m) {
+      v = m[2] === 'width' ? W : m[2] === 'height' ? H : W / H;
+      if (m[3] === undefined) return m[1] ? null : v !== 0;
+      x = mqValue(m[2], m[3]);
+      if (x !== x) return null;
+      return mqCompare(v, m[1] === 'min-' ? '>=' : m[1] === 'max-' ? '<=' : '=', x);
+    }
+    m = RAPPLY(RE_EXEC, MQ_RANGE, [c]);
+    if (!m || (m[2] === undefined && m[4] === undefined)) return null;
+    v = m[3] === 'width' ? W : m[3] === 'height' ? H : W / H;
+    var ok = true;
+    if (m[2] !== undefined) {
+      x = mqValue(m[3], m[1]);
+      if (x !== x) return null;
+      ok = mqCompare(x, m[2], v);
+    }
+    if (m[4] !== undefined) {
+      x = mqValue(m[3], m[5]);
+      if (x !== x) return null;
+      ok = ok && mqCompare(v, m[4], x);
+    }
+    return ok;
+  }
+  function mqRewrite(text, W, H) {
+    // the query with every screen-size feature replaced; 'not all' when one
+    // cannot be read
+    var low = lower(text), out = '', i = 0;
+    for (;;) {
+      var d = sindex(low, 'device-', i);
+      if (d < 0) break;
+      var a = d;
+      while (a > i && low[a - 1] !== '(' && low[a - 1] !== ')') a--;
+      var b = sindex(low, ')', d);
+      if (a <= i || low[a - 1] !== '(' || b < 0 || sindex(sslice(low, a, b), '(') >= 0) return 'not all';
+      var r = mqFeature(sslice(low, a, b), W, H);
+      if (r === null) return 'not all';
+      out += sslice(text, i, a - 1) + (r ? MQ_TRUE : MQ_FALSE);
+      i = b + 1;
+    }
+    return out + sslice(text, i);
+  }
+
   // ---- plugins ------------------------------------------------------------
   // The two invented plugins answer through the engine's own getters and
   // methods (Plugin.prototype, PluginArray.prototype), as real entries do:
@@ -1856,6 +1936,33 @@
         getter(scr, 'height', function () { return sized(this)[1]; });
         getter(scr, 'availWidth', function () { return sized(this)[0]; });
         getter(scr, 'availHeight', function () { return sized(this)[1]; });
+      }
+      var SCREEN0 = w.screen, MQL = w.MediaQueryList && w.MediaQueryList.prototype;
+      var MQLE = w.MediaQueryListEvent && w.MediaQueryListEvent.prototype;
+      var MQL_MEDIA = getterOf(MQL, 'media'), EV_TARGET = getterOf(w.Event && w.Event.prototype, 'target');
+      var mediaOf = hardMap();          // the query answered -> the page's own text, as the engine writes it
+      if (dW && dH && dW.get && dH.get && MQL_MEDIA && SCREEN0) {
+        wrap(w, 'matchMedia', function (orig) {
+          return function (query) {
+            if (!arguments.length) return RAPPLY(orig, this, arguments);
+            var text = `${query}`;                 // read once
+            if (sindex(lower(text), 'device-') < 0) return RAPPLY(orig, this, [text]);
+            var real = RAPPLY(orig, this, [text]);
+            var sz = sized(SCREEN0), list = RAPPLY(orig, this, [mqRewrite(text, sz[0], sz[1])]);
+            mediaOf.set(list, RAPPLY(MQL_MEDIA, real, []));
+            return list;
+          };
+        });
+        getter(MQL, 'media', function (orig) {
+          var t = mediaOf.get(this);
+          return t !== undefined ? t : RAPPLY(orig, this, []);
+        });
+        if (EV_TARGET) {
+          getter(MQLE, 'media', function (orig) {
+            var list = RAPPLY(EV_TARGET, this, []), t = list ? mediaOf.get(list) : undefined;
+            return t !== undefined ? t : RAPPLY(orig, this, []);
+          });
+        }
       }
       getter(scr, 'availLeft', function () { return 0; });
       getter(scr, 'availTop', function () { return 0; });

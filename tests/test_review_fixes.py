@@ -800,6 +800,49 @@ def test_l3_window_name_does_not_cross_sites(run_ike):
     assert out["same"] == "same-site" and out["reload"] == "same-site", out
 
 
+M2_PROBE = r"""(function () {
+  function search(feature) {
+    var lo = 1, hi = 20000;
+    while (lo < hi) {
+      var mid = (lo + hi + 1) >> 1;
+      if (matchMedia('(min-' + feature + ': ' + mid + 'px)').matches) lo = mid; else hi = mid - 1;
+    }
+    return lo;
+  }
+  function range(feature) {
+    var lo = 1, hi = 20000;
+    while (lo < hi) {
+      var mid = (lo + hi + 1) >> 1;
+      if (matchMedia('(' + feature + ' >= ' + mid + 'px)').matches) lo = mid; else hi = mid - 1;
+    }
+    return lo;
+  }
+  var W = screen.width, H = screen.height;
+  window.__fp = JSON.stringify({
+    shown: [W, H], min: [search('device-width'), search('device-height')],
+    range: [range('device-width'), range('device-height')],
+    exact: matchMedia('(device-width: ' + W + 'px) and (device-height: ' + H + 'px)').matches,
+    ratio: matchMedia('(device-aspect-ratio: ' + W + '/' + H + ')').matches,
+    media: matchMedia('screen and (min-device-width:100px)').media,
+    plain: matchMedia('(min-width: 1px)').matches && !matchMedia('(max-width: 1px)').matches,
+    or: matchMedia('(max-device-width: 1px), (min-width: 1px)').matches
+  });
+})();"""
+
+
+def test_m2_media_queries_answer_the_shown_screen(run_ike):
+    """Fingerprinting audit M-2: at Strict screen.width said a usual size,
+    and a binary search with matchMedia('(min-device-width: Npx)') gave the
+    real one. Now matchMedia answers the shown size (both syntaxes); the
+    query's own text is kept and other features are the engine's."""
+    import json
+    out = run_ike(STEPS_FP % M2_PROBE, settings={"shield_level": "strict"}, timeout=90)
+    r = json.loads(out["r"])
+    assert r["min"] == r["shown"] and r["range"] == r["shown"], r
+    assert r["exact"] and r["ratio"] and r["plain"] and r["or"], r
+    assert r["media"] == "screen and (min-device-width: 100px)", r
+
+
 def test_l2_page_and_python_agree_on_the_codes():
     """The page's lookup (fingerprint.js inPsl) and shields.psl_code use the
     same hash and digits: checked against the script's own text."""
