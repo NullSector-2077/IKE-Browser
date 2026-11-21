@@ -32,6 +32,11 @@ Check a pack (missing strings, placeholders, `&`, final `…` / `:`) with:
 python3 tools/check-lang.py zh ja
 ```
 
+A translation longer than the English text is fine: buttons grow, long
+texts wrap. Check that every text of the pack fits the interface with
+`IKE_FIT_LANGS=es python3 -m pytest tests/test_text_fit.py` (the language
+codes separated by commas; without the variable, every pack).
+
 Users can also add a language pack from a file in Settings → Language; it is
 stored in `~/.local/share/ike-browser/lang/` and takes precedence over the
 bundled one.
