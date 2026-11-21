@@ -141,6 +141,7 @@ TEST_CONFIG = {"conftest.py", "pytest.ini", "tox.ini", "setup.cfg", "pyproject.t
 SECRET = re.compile(r"AIza[0-9A-Za-z_\-]{30,}|\bgh[pousr]_[0-9A-Za-z]{20,}|github_pat_[0-9A-Za-z_]{20,}"
                     r"|\bgsk_[0-9A-Za-z]{20,}"                 # Groq
                     r"|\bsk-[0-9A-Za-z_\-]{20,}"               # OpenRouter (sk-or-v1-...), OpenAI and alike
+                    r"|\b[0-9a-f]{32}\.[0-9A-Za-z]{16}\b"      # Z.AI (an id and a secret, 1.1.19)
                     r"|-----BEGIN [A-Z ]*PRIVATE" r" KEY-----")   # split: not a key marker itself
 
 # git run on a tree an AI wrote (1.1.18): no system or global configuration, no
