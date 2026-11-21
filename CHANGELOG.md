@@ -26,6 +26,21 @@ one is fixed here with a test that failed before the fix (tests/test_review_fixe
   `WeakSet.prototype.has` or `Promise.prototype.then`) was handed the real
   canvas or audio values, the hidden font names, or the full browser version.
   Everything it uses is now taken before the page runs (second review pass).
+- **An independent audit of the fingerprinting protection** (first groups
+  of its fixes; each with a test that failed before):
+  - no built-in function of the page's is used any more, `call`, `apply`,
+    `filter`, `toLowerCase`, `slice` and regular expressions included (they
+    gave the hidden WebGL extension, an inline worker without protection);
+    the client hints keep the engine's own order of keys;
+  - an inline worker can no longer read its own prelude and with it the
+    site's noise key: its address is withdrawn at once, its location and its
+    errors name the page's own address and line, and a `data:` worker gets
+    a key of its own;
+  - fonts at Strict and Maximum: the masks no longer tell which fonts are
+    installed, `local()` in a FontFace answers as for an absent font, a
+    frame's `clear()` cannot remove the page's masks, workers get the same
+    masks, and every font installed on the computer is masked, not only the
+    714 known names.
 - **Encrypted DNS also for I.K.E.'s own requests**: with encrypted DNS on,
   the home-network checks, dark mode's style sheets, user scripts, the sites'
   icons, updates and filter lists ask the same provider instead of the

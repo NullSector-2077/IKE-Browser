@@ -931,6 +931,244 @@ def test_n4_a_page_replacing_built_ins_cannot_skip_the_noise(run_ike):
     assert a["gpuWrong"] == "TypeError", a
 
 
+HA_PROBE = r"""
+(async function () {
+  var R = {}, RA = Reflect.apply;
+  async function step(name, fn) { try { R[name] = await fn(); } catch (e) { R[name] = 'err ' + e; } }
+  var gl = document.createElement('canvas').getContext('webgl');
+  R.cores = navigator.hardwareConcurrency;
+  // the engine's own functions handed to a replaced call / apply
+  await step('callCaught', function () {
+    var call = Function.prototype.call, apply = Function.prototype.apply, seen = [];
+    var args = function (a, from) { var o = []; for (var i = from; i < a.length; i++) o[o.length] = a[i]; return o; };
+    Function.prototype.call = function (t) { seen[seen.length] = this; return RA(this, t, args(arguments, 1)); };
+    Function.prototype.apply = function (t, a) { seen[seen.length] = this; return RA(this, t, a || []); };
+    try {
+      navigator.hardwareConcurrency; screen.width; navigator.plugins;
+      var c = document.createElement('canvas'); c.width = 4; c.height = 4; c.getContext('2d').getImageData(0, 0, 1, 1);
+    } finally { Function.prototype.call = call; Function.prototype.apply = apply; }
+    var bad = [];
+    for (var i = 0; i < seen.length; i++) if (typeof seen[i] === 'function') bad.push(seen[i].name);
+    return bad.join(',');
+  });
+  // the hidden extension through a replaced filter, toLowerCase, or a name that changes
+  await step('filterList', function () {
+    var f = Array.prototype.filter;
+    Array.prototype.filter = function () { return this; };
+    try { return gl.getSupportedExtensions().indexOf('WEBGL_debug_renderer_info') >= 0; } finally { Array.prototype.filter = f; }
+  });
+  await step('lowerExt', function () {
+    var l = String.prototype.toLowerCase;
+    String.prototype.toLowerCase = function () { return 'x'; };
+    try { return gl.getExtension('WEBGL_debug_renderer_info') !== null; } finally { String.prototype.toLowerCase = l; }
+  });
+  await step('twoFacedExt', function () {
+    var k = 0;
+    return gl.getExtension({ toString: function () { return k++ ? 'WEBGL_debug_renderer_info' : 'x'; } }) !== null;
+  });
+  // the full version through a replaced map or split
+  await step('versionLeak', async function () {
+    if (!navigator.userAgentData) return 'none';
+    var map = Array.prototype.map, split = String.prototype.split, seen = [];
+    Array.prototype.map = function () { seen.push(JSON.stringify(this)); return RA(map, this, arguments); };
+    String.prototype.split = function () { seen.push(String(this)); return RA(split, this, arguments); };
+    var v;
+    try { v = await navigator.userAgentData.getHighEntropyValues(['fullVersionList', 'uaFullVersion']); }
+    finally { Array.prototype.map = map; String.prototype.split = split; }
+    var all = seen.join(' ') + JSON.stringify(v);
+    return /\d+\.\d+\.[1-9]\d*\.\d+/.test(all) ? all : 'ok';
+  });
+  await step('keysInOrder', async function () {
+    if (!navigator.userAgentData) return true;
+    var v = await navigator.userAgentData.getHighEntropyValues(['wow64', 'architecture', 'model', 'bitness']);
+    var k = Object.keys(v);
+    return k.join() === k.slice().sort().join();
+  });
+  // inline workers whose prelude a replaced slice or Blob check would skip
+  // (the prelude adds noise: a grey canvas read in the worker has changed pixels)
+  var WORKER_NOISE = "var c = new OffscreenCanvas(60, 20), x = c.getContext('2d'); x.fillStyle = 'rgb(128,128,128)'; x.fillRect(0, 0, 60, 20); var d = x.getImageData(0, 0, 60, 20).data, n = 0; for (var i = 0; i < d.length; i++) if ((i & 3) !== 3 && d[i] !== 128) n++; postMessage(n)";
+  await step('sliceWorker', function () {
+    var url = URL.createObjectURL(new Blob([WORKER_NOISE], {type: 'text/javascript'}));
+    var sl = String.prototype.slice, w;
+    String.prototype.slice = function () { return 'zzzzz'; };
+    try { w = new Worker(url); } finally { String.prototype.slice = sl; }
+    return new Promise(function (ok) { w.onmessage = function (e) { ok(e.data); }; setTimeout(function () { ok('timeout'); }, 4000); });
+  });
+  await step('blobCheckWorker', function () {
+    Object.defineProperty(Blob, Symbol.hasInstance, { value: function () { return false; }, configurable: true });
+    var url;
+    try { url = URL.createObjectURL(new Blob([WORKER_NOISE], {type: 'text/javascript'})); }
+    finally { delete Blob[Symbol.hasInstance]; }
+    var w = new Worker(url);
+    return new Promise(function (ok) { w.onmessage = function (e) { ok(e.data); }; setTimeout(function () { ok('timeout'); }, 4000); });
+  });
+  // a frame added while RegExp.prototype.exec says "no frame here"
+  await step('execFrame', function () {
+    var ex = RegExp.prototype.exec, d = document.createElement('div');
+    document.body.appendChild(d);
+    RegExp.prototype.exec = function () { return null; };
+    try { d.innerHTML = '<iframe></iframe>'; return d.firstChild.contentWindow.navigator.hardwareConcurrency; }
+    finally { RegExp.prototype.exec = ex; }
+  });
+  window.__fp = JSON.stringify(R);
+})();
+"""
+
+
+def test_fp_audit_ha_no_built_in_of_the_page_is_used(run_ike):
+    """Fingerprinting audit, H-A (and the rest of review 4's N4): a page that
+    replaced call or apply was handed the engine's own functions; a replaced
+    filter or toLowerCase showed the hidden WebGL extension, map or split
+    the full version; a replaced slice or Blob check started an inline worker
+    without its prelude; the keys of getHighEntropyValues came in another
+    order than Chrome's."""
+    import json
+    out = run_ike((STEPS_FP % HA_PROBE).replace("range(100)", "range(300)"),
+                  settings={"shield_level": "strict"}, timeout=120,
+                  env={"QTWEBENGINE_CHROMIUM_FLAGS": "--no-sandbox --enable-unsafe-swiftshader "
+                       "--use-angle=swiftshader --ignore-gpu-blocklist"})     # WebGL here (test only)
+    r = json.loads(out["r"])
+    assert r["callCaught"] == "", r
+    assert r["filterList"] is False and r["lowerExt"] is False and r["twoFacedExt"] is False, r
+    assert r["versionLeak"] in ("ok", "none"), r
+    assert r["keysInOrder"] is True, r
+    assert r["sliceWorker"] > 0 and r["blobCheckWorker"] > 0, r          # the prelude ran
+    assert r["execFrame"] == r["cores"], r
+
+
+HB_PROBE = r"""
+(async function () {
+  var R = {};
+  async function step(name, fn) { try { R[name] = await fn(); } catch (e) { R[name] = 'err ' + e; } }
+  function run(url, kind) {
+    return new Promise(function (ok) {
+      var w = new Worker(url), out = {};
+      w.onmessage = function (e) { ok(e.data); };
+      w.onerror = function (e) { e.preventDefault(); ok({ filename: e.filename, lineno: e.lineno }); };
+      setTimeout(function () { ok('timeout'); }, 5000);
+    });
+  }
+  var SELF = "fetch(self.location.href).then(function (r) { return r.text(); }).then(function (t) {" +
+    " postMessage({href: self.location.href, text: t.indexOf('farb' + 'le') >= 0 ? 'prelude' : 'clean', stack: String(new Error('x').stack)}); }," +
+    " function (e) { postMessage({href: self.location.href, text: 'failed', stack: String(new Error('x').stack)}); });";
+  await step('blob', async function () {
+    var url = URL.createObjectURL(new Blob([SELF], {type: 'text/javascript'}));
+    var r = await run(url);
+    r.same = r.href === url;
+    return r;
+  });
+  await step('blobError', async function () {
+    var url = URL.createObjectURL(new Blob(["\n\nthrow new Error('three')"], {type: 'text/javascript'}));
+    var r = await run(url);
+    return { same: r.filename === url, lineno: r.lineno };
+  });
+  await step('data', async function () {
+    var url = 'data:text/javascript,' + encodeURIComponent(SELF);
+    var r = await run(url), r2 = await run(url);
+    var seeds = [r, r2].map(function (x) { var m = /\},(\d+),"data:/.exec(decodeURIComponent(x.stack || '')); return m ? m[1] : 'none'; });
+    return { same: r.href === url, text: r.text, seeds: seeds };
+  });
+  await step('entries', async function () {
+    var found = 'clean', list = performance.getEntriesByType('resource');
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].name.slice(0, 5) !== 'blob:') continue;
+      try { var t = await (await fetch(list[i].name)).text(); if (t.indexOf('farb' + 'le') >= 0) found = list[i].name; } catch (e) {}
+    }
+    return found;
+  });
+  window.__fp = JSON.stringify(R);
+})();
+"""
+
+
+def test_fp_audit_hb_the_seed_cannot_be_read_from_a_worker(run_ike):
+    """Fingerprinting audit, H-B: an inline worker's address held the
+    prelude with the site's seed: fetch(self.location.href) in a blob worker,
+    the text of a data: worker's address, or the page's ErrorEvent.filename
+    gave it, and with the seed the noise could be removed exactly. Now the
+    prelude revokes its own address, the worker's location and its errors
+    name the page's own address and line, and a data: worker gets a seed of
+    its own."""
+    import json
+    out = run_ike((STEPS_FP % HB_PROBE).replace("range(100)", "range(300)"),
+                  settings={"shield_level": "strict"}, timeout=120)
+    r = json.loads(out["r"])
+    assert r["blob"]["same"] is True and r["blob"]["text"] in ("failed", "clean"), r
+    assert r["blobError"] == {"same": True, "lineno": 3}, r
+    assert r["data"]["same"] is True and r["data"]["text"] == "clean", r
+    a, b = r["data"]["seeds"]
+    assert a == "none" or a != b, r                  # a seed of its own, not the site's
+    assert r["entries"] == "clean", r
+
+
+HD_PROBE = r"""
+(async function () {
+  var R = {}, T = 'mmmmmmmmmmlli1WQ@#%&ABCxyz', PUA = '';
+  async function step(name, fn) { try { R[name] = await fn(); } catch (e) { R[name] = 'err ' + e; } }
+  function domW(f, t) {
+    var e = document.createElement('span');
+    e.style.cssText = 'font-size:72px;position:absolute;white-space:nowrap;font-family:' + f;
+    e.textContent = t; document.body.appendChild(e); var w = e.offsetWidth + 'x' + e.offsetHeight; e.remove(); return w;
+  }
+  function same(t) { return domW("'DejaVu Sans',monospace", t) === domW("'No Such Font Xyz',monospace", t); }
+  await step('installed', function () { return document.fonts.check('12px "DejaVu Sans"'); });
+  await step('dom', function () { return same(T); });
+  await step('pua', function () { return same(PUA); });
+  await step('load', async function () {
+    var a = await document.fonts.load('12px "DejaVu Sans"', ''), b = await document.fonts.load('12px "No Such Font Xyz"', '');
+    return a.length === b.length;
+  });
+  async function local(name) {
+    return new FontFace('t' + Math.random(), 'local("' + name + '")').load().then(function () { return 'loaded'; }, function () { return 'error'; });
+  }
+  await step('local', function () { return local('DejaVu Sans'); });
+  await step('localFace', function () { return local('DejaVuSans-Bold'); });
+  await step('clearOther', function () {
+    var fr = document.createElement('iframe'); document.body.appendChild(fr);
+    Object.getPrototypeOf(fr.contentWindow.document.fonts).clear.call(document.fonts);
+    return same(T);
+  });
+  await step('worker', function () {
+    var src = "var c = new OffscreenCanvas(10, 10).getContext('2d');" +
+      "function m(f) { c.font = '72px ' + f; return c.measureText('" + T + "').width; }" +
+      "var f = new FontFace('w1', 'local(\"DejaVu Sans\")');" +
+      "f.load().then(function () { return 'loaded'; }, function () { return 'error'; }).then(function (l) {" +
+      " postMessage([m(\"'DejaVu Sans',monospace\") === m(\"'No Such Font Xyz',monospace\"), l, self.fonts.size]); });";
+    var w = new Worker(URL.createObjectURL(new Blob([src], {type: 'text/javascript'})));
+    return new Promise(function (ok) { w.onmessage = function (e) { ok(e.data); }; setTimeout(function () { ok('timeout'); }, 6000); });
+  });
+  window.__fp = JSON.stringify(R);
+})();
+"""
+
+
+def test_fp_audit_hd_installed_fonts_cannot_be_found(run_ike):
+    """Fingerprinting audit, H-D (Strict): the installed fonts were found
+    through local() in FontFace, through the masks themselves (U+E000 drawn
+    with the mask's empty glyph, fonts.load()), after another realm's clear()
+    on the page's font set, and in workers, which had no masks. Each now
+    answers as for a font that does not exist."""
+    import json
+    out = run_ike((STEPS_FP % HD_PROBE).replace("range(100)", "range(300)"),
+                  settings={"shield_level": "strict"}, timeout=120)
+    r = json.loads(out["r"])
+    assert r["dom"] is True and r["pua"] is True and r["load"] is True, r
+    assert r["local"] == "error" and r["localFace"] == "error", r
+    assert r["clearOther"] is True, r
+    assert r["worker"][0] is True and r["worker"][1] == "error" and r["worker"][2] == 0, r
+
+
+def test_fp_audit_hd_every_installed_family_is_tested():
+    """H-D: names outside the list of 714 (IPAGothic, Inter Display) were
+    never masked; now every installed family is tested too, but never the
+    six every system answers to."""
+    _updater_imports()
+    from ike import fontcheck
+    got = fontcheck.candidates(["IPAGothic", "Inter Display [Foundry]", "Arial", "DejaVu Sans"])
+    assert "IPAGothic" in got and "Inter Display" in got and "Arial" not in got
+    assert got.count("DejaVu Sans") == 1 and len(got) == len(fontcheck.masked_names()) + 2
+
+
 def test_n12_addresses_from_the_menu_are_never_options(monkeypatch):
     """Review 4, N12 (rest of L11): an "address" such as --profile=x or
     --private handed over by another program was an option of I.K.E.; the

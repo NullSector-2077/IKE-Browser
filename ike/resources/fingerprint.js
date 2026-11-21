@@ -43,6 +43,27 @@
   }
   var THEN = Promise.prototype.then;
   function then(p, fn) { return RAPPLY(THEN, p, [fn]); }
+  // strings and arrays the same way (fingerprinting audit, H-A)
+  var S_SLICE = String.prototype.slice, S_INDEX = String.prototype.indexOf, S_LOWER = String.prototype.toLowerCase;
+  function sslice(s, a, b) { return RAPPLY(S_SLICE, s, b === undefined ? [a] : [a, b]); }
+  function sindex(s, x) { return RAPPLY(S_INDEX, s, [x]); }
+  function lower(s) { return RAPPLY(S_LOWER, s, []); }
+  var HASOWN = Object.prototype.hasOwnProperty, RE_EXEC = RegExp.prototype.exec, RE_TEST = RegExp.prototype.test;
+  function own(o, k) { return RAPPLY(HASOWN, o, [k]); }
+  var M_ = Map, M_GET = Map.prototype.get, M_SET = Map.prototype.set, M_DEL = Map.prototype['delete'];
+  function hardStrongMap() {
+    var m = new M_();
+    return FREEZE({
+      get: function (k) { return RAPPLY(M_GET, m, [k]); },
+      set: function (k, v) { RAPPLY(M_SET, m, [k, v]); return this; },
+      'delete': function (k) { return RAPPLY(M_DEL, m, [k]); }
+    });
+  }
+  var BLOB_SIZE = getterOf(window.Blob && Blob.prototype, 'size');
+  var BLOB_TYPE = getterOf(window.Blob && Blob.prototype, 'type');
+  function isBlob(o) { try { RAPPLY(BLOB_SIZE, o, []); return true; } catch (e) { return false; } }
+  // the first part of a version ("140" of "140.0.7339.264")
+  function majorOf(v) { var s = `${v}`, i = sindex(s, '.'); return i < 0 ? s : sslice(s, 0, i); }
   var TA_PROTO = Object.getPrototypeOf(Uint8Array.prototype);
   var TA_LEN = getterOf(TA_PROTO, 'length'), TA_TAG = getterOf(TA_PROTO, Symbol.toStringTag);
   function LEN(a) { return RAPPLY(TA_LEN, a, []); }
@@ -164,7 +185,7 @@
     var h = 2166136261 >>> 0;
     for (var i = 0; i < str.length; i++) {
       h ^= str.charCodeAt(i);
-      h = Math.imul(h, 16777619) >>> 0;
+      h = mul32(h, 16777619) >>> 0;
     }
     return h;
   }
@@ -313,10 +334,19 @@
   // script can see. The maker is no secret: those limits tell it anyway.
   // Cards of other makers (AMD, software renderers) get one of all the models.
   // Pure: it also runs inside workers (passed in the prelude).
+  // No method of the page's is used: a page that replaced toLowerCase was
+  // handed the real card's name (fingerprinting audit, H-A).
   function gpuFor(real, gpus, pick) {
-    var s = String(real || '').toLowerCase();
-    var f = s.indexOf('nvidia') >= 0 ? 'nvidia' : (s.indexOf('intel') >= 0 ? 'intel' : '');
-    var pool = f ? gpus.filter(function (g) { return g[2] === f; }) : gpus;
+    var s = `${real || ''}`, UP = { n: 'N', v: 'V', i: 'I', d: 'D', a: 'A', t: 'T', e: 'E', l: 'L' };
+    var has = function (w) {
+      for (var i = 0; i + w.length <= s.length; i++) {
+        for (var j = 0; j < w.length; j++) if (s[i + j] !== w[j] && s[i + j] !== UP[w[j]]) break;
+        if (j === w.length) return true;
+      }
+      return false;
+    };
+    var f = has('nvidia') ? 'nvidia' : (has('intel') ? 'intel' : ''), pool = [];
+    for (var k = 0; k < gpus.length; k++) if (!f || gpus[k][2] === f) pool[pool.length] = gpus[k];
     return pool[pick % pool.length];
   }
   // Optional WebGL extensions that pages rarely use: a different subset is
@@ -473,8 +503,16 @@
 
   // ---- inline workers -----------------------------------------------------------
   // Runs inside the worker; must not use anything from outside its own body.
-  function workerPatch(c, rng, farble, gpuFor) {
+  function workerPatch(c, rng, farble, gpuFor, seed, address) {
     var toStr = Function.prototype.toString, RAW = Reflect.apply, GD = Object.getOwnPropertyDescriptor;
+    var CJ = JSON.stringify(c), JS = JSON.stringify, here = '';
+    c.seed = seed;
+    // the address of this worker's own prelude: revoked before the worker's
+    // code runs, so its text (the seed) cannot be read (audit, H-B)
+    try {
+      here = self.location.href;
+      if (address !== null && here.slice(0, 5) === 'blob:') URL.revokeObjectURL(here);
+    } catch (e) {}
     // taken before the worker's own code, as in the page (review of 1.1.19, N4)
     var nat = (function () {
       var m = new WeakMap(), get = WeakMap.prototype.get, put = WeakMap.prototype.set;
@@ -483,7 +521,10 @@
         set: function (k, v) { RAW(put, m, [k, v]); return this; }
       });
     })();
-    var THEN = Promise.prototype.then;
+    var THEN = Promise.prototype.then, FILTER = Array.prototype.filter;
+    var SSL = String.prototype.slice, SIX = String.prototype.indexOf, SLO = String.prototype.toLowerCase;
+    var lower = function (x) { return RAW(SLO, x, []); };
+    var major = function (x) { var t = `${x}`, i = RAW(SIX, t, ['.']); return i < 0 ? t : RAW(SSL, t, [0, i]); };
     var getOf = function (proto, name) { var d = proto && GD(proto, name); return d && d.get; };
     var TAP = Object.getPrototypeOf(Uint8Array.prototype);
     var LENG = getOf(TAP, 'length'), TAGG = getOf(TAP, Symbol.toStringTag);
@@ -523,6 +564,115 @@
         return s !== undefined ? s : RAW(orig, this, []);
       };
     });
+    // the worker's own fonts get the page's masks (fingerprinting audit, H-D)
+    if (c.fonts && c.blank && self.fonts && self.FontFace) {
+      try {
+        var fset = self.fonts, FSW = Object.getPrototypeOf(fset), fAdd = FSW.add, fEach = FSW.forEach;
+        var FFW = FontFace, fFilter = Array.prototype.filter, raw = atob(c.blank), fb = new Uint8Array(raw.length);
+        for (var q = 0; q < raw.length; q++) fb[q] = raw.charCodeAt(q);
+        var masks = (function () {
+          var m = new WeakSet(), has = WeakSet.prototype.has, add = WeakSet.prototype.add;
+          return Object.freeze({ has: function (o) { return RAW(has, m, [o]); }, add: function (o) { RAW(add, m, [o]); } });
+        })();
+        var ownFaces = [];
+        var fillW = function () {
+          for (var i = 0; i < c.fonts.length; i++) {
+            try {
+              var f = ownFaces[i] || (ownFaces[i] = new FFW(c.fonts[i], fb, { unicodeRange: 'U+D800' }));
+              masks.add(f);
+              RAW(fAdd, fset, [f]);
+            } catch (e) {}
+          }
+        };
+        var seen = function (t) {
+          var out = [];
+          RAW(fEach, t, [function (f) { if (!masks.has(f)) out[out.length] = f; }]);
+          return out;
+        };
+        getter(FSW, 'size', function () { return seen(this).length; });
+        wrap(FSW, 'forEach', function () {
+          return function (cb, thisArg) {
+            var me2 = this, l = seen(this);
+            for (var i = 0; i < l.length; i++) RAW(cb, thisArg, [l[i], l[i], me2]);
+          };
+        });
+        ['values', 'keys'].forEach(function (n) {
+          wrap(FSW, n, function () { return function () { return seen(this).values(); }; });
+        });
+        wrap(FSW, 'entries', function () {
+          return function () { var l = seen(this), o = []; for (var i = 0; i < l.length; i++) o[i] = [l[i], l[i]]; return o.values(); };
+        });
+        var itw = GD(FSW, Symbol.iterator);
+        if (itw && typeof itw.value === 'function') {
+          itw.value = method('values', function () { return seen(this).values(); }, itw.value);
+          Object.defineProperty(FSW, Symbol.iterator, itw);
+        }
+        wrap(FSW, 'has', function (orig) { return function (f) { return masks.has(f) ? false : RAW(orig, this, arguments); }; });
+        wrap(FSW, 'delete', function (orig) { return function (f) { return masks.has(f) ? false : RAW(orig, this, arguments); }; });
+        wrap(FSW, 'clear', function (orig) {
+          return function () { var r = RAW(orig, this, arguments); if (this === fset) fillW(); return r; };
+        });
+        wrap(FSW, 'load', function (orig) {
+          return function () {
+            return RAW(THEN, RAW(orig, this, arguments), [function (l) {
+              return l ? RAW(fFilter, l, [function (f) { return !masks.has(f); }]) : l;
+            }]);
+          };
+        });
+        // local() sources naming a masked font: as for an absent one
+        var keyOf = function (n) {
+          var t = lower(`${n}`), o = '';
+          for (var i = 0; i < t.length; i++) { var ch = t[i]; if (ch !== ' ' && ch !== '-' && ch !== '_' && ch !== '"' && ch !== "'") o += ch; }
+          return o;
+        };
+        var keys = [];
+        for (var z = 0; z < c.fonts.length; z++) keys[z] = keyOf(c.fonts[z]);
+        var scrub = function (src) {
+          var low = lower(src), out = '', i = 0;
+          for (;;) {
+            var j = RAW(SIX, low, ['local(', i]), e = j < 0 ? -1 : RAW(SIX, low, [')', j]);
+            if (j < 0 || e < 0) return out + RAW(SSL, src, [i]);
+            var k = keyOf(RAW(SSL, src, [j + 6, e])), hit = false;
+            for (var x = 0; x < keys.length && !hit; x++) hit = !!keys[x] && RAW(SSL, k, [0, keys[x].length]) === keys[x];
+            out += RAW(SSL, src, [i, j]) + (hit ? 'local("x-absent")' : RAW(SSL, src, [j, e + 1]));
+            i = e + 1;
+          }
+        };
+        var RCW = Reflect.construct;
+        var PFW = new Proxy(FFW, {
+          construct: function (t, args, nt) {
+            var a = [];
+            for (var i = 0; i < args.length; i++) a[i] = args[i];
+            if (typeof a[1] === 'string') a[1] = scrub(a[1]);
+            return RCW(t, a, nt === PFW ? t : nt);
+          }
+        });
+        nat.set(PFW, RAW(toStr, FFW, []));
+        Object.defineProperty(FFW.prototype, 'constructor', { value: PFW, writable: true, configurable: true });
+        Object.defineProperty(self, 'FontFace', { value: PFW, writable: true, configurable: true });
+        fillW();
+      } catch (e) {}
+    }
+    // the worker's location and its own errors: the page's address
+    if (address !== null && typeof address === 'string' && self.WorkerLocation && self.URL) {
+      try {
+        var home = new URL(address), UP = URL.prototype, WL = WorkerLocation.prototype;
+        ['href', 'protocol', 'host', 'hostname', 'port', 'pathname', 'search', 'hash', 'origin'].forEach(function (n) {
+          var g = getOf(UP, n);
+          if (g) getter(WL, n, function () { return RAW(g, home, []); });
+        });
+        var hrefOf = getOf(UP, 'href');
+        wrap(WL, 'toString', function () { return function () { return RAW(hrefOf, home, []); }; });
+        if (self.ErrorEvent) {
+          var EP = ErrorEvent.prototype, fn = getOf(EP, 'filename');
+          getter(EP, 'filename', function (orig) { var f = RAW(orig, this, []); return f === here ? address : f; });
+          getter(EP, 'lineno', function (orig) {
+            var n = RAW(orig, this, []);
+            return fn && RAW(fn, this, []) === here && n > c.lines ? n - c.lines : n;
+          });
+        }
+      } catch (e) {}
+    }
     var N = self.WorkerNavigator && WorkerNavigator.prototype;
     getter(N, 'hardwareConcurrency', function () { return c.cores; });
     if (c.mem) getter(N, 'deviceMemory', function () { return c.mem; });
@@ -605,16 +755,17 @@
       if (!GL) return;
       wrap(GL.prototype, 'getExtension', function (orig) {
         return function (name) {
-          if (c.hidden[String(name).toLowerCase()] === 1) return null;
-          return RAW(orig, this, arguments);
+          var nm = `${name}`;
+          if (c.hidden[lower(nm)] === 1) { RAW(orig, this, [nm]); return null; }
+          return RAW(orig, this, [nm]);
         };
       });
       wrap(GL.prototype, 'getSupportedExtensions', function (orig) {
         return function () {
           var list = RAW(orig, this, arguments);
-          return list && list.filter(function (name) {
-            return c.hidden[String(name).toLowerCase()] !== 1;
-          });
+          return list && RAW(FILTER, list, [function (name) {
+            return c.hidden[lower(`${name}`)] !== 1;
+          }]);
         };
       });
       wrap(GL.prototype, 'getParameter', function (orig) {
@@ -636,12 +787,13 @@
         return function () {
           var ua = this;
           return RAW(THEN, RAW(orig, this, arguments), [function (v) {
-            var major = (ua.brands && ua.brands[0] && ua.brands[0].version) || '0';
-            if (v && 'uaFullVersion' in v) v.uaFullVersion = major + '.0.0.0';
+            var m = (ua.brands && ua.brands[0] && ua.brands[0].version) || '0';
+            if (v && 'uaFullVersion' in v) v.uaFullVersion = m + '.0.0.0';
             if (v && v.fullVersionList) {
-              v.fullVersionList = v.fullVersionList.map(function (b) {
-                return { brand: b.brand, version: String(b.version).split('.')[0] + '.0.0.0' };
-              });
+              // no method of the worker's on the real versions (audit, H-A)
+              var full = v.fullVersionList, list = [];
+              for (var i = 0; i < full.length; i++) list[i] = { brand: full[i].brand, version: major(full[i].version) + '.0.0.0' };
+              v.fullVersionList = list;
             }
             return v;
           }]);
@@ -675,10 +827,23 @@
     // workers started by this worker get the same prelude (1.1.18,
     // independent review: a worker inside a worker had none)
     try {
-      var me = '(' + RAW(toStr, workerPatch, []) + ')(' + JSON.stringify(c) + ',' + RAW(toStr, rng, []) + ',' +
-        RAW(toStr, farble, []) + ',' + RAW(toStr, gpuFor, []) + ');\n';
-      while (me.length % 3) me += ' ';                 // so it can be joined to base64 data
-      var Ur = self.URL, made = new Map(), mk = Ur && Ur.createObjectURL, rv = Ur && Ur.revokeObjectURL;
+      var meHead = '(' + RAW(toStr, workerPatch, []) + ')(' + CJ + ',' + RAW(toStr, rng, []) + ',' +
+        RAW(toStr, farble, []) + ',' + RAW(toStr, gpuFor, []) + ',';
+      var RBUF = new Uint32Array(1), RGV = crypto.getRandomValues, CR = crypto;
+      var preludeOf = function (addr, own) {
+        var sd = c.seed;
+        if (own) { RAW(RGV, CR, [RBUF]); sd = RBUF[0] || 1; }
+        var p = meHead + sd + ',' + RAW(JS, JSON, [addr]) + ');\n';
+        while (p.length % 3) p += ' ';                 // so it can be joined to base64 data
+        return p;
+      };
+      var Ur = self.URL, mk = Ur && Ur.createObjectURL, rv = Ur && Ur.revokeObjectURL;
+      var made = (function () {
+        var m = new Map(), get = Map.prototype.get, put = Map.prototype.set;
+        return Object.freeze({ get: function (k) { return RAW(get, m, [k]); },
+          set: function (k, v) { RAW(put, m, [k, v]); } });
+      })();
+      var BSZ = getOf(self.Blob && Blob.prototype, 'size'), BTY = getOf(self.Blob && Blob.prototype, 'type');
       // taken before the worker's own code: the prelude goes to no function
       // the worker could have replaced since (1.1.18, security audit)
       var NB = self.Blob, RA = Reflect.apply, RC = Reflect.construct, LT = self.setTimeout;
@@ -688,7 +853,7 @@
         wrap(Ur, 'createObjectURL', function (orig) {
           return function (o) {
             var u = RAW(orig, this, arguments);
-            try { if (o instanceof NB) made.set(u, o); } catch (e) {}
+            try { RAW(BSZ, o, []); made.set(u, o); } catch (e) {}     // a Blob (its own getter tells)
             return u;
           };
         });
@@ -699,16 +864,17 @@
         var P = new Proxy(Orig, {
           construct: function (t, args, nt) {
             try {
-              var u = String(args[0]), b = made.get(u);
+              var u = `${args[0]}`, b = made.get(u);
               args = withU(u, args);
               if (b) {
-                var pu = RA(mk, Ur, [new NB([me, b], { type: b.type || 'text/javascript' })]);
+                var pu = RA(mk, Ur, [new NB([preludeOf(u, false), b], { type: RAW(BTY, b, []) || 'text/javascript' })]);
                 args = withU(pu, args);
                 RA(LT, self, [function () { RA(rv, Ur, [pu]); }, 30000]);
-              } else if (u.slice(0, 5) === 'data:' && u.indexOf(',') > 0) {
-                var k = u.indexOf(','), b64 = /;base64$/i.test(u.slice(0, k));
-                args = withU(u.slice(0, k + 1) + (b64 ? RA(b2a, self, [me]) : RA(enc, self, [me])) +
-                  u.slice(k + 1), args);
+              } else if (lower(RAW(SSL, u, [0, 5])) === 'data:' && RAW(SIX, u, [',']) > 0) {
+                var k = RAW(SIX, u, [',']), b64 = lower(RAW(SSL, u, [k - 7 < 0 ? 0 : k - 7, k])) === ';base64';
+                var mine = preludeOf(u, true);
+                args = withU(RAW(SSL, u, [0, k + 1]) + (b64 ? RA(b2a, self, [mine]) : RA(enc, self, [mine])) +
+                  RAW(SSL, u, [k + 1]), args);
               }
             } catch (e) {}
             return RC(t, args, nt === P ? t : nt);
@@ -719,11 +885,33 @@
       });
     } catch (e) {}
   }
-  var PRELUDE = '(' + RAPPLY(origToString, workerPatch, []) + ')(' +
-    JSON.stringify({ cores: cores, mem: strict ? 8 : 0, langs: langs, seed: seed, strict: strict, maximum: maximum,
-      gpus: GPUS, pick: PICK, hidden: hiddenExt }) +
-    ',' + RAPPLY(origToString, rng, []) + ',' + RAPPLY(origToString, farble, []) + ',' + RAPPLY(origToString, gpuFor, []) + ');\n';
-  while (PRELUDE.length % 3) PRELUDE += ' ';     // so it can be joined to base64 data
+  // The prelude of an inline worker. A worker could read its own address
+  // (self.location.href, or the page through ErrorEvent.filename) and with
+  // it the prelude, the site's seed included, and remove the noise exactly
+  // (fingerprinting audit, H-B). Now a blob worker's prelude revokes its own
+  // address before the worker's code runs, the worker's location and its
+  // errors name the page's own address, and a data: worker, whose address
+  // is its text, gets a seed of its own instead of the site's.
+  var WP_HEAD = '(' + RAPPLY(origToString, workerPatch, []) + ')(';
+  var WP_TAIL = ',' + RAPPLY(origToString, rng, []) + ',' + RAPPLY(origToString, farble, []) + ',' +
+    RAPPLY(origToString, gpuFor, []) + ',';
+  var JSON_STR = JSON.stringify;
+  var PRELUDE_LINES = 1;
+  (function () {
+    var all = WP_HEAD + WP_TAIL;
+    for (var i = 0; i < all.length; i++) if (all[i] === '\n') PRELUDE_LINES++;
+  })();
+  var WCFG = '';                  // after the font list, below
+  var RND = new Uint32Array(1), RND_GET = crypto.getRandomValues, CRYPTO = crypto;
+  function preludeFor(address, ownSeed) {
+    var sd = seed;
+    if (ownSeed) { RAPPLY(RND_GET, CRYPTO, [RND]); sd = RND[0] || 1; }
+    var p = WP_HEAD + WCFG + WP_TAIL + sd + ',' + RAPPLY(JSON_STR, JSON, [address]) + ');\n';
+    while (p.length % 3) p += ' ';               // so it can be joined to base64 data
+    return p;
+  }
+  // patched address -> the page's own, for the errors the page is shown
+  var PATCHED = hardStrongMap();
 
   // ---- fonts: the same answer for every I.K.E. user (Strict and above) -------
   // Sites find the installed fonts by measuring text set in hundreds of known
@@ -742,12 +930,51 @@
   // engine cannot find looks absent anyway. Without that answer: the whole
   // list, as before. 714 masks in every frame cost about 20 ms per frame.
   var MASKED = (CFG.fonts instanceof Array) ? CFG.fonts : MASKED_FONTS;
+  // the workers' configuration, made before any page script (its arrays
+  // could otherwise be turned into something else by the page's toJSON);
+  // at Strict and above it carries the masks for the workers' own fonts
+  WCFG = JSON_STR({ cores: cores, mem: strict ? 8 : 0, langs: langs, strict: strict, maximum: maximum,
+    gpus: GPUS, pick: PICK, hidden: hiddenExt, lines: PRELUDE_LINES,
+    fonts: strict ? MASKED : null, blank: strict ? BLANK_FONT : null });
+  // A local() source naming a masked font is answered as for an absent one
+  // (fingerprinting audit, H-D: new FontFace('x', 'local("DejaVu Sans")')
+  // loaded only for installed fonts). Names compared without case, spaces,
+  // hyphens or quotes, so "DejaVuSans-Bold" is the family "DejaVu Sans" too.
+  function squash(n) {
+    var t = lower(`${n}`), o = '';
+    for (var i = 0; i < t.length; i++) {
+      var ch = t[i];
+      if (ch !== ' ' && ch !== '-' && ch !== '_' && ch !== '"' && ch !== "'") o += ch;
+    }
+    return o;
+  }
+  var MASKED_KEYS = [];
+  for (var mk = 0; mk < MASKED.length; mk++) MASKED_KEYS[mk] = squash(MASKED[mk]);
+  function maskedLocal(name) {
+    var key = squash(name);
+    for (var i = 0; i < MASKED_KEYS.length; i++) {
+      var m = MASKED_KEYS[i];
+      if (m && sslice(key, 0, m.length) === m) return true;
+    }
+    return false;
+  }
+  function scrubLocal(src) {
+    var low = lower(src), out = '', i = 0;
+    for (;;) {
+      var j = RAPPLY(S_INDEX, low, ['local(', i]);
+      var e = j < 0 ? -1 : RAPPLY(S_INDEX, low, [')', j]);
+      if (j < 0 || e < 0) { out += sslice(src, i); return out; }
+      out += sslice(src, i, j) + (maskedLocal(sslice(src, j + 6, e)) ? 'local("x-absent")' : sslice(src, j, e + 1));
+      i = e + 1;
+    }
+  }
+  var FILLS = hardMap();          // each masked font set -> how to put its masks back
   var maskedFaces = hardSet(), maskedDocs = hardSet();
   function maskFonts(w) {
     var doc = w.document;
     if (!doc || !doc.fonts || !w.FontFace || maskedDocs.has(doc)) return;
     maskedDocs.add(doc);
-    var set = doc.fonts, own = [], blank = null;
+    var set = doc.fonts, own = [], blank = null, FF = w.FontFace;
     try {
       var bin = w.atob(BLANK_FONT);
       blank = new w.Uint8Array(bin.length);
@@ -756,8 +983,10 @@
     function fill() {
       for (var i = 0; i < MASKED.length; i++) {
         try {
-          var face = own[i] || (own[i] = new w.FontFace(MASKED[i], blank,
-            { unicodeRange: 'U+E000' }));
+          // a range no text can reach (a lone surrogate is drawn as U+FFFD):
+          // with U+E000 the masks themselves told which fonts were installed
+          // (fingerprinting audit, H-D)
+          var face = own[i] || (own[i] = new FF(MASKED[i], blank, { unicodeRange: 'U+D800' }));
           maskedFaces.add(face);
           RAPPLY(FSP_add, set, [face]);
         } catch (e) {}
@@ -798,13 +1027,40 @@
     wrap(FSP, 'delete', function (orig) {
       return function (f) { return maskedFaces.has(f) ? false : RAPPLY(orig, this, arguments); };
     });
+    FILLS.set(set, fill);
+    // clear() of any realm on any masked set puts that set's masks back: the
+    // frame's own clear() did not refill the page's set (audit, H-D)
     wrap(FSP, 'clear', function (orig) {
       return function () {
-        var r = RAPPLY(orig, this, arguments);
-        if (this === set) fill();
+        var r = RAPPLY(orig, this, arguments), again = FILLS.get(this);
+        if (again) again();
         return r;
       };
     });
+    var faceFilter = w.Array.prototype.filter;
+    wrap(FSP, 'load', function (orig) {
+      return function () {
+        return then(RAPPLY(orig, this, arguments), function (list) {
+          return list ? RAPPLY(faceFilter, list, [function (f) { return !maskedFaces.has(f); }]) : list;
+        });
+      };
+    });
+    if (typeof FF === 'function' && w.Proxy) {
+      var PF = new w.Proxy(FF, {
+        construct: function (t, args, nt) {
+          var a = [];
+          for (var i = 0; i < args.length; i++) a[i] = args[i];
+          if (typeof a[1] === 'string') a[1] = scrubLocal(a[1]);
+          return nConstructFF(t, a, nt === PF ? t : nt);
+        }
+      });
+      var nConstructFF = Reflect.construct;
+      natives.set(PF, RAPPLY(origToString, FF, []));
+      try {
+        Object.defineProperty(FF.prototype, 'constructor', { value: PF, writable: true, configurable: true });
+        Object.defineProperty(w, 'FontFace', { value: PF, writable: true, configurable: true });
+      } catch (e) {}
+    }
     fill();
   }
 
@@ -919,18 +1175,21 @@
     // ---- WebGL: hide the raw GPU identity in strict profiles; retain pixel farbling ----
     [w.WebGLRenderingContext, w.WebGL2RenderingContext].forEach(function (GL) {
       if (!GL) return;
+      var glFilter = w.Array.prototype.filter;
       wrap(GL.prototype, 'getExtension', function (orig) {
         return function (name) {
-          if (hiddenExt[String(name).toLowerCase()] === 1) return null;
-          return RAPPLY(orig, this, arguments);
+          // the name read once, and that text is what the engine gets
+          var nm = `${name}`;
+          if (hiddenExt[lower(nm)] === 1) { RAPPLY(orig, this, [nm]); return null; }
+          return RAPPLY(orig, this, [nm]);
         };
       });
       wrap(GL.prototype, 'getSupportedExtensions', function (orig) {
         return function () {
           var list = RAPPLY(orig, this, arguments);
-          return list && list.filter(function (name) {
-            return hiddenExt[String(name).toLowerCase()] !== 1;
-          });
+          return list && RAPPLY(glFilter, list, [function (name) {
+            return hiddenExt[lower(`${name}`)] !== 1;
+          }]);
         };
       });
       wrap(GL.prototype, 'getParameter', function (orig) {
@@ -1129,17 +1388,32 @@
           if (p && voiceLangs.indexOf(p) < 0) voiceLangs.push(p);
         });
       } catch (e) { voiceLangs = ['en']; }
+      // the voices' own getters, and no method of the page's: a page that
+      // replaced one was shown every hidden voice (fingerprinting audit, H-A)
+      var SVP = w.SpeechSynthesisVoice && w.SpeechSynthesisVoice.prototype;
+      var vLang = getterOf(SVP, 'lang'), vDefault = getterOf(SVP, 'default');
+      var langOf = function (v) {
+        var s = lower(`${(vLang ? RAPPLY(vLang, v, []) : v.lang) || ''}`), i = 0;
+        while (i < s.length && s[i] !== '-' && s[i] !== '_') i++;
+        return sslice(s, 0, i);
+      };
+      var wanted = function (p) {
+        for (var k = 0; k < voiceLangs.length; k++) if (voiceLangs[k] === p) return true;
+        return false;
+      };
       wrap(w.SpeechSynthesis.prototype, 'getVoices', function (orig) {
         return function () {
           var all = RAPPLY(orig, this, arguments), out = [];
           if (!all || !all.length) return all;
           for (var i = 0; i < all.length; i++) {
             var v = all[i];
-            if (strict) { if (v['default']) { out.push(v); break; } continue; }
-            var p = String(v.lang || '').toLowerCase().split(/[-_]/)[0];
-            if (voiceLangs.indexOf(p) >= 0) out.push(v);
+            if (strict) {
+              if (vDefault ? RAPPLY(vDefault, v, []) : v['default']) { out[out.length] = v; break; }
+              continue;
+            }
+            if (wanted(langOf(v))) out[out.length] = v;
           }
-          if (strict && !out.length) out.push(all[0]);
+          if (strict && !out.length) out[0] = all[0];
           return out;
         };
       });
@@ -1202,15 +1476,18 @@
             var self = this;
             return then(RAPPLY(orig, this, arguments), function (v) {
               var major = (self.brands && self.brands[0] && self.brands[0].version) || '0';
-              var out = { brands: v.brands, mobile: false, platform: CFG.platform || 'Linux' };
-              var generic = { architecture: 'x86', bitness: '64', model: '',
-                platformVersion: CFG.platformVersion || '6.0.0',
+              var list = [], brands = v.brands || [];
+              for (var i = 0; i < brands.length; i++) {
+                list[i] = { brand: brands[i].brand, version: brands[i].version + '.0.0.0' };
+              }
+              var generic = { architecture: 'x86', bitness: '64', model: '', mobile: false,
+                platform: CFG.platform || 'Linux', platformVersion: CFG.platformVersion || '6.0.0',
                 uaFullVersion: major + '.0.0.0', wow64: false, formFactors: ['Desktop'],
-                fullVersionList: (v.brands || []).map(function (b) {
-                  return { brand: b.brand, version: b.version + '.0.0.0' };
-                }) };
-              (hints || []).forEach(function (h) { if (h in generic) out[h] = generic[h]; });
-              return out;
+                fullVersionList: list };
+              // the engine's own answer with its values replaced: its keys stay
+              // in the engine's order (fingerprinting audit, L-1)
+              for (var k in generic) if (own(generic, k) && own(v, k)) v[k] = generic[k];
+              return v;
             });
           };
         });
@@ -1218,13 +1495,15 @@
     }
 
     // ---- inline workers get the same values ----
-    var U = w.URL, blobs = new w.Map();
+    var U = w.URL, blobs = hardStrongMap();
     var rawCreate = U && U.createObjectURL, rawRevoke = U && U.revokeObjectURL;
     // taken before the page's scripts: the prelude (with this site's seed)
     // is never handed to a function the page could have replaced since
     // (1.1.18, security audit: a page that wrapped Blob read it)
     var NBlob = w.Blob, NXHR = w.XMLHttpRequest, nBtoa = w.btoa, nEnc = w.encodeURIComponent;
     var nLater = w.setTimeout, nConstruct = w.Reflect.construct;
+    var XP = NXHR && NXHR.prototype, xOpen = XP && XP.open, xSend = XP && XP.send;
+    var xStatus = getterOf(XP, 'status'), xText = getterOf(XP, 'responseText');
     // the new arguments of a worker: [address] or [address, options], built
     // as literals (no Array method the page could have replaced)
     var withUrl = function (u, args) { return args.length > 1 ? [u, args[1]] : [u]; };
@@ -1235,7 +1514,7 @@
           try {
             // every blob, whatever its type and size: a worker runs any of them
             // (1.1.18, independent review: other types and large ones got no prelude)
-            if (obj instanceof NBlob) blobs.set(url, obj);
+            if (isBlob(obj)) blobs.set(url, obj);
           } catch (e) {}
           return url;
         };
@@ -1252,35 +1531,40 @@
         var P = new w.Proxy(Orig, {
           construct: function (target, args, newTarget) {
             try {
-              var url = String(args[0]);
+              var url = `${args[0]}`;
               // the address as read here is the one used (an object whose
               // text changes between two readings cannot slip past)
               args = withUrl(url, args);
-              if (url.slice(0, 5) === 'blob:') {
+              if (sslice(url, 0, 5) === 'blob:') {
                 var blob = blobs.get(url);
                 if (!blob) {
                   // a blob address made elsewhere (in a worker, another frame):
                   // its text is read here, once
                   try {
                     var x = new NXHR();
-                    x.open('GET', url, false);
-                    x.send();
-                    if (x.status === 200 || x.status === 0) blob = new NBlob([x.responseText], { type: 'text/javascript' });
+                    RAPPLY(xOpen, x, ['GET', url, false]);
+                    RAPPLY(xSend, x, []);
+                    var st = RAPPLY(xStatus, x, []);
+                    if (st === 200 || st === 0) blob = new NBlob([RAPPLY(xText, x, [])], { type: 'text/javascript' });
                   } catch (e) {}
                 }
                 if (blob) {
-                  var patched = RAPPLY(rawCreate, U, [new NBlob([PRELUDE, blob],
-                    { type: blob.type || 'text/javascript' })]);
+                  var patched = RAPPLY(rawCreate, U, [new NBlob([preludeFor(url, false), blob],
+                    { type: RAPPLY(BLOB_TYPE, blob, []) || 'text/javascript' })]);
                   args = withUrl(patched, args);
+                  PATCHED.set(patched, url);
+                  // the prelude revokes it at once; this is the fallback
                   RAPPLY(nLater, w, [function () { RAPPLY(rawRevoke, U, [patched]); }, 30000]);
                 }
-              } else if (url.slice(0, 5) === 'data:') {
-                var comma = url.indexOf(',');
+              } else if (lower(sslice(url, 0, 5)) === 'data:') {
+                var comma = sindex(url, ',');
                 if (comma > 0) {
-                  var b64 = /;base64$/i.test(url.slice(0, comma));
-                  args = withUrl(url.slice(0, comma + 1) +
-                    (b64 ? RAPPLY(nBtoa, w, [PRELUDE]) : RAPPLY(nEnc, w, [PRELUDE])) +
-                    url.slice(comma + 1), args);
+                  var b64 = lower(sslice(url, comma - 7 < 0 ? 0 : comma - 7, comma)) === ';base64';
+                  var pre = preludeFor(url, true);
+                  var made = sslice(url, 0, comma + 1) +
+                    (b64 ? RAPPLY(nBtoa, w, [pre]) : RAPPLY(nEnc, w, [pre])) + sslice(url, comma + 1);
+                  args = withUrl(made, args);
+                  PATCHED.set(made, url);
                 }
               }
             } catch (e) {}
@@ -1293,6 +1577,18 @@
             { value: P, writable: true, configurable: true });
           Object.defineProperty(w, name, { value: P, writable: true, configurable: true });
         } catch (e) {}
+      });
+    }
+    // a worker's error names the page's own address and line (audit, H-B)
+    if (w.ErrorEvent) {
+      var errName = getterOf(w.ErrorEvent.prototype, 'filename');
+      getter(w.ErrorEvent.prototype, 'filename', function (orig) {
+        var f = RAPPLY(orig, this, []), o = typeof f === 'string' ? PATCHED.get(f) : undefined;
+        return o !== undefined ? o : f;
+      });
+      getter(w.ErrorEvent.prototype, 'lineno', function (orig) {
+        var n = RAPPLY(orig, this, []), f = errName ? RAPPLY(errName, this, []) : '';
+        return typeof f === 'string' && PATCHED.get(f) !== undefined && n > PRELUDE_LINES ? n - PRELUDE_LINES : n;
       });
     }
 
@@ -1353,7 +1649,7 @@
     }
     // innerHTML / outerHTML: only HTML that writes a frame can bring a new one
     function after(node, v) {
-      if (typeof v !== 'string' || FRAME_HTML.test(v)) check(node, true);
+      if (typeof v !== 'string' || RAPPLY(RE_TEST, FRAME_HTML, [v])) check(node, true);
     }
     // The DOM methods a page calls most (appendChild, insertBefore...) get one
     // native-looking function of their own instead of a wrapper around a
@@ -1399,6 +1695,9 @@
     // text or an element without children that is not a frame itself.
     var FRAMES = { iframe: 1, frame: 1, object: 1, embed: 1 };
     var FRAME_HTML = /<\s*(i?frame|object|embed)\b/i;
+    // its own exec and test: RegExp.prototype.test asks the object for exec,
+    // which a page could replace (fingerprinting audit, H-A)
+    try { Object.defineProperty(FRAME_HTML, 'exec', { value: RE_EXEC }); } catch (e) {}
     var reflectApply = RAPPLY;
     // The node's own properties are read through the engine's getters, taken
     // when the protection is installed: a page cannot make a frame look like
@@ -1412,7 +1711,7 @@
     var connectedOf = native(w.Node && w.Node.prototype, 'isConnected');
     var firstElementOf = native(w.Element && w.Element.prototype, 'firstElementChild');
     function mayNode(a) {
-      if (typeof a === 'string') return FRAME_HTML.test(a);      // insertAdjacentHTML, before('...')
+      if (typeof a === 'string') return RAPPLY(RE_TEST, FRAME_HTML, [a]);      // insertAdjacentHTML, before('...')
       if (!a || (typeof a !== 'object' && typeof a !== 'function')) return false;
       var t;
       try { t = nodeTypeOf(a); } catch (e) { return true; }      // not a node (TrustedHTML...): may be HTML

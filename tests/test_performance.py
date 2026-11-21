@@ -200,14 +200,15 @@ def test_looking_for_widevine_loads_no_download_code():
 
 def test_fonts_stay_hidden_with_the_shorter_list(run_ike):
     """Strict masks only the font names the engine can find on this computer
-    (fontcheck.py): a page finds none of the list, exactly as with all 714
-    masks, and fewer masks are made in every frame."""
+    (fontcheck.py): a page finds none of the list, nor any other family
+    installed here (fingerprinting audit, H-D), and fewer masks are made in
+    every frame than the 714 names."""
     out = run_ike(r'''
 def steps(ike, qapp, out):
     import json
     from PyQt6.QtCore import QUrl
     from ike import fontcheck
-    names = fontcheck.masked_names()
+    names = fontcheck.candidates()      # the list and every family installed here
     out["listed"] = len(names)
     ike.font_check._run()
     for _ in range(300):
