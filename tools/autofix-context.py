@@ -49,7 +49,7 @@ NOT_RECENT = {
     "tools/autofix-plan.py", "tools/autofix-agent.py", "tools/autofix-context.py", "tools/autofix-reserve.py",
     "tools/autofix-selftest.py", "ike/resources/videoads.js", "ike/resources/videorelay.js",
     "ike/resources/mediahook.js", "tools/test-requirements.txt", "tools/automation-health.py",
-    "tools/third-party.py", "ike/blocker.py", "ike/scriptlets.py",
+    "tools/third-party.py", "ike/blocker.py", "ike/scriptlets.py", "tools/automerge.py",
 }
 MAX_EXAMPLES = 3            # other places that use a missing name (1.1.16)
 EXAMPLE_AROUND = 4

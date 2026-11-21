@@ -1,0 +1,120 @@
+# GitHub tells the owner when main holds a version that is not published yet
+# and its tests passed (1.1.19, the owner's request): an issue with the exact
+# command that signs and publishes it on the owner's computer, assigned to the
+# owner and naming the owner, so GitHub sends its mail (subject: the title).
+# One issue per version; a reminder comment each week while it waits; closed
+# by itself once the version is published. No address or password anywhere.
+name: Release ready
+
+on:
+  workflow_run:
+    workflows: ["Tests"]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: "13 8 * * *"      # every day, 08:13 UTC: the weekly reminder, the closing
+  workflow_dispatch:
+
+permissions: {}
+
+# two runs at the same minute (a run of main and the daily one) never open two
+# notices (review 2 of 1.1.19, M6)
+concurrency:
+  group: release-ready
+  cancel-in-progress: false
+
+jobs:
+  tell:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      checks: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Tell the owner, or close the notice
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          title="C'E' UNA NUOVA RELEASE IN MAIN PRONTA DA PUBBLICARE!!!"
+          version=$(sed -n 's/^__version__ = "\([0-9.]*\)"$/\1/p' ike/__init__.py)
+          head=$(git rev-parse HEAD)
+          open=$(gh issue list --label release-ready --state open --json number,title \
+                 --jq "map(select(.title == \"$title\")) | sort_by(.number) | .[0].number // empty")
+          if gh release view "v$version" >/dev/null 2>&1; then
+            echo "v$version is published"
+            if [ -n "$open" ]; then gh issue close "$open" --comment "Pubblicata: v$version. Grazie!"; fi
+            exit 0
+          fi
+          # the tests and the tests with the sandbox on (review 2 of 1.1.19, H3)
+          for check in tests sandbox; do
+            ok=$(gh api "repos/$GH_REPO/commits/$head/check-runs?check_name=$check" \
+                 --jq '[.check_runs[] | select(.status == "completed")][0].conclusion // ""')
+            if [ "$ok" != "success" ]; then echo "\"$check\" has not passed on main's last commit: nothing to say"; exit 0; fi
+          done
+          # closed by the owner for this version: not opened again every day (M6)
+          closed=$(gh issue list --label release-ready --state closed --author app/github-actions --limit 50 \
+                   --json body --jq "map(select(.body | contains(\"<!-- release-ready: $version -->\"))) | length")
+          if [ -z "$open" ] && [ "${closed:-0}" != 0 ]; then echo "the notice of $version was closed: not again"; exit 0; fi
+          # the fixes that went into main by themselves since the last release:
+          # nobody read them; the owner asks Claude to before signing (C1)
+          last=$(gh release view --json tagName --jq .tagName 2>/dev/null || true)
+          self=""
+          if [ -n "$last" ]; then
+            self=$(gh api "repos/$GH_REPO/compare/$last...$head" \
+                   --jq '.commits[] | select(.commit.message | contains("(merged by itself")) | .commit.message | split("\n")[0]' || true)
+          fi
+          body="$RUNNER_TEMP/body.md"
+          {
+            echo "@$OWNER: **I.K.E. $version** è in \`main\`, con tutti i test verdi, e non è ancora pubblicata."
+            echo
+            echo "Per firmarla e pubblicarla, apri un terminale sul tuo PC e incolla questo comando (una riga sola):"
+            echo
+            echo '```bash'
+            echo '[ -d ~/IKE-Browser/.git ] || git clone https://github.com/NullSector-2077/IKE-Browser.git ~/IKE-Browser; cd ~/IKE-Browser && git checkout main && git pull --ff-only && python3 tools/publish.py'
+            echo '```'
+            echo
+            if [ -n "$self" ]; then
+              echo "**Prima di firmare:** queste correzioni sono entrate in \`main\` da sole, senza che nessuno le leggesse. Chiedi a Claude di revisionarle:"
+              echo
+              printf '%s\n' "$self" | sed 's/^/- /'
+              echo
+            fi
+            echo "Ti chiederà la password della tua chiave di firma. Se si ferma, dice perché e non cambia niente su GitHub."
+            echo "Per una prova a vuoto (tutto tranne la pubblicazione), cambia la fine in \`python3 tools/publish.py --dry-run\`."
+            echo
+            echo "Le novità: [CHANGELOG.md](https://github.com/$GH_REPO/blob/main/CHANGELOG.md). Quando è pubblicata, questo avviso si chiude da solo."
+            echo
+            echo "<!-- release-ready: $version -->"
+          } > "$body"
+          if [ -z "$open" ]; then
+            gh label create release-ready --color 0e8a16 --description "A version in main waits to be published" 2>/dev/null || true
+            gh issue create --title "$title" --label release-ready --assignee "$OWNER" --body-file "$body" \
+              || gh issue create --title "$title" --label release-ready --body-file "$body"
+            exit 0
+          fi
+          # the same notice: a newer version is said in it; the same one, once a week
+          # only what this workflow wrote counts: anyone's comment could fake a mark (M6)
+          said=$(gh issue view "$open" --json body,comments \
+                 --jq '[.body] + [.comments[] | select(.author.login == "github-actions") | .body] | join("\n")')
+          if ! printf '%s' "$said" | grep -q "<!-- release-ready: $version -->"; then
+            gh issue comment "$open" --body-file "$body"
+            exit 0
+          fi
+          when=$(gh issue view "$open" --json createdAt,comments \
+                 --jq '[.createdAt] + [.comments[] | select(.author.login == "github-actions") | .createdAt] | max')
+          if [ $(( $(date -u +%s) - $(date -u -d "$when" +%s) )) -gt $(( 7 * 86400 )) ]; then
+            { echo "Promemoria: la versione $version aspetta ancora di essere pubblicata."; echo; cat "$body"; } > "$body.r"
+            gh issue comment "$open" --body-file "$body.r"
+          else
+            echo "said already this week"
+          fi

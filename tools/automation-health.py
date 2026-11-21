@@ -103,7 +103,7 @@ def problems(now, daily, main_tests, has_key, autofix_runs=(), reserve_keys=None
                          % (issue.get("title", ""), WAITING, issue.get("html_url", "")))
     for pr in maintenance_prs:
         if now - _when(pr) > week:
-            found.append("The maintenance pull request \"%s\" has waited for more than %d days: %s"
+            found.append("The pull request \"%s\" (maintenance or a fix) has waited for more than %d days: %s"
                          % (pr.get("title", ""), WAITING, pr.get("html_url", "")))
     if main_protected is False:
         found.append("`main` has no branch protection: Settings, Branches (docs/MAINTENANCE.md).")
@@ -129,7 +129,9 @@ def main(argv=None):
             born[w] = _when(api("repos/%s/actions/workflows/%s" % (a.repo, w)))
         except (RuntimeError, ValueError, KeyError):
             pass
-    main_tests = runs(a.repo, "tests.yml", "branch=main&event=push")
+    # every run of main, also those the automation started after a merge made
+    # by itself (review 2 of 1.1.19, H2: a dispatch was never looked at)
+    main_tests = runs(a.repo, "tests.yml", "branch=main")
     unreadable = []
 
     def fetch(what, default, read):
@@ -146,7 +148,8 @@ def main(argv=None):
                            lambda: api("repos/%s/issues?state=open&labels=autofix&per_page=100" % a.repo))
     maintenance_prs = fetch("the maintenance pull requests", [], lambda: [
         p for p in api("repos/%s/pulls?state=open&per_page=100" % a.repo)
-        if p.get("head", {}).get("ref") == "automation/daily-maintenance"
+        if p.get("head", {}).get("ref") in ("automation/daily-maintenance", "automation/autofix-main")
+        or p.get("head", {}).get("ref", "").startswith("chatgpt/")      # a fix that waits blocks the next (H1)
         or any(lb.get("name") == "maintenance" for lb in p.get("labels", []))])
     protected = fetch("the protection of main", None,
                       lambda: bool(api("repos/%s/branches/main" % a.repo)["protected"]))
@@ -172,11 +175,17 @@ def main(argv=None):
     if found:
         gh("label", "create", "automation-health", "--repo", a.repo, "--color", "b60205",
            "--description", "The automation needs the owner", "--force")
+        owner = a.repo.split("/")[0]
+        text = "@%s: l'automazione ha bisogno di te (chiedi a Claude).\n\n%s" % (owner, text)   # a mail (M7)
         if open_issue:
             gh("issue", "comment", str(open_issue), "--repo", a.repo, "--body", text)
         else:
-            gh("issue", "create", "--repo", a.repo, "--title", TITLE, "--label", "automation-health",
-               "--body", text)
+            try:
+                gh("issue", "create", "--repo", a.repo, "--title", TITLE, "--label", "automation-health",
+                   "--assignee", owner, "--body", text)
+            except RuntimeError:
+                gh("issue", "create", "--repo", a.repo, "--title", TITLE, "--label", "automation-health",
+                   "--body", text)
     elif open_issue:
         gh("issue", "close", str(open_issue), "--repo", a.repo, "--comment", "Everything works again.")
     return 0
