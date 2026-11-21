@@ -673,6 +673,11 @@ FP_PROBE = r"""
   var a = draw(false), a2 = draw(false), g = draw(true), rec = new Uint8Array(a.length);
   for (var i = 0; i < a.length; i++) rec[i] = (i & 3) === 3 ? a[i] : a[i] ^ (g[i] ^ 128);
   R.recovered = h(rec); R.stable = h(a) === h(a2);
+  // the noisy pixels written back and read again: with a flipped bit the
+  // noise undid itself and gave the real picture
+  var c2 = document.createElement('canvas'); c2.width = 120; c2.height = 40;
+  var x2 = c2.getContext('2d'); x2.putImageData(new ImageData(new Uint8ClampedArray(a), 120, 40), 0, 0);
+  R.writeBackSame = h(x2.getImageData(0, 0, 120, 40).data) === h(a);
   // audio: a buffer the page wrote itself comes back as written
   var ctx = new OfflineAudioContext(1, 1000, 44100), own = ctx.createBuffer(1, 1000, 44100);
   var ones = new Float32Array(1000).fill(1); own.copyToChannel(ones, 0);
@@ -749,6 +754,7 @@ def test_h1_m5_noise_cannot_be_peeled_off_and_spoofed_values_look_like_chrome(ru
     a, b = _fp(run_ike, "strict"), _fp(run_ike, "strict")
     assert a["recovered"] != b["recovered"], (a, b)       # nothing the same across sessions to recover
     assert a["stable"] and a["ownUntouched"] and a["renderedConsistent"], a
+    assert a["writeBackSame"] is True, a                   # written back and read again: not the real picture
     assert a["emptyWidth"] == 0, a
     assert a["receiver"] == "TypeError", a
     assert a["gpu"] is True and a["adapter"] is None, a

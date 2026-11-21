@@ -189,10 +189,21 @@
   // contained: it also runs inside workers (passed by its source).
   function farble(data, seed, rng) {
     var n = data.length;
-    var h = 0x811c9dc5;
-    for (var k = 0; k < n; k++) {
-      h ^= (k & 3) === 3 ? data[k] : data[k] & 254;
-      h = Math.imul(h, 16777619);
+    var h = 0x811c9dc5, k;
+    if ((data.byteOffset & 3) === 0 && (n & 3) === 0) {
+      // four bytes at a time (one pixel; little-endian: alpha is the top
+      // byte), about four times faster on large pictures (1.1.20 review of
+      // performance, M1); the same bits are left out
+      var words = new Uint32Array(data.buffer, data.byteOffset, n >>> 2);
+      for (k = 0; k < words.length; k++) {
+        h ^= words[k] & 0xFFFEFEFE;
+        h = Math.imul(h, 16777619);
+      }
+    } else {
+      for (k = 0; k < n; k++) {
+        h ^= (k & 3) === 3 ? data[k] : data[k] & 254;
+        h = Math.imul(h, 16777619);
+      }
     }
     var next = rng(((seed ^ n ^ h) >>> 0) || 1);
     var step = n > 400000 ? 4 * Math.ceil(n / 400000) : 4;
@@ -200,7 +211,11 @@
       var r = next();
       if ((r & 7) === 0 && data[i + 3] !== 0) {
         var c = i + (r >>> 3) % 3;
-        data[c] = data[c] ^ 1;
+        // the lowest bit set to a value of the noise, not flipped: a flip
+        // undid itself when the page wrote the noisy pixels back and read
+        // them again, which gave the real picture (1.1.20); now a second
+        // read gives the same noisy pixels
+        data[c] = (data[c] & 254) | ((r >>> 12) & 1);
       }
     }
   }
