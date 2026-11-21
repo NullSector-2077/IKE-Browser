@@ -1125,6 +1125,92 @@ PATCHES = [
             }
             function ikeBuild(force) {
                 sheetModifier.modifySheet({"""),
+    # The dark copy of a style sheet written as one text, parsed once, when
+    # nothing in it is finished later (no asynchronous value, no variable):
+    # the same rules in the same order and groups as insertRule one at a time,
+    # which cost twice as much (2,000 rules: 19 -> 8.5 ms). A sheet of another
+    # kind, or not empty, keeps insertRule.
+    ("one-text-rule", """\
+            function setRule(target, index, rule) {
+                const {selector, declarations} = rule;""", """\
+            function setRule(target, index, rule) {
+                target.insertRule(ikeRuleText(rule), index);
+            }
+            // I.K.E.: the text of a dark rule (setRule's own, unchanged)
+            function ikeRuleText(rule) {
+                const {selector, declarations} = rule;"""),
+    ("one-text-rule-end", """\
+                ruleText += " }";
+                target.insertRule(ruleText, index);
+            }""", """\
+                ruleText += " }";
+                return ruleText;
+            }
+            // I.K.E.: a group's rules as text, as createTarget nests them
+            function ikeGroupText(group) {
+                let text = "";
+                group.rules.forEach((r) => {
+                    if (!r.isGroup) {
+                        text += ikeRuleText(r) + "\\n";
+                        return;
+                    }
+                    const {rule} = r;
+                    let head = null;
+                    if (isStyleRule(rule)) {
+                        head = rule.selectorText;
+                    } else if (isMediaRule(rule)) {
+                        head = `@media ${rule.media.mediaText}`;
+                    } else if (isLayerRule(rule)) {
+                        head = `@layer ${rule.name}`;
+                    } else if (isContainerRule(rule)) {
+                        const {containerName, containerQuery} = rule;
+                        head = `@container ${
+                            containerName
+                                ? `${containerName} ${containerQuery}`
+                                : containerQuery
+                        }`;
+                    }
+                    text +=
+                        head === null
+                            ? ikeGroupText(r)
+                            : `${head} {\\n${ikeGroupText(r)}}\\n`;
+                });
+                return text;
+            }
+            function ikeWriteAll(sheet, group) {
+                if (sheet.cssRules.length !== 0) {
+                    return false;
+                }
+                const owner = sheet.ownerNode;
+                if (owner instanceof HTMLStyleElement) {
+                    // emptied first: the same text again would not be read again
+                    owner.textContent = "";
+                    owner.textContent = ikeGroupText(group);
+                    return true;
+                }
+                if (
+                    !owner &&
+                    !sheet.ownerRule &&
+                    typeof sheet.replaceSync === "function"
+                ) {
+                    sheet.replaceSync(ikeGroupText(group));
+                    return true;
+                }
+                return false;
+            }"""),
+    ("one-text-write", """\
+                iterateReadyRules(rootReadyGroup, sheet, (rule, target) => {
+                    const index = target.cssRules.length;""", """\
+                // I.K.E.: all at once when nothing is finished later
+                if (
+                    asyncDeclarationCounter === 0 &&
+                    varDeclarationCounter === 0 &&
+                    ikeWriteAll(sheet, rootReadyGroup)
+                ) {
+                    return;
+                }
+                iterateReadyRules(rootReadyGroup, sheet, (rule, target) => {
+                    const index = target.cssRules.length;"""),
 ]
 
 

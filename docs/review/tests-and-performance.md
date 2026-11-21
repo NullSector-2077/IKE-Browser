@@ -91,10 +91,11 @@ on, and the engine's dark mode; 3 runs, this container, software drawing):
 pictures, big photos, lazy pictures, a growing feed and a slowly arriving
 page show no difference between the three. Pages with much CSS, shadow roots
 or SVG showed one long task with Dark Reader at load (about 125-140 ms each
-for 2,000 rules, 200 shadow roots, 2,000 SVG shapes). Five changes to Dark
+for 2,000 rules, 200 shadow roots, 2,000 SVG shapes). Six changes to Dark
 Reader (`tools/build-darkreader.py`, 1.1.19 entries) remove repeated work.
 The dark result is byte for byte the same with and without them: every
-sheet, adopted sheet and computed colour, hashed, on five pages. Dark
+sheet, adopted sheet and computed colour, hashed, on six pages (one with
+@media, @layer, @container, @supports and nested rules). Dark
 Reader's own CPU time on those pages, median of 9 runs (headless Chromium,
 DOM changed after load):
 
@@ -104,6 +105,7 @@ DOM changed after load):
 | 200 shadow roots, adopted style sheets | 43.7 ms | 34.5 ms | -21 % |
 | icons (SVG and inline styles) | 45.6 ms | 37.2 ms | -18 % |
 | 2,000 CSS rules | 60.1 ms | 58.2 ms | -3 % |
+| 2,000 CSS rules, the dark copy written as one text (second pass) | 77.9 ms | 52.0 ms | -33 % |
 | 2,000 SVG shapes | 62.3 ms | 61.7 ms | about the same |
 
 Most of what is left on the last two is real work (each colour converted,

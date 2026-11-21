@@ -5366,6 +5366,10 @@
             }
             renderId++;
             function setRule(target, index, rule) {
+                target.insertRule(ikeRuleText(rule), index);
+            }
+            // I.K.E.: the text of a dark rule (setRule's own, unchanged)
+            function ikeRuleText(rule) {
                 const {selector, declarations} = rule;
                 let selectorText = selector;
                 const emptyIsWhereSelector =
@@ -5394,7 +5398,59 @@
                     }
                 }
                 ruleText += " }";
-                target.insertRule(ruleText, index);
+                return ruleText;
+            }
+            // I.K.E.: a group's rules as text, as createTarget nests them
+            function ikeGroupText(group) {
+                let text = "";
+                group.rules.forEach((r) => {
+                    if (!r.isGroup) {
+                        text += ikeRuleText(r) + "\n";
+                        return;
+                    }
+                    const {rule} = r;
+                    let head = null;
+                    if (isStyleRule(rule)) {
+                        head = rule.selectorText;
+                    } else if (isMediaRule(rule)) {
+                        head = `@media ${rule.media.mediaText}`;
+                    } else if (isLayerRule(rule)) {
+                        head = `@layer ${rule.name}`;
+                    } else if (isContainerRule(rule)) {
+                        const {containerName, containerQuery} = rule;
+                        head = `@container ${
+                            containerName
+                                ? `${containerName} ${containerQuery}`
+                                : containerQuery
+                        }`;
+                    }
+                    text +=
+                        head === null
+                            ? ikeGroupText(r)
+                            : `${head} {\n${ikeGroupText(r)}}\n`;
+                });
+                return text;
+            }
+            function ikeWriteAll(sheet, group) {
+                if (sheet.cssRules.length !== 0) {
+                    return false;
+                }
+                const owner = sheet.ownerNode;
+                if (owner instanceof HTMLStyleElement) {
+                    // emptied first: the same text again would not be read again
+                    owner.textContent = "";
+                    owner.textContent = ikeGroupText(group);
+                    return true;
+                }
+                if (
+                    !owner &&
+                    !sheet.ownerRule &&
+                    typeof sheet.replaceSync === "function"
+                ) {
+                    sheet.replaceSync(ikeGroupText(group));
+                    return true;
+                }
+                return false;
             }
             const asyncDeclarations = new Map();
             const varDeclarations = new Map();
@@ -5620,6 +5676,14 @@
                             styleIterator(r, target);
                         }
                     });
+                }
+                // I.K.E.: all at once when nothing is finished later
+                if (
+                    asyncDeclarationCounter === 0 &&
+                    varDeclarationCounter === 0 &&
+                    ikeWriteAll(sheet, rootReadyGroup)
+                ) {
+                    return;
                 }
                 iterateReadyRules(rootReadyGroup, sheet, (rule, target) => {
                     const index = target.cssRules.length;
