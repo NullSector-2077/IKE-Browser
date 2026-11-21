@@ -69,6 +69,34 @@ def permission_text(ptype):
 READER_PREFIX = "\u0001ike-reader:%s:" % __import__("secrets").token_hex(8)
 
 
+# A page can ask for something exactly when the user presses Enter or Space
+# ("press Enter to start"): the question would take the key as an answer. So
+# the safe answer is the default (Enter, Esc), and "yes" can be clicked only
+# a moment after the question shows (review of 1.1.19, M2).
+SAFE_DELAY_MS = 700
+
+
+def careful(box, yes, no):
+    """Make `no` the default and the Esc answer, and `yes` usable only
+    SAFE_DELAY_MS after the box is shown."""
+    from PyQt6.QtCore import QTimer
+    box.setDefaultButton(no)
+    box.setEscapeButton(no)
+    yes.setEnabled(False)
+    QTimer.singleShot(SAFE_DELAY_MS, lambda: yes.setEnabled(True))
+
+
+def permission_box(parent, origin, ptype):
+    """The permission question: (box, allow button, block button)."""
+    box = QMessageBox(parent)
+    box.setIcon(QMessageBox.Icon.Question)
+    box.setWindowTitle(T("Permission request"))
+    box.setText(T("%s wants to %s.") % (origin, permission_text(ptype)))
+    allow = box.addButton(T("Allow"), QMessageBox.ButtonRole.AcceptRole)
+    block = box.addButton(T("Block"), QMessageBox.ButtonRole.RejectRole)
+    careful(box, allow, block)
+    return box, allow, block
+
 class WebPage(QWebEnginePage):
     def __init__(self, profile, window, parent=None):
         super().__init__(profile, parent)
@@ -158,7 +186,7 @@ class WebPage(QWebEnginePage):
         box.setTextFormat(Qt.TextFormat.PlainText)
         opened = box.addButton(T("Open"), QMessageBox.ButtonRole.AcceptRole)
         cancel = box.addButton(T("Cancel"), QMessageBox.ButtonRole.RejectRole)
-        box.setDefaultButton(cancel)
+        careful(box, opened, cancel)
         box.exec()
         return box.clickedButton() is opened
 
@@ -546,12 +574,7 @@ class WebPage(QWebEnginePage):
 
     def ask_permission(self, origin, ptype):
         """Ask the user; True to allow."""
-        box = QMessageBox(self.window_ref)
-        box.setIcon(QMessageBox.Icon.Question)
-        box.setWindowTitle(T("Permission request"))
-        box.setText(T("%s wants to %s.") % (origin, permission_text(ptype)))
-        allow = box.addButton(T("Allow"), QMessageBox.ButtonRole.AcceptRole)
-        box.addButton(T("Block"), QMessageBox.ButtonRole.RejectRole)
+        box, allow, _block = permission_box(self.window_ref, origin, ptype)
         box.exec()
         return box.clickedButton() is allow
 

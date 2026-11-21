@@ -799,7 +799,9 @@ class IkeApp(QObject):
         box.setWindowTitle(T("Downloads"))
         box.setText(T("%s wants to download several files.") % site)
         allow = box.addButton(T("Allow"), QMessageBox.ButtonRole.AcceptRole)
-        box.addButton(T("Block"), QMessageBox.ButtonRole.RejectRole)
+        block = box.addButton(T("Block"), QMessageBox.ButtonRole.RejectRole)
+        from .webview import careful
+        careful(box, allow, block)
         box.finished.connect(lambda _r: done(box.clickedButton() is allow))
         box.finished.connect(box.deleteLater)
         box.open()
