@@ -9,6 +9,7 @@ from PyQt6.QtGui import QIcon, QPixmap
 from PyQt6.QtNetwork import QNetworkReply, QNetworkRequest
 
 from .config import DATA_DIR
+from .storage import Deferred
 
 
 def host_of(url):
@@ -30,7 +31,7 @@ def icon_format(data):
         return "ICO"
     return None
 
-class Favicons(QObject):
+class Favicons(QObject, Deferred):
     changed = pyqtSignal()          # a new icon is available
 
     def __init__(self, app):
@@ -42,6 +43,7 @@ class Favicons(QObject):
         self.db.commit()
         self._cache = {}
         self._tried = set()
+        self._stored = {}               # host -> the PNG written last (review of 1.1.20, L6)
 
     def icon(self, url):
         """QIcon for the site of url, or a null icon when none is known."""
@@ -68,10 +70,14 @@ class Favicons(QObject):
         buf.open(QIODevice.OpenModeFlag.WriteOnly)
         pm.save(buf, "PNG")
         buf.close()
+        png = bytes(data)
+        if self._stored.get(host) == png:
+            return                        # the same picture again (a site redrawing its icon)
+        self._stored[host] = png
         self.db.execute("INSERT INTO icons(host,png,ts) VALUES(?,?,?) ON CONFLICT(host) "
                         "DO UPDATE SET png=excluded.png, ts=excluded.ts",
-                        (host, bytes(data), int(time.time())))
-        self.db.commit()
+                        (host, png, int(time.time())))
+        self.commit_soon()
         known = host in self._cache and not self._cache[host].isNull()
         self._cache[host] = QIcon(pm)
         if not known:

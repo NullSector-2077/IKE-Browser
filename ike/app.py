@@ -49,6 +49,7 @@ class IkeApp(QObject):
         self.config = config
         self.storage = Storage()
         self.blocker = Blocker(config, self)
+        self.blocker.prepare()               # built meanwhile; start() waits for it before any page
         self.shields = Shields(config, self.blocker, self)
         from .fontcheck import Checker as FontCheck
         self.font_check = FontCheck(self.shields, self)   # fonts a page could find (Strict / Maximum)
@@ -509,6 +510,9 @@ class IkeApp(QObject):
     def _shutdown(self):
         from . import updater
         self.desktop.shutdown()
+        for db in (getattr(self, "storage", None), getattr(self, "favicons", None)):
+            if db is not None:
+                db.flush()                 # the visits and icons of the last seconds
         updater.confirm_healthy()          # a clean exit also proves the version works
         if getattr(self, "_restored", False):
             self.config.save = lambda: None

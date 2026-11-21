@@ -154,11 +154,49 @@ PSL_PATHS = ["/usr/share/publicsuffix/public_suffix_list.dat"]
 _PSL = []
 
 
+def _psl_cached(path):
+    """The list as parsed at an earlier start, while the file is the same
+    (size and time): about 1 ms instead of about 16 (performance review of
+    1.1.20, L4). (cache file, its sets or None)."""
+    import marshal
+    import os
+
+    from .config import CACHE_DIR
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None, None
+    cache = CACHE_DIR / ("psl-%d-%d.bin" % (st.st_size, st.st_mtime_ns))
+    try:
+        rules, wild, exc = marshal.loads(cache.read_bytes())
+        if len(rules) > 1000:
+            return cache, (frozenset(rules), frozenset(wild), frozenset(exc))
+    except (OSError, ValueError, EOFError, TypeError):
+        pass
+    return cache, None
+
+
+def _psl_keep(cache, found):
+    import marshal
+    try:
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        for old in cache.parent.glob("psl-*.bin"):
+            old.unlink(missing_ok=True)
+        tmp = cache.with_suffix(".tmp")
+        tmp.write_bytes(marshal.dumps(tuple(tuple(sorted(s)) for s in found)))
+        tmp.replace(cache)
+    except OSError:
+        pass
+
+
 def _psl():
     """(rules, wildcards, exceptions) of the Public Suffix List, or None."""
     if not _PSL:
         found = None
         for path in PSL_PATHS:
+            cache, found = _psl_cached(path)
+            if found is not None:
+                break
             try:
                 with open(path, encoding="utf-8") as f:
                     rules, wild, exc = set(), set(), set()
@@ -178,6 +216,8 @@ def _psl():
                             rules.add(r)
                 if len(rules) > 1000:
                     found = (frozenset(rules), frozenset(wild), frozenset(exc))
+                    if cache is not None:
+                        _psl_keep(cache, found)
                     break
             except (OSError, UnicodeError):
                 continue

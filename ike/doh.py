@@ -20,7 +20,6 @@ import socket
 import struct
 import threading
 import time
-import urllib.request
 
 TEMPLATE = [None]           # the provider's address, while encrypted DNS is on
 _CACHE = {}                 # name -> (until, [addresses])
@@ -34,6 +33,10 @@ def configure(template):
     TEMPLATE[0] = test or template or None
     with _LOCK:
         _CACHE.clear()
+    with _CONN_LOCK:
+        for conn in _CONN.values():
+            conn.close()
+        _CONN.clear()
 
 
 def active():
@@ -84,15 +87,49 @@ def parse(data, qtype):
     return out
 
 
+_CONN = {}                  # (scheme, host, port) -> the open connection to the provider
+_CONN_LOCK = threading.Lock()
+_INFLIGHT = {}              # name -> threading.Event of the lookup under way
+
+
 def _ask(name, qtype):
+    import urllib.parse
+    import urllib.request
+
     from .osinfo import browser_user_agent
     template = TEMPLATE[0]
     query = base64.urlsafe_b64encode(_question(name, qtype)).rstrip(b"=").decode("ascii")
     url = template + ("&" if "?" in template else "?") + "dns=" + query
-    req = urllib.request.Request(url, headers={"Accept": "application/dns-message",
-                                               "User-Agent": browser_user_agent()})
-    with urllib.request.urlopen(req, timeout=10) as r:          # the provider's name: the system's
-        return parse(r.read(65536), qtype)
+    headers = {"Accept": "application/dns-message", "User-Agent": browser_user_agent()}
+    parts = urllib.parse.urlsplit(url)
+    proxies = urllib.request.getproxies()
+    if proxies.get(parts.scheme) and not urllib.request.proxy_bypass(parts.hostname or ""):
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=10) as r:      # through the proxy
+            return parse(r.read(65536), qtype)
+    # one connection to the provider, kept open: a TLS handshake per question
+    # before (performance review of 1.1.20, L8); its name is the system's to resolve
+    import http.client
+    key = (parts.scheme, parts.hostname, parts.port)
+    path = parts.path + ("?" + parts.query if parts.query else "")
+    with _CONN_LOCK:
+        for attempt in (0, 1):
+            conn = _CONN.get(key)
+            if conn is None:
+                cls = http.client.HTTPSConnection if parts.scheme == "https" else http.client.HTTPConnection
+                conn = _CONN[key] = cls(parts.hostname, parts.port, timeout=10)
+            try:
+                conn.request("GET", path, headers=headers)
+                r = conn.getresponse()
+                data = r.read(65536)
+                if r.status != 200:
+                    raise OSError("HTTP %d" % r.status)
+                return parse(data, qtype)
+            except (OSError, http.client.HTTPException):
+                conn.close()
+                _CONN.pop(key, None)
+                if attempt:
+                    raise
 
 
 def addresses(name):
@@ -101,8 +138,28 @@ def addresses(name):
     now = time.monotonic()
     with _LOCK:
         hit = _CACHE.get(name)
-    if hit and hit[0] > now:
-        return list(hit[1])
+        if hit and hit[0] > now:
+            return list(hit[1])
+        wait = _INFLIGHT.get(name)
+        if wait is None:
+            _INFLIGHT[name] = threading.Event()
+    if wait is not None:
+        # the same name is being asked already (30 icons of one site): one
+        # question, the others take its answer
+        wait.wait(25)
+        with _LOCK:
+            hit = _CACHE.get(name)
+        if hit:
+            return list(hit[1])
+        raise OSError("%s: no address (encrypted DNS)" % name)
+    try:
+        return _addresses(name, now)
+    finally:
+        with _LOCK:
+            _INFLIGHT.pop(name).set()
+
+
+def _addresses(name, now):
     found = []
     for qtype in (_A, _AAAA):
         try:
@@ -137,6 +194,8 @@ def lookup(name):
 def urlopen(req, timeout):
     """urllib.request.urlopen, connecting to the provider's address for the
     name while encrypted DNS is on (unless a proxy resolves names itself)."""
+    import urllib.parse
+    import urllib.request
     if not active():
         return urllib.request.urlopen(req, timeout=timeout)
     url = req.full_url if isinstance(req, urllib.request.Request) else req

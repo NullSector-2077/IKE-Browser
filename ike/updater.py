@@ -17,7 +17,6 @@ import subprocess
 import sys
 import tarfile
 import time
-import urllib.request
 from pathlib import Path
 
 from PyQt6.QtCore import QObject, QThread, pyqtSignal
@@ -174,6 +173,7 @@ def verify_signature(pubkey_b64, data, sig_b64):
 
 
 def _fetch(url, limit):
+    import urllib.request
     req = urllib.request.Request(url, headers={"User-Agent": browser_user_agent()})
     with doh.urlopen(req, timeout=40) as r:
         data = r.read(limit + 1)

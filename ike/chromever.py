@@ -14,7 +14,6 @@ cannot be reached), only to show in Help -> About how far behind the engine is.
 
 import json
 import time
-import urllib.request
 from datetime import date
 
 from PyQt6.QtCore import QThread, pyqtSignal
@@ -140,6 +139,7 @@ class Checker(QThread):
     def run(self):
         major = None
         try:
+            import urllib.request
             req = urllib.request.Request(URL, headers={"User-Agent": osinfo.browser_user_agent()})
             with doh.urlopen(req, timeout=20) as r:
                 if r.geturl().split("/")[2] == URL.split("/")[2]:        # no redirect elsewhere

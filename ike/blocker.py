@@ -9,7 +9,6 @@ import hashlib
 import os
 import re
 import time
-import urllib.request
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -180,6 +179,7 @@ class _Downloader(QThread):
         parts = [data]
         for name in names[:24]:
             try:
+                import urllib.request  # only when lists are fetched (start-up: review L3)
                 req = urllib.request.Request(base + name,
                                              headers={"User-Agent": osinfo.browser_user_agent()})
                 with doh.urlopen(req, timeout=40) as r:
@@ -204,6 +204,7 @@ class _Downloader(QThread):
                 parts = urlsplit(url)
                 if parts.scheme != "https" or not parts.hostname:
                     raise ValueError("filter lists must use HTTPS")
+                import urllib.request
                 req = urllib.request.Request(url, headers={"User-Agent": osinfo.browser_user_agent()})
                 with doh.urlopen(req, timeout=40) as r:
                     final = urlsplit(r.geturl())
@@ -428,6 +429,22 @@ class Blocker(QObject):
         """A new engine is being built in the background (the one in use keeps working)."""
         return self._builder is not None
 
+    def prepare(self):
+        """Start building the session's first engine in the build thread while
+        the rest of I.K.E. is set up (performance review of 1.1.20, L2: 37 ms
+        warm, about 245 ms cold, all before the window). load() at start
+        waits for it, as before any page can make a request."""
+        if self.engine is not None or self.fallback is not None or self._builder is not None:
+            return
+        try:
+            signature, snap = self._signature(), self._snapshot()
+            if self._pool is None:
+                from concurrent.futures import ThreadPoolExecutor
+                self._pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ike-adblock")
+            self._first = (self._pool.submit(self._build, snap, signature), signature)
+        except Exception as exc:              # load() builds it as before
+            self._engine_error("preparing the engine", "", exc)
+
     def load(self):
         """Build the engine from cached lists (uses a serialized cache).
 
@@ -438,6 +455,17 @@ class Blocker(QObject):
         list update (186 ms from the lists, in the interface's thread until
         1.1.17), is built in a thread while the engine in use keeps blocking,
         then takes its place in one step."""
+        first = getattr(self, "_first", None)
+        if first is not None:
+            # the first engine, started by prepare(): taken here, before anything loads
+            self._first = None
+            try:
+                result = first[0].result()
+            except Exception as exc:
+                self._engine_error("building the engine", "", exc)
+                result = None
+            if result is not None:
+                self._install(result, first[1])
         signature = self._signature()
         if getattr(self, "_loaded", None) == signature and (self.engine is not None or self.fallback is not None):
             return

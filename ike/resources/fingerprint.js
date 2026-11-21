@@ -804,7 +804,9 @@
         wrap(C.prototype, 'measureText', function (orig) {
           return function (text) {
             var m = RAPPLY(orig, this, arguments);
-            try { measured.set(m, String(text) + '|' + this.font); } catch (e) {}
+            // the parts only; the key is made when the width is read (L5 of the
+            // performance review: joining here cost each call)
+            try { measured.set(m, [text, this.font]); } catch (e) {}
             return m;
           };
         });
@@ -813,7 +815,7 @@
         var real = RAPPLY(orig, this, []);
         var key = measured.get(this);
         if (!real || key === undefined) return real;
-        return real * (1 + (((hash(seed + '|' + key) >>> 8) % 61) - 30) / 10000000);
+        return real * (1 + (((hash(seed + '|' + String(key[0]) + '|' + key[1]) >>> 8) % 61) - 30) / 10000000);
       });
     }
 

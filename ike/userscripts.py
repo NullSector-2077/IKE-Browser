@@ -34,8 +34,6 @@ import re
 import secrets
 import socket
 import time
-import urllib.error
-import urllib.request
 from urllib.parse import urljoin, urlsplit
 
 from PyQt6.QtCore import QObject, QThread, QTimer, QUrl, pyqtSignal
@@ -303,18 +301,29 @@ def at_home(host, unknown=True):
     return any(is_local_address(a) for a in found)
 
 
-class _Redirects(urllib.request.HTTPRedirectHandler):
-    """Every redirect of a script's download is checked like the first address."""
+def _Redirects(home_ok):
+    """Every redirect of a script's download is checked like the first address.
+    (The class is made when first needed: urllib.request is not imported at
+    start-up, performance review of 1.1.20, L3.)"""
+    return _redirects_class()(home_ok)
 
-    def __init__(self, home_ok):
-        super().__init__()
-        self.home_ok = home_ok
 
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        parts = urlsplit(newurl)
-        if parts.scheme not in ("http", "https") or (not self.home_ok and at_home(parts.hostname)):
-            raise urllib.error.URLError(T("a redirect to a refused address"))
-        return super().redirect_request(req, fp, code, msg, headers, newurl)
+@functools.lru_cache(maxsize=1)
+def _redirects_class():
+    import urllib.error
+    import urllib.request
+
+    class Redirects(urllib.request.HTTPRedirectHandler):
+        def __init__(self, home_ok):
+            super().__init__()
+            self.home_ok = home_ok
+
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            parts = urlsplit(newurl)
+            if parts.scheme not in ("http", "https") or (not self.home_ok and at_home(parts.hostname)):
+                raise urllib.error.URLError(T("a redirect to a refused address"))
+            return super().redirect_request(req, fp, code, msg, headers, newurl)
+    return Redirects
 
 
 def _pin(host, home_ok):
@@ -322,6 +331,8 @@ def _pin(host, home_ok):
     connection goes to that address, so a name server cannot answer the check
     with a public address and the connection with a local one (DNS rebinding)."""
     import http.client
+    import urllib.error
+    import urllib.request
     h = (host or "").lower().rstrip(".").strip("[]")
     try:
         addresses = [str(ipaddress.ip_address(h))]
@@ -342,6 +353,8 @@ def _pin(host, home_ok):
 
 def _pinned_handlers(home_ok):
     import http.client
+    import urllib.error
+    import urllib.request
 
     class Plain(http.client.HTTPConnection):
         def connect(self):
@@ -369,6 +382,8 @@ def _get(url, limit, home_ok=True):
     computer or the home network, also through a redirect (1.1.17): the
     libraries and resources a script names must not let it read a router or
     a local service, which its @connect rule would refuse."""
+    import urllib.error
+    import urllib.request
     parts = urlsplit(url)
     if parts.scheme not in ("http", "https") or not parts.hostname:
         raise ValueError(T("only http and https addresses can be used"))

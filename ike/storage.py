@@ -5,8 +5,40 @@ import time
 
 from .config import DATA_DIR
 
+COMMIT_DELAY_MS = 2000
 
-class Storage:
+
+class Deferred:
+    """Writes that happen at every page load (a visit, an icon) are committed
+    together a moment later, not each on its own: a commit waits for the disk,
+    in the interface thread, at the end of every page load (performance
+    review of 1.1.20, M2: tens of ms on a hard disk). The same connection
+    reads its own writes at once; at most the last two seconds can be lost
+    if the computer stops, never the file."""
+    _pending = False
+
+    def commit_soon(self):
+        if self._pending:
+            return
+        try:
+            from PyQt6.QtCore import QCoreApplication, QTimer
+            if QCoreApplication.instance() is None:
+                raise RuntimeError("no event loop")
+        except Exception:
+            self.flush()
+            return
+        self._pending = True
+        QTimer.singleShot(COMMIT_DELAY_MS, self.flush)
+
+    def flush(self):
+        self._pending = False
+        try:
+            self.db.commit()
+        except sqlite3.Error:
+            pass
+
+
+class Storage(Deferred):
     def __init__(self, path=None):
         self.db = sqlite3.connect(str(path or DATA_DIR / "ike.sqlite"))
         self.db.executescript(
@@ -16,6 +48,9 @@ class Storage:
             CREATE TABLE IF NOT EXISTS bookmarks(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 url TEXT UNIQUE, title TEXT, folder TEXT DEFAULT '', added INTEGER);
+            -- the history menu, the new tab page (performance review of 1.1.20, L1)
+            CREATE INDEX IF NOT EXISTS history_last ON history(last);
+            CREATE INDEX IF NOT EXISTS history_visits ON history(visits DESC, last DESC);
             """
         )
         self.db.commit()
@@ -30,7 +65,7 @@ class Storage:
             "last=excluded.last, visits=visits+1",
             (url, title or url, int(time.time())),
         )
-        self.db.commit()
+        self.commit_soon()
 
     def most_visited(self, limit=200):
         """[(url, title)] of the pages opened most often, the most visited first."""

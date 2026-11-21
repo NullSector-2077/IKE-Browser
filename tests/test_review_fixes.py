@@ -635,6 +635,8 @@ def test_l10_the_site_of_a_name_follows_the_public_suffix_list(tmp_path, monkeyp
     from ike import shields
     psl = tmp_path / "psl.dat"
     psl.write_text(PSL_SAMPLE)
+    from ike import config
+    monkeypatch.setattr(config, "CACHE_DIR", tmp_path / "cache")
     monkeypatch.setattr(shields, "PSL_PATHS", [str(psl)])
     monkeypatch.setattr(shields, "_PSL", [])
     shields.site_of.cache_clear()
@@ -648,6 +650,17 @@ def test_l10_the_site_of_a_name_follows_the_public_suffix_list(tmp_path, monkeyp
         assert s("a.b.ck") == "a.b.ck" and s("www.ck") == "www.ck"
         assert s("www.example.zz") == "example.zz" and s("example.com") == "example.com"
         assert s("127.0.0.1") == "127.0.0.1" and s("localhost") == "localhost"
+        # the next start reads the parsed copy while the file is the same
+        # (performance review of 1.1.20, L4): proven by a file of the same
+        # size and time whose text would say otherwise
+        import os
+        assert len(list((tmp_path / "cache").glob("psl-*.bin"))) == 1
+        st = os.stat(psl)
+        psl.write_text(PSL_SAMPLE.replace("wordpress.com", "wordpress.xyz"))
+        os.utime(psl, ns=(st.st_atime_ns, st.st_mtime_ns))
+        monkeypatch.setattr(shields, "_PSL", [])
+        shields.site_of.cache_clear()
+        assert s("a.wordpress.com") == "a.wordpress.com"
         # without the list: the approximation
         monkeypatch.setattr(shields, "PSL_PATHS", [str(tmp_path / "missing")])
         monkeypatch.setattr(shields, "_PSL", [])
@@ -838,3 +851,132 @@ def test_l5_the_embedded_video_click_lands_only_on_the_video(run_ike):
     assert out["covered_clicked"] == 0, out                  # something of the page's own is on the point
     assert out["on_frame"] is True and out["on_frame_clicked"] == 1, out
     assert out["again"] is False, out
+
+
+STEPS_PERF_M2 = r'''
+def steps(ike, qapp, out):
+    import sqlite3
+    from ike.config import DATA_DIR
+    yield 300
+    path = str(DATA_DIR / "ike.sqlite")
+    other = lambda: sqlite3.connect(path).execute(
+        "SELECT COUNT(*) FROM history WHERE url LIKE 'https://perf.example/%'").fetchone()[0]
+    for i in range(20):
+        ike.storage.add_visit("https://perf.example/%d" % i, "p")
+    out["same_connection"] = len(ike.storage.history("perf.example"))
+    out["at_once"] = other()                  # not committed one by one
+    yield 2600
+    out["later"] = other()
+    out["indexes"] = sorted(r[0] for r in ike.storage.db.execute(
+        "SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'history_%'"))
+    # an icon drawn again with the same picture is not written again
+    from PyQt6.QtGui import QIcon, QPixmap, QColor
+    pm = QPixmap(16, 16)
+    pm.fill(QColor("red"))
+    writes = []
+    real = ike.favicons.db
+    class Counting:
+        def execute(self, *a):
+            if str(a[0]).startswith("INSERT"):
+                writes.append(1)
+            return real.execute(*a)
+        def commit(self):
+            return real.commit()
+    ike.favicons.db = Counting()
+    for _ in range(5):
+        ike.favicons.store("https://icon.example/", QIcon(pm))
+    ike.favicons.db = real
+    out["icon_writes"] = len(writes)
+    ike.storage.add_visit("https://perf.example/last", "p")     # committed when I.K.E. closes
+'''
+
+
+def test_perf_m2_visits_and_icons_are_committed_together(run_ike, tmp_path):
+    """Performance review of 1.1.20, M2, L6, L1: a commit at every page load
+    and every icon change waited for the disk in the interface thread; the
+    same icon was written again at every redraw; the history had no index."""
+    import sqlite3
+    out = run_ike(STEPS_PERF_M2, timeout=60)
+    assert out["same_connection"] == 20 and out["at_once"] == 0 and out["later"] == 20, out
+    assert out["indexes"] == ["history_last", "history_visits"], out
+    assert out["icon_writes"] == 1, out
+    db = next(tmp_path.rglob("ike.sqlite"))
+    n = sqlite3.connect(str(db)).execute(
+        "SELECT COUNT(*) FROM history WHERE url = 'https://perf.example/last'").fetchone()[0]
+    assert n == 1                           # the last visit, committed when I.K.E. closed
+
+
+def test_perf_l3_no_download_code_at_start_up():
+    """Performance review of 1.1.20, L3: urllib.request (and http.client,
+    email) cost about 10 ms at every start, only to be used when something
+    is downloaded."""
+    import subprocess
+    import sys
+
+    from conftest import APP
+    code = ("import sys; sys.path.insert(0, %r); import ike.app, ike.blocker, ike.updater, ike.userscripts, "
+            "ike.doh, ike.chromever, ike.drm, ike.favicons, ike.shields, ike.passwords, ike.window; "
+            "print('urllib.request' in sys.modules, 'http.client' in sys.modules)" % str(APP))
+    res = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
+                         env={"QT_QPA_PLATFORM": "offscreen", "HOME": "/tmp"})
+    assert res.stdout.split() == ["False", "False"], res.stdout + res.stderr
+
+
+def test_perf_l8_encrypted_dns_asks_once_on_one_connection(monkeypatch):
+    """Performance review of 1.1.20, L8: every question opened a new
+    connection (a TLS handshake each with a real provider), and the same name
+    asked by many requests at once was asked as many times."""
+    import base64
+    import http.server
+    import struct
+    import threading
+    from urllib.parse import parse_qs, urlsplit
+    _updater_imports()
+    from ike import doh
+    conns, questions = set(), []
+
+    class Doh(http.server.BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def do_GET(self):
+            conns.add(self.client_address)
+            q = base64.urlsafe_b64decode(parse_qs(urlsplit(self.path).query)["dns"][0] + "==")
+            i = 12
+            while q[i]:
+                i += 1 + q[i]
+            qtype = struct.unpack(">H", q[i + 1:i + 3])[0]
+            questions.append(qtype)
+            threading.Event().wait(0.05)
+            answer = b"\xc0\x0c" + struct.pack(">HHIH", 1, 1, 60, 4) + bytes([127, 0, 0, 9]) if qtype == 1 else b""
+            body = q[:2] + struct.pack(">HHHHH", 0x8180, 1, 1 if answer else 0, 0, 0) + q[12:i + 5] + answer
+            self.send_response(200)
+            self.send_header("Content-Type", "application/dns-message")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Doh)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    for k in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY", "all_proxy", "ALL_PROXY"):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("IKE_TEST_DOH", "http://127.0.0.1:%d/dns-query" % srv.server_address[1])
+    try:
+        doh.configure(None)
+        got = []
+        threads = [threading.Thread(target=lambda: got.append(doh.addresses("same.example")))
+                   for _ in range(10)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(10)
+        assert got == [["127.0.0.9"]] * 10, got
+        assert len(questions) == 2, questions               # A and AAAA, once
+        for n in range(5):
+            doh.addresses("name%d.example" % n)
+        assert len(conns) == 1, conns                        # one connection for all
+    finally:
+        monkeypatch.delenv("IKE_TEST_DOH")
+        doh.configure(None)
+        srv.shutdown()
