@@ -308,6 +308,21 @@
     return out;
   }
   var SITE_KEY = sha256(CFG.key + '|' + siteOf(host));
+  // window.name across sites (1.1.21, fingerprinting audit L-3): a page could
+  // write an identifier there and read it back on another site the tab moved
+  // to (Firefox and Tor Browser empty it). Emptied in a top-level document
+  // that another site (or nothing: a typed address, a bookmark) led to, on a
+  // new navigation (not a reload or a step back or forward), in a tab not
+  // opened by a script (a pop-up keeps the name its opener targets it by).
+  try {
+    if (window.top === window && !window.opener && window.name !== '') {
+      var navs = performance.getEntriesByType('navigation');
+      var how = navs && navs.length ? navs[0].type : 'navigate';
+      var from = '';
+      try { from = document.referrer ? new URL(document.referrer).hostname : ''; } catch (e) {}
+      if (how === 'navigate' && (!from || siteOf(from) !== siteOf(location.hostname))) window.name = '';
+    }
+  } catch (e) {}
   CFG.key = null;                                       // not kept once used
   SECRET = 'ike:' + sha256('realm|' + SITE_KEY).slice(0, 32);
   var seed = parseInt(SITE_KEY.slice(0, 8), 16) || 1;

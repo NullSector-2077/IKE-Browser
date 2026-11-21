@@ -740,6 +740,66 @@ def hashlib_empty():
     return hashlib.sha1(b"").hexdigest()[:12]
 
 
+STEPS_L3 = r"""
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QUrl
+    v = ike.windows[0].current_view()
+    def name(key):
+        got = {}
+        v.page().runJavaScript("window.name", 0, lambda r: got.__setitem__("r", r))
+        return got
+    # one site to another: emptied
+    v.setUrl(QUrl(BASE_A + "/a"))
+    yield 2000
+    v.page().runJavaScript("window.name = 'tracker-id-123'", 0)
+    yield 300
+    v.page().runJavaScript("location.href = %r" % (BASE_B + "/b"), 0)
+    yield 2500
+    g = name("cross"); yield 500; out["cross"] = g.get("r")
+    # within one site: kept; and a reload keeps it
+    v.page().runJavaScript("window.name = 'same-site'", 0)
+    yield 300
+    v.page().runJavaScript("location.href = %r" % (BASE_B + "/c"), 0)
+    yield 2500
+    g = name("same"); yield 500; out["same"] = g.get("r")
+    v.reload()
+    yield 2500
+    g = name("reload"); yield 500; out["reload"] = g.get("r")
+"""
+
+
+def test_l3_window_name_does_not_cross_sites(run_ike):
+    """Fingerprinting audit L-3: window.name written on one site was still
+    there after the tab went to another site (an identifier carried across
+    sites). Now emptied on a new navigation from another site; kept within a
+    site and on a reload."""
+    import http.server
+    import threading
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            body = b"<!doctype html><title>t</title><p>page</p>"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        port = srv.server_address[1]
+        steps = ("BASE_A = 'http://127.0.0.1:%d'\nBASE_B = 'http://localhost:%d'\n" % (port, port)) + STEPS_L3
+        out = run_ike(steps, settings={"shield_level": "balanced"}, timeout=90)
+    finally:
+        srv.shutdown()
+    assert out["cross"] == "", out
+    assert out["same"] == "same-site" and out["reload"] == "same-site", out
+
+
 def test_l2_page_and_python_agree_on_the_codes():
     """The page's lookup (fingerprint.js inPsl) and shields.psl_code use the
     same hash and digits: checked against the script's own text."""
