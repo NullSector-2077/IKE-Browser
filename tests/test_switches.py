@@ -316,7 +316,12 @@ def steps(ike, qapp, out):
         yield 100
         win.fit_shield_menu()
         yield 150
-        save(win.shield_menu, code + "-shield")
+        save(win.shield_menu, code + "-shield")          # no page open: its options are off
+        panel = win.shield_panel
+        for w in (panel.adv, panel.fp, panel.https, panel.noscript, panel.dark, panel.ads, panel.cookies):
+            w.setEnabled(True)                            # the look of the options on a site
+        panel.https.setChecked(False)
+        save(win.shield_menu, code + "-shield-site")
         win.shield_panel.adv_btn.setChecked(False)
         win.shield_menu.hide()
         view = [a.menu() for a in win.menuBar().actions() if a.menu() is not None][2]
@@ -346,4 +351,4 @@ def test_switch_screenshots(run_ike, tmp_path, scheme):
     script = (SHOTS.replace("FOLDER", repr(str(folder))).replace("SCHEME", repr(scheme.replace("theme:", "")))
               .replace("LANGS", repr(langs)))
     out = run_ike(script, settings={"ui_scheme": scheme}, env=screen(tmp_path, 1920, 1200), timeout=300)
-    assert len(out["saved"]) == 7 * len(langs)
+    assert len(out["saved"]) == 8 * len(langs)
