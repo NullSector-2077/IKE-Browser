@@ -84,6 +84,38 @@ between the two sessions; only figures of the same session are compared.)
 These numbers describe a small container without a GPU. They say that the
 versions do not differ, not how fast I.K.E. is on the owner's computer.
 
+## 1.1.19, page dark mode with Dark Reader
+
+Measured with `tests/measure_smooth.py` (six local pages, Dark Reader off,
+on, and the engine's dark mode; 3 runs, this container, software drawing):
+pictures, big photos, lazy pictures, a growing feed and a slowly arriving
+page show no difference between the three. Pages with much CSS, shadow roots
+or SVG showed one long task with Dark Reader at load (about 125-140 ms each
+for 2,000 rules, 200 shadow roots, 2,000 SVG shapes). Five changes to Dark
+Reader (`tools/build-darkreader.py`, 1.1.19 entries) remove repeated work.
+The dark result is byte for byte the same with and without them: every
+sheet, adopted sheet and computed colour, hashed, on five pages. Dark
+Reader's own CPU time on those pages, median of 9 runs (headless Chromium,
+DOM changed after load):
+
+| Page | before | after | change |
+|---|---|---|---|
+| 200 shadow roots, one identical style each | 277.8 ms | 99.5 ms | -64 % |
+| 200 shadow roots, adopted style sheets | 43.7 ms | 34.5 ms | -21 % |
+| icons (SVG and inline styles) | 45.6 ms | 37.2 ms | -18 % |
+| 2,000 CSS rules | 60.1 ms | 58.2 ms | -3 % |
+| 2,000 SVG shapes | 62.3 ms | 61.7 ms | about the same |
+
+Most of what is left on the last two is real work (each colour converted,
+each shape's colour written as an inline style, the page's own first layout
+done in Dark Reader's task). No white frame was seen on the way: from a dark
+page to any page (plain, slow style sheet, slow body, 4,000 rules, another
+site in another process), frames grabbed every 15 ms for 3 s; the one white
+case, an empty page in dark mode, is dark since 1.1.19
+(`test_dark_blank.py`). Scrolling smoothness cannot be measured here
+(software drawing caps every mode at about 37 frames a second): it is
+measured on the owner's computer.
+
 ## 1.1.18, before and after
 
 Same container as below (4 cores, no GPU; Qt 6.12.0 / PyQt6 6.12 from PyPI,
