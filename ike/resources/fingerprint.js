@@ -223,9 +223,37 @@
   var SLD = { co: 1, com: 1, org: 1, net: 1, gov: 1, edu: 1, ac: 1, or: 1, ne: 1, go: 1, gob: 1,
     nom: 1, mil: 1, ltd: 1, plc: 1, sch: 1, nhs: 1, me: 1, info: 1, id: 1, gv: 1 };
   var HOSTED = /\.(github\.io|gitlab\.io|blogspot\.com|herokuapp\.com|pages\.dev|workers\.dev|netlify\.app|vercel\.app|web\.app|firebaseapp\.com|appspot\.com|cloudfront\.net|azurewebsites\.net|onrender\.com|neocities\.org|wordpress\.com|tumblr\.com|s3\.amazonaws\.com|pp\.ua|myshopify\.com|substack\.com|wixsite\.com|weebly\.com|fly\.dev|glitch\.me|repl\.co|surge\.sh|ngrok\.io|ngrok-free\.app|duckdns\.org|no-ip\.org)$/;
+  // The Public Suffix List (1.1.21, fingerprinting audit L-2), from the
+  // system's copy (shields.py psl_codes): each rule as the 24-bit FNV-1a hash
+  // of its text in four sortable characters, sorted. The short lists above
+  // only when the list is missing.
+  var PSL = typeof CFG.psl === 'string' ? CFG.psl : '';
+  var PSL_DIGITS = '-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+  function inPsl(rule) {
+    var v = hash(rule) >>> 8, code = '';
+    for (var k = 18; k >= 0; k -= 6) code += PSL_DIGITS.charAt((v >>> k) & 63);
+    var lo = 0, hi = (PSL.length / 4) | 0;
+    while (lo < hi) {
+      var mid = (lo + hi) >>> 1, at = PSL.substr(mid * 4, 4);
+      if (at === code) return true;
+      if (at < code) lo = mid + 1; else hi = mid;
+    }
+    return false;
+  }
   function siteOf(h) {
     if (!h || /^[\d.]+$/.test(h) || h.indexOf(':') >= 0) return h;
     var p = h.split('.');
+    if (PSL) {
+      // as shields.py _site_psl: the first suffix of the list, and one label more
+      for (var i = 0; i < p.length; i++) {
+        var cand = p.slice(i).join('.');
+        if (inPsl('!' + cand)) return cand;
+        if ((p.length - i >= 2 && inPsl(cand)) || (i + 1 < p.length && inPsl('*.' + p.slice(i + 1).join('.')))) {
+          return i > 0 ? p.slice(i - 1).join('.') : h;
+        }
+      }
+      return p.slice(-2).join('.');
+    }
     if (p.length <= 2) return h;
     var three = HOSTED.test(h) || (p[p.length - 1].length === 2 && SLD[p[p.length - 2]] === 1);
     return p.slice(three ? -3 : -2).join('.');
@@ -280,6 +308,21 @@
     return out;
   }
   var SITE_KEY = sha256(CFG.key + '|' + siteOf(host));
+  // window.name across sites (1.1.21, fingerprinting audit L-3): a page could
+  // write an identifier there and read it back on another site the tab moved
+  // to (Firefox and Tor Browser empty it). Emptied in a top-level document
+  // that another site (or nothing: a typed address, a bookmark) led to, on a
+  // new navigation (not a reload or a step back or forward), in a tab not
+  // opened by a script (a pop-up keeps the name its opener targets it by).
+  try {
+    if (window.top === window && !window.opener && window.name !== '') {
+      var navs = performance.getEntriesByType('navigation');
+      var how = navs && navs.length ? navs[0].type : 'navigate';
+      var from = '';
+      try { from = document.referrer ? new URL(document.referrer).hostname : ''; } catch (e) {}
+      if (how === 'navigate' && (!from || siteOf(from) !== siteOf(location.hostname))) window.name = '';
+    }
+  } catch (e) {}
   CFG.key = null;                                       // not kept once used
   SECRET = 'ike:' + sha256('realm|' + SITE_KEY).slice(0, 32);
   var seed = parseInt(SITE_KEY.slice(0, 8), 16) || 1;
@@ -479,9 +522,13 @@
   }
   // ---- values shared by every realm and by workers ---------------------------
   var realCores = navigator.hardwareConcurrency || 4;
-  // A usual number of cores, chosen per site (Strict never goes above 8).
-  var usual = (strict ? [2, 4, 6, 8] : [2, 4, 6, 8, 12, 16]).filter(function (n) { return n <= realCores; });
-  var cores = usual.length ? usual[seed % usual.length] : realCores;
+  // A number of cores that most computers report, so the value itself is
+  // common: 4 or 8, no more than the computer has (and 4 at least). Balanced
+  // picks one of them per site; Strict and above always the higher one.
+  // Before 1.1.21 rarer values (2, 6, 12) were picked too, and made the
+  // browser stand out (Cover Your Tracks: "2 cores", 5.7 bits).
+  var usual = [4, 8].filter(function (n) { return n <= Math.max(realCores, 4); });
+  var cores = strict ? usual[usual.length - 1] : usual[seed % usual.length];
   // ---- graphics card (1.1.18) --------------------------------------------------
   // Balanced: each site gets one of a few models that are common on Linux,
   // written exactly as Chrome reports them there (vendor, renderer, and what
@@ -555,6 +602,86 @@
       if (SCREENS[i][0] >= w && SCREENS[i][1] >= h) return SCREENS[i];
     }
     return [w, h];
+  }
+
+  // Media queries on the screen's size (1.1.21, fingerprinting audit M-2): a
+  // binary search with matchMedia('(min-device-width: Npx)') gave the real
+  // size behind Strict's usual one. matchMedia now answers device-width,
+  // device-height and device-aspect-ratio (min-/max-, and the range form
+  // "device-width >= 800px") for the shown size: each such feature becomes
+  // one that is always true or always false, and the engine evaluates the
+  // rest. A feature it cannot read (calc(), units of the viewport) makes the
+  // query false. Style sheets' own @media still see the real size: the engine
+  // evaluates them (a stated limit, docs/SECURITY.md). Only the captured
+  // built-ins are used: it runs while the page does.
+  var MQ_TRUE = '(width >= 0px)', MQ_FALSE = '(width < 0px)';
+  var MQ_PLAIN = /^\s*(min-|max-)?device-(width|height|aspect-ratio)\s*(?::\s*([^]*?))?\s*$/;
+  var MQ_RANGE = /^\s*(?:([^<>=]+?)\s*(<=|>=|<|>|=)\s*)?device-(width|height|aspect-ratio)\s*(?:(<=|>=|<|>|=)\s*([^<>=]+?))?\s*$/;
+  var MQ_LEN = /^(-?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)(px|em|rem|in|cm|mm|pt|pc|q)?$/;
+  var MQ_RATIO = /^((?:\d+\.?\d*|\.\d+))\s*(?:\/\s*((?:\d+\.?\d*|\.\d+)))?$/;
+  var MQ_UNIT = { px: 1, em: 16, rem: 16, 'in': 96, cm: 96 / 2.54, mm: 96 / 25.4, pt: 96 / 72, pc: 16, q: 96 / 101.6 };
+  function mqValue(kind, text) {
+    if (text === undefined) return NaN;
+    var t = text, m;
+    while (t.length && (t[t.length - 1] === ' ' || t[0] === ' ')) t = t[0] === ' ' ? sslice(t, 1) : sslice(t, 0, -1);
+    if (kind === 'aspect-ratio') {
+      m = RAPPLY(RE_EXEC, MQ_RATIO, [t]);
+      if (!m) return NaN;
+      var b = m[2] === undefined ? 1 : +m[2];
+      return b > 0 ? +m[1] / b : NaN;
+    }
+    m = RAPPLY(RE_EXEC, MQ_LEN, [t]);
+    if (!m || (m[2] === undefined && +m[1] !== 0)) return NaN;
+    return +m[1] * (m[2] === undefined ? 1 : MQ_UNIT[m[2]]);
+  }
+  function mqCompare(a, op, b) {
+    var eq = Math.abs(a - b) < 1e-6;
+    return op === '=' ? eq : op === '<' ? a < b && !eq : op === '<=' ? a < b || eq
+      : op === '>' ? a > b && !eq : a > b || eq;
+  }
+  function mqFeature(c, W, H) {
+    // true, false, or null (not a feature of the screen's size it can read)
+    var m = RAPPLY(RE_EXEC, MQ_PLAIN, [c]), v, x;
+    if (m) {
+      v = m[2] === 'width' ? W : m[2] === 'height' ? H : W / H;
+      if (m[3] === undefined) return m[1] ? null : v !== 0;
+      x = mqValue(m[2], m[3]);
+      if (x !== x) return null;
+      return mqCompare(v, m[1] === 'min-' ? '>=' : m[1] === 'max-' ? '<=' : '=', x);
+    }
+    m = RAPPLY(RE_EXEC, MQ_RANGE, [c]);
+    if (!m || (m[2] === undefined && m[4] === undefined)) return null;
+    v = m[3] === 'width' ? W : m[3] === 'height' ? H : W / H;
+    var ok = true;
+    if (m[2] !== undefined) {
+      x = mqValue(m[3], m[1]);
+      if (x !== x) return null;
+      ok = mqCompare(x, m[2], v);
+    }
+    if (m[4] !== undefined) {
+      x = mqValue(m[3], m[5]);
+      if (x !== x) return null;
+      ok = ok && mqCompare(v, m[4], x);
+    }
+    return ok;
+  }
+  function mqRewrite(text, W, H) {
+    // the query with every screen-size feature replaced; 'not all' when one
+    // cannot be read
+    var low = lower(text), out = '', i = 0;
+    for (;;) {
+      var d = sindex(low, 'device-', i);
+      if (d < 0) break;
+      var a = d;
+      while (a > i && low[a - 1] !== '(' && low[a - 1] !== ')') a--;
+      var b = sindex(low, ')', d);
+      if (a <= i || low[a - 1] !== '(' || b < 0 || sindex(sslice(low, a, b), '(') >= 0) return 'not all';
+      var r = mqFeature(sslice(low, a, b), W, H);
+      if (r === null) return 'not all';
+      out += sslice(text, i, a - 1) + (r ? MQ_TRUE : MQ_FALSE);
+      i = b + 1;
+    }
+    return out + sslice(text, i);
   }
 
   // ---- plugins ------------------------------------------------------------
@@ -1809,6 +1936,33 @@
         getter(scr, 'height', function () { return sized(this)[1]; });
         getter(scr, 'availWidth', function () { return sized(this)[0]; });
         getter(scr, 'availHeight', function () { return sized(this)[1]; });
+      }
+      var SCREEN0 = w.screen, MQL = w.MediaQueryList && w.MediaQueryList.prototype;
+      var MQLE = w.MediaQueryListEvent && w.MediaQueryListEvent.prototype;
+      var MQL_MEDIA = getterOf(MQL, 'media'), EV_TARGET = getterOf(w.Event && w.Event.prototype, 'target');
+      var mediaOf = hardMap();          // the query answered -> the page's own text, as the engine writes it
+      if (dW && dH && dW.get && dH.get && MQL_MEDIA && SCREEN0) {
+        wrap(w, 'matchMedia', function (orig) {
+          return function (query) {
+            if (!arguments.length) return RAPPLY(orig, this, arguments);
+            var text = `${query}`;                 // read once
+            if (sindex(lower(text), 'device-') < 0) return RAPPLY(orig, this, [text]);
+            var real = RAPPLY(orig, this, [text]);
+            var sz = sized(SCREEN0), list = RAPPLY(orig, this, [mqRewrite(text, sz[0], sz[1])]);
+            mediaOf.set(list, RAPPLY(MQL_MEDIA, real, []));
+            return list;
+          };
+        });
+        getter(MQL, 'media', function (orig) {
+          var t = mediaOf.get(this);
+          return t !== undefined ? t : RAPPLY(orig, this, []);
+        });
+        if (EV_TARGET) {
+          getter(MQLE, 'media', function (orig) {
+            var list = RAPPLY(EV_TARGET, this, []), t = list ? mediaOf.get(list) : undefined;
+            return t !== undefined ? t : RAPPLY(orig, this, []);
+          });
+        }
       }
       getter(scr, 'availLeft', function () { return 0; });
       getter(scr, 'availTop', function () { return 0; });

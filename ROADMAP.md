@@ -131,13 +131,14 @@ are agreed with the project owner; do not reopen them without asking.
   Dark Reader's own). Tried in 1.1.19 and left out: a cache of each rule's
   text (about 7 % less work, but a rule a site changes later could keep old
   colours).
-- **Fonts, 1.1.21 (owner's decision of 2026-11-21)**: a font allowlist for
-  the whole engine (as Tor Browser on Linux) at Strict and Maximum, which
-  alone closes CSS `@font-face { src: local() }` and workers loaded from an
-  address; to be designed and tried on the owner's KDE desktop.
-- **Left by the fingerprinting audit of 1.1.20**: Strict's screen size
-  against CSS media queries (M-2, partial fix possible), the seed list of
-  `siteOf()` (L-2), `window.name` across sites (L-3), Balanced's open values
+- **Fingerprinting, done for 1.1.21** (docs/SECURITY.md): the font
+  allowlist at the global levels Strict and Maximum (owner's decision of
+  2026-11-21; to be tried on the owner's KDE desktop: the interface font
+  follows it), cores 4 or 8, `matchMedia` and the shown screen size (M-2,
+  partial: style sheets remain the engine's), the Public Suffix List for the
+  noise's site (L-2), `window.name` across sites (L-3). The GPU name at
+  Strict stays hidden (evaluated: rarer than "not available").
+- **Still open from the fingerprinting audit**: Balanced's open values
   (L-4, owner's choice), workers loaded from an address (H-C, Qt limit;
   `experiment/file-workers`). Review 4's N11 (the embedded video click
   checking the frame's content, shadow roots) touches the YouTube helpers:
