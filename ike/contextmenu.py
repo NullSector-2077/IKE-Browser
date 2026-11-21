@@ -187,9 +187,9 @@ def build(view, req):
 def _insert_password(view):
     import json
 
-    from .passwords import generate_password
+    from .passwords import copy_secret, generate_password
     pw = generate_password()
-    QGuiApplication.clipboard().setText(pw)
+    copy_secret(pw)            # kept out of clipboard history, taken off after a while (review L9)
     view.page().runJavaScript(
         "(function(v){var e=document.activeElement;if(!e||!('value' in e))return;"
         "var d=Object.getOwnPropertyDescriptor(Object.getPrototypeOf(e),'value');"

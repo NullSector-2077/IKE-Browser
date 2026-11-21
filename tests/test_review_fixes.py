@@ -174,3 +174,24 @@ def test_h2_a_second_start_does_not_roll_back_a_running_update(tmp_path):
     third = subprocess.run([sys.executable, "-c", code, "once"], env=env, capture_output=True, text=True, timeout=30)
     got3 = json.loads(third.stdout)
     assert not got3[0].endswith("99.0.0") and got3[1] == ["99.0.0"], got3
+
+
+STEPS_L9 = r'''
+def steps(ike, qapp, out):
+    from PyQt6.QtGui import QGuiApplication
+    from ike import contextmenu
+    yield 500
+    contextmenu._insert_password(ike.windows[0].current_view())
+    yield 300
+    data = QGuiApplication.clipboard().mimeData()
+    out["hint"] = bytes(data.data("x-kde-passwordManagerHint")).decode()
+    out["text"] = len(data.text())
+'''
+
+
+def test_l9_a_generated_password_stays_out_of_clipboard_history(run_ike):
+    """L9: the password generated from the page menu went on the clipboard as
+    plain text, kept by clipboard history; the vault's copies were already
+    marked as secret and taken off after 45 s."""
+    out = run_ike(STEPS_L9, timeout=60)
+    assert out["hint"] == "secret" and out["text"] > 8, out
