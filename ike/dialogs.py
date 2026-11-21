@@ -358,6 +358,9 @@ class SettingsDialog(QDialog):
             area.setWidget(self._page(label, about, build()))
             self.stack.addWidget(area)
         self.nav.setFixedWidth(widest + 22 + 46)
+        for combo in self.findChildren(QComboBox):
+            if combo.property("ike_elides"):
+                self._whole_list(combo)
         self.nav.currentRowChanged.connect(self._show_page)
         self.show_page(page)
         bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok
@@ -910,6 +913,14 @@ class SettingsDialog(QDialog):
         self._city_pick = self.city_results.itemData(i)
 
     @staticmethod
+    def _whole_list(combo):
+        """The open list of a narrowed combo box as wide as its longest entry
+        (some styles open it only as wide as the box)."""
+        view = combo.view()
+        bar = view.verticalScrollBar().sizeHint().width()
+        view.setMinimumWidth(min(view.sizeHintForColumn(0) + bar + 8, 900))
+
+    @staticmethod
     def _narrow(combo):
         """A combo box with long entries must not make the page wider than the window."""
         combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
@@ -962,6 +973,7 @@ class SettingsDialog(QDialog):
             for name in mine:
                 combo.addItem(name, "user:" + name)
         combo.setCurrentIndex(max(0, combo.findData(selected)))
+        self._whole_list(combo)
 
     def _edit_theme(self):
         dlg = ThemeEditor(self.app, self.ui_scheme.currentData(), self)
