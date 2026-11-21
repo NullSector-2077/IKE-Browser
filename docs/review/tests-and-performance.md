@@ -53,7 +53,7 @@ Nothing in this list was tried. The owner's checklist is in
 | Pages of real websites | by rule: nothing against third-party sites | breakage of a particular site by the new local-file or external-link rules (they act on `file:` pages and non-web links only) |
 | GPU acceleration, video, DRM (Widevine), codecs | no GPU, no proprietary codecs in the PyPI build | none of these was changed |
 | The self-update from 1.0.2 to 1.0.3 against the real release server | needs a signed release, which only the owner can make | covered by `test_updater.py` with a local server and a test key |
-| Windows, other Linux distributions | out of scope of 1.0.x | see `docs/platforms/` |
+| Windows, other Linux distributions | out of scope of 1.0.x | see `docs/platforms/` on the archive branch `docs/multiplatform-plan` |
 
 ## Performance, before and after
 
