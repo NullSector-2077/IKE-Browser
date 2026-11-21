@@ -201,13 +201,34 @@ jobs:
       - name: The candidate changes only what an update may change
         run: |
           git fetch -q "$RUNNER_TEMP/maintenance-candidate/candidate.bundle" HEAD:refs/ike/candidate
-          python3 -I - <<'PY'
-          import subprocess, sys
+          python3 -I - "$GITHUB_WORKSPACE" "$GITHUB_REPOSITORY" <<'PY'
+          import importlib.util, subprocess, sys
           ALLOWED = ("ike-adblock/Cargo.toml", "ike-adblock/Cargo.lock", "ike-adblock/src/lib.rs",
                      "ike/resources/ubo-scriptlets.json", "ike/resources/darkreader", "tools/test-requirements.txt",
-                     "docs/THIRD-PARTY.md", "licenses/", "ike/__init__.py", "PKGBUILD", "README.md", "CHANGELOG.md")
+                     "docs/THIRD-PARTY.md", "licenses/")
+          # the version files: only the version, line by line, as the merge reads them (review 4, N2)
+          VERSION_FILES = ("ike/__init__.py", "PKGBUILD", "README.md", "CHANGELOG.md")
+          spec = importlib.util.spec_from_file_location("automerge", sys.argv[1] + "/tools/automerge.py")
+          automerge = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(automerge)
           def git(*a):
               return subprocess.run(["git", *a], capture_output=True, text=True, check=True).stdout
+          def patch_ids(commits):
+              ids = set()
+              for c in commits:
+                  out = subprocess.run(["git", "patch-id", "--stable"], input=git("show", c), capture_output=True,
+                                       text=True).stdout.split()
+                  if out:
+                      ids.add(out[0])
+              return ids
+          # the automatic fixes this candidate may carry: those already on the
+          # published candidate branch, pushed by the guarded fix job (N2)
+          carried = set()
+          if subprocess.run(["git", "rev-parse", "-q", "--verify", "origin/automation/daily-maintenance"],
+                            capture_output=True).returncode == 0:
+              base = git("merge-base", "origin/main", "origin/automation/daily-maintenance").strip()
+              carried = patch_ids(git("rev-list", "--grep", "^autofix:", base + "..origin/automation/daily-maintenance")
+                                  .split())
           bad = []
           for c in git("rev-list", "--reverse", "origin/main..refs/ike/candidate").split():
               msg = git("log", "-1", "--format=%s", c)
@@ -216,11 +237,22 @@ jobs:
               if len(parents) != 1:
                   bad.append("%s: a merge commit" % c[:10])
               elif msg.startswith("autofix: "):
-                  continue          # checked by tools/check-autofix-patch.py when it was made
+                  if not patch_ids([c]) <= carried:
+                      bad.append("%s: an automatic fix that is not one the fix job published" % c[:10])
               elif not msg.startswith("maintenance: "):
                   bad.append("%s: not the update's own commit (%s)" % (c[:10], msg[:60]))
               else:
-                  bad += ["%s: %s" % (c[:10], f) for f in files if f and not f.startswith(ALLOWED)]
+                  for f in files:
+                      if not f:
+                          continue
+                      if f in VERSION_FILES:
+                          diff = git("show", "--format=", "-U0", c, "--", f)
+                          patch = diff[diff.find("@@"):] if "@@" in diff else ""
+                          why = automerge.version_problem(f, patch, sys.argv[2])
+                          if why:
+                              bad.append("%s: %s" % (c[:10], why))
+                      elif not f.startswith(ALLOWED):
+                          bad.append("%s: %s" % (c[:10], f))
           if bad:
               print("::error::the candidate changes what an update may not change:\n" + "\n".join(bad[:40]))
               sys.exit(1)
