@@ -362,7 +362,10 @@ jobs:
           sudo chgrp -R agent "$repo/.autofix"
           chmod -R g+rwX "$repo/.autofix"
       - name: The lint, for each fix (no AI)
-        run: python3 -m pip install --disable-pip-version-check -q ruff
+        run: |
+          # the ruff of the tests (tools/test-requirements.txt), only a version number taken from it
+          v=$(grep -oE '^ruff==[0-9][0-9.]*$' "$GITHUB_WORKSPACE/tools/test-requirements.txt" | head -1)
+          python3 -m pip install --disable-pip-version-check -q "${v:-ruff}"
       # Antigravity alone, with the Gemini key only (1.1.18: the reserves' keys
       # are not in this step). Model after model, at most 25 minutes in all
       # (tools/autofix-agent.py); the step's own limit is above that, and when
@@ -660,7 +663,8 @@ jobs:
             --patch "$RUNNER_TEMP/autofix/autofix.patch" $allow $related --report "$RUNNER_TEMP/autofix/guard.md"
       - name: Lint
         run: |
-          python3 -m pip install --disable-pip-version-check -q ruff
+          v=$(grep -oE '^ruff==[0-9][0-9.]*$' tools/test-requirements.txt | head -1)
+          python3 -m pip install --disable-pip-version-check -q "${v:-ruff}"
           ruff check .
       - name: A new version for users when a fix of main changes the browser
         if: needs.plan.outputs.kind == 'main'
