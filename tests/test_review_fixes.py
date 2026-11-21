@@ -740,7 +740,7 @@ def hashlib_empty():
     return hashlib.sha1(b"").hexdigest()[:12]
 
 
-STEPS_L3 = r"""
+STEPS_WINDOW_NAME = r"""
 def steps(ike, qapp, out):
     from PyQt6.QtCore import QUrl
     v = ike.windows[0].current_view()
@@ -792,7 +792,7 @@ def test_l3_window_name_does_not_cross_sites(run_ike):
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     try:
         port = srv.server_address[1]
-        steps = ("BASE_A = 'http://127.0.0.1:%d'\nBASE_B = 'http://localhost:%d'\n" % (port, port)) + STEPS_L3
+        steps = ("BASE_A = 'http://127.0.0.1:%d'\nBASE_B = 'http://localhost:%d'\n" % (port, port)) + STEPS_WINDOW_NAME
         out = run_ike(steps, settings={"shield_level": "balanced"}, timeout=90)
     finally:
         srv.shutdown()
