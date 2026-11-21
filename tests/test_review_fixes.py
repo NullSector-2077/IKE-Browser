@@ -1,6 +1,8 @@
 """Fixes of the independent review of 1.1.19 (security and privacy), each
 shown by a test that failed before the fix."""
 
+from test_updater import CHECK, PASS, keypair, load_tool, make_update_json, releases, update_env  # noqa: F401
+
 STEPS_M2 = r'''
 def steps(ike, qapp, out):
     from PyQt6.QtWebEngineCore import QWebEnginePermission as P
@@ -195,3 +197,52 @@ def test_l9_a_generated_password_stays_out_of_clipboard_history(run_ike):
     marked as secret and taken off after 45 s."""
     out = run_ike(STEPS_L9, timeout=60)
     assert out["hint"] == "secret" and out["text"] > 8, out
+
+
+def _updater_imports():
+    import sys
+
+    from conftest import APP
+    sys.path.insert(0, str(APP))
+    from ike import updater
+    return updater
+
+
+def test_l1_a_manifest_signed_for_beta_is_refused_on_stable(run_ike, releases, keypair, tmp_path):  # noqa: F811
+    """L1: every channel's manifest was the same signed file, so a beta one
+    served as stable.json verified and installed. Now each names its channel
+    (tools/make-release.py) and the updater refuses another channel's."""
+    key, key_path, pub = keypair
+    releases.publish(key, "99.0.0", min_system="0", extra={"channel": "beta"})
+    out = run_ike(CHECK, env=update_env(tmp_path, releases, pub), timeout=240)
+    assert out["kind"] == "error" and "another channel" in out["data"], out
+    assert not out["state"].get("current"), out
+    import json
+    tool = load_tool()
+    upd = make_update_json(tmp_path, pub)
+    tool.make(key_path, tmp_path / "rel", ["stable", "beta"], passphrase=PASS, update_file=upd)
+    for ch in ("stable", "beta"):
+        assert json.loads((tmp_path / "rel" / (ch + ".json")).read_text())["channel"] == ch
+
+
+def test_l2_halt_withdraws_a_staged_copy(tmp_path, monkeypatch):
+    """L2: a version stopped by the owner ("halt") already staged, not yet
+    started, still ran at the next start. Now it is withdrawn and never
+    installed again; a version already proved, or another version, is left."""
+    import json
+    updater = _updater_imports()
+    monkeypatch.setattr(updater, "UPDATES", tmp_path)
+    monkeypatch.setattr(updater, "STATE", tmp_path / "state.json")
+    staged = {"current": "99.0.0", "previous": "98.0.0", "status": "pending", "attempts": 0}
+    for state, manifest, withdrawn in (
+            (staged, {"version": "99.0.0", "halt": True}, True),
+            (staged, {"version": "99.0.0"}, False),
+            (staged, {"version": "99.0.1", "halt": True}, False),
+            (dict(staged, status="ok"), {"version": "99.0.0", "halt": True}, False)):
+        (tmp_path / "state.json").write_text(json.dumps(state))
+        assert updater.withdraw(manifest) is withdrawn
+        now = json.loads((tmp_path / "state.json").read_text())
+        if withdrawn:
+            assert now["current"] == "98.0.0" and now["bad"] == ["99.0.0"] and now["status"] == "ok", now
+        else:
+            assert now == state, now

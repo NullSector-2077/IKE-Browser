@@ -176,14 +176,19 @@ def make(key_path, out_dir, channels, passphrase=None, update_file=None, engine=
     out = Path(out_dir or ROOT / "dist" / ("release-" + version))
     out.mkdir(parents=True, exist_ok=True)
     (out / manifest["payload"]).write_bytes(payload)
-    raw = (json.dumps(manifest, indent=1, sort_keys=True) + "\n").encode()
+    first = None
     for ch in channels:
+        # each channel's manifest names its channel, so that one signed for
+        # beta cannot be offered as stable (review of 1.1.19, L1)
+        signed = dict(manifest, channel=ch)
+        first = first or signed
+        raw = (json.dumps(signed, indent=1, sort_keys=True) + "\n").encode()
         sig = base64.b64encode(key.sign(raw)).decode()
         if not verify(update["pubkey"], raw, sig):
             raise SystemExit("signature check failed")
         (out / (ch + ".json")).write_bytes(raw)
         (out / (ch + ".json.sig")).write_text(sig + "\n", "ascii")
-    return out, manifest
+    return out, first or manifest
 
 
 def main(argv=None):

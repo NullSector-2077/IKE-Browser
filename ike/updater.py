@@ -260,6 +260,21 @@ def confirm_healthy():
         save_state(state)
 
 
+def withdraw(manifest):
+    """A version stopped by the owner ("halt") that is staged but has not yet
+    proved it starts: it does not run at the next start (review of 1.1.19, L2;
+    until then "halt" stopped only new installations)."""
+    state = load_state()
+    version = manifest.get("version")
+    if manifest.get("halt") is not True or state.get("status") != "pending" or state.get("current") != version:
+        return False
+    if version not in state.setdefault("bad", []):
+        state["bad"].append(version)
+    state.update({"current": state.get("previous"), "previous": None, "status": "ok", "attempts": 0})
+    save_state(state)
+    return True
+
+
 def take_rollback_notice():
     state = load_state()
     bad = state.pop("rolled_back", None)
@@ -285,6 +300,10 @@ class _Worker(QThread):
             if not verify_signature(self.src["pubkey"], raw, sig):
                 raise ValueError("the update manifest has an invalid signature")
             manifest = json.loads(raw.decode("utf-8"))
+            if "channel" in manifest and manifest["channel"] != self.channel:
+                # signed for another channel (a beta offered as stable by
+                # whoever controls the connection): review of 1.1.19, L1
+                raise ValueError("the update manifest is for another channel")
             state = load_state()
             stale = manifest_stale(manifest, seen=state.get("issued"))
             if stale:
@@ -293,6 +312,7 @@ class _Worker(QThread):
             if _num(manifest.get("issued")) and manifest["issued"] > (state.get("issued") or 0):
                 state["issued"] = manifest["issued"]
                 save_state(state)
+            withdraw(manifest)
             staged = load_state().get("current")
             newest = max(__version__, staged or "0", key=vtuple)
             if (vtuple(manifest["version"]) <= vtuple(newest)
