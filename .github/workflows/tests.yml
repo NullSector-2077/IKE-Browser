@@ -137,6 +137,9 @@ jobs:
           tar --exclude=./.git -cf - . | tar -xf - -C "$where"
           rm -rf "$where/tests"
           git archive "$base" tests | tar -xf - -C "$where"
+          # a repository of its own, its files known to git: some tests ask git
+          # which files there are (test_licences.py); nothing is committed
+          git -C "$where" init -q && git -C "$where" add -A
           changed=$(git diff --name-only "$base" HEAD -- tests)
           set +e
           (cd "$where" && python -m pytest -o addopts= -q -p no:cacheprovider --junitxml="$RUNNER_TEMP/base-tests.xml")
