@@ -104,7 +104,7 @@ def is_local_name(host):
         return True
     if re.fullmatch(r"[0-9a-fx.]+", h):  # old IPv4 forms (2130706433, 0x7f.1, 0177.0.0.1)
         try:
-            return is_local_address(socket.inet_ntoa(socket.inet_pton(socket.AF_INET, h)))
+            return is_local_address(socket.inet_ntoa(socket.inet_aton(h)))
         except OSError:
             pass                         # a name made of such letters ("cafe"): below
     # a single name with no dot ("router"): never a public site on the web

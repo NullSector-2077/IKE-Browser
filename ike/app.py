@@ -520,7 +520,7 @@ class IkeApp(QObject):
         from . import chromever
         behind = chromever.security_behind(self.config)
         # strictly more than OUTDATED_AFTER: being exactly that far behind is normal between releases
-        if behind > chromever.OUTDATED_AFTER and not getattr(self, "_engine_warned", False):
+        if behind >= chromever.OUTDATED_AFTER and not getattr(self, "_engine_warned", False):
             self._engine_warned = True
             self._desktop_notify(self._t(
                 "The system's web engine (qt6-webengine) is %d Chrome versions behind with its "
