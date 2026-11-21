@@ -47,6 +47,32 @@ checked says so.
 | - | No vulnerability check of the Rust crates | **Fixed**: RustSec every day and on every pull request | `security.yml` (positive control below) |
 | - | Tests never ran with the sandbox | **Fixed**: CI job `sandbox` | `security.yml` |
 
+## Independent review of 1.1.19 (fixed in 1.1.20)
+
+Each fix has a test that failed before it (`tests/test_review_fixes.py`, and
+the files named). What is left is said in the last column.
+
+| # | Finding | Fix | Left |
+|---|---|---|---|
+| H1 | Canvas, audio and text noise could be peeled off (a grey canvas of the same size gave the mask; every 97th audio sample by one factor; `measureText('')` was the offset) | The canvas mask depends on the picture too; audio noise only on buffers the engine rendered, every sample its own factor; text width per text and font, 0 for an empty text | A site's own blob worker can still read its own seed (F3) and with it recompute that site's mask |
+| H2 | A second start within 20 s rolled a healthy update back for good | The start that tries the update holds a lock for its life; a later start neither counts nor rolls back | Needs the 1.1.20 package (`ike_boot.py` is not self-updated) |
+| M1 | A page could make I.K.E. download any `.user.js`, also from the router, with a User-Agent naming I.K.E. | Only the user's own act offers an install; the home network only for a typed address; the browser's User-Agent | - |
+| M2 | Enter or Space granted a permission (Allow was the default) | Enter and Esc block; Allow can be clicked only after 0.7 s | - |
+| M3 | Encrypted DNS did not cover I.K.E.'s own requests | `ike/doh.py`: the same provider (RFC 8484) for the home-network checks, dark mode's sheets, user scripts, icons, updates, filter lists; Qt requests pinned to its answer with the name in TLS; redirects followed as new requests; the user is told when the engine refuses the setting | Search suggestions, weather and the extension store (fixed hosts) still use the system resolver; an icon's redirect is not followed with encrypted DNS on |
+| M4 | Dark mode's sheet fetch skipped the lists and allowed http on https pages | Mixed content refused, the lists asked, the browser's User-Agent | - |
+| M5 | Spoofed values detectable | Getters keep the engine's receiver check; Strict: WebGPU present with no adapter, a battery on mains, the header's language = navigator.languages; Maximum: Intl, dates and numbers in en-US | Maximum's Intl in workers, the time zone, and GPC (not sent by Chrome) are not covered; an independent fingerprinting audit is planned |
+| L1 | Manifest not bound to its channel | Each manifest names its channel | Manifests without the field are accepted (older releases) |
+| L2 | Halt did not withdraw a staged copy | Withdrawn and listed as bad | - |
+| L3 | Own requests named I.K.E.; every engine asked at first start | The pages' User-Agent everywhere; only the engine in use | - |
+| L4 | User scripts shared one world; answers delivered after the tab changed site | A world per script; an update into the page's world asks; late answers dropped | - |
+| L5 | Embedded-video click relay | Owner's decision (YouTube ad blocking): unchanged | Reported, not changed |
+| L6 | The logins' channel shared with the other helpers of its world | The channel's receiver is locked after the helper makes it; the others get only `fetchCss`, `cssFetched`, `adClick`, `adClickEmbedded` | Code in that world can still send blind calls on the transport (no answers): it cannot read a login. Separate worlds would move the video-ad helpers (owner's decision) |
+| L7 | Favicons decoded by every image plugin outside the sandbox | Only PNG and ICO, by their first bytes | - |
+| L8 | Store extensions not signature-checked | CRX3 only, signed by the key of the id asked for (RSA or ECDSA) | The store's own publisher signature is not checked |
+| L9 | Generated password left on the clipboard | Marked for clipboard managers and cleared after 45 s | - |
+| L10 | `site_of` approximated the Public Suffix List | The system's list (`publicsuffix-list`); a longer fallback | The page script's noise seed still uses the short list |
+| L11 | Unknown arguments went to Qt | Dropped, named on stderr | - |
+
 ## Known limits (not solved)
 
 - **The home network, since 1.1.19.** Two checks work together. I.K.E.'s
