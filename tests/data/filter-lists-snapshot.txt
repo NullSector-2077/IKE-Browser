@@ -1,0 +1,40 @@
+! Title: I.K.E. test snapshot of the default filter lists
+! A small recorded sample of real rules of uBlock Origin's lists (uAssets,
+! GPL-3.0-or-later), taken on 2026-11-21, for tests/test_components.py: the
+! offline check of tools/check-components.py --filter-lists. Not a list to use.
+!
+! https://github.com/uBlockOrigin/uAssets/issues/1408
+*_ad_$media,domain=youtube.com,3p
+tv.youtube.com##+js(trusted-replace-xhr-response, '"adPlacements"', '"no_ads"', /playlist\?list=|\/player(?:\?.+)?$|watch\?[tv]=/)
+!#if !cap_html_filtering
+www.youtube.com##+js(trusted-rpfr, '"adPlacements"', '"no_ads"', player?)
+www.youtube.com##+js(trusted-rpfr, '"adSlots"', '"no_ads"', player?)
+!#else
+||www.youtube.com/watch?$xhr,1p,replace=/"adPlacements"/"no_ads"/
+||www.youtube.com/watch?$xhr,1p,replace=/"adSlots"/"no_ads"/
+!#endif
+m.youtube.com,music.youtube.com,tv.youtube.com,www.youtube.com,youtubekids.com,youtube-nocookie.com##+js(set, ytInitialPlayerResponse.playerAds, undefined)
+filecrypt.*##+js(set, isAdblock, false)
+!sbs.com.au##+js(set, adBlockerDetected, undefined)
+camhub.cc##+js(set, flashvars.popunder_url, '')
+camhub.cc##+js(set, openPop, noopFunc)
+youtube.com##+js(json-prune, playerResponse.adPlacements playerResponse.playerAds playerResponse.adSlots adPlacements playerAds adSlots legacyImportant)
+youtube.com##+js(json-prune, entries.[-].command.reelWatchEndpoint.adClientParams.isAd)
+alliptvlinks.com##+js(aopr, eazy_ad_unblocker)
+vidsrc.*##+js(aopr, __Y)
+weloma.*##+js(acs, document.createElement, dataset.zone)
+vrporn.com##+js(acs, navigator, popunder)
+! uBlock Origin's own resources used as scriptlets: not in the scriptlet library
+youjizz.com##+js(noeval)
+spaste.com##+js(nofab)
+imgshots.com##+js(popads.net)
+sproutgigs.com##+js(fingerprint2)
+businessinsider.de##.adup-wrap
+allgemeine-zeitung.de,main-spitze.de,wiesbadener-kurier.de##.adSlot, .loadingBanner
+||google-analytics.com/analytics.js$script,xhr,redirect=google-analytics_analytics.js:5
+||google-analytics.com/cx/api.js$script,redirect=google-analytics.com/cx/api.js:5
+@@||awstrack.me/*auth.coindesk.com$doc,popup
+@@||awstrack.me/*cmd=ac-inactive-restore$doc,popup
+! rules the engine does not read
+wetteronline.*##^script:has-text(runCount)
+||youtube.com/youtubei/v1/get_watch?$xhr,1p,replace=/"adPlacements"/"no_ads"/

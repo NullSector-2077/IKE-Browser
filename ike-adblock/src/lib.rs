@@ -13,13 +13,15 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
-use adblock::lists::{FilterFormat, FilterSet as AFilterSet, ParseOptions, RuleTypes};
+use adblock::lists::{
+    parse_filter, FilterFormat, FilterParseError, FilterSet as AFilterSet, ParseOptions, ParsedLine, RuleTypes,
+};
 use adblock::request::Request as ARequest;
 use adblock::resources::{MimeType, PermissionMask, Resource, ResourceType};
 use adblock::Engine as AEngine;
 use pyo3::exceptions::{PyIOError, PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::PyBytes;
+use pyo3::types::{PyBytes, PyDict};
 
 /// Version of the adblock-rust engine this module was built with.
 const ENGINE_VERSION: &str = "0.13.6";
@@ -359,6 +361,77 @@ impl Engine {
     }
 }
 
+/// How the engine reads a filter list, line by line, without keeping it
+/// (1.1.20): the rules it takes (network, cosmetic), the lines it skips as
+/// comments, the lines it does not support and the rules it cannot parse,
+/// with up to `examples` of the last two ("unsupported" or "error", the line,
+/// the engine's reason). The same parser and options as `add_filter_list`.
+/// Only the checks of the real lists use it (tools/check-components.py
+/// --filter-lists); the browser never calls it.
+#[pyfunction]
+#[pyo3(signature = (filter_list, trusted = false, examples = 20))]
+fn parse_report<'py>(
+    py: Python<'py>,
+    filter_list: &str,
+    trusted: bool,
+    examples: usize,
+) -> PyResult<Bound<'py, PyDict>> {
+    let permissions = if trusted { PermissionMask::from_bits(1) } else { PermissionMask::default() };
+    let opts = ParseOptions { format: FilterFormat::Standard, rule_types: RuleTypes::All, permissions };
+    let counted = py.detach(move || {
+        guarded_py("parse_report", move || {
+            let (mut lines, mut comments, mut network, mut cosmetic) = (0usize, 0usize, 0usize, 0usize);
+            let (mut unsupported, mut errors) = (0usize, 0usize);
+            let mut found: Vec<(String, String, String)> = Vec::new();
+            for line in filter_list.lines() {
+                let rule = line.trim();
+                if rule.is_empty() {
+                    continue;
+                }
+                lines += 1;
+                let comment = rule.starts_with('!') || rule.starts_with("[Adblock");
+                if comment || rule.starts_with("# ") || rule == "#" {
+                    comments += 1;
+                    continue;
+                }
+                let (kind, why) = match parse_filter(rule, false, opts) {
+                    Ok(ParsedLine::Network(_)) => {
+                        network += 1;
+                        continue;
+                    }
+                    Ok(ParsedLine::Cosmetic(_)) => {
+                        cosmetic += 1;
+                        continue;
+                    }
+                    Err(FilterParseError::Empty) => continue,
+                    Err(FilterParseError::Unsupported) => {
+                        unsupported += 1;
+                        ("unsupported", "unsupported".to_string())
+                    }
+                    Err(other) => {
+                        errors += 1;
+                        ("error", other.to_string())
+                    }
+                };
+                if found.len() < examples {
+                    found.push((kind.to_string(), rule.chars().take(300).collect(), why));
+                }
+            }
+            (lines, comments, network, cosmetic, unsupported, errors, found)
+        })
+    })?;
+    let (lines, comments, network, cosmetic, unsupported, errors, found) = counted;
+    let out = PyDict::new(py);
+    out.set_item("lines", lines)?;
+    out.set_item("comments", comments)?;
+    out.set_item("network", network)?;
+    out.set_item("cosmetic", cosmetic)?;
+    out.set_item("unsupported", unsupported)?;
+    out.set_item("errors", errors)?;
+    out.set_item("examples", found)?;
+    Ok(out)
+}
+
 #[pymodule]
 fn ike_adblock(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<FilterSet>()?;
@@ -366,6 +439,7 @@ fn ike_adblock(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Request>()?;
     m.add_class::<BlockerResult>()?;
     m.add_class::<UrlSpecificResources>()?;
+    m.add_function(wrap_pyfunction!(parse_report, m)?)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add("ENGINE_VERSION", ENGINE_VERSION)?;
     Ok(())
