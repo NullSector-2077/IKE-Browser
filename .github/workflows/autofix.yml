@@ -830,9 +830,14 @@ jobs:
           retry gh workflow run tests.yml --ref "$PUSH_BRANCH"
           # the sandbox tests too: the merge needs them (review 2 of 1.1.19, H3)
           retry gh workflow run security.yml --ref "$PUSH_BRANCH"
-          # a fix of a failure on Arch Linux's own packages is tested there too:
-          # the merge waits for every check of the commit, this one included
-          if [ "$WORKFLOW" = "Arch Linux" ]; then retry gh workflow run arch.yml --ref "$PUSH_BRANCH"; fi
+          # a fix of a failure on Arch Linux's own packages is tested there too,
+          # also when a later attempt on the same branch came from another
+          # workflow: the merge waits for every check of the last commit
+          arch_fix=$(git log --format=%s "origin/main..refs/heads/autofix-result" \
+                     | grep -c '^autofix: attempt [0-9]* after a failure of "Arch Linux"' || true)
+          if [ "$WORKFLOW" = "Arch Linux" ] || [ "${arch_fix:-0}" != "0" ]; then
+            retry gh workflow run arch.yml --ref "$PUSH_BRANCH"
+          fi
 
   report:
     needs: [plan, fix, guard, publish]

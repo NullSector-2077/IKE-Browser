@@ -97,7 +97,8 @@ outside I.K.E.'s releases. These are followed as components too
     engine, the builders (`tools/build-*`), `vendor/`, the Cargo files, the
     workflows or the tests' data;
   - the fix is tested on Arch too (`publish` starts `arch.yml` on
-    `automation/autofix-main` with the tests and the security tests), and
+    `automation/autofix-main` with the tests and the security tests, also
+    for a later attempt on that branch after another failure), and
     the merge waits for every check of its commit; when `arch.yml` passes
     there, it asks for the merge as the other checks do.
 

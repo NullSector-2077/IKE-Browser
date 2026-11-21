@@ -3442,8 +3442,6 @@ def test_arch_reaches_the_automatic_fix_and_comes_back_tested_there():
     the merge asked for when it passes, main tested after a merge."""
     autofix = (WORKFLOWS / "autofix.yml").read_text()
     assert 'workflows: ["Tests", "Daily maintenance candidate", "Daily component check", "Arch Linux"]' in autofix
-    publish = jobs_of(autofix)["publish"]
-    assert 'if [ "$WORKFLOW" = "Arch Linux" ]; then retry gh workflow run arch.yml --ref "$PUSH_BRANCH"; fi' in publish
     arch = (WORKFLOWS / "arch.yml").read_text()
     assert "name: %s\n" % plan_tool.ARCH in arch.split("\njobs:\n")[0]
     jobs = jobs_of(arch)
@@ -3473,3 +3471,38 @@ def test_arch_reaches_the_automatic_fix_and_comes_back_tested_there():
     for rel in (".github/workflows/arch.yml", "tools/build-darkreader.py", "ike-adblock/Cargo.toml",
                 "vendor/adblock/__init__.py", "tests/data/x.json", "PKGBUILD"):
         assert guard.allowed_path(rel, False), rel
+
+
+@pytest.mark.parametrize("workflow, subjects, arch", [
+    ("Arch Linux", "", True),                                   # a fix of an Arch failure
+    ("Tests", 'autofix: attempt 2 after a failure of "Tests"\n'
+              'autofix: attempt 1 after a failure of "Arch Linux"\n', True),   # a later attempt on its branch
+    ("Tests", 'autofix: attempt 1 after a failure of "Tests"\n', False),   # an ordinary fix: as before
+])
+def test_a_fix_of_an_arch_failure_is_tested_on_arch(tmp_path, workflow, subjects, arch):
+    import os
+    script = step_script("Push the fix, update the draft PR and start the tests")
+    temp = tmp_path / "runner"
+    (temp / "autofix").mkdir(parents=True)
+    for name in ("summary.md", "guard.md"):
+        (temp / "autofix" / name).write_text("x\n")
+    bin_ = tmp_path / "bin"
+    bin_.mkdir()
+    (tmp_path / "subjects").write_text(subjects)
+    (bin_ / "git").write_text('#!/bin/sh\ncase "$*" in *"rev-parse refs/heads/autofix-result"*) echo fixnew;; '
+                              '*rev-parse*) echo tip1;; "log --format=%%s origin/main..refs/heads/autofix-result") '
+                              'cat "%s";; esac\nexit 0\n' % (tmp_path / "subjects"))
+    gh_calls = tmp_path / "gh-calls"
+    (bin_ / "gh").write_text('#!/bin/sh\necho "$*" >> "%s"\nexit 0\n' % gh_calls)
+    for f in ("git", "gh"):
+        (bin_ / f).chmod(0o755)
+    env = dict(os.environ, RUNNER_TEMP=str(temp), PATH="%s:%s" % (bin_, os.environ["PATH"]), GH_TOKEN="x",
+               KIND="main", PUSH_BRANCH="automation/autofix-main", CHECKOUT="main1", PUSH_TIP="tip1",
+               WORKFLOW=workflow, ATTEMPT="1", RUN_URL="u", GITHUB_STEP_SUMMARY=str(tmp_path / "summary"))
+    run = subprocess.run(["bash", "-e", "-c", script], env=env, capture_output=True, text=True, timeout=60,
+                         cwd=ROOT)
+    assert run.returncode == 0, run.stdout + run.stderr
+    calls = gh_calls.read_text()
+    assert "workflow run tests.yml --ref automation/autofix-main" in calls
+    assert "workflow run security.yml --ref automation/autofix-main" in calls
+    assert ("workflow run arch.yml --ref automation/autofix-main" in calls) is arch, calls
