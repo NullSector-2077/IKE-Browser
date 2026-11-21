@@ -555,7 +555,12 @@ def test_the_arch_workflows():
     daily = (ROOT / ".github/workflows/daily-check.yml").read_text()
     parts = re.split(r"^  ([a-z-]+):\n", daily.split("\njobs:\n", 1)[1], flags=re.M)
     jobs = dict(zip(parts[1::2], parts[2::2]))
-    assert set(jobs) == {"check", "update-issue", "start-arch"}
+    assert set(jobs) == {"check", "lists", "update-issue", "start-arch"}
+    # 1.1.20: the filter lists in main's engine; reads the repository only, no token
+    lists = jobs["lists"]
+    assert re.search(r"permissions:\n\s+contents: read\n\s+outputs:", lists) and "GH_TOKEN" not in lists
+    assert "tools/check-components.py --filter-lists lists.json --markdown lists.md" in lists
+    assert "needs: [check, lists]" in jobs["update-issue"] and "needs.check.result == 'success'" in jobs["update-issue"]
     assert re.search(r"permissions:\n\s+actions: read .*\n\s+contents: read\n", jobs["check"])
     assert "--save-arch-tested arch-tested.json" in jobs["check"] and "--arch arch-tested.json" in jobs["check"]
     # the token only in the step that reads GitHub, not where others' sources are built
@@ -700,6 +705,20 @@ def test_anchor_context_places():
     assert "found at line 3:" in twice and "found at line 6:" in twice
     gone = tool.anchor_context("x\ny\n", "nothing\nof this\n")
     assert "(2 of 2)" in gone and "no line of the anchor is found once" in gone
+
+
+def test_the_maintenance_and_the_plan_tell_refused_from_unreachable():
+    """The maintenance's check step fails only when a source is unreachable
+    (infrastructure); a refused builder does not stop it, and its report
+    reaches a person through the components issue and the candidate's PR."""
+    maint = (ROOT / ".github/workflows/daily-maintenance.yml").read_text()
+    assert "- name: Check and apply component updates (an unreachable source stops all" in maint
+    plan = (ROOT / "tools/autofix-plan.py").read_text()
+    assert 'SOURCES_STEP = "Check and apply component updates"' in plan
+    assert "a component source could not be reached" in plan
+    daily = (ROOT / ".github/workflows/daily-check.yml").read_text()
+    assert "REFUSED: ${{ needs.check.outputs.refused }}" in daily
+    assert '"$REFUSED" -gt 0' in daily and "Component incompatibility" in daily
 
 
 # --- the default filter lists in the bundled engine (1.1.20) -----------------

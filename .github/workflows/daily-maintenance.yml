@@ -52,7 +52,12 @@ jobs:
         run: |
           rustup toolchain install stable --profile minimal --no-self-update
           rustup default stable
-      - name: Check and apply component updates (fail closed)
+      # 1.1.20: a source that cannot be reached stops everything (exit 1,
+      # infrastructure, the next daily run tries again); a builder that refuses
+      # a new upstream version (Dark Reader's patches, uBlock Origin's
+      # scriptlets) keeps that component at the version in use, says why in
+      # the report, and the other components are still applied and tested.
+      - name: Check and apply component updates (an unreachable source stops all, a refused builder keeps its component)
         run: |
           python3 tools/check-components.py --json component-report.json --markdown component-report.md --apply
           cat component-report.md
@@ -135,6 +140,16 @@ jobs:
             echo "> change I.K.E.'s wrapper (\`ike-adblock/src/\`, \`vendor/adblock/__init__.py\`, \`ike/blocker.py\`,"
             echo "> \`ike/scriptlets.py\`; never \`Cargo.toml\` or \`Cargo.lock\`). Do not merge before its checks are green."
           } >> component-report.md
+      # 1.1.20: today's default filter lists in the candidate's engine and
+      # scriptlet library, for the report of its pull request. Findings and
+      # lists that cannot be downloaded never stop the candidate.
+      - name: The default filter lists in the candidate's engine
+        if: steps.changes.outputs.changed == 'true' && steps.engine.outputs.engine == 'builds'
+        continue-on-error: true
+        run: |
+          install -m755 ike-adblock/target/release/libike_adblock.so vendor/adblock/ike_adblock.abi3.so
+          python3 tools/check-components.py --filter-lists filter-lists.json --markdown filter-lists.md
+          cat filter-lists.md >> component-report.md
       - name: The candidate's report
         if: steps.changes.outputs.changed == 'true'
         run: cp component-report.md "$RUNNER_TEMP/maintenance-candidate/component-report.md"

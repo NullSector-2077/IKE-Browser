@@ -3506,3 +3506,27 @@ def test_a_fix_of_an_arch_failure_is_tested_on_arch(tmp_path, workflow, subjects
     assert "workflow run tests.yml --ref automation/autofix-main" in calls
     assert "workflow run security.yml --ref automation/autofix-main" in calls
     assert ("workflow run arch.yml --ref automation/autofix-main" in calls) is arch, calls
+
+
+def test_a_refused_builder_is_never_infrastructure_and_the_lists_check_is_a_persons():
+    """1.1.20: the maintenance's check step fails only for a source that cannot
+    be reached (infrastructure, as before, under its new step name); a builder
+    that refuses a new upstream version does not stop it (the components issue
+    tells a person). The daily check's filter lists job never fails for a
+    finding: when it fails (main's engine did not build), a person looks; its
+    Rust set-up failing is GitHub's."""
+    name = "Daily maintenance candidate"
+    step = "Check and apply component updates (an unreachable source stops all, a refused builder keeps its component)"
+    p = plan_tool.decide(failed_run(name=name), [_with_steps("prepare", step)], "")
+    assert (p["action"], p["kind"]) == ("issue", "infra"), p
+    assert "could not be reached" in p["reason"] and "components issue" in p["reason"]
+    workflow = (WORKFLOWS / "daily-maintenance.yml").read_text()
+    assert "- name: " + step + "\n" in workflow
+    p = plan_tool.decide(failed_run(name="Daily component check"), [_with_steps("lists", "AdBlock engine")], "")
+    assert p["action"] == "issue" and p["kind"] != "infra" and "filter lists" in p["reason"], p
+    assert "a person looks" in p["reason"]
+    p = plan_tool.decide(failed_run(name="Daily component check"), [_with_steps("lists", "Rust")], "")
+    assert (p["action"], p["kind"]) == ("issue", "infra"), p
+    # the check job itself is still fixed as before
+    p = plan_tool.decide(failed_run(name="Daily component check"), [_with_steps("check", "Check components")], "")
+    assert p["action"] == "fix"
