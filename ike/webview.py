@@ -78,7 +78,7 @@ class WebPage(QWebEnginePage):
         self._generichide = False
         self.mouse_locked = False
         self.loadStarted.connect(lambda: setattr(self, "mouse_locked", False))
-        self.permissionRequested.connect(self._permission)
+        self.permissionRequest.connect(self._permission)
         self.fullScreenRequested.connect(self._fullscreen)
         self.urlChanged.connect(self._inject_cosmetics)
         self.loadFinished.connect(self._load_finished)
