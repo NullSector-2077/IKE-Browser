@@ -16,6 +16,7 @@ from pathlib import Path
 
 from PyQt6.QtCore import QThread, pyqtSignal
 
+from . import osinfo
 from .config import DATA_DIR
 
 OWN_DIR = DATA_DIR / "WidevineCdm"
@@ -148,7 +149,7 @@ def _get(url, limit):
     # imported only when Widevine is downloaded, not at every start (1.1.17)
     import urllib.request
 
-    req = urllib.request.Request(url, headers={"User-Agent": "I.K.E. DRM manager"})
+    req = urllib.request.Request(url, headers={"User-Agent": osinfo.browser_user_agent()})
     with urllib.request.urlopen(req, timeout=60) as r:
         final = r.geturl()
         if not final.startswith("https://"):

@@ -1826,7 +1826,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 a.setFont(f)
             group.addAction(a)
             a.triggered.connect(lambda _c=False, name=e["name"]: self.app.set_engine(name))
-        self.app.fetch_engine_icons()         # the ones not known yet, for the next time
 
     def fit_shield_menu(self, place=True):
         """The shield's panel as tall as its content, but never past the bottom of the

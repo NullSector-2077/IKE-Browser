@@ -246,3 +246,40 @@ def test_l2_halt_withdraws_a_staged_copy(tmp_path, monkeypatch):
             assert now["current"] == "98.0.0" and now["bad"] == ["99.0.0"] and now["status"] == "ok", now
         else:
             assert now == state, now
+
+
+STEPS_L3 = r'''
+def steps(ike, qapp, out):
+    asked = out["asked"] = []
+    ike.favicons.fetch = lambda url: asked.append(url)
+    yield 5000                         # past the start's own icon request
+    out["at_start"] = list(asked)
+    ike.windows[0]._fill_engine_menu()
+    out["menu"] = list(asked)
+    other = [e["name"] for e in ike.config["search_engines"] if e["name"] != ike.config["default_engine"]][0]
+    ike.set_engine(other)
+    out["chosen"] = list(asked)
+    out["default_url"] = [e["url"] for e in ike.config["search_engines"]
+                          if e["name"] == ike.config["default_engine"]][0]
+    from ike import osinfo
+    out["ua"] = [osinfo.browser_user_agent(), ike.shields.user_agent()]
+'''
+
+
+def test_l3_no_request_of_ike_names_ike_and_unused_engines_are_not_asked(run_ike):
+    """L3: the filter lists, updates, version check and DRM download sent a
+    User-Agent of their own ("I.K.E. filter updater"...); at the first start
+    every search engine, Google and Bing included, was asked for its icon.
+    Now all of I.K.E.'s requests carry the pages' User-Agent, and only the
+    engine in use is asked."""
+    import re
+
+    from conftest import APP
+    for path in sorted((APP / "ike").glob("*.py")):
+        for value in re.findall(r'"User-Agent"\s*:\s*([^}\n]+)', path.read_text("utf-8")):
+            assert "browser_user_agent()" in value, (path.name, value)
+        assert "I.K.E. filter updater" not in path.read_text("utf-8"), path.name
+    out = run_ike(STEPS_L3, timeout=60)
+    assert out["ua"][0] == out["ua"][1], out
+    assert len(out["at_start"]) == 1 and out["menu"] == out["at_start"], out
+    assert len(out["chosen"]) == 2 and out["chosen"][1] == out["default_url"], out

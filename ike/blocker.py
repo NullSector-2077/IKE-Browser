@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 
 from PyQt6.QtCore import QObject, QThread, pyqtSignal
 
-from . import background
+from . import background, osinfo
 from .config import CACHE_DIR, DATA_DIR
 from .scriptlets import preprocess
 
@@ -181,7 +181,7 @@ class _Downloader(QThread):
         for name in names[:24]:
             try:
                 req = urllib.request.Request(base + name,
-                                             headers={"User-Agent": "I.K.E. filter updater"})
+                                             headers={"User-Agent": osinfo.browser_user_agent()})
                 with urllib.request.urlopen(req, timeout=40) as r:
                     final = urlsplit(r.geturl())
                     if final.scheme != "https" or (final.hostname or "").lower() != host:
@@ -204,7 +204,7 @@ class _Downloader(QThread):
                 parts = urlsplit(url)
                 if parts.scheme != "https" or not parts.hostname:
                     raise ValueError("filter lists must use HTTPS")
-                req = urllib.request.Request(url, headers={"User-Agent": "I.K.E. filter updater"})
+                req = urllib.request.Request(url, headers={"User-Agent": osinfo.browser_user_agent()})
                 with urllib.request.urlopen(req, timeout=40) as r:
                     final = urlsplit(r.geturl())
                     if final.scheme != "https":

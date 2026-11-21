@@ -257,10 +257,15 @@ class IkeApp(QObject):
             return themed("edit-find", QStyle.StandardPixmap.SP_FileDialogContentsView)
         return ic
 
-    def fetch_engine_icons(self):
-        """Ask each engine's site for its icon, once, for those not known yet."""
+    def fetch_engine_icons(self, name=None):
+        """Ask an engine's site for its icon, once: the engine in use (or the
+        one named), never every engine at once. At the first start each
+        engine, Google and Bing included, was asked within seconds; an engine
+        not used is never contacted (review of 1.1.19, L3)."""
+        name = name or self.config["default_engine"]
         for e in self.config["search_engines"]:
-            self.favicons.fetch(e.get("url", ""))
+            if e.get("name") == name:
+                self.favicons.fetch(e.get("url", ""))
 
     def set_engine(self, name):
         """An engine chosen in the address bar: the default from now on."""
@@ -269,6 +274,7 @@ class IkeApp(QObject):
             return
         self.config["default_engine"] = name
         self.config.save()
+        self.fetch_engine_icons()
         for w in self.windows:
             w.sync_engine()
         self.reload_newtabs()
@@ -276,6 +282,7 @@ class IkeApp(QObject):
     def _engine_from_newtab(self, _name):
         """The engine was chosen on a new tab page: the address bars and the other new tab
         pages show it (the page it was chosen on is being shown again already)."""
+        self.fetch_engine_icons()
         for w in self.windows:
             w.sync_engine()
             for v in w.all_views():
@@ -330,7 +337,7 @@ class IkeApp(QObject):
                 home = cfg["homepage"] if startup == "home" else NEWTAB
                 self.new_window(urls=[home or NEWTAB])
         QTimer.singleShot(1500, self.check_updates)
-        QTimer.singleShot(4000, self.fetch_engine_icons)   # the engines' own icons, once (1.1.10)
+        QTimer.singleShot(4000, self.fetch_engine_icons)   # the engine's own icon, once (1.1.10)
         QTimer.singleShot(20000, self._healthy)
         if cfg["video_hw"] == "on":
             QTimer.singleShot(VIDEO_TRIAL_OK_MS, lambda: _video_trial_done(CONFIG_DIR))

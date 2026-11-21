@@ -349,9 +349,6 @@ def _pinned_handlers(home_ok):
     return PlainHandler(), SecureHandler()
 
 
-USER_AGENT = ["Mozilla/5.0"]     # set to the browser's own by UserScripts.fetch()
-
-
 def _get(url, limit, home_ok=True):
     """Download `url` (at most `limit` bytes). home_ok=False: never from this
     computer or the home network, also through a redirect (1.1.17): the
@@ -371,7 +368,8 @@ def _get(url, limit, home_ok=True):
     opener = urllib.request.build_opener(*handlers)
     # the browser's own User-Agent (review of 1.1.19, M1: "I.K.E. user scripts"
     # told any site which browser this is, with certainty)
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT[0]})
+    from .osinfo import browser_user_agent
+    req = urllib.request.Request(url, headers={"User-Agent": browser_user_agent()})
     with opener.open(req, timeout=40) as r:
         data = r.read(limit + 1)
         ctype = r.headers.get_content_type() if r.headers else ""
@@ -593,10 +591,6 @@ class UserScripts(QObject):
         return "\n".join(lines)
 
     def fetch(self, callback, url="", text=None, newer=None, home_ok=True):
-        try:
-            USER_AGENT[0] = self.app.shields.user_agent()
-        except Exception:
-            pass
         t = Fetcher(self, url, text, newer, home_ok)
         self._threads.add(t)
 

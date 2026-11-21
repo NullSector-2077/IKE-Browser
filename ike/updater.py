@@ -24,7 +24,7 @@ from PyQt6.QtCore import QObject, QThread, pyqtSignal
 
 from . import __version__, background
 from .config import RES_DIR
-from .osinfo import app_dir
+from .osinfo import app_dir, browser_user_agent
 
 UPDATES = app_dir("data") / "updates"
 STATE = UPDATES / "state.json"
@@ -174,7 +174,7 @@ def verify_signature(pubkey_b64, data, sig_b64):
 
 
 def _fetch(url, limit):
-    req = urllib.request.Request(url, headers={"User-Agent": "IKE-Browser-Updater"})
+    req = urllib.request.Request(url, headers={"User-Agent": browser_user_agent()})
     with urllib.request.urlopen(req, timeout=40) as r:
         data = r.read(limit + 1)
     if len(data) > limit:
