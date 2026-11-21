@@ -1453,7 +1453,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if t == QEvent.Type.MouseMove and prev.index == i:
             return False
         tip = self.tabbar.tabToolTip(i) or view.title()
-        prev.show_for(i, pm, tip, obj.mapToGlobal(pos))
+        prev.show_for(i, pm, tip, obj.mapToGlobal(pos), view)
         return t == QEvent.Type.ToolTip
 
     def eventFilter(self, obj, event):

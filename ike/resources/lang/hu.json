@@ -1025,6 +1025,7 @@
 "“%s” uses Manifest V%s. The engine only runs Manifest V3 extensions.": "A(z) „%s” Manifest V%s verziót használ. A motor csak Manifest V3 bővítményeket futtat.",
 "“Send to device” with KDE Connect": "„Küldés eszközre” a KDE Connecttel",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ a választáshoz, Enter az ugráshoz, Esc a bezáráshoz",
-"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "A titkosított DNS nem válaszol az I.K.E. saját kéréseire (frissítések, szűrőlisták): %s"
+"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "A titkosított DNS nem válaszol az I.K.E. saját kéréseire (frissítések, szűrőlisták): %s",
+"Shared by %d tabs of this site": "Ennek a webhelynek %d lapja osztozik rajta"
 }
 }

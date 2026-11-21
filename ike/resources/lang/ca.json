@@ -1025,6 +1025,7 @@
 "“%s” uses Manifest V%s. The engine only runs Manifest V3 extensions.": "«%s» utilitza Manifest V%s. El motor només executa extensions Manifest V3.",
 "“Send to device” with KDE Connect": "«Envia al dispositiu» amb KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ per triar, Retorn per anar-hi, Esc per tancar",
-"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "El DNS xifrat no respon a les sol·licituds pròpies d'I.K.E. (actualitzacions, llistes de filtres): %s"
+"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "El DNS xifrat no respon a les sol·licituds pròpies d'I.K.E. (actualitzacions, llistes de filtres): %s",
+"Shared by %d tabs of this site": "Compartit per %d pestanyes d'aquest lloc"
 }
 }

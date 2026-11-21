@@ -1025,6 +1025,7 @@
 "Middle-click on an empty part of a page, then move the mouse to scroll. Any click or Esc stops it.": "Mittelklick auf eine leere Stelle der Seite, dann die Maus bewegen, um zu scrollen. Jeder Klick oder Esc beendet es.",
 "Open selected text with middle click": "Markierten Text mit Mittelklick öffnen",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "Ein Mittelklick auf eine leere Stelle der Seite öffnet den markierten Text, als Adresse oder als Suche.",
-"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Verschlüsseltes DNS beantwortet die eigenen Anfragen von I.K.E. nicht (Updates, Filterlisten): %s"
+"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Verschlüsseltes DNS beantwortet die eigenen Anfragen von I.K.E. nicht (Updates, Filterlisten): %s",
+"Shared by %d tabs of this site": "Von %d Tabs dieser Website geteilt"
 }
 }

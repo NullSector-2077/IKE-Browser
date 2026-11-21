@@ -1025,6 +1025,7 @@
 "“%s” uses Manifest V%s. The engine only runs Manifest V3 extensions.": "“%s” Manifest V%s dan foydalanadi. Dvigatel faqat Manifest V3 kengaytmalarini ishga tushiradi.",
 "“Send to device” with KDE Connect": "KDE Connect bilan “Qurilmaga yuborish”",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ tanlash uchun, Enter oʻtish uchun, Esc yopish uchun",
-"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Shifrlangan DNS I.K.E.ning oʻz soʻrovlariga (yangilanishlar, filtr roʻyxatlari) javob bermaydi: %s"
+"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Shifrlangan DNS I.K.E.ning oʻz soʻrovlariga (yangilanishlar, filtr roʻyxatlari) javob bermaydi: %s",
+"Shared by %d tabs of this site": "Bu saytning %d ta varagʻi ulashadi"
 }
 }

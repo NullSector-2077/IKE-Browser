@@ -1025,6 +1025,7 @@
 "“%s” uses Manifest V%s. The engine only runs Manifest V3 extensions.": "“%s” përdor Manifest V%s. Motori xhiron vetëm zgjerime Manifest V3.",
 "“Send to device” with KDE Connect": "“Dërgoje te pajisje” me KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ për të zgjedhur, Enter për të shkuar, Esc për të mbyllur",
-"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS-ja e fshehtëzuar nuk u përgjigjet kërkesave të vetë I.K.E.-së (përditësime, lista filtrash): %s"
+"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS-ja e fshehtëzuar nuk u përgjigjet kërkesave të vetë I.K.E.-së (përditësime, lista filtrash): %s",
+"Shared by %d tabs of this site": "Ndahet nga %d skeda të kësaj faqeje"
 }
 }

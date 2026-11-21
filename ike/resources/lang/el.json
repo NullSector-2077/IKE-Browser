@@ -1025,6 +1025,7 @@
 "“%s” uses Manifest V%s. The engine only runs Manifest V3 extensions.": "Το «%s» χρησιμοποιεί Manifest V%s. Η μηχανή εκτελεί μόνο επεκτάσεις Manifest V3.",
 "“Send to device” with KDE Connect": "«Αποστολή σε συσκευή» με το KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ για επιλογή, Enter για μετάβαση, Esc για κλείσιμο",
-"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Το κρυπτογραφημένο DNS δεν απαντά στα ίδια τα αιτήματα του I.K.E. (ενημερώσεις, λίστες φίλτρων): %s"
+"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Το κρυπτογραφημένο DNS δεν απαντά στα ίδια τα αιτήματα του I.K.E. (ενημερώσεις, λίστες φίλτρων): %s",
+"Shared by %d tabs of this site": "Κοινόχρηστο από %d καρτέλες αυτού του ιστότοπου"
 }
 }

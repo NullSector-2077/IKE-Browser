@@ -1025,6 +1025,7 @@
 "“%s” uses Manifest V%s. The engine only runs Manifest V3 extensions.": "“%s” Manifest V%s пайдаланады. Қозғалтқыш тек Manifest V3 кеңейтімдерін іске қосады.",
 "“Send to device” with KDE Connect": "KDE Connect арқылы “Құрылғыға жіберу”",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ таңдау үшін, Enter өту үшін, Esc жабу үшін",
-"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Шифрланған DNS I.K.E. өз сұрауларына (жаңартулар, сүзгі тізімдері) жауап бермейді: %s"
+"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Шифрланған DNS I.K.E. өз сұрауларына (жаңартулар, сүзгі тізімдері) жауап бермейді: %s",
+"Shared by %d tabs of this site": "Осы сайттың %d қойындысы ортақ пайдаланады"
 }
 }
