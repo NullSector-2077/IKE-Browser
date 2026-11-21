@@ -1,6 +1,31 @@
 # Changelog
 
-## 1.1.21 (in preparation)
+## 1.1.21
+
+Fingerprinting: the points left by the independent audit of 1.1.20, each
+with a test that failed before the fix (docs/SECURITY.md has the table).
+
+- **Fonts at Strict and Maximum**: the engine itself now sees only the font
+  families most Linux computers have (DejaVu, Liberation, Noto, Cantarell,
+  Source Han, WenQuanYi), so a page's style sheet (`src: local()`) or a
+  worker can no longer find a font the user installed. Read at start: a
+  change of level applies after a restart. I.K.E.'s own interface uses the
+  same fonts at these levels.
+- **Processors**: the number shown is 4 or 8, the most common values (2 was
+  rare enough to single the browser out).
+- **Screen size at Strict**: `matchMedia` answers the shown screen size too;
+  a search over the device-width queries gave the real one away.
+- **The noise's site** follows the Public Suffix List: two unrelated sites
+  on one hosting service (a.altervista.org, b.altervista.org) no longer share
+  their noise.
+- **`window.name`** is emptied when the tab moves to another site.
+
+- **The tab preview** (the mouse over a tab that is not open) is a card of
+  I.K.E.'s own: fully opaque (a tooltip window, which some desktop styles draw
+  partly transparent), with rounded corners, its picture the card's whole
+  width on a scaled screen too (it filled half of it at 2x), and under the
+  title the tab's CPU and memory with a coloured bar each, read once a second
+  while the card is shown.
 
 The interface, as the owner tried it on KDE Plasma (no menu, setting or
 shortcut changed):
