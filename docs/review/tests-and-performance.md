@@ -451,7 +451,9 @@ them:
   run without a DNS lookup (a lookup there would slow every page). The web
   engine's own protection (Private Network Access) still stops a public page's
   scripts and images towards it; a public page that sends the tab there is not
-  stopped.
+  stopped. (Note of 2026-11-20: tried with Qt 6.12, the engine's protection
+  is off and stopped nothing; since 1.1.18 `fritz.box`, `*.lan` and similar
+  names are recognised by their form. See docs/SECURITY.md.)
 - Behind a proxy set in the environment the user-script downloads cannot pin
   the checked address (the proxy looks the name up); the redirect and address
   checks still apply.
