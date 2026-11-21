@@ -13,7 +13,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from conftest import ROOT
+from conftest import ROOT, needs_engine
 
 needs_node = pytest.mark.skipif(not (shutil.which("node") and shutil.which("git")),
                                 reason="needs Node.js and git")
@@ -700,3 +700,89 @@ def test_anchor_context_places():
     assert "found at line 3:" in twice and "found at line 6:" in twice
     gone = tool.anchor_context("x\ny\n", "nothing\nof this\n")
     assert "(2 of 2)" in gone and "no line of the anchor is found once" in gone
+
+
+# --- the default filter lists in the bundled engine (1.1.20) -----------------
+
+SNAPSHOT = (ROOT / "tests/data/filter-lists-snapshot.txt").read_bytes()
+UBO_URL = "https://ublockorigin.github.io/uAssets/filters/filters.txt"
+LISTS = [{"name": "uBlock filters", "group": "ads", "enabled": True, "url": UBO_URL},
+         {"name": "EasyList", "group": "ads", "enabled": True, "url": "https://easylist.to/easylist/easylist.txt"},
+         {"name": "Cookies", "group": "consent", "enabled": True, "url": "https://cookies.example/list.txt"},
+         {"name": "Off", "group": "ads", "enabled": False, "url": "https://off.example/list.txt"}]
+
+
+def served(pages):
+    """A stand-in for the lists' sites: their pages, or "unreachable"."""
+    def get(url):
+        if url not in pages:
+            raise OSError("network unreachable: %s" % url)
+        return pages[url]
+    return get
+
+
+@needs_engine
+def test_the_default_lists_in_the_bundled_engine():
+    tool = load_tool()
+    sub = b"! sub-list\n||sub.example^\nsub.example##+js(set, a, 1)\n"
+    pages = {UBO_URL: SNAPSHOT + b"\n!#include sub.txt\n!#include missing.txt\n",
+             "https://ublockorigin.github.io/uAssets/filters/sub.txt": sub,
+             "https://easylist.to/easylist/easylist.txt": SNAPSHOT + b"\nother.example##+js(no-such-scriptlet, x)\n",
+             "https://cookies.example/list.txt": b"! cookies\ncookies.example##+js(unknown-there, x)\n##.cookie-bar\n"}
+    info = tool.check_filter_lists(ROOT, get=served(pages), lists=LISTS)
+    assert [r["name"] for r in info["lists"]] == ["uBlock filters", "EasyList", "Cookies"]     # enabled only
+    assert info["engine"]["built"] and info["engine"]["parse_report"], info["engine"]
+    ubo, easy, cookies = info["lists"]
+    assert ubo["state"] == "ok" and ubo["includes_missing"] == ["missing.txt"]
+    assert ubo["network"] >= 3 and ubo["cosmetic"] >= 15 and ubo["errors"] >= 2 and ubo["unsupported"] == 0
+    assert any("html filtering" in e[2] for e in ubo["examples"])
+    # the scriptlets as I.K.E. reads them: the trusted ones only from uBlock Origin's own site;
+    # the "!#else" branch (another blocker's rules) is not read
+    assert ubo["scriptlets"]["rules"] == 15 and ubo["scriptlets"]["untrusted"] == 0          # 14 + the sub-list's
+    assert easy["scriptlets"]["untrusted"] == 3 and easy["scriptlets"]["rules"] == 11
+    assert cookies["scriptlets"] is None                     # I.K.E. runs no scriptlets of the cookie lists
+    # uBlock Origin's own resources: known, a note; a name nobody knows: a finding (drift)
+    assert set(info["unknown_scriptlets"]) == {"noeval", "nofab", "popads.net", "fingerprint2", "no-such-scriptlet"}
+    assert info["unknown_scriptlets"]["noeval"]["lists"] == ["uBlock filters", "EasyList"]
+    assert info["state"] == "findings" and len(info["findings"]) == 1
+    assert "`no-such-scriptlet` (1 rules in EasyList)" in info["findings"][0] and "drift" in info["findings"][0]
+    assert sum("`noeval`" in n for n in info["notes"]) == 1
+    md = tool.lists_markdown(info)
+    assert "### The default filter lists in the bundled engine" in md and "**Findings about the components**" in md
+    assert "| uBlock filters | ok |" in md and "not read (cookie list)" in md and "built from the lists: yes" in md
+    # every list unreachable: said so, nothing found, nothing failed
+    info = tool.check_filter_lists(ROOT, get=served({}), lists=LISTS)
+    assert info["state"] == "unreachable" and info["unreachable"] == 3 and not info["findings"]
+    assert "source unreachable" in tool.lists_markdown(info)
+    # a list that is no list (binary, empty): a finding about that list
+    info = tool.check_filter_lists(ROOT, get=served({UBO_URL: b"\x00" * 100}), lists=LISTS[:1])
+    assert info["state"] == "findings" and "not a usable list" in info["findings"][0]
+
+
+@needs_engine
+def test_the_lists_check_writes_its_report(tmp_path, monkeypatch):
+    tool = load_tool()
+    monkeypatch.setattr(tool, "fetch_source", lambda url, timeout=60: served({UBO_URL: SNAPSHOT})(url))
+    real = tool.check_filter_lists
+    monkeypatch.setattr(tool, "check_filter_lists", lambda root: real(root, lists=LISTS[:2]))
+    out = tmp_path / "gh-output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(out))
+    assert tool.main(["--filter-lists", str(tmp_path / "lists.json"), "--markdown", str(tmp_path / "lists.md")]) == 0
+    assert out.read_text() == "lists=ok\nlists_findings=0\nlists_unreachable=1\n"
+    data = json.loads((tmp_path / "lists.json").read_text())
+    assert data["state"] == "ok" and data["lists"][0]["scriptlets"]["rules"] == 14
+    md = (tmp_path / "lists.md").read_text()
+    assert "Some lists could not be downloaded today (source unreachable): EasyList." in md
+
+
+@pytest.mark.skipif(not os.environ.get("IKE_TEST_NETWORK"), reason="IKE_TEST_NETWORK=1 to use the real lists")
+@needs_engine
+def test_the_real_default_lists(tmp_path):
+    """The lists of today, from their sites: whatever they hold, the check
+    reports and never fails."""
+    out = tmp_path / "lists.json"
+    subprocess.run(["python3", str(ROOT / "tools/check-components.py"), "--filter-lists", str(out)], check=True)
+    data = json.loads(out.read_text())
+    assert data["state"] in ("ok", "findings", "unreachable")
+    if data["state"] != "unreachable":
+        assert data["engine"]["built"], data["engine"]
