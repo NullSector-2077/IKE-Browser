@@ -16,13 +16,19 @@ list of the files involved to .autofix/related.txt:
   (tools/check-autofix-patch.py --related).
 
 A test file that failed also brings in the I.K.E. modules it names ("from ike
-import lookalike", "ike.shields"), as the cause is often there.
+import lookalike", "ike.shields") and, since 1.1.19, the page scripts it names
+("fingerprint.js"), as the cause is often there; and so do the files of
+I.K.E. the latest commits changed (autofix trial 4: the reserves, which cannot
+open files, were given only the failing tests and could not see the code that
+broke them).
 
     autofix-context.py --repo DIR [--failure FILE] [--out-dir DIR]
 """
 
 import argparse
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -31,6 +37,20 @@ AROUND = 30                 # lines before and after a place
 MAX_PLACES = 8
 MAX_LINES = 700             # all excerpts together
 MAX_RELATED = 12
+RECENT_COMMITS = 4          # the latest commits looked at (first parent)
+MAX_RECENT = 6
+# files a fix may never change (tools/check-autofix-patch.py's FORBIDDEN_FILES;
+# a test keeps the two lists together) and the ad blocker's wrapper: never
+# brought in by the latest commits, so no assistant is led to change one (a
+# refusal for safety stops every reserve)
+NOT_RECENT = {
+    "ike/__init__.py", "ike/updater.py", "tests/conftest.py", "tests/harness.py", "tests/settings-keys.json",
+    "tools/make-release.py", "tools/publish.py", "tools/prepare-maintenance.py", "tools/check-autofix-patch.py",
+    "tools/autofix-plan.py", "tools/autofix-agent.py", "tools/autofix-context.py", "tools/autofix-reserve.py",
+    "tools/autofix-selftest.py", "ike/resources/videoads.js", "ike/resources/videorelay.js",
+    "ike/resources/mediahook.js", "tools/test-requirements.txt", "tools/automation-health.py",
+    "tools/third-party.py", "ike/blocker.py", "ike/scriptlets.py",
+}
 MAX_EXAMPLES = 3            # other places that use a missing name (1.1.16)
 EXAMPLE_AROUND = 4
 _MISSING = re.compile(r"has no attribute '(\w+)'|name '(\w+)' is not defined|cannot import name '(\w+)'")
@@ -122,7 +142,44 @@ def examples(repo, failure, found):
             "used in code that works. Compare the form.\n\n" + "\n".join(parts))
 
 
-def build(repo, failure):
+_SCRIPT = re.compile(r"\b([\w-]+\.js)\b")
+
+
+def scripts_named(test_text, repo):
+    """I.K.E.'s page scripts a test file names: ike/resources/<name>.js files that exist."""
+    found = []
+    for m in _SCRIPT.finditer(test_text):
+        p = "ike/resources/%s" % m.group(1)
+        if (repo / p).is_file() and p not in found:
+            found.append(p)
+    return found
+
+
+def recent_changes(repo, commits=RECENT_COMMITS):
+    """Files of I.K.E. (ike/, tests/, tools/) the latest commits changed, the
+    newest first; a merge counts as its changes to the first parent. Read
+    only, with no configuration, hook or attribute of the tree; [] when git
+    cannot tell."""
+    env = dict(os.environ, GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull, GIT_ATTR_NOSYSTEM="1",
+               GIT_TERMINAL_PROMPT="0")
+    try:
+        out = subprocess.run(["git", "-C", str(repo), "-c", "safe.directory=*", "-c", "core.hooksPath=" + os.devnull,
+                              "-c", "core.fsmonitor=false", "log", "-n", str(commits), "--first-parent", "-m",
+                              "--format=", "--name-only", "--no-renames", "HEAD"],
+                             capture_output=True, text=True, timeout=30, env=env)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    found = []
+    for line in out.stdout.splitlines():
+        p = line.strip()
+        if (p.startswith(("ike/", "tests/", "tools/")) and p not in found and p not in NOT_RECENT
+                and not p.startswith(("tests/data/", "tools/build-")) and (repo / p).is_file()
+                and not (repo / p).is_symlink()):
+            found.append(p)
+    return found[:MAX_RECENT]
+
+
+def build(repo, failure, recent=True):
     found = places(failure, repo)
     related = []
     for path, _line in found:
@@ -130,10 +187,12 @@ def build(repo, failure):
             related.append(path)
     for path in list(related):
         if path.startswith("tests/"):
-            for mod in modules_named((repo / path).read_text("utf-8", errors="replace"), repo):
+            text = (repo / path).read_text("utf-8", errors="replace")
+            for mod in modules_named(text, repo) + scripts_named(text, repo):
                 if mod not in related:
                     related.append(mod)
-    related = related[:MAX_RELATED]
+    recent = [p for p in recent_changes(repo) if p not in related] if recent else []
+    related = (related + recent)[:MAX_RELATED]
     parts, used = [], 0
     for path, line in found[:MAX_PLACES]:
         start, end, body = excerpt(repo, path, line)
@@ -149,6 +208,10 @@ def build(repo, failure):
         text = ("# Code at the failure\n\nPrepared by GitHub from the places the failure names "
                 "(line numbers on the left; they are not part of the files).\n\n" + "\n".join(parts))
     text += examples(repo, failure, found)
+    recent = [p for p in recent if p in related]
+    if recent:
+        text += ("\nChanged by the latest commits (the cause is often there): %s\n"
+                 % ", ".join("`%s`" % p for p in recent))
     if related:
         text += "\nFiles involved: %s\n" % ", ".join("`%s`" % p for p in related)
     return text, related
@@ -159,6 +222,7 @@ def main(argv=None):
     ap.add_argument("--repo", default=".")
     ap.add_argument("--failure", help="default: REPO/.autofix/failure.md")
     ap.add_argument("--out-dir", help="default: REPO/.autofix")
+    ap.add_argument("--no-recent", action="store_true", help="not the files of the latest commits")
     a = ap.parse_args(argv)
     repo = Path(a.repo).resolve()
     failure_file = Path(a.failure) if a.failure else repo / ".autofix" / "failure.md"
@@ -167,7 +231,7 @@ def main(argv=None):
         failure = failure_file.read_text("utf-8", errors="replace")
     except OSError:
         failure = ""
-    text, related = build(repo, failure)
+    text, related = build(repo, failure, recent=not a.no_recent)
     out.mkdir(parents=True, exist_ok=True)
     (out / "context.md").write_text(text, "utf-8")
     (out / "related.txt").write_text("".join(p + "\n" for p in related), "utf-8")

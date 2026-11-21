@@ -31,7 +31,9 @@ For each model in turn:
     an answer that cannot be applied     -> once more, told what was wrong, then the next model
     a fix the checks refuse (--checker)  -> undone; the next model is told why
     a fix refused for safety (exit 3)    -> undone; stop: no other model is asked
-    "no fix possible in the code"        -> the next model; stop when two models say so
+    "no fix possible in the code"        -> the next model; stop when models of two
+                                            providers say so (1.1.19: two of one provider
+                                            stopped the chain before the last one)
     any other malformed answer or error  -> undone; the next model
 
 What a model writes reaches the log only through for_log(): one line, and no
@@ -520,6 +522,15 @@ def one_model(url, key, model, base, tokens, deadline, opener, workdir, shown, a
     return "error", "", refused
 
 
+def _ping_one(url, key, model, opener):
+    try:
+        ask(url, key, model, [{"role": "user", "content": "Answer with the word OK."}],
+            timeout=60, opener=opener, max_tokens=16)
+        return "ok"
+    except Stop as e:
+        return e.args[0] if e.args else "temporary"
+
+
 def ping(env=os.environ, opener=urllib.request.urlopen):
     """1.1.19, for the weekly check: one tiny question to the first model of
     each reserve that has a key, so a refused key or a model that is gone is
@@ -530,12 +541,16 @@ def ping(env=os.environ, opener=urllib.request.urlopen):
         if name in done:
             continue
         done.add(name)
-        try:
-            ask(url, key, model, [{"role": "user", "content": "Answer with the word OK."}],
-                timeout=60, opener=opener, max_tokens=16)
-            out.append((name, model, "ok"))
-        except Stop as e:
-            out.append((name, model, e.args[0] if e.args else "temporary"))
+        result = _ping_one(url, key, model, opener)
+        if result == "config" and name == "OpenRouter":
+            # as in a real run: a listed free model that is gone gives way to
+            # the free models OpenRouter offers now
+            try:
+                for m in free_models(key, opener=opener)[:1]:
+                    model, result = m, _ping_one(url, key, m, opener)
+            except Exception:
+                pass
+        out.append((name, model, result))
     return out
 
 
@@ -607,8 +622,10 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
             # a plain fix); the chain stops when two different models agree
             said_none.append(used)
             none_summary = said
-            if len(set(said_none)) >= 2:
-                print("  two models say it cannot be fixed in the code: no other model is asked", flush=True)
+            # 1.1.19 (autofix trial 4): two models of one provider (Z.AI's two
+            # Flash models) stopped the chain before OpenRouter was asked
+            if len({u.split(" / ")[0] for u in said_none}) >= 2:
+                print("  two providers say it cannot be fixed in the code: no other model is asked", flush=True)
                 result = "none"
                 break
             print("  says it cannot be fixed in the code: the next model is asked too", flush=True)
