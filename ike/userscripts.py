@@ -48,7 +48,14 @@ from .i18n import T
 
 DIR = DATA_DIR / "userscripts"
 INDEX = DIR / "index.json"
-WORLD = 2                                # QWebEngineScript.ScriptWorldId.UserWorld
+WORLD = 10                               # the first world of a user script (1.1.20: one each)
+WORLD_LAST = 250                         # Qt allows 0-256; I.K.E.'s own use 0-9
+
+
+def page_world(grants):
+    """A script runs in the page's own world: no GM function, or unsafeWindow."""
+    grants = [g for g in grants or () if g != "none"]
+    return not grants or "unsafeWindow" in grants
 MAX_SCRIPT = 5 * 1024 * 1024
 MAX_REPLY = 20 * 1024 * 1024
 UPDATE_INTERVAL = 24 * 3600
@@ -442,6 +449,8 @@ def update_needs_consent(old, got):
         return True                      # no @connect at all means any host
     if old.get("noframes") and "noframes" not in meta:
         return True
+    if page_world(meta["grant"]) != page_world(old.get("grant", [])):
+        return True                      # into the page's world, or out of it (review of 1.1.19, L4)
     source = got.get("source") or ""
     deps = dependency_urls(meta, source)
     if any(not u.startswith("https://") for u in deps):
@@ -490,6 +499,7 @@ class UserScripts(QObject):
         self.network = QNetworkAccessManager(self)
         self.secret = secrets.token_hex(16)   # names of the answer callbacks
         self.tokens, self._by_token = {}, {}  # one secret token per script, this session only
+        self._asked = {}                      # (page, script, request) -> the site asking (L4)
         self._patterns = {}                   # sid -> (include, exclude) compiled, for the bridge
         self.scripts = {}
         self._threads = set()
@@ -677,10 +687,19 @@ class UserScripts(QObject):
 
     # --- building ----------------------------------------------------
     def _world(self, s):
-        grants = [g for g in s.get("grant", []) if g != "none"]
-        if not grants or "unsafeWindow" in grants:
+        """The page's own world for scripts without GM functions (or with
+        unsafeWindow); otherwise a world of the script's own, so that another
+        installed script cannot replace what it relies on and take its token
+        or its answers (review of 1.1.19, L4: all shared world 2)."""
+        if page_world(s.get("grant", [])):
             return 0                     # the page itself
-        return WORLD
+        used = {o.get("world") for k, o in self.scripts.items() if o is not s}
+        w = s.get("world")
+        if not isinstance(w, int) or isinstance(w, bool) or not WORLD <= w <= WORLD_LAST or w in used:
+            w = next((i for i in range(WORLD, WORLD_LAST + 1) if i not in used), WORLD)
+            s["world"] = w
+            QTimer.singleShot(0, self._save)
+        return w
 
     def _token(self, sid):
         tok = self.tokens.get(sid)
@@ -875,8 +894,11 @@ class UserScripts(QObject):
 
     def _answer(self, page, sid, rid, data):
         s = self.scripts.get(sid)
+        asked = self._asked.pop((id(page), sid, rid), None)
         if s is None:
             return
+        if asked is not None and asked != _origin(page.url()):
+            return                        # the tab went to another site meanwhile (review of 1.1.19, L4)
         cb = self._callback(sid)
         js = "window[%s] && window[%s](%s, %s);" % (json.dumps(cb), json.dumps(cb),
                                                  json.dumps(rid), json.dumps(data))
@@ -887,6 +909,9 @@ class UserScripts(QObject):
 
     def _xhr(self, page, sid, d):
         rid = str(d.get("rid", ""))
+        if len(self._asked) > 2000:
+            self._asked.clear()
+        self._asked[(id(page), sid, rid)] = _origin(page.url())
         url = QUrl(str(d.get("url", "")))
         method = str(d.get("method", "GET")).upper()
         if (url.scheme() not in ("http", "https") or not rid
@@ -1031,6 +1056,10 @@ class UserScripts(QObject):
             reply.deleteLater()
             self._answer(page, sid, rid, out)
         reply.finished.connect(done)
+
+
+def _origin(url):
+    return "%s://%s:%d" % (url.scheme(), url.host().lower(), url.port())
 
 
 def _debug(text):

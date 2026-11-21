@@ -55,7 +55,7 @@ jobs:
         run: |
           pacman -S --noconfirm --needed \
               python python-pyqt6 python-pyqt6-webengine qt6-webengine qt6-webchannel qt6-svg \
-              python-cryptography python-jeepney python-pytest \
+              python-cryptography python-jeepney publicsuffix-list python-pytest \
               base-devel rust sudo nodejs \
               ffmpeg dbus glib2 noto-fonts ttf-dejavu libnotify xdg-utils
       - name: AdBlock engine

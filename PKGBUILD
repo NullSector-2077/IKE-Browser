@@ -10,7 +10,7 @@ arch=('x86_64')
 url="https://github.com/NullSector-2077/IKE-Browser"
 license=('GPL-3.0-or-later')
 depends=('python' 'python-pyqt6' 'python-pyqt6-webengine' 'qt6-webengine' 'qt6-webchannel'
-         'qt6-svg' 'python-cryptography' 'python-jeepney' 'hicolor-icon-theme')
+         'qt6-svg' 'python-cryptography' 'python-jeepney' 'hicolor-icon-theme' 'publicsuffix-list')
 makedepends=('rust' 'gcc')
 optdepends=('libnotify: desktop notifications'
             'noto-fonts-cjk: Chinese and Japanese interface text'

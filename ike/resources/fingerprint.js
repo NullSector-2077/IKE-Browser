@@ -110,7 +110,7 @@
   // share a seed.
   var SLD = { co: 1, com: 1, org: 1, net: 1, gov: 1, edu: 1, ac: 1, or: 1, ne: 1, go: 1, gob: 1,
     nom: 1, mil: 1, ltd: 1, plc: 1, sch: 1, nhs: 1, me: 1, info: 1, id: 1, gv: 1 };
-  var HOSTED = /\.(github\.io|gitlab\.io|blogspot\.com|herokuapp\.com|pages\.dev|workers\.dev|netlify\.app|vercel\.app|web\.app|firebaseapp\.com|appspot\.com|cloudfront\.net|azurewebsites\.net|onrender\.com|neocities\.org)$/;
+  var HOSTED = /\.(github\.io|gitlab\.io|blogspot\.com|herokuapp\.com|pages\.dev|workers\.dev|netlify\.app|vercel\.app|web\.app|firebaseapp\.com|appspot\.com|cloudfront\.net|azurewebsites\.net|onrender\.com|neocities\.org|wordpress\.com|tumblr\.com|s3\.amazonaws\.com|pp\.ua|myshopify\.com|substack\.com|wixsite\.com|weebly\.com|fly\.dev|glitch\.me|repl\.co|surge\.sh|ngrok\.io|ngrok-free\.app|duckdns\.org|no-ip\.org)$/;
   function siteOf(h) {
     if (!h || /^[\d.]+$/.test(h) || h.indexOf(':') >= 0) return h;
     var p = h.split('.');
@@ -180,10 +180,21 @@
       return x;
     };
   }
-  // Invisible noise, always the same for one site in one session.
+  // Invisible noise, always the same for one site in one session. Its pattern
+  // depends on the picture too (review of 1.1.19, H1): with a pattern that
+  // depended only on the size, reading a plain grey canvas of the same size
+  // gave the pattern away, and XOR-ing it back gave the real pixels. The
+  // picture's hash leaves out the lowest bit of R, G and B, the only bits
+  // the noise changes, so a picture read again gets the same noise. Self-
+  // contained: it also runs inside workers (passed by its source).
   function farble(data, seed, rng) {
-    var next = rng(seed ^ data.length);
     var n = data.length;
+    var h = 0x811c9dc5;
+    for (var k = 0; k < n; k++) {
+      h ^= (k & 3) === 3 ? data[k] : data[k] & 254;
+      h = Math.imul(h, 16777619);
+    }
+    var next = rng(((seed ^ n ^ h) >>> 0) || 1);
     var step = n > 400000 ? 4 * Math.ceil(n / 400000) : 4;
     for (var i = 0; i < n; i += step) {
       var r = next();
@@ -254,8 +265,6 @@
     var real = navigator.languages;
     langs = real && real.length ? [real[0]] : null;
   }
-  var audioFactor = 1 + ((seed % 2000) - 1000) / 10000000;
-  var textDelta = ((seed % 7) - 3) / 100000;
   var SCREENS = [[1280, 720], [1366, 768], [1440, 900], [1536, 864], [1600, 900], [1680, 1050],
     [1920, 1080], [1920, 1200], [2560, 1080], [2560, 1440], [3440, 1440], [3840, 2160]];
   function usualScreen(w, h) {
@@ -351,7 +360,10 @@
     var d = Object.getOwnPropertyDescriptor(obj, name);
     if (!d || !d.get) return;
     var orig = d.get;
-    d.get = accessor(name, function () { return fn.call(this, orig); }, orig);
+    // the engine's own getter first: on a wrong object it throws as in
+    // Chrome ("Illegal invocation"); a replacement that never threw told
+    // I.K.E. apart with one line (review of 1.1.19, M5)
+    d.get = accessor(name, function () { RAPPLY(orig, this, []); return fn.call(this, orig); }, orig);
     try { Object.defineProperty(obj, name, d); } catch (e) {}
   }
   function setter(obj, name, after) {
@@ -388,7 +400,7 @@
   // ---- inline workers -----------------------------------------------------------
   // Runs inside the worker; must not use anything from outside its own body.
   function workerPatch(c, rng, farble, gpuFor) {
-    var toStr = Function.prototype.toString, nat = new WeakMap();
+    var toStr = Function.prototype.toString, nat = new WeakMap(), RAW = Reflect.apply;
     function method(name, impl, orig) {
       var f = ({ [name]() { return impl.apply(this, arguments); } })[name];
       try { Object.defineProperty(f, 'length', { value: orig.length, configurable: true }); } catch (e) {}
@@ -405,7 +417,7 @@
       var d = obj && Object.getOwnPropertyDescriptor(obj, name);
       if (!d || !d.get) return;
       var orig = d.get;
-      var g = Object.getOwnPropertyDescriptor({ get [name]() { return fn.call(this, orig); } }, name).get;
+      var g = Object.getOwnPropertyDescriptor({ get [name]() { RAW(orig, this, []); return fn.call(this, orig); } }, name).get;
       nat.set(g, toStr.call(orig));
       d.get = g;
       try { Object.defineProperty(obj, name, d); } catch (e) {}
@@ -499,8 +511,12 @@
         };
       });
     }
-    if (c.strict) getter(N, 'gpu', function () { return undefined; });
-    else if (self.GPUAdapterInfo) {
+    if (c.strict) {
+      // as Chrome on a card it does not support: WebGPU there, no adapter
+      // (review of 1.1.19, M5: "gpu" in navigator with no value was Chrome's never)
+      var GP = self.GPU && GPU.prototype;
+      wrap(GP, 'requestAdapter', function () { return function () { return Promise.resolve(null); }; });
+    } else if (self.GPUAdapterInfo) {
       var GI = self.GPUAdapterInfo.prototype;
       var gd = Object.getOwnPropertyDescriptor(GI, 'vendor'), realVendor = gd && gd.get;
       var mine = function (info) {
@@ -731,7 +747,26 @@
       });
     }
     if (strict && w.TextMetrics) {
-      getter(w.TextMetrics.prototype, 'width', function (orig) { return orig.call(this) + textDelta; });
+      // a tiny change of each text's width, its own for every text and font
+      // and site, and none for an empty text: the same offset for every text
+      // was read with measureText('') (review of 1.1.19, H1)
+      var measured = new w.WeakMap();
+      [w.CanvasRenderingContext2D, w.OffscreenCanvasRenderingContext2D].forEach(function (C) {
+        if (!C) return;
+        wrap(C.prototype, 'measureText', function (orig) {
+          return function (text) {
+            var m = RAPPLY(orig, this, arguments);
+            try { measured.set(m, String(text) + '|' + this.font); } catch (e) {}
+            return m;
+          };
+        });
+      });
+      getter(w.TextMetrics.prototype, 'width', function (orig) {
+        var real = RAPPLY(orig, this, []);
+        var key = measured.get(this);
+        if (!real || key === undefined) return real;
+        return real * (1 + (((hash(seed + '|' + key) >>> 8) % 61) - 30) / 10000000);
+      });
     }
 
     // ---- WebGL: hide the raw GPU identity in strict profiles; retain pixel farbling ----
@@ -772,26 +807,63 @@
         };
       });
     });
-    if (strict) getter(w.Navigator.prototype, 'gpu', function () { return undefined; });
-    else gpuInfo(w);
+    if (strict) {
+      // as Chrome on a card it does not support: WebGPU there, no adapter (M5)
+      wrap(w.GPU && w.GPU.prototype, 'requestAdapter', function () {
+        return function () { return w.Promise.resolve(null); };
+      });
+    } else gpuInfo(w);
 
     // ---- audio ----
     var seenBuffers = new WeakSet();
+    // Only what the engine rendered is changed, every sample by its own tiny
+    // factor (review of 1.1.19, H1): every 97th sample by one factor could be
+    // read back from a buffer the page wrote itself, or skipped.
+    function audioNoise(i) {
+      var x = Math.imul((i ^ seed) >>> 0, 0x9E3779B1);
+      x ^= x >>> 15; x = Math.imul(x, 0x85EBCA77); x ^= x >>> 13;
+      return 1 + (((x >>> 0) % 2001) - 1000) / 10000000;
+    }
+    var rendered = new w.WeakSet();
+    [w.OfflineAudioContext, w.BaseAudioContext].forEach(function (C) {
+      if (!C) return;
+      wrap(C.prototype, 'startRendering', function (orig) {
+        return function () {
+          var p = RAPPLY(orig, this, arguments);
+          try {
+            return p.then(function (buf) { try { rendered.add(buf); } catch (e) {} return buf; });
+          } catch (e) { return p; }
+        };
+      });
+    });
+    if (w.OfflineAudioCompletionEvent) {
+      getter(w.OfflineAudioCompletionEvent.prototype, 'renderedBuffer', function (orig) {
+        var buf = RAPPLY(orig, this, []);
+        try { if (buf) rendered.add(buf); } catch (e) {}
+        return buf;
+      });
+    }
     if (w.AudioBuffer) {
       wrap(w.AudioBuffer.prototype, 'getChannelData', function (orig) {
         return function () {
-          var d = orig.apply(this, arguments);
-          if (!seenBuffers.has(d)) {
+          var d = RAPPLY(orig, this, arguments);
+          if (rendered.has(this) && !seenBuffers.has(d)) {
             seenBuffers.add(d);
-            for (var i = 0; i < d.length; i += 97) d[i] = d[i] * audioFactor;
+            for (var i = 0; i < d.length; i++) d[i] = d[i] * audioNoise(i);
           }
           return d;
         };
       });
+      var newGetData = w.AudioBuffer.prototype.getChannelData;
       wrap(w.AudioBuffer.prototype, 'copyFromChannel', function (orig) {
-        return function (dest) {
-          var r = orig.apply(this, arguments);
-          for (var i = 0; i < dest.length; i += 97) dest[i] = dest[i] * audioFactor;
+        return function (dest, channel, start) {
+          var r = RAPPLY(orig, this, arguments);
+          if (rendered.has(this)) {
+            // the same values getChannelData gives (noised once)
+            var d = RAPPLY(newGetData, this, [channel >>> 0]);
+            var from = start >>> 0;
+            for (var i = 0; i < dest.length && from + i < d.length; i++) dest[i] = d[from + i];
+          }
           return r;
         };
       });
@@ -800,8 +872,8 @@
       ['getFloatFrequencyData', 'getFloatTimeDomainData'].forEach(function (name) {
         wrap(w.AnalyserNode.prototype, name, function (orig) {
           return function (arr) {
-            var r = orig.apply(this, arguments);
-            for (var i = 0; i < arr.length; i++) arr[i] = arr[i] * audioFactor;
+            var r = RAPPLY(orig, this, arguments);
+            for (var i = 0; i < arr.length; i++) arr[i] = arr[i] * audioNoise(i);
             return r;
           };
         });
@@ -828,6 +900,46 @@
       var frozenLangs = w.Object.freeze(w.Array.from(langs));
       getter(NP, 'languages', function () { return frozenLangs; });
       if (maximum) getter(NP, 'language', function () { return frozenLangs[0]; });
+    }
+    if (maximum && w.Intl && w.Proxy) {
+      // Maximum shows en-US: dates, numbers and sorting with no language
+      // asked for follow it too; they gave the real language away and
+      // contradicted navigator.language (review of 1.1.19, M5)
+      var LOC = frozenLangs ? frozenLangs[0] : 'en-US', RCON = Reflect.construct;
+      ['DateTimeFormat', 'NumberFormat', 'Collator', 'PluralRules', 'RelativeTimeFormat', 'ListFormat',
+        'DisplayNames', 'Segmenter', 'DurationFormat'].forEach(function (n) {
+        var C = w.Intl[n];
+        if (typeof C !== 'function') return;
+        var fix = function (args) {
+          var a = w.Array.prototype.slice.call(args);
+          if (a[0] === undefined) a[0] = LOC;
+          return a;
+        };
+        var P = new w.Proxy(C, {
+          construct: function (t, args, nt) { return RCON(t, fix(args), nt === P ? t : nt); },
+          apply: function (t, self, args) { return RAPPLY(t, self, fix(args)); }
+        });
+        natives.set(P, origToString.call(C));
+        try {
+          Object.defineProperty(w.Intl, n, { value: P, writable: true, configurable: true, enumerable: false });
+          Object.defineProperty(C.prototype, 'constructor', { value: P, writable: true, configurable: true,
+            enumerable: false });
+        } catch (e) {}
+      });
+      [[w.Date.prototype, ['toLocaleString', 'toLocaleDateString', 'toLocaleTimeString']],
+        [w.Number.prototype, ['toLocaleString']], [w.BigInt && w.BigInt.prototype, ['toLocaleString']],
+        [w.String.prototype, ['localeCompare']]].forEach(function (pair) {
+        pair[1].forEach(function (name) {
+          wrap(pair[0], name, function (orig) {
+            var at = name === 'localeCompare' ? 1 : 0;
+            return function () {
+              var a = w.Array.prototype.slice.call(arguments);
+              if (a[at] === undefined) { while (a.length < at) a.push(undefined); a[at] = LOC; }
+              return RAPPLY(orig, this, a);
+            };
+          });
+        });
+      });
     }
     // ---- speech voices (1.1.15): the installed voices tell the system and
     // its language packs apart. Balanced keeps the voices of the page's own
@@ -858,7 +970,13 @@
     }
     if (strict) {
       maskFonts(w);
-      try { delete NP.getBattery; } catch (e) {}
+      // the battery as a computer on mains power reports it (review of 1.1.19,
+      // M5: no getBattery at all is no Chrome's)
+      var BM = w.BatteryManager && w.BatteryManager.prototype;
+      getter(BM, 'charging', function () { return true; });
+      getter(BM, 'level', function () { return 1; });
+      getter(BM, 'chargingTime', function () { return 0; });
+      getter(BM, 'dischargingTime', function () { return Infinity; });
       // A usual monitor size instead of the real one (or, worse, the window's).
       var scr = w.Screen && w.Screen.prototype, size = null;
       var dW = scr && Object.getOwnPropertyDescriptor(scr, 'width');

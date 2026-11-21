@@ -546,3 +546,207 @@ def test_m3_encrypted_dns_also_for_ikes_own_requests(run_ike):
             "gm.doh.test"} <= hosts, seen
     assert "home.doh.test" not in hosts, seen
     assert {"css.doh.test", "home.doh.test", "icon.doh.test"} <= {n for n, _ in asked}, asked
+
+
+def test_l4_an_update_into_the_pages_world_asks_first():
+    """L4: an update that added @grant unsafeWindow moved a script, and its
+    token, into the page's own world without asking."""
+    _updater_imports()
+    from ike.userscripts import parse_meta, update_needs_consent
+    text = ("// ==UserScript==\n// @name s\n// @version 2\n// @match https://a.test/*\n"
+            "// @grant GM_setValue\n%s// ==/UserScript==\n")
+    old = {"match": ["https://a.test/*"], "include": [], "exclude": [], "grant": ["GM_setValue"],
+           "connect": [], "noframes": False}
+    same = {"meta": parse_meta(text % ""), "source": "https://example.test/s.user.js"}
+    into_page = {"meta": parse_meta(text % "// @grant unsafeWindow\n"), "source": "https://example.test/s.user.js"}
+    assert not update_needs_consent(old, same)
+    assert update_needs_consent(old, into_page)
+
+
+STEPS_L6 = r'''
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QUrl
+    v = ike.windows[0].current_view()
+    v.setHtml("<title>t</title><input type=password>", QUrl("https://www.example.org/"))
+    yield 2500
+    # another script of that world opens a second channel on the transport
+    v.page().runJavaScript(
+        "window.__second = 'none'; try { new QWebChannel(qt.webChannelTransport, function (c) {"
+        " window.__second = c.objects.ike && c.objects.ike.fillRequested ? 'vault' : 'other'; });"
+        " } catch (e) { window.__second = 'refused'; }", 1)
+    yield 1500
+    got = {}
+    v.page().runJavaScript(
+        "JSON.stringify({second: window.__second,"
+        " bridge: Object.keys(window.__ikeBridge || {}).sort(),"
+        " fill: !!(window.__ikeBridge && window.__ikeBridge.fillRequested)})", 1,
+        lambda r: got.__setitem__("r", r))
+    yield 500
+    out["r"] = got.get("r")
+    # the helper's own channel still works: dark mode's call answers
+    ans = {}
+    v.page().runJavaScript(
+        "window.__css = null; window.__ikeBridge.cssFetched.connect(function (i, ok) {"
+        " if (i === 'l6') window.__css = ok; }); window.__ikeBridge.fetchCss('l6', 'ftp://x/');", 1)
+    yield 800
+    v.page().runJavaScript("String(window.__css)", 1, lambda r: ans.__setitem__("r", r))
+    yield 300
+    out["css"] = ans.get("r")
+'''
+
+
+def test_l6_the_logins_channel_is_the_password_helpers_alone(run_ike):
+    """L6: the password helper published the whole channel object to its
+    world, where list scriptlets and Dark Reader also run: one bug in either
+    and the chosen login could be read. Now the transport is gone from that
+    world and the others get only the three calls they use."""
+    import json
+    out = run_ike(STEPS_L6, timeout=60)
+    r = json.loads(out["r"])
+    assert r["second"] in ("none", "refused") and r["fill"] is False, r
+    assert r["bridge"] == ["adClick", "adClickEmbedded", "cssFetched", "fetchCss"], r
+    assert out["css"] == "false", out             # answered (refused: not http) through the helper's channel
+
+
+PSL_SAMPLE = """// a part of the Public Suffix List, in its own format
+// ===BEGIN ICANN DOMAINS===
+com
+uk
+co.uk
+*.ck
+!www.ck
+// ===BEGIN PRIVATE DOMAINS===
+wordpress.com
+blogspot.it
+s3.amazonaws.com
+pp.ua
+""" + "".join("filler%d\n" % i for i in range(1200))
+
+
+def test_l10_the_site_of_a_name_follows_the_public_suffix_list(tmp_path, monkeypatch):
+    """L10: an approximation made unrelated blogs and buckets one "site" (the
+    filter lists' free way, the permissions, the noise). With the system's
+    Public Suffix List (a dependency of the package) each is its own; without
+    it, the approximation knows these hosts too."""
+    _updater_imports()
+    from ike import shields
+    psl = tmp_path / "psl.dat"
+    psl.write_text(PSL_SAMPLE)
+    monkeypatch.setattr(shields, "PSL_PATHS", [str(psl)])
+    monkeypatch.setattr(shields, "_PSL", [])
+    shields.site_of.cache_clear()
+    try:
+        s = shields.site_of
+        assert s("a.wordpress.com") == "a.wordpress.com" != s("b.wordpress.com")
+        assert s("x.y.blogspot.it") == "y.blogspot.it"
+        assert s("bucket.s3.amazonaws.com") == "bucket.s3.amazonaws.com"
+        assert s("shop.pp.ua") == "shop.pp.ua"
+        assert s("www.bbc.co.uk") == "bbc.co.uk" and s("news.example.com") == "example.com"
+        assert s("a.b.ck") == "a.b.ck" and s("www.ck") == "www.ck"
+        assert s("www.example.zz") == "example.zz" and s("example.com") == "example.com"
+        assert s("127.0.0.1") == "127.0.0.1" and s("localhost") == "localhost"
+        # without the list: the approximation
+        monkeypatch.setattr(shields, "PSL_PATHS", [str(tmp_path / "missing")])
+        monkeypatch.setattr(shields, "_PSL", [])
+        shields.site_of.cache_clear()
+        assert s("a.wordpress.com") != s("b.wordpress.com") and s("www.bbc.co.uk") == "bbc.co.uk"
+    finally:
+        monkeypatch.undo()
+        shields.site_of.cache_clear()
+
+
+FP_PROBE = r"""
+(async function () {
+  var R = {};
+  function h(a) { var x = 2166136261; for (var i = 0; i < a.length; i++) { x ^= a[i]; x = Math.imul(x, 16777619); } return (x >>> 0).toString(16); }
+  function draw(grey) {
+    var c = document.createElement('canvas'); c.width = 120; c.height = 40;
+    var x = c.getContext('2d');
+    if (grey) { x.fillStyle = 'rgb(128,128,128)'; x.fillRect(0, 0, 120, 40); }
+    else { x.fillStyle = '#f60'; x.fillRect(0, 0, 120, 40); x.fillStyle = '#069'; x.font = '16px sans-serif';
+           x.fillText('I.K.E. probe', 4, 24); }
+    return x.getImageData(0, 0, 120, 40).data;
+  }
+  var a = draw(false), a2 = draw(false), g = draw(true), rec = new Uint8Array(a.length);
+  for (var i = 0; i < a.length; i++) rec[i] = (i & 3) === 3 ? a[i] : a[i] ^ (g[i] ^ 128);
+  R.recovered = h(rec); R.stable = h(a) === h(a2);
+  // audio: a buffer the page wrote itself comes back as written
+  var ctx = new OfflineAudioContext(1, 1000, 44100), own = ctx.createBuffer(1, 1000, 44100);
+  var ones = new Float32Array(1000).fill(1); own.copyToChannel(ones, 0);
+  var back = new Float32Array(1000); own.copyFromChannel(back, 0);
+  R.ownUntouched = back.every(function (v) { return v === 1; }) && own.getChannelData(0)[5] === 1;
+  // a rendered one: the same values by both ways, noise beyond every 97th sample
+  var o = ctx.createOscillator(); o.frequency.value = 1000; o.connect(ctx.destination); o.start(0);
+  var buf = await ctx.startRendering(), cp = new Float32Array(1000);
+  buf.copyFromChannel(cp, 0);
+  var d = buf.getChannelData(0), same = true;
+  for (var j = 0; j < 1000; j++) if (cp[j] !== d[j]) same = false;
+  R.renderedConsistent = same; R.sample1 = d[1];
+  var m = document.createElement('canvas').getContext('2d');
+  R.emptyWidth = m.measureText('').width;
+  try { Object.getOwnPropertyDescriptor(Navigator.prototype, 'hardwareConcurrency').get.call({}); R.receiver = 'no error'; }
+  catch (e) { R.receiver = e.constructor.name; }
+  R.gpu = ('gpu' in navigator) && navigator.gpu !== undefined;
+  R.adapter = navigator.gpu ? await navigator.gpu.requestAdapter() : 'none';
+  R.battery = typeof navigator.getBattery === 'function';
+  if (R.battery) { var b = await navigator.getBattery(); R.batteryLevel = [b.charging, b.level]; }
+  R.lang = navigator.language;
+  R.intl = new Intl.DateTimeFormat().resolvedOptions().locale;
+  R.number = (1234.5).toLocaleString();
+  R.intlNative = Function.prototype.toString.call(Intl.DateTimeFormat);
+  window.__fp = JSON.stringify(R);
+})();
+"""
+
+STEPS_FP = r'''
+PROBE = %r
+
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QUrl
+    v = ike.windows[0].current_view()
+    v.setHtml("<title>fp</title>", QUrl("https://www.example.org/"))
+    yield 2000
+    v.page().runJavaScript(PROBE, 0)
+    got = {}
+    for _ in range(100):
+        yield 100
+        v.page().runJavaScript("window.__fp || ''", 0, lambda r: got.__setitem__("r", r))
+        if got.get("r"):
+            break
+    out["r"] = got.get("r")
+'''
+
+
+def _fp(run_ike, level):
+    import json
+    out = run_ike(STEPS_FP % FP_PROBE, settings={"shield_level": level}, timeout=90)
+    return json.loads(out["r"])
+
+
+def test_h1_m5_noise_cannot_be_peeled_off_and_spoofed_values_look_like_chrome(run_ike):
+    """H1: the canvas noise depended only on the session's key and the size,
+    so a grey canvas of the same size gave the mask away and XOR-ing it back
+    gave the real pixels, the same in every session; audio noise was one
+    factor on every 97th sample, read back from a buffer the page wrote;
+    measureText('') was the text offset itself. M5: replaced getters never
+    threw on a wrong object, Strict had "gpu" with no value and no
+    getBattery, Maximum's Intl kept the real language."""
+    a, b = _fp(run_ike, "strict"), _fp(run_ike, "strict")
+    assert a["recovered"] != b["recovered"], (a, b)       # nothing the same across sessions to recover
+    assert a["stable"] and a["ownUntouched"] and a["renderedConsistent"], a
+    assert a["emptyWidth"] == 0, a
+    assert a["receiver"] == "TypeError", a
+    assert a["gpu"] is True and a["adapter"] is None, a
+    assert a["battery"] is True and a["batteryLevel"] == [True, 1], a
+    m = _fp(run_ike, "maximum")
+    assert m["lang"] == "en-US" and m["intl"] == "en-US" and m["number"] == "1,234.5", m
+    assert "[native code]" in m["intlNative"], m
+
+
+def test_m5_strict_sends_the_one_language_it_shows():
+    _updater_imports()
+    from ike import shields
+    assert shields._one_language("it-IT,it;q=0.9,en;q=0.8") == b"it-IT,it;q=0.9"
+    assert shields._one_language("de") == b"de"
+    assert shields._one_language("") == b"en-US,en;q=0.9"
+    assert shields._one_language("x y z") == b"en-US,en;q=0.9"

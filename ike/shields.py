@@ -143,7 +143,61 @@ _SLD = frozenset("co com org net gov edu ac or ne go gob nom mil ltd plc sch nhs
 _HOSTED = (".github.io", ".gitlab.io", ".blogspot.com", ".herokuapp.com", ".pages.dev",
            ".workers.dev", ".netlify.app", ".vercel.app", ".web.app", ".firebaseapp.com",
            ".appspot.com", ".cloudfront.net", ".azurewebsites.net", ".onrender.com",
-           ".neocities.org")
+           ".neocities.org", ".wordpress.com", ".tumblr.com", ".s3.amazonaws.com", ".pp.ua",
+           ".myshopify.com", ".substack.com", ".wixsite.com", ".weebly.com", ".fly.dev", ".glitch.me",
+           ".repl.co", ".surge.sh", ".ngrok.io", ".ngrok-free.app", ".duckdns.org", ".no-ip.org")
+# the Public Suffix List of the system (Arch: publicsuffix-list, a dependency
+# of the package, kept current by pacman); the short lists above only when
+# it is missing (review of 1.1.19, L10: "a.wordpress.com" and
+# "b.wordpress.com" were one site for the filter lists and the permissions)
+PSL_PATHS = ["/usr/share/publicsuffix/public_suffix_list.dat"]
+_PSL = []
+
+
+def _psl():
+    """(rules, wildcards, exceptions) of the Public Suffix List, or None."""
+    if not _PSL:
+        found = None
+        for path in PSL_PATHS:
+            try:
+                with open(path, encoding="utf-8") as f:
+                    rules, wild, exc = set(), set(), set()
+                    for line in f:
+                        r = line.split("//", 1)[0].strip().lower()
+                        if not r:
+                            continue
+                        try:
+                            r = r.encode("idna").decode("ascii") if not r.isascii() else r
+                        except UnicodeError:
+                            pass
+                        if r.startswith("!"):
+                            exc.add(r[1:])
+                        elif r.startswith("*."):
+                            wild.add(r[2:])
+                        else:
+                            rules.add(r)
+                if len(rules) > 1000:
+                    found = (frozenset(rules), frozenset(wild), frozenset(exc))
+                    break
+            except (OSError, UnicodeError):
+                continue
+        _PSL.append(found)
+    return _PSL[0]
+
+
+def _site_psl(host, psl):
+    rules, wild, exc = psl
+    labels = host.split(".")
+    for i in range(len(labels)):
+        cand = ".".join(labels[i:])
+        if cand in exc:                       # "!www.ck": www.ck is the site
+            return cand
+        parent = ".".join(labels[i + 1:])
+        if cand in rules or (i + 1 < len(labels) and parent in wild):
+            # cand is a public suffix: the site is one more label
+            return ".".join(labels[i - 1:]) if i > 0 else host
+    # not in the list: the default rule "*" (the last label is the suffix)
+    return ".".join(labels[-2:])
 
 
 def _referer(info):
@@ -179,15 +233,36 @@ def _reduce_full_version(info):
                 info.setHttpHeader(name, reduced)
 
 
+def one_language(cfg):
+    """The Accept-Language of Strict: the first language in use, and its base
+    language after it, as Chrome sends one language ("it-IT,it;q=0.9")."""
+    from .config import accept_language
+    return _one_language(accept_language(cfg))
+
+
+@functools.lru_cache(maxsize=16)
+def _one_language(header):
+    first = (header or "").split(",")[0].split(";")[0].strip() or "en-US"
+    if not re.fullmatch(r"[A-Za-z]{1,8}(-[A-Za-z0-9]{1,8})*", first):
+        first = "en-US"
+    base = first.split("-")[0]
+    return (first if base == first else "%s,%s;q=0.9" % (first, base)).encode("ascii")
+
+
 @functools.lru_cache(maxsize=4096)
 def site_of(host):
     """Registrable domain of a host: "www.bbc.co.uk" -> "bbc.co.uk".
 
     Asked several times for every request of every page, always for the same
     few hosts: remembered (a pure function of its argument, 1.1.17)."""
-    host = host or ""
+    host = (host or "").rstrip(".")
     parts = host.split(".")
-    if len(parts) <= 2 or host.replace(".", "").isdigit() or ":" in host:
+    if len(parts) < 2 or host.replace(".", "").isdigit() or ":" in host:
+        return host
+    psl = _psl()
+    if psl is not None:
+        return _site_psl(host.lower(), psl)
+    if len(parts) <= 2:
         return host
     three = host.endswith(_HOSTED) or (len(parts[-1]) == 2 and parts[-2] in _SLD)
     return ".".join(parts[-3 if three else -2:])
@@ -466,6 +541,11 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             _reduce_full_version(info)
             if lv >= 4:
                 info.setHttpHeader(b"Accept-Language", b"en-US,en;q=0.9")
+            else:
+                # Strict: the one language navigator.languages shows, as
+                # Chrome writes it; the full list in the header contradicted
+                # it (review of 1.1.19, M5)
+                info.setHttpHeader(b"Accept-Language", one_language(cfg))
         if (lv >= 2 and cfg["trim_referrer"] and not main
                 and host_site != first_site
                 and cfg.site_opt(first_host, "params") is not False):

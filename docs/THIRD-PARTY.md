@@ -84,6 +84,7 @@ are **not verified**.
 | python-cryptography | cryptography (signature of the self-update, password vault) | Apache-2.0 OR BSD-3-Clause (PyPI) |
 | python-jeepney | jeepney (D-Bus: desktop integration, secret storage) | MIT (PyPI) |
 | hicolor-icon-theme | the standard icon folders | GPL-2.0 (freedesktop.org) |
+| publicsuffix-list | the Public Suffix List: which part of a name is the site (read, not shipped) | MPL-2.0 (Mozilla) |
 | libnotify (optional) | desktop notifications | LGPL-2.1 |
 | noto-fonts-cjk (optional) | Chinese and Japanese text | OFL-1.1 |
 | xdg-utils (optional) | default browser setting | MIT |

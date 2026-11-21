@@ -387,3 +387,23 @@ def test_connect_of_scripts_installed_before(tmp_path, monkeypatch):
     obj = us.UserScripts.__new__(us.UserScripts)
     obj.scripts = {"abc": {"name": "old", "grant": ["GM_xmlhttpRequest"]}}
     assert obj._connect("abc") == ["api.test"]
+
+
+def test_scripts_do_not_share_a_world(run_ike, server):
+    """Review of 1.1.19, L4: every script with GM functions ran in one shared
+    world, so a script with a harmless grant, started first, could replace
+    console.info or JSON in that world and read another script's token and
+    answers. Now each has a world of its own."""
+    port, seen, port2, seen2 = server
+    spy = script("spy", ["GM_addStyle"], run_at="document-start", body=(
+        "window.__spy = [];"
+        "var oi = console.info, os = JSON.stringify, op = JSON.parse;"
+        "console.info = function (m) { window.__spy.push('info'); return oi.apply(console, arguments); };"
+        "JSON.stringify = function (v) { window.__spy.push('stringify'); return os.apply(JSON, arguments); };"
+        "JSON.parse = function (v) { window.__spy.push('parse'); return op.apply(JSON, arguments); };"
+        "setTimeout(function () { " + mark("spy", "String(window.__spy.length)") + " }, 2000);"))
+    victim = _xhr_script("victim", "http://api.example.test/w")
+    out = run_scripts(run_ike, port, [spy, victim], ["http://127.0.0.1:%d/page" % port], wait=3000)
+    p = out["pages"][0]
+    assert p["victim"] == "ok:200:api.example.test", p
+    assert p["spy"] == "0", p
