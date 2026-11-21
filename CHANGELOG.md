@@ -196,7 +196,7 @@ docs/SECURITY.md):
   nor are WebRTC and WebTransport: I.K.E. cannot resolve names in its
   request check without slowing every page, and the engine's own protection
   (Local Network Access, present in Qt 6.12 but off, with no per-site
-  permission) comes with a per-site exception in 1.1.19. A site's own worker can read its own noise
+  permission) is turned on in 1.1.19, for every site. A site's own worker can read its own noise
   seed. A page that frames one of a user script's sites and has stolen the
   script's token can still act as that frame.
 

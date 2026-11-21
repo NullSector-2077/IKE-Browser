@@ -58,11 +58,10 @@ checked says so.
   nothing when switched on without its parameter (warning only), and it did
   block a public page's picture and fetch towards a public name of
   127.0.0.1 with `--enable-features=LocalNetworkAccessChecks:LocalNetworkAccessChecksWarn/false`.
-  Qt answers its permission with "denied" (no per-site prompt), so turning
-  it on needs a per-site exception of I.K.E.'s own: planned for 1.1.19
-  (ROADMAP.md). It checks the real address at connection time, so it also
-  covers DNS rebinding; it does not cover top-level navigations, and with a
-  proxy set it blocks nothing. Until then: protect the router with a
+  Qt answers its permission with "denied" (no per-site prompt). 1.1.19
+  turns it on for every site, with no per-site exceptions (ROADMAP.md). It
+  checks the real address at connection time, so it also covers DNS
+  rebinding. Until then: protect the router with a
   password and keep its firmware current (many routers also refuse DNS
   answers that point into the home network).
 - **WebRTC and WebTransport** connections do not pass through I.K.E.'s
