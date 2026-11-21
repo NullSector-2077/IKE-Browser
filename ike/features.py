@@ -240,7 +240,9 @@ class WindowFeatures:
                                T("Saved logins, password generator, import and export"))
         self.act_fill_login = A(T("Fill login on this page"), self.fill_login, "Ctrl+Shift+L",
                                 "password-show-on", T("Fill the saved user name and password for this site"))
-        self.act_search_tabs = A(T("Search open tabs…"), self.search_tabs, "Ctrl+Shift+A", "edit-find",
+        # no shortcut of its own: Ctrl+Shift+A opens the extensions (owner's
+        # decision for 1.1.20; with both, Qt ran neither)
+        self.act_search_tabs = A(T("Search open tabs…"), self.search_tabs, None, "edit-find",
                                  T("Find an open tab by its title or address"))
         self.act_translate = A(T("Translate page…"), self.translate_page, None, "translate",
                                T("Translate this page through an external web service"))

@@ -89,11 +89,23 @@
   };
   // the noise for what getImageData gives: one byte per colour only; other
   // formats (floats) are left to the engine's own values
+  var DVP = window.DataView && DataView.prototype;
+  var TV = FREEZE({ RA: RAPPLY, tag: TA_TAG, buf: getterOf(TA_PROTO, 'buffer'), off: getterOf(TA_PROTO, 'byteOffset'),
+    blen: getterOf(TA_PROTO, 'byteLength'), dvBuf: getterOf(DVP, 'buffer'), dvOff: getterOf(DVP, 'byteOffset'),
+    dvLen: getterOf(DVP, 'byteLength'), abLen: getterOf(ArrayBuffer.prototype, 'byteLength'),
+    U8: Uint8Array, U16: Uint16Array });
   function noiseImage(img) {
-    var px = pixels(img);
-    if (TAG(px) === 'Uint8ClampedArray') farble(px, seed, rng, LEN(px));
+    var px = pixels(img), tag = TAG(px);
+    if (tag === 'Uint8ClampedArray') farble(px, seed, rng, LEN(px));
+    // a 16-bit float picture: its own noise; the byte noise made values 0 or 1
+    else if (tag === 'Float16Array') viewNoise(TV, px, 0, -1, seed, rng, farble, true);
   }
   // a 32-bit multiply of our own (Math.imul belongs to the page)
+  // buffer binding targets of WebGL2 and the parameter that names the bound buffer
+  var BINDING = { 0x8892: 0x8894, 0x8893: 0x8895, 0x88EB: 0x88ED, 0x88EC: 0x88EF, 0x8F36: 0x8F36, 0x8F37: 0x8F37,
+    0x8C8E: 0x8C8F, 0x8A11: 0x8A28 };
+  var BYTES = { Int8Array: 1, Uint8Array: 1, Uint8ClampedArray: 1, Int16Array: 2, Uint16Array: 2, Float16Array: 2,
+    Int32Array: 4, Uint32Array: 4, Float32Array: 4, Float64Array: 8, BigInt64Array: 8, BigUint64Array: 8 };
   function mul32(a, b) {
     var lo = (a & 0xffff) * b, hi = ((a >>> 16) * b) & 0xffff;
     return (lo + (hi << 16)) | 0;
@@ -263,40 +275,67 @@
       return x;
     };
   }
-  // Invisible noise, always the same for one site in one session. Its pattern
-  // depends on the picture too (review of 1.1.19, H1): with a pattern that
-  // depended only on the size, reading a plain grey canvas of the same size
-  // gave the pattern away, and XOR-ing it back gave the real pixels. The
-  // picture's hash leaves out the lowest bit of R, G and B, the only bits
-  // the noise changes, so a picture read again gets the same noise. Self-
-  // contained: it also runs inside workers (passed by its source).
+  // Invisible noise, always the same for one site in one session. Which
+  // pixel is changed, and to what, depends on the site's key and on the
+  // pixel's own colour and that of the pixel before it, the lowest bits left
+  // out (review 4, N3). Not on the place in the picture, nor on the whole
+  // picture: before, one changed corner changed the noise everywhere, and a
+  // majority vote over a few such reads gave the real picture back; a grey
+  // canvas of the same size gave the pattern away before 1.1.20 (H1). A
+  // second read, or the noisy pixels written back and read again, give the
+  // same pixels: the lowest bit is set to the noise, not flipped.
   // n is the length, read by the caller through the engine's own getter;
   // nothing a page can replace is used here (review of 1.1.19, N4).
+  // Self-contained: it also runs inside workers (passed by its source).
   function farble(data, seed, rng, n) {
-    var h = 0x811c9dc5, k, full = n - (n & 3);
-    // four bytes at a time (one pixel, alpha in the top byte), about four
-    // times faster on large pictures (1.1.20 review of performance, M1); the
-    // same bits are left out; the multiply by the FNV prime as shifts
-    for (k = 0; k < full; k += 4) {
-      h ^= (data[k] & 254) | ((data[k + 1] & 254) << 8) | ((data[k + 2] & 254) << 16) | (data[k + 3] << 24);
-      h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) | 0;
-    }
-    for (; k < n; k++) {
-      h ^= (k & 3) === 3 ? data[k] : data[k] & 254;
-      h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) | 0;
-    }
-    var next = rng(((seed ^ n ^ h) >>> 0) || 1);
-    var step = n > 400000 ? 4 * (((n + 399999) / 400000) | 0) : 4;
-    for (var i = 0; i < n; i += step) {
-      var r = next();
-      if ((r & 7) === 0 && data[i + 3] !== 0) {
-        var c = i + (r >>> 3) % 3;
-        // the lowest bit set to a value of the noise, not flipped: a flip
-        // undid itself when the page wrote the noisy pixels back and read
-        // them again, which gave the real picture (1.1.20); now a second
-        // read gives the same noisy pixels
-        data[c] = (data[c] & 254) | ((r >>> 12) & 1);
+    var step = n > 400000 ? 4 * (((n + 399999) / 400000) | 0) : 4, prev = 0;
+    for (var i = 0; i + 3 < n; i += step) {
+      var word = (data[i] & 254) | ((data[i + 1] & 254) << 8) | ((data[i + 2] & 254) << 16) | (data[i + 3] << 24);
+      if (data[i + 3] !== 0) {
+        // the multiply by the FNV prime written as shifts (no Math.imul)
+        var h = (seed ^ word) | 0;
+        h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) | 0;
+        h ^= prev;
+        h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) | 0;
+        h ^= h >>> 15;
+        h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) | 0;
+        h ^= h >>> 13;
+        if ((h & 7) === 0) {
+          var c = i + ((h >>> 3) & 0xffff) % 3;
+          data[c] = (data[c] & 254) | ((h >>> 20) & 1);
+        }
       }
+      prev = word;
+    }
+  }
+  // Noise for bytes the engine wrote into a buffer of the page's
+  // (fingerprinting audit, H-E): any typed array (of any realm or kind), a
+  // DataView or an ArrayBuffer; `from` bytes into it, `count` bytes (or to
+  // its end when count < 0). half: the values are 16-bit floats (an HDR
+  // canvas): the lowest bit of the chosen values is set, not of bytes (M-8).
+  // T holds the engine's own getters, taken before the page ran.
+  // Self-contained: it also runs inside workers (passed by its source).
+  function viewNoise(T, target, from, count, seed, rng, farble, half) {
+    var buf, off, len, tag;
+    try { tag = T.RA(T.tag, target, []); } catch (e) { tag = undefined; }
+    try {
+      if (tag !== undefined) {
+        buf = T.RA(T.buf, target, []); off = T.RA(T.off, target, []); len = T.RA(T.blen, target, []);
+      } else {
+        try { buf = T.RA(T.dvBuf, target, []); off = T.RA(T.dvOff, target, []); len = T.RA(T.dvLen, target, []); }
+        catch (e) { len = T.RA(T.abLen, target, []); buf = target; off = 0; }
+      }
+    } catch (e) { return; }
+    from = from > 0 ? from : 0;
+    var n = count >= 0 && from + count < len ? count : len - from;
+    if (n <= 0) return;
+    if (!half) { farble(new T.U8(buf, off + from, n), seed, rng, n); return; }
+    var u = new T.U16(buf, off + from, n >> 1), m = n >> 1, h = 0x811c9dc5;
+    for (var k = 0; k < m; k++) { h ^= (k & 3) === 3 ? u[k] : u[k] & 0xFFFE; h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) | 0; }
+    var next = rng(((seed ^ m ^ h) >>> 0) || 1);
+    for (var i = 0; i + 3 < m; i += 4) {
+      var r = next();
+      if ((r & 7) === 0 && u[i + 3] !== 0) { var c = i + (r >>> 3) % 3; u[c] = (u[c] & 0xFFFE) | ((r >>> 12) & 1); }
     }
   }
   // ---- values shared by every realm and by workers ---------------------------
@@ -503,7 +542,7 @@
 
   // ---- inline workers -----------------------------------------------------------
   // Runs inside the worker; must not use anything from outside its own body.
-  function workerPatch(c, rng, farble, gpuFor, seed, address) {
+  function workerPatch(c, rng, farble, gpuFor, viewNoise, seed, address) {
     var toStr = Function.prototype.toString, RAW = Reflect.apply, GD = Object.getOwnPropertyDescriptor;
     var CJ = JSON.stringify(c), JS = JSON.stringify, here = '';
     c.seed = seed;
@@ -529,9 +568,14 @@
     var TAP = Object.getPrototypeOf(Uint8Array.prototype);
     var LENG = getOf(TAP, 'length'), TAGG = getOf(TAP, Symbol.toStringTag);
     var IMGD = getOf(self.ImageData && ImageData.prototype, 'data');
+    var DVW = self.DataView && DataView.prototype;
+    var TW = Object.freeze({ RA: RAW, tag: TAGG, buf: getOf(TAP, 'buffer'), off: getOf(TAP, 'byteOffset'),
+      blen: getOf(TAP, 'byteLength'), dvBuf: getOf(DVW, 'buffer'), dvOff: getOf(DVW, 'byteOffset'),
+      dvLen: getOf(DVW, 'byteLength'), abLen: getOf(ArrayBuffer.prototype, 'byteLength'), U8: Uint8Array, U16: Uint16Array });
     var noiseImage = function (img) {
-      var px = RAW(IMGD, img, []);
-      if (RAW(TAGG, px, []) === 'Uint8ClampedArray') farble(px, c.seed, rng, RAW(LENG, px, []));
+      var px = RAW(IMGD, img, []), tg = RAW(TAGG, px, []);
+      if (tg === 'Uint8ClampedArray') farble(px, c.seed, rng, RAW(LENG, px, []));
+      else if (tg === 'Float16Array') viewNoise(TW, px, 0, -1, c.seed, rng, farble, true);
     };
     var OCW = self.OffscreenCanvas, OCWP = OCW && OCW.prototype;
     var O2WP = self.OffscreenCanvasRenderingContext2D && OffscreenCanvasRenderingContext2D.prototype;
@@ -779,7 +823,30 @@
           return r;
         };
       });
+      // pixels read back, as in the page (fingerprinting audit, H-E: the
+      // workers had no readPixels wrapper at all)
+      wrap(GL.prototype, 'readPixels', function (orig) {
+        return function (x, y, width, height, format, type, dst, dstOffset) {
+          var r = RAW(orig, this, arguments);
+          var dk = dst !== null && typeof dst === 'object' ? (function () { try { return RAW(TAGG, dst, []); } catch (e) { return ''; } })() : '';
+          if (type === 0x1401 && (dk === 'Uint8Array' || dk === 'Uint8ClampedArray')) {
+            viewNoise(TW, dst, arguments.length > 7 ? dstOffset >>> 0 : 0,
+              format === 0x1908 ? (width >>> 0) * (height >>> 0) * 4 : -1, c.seed, rng, farble, false);
+          }
+          return r;
+        };
+      });
     });
+    if (self.VideoFrame) {
+      wrap(VideoFrame.prototype, 'copyTo', function (orig) {
+        return function (dest) {
+          return RAW(THEN, RAW(orig, this, arguments), [function (layout) {
+            viewNoise(TW, dest, 0, -1, c.seed, rng, farble, false);
+            return layout;
+          }]);
+        };
+      });
+    }
     if (c.strict && self.NavigatorUAData) {
       // the same reduced Chrome version as the page and the headers (1.1.18,
       // docs review: a worker read the full one)
@@ -828,7 +895,7 @@
     // independent review: a worker inside a worker had none)
     try {
       var meHead = '(' + RAW(toStr, workerPatch, []) + ')(' + CJ + ',' + RAW(toStr, rng, []) + ',' +
-        RAW(toStr, farble, []) + ',' + RAW(toStr, gpuFor, []) + ',';
+        RAW(toStr, farble, []) + ',' + RAW(toStr, gpuFor, []) + ',' + RAW(toStr, viewNoise, []) + ',';
       var RBUF = new Uint32Array(1), RGV = crypto.getRandomValues, CR = crypto;
       var preludeOf = function (addr, own) {
         var sd = c.seed;
@@ -894,7 +961,7 @@
   // is its text, gets a seed of its own instead of the site's.
   var WP_HEAD = '(' + RAPPLY(origToString, workerPatch, []) + ')(';
   var WP_TAIL = ',' + RAPPLY(origToString, rng, []) + ',' + RAPPLY(origToString, farble, []) + ',' +
-    RAPPLY(origToString, gpuFor, []) + ',';
+    RAPPLY(origToString, gpuFor, []) + ',' + RAPPLY(origToString, viewNoise, []) + ',';
   var JSON_STR = JSON.stringify;
   var PRELUDE_LINES = 1;
   (function () {
@@ -1173,8 +1240,10 @@
     }
 
     // ---- WebGL: hide the raw GPU identity in strict profiles; retain pixel farbling ----
+    var packed = hardSet();
     [w.WebGLRenderingContext, w.WebGL2RenderingContext].forEach(function (GL) {
       if (!GL) return;
+      var rawGetParam = GL.prototype.getParameter;
       var glFilter = w.Array.prototype.filter;
       wrap(GL.prototype, 'getExtension', function (orig) {
         return function (name) {
@@ -1204,18 +1273,62 @@
           return r;
         };
       });
+      // pixels read with readPixels: into any array of bytes (of any realm,
+      // or a Uint8ClampedArray), from its offset; into a WebGL2 pixel-pack
+      // buffer, which marks it, and getBufferSubData of a marked buffer adds
+      // the noise (fingerprinting audit, H-E: all three gave the real pixels).
+      // Bytes only (UNSIGNED_BYTE): float results stay exact.
       wrap(GL.prototype, 'readPixels', function (orig) {
-        return function () {
+        return function (x, y, width, height, format, type, dst, dstOffset) {
           var r = RAPPLY(orig, this, arguments);
-          var buf = arguments[6];
-          // the kind of array from the engine's own getter: a page could
-          // answer instanceof for itself (review of 1.1.19, N4)
-          var tag = buf ? TAG(buf) : undefined;
-          if (tag === 'Uint8Array' || tag === 'Uint8ClampedArray') farble(buf, seed, rng, LEN(buf));
+          if (type !== 0x1401) return r;
+          var dk = dst !== null && typeof dst === 'object' ? TAG(dst) : undefined;
+          if (dk === 'Uint8Array' || dk === 'Uint8ClampedArray') {
+            viewNoise(TV, dst, arguments.length > 7 ? dstOffset >>> 0 : 0,
+              format === 0x1908 ? (width >>> 0) * (height >>> 0) * 4 : -1, seed, rng, farble, false);
+          } else if (rawGetParam && (dst === undefined || typeof dst === 'number')) {
+            var pb = RAPPLY(rawGetParam, this, [0x88ED]);           // PIXEL_PACK_BUFFER_BINDING
+            if (pb) packed.add(pb);
+          }
+          return r;
+        };
+      });
+      wrap(GL.prototype, 'getBufferSubData', function (orig) {
+        return function (target, srcOffset, dst, dstOffset, length) {
+          var r = RAPPLY(orig, this, arguments), b = BINDING[target];
+          var held = b && rawGetParam ? RAPPLY(rawGetParam, this, [b]) : null;
+          if (held && packed.has(held)) {
+            var size = BYTES[TAG(dst)] || 1;
+            viewNoise(TV, dst, (dstOffset >>> 0) * size, length > 0 ? (length >>> 0) * size : -1, seed, rng, farble, false);
+          }
+          return r;
+        };
+      });
+      wrap(GL.prototype, 'copyBufferSubData', function (orig) {
+        return function (readTarget, writeTarget) {
+          var r = RAPPLY(orig, this, arguments);
+          if (rawGetParam && BINDING[readTarget] && BINDING[writeTarget]) {
+            var from = RAPPLY(rawGetParam, this, [BINDING[readTarget]]);
+            if (from && packed.has(from)) {
+              var to = RAPPLY(rawGetParam, this, [BINDING[writeTarget]]);
+              if (to) packed.add(to);
+            }
+          }
           return r;
         };
       });
     });
+    // a VideoFrame made from a canvas (or a picture) copied out as bytes
+    if (w.VideoFrame) {
+      wrap(w.VideoFrame.prototype, 'copyTo', function (orig) {
+        return function (dest) {
+          return then(RAPPLY(orig, this, arguments), function (layout) {
+            viewNoise(TV, dest, 0, -1, seed, rng, farble, false);
+            return layout;
+          });
+        };
+      });
+    }
     if (strict) {
       // as Chrome on a card it does not support: WebGPU there, no adapter (M5)
       // on a wrong object Chrome's rejects, as every promise of the engine's
@@ -1235,9 +1348,14 @@
     // Only what the engine rendered is changed, every sample by its own tiny
     // factor (review of 1.1.19, H1): every 97th sample by one factor could be
     // read back from a buffer the page wrote itself, or skipped.
-    function audioNoise(i) {
-      var x = mul32((i ^ seed) >>> 0, 0x9E3779B1);
-      x ^= x >>> 15; x = mul32(x, 0x85EBCA77); x ^= x >>> 13;
+    // The factor of a sample comes from the site's key, the sample's own
+    // value and the one before it (review 4, N3): by its place alone, one
+    // buffer of known samples rendered through the engine gave every factor,
+    // and dividing by them gave the real sound.
+    function audioNoise(v, before) {
+      var q = (v * 1048576) | 0, p = (before * 1048576) | 0;
+      var x = mul32((q ^ seed) >>> 0, 0x9E3779B1);
+      x ^= x >>> 15; x = mul32((x ^ p) >>> 0, 0x85EBCA77); x ^= x >>> 13;
       return 1 + (((x >>> 0) % 2001) - 1000) / 10000000;
     }
     var rendered = hardSet();
@@ -1274,7 +1392,7 @@
           var d = RAPPLY(orig, this, arguments);
           if (rendered.has(this) && !seenBuffers.has(d)) {
             seenBuffers.add(d);
-            for (var i = 0, n = LEN(d); i < n; i++) d[i] = d[i] * audioNoise(i);
+            for (var i = 0, n = LEN(d), was = 0; i < n; i++) { var v = d[i]; d[i] = v * audioNoise(v, was); was = v; }
           }
           return d;
         };
@@ -1301,7 +1419,22 @@
         wrap(w.AnalyserNode.prototype, name, function (orig) {
           return function (arr) {
             var r = RAPPLY(orig, this, arguments);
-            for (var i = 0, n = LEN(arr); i < n; i++) arr[i] = arr[i] * audioNoise(i);
+            for (var i = 0, n = LEN(arr), was = 0; i < n; i++) { var v = arr[i]; arr[i] = v * audioNoise(v, was); was = v; }
+            return r;
+          };
+        });
+      });
+      // the byte versions too: the lowest bit of some values set to the
+      // noise (fingerprinting audit, M-1)
+      ['getByteFrequencyData', 'getByteTimeDomainData'].forEach(function (name) {
+        wrap(w.AnalyserNode.prototype, name, function (orig) {
+          return function (arr) {
+            var r = RAPPLY(orig, this, arguments);
+            for (var i = 0, n = LEN(arr); i < n; i++) {
+              var x = mul32((i ^ seed ^ 0x5bd1e995) >>> 0, 0x9E3779B1) >>> 0;
+              x ^= x >>> 15;
+              if ((x & 7) === 0) arr[i] = (arr[i] & 254) | ((x >>> 4) & 1);
+            }
             return r;
           };
         });

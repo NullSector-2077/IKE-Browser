@@ -985,8 +985,8 @@ HA_PROBE = r"""
     return k.join() === k.slice().sort().join();
   });
   // inline workers whose prelude a replaced slice or Blob check would skip
-  // (the prelude adds noise: a grey canvas read in the worker has changed pixels)
-  var WORKER_NOISE = "var c = new OffscreenCanvas(60, 20), x = c.getContext('2d'); x.fillStyle = 'rgb(128,128,128)'; x.fillRect(0, 0, 60, 20); var d = x.getImageData(0, 0, 60, 20).data, n = 0; for (var i = 0; i < d.length; i++) if ((i & 3) !== 3 && d[i] !== 128) n++; postMessage(n)";
+  // (with the prelude the worker hides the debug-renderer extension at Strict)
+  var WORKER_NOISE = "var g = new OffscreenCanvas(4, 4).getContext('webgl'); postMessage(g && !g.getExtension('WEBGL_debug_renderer_info') ? 1 : 0)";
   await step('sliceWorker', function () {
     var url = URL.createObjectURL(new Blob([WORKER_NOISE], {type: 'text/javascript'}));
     var sl = String.prototype.slice, w;
@@ -1167,6 +1167,152 @@ def test_fp_audit_hd_every_installed_family_is_tested():
     got = fontcheck.candidates(["IPAGothic", "Inter Display [Foundry]", "Arial", "DejaVu Sans"])
     assert "IPAGothic" in got and "Inter Display" in got and "Arial" not in got
     assert got.count("DejaVu Sans") == 1 and len(got) == len(fontcheck.masked_names()) + 2
+
+
+HE_PROBE = r"""
+(async function () {
+  var R = {}, IM = Math.imul;
+  async function step(name, fn) { try { R[name] = await fn(); } catch (e) { R[name] = 'err ' + e; } }
+  function hs(a, n) { var x = 2166136261; for (var i = 0; i < n; i++) { x ^= a[i] & 255; x = IM(x, 16777619); } return (x >>> 0).toString(16); }
+  function gl(kind) {
+    // every pixel its own colour: the noise depends on the colours (N3)
+    var c = document.createElement('canvas'); c.width = 16; c.height = 16;
+    var g = c.getContext(kind, { preserveDrawingBuffer: true });
+    g.enable(g.SCISSOR_TEST);
+    for (var y = 0; y < 16; y++) for (var x = 0; x < 16; x++) {
+      g.scissor(x, y, 1, 1); g.clearColor(x / 16, y / 16, (x * y) / 256, 1); g.clear(g.COLOR_BUFFER_BIT);
+    }
+    return g;
+  }
+  await step('clamped', function () {
+    var g = gl('webgl'), a = new Uint8ClampedArray(1024); g.readPixels(0, 0, 16, 16, g.RGBA, g.UNSIGNED_BYTE, a); return hs(a, 1024);
+  });
+  await step('otherRealm', function () {
+    var f = document.createElement('iframe'); document.body.appendChild(f);
+    var g = gl('webgl'), a = new f.contentWindow.Uint8Array(1024); g.readPixels(0, 0, 16, 16, g.RGBA, g.UNSIGNED_BYTE, a); return hs(a, 1024);
+  });
+  await step('packBuffer', function () {
+    var g = gl('webgl2'), b = g.createBuffer();
+    g.bindBuffer(g.PIXEL_PACK_BUFFER, b); g.bufferData(g.PIXEL_PACK_BUFFER, 1024, g.STREAM_READ);
+    g.readPixels(0, 0, 16, 16, g.RGBA, g.UNSIGNED_BYTE, 0);
+    var out = new Uint8Array(1024); g.getBufferSubData(g.PIXEL_PACK_BUFFER, 0, out); return hs(out, 1024);
+  });
+  await step('videoFrame', async function () {
+    if (!window.VideoFrame) return 'none';
+    var c = document.createElement('canvas'); c.width = 16; c.height = 16;
+    var x = c.getContext('2d'), gr = x.createLinearGradient(0, 0, 16, 16);
+    gr.addColorStop(0, 'rgb(10,200,30)'); gr.addColorStop(1, 'rgb(200,10,190)'); x.fillStyle = gr; x.fillRect(0, 0, 16, 16);
+    var vf = new VideoFrame(c, { timestamp: 0 }), buf = new Uint8Array(vf.allocationSize());
+    await vf.copyTo(buf); vf.close(); return hs(buf, buf.length);
+  });
+  await step('float16', function () {
+    var c = document.createElement('canvas'); c.width = 60; c.height = 20;
+    var x = c.getContext('2d'); x.fillStyle = 'rgb(128,128,128)'; x.fillRect(0, 0, 60, 20);
+    var d = x.getImageData(0, 0, 60, 20, { pixelFormat: 'rgba-float16' }).data;
+    if (!(d instanceof Float16Array)) return 'none';
+    var far = 0, changed = 0;
+    for (var i = 0; i < d.length; i++) { if ((i & 3) === 3) continue; if (Math.abs(d[i] - 0.50196) > 0.002) far++; if (d[i] !== d[0]) changed++; }
+    return { far: far, changed: changed > 0 };
+  });
+  await step('analyserBytes', async function () {
+    var ctx = new OfflineAudioContext(1, 4096, 44100), o = ctx.createOscillator(), an = ctx.createAnalyser();
+    o.frequency.value = 3000; o.connect(an); an.connect(ctx.destination); o.start(0);
+    var got = null;
+    ctx.suspend(2048 / 44100).then(function () { var a = new Uint8Array(an.frequencyBinCount); an.getByteFrequencyData(a); got = hs(a, a.length); ctx.resume(); });
+    await ctx.startRendering(); return got;
+  });
+  window.__fp = JSON.stringify(R);
+})();
+"""
+
+
+def test_fp_audit_he_other_routes_to_the_pixels_get_the_noise(run_ike):
+    """Fingerprinting audit, H-E, M-1, M-8: readPixels into a
+    Uint8ClampedArray or another realm's array, a WebGL2 pixel-pack buffer
+    read with getBufferSubData, VideoFrame.copyTo and the analyser's byte
+    data gave the real values (the same in every session); a 16-bit float
+    getImageData was corrupted (values became 0 or 1)."""
+    import json
+    flags = {"QTWEBENGINE_CHROMIUM_FLAGS": "--no-sandbox --enable-unsafe-swiftshader "
+             "--use-angle=swiftshader --ignore-gpu-blocklist"}               # WebGL here (test only)
+    runs = []
+    for _ in range(2):
+        out = run_ike((STEPS_FP % HE_PROBE).replace("range(100)", "range(300)"),
+                      settings={"shield_level": "balanced"}, timeout=120, env=flags)
+        runs.append(json.loads(out["r"]))
+    a, b = runs
+    for k in ("clamped", "otherRealm", "packBuffer", "videoFrame", "analyserBytes"):
+        if a[k] == "none":
+            continue                       # not offered by this engine
+        assert not str(a[k]).startswith("err") and a[k] is not None, (k, a)
+        assert a[k] != b[k], (k, a, b)     # the same in two sessions: the real values
+    if a["float16"] != "none":
+        assert a["float16"]["far"] == 0 and a["float16"]["changed"] is True, a
+
+
+def test_fp_audit_m4_the_storage_quota_does_not_tell_the_disk_size(run_ike):
+    """Fingerprinting audit, M-4: navigator.storage.estimate().quota was
+    60 % of the disk, to the byte; now the same 10 GiB for everyone."""
+    out = run_ike((STEPS_FP % """
+      navigator.storage.estimate().then(function (e) { window.__fp = JSON.stringify(e.quota); });
+    """), timeout=90)
+    assert out["r"] == str(10 * 1024 ** 3), out
+
+
+N3_PROBE = r"""
+(async function () {
+  var R = {}, IM = Math.imul;
+  function h(a, from) { var x = 2166136261; for (var i = from || 0; i < a.length; i++) { x ^= a[i]; x = IM(x, 16777619); } return (x >>> 0).toString(16); }
+  function draw(corner) {
+    var c = document.createElement('canvas'); c.width = 120; c.height = 40;
+    var x = c.getContext('2d');
+    x.fillStyle = '#f60'; x.fillRect(0, 0, 120, 40); x.fillStyle = '#069'; x.font = '16px sans-serif';
+    x.fillText('I.K.E. probe', 4, 24);
+    if (corner !== undefined) { x.fillStyle = 'rgb(' + corner + ',7,9)'; x.fillRect(0, 0, 1, 1); }
+    return x.getImageData(0, 0, 120, 40).data;
+  }
+  // a majority vote over reads that differ in one corner pixel
+  var K = 9, reads = [];
+  for (var k = 0; k < K; k++) reads.push(draw(10 + 20 * k));
+  var rec = new Uint8Array(reads[0].length);
+  for (var i = 4; i < rec.length; i++) {
+    var ones = 0; for (k = 0; k < K; k++) ones += reads[k][i] & 1;
+    rec[i] = (reads[0][i] & 254) | (ones * 2 > K ? 1 : 0);
+  }
+  R.majority = h(rec, 4);
+  // audio: the factors read from a buffer of known samples, then divided out
+  async function render() {
+    var ctx = new OfflineAudioContext(1, 5000, 44100), o = ctx.createOscillator();
+    o.type = 'triangle'; o.frequency.value = 10000;
+    var c = ctx.createDynamicsCompressor(); c.threshold.value = -50; c.knee.value = 40; c.ratio.value = 12;
+    o.connect(c); c.connect(ctx.destination); o.start(0);
+    return (await ctx.startRendering()).getChannelData(0);
+  }
+  var ctx2 = new OfflineAudioContext(1, 5000, 44100), own = ctx2.createBuffer(1, 5000, 44100);
+  own.copyToChannel(new Float32Array(5000).fill(0.75), 0);
+  var s = ctx2.createBufferSource(); s.buffer = own; s.connect(ctx2.destination); s.start(0);
+  var known = (await ctx2.startRendering()).getChannelData(0), noisy = await render(), sum = 0;
+  for (i = 4500; i < 5000; i++) sum += Math.abs(Math.fround(noisy[i] / (known[i] / 0.75)));
+  R.audioDivided = sum.toFixed(4);           // as a fingerprint rounds it
+  window.__fp = JSON.stringify(R);
+})();
+"""
+
+
+def test_n3_repeated_reads_or_a_known_buffer_do_not_remove_the_noise(run_ike):
+    """Review 4, N3: the canvas noise depended on the whole picture, so a
+    majority vote over reads that differ in one corner gave the real pixels
+    back; the audio factor depended only on the sample's place, so a buffer
+    of known samples gave every factor and dividing by them gave the real
+    sound. Both results were the same in every session."""
+    import json
+    runs = []
+    for _ in range(2):
+        out = run_ike(STEPS_FP % N3_PROBE, settings={"shield_level": "balanced"}, timeout=120)
+        runs.append(json.loads(out["r"]))
+    a, b = runs
+    assert a["majority"] != b["majority"], (a, b)
+    assert a["audioDivided"] != b["audioDivided"], (a, b)
 
 
 def test_n12_addresses_from_the_menu_are_never_options(monkeypatch):

@@ -82,6 +82,8 @@ def test_menu_bar_and_burger_menu(run_ike):
                 for k in act.shortcuts():
                     keys.setdefault(k.toString(), []).append(act.text())
             out["keys"] = sorted(keys)
+            # Esc ends two modes that never meet (customising, full screen)
+            out["twice"] = {k: v for k, v in keys.items() if len(v) > 1 and k != "Esc"}
     """)
     assert out["bar"] == ["&File", "&Edit", "&View", "Hi&story", "&Bookmarks", "&Protection", "E&xtensions",
                           "&Tools", "&Help"]
@@ -104,6 +106,9 @@ def test_menu_bar_and_burger_menu(run_ike):
               "Ctrl+-", "Ctrl+0", "Ctrl+F", "Ctrl+U", "F12", "Ctrl+Shift+M", "Ctrl+M", "Ctrl+Shift+E",
               "Ctrl+Shift+B", "Ctrl+O", "Ctrl+S", "Ctrl+W", "Ctrl+Shift+W", "Ctrl+Shift+T"):
         assert k in out["keys"], k
+    # no shortcut on two commands (Qt then runs neither): Ctrl+Shift+A opens
+    # the extensions, the owner's choice
+    assert out["twice"] == {}, out["twice"]
 
 
 def test_manual_update_check_asks_the_updater(run_ike):

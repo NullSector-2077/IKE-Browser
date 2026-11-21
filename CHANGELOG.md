@@ -40,7 +40,25 @@ one is fixed here with a test that failed before the fix (tests/test_review_fixe
     installed, `local()` in a FontFace answers as for an absent font, a
     frame's `clear()` cannot remove the page's masks, workers get the same
     masks, and every font installed on the computer is masked, not only the
-    714 known names.
+    714 known names;
+  - the other ways to the pixels get the noise too: WebGL2 pixel buffers,
+    `readPixels` into any array of bytes (also in workers), `VideoFrame`;
+    the byte data of audio analysers; 16-bit float (HDR) canvas reads get a
+    noise of their own;
+  - the noise can no longer be removed by reading a picture several times
+    with one corner changed (a majority vote), nor the audio noise by
+    rendering a buffer of known samples: it now depends on the content
+    itself, not on the whole picture or on the place of a sample;
+  - sites are told the same storage space (10 GiB) on every computer, not
+    60 % of the disk to the byte.
+- **Dark mode with Dark Reader: no full restyle when the page starts.** The
+  dark cover that hides the white flash while Dark Reader starts was a
+  colour on the page's root, and taking it away made the browser style the
+  whole page again (the largest part of Dark Reader's extra cost on
+  Speedometer's Lit pages, found by an independent review). It is now an
+  image in the page's head: the same dark, no restyle.
+- **Ctrl+Shift+A opens the extensions** ("Search open tabs…" stays in the
+  menu without a shortcut): with both, neither worked.
 - **Encrypted DNS also for I.K.E.'s own requests**: with encrypted DNS on,
   the home-network checks, dark mode's style sheets, user scripts, the sites'
   icons, updates and filter lists ask the same provider instead of the
