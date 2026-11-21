@@ -395,6 +395,15 @@ def adblock_version(lock_text):
     return m.group(1) if m else None
 
 
+_PYO3_LOCK = re.compile(r'^name = "pyo3"\nversion = "([^"]+)"', re.M)
+
+
+def pyo3_version(lock_text):
+    """The version of the pyo3 crate in a Cargo.lock, or None."""
+    m = _PYO3_LOCK.search((lock_text or "").replace("\r\n", "\n"))
+    return m.group(1) if m else None
+
+
 def engine_update(branch, show=None):
     """The candidate builds another version of the AdBlock engine than main.
 
@@ -405,8 +414,13 @@ def engine_update(branch, show=None):
     read gives False: only a real engine update lets a fix touch I.K.E.'s
     wrapper of the ad blocker."""
     show = show or (lambda ref: git("show", "%s:ike-adblock/Cargo.lock" % ref))
-    candidate = adblock_version(show("origin/" + branch))
-    current = adblock_version(show("origin/main"))
+    cand_lock, main_lock = show("origin/" + branch), show("origin/main")
+    candidate, current = adblock_version(cand_lock), adblock_version(main_lock)
+    if candidate and current and candidate != current:
+        return True
+    # 1.1.19: a new pyo3 (the bridge to Python, followed by the component
+    # check) may need the same adaptation of the wrapper
+    candidate, current = pyo3_version(cand_lock), pyo3_version(main_lock)
     return bool(candidate and current and candidate != current)
 
 

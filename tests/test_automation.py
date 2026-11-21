@@ -1094,6 +1094,23 @@ def test_the_engine_update_is_read_from_the_lock(candidate, main, expected):
     assert plan_tool.adblock_version(LOCK % "0.13.6") == "0.13.6"
 
 
+PYO3 = LOCK % "0.13.6" + '''
+[[package]]
+name = "pyo3"
+version = "%s"
+'''
+
+
+def test_a_new_pyo3_allows_the_wrapper_too():
+    """1.1.19: the component check follows pyo3 (the bridge to Python); a new
+    one may need the same adaptation of I.K.E.'s wrapper as a new engine."""
+    show = {"origin/automation/daily-maintenance": PYO3 % "0.31.0", "origin/main": PYO3 % "0.30.1"}.get
+    assert plan_tool.engine_update("automation/daily-maintenance", show=show) is True
+    show = {"origin/automation/daily-maintenance": PYO3 % "0.30.1", "origin/main": PYO3 % "0.30.1"}.get
+    assert plan_tool.engine_update("automation/daily-maintenance", show=show) is False
+    assert plan_tool.pyo3_version((PYO3 % "0.30.1").replace("\n", "\r\n")) == "0.30.1"
+
+
 def test_only_an_engine_update_allows_the_wrapper():
     base = dict(_tip="t1", _main_tip="m1", _attempts=0)
     for update, allowed in ((True, "true"), (False, "false")):
@@ -3057,3 +3074,62 @@ def test_the_package_is_kept_before_any_test_runs_against_it():
     tests = jobs_of(text)["tests"]
     assert tests.index("name: ike-browser-package") < tests.index("name: Tests of the installed package")
     assert tests.index('sha256sum "$RUNNER_TEMP"/pkg/') < tests.index("name: ike-browser-package")
+
+
+def test_the_weekly_check_watches_every_scheduled_check_and_asks_the_reserves():
+    """1.1.19: a failed or stopped weekly Arch run or daily security job told
+    nobody; a refused key or a gone model of a reserve was found only when a
+    real failure needed it. Both are reported by the weekly check now."""
+    import datetime as dt
+    health = load("automation-health")
+    now = dt.datetime(2026, 11, 21, tzinfo=dt.timezone.utc)
+
+    def r(day, conclusion="success"):
+        return {"status": "completed", "conclusion": conclusion, "created_at": "2026-11-%02dT03:00:00Z" % day,
+                "html_url": "u%d" % day}
+    ok = {"daily-check.yml": [r(20)], "daily-maintenance.yml": [r(20)], "security.yml": [r(20)], "arch.yml": [r(16)]}
+    assert set(health.WATCHED) == set(ok) and health.problems(now, ok, [], True, main_protected=True) == []
+    bad = dict(ok, **{"arch.yml": [r(16, "failure")], "security.yml": [r(20, "failure"), r(19, "failure")]})
+    found = "\n".join(health.problems(now, bad, [], True, main_protected=True))
+    assert "`arch.yml` failed in its last 1 scheduled run(s): u16" in found
+    assert "`security.yml` failed in its last 2 scheduled run(s): u20" in found
+    stale = dict(ok, **{"arch.yml": [r(10)]})
+    assert "`arch.yml` has not run since 2026-11-10." in health.problems(now, stale, [], True, main_protected=True)
+    pings = [("Groq", "g", "ok"), ("Z.AI", "glm-4.7-flash", "auth"), ("OpenRouter", "o", "config"),
+             ("X", "x", "quota"), ("Y", "y", "temporary")]
+    found = "\n".join(health.problems(now, ok, [], True, main_protected=True, pings=pings))
+    assert "Z.AI (glm-4.7-flash)" in found and "key was refused" in found and "OpenRouter (o)" in found
+    assert "Groq" not in found and "X (" not in found and "Y (" not in found   # passing troubles are not reported
+    text = (WORKFLOWS / "health.yml").read_text()
+    assert 'tools/autofix-reserve.py ping "$RUNNER_TEMP/reserve-ping.json"' in text
+    assert "RESERVE_PING: ${{ runner.temp }}/reserve-ping.json" in text
+
+
+def test_the_reserves_ping_reveals_no_key(tmp_path):
+    """The weekly question: one per provider with a key, the result only."""
+    import urllib.error
+    reserve = load("autofix-reserve")
+    seen = []
+
+    class Answer:
+        def __init__(self, body):
+            self.body = body
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            return False
+        def read(self, n=-1):
+            return self.body
+
+    def opener(req, timeout=0):
+        seen.append((req.full_url, json.loads(req.data)["model"]))
+        if "z.ai" in req.full_url:
+            raise urllib.error.HTTPError(req.full_url, 401, "no", {}, None)
+        return Answer(b'{"choices": [{"message": {"content": "OK"}}]}')
+    env = {"GROQ_API_KEY": "gsk_TESTONLY", "ZAI_API_KEY": "zai-TESTONLY", "OPENROUTER_API_KEY": "sk-or-TESTONLY"}
+    assert reserve.ping(env, opener) == [("Groq", "qwen/qwen3.8-27b", "ok"), ("Z.AI", "glm-4.7-flash", "auth"),
+                                         ("OpenRouter", "cohere/north-mini-code:free", "ok")]
+    assert len(seen) == 3                                   # one question each, the first model only
+    out = tmp_path / "p.json"
+    assert reserve.main(["ping", str(out)], env=env, opener=opener) == 0
+    assert "TESTONLY" not in out.read_text() and json.loads(out.read_text())[1] == ["Z.AI", "glm-4.7-flash", "auth"]

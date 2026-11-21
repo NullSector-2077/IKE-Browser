@@ -34,8 +34,22 @@ jobs:
               gh api -X PUT "repos/${{ github.repository }}/actions/workflows/$(basename "$f")/enable"
             fi
           done
+      # 1.1.19: one tiny question to each reserve of the automatic fix that has a
+      # key (tools/autofix-reserve.py ping): a refused key or a model that is
+      # gone is reported now, not when a failure needs it. The keys are in this
+      # step only; the file holds provider, model and result, nothing else.
+      - name: The reserves answer
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          AUTOFIX_GROQ_MODELS: ${{ vars.AUTOFIX_GROQ_MODELS }}
+          AUTOFIX_ZAI_MODELS: ${{ vars.AUTOFIX_ZAI_MODELS }}
+          AUTOFIX_OPENROUTER_MODELS: ${{ vars.AUTOFIX_OPENROUTER_MODELS }}
+        run: python3 -I tools/autofix-reserve.py ping "$RUNNER_TEMP/reserve-ping.json" || echo "[]" > "$RUNNER_TEMP/reserve-ping.json"
       - name: Check the automation
         env:
+          RESERVE_PING: ${{ runner.temp }}/reserve-ping.json
           GH_TOKEN: ${{ github.token }}
           # whether the secrets are set, never their values
           HAS_KEY: ${{ secrets.GEMINI_API_KEY != '' }}
