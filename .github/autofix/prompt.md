@@ -60,6 +60,10 @@ quota or rate limit, a problem in `.github/` (you may not change it).
 - Arch Linux only. Do not add dependencies, libraries or downloads: lightness
   comes first. Do not reorganise menus, settings or the interface, and do not
   remove or change features.
+- Comments can be wrong: the tests and the documentation decide what the code
+  must do. When a comment next to the code you fix says the opposite of your
+  fix, correct the comment too (trial 3, 2026-11-21: a fix left a comment
+  that contradicted it).
 - Keep the change small (at most 5 files and 150 changed lines): a larger
   change is refused by the automatic checks. Create no other files.
 - Never write keys, tokens, passwords or environment variables into any file, and

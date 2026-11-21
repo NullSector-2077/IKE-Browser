@@ -16,7 +16,7 @@ releases or signs anything, and no workflow ever writes to `main`.
 | When one of the three above fails | An automatic fix | `autofix.yml` | Draft PR labelled `autofix`, or an issue "Automatic fix needs you" |
 | Mondays, 03:41 UTC | The whole suite and the package on Arch Linux's own Qt (`archlinux:latest`) | `arch.yml` | A failed run to look at (not a required check, no automatic fix) |
 | Every day, 04:23 UTC, and on every PR and push to `main` | The security tests with the engine's sandbox really on (as a normal user), and the RustSec advisories of every crate of the AdBlock engine | `security.yml` | Checks on the PR; on `main` the issue "Rust advisories" when one is found (no automatic fix) |
-| Mondays, 07:41 UTC | The automation itself | `health.yml` | Issue "Automation health" when something stopped or waits too long |
+| Mondays, 07:41 UTC | The automation itself: every scheduled check (also the Arch and security ones, 1.1.19), and one tiny question to each reserve of the automatic fix | `health.yml` | Issue "Automation health" when something stopped, failed, waits too long, or a reserve's key or model no longer works |
 | Once a month | New versions of the GitHub actions used | Dependabot | One PR labelled `maintenance` |
 
 ## Components followed
@@ -548,7 +548,12 @@ The weekly check (`health.yml`, `tools/automation-health.py`) reports, since
 1.1.18, a `main` without branch protection (the `protected` field of the
 branch in GitHub's API) and the reserves' secrets missing, besides runs of the
 automatic fix that failed in the last 7 days and autofix issues or maintenance
-pull requests open for more than 7 days.
+pull requests open for more than 7 days. Since 1.1.19 it also watches
+`security.yml` (two failed scheduled runs in a row, or none for 3 days) and
+`arch.yml` (its last scheduled run failed, or none for 9 days), and asks each
+reserve that has a key one tiny question (`tools/autofix-reserve.py ping`):
+a refused key or an unknown model is reported, a quota or a passing error is
+not.
 
 If the key leaks (it would show only through the agent), delete it in Google AI
 Studio and create a new one: it can spend nothing and opens nothing else.

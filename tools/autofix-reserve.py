@@ -147,6 +147,8 @@ Answer with ONE JSON object and nothing else:
 
 - "find" must be copied exactly from the file text (without the line numbers
   shown on the left of the excerpts) and appear exactly once in that file.
+- Comments can be wrong (the tests and docs decide); a comment next to your fix
+  that says the opposite of it is corrected too.
 - At most 5 files, the smallest correct change. Only files that are shown
   below, and only under ike/, tests/, tools/ or docs/ (%(wrapper)s).
 - Never ike-adblock/Cargo.toml or Cargo.lock, Brave's engine itself, Dark
@@ -518,7 +520,31 @@ def one_model(url, key, model, base, tokens, deadline, opener, workdir, shown, a
     return "error", "", refused
 
 
+def ping(env=os.environ, opener=urllib.request.urlopen):
+    """1.1.19, for the weekly check: one tiny question to the first model of
+    each reserve that has a key, so a refused key or a model that is gone is
+    found before a real failure needs it. [(provider, model, result)], result
+    "ok" or a kind of classify(); keys never leave this function."""
+    out, done = [], set()
+    for name, url, key, model, _budget, _tokens in chain(env):
+        if name in done:
+            continue
+        done.add(name)
+        try:
+            ask(url, key, model, [{"role": "user", "content": "Answer with the word OK."}],
+                timeout=60, opener=opener, max_tokens=16)
+            out.append((name, model, "ok"))
+        except Stop as e:
+            out.append((name, model, e.args[0] if e.args else "temporary"))
+    return out
+
+
 def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
+    if argv is None:
+        argv = sys.argv[1:]
+    if argv[:1] == ["ping"]:            # autofix-reserve.py ping OUT.json (health.yml)
+        Path(argv[1]).write_text(json.dumps(ping(env, opener)) + "\n", "utf-8")
+        return 0
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--workdir", required=True)
     ap.add_argument("--prompt", required=True, help="the agent's instructions (rules)")
