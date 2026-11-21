@@ -2924,6 +2924,19 @@ def test_the_starting_commits_tests_run_on_the_new_code(tmp_path, branch, ok, sa
     assert said in run.stdout, run.stdout
 
 
+def test_the_starting_commits_tests_may_ask_git(tmp_path):
+    """A test of the starting commit that asks git which files there are
+    (test_licences.py does) failed in that step's copy, which was not a
+    repository: every branch of the automation that changed a test failed."""
+    base = {"tests/test_g.py": "import subprocess\n\n\ndef test_g():\n"
+                               "    out = subprocess.run(['git', 'ls-files'], capture_output=True, text=True, check=True)\n"
+                               "    assert 'tests/test_g.py' in out.stdout\n"}
+    work, env = _branch_repo(tmp_path, base, {"tests/test_h.py": "def test_h():\n    pass\n"})
+    script = step_script("The starting commit's tests on this code", "tests.yml")
+    run = subprocess.run(["bash", "-e", "-c", script], cwd=work, env=env, capture_output=True, text=True, timeout=300)
+    assert run.returncode == 0, run.stdout + run.stderr
+
+
 def test_ids_printed_at_exit_no_longer_fool_the_count(tmp_path):
     """Audit of #65 (H1): a dropped case whose id a module printed at exit
     (atexit, os.write) passed "No tests lost", which read pytest's output.
