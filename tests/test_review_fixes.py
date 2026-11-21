@@ -348,3 +348,70 @@ def test_l11_unknown_arguments_do_not_reach_qt(run_ike):
     from another program) went to Qt as one of its options. Now it is dropped."""
     out = run_ike(STEPS_L11, args=["-reverse", "--no-sandbox"], timeout=60)
     assert out["args"][1:] == [] and out["rtl"] is False, out
+
+
+def _pb(number, payload):
+    """One length-delimited protocol buffer field."""
+    def varint(n):
+        out = b""
+        while True:
+            b = n & 0x7F
+            n >>= 7
+            out += bytes([b | (0x80 if n else 0)])
+            if not n:
+                return out
+    return varint(number << 3 | 2) + varint(len(payload)) + payload
+
+
+def _crx3(archive, ecdsa=False, other_key=None):
+    """A CRX3 package signed as the Chrome Web Store's are (developer key)."""
+    import hashlib
+    import struct
+
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
+    key = ec.generate_private_key(ec.SECP256R1()) if ecdsa else rsa.generate_private_key(65537, 2048)
+    pub = key.public_key().public_bytes(serialization.Encoding.DER,
+                                        serialization.PublicFormat.SubjectPublicKeyInfo)
+    named = other_key or pub
+    crx_id = hashlib.sha256(named).digest()[:16]
+    signed = _pb(1, crx_id)
+    message = b"CRX3 SignedData\x00" + struct.pack("<I", len(signed)) + signed + archive
+    sig = (key.sign(message, ec.ECDSA(hashes.SHA256())) if ecdsa
+           else key.sign(message, padding.PKCS1v15(), hashes.SHA256()))
+    header = _pb(3 if ecdsa else 2, _pb(1, pub) + _pb(2, sig)) + _pb(10000, signed)
+    ext_id = "".join("abcdefghijklmnop"[c >> 4] + "abcdefghijklmnop"[c & 15] for c in crx_id)
+    return b"Cr24" + struct.pack("<II", 3, len(header)) + header + archive, ext_id
+
+
+def test_l8_store_packages_must_carry_the_extensions_signature():
+    """L8: the package downloaded for an extension was unpacked with its
+    header skipped: only TLS vouched for it, and a package of any other
+    extension (or none) was installed under the id asked for. Now it must be
+    a CRX3 whose id is the one asked for and whose signature by that id's key
+    covers the archive (checked also on Chromium's own CRX3 test files)."""
+    import io
+    import struct
+    import zipfile
+
+    import pytest
+    _updater_imports()
+    from ike import extensions
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("manifest.json", '{"manifest_version": 3, "name": "t", "version": "1"}')
+    archive = buf.getvalue()
+    for ecdsa in (False, True):
+        data, ext_id = _crx3(archive, ecdsa=ecdsa)
+        assert extensions.verify_crx(ext_id, data) is True
+        tampered = data[:-40] + bytes([data[-40] ^ 1]) + data[-39:]
+        with pytest.raises(ValueError):
+            extensions.verify_crx(ext_id, tampered)
+        with pytest.raises(ValueError):
+            extensions.verify_crx("a" * 32, data)                # another extension's package
+    forged, ext_id = _crx3(archive, other_key=b"the real extension's key")
+    with pytest.raises(ValueError):
+        extensions.verify_crx(ext_id, forged)                    # signed by a key of its own
+    for plain in (archive, b"Cr24" + struct.pack("<III", 2, 0, 0) + archive):
+        with pytest.raises(ValueError):
+            extensions.verify_crx(ext_id, plain)                 # a bare ZIP, or CRX2: no signature
