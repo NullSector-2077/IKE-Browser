@@ -31,11 +31,6 @@ def steps(ike, qapp, out):
     out["full"] = min(a(x, y) for x in range(r, W - r, 3) for y in (2, H // 2, H - 3))
     out["full_side"] = min(a(x, y) for y in range(r, H - r, 3) for x in (2, W // 2, W - 3))
     out["pic_w"] = [prev.picture.width(), v.preview.devicePixelRatio()]
-    # the page's scrollbar is not in the picture: its right edge has the
-    # page's colours (a blue-to-red gradient), not the bar's grey
-    pic = v.preview.toImage()
-    edge = [QColor(pic.pixel(pic.width() - 2, y)) for y in range(10, pic.height() - 10, 7)]
-    out["edge_grey"] = sum(1 for c in edge if abs(c.red() - c.blue()) < 25 and abs(c.red() - c.green()) < 25)
     out["cpu"] = [prev.cpu.label, prev.cpu.value]
     out["mem"] = [prev.mem.label, prev.mem.value]
     shots = os.environ.get("IKE_PREVIEW_SHOTS")
@@ -61,7 +56,6 @@ def test_preview_fills_the_card_on_a_scaled_screen(run_ike):
 
 def _check(out):
     assert out["picture"], out
-    assert out["edge_grey"] == 0, out                # no scrollbar in the picture
     assert max(out["corner"]) == 0, out              # rounded: the corners are not painted
     assert out["full"] == 255 and out["full_side"] == 255, out    # and the rest is fully opaque
     assert out["cpu"][1].endswith("%"), out          # a reading, not "…" or "—"

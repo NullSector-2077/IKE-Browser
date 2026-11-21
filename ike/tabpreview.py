@@ -24,28 +24,6 @@ PAD = 6
 REFRESH_MS = 1000
 
 
-# the page's own vertical scrollbar, in CSS pixels (asked in I.K.E.'s own
-# world, which the page cannot see)
-_GUTTER_JS = "Math.max(0, window.innerWidth - document.documentElement.clientWidth)"
-
-
-def _scaled(pm, gutter=0):
-    """The picture at the card's width, in the screen's own pixels (on a
-    screen scaled 2x it filled half the card before 1.1.21), without the
-    page's scrollbar (owner's request: a preview of the page, not of its
-    bars)."""
-    dpr = pm.devicePixelRatio() or 1.0
-    if gutter > 0 and gutter < pm.width() // 4:
-        pm = pm.copy(0, 0, pm.width() - gutter, pm.height())
-        pm.setDevicePixelRatio(dpr)
-    width, top = int(round(WIDTH * dpr)), int(round(MAX_HEIGHT * dpr))
-    pm = pm.scaledToWidth(width, Qt.TransformationMode.SmoothTransformation)
-    if pm.height() > top:                     # a tall window: the top of the page
-        pm = pm.copy(0, 0, width, top)
-    pm.setDevicePixelRatio(dpr)
-    return pm
-
-
 def capture(view):
     """Remember a small picture of what the tab shows."""
     try:
@@ -56,25 +34,15 @@ def capture(view):
         return
     if pm.isNull():
         return
-    view.preview = _scaled(pm)
-    # the scrollbar's width is the page's to say: the picture is cut when it
-    # answers (the uncut one is there meanwhile)
-    taken = view.preview
-
-    def cut(width):
-        try:
-            if getattr(view, "preview", None) is not taken:
-                return                        # a newer picture, or the tab is gone
-            gutter = int(round(float(width or 0) * view.zoomFactor() * (pm.devicePixelRatio() or 1.0)))
-            if gutter > 0:
-                view.preview = _scaled(pm, gutter)
-        except (RuntimeError, TypeError, ValueError):
-            pass
-    try:
-        from PyQt6.QtWebEngineCore import QWebEngineScript
-        view.page().runJavaScript(_GUTTER_JS, QWebEngineScript.ScriptWorldId.ApplicationWorld, cut)
-    except RuntimeError:
-        pass
+    # in the screen's own pixels: on a scaled screen (2x) the picture was
+    # half the card's width (1.1.21)
+    dpr = pm.devicePixelRatio() or 1.0
+    width, top = int(round(WIDTH * dpr)), int(round(MAX_HEIGHT * dpr))
+    pm = pm.scaledToWidth(width, Qt.TransformationMode.SmoothTransformation)
+    if pm.height() > top:                     # a tall window: the top of the page
+        pm = pm.copy(0, 0, width, top)
+    pm.setDevicePixelRatio(dpr)
+    view.preview = pm
 
 
 def _level_colour(fraction):
