@@ -652,6 +652,16 @@ def system_accept_language(locale_name=None):
     return ",".join(out)
 
 
+def engine_language(config):
+    """The languages the engine is given: at the global level Maximum,
+    en-US for every page and worker (owner's decision for 1.1.20, audit M-7:
+    workers and the engine's own texts gave the real language away);
+    otherwise accept_language()."""
+    if config["shield_level"] == "maximum":
+        return "en-US,en;q=0.9"
+    return accept_language(config)
+
+
 def accept_language(config):
     """The Accept-Language list in use: the user's own, or the system's."""
     return (config["accept_language"] or "").strip() or system_accept_language()

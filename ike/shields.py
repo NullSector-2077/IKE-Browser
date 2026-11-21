@@ -276,8 +276,8 @@ def _reduce_full_version(info):
 def one_language(cfg):
     """The Accept-Language of Strict: the first language in use, and its base
     language after it, as Chrome sends one language ("it-IT,it;q=0.9")."""
-    from .config import accept_language
-    return _one_language(accept_language(cfg))
+    from .config import engine_language
+    return _one_language(engine_language(cfg))
 
 
 @functools.lru_cache(maxsize=16)
@@ -920,8 +920,8 @@ class Shields(QObject):
         cfg = self.config
         if rank(cfg.level_for(first_host)) >= 3 and cfg.site_opt(first_host, "fp") is not False:
             return b"en-US,en;q=0.9" if rank(cfg.level_for(first_host)) >= 4 else one_language(cfg)
-        from .config import accept_language
-        return accept_language(cfg).encode("ascii", "replace")
+        from .config import engine_language
+        return engine_language(cfg).encode("ascii", "replace")
 
     def _identity(self, profile):
         """Present the engine's own Chrome version, the same in the header, in
@@ -1025,12 +1025,29 @@ class Shields(QObject):
         """The secret of a profile's media-command events (mediahook.js)."""
         return "m" + self.media_keys.get(id(profile), "")
 
+    # The default font families Chrome uses on Linux (owner's decision for
+    # 1.1.20, fingerprinting audit M-3): Qt's own defaults are the desktop's
+    # fonts, which a page read by name (getComputedStyle: "DejaVu Serif") and
+    # measured (the interface font as sans-serif). The fonts drawn are the
+    # system's own substitutes for these names (fontconfig).
+    CHROME_FONTS = (("StandardFont", "Times New Roman"), ("SerifFont", "Times New Roman"),
+                    ("SansSerifFont", "Arial"), ("FixedFont", "Monospace"),
+                    ("CursiveFont", "Comic Sans MS"), ("FantasyFont", "Impact"))
+
+    def _chrome_fonts(self, profile):
+        s = profile.settings()
+        for which, family in self.CHROME_FONTS:
+            kind = getattr(QWebEngineSettings.FontFamily, which)
+            if s.fontFamily(kind) != family:
+                s.setFontFamily(kind, family)
+
     def apply_settings(self, profile=None):
         """(Re)apply everything that depends on the configuration."""
         cfg = self.config
         for p in ([profile] if profile else list(self.profiles)):
-            from .config import accept_language
-            p.setHttpAcceptLanguage(accept_language(cfg))
+            from .config import engine_language
+            p.setHttpAcceptLanguage(engine_language(cfg))
+            self._chrome_fonts(p)
             p.settings().setAttribute(
                 QWebEngineSettings.WebAttribute.WebRTCPublicInterfacesOnly,
                 bool(cfg["webrtc_hide_ip"]))

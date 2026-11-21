@@ -57,6 +57,12 @@ one is fixed here with a test that failed before the fix (tests/test_review_fixe
   whole page again (the largest part of Dark Reader's extra cost on
   Speedometer's Lit pages, found by an independent review). It is now an
   image in the page's head: the same dark, no restyle.
+- **The default fonts are Chrome's** (Times New Roman, Arial, Monospace):
+  a page could read the desktop's own font names from them. Pages that
+  choose no font of their own may look slightly different.
+- **Maximum protection: the web engine speaks English too** when it is the
+  global level (form messages, the PDF viewer, dates, workers); I.K.E.'s own
+  menus and windows keep your language. It applies after a restart.
 - **Ctrl+Shift+A opens the extensions** ("Search open tabs…" stays in the
   menu without a shortcut): with both, neither worked.
 - **Encrypted DNS also for I.K.E.'s own requests**: with encrypted DNS on,

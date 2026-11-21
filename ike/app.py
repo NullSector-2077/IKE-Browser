@@ -1298,6 +1298,14 @@ def _chromium_flags(config):
             and "--disable-smooth-scrolling" not in flags):
         flags.append("--enable-smooth-scrolling")
     names = {switch_name(f) for f in flags}
+    # at the global level Maximum the engine itself speaks en-US: its own texts
+    # (form messages, the PDF viewer), Date's zone names and the shared and
+    # service workers followed the system's language (owner's decision for
+    # 1.1.20, fingerprinting audit M-7). I.K.E.'s own interface keeps the
+    # user's language. Read at start: a change of level applies after a restart.
+    if config["shield_level"] == "maximum" and "--lang" not in names:
+        flags.append("--lang=en-US")
+        names.add("--lang")
     if hasattr(os, "geteuid") and os.geteuid() == 0 and "--no-sandbox" not in names:
         # only reached with IKE_ALLOW_UNSAFE_ENGINE=1 (refuse_root): the
         # engine cannot sandbox as root, and the window says it is off

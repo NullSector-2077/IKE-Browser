@@ -1315,6 +1315,55 @@ def test_n3_repeated_reads_or_a_known_buffer_do_not_remove_the_noise(run_ike):
     assert a["audioDivided"] != b["audioDivided"], (a, b)
 
 
+def test_fp_audit_m3_default_fonts_are_chromes(run_ike):
+    """Fingerprinting audit, M-3 (owner's decision): the default font
+    families were Qt's, the desktop's own, readable by name and by measuring;
+    now Chrome's names, at every level."""
+    import json
+    out = run_ike((STEPS_FP % r"""
+      var s = document.createElement('span'); s.textContent = 'mmmmmmmmmmlli1WQ'; s.style.fontSize = '40px';
+      document.body.appendChild(s);
+      function w(f) { s.style.fontFamily = f; return s.offsetWidth; }
+      window.__fp = JSON.stringify({ body: getComputedStyle(document.body).fontFamily,
+        sans: w('sans-serif') === w('Arial'), serif: w('serif') === w('"Times New Roman"') });
+    """), timeout=90)
+    r = json.loads(out["r"])
+    assert r == {"body": '"Times New Roman"', "sans": True, "serif": True}, r
+
+
+M7_PROBE = r"""
+(async function () {
+  var R = {};
+  var i = document.createElement('input'); i.required = true; R.validation = i.validationMessage;
+  R.date = String(new Date(0));
+  function worker(make) {
+    return new Promise(function (ok) {
+      try { make(function (v) { ok(v); }); } catch (e) { ok('err ' + e); }
+      setTimeout(function () { ok('timeout'); }, 5000);
+    });
+  }
+  var src = "postMessage([navigator.languages.join(','), new Intl.NumberFormat().resolvedOptions().locale])";
+  var url = URL.createObjectURL(new Blob(["onconnect = function (e) { e.ports[0].postMessage([navigator.languages.join(','), new Intl.NumberFormat().resolvedOptions().locale]); }"], {type: 'text/javascript'}));
+  R.shared = await worker(function (done) { var w = new SharedWorker(url); w.port.onmessage = function (e) { done(e.data); }; });
+  window.__fp = JSON.stringify(R);
+})();
+"""
+
+
+def test_fp_audit_m7_maximum_engine_speaks_en_us(run_ike):
+    """Fingerprinting audit, M-7 (owner's decision): at the global level
+    Maximum, on an Italian system, the engine's own texts, Date's zone name
+    and shared workers gave the real language; now en-US."""
+    import json
+    env = {"LANG": "it_IT.UTF-8", "LC_ALL": "it_IT.UTF-8", "LANGUAGE": "it"}
+    settings = {"shield_level": "maximum", "language": "it", "accept_language": "it-IT,it;q=0.9"}
+    out = run_ike(STEPS_FP % M7_PROBE, settings=settings, env=env, timeout=90)
+    r = json.loads(out["r"])
+    assert "Please fill" in r["validation"], r
+    assert "Coordinated Universal Time" in r["date"] and "Tempo" not in r["date"], r
+    assert r["shared"][0].startswith("en") and r["shared"][1].startswith("en"), r
+
+
 def test_n12_addresses_from_the_menu_are_never_options(monkeypatch):
     """Review 4, N12 (rest of L11): an "address" such as --profile=x or
     --private handed over by another program was an option of I.K.E.; the
