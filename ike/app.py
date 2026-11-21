@@ -1179,6 +1179,10 @@ UNSAFE_FEATURES = ("isolateorigins", "site-per-process", "siteperprocess", "orig
 # of the home network, the third WebRTC. Qt has no per-site permission for it.
 LNA_FEATURES = ("LocalNetworkAccessChecks:LocalNetworkAccessChecksWarn/false",
                 "LocalNetworkAccessForNavigations", "LocalNetworkAccessChecksWebRTC")
+# the storage quota a site is told: a fixed 10 GiB for everyone instead of
+# 60 % of the disk, to the byte (fingerprinting audit, M-4); the real limits
+# do not change. Not a graphics switch.
+PRIVACY_FEATURES = ("StaticStorageQuota",)
 
 
 def split_flags(text):
@@ -1308,7 +1312,8 @@ def _chromium_flags(config):
         flags.append("--site-per-process")
     off = {x.split(":")[0].split("<")[0].lower() for f in flags if f.startswith("--disable-features=")
            for x in f.split("=", 1)[1].split(",")}
-    want = [x for x in LNA_FEATURES if x.split(":")[0].lower() not in off]     # off only on request
+    want = [x for x in LNA_FEATURES + PRIVACY_FEATURES
+            if x.split(":")[0].lower() not in off]     # off only on request
     if want:
         names_on = {x.split(":")[0] for x in want}
         flags = [f if not f.startswith("--enable-features=") else "--enable-features=" + ",".join(
