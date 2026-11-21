@@ -333,3 +333,18 @@ def test_l7_favicons_only_png_or_ico(run_ike):
         a.shutdown()
         b.shutdown()
     assert out["svg"] is True and out["png"] is False, out
+
+
+STEPS_L11 = r'''
+def steps(ike, qapp, out):
+    yield 300
+    out["args"] = qapp.arguments()
+    out["rtl"] = qapp.layoutDirection() == __import__("PyQt6.QtCore").QtCore.Qt.LayoutDirection.RightToLeft
+'''
+
+
+def test_l11_unknown_arguments_do_not_reach_qt(run_ike):
+    """L11: an argument I.K.E. does not know (an "address" starting with "-"
+    from another program) went to Qt as one of its options. Now it is dropped."""
+    out = run_ike(STEPS_L11, args=["-reverse", "--no-sandbox"], timeout=60)
+    assert out["args"][1:] == [] and out["rtl"] is False, out

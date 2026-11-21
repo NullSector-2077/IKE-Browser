@@ -1436,7 +1436,12 @@ def main(argv=None):
     parser.add_argument("--private", action="store_true", help="open a private window")
     parser.add_argument("--profile", default="", help="use a separate named profile")
     parser.add_argument("--version", action="version", version="%s %s" % (APP_NAME, __version__))
-    args, qt_args = parser.parse_known_args(argv if argv is not None else sys.argv[1:])
+    args, unknown = parser.parse_known_args(argv if argv is not None else sys.argv[1:])
+    if unknown:
+        # not passed on to Qt: another program hands over its "address" as
+        # an argument, and one that starts with "-" was read as an option of
+        # Qt (review of 1.1.19, L11). The engine's switches never come this way.
+        sys.stderr.write("I.K.E.: ignored: %s\n" % " ".join(unknown)[:300])
 
     _wait_for_previous()
     ensure_dirs()
@@ -1460,7 +1465,7 @@ def main(argv=None):
     from .shields import register_scheme
     register_scheme()
 
-    qapp = QApplication([sys.argv[0]] + qt_args)
+    qapp = QApplication([sys.argv[0]])
     qapp.setApplicationName(APP_ID)
     qapp.setApplicationDisplayName(APP_NAME if PROFILE == "default"
                                    else "%s [%s]" % (APP_NAME, PROFILE))
