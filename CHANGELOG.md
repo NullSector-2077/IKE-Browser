@@ -87,6 +87,33 @@ one is fixed here with a test that failed before the fix (tests/test_review_fixe
   works: it makes a dark copy of every style.)
 - `docs/platforms` left `main`; it is kept, identical, on the archive branch
   `docs/multiplatform-plan`.
+- **Menus and Settings, grouped so that everyone finds their way** (the
+  owner's plan). The ☰ menu holds the everyday entries, each with an icon and
+  a short explanation: new tab and windows, Protection (the level, Repair
+  this site, Site permissions, Update filter lists, Clear browsing data),
+  I.K.E. extensions, Dark mode for pages, Zoom, History, Bookmarks,
+  Downloads, Print / Save as PDF / Screenshot, Settings, Check for I.K.E.
+  updates (new: a check at once, answered as the daily one), About I.K.E.
+  (now with each component's version) and Quit; every other command is under
+  More. The menu bar reads File, Edit, View, History, Bookmarks, Protection,
+  Extensions, Tools, Help; Settings moved to Tools. Every shortcut is the
+  same. The Settings have eleven pages (General, Language, Appearance, New
+  tab page, Search, Protection, Privacy, I.K.E. extensions, Downloads,
+  Updates, System), each with one sentence saying what it holds and a short
+  explanation under every option. Nothing was removed and every setting keeps
+  its name, its default and its meaning; the old page names still open the
+  Settings.
+- **I.K.E. extensions**: the features that come with I.K.E. (no third-party
+  code), each with an on/off switch in the menu and in the Settings: user
+  scripts, dark mode for pages, skip ads in videos, cookie banners, password
+  manager, page watcher, split view, floating video, translation,
+  containers, site resources, weather, command bar and Plasma integration.
+  All on as before; off hides the feature's entries and buttons and stops
+  its work. Two new ones, off until chosen: **automatic scrolling** (middle
+  click on an empty part of a page and move the mouse; any click or Esc
+  stops it) and **open the selected text with the middle button** (as an
+  address or a search, in the same tab; never run as code). Links, fields
+  and buttons keep their own middle click (tests/test_menus_extensions.py).
 
 ## 1.1.19
 

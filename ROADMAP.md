@@ -78,6 +78,14 @@ are agreed with the project owner; do not reopen them without asking.
 - Filter lists without a licence are not shipped (one was removed in 1.1.18,
   CHANGELOG).
 - Android would be a separate project (Qt WebEngine does not exist there).
+- **Menus, Settings and I.K.E. extensions** (2026-11-21, asked and approved
+  by the owner, branch `ui/1.1.20-menus`): the ☰ menu and the menu bar
+  grouped by what an ordinary user looks for, eleven Settings pages with an
+  explanation under each option, and the built-in features listed as "I.K.E.
+  extensions" with an on/off switch each (`ike/ikeextensions.py`). No option
+  removed, every setting keeps its name, default and meaning; the two new
+  extensions (automatic scrolling, open the selected text with the middle
+  button) are off until the user turns them on.
 
 ## Status
 

@@ -161,8 +161,7 @@ def changed(app, ext_ids, settings_applied=False):
         app.watcher.settings_changed()
     if "newtab" in hooks:
         app.reload_newtabs()
-    app.refresh_windows()
-    app.refresh_toolbars()
+    app.refresh_windows()          # menus, toolbar buttons and the address bar's signs
     if "dark" in hooks:
         app._dark_changed()
 

@@ -11,7 +11,8 @@ Integration extension does, with nothing to install):
 Keeping the screen on while a video plays needs nothing from I.K.E.: the web
 engine itself asks the desktop (org.freedesktop.ScreenSaver).
 
-Each part can be switched off in Settings → General. Nothing is started when
+Each part can be switched off in Settings → System (all of it with the
+"Plasma integration" extension). Nothing is started when
 there is no session bus or jeepney is not installed. Pages are only read from
 I.K.E.'s own isolated script world: nothing is added to the pages' scripts.
 """
