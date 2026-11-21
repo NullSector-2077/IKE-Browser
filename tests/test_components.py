@@ -13,7 +13,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from conftest import ROOT, needs_engine
+from conftest import APP, ROOT, needs_engine
 
 needs_node = pytest.mark.skipif(not (shutil.which("node") and shutil.which("git")),
                                 reason="needs Node.js and git")
@@ -740,6 +740,17 @@ def served(pages):
     return get
 
 
+def _ike_root():
+    """The copy of I.K.E. under test: the one this test run has already
+    imported (the checkout, or the installed package with IKE_TEST_APP),
+    else APP. The check refuses to mix two copies."""
+    import sys
+    mod = sys.modules.get("ike")
+    if mod is not None and getattr(mod, "__file__", None):
+        return Path(mod.__file__).resolve().parent.parent
+    return APP
+
+
 @needs_engine
 def test_the_default_lists_in_the_bundled_engine():
     tool = load_tool()
@@ -748,7 +759,7 @@ def test_the_default_lists_in_the_bundled_engine():
              "https://ublockorigin.github.io/uAssets/filters/sub.txt": sub,
              "https://easylist.to/easylist/easylist.txt": SNAPSHOT + b"\nother.example##+js(no-such-scriptlet, x)\n",
              "https://cookies.example/list.txt": b"! cookies\ncookies.example##+js(unknown-there, x)\n##.cookie-bar\n"}
-    info = tool.check_filter_lists(ROOT, get=served(pages), lists=LISTS)
+    info = tool.check_filter_lists(_ike_root(), get=served(pages), lists=LISTS)
     assert [r["name"] for r in info["lists"]] == ["uBlock filters", "EasyList", "Cookies"]     # enabled only
     assert info["engine"]["built"] and info["engine"]["parse_report"], info["engine"]
     ubo, easy, cookies = info["lists"]
@@ -770,11 +781,11 @@ def test_the_default_lists_in_the_bundled_engine():
     assert "### The default filter lists in the bundled engine" in md and "**Findings about the components**" in md
     assert "| uBlock filters | ok |" in md and "not read (cookie list)" in md and "built from the lists: yes" in md
     # every list unreachable: said so, nothing found, nothing failed
-    info = tool.check_filter_lists(ROOT, get=served({}), lists=LISTS)
+    info = tool.check_filter_lists(_ike_root(), get=served({}), lists=LISTS)
     assert info["state"] == "unreachable" and info["unreachable"] == 3 and not info["findings"]
     assert "source unreachable" in tool.lists_markdown(info)
     # a list that is no list (binary, empty): a finding about that list
-    info = tool.check_filter_lists(ROOT, get=served({UBO_URL: b"\x00" * 100}), lists=LISTS[:1])
+    info = tool.check_filter_lists(_ike_root(), get=served({UBO_URL: b"\x00" * 100}), lists=LISTS[:1])
     assert info["state"] == "findings" and "not a usable list" in info["findings"][0]
 
 
@@ -783,7 +794,7 @@ def test_the_lists_check_writes_its_report(tmp_path, monkeypatch):
     tool = load_tool()
     monkeypatch.setattr(tool, "fetch_source", lambda url, timeout=60: served({UBO_URL: SNAPSHOT})(url))
     real = tool.check_filter_lists
-    monkeypatch.setattr(tool, "check_filter_lists", lambda root: real(root, lists=LISTS[:2]))
+    monkeypatch.setattr(tool, "check_filter_lists", lambda root: real(_ike_root(), lists=LISTS[:2]))
     out = tmp_path / "gh-output"
     monkeypatch.setenv("GITHUB_OUTPUT", str(out))
     assert tool.main(["--filter-lists", str(tmp_path / "lists.json"), "--markdown", str(tmp_path / "lists.md")]) == 0
