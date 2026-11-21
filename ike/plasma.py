@@ -155,7 +155,8 @@ class DesktopIntegration(QObject):
         QTimer.singleShot(0, self.settings_changed)
 
     def opt(self, key):
-        return bool(self.app.config.get(key, True))
+        # all of it is off while the "Plasma integration" extension is (1.1.20)
+        return bool(self.app.config.get(key, True)) and bool(self.app.config.get("ext_plasma", True))
 
     # --- start / stop --------------------------------------------------------
     def _ensure_bus(self):

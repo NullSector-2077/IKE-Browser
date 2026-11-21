@@ -328,6 +328,19 @@ DEFAULTS = {
     "system_titlebar": True,            # False: own window buttons, more room for pages
     "start_maximized": True,            # new windows fill the screen
     "dark_env_migrated": False,         # a system-wide forced dark mode was taken over once
+    # I.K.E. extensions (1.1.20, ikeextensions.py): the switch of each built-in
+    # feature that had none. On by default: nothing changes until the user
+    # turns one off. The two new ones start off.
+    "ext_passwords": True,
+    "ext_split": True,
+    "ext_pip": True,
+    "ext_translate": True,
+    "ext_containers": True,
+    "ext_resources": True,
+    "ext_command_bar": True,
+    "ext_plasma": True,
+    "ext_autoscroll": False,            # middle click and move the mouse to scroll
+    "ext_middleclick": False,           # middle click opens the selected text
 }
 
 

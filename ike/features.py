@@ -213,69 +213,57 @@ class WindowFeatures:
         b.setMenu(m)
         return b
 
-    def _build_feature_menus(self, m_file, m_view, m_tools):
+    def _build_feature_actions(self):
+        """The actions and submenus of the window's features; window.py puts
+        them in the menu bar and in the ☰ menu (_build_menus)."""
         A = self._action
-        before = m_file.actions()[3]            # separator after "New private window"
         self.m_containers = QMenu(T("New tab in container"), self)
         self.m_containers.setIcon(_theme("folder-lock", QStyle.StandardPixmap.SP_DirIcon))
         self.m_containers.aboutToShow.connect(self._fill_containers)
         self.m_profiles = QMenu(T("Profiles"), self)
         self.m_profiles.setIcon(_theme("user-identity", QStyle.StandardPixmap.SP_DirHomeIcon))
         self.m_profiles.aboutToShow.connect(self._fill_profiles)
-        if not self.private:
-            m_file.insertMenu(before, self.m_containers)
-        m_file.insertMenu(before, self.m_profiles)
-        quit_sep = m_file.actions()[-4]
-        for a in (
-            A(T("Import from another browser…"), self.app.show_import, None, "document-import",
-              T("Copy bookmarks, history and passwords from Firefox or Chromium browsers")),
-            A(T("Back up I.K.E. data…"), self.app.backup, None, "document-save-as",
-              T("Save settings, bookmarks, history and the password vault to one file")),
-            A(T("Restore a backup…"), self.app.restore_backup, None, "document-revert",
-              T("Replace the current data with a backup file")),
-        ):
-            m_file.insertAction(quit_sep, a)
-        m_file.insertSeparator(quit_sep)
-
-        sep = m_view.actions()[3]
+        self.act_import = A(T("Import from another browser…"), self.app.show_import, None, "document-import",
+                            T("Copy bookmarks, history and passwords from Firefox or Chromium browsers"))
+        self.act_backup = A(T("Back up I.K.E. data…"), self.app.backup, None, "document-save-as",
+                            T("Save settings, bookmarks, history and the password vault to one file"))
+        self.act_restore = A(T("Restore a backup…"), self.app.restore_backup, None, "document-revert",
+                             T("Replace the current data with a backup file"))
         self.act_split = A(T("Split view"), self.toggle_split, "Ctrl+Shift+2", "view-split-left-right",
                            T("Show two tabs side by side"), checkable=True)
         self.act_reader = A(T("Reader mode"), self.toggle_reader, "F9", "view-readermode",
                             T("Show only the article text, without clutter"))
-        m_view.insertAction(sep, self.act_split)
-        m_view.insertAction(sep, self.act_reader)
-        ws = QMenu(T("Workspaces"), self)
+        ws = self.m_workspaces = QMenu(T("Workspaces"), self)
         ws.setIcon(_theme("view-list-icons", QStyle.StandardPixmap.SP_FileDialogListView))
         ws.aboutToShow.connect(lambda: self._fill_ws_menu(ws))
-        m_view.insertMenu(sep, ws)
-
-        m_tools.addSeparator()
-        for a in (
-            A(T("Passwords…"), self.app.show_passwords, "Ctrl+Shift+K", "dialog-password",
-              T("Saved logins, password generator, import and export")),
-            A(T("Fill login on this page"), self.fill_login, "Ctrl+Shift+L", "password-show-on",
-              T("Fill the saved user name and password for this site")),
-            A(T("Search open tabs…"), self.search_tabs, "Ctrl+Shift+A", "edit-find",
-              T("Find an open tab by its title or address")),
-            A(T("Translate page…"), self.translate_page, None, "translate",
-              T("Translate this page through an external web service")),
-            A(T("Video in floating window"), self.float_video, "Ctrl+Shift+V", "media-playback-start",
-              T("Keep the video of this tab on top of other windows (picture in picture)")),
-            A(T("Suspend inactive tabs now"), lambda: self.app.sleep_tabs(force=True), None,
-              "system-suspend", T("Free the memory used by background tabs")),
-            A(T("Site resources…"), self.app.show_resources, "Shift+Esc", "utilities-system-monitor",
-              T("Memory, CPU and network used by each site, with optional limits")),
-            A(T("Watched pages…"), self.app.show_watches, None, "view-visible",
-              T("Pages and parts of pages you get notified about when they change")),
-            A(T("Site permissions…"), self.app.show_permissions, None, "preferences-security",
-              T("Camera, microphone, location, notifications and clipboard access per site")),
-            A(T("Check for I.K.E. updates"), lambda: self.app.check_app_update(manual=True), None,
-              "system-software-update", T("Look for a new version of the program")),
-        ):
-            m_tools.addAction(a)
+        self.act_passwords = A(T("Passwords…"), self.app.show_passwords, "Ctrl+Shift+K", "dialog-password",
+                               T("Saved logins, password generator, import and export"))
+        self.act_fill_login = A(T("Fill login on this page"), self.fill_login, "Ctrl+Shift+L",
+                                "password-show-on", T("Fill the saved user name and password for this site"))
+        self.act_search_tabs = A(T("Search open tabs…"), self.search_tabs, "Ctrl+Shift+A", "edit-find",
+                                 T("Find an open tab by its title or address"))
+        self.act_translate = A(T("Translate page…"), self.translate_page, None, "translate",
+                               T("Translate this page through an external web service"))
+        self.act_float = A(T("Video in floating window"), self.float_video, "Ctrl+Shift+V",
+                           "media-playback-start",
+                           T("Keep the video of this tab on top of other windows (picture in picture)"))
+        self.act_suspend = A(T("Suspend inactive tabs now"), lambda: self.app.sleep_tabs(force=True), None,
+                             "system-suspend", T("Free the memory used by background tabs"))
+        self.act_resources = A(T("Site resources…"), self.app.show_resources, "Shift+Esc",
+                               "utilities-system-monitor",
+                               T("Memory, CPU and network used by each site, with optional limits"))
+        self.act_watches = A(T("Watched pages…"), self.app.show_watches, None, "view-visible",
+                             T("Pages and parts of pages you get notified about when they change"))
+        self.act_permissions = A(T("Site permissions…"), self.app.show_permissions, None,
+                                 "preferences-security",
+                                 T("Camera, microphone, location, notifications and clipboard access per site"))
         self.act_store = A(T("Chrome Web Store"), self.open_web_store, None, "plugins",
                            T("Browse extensions; on an extension page use “Install in I.K.E.”"))
-        m_tools.addAction(self.act_store)
+
+    def ext_on(self, ext_id):
+        """Is one of I.K.E.'s own extensions switched on? (see ikeextensions.py)"""
+        from . import ikeextensions
+        return ikeextensions.on(self.app.config, ext_id)
 
     # ------------------------------------------------------------------
     # vertical tabs that hide and come back at the left edge
@@ -471,6 +459,10 @@ class WindowFeatures:
         cfg = self.app.config
         by_key = {key: act for key, act, _anchor in self._nav_items}
         self.toolbar_layout = ToolbarLayout.from_config(cfg, list(by_key))
+        # the button of an extension that is off is not shown; its place and
+        # the user's own choice (toolbar_hidden) stay as they are (1.1.20)
+        from . import ikeextensions
+        self.toolbar_layout.hidden |= ikeextensions.toolbar_keys_off(cfg)
         if getattr(self, "toolbar_mover", None) is None:
             self.toolbar_mover = ToolbarMover(self)
         # Back, Forward, Home, Reload: fixed place, can only be shown or hidden
@@ -954,7 +946,7 @@ class WindowFeatures:
             for name in self.workspaces:
                 if name != self.workspace:
                     w.addAction(name, lambda n=name: self.move_to_workspace(view, n))
-        if not self.private:
+        if not self.private and self.ext_on("containers"):
             c = m.addMenu(T("Reopen in container"))
             c.addAction(T("No container"), lambda: self._reopen_in(view, None))
             for cont in self.app.config["containers"]:
@@ -962,7 +954,7 @@ class WindowFeatures:
                             lambda n=cont["name"]: self._reopen_in(view, n))
         if view is self.split:
             m.addAction(T("Close split view"), self.unsplit)
-        else:
+        elif self.ext_on("split"):
             m.addAction(_theme("view-split-left-right", QStyle.StandardPixmap.SP_ArrowRight),
                         T("Show on the right (split view)"), lambda: self.split_with(view))
         m.addAction(_theme("system-suspend", QStyle.StandardPixmap.SP_MediaPause),
@@ -1011,6 +1003,8 @@ class WindowFeatures:
         if self.split is not None:
             self.unsplit()
             return
+        if not self.ext_on("split"):
+            return
         cur = self.current_view()
         if cur is None:
             return
@@ -1021,7 +1015,7 @@ class WindowFeatures:
         self.split_with(other)
 
     def split_with(self, view):
-        if view is None or view not in self.views:
+        if view is None or view not in self.views or not self.ext_on("split"):
             return
         self.unsplit()
         if self.stack.currentWidget() is view:
@@ -1148,7 +1142,7 @@ class WindowFeatures:
 
     def translate_page(self):
         v = self.current_view()
-        if not v or v.url().scheme() not in ("http", "https"):
+        if not v or v.url().scheme() not in ("http", "https") or not self.ext_on("translate"):
             return
         cfg = self.app.config
         if not cfg["translate_confirmed"]:
@@ -1169,7 +1163,7 @@ class WindowFeatures:
 
     def float_video(self):
         v = self.current_view()
-        if not v or v.url().scheme() not in ("http", "https", "file"):
+        if not v or v.url().scheme() not in ("http", "https", "file") or not self.ext_on("pip"):
             return
 
         def found(has_video):
@@ -1187,7 +1181,7 @@ class WindowFeatures:
 
     def fill_login(self):
         v = self.current_view()
-        if v:
+        if v and self.ext_on("passwords"):
             self.app.passwords.fill(v, interactive=True)
 
     # ------------------------------------------------------------------

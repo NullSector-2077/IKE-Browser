@@ -107,7 +107,7 @@ class WebPage(QWebEnginePage):
         self.mouse_locked = False
         self.loadStarted.connect(lambda: setattr(self, "mouse_locked", False))
         self._loaded_url = None                     # the address the last finished load showed
-        if self.app.config["dark_mode"] == "on":
+        if self.app.config["dark_mode"] == "on" and self.app.config.get("comp_dark", True):
             # dark from the first moment: a window a site opens shows an empty
             # page before its address loads (1.1.19: it was white)
             from PyQt6.QtGui import QColor
@@ -276,7 +276,8 @@ class WebPage(QWebEnginePage):
 
         # an empty page (a window a site opens, before its address loads) is
         # dark too while dark mode is on for every site (1.1.19: it was white)
-        blank = (url.isEmpty() or url.toString() == "about:blank") and cfg["dark_mode"] == "on"
+        blank = ((url.isEmpty() or url.toString() == "about:blank") and cfg["dark_mode"] == "on"
+                 and cfg.get("comp_dark", True))
         if (on, engine, blank) != (getattr(self, "_dark_on", None),
                                    getattr(self, "_dark_engine", None), getattr(self, "_dark_blank", None)):
             # also the colour shown between two pages: no white flash
@@ -287,7 +288,8 @@ class WebPage(QWebEnginePage):
         # Dark Reader: scripts of the profile (darkpages.py), as the extension does it
         from . import darkpages
         profile = self.profile()
-        if engine != "reader" or not (cfg["dark_mode"] == "on" or cfg["dark_sites"]):
+        if engine != "reader" or not (cfg["dark_mode"] == "on" or cfg["dark_sites"]) \
+                or not cfg.get("comp_dark", True):
             darkpages.forget(profile)
         if not page_url:
             return
@@ -827,6 +829,48 @@ class WebView(QWebEngineView):
             return True
         return False
 
+    # --- "Open selected text with middle click" (ikeextensions.py, 1.1.20) ---
+    def _middle_click(self, event):
+        """A middle click (press and release in place) on an empty part of the
+        page opens the desktop's selected text, as an address or a search, in
+        this tab. Links, fields, buttons, frames and media keep their own
+        middle click; with "Automatic scrolling" on, that one takes it."""
+        from . import ikeextensions
+        cfg = self.window_ref.app.config
+        if not ikeextensions.on(cfg, "middleclick") or ikeextensions.on(cfg, "autoscroll"):
+            return
+        p = event.position()
+        if event.type() == QEvent.Type.MouseButtonPress:
+            self._mid_press = p
+            return
+        start, self._mid_press = getattr(self, "_mid_press", None), None
+        if start is None or abs(p.x() - start.x()) + abs(p.y() - start.y()) > 6 \
+                or event.modifiers() != Qt.KeyboardModifier.NoModifier:
+            return
+        if self.url().scheme() not in ("http", "https", "file", "ike"):
+            return
+        text = " ".join(ikeextensions.primary_selection().split())
+        if not text or len(text) > ikeextensions.MAX_SELECTION:
+            return
+        zoom = self.zoomFactor() or 1.0
+        self.page().runJavaScript(ikeextensions.EMPTY_AT_JS % (p.x() / zoom, p.y() / zoom),
+                                  QWebEngineScript.ScriptWorldId.ApplicationWorld,
+                                  lambda empty, t=text: self._open_selection(t) if empty is True else None)
+
+    def _open_selection(self, text):
+        win = self.window_ref
+        try:
+            url = win.resolve(text)
+        except RuntimeError:
+            return
+        if url is None:
+            return
+        if url.scheme().lower() not in ("http", "https"):
+            # never code (javascript:), data or a file of this computer: a search instead
+            url = QUrl(win.app.shields.search_url(text))
+        self.last_middle_open = url.toString()
+        self.load(url)
+
     def _do_gesture(self, dirs):
         action = self.GESTURES.get(dirs)
         self.last_gesture = action or ""
@@ -849,6 +893,9 @@ class WebView(QWebEngineView):
         if (t in (QEvent.Type.MouseButtonPress, QEvent.Type.MouseMove, QEvent.Type.MouseButtonRelease)
                 and self.window_ref.app.config["mouse_gestures"] and self._gesture(obj, event)):
             return True
+        if (t in (QEvent.Type.MouseButtonPress, QEvent.Type.MouseButtonRelease)
+                and event.button() == Qt.MouseButton.MiddleButton):
+            self._middle_click(event)           # never taken from the page: links still open
         if event.type() == QEvent.Type.KeyPress:
             mods = event.modifiers() & ~Qt.KeyboardModifier.KeypadModifier
             key = event.key()
