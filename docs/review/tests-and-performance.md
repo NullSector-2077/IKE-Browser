@@ -198,7 +198,10 @@ What the comparison showed:
   appendChild and the like cost little (about 0.3 microseconds a call), and
   the innerHTML hook nothing measurable.
 - Per frame, the protection's script takes about 0.3 ms to install (4-5 ms in
-  the top page). At Strict and Maximum the font masks cost much more until
+  the top page). (Measured again for 1.1.20: about 2.5 ms per new frame, of
+  which 1.6 ms is the engine building the WebGL interfaces the first time
+  the script touches them; wrapping WebGL later would let a page keep an
+  unwrapped function, so it stays as it is.) At Strict and Maximum the font masks cost much more until
   I.K.E. knows which fonts the computer has (the first 15 seconds of a new
   profile, or after fonts change): the 30-frame page took 1.2 s instead of
   0.4 s then; afterwards Strict and Maximum cost about 5 % more than Balanced.

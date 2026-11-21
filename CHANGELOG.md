@@ -54,6 +54,20 @@ one is fixed here with a test that failed before the fix (tests/test_review_fixe
   still be on it when the click is made, and at most once every 3 seconds (a
   page could put something of its own there to get a real click). The skip
   on the video site itself is unchanged (the owner's decision).
+- **Faster where the reviews found time** (an independent performance review
+  of 1.1.20, each fix measured and tested): visits and site icons are written
+  to disk together a moment later instead of one wait for the disk per page
+  (on a hard disk tens of milliseconds at the end of every page load); an
+  icon drawn again with the same picture is not written again; the history
+  menu and the new tab page use indexes (at 100,000 visits 10-17 ms -> under
+  0.2 ms); the ad-blocking engine of the session is built in its own thread
+  while I.K.E. sets up, still in place before any page loads; no download
+  code is loaded at start-up; the Public Suffix List is read from a parsed
+  copy; the canvas noise is computed four bytes at a time; encrypted DNS
+  keeps one connection to its provider and asks a name once.
+- **The canvas noise no longer undoes itself**: pixels the page wrote back
+  and read again lost the noise and gave the real picture (found while
+  measuring the noise; also in 1.1.19).
 - `docs/platforms` left `main`; it is kept, identical, on the archive branch
   `docs/multiplatform-plan`.
 
