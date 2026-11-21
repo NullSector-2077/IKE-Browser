@@ -215,7 +215,7 @@ DEFAULTS = {
     "weather_unit": "celsius",          # celsius | fahrenheit
     "default_zoom": 1.0,
     "search_engines": DEFAULT_ENGINES,
-    "default_engine": "DuckDuckGo",
+    "default_engine": "Startpage",      # new profiles (1.1.19, the owner's choice); a choice made is kept
     "search_suggestions": True,
     # protection
     "shield_level": "balanced",

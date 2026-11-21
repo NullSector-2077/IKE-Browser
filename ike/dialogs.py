@@ -35,7 +35,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from .config import DEFAULT_ENGINES, DEFAULT_LISTS, DOH_PROVIDERS, LEVEL_NAMES, LEVELS, PERMISSION_KINDS, TOOLBAR_ITEMS
+from .config import DEFAULT_ENGINES, DEFAULTS, DEFAULT_LISTS, DOH_PROVIDERS, LEVEL_NAMES, LEVELS, PERMISSION_KINDS, TOOLBAR_ITEMS
 from .i18n import T
 
 
@@ -654,7 +654,7 @@ class SettingsDialog(QDialog):
         self.engines.setRowCount(0)
         for e in DEFAULT_ENGINES:
             self._add_engine_row(e)
-        self._refresh_default("DuckDuckGo")
+        self._refresh_default(DEFAULTS["default_engine"])
 
     def _engine_rows(self):
         out = []
