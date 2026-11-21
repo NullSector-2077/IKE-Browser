@@ -71,6 +71,8 @@ def tool(monkeypatch, tmp_path, repo):
     monkeypatch.setattr(mod, "latest_adblock", lambda: up["adblock"])
     monkeypatch.setattr(mod, "resolve_test_packages", lambda: dict(up["set"]))
     monkeypatch.setattr(mod, "arch_webengine", lambda: up["arch"])
+    up["pyo3"] = mod.current_pyo3(repo) + ".0"
+    monkeypatch.setattr(mod, "latest_pyo3", lambda: up["pyo3"])
     calls = []
     real_run = mod.run
     monkeypatch.setattr(mod, "run", lambda cmd, **kw: calls.append(cmd) if cmd[0] == "cargo" else real_run(cmd, **kw))
@@ -108,7 +110,7 @@ def test_repository_versions_agree():
 @needs_node
 def test_nothing_new(tool, repo, tmp_path):
     results = tool.check_all(repo, tool.ubo, tmp_path / "w")
-    assert [r["error"] for r in results] == [""] * 4
+    assert [r["error"] for r in results] == [""] * 5
     assert not any(r["update"] for r in results)
     assert not any(r["also"] for r in results)
 
@@ -154,7 +156,7 @@ def test_apply_rewrites_the_version_files(tool, repo, tmp_path):
     assert tool.main(["--root", str(repo), "--ubo-src", str(tool.ubo), "--apply"]) == 0
     assert 'adblock = { version = "=0.14.0"' in (repo / "ike-adblock/Cargo.toml").read_text()
     assert 'const ENGINE_VERSION: &str = "0.14.0"' in (repo / "ike-adblock/src/lib.rs").read_text()
-    assert ["cargo", "update", "-p", "adblock", "--precise", "0.14.0"] == tool.calls[0][:6]
+    assert ["cargo", "update", "-p", "adblock", "--precise", "0.14.0"] in [c[:6] for c in tool.calls]
     req = (repo / "tools/test-requirements.txt").read_text()
     assert req.startswith("# Python packages the automatic tests run with")
     assert "PyQt6==6.13.0\nPyQt6-Qt6==6.13.1\n" in req and "certifi==2999.1.1" in req
@@ -192,11 +194,11 @@ def test_report_files(tool, repo, tmp_path, monkeypatch):
     tool.main(["--root", str(repo), "--ubo-src", str(tool.ubo),
                "--json", str(tmp_path / "r.json"), "--markdown", str(tmp_path / "r.md")])
     data = json.loads((tmp_path / "r.json").read_text())
-    assert data["updates"] == 1 and data["errors"] == 0 and len(data["components"]) == 4
+    assert data["updates"] == 1 and data["errors"] == 0 and len(data["components"]) == 5
     assert not any(k.startswith("_") for c in data["components"] for k in c)
     md = (tmp_path / "r.md").read_text()
     assert md.startswith("Nuove versioni trovate") and "| adblock-rust (AdBlock engine) | 0.13" in md
-    assert md.count("\n|") == 6           # header, separator, four components
+    assert md.count("\n|") == 7           # header, separator, five components
     assert out.read_text() == "updates=1\nerrors=0\n"
 
 
@@ -282,3 +284,28 @@ def test_prepare_maintenance_bumps_candidate_version(tmp_path):
     assert '__version__ = "1.0.1"' in (root / "ike/__init__.py").read_text()
     log = (root / "CHANGELOG.md").read_text(encoding="utf-8")
     assert log.count("## 1.0.1") == 1 and "scriptlet changes" in log and "adblock-rust" in log
+
+
+def test_the_engines_other_crates_are_followed(tool, repo, tmp_path, monkeypatch):
+    """1.1.19: pyo3, serde_json and every crate they bring were never updated
+    (only adblock was followed). Newer compatible crates and a new pyo3 line
+    are found; the requirement is raised when applied."""
+    r = by_name(tool.check_all(repo, tool.ubo, tmp_path / "w"))
+    assert not r["Rust"]["update"] and not r["Rust"]["error"], r["Rust"]
+    assert [tool.pyo3_requirement("0.30", v) for v in ("0.30.9", "0.31.2", "1.2.0", "0.29.0")] == \
+        ["0.30", "0.31", "1", "0.30"]
+    assert tool.pyo3_requirement("1", "1.4.0") == "1" and tool.pyo3_requirement("1", "2.0.0") == "2"
+    lock = (repo / "ike-adblock/Cargo.lock").read_text()
+    old = tool.lock_packages(lock)
+    assert old["adblock"] == tool.current_adblock(repo) and "pyo3" in old and "serde_json" in old
+    newer = lock.replace('name = "serde_json"\nversion = "%s"' % old["serde_json"],
+                         'name = "serde_json"\nversion = "99.0.0"')
+    monkeypatch.setattr(tool, "updated_lock", lambda root, req: newer)
+    tool.up["pyo3"] = "0.99.1"
+    info = tool.check_crates(repo)
+    assert info["update"] and info["_requirement"] == "0.99", info
+    assert "pyo3 %s -> 0.99" % tool.current_pyo3(repo) in info["note"]
+    assert "serde_json %s -> 99.0.0" % old["serde_json"] in info["note"]
+    tool.apply_crates(repo, info)
+    assert 'pyo3 = { version = "0.99"' in (repo / "ike-adblock/Cargo.toml").read_text()
+    assert tool.calls[-1][:2] == ["cargo", "update"] and "-p" not in tool.calls[-1]

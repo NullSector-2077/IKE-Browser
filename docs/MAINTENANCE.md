@@ -26,6 +26,7 @@ releases or signs anything, and no workflow ever writes to `main`.
 | Component | Version written in | What triggers an update |
 |---|---|---|
 | adblock-rust, the AdBlock engine library | `ike-adblock/Cargo.toml`, `ike-adblock/src/lib.rs`, `ike-adblock/Cargo.lock` | A newer stable release on crates.io |
+| The engine's other crates (pyo3, serde_json and every crate they and adblock bring, psl's list of public suffixes included; 1.1.19) | `ike-adblock/Cargo.lock`, and `ike-adblock/Cargo.toml` for a new pyo3 release line | A newer compatible version of any of them (`cargo update`, adblock kept at its exact version), or a new pyo3 line (the requirement is raised; the automatic fix may adapt I.K.E.'s wrapper, as for a new engine) |
 | uBlock Origin scriptlets | `ike/resources/ubo-scriptlets.json` | The rebuilt scriptlets differ, not merely a new upstream commit |
 | Dark Reader: engine (npm "darkreader") and the lists of its extension (GitHub) | `ike/resources/darkreader.js`, `darkreader-proxy.js`, `darkreader-data.json` (`tools/build-darkreader.py`) | A newer engine, or lists that changed (site fixes, dark sites, detector hints) |
 | Qt WebEngine / PyQt6 of the automatic tests | `tools/test-requirements.txt` | A newer Qt / PyQt6 package set on PyPI |
