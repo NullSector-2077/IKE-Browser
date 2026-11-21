@@ -418,75 +418,130 @@
   }
 
   // ---- plugins ------------------------------------------------------------
-  function word(next, len) {
+  // The two invented plugins answer through the engine's own getters and
+  // methods (Plugin.prototype, PluginArray.prototype), as real entries do:
+  // they had own properties, and the prototype's getters and item() threw
+  // on them and on the list (fingerprinting audit, M-6). No method of the
+  // page's is used to make them (audit, H-A).
+  var PLUGIN_VIEWS = hardMap(), PLUGIN_FAKES = hardMap(), NONE = {};
+  var R_GET = Reflect.get, R_HAS = Reflect.has, O_CREATE = Object.create;
+  var CAPS = { b: 'B', c: 'C', d: 'D', f: 'F', g: 'G', h: 'H', j: 'J', k: 'K', l: 'L', m: 'M', n: 'N', p: 'P',
+    r: 'R', s: 'S', t: 'T', v: 'V', w: 'W', z: 'Z' };
+  function word(next, len, low) {
     var a = 'bcdfghjklmnprstvwz', b = 'aeiou', out = '';
-    for (var i = 0; i < len; i++) { var s = i % 2 ? b : a; out += s.charAt(next() % s.length); }
-    return out.charAt(0).toUpperCase() + out.slice(1);
+    for (var i = 0; i < len; i++) {
+      var set = i % 2 ? b : a, ch = set[next() % set.length];
+      out += i === 0 && !low ? CAPS[ch] || ch : ch;
+    }
+    return out;
   }
-  function pluginList(w, real) {
-    var next = rng(seed ^ 0x51ed27), fakes = [], n = real.length;
+  function isIndex(p) {
+    if (!p.length) return false;
+    for (var i = 0; i < p.length; i++) if (p[i] < '0' || p[i] > '9') return false;
+    return true;
+  }
+  function pluginList(w, real, PA) {
+    var next = rng(seed ^ 0x51ed27), fakes = [], n = RAPPLY(PA.len, real, []);
     var proto = w.Plugin ? w.Plugin.prototype : w.Object.prototype;
     for (var i = 0; i < 2; i++) {
-      var f = w.Object.create(proto);
-      var vals = { name: word(next, 6 + next() % 5) + ' ' + word(next, 5 + next() % 4),
-        description: word(next, 7 + next() % 6), filename: word(next, 8 + next() % 5).toLowerCase(),
-        length: 0 };
-      w.Object.keys(vals).forEach(function (k) {
-        w.Object.defineProperty(f, k, { value: vals[k], enumerable: true, configurable: true });
-      });
-      w.Object.defineProperty(f, 'item', { value: method('item', function () { return null; }, proto.item || word) });
-      w.Object.defineProperty(f, 'namedItem',
-        { value: method('namedItem', function () { return null; }, proto.namedItem || word) });
-      fakes.push(f);
+      var f = O_CREATE(proto);
+      PLUGIN_FAKES.set(f, { name: word(next, 6 + next() % 5) + ' ' + word(next, 5 + next() % 4),
+        description: word(next, 7 + next() % 6), filename: word(next, 8 + next() % 5, true) });
+      fakes[i] = f;
     }
-    function at(i) { return i < n ? real[i] : fakes[i - n]; }
-    function named(name) {
-      var r = real.namedItem(name);
-      if (r) return r;
-      for (var i = 0; i < fakes.length; i++) if (fakes[i].name === name) return fakes[i];
-      return null;
-    }
-    var item = method('item', function (i) { return at(i >>> 0) || null; }, real.item);
-    var namedItem = method('namedItem', function (name) { return named(String(name)); }, real.namedItem);
-    return new w.Proxy(real, {
+    var info = {
+      real: real, n: n + fakes.length,
+      at: function (k) { return k < n ? real[k] : fakes[k - n]; },
+      named: function (name) {
+        var r = RAPPLY(PA.named, real, [name]);
+        if (r) return r;
+        for (var k = 0; k < fakes.length; k++) if (PLUGIN_FAKES.get(fakes[k]).name === name) return fakes[k];
+        return null;
+      }
+    };
+    var view = new w.Proxy(real, {
       get: function (t, prop) {
-        if (prop === 'length') return n + fakes.length;
-        if (prop === 'item') return item;
-        if (prop === 'namedItem') return namedItem;
+        if (prop === 'length') return info.n;
         if (typeof prop === 'string') {
-          if (/^\d+$/.test(prop)) return at(+prop);
-          var v = w.Reflect.get(t, prop, t);
-          if (v === undefined) { var hit = named(prop); if (hit) return hit; }
-          return typeof v === 'function' ? v.bind(t) : v;
+          if (isIndex(prop)) return info.at(+prop);
+          var v = R_GET(t, prop, t);
+          if (v === undefined) { var hit = info.named(prop); if (hit) return hit; }
+          return v;       // the prototype's own functions, which answer for this view
         }
-        if (prop === w.Symbol.iterator) {
-          return function () {
-            var all = [];
-            for (var i = 0; i < n + fakes.length; i++) all.push(at(i));
-            return all[w.Symbol.iterator]();
-          };
-        }
-        var s = w.Reflect.get(t, prop, t);
-        return typeof s === 'function' ? s.bind(t) : s;
+        return R_GET(t, prop, t);     // the iterator reads through this view
       },
       has: function (t, prop) {
-        if (typeof prop === 'string' && /^\d+$/.test(prop)) return +prop < n + fakes.length;
-        return w.Reflect.has(t, prop);
+        if (typeof prop === 'string' && isIndex(prop)) return +prop < info.n;
+        return R_HAS(t, prop);
       }
+    });
+    PLUGIN_VIEWS.set(view, info);
+    return view;
+  }
+  function pluginPrototypes(w) {
+    var PAP = w.PluginArray && w.PluginArray.prototype, PP = w.Plugin && w.Plugin.prototype;
+    function answer(proto, name, pick) {
+      var d = proto && GOPD(proto, name);
+      if (!d || !d.get) return;
+      var orig = d.get;
+      d.get = accessor(name, function () { var r = pick(this); return r !== NONE ? r : RAPPLY(orig, this, []); }, orig);
+      try { Object.defineProperty(proto, name, d); } catch (e) {}
+    }
+    answer(PAP, 'length', function (me) { var i = PLUGIN_VIEWS.get(me); return i ? i.n : NONE; });
+    wrap(PAP, 'item', function (orig) {
+      return function (k) {
+        var i = PLUGIN_VIEWS.get(this);
+        if (!i || !arguments.length) return RAPPLY(orig, i ? i.real : this, arguments);
+        return i.at(k >>> 0) || null;
+      };
+    });
+    wrap(PAP, 'namedItem', function (orig) {
+      return function (name) {
+        var i = PLUGIN_VIEWS.get(this);
+        if (!i || !arguments.length) return RAPPLY(orig, i ? i.real : this, arguments);
+        return i.named(`${name}`);
+      };
+    });
+    wrap(PAP, 'refresh', function (orig) {
+      return function () { var i = PLUGIN_VIEWS.get(this); return RAPPLY(orig, i ? i.real : this, arguments); };
+    });
+    ['name', 'description', 'filename', 'length'].forEach(function (k) {
+      answer(PP, k, function (me) { var v = PLUGIN_FAKES.get(me); return v ? (k === 'length' ? 0 : v[k]) : NONE; });
+    });
+    ['item', 'namedItem'].forEach(function (k) {
+      wrap(PP, k, function (orig) {
+        return function () { return PLUGIN_FAKES.get(this) && arguments.length ? null : RAPPLY(orig, this, arguments); };
+      });
     });
   }
 
+
   // ---- making replaced functions look native --------------------------------
+  // An error thrown through a replaced function (a wrong object, say) had
+  // the protection's own lines in its stack ("userscript:..."): they are
+  // taken out, as the engine's own functions have no lines there either
+  // (fingerprinting audit, M-5)
+  var S_SPLIT = String.prototype.split, A_JOIN = Array.prototype.join;
+  function clean(e) {
+    try {
+      if (e === null || (typeof e !== 'object' && typeof e !== 'function')) return;
+      var st = e.stack;
+      if (typeof st !== 'string' || sindex(st, 'userscript:') < 0) return;
+      var lines = RAPPLY(S_SPLIT, st, ['\n']), out = [];
+      for (var i = 0; i < lines.length; i++) if (sindex(lines[i], 'userscript:') < 0) out[out.length] = lines[i];
+      e.stack = RAPPLY(A_JOIN, out, ['\n']);
+    } catch (x) {}
+  }
   var natives = hardMap();         // replacement -> source text of the original
   function method(name, impl, orig) {
-    var holder = { [name]() { return RAPPLY(impl, this, arguments); } };
+    var holder = { [name]() { try { return RAPPLY(impl, this, arguments); } catch (e) { clean(e); throw e; } } };
     var f = holder[name];
     try { Object.defineProperty(f, 'length', { value: orig.length, configurable: true }); } catch (e) {}
     natives.set(f, RAPPLY(origToString, orig, []));
     return f;
   }
   function accessor(name, impl, orig) {
-    var holder = { get [name]() { return RAPPLY(impl, this, []); } };
+    var holder = { get [name]() { try { return RAPPLY(impl, this, []); } catch (e) { clean(e); throw e; } } };
     var g = Object.getOwnPropertyDescriptor(holder, name).get;
     natives.set(g, orig ? RAPPLY(origToString, orig, []) : 'function get ' + name + '() { [native code] }');
     return g;
@@ -514,7 +569,7 @@
     var d = Object.getOwnPropertyDescriptor(obj, name);
     if (!d || !d.set) return;
     var orig = d.set;
-    var holder = { set [name](v) { RAPPLY(orig, this, [v]); after(this, v); } };
+    var holder = { set [name](v) { try { RAPPLY(orig, this, [v]); } catch (e) { clean(e); throw e; } after(this, v); } };
     var s = Object.getOwnPropertyDescriptor(holder, name).set;
     natives.set(s, RAPPLY(origToString, orig, []));
     d.set = s;
@@ -1445,12 +1500,15 @@
     var NP = w.Navigator.prototype;
     // Plugins: the real list plus two entries whose names differ on every site.
     if (w.Proxy && w.Reflect) {
-      var pluginViews = hardMap();
+      var pluginViews = hardMap(), PAP0 = w.PluginArray && w.PluginArray.prototype;
+      // the engine's own, taken before they are wrapped below
+      var PA = { len: getterOf(PAP0, 'length'), named: PAP0 && PAP0.namedItem };
+      pluginPrototypes(w);
       getter(NP, 'plugins', function (orig) {
         var real = RAPPLY(orig, this, []);
         try {
           var view = pluginViews.get(real);
-          if (!view) { view = pluginList(w, real); pluginViews.set(real, view); }
+          if (!view) { view = pluginList(w, real, PA); pluginViews.set(real, view); }
           return view;
         } catch (e) { return real; }
       });

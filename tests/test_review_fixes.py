@@ -1364,6 +1364,48 @@ def test_fp_audit_m7_maximum_engine_speaks_en_us(run_ike):
     assert r["shared"][0].startswith("en") and r["shared"][1].startswith("en"), r
 
 
+def test_fp_audit_m5_errors_do_not_name_the_protection(run_ike):
+    """Fingerprinting audit, M-5: an error thrown through a replaced
+    function had "userscript:ike-fp" in its stack, one line that named
+    I.K.E.; now neither the script nor its lines are there."""
+    import json
+    out = run_ike(STEPS_FP % r"""
+      var R = {};
+      try { CanvasRenderingContext2D.prototype.getImageData.call({}); } catch (e) { R.method = String(e.stack); }
+      try { Object.getOwnPropertyDescriptor(Navigator.prototype, 'hardwareConcurrency').get.call({}); }
+      catch (e) { R.getter = String(e.stack); }
+      window.__fp = JSON.stringify(R);
+    """, settings={"shield_level": "strict"}, timeout=90)
+    r = json.loads(out["r"])
+    for k in ("method", "getter"):
+        assert "TypeError" in r[k] and "userscript" not in r[k] and "ike" not in r[k].lower(), r
+
+
+def test_fp_audit_m6_the_plugin_list_answers_as_the_engines(run_ike):
+    """Fingerprinting audit, M-6: the prototype's item() and length threw on
+    the plugin list, its name getter on the two invented plugins, which had
+    own properties; three one-line checks told the list was not the
+    engine's. Now they answer as for real entries."""
+    import json
+    out = run_ike(STEPS_FP % r"""
+      var R = {}, P = navigator.plugins, last = P[P.length - 1];
+      try { R.item = PluginArray.prototype.item.call(P, 0) === P[0]; } catch (e) { R.item = 'throws'; }
+      try { R.length = Object.getOwnPropertyDescriptor(PluginArray.prototype, 'length').get.call(P) === P.length; }
+      catch (e) { R.length = 'throws'; }
+      try { R.name = Object.getOwnPropertyDescriptor(Plugin.prototype, 'name').get.call(last) === last.name; }
+      catch (e) { R.name = 'throws'; }
+      R.own = Object.getOwnPropertyNames(last).join(',');
+      R.sameItem = P.item === PluginArray.prototype.item;
+      R.count = P.length; R.names = []; for (var p of P) R.names.push(p.name);
+      R.named = P.namedItem(last.name) === last;
+      window.__fp = JSON.stringify(R);
+    """, settings={"shield_level": "balanced"}, timeout=90)
+    r = json.loads(out["r"])
+    assert r["item"] is True and r["length"] is True and r["name"] is True, r
+    assert r["own"] == "" and r["sameItem"] is True and r["named"] is True, r
+    assert len(r["names"]) == r["count"] and r["count"] >= 2, r
+
+
 def test_n12_addresses_from_the_menu_are_never_options(monkeypatch):
     """Review 4, N12 (rest of L11): an "address" such as --profile=x or
     --private handed over by another program was an option of I.K.E.; the

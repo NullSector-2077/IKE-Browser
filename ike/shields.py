@@ -273,6 +273,13 @@ def _reduce_full_version(info):
                 info.setHttpHeader(name, reduced)
 
 
+# The names of the two scripts that run in the page's own world: an error's
+# stack names them ("userscript:<name>"), and "ike-fp" named I.K.E.
+# (fingerprinting audit, M-5)
+FP_SCRIPT = "content"
+MEDIA_SCRIPT = "content-2"
+
+
 def one_language(cfg):
     """The Accept-Language of Strict: the first language in use, and its base
     language after it, as Chrome sends one language ("it-IT,it;q=0.9")."""
@@ -1056,8 +1063,8 @@ class Shields(QObject):
             self._drop_site_scripts(p)
             self._video_scripts(p)
             scripts = p.scripts()
-            for old in (scripts.find("ike-fp") + scripts.find("ike-consent")
-                        + scripts.find("ike-pw") + scripts.find("ike-media")
+            for old in (scripts.find(FP_SCRIPT) + scripts.find("ike-consent")
+                        + scripts.find("ike-pw") + scripts.find(MEDIA_SCRIPT)
                         + scripts.find("ike-autoscroll")):
                 scripts.remove(old)
             from . import ikeextensions
@@ -1066,7 +1073,7 @@ class Shields(QObject):
                 # "next" / "previous" of the desktop's media controls (plasma.py);
                 # inserted before ike-fp: both keep replaced functions native-looking
                 m = QWebEngineScript()
-                m.setName("ike-media")
+                m.setName(MEDIA_SCRIPT)
                 sites = [str(h).lower().strip(".") for h in cfg.get("media_sites") or [] if h]
                 m.setSourceCode(self._media_src.replace("__IKE_MEDIA_TOKEN__", self.media_token(p))
                                 .replace("__IKE_MEDIA_SITES__", json.dumps(sites)))
@@ -1117,7 +1124,7 @@ class Shields(QObject):
                       # the masked names a page can find here (fontcheck.py); None: all of them
                       "fonts": fontcheck.findable()}
             s = QWebEngineScript()
-            s.setName("ike-fp")
+            s.setName(FP_SCRIPT)
             s.setSourceCode(self._fp_src.replace("__IKE_CFG__", json.dumps(fp_cfg)))
             s.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
             s.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)

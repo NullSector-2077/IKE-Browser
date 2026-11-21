@@ -95,7 +95,12 @@ def steps(ike, qapp, out):
     from ike.app import ENGINE_SAFETY, sandbox_off, site_isolated
     v = ike.windows[0].current_view()
     v.load(QUrl("http://127.0.0.1:%d/"))
-    yield 4000
+    # until the page is there (a fixed 4 s was too short on a busy runner)
+    for _ in range(75):
+        yield 200
+        if v.title() == "A":
+            break
+    yield 1000
     out["title"] = v.title()
     out["mine"] = nspid(open("/proc/self/status").read())
     # a process that is just starting has no sandbox yet: only those seen in

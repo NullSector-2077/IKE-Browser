@@ -233,7 +233,7 @@ def test_media_switched_off_and_private(run_ike, site, desktop_bus):
             win.add_tab(%r)
             yield 3000
             out["off"] = ike.desktop._mpris_on
-            out["hook_off"] = len(ike.profile.scripts().find("ike-media"))
+            out["hook_off"] = len(ike.profile.scripts().find("content-2"))
             ike.config["di_media"] = True
             p = ike.new_window(private=True, urls=[%r])
             yield 3000

@@ -50,7 +50,9 @@ one is fixed here with a test that failed before the fix (tests/test_review_fixe
     rendering a buffer of known samples: it now depends on the content
     itself, not on the whole picture or on the place of a sample;
   - sites are told the same storage space (10 GiB) on every computer, not
-    60 % of the disk to the byte.
+    60 % of the disk to the byte;
+  - an error a page provokes no longer names I.K.E. in its stack, and the
+    two invented plugins answer like real ones to the engine's own checks.
 - **Dark mode with Dark Reader: no full restyle when the page starts.** The
   dark cover that hides the white flash while Dark Reader starts was a
   colour on the page's root, and taking it away made the browser style the
