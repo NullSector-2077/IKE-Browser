@@ -89,10 +89,7 @@ class CommandBar(QDialog):
         for url, title, _folder in marks:
             out.append((T("Bookmark"), title or url, url, None, lambda u=url: win.navigate(u)))
         from .dialogs import SettingsDialog
-        names = {"general": T("General"), "appearance": T("Appearance"), "newtab": T("New tab page"),
-                 "search": T("Search"), "privacy": T("Privacy and protection"),
-                 "components": T("Components and extensions"), "userscripts": T("User scripts"),
-                 "downloads": T("Downloads")}
+        names = SettingsDialog.page_names()
         for key in SettingsDialog.PAGES:
             if key in names:
                 out.append((T("Settings"), names[key], "", None, lambda k=key: win.open_settings(k)))

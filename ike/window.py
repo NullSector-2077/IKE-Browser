@@ -2230,10 +2230,55 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             from .config import CACHE_DIR
             lines.append(T("Internal errors this session: %d (details in %s)")
                          % (len(INTERNAL_ERRORS), CACHE_DIR / "errors.log"))
-        return "<h2>%s</h2><p>%s %s</p><p>%s</p><p>%s</p>%s" % (
+        return "<h2>%s</h2><p>%s %s</p><p>%s</p><p>%s</p>%s%s" % (
             APP_LONG_NAME, T("Version"), __version__, "<br>".join(lines),
             T("An independent, privacy-first browser. No telemetry, no accounts, no sponsored content."),
-            self._credits())
+            self._versions(), self._credits())
+
+    @staticmethod
+    def _head_of(name, keys):
+        """Values of the first keys of one of I.K.E.'s JSON resources, without reading it all."""
+        from .config import RES_DIR
+        try:
+            with open(RES_DIR / name, encoding="utf-8") as f:
+                head = f.read(400)
+        except OSError:
+            return {}
+        out = {}
+        for key in keys:
+            m = re.search(r'"%s"\s*:\s*"([^"]{1,80})"' % key, head)
+            if m:
+                out[key] = m.group(1)
+        return out
+
+    def _versions(self):
+        """Help → About (1.1.20): each component with the version in use."""
+        import platform
+        from html import escape
+
+        from PyQt6.QtCore import PYQT_VERSION_STR, qVersion
+        from PyQt6.QtWebEngineCore import qWebEngineChromiumVersion
+        rows = [("I.K.E.", __version__), ("Python", platform.python_version()),
+                ("PyQt6", PYQT_VERSION_STR), ("Qt", qVersion()),
+                ("Qt WebEngine", "%s (Chromium %s)" % (qVersion(), qWebEngineChromiumVersion()))]
+        try:
+            import adblock
+            rows.append(("I.K.E. AdBlock", adblock.BACKEND))
+        except Exception:
+            rows.append(("I.K.E. AdBlock", T("not loaded")))
+        dr = self._head_of("darkreader-data.json", ("version", "lists_date"))
+        if dr.get("version"):
+            rows.append(("Dark Reader", "%s (%s %s)" % (dr["version"], T("site lists of"),
+                                                       dr.get("lists_date", "?"))))
+        ubo = self._head_of("ubo-scriptlets.json", ("date", "commit"))
+        if ubo.get("date"):
+            rows.append(("uBlock Origin scriptlets", "%s (%s)" % (ubo["date"], ubo.get("commit", "")[:7])))
+        last = self.app.config["last_lists_update"]
+        rows.append((T("Filter lists"), T("Last update: %s") % (
+            time.strftime("%d/%m/%Y %H:%M", time.localtime(last)) if last else T("never"))))
+        return "<p><b>%s</b><br><small>%s</small></p>" % (
+            T("Components and versions"),
+            "<br>".join("%s — %s" % (escape(n), escape(v)) for n, v in rows))
 
     # Who I.K.E. stands on (1.1.14): names and licences, shown in Help -> About.
     # The full list, with the Rust libraries, is docs/THIRD-PARTY.md; the texts
