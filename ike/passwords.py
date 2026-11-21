@@ -587,6 +587,7 @@ class PasswordManager(QObject):
         win = getattr(page, "window_ref", None)
         origin = self._origin(page)
         if (not password or not origin or not cfg["passwords_offer_save"]
+                or not cfg.get("ext_passwords", True)
                 or (win is not None and win.private)
                 or origin in cfg.get("passwords_never", [])):
             return

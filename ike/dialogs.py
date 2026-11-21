@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 
 from PyQt6.QtCore import QSize, Qt, QTimer, QUrl
-from PyQt6.QtGui import QDesktopServices, QIcon
+from PyQt6.QtGui import QDesktopServices, QIcon, QPalette
 from PyQt6.QtWebEngineCore import QWebEngineDownloadRequest
 from PyQt6.QtWidgets import (
     QCheckBox,
@@ -14,11 +14,13 @@ from PyQt6.QtWidgets import (
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
     QInputDialog,
     QLabel,
+    QLayout,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
@@ -67,22 +69,128 @@ def _wrapping(box):
     label.setToolTip(box.toolTip())
     label.mousePressEvent = lambda _e: box.toggle()
     box.setText("")
+    w.setProperty("ikeCheck", True)
+    col = QVBoxLayout()               # the text, and the explanation under it (_with_hint)
+    col.setContentsMargins(0, 0, 0, 0)
+    col.setSpacing(1)
+    col.addWidget(label)
+    w.ike_column = col
     lay.addWidget(box, 0, Qt.AlignmentFlag.AlignTop)
-    lay.addWidget(label, 1, Qt.AlignmentFlag.AlignTop)
+    lay.addLayout(col, 1)
     return w
 
 
+class Hint(QLabel):
+    """The discreet explanation under an option (1.1.20): one short line in a
+    smaller font and the palette's placeholder colour, wrapped, always shown.
+    The colour is the label's foreground role, so it follows a change of the
+    interface colours by itself."""
+
+    def __init__(self, text, parent=None, size=0.9):
+        super().__init__(text, parent)
+        self.setObjectName("ike_hint")
+        self.setWordWrap(True)
+        self.setForegroundRole(QPalette.ColorRole.PlaceholderText)
+        self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        f = self.font()
+        if f.pointSizeF() > 0 and size != 1:
+            f.setPointSizeF(f.pointSizeF() * size)
+            self.setFont(f)
+
+
+class Switch(QCheckBox):
+    """An on / off switch (a check box drawn as a sliding switch)."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def sizeHint(self):
+        h = max(18, self.fontMetrics().height() + 4)
+        return QSize(round(h * 1.9), h)
+
+    def minimumSizeHint(self):
+        return self.sizeHint()
+
+    def hitButton(self, pos):
+        return self.rect().contains(pos)
+
+    def paintEvent(self, _event):
+        from PyQt6.QtCore import QPointF, QRectF
+        from PyQt6.QtGui import QPainter, QPen
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        pal = self.palette()
+        r = QRectF(self.rect()).adjusted(1.5, 1.5, -1.5, -1.5)
+        h = r.height()
+        on = self.isChecked()
+        track = pal.color(QPalette.ColorRole.Highlight) if on else pal.color(QPalette.ColorRole.Mid)
+        if not self.isEnabled():
+            track.setAlpha(110)
+        p.setPen(QPen(pal.color(QPalette.ColorRole.Highlight if self.hasFocus() else QPalette.ColorRole.Mid), 1))
+        p.setBrush(track)
+        p.drawRoundedRect(r, h / 2, h / 2)
+        right = on != self.isRightToLeft()
+        knob = QRectF(0, 0, h - 4, h - 4)
+        knob.moveCenter(QPointF(r.right() - h / 2 if right else r.left() + h / 2, r.center().y()))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(pal.color(QPalette.ColorRole.HighlightedText if on else QPalette.ColorRole.Base))
+        p.drawEllipse(knob)
+        p.end()
+
+
+def _with_hint(field, text):
+    """An option and its explanation under it, as one field of a form."""
+    if not text:
+        return field
+    if isinstance(field, QCheckBox):
+        field = _wrapping(field)
+    if isinstance(field, QWidget) and field.property("ikeCheck"):
+        hint = Hint(text)
+        hint.setContentsMargins(4, 0, 0, 0)
+        field.ike_column.addWidget(hint)
+        return field
+    box = QWidget()
+    lay = QVBoxLayout(box)
+    lay.setContentsMargins(0, 0, 0, 0)
+    lay.setSpacing(1)
+    if isinstance(field, QLayout):
+        lay.addLayout(field)
+    else:
+        lay.addWidget(field)
+    lay.addWidget(Hint(text))
+    return box
+
+
+def _row(form, label, field, hint=None):
+    """A row of a form: label, the option, and its explanation under it.
+    (An empty label is an empty QLabel: with "" Qt's form gives a wrapped
+    text the height of its widest wrap, leaving a gap under it.)"""
+    form.addRow(QLabel() if label == "" else label, _with_hint(field, hint))
+
+
 class SettingsDialog(QDialog):
-    PAGES = ["general", "appearance", "newtab", "search", "privacy", "components", "userscripts", "downloads"]
+    # The pages, in the order of the sidebar (1.1.20). Their names are what
+    # open_settings(page) takes; the names of earlier versions still work.
+    PAGES = ["general", "language", "appearance", "newtab", "search", "protection", "privacy",
+             "extensions", "downloads", "updates", "system"]
+    ALIASES = {"components": "extensions", "userscripts": "extensions"}
+
+    @staticmethod
+    def page_names():
+        """{page: name shown in the sidebar} (also used by the command bar)."""
+        return {"general": T("General"), "language": T("Language"), "appearance": T("Appearance"),
+                "newtab": T("New tab page"), "search": T("Search"), "protection": T("Protection"),
+                "privacy": T("Privacy"), "extensions": T("I.K.E. extensions"),
+                "downloads": T("Downloads"), "updates": T("Updates"), "system": T("System")}
 
     def __init__(self, app, parent=None, page=None):
         super().__init__(parent)
         self.app = app
         self.cfg = app.config
         self.setWindowTitle(T("Settings") + " — I.K.E.")
-        self.resize(1100, 680)       # room for a scroll bar beside the widest page (German)
-        from PyQt6.QtCore import QSize
-        from PyQt6.QtWidgets import QFrame, QScrollArea, QStackedWidget
+        self.resize(1100, 700)       # room for a scroll bar beside the widest page (German)
+        from PyQt6.QtWidgets import QScrollArea, QStackedWidget
 
         from .icons import themed
         lay = QVBoxLayout(self)
@@ -97,30 +205,50 @@ class SettingsDialog(QDialog):
         self.stack = QStackedWidget(self)
         body.addWidget(self.nav)
         body.addWidget(self.stack, 1)
-        sections = (
-            (self._general, T("General"), ("configure", "preferences-system")),
-            (self._appearance, T("Appearance"), ("preferences-desktop-theme", "preferences-desktop")),
-            (self._newtab_page, T("New tab page"), ("tab-new", "document-new")),
-            (self._search, T("Search"), ("edit-find", "system-search")),
-            (self._privacy, T("Privacy and protection"), ("security-high", "preferences-security")),
-            (self._components, T("Components and extensions"), ("preferences-plugin", "application-x-addon")),
-            (self._userscripts, T("User scripts"), ("text-x-script", "application-x-javascript")),
-            (self._downloads, T("Downloads"), ("download", "folder-download")),
-        )
+        names = self.page_names()
+        # page: (builder, icon names, what the page holds in one sentence)
+        sections = {
+            "general": (self._general, ("configure", "preferences-system"),
+                        T("What I.K.E. opens when it starts, your home page, and how links of other "
+                          "programs open.")),
+            "language": (self._language, ("preferences-desktop-locale", "globe"),
+                         T("The language of I.K.E. and the languages websites are asked for.")),
+            "appearance": (self._appearance, ("preferences-desktop-theme", "preferences-desktop"),
+                           T("Colours, icons, tabs, toolbar and the dark mode of pages.")),
+            "newtab": (self._newtab_page, ("tab-new", "document-new"),
+                       T("What the page of a new tab shows: tiles, clock, weather and a photo.")),
+            "search": (self._search, ("edit-find", "system-search"),
+                       T("The search engines of the address bar and of the new tab page.")),
+            "protection": (self._protection, ("security-high", "preferences-security"),
+                           T("What I.K.E. blocks: ads, trackers, fingerprinting and unsafe connections.")),
+            "privacy": (self._privacy, ("preferences-system-privacy", "view-private"),
+                        T("What is kept on this computer, and what sites are allowed to use.")),
+            "extensions": (self._extensions, ("preferences-plugin", "application-x-addon"),
+                           T("Features that come with I.K.E. Switch on only the ones you want.")),
+            "downloads": (self._downloads, ("download", "folder-download"),
+                          T("Where downloaded files are saved.")),
+            "updates": (self._updates, ("system-software-update", "view-refresh"),
+                        T("New versions of I.K.E. and of the blocking lists, checked by themselves.")),
+            "system": (self._system, ("computer", "preferences-system", "window-new"),
+                       T("How I.K.E. works with your computer: desktop, video, memory and translation.")),
+        }
         widest = 0
-        for build, label, names in sections:
-            item = QListWidgetItem(themed(names), label)
+        for key in self.PAGES:
+            build, icons, about = sections[key]
+            label = names[key]
+            item = QListWidgetItem(themed(icons), label)
             item.setSizeHint(QSize(0, 38))
+            item.setToolTip(about)
             self.nav.addItem(item)
             widest = max(widest, self.nav.fontMetrics().horizontalAdvance(label))
             area = QScrollArea(self)          # a long page scrolls instead of stretching the window
             area.setWidgetResizable(True)
             area.setFrameShape(QFrame.Shape.NoFrame)
-            area.setWidget(build())
+            area.setWidget(self._page(label, about, build()))
             self.stack.addWidget(area)
         self.nav.setFixedWidth(widest + 22 + 46)
         self.nav.currentRowChanged.connect(self._show_page)
-        self.nav.setCurrentRow(self.PAGES.index(page) if page in self.PAGES else 0)
+        self.show_page(page)
         bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok
                               | QDialogButtonBox.StandardButton.Apply
                               | QDialogButtonBox.StandardButton.Cancel, self)
@@ -128,6 +256,44 @@ class SettingsDialog(QDialog):
         bb.rejected.connect(self.reject)
         bb.button(QDialogButtonBox.StandardButton.Apply).clicked.connect(self.apply)
         lay.addWidget(bb)
+
+    def show_page(self, page):
+        """Go to a page by its name (an earlier version's name too); unknown: the first."""
+        page = self.ALIASES.get(page, page)
+        self.nav.setCurrentRow(self.PAGES.index(page) if page in self.PAGES else 0)
+
+    @staticmethod
+    def _page(title, about, content):
+        """A page: its name, one sentence saying what it holds, then its options."""
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        lay.setContentsMargins(12, 6, 12, 6)
+        head = QLabel(title)
+        head.setObjectName("ike_page_title")
+        f = head.font()
+        f.setBold(True)
+        if f.pointSizeF() > 0:
+            f.setPointSizeF(f.pointSizeF() * 1.3)
+        head.setFont(f)
+        lay.addWidget(head)
+        if content.layout() is not None:
+            content.layout().setContentsMargins(0, 4, 0, 0)
+        sub = Hint(about, size=1)
+        sub.setObjectName("ike_page_about")
+        lay.addWidget(sub)
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setFrameShadow(QFrame.Shadow.Sunken)
+        lay.addWidget(line)
+        lay.addWidget(content, 1)
+        return w
+
+    @staticmethod
+    def _group(title):
+        """A titled box of options inside a page, and its form."""
+        box = QGroupBox(title)
+        form = QFormLayout(box)
+        return box, form
 
     def _show_page(self, row):
         """Another page of the Settings: it comes in with a short fade (polish.py)."""
@@ -140,7 +306,54 @@ class SettingsDialog(QDialog):
     # --- pages -------------------------------------------------------
     def _general(self):
         w = QWidget()
+        lay = QVBoxLayout(w)
+        lay.setContentsMargins(0, 0, 0, 0)
+        f = QFormLayout()
+        lay.addLayout(f)
+        self.startup = QComboBox()
+        for key, label in (("restore", T("Restore the previous session")),
+                           ("home", T("Open the home page")),
+                           ("newtab", T("Open a new tab"))):
+            self.startup.addItem(label, key)
+        self.startup.setCurrentIndex(max(0, self.startup.findData(self.cfg["startup"])))
+        self.lazy = QCheckBox(T("Load restored tabs only when they are opened (faster start)"))
+        self.lazy.setChecked(bool(self.cfg["lazy_restore"]))
+        self.homepage = QLineEdit(self.cfg["homepage"])
+        self.homepage.setPlaceholderText("ike:newtab")
+        default_btn = QPushButton(T("Make I.K.E. the default browser"))
+        default_btn.clicked.connect(self._make_default)
+        from .mailto import SERVICES
+        self.mail = QComboBox()
+        self.mail.addItem(T("Ask each time"), "ask")
+        for key, name in SERVICES:
+            self.mail.addItem(name, key)
+        self.mail.addItem(T("The computer's mail program"), "system")
+        self.mail.setCurrentIndex(max(0, self.mail.findData(self.cfg["mail_handler"])))
+        _row(f, T("At startup"), self.startup, T("What I.K.E. shows when it starts."))
+        _row(f, "", _wrapping(self.lazy),
+             T("Tabs of the last session wait until you open them: I.K.E. starts sooner and uses "
+               "less memory."))
+        _row(f, T("Home page"), self.homepage,
+             T("The page of the Home button. ike:newtab is the new tab page."))
+        _row(f, "", default_btn, T("Links opened in other programs will open in I.K.E."))
+        _row(f, T("Email links"), self.mail, T("What happens when you click an email address on a page."))
+        box, g = self._group(T("Browsing"))
+        self.autoplay = QCheckBox(T("Do not let videos and sounds start by themselves (single sites: the lock "
+                                    "in the address bar)"))
+        self.autoplay.setChecked(bool(self.cfg["autoplay_block"]))
+        self.gestures = QCheckBox(T("Mouse gestures: hold the right button and draw ← back, → forward, "
+                                    "↑ reload, ↓→ close the tab"))
+        self.gestures.setChecked(bool(self.cfg["mouse_gestures"]))
+        _row(g, "", _wrapping(self.autoplay), T("Pages stay quiet until you press play."))
+        _row(g, "", _wrapping(self.gestures), T("A right click without moving the mouse still opens the menu."))
+        lay.addWidget(box)
+        lay.addStretch(1)
+        return w
+
+    def _language(self):
+        w = QWidget()
         f = QFormLayout(w)
+        f.setContentsMargins(0, 0, 0, 0)
         self.language = QComboBox()
         self._fill_languages()
         lang_row = QHBoxLayout()
@@ -156,39 +369,70 @@ class SettingsDialog(QDialog):
         from .config import system_accept_language
         self.accept_lang.setPlaceholderText(system_accept_language())      # empty: the system's (1.1.18)
         self.accept_lang.setToolTip(T("Languages requested from websites, in order of preference"))
-        self.startup = QComboBox()
-        for key, label in (("restore", T("Restore the previous session")),
-                           ("home", T("Open the home page")),
-                           ("newtab", T("Open a new tab"))):
-            self.startup.addItem(label, key)
-        self.startup.setCurrentIndex(max(0, self.startup.findData(self.cfg["startup"])))
-        self.homepage = QLineEdit(self.cfg["homepage"])
-        self.homepage.setPlaceholderText("ike:newtab")
-        default_btn = QPushButton(T("Make I.K.E. the default browser"))
-        default_btn.clicked.connect(self._make_default)
-        f.addRow(T("Interface language"), self.language)
-        f.addRow("", lang_row)
-        f.addRow("", QLabel(T("Changing the interface language takes effect after a restart.")))
-        f.addRow(T("Languages for websites"), self.accept_lang)
-        f.addRow(T("At startup"), self.startup)
-        f.addRow(T("Home page"), self.homepage)
-        f.addRow("", default_btn)
-        from .mailto import SERVICES
-        self.mail = QComboBox()
-        self.mail.addItem(T("Ask each time"), "ask")
-        for key, name in SERVICES:
-            self.mail.addItem(name, key)
-        self.mail.addItem(T("The computer's mail program"), "system")
-        self.mail.setCurrentIndex(max(0, self.mail.findData(self.cfg["mail_handler"])))
-        f.addRow(T("Email links"), self.mail)
-        self.lazy = QCheckBox(T("Load restored tabs only when they are opened (faster start)"))
-        self.lazy.setChecked(bool(self.cfg["lazy_restore"]))
+        _row(f, T("Interface language"), self.language,
+             T("Changing the interface language takes effect after a restart."))
+        _row(f, "", lang_row, T("More languages: a language pack from a file, or from I.K.E.'s list."))
+        _row(f, T("Languages for websites"), self.accept_lang,
+             T("Sites use it to choose the language of their pages. Empty: the languages of your system."))
+        return w
+
+    def _system(self):
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        lay.setContentsMargins(0, 0, 0, 0)
+        box, f = self._group(T("Desktop integration"))
+        self.di = {}
+        desktop = (
+            ("di_media", T("Media controls: the media widget, the lock screen and the media keys "
+                           "control the tab playing sound")),
+            ("di_downloads", T("Show downloads in Plasma’s notifications")),
+            ("di_krunner", T("Find open tabs and bookmarks with KRunner")),
+            ("di_kdeconnect", T("“Send to device” with KDE Connect")))
+        for key, label in desktop:
+            c = QCheckBox(label)
+            c.setChecked(bool(self.cfg[key]))
+            self.di[key] = c
+            _row(f, "", _wrapping(c))
+        _row(f, "", Hint(T("For KDE Plasma. All of it is off while the “Plasma integration” extension is off.")))
+        lay.addWidget(box)
+        box, f = self._group(T("Speed and memory"))
+        self.video_hw = QComboBox()
+        for key, label in (("auto", T("Automatic (recommended)")), ("on", T("On (experimental)")),
+                           ("off", T("Off"))):
+            self.video_hw.addItem(label, key)
+        self.video_hw.setCurrentIndex(max(0, self.video_hw.findData(self.cfg["video_hw"])))
+        _row(f, T("Video decoding with the graphics card"), self.video_hw,
+             T("After a restart. It lightens the processor while videos play and needs the "
+               "graphics card's VA-API driver (NVIDIA: libva-nvidia-driver, Intel: "
+               "intel-media-driver, AMD: already there). If videos look wrong or I.K.E. "
+               "closes, choose Automatic."))
+        self.smooth = QCheckBox(T("Smooth scrolling of pages (after a restart)"))
+        self.smooth.setChecked(bool(self.cfg["smooth_scrolling"]))
+        _row(f, "", self.smooth, T("Pages glide when you scroll with the wheel or the keys."))
         self.sleep = QSpinBox()
         self.sleep.setRange(0, 600)
         self.sleep.setSuffix(" min")
         self.sleep.setSpecialValueText(T("Never"))
         self.sleep.setValue(int(self.cfg["tab_sleep_minutes"]))
-        self.sleep.setToolTip(T("Background tabs unused for this long are suspended to free memory"))
+        _row(f, T("Suspend inactive tabs after"), self.sleep,
+             T("Background tabs unused for this long are suspended to free memory"))
+        lay.addWidget(box)
+        box, f = self._group(T("Translation"))
+        self.translate = QLineEdit(self.cfg["translate_url"])
+        _row(f, T("Translation service"), self.translate,
+             T("{url} is the page address, {lang} the interface language"))
+        _row(f, "", Hint(T("Used only when you choose “Translate page”: the address of the page is sent "
+                            "to this service.")))
+        lay.addWidget(box)
+        lay.addWidget(self._drm_box())
+        lay.addStretch(1)
+        return w
+
+    def _updates(self):
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        lay.setContentsMargins(0, 0, 0, 0)
+        box, f = self._group(T("I.K.E. updates"))
         self.upd = QComboBox()
         for key, label in (("auto", T("Install automatically")), ("ask", T("Ask before installing")),
                            ("off", T("Do not check"))):
@@ -198,49 +442,45 @@ class SettingsDialog(QDialog):
         self.channel.addItem(T("Stable"), "stable")
         self.channel.addItem(T("Experimental (beta)"), "beta")
         self.channel.setCurrentIndex(max(0, self.channel.findData(self.cfg["update_channel"])))
-        self.translate = QLineEdit(self.cfg["translate_url"])
-        self.translate.setToolTip(T("{url} is the page address, {lang} the interface language"))
-        f.addRow("", _wrapping(self.lazy))
-        f.addRow(T("Suspend inactive tabs after"), self.sleep)
-        f.addRow(T("I.K.E. updates"), self.upd)
-        f.addRow(T("Update channel"), self.channel)
-        f.addRow(T("Translation service"), self.translate)
-        self.autoplay = QCheckBox(T("Do not let videos and sounds start by themselves (single sites: the lock "
-                                    "in the address bar)"))
-        self.autoplay.setChecked(bool(self.cfg["autoplay_block"]))
-        self.gestures = QCheckBox(T("Mouse gestures: hold the right button and draw ← back, → forward, "
-                                    "↑ reload, ↓→ close the tab"))
-        self.gestures.setChecked(bool(self.cfg["mouse_gestures"]))
-        self.smooth = QCheckBox(T("Smooth scrolling of pages (after a restart)"))
-        self.smooth.setChecked(bool(self.cfg["smooth_scrolling"]))
-        f.addRow("", _wrapping(self.autoplay))
-        f.addRow("", _wrapping(self.gestures))
-        f.addRow("", self.smooth)
-        self.video_hw = QComboBox()
-        for key, label in (("auto", T("Automatic (recommended)")), ("on", T("On (experimental)")),
-                           ("off", T("Off"))):
-            self.video_hw.addItem(label, key)
-        self.video_hw.setCurrentIndex(max(0, self.video_hw.findData(self.cfg["video_hw"])))
-        f.addRow(T("Video decoding with the graphics card"), self.video_hw)
-        video_note = QLabel(T("After a restart. It lightens the processor while videos play and needs the "
-                              "graphics card's VA-API driver (NVIDIA: libva-nvidia-driver, Intel: "
-                              "intel-media-driver, AMD: already there). If videos look wrong or I.K.E. "
-                              "closes, choose Automatic."))
-        video_note.setWordWrap(True)
-        f.addRow("", video_note)
-        self.di = {}
-        desktop = (
-            ("di_media", T("Media controls: the media widget, the lock screen and the media keys "
-                           "control the tab playing sound")),
-            ("di_downloads", T("Show downloads in Plasma’s notifications")),
-            ("di_krunner", T("Find open tabs and bookmarks with KRunner")),
-            ("di_kdeconnect", T("“Send to device” with KDE Connect")))
-        for i, (key, label) in enumerate(desktop):
-            c = QCheckBox(label)
-            c.setChecked(bool(self.cfg[key]))
-            self.di[key] = c
-            f.addRow(T("Desktop integration") if i == 0 else "", _wrapping(c) if i == 0 else c)
+        _row(f, T("New versions"), self.upd,
+             T("Checked once a day. Every update is verified with a digital signature before it is installed."))
+        _row(f, T("Update channel"), self.channel,
+             T("Experimental: new versions sooner, with a higher chance of problems."))
+        check = QPushButton(T("Check now"))
+        check.setIcon(QIcon.fromTheme("system-software-update"))
+        check.clicked.connect(self._check_app_now)
+        last = self.cfg["last_app_check"]
+        self.app_last = Hint(T("Last check: %s") % (
+            time.strftime("%d/%m/%Y %H:%M", time.localtime(last)) if last else T("never")))
+        row = QHBoxLayout()
+        row.addWidget(check)
+        row.addWidget(self.app_last, 1)
+        _row(f, "", row)
+        lay.addWidget(box)
+        box, f = self._group(T("Filter lists"))
+        self.auto_update = QCheckBox(T("Update the lists automatically every day"))
+        self.auto_update.setChecked(self.cfg["auto_update"])
+        _row(f, "", self.auto_update,
+             T("The rules of the blocker change every day. Your user scripts are checked for new "
+               "versions at the same time."))
+        upd = QPushButton(T("Update now"))
+        upd.setIcon(QIcon.fromTheme("view-refresh"))
+        upd.clicked.connect(lambda: (self.apply(), self.app.update_now()))
+        last = self.cfg["last_lists_update"]
+        row = QHBoxLayout()
+        row.addWidget(upd)
+        row.addWidget(Hint(T("Last update: %s") % (
+            time.strftime("%d/%m/%Y %H:%M", time.localtime(last)) if last else T("never"))), 1)
+        _row(f, "", row)
+        lay.addWidget(box)
+        lay.addStretch(1)
         return w
+
+    def _check_app_now(self):
+        """Updates → Check now: the settings shown are applied, then the same
+        check as Help → Check for I.K.E. updates."""
+        self.apply()
+        self.app.check_app_update(manual=True)
 
     def _fill_languages(self):
         from . import i18n
@@ -301,7 +541,6 @@ class SettingsDialog(QDialog):
         self.titlebar.setChecked(bool(self.cfg["system_titlebar"]))
         self.maximized = QCheckBox(T("Open windows maximized"))
         self.effects = QCheckBox(T("Interface effects: short fades and the mark on tabs that are loading"))
-        self.effects.setToolTip(T("They are also off when the desktop is set to show no animations"))
         self.effects.setChecked(bool(self.cfg["ui_effects"]))
         self.site_tint = QCheckBox(T("Colour the edge of the address bar with the colour of the site"))
         self.site_tint.setChecked(bool(self.cfg["site_tint"]))
@@ -352,24 +591,27 @@ class SettingsDialog(QDialog):
         scheme_row = QHBoxLayout()
         scheme_row.addWidget(self.ui_scheme, 1)
         scheme_row.addWidget(custom)
-        f.addRow(T("Interface colours"), scheme_row)
-        f.addRow(T("Icons"), self.icon_theme)
-        f.addRow(T("Tabs"), self.tabs_pos)
-        f.addRow("", self.menubar)
-        f.addRow(T("Bookmarks bar"), self.bookbar)
-        f.addRow("", _wrapping(self.vauto))
-        f.addRow("", _wrapping(self.titlebar))
-        f.addRow("", self.maximized)
-        f.addRow("", _wrapping(self.effects))
-        f.addRow("", _wrapping(self.site_tint))
-        f.addRow(T("Toolbar buttons"), tb_row)
-        f.addRow(T("Default zoom"), self.zoom)
-        f.addRow(T("Dark mode for pages"), self.dark)
-        f.addRow(T("Dark mode method"), self.dark_engine)
-        note = QLabel(T("With “Follow the system” colours, icons and fonts are those of your desktop. "
-                        "A different icon choice is fully applied when I.K.E. is restarted."))
-        note.setWordWrap(True)
-        f.addRow("", note)
+        _row(f, T("Interface colours"), scheme_row,
+             T("With “Follow the system” colours, icons and fonts are those of your desktop. "
+               "A different icon choice is fully applied when I.K.E. is restarted."))
+        _row(f, T("Icons"), self.icon_theme, T("The icons of the toolbar and of the menus."))
+        _row(f, T("Tabs"), self.tabs_pos, T("Tabs in a bar at the top, or in a list at the side."))
+        _row(f, "", self.menubar, T("The classic menus above the toolbar. Everything is also in the ☰ menu."))
+        _row(f, T("Bookmarks bar"), self.bookbar, T("The bar of your bookmarks under the address bar."))
+        _row(f, "", _wrapping(self.vauto), T("Only with vertical tabs: more room for pages."))
+        _row(f, "", _wrapping(self.titlebar), T("The bar with the window's name, drawn by the desktop."))
+        _row(f, "", self.maximized, T("New windows fill the screen."))
+        _row(f, "", _wrapping(self.effects), T("They are also off when the desktop is set to show no animations"))
+        _row(f, "", _wrapping(self.site_tint), T("A light tint of the site's own colour around the address bar."))
+        _row(f, T("Toolbar buttons"), tb_row,
+             T("Which buttons the toolbar shows. To move them, right-click the toolbar."))
+        _row(f, T("Default zoom"), self.zoom,
+             T("The size of the pages you have not zoomed yourself. 1.0 is the normal size."))
+        _row(f, T("Dark mode for pages"), self.dark,
+             T("Makes bright pages dark. Single sites: ☰ → Dark mode for pages. Part of the "
+               "“Dark mode for pages” extension."))
+        _row(f, T("Dark mode method"), self.dark_engine,
+             T("Dark Reader gives better colours; Chromium's own is built into the engine and lighter."))
         return w
 
     def _newtab_rows(self, f):
@@ -401,23 +643,21 @@ class SettingsDialog(QDialog):
         self.unit.addItem("°C", "celsius")
         self.unit.addItem("°F", "fahrenheit")
         self.unit.setCurrentIndex(max(0, self.unit.findData(self.cfg["weather_unit"])))
-        f.addRow(T("New tab page"), self.nt_clock)
-        f.addRow("", self.nt_weather)
-        f.addRow(T("City for the weather"), row)
+        _row(f, T("New tab page"), self.nt_clock, T("The time and the date at the bottom of the page."))
+        _row(f, "", self.nt_weather, T("The same switch as the “Weather on the new tab page” extension."))
+        _row(f, T("City for the weather"), row,
+             T("The weather comes from Open-Meteo (free, no account). Finding the city sends "
+               "its name; after that only the coordinates of the city are sent, at most every "
+               "30 minutes and only when a new tab is open. Your location is never asked."))
         f.addRow("", self.city_found)
         self._city_form = f
         self._show_found(False)
-        f.addRow(T("Temperature"), self.unit)
-        info = QLabel(T("The weather comes from Open-Meteo (free, no account). Finding the city sends "
-                        "its name; after that only the coordinates of the city are sent, at most every "
-                        "30 minutes and only when a new tab is open. Your location is never asked."))
-        info.setWordWrap(True)
-        f.addRow("", info)
+        _row(f, T("Temperature"), self.unit, T("Degrees Celsius or Fahrenheit."))
         self._background_rows(f)
 
     def _background_rows(self, f):
         """New tab page: a photo of the user's as its background (see newtabbg.py)."""
-        from PyQt6.QtWidgets import QFrame, QSlider
+        from PyQt6.QtWidgets import QSlider
 
         from . import newtabbg
         self._bg_choice = None            # None: as it is; "": remove it; DEFAULT: I.K.E.'s own; a path: that file
@@ -461,9 +701,10 @@ class SettingsDialog(QDialog):
         veil = QHBoxLayout()
         veil.addWidget(self.bg_veil, 1)
         veil.addWidget(veil_value)
-        f.addRow(T("Background photo"), row)
-        f.addRow(T("Photo placement"), self.bg_fit)
-        f.addRow(T("Veil over the photo"), veil)
+        _row(f, T("Background photo"), row, T("A copy is kept in I.K.E.'s own folder. It is never sent anywhere."))
+        _row(f, T("Photo placement"), self.bg_fit, T("How the photo covers the page."))
+        _row(f, T("Veil over the photo"), veil,
+             T("A veil in the page's own colour over the photo, to keep the text readable"))
         self._show_background(self._bg_shown(self.cfg))
 
     @staticmethod
@@ -586,8 +827,10 @@ class SettingsDialog(QDialog):
         self.nt_counter.setCurrentIndex(max(0, self.nt_counter.findData(self.cfg["blocked_counter"])))
         self._narrow(self.nt_counter)
         self._narrow(self.nt_tiles)
-        f.addRow(T("Site tiles"), tiles)
-        f.addRow(T("Blocked counter"), self.nt_counter)
+        _row(f, T("Site tiles"), tiles,
+             T("The most visited sites are worked out from the history kept on this computer"))
+        _row(f, T("Blocked counter"), self.nt_counter,
+             T("How many ads and trackers I.K.E. blocked, shown on the new tab page."))
         self._newtab_rows(f)
         return w
 
@@ -621,9 +864,11 @@ class SettingsDialog(QDialog):
         self.default_engine = QComboBox()
         row.addWidget(self.default_engine, 1)
         lay.addLayout(row)
+        lay.addWidget(Hint(T("Used for searches from the address bar and from the new tab page.")))
         self.suggest = QCheckBox(T("Show search suggestions while typing"))
         self.suggest.setChecked(self.cfg["search_suggestions"])
-        lay.addWidget(self.suggest)
+        lay.addWidget(_with_hint(self.suggest,
+                                 T("What you type is sent to the search engine, to get its suggestions.")))
         self.engines = QTableWidget(0, 4)
         self.engines.setHorizontalHeaderLabels(
             [T("Name"), T("Keyword"), T("Search URL ({q} = query)"), T("Suggestions URL")])
@@ -634,8 +879,8 @@ class SettingsDialog(QDialog):
             self._add_engine_row(e)
         self.engines.itemChanged.connect(lambda _i: self._refresh_default())
         lay.addWidget(self.engines, 1)
-        lay.addWidget(QLabel(T("Type the keyword followed by a space in the address bar to "
-                               "search with that engine, e.g. “w Roma”.")))
+        lay.addWidget(Hint(T("Type the keyword followed by a space in the address bar to "
+                             "search with that engine, e.g. “w Roma”.")))
         btns = QHBoxLayout()
         add = QPushButton(T("Add engine"))
         rem = QPushButton(T("Remove selected"))
@@ -684,7 +929,7 @@ class SettingsDialog(QDialog):
             self.default_engine.setCurrentText(want)
         self.default_engine.blockSignals(False)
 
-    def _privacy(self):
+    def _protection(self):
         w = QWidget()
         lay = QVBoxLayout(w)
         f = QFormLayout()
@@ -692,37 +937,95 @@ class SettingsDialog(QDialog):
         for lv in LEVELS:
             self.level.addItem(T(LEVEL_NAMES[lv]), lv)
         self.level.setCurrentIndex(LEVELS.index(self.cfg["shield_level"]))
-        f.addRow(T("Default protection level"), self.level)
-        lay.addLayout(f)
-        info = QLabel(T(
+        _row(f, T("Default protection level"), self.level, T(
             "Off: nothing is blocked. Compatibility: ads, trackers and tracking links only. "
             "Balanced: also cross-site cookies and per-site noise on canvas, WebGL and audio. "
             "Strict: also generic hardware, screen, font and Client Hints values, no WebGPU. "
             "Maximum: also English as the only language. The shield in the "
             "toolbar changes the level for a single site."))
-        info.setWordWrap(True)
-        lay.addWidget(info)
+        lay.addLayout(f)
         self.checks = {}
-        for key, label in (
-            ("https_only", T("Upgrade connections to HTTPS when possible")),
-            ("block_third_party_cookies", T("Block cross-site (third-party) cookies")),
-            ("strip_tracking_params", T("Remove tracking parameters from links (utm_, fbclid, gclid…)")),
-            ("trim_referrer", T("Send only the site origin as referrer to other sites")),
-            ("send_gpc", T("Send the “Global Privacy Control” signal")),
-            ("webrtc_hide_ip", T("Hide local IP addresses from WebRTC")),
-            ("clear_on_exit", T("Clear cookies, cache and history when I.K.E. is closed")),
-            ("repair_button", T("Show “Repair this site” in the shield")),
-            ("lookalike_warn", T("Warn about sites that imitate well-known ones")),
+        box, g = self._group(T("Connections and tracking"))
+        for key, label, hint in (
+            ("https_only", T("Upgrade connections to HTTPS when possible"),
+             T("Pages open with a secure connection whenever the site offers one.")),
+            ("block_third_party_cookies", T("Block cross-site (third-party) cookies"),
+             T("Other sites inside a page cannot follow you from site to site with cookies.")),
+            ("strip_tracking_params", T("Remove tracking parameters from links (utm_, fbclid, gclid…)"),
+             T("Links lose the parts that only serve to follow you.")),
+            ("trim_referrer", T("Send only the site origin as referrer to other sites"),
+             T("Other sites learn which site you came from, not which page.")),
+            ("send_gpc", T("Send the “Global Privacy Control” signal"),
+             T("Asks sites not to sell or share your data. In some countries they must obey it.")),
+            ("webrtc_hide_ip", T("Hide local IP addresses from WebRTC"),
+             T("Video calls still work; sites do not see your address in the home network.")),
         ):
             c = QCheckBox(label)
             c.setChecked(bool(self.cfg[key]))
             self.checks[key] = c
-            lay.addWidget(c)
+            _row(g, "", _wrapping(c), hint)
+        lay.addWidget(box)
+        box, g = self._group(T("Warnings and repairs"))
+        for key, label, hint in (
+            ("lookalike_warn", T("Warn about sites that imitate well-known ones"),
+             T("A warning when an address imitates a known site, for example paypa1.com.")),
+            ("repair_button", T("Show “Repair this site” in the shield"),
+             T("It finds the protection that breaks a page and turns off only that one, only there.")),
+        ):
+            c = QCheckBox(label)
+            c.setChecked(bool(self.cfg[key]))
+            self.checks[key] = c
+            _row(g, "", _wrapping(c), hint)
         self.login_compat = QCheckBox(T(
             "Make sign-in with Google, Microsoft and Apple accounts work (lighter protection on "
             "their sign-in pages only)"))
         self.login_compat.setChecked(bool(self.cfg["login_compat"]))
-        lay.addWidget(self.login_compat)
+        _row(g, "", _wrapping(self.login_compat), T("Everywhere else the protection stays as it is."))
+        lay.addWidget(box)
+
+        fbox = QGroupBox(T("Ad and tracker blocker"))
+        fl = QVBoxLayout(fbox)
+        self.comp = {}
+        c = QCheckBox(T("Ad and tracker blocker — uses the uBlock Origin and EasyList filter lists"))
+        c.setChecked(bool(self.cfg["comp_adblock"]))
+        self.comp["comp_adblock"] = c
+        fl.addWidget(_with_hint(_wrapping(c), T("Turn it off only to see whether it is what breaks a page.")))
+        if not self.app.blocker.native:
+            warn = QLabel(T("The I.K.E. AdBlock engine could not be loaded: only basic domain blocking is active."))
+            warn.setStyleSheet("color:#c0392b")
+            warn.setWordWrap(True)
+            fl.addWidget(warn)
+        fl.addWidget(QLabel(T("Filter lists")))
+        self.lists = QListWidget()
+        self.lists.setMinimumHeight(120)
+        for entry in self.cfg["filter_lists"]:
+            self._add_list_item(entry)
+        fl.addWidget(self.lists)
+        fl.addWidget(Hint(T("The lists of rules the blocker uses. Untick a list to stop using it; "
+                            "they are updated by themselves (see Updates).")))
+        row = QHBoxLayout()
+        add = QPushButton(T("Add list from URL…"))
+        rem = QPushButton(T("Remove selected"))
+        reset = QPushButton(T("Restore defaults"))
+        add.clicked.connect(self._add_list)
+        rem.clicked.connect(lambda: self.lists.takeItem(self.lists.currentRow()))
+        reset.clicked.connect(self._reset_lists)
+        for b in (add, rem, reset):
+            row.addWidget(b)
+        row.addStretch(1)
+        fl.addLayout(row)
+        fl.addWidget(QLabel(T("Your own filters (uBlock Origin / Adblock Plus syntax)")))
+        self.custom = QPlainTextEdit(self.cfg["custom_filters"])
+        self.custom.setMaximumHeight(70)
+        fl.addWidget(self.custom)
+        fl.addWidget(Hint(T("One rule per line. Your own rules are added to those of the lists.")))
+        lay.addWidget(fbox)
+        lay.addStretch(1)
+        return w
+
+    def _privacy(self):
+        w = QWidget()
+        lay = QVBoxLayout(w)
         f2 = QFormLayout()
         self.doh = QComboBox()
         self.doh.setEditable(True)
@@ -735,129 +1038,133 @@ class SettingsDialog(QDialog):
             self.doh.setCurrentIndex(idx)
         else:
             self.doh.setEditText(cur)
-        self.doh.setToolTip(T("Encrypted DNS (DNS over HTTPS). Pick a provider or type a custom URL."))
-        f2.addRow(T("Encrypted DNS"), self.doh)
+        _row(f2, T("Encrypted DNS"), self.doh,
+             T("Encrypted DNS (DNS over HTTPS). Pick a provider or type a custom URL."))
         self.containers = QLineEdit(", ".join(c["name"] for c in self.cfg["containers"]))
-        self.containers.setToolTip(T("Each container keeps its own cookies and logins"))
-        f2.addRow(T("Containers (comma separated)"), self.containers)
+        _row(f2, T("Containers (comma separated)"), self.containers,
+             T("Each container keeps its own cookies and logins"))
         lay.addLayout(f2)
+        box, g = self._group(T("Permissions"))
         prow = QHBoxLayout()
-        prow.addWidget(QLabel(T("Always refuse:")))
         self.perm_block = {}
         labels = {"camera": T("Camera"), "microphone": T("Microphone"), "location": T("Location"),
                   "notifications": T("Notifications"), "clipboard": T("Clipboard"),
                   "screen": T("Screen"), "fonts": T("Local fonts")}
-        for kind in PERMISSION_KINDS:
+        from PyQt6.QtWidgets import QGridLayout
+        grid = QGridLayout()
+        for i, kind in enumerate(PERMISSION_KINDS):
             c = QCheckBox(labels[kind])
             c.setChecked(kind in self.cfg["perm_block"])
             self.perm_block[kind] = c
-            prow.addWidget(c)
+            grid.addWidget(c, i // 4, i % 4)
+        prow.addLayout(grid)
         prow.addStretch(1)
-        lay.addLayout(prow)
+        _row(g, T("Always refuse:"), prow, T("Sites never get these, and you are not asked."))
         sites = QPushButton(T("Reset per-site exceptions (%d)") % (
             len(self.cfg["site_levels"]) + len(self.cfg["site_noscript"])))
         sites.clicked.connect(lambda: (self.cfg["site_levels"].clear(),
                                        self.cfg["site_noscript"].clear(),
                                        sites.setText(T("Reset per-site exceptions (%d)") % 0)))
-        clear = QPushButton(T("Clear browsing data…"))
-        clear.clicked.connect(self.app.show_clear_data)
+        perms = QPushButton(T("Site permissions…"))
+        perms.clicked.connect(self.app.show_permissions)
         row = QHBoxLayout()
         row.addWidget(sites)
-        row.addWidget(clear)
+        row.addWidget(perms)
         row.addStretch(1)
-        lay.addLayout(row)
+        _row(g, "", row, T("Forget the protection levels and blocked scripts chosen for single sites, "
+                           "or see what each site may use."))
+        lay.addWidget(box)
+        box, g = self._group(T("Browsing data"))
+        c = QCheckBox(T("Clear cookies, cache and history when I.K.E. is closed"))
+        c.setChecked(bool(self.cfg["clear_on_exit"]))
+        self.checks["clear_on_exit"] = c
+        _row(g, "", _wrapping(c), T("Bookmarks, passwords and settings are kept."))
+        clear = QPushButton(T("Clear browsing data…"))
+        clear.clicked.connect(self.app.show_clear_data)
+        crow = QHBoxLayout()
+        crow.addWidget(clear)
+        crow.addStretch(1)
+        _row(g, "", crow, T("Choose what to delete now: history, cookies, cache, permissions."))
+        lay.addWidget(box)
         lay.addStretch(1)
         return w
 
-    def _components(self):
+    def _extensions(self):
+        """I.K.E. extensions: one card each (ikeextensions.py), then the experimental Chrome ones."""
+        from . import ikeextensions
         w = QWidget()
         lay = QVBoxLayout(w)
-        box = QGroupBox(T("Built-in components (untick to remove)"))
-        bl = QVBoxLayout(box)
-        self.comp = {}
-        for key, label in (
-            ("comp_adblock", T("Ad and tracker blocker — uses the uBlock Origin and EasyList filter lists")),
-            ("comp_consent", T("Cookie banner handler — refuses consent and hides the banners")),
-        ):
-            c = QCheckBox(label)
-            c.setChecked(bool(self.cfg[key]))
-            self.comp[key] = c
-            bl.addWidget(c)
-        self.yt_skip = QCheckBox(T("Skip video ads automatically on YouTube (mute, fast-forward, press “skip”)"))
-        self.yt_skip.setChecked(bool(self.cfg["video_ad_skip"]))
-        bl.addWidget(self.yt_skip)
-        if not self.app.blocker.native:
-            warn = QLabel(T("The I.K.E. AdBlock engine could not be loaded: only basic domain blocking is active."))
-            warn.setStyleSheet("color:#c0392b")
-            bl.addWidget(warn)
-        lay.addWidget(box)
+        lay.setSpacing(6)
+        self.ext_switch = {}
+        for e in ikeextensions.EXTENSIONS:
+            lay.addWidget(self._ext_card(e))
+        # the weather switch is also on the new tab page's own page: the two move together
+        sw = self.ext_switch["weather"]
+        sw.toggled.connect(lambda on: self.nt_weather.setChecked(on) if hasattr(self, "nt_weather") else None)
+        if hasattr(self, "nt_weather"):
+            self.nt_weather.toggled.connect(sw.setChecked)
+        lay.addSpacing(8)
+        lay.addWidget(self._chrome_box())
+        lay.addStretch(1)
+        return w
 
-        dbox = QGroupBox(T("DRM video (Widevine)"))
-        dl = QVBoxLayout(dbox)
-        self.drm_label = QLabel()
-        self.drm_label.setWordWrap(True)
-        dl.addWidget(self.drm_label)
-        drow = QHBoxLayout()
-        self.drm_install = QPushButton()
-        self.drm_install.clicked.connect(self._drm_download)
-        self.drm_file = QPushButton(T("Install from a file…"))
-        self.drm_file.clicked.connect(self._drm_from_file)
-        self.drm_remove = QPushButton(T("Remove"))
-        self.drm_remove.clicked.connect(self._drm_remove)
-        for b_ in (self.drm_install, self.drm_file, self.drm_remove):
-            drow.addWidget(b_)
-        drow.addStretch(1)
-        dl.addLayout(drow)
-        lay.addWidget(dbox)
-        self._drm_refresh()
+    def _ext_card(self, e):
+        from . import ikeextensions
+        card = QFrame()
+        card.setObjectName("ike_ext_card")
+        card.setProperty("ext", e.id)
+        card.setFrameShape(QFrame.Shape.StyledPanel)
+        row = QHBoxLayout(card)
+        row.setContentsMargins(10, 6, 10, 6)
+        pic = QLabel()
+        pic.setPixmap(ikeextensions.icon(e).pixmap(QSize(28, 28), self.devicePixelRatioF()))
+        pic.setFixedSize(34, 34)
+        pic.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        row.addWidget(pic, 0, Qt.AlignmentFlag.AlignTop)
+        text = QVBoxLayout()
+        text.setSpacing(1)
+        name = QLabel(T(e.name))
+        f = name.font()
+        f.setBold(True)
+        name.setFont(f)
+        text.addWidget(name)
+        text.addWidget(Hint(T(e.description)))
+        row.addLayout(text, 1)
+        if e.options:
+            b = QPushButton(T("Options…"))
+            b.setToolTip(T("The options of “%s”") % T(e.name))
+            b.clicked.connect(lambda _c=False, o=e.options: self._ext_options(o))
+            row.addWidget(b, 0, Qt.AlignmentFlag.AlignVCenter)
+        sw = Switch()
+        sw.setChecked(ikeextensions.on(self.cfg, e.id))
+        sw.setAccessibleName(T(e.name))
+        sw.setToolTip(T("On or off"))
+        row.addWidget(sw, 0, Qt.AlignmentFlag.AlignVCenter)
+        name.setBuddy(sw)
+        self.ext_switch[e.id] = sw
+        return card
 
-        fbox = QGroupBox(T("Filter lists"))
-        fl = QVBoxLayout(fbox)
-        self.lists = QListWidget()
-        for entry in self.cfg["filter_lists"]:
-            self._add_list_item(entry)
-        fl.addWidget(self.lists)
-        row = QHBoxLayout()
-        add = QPushButton(T("Add list from URL…"))
-        rem = QPushButton(T("Remove selected"))
-        reset = QPushButton(T("Restore defaults"))
-        upd = QPushButton(T("Update now"))
-        add.clicked.connect(self._add_list)
-        rem.clicked.connect(lambda: self.lists.takeItem(self.lists.currentRow()))
-        reset.clicked.connect(self._reset_lists)
-        upd.clicked.connect(lambda: (self.apply(), self.app.update_now()))
-        for b in (add, rem, reset, upd):
-            row.addWidget(b)
-        row.addStretch(1)
-        fl.addLayout(row)
-        self.auto_update = QCheckBox(T("Update the lists automatically every day"))
-        self.auto_update.setChecked(self.cfg["auto_update"])
-        fl.addWidget(self.auto_update)
-        last = self.cfg["last_lists_update"]
-        fl.addWidget(QLabel(T("Last update: %s") % (
-            time.strftime("%d/%m/%Y %H:%M", time.localtime(last)) if last else T("never"))))
-        fl.addWidget(QLabel(T("Your own filters (uBlock Origin / Adblock Plus syntax)")))
-        self.custom = QPlainTextEdit(self.cfg["custom_filters"])
-        self.custom.setMaximumHeight(70)
-        fl.addWidget(self.custom)
-        lay.addWidget(fbox, 1)
+    def _ext_options(self, where):
+        kind, _sep, what = where.partition(":")
+        if kind == "page":
+            self.show_page(what)
+        elif kind == "dialog":
+            getattr(self.app, what)()
 
+    def _chrome_box(self):
         ebox = QGroupBox(T("Extensions (experimental, Chrome format)"))
         el = QVBoxLayout(ebox)
-        lay.addWidget(ebox)
         self.ext_on = QCheckBox(T("Enable experimental support for Chrome extensions (Manifest V3)"))
         self.ext_on.setChecked(bool(self.cfg["experimental_extensions"]))
         el.addWidget(self.ext_on)
-        note = QLabel(T("With the Qt WebEngine version tested (6.11) enabling an extension "
-                        "crashes the engine, so this is off by default. If you turn it on and "
-                        "the browser crashes, I.K.E. switches it off again at the next start. "
-                        "Only Manifest V3 extensions can be loaded: uBlock Origin, Dark Reader "
-                        "and Consent-O-Matic in their original form are not guaranteed to work."))
-        note.setWordWrap(True)
-        el.addWidget(note)
+        el.addWidget(Hint(T("With the Qt WebEngine version tested (6.11) enabling an extension "
+                            "crashes the engine, so this is off by default. If you turn it on and "
+                            "the browser crashes, I.K.E. switches it off again at the next start. "
+                            "Only Manifest V3 extensions can be loaded: uBlock Origin, Dark Reader "
+                            "and Consent-O-Matic in their original form are not guaranteed to work.")))
         self._ext_mgr = self.app.extension_manager() if self.cfg["experimental_extensions"] else None
         if self._ext_mgr is None:
-            return w
+            return ebox
         self.ext_list = QListWidget()
         self.ext_list.setMaximumHeight(90)
         el.addWidget(self.ext_list)
@@ -883,7 +1190,27 @@ class SettingsDialog(QDialog):
         self._ext_mgr.installFinished.connect(self._ext_done)
         self._ext_mgr.uninstallFinished.connect(self._ext_done)
         self._fill_ext()
-        return w
+        return ebox
+
+    def _drm_box(self):
+        dbox = QGroupBox(T("DRM video (Widevine)"))
+        dl = QVBoxLayout(dbox)
+        self.drm_label = QLabel()
+        self.drm_label.setWordWrap(True)
+        dl.addWidget(self.drm_label)
+        drow = QHBoxLayout()
+        self.drm_install = QPushButton()
+        self.drm_install.clicked.connect(self._drm_download)
+        self.drm_file = QPushButton(T("Install from a file…"))
+        self.drm_file.clicked.connect(self._drm_from_file)
+        self.drm_remove = QPushButton(T("Remove"))
+        self.drm_remove.clicked.connect(self._drm_remove)
+        for b_ in (self.drm_install, self.drm_file, self.drm_remove):
+            drow.addWidget(b_)
+        drow.addStretch(1)
+        dl.addLayout(drow)
+        self._drm_refresh()
+        return dbox
 
     def _add_list_item(self, entry):
         it = QListWidgetItem("%s  —  %s" % (entry["name"], entry["url"]))
@@ -1025,19 +1352,178 @@ class SettingsDialog(QDialog):
         drm.remove()
         self._drm_refresh()
 
+    def _downloads(self):
+        w = QWidget()
+        f = QFormLayout(w)
+        self.dl_dir = QLineEdit(self.cfg["download_dir"])
+        self.dl_dir.setPlaceholderText(str(self.app.download_dir()))
+        browse = QPushButton(T("Choose…"))
+        browse.clicked.connect(lambda: self.dl_dir.setText(
+            QFileDialog.getExistingDirectory(self, T("Download folder")) or self.dl_dir.text()))
+        row = QHBoxLayout()
+        row.addWidget(self.dl_dir, 1)
+        row.addWidget(browse)
+        self.dl_ask = QCheckBox(T("Always ask where to save files"))
+        self.dl_ask.setChecked(self.cfg["ask_download_location"])
+        _row(f, T("Download folder"), row, T("Where files are saved. Empty: your Downloads folder."))
+        _row(f, "", self.dl_ask, T("A window asks where to save each file, and under which name."))
+        return w
+
+    # --- apply -------------------------------------------------------
+    def apply(self):
+        cfg = self.cfg
+        cfg["language"] = self.language.currentData()
+        cfg["accept_language"] = self.accept_lang.text().strip()          # empty: the system's languages
+        cfg["startup"] = self.startup.currentData()
+        cfg["mail_handler"] = self.mail.currentData()
+        cfg["video_hw"] = self.video_hw.currentData()
+        cfg["homepage"] = self.homepage.text().strip() or "ike:newtab"
+        cfg["tabs_position"] = self.tabs_pos.currentData()
+        def looks():
+            return [cfg[k] for k in ("icon_theme", "ui_scheme")]
+
+        def newtab_look():
+            return [cfg[k] for k in ("newtab_tiles", "blocked_counter", "ui_scheme")] + [list(cfg["newtab_tiles_hidden"])]
+        look, page_look = looks(), newtab_look()
+        cfg["icon_theme"] = self.icon_theme.currentData()
+        cfg["ui_scheme"] = self.ui_scheme.currentData()
+        cfg["newtab_tiles"] = self.nt_tiles.currentData()
+        cfg["blocked_counter"] = self.nt_counter.currentData()
+        if self.nt_unhide.property("clear"):
+            cfg["newtab_tiles_hidden"] = []
+            self.nt_unhide.setProperty("clear", False)
+        if look != looks():
+            from . import icons, themes
+            icons.apply_scheme(cfg)
+            themes.apply(cfg)
+            icons.setup(cfg)
+        # I.K.E. extensions: each switch is its own setting (ikeextensions.py)
+        from . import ikeextensions
+        switched = []
+        for e in ikeextensions.EXTENSIONS:
+            on = self.ext_switch[e.id].isChecked()
+            if ikeextensions.on(cfg, e.id) != on:
+                switched.append(e.id)
+            cfg[e.key] = on
+        cfg["show_menubar"] = self.menubar.isChecked()
+        cfg["bookmarks_bar"] = self.bookbar.currentData()
+        cfg["system_titlebar"] = self.titlebar.isChecked()
+        cfg["vtabs_autohide"] = self.vauto.isChecked()
+        cfg["start_maximized"] = self.maximized.isChecked()
+        cfg["ui_effects"] = self.effects.isChecked()
+        cfg["site_tint"] = self.site_tint.isChecked()
+        cfg["toolbar_hidden"] = [k for k, c in self.tb_btns.items() if not c.isChecked()]
+        cfg["default_zoom"] = round(self.zoom.value(), 2)
+        dark_choice, dark_engine = self.dark.currentData(), self.dark_engine.currentData()
+        if dark_choice != cfg["dark_mode"] or dark_engine != cfg["dark_engine"]:
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(0, lambda: self.app.set_dark_mode(dark_choice, self.parent(), dark_engine))
+        engines = self._engine_rows()
+        if engines:
+            cfg["search_engines"] = engines
+            cfg["default_engine"] = self.default_engine.currentText() or engines[0]["name"]
+        cfg["search_suggestions"] = self.suggest.isChecked()
+        cfg["shield_level"] = self.level.currentData()
+        for key, c in self.checks.items():
+            cfg[key] = c.isChecked()
+        idx = self.doh.findText(self.doh.currentText())
+        cfg["doh"] = self.doh.itemData(idx) if idx >= 0 else self.doh.currentText().strip()
+        for key, c in self.comp.items():
+            cfg[key] = c.isChecked()
+        lists = []
+        for i in range(self.lists.count()):
+            it = self.lists.item(i)
+            entry = it.data(Qt.ItemDataRole.UserRole)
+            entry["enabled"] = it.checkState() == Qt.CheckState.Checked
+            lists.append(entry)
+        cfg["filter_lists"] = lists
+        cfg["custom_filters"] = self.custom.toPlainText()
+        cfg["auto_update"] = self.auto_update.isChecked()
+        cfg["login_compat"] = self.login_compat.isChecked()
+        cfg["lazy_restore"] = self.lazy.isChecked()
+        for key, c in self.di.items():
+            cfg[key] = c.isChecked()
+        cfg["tab_sleep_minutes"] = self.sleep.value()
+        cfg["app_updates"] = self.upd.currentData()
+        cfg["update_channel"] = self.channel.currentData()
+        if "{url}" in self.translate.text():
+            cfg["translate_url"] = self.translate.text().strip()
+        cfg["autoplay_block"] = self.autoplay.isChecked()
+        cfg["mouse_gestures"] = self.gestures.isChecked()
+        cfg["smooth_scrolling"] = self.smooth.isChecked()
+        cfg["perm_block"] = [k for k, c in self.perm_block.items() if c.isChecked()]
+        cfg["experimental_extensions"] = self.ext_on.isChecked()
+        old = {c["name"]: c["color"] for c in cfg["containers"]}
+        palette = ["#3daee9", "#f67400", "#27ae60", "#9b59b6", "#da4453", "#fdbc4b", "#1abc9c"]
+        names = [n.strip() for n in self.containers.text().split(",") if n.strip()]
+        cfg["containers"] = [{"name": n, "color": old.get(n, palette[i % len(palette)])}
+                             for i, n in enumerate(dict.fromkeys(names))]
+        cfg["newtab_clock"] = self.nt_clock.isChecked()
+        before = (cfg["weather_city"], cfg["weather_lat"], cfg["weather_lon"], cfg["weather_unit"])
+        cfg["weather_unit"] = self.unit.currentData()
+        if self._city_pick is not None:
+            cfg["weather_city"] = self._city_pick["name"]
+            cfg["weather_lat"] = round(self._city_pick["lat"], 2)
+            cfg["weather_lon"] = round(self._city_pick["lon"], 2)
+            self.city.setText(cfg["weather_city"])
+            self._city_pick = None
+            self._show_found(False)
+        elif not self.city.text().strip():
+            cfg["weather_city"], cfg["weather_lat"], cfg["weather_lon"] = "", None, None
+        if before != (cfg["weather_city"], cfg["weather_lat"], cfg["weather_lon"], cfg["weather_unit"]):
+            self.app.weather.forget()
+        cfg["download_dir"] = self.dl_dir.text().strip()
+        cfg["ask_download_location"] = self.dl_ask.isChecked()
+        from . import newtabbg
+        look = newtabbg.style(cfg)
+        problem = ""
+        if self._bg_choice == "":
+            newtabbg.remove_photo(cfg)
+        elif self._bg_choice == newtabbg.DEFAULT:
+            newtabbg.use_default(cfg)
+        elif self._bg_choice:
+            problem = newtabbg.set_photo(cfg, self._bg_choice)
+        self._bg_choice = None
+        self._show_background(self._bg_shown(cfg))
+        if problem:
+            self.bg_info.setText(T(problem))
+        cfg["newtab_bg_fit"] = self.bg_fit.currentData()
+        cfg["newtab_bg_veil"] = self.bg_veil.value()
+        cfg.save()
+        self.app.settings_changed()
+        if switched:
+            ikeextensions.changed(self.app, switched, settings_applied=True)
+        if look != newtabbg.style(cfg) or page_look != newtab_look():
+            self.app.reload_newtabs()
+
+
+class UserScriptsDialog(QDialog):
+    """The installed user scripts (I.K.E. extensions → User scripts → Options…).
+    Whether they run at all is the extension's switch (userscripts_enabled)."""
+
+    def __init__(self, app, parent=None):
+        super().__init__(parent)
+        self.app = app
+        self.cfg = app.config
+        self.setWindowTitle(T("User scripts") + " — I.K.E.")
+        self.resize(780, 460)
+        lay = QVBoxLayout(self)
+        lay.addWidget(self._userscripts(), 1)
+        bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, self)
+        bb.rejected.connect(self.reject)
+        lay.addWidget(bb)
+
     def _userscripts(self):
         us = self.app.userscripts
         w = QWidget()
         lay = QVBoxLayout(w)
-        self.us_on = QCheckBox(T("Run user scripts (the Greasemonkey, Tampermonkey and Violentmonkey kind)"))
-        self.us_on.setChecked(bool(self.cfg["userscripts_enabled"]))
-        lay.addWidget(self.us_on)
         info = QLabel(T(
             "A user script changes the pages it is written for. Install one from a file or from its "
             "address (for example from Greasy Fork), or simply open a link ending in “.user.js”. "
             "Installed scripts are checked for new versions once a day."))
         info.setWordWrap(True)
         lay.addWidget(info)
+        lay.addWidget(Hint(T("Whether they run at all: the “User scripts” switch in Settings → I.K.E. extensions.")))
         self.us_list = QTreeWidget()
         self.us_list.setRootIsDecorated(False)
         self.us_list.setHeaderLabels([T("Script"), T("Version"), T("Runs on")])
@@ -1116,146 +1602,6 @@ class SettingsDialog(QDialog):
         from .userscripts import DIR
         DIR.mkdir(parents=True, exist_ok=True)
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(DIR)))
-
-    def _downloads(self):
-        w = QWidget()
-        f = QFormLayout(w)
-        self.dl_dir = QLineEdit(self.cfg["download_dir"])
-        self.dl_dir.setPlaceholderText(str(self.app.download_dir()))
-        browse = QPushButton(T("Choose…"))
-        browse.clicked.connect(lambda: self.dl_dir.setText(
-            QFileDialog.getExistingDirectory(self, T("Download folder")) or self.dl_dir.text()))
-        row = QHBoxLayout()
-        row.addWidget(self.dl_dir, 1)
-        row.addWidget(browse)
-        self.dl_ask = QCheckBox(T("Always ask where to save files"))
-        self.dl_ask.setChecked(self.cfg["ask_download_location"])
-        f.addRow(T("Download folder"), row)
-        f.addRow("", self.dl_ask)
-        return w
-
-    # --- apply -------------------------------------------------------
-    def apply(self):
-        cfg = self.cfg
-        cfg["language"] = self.language.currentData()
-        cfg["accept_language"] = self.accept_lang.text().strip()          # empty: the system's languages
-        cfg["startup"] = self.startup.currentData()
-        cfg["mail_handler"] = self.mail.currentData()
-        cfg["video_hw"] = self.video_hw.currentData()
-        cfg["homepage"] = self.homepage.text().strip() or "ike:newtab"
-        cfg["tabs_position"] = self.tabs_pos.currentData()
-        def looks():
-            return [cfg[k] for k in ("icon_theme", "ui_scheme")]
-
-        def newtab_look():
-            return [cfg[k] for k in ("newtab_tiles", "blocked_counter", "ui_scheme")] + [list(cfg["newtab_tiles_hidden"])]
-        look, page_look = looks(), newtab_look()
-        cfg["icon_theme"] = self.icon_theme.currentData()
-        cfg["ui_scheme"] = self.ui_scheme.currentData()
-        cfg["newtab_tiles"] = self.nt_tiles.currentData()
-        cfg["blocked_counter"] = self.nt_counter.currentData()
-        if self.nt_unhide.property("clear"):
-            cfg["newtab_tiles_hidden"] = []
-            self.nt_unhide.setProperty("clear", False)
-        if look != looks():
-            from . import icons, themes
-            icons.apply_scheme(cfg)
-            themes.apply(cfg)
-            icons.setup(cfg)
-        scripts_on = cfg["userscripts_enabled"]
-        cfg["userscripts_enabled"] = self.us_on.isChecked()
-        if scripts_on != cfg["userscripts_enabled"]:
-            self.app.userscripts.apply_all()
-        cfg["show_menubar"] = self.menubar.isChecked()
-        cfg["bookmarks_bar"] = self.bookbar.currentData()
-        cfg["system_titlebar"] = self.titlebar.isChecked()
-        cfg["vtabs_autohide"] = self.vauto.isChecked()
-        cfg["start_maximized"] = self.maximized.isChecked()
-        cfg["ui_effects"] = self.effects.isChecked()
-        cfg["site_tint"] = self.site_tint.isChecked()
-        cfg["toolbar_hidden"] = [k for k, c in self.tb_btns.items() if not c.isChecked()]
-        cfg["default_zoom"] = round(self.zoom.value(), 2)
-        dark_choice, dark_engine = self.dark.currentData(), self.dark_engine.currentData()
-        if dark_choice != cfg["dark_mode"] or dark_engine != cfg["dark_engine"]:
-            from PyQt6.QtCore import QTimer
-            QTimer.singleShot(0, lambda: self.app.set_dark_mode(dark_choice, self.parent(), dark_engine))
-        engines = self._engine_rows()
-        if engines:
-            cfg["search_engines"] = engines
-            cfg["default_engine"] = self.default_engine.currentText() or engines[0]["name"]
-        cfg["search_suggestions"] = self.suggest.isChecked()
-        cfg["shield_level"] = self.level.currentData()
-        for key, c in self.checks.items():
-            cfg[key] = c.isChecked()
-        idx = self.doh.findText(self.doh.currentText())
-        cfg["doh"] = self.doh.itemData(idx) if idx >= 0 else self.doh.currentText().strip()
-        for key, c in self.comp.items():
-            cfg[key] = c.isChecked()
-        lists = []
-        for i in range(self.lists.count()):
-            it = self.lists.item(i)
-            entry = it.data(Qt.ItemDataRole.UserRole)
-            entry["enabled"] = it.checkState() == Qt.CheckState.Checked
-            lists.append(entry)
-        cfg["filter_lists"] = lists
-        cfg["custom_filters"] = self.custom.toPlainText()
-        cfg["auto_update"] = self.auto_update.isChecked()
-        cfg["video_ad_skip"] = self.yt_skip.isChecked()
-        cfg["login_compat"] = self.login_compat.isChecked()
-        cfg["lazy_restore"] = self.lazy.isChecked()
-        for key, c in self.di.items():
-            cfg[key] = c.isChecked()
-        cfg["tab_sleep_minutes"] = self.sleep.value()
-        cfg["app_updates"] = self.upd.currentData()
-        cfg["update_channel"] = self.channel.currentData()
-        if "{url}" in self.translate.text():
-            cfg["translate_url"] = self.translate.text().strip()
-        cfg["autoplay_block"] = self.autoplay.isChecked()
-        cfg["mouse_gestures"] = self.gestures.isChecked()
-        cfg["smooth_scrolling"] = self.smooth.isChecked()
-        cfg["perm_block"] = [k for k, c in self.perm_block.items() if c.isChecked()]
-        cfg["experimental_extensions"] = self.ext_on.isChecked()
-        old = {c["name"]: c["color"] for c in cfg["containers"]}
-        palette = ["#3daee9", "#f67400", "#27ae60", "#9b59b6", "#da4453", "#fdbc4b", "#1abc9c"]
-        names = [n.strip() for n in self.containers.text().split(",") if n.strip()]
-        cfg["containers"] = [{"name": n, "color": old.get(n, palette[i % len(palette)])}
-                             for i, n in enumerate(dict.fromkeys(names))]
-        cfg["newtab_clock"] = self.nt_clock.isChecked()
-        cfg["newtab_weather"] = self.nt_weather.isChecked()
-        before = (cfg["weather_city"], cfg["weather_lat"], cfg["weather_lon"], cfg["weather_unit"])
-        cfg["weather_unit"] = self.unit.currentData()
-        if self._city_pick is not None:
-            cfg["weather_city"] = self._city_pick["name"]
-            cfg["weather_lat"] = round(self._city_pick["lat"], 2)
-            cfg["weather_lon"] = round(self._city_pick["lon"], 2)
-            self.city.setText(cfg["weather_city"])
-            self._city_pick = None
-            self._show_found(False)
-        elif not self.city.text().strip():
-            cfg["weather_city"], cfg["weather_lat"], cfg["weather_lon"] = "", None, None
-        if before != (cfg["weather_city"], cfg["weather_lat"], cfg["weather_lon"], cfg["weather_unit"]):
-            self.app.weather.forget()
-        cfg["download_dir"] = self.dl_dir.text().strip()
-        cfg["ask_download_location"] = self.dl_ask.isChecked()
-        from . import newtabbg
-        look = newtabbg.style(cfg)
-        problem = ""
-        if self._bg_choice == "":
-            newtabbg.remove_photo(cfg)
-        elif self._bg_choice == newtabbg.DEFAULT:
-            newtabbg.use_default(cfg)
-        elif self._bg_choice:
-            problem = newtabbg.set_photo(cfg, self._bg_choice)
-        self._bg_choice = None
-        self._show_background(self._bg_shown(cfg))
-        if problem:
-            self.bg_info.setText(T(problem))
-        cfg["newtab_bg_fit"] = self.bg_fit.currentData()
-        cfg["newtab_bg_veil"] = self.bg_veil.value()
-        cfg.save()
-        self.app.settings_changed()
-        if look != newtabbg.style(cfg) or page_look != newtab_look():
-            self.app.reload_newtabs()
 
 
 class ThemeEditor(QDialog):

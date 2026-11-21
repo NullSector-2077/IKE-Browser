@@ -296,7 +296,8 @@ def test_command_bar(run_ike, site):
     assert out["current"] is True
     assert out["rows2"] and "Gamma bookmark" in out["rows2"][0]
     assert out["commands"] > 30
-    assert "General" in out["settings"] and "Privacy and protection" in out["settings"]
+    assert "General" in out["settings"] and "Protection" in out["settings"] and "Privacy" in out["settings"]
+    assert "I.K.E. extensions" in out["settings"]
 
 
 ERRORS = COMMON + r'''

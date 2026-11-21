@@ -944,6 +944,16 @@ class IkeApp(QObject):
         from .dialogs import SettingsDialog
         return self._show("settings", lambda: SettingsDialog(self, parent or self.active_window(), page))
 
+    def show_userscripts(self):
+        """The installed user scripts (Settings → I.K.E. extensions → User scripts → Options…)."""
+        from .dialogs import UserScriptsDialog
+        parent = self._dialogs.get("settings")
+        try:
+            parent = parent if parent is not None and parent.isVisible() else self.active_window()
+        except RuntimeError:
+            parent = self.active_window()
+        return self._show("userscripts", lambda: UserScriptsDialog(self, parent))
+
     def show_history(self):
         from .dialogs import HistoryDialog
         return self._show("history", lambda: HistoryDialog(self, self.active_window()))

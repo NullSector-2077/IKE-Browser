@@ -2,7 +2,7 @@
 
 | What | How it updates |
 |---|---|
-| Filter lists | daily, by I.K.E. (Settings → Components) |
+| Filter lists | daily, by I.K.E. (Settings → Updates) |
 | Chrome version presented to sites | the engine's own version (1.1.14), so it follows the system's `qt6-webengine` (at Strict and Maximum only its major number, 140.0.0.0, since 1.1.18); the current stable Chrome is checked daily (Google's public version list) only to show the engine's age in Help -> About |
 | User scripts | daily, from their update address |
 | Web engine (Qt WebEngine) | with the system (`sudo pacman -Syu`) |

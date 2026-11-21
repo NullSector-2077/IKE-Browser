@@ -65,15 +65,16 @@ def build(view, req):
             lambda: app.new_window(private=win.private, urls=[link]), "window-new")
         add(T("Open link in private window"),
             lambda: app.new_window(private=True, urls=[link]), "view-private")
-        if not win.private:
+        if not win.private and win.ext_on("containers"):
             sub = menu.addMenu(_ic("folder-lock"), T("Open link in container"))
             for c in app.config["containers"]:
                 a = sub.addAction(c["name"])
                 a.triggered.connect(lambda _c=False, n=c["name"]: win.add_tab(
                     link, background=True, after=view, container=n))
-        add(T("Open link in split view"),
-            lambda: win.split_with(win.add_tab(link, background=True, after=view,
-                                               container=container)), "view-split-left-right")
+        if win.ext_on("split"):
+            add(T("Open link in split view"),
+                lambda: win.split_with(win.add_tab(link, background=True, after=view,
+                                                   container=container)), "view-split-left-right")
         menu.addSeparator()
         add(T("Copy link address"), copy_text(link.toString()), "edit-copy")
         add(T("Save link as…"), engine(WA.DownloadLinkToDisk), "document-save")
@@ -108,7 +109,7 @@ def build(view, req):
         ctl = add(T("Show controls"), engine(WA.ToggleMediaControls))
         ctl.setCheckable(True)
         ctl.setChecked(bool(mflags & MF.MediaControls))
-        if mtype == MT.MediaTypeVideo:
+        if mtype == MT.MediaTypeVideo and win.ext_on("pip"):
             add(T("Video in floating window"), win.float_video, "window-duplicate")
         if has_media:
             add(T("Save media as…"), engine(WA.DownloadMediaToDisk), "document-save",
@@ -136,8 +137,9 @@ def build(view, req):
         add(T("Paste as plain text"), engine(WA.PasteAndMatchStyle), "edit-paste")
         add(T("Select all"), engine(WA.SelectAll), "edit-select-all")
         menu.addSeparator()
-        add(T("Fill login on this page"), win.fill_login, "password-show-on")
-        add(T("Insert a generated password"), lambda: _insert_password(view), "dialog-password")
+        if win.ext_on("passwords"):
+            add(T("Fill login on this page"), win.fill_login, "password-show-on")
+            add(T("Insert a generated password"), lambda: _insert_password(view), "dialog-password")
     if sel:
         short = sel.strip().replace("\n", " ")
         short = short if len(short) < 28 else short[:27] + "…"
@@ -165,7 +167,8 @@ def build(view, req):
         add(T("Print…"), win.print_page, "document-print")
         menu.addSeparator()
         add(T("Reader mode"), win.toggle_reader, "view-readermode")
-        add(T("Translate page…"), win.translate_page, "translate")
+        if win.ext_on("translate"):
+            add(T("Translate page…"), win.translate_page, "translate")
         add(T("Screenshot…"), win.screenshot, "camera-photo")
         menu.addSeparator()
         add(T("Select all"), engine(WA.SelectAll), "edit-select-all")

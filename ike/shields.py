@@ -1040,9 +1040,12 @@ class Shields(QObject):
             self._video_scripts(p)
             scripts = p.scripts()
             for old in (scripts.find("ike-fp") + scripts.find("ike-consent")
-                        + scripts.find("ike-pw") + scripts.find("ike-media")):
+                        + scripts.find("ike-pw") + scripts.find("ike-media")
+                        + scripts.find("ike-autoscroll")):
                 scripts.remove(old)
-            if cfg.get("di_media", True) and not p.isOffTheRecord():
+            from . import ikeextensions
+            if (cfg.get("di_media", True) and ikeextensions.on(cfg, "plasma")
+                    and not p.isOffTheRecord()):
                 # "next" / "previous" of the desktop's media controls (plasma.py);
                 # inserted before ike-fp: both keep replaced functions native-looking
                 m = QWebEngineScript()
@@ -1054,7 +1057,16 @@ class Shields(QObject):
                 m.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
                 m.setRunsOnSubFrames(True)
                 scripts.insert(m)
-            if getattr(self, "pw_source", ""):
+            if ikeextensions.on(cfg, "autoscroll"):
+                # automatic scrolling (1.1.20): I.K.E.'s own world, unseen by the page
+                a = QWebEngineScript()
+                a.setName("ike-autoscroll")
+                a.setSourceCode(ikeextensions.AUTOSCROLL_JS)
+                a.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentReady)
+                a.setWorldId(QWebEngineScript.ScriptWorldId.ApplicationWorld)
+                a.setRunsOnSubFrames(True)
+                scripts.insert(a)
+            if getattr(self, "pw_source", "") and ikeextensions.on(cfg, "passwords"):
                 pw = QWebEngineScript()
                 pw.setName("ike-pw")
                 pw.setSourceCode(self.pw_source)
@@ -1264,6 +1276,8 @@ class Shields(QObject):
     def dark_for(self, host):
         """Whether this host should use the selected dark renderer."""
         cfg = self.config
+        if not cfg.get("comp_dark", True):        # the extension is off (1.1.20)
+            return False
         on = cfg["dark_mode"] == "on"
         listed = cfg["dark_exclude"] if on else cfg["dark_sites"]
         h = (host or "").lower().strip(".")
@@ -1286,7 +1300,7 @@ class Shields(QObject):
         """Did the user turn this site dark himself (dark mode off, the site on
         its own list)? Then it is made dark whatever Dark Reader's lists say."""
         cfg = self.config
-        if cfg["dark_mode"] == "on":
+        if cfg["dark_mode"] == "on" or not cfg.get("comp_dark", True):
             return False
         h = (host or "").lower().strip(".")
         while h:
