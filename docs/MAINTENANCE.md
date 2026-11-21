@@ -1,10 +1,14 @@
 # Automatic maintenance
 
 GitHub Actions keeps I.K.E. up to date and prepares the fixes. A pull request
-is merged only once its tests are green, by the owner or by Claude working in a
-session for the owner (CLAUDE.md); the owner alone **signs and publishes** (one
-command on the owner's computer, [UPDATES.md](UPDATES.md)). No workflow merges,
-releases or signs anything, and no workflow ever writes to `main`.
+is merged only once its tests are green: since 1.1.19 a fix of the automatic
+fix or of ChatGPT that is a small change of the interface code goes into `main`
+by itself (`automerge.yml`, below); everything else is read by a person first
+and merged by the owner or by Claude working in a session for the owner
+(CLAUDE.md). The owner alone
+**signs and publishes** (one command on the owner's computer, in the issue
+GitHub mails when a release is ready, [UPDATES.md](UPDATES.md)). No workflow releases or
+signs anything, and no workflow pushes to `main`.
 
 ## What runs by itself
 
@@ -13,11 +17,13 @@ releases or signs anything, and no workflow ever writes to `main`.
 | Every day, 05:17 UTC | Upstream versions of the bundled components | `daily-check.yml` | Issue labelled `components` |
 | Every day, 06:17 UTC | The updates applied to a candidate built from current `main` | `daily-maintenance.yml` | Branch `automation/daily-maintenance`, draft PR labelled `maintenance` |
 | On every PR, every push to `main`, every candidate or fix | Lint, all the tests, the Arch package and its tests | `tests.yml` | Checks on the PR, package download `ike-browser-package` |
-| When one of the three above fails | An automatic fix | `autofix.yml` | Draft PR labelled `autofix`, or an issue "Automatic fix needs you" |
+| When one of the three above fails | An automatic fix | `autofix.yml` | Draft PR labelled `autofix`, or an issue "ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!! (<workflow>)" assigned to the owner, which GitHub mails |
 | Mondays, 03:41 UTC | The whole suite and the package on Arch Linux's own Qt (`archlinux:latest`) | `arch.yml` | A failed run to look at (not a required check, no automatic fix) |
 | Every day, 04:23 UTC, and on every PR and push to `main` | The security tests with the engine's sandbox really on (as a normal user), and the RustSec advisories of every crate of the AdBlock engine | `security.yml` | Checks on the PR; on `main` the issue "Rust advisories" when one is found (no automatic fix) |
 | Mondays, 07:41 UTC | The automation itself: every scheduled check (also the Arch and security ones, 1.1.19), and one tiny question to each reserve of the automatic fix | `health.yml` | Issue "Automation health" when something stopped, failed, waits too long, or a reserve's key or model no longer works |
 | Once a month | New versions of the GitHub actions used | Dependabot | One PR labelled `maintenance` |
+| When a check of a pull request ends, or the automation's own Tests and Security runs of its fix pass (a dispatch) | A fix of the automatic fix (`automation/autofix-main`, only commits it wrote itself) or of ChatGPT (`chatgpt/...`) goes into `main` when every check of its last commit passed, `tests` and `sandbox` included, and it changes only existing Python modules of the interface under `ike/` (and `docs/`), with no added line that reaches the environment, the network, the system or the test run, plus the version files exactly as the automation raises the version. It waits for a person when it adds or removes a file, touches a module that decides the user's safety (`app`, `config`, `passwords`, `userscripts`, `webview`, `shields`, `updater`, `doh`...), a page script under `ike/resources/`, tests, tools, workflows, the ad blocker or the package; when main's version is already published and the fix does not raise it; and when `main` already holds a fix merged by itself and not yet published (one unread merge per release). Rules: `tools/automerge.py`, read from `main` (review 2 of 1.1.19). After a merge the tests and the security tests of `main` start | `automerge.yml` | The merge and a comment; otherwise one comment naming the owner: "chiedi a Claude di revisionarla" |
+| When the tests of `main` pass, and every day at 08:13 UTC | A version in `main` that is not published yet, with `tests` and `sandbox` green on its last commit | `release-ready.yml` | An issue "C'E' UNA NUOVA RELEASE IN MAIN PRONTA DA PUBBLICARE!!!" with the exact command, assigned to the owner and naming the owner (GitHub mails it), listing the fixes merged by themselves since the last release (to have them read before signing); a reminder comment each week; closed by itself once the version is published; never opened again for a version whose notice the owner closed |
 
 ## Components followed
 
@@ -95,7 +101,7 @@ never touched.
    seconds after a run closes); when no log can be read, that issue too,
    instead of a fix that could only guess. A job that failed without a failed
    step (a time limit) still counts as a real failure.
-   An open issue "Automatic fix needs you: <workflow>" stops a new fix of
+   An open issue "ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!! (<workflow>)" stops a new fix of
    `main` only when it names the same failed commit (the report job ends each
    issue and comment with a hidden `<!-- autofix-sha: ... -->` mark) or was
    reported in the last 24 hours (1.1.18: an old issue of the first trials
@@ -370,7 +376,7 @@ never touched.
    automation itself send no `workflow_run` to GitHub, so `tests.yml` hands
    their failure over with a dispatch, job `hand-over`, on the automation's own
    branches only; the plan waits for that run to close.) After two, or when nothing
-   could be fixed, the issue **"Automatic fix needs you: <workflow>"** is opened. Its
+   could be fixed, the issue **"ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!! (<workflow>)"** is opened (1.1.19: that title, in the owner's words, assigned to the owner and naming the owner, so GitHub mails it). Its
    reason is plain: quota, chiave, modello, tempo, rifiutata or sicurezza
    (and, 1.1.18, "una riserva ha preparato una correzione, ma i controlli
    automatici l'hanno respinta" when that is what happened).
@@ -494,7 +500,8 @@ OpenRouter their free quotas (no money). Needs the secrets `GEMINI_API_KEY`,
      undone;
    - guard: "Patch accepted"; publish: the draft pull request on
      `automation/autofix-main` and its tests (`tests.yml` on that branch).
-4. Never merged by itself: the draft pull request waits for a person. After a
+4. Never merged by itself: a trial's commit is not one the automatic fix
+   wrote, so `automerge.py` leaves the pull request for a person. After a
    trial it is closed, and the branch goes back to the deliberate error.
 
 Trying a change to the automatic fix itself: the fix job reads its tools from
@@ -515,7 +522,9 @@ the owner on the real system.
 2. Wait for the green checks. To try it, download the package of its test run
    and install it:
    `gh run download <run-id> -n ike-browser-package`.
-3. Mark the PR ready and merge it. **Except:** an automatic-fix or ChatGPT
+3. Mark the PR ready and merge it (a green fix of the automatic fix or of
+   ChatGPT that changes no test and no protected file is merged by itself
+   since 1.1.19). **Except:** an automatic-fix or ChatGPT
    pull request that changes anything under `tests/` is never merged on green
    checks alone. A person (or Claude, with the change read in full) reviews
    the diff of the tests first: the patch checks and "No tests lost" catch
@@ -547,6 +556,22 @@ person: open a conversation and paste its link.
   installer").
 - Settings → Branches: protect `main` (pull request required, status check
   `tests` required, no force push, no deletion).
+- The owner's notices (1.1.19): GitHub mails the owner the two issues above
+  (they assign and name the owner). To get only those by mail: on the
+  repository, Watch → "Participating and @mentions"; in the account,
+  Settings → Notifications: email on for "Participating, @mentions and
+  custom", off for "Watching" and "Actions". No address or password is in
+  the repository.
+- Autofix trials (deliberate errors on `automation/autofix-main`): any commit
+  whose message does not start with "autofix: attempt N after a failure of"
+  (what the automatic fix writes) keeps the pull request for a person, and so
+  does the word "trial" in any commit of a ChatGPT branch.
+- `publish.py` and the release notice require both `tests` and `sandbox`
+  green on the commit. The maintenance candidate may change only the update's
+  own files (engine, scriptlets, Dark Reader, test packages, licences, version
+  files), checked before it is pushed; it is bundled before the engine's crates
+  are built. Dark Reader's npm tarball must come from npm's registry with the
+  sha512 npm published.
 
 The weekly check (`health.yml`, `tools/automation-health.py`) reports, since
 1.1.18, a `main` without branch protection (the `protected` field of the

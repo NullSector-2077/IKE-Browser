@@ -118,9 +118,65 @@ jobs:
             grep -E "^(error|warning)\[|ID:|Severity|Crate:|Version:|Title:|Solution:|Date:" advisories.txt | head -200
             echo '```'
           } > body.md
-          n=$(gh issue list --state open --search '"Rust advisories" in:title' --json number --jq '.[0].number')
+          # found by its label, not by its title (anyone can open an issue
+          # with that title), and the owner is named: a mail (review 2, M7)
+          gh label create rust-advisories --color B60205 --description "found by security.yml" 2>/dev/null || true
+          n=$(gh issue list --state open --label rust-advisories --author app/github-actions --json number --jq '.[0].number')
+          sed -i "1i @$GITHUB_REPOSITORY_OWNER: serve il tuo intervento (chiedi a Claude).\n" body.md
           if [ -n "$n" ]; then
             gh issue comment "$n" --body-file body.md
           else
-            gh issue create --title "Rust advisories" --body-file body.md
+            gh issue create --title "Rust advisories" --label rust-advisories --assignee "$GITHUB_REPOSITORY_OWNER" \
+                --body-file body.md || gh issue create --title "Rust advisories" --label rust-advisories --body-file body.md
           fi
+
+  # The sandbox tests failed on main: one issue naming the owner (review 2 of
+  # 1.1.19, H3: until then only the weekly check spoke, after two failures).
+  sandbox-issue:
+    needs: sandbox
+    if: failure() && github.ref_name == 'main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: The issue "Sandbox tests failed"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          printf '@%s: i test di sicurezza con la sandbox sono falliti su main (%s). Non pubblicare: chiedi a Claude.\n\nRun: %s/%s/actions/runs/%s\n' \
+              "$GITHUB_REPOSITORY_OWNER" "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > body.md
+          gh label create sandbox-failed --color B60205 --description "found by security.yml" 2>/dev/null || true
+          n=$(gh issue list --state open --label sandbox-failed --author app/github-actions --json number --jq '.[0].number')
+          if [ -n "$n" ]; then
+            gh issue comment "$n" --body-file body.md
+          else
+            gh issue create --title "Sandbox tests failed on main" --label sandbox-failed \
+                --assignee "$GITHUB_REPOSITORY_OWNER" --body-file body.md \
+              || gh issue create --title "Sandbox tests failed on main" --label sandbox-failed --body-file body.md
+          fi
+
+  # The sandbox tests of the automatic fix passed (a run its token started
+  # sends no "workflow_run"): the merge is asked for with a dispatch (H1, H3).
+  merge-ready:
+    needs: sandbox
+    if: >-
+      success() && github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]' &&
+      github.ref_name == 'automation/autofix-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Ask for the merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          for pause in 15 30 0; do
+            gh workflow run automerge.yml --ref main -f sha="$SHA" && exit 0
+            sleep "$pause"
+          done
+          exit 1

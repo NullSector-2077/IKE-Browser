@@ -81,6 +81,8 @@ FORBIDDEN_FILES = {
     "ike/resources/videoads.js", "ike/resources/videorelay.js", "ike/resources/mediahook.js",
     # 1.1.18: the test packages, the weekly health check, the notices of others
     "tools/test-requirements.txt", "tools/automation-health.py", "tools/third-party.py",
+    # 1.1.19: the rules of the merge by itself
+    "tools/automerge.py",
 }
 FORBIDDEN_PREFIXES = (".github/", "tests/data/")      # the workflows; the tests' reference data
 FORBIDDEN_PATTERNS = ("tools/build-*.py", "tools/build-*.mjs")   # builders of what comes from others
@@ -134,7 +136,12 @@ TEST_TAMPERING = re.compile(
 # protected updater from elsewhere (audit of #65): refused in added lines of ike/
 PRODUCT_TAMPERING = re.compile(
     r"\b_?pytest\b|PYTEST_\w+|\bunittest\b|\bconftest\b"
-    r"|\bupdater\s*\.\s*\w+\s*[-+*/%|&^@]?=(?!=)|\bsetattr\s*\(\s*updater\b")
+    r"|\bupdater\s*\.\s*\w+\s*[-+*/%|&^@]?=(?!=)|\bsetattr\s*\(\s*updater\b"
+    # ways to find the test run or the runner without naming pytest (review 2
+    # of 1.1.19, H4): the module table, dynamic imports, the CI's variables,
+    # code at exit, the caller's frames
+    r"|\bsys\s*\.\s*modules\b|__import__|\bimportlib\b|\bGITHUB_\w+|\bRUNNER_\w+|\bIKE_TEST_\w+"
+    r"|\batexit\b|\bsys\s*\.\s*_getframe\b|\binspect\s*\.|\bgc\s*\.\s*get_\w+|[\"']CI[\"']")
 # what decides which tests run, at any depth (1.1.18)
 TEST_CONFIG = {"conftest.py", "pytest.ini", "tox.ini", "setup.cfg", "pyproject.toml", "ruff.toml", ".ruff.toml",
                ".gitattributes"}       # audit of #65: linguist-generated hides a file from review
@@ -250,7 +257,7 @@ def check(repo, patch_text, allow_adblock=False):
         row = row.strip()
         if row.startswith("create mode "):
             path = row.split(" ", 3)[-1]
-            if path.startswith("tests/") and not re.fullmatch(r"test_\w+\.py", Path(path).name):
+            if path.startswith("tests/") and not re.fullmatch(r"tests/test_\w+\.py", path):
                 reasons.append("%s: new file in tests/ that is not a test module (protected file)" % path)
 
     # a carriage return alone ends a line for Python but not for git or these
