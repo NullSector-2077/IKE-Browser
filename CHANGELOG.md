@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.1.21 (in preparation)
+
+The interface, as the owner tried it on KDE Plasma (no menu, setting or
+shortcut changed):
+
+- **An ⓘ instead of the grey line under each option**: in a narrow window or
+  with a larger font the explanations under the options could be cut. Each
+  one is now in a small round ⓘ right after its option (the desktop's own
+  icon): the mouse over it shows the explanation, a click, Space or Enter
+  shows it in a small window that a click or Esc closes, and screen readers
+  read it. The sentence at the top of each Settings page stays, wrapped.
+- **Texts never touch or cross a border**: buttons keep room around their
+  text, a check box's long text wraps beside its box (right to left too),
+  the toolbar buttons and permissions of the Settings wrap instead of
+  widening the page. A new test (tests/test_text_fit.py) opens the window,
+  the menus, every Settings page and the other windows in every language
+  pack and fails on any text that is cut, too close to its frame or needs
+  sideways scrolling: 101 problems in 58 languages before (176 on Arch
+  Linux with Noto Sans), none now.
+- **Everything fits the screen**: About is a window whose text scrolls, at
+  most the size of the screen (it could run past the bottom); the Settings,
+  the main window and the other windows never open larger than the screen.
+- **Menus longer than the screen scroll** (the ☰ menu, the menu bar,
+  history, bookmarks, context menus), whatever the desktop's style.
+
 ## 1.1.20
 
 An independent review of 1.1.19 (security and privacy) found 18 points; each

@@ -937,6 +937,10 @@ class IkeApp(QObject):
         dlg = factory()
         dlg.setWindowIcon(self.icon)
         self._dialogs[key] = dlg
+        # the size it asks for, never larger than the screen (1.1.21)
+        from . import uistyle
+        resized = dlg.testAttribute(Qt.WidgetAttribute.WA_Resized)
+        uistyle.fit_window(dlg, dlg.width() if resized else 0, dlg.height() if resized else 0)
         dlg.show()
         dlg.raise_()
         return dlg
@@ -1539,6 +1543,9 @@ def main(argv=None):
         # the whole interface from right to left, as the language is written
         # (1.1.20: Arabic, Hebrew, Persian and Urdu); pages decide for themselves
         qapp.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+    # room around button texts and menus that scroll, over the desktop's own style (1.1.21)
+    from . import uistyle
+    uistyle.install(qapp)
     from . import icons
     icons.apply_scheme(config)
     from . import themes

@@ -254,7 +254,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self._devtools = []
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.setWindowIcon(app.icon)
-        self.resize(1280, 840)
+        from .uistyle import screen_area
+        area = screen_area(self)
+        self.resize(min(1280, area.width() - 40), min(840, area.height() - 40))    # 1.1.21: on the screen
 
         self._build_central()
         self._build_toolbar()
@@ -2307,14 +2309,14 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             T("Components and licences"), rows,
             T("I.K.E. is free software (GPL-3.0). Every component keeps its own licence."))
 
+    def about_dialog(self):
+        """The About window (1.1.21: its text scrolls inside a window that fits the screen)."""
+        from .dialogs import AboutDialog
+        return AboutDialog(self.app.icon, self.about_text(), self)
+
     def show_about(self):
         from . import mediacheck
-        box = QMessageBox(self)
-        box.setWindowTitle(T("About I.K.E."))
-        box.setIconPixmap(self.app.icon.pixmap(64, 64))
-        box.setTextFormat(Qt.TextFormat.RichText)
-        box.setText(self.about_text())
-        box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        box = self.about_dialog()
         self._about_box = box
 
         def answered(result):

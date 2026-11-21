@@ -3,10 +3,11 @@
 import time
 from pathlib import Path
 
-from PyQt6.QtCore import QSize, Qt, QTimer, QUrl
+from PyQt6.QtCore import QRect, QSize, Qt, QTimer, QUrl
 from PyQt6.QtGui import QDesktopServices, QIcon, QPalette
 from PyQt6.QtWebEngineCore import QWebEngineDownloadRequest
 from PyQt6.QtWidgets import (
+    QBoxLayout,
     QCheckBox,
     QComboBox,
     QDialog,
@@ -27,10 +28,12 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QSizePolicy,
     QSpinBox,
     QStyle,
     QTableWidget,
     QTableWidgetItem,
+    QToolButton,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -57,45 +60,127 @@ def _fmt_size(n):
         n /= 1024.0
 
 
+class _WrapLabel(QLabel):
+    """The text of a check box that wraps when the room is short, and asks
+    for the width of its text on one line when there is room for it (a
+    wrapped QLabel would ask for about 80 characters, whatever its text)."""
+
+    def __init__(self, text, parent=None):
+        super().__init__(text, parent)
+        self.setAlignment(Qt.AlignmentFlag.AlignLeading | Qt.AlignmentFlag.AlignTop)
+
+    def sizeHint(self):
+        s = super().sizeHint()
+        m = self.contentsMargins()
+        # measured as QLabel lays it out (scripts drawn with another font included)
+        flags = Qt.TextFlag.TextWordWrap | Qt.TextFlag.TextShowMnemonic
+        line = self.fontMetrics().boundingRect(QRect(0, 0, 100000, 1000), int(flags), self.text())
+        one = line.width() + m.left() + m.right() + 2
+        if one < s.width():
+            return s
+        return QSize(one, line.height() + m.top() + m.bottom())
+
+
 def _wrapping(box):
     """A check box whose long text wraps instead of widening the page."""
     w = QWidget()
     lay = QHBoxLayout(w)
     lay.setContentsMargins(0, 0, 0, 0)
-    lay.setSpacing(0)
-    label = QLabel(box.text())
-    label.setContentsMargins(4, 1, 0, 0)
+    lay.setSpacing(4)                 # between the box and its text, on either side (right to left too)
+    label = _WrapLabel(box.text())
     label.setWordWrap(True)
     label.setToolTip(box.toolTip())
+    label.setBuddy(box)
     label.mousePressEvent = lambda _e: box.toggle()
     box.setText("")
+    box.setAccessibleName(label.text().replace("&", ""))
     w.setProperty("ikeCheck", True)
-    col = QVBoxLayout()               # the text, and the explanation under it (_with_hint)
-    col.setContentsMargins(0, 0, 0, 0)
-    col.setSpacing(1)
-    col.addWidget(label)
-    w.ike_column = col
-    lay.addWidget(box, 0, Qt.AlignmentFlag.AlignTop)
-    lay.addLayout(col, 1)
+    # the box in the middle of the first line of the text (1.1.21)
+    box_h, line_h = box.sizeHint().height(), label.fontMetrics().height()
+    label.setContentsMargins(0, max(0, (box_h - line_h) // 2), 0, 0)
+    w.setProperty("ike_top", max(0, (box_h - line_h) // 2))
+    col = QVBoxLayout()
+    col.setContentsMargins(0, max(0, (line_h - box_h + 1) // 2), 0, 0)
+    col.addWidget(box, 0, Qt.AlignmentFlag.AlignTop)       # no stretch: the row would grow taller
+    lay.addLayout(col)
+    lay.addWidget(label, 0)
+    lay.addStretch(1)                 # the ⓘ of the option goes before it (_with_hint)
     return w
 
 
-class Hint(QLabel):
-    """The discreet explanation under an option (1.1.20): one short line in a
-    smaller font and the palette's placeholder colour, wrapped, always shown.
-    The colour is the label's foreground role, so it follows a change of the
-    interface colours by itself."""
+def _tip(text, widget):
+    """A tooltip that wraps its lines at a readable width (1.1.21)."""
+    from html import escape
+    fm = widget.fontMetrics()
+    width = max(260, min(460, fm.averageCharWidth() * 50))
+    body = escape(text).replace("\n", "<br>")
+    if fm.horizontalAdvance(text) <= width:
+        return "<p>%s</p>" % body
+    return "<table width=\"%d\"><tr><td>%s</td></tr></table>" % (width, body)
 
-    def __init__(self, text, parent=None, size=0.9):
+
+class InfoButton(QToolButton):
+    """The small round ⓘ after an option (1.1.21; in 1.1.20 a grey line under
+    it, which a narrow window could cut). The mouse over it shows the
+    explanation as a tooltip; a click, Space or Enter shows it in a small
+    window that closes with a click elsewhere or Esc. Screen readers read the
+    explanation as the button's name."""
+
+    def __init__(self, text, parent=None):
+        super().__init__(parent)
+        from .icons import themed
+        self.setObjectName("ike_info")
+        self.setIcon(themed(("help-about", "dialog-information"),
+                            QStyle.StandardPixmap.SP_MessageBoxInformation))
+        # as tall as a line of text, so that it sits on the line of the option it explains
+        side = max(16, self.fontMetrics().height())
+        self.setIconSize(QSize(side - 2, side - 2))
+        self.setFixedSize(side + 4, side + 2)
+        self.setAutoRaise(True)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self.set_text(text)
+        self.clicked.connect(self.show_text)
+
+    def set_text(self, text):
+        self.setProperty("ike_text", text)
+        self.setToolTip(_tip(text, self))
+        self.setWhatsThis(text)
+        self.setAccessibleName(text)
+
+    def text_shown(self):
+        return self.property("ike_text") or ""
+
+    def show_text(self):
+        from PyQt6.QtCore import QPoint
+        from PyQt6.QtWidgets import QWhatsThis
+        x = 0 if self.isRightToLeft() else self.width()
+        from html import escape
+        # as rich text: laid out as a paragraph, in the direction of its language
+        text = "<p>%s</p>" % escape(self.text_shown()).replace("\n", "<br>")
+        QWhatsThis.showText(self.mapToGlobal(QPoint(x, self.height())), text, self)
+
+    def keyPressEvent(self, event):
+        # Enter shows the explanation; it must not reach the dialog (its default button)
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            event.accept()
+            self.show_text()
+            return
+        super().keyPressEvent(event)
+
+
+class Note(QLabel):
+    """A short note or a state (the last check...) in the palette's
+    placeholder colour, wrapped and shown whole (1.1.21)."""
+
+    def __init__(self, text, parent=None):
         super().__init__(text, parent)
-        self.setObjectName("ike_hint")
+        self.setObjectName("ike_note")
         self.setWordWrap(True)
         self.setForegroundRole(QPalette.ColorRole.PlaceholderText)
         self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
-        f = self.font()
-        if f.pointSizeF() > 0 and size != 1:
-            f.setPointSizeF(f.pointSizeF() * size)
-            self.setFont(f)
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
 
 
 class Switch(QCheckBox):
@@ -139,34 +224,59 @@ class Switch(QCheckBox):
         p.end()
 
 
-def _with_hint(field, text):
-    """An option and its explanation under it, as one field of a form."""
+def _info_row(widget, text, stretch=False):
+    """widget, then the ⓘ of its explanation (and room after them unless stretch)."""
+    row = QHBoxLayout()
+    row.setContentsMargins(0, 0, 0, 0)
+    row.setSpacing(4)
+    if isinstance(widget, QLayout):
+        row.addLayout(widget, 1 if stretch else 0)
+    else:
+        row.addWidget(widget, 1 if stretch else 0)
+    row.addWidget(InfoButton(text), 0, Qt.AlignmentFlag.AlignTop if isinstance(widget, QLabel)
+                  else Qt.AlignmentFlag.AlignVCenter)
+    if not stretch:
+        row.addStretch(1)
+    return row
+
+
+def _with_hint(field, text, grow=None):
+    """An option and the ⓘ of its explanation right after it (1.1.21).
+    grow: the form's field growth policy (the field fills the row as the
+    form would let it, the ⓘ after it)."""
     if not text:
         return field
     if isinstance(field, QCheckBox):
         field = _wrapping(field)
     if isinstance(field, QWidget) and field.property("ikeCheck"):
-        hint = Hint(text)
-        hint.setContentsMargins(4, 0, 0, 0)
-        field.ike_column.addWidget(hint)
+        lay = field.layout()
+        col = QVBoxLayout()               # on the first line of the text
+        col.setContentsMargins(0, max(0, (field.property("ike_top") or 0) - 1), 0, 0)
+        col.addWidget(InfoButton(text), 0, Qt.AlignmentFlag.AlignTop)
+        lay.insertLayout(lay.count() - 1, col)
         return field
+    if isinstance(field, QBoxLayout) and field.count() and field.itemAt(field.count() - 1).spacerItem():
+        # a row of buttons with room after them: the ⓘ right after the last button
+        field.insertWidget(field.count() - 1, InfoButton(text), 0, Qt.AlignmentFlag.AlignVCenter)
+        return field
+    stretch = isinstance(field, QLayout)
+    if isinstance(field, QWidget):
+        policy = field.sizePolicy().horizontalPolicy()
+        G = QFormLayout.FieldGrowthPolicy
+        if grow == G.AllNonFixedFieldsGrow:
+            stretch = policy != QSizePolicy.Policy.Fixed
+        else:
+            stretch = bool(policy.value & QSizePolicy.PolicyFlag.ExpandFlag.value)
     box = QWidget()
-    lay = QVBoxLayout(box)
-    lay.setContentsMargins(0, 0, 0, 0)
-    lay.setSpacing(1)
-    if isinstance(field, QLayout):
-        lay.addLayout(field)
-    else:
-        lay.addWidget(field)
-    lay.addWidget(Hint(text))
+    box.setLayout(_info_row(field, text, stretch))
     return box
 
 
 def _row(form, label, field, hint=None):
-    """A row of a form: label, the option, and its explanation under it.
+    """A row of a form: label, the option, and the ⓘ of its explanation.
     (An empty label is an empty QLabel: with "" Qt's form gives a wrapped
     text the height of its widest wrap, leaving a gap under it.)"""
-    form.addRow(QLabel() if label == "" else label, _with_hint(field, hint))
+    form.addRow(QLabel() if label == "" else label, _with_hint(field, hint, form.fieldGrowthPolicy()))
 
 
 class SettingsDialog(QDialog):
@@ -189,7 +299,8 @@ class SettingsDialog(QDialog):
         self.app = app
         self.cfg = app.config
         self.setWindowTitle(T("Settings") + " — I.K.E.")
-        self.resize(1100, 700)       # room for a scroll bar beside the widest page (German)
+        from .uistyle import fit_window
+        fit_window(self, 1100, 700)  # room for a scroll bar beside the widest page; never past the screen
         from PyQt6.QtWidgets import QScrollArea, QStackedWidget
 
         from .icons import themed
@@ -247,6 +358,9 @@ class SettingsDialog(QDialog):
             area.setWidget(self._page(label, about, build()))
             self.stack.addWidget(area)
         self.nav.setFixedWidth(widest + 22 + 46)
+        for combo in self.findChildren(QComboBox):
+            if combo.property("ike_elides"):
+                self._whole_list(combo)
         self.nav.currentRowChanged.connect(self._show_page)
         self.show_page(page)
         bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok
@@ -278,7 +392,7 @@ class SettingsDialog(QDialog):
         lay.addWidget(head)
         if content.layout() is not None:
             content.layout().setContentsMargins(0, 4, 0, 0)
-        sub = Hint(about, size=1)
+        sub = Note(about)
         sub.setObjectName("ike_page_about")
         lay.addWidget(sub)
         line = QFrame()
@@ -393,7 +507,7 @@ class SettingsDialog(QDialog):
             c.setChecked(bool(self.cfg[key]))
             self.di[key] = c
             _row(f, "", _wrapping(c))
-        _row(f, "", Hint(T("For KDE Plasma. All of it is off while the “Plasma integration” extension is off.")))
+        _row(f, "", Note(T("For KDE Plasma. All of it is off while the “Plasma integration” extension is off.")))
         lay.addWidget(box)
         box, f = self._group(T("Speed and memory"))
         self.video_hw = QComboBox()
@@ -420,9 +534,9 @@ class SettingsDialog(QDialog):
         box, f = self._group(T("Translation"))
         self.translate = QLineEdit(self.cfg["translate_url"])
         _row(f, T("Translation service"), self.translate,
-             T("{url} is the page address, {lang} the interface language"))
-        _row(f, "", Hint(T("Used only when you choose “Translate page”: the address of the page is sent "
-                            "to this service.")))
+             T("{url} is the page address, {lang} the interface language") + "\n\n"
+             + T("Used only when you choose “Translate page”: the address of the page is sent "
+                 "to this service."))
         lay.addWidget(box)
         lay.addWidget(self._drm_box())
         lay.addStretch(1)
@@ -450,7 +564,7 @@ class SettingsDialog(QDialog):
         check.setIcon(QIcon.fromTheme("system-software-update"))
         check.clicked.connect(self._check_app_now)
         last = self.cfg["last_app_check"]
-        self.app_last = Hint(T("Last check: %s") % (
+        self.app_last = Note(T("Last check: %s") % (
             time.strftime("%d/%m/%Y %H:%M", time.localtime(last)) if last else T("never")))
         row = QHBoxLayout()
         row.addWidget(check)
@@ -469,7 +583,7 @@ class SettingsDialog(QDialog):
         last = self.cfg["last_lists_update"]
         row = QHBoxLayout()
         row.addWidget(upd)
-        row.addWidget(Hint(T("Last update: %s") % (
+        row.addWidget(Note(T("Last update: %s") % (
             time.strftime("%d/%m/%Y %H:%M", time.localtime(last)) if last else T("never"))), 1)
         _row(f, "", row)
         lay.addWidget(box)
@@ -560,7 +674,7 @@ class SettingsDialog(QDialog):
             c = QCheckBox(labels.get(key, key))
             c.setChecked(key not in self.cfg["toolbar_hidden"])
             self.tb_btns[key] = c
-            tb_row.addWidget(c, i // 3, i % 3)
+            tb_row.addWidget(_wrapping(c), i // 3, i % 3)      # a long name wraps (1.1.21)
         self.zoom = QDoubleSpinBox()
         self.zoom.setRange(0.5, 3.0)
         self.zoom.setSingleStep(0.1)
@@ -799,10 +913,19 @@ class SettingsDialog(QDialog):
         self._city_pick = self.city_results.itemData(i)
 
     @staticmethod
+    def _whole_list(combo):
+        """The open list of a narrowed combo box as wide as its longest entry
+        (some styles open it only as wide as the box)."""
+        view = combo.view()
+        bar = view.verticalScrollBar().sizeHint().width()
+        view.setMinimumWidth(min(view.sizeHintForColumn(0) + bar + 8, 900))
+
+    @staticmethod
     def _narrow(combo):
         """A combo box with long entries must not make the page wider than the window."""
         combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         combo.setMinimumContentsLength(16)
+        combo.setProperty("ike_elides", True)      # its entry may be cut short; its list shows it whole
 
     def _newtab_page(self):
         """Everything about the new tab page in one place."""
@@ -850,6 +973,7 @@ class SettingsDialog(QDialog):
             for name in mine:
                 combo.addItem(name, "user:" + name)
         combo.setCurrentIndex(max(0, combo.findData(selected)))
+        self._whole_list(combo)
 
     def _edit_theme(self):
         dlg = ThemeEditor(self.app, self.ui_scheme.currentData(), self)
@@ -863,8 +987,8 @@ class SettingsDialog(QDialog):
         row.addWidget(QLabel(T("Default search engine")))
         self.default_engine = QComboBox()
         row.addWidget(self.default_engine, 1)
+        row.addWidget(InfoButton(T("Used for searches from the address bar and from the new tab page.")))
         lay.addLayout(row)
-        lay.addWidget(Hint(T("Used for searches from the address bar and from the new tab page.")))
         self.suggest = QCheckBox(T("Show search suggestions while typing"))
         self.suggest.setChecked(self.cfg["search_suggestions"])
         lay.addWidget(_with_hint(self.suggest,
@@ -879,8 +1003,6 @@ class SettingsDialog(QDialog):
             self._add_engine_row(e)
         self.engines.itemChanged.connect(lambda _i: self._refresh_default())
         lay.addWidget(self.engines, 1)
-        lay.addWidget(Hint(T("Type the keyword followed by a space in the address bar to "
-                             "search with that engine, e.g. “w Roma”.")))
         btns = QHBoxLayout()
         add = QPushButton(T("Add engine"))
         rem = QPushButton(T("Remove selected"))
@@ -893,6 +1015,8 @@ class SettingsDialog(QDialog):
         reset.clicked.connect(self._reset_engines)
         for b in (add, rem, reset):
             btns.addWidget(b)
+        btns.addWidget(InfoButton(T("Type the keyword followed by a space in the address bar to "
+                                    "search with that engine, e.g. “w Roma”.")))
         btns.addStretch(1)
         lay.addLayout(btns)
         self._refresh_default(self.cfg["default_engine"])
@@ -995,14 +1119,14 @@ class SettingsDialog(QDialog):
             warn.setStyleSheet("color:#c0392b")
             warn.setWordWrap(True)
             fl.addWidget(warn)
-        fl.addWidget(QLabel(T("Filter lists")))
+        fl.addLayout(_info_row(QLabel(T("Filter lists")), T(
+            "The lists of rules the blocker uses. Untick a list to stop using it; "
+            "they are updated by themselves (see Updates).")))
         self.lists = QListWidget()
         self.lists.setMinimumHeight(120)
         for entry in self.cfg["filter_lists"]:
             self._add_list_item(entry)
         fl.addWidget(self.lists)
-        fl.addWidget(Hint(T("The lists of rules the blocker uses. Untick a list to stop using it; "
-                            "they are updated by themselves (see Updates).")))
         row = QHBoxLayout()
         add = QPushButton(T("Add list from URL…"))
         rem = QPushButton(T("Remove selected"))
@@ -1014,11 +1138,11 @@ class SettingsDialog(QDialog):
             row.addWidget(b)
         row.addStretch(1)
         fl.addLayout(row)
-        fl.addWidget(QLabel(T("Your own filters (uBlock Origin / Adblock Plus syntax)")))
+        fl.addLayout(_info_row(QLabel(T("Your own filters (uBlock Origin / Adblock Plus syntax)")),
+                               T("One rule per line. Your own rules are added to those of the lists.")))
         self.custom = QPlainTextEdit(self.cfg["custom_filters"])
         self.custom.setMaximumHeight(70)
         fl.addWidget(self.custom)
-        fl.addWidget(Hint(T("One rule per line. Your own rules are added to those of the lists.")))
         lay.addWidget(fbox)
         lay.addStretch(1)
         return w
@@ -1056,7 +1180,7 @@ class SettingsDialog(QDialog):
             c = QCheckBox(labels[kind])
             c.setChecked(kind in self.cfg["perm_block"])
             self.perm_block[kind] = c
-            grid.addWidget(c, i // 4, i % 4)
+            grid.addWidget(_wrapping(c), i // 4, i % 4)
         prow.addLayout(grid)
         prow.addStretch(1)
         _row(g, T("Always refuse:"), prow, T("Sites never get these, and you are not asked."))
@@ -1123,12 +1247,12 @@ class SettingsDialog(QDialog):
         row.addWidget(pic, 0, Qt.AlignmentFlag.AlignTop)
         text = QVBoxLayout()
         text.setSpacing(1)
-        name = QLabel(T(e.name))
+        name = _WrapLabel(T(e.name))
         f = name.font()
         f.setBold(True)
         name.setFont(f)
-        text.addWidget(name)
-        text.addWidget(Hint(T(e.description)))
+        name.setWordWrap(True)
+        text.addLayout(_info_row(name, T(e.description)))
         row.addLayout(text, 1)
         if e.options:
             b = QPushButton(T("Options…"))
@@ -1156,12 +1280,12 @@ class SettingsDialog(QDialog):
         el = QVBoxLayout(ebox)
         self.ext_on = QCheckBox(T("Enable experimental support for Chrome extensions (Manifest V3)"))
         self.ext_on.setChecked(bool(self.cfg["experimental_extensions"]))
-        el.addWidget(self.ext_on)
-        el.addWidget(Hint(T("With the Qt WebEngine version tested (6.11) enabling an extension "
-                            "crashes the engine, so this is off by default. If you turn it on and "
-                            "the browser crashes, I.K.E. switches it off again at the next start. "
-                            "Only Manifest V3 extensions can be loaded: uBlock Origin, Dark Reader "
-                            "and Consent-O-Matic in their original form are not guaranteed to work.")))
+        el.addWidget(_with_hint(self.ext_on, T(
+            "With the Qt WebEngine version tested (6.11) enabling an extension "
+            "crashes the engine, so this is off by default. If you turn it on and "
+            "the browser crashes, I.K.E. switches it off again at the next start. "
+            "Only Manifest V3 extensions can be loaded: uBlock Origin, Dark Reader "
+            "and Consent-O-Matic in their original form are not guaranteed to work.")))
         self._ext_mgr = self.app.extension_manager() if self.cfg["experimental_extensions"] else None
         if self._ext_mgr is None:
             return ebox
@@ -1522,8 +1646,8 @@ class UserScriptsDialog(QDialog):
             "address (for example from Greasy Fork), or simply open a link ending in “.user.js”. "
             "Installed scripts are checked for new versions once a day."))
         info.setWordWrap(True)
-        lay.addWidget(info)
-        lay.addWidget(Hint(T("Whether they run at all: the “User scripts” switch in Settings → I.K.E. extensions.")))
+        lay.addLayout(_info_row(info, T("Whether they run at all: the “User scripts” switch in "
+                                        "Settings → I.K.E. extensions."), stretch=True))
         self.us_list = QTreeWidget()
         self.us_list.setRootIsDecorated(False)
         self.us_list.setHeaderLabels([T("Script"), T("Version"), T("Runs on")])
@@ -2087,3 +2211,56 @@ class ClearDataDialog(QDialog):
         self.app.clear_data(self.history.isChecked(), self.cookies.isChecked(),
                             self.cache.isChecked(), self.perms.isChecked())
         self.accept()
+
+
+class AboutDialog(QDialog):
+    """Help → About I.K.E. (1.1.21: in a scroll area, at most the size of the
+    screen; the message box of earlier versions could run past its bottom)."""
+
+    WIDTH = 600
+
+    def __init__(self, icon, text, parent=None):
+        from PyQt6.QtWidgets import QScrollArea
+        super().__init__(parent)
+        self.setWindowTitle(T("About I.K.E."))
+        lay = QVBoxLayout(self)
+        body = QHBoxLayout()
+        pic = QLabel(self)
+        pic.setPixmap(icon.pixmap(QSize(64, 64), self.devicePixelRatioF()))
+        pic.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        pic.setFixedWidth(80)
+        body.addWidget(pic, 0, Qt.AlignmentFlag.AlignTop)
+        self.label = QLabel(self)
+        self.label.setObjectName("ike_about_text")
+        self.label.setTextFormat(Qt.TextFormat.RichText)
+        self.label.setWordWrap(True)
+        self.label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse
+                                           | Qt.TextInteractionFlag.LinksAccessibleByMouse)
+        self.label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeading)
+        self.area = QScrollArea(self)
+        self.area.setWidgetResizable(True)
+        self.area.setFrameShape(QFrame.Shape.NoFrame)
+        self.area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.area.setWidget(self.label)
+        body.addWidget(self.area, 1)
+        lay.addLayout(body, 1)
+        bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok, self)
+        bb.accepted.connect(self.accept)
+        lay.addWidget(bb)
+        self.setText(text)
+
+    def text(self):
+        return self.label.text()
+
+    def setText(self, text):
+        """The text (the formats the engine plays come a moment later): the
+        window grows with it, up to the free area of the screen."""
+        from .uistyle import screen_area
+        self.label.setText(text)
+        area = screen_area(self.parentWidget() or self)
+        width = min(self.WIDTH, area.width() - 140)
+        bar = self.area.verticalScrollBar().sizeHint().width()
+        need = self.label.heightForWidth(width - bar)
+        chrome = 80 + self.fontMetrics().height() * 2
+        height = min(need + chrome, area.height() - 60)
+        self.resize(width + 110, max(220, height))

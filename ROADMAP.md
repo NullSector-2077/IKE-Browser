@@ -99,6 +99,11 @@ are agreed with the project owner; do not reopen them without asking.
   the vertical tabs' separator, Startpage by default) and waits for the
   owner's signature (`python3 tools/publish.py`).
 - The owner checks the YouTube anti-adblock notice on CachyOS with 1.1.18.
+- 1.1.21 interface polish (branch `ui/1.1.21-polish`, on top of 1.1.20): an
+  ⓘ after each option in place of the grey line under it, texts that never
+  touch or cross a border (tests/test_text_fit.py, every language pack),
+  About and the other windows that fit the screen, menus that scroll. To be
+  tried by the owner on KDE Plasma (Breeze), which the tests cannot start.
 
 ## Open work
 

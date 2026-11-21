@@ -3,6 +3,7 @@
 import json
 
 import pytest
+from conftest import screen
 
 SCRIPT = """
     def steps(ike, qapp, out):
@@ -40,8 +41,10 @@ SCRIPT = """
 
 @pytest.mark.parametrize("lang", ["en", "it", "de", "fr", "es", "pt", "zh", "ja", "ru", "uk", "be", "bg",
                                   "pl", "cs", "sk", "sl", "hr", "sr", "bs", "mk"])
-def test_settings_dialog(run_ike, lang):
-    out = run_ike(SCRIPT, settings={"language": lang})
+def test_settings_dialog(run_ike, tmp_path, lang):
+    # 1.1.21: the window is never larger than the screen: a screen of a small laptop
+    # (Qt's offscreen one, 800 x 800, is narrower than any desktop)
+    out = run_ike(SCRIPT, settings={"language": lang}, env=screen(tmp_path, 1280, 800))
     # 1.1.0 added "New tab page"; 1.1.20: Language, Protection, Privacy, I.K.E. extensions,
     # Updates and System in place of "Privacy and protection", "Components and extensions"
     # and "User scripts"
