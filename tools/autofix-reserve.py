@@ -6,7 +6,9 @@ answering, an error of the agent, or simply no fix), .github/workflows/autofix.y
 asks the reserves, one after the other, never together:
 
     1. Groq        (GROQ_API_KEY,       models in AUTOFIX_GROQ_MODELS)
-    2. OpenRouter  (OPENROUTER_API_KEY, models in AUTOFIX_OPENROUTER_MODELS)
+    2. Z.AI        (ZAI_API_KEY,        models in AUTOFIX_ZAI_MODELS; its free GLM
+                    Flash models, another family than the others: 1.1.19)
+    3. OpenRouter  (OPENROUTER_API_KEY, models in AUTOFIX_OPENROUTER_MODELS)
 
 A provider without its key is skipped. Groq's free plan takes about 8,000
 tokens a minute, so it gets a short message (the failure and the code around
@@ -64,6 +66,10 @@ PROVIDERS = (
     # characters of failure + code sent, tokens of the answer
     ("Groq", "https://api.groq.com/openai/v1/chat/completions", "GROQ_API_KEY",
      "AUTOFIX_GROQ_MODELS", ("qwen/qwen3.8-27b", "openai/gpt-oss-120b"), 14_000, 2_000),
+    # 1.1.19, the owner's choice: Z.AI's free models (OpenAI-compatible API;
+    # its limits are shown only in the account, so a 429 moves on as for the others)
+    ("Z.AI", "https://api.z.ai/api/paas/v4/chat/completions", "ZAI_API_KEY",
+     "AUTOFIX_ZAI_MODELS", ("glm-4.7-flash", "glm-4.5-flash"), 60_000, 6_000),
     ("OpenRouter", "https://openrouter.ai/api/v1/chat/completions", "OPENROUTER_API_KEY",
      "AUTOFIX_OPENROUTER_MODELS", ("cohere/north-mini-code:free", "particle-ai/particle-1:free"),
      120_000, 6_000),
@@ -119,7 +125,7 @@ MESSAGES = {
     "ok": "Una riserva (%s) ha preparato una correzione.",
     "none": "La riserva (%s) dice che il problema non si corregge nel codice, e nessun'altra l'ha corretto.",
     "quota": "Le riserve hanno esaurito la quota o non rispondono: riprova più tardi.",
-    "nokey": "Nessuna riserva configurata: mancano le chiavi GROQ_API_KEY e OPENROUTER_API_KEY.",
+    "nokey": "Nessuna riserva configurata: mancano le chiavi GROQ_API_KEY, ZAI_API_KEY e OPENROUTER_API_KEY.",
     "error": "Le riserve non sono riuscite a preparare una correzione applicabile.",
     "refused": "La correzione della riserva (%s) è stata respinta dai controlli di sicurezza: "
                "nessun'altra riserva è stata interpellata.",

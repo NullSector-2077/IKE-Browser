@@ -451,8 +451,10 @@ jobs:
         timeout-minutes: 20
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           AUTOFIX_GROQ_MODELS: ${{ vars.AUTOFIX_GROQ_MODELS }}
+          AUTOFIX_ZAI_MODELS: ${{ vars.AUTOFIX_ZAI_MODELS }}
           AUTOFIX_OPENROUTER_MODELS: ${{ vars.AUTOFIX_OPENROUTER_MODELS }}
           ALLOW_ADBLOCK: ${{ needs.plan.outputs.allow_adblock }}
         run: |
@@ -535,12 +537,12 @@ jobs:
             gitr clean -q -fd -e .autofix
             changed=""
           fi
-          # The reserves (Groq, then OpenRouter: tools/autofix-reserve.py), one
+          # The reserves (Groq, Z.AI, then OpenRouter: tools/autofix-reserve.py), one
           # at a time, only when Antigravity brought no fix it could keep. They
           # start from the clean checkout; what they answer is applied as text,
           # never run, and checked by the same checker before it is kept.
           if [ "$result" != "refused" ] && [ -z "$changed" ]; then
-            if [ -n "$GROQ_API_KEY$OPENROUTER_API_KEY" ]; then
+            if [ -n "$GROQ_API_KEY$ZAI_API_KEY$OPENROUTER_API_KEY" ]; then
               refused=""
               if [ -s "$out/refused.md" ]; then refused="--refused $out/refused.md"; fi
               python3 -I "$RUNNER_TEMP/autofix-reserve.py" --workdir "$repo" --prompt "$RUNNER_TEMP/prompt.md" \
@@ -550,7 +552,7 @@ jobs:
               if [ "$reserve" = "ok" ]; then result=ok; fi
               if [ "$reserve" = "refused" ]; then result=refused; fi
             elif [ "$result" = "nokey" ]; then
-              echo "Nessuna chiave impostata (GEMINI_API_KEY, GROQ_API_KEY, OPENROUTER_API_KEY): nessun assistente è partito." > "$out/summary.md"
+              echo "Nessuna chiave impostata (GEMINI_API_KEY, GROQ_API_KEY, ZAI_API_KEY, OPENROUTER_API_KEY): nessun assistente è partito." > "$out/summary.md"
               echo "patch=false" >> "$GITHUB_OUTPUT"
               echo "result=auth" >> "$GITHUB_OUTPUT"
               exit 0
@@ -569,7 +571,7 @@ jobs:
           # never hand over a key, plain or encoded (the Gemini key: checked in
           # the step before, the only one that has it)
           variants = set()
-          for name in ("GROQ_API_KEY", "OPENROUTER_API_KEY"):
+          for name in ("GROQ_API_KEY", "ZAI_API_KEY", "OPENROUTER_API_KEY"):
               key = os.environ.get(name, "").encode()
               if not key:
                   continue

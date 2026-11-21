@@ -40,5 +40,6 @@ jobs:
           # whether the secrets are set, never their values
           HAS_KEY: ${{ secrets.GEMINI_API_KEY != '' }}
           HAS_GROQ_KEY: ${{ secrets.GROQ_API_KEY != '' }}
+          HAS_ZAI_KEY: ${{ secrets.ZAI_API_KEY != '' }}
           HAS_OPENROUTER_KEY: ${{ secrets.OPENROUTER_API_KEY != '' }}
         run: python3 -I tools/automation-health.py
