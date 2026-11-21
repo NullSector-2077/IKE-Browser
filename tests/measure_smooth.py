@@ -232,8 +232,8 @@ def serve(port, small, big, results, runs=1):
             path, _, query = self.path.partition("?")
             run = int(dict(x.split("=", 1) for x in query.split("&") if "=" in x).get("run", 0))
             if path in ("/", "/start"):
-                return self._send(b"<!doctype html><title>start</title><script>setTimeout(function(){"
-                                  b"location.href='/p/images?run=0'},500)</script>", "text/html")
+                return self._send(("<!doctype html><title>start</title><script>setTimeout(function(){"
+                                   "location.href='/p/%s?run=0'},500)</script>" % PAGES[0]).encode(), "text/html")
             if path == "/done":
                 with results.lock:
                     rows = list(results.reports)
