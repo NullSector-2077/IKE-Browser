@@ -274,11 +274,11 @@ precomputed-hash 0.1.1
   source:     https://crates.io/api/v1/crates/precomputed-hash/0.1.1/download (sha256 925383efa346730478fb4838dbe9137d2a47675ad789c546d150a6e1dd4ab31c)
   texts:      [23] LICENSE
 
-psl 2.1.253
+psl 2.1.260
   licence:    MIT OR Apache-2.0
   copyright:  Copyright (c) 2016 Rushmore Mushambi
   repository: https://github.com/addr-rs/psl
-  source:     https://crates.io/api/v1/crates/psl/2.1.253/download (sha256 82576eafaa94759a92a0cf047f34d227665811d5cdf70f4b11e25cd813f3de54)
+  source:     https://crates.io/api/v1/crates/psl/2.1.260/download (sha256 829dd76b95abcb73c39c45efb2f68f201ad70a2ade8fbee6cc3cd586390cfe27)
   texts:      [2] LICENSE
 
 psl-types 2.0.11
@@ -302,25 +302,25 @@ pyo3-ffi 0.30.1
   source:     https://crates.io/api/v1/crates/pyo3-ffi/0.30.1/download (sha256 5e7ff73c555c286d212d4ce7e5fbda845a973c4f61bd5f160f5f2c3c2a04d1c4)
   texts:      [25] LICENSE-APACHE; [26] LICENSE-MIT
 
-regex 1.13.1
+regex 1.13.2
   licence:    MIT OR Apache-2.0
   copyright:  Copyright (c) 2014 The Rust Project Developers
   repository: https://github.com/rust-lang/regex
-  source:     https://crates.io/api/v1/crates/regex/1.13.1/download (sha256 f020237b6c8eed93db2e2cb53c00c60a8e1bc73da7d073199a1180401450218d)
+  source:     https://crates.io/api/v1/crates/regex/1.13.2/download (sha256 9807af0e638c12e753aa1b4e601791bf2a8f71274023c8bbeec12fc149950857)
   texts:      [3] LICENSE-APACHE; [9] LICENSE-MIT
 
-regex-automata 0.4.18
+regex-automata 0.4.19
   licence:    MIT OR Apache-2.0
   copyright:  Copyright (c) 2014 The Rust Project Developers
   repository: https://github.com/rust-lang/regex
-  source:     https://crates.io/api/v1/crates/regex-automata/0.4.18/download (sha256 ad8553b9b26413251cbf30e620595c7a41b3887f03da04579c0e6b0d6a06b4b2)
+  source:     https://crates.io/api/v1/crates/regex-automata/0.4.19/download (sha256 41d60ef07df457506a0a1a2073112eb4aae5733dbd2813c3da77d1b0fd441158)
   texts:      [3] LICENSE-APACHE; [9] LICENSE-MIT
 
-regex-syntax 0.8.11
+regex-syntax 0.8.12
   licence:    MIT OR Apache-2.0
   copyright:  Copyright (c) 2014 The Rust Project Developers; Copyright © 1991-2018 Unicode, Inc. All rights reserved.
   repository: https://github.com/rust-lang/regex
-  source:     https://crates.io/api/v1/crates/regex-syntax/0.8.11/download (sha256 d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4)
+  source:     https://crates.io/api/v1/crates/regex-syntax/0.8.12/download (sha256 d902046e6a28a1e4c3cab97258a0ce11e994903f01c2d97a9447a0b3df85f4f6)
   texts:      [3] LICENSE-APACHE; [9] LICENSE-MIT; [27] src/unicode_tables/LICENSE-UNICODE
 
 rustc-hash 2.1.3
@@ -379,11 +379,11 @@ siphasher 1.0.4
   source:     https://crates.io/api/v1/crates/siphasher/1.0.4/download (sha256 33f4fe9184a62d842c9ef383018f3306d8ba224fd9d836f56d7288308847c256)
   texts:      [29] COPYING; [16] LICENSE-APACHE; [30] LICENSE-MIT
 
-smallvec 1.16.5
+smallvec 1.16.6
   licence:    MIT OR Apache-2.0
   copyright:  Copyright (c) 2018 The Servo Project Developers
-  repository: https://github.com/servo/rust-smallvec
-  source:     https://crates.io/api/v1/crates/smallvec/1.16.5/download (sha256 149309498a5f7334b12ddae0cad8aba81ce785fe91755068867e017cf98fee46)
+  repository: https://github.com/smallvec/smallvec
+  source:     https://crates.io/api/v1/crates/smallvec/1.16.6/download (sha256 3244542535d5de959d90ec55d1b5ff0fd2bb7b1310223907d5f11932847f7b59)
   texts:      [3] LICENSE-APACHE; [31] LICENSE-MIT
 
 stable_deref_trait 1.2.1
@@ -848,7 +848,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 
 ===============================================================================
 [2] MIT
-Used by: addr 0.15.6 (LICENSE), psl 2.1.253 (LICENSE)
+Used by: addr 0.15.6 (LICENSE), psl 2.1.260 (LICENSE)
 ===============================================================================
 
 MIT License
@@ -875,7 +875,7 @@ SOFTWARE.
 
 ===============================================================================
 [3] Apache-2.0
-Used by: addr 0.15.6 (LICENSE-APACHE), arrayvec 0.7.8 (LICENSE-APACHE), base64 0.23.1 (LICENSE-APACHE), bitflags 2.13.2 (LICENSE-APACHE), either 1.19.0 (LICENSE-APACHE), idna 1.1.0 (LICENSE-APACHE), idna_adapter 1.2.2 (LICENSE-APACHE), itertools 0.14.0 (LICENSE-APACHE), log 0.4.35 (LICENSE-APACHE), once_cell 1.21.4 (LICENSE-APACHE), percent-encoding 2.3.2 (LICENSE-APACHE), psl-types 2.0.11 (LICENSE-APACHE), regex 1.13.1 (LICENSE-APACHE), regex-automata 0.4.18 (LICENSE-APACHE), regex-syntax 0.8.11 (LICENSE-APACHE), servo_arc 0.4.3 (LICENSE-APACHE), smallvec 1.16.5 (LICENSE-APACHE), stable_deref_trait 1.2.1 (LICENSE-APACHE)
+Used by: addr 0.15.6 (LICENSE-APACHE), arrayvec 0.7.8 (LICENSE-APACHE), base64 0.23.1 (LICENSE-APACHE), bitflags 2.13.2 (LICENSE-APACHE), either 1.19.0 (LICENSE-APACHE), idna 1.1.0 (LICENSE-APACHE), idna_adapter 1.2.2 (LICENSE-APACHE), itertools 0.14.0 (LICENSE-APACHE), log 0.4.35 (LICENSE-APACHE), once_cell 1.21.4 (LICENSE-APACHE), percent-encoding 2.3.2 (LICENSE-APACHE), psl-types 2.0.11 (LICENSE-APACHE), regex 1.13.2 (LICENSE-APACHE), regex-automata 0.4.19 (LICENSE-APACHE), regex-syntax 0.8.12 (LICENSE-APACHE), servo_arc 0.4.3 (LICENSE-APACHE), smallvec 1.16.6 (LICENSE-APACHE), stable_deref_trait 1.2.1 (LICENSE-APACHE)
 ===============================================================================
 
                               Apache License
@@ -1206,7 +1206,7 @@ THE SOFTWARE.
 
 ===============================================================================
 [9] MIT
-Used by: bitflags 2.13.2 (LICENSE-MIT), log 0.4.35 (LICENSE-MIT), regex 1.13.1 (LICENSE-MIT), regex-automata 0.4.18 (LICENSE-MIT), regex-syntax 0.8.11 (LICENSE-MIT)
+Used by: bitflags 2.13.2 (LICENSE-MIT), log 0.4.35 (LICENSE-MIT), regex 1.13.2 (LICENSE-MIT), regex-automata 0.4.19 (LICENSE-MIT), regex-syntax 0.8.12 (LICENSE-MIT)
 ===============================================================================
 
 Copyright (c) 2014 The Rust Project Developers
@@ -2943,7 +2943,7 @@ DEALINGS IN THE SOFTWARE.
 
 ===============================================================================
 [27] Unicode-DFS-2016
-Used by: regex-syntax 0.8.11 (src/unicode_tables/LICENSE-UNICODE)
+Used by: regex-syntax 0.8.12 (src/unicode_tables/LICENSE-UNICODE)
 ===============================================================================
 
 UNICODE, INC. LICENSE AGREEMENT - DATA FILES AND SOFTWARE
@@ -3066,7 +3066,7 @@ SOFTWARE.
 
 ===============================================================================
 [31] MIT
-Used by: smallvec 1.16.5 (LICENSE-MIT)
+Used by: smallvec 1.16.6 (LICENSE-MIT)
 ===============================================================================
 
 Copyright (c) 2018 The Servo Project Developers
