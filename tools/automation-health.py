@@ -65,15 +65,17 @@ def _when(item):
 
 
 def problems(now, daily, main_tests, has_key, autofix_runs=(), reserve_keys=None, autofix_issues=(),
-             maintenance_prs=(), main_protected=None, unreadable=(), pings=()):
+             maintenance_prs=(), main_protected=None, unreadable=(), pings=(), born=None):
     """The problems found (a list of lines), from data already fetched."""
     found = []
     for name, items in daily.items():
+        days, in_row = WATCHED.get(name, (DAYS, RUNS))
         done = [r for r in items if r.get("status") == "completed"]
         if not done:
-            found.append("`%s` has never run on schedule." % name)
+            # a check added less than its period ago has had no turn yet (1.1.19)
+            if (born or {}).get(name) is None or now - born[name] > dt.timedelta(days=days):
+                found.append("`%s` has never run on schedule." % name)
             continue
-        days, in_row = WATCHED.get(name, (DAYS, RUNS))
         last = _when(done[0])
         if now - last > dt.timedelta(days=days):
             found.append("`%s` has not run since %s." % (name, last.date()))
@@ -121,6 +123,12 @@ def main(argv=None):
     a = ap.parse_args(argv)
     now = dt.datetime.now(dt.timezone.utc)
     daily = {w: runs(a.repo, w, "event=schedule") for w in WATCHED}
+    born = {}
+    for w in WATCHED:
+        try:
+            born[w] = _when(api("repos/%s/actions/workflows/%s" % (a.repo, w)))
+        except (RuntimeError, ValueError, KeyError):
+            pass
     main_tests = runs(a.repo, "tests.yml", "branch=main&event=push")
     unreadable = []
 
@@ -152,7 +160,7 @@ def main(argv=None):
         except (OSError, ValueError, TypeError):
             unreadable.append("the answers of the reserves")
     found = problems(now, daily, main_tests, os.environ.get("HAS_KEY", "true") == "true", autofix_runs,
-                     keys, autofix_issues, maintenance_prs, protected, unreadable, pings)
+                     keys, autofix_issues, maintenance_prs, protected, unreadable, pings, born)
     text = ("The weekly check found problems in the automation:\n\n" + "".join("- %s\n" % p for p in found)
             + "\nControllo settimanale: l'automazione ha bisogno di te.\n") if found else ""
     print(text or "Everything works.")
