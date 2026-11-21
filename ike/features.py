@@ -255,7 +255,7 @@ class WindowFeatures:
         self.act_watches = A(T("Watched pages…"), self.app.show_watches, None, "view-visible",
                              T("Pages and parts of pages you get notified about when they change"))
         self.act_permissions = A(T("Site permissions…"), self.app.show_permissions, None,
-                                 "preferences-security",
+                                 ("preferences-security", "object-locked"),
                                  T("Camera, microphone, location, notifications and clipboard access per site"))
         self.act_store = A(T("Chrome Web Store"), self.open_web_store, None, "plugins",
                            T("Browse extensions; on an extension page use “Install in I.K.E.”"))
