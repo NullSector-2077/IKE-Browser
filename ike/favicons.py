@@ -18,6 +18,18 @@ def host_of(url):
         return ""
 
 
+
+def icon_format(data):
+    """PNG or ICO, told by their first bytes, or None. Any other format is not
+    decoded: this runs in the browser itself, outside the engine's sandbox,
+    where Qt would try every image plugin installed (SVG, and on Plasma many
+    more) on bytes from a site never visited (review of 1.1.19, L7)."""
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "PNG"
+    if data[:4] == b"\x00\x00\x01\x00":
+        return "ICO"
+    return None
+
 class Favicons(QObject):
     changed = pyqtSignal()          # a new icon is available
 
@@ -83,7 +95,8 @@ class Favicons(QObject):
             data = bytes(reply.readAll()) if ok else b""
             reply.deleteLater()
             pm = QPixmap()
-            if data and len(data) < 512 * 1024 and pm.loadFromData(data):
+            kind = icon_format(data)
+            if kind and len(data) < 512 * 1024 and pm.loadFromData(data, kind):
                 self.store(url, QIcon(pm))
         reply.finished.connect(done)
 

@@ -283,3 +283,53 @@ def test_l3_no_request_of_ike_names_ike_and_unused_engines_are_not_asked(run_ike
     assert out["ua"][0] == out["ua"][1], out
     assert len(out["at_start"]) == 1 and out["menu"] == out["at_start"], out
     assert len(out["chosen"]) == 2 and out["chosen"][1] == out["default_url"], out
+
+
+def _icon_server(body):
+    import http.server
+    import threading
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "image/x-icon")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv
+
+
+STEPS_L7 = r'''
+SVG, PNG = %d, %d
+
+def steps(ike, qapp, out):
+    yield 300
+    ike.favicons.fetch("http://127.0.0.1:%%d/" %% SVG)
+    ike.favicons.fetch("http://localhost:%%d/" %% PNG)
+    yield 2500
+    out["svg"] = ike.favicons.icon("http://127.0.0.1:%%d/" %% SVG).isNull()
+    out["png"] = ike.favicons.icon("http://localhost:%%d/" %% PNG).isNull()
+'''
+
+
+def test_l7_favicons_only_png_or_ico(run_ike):
+    """L7: an icon from a site never visited was decoded by any image plugin
+    Qt has (SVG, and on Plasma many more), in the browser outside the engine's
+    sandbox. Now only PNG and ICO, told by their first bytes."""
+    import base64
+    png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==")
+    svg = (b'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">'
+           b'<rect width="16" height="16" fill="red"/></svg>')
+    a, b = _icon_server(svg), _icon_server(png)
+    try:
+        out = run_ike(STEPS_L7 % (a.server_address[1], b.server_address[1]),
+                      settings={"https_only": False}, timeout=60)
+    finally:
+        a.shutdown()
+        b.shutdown()
+    assert out["svg"] is True and out["png"] is False, out
