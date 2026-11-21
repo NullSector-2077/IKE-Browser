@@ -578,9 +578,21 @@ def steps(ike, qapp, out):
         " window.__second = c.objects.ike && c.objects.ike.fillRequested ? 'vault' : 'other'; });"
         " } catch (e) { window.__second = 'refused'; }", 1)
     yield 1500
+    # review 4, N6: replace the transport object itself and open a channel on
+    # a stand-in that forwards to it: the answers must not reach it
+    v.page().runJavaScript(r"""
+      window.__third = 'none';
+      try {
+        var real = qt.webChannelTransport, fake = {send: function (m) { return real.send(m); }, onmessage: null};
+        qt.webChannelTransport = fake;
+        try { window.qt = {webChannelTransport: fake}; } catch (e) {}
+        new QWebChannel(fake, function (c) {
+          window.__third = c.objects.ike && c.objects.ike.fillRequested ? 'vault' : 'other'; });
+      } catch (e) { window.__third = 'refused'; }""", 1)
+    yield 1500
     got = {}
     v.page().runJavaScript(
-        "JSON.stringify({second: window.__second,"
+        "JSON.stringify({third: window.__third, second: window.__second,"
         " bridge: Object.keys(window.__ikeBridge || {}).sort(),"
         " fill: !!(window.__ikeBridge && window.__ikeBridge.fillRequested)})", 1,
         lambda r: got.__setitem__("r", r))
@@ -607,6 +619,7 @@ def test_l6_the_logins_channel_is_the_password_helpers_alone(run_ike):
     out = run_ike(STEPS_L6, timeout=60)
     r = json.loads(out["r"])
     assert r["second"] in ("none", "refused") and r["fill"] is False, r
+    assert r["third"] in ("none", "refused"), r
     assert r["bridge"] == ["adClick", "adClickEmbedded", "cssFetched", "fetchCss"], r
     assert out["css"] == "false", out             # answered (refused: not http) through the helper's channel
 
@@ -1008,3 +1021,69 @@ def test_perf_l2_the_first_engine_is_built_while_ike_sets_up(run_ike):
     assert out["ready_at_start"] is True, out
     assert len(out["threads"]) == 1 and out["threads"][0].startswith("ike-adblock"), out
     assert out["installed"] is True, out
+
+
+BOOT_CONFIRM = r'''
+import json, sys
+sys.path.insert(0, %r)
+import ike_boot
+folder, state, _ = ike_boot.choose()
+print(json.dumps([str(folder), state.get("bad", [])]), flush=True)
+for line in sys.stdin:
+    if line.strip() == "confirm":
+        from ike import updater
+        updater.confirm_healthy()                 # what I.K.E. does after 20 s running fine
+        print("confirmed", flush=True)
+    else:
+        break
+'''
+
+
+def test_n8_an_old_window_left_open_does_not_cost_the_next_update(tmp_path):
+    """Review 4, N8: the lock of an update's first start was held for the
+    whole life of that process. With that window still open when the next
+    update restarted I.K.E., two starts from other programs rolled the new,
+    healthy update back for good. The lock now ends when the start is
+    confirmed healthy."""
+    import json
+    import os
+    import subprocess
+    import sys
+
+    from conftest import APP
+    updates = tmp_path / "ike-browser" / "updates"
+
+    def stage(v, **st):
+        d = updates / "versions" / v / "ike"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "__init__.py").write_text('__version__ = "%s"\n' % v)
+        s = json.loads((updates / "state.json").read_text()) if (updates / "state.json").exists() else {}
+        s.update(st)
+        (updates / "state.json").write_text(json.dumps(s))
+    env = dict(os.environ, XDG_DATA_HOME=str(tmp_path))
+    code = BOOT_CONFIRM % str(APP)
+
+    def start():
+        p = subprocess.Popen([sys.executable, "-c", code], env=env, stdout=subprocess.PIPE, stdin=subprocess.PIPE,
+                             text=True)
+        return p, json.loads(p.stdout.readline())
+    stage("98.0.0", current="98.0.0", status="pending", attempts=0)
+    old, _ = start()                                   # the first start of 98, left open for days
+    old.stdin.write("confirm\n")
+    old.stdin.flush()
+    assert old.stdout.readline().strip() == "confirmed"
+    stage("99.0.0", current="99.0.0", previous="98.0.0", status="pending", attempts=0)
+    new, _ = start()                                   # "restart to update": 99's first start
+    old.stdin.close()                                  # the old window closes meanwhile
+    old.wait(10)
+    try:
+        for _ in range(2):                             # two links from other programs within 20 s
+            p, got = start()
+            p.stdin.close()
+            p.wait(10)
+            assert got[0].endswith("99.0.0"), got
+    finally:
+        new.stdin.close()
+        new.wait(10)
+    state = json.loads((updates / "state.json").read_text())
+    assert state["current"] == "99.0.0" and "99.0.0" not in state.get("bad", []), state

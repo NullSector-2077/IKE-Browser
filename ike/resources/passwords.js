@@ -116,4 +116,12 @@
       Object.defineProperty(transport, k, {value: transport[k], writable: false, configurable: false});
     } catch (e) {}
   });
+  // and the names the engine and other code find it by: a replaced transport
+  // object (or "qt") would otherwise receive the answers (review 4, N6)
+  try {
+    Object.defineProperty(qt, 'webChannelTransport', {value: transport, writable: false, configurable: false});
+  } catch (e) {}
+  try {
+    Object.defineProperty(window, 'qt', {value: qt, writable: false, configurable: false});
+  } catch (e) {}
 })();

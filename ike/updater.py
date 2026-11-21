@@ -258,6 +258,24 @@ def confirm_healthy():
     if state.get("status") == "pending" and state.get("current") == __version__:
         state.update({"status": "ok", "attempts": 0})
         save_state(state)
+    release_attempt()
+
+
+def release_attempt():
+    """This process no longer holds the lock of an update's first start
+    (ike_boot.py): the attempt is confirmed, or I.K.E. starts again. Held for
+    the whole life of the process, an old window left open made a later
+    update's second start look like a failed one (review 4 of 1.1.19, N8)."""
+    import sys
+    for name in ("ike_boot", "__main__"):
+        boot = sys.modules.get(name)
+        held = getattr(boot, "_ATTEMPT", None)
+        if isinstance(held, list):
+            while held:
+                try:
+                    held.pop().close()
+                except OSError:
+                    pass
 
 
 def withdraw(manifest):
