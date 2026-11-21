@@ -39,7 +39,7 @@ jobs:
       contents: write          # the merge
       pull-requests: write     # ready for review, the comment
       issues: read             # its own earlier comment
-      actions: write           # the tests and security tests of main after the merge
+      actions: write           # the tests, security and Arch tests of main after the merge
       checks: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

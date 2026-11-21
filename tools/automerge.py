@@ -23,7 +23,7 @@ judged by. A pull request is merged only when ALL of this holds:
 
 Anything else waits for a person: one comment names the owner (review 2 of
 1.1.19, C1: AI-written code otherwise reached a signed release unread). After
-a merge it starts the tests and the security tests of main.
+a merge it starts the tests, the security tests and the Arch tests of main.
 
     automerge.py --repo OWNER/NAME --sha HEAD_SHA [--dry-run]
 """
@@ -445,6 +445,9 @@ def main(argv=None):
     # the tests and the security tests of main are started here
     gh("workflow", "run", "tests.yml", "--repo", a.repo, "--ref", "main")
     gh("workflow", "run", "security.yml", "--repo", a.repo, "--ref", "main")
+    # and the tests on Arch Linux's own packages (arch.yml runs on every push
+    # to main, but a merge made with the workflow's token is no such push)
+    gh("workflow", "run", "arch.yml", "--repo", a.repo, "--ref", "main")
     print("merged #%d; the tests of main started" % n)
     return 0
 

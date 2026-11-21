@@ -25,6 +25,18 @@ Test packages other than Qt (cryptography, certifi, ...) are reported as
 "also newer": they do not call for a release on their own, and are taken
 along by the next one.
 
+With --arch FILE, also Arch Linux's own packages that I.K.E. runs on and is
+built with (qt6-webengine, qt6-base, python, python-pyqt6, ..., rust; see
+ARCH_PACKAGES): their versions in Arch's official repositories (core, extra)
+against the versions the last green "Arch Linux" run on main really tested
+(arch.yml records them in its artifact "arch-versions"; --save-arch-tested
+reads it back with GET calls of GitHub's API, nothing is written). A change
+means "compatibility to verify": the daily check starts arch.yml on main. It
+is never an update to apply, never a release, and never counted in
+"updates" or "errors"; an Arch source that cannot be reached is "source
+unreachable", never a change. --record-arch FILE is what arch.yml runs to
+record the versions it tests.
+
 With --apply the files above are rewritten with the newest versions (and
 ``cargo update`` is run for a new engine); adapting I.K.E.'s code, building
 and testing are handled by the daily GitHub Actions maintenance workflow.
@@ -42,7 +54,10 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.parse
 import urllib.request
+import zipfile
+from io import BytesIO
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -52,7 +67,18 @@ PYO3_INDEX = "https://index.crates.io/py/o3/pyo3"
 UBO_GIT = "https://github.com/gorhill/uBlock"
 DARKREADER_GIT = "https://github.com/darkreader/darkreader"
 DARKREADER_NPM = "https://registry.npmjs.org/darkreader/latest"
-ARCH_PACKAGE = "https://archlinux.org/packages/search/json/?name=qt6-webengine"
+ARCH_SEARCH = "https://archlinux.org/packages/search/json/?name=%s"
+ARCH_PACKAGE = ARCH_SEARCH % "qt6-webengine"
+# Arch Linux's own packages I.K.E. runs on (PKGBUILD depends) and is built with
+# (rust, which brings cargo): a new version of any of them reaches users with
+# `pacman -Syu`, outside I.K.E.'s releases, so arch.yml tests it first
+ARCH_PACKAGES = ("qt6-webengine", "qt6-base", "qt6-webchannel", "qt6-svg", "python-pyqt6",
+                 "python-pyqt6-webengine", "python", "python-cryptography", "python-jeepney",
+                 "publicsuffix-list", "rust")
+ARCH_REPOS = ("core", "extra")             # the official repositories (not the -testing ones)
+ARCH_WORKFLOW = "arch.yml"
+ARCH_ARTIFACT = "arch-versions"            # the artifact arch.yml keeps, holding ARCH_FILE
+ARCH_FILE = "arch-versions.json"
 # the Qt packages: a new version of any of them calls for a test run on it
 QT_PACKAGES = ("pyqt6", "pyqt6-qt6", "pyqt6-webengine", "pyqt6-webengine-qt6")
 # packages the tests ask for; the rest are their dependencies
@@ -389,6 +415,254 @@ def apply_test_packages(root, info):
     path.write_text("\n".join(header + lines) + "\n", "utf-8")
 
 
+# --- Arch Linux's own packages (the system I.K.E. runs on) ---------------------
+# The "Tests" workflow runs on Ubuntu with PyPI's Qt and Python 3.13; users run
+# Arch's Python, Qt, PyQt and Qt WebEngine, which pacman updates at any time.
+# arch.yml tests I.K.E. on them and records what it tested (--record-arch);
+# the daily check compares Arch's repositories with the set of the last green
+# run on main and, when it changed, starts arch.yml on main (daily-check.yml).
+# Nothing here is applied or released: a failure goes to the automatic fix
+# (tools/autofix-plan.py, "Arch Linux").
+
+ARCH_NETWORK_FAILURES = 3      # Arch's site did not answer this many times: the rest is not asked
+
+
+def arch_full_version(entry):
+    """epoch:pkgver-pkgrel, as `pacman -Q` writes it ("6.140.0-1", "1:1.91.0-1")."""
+    version = "%s-%s" % (entry["pkgver"], entry["pkgrel"])
+    return "%s:%s" % (entry["epoch"], version) if entry.get("epoch") else version
+
+
+def arch_version(name, get=None):
+    """The version of an Arch package in the official repositories (core,
+    extra; never a -testing one). Raises when Arch's site cannot be read or
+    does not list the package there."""
+    data = json.loads((get or fetch)(ARCH_SEARCH % urllib.parse.quote(name), timeout=30).decode("utf-8"))
+    for entry in data.get("results", []):
+        if entry.get("pkgname") == name and entry.get("repo") in ARCH_REPOS:
+            return arch_full_version(entry)
+    raise LookupError("not in Arch's %s repositories" % " or ".join(ARCH_REPOS))
+
+
+def arch_current(get=None):
+    """({package: version in Arch now}, {package: why it could not be read})."""
+    versions, unreachable, down = {}, {}, 0
+    for name in ARCH_PACKAGES:
+        if down >= ARCH_NETWORK_FAILURES:
+            unreachable[name] = "not asked: Arch's site did not answer"
+            continue
+        try:
+            versions[name] = arch_version(name, get)
+        except Exception as e:      # the network, Arch's site, an answer it no longer gives
+            down += isinstance(e, OSError)
+            unreachable[name] = "%s: %s" % (type(e).__name__, str(e).strip()[:200])
+    return versions, unreachable
+
+
+def gh_api(path, raw=False):
+    """A GET of GitHub's API through gh (GH_TOKEN of the workflow)."""
+    out = subprocess.run(["gh", "api", path], capture_output=True, check=False)
+    if out.returncode:
+        raise RuntimeError("gh api %s: %s" % (path, out.stderr.decode("utf-8", "replace").strip()[:300]))
+    return out.stdout if raw else json.loads(out.stdout)
+
+
+def arch_record_of_run(repo, run_id, api=None):
+    """The versions an arch.yml run recorded (its artifact ARCH_ARTIFACT), or None."""
+    api = api or gh_api
+    found = api("repos/%s/actions/runs/%s/artifacts?name=%s" % (repo, run_id, ARCH_ARTIFACT))
+    for art in found.get("artifacts", []):
+        if art.get("name") != ARCH_ARTIFACT or art.get("expired"):
+            continue
+        data = api("repos/%s/actions/artifacts/%s/zip" % (repo, art["id"]), raw=True)
+        try:
+            with zipfile.ZipFile(BytesIO(data)) as z:
+                if z.getinfo(ARCH_FILE).file_size > 1_000_000:
+                    continue
+                record = json.loads(z.read(ARCH_FILE).decode("utf-8"))
+        except (zipfile.BadZipFile, KeyError, ValueError):
+            continue
+        if isinstance(record, dict) and isinstance(record.get("packages"), dict):
+            return record
+    return None
+
+
+def last_tested_arch(repo, api=None, branch="main", runs=5):
+    """The versions the last green arch.yml run on main recorded, with that run
+    under "run" ({"id", "url", "sha", "date"}); None when no recent green run
+    kept them (runs older than the recording, or artifacts expired)."""
+    api = api or gh_api
+    data = api("repos/%s/actions/workflows/%s/runs?branch=%s&status=success&per_page=%d"
+               % (repo, ARCH_WORKFLOW, branch, runs))
+    for run in data.get("workflow_runs", [])[:runs]:
+        if run.get("conclusion") != "success" or run.get("head_branch") != branch:
+            continue
+        record = arch_record_of_run(repo, run["id"], api)
+        if record:
+            record["run"] = {"id": run["id"], "url": run.get("html_url", ""), "sha": run.get("head_sha", ""),
+                             "date": run.get("run_started_at") or run.get("created_at", "")}
+            return record
+    return None
+
+
+def save_arch_tested(path, repo, api=None):
+    """Write {"tested": <last_tested_arch>} to path; GitHub's errors are kept
+    in "error", never raised (the check then starts arch.yml to record anew)."""
+    try:
+        out = {"tested": last_tested_arch(repo, api)}
+    except Exception as e:
+        out = {"tested": None, "error": "%s: %s" % (type(e).__name__, str(e).strip()[:300])}
+    Path(path).write_text(json.dumps(out, indent=1) + "\n", "utf-8")
+    return out
+
+
+def arch_changes(old, new):
+    """[(package, old version, new version)] for the packages of `new` whose
+    version differs from `old` ("" = not recorded or not installed)."""
+    names = [n for n in ARCH_PACKAGES if n in new] + sorted(n for n in new if n not in ARCH_PACKAGES)
+    return [(n, old.get(n, ""), new[n]) for n in names if old.get(n, "") != new[n]]
+
+
+def check_arch(saved, get=None):
+    """Arch's repositories against the set saved by --save-arch-tested.
+
+    state: "changed" (a package moved: compatibility to verify), "untested"
+    (no green run on main recorded a set: verify), "unreachable" (Arch's site
+    could not be read for some package and nothing else changed: no news, never
+    an update), "same"."""
+    tested = saved.get("tested") if isinstance(saved, dict) else None
+    current, unreachable = arch_current(get)
+    changed = arch_changes((tested or {}).get("packages", {}), current) if tested else []
+    if not tested:
+        state = "untested"
+    elif changed:
+        state = "changed"
+    elif unreachable:
+        state = "unreachable"
+    else:
+        state = "same"
+    return {"state": state, "current": current, "unreachable": unreachable, "tested": tested,
+            "changed": changed, "read_error": (saved or {}).get("error", "") if isinstance(saved, dict) else ""}
+
+
+def arch_public(info):
+    tested = info["tested"] or {}
+    return {"state": info["state"], "current": info["current"], "unreachable": info["unreachable"],
+            "changed": [{"package": n, "tested": o, "now": v} for n, o, v in info["changed"]],
+            "tested": {k: tested.get(k) for k in ("packages", "python", "qt", "pyqt", "chromium", "commit", "run")
+                       if k in tested},
+            "read_error": info["read_error"]}
+
+
+def _v(text):
+    return (text or "-").replace("|", "\\|")
+
+
+def arch_markdown(info):
+    """The Arch section of the report: what Arch has now, what was really
+    tested on main, and what that means."""
+    tested = info["tested"] or {}
+    run = tested.get("run") or {}
+    head = {
+        "changed": "**Arch changed: compatibility to verify.** The \"Arch Linux\" tests (arch.yml) start on "
+                   "`main` with Arch's new packages; a failure there goes to the automatic fix. Not a release by "
+                   "itself.",
+        "untested": "**No green \"Arch Linux\" run on `main` has recorded the versions it tested yet**: the "
+                    "\"Arch Linux\" tests start on `main` to record them.",
+        "unreachable": "**Arch's site could not be read for some packages (source unreachable)**; the others are "
+                       "the versions already tested. Nothing to verify today.",
+        "same": "Arch's packages are the versions the last green \"Arch Linux\" run on `main` tested.",
+    }[info["state"]]
+    out = ["", "### Arch Linux's own packages", "", head, ""]
+    if run:
+        out.append("Really tested: run [%s](%s) on commit `%s` (%s): Python %s, Qt %s, PyQt %s, Chromium %s "
+                   "(as I.K.E. reports it)." % (run.get("id", "?"), run.get("url", ""), str(run.get("sha", ""))[:10],
+                                                str(run.get("date", ""))[:16].replace("T", " "),
+                                                tested.get("python", "?"), tested.get("qt", "?"),
+                                                tested.get("pyqt", "?"), tested.get("chromium", "?")))
+        out.append("")
+    if info["read_error"]:
+        out += ["The tested versions could not be read from GitHub: %s" % _v(info["read_error"]), ""]
+    old = tested.get("packages", {})
+    moved = {c[0] for c in info["changed"]}
+    out.append("| Package | In Arch now | Last tested on main | Changed |\n|---|---|---|---|")
+    for name in ARCH_PACKAGES:
+        now = info["current"].get(name)
+        if now is None:
+            now, flag = "source unreachable", "?"
+        else:
+            flag = "**yes**" if name in moved else ("no" if info["tested"] else "?")
+        out.append("| %s | %s | %s | %s |" % (name, _v(now), _v(old.get(name, "")), flag))
+    why = sorted(set(info["unreachable"].values()))
+    if why:
+        out += ["", "Source unreachable: " + "; ".join(_v(w) for w in why[:3])]
+    return "\n".join(out) + "\n"
+
+
+ARCH_PROBE = r"""
+import json, platform
+out = {"python": platform.python_version()}
+try:
+    from PyQt6.QtCore import PYQT_VERSION_STR, QT_VERSION_STR
+    out["qt"], out["pyqt"] = QT_VERSION_STR, PYQT_VERSION_STR
+    from PyQt6.QtWebEngineCore import qWebEngineChromiumVersion
+    out["chromium"] = qWebEngineChromiumVersion()
+except Exception as e:
+    out["error"] = "%s: %s" % (type(e).__name__, e)
+try:
+    from ike.chromever import engine_full      # what I.K.E. presents to sites (1.1.14)
+    out["chromium"] = engine_full()
+except Exception as e:
+    out.setdefault("error", "%s: %s" % (type(e).__name__, e))
+print(json.dumps(out))
+"""
+
+
+def record_arch(path, root=ROOT, query=None, probe=None):
+    """What this Arch system really has (arch.yml, after installing Arch's
+    packages): `pacman -Q` of ARCH_PACKAGES, and Python, Qt, PyQt and the
+    engine's Chromium as I.K.E. reports them. Writes the JSON to path and
+    returns the Markdown for the run's summary; never fails the run (what
+    cannot be read is recorded empty)."""
+    def pacman():
+        done = subprocess.run(["pacman", "-Q", *ARCH_PACKAGES], capture_output=True, text=True, check=False)
+        return done.stdout
+
+    def python():
+        done = subprocess.run([sys.executable, "-c", ARCH_PROBE], capture_output=True, text=True, check=False,
+                              cwd=str(root), timeout=300)
+        return done.stdout.strip().splitlines()[-1] if done.stdout.strip() else "{}"
+    installed = {}
+    try:
+        for line in (query or pacman)().splitlines():
+            parts = line.split()
+            if len(parts) == 2:
+                installed[parts[0]] = parts[1]
+    except Exception:
+        pass
+    try:
+        facts = json.loads((probe or python)())
+    except Exception as e:
+        facts = {"error": "%s: %s" % (type(e).__name__, e)}
+    record = {"schema": 1, "packages": {n: installed.get(n, "") for n in ARCH_PACKAGES}}
+    for key in ("python", "qt", "pyqt", "chromium", "error"):
+        if facts.get(key):
+            record[key] = str(facts[key])[:300]
+    record.update(commit=os.environ.get("GITHUB_SHA", ""), run=os.environ.get("GITHUB_RUN_ID", ""),
+                  date=datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(json.dumps(record, indent=1) + "\n", "utf-8")
+    lines = ["### The versions this run tests", "",
+             "Python %s, Qt %s, PyQt %s, Chromium %s (as I.K.E. reports it)." % (
+                 record.get("python", "?"), record.get("qt", "?"), record.get("pyqt", "?"),
+                 record.get("chromium", "?")), "",
+             "| Package | Version |", "|---|---|"]
+    lines += ["| %s | %s |" % (n, v or "not installed") for n, v in record["packages"].items()]
+    if record.get("error"):
+        lines += ["", "Not read: " + _v(record["error"])]
+    return "\n".join(lines) + "\n"
+
+
 # --- report -----------------------------------------------------------------
 
 def check_all(root, ubo_src=None, work=None, dr_src=None):
@@ -444,26 +718,56 @@ def main(argv=None):
                     help="rewrite the version files with every newer version found")
     ap.add_argument("--ubo-src", help="use this uBlock Origin checkout instead of cloning it")
     ap.add_argument("--darkreader-src", help="use this Dark Reader checkout instead of cloning it")
+    ap.add_argument("--arch", metavar="FILE",
+                    help="also compare Arch Linux's packages with the tested set in FILE (--save-arch-tested)")
+    ap.add_argument("--save-arch-tested", metavar="FILE",
+                    help="only write the versions the last green arch.yml run on main tested (GitHub API, GET)")
+    ap.add_argument("--record-arch", metavar="FILE",
+                    help="only record the versions of this Arch system (arch.yml); prints the run's summary")
+    ap.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", ""), help="OWNER/NAME on GitHub")
     ap.add_argument("--root", default=str(ROOT), help=argparse.SUPPRESS)
     args = ap.parse_args(argv)
     root = Path(args.root)
+    if args.record_arch:
+        print(record_arch(args.record_arch, root), end="")
+        return 0
+    if args.save_arch_tested:
+        saved = save_arch_tested(args.save_arch_tested, args.repo)
+        run = (saved["tested"] or {}).get("run") or {}
+        print("last green Arch run on main with its versions: %s" % (run.get("url") or saved.get("error") or "none"))
+        return 0
+    arch = None
+    if args.arch:
+        try:
+            saved = json.loads(Path(args.arch).read_text("utf-8"))
+        except (OSError, ValueError) as e:
+            saved = {"tested": None, "error": "%s: %s" % (type(e).__name__, e)}
+        arch = check_arch(saved)
     results = check_all(root, args.ubo_src, dr_src=args.darkreader_src)
     for r in results:
         state = "ERROR " + r["error"] if r["error"] else ("NEW" if r["update"] else "ok")
         print("%-34s %-6s %s -> %s %s" % (r["name"], state.split(" ")[0], r["current"], r["latest"],
                                          r["note"] or r["also"] or (r["error"] if r["error"] else "")))
+    if arch:
+        print("%-34s %-6s %s" % ("Arch Linux's own packages", arch["state"],
+                                 "; ".join("%s %s -> %s" % (n, o or "-", v) for n, o, v in arch["changed"])
+                                 or ", ".join(sorted(arch["unreachable"]))))
     updates = sum(r["update"] for r in results)
     errors = sum(bool(r["error"]) for r in results)
     print("updates: %d, errors: %d" % (updates, errors))
     if args.json:
-        Path(args.json).write_text(json.dumps({"updates": updates, "errors": errors,
-                                               "components": public(results)}, indent=1) + "\n", "utf-8")
+        data = {"updates": updates, "errors": errors, "components": public(results)}
+        if arch:
+            data["arch"] = arch_public(arch)
+        Path(args.json).write_text(json.dumps(data, indent=1) + "\n", "utf-8")
     if args.markdown:
-        Path(args.markdown).write_text(to_markdown(results), "utf-8")
+        Path(args.markdown).write_text(to_markdown(results) + (arch_markdown(arch) if arch else ""), "utf-8")
     out = os.environ.get("GITHUB_OUTPUT")
     if out:
         with open(out, "a", encoding="utf-8") as f:
             f.write("updates=%d\nerrors=%d\n" % (updates, errors))
+            if arch:
+                f.write("arch=%s\n" % arch["state"])
     if args.apply:
         if errors:
             print("not applying any updates: at least one component source could not be checked")
