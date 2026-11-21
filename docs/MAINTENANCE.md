@@ -1,10 +1,13 @@
 # Automatic maintenance
 
 GitHub Actions keeps I.K.E. up to date and prepares the fixes. A pull request
-is merged only once its tests are green, by the owner or by Claude working in a
-session for the owner (CLAUDE.md); the owner alone **signs and publishes** (one
-command on the owner's computer, [UPDATES.md](UPDATES.md)). No workflow merges,
-releases or signs anything, and no workflow ever writes to `main`.
+is merged only once its tests are green: since 1.1.19 a fix of the automatic
+fix or of ChatGPT that changes no test and no protected file goes into `main`
+by itself (`automerge.yml`, below); everything else is merged by the owner or
+by Claude working in a session for the owner (CLAUDE.md). The owner alone
+**signs and publishes** (one command on the owner's computer, sent by mail
+when a release is ready, [UPDATES.md](UPDATES.md)). No workflow releases or
+signs anything, and no workflow pushes to `main`.
 
 ## What runs by itself
 
@@ -18,6 +21,9 @@ releases or signs anything, and no workflow ever writes to `main`.
 | Every day, 04:23 UTC, and on every PR and push to `main` | The security tests with the engine's sandbox really on (as a normal user), and the RustSec advisories of every crate of the AdBlock engine | `security.yml` | Checks on the PR; on `main` the issue "Rust advisories" when one is found (no automatic fix) |
 | Mondays, 07:41 UTC | The automation itself: every scheduled check (also the Arch and security ones, 1.1.19), and one tiny question to each reserve of the automatic fix | `health.yml` | Issue "Automation health" when something stopped, failed, waits too long, or a reserve's key or model no longer works |
 | Once a month | New versions of the GitHub actions used | Dependabot | One PR labelled `maintenance` |
+| When a check of a pull request ends | A fix of the automatic fix (`automation/autofix-main`) or of ChatGPT (`chatgpt/...`) goes into `main` when every check of its last commit passed, it changes no test, no protected file (the checker's lists), no workflow, the ad blocker or the package, the version files only as the automation raises the version, and none of its commits is an autofix trial (`tools/automerge.py`, read from `main`); then the tests of `main` start | `automerge.yml` | The merge and a comment; anything else waits for a person |
+| When the tests of `main` pass, and every day at 08:13 UTC | A version in `main` that is not published yet | `release-ready.yml` | A mail "C'E' UNA NUOVA RELEASE IN MAIN PRONTA DA PUBBLICARE!!!" with the exact command, once per version and week |
+| When every agent of the automatic fix failed | The same report as the issue | `autofix.yml` (job `report`) | A mail "ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!!" with the message to paste into ChatGPT |
 
 ## Components followed
 
@@ -515,7 +521,9 @@ the owner on the real system.
 2. Wait for the green checks. To try it, download the package of its test run
    and install it:
    `gh run download <run-id> -n ike-browser-package`.
-3. Mark the PR ready and merge it. **Except:** an automatic-fix or ChatGPT
+3. Mark the PR ready and merge it (a green fix of the automatic fix or of
+   ChatGPT that changes no test and no protected file is merged by itself
+   since 1.1.19). **Except:** an automatic-fix or ChatGPT
    pull request that changes anything under `tests/` is never merged on green
    checks alone. A person (or Claude, with the change read in full) reviews
    the diff of the tests first: the patch checks and "No tests lost" catch
@@ -547,6 +555,16 @@ person: open a conversation and paste its link.
   installer").
 - Settings → Branches: protect `main` (pull request required, status check
   `tests` required, no force push, no deletion).
+- Settings → Secrets and variables → Actions → **Secrets**, for the mails
+  (1.1.19): `MAIL_USERNAME` (the Gmail address that sends),
+  `MAIL_APP_PASSWORD` (an app password of that account: Google account →
+  Security → 2-Step Verification on → App passwords; never the account's own
+  password) and `MAIL_TO` (the addresses that receive, separated by commas).
+  They are never written in the repository, which is public, and never shown
+  in the logs. Without them the mails are not sent, and nothing else changes.
+- Autofix trials (deliberate errors on `automation/autofix-main`) must keep
+  "Autofix trial" at the start of their commit message: `automerge.py` never
+  merges a pull request that has such a commit.
 
 The weekly check (`health.yml`, `tools/automation-health.py`) reports, since
 1.1.18, a `main` without branch protection (the `protected` field of the

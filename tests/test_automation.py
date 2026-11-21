@@ -464,8 +464,12 @@ def test_autofix_workflow_permissions():
     assert re.search(r"permissions:\n\s+contents: read\n\s+outputs:", jobs["fix"])
     assert "secrets.GEMINI_API_KEY" in jobs["fix"]
     assert "github.token" not in jobs["fix"] and "GH_TOKEN" not in jobs["fix"]
-    for name in ("plan", "guard", "publish", "report"):
+    for name in ("plan", "guard", "publish"):
         assert "secrets." not in jobs[name], name
+    # the report holds only the mail's secrets (1.1.19), in its last step, the mail
+    report = jobs["report"]
+    assert set(re.findall(r"secrets\.(\w+)", report)) == {"MAIL_USERNAME", "MAIL_APP_PASSWORD", "MAIL_TO"}
+    assert report.index("secrets.") > report.index("- name: Mail the owner") > report.index("- name: Tell the owner")
     for name in ("plan", "fix", "guard", "publish"):
         assert "persist-credentials: false" in jobs[name], name
     assert "contents: write" not in jobs["guard"] and "contents: write" not in jobs["plan"]

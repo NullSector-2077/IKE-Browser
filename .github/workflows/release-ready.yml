@@ -1,0 +1,99 @@
+# A mail to the owner when main holds a version that is not published yet and
+# its tests passed (1.1.19, the owner's request), with the exact command that
+# signs and publishes it on the owner's computer. Once per version and week:
+# a daily look sends it again each week while the version is not published
+# (the marker is a cache entry named after the version and the week, saved
+# only when the mail went). The addresses and the password are secrets, never
+# in the repository (tools/send-mail.py).
+name: Release ready
+
+on:
+  workflow_run:
+    workflows: ["Tests"]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: "13 8 * * *"      # every day, 08:13 UTC: the weekly reminder
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  mail:
+    if: >-
+      github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: write           # the cache entry that marks a version as announced
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Is there a version to publish?
+        id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          version=$(sed -n 's/^__version__ = "\([0-9.]*\)"$/\1/p' ike/__init__.py)
+          head=$(git rev-parse HEAD)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
+          echo "ready=false" >> "$GITHUB_OUTPUT"
+          if [ -n "$RUN_SHA" ] && [ "$RUN_SHA" != "$head" ]; then
+            echo "these tests were not on main's last commit: nothing to say"; exit 0
+          fi
+          if gh release view "v$version" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "v$version is published already"; exit 0
+          fi
+          # the tests of this very commit passed (a scheduled look has no run of its own)
+          ok=$(gh api "repos/${{ github.repository }}/commits/$head/check-runs?check_name=tests" \
+               --jq '[.check_runs[] | select(.status == "completed")][0].conclusion // ""')
+          if [ "$ok" != "success" ]; then echo "the tests of main's last commit have not passed: nothing to say"; exit 0; fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+      - name: Announced already?
+        if: steps.v.outputs.ready == 'true'
+        id: seen
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/announced
+          key: release-mail-${{ steps.v.outputs.version }}-${{ steps.v.outputs.week }}
+          lookup-only: true
+      - name: The mail
+        id: mail
+        if: steps.v.outputs.ready == 'true' && steps.seen.outputs.cache-hit != 'true'
+        env:
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          MAIL_APP_PASSWORD: ${{ secrets.MAIL_APP_PASSWORD }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          body="$RUNNER_TEMP/mail.txt"
+          {
+            echo "I.K.E. $VERSION è in main, con tutti i test verdi, e non è ancora pubblicata."
+            echo
+            echo "Per firmarla e pubblicarla, apri un terminale sul tuo PC e incolla questo comando (una riga sola):"
+            echo
+            echo '[ -d ~/IKE-Browser/.git ] || git clone https://github.com/NullSector-2077/IKE-Browser.git ~/IKE-Browser; cd ~/IKE-Browser && git checkout main && git pull --ff-only && python3 tools/publish.py'
+            echo
+            echo "Ti chiederà la password della tua chiave di firma. Se si ferma, dice perché e non cambia niente su GitHub."
+            echo "Per una prova a vuoto (tutto tranne la pubblicazione), cambia la fine in: python3 tools/publish.py --dry-run"
+            echo
+            echo "Le novità di questa versione: https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md"
+            echo
+            echo "Se non pubblichi, tra una settimana arriva un promemoria."
+          } > "$body"
+          if python3 -I tools/send-mail.py --subject "C'E' UNA NUOVA RELEASE IN MAIN PRONTA DA PUBBLICARE!!!" --body-file "$body"; then
+            mkdir -p "$RUNNER_TEMP/announced" && echo "$VERSION" > "$RUNNER_TEMP/announced/version"
+            echo "sent=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Remember it
+        if: steps.mail.outputs.sent == 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/announced
+          key: release-mail-${{ steps.v.outputs.version }}-${{ steps.v.outputs.week }}
