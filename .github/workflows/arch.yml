@@ -5,15 +5,29 @@
 # installed with pacman and tested as installed.
 #
 # Taken from the archived branch linux/distro-checks (Arch job only, 2026-11-20,
-# Arch-first). Runs once a week (an Arch update can break I.K.E. without any
-# change here), on pull requests that touch the package or this file, and by
-# hand. Not a required check: a failure is a warning for the maintainer.
+# Arch-first). It is the compatibility check of the system components: pacman
+# updates them on the users' computers outside I.K.E.'s releases. It records
+# the versions it really tested (artifact "arch-versions", read back by the
+# daily component check: tools/check-components.py --arch) and runs:
+# - on every push to main, and when the automation changed main or its fix
+#   branch (a dispatch: tools/automerge.py, autofix.yml);
+# - when Arch's packages changed since the last green run on main (a dispatch
+#   from daily-check.yml);
+# - once a week as a floor, on pull requests that touch the package or this
+#   file, and by hand.
+# A failure goes to the automatic fix (tools/autofix-plan.py, "Arch Linux"):
+# pacman, mirrors, keyring or downloads are GitHub's or Arch's matter (an
+# issue, no AI); a build or test failure is fixed only when "Tests" passed on
+# the same commit (an incompatibility with Arch alone). Not a required check
+# of the release.
 name: Arch Linux
 
 on:
   pull_request:
     branches: [main]
     paths: [PKGBUILD, .github/workflows/arch.yml]
+  push:
+    branches: [main]
   schedule:
     - cron: "41 3 * * 1"     # Mondays, 03:41 UTC
   workflow_dispatch:
@@ -58,13 +72,29 @@ jobs:
               python-cryptography python-jeepney publicsuffix-list python-pytest \
               base-devel rust sudo nodejs \
               ffmpeg dbus glib2 noto-fonts ttf-dejavu libnotify xdg-utils
+      # What this run really tests: pacman's versions of the components I.K.E.
+      # follows (tools/check-components.py, ARCH_PACKAGES), Python, Qt, PyQt and
+      # the engine's Chromium as I.K.E. reports it. Never fails the run.
+      - name: The versions tested
+        run: |
+          mkdir -p out
+          python3 tools/check-components.py --record-arch out/arch-versions.json | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: arch-versions
+          path: out/arch-versions.json
+          if-no-files-found: error
+          retention-days: 90
+      # downloaded apart from the build: a crate that cannot be downloaded is
+      # crates.io's or the network's matter, not the code's (autofix-plan.py)
+      - name: AdBlock engine's crates
+        run: cargo fetch --locked --manifest-path ike-adblock/Cargo.toml
       - name: AdBlock engine
         run: |
-          cargo build --release --locked --manifest-path ike-adblock/Cargo.toml
+          cargo build --release --frozen --manifest-path ike-adblock/Cargo.toml
           install -m755 ike-adblock/target/release/libike_adblock.so vendor/adblock/ike_adblock.abi3.so
       - name: Engine versions
         run: |
-          mkdir -p out
           python3 -c "from PyQt6.QtCore import QT_VERSION_STR, PYQT_VERSION_STR; \
           from PyQt6.QtWebEngineCore import qWebEngineChromiumVersion as c; \
           print('Qt', QT_VERSION_STR, '- PyQt', PYQT_VERSION_STR, '- Chromium', c())" | tee -a "$GITHUB_STEP_SUMMARY"
@@ -72,9 +102,8 @@ jobs:
         run: |
           set -o pipefail
           python3 -m pytest -ra --junitxml=out/tests-arch.xml 2>&1 | tee out/tests-arch.log
-      - name: Arch package (makepkg, pacman, tests as installed)
+      - name: Arch package (makepkg, pacman)
         run: |
-          set -o pipefail
           useradd -m builder
           chown -R builder: .
           sudo -u builder env PKGDEST="$PWD/out" PKGEXT=.pkg.tar.zst makepkg -f --noconfirm
@@ -85,6 +114,9 @@ jobs:
           fi
           pacman -U --noconfirm "$pkg"
           ike-browser --version
+      - name: Tests of the installed package (Arch)
+        run: |
+          set -o pipefail
           IKE_TEST_APP=/usr/lib/ike-browser python3 -m pytest -ra \
               --junitxml=out/tests-arch-installed.xml 2>&1 | tee out/tests-arch-installed.log
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -94,3 +126,58 @@ jobs:
           path: out/
           if-no-files-found: warn
           retention-days: 30
+
+  # Runs the automation started with its own token (the daily check on main,
+  # a merge made by itself, the automatic fix's branch) send no "workflow_run":
+  # their failure is handed over here, as tests.yml does. Also a run the
+  # automatic fix started again (a test that failed once runs once more).
+  hand-over:
+    needs: arch
+    if: >-
+      failure() && (
+      (github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]' &&
+      (github.ref_name == 'main' || github.ref_name == 'automation/autofix-main')) ||
+      (github.run_attempt > 1 && github.triggering_actor == 'github-actions[bot]' &&
+      (github.ref_name == 'main' || github.ref_name == 'automation/autofix-main')))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Hand the failure to the automatic fix
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          for pause in 15 30 0; do
+            if gh workflow run autofix.yml --ref main -f run_id="$RUN_ID"; then exit 0; fi
+            sleep "$pause"
+          done
+          exit 1
+
+  # The automatic fix of an Arch failure passed here (a run its token started
+  # sends no "workflow_run"): the merge is asked for with a dispatch, as the
+  # Tests and Security runs of the fix do; tools/automerge.py still needs every
+  # check of the commit, "tests" and "sandbox" included.
+  merge-ready:
+    needs: arch
+    if: >-
+      success() && github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]' &&
+      github.ref_name == 'automation/autofix-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Ask for the merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          for pause in 15 30 0; do
+            gh workflow run automerge.yml --ref main -f sha="$SHA" && exit 0
+            sleep "$pause"
+          done
+          exit 1

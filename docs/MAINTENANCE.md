@@ -14,11 +14,11 @@ signs anything, and no workflow pushes to `main`.
 
 | When | What | Workflow | Result |
 |---|---|---|---|
-| Every day, 05:17 UTC | Upstream versions of the bundled components | `daily-check.yml` | Issue labelled `components` |
+| Every day, 05:17 UTC | Upstream versions of the bundled components, and Arch Linux's own packages against the versions the last green `arch.yml` run on `main` tested | `daily-check.yml` | Issue labelled `components`; when Arch's packages changed, `arch.yml` started on `main` |
 | Every day, 06:17 UTC | The updates applied to a candidate built from current `main` | `daily-maintenance.yml` | Branch `automation/daily-maintenance`, draft PR labelled `maintenance` |
 | On every PR, every push to `main`, every candidate or fix | Lint, all the tests, the Arch package and its tests | `tests.yml` | Checks on the PR, package download `ike-browser-package` |
-| When one of the three above fails | An automatic fix | `autofix.yml` | Draft PR labelled `autofix`, or an issue "ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!! (<workflow>)" assigned to the owner, which GitHub mails |
-| Mondays, 03:41 UTC | The whole suite and the package on Arch Linux's own Qt (`archlinux:latest`) | `arch.yml` | A failed run to look at (not a required check, no automatic fix) |
+| When one of the three above fails, or `arch.yml` fails on `main` or on the fix branch | An automatic fix (for `arch.yml` only when `Tests` passed on the same commit) | `autofix.yml` | Draft PR labelled `autofix`, or an issue "ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!! (<workflow>)" assigned to the owner, which GitHub mails |
+| Every push to `main`, when the daily check finds Arch's packages changed, after a merge made by itself, on an automatic fix of an Arch failure, and Mondays at 03:41 UTC | The whole suite and the package on Arch Linux's own Python, Qt and Qt WebEngine (`archlinux:latest`), and a record of the versions it tested | `arch.yml` | Artifact `arch-versions` and the run's summary; a failure goes to the automatic fix (see "Arch Linux's own packages"); not a required check of the release |
 | Every day, 04:23 UTC, and on every PR and push to `main` | The security tests with the engine's sandbox really on (as a normal user), and the RustSec advisories of every crate of the AdBlock engine | `security.yml` | Checks on the PR; on `main` the issue "Rust advisories" when one is found (no automatic fix) |
 | Mondays, 07:41 UTC | The automation itself: every scheduled check (also the Arch and security ones, 1.1.19), and one tiny question to each reserve of the automatic fix | `health.yml` | Issue "Automation health" when something stopped, failed, waits too long, or a reserve's key or model no longer works |
 | Once a month | New versions of the GitHub actions used | Dependabot | One PR labelled `maintenance` |
@@ -41,6 +41,66 @@ The browser itself runs on Arch Linux's `qt6-webengine`, updated with the
 system (`sudo pacman -Syu`); the Chrome version presented to sites is the one of
 that engine (1.1.14). Filter lists and user
 scripts update themselves inside the browser.
+
+### Arch Linux's own packages
+
+`Tests` runs on Ubuntu with Python 3.13 and PyPI's Qt; users run Arch's
+Python, Qt, PyQt and Qt WebEngine, which `pacman -Syu` updates at any time,
+outside I.K.E.'s releases. These are followed as components too
+(`ARCH_PACKAGES` in `tools/check-components.py`): `qt6-webengine`,
+`qt6-base`, `qt6-webchannel`, `qt6-svg`, `python-pyqt6`,
+`python-pyqt6-webengine`, `python`, `python-cryptography`, `python-jeepney`,
+`publicsuffix-list` and `rust` (it brings `cargo`, for the build).
+
+- **What was really tested.** `arch.yml` installs them in `archlinux:latest`
+  and records, before the tests, what it tests: `pacman -Q` of each package,
+  Python, Qt, PyQt and the engine's Chromium as I.K.E. reports it
+  (`chromever.engine_full()`). The record is in the run's summary and in the
+  artifact `arch-versions` (`arch-versions.json`, kept 90 days).
+- **Every day** (`daily-check.yml`) the check reads, with GET calls of
+  GitHub's API only, the record of the last green `arch.yml` run on `main`
+  (`--save-arch-tested`; the token is only in that step, not where the
+  sources of others are built), and the version of each package in Arch's
+  official repositories, core and extra, from Arch's package site
+  (`--arch`; the -testing repositories never count). The components report
+  (artifact, run summary, and the `components` issue when that is written)
+  has a section with both columns and the run that tested them.
+- **What happens.** A package in another version (a new `pkgrel` too: a
+  rebuild can break as well), or no green run on `main` with a record yet:
+  "Arch changed: compatibility to verify". The small job `start-arch`, whose
+  only permission is `actions: write`, starts `arch.yml` on `main` (not when
+  a run of it is already queued or running). This is never an update to
+  apply and never a release by itself; the daily maintenance does not look
+  at Arch at all. When Arch's site cannot be read, the package is "source
+  unreachable": never a change and nothing is started (the weekly run stays
+  as a floor). A mirror that lags behind Arch's site makes `arch.yml` test
+  the older set; the next day the check finds the change again and starts it
+  once more.
+- **A failure of `arch.yml`** goes to the automatic fix (`autofix.yml` listens
+  to "Arch Linux"; the runs the automation itself started hand their failure
+  over, as `tests.yml` does):
+  - pacman, Arch's mirrors or keyring, a package not found, a conflict
+    (steps "Git (for the checkout)", "Arch's packages"), the container, or
+    the engine's crates that cannot be downloaded ("AdBlock engine's
+    crates"): the issue "GitHub or the runner failed: Arch Linux", no AI;
+  - a test step that failed runs once more first, as in `Tests`;
+  - a failure of the engine's build or of the tests is the code's. It is
+    fixed only when `Tests` passed on the same commit (the plan waits for
+    its result, at most 50 minutes): then it is an incompatibility with Arch
+    alone. When `Tests` failed too, its own fix handles it; when `Tests` has
+    no result on that commit, an issue asks a person to look;
+  - the failure description given to the fix names the packages that changed
+    since the last green run on `main` (old -> new, from the two records, and
+    Python, Qt, PyQt and Chromium), the failed tests, the files the logs name
+    and the failed step's log. The guard's rules are the same as for every
+    fix: `ike/` and I.K.E.'s own page scripts; never the package, the
+    engine, the builders (`tools/build-*`), `vendor/`, the Cargo files, the
+    workflows or the tests' data;
+  - the fix is tested on Arch too (`publish` starts `arch.yml` on
+    `automation/autofix-main` with the tests and the security tests, also
+    for a later attempt on that branch after another failure), and
+    the merge waits for every check of its commit; when `arch.yml` passes
+    there, it asks for the merge as the other checks do.
 
 ## The maintenance candidate
 
@@ -74,7 +134,9 @@ scripts update themselves inside the browser.
 ## The automatic fix
 
 `autofix.yml` starts when `Tests` fails on `main`, on the maintenance candidate
-or on the fix branch, or when the daily check or the daily maintenance fail.
+or on the fix branch, or when the daily check or the daily maintenance fail,
+or when `arch.yml` fails on `main` or on the fix branch while `Tests` passed on
+the same commit (an incompatibility with Arch Linux's own packages alone).
 Failures of forks, of people's pull requests and of the standby branches are
 never touched.
 
@@ -96,7 +158,11 @@ never touched.
    daily check, `publish-candidate` of the maintenance), there is no AI fix of
    `main`: an issue **"GitHub or the runner failed: <workflow>"** says so, in
    its own words and without a message for ChatGPT. Its title is not the one
-   the plan reads, so it never holds back the fix of a real failure. The log
+   the plan reads, so it never holds back the fix of a real failure. For
+   `arch.yml`, pacman, Arch's mirrors and keyring, the container and the
+   engine's crates' download count as such failures too, and a failure of
+   the build or the tests is fixed only when `Tests` passed on the same
+   commit (see "Arch Linux's own packages"). The log
    of a failed job is asked three times (GitHub may answer 404 for a few
    seconds after a run closes); when no log can be read, that issue too,
    instead of a fix that could only guess. A job that failed without a failed

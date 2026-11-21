@@ -3200,3 +3200,309 @@ def test_the_latest_commits_never_bring_in_a_protected_file():
     ctx = load("autofix-context")
     assert set(guard.FORBIDDEN_FILES) <= ctx.NOT_RECENT
     assert {"ike/blocker.py", "ike/scriptlets.py"} <= ctx.NOT_RECENT
+
+
+# --- "Arch Linux": I.K.E. on Arch's own packages (arch.yml) ----------------------
+
+def _arch_run(**kw):
+    kw.setdefault("run_attempt", 2)
+    kw.setdefault("_tests", "success")
+    return failed_run(name="Arch Linux", **kw)
+
+
+@pytest.mark.parametrize("jobs_, tests, branch, action, kind, why", [
+    # pacman, Arch's mirrors and keyring, the container, a download: never the code's
+    ([_with_steps("Arch Linux", "Arch's packages")], "success", "main", "issue", "infra", "Arch's mirrors"),
+    ([_with_steps("Arch Linux", "Git (for the checkout)")], "failure", "main", "issue", "infra", "not the code"),
+    ([_with_steps("Arch Linux", "AdBlock engine's crates")], "", "main", "issue", "infra", "crates.io"),
+    ([_with_steps("Arch Linux", "Initialize containers")], "success", "main", "issue", "infra", "not the code"),
+    ([_with_steps("Arch Linux", "Run actions/upload-artifact@cf43")], "success", "main", "issue", "infra",
+     "not the code"),
+    ([_with_steps("hand-over", "Hand the failure to the automatic fix")], "success", "main", "issue", "infra",
+     "only the job that reports"),
+    # the build or the tests with Tests green on the same commit: Arch alone, fixed
+    ([_with_steps("Arch Linux", "Tests (Arch's Qt)")], "success", "main", "fix", "main", "Tests passed"),
+    ([_with_steps("Arch Linux", "AdBlock engine")], "success", "main", "fix", "main", "Tests passed"),
+    ([_with_steps("Arch Linux", "Engine versions")], "success", "main", "fix", "main", "Tests passed"),
+    ([_with_steps("Arch Linux", "Tests of the installed package (Arch)")], "success", "main", "fix", "main", ""),
+    ([{"name": "Arch Linux", "conclusion": "failure", "steps": []}], "success", "main", "fix", "main", ""),
+    # Tests red on the same commit: its own fix handles it
+    ([_with_steps("Arch Linux", "Tests (Arch's Qt)")], "failure", "main", "skip", "", "Tests failed"),
+    # Tests without a result: a person looks (no blind fix, no silence)
+    ([_with_steps("Arch Linux", "Tests (Arch's Qt)")], "", "main", "issue", "", "no run"),
+    ([_with_steps("Arch Linux", "Tests (Arch's Qt)")], "running", "main", "issue", "", "running"),
+    # the automation's branches only, as for Tests
+    ([_with_steps("Arch Linux", "Tests (Arch's Qt)")], "success", "fix/1.1.20-review", "skip", "", "not one"),
+])
+def test_an_arch_failure_is_classified(jobs_, tests, branch, action, kind, why):
+    run = _arch_run(head_branch=branch, _tests=tests)
+    p = plan_tool.decide(run, jobs_, "")
+    assert (p["action"], p["kind"]) == (action, kind), p
+    assert why in p["reason"], p
+    if action == "fix":
+        assert p["push_branch"] == "automation/autofix-main" and p["checkout"] == "main1"
+        assert p["allow_adblock"] == "false"                   # the guard's rules stay as they are
+        # an infra issue never holds back this fix
+        infra_issue = {"title": plan_tool.INFRA_TITLE % "Arch Linux", "body": "x", "reported_at": NOW.isoformat()}
+        assert plan_tool.decide(run, jobs_, "", [infra_issue], now=NOW)["action"] == "fix"
+
+
+def test_an_arch_failure_follows_the_rules_of_the_tests():
+    tests_failed = [_with_steps("Arch Linux", "Tests (Arch's Qt)")]
+    # a test that failed once runs once more before any AI, also on Arch
+    p = plan_tool.decide(_arch_run(run_attempt=1, _tests=""), tests_failed, "")
+    assert p["action"] == "rerun"
+    p = plan_tool.decide(_arch_run(run_attempt=1), [_with_steps("Arch Linux", "AdBlock engine")], "")
+    assert p["action"] == "fix"                                # a build fails the same every time
+    p = plan_tool.decide(_arch_run(_event="workflow_run", triggering_actor={"login": "github-actions[bot]"}),
+                         tests_failed, "")
+    assert p["action"] == "skip" and "hand its failure over" in p["reason"]
+    # an older failure, a fork, a fix of main already waiting, the same failure reported
+    assert plan_tool.decide(_arch_run(_tip="newer"), tests_failed, "")["action"] == "skip"
+    assert plan_tool.decide(_arch_run(head_repository={"full_name": "x/fork"}), tests_failed, "")["action"] == "skip"
+    assert "already waiting" in plan_tool.decide(_arch_run(), tests_failed, "87")["reason"]
+    p = plan_tool.decide(_arch_run(), tests_failed, "", [report("Arch Linux", sha="abc")], now=NOW)
+    assert p["action"] == "skip" and "already reported" in p["reason"]
+    # the automatic fix's own branch: the next attempt, then an issue
+    p = plan_tool.decide(_arch_run(head_branch="automation/autofix-main", _attempts=1), tests_failed, "87")
+    assert (p["action"], p["attempt"], p["push_branch"]) == ("fix", "2", "automation/autofix-main")
+    p = plan_tool.decide(_arch_run(head_branch="automation/autofix-main", _attempts=2), tests_failed, "87")
+    assert p["action"] == "issue" and "2 automatic fixes" in p["reason"]
+    # the reason names what changed in Arch
+    p = plan_tool.decide(_arch_run(_arch_changes=["qt6-webengine 6.140.0-1 -> 6.141.0-1"]), tests_failed, "")
+    assert "qt6-webengine 6.140.0-1 -> 6.141.0-1" in p["reason"] and "Tests passed on the same commit" in p["reason"]
+    # the daily check's job that starts arch.yml only reports
+    p = plan_tool.decide(failed_run(name="Daily component check", run_attempt=2),
+                         [_with_steps("start-arch", 'Start "Arch Linux" on main')], "")
+    assert (p["action"], p["kind"]) == ("issue", "infra")
+
+
+@pytest.mark.parametrize("answers, result, waits", [
+    ([[("in_progress", None)], [("completed", "success")]], "success", 1),          # waited for
+    ([[("completed", "failure"), ("completed", "success")]], "success", 0),         # the newest run
+    ([[("completed", "success"), ("completed", "timed_out")]], "failure", 0),
+    ([[("completed", "action_required"), ("completed", "cancelled")]], "", 0),      # never really ran
+    ([[]], "", 0),
+    ([[("queued", None)]] * 3, "running", 2),                                       # not in time
+])
+def test_the_plan_waits_for_tests_on_the_same_commit(monkeypatch, answers, result, waits):
+    asked, slept = [], []
+
+    def api(path, raw=False):
+        asked.append(path)
+        runs = answers.pop(0) if len(answers) > 1 else answers[0]
+        return {"workflow_runs": [{"id": i, "head_sha": "abc", "status": s, "conclusion": c,
+                                   "run_started_at": "2026-11-21T1%d:00:00Z" % i} for i, (s, c) in enumerate(runs)]
+                + [{"id": 99, "head_sha": "other", "status": "completed", "conclusion": "success"}]}
+    monkeypatch.setattr(plan_tool, "gh_api", api)
+    assert plan_tool.tests_result("o/r", "abc", tries=3, pause=7, sleep=slept.append) == result
+    assert slept == [7] * waits
+    assert all(p.startswith("repos/o/r/actions/workflows/tests.yml/runs?head_sha=abc") for p in asked)
+    workflow = (WORKFLOWS / "autofix.yml").read_text()
+    minutes = int(re.search(r"timeout-minutes: (\d+)", jobs_of(workflow)["plan"]).group(1))
+    assert minutes * 60 > plan_tool.TESTS_WAIT_TRIES * plan_tool.TESTS_WAIT_PAUSE + 15 * 60
+
+
+def _arch_record(**changes):
+    packages = {"qt6-webengine": "6.140.0-1", "qt6-base": "6.12.0-5", "python": "3.14.10-1",
+                "python-pyqt6": "6.12.1-1", "rust": "1:1.100.0-1"}
+    record = {"schema": 1, "packages": packages, "python": "3.14.10", "qt": "6.12.0", "pyqt": "6.12.1",
+              "chromium": "140.0.7339.264"}
+    for key, value in changes.items():
+        if key in ("python", "qt", "pyqt", "chromium"):
+            record[key] = value
+        else:
+            packages[key.replace("_", "-")] = value
+    return record
+
+
+ARCH_LOG = """##[group]Run set -o pipefail
+set -o pipefail
+python3 -m pytest -ra --junitxml=out/tests-arch.xml 2>&1 | tee out/tests-arch.log
+##[endgroup]
+    def test_address_field_toolbar_and_bars(qtbot):
+>       bars = polish.toolbar_parts(window)
+  File "/__w/IKE-Browser/IKE-Browser/ike/polish.py", line 120, in toolbar_parts
+    return [part(w) for w in widgets]
+E   TypeError: <lambda>() missing 1 required positional argument: 'w'
+tests/test_polish.py:88: TypeError
+=========================== short test summary info ============================
+FAILED tests/test_polish.py::test_address_field_toolbar_and_bars - TypeError: <lambda>() missing 1 required p...
+ERROR tests/test_window_parts.py::test_tabs - RuntimeError: wrapped C/C++ object deleted
+========== 1 failed, 1 error, 857 passed in 412.31s ==========
+##[error]Process completed with exit code 1.
+"""
+
+
+def _arch_main(monkeypatch, tmp_path, capsys, tests="success", green_record=True):
+    """tools/autofix-plan.py's main() on a failed "Arch Linux" run of main, with
+    GitHub's answers and the two recorded version sets standing in."""
+    import io
+    import zipfile
+
+    def zipped(record):
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            z.writestr("arch-versions.json", json.dumps(record))
+        return buf.getvalue()
+    failed = _arch_record(qt6_webengine="6.141.0-1", python="3.15.0", chromium="141.0.7390.55")
+    failed["packages"]["python"] = "3.15.0-1"
+    green = _arch_record()
+    run = {"id": 9, "name": "Arch Linux", "head_branch": "main", "conclusion": "failure", "status": "completed",
+           "head_sha": "abc", "head_repository": {"full_name": "o/r"}, "html_url": "u9", "run_attempt": 2}
+    asked = []
+
+    def api(path, raw=False, **kw):
+        asked.append(path)
+        if path.endswith("/runs/9"):
+            return run
+        if path.endswith("/runs/9/jobs?per_page=100"):
+            return {"jobs": [dict(_with_steps("Arch Linux", "Tests (Arch's Qt)"), id=7)]}
+        if path.endswith("/jobs/7/logs"):
+            return ARCH_LOG
+        if "workflows/tests.yml/runs?head_sha=abc" in path:
+            return {"workflow_runs": [{"id": 1, "head_sha": "abc", "status": "completed", "conclusion": tests}]}
+        return []
+
+    def artifacts(path, raw=False):
+        asked.append(path)
+        if "/workflows/arch.yml/runs?" in path:
+            return {"workflow_runs": [{"id": 5, "conclusion": "success", "head_branch": "main", "head_sha": "old5",
+                                       "html_url": "https://github.com/o/r/actions/runs/5"}]}
+        if path.endswith("/runs/9/artifacts?name=arch-versions"):
+            return {"artifacts": [{"id": 90, "name": "arch-versions"}]}
+        if path.endswith("/runs/5/artifacts?name=arch-versions"):
+            return {"artifacts": [{"id": 50, "name": "arch-versions"}] if green_record else []}
+        if path.endswith("/artifacts/90/zip"):
+            return zipped(failed)
+        if path.endswith("/artifacts/50/zip"):
+            return zipped(green)
+        raise AssertionError(path)
+    components = plan_tool._components()
+    monkeypatch.setattr(components, "gh_api", artifacts)
+    monkeypatch.setattr(plan_tool, "_components", lambda: components)
+    monkeypatch.setattr(plan_tool, "gh_api", api)
+    monkeypatch.setattr(plan_tool, "tip", lambda b: "abc" if b == "main" else "")
+    monkeypatch.setattr(plan_tool, "autofix_commits", lambda b: 0)
+    monkeypatch.setattr(plan_tool.time, "sleep", lambda s: None)
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    logs = tmp_path / "failure.md"
+    plan_tool.main(["--run-id", "9", "--logs", str(logs), "--repo", "o/r", "--event", "workflow_dispatch"])
+    out = capsys.readouterr().out
+    return json.loads(out[out.index("\n{") + 1:] if not out.startswith("{") else out), logs.read_text(), asked
+
+
+def test_the_failure_of_arch_names_what_changed(monkeypatch, tmp_path, capsys):
+    """What AutoFix is given for an Arch-only failure: the packages that changed
+    since the last green run on main (old -> new, from both recorded sets), the
+    failed tests, their log lines and the files the logs name."""
+    plan, text, asked = _arch_main(monkeypatch, tmp_path, capsys)
+    assert plan["action"] == "fix" and plan["kind"] == "main" and plan["workflow"] == "Arch Linux"
+    assert "qt6-webengine 6.140.0-1 -> 6.141.0-1" in plan["reason"]
+    assert text.startswith("# Failure to fix\n") and "- Workflow: Arch Linux\n" in text
+    section = text.split("## Arch Linux: an incompatibility with Arch's own packages", 1)[1].split("## Job ", 1)[0]
+    for line in ("- qt6-webengine 6.140.0-1 -> 6.141.0-1\n", "- python 3.14.10-1 -> 3.15.0-1\n",
+                 "- Python 3.14.10 -> 3.15.0\n", "- Chromium 140.0.7339.264 -> 141.0.7390.55\n"):
+        assert line in section, line
+    assert "qt6-base" not in section.split("This run tested")[0]          # unchanged: not listed as a change
+    assert "https://github.com/o/r/actions/runs/5" in section and "commit old5" in section
+    assert "\"Tests\" (Ubuntu, Python 3.13, PyPI's Qt) passed on this commit" in section
+    assert "never the package, the engine, the builders, the workflows or the tests" in section
+    assert "- FAILED tests/test_polish.py::test_address_field_toolbar_and_bars - TypeError" in section
+    assert "- ERROR tests/test_window_parts.py::test_tabs - RuntimeError" in section
+    assert "- ike/polish.py:120\n" in section and "- tests/test_polish.py:88\n" in section
+    assert "- tests/test_polish.py\n" not in section and "- tests/test_window_parts.py\n" in section
+    # the failed step's log lines follow, as for every failure
+    assert "E   TypeError: <lambda>() missing 1 required positional argument: 'w'" in text.split("## Job ", 1)[1]
+    # only GETs of GitHub's API (paths, no method switch)
+    assert not any(p.startswith("-") for p in asked)
+    # the places reach the code given to the agent (tools/autofix-context.py)
+    ctx = load("autofix-context")
+    assert ("ike/polish.py", 120) in ctx.places(text, ROOT)
+
+
+def test_the_failure_of_arch_without_a_green_run_or_with_tests_red(monkeypatch, tmp_path, capsys):
+    plan, text, asked = _arch_main(monkeypatch, tmp_path, capsys, green_record=False)
+    assert plan["action"] == "fix"
+    assert "No green \"Arch Linux\" run on main recorded its versions yet" in text
+    assert "This run tested: Python 3.15.0" in text
+    # Tests red on the same commit: no fix and no versions read
+    plan, text, asked = _arch_main(monkeypatch, tmp_path, capsys, tests="failure")
+    assert plan["action"] == "skip" and "Tests failed on the same commit" in plan["reason"]
+    assert "## Arch Linux:" not in text
+    # no Tests result: an issue for a person, with what Arch changed
+    plan, text, asked = _arch_main(monkeypatch, tmp_path, capsys, tests="cancelled")
+    assert plan["action"] == "issue" and plan["kind"] == "" and "no run" in plan["reason"]
+    assert "- qt6-webengine 6.140.0-1 -> 6.141.0-1\n" in text
+
+
+def test_arch_reaches_the_automatic_fix_and_comes_back_tested_there():
+    """The workflow, the plan and arch.yml agree: names of steps and jobs, the
+    hand-over of the runs the automation started, the fix tested on Arch too,
+    the merge asked for when it passes, main tested after a merge."""
+    autofix = (WORKFLOWS / "autofix.yml").read_text()
+    assert 'workflows: ["Tests", "Daily maintenance candidate", "Daily component check", "Arch Linux"]' in autofix
+    arch = (WORKFLOWS / "arch.yml").read_text()
+    assert "name: %s\n" % plan_tool.ARCH in arch.split("\njobs:\n")[0]
+    jobs = jobs_of(arch)
+    assert set(jobs) == {"arch", "hand-over", "merge-ready"}
+    assert "    name: %s\n" % plan_tool.ARCH_JOB in jobs["arch"]
+    names = re.findall(r"^      - name: (.+)$", jobs["arch"], re.M)
+    for step in plan_tool.ARCH_RERUN_STEPS:
+        assert step in names, step
+    infra = [n for n in names if plan_tool.ARCH_INFRA_STEP.match(n)]
+    assert infra == ["Git (for the checkout)", "Git owner check", "Arch's packages", "AdBlock engine's crates"]
+    assert "cargo fetch --locked" in arch and "cargo build --release --frozen" in arch
+    assert set(plan_tool.REPORTING_JOBS["Arch Linux"]) == {"hand-over", "merge-ready"}
+    hand = jobs["hand-over"]
+    assert "needs: arch" in hand and "failure()" in hand and "github.actor == 'github-actions[bot]'" in hand
+    assert "github.run_attempt > 1" in hand and "automation/autofix-main" in hand and "'main'" in hand
+    assert 'gh workflow run autofix.yml --ref main -f run_id="$RUN_ID"' in hand
+    assert "permissions:\n      actions: write\n" in hand and "contents: write" not in arch
+    ready = jobs["merge-ready"]
+    assert "success()" in ready and "github.ref_name == 'automation/autofix-main'" in ready
+    assert 'gh workflow run automerge.yml --ref main -f sha="$SHA"' in ready
+    merge = (ROOT / "tools/automerge.py").read_text()
+    assert '"workflow", "run", "arch.yml", "--repo", a.repo, "--ref", "main"' in merge
+    # the reporting jobs are the automation's own: the merge never waits for them
+    automerge = load("automerge")
+    assert {"hand-over", "merge-ready"} <= automerge.OWN_JOBS
+    # the guard keeps its rules: no workflow, builder, vendor, Cargo or test data file for any fix
+    for rel in (".github/workflows/arch.yml", "tools/build-darkreader.py", "ike-adblock/Cargo.toml",
+                "vendor/adblock/__init__.py", "tests/data/x.json", "PKGBUILD"):
+        assert guard.allowed_path(rel, False), rel
+
+
+@pytest.mark.parametrize("workflow, subjects, arch", [
+    ("Arch Linux", "", True),                                   # a fix of an Arch failure
+    ("Tests", 'autofix: attempt 2 after a failure of "Tests"\n'
+              'autofix: attempt 1 after a failure of "Arch Linux"\n', True),   # a later attempt on its branch
+    ("Tests", 'autofix: attempt 1 after a failure of "Tests"\n', False),   # an ordinary fix: as before
+])
+def test_a_fix_of_an_arch_failure_is_tested_on_arch(tmp_path, workflow, subjects, arch):
+    import os
+    script = step_script("Push the fix, update the draft PR and start the tests")
+    temp = tmp_path / "runner"
+    (temp / "autofix").mkdir(parents=True)
+    for name in ("summary.md", "guard.md"):
+        (temp / "autofix" / name).write_text("x\n")
+    bin_ = tmp_path / "bin"
+    bin_.mkdir()
+    (tmp_path / "subjects").write_text(subjects)
+    (bin_ / "git").write_text('#!/bin/sh\ncase "$*" in *"rev-parse refs/heads/autofix-result"*) echo fixnew;; '
+                              '*rev-parse*) echo tip1;; "log --format=%%s origin/main..refs/heads/autofix-result") '
+                              'cat "%s";; esac\nexit 0\n' % (tmp_path / "subjects"))
+    gh_calls = tmp_path / "gh-calls"
+    (bin_ / "gh").write_text('#!/bin/sh\necho "$*" >> "%s"\nexit 0\n' % gh_calls)
+    for f in ("git", "gh"):
+        (bin_ / f).chmod(0o755)
+    env = dict(os.environ, RUNNER_TEMP=str(temp), PATH="%s:%s" % (bin_, os.environ["PATH"]), GH_TOKEN="x",
+               KIND="main", PUSH_BRANCH="automation/autofix-main", CHECKOUT="main1", PUSH_TIP="tip1",
+               WORKFLOW=workflow, ATTEMPT="1", RUN_URL="u", GITHUB_STEP_SUMMARY=str(tmp_path / "summary"))
+    run = subprocess.run(["bash", "-e", "-c", script], env=env, capture_output=True, text=True, timeout=60,
+                         cwd=ROOT)
+    assert run.returncode == 0, run.stdout + run.stderr
+    calls = gh_calls.read_text()
+    assert "workflow run tests.yml --ref automation/autofix-main" in calls
+    assert "workflow run security.yml --ref automation/autofix-main" in calls
+    assert ("workflow run arch.yml --ref automation/autofix-main" in calls) is arch, calls

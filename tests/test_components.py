@@ -322,3 +322,248 @@ def test_the_test_tools_are_pinned_too():
     assert "-q ruff\n" not in autofix and autofix.count("grep -oE '^ruff==[0-9][0-9.]*$'") == 2
     tool = (ROOT / "tools/check-components.py").read_text()
     assert '"pytest", "ruff")' in tool
+
+
+# --- Arch Linux's own packages (the system I.K.E. runs on) ---------------------
+# Answers of Arch's package site as they look (archlinux.org/packages/search/json),
+# written here by hand: the site is not reachable from every test machine.
+
+ARCH_NOW = {"qt6-webengine": "6.140.0-1", "qt6-base": "6.12.0-5", "qt6-webchannel": "6.12.0-1",
+            "qt6-svg": "6.12.0-1", "python-pyqt6": "6.12.1-1", "python-pyqt6-webengine": "6.140.1-1",
+            "python": "3.14.10-1", "python-cryptography": "50.0.2-2", "python-jeepney": "0.9.0-3",
+            "publicsuffix-list": "20260507.2070-1", "rust": "1:1.100.0-1"}
+
+
+def arch_site(versions, down=(), testing=None):
+    """A stand-in for Arch's site: {package: "epoch:pkgver-pkgrel"}; packages in
+    `down` raise as an unreachable site does; `testing` adds newer versions in
+    the -testing repositories, which never count."""
+    asked = []
+
+    def entry(name, version, repo):
+        epoch, _, rest = version.rpartition(":")
+        pkgver, pkgrel = rest.rsplit("-", 1)
+        return {"pkgname": name, "repo": repo, "arch": "x86_64", "pkgver": pkgver, "pkgrel": pkgrel,
+                "epoch": int(epoch or 0)}
+
+    def get(url, timeout=60):
+        name = url.rsplit("=", 1)[1]
+        asked.append(name)
+        if name in down:
+            raise OSError("network unreachable")
+        results = []
+        if name in (testing or {}):
+            results.append(entry(name, testing[name], "extra-testing"))
+        if name in versions:
+            results.append(entry(name, versions[name], "core" if name == "python" else "extra"))
+        return json.dumps({"version": 2, "limit": 250, "valid": True, "results": results}).encode()
+    get.asked = asked
+    return get
+
+
+def arch_tested(packages, **facts):
+    record = {"schema": 1, "packages": dict(packages), "python": "3.14.10", "qt": "6.12.0", "pyqt": "6.12.1",
+              "chromium": "140.0.7339.264"}
+    record.update(facts)
+    record["run"] = {"id": 44934030244, "url": "https://github.com/o/r/actions/runs/44934030244",
+                     "sha": "cd5cf6a0123456789", "date": "2026-11-21T18:10:00Z"}
+    return {"tested": record}
+
+
+def test_arch_versions_changed_unchanged_unreachable():
+    """The Arch packages I.K.E. runs on, in core/extra now, against what the last
+    green "Arch Linux" run on main tested. A site that cannot be reached is
+    "source unreachable", never a change; -testing repositories never count."""
+    mod = load_tool()
+    assert set(mod.ARCH_PACKAGES) == set(ARCH_NOW)
+    newer = {"qt6-webengine": "6.141.0-1", "python": "3.15.0-1"}
+    same = mod.check_arch(arch_tested(ARCH_NOW), arch_site(ARCH_NOW, testing=newer))
+    assert same["state"] == "same" and same["changed"] == [] and same["current"] == ARCH_NOW
+    assert same["current"]["rust"] == "1:1.100.0-1"               # with its epoch, as pacman -Q writes it
+    # a new engine and a rebuild of python (a new pkgrel counts: a rebuild can break too)
+    moved = mod.check_arch(arch_tested(ARCH_NOW), arch_site(dict(ARCH_NOW, **{"qt6-webengine": "6.141.0-1",
+                                                                         "python": "3.14.10-2"})))
+    assert moved["state"] == "changed"
+    assert moved["changed"] == [("qt6-webengine", "6.140.0-1", "6.141.0-1"), ("python", "3.14.10-1", "3.14.10-2")]
+    # the site does not answer: nothing changed, never an update
+    site = arch_site(ARCH_NOW, down=set(ARCH_NOW))
+    down = mod.check_arch(arch_tested(ARCH_NOW), site)
+    assert down["state"] == "unreachable" and down["changed"] == [] and down["current"] == {}
+    assert set(down["unreachable"]) == set(ARCH_NOW)
+    assert len(site.asked) == mod.ARCH_NETWORK_FAILURES            # not asked eleven times for nothing
+    # one package unreachable, another one changed: the change still counts
+    part = mod.check_arch(arch_tested(ARCH_NOW), arch_site(dict(ARCH_NOW, **{"qt6-base": "6.13.0-1"}),
+                                                      down={"python-jeepney"}))
+    assert part["state"] == "changed" and [c[0] for c in part["changed"]] == ["qt6-base"]
+    assert list(part["unreachable"]) == ["python-jeepney"]
+    gone = mod.check_arch(arch_tested(ARCH_NOW), arch_site({k: v for k, v in ARCH_NOW.items() if k != "qt6-svg"}))
+    assert gone["state"] == "unreachable" and "not in Arch's core or extra" in gone["unreachable"]["qt6-svg"]
+    # nothing tested yet (or GitHub could not be read): verify, even with the site down
+    for saved in ({"tested": None}, {"tested": None, "error": "RuntimeError: HTTP 502"}, {}):
+        assert mod.check_arch(saved, arch_site(ARCH_NOW, down=set(ARCH_NOW)))["state"] == "untested"
+    # a package the tested run did not record (a newly followed one) is a change
+    fewer = {k: v for k, v in ARCH_NOW.items() if k != "publicsuffix-list"}
+    assert mod.check_arch(arch_tested(fewer), arch_site(ARCH_NOW))["changed"] == [
+        ("publicsuffix-list", "", "20260507.2070-1")]
+
+
+def _zip(record):
+    import io
+    import zipfile
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("arch-versions.json", json.dumps(record))
+    return buf.getvalue()
+
+
+def test_the_tested_versions_come_from_the_last_green_run_on_main(tmp_path):
+    """Read back with GET calls of GitHub's API only: the newest green arch.yml
+    run on main that kept its versions (older runs did not record them)."""
+    mod = load_tool()
+    record = arch_tested(ARCH_NOW)["tested"]
+    del record["run"]
+    paths = []
+
+    def api(path, raw=False):
+        paths.append(path)
+        if "/workflows/arch.yml/runs?" in path:
+            assert "branch=main" in path and "status=success" in path
+            return {"workflow_runs": [
+                {"id": 3, "conclusion": "success", "head_branch": "main", "head_sha": "c3", "html_url": "u3"},
+                {"id": 2, "conclusion": "success", "head_branch": "main", "head_sha": "c2", "html_url": "u2",
+                 "run_started_at": "2026-11-22T03:41:00Z"},
+                {"id": 1, "conclusion": "success", "head_branch": "main", "head_sha": "c1", "html_url": "u1"}]}
+        if path.endswith("/runs/3/artifacts?name=arch-versions"):
+            return {"artifacts": [{"id": 30, "name": "arch-versions", "expired": True}]}     # gone
+        if path.endswith("/runs/2/artifacts?name=arch-versions"):
+            return {"artifacts": [{"id": 20, "name": "arch-versions", "expired": False}]}
+        if path.endswith("/artifacts/20/zip"):
+            assert raw
+            return _zip(record)
+        raise AssertionError(path)
+    got = mod.last_tested_arch("o/r", api)
+    assert got["packages"] == ARCH_NOW and got["python"] == "3.14.10"
+    assert got["run"] == {"id": 2, "url": "u2", "sha": "c2", "date": "2026-11-22T03:41:00Z"}
+    assert not any(p.startswith("-") or " " in p for p in paths)           # paths of GETs, nothing else
+    # nothing recorded on main yet; GitHub not answering: the check verifies
+    assert mod.last_tested_arch("o/r", lambda path, raw=False: {"workflow_runs": []}) is None
+
+    def broken(path, raw=False):
+        raise RuntimeError("gh api: HTTP 502")
+    saved = mod.save_arch_tested(tmp_path / "t.json", "o/r", broken)
+    assert saved["tested"] is None and "HTTP 502" in saved["error"]
+    assert json.loads((tmp_path / "t.json").read_text()) == saved
+    # the tool asks gh for GETs only
+    text = (ROOT / "tools/check-components.py").read_text()
+    body = text.split("def gh_api(", 1)[1].split("\ndef ", 1)[0]
+    assert '["gh", "api", path]' in body and "-X" not in body and "--method" not in body
+
+
+def test_arch_records_what_it_really_tests(tmp_path, monkeypatch):
+    """arch.yml records pacman's versions and Python, Qt, PyQt and Chromium as
+    I.K.E. reports them; what cannot be read is recorded empty, never a failure."""
+    mod = load_tool()
+    monkeypatch.setenv("GITHUB_SHA", "abc123")
+    monkeypatch.setenv("GITHUB_RUN_ID", "77")
+    pacman = "\n".join("%s %s" % (n, v) for n, v in ARCH_NOW.items() if n != "python-jeepney")
+    probe = json.dumps({"python": "3.14.10", "qt": "6.12.0", "pyqt": "6.12.1", "chromium": "140.0.7339.264"})
+    out = tmp_path / "out" / "arch-versions.json"
+    md = mod.record_arch(out, query=lambda: pacman, probe=lambda: probe)
+    record = json.loads(out.read_text())
+    assert record["packages"] == dict(ARCH_NOW, **{"python-jeepney": ""})
+    assert (record["python"], record["chromium"], record["commit"], record["run"]) == \
+        ("3.14.10", "140.0.7339.264", "abc123", "77")
+    assert "| rust | 1:1.100.0-1 |" in md and "| python-jeepney | not installed |" in md
+    assert "Chromium 140.0.7339.264 (as I.K.E. reports it)" in md
+
+    def no_pacman():
+        raise FileNotFoundError("pacman")
+    mod.record_arch(out, query=no_pacman, probe=lambda: "not json")
+    record = json.loads(out.read_text())
+    assert set(record["packages"].values()) == {""} and "error" in record
+    # this very probe, here: the engine's version as chromever.py gives it
+    real = json.loads(subprocess.run([mod.sys.executable, "-c", mod.ARCH_PROBE], cwd=str(ROOT), capture_output=True,
+                                     text=True, timeout=300).stdout.strip().splitlines()[-1])
+    assert real["python"] and re.fullmatch(r"\d+\.\d+\.\d+\.\d+", real.get("chromium", "")), real
+
+
+@needs_node
+def test_the_report_says_what_was_really_tested(tool, repo, tmp_path, monkeypatch):
+    """--arch: the report and the outputs say whether Arch changed and which
+    versions were really tested; the bundled components' counts and the
+    maintenance (--apply, no --arch) stay as they were."""
+    saved = tmp_path / "arch-tested.json"
+    saved.write_text(json.dumps(arch_tested(ARCH_NOW)))
+    monkeypatch.setattr(tool, "arch_current",
+                        lambda get=None: (dict(ARCH_NOW, **{"qt6-webengine": "6.141.0-1"}), {}))
+    out = tmp_path / "gh-output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(out))
+    tool.main(["--root", str(repo), "--ubo-src", str(tool.ubo), "--arch", str(saved),
+               "--json", str(tmp_path / "r.json"), "--markdown", str(tmp_path / "r.md")])
+    assert out.read_text() == "updates=0\nerrors=0\narch=changed\n"
+    data = json.loads((tmp_path / "r.json").read_text())
+    assert data["updates"] == 0 and len(data["components"]) == 5
+    assert data["arch"]["state"] == "changed"
+    assert data["arch"]["changed"] == [{"package": "qt6-webengine", "tested": "6.140.0-1", "now": "6.141.0-1"}]
+    assert data["arch"]["tested"]["run"]["sha"] == "cd5cf6a0123456789"
+    md = (tmp_path / "r.md").read_text()
+    assert "**Arch changed: compatibility to verify.**" in md and "Not a release by itself" in md
+    assert "Really tested: run [44934030244](https://github.com/o/r/actions/runs/44934030244) on commit " \
+           "`cd5cf6a012`" in md and "Python 3.14.10, Qt 6.12.0, PyQt 6.12.1, Chromium 140.0.7339.264" in md
+    assert "| qt6-webengine | 6.141.0-1 | 6.140.0-1 | **yes** |" in md
+    assert "| python | 3.14.10-1 | 3.14.10-1 | no |" in md
+    # unreachable: said so, no change; a missing file of tested versions: verify
+    monkeypatch.setattr(tool, "arch_current", lambda get=None: ({}, {n: "OSError: down" for n in ARCH_NOW}))
+    out.write_text("")
+    tool.main(["--root", str(repo), "--ubo-src", str(tool.ubo), "--arch", str(saved), "--markdown",
+               str(tmp_path / "r.md")])
+    assert out.read_text().endswith("arch=unreachable\n")
+    md = (tmp_path / "r.md").read_text()
+    assert "| qt6-webengine | source unreachable |" in md and "Source unreachable: OSError: down" in md
+    out.write_text("")
+    tool.main(["--root", str(repo), "--ubo-src", str(tool.ubo), "--arch", str(tmp_path / "missing.json")])
+    assert out.read_text().endswith("arch=untested\n")
+    # without --arch (the daily maintenance): not asked, not written
+    monkeypatch.setattr(tool, "arch_current", lambda get=None: pytest.fail("Arch asked without --arch"))
+    out.write_text("")
+    assert tool.main(["--root", str(repo), "--ubo-src", str(tool.ubo), "--apply"]) == 0
+    assert out.read_text() == "updates=0\nerrors=0\n"
+
+
+def test_the_arch_workflows():
+    """arch.yml tests and records the followed packages, runs on every push to
+    main and when the daily check finds Arch changed; the daily check reads
+    with GET only, and only its own small job may start a workflow."""
+    mod = load_tool()
+    arch = (ROOT / ".github/workflows/arch.yml").read_text()
+    head = arch.split("\njobs:\n", 1)[0]
+    assert "push:\n    branches: [main]" in head and "workflow_dispatch:" in head and "schedule:" in head
+    assert "permissions:\n  contents: read\n" in head and "pull_request_target" not in arch
+    install = arch.split("- name: Arch's packages", 1)[1].split("- name:", 1)[0]
+    # what is recorded is installed (qt6-base comes with python-pyqt6 and qt6-webengine)
+    for name in mod.ARCH_PACKAGES:
+        assert name == "qt6-base" or re.search(r"\s%s[\s\\]" % re.escape(name), install), name
+    depends = re.search(r"^depends=\(([^)]*)\)", (ROOT / "PKGBUILD").read_text(), re.M).group(1)
+    for name in re.findall(r"'([^']+)'", depends):
+        assert name in mod.ARCH_PACKAGES or name == "hicolor-icon-theme", name   # every runtime dependency
+    record = arch.split("- name: The versions tested", 1)[1].split("- name:", 1)[0]
+    assert "tools/check-components.py --record-arch out/arch-versions.json" in record
+    assert '"$GITHUB_STEP_SUMMARY"' in record
+    upload = arch.split("name: %s\n" % mod.ARCH_ARTIFACT, 1)
+    assert len(upload) == 2 and "path: out/%s" % mod.ARCH_FILE in upload[1].split("\n      - ", 1)[0]
+    assert arch.index("- name: The versions tested") < arch.index("- name: Tests (Arch's Qt)")
+    daily = (ROOT / ".github/workflows/daily-check.yml").read_text()
+    parts = re.split(r"^  ([a-z-]+):\n", daily.split("\njobs:\n", 1)[1], flags=re.M)
+    jobs = dict(zip(parts[1::2], parts[2::2]))
+    assert set(jobs) == {"check", "update-issue", "start-arch"}
+    assert re.search(r"permissions:\n\s+actions: read .*\n\s+contents: read\n", jobs["check"])
+    assert "--save-arch-tested arch-tested.json" in jobs["check"] and "--arch arch-tested.json" in jobs["check"]
+    # the token only in the step that reads GitHub, not where others' sources are built
+    steps = jobs["check"].split("      - ")
+    assert [s.split("\n")[0] for s in steps if "GH_TOKEN" in s] == ["name: The Arch versions last tested on main"]
+    assert "write" not in jobs["check"]
+    assert "arch: ${{ steps.check.outputs.arch }}" in jobs["check"]
+    start = jobs["start-arch"]
+    assert "needs.check.outputs.arch == 'changed' || needs.check.outputs.arch == 'untested'" in start
+    assert re.search(r"permissions:\n\s+actions: write .*\n\s+steps:", start)
+    assert "gh workflow run arch.yml --ref main" in start and "checkout" not in start
