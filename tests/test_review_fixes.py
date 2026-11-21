@@ -1550,7 +1550,13 @@ def test_n12_addresses_from_the_menu_are_never_options(monkeypatch):
     assert "IKE_PROFILE" not in os.environ
     ike.early_args(["--profile=y", "--", "https://example.org/"])
     assert os.environ["IKE_PROFILE"] == "y"
-    entry = (pathlib.Path(APP) / "data" / "ike-browser.desktop").read_text()
+    # the source tree's copy, or the installed package's (CI runs the tests
+    # once more against the package, where it is in usr/share/applications)
+    app = pathlib.Path(APP)
+    desktop = app / "data" / "ike-browser.desktop"
+    if not desktop.exists():
+        desktop = app.parent.parent / "share" / "applications" / "ike-browser.desktop"
+    entry = desktop.read_text()
     assert "Exec=ike-browser -- %U" in entry
 
 
