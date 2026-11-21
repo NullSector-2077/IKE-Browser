@@ -65,7 +65,7 @@ the files named). What is left is said in the last column.
 | L2 | Halt did not withdraw a staged copy | Withdrawn and listed as bad | - |
 | L3 | Own requests named I.K.E.; every engine asked at first start | The pages' User-Agent everywhere; only the engine in use | - |
 | L4 | User scripts shared one world; answers delivered after the tab changed site | A world per script; an update into the page's world asks; late answers dropped | - |
-| L5 | Embedded-video click relay | Owner's decision (YouTube ad blocking): unchanged | Reported, not changed |
+| L5 | Embedded-video click relay: the page could put its own element on the point | Hardened (owner's decision): only when the page holds a frame of a video site, the point must still be on that frame when the click is made, at most once every 3 s; the skip on the video site itself unchanged | A page that moves its element in the few milliseconds between the check and the click (not shown possible) |
 | L6 | The logins' channel shared with the other helpers of its world | The channel's receiver is locked after the helper makes it; the others get only `fetchCss`, `cssFetched`, `adClick`, `adClickEmbedded` | Code in that world can still send blind calls on the transport (no answers): it cannot read a login. Separate worlds would move the video-ad helpers (owner's decision) |
 | L7 | Favicons decoded by every image plugin outside the sandbox | Only PNG and ICO, by their first bytes | - |
 | L8 | Store extensions not signature-checked | CRX3 only, signed by the key of the id asked for (RSA or ECDSA) | The store's own publisher signature is not checked |

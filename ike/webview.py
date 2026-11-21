@@ -5,7 +5,7 @@ import time
 
 from PyQt6.QtCore import QCoreApplication, QEvent, Qt, QTimer, QUrl
 from PyQt6.QtGui import QGuiApplication
-from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
+from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineScript, QWebEngineSettings
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QComboBox, QDialog, QDialogButtonBox, QLabel, QMessageBox, QVBoxLayout
 
@@ -313,15 +313,63 @@ class WebPage(QWebEnginePage):
         the same action for a cross-origin YouTube iframe after validating the
         frame origin and contentWindow in the isolated world.
         """
+        import json
         import time
-
-        from PyQt6.QtCore import QCoreApplication, QPointF
-        from PyQt6.QtGui import QMouseEvent
         now = time.monotonic()
         if now - getattr(self, "_last_click", 0.0) < 0.5:
             return False
-        if not self._video_host(self.url().host().lower()) and not allow_embedded:
+        direct = self._video_host(self.url().host().lower())
+        if not direct and not allow_embedded:
             return False
+        if direct:
+            return self._dispatch_click(x, y, now)
+        # a video of another site embedded in this page (review of 1.1.19,
+        # L5; the owner chose to harden it): only when the page really holds a
+        # frame of a video site, at most once every 3 seconds, and only if the
+        # point is still on that frame when the click is made: the page hears
+        # the player's request too and could put something of its own there,
+        # to get a real click (pop-ups, full screen) without the user
+        if now - getattr(self, "_last_embedded", -99.0) < 3 or not self._has_video_frame():
+            return False
+        if not self._click_point_ok(x, y):
+            return False
+        self._last_embedded = now
+        hosts = [h.lower() for h in self.app.config["video_ad_skip_hosts"]]
+        js = ("(function (x, y, hosts) { var e = document.elementFromPoint(x, y);"
+              " if (!e || e.tagName !== 'IFRAME') return false; var h;"
+              " try { h = new URL(e.src || e.getAttribute('src') || '', document.baseURI).hostname.toLowerCase(); }"
+              " catch (err) { return false; }"
+              " return hosts.some(function (b) { return h === b || h.endsWith('.' + b); });"
+              " })(%s, %s, %s)" % (json.dumps(float(x)), json.dumps(float(y)), json.dumps(hosts)))
+        self.runJavaScript(js, QWebEngineScript.ScriptWorldId.ApplicationWorld,
+                           lambda ok: self._dispatch_click(x, y, time.monotonic()) if ok is True else None)
+        return True
+
+    def _has_video_frame(self):
+        """A frame of a video site among this page's frames (Qt 6.8+)."""
+        try:
+            todo = list(self.mainFrame().children())
+        except (AttributeError, RuntimeError):
+            return True                  # an engine without the frame list: the other checks remain
+        seen = 0
+        while todo and seen < 500:
+            f = todo.pop()
+            seen += 1
+            if self._video_host(f.url().host().lower()):
+                return True
+            todo.extend(f.children())
+        return False
+
+    def _click_point_ok(self, x, y):
+        view = self.window_ref.view_of(self)
+        if view is None or not view.isVisible() or self.window_ref.current_view() is not view:
+            return False
+        zoom = self.zoomFactor() or 1.0
+        return 0 <= x * zoom < view.width() and 0 <= y * zoom < view.height()
+
+    def _dispatch_click(self, x, y, now):
+        from PyQt6.QtCore import QCoreApplication, QPointF
+        from PyQt6.QtGui import QMouseEvent
         view = self.window_ref.view_of(self)
         if view is None or not view.isVisible() or self.window_ref.current_view() is not view:
             return False

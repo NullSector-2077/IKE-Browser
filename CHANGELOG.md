@@ -49,8 +49,13 @@ one is fixed here with a test that failed before the fix (tests/test_review_fixe
   passed to Qt; the site of a name follows the Public Suffix List of the
   system (new dependency: publicsuffix-list), so `a.wordpress.com` and
   `b.wordpress.com` are two sites.
-- Left for the owner: the embedded-video click relay (YouTube ad blocking,
-  review L5).
+- **The automatic click that skips an ad in an embedded video** lands only on
+  the video: only when the page really holds a video frame, the point must
+  still be on it when the click is made, and at most once every 3 seconds (a
+  page could put something of its own there to get a real click). The skip
+  on the video site itself is unchanged (the owner's decision).
+- `docs/platforms` left `main`; it is kept, identical, on the archive branch
+  `docs/multiplatform-plan`.
 
 ## 1.1.19
 

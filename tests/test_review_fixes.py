@@ -768,3 +768,67 @@ def test_m5_strict_sends_the_one_language_it_shows():
     assert shields._one_language("de") == b"de"
     assert shields._one_language("") == b"en-US,en;q=0.9"
     assert shields._one_language("x y z") == b"en-US,en;q=0.9"
+
+
+STEPS_L5 = r'''
+P = %d
+
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QUrl
+    ike.config["video_ad_skip_hosts"] = ["127.0.0.1"]       # the local server plays the video site
+    v = ike.windows[0].current_view()
+    page = v.page()
+    clicks = out["clicks"] = []
+    real = page._dispatch_click
+    page._dispatch_click = lambda x, y, now: clicks.append([x, y]) or True
+    frame = "<iframe src='http://127.0.0.1:%%d/embed' style='position:absolute;left:0;top:0;width:300px;height:200px;border:0'></iframe>" %% P
+    cover = "<div style='position:absolute;left:0;top:0;width:300px;height:200px;background:red'></div>"
+    cases = (("no_frame", "<p>no video here</p>"), ("covered", frame + cover), ("on_frame", frame))
+    for name, html in cases:
+        page._last_embedded = -99.0
+        page._last_click = 0.0
+        v.setHtml("<title>t</title>" + html, QUrl("https://www.example.org/" + name))
+        yield 2500
+        before = len(clicks)
+        out[name] = page.trusted_click(50, 50, allow_embedded=True)
+        yield 800
+        out[name + "_clicked"] = len(clicks) - before
+    # a second request at once: not again within 3 seconds
+    page._last_click = 0.0
+    out["again"] = page.trusted_click(50, 50, allow_embedded=True)
+    page._dispatch_click = real
+'''
+
+
+def test_l5_the_embedded_video_click_lands_only_on_the_video(run_ike):
+    """L5 (the owner chose to harden it): the click that skips an ad in an
+    embedded video went wherever the point was when it arrived; the page
+    hears the player's request too and could put something of its own there
+    to get a real click. Now: only when the page holds a frame of a video
+    site, the point must be on that frame when the click is made, and at
+    most once every 3 seconds. The ad skip on the video site itself is as
+    before (test_security.py, test_videoads.py)."""
+    import http.server
+    import threading
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            body = b"<title>player</title><video></video>"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        out = run_ike(STEPS_L5 % srv.server_address[1], settings={"https_only": False}, timeout=60)
+    finally:
+        srv.shutdown()
+    assert out["no_frame"] is False and out["no_frame_clicked"] == 0, out
+    assert out["covered_clicked"] == 0, out                  # something of the page's own is on the point
+    assert out["on_frame"] is True and out["on_frame_clicked"] == 1, out
+    assert out["again"] is False, out
