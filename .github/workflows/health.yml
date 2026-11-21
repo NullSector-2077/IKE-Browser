@@ -27,8 +27,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          for w in daily-check.yml daily-maintenance.yml health.yml; do
-            gh api -X PUT "repos/${{ github.repository }}/actions/workflows/$w/enable"
+          # every workflow that runs on a schedule, found in the files (a new
+          # one is never forgotten: arch.yml and security.yml were)
+          for f in .github/workflows/*.yml; do
+            if grep -q '^  schedule:' "$f"; then
+              gh api -X PUT "repos/${{ github.repository }}/actions/workflows/$(basename "$f")/enable"
+            fi
           done
       - name: Check the automation
         env:
