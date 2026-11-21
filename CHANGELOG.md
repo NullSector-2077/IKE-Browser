@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.1.19
+
+- **The home network, also through public names**: the web engine's own
+  protection (Local Network Access) is on for every site. A public page can
+  no longer reach this computer, the router or other devices at home, even
+  through a public name that points there (DNS rebinding): pictures,
+  scripts, frames, fetch, workers, redirects, WebRTC, links and forms that
+  open a page at home. There are no exceptions per site: the engine's only
+  way to make one opens the device to every site (tried), so it is not used,
+  and the window says what was stopped without an "Allow" button (a page at
+  home that a public page tried to open can still be opened by the user's
+  click). Still open: a WebSocket to a public name that points home (the
+  engine only warns), and behind a proxy (docs/SECURITY.md).
+- **Page dark mode with Dark Reader is faster, with the same result**: less
+  repeated work on pages built from many components (200 shadow roots:
+  278 -> 100 ms of Dark Reader's work), with adopted style sheets (-21 %),
+  icons (-18 %) and large style sheets (2,000 rules: -33 %, the dark copy
+  written in one go). The dark result is byte for byte the same (checked on
+  six kinds of page); no light frame appears when pages load, and an empty
+  page is now dark too in dark mode.
+- **A separator line for the vertical tabs** when their panel slides in over
+  the page, in the colour of the desktop's own separators (as in Dolphin).
+- **Startpage is the default search engine**. Whoever was on DuckDuckGo,
+  the previous default, moves to Startpage once; another engine chosen stays.
+- `tests/measure_smooth.py`: how smoothly pages appear and scroll, the same
+  local pages measured in I.K.E. and in another browser.
+
 ## 1.1.18
 
 Speed, measured before and after on the same computer (the numbers are in

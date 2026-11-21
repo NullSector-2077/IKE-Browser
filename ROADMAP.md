@@ -81,10 +81,10 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Status
 
-- 1.1.18 (speed without less protection, privacy fixes from an independent
-  review, YouTube, automation, licences, and the security work of
-  docs/SECURITY.md) waits for the owner's signature
-  (`python3 tools/publish.py`).
+- 1.1.18 was not published (the last tag is v1.1.17); 1.1.19 carries it and
+  its own work (the engine's home-network protection, a faster Dark Reader,
+  the vertical tabs' separator, Startpage by default) and waits for the
+  owner's signature (`python3 tools/publish.py`).
 - The owner checks the YouTube anti-adblock notice on CachyOS with 1.1.18.
 
 ## Open work
@@ -96,19 +96,26 @@ are agreed with the project owner; do not reopen them without asking.
   opens it to every site (tried: an exception for one site let another
   through). Left open: WebSockets by a public name that points home (the
   engine only warns in Chromium 140), and behind a proxy the engine sees
-  only the proxy's address. A setting to turn the protection off for people
-  whose public sites must talk to a device at home (media servers, printer
-  set-up pages) waits for the owner. Certificate Transparency, HSTS preload
+  only the proxy's address. The owner's decision (2026-11-21): no setting to
+  turn the protection off; a per-site permission comes when Qt WebEngine
+  passes the engine's permission request to the browser. Certificate Transparency, HSTS preload
   and Arch's V8 hardening to be verified on a real system.
-- **Smooth page loading (1.1.19, owner's request)**: measure first (Dark
-  Reader off and on, on the owner's computer too; pictures, long pages,
-  dynamic content), then only changes that measure better; no animations or
-  delays added, no engine switches tried blindly.
+- **Smooth page loading (1.1.19, owner's request)**: measured with
+  `tests/measure_smooth.py` (docs/review/tests-and-performance.md):
+  pictures, big photos, lazy pictures, growing feeds and slow pages show no
+  cost of I.K.E.; the cost is Dark Reader on heavy pages (made faster in
+  1.1.19). Scrolling with a real graphics card is measured on the owner's
+  computer. Left as it is, a choice for the owner: the check "does this site
+  have a dark theme of its own?" lays the page out once before Dark Reader
+  starts (about 50 ms on a long article), as Dark Reader's own extension
+  does; a lighter check would darken some sites that are dark already.
 - **Workers started from a file**: `experiment/file-workers` (see Known
   limits); merged only if the owner wants it, probably as an option.
 - **Dark Reader**: the early plain background could leave from inside
   `<head>` to avoid one whole-page restyle (unfinished, untested work on
-  `handover/perf/1.1.18-darkreader-3`).
+  `handover/perf/1.1.18-darkreader-3`). Tried in 1.1.19 and left out: a
+  cache of each rule's text (about 7 % less work, but a rule a site changes
+  later could keep old colours).
 - **Privacy items of the 1.1.18 review left for later**: canvas and audio
   noise that a page can remove, font masking, pages that can tell I.K.E. from
   stack traces, a home-made public-suffix list, re-encoded tracking-parameter
