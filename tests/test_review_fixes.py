@@ -1248,7 +1248,9 @@ def test_fp_audit_he_other_routes_to_the_pixels_get_the_noise(run_ike):
         assert not str(a[k]).startswith("err") and a[k] is not None, (k, a)
         assert a[k] != b[k], (k, a, b)     # the same in two sessions: the real values
     if a["float16"] != "none":
-        assert a["float16"]["far"] == 0 and a["float16"]["changed"] is True, a
+        # never corrupted; the noise itself is checked on a picture with
+        # colours (a plain grey area is left as it is, N3): see test_fp_verify_*
+        assert a["float16"]["far"] == 0, a
 
 
 def test_fp_audit_m4_the_storage_quota_does_not_tell_the_disk_size(run_ike):
