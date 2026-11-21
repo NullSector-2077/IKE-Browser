@@ -40,6 +40,20 @@ record the versions it tests.
 With --apply the files above are rewritten with the newest versions (and
 ``cargo update`` is run for a new engine); adapting I.K.E.'s code, building
 and testing are handled by the daily GitHub Actions maintenance workflow.
+
+Two kinds of trouble are kept apart (1.1.20, the owner's decision):
+
+- "source unreachable": an upstream source could not be read (the network,
+  the site, git, npm's hash). Infrastructure: --apply applies nothing and
+  exits 1, the next daily run tries again;
+- "builder refused": I.K.E.'s builder of a customised component
+  (tools/build-darkreader.py, tools/build-ubo-scriptlets.mjs) does not accept
+  the new upstream version (a patch's anchor text is gone, the library is laid
+  out differently). A component incompatibility for a person, never the
+  automatic fix's: that component stays at the version in use, with I.K.E.'s
+  changes, and the report says which step refused, the versions, the upstream
+  lines around the anchor and the builder's log; the other components are
+  still applied (security updates of the crates included) and tested.
 Needs git, and for the scriptlets Node.js; uses only crates.io, PyPI,
 registry.npmjs.org and github.com (no API token).
 """
@@ -108,6 +122,78 @@ def norm(name):
 
 def run(cmd, **kw):
     return subprocess.run(cmd, check=True, capture_output=True, text=True, **kw).stdout
+
+
+class SourceUnreachable(Exception):
+    """An upstream source could not be read (the network, the site, git):
+    infrastructure, the next run tries again."""
+
+
+class BuilderRefused(Exception):
+    """I.K.E.'s builder of a customised component refused the new upstream
+    version: a component incompatibility for a person (1.1.20). `report` holds
+    component, current, latest, step, reason, context (the upstream lines
+    around the anchor) and log."""
+
+    def __init__(self, report):
+        super().__init__(report.get("reason", "the builder refused the new version"))
+        self.report = report
+
+
+def fetch_source(url, timeout=60):
+    """fetch(), with a failure to read the source as SourceUnreachable."""
+    try:
+        return fetch(url, timeout=timeout)
+    except OSError as e:          # URLError, HTTPError, timeouts, refused connections
+        raise SourceUnreachable("%s: %s" % (url, e)) from e
+
+
+def clone(url, dest):
+    """git clone --depth 1, with a failure as SourceUnreachable."""
+    try:
+        run(["git", "clone", "--quiet", "--depth", "1", url, str(dest)])
+    except (subprocess.CalledProcessError, OSError) as e:
+        raise SourceUnreachable("git clone %s: %s" % (url, (getattr(e, "stderr", "") or str(e)).strip()[:300])) from e
+
+
+def tail(text, lines=60, size=6000):
+    """The end of a builder's log."""
+    text = (text or "").strip()
+    return "\n".join(text.splitlines()[-lines:])[-size:]
+
+
+def anchor_context(text, anchor, around=6, places=2):
+    """Where the text a patch changes (its anchor) stands in a new upstream
+    file: the anchor's lines no longer there, and the upstream lines (with
+    their numbers) around the first anchor line still found once, or around
+    each place where the whole anchor is found more than once."""
+    lines = text.replace("\r\n", "\n").split("\n")
+    anchor = anchor.replace("\r\n", "\n")
+    out = []
+
+    def show(at, label):
+        lo, hi = max(0, at - around), min(len(lines), at + around + 1)
+        out.append(label)
+        out.extend("%6d  %s" % (n + 1, lines[n][:200]) for n in range(lo, hi))
+
+    wanted = [a.strip() for a in anchor.split("\n") if a.strip()]
+    stripped = [s.strip() for s in lines]
+    whole = [i for i in range(len(lines)) if wanted and stripped[i:i + len(wanted)] == wanted]
+    if len(whole) > 1:
+        for at in whole[:places]:
+            show(at, "found at line %d:" % (at + 1))
+        return "\n".join(out)
+    missing = [a for a in wanted if a not in stripped]
+    if missing:
+        out.append("anchor lines not found in the new version (%d of %d):" % (len(missing), len(wanted)))
+        out.extend("    " + a[:200] for a in missing[:8])
+    for a in wanted:
+        if stripped.count(a) == 1:
+            show(stripped.index(a), "the new version around the anchor line \"%s\":" % a[:80])
+            break
+    else:
+        out.append("no line of the anchor is found once in the new version")
+    return "\n".join(out)
 
 
 # --- adblock-rust -----------------------------------------------------------
@@ -256,14 +342,64 @@ def scriptlets_hash(data):
     return hashlib.sha256(json.dumps(data["scriptlets"], sort_keys=True).encode("utf-8")).hexdigest()
 
 
+UBO_LIBRARY = "src/js/resources/scriptlets.js"      # what tools/build-ubo-scriptlets.mjs imports
+
+
+def ubo_refused(root, src, reason, log=""):
+    """BuilderRefused for uBlock Origin's scriptlets, with what the new
+    checkout has where the builder looks (UBO_LIBRARY and its exports)."""
+    cur = json.loads((root / "ike" / "resources" / "ubo-scriptlets.json").read_text("utf-8"))
+    try:
+        commit = run(["git", "-C", str(src), "log", "-1", "--format=%H %cs"]).split()
+    except Exception:
+        commit = ["?", ""]
+    lib = src / UBO_LIBRARY
+    if lib.is_file():
+        text = lib.read_text("utf-8", "replace")
+        exports = [line.strip()[:160] for line in text.splitlines() if line.lstrip().startswith("export ")]
+        context = "%s (%d lines); its exports:\n%s" % (UBO_LIBRARY, text.count("\n") + 1,
+                                                       "\n".join("    " + e for e in exports[:20]) or "    (none)")
+    else:
+        near = sorted(p.name for p in lib.parent.glob("*.js"))[:30] if lib.parent.is_dir() else []
+        context = "%s is not in the new version; %s" % (
+            UBO_LIBRARY, ("next to it: " + ", ".join(near)) if near else "its folder is not there either")
+    return BuilderRefused({
+        "component": "uBlock Origin scriptlets",
+        "current": "%s (%s)" % (cur["commit"][:10], cur["date"]),
+        "latest": "%s (%s)" % (commit[0][:10], commit[1] if len(commit) > 1 else ""),
+        "step": "tools/build-ubo-scriptlets.mjs (uBlock Origin's builtinScriptlets read with Node.js)",
+        "reason": reason, "context": context, "log": tail(log)})
+
+
 def build_scriptlets(root, work, ubo_src=None):
     src = work / "src"
     if ubo_src:
         os.symlink(Path(ubo_src).resolve(), src)
     else:
-        run(["git", "clone", "--quiet", "--depth", "1", UBO_GIT, str(src)])
-    run(["node", str(root / "tools" / "build-ubo-scriptlets.mjs")], cwd=work)
-    return work / "ubo-scriptlets.json"
+        clone(UBO_GIT, src)
+    try:
+        done = subprocess.run(["node", str(root / "tools" / "build-ubo-scriptlets.mjs")], cwd=work,
+                              capture_output=True, text=True, check=False)
+    except OSError as e:          # no Node.js on this machine: not uBlock Origin's change
+        raise RuntimeError("Node.js could not be started: %s" % e) from e
+    if done.returncode != 0:
+        lines = [x for x in done.stderr.splitlines() if x.strip()]
+        why = next((x.strip() for x in lines if re.match(r"^\w*Error\b|^Error \[", x.strip())),
+                   lines[-1].strip() if lines else "exit %d" % done.returncode)
+        raise ubo_refused(root, src, "the builder stopped: %s" % why[:300], done.stdout + done.stderr)
+    built = work / "ubo-scriptlets.json"
+    try:
+        data = json.loads(built.read_text("utf-8"))
+    except (OSError, ValueError) as e:
+        raise ubo_refused(root, src, "the builder wrote no readable library (%s)" % e, done.stdout + done.stderr)
+    entries = data.get("scriptlets") or {}
+    missing = sorted({d for e in entries.values() for d in e.get("deps", ()) if d not in entries})
+    if not entries or not any(n.endswith(".js") for n in entries):
+        raise ubo_refused(root, src, "the builder found no scriptlets in the new version", done.stdout + done.stderr)
+    if missing:
+        raise ubo_refused(root, src, "scriptlets of the new version depend on entries it does not have: %s"
+                          % ", ".join(missing[:10]), done.stdout + done.stderr)
+    return built
 
 
 def check_scriptlets(root, work, ubo_src=None):
@@ -302,10 +438,59 @@ def npm_tarball(meta):
     integrity = meta["dist"].get("integrity", "")
     if not integrity.startswith("sha512-"):
         raise ValueError("npm gives no sha512 for the tarball")
-    data = fetch(url)
+    data = fetch_source(url)
     if base64.b64encode(hashlib.sha512(data).digest()).decode() != integrity[7:]:
         raise ValueError("the tarball does not match the hash npm published")
     return data
+
+
+def build_tool_module(root):
+    """tools/build-darkreader.py as a module (its PATCHES)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("build_darkreader", root / "tools" / "build-darkreader.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def darkreader_refused(root, work, src, meta, reason, log):
+    """BuilderRefused for Dark Reader: the step that refused and, for one of
+    I.K.E.'s patches, the new engine's lines around the text it changes."""
+    try:
+        cur = json.loads((root / "ike" / "resources" / "darkreader-data.json").read_text("utf-8"))
+        current = "%s, lists %s" % (cur["version"], cur.get("lists_commit", "")[:10])
+    except (OSError, ValueError, KeyError):
+        current = "?"
+    lists = ""
+    try:
+        lists = run(["git", "-C", str(src), "log", "-1", "--format=%h"]).strip()
+    except Exception:
+        pass
+    latest = "%s, lists %s" % (meta.get("version", "?"), lists or "?")
+    lib_path = work / "darkreader.js"
+    lib = lib_path.read_bytes().decode("utf-8", "replace") if lib_path.is_file() else ""
+    step, context = "tools/build-darkreader.py", ""
+    patch = re.search(r"patch '([^']+)'", log or "")
+    try:
+        if patch:
+            step = "tools/build-darkreader.py, I.K.E.'s patch '%s' (PATCHES)" % patch.group(1)
+            anchor = next((old for name, old, _new in build_tool_module(root).PATCHES if name == patch.group(1)), "")
+            context = anchor_context(lib, anchor) if anchor else ""
+        elif "proxy injection" in (log or ""):
+            step = "tools/build-darkreader.py, the proxy taken out of the engine (PROXY_BLOCK)"
+            context = anchor_context(lib, 'const proxyScript = createOrUpdateScript("darkreader--proxy");')
+        elif "injectProxy" in (log or ""):
+            step = "tools/build-darkreader.py, Dark Reader's injectProxy (extract_proxy)"
+            context = anchor_context(lib, "function injectProxy(")
+        elif "common fix" in (log or ""):
+            step = "tools/build-darkreader.py, the site fixes list (dynamic-theme-fixes.config)"
+            fixes = src / "src" / "config" / "dynamic-theme-fixes.config"
+            if fixes.is_file():
+                context = "\n".join(fixes.read_text("utf-8", "replace").splitlines()[:15])
+    except Exception as e:          # the report must not hide the refusal itself
+        context = "(the upstream lines could not be shown: %s)" % e
+    return BuilderRefused({"component": "Dark Reader (engine and lists)", "current": current, "latest": latest,
+                           "step": step, "reason": reason, "context": context, "log": tail(log)})
 
 
 def build_darkreader(root, work, dr_src=None):
@@ -313,21 +498,31 @@ def build_darkreader(root, work, dr_src=None):
     import tarfile
     out = work / "darkreader-out"
     out.mkdir(parents=True, exist_ok=True)
-    meta = json.loads(fetch(DARKREADER_NPM))
+    meta = json.loads(fetch_source(DARKREADER_NPM))
     tgz = work / "darkreader.tgz"
     tgz.write_bytes(npm_tarball(meta))
-    with tarfile.open(tgz) as tar:
-        member = tar.getmember("package/darkreader.js")
-        (work / "darkreader.js").write_bytes(tar.extractfile(member).read())
     src = work / "darkreader-src"
     if dr_src:
         src = Path(dr_src)
     elif not src.exists():
-        run(["git", "clone", "--quiet", "--depth", "1", DARKREADER_GIT, str(src)])
+        clone(DARKREADER_GIT, src)
+    with tarfile.open(tgz) as tar:
+        try:
+            member = tar.getmember("package/darkreader.js")
+        except KeyError:
+            raise darkreader_refused(root, work, src, meta, "the npm package has no package/darkreader.js "
+                                     "(the engine is laid out differently)", "") from None
+        (work / "darkreader.js").write_bytes(tar.extractfile(member).read())
     commit = run(["git", "-C", str(src), "log", "-1", "--format=%H"]).strip()
     date = run(["git", "-C", str(src), "log", "-1", "--format=%cs"]).strip()
-    run([sys.executable, str(root / "tools" / "build-darkreader.py"), "--lib", str(work / "darkreader.js"),
-         "--config", str(src / "src" / "config"), "--commit", commit, "--date", date, "--out", str(out)])
+    done = subprocess.run([sys.executable, str(root / "tools" / "build-darkreader.py"), "--lib",
+                           str(work / "darkreader.js"), "--config", str(src / "src" / "config"), "--commit", commit,
+                           "--date", date, "--out", str(out)], capture_output=True, text=True, check=False)
+    if done.returncode != 0:
+        log = done.stdout + done.stderr
+        lines = [x.strip() for x in done.stderr.splitlines() if x.strip()]
+        raise darkreader_refused(root, work, src, meta, "the builder stopped: %s"
+                                 % (lines[-1] if lines else "exit %d" % done.returncode)[:300], log)
     return out
 
 
@@ -681,9 +876,16 @@ def check_all(root, ubo_src=None, work=None, dr_src=None):
             info = check(root, *args)
             info.setdefault("also", "")
             info["error"] = ""
+        except BuilderRefused as e:
+            # 1.1.20: the component stays at the version in use; the others go on
+            info = {"current": e.report.get("current", ""), "latest": e.report.get("latest", ""), "update": False,
+                    "note": "", "also": "", "error": "", "refused": dict(e.report, component=name)}
         except Exception as e:   # one failing source must not hide the others
+            kind = "source unreachable: " if isinstance(e, (SourceUnreachable, OSError)) else ""
             info = {"current": "", "latest": "", "update": False, "note": "", "also": "",
-                    "error": "%s: %s" % (type(e).__name__, (getattr(e, "stderr", "") or str(e)).strip()[:300])}
+                    "error": "%s%s: %s" % (kind, type(e).__name__,
+                                           (getattr(e, "stderr", "") or str(e)).strip()[:300])}
+        info.setdefault("refused", None)
         info["name"] = name
         info["_apply"] = apply
         results.append(info)
@@ -694,20 +896,49 @@ def public(results):
     return [{k: v for k, v in r.items() if not k.startswith("_")} for r in results]
 
 
+def refused_markdown(results):
+    """The component incompatibility section: one block per refused builder."""
+    refused = [r["refused"] for r in results if r.get("refused")]
+    if not refused:
+        return ""
+    out = ["", "### Component incompatibility: a builder refused the new upstream version", "",
+           "Not a failure of GitHub or of the network, and not a matter for the automatic fix (the builders, "
+           "`tools/build-*`, and the components' files are a person's). The component below **stays at the version "
+           "in use, with I.K.E.'s changes**; every other component is still updated and tested. A person adapts "
+           "the builder to the new upstream version (for Dark Reader: the patch named below, in "
+           "`tools/build-darkreader.py`); the next daily run then takes it.", ""]
+    for rep in refused:
+        out.append("**%s**: %s → %s. Refused at: %s." % (rep["component"], _v(rep.get("current")),
+                                                        _v(rep.get("latest")), rep.get("step", "?")))
+        out += ["", "Reason: %s" % rep.get("reason", "?"), ""]
+        for title, key in (("The new upstream version around the anchor", "context"), ("The builder's log", "log")):
+            if rep.get(key):
+                out += ["<details><summary>%s</summary>" % title, "", "```text",
+                        rep[key].replace("```", "` ` `"), "```", "", "</details>", ""]
+    return "\n".join(out) + "\n"
+
+
 def to_markdown(results):
     n = sum(r["update"] for r in results)
     out = []
+    if any(r.get("refused") for r in results):
+        out.append("Un componente non accetta più le modifiche di I.K.E.: resta alla versione in uso, serve una "
+                   "persona (dettagli sotto).\n")
     if n:
         out.append("Nuove versioni trovate: GitHub Actions prepara un candidato da testare e sottoporre al proprietario.\n")
     out.append("New versions of bundled components: **%d**. Checked %s UTC by "
                "`tools/check-components.py`.\n" % (n, datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M")))
     out.append("| Component | In use | Newest | New | Notes |\n|---|---|---|---|---|")
     for r in results:
+        refused = r.get("refused")
         notes = "; ".join(x for x in (r["note"], ("also newer: " + r["also"]) if r["also"] else "",
-                                      ("**check failed**: " + r["error"]) if r["error"] else "") if x)
-        out.append("| %s | %s | %s | %s | %s |" % (r["name"], r["current"], r["latest"],
-                                                  "**yes**" if r["update"] else "no", notes.replace("|", "\\|")))
-    return "\n".join(out) + "\n"
+                                      ("**check failed**: " + r["error"]) if r["error"] else "",
+                                      ("**builder refused** (%s): kept at the version in use, see below"
+                                       % refused.get("step", "?")) if refused else "") if x)
+        new = "**refused**" if refused else ("**yes**" if r["update"] else "no")
+        out.append("| %s | %s | %s | %s | %s |" % (r["name"], r["current"], r["latest"], new,
+                                                  notes.replace("|", "\\|")))
+    return "\n".join(out) + "\n" + refused_markdown(results)
 
 
 def main(argv=None):
@@ -745,7 +976,8 @@ def main(argv=None):
         arch = check_arch(saved)
     results = check_all(root, args.ubo_src, dr_src=args.darkreader_src)
     for r in results:
-        state = "ERROR " + r["error"] if r["error"] else ("NEW" if r["update"] else "ok")
+        state = "ERROR " + r["error"] if r["error"] else (
+            "REFUSED" if r.get("refused") else ("NEW" if r["update"] else "ok"))
         print("%-34s %-6s %s -> %s %s" % (r["name"], state.split(" ")[0], r["current"], r["latest"],
                                          r["note"] or r["also"] or (r["error"] if r["error"] else "")))
     if arch:
@@ -754,9 +986,15 @@ def main(argv=None):
                                  or ", ".join(sorted(arch["unreachable"]))))
     updates = sum(r["update"] for r in results)
     errors = sum(bool(r["error"]) for r in results)
-    print("updates: %d, errors: %d" % (updates, errors))
+    refused = sum(bool(r.get("refused")) for r in results)
+    print("updates: %d, errors: %d, refused: %d" % (updates, errors, refused))
+    for r in results:
+        if r.get("refused"):
+            rep = r["refused"]
+            print("::warning::component incompatibility: %s %s -> %s refused at %s: %s (kept at the version in use)"
+                  % (r["name"], rep.get("current"), rep.get("latest"), rep.get("step"), rep.get("reason")))
     if args.json:
-        data = {"updates": updates, "errors": errors, "components": public(results)}
+        data = {"updates": updates, "errors": errors, "refused": refused, "components": public(results)}
         if arch:
             data["arch"] = arch_public(arch)
         Path(args.json).write_text(json.dumps(data, indent=1) + "\n", "utf-8")
@@ -765,16 +1003,18 @@ def main(argv=None):
     out = os.environ.get("GITHUB_OUTPUT")
     if out:
         with open(out, "a", encoding="utf-8") as f:
-            f.write("updates=%d\nerrors=%d\n" % (updates, errors))
+            f.write("updates=%d\nerrors=%d\nrefused=%d\n" % (updates, errors, refused))
             if arch:
                 f.write("arch=%s\n" % arch["state"])
     if args.apply:
         if errors:
-            print("not applying any updates: at least one component source could not be checked")
+            # infrastructure (a source unreachable): fail closed, the next daily run tries again
+            print("::error::not applying any updates: a component source could not be reached or checked "
+                  "(source unreachable, not a builder that refused)")
             return 1
         if updates:
             for r in results:
-                if r["update"] or r["also"]:
+                if (r["update"] or r["also"]) and not r.get("refused"):
                     r["_apply"](root, r)
                     print("applied:", r["name"])
         else:
