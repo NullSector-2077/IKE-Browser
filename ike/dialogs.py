@@ -101,8 +101,7 @@ def _wrapping(box):
     w.setProperty("ike_top", max(0, (box_h - line_h) // 2))
     col = QVBoxLayout()
     col.setContentsMargins(0, max(0, (line_h - box_h + 1) // 2), 0, 0)
-    col.addWidget(box)
-    col.addStretch(1)
+    col.addWidget(box, 0, Qt.AlignmentFlag.AlignTop)       # no stretch: the row would grow taller
     lay.addLayout(col)
     lay.addWidget(label, 0)
     lay.addStretch(1)                 # the ⓘ of the option goes before it (_with_hint)
@@ -157,7 +156,10 @@ class InfoButton(QToolButton):
         from PyQt6.QtCore import QPoint
         from PyQt6.QtWidgets import QWhatsThis
         x = 0 if self.isRightToLeft() else self.width()
-        QWhatsThis.showText(self.mapToGlobal(QPoint(x, self.height())), self.text_shown(), self)
+        from html import escape
+        # as rich text: laid out as a paragraph, in the direction of its language
+        text = "<p>%s</p>" % escape(self.text_shown()).replace("\n", "<br>")
+        QWhatsThis.showText(self.mapToGlobal(QPoint(x, self.height())), text, self)
 
     def keyPressEvent(self, event):
         # Enter shows the explanation; it must not reach the dialog (its default button)
@@ -250,8 +252,7 @@ def _with_hint(field, text, grow=None):
         lay = field.layout()
         col = QVBoxLayout()               # on the first line of the text
         col.setContentsMargins(0, max(0, (field.property("ike_top") or 0) - 1), 0, 0)
-        col.addWidget(InfoButton(text))
-        col.addStretch(1)
+        col.addWidget(InfoButton(text), 0, Qt.AlignmentFlag.AlignTop)
         lay.insertLayout(lay.count() - 1, col)
         return field
     if isinstance(field, QBoxLayout) and field.count() and field.itemAt(field.count() - 1).spacerItem():
