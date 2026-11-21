@@ -1534,6 +1534,17 @@ def test_fp_verify_the_second_round_of_bypasses_is_closed(run_ike):
     assert a["pluginKeys"] is True and a["workerNoArg"] == "TypeError", a
 
 
+def test_cores_are_a_common_number(run_ike):
+    """1.1.21 (the owner's Cover Your Tracks test): the number of cores shown
+    was one of 2, 4, 6, 8 (12, 16 at Balanced) per site, and "2" was rare
+    enough to make the browser stand out. Now 4 or 8, in every session and
+    at every level that changes it."""
+    for level in ("balanced", "strict", "strict", "maximum"):
+        out = run_ike(STEPS_FP % "window.__fp = JSON.stringify(navigator.hardwareConcurrency);",
+                      settings={"shield_level": level}, timeout=60)
+        assert out["r"] in ("4", "8"), (level, out["r"])
+
+
 def test_n12_addresses_from_the_menu_are_never_options(monkeypatch):
     """Review 4, N12 (rest of L11): an "address" such as --profile=x or
     --private handed over by another program was an option of I.K.E.; the

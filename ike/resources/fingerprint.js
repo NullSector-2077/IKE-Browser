@@ -479,9 +479,13 @@
   }
   // ---- values shared by every realm and by workers ---------------------------
   var realCores = navigator.hardwareConcurrency || 4;
-  // A usual number of cores, chosen per site (Strict never goes above 8).
-  var usual = (strict ? [2, 4, 6, 8] : [2, 4, 6, 8, 12, 16]).filter(function (n) { return n <= realCores; });
-  var cores = usual.length ? usual[seed % usual.length] : realCores;
+  // A number of cores that most computers report, so the value itself is
+  // common: 4 or 8, no more than the computer has (and 4 at least). Balanced
+  // picks one of them per site; Strict and above always the higher one.
+  // Before 1.1.21 rarer values (2, 6, 12) were picked too, and made the
+  // browser stand out (Cover Your Tracks: "2 cores", 5.7 bits).
+  var usual = [4, 8].filter(function (n) { return n <= Math.max(realCores, 4); });
+  var cores = strict ? usual[usual.length - 1] : usual[seed % usual.length];
   // ---- graphics card (1.1.18) --------------------------------------------------
   // Balanced: each site gets one of a few models that are common on Linux,
   // written exactly as Chrome reports them there (vendor, renderer, and what
