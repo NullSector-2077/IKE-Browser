@@ -34,9 +34,11 @@ import json
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+OWN_JOBS = {"merge", "merge-ready", "hand-over", "sandbox-issue", "advisories-issue", "report", "tell"}
 BAD_CONCLUSIONS = {"failure", "cancelled", "timed_out", "startup_failure", "stale"}
 # what the automatic fix writes (autofix.yml); anything else on its branch
 # (a trial, by any spelling) is never merged
@@ -61,11 +63,97 @@ PERSON_FILES = {"ike/__main__.py", "ike/app.py", "ike/config.py", "ike/osinfo.py
 # system, or tell a test run from a real one: a person reads them (C1, H4)
 PERSON_LINES = re.compile(
     r"\bos\.environ\b|\benviron\b|\bputenv\b|\bgetenv\b|IKE_\w+|update\.json|\bpubkey\b|\bsys\.modules\b"
-    r"|__import__|\bimportlib\b|\bsubprocess\b|\bsocket\b|\burllib\b|\bhttp\b|\bexec\s*\(|\beval\s*\("
+    r"|__import__|\bimportlib\b|\bsubprocess\b|\bsocket\b|\burllib\b|\bhttps?\b|://|\bexec\s*\(|\beval\s*\("
     r"|\bcompile\s*\(|\bbase64\b|\batexit\b|\bRUNNER_|\bGITHUB_|\bCI\b|\bpytest\b|\bunittest\b"
     r"|\bsys\._getframe\b|\binspect\b|\bgc\.get_|\bsetattr\s*\(|\bglobals\s*\(|\bopen\s*\(|\bos\.system\b"
     r"|\bctypes\b|\bpickle\b|\bmarshal\b|\bsignal\b|\bthreading\b|QProcess|QNetwork|runJavaScript"
     r"|setUrlRequestInterceptor|setFeaturePermission|QWebEngineScript")
+
+
+# What a change to a Python module may not add without a person (review 4 of
+# 1.1.19, N1: a list of words did not see an alias, a name built from parts,
+# a new address or a test told by the command line). Judged on the syntax
+# trees of the file before and after the change: anything of these kinds
+# that the new file has more of than the old one keeps it for a person.
+RISKY_CALLS = {"getattr", "setattr", "delattr", "vars", "globals", "locals", "eval", "exec", "compile",
+               "__import__", "open", "input", "breakpoint", "type", "super"}
+RISKY_METHODS = {"system", "popen", "spawn", "run", "call", "check_output", "Popen", "exec_module",
+                 "import_module", "load_source", "platformName", "setUrlRequestInterceptor", "runJavaScript",
+                 "setFeaturePermission", "setHttpUserAgent", "setDnsMode", "get", "post", "urlopen",
+                 "setRawHeader", "insert", "setProxy", "write_text", "write_bytes", "unlink", "rmtree"}
+RISKY_ATTRS = {"environ", "argv", "modules", "path", "executable", "stdin", "stdout", "stderr", "settrace",
+               "setprofile", "_getframe", "f_back", "__dict__", "__class__", "__globals__", "__code__",
+               "__builtins__", "__subclasses__", "__bases__", "__mro__", "f_globals", "f_locals"}
+RISKY_NAMES = {"os", "sys", "subprocess", "socket", "urllib", "http", "importlib", "builtins", "ctypes",
+               "pickle", "marshal", "base64", "atexit", "inspect", "gc", "threading", "signal", "shutil",
+               "QProcess", "QNetworkAccessManager", "QNetworkRequest", "QWebEngineScript", "QLibrary"}
+RISKY_WORDS = ("://", "environ", "ike_", "pytest", "github_", "runner_", "offscreen", "update.json", "pubkey",
+               "conftest", "argv", "sandbox", "--")
+
+
+def risky_features(source):
+    """A Counter of the risky things in a Python source, or None when it does not parse."""
+    import ast
+    import collections
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return None
+    out = collections.Counter()
+    imported = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            mod = getattr(node, "module", None) or ""
+            for a in node.names:
+                out["import %s.%s as %s" % (mod, a.name, a.asname)] += 1
+                imported.add(a.asname or a.name.split(".")[0])
+        elif isinstance(node, ast.Call):
+            f = node.func
+            if isinstance(f, ast.Name) and f.id in RISKY_CALLS:
+                out["call %s()" % f.id] += 1
+            elif isinstance(f, ast.Attribute) and f.attr in RISKY_METHODS:
+                out["call .%s()" % f.attr] += 1
+        elif isinstance(node, ast.Attribute):
+            if node.attr in RISKY_ATTRS:
+                out["attribute .%s" % node.attr] += 1
+        elif isinstance(node, ast.Name):
+            if node.id in RISKY_NAMES:
+                out["name %s" % node.id] += 1
+        elif isinstance(node, ast.Constant) and isinstance(node.value, (str, bytes)):
+            text = node.value.decode("latin-1") if isinstance(node.value, bytes) else node.value
+            low = text.lower()
+            for w in RISKY_WORDS:
+                if w in low:
+                    out["text with %r" % w] += 1
+        elif isinstance(node, (ast.Global, ast.Nonlocal)):
+            out["global or nonlocal"] += 1
+        elif isinstance(node, (ast.Assign, ast.AugAssign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for t in targets:
+                for sub in ast.walk(t):
+                    if isinstance(sub, ast.Attribute):
+                        base = sub.value
+                        while isinstance(base, ast.Attribute):
+                            base = base.value
+                        if not (isinstance(base, ast.Name) and base.id in ("self", "cls")):
+                            out["assignment to %s" % ast.unparse(sub)[:60]] += 1
+    for name in imported:
+        out["module name in use: %s" % name] += 0       # imports are counted above
+    return out
+
+
+def tree_problem(name, old, new):
+    """"" when the new source adds nothing risky to the old one (both whole files)."""
+    a, b = risky_features(old or ""), risky_features(new or "")
+    if a is None or b is None:
+        return "%s: the file does not parse" % name
+    more = b - a
+    if more:
+        return "%s: %s (a person reads it)" % (name, sorted(more)[0])
+    return ""
+
+
+DOC_LINK = re.compile(r"https?://(?!github\.com/NullSector-2077/IKE-Browser[/)\s])")
 
 
 def _guard():
@@ -126,17 +214,30 @@ def version_problem(name, patch, repo):
     removed = [x for _, r, _a in parts for x in r]
     added = [x for _, _r, a in parts for x in a]
     if name == "CHANGELOG.md":
-        # only new lines at the top, linking nowhere but this repository
+        # only new entries: a version heading, list items, blank lines, linking
+        # nowhere but this repository; nothing removed. (They are added to the
+        # top section, or appended to it when its version is not out yet:
+        # tools/prepare-maintenance.py; the notes of a release come only from
+        # its own section.)
         links = re.findall(r"https?://[^\s)>\]]+", "\n".join(added))
-        if removed or any(start > 12 for start, _r, _a in parts) or any(
-                not u.startswith("https://github.com/%s/" % repo) for u in links):
-            return "%s: more than a new entry at the top" % name
+        shape = re.compile(r"^(## \d+\.\d+\.\d+|- .*|  .*|)$")
+        if [x for x in removed if x.strip()] or any(not shape.match(x) for x in added) or "`" in "".join(added) \
+                or any(not u.startswith("https://github.com/%s/" % repo) for u in links):
+            return "%s: more than new entries" % name
         return ""
     rule = VERSION_LINES[name]
     if any(not rule.search(x) for x in removed + added if x.strip()):
         return "%s: more than the version" % name
     if sorted(VERSION.sub("V", x) for x in removed) != sorted(VERSION.sub("V", x) for x in added):
         return "%s: more than the version" % name
+    # the version moves by one step at most (1.1.20 -> 1.1.21), never a jump (N1)
+    for old, new in zip(sorted(removed), sorted(added)):
+        a = re.search(r"(\d+)\.(\d+)\.(\d+)", old)
+        b = re.search(r"(\d+)\.(\d+)\.(\d+)", new)
+        if a and b:
+            x, y = tuple(map(int, a.groups())), tuple(map(int, b.groups()))
+            if y != x and y != (x[0], x[1], x[2] + 1):
+                return "%s: the version jumps (%s -> %s)" % (name, a.group(0), b.group(0))
     return ""
 
 
@@ -168,6 +269,18 @@ def file_problem(f, guard_allowed, repo=""):
             for line in added:
                 if PERSON_LINES.search(line):
                     return "%s: a line a person must read (%s)" % (name, line.strip()[:80])
+        if "old_source" not in f or "new_source" not in f:
+            return "%s: the whole file could not be read" % name
+        why = tree_problem(name, f["old_source"], f["new_source"])
+        if why:
+            return why
+    if name.endswith(".md"):
+        # the owner pastes commands from the documents: no new link outside
+        # the repository, no code (N1)
+        for _start, _removed, added in parts:
+            for line in added:
+                if DOC_LINK.search(line) or "`" in line or line.startswith(("    ", "\t")):
+                    return "%s: a link or code a person must read (%s)" % (name, line.strip()[:80])
     return ""
 
 
@@ -202,6 +315,8 @@ def decide(repo, pr, commits, files, checks, guard_allowed, published=False, unr
         return "person", "main already holds a fix merged by itself and not yet published (M9)"
     names = {}
     for c in checks:
+        if c.get("name") in OWN_JOBS:
+            continue                             # the automation's own reporting jobs (N7)
         if c.get("status") != "completed":
             return "wait", "a check is still running: %s" % c.get("name")
         if c.get("conclusion") in BAD_CONCLUSIONS:
@@ -228,6 +343,12 @@ def api(path):
 def version_of_main():
     m = re.search(r'^__version__ = "([^"]+)"', (ROOT / "ike" / "__init__.py").read_text("utf-8"), re.M)
     return m.group(1) if m else ""
+
+
+def file_at(repo, path, ref):
+    import base64
+    data = api("repos/%s/contents/%s?ref=%s" % (repo, path, ref))
+    return base64.b64decode(data["content"]).decode("utf-8")
 
 
 def released(repo, tag):
@@ -286,12 +407,25 @@ def main(argv=None):
     n = pr["number"]
     commits = api("repos/%s/pulls/%d/commits?per_page=100" % (a.repo, n))
     files = api("repos/%s/pulls/%d/files?per_page=100" % (a.repo, n))
-    checks = api("repos/%s/commits/%s/check-runs?per_page=100" % (a.repo, a.sha)).get("check_runs", [])
-    checks = [c for c in checks if c.get("name") != "merge"]          # this workflow's own job
+    base = (pr.get("base") or {}).get("sha", "")
+    for f in files:                       # the whole files, before and after (N1)
+        if f.get("filename", "").endswith(".py") and f.get("status") == "modified":
+            try:
+                f["old_source"] = file_at(a.repo, f["filename"], base)
+                f["new_source"] = file_at(a.repo, f["filename"], a.sha)
+            except (RuntimeError, ValueError, KeyError):
+                pass
     guard = _guard()
     published = released(a.repo, "v" + version_of_main())
-    kind, why = decide(a.repo, pr, commits, files, checks, lambda name: guard.allowed_path(name, False),
-                       published=published, unread=unread_merge(a.repo))
+    # a check still running (another workflow's last job): read again for a
+    # while, so that the deciding run does not end on "wait" for good (N7)
+    for _round in range(16):
+        checks = api("repos/%s/commits/%s/check-runs?per_page=100" % (a.repo, a.sha)).get("check_runs", [])
+        kind, why = decide(a.repo, pr, commits, files, checks, lambda name: guard.allowed_path(name, False),
+                           published=published, unread=unread_merge(a.repo))
+        if kind != "wait" or a.dry_run:
+            break
+        time.sleep(30)
     print("#%d (%s): %s" % (n, pr["head"]["ref"], {"merge": "merge", "wait": "waiting: ",
                                                    "person": "left for a person: "}[kind] + why))
     if a.dry_run or kind == "wait":
