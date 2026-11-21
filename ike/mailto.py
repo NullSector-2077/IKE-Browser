@@ -60,9 +60,10 @@ def compose_url(service, mailto):
 
 def choose(parent, address, from_desktop=False):
     """Ask which service writes the email: (key, remember) or (None, False)."""
-    from PyQt6.QtWidgets import QCheckBox, QMessageBox
+    from PyQt6.QtWidgets import QMessageBox
 
     from .i18n import T
+    from .uistyle import Switch
     box = QMessageBox(parent)
     box.setIcon(QMessageBox.Icon.Question)
     box.setWindowTitle(T("Write an email"))
@@ -76,7 +77,7 @@ def choose(parent, address, from_desktop=False):
                               QMessageBox.ButtonRole.AcceptRole)] = "system"
     cancel = box.addButton(T("Cancel"), QMessageBox.ButtonRole.RejectRole)
     box.setDefaultButton(cancel)
-    remember = QCheckBox(T("Remember this choice"))
+    remember = Switch(T("Remember this choice"))
     box.setCheckBox(remember)
     box.exec()
     key = buttons.get(box.clickedButton())

@@ -17,7 +17,6 @@ import time
 from PyQt6.QtCore import QFile, QIODevice, QObject, Qt, QTimer, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWidgets import (
-    QCheckBox,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
@@ -36,6 +35,7 @@ from PyQt6.QtWidgets import (
 
 from .config import DATA_DIR, RES_DIR
 from .i18n import T
+from .uistyle import Switch
 
 # scrypt for new vaults and for old ones at their next unlock (1.1.17: N was
 # 2^15). About a third of a second, once, when the vault is opened; each
@@ -715,9 +715,9 @@ class GeneratorDialog(QDialog):
         self.length = QSpinBox()
         self.length.setRange(8, 64)
         self.length.setValue(20)
-        self.upper = QCheckBox(T("Capital letters"))
-        self.digits = QCheckBox(T("Digits"))
-        self.symbols = QCheckBox(T("Symbols"))
+        self.upper = Switch(T("Capital letters"))
+        self.digits = Switch(T("Digits"))
+        self.symbols = Switch(T("Symbols"))
         for c in (self.upper, self.digits, self.symbols):
             c.setChecked(True)
             c.toggled.connect(self.regen)
@@ -786,7 +786,7 @@ class PasswordsDialog(QDialog):
             row2.addWidget(b)
         row2.addStretch(1)
         lay.addLayout(row2)
-        self.offer = QCheckBox(T("Offer to save passwords when I sign in"))
+        self.offer = Switch(T("Offer to save passwords when I sign in"))
         self.offer.setChecked(bool(app.config["passwords_offer_save"]))
         self.offer.toggled.connect(self._offer_changed)
         lay.addWidget(self.offer)

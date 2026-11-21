@@ -9,7 +9,6 @@ from PyQt6.QtGui import QAction, QActionGroup, QGuiApplication, QIcon, QKeySeque
 from PyQt6.QtWebEngineCore import QWebEnginePage
 from PyQt6.QtWidgets import (
     QAbstractItemView,
-    QCheckBox,
     QFileDialog,
     QFrame,
     QHBoxLayout,
@@ -37,6 +36,7 @@ from .features import WindowFeatures, tab_icon
 from .i18n import T
 from .shieldpanel import TOOLBAR_SHIELD_GROW, ShieldPanel, shield_icon
 from .tabs import AUDIO_ROLE, TabBar, VTabDelegate, VTabList
+from .uistyle import Switch
 from .urlbar import _URLISH, UrlBar
 from .webview import WebView
 
@@ -71,7 +71,7 @@ class FindBar(QWidget):
             self.info.setStyleSheet("#ikeFindCount { padding: 1px 9px; border-radius: 9px;"
                                     " background: palette(midlight); color: palette(window-text); }")
             self.info.hide()
-        self.case = QCheckBox(T("Match case"), self)
+        self.case = Switch(T("Match case"), self)
         close = QToolButton(self)
         close.setIcon(icon("window-close", QStyle.StandardPixmap.SP_TitleBarCloseButton))
         close.setAutoRaise(True)

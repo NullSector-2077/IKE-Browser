@@ -8,11 +8,12 @@ that shows it all for one site.
 """
 
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtWidgets import QCheckBox, QGridLayout, QLabel, QPushButton, QStyle, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QGridLayout, QLabel, QPushButton, QStyle, QVBoxLayout, QWidget
 
 from .config import LEVEL_NAMES
 from .i18n import T
 from .icons import themed as icon
+from .uistyle import Switch
 
 
 class SiteInfoPanel(QWidget):
@@ -60,7 +61,7 @@ class SiteInfoPanel(QWidget):
         grid.addWidget(self.zoom_reset, 4, 2)
         grid.setColumnStretch(1, 1)
         lay.addLayout(grid)
-        self.autoplay = QCheckBox(T("Videos and sounds may start by themselves on this site"), self)
+        self.autoplay = Switch(T("Videos and sounds may start by themselves on this site"), self)
         self.autoplay.clicked.connect(self._autoplay)
         lay.addWidget(self.autoplay)
         self.setMinimumWidth(380)
