@@ -393,6 +393,15 @@ def test_health_finds_what_waits_or_is_missing():
     assert "pull-requests: read" in text
 
 
+def test_every_scheduled_workflow_is_kept_turned_on():
+    """GitHub turns scheduled workflows off after 60 days without activity in
+    a public repository; health.yml turns on again every one it finds."""
+    text = (WORKFLOWS / "health.yml").read_text()
+    assert "for f in .github/workflows/*.yml" in text and "grep -q '^  schedule:'" in text
+    scheduled = [p.name for p in WORKFLOWS.glob("*.yml") if "\n  schedule:" in p.read_text()]
+    assert {"daily-check.yml", "daily-maintenance.yml", "health.yml", "arch.yml", "security.yml"} <= set(scheduled)
+
+
 # --- the maintenance version --------------------------------------------------------
 
 def prepare(tmp_path, *args):
@@ -2913,6 +2922,19 @@ def test_the_starting_commits_tests_run_on_the_new_code(tmp_path, branch, ok, sa
         return
     assert (run.returncode == 0) is ok, run.stdout + run.stderr
     assert said in run.stdout, run.stdout
+
+
+def test_the_starting_commits_tests_may_ask_git(tmp_path):
+    """A test of the starting commit that asks git which files there are
+    (test_licences.py does) failed in that step's copy, which was not a
+    repository: every branch of the automation that changed a test failed."""
+    base = {"tests/test_g.py": "import subprocess\n\n\ndef test_g():\n"
+                               "    out = subprocess.run(['git', 'ls-files'], capture_output=True, text=True, check=True)\n"
+                               "    assert 'tests/test_g.py' in out.stdout\n"}
+    work, env = _branch_repo(tmp_path, base, {"tests/test_h.py": "def test_h():\n    pass\n"})
+    script = step_script("The starting commit's tests on this code", "tests.yml")
+    run = subprocess.run(["bash", "-e", "-c", script], cwd=work, env=env, capture_output=True, text=True, timeout=300)
+    assert run.returncode == 0, run.stdout + run.stderr
 
 
 def test_ids_printed_at_exit_no_longer_fool_the_count(tmp_path):
