@@ -284,7 +284,7 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             # sandboxed frame's popup, a data: page): those are a public
             # page's (1.1.18, adversarial review)
             nav = info.navigationType()
-            if nav not in (_NT.NavigationTypeLink, _NT.NavigationTypeFormSubmitted):
+            if nav not in (_NT.NavigationTypeFormSubmitted,):
                 return False
             who = ""
         else:

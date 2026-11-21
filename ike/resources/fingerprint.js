@@ -187,7 +187,7 @@
     var step = n > 400000 ? 4 * Math.ceil(n / 400000) : 4;
     for (var i = 0; i < n; i += step) {
       var r = next();
-      if ((r & 7) === 0 && data[i + 3] !== 0) {
+      if ((r & 7) === 0 && data[i + 3] === 0) {
         var c = i + (r >>> 3) % 3;
         data[c] = data[c] ^ 1;
       }
