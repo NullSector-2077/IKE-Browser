@@ -79,6 +79,11 @@ class WebPage(QWebEnginePage):
         self.mouse_locked = False
         self.loadStarted.connect(lambda: setattr(self, "mouse_locked", False))
         self._loaded_url = None                     # the address the last finished load showed
+        if self.app.config["dark_mode"] == "on":
+            # dark from the first moment: a window a site opens shows an empty
+            # page before its address loads (1.1.19: it was white)
+            from PyQt6.QtGui import QColor
+            self.setBackgroundColor(QColor("#181a1b"))
         self.loadStarted.connect(lambda: setattr(self, "_loaded_url", None))
         self.permissionRequested.connect(self._permission)
         self.fullScreenRequested.connect(self._fullscreen)
@@ -225,10 +230,14 @@ class WebPage(QWebEnginePage):
         # every site in the profile (which can produce dark boxes in widgets).
         self.settings().setAttribute(_A.ForceDarkMode, bool(native_on))
 
-        if (on, engine) != (getattr(self, "_dark_on", None),
-                            getattr(self, "_dark_engine", None)):
+        # an empty page (a window a site opens, before its address loads) is
+        # dark too while dark mode is on for every site (1.1.19: it was white)
+        blank = (url.isEmpty() or url.toString() == "about:blank") and cfg["dark_mode"] == "on"
+        if (on, engine, blank) != (getattr(self, "_dark_on", None),
+                                   getattr(self, "_dark_engine", None), getattr(self, "_dark_blank", None)):
             # also the colour shown between two pages: no white flash
-            self.setBackgroundColor(QColor("#181a1b") if reader_on else QColor(Qt.GlobalColor.white))
+            self.setBackgroundColor(QColor("#181a1b") if reader_on or blank else QColor(Qt.GlobalColor.white))
+        self._dark_blank = blank
         self._dark_on = on
         self._dark_engine = engine
         # Dark Reader: scripts of the profile (darkpages.py), as the extension does it
