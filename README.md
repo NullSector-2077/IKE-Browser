@@ -111,7 +111,7 @@ profiles: `ike-browser --profile NAME`.
   one search. Optional mouse gestures (off by default).
 - I.K.E.'s own pages for sites that cannot be reached, with "Try again".
 - Reader mode with light, sepia or dark and the text size of your choice.
-- Free choice of search engines (Startpage by default since 1.1.19; an engine already chosen is kept), suggestions, keywords; the
+- Free choice of search engines (Startpage by default since 1.1.19: the old default, DuckDuckGo, becomes Startpage once; another engine chosen is kept), suggestions, keywords; the
   engine in use right after the lock and in the new tab page, a click to change it.
 - New tab page with a clock and, for a city you choose, the weather; tiles of
   your bookmarks or of the sites you visit most (up to 32, sixteen per row on

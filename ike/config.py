@@ -214,7 +214,8 @@ DEFAULTS = {
     "weather_unit": "celsius",          # celsius | fahrenheit
     "default_zoom": 1.0,
     "search_engines": DEFAULT_ENGINES,
-    "default_engine": "Startpage",      # new profiles (1.1.19, the owner's choice); a choice made is kept
+    "default_engine": "Startpage",      # 1.1.19, the owner's choice (see the change below for older profiles)
+    "engine_1119": False,               # the old default engine became Startpage once
     "search_suggestions": True,
     # protection
     "shield_level": "balanced",
@@ -428,6 +429,12 @@ class Config:
         if d.get("app_updates") == "ask" and not d.get("app_updates_1113"):
             d["app_updates"] = "auto"
         d["app_updates_1113"] = True
+        # 1.1.19: Startpage is the default search engine (the owner's choice);
+        # the old default, DuckDuckGo, becomes Startpage once, any other engine
+        # chosen stays (and DuckDuckGo chosen again afterwards stays too)
+        if d.get("default_engine") == "DuckDuckGo" and not d.get("engine_1119"):
+            d["default_engine"] = "Startpage"
+        d["engine_1119"] = True
         # 1.1.8: the new tab page gets I.K.E.'s own photo; whoever had none before gets it once
         if d.get("newtab_bg") == "" and not d.get("newtab_bg_118"):
             d["newtab_bg"] = "default"
