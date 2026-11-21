@@ -46,7 +46,7 @@ quota or rate limit, a problem in `.github/` (you may not change it).
   `ROADMAP.md`, `ike/__init__.py` (the version), `ike/updater.py`,
   `tests/conftest.py`, `tests/harness.py`, the release tools or the autofix tools.
 - Do not touch the ad blocker (`ike-adblock/src/`, `vendor/adblock/__init__.py`,
-  `ike/blocker.py`, `ike/scriptlets.py`: I.K.E.'s own wrapper around Brave's
+  `ike/blocker.py`, `ike/scriptlets.py`: I.K.E.'s own wrapper around
   adblock-rust) unless the section "This run" below says that this run
   updates its engine. Never
   touch the engine itself, `ike-adblock/Cargo.toml` or `Cargo.lock`: a problem

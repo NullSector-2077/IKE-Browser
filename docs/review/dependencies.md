@@ -22,7 +22,7 @@ than the distribution's. On a system that is not updated, the engine is old.
 
 | Component | Version | Licence | Advisories | Note |
 |---|---|---|---|---|
-| adblock-rust (Brave) | 0.13.5, pinned exactly | MPL-2.0 | none known | Checked daily by `tools/check-components.py` |
+| adblock-rust | 0.13.5, pinned exactly | MPL-2.0 | none known | Checked daily by `tools/check-components.py` |
 | pyo3 | 0.30.1 (was 0.23.5) | MIT OR Apache-2.0 | 0.23.5: RUSTSEC-2025-0020 and RUSTSEC-2026-0177, in functions the module does not call; none for 0.30.1 | Upgraded in 1.0.3 |
 | Other Rust crates (86, through adblock-rust, pyo3 and serde_json) | pinned by `Cargo.lock` | MIT, Apache-2.0, MPL-2.0, Unicode-3.0, Unlicense (one of the choices), LLVM exception | `cargo audit`: 0 vulnerabilities in 89 crates | Listed in `docs/THIRD-PARTY.md` |
 | uBlock Origin scriptlets | built from a pinned commit by `tools/build-ubo-scriptlets.mjs` | GPL-3.0 | — | Data file, checked daily |

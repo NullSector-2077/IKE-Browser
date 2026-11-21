@@ -1,6 +1,6 @@
 """Content blocker: filter lists download, matching engine, daily updates.
 
-Uses Brave's adblock engine (python-adblock) when available and falls back
+Uses the adblock-rust engine (python-adblock) when available and falls back
 to a pure Python domain matcher otherwise.
 """
 

@@ -341,7 +341,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         hl.addWidget(self.ws_btn_v)
         hl.addStretch(1)
         self._vhead = hl
-        # 1.1.16: only the icons of the tabs, a narrow panel (as in Brave and others)
+        # 1.1.16: only the icons of the tabs, a narrow panel
         self.vicons_btn = QToolButton(head)
         self.vicons_btn.setAutoRaise(True)
         self.vicons_btn.clicked.connect(self._toggle_vtabs_icons)
@@ -392,6 +392,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.splitter.setChildrenCollapsible(False)
         self.splitter.splitterMoved.connect(self._vtabs_resized)
         self.vtab_panel.setMinimumWidth(120)
+        self.vtabs_edge = polish.VTabsEdge(self.vtab_panel)          # its separator line (1.1.19)
         self._build_vtabs_root()
 
     def _action(self, text, slot=None, shortcut=None, ico=None, tip=None, checkable=False):

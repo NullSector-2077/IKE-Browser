@@ -1126,11 +1126,25 @@ UNSAFE_SWITCHES = (
     "--allow-file-access-from-files", "--disable-features-for-testing",
     "--remote-debugging-port", "--remote-debugging-pipe", "--remote-debugging-address",
     "--remote-debugging-socket-name", "--remote-allow-origins", "--auto-open-devtools-for-tabs",
+    # 1.1.19: it opens devices of the home network to every site at once (the
+    # engine has no per-site form of it; tried: an "exception" for one site
+    # let any other site through to the same device)
+    "--ip-address-space-overrides",
 )
 # kept (some graphics drivers need it, and the web engine chooses the
 # graphics path) but shown in the window and About as a protection that is off
 NOTICE_SWITCHES = ("--disable-gpu-sandbox",)
-UNSAFE_FEATURES = ("isolateorigins", "site-per-process", "siteperprocess", "originkeyedprocessesbydefault")
+UNSAFE_FEATURES = ("isolateorigins", "site-per-process", "siteperprocess", "originkeyedprocessesbydefault",
+                   "localnetworkaccesschecks", "localnetworkaccessfornavigations",
+                   "localnetworkaccesscheckswebrtc")
+# the engine's own home-network protection (Local Network Access, 1.1.19): a
+# public page cannot reach this computer or the home network. The engine
+# checks the real address when the connection is made, so a public name that
+# points home (DNS rebinding) is stopped too. Without its parameter the first
+# one only warns; the second covers links, scripts and forms that open a page
+# of the home network, the third WebRTC. Qt has no per-site permission for it.
+LNA_FEATURES = ("LocalNetworkAccessChecks:LocalNetworkAccessChecksWarn/false",
+                "LocalNetworkAccessForNavigations", "LocalNetworkAccessChecksWebRTC")
 
 
 def split_flags(text):
@@ -1251,13 +1265,22 @@ def _chromium_flags(config):
         # engine cannot sandbox as root, and the window says it is off
         flags.append("--no-sandbox")
         ENGINE_SAFETY["kept"].append("--no-sandbox")
-    # every site in its own process, as in Chrome and Brave (1.1.18, security
+    # every site in its own process, as in Chrome (1.1.18, security
     # audit F1; owner's decision): Qt WebEngine leaves it off, so a frame of
     # another site shared its page's process and one bug in the engine could
     # read the other site. A security switch, not a graphics path; about a
     # tenth more memory. Turning it off takes IKE_ALLOW_UNSAFE_ENGINE=1.
     if "--site-per-process" not in names and "--disable-site-isolation-trials" not in names:
         flags.append("--site-per-process")
+    off = {x.split(":")[0].split("<")[0].lower() for f in flags if f.startswith("--disable-features=")
+           for x in f.split("=", 1)[1].split(",")}
+    want = [x for x in LNA_FEATURES if x.split(":")[0].lower() not in off]     # off only on request
+    if want:
+        names_on = {x.split(":")[0] for x in want}
+        flags = [f if not f.startswith("--enable-features=") else "--enable-features=" + ",".join(
+                 x for x in f.split("=", 1)[1].split(",") if x.split(":")[0].split("<")[0] not in names_on)
+                 for f in flags]                     # an inherited "warn only" does not win
+        flags = _feature_flags([f for f in flags if f != "--enable-features="], enable=want)
     flags = _video_flags(flags, config, CONFIG_DIR)
     os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = join_flags(flags)
 

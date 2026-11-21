@@ -2126,8 +2126,22 @@
               return [prop, regexp];
           })
         : null;
-    function iterateCSSDeclarations(style, iterate) {
+    // I.K.E.: the properties getModifiableCSSDeclaration can change
+    function ikeMayModify(property) {
+        return (
+            property.includes("color") ||
+            property === "fill" ||
+            property === "stroke" ||
+            property === "background-image" ||
+            property === "list-style-image" ||
+            property.includes("shadow") ||
+            property.startsWith("--") ||
+            bgPropsToCopy.includes(property)
+        );
+    }
+    function iterateCSSDeclarations(style, iterate, ikeOnly = false) {
         const cssText = style.cssText;
+        const ikeAll = !ikeOnly || cssText.includes("var(");
         if (cssText.includes("var(")) {
             if (isSafari) {
                 shorthandVarDepPropRegexps.forEach(([prop, regexp]) => {
@@ -2161,6 +2175,9 @@
             handleEmptyShorthand("border", style, iterate);
         }
         forEach(style, (property) => {
+            if (!ikeAll && !ikeMayModify(property)) {
+                return;
+            }
             const value = style.getPropertyValue(property).trim();
             if (!value) {
                 return;
@@ -4699,6 +4716,10 @@
             this.inlineStyleQueue.splice(0);
         }
         collectVarsFromCSSDeclarations(style) {
+            // I.K.E.: no "--" in the text, no variable to collect
+            if (!style.cssText.includes("--")) {
+                return;
+            }
             iterateCSSDeclarations(style, (property, value) => {
                 if (isVariable(property)) {
                     this.inspectVariable(property, value);
@@ -5259,6 +5280,8 @@
         let prevFilterKey = null;
         let hasNonLoadedLink = false;
         let wasRebuilt = false;
+        // I.K.E.: the last build had nothing asynchronous and no variables
+        let ikeStatic = false;
         function shouldRebuildStyle() {
             return hasNonLoadedLink && !wasRebuilt;
         }
@@ -5314,7 +5337,8 @@
                                 if (mod) {
                                     modDecs.push(mod);
                                 }
-                            }
+                            },
+                            true
                         );
                     let modRule = null;
                     if (modDecs.length > 0) {
@@ -5342,6 +5366,10 @@
             }
             renderId++;
             function setRule(target, index, rule) {
+                target.insertRule(ikeRuleText(rule), index);
+            }
+            // I.K.E.: the text of a dark rule (setRule's own, unchanged)
+            function ikeRuleText(rule) {
                 const {selector, declarations} = rule;
                 let selectorText = selector;
                 const emptyIsWhereSelector =
@@ -5370,7 +5398,59 @@
                     }
                 }
                 ruleText += " }";
-                target.insertRule(ruleText, index);
+                return ruleText;
+            }
+            // I.K.E.: a group's rules as text, as createTarget nests them
+            function ikeGroupText(group) {
+                let text = "";
+                group.rules.forEach((r) => {
+                    if (!r.isGroup) {
+                        text += ikeRuleText(r) + "\n";
+                        return;
+                    }
+                    const {rule} = r;
+                    let head = null;
+                    if (isStyleRule(rule)) {
+                        head = rule.selectorText;
+                    } else if (isMediaRule(rule)) {
+                        head = `@media ${rule.media.mediaText}`;
+                    } else if (isLayerRule(rule)) {
+                        head = `@layer ${rule.name}`;
+                    } else if (isContainerRule(rule)) {
+                        const {containerName, containerQuery} = rule;
+                        head = `@container ${
+                            containerName
+                                ? `${containerName} ${containerQuery}`
+                                : containerQuery
+                        }`;
+                    }
+                    text +=
+                        head === null
+                            ? ikeGroupText(r)
+                            : `${head} {\n${ikeGroupText(r)}}\n`;
+                });
+                return text;
+            }
+            function ikeWriteAll(sheet, group) {
+                if (sheet.cssRules.length !== 0) {
+                    return false;
+                }
+                const owner = sheet.ownerNode;
+                if (owner instanceof HTMLStyleElement) {
+                    // emptied first: the same text again would not be read again
+                    owner.textContent = "";
+                    owner.textContent = ikeGroupText(group);
+                    return true;
+                }
+                if (
+                    !owner &&
+                    !sheet.ownerRule &&
+                    typeof sheet.replaceSync === "function"
+                ) {
+                    sheet.replaceSync(ikeGroupText(group));
+                    return true;
+                }
+                return false;
             }
             const asyncDeclarations = new Map();
             const varDeclarations = new Map();
@@ -5597,6 +5677,14 @@
                         }
                     });
                 }
+                // I.K.E.: all at once when nothing is finished later
+                if (
+                    asyncDeclarationCounter === 0 &&
+                    varDeclarationCounter === 0 &&
+                    ikeWriteAll(sheet, rootReadyGroup)
+                ) {
+                    return;
+                }
                 iterateReadyRules(rootReadyGroup, sheet, (rule, target) => {
                     const index = target.cssRules.length;
                     rule.declarations.forEach(({asyncKey, varKey}) => {
@@ -5626,8 +5714,12 @@
                 setRule(target, index, rule);
             }
             buildStyleSheet();
+            ikeStatic =
+                !hasNonLoadedLink &&
+                asyncDeclarationCounter === 0 &&
+                varDeclarationCounter === 0;
         }
-        return {modifySheet, shouldRebuildStyle};
+        return {modifySheet, shouldRebuildStyle, ikeStatic: () => ikeStatic};
     }
 
     let canUseSheetProxy$1 = false;
@@ -6267,9 +6359,15 @@
         return themeKey;
     }
     function getInlineStyleCacheKey(el, theme) {
-        const attrKey = INLINE_STYLE_ATTRS.filter((attr) =>
-            el.hasAttribute(attr)
-        ).map((attr) => `${attr}="${el.getAttribute(attr)}"`);
+        // I.K.E.: one loop, the same text as filter + map + join
+        let attrKey = "";
+        for (let i = 0; i < INLINE_STYLE_ATTRS.length; i++) {
+            const attr = INLINE_STYLE_ATTRS[i];
+            const value = el.getAttribute(attr);
+            if (value !== null) {
+                attrKey += `${attrKey ? "," : ""}${attr}="${value}"`;
+            }
+        }
         return `${attrKey} ${getThemeKey(theme)}`;
     }
     function shouldIgnoreInlineStyle(element, selectors) {
@@ -7078,6 +7176,8 @@
     }
     // I.K.E.: groups of identical style elements share one copy
     const ikeStyleGroups = new WeakMap();
+    // I.K.E.: the dark copy of a group's rules, by theme and rules (1.1.19)
+    const ikeDarkTexts = new Map();
     let ikeStyleEpoch = 0;
     let ikeStyleEpochQueued = false;
     function ikeLastStyle(group) {
@@ -7146,6 +7246,7 @@
         const isAsyncCancelled = () => cancelAsyncOperations;
         // I.K.E.: this element in its group of identical style elements
         let ikeGroup = null;
+        let ikeApplied = null;
         let ikeCovered = false;
         let ikeRenderArgs = null;
         const ikeMember = {
@@ -7525,7 +7626,9 @@
                 }
                 syncStylePositionWatcher && syncStylePositionWatcher.stop();
                 insertStyle();
-                if (syncStyle.sheet == null) {
+                // I.K.E.: a copy given as text is emptied before a rebuild
+                if (syncStyle.sheet == null || ikeApplied !== null) {
+                    ikeApplied = null;
                     syncStyle.textContent = "";
                 }
                 const sheet = syncStyle.sheet;
@@ -7547,6 +7650,45 @@
             function buildOverrides() {
                 const force = forceRenderStyle;
                 forceRenderStyle = false;
+                // I.K.E.: the dark copy of the same rules, made once
+                let ikeKey = null;
+                if (
+                    ikeGroup &&
+                    !ikeGroup.ikeKey.includes("--") &&
+                    !ikeGroup.ikeKey.includes("url(")
+                ) {
+                    ikeKey = getThemeKey$1(theme) + "\u0000" + ikeGroup.ikeKey;
+                    const text = ikeDarkTexts.get(ikeKey);
+                    if (text !== undefined) {
+                        if (
+                            !force &&
+                            ikeApplied === ikeKey &&
+                            syncStyle &&
+                            syncStyle.isConnected
+                        ) {
+                            return;
+                        }
+                        prepareOverridesSheet();
+                        syncStyle.textContent = text;
+                        ikeApplied = ikeKey;
+                        isOverrideEmpty = text === "";
+                        return;
+                    }
+                }
+                ikeBuild(force);
+                if (ikeKey && sheetModifier.ikeStatic() && syncStyle && syncStyle.sheet) {
+                    let text = "";
+                    const made = syncStyle.sheet.cssRules;
+                    for (let i = 0; i < made.length; i++) {
+                        text += made[i].cssText + "\n";
+                    }
+                    if (ikeDarkTexts.size >= 256) {
+                        ikeDarkTexts.clear();
+                    }
+                    ikeDarkTexts.set(ikeKey, text);
+                }
+            }
+            function ikeBuild(force) {
                 sheetModifier.modifySheet({
                     prepareSheet: prepareOverridesSheet,
                     sourceCSSRules: rules,
@@ -9006,6 +9148,24 @@
         observer.observe(root, {childList: true});
     }
     function createShadowStaticStyleOverrides(root) {
+        // I.K.E.: already there, first, in order, with today's texts
+        if (shadowRootsWithOverrides.has(root)) {
+            const map = staticStyleMap.get(root);
+            const a = map && map.get("darkreader--inline");
+            const b = map && map.get("darkreader--override");
+            const c = map && map.get("darkreader--invert");
+            if (
+                a && b && c &&
+                root.firstChild === a &&
+                a.nextSibling === b &&
+                b.nextSibling === c &&
+                a.textContent === ikeShadowTexts().inline &&
+                b.textContent === ikeShadowTexts().override &&
+                c.textContent === getInversionStyleValue()
+            ) {
+                return;
+            }
+        }
         const delayed = root.firstChild === null;
         createShadowStaticStyleOverridesInner(root);
         if (delayed) {

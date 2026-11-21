@@ -412,6 +412,8 @@ PATCHES = [
 """, """\
     // I.K.E.: groups of identical style elements share one copy
     const ikeStyleGroups = new WeakMap();
+    // I.K.E.: the dark copy of a group's rules, by theme and rules (1.1.19)
+    const ikeDarkTexts = new Map();
     let ikeStyleEpoch = 0;
     let ikeStyleEpochQueued = false;
     function ikeLastStyle(group) {
@@ -466,6 +468,7 @@ PATCHES = [
         const isAsyncCancelled = () => cancelAsyncOperations;
         // I.K.E.: this element in its group of identical style elements
         let ikeGroup = null;
+        let ikeApplied = null;
         let ikeCovered = false;
         let ikeRenderArgs = null;
         const ikeMember = {
@@ -886,6 +889,328 @@ PATCHES = [
             ikeCheckStyleGroups(root);
             deepObserve(root);
 """),
+    # 1.1.19 (measured: docs/review/tests-and-performance.md). A style sheet
+    # without CSS variables: the search for variables in it is skipped (every
+    # variable and every var() has "--" in its text).
+    ("variables-none", """\
+        collectVarsFromCSSDeclarations(style) {
+            iterateCSSDeclarations(style, (property, value) => {""", """\
+        collectVarsFromCSSDeclarations(style) {
+            // I.K.E.: no "--" in the text, no variable to collect
+            if (!style.cssText.includes("--")) {
+                return;
+            }
+            iterateCSSDeclarations(style, (property, value) => {"""),
+    # The values of properties Dark Reader never changes (width, margin...) are
+    # not read when a rule has no var(): getModifiableCSSDeclaration would
+    # answer null for them. The guards below stop the build when a new engine
+    # changes which properties it modifies, so the list never falls behind.
+    ("declarations-modifiable", """\
+    function iterateCSSDeclarations(style, iterate) {
+        const cssText = style.cssText;
+        if (cssText.includes("var(")) {""", """\
+    // I.K.E.: the properties getModifiableCSSDeclaration can change
+    function ikeMayModify(property) {
+        return (
+            property.includes("color") ||
+            property === "fill" ||
+            property === "stroke" ||
+            property === "background-image" ||
+            property === "list-style-image" ||
+            property.includes("shadow") ||
+            property.startsWith("--") ||
+            bgPropsToCopy.includes(property)
+        );
+    }
+    function iterateCSSDeclarations(style, iterate, ikeOnly = false) {
+        const cssText = style.cssText;
+        const ikeAll = !ikeOnly || cssText.includes("var(");
+        if (cssText.includes("var(")) {"""),
+    ("declarations-modifiable-skip", """\
+        forEach(style, (property) => {
+            const value = style.getPropertyValue(property).trim();
+            if (!value) {
+                return;
+            }
+            iterate(property, value);
+        });
+    }
+    function handleEmptyShorthand(""", """\
+        forEach(style, (property) => {
+            if (!ikeAll && !ikeMayModify(property)) {
+                return;
+            }
+            const value = style.getPropertyValue(property).trim();
+            if (!value) {
+                return;
+            }
+            iterate(property, value);
+        });
+    }
+    function handleEmptyShorthand("""),
+    ("declarations-modifiable-sheet", """\
+                                if (mod) {
+                                    modDecs.push(mod);
+                                }
+                            }
+                        );""", """\
+                                if (mod) {
+                                    modDecs.push(mod);
+                                }
+                            },
+                            true
+                        );"""),
+    ("declarations-modifiable-guard-colour", """\
+        } else if (
+            (property.includes("color") &&
+                property !== "-webkit-print-color-adjust") ||
+            property === "fill" ||
+            property === "stroke" ||
+            property === "stop-color"
+        ) {""", """\
+        } else if (
+            (property.includes("color") &&
+                property !== "-webkit-print-color-adjust") ||
+            property === "fill" ||
+            property === "stroke" ||
+            property === "stop-color"
+        ) {"""),
+    ("declarations-modifiable-guard-image", """\
+        } else if (
+            property === "background-image" ||
+            property === "list-style-image"
+        ) {""", """\
+        } else if (
+            property === "background-image" ||
+            property === "list-style-image"
+        ) {"""),
+    ("declarations-modifiable-guard-rest", """\
+        } else if (property.includes("shadow")) {
+            modifier = getShadowModifier(value);
+        } else if (bgPropsToCopy.includes(property) && value !== "initial") {
+            modifier = value;
+        }""", """\
+        } else if (property.includes("shadow")) {
+            modifier = getShadowModifier(value);
+        } else if (bgPropsToCopy.includes(property) && value !== "initial") {
+            modifier = value;
+        }"""),
+    # A shadow root asked for its three dark styles a second time (by the
+    # style watcher and by the inline-style watcher) when they are already
+    # there, first and in order, with the same text: nothing to do.
+    ("shadow-styles-once", """\
+    function createShadowStaticStyleOverrides(root) {
+        const delayed = root.firstChild === null;""", """\
+    function createShadowStaticStyleOverrides(root) {
+        // I.K.E.: already there, first, in order, with today's texts
+        if (shadowRootsWithOverrides.has(root)) {
+            const map = staticStyleMap.get(root);
+            const a = map && map.get("darkreader--inline");
+            const b = map && map.get("darkreader--override");
+            const c = map && map.get("darkreader--invert");
+            if (
+                a && b && c &&
+                root.firstChild === a &&
+                a.nextSibling === b &&
+                b.nextSibling === c &&
+                a.textContent === ikeShadowTexts().inline &&
+                b.textContent === ikeShadowTexts().override &&
+                c.textContent === getInversionStyleValue()
+            ) {
+                return;
+            }
+        }
+        const delayed = root.firstChild === null;"""),
+    # The key of an element's inline style, asked about five times for each
+    # element: one loop instead of two arrays (the same text).
+    ("inline-style-key", """\
+        const attrKey = INLINE_STYLE_ATTRS.filter((attr) =>
+            el.hasAttribute(attr)
+        ).map((attr) => `${attr}="${el.getAttribute(attr)}"`);
+        return `${attrKey} ${getThemeKey(theme)}`;""", """\
+        // I.K.E.: one loop, the same text as filter + map + join
+        let attrKey = "";
+        for (let i = 0; i < INLINE_STYLE_ATTRS.length; i++) {
+            const attr = INLINE_STYLE_ATTRS[i];
+            const value = el.getAttribute(attr);
+            if (value !== null) {
+                attrKey += `${attrKey ? "," : ""}${attr}="${value}"`;
+            }
+        }
+        return `${attrKey} ${getThemeKey(theme)}`;"""),
+    # The same style element in many shadow roots (web components, Lit): its
+    # dark copy is made once, then given to each copy as text. Only for rules
+    # without CSS variables, url() or anything Dark Reader finishes later, so
+    # the copy depends on the rules and the theme alone; the key is the rules
+    # the element really has (style-groups). Emptied before any rebuild.
+    ("dark-copy-static", """\
+        return {modifySheet, shouldRebuildStyle};""", """\
+        return {modifySheet, shouldRebuildStyle, ikeStatic: () => ikeStatic};"""),
+    ("dark-copy-static-flag", """\
+        let hasNonLoadedLink = false;
+        let wasRebuilt = false;""", """\
+        let hasNonLoadedLink = false;
+        let wasRebuilt = false;
+        // I.K.E.: the last build had nothing asynchronous and no variables
+        let ikeStatic = false;"""),
+    ("dark-copy-static-set", """\
+            buildStyleSheet();
+        }
+        return {modifySheet,""", """\
+            buildStyleSheet();
+            ikeStatic =
+                !hasNonLoadedLink &&
+                asyncDeclarationCounter === 0 &&
+                varDeclarationCounter === 0;
+        }
+        return {modifySheet,"""),
+    ("dark-copy-rebuild", """\
+                syncStylePositionWatcher && syncStylePositionWatcher.stop();
+                insertStyle();
+                if (syncStyle.sheet == null) {
+                    syncStyle.textContent = "";
+                }""", """\
+                syncStylePositionWatcher && syncStylePositionWatcher.stop();
+                insertStyle();
+                // I.K.E.: a copy given as text is emptied before a rebuild
+                if (syncStyle.sheet == null || ikeApplied !== null) {
+                    ikeApplied = null;
+                    syncStyle.textContent = "";
+                }"""),
+    ("dark-copy-reuse", """\
+            function buildOverrides() {
+                const force = forceRenderStyle;
+                forceRenderStyle = false;
+                sheetModifier.modifySheet({""", """\
+            function buildOverrides() {
+                const force = forceRenderStyle;
+                forceRenderStyle = false;
+                // I.K.E.: the dark copy of the same rules, made once
+                let ikeKey = null;
+                if (
+                    ikeGroup &&
+                    !ikeGroup.ikeKey.includes("--") &&
+                    !ikeGroup.ikeKey.includes("url(")
+                ) {
+                    ikeKey = getThemeKey$1(theme) + "\\u0000" + ikeGroup.ikeKey;
+                    const text = ikeDarkTexts.get(ikeKey);
+                    if (text !== undefined) {
+                        if (
+                            !force &&
+                            ikeApplied === ikeKey &&
+                            syncStyle &&
+                            syncStyle.isConnected
+                        ) {
+                            return;
+                        }
+                        prepareOverridesSheet();
+                        syncStyle.textContent = text;
+                        ikeApplied = ikeKey;
+                        isOverrideEmpty = text === "";
+                        return;
+                    }
+                }
+                ikeBuild(force);
+                if (ikeKey && sheetModifier.ikeStatic() && syncStyle && syncStyle.sheet) {
+                    let text = "";
+                    const made = syncStyle.sheet.cssRules;
+                    for (let i = 0; i < made.length; i++) {
+                        text += made[i].cssText + "\\n";
+                    }
+                    if (ikeDarkTexts.size >= 256) {
+                        ikeDarkTexts.clear();
+                    }
+                    ikeDarkTexts.set(ikeKey, text);
+                }
+            }
+            function ikeBuild(force) {
+                sheetModifier.modifySheet({"""),
+    # The dark copy of a style sheet written as one text, parsed once, when
+    # nothing in it is finished later (no asynchronous value, no variable):
+    # the same rules in the same order and groups as insertRule one at a time,
+    # which cost twice as much (2,000 rules: 19 -> 8.5 ms). A sheet of another
+    # kind, or not empty, keeps insertRule.
+    ("one-text-rule", """\
+            function setRule(target, index, rule) {
+                const {selector, declarations} = rule;""", """\
+            function setRule(target, index, rule) {
+                target.insertRule(ikeRuleText(rule), index);
+            }
+            // I.K.E.: the text of a dark rule (setRule's own, unchanged)
+            function ikeRuleText(rule) {
+                const {selector, declarations} = rule;"""),
+    ("one-text-rule-end", """\
+                ruleText += " }";
+                target.insertRule(ruleText, index);
+            }""", """\
+                ruleText += " }";
+                return ruleText;
+            }
+            // I.K.E.: a group's rules as text, as createTarget nests them
+            function ikeGroupText(group) {
+                let text = "";
+                group.rules.forEach((r) => {
+                    if (!r.isGroup) {
+                        text += ikeRuleText(r) + "\\n";
+                        return;
+                    }
+                    const {rule} = r;
+                    let head = null;
+                    if (isStyleRule(rule)) {
+                        head = rule.selectorText;
+                    } else if (isMediaRule(rule)) {
+                        head = `@media ${rule.media.mediaText}`;
+                    } else if (isLayerRule(rule)) {
+                        head = `@layer ${rule.name}`;
+                    } else if (isContainerRule(rule)) {
+                        const {containerName, containerQuery} = rule;
+                        head = `@container ${
+                            containerName
+                                ? `${containerName} ${containerQuery}`
+                                : containerQuery
+                        }`;
+                    }
+                    text +=
+                        head === null
+                            ? ikeGroupText(r)
+                            : `${head} {\\n${ikeGroupText(r)}}\\n`;
+                });
+                return text;
+            }
+            function ikeWriteAll(sheet, group) {
+                if (sheet.cssRules.length !== 0) {
+                    return false;
+                }
+                const owner = sheet.ownerNode;
+                if (owner instanceof HTMLStyleElement) {
+                    // emptied first: the same text again would not be read again
+                    owner.textContent = "";
+                    owner.textContent = ikeGroupText(group);
+                    return true;
+                }
+                if (
+                    !owner &&
+                    !sheet.ownerRule &&
+                    typeof sheet.replaceSync === "function"
+                ) {
+                    sheet.replaceSync(ikeGroupText(group));
+                    return true;
+                }
+                return false;
+            }"""),
+    ("one-text-write", """\
+                iterateReadyRules(rootReadyGroup, sheet, (rule, target) => {
+                    const index = target.cssRules.length;""", """\
+                // I.K.E.: all at once when nothing is finished later
+                if (
+                    asyncDeclarationCounter === 0 &&
+                    varDeclarationCounter === 0 &&
+                    ikeWriteAll(sheet, rootReadyGroup)
+                ) {
+                    return;
+                }
+                iterateReadyRules(rootReadyGroup, sheet, (rule, target) => {
+                    const index = target.cssRules.length;"""),
 ]
 
 

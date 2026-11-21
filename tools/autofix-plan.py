@@ -390,7 +390,7 @@ _ADBLOCK_LOCK = re.compile(r'^\[\[package\]\]\s*\nname = "adblock"\s*\nversion =
 
 
 def adblock_version(lock_text):
-    """The version of Brave's adblock crate in a Cargo.lock, or None."""
+    """The version of the adblock crate in a Cargo.lock, or None."""
     m = _ADBLOCK_LOCK.search(lock_text or "")
     return m.group(1) if m else None
 

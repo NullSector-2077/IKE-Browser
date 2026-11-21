@@ -91,7 +91,8 @@ def steps(ike, qapp, out):
     yield 600
     out["narrow"] = [eb.x() - lock.geometry().right(), eb.geometry().right() < win.shield_btn.x(),
                      eb.isVisible()]
-''', timeout=120)
+''', settings={"default_engine": "DuckDuckGo", "engine_1119": True},
+                  timeout=120)      # DuckDuckGo chosen by the user
     assert out["place"][0] and 0 <= out["place"][1] <= 3 and out["place"][2] >= 20 and out["place"][3], out["place"]
     assert out["icon"][0] > 180 and out["icon"][1] < 60, out["icon"]          # DuckDuckGo's own icon (stored)
     assert "DuckDuckGo" in out["tip"]
@@ -168,7 +169,8 @@ def steps(ike, qapp, out):
     # an engine that is not installed changes nothing
     yield from load(view, "ike:engine?name=Nope")
     out["unknown"] = [ike.config["default_engine"], view.url().toString()]
-''', timeout=150)
+''', settings={"default_engine": "DuckDuckGo", "engine_1119": True},
+                  timeout=150)      # DuckDuckGo chosen by the user
     c = out["closed"]
     assert not c["open"] and c["menu"] == "none" and all(c["input"]), c
     assert c["names"][:3] == ["DuckDuckGo", "Startpage", "Brave Search"] and c["checked"] == ["DuckDuckGo"]
@@ -199,7 +201,7 @@ def steps(ike, qapp, out):
     yield 1500
     out["engine"] = ike.config["default_engine"]
 ''', timeout=90)
-    assert out["engine"] == "DuckDuckGo"
+    assert out["engine"] == "Startpage"                  # a new profile's engine (1.1.19), unchanged
 
 
 def test_shield_panel_stays_on_the_screen(run_ike):

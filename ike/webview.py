@@ -78,6 +78,13 @@ class WebPage(QWebEnginePage):
         self._generichide = False
         self.mouse_locked = False
         self.loadStarted.connect(lambda: setattr(self, "mouse_locked", False))
+        self._loaded_url = None                     # the address the last finished load showed
+        if self.app.config["dark_mode"] == "on":
+            # dark from the first moment: a window a site opens shows an empty
+            # page before its address loads (1.1.19: it was white)
+            from PyQt6.QtGui import QColor
+            self.setBackgroundColor(QColor("#181a1b"))
+        self.loadStarted.connect(lambda: setattr(self, "_loaded_url", None))
         self.permissionRequested.connect(self._permission)
         self.fullScreenRequested.connect(self._fullscreen)
         self.urlChanged.connect(self._inject_cosmetics)
@@ -223,10 +230,14 @@ class WebPage(QWebEnginePage):
         # every site in the profile (which can produce dark boxes in widgets).
         self.settings().setAttribute(_A.ForceDarkMode, bool(native_on))
 
-        if (on, engine) != (getattr(self, "_dark_on", None),
-                            getattr(self, "_dark_engine", None)):
+        # an empty page (a window a site opens, before its address loads) is
+        # dark too while dark mode is on for every site (1.1.19: it was white)
+        blank = (url.isEmpty() or url.toString() == "about:blank") and cfg["dark_mode"] == "on"
+        if (on, engine, blank) != (getattr(self, "_dark_on", None),
+                                   getattr(self, "_dark_engine", None), getattr(self, "_dark_blank", None)):
             # also the colour shown between two pages: no white flash
-            self.setBackgroundColor(QColor("#181a1b") if reader_on else QColor(Qt.GlobalColor.white))
+            self.setBackgroundColor(QColor("#181a1b") if reader_on or blank else QColor(Qt.GlobalColor.white))
+        self._dark_blank = blank
         self._dark_on = on
         self._dark_engine = engine
         # Dark Reader: scripts of the profile (darkpages.py), as the extension does it
@@ -323,8 +334,34 @@ class WebPage(QWebEnginePage):
             return True
         return False
 
+    def _lan_engine_block(self):
+        """The engine's own home-network protection stopped a part of this
+        page (1.1.19): the window says so, as for the parts I.K.E. stops
+        itself. Only a notice, no button (nothing to allow: the engine has no
+        per-site exception), so a page printing the same text gains nothing."""
+        from .shields import site_of
+        from .userscripts import is_local_name
+        page = self.url()
+        if page.scheme() not in ("http", "https") or is_local_name(page.host()):
+            return
+        site = site_of(page.host().lower())
+        view = self.window_ref.view_of(self)
+        n = getattr(view, "secure_notice", None) if view is not None else None
+        if view is None or (n and n.get("url") == page.toString()):
+            return
+        if self._loaded_url != page.toString():
+            self.app.shields.lan_blocked["frame:" + page.toString()] = site     # shown when it loads
+            return
+        from .securebar import set_notice
+        set_notice(view, "lan", page, site)
+        view.secure_notice["frame"] = True
+        if view is self.window_ref.current_view():
+            self.window_ref.secure_bar.show_for(view)
+
     def javaScriptConsoleMessage(self, level, message, line, source):
         from .userscripts import PREFIX
+        if "address space" in message and ("more-private" in message or "Permission was denied" in message):
+            self._lan_engine_block()
         if message.startswith(READER_PREFIX):
             self._reader_prefs(message[len(READER_PREFIX):])
             return
@@ -356,6 +393,7 @@ class WebPage(QWebEnginePage):
     def _load_finished(self, ok):
         url = self.url()
         sh = self.app.shields
+        self._loaded_url = url.toString() if ok else None
         if not ok and url.scheme() == "https" and url.host().lower() in sh.upgraded:
             # The secure address of a page asked for over http did not answer.
             # Until 1.1.17 the browser went back to http by itself; someone on

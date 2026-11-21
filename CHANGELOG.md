@@ -1,5 +1,42 @@
 # Changelog
 
+## 1.1.19
+
+- **The home network, also through public names**: the web engine's own
+  protection (Local Network Access) is on for every site. A public page can
+  no longer reach this computer, the router or other devices at home, even
+  through a public name that points there (DNS rebinding): pictures,
+  scripts, frames, fetch, workers, redirects, WebRTC, links and forms that
+  open a page at home. There are no exceptions per site: the engine's only
+  way to make one opens the device to every site (tried), so it is not used,
+  and the window says what was stopped without an "Allow" button (a page at
+  home that a public page tried to open can still be opened by the user's
+  click). Still open: a WebSocket to a public name that points home (the
+  engine only warns), and behind a proxy (docs/SECURITY.md).
+- **Page dark mode with Dark Reader is faster, with the same result**: less
+  repeated work on pages built from many components (200 shadow roots:
+  278 -> 100 ms of Dark Reader's work), with adopted style sheets (-21 %),
+  icons (-18 %) and large style sheets (2,000 rules: -33 %, the dark copy
+  written in one go). The dark result is byte for byte the same (checked on
+  six kinds of page); no light frame appears when pages load, and an empty
+  page is now dark too in dark mode.
+- **A separator line for the vertical tabs** when their panel slides in over
+  the page, in the colour of the desktop's own separators (as in Dolphin).
+- **Startpage is the default search engine**. Whoever was on DuckDuckGo,
+  the previous default, moves to Startpage once; another engine chosen stays.
+- `tests/measure_smooth.py`: how smoothly pages appear and scroll, the same
+  local pages measured in I.K.E. and in another browser.
+- **Automation** (docs/MAINTENANCE.md): Z.AI's free models are a reserve of
+  the automatic fix (after Groq, before OpenRouter), and the weekly check
+  asks every reserve one tiny question, so a refused key or a gone model is
+  found early; every scheduled check is kept on and watched (the Arch and
+  security ones were not); the AdBlock engine's other crates (pyo3, psl,
+  regex...) are followed and updated, not only the engine; pytest and ruff
+  are pinned like the other test packages; the reserves see the files the
+  latest commits changed, and one provider can no longer end the chain
+  alone. Two gaps in the security tests were closed (a popup or a form of a
+  page with no origin of its own, found by breaking each guard on purpose).
+
 ## 1.1.18
 
 Speed, measured before and after on the same computer (the numbers are in
@@ -128,8 +165,8 @@ docs/SECURITY.md):
 - **Every site in its own process** (owner's decision): Qt WebEngine leaves
   Chromium's Site Isolation off, so a frame of another site shared its page's
   process and one bug in the engine could let a page read the other site.
-  I.K.E. now turns it on (`--site-per-process`), as Chrome and Brave always
-  do; turning it off takes `IKE_ALLOW_UNSAFE_ENGINE=1`. Measured: four tabs
+  I.K.E. now turns it on (`--site-per-process`), as Chrome always
+  does; turning it off takes `IKE_ALLOW_UNSAFE_ENGINE=1`. Measured: four tabs
   with four frames of other sites each used 494 MB instead of 436 MB (+13 %),
   13 processes instead of 8.
 - **The home network is protected from every kind of request**: until now
@@ -193,9 +230,10 @@ docs/SECURITY.md):
   process runs without it (`test_sandbox.py`).
 - **Not solved, said plainly** (docs/SECURITY.md): a public name that
   resolves to an address of the home network (DNS rebinding) is not stopped,
-  nor are WebRTC and WebTransport; the engine's own protection is not in
-  Qt 6.12 (tried), and I.K.E. cannot resolve names in its request check
-  without slowing every page. A site's own worker can read its own noise
+  nor are WebRTC and WebTransport: I.K.E. cannot resolve names in its
+  request check without slowing every page, and the engine's own protection
+  (Local Network Access, present in Qt 6.12 but off, with no per-site
+  permission) is turned on in 1.1.19, for every site. A site's own worker can read its own noise
   seed. A page that frames one of a user script's sites and has stolen the
   script's token can still act as that frame.
 
@@ -407,8 +445,8 @@ Security review (each point has a test that plays the attack on this computer).
 
 - **Same site, free way (faster pages, fewer broken sites)**: at Balanced and
   Compatibility, what a site asks of itself (its own pictures, scripts, styles
-  and data) is no longer checked against the filter lists, as Brave does in its
-  standard mode. Most of the requests of a page are the site's own, so the
+  and data) is no longer checked against the filter lists, like the standard
+  mode of other content blockers. Most of the requests of a page are the site's own, so the
   content blocker has much less to do, and the sites that broke because one of
   their own parts was blocked work again. The ads and trackers of other
   companies stay blocked, the hiding of ad boxes stays on, Strict and Maximum
@@ -432,11 +470,10 @@ Security review (each point has a test that plays the attack on this computer).
   page (an embedded Google sign-in frame keeps its normal identity too). The
   trackers of other companies stay blocked, every other site keeps its
   protections, YouTube is not touched, and a level the user chose for one of
-  these sites is still respected. Brave reaches the same result with a list of
-  hand-written exceptions.
+  these sites is still respected.
 - **Payments with PayPal and Stripe**: their anti-fraud checks can refuse a
-  payment or a sign-in when part of them is blocked or changed (Brave users
-  report PayPal sign-ins that work only with the shield off). PayPal's sign-in
+  payment or a sign-in when part of them is blocked or changed (PayPal
+  sign-ins that work only with the protections off are a known case). PayPal's sign-in
   and Stripe's checkout page get the same treatment as Google's sensitive
   services, and in every shop PayPal's and Stripe's own parts (payment buttons
   and fields, their anti-fraud checks, their frames and cookies) are left
@@ -479,7 +516,7 @@ Security review (each point has a test that plays the attack on this computer).
   release is downloaded, checked and installed by itself (once a day at most) and
   used at the next start. Whoever had the old default "Ask before installing"
   moves to automatic once; "Do not check" stays the user's own choice.
-- **Faster pages** (from a comparison with Brave on YouTube: less blocking
+- **Faster pages** (measured on YouTube: less blocking
   time, an earlier main picture, fewer requests):
   - the cookie-banner handler no longer weighs on the page while it loads: one
     query for all the known "reject" buttons instead of about forty, no layout

@@ -10,7 +10,9 @@ Two cases, each with a way through that only the user can take:
   opens the http address for this session.
 - "lan" (home network protection): a page of a public site tried to open an
   address of this computer or of the home network (a form sent to the
-  router). "Allow for this site" lets that site do it for this session.
+  router). "Allow for this site" opens that address for this session. For a
+  part of a page (a frame, an image, a script) the bar only says what was
+  stopped: the engine's own protection stops it in any case (1.1.19).
 - "blocked": the whole page is on the filter lists (a site that spreads
   malware, or one only made of ads or tracking). "Continue anyway" opens it
   for this session; the lists still filter what it loads.
@@ -73,6 +75,9 @@ class SecureBar(QWidget):
             self.hide()
             return
         host = QUrl(n["url"]).host()
+        # a part of a page: the engine's own protection stops it whatever the
+        # window allows (1.1.19), so the bar only says what happened
+        self.go.setVisible(not (n["kind"] == "lan" and n.get("frame")))
         if n["kind"] == "nohttps":
             self.text.setText("⚠ " + T("%s has no secure connection (https), or someone on the network "
                                        "is blocking it. Without it, others on the network can read and "

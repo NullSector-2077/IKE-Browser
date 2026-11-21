@@ -84,6 +84,40 @@ between the two sessions; only figures of the same session are compared.)
 These numbers describe a small container without a GPU. They say that the
 versions do not differ, not how fast I.K.E. is on the owner's computer.
 
+## 1.1.19, page dark mode with Dark Reader
+
+Measured with `tests/measure_smooth.py` (six local pages, Dark Reader off,
+on, and the engine's dark mode; 3 runs, this container, software drawing):
+pictures, big photos, lazy pictures, a growing feed and a slowly arriving
+page show no difference between the three. Pages with much CSS, shadow roots
+or SVG showed one long task with Dark Reader at load (about 125-140 ms each
+for 2,000 rules, 200 shadow roots, 2,000 SVG shapes). Six changes to Dark
+Reader (`tools/build-darkreader.py`, 1.1.19 entries) remove repeated work.
+The dark result is byte for byte the same with and without them: every
+sheet, adopted sheet and computed colour, hashed, on six pages (one with
+@media, @layer, @container, @supports and nested rules). Dark
+Reader's own CPU time on those pages, median of 9 runs (headless Chromium,
+DOM changed after load):
+
+| Page | before | after | change |
+|---|---|---|---|
+| 200 shadow roots, one identical style each | 277.8 ms | 99.5 ms | -64 % |
+| 200 shadow roots, adopted style sheets | 43.7 ms | 34.5 ms | -21 % |
+| icons (SVG and inline styles) | 45.6 ms | 37.2 ms | -18 % |
+| 2,000 CSS rules | 60.1 ms | 58.2 ms | -3 % |
+| 2,000 CSS rules, the dark copy written as one text (second pass) | 77.9 ms | 52.0 ms | -33 % |
+| 2,000 SVG shapes | 62.3 ms | 61.7 ms | about the same |
+
+Most of what is left on the last two is real work (each colour converted,
+each shape's colour written as an inline style, the page's own first layout
+done in Dark Reader's task). No white frame was seen on the way: from a dark
+page to any page (plain, slow style sheet, slow body, 4,000 rules, another
+site in another process), frames grabbed every 15 ms for 3 s; the one white
+case, an empty page in dark mode, is dark since 1.1.19
+(`test_dark_blank.py`). Scrolling smoothness cannot be measured here
+(software drawing caps every mode at about 37 frames a second): it is
+measured on the owner's computer.
+
 ## 1.1.18, before and after
 
 Same container as below (4 cores, no GPU; Qt 6.12.0 / PyQt6 6.12 from PyPI,
@@ -141,9 +175,9 @@ What the comparison showed:
   version and its graphics path are the other candidates, to be checked on
   that computer (chrome://gpu in I.K.E., `pacman -Q qt6-webengine`).
 - On the owner's computer (CachyOS, 2026-11-20; I.K.E. 1.1.17 as installed,
-  Speedometer 3.0, 10 iterations, compared with Brave on the same computer):
+  Speedometer 3.0, 10 iterations, compared with a reference Chromium browser on the same computer):
 
-  | Speedometer 3.0 | I.K.E., Dark Reader | Brave | I.K.E., engine dark mode |
+  | Speedometer 3.0 | I.K.E., Dark Reader | reference | I.K.E., engine dark mode |
   |---|---|---|---|
   | Score, mean | 20.51 | 29.02 | 33.29 |
   | Score, iterations 2-10 | 20.90 | 29.58 | 33.88 |
@@ -152,8 +186,8 @@ What the comparison showed:
   | Geomean of the times | 48.97 ms | 34.63 ms | 30.16 ms |
   | Async total | 647.35 ms | 489.06 ms | 223.99 ms |
 
-  The gap against Brave came from Dark Reader; with the engine's dark mode
-  I.K.E. scored 14.7 % above Brave there.
+  The gap came from Dark Reader; with the engine's dark mode I.K.E. scored
+  14.7 % above the reference.
 - Page dark mode with Dark Reader costs much more: 1.1.18 Balanced with dark
   mode on scored 6.12 with Dark Reader (Complex-DOM tests 2-7 times slower)
   and 10.5 with the engine's own dark mode. Dark Reader watches every change of
@@ -451,7 +485,9 @@ them:
   run without a DNS lookup (a lookup there would slow every page). The web
   engine's own protection (Private Network Access) still stops a public page's
   scripts and images towards it; a public page that sends the tab there is not
-  stopped.
+  stopped. (Note of 2026-11-20: tried with Qt 6.12, the engine's protection
+  is off and stopped nothing; since 1.1.18 `fritz.box`, `*.lan` and similar
+  names are recognised by their form. See docs/SECURITY.md.)
 - Behind a proxy set in the environment the user-script downloads cannot pin
   the checked address (the proxy looks the name up); the redirect and address
   checks still apply.

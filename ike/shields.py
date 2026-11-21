@@ -415,9 +415,8 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         if (not main and lv <= 2 and first_known and host_site == first_site
                 and first_site not in s.full_blocking_sites()):
             # "Same site, free way" (1.1.15): at Balanced and below, what a site
-            # asks of itself is not checked against the filter lists, as Brave
-            # does in its standard mode - faster (most requests of a page are
-            # the site's own) and fewer broken sites. The ads and trackers of
+            # asks of itself is not checked against the filter lists - faster
+            # (most requests of a page are the site's own) and fewer broken sites. The ads and trackers of
             # other companies stay blocked, element hiding stays on, Strict and
             # Maximum block everything, and the video sites always do.
             if cfg["send_gpc"]:

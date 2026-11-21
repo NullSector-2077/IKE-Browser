@@ -20,7 +20,7 @@ def test_address_bar(run_ike):
     """)
     assert out["host"] == "http://example.org"
     assert out["local"] == "http://localhost:8000/x"
-    assert out["search"].startswith("https://duckduckgo.com/?q=hello")
+    assert out["search"].startswith("https://www.startpage.com/do/search?q=hello")      # the default since 1.1.19
     assert "wikipedia.org" in out["keyword"] and "Rome" in out["keyword"]
     assert out["title"] == "typed"
     assert out["bar"].startswith("data:text/html")

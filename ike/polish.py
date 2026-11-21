@@ -47,6 +47,7 @@ PARTS = {
     "window_hover": True,    # minimize / maximize: a soft circle under the mouse, as the close button
     "download_arrow": True,  # the arrow of the Downloads button moves while files arrive
     "chrome_edge": True,     # a thin line between the bars and the page
+    "vtabs_edge": True,      # 1.1.19: the sliding vertical tabs' panel ends in a separator line, as in Dolphin
     # 1.1.7
     "toasts": True,          # short messages (zoom, notes) in a rounded pill over the page, not the status bar
     "find_pill": True,       # find bar: "3 of 12" in a pill, the field tinted when nothing is found
@@ -690,6 +691,48 @@ class ChromeEdge(QWidget):
         c.setAlphaF(0.55)
         p = QPainter(self)
         p.fillRect(self.rect(), c)
+        p.end()
+
+
+class VTabsEdge(QWidget):
+    """The right edge of the vertical tabs' panel (1.1.19, the owner's request):
+    a one-pixel separator in the colour Breeze gives its separators (a quarter
+    of the way from the window's background to its text, as in Dolphin's side
+    panels), shown whenever the panel is (pinned, or opened from its hidden
+    edge). A plain line: no animation, no timer, drawn once per resize."""
+
+    def __init__(self, panel):
+        super().__init__(panel)
+        from PyQt6.QtCore import QEvent
+        self._resize = QEvent.Type.Resize, QEvent.Type.Show
+        self.panel = panel
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
+        panel.installEventFilter(self)
+        self._place()
+        self.setVisible(part("vtabs_edge"))
+
+    def _place(self):
+        self.setGeometry(QRect(self.panel.width() - 1, 0, 1, self.panel.height()))
+        self.raise_()
+
+    def eventFilter(self, obj, event):
+        if obj is self.panel and event.type() in self._resize:
+            self._place()
+        return False
+
+    @staticmethod
+    def colour(palette):
+        bg = palette.color(QPalette.ColorRole.Window)
+        fg = palette.color(QPalette.ColorRole.WindowText)
+        mix = 0.25                                   # Breeze's separator: background mixed with text
+        return QColor(round(bg.red() + (fg.red() - bg.red()) * mix),
+                      round(bg.green() + (fg.green() - bg.green()) * mix),
+                      round(bg.blue() + (fg.blue() - bg.blue()) * mix))
+
+    def paintEvent(self, _event):
+        p = QPainter(self)
+        p.fillRect(self.rect(), self.colour(self.palette()))
         p.end()
 
 

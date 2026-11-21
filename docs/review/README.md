@@ -21,7 +21,7 @@ work, a review of the whole code and a security audit.
 ## Initial state (1.0.0, before this work)
 
 - A browser for Arch Linux / CachyOS with KDE Plasma: Python 3 and PyQt6 on Qt
-  WebEngine (about 14,500 lines in `ike/`), a Rust module around Brave's
+  WebEngine (about 14,500 lines in `ike/`), a Rust module around
   adblock-rust (`ike-adblock/`), a small C launcher, a PKGBUILD and a signed
   self-update of the Python part.
 - About 130 automatic tests that start the real browser without a display; lint

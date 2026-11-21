@@ -9,7 +9,7 @@ The interface, protections, password manager and updater are I.K.E.'s own code
 provided and kept up to date by Arch Linux. I.K.E. is developed on and for
 KDE Plasma (CachyOS / Arch Linux) and works on the other Arch-based desktops.
 
-**Version 1.1.18** - see [CHANGELOG.md](CHANGELOG.md).
+**Version 1.1.19** - see [CHANGELOG.md](CHANGELOG.md).
 
 ## Install (Arch Linux, CachyOS)
 
@@ -17,7 +17,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.1.18-1-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.1.19-1-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:
@@ -49,8 +49,7 @@ profiles: `ike-browser --profile NAME`.
   are removed by the lists' scriptlets; an ad that still starts is muted,
   hidden and skipped.
 - **Same site, free way**: at Compatibility and Balanced (the default), a
-  site's own requests are not checked against the filter lists, as in Brave's
-  standard mode: fewer broken sites, while other companies' ads and trackers
+  site's own requests are not checked against the filter lists: fewer broken sites, while other companies' ads and trackers
   stay blocked; ads served from the site's own domain are only hidden. Strict
   and Maximum check every request; YouTube is always checked.
 - Cookie banners refused and hidden automatically.
@@ -70,8 +69,8 @@ profiles: `ike-browser --profile NAME`.
   third-party cookies blocked from Balanced up, reduced referrer, Global
   Privacy Control.
 - Every site in its own sandboxed process; public pages kept away from the
-  router and the home network (addresses and local names; not public names
-  that point there); signed updates that expire after 180 days and arrive in
+  router and the home network (also through public names that point there,
+  checked by the engine on the real address; WebSockets excepted); signed updates that expire after 180 days and arrive in
   stages. What is protected and what is not: [docs/SECURITY.md](docs/SECURITY.md).
 - **Sosia (lookalike warning)**: when an address imitates a famous site
   ("paypa1.com", a Cyrillic letter in "pаypal", "paypal.com.login.xyz"), a bar
@@ -112,7 +111,7 @@ profiles: `ike-browser --profile NAME`.
   one search. Optional mouse gestures (off by default).
 - I.K.E.'s own pages for sites that cannot be reached, with "Try again".
 - Reader mode with light, sepia or dark and the text size of your choice.
-- Free choice of search engines (DuckDuckGo by default), suggestions, keywords; the
+- Free choice of search engines (Startpage by default since 1.1.19: the old default, DuckDuckGo, becomes Startpage once; another engine chosen is kept), suggestions, keywords; the
   engine in use right after the lock and in the new tab page, a click to change it.
 - New tab page with a clock and, for a city you choose, the weather; tiles of
   your bookmarks or of the sites you visit most (up to 32, sixteen per row on
