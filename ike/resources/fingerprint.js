@@ -1380,7 +1380,7 @@
           var a = [];
           for (var i = 0; i < args.length; i++) put(a, i, args[i]);
           if (args.length > 1) put(a, 1, fontSource(a[1]));
-          return nConstructFF(t, a, nt === PF ? t : nt);
+          try { return nConstructFF(t, a, nt === PF ? t : nt); } catch (e) { clean(e); throw e; }
         }
       });
       var nConstructFF = Reflect.construct;
@@ -1718,8 +1718,12 @@
         if (typeof C.supportedLocalesOf === 'function') SUPPORTED[n] = [C.supportedLocalesOf, C];
         var fix = function (args) { return fixLocales(args, 0, n); };
         var P = new w.Proxy(C, {
-          construct: function (t, args, nt) { return RCON(t, fix(args), nt === P ? t : nt); },
-          apply: function (t, self, args) { return RAPPLY(t, self, fix(args)); }
+          construct: function (t, args, nt) {
+            try { return RCON(t, fix(args), nt === P ? t : nt); } catch (e) { clean(e); throw e; }
+          },
+          apply: function (t, self, args) {
+            try { return RAPPLY(t, self, fix(args)); } catch (e) { clean(e); throw e; }
+          }
         });
         natives.set(P, RAPPLY(origToString, C, []));
         try {
@@ -1910,7 +1914,7 @@
           construct: function (target, args, newTarget) {
             var nt = newTarget === P ? target : newTarget;
             // no address: the engine's own TypeError (V-13)
-            if (!args.length) return nConstruct(target, args, nt);
+            if (!args.length) { try { return nConstruct(target, args, nt); } catch (e) { clean(e); throw e; } }
             // the address as read here is the one used (an object whose text
             // changes between two readings cannot slip past); a real
             // TrustedScriptURL is read by its own method and kept
@@ -1953,7 +1957,9 @@
                 }
               }
             } catch (e) {}
-            return nConstruct(target, call, nt);
+            // the engine's own errors (a policy of Trusted Types, say) without
+            // the protection's lines in their stack (M-5)
+            try { return nConstruct(target, call, nt); } catch (e) { clean(e); throw e; }
           }
         });
         natives.set(P, RAPPLY(origToString, Orig, []));

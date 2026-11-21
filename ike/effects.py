@@ -22,6 +22,18 @@ SPIN_STEP = 30                # degrees per step
 _checked = {"at": -1e9, "reduced": False}
 
 
+def _opacity_setter(widget, fixed=None):
+    """A slot that sets widget's opacity: to the signal's value, or to fixed."""
+    if fixed is None:
+        def on_value(value):
+            widget.setWindowOpacity(float(value))
+        return on_value
+
+    def on_end():
+        widget.setWindowOpacity(fixed)
+    return on_end
+
+
 def _ini_value(path, key):
     try:
         with open(path, encoding="utf-8", errors="replace") as f:
@@ -87,8 +99,11 @@ def fade_in(widget, config, ms=FADE_MS):
         anim.setStartValue(0.0)
         anim.setEndValue(1.0)
         anim.setEasingCurve(QEasingCurve.Type.OutCubic)
-        anim.valueChanged.connect(lambda v, w=widget: w.setWindowOpacity(float(v)))
-        anim.finished.connect(lambda w=widget: w.setWindowOpacity(1.0))
+        # closures, not lambdas with default arguments: with Python 3.14 and
+        # PyQt 6.12 (Arch) a slot's default argument was taken for one the
+        # signal must give ("missing 1 required positional argument: 'w'")
+        anim.valueChanged.connect(_opacity_setter(widget))
+        anim.finished.connect(_opacity_setter(widget, 1.0))
     anim.stop()
     anim.setDuration(ms)
     widget.setWindowOpacity(0.0)

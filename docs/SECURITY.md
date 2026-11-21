@@ -86,8 +86,29 @@ kind; fixed too:
 | N3 | Noise removable by a majority vote over reads with one corner changed, and audio factors read from a buffer of known samples | The noise depends on each pixel's colour and its neighbour's, each sample's value and the one before it: neither the place nor the whole picture | Areas of one plain colour are left as they are (they say nothing about the computer); noise of any kind cannot resist a script written against it (audit, I-1) |
 | FP-M-5 | Error stacks named the protection (`userscript:ike-fp`) | Neutral script names; the protection's lines taken out of stacks | A page that sets `Error.prepareStackTrace` still sees the frames |
 | FP-M-6 | The plugin list recognisable (the prototype's `item()`/`length`/`name` threw; own properties on the invented entries) | The engine's own getters and methods answer for the list and the invented entries | - |
+| FP-V (second pass) | 13 more ways around the fixes: a getter on `Promise`/`Array.prototype.constructor` (species), setters on `Array.prototype`'s index names, module workers (imports run before the prelude), workers inside workers from a page-made address, WebGL numbers given as text or objects, float16 reads rounded to 8 bits, `local()` written with escapes, comments or objects, quiet audio sharing one factor, `SharedArrayBuffer`, the plugin list's own keys, `split()` in the stack cleaning, Trusted Types and `Worker()` with no argument | The engine's promises get an own constructor; loops instead of `filter()`; elements written with `defineProperty`; internal tables without a prototype; module workers get a seed of their own; nested blob addresses read and given the prelude; WebGL numbers read once and passed on as read; float16 noise at the 8-bit scale; every `local()` taken out of FontFace sources; audio factors from each sample's own bits; `SharedArrayBuffer` noised; `ownKeys` and descriptors of the plugin list; a TrustedScriptURL kept, or the prelude's address given a policy of its own | See "Known limits of the noise" below |
 | FP-M-4 | The storage quota gave the disk size | `StaticStorageQuota`: 10 GiB for everyone | - |
 | N5 | Maximum: an empty language list, or a language the engine lacks, fell back to the system's language | Such a list means the language shown (en-US), in pages and workers; the list is read once, as the engine reads it | At the global level Maximum the engine itself speaks en-US too (form messages, Date's zone names, every kind of worker; owner's decision, audit M-7). A site set to Maximum by itself keeps the engine's texts in the system's language: the engine has one language for all sites |
+
+## Known limits of the noise (proven by the independent verification)
+
+A protection written into the page's own world can make the cheap, exact
+routes useless; it cannot stop a script written against it:
+
+- **The lowest bit made visible.** The noise changes only the lowest bit of
+  a colour, to stay invisible. A page can composite a noisy read with itself
+  (`difference`, then `lighter` several times) and see which bits changed:
+  the real picture in two reads. Noise that survived this would be visible.
+- **Plain colours** are left as they are (they say nothing about the
+  computer): a one-colour canvas usually reads the same in every session.
+- **Float WebGL reads** (`FLOAT`) and **AudioWorklet** taps are not noised:
+  floats are left exact for programs that compute with them, and a worklet
+  runs where the page's world cannot reach.
+- **Fonts**: a style sheet's `@font-face { src: local() }` and workers loaded
+  from an address still find installed fonts; a font allowlist for the whole
+  engine is planned for 1.1.21.
+- **A site set to Maximum by itself** (not the global level) keeps the
+  engine's own texts and the time zone's name in the system's language.
 
 ## Known limits (not solved)
 

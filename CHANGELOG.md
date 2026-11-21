@@ -52,7 +52,12 @@ one is fixed here with a test that failed before the fix (tests/test_review_fixe
   - sites are told the same storage space (10 GiB) on every computer, not
     60 % of the disk to the byte;
   - an error a page provokes no longer names I.K.E. in its stack, and the
-    two invented plugins answer like real ones to the engine's own checks.
+    two invented plugins answer like real ones to the engine's own checks;
+  - a second independent pass tried 13 more ways around these fixes
+    (constructor and index-setter tricks, module workers, workers inside
+    workers, WebGL numbers written as text, other spellings of fonts, quiet
+    audio, Trusted Types pages): each is closed, with a test; what a page's
+    world cannot close is listed in docs/SECURITY.md.
 - **Dark mode with Dark Reader: no full restyle when the page starts.** The
   dark cover that hides the white flash while Dark Reader starts was a
   colour on the page's root, and taking it away made the browser style the

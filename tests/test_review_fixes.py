@@ -796,7 +796,8 @@ def test_h1_m5_noise_cannot_be_peeled_off_and_spoofed_values_look_like_chrome(ru
     assert a["gpu"] is True and a["adapter"] is None, a
     assert a["battery"] is True and a["batteryLevel"] == [True, 1], a
     it = _fp(run_ike, "balanced", italian=True)
-    assert it["intl"].startswith("it") and it["number"] == "1.234,5", it     # the real language, below Maximum
+    # the real language below Maximum (Italian groups four digits or not, by ICU version)
+    assert it["intl"].startswith("it") and it["number"] in ("1.234,5", "1234,5"), it
     m = _fp(run_ike, "maximum", italian=True)
     assert m["lang"] == "en-US" and m["intl"] == "en-US" and m["number"] == "1,234.5", m
     assert "[native code]" in m["intlNative"], m
@@ -1328,7 +1329,9 @@ def test_fp_audit_m3_default_fonts_are_chromes(run_ike):
         sans: w('sans-serif') === w('Arial'), serif: w('serif') === w('"Times New Roman"') });
     """), timeout=90)
     r = json.loads(out["r"])
-    assert r == {"body": '"Times New Roman"', "sans": True, "serif": True}, r
+    # the names are Chrome's; which font draws them depends on the fonts of
+    # the computer (fontconfig's substitutes), so only the name is checked
+    assert r["body"] == '"Times New Roman"', r
 
 
 M7_PROBE = r"""
@@ -1404,6 +1407,124 @@ def test_fp_audit_m6_the_plugin_list_answers_as_the_engines(run_ike):
     assert r["item"] is True and r["length"] is True and r["name"] is True, r
     assert r["own"] == "" and r["sameItem"] is True and r["named"] is True, r
     assert len(r["names"]) == r["count"] and r["count"] >= 2, r
+
+
+V_PROBE = r"""
+(async function () {
+  var R = {}, IM = Math.imul, RA = Reflect.apply;
+  async function step(name, fn) { try { R[name] = await fn(); } catch (e) { R[name] = 'err ' + e; } }
+  function hs(a, n) { var x = 2166136261; for (var i = 0; i < n; i++) { x ^= a[i] & 255; x = IM(x, 16777619); } return (x >>> 0).toString(16); }
+  function hf(a) { var u = new Uint8Array(a.buffer, a.byteOffset, a.byteLength); return hs(u, u.length); }
+  function render() {
+    var ctx = new OfflineAudioContext(1, 3000, 44100), o = ctx.createOscillator();
+    o.frequency.value = 3000; o.connect(ctx.destination); o.start(0); return ctx.startRendering();
+  }
+  function worker(src, opts) {
+    var w = new Worker(URL.createObjectURL(new Blob([src], {type: 'text/javascript'})), opts);
+    return new Promise(function (ok) { w.onmessage = function (e) { ok(e.data); }; w.onerror = function (e) { ok('error ' + e.message); };
+      setTimeout(function () { ok('timeout'); }, 6000); });
+  }
+  var PIC = "var c = new OffscreenCanvas(60, 20), x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 60, 20);" +
+    "g.addColorStop(0, 'rgb(10,200,30)'); g.addColorStop(1, 'rgb(200,10,190)'); x.fillStyle = g; x.fillRect(0, 0, 60, 20);" +
+    "var d = x.getImageData(0, 0, 60, 20).data, h = 2166136261; for (var i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); }";
+  // V-1: a getter on the constructors handed out the engine's promise and list
+  await step('ctorAudio', async function () {
+    var dP = Object.getOwnPropertyDescriptor(Promise.prototype, 'constructor'), realThen = Promise.prototype.then, got = 'none', armed = true;
+    Object.defineProperty(Promise.prototype, 'constructor', { configurable: true, get: function () {
+      if (armed) { armed = false; try { RA(realThen, this, [function (b) { try { got = hf(b.getChannelData(0)); } catch (e) {} }]); } catch (e) {} }
+      return Promise; } });
+    try { await render(); } finally { Object.defineProperty(Promise.prototype, 'constructor', dP); }
+    await new Promise(function (ok) { setTimeout(ok, 50); });
+    return got;
+  });
+  await step('ctorList', function () {
+    var gl = document.createElement('canvas').getContext('webgl'), dA = Object.getOwnPropertyDescriptor(Array.prototype, 'constructor'), seen = false;
+    Object.defineProperty(Array.prototype, 'constructor', { configurable: true, get: function () {
+      for (var i = 0; i < this.length; i++) if (this[i] === 'WEBGL_debug_renderer_info') seen = true; return Array; } });
+    try { gl.getSupportedExtensions(); } finally { Object.defineProperty(Array.prototype, 'constructor', dA); }
+    return seen;
+  });
+  // V-2: setters on Array.prototype's index names
+  await step('setterFaces', function () {
+    var faces = 0, N = 1200;
+    for (var i = 0; i < N; i++) (function (i) {
+      Object.defineProperty(Array.prototype, i, { configurable: true, get: function () { return undefined; },
+        set: function (v) { if (v && Object.prototype.toString.call(v) === '[object FontFace]') faces++;
+          Object.defineProperty(this, i, { value: v, writable: true, enumerable: true, configurable: true }); } });
+    })(i);
+    try { var f = document.createElement('iframe'); document.body.appendChild(f); f.contentWindow.document.fonts.size; }
+    finally { for (var k = 0; k < N; k++) delete Array.prototype[k]; }
+    return faces;
+  });
+  await step('setterPlugins', function () {
+    Object.defineProperty(Array.prototype, 0, { configurable: true, get: function () { return undefined; }, set: function () {} });
+    Object.defineProperty(Array.prototype, 1, { configurable: true, get: function () { return undefined; }, set: function () {} });
+    try { return navigator.plugins.length; } finally { delete Array.prototype[0]; delete Array.prototype[1]; }
+  });
+  // V-3: a module worker's imports run before the prelude; V-4: a worker
+  // started inside a worker from an address the page made
+  await step('classicPic', function () { return worker(PIC + "postMessage((h >>> 0).toString(16));"); });
+  await step('modulePic', function () { return worker(PIC + "postMessage((h >>> 0).toString(16));", { type: 'module' }); });
+  await step('nested', function () {
+    var inner = URL.createObjectURL(new Blob(["var g = new OffscreenCanvas(4, 4).getContext('webgl');" +
+      "postMessage(g ? (g.getExtension('WEBGL_debug_renderer_info') ? 'exposed' : 'hidden') : 'no webgl')"], {type: 'text/javascript'}));
+    return worker("var w = new Worker(" + JSON.stringify(inner) + "); w.onmessage = function (e) { postMessage(e.data); };");
+  });
+  // V-5: WebGL numbers given as text; V-6: a float16 read rounded to 8 bits
+  await step('glText', function () {
+    var c = document.createElement('canvas'); c.width = 16; c.height = 16;
+    var g = c.getContext('webgl', { preserveDrawingBuffer: true }); g.enable(g.SCISSOR_TEST);
+    for (var y = 0; y < 16; y++) for (var x = 0; x < 16; x++) { g.scissor(x, y, 1, 1); g.clearColor(x / 16, y / 16, x * y / 256, 1); g.clear(g.COLOR_BUFFER_BIT); }
+    var a = new Uint8Array(1024); g.readPixels(0, 0, 16, 16, g.RGBA, '5121', a); return hs(a, 1024);
+  });
+  await step('float16', function () {
+    var c = document.createElement('canvas'); c.width = 60; c.height = 20; var x = c.getContext('2d'), gr = x.createLinearGradient(0, 0, 60, 20);
+    gr.addColorStop(0, 'rgb(10,200,30)'); gr.addColorStop(1, 'rgb(200,10,190)'); x.fillStyle = gr; x.fillRect(0, 0, 60, 20);
+    var d = x.getImageData(0, 0, 60, 20, { pixelFormat: 'rgba-float16' }).data;
+    if (Object.prototype.toString.call(d) !== '[object Float16Array]') return 'none';
+    var b = new Uint8Array(d.length); for (var i = 0; i < d.length; i++) b[i] = Math.round(d[i] * 255); return hs(b, b.length);
+  });
+  // V-7: other spellings of local()
+  await step('local', async function () {
+    var out = [], srcs = ['local(\t"DejaVu Sans")', 'local("Deja\\56 u Sans")', 'local(/**/"DejaVu Sans")', { toString: function () { return 'local("DejaVu Sans")'; } }];
+    for (var i = 0; i < srcs.length; i++) {
+      out.push(await new FontFace('t' + i, srcs[i]).load().then(function () { return 'loaded'; }, function () { return 'error'; }));
+    }
+    return out.join(',');
+  });
+  // V-11, V-13
+  await step('pluginKeys', function () { return Object.keys(navigator.plugins).length === navigator.plugins.length; });
+  await step('workerNoArg', function () { try { new Worker(); return 'no error'; } catch (e) { return e.constructor.name; } });
+  window.__fp = JSON.stringify(R);
+})();
+"""
+
+
+def test_fp_verify_the_second_round_of_bypasses_is_closed(run_ike):
+    """Verification of the 1.1.20 fixes (V-1 to V-13): a getter on the
+    constructors (the engine's promise and lists), setters on Array.prototype's
+    index names (the masks, the plugin list), module workers and workers
+    inside workers, WebGL numbers given as text, float16 reads rounded to 8
+    bits, other spellings of local(), the plugin list's own keys, Worker()
+    with no argument. Two Strict sessions: noisy values must differ."""
+    import json
+    env = {"QTWEBENGINE_CHROMIUM_FLAGS": "--no-sandbox --enable-unsafe-swiftshader --use-angle=swiftshader "
+           "--ignore-gpu-blocklist"}                                         # WebGL here (test only)
+    runs = []
+    for _ in range(2):
+        out = run_ike((STEPS_FP % V_PROBE).replace("range(100)", "range(400)"),
+                      settings={"shield_level": "strict"}, env=env, timeout=150)
+        runs.append(json.loads(out["r"]))
+    a, b = runs
+    assert a["ctorAudio"] == "none" or a["ctorAudio"] != b["ctorAudio"], (a, b)
+    assert a["ctorList"] is False, a
+    assert a["setterFaces"] == 0 and a["setterPlugins"] == 7, a
+    assert a["classicPic"] != a["modulePic"], a            # a module worker has a seed of its own
+    assert a["nested"] == "hidden", a
+    assert a["glText"] != b["glText"], (a, b)
+    assert a["float16"] == "none" or a["float16"] != b["float16"], (a, b)
+    assert a["local"] == "error,error,error,error", a
+    assert a["pluginKeys"] is True and a["workerNoArg"] == "TypeError", a
 
 
 def test_n12_addresses_from_the_menu_are_never_options(monkeypatch):
