@@ -81,6 +81,28 @@ def rollback(state, sysver, reason):
     return version_dir(state["current"]) or SYSTEM_DIR
 
 
+_ATTEMPT = []     # the lock of the start that is the pending update's attempt
+
+
+def attempt_running():
+    """True when another start of I.K.E. is the pending update's attempt and
+    is still running. Otherwise this start takes that role: the lock stays
+    held until this process ends (the system frees it also after a crash)."""
+    try:
+        import fcntl
+        UPDATES.mkdir(parents=True, exist_ok=True)
+        f = open(UPDATES / "attempt.lock", "a")
+    except (ImportError, OSError):
+        return False
+    try:
+        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        f.close()
+        return True
+    _ATTEMPT.append(f)
+    return False
+
+
 def choose():
     sysver = version_in(SYSTEM_DIR) or "0"
     state = load_state()
@@ -93,6 +115,12 @@ def choose():
         save_state(state)
         return SYSTEM_DIR, state, sysver
     if state.get("status") == "pending":
+        if attempt_running():
+            # started again while the first start of the update still runs (a
+            # link from another program just after a restart): that is not a
+            # failed start. It was rolled back and never installed again
+            # (review of 1.1.19, H2)
+            return version_dir(cur), state, sysver
         if state.get("attempts", 0) >= 1:
             return rollback(state, sysver, "did not start correctly"), state, sysver
         state["attempts"] = state.get("attempts", 0) + 1
