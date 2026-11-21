@@ -577,7 +577,8 @@ def test_the_code_at_the_failure_is_prepared(repo, tmp_path):
     assert "`ike/window.py`, lines 1-" in text and "    1  def width():" in text
     assert "passwd" not in text and "secret" not in text   # only files of the repository
     out = tmp_path / "ctx"
-    assert ctx.main(["--repo", str(repo), "--failure", str(tmp_path / "missing.md"), "--out-dir", str(out)]) == 0
+    assert ctx.main(["--repo", str(repo), "--failure", str(tmp_path / "missing.md"), "--out-dir", str(out),
+                     "--no-recent"]) == 0
     assert "names no line" in (out / "context.md").read_text() and (out / "related.txt").read_text() == ""
 
 
@@ -671,12 +672,16 @@ def test_the_reserves_never_touch_other_files_and_skip_missing_keys(repo, tmp_pa
         assert json.loads(status.read_text())["result"] == "error", path
     assert (repo / "ike/updater.py").read_text() == "CHECK = True\n"
     assert not (repo.parent / "evil.py").exists()
-    # "cannot be fixed in the code" from two models: stop, no third one asked
+    # "cannot be fixed in the code" from two providers: stop, no third one asked
+    # (1.1.19: two models of one provider go on to the next provider)
     seen = []
     no = json.dumps({"summary": "Un server era giù.", "fixable": False, "edits": []})
     reserve.main(["--workdir", str(repo), "--prompt", str(prompt), "--status", str(status)],
-                 env={"GROQ_API_KEY": "k", "OPENROUTER_API_KEY": "k2"}, opener=_opener([no, no], seen))
-    assert json.loads(status.read_text())["result"] == "none" and len(seen) == 2
+                 env={"GROQ_API_KEY": "k", "AUTOFIX_GROQ_MODELS": "g1,g2", "ZAI_API_KEY": "z",
+                      "AUTOFIX_ZAI_MODELS": "z1", "OPENROUTER_API_KEY": "k2", "AUTOFIX_OPENROUTER_MODELS": "o1"},
+                 opener=_opener([no, no, no], seen))
+    assert json.loads(status.read_text())["result"] == "none"
+    assert [s[1] for s in seen] == ["g1", "g2", "z1"], seen            # OpenRouter, a third provider: not asked
 
 
 def test_the_chatgpt_guard_never_runs_the_pull_request():
@@ -1041,7 +1046,7 @@ def test_cargo_errors_point_at_the_wrapper_never_at_the_engine(repo):
     failure = ("error[E0425]: cannot find value\n  --> src/lib.rs:1:5\n"
                "warning: --> /home/runner/.cargo/registry/src/x/adblock-0.13.6/src/engine.rs:40:1\n"
                '  File "/usr/lib/ike-browser/vendor/adblock/__init__.py", line 1, in <module>\n')
-    text, related = ctx.build(repo, failure)
+    text, related = ctx.build(repo, failure, recent=False)
     assert related == ["ike-adblock/src/lib.rs", "vendor/adblock/__init__.py"]
     assert "engine.rs" not in text
 
@@ -1548,12 +1553,15 @@ def test_an_answer_without_edits_is_asked_again_and_a_short_limit_is_waited_out(
     assert out["result"] == "ok" and out["model"] == "Groq / g1", out
     assert len(seen) == 3 and 8 in slept
     git(repo, "checkout", "-q", "--", ".")
-    # an explicit "fixable": false of two models still ends it
+    # an explicit "fixable": false of two providers still ends it (1.1.19: two
+    # models of one provider no longer do, autofix trial 4)
     no = json.dumps({"summary": "Un server era giù.", "fixable": False, "edits": []})
     seen = []
     reserve.main(["--workdir", str(repo), "--prompt", str(prompt), "--status", str(status)],
-                 env={"GROQ_API_KEY": "k", "OPENROUTER_API_KEY": "k2"}, opener=_opener([no, no], seen))
-    assert json.loads(status.read_text())["result"] == "none" and len(seen) == 2
+                 env={"GROQ_API_KEY": "k", "OPENROUTER_API_KEY": "k2"}, opener=_opener([no, no, no, no], seen))
+    assert json.loads(status.read_text())["result"] == "none"
+    asked = [s[0] for s in seen]
+    assert any("groq" in u for u in asked) and any("openrouter" in u for u in asked), asked
 
 
 def _run_reserves(repo, tmp_path, answers, env, seen=None):
@@ -1734,7 +1742,7 @@ def test_a_missing_name_comes_with_its_working_uses(repo):
     (repo / "ike/dialogs.py").write_text("def state(d):\n    S = R.DownloadState\n    return S.DownloadInProgress\n")
     failure = ('  File "/x/ike/app.py", line 5, in tick\n'
                "AttributeError: type object 'R' has no attribute 'DownloadInProgress'\n")
-    text, related = ctx.build(repo, failure)
+    text, related = ctx.build(repo, failure, recent=False)     # the latest commits' files: their own test
     part = text.split("# The same names elsewhere in I.K.E.", 1)[1]
     assert "`ike/dialogs.py` uses `DownloadInProgress`" in part and "S = R.DownloadState" in part
     assert "ike/app.py" not in part.split("Files involved")[0]   # never the failing file's own mistakes
@@ -3133,3 +3141,59 @@ def test_the_reserves_ping_reveals_no_key(tmp_path):
     out = tmp_path / "p.json"
     assert reserve.main(["ping", str(out)], env=env, opener=opener) == 0
     assert "TESTONLY" not in out.read_text() and json.loads(out.read_text())[1] == ["Z.AI", "glm-4.7-flash", "auth"]
+
+
+def test_a_check_younger_than_its_period_is_not_reported_as_never_run():
+    import datetime as dt
+    health = load("automation-health")
+    now = dt.datetime(2026, 11, 21, 6, tzinfo=dt.timezone.utc)
+    ok = {"daily-check.yml": [{"status": "completed", "conclusion": "success", "html_url": "u",
+                               "created_at": "2026-11-21T05:00:00Z"}]}
+    young = {"arch.yml": dt.datetime(2026, 11, 20, 16, tzinfo=dt.timezone.utc)}
+    old = {"arch.yml": dt.datetime(2026, 11, 1, tzinfo=dt.timezone.utc)}
+    runs = dict(ok, **{"arch.yml": []})
+    assert health.problems(now, runs, [], True, main_protected=True, born=young) == []
+    assert health.problems(now, runs, [], True, main_protected=True, born=old) == ["`arch.yml` has never run on schedule."]
+
+
+def test_two_models_of_one_provider_do_not_stop_the_chain():
+    """Autofix trial 4: Z.AI's two Flash models said "not in the code" and
+    OpenRouter was never asked. Only two providers agreeing stop the chain."""
+    text = (ROOT / "tools" / "autofix-reserve.py").read_text()
+    assert 'len({u.split(" / ")[0] for u in said_none}) >= 2' in text
+
+
+def test_the_reserves_see_the_files_the_latest_commits_changed(tmp_path):
+    """Autofix trial 4: the failing tests named neither shields.py nor
+    fingerprint.js, so the reserves (which cannot open files) never saw the
+    code that broke; the latest commits' files and the page scripts a test
+    names are given now."""
+    ctx = load("autofix-context")
+    repo = tmp_path / "r"
+    (repo / "ike" / "resources").mkdir(parents=True)
+    (repo / "tests").mkdir()
+    (repo / "ike" / "shields.py").write_text("x = 1\n")
+    (repo / "ike" / "other.py").write_text("y = 1\n")
+    (repo / "ike" / "resources" / "fingerprint.js").write_text("var a;\n")
+    (repo / "tests" / "test_g.py").write_text('"""fingerprint.js protects frames"""\ndef test_g():\n    assert 0\n')
+    git = ["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t"]
+    subprocess.run(git[:3] + ["init", "-q"], check=True)
+    subprocess.run(git + ["add", "-A"], check=True)
+    subprocess.run(git + ["commit", "-q", "-m", "base"], check=True)
+    for i in range(6):
+        (repo / "ike" / "other.py").write_text("y = %d\n" % i)
+        subprocess.run(git + ["commit", "-qam", "noise %d" % i], check=True)
+    (repo / "ike" / "shields.py").write_text("x = 2\n")
+    subprocess.run(git + ["commit", "-qam", "the defect"], check=True)
+    text, related = ctx.build(repo, "tests/test_g.py:3: AssertionError\n")
+    assert related[:2] == ["tests/test_g.py", "ike/resources/fingerprint.js"], related
+    assert "ike/shields.py" in related and "`ike/shields.py`" in text.split("latest commits")[1]
+    assert ctx.recent_changes(tmp_path / "not-a-repo") == []
+
+
+def test_the_latest_commits_never_bring_in_a_protected_file():
+    """What the latest commits changed is shown to the assistants, never a
+    file a fix may not change (its list kept with the checker's)."""
+    ctx = load("autofix-context")
+    assert set(guard.FORBIDDEN_FILES) <= ctx.NOT_RECENT
+    assert {"ike/blocker.py", "ike/scriptlets.py"} <= ctx.NOT_RECENT

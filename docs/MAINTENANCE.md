@@ -192,7 +192,10 @@ never touched.
    refusal for safety stops them all. A provider
    without its key is skipped; free models change often, so the names live in
    the variables, not in the code. The reserves cannot open files: they get the
-   failure, the prepared code and the full text of the files involved, and
+   failure, the prepared code and the full text of the files involved (since
+   1.1.19 also the page scripts a failing test names and the files the latest
+   four commits changed, never a protected one: in autofix trial 4 the failing
+   tests named neither the module nor the script that broke), and
    answer with JSON edits (exact text to replace) that the script applies to
    those files only; nothing they write is ever run. 429 and unknown models
    move to the next model, a refused key to the next provider, an answer that
@@ -206,8 +209,9 @@ never touched.
    of 1.1.18; each of these cases is simulated in `tests/test_automation.py`,
    and so are Antigravity's endings: quota, wrong key, its time limit, a
    refusal). "Not fixable in the code" from one model asks the next
-   one too; the chain stops when two different models say so (1.1.18: one
-   weak free model giving up stopped them all). What a model writes reaches
+   one too; the chain stops when models of two different providers say so
+   (1.1.18: one weak free model giving up stopped them all; 1.1.19: two models
+   of one provider stopped the chain before the last provider was asked). What a model writes reaches
    the log only as one line with no `::`, so it cannot give the runner a
    workflow command.
 
