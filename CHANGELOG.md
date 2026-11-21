@@ -26,6 +26,16 @@
   the previous default, moves to Startpage once; another engine chosen stays.
 - `tests/measure_smooth.py`: how smoothly pages appear and scroll, the same
   local pages measured in I.K.E. and in another browser.
+- **Automation** (docs/MAINTENANCE.md): Z.AI's free models are a reserve of
+  the automatic fix (after Groq, before OpenRouter), and the weekly check
+  asks every reserve one tiny question, so a refused key or a gone model is
+  found early; every scheduled check is kept on and watched (the Arch and
+  security ones were not); the AdBlock engine's other crates (pyo3, psl,
+  regex...) are followed and updated, not only the engine; pytest and ruff
+  are pinned like the other test packages; the reserves see the files the
+  latest commits changed, and one provider can no longer end the chain
+  alone. Two gaps in the security tests were closed (a popup or a form of a
+  page with no origin of its own, found by breaking each guard on purpose).
 
 ## 1.1.18
 
