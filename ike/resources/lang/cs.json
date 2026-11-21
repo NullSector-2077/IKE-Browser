@@ -894,6 +894,7 @@
 "Engine switches that remove a protection were ignored: %s": "Přepínače jádra, které odstraňují ochranu, byly ignorovány: %s",
 "Current stable Chrome: %d (%s)": "Aktuální stabilní Chrome: %d (%s)",
 "checked with Google's version list": "ověřeno v seznamu verzí Googlu",
-"estimated from the calendar: Google's version list could not be reached": "odhadnuto podle kalendáře: seznam verzí Googlu nebyl dostupný"
+"estimated from the calendar: Google's version list could not be reached": "odhadnuto podle kalendáře: seznam verzí Googlu nebyl dostupný",
+"Encrypted DNS could not be turned on: names are looked up by the system.": "Šifrované DNS nelze zapnout: názvy překládá systém."
 }
 }

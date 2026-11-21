@@ -22,7 +22,7 @@ from pathlib import Path
 
 from PyQt6.QtCore import QObject, QThread, pyqtSignal
 
-from . import __version__, background
+from . import __version__, background, doh
 from .config import RES_DIR
 from .osinfo import app_dir, browser_user_agent
 
@@ -175,7 +175,7 @@ def verify_signature(pubkey_b64, data, sig_b64):
 
 def _fetch(url, limit):
     req = urllib.request.Request(url, headers={"User-Agent": browser_user_agent()})
-    with urllib.request.urlopen(req, timeout=40) as r:
+    with doh.urlopen(req, timeout=40) as r:
         data = r.read(limit + 1)
     if len(data) > limit:
         raise ValueError("download too large")

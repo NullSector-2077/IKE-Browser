@@ -894,6 +894,7 @@
 "Engine switches that remove a protection were ignored: %s": "Занемарени су прекидачи механизма који уклањају заштиту: %s",
 "Current stable Chrome: %d (%s)": "Тренутни стабилни Chrome: %d (%s)",
 "checked with Google's version list": "проверено на Гугловој листи верзија",
-"estimated from the calendar: Google's version list could not be reached": "процењено према календару: Гуглова листа верзија није била доступна"
+"estimated from the calendar: Google's version list could not be reached": "процењено према календару: Гуглова листа верзија није била доступна",
+"Encrypted DNS could not be turned on: names are looked up by the system.": "Шифровани DNS није могуће укључити: имена разрешава систем."
 }
 }

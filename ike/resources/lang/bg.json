@@ -894,6 +894,7 @@
 "Engine switches that remove a protection were ignored: %s": "Пренебрегнати са превключватели на двигателя, които премахват защита: %s",
 "Current stable Chrome: %d (%s)": "Текущ стабилен Chrome: %d (%s)",
 "checked with Google's version list": "проверено в списъка с версии на Google",
-"estimated from the calendar: Google's version list could not be reached": "изчислено по календара: списъкът с версии на Google беше недостъпен"
+"estimated from the calendar: Google's version list could not be reached": "изчислено по календара: списъкът с версии на Google беше недостъпен",
+"Encrypted DNS could not be turned on: names are looked up by the system.": "Шифрованият DNS не можа да бъде включен: имената се търсят от системата."
 }
 }

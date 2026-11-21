@@ -894,6 +894,7 @@
 "Engine switches that remove a protection were ignored: %s": "Проігноровано перемикачі рушія, що вимикають захист: %s",
 "Current stable Chrome: %d (%s)": "Поточний стабільний Chrome: %d (%s)",
 "checked with Google's version list": "перевірено за списком версій Google",
-"estimated from the calendar: Google's version list could not be reached": "оцінено за календарем: список версій Google був недоступний"
+"estimated from the calendar: Google's version list could not be reached": "оцінено за календарем: список версій Google був недоступний",
+"Encrypted DNS could not be turned on: names are looked up by the system.": "Не вдалося увімкнути зашифрований DNS: імена визначає система."
 }
 }

@@ -894,6 +894,7 @@
 "Engine switches that remove a protection were ignored: %s": "保護を外すエンジンのスイッチを無視しました：%s",
 "Current stable Chrome: %d (%s)": "現在の安定版 Chrome：%d（%s）",
 "checked with Google's version list": "Google のバージョン一覧で確認",
-"estimated from the calendar: Google's version list could not be reached": "カレンダーから推定：Google のバージョン一覧に接続できませんでした"
+"estimated from the calendar: Google's version list could not be reached": "カレンダーから推定：Google のバージョン一覧に接続できませんでした",
+"Encrypted DNS could not be turned on: names are looked up by the system.": "暗号化DNSを有効にできませんでした: 名前はシステムで解決されます。"
 }
 }

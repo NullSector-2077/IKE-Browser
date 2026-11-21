@@ -894,6 +894,7 @@
 "Engine switches that remove a protection were ignored: %s": "已忽略会移除保护的引擎开关：%s",
 "Current stable Chrome: %d (%s)": "当前稳定版 Chrome：%d（%s）",
 "checked with Google's version list": "已通过 Google 版本列表核实",
-"estimated from the calendar: Google's version list could not be reached": "根据日历估算：无法访问 Google 版本列表"
+"estimated from the calendar: Google's version list could not be reached": "根据日历估算：无法访问 Google 版本列表",
+"Encrypted DNS could not be turned on: names are looked up by the system.": "无法开启加密 DNS: 名称由系统解析。"
 }
 }

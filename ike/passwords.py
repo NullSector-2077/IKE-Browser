@@ -368,8 +368,10 @@ class PageBridge(QObject):
         except RuntimeError:
             pass                          # the page is gone
 
-    def _get_css(self, ident, target, check):
-        from PyQt6.QtNetwork import QNetworkReply, QNetworkRequest
+    def _get_css(self, ident, target, check, hops=0):
+        from PyQt6.QtNetwork import QNetworkRequest
+
+        from . import doh
         app = self.manager.app
         req = QNetworkRequest(target)
         req.setRawHeader(b"Accept", b"text/css,*/*;q=0.1")
@@ -382,15 +384,47 @@ class PageBridge(QObject):
         req.setAttribute(QNetworkRequest.Attribute.RedirectPolicyAttribute,
                          QNetworkRequest.RedirectPolicy.UserVerifiedRedirectPolicy)
         req.setTransferTimeout(12000)
-        reply = app.network.get(req)
+        doh.get(app.network, req, lambda reply: self._css_reply(reply, ident, target, check, hops))
+
+    def _css_reply(self, reply, ident, target, check, hops):
+        from PyQt6.QtNetwork import QNetworkReply, QNetworkRequest
+
+        from . import doh
+        app = self.manager.app
+        if reply is None:                         # no address from encrypted DNS
+            self._css_answer(ident, False, "")
+            return
         refused = []
+        address = reply.url().host()        # Qt changes reply.url() to the redirect's
+        pinned = address != target.host()
 
         def redirected(where):
             where = reply.url().resolved(where) if where.isRelative() else where
+            if pinned and where.host() == address:
+                where = doh.unpin(where, target.host())
             if where.scheme() not in ("http", "https") or (
                     reply.url().scheme() == "https" and where.scheme() != "https") or not self._css_allowed(where):
                 refused.append(1)
                 reply.abort()
+                return
+            if pinned:
+                # followed as a new request, its name asked of the provider of
+                # encrypted DNS (Qt would look it up in clear)
+                refused.append(1)
+                reply.abort()
+                if hops >= 10:
+                    return
+
+                def again(ok):
+                    if ok:
+                        self._get_css(ident, where, check, hops + 1)
+                    else:
+                        self._css_answer(ident, False, "")
+                if check is None:
+                    again(True)
+                else:
+                    check(where.host(), again, "dark mode", app.network)
+                follow.append(1)
                 return
             if check is None:
                 reply.redirectAllowed.emit()
@@ -406,8 +440,12 @@ class PageBridge(QObject):
                     reply.abort()
             check(where.host(), checked, "dark mode", app.network)
         reply.redirected.connect(redirected)
+        follow = []
 
         def done():
+            if follow:
+                reply.deleteLater()
+                return
             ok, text = False, ""
             ctype = str(reply.header(QNetworkRequest.KnownHeaders.ContentTypeHeader) or "").lower()
             if (not refused and reply.error() == QNetworkReply.NetworkError.NoError

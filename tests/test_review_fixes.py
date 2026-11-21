@@ -415,3 +415,134 @@ def test_l8_store_packages_must_carry_the_extensions_signature():
     for plain in (archive, b"Cr24" + struct.pack("<III", 2, 0, 0) + archive):
         with pytest.raises(ValueError):
             extensions.verify_crx(ext_id, plain)                 # a bare ZIP, or CRX2: no signature
+
+
+def _doh_and_site():
+    """A provider of encrypted DNS that alone knows *.doh.test (127.0.0.1),
+    and the site those names lead to, which notes the Host of each request."""
+    import base64
+    import http.server
+    import struct
+    import threading
+    from urllib.parse import parse_qs, urlsplit
+    asked, seen = [], []
+    png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==")
+
+    class Doh(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            q = base64.urlsafe_b64decode(parse_qs(urlsplit(self.path).query)["dns"][0] + "==")
+            i, labels = 12, []
+            while q[i]:
+                labels.append(q[i + 1:i + 1 + q[i]].decode())
+                i += 1 + q[i]
+            name, qtype = ".".join(labels), struct.unpack(">H", q[i + 1:i + 3])[0]
+            asked.append((name, qtype))
+            answer = b""
+            if name.endswith(".doh.test") and qtype == 1:
+                answer = b"\xc0\x0c" + struct.pack(">HHIH", 1, 1, 60, 4) + bytes([127, 0, 0, 1])
+            body = q[:2] + struct.pack(">HHHHH", 0x8180, 1, 1 if answer else 0, 0, 0) + q[12:i + 5] + answer
+            self.send_response(200)
+            self.send_header("Content-Type", "application/dns-message")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+
+    class Site(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            seen.append((self.headers.get("Host", ""), self.path))
+            if self.path.startswith("/redirect"):
+                self.send_response(302)
+                self.send_header("Location", self.path.split("?", 1)[1])
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            body, ctype = ((png, "image/png") if self.path == "/favicon.ico"
+                           else (b"body{color:#123456}", "text/css") if self.path.endswith(".css")
+                           else (b"ok", "text/plain"))
+            self.send_response(200)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+    servers = [http.server.ThreadingHTTPServer(("127.0.0.1", 0), h) for h in (Doh, Site)]
+    for s in servers:
+        threading.Thread(target=s.serve_forever, daemon=True).start()
+    return servers, asked, seen
+
+
+STEPS_M3 = r'''
+P = %d
+
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QObject, QUrl
+    from ike import doh, userscripts
+    from ike.passwords import PageBridge
+    out["active"] = doh.active()
+
+    class Page(QObject):
+        def __init__(self, url):
+            super().__init__()
+            self._url, self._dark_on = QUrl(url), True
+
+        def url(self):
+            return self._url
+    answers, keep = {}, []
+    for name, page_url, css in (
+            ("own_sheet", "http://127.0.0.1:%%d/page" %% P, "http://css.doh.test:%%d/a.css" %% P),
+            ("redirected", "http://127.0.0.1:%%d/page" %% P,
+             "http://css.doh.test:%%d/redirect?http://css2.doh.test:%%d/b.css" %% (P, P)),
+            # a public page: its sheet's name points home by encrypted DNS too
+            ("public_to_home", "http://news.example.org/", "http://home.doh.test:%%d/c.css" %% P)):
+        page = Page(page_url)
+        bridge = PageBridge(ike.passwords, page)
+        bridge.cssFetched.connect(lambda ident, ok, text: answers.__setitem__(ident, ok))
+        keep.append((page, bridge))
+        bridge.fetchCss(name, css)
+    ike.favicons.fetch("http://icon.doh.test:%%d/" %% P)
+    # the user scripts' requests (GM_xmlhttpRequest) are sent this way
+    from PyQt6.QtNetwork import QNetworkRequest
+    gm = []
+    doh.get(ike.userscripts.network, QNetworkRequest(QUrl("http://gm.doh.test:%%d/x" %% P)),
+            lambda reply: reply.finished.connect(lambda: gm.append(bytes(reply.readAll()).decode())),
+            custom=b"GET")
+    out["urllib"] = doh.urlopen("http://lists.doh.test:%%d/list.txt" %% P, timeout=10).read().decode()
+    out["script"] = userscripts._get("http://script.doh.test:%%d/s.txt" %% P, 1000)[0].decode()
+    for _ in range(200):
+        if len(answers) == 3 and not ike.favicons.icon("http://icon.doh.test:%%d/" %% P).isNull():
+            break
+        yield 25
+    out["answers"] = answers
+    out["gm"] = gm
+    out["icon"] = not ike.favicons.icon("http://icon.doh.test:%%d/" %% P).isNull()
+'''
+
+
+def test_m3_encrypted_dns_also_for_ikes_own_requests(run_ike):
+    """M3: encrypted DNS covered only the pages: the style sheets of dark mode,
+    the sites' icons, user scripts, updates and filter lists were looked up
+    by the system, in clear. Here the names exist only at the provider:
+    every one of these requests reaches its site, by the provider's answer."""
+    servers, asked, seen = _doh_and_site()
+    doh_port, P = servers[0].server_address[1], servers[1].server_address[1]
+    try:
+        out = run_ike(STEPS_M3 % P, settings={"https_only": False}, timeout=90,
+                      env={"IKE_TEST_DOH": "http://127.0.0.1:%d/dns-query" % doh_port,
+                           "http_proxy": "", "https_proxy": "", "HTTP_PROXY": "", "HTTPS_PROXY": "",
+                           "all_proxy": "", "ALL_PROXY": "", "no_proxy": "*", "NO_PROXY": "*"})
+    finally:
+        for s in servers:
+            s.shutdown()
+    assert out["active"] is True, out
+    assert out["answers"] == {"own_sheet": True, "redirected": True, "public_to_home": False}, out
+    assert out["icon"] is True and out["urllib"] == "ok" and out["script"] == "ok" and out["gm"] == ["ok"], out
+    hosts = {h.split(":")[0] for h, _ in seen}
+    assert {"css.doh.test", "css2.doh.test", "icon.doh.test", "lists.doh.test", "script.doh.test",
+            "gm.doh.test"} <= hosts, seen
+    assert "home.doh.test" not in hosts, seen
+    assert {"css.doh.test", "home.doh.test", "icon.doh.test"} <= {n for n, _ in asked}, asked

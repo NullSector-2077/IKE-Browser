@@ -16,7 +16,7 @@ from pathlib import Path
 
 from PyQt6.QtCore import QThread, pyqtSignal
 
-from . import osinfo
+from . import doh, osinfo
 from .config import DATA_DIR
 
 OWN_DIR = DATA_DIR / "WidevineCdm"
@@ -150,7 +150,7 @@ def _get(url, limit):
     import urllib.request
 
     req = urllib.request.Request(url, headers={"User-Agent": osinfo.browser_user_agent()})
-    with urllib.request.urlopen(req, timeout=60) as r:
+    with doh.urlopen(req, timeout=60) as r:
         final = r.geturl()
         if not final.startswith("https://"):
             raise DrmError("refusing an insecure redirect")

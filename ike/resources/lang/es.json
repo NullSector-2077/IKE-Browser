@@ -894,6 +894,7 @@
 "Engine switches that remove a protection were ignored: %s": "Se ignoraron opciones del motor que quitan una protección: %s",
 "Current stable Chrome: %d (%s)": "Chrome estable actual: %d (%s)",
 "checked with Google's version list": "comprobado con la lista de versiones de Google",
-"estimated from the calendar: Google's version list could not be reached": "estimado por el calendario: no se pudo acceder a la lista de versiones de Google"
+"estimated from the calendar: Google's version list could not be reached": "estimado por el calendario: no se pudo acceder a la lista de versiones de Google",
+"Encrypted DNS could not be turned on: names are looked up by the system.": "No se pudo activar el DNS cifrado: el sistema resuelve los nombres."
 }
 }

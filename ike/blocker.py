@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 
 from PyQt6.QtCore import QObject, QThread, pyqtSignal
 
-from . import background, osinfo
+from . import background, doh, osinfo
 from .config import CACHE_DIR, DATA_DIR
 from .scriptlets import preprocess
 
@@ -182,7 +182,7 @@ class _Downloader(QThread):
             try:
                 req = urllib.request.Request(base + name,
                                              headers={"User-Agent": osinfo.browser_user_agent()})
-                with urllib.request.urlopen(req, timeout=40) as r:
+                with doh.urlopen(req, timeout=40) as r:
                     final = urlsplit(r.geturl())
                     if final.scheme != "https" or (final.hostname or "").lower() != host:
                         continue
@@ -205,7 +205,7 @@ class _Downloader(QThread):
                 if parts.scheme != "https" or not parts.hostname:
                     raise ValueError("filter lists must use HTTPS")
                 req = urllib.request.Request(url, headers={"User-Agent": osinfo.browser_user_agent()})
-                with urllib.request.urlopen(req, timeout=40) as r:
+                with doh.urlopen(req, timeout=40) as r:
                     final = urlsplit(r.geturl())
                     if final.scheme != "https":
                         raise ValueError("refusing insecure redirect")

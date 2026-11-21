@@ -144,6 +144,12 @@ def outside_home(host, done, who="", network=None):
             done(_behind_proxy(host, network))
             return
         _resolved(who, host, [a.toString() for a in info.addresses()], done)
+    from . import doh
+    if doh.active() and not _behind_proxy(host, network):
+        # the provider of encrypted DNS, not the system (review of 1.1.19, M3);
+        # no answer: refused, never asked in clear
+        doh.lookup_async(host, lambda found: _resolved(who, host, found, done) if found else done(False))
+        return
     QHostInfo.lookupHost(host, found)
 
 
@@ -282,11 +288,12 @@ def at_home(host, unknown=True):
     fake = dict(p.split("=", 1) for p in os.environ.get("IKE_TEST_RESOLVE", "").split(",") if "=" in p)
     if h in fake:
         return any(is_local_address(a) for a in fake[h].split("|"))
+    from . import doh
     try:
-        infos = socket.getaddrinfo(h, None)
-    except (OSError, UnicodeError):
+        found = doh.lookup(h)
+    except OSError:
         return unknown
-    return any(is_local_address(i[4][0]) for i in infos)
+    return any(is_local_address(a) for a in found)
 
 
 class _Redirects(urllib.request.HTTPRedirectHandler):
@@ -316,9 +323,10 @@ def _pin(host, home_ok):
         if h in fake:
             addresses = fake[h].split("|")
         else:
+            from . import doh
             try:
-                addresses = [i[4][0] for i in socket.getaddrinfo(h, None, proto=socket.IPPROTO_TCP)]
-            except (OSError, UnicodeError) as exc:
+                addresses = doh.lookup(h)
+            except OSError as exc:
                 raise http.client.HTTPException("%s: %s" % (h, exc)) from None
     if not addresses or (not home_ok and (is_local_name(h) or any(is_local_address(a) for a in addresses))):
         raise urllib.error.URLError(T("an address of this computer or of the home network: %s") % h)
@@ -361,9 +369,12 @@ def _get(url, limit, home_ok=True):
         raise ValueError(T("an address of this computer or of the home network: %s") % parts.hostname)
     handlers = [_Redirects(home_ok)]
     proxies = urllib.request.getproxies()
-    if not home_ok and not (proxies.get(parts.scheme) and not urllib.request.proxy_bypass(parts.hostname)):
+    from . import doh
+    if (not home_ok or doh.active()) and not (proxies.get(parts.scheme)
+                                             and not urllib.request.proxy_bypass(parts.hostname)):
         # without a proxy (which resolves names itself), every connection goes
-        # to the address that was checked, also after a redirect
+        # to the address that was checked, also after a redirect; with
+        # encrypted DNS, to the address its provider gave
         handlers += list(_pinned_handlers(home_ok))
     opener = urllib.request.build_opener(*handlers)
     # the browser's own User-Agent (review of 1.1.19, M1: "I.K.E. user scripts"
@@ -927,15 +938,51 @@ class UserScripts(QObject):
         data = body.encode("utf-8") if isinstance(body, str) else b""
         if data and not req.hasRawHeader(b"Content-Type"):
             req.setRawHeader(b"Content-Type", b"application/x-www-form-urlencoded; charset=UTF-8")
-        reply = self.network.sendCustomRequest(req, method.encode(), data)
+        from . import doh
+        doh.get(self.network, req, lambda reply: self._sent(reply, page, sid, d, rid, url, method, page_host),
+                custom=method.encode(), data=data)
+
+    def _sent(self, reply, page, sid, d, rid, url, method, page_host):
+        from . import doh
+        if reply is None:                        # no address from encrypted DNS
+            self._answer(page, sid, rid, {"error": "failed"})
+            return
         binary = bool(d.get("binary"))
         refused = []
+        address = reply.url().host()        # Qt changes reply.url() to the redirect's
+        pinned = address != url.host()
 
         def redirected(target):
             target = reply.url().resolved(target) if target.isRelative() else target
             if reply.url().scheme() == "https" and target.scheme() != "https":
                 refused.append(1)
                 reply.abort()
+                return
+            if pinned:
+                # the engine of Qt would look the new name up in clear: the
+                # redirect is followed as a new request (GET after 301-303)
+                if target.host() == address:
+                    target = doh.unpin(target, url.host())
+                status = reply.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute) or 0
+                hops = d.get("_hops", 0) + 1
+                refused.append(1)
+                reply.abort()
+                if hops > 10:
+                    self._answer(page, sid, rid, {"error": "refused"})
+                    return
+                again = dict(d, _hops=hops)
+                verb = method
+                if status in (301, 302, 303) and method not in ("GET", "HEAD"):
+                    verb = "GET"
+                    again.pop("data", None)
+
+                def go(ok):
+                    if ok:
+                        self._send(page, sid, again, rid, target, verb, page_host)
+                    else:
+                        self._answer(page, sid, rid, {"error": "refused"})
+                self.check_target(sid, page_host, target, go)
+                follow.append(1)
                 return
 
             def checked(ok):
@@ -949,7 +996,12 @@ class UserScripts(QObject):
             self.check_target(sid, page_host, target, checked)
         reply.redirected.connect(redirected)
 
+        follow = []
+
         def done():
+            if follow:
+                reply.deleteLater()
+                return                           # answered by the request that follows the redirect
             err = reply.error()
             status = reply.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute)
             raw = bytes(reply.read(MAX_REPLY + 1)) if reply.isOpen() else b""
@@ -963,7 +1015,8 @@ class UserScripts(QObject):
                 lines = "".join("%s: %s\r\n" % (bytes(k).decode("latin-1"), bytes(v).decode("latin-1"))
                                 for k, v in reply.rawHeaderPairs())
                 ctype = str(reply.header(QNetworkRequest.KnownHeaders.ContentTypeHeader) or "")
-                out = {"status": int(status), "url": reply.url().toString(), "headers": lines,
+                final = doh.unpin(reply.url(), url.host()) if pinned else reply.url()
+                out = {"status": int(status), "url": final.toString(), "headers": lines,
                        "statusText": str(reply.attribute(
                            QNetworkRequest.Attribute.HttpReasonPhraseAttribute) or ""),
                        "type": ctype}

@@ -96,7 +96,7 @@ class IkeApp(QObject):
         self._dialogs = {}
         self._private = None
         self._quitting = False
-        self.shields.apply_dns()
+        self._apply_dns()
         self.profile = self.shields.make_profile(parent=self)
         self._wire_profile(self.profile)
         self.blocker.updated.connect(self._lists_updated)
@@ -551,11 +551,19 @@ class IkeApp(QObject):
         self._chrome_check.done.connect(done)
         background.start(self._chrome_check)
 
+    def _apply_dns(self):
+        """Encrypted DNS as chosen; said when the engine refused it, instead of
+        browsing on in clear without a word (review of 1.1.19, M3)."""
+        from .i18n import T
+        if not self.shields.apply_dns() and self.config["doh"] not in ("", "off", None):
+            QTimer.singleShot(3000, lambda: self._notify(T(
+                "Encrypted DNS could not be turned on: names are looked up by the system.")))
+
     # --- settings / updates ------------------------------------------
     def settings_changed(self):
         self.desktop.settings_changed()
         self.shields.apply_settings()
-        self.shields.apply_dns()
+        self._apply_dns()
         self.blocker.load()
         self.refresh_windows()
         if self.blocker.needs_update():

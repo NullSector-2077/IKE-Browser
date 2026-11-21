@@ -894,6 +894,7 @@
 "Engine switches that remove a protection were ignored: %s": "Проигнорированы ключи движка, отключающие защиту: %s",
 "Current stable Chrome: %d (%s)": "Текущий стабильный Chrome: %d (%s)",
 "checked with Google's version list": "проверено по списку версий Google",
-"estimated from the calendar: Google's version list could not be reached": "оценено по календарю: список версий Google был недоступен"
+"estimated from the calendar: Google's version list could not be reached": "оценено по календарю: список версий Google был недоступен",
+"Encrypted DNS could not be turned on: names are looked up by the system.": "Не удалось включить зашифрованный DNS: имена определяет система."
 }
 }

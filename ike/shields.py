@@ -1088,15 +1088,22 @@ class Shields(QObject):
         try:
             from PyQt6.QtWebEngineCore import QWebEngineGlobalSettings as G
 
+            from . import doh as own
             from .config import DOH_PROVIDERS
             mode = G.DnsMode()
+            template = None
             if doh and doh != "off":
                 mode.secureMode = G.SecureDnsMode.SecureOnly
-                mode.serverTemplates = DOH_PROVIDERS.get(doh, doh)
+                template = mode.serverTemplates = DOH_PROVIDERS.get(doh, doh)
             else:
                 mode.secureMode = G.SecureDnsMode.SystemOnly
-            return G.setDnsMode(mode)
+            ok = G.setDnsMode(mode)
+            # I.K.E.'s own requests ask the same provider (review of 1.1.19, M3)
+            own.configure(template if ok else None)
+            return ok
         except Exception:
+            from . import doh as own
+            own.configure(None)
             return False
 
     # --- per page ----------------------------------------------------

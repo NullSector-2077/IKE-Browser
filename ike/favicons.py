@@ -88,7 +88,15 @@ class Favicons(QObject):
         req.setAttribute(QNetworkRequest.Attribute.RedirectPolicyAttribute,
                          QNetworkRequest.RedirectPolicy.NoLessSafeRedirectPolicy)
         req.setRawHeader(b"User-Agent", self.app.shields.user_agent().encode())
-        reply = self.app.network.get(req)
+        from . import doh
+        if doh.active():                          # a redirect would be looked up in clear by Qt
+            req.setAttribute(QNetworkRequest.Attribute.RedirectPolicyAttribute,
+                             QNetworkRequest.RedirectPolicy.ManualRedirectPolicy)
+        doh.get(self.app.network, req, lambda reply: self._got(url, reply))
+
+    def _got(self, url, reply):
+        if reply is None:
+            return                                # no address from encrypted DNS
 
         def done():
             ok = reply.error() == QNetworkReply.NetworkError.NoError
