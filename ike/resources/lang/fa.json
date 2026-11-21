@@ -1025,6 +1025,7 @@
 "“%s” uses Manifest V%s. The engine only runs Manifest V3 extensions.": "«%s» از Manifest V%s استفاده می‌کند. موتور فقط افزونه‌های Manifest V3 را اجرا می‌کند.",
 "“Send to device” with KDE Connect": "«ارسال به دستگاه» با KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ برای انتخاب، Enter برای رفتن، Esc برای بستن",
-"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS رمزگذاری‌شده به درخواست‌های خود I.K.E. (به‌روزرسانی‌ها، فهرست‌های فیلتر) پاسخ نمی‌دهد: %s"
+"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS رمزگذاری‌شده به درخواست‌های خود I.K.E. (به‌روزرسانی‌ها، فهرست‌های فیلتر) پاسخ نمی‌دهد: %s",
+"Shared by %d tabs of this site": "مشترک بین %d زبانه از این سایت"
 }
 }

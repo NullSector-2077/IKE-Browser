@@ -1025,6 +1025,7 @@
 "“%s” uses Manifest V%s. The engine only runs Manifest V3 extensions.": "“%s” ले Manifest V%s प्रयोग गर्छ। इन्जिनले Manifest V3 एक्सटेन्सन मात्र चलाउँछ।",
 "“Send to device” with KDE Connect": "KDE Connect सँग “उपकरणमा पठाउनुहोस्”",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ ले छान्नुहोस्, Enter ले जानुहोस्, Esc ले बन्द गर्नुहोस्",
-"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "इन्क्रिप्ट गरिएको DNS ले I.K.E. का आफ्नै अनुरोध (अपडेट, फिल्टर सूची) को जवाफ दिँदैन: %s"
+"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "इन्क्रिप्ट गरिएको DNS ले I.K.E. का आफ्नै अनुरोध (अपडेट, फिल्टर सूची) को जवाफ दिँदैन: %s",
+"Shared by %d tabs of this site": "यस साइटका %d ट्याबले साझा गरेको"
 }
 }

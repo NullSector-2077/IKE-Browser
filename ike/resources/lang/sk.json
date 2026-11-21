@@ -1025,6 +1025,7 @@
 "Middle-click on an empty part of a page, then move the mouse to scroll. Any click or Esc stops it.": "Kliknite stredným tlačidlom na prázdne miesto stránky a potom pohybom myši posúvajte. Akékoľvek kliknutie alebo Esc to zastaví.",
 "Open selected text with middle click": "Otvoriť vybraný text stredným tlačidlom",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "Kliknutie stredným tlačidlom na prázdne miesto stránky otvorí vybraný text ako adresu alebo ako vyhľadávanie.",
-"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Šifrované DNS neodpovedá na vlastné požiadavky I.K.E. (aktualizácie, zoznamy filtrov): %s"
+"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Šifrované DNS neodpovedá na vlastné požiadavky I.K.E. (aktualizácie, zoznamy filtrov): %s",
+"Shared by %d tabs of this site": "Zdieľajú ho karty tohto webu: %d"
 }
 }

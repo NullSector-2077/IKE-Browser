@@ -1025,6 +1025,7 @@
 "“%s” uses Manifest V%s. The engine only runs Manifest V3 extensions.": "„%s“ izmanto Manifest V%s. Dzinējs palaiž tikai Manifest V3 paplašinājumus.",
 "“Send to device” with KDE Connect": "„Sūtīt uz ierīci“ ar KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ izvēlēties, Enter doties, Esc aizvērt",
-"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Šifrētais DNS neatbild uz paša I.K.E. pieprasījumiem (atjauninājumi, filtru saraksti): %s"
+"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Šifrētais DNS neatbild uz paša I.K.E. pieprasījumiem (atjauninājumi, filtru saraksti): %s",
+"Shared by %d tabs of this site": "Kopīgo šīs vietnes cilnes: %d"
 }
 }

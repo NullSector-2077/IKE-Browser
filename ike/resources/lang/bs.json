@@ -1025,6 +1025,7 @@
 "Middle-click on an empty part of a page, then move the mouse to scroll. Any click or Esc stops it.": "Klikni srednjim tasterom na prazno mjesto na stranici, zatim pomjeraj miš za pomjeranje. Svaki klik ili Esc to zaustavlja.",
 "Open selected text with middle click": "Otvori odabrani tekst srednjim klikom",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "Klik srednjim tasterom na prazno mjesto na stranici otvara odabrani tekst kao adresu ili kao pretraživanje.",
-"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Šifrirani DNS ne odgovara na vlastite zahtjeve I.K.E.-a (ažuriranja, liste filtera): %s"
+"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Šifrirani DNS ne odgovara na vlastite zahtjeve I.K.E.-a (ažuriranja, liste filtera): %s",
+"Shared by %d tabs of this site": "Dijele %d kartice ove stranice"
 }
 }

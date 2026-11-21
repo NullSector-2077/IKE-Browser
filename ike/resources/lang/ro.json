@@ -1025,6 +1025,7 @@
 "“%s” uses Manifest V%s. The engine only runs Manifest V3 extensions.": "„%s” folosește Manifest V%s. Motorul rulează doar extensii Manifest V3.",
 "“Send to device” with KDE Connect": "„Trimite către dispozitiv” cu KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ pentru alegere, Enter pentru a merge, Esc pentru a închide",
-"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS-ul criptat nu răspunde cererilor proprii ale I.K.E. (actualizări, liste de filtre): %s"
+"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS-ul criptat nu răspunde cererilor proprii ale I.K.E. (actualizări, liste de filtre): %s",
+"Shared by %d tabs of this site": "Partajat de %d file ale acestui site"
 }
 }

@@ -1025,6 +1025,7 @@
 "“%s” uses Manifest V%s. The engine only runs Manifest V3 extensions.": "“%s” Manifest V%s erabiltzen du. Motorrak Manifest V3 hedapenak soilik exekutatzen ditu.",
 "“Send to device” with KDE Connect": "“Bidali gailura” KDE Connect-ekin",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ aukeratzeko, Sartu joateko, Esc ixteko",
-"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS zifratuak ez die erantzuten I.K.E.-ren berezko eskaerei (eguneratzeak, iragazki-zerrendak): %s"
+"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS zifratuak ez die erantzuten I.K.E.-ren berezko eskaerei (eguneratzeak, iragazki-zerrendak): %s",
+"Shared by %d tabs of this site": "Gune honetako %d fitxak partekatzen dute"
 }
 }

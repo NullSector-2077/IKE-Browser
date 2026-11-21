@@ -1025,6 +1025,7 @@
 "“%s” uses Manifest V%s. The engine only runs Manifest V3 extensions.": "“%s” använder Manifest V%s. Motorn kör bara Manifest V3-tillägg.",
 "“Send to device” with KDE Connect": "“Skicka till enhet” med KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ för att välja, Enter för att gå, Esc för att stänga",
-"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Krypterad DNS svarar inte på I.K.E.:s egna förfrågningar (uppdateringar, filterlistor): %s"
+"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Krypterad DNS svarar inte på I.K.E.:s egna förfrågningar (uppdateringar, filterlistor): %s",
+"Shared by %d tabs of this site": "Delas av %d flikar på den här webbplatsen"
 }
 }
