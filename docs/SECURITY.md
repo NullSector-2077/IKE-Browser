@@ -104,11 +104,30 @@ routes useless; it cannot stop a script written against it:
 - **Float WebGL reads** (`FLOAT`) and **AudioWorklet** taps are not noised:
   floats are left exact for programs that compute with them, and a worklet
   runs where the page's world cannot reach.
-- **Fonts**: a style sheet's `@font-face { src: local() }` and workers loaded
-  from an address still find installed fonts; a font allowlist for the whole
-  engine is planned for 1.1.21.
+- **Fonts**: at Balanced, and at a site set to Strict or Maximum by itself,
+  a style sheet's `@font-face { src: local() }` and workers loaded from an
+  address still find installed fonts. At the global levels Strict and
+  Maximum the engine itself sees only the common families since 1.1.21 (see
+  below).
+- **Screen size in style sheets**: at Strict `matchMedia` answers the shown
+  screen size since 1.1.21, but a style sheet's own `@media (device-width: ...)`
+  is evaluated by the engine with the real size, and a page can read its
+  effect (a computed style).
 - **A site set to Maximum by itself** (not the global level) keeps the
   engine's own texts and the time zone's name in the system's language.
+
+## Fingerprinting: the audit's remaining points (1.1.21)
+
+Each with a test in `tests/test_review_fixes.py` that failed before the fix.
+
+| Point | Was | Now |
+|---|---|---|
+| Fonts (audit "known limits") | A style sheet's `src: local()` and workers loaded from an address found any installed font | At the global levels Strict and Maximum fontconfig gets a file of I.K.E.'s (`ike/fontallow.py`): the system's configuration plus a rule that keeps only DejaVu, Liberation, Noto, Cantarell, Source Han and WenQuanYi. Read at start (a change of level applies after a restart); I.K.E.'s own interface uses the same fonts; programs I.K.E. starts get the user's configuration back; nothing changes when none of these families is installed |
+| Cores (Cover Your Tracks) | 2, 4, 6, 8 (12, 16 at Balanced) per site; "2" was rare | 4 or 8, never more than the computer has; Strict and above the higher one |
+| M-2 | `matchMedia('(min-device-width: Npx)')` gave the real screen size behind Strict's usual one | `device-width`, `device-height`, `device-aspect-ratio` (both syntaxes) answered for the shown size; the query's text kept. Style sheets: see "Known limits of the noise" |
+| L-2 | The noise's site came from a short list of hosting domains: unrelated sites under another one shared their noise | The system's Public Suffix List, as for the rest of I.K.E., given to the page as sorted 24-bit hashes (about 35 KB); a chance match makes a site one label longer, never shared |
+| L-3 | `window.name` written on one site was still there on the next site of the tab | Emptied in a top-level document reached from another site (or from nowhere) on a new navigation, unless a script opened the tab; kept within a site and on a reload |
+| GPU name at Strict | Hidden ("not available" in Cover Your Tracks, about 7.5 bits) | Kept hidden: every Linux renderer name carries the driver's details and is rarer than "not available"; a fixed name of I.K.E.'s would mark its users |
 
 ## Known limits (not solved)
 
