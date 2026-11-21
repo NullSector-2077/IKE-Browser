@@ -234,6 +234,7 @@ Licences (pull request #67):
 - **Peter Lowe's list removed**: its author states no licence for it. It is
   gone from the lists, the credits and the documentation; settings of earlier
   versions lose it once, on or off, with its downloaded copy.
+- Automatic fix after a failure of "Tests" (see its pull request).
 
 ## 1.1.17
 
