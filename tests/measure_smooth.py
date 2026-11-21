@@ -1,10 +1,10 @@
 """How smoothly pages appear and scroll (1.1.19, the owner's request): the same
-local test pages in I.K.E. and, by hand, in any other browser (Brave), so the
-numbers compare. Not part of the automatic tests.
+local test pages in I.K.E. and, by hand, in another browser, so the numbers
+compare. Not part of the automatic tests.
 
     python3 tests/measure_smooth.py [--runs N] [--json FILE]       I.K.E.: Dark Reader off / on / engine dark
     python3 tests/measure_smooth.py --serve                       only the pages: open the address it prints
-                                                                  in Brave (or I.K.E. by hand), wait for "done"
+                                                                  in a browser, wait for "done"
     IKE_TEST_APP=/usr/lib/ike-browser python3 tests/measure_smooth.py      an installed copy
 
 Needs Pillow (python-pillow) to make the pictures. Nothing comes from the

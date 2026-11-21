@@ -102,7 +102,7 @@ are agreed with the project owner; do not reopen them without asking.
   set-up pages) waits for the owner. Certificate Transparency, HSTS preload
   and Arch's V8 hardening to be verified on a real system.
 - **Smooth page loading (1.1.19, owner's request)**: measure first (Dark
-  Reader off and on, Brave on the owner's computer; pictures, long pages,
+  Reader off and on, on the owner's computer too; pictures, long pages,
   dynamic content), then only changes that measure better; no animations or
   delays added, no engine switches tried blindly.
 - **Workers started from a file**: `experiment/file-workers` (see Known
