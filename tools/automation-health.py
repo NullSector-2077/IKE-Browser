@@ -12,8 +12,8 @@ what would otherwise break in silence:
 - the GEMINI_API_KEY secret missing (HAS_KEY=false), without which the
   automatic fix cannot start;
 - (1.1.18) runs of the automatic fix that failed in the last WAITING days; the
-  reserves' secrets GROQ_API_KEY and OPENROUTER_API_KEY missing
-  (HAS_GROQ_KEY, HAS_OPENROUTER_KEY: the workflow passes only whether they are
+  reserves' secrets GROQ_API_KEY, ZAI_API_KEY (1.1.19) and OPENROUTER_API_KEY
+  missing (HAS_GROQ_KEY, HAS_ZAI_KEY, HAS_OPENROUTER_KEY: the workflow passes only whether they are
   set, never their values); issues of the automatic fix and maintenance pull
   requests waiting for more than WAITING days; main without branch protection.
 
@@ -128,6 +128,7 @@ def main(argv=None):
     protected = fetch("the protection of main", None,
                       lambda: bool(api("repos/%s/branches/main" % a.repo)["protected"]))
     keys = {"GROQ_API_KEY": os.environ.get("HAS_GROQ_KEY", "true") == "true",
+            "ZAI_API_KEY": os.environ.get("HAS_ZAI_KEY", "true") == "true",
             "OPENROUTER_API_KEY": os.environ.get("HAS_OPENROUTER_KEY", "true") == "true"}
     found = problems(now, daily, main_tests, os.environ.get("HAS_KEY", "true") == "true", autofix_runs,
                      keys, autofix_issues, maintenance_prs, protected, unreadable)

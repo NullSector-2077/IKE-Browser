@@ -688,6 +688,25 @@ def test_the_chatgpt_guard_never_runs_the_pull_request():
     assert "git checkout" not in text and "refs/remotes/pr/head" in text
 
 
+def test_zai_is_the_third_reserve():
+    """1.1.19, the owner's choice: Z.AI's free GLM Flash models after Groq and
+    before OpenRouter, skipped without its key, with the whole files too."""
+    reserve = load("autofix-reserve")
+    plan = reserve.chain({"GROQ_API_KEY": "k", "ZAI_API_KEY": "z", "OPENROUTER_API_KEY": "k2"})
+    assert [p[0] for p in plan] == ["Groq", "Groq", "Z.AI", "Z.AI", "OpenRouter", "OpenRouter"]
+    assert [p[3] for p in plan if p[0] == "Z.AI"] == ["glm-4.7-flash", "glm-4.5-flash"]
+    assert all(p[1] == "https://api.z.ai/api/paas/v4/chat/completions" and p[2] == "z" for p in plan if p[0] == "Z.AI")
+    assert [p[0] for p in reserve.chain({"ZAI_API_KEY": "z", "AUTOFIX_ZAI_MODELS": "glm-x"})] == ["Z.AI"]
+    assert "Z.AI" not in [p[0] for p in reserve.chain({"GROQ_API_KEY": "k", "OPENROUTER_API_KEY": "k2"})]
+    zai = next(p[4] for p in plan if p[0] == "Z.AI")
+    assert "x = 1" in reserve.message_for("F" * 500, "C" * 500, {"ike/window.py": "x = 1\n" * 2000}, zai)
+    workflow = (WORKFLOWS / "autofix.yml").read_text()
+    assert "ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}" in workflow
+    assert '"$GROQ_API_KEY$ZAI_API_KEY$OPENROUTER_API_KEY"' in workflow
+    assert '("GROQ_API_KEY", "ZAI_API_KEY", "OPENROUTER_API_KEY")' in workflow       # never handed over
+    assert "${{ secrets.ZAI_API_KEY != '' }}" in (WORKFLOWS / "health.yml").read_text()
+
+
 def test_the_reserves_defaults_and_budgets():
     """1.1.16: today's free models; Groq (about 8,000 tokens a minute) gets a
     short message, OpenRouter the whole files too."""
@@ -829,7 +848,8 @@ def test_more_files_are_never_changed_by_a_fix(repo, tmp_path, rel):
     assert guard.allowed_path("tools/check-components.py", False) == ""
 
 
-@pytest.mark.parametrize("key", ["gsk_" + "A1b2C3d4" * 6, "sk-or-v1-" + "0a1b2c3d" * 8, "sk-proj-" + "Zz09" * 10])
+@pytest.mark.parametrize("key", ["gsk_" + "A1b2C3d4" * 6, "sk-or-v1-" + "0a1b2c3d" * 8, "sk-proj-" + "Zz09" * 10,
+                                 "0a1b2c3d" * 4 + ".Ab3dEf6hIj9lMnOp"])
 def test_keys_of_the_reserves_are_refused_too(repo, tmp_path, key):
     patch = make_patch(repo, edit("ike/window.py", "KEY = '%s'\n" % key, "a"))
     code, report = run_guard(repo, patch, tmp_path)
