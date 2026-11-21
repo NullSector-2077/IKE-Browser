@@ -432,7 +432,8 @@ class IkeApp(QObject):
         from .updater import boot_command
         if name == PROFILE:
             return
-        env = dict(os.environ)
+        from .fontallow import child_env
+        env = child_env(os.environ)          # the other profile chooses its own fonts
         env.pop("IKE_TEST_HOOK", None)
         env["IKE_PROFILE"] = name
         subprocess.Popen(boot_command() + ["--profile", name], env=env,
@@ -1500,6 +1501,10 @@ def main(argv=None):
         return 1
     config = Config()
     _chromium_flags(config)
+    # at Strict and Maximum the engine sees only the most common font
+    # families (1.1.21): before Qt or the engine reads fontconfig
+    from . import fontallow
+    fontallow.apply(config["shield_level"], CONFIG_DIR)
     from .shields import register_scheme
     register_scheme()
 
@@ -1597,7 +1602,8 @@ def main(argv=None):
         if server_name:
             QLocalServer.removeServer(server_name)
         boot = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ike_boot.py")
-        env = dict(os.environ, IKE_WAIT_PID=str(os.getpid()))
+        from .fontallow import child_env
+        env = dict(child_env(os.environ), IKE_WAIT_PID=str(os.getpid()))
         cmd = [sys.executable, boot] + (["--profile", args.profile] if args.profile else [])
         subprocess.Popen(cmd, env=env, start_new_session=True, stdin=subprocess.DEVNULL)
     return code

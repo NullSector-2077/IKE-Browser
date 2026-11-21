@@ -1534,6 +1534,91 @@ def test_fp_verify_the_second_round_of_bypasses_is_closed(run_ike):
     assert a["pluginKeys"] is True and a["workerNoArg"] == "TypeError", a
 
 
+FONT_PROBE = r"""(function () {
+  var st = document.createElement('style');
+  st.textContent = '@font-face { font-family: "ikeprobe"; src: local("Zqxjkv Sans"); }';
+  document.head.appendChild(st);
+  function w(f) {
+    var e = document.createElement('span');
+    e.style.cssText = 'font-size:72px;position:absolute;white-space:nowrap;font-family:' + f;
+    e.textContent = 'mmmmmmmmmmlli1WQ@#%&ABCxyz'; document.body.appendChild(e);
+    var r = e.offsetWidth + 'x' + e.offsetHeight; e.remove(); return r;
+  }
+  w('ikeprobe, monospace');
+  setTimeout(function () {
+    window.__fp = JSON.stringify({ found: w('ikeprobe, monospace') !== w('monospace') });
+  }, 1500);
+})();"""
+
+
+def _probe_font(home):
+    """A font of a family no computer has ("Zqxjkv Sans"): DejaVu Sans with
+    its name changed (same length, so no table moves), in the user's own
+    font folder."""
+    import os
+    import pytest
+    src = None
+    for top in ("/usr/share/fonts", "/usr/local/share/fonts"):
+        for root, _dirs, files in os.walk(top):
+            if "DejaVuSans.ttf" in files:
+                src = os.path.join(root, "DejaVuSans.ttf")
+                break
+        if src:
+            break
+    if src is None:
+        pytest.skip("DejaVu Sans is not installed")
+    data = open(src, "rb").read()
+    data = data.replace(b"DejaVu", b"Zqxjkv").replace("DejaVu".encode("utf-16-be"), "Zqxjkv".encode("utf-16-be"))
+    fonts = home / ".local/share/fonts"
+    fonts.mkdir(parents=True, exist_ok=True)
+    (fonts / "ike-probe.ttf").write_bytes(data)
+
+
+def test_font_allowlist_style_sheets_cannot_find_a_users_font(run_ike, tmp_path):
+    """Fingerprinting audit, "Known limits" (owner's decision: 1.1.21): at
+    Strict a style sheet's own @font-face with src: local() found any
+    installed font, out of every script's reach. Now at the global levels
+    Strict and Maximum the engine sees only the most common families
+    (ike/fontallow.py); at Balanced the user's fonts stay usable."""
+    import json
+    _probe_font(tmp_path / "home")
+    found = {}
+    for level in ("balanced", "strict", "maximum"):
+        out = run_ike(STEPS_FP % FONT_PROBE, settings={"shield_level": level}, timeout=90)
+        found[level] = json.loads(out["r"])["found"]
+    assert found == {"balanced": True, "strict": False, "maximum": False}, found
+
+
+def test_font_allowlist_config_and_restart(tmp_path):
+    """The file includes the system's configuration; a restart or another
+    profile started by I.K.E. gets the user's own FONTCONFIG_FILE back."""
+    from ike import fontallow
+    fonts = tmp_path / "fonts" / "TTF"
+    fonts.mkdir(parents=True)
+    (fonts / "DejaVuSans.ttf").write_bytes(b"x")
+    user = tmp_path / "user.conf"
+    user.write_text("<fontconfig/>")
+    env = {"FONTCONFIG_FILE": str(user)}
+    assert fontallow.apply("balanced", tmp_path, env, dirs=[str(tmp_path / "fonts")]) is None
+    assert env == {"FONTCONFIG_FILE": str(user)}
+    path = fontallow.apply("strict", tmp_path, env, dirs=[str(tmp_path / "fonts")])
+    assert env["FONTCONFIG_FILE"] == str(path)
+    text = path.read_text()
+    assert '<include ignore_missing="no">%s</include>' % user in text
+    assert "<glob>/*.ttf</glob>" in text and "<glob>/*/DejaVu*</glob>" in text
+    assert fontallow.child_env(env) == {"FONTCONFIG_FILE": str(user)}
+    # the next start (inherits I.K.E.'s file) includes the user's, never its own
+    again = dict(env)
+    fontallow.apply("maximum", tmp_path, again, dirs=[str(tmp_path / "fonts")])
+    assert '<include ignore_missing="no">%s</include>' % user in path.read_text()
+    fontallow.apply("balanced", tmp_path, again, dirs=[str(tmp_path / "fonts")])
+    assert again == {"FONTCONFIG_FILE": str(user)}
+    # no allowed family installed: the fonts stay as they are
+    env = {}
+    assert fontallow.apply("strict", tmp_path, env, dirs=[str(tmp_path / "none")]) is None
+    assert env == {}
+
+
 def test_cores_are_a_common_number(run_ike):
     """1.1.21 (the owner's Cover Your Tracks test): the number of cores shown
     was one of 2, 4, 6, 8 (12, 16 at Balanced) per site, and "2" was rare
