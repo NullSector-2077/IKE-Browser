@@ -53,8 +53,7 @@ are agreed with the project owner; do not reopen them without asking.
 - Pages must not be able to see I.K.E.: outside the protections the user
   chose, nothing in a page is changed (1.1.12), and on sensitive services
   (sign-in, AI Studio, cloud consoles, payments) the protections stay light
-  (1.1.14: Google's own requests there are left alone, as Brave does with its
-  hand-written exceptions, and PayPal's and Stripe's parts of any shop too;
+  (1.1.14: Google's own requests there are left alone, and PayPal's and Stripe's parts of any shop too;
   other companies' trackers stay blocked), so
   anti-abuse checks never refuse the user.
 
@@ -156,6 +155,6 @@ docs/MAINTENANCE.md when the task touches them.
   the real values (graphics card, cores): Qt WebEngine gives no way to add a
   script to it. A partial way around it is on the branch
   `experiment/file-workers`, waiting for the owner's decision.
-- The ad-blocking engine is adblock-rust (Brave's open-source library, MPL-2.0)
+- The ad-blocking engine is adblock-rust (open-source library, MPL-2.0)
   with uBlock Origin / EasyList filter lists and uBlock Origin scriptlets; the
   integration around them is I.K.E.'s own.

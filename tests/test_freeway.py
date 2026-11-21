@@ -1,7 +1,7 @@
 """1.1.15: "same site, free way" and the speech voices.
 
 At Balanced and below what a site asks of itself is not checked against the
-filter lists (as Brave's standard mode): faster pages, fewer broken sites. The
+filter lists: faster pages, fewer broken sites. The
 requests of other companies stay blocked; Strict and Maximum check
 everything; the video sites (their ads come from the site itself) are always
 checked. The fingerprinting protection hides the speech voices of other

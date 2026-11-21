@@ -4,7 +4,7 @@ Qt WebEngine leaves Chromium's Site Isolation off: a frame of another site
 shared its page's process (chrome://process-internals said "Site Isolation
 mode: Disabled", no out-of-process frame), so one bug in the engine let a
 page read the other site. I.K.E. now asks for --site-per-process, as Chrome
-and Brave always do. A --disable-site-isolation-trials is followed only with
+always does. A --disable-site-isolation-trials is followed only with
 IKE_ALLOW_UNSAFE_ENGINE=1 (otherwise it is dropped: test_sandbox.py and
 test_engine_switches.py).
 """

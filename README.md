@@ -49,8 +49,7 @@ profiles: `ike-browser --profile NAME`.
   are removed by the lists' scriptlets; an ad that still starts is muted,
   hidden and skipped.
 - **Same site, free way**: at Compatibility and Balanced (the default), a
-  site's own requests are not checked against the filter lists, as in Brave's
-  standard mode: fewer broken sites, while other companies' ads and trackers
+  site's own requests are not checked against the filter lists: fewer broken sites, while other companies' ads and trackers
   stay blocked; ads served from the site's own domain are only hidden. Strict
   and Maximum check every request; YouTube is always checked.
 - Cookie banners refused and hidden automatically.

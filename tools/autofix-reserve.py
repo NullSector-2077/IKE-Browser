@@ -143,7 +143,7 @@ Answer with ONE JSON object and nothing else:
   shown on the left of the excerpts) and appear exactly once in that file.
 - At most 5 files, the smallest correct change. Only files that are shown
   below, and only under ike/, tests/, tools/ or docs/ (%(wrapper)s).
-- Never ike-adblock/Cargo.toml or Cargo.lock, Brave's engine itself, Dark
+- Never ike-adblock/Cargo.toml or Cargo.lock, the adblock-rust engine itself, Dark
   Reader's files, uBlock Origin's scriptlets, the icon sets, docs/THIRD-PARTY.md
   or any file that comes from others or is generated.
 - If the failure cannot be fixed in the code, answer {"summary": "...",

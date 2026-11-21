@@ -128,8 +128,8 @@ docs/SECURITY.md):
 - **Every site in its own process** (owner's decision): Qt WebEngine leaves
   Chromium's Site Isolation off, so a frame of another site shared its page's
   process and one bug in the engine could let a page read the other site.
-  I.K.E. now turns it on (`--site-per-process`), as Chrome and Brave always
-  do; turning it off takes `IKE_ALLOW_UNSAFE_ENGINE=1`. Measured: four tabs
+  I.K.E. now turns it on (`--site-per-process`), as Chrome always
+  does; turning it off takes `IKE_ALLOW_UNSAFE_ENGINE=1`. Measured: four tabs
   with four frames of other sites each used 494 MB instead of 436 MB (+13 %),
   13 processes instead of 8.
 - **The home network is protected from every kind of request**: until now
@@ -408,8 +408,8 @@ Security review (each point has a test that plays the attack on this computer).
 
 - **Same site, free way (faster pages, fewer broken sites)**: at Balanced and
   Compatibility, what a site asks of itself (its own pictures, scripts, styles
-  and data) is no longer checked against the filter lists, as Brave does in its
-  standard mode. Most of the requests of a page are the site's own, so the
+  and data) is no longer checked against the filter lists, like the standard
+  mode of other content blockers. Most of the requests of a page are the site's own, so the
   content blocker has much less to do, and the sites that broke because one of
   their own parts was blocked work again. The ads and trackers of other
   companies stay blocked, the hiding of ad boxes stays on, Strict and Maximum
@@ -433,11 +433,10 @@ Security review (each point has a test that plays the attack on this computer).
   page (an embedded Google sign-in frame keeps its normal identity too). The
   trackers of other companies stay blocked, every other site keeps its
   protections, YouTube is not touched, and a level the user chose for one of
-  these sites is still respected. Brave reaches the same result with a list of
-  hand-written exceptions.
+  these sites is still respected.
 - **Payments with PayPal and Stripe**: their anti-fraud checks can refuse a
-  payment or a sign-in when part of them is blocked or changed (Brave users
-  report PayPal sign-ins that work only with the shield off). PayPal's sign-in
+  payment or a sign-in when part of them is blocked or changed (PayPal
+  sign-ins that work only with the protections off are a known case). PayPal's sign-in
   and Stripe's checkout page get the same treatment as Google's sensitive
   services, and in every shop PayPal's and Stripe's own parts (payment buttons
   and fields, their anti-fraud checks, their frames and cookies) are left
@@ -480,7 +479,7 @@ Security review (each point has a test that plays the attack on this computer).
   release is downloaded, checked and installed by itself (once a day at most) and
   used at the next start. Whoever had the old default "Ask before installing"
   moves to automatic once; "Do not check" stays the user's own choice.
-- **Faster pages** (from a comparison with Brave on YouTube: less blocking
+- **Faster pages** (measured on YouTube: less blocking
   time, an earlier main picture, fewer requests):
   - the cookie-banner handler no longer weighs on the page while it loads: one
     query for all the known "reject" buttons instead of about forty, no layout

@@ -44,7 +44,6 @@ the frames are drawn in software: compare runs on the same computer only.
 import argparse
 import io
 import json
-import os
 import random
 import statistics
 import sys

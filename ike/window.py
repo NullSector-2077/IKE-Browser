@@ -341,7 +341,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         hl.addWidget(self.ws_btn_v)
         hl.addStretch(1)
         self._vhead = hl
-        # 1.1.16: only the icons of the tabs, a narrow panel (as in Brave and others)
+        # 1.1.16: only the icons of the tabs, a narrow panel
         self.vicons_btn = QToolButton(head)
         self.vicons_btn.setAutoRaise(True)
         self.vicons_btn.clicked.connect(self._toggle_vtabs_icons)

@@ -1265,7 +1265,7 @@ def _chromium_flags(config):
         # engine cannot sandbox as root, and the window says it is off
         flags.append("--no-sandbox")
         ENGINE_SAFETY["kept"].append("--no-sandbox")
-    # every site in its own process, as in Chrome and Brave (1.1.18, security
+    # every site in its own process, as in Chrome (1.1.18, security
     # audit F1; owner's decision): Qt WebEngine leaves it off, so a frame of
     # another site shared its page's process and one bug in the engine could
     # read the other site. A security switch, not a graphics path; about a

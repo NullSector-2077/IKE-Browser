@@ -72,9 +72,8 @@ SENSITIVE_HOSTS = ("aistudio.google.com", "console.cloud.google.com", "myaccount
 # Google's own sites. On a sensitive service the shield leaves their requests
 # alone (1.1.14): "Compatibility" was not enough, because the filter lists still
 # blocked some of Google's own requests and its anti-abuse checks then refused
-# the operation. Brave gets there with a hand-written list of exceptions; here
-# the service simply works as with the shield off, while the trackers of other
-# companies stay blocked. Ad and analytics domains (doubleclick.net,
+# the operation. Here the service simply works as with the shield off, while
+# the trackers of other companies stay blocked. Ad and analytics domains (doubleclick.net,
 # google-analytics.com, googletagmanager.com, ...) are not in this list.
 GOOGLE_SITES = ("google.com", "googleapis.com", "gstatic.com", "googleusercontent.com",
                 "recaptcha.net")

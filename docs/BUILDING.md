@@ -15,7 +15,7 @@ the launcher, and installs everything under `/usr`.
 ## I.K.E. AdBlock Engine
 
 `ike-adblock/` is a native Python module (PyO3, stable `abi3` interface,
-Python 3.9 or later) built on Brave's adblock-rust library. Only Rust is needed:
+Python 3.9 or later) built on the adblock-rust library. Only Rust is needed:
 
 ```bash
 cargo build --release --locked --manifest-path ike-adblock/Cargo.toml

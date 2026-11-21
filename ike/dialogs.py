@@ -35,7 +35,16 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from .config import DEFAULT_ENGINES, DEFAULTS, DEFAULT_LISTS, DOH_PROVIDERS, LEVEL_NAMES, LEVELS, PERMISSION_KINDS, TOOLBAR_ITEMS
+from .config import (
+    DEFAULT_ENGINES,
+    DEFAULT_LISTS,
+    DEFAULTS,
+    DOH_PROVIDERS,
+    LEVEL_NAMES,
+    LEVELS,
+    PERMISSION_KINDS,
+    TOOLBAR_ITEMS,
+)
 from .i18n import T
 
 

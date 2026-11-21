@@ -273,7 +273,7 @@ never touched.
    blocker's `Cargo.toml` and `Cargo.lock`, `docs/THIRD-PARTY.md`); of the ad
    blocker only I.K.E.'s own wrapper (`ike-adblock/src/`,
    `vendor/adblock/__init__.py`, `ike/blocker.py`, `ike/scriptlets.py`), and
-   only on a candidate that updates its engine (the engine itself, Brave's
+   only on a candidate that updates its engine (the engine itself,
    adblock-rust, is a crate: a problem there is for the maintenance); no test removed or weakened; no keys, binaries or links;
    at most 5 files and 150 lines; and at least one of the files involved in
    the failure must change (`--related`), so a fix stays on the problem. Then lint. A fix of `main` that changes the
@@ -411,7 +411,7 @@ lists never gets it). The plan's `allow_adblock` reaches Antigravity (a section
 files they may edit) and the checker (`--allow-adblock`); the reserves take
 their list of forbidden files from the checker itself, so the two cannot drift.
 ChatGPT is never allowed the ad blocker: its guard has no `--allow-adblock`.
-`Cargo.toml`, `Cargo.lock` and Brave's engine are never changed by a fix.
+`Cargo.toml`, `Cargo.lock` and the adblock-rust engine are never changed by a fix.
 
 ### The audit of #65 (final review of 1.1.18)
 
