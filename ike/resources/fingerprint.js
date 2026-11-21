@@ -436,6 +436,39 @@
       getter(N, 'languages', function () { return frozen; });
       getter(N, 'language', function () { return frozen[0]; });
     }
+    if (c.maximum && c.langs && self.Intl && self.Proxy) {
+      // as in the page: no language asked for means the one shown (M5)
+      var LOC = c.langs[0], RCON = Reflect.construct, SL = Array.prototype.slice;
+      var fix = function (args, at) {
+        var a = RAW(SL, args, []);
+        if (a[at] === undefined) { while (a.length < at) a.push(undefined); a[at] = LOC; }
+        return a;
+      };
+      ['DateTimeFormat', 'NumberFormat', 'Collator', 'PluralRules', 'RelativeTimeFormat', 'ListFormat',
+        'DisplayNames', 'Segmenter', 'DurationFormat'].forEach(function (n) {
+        var C = Intl[n];
+        if (typeof C !== 'function') return;
+        var P = new Proxy(C, {
+          construct: function (t, args, nt) { return RCON(t, fix(args, 0), nt === P ? t : nt); },
+          apply: function (t, me, args) { return RAW(t, me, fix(args, 0)); }
+        });
+        nat.set(P, toStr.call(C));
+        try {
+          Object.defineProperty(Intl, n, { value: P, writable: true, configurable: true, enumerable: false });
+          Object.defineProperty(C.prototype, 'constructor', { value: P, writable: true, configurable: true });
+        } catch (e) {}
+      });
+      [[Date.prototype, ['toLocaleString', 'toLocaleDateString', 'toLocaleTimeString']],
+        [Number.prototype, ['toLocaleString']], [self.BigInt && BigInt.prototype, ['toLocaleString']],
+        [String.prototype, ['localeCompare']]].forEach(function (pair) {
+        pair[1].forEach(function (name) {
+          wrap(pair[0], name, function (orig) {
+            var at = name === 'localeCompare' ? 1 : 0;
+            return function () { return RAW(orig, this, fix(arguments, at)); };
+          });
+        });
+      });
+    }
     var O2 = self.OffscreenCanvasRenderingContext2D && OffscreenCanvasRenderingContext2D.prototype;
     var rawGet = O2 && O2.getImageData;
     wrap(O2, 'getImageData', function (orig) {
@@ -577,7 +610,7 @@
     } catch (e) {}
   }
   var PRELUDE = '(' + origToString.call(workerPatch) + ')(' +
-    JSON.stringify({ cores: cores, mem: strict ? 8 : 0, langs: langs, seed: seed, strict: strict,
+    JSON.stringify({ cores: cores, mem: strict ? 8 : 0, langs: langs, seed: seed, strict: strict, maximum: maximum,
       gpus: GPUS, pick: PICK, hidden: hiddenExt }) +
     ',' + origToString.call(rng) + ',' + origToString.call(farble) + ',' + origToString.call(gpuFor) + ');\n';
   while (PRELUDE.length % 3) PRELUDE += ' ';     // so it can be joined to base64 data

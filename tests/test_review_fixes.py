@@ -694,6 +694,12 @@ FP_PROBE = r"""
   R.intl = new Intl.DateTimeFormat().resolvedOptions().locale;
   R.number = (1234.5).toLocaleString();
   R.intlNative = Function.prototype.toString.call(Intl.DateTimeFormat);
+  try {
+    var src = "postMessage([new Intl.DateTimeFormat().resolvedOptions().locale, (1234.5).toLocaleString()])";
+    var wk = new Worker(URL.createObjectURL(new Blob([src], {type: 'text/javascript'})));
+    R.workerIntl = await new Promise(function (ok) { wk.onmessage = function (e) { ok(e.data); };
+      setTimeout(function () { ok('timeout'); }, 3000); });
+  } catch (e) { R.workerIntl = 'error ' + e; }
   window.__fp = JSON.stringify(R);
 })();
 """
@@ -717,9 +723,15 @@ def steps(ike, qapp, out):
 '''
 
 
-def _fp(run_ike, level):
+def _fp(run_ike, level, italian=False):
+    """The probe at one level; italian: an Italian system and browser (so
+    that English shown at Maximum means something)."""
     import json
-    out = run_ike(STEPS_FP % FP_PROBE, settings={"shield_level": level}, timeout=90)
+    settings, env = {"shield_level": level}, None
+    if italian:
+        settings.update({"language": "it", "accept_language": "it-IT,it;q=0.9"})
+        env = {"LANG": "it_IT.UTF-8", "LC_ALL": "it_IT.UTF-8", "LANGUAGE": "it"}
+    out = run_ike(STEPS_FP % FP_PROBE, settings=settings, env=env, timeout=90)
     return json.loads(out["r"])
 
 
@@ -738,9 +750,12 @@ def test_h1_m5_noise_cannot_be_peeled_off_and_spoofed_values_look_like_chrome(ru
     assert a["receiver"] == "TypeError", a
     assert a["gpu"] is True and a["adapter"] is None, a
     assert a["battery"] is True and a["batteryLevel"] == [True, 1], a
-    m = _fp(run_ike, "maximum")
+    it = _fp(run_ike, "balanced", italian=True)
+    assert it["intl"].startswith("it") and it["number"] == "1.234,5", it     # the real language, below Maximum
+    m = _fp(run_ike, "maximum", italian=True)
     assert m["lang"] == "en-US" and m["intl"] == "en-US" and m["number"] == "1,234.5", m
     assert "[native code]" in m["intlNative"], m
+    assert m["workerIntl"] == ["en-US", "1,234.5"], m                  # in workers too
 
 
 def test_m5_strict_sends_the_one_language_it_shows():
