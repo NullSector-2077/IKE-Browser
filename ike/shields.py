@@ -240,6 +240,41 @@ def _site_psl(host, psl):
     return ".".join(labels[-2:])
 
 
+# The Public Suffix List for fingerprint.js's siteOf() (1.1.21, fingerprinting
+# audit L-2): its own short list of hosting domains made two unrelated sites
+# under another one (a.altervista.org, b.altervista.org) one site, with the
+# same noise. The page gets the list's rules as 24-bit FNV-1a hashes, four
+# characters each, sorted (about 35 KB instead of 130; a binary search): the
+# rules of two labels or more, "*.x" and "!x" (one-label rules answer as the
+# default rule does). A hash that matches by chance (about 1 in 2000 names)
+# makes that site one label longer: its noise differs from its parent's, never
+# shared with another site.
+PSL_DIGITS = "-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+_PSL_CODES = []
+
+
+def psl_code(rule):
+    h = 2166136261
+    for ch in rule:
+        h ^= ord(ch)
+        h = (h * 16777619) & 0xFFFFFFFF
+    v = h >> 8
+    return "".join(PSL_DIGITS[(v >> k) & 63] for k in (18, 12, 6, 0))
+
+
+def psl_codes():
+    """The sorted codes of the list's rules for fingerprint.js, or "" (no list)."""
+    if not _PSL_CODES:
+        psl = _psl()
+        out = ""
+        if psl is not None:
+            rules, wild, exc = psl
+            names = [r for r in rules if "." in r] + ["*." + w for w in wild] + ["!" + e for e in exc]
+            out = "".join(sorted({psl_code(n) for n in names}))
+        _PSL_CODES.append(out)
+    return _PSL_CODES[0]
+
+
 def _referer(info):
     """The Referer the engine is about to send with this request, or ""."""
     try:
@@ -1122,7 +1157,9 @@ class Shields(QObject):
                       "ffAppVersion": ident["firefox_app_version"],
                       "ffOscpu": ident["firefox_oscpu"],
                       # the masked names a page can find here (fontcheck.py); None: all of them
-                      "fonts": fontcheck.findable()}
+                      "fonts": fontcheck.findable(),
+                      # the Public Suffix List's rules, for the site of the noise (L-2)
+                      "psl": psl_codes()}
             s = QWebEngineScript()
             s.setName(FP_SCRIPT)
             s.setSourceCode(self._fp_src.replace("__IKE_CFG__", json.dumps(fp_cfg)))

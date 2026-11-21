@@ -685,6 +685,81 @@ def test_l10_the_site_of_a_name_follows_the_public_suffix_list(tmp_path, monkeyp
         shields.site_of.cache_clear()
 
 
+STEPS_L2 = r"""
+PSL = %r
+HOSTS = %r
+
+def steps(ike, qapp, out):
+    import hashlib
+    from PyQt6.QtCore import QUrl
+    from ike import shields
+    shields.PSL_PATHS[:] = [PSL]
+    shields._PSL.clear()
+    shields._PSL_CODES.clear()
+    ike.shields.apply_settings()
+    v = ike.windows[0].current_view()
+    for h in HOSTS:
+        v.setHtml("<title>t</title><body></body>", QUrl("https://%%s/" %% h))
+        yield 1500
+        got = {}
+        js = ("(function(){var c=document.createElement('canvas');c.width=120;c.height=40;"
+              "var x=c.getContext('2d');x.font='20px sans-serif';x.fillStyle='#3a7';"
+              "x.fillText('I.K.E. noise',4,26);return c.toDataURL();})()")
+        v.page().runJavaScript(js, 0, lambda r: got.__setitem__("r", r))
+        for _ in range(50):
+            yield 100
+            if got.get("r"):
+                break
+        out[h] = hashlib.sha1((got.get("r") or "").encode()).hexdigest()[:12]
+"""
+
+
+def test_l2_the_site_of_the_noise_follows_the_public_suffix_list(run_ike, tmp_path):
+    """Fingerprinting audit L-2: fingerprint.js used its own short list of
+    hosting domains, so two unrelated sites under another one
+    (a.altervista.org, b.altervista.org) were one site with the same noise:
+    linkable. Now the system's Public Suffix List decides, as for the rest of
+    I.K.E. (shields.site_of); names of one site keep one noise."""
+    psl = tmp_path / "psl.dat"
+    psl.write_text(PSL_SAMPLE + "// ===BEGIN PRIVATE DOMAINS===\naltervista.org\ncodeberg.page\n")
+    hosts = ["a.altervista.org", "b.altervista.org", "x.codeberg.page", "y.codeberg.page",
+             "www.bbc.co.uk", "news.bbc.co.uk", "p.y.blogspot.it", "q.y.blogspot.it",
+             "a.b.ck", "c.b.ck"]
+    out = run_ike(STEPS_L2 % (str(psl), hosts), settings={"shield_level": "balanced"}, timeout=120)
+    n = {h: out[h] for h in hosts}
+    assert hashlib_empty() not in n.values(), n
+    assert n["a.altervista.org"] != n["b.altervista.org"], n
+    assert n["x.codeberg.page"] != n["y.codeberg.page"], n
+    assert n["a.b.ck"] != n["c.b.ck"], n
+    assert n["www.bbc.co.uk"] == n["news.bbc.co.uk"], n
+    assert n["p.y.blogspot.it"] == n["q.y.blogspot.it"], n
+
+
+def hashlib_empty():
+    import hashlib
+    return hashlib.sha1(b"").hexdigest()[:12]
+
+
+def test_l2_page_and_python_agree_on_the_codes():
+    """The page's lookup (fingerprint.js inPsl) and shields.psl_code use the
+    same hash and digits: checked against the script's own text."""
+    import re
+    from ike import shields
+    from ike.config import RES_DIR
+    js = (RES_DIR / "fingerprint.js").read_text("utf-8")
+    assert "var PSL_DIGITS = '%s';" % shields.PSL_DIGITS in js
+    assert re.search(r"var h = 2166136261 >>> 0;\s*for \(var i = 0; i < str\.length; i\+\+\) \{\s*"
+                     r"h \^= str\.charCodeAt\(i\);\s*h = mul32\(h, 16777619\) >>> 0;", js)
+    assert "var v = hash(rule) >>> 8" in js and "for (var k = 18; k >= 0; k -= 6)" in js
+    assert list(shields.PSL_DIGITS) == sorted(shields.PSL_DIGITS)
+    # FNV-1a of "co.uk", by hand
+    h = 2166136261
+    for ch in "co.uk":
+        h = ((h ^ ord(ch)) * 16777619) & 0xFFFFFFFF
+    v = h >> 8
+    assert shields.psl_code("co.uk") == "".join(shields.PSL_DIGITS[(v >> k) & 63] for k in (18, 12, 6, 0))
+
+
 FP_PROBE = r"""
 (async function () {
   var R = {};

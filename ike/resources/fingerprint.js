@@ -223,9 +223,37 @@
   var SLD = { co: 1, com: 1, org: 1, net: 1, gov: 1, edu: 1, ac: 1, or: 1, ne: 1, go: 1, gob: 1,
     nom: 1, mil: 1, ltd: 1, plc: 1, sch: 1, nhs: 1, me: 1, info: 1, id: 1, gv: 1 };
   var HOSTED = /\.(github\.io|gitlab\.io|blogspot\.com|herokuapp\.com|pages\.dev|workers\.dev|netlify\.app|vercel\.app|web\.app|firebaseapp\.com|appspot\.com|cloudfront\.net|azurewebsites\.net|onrender\.com|neocities\.org|wordpress\.com|tumblr\.com|s3\.amazonaws\.com|pp\.ua|myshopify\.com|substack\.com|wixsite\.com|weebly\.com|fly\.dev|glitch\.me|repl\.co|surge\.sh|ngrok\.io|ngrok-free\.app|duckdns\.org|no-ip\.org)$/;
+  // The Public Suffix List (1.1.21, fingerprinting audit L-2), from the
+  // system's copy (shields.py psl_codes): each rule as the 24-bit FNV-1a hash
+  // of its text in four sortable characters, sorted. The short lists above
+  // only when the list is missing.
+  var PSL = typeof CFG.psl === 'string' ? CFG.psl : '';
+  var PSL_DIGITS = '-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+  function inPsl(rule) {
+    var v = hash(rule) >>> 8, code = '';
+    for (var k = 18; k >= 0; k -= 6) code += PSL_DIGITS.charAt((v >>> k) & 63);
+    var lo = 0, hi = (PSL.length / 4) | 0;
+    while (lo < hi) {
+      var mid = (lo + hi) >>> 1, at = PSL.substr(mid * 4, 4);
+      if (at === code) return true;
+      if (at < code) lo = mid + 1; else hi = mid;
+    }
+    return false;
+  }
   function siteOf(h) {
     if (!h || /^[\d.]+$/.test(h) || h.indexOf(':') >= 0) return h;
     var p = h.split('.');
+    if (PSL) {
+      // as shields.py _site_psl: the first suffix of the list, and one label more
+      for (var i = 0; i < p.length; i++) {
+        var cand = p.slice(i).join('.');
+        if (inPsl('!' + cand)) return cand;
+        if ((p.length - i >= 2 && inPsl(cand)) || (i + 1 < p.length && inPsl('*.' + p.slice(i + 1).join('.')))) {
+          return i > 0 ? p.slice(i - 1).join('.') : h;
+        }
+      }
+      return p.slice(-2).join('.');
+    }
     if (p.length <= 2) return h;
     var three = HOSTED.test(h) || (p[p.length - 1].length === 2 && SLD[p[p.length - 2]] === 1);
     return p.slice(three ? -3 : -2).join('.');
