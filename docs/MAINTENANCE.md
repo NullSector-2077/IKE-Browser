@@ -177,7 +177,11 @@ never touched.
    the other, never together, from the clean checkout: Groq (`GROQ_API_KEY`,
    models in the variable `AUTOFIX_GROQ_MODELS`, default `qwen/qwen3.8-27b`
    then `openai/gpt-oss-120b`; its free plan takes about 8,000 tokens a minute,
-   so it gets only the failure and the code around it), then OpenRouter
+   so it gets only the failure and the code around it), then Z.AI
+   (`ZAI_API_KEY`, models in `AUTOFIX_ZAI_MODELS`, default `glm-4.7-flash`
+   then `glm-4.5-flash`, Z.AI's free GLM Flash models, another family than
+   the others, with the whole files too; added in 1.1.19, the owner's
+   choice; its free limits are shown only in the account), then OpenRouter
    (`OPENROUTER_API_KEY`, models in `AUTOFIX_OPENROUTER_MODELS`, default
    `cohere/north-mini-code:free` then `particle-ai/particle-1:free`, which also
    get the whole files; when a listed free model is gone (HTTP 404, as
@@ -467,9 +471,9 @@ the step that holds their keys (ruff only reads files; L6).
 
 ### Trying the whole chain (end to end)
 
-Costs: Antigravity uses the free Gemini quota of the day; Groq and OpenRouter
-their free quotas (no money). Needs the secrets `GEMINI_API_KEY`,
-`GROQ_API_KEY` and `OPENROUTER_API_KEY`.
+Costs: Antigravity uses the free Gemini quota of the day; Groq, Z.AI and
+OpenRouter their free quotas (no money). Needs the secrets `GEMINI_API_KEY`,
+`GROQ_API_KEY`, `ZAI_API_KEY` and `OPENROUTER_API_KEY`.
 
 1. A deliberate, harmless error on `automation/autofix-main` (never on `main`),
    for example an unused import that ruff refuses, or a renamed Qt enum that
@@ -528,9 +532,11 @@ person: open a conversation and paste its link.
   billing** (free tier: nothing can be charged; Google may use the requests to
   improve its products, which is fine for a public repository). Optional
   **variable** `AUTOFIX_MODEL` chooses the model (empty: the CLI's default).
-  Reserves (optional, free plans): `GROQ_API_KEY` (console.groq.com) and
-  `OPENROUTER_API_KEY` (openrouter.ai), with the optional variables
-  `AUTOFIX_GROQ_MODELS` and `AUTOFIX_OPENROUTER_MODELS` (names separated by
+  Reserves (optional, free plans), in this order: `GROQ_API_KEY`
+  (console.groq.com), `ZAI_API_KEY` (z.ai, API keys of the account; no
+  payment method: the Flash models are free) and `OPENROUTER_API_KEY`
+  (openrouter.ai), with the optional variables `AUTOFIX_GROQ_MODELS`,
+  `AUTOFIX_ZAI_MODELS` and `AUTOFIX_OPENROUTER_MODELS` (names separated by
   commas, in order). Optional variable `AGY_INSTALLER_SHA256`: the sha256 of
   the Antigravity installer a person has read (see "The Antigravity
   installer").

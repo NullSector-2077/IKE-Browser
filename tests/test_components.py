@@ -282,3 +282,17 @@ def test_prepare_maintenance_bumps_candidate_version(tmp_path):
     assert '__version__ = "1.0.1"' in (root / "ike/__init__.py").read_text()
     log = (root / "CHANGELOG.md").read_text(encoding="utf-8")
     assert log.count("## 1.0.1") == 1 and "scriptlet changes" in log and "adblock-rust" in log
+
+
+def test_the_test_tools_are_pinned_too():
+    """1.1.19: pytest and ruff were installed at their newest version on every
+    run, so a new release (a new lint rule) could turn main red with no change
+    of I.K.E. They are pinned with the rest and follow the component check."""
+    import re
+    req = (ROOT / "tools/test-requirements.txt").read_text()
+    assert re.search(r"^pytest==\d", req, re.M) and re.search(r"^ruff==\d", req, re.M)
+    assert "pytest ruff" not in (ROOT / ".github/actions/ike-test-env/action.yml").read_text()
+    autofix = (ROOT / ".github/workflows/autofix.yml").read_text()
+    assert "-q ruff\n" not in autofix and autofix.count("grep -oE '^ruff==[0-9][0-9.]*$'") == 2
+    tool = (ROOT / "tools/check-components.py").read_text()
+    assert '"pytest", "ruff")' in tool

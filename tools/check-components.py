@@ -55,7 +55,9 @@ ARCH_PACKAGE = "https://archlinux.org/packages/search/json/?name=qt6-webengine"
 # the Qt packages: a new version of any of them calls for a test run on it
 QT_PACKAGES = ("pyqt6", "pyqt6-qt6", "pyqt6-webengine", "pyqt6-webengine-qt6")
 # packages the tests ask for; the rest are their dependencies
-TEST_TOP = ("PyQt6", "PyQt6-WebEngine", "cryptography", "certifi", "jeepney")
+# pytest and ruff too (1.1.19): unpinned, a new release could turn main red with
+# no change of I.K.E. (a new lint rule) and start an automatic fix for nothing
+TEST_TOP = ("PyQt6", "PyQt6-WebEngine", "cryptography", "certifi", "jeepney", "pytest", "ruff")
 
 
 def fetch(url, timeout=60):

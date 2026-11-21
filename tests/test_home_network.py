@@ -146,3 +146,83 @@ def test_names_local_by_their_form():
         assert is_local_name(h), h
     for h in ("", "example.com", "cafe.example", "2001:db8::1", "8.8.8.8", "134744072", "fritz.box.example"):
         assert not is_local_name(h), h
+
+
+POPUP = r'''
+PORT = %d
+
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QCoreApplication, QEvent, QPointF, Qt, QUrl
+    from PyQt6.QtGui import QMouseEvent
+    win = ike.windows[0]
+    v = win.current_view()
+    yield 1000
+    L = "http://127.0.0.1:%%d" %% PORT
+    v.setHtml("<title>public</title><style>body{margin:0}</style>"
+              "<iframe style='position:fixed;left:0;top:0;width:400px;height:300px;border:0' "
+              "sandbox='allow-scripts allow-popups' srcdoc=\"<style>body{margin:0}</style><a target=_blank "
+              "style='display:block;width:400px;height:300px' href='" + L + "/sbx-click'>x</a>\"></iframe>",
+              QUrl("http://news.example.test/"))
+    yield 2500
+    before = sum(len(list(w.all_views())) for w in ike.windows)
+    t = v.focusProxy() or v
+    for et, b in ((QEvent.Type.MouseButtonPress, Qt.MouseButton.LeftButton),
+                  (QEvent.Type.MouseButtonRelease, Qt.MouseButton.NoButton)):
+        QCoreApplication.sendEvent(t, QMouseEvent(et, QPointF(100, 100), QPointF(100, 100),
+                                                  Qt.MouseButton.LeftButton, b, Qt.KeyboardModifier.NoModifier))
+    yield 3000
+    out["opened"] = sum(len(list(w.all_views())) for w in ike.windows) - before
+'''
+
+
+def test_a_popup_of_a_frame_with_no_origin_opened_by_a_real_click(run_ike, lan):
+    """The popup case above is opened by a script, which the engine's popup
+    blocker stops before I.K.E. sees it: that case proved nothing. Here a
+    real click opens the popup (a new tab) and its address of the home
+    network is still stopped: the link of a page with no origin of its own
+    is the public page's (1.1.18), not the user's (found in 1.1.19: dropping
+    links from that rule went unnoticed)."""
+    port, seen = lan
+    out = run_ike(POPUP % port, settings={"https_only": False}, timeout=90)
+    assert out["opened"] >= 1, out                     # the popup did open: the case is really tried
+    assert not [x for x in seen if "/sbx-click" in x], seen
+
+
+RULE = r'''
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QByteArray, QUrl
+    from PyQt6.QtWebEngineCore import QWebEngineUrlRequestInfo as RI
+    T, NT = RI.ResourceType, RI.NavigationType
+    yield 500
+
+    class Info:
+        """A main-frame request with no initiator, as from a page with no
+        origin of its own (a sandboxed frame's popup) or from the user."""
+        def __init__(self, nav):
+            self.nav, self.blocked = nav, False
+        def requestUrl(self): return QUrl("http://192.168.1.1/admin")
+        def firstPartyUrl(self): return QUrl("http://192.168.1.1/admin")
+        def initiator(self): return QUrl()
+        def resourceType(self): return T.ResourceTypeMainFrame
+        def navigationType(self): return self.nav
+        def requestMethod(self): return QByteArray(b"POST")
+        def block(self, b): self.blocked = b
+        def redirect(self, u): pass
+        def setHttpHeader(self, k, v): pass
+    out["blocked"] = {}
+    for name in ("NavigationTypeLink", "NavigationTypeFormSubmitted", "NavigationTypeTyped",
+                 "NavigationTypeReload", "NavigationTypeBackForward"):
+        info = Info(getattr(NT, name))
+        ike.shields.interceptor.interceptRequest(info)
+        out["blocked"][name] = info.blocked
+'''
+
+
+def test_with_no_initiator_links_and_forms_are_a_pages(run_ike):
+    """With no initiator, a link or a form is a page's (a page with no origin
+    of its own: its popup, a form that popup sends) and is stopped on its way
+    home; what the user types, reloads or goes back to is the user's."""
+    out = run_ike(RULE, timeout=60)
+    assert out["blocked"] == {"NavigationTypeLink": True, "NavigationTypeFormSubmitted": True,
+                              "NavigationTypeTyped": False, "NavigationTypeReload": False,
+                              "NavigationTypeBackForward": False}, out["blocked"]
