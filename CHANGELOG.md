@@ -24,6 +24,18 @@ shortcut changed):
   the main window and the other windows never open larger than the screen.
 - **Menus longer than the screen scroll** (the ☰ menu, the menu bar,
   history, bookmarks, context menus), whatever the desktop's style.
+- **Switches instead of check boxes**, as the owner asked: every on / off
+  option (the Settings, the shield's panel, the find bar, clear data,
+  import, passwords, resources, watched pages, site information, the email
+  question) is a switch like those of the "I.K.E. extensions" page, with
+  the same text in the same place; the filter lists and the user scripts
+  show a switch in each entry (a click on it or Space turns it); menu
+  entries turned on and off (menu bar, extensions, toolbar buttons, dark
+  mode, workspaces, tab groups, profiles, a video's loop and controls) show
+  a small switch instead of the tick, while a choice among several (the
+  protection level, the search engine) keeps its dot. Nothing else changes:
+  same settings, same signals. tests/test_switches.py fails on any check
+  box, ticked list or ticked menu entry that is not a switch.
 
 ## 1.1.20
 

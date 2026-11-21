@@ -14,7 +14,6 @@ from pathlib import Path
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -30,6 +29,7 @@ from PyQt6.QtWidgets import (
 
 from .config import CONFIG_DIR, DATA_DIR
 from .i18n import T
+from .uistyle import Switch
 
 CHROMIUM_DIRS = {
     "Chromium": ".config/chromium", "Google Chrome": ".config/google-chrome",
@@ -146,8 +146,8 @@ class ImportDialog(QDialog):
             self.combo.addItem(label)
         lay.addWidget(QLabel(T("Browser profile found on this computer:")))
         lay.addWidget(self.combo)
-        self.bm = QCheckBox(T("Bookmarks"))
-        self.hi = QCheckBox(T("History"))
+        self.bm = Switch(T("Bookmarks"))
+        self.hi = Switch(T("History"))
         self.bm.setChecked(True)
         self.hi.setChecked(True)
         lay.addWidget(self.bm)

@@ -51,6 +51,7 @@ from .config import (
     TOOLBAR_ITEMS,
 )
 from .i18n import T
+from .uistyle import Switch, SwitchDelegate
 
 
 def _fmt_size(n):
@@ -181,47 +182,6 @@ class Note(QLabel):
         self.setForegroundRole(QPalette.ColorRole.PlaceholderText)
         self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
-
-
-class Switch(QCheckBox):
-    """An on / off switch (a check box drawn as a sliding switch)."""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-
-    def sizeHint(self):
-        h = max(18, self.fontMetrics().height() + 4)
-        return QSize(round(h * 1.9), h)
-
-    def minimumSizeHint(self):
-        return self.sizeHint()
-
-    def hitButton(self, pos):
-        return self.rect().contains(pos)
-
-    def paintEvent(self, _event):
-        from PyQt6.QtCore import QPointF, QRectF
-        from PyQt6.QtGui import QPainter, QPen
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        pal = self.palette()
-        r = QRectF(self.rect()).adjusted(1.5, 1.5, -1.5, -1.5)
-        h = r.height()
-        on = self.isChecked()
-        track = pal.color(QPalette.ColorRole.Highlight) if on else pal.color(QPalette.ColorRole.Mid)
-        if not self.isEnabled():
-            track.setAlpha(110)
-        p.setPen(QPen(pal.color(QPalette.ColorRole.Highlight if self.hasFocus() else QPalette.ColorRole.Mid), 1))
-        p.setBrush(track)
-        p.drawRoundedRect(r, h / 2, h / 2)
-        right = on != self.isRightToLeft()
-        knob = QRectF(0, 0, h - 4, h - 4)
-        knob.moveCenter(QPointF(r.right() - h / 2 if right else r.left() + h / 2, r.center().y()))
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(pal.color(QPalette.ColorRole.HighlightedText if on else QPalette.ColorRole.Base))
-        p.drawEllipse(knob)
-        p.end()
 
 
 def _info_row(widget, text, stretch=False):
@@ -430,7 +390,7 @@ class SettingsDialog(QDialog):
                            ("newtab", T("Open a new tab"))):
             self.startup.addItem(label, key)
         self.startup.setCurrentIndex(max(0, self.startup.findData(self.cfg["startup"])))
-        self.lazy = QCheckBox(T("Load restored tabs only when they are opened (faster start)"))
+        self.lazy = Switch(T("Load restored tabs only when they are opened (faster start)"))
         self.lazy.setChecked(bool(self.cfg["lazy_restore"]))
         self.homepage = QLineEdit(self.cfg["homepage"])
         self.homepage.setPlaceholderText("ike:newtab")
@@ -452,10 +412,10 @@ class SettingsDialog(QDialog):
         _row(f, "", default_btn, T("Links opened in other programs will open in I.K.E."))
         _row(f, T("Email links"), self.mail, T("What happens when you click an email address on a page."))
         box, g = self._group(T("Browsing"))
-        self.autoplay = QCheckBox(T("Do not let videos and sounds start by themselves (single sites: the lock "
+        self.autoplay = Switch(T("Do not let videos and sounds start by themselves (single sites: the lock "
                                     "in the address bar)"))
         self.autoplay.setChecked(bool(self.cfg["autoplay_block"]))
-        self.gestures = QCheckBox(T("Mouse gestures: hold the right button and draw ← back, → forward, "
+        self.gestures = Switch(T("Mouse gestures: hold the right button and draw ← back, → forward, "
                                     "↑ reload, ↓→ close the tab"))
         self.gestures.setChecked(bool(self.cfg["mouse_gestures"]))
         _row(g, "", _wrapping(self.autoplay), T("Pages stay quiet until you press play."))
@@ -503,7 +463,7 @@ class SettingsDialog(QDialog):
             ("di_krunner", T("Find open tabs and bookmarks with KRunner")),
             ("di_kdeconnect", T("“Send to device” with KDE Connect")))
         for key, label in desktop:
-            c = QCheckBox(label)
+            c = Switch(label)
             c.setChecked(bool(self.cfg[key]))
             self.di[key] = c
             _row(f, "", _wrapping(c))
@@ -520,7 +480,7 @@ class SettingsDialog(QDialog):
                "graphics card's VA-API driver (NVIDIA: libva-nvidia-driver, Intel: "
                "intel-media-driver, AMD: already there). If videos look wrong or I.K.E. "
                "closes, choose Automatic."))
-        self.smooth = QCheckBox(T("Smooth scrolling of pages (after a restart)"))
+        self.smooth = Switch(T("Smooth scrolling of pages (after a restart)"))
         self.smooth.setChecked(bool(self.cfg["smooth_scrolling"]))
         _row(f, "", self.smooth, T("Pages glide when you scroll with the wheel or the keys."))
         self.sleep = QSpinBox()
@@ -572,7 +532,7 @@ class SettingsDialog(QDialog):
         _row(f, "", row)
         lay.addWidget(box)
         box, f = self._group(T("Filter lists"))
-        self.auto_update = QCheckBox(T("Update the lists automatically every day"))
+        self.auto_update = Switch(T("Update the lists automatically every day"))
         self.auto_update.setChecked(self.cfg["auto_update"])
         _row(f, "", self.auto_update,
              T("The rules of the blocker change every day. Your user scripts are checked for new "
@@ -643,23 +603,23 @@ class SettingsDialog(QDialog):
         self.tabs_pos.addItem(T("Horizontal (top bar)"), "horizontal")
         self.tabs_pos.addItem(T("Vertical (side panel)"), "vertical")
         self.tabs_pos.setCurrentIndex(max(0, self.tabs_pos.findData(self.cfg["tabs_position"])))
-        self.menubar = QCheckBox(T("Show the menu bar"))
+        self.menubar = Switch(T("Show the menu bar"))
         self.menubar.setChecked(self.cfg["show_menubar"])
         self.bookbar = QComboBox()
         for key, label in (("newtab", T("Only on a new tab")), ("always", T("Always")),
                            ("never", T("Never"))):
             self.bookbar.addItem(label, key)
         self.bookbar.setCurrentIndex(max(0, self.bookbar.findData(self.cfg["bookmarks_bar"])))
-        self.titlebar = QCheckBox(T("Use the system title bar (untick for more room: the window "
+        self.titlebar = Switch(T("Use the system title bar (untick for more room: the window "
                                     "buttons move next to the address bar)"))
         self.titlebar.setChecked(bool(self.cfg["system_titlebar"]))
-        self.maximized = QCheckBox(T("Open windows maximized"))
-        self.effects = QCheckBox(T("Interface effects: short fades and the mark on tabs that are loading"))
+        self.maximized = Switch(T("Open windows maximized"))
+        self.effects = Switch(T("Interface effects: short fades and the mark on tabs that are loading"))
         self.effects.setChecked(bool(self.cfg["ui_effects"]))
-        self.site_tint = QCheckBox(T("Colour the edge of the address bar with the colour of the site"))
+        self.site_tint = Switch(T("Colour the edge of the address bar with the colour of the site"))
         self.site_tint.setChecked(bool(self.cfg["site_tint"]))
         self.maximized.setChecked(bool(self.cfg["start_maximized"]))
-        self.vauto = QCheckBox(T("Hide vertical tabs; show them when the mouse touches the left edge"))
+        self.vauto = Switch(T("Hide vertical tabs; show them when the mouse touches the left edge"))
         self.vauto.setChecked(bool(self.cfg["vtabs_autohide"]))
         self.tb_btns = {}
         from PyQt6.QtWidgets import QGridLayout
@@ -671,7 +631,7 @@ class SettingsDialog(QDialog):
                   "split": T("Split view"), "dark": T("Dark mode for pages"),
                   "private": T("New private window"), "cleansite": T("Clear this site's data")}
         for i, (key, _hide) in enumerate(TOOLBAR_ITEMS):
-            c = QCheckBox(labels.get(key, key))
+            c = Switch(labels.get(key, key))
             c.setChecked(key not in self.cfg["toolbar_hidden"])
             self.tb_btns[key] = c
             tb_row.addWidget(_wrapping(c), i // 3, i % 3)      # a long name wraps (1.1.21)
@@ -730,9 +690,9 @@ class SettingsDialog(QDialog):
 
     def _newtab_rows(self, f):
         """New tab page: clock and weather (see weather.py)."""
-        self.nt_clock = QCheckBox(T("Show the clock and the date"))
+        self.nt_clock = Switch(T("Show the clock and the date"))
         self.nt_clock.setChecked(bool(self.cfg["newtab_clock"]))
-        self.nt_weather = QCheckBox(T("Show the weather"))
+        self.nt_weather = Switch(T("Show the weather"))
         self.nt_weather.setChecked(bool(self.cfg["newtab_weather"]))
         self.city = QLineEdit(self.cfg["weather_city"])
         self.city.setPlaceholderText(T("City name"))
@@ -989,7 +949,7 @@ class SettingsDialog(QDialog):
         row.addWidget(self.default_engine, 1)
         row.addWidget(InfoButton(T("Used for searches from the address bar and from the new tab page.")))
         lay.addLayout(row)
-        self.suggest = QCheckBox(T("Show search suggestions while typing"))
+        self.suggest = Switch(T("Show search suggestions while typing"))
         self.suggest.setChecked(self.cfg["search_suggestions"])
         lay.addWidget(_with_hint(self.suggest,
                                  T("What you type is sent to the search engine, to get its suggestions.")))
@@ -1084,7 +1044,7 @@ class SettingsDialog(QDialog):
             ("webrtc_hide_ip", T("Hide local IP addresses from WebRTC"),
              T("Video calls still work; sites do not see your address in the home network.")),
         ):
-            c = QCheckBox(label)
+            c = Switch(label)
             c.setChecked(bool(self.cfg[key]))
             self.checks[key] = c
             _row(g, "", _wrapping(c), hint)
@@ -1096,11 +1056,11 @@ class SettingsDialog(QDialog):
             ("repair_button", T("Show “Repair this site” in the shield"),
              T("It finds the protection that breaks a page and turns off only that one, only there.")),
         ):
-            c = QCheckBox(label)
+            c = Switch(label)
             c.setChecked(bool(self.cfg[key]))
             self.checks[key] = c
             _row(g, "", _wrapping(c), hint)
-        self.login_compat = QCheckBox(T(
+        self.login_compat = Switch(T(
             "Make sign-in with Google, Microsoft and Apple accounts work (lighter protection on "
             "their sign-in pages only)"))
         self.login_compat.setChecked(bool(self.cfg["login_compat"]))
@@ -1110,7 +1070,7 @@ class SettingsDialog(QDialog):
         fbox = QGroupBox(T("Ad and tracker blocker"))
         fl = QVBoxLayout(fbox)
         self.comp = {}
-        c = QCheckBox(T("Ad and tracker blocker — uses the uBlock Origin and EasyList filter lists"))
+        c = Switch(T("Ad and tracker blocker — uses the uBlock Origin and EasyList filter lists"))
         c.setChecked(bool(self.cfg["comp_adblock"]))
         self.comp["comp_adblock"] = c
         fl.addWidget(_with_hint(_wrapping(c), T("Turn it off only to see whether it is what breaks a page.")))
@@ -1123,6 +1083,7 @@ class SettingsDialog(QDialog):
             "The lists of rules the blocker uses. Untick a list to stop using it; "
             "they are updated by themselves (see Updates).")))
         self.lists = QListWidget()
+        self.lists.setItemDelegate(SwitchDelegate(self.lists))       # a switch in place of the tick (1.1.21)
         self.lists.setMinimumHeight(120)
         for entry in self.cfg["filter_lists"]:
             self._add_list_item(entry)
@@ -1177,7 +1138,7 @@ class SettingsDialog(QDialog):
         from PyQt6.QtWidgets import QGridLayout
         grid = QGridLayout()
         for i, kind in enumerate(PERMISSION_KINDS):
-            c = QCheckBox(labels[kind])
+            c = Switch(labels[kind])
             c.setChecked(kind in self.cfg["perm_block"])
             self.perm_block[kind] = c
             grid.addWidget(_wrapping(c), i // 4, i % 4)
@@ -1199,7 +1160,7 @@ class SettingsDialog(QDialog):
                            "or see what each site may use."))
         lay.addWidget(box)
         box, g = self._group(T("Browsing data"))
-        c = QCheckBox(T("Clear cookies, cache and history when I.K.E. is closed"))
+        c = Switch(T("Clear cookies, cache and history when I.K.E. is closed"))
         c.setChecked(bool(self.cfg["clear_on_exit"]))
         self.checks["clear_on_exit"] = c
         _row(g, "", _wrapping(c), T("Bookmarks, passwords and settings are kept."))
@@ -1278,7 +1239,7 @@ class SettingsDialog(QDialog):
     def _chrome_box(self):
         ebox = QGroupBox(T("Extensions (experimental, Chrome format)"))
         el = QVBoxLayout(ebox)
-        self.ext_on = QCheckBox(T("Enable experimental support for Chrome extensions (Manifest V3)"))
+        self.ext_on = Switch(T("Enable experimental support for Chrome extensions (Manifest V3)"))
         self.ext_on.setChecked(bool(self.cfg["experimental_extensions"]))
         el.addWidget(_with_hint(self.ext_on, T(
             "With the Qt WebEngine version tested (6.11) enabling an extension "
@@ -1487,7 +1448,7 @@ class SettingsDialog(QDialog):
         row = QHBoxLayout()
         row.addWidget(self.dl_dir, 1)
         row.addWidget(browse)
-        self.dl_ask = QCheckBox(T("Always ask where to save files"))
+        self.dl_ask = Switch(T("Always ask where to save files"))
         self.dl_ask.setChecked(self.cfg["ask_download_location"])
         _row(f, T("Download folder"), row, T("Where files are saved. Empty: your Downloads folder."))
         _row(f, "", self.dl_ask, T("A window asks where to save each file, and under which name."))
@@ -1649,6 +1610,7 @@ class UserScriptsDialog(QDialog):
         lay.addLayout(_info_row(info, T("Whether they run at all: the “User scripts” switch in "
                                         "Settings → I.K.E. extensions."), stretch=True))
         self.us_list = QTreeWidget()
+        self.us_list.setItemDelegate(SwitchDelegate(self.us_list))   # a switch in place of the tick (1.1.21)
         self.us_list.setRootIsDecorated(False)
         self.us_list.setHeaderLabels([T("Script"), T("Version"), T("Runs on")])
         self.us_list.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
@@ -1763,7 +1725,7 @@ class ThemeEditor(QDialog):
             b.clicked.connect(lambda _c=False, k=key: self._pick(k))
             self.swatches[key] = b
             form.addRow(T(label), b)
-        self.sys_font = QCheckBox(T("Use the system font"))
+        self.sys_font = Switch(T("Use the system font"))
         self.sys_font.setChecked(not self.theme["font_family"])
         self.family = QFontComboBox()
         if self.theme["font_family"]:
@@ -2187,10 +2149,10 @@ class ClearDataDialog(QDialog):
         self.app = app
         self.setWindowTitle(T("Clear browsing data"))
         lay = QVBoxLayout(self)
-        self.history = QCheckBox(T("Browsing history"))
-        self.cookies = QCheckBox(T("Cookies and site data (you will be signed out of websites)"))
-        self.cache = QCheckBox(T("Cached images and files"))
-        self.perms = QCheckBox(T("Site permissions (camera, location, notifications…)"))
+        self.history = Switch(T("Browsing history"))
+        self.cookies = Switch(T("Cookies and site data (you will be signed out of websites)"))
+        self.cache = Switch(T("Cached images and files"))
+        self.perms = Switch(T("Site permissions (camera, location, notifications…)"))
         for c in (self.history, self.cookies, self.cache):
             c.setChecked(True)
         for c in (self.history, self.cookies, self.cache, self.perms):
