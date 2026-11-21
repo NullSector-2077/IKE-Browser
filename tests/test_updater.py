@@ -151,7 +151,7 @@ def test_release_files_signed_and_reproducible(updater, keypair, tmp_path):
     assert hashlib.sha256(payload).hexdigest() == manifest["sha256"]
     for ch in ("stable", "beta"):
         raw = (out1 / (ch + ".json")).read_bytes()
-        assert json.loads(raw) == manifest
+        assert json.loads(raw) == dict(manifest, channel=ch)       # bound to its channel (1.1.20)
         assert updater.verify_signature(pub, raw, (out1 / (ch + ".json.sig")).read_text().strip())
     with tarfile.open(fileobj=io.BytesIO(payload)) as tar:
         names = tar.getnames()

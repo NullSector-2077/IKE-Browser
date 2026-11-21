@@ -335,7 +335,8 @@ class PageBridge(QObject):
 
         from .userscripts import is_local_name, outside_home
         target = QUrl(url)
-        if target.scheme() not in ("http", "https") or not getattr(self.page, "_dark_on", False):
+        if (target.scheme() not in ("http", "https") or not getattr(self.page, "_dark_on", False)
+                or not self._css_allowed(target)):
             self.cssFetched.emit(ident, False, "")
             return
         if is_local_name(self.page.url().host()):
@@ -344,6 +345,22 @@ class PageBridge(QObject):
         outside_home(target.host(), lambda ok: self._get_css(ident, target, check=outside_home)
                      if ok else self._css_answer(ident, False, ""), "dark mode",
                      self.manager.app.network)
+
+    def _css_allowed(self, target):
+        """As the engine would load it for the page (review of 1.1.19, M4):
+        never in clear for a page sent encrypted (mixed content), and never
+        what the filter lists block for this page."""
+        page_url = self.page.url()
+        if page_url.scheme() == "https" and target.scheme() != "https":
+            return False
+        sh = self.manager.app.shields
+        cfg = sh.config
+        if ((cfg["comp_adblock"] or cfg["comp_consent"])
+                and cfg.site_opt(page_url.host().lower(), "ads") is not False):
+            action, _ = sh.blocker.request_action(target.toString(), page_url.toString(), "stylesheet")
+            if action != "allow":
+                return False
+        return True
 
     def _css_answer(self, ident, ok, text):
         try:
@@ -356,6 +373,8 @@ class PageBridge(QObject):
         app = self.manager.app
         req = QNetworkRequest(target)
         req.setRawHeader(b"Accept", b"text/css,*/*;q=0.1")
+        # the browser's own User-Agent: Qt's default named this fetch as I.K.E.'s
+        req.setRawHeader(b"User-Agent", app.shields.user_agent().encode("ascii", "replace"))
         req.setAttribute(QNetworkRequest.Attribute.CookieLoadControlAttribute,
                          QNetworkRequest.LoadControl.Manual)
         req.setAttribute(QNetworkRequest.Attribute.CookieSaveControlAttribute,
@@ -369,7 +388,7 @@ class PageBridge(QObject):
         def redirected(where):
             where = reply.url().resolved(where) if where.isRelative() else where
             if where.scheme() not in ("http", "https") or (
-                    reply.url().scheme() == "https" and where.scheme() != "https"):
+                    reply.url().scheme() == "https" and where.scheme() != "https") or not self._css_allowed(where):
                 refused.append(1)
                 reply.abort()
                 return
