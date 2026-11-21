@@ -73,7 +73,10 @@ jobs:
             else
               title="Component updates"
               if [ "$UPDATES" -eq 0 ]; then title="Component check needs attention"; fi
-              gh issue create --title "$title" --label components --body-file report/report.md
+              sed -i "1i @$GITHUB_REPOSITORY_OWNER: nuove versioni o un controllo da guardare (chiedi a Claude).\n" report/report.md
+              gh issue create --title "$title" --label components --assignee "$GITHUB_REPOSITORY_OWNER" \
+                  --body-file report/report.md \
+                || gh issue create --title "$title" --label components --body-file report/report.md
             fi
           elif [ -n "$open" ]; then
             gh issue comment "$open" --body-file report/report.md

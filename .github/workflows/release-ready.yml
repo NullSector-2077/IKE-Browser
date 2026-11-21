@@ -17,6 +17,12 @@ on:
 
 permissions: {}
 
+# two runs at the same minute (a run of main and the daily one) never open two
+# notices (review 2 of 1.1.19, M6)
+concurrency:
+  group: release-ready
+  cancel-in-progress: false
+
 jobs:
   tell:
     if: >-
@@ -49,9 +55,24 @@ jobs:
             if [ -n "$open" ]; then gh issue close "$open" --comment "Pubblicata: v$version. Grazie!"; fi
             exit 0
           fi
-          ok=$(gh api "repos/$GH_REPO/commits/$head/check-runs?check_name=tests" \
-               --jq '[.check_runs[] | select(.status == "completed")][0].conclusion // ""')
-          if [ "$ok" != "success" ]; then echo "the tests of main's last commit have not passed: nothing to say"; exit 0; fi
+          # the tests and the tests with the sandbox on (review 2 of 1.1.19, H3)
+          for check in tests sandbox; do
+            ok=$(gh api "repos/$GH_REPO/commits/$head/check-runs?check_name=$check" \
+                 --jq '[.check_runs[] | select(.status == "completed")][0].conclusion // ""')
+            if [ "$ok" != "success" ]; then echo "\"$check\" has not passed on main's last commit: nothing to say"; exit 0; fi
+          done
+          # closed by the owner for this version: not opened again every day (M6)
+          closed=$(gh issue list --label release-ready --state closed --author app/github-actions --limit 50 \
+                   --json body --jq "map(select(.body | contains(\"<!-- release-ready: $version -->\"))) | length")
+          if [ -z "$open" ] && [ "${closed:-0}" != 0 ]; then echo "the notice of $version was closed: not again"; exit 0; fi
+          # the fixes that went into main by themselves since the last release:
+          # nobody read them; the owner asks Claude to before signing (C1)
+          last=$(gh release view --json tagName --jq .tagName 2>/dev/null || true)
+          self=""
+          if [ -n "$last" ]; then
+            self=$(gh api "repos/$GH_REPO/compare/$last...$head" \
+                   --jq '.commits[] | select(.commit.message | contains("(merged by itself")) | .commit.message | split("\n")[0]' || true)
+          fi
           body="$RUNNER_TEMP/body.md"
           {
             echo "@$OWNER: **I.K.E. $version** è in \`main\`, con tutti i test verdi, e non è ancora pubblicata."
@@ -62,6 +83,12 @@ jobs:
             echo '[ -d ~/IKE-Browser/.git ] || git clone https://github.com/NullSector-2077/IKE-Browser.git ~/IKE-Browser; cd ~/IKE-Browser && git checkout main && git pull --ff-only && python3 tools/publish.py'
             echo '```'
             echo
+            if [ -n "$self" ]; then
+              echo "**Prima di firmare:** queste correzioni sono entrate in \`main\` da sole, senza che nessuno le leggesse. Chiedi a Claude di revisionarle:"
+              echo
+              printf '%s\n' "$self" | sed 's/^/- /'
+              echo
+            fi
             echo "Ti chiederà la password della tua chiave di firma. Se si ferma, dice perché e non cambia niente su GitHub."
             echo "Per una prova a vuoto (tutto tranne la pubblicazione), cambia la fine in \`python3 tools/publish.py --dry-run\`."
             echo
@@ -76,13 +103,16 @@ jobs:
             exit 0
           fi
           # the same notice: a newer version is said in it; the same one, once a week
-          said=$(gh issue view "$open" --json body,comments --jq '[.body] + [.comments[].body] | join("\n")')
+          # only what this workflow wrote counts: anyone's comment could fake a mark (M6)
+          said=$(gh issue view "$open" --json body,comments \
+                 --jq '[.body] + [.comments[] | select(.author.login == "github-actions") | .body] | join("\n")')
           if ! printf '%s' "$said" | grep -q "<!-- release-ready: $version -->"; then
             gh issue comment "$open" --body-file "$body"
             exit 0
           fi
-          last=$(gh issue view "$open" --json updatedAt --jq .updatedAt)
-          if [ $(( $(date -u +%s) - $(date -u -d "$last" +%s) )) -gt $(( 7 * 86400 )) ]; then
+          when=$(gh issue view "$open" --json createdAt,comments \
+                 --jq '[.createdAt] + [.comments[] | select(.author.login == "github-actions") | .createdAt] | max')
+          if [ $(( $(date -u +%s) - $(date -u -d "$when" +%s) )) -gt $(( 7 * 86400 )) ]; then
             { echo "Promemoria: la versione $version aspetta ancora di essere pubblicata."; echo; cat "$body"; } > "$body.r"
             gh issue comment "$open" --body-file "$body.r"
           else

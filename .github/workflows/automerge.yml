@@ -1,30 +1,45 @@
 # A green fix of the automation or of ChatGPT goes into main by itself (1.1.19,
-# the owner's decision): only when it changes no test and no protected file and
-# every check of its last commit passed (tools/automerge.py, read from main:
-# a pull request never brings the rules it is judged by). Anything else waits
-# for a person. The owner only signs and publishes (release-ready.yml mails).
+# the owner's decision): only a small change of the browser's interface code,
+# with every check of its last commit passed, the sandbox tests included
+# (tools/automerge.py, read from main: a pull request never brings the rules it
+# is judged by). New files, the modules that decide the user's safety, lines
+# that reach the network or the system, tests, tools and workflows wait for a
+# person, who is named in one comment (review 2 of 1.1.19). The owner only
+# signs and publishes (release-ready.yml).
+#
+# Runs the automation started with its own token send no "workflow_run": the
+# Tests and Security runs of automation/autofix-main start this one with a
+# dispatch when they pass (review 2 of 1.1.19, H1).
 name: Merge green fixes
 
 on:
   workflow_run:
     workflows: ["Tests", "Security", "ChatGPT fix guard", "Arch Linux"]
     types: [completed]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "last commit of the pull request"
+        required: true
 
 permissions: {}
 
+# one queue per commit: a later run for another commit never replaces the
+# deciding run of this one (review 2 of 1.1.19, M8)
 concurrency:
-  group: automerge
+  group: automerge-${{ github.event.inputs.sha || github.event.workflow_run.head_sha }}
   cancel-in-progress: false
 
 jobs:
   merge:
-    if: github.event.workflow_run.conclusion == 'success'
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: write          # the merge
       pull-requests: write     # ready for review, the comment
-      actions: write           # the tests of main after the merge
+      issues: read             # its own earlier comment
+      actions: write           # the tests and security tests of main after the merge
       checks: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -34,5 +49,5 @@ jobs:
       - name: Merge it when every rule holds
         env:
           GH_TOKEN: ${{ github.token }}
-          SHA: ${{ github.event.workflow_run.head_sha }}
+          SHA: ${{ github.event.inputs.sha || github.event.workflow_run.head_sha }}
         run: python3 -I tools/automerge.py --repo "${{ github.repository }}" --sha "$SHA"

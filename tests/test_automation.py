@@ -1681,10 +1681,11 @@ def test_failures_of_tests_the_automation_started_reach_the_fix(monkeypatch):
     assert "needs: tests" in hand and "failure()" in hand
     assert "github.actor == 'github-actions[bot]'" in hand and "github.event_name == 'workflow_dispatch'" in hand
     assert "automation/autofix-main" in hand and "automation/daily-maintenance" in hand
-    # a dispatch is handed over from the automation's branches only; main only for a run
-    # the automatic fix started again (audit of #65)
+    # a dispatch is handed over from the automation's branches, and from main
+    # when the automation started its tests after a merge made by itself
+    # (review 2 of 1.1.19, H2); main also for a run started again (audit of #65)
     dispatch, again = hand.split("github.run_attempt > 1", 1)
-    assert "'main'" not in dispatch and "github.triggering_actor == 'github-actions[bot]'" in again
+    assert "github.ref_name == 'main'" in dispatch and "github.triggering_actor == 'github-actions[bot]'" in again
     assert "permissions:\n      actions: write\n" in hand and "contents: write" not in hand
     assert 'gh workflow run autofix.yml --ref main -f run_id="$RUN_ID"' in hand
     assert "permissions:\n  contents: read\n" in text.split("jobs:")[0]
@@ -2277,9 +2278,11 @@ def test_a_new_engine_that_does_not_build_still_reaches_its_branch(tmp_path, fet
 def test_the_marked_candidate_is_fixed_on_its_branch_and_only_in_the_wrapper(repo, tmp_path):
     text = (WORKFLOWS / "daily-maintenance.yml").read_text()
     prepare = jobs_of(text)["prepare"]
-    # built after the automatic fixes carried over, before the bundle
-    assert prepare.index("git cherry-pick -x") < prepare.index("name: Build AdBlock engine of the candidate") \
-        < prepare.index("git bundle create")
+    # built after the automatic fixes carried over; bundled before the build,
+    # whose crates run code of others (review 2 of 1.1.19, H5)
+    assert prepare.index("git cherry-pick -x") < prepare.index("git bundle create") \
+        < prepare.index("name: Build AdBlock engine of the candidate")
+    assert "The candidate changes only what an update may change" in jobs_of(text)["publish-candidate"]
     assert "engine: ${{ steps.engine.outputs.engine }}" in prepare
     publish = jobs_of(text)["publish-candidate"]
     assert "ENGINE: ${{ needs.prepare.outputs.engine }}" in publish

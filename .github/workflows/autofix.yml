@@ -1,6 +1,8 @@
 # When the tests, the daily component check or the daily maintenance fail on
-# the automation's own branches, prepare a fix and hand it to the owner as a
-# draft pull request. Never on main, never a merge, never a release.
+# the automation's own branches, prepare a fix as a draft pull request. Never
+# a push to main and never a release; a green fix of a small change goes into
+# main only through the rules of tools/automerge.py (automerge.yml), anything
+# else waits for a person.
 #
 #   plan     (no AI)   what failed, where the fix goes, the end of the logs
 #   fix      (AI)      the Antigravity agent, then the reserves Groq and
@@ -523,8 +525,8 @@ jobs:
               # the reserves as the reason
               py=$(gitr diff --name-only --no-ext-diff -- '*.py' | sed "s#^#$repo/#")
               if [ -n "$py" ] && command -v ruff > /dev/null; then
-                ruff check --no-cache --force-exclude --fix --quiet $py || true
-                if ! ruff check --no-cache --force-exclude $py > "$out/lint.txt" 2>&1; then
+                env -u GROQ_API_KEY -u ZAI_API_KEY -u OPENROUTER_API_KEY -u GEMINI_API_KEY ruff check --no-cache --force-exclude --fix --quiet $py || true
+                if ! env -u GROQ_API_KEY -u ZAI_API_KEY -u OPENROUTER_API_KEY -u GEMINI_API_KEY ruff check --no-cache --force-exclude $py > "$out/lint.txt" 2>&1; then
                   echo "Antigravity's fix was refused by the lint: the reserves are told why"
                   { echo "The lint (ruff) refused the fix:"; echo; cat "$out/lint.txt"; } > "$out/refused.md"
                   result="refused-fix"
@@ -797,7 +799,7 @@ jobs:
             echo "**Automatic fix, attempt $ATTEMPT** after a failure of \"$WORKFLOW\" ([run]($RUN_URL))."
             echo
             echo "Prepared by the automatic fix (Antigravity or a reserve, see the summary) without any GitHub credential; accepted by the automatic checks."
-            echo "The tests run again on this branch. **Review the changes before merging.**"
+            echo "The tests and the sandbox tests run again on this branch. When they pass, tools/automerge.py merges it only if it is a small change of the interface code; otherwise it says here that a person must read it first."
             echo
             echo "### Summary of the agent"
             echo
@@ -823,6 +825,8 @@ jobs:
             fi
           fi
           retry gh workflow run tests.yml --ref "$PUSH_BRANCH"
+          # the sandbox tests too: the merge needs them (review 2 of 1.1.19, H3)
+          retry gh workflow run security.yml --ref "$PUSH_BRANCH"
 
   report:
     needs: [plan, fix, guard, publish]
@@ -874,7 +878,7 @@ jobs:
         run: |
           # in plain Italian: quota / chiave / modello / tempo / rifiutata
           if [ "$ACTION" = "issue" ]; then why="$REASON"
-          elif [ "$AGENT" = "quota" ]; then why="quota: la quota gratuita di oggi è finita su tutti i modelli (si riprova domani)"
+          elif [ "$AGENT" = "quota" ]; then why="quota: la quota gratuita di oggi è finita su tutti i modelli (il prossimo errore di main o un nuovo avvio a mano riprovano)"
           elif [ "$AGENT" = "auth" ]; then why="chiave: GEMINI_API_KEY manca, non è valida o non ha i permessi"
           elif [ "$AGENT" = "config" ]; then why="modello: il nome del modello (AUTOFIX_MODEL) o la configurazione non sono validi"
           elif [ "$AGENT" = "timeout" ]; then why="tempo: l'agente ha superato il tempo massimo"

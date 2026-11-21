@@ -266,6 +266,22 @@ def darkreader_lists_hash(data):
     return hashlib.sha256(json.dumps(lists, sort_keys=True).encode("utf-8")).hexdigest()
 
 
+def npm_tarball(meta):
+    """The package's tarball, from npm's own registry and with the hash npm
+    published for it (review 2 of 1.1.19, L1: neither was checked)."""
+    import base64
+    url = meta["dist"]["tarball"]
+    if not url.startswith("https://registry.npmjs.org/"):
+        raise ValueError("the tarball is not on npm's registry: %s" % url[:120])
+    integrity = meta["dist"].get("integrity", "")
+    if not integrity.startswith("sha512-"):
+        raise ValueError("npm gives no sha512 for the tarball")
+    data = fetch(url)
+    if base64.b64encode(hashlib.sha512(data).digest()).decode() != integrity[7:]:
+        raise ValueError("the tarball does not match the hash npm published")
+    return data
+
+
 def build_darkreader(root, work, dr_src=None):
     """Dark Reader's newest engine (npm) and lists (GitHub), built as I.K.E. uses them."""
     import tarfile
@@ -273,7 +289,7 @@ def build_darkreader(root, work, dr_src=None):
     out.mkdir(parents=True, exist_ok=True)
     meta = json.loads(fetch(DARKREADER_NPM))
     tgz = work / "darkreader.tgz"
-    tgz.write_bytes(fetch(meta["dist"]["tarball"]))
+    tgz.write_bytes(npm_tarball(meta))
     with tarfile.open(tgz) as tar:
         member = tar.getmember("package/darkreader.js")
         (work / "darkreader.js").write_bytes(tar.extractfile(member).read())

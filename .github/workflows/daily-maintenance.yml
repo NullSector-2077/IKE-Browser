@@ -89,6 +89,15 @@ jobs:
               done
             fi
           fi
+      # Bundled before the engine is built: the crates' build scripts run code
+      # of others, which must not be able to change the commit that is pushed
+      # (review 2 of 1.1.19, H5).
+      - name: Bundle the candidate
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          mkdir -p "$RUNNER_TEMP/maintenance-candidate"
+          git bundle create "$RUNNER_TEMP/maintenance-candidate/candidate.bundle" HEAD
+          git rev-parse 'HEAD^{tree}' > "$RUNNER_TEMP/maintenance-candidate/tree"
       # The candidate's engine, after the automatic fixes carried over (1.1.18).
       # A new engine that does not build with I.K.E.'s wrapper still reaches its
       # branch, marked in its pull request: its tests fail there, and the
@@ -126,19 +135,16 @@ jobs:
             echo "> change I.K.E.'s wrapper (\`ike-adblock/src/\`, \`vendor/adblock/__init__.py\`, \`ike/blocker.py\`,"
             echo "> \`ike/scriptlets.py\`; never \`Cargo.toml\` or \`Cargo.lock\`). Do not merge before its checks are green."
           } >> component-report.md
-      - name: Bundle the candidate
+      - name: The candidate's report
         if: steps.changes.outputs.changed == 'true'
-        run: |
-          mkdir -p "$RUNNER_TEMP/maintenance-candidate"
-          git bundle create "$RUNNER_TEMP/maintenance-candidate/candidate.bundle" HEAD
-          cp component-report.md "$RUNNER_TEMP/maintenance-candidate/component-report.md"
+        run: cp component-report.md "$RUNNER_TEMP/maintenance-candidate/component-report.md"
       - name: Compare with the candidate already published
         id: compare
         if: steps.changes.outputs.changed == 'true'
         run: |
           old=$(git rev-parse -q --verify 'origin/automation/daily-maintenance^{tree}' || true)
           echo "seen=$(git rev-parse -q --verify origin/automation/daily-maintenance || true)" >> "$GITHUB_OUTPUT"
-          if [ "$old" = "$(git rev-parse 'HEAD^{tree}')" ]; then
+          if [ "$old" = "$(cat "$RUNNER_TEMP/maintenance-candidate/tree")" ]; then
             echo "push=false" >> "$GITHUB_OUTPUT"
             echo "Same candidate as the one already published: not pushed or tested again."
           else
@@ -189,6 +195,37 @@ jobs:
           test -s "$RUNNER_TEMP/maintenance-candidate/component-report.md"
           git bundle verify "$RUNNER_TEMP/maintenance-candidate/candidate.bundle"
           git bundle list-heads "$RUNNER_TEMP/maintenance-candidate/candidate.bundle"
+      # Code of others ran while the candidate was made (uBlock Origin's builder,
+      # the crates): the candidate may change only what an update changes, and
+      # nothing but the update and the carried automatic fixes (review 2, H5).
+      - name: The candidate changes only what an update may change
+        run: |
+          git fetch -q "$RUNNER_TEMP/maintenance-candidate/candidate.bundle" HEAD:refs/ike/candidate
+          python3 -I - <<'PY'
+          import subprocess, sys
+          ALLOWED = ("ike-adblock/Cargo.toml", "ike-adblock/Cargo.lock", "ike-adblock/src/lib.rs",
+                     "ike/resources/ubo-scriptlets.json", "ike/resources/darkreader", "tools/test-requirements.txt",
+                     "docs/THIRD-PARTY.md", "licenses/", "ike/__init__.py", "PKGBUILD", "README.md", "CHANGELOG.md")
+          def git(*a):
+              return subprocess.run(["git", *a], capture_output=True, text=True, check=True).stdout
+          bad = []
+          for c in git("rev-list", "--reverse", "origin/main..refs/ike/candidate").split():
+              msg = git("log", "-1", "--format=%s", c)
+              parents = git("rev-list", "--parents", "-n", "1", c).split()[1:]
+              files = git("diff-tree", "--no-commit-id", "--name-only", "-r", "-z", c).split("\0")
+              if len(parents) != 1:
+                  bad.append("%s: a merge commit" % c[:10])
+              elif msg.startswith("autofix: "):
+                  continue          # checked by tools/check-autofix-patch.py when it was made
+              elif not msg.startswith("maintenance: "):
+                  bad.append("%s: not the update's own commit (%s)" % (c[:10], msg[:60]))
+              else:
+                  bad += ["%s: %s" % (c[:10], f) for f in files if f and not f.startswith(ALLOWED)]
+          if bad:
+              print("::error::the candidate changes what an update may not change:\n" + "\n".join(bad[:40]))
+              sys.exit(1)
+          print("the candidate changes only update files")
+          PY
       - name: Push candidate, update draft PR and start the tests
         env:
           GH_TOKEN: ${{ github.token }}
@@ -230,8 +267,9 @@ jobs:
               retry gh pr comment "$pr" --body "A new daily candidate was pushed. The tests and the Arch package build are running; this PR stays draft until all checks and the manual review are complete."
             fi
           else
+            sed -i "1i @$GITHUB_REPOSITORY_OWNER: un aggiornamento dei componenti da leggere prima di unirlo (chiedi a Claude).\n" "$body"
             retry gh pr create --draft --base main --head automation/daily-maintenance \
-              --title "$title" --label maintenance --body-file "$body"
+              --title "$title" --label maintenance --assignee "$GITHUB_REPOSITORY_OWNER" --body-file "$body"
           fi
           if [ "$PUSH" = "true" ]; then
             retry gh workflow run tests.yml --ref automation/daily-maintenance
