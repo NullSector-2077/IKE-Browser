@@ -409,7 +409,9 @@ class PageBridge(QObject):
                 return
             if pinned:
                 # followed as a new request, its name asked of the provider of
-                # encrypted DNS (Qt would look it up in clear)
+                # encrypted DNS (Qt would look it up in clear); marked first:
+                # abort() ends the reply at once, and its end must not answer
+                follow.append(1)
                 refused.append(1)
                 reply.abort()
                 if hops >= 10:
@@ -424,7 +426,6 @@ class PageBridge(QObject):
                     again(True)
                 else:
                     check(where.host(), again, "dark mode", app.network)
-                follow.append(1)
                 return
             if check is None:
                 reply.redirectAllowed.emit()
@@ -439,8 +440,8 @@ class PageBridge(QObject):
                     refused.append(1)
                     reply.abort()
             check(where.host(), checked, "dark mode", app.network)
-        reply.redirected.connect(redirected)
         follow = []
+        reply.redirected.connect(redirected)
 
         def done():
             if follow:

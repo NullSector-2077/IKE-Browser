@@ -990,6 +990,7 @@ class UserScripts(QObject):
                     target = doh.unpin(target, url.host())
                 status = reply.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute) or 0
                 hops = d.get("_hops", 0) + 1
+                follow.append(1)                 # before abort(), which ends the reply at once
                 refused.append(1)
                 reply.abort()
                 if hops > 10:
@@ -1007,7 +1008,6 @@ class UserScripts(QObject):
                     else:
                         self._answer(page, sid, rid, {"error": "refused"})
                 self.check_target(sid, page_host, target, go)
-                follow.append(1)
                 return
 
             def checked(ok):

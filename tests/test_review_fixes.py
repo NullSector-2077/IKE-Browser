@@ -501,7 +501,7 @@ def steps(ike, qapp, out):
             ("public_to_home", "http://news.example.org/", "http://home.doh.test:%%d/c.css" %% P)):
         page = Page(page_url)
         bridge = PageBridge(ike.passwords, page)
-        bridge.cssFetched.connect(lambda ident, ok, text: answers.__setitem__(ident, ok))
+        bridge.cssFetched.connect(lambda ident, ok, text: answers.setdefault(ident, []).append(ok))
         keep.append((page, bridge))
         bridge.fetchCss(name, css)
     ike.favicons.fetch("http://icon.doh.test:%%d/" %% P)
@@ -517,6 +517,7 @@ def steps(ike, qapp, out):
         if len(answers) == 3 and not ike.favicons.icon("http://icon.doh.test:%%d/" %% P).isNull():
             break
         yield 25
+    yield 1000                         # a second answer would come now
     out["answers"] = answers
     out["gm"] = gm
     out["icon"] = not ike.favicons.icon("http://icon.doh.test:%%d/" %% P).isNull()
@@ -539,7 +540,9 @@ def test_m3_encrypted_dns_also_for_ikes_own_requests(run_ike):
         for s in servers:
             s.shutdown()
     assert out["active"] is True, out
-    assert out["answers"] == {"own_sheet": True, "redirected": True, "public_to_home": False}, out
+    # one answer each (a redirect followed as a new request answered twice:
+    # first "failed", then the sheet)
+    assert out["answers"] == {"own_sheet": [True], "redirected": [True], "public_to_home": [False]}, out
     assert out["icon"] is True and out["urllib"] == "ok" and out["script"] == "ok" and out["gm"] == ["ok"], out
     hosts = {h.split(":")[0] for h, _ in seen}
     assert {"css.doh.test", "css2.doh.test", "icon.doh.test", "lists.doh.test", "script.doh.test",
