@@ -1,5 +1,57 @@
 # Changelog
 
+## 1.1.20
+
+An independent review of 1.1.19 (security and privacy) found 18 points; each
+one is fixed here with a test that failed before the fix (tests/test_review_fixes.py).
+
+- **A key press never grants a permission**: in the camera, microphone,
+  location, "open with another program" and many-downloads questions, Enter
+  and Esc now block, and "Allow" can be clicked only a moment later (a page
+  could ask exactly when the user was typing).
+- **Fingerprinting noise can no longer be peeled off**: the canvas noise now
+  depends on the picture too (a plain grey canvas of the same size gave the
+  pattern away, and with it the real pixels); the audio noise touches only
+  what the engine rendered, every sample by its own tiny factor; text widths
+  change per text and font, and an empty text measures 0.
+- **The protected values look like Chrome's**: the replaced properties throw
+  as Chrome's do on a wrong object; Strict keeps WebGPU with no adapter and a
+  battery on mains power instead of removing them, and sends the one language
+  it shows in the Accept-Language header too; Maximum's dates and numbers use
+  en-US like its navigator.language.
+- **Encrypted DNS also for I.K.E.'s own requests**: with encrypted DNS on,
+  the home-network checks, dark mode's style sheets, user scripts, the sites'
+  icons, updates and filter lists ask the same provider instead of the
+  system's resolver; when the engine refuses the setting, I.K.E. says so.
+- **I.K.E.'s own requests no longer name I.K.E.**: filter lists, updates, the
+  version check, the DRM download and user scripts send the pages' User-Agent;
+  at the first start only the search engine in use is asked for its icon.
+- **User scripts**: a page can no longer make I.K.E. download a `.user.js`
+  by itself (only the user's own click or typed address offers an install,
+  and the home network only when typed); each script with GM functions runs
+  in a world of its own, so another installed script cannot read its token
+  or answers; an update that moves a script into the page's world asks first;
+  an answer that arrives after the tab changed site is dropped.
+- **Dark mode's style sheets** follow the page's rules: never in clear for an
+  encrypted page, never what the filter lists block for it, with the
+  browser's User-Agent.
+- **The logins' channel is the password helper's alone**: the other helpers
+  of its world get only the calls they use; a second channel cannot take the
+  answers.
+- **Updates**: a second start of I.K.E. within 20 seconds of an update (a link
+  from another program) no longer rolls a healthy update back for good (needs
+  this package: ike_boot.py); each channel's manifest names its channel; a
+  version stopped by the owner is withdrawn even when already staged.
+- **Smaller fixes**: extension packages from the store must carry the
+  extension's own signature (CRX3); site icons are decoded only as PNG or ICO;
+  the password generated from the page menu stays out of clipboard history
+  and is taken off after 45 seconds; arguments I.K.E. does not know are not
+  passed to Qt; the site of a name follows the Public Suffix List of the
+  system (new dependency: publicsuffix-list), so `a.wordpress.com` and
+  `b.wordpress.com` are two sites.
+- Left for the owner: the embedded-video click relay (YouTube ad blocking,
+  review L5).
+
 ## 1.1.19
 
 - **The home network, also through public names**: the web engine's own
