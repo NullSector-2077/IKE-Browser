@@ -84,7 +84,106 @@ between the two sessions; only figures of the same session are compared.)
 These numbers describe a small container without a GPU. They say that the
 versions do not differ, not how fast I.K.E. is on the owner's computer.
 
+## 1.1.21, Dark Reader: only the measured changes
+
+The owner's rule (2026-11-21): a change to Dark Reader stays only if it
+gives a measurable gain; otherwise the engine stays closer to Dark Reader's
+own, and a new engine has fewer texts to match in the automatic update.
+
+**How it was measured.** Inside the real I.K.E. (empty profile, offscreen,
+dark mode on with Dark Reader), on the Arch container (Python 3.14, PyQt
+6.12, 4 shared cores, no GPU). Two builds alternate in one browser process
+(ABBA order, 1 warm-up and 8 measured rounds); between them only the engine
+text changes, and a marker read back after every load proves which one
+ran. The time is the CPU time of the page's renderer main thread (where
+Dark Reader, style and layout run), from the navigation to 1 s after the
+page settled; medians of the 8 rounds. Spread = the larger interquartile
+range of the two builds. Measurable = a gain larger than the spread, in
+two independent runs. Each page is a synthetic worst case for one change
+(built from its own description) plus Speedometer 3's
+TodoMVC-Lit-Complex-DOM with its three steps; an ordinary article page is
+measured with a tiny page loaded before each load.
+
+**Family by family** (all 53 changes against all but one family; the
+family's own target page; CPU ms, run 1 / run 2 [/ run 3]):
+
+| family | changes | page | with | without | spread | verdict |
+|---|---|---|---|---|---|---|
+| color-variables | 3 | many new colours | 919 / 871 | 2895 / 2888 | 115 / 68 | **kept** (-68 %; ordinary page -15 / -20 %) |
+| style-groups | 12 | repeated SVG icons | 352 / 331 | 2393 / 2354 | 210 / 115 | **kept** (-85 %) |
+| shadow-texts | 1 | 200 shadow roots | 267 / 235 | 353 / 332 | 80 / 62 | **kept** (-24 / -29 %) |
+| shadow-host-walk | 1 | 42,000 elements | 1775 / 1582 / 1471 | 1874 / 1798 / 1660 | 228 / 216 / 91 | **kept** (-12 / -11 % in runs 2 and 3) |
+| dark-copy | 5 | 200 shadow roots | 274 / 218 / 254 | 325 / 254 / 272 | 58 / 30 / 49 | dropped (above the spread in 1 of 3 runs) |
+| declarations-modifiable | 6 | 2,000 CSS rules | 733 / 689 / 710 | 812 / 746 / 756 | 88 / 88 / 54 | dropped (-6 to -10 %, below the spread) |
+| variables-none | 1 | 2,000 CSS rules | 784 / 707 / 707 | 845 / 773 / 751 | 101 / 69 / 67 | dropped (below the spread) |
+| style-moves | 2 | moved style elements | 920 / 769 / 795 | 904 / 921 / 829 | 76 / 147 / 86 | dropped (above the spread in 1 of 3 runs) |
+| svg-sizes | 9 | SVG chart | 648 / 720 / 705 | 679 / 731 / 761 | 71 / 43 / 31 | dropped (above the spread in 1 of 3 runs) |
+| shadow-styles-once | 1 | 200 shadow roots | 261 / 284 / 270 | 300 / 291 / 292 | 113 / 51 / 37 | dropped |
+| var-rule-same-text | 2 | undefined variables; Lit-Complex | 358 / 329 / 351; 560 / 595 / 595 | 410 / 372 / 388; 592 / 600 / 592 | 87 / 55 / 53; 120 / 80 / 88 | dropped (its code path was never reached) |
+| adopted-vars-first | 1 | Lit-like variables; Lit-Complex | 287 / 320; 623 / 646 | 268 / 294; 668 / 581 | 28 / 55; 76 / 92 | dropped |
+| adopted-once | 4 | adopted sheets | 204 / 222 | 215 / 224 | 37 / 42 | dropped |
+| one-text | 3 | 2,000 CSS rules | 782 / 658 | 718 / 685 | 83 / 42 | dropped |
+| image-selectors | 1 | background images | 479 / 440 | 483 / 442 | 31 / 62 | dropped |
+| inline-style-key | 1 | inline colours | 1866 / 1903 | 1873 / 1861 | 157 / 60 | dropped |
+
+Kept: 17 changes in 4 families. Dropped: 36 changes in 12 families
+(`style-groups` also lost two declarations only `dark-copy` used). Runtime
+dependencies were checked: dark-copy needs style-groups, var-rule-same-text
+needs one-text, shadow-styles-once needs shadow-texts; no kept family needs
+a dropped one. Every load of every build gave the same computed colours
+(colour, background, borders, fill, stroke, background image, shadows,
+outline, decoration and stop colours of every element of the document and
+of every shadow root).
+
+**The reduced build against the full one** (1.1.20's 53 changes = A,
+the 17 kept = B; CPU ms; + means the reduced build is slower):
+
+| page | run 1 | run 2 | run 3 | run 4 | reading |
+|---|---|---|---|---|---|
+| ordinary article (separate) | 102 / 98 (-4 %); 109 / 101 (-8 %) | | | | not slower |
+| many new colours (color-variables) | 899 / 824 (-9 %) | 937 / 890 (-5 %) | | | not slower |
+| 42,000 elements (shadow-host-walk) | 1561 / 1399 (-12 %) | 1475 / 1397 (-6 %) | | | not slower |
+| repeated SVG icons (style-groups) | 414 / 397 (-4 %) | 325 / 373 (+13 %, spread 31) | 368 / 376 (+2 %) | 355 / 395 (+10 %, spread 32) | slower in 2 of 4 runs |
+| 200 shadow roots (shadow-texts) | 273 / 367 (+25 %, spread 47) | 342 / 343 (0 %) | 252 / 329 (+23 %, spread 30) | 224 / 324 (+31 %, spread 55) | **slower in 3 of 4 runs** |
+| 2,000 CSS rules | 710 / 869 (+18 %, spread 79) | | 758 / 881 (+14 %, spread 69) | 702 / 905 (+22 %, spread 42) | **slower in 3 of 3 runs** |
+| Speedometer TodoMVC-Lit-Complex-DOM | 619 / 621 (0 %) | 565 / 608 (+7 %, spread 38) | 572 / 585 (+2 %) | 528 / 590 (+11 %, spread 29) | slower in 2 of 4 runs |
+| undefined variables (Lit pattern) | 370 / 468 (+21 %, spread 70) | | 360 / 334 (-8 %) | 342 / 375 (+9 %) | slower in 1 of 3 runs |
+| other pages (moved styles, SVG chart, adopted sheets, background images, inline colours, Lit-like variables) | -2 to +13 %, all within the spread | | | | not slower |
+
+Colours: identical in all 1,062 loads of these runs and the ones below (no error in Dark
+Reader's world, every load settled and ran the build it claimed); the only
+difference between loads is how many of Dark Reader's own style elements
+exist at the instant of the reading (11 or 12 on the icons page, 30 or 31
+on Lit-Complex), in both builds alike.
+
+**What makes the shadow-root and CSS-rule pages slower.** Measured family
+by family *against the reduced build* (kept + the family = A, kept = B,
+two runs each), where the spread is smaller than against the full build:
+
+| added to the reduced build | page | run 1 | run 2 | reading |
+|---|---|---|---|---|
+| dark-copy + shadow-styles-once | 200 shadow roots | -24 % (spread 26 ms) | -18 % (spread 34 ms) | measurable together |
+| dark-copy | 200 shadow roots | -10 % (below) | -22 % (above) | 1 of 2 |
+| shadow-styles-once | 200 shadow roots | -6 % | -1.5 % | no |
+| declarations-modifiable + variables-none | 2,000 CSS rules | -12.5 % | -11 % | measurable together |
+| declarations-modifiable | 2,000 CSS rules | -6 % (spread 29 ms) | -9 % (spread 27 ms) | measurable alone |
+| variables-none | 2,000 CSS rules | -7 % (spread 40 ms) | -7 % (spread 40 ms) | measurable alone |
+| one-text | 2,000 CSS rules | -2 % | +8 % | no |
+| style-moves | repeated SVG icons | -7 % (below) | -9 % (above) | 1 of 2 |
+| adopted-vars-first + adopted-once | Lit-Complex | +3 % | -4 % | no |
+| all twelve | shadow roots / CSS rules / icons / Lit-Complex | -29 / -19 / -15 / +2 % | -21 / -18 / -9 / -2 % | shadow roots and CSS rules measurable |
+
+So, by the same rule, `dark-copy` with `shadow-styles-once` and
+`declarations-modifiable` and `variables-none` do give a measurable gain on
+their own worst-case pages once the bigger changes are gone: measured
+against the full build their gain was hidden in its larger spread. They
+are left out in this branch as decided; whether to bring them back is the
+owner's choice (ROADMAP).
+
 ## 1.1.19, page dark mode with Dark Reader
+
+(Some of the changes named in this section and in the 1.1.18 one were
+removed in 1.1.21, see above.)
 
 Measured with `tests/measure_smooth.py` (six local pages, Dark Reader off,
 on, and the engine's dark mode; 3 runs, this container, software drawing):

@@ -59,6 +59,14 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Owner's decisions
 
+- 2026-11-21, for 1.1.21: I.K.E.'s changes to Dark Reader
+  (`tools/build-darkreader.py`) stay only when their speed gain was
+  measured: color-variables, style-groups, shadow-texts and shadow-host-walk
+  are kept; the twelve other families, with no gain larger than the spread
+  of the measurement in two runs, were removed, so the engine stays closer
+  to Dark Reader's own and its automatic updates have fewer texts to match
+  (numbers: docs/review/tests-and-performance.md, "1.1.21"). A new change to
+  Dark Reader comes in only with a measured gain.
 - 2026-11-21, for 1.1.20: menus and Settings regrouped with icons and short
   explanations, an "I.K.E. extensions" section with a switch for each;
   Ctrl+Shift+A opens the extensions; Chrome's default font families for
@@ -131,6 +139,14 @@ are agreed with the project owner; do not reopen them without asking.
   Dark Reader's own). Tried in 1.1.19 and left out: a cache of each rule's
   text (about 7 % less work, but a rule a site changes later could keep old
   colours).
+- **Dark Reader, 1.1.21, for the owner**: measured against the reduced
+  build (docs/review/tests-and-performance.md, "1.1.21"), the reduced engine
+  is 20-30 % slower than 1.1.20's on the 200-shadow-root page and 14-22 %
+  on the 2,000-CSS-rule page (3 of 4 and 3 of 3 runs; same colours), and
+  four of the dropped families give a measurable gain there on their own:
+  `dark-copy` with `shadow-styles-once`, and `declarations-modifiable`,
+  `variables-none`. To decide: bring these back (13 changes) or keep the
+  four families only.
 - **Fonts, 1.1.21 (owner's decision of 2026-11-21)**: a font allowlist for
   the whole engine (as Tor Browser on Linux) at Strict and Maximum, which
   alone closes CSS `@font-face { src: local() }` and workers loaded from an
