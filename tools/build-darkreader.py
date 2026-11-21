@@ -1211,6 +1211,86 @@ PATCHES = [
                 }
                 iterateReadyRules(rootReadyGroup, sheet, (rule, target) => {
                     const index = target.cssRules.length;"""),
+    # A variable that is used but never defined counts as "changed" at every
+    # check of the variables (after each larger change of the page); each time
+    # the rules using it were deleted and written again with the very same text,
+    # and the browser styled the whole page again (Speedometer's Lit and
+    # WebComponents suites define such variables on purpose: 3-4 times slower
+    # than without Dark Reader). A rule whose text did not change is not
+    # written again; any change is written as before.
+    ("var-rule-same-text", """\
+            function rebuildVarRule(key) {
+                const {rule, target, index} = varDeclarations.get(key);
+                target.deleteRule(index);
+                setRule(target, index, rule);
+            }""", """\
+            // I.K.E.: the text each variable's rule was last written with
+            const ikeVarRuleTexts = new WeakMap();
+            function rebuildVarRule(key) {
+                const {rule, target, index} = varDeclarations.get(key);
+                const ikeText = ikeRuleText(rule);
+                if (ikeVarRuleTexts.get(rule) === ikeText && index < target.cssRules.length) {
+                    return;
+                }
+                ikeVarRuleTexts.set(rule, ikeText);
+                target.deleteRule(index);
+                setRule(target, index, rule);
+            }"""),
+    ("var-rule-same-text-first", """\
+                        if (varKey != null) {
+                            varDeclarations.set(varKey, {rule, target, index});
+                        }
+                    });
+                    setRule(target, index, rule);""", """\
+                        if (varKey != null) {
+                            varDeclarations.set(varKey, {rule, target, index});
+                        }
+                    });
+                    setRule(target, index, rule);
+                    if (rule.declarations.some((d) => d.varKey != null)) {
+                        ikeVarRuleTexts.set(rule, ikeRuleText(rule));
+                    }"""),
+    # The style sheets a shadow root adopts (Lit, web components) were turned
+    # dark before the types of the CSS variables they use were known (the
+    # page's own <style> elements are matched first, then turned dark); the
+    # types were found a moment later and every rule using them was written
+    # again, in the components' sheet and in the page's: the browser styled
+    # the whole page two more times (Speedometer's Lit suite 4x slower with
+    # Dark Reader than without). A sheet seen for the first time is now
+    # matched before its dark copy is written; the copy is the same.
+    ("adopted-vars-first", """\
+    function handleAdoptedStyleSheets(node) {
+        if (canHaveAdoptedStyleSheets(node)) {
+            forEach(
+                isFirefox
+                    ? unwrap(node.adoptedStyleSheets)
+                    : node.adoptedStyleSheets,
+                (s) => {
+                    variablesStore.addRulesForMatching(s.cssRules);
+                }
+            );
+            const newManger""", """\
+    // I.K.E.: the adopted sheets whose variables were matched already
+    const ikeMatchedSheets = new WeakSet();
+    function handleAdoptedStyleSheets(node) {
+        if (canHaveAdoptedStyleSheets(node)) {
+            let ikeNewSheet = false;
+            forEach(
+                isFirefox
+                    ? unwrap(node.adoptedStyleSheets)
+                    : node.adoptedStyleSheets,
+                (s) => {
+                    if (!ikeMatchedSheets.has(s)) {
+                        ikeMatchedSheets.add(s);
+                        ikeNewSheet = true;
+                    }
+                    variablesStore.addRulesForMatching(s.cssRules);
+                }
+            );
+            if (ikeNewSheet) {
+                variablesStore.matchVariablesAndDependents();
+            }
+            const newManger"""),
 ]
 
 
