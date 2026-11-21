@@ -144,3 +144,10 @@ def test_the_workflows_are_wired():
     rr = (WORKFLOWS / "release-ready.yml").read_text()
     assert "release-mail-${{ steps.v.outputs.version }}-${{ steps.v.outputs.week }}" in rr
     assert "if: steps.mail.outputs.sent == 'true'" in rr and 'gh release view "v$version"' in rr
+
+
+def test_no_fix_can_change_the_rules_it_is_judged_by():
+    """An automatic or ChatGPT fix touching tools/automerge.py could change
+    the merge rules for the next ones: both tools are protected files."""
+    assert {"tools/automerge.py", "tools/send-mail.py"} <= set(guard.FORBIDDEN_FILES)
+    assert decide(files=[{"filename": "tools/automerge.py", "status": "modified", "patch": "+x"}])[0] is False

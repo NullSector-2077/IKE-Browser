@@ -81,6 +81,8 @@ FORBIDDEN_FILES = {
     "ike/resources/videoads.js", "ike/resources/videorelay.js", "ike/resources/mediahook.js",
     # 1.1.18: the test packages, the weekly health check, the notices of others
     "tools/test-requirements.txt", "tools/automation-health.py", "tools/third-party.py",
+    # 1.1.19: the rules of the merge by itself and the mails to the owner
+    "tools/automerge.py", "tools/send-mail.py",
 }
 FORBIDDEN_PREFIXES = (".github/", "tests/data/")      # the workflows; the tests' reference data
 FORBIDDEN_PATTERNS = ("tools/build-*.py", "tools/build-*.mjs")   # builders of what comes from others
