@@ -3,17 +3,18 @@
 # Builds I.K.E. from this repository. Run `makepkg -si` from a clone; the
 # sources are taken from the clone itself (no download).
 pkgname=ike-browser
-pkgver=1.1.19
+pkgver=1.1.20
 pkgrel=1
 pkgdesc="I.K.E. - Internet Kontrol Experience: private, independent web browser"
 arch=('x86_64')
 url="https://github.com/NullSector-2077/IKE-Browser"
 license=('GPL-3.0-or-later')
 depends=('python' 'python-pyqt6' 'python-pyqt6-webengine' 'qt6-webengine' 'qt6-webchannel'
-         'qt6-svg' 'python-cryptography' 'python-jeepney' 'hicolor-icon-theme')
+         'qt6-svg' 'python-cryptography' 'python-jeepney' 'hicolor-icon-theme' 'publicsuffix-list')
 makedepends=('rust' 'gcc')
 optdepends=('libnotify: desktop notifications'
-            'noto-fonts-cjk: Chinese and Japanese interface text'
+            'noto-fonts-cjk: Chinese, Japanese and Korean interface text'
+            'noto-fonts: Arabic, Hebrew, Indic, Thai, Georgian, Armenian and other scripts'
             'xdg-utils: set I.K.E. as the default browser'
             'plasma-integration: Plasma theme, colours and file dialogs'
             'chromium-widevine: system-wide Widevine instead of the copy I.K.E. downloads'

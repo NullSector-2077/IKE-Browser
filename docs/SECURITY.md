@@ -47,6 +47,69 @@ checked says so.
 | - | No vulnerability check of the Rust crates | **Fixed**: RustSec every day and on every pull request | `security.yml` (positive control below) |
 | - | Tests never ran with the sandbox | **Fixed**: CI job `sandbox` | `security.yml` |
 
+## Independent review of 1.1.19 (fixed in 1.1.20)
+
+Each fix has a test that failed before it (`tests/test_review_fixes.py`, and
+the files named). What is left is said in the last column.
+
+| # | Finding | Fix | Left |
+|---|---|---|---|
+| H1 | Canvas, audio and text noise could be peeled off (a grey canvas of the same size gave the mask; every 97th audio sample by one factor; `measureText('')` was the offset) | The canvas mask depends on the picture too; audio noise only on buffers the engine rendered, every sample its own factor; text width per text and font, 0 for an empty text | A site's own blob worker can still read its own seed (F3) and with it recompute that site's mask. The noise changes only the lowest bit of red, green and blue (to stay invisible): the other seven bits of each are the real picture |
+| H2 | A second start within 20 s rolled a healthy update back for good | The start that tries the update holds a lock for its life; a later start neither counts nor rolls back | Needs the 1.1.20 package (`ike_boot.py` is not self-updated) |
+| M1 | A page could make I.K.E. download any `.user.js`, also from the router, with a User-Agent naming I.K.E. | Only the user's own act offers an install; the home network only for a typed address; the browser's User-Agent | - |
+| M2 | Enter or Space granted a permission (Allow was the default) | Enter and Esc block; Allow can be clicked only after 0.7 s | - |
+| M3 | Encrypted DNS did not cover I.K.E.'s own requests | `ike/doh.py`: the same provider (RFC 8484) for the home-network checks, dark mode's sheets, user scripts, icons, updates, filter lists; Qt requests pinned to its answer with the name in TLS; redirects followed as new requests; the user is told when the engine refuses the setting | Search suggestions, weather and the extension store (fixed hosts) still use the system resolver; an icon's redirect is not followed with encrypted DNS on |
+| M4 | Dark mode's sheet fetch skipped the lists and allowed http on https pages | Mixed content refused, the lists asked, the browser's User-Agent | - |
+| M5 | Spoofed values detectable | Getters keep the engine's receiver check; Strict: WebGPU present with no adapter, a battery on mains, the header's language = navigator.languages; Maximum: Intl, dates and numbers in en-US, in workers too | The time zone and GPC (not sent by Chrome) are not covered; an independent fingerprinting audit is planned |
+| L1 | Manifest not bound to its channel | Each manifest names its channel | Manifests without the field are accepted (older releases) |
+| L2 | Halt did not withdraw a staged copy | Withdrawn and listed as bad | - |
+| L3 | Own requests named I.K.E.; every engine asked at first start | The pages' User-Agent everywhere; only the engine in use | - |
+| L4 | User scripts shared one world; answers delivered after the tab changed site | A world per script; an update into the page's world asks; late answers dropped | - |
+| L5 | Embedded-video click relay: the page could put its own element on the point | Hardened (owner's decision): only when the page holds a frame of a video site, the point must still be on that frame when the click is made, at most once every 3 s; the skip on the video site itself unchanged | A page that moves its element in the few milliseconds between the check and the click (not shown possible) |
+| L6 | The logins' channel shared with the other helpers of its world | The channel's receiver is locked after the helper makes it, and so are `qt` and `qt.webChannelTransport` (not writable, not configurable), so no transport of another script's can be put in front of it; the others get only `fetchCss`, `cssFetched`, `adClick`, `adClickEmbedded` | Code in that world can still send blind calls on the transport (no answers): it cannot read a login. Separate worlds would move the video-ad helpers (owner's decision) |
+| L7 | Favicons decoded by every image plugin outside the sandbox | Only PNG and ICO, by their first bytes | - |
+| L8 | Store extensions not signature-checked | CRX3 only, signed by the key of the id asked for (RSA or ECDSA) | The store's own publisher signature is not checked |
+| L9 | Generated password left on the clipboard | Marked for clipboard managers and cleared after 45 s | - |
+| L10 | `site_of` approximated the Public Suffix List | The system's list (`publicsuffix-list`); a longer fallback | The page script's noise seed still uses the short list |
+| L11 | Unknown arguments went to Qt | Dropped, named on stderr | - |
+
+A second pass of the same reviewer over these fixes found more of the same
+kind; fixed too:
+
+| # | Finding | Fix | Left |
+|---|---|---|---|
+| N4 | The fingerprinting protection called built-ins a page can replace while it runs (`WeakSet`/`WeakMap` methods, `Promise.prototype.then`, `.apply`/`.call`, `Math.imul`, `Uint32Array`, the length of typed arrays, `ImageData`'s `data`, a canvas's own size): each replacement gave the real canvas or audio values, the masked font names, or the full browser version | Everything it uses is taken before the page runs; its collections keep their methods as own, frozen properties; the noise uses a multiply of its own; what a `ScriptProcessorNode` hands the page is noised too | The time zone and other values outside the protection's list (see the fingerprinting audit) |
+| FP-H-A | (fingerprinting audit) Wrappers still looked up `call`/`apply`, `filter`, `toLowerCase`, `slice`, `RegExp.prototype.exec` when called: the hidden WebGL extension, an inline worker without its prelude | No method of the page's is used; the client hints answer in the engine's key order | - |
+| FP-H-B | The site's seed readable from an inline worker's own address (`fetch(self.location.href)`, `ErrorEvent.filename`, a `data:` address) | The prelude revokes its address first; location and errors name the page's address and line; a `data:` worker gets a seed of its own | A worker's `Error().stack` still names the revoked address |
+| FP-H-D | Fonts at Strict: `local()`, the masks as an oracle (U+E000, `fonts.load()`), another realm's `clear()`, workers, names outside the list | Masks over U+D800 (no text reaches them), `local()` of a masked name fails, any realm's `clear()` refills, `load()` filtered, masks in inline workers, every installed family masked | CSS `@font-face { src: local() }` and workers loaded from an address still find installed fonts: only a font allowlist for the whole engine closes them (to decide) |
+| FP-H-E, M-1, M-8 | Pixels without noise through WebGL2 pack buffers, `readPixels` into other arrays and in workers, `VideoFrame.copyTo`; analyser byte data; float16 reads corrupted | Each route noised (bytes only; float results stay exact); float16 values get their own noise | WebGPU read-back not checked (no adapter in the tests) |
+| N3 | Noise removable by a majority vote over reads with one corner changed, and audio factors read from a buffer of known samples | The noise depends on each pixel's colour and its neighbour's, each sample's value and the one before it: neither the place nor the whole picture | Areas of one plain colour are left as they are (they say nothing about the computer); noise of any kind cannot resist a script written against it (audit, I-1) |
+| FP-M-5 | Error stacks named the protection (`userscript:ike-fp`) | Neutral script names; the protection's lines taken out of stacks | A page that sets `Error.prepareStackTrace` still sees the frames |
+| FP-M-6 | The plugin list recognisable (the prototype's `item()`/`length`/`name` threw; own properties on the invented entries) | The engine's own getters and methods answer for the list and the invented entries | - |
+| FP-V (second pass) | 13 more ways around the fixes: a getter on `Promise`/`Array.prototype.constructor` (species), setters on `Array.prototype`'s index names, module workers (imports run before the prelude), workers inside workers from a page-made address, WebGL numbers given as text or objects, float16 reads rounded to 8 bits, `local()` written with escapes, comments or objects, quiet audio sharing one factor, `SharedArrayBuffer`, the plugin list's own keys, `split()` in the stack cleaning, Trusted Types and `Worker()` with no argument | The engine's promises get an own constructor; loops instead of `filter()`; elements written with `defineProperty`; internal tables without a prototype; module workers get a seed of their own; nested blob addresses read and given the prelude; WebGL numbers read once and passed on as read; float16 noise at the 8-bit scale; every `local()` taken out of FontFace sources; audio factors from each sample's own bits; `SharedArrayBuffer` noised; `ownKeys` and descriptors of the plugin list; a TrustedScriptURL kept, or the prelude's address given a policy of its own | See "Known limits of the noise" below |
+| FP-M-4 | The storage quota gave the disk size | `StaticStorageQuota`: 10 GiB for everyone | - |
+| N5 | Maximum: an empty language list, or a language the engine lacks, fell back to the system's language | Such a list means the language shown (en-US), in pages and workers; the list is read once, as the engine reads it | At the global level Maximum the engine itself speaks en-US too (form messages, Date's zone names, every kind of worker; owner's decision, audit M-7). A site set to Maximum by itself keeps the engine's texts in the system's language: the engine has one language for all sites |
+
+## Known limits of the noise (proven by the independent verification)
+
+A protection written into the page's own world can make the cheap, exact
+routes useless; it cannot stop a script written against it:
+
+- **The lowest bit made visible.** The noise changes only the lowest bit of
+  a colour, to stay invisible. A page can composite a noisy read with itself
+  (`difference`, then `lighter` several times) and see which bits changed:
+  the real picture in two reads. Noise that survived this would be visible.
+- **Plain colours** are left as they are (they say nothing about the
+  computer): a one-colour canvas usually reads the same in every session.
+- **Float WebGL reads** (`FLOAT`) and **AudioWorklet** taps are not noised:
+  floats are left exact for programs that compute with them, and a worklet
+  runs where the page's world cannot reach.
+- **Fonts**: a style sheet's `@font-face { src: local() }` and workers loaded
+  from an address still find installed fonts; a font allowlist for the whole
+  engine is planned for 1.1.21.
+- **A site set to Maximum by itself** (not the global level) keeps the
+  engine's own texts and the time zone's name in the system's language.
+
 ## Known limits (not solved)
 
 - **The home network, since 1.1.19.** Two checks work together. I.K.E.'s

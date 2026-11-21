@@ -32,6 +32,6 @@ Check a pack (missing strings, placeholders, `&`, final `…` / `:`) with:
 python3 tools/check-lang.py zh ja
 ```
 
-Users can also add a language pack from a file in Settings → General; it is
+Users can also add a language pack from a file in Settings → Language; it is
 stored in `~/.local/share/ike-browser/lang/` and takes precedence over the
 bundled one.

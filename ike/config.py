@@ -328,6 +328,19 @@ DEFAULTS = {
     "system_titlebar": True,            # False: own window buttons, more room for pages
     "start_maximized": True,            # new windows fill the screen
     "dark_env_migrated": False,         # a system-wide forced dark mode was taken over once
+    # I.K.E. extensions (1.1.20, ikeextensions.py): the switch of each built-in
+    # feature that had none. On by default: nothing changes until the user
+    # turns one off. The two new ones start off.
+    "ext_passwords": True,
+    "ext_split": True,
+    "ext_pip": True,
+    "ext_translate": True,
+    "ext_containers": True,
+    "ext_resources": True,
+    "ext_command_bar": True,
+    "ext_plasma": True,
+    "ext_autoscroll": False,            # middle click and move the mouse to scroll
+    "ext_middleclick": False,           # middle click opens the selected text
 }
 
 
@@ -637,6 +650,16 @@ def system_accept_language(locale_name=None):
         if t not in out:
             out.append(t)
     return ",".join(out)
+
+
+def engine_language(config):
+    """The languages the engine is given: at the global level Maximum,
+    en-US for every page and worker (owner's decision for 1.1.20, audit M-7:
+    workers and the engine's own texts gave the real language away);
+    otherwise accept_language()."""
+    if config["shield_level"] == "maximum":
+        return "en-US,en;q=0.9"
+    return accept_language(config)
 
 
 def accept_language(config):

@@ -54,12 +54,48 @@ def masked_names():
     return json.loads(m.group(1)) if m else []
 
 
+# the families every system answers to: never masked (fingerprint.js)
+KEPT = {"arial", "helvetica", "times", "times new roman", "courier", "courier new"}
+
+
+def candidates(families=None):
+    """The names to test: the list of fingerprint.js and every family
+    installed here (fingerprinting audit, H-D: a font outside the list, such
+    as IPAGothic, was found by measuring text in it)."""
+    if families is None:
+        from PyQt6.QtGui import QFontDatabase
+        families = QFontDatabase.families()
+    names = list(masked_names())
+    seen = {n.lower() for n in names}
+    for f in installed(families):
+        if f.lower() not in seen:
+            seen.add(f.lower())
+            names.append(f)
+    return names
+
+
+def installed(families=None):
+    """Every family installed here, Qt's " [foundry]" removed, but never the
+    six every system answers to."""
+    if families is None:
+        from PyQt6.QtGui import QFontDatabase
+        families = QFontDatabase.families()
+    out, seen = [], set(KEPT)
+    for f in families:
+        f = re.sub(r"\s*\[[^\]]*\]$", "", str(f)).strip()
+        if f and f.lower() not in seen:
+            seen.add(f.lower())
+            out.append(f)
+    return out
+
+
 def fonts_key():
     """Changes when the fonts installed on this computer change."""
     from PyQt6.QtGui import QFontDatabase
     names = sorted(QFontDatabase.families())
     h = hashlib.sha1("\n".join(names).encode("utf-8"))
     h.update(hashlib.sha1(json.dumps(masked_names()).encode()).digest())
+    h.update(b"installed families always")       # answers of 1.1.19 and before: asked again
     return h.hexdigest()
 
 
@@ -103,7 +139,7 @@ class Checker(QObject):
         if not ok or self._page is None:
             self._end(None)
             return
-        self._page.runJavaScript(DETECT % json.dumps(masked_names()), 0, self._end)
+        self._page.runJavaScript(DETECT % json.dumps(candidates()), 0, self._end)
 
     def _end(self, found):
         global _found
@@ -112,7 +148,14 @@ class Checker(QObject):
             page.deleteLater()
         if not isinstance(found, list):
             return                              # the whole list stays in use
-        _found = [str(n) for n in found]
+        # every family installed here is masked too, whatever the measure said:
+        # a font whose letters a script font shares measured the same once in
+        # a while, and was left findable (seen on a computer with 900 fonts)
+        seen, _found = set(), []
+        for n in [str(x) for x in found] + installed():
+            if n.lower() not in seen:
+                seen.add(n.lower())
+                _found.append(n)
         try:
             CACHE_DIR.mkdir(parents=True, exist_ok=True)
             _CACHE.write_text(json.dumps({"key": _key or fonts_key(), "fonts": _found}), "utf-8")

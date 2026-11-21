@@ -94,7 +94,12 @@ __IKE_DR_LIB__
   function cover() {
     if (early || !document.documentElement) return;
     early = document.createElement('style');
-    early.textContent = 'html{background:#181a1b!important}';
+    // as an image, not a colour: when the colour of <html> changes the browser
+    // styles the whole page again, and taking the cover away would cost that
+    early.textContent = 'html{background-image:linear-gradient(#181a1b,#181a1b)!important;' +
+      'background-repeat:repeat!important;background-size:auto!important;background-position:0 0!important;' +
+      'background-attachment:scroll!important;background-origin:padding-box!important;' +
+      'background-clip:border-box!important;background-blend-mode:normal!important}';
     document.documentElement.appendChild(early);
   }
   // The fix of Dark Reader's list for this site (with the common fix), as the
@@ -234,6 +239,12 @@ __IKE_DR_LIB__
   }
 
   function start() {
+    // the cover goes into <head>, first: taken away from there, only <head>
+    // can be styled again (as the first child of <html>, with <head> and
+    // <body> after it, a page with "~" rules was styled again as a whole)
+    if (early && document.head && early.parentNode !== document.head) {
+      try { document.head.insertBefore(early, document.head.firstChild); } catch (e) {}
+    }
     try { DR.enable(CFG.theme, fix); } catch (e) {}
     if (early) {
       var s = early;

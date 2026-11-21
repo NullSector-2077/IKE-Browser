@@ -127,6 +127,16 @@ def copy_secret(text):
     QTimer.singleShot(CLIPBOARD_SECONDS * 1000, clear)
 
 
+
+def fetch_site(page, target):
+    """Sec-Fetch-Site of a request of page (QUrl) to target (QUrl)."""
+    from .shields import site_of
+    if (page.scheme(), page.host().lower(), page.port()) == (target.scheme(), target.host().lower(), target.port()):
+        return b"same-origin"
+    if page.scheme() == target.scheme() and site_of(page.host().lower()) == site_of(target.host().lower()):
+        return b"same-site"
+    return b"cross-site"
+
 class Vault:
     def __init__(self, path=None):
         self.path = path or DATA_DIR / "vault.bin"
@@ -335,7 +345,8 @@ class PageBridge(QObject):
 
         from .userscripts import is_local_name, outside_home
         target = QUrl(url)
-        if target.scheme() not in ("http", "https") or not getattr(self.page, "_dark_on", False):
+        if (target.scheme() not in ("http", "https") or not getattr(self.page, "_dark_on", False)
+                or not self._css_allowed(target)):
             self.cssFetched.emit(ident, False, "")
             return
         if is_local_name(self.page.url().host()):
@@ -345,17 +356,44 @@ class PageBridge(QObject):
                      if ok else self._css_answer(ident, False, ""), "dark mode",
                      self.manager.app.network)
 
+    def _css_allowed(self, target):
+        """As the engine would load it for the page (review of 1.1.19, M4):
+        never in clear for a page sent encrypted (mixed content), and never
+        what the filter lists block for this page."""
+        page_url = self.page.url()
+        if page_url.scheme() == "https" and target.scheme() != "https":
+            return False
+        sh = self.manager.app.shields
+        cfg = sh.config
+        if ((cfg["comp_adblock"] or cfg["comp_consent"])
+                and cfg.site_opt(page_url.host().lower(), "ads") is not False):
+            action, _ = sh.blocker.request_action(target.toString(), page_url.toString(), "stylesheet")
+            if action != "allow":
+                return False
+        return True
+
     def _css_answer(self, ident, ok, text):
         try:
             self.cssFetched.emit(ident, ok, text)
         except RuntimeError:
             pass                          # the page is gone
 
-    def _get_css(self, ident, target, check):
-        from PyQt6.QtNetwork import QNetworkReply, QNetworkRequest
+    def _get_css(self, ident, target, check, hops=0):
+        from PyQt6.QtNetwork import QNetworkRequest
+
+        from . import doh
         app = self.manager.app
         req = QNetworkRequest(target)
         req.setRawHeader(b"Accept", b"text/css,*/*;q=0.1")
+        # the browser's own User-Agent: Qt's default named this fetch as I.K.E.'s
+        req.setRawHeader(b"User-Agent", app.shields.user_agent().encode("ascii", "replace"))
+        # and the headers the engine sends with a style sheet of this page
+        # (review 4, N12)
+        page = self.page.url()
+        req.setRawHeader(b"Accept-Language", app.shields.request_language(page.host().lower()))
+        req.setRawHeader(b"Sec-Fetch-Dest", b"style")
+        req.setRawHeader(b"Sec-Fetch-Mode", b"no-cors")
+        req.setRawHeader(b"Sec-Fetch-Site", fetch_site(page, target))
         req.setAttribute(QNetworkRequest.Attribute.CookieLoadControlAttribute,
                          QNetworkRequest.LoadControl.Manual)
         req.setAttribute(QNetworkRequest.Attribute.CookieSaveControlAttribute,
@@ -363,15 +401,49 @@ class PageBridge(QObject):
         req.setAttribute(QNetworkRequest.Attribute.RedirectPolicyAttribute,
                          QNetworkRequest.RedirectPolicy.UserVerifiedRedirectPolicy)
         req.setTransferTimeout(12000)
-        reply = app.network.get(req)
+        doh.get(app.network, req, lambda reply: self._css_reply(reply, ident, target, check, hops),
+                home_ok=check is None)
+
+    def _css_reply(self, reply, ident, target, check, hops):
+        from PyQt6.QtNetwork import QNetworkReply, QNetworkRequest
+
+        from . import doh
+        app = self.manager.app
+        if reply is None:                         # no address from encrypted DNS
+            self._css_answer(ident, False, "")
+            return
         refused = []
+        address = reply.url().host()        # Qt changes reply.url() to the redirect's
+        pinned = address != target.host()
 
         def redirected(where):
             where = reply.url().resolved(where) if where.isRelative() else where
+            if pinned and where.host() == address:
+                where = doh.unpin(where, target.host())
             if where.scheme() not in ("http", "https") or (
-                    reply.url().scheme() == "https" and where.scheme() != "https"):
+                    reply.url().scheme() == "https" and where.scheme() != "https") or not self._css_allowed(where):
                 refused.append(1)
                 reply.abort()
+                return
+            if pinned:
+                # followed as a new request, its name asked of the provider of
+                # encrypted DNS (Qt would look it up in clear); marked first:
+                # abort() ends the reply at once, and its end must not answer
+                follow.append(1)
+                refused.append(1)
+                reply.abort()
+                if hops >= 10:
+                    return
+
+                def again(ok):
+                    if ok:
+                        self._get_css(ident, where, check, hops + 1)
+                    else:
+                        self._css_answer(ident, False, "")
+                if check is None:
+                    again(True)
+                else:
+                    check(where.host(), again, "dark mode", app.network)
                 return
             if check is None:
                 reply.redirectAllowed.emit()
@@ -386,9 +458,13 @@ class PageBridge(QObject):
                     refused.append(1)
                     reply.abort()
             check(where.host(), checked, "dark mode", app.network)
+        follow = []
         reply.redirected.connect(redirected)
 
         def done():
+            if follow:
+                reply.deleteLater()
+                return
             ok, text = False, ""
             ctype = str(reply.header(QNetworkRequest.KnownHeaders.ContentTypeHeader) or "").lower()
             if (not refused and reply.error() == QNetworkReply.NetworkError.NoError
@@ -511,6 +587,7 @@ class PasswordManager(QObject):
         win = getattr(page, "window_ref", None)
         origin = self._origin(page)
         if (not password or not origin or not cfg["passwords_offer_save"]
+                or not cfg.get("ext_passwords", True)
                 or (win is not None and win.private)
                 or origin in cfg.get("passwords_never", [])):
             return

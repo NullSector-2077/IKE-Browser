@@ -42,6 +42,14 @@ def identity():
     }
 
 
+def browser_user_agent():
+    """The User-Agent of the pages, for every request of I.K.E. itself (filter
+    lists, updates, version check): a label of its own told each server it
+    was I.K.E. (review of 1.1.19, L3)."""
+    from . import chromever
+    return chrome_user_agent(chromever.engine_major())
+
+
 def chrome_user_agent(major):
     return ("Mozilla/5.0 (%s) AppleWebKit/537.36 (KHTML, like Gecko) "
             "Chrome/%s.0.0.0 Safari/537.36" % (identity()["ua_os"], major))

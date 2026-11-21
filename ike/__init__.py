@@ -2,7 +2,7 @@
 
 import os
 
-__version__ = "1.1.19"
+__version__ = "1.1.20"
 # Oldest installed system part (ike_boot.py, launcher, desktop icons) this ike/
 # folder goes with. Raise it only when a release cannot work without a new
 # system part: older installations are then told to update the package instead
@@ -20,6 +20,8 @@ APP_ID = "ike-browser"
 def early_args(argv):
     """Read --profile before any module computes its data folders."""
     for i, a in enumerate(argv):
+        if a == "--":
+            return                        # addresses only after it (the menu's entry, review 4, N12)
         name = None
         if a == "--profile" and i + 1 < len(argv):
             name = argv[i + 1]

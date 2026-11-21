@@ -119,6 +119,8 @@ class Monitor(QObject):
 
     def limits(self):
         cfg = self.app.config
+        if not cfg.get("ext_resources", True):        # the extension is off (1.1.20)
+            return 0, 0
         return max(0, int(cfg["res_mem_limit"] or 0)), max(0, int(cfg["res_cpu_limit"] or 0))
 
     def settings_changed(self):

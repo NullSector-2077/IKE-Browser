@@ -68,7 +68,7 @@ Plasma, no pacman):
 
 ## Next phases
 
-1. **Platform study** — documents only, in `docs/platforms/`: Linux
+1. **Platform study** — documents only, in `docs/platforms/` (now on the archive branch `docs/multiplatform-plan`): Linux
    distributions and package formats, the component manager, Windows (Qt
    run time, deployment, codecs and licences), a porting plan per platform.
    The strategy for Linux and Windows, the component manager and the codec

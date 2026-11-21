@@ -1213,6 +1213,7 @@ def css_server():
     class H(BaseHTTPRequestHandler):
         def do_GET(self):
             seen.append(self.path)
+            seen.append("UA " + self.headers.get("User-Agent", ""))
             if "/redirect?" in self.path:
                 self.send_response(302)
                 self.send_header("Location", self.path.split("?", 1)[1])
@@ -1263,7 +1264,11 @@ def steps(ike, qapp, out):
         "public_to_this_computer": ("https://news.example.test/", local + "/a.css"),
         "public_to_router_name": ("https://news.example.test/", "http://router.example.test/b.css"),
         "public_to_localhost": ("https://news.example.test/", "http://localhost:%%d/c.css" %% PORT),
-        "public_to_cdn": ("https://news.example.test/", "http://cdn.example.test/d.css"),
+        "public_to_cdn": ("http://news.example.test/", "http://cdn.example.test/d.css"),
+        # review of 1.1.19, M4: never in clear for an encrypted page, never
+        # what the filter lists block for the page
+        "mixed_content": ("https://news.example.test/", "http://cdn.example.test/h.css"),
+        "blocked_by_lists": ("http://news.example.test/", "http://ads.example.test/i.css"),
         "redirect_to_home": ("https://news.example.test/",
                              "http://cdn.example.test/redirect?http://192.168.1.1/e.css"),
         "home_page_own_sheet": (local + "/page", local + "/f.css"),
@@ -1282,19 +1287,23 @@ def steps(ike, qapp, out):
         yield 20
     out["answers"] = answers
     out["cookies"] = len(ike.network.cookieJar().cookiesForUrl(QUrl("http://cdn.example.test/")))
-''' % port, env={"IKE_TEST_RESOLVE": "router.example.test=192.168.1.1"}, timeout=120)
+    out["ua"] = ike.shields.user_agent()
+''' % port, env={"IKE_TEST_RESOLVE": "router.example.test=192.168.1.1"}, timeout=120,
+                  settings={"custom_filters": "||ads.example.test^$stylesheet\n"})
     a = out["answers"]
     for refused in ("public_to_this_computer", "public_to_router_name", "public_to_localhost",
-                    "redirect_to_home", "dark_off"):
+                    "redirect_to_home", "dark_off", "mixed_content", "blocked_by_lists"):
         assert a[refused] == [False, ""], (refused, a)
     assert a["public_to_cdn"] == [True, "body{color:#123456}"], a
     assert a["home_page_own_sheet"] == [True, "body{color:#123456}"], a
     reached = " ".join(seen)
-    for never in ("/a.css", "/b.css", "/c.css", "/g.css"):
+    for never in ("/a.css", "/b.css", "/c.css", "/g.css", "/h.css", "/i.css"):
         assert never not in reached, seen
     assert not any(path.startswith("http://192.168.1.1") for path in seen), seen   # the redirect's target
     assert "/d.css" in reached and "/f.css" in reached
     assert out["cookies"] == 0                    # the browser's own requests keep no cookies
+    # with the browser's own User-Agent, not Qt's (review of 1.1.19, M4)
+    assert {s[3:] for s in seen if s.startswith("UA ")} == {out["ua"]}, seen
 
 
 def test_user_script_updates_that_ask_for_more_need_the_user():

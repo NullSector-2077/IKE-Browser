@@ -254,7 +254,7 @@ def emulate(ike, source):
         s.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
         s.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
         s.setRunsOnSubFrames(True)
-        for old in p.scripts().find("ike-fp"):
+        for old in p.scripts().find("content"):
             p.scripts().remove(old)
         p.scripts().insert(s)
     ike.shields.apply_settings()             # the protection again, after the emulation

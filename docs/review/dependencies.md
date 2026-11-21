@@ -67,7 +67,7 @@ than the distribution's. On a system that is not updated, the engine is old.
   their licence text is in `licenses/`). Widevine is proprietary and is
   neither shipped nor installed without the user's request. The codec
   question (H.264, AAC through the system's FFmpeg on Linux; Windows) is
-  treated in `docs/platforms/`.
+  treated in `docs/platforms/` (archive branch `docs/multiplatform-plan`).
 - **How to repeat the checks**:
 
   ```bash

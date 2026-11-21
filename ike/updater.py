@@ -17,14 +17,13 @@ import subprocess
 import sys
 import tarfile
 import time
-import urllib.request
 from pathlib import Path
 
 from PyQt6.QtCore import QObject, QThread, pyqtSignal
 
-from . import __version__, background
+from . import __version__, background, doh
 from .config import RES_DIR
-from .osinfo import app_dir
+from .osinfo import app_dir, browser_user_agent
 
 UPDATES = app_dir("data") / "updates"
 STATE = UPDATES / "state.json"
@@ -174,8 +173,9 @@ def verify_signature(pubkey_b64, data, sig_b64):
 
 
 def _fetch(url, limit):
-    req = urllib.request.Request(url, headers={"User-Agent": "IKE-Browser-Updater"})
-    with urllib.request.urlopen(req, timeout=40) as r:
+    import urllib.request
+    req = urllib.request.Request(url, headers={"User-Agent": browser_user_agent()})
+    with doh.urlopen(req, timeout=40) as r:
         data = r.read(limit + 1)
     if len(data) > limit:
         raise ValueError("download too large")
@@ -258,6 +258,39 @@ def confirm_healthy():
     if state.get("status") == "pending" and state.get("current") == __version__:
         state.update({"status": "ok", "attempts": 0})
         save_state(state)
+    release_attempt()
+
+
+def release_attempt():
+    """This process no longer holds the lock of an update's first start
+    (ike_boot.py): the attempt is confirmed, or I.K.E. starts again. Held for
+    the whole life of the process, an old window left open made a later
+    update's second start look like a failed one (review 4 of 1.1.19, N8)."""
+    import sys
+    for name in ("ike_boot", "__main__"):
+        boot = sys.modules.get(name)
+        held = getattr(boot, "_ATTEMPT", None)
+        if isinstance(held, list):
+            while held:
+                try:
+                    held.pop().close()
+                except OSError:
+                    pass
+
+
+def withdraw(manifest):
+    """A version stopped by the owner ("halt") that is staged but has not yet
+    proved it starts: it does not run at the next start (review of 1.1.19, L2;
+    until then "halt" stopped only new installations)."""
+    state = load_state()
+    version = manifest.get("version")
+    if manifest.get("halt") is not True or state.get("status") != "pending" or state.get("current") != version:
+        return False
+    if version not in state.setdefault("bad", []):
+        state["bad"].append(version)
+    state.update({"current": state.get("previous"), "previous": None, "status": "ok", "attempts": 0})
+    save_state(state)
+    return True
 
 
 def take_rollback_notice():
@@ -285,6 +318,10 @@ class _Worker(QThread):
             if not verify_signature(self.src["pubkey"], raw, sig):
                 raise ValueError("the update manifest has an invalid signature")
             manifest = json.loads(raw.decode("utf-8"))
+            if "channel" in manifest and manifest["channel"] != self.channel:
+                # signed for another channel (a beta offered as stable by
+                # whoever controls the connection): review of 1.1.19, L1
+                raise ValueError("the update manifest is for another channel")
             state = load_state()
             stale = manifest_stale(manifest, seen=state.get("issued"))
             if stale:
@@ -293,6 +330,7 @@ class _Worker(QThread):
             if _num(manifest.get("issued")) and manifest["issued"] > (state.get("issued") or 0):
                 state["issued"] = manifest["issued"]
                 save_state(state)
+            withdraw(manifest)
             staged = load_state().get("current")
             newest = max(__version__, staged or "0", key=vtuple)
             if (vtuple(manifest["version"]) <= vtuple(newest)

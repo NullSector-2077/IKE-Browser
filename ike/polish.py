@@ -14,6 +14,7 @@ Each touch can be switched off on its own in PARTS, without touching the
 others.
 """
 
+import functools
 import math
 
 from PyQt6.QtCore import QEasingCurve, QObject, QPoint, QPointF, QRect, QRectF, QSize, Qt, QVariantAnimation
@@ -1181,9 +1182,13 @@ class HoverGlides(QObject):
                 continue
             b.setStyle(self.style)
             b.installEventFilter(self)
-            g = effects.Glide(b, self.config, lambda b=b, s=self: s._level(b))
+            # the object's own methods: nothing kept on a button's wrapper
+            g = effects.Glide(b, self.config, functools.partial(self._level, b))
             self.glides[b] = g
-            b.destroyed.connect(lambda _o=None, b=b, s=self: s.glides.pop(b, None))
+            b.destroyed.connect(functools.partial(self._forget, b))
+
+    def _forget(self, b, _obj=None):
+        self.glides.pop(b, None)
 
     def _level(self, b):
         g = self.glides.get(b)

@@ -115,7 +115,9 @@ class UrlBar(QLineEdit):
             return
         h = max(16, min(w.sizeHint().height(), self.height() - 4))
         width = w.sizeHint().width()
-        w.setGeometry(self.width() - self.END_MARGIN - width, (self.height() - h) // 2, width, h)
+        # the end of the field: the left one in a right-to-left language (1.1.20)
+        x = self.END_MARGIN if self.isRightToLeft() else self.width() - self.END_MARGIN - width
+        w.setGeometry(x, (self.height() - h) // 2, width, h)
         room = width + self.END_MARGIN
         if room != self._end_room:
             self._end_room = room
@@ -130,7 +132,10 @@ class UrlBar(QLineEdit):
         w.raise_()
 
     def _margins(self):
-        self.setTextMargins(self._start_room, 0, max(0, self._end_room - 2), 0)
+        start, end = self._start_room, max(0, self._end_room - 2)
+        if self.isRightToLeft():
+            start, end = end, start          # the margins are left and right, not start and end
+        self.setTextMargins(start, 0, end, 0)
 
     def set_start_widget(self, widget):
         """Put widget right after the lock; the text starts after it."""
@@ -145,9 +150,12 @@ class UrlBar(QLineEdit):
         if w is None:
             return
         lock = [b for b in self._icon_buttons() if b.defaultAction() is self.lock and not b.isHidden()]
-        x = lock[0].geometry().right() + 1 if lock else 4
         h = max(16, min(w.sizeHint().height(), self.height() - 4))
         width = w.sizeHint().width()
+        if self.isRightToLeft():
+            x = lock[0].geometry().left() - width - 1 if lock else self.width() - 4 - width
+        else:
+            x = lock[0].geometry().right() + 1 if lock else 4
         w.setGeometry(x, (self.height() - h) // 2, width, h)
         if width + 2 != self._start_room:
             self._start_room = width + 2
@@ -163,7 +171,7 @@ class UrlBar(QLineEdit):
         if (self._end is None or b.defaultAction() is self.lock
                 or b.geometry() == self._shifted.get(b)):
             return
-        to = b.geometry().translated(-self._end_room, 0)
+        to = b.geometry().translated(self._end_room if self.isRightToLeft() else -self._end_room, 0)
         self._shifted[b] = to            # first: moving it sends another Move
         b.move(to.topLeft())
 

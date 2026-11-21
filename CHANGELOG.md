@@ -1,5 +1,173 @@
 # Changelog
 
+## 1.1.20
+
+An independent review of 1.1.19 (security and privacy) found 18 points; each
+one is fixed here with a test that failed before the fix (tests/test_review_fixes.py).
+
+- **A key press never grants a permission**: in the camera, microphone,
+  location, "open with another program" and many-downloads questions, Enter
+  and Esc now block, and "Allow" can be clicked only a moment later (a page
+  could ask exactly when the user was typing).
+- **Fingerprinting noise can no longer be peeled off**: the canvas noise now
+  depends on the picture too (a plain grey canvas of the same size gave the
+  pattern away, and with it the real pixels); the audio noise touches only
+  what the engine rendered, every sample by its own tiny factor; text widths
+  change per text and font, and an empty text measures 0.
+- **The protected values look like Chrome's**: the replaced properties throw
+  as Chrome's do on a wrong object; Strict keeps WebGPU with no adapter and a
+  battery on mains power instead of removing them, and sends the one language
+  it shows in the Accept-Language header too; Maximum's dates and numbers use
+  en-US like its navigator.language, also when a page asks for an empty
+  list of languages or one the engine does not have.
+- **A page can no longer switch the fingerprinting protection off from
+  inside**: the protection used some of the page's own built-in functions
+  while the page ran; a page that replaced one of them (for example
+  `WeakSet.prototype.has` or `Promise.prototype.then`) was handed the real
+  canvas or audio values, the hidden font names, or the full browser version.
+  Everything it uses is now taken before the page runs (second review pass).
+- **An independent audit of the fingerprinting protection** (first groups
+  of its fixes; each with a test that failed before):
+  - no built-in function of the page's is used any more, `call`, `apply`,
+    `filter`, `toLowerCase`, `slice` and regular expressions included (they
+    gave the hidden WebGL extension, an inline worker without protection);
+    the client hints keep the engine's own order of keys;
+  - an inline worker can no longer read its own prelude and with it the
+    site's noise key: its address is withdrawn at once, its location and its
+    errors name the page's own address and line, and a `data:` worker gets
+    a key of its own;
+  - fonts at Strict and Maximum: the masks no longer tell which fonts are
+    installed, `local()` in a FontFace answers as for an absent font, a
+    frame's `clear()` cannot remove the page's masks, workers get the same
+    masks, and every font installed on the computer is masked, not only the
+    714 known names;
+  - the other ways to the pixels get the noise too: WebGL2 pixel buffers,
+    `readPixels` into any array of bytes (also in workers), `VideoFrame`;
+    the byte data of audio analysers; 16-bit float (HDR) canvas reads get a
+    noise of their own;
+  - the noise can no longer be removed by reading a picture several times
+    with one corner changed (a majority vote), nor the audio noise by
+    rendering a buffer of known samples: it now depends on the content
+    itself, not on the whole picture or on the place of a sample;
+  - sites are told the same storage space (10 GiB) on every computer, not
+    60 % of the disk to the byte;
+  - an error a page provokes no longer names I.K.E. in its stack, and the
+    two invented plugins answer like real ones to the engine's own checks;
+  - a second independent pass tried 13 more ways around these fixes
+    (constructor and index-setter tricks, module workers, workers inside
+    workers, WebGL numbers written as text, other spellings of fonts, quiet
+    audio, Trusted Types pages): each is closed, with a test; what a page's
+    world cannot close is listed in docs/SECURITY.md.
+- **Dark mode with Dark Reader: no full restyle when the page starts.** The
+  dark cover that hides the white flash while Dark Reader starts was a
+  colour on the page's root, and taking it away made the browser style the
+  whole page again (the largest part of Dark Reader's extra cost on
+  Speedometer's Lit pages, found by an independent review). It is now an
+  image in the page's head: the same dark, no restyle.
+- **The default fonts are Chrome's** (Times New Roman, Arial, Monospace):
+  a page could read the desktop's own font names from them. Pages that
+  choose no font of their own may look slightly different.
+- **Maximum protection: the web engine speaks English too** when it is the
+  global level (form messages, the PDF viewer, dates, workers); I.K.E.'s own
+  menus and windows keep your language. It applies after a restart.
+- **Ctrl+Shift+A opens the extensions** ("Search open tabs…" stays in the
+  menu without a shortcut): with both, neither worked.
+- **Encrypted DNS also for I.K.E.'s own requests**: with encrypted DNS on,
+  the home-network checks, dark mode's style sheets, user scripts, the sites'
+  icons, updates and filter lists ask the same provider instead of the
+  system's resolver; when the engine refuses the setting, I.K.E. says so.
+- **I.K.E.'s own requests no longer name I.K.E.**: filter lists, updates, the
+  version check, the DRM download and user scripts send the pages' User-Agent;
+  at the first start only the search engine in use is asked for its icon.
+- **User scripts**: a page can no longer make I.K.E. download a `.user.js`
+  by itself (only the user's own click or typed address offers an install,
+  and the home network only when typed); each script with GM functions runs
+  in a world of its own, so another installed script cannot read its token
+  or answers; an update that moves a script into the page's world asks first;
+  an answer that arrives after the tab changed site is dropped.
+- **Dark mode's style sheets** follow the page's rules: never in clear for an
+  encrypted page, never what the filter lists block for it, with the
+  browser's User-Agent.
+- **The logins' channel is the password helper's alone**: the other helpers
+  of its world get only the calls they use; a second channel cannot take the
+  answers.
+- **Updates**: a second start of I.K.E. within 20 seconds of an update (a link
+  from another program) no longer rolls a healthy update back for good (needs
+  this package: ike_boot.py); each channel's manifest names its channel; a
+  version stopped by the owner is withdrawn even when already staged.
+- **Smaller fixes**: extension packages from the store must carry the
+  extension's own signature (CRX3); site icons are decoded only as PNG or ICO;
+  the password generated from the page menu stays out of clipboard history
+  and is taken off after 45 seconds; arguments I.K.E. does not know are not
+  passed to Qt; the site of a name follows the Public Suffix List of the
+  system (new dependency: publicsuffix-list), so `a.wordpress.com` and
+  `b.wordpress.com` are two sites.
+- **The automatic click that skips an ad in an embedded video** lands only on
+  the video: only when the page really holds a video frame, the point must
+  still be on it when the click is made, and at most once every 3 seconds (a
+  page could put something of its own there to get a real click). The skip
+  on the video site itself is unchanged (the owner's decision).
+- **Faster where the reviews found time** (an independent performance review
+  of 1.1.20, each fix measured and tested): visits and site icons are written
+  to disk together a moment later instead of one wait for the disk per page
+  (on a hard disk tens of milliseconds at the end of every page load); an
+  icon drawn again with the same picture is not written again; the history
+  menu and the new tab page use indexes (at 100,000 visits 10-17 ms -> under
+  0.2 ms); the ad-blocking engine of the session is built in its own thread
+  while I.K.E. sets up, still in place before any page loads; no download
+  code is loaded at start-up; the Public Suffix List is read from a parsed
+  copy; the canvas noise is computed four bytes at a time; encrypted DNS
+  keeps one connection to its provider and asks a name once.
+- **The canvas noise no longer undoes itself**: pixels the page wrote back
+  and read again lost the noise and gave the real picture (found while
+  measuring the noise; also in 1.1.19).
+- **Forty more languages** (the owner's request): Dutch, Swedish, Danish,
+  Norwegian, Finnish, Icelandic, Greek, Hungarian, Romanian, Turkish,
+  Estonian, Lithuanian, Latvian, Catalan, Galician, Basque, Albanian,
+  Afrikaans, Swahili, Filipino, Korean, Indonesian, Malay, Vietnamese, Thai,
+  Hindi, Bengali, Marathi, Nepali, Tamil, Telugu, Georgian, Armenian,
+  Azerbaijani, Kazakh, Uzbek, and from right to left Arabic, Hebrew, Persian
+  and Urdu, for which the whole interface turns (the address bar's shield and
+  buttons too). Every text translated, checked automatically; corrections by
+  native speakers are welcome.
+- **Dark mode with Dark Reader on pages built from components** (Lit, web
+  components): their style sheets are matched before their dark copy is
+  written, so the page is no longer styled again two more times as soon as
+  the components appear; rules whose text did not change are not written
+  again. The dark result is the same, byte for byte. (Found by running
+  Speedometer 3 inside I.K.E.; pages with very much CSS still cost more with
+  Dark Reader than with the engine's own dark mode, by the way Dark Reader
+  works: it makes a dark copy of every style.)
+- `docs/platforms` left `main`; it is kept, identical, on the archive branch
+  `docs/multiplatform-plan`.
+- **Menus and Settings, grouped so that everyone finds their way** (the
+  owner's plan). The ☰ menu holds the everyday entries, each with an icon and
+  a short explanation: new tab and windows, Protection (the level, Repair
+  this site, Site permissions, Update filter lists, Clear browsing data),
+  I.K.E. extensions, Dark mode for pages, Zoom, History, Bookmarks,
+  Downloads, Print / Save as PDF / Screenshot, Settings, Check for I.K.E.
+  updates (new: a check at once, answered as the daily one), About I.K.E.
+  (now with each component's version) and Quit; every other command is under
+  More. The menu bar reads File, Edit, View, History, Bookmarks, Protection,
+  Extensions, Tools, Help; Settings moved to Tools. Every shortcut is the
+  same. The Settings have eleven pages (General, Language, Appearance, New
+  tab page, Search, Protection, Privacy, I.K.E. extensions, Downloads,
+  Updates, System), each with one sentence saying what it holds and a short
+  explanation under every option. Nothing was removed and every setting keeps
+  its name, its default and its meaning; the old page names still open the
+  Settings.
+- **I.K.E. extensions**: the features that come with I.K.E. (no third-party
+  code), each with an on/off switch in the menu and in the Settings: user
+  scripts, dark mode for pages, skip ads in videos, cookie banners, password
+  manager, page watcher, split view, floating video, translation,
+  containers, site resources, weather, command bar and Plasma integration.
+  All on as before; off hides the feature's entries and buttons and stops
+  its work. Two new ones, off until chosen: **automatic scrolling** (middle
+  click on an empty part of a page and move the mouse; any click or Esc
+  stops it) and **open the selected text with the middle button** (as an
+  address or a search, in the same tab; never run as code). Links, fields
+  and buttons keep their own middle click (tests/test_menus_extensions.py).
+
 ## 1.1.19
 
 - **The home network, also through public names**: the web engine's own

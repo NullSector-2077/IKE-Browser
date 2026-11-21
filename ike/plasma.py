@@ -11,7 +11,8 @@ Integration extension does, with nothing to install):
 Keeping the screen on while a video plays needs nothing from I.K.E.: the web
 engine itself asks the desktop (org.freedesktop.ScreenSaver).
 
-Each part can be switched off in Settings → General. Nothing is started when
+Each part can be switched off in Settings → System (all of it with the
+"Plasma integration" extension). Nothing is started when
 there is no session bus or jeepney is not installed. Pages are only read from
 I.K.E.'s own isolated script world: nothing is added to the pages' scripts.
 """
@@ -155,7 +156,8 @@ class DesktopIntegration(QObject):
         QTimer.singleShot(0, self.settings_changed)
 
     def opt(self, key):
-        return bool(self.app.config.get(key, True))
+        # all of it is off while the "Plasma integration" extension is (1.1.20)
+        return bool(self.app.config.get(key, True)) and bool(self.app.config.get("ext_plasma", True))
 
     # --- start / stop --------------------------------------------------------
     def _ensure_bus(self):
