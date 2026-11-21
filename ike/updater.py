@@ -126,7 +126,7 @@ def manifest_stale(manifest, now=None, running=None, seen=None):
     if exp is None:
         if vtuple(running or __version__) >= (1, 1, 18):
             return "expired"
-    elif not _num(exp) or now > exp:
+    elif not _num(exp) or now < exp:
         return "expired"
     issued = manifest.get("issued")
     if _num(seen) and (not _num(issued) or issued < seen):
