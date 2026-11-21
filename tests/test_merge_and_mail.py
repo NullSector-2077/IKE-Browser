@@ -1,8 +1,8 @@
 """1.1.19, the owner's decisions: a green fix of the automation or of ChatGPT
 goes into main by itself when it changes no test and no protected file
-(tools/automerge.py); a mail with an exact subject says that a release is
-ready to publish, with the command, and that ChatGPT has to step in
-(tools/send-mail.py). The addresses and the password are secrets only."""
+(tools/automerge.py); GitHub itself mails the owner, through issues with
+exact titles, that a release is ready to publish (with the command) and that
+ChatGPT has to step in."""
 
 import importlib.util
 import re
@@ -19,65 +19,35 @@ def load(name):
     return mod
 
 
-mail = load("send-mail")
 merge = load("automerge")
 guard = load("check-autofix-patch")
 REPO = "NullSector-2077/IKE-Browser"
 
 
-class FakeSMTP:
-    sent, logins, fail = [], [], 0
-
-    def __init__(self, host, port, context=None, timeout=0):
-        self.host, self.port = host, port
-
-    def __enter__(self):
-        if FakeSMTP.fail:
-            FakeSMTP.fail -= 1
-            raise OSError("smtp down: secret-in-message")
-        return self
-
-    def __exit__(self, *a):
-        return False
-
-    def login(self, user, password):
-        FakeSMTP.logins.append((user, password))
-
-    def send_message(self, msg):
-        FakeSMTP.sent.append(msg)
+RELEASE = "C'E' UNA NUOVA RELEASE IN MAIN PRONTA DA PUBBLICARE!!!"
+CHATGPT = "ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!!"
 
 
-def test_a_mail_is_sent_with_the_exact_subject_to_every_address(capsys):
-    FakeSMTP.sent, FakeSMTP.logins, FakeSMTP.fail = [], [], 1
-    env = {"MAIL_USERNAME": "sender@example.test", "MAIL_APP_PASSWORD": "app-pass-TESTONLY",
-           "MAIL_TO": "one@example.test, two@example.test"}
-    subject = "C'E' UNA NUOVA RELEASE IN MAIN PRONTA DA PUBBLICARE!!!"
-    assert mail.send(subject, "corpo", env=env, smtp=FakeSMTP, sleep=lambda s: None) is True
-    msg = FakeSMTP.sent[0]
-    assert msg["Subject"] == subject and msg["To"] == "one@example.test, two@example.test"
-    assert FakeSMTP.logins == [("sender@example.test", "app-pass-TESTONLY")]
-    out = capsys.readouterr().out
-    assert "TESTONLY" not in out and "example.test" not in out and "secret-in-message" not in out
-
-
-def test_without_secrets_nothing_is_sent_and_it_says_so(capsys):
-    FakeSMTP.sent = []
-    assert mail.send("x", "y", env={"MAIL_TO": "a@example.test"}, smtp=FakeSMTP) is False
-    assert FakeSMTP.sent == [] and "not configured" in capsys.readouterr().out
-
-
-def test_no_address_is_written_in_the_repository():
-    """The repository is public: the owner's addresses live in the secrets only."""
-    for path in [*WORKFLOWS.glob("*.yml"), ROOT / "tools" / "send-mail.py", ROOT / "tools" / "automerge.py"]:
-        text = path.read_text()
-        assert not re.search(r"[\w.+-]+@gmail\.com", text), path.name
+def test_github_itself_tells_the_owner():
+    """The owner's words: GitHub mails the owner (an issue assigned to the
+    owner and naming the owner; its title is the mail's subject), never a
+    mail service of ours: no address, password or mail secret anywhere."""
     rr = (WORKFLOWS / "release-ready.yml").read_text()
     af = (WORKFLOWS / "autofix.yml").read_text()
-    for text in (rr, af):
-        assert "MAIL_TO: ${{ secrets.MAIL_TO }}" in text and "MAIL_APP_PASSWORD: ${{ secrets.MAIL_APP_PASSWORD }}" in text
-    assert "C'E' UNA NUOVA RELEASE IN MAIN PRONTA DA PUBBLICARE!!!" in rr
-    assert ("cd ~/IKE-Browser && git checkout main && git pull --ff-only && python3 tools/publish.py" in rr)
-    assert "ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!!" in af
+    assert 'title="%s"' % RELEASE in rr and '--assignee "$OWNER"' in rr and 'echo "@$OWNER:' in rr
+    assert ("[ -d ~/IKE-Browser/.git ] || git clone https://github.com/NullSector-2077/IKE-Browser.git ~/IKE-Browser; "
+            "cd ~/IKE-Browser && git checkout main && git pull --ff-only && python3 tools/publish.py") in rr
+    assert 'gh issue close "$open"' in rr and 'gh release view "v$version"' in rr      # closed once published
+    assert "7 * 86400" in rr and "<!-- release-ready: $version -->" in rr               # weekly reminder, one per version
+    plan = load("autofix-plan")
+    assert plan.ISSUE_TITLE % "Tests" == CHATGPT + " (Tests)"
+    assert 'title="%s ($WORKFLOW)"' % CHATGPT in af and '--assignee "$GITHUB_REPOSITORY_OWNER"' in af
+    assert 'echo "@$GITHUB_REPOSITORY_OWNER:' in af
+    for path in [*WORKFLOWS.glob("*.yml"), *(ROOT / "tools").glob("*.py")]:
+        text = path.read_text()
+        assert not re.search(r"[\w.+-]+@gmail\.com", text), path.name
+        assert "MAIL_" not in text and "smtplib" not in text, path.name
+    assert not (ROOT / "tools" / "send-mail.py").exists()
 
 
 def pr(ref="automation/autofix-main", repo=REPO, draft=True):
@@ -141,13 +111,10 @@ def test_the_workflows_are_wired():
     assert "if: github.event.workflow_run.conclusion == 'success'" in am
     text = (ROOT / "tools" / "automerge.py").read_text()
     assert '"sha=" + a.sha' in text and '"workflow", "run", "tests.yml"' in text
-    rr = (WORKFLOWS / "release-ready.yml").read_text()
-    assert "release-mail-${{ steps.v.outputs.version }}-${{ steps.v.outputs.week }}" in rr
-    assert "if: steps.mail.outputs.sent == 'true'" in rr and 'gh release view "v$version"' in rr
 
 
 def test_no_fix_can_change_the_rules_it_is_judged_by():
     """An automatic or ChatGPT fix touching tools/automerge.py could change
     the merge rules for the next ones: both tools are protected files."""
-    assert {"tools/automerge.py", "tools/send-mail.py"} <= set(guard.FORBIDDEN_FILES)
+    assert "tools/automerge.py" in guard.FORBIDDEN_FILES
     assert decide(files=[{"filename": "tools/automerge.py", "status": "modified", "patch": "+x"}])[0] is False

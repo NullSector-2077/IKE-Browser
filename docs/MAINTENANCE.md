@@ -5,8 +5,8 @@ is merged only once its tests are green: since 1.1.19 a fix of the automatic
 fix or of ChatGPT that changes no test and no protected file goes into `main`
 by itself (`automerge.yml`, below); everything else is merged by the owner or
 by Claude working in a session for the owner (CLAUDE.md). The owner alone
-**signs and publishes** (one command on the owner's computer, sent by mail
-when a release is ready, [UPDATES.md](UPDATES.md)). No workflow releases or
+**signs and publishes** (one command on the owner's computer, in the issue
+GitHub mails when a release is ready, [UPDATES.md](UPDATES.md)). No workflow releases or
 signs anything, and no workflow pushes to `main`.
 
 ## What runs by itself
@@ -16,14 +16,13 @@ signs anything, and no workflow pushes to `main`.
 | Every day, 05:17 UTC | Upstream versions of the bundled components | `daily-check.yml` | Issue labelled `components` |
 | Every day, 06:17 UTC | The updates applied to a candidate built from current `main` | `daily-maintenance.yml` | Branch `automation/daily-maintenance`, draft PR labelled `maintenance` |
 | On every PR, every push to `main`, every candidate or fix | Lint, all the tests, the Arch package and its tests | `tests.yml` | Checks on the PR, package download `ike-browser-package` |
-| When one of the three above fails | An automatic fix | `autofix.yml` | Draft PR labelled `autofix`, or an issue "Automatic fix needs you" |
+| When one of the three above fails | An automatic fix | `autofix.yml` | Draft PR labelled `autofix`, or an issue "ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!! (<workflow>)" assigned to the owner, which GitHub mails |
 | Mondays, 03:41 UTC | The whole suite and the package on Arch Linux's own Qt (`archlinux:latest`) | `arch.yml` | A failed run to look at (not a required check, no automatic fix) |
 | Every day, 04:23 UTC, and on every PR and push to `main` | The security tests with the engine's sandbox really on (as a normal user), and the RustSec advisories of every crate of the AdBlock engine | `security.yml` | Checks on the PR; on `main` the issue "Rust advisories" when one is found (no automatic fix) |
 | Mondays, 07:41 UTC | The automation itself: every scheduled check (also the Arch and security ones, 1.1.19), and one tiny question to each reserve of the automatic fix | `health.yml` | Issue "Automation health" when something stopped, failed, waits too long, or a reserve's key or model no longer works |
 | Once a month | New versions of the GitHub actions used | Dependabot | One PR labelled `maintenance` |
 | When a check of a pull request ends | A fix of the automatic fix (`automation/autofix-main`) or of ChatGPT (`chatgpt/...`) goes into `main` when every check of its last commit passed, it changes no test, no protected file (the checker's lists), no workflow, the ad blocker or the package, the version files only as the automation raises the version, and none of its commits is an autofix trial (`tools/automerge.py`, read from `main`); then the tests of `main` start | `automerge.yml` | The merge and a comment; anything else waits for a person |
-| When the tests of `main` pass, and every day at 08:13 UTC | A version in `main` that is not published yet | `release-ready.yml` | A mail "C'E' UNA NUOVA RELEASE IN MAIN PRONTA DA PUBBLICARE!!!" with the exact command, once per version and week |
-| When every agent of the automatic fix failed | The same report as the issue | `autofix.yml` (job `report`) | A mail "ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!!" with the message to paste into ChatGPT |
+| When the tests of `main` pass, and every day at 08:13 UTC | A version in `main` that is not published yet | `release-ready.yml` | An issue "C'E' UNA NUOVA RELEASE IN MAIN PRONTA DA PUBBLICARE!!!" with the exact command, assigned to the owner and naming the owner (GitHub mails it); a reminder comment each week; closed by itself once the version is published |
 
 ## Components followed
 
@@ -101,7 +100,7 @@ never touched.
    seconds after a run closes); when no log can be read, that issue too,
    instead of a fix that could only guess. A job that failed without a failed
    step (a time limit) still counts as a real failure.
-   An open issue "Automatic fix needs you: <workflow>" stops a new fix of
+   An open issue "ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!! (<workflow>)" stops a new fix of
    `main` only when it names the same failed commit (the report job ends each
    issue and comment with a hidden `<!-- autofix-sha: ... -->` mark) or was
    reported in the last 24 hours (1.1.18: an old issue of the first trials
@@ -376,7 +375,7 @@ never touched.
    automation itself send no `workflow_run` to GitHub, so `tests.yml` hands
    their failure over with a dispatch, job `hand-over`, on the automation's own
    branches only; the plan waits for that run to close.) After two, or when nothing
-   could be fixed, the issue **"Automatic fix needs you: <workflow>"** is opened. Its
+   could be fixed, the issue **"ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!! (<workflow>)"** is opened (1.1.19: that title, in the owner's words, assigned to the owner and naming the owner, so GitHub mails it). Its
    reason is plain: quota, chiave, modello, tempo, rifiutata or sicurezza
    (and, 1.1.18, "una riserva ha preparato una correzione, ma i controlli
    automatici l'hanno respinta" when that is what happened).
@@ -555,13 +554,12 @@ person: open a conversation and paste its link.
   installer").
 - Settings → Branches: protect `main` (pull request required, status check
   `tests` required, no force push, no deletion).
-- Settings → Secrets and variables → Actions → **Secrets**, for the mails
-  (1.1.19): `MAIL_USERNAME` (the Gmail address that sends),
-  `MAIL_APP_PASSWORD` (an app password of that account: Google account →
-  Security → 2-Step Verification on → App passwords; never the account's own
-  password) and `MAIL_TO` (the addresses that receive, separated by commas).
-  They are never written in the repository, which is public, and never shown
-  in the logs. Without them the mails are not sent, and nothing else changes.
+- The owner's notices (1.1.19): GitHub mails the owner the two issues above
+  (they assign and name the owner). To get only those by mail: on the
+  repository, Watch → "Participating and @mentions"; in the account,
+  Settings → Notifications: email on for "Participating, @mentions and
+  custom", off for "Watching" and "Actions". No address or password is in
+  the repository.
 - Autofix trials (deliberate errors on `automation/autofix-main`) must keep
   "Autofix trial" at the start of their commit message: `automerge.py` never
   merges a pull request that has such a commit.

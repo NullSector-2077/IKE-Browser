@@ -242,7 +242,7 @@ def test_plan_one_fix_of_main_at_a_time_and_no_repeats():
 
 
 def test_an_old_issue_never_blocks_a_new_failure():
-    """1.1.18: issue #31 of the first trials ("Automatic fix needs you: Tests",
+    """1.1.18: issue #31 of the first trials ("ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!! (Tests)",
     weeks old, another commit) kept every later failure of main from a fix."""
     run = failed_run(head_sha="abc1234def", _tip="abc1234def")
     for issues in ([report("Tests", hours=24 * 20)],                      # old, no commit named
@@ -377,13 +377,13 @@ def test_health_finds_what_waits_or_is_missing():
         now, ok, [], True,
         autofix_runs=[item(19, conclusion="failure"), item(18, conclusion="success"), item(1, conclusion="failure")],
         reserve_keys={"GROQ_API_KEY": False, "OPENROUTER_API_KEY": True},
-        autofix_issues=[item(2, title="Automatic fix needs you: Tests"), item(18, title="new"),
+        autofix_issues=[item(2, title="ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!! (Tests)"), item(18, title="new"),
                         item(1, title="a pull request", pull_request={})],
         maintenance_prs=[item(3, title="Maintenance candidate: IKE 1.1.18"), item(19, title="fresh")],
         main_protected=False, unreadable=["the runs of the automatic fix"]))
     assert "automatic fix failed 1 time(s)" in found and "u19" in found
     assert "`GROQ_API_KEY` is missing" in found and "OPENROUTER_API_KEY" not in found
-    assert "Automatic fix needs you: Tests" in found and "\"new\"" not in found and "a pull request" not in found
+    assert "ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!! (Tests)" in found and "\"new\"" not in found and "a pull request" not in found
     assert "Maintenance candidate: IKE 1.1.18" in found and "fresh" not in found
     assert "`main` has no branch protection" in found and "Could not check the runs" in found
     assert health.problems(now, ok, [], True, reserve_keys={"GROQ_API_KEY": True}, main_protected=True) == []
@@ -464,12 +464,8 @@ def test_autofix_workflow_permissions():
     assert re.search(r"permissions:\n\s+contents: read\n\s+outputs:", jobs["fix"])
     assert "secrets.GEMINI_API_KEY" in jobs["fix"]
     assert "github.token" not in jobs["fix"] and "GH_TOKEN" not in jobs["fix"]
-    for name in ("plan", "guard", "publish"):
+    for name in ("plan", "guard", "publish", "report"):
         assert "secrets." not in jobs[name], name
-    # the report holds only the mail's secrets (1.1.19), in its last step, the mail
-    report = jobs["report"]
-    assert set(re.findall(r"secrets\.(\w+)", report)) == {"MAIL_USERNAME", "MAIL_APP_PASSWORD", "MAIL_TO"}
-    assert report.index("secrets.") > report.index("- name: Mail the owner") > report.index("- name: Tell the owner")
     for name in ("plan", "fix", "guard", "publish"):
         assert "persist-credentials: false" in jobs[name], name
     assert "contents: write" not in jobs["guard"] and "contents: write" not in jobs["plan"]
@@ -2737,7 +2733,7 @@ def test_reports_one_after_the_other_never_open_the_same_issue_twice(tmp_path):
     assert "concurrency:" not in report_job
     _report(tmp_path, [])
     issues = _report(tmp_path, [])
-    assert [(i["title"], i["comments"], i["closed"]) for i in issues] == [("Automatic fix needs you: Tests", 1, False)]
+    assert [(i["title"], i["comments"], i["closed"]) for i in issues] == [("ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!! (Tests)", 1, False)]
     # two at the same moment: both saw no issue, both opened one; the newer closes itself
     race = tmp_path / "race"
     race.mkdir()
@@ -2745,7 +2741,7 @@ def test_reports_one_after_the_other_never_open_the_same_issue_twice(tmp_path):
     assert [(i["n"], i["comments"], i["closed"]) for i in issues] == [(1, 1, False), (2, 0, True)], issues
     # GitHub's failures have their own issue, apart from the code's
     issues = _report(tmp_path, [], KIND="infra", REASON="a step of GitHub or the runner failed")
-    assert [i["title"] for i in issues] == ["Automatic fix needs you: Tests", "GitHub or the runner failed: Tests"]
+    assert [i["title"] for i in issues] == ["ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!! (Tests)", "GitHub or the runner failed: Tests"]
     assert "issue close" not in (WORKFLOWS / "autofix.yml").read_text().split("oldest()")[0]
 
 
@@ -2774,7 +2770,7 @@ def test_two_failures_close_together_never_write_the_same_branch_twice():
 
 def test_reports_about_other_branches_never_hold_back_a_fix_of_main(monkeypatch):
     """Audit of #65 (verified on issue #31): the trials on
-    automation/autofix-main commented on "Automatic fix needs you: Tests" at
+    automation/autofix-main commented on "ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!! (Tests)" at
     06:09 and 07:14, and every failure of main for the next 24 hours would
     have been skipped as "already reported". The mark now names the branch;
     only reports about main count by their age. The same commit still does."""

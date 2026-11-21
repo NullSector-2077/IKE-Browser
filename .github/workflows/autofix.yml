@@ -836,13 +836,7 @@ jobs:
     # GitHub keeps one waiting job per group and drops the rest (audit of #65).
     permissions:
       issues: write
-      contents: read           # main's tools/send-mail.py (1.1.19)
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: main
-          path: trusted
-          persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         continue-on-error: true
         with:
@@ -861,7 +855,6 @@ jobs:
           name: autofix-failure
           path: ${{ runner.temp }}/failure
       - name: Tell the owner
-        id: tell
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -927,6 +920,8 @@ jobs:
               echo
               echo "### Prossimi passi"
               echo
+              echo "@$GITHUB_REPOSITORY_OWNER: gli agenti non ce l'hanno fatta, serve il tuo intervento."
+              echo
               echo "1. **ChatGPT** (lo avvii tu): apri ChatGPT, collegato a GitHub, e incolla il messaggio qui sotto."
               echo "   GitHub controlla la sua PR con le stesse regole dell'autofix e rifà tutti i test."
               echo "2. **Claude**: se nemmeno ChatGPT ci riesce, apri una conversazione con Claude e incolla il link di questa issue."
@@ -977,7 +972,9 @@ jobs:
           elif [ -n "$HEAD_SHA" ]; then
             printf '\n<!-- autofix-sha: %s -->\n' "$HEAD_SHA" >> "$body"
           fi
-          title="Automatic fix needs you: $WORKFLOW"
+          # 1.1.19, the owner's words: GitHub mails the owner every new issue and
+          # comment (the owner is assigned and named too), its title as subject
+          title="ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!! ($WORKFLOW)"
           if [ "$KIND" = "infra" ]; then title="GitHub or the runner failed: $WORKFLOW"; fi
           gh label create autofix --color d93f0b --description "Automatic fix prepared by the AI agent" 2>/dev/null || true
           retry() { n=1; until "$@"; do [ "$n" -ge 3 ] && return 1; sleep $((n * 15)); n=$((n + 1)); done; }
@@ -990,7 +987,9 @@ jobs:
             retry gh issue comment "$open" --body-file "$body"
             issue="$open"
           else
-            url=$(retry gh issue create --title "$title" --label autofix --body-file "$body")
+            url=$(gh issue create --title "$title" --label autofix --assignee "$GITHUB_REPOSITORY_OWNER" \
+                    --body-file "$body" 2>/dev/null) \
+              || url=$(retry gh issue create --title "$title" --label autofix --body-file "$body")
             mine="${url##*/}"
             issue="$mine"
             # a report at the same moment may have opened one too: the older stays
@@ -1001,41 +1000,6 @@ jobs:
               issue="$first"
             fi
           fi
-          if [ -n "${GITHUB_OUTPUT:-}" ]; then
-            echo "issue=$issue" >> "$GITHUB_OUTPUT"
-            echo "body=$body" >> "$GITHUB_OUTPUT"
-          fi
-      # 1.1.19, the owner's request: a mail when ChatGPT has to step in (every
-      # agent failed), with the message to paste; never for a failure of GitHub
-      # itself. The addresses and the password are secrets (tools/send-mail.py).
-      - name: Mail the owner
-        if: needs.plan.outputs.kind != 'infra' && steps.tell.outputs.issue != ''
-        env:
-          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
-          MAIL_APP_PASSWORD: ${{ secrets.MAIL_APP_PASSWORD }}
-          MAIL_TO: ${{ secrets.MAIL_TO }}
-          ISSUE: ${{ steps.tell.outputs.issue }}
-          BODY: ${{ steps.tell.outputs.body }}
-        run: |
-          mail="$RUNNER_TEMP/mail.txt"
-          {
-            echo "Gli agenti AI dell'autofix non sono riusciti a correggere un errore di I.K.E."
-            echo
-            echo "Cosa fare: apri ChatGPT (collegato a GitHub) e incolla il messaggio qui sotto, tutto."
-            echo "GitHub controlla la sua correzione con le stesse regole dell'autofix e rifà tutti i test;"
-            echo "se è verde e non tocca test o file protetti, entra in main da sola."
-            echo
-            echo "I dettagli: https://github.com/${{ github.repository }}/issues/$ISSUE"
-            echo
-            echo "----- messaggio per ChatGPT -----"
-            sed -n '/^````text$/,/^````$/p' "$BODY" | sed '1d;$d'
-            echo "----- fine del messaggio -----"
-          } > "$mail"
-          if ! grep -q "^Repository:" "$mail"; then
-            echo "no message for ChatGPT in this report: no mail"; exit 0
-          fi
-          python3 -I trusted/tools/send-mail.py --subject "ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!!" \
-            --body-file "$mail" || echo "::warning::the mail to the owner was not sent (see above)"
 
   # By hand only (workflow_dispatch with self_test): does Antigravity's deny list
   # hold with --dangerously-skip-permissions? The same closed room as the fix
