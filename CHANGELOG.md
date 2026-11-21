@@ -68,6 +68,23 @@ one is fixed here with a test that failed before the fix (tests/test_review_fixe
 - **The canvas noise no longer undoes itself**: pixels the page wrote back
   and read again lost the noise and gave the real picture (found while
   measuring the noise; also in 1.1.19).
+- **Forty more languages** (the owner's request): Dutch, Swedish, Danish,
+  Norwegian, Finnish, Icelandic, Greek, Hungarian, Romanian, Turkish,
+  Estonian, Lithuanian, Latvian, Catalan, Galician, Basque, Albanian,
+  Afrikaans, Swahili, Filipino, Korean, Indonesian, Malay, Vietnamese, Thai,
+  Hindi, Bengali, Marathi, Nepali, Tamil, Telugu, Georgian, Armenian,
+  Azerbaijani, Kazakh, Uzbek, and from right to left Arabic, Hebrew, Persian
+  and Urdu, for which the whole interface turns (the address bar's shield and
+  buttons too). Every text translated, checked automatically; corrections by
+  native speakers are welcome.
+- **Dark mode with Dark Reader on pages built from components** (Lit, web
+  components): their style sheets are matched before their dark copy is
+  written, so the page is no longer styled again two more times as soon as
+  the components appear; rules whose text did not change are not written
+  again. The dark result is the same, byte for byte. (Found by running
+  Speedometer 3 inside I.K.E.; pages with very much CSS still cost more with
+  Dark Reader than with the engine's own dark mode, by the way Dark Reader
+  works: it makes a dark copy of every style.)
 - `docs/platforms` left `main`; it is kept, identical, on the archive branch
   `docs/multiplatform-plan`.
 

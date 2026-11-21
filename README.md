@@ -152,11 +152,18 @@ profiles: `ike-browser --profile NAME`.
   desktop's reduced-motion setting and can be switched off.
 - English, Italian, Spanish, French, German, Portuguese, Chinese (Simplified),
   Japanese, Russian, Ukrainian, Belarusian, Bulgarian, Polish, Czech, Slovak,
-  Slovenian, Croatian, Serbian (Cyrillic), Bosnian and Macedonian included.
-  Chinese and Japanese need a CJK font such as `noto-fonts-cjk`; the Cyrillic
-  and Latin Slavic languages work with the usual Noto Sans. The Slavic
-  translations were made with AI and not yet reviewed by native speakers:
-  corrections are welcome.
+  Slovenian, Croatian, Serbian (Cyrillic), Bosnian and Macedonian included,
+  and since 1.1.20 forty more: Dutch, Swedish, Danish, Norwegian (Bokmål),
+  Finnish, Icelandic, Greek, Hungarian, Romanian, Turkish, Estonian,
+  Lithuanian, Latvian, Catalan, Galician, Basque, Albanian, Afrikaans,
+  Swahili, Filipino, Korean, Indonesian, Malay, Vietnamese, Thai, Hindi,
+  Bengali, Marathi, Nepali, Tamil, Telugu, Georgian, Armenian, Azerbaijani,
+  Kazakh, Uzbek, Arabic, Hebrew, Persian and Urdu (these four from right to
+  left: the whole interface turns). Chinese, Japanese and Korean need a CJK
+  font such as `noto-fonts-cjk`; the other scripts need `noto-fonts` (on most
+  desktops already). The translations after Italian were made with AI and
+  checked automatically (every text, placeholders, shortcuts, the right
+  script), not yet by native speakers: corrections are welcome.
 
 ## External services
 

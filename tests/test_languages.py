@@ -89,3 +89,45 @@ def test_slavic_packs_are_complete_and_in_their_script():
         # the browser engine in About, not a search engine
         assert strings["Engine"] not in ("Wyszukiwarka", "Vyhledávač", "Vyhľadávač", "Iskalnik",
                                          "Tražilica", "Претраживач", "Pretraživač", "Пребарувач"), code
+
+
+# 1.1.20: forty more languages, each in its own script (the owner's request)
+SCRIPTS = {
+    "Latin": ("[A-Za-zÀ-ɏ]", "af az ca da et eu fi fil gl hu id is lt lv ms nb nl ro sq sv sw tr uz vi"),
+    "Greek": ("[Ͱ-Ͽ]", "el"), "Cyrillic": ("[Ѐ-ӿ]", "kk"),
+    "Arabic": ("[؀-ۿ]", "ar fa ur"), "Hebrew": ("[֐-׿]", "he"),
+    "Devanagari": ("[ऀ-ॿ]", "hi mr ne"), "Bengali": ("[ঀ-৿]", "bn"),
+    "Tamil": ("[஀-௿]", "ta"), "Telugu": ("[ఀ-౿]", "te"), "Thai": ("[฀-๿]", "th"),
+    "Georgian": ("[Ⴀ-ჿ]", "ka"), "Armenian": ("[԰-֏]", "hy"), "Hangul": ("[가-힯]", "ko"),
+}
+
+
+def test_the_new_packs_are_complete_and_in_their_script():
+    import json
+    every = set(json.loads((ROOT / "ike/resources/lang/it.json").read_text("utf-8"))["strings"])
+    bidi = re.compile("[‎‏‪-‮⁦-⁩]")
+    for script, (pattern, codes) in SCRIPTS.items():
+        for code in codes.split():
+            pack = json.loads((ROOT / ("ike/resources/lang/%s.json" % code)).read_text("utf-8"))
+            assert pack["code"] == code and pack["name"], code
+            strings = pack["strings"]
+            assert set(strings) == every and all(v.strip() for v in strings.values()), code
+            assert re.search(pattern, strings["Settings"] + pack["name"]), (code, script)
+            assert not any(bidi.search(v) for v in strings.values()), code       # no hidden direction marks
+
+
+@pytest.mark.parametrize("code,rtl", [("ar", True), ("he", True), ("fa", True), ("ur", True), ("nl", False),
+                                      ("ko", False)])
+def test_right_to_left_languages_turn_the_interface(run_ike, code, rtl):
+    """Arabic, Hebrew, Persian and Urdu: the whole interface from right to left."""
+    out = run_ike("""
+        def steps(ike, qapp, out):
+            yield 600
+            from PyQt6.QtCore import Qt
+            from ike import i18n
+            out["lang"] = i18n.current()
+            out["rtl"] = qapp.layoutDirection() == Qt.LayoutDirection.RightToLeft
+            out["menus"] = [a.text() for a in ike.windows[0].menuBar().actions()]
+    """, settings={"language": code})
+    assert out["lang"] == code and out["rtl"] is rtl, out
+    assert all(m for m in out["menus"]), out
