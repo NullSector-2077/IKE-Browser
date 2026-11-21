@@ -48,6 +48,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 CRATES_INDEX = "https://index.crates.io/ad/bl/adblock"
+PYO3_INDEX = "https://index.crates.io/py/o3/pyo3"
 UBO_GIT = "https://github.com/gorhill/uBlock"
 DARKREADER_GIT = "https://github.com/darkreader/darkreader"
 DARKREADER_NPM = "https://registry.npmjs.org/darkreader/latest"
@@ -128,6 +129,99 @@ def apply_adblock(root, info):
                 print("!! docs/THIRD-PARTY.md not updated: run tools/third-party.py")
     else:
         print("!! cargo not found: run `cargo update -p adblock --precise %s` in ike-adblock/" % v)
+
+
+# --- the other crates of the AdBlock engine (1.1.19) ---------------------------
+# pyo3 (the bridge to Python: a new Python on Arch may need a newer one),
+# serde_json and every crate they and adblock bring were never updated: only
+# adblock itself was followed, and a vulnerable crate only opened an issue
+# (security.yml). Now the newest compatible versions are written into
+# Cargo.lock (adblock stays at its exact version, followed above), and a new
+# pyo3 release line raises the requirement; the tests (cargo test, cargo-deny,
+# the whole suite) decide, and the automatic fix may adapt I.K.E.'s wrapper.
+
+def lock_packages(text):
+    """{name: version} of a Cargo.lock (the first version of a name)."""
+    out = {}
+    for block in text.split("[[package]]")[1:]:
+        name = re.search(r'^name = "([^"]+)"', block, re.M)
+        version = re.search(r'^version = "([^"]+)"', block, re.M)
+        if name and version:
+            out.setdefault(name.group(1), version.group(1))
+    return out
+
+
+def current_pyo3(root):
+    text = (root / "ike-adblock" / "Cargo.toml").read_text("utf-8")
+    return re.search(r'^pyo3 = \{ version = "([^"]+)"', text, re.M).group(1)
+
+
+def latest_pyo3():
+    versions = []
+    for line in fetch(PYO3_INDEX).decode("utf-8").splitlines():
+        if line.strip():
+            entry = json.loads(line)
+            if not entry.get("yanked") and is_stable(entry["vers"]):
+                versions.append(entry["vers"])
+    return max(versions, key=vkey)
+
+
+def pyo3_requirement(current, latest):
+    """The requirement for the latest release line ("0.31" for 0.31.2; "1"
+    from 1.0), or the current one when that line is not newer."""
+    parts = latest.split(".")
+    line = ".".join(parts[:2]) if parts[0] == "0" else parts[0]
+    return line if vkey(line + ".0") > vkey(current + ".0") else current
+
+
+def _with_pyo3(text, requirement):
+    return re.sub(r'^(pyo3 = \{ version = ")[^"]+"', r"\g<1>" + requirement + '"', text, flags=re.M)
+
+
+def updated_lock(root, requirement):
+    """The Cargo.lock cargo writes with the newest compatible crates (and this
+    pyo3 requirement), made in a copy: the repository is not touched."""
+    with tempfile.TemporaryDirectory() as tmp:
+        copy = Path(tmp) / "ike-adblock"
+        shutil.copytree(root / "ike-adblock", copy, ignore=shutil.ignore_patterns("target"))
+        manifest = copy / "Cargo.toml"
+        manifest.write_text(_with_pyo3(manifest.read_text("utf-8"), requirement), "utf-8")
+        run(["cargo", "update", "--manifest-path", str(manifest)])
+        return (copy / "Cargo.lock").read_text("utf-8")
+
+
+def check_crates(root):
+    cur_req = current_pyo3(root)
+    req = pyo3_requirement(cur_req, latest_pyo3())
+    old = lock_packages((root / "ike-adblock" / "Cargo.lock").read_text("utf-8"))
+    new = lock_packages(updated_lock(root, req))
+    changed = sorted(n for n in new if n in old and new[n] != old[n])
+    added = sorted(n for n in new if n not in old)
+    gone = sorted(n for n in old if n not in new)
+    parts = ["%s %s -> %s" % (n, old[n], new[n]) for n in changed]
+    parts += ["new: " + ", ".join(added)] if added else []
+    parts += ["no longer needed: " + ", ".join(gone)] if gone else []
+    note = "; ".join(parts)
+    if req != cur_req:
+        note = "pyo3 %s -> %s (adapt ike-adblock/src/lib.rs if its API changed); %s" % (cur_req, req, note)
+    return {"current": "pyo3 %s, %d crates" % (old.get("pyo3", cur_req), len(old)),
+            "latest": "pyo3 %s, %d crates" % (new.get("pyo3", req), len(new)),
+            "update": bool(changed or added or gone or req != cur_req), "note": note[:900],
+            "_requirement": req}
+
+
+def apply_crates(root, info):
+    manifest = root / "ike-adblock" / "Cargo.toml"
+    manifest.write_text(_with_pyo3(manifest.read_text("utf-8"), info["_requirement"]), "utf-8")
+    if not shutil.which("cargo"):
+        print("!! cargo not found: run `cargo update` in ike-adblock/")
+        return
+    run(["cargo", "update", "--manifest-path", str(manifest)])
+    tool = root / "tools" / "third-party.py"
+    if tool.is_file():          # the credits follow the crates (docs/THIRD-PARTY.md)
+        done = subprocess.run([sys.executable, str(tool)], capture_output=True, text=True)
+        if done.returncode != 0:
+            print("!! docs/THIRD-PARTY.md not updated: run tools/third-party.py")
 
 
 # --- uBlock Origin scriptlets ------------------------------------------------
@@ -286,6 +380,7 @@ def check_all(root, ubo_src=None, work=None, dr_src=None):
     work.mkdir(parents=True, exist_ok=True)
     checks = [
         ("adblock-rust (AdBlock engine)", check_adblock, apply_adblock, ()),
+        ("Rust crates of the AdBlock engine", check_crates, apply_crates, ()),
         ("uBlock Origin scriptlets", check_scriptlets, apply_scriptlets, (work, ubo_src)),
         ("Dark Reader (engine and lists)", check_darkreader, apply_darkreader, (work, dr_src)),
         ("Qt WebEngine / PyQt6 (tests)", check_test_packages, apply_test_packages, ()),

@@ -1094,6 +1094,23 @@ def test_the_engine_update_is_read_from_the_lock(candidate, main, expected):
     assert plan_tool.adblock_version(LOCK % "0.13.6") == "0.13.6"
 
 
+PYO3 = LOCK % "0.13.6" + '''
+[[package]]
+name = "pyo3"
+version = "%s"
+'''
+
+
+def test_a_new_pyo3_allows_the_wrapper_too():
+    """1.1.19: the component check follows pyo3 (the bridge to Python); a new
+    one may need the same adaptation of I.K.E.'s wrapper as a new engine."""
+    show = {"origin/automation/daily-maintenance": PYO3 % "0.31.0", "origin/main": PYO3 % "0.30.1"}.get
+    assert plan_tool.engine_update("automation/daily-maintenance", show=show) is True
+    show = {"origin/automation/daily-maintenance": PYO3 % "0.30.1", "origin/main": PYO3 % "0.30.1"}.get
+    assert plan_tool.engine_update("automation/daily-maintenance", show=show) is False
+    assert plan_tool.pyo3_version((PYO3 % "0.30.1").replace("\n", "\r\n")) == "0.30.1"
+
+
 def test_only_an_engine_update_allows_the_wrapper():
     base = dict(_tip="t1", _main_tip="m1", _attempts=0)
     for update, allowed in ((True, "true"), (False, "false")):
