@@ -22,11 +22,22 @@ Only failures on the automation's own branches are fixed: main, the daily
 maintenance candidate and the automatic fix itself. Runs from forks, from
 pull requests of people and from the standby branches are never touched.
 
+"Arch Linux" (arch.yml: I.K.E. on Arch's own Python, Qt and Qt WebEngine) is
+handled like "Tests", with two differences: pacman, Arch's mirrors and
+keyring, the container and the crates' download are never the code's (an
+issue of GitHub's title, no AI); and a failure of the build or of the tests is
+fixed only when "Tests" passed on the same commit, as an incompatibility with
+Arch alone (when "Tests" failed too, its own fix handles it). Its failure
+description names the Arch packages that changed since the last green run on
+main (old -> new, from the versions both runs recorded), the failed tests and
+the files the logs name.
+
     autofix-plan.py --run-id ID --logs FILE [--repo OWNER/NAME]
 """
 
 import argparse
 import datetime as dt
+import importlib.util
 import json
 import os
 import re
@@ -67,14 +78,31 @@ ENGINE_STEP = "Build AdBlock engine"
 # of main, and an issue of its own title, which never holds back the fix of a
 # real failure (already_reported reads ISSUE_TITLE only).
 INFRA_TITLE = "GitHub or the runner failed: %s"
-REPORTING_JOBS = {"Tests": ("hand-over",), "Daily component check": ("update-issue",),
-                  "Daily maintenance candidate": ("publish-candidate",)}
+# "Arch Linux": I.K.E. on Arch Linux's own packages (arch.yml)
+ARCH = "Arch Linux"
+ARCH_JOB = "Arch Linux"              # the name of arch.yml's job that builds and tests
+HANDLED = ("Tests", "Daily maintenance candidate", "Daily component check", ARCH)
+REPORTING_JOBS = {"Tests": ("hand-over",), "Daily component check": ("update-issue", "start-arch"),
+                  "Daily maintenance candidate": ("publish-candidate",), ARCH: ("hand-over", "merge-ready")}
 INFRA_STEP = re.compile(r"^(Set up job|Complete job|Post |Check out|Run actions/(checkout|setup-|upload-artifact"
                         r"|download-artifact|cache)|Upload |Download |Validate downloaded|Rust$|Test environment$)")
+# arch.yml's steps that only install Arch's packages (pacman: mirrors, keyring,
+# a package not found, a conflict), start the container or download the
+# engine's crates: never the code's
+ARCH_INFRA_STEP = re.compile(r"^(Initialize containers|Stop containers|Git \(for the checkout\)|Git owner check"
+                             r"|Arch's packages|AdBlock engine's crates)$")
 LOG_TRIES = 3
 # Steps where a test may fail only sometimes (Qt WebEngine under load): failed
 # there once, the tests run once more before any AI is asked (audit of #65, M5)
 RERUN_STEPS = ("Tests", "Tests of the installed package")
+ARCH_RERUN_STEPS = ("Tests (Arch's Qt)", "Tests of the installed package (Arch)")
+# An Arch failure is fixed only when "Tests" passed on the same commit: its
+# result is waited for (arch.yml may end first), at most this long
+TESTS_WAIT_TRIES, TESTS_WAIT_PAUSE = 50, 60
+# what a failed Arch run's logs name: pytest's summary lines and I.K.E.'s files
+FAILED_TEST = re.compile(r"^(?:FAILED|ERROR) ((?:tests/)?[\w./-]+\.py(?:::\S+)?)(?: - (.*))?$")
+NAMED_FILE = re.compile(r'File "[^"]*?((?:ike|tests|tools)/[\w./-]+\.py)", line (\d+)'
+                        r"|(?<![\w.-])((?:ike|tests|tools)/[\w./-]+\.(?:py|js))(?::(\d+))?")
 BOT = "github-actions[bot]"
 LOG_LINES = 160              # of the failed step only (1.1.16: the whole job's end was mostly noise)
 LOG_BYTES = 20000
@@ -285,6 +313,10 @@ def infra_failure(name, failed_jobs):
     if steps and all(INFRA_STEP.match(st) for st in steps):
         return ("a step of GitHub or the runner failed (%s), not the code and not the maintenance: "
                 "the next run usually passes" % ", ".join(steps))
+    if name == ARCH and steps and all(INFRA_STEP.match(st) or ARCH_INFRA_STEP.match(st) for st in steps):
+        return ("Arch Linux's packages could not be installed or a download failed (%s): pacman, Arch's mirrors, "
+                "keyring or package set, the container or crates.io, not the code: the next run usually passes"
+                % ", ".join(steps))
     return ""
 
 
@@ -310,11 +342,12 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
         plan["reason"] = "the run comes from another repository (fork)"
         return plan
     job_names = [j["name"] for j in failed_jobs]
-    if name in ("Tests", "Daily maintenance candidate", "Daily component check"):
-        if name == "Tests" and branch not in FIXABLE_BRANCHES:
+    tested = name in ("Tests", ARCH)          # the workflows that test a branch
+    if name in HANDLED:
+        if tested and branch not in FIXABLE_BRANCHES:
             plan["reason"] = "branch %s is not one the automation fixes" % (branch or "?")
             return plan
-        if name == "Tests" and run.get("_tip") != run.get("head_sha"):
+        if tested and run.get("_tip") != run.get("head_sha"):
             plan["reason"] = "the branch has moved since this run: an older failure"
             return plan
         infra = infra_failure(name, failed_jobs)
@@ -322,17 +355,30 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
             plan.update(action="issue", kind="infra", reason=infra)
             return plan
         attempt = int(run.get("run_attempt") or 1)
-        if name == "Tests" and attempt > 1 and run.get("_event") == "workflow_run" and \
+        if tested and attempt > 1 and run.get("_event") == "workflow_run" and \
                 (run.get("triggering_actor") or {}).get("login") == BOT:
             plan["reason"] = "a run the automatic fix started again: the tests hand its failure over themselves"
             return plan
-        steps = [st for j in failed_jobs if j["name"] == "tests" for st in failed_steps(j)]
-        if name == "Tests" and attempt == 1 and steps and all(st in RERUN_STEPS for st in steps):
+        job, again = ("tests", RERUN_STEPS) if name == "Tests" else (ARCH_JOB, ARCH_RERUN_STEPS)
+        steps = [st for j in failed_jobs if j["name"] == job for st in failed_steps(j)]
+        if tested and attempt == 1 and steps and all(st in again for st in steps):
             plan.update(action="rerun", reason="the tests failed once (step: %s): they run once more before any "
                         "automatic fix, a test that fails only sometimes is no matter for an AI" % ", ".join(steps))
             return plan
 
     if name == "Tests":
+        target = branch
+    elif name == ARCH:
+        tests = run.get("_tests") or ""
+        if tests == "failure":
+            plan["reason"] = ("Tests failed on the same commit too: its own automatic fix handles it (an Arch "
+                              "failure is fixed only when Tests passed)")
+            return plan
+        if tests != "success":
+            plan.update(action="issue", reason="Arch Linux failed on %s, but Tests has no result on the same commit "
+                        "(%s): an incompatibility with Arch alone cannot be told from a failure of the code, a "
+                        "person looks" % (branch or "?", tests or "no run"))
+            return plan
         target = branch
     elif name == "Daily maintenance candidate":
         if "prepare" not in job_names:
@@ -384,6 +430,12 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
         plan.update(action="issue", reason="%d automatic fixes did not make it pass" % MAX_ATTEMPTS)
         return plan
     plan.update(action="fix", reason="%s failed on %s (jobs: %s)" % (name, branch or "?", ", ".join(job_names)))
+    if name == ARCH:
+        changed = run.get("_arch_changes") or []
+        what = ("changed since the last green run on main: " + ", ".join(changed[:6]) if changed
+                else "no followed package changed since the last green run on main")
+        plan["reason"] = ("Arch Linux failed on %s while Tests passed on the same commit: an incompatibility with "
+                          "Arch Linux's own packages (%s)" % (branch or "?", what))
     return plan
 
 
@@ -453,6 +505,107 @@ def open_reports(repo, name):
     return out
 
 
+def tests_result(repo, sha, tries=TESTS_WAIT_TRIES, pause=TESTS_WAIT_PAUSE, sleep=time.sleep):
+    """The conclusion of "Tests" on this commit: "success", "failure" (a time
+    limit too), "running" when it did not end in time, "" when it never ran
+    there (runs waiting for an approval, cancelled or skipped do not count).
+    Waits while it runs: arch.yml may end first."""
+    for n in range(tries):
+        runs = gh_api("repos/%s/actions/workflows/tests.yml/runs?head_sha=%s&per_page=20" % (repo, sha))
+        runs = [r for r in runs.get("workflow_runs", []) if r.get("head_sha") == sha]
+        busy = [r for r in runs if r.get("status") != "completed"]
+        done = [r for r in runs if r.get("status") == "completed"
+                and r.get("conclusion") in ("success", "failure", "timed_out")]
+        if busy and n + 1 < tries:
+            sleep(pause)
+            continue
+        if busy:
+            return "running"
+        if not done:
+            return ""
+        last = max(done, key=lambda r: (r.get("run_started_at") or r.get("created_at") or "", r.get("id") or 0))
+        return "success" if last["conclusion"] == "success" else "failure"
+    return "running"
+
+
+def _components():
+    """tools/check-components.py, beside this file (it reads what arch.yml recorded)."""
+    spec = importlib.util.spec_from_file_location("check_components", Path(__file__).resolve().parent /
+                                                  "check-components.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def arch_versions(repo, run_id, components=None):
+    """(what the failed Arch run recorded, what the last green run on main
+    recorded); None for what cannot be read."""
+    cc = components or _components()
+    records = []
+    for read in (lambda: cc.arch_record_of_run(repo, run_id), lambda: cc.last_tested_arch(repo)):
+        try:
+            records.append(read())
+        except Exception as e:          # GitHub's API: the failure is still described, without them
+            print("::warning::the Arch versions could not be read: %s" % str(e)[:200].replace("::", ": "))
+            records.append(None)
+    return records[0], records[1]
+
+
+def arch_change_lines(failed, green, components=None):
+    """'name old -> new' for every followed package, and the Python, Qt, PyQt
+    and Chromium I.K.E. reported, that differ between the two records."""
+    if not failed or not green:
+        return []
+    cc = components or _components()
+    out = ["%s %s -> %s" % (n, o or "(not recorded)", v or "(not installed)")
+           for n, o, v in cc.arch_changes(green.get("packages", {}), failed.get("packages", {}))]
+    for key, label in (("python", "Python"), ("qt", "Qt"), ("pyqt", "PyQt"), ("chromium", "Chromium")):
+        if failed.get(key) and green.get(key) and failed[key] != green[key]:
+            out.append("%s %s -> %s" % (label, green[key], failed[key]))
+    return out
+
+
+def arch_failure(failed, green, changes, logs):
+    """The part of failure.md for an Arch-only failure: what changed, what was
+    tested, the failed tests and the files the logs name."""
+    out = ["\n## Arch Linux: an incompatibility with Arch's own packages\n\n",
+           "\"Tests\" (Ubuntu, Python 3.13, PyPI's Qt) passed on this commit; \"Arch Linux\" failed with Arch "
+           "Linux's own Python, Qt, PyQt and Qt WebEngine, which users get with `pacman -Syu`. Adapt I.K.E.'s "
+           "code (ike/ and its own page scripts) so that it works with the versions below and still with those "
+           "of \"Tests\"; never the package, the engine, the builders, the workflows or the tests.\n\n"]
+    run = (green or {}).get("run") or {}
+    if changes:
+        out.append("Components changed since the last green \"Arch Linux\" run on main (%s, commit %s):\n\n"
+                   % (run.get("url") or "?", str(run.get("sha") or "?")[:10]))
+        out += ["- %s\n" % c for c in changes]
+    elif green:
+        out.append("No followed Arch package changed since the last green run on main (%s): the cause is more "
+                   "likely the commit itself, or a package not followed here.\n" % (run.get("url") or "?"))
+    else:
+        out.append("No green \"Arch Linux\" run on main recorded its versions yet (or they could not be read): "
+                   "no comparison.\n")
+    if failed:
+        out.append("\nThis run tested: Python %s, Qt %s, PyQt %s, Chromium %s; %s.\n" % (
+            failed.get("python", "?"), failed.get("qt", "?"), failed.get("pyqt", "?"), failed.get("chromium", "?"),
+            ", ".join("%s %s" % (n, v or "(not installed)") for n, v in failed.get("packages", {}).items())))
+    tests, files = [], []
+    for line in logs.splitlines():
+        m = FAILED_TEST.match(line.strip())
+        if m and m.group(0) not in tests:
+            tests.append(m.group(0))
+        for f in NAMED_FILE.finditer(line):
+            place = "%s:%s" % (f.group(1), f.group(2)) if f.group(1) else \
+                (f.group(3) + (":" + f.group(4) if f.group(4) else ""))
+            if place not in files:
+                files.append(place)
+    # a file named with a line once is not listed again without it
+    files = [f for f in files if ":" in f or not any(g.startswith(f + ":") for g in files)]
+    out.append("\n### Failed tests\n\n" + ("".join("- %s\n" % t[:300] for t in tests[:20]) or
+                                          "(none named in the log: the build or a step before the tests)\n"))
+    out.append("\n### Files named in the log\n\n" + ("".join("- %s\n" % f for f in files[:20]) or "(none)\n"))
+    return "".join(out)
+
+
 CLOSING = re.compile(r"\b(close[sd]?|fix(?:e[sd])?|resolve[sd]?)(\s*:?\s+)((?:[\w.-]+/[\w.-]+)?#)(?=\d)", re.I)
 ZWSP = "​"
 
@@ -494,7 +647,17 @@ def main(argv=None):
     run["_engine_update"] = branch == MAINTENANCE and engine_update(MAINTENANCE)
     prs = gh_api("repos/%s/pulls?state=open&head=%s:%s" % (repo, repo.split("/")[0], FIX_MAIN))
     open_fix_pr = str(prs[0]["number"]) if prs else ""
-    plan = decide(run, failed, open_fix_pr, open_reports(repo, run["name"]))
+    reports = open_reports(repo, run["name"])
+    # An Arch failure is decided as if Tests had passed first: only one that
+    # would then be fixed reads what it tested against the last green run on
+    # main, and waits for the result of Tests on the same commit
+    arch = None
+    plan = decide(dict(run, _tests="success") if run["name"] == ARCH else run, failed, open_fix_pr, reports)
+    if run["name"] == ARCH and plan["action"] == "fix":
+        arch = arch_versions(repo, a.run_id)
+        run["_arch_changes"] = arch_change_lines(*arch)
+        run["_tests"] = tests_result(repo, run.get("head_sha", ""))
+        plan = decide(run, failed, open_fix_pr, reports)
     # the commit that failed: the issue's message for ChatGPT starts from it when
     # no automatic fix is tried (after two attempts, for instance)
     plan["head_sha"] = run.get("head_sha", "")
@@ -505,7 +668,7 @@ def main(argv=None):
     parts = ["# Failure to fix\n",
              "- Workflow: %s\n- Branch: %s\n- Commit: %s\n- Run: %s\n" % (
                  run["name"], branch, run.get("head_sha", ""), run.get("html_url", ""))]
-    read = 0
+    read, logs = 0, []
     for job in failed:
         steps = [s["name"] for s in job.get("steps", []) if s.get("conclusion") == "failure"]
         log = job_log(repo, job) if plan["action"] in ("fix", "issue") else None
@@ -513,10 +676,13 @@ def main(argv=None):
             log = "(log not available)"
         else:
             read += 1
+            logs.append(log)
         parts.append("\n## Job `%s` (failed step: %s)\n\nThe failed step's log:\n\n```text\n%s\n```\n"
                      % (job["name"], ", ".join(steps) or "?", log.replace("```", "'''")))
     if failed and not read:
         plan = logs_missing(plan)
+    if arch and plan["action"] in ("fix", "issue"):
+        parts.insert(2, arch_failure(arch[0], arch[1], run.get("_arch_changes") or [], "\n".join(logs)))
     # where the fix branch was when this plan was made: publish pushes only if
     # it is still there (1.1.18: two plans of main side by side could each push)
     plan["push_tip"] = tip(plan["push_branch"]) if plan["push_branch"] else ""

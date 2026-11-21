@@ -1,5 +1,7 @@
-# When the tests, the daily component check or the daily maintenance fail on
-# the automation's own branches, prepare a fix as a draft pull request. Never
+# When the tests, the daily component check, the daily maintenance or the
+# tests on Arch Linux's own packages ("Arch Linux": only a failure of Arch
+# alone, with "Tests" green on the same commit) fail on the automation's own
+# branches, prepare a fix as a draft pull request. Never
 # a push to main and never a release; a green fix of a small change goes into
 # main only through the rules of tools/automerge.py (automerge.yml), anything
 # else waits for a person.
@@ -24,7 +26,7 @@ name: Automatic fix
 
 on:
   workflow_run:
-    workflows: ["Tests", "Daily maintenance candidate", "Daily component check"]
+    workflows: ["Tests", "Daily maintenance candidate", "Daily component check", "Arch Linux"]
     types: [completed]
   workflow_dispatch:
     inputs:
@@ -56,8 +58,9 @@ jobs:
       github.event.inputs.run_id != '') || github.event.workflow_run.conclusion == 'failure'
     runs-on: ubuntu-24.04
     # above its longest wait: a run handed over while it closes, about ten
-    # minutes, and GitHub's calls asked again (audit of #65, L10)
-    timeout-minutes: 20
+    # minutes, and GitHub's calls asked again (audit of #65, L10); for an Arch
+    # failure also the result of "Tests" on the same commit, at most 50 minutes
+    timeout-minutes: 70
     permissions:
       actions: read
       contents: read
@@ -827,6 +830,9 @@ jobs:
           retry gh workflow run tests.yml --ref "$PUSH_BRANCH"
           # the sandbox tests too: the merge needs them (review 2 of 1.1.19, H3)
           retry gh workflow run security.yml --ref "$PUSH_BRANCH"
+          # a fix of a failure on Arch Linux's own packages is tested there too:
+          # the merge waits for every check of the commit, this one included
+          if [ "$WORKFLOW" = "Arch Linux" ]; then retry gh workflow run arch.yml --ref "$PUSH_BRANCH"; fi
 
   report:
     needs: [plan, fix, guard, publish]
