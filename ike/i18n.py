@@ -97,8 +97,16 @@ def setup(choice="auto"):
         _lang = "en"
 
 
+RTL = frozenset(("ar", "he", "fa", "ur", "yi", "ps", "sd", "ug", "dv", "ckb"))
+
+
 def current():
     return _lang
+
+
+def right_to_left(code=None):
+    """True for a language written from right to left (Arabic, Hebrew...)."""
+    return (code or _lang or "").split("_")[0].lower() in RTL
 
 
 def T(text):

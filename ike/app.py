@@ -1504,6 +1504,10 @@ def main(argv=None):
 
     from . import i18n
     i18n.setup(config["language"])
+    if i18n.right_to_left():
+        # the whole interface from right to left, as the language is written
+        # (1.1.20: Arabic, Hebrew, Persian and Urdu); pages decide for themselves
+        qapp.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
     from . import icons
     icons.apply_scheme(config)
     from . import themes
