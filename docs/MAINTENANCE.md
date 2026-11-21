@@ -14,7 +14,7 @@ signs anything, and no workflow pushes to `main`.
 
 | When | What | Workflow | Result |
 |---|---|---|---|
-| Every day, 05:17 UTC | Upstream versions of the bundled components, and Arch Linux's own packages against the versions the last green `arch.yml` run on `main` tested | `daily-check.yml` | Issue labelled `components`; when Arch's packages changed, `arch.yml` started on `main` |
+| Every day, 05:17 UTC | Upstream versions of the bundled components (and whether I.K.E.'s builders still accept them), Arch Linux's own packages against the versions the last green `arch.yml` run on `main` tested, and the default filter lists loaded into `main`'s AdBlock engine | `daily-check.yml` | Issue labelled `components` (titled "Component incompatibility: ..." when a builder refused a new version); when Arch's packages changed, `arch.yml` started on `main` |
 | Every day, 06:17 UTC | The updates applied to a candidate built from current `main` | `daily-maintenance.yml` | Branch `automation/daily-maintenance`, draft PR labelled `maintenance` |
 | On every PR, every push to `main`, every candidate or fix | Lint, all the tests, the Arch package and its tests | `tests.yml` | Checks on the PR, package download `ike-browser-package` |
 | When one of the three above fails, or `arch.yml` fails on `main` or on the fix branch | An automatic fix (for `arch.yml` only when `Tests` passed on the same commit) | `autofix.yml` | Draft PR labelled `autofix`, or an issue "ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!! (<workflow>)" assigned to the owner, which GitHub mails |
@@ -40,7 +40,123 @@ signs anything, and no workflow pushes to `main`.
 The browser itself runs on Arch Linux's `qt6-webengine`, updated with the
 system (`sudo pacman -Syu`); the Chrome version presented to sites is the one of
 that engine (1.1.14). Filter lists and user
-scripts update themselves inside the browser.
+scripts update themselves inside the browser (the daily check loads today's
+lists into the bundled engine: see "The default filter lists" below).
+
+### When a builder refuses a new upstream version
+
+Two of the components are not copied but built, with I.K.E.'s own changes:
+Dark Reader (`tools/build-darkreader.py`: the proxy taken out of the engine
+and I.K.E.'s speed patches, `PATCHES`, each of which must find its text, its
+"anchor", exactly once) and uBlock Origin's scriptlets
+(`tools/build-ubo-scriptlets.mjs`: `builtinScriptlets` of
+`src/js/resources/scriptlets.js`, read with Node.js). Since 1.1.20 (the
+owner's decision) `tools/check-components.py` keeps two kinds of trouble
+apart:
+
+| What happened | Called | What it does |
+|---|---|---|
+| An upstream source could not be read: the network, crates.io, PyPI, npm, GitHub, `git clone`, npm's hash that does not match | **source unreachable** | Infrastructure. The report's row says "check failed: source unreachable: ..."; `--apply` applies **nothing** and exits 1 (fail closed); the maintenance's check step fails and the automatic fix opens "GitHub or the runner failed: Daily maintenance candidate", no AI. The next daily run tries again. |
+| The new version was downloaded, but I.K.E.'s builder does not accept it: a patch's anchor is gone or found twice, the proxy or `injectProxy` is not where it was, the npm package is laid out differently, the site fixes do not start with the common fix; uBlock Origin's library moved, the builder stopped, found no scriptlets, or a scriptlet needs an entry the library does not have | **builder refused**: a component incompatibility | That component **stays at the version in use, with I.K.E.'s changes** (never replaced by the unpatched upstream). Every other component is still applied and tested (the crates' security updates included); `--apply` exits 0. The report has a section for a person. No AI: `tools/build-*` and the components' files are a person's (the automatic fix's guard refuses them). |
+
+**How to read the report** (the `components` issue, the run's summary, and the
+maintenance candidate's pull request when other components changed). The
+issue is titled "Component incompatibility: a builder refused a new upstream
+version" and names the owner in a comment when it first appears. Its table
+marks the component "**refused**", and the section "Component incompatibility"
+gives:
+
+- the component and its versions, in use -> new (for Dark Reader the engine
+  version and the lists' commit; for uBlock Origin the commits);
+- the step that refused: for Dark Reader the patch by its name in `PATCHES`
+  (for instance "I.K.E.'s patch 'style-moves'"), or the proxy / `injectProxy`
+  / the site fixes; for uBlock Origin the builder;
+- the reason, as the builder said it;
+- "The new upstream version around the anchor": the anchor's lines no longer
+  found, and the new engine's lines (numbered) around the first anchor line
+  still there, or every place where the anchor is now found twice; for
+  uBlock Origin what the new checkout has where the builder looks (the file
+  and its exports, or the files next to it);
+- the builder's log.
+
+What a person does: adapt the patch (or the builder) to the new text in a
+pull request, as any change of `tools/`; the next daily run then takes the
+new version. Until then users keep the working, customised version.
+
+### The default filter lists in the bundled engine
+
+The lists I.K.E. turns on by default (`DEFAULT_LISTS` in `ike/config.py`)
+change every day on users' computers, outside I.K.E.'s releases, while the
+AdBlock engine and uBlock Origin's scriptlets come with I.K.E. Every day the
+job `lists` of `daily-check.yml` (permission `contents: read`, no token, only
+`main`'s own code) builds `main`'s engine and runs
+`tools/check-components.py --filter-lists lists.json --markdown lists.md`:
+
+- each list is downloaded as I.K.E. downloads it (HTTPS, at most 32 MB, the
+  `!#include` sub-lists next to it, one level) and read as I.K.E. reads it
+  (`!#if` answered as uBlock Origin on Chromium, `ike/scriptlets.py`);
+- the engine reads each list with `parse_report` (a read-only function of
+  the engine module, the same parser and options as the browser uses): rules
+  taken (network, cosmetic), lines it does not support and rules it cannot
+  parse, with examples. Then all the lists are loaded together and the
+  engine is built and asked once;
+- every `domain##+js(name, ...)` rule is resolved against the bundled
+  scriptlet library exactly as `ike/scriptlets.py` does (aliases, the
+  scriptlets uBlock Origin keeps to trusted lists only from uBlock Origin's
+  own site, none from the cookie lists).
+
+A **finding** (for a person; never a failure of the code, never the automatic
+fix): a scriptlet name the library does not know (`ike/scriptlets.py` drops
+such a rule without a word: list/scriptlet drift), a list the engine cannot
+read for more than a quarter of its rules (`LIST_UNREAD_SHARE`; on
+2026-11-21 the uBlock lists were between 0.1% and 15%, mostly rules of other
+blockers such as `replace=` and HTML filters), a list that is not a list
+(empty, binary, too big), an engine that cannot be built from them. A list
+that cannot be downloaded is **unreachable** and nothing more. The findings
+open (or keep) the `components` issue, titled "Filter lists: findings about
+the bundled components" when nothing else is new, with the section "The
+default filter lists in the bundled engine". The job fails only when `main`'s
+engine does not build or the check itself stops: an issue for a person.
+
+Known on 2026-11-21: uBlock Origin's own resources used as scriptlets
+(`noeval`, `nofab`, `popads-dummy`, `popads.net`, `fingerprint2`; about 70
+rules of "uBlock filters" and "Unbreak") are not part of `builtinScriptlets`,
+so I.K.E. does not run them. They are listed as a note every day
+(`KNOWN_UNRUN_SCRIPTLETS`), not as a finding; whether to bundle them is the
+owner's decision. Any other unknown name is a finding.
+
+The maintenance candidate gets the same check against its own engine and
+library (when the engine builds): the section is added to its pull request,
+and it never stops the candidate. The unit tests use a small recorded
+snapshot of real rules (`tests/data/filter-lists-snapshot.txt`), offline;
+`IKE_TEST_NETWORK=1` also runs the check on the real lists.
+
+### Dark Reader's cost budget
+
+Dark Reader's patches applying is not enough: they are there to keep it
+fast. `tests/test_darkreader_cost.py` starts the browser once, with a local
+page that gives Dark Reader a fixed amount of work (600 style rules, 400
+styled elements, 60 shadow roots, an SVG, then 30 bursts of new styles and
+elements), and times it until the page is idle again with Dark Reader, with
+the engine's own dark mode and with no dark mode, in turns (a rotating
+order, one round to warm up, 7 rounds measured). It checks that each mode is
+what it claims, then compares the **median of each round's ratios** (Dark
+Reader / off, Dark Reader / engine dark), never absolute times, with
+`tests/data/darkreader-cost.json`: it fails only when a ratio is above the
+recorded one times its margin (2), a clear regression. It runs wherever the
+whole suite runs (`Tests`, the maintenance candidate, `arch.yml`); on GitHub
+the line "Dark Reader cost: ..." goes into the run's summary.
+
+Recorded on 2026-11-21 in a container with software drawing: Dark Reader /
+off about 3.1 (2.7 to 3.3 over five runs), Dark Reader / engine dark about
+3.3, engine dark / off about 1.0. **To update the baseline** after a
+deliberate change (a new Dark Reader engine that is slower for a good
+reason, a new patch, a GitHub runner whose ratios differ): run
+`IKE_DARK_COST_RECORD=1 python3 -m pytest -q tests/test_darkreader_cost.py`,
+compare with the "Dark Reader cost" lines of a few green GitHub runs, keep
+the larger values in `tests/data/darkreader-cost.json`, and say why in the
+pull request. The automatic fix can never change it (`tests/data/` is
+refused by its guard).
 
 ### Arch Linux's own packages
 
@@ -106,7 +222,11 @@ outside I.K.E.'s releases. These are followed as components too
 
 1. `daily-maintenance.yml` starts `automation/daily-maintenance` from the
    current `main` every time and applies the component updates
-   (`--apply`; if any upstream source cannot be checked, nothing is applied).
+   (`--apply`; if any upstream source cannot be reached, nothing is applied;
+   a component whose builder refuses the new version stays as it is and the
+   others are applied: see "When a builder refuses a new upstream version").
+   When the candidate's engine builds, today's default filter lists are
+   checked against it and the result is added to the pull request.
 2. `tools/prepare-maintenance.py` raises the patch version (1.1.10 → 1.1.11, or
    adds to a version of `main` that is not released yet), the package version,
    README and CHANGELOG. A new AdBlock engine travels in the signed

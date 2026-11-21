@@ -13,7 +13,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from conftest import ROOT
+from conftest import APP, ROOT, needs_engine
 
 needs_node = pytest.mark.skipif(not (shutil.which("node") and shutil.which("git")),
                                 reason="needs Node.js and git")
@@ -199,7 +199,7 @@ def test_report_files(tool, repo, tmp_path, monkeypatch):
     md = (tmp_path / "r.md").read_text()
     assert md.startswith("Nuove versioni trovate") and "| adblock-rust (AdBlock engine) | 0.13" in md
     assert md.count("\n|") == 7           # header, separator, five components
-    assert out.read_text() == "updates=1\nerrors=0\n"
+    assert out.read_text() == "updates=1\nerrors=0\nrefused=0\n"
 
 
 def test_workflows():
@@ -500,7 +500,7 @@ def test_the_report_says_what_was_really_tested(tool, repo, tmp_path, monkeypatc
     monkeypatch.setenv("GITHUB_OUTPUT", str(out))
     tool.main(["--root", str(repo), "--ubo-src", str(tool.ubo), "--arch", str(saved),
                "--json", str(tmp_path / "r.json"), "--markdown", str(tmp_path / "r.md")])
-    assert out.read_text() == "updates=0\nerrors=0\narch=changed\n"
+    assert out.read_text() == "updates=0\nerrors=0\nrefused=0\narch=changed\n"
     data = json.loads((tmp_path / "r.json").read_text())
     assert data["updates"] == 0 and len(data["components"]) == 5
     assert data["arch"]["state"] == "changed"
@@ -527,7 +527,7 @@ def test_the_report_says_what_was_really_tested(tool, repo, tmp_path, monkeypatc
     monkeypatch.setattr(tool, "arch_current", lambda get=None: pytest.fail("Arch asked without --arch"))
     out.write_text("")
     assert tool.main(["--root", str(repo), "--ubo-src", str(tool.ubo), "--apply"]) == 0
-    assert out.read_text() == "updates=0\nerrors=0\n"
+    assert out.read_text() == "updates=0\nerrors=0\nrefused=0\n"
 
 
 def test_the_arch_workflows():
@@ -555,7 +555,12 @@ def test_the_arch_workflows():
     daily = (ROOT / ".github/workflows/daily-check.yml").read_text()
     parts = re.split(r"^  ([a-z-]+):\n", daily.split("\njobs:\n", 1)[1], flags=re.M)
     jobs = dict(zip(parts[1::2], parts[2::2]))
-    assert set(jobs) == {"check", "update-issue", "start-arch"}
+    assert set(jobs) == {"check", "lists", "update-issue", "start-arch"}
+    # 1.1.20: the filter lists in main's engine; reads the repository only, no token
+    lists = jobs["lists"]
+    assert re.search(r"permissions:\n\s+contents: read\n\s+outputs:", lists) and "GH_TOKEN" not in lists
+    assert "tools/check-components.py --filter-lists lists.json --markdown lists.md" in lists
+    assert "needs: [check, lists]" in jobs["update-issue"] and "needs.check.result == 'success'" in jobs["update-issue"]
     assert re.search(r"permissions:\n\s+actions: read .*\n\s+contents: read\n", jobs["check"])
     assert "--save-arch-tested arch-tested.json" in jobs["check"] and "--arch arch-tested.json" in jobs["check"]
     # the token only in the step that reads GitHub, not where others' sources are built
@@ -567,3 +572,247 @@ def test_the_arch_workflows():
     assert "needs.check.outputs.arch == 'changed' || needs.check.outputs.arch == 'untested'" in start
     assert re.search(r"permissions:\n\s+actions: write .*\n\s+steps:", start)
     assert "gh workflow run arch.yml --ref main" in start and "checkout" not in start
+
+
+# --- a builder that refuses a new upstream version (1.1.20) -------------------
+# "source unreachable" (the network, a site, git) stays infrastructure and
+# applies nothing; a builder of a customised component that refuses the new
+# version keeps that component at the version in use, with I.K.E.'s changes,
+# reports why, and lets every other component be applied and tested.
+
+
+@needs_node
+def test_a_refused_builder_keeps_its_component_and_the_others_go_on(tool, repo, tmp_path, monkeypatch):
+    tool.up["adblock"] = "0.14.0"
+    # uBlock Origin moves its scriptlet library: the builder cannot read it
+    lib = tool.ubo / "src" / "js" / "resources"
+    (lib / "scriptlets.js").rename(lib / "scriptlets-core.js")
+    commit = ["git", "-C", str(tool.ubo), "-c", "user.name=t", "-c", "user.email=t@t"]
+    subprocess.run(commit + ["add", "-A"], check=True)
+    subprocess.run(commit + ["commit", "-q", "-m", "moved"], check=True)
+    r = by_name(tool.check_all(repo, tool.ubo, tmp_path / "w"))
+    ubo = r["uBlock"]
+    assert ubo["refused"] and not ubo["update"] and not ubo["error"]
+    rep = ubo["refused"]
+    assert rep["component"] == "uBlock Origin scriptlets" and "build-ubo-scriptlets.mjs" in rep["step"]
+    assert rep["current"] != rep["latest"] and rep["reason"].startswith("the builder stopped")
+    assert "src/js/resources/scriptlets.js is not in the new version" in rep["context"]
+    assert "scriptlets-core.js" in rep["context"] and rep["log"]
+    assert r["adblock-rust"]["update"] and not r["adblock-rust"].get("refused")
+    # --apply: the others are applied (the engine), the refused one stays as it is
+    before = (repo / "ike/resources/ubo-scriptlets.json").read_text()
+    out = tmp_path / "gh-output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(out))
+    assert tool.main(["--root", str(repo), "--ubo-src", str(tool.ubo), "--apply", "--json", str(tmp_path / "r.json"),
+                      "--markdown", str(tmp_path / "r.md")]) == 0
+    assert 'adblock = { version = "=0.14.0"' in (repo / "ike-adblock/Cargo.toml").read_text()
+    assert (repo / "ike/resources/ubo-scriptlets.json").read_text() == before
+    assert out.read_text() == "updates=1\nerrors=0\nrefused=1\n"
+    data = json.loads((tmp_path / "r.json").read_text())
+    assert data["refused"] == 1 and data["errors"] == 0
+    assert by_name(data["components"])["uBlock"]["refused"]["step"] == rep["step"]
+    md = (tmp_path / "r.md").read_text()
+    assert md.startswith("Un componente non accetta più le modifiche di I.K.E.")
+    assert "| uBlock Origin scriptlets |" in md and "**refused**" in md
+    assert "### Component incompatibility: a builder refused the new upstream version" in md
+    assert "stays at the version in use, with I.K.E.'s changes" in md and "automatic fix" in md
+    assert "<summary>The new upstream version around the anchor</summary>" in md
+    # a library whose scriptlets need an entry it does not have is refused too
+    (lib / "scriptlets-core.js").rename(lib / "scriptlets.js")
+    (lib / "scriptlets.js").write_text(UBO_JS.replace("dependencies: ['safe-self.fn']", "dependencies: ['gone.fn']") % "v9")
+    subprocess.run(commit + ["commit", "-q", "-am", "dep"], check=True)
+    ubo = by_name(tool.check_all(repo, tool.ubo, tmp_path / "w2"))["uBlock"]
+    assert ubo["refused"] and "gone.fn" in ubo["refused"]["reason"]
+
+
+def darkreader_upstream(tool, monkeypatch, tmp_path, lib_text, version="9.9.9"):
+    """Stand-ins for npm (the "darkreader" package with this engine, and its
+    sha512) and for Dark Reader's repository (its lists)."""
+    import base64
+    import hashlib
+    import io
+    import tarfile
+    tgz = io.BytesIO()
+    with tarfile.open(fileobj=tgz, mode="w:gz") as tar:
+        data = lib_text.encode()
+        info = tarfile.TarInfo("package/darkreader.js")
+        info.size = len(data)
+        tar.addfile(info, io.BytesIO(data))
+    blob = tgz.getvalue()
+    meta = {"version": version, "dist": {
+        "tarball": "https://registry.npmjs.org/darkreader/-/darkreader-%s.tgz" % version,
+        "integrity": "sha512-" + base64.b64encode(hashlib.sha512(blob).digest()).decode()}}
+
+    def fetch_source(url, timeout=60):
+        return json.dumps(meta).encode() if url == tool.DARKREADER_NPM else blob
+    monkeypatch.setattr(tool, "fetch_source", fetch_source)
+    src = tmp_path / "dr"
+    cfg = src / "src" / "config"
+    cfg.mkdir(parents=True)
+    (cfg / "dynamic-theme-fixes.config").write_text("*\n\nCSS\nbody { color: red }\n")
+    (cfg / "dark-sites.config").write_text("dark.example\n")
+    (cfg / "detector-hints.config").write_text("own.example\n\nNO DARK THEME\n")
+    commit = ["git", "-C", str(src), "-c", "user.name=t", "-c", "user.email=t@t"]
+    subprocess.run(commit[:3] + ["init", "-q"], check=True)
+    subprocess.run(commit + ["add", "-A"], check=True)
+    subprocess.run(commit + ["commit", "-q", "-m", "lists"], check=True)
+    return src
+
+
+@pytest.mark.skipif(not shutil.which("git"), reason="needs git")
+def test_a_dark_reader_patch_that_no_longer_fits_is_reported_with_its_anchor(repo, tmp_path, monkeypatch):
+    """Dark Reader changes the text one of I.K.E.'s patches changes: the
+    report names the patch, the versions and the new engine's lines around
+    the anchor; nothing of Dark Reader is replaced."""
+    from test_darkreader import build_tool, fake_engine
+    tool = load_tool()
+    for rel in ("ike/resources/darkreader-data.json", "tools/build-darkreader.py"):
+        shutil.copy(ROOT / rel, repo / rel)
+    patches = build_tool().PATCHES
+    old = dict((n, o) for n, o, _new in patches)["style-moves"]
+    changed = old.replace("nextStyleSiblings.set(style, style.nextElementSibling);",
+                          "nextStyleSiblings.set(style, getNext(style));")
+    # (fake_engine runs the texts together: the changed one on lines of its own)
+    lib = fake_engine(patches, skip="style-moves").replace("})();\r\n", "\r\n" + changed.replace("\n", "\r\n") + "})();\r\n")
+    src = darkreader_upstream(tool, monkeypatch, tmp_path, lib)
+    results = tool.check_all(repo, work=tmp_path / "w", dr_src=src)
+    dr = by_name(results)["Dark"]
+    assert dr["refused"] and not dr["update"] and not dr["error"], dr
+    rep = dr["refused"]
+    assert rep["step"] == "tools/build-darkreader.py, I.K.E.'s patch 'style-moves' (PATCHES)"
+    current = json.loads((ROOT / "ike/resources/darkreader-data.json").read_text())["version"]
+    assert rep["current"].startswith(current + ", lists") and rep["latest"].startswith("9.9.9, lists")
+    assert "found 0 times instead of once" in rep["reason"] and "'style-moves'" in rep["log"]
+    assert "anchor lines not found in the new version (1 of 4):" in rep["context"]
+    assert "nextStyleSiblings.set(style, style.nextElementSibling);" in rep["context"]
+    assert 'the new version around the anchor line "function saveStylePosition(style) {"' in rep["context"]
+    assert "nextStyleSiblings.set(style, getNext(style));" in rep["context"]     # the upstream lines, numbered
+    md = tool.to_markdown(results)
+    assert "**Dark Reader (engine and lists)**: %s" % rep["current"] in md and "patch 'style-moves'" in md
+
+    # Dark Reader's site unreachable: infrastructure, never "refused"
+    def down(url, timeout=60):
+        raise tool.SourceUnreachable("%s: timed out" % url)
+    monkeypatch.setattr(tool, "fetch_source", down)
+    dr = by_name(tool.check_all(repo, work=tmp_path / "w2", dr_src=src))["Dark"]
+    assert dr["error"].startswith("source unreachable: SourceUnreachable") and not dr["refused"]
+
+
+def test_anchor_context_places():
+    tool = load_tool()
+    text = "a\nb\nanchor 1\nanchor 2\nc\nanchor 1\nanchor 2\nd\n"
+    twice = tool.anchor_context(text, "anchor 1\nanchor 2\n", around=1)
+    assert "found at line 3:" in twice and "found at line 6:" in twice
+    gone = tool.anchor_context("x\ny\n", "nothing\nof this\n")
+    assert "(2 of 2)" in gone and "no line of the anchor is found once" in gone
+
+
+def test_the_maintenance_and_the_plan_tell_refused_from_unreachable():
+    """The maintenance's check step fails only when a source is unreachable
+    (infrastructure); a refused builder does not stop it, and its report
+    reaches a person through the components issue and the candidate's PR."""
+    maint = (ROOT / ".github/workflows/daily-maintenance.yml").read_text()
+    assert "- name: Check and apply component updates (an unreachable source stops all" in maint
+    plan = (ROOT / "tools/autofix-plan.py").read_text()
+    assert 'SOURCES_STEP = "Check and apply component updates"' in plan
+    assert "a component source could not be reached" in plan
+    daily = (ROOT / ".github/workflows/daily-check.yml").read_text()
+    assert "REFUSED: ${{ needs.check.outputs.refused }}" in daily
+    assert '"$REFUSED" -gt 0' in daily and "Component incompatibility" in daily
+
+
+# --- the default filter lists in the bundled engine (1.1.20) -----------------
+
+SNAPSHOT = (ROOT / "tests/data/filter-lists-snapshot.txt").read_bytes()
+UBO_URL = "https://ublockorigin.github.io/uAssets/filters/filters.txt"
+LISTS = [{"name": "uBlock filters", "group": "ads", "enabled": True, "url": UBO_URL},
+         {"name": "EasyList", "group": "ads", "enabled": True, "url": "https://easylist.to/easylist/easylist.txt"},
+         {"name": "Cookies", "group": "consent", "enabled": True, "url": "https://cookies.example/list.txt"},
+         {"name": "Off", "group": "ads", "enabled": False, "url": "https://off.example/list.txt"}]
+
+
+def served(pages):
+    """A stand-in for the lists' sites: their pages, or "unreachable"."""
+    def get(url):
+        if url not in pages:
+            raise OSError("network unreachable: %s" % url)
+        return pages[url]
+    return get
+
+
+def _ike_root():
+    """The copy of I.K.E. under test: the one this test run has already
+    imported (the checkout, or the installed package with IKE_TEST_APP),
+    else APP. The check refuses to mix two copies."""
+    import sys
+    mod = sys.modules.get("ike")
+    if mod is not None and getattr(mod, "__file__", None):
+        return Path(mod.__file__).resolve().parent.parent
+    return APP
+
+
+@needs_engine
+def test_the_default_lists_in_the_bundled_engine():
+    tool = load_tool()
+    sub = b"! sub-list\n||sub.example^\nsub.example##+js(set, a, 1)\n"
+    pages = {UBO_URL: SNAPSHOT + b"\n!#include sub.txt\n!#include missing.txt\n",
+             "https://ublockorigin.github.io/uAssets/filters/sub.txt": sub,
+             "https://easylist.to/easylist/easylist.txt": SNAPSHOT + b"\nother.example##+js(no-such-scriptlet, x)\n",
+             "https://cookies.example/list.txt": b"! cookies\ncookies.example##+js(unknown-there, x)\n##.cookie-bar\n"}
+    info = tool.check_filter_lists(_ike_root(), get=served(pages), lists=LISTS)
+    assert [r["name"] for r in info["lists"]] == ["uBlock filters", "EasyList", "Cookies"]     # enabled only
+    assert info["engine"]["built"] and info["engine"]["parse_report"], info["engine"]
+    ubo, easy, cookies = info["lists"]
+    assert ubo["state"] == "ok" and ubo["includes_missing"] == ["missing.txt"]
+    assert ubo["network"] >= 3 and ubo["cosmetic"] >= 15 and ubo["errors"] >= 2 and ubo["unsupported"] == 0
+    assert any("html filtering" in e[2] for e in ubo["examples"])
+    # the scriptlets as I.K.E. reads them: the trusted ones only from uBlock Origin's own site;
+    # the "!#else" branch (another blocker's rules) is not read
+    assert ubo["scriptlets"]["rules"] == 15 and ubo["scriptlets"]["untrusted"] == 0          # 14 + the sub-list's
+    assert easy["scriptlets"]["untrusted"] == 3 and easy["scriptlets"]["rules"] == 11
+    assert cookies["scriptlets"] is None                     # I.K.E. runs no scriptlets of the cookie lists
+    # uBlock Origin's own resources: known, a note; a name nobody knows: a finding (drift)
+    assert set(info["unknown_scriptlets"]) == {"noeval", "nofab", "popads.net", "fingerprint2", "no-such-scriptlet"}
+    assert info["unknown_scriptlets"]["noeval"]["lists"] == ["uBlock filters", "EasyList"]
+    assert info["state"] == "findings" and len(info["findings"]) == 1
+    assert "`no-such-scriptlet` (1 rules in EasyList)" in info["findings"][0] and "drift" in info["findings"][0]
+    assert sum("`noeval`" in n for n in info["notes"]) == 1
+    md = tool.lists_markdown(info)
+    assert "### The default filter lists in the bundled engine" in md and "**Findings about the components**" in md
+    assert "| uBlock filters | ok |" in md and "not read (cookie list)" in md and "built from the lists: yes" in md
+    # every list unreachable: said so, nothing found, nothing failed
+    info = tool.check_filter_lists(_ike_root(), get=served({}), lists=LISTS)
+    assert info["state"] == "unreachable" and info["unreachable"] == 3 and not info["findings"]
+    assert "source unreachable" in tool.lists_markdown(info)
+    # a list that is no list (binary, empty): a finding about that list
+    info = tool.check_filter_lists(_ike_root(), get=served({UBO_URL: b"\x00" * 100}), lists=LISTS[:1])
+    assert info["state"] == "findings" and "not a usable list" in info["findings"][0]
+
+
+@needs_engine
+def test_the_lists_check_writes_its_report(tmp_path, monkeypatch):
+    tool = load_tool()
+    monkeypatch.setattr(tool, "fetch_source", lambda url, timeout=60: served({UBO_URL: SNAPSHOT})(url))
+    real = tool.check_filter_lists
+    monkeypatch.setattr(tool, "check_filter_lists", lambda root: real(_ike_root(), lists=LISTS[:2]))
+    out = tmp_path / "gh-output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(out))
+    assert tool.main(["--filter-lists", str(tmp_path / "lists.json"), "--markdown", str(tmp_path / "lists.md")]) == 0
+    assert out.read_text() == "lists=ok\nlists_findings=0\nlists_unreachable=1\n"
+    data = json.loads((tmp_path / "lists.json").read_text())
+    assert data["state"] == "ok" and data["lists"][0]["scriptlets"]["rules"] == 14
+    md = (tmp_path / "lists.md").read_text()
+    assert "Some lists could not be downloaded today (source unreachable): EasyList." in md
+
+
+@pytest.mark.skipif(not os.environ.get("IKE_TEST_NETWORK"), reason="IKE_TEST_NETWORK=1 to use the real lists")
+@needs_engine
+def test_the_real_default_lists(tmp_path):
+    """The lists of today, from their sites: whatever they hold, the check
+    reports and never fails."""
+    out = tmp_path / "lists.json"
+    subprocess.run(["python3", str(ROOT / "tools/check-components.py"), "--filter-lists", str(out)], check=True)
+    data = json.loads(out.read_text())
+    assert data["state"] in ("ok", "findings", "unreachable")
+    if data["state"] != "unreachable":
+        assert data["engine"]["built"], data["engine"]

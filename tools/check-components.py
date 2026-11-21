@@ -40,6 +40,28 @@ record the versions it tests.
 With --apply the files above are rewritten with the newest versions (and
 ``cargo update`` is run for a new engine); adapting I.K.E.'s code, building
 and testing are handled by the daily GitHub Actions maintenance workflow.
+
+Two kinds of trouble are kept apart (1.1.20, the owner's decision):
+
+- "source unreachable": an upstream source could not be read (the network,
+  the site, git, npm's hash). Infrastructure: --apply applies nothing and
+  exits 1, the next daily run tries again;
+- "builder refused": I.K.E.'s builder of a customised component
+  (tools/build-darkreader.py, tools/build-ubo-scriptlets.mjs) does not accept
+  the new upstream version (a patch's anchor text is gone, the library is laid
+  out differently). A component incompatibility for a person, never the
+  automatic fix's: that component stays at the version in use, with I.K.E.'s
+  changes, and the report says which step refused, the versions, the upstream
+  lines around the anchor and the builder's log; the other components are
+  still applied (security updates of the crates included) and tested.
+
+With --filter-lists FILE, only the filter lists I.K.E. turns on by default
+(ike/config.py DEFAULT_LISTS) are downloaded as I.K.E. downloads them, loaded
+into the bundled AdBlock engine (vendor/adblock, built from ike-adblock/) and
+read for the scriptlets they use: rules the engine cannot read, and
+scriptlet names the bundled uBlock Origin library does not know (I.K.E. drops
+those rules silently), are component findings, never a failure of the code;
+a list that cannot be downloaded is "unreachable".
 Needs git, and for the scriptlets Node.js; uses only crates.io, PyPI,
 registry.npmjs.org and github.com (no API token).
 """
@@ -54,6 +76,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.parse
 import urllib.request
 import zipfile
@@ -108,6 +131,78 @@ def norm(name):
 
 def run(cmd, **kw):
     return subprocess.run(cmd, check=True, capture_output=True, text=True, **kw).stdout
+
+
+class SourceUnreachable(Exception):
+    """An upstream source could not be read (the network, the site, git):
+    infrastructure, the next run tries again."""
+
+
+class BuilderRefused(Exception):
+    """I.K.E.'s builder of a customised component refused the new upstream
+    version: a component incompatibility for a person (1.1.20). `report` holds
+    component, current, latest, step, reason, context (the upstream lines
+    around the anchor) and log."""
+
+    def __init__(self, report):
+        super().__init__(report.get("reason", "the builder refused the new version"))
+        self.report = report
+
+
+def fetch_source(url, timeout=60):
+    """fetch(), with a failure to read the source as SourceUnreachable."""
+    try:
+        return fetch(url, timeout=timeout)
+    except OSError as e:          # URLError, HTTPError, timeouts, refused connections
+        raise SourceUnreachable("%s: %s" % (url, e)) from e
+
+
+def clone(url, dest):
+    """git clone --depth 1, with a failure as SourceUnreachable."""
+    try:
+        run(["git", "clone", "--quiet", "--depth", "1", url, str(dest)])
+    except (subprocess.CalledProcessError, OSError) as e:
+        raise SourceUnreachable("git clone %s: %s" % (url, (getattr(e, "stderr", "") or str(e)).strip()[:300])) from e
+
+
+def tail(text, lines=60, size=6000):
+    """The end of a builder's log."""
+    text = (text or "").strip()
+    return "\n".join(text.splitlines()[-lines:])[-size:]
+
+
+def anchor_context(text, anchor, around=6, places=2):
+    """Where the text a patch changes (its anchor) stands in a new upstream
+    file: the anchor's lines no longer there, and the upstream lines (with
+    their numbers) around the first anchor line still found once, or around
+    each place where the whole anchor is found more than once."""
+    lines = text.replace("\r\n", "\n").split("\n")
+    anchor = anchor.replace("\r\n", "\n")
+    out = []
+
+    def show(at, label):
+        lo, hi = max(0, at - around), min(len(lines), at + around + 1)
+        out.append(label)
+        out.extend("%6d  %s" % (n + 1, lines[n][:200]) for n in range(lo, hi))
+
+    wanted = [a.strip() for a in anchor.split("\n") if a.strip()]
+    stripped = [s.strip() for s in lines]
+    whole = [i for i in range(len(lines)) if wanted and stripped[i:i + len(wanted)] == wanted]
+    if len(whole) > 1:
+        for at in whole[:places]:
+            show(at, "found at line %d:" % (at + 1))
+        return "\n".join(out)
+    missing = [a for a in wanted if a not in stripped]
+    if missing:
+        out.append("anchor lines not found in the new version (%d of %d):" % (len(missing), len(wanted)))
+        out.extend("    " + a[:200] for a in missing[:8])
+    for a in wanted:
+        if stripped.count(a) == 1:
+            show(stripped.index(a), "the new version around the anchor line \"%s\":" % a[:80])
+            break
+    else:
+        out.append("no line of the anchor is found once in the new version")
+    return "\n".join(out)
 
 
 # --- adblock-rust -----------------------------------------------------------
@@ -256,14 +351,64 @@ def scriptlets_hash(data):
     return hashlib.sha256(json.dumps(data["scriptlets"], sort_keys=True).encode("utf-8")).hexdigest()
 
 
+UBO_LIBRARY = "src/js/resources/scriptlets.js"      # what tools/build-ubo-scriptlets.mjs imports
+
+
+def ubo_refused(root, src, reason, log=""):
+    """BuilderRefused for uBlock Origin's scriptlets, with what the new
+    checkout has where the builder looks (UBO_LIBRARY and its exports)."""
+    cur = json.loads((root / "ike" / "resources" / "ubo-scriptlets.json").read_text("utf-8"))
+    try:
+        commit = run(["git", "-C", str(src), "log", "-1", "--format=%H %cs"]).split()
+    except Exception:
+        commit = ["?", ""]
+    lib = src / UBO_LIBRARY
+    if lib.is_file():
+        text = lib.read_text("utf-8", "replace")
+        exports = [line.strip()[:160] for line in text.splitlines() if line.lstrip().startswith("export ")]
+        context = "%s (%d lines); its exports:\n%s" % (UBO_LIBRARY, text.count("\n") + 1,
+                                                       "\n".join("    " + e for e in exports[:20]) or "    (none)")
+    else:
+        near = sorted(p.name for p in lib.parent.glob("*.js"))[:30] if lib.parent.is_dir() else []
+        context = "%s is not in the new version; %s" % (
+            UBO_LIBRARY, ("next to it: " + ", ".join(near)) if near else "its folder is not there either")
+    return BuilderRefused({
+        "component": "uBlock Origin scriptlets",
+        "current": "%s (%s)" % (cur["commit"][:10], cur["date"]),
+        "latest": "%s (%s)" % (commit[0][:10], commit[1] if len(commit) > 1 else ""),
+        "step": "tools/build-ubo-scriptlets.mjs (uBlock Origin's builtinScriptlets read with Node.js)",
+        "reason": reason, "context": context, "log": tail(log)})
+
+
 def build_scriptlets(root, work, ubo_src=None):
     src = work / "src"
     if ubo_src:
         os.symlink(Path(ubo_src).resolve(), src)
     else:
-        run(["git", "clone", "--quiet", "--depth", "1", UBO_GIT, str(src)])
-    run(["node", str(root / "tools" / "build-ubo-scriptlets.mjs")], cwd=work)
-    return work / "ubo-scriptlets.json"
+        clone(UBO_GIT, src)
+    try:
+        done = subprocess.run(["node", str(root / "tools" / "build-ubo-scriptlets.mjs")], cwd=work,
+                              capture_output=True, text=True, check=False)
+    except OSError as e:          # no Node.js on this machine: not uBlock Origin's change
+        raise RuntimeError("Node.js could not be started: %s" % e) from e
+    if done.returncode != 0:
+        lines = [x for x in done.stderr.splitlines() if x.strip()]
+        why = next((x.strip() for x in lines if re.match(r"^\w*Error\b|^Error \[", x.strip())),
+                   lines[-1].strip() if lines else "exit %d" % done.returncode)
+        raise ubo_refused(root, src, "the builder stopped: %s" % why[:300], done.stdout + done.stderr)
+    built = work / "ubo-scriptlets.json"
+    try:
+        data = json.loads(built.read_text("utf-8"))
+    except (OSError, ValueError) as e:
+        raise ubo_refused(root, src, "the builder wrote no readable library (%s)" % e, done.stdout + done.stderr)
+    entries = data.get("scriptlets") or {}
+    missing = sorted({d for e in entries.values() for d in e.get("deps", ()) if d not in entries})
+    if not entries or not any(n.endswith(".js") for n in entries):
+        raise ubo_refused(root, src, "the builder found no scriptlets in the new version", done.stdout + done.stderr)
+    if missing:
+        raise ubo_refused(root, src, "scriptlets of the new version depend on entries it does not have: %s"
+                          % ", ".join(missing[:10]), done.stdout + done.stderr)
+    return built
 
 
 def check_scriptlets(root, work, ubo_src=None):
@@ -302,10 +447,59 @@ def npm_tarball(meta):
     integrity = meta["dist"].get("integrity", "")
     if not integrity.startswith("sha512-"):
         raise ValueError("npm gives no sha512 for the tarball")
-    data = fetch(url)
+    data = fetch_source(url)
     if base64.b64encode(hashlib.sha512(data).digest()).decode() != integrity[7:]:
         raise ValueError("the tarball does not match the hash npm published")
     return data
+
+
+def build_tool_module(root):
+    """tools/build-darkreader.py as a module (its PATCHES)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("build_darkreader", root / "tools" / "build-darkreader.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def darkreader_refused(root, work, src, meta, reason, log):
+    """BuilderRefused for Dark Reader: the step that refused and, for one of
+    I.K.E.'s patches, the new engine's lines around the text it changes."""
+    try:
+        cur = json.loads((root / "ike" / "resources" / "darkreader-data.json").read_text("utf-8"))
+        current = "%s, lists %s" % (cur["version"], cur.get("lists_commit", "")[:10])
+    except (OSError, ValueError, KeyError):
+        current = "?"
+    lists = ""
+    try:
+        lists = run(["git", "-C", str(src), "log", "-1", "--format=%h"]).strip()
+    except Exception:
+        pass
+    latest = "%s, lists %s" % (meta.get("version", "?"), lists or "?")
+    lib_path = work / "darkreader.js"
+    lib = lib_path.read_bytes().decode("utf-8", "replace") if lib_path.is_file() else ""
+    step, context = "tools/build-darkreader.py", ""
+    patch = re.search(r"patch '([^']+)'", log or "")
+    try:
+        if patch:
+            step = "tools/build-darkreader.py, I.K.E.'s patch '%s' (PATCHES)" % patch.group(1)
+            anchor = next((old for name, old, _new in build_tool_module(root).PATCHES if name == patch.group(1)), "")
+            context = anchor_context(lib, anchor) if anchor else ""
+        elif "proxy injection" in (log or ""):
+            step = "tools/build-darkreader.py, the proxy taken out of the engine (PROXY_BLOCK)"
+            context = anchor_context(lib, 'const proxyScript = createOrUpdateScript("darkreader--proxy");')
+        elif "injectProxy" in (log or ""):
+            step = "tools/build-darkreader.py, Dark Reader's injectProxy (extract_proxy)"
+            context = anchor_context(lib, "function injectProxy(")
+        elif "common fix" in (log or ""):
+            step = "tools/build-darkreader.py, the site fixes list (dynamic-theme-fixes.config)"
+            fixes = src / "src" / "config" / "dynamic-theme-fixes.config"
+            if fixes.is_file():
+                context = "\n".join(fixes.read_text("utf-8", "replace").splitlines()[:15])
+    except Exception as e:          # the report must not hide the refusal itself
+        context = "(the upstream lines could not be shown: %s)" % e
+    return BuilderRefused({"component": "Dark Reader (engine and lists)", "current": current, "latest": latest,
+                           "step": step, "reason": reason, "context": context, "log": tail(log)})
 
 
 def build_darkreader(root, work, dr_src=None):
@@ -313,21 +507,31 @@ def build_darkreader(root, work, dr_src=None):
     import tarfile
     out = work / "darkreader-out"
     out.mkdir(parents=True, exist_ok=True)
-    meta = json.loads(fetch(DARKREADER_NPM))
+    meta = json.loads(fetch_source(DARKREADER_NPM))
     tgz = work / "darkreader.tgz"
     tgz.write_bytes(npm_tarball(meta))
-    with tarfile.open(tgz) as tar:
-        member = tar.getmember("package/darkreader.js")
-        (work / "darkreader.js").write_bytes(tar.extractfile(member).read())
     src = work / "darkreader-src"
     if dr_src:
         src = Path(dr_src)
     elif not src.exists():
-        run(["git", "clone", "--quiet", "--depth", "1", DARKREADER_GIT, str(src)])
+        clone(DARKREADER_GIT, src)
+    with tarfile.open(tgz) as tar:
+        try:
+            member = tar.getmember("package/darkreader.js")
+        except KeyError:
+            raise darkreader_refused(root, work, src, meta, "the npm package has no package/darkreader.js "
+                                     "(the engine is laid out differently)", "") from None
+        (work / "darkreader.js").write_bytes(tar.extractfile(member).read())
     commit = run(["git", "-C", str(src), "log", "-1", "--format=%H"]).strip()
     date = run(["git", "-C", str(src), "log", "-1", "--format=%cs"]).strip()
-    run([sys.executable, str(root / "tools" / "build-darkreader.py"), "--lib", str(work / "darkreader.js"),
-         "--config", str(src / "src" / "config"), "--commit", commit, "--date", date, "--out", str(out)])
+    done = subprocess.run([sys.executable, str(root / "tools" / "build-darkreader.py"), "--lib",
+                           str(work / "darkreader.js"), "--config", str(src / "src" / "config"), "--commit", commit,
+                           "--date", date, "--out", str(out)], capture_output=True, text=True, check=False)
+    if done.returncode != 0:
+        log = done.stdout + done.stderr
+        lines = [x.strip() for x in done.stderr.splitlines() if x.strip()]
+        raise darkreader_refused(root, work, src, meta, "the builder stopped: %s"
+                                 % (lines[-1] if lines else "exit %d" % done.returncode)[:300], log)
     return out
 
 
@@ -663,6 +867,295 @@ def record_arch(path, root=ROOT, query=None, probe=None):
     return "\n".join(lines) + "\n"
 
 
+# --- the filter lists I.K.E. turns on by default (1.1.20) ---------------------
+# They change every day on users' computers, outside I.K.E.'s releases, while
+# the AdBlock engine and uBlock Origin's scriptlets come with I.K.E. The
+# check downloads them as I.K.E. does, loads them into the bundled engine and
+# reads the scriptlets they use. A rule the engine cannot read, or a scriptlet
+# name the bundled library does not know (ike/scriptlets.py drops such a rule
+# without a word), is a finding about the components for a person: never a
+# failure of the code. A list that cannot be downloaded is "unreachable".
+
+LIST_MAX_BYTES = 32 * 1024 * 1024        # as MAX_LIST_BYTES of ike/blocker.py
+LIST_INCLUDES = 24                       # "!#include" sub-lists followed, as ike/blocker.py
+LIST_INCLUDE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,80}\.txt")
+# the share of a list's rules the engine may leave unread (rules for other
+# blockers, HTML filters...) before it is a finding: well above what the
+# default lists give today (docs/MAINTENANCE.md), so only a real change of
+# syntax or of the engine shows
+LIST_UNREAD_SHARE = 0.25
+LIST_EXAMPLES = 8
+# Scriptlet names the default lists use that are not uBlock Origin's
+# builtinScriptlets but its own resources (web_accessible_resources, also
+# usable with +js): tools/build-ubo-scriptlets.mjs takes only the
+# builtinScriptlets, so I.K.E. drops these rules. Seen on 2026-11-21 when this
+# check was written; shown every day as a note, not as a new finding. Whether
+# to bundle them is a person's decision. Any other unknown name is a finding.
+KNOWN_UNRUN_SCRIPTLETS = ("noeval", "nofab", "popads-dummy", "popads.net", "fingerprint2")
+
+
+def ike_modules(root):
+    """ike.config and ike.scriptlets of this checkout (neither needs Qt)."""
+    root = Path(root).resolve()
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
+    import ike.config
+    import ike.scriptlets
+    if Path(ike.config.__file__).resolve().parent.parent != root:
+        raise RuntimeError("another copy of I.K.E. is imported: %s" % ike.config.__file__)
+    return ike.config, ike.scriptlets
+
+
+def engine_module(root):
+    """The AdBlock engine of this checkout (vendor/adblock, built from
+    ike-adblock/) and its parse_report, or (None, None, why)."""
+    vendor = str(Path(root).resolve() / "vendor")
+    sys.path.insert(0, vendor)
+    try:
+        import adblock
+    except Exception as e:
+        return None, None, "%s: %s" % (type(e).__name__, e)
+    finally:
+        sys.path.remove(vendor)
+    native = sys.modules.get("adblock.ike_adblock")
+    return adblock, getattr(native, "parse_report", None), ""
+
+
+def scriptlet_library(scr, path=None):
+    """The uBlock Origin scriptlet library as ike/scriptlets.py reads it (that
+    of the checkout, or the file at path)."""
+    lib = scr.Library()
+    if path:
+        old = scr.LIB_FILE
+        scr.LIB_FILE = Path(path)
+        try:
+            lib._load()
+        finally:
+            scr.LIB_FILE = old
+    return lib
+
+
+def download_list(url, get=None):
+    """A filter list as ike/blocker.py downloads it: HTTPS only, at most
+    LIST_MAX_BYTES, not empty or binary, with the "!#include" sub-lists next to
+    it, one level deep. (text, [sub-lists that could not be downloaded]);
+    raises SourceUnreachable (or OSError) when the list itself cannot be read,
+    ValueError when it is not a usable list."""
+    get = get or (lambda u: fetch_source(u, timeout=60))
+    if not url.startswith("https://"):
+        raise ValueError("filter lists must use HTTPS")
+    data = get(url)
+    if len(data) > LIST_MAX_BYTES:
+        raise ValueError("the list is larger than %d MB" % (LIST_MAX_BYTES >> 20))
+    if len(data) < 20 or b"\x00" in data[:4096]:
+        raise ValueError("an empty or binary list")
+    names = []
+    for raw in data.split(b"\n"):
+        if raw.startswith(b"!#include "):
+            name = raw[10:].strip().decode("ascii", "ignore")
+            if LIST_INCLUDE_NAME.fullmatch(name) and name not in names:
+                names.append(name)
+    parts, missing = [data], []
+    base = url.rsplit("/", 1)[0] + "/"
+    for name in names[:LIST_INCLUDES]:
+        try:
+            sub = get(base + name)
+        except (SourceUnreachable, OSError):
+            missing.append(name)            # as I.K.E.: skipped
+            continue
+        if 20 <= len(sub) <= LIST_MAX_BYTES and b"\x00" not in sub[:4096]:
+            parts.append(b"! --- included: " + name.encode() + b"\n" + sub)
+        if sum(len(x) for x in parts) > LIST_MAX_BYTES:
+            parts.pop()
+            break
+    return b"\n".join(parts).decode("utf-8", "replace"), missing
+
+
+def list_scriptlets(text, lib, scr, trusted):
+    """The "domain##+js(name, ...)" rules of a list as ike/scriptlets.py reads
+    them: {"rules": run by I.K.E., "generic": without a domain (not run by
+    I.K.E.), "untrusted": scriptlets uBlock Origin keeps to trusted lists,
+    "unknown": {name: [count, first rule]} not in the library}."""
+    out = {"rules": 0, "generic": 0, "untrusted": 0, "unknown": {}}
+    for line in scr.preprocess(text).splitlines():
+        if "+js(" not in line:
+            continue
+        m = scr._RULE.match(line.strip())
+        if not m or m.group(2):             # an exception switches scriptlets off: nothing to run
+            continue
+        args = scr.split_args(m.group(3))
+        if not args or not args[0]:
+            continue
+        if not m.group(1).strip():
+            out["generic"] += 1
+            continue
+        name = lib.resolve(args[0])
+        if name is None:
+            seen = out["unknown"].setdefault(args[0], [0, line.strip()[:200]])
+            seen[0] += 1
+        elif lib.entry(name).get("trust") and not trusted:
+            out["untrusted"] += 1
+        else:
+            out["rules"] += 1
+    return out
+
+
+def check_filter_lists(root=ROOT, get=None, library=None, lists=None):
+    """The default filter lists in the bundled engine and scriptlets (see above)."""
+    config, scr = ike_modules(root)
+    lib = scriptlet_library(scr, library)
+    lists = [e for e in (lists if lists is not None else config.DEFAULT_LISTS) if e.get("enabled", True)]
+    mod, parse_report, engine_error = engine_module(root)
+    blocker = None
+    try:                    # ike/blocker.py needs Qt; without it the trusted sources are those of 1.1.20
+        from ike import blocker
+    except Exception:
+        pass
+
+    def trusted(url):
+        if blocker is not None:
+            return blocker._trusted_scriptlet_source(url)
+        parts = urllib.parse.urlsplit(url)
+        return parts.scheme == "https" and ((parts.hostname or "") == "ublockorigin.github.io" or (
+            parts.hostname == "raw.githubusercontent.com" and parts.path.startswith("/uBlockOrigin/")))
+
+    out = {"lists": [], "unknown_scriptlets": {}, "findings": [], "notes": [],
+           "engine": {"backend": getattr(mod, "BACKEND", "") if mod else "", "error": engine_error,
+                      "built": False, "parse_report": bool(parse_report)},
+           "library": lib.lib_version()}
+    texts = []
+    for entry in lists:
+        row = {"name": entry["name"], "url": entry["url"], "group": entry.get("group", ""), "state": "ok",
+               "error": "", "includes_missing": []}
+        out["lists"].append(row)
+        try:
+            text, row["includes_missing"] = download_list(entry["url"], get)
+        except (SourceUnreachable, OSError) as e:
+            row.update(state="unreachable", error="%s: %s" % (type(e).__name__, str(e)[:200]))
+            continue
+        except ValueError as e:
+            row.update(state="unusable", error=str(e)[:200])
+            out["findings"].append("%s: not a usable list (%s)" % (entry["name"], e))
+            continue
+        text = scr.preprocess(text)
+        texts.append((entry["name"], text))
+        if parse_report:
+            try:
+                rep = parse_report(text, False, LIST_EXAMPLES)
+                row.update({k: rep[k] for k in ("lines", "comments", "network", "cosmetic", "unsupported",
+                                                "errors")}, examples=[list(x) for x in rep["examples"]])
+                rules = rep["network"] + rep["cosmetic"] + rep["unsupported"] + rep["errors"]
+                share = (rep["unsupported"] + rep["errors"]) / rules if rules else 0.0
+                row["unread_share"] = round(share, 4)
+                if share > LIST_UNREAD_SHARE:
+                    out["findings"].append("%s: the engine cannot read %.0f%% of its rules (%d unsupported, %d "
+                                           "with errors)" % (entry["name"], share * 100, rep["unsupported"],
+                                                             rep["errors"]))
+            except Exception as e:
+                row["error"] = "parse report: %s: %s" % (type(e).__name__, str(e)[:200])
+                out["findings"].append("%s: the engine failed while reading it (%s)" % (entry["name"], row["error"]))
+        if row["group"] == "consent":
+            row["scriptlets"] = None          # I.K.E. runs no scriptlets of the cookie lists (ike/blocker.py)
+            continue
+        found = list_scriptlets(text, lib, scr, trusted(entry["url"]))
+        row["scriptlets"] = {k: found[k] for k in ("rules", "generic", "untrusted")}
+        row["scriptlets"]["unknown"] = sum(n for n, _ in found["unknown"].values())
+        for name, (count, example) in found["unknown"].items():
+            seen = out["unknown_scriptlets"].setdefault(name, {"count": 0, "lists": [], "example": example})
+            seen["count"] += count
+            seen["lists"].append(entry["name"])
+    for name, seen in sorted(out["unknown_scriptlets"].items()):
+        known = re.sub(r"\.js$", "", name) in KNOWN_UNRUN_SCRIPTLETS
+        seen["known"] = known
+        text = ("scriptlet `%s` (%d rules in %s) is not in the bundled uBlock Origin library %s: I.K.E. drops these "
+                "rules" % (name, seen["count"], ", ".join(seen["lists"]), out["library"]))
+        if known:
+            out["notes"].append(text + " (one of uBlock Origin's own resources, known: KNOWN_UNRUN_SCRIPTLETS)")
+        else:
+            out["findings"].append(text + " (list/scriptlet drift)")
+    if mod is None:
+        out["findings"].append("the bundled AdBlock engine could not be loaded: %s" % engine_error)
+    elif texts:
+        if not parse_report:
+            out["notes"].append("this engine has no parse_report (built before 1.1.20): rules not counted")
+        fs = mod.FilterSet()
+        for name, text in texts:
+            try:
+                fs.add_filter_list(text)
+            except Exception as e:
+                out["findings"].append("%s: the engine refused the list (%s: %s)" % (name, type(e).__name__, e))
+        try:
+            started = time.monotonic()
+            engine = mod.Engine(fs)
+            out["engine"]["build_s"] = round(time.monotonic() - started, 2)
+            answer = engine.check_network_urls("https://example.com/", "https://example.com/", "document")
+            if getattr(answer, "error", None):
+                raise RuntimeError(answer.error)
+            out["engine"]["built"] = True
+        except Exception as e:
+            out["engine"]["error"] = "%s: %s" % (type(e).__name__, str(e)[:300])
+            out["findings"].append("the engine could not be built from the lists: %s" % out["engine"]["error"])
+    unreachable = sum(r["state"] == "unreachable" for r in out["lists"])
+    out["unreachable"] = unreachable
+    out["state"] = ("findings" if out["findings"] else
+                    "unreachable" if unreachable == len(out["lists"]) and out["lists"] else "ok")
+    return out
+
+
+def lists_markdown(info):
+    """The section of the report about the filter lists."""
+    head = {
+        "ok": "The default filter lists load into the bundled engine, and every scriptlet they use is in the "
+              "bundled uBlock Origin library.",
+        "findings": "**Findings about the components** (for a person, not a failure of I.K.E.'s code; the "
+                    "automatic fix is not asked):",
+        "unreachable": "**No list could be downloaded (source unreachable)**: nothing was checked today.",
+    }[info["state"]]
+    eng = info["engine"]
+    out = ["", "### The default filter lists in the bundled engine", "", head, ""]
+    out += ["- %s" % _v(f) for f in info["findings"]]
+    out += ["- note: %s" % _v(n) for n in info["notes"]]
+    if info["findings"] or info["notes"]:
+        out.append("")
+    some = [r for r in info["lists"] if r["state"] != "unreachable"]
+    if info["unreachable"] and some:
+        out += ["Some lists could not be downloaded today (source unreachable): %s." % ", ".join(
+            r["name"] for r in info["lists"] if r["state"] == "unreachable"), ""]
+    out.append("Engine: %s; built from the lists: %s%s. Scriptlet library: uBlock Origin %s." % (
+        _v(eng.get("backend") or "not loaded"), "yes" if eng.get("built") else "**no**",
+        (" in %.1f s" % eng["build_s"]) if eng.get("build_s") is not None else "", _v(info["library"])))
+    out += ["", "| List | State | Network / cosmetic rules | Unsupported | Parse errors | Scriptlet rules "
+            "(run / unknown) |", "|---|---|---|---|---|---|"]
+    for r in info["lists"]:
+        sc = r.get("scriptlets")
+        scr = "not read (cookie list)" if sc is None and r["state"] == "ok" else (
+            "%d / %s" % (sc["rules"], ("**%d**" % sc["unknown"]) if sc["unknown"] else "0") if sc else "-")
+        if "network" in r:
+            rules, uns, err = "%d / %d" % (r["network"], r["cosmetic"]), str(r["unsupported"]), str(r["errors"])
+        else:
+            rules = uns = err = "-"
+        state = r["state"] if not r["error"] else "%s (%s)" % (r["state"], r["error"])
+        out.append("| %s | %s | %s | %s | %s | %s |" % (r["name"], _v(state), rules, uns, err, scr))
+    examples = [(r["name"], e) for r in info["lists"] for e in r.get("examples", [])[:3]]
+    if examples:
+        out += ["", "<details><summary>Rules the engine does not read (examples)</summary>", "", "```text"]
+        out += ["%s: %s: %s (%s)" % (n, kind, line.replace("```", "` ` `"), why) for n, (kind, line, why) in examples]
+        out += ["```", "", "</details>"]
+    return "\n".join(out) + "\n"
+
+
+def write_lists_report(info, json_path=None, markdown_path=None):
+    if json_path:
+        Path(json_path).write_text(json.dumps(info, indent=1) + "\n", "utf-8")
+    if markdown_path:
+        Path(markdown_path).write_text(lists_markdown(info), "utf-8")
+    out = os.environ.get("GITHUB_OUTPUT")
+    if out:
+        with open(out, "a", encoding="utf-8") as f:
+            f.write("lists=%s\nlists_findings=%d\nlists_unreachable=%d\n"
+                    % (info["state"], len(info["findings"]), info["unreachable"]))
+
+
 # --- report -----------------------------------------------------------------
 
 def check_all(root, ubo_src=None, work=None, dr_src=None):
@@ -681,9 +1174,16 @@ def check_all(root, ubo_src=None, work=None, dr_src=None):
             info = check(root, *args)
             info.setdefault("also", "")
             info["error"] = ""
+        except BuilderRefused as e:
+            # 1.1.20: the component stays at the version in use; the others go on
+            info = {"current": e.report.get("current", ""), "latest": e.report.get("latest", ""), "update": False,
+                    "note": "", "also": "", "error": "", "refused": dict(e.report, component=name)}
         except Exception as e:   # one failing source must not hide the others
+            kind = "source unreachable: " if isinstance(e, (SourceUnreachable, OSError)) else ""
             info = {"current": "", "latest": "", "update": False, "note": "", "also": "",
-                    "error": "%s: %s" % (type(e).__name__, (getattr(e, "stderr", "") or str(e)).strip()[:300])}
+                    "error": "%s%s: %s" % (kind, type(e).__name__,
+                                           (getattr(e, "stderr", "") or str(e)).strip()[:300])}
+        info.setdefault("refused", None)
         info["name"] = name
         info["_apply"] = apply
         results.append(info)
@@ -694,20 +1194,49 @@ def public(results):
     return [{k: v for k, v in r.items() if not k.startswith("_")} for r in results]
 
 
+def refused_markdown(results):
+    """The component incompatibility section: one block per refused builder."""
+    refused = [r["refused"] for r in results if r.get("refused")]
+    if not refused:
+        return ""
+    out = ["", "### Component incompatibility: a builder refused the new upstream version", "",
+           "Not a failure of GitHub or of the network, and not a matter for the automatic fix (the builders, "
+           "`tools/build-*`, and the components' files are a person's). The component below **stays at the version "
+           "in use, with I.K.E.'s changes**; every other component is still updated and tested. A person adapts "
+           "the builder to the new upstream version (for Dark Reader: the patch named below, in "
+           "`tools/build-darkreader.py`); the next daily run then takes it.", ""]
+    for rep in refused:
+        out.append("**%s**: %s → %s. Refused at: %s." % (rep["component"], _v(rep.get("current")),
+                                                        _v(rep.get("latest")), rep.get("step", "?")))
+        out += ["", "Reason: %s" % rep.get("reason", "?"), ""]
+        for title, key in (("The new upstream version around the anchor", "context"), ("The builder's log", "log")):
+            if rep.get(key):
+                out += ["<details><summary>%s</summary>" % title, "", "```text",
+                        rep[key].replace("```", "` ` `"), "```", "", "</details>", ""]
+    return "\n".join(out) + "\n"
+
+
 def to_markdown(results):
     n = sum(r["update"] for r in results)
     out = []
+    if any(r.get("refused") for r in results):
+        out.append("Un componente non accetta più le modifiche di I.K.E.: resta alla versione in uso, serve una "
+                   "persona (dettagli sotto).\n")
     if n:
         out.append("Nuove versioni trovate: GitHub Actions prepara un candidato da testare e sottoporre al proprietario.\n")
     out.append("New versions of bundled components: **%d**. Checked %s UTC by "
                "`tools/check-components.py`.\n" % (n, datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M")))
     out.append("| Component | In use | Newest | New | Notes |\n|---|---|---|---|---|")
     for r in results:
+        refused = r.get("refused")
         notes = "; ".join(x for x in (r["note"], ("also newer: " + r["also"]) if r["also"] else "",
-                                      ("**check failed**: " + r["error"]) if r["error"] else "") if x)
-        out.append("| %s | %s | %s | %s | %s |" % (r["name"], r["current"], r["latest"],
-                                                  "**yes**" if r["update"] else "no", notes.replace("|", "\\|")))
-    return "\n".join(out) + "\n"
+                                      ("**check failed**: " + r["error"]) if r["error"] else "",
+                                      ("**builder refused** (%s): kept at the version in use, see below"
+                                       % refused.get("step", "?")) if refused else "") if x)
+        new = "**refused**" if refused else ("**yes**" if r["update"] else "no")
+        out.append("| %s | %s | %s | %s | %s |" % (r["name"], r["current"], r["latest"], new,
+                                                  notes.replace("|", "\\|")))
+    return "\n".join(out) + "\n" + refused_markdown(results)
 
 
 def main(argv=None):
@@ -724,12 +1253,20 @@ def main(argv=None):
                     help="only write the versions the last green arch.yml run on main tested (GitHub API, GET)")
     ap.add_argument("--record-arch", metavar="FILE",
                     help="only record the versions of this Arch system (arch.yml); prints the run's summary")
+    ap.add_argument("--filter-lists", metavar="FILE",
+                    help="only check the default filter lists in the bundled engine; JSON to FILE "
+                         "(--markdown: its section)")
     ap.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", ""), help="OWNER/NAME on GitHub")
     ap.add_argument("--root", default=str(ROOT), help=argparse.SUPPRESS)
     args = ap.parse_args(argv)
     root = Path(args.root)
     if args.record_arch:
         print(record_arch(args.record_arch, root), end="")
+        return 0
+    if args.filter_lists:
+        info = check_filter_lists(root)
+        write_lists_report(info, args.filter_lists, args.markdown)
+        print(lists_markdown(info), end="")
         return 0
     if args.save_arch_tested:
         saved = save_arch_tested(args.save_arch_tested, args.repo)
@@ -745,7 +1282,8 @@ def main(argv=None):
         arch = check_arch(saved)
     results = check_all(root, args.ubo_src, dr_src=args.darkreader_src)
     for r in results:
-        state = "ERROR " + r["error"] if r["error"] else ("NEW" if r["update"] else "ok")
+        state = "ERROR " + r["error"] if r["error"] else (
+            "REFUSED" if r.get("refused") else ("NEW" if r["update"] else "ok"))
         print("%-34s %-6s %s -> %s %s" % (r["name"], state.split(" ")[0], r["current"], r["latest"],
                                          r["note"] or r["also"] or (r["error"] if r["error"] else "")))
     if arch:
@@ -754,9 +1292,15 @@ def main(argv=None):
                                  or ", ".join(sorted(arch["unreachable"]))))
     updates = sum(r["update"] for r in results)
     errors = sum(bool(r["error"]) for r in results)
-    print("updates: %d, errors: %d" % (updates, errors))
+    refused = sum(bool(r.get("refused")) for r in results)
+    print("updates: %d, errors: %d, refused: %d" % (updates, errors, refused))
+    for r in results:
+        if r.get("refused"):
+            rep = r["refused"]
+            print("::warning::component incompatibility: %s %s -> %s refused at %s: %s (kept at the version in use)"
+                  % (r["name"], rep.get("current"), rep.get("latest"), rep.get("step"), rep.get("reason")))
     if args.json:
-        data = {"updates": updates, "errors": errors, "components": public(results)}
+        data = {"updates": updates, "errors": errors, "refused": refused, "components": public(results)}
         if arch:
             data["arch"] = arch_public(arch)
         Path(args.json).write_text(json.dumps(data, indent=1) + "\n", "utf-8")
@@ -765,16 +1309,18 @@ def main(argv=None):
     out = os.environ.get("GITHUB_OUTPUT")
     if out:
         with open(out, "a", encoding="utf-8") as f:
-            f.write("updates=%d\nerrors=%d\n" % (updates, errors))
+            f.write("updates=%d\nerrors=%d\nrefused=%d\n" % (updates, errors, refused))
             if arch:
                 f.write("arch=%s\n" % arch["state"])
     if args.apply:
         if errors:
-            print("not applying any updates: at least one component source could not be checked")
+            # infrastructure (a source unreachable): fail closed, the next daily run tries again
+            print("::error::not applying any updates: a component source could not be reached or checked "
+                  "(source unreachable, not a builder that refused)")
             return 1
         if updates:
             for r in results:
-                if r["update"] or r["also"]:
+                if (r["update"] or r["also"]) and not r.get("refused"):
                     r["_apply"](root, r)
                     print("applied:", r["name"])
         else:

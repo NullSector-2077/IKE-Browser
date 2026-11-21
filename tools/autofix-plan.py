@@ -64,8 +64,12 @@ SHA_MARK_RE = re.compile(r"<!-- autofix-sha: ([0-9a-f]{7,40})(?: on ([A-Za-z0-9.
 REPORT_FRESH_HOURS = 24
 REPORTER = "github-actions[bot]"      # the author of the report job's comments
 # Steps of the daily maintenance's "prepare" job that no AI fix of main can
-# help (1.1.18): the check and apply of the component updates fails when an
-# upstream source cannot be reached (tools/check-components.py exits 1). The
+# help (1.1.18): the check and apply of the component updates fails only when
+# an upstream source cannot be reached (tools/check-components.py exits 1).
+# Since 1.1.20 a builder that refuses a new upstream version (a Dark Reader
+# patch whose text is gone, uBlock Origin's library laid out differently) does
+# not stop that step: the component stays at the version in use and the
+# "components" issue reports the incompatibility to a person. The
 # engine's build stops the job only when its crates cannot be downloaded or an
 # engine that did not change does not build; a NEW engine that does not build
 # with I.K.E.'s wrapper reaches automation/daily-maintenance marked, its tests
@@ -387,9 +391,10 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
             return plan
         steps = [st for j in failed_jobs if j["name"] == "prepare" for st in failed_steps(j)]
         if any(st.startswith(SOURCES_STEP) for st in steps):
-            plan.update(action="issue", kind="infra", reason="a component source could not be checked or its "
-                        "update could not be applied (step: %s); nothing on main to fix, the next daily run "
-                        "tries again" % SOURCES_STEP)
+            plan.update(action="issue", kind="infra", reason="a component source could not be reached or could "
+                        "not be checked (step: %s; a builder that refuses a new version does not stop it: that "
+                        "is reported in the components issue); nothing on main to fix, the next daily run tries "
+                        "again" % SOURCES_STEP)
             return plan
         if any(st.startswith(ENGINE_STEP) for st in steps):
             # a new engine that does not build is published and fixed on its branch;
@@ -401,6 +406,13 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
             return plan
         target = "main"
     elif name == "Daily component check":
+        if job_names == ["lists"]:
+            # 1.1.20: findings and unreachable lists never fail it; main's engine
+            # that does not build, or the check itself, stopped
+            plan.update(action="issue", reason="the default filter lists could not be checked in main's AdBlock "
+                        "engine (job lists: the engine did not build or the check stopped); findings and "
+                        "unreachable lists never fail it: a person looks")
+            return plan
         if "check" not in job_names:
             plan.update(action="issue", reason="the components issue could not be updated "
                         "(failed: %s); this is a workflow, not code" % ", ".join(job_names))
