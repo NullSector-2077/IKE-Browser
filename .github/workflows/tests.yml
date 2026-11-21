@@ -61,6 +61,31 @@ jobs:
         run: ruff check .
       - name: Tests
         run: python -m pytest
+      # review 2 of 1.1.19, H4: code under ike/ could make the test run report
+      # success (by finding pytest or the runner). A test that must fail, kept
+      # out of the tree, is run with every module of ike/ imported first: if
+      # it does not fail, the run is not to be trusted.
+      - name: A test that must fail still fails
+        run: |
+          mkdir -p "$RUNNER_TEMP/canary"
+          cat > "$RUNNER_TEMP/canary/test_canary.py" <<'PY'
+          import importlib, os, pathlib, sys
+          sys.path.insert(0, os.environ["IKE_REPO"])
+          for f in sorted(pathlib.Path(os.environ["IKE_REPO"], "ike").glob("*.py")):
+              if f.stem != "__main__":
+                  importlib.import_module("ike." + f.stem)
+          def test_must_fail():
+              assert 1 == 2
+          PY
+          set +e
+          (cd "$RUNNER_TEMP/canary" && IKE_REPO="$GITHUB_WORKSPACE" python -m pytest -o addopts= -q \
+              -p no:cacheprovider test_canary.py > canary.log 2>&1)
+          code=$?
+          set -e
+          cat "$RUNNER_TEMP/canary/canary.log" | tail -5
+          if [ "$code" != 1 ] || ! grep -q "1 failed" "$RUNNER_TEMP/canary/canary.log"; then
+            echo "::error::a test that must fail did not fail: the test results cannot be trusted"; exit 1
+          fi
       # 1.1.18: an automatic fix, a maintenance candidate or a ChatGPT fix must
       # not drop a test that the commit it starts from runs (by a conftest.py, a
       # `del`, a deselection... that the patch checks did not catch). The test
@@ -94,10 +119,12 @@ jobs:
               _out[0].close()
           PY
           ids() {
-            (cd "$1" && IKE_IDS_FILE="$2.raw" PYTHONPATH="$RUNNER_TEMP/ike-collect${PYTHONPATH:+:$PYTHONPATH}" \
+            # a file name no code can guess (review 2 of 1.1.19, L3)
+            raw=$(mktemp "$RUNNER_TEMP/ids.XXXXXXXXXX")
+            (cd "$1" && IKE_IDS_FILE="$raw" PYTHONPATH="$RUNNER_TEMP/ike-collect${PYTHONPATH:+:$PYTHONPATH}" \
               python -m pytest --collect-only -q -o addopts= -p no:cacheprovider -p no:warnings -p ike_collect_ids \
               > "$2.log" 2>&1) || true
-            { cat "$2.raw" 2>/dev/null || true; } | LC_ALL=C sort -u > "$2"
+            { cat "$raw" 2>/dev/null || true; } | LC_ALL=C sort -u > "$2"
           }
           ids . "$RUNNER_TEMP/ids-now"
           ids "$where" "$RUNNER_TEMP/ids-before"
@@ -140,16 +167,18 @@ jobs:
           # a repository of its own, its files known to git: some tests ask git
           # which files there are (test_licences.py); nothing is committed
           git -C "$where" init -q && git -C "$where" add -A
-          changed=$(git diff --name-only "$base" HEAD -- tests)
+          # NUL-separated into a file: a name with a space is one name (review 2, L2)
+          git diff -z --name-only "$base" HEAD -- tests > "$RUNNER_TEMP/changed-tests"
           set +e
           (cd "$where" && python -m pytest -o addopts= -q -p no:cacheprovider --junitxml="$RUNNER_TEMP/base-tests.xml")
           code=$?
           set -e
-          python3 -I - "$RUNNER_TEMP/base-tests.xml" "$code" "$where" $changed <<'PY'
+          python3 -I - "$RUNNER_TEMP/base-tests.xml" "$code" "$where" "$RUNNER_TEMP/changed-tests" <<'PY'
           import sys
           import xml.etree.ElementTree as ET
           from pathlib import Path
-          xml, code, where, changed = sys.argv[1], int(sys.argv[2]), Path(sys.argv[3]), set(sys.argv[4:])
+          xml, code, where = sys.argv[1], int(sys.argv[2]), Path(sys.argv[3])
+          changed = {n for n in Path(sys.argv[4]).read_text("utf-8", "replace").split("\0") if n}
           try:
               cases = list(ET.parse(xml).getroot().iter("testcase"))
           except (OSError, ET.ParseError):
@@ -254,7 +283,8 @@ jobs:
     if: >-
       failure() && (
       (github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]' &&
-      (github.ref_name == 'automation/autofix-main' || github.ref_name == 'automation/daily-maintenance')) ||
+      (github.ref_name == 'automation/autofix-main' || github.ref_name == 'automation/daily-maintenance' ||
+      github.ref_name == 'main')) ||
       (github.run_attempt > 1 && github.triggering_actor == 'github-actions[bot]' &&
       (github.ref_name == 'main' || github.ref_name == 'automation/autofix-main' ||
       github.ref_name == 'automation/daily-maintenance')))
@@ -272,6 +302,37 @@ jobs:
         run: |
           for pause in 15 30 0; do
             if gh workflow run autofix.yml --ref main -f run_id="$RUN_ID"; then exit 0; fi
+            sleep "$pause"
+          done
+          exit 1
+
+  # The automatic fix's own tests passed (started with the workflow's token, so
+  # GitHub sends no "workflow_run"): the merge is asked for with a dispatch
+  # (review 2 of 1.1.19, H1). After a merge made by itself, the tests of main
+  # passed: the release notice is asked for the same way (H2).
+  merge-ready:
+    needs: tests
+    if: >-
+      success() && github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]' &&
+      (github.ref_name == 'automation/autofix-main' || github.ref_name == 'main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Ask for the merge, or for the release notice
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REF: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          for pause in 15 30 0; do
+            if [ "$REF" = main ]; then
+              gh workflow run release-ready.yml --ref main && exit 0
+            else
+              gh workflow run automerge.yml --ref main -f sha="$SHA" && exit 0
+            fi
             sleep "$pause"
           done
           exit 1

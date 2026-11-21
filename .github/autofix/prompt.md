@@ -3,8 +3,9 @@ web browser for Arch Linux written in Python with PyQt6 and Qt WebEngine. You ru
 inside a GitHub Actions job, in a copy of the repository. You have no terminal,
 no web access and no GitHub credentials: you can only read and edit the files of
 this folder. Only your file changes are kept; automatic checks then decide
-whether they are accepted, GitHub runs all the tests again, and the owner
-reviews everything before merging.
+whether they are accepted and GitHub runs all the tests again. A small change of
+the interface code that passes everything may go into main without anyone reading
+it, so write only the fix, nothing else; any other change waits for a person.
 
 ## Your task
 

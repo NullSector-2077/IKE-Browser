@@ -39,7 +39,8 @@ MAX_ATTEMPTS = 2
 MAINTENANCE = "automation/daily-maintenance"
 FIX_MAIN = "automation/autofix-main"
 FIXABLE_BRANCHES = ("main", MAINTENANCE, FIX_MAIN)
-ISSUE_TITLE = "Automatic fix needs you: %s"
+# 1.1.19, the owner's words: GitHub mails the owner the issue with this title
+ISSUE_TITLE = "ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!! (%s)"
 # The report (autofix.yml, job report) ends each issue and comment with the
 # failed commit in this form, so the plan can tell a repeat of the same failure
 # from a new one (1.1.18).
@@ -425,7 +426,7 @@ def engine_update(branch, show=None):
 
 
 def open_reports(repo, name):
-    """The open issues "Automatic fix needs you: <name>" for already_reported():
+    """The open issues ISSUE_TITLE % <name> for already_reported():
     each with the commits its reports name (the issue and the report job's
     comments, by their last line) and the time of its latest report about
     main (audit of #65: a report about another branch, or one whose mark names

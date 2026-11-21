@@ -90,9 +90,9 @@ def release_notes(changelog_text, version):
     return m.group(1).strip() + "\n"
 
 
-def tests_passed(check_runs):
-    """'ok', 'running' or 'failed' for the check named "tests" of a commit."""
-    runs = [r for r in check_runs if r.get("name") == CHECK_NAME]
+def tests_passed(check_runs, name=CHECK_NAME):
+    """'ok', 'running' or 'failed' for the check `name` of a commit."""
+    runs = [r for r in check_runs if r.get("name") == name]
     if not runs:
         return "missing"
     if any(r.get("conclusion") == "success" for r in runs):
@@ -170,11 +170,13 @@ def publish(a):
 
     say("Controllo che i test di GitHub siano passati su questo commit")
     checks = json.loads(run(["gh", "api", "repos/%s/commits/%s/check-runs?per_page=100" % (REPO, sha)]))
-    state = tests_passed(checks.get("check_runs", []))
-    if state != "ok":
-        raise Stop({"missing": "i test non sono ancora partiti su questo commit",
-                    "running": "i test sono ancora in corso: riprova quando finiscono",
-                    "failed": "i test sono falliti su questo commit"}[state])
+    # the tests, and the security tests with the sandbox on (review 2 of 1.1.19, H3)
+    for name, what in ((CHECK_NAME, "i test"), ("sandbox", "i test di sicurezza (sandbox)")):
+        state = tests_passed(checks.get("check_runs", []), name)
+        if state != "ok":
+            raise Stop({"missing": "%s non sono ancora partiti su questo commit" % what,
+                        "running": "%s sono ancora in corso: riprova quando finiscono" % what,
+                        "failed": "%s sono falliti su questo commit" % what}[state])
 
     notes = release_notes((ROOT / "CHANGELOG.md").read_text("utf-8"), version)
 
