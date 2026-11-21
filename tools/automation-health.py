@@ -27,11 +27,20 @@ import json
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 DAYS = 3
 RUNS = 3
 WAITING = 7
 DAILY = ("daily-check.yml", "daily-maintenance.yml")
+# 1.1.19: the other scheduled checks are watched too (a weekly Arch run or the
+# daily security job that failed or stopped told nobody): (days without a
+# scheduled run, failed runs in a row) before it is reported
+WATCHED = {"daily-check.yml": (DAYS, RUNS), "daily-maintenance.yml": (DAYS, RUNS),
+           "security.yml": (DAYS, 2), "arch.yml": (9, 1)}
+PING_ADVICE = {"auth": "the key was refused: make a new one and put it in the secret",
+               "config": "the model is unknown there: set the variable of its models (docs/MAINTENANCE.md)",
+               "toolarge": "the provider refused even a tiny request"}
 TITLE = "Automation health"
 
 
@@ -56,7 +65,7 @@ def _when(item):
 
 
 def problems(now, daily, main_tests, has_key, autofix_runs=(), reserve_keys=None, autofix_issues=(),
-             maintenance_prs=(), main_protected=None, unreadable=()):
+             maintenance_prs=(), main_protected=None, unreadable=(), pings=()):
     """The problems found (a list of lines), from data already fetched."""
     found = []
     for name, items in daily.items():
@@ -64,12 +73,14 @@ def problems(now, daily, main_tests, has_key, autofix_runs=(), reserve_keys=None
         if not done:
             found.append("`%s` has never run on schedule." % name)
             continue
+        days, in_row = WATCHED.get(name, (DAYS, RUNS))
         last = _when(done[0])
-        if now - last > dt.timedelta(days=DAYS):
+        if now - last > dt.timedelta(days=days):
             found.append("`%s` has not run since %s." % (name, last.date()))
-        recent = done[:RUNS]
-        if len(recent) == RUNS and all(r.get("conclusion") == "failure" for r in recent):
-            found.append("`%s` failed in its last %d scheduled runs: %s" % (name, RUNS, recent[0]["html_url"]))
+        recent = done[:in_row]
+        if len(recent) == in_row and all(r.get("conclusion") == "failure" for r in recent):
+            found.append("`%s` failed in its last %d scheduled run(s): %s"
+                         % (name, in_row, recent[0]["html_url"]))
     done = [r for r in main_tests if r.get("status") == "completed"]
     if done and done[0].get("conclusion") == "failure":
         found.append("The tests fail on main: %s" % done[0]["html_url"])
@@ -94,6 +105,10 @@ def problems(now, daily, main_tests, has_key, autofix_runs=(), reserve_keys=None
                          % (pr.get("title", ""), WAITING, pr.get("html_url", "")))
     if main_protected is False:
         found.append("`main` has no branch protection: Settings, Branches (docs/MAINTENANCE.md).")
+    for provider, model, result in pings:
+        if result in PING_ADVICE:
+            found.append("The reserve %s (%s) did not answer the weekly question: %s."
+                         % (provider, model, PING_ADVICE[result]))
     for what in unreadable:
         found.append("Could not check %s." % what)
     return found
@@ -105,7 +120,7 @@ def main(argv=None):
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args(argv)
     now = dt.datetime.now(dt.timezone.utc)
-    daily = {w: runs(a.repo, w, "event=schedule") for w in DAILY}
+    daily = {w: runs(a.repo, w, "event=schedule") for w in WATCHED}
     main_tests = runs(a.repo, "tests.yml", "branch=main&event=push")
     unreadable = []
 
@@ -130,8 +145,14 @@ def main(argv=None):
     keys = {"GROQ_API_KEY": os.environ.get("HAS_GROQ_KEY", "true") == "true",
             "ZAI_API_KEY": os.environ.get("HAS_ZAI_KEY", "true") == "true",
             "OPENROUTER_API_KEY": os.environ.get("HAS_OPENROUTER_KEY", "true") == "true"}
+    pings = []
+    if os.environ.get("RESERVE_PING"):          # written by the workflow's step before (1.1.19)
+        try:
+            pings = [tuple(x) for x in json.loads(Path(os.environ["RESERVE_PING"]).read_text("utf-8"))]
+        except (OSError, ValueError, TypeError):
+            unreadable.append("the answers of the reserves")
     found = problems(now, daily, main_tests, os.environ.get("HAS_KEY", "true") == "true", autofix_runs,
-                     keys, autofix_issues, maintenance_prs, protected, unreadable)
+                     keys, autofix_issues, maintenance_prs, protected, unreadable, pings)
     text = ("The weekly check found problems in the automation:\n\n" + "".join("- %s\n" % p for p in found)
             + "\nControllo settimanale: l'automazione ha bisogno di te.\n") if found else ""
     print(text or "Everything works.")
