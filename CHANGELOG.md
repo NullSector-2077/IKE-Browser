@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.20
+
+- Automatic fix after a failure of "Tests" (see its pull request).
+
 ## 1.1.19
 
 - **The home network, also through public names**: the web engine's own

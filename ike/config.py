@@ -453,7 +453,7 @@ class Config:
         if d.get("ui_scheme") == "theme:cyber":
             d["ui_scheme"] = "system"
         for key in _REMOVED:
-            d.pop(key)
+            d.pop(key, None)
         if isinstance(stored, dict) and "bookmarks_bar" not in stored \
                 and stored.get("show_bookmarks_bar"):
             d["bookmarks_bar"] = "always"       # keep what the user had chosen
