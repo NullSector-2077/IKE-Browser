@@ -349,6 +349,9 @@ def _pinned_handlers(home_ok):
     return PlainHandler(), SecureHandler()
 
 
+USER_AGENT = ["Mozilla/5.0"]     # set to the browser's own by UserScripts.fetch()
+
+
 def _get(url, limit, home_ok=True):
     """Download `url` (at most `limit` bytes). home_ok=False: never from this
     computer or the home network, also through a redirect (1.1.17): the
@@ -366,7 +369,9 @@ def _get(url, limit, home_ok=True):
         # to the address that was checked, also after a redirect
         handlers += list(_pinned_handlers(home_ok))
     opener = urllib.request.build_opener(*handlers)
-    req = urllib.request.Request(url, headers={"User-Agent": "I.K.E. user scripts"})
+    # the browser's own User-Agent (review of 1.1.19, M1: "I.K.E. user scripts"
+    # told any site which browser this is, with certainty)
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT[0]})
     with opener.open(req, timeout=40) as r:
         data = r.read(limit + 1)
         ctype = r.headers.get_content_type() if r.headers else ""
@@ -444,15 +449,15 @@ class Fetcher(QThread):
     """Downloads a script (or takes its text) with what it requires."""
     done = pyqtSignal(object, str)       # gathered dict or None, error text
 
-    def __init__(self, parent, url="", text=None, must_be_newer_than=None):
+    def __init__(self, parent, url="", text=None, must_be_newer_than=None, home_ok=True):
         super().__init__(parent)
-        self.url, self.text, self.newer = url, text, must_be_newer_than
+        self.url, self.text, self.newer, self.home_ok = url, text, must_be_newer_than, home_ok
 
     def run(self):
         try:
             text = self.text
             if text is None:
-                data, _ctype = _get(self.url, MAX_SCRIPT)
+                data, _ctype = _get(self.url, MAX_SCRIPT, self.home_ok)
                 text = data.decode("utf-8", "replace")
             if self.newer is not None:
                 meta = parse_meta(text)
@@ -587,8 +592,12 @@ class UserScripts(QObject):
             lines.append(T("Code and files from: %s") % ", ".join(hosts[:8]))
         return "\n".join(lines)
 
-    def fetch(self, callback, url="", text=None, newer=None):
-        t = Fetcher(self, url, text, newer)
+    def fetch(self, callback, url="", text=None, newer=None, home_ok=True):
+        try:
+            USER_AGENT[0] = self.app.shields.user_agent()
+        except Exception:
+            pass
+        t = Fetcher(self, url, text, newer, home_ok)
         self._threads.add(t)
 
         def done(got, err):
@@ -598,7 +607,7 @@ class UserScripts(QObject):
         from . import background
         background.start(t)
 
-    def offer(self, parent, url="", text=None):
+    def offer(self, parent, url="", text=None, home_ok=True):
         """Download a script and ask the user whether to install it."""
         from PyQt6.QtWidgets import QMessageBox
 
@@ -618,7 +627,7 @@ class UserScripts(QObject):
             if box.exec() == QMessageBox.StandardButton.Yes:
                 self.store(got)
                 self.app._notify(T("User script installed: %s") % got["meta"]["name"])
-        self.fetch(ready, url, text)
+        self.fetch(ready, url, text, home_ok=home_ok)
 
     # --- updates -----------------------------------------------------
     def check_updates(self, force=False):

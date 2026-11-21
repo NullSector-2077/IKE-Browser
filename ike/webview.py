@@ -146,10 +146,26 @@ class WebPage(QWebEnginePage):
         if (is_main_frame and url.scheme() in ("http", "https")
                 and url.path().lower().endswith(".user.js")
                 and self.app.config["userscripts_enabled"]):
-            # a user script: offer to install it instead of showing its text
-            self.app.userscripts.offer(self.window_ref, url.toString())
+            # a user script: offer to install it instead of showing its text.
+            # Only for the user's own act (an address typed, a click or a key
+            # just now), and from a public page never from this computer or
+            # the home network: a page's own navigation made I.K.E. fetch any
+            # address, the router's included (review of 1.1.19, M1)
+            from .userscripts import is_local_name
+            typed = nav_type == QWebEnginePage.NavigationType.NavigationTypeTyped
+            if not typed:
+                # a click or key on this page (after it opened), just now,
+                # and each one worth a single offer
+                user = max(getattr(self, "_ike_input", -99.0), getattr(self, "_ike_opener_input", -99.0))
+                if (time.monotonic() - user > 3 or user <= getattr(self, "_ike_page_since", -99.0)
+                        or user == getattr(self, "_ike_offer_input", None)):
+                    return False
+                self._ike_offer_input = user
+            home_ok = typed or is_local_name(self.url().host())
+            self.app.userscripts.offer(self.window_ref, url.toString(), home_ok=home_ok)
             return False
         if is_main_frame:
+            self._ike_page_since = time.monotonic()
             host = url.host().lower()
             sh = self.app.shields
             st = self.settings()
@@ -335,6 +351,13 @@ class WebPage(QWebEnginePage):
         return True
 
     def createWindow(self, wtype):
+        page = self._create_window(wtype)
+        # a user script opened in a new tab by the user's click can still be
+        # offered there (the click happened on this page)
+        page._ike_opener_input = getattr(self, "_ike_input", -99.0)
+        return page
+
+    def _create_window(self, wtype):
         W = QWebEnginePage.WebWindowType
         win = self.window_ref
         if wtype == W.WebBrowserWindow:
