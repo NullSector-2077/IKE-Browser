@@ -847,6 +847,7 @@ def test_l2_page_and_python_agree_on_the_codes():
     """The page's lookup (fingerprint.js inPsl) and shields.psl_code use the
     same hash and digits: checked against the script's own text."""
     import re
+
     from ike import shields
     from ike.config import RES_DIR
     js = (RES_DIR / "fingerprint.js").read_text("utf-8")
@@ -1734,6 +1735,7 @@ def _probe_font(home):
     its name changed (same length, so no table moves), in the user's own
     font folder."""
     import os
+
     import pytest
     src = None
     for top in ("/usr/share/fonts", "/usr/local/share/fonts"):
