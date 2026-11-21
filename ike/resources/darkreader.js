@@ -2126,22 +2126,8 @@
               return [prop, regexp];
           })
         : null;
-    // I.K.E.: the properties getModifiableCSSDeclaration can change
-    function ikeMayModify(property) {
-        return (
-            property.includes("color") ||
-            property === "fill" ||
-            property === "stroke" ||
-            property === "background-image" ||
-            property === "list-style-image" ||
-            property.includes("shadow") ||
-            property.startsWith("--") ||
-            bgPropsToCopy.includes(property)
-        );
-    }
-    function iterateCSSDeclarations(style, iterate, ikeOnly = false) {
+    function iterateCSSDeclarations(style, iterate) {
         const cssText = style.cssText;
-        const ikeAll = !ikeOnly || cssText.includes("var(");
         if (cssText.includes("var(")) {
             if (isSafari) {
                 shorthandVarDepPropRegexps.forEach(([prop, regexp]) => {
@@ -2175,9 +2161,6 @@
             handleEmptyShorthand("border", style, iterate);
         }
         forEach(style, (property) => {
-            if (!ikeAll && !ikeMayModify(property)) {
-                return;
-            }
             const value = style.getPropertyValue(property).trim();
             if (!value) {
                 return;
@@ -3773,25 +3756,8 @@
     const imageSelectorNodeQueue = new Set();
     let imageSelectorQueueFrameId = null;
     let classObserver = null;
-    // I.K.E.: does any waiting selector match here?
-    function ikeAnyImageSelector(node) {
-        if (imageSelectorQueue.size < 2) {
-            return true;
-        }
-        const list = Array.from(imageSelectorQueue.keys()).join(", ");
-        try {
-            return Boolean(
-                node.querySelector(list) ||
-                (node instanceof Element && node.matches(list))
-            );
-        } catch (err) {
-            return true;
-        }
-    }
     function checkImageSelectors(node) {
-        for (const [selector, callbacks] of ikeAnyImageSelector(node)
-            ? imageSelectorQueue
-            : []) {
+        for (const [selector, callbacks] of imageSelectorQueue) {
             if (
                 node.querySelector(selector) ||
                 (node instanceof Element && node.matches(selector))
@@ -4716,10 +4682,6 @@
             this.inlineStyleQueue.splice(0);
         }
         collectVarsFromCSSDeclarations(style) {
-            // I.K.E.: no "--" in the text, no variable to collect
-            if (!style.cssText.includes("--")) {
-                return;
-            }
             iterateCSSDeclarations(style, (property, value) => {
                 if (isVariable(property)) {
                     this.inspectVariable(property, value);
@@ -5280,8 +5242,6 @@
         let prevFilterKey = null;
         let hasNonLoadedLink = false;
         let wasRebuilt = false;
-        // I.K.E.: the last build had nothing asynchronous and no variables
-        let ikeStatic = false;
         function shouldRebuildStyle() {
             return hasNonLoadedLink && !wasRebuilt;
         }
@@ -5337,8 +5297,7 @@
                                 if (mod) {
                                     modDecs.push(mod);
                                 }
-                            },
-                            true
+                            }
                         );
                     let modRule = null;
                     if (modDecs.length > 0) {
@@ -5366,10 +5325,6 @@
             }
             renderId++;
             function setRule(target, index, rule) {
-                target.insertRule(ikeRuleText(rule), index);
-            }
-            // I.K.E.: the text of a dark rule (setRule's own, unchanged)
-            function ikeRuleText(rule) {
                 const {selector, declarations} = rule;
                 let selectorText = selector;
                 const emptyIsWhereSelector =
@@ -5398,59 +5353,7 @@
                     }
                 }
                 ruleText += " }";
-                return ruleText;
-            }
-            // I.K.E.: a group's rules as text, as createTarget nests them
-            function ikeGroupText(group) {
-                let text = "";
-                group.rules.forEach((r) => {
-                    if (!r.isGroup) {
-                        text += ikeRuleText(r) + "\n";
-                        return;
-                    }
-                    const {rule} = r;
-                    let head = null;
-                    if (isStyleRule(rule)) {
-                        head = rule.selectorText;
-                    } else if (isMediaRule(rule)) {
-                        head = `@media ${rule.media.mediaText}`;
-                    } else if (isLayerRule(rule)) {
-                        head = `@layer ${rule.name}`;
-                    } else if (isContainerRule(rule)) {
-                        const {containerName, containerQuery} = rule;
-                        head = `@container ${
-                            containerName
-                                ? `${containerName} ${containerQuery}`
-                                : containerQuery
-                        }`;
-                    }
-                    text +=
-                        head === null
-                            ? ikeGroupText(r)
-                            : `${head} {\n${ikeGroupText(r)}}\n`;
-                });
-                return text;
-            }
-            function ikeWriteAll(sheet, group) {
-                if (sheet.cssRules.length !== 0) {
-                    return false;
-                }
-                const owner = sheet.ownerNode;
-                if (owner instanceof HTMLStyleElement) {
-                    // emptied first: the same text again would not be read again
-                    owner.textContent = "";
-                    owner.textContent = ikeGroupText(group);
-                    return true;
-                }
-                if (
-                    !owner &&
-                    !sheet.ownerRule &&
-                    typeof sheet.replaceSync === "function"
-                ) {
-                    sheet.replaceSync(ikeGroupText(group));
-                    return true;
-                }
-                return false;
+                target.insertRule(ruleText, index);
             }
             const asyncDeclarations = new Map();
             const varDeclarations = new Map();
@@ -5677,14 +5580,6 @@
                         }
                     });
                 }
-                // I.K.E.: all at once when nothing is finished later
-                if (
-                    asyncDeclarationCounter === 0 &&
-                    varDeclarationCounter === 0 &&
-                    ikeWriteAll(sheet, rootReadyGroup)
-                ) {
-                    return;
-                }
                 iterateReadyRules(rootReadyGroup, sheet, (rule, target) => {
                     const index = target.cssRules.length;
                     rule.declarations.forEach(({asyncKey, varKey}) => {
@@ -5700,9 +5595,6 @@
                         }
                     });
                     setRule(target, index, rule);
-                    if (rule.declarations.some((d) => d.varKey != null)) {
-                        ikeVarRuleTexts.set(rule, ikeRuleText(rule));
-                    }
                 });
             }
             function rebuildAsyncRule(key) {
@@ -5711,25 +5603,14 @@
                 setRule(target, index, rule);
                 asyncDeclarations.delete(key);
             }
-            // I.K.E.: the text each variable's rule was last written with
-            const ikeVarRuleTexts = new WeakMap();
             function rebuildVarRule(key) {
                 const {rule, target, index} = varDeclarations.get(key);
-                const ikeText = ikeRuleText(rule);
-                if (ikeVarRuleTexts.get(rule) === ikeText && index < target.cssRules.length) {
-                    return;
-                }
-                ikeVarRuleTexts.set(rule, ikeText);
                 target.deleteRule(index);
                 setRule(target, index, rule);
             }
             buildStyleSheet();
-            ikeStatic =
-                !hasNonLoadedLink &&
-                asyncDeclarationCounter === 0 &&
-                varDeclarationCounter === 0;
         }
-        return {modifySheet, shouldRebuildStyle, ikeStatic: () => ikeStatic};
+        return {modifySheet, shouldRebuildStyle};
     }
 
     let canUseSheetProxy$1 = false;
@@ -5777,30 +5658,24 @@
                 defineSheetScope(sheet, node);
             });
         }
-        // I.K.E.: while Dark Reader renders, the list is changed here and set once
-        let ikeSheets = null;
         function injectSheet(sheet, override) {
-            const newSheets =
-                ikeSheets ||
-                (isFirefox
-                    ? getAdoptedSheets(node)
-                    : [...node.adoptedStyleSheets]);
+            const newSheets = isFirefox
+                ? getAdoptedSheets(node)
+                : [...node.adoptedStyleSheets];
             const sheetIndex = newSheets.indexOf(sheet);
             const overrideIndex = newSheets.indexOf(override);
             if (overrideIndex >= 0) {
                 newSheets.splice(overrideIndex, 1);
             }
             newSheets.splice(sheetIndex + 1, 0, override);
-            if (!isFirefox && !ikeSheets) {
+            if (!isFirefox) {
                 node.adoptedStyleSheets = newSheets;
             }
         }
         function clear() {
-            const newSheets =
-                ikeSheets ||
-                (isFirefox
-                    ? getAdoptedSheets(node)
-                    : [...node.adoptedStyleSheets]);
+            const newSheets = isFirefox
+                ? getAdoptedSheets(node)
+                : [...node.adoptedStyleSheets];
             for (let i = newSheets.length - 1; i >= 0; i--) {
                 const sheet = newSheets[i];
                 if (overrides$1.has(sheet)) {
@@ -5809,7 +5684,6 @@
             }
             if (
                 !isFirefox &&
-                !ikeSheets &&
                 node.adoptedStyleSheets.length !== newSheets.length
             ) {
                 node.adoptedStyleSheets = newSheets;
@@ -5846,28 +5720,8 @@
         let sourceSheets = new WeakSet();
         let sourceDeclarations = new WeakSet();
         function render(theme, ignoreImageAnalysis) {
-            if (isFirefox || ikeSheets) {
-                ikeRender(theme, ignoreImageAnalysis);
-                return;
-            }
-            const before = [...node.adoptedStyleSheets];
-            ikeSheets = before.slice();
-            try {
-                ikeRender(theme, ignoreImageAnalysis);
-            } finally {
-                const after = ikeSheets;
-                ikeSheets = null;
-                if (
-                    after.length !== before.length ||
-                    after.some((sheet, i) => sheet !== before[i])
-                ) {
-                    node.adoptedStyleSheets = after;
-                }
-            }
-        }
-        function ikeRender(theme, ignoreImageAnalysis) {
             clear();
-            const sheets = ikeSheets ? ikeSheets.slice() : getAdoptedSheets(node);
+            const sheets = getAdoptedSheets(node);
             for (let i = sheets.length - 1; i >= 0; i--) {
                 const sheet = sheets[i];
                 if (overrides$1.has(sheet) || isDarkReaderSheet(sheet)) {
@@ -6226,8 +6080,8 @@
             attrObservers.get(root).disconnect();
         }
         const discoveredNodes = new WeakSet();
-        function discoverNodes(node, ikeElements = getInlineStyleElements(node)) {
-            ikeElements.forEach((el) => {
+        function discoverNodes(node) {
+            getInlineStyleElements(node).forEach((el) => {
                 if (discoveredNodes.has(el)) {
                     return;
                 }
@@ -6249,16 +6103,7 @@
         }
         const treeObserver = createOptimizedTreeObserver(root, {
             onMinorMutations: (_root, {additions}) => {
-                const ikeLists = [];
-                additions.forEach((added) =>
-                    ikeLists.push([added, getInlineStyleElements(added)])
-                );
-                ikeWithSVGRects(
-                    ikeLists.flatMap((item) => item[1]),
-                    () => ikeLists.forEach(([added, elements]) =>
-                        discoverNodes(added, elements)
-                    )
-                );
+                additions.forEach((added) => discoverNodes(added));
                 variablesStore.matchVariablesAndDependents();
             },
             onHugeMutations: () => {
@@ -6276,9 +6121,7 @@
         let timeoutId = null;
         const handleAttributeMutations = throttle((mutations) => {
             const handledTargets = new Set();
-            ikeWithSVGRects(
-                mutations.map((m) => m.target),
-                () => mutations.forEach((m) => {
+            mutations.forEach((m) => {
                 const target = m.target;
                 if (handledTargets.has(target)) {
                     return;
@@ -6287,7 +6130,7 @@
                     handledTargets.add(target);
                     elementStyleDidChange(target);
                 }
-            }));
+            });
             variablesStore.matchVariablesAndDependents();
         });
         const attrObserver = new MutationObserver((mutations) => {
@@ -6369,15 +6212,9 @@
         return themeKey;
     }
     function getInlineStyleCacheKey(el, theme) {
-        // I.K.E.: one loop, the same text as filter + map + join
-        let attrKey = "";
-        for (let i = 0; i < INLINE_STYLE_ATTRS.length; i++) {
-            const attr = INLINE_STYLE_ATTRS[i];
-            const value = el.getAttribute(attr);
-            if (value !== null) {
-                attrKey += `${attrKey ? "," : ""}${attr}="${value}"`;
-            }
-        }
+        const attrKey = INLINE_STYLE_ATTRS.filter((attr) =>
+            el.hasAttribute(attr)
+        ).map((attr) => `${attr}="${el.getAttribute(attr)}"`);
         return `${attrKey} ${getThemeKey(theme)}`;
     }
     function shouldIgnoreInlineStyle(element, selectors) {
@@ -6406,77 +6243,6 @@
         const root = getSVGElementRoot(parent);
         svgNodesRoots.set(svgElement, root);
         return root;
-    }
-    // I.K.E.: sizes read for a group of elements before any of them is changed
-    let ikeSVGRects = null;
-    function ikeSVGRect(el) {
-        const rect = ikeSVGRects && ikeSVGRects.get(el);
-        return rect || el.getBoundingClientRect();
-    }
-    function ikeWithSVGRects(elements, run, pending = false) {
-        if (ikeSVGRects || !isReadyStateComplete()) {
-            run();
-            return;
-        }
-        const shapes = [];
-        forEach(elements, (el) => {
-            if (
-                !(el instanceof SVGElement) ||
-                el instanceof SVGTextElement ||
-                !el.hasAttribute("fill")
-            ) {
-                return;
-            }
-            const fill = el.getAttribute("fill");
-            if (fill === "none" || fill === "currentColor") {
-                return;
-            }
-            if (
-                !pending &&
-                inlineStyleCache.get(el) === getInlineStyleCacheKey(el, theme)
-            ) {
-                return;
-            }
-            shapes.push(el);
-        });
-        if (shapes.length < 2) {
-            run();
-            return;
-        }
-        const rects = new Map();
-        shapes.forEach((el) => {
-            const root = getSVGElementRoot(el);
-            if (!root) {
-                return;
-            }
-            if (!svgRootSizeTestResults.has(root) && !rects.has(root)) {
-                rects.set(root, root.getBoundingClientRect());
-            }
-            rects.set(el, el.getBoundingClientRect());
-        });
-        ikeSVGRects = rects;
-        try {
-            run();
-        } finally {
-            ikeSVGRects = null;
-        }
-    }
-    // shapes found while the page loads are handled together when it is loaded
-    const ikePendingSVG = [];
-    function ikeRunPendingSVG() {
-        const list = ikePendingSVG.splice(0);
-        ikeWithSVGRects(
-            list.map((item) => item[0]),
-            () => list.forEach((item) => item[1]()),
-            true
-        );
-    }
-    function ikeAddPendingSVG(element, handler) {
-        if (!readyStateCompleteListeners.has(ikeRunPendingSVG)) {
-            ikePendingSVG.splice(0);
-            addReadyStateCompleteListener(ikeRunPendingSVG);
-        }
-        ikePendingSVG.push([element, handler]);
     }
     const inlineStringValueCache = new Map();
     const MAX_LOOP_TEARDOWNS = 10;
@@ -6746,7 +6512,7 @@
                             if (svgRootSizeTestResults.has(root)) {
                                 isSVGSmall = svgRootSizeTestResults.get(root);
                             } else {
-                                const svgBounds = ikeSVGRect(root);
+                                const svgBounds = root.getBoundingClientRect();
                                 isSVGSmall =
                                     svgBounds.width * svgBounds.height <=
                                     SMALL_SVG_THRESHOLD ** 2;
@@ -6756,7 +6522,8 @@
                             if (isSVGSmall) {
                                 isBg = false;
                             } else {
-                                const {width, height} = ikeSVGRect(element);
+                                const {width, height} =
+                                    element.getBoundingClientRect();
                                 isBg =
                                     width > SMALL_SVG_THRESHOLD ||
                                     height > SMALL_SVG_THRESHOLD;
@@ -6773,7 +6540,7 @@
                         if (isReadyStateComplete()) {
                             handleSVGElement();
                         } else {
-                            ikeAddPendingSVG(element, handleSVGElement);
+                            addReadyStateCompleteListener(handleSVGElement);
                         }
                     } else {
                         overrideValue(
@@ -7186,8 +6953,6 @@
     }
     // I.K.E.: groups of identical style elements share one copy
     const ikeStyleGroups = new WeakMap();
-    // I.K.E.: the dark copy of a group's rules, by theme and rules (1.1.19)
-    const ikeDarkTexts = new Map();
     let ikeStyleEpoch = 0;
     let ikeStyleEpochQueued = false;
     function ikeLastStyle(group) {
@@ -7256,7 +7021,6 @@
         const isAsyncCancelled = () => cancelAsyncOperations;
         // I.K.E.: this element in its group of identical style elements
         let ikeGroup = null;
-        let ikeApplied = null;
         let ikeCovered = false;
         let ikeRenderArgs = null;
         const ikeMember = {
@@ -7636,9 +7400,7 @@
                 }
                 syncStylePositionWatcher && syncStylePositionWatcher.stop();
                 insertStyle();
-                // I.K.E.: a copy given as text is emptied before a rebuild
-                if (syncStyle.sheet == null || ikeApplied !== null) {
-                    ikeApplied = null;
+                if (syncStyle.sheet == null) {
                     syncStyle.textContent = "";
                 }
                 const sheet = syncStyle.sheet;
@@ -7660,45 +7422,6 @@
             function buildOverrides() {
                 const force = forceRenderStyle;
                 forceRenderStyle = false;
-                // I.K.E.: the dark copy of the same rules, made once
-                let ikeKey = null;
-                if (
-                    ikeGroup &&
-                    !ikeGroup.ikeKey.includes("--") &&
-                    !ikeGroup.ikeKey.includes("url(")
-                ) {
-                    ikeKey = getThemeKey$1(theme) + "\u0000" + ikeGroup.ikeKey;
-                    const text = ikeDarkTexts.get(ikeKey);
-                    if (text !== undefined) {
-                        if (
-                            !force &&
-                            ikeApplied === ikeKey &&
-                            syncStyle &&
-                            syncStyle.isConnected
-                        ) {
-                            return;
-                        }
-                        prepareOverridesSheet();
-                        syncStyle.textContent = text;
-                        ikeApplied = ikeKey;
-                        isOverrideEmpty = text === "";
-                        return;
-                    }
-                }
-                ikeBuild(force);
-                if (ikeKey && sheetModifier.ikeStatic() && syncStyle && syncStyle.sheet) {
-                    let text = "";
-                    const made = syncStyle.sheet.cssRules;
-                    for (let i = 0; i < made.length; i++) {
-                        text += made[i].cssText + "\n";
-                    }
-                    if (ikeDarkTexts.size >= 256) {
-                        ikeDarkTexts.clear();
-                    }
-                    ikeDarkTexts.set(ikeKey, text);
-                }
-            }
-            function ikeBuild(force) {
                 sheetModifier.modifySheet({
                     prepareSheet: prepareOverridesSheet,
                     sourceCSSRules: rules,
@@ -8519,19 +8242,9 @@
         });
         const prevStyleSiblings = new WeakMap();
         const nextStyleSiblings = new WeakMap();
-        // I.K.E.: Dark Reader's own elements are not neighbours that count
-        function ikeStyleSibling(style, next) {
-            let el = next
-                ? style.nextElementSibling
-                : style.previousElementSibling;
-            while (el && el.classList.contains("darkreader")) {
-                el = next ? el.nextElementSibling : el.previousElementSibling;
-            }
-            return el;
-        }
         function saveStylePosition(style) {
-            prevStyleSiblings.set(style, ikeStyleSibling(style, false));
-            nextStyleSiblings.set(style, ikeStyleSibling(style, true));
+            prevStyleSiblings.set(style, style.previousElementSibling);
+            nextStyleSiblings.set(style, style.nextElementSibling);
         }
         function forgetStylePosition(style) {
             prevStyleSiblings.delete(style);
@@ -8539,8 +8252,8 @@
         }
         function didStylePositionChange(style) {
             return (
-                ikeStyleSibling(style, false) !== prevStyleSiblings.get(style) ||
-                ikeStyleSibling(style, true) !== nextStyleSiblings.get(style)
+                style.previousElementSibling !== prevStyleSiblings.get(style) ||
+                style.nextElementSibling !== nextStyleSiblings.get(style)
             );
         }
         currentStyles.forEach(saveStylePosition);
@@ -9158,24 +8871,6 @@
         observer.observe(root, {childList: true});
     }
     function createShadowStaticStyleOverrides(root) {
-        // I.K.E.: already there, first, in order, with today's texts
-        if (shadowRootsWithOverrides.has(root)) {
-            const map = staticStyleMap.get(root);
-            const a = map && map.get("darkreader--inline");
-            const b = map && map.get("darkreader--override");
-            const c = map && map.get("darkreader--invert");
-            if (
-                a && b && c &&
-                root.firstChild === a &&
-                a.nextSibling === b &&
-                b.nextSibling === c &&
-                a.textContent === ikeShadowTexts().inline &&
-                b.textContent === ikeShadowTexts().override &&
-                c.textContent === getInversionStyleValue()
-            ) {
-                return;
-            }
-        }
         const delayed = root.firstChild === null;
         createShadowStaticStyleOverridesInner(root);
         if (delayed) {
@@ -9242,15 +8937,14 @@
                 push(inlineStyleElements, elements);
             }
         });
-        ikeWithSVGRects(inlineStyleElements, () =>
-            inlineStyleElements.forEach((el) =>
+        inlineStyleElements.forEach((el) =>
             overrideInlineStyle(
                 el,
                 theme,
                 ignoredInlineSelectors,
                 ignoredImageAnalysisSelectors
             )
-        ));
+        );
         handleAdoptedStyleSheets(document);
         variablesStore.matchVariablesAndDependents();
         tryInvertChromePDF();
@@ -9335,26 +9029,16 @@
     function unwrap(value) {
         return value?.wrappedJSObject ?? value;
     }
-    // I.K.E.: the adopted sheets whose variables were matched already
-    const ikeMatchedSheets = new WeakSet();
     function handleAdoptedStyleSheets(node) {
         if (canHaveAdoptedStyleSheets(node)) {
-            let ikeNewSheet = false;
             forEach(
                 isFirefox
                     ? unwrap(node.adoptedStyleSheets)
                     : node.adoptedStyleSheets,
                 (s) => {
-                    if (!ikeMatchedSheets.has(s)) {
-                        ikeMatchedSheets.add(s);
-                        ikeNewSheet = true;
-                    }
                     variablesStore.addRulesForMatching(s.cssRules);
                 }
             );
-            if (ikeNewSheet) {
-                variablesStore.matchVariablesAndDependents();
-            }
             const newManger = createAdoptedStyleSheetOverride(node);
             adoptedStyleManagers.push(newManger);
             newManger.render(theme, ignoredImageAnalysisSelectors);
@@ -9426,7 +9110,6 @@
                     INLINE_STYLE_SELECTOR
                 );
                 if (inlineStyleElements.length > 0) {
-                    ikeWithSVGRects(inlineStyleElements, () =>
                     forEach(inlineStyleElements, (el) =>
                         overrideInlineStyle(
                             el,
@@ -9434,7 +9117,7 @@
                             ignoredInlineSelectors,
                             ignoredImageAnalysisSelectors
                         )
-                    ));
+                    );
                 }
             }
         );
