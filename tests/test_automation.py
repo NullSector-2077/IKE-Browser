@@ -393,6 +393,15 @@ def test_health_finds_what_waits_or_is_missing():
     assert "pull-requests: read" in text
 
 
+def test_every_scheduled_workflow_is_kept_turned_on():
+    """GitHub turns scheduled workflows off after 60 days without activity in
+    a public repository; health.yml turns on again every one it finds."""
+    text = (WORKFLOWS / "health.yml").read_text()
+    assert "for f in .github/workflows/*.yml" in text and "grep -q '^  schedule:'" in text
+    scheduled = [p.name for p in WORKFLOWS.glob("*.yml") if "\n  schedule:" in p.read_text()]
+    assert {"daily-check.yml", "daily-maintenance.yml", "health.yml", "arch.yml", "security.yml"} <= set(scheduled)
+
+
 # --- the maintenance version --------------------------------------------------------
 
 def prepare(tmp_path, *args):
