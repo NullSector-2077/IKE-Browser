@@ -22,18 +22,6 @@ SPIN_STEP = 30                # degrees per step
 _checked = {"at": -1e9, "reduced": False}
 
 
-def _opacity_setter(widget, fixed=None):
-    """A slot that sets widget's opacity: to the signal's value, or to fixed."""
-    if fixed is None:
-        def on_value(value):
-            widget.setWindowOpacity(float(value))
-        return on_value
-
-    def on_end():
-        widget.setWindowOpacity(fixed)
-    return on_end
-
-
 def _ini_value(path, key):
     try:
         with open(path, encoding="utf-8", errors="replace") as f:
@@ -84,31 +72,58 @@ def on(config):
     return wanted and not reduced_motion()
 
 
+class _Fader(QObject):
+    """The fade of one popup: a child of the popup, so it lives and dies with
+    it on Qt's side, and Python keeps it for as long as Qt does.
+
+    The fade used to be kept as a Python attribute of the popup's wrapper.
+    Qt keeps a popup (a submenu, the address bar's suggestion list) whose
+    Python wrapper Python may free; with Python 3.14 and PyQt 6.12 (Arch) the
+    animation's slots went with the wrapper and the next frame called freed
+    memory: the browser crashed while a menu or the suggestions opened."""
+
+    NAME = "ike_fader"
+
+    def __init__(self, widget):
+        super().__init__(widget)
+        self.setObjectName(self.NAME)
+        self.widget = widget
+        self.anim = QVariantAnimation(self)
+        self.anim.setStartValue(0.0)
+        self.anim.setEndValue(1.0)
+        self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.anim.valueChanged.connect(self._value)
+        self.anim.finished.connect(self._end)
+
+    @classmethod
+    def of(cls, widget, make=True):
+        f = widget.findChild(cls, cls.NAME, Qt.FindChildOption.FindDirectChildrenOnly)
+        if f is None and make:
+            f = cls(widget)
+        return f
+
+    def _value(self, v):
+        self.widget.setWindowOpacity(float(v))
+
+    def _end(self):
+        self.widget.setWindowOpacity(1.0)
+
+
 def fade_in(widget, config, ms=FADE_MS):
     """Let a menu or panel appear with a short fade. Call it when the popup is
     about to show. Where the desktop cannot change a window's opacity nothing
     happens, and the popup appears as before."""
-    anim = getattr(widget, "_ike_fade", None)
     if not on(config):
-        if anim is not None:
-            anim.stop()
+        f = _Fader.of(widget, make=False)
+        if f is not None:
+            f.anim.stop()
             widget.setWindowOpacity(1.0)
         return
-    if anim is None:
-        anim = widget._ike_fade = QVariantAnimation(widget)
-        anim.setStartValue(0.0)
-        anim.setEndValue(1.0)
-        anim.setEasingCurve(QEasingCurve.Type.OutCubic)
-        # closures, not lambdas with default arguments: with Python 3.14 and
-        # PyQt 6.12 (Arch) a slot's default argument was taken for one the
-        # signal must give ("missing 1 required positional argument: 'w'")
-        anim.valueChanged.connect(_opacity_setter(widget))
-        anim.finished.connect(_opacity_setter(widget, 1.0))
-    anim.stop()
-    anim.setDuration(ms)
+    f = _Fader.of(widget)
+    f.anim.stop()
+    f.anim.setDuration(ms)
     widget.setWindowOpacity(0.0)
-    anim.start()
-
+    f.anim.start()
 
 def cross_fade(widgets, config, ms=200):
     """Call just before the look of widgets changes: a picture of each as it is
@@ -148,9 +163,9 @@ def fading(menu, config):
 
 
 def _settle(widget):
-    anim = getattr(widget, "_ike_fade", None)
-    if anim is not None:
-        anim.stop()
+    f = _Fader.of(widget, make=False)
+    if f is not None:
+        f.anim.stop()
     widget.setWindowOpacity(1.0)
 
 

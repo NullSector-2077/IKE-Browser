@@ -1211,9 +1211,14 @@ HE_PROBE = r"""
     var x = c.getContext('2d'); x.fillStyle = 'rgb(128,128,128)'; x.fillRect(0, 0, 60, 20);
     var d = x.getImageData(0, 0, 60, 20, { pixelFormat: 'rgba-float16' }).data;
     if (!(d instanceof Float16Array)) return 'none';
-    var far = 0, changed = 0;
-    for (var i = 0; i < d.length; i++) { if ((i & 3) === 3) continue; if (Math.abs(d[i] - 0.50196) > 0.002) far++; if (d[i] !== d[0]) changed++; }
-    return { far: far, changed: changed > 0 };
+    // the engine's own value for this grey depends on its colour handling
+    // (Arch's engine differs): every value must stay within two 8-bit steps
+    // of the most common one (corrupted values became 0 or 1)
+    var count = {}, m = 0, best = -1, far = 0;
+    for (var i = 0; i < d.length; i++) { if ((i & 3) === 3) continue; count[d[i]] = (count[d[i]] || 0) + 1; }
+    for (var k in count) if (count[k] > best) { best = count[k]; m = +k; }
+    for (i = 0; i < d.length; i++) { if ((i & 3) === 3) continue; if (Math.abs(d[i] - m) > 2 / 255) far++; }
+    return { far: far };
   });
   await step('analyserBytes', async function () {
     var ctx = new OfflineAudioContext(1, 4096, 44100), o = ctx.createOscillator(), an = ctx.createAnalyser();
