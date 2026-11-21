@@ -980,3 +980,31 @@ def test_perf_l8_encrypted_dns_asks_once_on_one_connection(monkeypatch):
         monkeypatch.delenv("IKE_TEST_DOH")
         doh.configure(None)
         srv.shutdown()
+
+
+STEPS_PERF_L2 = r'''
+def steps(ike, qapp, out):
+    import threading
+    from ike.blocker import Blocker
+    out["ready_at_start"] = (ike.blocker.engine is not None or ike.blocker.fallback is not None)
+    b = Blocker(ike.config, ike)
+    names = []
+    real = b._build
+    b._build = lambda snap, sig: names.append(threading.current_thread().name) or real(snap, sig)
+    b.prepare()
+    b.load()                                  # waits for the one prepare() started
+    out["threads"] = names
+    out["installed"] = b.engine is not None or b.fallback is not None
+    yield 10
+'''
+
+
+def test_perf_l2_the_first_engine_is_built_while_ike_sets_up(run_ike):
+    """Performance review of 1.1.20, L2: the first ad-blocking engine was
+    built in the interface thread before the window (about 245 ms cold).
+    Now it is built in its own thread from the start of set-up, and load()
+    takes it before any page can make a request."""
+    out = run_ike(STEPS_PERF_L2, timeout=60)
+    assert out["ready_at_start"] is True, out
+    assert len(out["threads"]) == 1 and out["threads"][0].startswith("ike-adblock"), out
+    assert out["installed"] is True, out
