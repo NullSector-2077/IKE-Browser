@@ -104,7 +104,7 @@ def verify_crx(ext_id, data):
     from cryptography.exceptions import InvalidSignature
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
-    if data[:4] != b"Cr24" or struct.unpack("<I", data[4:8])[0] != 3:
+    if len(data) < 12 or data[:4] != b"Cr24" or struct.unpack("<I", data[4:8])[0] != 3:
         raise ValueError("not a signed (CRX3) extension package")
     size = struct.unpack("<I", data[8:12])[0]
     header, archive = data[12:12 + size], data[12 + size:]

@@ -127,6 +127,16 @@ def copy_secret(text):
     QTimer.singleShot(CLIPBOARD_SECONDS * 1000, clear)
 
 
+
+def fetch_site(page, target):
+    """Sec-Fetch-Site of a request of page (QUrl) to target (QUrl)."""
+    from .shields import site_of
+    if (page.scheme(), page.host().lower(), page.port()) == (target.scheme(), target.host().lower(), target.port()):
+        return b"same-origin"
+    if page.scheme() == target.scheme() and site_of(page.host().lower()) == site_of(target.host().lower()):
+        return b"same-site"
+    return b"cross-site"
+
 class Vault:
     def __init__(self, path=None):
         self.path = path or DATA_DIR / "vault.bin"
@@ -377,6 +387,13 @@ class PageBridge(QObject):
         req.setRawHeader(b"Accept", b"text/css,*/*;q=0.1")
         # the browser's own User-Agent: Qt's default named this fetch as I.K.E.'s
         req.setRawHeader(b"User-Agent", app.shields.user_agent().encode("ascii", "replace"))
+        # and the headers the engine sends with a style sheet of this page
+        # (review 4, N12)
+        page = self.page.url()
+        req.setRawHeader(b"Accept-Language", app.shields.request_language(page.host().lower()))
+        req.setRawHeader(b"Sec-Fetch-Dest", b"style")
+        req.setRawHeader(b"Sec-Fetch-Mode", b"no-cors")
+        req.setRawHeader(b"Sec-Fetch-Site", fetch_site(page, target))
         req.setAttribute(QNetworkRequest.Attribute.CookieLoadControlAttribute,
                          QNetworkRequest.LoadControl.Manual)
         req.setAttribute(QNetworkRequest.Attribute.CookieSaveControlAttribute,

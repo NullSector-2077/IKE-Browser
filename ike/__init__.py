@@ -20,6 +20,8 @@ APP_ID = "ike-browser"
 def early_args(argv):
     """Read --profile before any module computes its data folders."""
     for i, a in enumerate(argv):
+        if a == "--":
+            return                        # addresses only after it (the menu's entry, review 4, N12)
         name = None
         if a == "--profile" and i + 1 < len(argv):
             name = argv[i + 1]

@@ -15,6 +15,68 @@
   // taken before any page script runs: a page that replaces call, bind or
   // Reflect.apply later cannot reach the protection's own calls (1.1.18)
   var CALL = Function.prototype.call, BIND = Function.prototype.bind, RAPPLY = Reflect.apply;
+  // The same for everything the protection itself uses while a page runs
+  // (review of 1.1.19, N4): a page that replaced WeakSet.prototype.has,
+  // Promise.prototype.then, the length of typed arrays or Math.imul could
+  // otherwise skip the noise, see what the protection keeps, or be handed
+  // the real values. Its collections have their methods as own, frozen
+  // properties, which nothing on a prototype can reach.
+  var GOPD = Object.getOwnPropertyDescriptor, FREEZE = Object.freeze;
+  function getterOf(proto, name) {
+    try { var d = proto && GOPD(proto, name); return d && d.get; } catch (e) { return undefined; }
+  }
+  var WS_ = WeakSet, WS_HAS = WeakSet.prototype.has, WS_ADD = WeakSet.prototype.add;
+  var WM_ = WeakMap, WM_GET = WeakMap.prototype.get, WM_SET = WeakMap.prototype.set;
+  function hardSet() {
+    var s = new WS_();
+    return FREEZE({
+      has: function (o) { return RAPPLY(WS_HAS, s, [o]); },
+      add: function (o) { RAPPLY(WS_ADD, s, [o]); return this; }
+    });
+  }
+  function hardMap() {
+    var m = new WM_();
+    return FREEZE({
+      get: function (k) { return RAPPLY(WM_GET, m, [k]); },
+      set: function (k, v) { RAPPLY(WM_SET, m, [k, v]); return this; }
+    });
+  }
+  var THEN = Promise.prototype.then;
+  function then(p, fn) { return RAPPLY(THEN, p, [fn]); }
+  var TA_PROTO = Object.getPrototypeOf(Uint8Array.prototype);
+  var TA_LEN = getterOf(TA_PROTO, 'length'), TA_TAG = getterOf(TA_PROTO, Symbol.toStringTag);
+  function LEN(a) { return RAPPLY(TA_LEN, a, []); }
+  function TAG(a) { try { return RAPPLY(TA_TAG, a, []); } catch (e) { return undefined; } }
+  var IMG_DATA = getterOf(window.ImageData && ImageData.prototype, 'data');
+  function pixels(img) { return RAPPLY(IMG_DATA, img, []); }
+  function setterOf(proto, name) {
+    try { var d = proto && GOPD(proto, name); return d && d.set; } catch (e) { return undefined; }
+  }
+  // what the noisy copy of a canvas is made with: a page that changed the
+  // size it reports, or getContext, drawImage or putImageData, made the copy
+  // fail, and the real picture was given out instead
+  var HCP = window.HTMLCanvasElement && HTMLCanvasElement.prototype;
+  var C2P = window.CanvasRenderingContext2D && CanvasRenderingContext2D.prototype;
+  var OC = window.OffscreenCanvas, OCP = OC && OC.prototype;
+  var O2P = window.OffscreenCanvasRenderingContext2D && OffscreenCanvasRenderingContext2D.prototype;
+  var CV = {
+    w: getterOf(HCP, 'width'), h: getterOf(HCP, 'height'), sw: setterOf(HCP, 'width'), sh: setterOf(HCP, 'height'),
+    ctx: HCP && HCP.getContext, draw: C2P && C2P.drawImage, put: C2P && C2P.putImageData,
+    make: Document.prototype.createElement,
+    ow: getterOf(OCP, 'width'), oh: getterOf(OCP, 'height'), octx: OCP && OCP.getContext,
+    odraw: O2P && O2P.drawImage, oput: O2P && O2P.putImageData
+  };
+  // the noise for what getImageData gives: one byte per colour only; other
+  // formats (floats) are left to the engine's own values
+  function noiseImage(img) {
+    var px = pixels(img);
+    if (TAG(px) === 'Uint8ClampedArray') farble(px, seed, rng, LEN(px));
+  }
+  // a 32-bit multiply of our own (Math.imul belongs to the page)
+  function mul32(a, b) {
+    var lo = (a & 0xffff) * b, hi = ((a >>> 16) * b) & 0xffff;
+    return (lo + (hi << 16)) | 0;
+  }
   // the number of frames of a window, from the engine's own getter: a page
   // writing window.length = 0 hid every new frame from the guard (1.1.18,
   // independent review; the same in 1.1.17)
@@ -28,7 +90,7 @@
   // the guards of the documents protected by this script, so that one
   // realm's document.open/write on another realm's document re-arms the
   // right watch (1.1.18, independent review)
-  var GUARDS = new WeakMap();
+  var GUARDS = hardMap();
 
   // The site the user is visiting (not the frame's own), so every frame of a
   // page shares the same protection level and the same noise.
@@ -41,7 +103,7 @@
 
   function levelFor(h) {
     while (h) {
-      if (Object.prototype.hasOwnProperty.call(CFG.sites, h)) return CFG.sites[h];
+      if (RAPPLY(Object.prototype.hasOwnProperty, CFG.sites, [h])) return CFG.sites[h];
       var i = h.indexOf('.');
       if (i < 0) break;
       h = h.slice(i + 1);
@@ -187,26 +249,23 @@
   // picture's hash leaves out the lowest bit of R, G and B, the only bits
   // the noise changes, so a picture read again gets the same noise. Self-
   // contained: it also runs inside workers (passed by its source).
-  function farble(data, seed, rng) {
-    var n = data.length;
-    var h = 0x811c9dc5, k;
-    if ((data.byteOffset & 3) === 0 && (n & 3) === 0) {
-      // four bytes at a time (one pixel; little-endian: alpha is the top
-      // byte), about four times faster on large pictures (1.1.20 review of
-      // performance, M1); the same bits are left out
-      var words = new Uint32Array(data.buffer, data.byteOffset, n >>> 2);
-      for (k = 0; k < words.length; k++) {
-        h ^= words[k] & 0xFFFEFEFE;
-        h = Math.imul(h, 16777619);
-      }
-    } else {
-      for (k = 0; k < n; k++) {
-        h ^= (k & 3) === 3 ? data[k] : data[k] & 254;
-        h = Math.imul(h, 16777619);
-      }
+  // n is the length, read by the caller through the engine's own getter;
+  // nothing a page can replace is used here (review of 1.1.19, N4).
+  function farble(data, seed, rng, n) {
+    var h = 0x811c9dc5, k, full = n - (n & 3);
+    // four bytes at a time (one pixel, alpha in the top byte), about four
+    // times faster on large pictures (1.1.20 review of performance, M1); the
+    // same bits are left out; the multiply by the FNV prime as shifts
+    for (k = 0; k < full; k += 4) {
+      h ^= (data[k] & 254) | ((data[k + 1] & 254) << 8) | ((data[k + 2] & 254) << 16) | (data[k + 3] << 24);
+      h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) | 0;
+    }
+    for (; k < n; k++) {
+      h ^= (k & 3) === 3 ? data[k] : data[k] & 254;
+      h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) | 0;
     }
     var next = rng(((seed ^ n ^ h) >>> 0) || 1);
-    var step = n > 400000 ? 4 * Math.ceil(n / 400000) : 4;
+    var step = n > 400000 ? 4 * (((n + 399999) / 400000) | 0) : 4;
     for (var i = 0; i < n; i += step) {
       var r = next();
       if ((r & 7) === 0 && data[i + 3] !== 0) {
@@ -349,18 +408,18 @@
   }
 
   // ---- making replaced functions look native --------------------------------
-  var natives = new WeakMap();      // replacement -> source text of the original
+  var natives = hardMap();         // replacement -> source text of the original
   function method(name, impl, orig) {
-    var holder = { [name]() { return impl.apply(this, arguments); } };
+    var holder = { [name]() { return RAPPLY(impl, this, arguments); } };
     var f = holder[name];
     try { Object.defineProperty(f, 'length', { value: orig.length, configurable: true }); } catch (e) {}
-    natives.set(f, origToString.call(orig));
+    natives.set(f, RAPPLY(origToString, orig, []));
     return f;
   }
   function accessor(name, impl, orig) {
-    var holder = { get [name]() { return impl.call(this); } };
+    var holder = { get [name]() { return RAPPLY(impl, this, []); } };
     var g = Object.getOwnPropertyDescriptor(holder, name).get;
-    natives.set(g, orig ? origToString.call(orig) : 'function get ' + name + '() { [native code] }');
+    natives.set(g, orig ? RAPPLY(origToString, orig, []) : 'function get ' + name + '() { [native code] }');
     return g;
   }
   function wrap(obj, name, make) {
@@ -378,7 +437,7 @@
     // the engine's own getter first: on a wrong object it throws as in
     // Chrome ("Illegal invocation"); a replacement that never threw told
     // I.K.E. apart with one line (review of 1.1.19, M5)
-    d.get = accessor(name, function () { RAPPLY(orig, this, []); return fn.call(this, orig); }, orig);
+    d.get = accessor(name, function () { RAPPLY(orig, this, []); return RAPPLY(fn, this, [orig]); }, orig);
     try { Object.defineProperty(obj, name, d); } catch (e) {}
   }
   function setter(obj, name, after) {
@@ -388,7 +447,7 @@
     var orig = d.set;
     var holder = { set [name](v) { RAPPLY(orig, this, [v]); after(this, v); } };
     var s = Object.getOwnPropertyDescriptor(holder, name).set;
-    natives.set(s, origToString.call(orig));
+    natives.set(s, RAPPLY(origToString, orig, []));
     d.set = s;
     try { Object.defineProperty(obj, name, d); } catch (e) {}
   }
@@ -400,7 +459,7 @@
     var d = Object.getOwnPropertyDescriptor(I, 'vendor'), realVendor = d && d.get;
     function mine(info) {
       var v = '';
-      try { v = realVendor.call(info); } catch (e) {}
+      try { v = RAPPLY(realVendor, info, []); } catch (e) {}
       return gpuFor(v, GPUS, PICK);
     }
     getter(I, 'vendor', function () { return mine(this)[2]; });
@@ -409,17 +468,38 @@
     getter(I, 'description', function () { return ''; });
   }
   function isProtected(w) {
-    try { return w.Function.prototype.toString.call(SECRET) === SECRET; } catch (e) { return false; }
+    try { return RAPPLY(w.Function.prototype.toString, SECRET, []) === SECRET; } catch (e) { return false; }
   }
 
   // ---- inline workers -----------------------------------------------------------
   // Runs inside the worker; must not use anything from outside its own body.
   function workerPatch(c, rng, farble, gpuFor) {
-    var toStr = Function.prototype.toString, nat = new WeakMap(), RAW = Reflect.apply;
+    var toStr = Function.prototype.toString, RAW = Reflect.apply, GD = Object.getOwnPropertyDescriptor;
+    // taken before the worker's own code, as in the page (review of 1.1.19, N4)
+    var nat = (function () {
+      var m = new WeakMap(), get = WeakMap.prototype.get, put = WeakMap.prototype.set;
+      return Object.freeze({
+        get: function (k) { return RAW(get, m, [k]); },
+        set: function (k, v) { RAW(put, m, [k, v]); return this; }
+      });
+    })();
+    var THEN = Promise.prototype.then;
+    var getOf = function (proto, name) { var d = proto && GD(proto, name); return d && d.get; };
+    var TAP = Object.getPrototypeOf(Uint8Array.prototype);
+    var LENG = getOf(TAP, 'length'), TAGG = getOf(TAP, Symbol.toStringTag);
+    var IMGD = getOf(self.ImageData && ImageData.prototype, 'data');
+    var noiseImage = function (img) {
+      var px = RAW(IMGD, img, []);
+      if (RAW(TAGG, px, []) === 'Uint8ClampedArray') farble(px, c.seed, rng, RAW(LENG, px, []));
+    };
+    var OCW = self.OffscreenCanvas, OCWP = OCW && OCW.prototype;
+    var O2WP = self.OffscreenCanvasRenderingContext2D && OffscreenCanvasRenderingContext2D.prototype;
+    var OCV = { w: getOf(OCWP, 'width'), h: getOf(OCWP, 'height'), ctx: OCWP && OCWP.getContext,
+      draw: O2WP && O2WP.drawImage, put: O2WP && O2WP.putImageData };
     function method(name, impl, orig) {
-      var f = ({ [name]() { return impl.apply(this, arguments); } })[name];
+      var f = ({ [name]() { return RAW(impl, this, arguments); } })[name];
       try { Object.defineProperty(f, 'length', { value: orig.length, configurable: true }); } catch (e) {}
-      nat.set(f, toStr.call(orig));
+      nat.set(f, RAW(toStr, orig, []));
       return f;
     }
     function wrap(obj, name, make) {
@@ -432,15 +512,15 @@
       var d = obj && Object.getOwnPropertyDescriptor(obj, name);
       if (!d || !d.get) return;
       var orig = d.get;
-      var g = Object.getOwnPropertyDescriptor({ get [name]() { RAW(orig, this, []); return fn.call(this, orig); } }, name).get;
-      nat.set(g, toStr.call(orig));
+      var g = Object.getOwnPropertyDescriptor({ get [name]() { RAW(orig, this, []); return RAW(fn, this, [orig]); } }, name).get;
+      nat.set(g, RAW(toStr, orig, []));
       d.get = g;
       try { Object.defineProperty(obj, name, d); } catch (e) {}
     }
     wrap(Function.prototype, 'toString', function (orig) {
       return function () {
         var s = nat.get(this);
-        return s !== undefined ? s : orig.call(this);
+        return s !== undefined ? s : RAW(orig, this, []);
       };
     });
     var N = self.WorkerNavigator && WorkerNavigator.prototype;
@@ -454,32 +534,40 @@
     if (c.maximum && c.langs && self.Intl && self.Proxy) {
       // as in the page: no language asked for means the one shown (M5)
       var LOC = c.langs[0], RCON = Reflect.construct, SL = Array.prototype.slice;
-      var fix = function (args, at) {
-        var a = RAW(SL, args, []);
-        if (a[at] === undefined) { while (a.length < at) a.push(undefined); a[at] = LOC; }
+      var GCL = Intl.getCanonicalLocales, SUP = {};
+      // an empty list or unknown languages: the one shown too (review 4, N5)
+      var fix = function (args, at, kind) {
+        var a = RAW(SL, args, []), v = a[at];
+        if (v === undefined) { a[at] = LOC; return a; }
+        var list = RAW(GCL, Intl, [v]), sup = SUP[kind];
+        a[at] = list;
+        if (!list.length || (sup && !RAW(sup[0], sup[1], [list]).length)) a[at] = LOC;
         return a;
       };
       ['DateTimeFormat', 'NumberFormat', 'Collator', 'PluralRules', 'RelativeTimeFormat', 'ListFormat',
         'DisplayNames', 'Segmenter', 'DurationFormat'].forEach(function (n) {
         var C = Intl[n];
         if (typeof C !== 'function') return;
+        if (typeof C.supportedLocalesOf === 'function') SUP[n] = [C.supportedLocalesOf, C];
         var P = new Proxy(C, {
-          construct: function (t, args, nt) { return RCON(t, fix(args, 0), nt === P ? t : nt); },
-          apply: function (t, me, args) { return RAW(t, me, fix(args, 0)); }
+          construct: function (t, args, nt) { return RCON(t, fix(args, 0, n), nt === P ? t : nt); },
+          apply: function (t, me, args) { return RAW(t, me, fix(args, 0, n)); }
         });
-        nat.set(P, toStr.call(C));
+        nat.set(P, RAW(toStr, C, []));
         try {
           Object.defineProperty(Intl, n, { value: P, writable: true, configurable: true, enumerable: false });
           Object.defineProperty(C.prototype, 'constructor', { value: P, writable: true, configurable: true });
         } catch (e) {}
       });
-      [[Date.prototype, ['toLocaleString', 'toLocaleDateString', 'toLocaleTimeString']],
-        [Number.prototype, ['toLocaleString']], [self.BigInt && BigInt.prototype, ['toLocaleString']],
-        [String.prototype, ['localeCompare']]].forEach(function (pair) {
+      [[Date.prototype, ['toLocaleString', 'toLocaleDateString', 'toLocaleTimeString'], 'DateTimeFormat'],
+        [Number.prototype, ['toLocaleString'], 'NumberFormat'],
+        [self.BigInt && BigInt.prototype, ['toLocaleString'], 'NumberFormat'],
+        [String.prototype, ['localeCompare'], 'Collator'],
+        [String.prototype, ['toLocaleUpperCase', 'toLocaleLowerCase'], '']].forEach(function (pair) {
         pair[1].forEach(function (name) {
           wrap(pair[0], name, function (orig) {
             var at = name === 'localeCompare' ? 1 : 0;
-            return function () { return RAW(orig, this, fix(arguments, at)); };
+            return function () { return RAW(orig, this, fix(arguments, at, pair[2])); };
           });
         });
       });
@@ -488,8 +576,8 @@
     var rawGet = O2 && O2.getImageData;
     wrap(O2, 'getImageData', function (orig) {
       return function () {
-        var img = orig.apply(this, arguments);
-        farble(img.data, c.seed, rng);
+        var img = RAW(orig, this, arguments);
+        noiseImage(img);
         return img;
       };
     });
@@ -498,17 +586,18 @@
         return function () {
           var src = this;
           try {
-            if (src.width && src.height) {
-              var copy = new OffscreenCanvas(src.width, src.height);
-              var ctx = copy.getContext('2d');
-              ctx.drawImage(src, 0, 0);
-              var img = rawGet.call(ctx, 0, 0, copy.width, copy.height);
-              farble(img.data, c.seed, rng);
-              ctx.putImageData(img, 0, 0);
+            var ow = RAW(OCV.w, src, []), oh = RAW(OCV.h, src, []);
+            if (ow && oh) {
+              var copy = new OCW(ow, oh);
+              var ctx = RAW(OCV.ctx, copy, ['2d']);
+              RAW(OCV.draw, ctx, [src, 0, 0]);
+              var img = RAW(rawGet, ctx, [0, 0, ow, oh]);
+              noiseImage(img);
+              RAW(OCV.put, ctx, [img, 0, 0]);
               src = copy;
             }
           } catch (e) { src = this; }
-          return orig.apply(src, arguments);
+          return RAW(orig, src, arguments);
         };
       });
     }
@@ -517,12 +606,12 @@
       wrap(GL.prototype, 'getExtension', function (orig) {
         return function (name) {
           if (c.hidden[String(name).toLowerCase()] === 1) return null;
-          return orig.apply(this, arguments);
+          return RAW(orig, this, arguments);
         };
       });
       wrap(GL.prototype, 'getSupportedExtensions', function (orig) {
         return function () {
-          var list = orig.apply(this, arguments);
+          var list = RAW(orig, this, arguments);
           return list && list.filter(function (name) {
             return c.hidden[String(name).toLowerCase()] !== 1;
           });
@@ -530,11 +619,11 @@
       });
       wrap(GL.prototype, 'getParameter', function (orig) {
         return function (p) {
-          var r = orig.apply(this, arguments);
+          var r = RAW(orig, this, arguments);
           // UNMASKED_VENDOR_WEBGL / UNMASKED_RENDERER_WEBGL.
           if ((p === 37445 || p === 37446) && typeof r === 'string') {
             if (c.strict) return null;
-            return gpuFor(p === 37445 ? r : orig.call(this, 37445), c.gpus, c.pick)[p - 37445];
+            return gpuFor(p === 37445 ? r : RAW(orig, this, [37445]), c.gpus, c.pick)[p - 37445];
           }
           return r;
         };
@@ -546,7 +635,7 @@
       wrap(self.NavigatorUAData.prototype, 'getHighEntropyValues', function (orig) {
         return function () {
           var ua = this;
-          return orig.apply(this, arguments).then(function (v) {
+          return RAW(THEN, RAW(orig, this, arguments), [function (v) {
             var major = (ua.brands && ua.brands[0] && ua.brands[0].version) || '0';
             if (v && 'uaFullVersion' in v) v.uaFullVersion = major + '.0.0.0';
             if (v && v.fullVersionList) {
@@ -555,21 +644,27 @@
               });
             }
             return v;
-          });
+          }]);
         };
       });
     }
     if (c.strict) {
       // as Chrome on a card it does not support: WebGPU there, no adapter
       // (review of 1.1.19, M5: "gpu" in navigator with no value was Chrome's never)
-      var GP = self.GPU && GPU.prototype;
-      wrap(GP, 'requestAdapter', function () { return function () { return Promise.resolve(null); }; });
+      var GP = self.GPU && GPU.prototype, gb = getOf(GP, 'wgslLanguageFeatures');
+      var PRM = Promise, PRES = Promise.resolve, PREJ = Promise.reject;
+      wrap(GP, 'requestAdapter', function () {
+        return function () {
+          try { if (gb) RAW(gb, this, []); } catch (e) { return RAW(PREJ, PRM, [e]); }
+          return RAW(PRES, PRM, [null]);
+        };
+      });
     } else if (self.GPUAdapterInfo) {
       var GI = self.GPUAdapterInfo.prototype;
       var gd = Object.getOwnPropertyDescriptor(GI, 'vendor'), realVendor = gd && gd.get;
       var mine = function (info) {
         var v = '';
-        try { v = realVendor.call(info); } catch (e) {}
+        try { v = RAW(realVendor, info, []); } catch (e) {}
         return gpuFor(v, c.gpus, c.pick);
       };
       getter(GI, 'vendor', function () { return mine(this)[2]; });
@@ -580,8 +675,8 @@
     // workers started by this worker get the same prelude (1.1.18,
     // independent review: a worker inside a worker had none)
     try {
-      var me = '(' + toStr.call(workerPatch) + ')(' + JSON.stringify(c) + ',' + toStr.call(rng) + ',' +
-        toStr.call(farble) + ',' + toStr.call(gpuFor) + ');\n';
+      var me = '(' + RAW(toStr, workerPatch, []) + ')(' + JSON.stringify(c) + ',' + RAW(toStr, rng, []) + ',' +
+        RAW(toStr, farble, []) + ',' + RAW(toStr, gpuFor, []) + ');\n';
       while (me.length % 3) me += ' ';                 // so it can be joined to base64 data
       var Ur = self.URL, made = new Map(), mk = Ur && Ur.createObjectURL, rv = Ur && Ur.revokeObjectURL;
       // taken before the worker's own code: the prelude goes to no function
@@ -592,7 +687,7 @@
       if (mk && NB) {
         wrap(Ur, 'createObjectURL', function (orig) {
           return function (o) {
-            var u = orig.apply(this, arguments);
+            var u = RAW(orig, this, arguments);
             try { if (o instanceof NB) made.set(u, o); } catch (e) {}
             return u;
           };
@@ -619,15 +714,15 @@
             return RC(t, args, nt === P ? t : nt);
           }
         });
-        nat.set(P, toStr.call(Orig));
+        nat.set(P, RAW(toStr, Orig, []));
         try { Object.defineProperty(self, name, { value: P, writable: true, configurable: true }); } catch (e) {}
       });
     } catch (e) {}
   }
-  var PRELUDE = '(' + origToString.call(workerPatch) + ')(' +
+  var PRELUDE = '(' + RAPPLY(origToString, workerPatch, []) + ')(' +
     JSON.stringify({ cores: cores, mem: strict ? 8 : 0, langs: langs, seed: seed, strict: strict, maximum: maximum,
       gpus: GPUS, pick: PICK, hidden: hiddenExt }) +
-    ',' + origToString.call(rng) + ',' + origToString.call(farble) + ',' + origToString.call(gpuFor) + ');\n';
+    ',' + RAPPLY(origToString, rng, []) + ',' + RAPPLY(origToString, farble, []) + ',' + RAPPLY(origToString, gpuFor, []) + ');\n';
   while (PRELUDE.length % 3) PRELUDE += ' ';     // so it can be joined to base64 data
 
   // ---- fonts: the same answer for every I.K.E. user (Strict and above) -------
@@ -647,7 +742,7 @@
   // engine cannot find looks absent anyway. Without that answer: the whole
   // list, as before. 714 masks in every frame cost about 20 ms per frame.
   var MASKED = (CFG.fonts instanceof Array) ? CFG.fonts : MASKED_FONTS;
-  var maskedFaces = new WeakSet(), maskedDocs = new WeakSet();
+  var maskedFaces = hardSet(), maskedDocs = hardSet();
   function maskFonts(w) {
     var doc = w.document;
     if (!doc || !doc.fonts || !w.FontFace || maskedDocs.has(doc)) return;
@@ -664,7 +759,7 @@
           var face = own[i] || (own[i] = new w.FontFace(MASKED[i], blank,
             { unicodeRange: 'U+E000' }));
           maskedFaces.add(face);
-          FSP_add.call(set, face);
+          RAPPLY(FSP_add, set, [face]);
         } catch (e) {}
       }
     }
@@ -674,7 +769,7 @@
     var FSP_add = FSP.add, FSP_forEach = FSP.forEach;
     function visible(target) {
       var out = [];
-      FSP_forEach.call(target, function (f) { if (!maskedFaces.has(f)) out.push(f); });
+      RAPPLY(FSP_forEach, target, [function (f) { if (!maskedFaces.has(f)) out[out.length] = f; }]);
       return out;
     }
     // the page sees only its own font faces
@@ -682,7 +777,7 @@
     wrap(FSP, 'forEach', function () {
       return function (cb, thisArg) {
         var self = this;
-        visible(this).forEach(function (f) { cb.call(thisArg, f, f, self); });
+        visible(this).forEach(function (f) { RAPPLY(cb, thisArg, [f, f, self]); });
       };
     });
     wrap(FSP, 'values', function () { return function () { return visible(this).values(); }; });
@@ -698,14 +793,14 @@
       }
     } catch (e) {}
     wrap(FSP, 'has', function (orig) {
-      return function (f) { return maskedFaces.has(f) ? false : orig.apply(this, arguments); };
+      return function (f) { return maskedFaces.has(f) ? false : RAPPLY(orig, this, arguments); };
     });
     wrap(FSP, 'delete', function (orig) {
-      return function (f) { return maskedFaces.has(f) ? false : orig.apply(this, arguments); };
+      return function (f) { return maskedFaces.has(f) ? false : RAPPLY(orig, this, arguments); };
     });
     wrap(FSP, 'clear', function (orig) {
       return function () {
-        var r = orig.apply(this, arguments);
+        var r = RAPPLY(orig, this, arguments);
         if (this === set) fill();
         return r;
       };
@@ -723,7 +818,7 @@
       return function () {
         if (this === SECRET) return SECRET;
         var s = natives.get(this);
-        return s !== undefined ? s : orig.call(this);
+        return s !== undefined ? s : RAPPLY(orig, this, []);
       };
     });
     if (CFG.gpc) {
@@ -740,29 +835,30 @@
     var rawGetImageData = C2D && C2D.getImageData;
     function noisyCopy(canvas) {
       try {
-        if (!canvas.width || !canvas.height) return canvas;
-        var c = doc.createElement('canvas');
-        c.width = canvas.width; c.height = canvas.height;
-        var ctx = c.getContext('2d');
-        ctx.drawImage(canvas, 0, 0);
-        var img = rawGetImageData.call(ctx, 0, 0, c.width, c.height);
-        farble(img.data, seed, rng);
-        ctx.putImageData(img, 0, 0);
+        var cw = RAPPLY(CV.w, canvas, []), ch = RAPPLY(CV.h, canvas, []);
+        if (!cw || !ch) return canvas;
+        var c = RAPPLY(CV.make, doc, ['canvas']);
+        RAPPLY(CV.sw, c, [cw]); RAPPLY(CV.sh, c, [ch]);
+        var ctx = RAPPLY(CV.ctx, c, ['2d']);
+        RAPPLY(CV.draw, ctx, [canvas, 0, 0]);
+        var img = RAPPLY(rawGetImageData, ctx, [0, 0, cw, ch]);
+        noiseImage(img);
+        RAPPLY(CV.put, ctx, [img, 0, 0]);
         return c;
       } catch (e) { return canvas; }
     }
     if (w.HTMLCanvasElement && rawGetImageData) {
       wrap(w.HTMLCanvasElement.prototype, 'toDataURL', function (orig) {
-        return function () { return orig.apply(noisyCopy(this), arguments); };
+        return function () { return RAPPLY(orig, noisyCopy(this), arguments); };
       });
       wrap(w.HTMLCanvasElement.prototype, 'toBlob', function (orig) {
-        return function () { return orig.apply(noisyCopy(this), arguments); };
+        return function () { return RAPPLY(orig, noisyCopy(this), arguments); };
       });
     }
     wrap(C2D, 'getImageData', function (orig) {
       return function () {
-        var img = orig.apply(this, arguments);
-        farble(img.data, seed, rng);
+        var img = RAPPLY(orig, this, arguments);
+        noiseImage(img);
         return img;
       };
     });
@@ -770,8 +866,8 @@
     var rawOffGet = O2D && O2D.getImageData;
     wrap(O2D, 'getImageData', function (orig) {
       return function () {
-        var img = orig.apply(this, arguments);
-        farble(img.data, seed, rng);
+        var img = RAPPLY(orig, this, arguments);
+        noiseImage(img);
         return img;
       };
     });
@@ -780,17 +876,18 @@
         return function () {
           var src = this;
           try {
-            if (src.width && src.height) {
-              var copy = new w.OffscreenCanvas(src.width, src.height);
-              var ctx = copy.getContext('2d');
-              ctx.drawImage(src, 0, 0);
-              var img = rawOffGet.call(ctx, 0, 0, copy.width, copy.height);
-              farble(img.data, seed, rng);
-              ctx.putImageData(img, 0, 0);
+            var ow = RAPPLY(CV.ow, src, []), oh = RAPPLY(CV.oh, src, []);
+            if (ow && oh) {
+              var copy = new OC(ow, oh);
+              var ctx = RAPPLY(CV.octx, copy, ['2d']);
+              RAPPLY(CV.odraw, ctx, [src, 0, 0]);
+              var img = RAPPLY(rawOffGet, ctx, [0, 0, ow, oh]);
+              noiseImage(img);
+              RAPPLY(CV.oput, ctx, [img, 0, 0]);
               src = copy;
             }
           } catch (e) { src = this; }
-          return orig.apply(src, arguments);
+          return RAPPLY(orig, src, arguments);
         };
       });
     }
@@ -798,7 +895,7 @@
       // a tiny change of each text's width, its own for every text and font
       // and site, and none for an empty text: the same offset for every text
       // was read with measureText('') (review of 1.1.19, H1)
-      var measured = new w.WeakMap();
+      var measured = hardMap();
       [w.CanvasRenderingContext2D, w.OffscreenCanvasRenderingContext2D].forEach(function (C) {
         if (!C) return;
         wrap(C.prototype, 'measureText', function (orig) {
@@ -825,12 +922,12 @@
       wrap(GL.prototype, 'getExtension', function (orig) {
         return function (name) {
           if (hiddenExt[String(name).toLowerCase()] === 1) return null;
-          return orig.apply(this, arguments);
+          return RAPPLY(orig, this, arguments);
         };
       });
       wrap(GL.prototype, 'getSupportedExtensions', function (orig) {
         return function () {
-          var list = orig.apply(this, arguments);
+          var list = RAPPLY(orig, this, arguments);
           return list && list.filter(function (name) {
             return hiddenExt[String(name).toLowerCase()] !== 1;
           });
@@ -838,50 +935,60 @@
       });
       wrap(GL.prototype, 'getParameter', function (orig) {
         return function (p) {
-          var r = orig.apply(this, arguments);
+          var r = RAPPLY(orig, this, arguments);
           // UNMASKED_VENDOR_WEBGL / UNMASKED_RENDERER_WEBGL: the site's model,
           // or nothing where the extension is hidden (as without it)
           if ((p === 37445 || p === 37446) && typeof r === 'string') {
             if (strict) return null;
-            return gpuFor(p === 37445 ? r : orig.call(this, 37445), GPUS, PICK)[p - 37445];
+            return gpuFor(p === 37445 ? r : RAPPLY(orig, this, [37445]), GPUS, PICK)[p - 37445];
           }
           return r;
         };
       });
       wrap(GL.prototype, 'readPixels', function (orig) {
         return function () {
-          var r = orig.apply(this, arguments);
+          var r = RAPPLY(orig, this, arguments);
           var buf = arguments[6];
-          if (buf && buf.length && buf instanceof w.Uint8Array) farble(buf, seed, rng);
+          // the kind of array from the engine's own getter: a page could
+          // answer instanceof for itself (review of 1.1.19, N4)
+          var tag = buf ? TAG(buf) : undefined;
+          if (tag === 'Uint8Array' || tag === 'Uint8ClampedArray') farble(buf, seed, rng, LEN(buf));
           return r;
         };
       });
     });
     if (strict) {
       // as Chrome on a card it does not support: WebGPU there, no adapter (M5)
-      wrap(w.GPU && w.GPU.prototype, 'requestAdapter', function () {
-        return function () { return w.Promise.resolve(null); };
+      // on a wrong object Chrome's rejects, as every promise of the engine's
+      // does (review 4, N12): the engine's own getter tells
+      var GPUP = w.GPU && w.GPU.prototype, gpuBrand = getterOf(GPUP, 'wgslLanguageFeatures');
+      var PRM = w.Promise, PRES = PRM && PRM.resolve, PREJ = PRM && PRM.reject;
+      wrap(GPUP, 'requestAdapter', function () {
+        return function () {
+          try { if (gpuBrand) RAPPLY(gpuBrand, this, []); } catch (e) { return RAPPLY(PREJ, PRM, [e]); }
+          return RAPPLY(PRES, PRM, [null]);
+        };
       });
     } else gpuInfo(w);
 
     // ---- audio ----
-    var seenBuffers = new WeakSet();
+    var seenBuffers = hardSet();
     // Only what the engine rendered is changed, every sample by its own tiny
     // factor (review of 1.1.19, H1): every 97th sample by one factor could be
     // read back from a buffer the page wrote itself, or skipped.
     function audioNoise(i) {
-      var x = Math.imul((i ^ seed) >>> 0, 0x9E3779B1);
-      x ^= x >>> 15; x = Math.imul(x, 0x85EBCA77); x ^= x >>> 13;
+      var x = mul32((i ^ seed) >>> 0, 0x9E3779B1);
+      x ^= x >>> 15; x = mul32(x, 0x85EBCA77); x ^= x >>> 13;
       return 1 + (((x >>> 0) % 2001) - 1000) / 10000000;
     }
-    var rendered = new w.WeakSet();
+    var rendered = hardSet();
     [w.OfflineAudioContext, w.BaseAudioContext].forEach(function (C) {
       if (!C) return;
       wrap(C.prototype, 'startRendering', function (orig) {
         return function () {
           var p = RAPPLY(orig, this, arguments);
           try {
-            return p.then(function (buf) { try { rendered.add(buf); } catch (e) {} return buf; });
+            return then(p, function (buf) { try { rendered.add(buf); } catch (e) {} return buf; });
           } catch (e) { return p; }
         };
       });
@@ -893,13 +1000,22 @@
         return buf;
       });
     }
+    if (w.AudioProcessingEvent) {
+      // what a ScriptProcessorNode hands the page was rendered by the engine
+      // too (review of 1.1.19, N4: the real samples came through it)
+      getter(w.AudioProcessingEvent.prototype, 'inputBuffer', function (orig) {
+        var buf = RAPPLY(orig, this, []);
+        try { if (buf) rendered.add(buf); } catch (e) {}
+        return buf;
+      });
+    }
     if (w.AudioBuffer) {
       wrap(w.AudioBuffer.prototype, 'getChannelData', function (orig) {
         return function () {
           var d = RAPPLY(orig, this, arguments);
           if (rendered.has(this) && !seenBuffers.has(d)) {
             seenBuffers.add(d);
-            for (var i = 0; i < d.length; i++) d[i] = d[i] * audioNoise(i);
+            for (var i = 0, n = LEN(d); i < n; i++) d[i] = d[i] * audioNoise(i);
           }
           return d;
         };
@@ -907,12 +1023,15 @@
       var newGetData = w.AudioBuffer.prototype.getChannelData;
       wrap(w.AudioBuffer.prototype, 'copyFromChannel', function (orig) {
         return function (dest, channel, start) {
-          var r = RAPPLY(orig, this, arguments);
-          if (rendered.has(this)) {
+          // the numbers read once, and the noisy samples taken before the
+          // real ones are copied: a channel that changed between two reads,
+          // or a wrong one, left the real samples in dest (review of 1.1.19, N4)
+          var ch = channel >>> 0, from = start >>> 0;
+          var d = rendered.has(this) ? RAPPLY(newGetData, this, [ch]) : null;
+          var r = RAPPLY(orig, this, arguments.length > 2 ? [dest, ch, from] : [dest, ch]);
+          if (d) {
             // the same values getChannelData gives (noised once)
-            var d = RAPPLY(newGetData, this, [channel >>> 0]);
-            var from = start >>> 0;
-            for (var i = 0; i < dest.length && from + i < d.length; i++) dest[i] = d[from + i];
+            for (var i = 0, n = LEN(dest), m = LEN(d); i < n && from + i < m; i++) dest[i] = d[from + i];
           }
           return r;
         };
@@ -923,7 +1042,7 @@
         wrap(w.AnalyserNode.prototype, name, function (orig) {
           return function (arr) {
             var r = RAPPLY(orig, this, arguments);
-            for (var i = 0; i < arr.length; i++) arr[i] = arr[i] * audioNoise(i);
+            for (var i = 0, n = LEN(arr); i < n; i++) arr[i] = arr[i] * audioNoise(i);
             return r;
           };
         });
@@ -934,9 +1053,9 @@
     var NP = w.Navigator.prototype;
     // Plugins: the real list plus two entries whose names differ on every site.
     if (w.Proxy && w.Reflect) {
-      var pluginViews = new w.WeakMap();
+      var pluginViews = hardMap();
       getter(NP, 'plugins', function (orig) {
-        var real = orig.call(this);
+        var real = RAPPLY(orig, this, []);
         try {
           var view = pluginViews.get(real);
           if (!view) { view = pluginList(w, real); pluginViews.set(real, view); }
@@ -956,37 +1075,44 @@
       // asked for follow it too; they gave the real language away and
       // contradicted navigator.language (review of 1.1.19, M5)
       var LOC = frozenLangs ? frozenLangs[0] : 'en-US', RCON = Reflect.construct;
+      var SLICE = Array.prototype.slice, GCL = w.Intl.getCanonicalLocales, SUPPORTED = {};
+      // An empty list, or languages the engine does not have, fell back to
+      // the system's own language too (review 4, N5). The list is read once,
+      // as the engine itself would, and handed on already read.
+      var fixLocales = function (args, at, kind) {
+        var a = RAPPLY(SLICE, args, []), v = a[at];
+        if (v === undefined) { a[at] = LOC; return a; }
+        var list = RAPPLY(GCL, w.Intl, [v]), sup = SUPPORTED[kind];
+        a[at] = list;
+        if (!list.length || (sup && !RAPPLY(sup[0], sup[1], [list]).length)) a[at] = LOC;
+        return a;
+      };
       ['DateTimeFormat', 'NumberFormat', 'Collator', 'PluralRules', 'RelativeTimeFormat', 'ListFormat',
         'DisplayNames', 'Segmenter', 'DurationFormat'].forEach(function (n) {
         var C = w.Intl[n];
         if (typeof C !== 'function') return;
-        var fix = function (args) {
-          var a = w.Array.prototype.slice.call(args);
-          if (a[0] === undefined) a[0] = LOC;
-          return a;
-        };
+        if (typeof C.supportedLocalesOf === 'function') SUPPORTED[n] = [C.supportedLocalesOf, C];
+        var fix = function (args) { return fixLocales(args, 0, n); };
         var P = new w.Proxy(C, {
           construct: function (t, args, nt) { return RCON(t, fix(args), nt === P ? t : nt); },
           apply: function (t, self, args) { return RAPPLY(t, self, fix(args)); }
         });
-        natives.set(P, origToString.call(C));
+        natives.set(P, RAPPLY(origToString, C, []));
         try {
           Object.defineProperty(w.Intl, n, { value: P, writable: true, configurable: true, enumerable: false });
           Object.defineProperty(C.prototype, 'constructor', { value: P, writable: true, configurable: true,
             enumerable: false });
         } catch (e) {}
       });
-      [[w.Date.prototype, ['toLocaleString', 'toLocaleDateString', 'toLocaleTimeString']],
-        [w.Number.prototype, ['toLocaleString']], [w.BigInt && w.BigInt.prototype, ['toLocaleString']],
-        [w.String.prototype, ['localeCompare']]].forEach(function (pair) {
+      [[w.Date.prototype, ['toLocaleString', 'toLocaleDateString', 'toLocaleTimeString'], 'DateTimeFormat'],
+        [w.Number.prototype, ['toLocaleString'], 'NumberFormat'],
+        [w.BigInt && w.BigInt.prototype, ['toLocaleString'], 'NumberFormat'],
+        [w.String.prototype, ['localeCompare'], 'Collator'],
+        [w.String.prototype, ['toLocaleUpperCase', 'toLocaleLowerCase'], '']].forEach(function (pair) {
         pair[1].forEach(function (name) {
           wrap(pair[0], name, function (orig) {
             var at = name === 'localeCompare' ? 1 : 0;
-            return function () {
-              var a = w.Array.prototype.slice.call(arguments);
-              if (a[at] === undefined) { while (a.length < at) a.push(undefined); a[at] = LOC; }
-              return RAPPLY(orig, this, a);
-            };
+            return function () { return RAPPLY(orig, this, fixLocales(arguments, at, pair[2])); };
           });
         });
       });
@@ -1005,7 +1131,7 @@
       } catch (e) { voiceLangs = ['en']; }
       wrap(w.SpeechSynthesis.prototype, 'getVoices', function (orig) {
         return function () {
-          var all = orig.apply(this, arguments), out = [];
+          var all = RAPPLY(orig, this, arguments), out = [];
           if (!all || !all.length) return all;
           for (var i = 0; i < all.length; i++) {
             var v = all[i];
@@ -1032,7 +1158,7 @@
       var dW = scr && Object.getOwnPropertyDescriptor(scr, 'width');
       var dH = scr && Object.getOwnPropertyDescriptor(scr, 'height');
       var sized = function (self) {
-        if (!size) size = usualScreen(dW.get.call(self), dH.get.call(self));
+        if (!size) size = usualScreen(RAPPLY(dW.get, self, []), RAPPLY(dH.get, self, []));
         return size;
       };
       if (dW && dH && dW.get && dH.get) {
@@ -1074,7 +1200,7 @@
         wrap(w.NavigatorUAData.prototype, 'getHighEntropyValues', function (orig) {
           return function (hints) {
             var self = this;
-            return orig.apply(this, arguments).then(function (v) {
+            return then(RAPPLY(orig, this, arguments), function (v) {
               var major = (self.brands && self.brands[0] && self.brands[0].version) || '0';
               var out = { brands: v.brands, mobile: false, platform: CFG.platform || 'Linux' };
               var generic = { architecture: 'x86', bitness: '64', model: '',
@@ -1105,7 +1231,7 @@
     if (rawCreate && rawRevoke && NBlob) {
       wrap(U, 'createObjectURL', function (orig) {
         return function (obj) {
-          var url = orig.apply(this, arguments);
+          var url = RAPPLY(orig, this, arguments);
           try {
             // every blob, whatever its type and size: a worker runs any of them
             // (1.1.18, independent review: other types and large ones got no prelude)
@@ -1117,7 +1243,7 @@
       wrap(U, 'revokeObjectURL', function (orig) {
         return function (url) {
           blobs.delete(url);
-          return orig.apply(this, arguments);
+          return RAPPLY(orig, this, arguments);
         };
       });
       ['Worker', 'SharedWorker'].forEach(function (name) {
@@ -1161,7 +1287,7 @@
             return nConstruct(target, args, newTarget === P ? target : newTarget);
           }
         });
-        natives.set(P, origToString.call(Orig));
+        natives.set(P, RAPPLY(origToString, Orig, []));
         try {
           Object.defineProperty(Orig.prototype, 'constructor',
             { value: P, writable: true, configurable: true });
@@ -1174,12 +1300,12 @@
   }
 
   // ---- new empty windows: protect them before the page can use them --------
-  var foreign = new WeakSet();          // frames of other sites: not ours to touch
+  var foreign = hardSet();              // frames of other sites: not ours to touch
   // Realms already protected, by their own Function object: a frame that loads
   // a new document keeps its window object but gets a new realm, which is then
   // protected again. Asking a realm whether it is protected (isProtected) costs a
   // call into it; asking this set is free, and pages insert nodes very often.
-  var realms = new WeakSet();
+  var realms = hardSet();
   function adopt(cw) {
     if (!cw || foreign.has(cw)) return;
     var F;
@@ -1264,7 +1390,7 @@
         return r;
       } })[orig.name || name];
       try { Object.defineProperty(f, 'length', { value: orig.length, configurable: true }); } catch (e) {}
-      natives.set(f, origToString.call(orig));
+      natives.set(f, RAPPLY(origToString, orig, []));
       d.value = f;
       try { Object.defineProperty(obj, name, d); } catch (e) {}
     }
@@ -1319,12 +1445,12 @@
     [w.HTMLIFrameElement, w.HTMLFrameElement, w.HTMLObjectElement, w.HTMLEmbedElement].forEach(function (E) {
       if (!E) return;
       getter(E.prototype, 'contentWindow', function (orig) {
-        var cw = orig.call(this);
+        var cw = RAPPLY(orig, this, []);
         adopt(cw);
         return cw;
       });
       getter(E.prototype, 'contentDocument', function (orig) {
-        var d = orig.call(this);
+        var d = RAPPLY(orig, this, []);
         if (d) adopt(d.defaultView);
         return d;
       });
@@ -1346,7 +1472,7 @@
     ['innerHTML', 'outerHTML'].forEach(function (n) { setter(E, n, after); });
     var opener = function (orig) {
       return function () {
-        var r = orig.apply(this, arguments);
+        var r = RAPPLY(orig, this, arguments);
         adopt(r);
         return r;
       };
@@ -1444,7 +1570,7 @@
         return r;
       } })[orig.name || n];
       try { Object.defineProperty(f, 'length', { value: orig.length, configurable: true }); } catch (e) {}
-      natives.set(f, natives.get(orig) || origToString.call(orig));
+      natives.set(f, natives.get(orig) || RAPPLY(origToString, orig, []));
       d.value = f;
       try { Object.defineProperty(D, n, d); } catch (e) {}
     });

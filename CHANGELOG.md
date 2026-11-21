@@ -18,7 +18,14 @@ one is fixed here with a test that failed before the fix (tests/test_review_fixe
   as Chrome's do on a wrong object; Strict keeps WebGPU with no adapter and a
   battery on mains power instead of removing them, and sends the one language
   it shows in the Accept-Language header too; Maximum's dates and numbers use
-  en-US like its navigator.language.
+  en-US like its navigator.language, also when a page asks for an empty
+  list of languages or one the engine does not have.
+- **A page can no longer switch the fingerprinting protection off from
+  inside**: the protection used some of the page's own built-in functions
+  while the page ran; a page that replaced one of them (for example
+  `WeakSet.prototype.has` or `Promise.prototype.then`) was handed the real
+  canvas or audio values, the hidden font names, or the full browser version.
+  Everything it uses is now taken before the page runs (second review pass).
 - **Encrypted DNS also for I.K.E.'s own requests**: with encrypted DNS on,
   the home-network checks, dark mode's style sheets, user scripts, the sites'
   icons, updates and filter lists ask the same provider instead of the

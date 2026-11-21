@@ -412,7 +412,8 @@ def test_l8_store_packages_must_carry_the_extensions_signature():
     forged, ext_id = _crx3(archive, other_key=b"the real extension's key")
     with pytest.raises(ValueError):
         extensions.verify_crx(ext_id, forged)                    # signed by a key of its own
-    for plain in (archive, b"Cr24" + struct.pack("<III", 2, 0, 0) + archive):
+    for plain in (archive, b"Cr24" + struct.pack("<III", 2, 0, 0) + archive,
+                  b"Cr24", b"Cr24\x03\x00\x00\x00"):     # review 4, N12: short ones too
         with pytest.raises(ValueError):
             extensions.verify_crx(ext_id, plain)                 # a bare ZIP, or CRX2: no signature
 
@@ -728,8 +729,17 @@ FP_PROBE = r"""
   R.intl = new Intl.DateTimeFormat().resolvedOptions().locale;
   R.number = (1234.5).toLocaleString();
   R.intlNative = Function.prototype.toString.call(Intl.DateTimeFormat);
+  // review 4, N5: an empty list or a language the engine lacks
+  R.intlEmpty = new Intl.DateTimeFormat([]).resolvedOptions().locale;
+  try { R.intlUnknown = new Intl.NumberFormat('tlh').resolvedOptions().locale; } catch (e) { R.intlUnknown = 'err ' + e; }
+  R.numberEmpty = (1234.5).toLocaleString([]);
+  R.numberUnknown = (1234.5).toLocaleString(['tlh']);
+  R.dateUnknown = new Date(0).toLocaleDateString('tlh', {timeZone: 'UTC'});
+  R.intlKnown = new Intl.NumberFormat(['tlh', 'de']).resolvedOptions().locale;
+  try { new Intl.NumberFormat('not a language!'); R.badTag = 'no error'; } catch (e) { R.badTag = e.constructor.name; }
   try {
-    var src = "postMessage([new Intl.DateTimeFormat().resolvedOptions().locale, (1234.5).toLocaleString()])";
+    var src = "postMessage([new Intl.DateTimeFormat().resolvedOptions().locale, (1234.5).toLocaleString(), " +
+      "new Intl.DateTimeFormat([]).resolvedOptions().locale, (1234.5).toLocaleString('tlh')])";
     var wk = new Worker(URL.createObjectURL(new Blob([src], {type: 'text/javascript'})));
     R.workerIntl = await new Promise(function (ok) { wk.onmessage = function (e) { ok(e.data); };
       setTimeout(function () { ok('timeout'); }, 3000); });
@@ -790,7 +800,169 @@ def test_h1_m5_noise_cannot_be_peeled_off_and_spoofed_values_look_like_chrome(ru
     m = _fp(run_ike, "maximum", italian=True)
     assert m["lang"] == "en-US" and m["intl"] == "en-US" and m["number"] == "1,234.5", m
     assert "[native code]" in m["intlNative"], m
-    assert m["workerIntl"] == ["en-US", "1,234.5"], m                  # in workers too
+    assert m["workerIntl"] == ["en-US", "1,234.5", "en-US", "1,234.5"], m    # in workers too
+    # review 4, N5: no language the engine has means the one shown as well
+    assert m["intlEmpty"] == "en-US" and m["intlUnknown"] == "en-US", m
+    assert m["numberEmpty"] == "1,234.5" and m["numberUnknown"] == "1,234.5", m
+    assert m["dateUnknown"] == "1/1/1970", m
+    assert m["intlKnown"] == "de" and m["badTag"] == "RangeError", m     # a known one, and errors, as Chrome
+
+
+N4_PROBE = r"""
+(async function () {
+  var R = {}, IM = Math.imul, realHas = WeakSet.prototype.has, realThen = Promise.prototype.then;
+  function hs(str) { var x = 2166136261; for (var i = 0; i < str.length; i++) { x ^= str.charCodeAt(i); x = IM(x, 16777619); } return (x >>> 0).toString(16); }
+  function grab(a, n) { var o = []; for (var i = 0; i < n; i++) o.push(a[i]); return o; }
+  function canvas() {
+    var c = document.createElement('canvas'); c.width = 60; c.height = 20; var x = c.getContext('2d');
+    x.fillStyle = '#f60'; x.fillRect(0, 0, 60, 20); x.fillStyle = '#069'; x.font = '14px sans-serif';
+    x.fillText('IKE probe', 2, 15); return [c, x];
+  }
+  var N = 60 * 20 * 4;
+  function render() {
+    var ctx = new OfflineAudioContext(1, 2000, 44100), o = ctx.createOscillator();
+    o.frequency.value = 3000; o.connect(ctx.destination); o.start(0); return ctx.startRendering();
+  }
+  async function step(name, fn) { try { R[name] = await fn(); } catch (e) { R[name] = 'err ' + e; } }
+  await step('baseline', function () { return hs(canvas()[0].toDataURL()); });
+  // the protection's own sets asked through the page's WeakSet.prototype.has
+  await step('hasFalseAudio', async function () {
+    WeakSet.prototype.has = function () { return false; };
+    try { var b = await render(); return hs(grab(b.getChannelData(0), 2000).join()); }
+    finally { WeakSet.prototype.has = realHas; }
+  });
+  await step('hasFalseFonts', function () {
+    WeakSet.prototype.has = function () { return false; };
+    try { return document.fonts.size; } finally { WeakSet.prototype.has = realHas; }
+  });
+  // the rendered buffer marked through the page's Promise.prototype.then
+  await step('thenAudio', async function () {
+    Promise.prototype.then = function (f, r) { return realThen.call(this, undefined, r); };
+    var b;
+    try { b = await render(); } finally { Promise.prototype.then = realThen; }
+    return hs(grab(b.getChannelData(0), 2000).join());
+  });
+  // the noise made with the page's Math.imul
+  await step('imulAudio', async function () {
+    Math.imul = function () { return 0; };
+    var b;
+    try { b = await render(); var d = grab(b.getChannelData(0), 2000); } finally { Math.imul = IM; }
+    return hs(d.join());
+  });
+  // the noisy copy made with the page's Uint32Array
+  await step('u32Url', function () {
+    var U32 = window.Uint32Array; window.Uint32Array = function () { throw new Error('no'); };
+    try { return hs(canvas()[0].toDataURL()); } finally { window.Uint32Array = U32; }
+  });
+  // the length of the pixels read through the page's getter
+  await step('lengthPixels', function () {
+    var TAP = Object.getPrototypeOf(Uint8Array.prototype), d = Object.getOwnPropertyDescriptor(TAP, 'length'), px;
+    Object.defineProperty(TAP, 'length', { get: function () { return 0; }, configurable: true });
+    try { px = canvas()[1].getImageData(0, 0, 60, 20).data; } finally { Object.defineProperty(TAP, 'length', d); }
+    return hs(grab(px, N).join());
+  });
+  // the pixels found through the page's ImageData.prototype.data
+  await step('dataDecoy', function () {
+    var d = Object.getOwnPropertyDescriptor(ImageData.prototype, 'data'), img;
+    Object.defineProperty(ImageData.prototype, 'data', { get: function () { return new Uint8ClampedArray(4); }, configurable: true });
+    try { img = canvas()[1].getImageData(0, 0, 60, 20); } finally { Object.defineProperty(ImageData.prototype, 'data', d); }
+    return hs(grab(img.data, N).join());
+  });
+  // a canvas that reports no size of its own
+  await step('widthUrl', function () {
+    var c = canvas()[0]; Object.defineProperty(c, 'width', { get: function () { return 0; } });
+    return hs(c.toDataURL());
+  });
+  // a channel number that changes between two reads
+  await step('channelTrick', async function () {
+    var b = await render(), k = 0, dest = new Float32Array(2000);
+    try { b.copyFromChannel(dest, { valueOf: function () { return k++ === 0 ? 0 : 1; } }); } catch (e) {}
+    return hs(grab(dest, 2000).join());
+  });
+  // what a ScriptProcessorNode is handed
+  await step('processor', async function () {
+    var ctx = new OfflineAudioContext(1, 16384, 44100), o = ctx.createOscillator(), all = [];
+    o.frequency.value = 3000;
+    var sp = ctx.createScriptProcessor(4096, 1, 1);
+    sp.onaudioprocess = function (e) { all.push(grab(e.inputBuffer.getChannelData(0), 4096).join()); };
+    o.connect(sp); sp.connect(ctx.destination); o.start(0);
+    await ctx.startRendering();
+    return all.length ? hs(all.join('|')) : 'none';
+  });
+  // the full version through the page's Promise.prototype.then
+  await step('uaFull', async function () {
+    if (!navigator.userAgentData) return 'none';
+    var leaked = null;
+    Promise.prototype.then = function (f, r) { if (!leaked) leaked = this; return realThen.call(this, f, r); };
+    try { navigator.userAgentData.getHighEntropyValues(['uaFullVersion']); } finally { Promise.prototype.then = realThen; }
+    if (!leaked) return 'none';
+    var v = await leaked;
+    return String(v && v.uaFullVersion);
+  });
+  // review 4, N12: on a wrong object Chrome's requestAdapter rejects
+  await step('gpuWrong', async function () {
+    if (!window.GPU) return 'TypeError';
+    try { await GPU.prototype.requestAdapter.call({}); return 'resolved'; } catch (e) { return e.constructor.name; }
+  });
+  window.__fp = JSON.stringify(R);
+})();
+"""
+
+
+def test_n4_a_page_replacing_built_ins_cannot_skip_the_noise(run_ike):
+    """Review 4, N4: the protection called built-ins a page can replace
+    (WeakSet/WeakMap methods, Promise.prototype.then, Math.imul,
+    Uint32Array, the typed arrays' length, ImageData's data, a canvas's own
+    size) while the page ran. Each replacement here gave the real values,
+    the same in every session; now the noise stays, different per session."""
+    import json
+    runs = []
+    for _ in range(2):
+        out = run_ike((STEPS_FP % N4_PROBE).replace("range(100)", "range(300)"),
+                      settings={"shield_level": "strict"}, timeout=120)
+        runs.append(json.loads(out["r"]))
+    a, b = runs
+    for k in ("baseline", "hasFalseAudio", "thenAudio", "imulAudio", "u32Url", "lengthPixels",
+              "dataDecoy", "widthUrl", "channelTrick", "processor"):
+        assert not str(a[k]).startswith("err") and a[k] != "none", (k, a)
+        assert a[k] != b[k], (k, a, b)          # the same in two sessions: the real values
+    assert a["hasFalseFonts"] == 0, a           # the masked fonts stay hidden
+    assert a["uaFull"] == "none" or a["uaFull"].endswith(".0.0.0"), a
+    assert a["gpuWrong"] == "TypeError", a
+
+
+def test_n12_addresses_from_the_menu_are_never_options(monkeypatch):
+    """Review 4, N12 (rest of L11): an "address" such as --profile=x or
+    --private handed over by another program was an option of I.K.E.; the
+    menu entry ends the options with "--"."""
+    import os
+    import pathlib
+
+    _updater_imports()
+    from conftest import APP
+
+    import ike
+    monkeypatch.delenv("IKE_PROFILE", raising=False)
+    ike.early_args(["--", "--profile=x"])
+    assert "IKE_PROFILE" not in os.environ
+    ike.early_args(["--profile=y", "--", "https://example.org/"])
+    assert os.environ["IKE_PROFILE"] == "y"
+    entry = (pathlib.Path(APP) / "data" / "ike-browser.desktop").read_text()
+    assert "Exec=ike-browser -- %U" in entry
+
+
+def test_n12_dark_mode_style_sheets_carry_the_pages_headers():
+    """Review 4, N12 (rest of M4): Sec-Fetch-Site of the style sheets the
+    dark mode fetches for a page, as the engine would send it."""
+    _updater_imports()
+    from PyQt6.QtCore import QUrl
+
+    from ike.passwords import fetch_site
+    page = QUrl("https://www.example.co.uk/a")
+    assert fetch_site(page, QUrl("https://www.example.co.uk/s.css")) == b"same-origin"
+    assert fetch_site(page, QUrl("https://cdn.example.co.uk/s.css")) == b"same-site"
+    assert fetch_site(page, QUrl("https://other.co.uk/s.css")) == b"cross-site"
+    assert fetch_site(page, QUrl("http://www.example.co.uk/s.css")) == b"cross-site"
 
 
 def test_m5_strict_sends_the_one_language_it_shows():

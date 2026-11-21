@@ -54,7 +54,7 @@ the files named). What is left is said in the last column.
 
 | # | Finding | Fix | Left |
 |---|---|---|---|
-| H1 | Canvas, audio and text noise could be peeled off (a grey canvas of the same size gave the mask; every 97th audio sample by one factor; `measureText('')` was the offset) | The canvas mask depends on the picture too; audio noise only on buffers the engine rendered, every sample its own factor; text width per text and font, 0 for an empty text | A site's own blob worker can still read its own seed (F3) and with it recompute that site's mask |
+| H1 | Canvas, audio and text noise could be peeled off (a grey canvas of the same size gave the mask; every 97th audio sample by one factor; `measureText('')` was the offset) | The canvas mask depends on the picture too; audio noise only on buffers the engine rendered, every sample its own factor; text width per text and font, 0 for an empty text | A site's own blob worker can still read its own seed (F3) and with it recompute that site's mask. The noise changes only the lowest bit of red, green and blue (to stay invisible): the other seven bits of each are the real picture |
 | H2 | A second start within 20 s rolled a healthy update back for good | The start that tries the update holds a lock for its life; a later start neither counts nor rolls back | Needs the 1.1.20 package (`ike_boot.py` is not self-updated) |
 | M1 | A page could make I.K.E. download any `.user.js`, also from the router, with a User-Agent naming I.K.E. | Only the user's own act offers an install; the home network only for a typed address; the browser's User-Agent | - |
 | M2 | Enter or Space granted a permission (Allow was the default) | Enter and Esc block; Allow can be clicked only after 0.7 s | - |
@@ -66,12 +66,20 @@ the files named). What is left is said in the last column.
 | L3 | Own requests named I.K.E.; every engine asked at first start | The pages' User-Agent everywhere; only the engine in use | - |
 | L4 | User scripts shared one world; answers delivered after the tab changed site | A world per script; an update into the page's world asks; late answers dropped | - |
 | L5 | Embedded-video click relay: the page could put its own element on the point | Hardened (owner's decision): only when the page holds a frame of a video site, the point must still be on that frame when the click is made, at most once every 3 s; the skip on the video site itself unchanged | A page that moves its element in the few milliseconds between the check and the click (not shown possible) |
-| L6 | The logins' channel shared with the other helpers of its world | The channel's receiver is locked after the helper makes it; the others get only `fetchCss`, `cssFetched`, `adClick`, `adClickEmbedded` | Code in that world can still send blind calls on the transport (no answers): it cannot read a login. Separate worlds would move the video-ad helpers (owner's decision) |
+| L6 | The logins' channel shared with the other helpers of its world | The channel's receiver is locked after the helper makes it, and so are `qt` and `qt.webChannelTransport` (not writable, not configurable), so no transport of another script's can be put in front of it; the others get only `fetchCss`, `cssFetched`, `adClick`, `adClickEmbedded` | Code in that world can still send blind calls on the transport (no answers): it cannot read a login. Separate worlds would move the video-ad helpers (owner's decision) |
 | L7 | Favicons decoded by every image plugin outside the sandbox | Only PNG and ICO, by their first bytes | - |
 | L8 | Store extensions not signature-checked | CRX3 only, signed by the key of the id asked for (RSA or ECDSA) | The store's own publisher signature is not checked |
 | L9 | Generated password left on the clipboard | Marked for clipboard managers and cleared after 45 s | - |
 | L10 | `site_of` approximated the Public Suffix List | The system's list (`publicsuffix-list`); a longer fallback | The page script's noise seed still uses the short list |
 | L11 | Unknown arguments went to Qt | Dropped, named on stderr | - |
+
+A second pass of the same reviewer over these fixes found more of the same
+kind; fixed too:
+
+| # | Finding | Fix | Left |
+|---|---|---|---|
+| N4 | The fingerprinting protection called built-ins a page can replace while it runs (`WeakSet`/`WeakMap` methods, `Promise.prototype.then`, `.apply`/`.call`, `Math.imul`, `Uint32Array`, the length of typed arrays, `ImageData`'s `data`, a canvas's own size): each replacement gave the real canvas or audio values, the masked font names, or the full browser version | Everything it uses is taken before the page runs; its collections keep their methods as own, frozen properties; the noise uses a multiply of its own; what a `ScriptProcessorNode` hands the page is noised too | The time zone and other values outside the protection's list (see the fingerprinting audit) |
+| N5 | Maximum: an empty language list, or a language the engine lacks, fell back to the system's language | Such a list means the language shown (en-US), in pages and workers; the list is read once, as the engine reads it | Texts the engine writes itself (a form's validation message) stay in the system's language: the engine's language is one for every site, and Maximum is chosen per site |
 
 ## Known limits (not solved)
 

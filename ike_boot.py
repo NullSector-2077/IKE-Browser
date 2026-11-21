@@ -158,7 +158,7 @@ def main():
         print("IKE-SELFTEST-OK %s" % ike.__version__)
         return 0
     if (hasattr(os, "geteuid") and os.geteuid() == 0 and os.environ.get("IKE_ALLOW_UNSAFE_ENGINE") != "1"
-            and not {"--version", "-h", "--help"} & set(argv)):
+            and not {"--version", "-h", "--help"} & set(argv[:argv.index("--")] if "--" in argv else argv)):
         # refused here, before a pending update is counted as a start that
         # failed (adversarial review of 1.1.18; ike/app.py says the same)
         sys.stderr.write("I.K.E.: I.K.E. does not start as root (administrator): the engine's sandbox, "

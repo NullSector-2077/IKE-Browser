@@ -913,6 +913,16 @@ class Shields(QObject):
     def user_agent(self):
         return osinfo.chrome_user_agent(self.chrome_major())
 
+    def request_language(self, first_host):
+        """The Accept-Language a request of a page of first_host carries (as
+        the request check writes it), for I.K.E.'s own requests on a page's
+        behalf."""
+        cfg = self.config
+        if rank(cfg.level_for(first_host)) >= 3 and cfg.site_opt(first_host, "fp") is not False:
+            return b"en-US,en;q=0.9" if rank(cfg.level_for(first_host)) >= 4 else one_language(cfg)
+        from .config import accept_language
+        return accept_language(cfg).encode("ascii", "replace")
+
     def _identity(self, profile):
         """Present the engine's own Chrome version, the same in the header, in
         JavaScript and in the client hints (1.1.14; see chromever)."""

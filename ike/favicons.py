@@ -1,5 +1,6 @@
 """Site icons, stored per host so bookmarks can show them."""
 
+import hashlib
 import sqlite3
 import time
 from urllib.parse import urlsplit
@@ -43,7 +44,7 @@ class Favicons(QObject, Deferred):
         self.db.commit()
         self._cache = {}
         self._tried = set()
-        self._stored = {}               # host -> the PNG written last (review of 1.1.20, L6)
+        self._stored = {}               # host -> hash of the PNG written last (review of 1.1.20, L6)
 
     def icon(self, url):
         """QIcon for the site of url, or a null icon when none is known."""
@@ -71,9 +72,10 @@ class Favicons(QObject, Deferred):
         pm.save(buf, "PNG")
         buf.close()
         png = bytes(data)
-        if self._stored.get(host) == png:
+        mark = hashlib.blake2b(png, digest_size=16).digest()    # not the picture: memory (review 4, N12)
+        if self._stored.get(host) == mark:
             return                        # the same picture again (a site redrawing its icon)
-        self._stored[host] = png
+        self._stored[host] = mark
         self.db.execute("INSERT INTO icons(host,png,ts) VALUES(?,?,?) ON CONFLICT(host) "
                         "DO UPDATE SET png=excluded.png, ts=excluded.ts",
                         (host, png, int(time.time())))
