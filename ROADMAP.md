@@ -59,6 +59,11 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Owner's decisions
 
+- 2026-11-21, for 1.1.20: menus and Settings regrouped with icons and short
+  explanations, an "I.K.E. extensions" section with a switch for each;
+  Ctrl+Shift+A opens the extensions; Chrome's default font families for
+  every page; at the global level Maximum the engine itself runs in en-US;
+  the font allowlist waits for 1.1.21.
 - **Arch Linux / CachyOS only** (2026-11-17). Other Linux distributions and
   Windows were suspended, and on 2026-11-20 their pull requests (#10, #11,
   #13, #14, #16) were closed; the branches stay as the archive and are never
@@ -119,16 +124,24 @@ are agreed with the project owner; do not reopen them without asking.
   does; a lighter check would darken some sites that are dark already.
 - **Workers started from a file**: `experiment/file-workers` (see Known
   limits); merged only if the owner wants it, probably as an option.
-- **Dark Reader**: the early plain background could leave from inside
-  `<head>` to avoid one whole-page restyle (unfinished, untested work on
-  `handover/perf/1.1.18-darkreader-3`). Tried in 1.1.19 and left out: a
-  cache of each rule's text (about 7 % less work, but a rule a site changes
-  later could keep old colours).
-- **Privacy items of the 1.1.18 review left for later**: canvas and audio
-  noise that a page can remove, font masking, pages that can tell I.K.E. from
-  stack traces, a home-made public-suffix list, re-encoded tracking-parameter
-  clean-up, impossible combinations at Strict and Maximum (screen,
-  languages).
+- **Dark Reader**: the early cover now leaves from inside `<head>` as an
+  image (1.1.20). Proposed by the independent review and left for the
+  owner: write Dark Reader's `::selection` colours as plain colours (about
+  20 ms less on Lit pages; same colours, but one rule's text differs from
+  Dark Reader's own). Tried in 1.1.19 and left out: a cache of each rule's
+  text (about 7 % less work, but a rule a site changes later could keep old
+  colours).
+- **Fonts, 1.1.21 (owner's decision of 2026-11-21)**: a font allowlist for
+  the whole engine (as Tor Browser on Linux) at Strict and Maximum, which
+  alone closes CSS `@font-face { src: local() }` and workers loaded from an
+  address; to be designed and tried on the owner's KDE desktop.
+- **Left by the fingerprinting audit of 1.1.20**: Strict's screen size
+  against CSS media queries (M-2, partial fix possible), the seed list of
+  `siteOf()` (L-2), `window.name` across sites (L-3), Balanced's open values
+  (L-4, owner's choice), workers loaded from an address (H-C, Qt limit;
+  `experiment/file-workers`). Review 4's N11 (the embedded video click
+  checking the frame's content, shadow roots) touches the YouTube helpers:
+  with the owner.
 - **AUR**: publish I.K.E. there when the owner says it is time.
 
 ## Starting a new session
