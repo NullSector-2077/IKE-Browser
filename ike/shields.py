@@ -143,7 +143,101 @@ _SLD = frozenset("co com org net gov edu ac or ne go gob nom mil ltd plc sch nhs
 _HOSTED = (".github.io", ".gitlab.io", ".blogspot.com", ".herokuapp.com", ".pages.dev",
            ".workers.dev", ".netlify.app", ".vercel.app", ".web.app", ".firebaseapp.com",
            ".appspot.com", ".cloudfront.net", ".azurewebsites.net", ".onrender.com",
-           ".neocities.org")
+           ".neocities.org", ".wordpress.com", ".tumblr.com", ".s3.amazonaws.com", ".pp.ua",
+           ".myshopify.com", ".substack.com", ".wixsite.com", ".weebly.com", ".fly.dev", ".glitch.me",
+           ".repl.co", ".surge.sh", ".ngrok.io", ".ngrok-free.app", ".duckdns.org", ".no-ip.org")
+# the Public Suffix List of the system (Arch: publicsuffix-list, a dependency
+# of the package, kept current by pacman); the short lists above only when
+# it is missing (review of 1.1.19, L10: "a.wordpress.com" and
+# "b.wordpress.com" were one site for the filter lists and the permissions)
+PSL_PATHS = ["/usr/share/publicsuffix/public_suffix_list.dat"]
+_PSL = []
+
+
+def _psl_cached(path):
+    """The list as parsed at an earlier start, while the file is the same
+    (size and time): about 1 ms instead of about 16 (performance review of
+    1.1.20, L4). (cache file, its sets or None)."""
+    import marshal
+    import os
+
+    from .config import CACHE_DIR
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None, None
+    cache = CACHE_DIR / ("psl-%d-%d.bin" % (st.st_size, st.st_mtime_ns))
+    try:
+        rules, wild, exc = marshal.loads(cache.read_bytes())
+        if len(rules) > 1000:
+            return cache, (frozenset(rules), frozenset(wild), frozenset(exc))
+    except (OSError, ValueError, EOFError, TypeError):
+        pass
+    return cache, None
+
+
+def _psl_keep(cache, found):
+    import marshal
+    try:
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        for old in cache.parent.glob("psl-*.bin"):
+            old.unlink(missing_ok=True)
+        tmp = cache.with_suffix(".tmp")
+        tmp.write_bytes(marshal.dumps(tuple(tuple(sorted(s)) for s in found)))
+        tmp.replace(cache)
+    except OSError:
+        pass
+
+
+def _psl():
+    """(rules, wildcards, exceptions) of the Public Suffix List, or None."""
+    if not _PSL:
+        found = None
+        for path in PSL_PATHS:
+            cache, found = _psl_cached(path)
+            if found is not None:
+                break
+            try:
+                with open(path, encoding="utf-8") as f:
+                    rules, wild, exc = set(), set(), set()
+                    for line in f:
+                        r = line.split("//", 1)[0].strip().lower()
+                        if not r:
+                            continue
+                        try:
+                            r = r.encode("idna").decode("ascii") if not r.isascii() else r
+                        except UnicodeError:
+                            pass
+                        if r.startswith("!"):
+                            exc.add(r[1:])
+                        elif r.startswith("*."):
+                            wild.add(r[2:])
+                        else:
+                            rules.add(r)
+                if len(rules) > 1000:
+                    found = (frozenset(rules), frozenset(wild), frozenset(exc))
+                    if cache is not None:
+                        _psl_keep(cache, found)
+                    break
+            except (OSError, UnicodeError):
+                continue
+        _PSL.append(found)
+    return _PSL[0]
+
+
+def _site_psl(host, psl):
+    rules, wild, exc = psl
+    labels = host.split(".")
+    for i in range(len(labels)):
+        cand = ".".join(labels[i:])
+        if cand in exc:                       # "!www.ck": www.ck is the site
+            return cand
+        parent = ".".join(labels[i + 1:])
+        if cand in rules or (i + 1 < len(labels) and parent in wild):
+            # cand is a public suffix: the site is one more label
+            return ".".join(labels[i - 1:]) if i > 0 else host
+    # not in the list: the default rule "*" (the last label is the suffix)
+    return ".".join(labels[-2:])
 
 
 def _referer(info):
@@ -179,15 +273,43 @@ def _reduce_full_version(info):
                 info.setHttpHeader(name, reduced)
 
 
+# The names of the two scripts that run in the page's own world: an error's
+# stack names them ("userscript:<name>"), and "ike-fp" named I.K.E.
+# (fingerprinting audit, M-5)
+FP_SCRIPT = "content"
+MEDIA_SCRIPT = "content-2"
+
+
+def one_language(cfg):
+    """The Accept-Language of Strict: the first language in use, and its base
+    language after it, as Chrome sends one language ("it-IT,it;q=0.9")."""
+    from .config import engine_language
+    return _one_language(engine_language(cfg))
+
+
+@functools.lru_cache(maxsize=16)
+def _one_language(header):
+    first = (header or "").split(",")[0].split(";")[0].strip() or "en-US"
+    if not re.fullmatch(r"[A-Za-z]{1,8}(-[A-Za-z0-9]{1,8})*", first):
+        first = "en-US"
+    base = first.split("-")[0]
+    return (first if base == first else "%s,%s;q=0.9" % (first, base)).encode("ascii")
+
+
 @functools.lru_cache(maxsize=4096)
 def site_of(host):
     """Registrable domain of a host: "www.bbc.co.uk" -> "bbc.co.uk".
 
     Asked several times for every request of every page, always for the same
     few hosts: remembered (a pure function of its argument, 1.1.17)."""
-    host = host or ""
+    host = (host or "").rstrip(".")
     parts = host.split(".")
-    if len(parts) <= 2 or host.replace(".", "").isdigit() or ":" in host:
+    if len(parts) < 2 or host.replace(".", "").isdigit() or ":" in host:
+        return host
+    psl = _psl()
+    if psl is not None:
+        return _site_psl(host.lower(), psl)
+    if len(parts) <= 2:
         return host
     three = host.endswith(_HOSTED) or (len(parts[-1]) == 2 and parts[-2] in _SLD)
     return ".".join(parts[-3 if three else -2:])
@@ -466,6 +588,11 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             _reduce_full_version(info)
             if lv >= 4:
                 info.setHttpHeader(b"Accept-Language", b"en-US,en;q=0.9")
+            else:
+                # Strict: the one language navigator.languages shows, as
+                # Chrome writes it; the full list in the header contradicted
+                # it (review of 1.1.19, M5)
+                info.setHttpHeader(b"Accept-Language", one_language(cfg))
         if (lv >= 2 and cfg["trim_referrer"] and not main
                 and host_site != first_site
                 and cfg.site_opt(first_host, "params") is not False):
@@ -793,6 +920,16 @@ class Shields(QObject):
     def user_agent(self):
         return osinfo.chrome_user_agent(self.chrome_major())
 
+    def request_language(self, first_host):
+        """The Accept-Language a request of a page of first_host carries (as
+        the request check writes it), for I.K.E.'s own requests on a page's
+        behalf."""
+        cfg = self.config
+        if rank(cfg.level_for(first_host)) >= 3 and cfg.site_opt(first_host, "fp") is not False:
+            return b"en-US,en;q=0.9" if rank(cfg.level_for(first_host)) >= 4 else one_language(cfg)
+        from .config import engine_language
+        return engine_language(cfg).encode("ascii", "replace")
+
     def _identity(self, profile):
         """Present the engine's own Chrome version, the same in the header, in
         JavaScript and in the client hints (1.1.14; see chromever)."""
@@ -895,12 +1032,29 @@ class Shields(QObject):
         """The secret of a profile's media-command events (mediahook.js)."""
         return "m" + self.media_keys.get(id(profile), "")
 
+    # The default font families Chrome uses on Linux (owner's decision for
+    # 1.1.20, fingerprinting audit M-3): Qt's own defaults are the desktop's
+    # fonts, which a page read by name (getComputedStyle: "DejaVu Serif") and
+    # measured (the interface font as sans-serif). The fonts drawn are the
+    # system's own substitutes for these names (fontconfig).
+    CHROME_FONTS = (("StandardFont", "Times New Roman"), ("SerifFont", "Times New Roman"),
+                    ("SansSerifFont", "Arial"), ("FixedFont", "Monospace"),
+                    ("CursiveFont", "Comic Sans MS"), ("FantasyFont", "Impact"))
+
+    def _chrome_fonts(self, profile):
+        s = profile.settings()
+        for which, family in self.CHROME_FONTS:
+            kind = getattr(QWebEngineSettings.FontFamily, which)
+            if s.fontFamily(kind) != family:
+                s.setFontFamily(kind, family)
+
     def apply_settings(self, profile=None):
         """(Re)apply everything that depends on the configuration."""
         cfg = self.config
         for p in ([profile] if profile else list(self.profiles)):
-            from .config import accept_language
-            p.setHttpAcceptLanguage(accept_language(cfg))
+            from .config import engine_language
+            p.setHttpAcceptLanguage(engine_language(cfg))
+            self._chrome_fonts(p)
             p.settings().setAttribute(
                 QWebEngineSettings.WebAttribute.WebRTCPublicInterfacesOnly,
                 bool(cfg["webrtc_hide_ip"]))
@@ -909,14 +1063,17 @@ class Shields(QObject):
             self._drop_site_scripts(p)
             self._video_scripts(p)
             scripts = p.scripts()
-            for old in (scripts.find("ike-fp") + scripts.find("ike-consent")
-                        + scripts.find("ike-pw") + scripts.find("ike-media")):
+            for old in (scripts.find(FP_SCRIPT) + scripts.find("ike-consent")
+                        + scripts.find("ike-pw") + scripts.find(MEDIA_SCRIPT)
+                        + scripts.find("ike-autoscroll")):
                 scripts.remove(old)
-            if cfg.get("di_media", True) and not p.isOffTheRecord():
+            from . import ikeextensions
+            if (cfg.get("di_media", True) and ikeextensions.on(cfg, "plasma")
+                    and not p.isOffTheRecord()):
                 # "next" / "previous" of the desktop's media controls (plasma.py);
                 # inserted before ike-fp: both keep replaced functions native-looking
                 m = QWebEngineScript()
-                m.setName("ike-media")
+                m.setName(MEDIA_SCRIPT)
                 sites = [str(h).lower().strip(".") for h in cfg.get("media_sites") or [] if h]
                 m.setSourceCode(self._media_src.replace("__IKE_MEDIA_TOKEN__", self.media_token(p))
                                 .replace("__IKE_MEDIA_SITES__", json.dumps(sites)))
@@ -924,7 +1081,16 @@ class Shields(QObject):
                 m.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
                 m.setRunsOnSubFrames(True)
                 scripts.insert(m)
-            if getattr(self, "pw_source", ""):
+            if ikeextensions.on(cfg, "autoscroll"):
+                # automatic scrolling (1.1.20): I.K.E.'s own world, unseen by the page
+                a = QWebEngineScript()
+                a.setName("ike-autoscroll")
+                a.setSourceCode(ikeextensions.AUTOSCROLL_JS)
+                a.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentReady)
+                a.setWorldId(QWebEngineScript.ScriptWorldId.ApplicationWorld)
+                a.setRunsOnSubFrames(True)
+                scripts.insert(a)
+            if getattr(self, "pw_source", "") and ikeextensions.on(cfg, "passwords"):
                 pw = QWebEngineScript()
                 pw.setName("ike-pw")
                 pw.setSourceCode(self.pw_source)
@@ -958,7 +1124,7 @@ class Shields(QObject):
                       # the masked names a page can find here (fontcheck.py); None: all of them
                       "fonts": fontcheck.findable()}
             s = QWebEngineScript()
-            s.setName("ike-fp")
+            s.setName(FP_SCRIPT)
             s.setSourceCode(self._fp_src.replace("__IKE_CFG__", json.dumps(fp_cfg)))
             s.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
             s.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
@@ -1088,15 +1254,22 @@ class Shields(QObject):
         try:
             from PyQt6.QtWebEngineCore import QWebEngineGlobalSettings as G
 
+            from . import doh as own
             from .config import DOH_PROVIDERS
             mode = G.DnsMode()
+            template = None
             if doh and doh != "off":
                 mode.secureMode = G.SecureDnsMode.SecureOnly
-                mode.serverTemplates = DOH_PROVIDERS.get(doh, doh)
+                template = mode.serverTemplates = DOH_PROVIDERS.get(doh, doh)
             else:
                 mode.secureMode = G.SecureDnsMode.SystemOnly
-            return G.setDnsMode(mode)
+            ok = G.setDnsMode(mode)
+            # I.K.E.'s own requests ask the same provider (review of 1.1.19, M3)
+            own.configure(template if ok else None)
+            return ok
         except Exception:
+            from . import doh as own
+            own.configure(None)
             return False
 
     # --- per page ----------------------------------------------------
@@ -1127,6 +1300,8 @@ class Shields(QObject):
     def dark_for(self, host):
         """Whether this host should use the selected dark renderer."""
         cfg = self.config
+        if not cfg.get("comp_dark", True):        # the extension is off (1.1.20)
+            return False
         on = cfg["dark_mode"] == "on"
         listed = cfg["dark_exclude"] if on else cfg["dark_sites"]
         h = (host or "").lower().strip(".")
@@ -1149,7 +1324,7 @@ class Shields(QObject):
         """Did the user turn this site dark himself (dark mode off, the site on
         its own list)? Then it is made dark whatever Dark Reader's lists say."""
         cfg = self.config
-        if cfg["dark_mode"] == "on":
+        if cfg["dark_mode"] == "on" or not cfg.get("comp_dark", True):
             return False
         h = (host or "").lower().strip(".")
         while h:

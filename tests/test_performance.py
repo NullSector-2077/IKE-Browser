@@ -200,14 +200,15 @@ def test_looking_for_widevine_loads_no_download_code():
 
 def test_fonts_stay_hidden_with_the_shorter_list(run_ike):
     """Strict masks only the font names the engine can find on this computer
-    (fontcheck.py): a page finds none of the list, exactly as with all 714
-    masks, and fewer masks are made in every frame."""
+    (fontcheck.py): a page finds none of the list, nor any other family
+    installed here (fingerprinting audit, H-D), and fewer masks are made in
+    every frame than the 714 names."""
     out = run_ike(r'''
 def steps(ike, qapp, out):
     import json
     from PyQt6.QtCore import QUrl
     from ike import fontcheck
-    names = fontcheck.masked_names()
+    names = fontcheck.candidates()      # the list and every family installed here
     out["listed"] = len(names)
     ike.font_check._run()
     for _ in range(300):
@@ -216,6 +217,7 @@ def steps(ike, qapp, out):
         yield 50
     found = fontcheck.findable()
     out["findable"] = None if found is None else len(found)
+    out["found_names"] = [] if found is None else [n.lower() for n in found]
 
     def detect(level):
         ike.config["shield_level"] = level
@@ -232,10 +234,14 @@ def steps(ike, qapp, out):
         while "x" not in r:
             yield 20
         return r["x"]
-    out["off"] = len((yield from detect("off")))
+    out["off_names"] = [n.lower() for n in (yield from detect("off"))]
+    out["off"] = len(out["off_names"])
     out["strict"] = (yield from detect("strict"))
     out["maximum"] = (yield from detect("maximum"))
 ''', timeout=180)
     assert out["listed"] > 700
-    assert out["findable"] is not None and out["findable"] == out["off"] < out["listed"], out
+    # every name a page finds without the protection is masked (installed
+    # families are masked whatever the measure said: findable >= off)
+    assert out["findable"] is not None and out["findable"] < out["listed"], out
+    assert set(out["off_names"]) <= set(out["found_names"]), out
     assert out["strict"] == [] and out["maximum"] == [], out

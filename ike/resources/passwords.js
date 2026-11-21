@@ -44,10 +44,23 @@
     setValue(p, login.p);
     return true;
   }
-  new QWebChannel(qt.webChannelTransport, function (channel) {
+  // The channel is this helper's alone (review of 1.1.19, L6): once it is
+  // made, the transport's receiver is locked, so a second channel in this
+  // world (a list scriptlet, Dark Reader, by a bug) cannot take the answers,
+  // and the other helpers get only the calls they use, never the logins
+  // (fillRequested) or "captured". (The engine finds the transport by its
+  // name to deliver messages: it stays where it is.)
+  var transport = qt.webChannelTransport;
+  new QWebChannel(transport, function (channel) {
     var ike = channel.objects.ike;
     if (!ike) return;
-    window.__ikeBridge = ike;      // shared with the other isolated-world helpers
+    var shared = {
+      fetchCss: function (id, url) { ike.fetchCss(String(id), String(url)); },
+      cssFetched: Object.freeze({connect: function (f) { ike.cssFetched.connect(f); }}),
+      adClick: function (x, y) { ike.adClick(+x, +y); },
+      adClickEmbedded: function (x, y) { ike.adClickEmbedded(+x, +y); }
+    };
+    Object.defineProperty(window, '__ikeBridge', {value: Object.freeze(shared)});
     // A saved login is offered when the user clicks (or tabs) into the
     // password field or its user name field: I.K.E. shows its own small menu
     // ("Fill in: name" / "Not now") and only the login the user picks comes
@@ -98,4 +111,17 @@
       if (t) capture();
     }, true);
   });
+  ['onmessage', 'send'].forEach(function (k) {
+    try {
+      Object.defineProperty(transport, k, {value: transport[k], writable: false, configurable: false});
+    } catch (e) {}
+  });
+  // and the names the engine and other code find it by: a replaced transport
+  // object (or "qt") would otherwise receive the answers (review 4, N6)
+  try {
+    Object.defineProperty(qt, 'webChannelTransport', {value: transport, writable: false, configurable: false});
+  } catch (e) {}
+  try {
+    Object.defineProperty(window, 'qt', {value: qt, writable: false, configurable: false});
+  } catch (e) {}
 })();

@@ -34,8 +34,6 @@ import re
 import secrets
 import socket
 import time
-import urllib.error
-import urllib.request
 from urllib.parse import urljoin, urlsplit
 
 from PyQt6.QtCore import QObject, QThread, QTimer, QUrl, pyqtSignal
@@ -48,7 +46,14 @@ from .i18n import T
 
 DIR = DATA_DIR / "userscripts"
 INDEX = DIR / "index.json"
-WORLD = 2                                # QWebEngineScript.ScriptWorldId.UserWorld
+WORLD = 10                               # the first world of a user script (1.1.20: one each)
+WORLD_LAST = 250                         # Qt allows 0-256; I.K.E.'s own use 0-9
+
+
+def page_world(grants):
+    """A script runs in the page's own world: no GM function, or unsafeWindow."""
+    grants = [g for g in grants or () if g != "none"]
+    return not grants or "unsafeWindow" in grants
 MAX_SCRIPT = 5 * 1024 * 1024
 MAX_REPLY = 20 * 1024 * 1024
 UPDATE_INTERVAL = 24 * 3600
@@ -144,6 +149,12 @@ def outside_home(host, done, who="", network=None):
             done(_behind_proxy(host, network))
             return
         _resolved(who, host, [a.toString() for a in info.addresses()], done)
+    from . import doh
+    if doh.active() and not _behind_proxy(host, network):
+        # the provider of encrypted DNS, not the system (review of 1.1.19, M3);
+        # no answer: refused, never asked in clear
+        doh.lookup_async(host, lambda found: _resolved(who, host, found, done) if found else done(False))
+        return
     QHostInfo.lookupHost(host, found)
 
 
@@ -282,25 +293,37 @@ def at_home(host, unknown=True):
     fake = dict(p.split("=", 1) for p in os.environ.get("IKE_TEST_RESOLVE", "").split(",") if "=" in p)
     if h in fake:
         return any(is_local_address(a) for a in fake[h].split("|"))
+    from . import doh
     try:
-        infos = socket.getaddrinfo(h, None)
-    except (OSError, UnicodeError):
+        found = doh.lookup(h)
+    except OSError:
         return unknown
-    return any(is_local_address(i[4][0]) for i in infos)
+    return any(is_local_address(a) for a in found)
 
 
-class _Redirects(urllib.request.HTTPRedirectHandler):
-    """Every redirect of a script's download is checked like the first address."""
+def _Redirects(home_ok):
+    """Every redirect of a script's download is checked like the first address.
+    (The class is made when first needed: urllib.request is not imported at
+    start-up, performance review of 1.1.20, L3.)"""
+    return _redirects_class()(home_ok)
 
-    def __init__(self, home_ok):
-        super().__init__()
-        self.home_ok = home_ok
 
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        parts = urlsplit(newurl)
-        if parts.scheme not in ("http", "https") or (not self.home_ok and at_home(parts.hostname)):
-            raise urllib.error.URLError(T("a redirect to a refused address"))
-        return super().redirect_request(req, fp, code, msg, headers, newurl)
+@functools.lru_cache(maxsize=1)
+def _redirects_class():
+    import urllib.error
+    import urllib.request
+
+    class Redirects(urllib.request.HTTPRedirectHandler):
+        def __init__(self, home_ok):
+            super().__init__()
+            self.home_ok = home_ok
+
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            parts = urlsplit(newurl)
+            if parts.scheme not in ("http", "https") or (not self.home_ok and at_home(parts.hostname)):
+                raise urllib.error.URLError(T("a redirect to a refused address"))
+            return super().redirect_request(req, fp, code, msg, headers, newurl)
+    return Redirects
 
 
 def _pin(host, home_ok):
@@ -308,6 +331,8 @@ def _pin(host, home_ok):
     connection goes to that address, so a name server cannot answer the check
     with a public address and the connection with a local one (DNS rebinding)."""
     import http.client
+    import urllib.error
+    import urllib.request
     h = (host or "").lower().rstrip(".").strip("[]")
     try:
         addresses = [str(ipaddress.ip_address(h))]
@@ -316,9 +341,10 @@ def _pin(host, home_ok):
         if h in fake:
             addresses = fake[h].split("|")
         else:
+            from . import doh
             try:
-                addresses = [i[4][0] for i in socket.getaddrinfo(h, None, proto=socket.IPPROTO_TCP)]
-            except (OSError, UnicodeError) as exc:
+                addresses = doh.lookup(h)
+            except OSError as exc:
                 raise http.client.HTTPException("%s: %s" % (h, exc)) from None
     if not addresses or (not home_ok and (is_local_name(h) or any(is_local_address(a) for a in addresses))):
         raise urllib.error.URLError(T("an address of this computer or of the home network: %s") % h)
@@ -327,6 +353,8 @@ def _pin(host, home_ok):
 
 def _pinned_handlers(home_ok):
     import http.client
+    import urllib.error
+    import urllib.request
 
     class Plain(http.client.HTTPConnection):
         def connect(self):
@@ -354,6 +382,8 @@ def _get(url, limit, home_ok=True):
     computer or the home network, also through a redirect (1.1.17): the
     libraries and resources a script names must not let it read a router or
     a local service, which its @connect rule would refuse."""
+    import urllib.error
+    import urllib.request
     parts = urlsplit(url)
     if parts.scheme not in ("http", "https") or not parts.hostname:
         raise ValueError(T("only http and https addresses can be used"))
@@ -361,12 +391,18 @@ def _get(url, limit, home_ok=True):
         raise ValueError(T("an address of this computer or of the home network: %s") % parts.hostname)
     handlers = [_Redirects(home_ok)]
     proxies = urllib.request.getproxies()
-    if not home_ok and not (proxies.get(parts.scheme) and not urllib.request.proxy_bypass(parts.hostname)):
+    from . import doh
+    if (not home_ok or doh.active()) and not (proxies.get(parts.scheme)
+                                             and not urllib.request.proxy_bypass(parts.hostname)):
         # without a proxy (which resolves names itself), every connection goes
-        # to the address that was checked, also after a redirect
+        # to the address that was checked, also after a redirect; with
+        # encrypted DNS, to the address its provider gave
         handlers += list(_pinned_handlers(home_ok))
     opener = urllib.request.build_opener(*handlers)
-    req = urllib.request.Request(url, headers={"User-Agent": "I.K.E. user scripts"})
+    # the browser's own User-Agent (review of 1.1.19, M1: "I.K.E. user scripts"
+    # told any site which browser this is, with certainty)
+    from .osinfo import browser_user_agent
+    req = urllib.request.Request(url, headers={"User-Agent": browser_user_agent()})
     with opener.open(req, timeout=40) as r:
         data = r.read(limit + 1)
         ctype = r.headers.get_content_type() if r.headers else ""
@@ -428,6 +464,8 @@ def update_needs_consent(old, got):
         return True                      # no @connect at all means any host
     if old.get("noframes") and "noframes" not in meta:
         return True
+    if page_world(meta["grant"]) != page_world(old.get("grant", [])):
+        return True                      # into the page's world, or out of it (review of 1.1.19, L4)
     source = got.get("source") or ""
     deps = dependency_urls(meta, source)
     if any(not u.startswith("https://") for u in deps):
@@ -444,15 +482,15 @@ class Fetcher(QThread):
     """Downloads a script (or takes its text) with what it requires."""
     done = pyqtSignal(object, str)       # gathered dict or None, error text
 
-    def __init__(self, parent, url="", text=None, must_be_newer_than=None):
+    def __init__(self, parent, url="", text=None, must_be_newer_than=None, home_ok=True):
         super().__init__(parent)
-        self.url, self.text, self.newer = url, text, must_be_newer_than
+        self.url, self.text, self.newer, self.home_ok = url, text, must_be_newer_than, home_ok
 
     def run(self):
         try:
             text = self.text
             if text is None:
-                data, _ctype = _get(self.url, MAX_SCRIPT)
+                data, _ctype = _get(self.url, MAX_SCRIPT, self.home_ok)
                 text = data.decode("utf-8", "replace")
             if self.newer is not None:
                 meta = parse_meta(text)
@@ -476,6 +514,7 @@ class UserScripts(QObject):
         self.network = QNetworkAccessManager(self)
         self.secret = secrets.token_hex(16)   # names of the answer callbacks
         self.tokens, self._by_token = {}, {}  # one secret token per script, this session only
+        self._asked = {}                      # (page, script, request) -> the site asking (L4)
         self._patterns = {}                   # sid -> (include, exclude) compiled, for the bridge
         self.scripts = {}
         self._threads = set()
@@ -587,8 +626,8 @@ class UserScripts(QObject):
             lines.append(T("Code and files from: %s") % ", ".join(hosts[:8]))
         return "\n".join(lines)
 
-    def fetch(self, callback, url="", text=None, newer=None):
-        t = Fetcher(self, url, text, newer)
+    def fetch(self, callback, url="", text=None, newer=None, home_ok=True):
+        t = Fetcher(self, url, text, newer, home_ok)
         self._threads.add(t)
 
         def done(got, err):
@@ -598,7 +637,7 @@ class UserScripts(QObject):
         from . import background
         background.start(t)
 
-    def offer(self, parent, url="", text=None):
+    def offer(self, parent, url="", text=None, home_ok=True):
         """Download a script and ask the user whether to install it."""
         from PyQt6.QtWidgets import QMessageBox
 
@@ -618,7 +657,7 @@ class UserScripts(QObject):
             if box.exec() == QMessageBox.StandardButton.Yes:
                 self.store(got)
                 self.app._notify(T("User script installed: %s") % got["meta"]["name"])
-        self.fetch(ready, url, text)
+        self.fetch(ready, url, text, home_ok=home_ok)
 
     # --- updates -----------------------------------------------------
     def check_updates(self, force=False):
@@ -663,10 +702,19 @@ class UserScripts(QObject):
 
     # --- building ----------------------------------------------------
     def _world(self, s):
-        grants = [g for g in s.get("grant", []) if g != "none"]
-        if not grants or "unsafeWindow" in grants:
+        """The page's own world for scripts without GM functions (or with
+        unsafeWindow); otherwise a world of the script's own, so that another
+        installed script cannot replace what it relies on and take its token
+        or its answers (review of 1.1.19, L4: all shared world 2)."""
+        if page_world(s.get("grant", [])):
             return 0                     # the page itself
-        return WORLD
+        used = {o.get("world") for k, o in self.scripts.items() if o is not s}
+        w = s.get("world")
+        if not isinstance(w, int) or isinstance(w, bool) or not WORLD <= w <= WORLD_LAST or w in used:
+            w = next((i for i in range(WORLD, WORLD_LAST + 1) if i not in used), WORLD)
+            s["world"] = w
+            QTimer.singleShot(0, self._save)
+        return w
 
     def _token(self, sid):
         tok = self.tokens.get(sid)
@@ -861,8 +909,11 @@ class UserScripts(QObject):
 
     def _answer(self, page, sid, rid, data):
         s = self.scripts.get(sid)
+        asked = self._asked.pop((id(page), sid, rid), None)
         if s is None:
             return
+        if asked is not None and asked != _origin(page.url()):
+            return                        # the tab went to another site meanwhile (review of 1.1.19, L4)
         cb = self._callback(sid)
         js = "window[%s] && window[%s](%s, %s);" % (json.dumps(cb), json.dumps(cb),
                                                  json.dumps(rid), json.dumps(data))
@@ -873,6 +924,9 @@ class UserScripts(QObject):
 
     def _xhr(self, page, sid, d):
         rid = str(d.get("rid", ""))
+        if len(self._asked) > 2000:
+            self._asked.clear()
+        self._asked[(id(page), sid, rid)] = _origin(page.url())
         url = QUrl(str(d.get("url", "")))
         method = str(d.get("method", "GET")).upper()
         if (url.scheme() not in ("http", "https") or not rid
@@ -924,15 +978,51 @@ class UserScripts(QObject):
         data = body.encode("utf-8") if isinstance(body, str) else b""
         if data and not req.hasRawHeader(b"Content-Type"):
             req.setRawHeader(b"Content-Type", b"application/x-www-form-urlencoded; charset=UTF-8")
-        reply = self.network.sendCustomRequest(req, method.encode(), data)
+        from . import doh
+        doh.get(self.network, req, lambda reply: self._sent(reply, page, sid, d, rid, url, method, page_host),
+                custom=method.encode(), data=data)
+
+    def _sent(self, reply, page, sid, d, rid, url, method, page_host):
+        from . import doh
+        if reply is None:                        # no address from encrypted DNS
+            self._answer(page, sid, rid, {"error": "failed"})
+            return
         binary = bool(d.get("binary"))
         refused = []
+        address = reply.url().host()        # Qt changes reply.url() to the redirect's
+        pinned = address != url.host()
 
         def redirected(target):
             target = reply.url().resolved(target) if target.isRelative() else target
             if reply.url().scheme() == "https" and target.scheme() != "https":
                 refused.append(1)
                 reply.abort()
+                return
+            if pinned:
+                # the engine of Qt would look the new name up in clear: the
+                # redirect is followed as a new request (GET after 301-303)
+                if target.host() == address:
+                    target = doh.unpin(target, url.host())
+                status = reply.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute) or 0
+                hops = d.get("_hops", 0) + 1
+                follow.append(1)                 # before abort(), which ends the reply at once
+                refused.append(1)
+                reply.abort()
+                if hops > 10:
+                    self._answer(page, sid, rid, {"error": "refused"})
+                    return
+                again = dict(d, _hops=hops)
+                verb = method
+                if status in (301, 302, 303) and method not in ("GET", "HEAD"):
+                    verb = "GET"
+                    again.pop("data", None)
+
+                def go(ok):
+                    if ok:
+                        self._send(page, sid, again, rid, target, verb, page_host)
+                    else:
+                        self._answer(page, sid, rid, {"error": "refused"})
+                self.check_target(sid, page_host, target, go)
                 return
 
             def checked(ok):
@@ -946,7 +1036,12 @@ class UserScripts(QObject):
             self.check_target(sid, page_host, target, checked)
         reply.redirected.connect(redirected)
 
+        follow = []
+
         def done():
+            if follow:
+                reply.deleteLater()
+                return                           # answered by the request that follows the redirect
             err = reply.error()
             status = reply.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute)
             raw = bytes(reply.read(MAX_REPLY + 1)) if reply.isOpen() else b""
@@ -960,7 +1055,8 @@ class UserScripts(QObject):
                 lines = "".join("%s: %s\r\n" % (bytes(k).decode("latin-1"), bytes(v).decode("latin-1"))
                                 for k, v in reply.rawHeaderPairs())
                 ctype = str(reply.header(QNetworkRequest.KnownHeaders.ContentTypeHeader) or "")
-                out = {"status": int(status), "url": reply.url().toString(), "headers": lines,
+                final = doh.unpin(reply.url(), url.host()) if pinned else reply.url()
+                out = {"status": int(status), "url": final.toString(), "headers": lines,
                        "statusText": str(reply.attribute(
                            QNetworkRequest.Attribute.HttpReasonPhraseAttribute) or ""),
                        "type": ctype}
@@ -975,6 +1071,10 @@ class UserScripts(QObject):
             reply.deleteLater()
             self._answer(page, sid, rid, out)
         reply.finished.connect(done)
+
+
+def _origin(url):
+    return "%s://%s:%d" % (url.scheme(), url.host().lower(), url.port())
 
 
 def _debug(text):

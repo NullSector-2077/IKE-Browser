@@ -14,12 +14,12 @@ cannot be reached), only to show in Help -> About how far behind the engine is.
 
 import json
 import time
-import urllib.request
 from datetime import date
 
 from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtWebEngineCore import qWebEngineChromiumVersion
 
+from . import doh, osinfo
 from .osinfo import identity
 
 URL = ("https://versionhistory.googleapis.com/v1/chrome/platforms/%s/channels/stable/versions"
@@ -139,8 +139,9 @@ class Checker(QThread):
     def run(self):
         major = None
         try:
-            req = urllib.request.Request(URL, headers={"User-Agent": "I.K.E. version check"})
-            with urllib.request.urlopen(req, timeout=20) as r:
+            import urllib.request
+            req = urllib.request.Request(URL, headers={"User-Agent": osinfo.browser_user_agent()})
+            with doh.urlopen(req, timeout=20) as r:
                 if r.geturl().split("/")[2] == URL.split("/")[2]:        # no redirect elsewhere
                     major = parse(r.read(2 * 1024 * 1024))
         except Exception:

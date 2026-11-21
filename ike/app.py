@@ -49,6 +49,7 @@ class IkeApp(QObject):
         self.config = config
         self.storage = Storage()
         self.blocker = Blocker(config, self)
+        self.blocker.prepare()               # built meanwhile; start() waits for it before any page
         self.shields = Shields(config, self.blocker, self)
         from .fontcheck import Checker as FontCheck
         self.font_check = FontCheck(self.shields, self)   # fonts a page could find (Strict / Maximum)
@@ -96,7 +97,7 @@ class IkeApp(QObject):
         self._dialogs = {}
         self._private = None
         self._quitting = False
-        self.shields.apply_dns()
+        self._apply_dns()
         self.profile = self.shields.make_profile(parent=self)
         self._wire_profile(self.profile)
         self.blocker.updated.connect(self._lists_updated)
@@ -257,10 +258,15 @@ class IkeApp(QObject):
             return themed("edit-find", QStyle.StandardPixmap.SP_FileDialogContentsView)
         return ic
 
-    def fetch_engine_icons(self):
-        """Ask each engine's site for its icon, once, for those not known yet."""
+    def fetch_engine_icons(self, name=None):
+        """Ask an engine's site for its icon, once: the engine in use (or the
+        one named), never every engine at once. At the first start each
+        engine, Google and Bing included, was asked within seconds; an engine
+        not used is never contacted (review of 1.1.19, L3)."""
+        name = name or self.config["default_engine"]
         for e in self.config["search_engines"]:
-            self.favicons.fetch(e.get("url", ""))
+            if e.get("name") == name:
+                self.favicons.fetch(e.get("url", ""))
 
     def set_engine(self, name):
         """An engine chosen in the address bar: the default from now on."""
@@ -269,6 +275,7 @@ class IkeApp(QObject):
             return
         self.config["default_engine"] = name
         self.config.save()
+        self.fetch_engine_icons()
         for w in self.windows:
             w.sync_engine()
         self.reload_newtabs()
@@ -276,6 +283,7 @@ class IkeApp(QObject):
     def _engine_from_newtab(self, _name):
         """The engine was chosen on a new tab page: the address bars and the other new tab
         pages show it (the page it was chosen on is being shown again already)."""
+        self.fetch_engine_icons()
         for w in self.windows:
             w.sync_engine()
             for v in w.all_views():
@@ -330,7 +338,7 @@ class IkeApp(QObject):
                 home = cfg["homepage"] if startup == "home" else NEWTAB
                 self.new_window(urls=[home or NEWTAB])
         QTimer.singleShot(1500, self.check_updates)
-        QTimer.singleShot(4000, self.fetch_engine_icons)   # the engines' own icons, once (1.1.10)
+        QTimer.singleShot(4000, self.fetch_engine_icons)   # the engine's own icon, once (1.1.10)
         QTimer.singleShot(20000, self._healthy)
         if cfg["video_hw"] == "on":
             QTimer.singleShot(VIDEO_TRIAL_OK_MS, lambda: _video_trial_done(CONFIG_DIR))
@@ -502,6 +510,9 @@ class IkeApp(QObject):
     def _shutdown(self):
         from . import updater
         self.desktop.shutdown()
+        for db in (getattr(self, "storage", None), getattr(self, "favicons", None)):
+            if db is not None:
+                db.flush()                 # the visits and icons of the last seconds
         updater.confirm_healthy()          # a clean exit also proves the version works
         if getattr(self, "_restored", False):
             self.config.save = lambda: None
@@ -544,11 +555,22 @@ class IkeApp(QObject):
         self._chrome_check.done.connect(done)
         background.start(self._chrome_check)
 
+    def _apply_dns(self):
+        """Encrypted DNS as chosen; said when the engine refused it, instead of
+        browsing on in clear without a word (review of 1.1.19, M3)."""
+        from . import doh
+        from .i18n import T
+        doh.ON_PROBLEM[0] = lambda why: self._notify(T(
+            "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s") % why)
+        if not self.shields.apply_dns() and self.config["doh"] not in ("", "off", None):
+            QTimer.singleShot(3000, lambda: self._notify(T(
+                "Encrypted DNS could not be turned on: names are looked up by the system.")))
+
     # --- settings / updates ------------------------------------------
     def settings_changed(self):
         self.desktop.settings_changed()
         self.shields.apply_settings()
-        self.shields.apply_dns()
+        self._apply_dns()
         self.blocker.load()
         self.refresh_windows()
         if self.blocker.needs_update():
@@ -799,7 +821,9 @@ class IkeApp(QObject):
         box.setWindowTitle(T("Downloads"))
         box.setText(T("%s wants to download several files.") % site)
         allow = box.addButton(T("Allow"), QMessageBox.ButtonRole.AcceptRole)
-        box.addButton(T("Block"), QMessageBox.ButtonRole.RejectRole)
+        block = box.addButton(T("Block"), QMessageBox.ButtonRole.RejectRole)
+        from .webview import careful
+        careful(box, allow, block)
         box.finished.connect(lambda _r: done(box.clickedButton() is allow))
         box.finished.connect(box.deleteLater)
         box.open()
@@ -919,6 +943,16 @@ class IkeApp(QObject):
     def show_settings(self, parent=None, page=None):
         from .dialogs import SettingsDialog
         return self._show("settings", lambda: SettingsDialog(self, parent or self.active_window(), page))
+
+    def show_userscripts(self):
+        """The installed user scripts (Settings → I.K.E. extensions → User scripts → Options…)."""
+        from .dialogs import UserScriptsDialog
+        parent = self._dialogs.get("settings")
+        try:
+            parent = parent if parent is not None and parent.isVisible() else self.active_window()
+        except RuntimeError:
+            parent = self.active_window()
+        return self._show("userscripts", lambda: UserScriptsDialog(self, parent))
 
     def show_history(self):
         from .dialogs import HistoryDialog
@@ -1145,6 +1179,10 @@ UNSAFE_FEATURES = ("isolateorigins", "site-per-process", "siteperprocess", "orig
 # of the home network, the third WebRTC. Qt has no per-site permission for it.
 LNA_FEATURES = ("LocalNetworkAccessChecks:LocalNetworkAccessChecksWarn/false",
                 "LocalNetworkAccessForNavigations", "LocalNetworkAccessChecksWebRTC")
+# the storage quota a site is told: a fixed 10 GiB for everyone instead of
+# 60 % of the disk, to the byte (fingerprinting audit, M-4); the real limits
+# do not change. Not a graphics switch.
+PRIVACY_FEATURES = ("StaticStorageQuota",)
 
 
 def split_flags(text):
@@ -1260,6 +1298,14 @@ def _chromium_flags(config):
             and "--disable-smooth-scrolling" not in flags):
         flags.append("--enable-smooth-scrolling")
     names = {switch_name(f) for f in flags}
+    # at the global level Maximum the engine itself speaks en-US: its own texts
+    # (form messages, the PDF viewer), Date's zone names and the shared and
+    # service workers followed the system's language (owner's decision for
+    # 1.1.20, fingerprinting audit M-7). I.K.E.'s own interface keeps the
+    # user's language. Read at start: a change of level applies after a restart.
+    if config["shield_level"] == "maximum" and "--lang" not in names:
+        flags.append("--lang=en-US")
+        names.add("--lang")
     if hasattr(os, "geteuid") and os.geteuid() == 0 and "--no-sandbox" not in names:
         # only reached with IKE_ALLOW_UNSAFE_ENGINE=1 (refuse_root): the
         # engine cannot sandbox as root, and the window says it is off
@@ -1274,7 +1320,8 @@ def _chromium_flags(config):
         flags.append("--site-per-process")
     off = {x.split(":")[0].split("<")[0].lower() for f in flags if f.startswith("--disable-features=")
            for x in f.split("=", 1)[1].split(",")}
-    want = [x for x in LNA_FEATURES if x.split(":")[0].lower() not in off]     # off only on request
+    want = [x for x in LNA_FEATURES + PRIVACY_FEATURES
+            if x.split(":")[0].lower() not in off]     # off only on request
     if want:
         names_on = {x.split(":")[0] for x in want}
         flags = [f if not f.startswith("--enable-features=") else "--enable-features=" + ",".join(
@@ -1427,7 +1474,12 @@ def main(argv=None):
     parser.add_argument("--private", action="store_true", help="open a private window")
     parser.add_argument("--profile", default="", help="use a separate named profile")
     parser.add_argument("--version", action="version", version="%s %s" % (APP_NAME, __version__))
-    args, qt_args = parser.parse_known_args(argv if argv is not None else sys.argv[1:])
+    args, unknown = parser.parse_known_args(argv if argv is not None else sys.argv[1:])
+    if unknown:
+        # not passed on to Qt: another program hands over its "address" as
+        # an argument, and one that starts with "-" was read as an option of
+        # Qt (review of 1.1.19, L11). The engine's switches never come this way.
+        sys.stderr.write("I.K.E.: ignored: %s\n" % " ".join(unknown)[:300])
 
     _wait_for_previous()
     ensure_dirs()
@@ -1451,7 +1503,7 @@ def main(argv=None):
     from .shields import register_scheme
     register_scheme()
 
-    qapp = QApplication([sys.argv[0]] + qt_args)
+    qapp = QApplication([sys.argv[0]])
     qapp.setApplicationName(APP_ID)
     qapp.setApplicationDisplayName(APP_NAME if PROFILE == "default"
                                    else "%s [%s]" % (APP_NAME, PROFILE))
@@ -1478,6 +1530,10 @@ def main(argv=None):
 
     from . import i18n
     i18n.setup(config["language"])
+    if i18n.right_to_left():
+        # the whole interface from right to left, as the language is written
+        # (1.1.20: Arabic, Hebrew, Persian and Urdu); pages decide for themselves
+        qapp.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
     from . import icons
     icons.apply_scheme(config)
     from . import themes

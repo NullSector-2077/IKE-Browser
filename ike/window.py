@@ -650,37 +650,79 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_customise_done.setEnabled(False)
 
     def _build_menus(self):
+        """The menu bar and the ☰ menu (1.1.20: grouped as the owner chose).
+
+        Both are built from the same QActions: an entry does the same thing,
+        with the same shortcut, wherever it is. Menus of the menu bar carry no
+        icon (the menu bar would show the icon instead of the name); the ☰
+        menu has its own copies of them, with icons, holding the same actions."""
         A = self._action
         WA = QWebEnginePage.WebAction
         mb = self.menuBar()
+        self._build_feature_actions()
+
+        def menu(title, ico=None, tip=None, parent=None):
+            m = QMenu(title, parent or self)
+            if ico is not None:
+                m.setIcon(ico if isinstance(ico, QIcon) else icon(ico))
+            if tip:
+                m.menuAction().setToolTip(tip)
+                m.menuAction().setStatusTip(tip)
+            m.setToolTipsVisible(True)
+            return m
+
+        # --- actions used in several menus
+        self.act_new_tab = A(T("New tab"), lambda: self.add_tab(), "Ctrl+T", "tab-new", T("Open a new tab"))
+        self.act_new_window = A(T("New window"), lambda: self.app.new_window(), "Ctrl+N", "window-new",
+                                T("Open a new window"))
+        self.act_new_private = A(T("New private window"), lambda: self.app.new_window(private=True),
+                                 "Ctrl+Shift+N", "view-private",
+                                 T("Browse without saving history, cookies or cache"))
+        self.act_pdf = A(T("Save as PDF…"), self.save_pdf, None, ("application-pdf", "document-save"),
+                         T("Export the page as a PDF document"))
+        self.act_print = A(T("Print…"), self.print_page, "Ctrl+P", "document-print",
+                           T("Print the current page"))
+        self.act_shot = A(T("Screenshot…"), self.screenshot, "Ctrl+Shift+S", "camera-photo",
+                          T("Save an image of the visible page"))
+        self.act_quit = A(T("Quit"), self.app.quit, "Ctrl+Q", "application-exit",
+                          T("Close every window and quit I.K.E."))
+        self.act_settings = A(T("Settings…"), lambda: self.open_settings(), "Ctrl+,", "configure",
+                              T("Configure I.K.E."))
+        self.act_check_updates = A(T("Check for I.K.E. updates"), self.check_for_updates, None,
+                                   ("system-software-update", "view-refresh"),
+                                   T("Look for a new version of the program"))
+        self.act_about = A(T("About I.K.E."), self.show_about, None, self.app.icon,
+                           T("Version, components and licences"))
+        self.act_zoom_in = A(T("Zoom in"), lambda: self.zoom(+1), ["Ctrl++", "Ctrl+="], "zoom-in",
+                             T("Make the page larger"))
+        self.act_zoom_out = A(T("Zoom out"), lambda: self.zoom(-1), "Ctrl+-", "zoom-out",
+                              T("Make the page smaller"))
+        self.act_zoom_reset = A(T("Actual size"), lambda: self.zoom(0), "Ctrl+0", "zoom-original",
+                                T("Reset the zoom level"))
 
         # --- File
         m_file = mb.addMenu(T("&File"))
-        m_file.addAction(A(T("New tab"), lambda: self.add_tab(), "Ctrl+T", "tab-new",
-                           T("Open a new tab")))
-        m_file.addAction(A(T("New window"), lambda: self.app.new_window(), "Ctrl+N", "window-new",
-                           T("Open a new window")))
-        m_file.addAction(A(T("New private window"), lambda: self.app.new_window(private=True),
-                           "Ctrl+Shift+N", "view-private",
-                           T("Browse without saving history, cookies or cache")))
+        for a in (self.act_new_tab, self.act_new_window, self.act_new_private):
+            m_file.addAction(a)
+        if not self.private:
+            m_file.addMenu(self.m_containers)
+        m_file.addMenu(self.m_profiles)
         m_file.addSeparator()
         m_file.addAction(A(T("Open file…"), self.open_file, "Ctrl+O", "document-open",
                            T("Open a file from this computer")))
         m_file.addAction(A(T("Save page as…"), lambda: self._web(WA.SavePage), "Ctrl+S",
                            "document-save", T("Save the page to disk")))
-        m_file.addAction(A(T("Save as PDF…"), self.save_pdf, None, "application-pdf",
-                           T("Export the page as a PDF document")))
-        m_file.addAction(A(T("Print…"), self.print_page, "Ctrl+P", "document-print",
-                           T("Print the current page")))
-        m_file.addAction(A(T("Screenshot…"), self.screenshot, "Ctrl+Shift+S", "camera-photo",
-                           T("Save an image of the visible page")))
+        for a in (self.act_pdf, self.act_print, self.act_shot):
+            m_file.addAction(a)
+        m_file.addSeparator()
+        for a in (self.act_import, self.act_backup, self.act_restore):
+            m_file.addAction(a)
         m_file.addSeparator()
         m_file.addAction(A(T("Close tab"), lambda: self.close_tab(self.current_view()),
                            "Ctrl+W", "tab-close", T("Close the current tab")))
         m_file.addAction(A(T("Close window"), self.close, "Ctrl+Shift+W", "window-close",
                            T("Close this window")))
-        m_file.addAction(A(T("Quit"), self.app.quit, "Ctrl+Q", "application-exit",
-                           T("Close every window and quit I.K.E.")))
+        m_file.addAction(self.act_quit)
 
         # --- Edit
         m_edit = mb.addMenu(T("&Edit"))
@@ -698,9 +740,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         m_edit.addSeparator()
         m_edit.addAction(A(T("Find in page…"), self.findbar.open_bar, "Ctrl+F", "edit-find",
                            T("Search for text in the current page")))
-        m_edit.addSeparator()
-        m_edit.addAction(A(T("Settings…"), lambda: self.open_settings(), "Ctrl+,", "configure",
-                           T("Configure I.K.E.")))
 
         # --- View
         m_view = mb.addMenu(T("&View"))
@@ -719,14 +758,15 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                   self.act_customise):
             m_view.addAction(a)
         m_view.addSeparator()
-        m_view.addAction(A(T("Zoom in"), lambda: self.zoom(+1), ["Ctrl++", "Ctrl+="], "zoom-in",
-                           T("Make the page larger")))
-        m_view.addAction(A(T("Zoom out"), lambda: self.zoom(-1), "Ctrl+-", "zoom-out",
-                           T("Make the page smaller")))
-        m_view.addAction(A(T("Actual size"), lambda: self.zoom(0), "Ctrl+0", "zoom-original",
-                           T("Reset the zoom level")))
+        m_view.addAction(self.act_split)
+        m_view.addAction(self.act_reader)
+        m_view.addMenu(self.m_workspaces)
         m_view.addSeparator()
-        self.m_dark = m_view.addMenu(icon("weather-clear-night"), T("Dark mode for pages"))
+        for a in (self.act_zoom_in, self.act_zoom_out, self.act_zoom_reset):
+            m_view.addAction(a)
+        m_view.addSeparator()
+        self.m_dark = menu(T("Dark mode for pages"), "weather-clear-night",
+                           T("Dark mode: everywhere or only on this site"))
         self.act_dark_all = QAction(T("On everywhere"), self, checkable=True)
         self.act_dark_all.triggered.connect(lambda on: self._set_dark("on" if on else "off"))
         self.act_dark_site = QAction(T("On for this site"), self, checkable=True)
@@ -736,6 +776,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.m_dark.addAction(self.act_dark_site)
         self.m_dark.aboutToShow.connect(self._fill_dark_menu)
         self.act_dark.setMenu(self.m_dark)
+        m_view.addMenu(self.m_dark)
         m_view.addAction(A(T("Full screen"), self.toggle_fullscreen, "F11", "view-fullscreen",
                            T("Show the page on the whole screen")))
         m_view.addSeparator()
@@ -746,7 +787,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
 
         # --- History
         self.m_history = mb.addMenu(T("Hi&story"))
-        self.m_history.aboutToShow.connect(self._fill_history)
+        self.m_history.aboutToShow.connect(lambda: self._fill_history(self.m_history))
         self.act_reopen = A(T("Reopen closed tab"), self.reopen_tab, "Ctrl+Shift+T", "edit-undo",
                             T("Restore the tab closed most recently"))
         self.act_history = A(T("Show all history"), self.app.show_history, "Ctrl+H",
@@ -756,11 +797,69 @@ class BrowserWindow(WindowFeatures, QMainWindow):
 
         # --- Bookmarks
         self.m_bookmarks = mb.addMenu(T("&Bookmarks"))
-        self.m_bookmarks.aboutToShow.connect(self._fill_bookmarks)
+        self.m_bookmarks.aboutToShow.connect(lambda: self._fill_bookmarks(self.m_bookmarks))
         self.act_bookmark = A(T("Bookmark this page"), self.toggle_bookmark, "Ctrl+D",
                               "bookmark-new", T("Add or remove this page from bookmarks"))
         self.act_bookmarks = A(T("Manage bookmarks"), self.app.show_bookmarks, "Ctrl+Shift+O",
                                "bookmarks-organize", T("Edit, import and export bookmarks"))
+
+        # --- Protection: the level for every site and the tools of protection
+        self.level_group = QActionGroup(self)
+        levels = []
+        for lv in LEVELS:
+            a = QAction(shield_icon(lv, 16), T(LEVEL_NAMES[lv]), self, checkable=True)
+            a.setData(lv)
+            a.setStatusTip(T(ShieldPanel.HINTS[lv]))
+            a.setToolTip(T(ShieldPanel.HINTS[lv]))
+            a.triggered.connect(lambda _c=False, k=lv: self._set_global_level(k))
+            self.level_group.addAction(a)
+            levels.append(a)
+        self.act_repair = A(T("Repair this site"), self.repair_site, None,
+                            ("tools-wizard", "tools-report-bug"),
+                            T("Find the protection that breaks this page and turn off only that one"))
+        self.act_update_lists = A(T("Update filter lists now"), self.app.update_now, None,
+                                  "view-refresh", T("Download the latest blocking rules"))
+        self.act_protection_settings = A(T("Protection settings…"), lambda: self.open_settings("protection"),
+                                         None, "security-high",
+                                         T("Every protection option, with what it does"))
+        protection = (*levels, None, self.act_repair, self.act_permissions, self.act_update_lists,
+                      self.act_clear, None, self.act_protection_settings)
+        m_protection = mb.addMenu(T("&Protection"))
+        # the ☰ menu's copy, with the shield of the current level as its icon
+        self.m_level = menu(T("Protection"), shield_icon("balanced", 16),
+                            T("How much I.K.E. blocks, and the tools to repair or clean a site"))
+        for m in (m_protection, self.m_level):
+            m.setToolTipsVisible(True)
+            title = m.addAction(T("Protection level for every site"))
+            title.setEnabled(False)
+            for a in protection:
+                if a is None:
+                    m.addSeparator()
+                else:
+                    m.addAction(a)
+
+        # --- Extensions: I.K.E.'s own, on and off (ikeextensions.py)
+        from . import ikeextensions
+        self.ext_actions = {}
+        for e in ikeextensions.EXTENSIONS:
+            a = QAction(ikeextensions.icon(e), T(e.name), self, checkable=True)
+            a.setToolTip(T(e.description))
+            a.setStatusTip(T(e.description))
+            a.setData(e.id)
+            a.triggered.connect(lambda on, i=e.id: ikeextensions.set_on(self.app, i, on))
+            self.ext_actions[e.id] = a
+        self.act_manage_ext = A(T("Manage extensions…"), lambda: self.open_settings("extensions"),
+                                "Ctrl+Shift+A", ("preferences-plugin", "application-x-addon"),
+                                T("Switch I.K.E.'s own extensions on and off and change their options"))
+        m_ext = mb.addMenu(T("E&xtensions"))
+        self.m_extensions = menu(T("I.K.E. extensions"), ("preferences-plugin", "application-x-addon"),
+                                 T("Features of I.K.E. you can switch on and off"))
+        for m in (m_ext, self.m_extensions):
+            m.setToolTipsVisible(True)
+            for a in self.ext_actions.values():
+                m.addAction(a)
+            m.addSeparator()
+            m.addAction(self.act_manage_ext)
 
         # --- Tools
         m_tools = mb.addMenu(T("&Tools"))
@@ -768,51 +867,70 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                  T("Commands, open tabs, bookmarks, history and settings in one search"))
         m_tools.addAction(self.act_command_bar)
         m_tools.addAction(self.act_downloads)
-        m_tools.addAction(A(T("Components and extensions"), lambda: self.open_settings("components"),
-                            "Ctrl+Shift+A", "plugins",
-                            T("Manage the ad blocker, cookie banners, dark mode and extensions")))
-        self.m_level = m_tools.addMenu(shield_icon("balanced", 16), T("Protection level"))
-        self.level_group = QActionGroup(self)
-        for lv in LEVELS:
-            a = QAction(shield_icon(lv, 16), T(LEVEL_NAMES[lv]), self, checkable=True)
-            a.setData(lv)
-            a.setStatusTip(T(ShieldPanel.HINTS[lv]))
-            a.triggered.connect(lambda _c=False, k=lv: self._set_global_level(k))
-            self.level_group.addAction(a)
-            self.m_level.addAction(a)
-        m_tools.addAction(A(T("Update filter lists now"), self.app.update_now, None,
-                            "view-refresh", T("Download the latest blocking rules")))
         m_tools.addSeparator()
+        for a in (self.act_passwords, self.act_fill_login):
+            m_tools.addAction(a)
+        m_tools.addSeparator()
+        for a in (self.act_search_tabs, self.act_translate, self.act_float):
+            m_tools.addAction(a)
         m_tools.addAction(A(T("Mute tab"), self.toggle_mute, "Ctrl+Shift+M", "audio-volume-muted",
                             T("Mute or unmute the sound of the current tab")))
+        for a in (self.act_suspend, self.act_resources, self.act_watches):
+            m_tools.addAction(a)
+        m_tools.addSeparator()
         m_tools.addAction(A(T("Search engines…"), lambda: self.open_settings("search"), None,
                             "edit-find", T("Choose and add search engines")))
+        m_tools.addAction(self.act_store)
+        m_tools.addSeparator()
+        m_tools.addAction(self.act_settings)
 
-        # --- Help
+        # --- Help (no separator before "About I.K.E.": moved to with the arrow keys)
         m_help = mb.addMenu(T("&Help"))
         m_help.addAction(A(T("Keyboard shortcuts"), self.show_shortcuts, "F1",
                            "preferences-desktop-keyboard", T("List the keyboard shortcuts")))
-        m_help.addAction(A(T("About I.K.E."), self.show_about, None, self.app.icon,
-                           T("Version and component information")))
+        m_help.addAction(self.act_check_updates)
+        m_help.addAction(self.act_about)
         about_qt = QAction(T("About Qt"), self)
         about_qt.triggered.connect(lambda: QMessageBox.aboutQt(self))
         m_help.addAction(about_qt)
-
-        self._build_feature_menus(m_file, m_view, m_tools)
-        for m in (m_file, m_edit, m_view, self.m_history, self.m_bookmarks, m_tools, m_help):
+        for m in (m_file, m_edit, m_view, self.m_history, self.m_bookmarks, m_protection, m_ext,
+                  m_tools, m_help):
             m.setToolTipsVisible(True)
 
-        # Hamburger menu mirrors the menu bar.
+        # --- the ☰ menu: the everyday entries, and every other one under "More"
         burger = QMenu(self)
         burger.setToolTipsVisible(True)
-        for a in m_file.actions()[:3]:
+        for a in (self.act_new_tab, self.act_new_window, self.act_new_private):
             burger.addAction(a)
         burger.addSeparator()
-        for m in (m_file, m_edit, m_view, self.m_history, self.m_bookmarks, m_tools, m_help):
+        m_zoom = menu(T("Zoom"), "zoom-in", T("Make the page larger or smaller"))
+        for a in (self.act_zoom_in, self.act_zoom_out, self.act_zoom_reset):
+            m_zoom.addAction(a)
+        for m in (self.m_level, self.m_extensions, self.m_dark, m_zoom):
             burger.addMenu(m)
         burger.addSeparator()
-        burger.addAction(m_edit.actions()[-1])
-        burger.addAction(m_file.actions()[-1])
+        history = menu(T("History"), "view-history", T("Pages visited recently, and all the history"))
+        history.aboutToShow.connect(lambda: self._fill_history(history))
+        bookmarks = menu(T("Bookmarks"), "bookmarks", T("Your bookmarks, and the bookmarks bar"))
+        bookmarks.aboutToShow.connect(lambda: self._fill_bookmarks(bookmarks))
+        burger.addMenu(history)
+        burger.addMenu(bookmarks)
+        burger.addAction(self.act_downloads)
+        burger.addSeparator()
+        for a in (self.act_print, self.act_pdf, self.act_shot):
+            burger.addAction(a)
+        burger.addSeparator()
+        more = menu(T("More"), ("overflow-menu", "application-menu"),
+                    T("Every other command, as in the menu bar"))
+        for m in (m_file, m_edit, m_view, m_tools, m_help):
+            more.addMenu(m)
+        burger.addMenu(more)
+        burger.addSeparator()
+        for a in (self.act_settings, self.act_check_updates, self.act_about):
+            burger.addAction(a)
+        burger.addSeparator()
+        burger.addAction(self.act_quit)
+        self.burger = burger
         self.menu_btn.setMenu(effects.fading(burger, self.app.config))
 
         # Extra shortcuts without a menu entry.
@@ -852,6 +970,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 else "newtab"]))
         for a in self.level_group.actions():
             a.setChecked(a.data() == cfg["shield_level"])
+        from . import ikeextensions
+        ikeextensions.apply_to_window(self)
         self._fill_bookbar()
         self._update_bookbar()
         self.update_shield()
@@ -1531,6 +1651,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         QTimer.singleShot(ms + 100, self._hide_status)
 
     def open_command_bar(self):
+        if not self.ext_on("commandbar"):
+            return None
         from . import palette
         return palette.open_bar(self)
 
@@ -1683,7 +1805,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self.act_tb_bookmark.setIcon(icon("bookmarks" if marked else "bookmark-new",
                                               SP.SP_DialogApplyButton if marked else SP.SP_DialogOpenButton))
         self.act_tb_bookmark.setToolTip(T("Remove bookmark") if marked else T("Bookmark this page"))
-        self.urlbar.translate_act.setVisible(scheme in ("http", "https"))
+        self.urlbar.translate_act.setVisible(scheme in ("http", "https") and self.ext_on("translate"))
         self.sync_engine()
 
     def refresh_lookalike(self):
@@ -1826,7 +1948,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 a.setFont(f)
             group.addAction(a)
             a.triggered.connect(lambda _c=False, name=e["name"]: self.app.set_engine(name))
-        self.app.fetch_engine_icons()         # the ones not known yet, for the next time
 
     def fit_shield_menu(self, place=True):
         """The shield's panel as tall as its content, but never past the bottom of the
@@ -1942,8 +2063,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         a.triggered.connect(lambda _c=False, u=url: self.navigate(u))
         return a
 
-    def _fill_history(self):
-        m = self.m_history
+    def _fill_history(self, m=None):
+        m = m or self.m_history
         m.clear()
         m.addAction(self.act_back)
         m.addAction(self.act_fwd)
@@ -1956,8 +2077,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         for url, title, _last in self.app.storage.history(limit=15):
             self._open_action(m, url, title)
 
-    def _fill_bookmarks(self):
-        m = self.m_bookmarks
+    def _fill_bookmarks(self, m=None):
+        m = m or self.m_bookmarks
         m.clear()
         m.addAction(self.act_bookmark)
         m.addAction(self.act_bookmarks)
@@ -2015,7 +2136,12 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             pm.save(path if path.lower().endswith(".png") else path + ".png", "PNG")
 
     def open_settings(self, page=None):
-        self.app.show_settings(self, page)
+        return self.app.show_settings(self, page)
+
+    def check_for_updates(self):
+        """Help → Check for I.K.E. updates: the same check as the daily one,
+        at once, with its answer shown whatever it is (app.check_app_update)."""
+        self.app.check_app_update(manual=True)
 
     def show_shortcuts(self):
         rows = []
@@ -2104,10 +2230,55 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             from .config import CACHE_DIR
             lines.append(T("Internal errors this session: %d (details in %s)")
                          % (len(INTERNAL_ERRORS), CACHE_DIR / "errors.log"))
-        return "<h2>%s</h2><p>%s %s</p><p>%s</p><p>%s</p>%s" % (
+        return "<h2>%s</h2><p>%s %s</p><p>%s</p><p>%s</p>%s%s" % (
             APP_LONG_NAME, T("Version"), __version__, "<br>".join(lines),
             T("An independent, privacy-first browser. No telemetry, no accounts, no sponsored content."),
-            self._credits())
+            self._versions(), self._credits())
+
+    @staticmethod
+    def _head_of(name, keys):
+        """Values of the first keys of one of I.K.E.'s JSON resources, without reading it all."""
+        from .config import RES_DIR
+        try:
+            with open(RES_DIR / name, encoding="utf-8") as f:
+                head = f.read(400)
+        except OSError:
+            return {}
+        out = {}
+        for key in keys:
+            m = re.search(r'"%s"\s*:\s*"([^"]{1,80})"' % key, head)
+            if m:
+                out[key] = m.group(1)
+        return out
+
+    def _versions(self):
+        """Help → About (1.1.20): each component with the version in use."""
+        import platform
+        from html import escape
+
+        from PyQt6.QtCore import PYQT_VERSION_STR, qVersion
+        from PyQt6.QtWebEngineCore import qWebEngineChromiumVersion
+        rows = [("I.K.E.", __version__), ("Python", platform.python_version()),
+                ("PyQt6", PYQT_VERSION_STR), ("Qt", qVersion()),
+                ("Qt WebEngine", "%s (Chromium %s)" % (qVersion(), qWebEngineChromiumVersion()))]
+        try:
+            import adblock
+            rows.append(("I.K.E. AdBlock", adblock.BACKEND))
+        except Exception:
+            rows.append(("I.K.E. AdBlock", T("not loaded")))
+        dr = self._head_of("darkreader-data.json", ("version", "lists_date"))
+        if dr.get("version"):
+            rows.append(("Dark Reader", "%s (%s %s)" % (dr["version"], T("site lists of"),
+                                                       dr.get("lists_date", "?"))))
+        ubo = self._head_of("ubo-scriptlets.json", ("date", "commit"))
+        if ubo.get("date"):
+            rows.append(("uBlock Origin scriptlets", "%s (%s)" % (ubo["date"], ubo.get("commit", "")[:7])))
+        last = self.app.config["last_lists_update"]
+        rows.append((T("Filter lists"), T("Last update: %s") % (
+            time.strftime("%d/%m/%Y %H:%M", time.localtime(last)) if last else T("never"))))
+        return "<p><b>%s</b><br><small>%s</small></p>" % (
+            T("Components and versions"),
+            "<br>".join("%s — %s" % (escape(n), escape(v)) for n, v in rows))
 
     # Who I.K.E. stands on (1.1.14): names and licences, shown in Help -> About.
     # The full list, with the Rust libraries, is docs/THIRD-PARTY.md; the texts
@@ -2278,10 +2449,12 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if clear:
             menu.clear()
         hidden = self.app.config["toolbar_hidden"]
+        from . import ikeextensions
+        off = ikeextensions.toolbar_keys_off(self.app.config)
         for key, act in (("back", self.act_back), ("forward", self.act_fwd), ("home", self.act_home),
                          ("reload", self.act_reload)) \
                 + tuple((key, act) for key, act, _anchor in self._nav_items):
-            if key == "menu":
+            if key == "menu" or key in off:
                 continue
             a = menu.addAction(act.icon(), act.text())
             a.setCheckable(True)

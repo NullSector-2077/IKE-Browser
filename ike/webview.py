@@ -5,7 +5,7 @@ import time
 
 from PyQt6.QtCore import QCoreApplication, QEvent, Qt, QTimer, QUrl
 from PyQt6.QtGui import QGuiApplication
-from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
+from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineScript, QWebEngineSettings
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QComboBox, QDialog, QDialogButtonBox, QLabel, QMessageBox, QVBoxLayout
 
@@ -69,6 +69,34 @@ def permission_text(ptype):
 READER_PREFIX = "\u0001ike-reader:%s:" % __import__("secrets").token_hex(8)
 
 
+# A page can ask for something exactly when the user presses Enter or Space
+# ("press Enter to start"): the question would take the key as an answer. So
+# the safe answer is the default (Enter, Esc), and "yes" can be clicked only
+# a moment after the question shows (review of 1.1.19, M2).
+SAFE_DELAY_MS = 700
+
+
+def careful(box, yes, no):
+    """Make `no` the default and the Esc answer, and `yes` usable only
+    SAFE_DELAY_MS after the box is shown."""
+    from PyQt6.QtCore import QTimer
+    box.setDefaultButton(no)
+    box.setEscapeButton(no)
+    yes.setEnabled(False)
+    QTimer.singleShot(SAFE_DELAY_MS, lambda: yes.setEnabled(True))
+
+
+def permission_box(parent, origin, ptype):
+    """The permission question: (box, allow button, block button)."""
+    box = QMessageBox(parent)
+    box.setIcon(QMessageBox.Icon.Question)
+    box.setWindowTitle(T("Permission request"))
+    box.setText(T("%s wants to %s.") % (origin, permission_text(ptype)))
+    allow = box.addButton(T("Allow"), QMessageBox.ButtonRole.AcceptRole)
+    block = box.addButton(T("Block"), QMessageBox.ButtonRole.RejectRole)
+    careful(box, allow, block)
+    return box, allow, block
+
 class WebPage(QWebEnginePage):
     def __init__(self, profile, window, parent=None):
         super().__init__(profile, parent)
@@ -79,7 +107,7 @@ class WebPage(QWebEnginePage):
         self.mouse_locked = False
         self.loadStarted.connect(lambda: setattr(self, "mouse_locked", False))
         self._loaded_url = None                     # the address the last finished load showed
-        if self.app.config["dark_mode"] == "on":
+        if self.app.config["dark_mode"] == "on" and self.app.config.get("comp_dark", True):
             # dark from the first moment: a window a site opens shows an empty
             # page before its address loads (1.1.19: it was white)
             from PyQt6.QtGui import QColor
@@ -118,10 +146,26 @@ class WebPage(QWebEnginePage):
         if (is_main_frame and url.scheme() in ("http", "https")
                 and url.path().lower().endswith(".user.js")
                 and self.app.config["userscripts_enabled"]):
-            # a user script: offer to install it instead of showing its text
-            self.app.userscripts.offer(self.window_ref, url.toString())
+            # a user script: offer to install it instead of showing its text.
+            # Only for the user's own act (an address typed, a click or a key
+            # just now), and from a public page never from this computer or
+            # the home network: a page's own navigation made I.K.E. fetch any
+            # address, the router's included (review of 1.1.19, M1)
+            from .userscripts import is_local_name
+            typed = nav_type == QWebEnginePage.NavigationType.NavigationTypeTyped
+            if not typed:
+                # a click or key on this page (after it opened), just now,
+                # and each one worth a single offer
+                user = max(getattr(self, "_ike_input", -99.0), getattr(self, "_ike_opener_input", -99.0))
+                if (time.monotonic() - user > 3 or user <= getattr(self, "_ike_page_since", -99.0)
+                        or user == getattr(self, "_ike_offer_input", None)):
+                    return False
+                self._ike_offer_input = user
+            home_ok = typed or is_local_name(self.url().host())
+            self.app.userscripts.offer(self.window_ref, url.toString(), home_ok=home_ok)
             return False
         if is_main_frame:
+            self._ike_page_since = time.monotonic()
             host = url.host().lower()
             sh = self.app.shields
             st = self.settings()
@@ -158,7 +202,7 @@ class WebPage(QWebEnginePage):
         box.setTextFormat(Qt.TextFormat.PlainText)
         opened = box.addButton(T("Open"), QMessageBox.ButtonRole.AcceptRole)
         cancel = box.addButton(T("Cancel"), QMessageBox.ButtonRole.RejectRole)
-        box.setDefaultButton(cancel)
+        careful(box, opened, cancel)
         box.exec()
         return box.clickedButton() is opened
 
@@ -232,7 +276,8 @@ class WebPage(QWebEnginePage):
 
         # an empty page (a window a site opens, before its address loads) is
         # dark too while dark mode is on for every site (1.1.19: it was white)
-        blank = (url.isEmpty() or url.toString() == "about:blank") and cfg["dark_mode"] == "on"
+        blank = ((url.isEmpty() or url.toString() == "about:blank") and cfg["dark_mode"] == "on"
+                 and cfg.get("comp_dark", True))
         if (on, engine, blank) != (getattr(self, "_dark_on", None),
                                    getattr(self, "_dark_engine", None), getattr(self, "_dark_blank", None)):
             # also the colour shown between two pages: no white flash
@@ -243,7 +288,8 @@ class WebPage(QWebEnginePage):
         # Dark Reader: scripts of the profile (darkpages.py), as the extension does it
         from . import darkpages
         profile = self.profile()
-        if engine != "reader" or not (cfg["dark_mode"] == "on" or cfg["dark_sites"]):
+        if engine != "reader" or not (cfg["dark_mode"] == "on" or cfg["dark_sites"]) \
+                or not cfg.get("comp_dark", True):
             darkpages.forget(profile)
         if not page_url:
             return
@@ -269,15 +315,63 @@ class WebPage(QWebEnginePage):
         the same action for a cross-origin YouTube iframe after validating the
         frame origin and contentWindow in the isolated world.
         """
+        import json
         import time
-
-        from PyQt6.QtCore import QCoreApplication, QPointF
-        from PyQt6.QtGui import QMouseEvent
         now = time.monotonic()
         if now - getattr(self, "_last_click", 0.0) < 0.5:
             return False
-        if not self._video_host(self.url().host().lower()) and not allow_embedded:
+        direct = self._video_host(self.url().host().lower())
+        if not direct and not allow_embedded:
             return False
+        if direct:
+            return self._dispatch_click(x, y, now)
+        # a video of another site embedded in this page (review of 1.1.19,
+        # L5; the owner chose to harden it): only when the page really holds a
+        # frame of a video site, at most once every 3 seconds, and only if the
+        # point is still on that frame when the click is made: the page hears
+        # the player's request too and could put something of its own there,
+        # to get a real click (pop-ups, full screen) without the user
+        if now - getattr(self, "_last_embedded", -99.0) < 3 or not self._has_video_frame():
+            return False
+        if not self._click_point_ok(x, y):
+            return False
+        self._last_embedded = now
+        hosts = [h.lower() for h in self.app.config["video_ad_skip_hosts"]]
+        js = ("(function (x, y, hosts) { var e = document.elementFromPoint(x, y);"
+              " if (!e || e.tagName !== 'IFRAME') return false; var h;"
+              " try { h = new URL(e.src || e.getAttribute('src') || '', document.baseURI).hostname.toLowerCase(); }"
+              " catch (err) { return false; }"
+              " return hosts.some(function (b) { return h === b || h.endsWith('.' + b); });"
+              " })(%s, %s, %s)" % (json.dumps(float(x)), json.dumps(float(y)), json.dumps(hosts)))
+        self.runJavaScript(js, QWebEngineScript.ScriptWorldId.ApplicationWorld,
+                           lambda ok: self._dispatch_click(x, y, time.monotonic()) if ok is True else None)
+        return True
+
+    def _has_video_frame(self):
+        """A frame of a video site among this page's frames (Qt 6.8+)."""
+        try:
+            todo = list(self.mainFrame().children())
+        except (AttributeError, RuntimeError):
+            return True                  # an engine without the frame list: the other checks remain
+        seen = 0
+        while todo and seen < 500:
+            f = todo.pop()
+            seen += 1
+            if self._video_host(f.url().host().lower()):
+                return True
+            todo.extend(f.children())
+        return False
+
+    def _click_point_ok(self, x, y):
+        view = self.window_ref.view_of(self)
+        if view is None or not view.isVisible() or self.window_ref.current_view() is not view:
+            return False
+        zoom = self.zoomFactor() or 1.0
+        return 0 <= x * zoom < view.width() and 0 <= y * zoom < view.height()
+
+    def _dispatch_click(self, x, y, now):
+        from PyQt6.QtCore import QCoreApplication, QPointF
+        from PyQt6.QtGui import QMouseEvent
         view = self.window_ref.view_of(self)
         if view is None or not view.isVisible() or self.window_ref.current_view() is not view:
             return False
@@ -307,6 +401,13 @@ class WebPage(QWebEnginePage):
         return True
 
     def createWindow(self, wtype):
+        page = self._create_window(wtype)
+        # a user script opened in a new tab by the user's click can still be
+        # offered there (the click happened on this page)
+        page._ike_opener_input = getattr(self, "_ike_input", -99.0)
+        return page
+
+    def _create_window(self, wtype):
         W = QWebEnginePage.WebWindowType
         win = self.window_ref
         if wtype == W.WebBrowserWindow:
@@ -546,12 +647,7 @@ class WebPage(QWebEnginePage):
 
     def ask_permission(self, origin, ptype):
         """Ask the user; True to allow."""
-        box = QMessageBox(self.window_ref)
-        box.setIcon(QMessageBox.Icon.Question)
-        box.setWindowTitle(T("Permission request"))
-        box.setText(T("%s wants to %s.") % (origin, permission_text(ptype)))
-        allow = box.addButton(T("Allow"), QMessageBox.ButtonRole.AcceptRole)
-        box.addButton(T("Block"), QMessageBox.ButtonRole.RejectRole)
+        box, allow, _block = permission_box(self.window_ref, origin, ptype)
         box.exec()
         return box.clickedButton() is allow
 
@@ -733,6 +829,48 @@ class WebView(QWebEngineView):
             return True
         return False
 
+    # --- "Open selected text with middle click" (ikeextensions.py, 1.1.20) ---
+    def _middle_click(self, event):
+        """A middle click (press and release in place) on an empty part of the
+        page opens the desktop's selected text, as an address or a search, in
+        this tab. Links, fields, buttons, frames and media keep their own
+        middle click; with "Automatic scrolling" on, that one takes it."""
+        from . import ikeextensions
+        cfg = self.window_ref.app.config
+        if not ikeextensions.on(cfg, "middleclick") or ikeextensions.on(cfg, "autoscroll"):
+            return
+        p = event.position()
+        if event.type() == QEvent.Type.MouseButtonPress:
+            self._mid_press = p
+            return
+        start, self._mid_press = getattr(self, "_mid_press", None), None
+        if start is None or abs(p.x() - start.x()) + abs(p.y() - start.y()) > 6 \
+                or event.modifiers() != Qt.KeyboardModifier.NoModifier:
+            return
+        if self.url().scheme() not in ("http", "https", "file", "ike"):
+            return
+        text = " ".join(ikeextensions.primary_selection().split())
+        if not text or len(text) > ikeextensions.MAX_SELECTION:
+            return
+        zoom = self.zoomFactor() or 1.0
+        self.page().runJavaScript(ikeextensions.EMPTY_AT_JS % (p.x() / zoom, p.y() / zoom),
+                                  QWebEngineScript.ScriptWorldId.ApplicationWorld,
+                                  lambda empty, t=text: self._open_selection(t) if empty is True else None)
+
+    def _open_selection(self, text):
+        win = self.window_ref
+        try:
+            url = win.resolve(text)
+        except RuntimeError:
+            return
+        if url is None:
+            return
+        if url.scheme().lower() not in ("http", "https"):
+            # never code (javascript:), data or a file of this computer: a search instead
+            url = QUrl(win.app.shields.search_url(text))
+        self.last_middle_open = url.toString()
+        self.load(url)
+
     def _do_gesture(self, dirs):
         action = self.GESTURES.get(dirs)
         self.last_gesture = action or ""
@@ -755,6 +893,9 @@ class WebView(QWebEngineView):
         if (t in (QEvent.Type.MouseButtonPress, QEvent.Type.MouseMove, QEvent.Type.MouseButtonRelease)
                 and self.window_ref.app.config["mouse_gestures"] and self._gesture(obj, event)):
             return True
+        if (t in (QEvent.Type.MouseButtonPress, QEvent.Type.MouseButtonRelease)
+                and event.button() == Qt.MouseButton.MiddleButton):
+            self._middle_click(event)           # never taken from the page: links still open
         if event.type() == QEvent.Type.KeyPress:
             mods = event.modifiers() & ~Qt.KeyboardModifier.KeypadModifier
             key = event.key()

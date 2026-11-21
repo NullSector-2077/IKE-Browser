@@ -275,7 +275,7 @@ class ShieldPanel(QWidget):
         self.noscript.clicked.connect(self._noscript_changed)
         self.dark.clicked.connect(self._dark_changed)
         settings.clicked.connect(lambda: (self.win.shield_menu.hide(),
-                                          self.win.open_settings("privacy")))
+                                          self.win.open_settings("protection")))
 
     def _adv_toggled(self, on):
         self.adv.setVisible(on)
@@ -321,7 +321,7 @@ class ShieldPanel(QWidget):
         self.https.setChecked(bool(cfg["https_only"]) and cfg.site_opt(host, "https") is not False)
         self.https.setEnabled(web and on and bool(cfg["https_only"]))
         self.noscript.setChecked(web and not sh.scripts_allowed(host))
-        self.dark.setVisible(web)
+        self.dark.setVisible(web and bool(cfg.get("comp_dark", True)))
         self.dark.setChecked(web and sh.dark_for(host))
         rows = ((T("Ads and trackers"), st["ads"]), (T("Scripts blocked"), st["scripts"]),
                 (T("Cross-site cookies refused"), st["cookies"]),

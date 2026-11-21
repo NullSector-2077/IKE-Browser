@@ -146,7 +146,7 @@ def steps(ike, qapp, out):
     c = ike.config
     out["levels"] = [c.level_for(h) for h in ("aistudio.google.com", "console.cloud.google.com",
                                                "www.google.com", "youtube.com", "chose.example")]
-    fp = [s.sourceCode() for s in ike.profile.scripts().find("ike-fp")]
+    fp = [s.sourceCode() for s in ike.profile.scripts().find("content")]
     # 1.1.14: the page of a sensitive Google service is left alone
     out["fp_handsoff"] = bool(fp) and '"aistudio.google.com": "off"' in fp[0]
 '''
@@ -170,7 +170,7 @@ def test_media_commands_only_on_media_sites(run_ike, site):
     # is the one of 1.1.11 and before, its own tests are in test_plasma.py)
     out = run_ike(STEPS % site, settings={"shield_level": "off", "media_sites": ["127.0.0.1"]})
     t = out["traces"]
-    assert t["setActionHandler"] != NATIVE_AH and "ike-media" in t["stack"]
+    assert t["setActionHandler"] != NATIVE_AH and "userscript:content-2" in t["stack"]
 
 
 def test_balanced_frames_protected_and_google_services_in_compatibility(run_ike, site):
@@ -302,7 +302,7 @@ def steps(ike, qapp, out):
         info = Info(url, first, rtype)
         icp.interceptRequest(info)
         out[name] = {"blocked": info.blocked, "headers": info.headers, "to": info.to}
-    fp = [s.sourceCode() for s in ike.profile.scripts().find("ike-fp")]
+    fp = [s.sourceCode() for s in ike.profile.scripts().find("content")]
     out["fp_paypal_off"] = bool(fp) and '"www.paypal.com": "off"' in fp[0] and "stripe.network" in fp[0]
     out["cosmetic_scripts"] = [s.name() for s in ike.profile.scripts().toList()
                                if s.name().startswith("ike-sl-") and "aistudio" in s.name()]

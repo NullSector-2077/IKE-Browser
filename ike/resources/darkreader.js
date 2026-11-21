@@ -5700,6 +5700,9 @@
                         }
                     });
                     setRule(target, index, rule);
+                    if (rule.declarations.some((d) => d.varKey != null)) {
+                        ikeVarRuleTexts.set(rule, ikeRuleText(rule));
+                    }
                 });
             }
             function rebuildAsyncRule(key) {
@@ -5708,8 +5711,15 @@
                 setRule(target, index, rule);
                 asyncDeclarations.delete(key);
             }
+            // I.K.E.: the text each variable's rule was last written with
+            const ikeVarRuleTexts = new WeakMap();
             function rebuildVarRule(key) {
                 const {rule, target, index} = varDeclarations.get(key);
+                const ikeText = ikeRuleText(rule);
+                if (ikeVarRuleTexts.get(rule) === ikeText && index < target.cssRules.length) {
+                    return;
+                }
+                ikeVarRuleTexts.set(rule, ikeText);
                 target.deleteRule(index);
                 setRule(target, index, rule);
             }
@@ -9325,16 +9335,26 @@
     function unwrap(value) {
         return value?.wrappedJSObject ?? value;
     }
+    // I.K.E.: the adopted sheets whose variables were matched already
+    const ikeMatchedSheets = new WeakSet();
     function handleAdoptedStyleSheets(node) {
         if (canHaveAdoptedStyleSheets(node)) {
+            let ikeNewSheet = false;
             forEach(
                 isFirefox
                     ? unwrap(node.adoptedStyleSheets)
                     : node.adoptedStyleSheets,
                 (s) => {
+                    if (!ikeMatchedSheets.has(s)) {
+                        ikeMatchedSheets.add(s);
+                        ikeNewSheet = true;
+                    }
                     variablesStore.addRulesForMatching(s.cssRules);
                 }
             );
+            if (ikeNewSheet) {
+                variablesStore.matchVariablesAndDependents();
+            }
             const newManger = createAdoptedStyleSheetOverride(node);
             adoptedStyleManagers.push(newManger);
             newManger.render(theme, ignoredImageAnalysisSelectors);

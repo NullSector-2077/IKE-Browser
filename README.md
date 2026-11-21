@@ -9,7 +9,7 @@ The interface, protections, password manager and updater are I.K.E.'s own code
 provided and kept up to date by Arch Linux. I.K.E. is developed on and for
 KDE Plasma (CachyOS / Arch Linux) and works on the other Arch-based desktops.
 
-**Version 1.1.19** - see [CHANGELOG.md](CHANGELOG.md).
+**Version 1.1.20** - see [CHANGELOG.md](CHANGELOG.md).
 
 ## Install (Arch Linux, CachyOS)
 
@@ -17,7 +17,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.1.19-1-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.1.20-1-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:
@@ -64,7 +64,7 @@ profiles: `ike-browser --profile NAME`.
   client hints and JavaScript agree (at Strict and Maximum only its major
   number, today 140.0.0.0, in pages, workers and request headers). One
   exception, on by default: Google's sign-in page sees Firefox, because Google
-  refuses sign-in from embedded Chromium (Settings → Privacy and protection).
+  refuses sign-in from embedded Chromium (Settings → Protection).
 - Automatic HTTPS, optional encrypted DNS (DNS over HTTPS, off by default),
   third-party cookies blocked from Balanced up, reduced referrer, Global
   Privacy Control.
@@ -109,6 +109,13 @@ profiles: `ike-browser --profile NAME`.
   (connection, permissions, cookies, protection, zoom, autoplay).
 - Command bar (F2): menu commands, open tabs, bookmarks, history and settings in
   one search. Optional mouse gestures (off by default).
+- **I.K.E. extensions** (☰ → I.K.E. extensions, or Settings → I.K.E.
+  extensions): the features that come with I.K.E., each with its own on/off
+  switch (user scripts, page dark mode, skipping video ads, cookie banners,
+  passwords, page watcher, split view, floating video, translation,
+  containers, site resources, weather, command bar, Plasma integration), and
+  two that are off until you choose them: automatic scrolling with the middle
+  button, and opening the selected text with the middle button.
 - I.K.E.'s own pages for sites that cannot be reached, with "Try again".
 - Reader mode with light, sepia or dark and the text size of your choice.
 - Free choice of search engines (Startpage by default since 1.1.19: the old default, DuckDuckGo, becomes Startpage once; another engine chosen is kept), suggestions, keywords; the
@@ -152,11 +159,18 @@ profiles: `ike-browser --profile NAME`.
   desktop's reduced-motion setting and can be switched off.
 - English, Italian, Spanish, French, German, Portuguese, Chinese (Simplified),
   Japanese, Russian, Ukrainian, Belarusian, Bulgarian, Polish, Czech, Slovak,
-  Slovenian, Croatian, Serbian (Cyrillic), Bosnian and Macedonian included.
-  Chinese and Japanese need a CJK font such as `noto-fonts-cjk`; the Cyrillic
-  and Latin Slavic languages work with the usual Noto Sans. The Slavic
-  translations were made with AI and not yet reviewed by native speakers:
-  corrections are welcome.
+  Slovenian, Croatian, Serbian (Cyrillic), Bosnian and Macedonian included,
+  and since 1.1.20 forty more: Dutch, Swedish, Danish, Norwegian (Bokmål),
+  Finnish, Icelandic, Greek, Hungarian, Romanian, Turkish, Estonian,
+  Lithuanian, Latvian, Catalan, Galician, Basque, Albanian, Afrikaans,
+  Swahili, Filipino, Korean, Indonesian, Malay, Vietnamese, Thai, Hindi,
+  Bengali, Marathi, Nepali, Tamil, Telugu, Georgian, Armenian, Azerbaijani,
+  Kazakh, Uzbek, Arabic, Hebrew, Persian and Urdu (these four from right to
+  left: the whole interface turns). Chinese, Japanese and Korean need a CJK
+  font such as `noto-fonts-cjk`; the other scripts need `noto-fonts` (on most
+  desktops already). The translations after Italian were made with AI and
+  checked automatically (every text, placeholders, shortcuts, the right
+  script), not yet by native speakers: corrections are welcome.
 
 ## External services
 
@@ -184,7 +198,7 @@ I.K.E. has no servers of its own and sends no telemetry. It contacts only:
 - The web engine updates with the system (`sudo pacman -Syu`).
 - I.K.E. itself updates by itself from the latest GitHub release, signed with
   the project's key and checked before use, the AdBlock engine included
-  (Settings → General: automatic by default, or ask, or off at your own risk);
+  (Settings → Updates: automatic by default, or ask, or off at your own risk);
   see [docs/UPDATES.md](docs/UPDATES.md).
 - The components inside I.K.E. — the AdBlock engine, the uBlock Origin
   scriptlets and Dark Reader — are checked for new versions every day by
