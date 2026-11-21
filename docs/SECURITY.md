@@ -36,7 +36,7 @@ checked says so.
 | # | Finding | Status in 1.1.18 | Test |
 |---|---|---|---|
 | F1 | Site Isolation off | **Fixed**: `--site-per-process`; off only with `IKE_ALLOW_UNSAFE_ENGINE=1` | `test_site_isolation.py`, `test_sandbox.py` |
-| F2 | Public pages reach the home network with subresources | **Fixed** for literal local addresses (every IPv4/IPv6 form), local names by their form, redirects, and sandboxed or data: frames; **open** for public names that resolve to a private address (DNS rebinding), and for WebRTC and WebTransport (they do not pass through I.K.E.'s request check), see below | `test_home_network.py` |
+| F2 | Public pages reach the home network with subresources | **Fixed** for literal local addresses (every IPv4/IPv6 form), local names by their form, redirects, and sandboxed or data: frames (I.K.E.'s request check); since 1.1.19 also for public names that resolve to a private address (DNS rebinding), pages and forms a site opens at home, and WebRTC (the engine's own check); **open** for WebSockets by such a name and behind a proxy, see below | `test_home_network.py`, `test_home_network_engine.py` |
 | F3 | Media secret and worker seed readable by pages | **Fixed** for the media secret (also through getters on Object.prototype); **mitigated** for the worker seed: no page function receives it, but a site's own worker can still read its own seed from its address (that site's value only, nothing shared across sites) | `test_media_secret.py` |
 | F4 | Outdated-engine notice only at five versions | **Fixed**: three versions (two is normal between two Qt releases), counted by the security fixes; reference version shown | `test_engine_age.py` |
 | F5 | Releases to everybody at once, manifests never expire | **Fixed**: expiry, staged release, halt that a replay cannot undo, old-style manifests reported; urgent releases on request | `test_update_safety.py` |
@@ -49,24 +49,36 @@ checked says so.
 
 ## Known limits (not solved)
 
-- **DNS rebinding and public names of private addresses.** A public page can
-  still reach a device of the home network through a public name that
-  resolves to its address. I.K.E.'s own request check cannot resolve names
-  without stalling every page; literal addresses, local names and redirects
-  to them are stopped. The engine's own protection (Local Network Access,
-  Chromium 140 in Qt 6.12) is present but off: on 2026-11-20 it blocked
-  nothing when switched on without its parameter (warning only), and it did
-  block a public page's picture and fetch towards a public name of
-  127.0.0.1 with `--enable-features=LocalNetworkAccessChecks:LocalNetworkAccessChecksWarn/false`.
-  Qt answers its permission with "denied" (no per-site prompt). 1.1.19
-  turns it on for every site, with no per-site exceptions (ROADMAP.md). It
-  checks the real address at connection time, so it also covers DNS
-  rebinding. Until then: protect the router with a
-  password and keep its firmware current (many routers also refuse DNS
-  answers that point into the home network).
-- **WebRTC and WebTransport** connections do not pass through I.K.E.'s
-  request check, so the home-network protection does not cover them (not
-  tested).
+- **The home network, since 1.1.19.** Two checks work together. I.K.E.'s
+  own request check stops literal local addresses, local names and
+  redirects to them, from every kind of request, and cannot resolve names
+  (it would stall every page). The engine's own check (Local Network Access,
+  Chromium 140 in Qt 6.12, off in Qt and turned on by I.K.E. with
+  `LocalNetworkAccessChecks:LocalNetworkAccessChecksWarn/false`,
+  `LocalNetworkAccessForNavigations` and `LocalNetworkAccessChecksWebRTC`)
+  looks at the real address when it connects, so a public name that points
+  home (DNS rebinding) is stopped too. Tested on the real engine
+  (`test_home_network_engine.py`), by address and by such a name, from a
+  public page: pictures, scripts, styles, frames, fetch, XHR, workers,
+  beacons, a redirect, WebRTC (STUN), a link or script that opens a page at
+  home, a form sent there: all stopped; the address the user types opens.
+  Without the engine's check, the same test fails.
+  - **No per-site exceptions.** Qt answers the engine's permission with
+    "denied" (no per-site prompt), and the engine's only exception
+    (`--ip-address-space-overrides`) is given at start for every site at
+    once: tried on 2026-11-20, an exception for one site let another public
+    site reach the same device through its own name. So a part of a page
+    stopped this way is said in the window with no button, and the switch
+    is dropped when inherited. "Allow for this site" remains for a page at
+    home that a public page tried to open: the user's click opens it.
+  - **Still open:** a WebSocket to a public name that points home (Chromium
+    140 only warns; a WebSocket to a literal local address is stopped by
+    I.K.E.); WebTransport (not tested); with a proxy the engine sees only
+    the proxy's address, so only I.K.E.'s check applies; service workers
+    were not tested (they need https). IPv6 is tested where the computer has
+    it (`::1`; not in this container). A public site that must talk to a
+    device at home (some media servers, printer set-up pages) cannot.
+    Protect the router with a password and keep its firmware current.
 - **Workers started from a file of the site** see the real values of the
   computer (anti-fingerprinting, not an exploit protection); a partial way
   around it waits for the owner on `experiment/file-workers`.

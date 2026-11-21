@@ -93,10 +93,18 @@ are agreed with the project owner; do not reopen them without asking.
 - **Security** (docs/SECURITY.md): 1.1.19 turns on the engine's Local
   Network Access (it covers DNS rebinding) for every site, with no per-site
   exceptions: the engine has no per-site permission, and its only way to let
-  a device through (`--ip-address-space-overrides`, which joins the unsafe
-  switches) opens it to every site (tried: an exception for one site let
-  another through). Certificate Transparency, HSTS preload and Arch's V8
-  hardening to be verified on a real system.
+  a device through (`--ip-address-space-overrides`, now an unsafe switch)
+  opens it to every site (tried: an exception for one site let another
+  through). Left open: WebSockets by a public name that points home (the
+  engine only warns in Chromium 140), and behind a proxy the engine sees
+  only the proxy's address. A setting to turn the protection off for people
+  whose public sites must talk to a device at home (media servers, printer
+  set-up pages) waits for the owner. Certificate Transparency, HSTS preload
+  and Arch's V8 hardening to be verified on a real system.
+- **Smooth page loading (1.1.19, owner's request)**: measure first (Dark
+  Reader off and on, Brave on the owner's computer; pictures, long pages,
+  dynamic content), then only changes that measure better; no animations or
+  delays added, no engine switches tried blindly.
 - **Workers started from a file**: `experiment/file-workers` (see Known
   limits); merged only if the owner wants it, probably as an option.
 - **Dark Reader**: the early plain background could leave from inside

@@ -70,8 +70,8 @@ profiles: `ike-browser --profile NAME`.
   third-party cookies blocked from Balanced up, reduced referrer, Global
   Privacy Control.
 - Every site in its own sandboxed process; public pages kept away from the
-  router and the home network (addresses and local names; not public names
-  that point there); signed updates that expire after 180 days and arrive in
+  router and the home network (also through public names that point there,
+  checked by the engine on the real address; WebSockets excepted); signed updates that expire after 180 days and arrive in
   stages. What is protected and what is not: [docs/SECURITY.md](docs/SECURITY.md).
 - **Sosia (lookalike warning)**: when an address imitates a famous site
   ("paypa1.com", a Cyrillic letter in "pаypal", "paypal.com.login.xyz"), a bar
