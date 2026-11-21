@@ -5,7 +5,7 @@
 | Filter lists | daily, by I.K.E. (Settings → Components) |
 | Chrome version presented to sites | the engine's own version (1.1.14), so it follows the system's `qt6-webengine` (at Strict and Maximum only its major number, 140.0.0.0, since 1.1.18); the current stable Chrome is checked daily (Google's public version list) only to show the engine's age in Help -> About |
 | User scripts | daily, from their update address |
-| Web engine (Qt WebEngine) | with the system (`sudo pacman -Syu`) |
+| Web engine (Qt WebEngine) | with the system (`sudo pacman -Syu`); GitHub tests I.K.E. on every new version of Arch's packages it runs on (docs/MAINTENANCE.md, "Arch Linux's own packages") |
 | I.K.E. itself, AdBlock engine included | signed update channel on GitHub Releases, described below; installed automatically by default (1.1.13), once a day at most, used at the next start |
 | Components inside I.K.E. (AdBlock engine, uBlock Origin scriptlets) | checked daily and prepared as a tested candidate by GitHub Actions on a separate branch; merged once its tests are green, then signed and published by the owner ([MAINTENANCE.md](MAINTENANCE.md)) |
 
