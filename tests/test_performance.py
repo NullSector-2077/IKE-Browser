@@ -217,6 +217,7 @@ def steps(ike, qapp, out):
         yield 50
     found = fontcheck.findable()
     out["findable"] = None if found is None else len(found)
+    out["found_names"] = [] if found is None else [n.lower() for n in found]
 
     def detect(level):
         ike.config["shield_level"] = level
@@ -233,10 +234,14 @@ def steps(ike, qapp, out):
         while "x" not in r:
             yield 20
         return r["x"]
-    out["off"] = len((yield from detect("off")))
+    out["off_names"] = [n.lower() for n in (yield from detect("off"))]
+    out["off"] = len(out["off_names"])
     out["strict"] = (yield from detect("strict"))
     out["maximum"] = (yield from detect("maximum"))
 ''', timeout=180)
     assert out["listed"] > 700
-    assert out["findable"] is not None and out["findable"] == out["off"] < out["listed"], out
+    # every name a page finds without the protection is masked (installed
+    # families are masked whatever the measure said: findable >= off)
+    assert out["findable"] is not None and out["findable"] < out["listed"], out
+    assert set(out["off_names"]) <= set(out["found_names"]), out
     assert out["strict"] == [] and out["maximum"] == [], out
