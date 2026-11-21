@@ -10,7 +10,9 @@ Two cases, each with a way through that only the user can take:
   opens the http address for this session.
 - "lan" (home network protection): a page of a public site tried to open an
   address of this computer or of the home network (a form sent to the
-  router). "Allow for this site" lets that site do it for this session.
+  router). "Allow for this site" opens that address for this session. For a
+  part of a page (a frame, an image, a script) the bar only says what was
+  stopped: the engine's own protection stops it in any case (1.1.19).
 - "blocked": the whole page is on the filter lists (a site that spreads
   malware, or one only made of ads or tracking). "Continue anyway" opens it
   for this session; the lists still filter what it loads.
@@ -73,6 +75,9 @@ class SecureBar(QWidget):
             self.hide()
             return
         host = QUrl(n["url"]).host()
+        # a part of a page: the engine's own protection stops it whatever the
+        # window allows (1.1.19), so the bar only says what happened
+        self.go.setVisible(not (n["kind"] == "lan" and n.get("frame")))
         if n["kind"] == "nohttps":
             self.text.setText("⚠ " + T("%s has no secure connection (https), or someone on the network "
                                        "is blocking it. Without it, others on the network can read and "
@@ -107,18 +112,7 @@ class SecureBar(QWidget):
             url.setScheme("http")
         elif n["kind"] == "lan":
             if n.get("site"):
-                sh.lan_allowed.add(n["site"])      # this site only
-                # kept, and given to the engine's own protection, which has no
-                # per-site permission: a restart the first time a device is
-                # allowed (1.1.19, the owner's choice)
-                from .shields import endpoint
-                targets = list(n.get("targets") or [])
-                if not n.get("frame"):
-                    targets.append(endpoint(url))
-                if self.win.app.allow_lan(n["site"], targets):
-                    v.secure_notice = None
-                    self.hide()
-                    return
+                sh.lan_allowed.add(n["site"])      # this site only, until I.K.E. closes
         else:
             sh.pages_allowed.add(host)
         v.secure_notice = None

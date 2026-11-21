@@ -146,17 +146,6 @@ _HOSTED = (".github.io", ".gitlab.io", ".blogspot.com", ".herokuapp.com", ".page
            ".neocities.org")
 
 
-def endpoint(url):
-    """ "host:port" of an address, as the home-network exceptions keep it
-    (1.1.19): host in lower case, IPv6 in brackets, the scheme's own port."""
-    url = QUrl(url)
-    host = url.host().lower().rstrip(".")
-    if ":" in host and not host.startswith("["):
-        host = "[%s]" % host
-    port = url.port({"https": 443, "wss": 443}.get(url.scheme(), 80))
-    return "%s:%d" % (host, port)
-
-
 def _referer(info):
     """The Referer the engine is about to send with this request, or ""."""
     try:
@@ -307,8 +296,8 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
                 return False
             who = site_of(first.host().lower())
         s = self.s
-        if who and (who in s.lan_allowed or endpoint(url) in (s.config["lan_sites"].get(who) or [])):
-            return False                  # the user let this site reach this device (1.1.19: kept)
+        if who and who in s.lan_allowed:
+            return False
         info.block(True)
         if not self.quiet:
             if len(s.lan_blocked) > 100:
@@ -318,11 +307,7 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             else:
                 # a frame or a part of the page: the page itself loads, and the
                 # window says what was stopped in it (no silent breakage)
-                key = "frame:" + info.firstPartyUrl().toString()
-                s.lan_blocked[key] = who
-                targets = s.lan_targets.setdefault(key, set())
-                if len(targets) < 20:
-                    targets.add(endpoint(url))          # what "Allow" lets through (1.1.19)
+                s.lan_blocked["frame:" + info.firstPartyUrl().toString()] = who
         return True
 
     def interceptRequest(self, info):
@@ -377,13 +362,6 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         first_site = site_of(first_host)
         if not self.quiet:
             s.requests[first_site] = s.requests.get(first_site, 0) + 1      # per-site resources
-            if not main and site_of(url.host().lower()) != first_site:
-                # the other hosts a page asked for lately: when the engine's own
-                # home-network protection stops one, the window finds which (1.1.19)
-                recent = s.recent_hosts.setdefault(first_site, {})
-                recent[(scheme, url.host().lower(), url.port(-1))] = None
-                if len(recent) > 48:
-                    del recent[next(iter(recent))]
         lv = rank(cfg.level_for(first_host))
         if lv == 0:
             return
@@ -621,8 +599,6 @@ class Shields(QObject):
         self.pages_allowed = set()      # sites the user opened anyway though the lists block them (securebar.py)
         self.blocked_pages = set()      # whole pages the lists stopped, until their error is shown
         self.lan_blocked = {}           # local address a public page tried to open -> that site
-        self.lan_targets = {}           # "frame:<page>" -> the devices its parts asked for (1.1.19)
-        self.recent_hosts = {}          # site -> the other hosts its pages asked for lately (1.1.19)
         self.lan_allowed = set()        # public sites the user let open local addresses (session)
         self.profiles = []
         self.user_scripts = None         # set by the application

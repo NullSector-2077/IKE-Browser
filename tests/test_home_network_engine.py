@@ -1,23 +1,25 @@
-"""The engine's own home-network protection, with I.K.E.'s per-site "Allow"
-(1.1.19, the owner's decision; the way Chrome, Brave and Firefox do it).
+"""The engine's own home-network protection (Chromium's Local Network Access,
+turned on by I.K.E. in 1.1.19): a public page cannot reach this computer or
+the home network, also through a public name that points there (DNS
+rebinding), because the engine checks the real address when it connects.
 
-Qt WebEngine 6.12 has Chromium's Local Network Access, off and without a
-per-site permission (Qt answers "denied"). I.K.E. turns it on: a public page
-cannot reach this computer or the home network even through a public name
-that points there (the check is on the real address, at connection time, so
-DNS rebinding too). When it stops something, I.K.E. finds which host (its own
-lookup, never the page's word) and shows the usual "Allow for this site" bar;
-the choice is kept and given to the engine at the next start (one restart the
-first time a device is allowed), and I.K.E.'s own check keeps every other site
-away from that device's address.
+There are no per-site exceptions. The engine has only one way to let a device
+through, an address:port given at start for every site at once: tried on
+2026-11-20, an "exception" for one site let any other public site reach the
+same device through its own name. So I.K.E. does not use it, and drops it
+when inherited.
 
-SIMULATION: --host-resolver-rules makes pub.example.test and cdn.example.test
-resolve to 127.0.0.1 inside the engine; the page is served with
-Content-Security-Policy treat-as-public-address (a public page); I.K.E.'s own
-lookup is answered the same way.
+SIMULATION (no real internet, no real home network):
+- "the internet": a server on 127.0.0.1 declared public for the engine
+  (--ip-address-space-overrides, kept here with IKE_ALLOW_UNSAFE_ENGINE=1);
+  www.public.test and www.other.test are two public sites on it;
+- "the home network": another server on 127.0.0.1 (another port), reached by
+  its address and by rebind.test, a public-looking name that points to it;
+- WebRTC: a UDP socket of the home network used as the page's STUN server.
 """
 
 import http.server
+import socket
 import sys
 import threading
 
@@ -26,104 +28,210 @@ from conftest import APP
 
 sys.path.insert(0, str(APP))
 from ike import app as ike_app  # noqa: E402
-from ike.shields import endpoint  # noqa: E402
+
+NO_PROXY = {"http_proxy": "", "https_proxy": "", "HTTP_PROXY": "", "HTTPS_PROXY": "", "all_proxy": "",
+            "ALL_PROXY": "", "no_proxy": "*", "NO_PROXY": "*"}
 
 
-@pytest.fixture
-def home():
-    seen = []
-
+def _server(seen, tag, family=socket.AF_INET, host="127.0.0.1", page=None, redirect=None):
     class H(http.server.BaseHTTPRequestHandler):
-        def do_GET(self):
-            seen.append(self.headers.get("Host", "").split(":")[0] + " " + self.path)
-            if self.path.startswith("/pub"):
-                p = self.server.server_address[1]
-                body = ("<title>pub</title><img src='http://cdn.example.test:%d/dns.png'>"
-                        "<script>fetch('http://cdn.example.test:%d/fetch', {mode: 'no-cors'})"
-                        ".catch(function () {});</script>" % (p, p)).encode()
+        def _any(self):
+            seen.append((tag, self.command, self.path))
+            if page and self.path.startswith("/page"):
+                body = page(self.path).encode()
                 self.send_response(200)
-                self.send_header("Content-Security-Policy", "treat-as-public-address")
                 self.send_header("Content-Type", "text/html")
+            elif self.path.startswith("/redirect") and redirect:
+                body = b""
+                self.send_response(302)
+                self.send_header("Location", redirect[0])
             else:
-                body = b"ok"
+                body = b"<title>home</title>ok"
                 self.send_response(200)
+                self.send_header("Content-Type", "text/javascript" if self.path.endswith(".js") else "text/html")
+            self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
+        do_GET = do_POST = _any
 
         def log_message(self, *a):
             pass
-    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+
+    class S(http.server.ThreadingHTTPServer):
+        address_family = family
+    srv = S((host, 0), H)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
-    yield srv.server_address[1], seen
-    srv.shutdown()
+    return srv
+
+
+def _parts(base, tag):
+    """Every way a page can ask for an address, each with its own path."""
+    b = base + tag
+    ws = "ws" + base[4:] + tag
+    return ("<img src='{b}-img'><script src='{b}-script.js'></script><iframe src='{b}-frame'></iframe>"
+            "<link rel=stylesheet href='{b}-css'>"
+            "<script>fetch('{b}-fetch', {{mode: 'no-cors'}}).catch(function () {{}});"
+            "var x = new XMLHttpRequest(); x.open('GET', '{b}-xhr'); x.send();"
+            "new Worker(URL.createObjectURL(new Blob([\"fetch('{b}-worker').catch(function () {{}})\"])));"
+            "navigator.sendBeacon('{b}-beacon', 'x');"
+            "try {{ new WebSocket('{ws}-ws'); }} catch (e) {{}}</script>").format(b=b, ws=ws)
+
+
+@pytest.fixture
+def nets():
+    seen = []
+    home = _server(seen, "home")
+    P = home.server_address[1]
+    udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    udp.bind(("127.0.0.1", 0))
+
+    def listen():
+        while True:
+            try:
+                udp.recvfrom(2048)
+            except OSError:
+                return
+            seen.append(("home", "UDP", "/webrtc"))
+    threading.Thread(target=listen, daemon=True).start()
+
+    def page(path):
+        who = path.split("-", 1)[1].split("?")[0]          # /page-a, /page-b
+        return ("<title>%s</title>" % who + _parts("http://127.0.0.1:%d/%s-ip" % (P, who), "")
+                + _parts("http://rebind.test:%d/%s-dns" % (P, who), "")
+                + "<img src='/redirect'>"
+                "<script>var pc = new RTCPeerConnection({iceServers: [{urls: 'stun:127.0.0.1:%d'}]});"
+                "pc.createDataChannel('x'); pc.createOffer().then(function (o) "
+                "{ return pc.setLocalDescription(o); });</script>" % udp.getsockname()[1])
+    redirect = ["http://rebind.test:%d/after-redirect" % P]
+    inet = _server(seen, "inet", page=page, redirect=redirect)
+    yield P, inet.server_address[1], seen
+    home.shutdown()
+    inet.shutdown()
+    udp.close()
+
+
+def _env(public_port, extra=""):
+    rules = "MAP www.public.test 127.0.0.1, MAP www.other.test 127.0.0.1, MAP rebind.test 127.0.0.1" + extra
+    return dict(NO_PROXY, IKE_ALLOW_UNSAFE_ENGINE="1",
+                QTWEBENGINE_CHROMIUM_FLAGS='--no-sandbox "--host-resolver-rules=%s" '
+                '--ip-address-space-overrides=127.0.0.1:%d=public' % (rules, public_port))
 
 
 STEPS = r'''
-PORT = %d
-CLICK = %r
+P, Q = %d, %d
 
 def steps(ike, qapp, out):
     from PyQt6.QtCore import QUrl
-    from PyQt6.QtNetwork import QHostAddress, QHostInfo
-    def lookup(name, callback):              # I.K.E.'s own lookup: the same answer as the engine's
-        info = QHostInfo()
-        info.setHostName(name)
-        if name.endswith("example.test"):
-            info.setAddresses([QHostAddress("127.0.0.1")])
-        callback(info)
-    QHostInfo.lookupHost = staticmethod(lookup)
-    restarts = []
-    ike.restart = lambda: restarts.append(1)
     win = ike.windows[0]
     v = win.current_view()
+    # site A got "Allow for this site" from the window (a page of it opened
+    # the router): the engine must still keep every other site away, and
+    # A's own pages too (nothing per-site reaches the engine)
+    ike.shields.lan_allowed.add("public.test")
     yield 800
-    v.load(QUrl("http://pub.example.test:%%d/pub" %% PORT))
-    yield 4000
-    out["bar"] = [win.secure_bar.isVisible(), win.secure_bar.text.text()]
-    n = getattr(v, "secure_notice", None) or {}
-    out["targets"] = n.get("targets")
+    v.load(QUrl("http://www.other.test:%%d/page-b" %% Q))
+    yield 4500
+    out["bar_b"] = [win.secure_bar.isVisible(), win.secure_bar.text.text(), win.secure_bar.go.isVisible()]
+    v.load(QUrl("http://www.public.test:%%d/page-a" %% Q))
+    yield 4500
     out["flags"] = __import__("os").environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "")
-    if CLICK:
-        win.secure_bar.go.click()
-        yield 800
-        out["restarts"] = len(restarts)
-        out["lan_sites"] = ike.config["lan_sites"]
+    # leaving the page for the home network: a link or script, a form
+    for how, js in (("nav-ip", "location.href = 'http://127.0.0.1:%%d/b-nav-ip'" %% P),
+                    ("nav-dns", "location.href = 'http://rebind.test:%%d/b-nav-dns'" %% P),
+                    ("form-dns", "var f = document.createElement('form'); f.method = 'POST';"
+                                 "f.action = 'http://rebind.test:%%d/b-form-dns';"
+                                 "document.body.appendChild(f); f.submit();" %% P)):
+        v.load(QUrl("http://www.other.test:%%d/page-b?" %% Q + how))
+        yield 2500
+        v.page().runJavaScript(js)
+        yield 2000
+    v.load(QUrl("http://rebind.test:%%d/typed" %% P))            # the user's own address
+    yield 2500
+    out["typed"] = v.title()
 '''
 
-FLAGS = '--no-sandbox "--host-resolver-rules=MAP pub.example.test 127.0.0.1, MAP cdn.example.test 127.0.0.1"'
-ENV = {"QTWEBENGINE_CHROMIUM_FLAGS": FLAGS, "http_proxy": "", "https_proxy": "", "HTTP_PROXY": "",
-       "HTTPS_PROXY": "", "all_proxy": "", "ALL_PROXY": "", "no_proxy": "*", "NO_PROXY": "*"}
+
+def test_no_public_site_reaches_home_whatever_it_uses(run_ike, nets):
+    P, Q, seen = nets
+    out = run_ike(STEPS % (P, Q), settings={"https_only": False}, env=_env(Q), timeout=120)
+    for feature in ike_app.LNA_FEATURES:
+        assert feature in out["flags"], out["flags"]
+    assert ("inet", "GET", "/page-a") in seen and ("inet", "GET", "/page-b") in seen, seen
+    home = {path for tag, _, path in seen if tag == "home" and path not in ("/favicon.ico", "/typed")}
+    # Chromium 140 checks WebSockets only for a warning, and I.K.E. sees their
+    # name, not their address: a WebSocket by a public name that points home
+    # is the one way left (docs/SECURITY.md). By a literal address, I.K.E.
+    # stops it, except for the site the user allowed.
+    gap = {"/b-dns-ws", "/a-dns-ws", "/a-ip-ws"}
+    assert home <= gap, sorted(home)
+    assert "/b-ip-ws" not in home, sorted(home)
+    assert ("home", "GET", "/typed") in seen and out["typed"] == "home", out
+    # the window says what was stopped, with no button: nothing to allow
+    assert out["bar_b"][0] is True and "other.test" in out["bar_b"][1], out["bar_b"]
+    assert out["bar_b"][2] is False, out["bar_b"]
 
 
-def test_a_public_name_that_points_home_is_stopped_and_can_be_allowed(run_ike, home):
-    port, seen = home
-    out = run_ike(STEPS % (port, True), settings={"https_only": False}, env=ENV, timeout=90)
-    assert "LocalNetworkAccessChecks:LocalNetworkAccessChecksWarn/false" in out["flags"], out["flags"]
-    assert "pub.example.test /pub" in seen, seen                          # the public page itself loaded
-    assert not [x for x in seen if x.endswith(("/dns.png", "/fetch"))], seen    # nothing reached home
-    assert out["bar"][0] is True and "example.test tried to open" in out["bar"][1], out
-    want = {"cdn.example.test:%d" % port, "127.0.0.1:%d" % port}
-    assert want <= set(out["targets"] or []), out["targets"]
-    assert out["restarts"] == 1, out                                      # the engine learns it at start
-    assert want <= set(out["lan_sites"].get("example.test", [])), out["lan_sites"]
-    # the next start: the engine lets this device through for that site
-    seen.clear()
-    out = run_ike(STEPS % (port, False), settings={"https_only": False}, env=ENV, keep_profile=True,
-                  timeout=90)
-    assert "--ip-address-space-overrides=127.0.0.1:%d=public" % port in out["flags"], out["flags"]
-    assert [x for x in seen if x.endswith("/dns.png")], seen
+IPV6_STEPS = r'''
+P, Q = %d, %d
+
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QUrl
+    v = ike.windows[0].current_view()
+    yield 800
+    v.setHtml("<title>x</title>", QUrl("http://www.public.test:%%d/page-v6" %% Q))
+    yield 500
+    v.load(QUrl("http://www.public.test:%%d/page-v6" %% Q))
+    yield 4500
+'''
 
 
-def test_only_addresses_reach_the_engine():
-    cfg = {"lan_sites": {"a.test": ["127.0.0.1:631", "fritz.box:80", "[::1]:8080", "x y:1", "bad"],
-                         "b.test": "not a list"}}
-    assert ike_app.lan_overrides(cfg) == ["127.0.0.1:631=public", "[::1]:8080=public"]
-    assert endpoint("http://Router.LAN./x") == "router.lan:80"
-    assert endpoint("https://[::1]/") == "[::1]:443" and endpoint("ws://10.0.0.2:81/") == "10.0.0.2:81"
+def _ipv6():
+    try:
+        with socket.socket(socket.AF_INET6) as s:
+            s.bind(("::1", 0))
+        return True
+    except OSError:
+        return False
 
 
-def test_inherited_overrides_and_a_disabled_protection_are_dropped():
+@pytest.mark.skipif(not _ipv6(), reason="no IPv6 loopback on this machine")
+def test_ipv6_devices_too(run_ike):
+    seen = []
+    home = _server(seen, "home6", family=socket.AF_INET6, host="::1")
+    P = home.server_address[1]
+    page = (lambda path: "<title>v6</title>" + _parts("http://[::1]:%d/ip" % P, "")
+            + _parts("http://rebind6.test:%d/dns" % P, ""))
+    inet = _server(seen, "inet", page=page)
+    Q = inet.server_address[1]
+    try:
+        run_ike(IPV6_STEPS % (P, Q), settings={"https_only": False},
+                env=_env(Q, ", MAP rebind6.test [::1]"), timeout=90)
+    finally:
+        home.shutdown()
+        inet.shutdown()
+    assert ("inet", "GET", "/page-v6") in seen, seen
+    reached = {p for t, _, p in seen if t == "home6" and p != "/favicon.ico"}
+    assert reached <= {"/dns-ws"}, sorted(reached)
+
+
+def test_overrides_and_a_disabled_protection_are_dropped():
     out, named = ike_app._engine_safety(["--ip-address-space-overrides=10.0.0.1:80=public",
-                                         "--disable-features=LocalNetworkAccessChecks"], env={}, allowed=False)
-    assert out == [] and len(named) == 2, (out, named)
+                                         "--disable-features=LocalNetworkAccessChecks,LocalNetworkAccessForNavigations"],
+                                        env={}, allowed=False)
+    assert out == [] and len(named) == 3, (out, named)          # each one named
+
+
+def test_an_inherited_warn_only_does_not_win(monkeypatch, tmp_path):
+    monkeypatch.setattr(ike_app, "CONFIG_DIR", tmp_path)
+    monkeypatch.setenv("QTWEBENGINE_CHROMIUM_FLAGS",
+                       "--enable-features=Foo,LocalNetworkAccessChecks:LocalNetworkAccessChecksWarn/true")
+    monkeypatch.setenv("IKE_ALLOW_UNSAFE_ENGINE", "1")
+    from ike.config import Config
+    ike_app._chromium_flags(Config(tmp_path / "settings.json"))
+    flags = ike_app.split_flags(__import__("os").environ["QTWEBENGINE_CHROMIUM_FLAGS"])
+    on = [f for f in flags if f.startswith("--enable-features=")]
+    assert len(on) == 1, flags
+    feats = on[0].split("=", 1)[1].split(",")
+    assert "Foo" in feats and "LocalNetworkAccessChecks:LocalNetworkAccessChecksWarn/true" not in feats, feats
+    assert all(f in feats for f in ike_app.LNA_FEATURES), feats

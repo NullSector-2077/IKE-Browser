@@ -183,7 +183,6 @@ DOH_PROVIDERS = {
 
 DEFAULTS = {
     "language": "auto",                 # auto | it | en
-    "lan_sites": {},                    # public site -> ["address:port", ...] it may reach at home (1.1.19)
     "accept_language": "",              # "": the system's languages (1.1.18; see accept_language())
     "startup": "restore",               # restore | home | newtab
     "homepage": "ike:newtab",
@@ -373,8 +372,8 @@ def sound_settings(stored):
                 clean[key] = value
         elif isinstance(default, dict):
             if isinstance(value, dict):
-                if key in ("site_levels", "site_opts", "ui_themes", "lan_sites"):
-                    want = {"site_levels": str, "lan_sites": list}.get(key, dict)
+                if key in ("site_levels", "site_opts", "ui_themes"):
+                    want = str if key == "site_levels" else dict
                     value = {k: v for k, v in value.items() if isinstance(k, str) and isinstance(v, want)}
                 clean[key] = value
     return clean
