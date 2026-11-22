@@ -96,7 +96,10 @@ jobs:
           path: ~/.cargo/bin/cargo-deny
           key: cargo-deny-0.20.2-${{ runner.os }}
       - name: Every exception has a reason a person wrote
-        run: python3 -I tools/security-fix.py check-ignores ike-adblock/deny.toml
+        # (written to advisories.txt too: the issue below then says why the check stopped)
+        run: |
+          set -o pipefail
+          python3 -I tools/security-fix.py check-ignores ike-adblock/deny.toml 2>&1 | tee advisories.txt
       - name: RustSec advisories (every crate of Cargo.lock)
         run: |
           if [ "$(cargo deny --version 2>/dev/null)" != "cargo-deny 0.20.2" ]; then
@@ -135,7 +138,7 @@ jobs:
             echo "(run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)."
             echo
             echo '```'
-            grep -E "^(error|warning)\[|ID:|Severity|Crate:|Version:|Title:|Solution:|Date:" advisories.txt | head -200
+            grep -E "^(error|warning)\[|ID:|Severity|Crate:|Version:|Title:|Solution:|Date:|deny.toml:" advisories.txt | head -200
             echo '```'
           } > body.md
           # found by its label, not by its title (anyone can open an issue

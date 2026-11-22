@@ -1208,9 +1208,15 @@ def test_the_guard_never_lets_a_fix_touch_the_protections(tmp_path):
     # an ordinary fix of I.K.E.'s code still passes under the security rules
     ordinary = _patch(root, "ike/window.py", "    return 10\n", "    return 12\n")
     assert _check(root, tmp_path, ordinary, "--security")[0] == 0
-    # the reserves refuse the same files before the checker sees them
-    rule = load("autofix-reserve")._checker_rule()
+    # the reserves refuse the same files before the checker sees them, and check each fix with --security
+    reserve = load("autofix-reserve")
+    rule = reserve._checker_rule()
     assert rule("tests/test_sandbox.py", False, True) and not rule("tests/test_sandbox.py", False, False)
+    (root / "tests/test_sandbox.py").write_text("def test_on():\n    assert 1\n    assert len('ab') == 2\n")
+    checker = str(ROOT / "tools/check-autofix-patch.py")
+    assert reserve.checked(root, checker, None, False, True)[0] == 3
+    assert reserve.checked(root, checker, None, False)[0] == 0
+    subprocess.run(["git", "-C", str(root), "checkout", "-q", "--", "."], check=True)
     # the security tests are those security.yml runs with the sandbox on (and they exist)
     named_in_workflow = set(re.findall(r"tests/test_\w+\.py", (WORKFLOWS / "security.yml").read_text()))
     assert named_in_workflow and named_in_workflow <= guard.SECURITY_TESTS
