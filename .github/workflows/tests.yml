@@ -306,9 +306,11 @@ jobs:
       failure() && (
       (github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]' &&
       (github.ref_name == 'automation/autofix-main' || github.ref_name == 'automation/daily-maintenance' ||
+      startsWith(github.ref_name, 'automation/update/security-') ||
       github.ref_name == 'main')) ||
       (github.run_attempt > 1 && github.triggering_actor == 'github-actions[bot]' &&
       (github.ref_name == 'main' || github.ref_name == 'automation/autofix-main' ||
+      startsWith(github.ref_name, 'automation/update/security-') ||
       github.ref_name == 'automation/daily-maintenance')))
     runs-on: ubuntu-24.04
     timeout-minutes: 5

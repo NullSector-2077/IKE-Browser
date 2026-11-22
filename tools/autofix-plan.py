@@ -32,6 +32,27 @@ description names the Arch packages that changed since the last green run on
 main (old -> new, from the versions both runs recorded), the failed tests and
 the files the logs name.
 
+"Security" (security.yml, handed over by its job hand-over; WP6, the owner's
+decision of 2026-11-22) starts an analysis and a fix on an isolated branch
+``automation/update/security-<id>``, never on main:
+
+- a RustSec advisory found on main with a fixed version: action "update", a
+  deterministic ``cargo update`` (tools/security-fix.py, no AI) on
+  ``automation/update/security-<advisory id>`` made from main; its tests and
+  security checks then run there, and a failure there is fixed by the AI under
+  the guard's security rules (--security), I.K.E.'s wrapper only;
+- an advisory with no fixed version upstream: blocked (an issue, and the
+  ledger tells the owner); never ignored;
+- a failed sandbox or isolation test: action "fix" on
+  ``automation/update/security-sandbox`` (from main) or
+  ``automation/update/security-sandbox-<candidate>`` (from the candidate's
+  commit, main plus its update), with ``security`` true: the guard refuses any
+  change of the sandbox and isolation switches, ENGINE_SAFETY, the security
+  tests and ike-adblock/deny.toml. After MAX_ATTEMPTS fixes: blocked.
+
+The outputs then also hold ``security`` (true: the checker runs with
+--security) and ``findings`` (the advisory the update takes, JSON).
+
     autofix-plan.py --run-id ID --logs FILE [--repo OWNER/NAME]
 """
 
@@ -86,8 +107,16 @@ INFRA_TITLE = "GitHub or the runner failed: %s"
 ARCH = "Arch Linux"
 ARCH_JOB = "Arch Linux"              # the name of arch.yml's job that builds and tests
 HANDLED = ("Tests", "Daily maintenance candidate", "Daily component check", ARCH)
+# WP6 (2026-11-22): security.yml's findings, on isolated branches only
+SECURITY = "Security"
+SECURITY_PREFIX = "automation/update/security-"
+# the branches whose security findings are acted on: main, the maintenance branches, and the
+# isolated branches the owner allowed the agents (automation/update/*, automation/builder/*)
+SECURITY_WATCHED = ("main", MAINTENANCE, FIX_MAIN)
+ISOLATED_PREFIXES = ("automation/update/", "automation/builder/")
 REPORTING_JOBS = {"Tests": ("hand-over",), "Daily component check": ("update-issue", "start-arch", "ledger"),
-                  "Daily maintenance candidate": ("publish-candidate",), ARCH: ("hand-over", "merge-ready")}
+                  "Daily maintenance candidate": ("publish-candidate",), ARCH: ("hand-over", "merge-ready"),
+                  SECURITY: ("hand-over", "advisories-issue", "sandbox-issue", "merge-ready")}
 INFRA_STEP = re.compile(r"^(Set up job|Complete job|Post |Check out|Run actions/(checkout|setup-|upload-artifact"
                         r"|download-artifact|cache)|Upload |Download |Validate downloaded|Rust$|Test environment$)")
 # arch.yml's steps that only install Arch's packages (pacman: mirrors, keyring,
@@ -387,21 +416,131 @@ def rehearsal_reason(name, branch):
             "no automatic fix of main" % (name, branch or "?"))
 
 
+def _security_tool():
+    spec = importlib.util.spec_from_file_location("security_fix", Path(__file__).resolve().parent /
+                                                  "security-fix.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def security_branch(finding_id):
+    """automation/update/security-<id>: the isolated branch of one security finding."""
+    return _security_tool().branch_for(finding_id)
+
+
+def fixable(name, branch):
+    """A failure of Tests or Arch on this branch is fixed: the automation's own branches, and
+    the isolated branches of the security fixes (WP6)."""
+    return branch in FIXABLE_BRANCHES or (name == "Tests" and branch.startswith(SECURITY_PREFIX))
+
+
+def decide_security(run, failed_jobs, plan, open_issues=(), now=None):
+    """The plan for a failed run of "Security" (WP6): a fix on an isolated branch, never on main,
+    under the guard's security rules; blocked when there is no safe fix."""
+    branch = run.get("head_branch") or ""
+    plan["security"] = "true"
+    if branch not in SECURITY_WATCHED and not branch.startswith(ISOLATED_PREFIXES):
+        plan["reason"] = "branch %s is not one the automation fixes (a person's pull request: its checks say it)" \
+            % (branch or "?")
+        return plan
+    if run.get("_tip") != run.get("head_sha"):
+        plan["reason"] = "the branch has moved since this run: an older failure"
+        return plan
+    infra = infra_failure(SECURITY, failed_jobs)
+    if infra:
+        plan.update(action="issue", kind="infra", reason=infra)
+        return plan
+    names = {j["name"] for j in failed_jobs}
+    waiting = run.get("_security_prs") or {}             # isolated branch -> its open pull request
+    own = branch.startswith(SECURITY_PREFIX)
+    if "sandbox" in names:
+        if own:
+            target, checkout, attempt = branch, run.get("_tip") or "", run.get("_attempts", 0) + 1
+        else:
+            sid = "sandbox" if branch == "main" else "sandbox-" + branch.rsplit("/", 1)[-1]
+            target = security_branch(sid)
+            if target in waiting:
+                plan["reason"] = ("the sandbox's security fix already waits on %s (PR #%s): its own runs go on"
+                                  % (target, waiting[target]))
+                return plan
+            # from main; on a candidate from its commit (main plus its update), which alone shows the failure
+            checkout, attempt = run.get("head_sha") or "", 1
+        plan.update(kind="security", checkout=checkout, push_branch=target, attempt=str(attempt),
+                    allow_adblock="false")
+        if attempt > MAX_ATTEMPTS:
+            plan.update(action="issue", reason="blocked: %d automatic fixes under the security rules did not make "
+                        "the sandbox and isolation tests pass on %s; nothing was weakened, the owner decides"
+                        % (MAX_ATTEMPTS, branch))
+            return plan
+        plan.update(action="fix", reason="the sandbox and isolation tests failed on %s: a fix on the isolated branch "
+                    "%s (made from %s) under the guard's security rules (no change of the sandbox, ENGINE_SAFETY, "
+                    "the security tests or deny.toml)" % (branch, target, "main" if branch == "main" else branch))
+        return plan
+    if "rust-advisories" in names:
+        findings = run.get("_advisories")
+        if findings is None or not findings:
+            plan.update(action="issue", kind="security", reason="cargo-deny failed on %s but its findings could not "
+                        "be read from the job's log: a person looks (nothing is ignored)" % branch)
+            return plan
+        ids = ", ".join(sorted({f["id"] for f in findings}))
+        if own:
+            plan.update(action="issue", kind="security", reason="blocked: the update on %s did not clear %s (cargo "
+                        "cannot take a fixed version): the owner decides; nothing is ignored" % (branch, ids))
+            return plan
+        if branch != "main":
+            plan.update(action="issue", kind="security", reason="blocked: %s brings a crate with a RustSec advisory "
+                        "(%s): the candidate is blocked and the owner is told; main's own advisories get their "
+                        "isolated branch" % (branch, ids))
+            return plan
+        blocked = [f for f in findings if not f.get("fix")]
+        todo = [f for f in findings if f.get("fix") and security_branch(f["id"]) not in waiting]
+        also = ("; blocked, no fixed version upstream: %s" % ", ".join(f["id"] for f in blocked)) if blocked else ""
+        if todo:
+            f = todo[0]
+            plan.update(action="update", kind="security", checkout=run.get("_main_tip") or "",
+                        push_branch=security_branch(f["id"]), attempt="1",
+                        findings=json.dumps([f], separators=(",", ":"), sort_keys=True),
+                        reason="%s: %s %s has a fixed version (%s): cargo update on the isolated branch %s, made "
+                               "from main (no AI)%s" % (f["id"], f.get("crate"), f.get("version"), f["fix"],
+                                                       security_branch(f["id"]), also))
+            return plan
+        if blocked:
+            # every day's run finds it again: one report while it is open (the ledger keeps the entry)
+            now = now or dt.datetime.now(dt.timezone.utc)
+            if already_reported(open_issues, ISSUE_TITLE % SECURITY, run.get("head_sha") or "", now):
+                plan["reason"] = ("blocked, already reported and waiting for the owner (no fixed version upstream "
+                                  "for %s)" % ", ".join(f["id"] for f in blocked))
+                return plan
+            plan.update(action="issue", kind="security", reason="blocked: no fixed version upstream for %s: the "
+                        "owner is told; never ignored (an exception needs a reason a person writes in "
+                        "ike-adblock/deny.toml)" % ", ".join("%s (%s %s)" % (f["id"], f.get("crate"), f.get("version"))
+                                                           for f in blocked))
+            return plan
+        plan["reason"] = "every advisory already has its isolated branch waiting (%s)" % ids
+        return plan
+    plan.update(action="issue", reason="Security failed on %s in a job no fix handles (%s): a person looks"
+                % (branch, ", ".join(sorted(names))))
+    return plan
+
+
 def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
     """The plan for a failed run (a dict of outputs), without network or git."""
     name, branch = run["name"], run.get("head_branch") or ""
     plan = {"action": "skip", "reason": "", "kind": "", "checkout": "", "push_branch": "",
-            "attempt": "0", "allow_adblock": "false", "workflow": name}
+            "attempt": "0", "allow_adblock": "false", "workflow": name, "security": "false", "findings": ""}
     if run.get("conclusion") != "failure":
         plan["reason"] = "the run did not fail (%s)" % run.get("conclusion")
         return plan
     if (run.get("head_repository") or {}).get("full_name") != run.get("_repo"):
         plan["reason"] = "the run comes from another repository (fork)"
         return plan
+    if name == SECURITY:
+        return decide_security(run, failed_jobs, plan, open_issues, now)
     job_names = [j["name"] for j in failed_jobs]
     tested = name in ("Tests", ARCH)          # the workflows that test a branch
     if name in HANDLED:
-        if tested and branch not in FIXABLE_BRANCHES:
+        if tested and not fixable(name, branch):
             plan["reason"] = "branch %s is not one the automation fixes" % (branch or "?")
             return plan
         if tested and run.get("_tip") != run.get("head_sha"):
@@ -493,6 +632,15 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
     elif target == FIX_MAIN:
         plan.update(kind="main", checkout=run["_tip"], push_branch=FIX_MAIN,
                     attempt=str(run["_attempts"] + 1))
+    elif target.startswith(SECURITY_PREFIX):
+        # WP6: the tests of a security fix's isolated branch failed (after its cargo update, or
+        # after an earlier fix): fixed there, under the guard's security rules
+        plan.update(kind="security", checkout=run["_tip"], push_branch=target, attempt=str(run["_attempts"] + 1),
+                    allow_adblock="true" if run.get("_engine_update") else "false", security="true")
+        if int(plan["attempt"]) > MAX_ATTEMPTS:
+            plan.update(action="issue", reason="blocked: %d automatic fixes under the security rules did not make "
+                        "%s pass; the owner decides" % (MAX_ATTEMPTS, target))
+            return plan
     else:
         plan.update(kind="maintenance", checkout=run["_tip"], push_branch=MAINTENANCE,
                     attempt=str(run["_attempts"] + 1),
@@ -546,6 +694,43 @@ def engine_update(branch, show=None):
     # check) may need the same adaptation of the wrapper
     candidate, current = pyo3_version(cand_lock), pyo3_version(main_lock)
     return bool(candidate and current and candidate != current)
+
+
+SECURITY_NOTE = (
+    "\n## A security finding (the guard's security rules)\n\n"
+    "This failure is a security finding. Fix it on this isolated branch with the smallest change of I.K.E.'s "
+    "code, or change nothing and say why. Never touch the engine's sandbox and isolation switches "
+    "(UNSAFE_SWITCHES, UNSAFE_FEATURES, UNSAFE_ENV, NOTICE_SWITCHES, LNA_FEATURES in ike/app.py), "
+    "ENGINE_SAFETY or the functions that decide them, the security tests (the files security.yml runs), "
+    "ike-adblock/deny.toml, or anything that names a RustSec advisory: a fix that does is refused, and no "
+    "other assistant is asked. Weakening a protection is never a fix.\n")
+
+
+def security_prs(repo):
+    """{isolated branch: pull request number} of the open pull requests of the security fixes."""
+    owner, out = repo.split("/")[0], {}
+    for pr in gh_api("repos/%s/pulls?state=open&per_page=100" % repo):
+        head = pr.get("head") or {}
+        ref = head.get("ref") or ""
+        if ref.startswith(SECURITY_PREFIX) and ((head.get("repo") or {}).get("full_name") == repo or
+                                                (head.get("user") or {}).get("login") == owner):
+            out[ref] = str(pr.get("number"))
+    return out
+
+
+def advisories_in_log(repo, job):
+    """The findings cargo-deny wrote in a failed job's whole log (tools/security-fix.py), or None
+    when the log cannot be read. The whole log, not the cleaned end: one advisory's text is long."""
+    for n in range(LOG_TRIES):
+        try:
+            return _security_tool().parse(gh_api("repos/%s/actions/jobs/%s/logs" % (repo, job["id"]), raw=True,
+                                                 tries=1))
+        except RuntimeError as e:
+            if n + 1 == LOG_TRIES:
+                print("::warning::cargo-deny's log is not available: %s" % str(e)[:200].replace("::", ": "))
+                return None
+            time.sleep(10)
+    return None
 
 
 def open_reports(repo, name):
@@ -714,8 +899,13 @@ def main(argv=None):
     run["_event"] = a.event
     run["_tip"] = tip(branch) if branch else ""
     run["_main_tip"] = tip("main")
-    run["_attempts"] = autofix_commits(branch) if branch in (MAINTENANCE, FIX_MAIN) else 0
-    run["_engine_update"] = branch == MAINTENANCE and engine_update(MAINTENANCE)
+    own_branch = branch in (MAINTENANCE, FIX_MAIN) or branch.startswith(SECURITY_PREFIX)
+    run["_attempts"] = autofix_commits(branch) if own_branch else 0
+    run["_engine_update"] = (branch == MAINTENANCE or branch.startswith(SECURITY_PREFIX)) and engine_update(branch)
+    if run["name"] == SECURITY:
+        run["_security_prs"] = security_prs(repo)
+        advisories = [j for j in failed if j["name"] == "rust-advisories"]
+        run["_advisories"] = advisories_in_log(repo, advisories[0]) if advisories else []
     prs = gh_api("repos/%s/pulls?state=open&head=%s:%s" % (repo, repo.split("/")[0], FIX_MAIN))
     open_fix_pr = str(prs[0]["number"]) if prs else ""
     reports = open_reports(repo, run["name"])
@@ -742,7 +932,7 @@ def main(argv=None):
     read, logs, by_job = 0, [], {}
     for job in failed:
         steps = [s["name"] for s in job.get("steps", []) if s.get("conclusion") == "failure"]
-        log = job_log(repo, job) if plan["action"] in ("fix", "issue") else None
+        log = job_log(repo, job) if plan["action"] in ("fix", "issue", "update") else None
         if log is None:
             log = "(log not available)"
         else:
@@ -760,8 +950,10 @@ def main(argv=None):
     # where the fix branch was when this plan was made: publish pushes only if
     # it is still there (1.1.18: two plans of main side by side could each push)
     plan["push_tip"] = tip(plan["push_branch"]) if plan["push_branch"] else ""
-    if plan["action"] == "fix" and branch in (MAINTENANCE, FIX_MAIN) and run["_attempts"]:
+    if plan["action"] == "fix" and own_branch and run["_attempts"]:
         parts.append(previous_fix(branch, repo))
+    if plan["security"] == "true" and plan["action"] == "fix":
+        parts.insert(1, SECURITY_NOTE)
     Path(a.logs).write_text("".join(parts), "utf-8")
 
     print(json.dumps(plan, indent=1))

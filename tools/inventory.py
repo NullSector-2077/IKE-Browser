@@ -34,12 +34,16 @@ archlinux.org's JSON API, crates.io's index, PyPI, npm, GitHub's git tags;
 ``--offline`` reads none), update mode, the tests an update needs
 (tools/test-categories.py), compatibility, vulnerabilities, last check and
 result. A value that is not known or could not be read is "unknown" or "not
-checked", never guessed. Vulnerabilities come only from checks already run
-(RustSec through cargo-deny in security.yml, given with --advisories); every
-other component says "not checked".
+checked", never guessed. Vulnerabilities come only from checks that ran: the
+crates from RustSec through cargo-deny in security.yml (given with
+--advisories); since WP7 the PyPI, npm and GitHub Actions components from the
+OSV database and the Arch packages from Arch's security tracker
+(tools/vulnerabilities.py; a source that does not answer leaves its
+components "not checked", never "none known"). With --offline none is asked.
 
-Hosts asked (GET only, no token): archlinux.org, index.crates.io, pypi.org,
-registry.npmjs.org, github.com (git ls-remote).
+Hosts asked (no token): archlinux.org, index.crates.io, pypi.org,
+registry.npmjs.org, github.com (git ls-remote), api.osv.dev (POST of names and
+versions), security.archlinux.org.
 """
 
 import argparse
@@ -135,6 +139,14 @@ def _components_tool():
     """tools/check-components.py, beside this file: its fetch, Arch and Cargo.lock helpers."""
     spec = importlib.util.spec_from_file_location("check_components", Path(__file__).resolve().parent /
                                                   "check-components.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _vulnerabilities_tool():
+    spec = importlib.util.spec_from_file_location("vulnerabilities", Path(__file__).resolve().parent /
+                                                  "vulnerabilities.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -798,9 +810,10 @@ def discover(root, arch_tested=None):
 class Net:
     """GET with a per-host failure limit: a host that does not answer is not asked again."""
 
-    def __init__(self, get=None, ls_remote=None, offline=False):
+    def __init__(self, get=None, ls_remote=None, offline=False, post=None):
         self.cc = None
         self._get = get
+        self._post = post
         self._ls_remote = ls_remote
         self.offline = offline
         self.failures = {}
@@ -830,6 +843,25 @@ class Net:
 
     def json(self, url):
         return json.loads(self.get(url).decode("utf-8"))
+
+    def post(self, url, payload):
+        """POST of JSON (the OSV database's batch query), with the same per-host limit."""
+        host = urllib.parse.urlsplit(url).hostname or url
+        if self.offline:
+            raise LookupError("offline")
+        if self.failures.get(host, 0) >= NETWORK_FAILURES:
+            raise OSError("%s did not answer earlier in this run" % host)
+        try:
+            if self._post is None and self._get is not None:
+                # stand-ins for GET (the tests) and none for POST: never the real network
+                raise OSError("no stand-in for POST %s" % url)
+            data = self._post(url, payload) if self._post else _vulnerabilities_tool().post_json(url, payload)
+            self.hosts.setdefault(host, "ok")
+            return data
+        except OSError as e:
+            self.failures[host] = self.failures.get(host, 0) + 1
+            self.hosts[host] = "unreachable: %s" % str(e)[:160]
+            raise
 
     def ls_remote(self, url, *refs):
         """{ref: sha} of a git repository (git ls-remote), GitHub's tags with no API token."""
@@ -1076,11 +1108,14 @@ def lookup_versions(records, net, components=None, lists=None, arch_get=None):
 
 def apply_advisories(records, advisories):
     """Vulnerabilities from a check already run: RustSec through cargo-deny (security.yml).
-    advisories: {"state": "clean" | "found" | "unknown", "url", "date", "crates": [names]}."""
+    advisories: {"state": "clean" | "found" | "unknown", "url", "date", "crates": [names],
+    "advisories": [tools/security-fix.py's findings: id, crate, version, title, fix, url]}."""
     if not isinstance(advisories, dict):
         return records
     state, url = advisories.get("state"), advisories.get("url") or "?"
     crates = set(advisories.get("crates") or [])
+    found = [f for f in advisories.get("advisories") or [] if isinstance(f, dict) and f.get("crate")]
+    crates |= {f["crate"] for f in found}
     for rec in records.values():
         if rec["kind"] not in ("crate", "adblock-engine", "vendored"):
             continue
@@ -1090,6 +1125,17 @@ def apply_advisories(records, advisories):
             if not crates or rec["name"] in crates:
                 rec["vulnerabilities"] = "RustSec advisory reported (cargo-deny, %s)" % url
                 rec["result"] = "vulnerable" if rec["name"] in crates else rec["result"]
+                mine = [f for f in found if f["crate"] == rec["name"] and
+                        (not f.get("version") or f["version"] == rec["installed"])]
+                if mine:
+                    seen = set()
+                    rec["advisories"] = [{"id": f["id"], "source": "RustSec (cargo-deny)",
+                                          "summary": (f.get("title") or f.get("kind") or "")[:200], "aliases": [],
+                                          "fixed": [f["fix"]] if f.get("fix") else [], "url": f.get("url") or url,
+                                          "package": "%s %s (crates.io)" % (f["crate"], f.get("version", ""))}
+                                         for f in mine if not (f["id"] in seen or seen.add(f["id"]))]
+                    rec["vulnerabilities"] = "%d known (RustSec via cargo-deny, %s): %s" % (
+                        len(rec["advisories"]), url, ", ".join(a["id"] for a in rec["advisories"]))
             else:
                 rec["vulnerabilities"] = "none named for this crate (cargo-deny reported others: %s)" % url
         else:
@@ -1112,6 +1158,8 @@ def inventory(root=ROOT, offline=False, net=None, components=None, lists=None, a
     net = net or Net(offline=offline)
     lookup_versions(records, net, components, lists, arch_get)
     apply_advisories(records, advisories)
+    # WP7: OSV (PyPI, npm, GitHub Actions) and Arch's security tracker; offline: none asked
+    vuln_sources = {} if net.offline else _vulnerabilities_tool().check(records, post=net.post, get=net.get)
     for f in findings:
         rec = records.get(f["component"])
         if rec is not None:
@@ -1129,7 +1177,10 @@ def inventory(root=ROOT, offline=False, net=None, components=None, lists=None, a
     return {"schema": SCHEMA, "generated": now(), "commit": commit, "offline": bool(net.offline),
             "counts": dict(sorted(counts.items())), "total": len(records),
             "components": sorted(records.values(), key=lambda r: (r["kind"], r["name"].lower())),
-            "findings": findings, "notes": notes, "sources": dict(sorted(net.hosts.items()))}
+            "findings": findings, "notes": notes, "sources": dict(sorted(net.hosts.items())),
+            "vulnerability_sources": vuln_sources,
+            "advisories_state": (advisories or {}).get("state", "unknown") if isinstance(advisories, dict)
+            else "unknown"}
 
 
 # --- report ------------------------------------------------------------------------------
@@ -1164,6 +1215,24 @@ def to_markdown(inv, full=True):
                                                      _md(r["update_mode"])) for r in ups]
     else:
         out.append("None.")
+    out += ["", "#### Known vulnerabilities", ""]
+    vulnerable = [r for r in inv["components"] if r.get("advisories")]
+    if vulnerable:
+        out += ["| Component | Kind | Advisory | Fixed in | Source |", "|---|---|---|---|---|"]
+        out += ["| %s | %s | [%s](%s) %s | %s | %s |" % (
+            _md(r["name"]), r["kind"], a["id"], a.get("url", ""), _md(a.get("summary", ""))[:120],
+            _md(", ".join(a.get("fixed") or [])) or "**no fix upstream**", a.get("source", ""))
+            for r in vulnerable for a in r["advisories"]]
+    else:
+        out.append("None known by the sources that answered.")
+    states = dict(inv.get("vulnerability_sources") or {})
+    if states:
+        out += ["", "Vulnerability sources: " + "; ".join("%s %s" % (h, s) for h, s in sorted(states.items()))]
+        down = [h for h, s in states.items() if s != "ok"]
+        if down:
+            out.append("Their components are **not checked** today (never \"none known\"): %s." % ", ".join(down))
+    elif inv.get("offline"):
+        out.append("Vulnerability sources: not asked (offline): every component but the crates is not checked.")
     unreachable = [r for r in inv["components"] if r["result"] == "unreachable"]
     if unreachable:
         out += ["", "Not checked today (source unreachable): %s." % ", ".join(r["name"] for r in unreachable[:30])]

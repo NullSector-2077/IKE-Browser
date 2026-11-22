@@ -43,8 +43,9 @@ LIMITS = (
     "A skipped test is not verified, never passed; the list above names each one with its reason.",
     "The automatic fix's commits (if any) were written by an AI under the guard's rules "
     "(tools/check-autofix-patch.py): read them before merging. Nothing is merged by itself.",
-    "Vulnerabilities: only the RustSec advisories of the engine's crates are checked (cargo-deny); Python, npm, "
-    "Arch and the GitHub Actions are not checked for advisories yet.",
+    "Vulnerabilities: the RustSec advisories of the engine's crates are checked on this commit (cargo-deny); "
+    "Python, npm, Arch and the GitHub Actions only every day on main (the OSV database and Arch's security "
+    "tracker, in the ledger issue), and a source that did not answer is not checked.",
 )
 
 

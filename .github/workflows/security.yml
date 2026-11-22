@@ -1,5 +1,22 @@
-# Security checks (1.1.18, security audit of 2026-11-20), apart from "Tests"
-# so that a finding here never starts an automatic fix:
+# Security checks (1.1.18, security audit of 2026-11-20), apart from "Tests".
+#
+# Since 2026-11-22 (the owner's decision, WP6 of the maintenance plan) a
+# finding here starts an analysis and a fix on an ISOLATED branch, never on
+# main (job hand-over -> autofix.yml -> tools/autofix-plan.py):
+# - a RustSec advisory with a fixed version: cargo update, no AI, on
+#   automation/update/security-<id> made from main; Tests and Security run
+#   there, and only a failure there reaches an AI;
+# - a failed sandbox or isolation test: the AI on
+#   automation/update/security-sandbox(-<candidate>);
+# - no fixed version upstream, or no safe fix: blocked, and the owner is told
+#   (the autofix issue and the ledger issue "Maintenance ledger").
+# The 1.1.18 property stays: a security finding can never make an AI change a
+# protection. Every AI fix of a security finding goes through
+# tools/check-autofix-patch.py --security, read from main: it refuses any line
+# that names the sandbox and isolation switches or ENGINE_SAFETY
+# (ike/app.py, in any file), the security tests, ike-adblock/deny.toml and any
+# line naming a RustSec advisory, and stops every other assistant (exit 3).
+# Nothing merges by itself: the pull request waits for the owner's order.
 #
 # - sandbox: the security tests with the engine's sandbox really on, as a
 #   normal user (every other test runs with it off, because GitHub's runners
@@ -10,7 +27,8 @@
 # - rust-advisories: the RustSec advisory database against every crate of
 #   the AdBlock engine (direct and transitive, Cargo.lock), with cargo-deny
 #   (the same pinned tool that checks the licences). Exceptions only in
-#   ike-adblock/deny.toml, each with its reason (docs/THIRD-PARTY.md).
+#   ike-adblock/deny.toml, each with its reason (docs/THIRD-PARTY.md): an
+#   exception without one fails the job (tools/security-fix.py check-ignores).
 #   Every day it also runs on main and opens or updates the issue
 #   "Rust advisories" when something is found.
 name: Security
@@ -77,6 +95,8 @@ jobs:
         with:
           path: ~/.cargo/bin/cargo-deny
           key: cargo-deny-0.20.2-${{ runner.os }}
+      - name: Every exception has a reason a person wrote
+        run: python3 -I tools/security-fix.py check-ignores ike-adblock/deny.toml
       - name: RustSec advisories (every crate of Cargo.lock)
         run: |
           if [ "$(cargo deny --version 2>/dev/null)" != "cargo-deny 0.20.2" ]; then
@@ -156,6 +176,35 @@ jobs:
                 --assignee "$GITHUB_REPOSITORY_OWNER" --body-file body.md \
               || gh issue create --title "Sandbox tests failed on main" --label sandbox-failed --body-file body.md
           fi
+
+  # A finding goes to the automatic fix's plan (WP6, 2026-11-22): an analysis and
+  # a fix on an isolated branch automation/update/security-<id>, never on main;
+  # blocked and the owner told when there is no safe fix. A dispatch, as the
+  # tests hand theirs over: a run the automation started sends no
+  # "workflow_run". Never for a pull request of a person (its checks say it).
+  hand-over:
+    needs: [sandbox, rust-advisories]
+    if: >-
+      failure() && github.event_name != 'pull_request' && (
+      github.ref_name == 'main' || github.ref_name == 'automation/daily-maintenance' ||
+      github.ref_name == 'automation/autofix-main' || startsWith(github.ref_name, 'automation/update/') ||
+      startsWith(github.ref_name, 'automation/builder/'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Hand the finding to the automatic fix
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          for pause in 15 30 0; do
+            if gh workflow run autofix.yml --ref main -f run_id="$RUN_ID"; then exit 0; fi
+            sleep "$pause"
+          done
+          exit 1
 
   # The sandbox tests of the automatic fix passed (a run its token started
   # sends no "workflow_run"): the merge is asked for with a dispatch (H1, H3).

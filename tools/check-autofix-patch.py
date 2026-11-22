@@ -26,7 +26,18 @@ whether the patch stays inside what an automatic fix may change:
 - no binary files, links or paths outside the repository; no keys or tokens;
 - a small patch: at most MAX_FILES files and MAX_LINES changed lines;
 - a pertinent patch (--related, 1.1.15): when the failure names files of the
-  repository (tools/autofix-context.py), at least one of them must change.
+  repository (tools/autofix-context.py), at least one of them must change;
+- never the engine's protections (WP6, 2026-11-22): no added or removed line of
+  I.K.E.'s code that names the sandbox and isolation switches, the lists that
+  hold them (UNSAFE_SWITCHES, UNSAFE_FEATURES, UNSAFE_ENV, NOTICE_SWITCHES,
+  LNA_FEATURES, PRIVACY_FEATURES, read from ike/app.py itself), ENGINE_SAFETY
+  or the functions that decide them, and never ike-adblock/deny.toml (an
+  exception to a RustSec advisory is a person's, with its reason);
+- a fix of a security finding (--security, on automation/update/security-*)
+  also never touches the security tests (SECURITY_TESTS: the files
+  security.yml runs, and the other tests of the engine's protections), names
+  a protection in any file (tests and tools too), or names a RustSec
+  advisory: a security finding never makes an AI change a protection.
 
 - never the files that come from others or are generated (1.1.16): Dark
   Reader, uBlock Origin's scriptlets, the icon sets, the ad blocker's Cargo
@@ -34,7 +45,7 @@ whether the patch stays inside what an automatic fix may change:
   wrapper (src/, and vendor/adblock/__init__.py) may change, and only with
   --allow-adblock; the engine itself (adblock-rust) is a crate, never in here.
 
-    check-autofix-patch.py --repo DIR --patch FILE [--allow-adblock]
+    check-autofix-patch.py --repo DIR --patch FILE [--allow-adblock] [--security]
                            [--related FILE] [--report FILE.md] [--check-only]
 
 The patch is applied to the index and work tree of DIR only when every rule
@@ -87,7 +98,39 @@ FORBIDDEN_FILES = {
     # ledger, test categories and candidate report; an agent never changes what judges it
     "tools/check-components.py", "tools/inventory.py", "tools/maintenance-ledger.py",
     "tools/test-categories.py", "tools/maintenance-report.py",
+    # WP6/WP7: the security findings' tools (the deterministic update, the vulnerability sources)
+    "tools/security-fix.py", "tools/vulnerabilities.py",
 }
+# WP6 (2026-11-22): an exception to a RustSec advisory is written by a person, with its
+# reason (tools/security-fix.py check-ignores); never by an automatic fix, whatever the mode
+DENY_CONFIG = "ike-adblock/deny.toml"
+# the tests of the engine's protections: security.yml runs the first nine with the
+# sandbox on (a test checks the two lists agree). A fix of a security finding
+# (--security) never changes them.
+SECURITY_TESTS = {
+    "tests/test_sandbox.py", "tests/test_site_isolation.py", "tests/test_home_network.py",
+    "tests/test_media_secret.py", "tests/test_engine_switches.py", "tests/test_userscript_bridge.py",
+    "tests/test_frame_guard.py", "tests/test_frame_guard_review.py", "tests/test_referrer.py",
+    "tests/test_security.py", "tests/test_home_network_engine.py", "tests/test_update_safety.py",
+}
+# The engine's protections (ike/app.py): the lists of switches, features and variables that
+# take a protection away or keep it on, what a run did with them, and the functions that
+# decide. Their strings are read from ike/app.py of the tree being checked (protection_terms);
+# FALLBACK_TERMS also when it cannot be read.
+ENGINE_FILE = "ike/app.py"
+PROTECTION_LISTS = ("UNSAFE_SWITCHES", "NOTICE_SWITCHES", "UNSAFE_FEATURES", "UNSAFE_ENV", "LNA_FEATURES",
+                    "PRIVACY_FEATURES")
+PROTECTION_NAMES = PROTECTION_LISTS + (
+    "ENGINE_SAFETY", "_engine_safety", "unsafe_allowed", "refuse_root", "ROOT_MESSAGE", "sandbox_off",
+    "site_isolated", "engine_safety_lines", "IKE_ALLOW_UNSAFE_ENGINE", "QTWEBENGINE_DISABLE_SANDBOX",
+    "IKE_TEST_SANDBOX", "--site-per-process")
+FALLBACK_TERMS = ("--no-sandbox", "--disable-setuid-sandbox", "--disable-seccomp-filter-sandbox",
+                  "--disable-namespace-sandbox", "--disable-gpu-sandbox", "--disable-site-isolation-trials",
+                  "--disable-web-security", "--single-process", "--no-zygote", "isolateorigins",
+                  "site-per-process")
+# where the protections live: in these files every fix is refused a line that names them
+PROTECTED_CODE = ("ike/", "ike_boot.py", "launcher/")
+RUSTSEC = re.compile(r"\bRUSTSEC-\d{4}-\d{4}\b", re.I)
 FORBIDDEN_PREFIXES = (".github/", "tests/data/")      # the workflows; the tests' reference data
 FORBIDDEN_PATTERNS = ("tools/build-*.py", "tools/build-*.mjs")   # builders of what comes from others
 FORBIDDEN_SUFFIXES = (".key", ".pem", ".so", ".dll", ".exe", ".zst", ".tar", ".gz", ".zip")
@@ -185,10 +228,15 @@ def for_log(text, limit=400):
     return re.sub(r":(?=:)", ": ", text)[:limit]
 
 
-def allowed_path(path, allow_adblock):
-    """The reason a path may not be changed, or '' when it may."""
+def allowed_path(path, allow_adblock, security=False):
+    """The reason a path may not be changed, or '' when it may. security: a fix of a
+    security finding (WP6), which never changes the security tests."""
     if path.startswith("/") or ".." in Path(path).parts or path.startswith(".git/") or path == ".git":
         return "outside the repository"
+    if path == DENY_CONFIG:
+        return "protected file (an exception to a RustSec advisory is a person's, with its reason: %s)" % path
+    if security and path in SECURITY_TESTS:
+        return "protected file (a security test: a fix of a security finding never changes it)"
     if path in FORBIDDEN_FILES or path.startswith(FORBIDDEN_PREFIXES) or \
             any(fnmatch.fnmatchcase(path, p) for p in FORBIDDEN_PATTERNS):
         return "protected file"
@@ -208,7 +256,55 @@ def allowed_path(path, allow_adblock):
     return ""
 
 
-def check(repo, patch_text, allow_adblock=False):
+def protection_terms(repo):
+    """The names and strings of the engine's protections: PROTECTION_NAMES, FALLBACK_TERMS and
+    every string of ike/app.py's PROTECTION_LISTS in the tree being checked (read with Python's
+    parser, never run), so a switch added to those lists later is protected with no change here."""
+    terms = set(PROTECTION_NAMES) | set(FALLBACK_TERMS)
+    path = Path(repo) / ENGINE_FILE
+    try:
+        tree = ast.parse(path.read_text("utf-8")) if path.is_file() and not path.is_symlink() else None
+    except (OSError, SyntaxError, ValueError):
+        tree = None
+    for node in (tree.body if tree else []):
+        targets = node.targets if isinstance(node, ast.Assign) else \
+            [node.target] if isinstance(node, ast.AnnAssign) else []
+        if not any(isinstance(t, ast.Name) and t.id in PROTECTION_LISTS for t in targets):
+            continue
+        for sub in ast.walk(node.value):
+            if isinstance(sub, ast.Constant) and isinstance(sub.value, str) and len(sub.value) >= 4:
+                # "LocalNetworkAccessChecks:LocalNetworkAccessChecksWarn/false": the feature's name
+                terms.add(re.split(r"[:<=]", sub.value, maxsplit=1)[0])
+    return terms
+
+
+def protection_pattern(terms):
+    """One pattern for all the terms: each as a whole word, in any case."""
+    alts = sorted({t for t in terms if t}, key=len, reverse=True)
+    return re.compile(r"(?<![\w-])(?:%s)(?![\w-])" % "|".join(re.escape(t) for t in alts), re.I)
+
+
+def touched_protections(repo, patch_text, security=False):
+    """Lines added or removed that name an engine protection: in I.K.E.'s code (PROTECTED_CODE)
+    for every fix; in every file for a fix of a security finding, which is also refused an added
+    line naming a RustSec advisory (an exception is a person's, never an AI's)."""
+    pattern, reasons = protection_pattern(protection_terms(repo)), []
+    for current, sign, code in patch_lines(patch_text):
+        if sign not in ("+", "-"):
+            continue
+        if security or current.startswith(PROTECTED_CODE):
+            m = pattern.search(code)
+            if m:
+                reasons.append("%s: touches the engine's protections (sandbox, site isolation, ENGINE_SAFETY: "
+                               "%s): %s" % (current, m.group(0), code.strip()[:120]))
+                continue
+        if security and sign == "+" and RUSTSEC.search(code):
+            reasons.append("%s: names a RustSec advisory (an exception is a person's, in %s, with its reason): %s"
+                           % (current, DENY_CONFIG, code.strip()[:120]))
+    return reasons
+
+
+def check(repo, patch_text, allow_adblock=False, security=False):
     """The list of reasons the patch is refused (empty: accepted)."""
     reasons = []
     stat = git(repo, "apply", "--numstat", "--summary", "-", stdin=patch_text)
@@ -242,12 +338,12 @@ def check(repo, patch_text, allow_adblock=False):
             if old.startswith("tests/") or new.startswith("tests/"):
                 reasons.append("test file renamed or copied: %s => %s" % (old, new))
             else:
-                why = allowed_path(old, allow_adblock) or allowed_path(new, allow_adblock)
+                why = allowed_path(old, allow_adblock, security) or allowed_path(new, allow_adblock, security)
                 reasons.append("%s => %s: %s" % (old, new, why) if why else "renamed file: %s => %s" % (old, new))
     if not files and not reasons:
         return []
     for path in sorted(files):
-        why = allowed_path(path, allow_adblock)
+        why = allowed_path(path, allow_adblock, security)
         if why:
             reasons.append("%s: %s" % (path, why))
     if len(files) > MAX_FILES:
@@ -297,7 +393,8 @@ def check(repo, patch_text, allow_adblock=False):
     for path, balance in sorted(asserts.items()):
         if balance < 0:
             reasons.append("%s: %d assertion(s) removed" % (path, -balance))
-    return reasons + weakened_tests(patch_text) + emptied_parameters(repo, patch_text)
+    return (reasons + weakened_tests(patch_text) + emptied_parameters(repo, patch_text) +
+            touched_protections(repo, patch_text, security))
 
 
 _HUNK = re.compile(r"^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@")
@@ -569,7 +666,8 @@ SAFETY = ("outside the repository", "protected file", "third-party or generated"
           "assertion that cannot fail", "early return at the top of a test", "removes or stops tests by code",
           "carriage return inside a line", "test file renamed or copied", "reads differently",
           "return in the body of a test", "assertion moved into a block", "decorator that may replace a test",
-          "empties the parameters of a test", "behaves differently under the tests")
+          "empties the parameters of a test", "behaves differently under the tests",
+          "touches the engine's protections", "names a RustSec advisory")
 
 
 def safety_refusal(reasons):
@@ -581,6 +679,8 @@ def main(argv=None):
     ap.add_argument("--repo", default=".")
     ap.add_argument("--patch", required=True)
     ap.add_argument("--allow-adblock", action="store_true")
+    ap.add_argument("--security", action="store_true",
+                    help="a fix of a security finding (automation/update/security-*): the stricter rules")
     ap.add_argument("--report", help="write the outcome here (Markdown)")
     ap.add_argument("--related", help="files involved in the failure, one per line")
     ap.add_argument("--check-only", action="store_true", help="check, do not apply")
@@ -593,7 +693,7 @@ def main(argv=None):
         if a.report:
             Path(a.report).write_text("The agent changed nothing.\n", "utf-8")
         return 2
-    reasons = check(a.repo, patch_text, a.allow_adblock)
+    reasons = check(a.repo, patch_text, a.allow_adblock, a.security)
     related = []
     if a.related:
         try:
