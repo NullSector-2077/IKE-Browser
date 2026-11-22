@@ -8,6 +8,33 @@ from .config import DATA_DIR
 COMMIT_DELAY_MS = 2000
 
 
+def connect(path):
+    """A database of I.K.E.'s (history and bookmarks, site icons) in WAL mode
+    with synchronous=NORMAL (1.1.23, comparison with Falkon): a commit appends
+    to the -wal file and does not wait for the disk; the file is never damaged
+    by a crash or a power cut, which can at most lose the last commits (as
+    the two seconds of Deferred already could). Readers never wait for the
+    writer. A file that cannot use WAL keeps its own mode."""
+    db = sqlite3.connect(str(path))
+    try:
+        db.execute("PRAGMA journal_mode=WAL")
+        db.execute("PRAGMA synchronous=NORMAL")
+    except sqlite3.Error:
+        pass
+    return db
+
+
+def checkpoint(db):
+    """Everything of the -wal file into the database file itself, and the
+    -wal file emptied: before the file is copied (a backup) and after data is
+    deleted (nothing of it left in the -wal file)."""
+    try:
+        db.commit()
+        db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    except sqlite3.Error:
+        pass
+
+
 class Deferred:
     """Writes that happen at every page load (a visit, an icon) are committed
     together a moment later, not each on its own: a commit waits for the disk,
@@ -40,7 +67,7 @@ class Deferred:
 
 class Storage(Deferred):
     def __init__(self, path=None):
-        self.db = sqlite3.connect(str(path or DATA_DIR / "ike.sqlite"))
+        self.db = connect(path or DATA_DIR / "ike.sqlite")
         self.db.executescript(
             """
             CREATE TABLE IF NOT EXISTS history(
@@ -101,11 +128,11 @@ class Storage(Deferred):
 
     def delete_history(self, url):
         self.db.execute("DELETE FROM history WHERE url=?", (url,))
-        self.db.commit()
+        checkpoint(self.db)              # nothing of it left in the -wal file
 
     def clear_history(self):
         self.db.execute("DELETE FROM history")
-        self.db.commit()
+        checkpoint(self.db)
 
     # --- bookmarks ---------------------------------------------------
     def add_bookmark(self, url, title, folder=""):

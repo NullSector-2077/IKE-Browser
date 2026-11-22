@@ -351,6 +351,39 @@ FP_SCRIPT = "content"
 MEDIA_SCRIPT = "content-2"
 
 
+# 1.1.23 (comparison with Falkon): where the engine runs a profile script.
+# A blocked frame shows the engine's own error page (chrome-error://), which
+# no page can reach: the scripts protect nothing there, and every blocked ad
+# frame paid for all of them (-25 % of the load time of a page with 20
+# blocked frames). The scripts of a site (its list scriptlets, the video
+# sites' scripts) are compiled only in documents of that site and in the
+# empty frames that take their parent's site; their own check of the host
+# stays, as a second guard. Qt reads these lines wherever they are in the
+# script: they go at its end, so the line numbers of the script, which an
+# error's stack shows, stay as they were.
+ERROR_PAGES = "chrome-error://*"
+EMPTY_FRAMES = ("about:blank*", "about:srcdoc*")
+
+
+def host_globs(host, subdomains=False):
+    """The addresses of one host, as Qt's @include patterns: any scheme and
+    port, with or without a user name (the script still checks the host)."""
+    out = []
+    for h in ([host, "*." + host] if subdomains else [host]):
+        for head in ("*://", "*://*@"):
+            out += [head + h + "/*", head + h + ":*/*"]
+    return out
+
+
+def limited(source, include=()):
+    """source with the header that tells the engine where it runs: never in an
+    error page, and only at the addresses of `include` when it is given."""
+    lines = ["", "// ==UserScript=="]
+    lines += ["// @include " + g for g in include]
+    lines += ["// @exclude " + ERROR_PAGES, "// ==/UserScript==", ""]
+    return source + "\n".join(lines)
+
+
 def one_language(cfg):
     """The Accept-Language of Strict: the first language in use, and its base
     language after it, as Chrome sends one language ("it-IT,it;q=0.9")."""
@@ -1165,8 +1198,8 @@ class Shields(QObject):
                 m = QWebEngineScript()
                 m.setName(MEDIA_SCRIPT)
                 sites = [str(h).lower().strip(".") for h in cfg.get("media_sites") or [] if h]
-                m.setSourceCode(self._media_src.replace("__IKE_MEDIA_TOKEN__", self.media_token(p))
-                                .replace("__IKE_MEDIA_SITES__", json.dumps(sites)))
+                m.setSourceCode(limited(self._media_src.replace("__IKE_MEDIA_TOKEN__", self.media_token(p))
+                                        .replace("__IKE_MEDIA_SITES__", json.dumps(sites))))
                 m.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
                 m.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
                 m.setRunsOnSubFrames(True)
@@ -1217,7 +1250,7 @@ class Shields(QObject):
                       "psl": psl_codes()}
             s = QWebEngineScript()
             s.setName(FP_SCRIPT)
-            s.setSourceCode(self._fp_src.replace("__IKE_CFG__", json.dumps(fp_cfg)))
+            s.setSourceCode(limited(self._fp_src.replace("__IKE_CFG__", json.dumps(fp_cfg))))
             s.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
             s.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
             s.setRunsOnSubFrames(True)
@@ -1230,8 +1263,8 @@ class Shields(QObject):
                     continue
                 c = QWebEngineScript()
                 c.setName("ike-consent")
-                c.setSourceCode(self._consent_src.replace(
-                    "__IKE_CFG__", json.dumps({"off": off})))
+                c.setSourceCode(limited(self._consent_src.replace(
+                    "__IKE_CFG__", json.dumps({"off": off}))))
                 c.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentReady)
                 c.setWorldId(QWebEngineScript.ScriptWorldId.ApplicationWorld)
                 c.setRunsOnSubFrames(True)
@@ -1246,10 +1279,12 @@ class Shields(QObject):
     SITE_SCRIPTS_MAX = 24
 
     @staticmethod
-    def _script(name, source, main_world, subframes=True):
+    def _script(name, source, main_world, subframes=True, include=()):
+        """A profile script that runs from the document's first instant; never
+        in an error page, and only at the addresses of `include` when given."""
         s = QWebEngineScript()
         s.setName(name)
-        s.setSourceCode(source)
+        s.setSourceCode(limited(source, include))
         s.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
         s.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld if main_world
                      else QWebEngineScript.ScriptWorldId.ApplicationWorld)
@@ -1290,15 +1325,22 @@ class Shields(QObject):
         if not hosts:
             return
         code = self.blocker.scriptlets.host_scripts(hosts)
+        # 1.1.23 (the owner's OK): compiled only on the video sites' own hosts
+        # and in their empty frames, which take their parent's host
+        on_hosts = [g for h in hosts for g in host_globs(h)] + list(EMPTY_FRAMES)
         if code["MAIN"]:
-            scripts.insert(self._script("ike-video-main", code["MAIN"], True))
+            scripts.insert(self._script("ike-video-main", code["MAIN"], True, include=on_hosts))
         if code["ISOLATED"]:
-            scripts.insert(self._script("ike-video-iso", code["ISOLATED"], False))
+            scripts.insert(self._script("ike-video-iso", code["ISOLATED"], False, include=on_hosts))
         if self.config["video_ad_skip"]:
             bases = [b for b in self.config["video_ad_skip_hosts"] if self._ads_on("www." + b)]
+            # the player's fallback: the sites and their subdomains (it does
+            # nothing in an empty frame, which has no host of its own); the
+            # relay below runs in the top page of any site that embeds a
+            # player, so it is limited to no host
             scripts.insert(self._script(
                 "ike-videoads", self._videoads_src.replace("__IKE_VA__", json.dumps({"hosts": bases})),
-                False))
+                False, include=[g for b in bases for g in host_globs(b, subdomains=True)]))
             scripts.insert(self._script(
                 "ike-video-relay", self._videorelay_src.replace("__IKE_VIDEO_HOSTS__", json.dumps(bases)),
                 False, False))
@@ -1330,10 +1372,13 @@ class Shields(QObject):
         if not (code["MAIN"] or code["ISOLATED"]):
             return
         scripts = profile.scripts()
+        # only in this host's documents and its empty frames (1.1.23): the
+        # other sites' scriptlets were compiled in every page and frame
+        on_host = host_globs(host) + list(EMPTY_FRAMES)
         if code["MAIN"]:
-            scripts.insert(self._script("ike-sl-main:" + host, code["MAIN"], True))
+            scripts.insert(self._script("ike-sl-main:" + host, code["MAIN"], True, include=on_host))
         if code["ISOLATED"]:
-            scripts.insert(self._script("ike-sl-iso:" + host, code["ISOLATED"], False))
+            scripts.insert(self._script("ike-sl-iso:" + host, code["ISOLATED"], False, include=on_host))
         lru.append(host)
         while len(lru) > self.SITE_SCRIPTS_MAX:
             gone = lru.pop(0)
