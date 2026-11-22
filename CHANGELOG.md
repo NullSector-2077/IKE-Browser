@@ -2,6 +2,14 @@
 
 ## 1.1.23
 
+- **The application icon can be read when it is small**: at 16, 22, 24, 32,
+  48 and 64 px (the panel, the title bar, the task switcher, the menus) the
+  shield is drawn again for each size's own pixels, the same shield, colours
+  and plate, with larger, bolder letters on whole pixels (at 16 px "IKE", no
+  room for the dots), instead of the large logo shrunk to a grey smudge. They
+  are installed in the icon theme (hicolor) and the window icon carries them
+  all; 128 px and larger and the scalable logo are unchanged
+  (`tools/make-small-icons.py`, tests/test_brand.py).
 - uBlock Origin scriptlets: 2bc679d99a (2026-11-10) -> 5934db2a04 (2026-11-21) (1 changed, 0 new, 0 removed)
 - Rust crates of the AdBlock engine: 88 crates -> 88 crates (psl 2.1.253 -> 2.1.261; regex 1.13.1 -> 1.13.2; regex-automata 0.4.18 -> 0.4.19; regex-syntax 0.8.11 -> 0.8.12; smallvec 1.16.5 -> 1.16.6)
 - Dark Reader (engine and lists): 4.9.135, lists 30e8a10e65 (2026-11-16) -> 4.9.135, lists 16a1eccbfa (2026-11-21) (lists changed)
