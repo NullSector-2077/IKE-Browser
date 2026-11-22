@@ -1359,3 +1359,31 @@ def test_the_vulnerability_sources_are_documented():
         assert word in doc, word
     assert vulns.OSV_BATCH_URL.startswith("https://api.osv.dev/")
     assert vulns.ARCH_TRACKER_URL.startswith("https://security.archlinux.org/")
+
+
+def test_a_run_that_never_ran_does_not_hide_the_real_one():
+    """#107 (2026-11-22): the automation's dispatched Tests run passed; a "pull_request" run of the
+    same commit, created in the same second with a higher id, waited for approval and never ran
+    ("action_required", no jobs). It was taken as the newest run and every category read "not run".
+    A run still in progress stays the newest: a newer real run in progress still wins."""
+    sha = "8920f0182891080fb229a0b3a8b55ed8055da73b"
+    real = {"id": 45035583278, "head_sha": sha, "status": "completed", "conclusion": "success",
+            "created_at": "2026-11-22T14:56:55Z", "html_url": "u1", "event": "workflow_dispatch"}
+    never = {"id": 45035583918, "head_sha": sha, "status": "completed", "conclusion": "action_required",
+             "created_at": "2026-11-22T14:56:55Z", "html_url": "u2", "event": "pull_request"}
+    jobs = {real["id"]: [{"id": 1, "name": "tests", "status": "completed", "conclusion": "success",
+                          "steps": [{"name": "Lint", "conclusion": "success"}]}], never["id"]: []}
+
+    def api(runs):
+        def call(path):
+            if "/runs?" in path:
+                return {"workflow_runs": runs}
+            return {"jobs": jobs.get(int(path.split("/runs/")[1].split("/")[0]), [])}
+        return call
+    info = ledger_tool.run_info("o/r", "tests.yml", api([real, never]), sha=sha)
+    assert info["id"] == real["id"] and info["jobs"]["tests"]["steps"]["Lint"] == "success"
+    assert ledger_tool.run_info("o/r", "tests.yml", api([never]), sha=sha) is None      # nothing ran
+    # a newer real run still in progress wins over the finished one
+    running = dict(real, id=45035999999, status="in_progress", conclusion=None, created_at="2026-11-22T16:00:00Z")
+    jobs[running["id"]] = []
+    assert ledger_tool.run_info("o/r", "tests.yml", api([real, never, running]), sha=sha)["id"] == running["id"]
