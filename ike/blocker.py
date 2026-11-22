@@ -87,7 +87,7 @@ BUILTIN_RULES = """\
 """
 _DOMAIN_RULE = re.compile(r"^\|\|([a-z0-9.-]+)\^(\$third-party|\$3p)?$")
 # "@@" first: the search jumps from one "@@" to the next instead of trying
-# every position of the lists' 5 MB (1.1.22: 31-53 ms -> a few); a match that
+# every position of the lists' 5 MB (1.1.22: 31-33 ms -> 7-10 ms); a match that
 # does not start a line is given back unchanged, so the lines changed are those
 # of the former "^@@.*\$.*\b(?:ghide|generichide)\b.*$" (re.M).
 _GHIDE = re.compile(r"@@[^\n]*\$[^\n]*\b(?:ghide|generichide)\b[^\n]*")
