@@ -1874,8 +1874,15 @@ class LanguageDownloadDialog(QDialog):
         req.setAttribute(QNetworkRequest.Attribute.RedirectPolicyAttribute,
                          QNetworkRequest.RedirectPolicy.NoLessSafeRedirectPolicy)
         reply = self.app.network.get(req)
+        # the download belongs to the window: closed before the answer, the
+        # request goes with it, and a late answer touches nothing of it (1.1.21:
+        # a window closed while the list was coming wrote to a deleted label)
+        reply.setParent(self)
 
         def finished():
+            from PyQt6 import sip
+            if sip.isdeleted(self) or sip.isdeleted(reply):
+                return
             ok = reply.error() == QNetworkReply.NetworkError.NoError
             data = bytes(reply.readAll()) if ok else None
             reply.deleteLater()
