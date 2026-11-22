@@ -287,7 +287,7 @@ def steps(ike, qapp, out):
             return False
     watch = Paints()
     win.installEventFilter(watch)
-    out["opaque"] = win.nav.autoFillBackground()
+    out["opaque"] = [win.nav.opaque, win.nav.autoFillBackground()]
     # a button of the toolbar repainted (its hover, the cursor of the
     # address field): the window behind the toolbar is not painted again
     from PyQt6.QtWidgets import QToolButton
@@ -313,7 +313,7 @@ def steps(ike, qapp, out):
 
 def test_the_toolbar_stops_repaints_and_the_count_rises_at_30_pictures(run_ike):
     out = run_ike(TOOLBAR, env={"IKE_REDUCED_MOTION": "0"})
-    assert out["opaque"] is True, out                    # Fusion (offscreen): a flat window
+    assert out["opaque"] == [True, False], out          # Fusion (offscreen): a flat window; nothing set on it
     assert out["window_paints"] == 0, out
     assert out["colours"][0] == out["colours"][1], out
     frames, seconds = out["count"]

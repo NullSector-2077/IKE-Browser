@@ -526,6 +526,9 @@ class WindowFeatures:
             if not btn.property("ikeMenuClickConnected"):
                 btn.clicked.connect(btn.showMenu)
                 btn.setProperty("ikeMenuClickConnected", True)
+            if not btn.property("ike_no_arrow"):
+                btn.setProperty("ike_no_arrow", True)         # its icon only (1.1.23, polish.RoundHoverStyle)
+                btn.updateGeometry()
         # what did not fit is listed under the » button
         shown = layout.shown(LEFT) + layout.shown(RIGHT)
         self.more_menu.clear()

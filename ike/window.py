@@ -143,6 +143,30 @@ class FindBar(QWidget):
             super().keyPressEvent(event)
 
 
+class NavBar(QToolBar):
+    """The navigation toolbar. Where the window's background is one flat
+    colour, it paints that colour itself and is opaque to Qt (1.1.23): a
+    repaint of one of its buttons (a hover, the cursor of the address field,
+    the "+N" of the shield) stops at the toolbar instead of repainting the
+    window behind it. Its look and its palette are the same (nothing is set
+    on it: "follow the system" touches nothing)."""
+
+    opaque = False
+
+    def set_opaque(self, on):
+        self.opaque = bool(on)
+        self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, self.opaque)
+        self.update()
+
+    def paintEvent(self, event):
+        if self.opaque:
+            from PyQt6.QtGui import QPainter, QPalette
+            p = QPainter(self)
+            p.fillRect(event.rect(), self.palette().brush(QPalette.ColorRole.Window))
+            p.end()
+        super().paintEvent(event)
+
+
 class BookmarksBar(QToolBar):
     """The bookmarks in a row. Those that do not fit stay out of the row and are
     listed, one under the other, in the menu of a "»" button at the right end."""
@@ -424,7 +448,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
 
     def _build_toolbar(self):
         SP = QStyle.StandardPixmap
-        tb = QToolBar(T("Navigation"), self)
+        tb = NavBar(T("Navigation"), self)
         tb.setObjectName("nav")
         tb.setMovable(False)
         tb.setIconSize(QSize(24, 24))         # a little larger than Qt's usual 22: easier to see (1.1.6)
@@ -584,6 +608,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.menu_btn.setIcon(icon(("application-menu", "open-menu-symbolic"), SP.SP_TitleBarMenuButton))
         self.menu_btn.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
         self.menu_btn.clicked.connect(self.menu_btn.showMenu)
+        self.menu_btn.setProperty("ike_no_arrow", True)       # its icon only (1.1.23, polish.RoundHoverStyle)
         self.menu_btn.setToolTip(T("Menu"))
         # buttons that do not fit in a narrow window (see _fit_urlbar)
         self.more_btn = QToolButton(self)
@@ -2664,12 +2689,13 @@ class BrowserWindow(WindowFeatures, QMainWindow):
 
     def _opaque_toolbar(self):
         if getattr(self, "_themed", False):
-            return                            # an I.K.E. theme fills its bars already (themes.py)
+            self.nav.set_opaque(False)        # an I.K.E. theme fills its bars itself (themes.py)
+            return
         from PyQt6.QtWidgets import QApplication
         style = QApplication.style()
         base = style.baseStyle() if hasattr(style, "baseStyle") else style
         name = (base.name() if base is not None else "").lower()
-        self.nav.setAutoFillBackground(name in self.FLAT_STYLES)
+        self.nav.set_opaque(name in self.FLAT_STYLES)
 
     def changeEvent(self, event):
         if event.type() == QEvent.Type.WindowStateChange:

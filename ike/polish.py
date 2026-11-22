@@ -1276,7 +1276,46 @@ class RoundHoverStyle(QProxyStyle):
     highlight in the theme's colour, a rectangle with rounded corners and a
     faint fading outline, comes in and goes (its level is the button's
     "ike_hover" property, set by HoverGlides). The window buttons keep their
-    own round one."""
+    own round one.
+
+    1.1.23 (the owner): a button whose menu opens with a click (the ☰ menu,
+    dark mode for pages: their property "ike_no_arrow") shows its icon only,
+    with no arrow and no part of its own for one, in every widget style: the
+    style is given the button as one without a menu, and the arrow's part is
+    empty, so a click anywhere on it does what a click on its main part did."""
+
+    NO_ARROW = "ike_no_arrow"
+
+    @staticmethod
+    def _plain(opt, widget):
+        """A copy of the option of a button that shows no arrow, as one without a
+        menu (the given option itself is never changed nor read further)."""
+        from PyQt6.QtWidgets import QStyleOptionToolButton
+        if widget is None or not widget.property(RoundHoverStyle.NO_ARROW) \
+                or not isinstance(opt, QStyleOptionToolButton):
+            return opt
+        o = QStyleOptionToolButton(opt)
+        F = QStyleOptionToolButton.ToolButtonFeature
+        o.features &= ~(F.HasMenu | F.MenuButtonPopup | F.PopupDelay)
+        return o
+
+    def pixelMetric(self, metric, opt=None, widget=None):
+        if metric == QStyle.PixelMetric.PM_MenuButtonIndicator and widget is not None \
+                and widget.property(self.NO_ARROW):
+            return 0
+        return super().pixelMetric(metric, opt, widget)
+
+    def sizeFromContents(self, ct, opt, size, widget=None):
+        if ct == QStyle.ContentsType.CT_ToolButton:
+            opt = self._plain(opt, widget)
+        return super().sizeFromContents(ct, opt, size, widget)
+
+    def subControlRect(self, cc, opt, sc, widget=None):
+        if cc == QStyle.ComplexControl.CC_ToolButton and widget is not None and widget.property(self.NO_ARROW):
+            if sc == QStyle.SubControl.SC_ToolButtonMenu:
+                return QRect()
+            opt = self._plain(opt, widget)
+        return super().subControlRect(cc, opt, sc, widget)
 
     def drawComplexControl(self, cc, opt, p, widget=None):
         from PyQt6.QtWidgets import QStyleOptionToolButton
@@ -1305,7 +1344,7 @@ class RoundHoverStyle(QProxyStyle):
         focus = keyboard_focus(widget, opt)
         if focus:                    # reached with Tab: Breeze's ring, 2 px outside the shape
             focus_ring(p, r.adjusted(-2, -2, 2, 2), widget.palette(), radius + 2)
-        o = QStyleOptionToolButton(opt)
+        o = QStyleOptionToolButton(self._plain(opt, widget))
         if focus:
             o.state &= ~QStyle.StateFlag.State_HasFocus
         # the desktop's own hover frame and the pressed frame give way to the round one;

@@ -1,0 +1,151 @@
+"""How the menus and the menu buttons look (1.1.23, the owner on KDE Plasma).
+
+- The ☰ menu button and the dark mode button of the toolbar show their icon
+  only, with no arrow and no part of their own for one, in every widget style
+  that is installed (Breeze, Fusion, Windows, Oxygen, Kvantum): as wide as a
+  plain icon button, and a click anywhere on them opens their menu as before.
+- In every menu (the ☰ menu, its "More" and the menus under it, the menu
+  bar's, the tab menu) the texts of all entries start at the same x, in
+  every style and in Italian and English.
+
+The x where an entry's text starts is found in pictures of the open menu:
+the entry drawn with its text and without it.
+"""
+
+import pytest
+from conftest import screen
+
+STYLES = ["Breeze", "Fusion", "Windows", "Oxygen", "kvantum"]
+
+BUTTONS = r'''
+from PyQt6.QtCore import QPoint, Qt, QTimer
+from PyQt6.QtTest import QTest
+from PyQt6.QtWidgets import QApplication, QStyle, QStyleOptionToolButton
+
+def steps(ike, qapp, out):
+    win = ike.windows[0]
+    win.resize(1300, 800)
+    ike.config["toolbar_hidden"] = [k for k in ike.config["toolbar_hidden"] if k != "dark"]
+    win._apply_toolbar()
+    yield 800
+    st = qapp.style()
+    out["style"] = st.baseStyle().name() if hasattr(st, "baseStyle") else st.name()
+    plain = win.nav.widgetForAction(win.act_reload)
+    dark = win.nav.widgetForAction(win.act_dark)
+    out["plain"] = [plain.sizeHint().width(), plain.sizeHint().height()]
+    res = {}
+    for name, b, menu in (("menu", win.menu_btn, win.burger), ("dark", dark, win.m_dark)):
+        opt = QStyleOptionToolButton()          # as QToolButton makes it for a button with a menu
+        opt.initFrom(b)
+        F = QStyleOptionToolButton.ToolButtonFeature
+        opt.features = F.HasMenu | F.MenuButtonPopup
+        opt.subControls = QStyle.SubControl.SC_ToolButton | QStyle.SubControl.SC_ToolButtonMenu
+        part = b.style().subControlRect(QStyle.ComplexControl.CC_ToolButton, opt,
+                                        QStyle.SubControl.SC_ToolButtonMenu, b)
+        clicks = []
+        for x in (b.width() // 2, b.width() - 3):
+            seen = {}
+            def look(m=menu, s=seen):
+                s["open"] = m.isVisible()
+                m.hide()
+            QTimer.singleShot(400, look)
+            QTest.mouseClick(b, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, QPoint(x, b.height() // 2))
+            for _ in range(20):
+                if "open" in seen:
+                    break
+                yield 50
+            clicks.append(seen.get("open", False))
+        res[name] = {"size": [b.sizeHint().width(), b.sizeHint().height()], "arrow_part": part.isValid(),
+                     "clicks": clicks, "mode": b.popupMode().name}
+    out["buttons"] = res
+'''
+
+
+@pytest.mark.parametrize("style", STYLES)
+def test_menu_buttons_show_their_icon_only(run_ike, tmp_path, style):
+    env = dict(screen(tmp_path, 1366, 768), QT_STYLE_OVERRIDE=style)
+    out = run_ike(BUTTONS, env=env, timeout=200)
+    if style.lower() not in (out["style"] or "").lower():
+        pytest.skip("the %s style is not installed here (got %r)" % (style, out["style"]))
+    for name, got in out["buttons"].items():
+        assert got["size"] == out["plain"], (style, name, got, out["plain"])     # no room for an arrow
+        assert got["arrow_part"] is False, (style, name, got)
+        assert got["clicks"] == [True, True], (style, name, got)                 # a click opens the menu
+        assert got["mode"] == "MenuButtonPopup", got                             # long press: as before
+
+
+ALIGN = r'''
+from PyQt6.QtCore import QPoint
+
+def text_lefts(menu, settle):
+    """{entry: x where its text starts} for the entries of the open menu."""
+    out = {}
+    for a in menu.actions():
+        if a.isSeparator() or not a.isVisible() or not a.text():
+            continue
+        r = menu.actionGeometry(a)
+        if r.isEmpty():
+            continue
+        with_text = menu.grab(r).toImage()
+        text = a.text()
+        a.setText("")
+        yield from settle()
+        without = menu.grab(r).toImage()
+        a.setText(text)
+        yield from settle()
+        xs = [x for x in range(min(with_text.width(), without.width()))
+              for y in range(min(with_text.height(), without.height()))
+              if with_text.pixel(x, y) != without.pixel(x, y)]
+        if xs:
+            out[text.replace("&", "")] = min(xs)
+    return out
+
+def steps(ike, qapp, out):
+    win = ike.windows[0]
+    win.resize(1300, 800)
+    yield 800
+    st = qapp.style()
+    out["style"] = st.baseStyle().name() if hasattr(st, "baseStyle") else st.name()
+
+    def settle():
+        for _ in range(3):
+            qapp.processEvents()
+            yield 10
+
+    menus = [("☰", win.burger)]
+    more = [a.menu() for a in win.burger.actions() if a.menu() is not None]
+    for m in more:
+        menus.append(("☰ > " + m.title(), m))
+        for a in m.actions():
+            if a.menu() is not None:
+                menus.append(("☰ > %s > %s" % (m.title(), a.menu().title()), a.menu()))
+    res = {}
+    seen = set()
+    for where, m in menus:
+        if id(m) in seen:
+            continue
+        seen.add(id(m))
+        m.popup(win.mapToGlobal(QPoint(40, 40)))
+        yield from settle()
+        yield 150
+        lefts = yield from text_lefts(m, settle)
+        m.hide()
+        yield from settle()
+        if lefts:
+            res[where] = lefts
+    out["menus"] = res
+'''
+
+
+@pytest.mark.parametrize("lang", ["en", "it"])
+@pytest.mark.parametrize("style", STYLES)
+def test_menu_texts_share_one_left_edge(run_ike, tmp_path, style, lang):
+    env = dict(screen(tmp_path, 1366, 768), QT_STYLE_OVERRIDE=style)
+    out = run_ike(ALIGN, env=env, settings={"language": lang}, timeout=400)
+    if style.lower() not in (out["style"] or "").lower():
+        pytest.skip("the %s style is not installed here (got %r)" % (style, out["style"]))
+    bad = {}
+    for where, lefts in out["menus"].items():
+        if len(set(lefts.values())) > 1:
+            bad[where] = lefts
+    assert out["menus"] and not bad, (style, lang, bad)
