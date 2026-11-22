@@ -893,21 +893,33 @@ class Shields(QObject):
         e = self.config.engine(engine)
         return e["url"].replace("{q}", quote(query, safe=""))
 
-    def newtab_html(self):
-        from .i18n import T
-        e = self.config.engine()
-        html = self._newtab_src
+    def newtab_palette(self):
+        """The colours of the new tab page: the interface's, or the I.K.E.
+        theme's behind I.K.E.'s own (dark) photo on a light interface."""
         from PyQt6.QtGui import QGuiApplication, QPalette
 
         from . import newtabbg
         pal = QGuiApplication.palette()
-        R = QPalette.ColorRole
         if newtabbg.is_default(self.config) and newtabbg.current(self.config) is not None \
-                and pal.color(R.Window).lightnessF() >= 0.5:
+                and pal.color(QPalette.ColorRole.Window).lightnessF() >= 0.5:
             # I.K.E.'s own photo is dark: on a light interface the page takes the
             # colours of the I.K.E. theme, so that its text stays readable on it
             from . import themes
             pal = themes.palette(themes.BUILTIN["ike"])
+        return pal
+
+    def newtab_background(self):
+        """The colour the new tab page paints first (its --bg)."""
+        from PyQt6.QtGui import QPalette
+        return self.newtab_palette().color(QPalette.ColorRole.Window)
+
+    def newtab_html(self):
+        from .i18n import T
+        e = self.config.engine()
+        html = self._newtab_src
+        from PyQt6.QtGui import QPalette
+        pal = self.newtab_palette()
+        R = QPalette.ColorRole
         colors = {"{{bg}}": pal.color(R.Window), "{{fg}}": pal.color(R.WindowText),
                   "{{card}}": pal.color(R.Base), "{{acc}}": pal.color(R.Highlight),
                   "{{line}}": pal.color(R.Mid), "{{mute}}": pal.color(R.PlaceholderText)}
