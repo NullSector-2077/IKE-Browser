@@ -57,7 +57,7 @@ package() {
   # desktop integration
   install -Dm644 data/ike-browser.desktop "$pkgdir/usr/share/applications/ike-browser.desktop"
   local size
-  for size in 48 64 128 256 512; do
+  for size in 16 22 24 32 48 64 128 256 512; do
     install -Dm644 "data/icons/ike-browser-$size.png" \
         "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/ike-browser.png"
   done

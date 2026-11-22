@@ -39,7 +39,7 @@ release (`v<version>`).
 | Dark Reader 4.9.135 (Dark Reader Ltd; engine, its style-sheet proxy, and the lists of its extension: site fixes, dark sites, detector hints) | `ike/resources/darkreader.js`, `darkreader-proxy.js`, `darkreader-data.json`, built and adapted for I.K.E. by `tools/build-darkreader.py` from the npm package `darkreader` and the lists of https://github.com/darkreader/darkreader (see the tool for what changes) | MIT | `LICENSE.darkreader` (identical to the LICENSE of the npm package 4.9.135 and of the repository) | copyright notice and licence text |
 | Lucide icons | `ike/resources/icons/sets/lucide` | ISC (parts from Feather, MIT, as its licence file says) | `LICENSE.lucide` (identical to https://github.com/lucide-icons/lucide) | copyright notices and licence text |
 | Phosphor Icons (fill and bold weights, @phosphor-icons/core 2.1.1) | `ike/resources/icons/sets/phosphor`, `ike/resources/icons/sets/phosphor-bold` | MIT | `LICENSE.phosphor` (the LICENSE of @phosphor-icons/core 2.1.1; line endings differ) | copyright notice and licence text |
-| Orbitron 2.001 (typeface, The Orbitron Project Authors) | only the lettering of the logo and of the full name, drawn as paths in `ike/resources/ike.svg`, `ike/resources/wordmark.svg` and the icons of `data/icons` (`tools/make-brand.py`); **no font file is shipped** | SIL Open Font License 1.1 | `LICENSE.orbitron` (identical to `ofl/orbitron/OFL.txt` of https://github.com/google/fonts) | outlines drawn with a font are artwork, not the Font Software; the licence and copyright are kept anyway |
+| Orbitron 2.001 (typeface, The Orbitron Project Authors) | only the lettering of the logo and of the full name, drawn as paths in `ike/resources/ike.svg`, `ike/resources/wordmark.svg` and the icons of `data/icons` (`tools/make-brand.py`; the sizes up to 64 px are redrawn after it pixel by pixel, `tools/make-small-icons.py`); **no font file is shipped** | SIL Open Font License 1.1 | `LICENSE.orbitron` (identical to `ofl/orbitron/OFL.txt` of https://github.com/google/fonts) | outlines drawn with a font are artwork, not the Font Software; the licence and copyright are kept anyway |
 | New tab picture (the Earth with its network of lights) | `ike/resources/newtab-background.jpg` | made for I.K.E. by the project's owner with an AI image generator (ChatGPT or Gemini); no third-party rights are known; shipped under I.K.E.'s licence | `LICENSE` | — |
 | Fallback icons | `ike/resources/icons/fallback` | simple outline icons drawn for I.K.E. (in the repository since 1.0.0; no outside source is known); I.K.E.'s licence | `LICENSE` | — |
 
@@ -192,13 +192,13 @@ phf v0.11.3 — MIT — https://github.com/rust-phf/rust-phf
 phf_shared v0.11.3 — MIT — https://github.com/rust-phf/rust-phf
 potential_utf v0.1.6 — Unicode-3.0 — https://github.com/unicode-org/icu4x
 precomputed-hash v0.1.1 — MIT — https://github.com/emilio/precomputed-hash
-psl v2.1.253 — MIT OR Apache-2.0 — https://github.com/addr-rs/psl
+psl v2.1.261 — MIT OR Apache-2.0 — https://github.com/addr-rs/psl
 psl-types v2.0.11 — MIT OR Apache-2.0 — https://github.com/addr-rs/psl-types
 pyo3 v0.30.1 — MIT OR Apache-2.0 — https://github.com/pyo3/pyo3
 pyo3-ffi v0.30.1 — MIT OR Apache-2.0 — https://github.com/pyo3/pyo3
-regex v1.13.1 — MIT OR Apache-2.0 — https://github.com/rust-lang/regex
-regex-automata v0.4.18 — MIT OR Apache-2.0 — https://github.com/rust-lang/regex
-regex-syntax v0.8.11 — MIT OR Apache-2.0 — https://github.com/rust-lang/regex
+regex v1.13.2 — MIT OR Apache-2.0 — https://github.com/rust-lang/regex
+regex-automata v0.4.19 — MIT OR Apache-2.0 — https://github.com/rust-lang/regex
+regex-syntax v0.8.12 — MIT OR Apache-2.0 — https://github.com/rust-lang/regex
 rustc-hash v2.1.3 — Apache-2.0 OR MIT — https://github.com/rust-lang/rustc-hash
 seahash v4.1.0 — MIT — https://gitlab.redox-os.org/redox-os/seahash
 selectors v0.32.0 — MPL-2.0 — https://github.com/servo/stylo
@@ -207,7 +207,7 @@ serde_core v1.0.229 — MIT OR Apache-2.0 — https://github.com/serde-rs/serde
 serde_json v1.0.154 — MIT OR Apache-2.0 — https://github.com/serde-rs/json
 servo_arc v0.4.3 — MIT OR Apache-2.0 — https://github.com/servo/stylo
 siphasher v1.0.4 — MIT OR Apache-2.0 — https://github.com/jedisct1/rust-siphash
-smallvec v1.16.5 — MIT OR Apache-2.0 — https://github.com/servo/rust-smallvec
+smallvec v1.16.6 — MIT OR Apache-2.0 — https://github.com/smallvec/smallvec
 stable_deref_trait v1.2.1 — MIT OR Apache-2.0 — https://github.com/storyyeller/stable_deref_trait
 thiserror v1.0.69 — MIT OR Apache-2.0 — https://github.com/dtolnay/thiserror
 tinystr v0.8.5 — Unicode-3.0 — https://github.com/unicode-org/icu4x
