@@ -392,3 +392,23 @@ def test_switch_screenshots(run_ike, tmp_path, scheme):
               .replace("LANGS", repr(langs)))
     out = run_ike(script, settings={"ui_scheme": scheme}, env=screen(tmp_path, 1920, 1200), timeout=300)
     assert len(out["saved"]) == 8 * len(langs)
+
+
+def test_a_narrowed_combo_box_forgets_its_wide_minimum(run_ike):
+    """1.1.22, found with KDE's own theme in Tamil: a combo box narrowed after
+    Qt had measured it (from its longest entry) kept that wide minimum, and
+    the Settings page needed sideways scrolling."""
+    out = run_ike(r'''
+def steps(ike, qapp, out):
+    from PyQt6.QtWidgets import QComboBox
+    from ike.dialogs import SettingsDialog
+    c = QComboBox()
+    c.addItem("Dark Reader (" + "a very long explanation of this choice " * 4 + ")")
+    c.addItem("short")
+    wide = c.minimumSizeHint().width()          # measured once, as a laid-out page does
+    SettingsDialog._narrow(c)
+    out["r"] = [wide, c.minimumSize().width() or c.minimumSizeHint().width(), c.sizeHint().width()]
+    yield 10
+''', timeout=60)
+    wide, minimum, hint = out["r"]
+    assert minimum <= hint < wide / 2, out["r"]

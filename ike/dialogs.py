@@ -242,6 +242,7 @@ def _row(form, label, field, hint=None):
 class SettingsDialog(QDialog):
     # The pages, in the order of the sidebar (1.1.20). Their names are what
     # open_settings(page) takes; the names of earlier versions still work.
+    WIDE_COMBO = 300      # px: a combo box with an entry wider than this is narrowed (_narrow)
     PAGES = ["general", "language", "appearance", "newtab", "search", "protection", "privacy",
              "extensions", "downloads", "updates", "system"]
     ALIASES = {"components": "extensions", "userscripts": "extensions"}
@@ -292,7 +293,7 @@ class SettingsDialog(QDialog):
                        T("The search engines of the address bar and of the new tab page.")),
             "protection": (self._protection, ("security-high", "preferences-security"),
                            T("What I.K.E. blocks: ads, trackers, fingerprinting and unsafe connections.")),
-            "privacy": (self._privacy, ("preferences-system-privacy", "view-private"),
+            "privacy": (self._privacy, ("view-private", "preferences-system-privacy"),
                         T("What is kept on this computer, and what sites are allowed to use.")),
             "extensions": (self._extensions, ("preferences-plugin", "application-x-addon"),
                            T("Features that come with I.K.E. Switch on only the ones you want.")),
@@ -319,6 +320,14 @@ class SettingsDialog(QDialog):
             self.stack.addWidget(area)
         self.nav.setFixedWidth(widest + 22 + 46)
         for combo in self.findChildren(QComboBox):
+            # any combo box whose longest entry would widen its page is narrowed
+            # (1.1.22: in Tamil with KDE's Breeze the dark-mode one needed
+            # sideways scrolling); its open list still shows every entry whole
+            if not combo.property("ike_elides") and not combo.isEditable() and combo.count():
+                fm = combo.fontMetrics()           # the entries themselves: the box's own size
+                longest = max(fm.horizontalAdvance(combo.itemText(i)) for i in range(combo.count()))
+                if longest > self.WIDE_COMBO:      # depends on the style, known only once shown
+                    self._narrow(combo)
             if combo.property("ike_elides"):
                 self._whole_list(combo)
         self.nav.currentRowChanged.connect(self._show_page)
@@ -885,6 +894,9 @@ class SettingsDialog(QDialog):
         """A combo box with long entries must not make the page wider than the window."""
         combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         combo.setMinimumContentsLength(16)
+        # Qt keeps a minimum size it worked out before (from the longest
+        # entry) after the policy changes: the narrow one is set as the minimum
+        combo.setMinimumWidth(combo.sizeHint().width())
         combo.setProperty("ike_elides", True)      # its entry may be cut short; its list shows it whole
 
     def _newtab_page(self):

@@ -66,7 +66,7 @@ def build(view, req):
         add(T("Open link in private window"),
             lambda: app.new_window(private=True, urls=[link]), "view-private")
         if not win.private and win.ext_on("containers"):
-            sub = menu.addMenu(_ic("folder-lock"), T("Open link in container"))
+            sub = menu.addMenu(_ic(("folder-locked", "folder-lock")), T("Open link in container"))
             for c in app.config["containers"]:
                 a = sub.addAction(c["name"])
                 a.triggered.connect(lambda _c=False, n=c["name"]: win.add_tab(

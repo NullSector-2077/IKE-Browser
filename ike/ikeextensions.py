@@ -56,7 +56,7 @@ EXTENSIONS = (
     _ext("translate", "Translate page", ("translate", "preferences-desktop-locale"),
          "Sends the page to a translation service, only when you ask for it.",
          "ext_translate", options="page:system", actions=("act_translate",)),
-    _ext("containers", "Containers", ("folder-lock", "tab-duplicate"),
+    _ext("containers", "Containers", ("folder-locked", "folder-lock", "tab-duplicate"),
          "Tabs with their own cookies and logins, to keep accounts apart.",
          "ext_containers", options="page:privacy", actions=("m_containers",)),
     _ext("resources", "Site resources", ("utilities-system-monitor", "configure"),

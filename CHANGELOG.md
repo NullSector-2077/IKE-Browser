@@ -18,6 +18,19 @@ Two things the owner saw in 1.1.21 on KDE Plasma:
   keep at least 2 px above and below their text (Kvantum's default theme left
   one for Persian), and in Qt's Windows style a menu's entries no longer touch
   its left side.
+- **Also when I.K.E. follows the system**: with KDE Plasma's own theme (its
+  colours, light or dark, and its fonts) and with GNOME's (GTK), every text,
+  switch and the tab preview are measured too. It found one more thing: a
+  choice list with a long entry (dark mode, in Tamil) made the Appearance
+  page wider than the window, as Qt kept a width it had measured before the
+  list was narrowed; every long choice list of the Settings is now narrowed
+  for good (its open list still shows each entry whole).
+- **On KDE, KDE's own icons only**: following the system on Plasma, every
+  icon of the interface now comes from Breeze. Three came from another theme
+  installed on the computer (the containers' lock, twice, and the Privacy
+  page); each icon now asks first for Breeze's name for the same thing, and
+  other desktops keep theirs. tests/test_icons.py opens every window and menu
+  with KDE's theme and fails on any icon that is not Breeze's own.
 - **The tab preview shows the whole memory value**: CPU and memory were side
   by side, half the card each, and "182 MB" could end in "…". They are now
   one under the other, each the card's whole width; a test checks every

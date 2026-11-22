@@ -156,25 +156,38 @@ def bundled(name, set_name=None):
     return icon
 
 
+# where each icon asked for came from: names -> ("set" | "theme" | "own" |
+# "qt" | "none", the name used). With the desktop's theme (KDE's Breeze) every
+# icon must come from it (1.1.22, the owner's rule): tests/test_icons.py
+# reads this after opening every window and menu.
+seen = {}
+
+
 def themed(names, standard=None):
     """The icon for the first usable name: shipped set (if chosen), theme, own glyph, Qt."""
     if isinstance(names, str):
         names = (names,)
+    names = tuple(names)
     if _set is not None:
         for name in names:
             ic = bundled(name, _set)
             if not ic.isNull():
+                seen[names] = ("set", name)
                 return ic
     for name in names:
         ic = QIcon.fromTheme(name)
         if not ic.isNull():
+            seen[names] = ("theme", name)
             return ic
     for last in (None, "lucide"):        # own glyphs, then the complete shipped set
         for name in names:
             ic = bundled(name, last)
             if not ic.isNull():
+                seen[names] = ("own", name)
                 return ic
     if standard is not None:
         from PyQt6.QtWidgets import QApplication
+        seen[names] = ("qt", str(standard))
         return QApplication.style().standardIcon(standard)
+    seen[names] = ("none", "")
     return QIcon()

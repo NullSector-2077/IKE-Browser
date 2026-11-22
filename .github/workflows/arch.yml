@@ -67,14 +67,15 @@ jobs:
       - name: Arch's packages
         # the package's depends, makedepends and optdepends, plus what the tests use
         # (breeze, oxygen, kvantum: the widget styles of Arch's desktops besides
-        # Qt's own; the switches are measured in each, tests/test_switches.py, 1.1.22)
+        # Qt's own, plasma-integration: KDE's own theme with its colours; the
+        # interface is measured in each, 1.1.22)
         run: |
           pacman -S --noconfirm --needed \
               python python-pyqt6 python-pyqt6-webengine qt6-webengine qt6-webchannel qt6-svg \
               python-cryptography python-jeepney publicsuffix-list python-pytest \
               base-devel rust sudo nodejs \
               ffmpeg dbus glib2 noto-fonts ttf-dejavu libnotify xdg-utils \
-              breeze oxygen kvantum
+              breeze oxygen kvantum plasma-integration breeze-icons
       # What this run really tests: pacman's versions of the components I.K.E.
       # follows (tools/check-components.py, ARCH_PACKAGES), Python, Qt, PyQt and
       # the engine's Chromium as I.K.E. reports it. Never fails the run.
@@ -116,6 +117,14 @@ jobs:
             QT_STYLE_OVERRIDE=$style python3 -m pytest -ra -q -p no:cacheprovider \
                 tests/test_text_fit.py tests/test_tabpreview.py 2>&1 | tee -a out/styles.log
           done
+          # I.K.E. following the system on KDE Plasma: KDE's theme, Breeze Dark colours
+          cp /usr/share/color-schemes/BreezeDark.colors /etc/xdg/kdeglobals
+          printf '\n[General]\nColorScheme=BreezeDark\n\n[KDE]\nwidgetStyle=Breeze\n\n[Icons]\nTheme=breeze-dark\n' >> /etc/xdg/kdeglobals
+          echo "== KDE Plasma's theme (Breeze Dark)"
+          QT_QPA_PLATFORMTHEME=kde python3 -m pytest -ra -q -p no:cacheprovider \
+              tests/test_text_fit.py tests/test_switches.py tests/test_tabpreview.py tests/test_icons.py \
+              2>&1 | tee -a out/styles.log
+          rm -f /etc/xdg/kdeglobals
       - name: Arch package (makepkg, pacman)
         run: |
           useradd -m builder

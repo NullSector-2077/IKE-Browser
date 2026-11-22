@@ -218,7 +218,7 @@ class WindowFeatures:
         them in the menu bar and in the ☰ menu (_build_menus)."""
         A = self._action
         self.m_containers = QMenu(T("New tab in container"), self)
-        self.m_containers.setIcon(_theme("folder-lock", QStyle.StandardPixmap.SP_DirIcon))
+        self.m_containers.setIcon(_theme(("folder-locked", "folder-lock"), QStyle.StandardPixmap.SP_DirIcon))
         self.m_containers.aboutToShow.connect(self._fill_containers)
         self.m_profiles = QMenu(T("Profiles"), self)
         self.m_profiles.setIcon(_theme("user-identity", QStyle.StandardPixmap.SP_DirHomeIcon))
