@@ -152,6 +152,7 @@ _HOSTED = (".github.io", ".gitlab.io", ".blogspot.com", ".herokuapp.com", ".page
 # "b.wordpress.com" were one site for the filter lists and the permissions)
 PSL_PATHS = ["/usr/share/publicsuffix/public_suffix_list.dat"]
 _PSL = []
+_PSL_FILE = []           # (cache file named after the list's size and time, its sets) of the list in use
 
 
 def _psl_cached(path):
@@ -193,9 +194,12 @@ def _psl():
     """(rules, wildcards, exceptions) of the Public Suffix List, or None."""
     if not _PSL:
         found = None
+        _PSL_FILE.clear()
         for path in PSL_PATHS:
             cache, found = _psl_cached(path)
             if found is not None:
+                if cache is not None:
+                    _PSL_FILE.append((cache, found))
                 break
             try:
                 with open(path, encoding="utf-8") as f:
@@ -218,6 +222,7 @@ def _psl():
                     found = (frozenset(rules), frozenset(wild), frozenset(exc))
                     if cache is not None:
                         _psl_keep(cache, found)
+                        _PSL_FILE.append((cache, found))
                     break
             except (OSError, UnicodeError):
                 continue
@@ -262,15 +267,46 @@ def psl_code(rule):
     return "".join(PSL_DIGITS[(v >> k) & 63] for k in (18, 12, 6, 0))
 
 
+def _psl_codes_of(psl):
+    rules, wild, exc = psl
+    names = [r for r in rules if "." in r] + ["*." + w for w in wild] + ["!" + e for e in exc]
+    return "".join(sorted({psl_code(n) for n in names}))
+
+
+# The codes are kept next to the parsed list, under the same size and time of
+# the system's file (1.1.22): working them out took about 19 ms at every
+# start, before the first page. The number changes whenever psl_code or the
+# choice of rules above changes, so an older answer is never read.
+PSL_CODES_FORMAT = 1
+
+
 def psl_codes():
     """The sorted codes of the list's rules for fingerprint.js, or "" (no list)."""
     if not _PSL_CODES:
         psl = _psl()
         out = ""
         if psl is not None:
-            rules, wild, exc = psl
-            names = [r for r in rules if "." in r] + ["*." + w for w in wild] + ["!" + e for e in exc]
-            out = "".join(sorted({psl_code(n) for n in names}))
+            kept = None
+            if _PSL_FILE and _PSL_FILE[0][1] is psl:
+                src = _PSL_FILE[0][0]
+                kept = src.with_name("pslcodes-%d-%s.txt" % (PSL_CODES_FORMAT, src.stem[len("psl-"):]))
+                try:
+                    out = kept.read_text("ascii")
+                except (OSError, ValueError):
+                    out = ""
+            # read back only whole codes of the list's own characters
+            # (strip leaves nothing when every character is one of them)
+            if not out or len(out) % 4 or out.strip(PSL_DIGITS):
+                out = _psl_codes_of(psl)
+                if kept is not None:
+                    try:
+                        for old in kept.parent.glob("pslcodes-*.txt"):
+                            old.unlink(missing_ok=True)
+                        tmp = kept.with_suffix(".tmp")
+                        tmp.write_text(out, "ascii")
+                        tmp.replace(kept)
+                    except OSError:
+                        pass
         _PSL_CODES.append(out)
     return _PSL_CODES[0]
 

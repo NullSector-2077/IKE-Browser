@@ -86,7 +86,11 @@ BUILTIN_RULES = """\
 ||static.doubleclick.net/instream/
 """
 _DOMAIN_RULE = re.compile(r"^\|\|([a-z0-9.-]+)\^(\$third-party|\$3p)?$")
-_GHIDE = re.compile(r"^@@.*\$.*\b(?:ghide|generichide)\b.*$", re.M)
+# "@@" first: the search jumps from one "@@" to the next instead of trying
+# every position of the lists' 5 MB (1.1.22: 31-53 ms -> a few); a match that
+# does not start a line is given back unchanged, so the lines changed are those
+# of the former "^@@.*\$.*\b(?:ghide|generichide)\b.*$" (re.M).
+_GHIDE = re.compile(r"@@[^\n]*\$[^\n]*\b(?:ghide|generichide)\b[^\n]*")
 
 
 def sanitize(text):
@@ -95,6 +99,8 @@ def sanitize(text):
     switch off generic element hiding everywhere. Drop the negated entries."""
     def fix(m):
         line = m.group(0)
+        if m.start() and text[m.start() - 1] != "\n":
+            return line                   # not the start of a line
         if "domain=" not in line or "~" not in line:
             return line
         head, _, tail = line.partition("domain=")
@@ -259,6 +265,64 @@ class _FallbackEngine:
         return False
 
 
+class _BuildThread:
+    """The one thread every engine build runs in, kept for the whole session
+    so the memory a build needs is reused (see Blocker._work). It does what
+    concurrent.futures' ThreadPoolExecutor(max_workers=1) did until 1.1.21
+    without importing that module, which brings in logging, traceback and,
+    on Python 3.14, dataclasses and inspect: about 15 ms of every start
+    before the window (1.1.22). submit() gives a job whose result() waits for
+    it and raises what the build raised."""
+
+    def __init__(self):
+        import queue
+        import threading
+        self._jobs = queue.SimpleQueue()
+        # a daemon, as Python waits for no thread at exit; close() waits for
+        # a build that is running then, as the pool did
+        self._thread = threading.Thread(target=self._serve, name="ike-adblock", daemon=True)
+        self._thread.start()
+
+    def _serve(self):
+        while True:
+            job = self._jobs.get()
+            if job is None:
+                return
+            job.run()
+
+    def submit(self, fn, *args):
+        job = _Job(fn, args)
+        self._jobs.put(job)
+        return job
+
+    def close(self, timeout=None):
+        """No more builds: the one running (and any waiting) ends first."""
+        self._jobs.put(None)
+        self._thread.join(timeout)
+
+
+class _Job:
+    def __init__(self, fn, args):
+        import threading
+        self._fn, self._args = fn, args
+        self._done = threading.Event()
+        self._value = self._error = None
+
+    def run(self):
+        try:
+            self._value = self._fn(*self._args)
+        except BaseException as exc:      # handed to whoever waits for it
+            self._error = exc
+        self._fn = self._args = None
+        self._done.set()
+
+    def result(self):
+        self._done.wait()
+        if self._error is not None:
+            raise self._error
+        return self._value
+
+
 def _give_back_memory():
     """Hand the memory freed by the engine just replaced back to the system
     (glibc keeps it otherwise; elsewhere nothing happens)."""
@@ -318,13 +382,21 @@ class Blocker(QObject):
                 "comp_adblock": bool(cfg["comp_adblock"]),
                 "custom": cfg["custom_filters"] or ""}
 
-    def _texts(self, snap=None):
+    @staticmethod
+    def _list_text(url, read):
+        """A list's text, its "!#if" branches already chosen; read once per
+        build for the engine and the scriptlets alike (`read` keeps it)."""
+        if url not in read:
+            read[url] = preprocess(list_path(url).read_text("utf-8", "replace"))
+        return read[url]
+
+    def _texts(self, snap=None, read=None):
         snap = snap or self._snapshot()
+        read = {} if read is None else read
         texts = []
         for entry in snap["lists"]:
             try:
-                texts.append(sanitize(preprocess(
-                    list_path(entry["url"]).read_text("utf-8", "replace"))))
+                texts.append(sanitize(self._list_text(entry["url"], read)))
             except OSError:
                 pass
         if snap["comp_adblock"]:
@@ -348,7 +420,7 @@ class Blocker(QObject):
         h.update(hashlib.sha1(BUILTIN_RULES.encode()).digest())     # I.K.E.'s own rules
         return h.hexdigest()[:20]
 
-    def _build_scriptlets(self, snap, signature):
+    def _build_scriptlets(self, snap, signature, read=None):
         """Index the "+js(...)" rules of the lists (cached next to the engine)."""
         from .scriptlets import LIBRARY, Scriptlets
         out = Scriptlets()
@@ -361,13 +433,16 @@ class Blocker(QObject):
                 return out
         except Exception:
             out.clear()
+        read = {} if read is None else read
         for entry in snap["lists"]:
             if entry.get("group") == "consent":
                 continue
             try:
-                text = list_path(entry["url"]).read_text("utf-8", "replace")
+                text = self._list_text(entry["url"], read)
             except OSError:
                 continue
+            # add_list chooses the "!#if" branches itself: on a text where
+            # they are already chosen that changes nothing
             out.add_list(text, _trusted_scriptlet_source(entry["url"]))
         if snap["custom"].strip():
             out.add_list(snap["custom"], True)
@@ -384,7 +459,8 @@ class Blocker(QObject):
         when it is there, otherwise from the lists. Reads only `snap` and the
         files, so it can run in a thread of its own."""
         engine = fallback = None
-        scriptlets = self._build_scriptlets(snap, signature)
+        read = {}                        # each list read and prepared once (1.1.22)
+        scriptlets = self._build_scriptlets(snap, signature, read)
         if adblock is not None:
             cache = CACHE_DIR / ("engine-%s-%s.dat" % (getattr(adblock, "ENGINE_VERSION", "0"), signature))
             try:
@@ -395,7 +471,7 @@ class Blocker(QObject):
             except Exception:
                 engine = None
             if engine is None:
-                texts = self._texts(snap)
+                texts = self._texts(snap, read)
                 if texts:
                     fs = adblock.FilterSet()
                     for t in texts:
@@ -419,7 +495,7 @@ class Blocker(QObject):
             if engine is not None:
                 _install_redirect_resources(engine)
         else:
-            texts = self._texts(snap)
+            texts = self._texts(snap, read)
             if texts:
                 fallback = _FallbackEngine(texts)
         return engine, fallback, scriptlets
@@ -439,8 +515,7 @@ class Blocker(QObject):
         try:
             signature, snap = self._signature(), self._snapshot()
             if self._pool is None:
-                from concurrent.futures import ThreadPoolExecutor
-                self._pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ike-adblock")
+                self._pool = _BuildThread()
             self._first = (self._pool.submit(self._build, snap, signature), signature)
         except Exception as exc:              # load() builds it as before
             self._engine_error("preparing the engine", "", exc)
@@ -477,8 +552,7 @@ class Blocker(QObject):
             self._install(self._build(snap, signature), signature)
             return
         if self._pool is None:
-            from concurrent.futures import ThreadPoolExecutor
-            self._pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ike-adblock")
+            self._pool = _BuildThread()
         self._builder = self._pool.submit(self._work, snap, signature)
 
     def _work(self, snap, signature):
@@ -491,6 +565,12 @@ class Blocker(QObject):
             self._engine_error("building the engine", "", exc)
             result = None
         self._built_sig.emit(result, signature)
+
+    def close(self):
+        """At exit: a build still running finishes (and writes its cache)
+        before Python ends, as with the thread pool of 1.1.21."""
+        if self._pool is not None:
+            self._pool.close()
 
     def _built(self, result, signature):
         self._builder = None
