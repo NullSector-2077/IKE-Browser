@@ -120,10 +120,10 @@ def test_the_build_tool(tmp_path):
                           "--config", str(cfg), "--out", str(out)], capture_output=True, text=True)
     assert run.returncode != 0 and "proxy injection" in (run.stderr + run.stdout)
     # an engine where one of the texts I.K.E. changes is missing is not half-adapted
-    (tmp_path / "changed.js").write_bytes(fake_engine(patches, skip="style-moves").encode())
+    (tmp_path / "changed.js").write_bytes(fake_engine(patches, skip="shadow-texts").encode())
     run = subprocess.run([sys.executable, str(root / "tools/build-darkreader.py"), "--lib", str(tmp_path / "changed.js"),
                           "--config", str(cfg), "--out", str(tmp_path)], capture_output=True, text=True)
-    assert run.returncode != 0 and "'style-moves'" in (run.stderr + run.stdout)
+    assert run.returncode != 0 and "'shadow-texts'" in (run.stderr + run.stdout)
     assert not (tmp_path / "darkreader.js").exists()
 
 
@@ -138,6 +138,44 @@ def test_the_engine_is_the_npm_engine_with_the_changes():
         assert engine.count(new) == 1, name
         engine = engine.replace(new, old)
     assert engine.count(tool.PROXY_EVENT) == 1
+
+
+# The families kept because their gain was measured (2026-11-21: four against
+# all of 1.1.20's changes, five more when added back to a build with fewer
+# changes), and what the families dropped for no measurable gain left in the
+# engine (their names and their "I.K.E.:" notes): none of it may come back
+# unmeasured.
+KEPT_FAMILIES = ("shadow-host-walk", "color-variables", "style-groups", "shadow-texts",
+                 "dark-copy", "shadow-styles-once", "declarations-modifiable", "variables-none",
+                 "style-moves")
+DROPPED_MARKS = (
+    "ikeSVGRect", "ikeWithSVGRects", "ikePendingSVG",                               # svg-sizes
+    "ikeSheets", "the list is changed here and set once",                         # adopted-once
+    "ikeAnyImageSelector",                                                        # image-selectors
+    "one loop, the same text as filter",                                          # inline-style-key
+    "ikeRuleText", "ikeWriteAll", "ikeGroupText",                                   # one-text
+    "ikeVarRuleTexts",                                                            # var-rule-same-text
+    "ikeMatchedSheets", "ikeNewSheet",                                             # adopted-vars-first
+)
+
+
+def test_the_engine_has_only_the_measured_changes():
+    """The shipped engine carries the changes of the nine measured families
+    and nothing of the ones dropped: every "I.K.E.:" note in it is one of a
+    kept change, each once."""
+    import re
+    from ike.config import RES_DIR
+    tool = build_tool()
+    families = {name for name, _old, _new in tool.PATCHES}
+    assert {f for f in KEPT_FAMILIES if any(n == f or n.startswith(f + "-") for n in families)} == set(KEPT_FAMILIES)
+    assert all(any(n == f or n.startswith(f + "-") for f in KEPT_FAMILIES) for n in families), families
+    engine = (RES_DIR / "darkreader.js").read_bytes().decode()
+    notes = re.findall(r"// I\.K\.E\.:[^\r\n]*", engine)
+    kept_notes = [m for _n, _o, new in tool.PATCHES for m in re.findall(r"// I\.K\.E\.:[^\n]*", new)]
+    assert notes and sorted(notes) == sorted(kept_notes) and len(set(notes)) == len(notes), notes
+    for mark in DROPPED_MARKS:
+        assert mark not in engine, mark
+        assert all(mark not in new for _n, _o, new in tool.PATCHES), mark
 
 
 # --- in the browser -------------------------------------------------------------

@@ -59,6 +59,19 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Owner's decisions
 
+- 2026-11-21, for 1.1.21: I.K.E.'s changes to Dark Reader
+  (`tools/build-darkreader.py`) stay only when their speed gain was
+  measured (larger than the spread in two runs). Kept, 9 families:
+  color-variables, style-groups, shadow-texts, shadow-host-walk (measured
+  against all of 1.1.20's changes); dark-copy with shadow-styles-once,
+  declarations-modifiable, variables-none (measured when added back to a
+  build with only the first four); style-moves (measured when added back to
+  a build with those eight). Removed, 7 families: svg-sizes, adopted-once,
+  adopted-vars-first, one-text, var-rule-same-text, image-selectors,
+  inline-style-key. The engine stays
+  closer to Dark Reader's own and its automatic updates have fewer texts to
+  match (numbers: docs/review/tests-and-performance.md, "1.1.21"). A new
+  change to Dark Reader comes in only with a measured gain.
 - 2026-11-21, for 1.1.20: menus and Settings regrouped with icons and short
   explanations, an "I.K.E. extensions" section with a switch for each;
   Ctrl+Shift+A opens the extensions; Chrome's default font families for
