@@ -164,6 +164,7 @@ def test_the_engine_has_only_the_measured_changes():
     and nothing of the ones dropped: every "I.K.E.:" note in it is one of a
     kept change, each once."""
     import re
+
     from ike.config import RES_DIR
     tool = build_tool()
     families = {name for name, _old, _new in tool.PATCHES}
