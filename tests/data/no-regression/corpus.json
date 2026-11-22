@@ -1,0 +1,784 @@
+{
+ "about": "The fixed inputs of tools/no-regression.py (docs/MAINTENANCE.md, \"Nothing gets worse\"): the default filter lists as small local fixtures, the requests run through I.K.E.'s request check at every protection level, the pages whose elements must stay hidden, and the hosts whose scriptlets are read. Read from main's copy of the tool, the same for main and for a candidate. A file of tests/data/: only a person changes it.",
+ "lists": {
+  "https://easylist.to/easylist/easylist.txt": "lists/easylist.txt",
+  "https://easylist.to/easylist/easyprivacy.txt": "lists/easyprivacy.txt",
+  "https://ublockorigin.github.io/uAssets/filters/filters.txt": "lists/ubo-filters.txt",
+  "https://ublockorigin.github.io/uAssets/filters/quick-fixes.txt": "lists/ubo-quick-fixes.txt",
+  "https://ublockorigin.github.io/uAssets/filters/privacy.txt": "lists/ubo-privacy.txt",
+  "https://ublockorigin.github.io/uAssets/filters/badware.txt": "lists/ubo-badware.txt",
+  "https://malware-filter.gitlab.io/malware-filter/urlhaus-filter-online.txt": "lists/urlhaus.txt",
+  "https://ublockorigin.github.io/uAssets/filters/unbreak.txt": "lists/ubo-unbreak.txt",
+  "https://easylist-downloads.adblockplus.org/easylistitaly.txt": "lists/easylist-italy.txt",
+  "https://secure.fanboy.co.nz/fanboy-cookiemonster.txt": "lists/fanboy-cookiemonster.txt",
+  "https://ublockorigin.github.io/uAssets/filters/annoyances-cookies.txt": "lists/ubo-cookies.txt"
+ },
+ "requests": [
+  {
+   "id": "ad-gpt",
+   "url": "https://securepubads.g.doubleclick.net/tag/js/gpt.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "ad-adsense",
+   "url": "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "ad-adnxs",
+   "url": "https://ib.adnxs.com/ut/v3/prebid",
+   "source": "https://news.example/article",
+   "type": "Xhr",
+   "method": "POST"
+  },
+  {
+   "id": "ad-amazon",
+   "url": "https://c.amazon-adsystem.com/aax2/apstag.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "ad-criteo",
+   "url": "https://bidder.criteo.com/cdb?ptv=1",
+   "source": "https://news.example/article",
+   "type": "Xhr"
+  },
+  {
+   "id": "ad-taboola",
+   "url": "https://cdn.taboola.com/libtrc/news/loader.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "ad-outbrain",
+   "url": "https://widgets.outbrain.com/outbrain.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "ad-pubmatic",
+   "url": "https://ads.pubmatic.com/AdServer/js/pwt/123/pwt.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "ad-rubicon",
+   "url": "https://fastlane.rubiconproject.com/a/api/fastlane.json",
+   "source": "https://news.example/article",
+   "type": "Xhr"
+  },
+  {
+   "id": "ad-adsrvr",
+   "url": "https://js.adsrvr.org/up_loader.1.1.0.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "ad-openx",
+   "url": "https://rtb.openx.net/openrtbb/prebidjs",
+   "source": "https://news.example/article",
+   "type": "Xhr",
+   "method": "POST"
+  },
+  {
+   "id": "ad-moat",
+   "url": "https://z.moatads.com/x/moatad.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "ad-host",
+   "url": "https://ads.example/serve?slot=1",
+   "source": "https://news.example/article",
+   "type": "Image"
+  },
+  {
+   "id": "ad-path-banner",
+   "url": "https://cdn.othersite.example/img/banner-ad.png",
+   "source": "https://news.example/article",
+   "type": "Image"
+  },
+  {
+   "id": "ad-path-ads",
+   "url": "https://images.othersite.example/ads/banner_728.jpg",
+   "source": "https://news.example/article",
+   "type": "Image"
+  },
+  {
+   "id": "ad-size",
+   "url": "https://img.othersite.example/promo-ad-300x250.gif",
+   "source": "https://news.example/article",
+   "type": "Image"
+  },
+  {
+   "id": "ad-frame",
+   "url": "https://frames.othersite.example/adframe.html",
+   "source": "https://news.example/article",
+   "type": "SubFrame"
+  },
+  {
+   "id": "ad-redirect-gpt",
+   "url": "https://www.googletagservices.com/tag/js/gpt.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "ad-same-site",
+   "url": "https://cdn.news.example/ads/slot.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "ad-exception",
+   "url": "https://cdn.news.example/ads/allowed-by-exception.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "ad-unbreak",
+   "url": "https://cdn.news.example/ads/needed-player.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "ad-popads",
+   "url": "https://c1.popads.net/pop.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "ad-popcash-page",
+   "url": "https://popcash.net/",
+   "source": "",
+   "type": "MainFrame",
+   "nav": "Link",
+   "initiator": "https://news.example/article"
+  },
+  {
+   "id": "ad-3p-script-on-popups",
+   "url": "https://cdn.thirdparty.example/lib.js",
+   "source": "https://popups.example/",
+   "type": "Script"
+  },
+  {
+   "id": "tr-ga",
+   "url": "https://www.google-analytics.com/analytics.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "tr-ga-collect",
+   "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-X",
+   "source": "https://news.example/article",
+   "type": "Ping",
+   "method": "POST"
+  },
+  {
+   "id": "tr-gtag",
+   "url": "https://www.googletagmanager.com/gtag/js?id=G-X",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "tr-gtm",
+   "url": "https://www.googletagmanager.com/gtm.js?id=GTM-X",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "tr-fbevents",
+   "url": "https://connect.facebook.net/en_US/fbevents.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "tr-fb-pixel",
+   "url": "https://www.facebook.com/tr?id=1&ev=PageView",
+   "source": "https://news.example/article",
+   "type": "Image"
+  },
+  {
+   "id": "tr-hotjar",
+   "url": "https://static.hotjar.com/c/hotjar-1.js?sv=6",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "tr-scorecard",
+   "url": "https://sb.scorecardresearch.com/beacon.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "tr-quantserve",
+   "url": "https://secure.quantserve.com/quant.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "tr-mixpanel",
+   "url": "https://api-js.mixpanel.com/track/",
+   "source": "https://news.example/article",
+   "type": "Xhr",
+   "method": "POST"
+  },
+  {
+   "id": "tr-segment",
+   "url": "https://api.segment.io/v1/t",
+   "source": "https://news.example/article",
+   "type": "Xhr",
+   "method": "POST"
+  },
+  {
+   "id": "tr-segment-ws",
+   "url": "wss://api.segment.io/socket",
+   "source": "https://news.example/article",
+   "type": "WebSocket"
+  },
+  {
+   "id": "tr-bing",
+   "url": "https://bat.bing.com/bat.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "tr-clarity",
+   "url": "https://www.clarity.ms/tag/abc",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "tr-dc-stats",
+   "url": "https://stats.g.doubleclick.net/g/collect",
+   "source": "https://news.example/article",
+   "type": "Image"
+  },
+  {
+   "id": "tr-pixel-path",
+   "url": "https://img.othersite.example/tracking-pixel.gif",
+   "source": "https://news.example/article",
+   "type": "Image"
+  },
+  {
+   "id": "tr-first-party",
+   "url": "https://news.example/analytics/collect",
+   "source": "https://news.example/article",
+   "type": "Xhr",
+   "method": "POST"
+  },
+  {
+   "id": "tr-tiktok",
+   "url": "https://analytics.tiktok.com/i18n/pixel/events.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "tr-linkedin",
+   "url": "https://snap.licdn.com/li.lms-analytics/insight.min.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "tr-service-worker",
+   "url": "https://www.google-analytics.com/analytics.js",
+   "source": "",
+   "type": "Script",
+   "initiator": "https://news.example"
+  },
+  {
+   "id": "mal-page",
+   "url": "https://malware-host.example/payload",
+   "source": "",
+   "type": "MainFrame",
+   "nav": "Link",
+   "initiator": "https://news.example/article"
+  },
+  {
+   "id": "mal-ip",
+   "url": "http://192.0.2.55/x.exe",
+   "source": "https://news.example/article",
+   "type": "SubResource"
+  },
+  {
+   "id": "bad-page",
+   "url": "https://badware-download.example/setup",
+   "source": "",
+   "type": "MainFrame",
+   "nav": "Link",
+   "initiator": "https://news.example/article"
+  },
+  {
+   "id": "bad-script",
+   "url": "https://fake-updates.example/update.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "cn-cookielaw",
+   "url": "https://cdn.cookielaw.org/scripttemplates/otSDKStub.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "cn-cookiebot",
+   "url": "https://consent.cookiebot.com/uc.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "cn-iubenda",
+   "url": "https://cdn.iubenda.com/cs/iubenda_cs.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "cn-consentmanager",
+   "url": "https://cdn.consentmanager.net/delivery/cmp.min.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "it-same-site",
+   "url": "https://adv.giornale.example.it/banner.js",
+   "source": "https://giornale.example.it/",
+   "type": "Script"
+  },
+  {
+   "id": "it-third-party",
+   "url": "https://ads.italia.example/tag.js",
+   "source": "https://giornale.example.it/",
+   "type": "Script"
+  },
+  {
+   "id": "yt-stats-ads",
+   "url": "https://www.youtube.com/api/stats/ads?ver=2&ns=1",
+   "source": "https://www.youtube.com/watch?v=abc",
+   "type": "Xhr"
+  },
+  {
+   "id": "yt-ptracking",
+   "url": "https://www.youtube.com/ptracking?html5=1",
+   "source": "https://www.youtube.com/watch?v=abc",
+   "type": "Xhr"
+  },
+  {
+   "id": "yt-pagead",
+   "url": "https://www.youtube.com/pagead/adview?ai=x",
+   "source": "https://www.youtube.com/watch?v=abc",
+   "type": "Image"
+  },
+  {
+   "id": "yt-csi",
+   "url": "https://www.youtube.com/csi_204?v=3",
+   "source": "https://www.youtube.com/watch?v=abc",
+   "type": "Ping"
+  },
+  {
+   "id": "yt-log-event",
+   "url": "https://www.youtube.com/youtubei/v1/log_event?alt=json",
+   "source": "https://www.youtube.com/watch?v=abc",
+   "type": "Xhr",
+   "method": "POST"
+  },
+  {
+   "id": "yt-qoe-ad",
+   "url": "https://www.youtube.com/api/stats/qoe?event=streamingstats&adformat=15_2",
+   "source": "https://www.youtube.com/watch?v=abc",
+   "type": "Xhr",
+   "method": "POST"
+  },
+  {
+   "id": "yt-viewthrough",
+   "url": "https://www.youtube.com/pagead/viewthroughconversion/962985656/",
+   "source": "https://www.youtube.com/watch?v=abc",
+   "type": "Image"
+  },
+  {
+   "id": "yt-conversion",
+   "url": "https://www.youtube.com/pagead/conversion/1001/",
+   "source": "https://www.youtube.com/watch?v=abc",
+   "type": "Image"
+  },
+  {
+   "id": "yt-midroll",
+   "url": "https://www.youtube.com/get_midroll_info?ei=x",
+   "source": "https://www.youtube.com/watch?v=abc",
+   "type": "Xhr"
+  },
+  {
+   "id": "yt-ad-break",
+   "url": "https://www.youtube.com/youtubei/v1/player/ad_break?key=x",
+   "source": "https://www.youtube.com/watch?v=abc",
+   "type": "Xhr",
+   "method": "POST"
+  },
+  {
+   "id": "yt-video-info-ad",
+   "url": "https://www.youtube.com/get_video_info?video_id=x&adformat=15_2",
+   "source": "https://www.youtube.com/watch?v=abc",
+   "type": "Xhr"
+  },
+  {
+   "id": "yt-googleads",
+   "url": "https://googleads.g.doubleclick.net/pagead/id",
+   "source": "https://www.youtube.com/watch?v=abc",
+   "type": "Xhr"
+  },
+  {
+   "id": "yt-instream",
+   "url": "https://static.doubleclick.net/instream/ad_status.js",
+   "source": "https://www.youtube.com/watch?v=abc",
+   "type": "Script"
+  },
+  {
+   "id": "yt-play-log",
+   "url": "https://play.google.com/log?format=json",
+   "source": "https://www.youtube.com/watch?v=abc",
+   "type": "Xhr",
+   "method": "POST"
+  },
+  {
+   "id": "yt-ad-video",
+   "url": "https://rr1---sn-abc.googlevideo.com/videoplayback?expire=1&ctier=L&mime=video%2Fmp4&oad=1",
+   "source": "https://www.youtube.com/watch?v=abc",
+   "type": "Media"
+  },
+  {
+   "id": "yt-nocookie-ads",
+   "url": "https://www.youtube-nocookie.com/api/stats/ads?x=1",
+   "source": "https://www.youtube-nocookie.com/embed/abc",
+   "type": "Xhr"
+  },
+  {
+   "id": "yt-player-js",
+   "url": "https://www.youtube.com/s/player/abc/player_ias.vflset/en_US/base.js",
+   "source": "https://www.youtube.com/watch?v=abc",
+   "type": "Script"
+  },
+  {
+   "id": "yt-videoplayback",
+   "url": "https://rr1---sn-abc.googlevideo.com/videoplayback?expire=1&mime=video%2Fmp4",
+   "source": "https://www.youtube.com/watch?v=abc",
+   "type": "Media"
+  },
+  {
+   "id": "yt-watchtime",
+   "url": "https://www.youtube.com/api/stats/watchtime?ns=yt",
+   "source": "https://www.youtube.com/watch?v=abc",
+   "type": "Xhr"
+  },
+  {
+   "id": "yt-atr",
+   "url": "https://www.youtube.com/api/stats/atr?ns=yt",
+   "source": "https://www.youtube.com/watch?v=abc",
+   "type": "Xhr",
+   "method": "POST"
+  },
+  {
+   "id": "yt-generate-204",
+   "url": "https://rr1---sn-abc.googlevideo.com/generate_204",
+   "source": "https://www.youtube.com/watch?v=abc",
+   "type": "Image"
+  },
+  {
+   "id": "yt-page",
+   "url": "https://www.youtube.com/watch?v=abc",
+   "source": "",
+   "type": "MainFrame",
+   "nav": "Typed"
+  },
+  {
+   "id": "ok-news-page",
+   "url": "https://news.example/article",
+   "source": "",
+   "type": "MainFrame",
+   "nav": "Typed"
+  },
+  {
+   "id": "ok-news-image",
+   "url": "https://cdn.news.example/img/photo.jpg",
+   "source": "https://news.example/article",
+   "type": "Image"
+  },
+  {
+   "id": "ok-cdn-script",
+   "url": "https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js",
+   "source": "https://news.example/article",
+   "type": "Script"
+  },
+  {
+   "id": "ok-unbreak-shop",
+   "url": "https://shop.example/js/ads-free-cart.js",
+   "source": "https://shop.example/checkout",
+   "type": "Script"
+  },
+  {
+   "id": "hands-off-google-own",
+   "url": "https://www.gstatic.com/_/mss/boq-x/js/main.js",
+   "source": "https://aistudio.google.com/prompts/new",
+   "type": "Script"
+  },
+  {
+   "id": "hands-off-google-ga",
+   "url": "https://www.google-analytics.com/analytics.js",
+   "source": "https://aistudio.google.com/prompts/new",
+   "type": "Script"
+  },
+  {
+   "id": "hands-off-other-tracker",
+   "url": "https://connect.facebook.net/en_US/fbevents.js",
+   "source": "https://aistudio.google.com/prompts/new",
+   "type": "Script"
+  },
+  {
+   "id": "pay-paypal-in-shop",
+   "url": "https://www.paypal.com/sdk/js?client-id=x",
+   "source": "https://shop.example/checkout",
+   "type": "Script"
+  },
+  {
+   "id": "pay-stripe-in-shop",
+   "url": "https://js.stripe.com/v3/",
+   "source": "https://shop.example/checkout",
+   "type": "Script"
+  },
+  {
+   "id": "pay-shop-ad",
+   "url": "https://securepubads.g.doubleclick.net/tag/js/gpt.js",
+   "source": "https://shop.example/checkout",
+   "type": "Script"
+  },
+  {
+   "id": "page-https-upgrade",
+   "url": "http://plain.example/page",
+   "source": "",
+   "type": "MainFrame",
+   "nav": "Typed"
+  },
+  {
+   "id": "page-sensitive-upgrade",
+   "url": "http://myaccount.google.com/",
+   "source": "",
+   "type": "MainFrame",
+   "nav": "Typed"
+  },
+  {
+   "id": "page-strip-params",
+   "url": "https://plain.example/page?utm_source=x&id=7&fbclid=y",
+   "source": "",
+   "type": "MainFrame",
+   "nav": "Link",
+   "initiator": "https://news.example/article"
+  },
+  {
+   "id": "removeparam-same-site",
+   "url": "https://shop.example/product?affiliate_ref=abc&id=1",
+   "source": "https://shop.example/checkout",
+   "type": "Xhr"
+  },
+  {
+   "id": "removeparam-3p",
+   "url": "https://other.example/page.png?fbclid=abc&id=2",
+   "source": "https://news.example/article",
+   "type": "Image"
+  },
+  {
+   "id": "login-google",
+   "url": "https://accounts.google.com/ServiceLogin",
+   "source": "",
+   "type": "MainFrame",
+   "nav": "Typed"
+  },
+  {
+   "id": "lan-typed",
+   "url": "http://192.168.1.1/",
+   "source": "",
+   "type": "MainFrame",
+   "nav": "Typed"
+  },
+  {
+   "id": "lan-xhr-from-public",
+   "url": "http://192.168.1.1/login",
+   "source": "https://news.example/article",
+   "type": "Xhr",
+   "initiator": "https://news.example"
+  },
+  {
+   "id": "lan-form-from-public",
+   "url": "http://192.168.1.1/apply.cgi",
+   "source": "",
+   "type": "MainFrame",
+   "nav": "FormSubmitted",
+   "initiator": "https://news.example",
+   "method": "POST"
+  },
+  {
+   "id": "lan-frame-no-origin",
+   "url": "http://10.0.0.1/",
+   "source": "https://news.example/article",
+   "type": "SubFrame"
+  },
+  {
+   "id": "lan-localhost-from-public",
+   "url": "http://localhost:8080/api",
+   "source": "https://news.example/article",
+   "type": "Xhr",
+   "initiator": "https://news.example"
+  },
+  {
+   "id": "file-from-public",
+   "url": "file:///etc/passwd",
+   "source": "https://news.example/article",
+   "type": "Xhr",
+   "initiator": "https://news.example"
+  },
+  {
+   "id": "referer-third-party",
+   "url": "https://images.cdn-other.example/pic.jpg",
+   "source": "https://news.example/article/long?x=1",
+   "type": "Image",
+   "referer": "https://news.example/article/long?x=1"
+  },
+  {
+   "id": "hints-full-version",
+   "url": "https://images.cdn-other.example/hints.jpg",
+   "source": "https://news.example/article",
+   "type": "Image",
+   "headers": {
+    "sec-ch-ua-full-version-list": "\"Chromium\";v=\"140.0.7339.264\", \"Not=A?Brand\";v=\"24.0.0.0\""
+   }
+  }
+ ],
+ "pages": [
+  {
+   "id": "news",
+   "host": "news.example",
+   "path": "/article",
+   "elements": [
+    {
+     "key": "ad-banner",
+     "html": "<div class=\"ad-banner\">ad</div>"
+    },
+    {
+     "key": "adsbygoogle",
+     "html": "<ins class=\"adsbygoogle\" style=\"display:block\">ad</ins>"
+    },
+    {
+     "key": "ad-top",
+     "html": "<div id=\"ad-top\">ad</div>"
+    },
+    {
+     "key": "gpt-slot",
+     "html": "<div id=\"div-gpt-ad-1234-0\">ad</div>"
+    },
+    {
+     "key": "data-ad-slot",
+     "html": "<div data-ad-slot=\"123\">ad</div>"
+    },
+    {
+     "key": "sponsored-box",
+     "html": "<div class=\"sponsored-box\">ad</div>"
+    },
+    {
+     "key": "sidebar-promo",
+     "html": "<div id=\"sidebar-promo\">ad</div>"
+    },
+    {
+     "key": "exception-on-this-site",
+     "html": "<div class=\"ad-banner-allowed\">ok</div>"
+    },
+    {
+     "key": "cookie-banner",
+     "html": "<div class=\"cookie-banner\">cookies</div>"
+    },
+    {
+     "key": "cookie-overlay",
+     "html": "<div class=\"cookie-consent-overlay\">cookies</div>"
+    },
+    {
+     "key": "other-site-rule",
+     "html": "<div class=\"box-adv\">ok</div>"
+    },
+    {
+     "key": "article",
+     "html": "<div id=\"article\">text</div>"
+    }
+   ],
+   "probes": {
+    "canRunAds": "String(window.canRunAds)",
+    "adblockDetector": "(function(){try{void window.adblockDetector;return 'read'}catch(e){return 'aborted'}})()"
+   }
+  },
+  {
+   "id": "shop",
+   "host": "shop.example",
+   "path": "/",
+   "elements": [
+    {
+     "key": "promoted-listing",
+     "html": "<div class=\"promoted-listing\">ad</div>"
+    },
+    {
+     "key": "cookie-wall",
+     "html": "<div id=\"cookie-wall\">cookies</div>"
+    },
+    {
+     "key": "ad-banner",
+     "html": "<div class=\"ad-banner\">ad</div>"
+    },
+    {
+     "key": "other-site-rule",
+     "html": "<div class=\"sponsored-box\">ok</div>"
+    },
+    {
+     "key": "product",
+     "html": "<div id=\"product\">text</div>"
+    }
+   ],
+   "probes": {
+    "canRunAds": "String(window.canRunAds)"
+   }
+  },
+  {
+   "id": "giornale",
+   "host": "giornale.example.it",
+   "path": "/",
+   "elements": [
+    {
+     "key": "box-adv",
+     "html": "<div class=\"box-adv\">ad</div>"
+    },
+    {
+     "key": "ad-top",
+     "html": "<div id=\"ad-top\">ad</div>"
+    },
+    {
+     "key": "notizia",
+     "html": "<div id=\"notizia\">testo</div>"
+    }
+   ],
+   "probes": {}
+  }
+ ],
+ "cosmetic_urls": [
+  "https://news.example/article",
+  "https://shop.example/",
+  "https://giornale.example.it/",
+  "https://www.youtube.com/watch?v=abc",
+  "https://www.youtube.com/",
+  "https://m.youtube.com/",
+  "https://unrelated.example/"
+ ],
+ "scriptlet_hosts": [
+  "www.youtube.com",
+  "m.youtube.com",
+  "music.youtube.com",
+  "www.youtube-nocookie.com",
+  "youtube.com",
+  "news.example",
+  "shop.example",
+  "unrelated.example"
+ ]
+}

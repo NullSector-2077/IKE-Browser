@@ -1,0 +1,9 @@
+[Adblock Plus 2.0]
+! Title: I.K.E. no-regression fixture, in place of EasyList Italy
+! A small fixed sample of rules in the forms EasyList Italy uses (GPL-3.0-or-later / CC BY-SA 3.0), for
+! tools/no-regression.py only: the same rules on main and on a candidate, so
+! what changes between the two is I.K.E.'s code and engine, never the list.
+! Not a list to use.
+||adv.giornale.example.it^
+||ads.italia.example^$third-party
+giornale.example.it##.box-adv

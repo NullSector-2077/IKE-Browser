@@ -1,0 +1,11 @@
+[Adblock Plus 2.0]
+! Title: I.K.E. no-regression fixture, in place of EasyList Cookie List
+! A small fixed sample of rules in the forms EasyList Cookie List uses (GPL-3.0-or-later / CC BY-SA 3.0), for
+! tools/no-regression.py only: the same rules on main and on a candidate, so
+! what changes between the two is I.K.E.'s code and engine, never the list.
+! Not a list to use.
+||cookielaw.org^$third-party
+||consent.cookiebot.com^$third-party
+||cdn.iubenda.com/cs/$script,third-party
+news.example##.cookie-banner
+##.cookie-consent-overlay

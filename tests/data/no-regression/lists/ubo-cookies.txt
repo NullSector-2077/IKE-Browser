@@ -1,0 +1,7 @@
+! Title: I.K.E. no-regression fixture, in place of uBlock filters - Cookie notices
+! A small fixed sample of rules in the forms uBlock filters - Cookie notices uses (uBlock Origin's uAssets, GPL-3.0-or-later), for
+! tools/no-regression.py only: the same rules on main and on a candidate, so
+! what changes between the two is I.K.E.'s code and engine, never the list.
+! Not a list to use.
+||consentmanager.net^$third-party
+shop.example###cookie-wall
