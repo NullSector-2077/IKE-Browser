@@ -255,7 +255,8 @@ class UrlBar(QLineEdit):
             p.setRenderHint(QPainter.RenderHint.Antialiasing)
             p.setPen(QPen(edge, 1.6))
             r = QRectF(self.rect()).adjusted(0.8, 0.8, -0.8, -0.8)
-            radius = r.height() / 2 if self._pill is not None else 3.0
+            # 1.1.23: the one corner radius (polish.RADIUS, was 3)
+            radius = r.height() / 2 if self._pill is not None else min(polish.RADIUS, r.height() / 2)
             p.drawRoundedRect(r, radius, radius)
             p.end()
 

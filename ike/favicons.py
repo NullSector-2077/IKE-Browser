@@ -1,7 +1,6 @@
 """Site icons, stored per host so bookmarks can show them."""
 
 import hashlib
-import sqlite3
 import time
 from urllib.parse import urlsplit
 
@@ -10,7 +9,7 @@ from PyQt6.QtGui import QIcon, QPixmap
 from PyQt6.QtNetwork import QNetworkReply, QNetworkRequest
 
 from .config import DATA_DIR
-from .storage import Deferred
+from .storage import Deferred, checkpoint, connect
 
 
 def host_of(url):
@@ -38,7 +37,7 @@ class Favicons(QObject, Deferred):
     def __init__(self, app):
         super().__init__(app)
         self.app = app
-        self.db = sqlite3.connect(str(DATA_DIR / "favicons.sqlite"))
+        self.db = connect(DATA_DIR / "favicons.sqlite")
         self.db.execute("CREATE TABLE IF NOT EXISTS icons("
                         "host TEXT PRIMARY KEY, png BLOB, ts INTEGER)")
         self.db.commit()
@@ -118,5 +117,5 @@ class Favicons(QObject, Deferred):
 
     def clear(self):
         self.db.execute("DELETE FROM icons")
-        self.db.commit()
+        checkpoint(self.db)
         self._cache.clear()

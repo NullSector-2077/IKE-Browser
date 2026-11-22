@@ -175,6 +175,7 @@ class WebPage(QWebEnginePage):
             return False
         if is_main_frame:
             self._ike_page_since = time.monotonic()
+            self.nav_scheme = url.scheme().lower()      # where it goes (the loading line, 1.1.23)
             host = url.host().lower()
             sh = self.app.shields
             st = self.settings()

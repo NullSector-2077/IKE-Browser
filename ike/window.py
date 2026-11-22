@@ -235,7 +235,7 @@ class BookmarksBar(QToolBar):
 
 
 class BrowserWindow(WindowFeatures, QMainWindow):
-    def __init__(self, app, private=False, popup=False):
+    def __init__(self, app, private=False, popup=False, first=None):
         super().__init__()
         self.app = app
         self.private = private
@@ -259,6 +259,11 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.resize(min(1280, area.width() - 40), min(840, area.height() - 40))    # 1.1.21: on the screen
 
         self._build_central()
+        # 1.1.23: the first page is asked for now, so the engine starts its
+        # page process while the bars and the menus are built (about 40 ms);
+        # the filter engine, the interceptor and the page scripts are already
+        # in place (IkeApp: the profile, then start() before any window)
+        self._early = self._early_view(first) if first is not None else None
         self._build_toolbar()
         self._build_menus()
         self.statusBar().setSizeGripEnabled(False)
@@ -267,6 +272,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.apply_layout()
         from . import themes
         self.apply_theme(themes.current(app.config))
+        self._opaque_toolbar()
         app.shields.blocked.connect(self._blocked)
 
     # ------------------------------------------------------------------
@@ -288,11 +294,12 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.tabbar.customContextMenuRequested.connect(
             lambda pos: self._tab_menu(self.tabbar.tabAt(pos), self.tabbar.mapToGlobal(pos)))
         self.tabbar.installEventFilter(self)
+        self.tabbar.restoring = lambda: bool(getattr(self, "_restoring", False))
 
         self.htab_row = QWidget(self)
         row = QHBoxLayout(self.htab_row)
         row.setContentsMargins(4, 2, 4, 0)
-        row.setSpacing(2)
+        row.setSpacing(4)                   # 1.1.23: Breeze's 4-px step (was 2)
         self.ws_btn_h = self._make_ws_button(self.htab_row)
         row.addWidget(self.ws_btn_h)
         row.addWidget(self.tabbar, 1)
@@ -338,8 +345,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.ws_btn_v = self._make_ws_button(self.vtab_panel)
         head = QWidget(self.vtab_panel)
         hl = QHBoxLayout(head)
-        hl.setContentsMargins(2, 2, 2, 2)
-        hl.setSpacing(2)
+        hl.setContentsMargins(4, 4, 4, 4)       # 1.1.23: Breeze's 4-px step (was 2)
+        hl.setSpacing(4)
         hl.addWidget(self.ws_btn_v)
         hl.addStretch(1)
         self._vhead = hl
@@ -383,6 +390,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.toast_pill = polish.Toast(self.content, self.app.config)  # short messages over the page
         self.loading_line = LoadingLine(self.content)
         self.loading_line.config = self.app.config
+        self.loading_line.quiet = self._own_page_loading
 
         self.splitter = QSplitter(Qt.Orientation.Horizontal, self)
         self.splitter.addWidget(self.vtab_panel)
@@ -1096,12 +1104,29 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 return url.host().lower()
         return ""
 
+    def _early_view(self, url):
+        """The view of the window's first tab, its page asked for at once."""
+        text = url if isinstance(url, str) else url.toString()
+        view = WebView(self, self.profile)
+        view.hide()
+        if text == NEWTAB:
+            view.page().set_backdrop(self.app.shields.newtab_background())
+        view.setZoomFactor(self.app.config["default_zoom"])
+        view.load(QUrl(url) if isinstance(url, str) else url)
+        return text, view
+
     def add_tab(self, url=NEWTAB, background=False, after=None, container=None,
                 group=None, lazy=False, title=None):
         if self.private:
             container = None
         profile = self.app.container_profile(container) if container else self.profile
-        view = WebView(self, profile)
+        text = url if isinstance(url, str) or url is None else url.toString()
+        early, self._early = getattr(self, "_early", None), None
+        if early is not None and (early[0] != text or container):
+            early[1].setParent(None)          # not the tab it was made for
+            early[1].deleteLater()
+            early = None
+        view = early[1] if early is not None else WebView(self, profile)
         view.container = container
         view.group = group if group in self.groups else None
         view.pending_url = None
@@ -1129,14 +1154,15 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if not self.private:
             self.app.desktop.watch_view(view)       # media controls of the desktop
         first = len(self.views) == 1
-        text = url if isinstance(url, str) or url is None else url.toString()
-        if text == NEWTAB:
-            # the new tab page's colour from the first moment, before the page
-            # is asked for (1.1.23: the view showed white until it painted)
-            page.set_backdrop(self.app.shields.newtab_background())
-        if lazy and text and text != NEWTAB and (self._restoring or (background and not first)):
+        if early is not None:
+            pass                             # asked for while the window was built
+        elif lazy and text and text != NEWTAB and (self._restoring or (background and not first)):
             view.pending_url = text          # loads when the tab is first shown
         elif url is not None:
+            if text == NEWTAB:
+                # the new tab page's colour from the first moment, before the page
+                # is asked for (1.1.23: the view showed white until it painted)
+                page.set_backdrop(self.app.shields.newtab_background())
             view.load(QUrl(url) if isinstance(url, str) else url)
         if not background or first:
             self.set_current(view)
@@ -1190,8 +1216,12 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             # review: a tab looked at for half an hour was suspended at the next
             # check after the user left it)
             old.last_active = time.time()
-            from .tabpreview import capture
-            capture(old)                    # for the preview shown on its tab
+            # its picture for the preview card is taken when the mouse comes to
+            # the tabs or once its page has loaded (1.1.23); here only when it
+            # has none, or its page changed since
+            if getattr(old, "preview", None) is None or getattr(old, "preview_stale", True):
+                from .tabpreview import capture
+                capture(old)
         if view is self.split:
             self._split_active = True
         else:
@@ -1368,6 +1398,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if item is not None and self.vtabs.isVisible():
             # the row fades out while the list changes at once (1.1.9)
             polish.ghost_out(self.vtabs.viewport(), self.vtabs.visualItemRect(item), self.app.config)
+        elif self.tabbar.isVisible() and len(self.views) > 1:
+            # the same for a horizontal tab (1.1.23)
+            polish.ghost_out(self.tabbar, self.tabbar.tabRect(i), self.app.config, name="tab_close")
         self.views.pop(i)
         for w, remove in ((self.tabbar, lambda: self.tabbar.removeTab(i)),
                           (self.vtabs, lambda: self.vtabs.takeItem(i))):
@@ -1473,8 +1506,40 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         prev.show_for(i, pm, tip, obj.mapToGlobal(pos), view)
         return t == QEvent.Type.ToolTip
 
+    PREVIEW_AGAIN = 1.0      # seconds: the mouse coming back to the tabs sooner takes no new picture
+
+    def _picture_soon(self, view=None, delay=0):
+        """Take the picture of the tab in view for its preview card, off the
+        path of a change of tab (1.1.23): when the mouse comes to the tabs, a
+        click follows a tenth of a second later or more."""
+        view = view or self.current_view()
+        if view is None:
+            return
+        timer = getattr(self, "_picture_timer", None)
+        if timer is None:
+            # the window's own timer: it goes with the window
+            timer = self._picture_timer = QTimer(self)
+            timer.setSingleShot(True)
+            timer.timeout.connect(lambda: self._picture_now(self._picture_view))
+        self._picture_view = view
+        timer.start(delay)
+
+    def _picture_now(self, view):
+        self._picture_view = None
+        if view is None or view not in self.views or view is not self.current_view() \
+                or not self.isVisible() or getattr(view, "loading", False):
+            return
+        if (not getattr(view, "preview_stale", True) and getattr(view, "preview", None) is not None
+                and time.monotonic() - getattr(view, "preview_at", 0) < self.PREVIEW_AGAIN):
+            return
+        from .tabpreview import capture
+        capture(view)
+
     def eventFilter(self, obj, event):
         vtabs = getattr(self, "vtabs", None)       # events can come while the window is built
+        if (vtabs is not None and (obj is self.tabbar or obj is vtabs.viewport())
+                and event.type() == QEvent.Type.Enter and len(self.views) > 1):
+            self._picture_soon()
         if (vtabs is not None and (obj is self.tabbar or obj is vtabs.viewport())
                 and self._tab_preview_event(obj, event)):
             return True
@@ -1756,7 +1821,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             v.unseen = False
             self._tab_changed(v)
         if v is not None and getattr(v, "loading", False):
-            self.loading_line.set_state(True, getattr(v, "progress", 0))
+            self.loading_line.set_state(True, getattr(v, "progress", 0), getattr(v, "loading_since", None))
         else:
             self.loading_line.hide()
         self.sync_urlbar()
@@ -1841,6 +1906,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.site_tint.update(v)
 
     def _url_changed(self, view):
+        view.preview_stale = True              # another page: a new picture for its card
         self._site_zoom(view)
         from .lookalikebar import check_view
         check_view(self.app.config, view)            # Sosia (1.1.14)
@@ -1859,9 +1925,20 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self.update_shield()
         self._tab_changed(view)
 
+    def _own_page_loading(self):
+        """The page in front is one of I.K.E.'s own (ike:): it loads at once
+        and shows no loading line (1.1.23)."""
+        v = self.current_view()
+        if v is None:
+            return False
+        page = v.page()
+        return getattr(page, "nav_scheme", None) == "ike" if page is not None else False
+
     def _load_state(self, view, loading):
         view.loading = loading
-        if not loading:
+        if loading:
+            view.preview_stale = True
+        else:
             view.progress = 100
         self._loading_mark(view, loading)
         if view is self.current_view():
@@ -1919,7 +1996,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     def _load_progress(self, view, percent):
         view.progress = percent
         if view is self.current_view() and getattr(view, "loading", False):
-            self.loading_line.set_state(True, percent)
+            self.loading_line.set_state(True, percent, getattr(view, "loading_since", None))
 
     def _load_finished(self, view, ok):
         self._load_state(view, False)
@@ -1937,6 +2014,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self._tab_changed(view)
         if view is self.current_view():
             self.update_shield()
+            self._picture_soon(view, self.PICTURE_AFTER_LOAD)
+
+    PICTURE_AFTER_LOAD = 600     # ms: the picture for the preview card, once the page has settled
 
     def _hide_status(self):
         self.statusBar().clearMessage()
@@ -2572,6 +2652,24 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         from . import themes
         themes.style_window(self, theme)
         self._themed = theme is not None
+        self._opaque_toolbar()
+
+    # widget styles whose window background is one flat colour: there the
+    # toolbar can paint its own (the same colour) and Qt stops a repaint of
+    # its buttons, of the "+N" and of the cursor of the address field at the
+    # toolbar, instead of repainting the window behind it (1.1.23); styles
+    # with a gradient or a picture behind their windows (Oxygen, Kvantum's
+    # themes) keep the window's
+    FLAT_STYLES = ("breeze", "fusion", "windows", "windowsvista")
+
+    def _opaque_toolbar(self):
+        if getattr(self, "_themed", False):
+            return                            # an I.K.E. theme fills its bars already (themes.py)
+        from PyQt6.QtWidgets import QApplication
+        style = QApplication.style()
+        base = style.baseStyle() if hasattr(style, "baseStyle") else style
+        name = (base.name() if base is not None else "").lower()
+        self.nav.setAutoFillBackground(name in self.FLAT_STYLES)
 
     def changeEvent(self, event):
         if event.type() == QEvent.Type.WindowStateChange:

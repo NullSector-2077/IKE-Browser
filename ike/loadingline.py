@@ -1,13 +1,20 @@
-"""A refined, lightweight loading accent over the page content."""
+"""A refined, lightweight loading accent over the page content.
 
-from PyQt6.QtCore import QEvent, QRect, Qt, QTimer
-from PyQt6.QtGui import QColor, QPainter, QPalette
+1.1.23: a flat bar on a faint track with rounded ends, as Breeze's progress
+bar (no glow, no "bead"), drawn from two pictures made once per width and
+colour; it shows only for a load that takes a while (SHOW_AFTER) and never
+for I.K.E.'s own pages, which load at once. While it shows, every frame of
+the page under it repaints it: a picture costs much less than shapes."""
+
+from PyQt6.QtCore import QEvent, QRect, QRectF, Qt, QTimer
+from PyQt6.QtGui import QColor, QPainter, QPalette, QPixmap
 from PyQt6.QtWidgets import QApplication, QWidget
 
 
 class LoadingLine(QWidget):
     HEIGHT = 6
     INSET = 1
+    SHOW_AFTER = 150             # ms: a page loaded sooner shows no line
 
     def __init__(self, anchor):
         """anchor: the widget whose top edge the line follows (same parent)."""
@@ -15,29 +22,68 @@ class LoadingLine(QWidget):
         self.anchor = anchor
         self.value = 0.0
         self.config = None           # set by the window: the line then advances smoothly (effects.py)
+        self.quiet = None            # set by the window: True for a page that shows no line (ike:)
         self._anim = None
+        self._loading = False
+        self._pics = (None, None)    # (key, (track, bar))
+        self.painted = 0             # (for the tests)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
         self._hide = QTimer(self)
         self._hide.setSingleShot(True)
         self._hide.setInterval(320)
         self._hide.timeout.connect(self.hide)
+        self._due = QTimer(self)
+        self._due.setSingleShot(True)
+        self._due.setInterval(self.SHOW_AFTER)
+        self._due.timeout.connect(self._appear)
         anchor.installEventFilter(self)
         self.hide()
 
-    def set_state(self, loading, percent=0):
+    def _quiet(self):
+        try:
+            return bool(self.quiet and self.quiet())
+        except RuntimeError:
+            return False
+
+    def set_state(self, loading, percent=0, since=None):
+        """since: when the load began (time.monotonic()), when it is known; a
+        load going on for a while (a tab shown again) shows the line at once."""
+        self._loading = loading
         if loading:
             self._hide.stop()
             target = max(0.05, min(1.0, percent / 100.0))
-            # forward only while it is in view; a new page starts from the beginning
-            self._go(target, smooth=self.isVisible() and target > self.value)
-            self._place()
-            self.show()
-            self.raise_()
-        elif self.isVisible():
-            self._go(1.0, smooth=True)
-            self._hide.start()
+            if self._quiet():
+                self._due.stop()
+                self.hide()
+                return
+            if not self.isVisible():
+                # it appears only for a load that takes a while, where it has got to
+                self.value = target
+                if self._anim is not None:
+                    self._anim.stop()
+                import time
+                if since is not None and (time.monotonic() - since) * 1000 >= self.SHOW_AFTER:
+                    self._due.stop()
+                    self._appear()
+                elif not self._due.isActive():
+                    self._due.start()
+                return
+            # forward only while it is in view
+            self._go(target, smooth=target > self.value)
+        else:
+            self._due.stop()
+            if self.isVisible():
+                self._go(1.0, smooth=True)
+                self._hide.start()
         self.update()
+
+    def _appear(self):
+        if not self._loading or self._quiet():
+            return
+        self._place()
+        self.show()
+        self.raise_()
 
     def _go(self, target, smooth):
         from . import effects
@@ -60,6 +106,10 @@ class LoadingLine(QWidget):
         self.value = float(value)
         self.update()
 
+    def hideEvent(self, event):
+        self._pics = (None, None)    # nothing kept while it is not shown
+        super().hideEvent(event)
+
     def _place(self):
         g = self.anchor.geometry()
         self.setGeometry(QRect(g.x(), g.y(), g.width(), self.HEIGHT))
@@ -69,45 +119,50 @@ class LoadingLine(QWidget):
             self._place()
         return False
 
+    def _pictures(self, accent):
+        """The track and the whole bar, at the line's width, drawn once."""
+        dpr = self.devicePixelRatioF() or 1.0
+        width = self.width()
+        key = (width, accent.rgba(), dpr)
+        if self._pics[0] == key:
+            return self._pics[1]
+        from .polish import RADIUS
+        out = []
+        for alpha in (28, 255):
+            pm = QPixmap(max(1, round(width * dpr)), max(1, round(self.HEIGHT * dpr)))
+            pm.setDevicePixelRatio(dpr)
+            pm.fill(Qt.GlobalColor.transparent)
+            p = QPainter(pm)
+            p.setRenderHint(QPainter.RenderHint.Antialiasing)
+            c = QColor(accent)
+            c.setAlpha(alpha)
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(c)
+            r = QRectF(self.INSET, 1, max(0, width - 2 * self.INSET), self.HEIGHT - 2)
+            radius = min(RADIUS / 2, r.height() / 2)
+            p.drawRoundedRect(r, radius, radius)
+            p.end()
+            out.append(pm)
+        self._pics = (key, tuple(out))
+        return self._pics[1]
+
     def paintEvent(self, event):
         width = self.width()
         if width <= 0:
             return
+        self.painted += 1
+        accent = QColor(QApplication.palette().color(QPalette.ColorRole.Highlight))
+        track, bar = self._pictures(accent)
         p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        accent = QApplication.palette().color(QPalette.ColorRole.Highlight)
-        accent = QColor(accent)
-        end = max(self.INSET + 2, min(width - self.INSET - 2,
-                                      self.INSET + (width - 2 * self.INSET) * self.value))
-        # A subtle track keeps the indicator legible without drawing attention.
-        track = QColor(accent)
-        track.setAlpha(28)
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(track)
-        p.drawRoundedRect(self.INSET, 1, max(0, width - 2 * self.INSET),
-                          self.HEIGHT - 2, 2, 2)
-        progress_width = max(0, int(round(end - self.INSET)))
-        from . import polish
-        if polish.part("line_ends") and progress_width > 8:
-            # the line starts soft and reaches its full colour a little further on
-            from PyQt6.QtCore import QPointF
-            from PyQt6.QtGui import QLinearGradient
-            g = QLinearGradient(QPointF(self.INSET, 0), QPointF(end, 0))
-            soft = QColor(accent)
-            soft.setAlpha(40)
-            g.setColorAt(0.0, soft)
-            g.setColorAt(min(0.5, 80.0 / max(1.0, progress_width)), accent)
-            g.setColorAt(1.0, accent)
-            p.setBrush(g)
-        else:
-            p.setBrush(accent)
-        p.drawRoundedRect(self.INSET, 1, progress_width,
-                          self.HEIGHT - 2, 2, 2)
-        # The small leading bead gives the progress edge a polished finish.
-        glow = QColor(accent)
-        glow.setAlpha(75)
-        p.setBrush(glow)
-        p.drawEllipse(int(end - 3), 0, 6, 6)
-        p.setBrush(QColor(accent))
-        p.drawEllipse(int(end - 1.5), 1, 3, 3)
+        # the faint track, then the bar up to where the page has got:
+        # its start, and the rounded end of the whole bar moved to its end
+        p.drawPixmap(0, 0, track)
+        end = max(self.INSET + 4, min(width - self.INSET,
+                                      round(self.INSET + (width - 2 * self.INSET) * self.value)))
+        cap = min(6, end)
+        dpr = bar.devicePixelRatio() or 1.0
+        h = round(self.HEIGHT * dpr)
+        p.drawPixmap(QRectF(0, 0, end - cap, self.HEIGHT), bar, QRectF(0, 0, (end - cap) * dpr, h))
+        p.drawPixmap(QRectF(end - cap, 0, cap, self.HEIGHT), bar,
+                     QRectF(bar.width() - (cap + self.INSET) * dpr, 0, cap * dpr, h))
         p.end()
