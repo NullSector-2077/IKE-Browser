@@ -15,7 +15,7 @@ import time
 
 from PyQt6.QtCore import QPoint, QRectF, Qt, QTimer
 from PyQt6.QtGui import QColor, QGuiApplication, QPainter, QPainterPath, QPalette, QPen
-from PyQt6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 WIDTH = 240
 MAX_HEIGHT = 180
@@ -103,7 +103,18 @@ class _Meter(QWidget):
     def sizeHint(self):
         from PyQt6.QtCore import QSize
         fm = self.fontMetrics()
-        return QSize(WIDTH // 2 - PAD, fm.height() + 12)
+        return QSize(WIDTH, fm.height() + 12)
+
+    def shown_value(self):
+        """The value as drawn: always whole (1.1.22: "182 MB" ended in "…"
+        with the owner's font); only the name gives way, and only when a
+        language's word is too long for the card."""
+        return self.value
+
+    def shown_label(self):
+        fm = self.fontMetrics()
+        room = self.width() - fm.horizontalAdvance(self.value) - fm.horizontalAdvance("  ")
+        return fm.elidedText(self.label, Qt.TextElideMode.ElideRight, max(fm.horizontalAdvance("…"), room))
 
     def paintEvent(self, _event):
         p = QPainter(self)
@@ -114,15 +125,13 @@ class _Meter(QWidget):
         dim = QColor(text)
         dim.setAlphaF(0.65)
         w = self.width()
+        rtl = self.layoutDirection() == Qt.LayoutDirection.RightToLeft
+        label, value = self.shown_label(), self.shown_value()
+        # the name at the start, the value at the end of the same line
         p.setPen(dim)
-        label = fm.elidedText(self.label, Qt.TextElideMode.ElideRight, max(10, w // 2))
-        p.drawText(0, fm.ascent(), label)
+        p.drawText(w - fm.horizontalAdvance(label) if rtl else 0, fm.ascent(), label)
         p.setPen(text)
-        value = fm.elidedText(self.value, Qt.TextElideMode.ElideLeft, max(10, w - fm.horizontalAdvance(label) - 6))
-        if self.layoutDirection() == Qt.LayoutDirection.RightToLeft:
-            p.drawText(0, fm.ascent(), value)
-        else:
-            p.drawText(w - fm.horizontalAdvance(value), fm.ascent(), value)
+        p.drawText(0 if rtl else w - fm.horizontalAdvance(value), fm.ascent(), value)
         y = fm.height() + 4
         track = QColor(text)
         track.setAlphaF(0.15)
@@ -164,14 +173,14 @@ class TabPreview(QWidget):
         self.text.setFont(f)
         lay.addWidget(self.picture)
         lay.addWidget(self.text)
-        row = QHBoxLayout()
-        row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(12)
+        # CPU and memory one under the other, each the card's whole width
+        # (1.1.22: side by side, half the width each, the value was cut)
         self.cpu = _Meter(self)
         self.mem = _Meter(self)
-        row.addWidget(self.cpu, 1)
-        row.addWidget(self.mem, 1)
-        lay.addLayout(row)
+        self.cpu.setFixedWidth(WIDTH)
+        self.mem.setFixedWidth(WIDTH)
+        lay.addWidget(self.cpu)
+        lay.addWidget(self.mem)
         self.note = QLabel(self)
         self.note.setWordWrap(True)
         self.note.setFixedWidth(WIDTH)

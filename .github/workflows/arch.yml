@@ -66,12 +66,15 @@ jobs:
         run: git config --global --add safe.directory '*'
       - name: Arch's packages
         # the package's depends, makedepends and optdepends, plus what the tests use
+        # (breeze: KDE Plasma's widget style, the owner's desktop: the switches are
+        # measured in it too, tests/test_switches.py, 1.1.22)
         run: |
           pacman -S --noconfirm --needed \
               python python-pyqt6 python-pyqt6-webengine qt6-webengine qt6-webchannel qt6-svg \
               python-cryptography python-jeepney publicsuffix-list python-pytest \
               base-devel rust sudo nodejs \
-              ffmpeg dbus glib2 noto-fonts ttf-dejavu libnotify xdg-utils
+              ffmpeg dbus glib2 noto-fonts ttf-dejavu libnotify xdg-utils \
+              breeze
       # What this run really tests: pacman's versions of the components I.K.E.
       # follows (tools/check-components.py, ARCH_PACKAGES), Python, Qt, PyQt and
       # the engine's Chromium as I.K.E. reports it. Never fails the run.

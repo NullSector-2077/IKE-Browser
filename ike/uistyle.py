@@ -102,6 +102,84 @@ class SwitchStyle(QProxyStyle):
                 return w if metric == PM.PM_IndicatorWidth else h
         return super().pixelMetric(metric, opt, widget)
 
+    # The box and the text of a Switch are measured and placed here, never by
+    # the desktop's style (1.1.22): Breeze keeps a check box's box at its own
+    # fixed size whatever PM_IndicatorWidth says, so the switch was cut to its
+    # first part (and in the shield its text was drawn over it). Fusion asked
+    # this style anyway, which is why the tests of 1.1.21 did not see it.
+    def _box_size(self, widget, opt):
+        fm = widget.fontMetrics() if widget is not None else opt.fontMetrics
+        return switch_size(fm)
+
+    def _spacing(self, opt, widget):
+        return max(4, super().pixelMetric(QStyle.PixelMetric.PM_CheckBoxLabelSpacing, opt, widget))
+
+    def _layout(self, opt, widget):
+        """(box rect, text rect) inside opt.rect, right to left too."""
+        w, h = self._box_size(widget, opt)
+        r = opt.rect
+        box = QRect(r.x(), r.y() + max(0, (r.height() - h) // 2), w, h)
+        text = QRect(r)
+        text.setLeft(box.right() + 1 + self._spacing(opt, widget))
+        box = QStyle.visualRect(opt.direction, r, box)
+        text = QStyle.visualRect(opt.direction, r, text)
+        return box, text
+
+    def sizeFromContents(self, ct, opt, size, widget=None):
+        from PyQt6.QtWidgets import QStyleOptionButton
+        if ct == QStyle.ContentsType.CT_CheckBox and isinstance(opt, QStyleOptionButton):
+            w, h = self._box_size(widget, opt)
+            if size.width() > 0:
+                return QSize(w + self._spacing(opt, widget) + size.width(), max(h, size.height()))
+            return QSize(w, h)
+        return super().sizeFromContents(ct, opt, size, widget)
+
+    def subElementRect(self, element, opt, widget=None):
+        SE = QStyle.SubElement
+        from PyQt6.QtWidgets import QStyleOptionButton
+        if element in (SE.SE_CheckBoxIndicator, SE.SE_CheckBoxContents, SE.SE_CheckBoxFocusRect,
+                       SE.SE_CheckBoxClickRect) and isinstance(opt, QStyleOptionButton):
+            box, text = self._layout(opt, widget)
+            if element == SE.SE_CheckBoxIndicator:
+                return box
+            if element == SE.SE_CheckBoxContents:
+                return text
+            if element == SE.SE_CheckBoxClickRect:
+                return QRect(opt.rect)
+            has_text = widget is not None and isinstance(widget, QCheckBox) and widget.text()
+            if not has_text:
+                return box
+            fm = widget.fontMetrics()
+            tw = min(text.width(), fm.horizontalAdvance(widget.text().replace("&", "")) + 4)
+            th = min(text.height(), fm.height() + 2)
+            x = text.right() + 1 - tw if opt.direction == Qt.LayoutDirection.RightToLeft else text.x()
+            return QRect(x, text.y() + (text.height() - th) // 2, tw, th)
+        return super().subElementRect(element, opt, widget)
+
+    def drawControl(self, element, opt, p, widget=None):
+        CE, PE, S = QStyle.ControlElement, QStyle.PrimitiveElement, QStyle.StateFlag
+        from PyQt6.QtWidgets import QStyleOptionButton
+        if element == CE.CE_CheckBox and isinstance(opt, QStyleOptionButton):
+            box, text = self._layout(opt, widget)
+            ind = QStyleOptionButton(opt)
+            ind.rect = box
+            self.drawPrimitive(PE.PE_IndicatorCheckBox, ind, p, widget)
+            if opt.text:
+                # the text only: the style's label at the place measured here
+                align = Qt.AlignmentFlag.AlignVCenter | (Qt.AlignmentFlag.AlignRight if
+                        opt.direction == Qt.LayoutDirection.RightToLeft else Qt.AlignmentFlag.AlignLeft)
+                self.drawItemText(p, text, int(align | Qt.TextFlag.TextShowMnemonic), opt.palette,
+                                  bool(opt.state & S.State_Enabled), opt.text, QPalette.ColorRole.WindowText)
+                if opt.state & S.State_HasFocus:
+                    from PyQt6.QtWidgets import QStyleOptionFocusRect
+                    f = QStyleOptionFocusRect()
+                    if widget is not None:
+                        f.initFrom(widget)
+                    f.rect = self.subElementRect(QStyle.SubElement.SE_CheckBoxFocusRect, opt, widget)
+                    super().drawPrimitive(PE.PE_FrameFocusRect, f, p, widget)
+            return
+        super().drawControl(element, opt, p, widget)
+
     def drawPrimitive(self, element, opt, p, widget=None):
         PE, S = QStyle.PrimitiveElement, QStyle.StateFlag
         if element in (PE.PE_IndicatorCheckBox, PE.PE_IndicatorItemViewItemCheck):
