@@ -1,0 +1,5 @@
+! lists/protection-dropped/network-filter-error-csp-with-content-type@security
+! possible security regression (network filter error: csp with content type), recorded by the daily check on 2026-11-22
+||uppit.com^$document,csp=script-src 'self' 'unsafe-eval' 'unsafe-inline' data: *.cloudflare.com
+*$doc,csp=script-src-attr 'none',to=badmouth1.com|freemcserver.net
+*$doc,csp=script-src-attr 'none',to=nextchessmove.com|ondemandkorea.com|tbsradio.jp

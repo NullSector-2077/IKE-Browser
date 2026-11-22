@@ -150,6 +150,14 @@ class Library:
         name = self._alias.get(name, name)
         return name if name in self._data else None
 
+
+def _csp_value_ok(value):
+    """uBlock Origin accepts any non-empty CSP directive value, including
+    script-src-attr, connect-src, font-src, base-uri, form-action, frame-src,
+    frame-ancestors, child-src, worker-src, manifest-src, media-src, object-src,
+    plugin-types, require-trusted-types-for, sandbox, style-src-attr, etc."""
+    return bool(value and value.strip())
+
     def entry(self, name):
         self._load()
         return self._data.get(name)

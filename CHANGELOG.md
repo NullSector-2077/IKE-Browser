@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.23
+
+- Automatic fix after a failure of "Filter lists" on automation/update/lists-2026-11-22: possible security regression in today's filter lists (network filter error: csp with content type): an AI analysis of I.K.E.'s adapter on automation/update/lists-2026-11-22
+
 ## 1.1.22
 
 Two things the owner saw in 1.1.21 on KDE Plasma:

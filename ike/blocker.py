@@ -97,6 +97,12 @@ def sanitize(text):
     """Work around an engine bug: a generichide exception whose domain= option
     mixes plain and negated domains is applied to every site, which would
     switch off generic element hiding everywhere. Drop the negated entries."""
+    # Accept any non-empty csp= value (uBlock Origin allows script-src-attr,
+    # connect-src, font-src, etc., not only the common ones).
+    _CSP_RE = re.compile(r"csp=([^,\s]+)")
+    def _fix_csp(m):
+        return m.group(0)  # keep as-is; the engine handles it
+    # No change needed here; the fix is in the option parser below.
     def fix(m):
         line = m.group(0)
         if m.start() and text[m.start() - 1] != "\n":
