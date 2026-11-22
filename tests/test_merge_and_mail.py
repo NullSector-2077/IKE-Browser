@@ -225,9 +225,11 @@ def test_everything_else_waits_for_a_person():
         "trial spelled": decide(commits=COMMITS + [{"commit": {"message": "autofix trial: x"}}]),
         "other commit": decide(commits=COMMITS + [{"commit": {"message": "Trial 6: x"}}]),
         "gpt trial": decide(pr("chatgpt/fix-3"), commits=[{"commit": {"message": "trial 7"}}]),
-        # M5, M9
+        # M5, M9 (since 2026-11-22 M9 holds only ChatGPT's fix; for the automation's own pull requests the
+        # version rule took its place: a second raise on top of an unpublished version waits)
         "published": decide(pr("chatgpt/fix-4"), commits=[{"commit": {"message": "Fix"}}], published=True),
-        "unread": decide(unread=True),
+        "unread": decide(pr("chatgpt/fix-5"), commits=[{"commit": {"message": "Fix"}}], unread=True),
+        "second raise": decide(files=CODE + VERSION, main_version="1.1.19"),
         # as before
         "tests": decide(files=CODE + [f("tests/test_x.py")]),
         "updater": decide(files=[f("ike/updater.py")]),
@@ -581,7 +583,10 @@ SKIPPED_FFMPEG = {"test": "tests/test_plasma.py::test_video", "area": "desktop i
     ("published, not raised", lambda: decide(pr(SECURITY_BRANCH), commits=[SECURITY_COMMIT],
                                              files=[f("ike-adblock/Cargo.lock", LOCK)], published=True),
      "person", "the version must be raised"),
-    ("main holds an unsigned merge", lambda: cand(unread=True), "person", "(M9)"),
+    # 2026-11-22 (the owner's decision): M9's "one merge per unsigned version" became the version rule;
+    # main holding an unsigned 1.1.19, a candidate raising it once more to 1.1.20 waits for a person
+    # (the id of the case is kept: its reason still ends with "(M9)")
+    ("main holds an unsigned merge", lambda: cand(unread=True, main_version="1.1.19"), "person", "(M9)"),
     ("maintenance commit on an update branch", lambda: decide(pr(SECURITY_BRANCH), commits=[MAINT],
                                                               files=[f("ike-adblock/Cargo.lock", LOCK)]),
      "person", "a trial or a maintenance candidate"),
@@ -625,7 +630,7 @@ def test_chatgpt_and_people_never_merge_by_themselves(monkeypatch, capsys):
     assert "no pull request of the automation or of ChatGPT" in capsys.readouterr().out and not calls
 
 
-def _main_world(monkeypatch, p, commits, files, checks, arch_runs=1):
+def _main_world(monkeypatch, p, commits, files, checks, arch_runs=1, behind=0):
     calls = []
 
     def api(path):
@@ -643,12 +648,15 @@ def _main_world(monkeypatch, p, commits, files, checks, arch_runs=1):
             return {"check_runs": checks}
         if "actions/workflows/arch.yml/runs" in path:
             return {"total_count": arch_runs}
+        if path.startswith("repos/o/r/compare/main..."):
+            return {"behind_by": behind}                  # the refresh: up to date with main unless said
         raise AssertionError(path)
     monkeypatch.setattr(merge, "api", api)
     monkeypatch.setattr(merge, "gh", lambda *a: calls.append(("gh",) + a) or "[]")
     monkeypatch.setattr(merge, "file_at", lambda repo, name, ref: BASE if ref == "b" * 40
                         else BASE.replace("return 1", "return 2"))
-    monkeypatch.setattr(merge, "released", lambda *a: False)
+    # main's 1.1.19 is published and the candidate raises it to 1.1.20 (the version rule)
+    monkeypatch.setattr(merge, "released", lambda *a: True)
     monkeypatch.setattr(merge, "version_of_main", lambda: "1.1.19")
     monkeypatch.setattr(merge, "unread_merge", lambda *a: False)
     monkeypatch.setattr(merge, "gather_evidence", lambda repo, sha: VERIFIED)
@@ -817,3 +825,439 @@ def test_the_token_rights_are_the_least_needed():
         assert "permissions:\n      actions: write\n    steps:" in job, name
         assert "github.actor == 'github-actions[bot]'" in job and "contents:" not in job, name
     assert "permissions: {}" in (WORKFLOWS / "release-ready.yml").read_text()
+
+
+# --- everything automatic and verified converges into main (2026-11-22, the owner's decision) ------
+# Several verified merges go into one unpublished version (M9 dropped for the automation's own pull
+# requests; a second raise on top waits), a verified candidate behind main is refreshed (main merged
+# into its branch, CHANGELOG and version files resolved, anything else for a person), the refresh
+# commit is checked again from git, the others are judged again after each merge, and the owner gets
+# one notice per version.
+
+DARK = "automation/update/darkreader"
+DARK_COMMIT = {"sha": "d" * 40, "commit": {"message": "update: darkreader 4.9.135 -> 4.9.136 (no AI)\n\nMade by"},
+               "files": ["ike/resources/darkreader-data.json", "ike/__init__.py", "PKGBUILD", "README.md",
+                         "CHANGELOG.md"]}
+DARK_BULLET = "- Dark Reader (engine and lists): 4.9.135 -> 4.9.136"
+DARK_DATA = f("ike/resources/darkreader-data.json", '@@ -1 +1 @@\n-{"a": 1}\n+{"a": 2}')
+
+
+def raise_to(old, new, heading=True):
+    """The version files of a candidate made by tools/prepare-maintenance.py (old -> new)."""
+    log = "@@ -2,0 +3,3 @@\n+## %s\n+\n+%s" % (new, DARK_BULLET) if heading else "@@ -4,0 +5 @@\n+" + DARK_BULLET
+    return [f("ike/__init__.py", '@@ -5 +5 @@\n-__version__ = "%s"\n+__version__ = "%s"' % (old, new)),
+            f("PKGBUILD", "@@ -6 +6 @@\n-pkgver=%s\n+pkgver=%s" % (old, new)),
+            f("README.md", "@@ -12 +12 @@\n-**Version %s** - see [CHANGELOG.md](CHANGELOG.md).\n"
+                           "+**Version %s** - see [CHANGELOG.md](CHANGELOG.md)." % (old, new)),
+            f("CHANGELOG.md", log)]
+
+
+def dark(files, commits=(DARK_COMMIT,), **kw):
+    kw.setdefault("main_version", "1.1.23")
+    return decide(pr(DARK), commits=list(commits), files=files, **kw)
+
+
+def refresh_commit(verdict=""):
+    c = {"sha": "5" * 40, "commit": {"message": "refresh: main %s into %s (tools/automerge.py, no AI)\n\nx"
+                                                % ("6" * 40, DARK)}, "files": ["ike-adblock/Cargo.lock"]}
+    if verdict is not None:
+        c["refresh"] = verdict
+    return c
+
+
+def test_several_verified_merges_go_into_one_unpublished_version():
+    """main already holds 1.1.23 merged by itself and not signed (unread): the next verified candidate
+    of the same version merges too (M9 asserted "person" here; the owner's decision replaced it)."""
+    # made before main was raised: it raises 1.1.22 -> 1.1.23, main's own unpublished version
+    assert dark([DARK_DATA] + raise_to("1.1.22", "1.1.23"), unread=True) == ("merge", "")
+    # refreshed with main: nothing of the version left to raise, only its CHANGELOG line
+    after = [DARK_DATA, f("CHANGELOG.md", "@@ -4,0 +5 @@\n+" + DARK_BULLET)]
+    assert dark(after, commits=[DARK_COMMIT, refresh_commit()], unread=True) == ("merge", "")
+    # the test packages ship nothing: they go in whatever main's version is
+    libs = {"sha": "1" * 40, "commit": {"message": "update: test-libs certifi 1 -> certifi 2 (no AI)"},
+            "files": ["tools/test-requirements.txt"]}
+    req = [f("tools/test-requirements.txt", "@@ -1 +1 @@\n-certifi==1\n+certifi==2")]
+    for published in (False, True):
+        assert decide(pr("automation/update/test-libs"), commits=[libs], files=req, unread=True,
+                      published=published, main_version="1.1.23") == ("merge", "")
+    # main's version published: the first candidate raises it to the next one
+    assert dark([DARK_DATA] + raise_to("1.1.22", "1.1.23"), published=True, main_version="1.1.22") == ("merge", "")
+
+
+def test_a_second_version_raise_is_refused():
+    cases = {
+        # 1.1.24 while 1.1.23 is not published
+        "second raise": dark([DARK_DATA] + raise_to("1.1.23", "1.1.24")),
+        # main's 1.1.23 published meanwhile: the candidate's 1.1.23 would never reach the users
+        "published same": dark([DARK_DATA] + raise_to("1.1.22", "1.1.23"), published=True),
+        # a CHANGELOG heading of another version than main's unpublished one, with no raise
+        "other heading": dark([DARK_DATA, f("CHANGELOG.md", "@@ -2,0 +3,3 @@\n+## 1.1.24\n+\n+" + DARK_BULLET)]),
+        # main's version not readable: no merge
+        "unknown": dark([DARK_DATA] + raise_to("1.1.22", "1.1.23"), main_version=""),
+    }
+    assert cases["second raise"] == ("person", "a second version raise: main's 1.1.23 is not published yet and "
+                                               "the pull request sets 1.1.24; it goes into 1.1.23, signed first (M9)")
+    assert cases["published same"][1].startswith("main's version 1.1.23 is published already: the version must be "
+                                                 "raised to 1.1.24")
+    assert "a heading of another version (1.1.24" in cases["other heading"][1]
+    assert cases["unknown"] == ("person", "main's version could not be read")
+    assert all(v[0] == "person" for v in cases.values()), cases
+    assert merge.next_version("1.1.23") == "1.1.24" and merge.version_rule([], "1.1.23", False) == ""
+
+
+def test_the_changelog_union_is_exact():
+    base = "# Changelog\n\n## 1.1.22\n\nTwo things:\n\n- old one\n"
+    main = "# Changelog\n\n## 1.1.23\n\n- Rust crates: 88 -> 88\n\n## 1.1.22\n\nTwo things:\n\n- old one\n"
+    ours = "# Changelog\n\n## 1.1.23\n\n%s\n\n## 1.1.22\n\nTwo things:\n\n- old one\n" % DARK_BULLET
+    text, why = merge.changelog_union(base, ours, main, "1.1.23")
+    assert why == "" and text == ("# Changelog\n\n## 1.1.23\n\n- Rust crates: 88 -> 88\n%s\n\n## 1.1.22\n\n"
+                                  "Two things:\n\n- old one\n" % DARK_BULLET)
+    # a line both have is there once
+    both = ours.replace(DARK_BULLET, DARK_BULLET + "\n- Rust crates: 88 -> 88")
+    assert merge.changelog_union(base, both, main, "1.1.23") == (text, "")
+    assert merge.changelog_union(main, text, text, "1.1.23") == (text, "")
+    # more than new bullet lines of that version, or main's first section another version: a person
+    assert merge.changelog_union(base, base.replace("- old one", "- changed"), main, "1.1.23")[0] == ""
+    assert merge.changelog_union(base, ours.replace("- Dark", "Some text\n- Dark"), main, "1.1.23")[0] == ""
+    assert merge.changelog_union(base, ours, base, "1.1.23")[1] == "CHANGELOG.md: main's has no single ## 1.1.23 section"
+
+
+def _world(tmp_path):
+    """A repository like I.K.E.'s: 1.1.22 published; the crates' candidate merged into main (1.1.23,
+    unpublished); the Dark Reader and uBlock Origin candidates made from the old main."""
+    import subprocess
+    import sys
+    repo = tmp_path / "r"
+    repo.mkdir()
+
+    def git(*a):
+        return subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=repo, check=True,
+                              capture_output=True, text=True).stdout.strip()
+
+    def write(name, text):
+        (repo / name).parent.mkdir(parents=True, exist_ok=True)
+        (repo / name).write_text(text)
+
+    def candidate(branch, start, files, bullet):
+        git("checkout", "-q", "-B", branch, start)
+        for name, text in files.items():
+            write(name, text)
+        subprocess.run([sys.executable, str(ROOT / "tools/prepare-maintenance.py"), "--root", str(repo),
+                        "--base-version", "1.1.22", "--bullet", bullet], check=True, capture_output=True)
+        git("add", "-A")
+        git("commit", "-q", "-m", "update: %s a -> b (no AI)" % branch.rsplit("/", 1)[-1])
+        return git("rev-parse", "HEAD")
+    git("init", "-q", "-b", "main")
+    write("CHANGELOG.md", "# Changelog\n\n## 1.1.22\n\nTwo things:\n\n- old one\n")
+    write("ike/__init__.py", '"""I.K.E."""\n\n__version__ = "1.1.22"\n')
+    write("PKGBUILD", "pkgname=ike-browser\npkgver=1.1.22\npkgrel=1\n")
+    write("README.md", "# I.K.E.\n\n**Version 1.1.22** - see [CHANGELOG.md](CHANGELOG.md).\n\n"
+                       "    sudo pacman -U ike-browser-1.1.22-1-x86_64.pkg.tar.zst\n")
+    for name in ("ike/resources/darkreader-data.json", "ike/resources/ubo-scriptlets.json", "ike-adblock/Cargo.lock"):
+        write(name, "old\n")
+    git("add", "-A")
+    git("commit", "-q", "-m", "1.1.22")
+    old = git("rev-parse", "HEAD")
+    crates = candidate("automation/update/crates", old, {"ike-adblock/Cargo.lock": "new\n"}, "- Rust crates: 88 -> 88")
+    dark_sha = candidate(DARK, old, {"ike/resources/darkreader-data.json": "new\n"}, DARK_BULLET)
+    ubo = candidate("automation/update/ubo-scriptlets", old, {"ike/resources/ubo-scriptlets.json": "ubo\n"},
+                    "- uBlock Origin scriptlets: a -> b")
+    git("checkout", "-q", "main")
+    git("merge", "-q", "--no-ff", "-m", "Merge pull request #107 (merged by itself: fully verified)", crates)
+    git("update-ref", "refs/remotes/origin/main", "main")
+    return repo, git, {"old": old, "dark": dark_sha, "ubo": ubo, "main": git("rev-parse", "main")}
+
+
+def test_a_verified_candidate_behind_main_is_refreshed_exactly(tmp_path):
+    """The refresh of the Dark Reader candidate after the crates' merge: main merged in, one "## 1.1.23"
+    heading with both lines (exactly what tools/prepare-maintenance.py writes when it adds to an
+    unpublished version), the version files as main's, the candidate's own file kept; the commit is
+    accepted by the merge's check."""
+    import subprocess
+    import sys
+    repo, git, sha = _world(tmp_path)
+    assert subprocess.run(["git", "merge-tree", "--write-tree", sha["dark"], sha["main"]], cwd=repo,
+                          capture_output=True).returncode == 1           # it does conflict on CHANGELOG.md
+    commit, why = merge.make_refresh(DARK, sha["dark"], sha["main"], cwd=repo)
+    assert why == "" and commit
+    # what prepare-maintenance.py makes of the same line on top of main (--keep-version)
+    git("checkout", "-q", "-B", "expected", "main")
+    subprocess.run([sys.executable, str(ROOT / "tools/prepare-maintenance.py"), "--root", str(repo),
+                    "--base-version", "1.1.23", "--keep-version", "--bullet", DARK_BULLET], check=True,
+                   capture_output=True)
+    expected = (repo / "CHANGELOG.md").read_text()
+    assert expected == ("# Changelog\n\n## 1.1.23\n\n- Rust crates: 88 -> 88\n%s\n\n## 1.1.22\n\nTwo things:\n\n"
+                        "- old one\n" % DARK_BULLET)
+    assert git("show", "%s:CHANGELOG.md" % commit) + "\n" == expected
+    git("checkout", "-q", "--", ".")
+    for name in ("ike/__init__.py", "PKGBUILD", "README.md", "ike-adblock/Cargo.lock"):
+        assert git("show", "%s:%s" % (commit, name)) == git("show", "main:%s" % name), name
+    assert git("show", "%s:ike/resources/darkreader-data.json" % commit) == "new"
+    assert git("rev-list", "--parents", "-n", "1", commit).split()[1:] == [sha["dark"], sha["main"]]
+    assert merge.refresh_problem(commit, DARK, cwd=repo) == ""
+    # against main, the refreshed candidate changes only its own file and adds its CHANGELOG line
+    assert git("diff", "--name-only", "main", commit).split() == ["CHANGELOG.md", "ike/resources/darkreader-data.json"]
+    # a version file in conflict (main's README changed beside the version line): main's, as decided
+    git("checkout", "-q", "main")
+    readme = (repo / "README.md").read_text().replace("**Version 1.1.23** - see", "**Version 1.1.23** - read")
+    (repo / "README.md").write_text(readme)
+    git("commit", "-q", "-am", "readme")
+    git("update-ref", "refs/remotes/origin/main", "main")
+    main2 = git("rev-parse", "main")
+    assert subprocess.run(["git", "merge-tree", "--write-tree", "--name-only", "--no-messages", sha["dark"], main2], cwd=repo,
+                          capture_output=True, text=True).stdout.split()[1:] == ["CHANGELOG.md", "README.md"]
+    again, why = merge.make_refresh(DARK, sha["dark"], main2, cwd=repo)
+    assert why == "" and git("show", "%s:README.md" % again) + "\n" == readme
+    assert merge.refresh_problem(again, DARK, cwd=repo) == ""
+
+
+def test_a_conflict_beyond_changelog_and_version_goes_to_a_person(tmp_path, monkeypatch):
+    repo, git, sha = _world(tmp_path)
+    # main gets another uBlock Origin change: the candidate's scriptlets conflict with it
+    git("checkout", "-q", "main")
+    (repo / "ike/resources/ubo-scriptlets.json").write_text("someone else's\n")
+    git("commit", "-q", "-am", "scriptlets")
+    main2 = git("rev-parse", "main")
+    git("update-ref", "refs/remotes/origin/main", main2)
+    commit, why = merge.make_refresh("automation/update/ubo-scriptlets", sha["ubo"], main2, cwd=repo)
+    assert commit == "" and why == "ike/resources/ubo-scriptlets.json: a conflict with main that a person resolves"
+    # a second raise is not resolved either: the candidate on 1.1.24 while main holds 1.1.23
+    git("checkout", "-q", "-B", "second", "main")
+    (repo / "ike/__init__.py").write_text('"""I.K.E."""\n\n__version__ = "1.1.24"\n')
+    (repo / "CHANGELOG.md").write_text((repo / "CHANGELOG.md").read_text().replace(
+        "## 1.1.23\n", "## 1.1.24\n\n- x\n\n## 1.1.23\n", 1))
+    git("commit", "-q", "-am", "update: darkreader a -> b (no AI)")
+    git("checkout", "-q", "main")
+    (repo / "CHANGELOG.md").write_text((repo / "CHANGELOG.md").read_text().replace("- Rust", "- Other\n- Rust"))
+    git("commit", "-q", "-am", "log")
+    assert "is not main's 1.1.23" in merge.make_refresh(DARK, git("rev-parse", "second"), git("rev-parse", "main"),
+                                                         cwd=repo)[1]
+    # through main(): the owner is named once with the reason (the ledger reads its mark); no merge
+    p = dict(pr("automation/update/ubo-scriptlets"),
+             head={"ref": "automation/update/ubo-scriptlets", "sha": "c" * 40, "repo": {"full_name": "o/r"}},
+             base={"ref": "main", "sha": "b" * 40})
+    ubo = {"sha": "3" * 40, "commit": {"message": "update: ubo-scriptlets a -> b (no AI)"},
+           "files": ["ike/resources/ubo-scriptlets.json"]}
+    calls = _main_world(monkeypatch, p, [ubo], [f("ike/resources/ubo-scriptlets.json", "@@ -1 +1 @@\n-a\n+b")],
+                        FULL_CHECKS, behind=3)
+    conflict = "ike/resources/ubo-scriptlets.json: a conflict with main that a person resolves"
+    monkeypatch.setattr(merge, "released", lambda *a: False)          # main's 1.1.19 not published: nothing to raise
+    monkeypatch.setattr(merge, "refresh_branch", lambda repo_, ref, s: ("", conflict))
+    assert merge.main(["--repo", "o/r", "--sha", "c" * 40]) == 0
+    flat = [" ".join(map(str, c[1:])) for c in calls if c[0] == "gh"]
+    assert not any("/merge" in c for c in flat), flat
+    said = [c for c in flat if c.startswith("pr comment 7")]
+    assert len(said) == 1 and "@o:" in said[0] and conflict in said[0]
+    assert merge.VERDICT % ("c" * 40, "person") in said[0]
+
+
+def test_the_refresh_commit_is_accepted_and_a_disguised_one_refused(tmp_path):
+    repo, git, sha = _world(tmp_path)
+    good, why = merge.make_refresh(DARK, sha["dark"], sha["main"], cwd=repo)
+    assert why == "" and merge.refresh_problem(good, DARK, cwd=repo) == ""
+    message = git("log", "-1", "--format=%B", good)
+    tree = git("rev-parse", good + "^{tree}")
+
+    def commit(tree_, *parents, msg=message):
+        return git("commit-tree", tree_, *[x for p in parents for x in ("-p", p)], "-m", msg)
+    # one more change hidden in the merge
+    git("checkout", "-q", "-B", "hide", good)
+    (repo / "ike/updater.py").write_text("SOURCE = 'https://evil.example/update.json'\n")
+    git("add", "-A")
+    git("commit", "-q", "-m", "x")
+    hidden = commit(git("rev-parse", "HEAD^{tree}"), sha["dark"], sha["main"])
+    # a "main" that is not main's
+    side = git("commit-tree", git("rev-parse", "main^{tree}"), "-p", sha["main"], "-m", "side")
+    on_side = commit(tree, sha["dark"], side, msg=message.replace(sha["main"], side))
+    cases = {
+        "hidden change": merge.refresh_problem(hidden, DARK, cwd=repo),
+        "one parent": merge.refresh_problem(commit(tree, sha["dark"]), DARK, cwd=repo),
+        "parents swapped": merge.refresh_problem(commit(tree, sha["main"], sha["dark"]), DARK, cwd=repo),
+        "not main": merge.refresh_problem(on_side, DARK, cwd=repo),
+        "other branch": merge.refresh_problem(good, "automation/update/crates", cwd=repo),
+        "plain message": merge.refresh_problem(commit(tree, sha["dark"], sha["main"], msg="Merge main"), DARK,
+                                               cwd=repo),
+    }
+    assert cases["hidden change"] == "more than main merged in with the CHANGELOG and version resolutions"
+    assert cases["one parent"] == "not a merge of the branch and main"
+    assert cases["not main"] == "the main it names is not in main"
+    assert all(cases.values()), cases
+    # decide(): a refresh commit counts only with its verdict "" from git (main() computes it)
+    after = [DARK_DATA, f("CHANGELOG.md", "@@ -4,0 +5 @@\n+" + DARK_BULLET)]
+    assert dark(after, commits=[DARK_COMMIT, refresh_commit("")]) == ("merge", "")
+    for verdict in (cases["hidden change"], None):
+        kind, why = dark(after, commits=[DARK_COMMIT, refresh_commit(verdict)])
+        assert kind == "person" and why.startswith("a refresh commit that is not main merged in as decided"), why
+    # a refresh commit accounts for no file by itself
+    kind, why = dark(after + [f("ike/resources/ubo-scriptlets.json")], commits=[DARK_COMMIT, refresh_commit("")])
+    assert kind == "person" and "no commit of the branch accounts for it" in why
+
+
+def test_the_refresh_is_pushed_to_the_candidates_branch_only(tmp_path, monkeypatch):
+    """refresh_branch(): fetched without credentials, pushed as a fast-forward of that branch (never
+    main), then Tests, Security and Arch Linux started on it (the token's push starts nothing)."""
+    import subprocess
+    repo, git, sha = _world(tmp_path)
+    origin = tmp_path / "origin.git"
+    subprocess.run(["git", "clone", "-q", "--bare", str(repo), str(origin)], check=True)
+    git("remote", "add", "origin", str(origin))
+    git("checkout", "-q", "--detach", "main")
+    calls = []
+    monkeypatch.setattr(merge, "gh", lambda *a: calls.append(a) or "")
+    commit, why = merge.refresh_branch("o/r", DARK, sha["dark"], cwd=repo)
+    assert why == "" and commit
+
+    def remote(ref):
+        return subprocess.run(["git", "rev-parse", ref], cwd=origin, capture_output=True, text=True).stdout.strip()
+    assert remote(DARK) == commit and remote("main") == sha["main"]
+    assert [c[2] for c in calls] == ["tests.yml", "security.yml", "arch.yml"]
+    assert all(c[:2] == ("workflow", "run") and c[-2:] == ("--ref", DARK) for c in calls)
+    # never main, nor a branch that is not the automation's
+    for ref in ("main", "fix/1.1.23", "automation/update/"):
+        assert merge.refresh_branch("o/r", ref, sha["dark"], cwd=repo) == ("", "not a branch of the automation")
+    assert remote("main") == sha["main"]
+
+
+def test_after_a_merge_the_others_are_judged_again(monkeypatch):
+    """(c): the verified merge dispatches automerge.yml for every other open pull request of the
+    automation (not a person's, not a stranger's), so the candidates converge one after another; one
+    behind main is refreshed instead of merged."""
+    sha = "c" * 40
+    p = dict(pr(CAND), head={"ref": CAND, "sha": sha, "repo": {"full_name": "o/r"}}, base={"ref": "main",
+                                                                                         "sha": "b" * 40})
+    others = [dict(pr(ref, repo=repo), number=n, head={"ref": ref, "sha": s * 40, "repo": {"full_name": repo}})
+              for n, ref, repo, s in ((108, "automation/update/test-libs", "o/r", "1"),
+                                      (109, DARK, "o/r", "2"),
+                                      (12, "fix/1.1.23", "o/r", "3"),
+                                      (13, DARK, "someone/r", "4"))]
+    calls = _main_world(monkeypatch, p, [MAINT, FIX], CAND_FILES, FULL_CHECKS)
+    world_api = merge.api
+    monkeypatch.setattr(merge, "api", lambda path: [p] + others if path.startswith("repos/o/r/pulls?")
+                        else world_api(path))
+    assert merge.main(["--repo", "o/r", "--sha", sha]) == 0
+    flat = [" ".join(map(str, c[1:])) for c in calls if c[0] == "gh"]
+    merged = [i for i, c in enumerate(flat) if c.startswith("api -X PUT repos/o/r/pulls/7/merge")]
+    again = [c for c in flat if c.startswith("workflow run automerge.yml")]
+    assert len(merged) == 1 and again == ["workflow run automerge.yml --repo o/r --ref main -f sha=" + "1" * 40,
+                                          "workflow run automerge.yml --repo o/r --ref main -f sha=" + "2" * 40]
+    assert merged[0] < flat.index(again[0])
+    # behind main: refreshed (its tests start again), not merged and not left to a person
+    calls = _main_world(monkeypatch, p, [MAINT, FIX], CAND_FILES, FULL_CHECKS, behind=1)
+    asked = []
+    monkeypatch.setattr(merge, "refresh_branch", lambda repo, ref, s: asked.append((ref, s)) or ("e" * 40, ""))
+    assert merge.main(["--repo", "o/r", "--sha", sha]) == 0
+    flat = [" ".join(map(str, c[1:])) for c in calls if c[0] == "gh"]
+    assert asked == [(CAND, sha)] and not any("/merge" in c for c in flat), flat
+    assert not any(merge.MARK in c for c in flat) and any(c.startswith("pr comment 7") for c in flat)
+    am = (WORKFLOWS / "automerge.yml").read_text()
+    assert "fetch-depth: 0" in am and am.count("contents: write") == 1
+
+
+def test_only_one_release_notice_goes_out(tmp_path):
+    """(d): four verified merges into 1.1.23, main's tests after each, release-ready.yml each time:
+    one notice (one issue, which GitHub mails), no comment; its list of what went in by itself is kept
+    current by an edit (which mails nobody); once published it is closed."""
+    import os
+    import subprocess
+    import sys
+    import textwrap
+    lines = (WORKFLOWS / "release-ready.yml").read_text().splitlines()
+    start = next(i for i, ln in enumerate(lines) if ln.strip() == "- name: Tell the owner, or close the notice")
+    run = next(i for i in range(start, len(lines)) if lines[i].strip() == "run: |")
+    script = textwrap.dedent("\n".join(lines[run + 1:])) + "\n"
+    repo = tmp_path / "main"
+    (repo / "ike").mkdir(parents=True)
+    (repo / "ike" / "__init__.py").write_text('__version__ = "1.1.23"\n')
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "x"],
+                   cwd=repo, check=True)
+    state = tmp_path / "state.json"
+    state.write_text(json.dumps({"merged": [], "issues": [], "published": False, "calls": []}))
+    fake = tmp_path / "bin" / "gh"
+    fake.parent.mkdir()
+    fake.write_text("#!%s\n" % sys.executable + textwrap.dedent('''\
+        import json, sys, time
+        path = %r
+        s = json.load(open(path))
+        a = sys.argv[1:]
+        s["calls"].append(" ".join(a[:3]))
+        out, code = "", 0
+        def arg(name):
+            return a[a.index(name) + 1]
+        def opened():
+            return [i for i in s["issues"] if i["state"] == "open"]
+        if a[:2] == ["release", "view"] and a[2:3] != ["--json"]:
+            code = 0 if s["published"] else 1
+        elif a[:2] == ["release", "view"]:
+            out = "v1.1.22"
+        elif a[:2] == ["issue", "list"] and arg("--state") == "open":
+            out = str(opened()[0]["number"]) if opened() else ""
+        elif a[:2] == ["issue", "list"]:
+            out = "0"
+        elif a[0] == "api" and "/check-runs" in a[1]:
+            out = "success"
+        elif a[0] == "api" and "/compare/" in a[1]:
+            out = "\\n".join(s["merged"])
+        elif a[:2] == ["issue", "create"]:
+            s["issues"].append({"number": 50, "state": "open", "body": open(arg("--body-file")).read(),
+                                "created": time.strftime("%%Y-%%m-%%dT%%H:%%M:%%SZ", time.gmtime())})
+        elif a[:2] == ["issue", "view"] and arg("--json") in ("body", "body,comments"):
+            out = opened()[0]["body"]
+        elif a[:2] == ["issue", "view"]:
+            out = opened()[0]["created"]
+        elif a[:2] == ["issue", "edit"]:
+            opened()[0]["body"] = open(arg("--body-file")).read()
+        elif a[:2] == ["issue", "close"]:
+            opened()[0]["state"] = "closed"
+        json.dump(s, open(path, "w"))
+        if out:
+            print(out)
+        sys.exit(code)
+        ''' % str(state)))
+    fake.chmod(0o755)
+    env = dict(os.environ, PATH="%s:%s" % (fake.parent, os.environ["PATH"]), GH_TOKEN="x", GH_REPO="o/r",
+               OWNER="o", RUNNER_TEMP=str(tmp_path))
+
+    def ready(merged=None, published=False):
+        s = json.loads(state.read_text())
+        s["merged"] += [merged] if merged else []
+        s["published"], s["calls"] = published, []
+        state.write_text(json.dumps(s))
+        res = subprocess.run(["bash", "-e", "-c", script], cwd=repo, env=env, capture_output=True, text=True,
+                             timeout=60)
+        assert res.returncode == 0, res.stdout + res.stderr
+        return json.loads(state.read_text())
+    for n in (107, 108, 109, 110):
+        s = ready("Merge pull request #%d: Update (merged by itself: fully verified)" % n)
+        assert len(s["issues"]) == 1, s
+        assert not any(c.startswith("issue comment") for c in s["calls"]), s["calls"]
+    body = s["issues"][0]["body"]
+    assert all("#%d: Update" % n in body for n in (107, 108, 109, 110)) and "@o:" in body
+    assert "<!-- release-ready: 1.1.23 -->" in body
+    s = ready()                                           # the daily run: nothing more
+    assert len(s["issues"]) == 1 and not any(c.startswith(("issue comment", "issue edit")) for c in s["calls"])
+    s = ready(published=True)                             # signed and published: closed by itself
+    assert s["issues"][0]["state"] == "closed" and len(s["issues"]) == 1
+
+
+def test_the_filter_lists_recorded_evidence_is_not_a_test_change():
+    """#111 (2026-11-22): a new file under tests/data/lists-recorded/ is the evidence the workflow
+    itself records (tools/filter-lists.py RECORDED_DIR; the AI may not write there), not a test
+    changed. A change, removal or rename of one there, or anything else under tests/, still is."""
+    lists = load("filter-lists")
+    assert merge.RECORDED_DIR == lists.RECORDED_DIR + "/"
+    name = lists.RECORDED_DIR + "/2026-11-22-security-protection-dropped-network-filter-error-csp-with-c.txt"
+    ref = pr("automation/update/lists-2026-11-22")
+    test_file = "a test file changed or removed"
+
+    def why(*extra):
+        return decide(ref, files=CODE + list(extra))[1]
+    assert test_file not in why(f(name, "@@ -0,0 +1 @@\n+||x^$csp=y", "added"))
+    for changed in (f(name, "@@ -1 +1 @@\n-a\n+b"), f(name, "@@ -1 +0,0 @@\n-a", "removed"),
+                    dict(f(name, "@@ -1 +1 @@\n-a\n+b", "added"), previous_filename=lists.RECORDED_DIR + "/old.txt"),
+                    dict(f(name, "@@ -0,0 +1 @@\n+a", "renamed"), previous_filename=lists.RECORDED_DIR + "/old.txt")):
+        assert decide(ref, files=CODE + [changed])[0] == "person" and test_file in why(changed), changed
+    # only its own kind of file, directly in that folder
+    for other in (lists.RECORDED_DIR + "/conftest.py", lists.RECORDED_DIR + "/sub/x.txt",
+                  lists.RECORDED_DIR + "/../test_x.txt", "tests/data/other/x.txt", "tests/test_new.py"):
+        assert test_file in why(f(other, "@@ -0,0 +1 @@\n+a", "added")), other

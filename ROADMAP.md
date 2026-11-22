@@ -64,6 +64,13 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Owner's decisions
 
+- 2026-11-22, everything automatic and verified converges into `main`, then
+  one notice to sign: several verified merges go into the same unpublished
+  version (a second raise on top waits for a person); a verified candidate
+  behind `main` is refreshed by itself (`main` merged into its branch,
+  CHANGELOG.md and the version files resolved deterministically, any other
+  conflict for a person, its tests again, no AI) and the others are judged
+  again after every merge (docs/MAINTENANCE.md, "The verified merge").
 - 2026-11-22, the verified merge (later the same day as "nothing merges by
   itself", which stays for everything else): the AIs fix and carry the work
   on through the tests; the system prepares the updated version and the
