@@ -330,15 +330,20 @@ jobs:
           done
           exit 1
 
-  # The automatic fix's own tests passed (started with the workflow's token, so
+  # The automation's own tests passed (started with the workflow's token, so
   # GitHub sends no "workflow_run"): the merge is asked for with a dispatch
-  # (review 2 of 1.1.19, H1). After a merge made by itself, the tests of main
-  # passed: the release notice is asked for the same way (H2).
+  # (review 2 of 1.1.19, H1), for an automatic fix, the daily maintenance
+  # candidate and an isolated update (the verified merge, 2026-11-22:
+  # tools/automerge.py merges only what is fully verified, and starts Arch
+  # Linux on the commit when it has not run there). After a merge made by
+  # itself, the tests of main passed: the release notice is asked for the same
+  # way (H2).
   merge-ready:
     needs: tests
     if: >-
       success() && github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]' &&
-      (github.ref_name == 'automation/autofix-main' || github.ref_name == 'main')
+      (github.ref_name == 'automation/autofix-main' || github.ref_name == 'main' ||
+      github.ref_name == 'automation/daily-maintenance' || startsWith(github.ref_name, 'automation/update/'))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:

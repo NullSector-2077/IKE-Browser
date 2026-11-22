@@ -17,13 +17,25 @@ decisions, status) and CHANGELOG.md.
   without asking.
 - GitHub: Claude does everything on GitHub by itself (branches, pull requests,
   issues, workflows) without asking each time. Merging into `main` (the
-  owner's decision of 2026-11-22): nothing merges by itself, no automation
-  and no AI agent (AutoFix, Antigravity, Groq, Z.AI, OpenRouter...). Claude
-  merges only the versions and changes the owner asked for, after green
-  tests; ChatGPT merges only on the owner's explicit order, after green
-  tests; every automatic update or fix waits in its pull request for the
-  owner's order. Only signing and publishing releases belong to the owner
-  (`python3 tools/publish.py` on the owner's PC).
+  owner's decision of 2026-11-22): no AI agent merges by itself (AutoFix,
+  Antigravity, Groq, Z.AI, OpenRouter...), and no agent ever merges its own
+  work. Claude merges the PRs the owner asked for when all checks are green
+  (the owner's standing order); ChatGPT merges only on the owner's explicit
+  order, after green tests; people's PRs wait for the owner's order. The one
+  exception, the verified merge (the owner's second decision of 2026-11-22):
+  the automation's own PRs (the daily candidate
+  `automation/daily-maintenance`, an AutoFix fix `automation/autofix-main` or
+  `automation/update/*`) are merged by the workflow's own code read from
+  `main` (`tools/automerge.py`, `automerge.yml`), only when fully verified:
+  every check of the last commit passed (tests, sandbox, Security, Arch
+  Linux), every category `tools/test-categories.py` requires for the changed
+  components passed with nothing "not verified" and no required test
+  skipped, no test file changed or removed, no protected file or workflow
+  touched, licences up to date, no open security finding. Anything less
+  stays a PR, with one comment naming the owner, and in the ledger as
+  needs-person or blocked. After a merge `release-ready.yml` tells the owner
+  a version is ready to sign. Only signing and publishing releases belong to
+  the owner (`python3 tools/publish.py` on the owner's PC).
 - Automatic maintenance (the owner's decisions of 2026-11-22): AI agents work
   only on isolated branches (`automation/update/*`, `automation/builder/*`
   and the existing maintenance branches), never on `main`; for the builders of

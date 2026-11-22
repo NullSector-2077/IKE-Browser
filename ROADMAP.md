@@ -17,12 +17,15 @@ are agreed with the project owner; do not reopen them without asking.
 - Keep the project independent: no other browser's branding or identity, no
   external services beyond those documented in README.md.
 - Each step goes on its own branch with a pull request whose base is `main`
-  (no pull requests stacked on other pull requests). Since 2026-11-22 nothing
-  merges into `main` by itself: Claude merges what the owner asked for once
-  GitHub Actions is green, ChatGPT only on the owner's order, automatic
-  updates and fixes wait for the owner (see CLAUDE.md); signing and
-  publishing stay with the owner. The repository is public:
-  never commit personal data, keys or secrets.
+  (no pull requests stacked on other pull requests). Since 2026-11-22 no AI
+  agent merges into `main` by itself and no agent merges its own work:
+  Claude merges the PRs the owner asked for when all checks are green (the
+  owner's standing order), ChatGPT only on the owner's order; the
+  automation's own PRs (daily candidate, AutoFix fix, isolated update) are
+  merged by the workflow's own code from `main` only when fully verified
+  (the verified merge, below), everything else waits for the owner (see
+  CLAUDE.md); signing and publishing stay with the owner. The repository is
+  public: never commit personal data, keys or secrets.
 - The private signing key stays with the owner: never in the repository, in a
   package or on GitHub Actions.
 - Test on the real browser (headless PyQt6 + Qt WebEngine) with the existing
@@ -61,6 +64,23 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Owner's decisions
 
+- 2026-11-22, the verified merge (later the same day as "nothing merges by
+  itself", which stays for everything else): the AIs fix and carry the work
+  on through the tests; the system prepares the updated version and the
+  owner only signs it when it is ready and has passed the tests. The
+  workflow merges the automation's own PR by itself when everything is green
+  and verified (like the old "Merge green fixes", but only for complete
+  candidates), then the signing notice: the daily candidate, an AutoFix fix
+  or an isolated update, merged by `tools/automerge.py` read from `main`,
+  never by an agent, only when every check of its last commit passed (tests,
+  sandbox, Security, Arch Linux, which now runs on the candidate), every
+  category its components need passed (nothing "not verified", no required
+  test skipped), no test file changed or removed, no protected file or
+  workflow touched, licences up to date and no open security finding.
+  Anything less stays a PR, one comment naming the owner, needs-person or
+  blocked in the ledger. ChatGPT's and people's PRs keep waiting for the
+  owner's order. The owner's standing order to Claude: Claude merges the PRs
+  the owner asked for when all checks are green.
 - 2026-11-21, for 1.1.21: I.K.E.'s changes to Dark Reader
   (`tools/build-darkreader.py`) stay only when their speed gain was
   measured (larger than the spread in two runs). Kept, 9 families:

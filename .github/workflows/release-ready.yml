@@ -1,5 +1,8 @@
 # GitHub tells the owner when main holds a version that is not published yet
-# and its tests passed (1.1.19, the owner's request): an issue with the exact
+# and its tests passed (1.1.19, the owner's request; since 2026-11-22 also
+# right after the workflow merged a fully verified candidate or fix: main's
+# Tests and Security then ask for it, tests.yml and security.yml, job
+# merge-ready): an issue with the exact
 # command that signs and publishes it on the owner's computer, assigned to the
 # owner and naming the owner, so GitHub sends its mail (subject: the title).
 # One issue per version; a reminder comment each week while it waits; closed
@@ -65,8 +68,9 @@ jobs:
           closed=$(gh issue list --label release-ready --state closed --author app/github-actions --limit 50 \
                    --json body --jq "map(select(.body | contains(\"<!-- release-ready: $version -->\"))) | length")
           if [ -z "$open" ] && [ "${closed:-0}" != 0 ]; then echo "the notice of $version was closed: not again"; exit 0; fi
-          # the fixes that went into main by themselves since the last release:
-          # nobody read them; the owner asks Claude to before signing (C1)
+          # what went into main by itself since the last release (since 2026-11-22
+          # only the automation's fully verified pull requests): listed, so the
+          # owner knows what the signature covers (C1)
           last=$(gh release view --json tagName --jq .tagName 2>/dev/null || true)
           self=""
           if [ -n "$last" ]; then
@@ -84,7 +88,7 @@ jobs:
             echo '```'
             echo
             if [ -n "$self" ]; then
-              echo "**Prima di firmare:** queste correzioni sono entrate in \`main\` da sole, senza che nessuno le leggesse. Chiedi a Claude di revisionarle:"
+              echo "Entrate in \`main\` da sole perché verificate in tutto (test, sandbox, Security, Arch Linux, licenze; nessun test cambiato o saltato, nessun avviso di sicurezza aperto). Se vuoi, chiedi a Claude di rileggerle prima di firmare:"
               echo
               printf '%s\n' "$self" | sed 's/^/- /'
               echo
