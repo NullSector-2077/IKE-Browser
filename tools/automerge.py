@@ -790,6 +790,19 @@ def refresh_problem(sha, ref, cwd=ROOT, main_ref="origin/main"):
         return "the refresh commit could not be read (%s)" % str(e)[:120]
 
 
+# the filter lists' recorded evidence the workflow itself writes (tools/filter-lists.py RECORDED_DIR;
+# the AI may not: tools/check-autofix-patch.py LISTS_ALLOWED): a NEW file there is not a test change
+RECORDED_DIR = "tests/data/lists-recorded/"
+
+
+def recorded_evidence(f):
+    """A file the pull request adds under tests/data/lists-recorded/ (2026-11-22, #111); a change,
+    removal or rename there is still a test file changed, for a person."""
+    name = f.get("filename") or ""
+    return f.get("status") == "added" and not f.get("previous_filename") and name.startswith(RECORDED_DIR) \
+        and name.endswith(".txt") and "/../" not in "/" + name + "/" and name.count("/") == RECORDED_DIR.count("/")
+
+
 def target_version(files):
     """The version the pull request sets in ike/__init__.py, or "" when it does not move it."""
     for f in files:
@@ -876,7 +889,7 @@ def decide(repo, pr, commits, files, checks, guard_allowed, published=False, unr
     # no test file changed or removed, no protected file, no workflow (the owner's rule)
     for f in files:
         for n in (f.get("filename", ""), f.get("previous_filename") or ""):
-            if n and TEST_FILE.search(n):
+            if n and TEST_FILE.search(n) and not recorded_evidence(f):
                 return "person", "%s: a test file changed or removed" % n
             if n.startswith(".github/") and not ci_branch:
                 return "person", "%s: a workflow" % n

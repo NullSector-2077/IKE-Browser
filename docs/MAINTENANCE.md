@@ -1473,7 +1473,10 @@ only when ALL of this holds:
   (`MERGE_ALWAYS`: lint, the whole suite, the engine's Rust tests, licences,
   no tests lost, the package, the old processor, the installed package, Arch
   Linux, the sandbox, the advisories), was run and passed on that commit:
-  nothing "not verified". The skipped tests are read from its Tests run: one
+  nothing "not verified" (read from the runs that really ran on it: a
+  `pull_request` run waiting for approval, "action_required", never hides
+  the automation's own run of the same commit). The skipped tests are read
+  from its Tests run: one
   that no other check of the commit runs is a required test not run.
   `EXPECTED_SKIPS` (`tools/test-categories.py`) names, from a real Tests run
   on GitHub's runners (2026-11-22), the skips that are environmental there,
@@ -1487,7 +1490,10 @@ only when ALL of this holds:
   engine can be fully verified: the filter lists are checked on its own
   commit. A kind that needs a real desktop is never fully verified here: it
   waits for the owner;
-- no test file changed or removed, no protected file of the guard
+- no test file changed or removed (a new file of the filter lists' recorded
+  evidence, `tests/data/lists-recorded/<name>.txt`, which the workflow writes
+  and the AI may not, is not a test change; a change, removal or rename of
+  one is), no protected file of the guard
   (`FORBIDDEN_FILES`; a candidate's own files, as `tools/test-requirements.txt`
   for the test packages, are its update's) and no workflow (but the CI pins'
   verified edit); the automatic fix's files follow the 1.1.19 rules (only

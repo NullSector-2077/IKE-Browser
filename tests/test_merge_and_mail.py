@@ -1238,3 +1238,26 @@ def test_only_one_release_notice_goes_out(tmp_path):
     assert len(s["issues"]) == 1 and not any(c.startswith(("issue comment", "issue edit")) for c in s["calls"])
     s = ready(published=True)                             # signed and published: closed by itself
     assert s["issues"][0]["state"] == "closed" and len(s["issues"]) == 1
+
+
+def test_the_filter_lists_recorded_evidence_is_not_a_test_change():
+    """#111 (2026-11-22): a new file under tests/data/lists-recorded/ is the evidence the workflow
+    itself records (tools/filter-lists.py RECORDED_DIR; the AI may not write there), not a test
+    changed. A change, removal or rename of one there, or anything else under tests/, still is."""
+    lists = load("filter-lists")
+    assert merge.RECORDED_DIR == lists.RECORDED_DIR + "/"
+    name = lists.RECORDED_DIR + "/2026-11-22-security-protection-dropped-network-filter-error-csp-with-c.txt"
+    ref = pr("automation/update/lists-2026-11-22")
+    test_file = "a test file changed or removed"
+
+    def why(*extra):
+        return decide(ref, files=CODE + list(extra))[1]
+    assert test_file not in why(f(name, "@@ -0,0 +1 @@\n+||x^$csp=y", "added"))
+    for changed in (f(name, "@@ -1 +1 @@\n-a\n+b"), f(name, "@@ -1 +0,0 @@\n-a", "removed"),
+                    dict(f(name, "@@ -1 +1 @@\n-a\n+b", "added"), previous_filename=lists.RECORDED_DIR + "/old.txt"),
+                    dict(f(name, "@@ -0,0 +1 @@\n+a", "renamed"), previous_filename=lists.RECORDED_DIR + "/old.txt")):
+        assert decide(ref, files=CODE + [changed])[0] == "person" and test_file in why(changed), changed
+    # only its own kind of file, directly in that folder
+    for other in (lists.RECORDED_DIR + "/conftest.py", lists.RECORDED_DIR + "/sub/x.txt",
+                  lists.RECORDED_DIR + "/../test_x.txt", "tests/data/other/x.txt", "tests/test_new.py"):
+        assert test_file in why(f(other, "@@ -0,0 +1 @@\n+a", "added")), other
