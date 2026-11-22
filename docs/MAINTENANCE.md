@@ -1,15 +1,17 @@
 # Automatic maintenance
 
-GitHub Actions keeps I.K.E. up to date and prepares the fixes. A pull request
-is merged only once its tests are green, and since 2026-11-22 (the owner's
-decision) only on the owner's order: nothing merges into `main` by itself.
-`automerge.yml` still judges a fix of the automatic fix or of ChatGPT; one
-that would have merged in 1.1.19 to 1.1.21 is now marked ready and the owner
-is told once (its token cannot merge). Claude merges what the owner asked for;
-ChatGPT only on the owner's explicit order (CLAUDE.md). The owner alone
-**signs and publishes** (one command on the owner's computer, in the issue
-GitHub mails when a release is ready, [UPDATES.md](UPDATES.md)). No workflow releases or
-signs anything, and no workflow pushes to `main`.
+GitHub Actions keeps I.K.E. up to date and prepares the fixes. Since
+2026-11-22 (the owner's decisions) no AI agent merges into `main` and no agent
+merges its own work. The automation's own pull requests (the daily candidate,
+an automatic fix, an isolated update) are merged by the workflow's own code
+read from `main` only when they are **fully verified** ("The verified merge",
+below); anything less waits for the owner, who is named in one comment.
+Claude merges the pull requests the owner asked for once every check is
+green; ChatGPT's and people's pull requests wait for the owner's order
+(CLAUDE.md). The owner alone **signs and publishes** (one command on the
+owner's computer, in the issue GitHub mails when a release is ready,
+[UPDATES.md](UPDATES.md)). No workflow releases or signs anything, and no
+workflow pushes to `main` (the verified merge is a merge of a pull request).
 
 ## What runs by itself
 
@@ -23,8 +25,8 @@ signs anything, and no workflow pushes to `main`.
 | Every day, 04:23 UTC, and on every PR and push to `main` | The security tests with the engine's sandbox really on (as a normal user), and the RustSec advisories of every crate of the AdBlock engine | `security.yml` | Checks on the PR; on `main` the issue "Rust advisories" when one is found (no automatic fix) |
 | Mondays, 07:41 UTC | The automation itself: every scheduled check (also the Arch and security ones, 1.1.19), one tiny question to each reserve of the automatic fix, and (WP9) whether every AI provider, Gemini included, answers and is free | `health.yml` | Issue "Automation health" when something stopped, failed, waits too long, a reserve's key or model no longer works, or a provider is not free (marked unavailable: the automatic fix skips it); artifact `ai-providers` |
 | Once a month | New versions of the GitHub actions used | Dependabot | One PR labelled `maintenance` |
-| When a check of a pull request ends, or the automation's own Tests and Security runs of its fix pass (a dispatch) | A fix of the automatic fix (`automation/autofix-main`, only commits it wrote itself) or of ChatGPT (`chatgpt/...`) is marked ready for the owner's order (since 2026-11-22; it merged by itself in 1.1.19 to 1.1.21) when every check of its last commit passed, `tests` and `sandbox` included, and it changes only existing Python modules of the interface under `ike/` (and `docs/`), with no added line that reaches the environment, the network, the system or the test run, plus the version files exactly as the automation raises the version. It waits for a person when it adds or removes a file, touches a module that decides the user's safety (`app`, `config`, `passwords`, `userscripts`, `webview`, `shields`, `updater`, `doh`...), a page script under `ike/resources/`, tests, tools, workflows, the ad blocker or the package; when main's version is already published and the fix does not raise it; and when `main` already holds a fix merged by itself and not yet published (one unread merge per release). Rules: `tools/automerge.py`, read from `main` (review 2 of 1.1.19). The owner's merge is a push to `main`, which starts its tests | `automerge.yml` | One comment: ready, waiting for the owner's order; otherwise one comment naming the owner: "chiedi a Claude di revisionarla" |
-| When the tests of `main` pass, and every day at 08:13 UTC | A version in `main` that is not published yet, with `tests` and `sandbox` green on its last commit | `release-ready.yml` | An issue "C'E' UNA NUOVA RELEASE IN MAIN PRONTA DA PUBBLICARE!!!" with the exact command, assigned to the owner and naming the owner (GitHub mails it), listing the fixes merged by themselves since the last release (to have them read before signing); a reminder comment each week; closed by itself once the version is published; never opened again for a version whose notice the owner closed |
+| When a check of a pull request ends, or the automation's own Tests, Security and Arch Linux runs pass on its branch (a dispatch) | The verified merge (2026-11-22): the daily candidate (`automation/daily-maintenance`), a fix of the automatic fix (`automation/autofix-main`) or an isolated update (`automation/update/...`) is merged when it is fully verified: every check of its last commit passed (`tests`, `sandbox`, `rust-advisories`, `Arch Linux`), every category its components need passed with nothing "not verified" and no required test skipped, no test file changed or removed, no protected file or workflow, the licences up to date, no open security finding, the version raised when main's is published, and no other merge by itself waiting for a signature; the automatic fix's files also follow the 1.1.19 rules (only existing interface modules under `ike/` and `docs/`, no line that reaches the environment, the network, the system or the test run, no module that decides the user's safety). Arch Linux is started on the commit when it has not run there. A fix of ChatGPT (`chatgpt/...`) that passes the 1.1.19 rules is only marked ready for the owner's order. Rules: `tools/automerge.py`, read from `main` | `automerge.yml` | Merged, then `main`'s Tests, Security and Arch Linux start and the release notice follows; otherwise one comment naming the owner with the reason (edited when the reason changes, never repeated), and the ledger says needs-person (blocked for a security finding); ChatGPT: one comment, ready and waiting for the owner's order |
+| When the tests of `main` pass (after a merge by itself: when its Tests and Security pass), and every day at 08:13 UTC | A version in `main` that is not published yet, with `tests` and `sandbox` green on its last commit | `release-ready.yml` | An issue "C'E' UNA NUOVA RELEASE IN MAIN PRONTA DA PUBBLICARE!!!" with the exact command, assigned to the owner and naming the owner (GitHub mails it), listing what was merged by itself since the last release (fully verified, so the owner knows what the signature covers); a reminder comment each week; closed by itself once the version is published; never opened again for a version whose notice the owner closed |
 
 ## Components followed
 
@@ -1055,6 +1057,64 @@ self_test=true`): the workflow and the self-test's tool come from that branch.
 The agent cannot see Plasma: shapes, effects and the look are always judged by
 the owner on the real system.
 
+## The verified merge
+
+The owner's decision of 2026-11-22: the AIs fix and carry the work on through
+the tests, the system prepares the updated version, and the owner only signs
+it when it is ready and has passed the tests. `tools/automerge.py`, run by
+`automerge.yml` from `main`'s own copy (a pull request never brings the rules
+it is judged by, and no agent merges its own work), merges a pull request
+only when ALL of this holds:
+
+- it is the automation's own: `automation/daily-maintenance` (the update's
+  `maintenance:` commit, which may change only what an update changes, the
+  same list as `daily-maintenance.yml`'s check, and the version files only by
+  the version; plus the automatic fix's commits), `automation/autofix-main`
+  (only commits the automatic fix wrote) or `automation/update/...` (for a
+  security update only `security: ... (cargo update, no AI)` commits that
+  change `ike-adblock/Cargo.lock`, plus the automatic fix's), in this
+  repository, into `main`; no trial, no commit of a person;
+- every check of its last commit ended and none failed, and `tests`,
+  `sandbox`, `rust-advisories` and `Arch Linux` passed. Arch Linux runs on the
+  candidate (`daily-maintenance.yml` starts it with the tests and the
+  security tests) and on any other branch of the automation
+  (`tools/automerge.py` starts it when it has not run on that commit);
+- every category `tools/test-categories.py` requires for the kinds of the
+  components it changes, plus every check the automation runs on a commit
+  (`MERGE_ALWAYS`: lint, the whole suite, the engine's Rust tests, licences,
+  no tests lost, the package, the old processor, the installed package, Arch
+  Linux, the sandbox, the advisories), was run and passed on that commit:
+  nothing "not verified". The skipped tests are read from its Tests run: one
+  that no other check of the commit runs (`EXPECTED_SKIPS`: the sandbox test
+  runs in `security.yml`, the desktops' themes in `arch.yml`...) is a
+  required test not run. A kind that needs the filter lists (a new AdBlock
+  engine) or a real desktop is never fully verified here: it waits for the
+  owner;
+- no test file changed or removed, no protected file of the guard
+  (`FORBIDDEN_FILES`) and no workflow; the automatic fix's files follow the
+  1.1.19 rules (only existing interface modules under `ike/` and `docs/`, no
+  line that reaches the environment, the network, the system or the test
+  run, no module that decides the user's safety);
+- the licences are up to date (the "Licences" step: cargo-deny and the
+  licence files);
+- no open security finding: the issue "Sandbox tests failed on main", the
+  issue "Rust advisories" (unless this commit's own RustSec check passed: it
+  is free of them) and any security entry of the maintenance ledger that has
+  not passed;
+- `main`'s version is not published yet, or the pull request raises it (or it
+  ships nothing, as a candidate of the test packages); and `main` holds no
+  other merge by itself not yet signed.
+
+Then it is merged at exactly that commit with the workflow's token
+(`contents: write` only in that job), and `main`'s Tests, Security and Arch
+Linux start; when Tests and Security pass, their `merge-ready` jobs ask
+`release-ready.yml`, which mails the owner the command to sign and publish.
+Anything less stays a pull request: one comment names the owner and says why
+(edited, never repeated, when the reason changes), and the next daily check
+writes it into the ledger as needs-person, or blocked for a security finding
+(the comment carries a mark the ledger reads). ChatGPT's and people's pull
+requests are never merged by themselves.
+
 ## The owner's part
 
 1. A notification arrives (GitHub app or e-mail) for a draft PR labelled
@@ -1062,13 +1122,15 @@ the owner on the real system.
 2. Wait for the green checks. To try it, download the package of its test run
    and install it:
    `gh run download <run-id> -n ike-browser-package`.
-3. Mark the PR ready and merge it on the owner's order (since 2026-11-22
-   nothing merges by itself; a green fix that changes no test and no protected
-   file is only marked ready). **Except:** an automatic-fix or ChatGPT
-   pull request that changes anything under `tests/` is never merged on green
-   checks alone. A person (or Claude, with the change read in full) reviews
-   the diff of the tests first: the patch checks and "No tests lost" catch
-   the usual ways of weakening a test, not every way.
+3. Nothing to do for a candidate or a fix that is fully verified: the
+   workflow merges it and the release notice follows. One that waits has a
+   comment naming the owner and saying why; it is merged on the owner's order
+   (Claude merges it once every check is green). **Except:** an
+   automatic-fix or ChatGPT pull request that changes anything under `tests/`
+   is never merged on green checks alone (and never by itself). A person (or
+   Claude, with the change read in full) reviews the diff of the tests first:
+   the patch checks and "No tests lost" catch the usual ways of weakening a
+   test, not every way.
 4. If it raised the version: sign and publish with one command
    ([UPDATES.md](UPDATES.md)).
 

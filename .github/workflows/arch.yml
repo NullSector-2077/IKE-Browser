@@ -11,6 +11,9 @@
 # daily component check: tools/check-components.py --arch) and runs:
 # - on every push to main, and when the automation changed main or its fix
 #   branch (a dispatch: tools/automerge.py, autofix.yml);
+# - on the daily maintenance candidate (daily-maintenance.yml) and on every
+#   branch of the automation before its merge (tools/automerge.py: the
+#   verified merge of 2026-11-22 needs it);
 # - when Arch's packages changed since the last green run on main (a dispatch
 #   from daily-check.yml);
 # - once a week as a floor, on pull requests that touch the package or this
@@ -175,9 +178,11 @@ jobs:
     if: >-
       failure() && (
       (github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]' &&
-      (github.ref_name == 'main' || github.ref_name == 'automation/autofix-main')) ||
+      (github.ref_name == 'main' || github.ref_name == 'automation/autofix-main' ||
+      github.ref_name == 'automation/daily-maintenance')) ||
       (github.run_attempt > 1 && github.triggering_actor == 'github-actions[bot]' &&
-      (github.ref_name == 'main' || github.ref_name == 'automation/autofix-main')))
+      (github.ref_name == 'main' || github.ref_name == 'automation/autofix-main' ||
+      github.ref_name == 'automation/daily-maintenance')))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -195,15 +200,19 @@ jobs:
           done
           exit 1
 
-  # The automatic fix of an Arch failure passed here (a run its token started
+  # Arch Linux passed on a branch of the automation (a run its token started
   # sends no "workflow_run"): the merge is asked for with a dispatch, as the
-  # Tests and Security runs of the fix do; tools/automerge.py still needs every
-  # check of the commit, "tests" and "sandbox" included.
+  # Tests and Security runs there do. Since 2026-11-22 (the verified merge) it
+  # runs on the daily maintenance candidate and on every fix or update too
+  # (daily-maintenance.yml, tools/automerge.py): tools/automerge.py needs
+  # "Arch Linux" with every other check of the commit, "tests" and "sandbox"
+  # included, and every category its components need.
   merge-ready:
     needs: arch
     if: >-
       success() && github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]' &&
-      github.ref_name == 'automation/autofix-main'
+      (github.ref_name == 'automation/autofix-main' || github.ref_name == 'automation/daily-maintenance' ||
+      startsWith(github.ref_name, 'automation/update/'))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:

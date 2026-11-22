@@ -224,6 +224,12 @@ def _candidate_verdict(status, kinds):
                 % (", ".join(failed), cand.get("autofix_commits", 0)), url)
     if waiting:
         return "testing", "the candidate's checks are running (%s)" % ", ".join(waiting), url
+    merge = cand.get("merge") or {}
+    if merge.get("sha") == cand["sha"] and merge.get("verdict") in ("person", "security"):
+        # tools/automerge.py's verdict on this very commit (the verified merge, 2026-11-22): not fully
+        # verified waits for the owner; an open security finding blocks it
+        return ("blocked" if merge["verdict"] == "security" else "needs-person",
+                "not merged by itself: %s (PR #%s)" % (merge.get("why") or "?", cand.get("pr", "?")), url)
     if unverified:
         return ("needs-person", "the candidate's checks passed, but not verified: %s"
                 % "; ".join("%s (%s)" % (r["category"], r["detail"]) for r in unverified), url)
@@ -666,6 +672,17 @@ def gather(repo, api=None, candidate_sha=None):
                                           if (c.get("commit") or {}).get("message", "").startswith("autofix:"))
         except Exception:
             cand["autofix_commits"] = 0
+        # tools/automerge.py's verdict, in its one comment on the pull request (2026-11-22)
+        verdict = re.compile(r"<!-- automerge-verdict: ([0-9a-f]{40}) (person|security) -->")
+        try:
+            comments = api("repos/%s/issues/%s/comments?per_page=100" % (repo, cand["pr"])) if cand["pr"] else []
+        except Exception:
+            comments = []                     # not read: the checks' own verdict stands
+        for c in comments:
+            m = verdict.search(c.get("body") or "")
+            if m and (c.get("user") or {}).get("login") == BOT:
+                why = re.search(r"da sola: (.*?)\.\n", c.get("body") or "")
+                cand["merge"] = {"sha": m.group(1), "verdict": m.group(2), "why": why.group(1)[:300] if why else ""}
         return cand
     safe("candidate", candidate)
     safe("arch_main", lambda: run_info(repo, "arch.yml", api, branch="main"))

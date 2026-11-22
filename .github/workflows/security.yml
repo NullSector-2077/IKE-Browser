@@ -157,26 +157,35 @@ jobs:
               || gh issue create --title "Sandbox tests failed on main" --label sandbox-failed --body-file body.md
           fi
 
-  # The sandbox tests of the automatic fix passed (a run its token started
-  # sends no "workflow_run"): the merge is asked for with a dispatch (H1, H3).
+  # The sandbox tests of the automation's own branch passed (a run its token
+  # started sends no "workflow_run"): the merge is asked for with a dispatch
+  # (H1, H3), for an automatic fix, the daily candidate and an isolated update
+  # (the verified merge, 2026-11-22). On main, after a merge made by itself:
+  # the release notice, as tests.yml asks it (it needs both green).
   merge-ready:
     needs: sandbox
     if: >-
       success() && github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]' &&
-      github.ref_name == 'automation/autofix-main'
+      (github.ref_name == 'automation/autofix-main' || github.ref_name == 'main' ||
+      github.ref_name == 'automation/daily-maintenance' || startsWith(github.ref_name, 'automation/update/'))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       actions: write
     steps:
-      - name: Ask for the merge
+      - name: Ask for the merge, or for the release notice
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          REF: ${{ github.ref_name }}
           SHA: ${{ github.sha }}
         run: |
           for pause in 15 30 0; do
-            gh workflow run automerge.yml --ref main -f sha="$SHA" && exit 0
+            if [ "$REF" = main ]; then
+              gh workflow run release-ready.yml --ref main && exit 0
+            else
+              gh workflow run automerge.yml --ref main -f sha="$SHA" && exit 0
+            fi
             sleep "$pause"
           done
           exit 1
