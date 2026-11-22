@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.23
+
+- Dark Reader (engine and lists): 4.9.135, lists 30e8a10e65 (2026-11-16) -> 4.9.135, lists 16a1eccbfa (2026-11-21) (lists changed)
+
 ## 1.1.22
 
 Two things the owner saw in 1.1.21 on KDE Plasma:
