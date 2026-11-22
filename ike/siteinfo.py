@@ -79,11 +79,12 @@ class SiteInfoPanel(QWidget):
         self.site_icon.setVisible(polish.part("panel_icons") and web)
         SP = QStyle.StandardPixmap
         if url is not None and url.scheme() == "https":
-            ic, text = icon("object-locked", SP.SP_DialogYesButton), T("Secure connection (HTTPS)")
+            ic = icon(("object-locked", "channel-secure-symbolic"), SP.SP_DialogYesButton)
+            text = T("Secure connection (HTTPS)")
         elif url is not None and url.scheme() == "http":
             ic, text = icon("security-low", SP.SP_MessageBoxWarning), T("Connection is not encrypted")
         else:
-            ic, text = icon("globe", SP.SP_FileIcon), ""
+            ic, text = icon(("globe", "web-browser-symbolic"), SP.SP_FileIcon), ""
         self.conn_icon.setPixmap(ic.pixmap(20, 20))
         self.conn.setText(text)
         perms = win.site_permissions() if web else []

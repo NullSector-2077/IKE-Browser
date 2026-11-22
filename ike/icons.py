@@ -157,14 +157,81 @@ def bundled(name, set_name=None):
 
 
 # where each icon asked for came from: names -> ("set" | "theme" | "own" |
-# "qt" | "none", the name used). With the desktop's theme (KDE's Breeze) every
-# icon must come from it (1.1.22, the owner's rule): tests/test_icons.py
-# reads this after opening every window and menu.
+# "shorter" | "qt" | "none", the name used). Following the system, every icon
+# must come from the desktop's icon theme (1.1.22, the owner's rule):
+# tests/test_icons.py reads this after opening every window and menu, in
+# KDE Plasma, GNOME, Xfce, MATE, Cinnamon, LXQt and with Papirus.
 seen = {}
 
 
+class _SymbolicEngine(QIconEngine):
+    """A theme's symbolic icon (a name ending in "-symbolic": one colour, made
+    to be painted in the text colour, as GTK does) drawn in the palette's
+    colours. Qt draws it as it is: Adwaita's dark grey on GNOME's dark
+    windows, or MATE's light grey on light ones, could not be seen."""
+
+    def __init__(self, icon):
+        super().__init__()
+        self.icon = icon
+        self.pixmaps = {}
+
+    def clone(self):
+        return _SymbolicEngine(self.icon)
+
+    def pixmap(self, size, mode, state):
+        group, role = _GlyphEngine.ROLES.get(mode, _GlyphEngine.ROLES[QIcon.Mode.Normal])
+        colour = QGuiApplication.palette().color(group, role)
+        key = (size.width(), size.height(), mode, state, colour.rgba())
+        pm = self.pixmaps.get(key)
+        if pm is None:
+            if len(self.pixmaps) > 64:
+                self.pixmaps.clear()
+            base = self.icon.pixmap(size, QIcon.Mode.Normal, state)
+            pm = QPixmap(base.size())
+            pm.fill(Qt.GlobalColor.transparent)
+            p = QPainter(pm)
+            if mode == QIcon.Mode.Disabled:
+                p.setOpacity(0.45)
+            p.drawPixmap(0, 0, base)
+            p.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
+            p.fillRect(pm.rect(), colour)
+            p.end()
+            self.pixmaps[key] = pm
+        return pm
+
+    def paint(self, painter, rect, mode, state):
+        ratio = painter.device().devicePixelRatioF() if painter.device() else 1.0
+        pm = self.pixmap(QSize(round(rect.width() * ratio), round(rect.height() * ratio)), mode, state)
+        painter.drawPixmap(rect, pm)
+
+    def actualSize(self, size, mode, state):
+        return self.icon.actualSize(size, mode, state)
+
+    def availableSizes(self, mode=QIcon.Mode.Normal, state=QIcon.State.Off):
+        return self.icon.availableSizes(mode, state)
+
+    def iconName(self):
+        return self.icon.name()
+
+
+def _from_theme(name):
+    """The theme's icon for exactly this name (or its variant: -rtl,
+    -symbolic), not the shorter name Qt falls back to when the theme lacks it
+    (Adwaita's "folder" for "folder-locked"); a null icon otherwise."""
+    ic = QIcon.fromTheme(name)
+    if ic.isNull():
+        return ic
+    found = ic.name()
+    if found and found != name and not found.startswith(name + "-"):
+        return QIcon()
+    if name.endswith("-symbolic"):
+        return QIcon(_SymbolicEngine(ic))
+    return ic
+
+
 def themed(names, standard=None):
-    """The icon for the first usable name: shipped set (if chosen), theme, own glyph, Qt."""
+    """The icon for the first usable name: shipped set (if chosen), theme,
+    own glyph, the theme's shorter name, Qt."""
     if isinstance(names, str):
         names = (names,)
     names = tuple(names)
@@ -175,7 +242,7 @@ def themed(names, standard=None):
                 seen[names] = ("set", name)
                 return ic
     for name in names:
-        ic = QIcon.fromTheme(name)
+        ic = _from_theme(name)
         if not ic.isNull():
             seen[names] = ("theme", name)
             return ic
@@ -185,6 +252,11 @@ def themed(names, standard=None):
             if not ic.isNull():
                 seen[names] = ("own", name)
                 return ic
+    for name in names:                   # a more general icon of the theme (before 1.1.22 the first choice)
+        ic = QIcon.fromTheme(name)
+        if not ic.isNull():
+            seen[names] = ("shorter", ic.name() or name)
+            return ic
     if standard is not None:
         from PyQt6.QtWidgets import QApplication
         seen[names] = ("qt", str(standard))

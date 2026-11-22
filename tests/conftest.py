@@ -118,6 +118,12 @@ def run_ike(tmp_path):
         if os.environ.get("IKE_TEST_SANDBOX") == "1":
             for k in ("QTWEBENGINE_CHROMIUM_FLAGS", "QTWEBENGINE_DISABLE_SANDBOX", "IKE_ALLOW_UNSAFE_ENGINE"):
                 e.pop(k, None)
+        if os.environ.get("IKE_TEST_DESKTOP"):        # a Linux desktop's look (tests/desktops.py)
+            import desktops
+            try:
+                e.update(desktops.prepare(os.environ["IKE_TEST_DESKTOP"], home))
+            except desktops.Unavailable as why:
+                pytest.skip("desktop %s: %s" % (os.environ["IKE_TEST_DESKTOP"], why))
         e.update(env or {})
         cmd = [sys.executable, str(APP / "ike_boot.py")]
         e.setdefault("PYTHONUTF8", "1")
