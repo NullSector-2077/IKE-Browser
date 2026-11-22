@@ -116,14 +116,24 @@ class _Meter(QWidget):
         room = self.width() - fm.horizontalAdvance(self.value) - fm.horizontalAdvance("  ")
         return fm.elidedText(self.label, Qt.TextElideMode.ElideRight, max(fm.horizontalAdvance("…"), room))
 
+    def colours(self):
+        """(name, value) colours: the value in the window's text colour, the
+        name a little dimmer but readable, 4.5:1 at least (1.1.22: 1.9:1 in
+        GNOME). The active window's colours: the card is read as one, though
+        its window never is (GNOME's text of an inactive window is grey)."""
+        from .uistyle import readable
+        pal = self.palette()
+        G, R = QPalette.ColorGroup.Active, QPalette.ColorRole
+        text, bg = pal.color(G, R.WindowText), pal.color(G, R.Window)
+        dim = QColor(text)
+        dim.setAlphaF(0.65)
+        return readable(dim, bg, text), text
+
     def paintEvent(self, _event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        pal = self.palette()
         fm = self.fontMetrics()
-        text = pal.color(QPalette.ColorRole.WindowText)
-        dim = QColor(text)
-        dim.setAlphaF(0.65)
+        dim, text = self.colours()
         w = self.width()
         rtl = self.layoutDirection() == Qt.LayoutDirection.RightToLeft
         label, value = self.shown_label(), self.shown_value()
@@ -205,10 +215,12 @@ class TabPreview(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         pal = self.palette()
         # the window's colours, which follow I.K.E.'s theme (a tooltip's are
-        # often a pale yellow of the style's own)
-        bg = QColor(pal.color(QPalette.ColorRole.Window))
+        # often a pale yellow of the style's own); those of an active window,
+        # as the values on the card (_Meter.colours)
+        G = QPalette.ColorGroup.Active
+        bg = QColor(pal.color(G, QPalette.ColorRole.Window))
         bg.setAlpha(255)                      # always full, whatever the style's colour says
-        border = QColor(pal.color(QPalette.ColorRole.WindowText))
+        border = QColor(pal.color(G, QPalette.ColorRole.WindowText))
         border.setAlphaF(0.22)
         p.setPen(QPen(border, 1))
         p.setBrush(bg)

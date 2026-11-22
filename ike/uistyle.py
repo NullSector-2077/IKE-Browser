@@ -35,6 +35,45 @@ _switch_style = None     # the style of the switches (one for all of them, kept 
 
 
 # ----------------------------------------------------------------------
+# readable colours
+# ----------------------------------------------------------------------
+def contrast(a, b):
+    """WCAG's contrast ratio of two opaque colours: 1 (none) to 21."""
+    def lum(c):
+        def ch(v):
+            return v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
+        return 0.2126 * ch(c.redF()) + 0.7152 * ch(c.greenF()) + 0.0722 * ch(c.blueF())
+    la, lb = lum(QColor(a)), lum(QColor(b))
+    return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
+
+
+def readable(colour, background, text, least=4.5):
+    """colour as drawn on background, or the nearest mix of it with text that
+    reads at least least:1 against it (4.5: WCAG's level AA for normal text);
+    with black or white instead of text when text itself reads less (GNOME's
+    text in an inactive window). 1.1.22: a desktop's dimmed text, as KDE's
+    Breeze light or LXQt give it, can be 3.7:1 and less."""
+    colour, background, text = QColor(colour), QColor(background), QColor(text)
+    a = colour.alphaF()
+    colour = QColor(round(colour.red() * a + background.red() * (1 - a)),
+                    round(colour.green() * a + background.green() * (1 - a)),
+                    round(colour.blue() * a + background.blue() * (1 - a)))
+    if contrast(colour, background) >= least:
+        return colour
+    if contrast(text, background) < least:
+        text = QColor("#000000") if contrast("#000000", background) > contrast("#ffffff", background) \
+            else QColor("#ffffff")
+    for step in range(1, 21):
+        t = step / 20
+        mixed = QColor(round(colour.red() + (text.red() - colour.red()) * t),
+                       round(colour.green() + (text.green() - colour.green()) * t),
+                       round(colour.blue() + (text.blue() - colour.blue()) * t))
+        if contrast(mixed, background) >= least:
+            return mixed
+    return text
+
+
+# ----------------------------------------------------------------------
 # switches
 # ----------------------------------------------------------------------
 def switch_size(fm, small=False):
@@ -352,6 +391,12 @@ class IkeStyle(QProxyStyle):
     def styleHint(self, hint, opt=None, widget=None, ret=None):
         if hint == QStyle.StyleHint.SH_Menu_Scrollable:
             return 1             # a menu taller than the screen scrolls (arrows at both ends)
+        if hint == QStyle.StyleHint.SH_FormLayoutWrapPolicy:
+            # a form's option goes under its name when the two do not fit side
+            # by side, instead of making the page wider than its window (1.1.22:
+            # GNOME's font, Adwaita Sans 11, in Tamil, Armenian, Macedonian)
+            from PyQt6.QtWidgets import QFormLayout
+            return QFormLayout.RowWrapPolicy.WrapLongRows.value
         return super().styleHint(hint, opt, widget, ret)
 
     def sizeFromContents(self, kind, opt, size, widget=None):

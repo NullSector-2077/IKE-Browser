@@ -25,7 +25,7 @@ class UrlBar(QLineEdit):
         m = self.createStandardContextMenu()
         first = m.actions()[0] if m.actions() else None
         clip = QGuiApplication.clipboard().text().strip()
-        go = QAction(icon("go-jump-locationbar"), T("Paste and go"), m)
+        go = QAction(icon(("go-jump-locationbar", "go-jump-symbolic")), T("Paste and go"), m)
         go.setEnabled(bool(clip))
         go.triggered.connect(lambda: (self.setText(clip), self.win.navigate(clip, typed=True)))
         v = self.win.current_view()
@@ -65,7 +65,7 @@ class UrlBar(QLineEdit):
         self._start = None             # the search engine, right after the lock (1.1.10)
         self._start_room = 0
         self._shifted = {}
-        self.lock = self.addAction(icon("globe", QStyle.StandardPixmap.SP_FileIcon),
+        self.lock = self.addAction(icon(("globe", "web-browser-symbolic"), QStyle.StandardPixmap.SP_FileIcon),
                                    QLineEdit.ActionPosition.LeadingPosition)
         # "Translate page" in the address bar, as other browsers have it (1.1.6; the star of the
         # bookmarks went to the toolbar)

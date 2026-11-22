@@ -64,9 +64,10 @@ def build(view, req):
         add(T("Open link in new window"),
             lambda: app.new_window(private=win.private, urls=[link]), "window-new")
         add(T("Open link in private window"),
-            lambda: app.new_window(private=True, urls=[link]), "view-private")
+            lambda: app.new_window(private=True, urls=[link]), ("view-private", "preferences-system-privacy-symbolic"))
         if not win.private and win.ext_on("containers"):
-            sub = menu.addMenu(_ic(("folder-locked", "folder-lock")), T("Open link in container"))
+            sub = menu.addMenu(_ic(("folder-locked", "folder-lock", "channel-secure-symbolic", "object-locked")),
+                               T("Open link in container"))
             for c in app.config["containers"]:
                 a = sub.addAction(c["name"])
                 a.triggered.connect(lambda _c=False, n=c["name"]: win.add_tab(
@@ -74,7 +75,8 @@ def build(view, req):
         if win.ext_on("split"):
             add(T("Open link in split view"),
                 lambda: win.split_with(win.add_tab(link, background=True, after=view,
-                                                   container=container)), "view-split-left-right")
+                                                   container=container)),
+                ("view-split-left-right", "view-dual-symbolic"))
         menu.addSeparator()
         add(T("Copy link address"), copy_text(link.toString()), "edit-copy")
         add(T("Save link as…"), engine(WA.DownloadLinkToDisk), "document-save")
@@ -110,7 +112,8 @@ def build(view, req):
         ctl.setCheckable(True)
         ctl.setChecked(bool(mflags & MF.MediaControls))
         if mtype == MT.MediaTypeVideo and win.ext_on("pip"):
-            add(T("Video in floating window"), win.float_video, "window-duplicate")
+            add(T("Video in floating window"), win.float_video,
+                ("picture-in-picture", "window-duplicate", "focus-windows-symbolic"))
         if has_media:
             add(T("Save media as…"), engine(WA.DownloadMediaToDisk), "document-save",
                 bool(mflags & MF.MediaCanSave) or True)
@@ -138,8 +141,10 @@ def build(view, req):
         add(T("Select all"), engine(WA.SelectAll), "edit-select-all")
         menu.addSeparator()
         if win.ext_on("passwords"):
-            add(T("Fill login on this page"), win.fill_login, "password-show-on")
-            add(T("Insert a generated password"), lambda: _insert_password(view), "dialog-password")
+            add(T("Fill login on this page"), win.fill_login,
+                ("password-show-on", "dialog-password-symbolic", "object-locked"))
+            add(T("Insert a generated password"), lambda: _insert_password(view),
+                ("dialog-password", "object-locked"))
     if sel:
         short = sel.strip().replace("\n", " ")
         short = short if len(short) < 28 else short[:27] + "…"
@@ -163,16 +168,18 @@ def build(view, req):
         if not win.private:
             app.desktop.add_send_menu(menu, view.url().toString())
         add(T("Save page as…"), engine(WA.SavePage), "document-save")
-        add(T("Save as PDF…"), win.save_pdf, "application-pdf")
+        add(T("Save as PDF…"), win.save_pdf, ("application-pdf", "document-save"))
         add(T("Print…"), win.print_page, "document-print")
         menu.addSeparator()
-        add(T("Reader mode"), win.toggle_reader, "view-readermode")
+        add(T("Reader mode"), win.toggle_reader,
+            ("view-readermode", "view-reader-symbolic", "x-office-document-symbolic"))
         if win.ext_on("translate"):
-            add(T("Translate page…"), win.translate_page, "translate")
+            add(T("Translate page…"), win.translate_page,
+                ("translate", "preferences-desktop-locale-symbolic", "preferences-desktop-locale"))
         add(T("Screenshot…"), win.screenshot, "camera-photo")
         menu.addSeparator()
         add(T("Select all"), engine(WA.SelectAll), "edit-select-all")
-        add(T("Page source"), win.view_source, "text-html")
+        add(T("Page source"), win.view_source, ("text-html", "view-source"))
     if (not win.private and view.url().scheme() in ("http", "https")
             and app.config["page_watch_on"] and not editable):
         from .watcher import pick_and_watch
@@ -180,10 +187,12 @@ def build(view, req):
         menu.addSeparator()
         if pos is not None:
             add(T("Notify me when this part changes…"), lambda: pick_and_watch(view, pos, True),
-                "view-visible", tip=T("For example a price: checked in the background"))
+                ("view-visible", "view-reveal-symbolic", "document-open-recent-symbolic", "view-history"),
+                tip=T("For example a price: checked in the background"))
         add(T("Notify me when this page changes…"), lambda: pick_and_watch(view, pos, False),
-            "view-visible")
-    add(T("Inspect element"), lambda: win.open_devtools(view), "tools-report-bug")
+            ("view-visible", "view-reveal-symbolic", "document-open-recent-symbolic", "view-history"))
+    add(T("Inspect element"), lambda: win.open_devtools(view),
+        ("tools-report-bug", "bug-symbolic", "utilities-terminal-symbolic"))
     return menu
 
 

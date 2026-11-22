@@ -3,10 +3,11 @@
 import time
 from pathlib import Path
 
-from PyQt6.QtCore import QRect, QSize, Qt, QTimer, QUrl
+from PyQt6.QtCore import QEvent, QRect, QSize, Qt, QTimer, QUrl
 from PyQt6.QtGui import QDesktopServices, QIcon, QPalette
 from PyQt6.QtWebEngineCore import QWebEngineDownloadRequest
 from PyQt6.QtWidgets import (
+    QApplication,
     QBoxLayout,
     QCheckBox,
     QComboBox,
@@ -173,15 +174,43 @@ class InfoButton(QToolButton):
 
 class Note(QLabel):
     """A short note or a state (the last check...) in the palette's
-    placeholder colour, wrapped and shown whole (1.1.21)."""
+    placeholder colour, wrapped and shown whole (1.1.21). Where that colour
+    is too pale to read on the window (KDE's Breeze light, LXQt, Qt's own:
+    3.7:1 and less) it is taken a little towards the text's (1.1.22)."""
 
     def __init__(self, text, parent=None):
         super().__init__(text, parent)
+        self._fitting = False
         self.setObjectName("ike_note")
         self.setWordWrap(True)
         self.setForegroundRole(QPalette.ColorRole.PlaceholderText)
         self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
+        self._fit_colour()
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if event.type() in (QEvent.Type.PaletteChange, QEvent.Type.ParentChange):
+            self._fit_colour()
+
+    def _fit_colour(self):
+        if self._fitting:
+            return
+        from .uistyle import readable
+        parent = self.parentWidget()
+        src = parent.palette() if parent is not None else QApplication.palette(self)
+        R, G = QPalette.ColorRole, QPalette.ColorGroup
+        pal = QPalette()                # only this colour: the others come from the window
+        for group in (G.Active, G.Inactive):
+            # 5:1 on the window leaves 4.5:1 on a group's frame, which Fusion draws a little darker
+            pal.setColor(group, R.PlaceholderText, readable(src.color(group, R.PlaceholderText),
+                                                            src.color(group, R.Window),
+                                                            src.color(group, R.WindowText), 5.0))
+        self._fitting = True
+        try:
+            self.setPalette(pal)
+        finally:
+            self._fitting = False
 
 
 def _info_row(widget, text, stretch=False):
