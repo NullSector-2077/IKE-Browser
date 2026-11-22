@@ -334,6 +334,20 @@ def logs_missing(plan):
                        "(run the automatic fix again by hand when GitHub answers)")
 
 
+def rehearsal_reason(name, branch):
+    """Why a daily workflow's failure on another branch than main gets no fix.
+
+    The daily check and the daily maintenance run on main by themselves; on
+    another branch only when a person starts them there, to rehearse a change
+    of the tools or to try a fault on purpose (a trial). That failure is the
+    branch's, not main's: a fix of main, made from main's code, would answer a
+    failure main does not have (until the trials of 2026-11-22 the plan sent
+    it to the automatic fix of main). The person who started it reads the
+    run. A failure of a source or of GitHub stays an issue, as on main."""
+    return ("%s failed on %s, not on main (started by hand: a rehearsal or a trial): its failure is not main's, "
+            "no automatic fix of main" % (name, branch or "?"))
+
+
 def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
     """The plan for a failed run (a dict of outputs), without network or git."""
     name, branch = run["name"], run.get("head_branch") or ""
@@ -404,6 +418,9 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
                         "engine that this candidate does not change does not build (step: %s): not a matter "
                         "for I.K.E.'s wrapper, a person looks" % ENGINE_STEP)
             return plan
+        if branch != "main":
+            plan["reason"] = rehearsal_reason(name, branch)
+            return plan
         target = "main"
     elif name == "Daily component check":
         if job_names == ["lists"]:
@@ -416,6 +433,9 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
         if "check" not in job_names:
             plan.update(action="issue", reason="the components issue could not be updated "
                         "(failed: %s); this is a workflow, not code" % ", ".join(job_names))
+            return plan
+        if branch != "main":
+            plan["reason"] = rehearsal_reason(name, branch)
             return plan
         target = "main"
     else:

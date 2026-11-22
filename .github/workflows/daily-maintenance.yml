@@ -5,6 +5,12 @@
 # the owner reviews, merges, signs and publishes.
 # The candidate is rebuilt from the current main every time; the automatic
 # fixes made on the previous candidate (commits "autofix: ...") are carried over.
+# Started by hand on another branch than main, it is a rehearsal: the candidate
+# is built from that branch (its tools, say a Dark Reader patch adapted by a
+# person, or a trial's deliberate fault), nothing is pushed, no pull request is
+# opened and no tests are started; the run's summary and its artifacts show
+# what the candidate would be (docs/MAINTENANCE.md, "Rehearsing the
+# maintenance on a branch").
 name: Daily maintenance candidate
 
 on:
@@ -15,8 +21,9 @@ on:
 permissions:
   contents: read
 
+# a rehearsal waits only for rehearsals of its own branch, never for the real run
 concurrency:
-  group: daily-maintenance
+  group: daily-maintenance${{ github.ref != 'refs/heads/main' && format('-rehearsal-{0}', github.ref_name) || '' }}
   cancel-in-progress: false
 
 jobs:
@@ -31,17 +38,23 @@ jobs:
       seen: ${{ steps.compare.outputs.seen }}
       engine: ${{ steps.engine.outputs.engine }}
     steps:
+      # a rehearsal (started by hand on another branch): that branch's commit
       - name: Check out main (all branches and tags, no credentials)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: main
+          ref: ${{ github.ref == 'refs/heads/main' && 'main' || github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - name: Start the candidate from current main
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -B automation/daily-maintenance origin/main
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            git checkout -B automation/daily-maintenance origin/main
+          else
+            echo "::notice::a rehearsal on $GITHUB_REF_NAME: the candidate is built from this branch ($GITHUB_SHA) and nothing is published"
+            git checkout -B automation/daily-maintenance "$GITHUB_SHA"
+          fi
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.13"
@@ -85,8 +98,10 @@ jobs:
           # test packages, version files); never untracked or build files
           git add -u
           git commit -m "maintenance: update bundled components for IKE $(sed -n 's/^__version__ = "\(.*\)"/\1/p' ike/__init__.py)"
-          # carry over the automatic fixes of the previous candidate
-          if git rev-parse -q --verify origin/automation/daily-maintenance >/dev/null; then
+          # carry over the automatic fixes of the previous candidate (they belong to
+          # the candidate built from main, not to a rehearsal)
+          if [ "$GITHUB_REF" = "refs/heads/main" ] && \
+             git rev-parse -q --verify origin/automation/daily-maintenance >/dev/null; then
             base=$(git merge-base origin/main origin/automation/daily-maintenance || true)
             if [ -n "$base" ]; then
               for c in $(git rev-list --reverse --grep '^autofix:' "$base..origin/automation/daily-maintenance"); do
@@ -181,10 +196,32 @@ jobs:
           path: component-report.*
           if-no-files-found: ignore
           retention-days: 30
+      # what a rehearsal would have published, for the person who started it
+      - name: A rehearsal publishes nothing
+        if: always() && github.ref != 'refs/heads/main'
+        run: |
+          {
+            echo "### Rehearsal on $GITHUB_REF_NAME: nothing is published"
+            echo
+            echo "The candidate was built from this branch ($GITHUB_SHA), not from main. It is not pushed, no pull request is opened and no tests are started; the artifacts \"maintenance-candidate\" and \"component-report\" hold it."
+            echo
+            echo "Files the candidate changes against this branch:"
+            echo
+            echo '```text'
+            git diff --stat "$GITHUB_SHA" HEAD || true
+            echo '```'
+            echo
+            if [ -s component-report.md ]; then cat component-report.md; else echo "(no component report: the check step stopped)"; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          # in the log too: the summary cannot be read through GitHub's API
+          echo "Files the candidate changes against $GITHUB_REF_NAME:"
+          git diff --stat "$GITHUB_SHA" HEAD || true
 
+  # only the real run, on main, publishes (a rehearsal never touches the
+  # candidate's branch or its pull request)
   publish-candidate:
     needs: prepare
-    if: needs.prepare.outputs.changed == 'true'
+    if: needs.prepare.outputs.changed == 'true' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:

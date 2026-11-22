@@ -1239,6 +1239,23 @@ def to_markdown(results):
     return "\n".join(out) + "\n" + refused_markdown(results)
 
 
+def refresh_licences(root):
+    """The licence files follow every component applied (tools/third-party.py:
+    docs/THIRD-PARTY.md, licenses/RUST-CRATES.txt, licenses/NOTICE.ubo-scriptlets),
+    run once after all of them. Until the trials of 2026-11-22 only the
+    engine's and the crates' updates ran it, before uBlock Origin's scriptlets
+    were copied: the candidate's NOTICE.ubo-scriptlets kept the old commit
+    and its tests failed at "Licences" (candidate 97df120, issue #97)."""
+    tool = root / "tools" / "third-party.py"
+    if not tool.is_file():
+        return
+    done = subprocess.run([sys.executable, str(tool)], capture_output=True, text=True)
+    print(done.stdout, end="")
+    if done.returncode != 0:
+        print("!! the licence files were not updated: run tools/third-party.py (%s)"
+              % (done.stderr.strip()[-300:] or "exit %d" % done.returncode))
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--json", help="write the result as JSON to this file")
@@ -1323,6 +1340,7 @@ def main(argv=None):
                 if (r["update"] or r["also"]) and not r.get("refused"):
                     r["_apply"](root, r)
                     print("applied:", r["name"])
+            refresh_licences(root)
         else:
             print("no actionable component updates; informational rebuilds are deferred")
     return 0
