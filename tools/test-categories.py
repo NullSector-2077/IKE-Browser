@@ -136,6 +136,18 @@ EXPECTED_SKIPS = (
     (r"^IKE_FIT_LANGS: one group", "a split run of the same test"),
     (r"^KDE's Breeze icons and platform theme are not installed here|^KDE's theme did not load here"
      r"|^the \S+ style is not installed here|^desktop \w+: ", "arch.yml installs the desktops' themes and runs it"),
+    # 2026-11-22, read from a real Tests run on GitHub's runners (run 45020817248 of PR #105, its
+    # "What the tests verified"): environmental there, each verified elsewhere
+    (r"^the desktops are tested as Arch Linux packages them \(not Arch here\)$",
+     "arch.yml: the desktops' icons and colours as Arch packages them (tests/desktops.py), each desktop a case"),
+    (r"^Qt's kde platform theme is not installed$",
+     "arch.yml installs plasma-integration and runs KDE's colours (its step \"Interface in every widget style\")"),
+    # the PKGBUILD's optional dependencies (tests/test_optional_deps.py, WP10 (e)): Arch packages, not on
+    # Ubuntu's runners
+    (r"^optional dependency [a-z0-9+._-]+ is not installed here \(an Arch package: arch\.yml installs it",
+     "arch.yml installs the optional dependencies Arch ships and runs their cases"),
+    (r"^optional dependency [a-z0-9+._-]+ is not installed here \(an AUR package: no check of GitHub installs it",
+     "never: an AUR package no check can install; said as not verified (the owner's own system)"),
 )
 
 

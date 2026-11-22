@@ -1477,8 +1477,9 @@ only when ALL of this holds:
   the desktops, widget styles and KDE's theme as Arch packages them and the
   optional dependencies (`arch.yml`), the installed package's own tests, the
   real network sources (the daily check), pictures for a person, a split
-  run, and what GitHub's runners do not have (no IPv6 loopback, no AUR
-  package); any other skip still blocks. Since the full chain a new AdBlock
+  run, root (the Arch container), and an AUR package no check can install
+  (said as not verified); any other skip still blocks (the IPv6 case of the
+  home-network test, for one, runs on GitHub's runners and must not skip). Since the full chain a new AdBlock
   engine can be fully verified: the filter lists are checked on its own
   commit. A kind that needs a real desktop is never fully verified here: it
   waits for the owner;

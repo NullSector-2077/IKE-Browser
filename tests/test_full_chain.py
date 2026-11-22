@@ -736,14 +736,27 @@ def test_the_pkgbuild_follows_what_the_code_needs():
 # --- the skips, the guard's protected files, the documentation --------------------------------------
 
 def test_the_expected_skips_are_environmental_and_an_unexpected_one_still_blocks():
-    """Item 6: the skips a real Tests run on GitHub's runners has (no GPU, no IPv6, no desktop, no Arch)
-    are named with where they are verified instead; anything else still keeps the merge for a person."""
-    for reason in ("optional dependency libnotify is not installed here (an Arch package: arch.yml installs it "
-                   "and runs this test): not verified",
-                   "the desktops are tested as Arch Linux packages them (not Arch here)",
-                   "no IPv6 loopback on this machine"):
+    """Item 6: the skips a real Tests run on GitHub's runners has (no desktop, no Arch, no root, no
+    sandbox) are named with where they are verified instead; anything else still keeps the merge for a person."""
+    # every reason of the real run 45020817248 (PR #105, GitHub's runners), and the optional dependencies
+    real = ("IKE_TEST_NETWORK=1 to use the real lists", "IKE_TEST_NETWORK=1 to use the real sources",
+            "IKE_UI_SHOTS=<folder> takes the pictures", "KDE's Breeze icons and platform theme are not installed here",
+            "Qt's kde platform theme is not installed",
+            "the desktops are tested as Arch Linux packages them (not Arch here)",
+            "only for the installed package (IKE_TEST_APP)", "the sources are checked once, not for the installed copy",
+            "IKE_TEST_SANDBOX=1 only (needs a system where the sandbox works)", "only as root (the Arch container)",
+            "the Breeze style is not installed here (got ' / fusion')",
+            "the Oxygen style is not installed here (got ' / fusion')",
+            "the kvantum style is not installed here (got ' / fusion')",
+            "optional dependency libnotify is not installed here (an Arch package: arch.yml installs it "
+            "and runs this test): not verified",
+            "optional dependency chromium-widevine is not installed here (an AUR package: no check of GitHub "
+            "installs it): not verified")
+    for reason in real:
         assert tc.unexpected_skips([{"test": "t", "reason": reason}]) == [], reason
-    for reason in ("ffmpeg not installed", "flaky", "", "not verified"):
+    # strict: what GitHub's runners do run (the IPv6 loopback is there) still blocks when skipped
+    for reason in ("ffmpeg not installed", "flaky", "", "not verified", "no IPv6 loopback on this machine",
+                   "the desktops are tested elsewhere", "optional dependency x is not installed here"):
         assert tc.unexpected_skips([{"test": "t", "reason": reason}]), reason
     assert all(isinstance(p, str) and why for p, why in tc.EXPECTED_SKIPS)
 
