@@ -97,7 +97,13 @@ ARCH_PACKAGE = ARCH_SEARCH % "qt6-webengine"
 # `pacman -Syu`, outside I.K.E.'s releases, so arch.yml tests it first
 ARCH_PACKAGES = ("qt6-webengine", "qt6-base", "qt6-webchannel", "qt6-svg", "python-pyqt6",
                  "python-pyqt6-webengine", "python", "python-cryptography", "python-jeepney",
-                 "publicsuffix-list", "rust")
+                 "publicsuffix-list", "rust",
+                 # 1.1.21-1.1.22: the font allowlist (ike/fontallow.py) reads fontconfig and these fonts
+                 "fontconfig", "noto-fonts", "ttf-dejavu",
+                 # the widget styles, KDE's theme and the icon test
+                 "breeze", "oxygen", "kvantum", "plasma-integration", "breeze-icons",
+                 # video
+                 "ffmpeg")
 ARCH_REPOS = ("core", "extra")             # the official repositories (not the -testing ones)
 ARCH_WORKFLOW = "arch.yml"
 ARCH_ARTIFACT = "arch-versions"            # the artifact arch.yml keeps, holding ARCH_FILE
@@ -720,11 +726,18 @@ def save_arch_tested(path, repo, api=None):
     return out
 
 
-def arch_changes(old, new):
+def arch_changes(old, new, skip_not_installed=False):
     """[(package, old version, new version)] for the packages of `new` whose
-    version differs from `old` ("" = not recorded or not installed)."""
+    version differs from `old` ("" = not recorded or not installed).
+
+    skip_not_installed (the daily check): a package `old` holds as "" was
+    recorded as not installed by that run (arch.yml does not install it yet):
+    it was not tested, and Arch's version of it is no change to verify, or
+    every daily check would start arch.yml again for it. A package `old` does
+    not hold at all (newly followed) is still a change: one run records it."""
     names = [n for n in ARCH_PACKAGES if n in new] + sorted(n for n in new if n not in ARCH_PACKAGES)
-    return [(n, old.get(n, ""), new[n]) for n in names if old.get(n, "") != new[n]]
+    return [(n, old.get(n, ""), new[n]) for n in names
+            if old.get(n, "") != new[n] and not (skip_not_installed and n in old and old[n] == "")]
 
 
 def check_arch(saved, get=None):
@@ -736,7 +749,7 @@ def check_arch(saved, get=None):
     an update), "same"."""
     tested = saved.get("tested") if isinstance(saved, dict) else None
     current, unreachable = arch_current(get)
-    changed = arch_changes((tested or {}).get("packages", {}), current) if tested else []
+    changed = arch_changes((tested or {}).get("packages", {}), current, skip_not_installed=True) if tested else []
     if not tested:
         state = "untested"
     elif changed:
@@ -796,7 +809,10 @@ def arch_markdown(info):
             now, flag = "source unreachable", "?"
         else:
             flag = "**yes**" if name in moved else ("no" if info["tested"] else "?")
-        out.append("| %s | %s | %s | %s |" % (name, _v(now), _v(old.get(name, "")), flag))
+        tested_as = old.get(name, "")
+        if info["tested"] and name in old and tested_as == "":
+            tested_as, flag = "not installed by arch.yml: **not verified**", "-"
+        out.append("| %s | %s | %s | %s |" % (name, _v(now), _v(tested_as), flag))
     why = sorted(set(info["unreachable"].values()))
     if why:
         out += ["", "Source unreachable: " + "; ".join(_v(w) for w in why[:3])]

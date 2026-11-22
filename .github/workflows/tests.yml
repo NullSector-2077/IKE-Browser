@@ -60,7 +60,8 @@ jobs:
       - name: Lint
         run: ruff check .
       - name: Tests
-        run: python -m pytest
+        # junit: the skipped tests and their reasons, for "What the tests verified" below
+        run: python -m pytest --junitxml="$RUNNER_TEMP/test-results/junit.xml"
       # review 2 of 1.1.19, H4: code under ike/ could make the test run report
       # success (by finding pytest or the runner). A test that must fail, kept
       # out of the tree, is run with every module of ike/ imported first: if
@@ -268,7 +269,28 @@ jobs:
           qemu-x86_64 -cpu IvyBridge /usr/bin/python3 -I "$RUNNER_TEMP/old-cpu.py" "$root/usr/lib/ike-browser/vendor"
           IKE_LIBDIR="$root/usr/lib/ike-browser" qemu-x86_64 -cpu IvyBridge "$root/usr/bin/ike-browser" --version
       - name: Tests of the installed package
-        run: IKE_TEST_APP="$RUNNER_TEMP/pkgroot/usr/lib/ike-browser" python -m pytest
+        run: |
+          IKE_TEST_APP="$RUNNER_TEMP/pkgroot/usr/lib/ike-browser" python -m pytest \
+              --junitxml="$RUNNER_TEMP/test-results/junit-installed.xml"
+      # 2026-11-22 (WP4 of the maintenance plan): a skipped test is NOT VERIFIED,
+      # never passed. The junit files of both test steps are read into the
+      # run's summary (the skipped tests by area, with their reasons) and kept
+      # for the maintenance ledger and the candidate's pull request. It only
+      # reports: the steps above decide the run. A step that did not run left no
+      # junit file, which is said as "not verified" too.
+      - name: What the tests verified
+        if: always()
+        run: |
+          python3 tools/test-categories.py --junit "$RUNNER_TEMP/test-results/junit.xml" \
+              --junit "$RUNNER_TEMP/test-results/junit-installed.xml" \
+              --json "$RUNNER_TEMP/test-results/summary.json" >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: test-results
+          path: ${{ runner.temp }}/test-results/
+          if-no-files-found: ignore
+          retention-days: 30
 
   # When the automation itself started these tests (on its own branches), GitHub
   # sends no "workflow_run" for their failure: events of runs started with

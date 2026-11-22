@@ -850,16 +850,21 @@ def test_tests_are_not_weakened_in_other_ways(repo, tmp_path):
                                  "ike/resources/mediahook.js", "tools/test-requirements.txt",
                                  "tools/automation-health.py", "tools/build-darkreader.py",
                                  "tools/build-ubo-scriptlets.mjs", "tools/third-party.py",
-                                 ".github/autofix/prompt.md"])
+                                 ".github/autofix/prompt.md",
+                                 # 2026-11-22: the maintenance's detector, inventory, ledger,
+                                 # test categories and candidate report
+                                 "tools/check-components.py", "tools/inventory.py", "tools/maintenance-ledger.py",
+                                 "tools/test-categories.py", "tools/maintenance-report.py"])
 def test_more_files_are_never_changed_by_a_fix(repo, tmp_path, rel):
     """1.1.18: YouTube's ad blocking (the owner's rule), the tests' reference
     data, the test packages, the builders of what comes from others, the health
-    check and the workflows."""
+    check and the workflows; since 2026-11-22 the tools of the automatic
+    maintenance (an agent never changes what judges it)."""
     patch = make_patch(repo, edit(rel, "// changed\n", "a"))
     code, report = run_guard(repo, patch, tmp_path)
     assert code == 3 and "protected file" in report, report
     assert guard.allowed_path("ike/shields.py", False) == ""        # ordinary code stays fixable
-    assert guard.allowed_path("tools/check-components.py", False) == ""
+    assert guard.allowed_path("tools/check-lang.py", False) == ""   # and the other tools
 
 
 @pytest.mark.parametrize("key", ["gsk_" + "A1b2C3d4" * 6, "sk-or-v1-" + "0a1b2c3d" * 8, "sk-proj-" + "Zz09" * 10,
