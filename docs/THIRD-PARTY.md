@@ -192,13 +192,13 @@ phf v0.11.3 — MIT — https://github.com/rust-phf/rust-phf
 phf_shared v0.11.3 — MIT — https://github.com/rust-phf/rust-phf
 potential_utf v0.1.6 — Unicode-3.0 — https://github.com/unicode-org/icu4x
 precomputed-hash v0.1.1 — MIT — https://github.com/emilio/precomputed-hash
-psl v2.1.253 — MIT OR Apache-2.0 — https://github.com/addr-rs/psl
+psl v2.1.261 — MIT OR Apache-2.0 — https://github.com/addr-rs/psl
 psl-types v2.0.11 — MIT OR Apache-2.0 — https://github.com/addr-rs/psl-types
 pyo3 v0.30.1 — MIT OR Apache-2.0 — https://github.com/pyo3/pyo3
 pyo3-ffi v0.30.1 — MIT OR Apache-2.0 — https://github.com/pyo3/pyo3
-regex v1.13.1 — MIT OR Apache-2.0 — https://github.com/rust-lang/regex
-regex-automata v0.4.18 — MIT OR Apache-2.0 — https://github.com/rust-lang/regex
-regex-syntax v0.8.11 — MIT OR Apache-2.0 — https://github.com/rust-lang/regex
+regex v1.13.2 — MIT OR Apache-2.0 — https://github.com/rust-lang/regex
+regex-automata v0.4.19 — MIT OR Apache-2.0 — https://github.com/rust-lang/regex
+regex-syntax v0.8.12 — MIT OR Apache-2.0 — https://github.com/rust-lang/regex
 rustc-hash v2.1.3 — Apache-2.0 OR MIT — https://github.com/rust-lang/rustc-hash
 seahash v4.1.0 — MIT — https://gitlab.redox-os.org/redox-os/seahash
 selectors v0.32.0 — MPL-2.0 — https://github.com/servo/stylo
@@ -207,7 +207,7 @@ serde_core v1.0.229 — MIT OR Apache-2.0 — https://github.com/serde-rs/serde
 serde_json v1.0.154 — MIT OR Apache-2.0 — https://github.com/serde-rs/json
 servo_arc v0.4.3 — MIT OR Apache-2.0 — https://github.com/servo/stylo
 siphasher v1.0.4 — MIT OR Apache-2.0 — https://github.com/jedisct1/rust-siphash
-smallvec v1.16.5 — MIT OR Apache-2.0 — https://github.com/servo/rust-smallvec
+smallvec v1.16.6 — MIT OR Apache-2.0 — https://github.com/smallvec/smallvec
 stable_deref_trait v1.2.1 — MIT OR Apache-2.0 — https://github.com/storyyeller/stable_deref_trait
 thiserror v1.0.69 — MIT OR Apache-2.0 — https://github.com/dtolnay/thiserror
 tinystr v0.8.5 — Unicode-3.0 — https://github.com/unicode-org/icu4x
