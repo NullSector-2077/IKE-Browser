@@ -154,13 +154,15 @@ def test_every_check_box_is_a_switch(run_ike, tmp_path):
     assert not out["cut"], "switches cut or under their text: %r" % out["cut"][:10]
 
 
-@pytest.mark.parametrize("style", ["Breeze", "Fusion"])
+@pytest.mark.parametrize("style", ["Breeze", "Fusion", "Windows", "Oxygen", "kvantum"])
 def test_switches_are_whole_in_the_desktops_style(run_ike, tmp_path, style):
     """1.1.22, seen by the owner on KDE Plasma: with Breeze only the first part
     of each switch showed (Breeze keeps a check box's box at its own size), and
     in the shield its text was drawn over it. Fusion, the style of the other
-    tests, measured them right. Breeze is tested where it is installed (the
-    Arch Linux job installs it)."""
+    tests, measured them right. Every widget style an Arch desktop may use
+    is tested where it is installed: Breeze (KDE Plasma), Fusion and Windows
+    (Qt's own), Oxygen (older KDE), Kvantum (themes, often on CachyOS); the
+    Arch Linux job installs them."""
     env = dict(screen(tmp_path, 1366, 768), QT_STYLE_OVERRIDE=style)
     out = run_ike(STEPS.replace("LANGS", repr(["en", "ar"])), env=env, timeout=400)
     if style.lower() not in (out["style"] or "").lower():
