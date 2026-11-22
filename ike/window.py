@@ -1130,6 +1130,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self.app.desktop.watch_view(view)       # media controls of the desktop
         first = len(self.views) == 1
         text = url if isinstance(url, str) or url is None else url.toString()
+        if text == NEWTAB:
+            # the new tab page's colour from the first moment, before the page
+            # is asked for (1.1.23: the view showed white until it painted)
+            page.set_backdrop(self.app.shields.newtab_background())
         if lazy and text and text != NEWTAB and (self._restoring or (background and not first)):
             view.pending_url = text          # loads when the tab is first shown
         elif url is not None:
