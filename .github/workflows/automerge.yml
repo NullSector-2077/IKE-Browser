@@ -17,6 +17,15 @@
 # Runs the automation started with its own token send no "workflow_run": the
 # Tests, Security and Arch Linux runs of its branches start this one with a
 # dispatch when they pass (job merge-ready; review 2 of 1.1.19, H1).
+#
+# Everything automatic and verified converges into main (2026-11-22, the
+# owner's decision): several verified merges go into the same unpublished
+# version (a second raise on top waits for a person); a verified candidate
+# behind main is refreshed first (main merged into its own branch, CHANGELOG
+# and version files resolved as decided, any other conflict left for a person;
+# pushed with this job's token to that branch only, never to main) and its
+# Tests, Security and Arch Linux start again; after every merge the other
+# open pull requests of the automation are judged again (a dispatch each).
 name: Merge green fixes
 
 on:
@@ -43,15 +52,16 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
-      contents: write          # the merge of a fully verified pull request of the automation, nothing else
+      contents: write          # the merge of a fully verified pull request of the automation; its refresh (its own branch)
       pull-requests: write     # ready for review, the one comment
       issues: read             # its own earlier comment, the security issues, the maintenance ledger
-      actions: write           # the runs and test results of the commit; Arch on it; main's tests after the merge
+      actions: write           # the runs and test results of the commit; Arch on it; main's tests after the merge; the others judged again
       checks: read             # the checks of the commit
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
+          fetch-depth: 0           # the refresh merges main into the candidate (git merge-tree)
           persist-credentials: false
       - name: Merge it when it is fully verified
         env:

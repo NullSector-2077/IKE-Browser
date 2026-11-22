@@ -31,8 +31,29 @@ Only the automation's own pull requests, and only when FULLY VERIFIED:
   "Rust advisories" (unless this commit's own RustSec check passed: it is free
   of them), or a security entry of the maintenance ledger not passed;
 - main's version is not published yet, or the pull request raises it (or it
-  ships nothing, as a candidate of the test packages); main holds no other
-  merge by itself not yet signed (M9).
+  ships nothing, as a candidate of the test packages). Since 2026-11-22 (the
+  owner's decision: everything automatic and verified converges into main,
+  then one notice to sign) several merges by themselves go into the same
+  unpublished version: a pull request whose raise is main's unpublished
+  version, or that raises nothing because main is raised already, merges; a
+  second raise on top (1.1.24 while 1.1.23 is not published) waits for a
+  person (version_rule; M9's "one merge per unsigned version" is dropped for
+  the automation's own pull requests).
+
+**The refresh** (the same decision). A fully verified candidate that is
+behind main (or conflicts with it) is not merged as it is: main is merged
+into its branch (git merge-tree, no AI), CHANGELOG.md resolved as one
+"## <version>" heading with the union of the bullet lines, the version files
+as main's when main's version is the candidate's own, any other conflict left
+for a person (and the ledger); the commit "refresh: main <sha> into <branch>
+(tools/automerge.py, no AI)" is pushed to the automation's branch with the
+workflow's token (never to main), and Tests, Security and Arch Linux start on
+it again; when they pass it is judged again and merged. The merge accepts
+such a commit only when it is exactly that: two parents, the second one in
+main, and the tree this file computes again from them (refresh_problem).
+After every merge the other open pull requests of the automation are judged
+again (a dispatch of automerge.yml for each), so they converge one after
+another; release-ready.yml says once per version that it is ready to sign.
 
 Then it is merged with the workflow's token at exactly that commit, and the
 tests, the security tests and the Arch tests of main start; when they pass,
@@ -76,9 +97,11 @@ with no unsafe code, process, file, network or environment access added
 import argparse
 import importlib.util
 import json
+import os
 import re
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -614,11 +637,221 @@ def verified_file_problem(f, by, guard_allowed, repo, ref="", tags=None):
     return "%s: changed by the update and by the automatic fix" % name
 
 
+# --- the refresh of a verified candidate behind main (2026-11-22) ---------------------------------
+
+REFRESH = re.compile(r"^refresh: main ([0-9a-f]{40}) into (automation/[A-Za-z0-9._/-]{1,120}) "
+                     r"\(tools/automerge\.py, no AI\)$")
+BOT_NAME, BOT_MAIL = "github-actions[bot]", "41898282+github-actions[bot]@users.noreply.github.com"
+
+
+def _first(c):
+    return ((c.get("commit") or {}).get("message") or "").split("\n", 1)[0]
+
+
+def version_in(text):
+    m = re.search(r'^__version__ = "(\d+\.\d+\.\d+)"$', text or "", re.M)
+    return m.group(1) if m else ""
+
+
+def _git(cwd, *args, data=None, env=None, check=True):
+    """git in cwd (bytes in and out); RuntimeError when it fails and check is set."""
+    out = subprocess.run(["git", *args], cwd=cwd, capture_output=True, input=data, env=env)
+    if check and out.returncode:
+        raise RuntimeError("git %s: %s" % (" ".join(args[:2]), out.stderr.decode("utf-8", "replace").strip()[:300]))
+    return out
+
+
+def _out(cwd, *args, **kw):
+    return _git(cwd, *args, **kw).stdout.decode("utf-8").strip()
+
+
+def _show(cwd, rev, path):
+    """The file at a commit (text), or None when it is not there."""
+    out = _git(cwd, "show", "%s:%s" % (rev, path), check=False)
+    return out.stdout.decode("utf-8") if out.returncode == 0 else None
+
+
+def changelog_union(base, ours, theirs, version):
+    """(text, why): main's CHANGELOG.md (theirs) with the candidate's new bullet lines (ours against
+    base) added at the end of its "## version" section, as tools/prepare-maintenance.py adds to an
+    unpublished version: one heading, the union of the bullet lines, no duplicates, main's first.
+    ("", why) when the candidate changes more than new bullet lines of that version, or main's first
+    section is not that version."""
+    import difflib
+    old, new = base.split("\n"), ours.split("\n")
+    added = []
+    for tag, _i1, _i2, j1, j2 in difflib.SequenceMatcher(None, old, new, autojunk=False).get_opcodes():
+        if tag == "equal":
+            continue
+        if tag != "insert":
+            return "", "CHANGELOG.md: the candidate changes more than new lines"
+        added += new[j1:j2]
+    heading = "## %s" % version
+    bullets = []
+    for line in added:
+        if line.startswith("- "):
+            if line not in bullets:
+                bullets.append(line)
+        elif line.strip() and line != heading:
+            return "", "CHANGELOG.md: the candidate adds more than bullet lines of %s (%s)" % (version, line[:60])
+    top = "# Changelog\n"
+    if not theirs.startswith(top) or theirs.split("\n").count(heading) != 1:
+        return "", "CHANGELOG.md: main's has no single %s section" % heading
+    rest = theirs[len(top):].lstrip("\n")
+    if not rest.startswith(heading + "\n"):
+        return "", "CHANGELOG.md: main's first section is not %s" % version
+    tail = rest[len(heading) + 1:]
+    following = re.search(r"^## ", tail, re.M)
+    end = following.start() if following else len(tail)
+    section = tail[:end].rstrip()
+    more = [x for x in bullets if x not in section.split("\n")]
+    if not more:
+        return theirs, ""
+    return top + "\n" + heading + "\n" + section + "\n" + "\n".join(more) + "\n\n" + tail[end:].lstrip("\n"), ""
+
+
+def refreshed_tree(ours, theirs, cwd=ROOT):
+    """(tree, why): main (theirs) merged into the candidate (ours) by git, CHANGELOG.md resolved by
+    changelog_union when both changed it, a conflicting version file taken from main when main's
+    version is the candidate's own; ("", why) for any other conflict (a person resolves it)."""
+    out = _git(cwd, "merge-tree", "--write-tree", "--name-only", "--no-messages", "-z", ours, theirs, check=False)
+    if out.returncode not in (0, 1):
+        return "", "main could not be merged in: %s" % out.stderr.decode("utf-8", "replace").strip()[:200]
+    parts = out.stdout.decode("utf-8").split("\0")
+    tree, conflicted = parts[0].strip(), sorted({p for p in parts[1:] if p})
+    base = _out(cwd, "merge-base", ours, theirs)
+    mine, mains = version_in(_show(cwd, ours, "ike/__init__.py")), version_in(_show(cwd, theirs, "ike/__init__.py"))
+    blobs, texts = {}, {}
+    logs = [_show(cwd, c, "CHANGELOG.md") for c in (base, ours, theirs)]
+    if None not in logs and logs[1] != logs[0] and logs[2] != logs[0] and logs[1] != logs[2]:
+        # both added to it: always the union (a clean text merge could keep two headings of one version)
+        if mine != mains:
+            return "", "CHANGELOG.md: the candidate's version %s is not main's %s" % (mine or "-", mains or "-")
+        text, why = changelog_union(*logs, mains)
+        if why:
+            return "", why
+        texts["CHANGELOG.md"] = text
+    for name in conflicted:
+        if name in texts:
+            continue
+        if name in VERSION_LINES and mine and mine == mains:
+            blob = _git(cwd, "rev-parse", "-q", "--verify", "%s:%s" % (theirs, name), check=False)
+            if blob.returncode == 0:
+                blobs[name] = blob.stdout.decode().strip()
+                continue
+        return "", "%s: a conflict with main that a person resolves" % name
+    if not blobs and not texts:
+        return tree, ""
+    with tempfile.TemporaryDirectory() as tmp:
+        env = dict(os.environ, GIT_INDEX_FILE=str(Path(tmp) / "index"))
+        _git(cwd, "read-tree", tree, env=env)
+        for name, text in sorted(texts.items()):
+            blobs[name] = _out(cwd, "hash-object", "-w", "--stdin", data=text.encode("utf-8"))
+        for name, blob in sorted(blobs.items()):
+            _git(cwd, "update-index", "--add", "--cacheinfo", "100644,%s,%s" % (blob, name), env=env)
+        return _out(cwd, "write-tree", env=env), ""
+
+
+def make_refresh(ref, head, main_sha, cwd=ROOT):
+    """(commit, why): the refresh commit of the candidate's head with main merged in (not pushed)."""
+    tree, why = refreshed_tree(head, main_sha, cwd)
+    if why:
+        return "", why
+    message = ("refresh: main %s into %s (tools/automerge.py, no AI)\n\nThe verified candidate was behind main: "
+               "main merged in, CHANGELOG.md and the version files resolved as decided; its tests run again.\n"
+               % (main_sha, ref))
+    env = dict(os.environ, GIT_AUTHOR_NAME=BOT_NAME, GIT_AUTHOR_EMAIL=BOT_MAIL, GIT_COMMITTER_NAME=BOT_NAME,
+               GIT_COMMITTER_EMAIL=BOT_MAIL)
+    return _out(cwd, "commit-tree", tree, "-p", head, "-p", main_sha, data=message.encode("utf-8"), env=env), ""
+
+
+def refresh_problem(sha, ref, cwd=ROOT, main_ref="origin/main"):
+    """"" when the commit is exactly the refresh of this branch: its own message, two parents (the
+    branch's commit, then a commit of main it names), and the tree refreshed_tree computes again from
+    them; else why it is not (a disguised one: more changes, one parent, a main that is not main's)."""
+    try:
+        m = REFRESH.match(_out(cwd, "log", "-1", "--format=%s", sha))
+        if not m or m.group(2) != ref:
+            return "not the refresh commit of %s" % ref
+        parents = _out(cwd, "rev-list", "--parents", "-n", "1", sha).split()[1:]
+        if len(parents) != 2:
+            return "not a merge of the branch and main"
+        if parents[1] != m.group(1):
+            return "its second parent is not the main it names"
+        if _git(cwd, "merge-base", "--is-ancestor", parents[1], main_ref, check=False).returncode:
+            return "the main it names is not in main"
+        tree, why = refreshed_tree(parents[0], parents[1], cwd)
+        if why:
+            return why
+        if tree != _out(cwd, "rev-parse", "%s^{tree}" % sha):
+            return "more than main merged in with the CHANGELOG and version resolutions"
+        return ""
+    except (RuntimeError, ValueError) as e:
+        return "the refresh commit could not be read (%s)" % str(e)[:120]
+
+
+# the filter lists' recorded evidence the workflow itself writes (tools/filter-lists.py RECORDED_DIR;
+# the AI may not: tools/check-autofix-patch.py LISTS_ALLOWED): a NEW file there is not a test change
+RECORDED_DIR = "tests/data/lists-recorded/"
+
+
+def recorded_evidence(f):
+    """A file the pull request adds under tests/data/lists-recorded/ (2026-11-22, #111); a change,
+    removal or rename there is still a test file changed, for a person."""
+    name = f.get("filename") or ""
+    return f.get("status") == "added" and not f.get("previous_filename") and name.startswith(RECORDED_DIR) \
+        and name.endswith(".txt") and "/../" not in "/" + name + "/" and name.count("/") == RECORDED_DIR.count("/")
+
+
+def target_version(files):
+    """The version the pull request sets in ike/__init__.py, or "" when it does not move it."""
+    for f in files:
+        if f.get("filename") == "ike/__init__.py":
+            for _start, _removed, added in hunks(f.get("patch")) or ():
+                for line in added:
+                    if version_in(line):
+                        return version_in(line)
+    return ""
+
+
+def next_version(version):
+    major, minor, patch = version.split(".")
+    return "%s.%s.%d" % (major, minor, int(patch) + 1)
+
+
+def version_rule(files, main_version, published):
+    """Why the pull request's version does not fit main's, or "" (2026-11-22, the owner's decision:
+    several verified merges go into the same unpublished version, never a second raise on top).
+
+    main's version published: a pull request that ships raises it to the next one; not published: a
+    raise, if any, is to main's own version (a candidate made before main was raised), and nothing
+    more. The CHANGELOG headings it adds name that same version."""
+    if not re.fullmatch(r"\d+\.\d+\.\d+", main_version or ""):
+        return "main's version could not be read"
+    target = target_version(files)
+    if published and target and target != next_version(main_version):
+        return "main's version %s is published already: the version must be raised to %s, not %s" % (
+            main_version, next_version(main_version), target)
+    if not published and target and target != main_version:
+        return ("a second version raise: main's %s is not published yet and the pull request sets %s; "
+                "it goes into %s, signed first (M9)" % (main_version, target, main_version))
+    version = target or ("" if published else main_version)
+    for f in files:
+        if f.get("filename") == "CHANGELOG.md":
+            for _start, _removed, added in hunks(f.get("patch")) or ():
+                for line in added:
+                    if line.startswith("## ") and line != "## %s" % version:
+                        return "CHANGELOG.md: a heading of another version (%s; main's is %s)" % (
+                            line[3:40], main_version)
+    return ""
+
+
 def decide(repo, pr, commits, files, checks, guard_allowed, published=False, unread=False, evidence=None,
-           findings=(), protected=None, tags=None):
+           findings=(), protected=None, tags=None, main_version=None):
     """("merge", "") for a fully verified pull request of the automation, ("ready", "") for a green
     and harmless one of ChatGPT (it waits for the owner's order), ("wait", why) while its checks run,
-    or ("person", why)."""
+    or ("person", why). main_version: main's version (version_rule); None only where a test of other
+    rules leaves it out. A refresh commit counts only with its "refresh" verdict "" (refresh_problem)."""
     head = pr.get("head") or {}
     ref = head.get("ref", "")
     if pr.get("state") != "open" or (pr.get("base") or {}).get("ref") != "main":
@@ -628,6 +861,14 @@ def decide(repo, pr, commits, files, checks, guard_allowed, published=False, unr
     chatgpt = ref.startswith("chatgpt/")
     if not verified_branch(ref) and not chatgpt:
         return "person", "not a pull request of the automation or of ChatGPT"
+    if not chatgpt:
+        # the refresh: main merged into the branch, checked again from git; the rest judges the others
+        refreshes = [c for c in commits if REFRESH.match(_first(c))]
+        for c in refreshes:
+            if c.get("refresh") != "":
+                return "person", "a refresh commit that is not main merged in as decided: %s" % (
+                    c.get("refresh") or "not checked")
+        commits = [c for c in commits if c not in refreshes]
     messages = [((c.get("commit") or {}).get("message") or "") for c in commits]
     if not messages:
         return "person", "no commits"
@@ -648,7 +889,7 @@ def decide(repo, pr, commits, files, checks, guard_allowed, published=False, unr
     # no test file changed or removed, no protected file, no workflow (the owner's rule)
     for f in files:
         for n in (f.get("filename", ""), f.get("previous_filename") or ""):
-            if n and TEST_FILE.search(n):
+            if n and TEST_FILE.search(n) and not recorded_evidence(f):
                 return "person", "%s: a test file changed or removed" % n
             if n.startswith(".github/") and not ci_branch:
                 return "person", "%s: a workflow" % n
@@ -675,8 +916,14 @@ def decide(repo, pr, commits, files, checks, guard_allowed, published=False, unr
         names = [f.get("filename", "") for f in files]
         if published and "ike/__init__.py" not in names and any(not n.startswith(NOT_SHIPPED) for n in names):
             return "person", "main's version is published already: the version must be raised"
-    if unread:
+    if chatgpt and unread:
+        # ChatGPT's fix waits for the owner's order anyway; it is not offered on an unsigned version (M9)
         return "person", "main already holds a merge by itself not yet signed: that version is signed first (M9)"
+    if not chatgpt and main_version is not None:
+        # since 2026-11-22 several verified merges share one unpublished version (M9 dropped for them)
+        why = version_rule(files, main_version, published)
+        if why:
+            return "person", why
     names = {}
     for c in checks:
         if c.get("name") in OWN_JOBS or (c.get("name") or "").split(" / ")[-1] in OWN_JOBS:
@@ -855,6 +1102,79 @@ def ensure_arch(repo, ref, sha, workflow="arch.yml"):
         return False
 
 
+def fetch_commit(sha, cwd=ROOT):
+    """main and the pull request's commit from the public repository (no credentials), for the refresh."""
+    try:
+        _git(cwd, "fetch", "--no-tags", "-q", "origin", "+refs/heads/main:refs/remotes/origin/main", sha)
+        return True
+    except RuntimeError as e:
+        print("::warning::the commits could not be fetched: %s" % str(e)[:200])
+        return False
+
+
+def behind_main(repo, sha):
+    """main has commits the pull request's commit does not (GET only); False when it cannot be read
+    (the merge is then tried as before: GitHub refuses one that conflicts)."""
+    try:
+        return int(api("repos/%s/compare/main...%s" % (repo, sha)).get("behind_by") or 0) > 0
+    except (RuntimeError, ValueError, TypeError) as e:
+        print("::warning::whether it is behind main could not be read: %s" % str(e)[:200])
+        return False
+
+
+def refresh_branch(repo, ref, sha, cwd=ROOT):
+    """(commit, why): main merged into the verified candidate's branch (make_refresh), checked as the
+    merge will check it, pushed with the workflow's token to that branch only (a fast-forward, never
+    main), then Tests, Security and Arch Linux started on it (the token's push starts no workflow)."""
+    import base64
+    if not verified_branch(ref) or not ref.startswith("automation/"):
+        return "", "not a branch of the automation"
+    if not fetch_commit(sha, cwd):
+        return "", "the commits could not be fetched"
+    main_sha = _out(cwd, "rev-parse", "origin/main^{commit}")
+    commit, why = make_refresh(ref, sha, main_sha, cwd)
+    if why:
+        return "", why
+    why = refresh_problem(commit, ref, cwd)
+    if why:
+        return "", "the refresh is not what the merge accepts (%s)" % why
+    auth = base64.b64encode(("x-access-token:%s" % os.environ.get("GH_TOKEN", "")).encode()).decode()
+    try:
+        _git(cwd, "-c", "http.https://github.com/.extraheader=AUTHORIZATION: basic " + auth, "push", "-q", "origin",
+             "%s:refs/heads/%s" % (commit, ref))
+    except RuntimeError as e:
+        return "", "the refresh could not be pushed (%s)" % str(e).replace(auth, "***")[:200]
+    for workflow in ("tests.yml", "security.yml", "arch.yml"):
+        try:
+            gh("workflow", "run", workflow, "--repo", repo, "--ref", ref)
+        except RuntimeError as e:
+            print("::warning::%s could not be started on %s: %s" % (workflow, ref, str(e)[:200]))
+    return commit, ""
+
+
+def redispatch_others(repo, n):
+    """After a merge: every other open pull request of the automation is judged again (its last
+    commit), so the verified ones are refreshed and merged one after another without anyone."""
+    try:
+        prs = api("repos/%s/pulls?state=open&per_page=100" % repo)
+    except (RuntimeError, ValueError) as e:
+        print("::warning::the other pull requests could not be read: %s" % str(e)[:200])
+        return []
+    asked = []
+    for p in prs or ():
+        head = p.get("head") or {}
+        sha = head.get("sha") or ""
+        if p.get("number") == n or (head.get("repo") or {}).get("full_name") != repo \
+                or not verified_branch(head.get("ref", "")) or not re.fullmatch(r"[0-9a-f]{40}", sha):
+            continue
+        try:
+            gh("workflow", "run", "automerge.yml", "--repo", repo, "--ref", "main", "-f", "sha=" + sha)
+            asked.append(p.get("number"))
+        except RuntimeError as e:
+            print("::warning::#%s could not be judged again: %s" % (p.get("number"), str(e)[:200]))
+    return asked
+
+
 def merge_token(files):
     """The token of the merge: the workflow's own, or for a pull request that changes the workflows (the
     CI pins' candidate, already verified line by line) the repository secret IKE_WORKFLOW_TOKEN when the
@@ -933,7 +1253,14 @@ def main(argv=None):
             except (RuntimeError, ValueError, KeyError):
                 pass
     guard = _guard()
-    published = released(a.repo, "v" + version_of_main())
+    main_version = version_of_main()
+    published = released(a.repo, "v" + main_version)
+    # a refresh commit is judged from git: fetched, and computed again from its parents
+    refreshes = [c for c in commits if REFRESH.match(_first(c))] if verified else []
+    if refreshes:
+        fetched = fetch_commit(a.sha)
+        for c in refreshes:
+            c["refresh"] = refresh_problem(c.get("sha", ""), ref) if fetched else "the commits could not be fetched"
     if verified and not a.dry_run:
         ensure_arch(a.repo, ref, a.sha)
         if ref.startswith(ARCH_TESTING_PREFIX):
@@ -943,13 +1270,15 @@ def main(argv=None):
     for _round in range(16):
         checks = api("repos/%s/commits/%s/check-runs?per_page=100" % (a.repo, a.sha)).get("check_runs", [])
         args = (a.repo, pr, commits, files, checks, lambda name: guard.allowed_path(name, False))
-        unread = unread_merge(a.repo)
-        kind, why = decide(*args, published=published, unread=unread, protected=guard.FORBIDDEN_FILES)
+        unread = unread_merge(a.repo) if not verified else False      # M9: ChatGPT's fix only (2026-11-22)
+        kind, why = decide(*args, published=published, unread=unread, protected=guard.FORBIDDEN_FILES,
+                           main_version=main_version)
         if kind == "wait" and why == NO_EVIDENCE:
             # every check passed: what they verified, and the open security findings
             passed = any(c.get("name") == "rust-advisories" and c.get("conclusion") == "success" for c in checks)
             kind, why = decide(*args, published=published, unread=unread, protected=guard.FORBIDDEN_FILES,
-                               evidence=gather_evidence(a.repo, a.sha), findings=gather_findings(a.repo, passed))
+                               evidence=gather_evidence(a.repo, a.sha), findings=gather_findings(a.repo, passed),
+                               main_version=main_version)
         # Arch Linux takes an hour: its own merge-ready job asks again when it ends
         if kind != "wait" or a.dry_run or "Arch Linux" in why:
             break
@@ -970,8 +1299,25 @@ def main(argv=None):
         return 0
     if not verified:                      # never reached: decide() merges only the automation's own
         return 0
+    if behind_main(a.repo, a.sha):
+        # verified, but on an older main: main merged in (the refresh), then its tests again
+        commit, why = refresh_branch(a.repo, ref, a.sha)
+        if why:
+            print("#%d (%s): left for a person: %s" % (n, ref, why))
+            tell_person(a.repo, n, "it is verified but behind main, and the refresh stopped: %s" % why,
+                        a.repo.split("/")[0], a.sha)
+            return 0
+        gh("pr", "comment", str(n), "--repo", a.repo, "--body",
+           "Verificata, ma indietro rispetto a `main`: `main` è stato unito nel ramo (%s, nessuna AI; CHANGELOG e "
+           "versione risolti come deciso). Ripartono test, Security e Arch Linux; quando passano entra in `main` da "
+           "sola." % commit[:10])
+        print("#%d refreshed with main (%s): its tests run again, then it is judged again" % (n, commit[:10]))
+        return 0
     merge_it(a.repo, pr, a.sha)
     print("merged #%d; the tests of main started (then the signing notice)" % n)
+    asked = redispatch_others(a.repo, n)
+    if asked:
+        print("judged again: %s" % ", ".join("#%s" % x for x in asked))
     return 0
 
 
