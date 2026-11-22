@@ -51,7 +51,8 @@ NOT_RECENT = {
     "ike/resources/mediahook.js", "tools/test-requirements.txt", "tools/automation-health.py",
     "tools/third-party.py", "ike/blocker.py", "ike/scriptlets.py", "tools/automerge.py",
     "tools/check-components.py", "tools/inventory.py", "tools/maintenance-ledger.py", "tools/test-categories.py",
-    "tools/maintenance-report.py",
+    "tools/maintenance-report.py", "tools/filter-lists.py", "tools/ai-work.py", "tools/ai-providers.py",
+    "tools/provider-check.py", "tests/test_lists_recorded.py",
 }
 MAX_EXAMPLES = 3            # other places that use a missing name (1.1.16)
 EXAMPLE_AROUND = 4

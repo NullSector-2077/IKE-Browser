@@ -63,19 +63,22 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-PROVIDERS = (
-    # name, endpoint, key variable, models variable, default models (checked 2026-11-19),
-    # characters of failure + code sent, tokens of the answer
-    ("Groq", "https://api.groq.com/openai/v1/chat/completions", "GROQ_API_KEY",
-     "AUTOFIX_GROQ_MODELS", ("qwen/qwen3.8-27b", "openai/gpt-oss-120b"), 14_000, 2_000),
-    # 1.1.19, the owner's choice: Z.AI's free models (OpenAI-compatible API;
-    # its limits are shown only in the account, so a 429 moves on as for the others)
-    ("Z.AI", "https://api.z.ai/api/paas/v4/chat/completions", "ZAI_API_KEY",
-     "AUTOFIX_ZAI_MODELS", ("glm-4.7-flash", "glm-4.5-flash"), 60_000, 6_000),
-    ("OpenRouter", "https://openrouter.ai/api/v1/chat/completions", "OPENROUTER_API_KEY",
-     "AUTOFIX_OPENROUTER_MODELS", ("cohere/north-mini-code:free", "particle-ai/particle-1:free"),
-     120_000, 6_000),
-)
+
+def _registry():
+    """tools/ai-providers.py next to this script (both come from main in the
+    workflow): the one place for the providers' order, models and limits."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "ike_ai_providers", Path(__file__).resolve().parent / "ai-providers.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+REGISTRY = _registry()
+# name, endpoint, key variable, models variable, default models, characters of
+# failure + code sent, tokens of the answer (tools/ai-providers.py, RESERVES)
+PROVIDERS = tuple(tuple(p) for p in REGISTRY.RESERVES)
 ROOTS = ("ike/", "tests/", "tools/", "docs/")
 # I.K.E.'s own wrapper of the ad blocker: only when the workflow says this run
 # updates the engine (--allow-adblock, from tools/autofix-plan.py). The checker
@@ -84,7 +87,13 @@ WRAPPER = ("ike-adblock/src/", "vendor/adblock/__init__.py")
 SHOWN_ROOTS = ROOTS + WRAPPER          # may be shown, as context, even when not editable
 
 
-def editable(path, allow_adblock):
+# the filter lists' analysis (--lists, WP8): I.K.E.'s adapter only
+LISTS_EDITABLE = ("ike/scriptlets.py", "ike/blocker.py", "ike-adblock/src/")
+
+
+def editable(path, allow_adblock, lists=False):
+    if lists:
+        return path.startswith(LISTS_EDITABLE)
     return path.startswith(ROOTS + WRAPPER if allow_adblock else ROOTS)
 
 
@@ -118,7 +127,7 @@ def _git(workdir, *args, text=True):
     return subprocess.run([*mod.SAFE_GIT, "-C", str(workdir), *args], capture_output=True, text=text,
                           check=False, env=mod.safe_git_env())
 MAX_FILES = 5
-TOTAL_TIMEOUT = 12 * 60
+TOTAL_TIMEOUT = REGISTRY.RESERVES_TIMEOUT
 REQUEST_TIMEOUT = 150
 FILES_BUDGET = 60_000          # characters of whole files sent along
 MAX_TOKENS = 6000
@@ -131,6 +140,8 @@ MESSAGES = {
     "error": "Le riserve non sono riuscite a preparare una correzione applicabile.",
     "refused": "La correzione della riserva (%s) è stata respinta dai controlli di sicurezza: "
                "nessun'altra riserva è stata interpellata.",
+    "unavailable": "Nessuna riserva gratuita disponibile (a pagamento, senza credito o segnata non "
+                   "disponibile dal controllo settimanale): il lavoro riprova più tardi.",
 }
 
 INSTRUCTIONS = """
@@ -161,7 +172,10 @@ Answer with ONE JSON object and nothing else:
 """
 
 
-def instructions(allow_adblock):
+def instructions(allow_adblock, lists=False):
+    if lists:
+        return INSTRUCTIONS % {"wrapper": "this run is the filter lists' analysis: ONLY ike/scriptlets.py, "
+                               "ike/blocker.py or ike-adblock/src/, never a test"} + _agent_lists_note()
     return INSTRUCTIONS % {"wrapper": (
         "this run updates the ad blocker's engine, so I.K.E.'s own wrapper may change "
         "too: ike-adblock/src/ and vendor/adblock/__init__.py" if allow_adblock else
@@ -173,21 +187,37 @@ class Stop(Exception):
     pass
 
 
+def unavailable(env=os.environ):
+    """The providers the weekly check marked unavailable (AUTOFIX_UNAVAILABLE,
+    names separated by commas: tools/provider-check.py, read by the plan)."""
+    return {n.strip() for n in (env.get("AUTOFIX_UNAVAILABLE") or "").split(",") if n.strip()}
+
+
 def chain(env=os.environ):
     """[(provider, endpoint, key, model, budget, max_tokens)] in order; providers
-    without a key left out."""
+    without a key, or marked unavailable, left out, and so is a model the
+    provider would charge for (OpenRouter: only ":free" models, also from the
+    variable; tools/ai-providers.py)."""
     out = []
+    off = unavailable(env)
     for name, url, key_var, models_var, default, budget, tokens in PROVIDERS:
         key = env.get(key_var, "").strip()
         if not key:
             continue
+        if name in off:
+            print("%s: marked unavailable by the weekly check (not free, or billing): skipped" % name, flush=True)
+            continue
         models = [m.strip() for m in (env.get(models_var) or "").split(",") if m.strip()] or list(default)
         for m in models:
+            if not REGISTRY.is_free_model(name, m):
+                print("%s: %s is not a free model (%s only): refused" % (
+                    name, for_log(m), REGISTRY.FREE_SUFFIX.get(name)), flush=True)
+                continue
             out.append((name, url, key, m, budget, tokens))
     return out
 
 
-OPENROUTER_MODELS = "https://openrouter.ai/api/v1/models"
+OPENROUTER_MODELS = REGISTRY.OPENROUTER_MODELS
 DISCOVERED = 2          # free models taken from OpenRouter's list when a listed one is gone
 MODEL_ID = re.compile(r"^[A-Za-z0-9._/:-]{3,100}:free$")
 
@@ -210,7 +240,7 @@ def free_models(key, opener=urllib.request.urlopen, exclude=(), count=DISCOVERED
             mid = m.get("id") if isinstance(m, dict) else None
             ctx = m.get("context_length") if isinstance(m, dict) else None
             if (isinstance(mid, str) and MODEL_ID.match(mid) and mid not in exclude
-                    and isinstance(ctx, int) and ctx >= 32_000):
+                    and isinstance(ctx, int) and ctx >= 32_000 and priced_free(m)):
                 found.append((ctx, mid))
         found.sort(key=lambda t: (-t[0], t[1]))
         return [mid for _ctx, mid in found[:count]]
@@ -218,7 +248,56 @@ def free_models(key, opener=urllib.request.urlopen, exclude=(), count=DISCOVERED
         return []
 
 
+def priced_free(model):
+    """True unless OpenRouter's own price list gives the model a price above
+    zero (WP9: a ":free" name alone proves nothing). Prices are strings of
+    dollars per token; a model without prices is taken as its name says."""
+    pricing = model.get("pricing") if isinstance(model, dict) else None
+    if not isinstance(pricing, dict):
+        return True
+    for value in pricing.values():
+        try:
+            if float(value) > 0:
+                return False
+        except (TypeError, ValueError):
+            continue
+    return True
+
+
+# an answer or an error that says money is asked: payment required, no credit,
+# billing not enabled, a model of a paid tier (Z.AI's code 1113: "insufficient
+# balance or no resource package"). Only these exact words: a rate limit's
+# advice ("upgrade to Dev Tier", "check your plan and billing details") is a
+# quota, never this. The provider is not free for this model: it is skipped.
+BILLING = re.compile(r"payment[ _]required|insufficient[ _](?:balance|credits?|funds)|余额不足|resource package"
+                     r"|\"code\"\s*:\s*\"?1113\b|BILLING_DISABLED|billing (?:is )?(?:not )?(?:enabled|required)"
+                     r"|requires? billing|(?:paid|billing) (?:plan|tier|account) (?:is )?required"
+                     r"|only available (?:on|for|to) (?:the )?paid", re.I)
+
+
+def billing_in(text):
+    return bool(BILLING.search(text or ""))
+
+
+def cost_of(data):
+    """The cost an answer reports (OpenRouter's usage.cost, or a total_cost),
+    or 0."""
+    usage = data.get("usage") if isinstance(data, dict) else None
+    if not isinstance(usage, dict):
+        return 0
+    for name in ("cost", "total_cost"):
+        try:
+            value = float(usage.get(name) or 0)
+        except (TypeError, ValueError):
+            continue
+        if value > 0:
+            return value
+    return 0
+
+
 def classify(status):
+    if status == 402:
+        return "unavailable"          # payment required: no free use of this model
     if status == 413:
         return "toolarge"
     if status == 429:
@@ -247,11 +326,20 @@ def ask(url, key, model, messages, timeout=REQUEST_TIMEOUT, opener=urllib.reques
             wait = int(float((e.headers or {}).get("Retry-After") or 0))
         except (TypeError, ValueError):
             wait = 0
+        try:
+            said = e.read(20_000).decode("utf-8", "replace") if e.fp is not None else ""
+        except Exception:
+            said = ""
+        if billing_in(said):                # never a quota to wait for: money is asked
+            raise Stop("unavailable", "HTTP %d, billing" % e.code, 0)
         raise Stop(classify(e.code), "HTTP %d" % e.code, wait)
     except (urllib.error.URLError, TimeoutError, OSError, ValueError, http.client.HTTPException) as e:
         # http.client's IncompleteRead (an answer cut off) is no OSError: until the
         # final review of 1.1.18 it skipped the retry of a server error
         raise Stop("temporary", type(e).__name__)
+    if cost_of(data) > 0:
+        # WP9: the answer itself says it cost money; the provider is not free here
+        raise Stop("unavailable", "the answer reports a cost")
     try:
         content = data["choices"][0]["message"]["content"] or ""
     except (KeyError, IndexError, TypeError):
@@ -314,7 +402,7 @@ def _locate(current, find):
     return offsets[i], offsets[end_line] + len(lines[end_line])
 
 
-def apply_edits(workdir, edits, shown, allow_adblock=False):
+def apply_edits(workdir, edits, shown, allow_adblock=False, lists=False):
     """Apply the edits (all or none). Returns the changed files; raises ValueError."""
     if not isinstance(edits, list):
         raise ValueError("the edits are not a list")
@@ -332,6 +420,9 @@ def apply_edits(workdir, edits, shown, allow_adblock=False):
             path = path[2:]
         if ".." in Path(path).parts or path not in shown:
             raise ValueError("%s is not one of the files shown" % path)
+        if lists and not editable(path, True, lists=True):
+            raise ValueError("%s may not be changed in the filter lists' analysis: only I.K.E.'s adapter "
+                             "(ike/scriptlets.py, ike/blocker.py, ike-adblock/src/)" % path)
         if not editable(path, allow_adblock) or (not allow_adblock and path in ("ike/blocker.py",
                                                                               "ike/scriptlets.py")):
             raise ValueError("%s may not be changed in this run (the ad blocker only with an "
@@ -404,7 +495,19 @@ def undo(workdir, files):
     _git(workdir, "checkout", "-q", "--", *files)
 
 
-def checked(workdir, checker, related, allow_adblock):
+def _agent_lists_note():
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("ike_autofix_agent", Path(__file__).resolve().parent /
+                                                      "autofix-agent.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod.LISTS_NOTE
+    except Exception:
+        return ""
+
+
+def checked(workdir, checker, related, allow_adblock, lists=False):
     """(exit status, reasons) of the trusted checks on the work tree's changes."""
     with tempfile.NamedTemporaryFile("w", suffix=".patch", delete=False) as f:
         f.write(diff_of(workdir))
@@ -414,6 +517,8 @@ def checked(workdir, checker, related, allow_adblock):
         cmd += ["--related", related]
     if allow_adblock:
         cmd.append("--allow-adblock")
+    if lists:
+        cmd.append("--lists")
     run = subprocess.run(cmd, capture_output=True, text=True, check=False)
     os.unlink(patch)
     return run.returncode, run.stdout.strip()[-2000:]
@@ -476,7 +581,7 @@ def one_model(url, key, model, base, tokens, deadline, opener, workdir, shown, a
                 time.sleep(wait + 1)
                 tries -= 1                  # the wait does not use up a try
                 continue
-            if kind in ("auth", "toolarge", "config"):
+            if kind in ("auth", "toolarge", "config", "unavailable"):
                 return kind, "", refused
             return ("quota" if kind in ("quota", "temporary") else "error"), "", refused
         try:
@@ -488,11 +593,12 @@ def one_model(url, key, model, base, tokens, deadline, opener, workdir, shown, a
                 # explicit "fixable": false counts as "cannot be fixed"
                 raise ValueError("the answer has no edits: give the exact edits of the fix, "
                                  "or \"fixable\": false if it cannot be fixed in the code")
-            applied[:] = apply_edits(workdir, obj["edits"], shown, a.allow_adblock)
+            applied[:] = apply_edits(workdir, obj["edits"], shown, a.allow_adblock, getattr(a, "lists", False))
             summary = str(obj.get("summary") or "")
             print("  edits applied: %s" % for_log(", ".join(applied)), flush=True)
             if a.checker:
-                status, reasons = checked(workdir, a.checker, a.related, a.allow_adblock)
+                status, reasons = checked(workdir, a.checker, a.related, a.allow_adblock,
+                                          getattr(a, "lists", False))
                 if status == 3:
                     undo(workdir, applied)
                     applied.clear()
@@ -568,6 +674,7 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     ap.add_argument("--checker", help="tools/check-autofix-patch.py from main: each fix is checked")
     ap.add_argument("--related", help="the files involved (for the checker)")
     ap.add_argument("--allow-adblock", action="store_true")
+    ap.add_argument("--lists", action="store_true", help="the filter lists' analysis: the adapter only (WP8)")
     ap.add_argument("--refused", help="why the checks refused Antigravity's fix")
     ap.add_argument("--lint", action="store_true", help="ruff on each fix (its safe fixes first)")
     a = ap.parse_args(argv)
@@ -595,10 +702,14 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     skip, deadline = set(), time.monotonic() + a.total_timeout
     plan = chain(env)
     discovered, refused_keys = False, []
+    # WP9: whether any model really answered; a chain where each model was busy,
+    # out of quota or not free ends "no provider available" (the work waits:
+    # tools/ai-work.py), not a question for the owner
+    outcomes, not_free = [], []
     for provider, url, key, model, budget, tokens in plan:      # the list may grow (free_models)
         if provider in skip:
             continue
-        base = [{"role": "system", "content": rules + "\n" + instructions(a.allow_adblock)},
+        base = [{"role": "system", "content": rules + "\n" + instructions(a.allow_adblock, a.lists)},
                 {"role": "user", "content": message_for(failure, context, shown, budget, refused)}]
         if time.monotonic() > deadline:
             result = result if result != "nokey" else "quota"
@@ -614,9 +725,15 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
                 undo(workdir, applied)
             print("  answer not usable (%s): the next model goes on" % type(e).__name__, flush=True)
             outcome, said = "error", ""
+        outcomes.append(outcome)
         if outcome in ("ok", "refused"):
             result, summary = outcome, said
             break
+        if outcome == "unavailable":
+            # a billing error, a paid tier or a cost in the answer: this provider is
+            # not free here; none of its models is asked again in this run
+            not_free.append(provider)
+            skip.add(provider)
         if outcome == "none":
             # 1.1.18: one model's word is not enough (a weak free model gives up on
             # a plain fix); the chain stops when two different models agree
@@ -646,6 +763,9 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
         if outcome == "config":
             outcome = "error"
         result = outcome or "error"
+    no_provider = bool(outcomes) and all(o in ("quota", "unavailable") for o in outcomes)
+    if no_provider and not_free and result != "quota":
+        result = "unavailable"
     if result != "ok" and result != "refused" and said_none:
         # nobody fixed it, and at least one model said it cannot be fixed in the code
         result, used, summary = "none", said_none[-1], none_summary
@@ -655,8 +775,12 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     if result in ("ok", "none", "refused"):
         text = redact(summary.strip()[:3000], keys) or "La riserva non ha scritto un riassunto."
         (auto / "summary.md").write_text("%s\n\n_(%s)_\n" % (text, message), "utf-8")
-    Path(a.status).write_text(json.dumps({"result": result, "model": used, "message": message},
-                                         ensure_ascii=False), "utf-8")
+    if not_free:
+        message += " Non gratuite in questo run (fatturazione o costo nella risposta): %s." % ", ".join(
+            sorted(set(not_free)))
+    Path(a.status).write_text(json.dumps({"result": result, "model": used, "message": message,
+                                          "no_provider": no_provider and result not in ("ok", "refused", "none"),
+                                          "not_free": sorted(set(not_free))}, ensure_ascii=False), "utf-8")
     print("Reserves: %s (%s)" % (result, for_log(used or "none")), flush=True)
     return 0
 

@@ -34,7 +34,16 @@ whether the patch stays inside what an automatic fix may change:
   wrapper (src/, and vendor/adblock/__init__.py) may change, and only with
   --allow-adblock; the engine itself (adblock-rust) is a crate, never in here.
 
-    check-autofix-patch.py --repo DIR --patch FILE [--allow-adblock]
+- with --lists (WP8, the AI analysis of the filter lists' findings, on
+  automation/update/lists-<date>): only I.K.E.'s adapter (ike/scriptlets.py,
+  ike/blocker.py, ike-adblock/src/*.rs) may change; never the lists, the
+  bundled uBlock Origin resources, the tests or their data, nor YouTube's ad
+  blocking (a changed line or a hunk about YouTube, Scriptlets.host_scripts or
+  the video scripts), and no change that removes more than it adds or removes
+  a line that keeps a protection (trust, exceptions, ghide...). Patterns, not
+  proof: tests/test_lists_recorded.py and the whole suite decide.
+
+    check-autofix-patch.py --repo DIR --patch FILE [--allow-adblock] [--lists]
                            [--related FILE] [--report FILE.md] [--check-only]
 
 The patch is applied to the index and work tree of DIR only when every rule
@@ -87,7 +96,22 @@ FORBIDDEN_FILES = {
     # ledger, test categories and candidate report; an agent never changes what judges it
     "tools/check-components.py", "tools/inventory.py", "tools/maintenance-ledger.py",
     "tools/test-categories.py", "tools/maintenance-report.py",
+    # WP8, WP9: the filter lists' classes, the AI work's queue and cap, the
+    # providers' registry and their weekly check (an agent never chooses its own
+    # providers or limits), and the test that proves the lists' new support
+    "tools/filter-lists.py", "tools/ai-work.py", "tools/ai-providers.py", "tools/provider-check.py",
+    "tests/test_lists_recorded.py",
 }
+# WP8 (--lists): what the AI analysis of the filter lists may change, I.K.E.'s
+# adapter only
+LISTS_ALLOWED = ("ike/scriptlets.py", "ike/blocker.py")
+LISTS_ALLOWED_PREFIX = "ike-adblock/src/"
+# YouTube's ad blocking, in the adapter's code (the owner's rule, CLAUDE.md)
+YOUTUBE_CODE = re.compile(r"youtube|youtu\.be|ytimg|googlevideo|host_scripts|videoads|videorelay|mediahook"
+                          r"|video", re.I)
+# a removed line that keeps a protection of the adapter
+PROTECTION_CODE = re.compile(r"trust|ghide|generichide|BUILTIN_RULES|negated|exception|MAX_LIST_BYTES"
+                             r"|_ENV\b|preprocess|https://")
 FORBIDDEN_PREFIXES = (".github/", "tests/data/")      # the workflows; the tests' reference data
 FORBIDDEN_PATTERNS = ("tools/build-*.py", "tools/build-*.mjs")   # builders of what comes from others
 FORBIDDEN_SUFFIXES = (".key", ".pem", ".so", ".dll", ".exe", ".zst", ".tar", ".gz", ".zip")
@@ -208,8 +232,61 @@ def allowed_path(path, allow_adblock):
     return ""
 
 
-def check(repo, patch_text, allow_adblock=False):
-    """The list of reasons the patch is refused (empty: accepted)."""
+# the adapter's functions that are YouTube's ad blocking (the video sites' scripts)
+YOUTUBE_FUNCS = {"ike/scriptlets.py": ("host_scripts",)}
+
+
+def _ranges(repo, path):
+    """[(first, last)] lines of the YouTube functions of path in the tree."""
+    names = YOUTUBE_FUNCS.get(path)
+    if not names:
+        return []
+    try:
+        tree = ast.parse((Path(repo) / path).read_text("utf-8"))
+    except (OSError, SyntaxError, ValueError):
+        return [(1, 10 ** 9)]                  # cannot tell: the whole file counts
+    return [(n.lineno, n.end_lineno or n.lineno) for n in ast.walk(tree)
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name in names]
+
+
+def lists_reasons(files, patch_text, repo="."):
+    """--lists (WP8): only the adapter, never YouTube, never less protection."""
+    reasons = []
+    ranges = {path: _ranges(repo, path) for path in files}
+    for path in sorted(files):
+        if path not in LISTS_ALLOWED and not (path.startswith(LISTS_ALLOWED_PREFIX) and path.endswith(".rs")):
+            reasons.append("%s: the filter lists' analysis may change only I.K.E.'s adapter (protected file)" % path)
+    removed, added = {}, {}
+    for current, sign, code in patch_lines(patch_text):
+        if sign == "@@":
+            m = _HUNK.match(code)
+            first = int(re.match(r"^@@ -(\d+)", code).group(1)) if m else 0
+            last = first + (int(m.group(1)) if m and m.group(1) is not None else 1) - 1
+            context = code[m.end():] if m else code
+            if YOUTUBE_CODE.search(context) or any(a <= last and first <= b for a, b in ranges.get(current, ())):
+                reasons.append("%s: a change in YouTube's ad blocking (protected file): %s"
+                               % (current, code[:120]))
+        elif sign in ("+", "-"):
+            if YOUTUBE_CODE.search(code):
+                reasons.append("%s: a change in YouTube's ad blocking (protected file): %s"
+                               % (current, code.strip()[:120]))
+            side = added if sign == "+" else removed
+            side.setdefault(current, []).append(code.strip())
+    for path, lines in sorted(removed.items()):
+        kept = set(added.get(path, []))
+        if len([x for x in lines if x]) > len([x for x in added.get(path, []) if x]):
+            reasons.append("%s: removes more than it adds: blocking may weaken (weakens blocking)" % path)
+        for line in lines:
+            if line and line not in kept and PROTECTION_CODE.search(line):
+                reasons.append("%s: removes a line that keeps a protection (weakens blocking): %s"
+                               % (path, line[:120]))
+    return reasons
+
+
+def check(repo, patch_text, allow_adblock=False, lists=False):
+    """The list of reasons the patch is refused (empty: accepted). lists: the
+    AI analysis of the filter lists (WP8), the adapter only."""
+    allow_adblock = allow_adblock or lists
     reasons = []
     stat = git(repo, "apply", "--numstat", "--summary", "-", stdin=patch_text)
     if stat.returncode:
@@ -250,6 +327,8 @@ def check(repo, patch_text, allow_adblock=False):
         why = allowed_path(path, allow_adblock)
         if why:
             reasons.append("%s: %s" % (path, why))
+    if lists:
+        reasons += lists_reasons(files, patch_text, repo)
     if len(files) > MAX_FILES:
         reasons.append("too many files: %d (at most %d)" % (len(files), MAX_FILES))
     if lines > MAX_LINES:
@@ -402,7 +481,7 @@ def patch_lines(patch_text):
             if m:
                 old_left = int(m.group(1)) if m.group(1) is not None else 1
                 new_left = int(m.group(2)) if m.group(2) is not None else 1
-                yield path or "", "@@", ""
+                yield path or "", "@@", line           # the whole header: its lines and its context
 
 
 def _code(line):
@@ -569,7 +648,7 @@ SAFETY = ("outside the repository", "protected file", "third-party or generated"
           "assertion that cannot fail", "early return at the top of a test", "removes or stops tests by code",
           "carriage return inside a line", "test file renamed or copied", "reads differently",
           "return in the body of a test", "assertion moved into a block", "decorator that may replace a test",
-          "empties the parameters of a test", "behaves differently under the tests")
+          "empties the parameters of a test", "behaves differently under the tests", "weakens blocking")
 
 
 def safety_refusal(reasons):
@@ -581,6 +660,7 @@ def main(argv=None):
     ap.add_argument("--repo", default=".")
     ap.add_argument("--patch", required=True)
     ap.add_argument("--allow-adblock", action="store_true")
+    ap.add_argument("--lists", action="store_true", help="the filter lists' AI analysis: the adapter only (WP8)")
     ap.add_argument("--report", help="write the outcome here (Markdown)")
     ap.add_argument("--related", help="files involved in the failure, one per line")
     ap.add_argument("--check-only", action="store_true", help="check, do not apply")
@@ -593,7 +673,7 @@ def main(argv=None):
         if a.report:
             Path(a.report).write_text("The agent changed nothing.\n", "utf-8")
         return 2
-    reasons = check(a.repo, patch_text, a.allow_adblock)
+    reasons = check(a.repo, patch_text, a.allow_adblock, a.lists)
     related = []
     if a.related:
         try:

@@ -71,6 +71,9 @@ MAX_BODY = 60000               # GitHub's limit is 65536 characters
 CANDIDATE_KINDS = ("crate", "adblock-engine", "pypi-test", "pypi-ci", "integrated", "npm")
 ARCH_KINDS = ("arch-package", "arch-optional", "arch-build")
 PROPOSAL_KINDS = ("github-action", "ci-tool", "node", "ci-runtime")
+# the AI work of the filter lists and of fixes that found no free provider: their
+# retries and cap are tools/ai-work.py's (WP8, WP9), not step 4's
+WORK_KINDS = ("filter-list", "ai-work")
 # the automatic fix's reports this ledger may close (tools/autofix-plan.py's titles)
 REPORT_WORKFLOWS = ("Tests",)
 FAILED_STEP = re.compile(r"^## Job `([^`]+)` \(failed step: ([^)]*)\)", re.M)
@@ -228,8 +231,9 @@ def _candidate_verdict(status, kinds):
         % cand.get("pr", "?"), url
 
 
-def update(ledger, inv, status=None, report=None, cand_inv=None, now=None):
-    """Today's facts into the ledger (returns it). Pure: no network."""
+def update(ledger, inv, status=None, report=None, cand_inv=None, now=None, work=None):
+    """Today's facts into the ledger (returns it). Pure: no network. work: the
+    AI work of the day (tools/ai-work.py gather), or None."""
     now = now or utcnow()
     ledger = ledger if isinstance(ledger, dict) and ledger.get("schema") == SCHEMA else empty()
     entries, known = ledger["entries"], ledger["known"]
@@ -310,6 +314,8 @@ def update(ledger, inv, status=None, report=None, cand_inv=None, now=None):
 
     # 4. retries that are due, and failures to try again because main changed
     for e in entries.values():
+        if e.get("kind") in WORK_KINDS:
+            continue
         due = parse_time(e.get("next_retry") or "")
         if e["state"] == "retry-later" and due and due <= now:
             if e.get("attempts", 1) >= MAX_ATTEMPTS:
@@ -379,6 +385,9 @@ def update(ledger, inv, status=None, report=None, cand_inv=None, now=None):
     if len(entries) > MAX_ENTRIES:
         for key in sorted(entries, key=lambda k: entries[k].get("changed", ""))[:len(entries) - MAX_ENTRIES]:
             del entries[key]
+
+    if work is not None:            # WP8, WP9: the filter lists' findings and the AI work
+        _tool("ai-work").merge(ledger, work, now, set_state)
 
     ledger["known"] = {rid: rec.get("installed", "") for rid, rec in sorted(records.items())}
     ledger["main"] = main_sha or ledger.get("main", "")
@@ -716,6 +725,7 @@ def main(argv=None):
     u.add_argument("--dry-run", action="store_true")
     u.add_argument("--out", help="also write the issue body here")
     u.add_argument("--json", help="also write the ledger here")
+    u.add_argument("--work", help="the AI work of the day (tools/ai-work.py gather)")
     args = ap.parse_args(argv)
     if args.cmd == "gather":
         status = gather(args.repo, candidate_sha=args.candidate_sha)
@@ -733,7 +743,8 @@ def main(argv=None):
     number, ledger = (None, None) if args.dry_run else read_ledger(args.repo, gh_api)
     if number and ledger is None:
         print("::warning::the ledger in issue #%s could not be read: it starts again" % number)
-    ledger = update(ledger, inv, status, _read(args.report), _read(args.candidate_inventory))
+    ledger = update(ledger, inv, status, _read(args.report), _read(args.candidate_inventory),
+                    work=_read(args.work) if args.work else None)
     closing = finished_reports(status.get("reports") or [], status.get("tests_runs") or {})
     closed = [] if args.dry_run else close_reports(args.repo, closing, gh_api)
     body = render(ledger, inv, closed)

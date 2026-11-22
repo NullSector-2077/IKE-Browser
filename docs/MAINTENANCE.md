@@ -21,7 +21,7 @@ signs anything, and no workflow pushes to `main`.
 | When one of the three above fails, or `arch.yml` fails on `main` or on the fix branch | An automatic fix (for `arch.yml` only when `Tests` passed on the same commit) | `autofix.yml` | Draft PR labelled `autofix`, or an issue "ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!! (<workflow>)" assigned to the owner, which GitHub mails |
 | Every push to `main`, when the daily check finds Arch's packages changed, after a merge made by itself, on an automatic fix of an Arch failure, and Mondays at 03:41 UTC | The whole suite and the package on Arch Linux's own Python, Qt and Qt WebEngine (`archlinux:latest`), and a record of the versions it tested | `arch.yml` | Artifact `arch-versions` and the run's summary; a failure goes to the automatic fix (see "Arch Linux's own packages"); not a required check of the release |
 | Every day, 04:23 UTC, and on every PR and push to `main` | The security tests with the engine's sandbox really on (as a normal user), and the RustSec advisories of every crate of the AdBlock engine | `security.yml` | Checks on the PR; on `main` the issue "Rust advisories" when one is found (no automatic fix) |
-| Mondays, 07:41 UTC | The automation itself: every scheduled check (also the Arch and security ones, 1.1.19), and one tiny question to each reserve of the automatic fix | `health.yml` | Issue "Automation health" when something stopped, failed, waits too long, or a reserve's key or model no longer works |
+| Mondays, 07:41 UTC | The automation itself: every scheduled check (also the Arch and security ones, 1.1.19), one tiny question to each reserve of the automatic fix, and (WP9) whether every AI provider, Gemini included, answers and is free | `health.yml` | Issue "Automation health" when something stopped, failed, waits too long, a reserve's key or model no longer works, or a provider is not free (marked unavailable: the automatic fix skips it); artifact `ai-providers` |
 | Once a month | New versions of the GitHub actions used | Dependabot | One PR labelled `maintenance` |
 | When a check of a pull request ends, or the automation's own Tests and Security runs of its fix pass (a dispatch) | A fix of the automatic fix (`automation/autofix-main`, only commits it wrote itself) or of ChatGPT (`chatgpt/...`) is marked ready for the owner's order (since 2026-11-22; it merged by itself in 1.1.19 to 1.1.21) when every check of its last commit passed, `tests` and `sandbox` included, and it changes only existing Python modules of the interface under `ike/` (and `docs/`), with no added line that reaches the environment, the network, the system or the test run, plus the version files exactly as the automation raises the version. It waits for a person when it adds or removes a file, touches a module that decides the user's safety (`app`, `config`, `passwords`, `userscripts`, `webview`, `shields`, `updater`, `doh`...), a page script under `ike/resources/`, tests, tools, workflows, the ad blocker or the package; when main's version is already published and the fix does not raise it; and when `main` already holds a fix merged by itself and not yet published (one unread merge per release). Rules: `tools/automerge.py`, read from `main` (review 2 of 1.1.19). The owner's merge is a push to `main`, which starts its tests | `automerge.yml` | One comment: ready, waiting for the owner's order; otherwise one comment naming the owner: "chiedi a Claude di revisionarla" |
 | When the tests of `main` pass, and every day at 08:13 UTC | A version in `main` that is not published yet, with `tests` and `sandbox` green on its last commit | `release-ready.yml` | An issue "C'E' UNA NUOVA RELEASE IN MAIN PRONTA DA PUBBLICARE!!!" with the exact command, assigned to the owner and naming the owner (GitHub mails it), listing the fixes merged by themselves since the last release (to have them read before signing); a reminder comment each week; closed by itself once the version is published; never opened again for a version whose notice the owner closed |
@@ -106,8 +106,9 @@ job `lists` of `daily-check.yml` (permission `contents: read`, no token, only
   scriptlets uBlock Origin keeps to trusted lists only from uBlock Origin's
   own site, none from the cookie lists).
 
-A **finding** (for a person; never a failure of the code, never the automatic
-fix): a scriptlet name the library does not know (`ike/scriptlets.py` drops
+A **finding** (never a failure of the code; since 2026-11-22 each one is
+classified, and some are analysed by an AI on an isolated branch: see "Filter
+lists in five classes" below): a scriptlet name the library does not know (`ike/scriptlets.py` drops
 such a rule without a word: list/scriptlet drift), a list the engine cannot
 read for more than a quarter of its rules (`LIST_UNREAD_SHARE`; on
 2026-11-21 the uBlock lists were between 0.1% and 15%, mostly rules of other
@@ -336,10 +337,167 @@ The inventory, the ledger, the test categories, the candidate's report and
 
 Not yet (later work packages): one candidate per component (WP5); security
 findings connected to an analysis and a fix on an isolated branch (WP6);
-advisories for Python, npm, Arch and the actions (WP7); the filter lists'
-classification (WP8); providers checked as free (WP9); the optional Arch
+advisories for Python, npm, Arch and the actions (WP7); the optional Arch
 packages tested one by one and `arch.yml` on the candidate (WP10); the
-builders' re-anchoring path and workflow proposals (WP11, WP12).
+builders' re-anchoring path and workflow proposals (WP11, WP12). The filter
+lists' classification (WP8) and the free providers (WP9) are below.
+
+## Filter lists in five classes, and free AI providers (WP8, WP9)
+
+Two more work packages of the full automatic maintenance (2026-11-22, the
+owner's decisions in CLAUDE.md: AI agents only on isolated branches, only free
+providers, YouTube's ad blocking never changed without the owner).
+
+### The filter lists' findings in five classes (WP8)
+
+Every day the job `lists` of `daily-check.yml` also runs
+`tools/filter-lists.py classify` on the report of `tools/check-components.py
+--filter-lists` (which now keeps every rule the engine does not read, at most
+`LIST_UNREAD_KEEP` per list, with the engine's reason, and whether the list is
+trusted). Each rule the engine does not read, each unknown scriptlet and each
+list-level problem gets one class, by the first matching rule of this table
+(`RULES` in the tool, which a test keeps equal to this table):
+
+| Rule | Class | AI analysis | When |
+|---|---|---|---|
+| `youtube` | needs a person | no | the rule names YouTube's hosts (youtube.com, youtu.be, ytimg.com, googlevideo.com, youtube-nocookie.com, youtubekids.com, not in a `denyallow=` list) or its player data (`ytInitial...`, `adPlacements`, `playerResponse`...): CLAUDE.md, YouTube's ad blocking is not changed without the owner |
+| `known-resource` | needs a person | no | one of uBlock Origin's own resources used as a scriptlet (`KNOWN_UNRUN_SCRIPTLETS`: `noeval`, `nofab`, `popads-dummy`, `popads.net`, `fingerprint2`): bundling them is the owner's decision; still listed as a note by the check |
+| `run-by-ike` | supported | no | a `+js()` rule the engine's parser refuses, but I.K.E.'s own `ike/scriptlets.py` runs it |
+| `other-platform` | unsupported but harmless | no | HTML filtering (`##^`) or `replace=`: uBlock Origin has them only on Firefox, and the lists carry the Chromium alternative (scriptlets) |
+| `untrusted-scriptlet` | unsupported but harmless | no | a trusted-only scriptlet in a list that is not uBlock Origin's own: uBlock Origin would not run it either |
+| `exception-without-blocking` | unsupported but harmless | no | an exception (`@@`) only for a blocking the engine never applies (`popup`, `cname`, `urlskip`, `header`, `permissions`, `denyallow`...): nothing to lift |
+| `exception-dropped` | breaking | yes | any other exception the engine drops (`@@`, `#@#`): it blocks or hides what the list unblocks, a site may break |
+| `trusted-scriptlet` | possible security regression | yes | a `trusted-...` scriptlet that does not run |
+| `protection-dropped` | possible security regression | yes | a blocking rule with an option that protects (`removeparam`, `csp`, `redirect`, `redirect-rule`, `permissions`, `header`, `urlskip`, `uritransform`, `inline-script`, `strict1p`, `strict3p`, `ipaddress`, `denyallow`, `to`, `method`, `popup`, `popunder`) that the engine drops or reads differently |
+| `protective-list` | possible security regression | yes | any other dropped rule of a privacy or badware list (by its name: Privacy, Badware, Malicious, EasyPrivacy) |
+| `page-blocking` | possible security regression | yes | a dropped rule that blocks whole pages (`$doc`, `$document`, `$all`) |
+| `unknown-scriptlet` | breaking | yes | a scriptlet the bundled library does not know (list/library drift) |
+| `rule-dropped` | breaking | yes | any other rule of an ads list the engine does not read |
+| `list-unusable` | needs a person | no | a list that is not a list (empty, binary, too big) |
+| `list-refused` | breaking | no | the engine refuses the list or fails while reading it |
+| `engine` | breaking | no | the engine does not load or build from the lists (adblock-rust is a crate: a person) |
+| `unread-share` | breaking | no | the engine cannot read more than `LIST_UNREAD_SHARE` (a quarter) of the list |
+| `share-rise` | breaking | no | the unread share of a list rose by more than `SHARE_RISE` (5 points) since the day before (the ledger keeps yesterday's shares) |
+
+Findings are grouped by class, rule and detail (the option, the engine's
+reason, the scriptlet): `filter-list/<class>/<rule>/<detail>@finding`. The
+classes go into the `components` issue below the lists' table, and each
+finding becomes **one** ledger entry (the ledger remembers it while it is
+reported, also after its entry left): supported and harmless ones "passed",
+needs-a-person ones and those no AI may touch "needs-person", the others
+queued ("detected") for an AI analysis.
+
+Recorded on 2026-11-22 from the six uBlock Origin lists this sandbox could
+read (EasyList, EasyPrivacy, EasyList Italy, URLhaus and Fanboy's cookie list
+were unreachable from it; the daily check reads them all): about 44,800 rules
+supported; 243 harmless (HTML filtering and `replace=` 184, exceptions for
+pop-ups and CNAME 59); 144 breaking (dropped exceptions, mostly generic
+unhide `#@#` and empty `$redirect-rule`/`$removeparam` exceptions, and a few
+procedural cosmetic rules); 828 possible security regressions (`$denyallow`
+249, `$urlskip` 226, pop-ups 152, `$to` 44, `$ipaddress` 31, `$strict1p` and
+`$strict3p` 25, `$header` 20, `$uritransform` 20, `$removeparam` as a regular
+expression or empty 19, `$permissions` 10, `$csp` with a content type 8,
+`$method` 5, and 15 other unread rules of the Privacy and Badware lists); 72
+for a person (69 rules of uBlock Origin's own resources, 3 YouTube rules). These are the
+engine's gaps of today, not new regressions: they are written in the ledger
+once, and analysed one at a time.
+
+**The AI analysis** (one at a time, the most severe first, never for a
+YouTube rule or a finding of a person; a finding that waits for a free
+provider holds the queue). The daily check's job `ai-work` (only `actions:
+write`) starts `autofix.yml` with `work=lists/<date>/<finding>`. The plan
+(`tools/filter-lists.py plan`, GET calls only) reads that day's lists report,
+and writes the task and the finding's real rules (at most `RECORDED_MAX`).
+The fix job runs as for any failure (Antigravity in its closed room, then the
+reserves), told "This run: the filter lists" and with `--lists`:
+
+- it may change **only I.K.E.'s adapter**: `ike/scriptlets.py`,
+  `ike/blocker.py`, `ike-adblock/src/*.rs` (`check-autofix-patch.py --lists`,
+  and the reserves cannot even write elsewhere);
+- never the upstream lists or `ike/config.py`, the bundled uBlock Origin
+  resources, the tests or their data, `Cargo.toml`/`Cargo.lock`, nor YouTube's
+  ad blocking: a changed line naming YouTube, its hosts or the video scripts,
+  or a hunk inside `Scriptlets.host_scripts`, is refused for safety;
+- never weaken blocking: a change that removes more lines than it adds, or
+  removes a line that keeps a protection (trust, exceptions, `ghide`,
+  `BUILTIN_RULES`, the lists' directives...), is refused for safety. These
+  are patterns, not proof: the tests decide.
+
+The guard job (no AI) then adds the recorded rules to
+`tests/data/lists-recorded/<date>-<finding>.txt` and commits on
+**`automation/update/lists-<date>`** (never `main`); publish opens the pull
+request "Filter lists: an AI change of I.K.E.'s adapter (...)" and starts the
+tests and the security tests. `tests/test_lists_recorded.py` (protected) proves
+that I.K.E. reads every recorded rule **with its meaning**: a scriptlet rule
+runs on its domain with the same scriptlet and arguments; any other rule,
+after I.K.E.'s rewriting (`sanitize`), is read by the engine as one rule with
+every option it had (dropping an option to make a rule parse is refused). The
+test first proves itself on recorded rules I.K.E. reads and does not read.
+The finding is "testing" while its pull request waits (a person after
+`TESTING_DAYS`), "passed" once the lists check no longer reports it, and
+"needs-person" when the AI could not, or a check refused its change; after
+`MAX_ATTEMPTS` (2) attempts on one branch, a person. The run never opens the
+"ATTENZIONE..." issue: the ledger is where a person reads it.
+
+### Free AI providers, checked every week (WP9)
+
+**One place** for the providers: `tools/ai-providers.py` (protected, read by
+the agent, the reserves, the weekly check and the queue). It holds the order
+(Antigravity first, then `RESERVES` in order: Groq, Z.AI, OpenRouter), the
+default models, the time limits, the free-model rule and the retry cap. The
+models can still be chosen in the repository variables (`AUTOFIX_MODEL`,
+`AUTOFIX_GROQ_MODELS`, `AUTOFIX_ZAI_MODELS`, `AUTOFIX_OPENROUTER_MODELS`).
+`MAX_ATTEMPTS` of a fix (`tools/autofix-plan.py`) and the guard's size limits
+stay where they were.
+
+**Free only, also when it runs.** OpenRouter's models must end in `:free`:
+a model without it, also one set in the variable, is refused and never asked
+(`chain()`); the free models discovered when a listed one is gone must also be
+priced zero in OpenRouter's own price list. Any answer that reports a cost
+(`usage.cost`), and any error that asks for money (HTTP 402, "payment
+required", "insufficient balance/credits", Z.AI's code 1113, Gemini's
+`BILLING_DISABLED`, a model only for paid tiers) makes that provider
+**unavailable** for the rest of the run; a rate limit's advice ("upgrade to
+Dev Tier", "check your plan and billing details") is still a quota.
+
+**The weekly check** (`health.yml`, step "The AI providers answer and are
+free", `tools/provider-check.py`, with the four keys in that step only):
+
+- every provider with a key, **Gemini included** (the Gemini API's list of
+  models, then one tiny `generateContent`, the key in a header), answers one
+  tiny request ("Answer with the word OK.", 16 tokens);
+- OpenRouter: each configured model must be `:free`, priced zero in
+  `/api/v1/models`, and the key must be on the free tier with nothing spent
+  (`/api/v1/key`); only then is one model asked;
+- an answer with a cost, a paid tier or a billing error marks the provider
+  **unavailable**: the result is kept as the artifact `ai-providers` (90 days),
+  the plan of `autofix.yml` reads it (`provider-check.py unavailable`, GET
+  only) and the agent and the reserves skip that provider
+  (`AUTOFIX_UNAVAILABLE`); the issue "Automation health" tells the owner;
+- a refused key or an unknown model is reported as before; a busy provider
+  (429, 5xx) is not a fault.
+
+Whether Groq, Z.AI and Gemini could charge cannot be proven by their APIs: the
+table says "not provable by API: rests on the owner's account without
+billing" (Gemini's is proven only when its quota error names the free tier).
+OpenRouter's is proven by its own price list and key. The file and the summary
+hold provider, model, state and a reason chosen by the tool, never a key or
+the text of an answer.
+
+**No free provider at all** (every one busy, out of quota or unavailable; a
+refused key or no key at all is still the owner's matter): the fix job says
+so (`deferred`), the report opens no issue and leaves the outcome as an
+artifact (`ai-work-outcome-*`). The next daily check (`tools/ai-work.py
+gather`, GET only) writes it in the ledger as **retry-later**, with its
+branch and its attempts kept (`automation/autofix-main`,
+`automation/daily-maintenance` or `automation/update/lists-<date>`), and
+after `RETRY_HOURS` (24) the job `ai-work` starts it again
+(`autofix.yml -f run_id=<the failed run> -f work=run/<id>`, or the same lists
+work). A started work that never reports back is counted as a try after
+`STUCK_HOURS`. After `RETRY_CAP` (5) tries it is "needs-person" and the owner
+is told **once** (a comment naming the owner on the ledger issue); before
+that, nobody is asked. **To change the cap, the wait or the order of the
+providers: `tools/ai-providers.py`.**
 
 ## The maintenance candidate
 
@@ -951,7 +1109,8 @@ pull requests open for more than 7 days. Since 1.1.19 it also watches
 `arch.yml` (its last scheduled run failed, or none for 9 days), and asks each
 reserve that has a key one tiny question (`tools/autofix-reserve.py ping`):
 a refused key or an unknown model is reported, a quota or a passing error is
-not.
+not. Since 2026-11-22 (WP9) it also asks Gemini, and reports a provider that
+is not free (see "Free AI providers, checked every week").
 
 If the key leaks (it would show only through the agent), delete it in Google AI
 Studio and create a new one: it can spend nothing and opens nothing else.
