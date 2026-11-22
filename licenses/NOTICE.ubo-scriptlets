@@ -15,8 +15,8 @@ one (/usr/share/licenses/ike-browser/LICENSE).
 
 The file holds 153 scriptlets of uBlock Origin, taken from its source at
 
-  commit 2bc679d99afe5bddd8fe3ab60137966a12123f41 (2026-11-10)
-  https://github.com/gorhill/uBlock/tree/2bc679d99afe5bddd8fe3ab60137966a12123f41/src/js/resources
+  commit 5934db2a0437a50182c4a8f3da2e0941cf806253 (2026-11-21)
+  https://github.com/gorhill/uBlock/tree/5934db2a0437a50182c4a8f3da2e0941cf806253/src/js/resources
 
 Corresponding source. The JSON file is generated: tools/build-ubo-scriptlets.mjs
 of the I.K.E. repository (https://github.com/NullSector-2077/IKE-Browser, the
@@ -28,7 +28,7 @@ corresponding source is therefore:
 
   1. uBlock Origin's sources at the commit above:
        git clone https://github.com/gorhill/uBlock src
-       git -C src checkout 2bc679d99afe5bddd8fe3ab60137966a12123f41
+       git -C src checkout 5934db2a0437a50182c4a8f3da2e0941cf806253
   2. the build tool: tools/build-ubo-scriptlets.mjs of I.K.E.;
   3. the command, run in the folder that holds "src":
        node /path/to/build-ubo-scriptlets.mjs

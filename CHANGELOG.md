@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.22
+
+- Rust crates of the AdBlock engine: pyo3 0.30.1, 88 crates -> pyo3 0.30.1, 88 crates (psl 2.1.253 -> 2.1.261; regex 1.13.1 -> 1.13.2; regex-automata 0.4.18 -> 0.4.19; regex-syntax 0.8.11 -> 0.8.12; smallvec 1.16.5 -> 1.16.6)
+- uBlock Origin scriptlets: 2bc679d99a (2026-11-10) -> 5934db2a04 (2026-11-21) (1 changed, 0 new, 0 removed)
+- Dark Reader (engine and lists): 4.9.135, lists 30e8a10e65 (2026-11-16) -> 4.9.135, lists 16a1eccbfa (2026-11-21) (lists changed)
+- Qt WebEngine / PyQt6 (tests): Qt 6.12.0, WebEngine wheel 6.140.0 -> Qt 6.12.0, WebEngine wheel 6.140.0 (Arch Linux qt6-webengine 6.140.0)
+
 ## 1.1.21
 
 Fingerprinting: the points left by the independent audit of 1.1.20, each
