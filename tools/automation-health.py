@@ -15,7 +15,11 @@ what would otherwise break in silence:
   reserves' secrets GROQ_API_KEY, ZAI_API_KEY (1.1.19) and OPENROUTER_API_KEY
   missing (HAS_GROQ_KEY, HAS_ZAI_KEY, HAS_OPENROUTER_KEY: the workflow passes only whether they are
   set, never their values); issues of the automatic fix and maintenance pull
-  requests waiting for more than WAITING days; main without branch protection.
+  requests waiting for more than WAITING days; main without branch protection;
+- (WP9) an AI provider marked unavailable (not free: a billing error, a paid
+  tier or a cost in its answer, an OpenRouter model that is not ":free" or is
+  priced) or one whose key or model no longer works (PROVIDER_CHECK, written
+  by tools/provider-check.py).
 
 With problems it opens (or updates) the issue "Automation health"; without, it
 closes that issue. --dry-run only prints.
@@ -40,7 +44,8 @@ WATCHED = {"daily-check.yml": (DAYS, RUNS), "daily-maintenance.yml": (DAYS, RUNS
            "security.yml": (DAYS, 2), "arch.yml": (9, 1)}
 PING_ADVICE = {"auth": "the key was refused: make a new one and put it in the secret",
                "config": "the model is unknown there: set the variable of its models (docs/MAINTENANCE.md)",
-               "toolarge": "the provider refused even a tiny request"}
+               "toolarge": "the provider refused even a tiny request",
+               "unavailable": "it answered with a billing error or a cost: it is not free there"}
 TITLE = "Automation health"
 
 
@@ -65,7 +70,7 @@ def _when(item):
 
 
 def problems(now, daily, main_tests, has_key, autofix_runs=(), reserve_keys=None, autofix_issues=(),
-             maintenance_prs=(), main_protected=None, unreadable=(), pings=(), born=None):
+             maintenance_prs=(), main_protected=None, unreadable=(), pings=(), born=None, providers=()):
     """The problems found (a list of lines), from data already fetched."""
     found = []
     for name, items in daily.items():
@@ -111,6 +116,16 @@ def problems(now, daily, main_tests, has_key, autofix_runs=(), reserve_keys=None
         if result in PING_ADVICE:
             found.append("The reserve %s (%s) did not answer the weekly question: %s."
                          % (provider, model, PING_ADVICE[result]))
+    # WP9 (tools/provider-check.py): a provider that is not free, or whose key or
+    # model no longer works, is said to the owner; a busy one is not
+    for row in providers:
+        if row.get("state") == "unavailable":
+            found.append("The AI provider %s (%s) is marked unavailable: %s. The automatic fix does not ask it "
+                         "until a weekly check finds it free again." % (row.get("provider"), row.get("model"),
+                                                                          row.get("reason")))
+        elif row.get("state") == "failing":
+            found.append("The AI provider %s (%s) does not answer: %s." % (row.get("provider"), row.get("model"),
+                                                                           row.get("reason")))
     for what in unreadable:
         found.append("Could not check %s." % what)
     return found
@@ -162,8 +177,17 @@ def main(argv=None):
             pings = [tuple(x) for x in json.loads(Path(os.environ["RESERVE_PING"]).read_text("utf-8"))]
         except (OSError, ValueError, TypeError):
             unreadable.append("the answers of the reserves")
+    providers = []
+    if os.environ.get("PROVIDER_CHECK"):        # tools/provider-check.py, the step before (WP9)
+        if os.environ.get("HAS_KEY", "true") == "true" and not Path(os.environ["PROVIDER_CHECK"]).is_file():
+            unreadable.append("whether the AI providers are free (tools/provider-check.py stopped)")
+        elif Path(os.environ["PROVIDER_CHECK"]).is_file():
+            try:
+                providers = json.loads(Path(os.environ["PROVIDER_CHECK"]).read_text("utf-8"))["providers"]
+            except (OSError, ValueError, TypeError, KeyError):
+                unreadable.append("whether the AI providers are free (tools/provider-check.py)")
     found = problems(now, daily, main_tests, os.environ.get("HAS_KEY", "true") == "true", autofix_runs,
-                     keys, autofix_issues, maintenance_prs, protected, unreadable, pings, born)
+                     keys, autofix_issues, maintenance_prs, protected, unreadable, pings, born, providers)
     text = ("The weekly check found problems in the automation:\n\n" + "".join("- %s\n" % p for p in found)
             + "\nControllo settimanale: l'automazione ha bisogno di te.\n") if found else ""
     print(text or "Everything works.")

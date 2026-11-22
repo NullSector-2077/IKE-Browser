@@ -82,6 +82,9 @@ MAX_BODY = 60000               # GitHub's limit is 65536 characters
 CANDIDATE_KINDS = ("crate", "adblock-engine", "pypi-test", "pypi-ci", "integrated", "npm")
 ARCH_KINDS = ("arch-package", "arch-optional", "arch-build")
 PROPOSAL_KINDS = ("github-action", "ci-tool", "node", "ci-runtime")
+# the AI work of the filter lists and of fixes that found no free provider: their
+# retries and cap are tools/ai-work.py's (WP8, WP9), not step 4's
+WORK_KINDS = ("filter-list", "ai-work")
 # the automatic fix's reports this ledger may close (tools/autofix-plan.py's titles); a report
 # about "Security" is read too (a security fix the automatic fix gave up on is blocked), never
 # closed here (no run of it is compared)
@@ -368,8 +371,9 @@ def security_entries(ledger, inv, status, now):
     return notices
 
 
-def update(ledger, inv, status=None, report=None, cand_inv=None, now=None, notices=None):
-    """Today's facts into the ledger (returns it). Pure: no network."""
+def update(ledger, inv, status=None, report=None, cand_inv=None, now=None, notices=None, work=None):
+    """Today's facts into the ledger (returns it). Pure: no network. work: the
+    AI work of the day (tools/ai-work.py gather), or None."""
     now = now or utcnow()
     ledger = ledger if isinstance(ledger, dict) and ledger.get("schema") == SCHEMA else empty()
     entries, known = ledger["entries"], ledger["known"]
@@ -452,6 +456,8 @@ def update(ledger, inv, status=None, report=None, cand_inv=None, now=None, notic
 
     # 4. retries that are due, and failures to try again because main changed
     for e in entries.values():
+        if e.get("kind") in WORK_KINDS:
+            continue
         due = parse_time(e.get("next_retry") or "")
         if e["state"] == "retry-later" and due and due <= now:
             if e.get("attempts", 1) >= MAX_ATTEMPTS:
@@ -528,6 +534,9 @@ def update(ledger, inv, status=None, report=None, cand_inv=None, now=None, notic
         for key in sorted(entries, key=lambda k: entries[k].get("changed", ""))[:len(entries) - MAX_ENTRIES]:
             del entries[key]
 
+    if work is not None:            # WP8, WP9: the filter lists' findings and the AI work
+        _tool("ai-work").merge(ledger, work, now, set_state)
+
     ledger["known"] = {rid: rec.get("installed", "") for rid, rec in sorted(records.items())}
     ledger["main"] = main_sha or ledger.get("main", "")
     ledger["updated"] = stamp(now)
@@ -540,8 +549,45 @@ def _md(text):
     return str(text or "").replace("|", "\\|").replace("\n", " ")
 
 
+# fields an entry can do without in the issue (the artifact keeps them): the
+# last resort of the size guard, before any open entry would be left out
+SPARE_FIELDS = ("history", "basis", "update_mode", "next_retry", "last_run", "lists", "samples")
+
+
 def render(ledger, inv=None, closed=()):
+    """The issue body, at most MAX_BODY characters: first the history goes, then
+    the oldest finished entries are folded into a count line, then the open
+    entries lose their spare fields and the filter lists' rows of the table
+    become one line. An open, blocked or needs-person entry is never left out."""
+    text = _body(ledger, inv, closed)
+    if len(text) <= MAX_BODY:
+        return text
+    slim = json.loads(json.dumps(ledger))
+    for e in slim["entries"].values():
+        e["history"] = e.get("history", [])[-2:]
+    passed = sorted((k for k, e in slim["entries"].items() if e["state"] == "passed"),
+                    key=lambda k: slim["entries"][k].get("changed", ""))
+    text = _body(slim, inv, closed)
+    while len(text) > MAX_BODY and passed:
+        for key in passed[:max(1, len(passed) // 4)]:
+            del slim["entries"][key]
+            slim["folded"] = slim.get("folded", 0) + 1
+        passed = passed[max(1, len(passed) // 4):]
+        text = _body(slim, inv, closed)
+    for n, field in enumerate(SPARE_FIELDS):     # then the spare fields, one kind after the other
+        if len(text) <= MAX_BODY:
+            break
+        for e in slim["entries"].values():
+            e.pop(field, None)
+            e["reason"] = str(e.get("reason", ""))[:80]
+        text = _body(slim, inv, closed, compact=n == len(SPARE_FIELDS) - 1)
+    return text
+
+
+def _body(ledger, inv=None, closed=(), compact=False):
     entries = sorted(ledger["entries"].values(), key=lambda e: (STATES.index(e["state"]), e["key"]))
+    lists = [e for e in entries if compact and e.get("kind") == "filter-list" and e["state"] != "passed"]
+    entries = [e for e in entries if e not in lists]
     open_ = [e for e in entries if e["state"] != "passed"]
     done = [e for e in entries if e["state"] == "passed"]
     people = sum(e["state"] in ("needs-person", "blocked") for e in entries)
@@ -561,6 +607,10 @@ def render(ledger, inv=None, closed=()):
             for e in open_]
     else:
         out.append("Nothing open.")
+    if lists:
+        out += ["", "Filter lists: %d open findings, in the machine-readable state below (%s)." % (
+            len(lists), ", ".join("%s %d" % (s, sum(e["state"] == s for e in lists)) for s in STATES
+                                  if any(e["state"] == s for e in lists)))]
     out += ["", "## Finished, last %d days (%d)" % (PRUNE_DAYS, len(done)), ""]
     if done:
         out.append(head)
@@ -569,6 +619,9 @@ def render(ledger, inv=None, closed=()):
             "[run](%s)" % e["last_run"] if e.get("last_run") else "-") for e in done]
     else:
         out.append("None.")
+    if ledger.get("folded"):
+        out += ["", "%d older finished entries were folded here to keep this issue under GitHub's limit (the "
+                "artifact maintenance-ledger of each daily run has them all)." % ledger["folded"]]
     if inv:
         out += ["", "## Inventory", "", "%d components (%s). Findings: %s." % (
             inv.get("total", 0), ", ".join("%s %d" % kv for kv in inv.get("counts", {}).items()),
@@ -578,19 +631,7 @@ def render(ledger, inv=None, closed=()):
     data = json.dumps(ledger, indent=0, sort_keys=True)
     out += ["", "<details><summary>Machine-readable state (read back by the next daily check)</summary>", "",
             BEGIN, "```json", data, "```", END, "", "</details>", ""]
-    text = "\n".join(out)
-    if len(text) > MAX_BODY:            # the history goes first, then the oldest finished entries
-        slim = json.loads(json.dumps(ledger))
-        for e in slim["entries"].values():
-            e["history"] = e.get("history", [])[-2:]
-        for key in sorted((k for k, e in slim["entries"].items() if e["state"] == "passed"),
-                          key=lambda k: slim["entries"][k].get("changed", "")):
-            if len(json.dumps(slim)) < MAX_BODY // 2:
-                break
-            del slim["entries"][key]
-        if slim != ledger:
-            return render(slim, inv, closed)
-    return text
+    return "\n".join(out)
 
 
 # --- the automatic fix's reports whose failure is gone ---------------------------------------
@@ -929,6 +970,7 @@ def main(argv=None):
     u.add_argument("--dry-run", action="store_true")
     u.add_argument("--out", help="also write the issue body here")
     u.add_argument("--json", help="also write the ledger here")
+    u.add_argument("--work", help="the AI work of the day (tools/ai-work.py gather)")
     args = ap.parse_args(argv)
     if args.cmd == "gather":
         status = gather(args.repo, candidate_sha=args.candidate_sha)
@@ -947,7 +989,8 @@ def main(argv=None):
     if number and ledger is None:
         print("::warning::the ledger in issue #%s could not be read: it starts again" % number)
     notices = []
-    ledger = update(ledger, inv, status, _read(args.report), _read(args.candidate_inventory), notices=notices)
+    ledger = update(ledger, inv, status, _read(args.report), _read(args.candidate_inventory), notices=notices,
+                    work=_read(args.work) if args.work else None)
     closing = finished_reports(status.get("reports") or [], status.get("tests_runs") or {})
     closed = [] if args.dry_run else close_reports(args.repo, closing, gh_api)
     body = render(ledger, inv, closed)

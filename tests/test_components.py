@@ -576,7 +576,10 @@ def test_the_arch_workflows():
     daily = (ROOT / ".github/workflows/daily-check.yml").read_text()
     parts = re.split(r"^  ([a-z-]+):\n", daily.split("\njobs:\n", 1)[1], flags=re.M)
     jobs = dict(zip(parts[1::2], parts[2::2]))
-    assert set(jobs) == {"check", "lists", "update-issue", "start-arch", "ledger"}
+    assert set(jobs) == {"check", "lists", "update-issue", "start-arch", "ledger", "ai-work"}
+    # WP8, WP9: the AI work the ledger made due; it only starts workflows
+    assert re.search(r"permissions:\n\s+actions: write .*\n\s+contents: read\n\s+steps:", jobs["ai-work"])
+    assert "issues:" not in jobs["ai-work"] and "needs: ledger" in jobs["ai-work"]
     # 1.1.20: the filter lists in main's engine; reads the repository only, no token
     lists = jobs["lists"]
     assert re.search(r"permissions:\n\s+contents: read\n\s+outputs:", lists) and "GH_TOKEN" not in lists

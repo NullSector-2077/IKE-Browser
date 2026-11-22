@@ -1,0 +1,30 @@
+! Title: I.K.E. test snapshot of the filter-list findings, one or more per class
+! Real rules of uBlock Origin's lists (uAssets, GPL-3.0-or-later), recorded on
+! 2026-11-22 from that day's lists, for tests/test_lists_providers.py: the
+! classes of tools/filter-lists.py (WP8). Not a list to use.
+!
+! supported: a scriptlet rule the engine's parser refuses, run by I.K.E.
+bild.de##+js(rpnt, script, "adBlockWallEnabled":true, "adBlockWallEnabled":false)
+! unsupported but harmless: HTML filtering (uBlock Origin on Firefox only)
+wetteronline.*##^script:has-text(runCount)
+! unsupported but harmless: exceptions for a blocking the engine never applies
+@@||player.fm^$cname
+@@||startpage.com^$popup,domain=msn.com
+! breaking: exceptions the engine drops
+@@||che168.com^$xhr,removeparam=s_cid
+@@||magyarhang.org^$shide
+! breaking: rules of an ads list the engine does not read
+||blogger.googleusercontent.com/img/$domain=/^main\.uxsyplayer[a-z0-9-]+\.click$/
+cmp.e24.no,cmp.minmote.no,cmp.tek.no,cmp.vg.no##button.sp_choice_type_SAVE_AND_EXIT:remove-attr(/^(aria-)?disabled$/)
+! possible security regression: protections the engine drops
+||reddit.com^$doc,removeparam=/web_only=/
+||uppit.com^$document,csp=script-src 'self' 'unsafe-eval' 'unsafe-inline' data: *.cloudflare.com
+*$script,3p,denyallow=googleapis.com,domain=skidrowcodexgames.com
+||bit.ly^$popup,domain=eurogamer.net
+||adslink.pw/*/api?url=http$doc,urlskip=?url
+*$permissions=compute-pressure=(),from=~localhost|~127.0.0.1|~[::1]|~0.0.0.0|~[::]|~local
+! possible security regression: a page-blocking rule (of the badware list)
+||guildpass.one^$doc,reason=malicious
+! needs a person: YouTube, and uBlock Origin's own resources
+||youtube.com/youtubei/v1/get_watch?$xhr,1p,replace=/"adSlots"/"no_ads"/
+youjizz.com##+js(noeval)

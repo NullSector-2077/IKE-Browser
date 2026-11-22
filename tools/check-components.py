@@ -901,6 +901,9 @@ LIST_INCLUDE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,80}\.txt")
 # syntax or of the engine shows
 LIST_UNREAD_SHARE = 0.25
 LIST_EXAMPLES = 8
+# every rule the engine does not read (at most this many per list), for the
+# classification of the findings (tools/filter-lists.py, WP8)
+LIST_UNREAD_KEEP = 4000
 # Scriptlet names the default lists use that are not uBlock Origin's
 # builtinScriptlets but its own resources (web_accessible_resources, also
 # usable with +js): tools/build-ubo-scriptlets.mjs takes only the
@@ -1042,7 +1045,7 @@ def check_filter_lists(root=ROOT, get=None, library=None, lists=None):
     texts = []
     for entry in lists:
         row = {"name": entry["name"], "url": entry["url"], "group": entry.get("group", ""), "state": "ok",
-               "error": "", "includes_missing": []}
+               "error": "", "includes_missing": [], "trusted": bool(trusted(entry["url"]))}
         out["lists"].append(row)
         try:
             text, row["includes_missing"] = download_list(entry["url"], get)
@@ -1057,9 +1060,10 @@ def check_filter_lists(root=ROOT, get=None, library=None, lists=None):
         texts.append((entry["name"], text))
         if parse_report:
             try:
-                rep = parse_report(text, False, LIST_EXAMPLES)
+                rep = parse_report(text, False, LIST_UNREAD_KEEP)
                 row.update({k: rep[k] for k in ("lines", "comments", "network", "cosmetic", "unsupported",
-                                                "errors")}, examples=[list(x) for x in rep["examples"]])
+                                                "errors")}, examples=[list(x) for x in rep["examples"][:LIST_EXAMPLES]],
+                           unread=[list(x) for x in rep["examples"]])
                 rules = rep["network"] + rep["cosmetic"] + rep["unsupported"] + rep["errors"]
                 share = (rep["unsupported"] + rep["errors"]) / rules if rules else 0.0
                 row["unread_share"] = round(share, 4)

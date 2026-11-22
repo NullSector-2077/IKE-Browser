@@ -47,8 +47,42 @@ jobs:
           AUTOFIX_ZAI_MODELS: ${{ vars.AUTOFIX_ZAI_MODELS }}
           AUTOFIX_OPENROUTER_MODELS: ${{ vars.AUTOFIX_OPENROUTER_MODELS }}
         run: python3 -I tools/autofix-reserve.py ping "$RUNNER_TEMP/reserve-ping.json" || echo "[]" > "$RUNNER_TEMP/reserve-ping.json"
+      # WP9 (2026-11-22): every configured provider, Gemini included, answers one
+      # tiny request and is free: OpenRouter only ":free" models priced zero by
+      # OpenRouter itself and a key on the free tier; an answer with a cost, a
+      # paid tier or a billing error marks the provider unavailable (the
+      # automatic fix then skips it, autofix.yml's plan reads the artifact) and
+      # the issue below tells the owner. The keys are in this step only; the
+      # file holds provider, model, state and a reason, never a key.
+      - name: The AI providers answer and are free
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          AUTOFIX_MODEL: ${{ vars.AUTOFIX_MODEL }}
+          AUTOFIX_GROQ_MODELS: ${{ vars.AUTOFIX_GROQ_MODELS }}
+          AUTOFIX_ZAI_MODELS: ${{ vars.AUTOFIX_ZAI_MODELS }}
+          AUTOFIX_OPENROUTER_MODELS: ${{ vars.AUTOFIX_OPENROUTER_MODELS }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/providers"
+          # a check that stops is reported by the next step ("Could not check ..."), never hides the rest
+          if python3 -I tools/provider-check.py check "$RUNNER_TEMP/providers/ai-providers.json" \
+              --markdown "$RUNNER_TEMP/providers/ai-providers.md" > /dev/null; then
+            cat "$RUNNER_TEMP/providers/ai-providers.md" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::the check of the AI providers stopped"
+            rm -f "$RUNNER_TEMP/providers/ai-providers.json"
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ai-providers
+          path: ${{ runner.temp }}/providers/ai-providers.json
+          if-no-files-found: ignore
+          retention-days: 90
       - name: Check the automation
         env:
+          PROVIDER_CHECK: ${{ runner.temp }}/providers/ai-providers.json
           RESERVE_PING: ${{ runner.temp }}/reserve-ping.json
           GH_TOKEN: ${{ github.token }}
           # whether the secrets are set, never their values
