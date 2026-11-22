@@ -251,6 +251,44 @@ outside I.K.E.'s releases. These are followed as components too
    matter), or the engine does not build although the candidate does not
    change it (not a matter for the wrapper).
 
+The licence files (`docs/THIRD-PARTY.md`, `licenses/RUST-CRATES.txt`,
+`licenses/NOTICE.ubo-scriptlets`) are written again by `tools/third-party.py`
+once, after every component is applied (`refresh_licences`). Until the
+trials of 2026-11-22 it ran only with the crates' update, before uBlock
+Origin's scriptlets were copied: candidate `97df120` kept the old commit in
+`NOTICE.ubo-scriptlets` and failed at "Licences" (issue #97).
+
+### Rehearsing the maintenance on a branch
+
+Started by hand on another branch than `main` (Actions → "Daily maintenance
+candidate" → Run workflow → that branch, or `gh workflow run
+daily-maintenance.yml --ref <branch>`), the daily maintenance is a
+**rehearsal** (trials of 2026-11-22): the candidate is built from that
+branch's commit, with that branch's tools, and **nothing is published**: no
+push to `automation/daily-maintenance`, no pull request, no tests started, no
+automatic fixes of the real candidate carried over. The run's summary ("A
+rehearsal publishes nothing") lists the files the candidate would change and
+the component report; the artifacts `maintenance-candidate` (the bundle) and
+`component-report` hold the rest. Uses: a person who adapted a builder (a
+Dark Reader patch whose anchor is gone, see "When a builder refuses a new
+upstream version") sees, before merging, that the component is now applied;
+a trial injects a fault on a `trial/...` branch (an unreachable source, a
+broken anchor) without touching the real candidate. A rehearsal has its own
+queue, so it never waits for or replaces the real run. Until then a run
+started on another branch built the candidate from `main` all the same and
+published it.
+
+The daily check (`daily-check.yml`) always ran the code of the branch it is
+started on; its `components` issue is the real one, so a rehearsal of the
+check rewrites that issue until the next daily run on `main` (start one by
+hand to put it back at once).
+
+A failure of either daily workflow on another branch than `main` is never
+given to the automatic fix of `main` (`rehearsal_reason` in
+`tools/autofix-plan.py`; until these trials it was: a fix made from `main`'s
+code for a failure `main` does not have). An unreachable source and GitHub's
+own failures still open their issue, as on `main`.
+
 ## The automatic fix
 
 `autofix.yml` starts when `Tests` fails on `main`, on the maintenance candidate

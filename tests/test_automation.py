@@ -3530,3 +3530,73 @@ def test_a_refused_builder_is_never_infrastructure_and_the_lists_check_is_a_pers
     # the check job itself is still fixed as before
     p = plan_tool.decide(failed_run(name="Daily component check"), [_with_steps("check", "Check components")], "")
     assert p["action"] == "fix"
+
+
+# --- the trials of the four component paths (2026-11-22) ------------------------
+
+MAINTENANCE_STEP = "Check and apply component updates (an unreachable source stops all, a refused builder keeps its component)"
+
+
+@pytest.mark.parametrize("name, branch, failed, action, kind", [
+    # a crash of the check or of the candidate's preparation: fixed on main only when main failed
+    ("Daily component check", "main", [_with_steps("check", "Check components")], "fix", "main"),
+    ("Daily component check", "trial/components-c", [_with_steps("check", "Check components")], "skip", ""),
+    ("Daily maintenance candidate", "main", [_with_steps("prepare", "Prepare the IKE patch release candidate")],
+     "fix", "main"),
+    ("Daily maintenance candidate", "automation/component-tests",
+     [_with_steps("prepare", "Prepare the IKE patch release candidate")], "skip", ""),
+    # an unreachable source, or GitHub's own failure, is an issue wherever it happened
+    ("Daily maintenance candidate", "trial/components-c", [_with_steps("prepare", MAINTENANCE_STEP)], "issue", "infra"),
+    ("Daily component check", "trial/components-d", [_with_steps("check", "Set up job")], "issue", "infra"),
+])
+def test_a_daily_workflow_failing_on_another_branch_is_never_fixed_on_main(name, branch, failed, action, kind):
+    """The trials of 2026-11-22: the daily check and the daily maintenance run
+    on another branch only when a person starts them there (a rehearsal of a
+    change of the tools, or a trial's deliberate fault). The plan sent such a
+    failure to the automatic fix of main, which starts from main's code and
+    would answer a failure main does not have."""
+    p = plan_tool.decide(failed_run(name=name, branch=branch), failed, "")
+    assert (p["action"], p["kind"]) == (action, kind), p
+    if action == "skip":
+        assert "not on main" in p["reason"] and branch in p["reason"]
+
+
+def test_the_maintenance_rehearses_on_another_branch_and_publishes_nothing(tmp_path):
+    """Started by hand on another branch than main, the daily maintenance builds
+    the candidate from that branch's commit (its tools: a builder adapted by a
+    person, or a trial's fault) and publishes nothing: the candidate's branch,
+    its pull request and its tests belong to the real run on main."""
+    import os
+    text = (WORKFLOWS / "daily-maintenance.yml").read_text()
+    jobs = jobs_of(text)
+    assert "if: needs.prepare.outputs.changed == 'true' && github.ref == 'refs/heads/main'\n" \
+        in jobs["publish-candidate"]
+    prepare = jobs["prepare"]
+    assert "ref: ${{ github.ref == 'refs/heads/main' && 'main' || github.sha }}" in prepare
+    # the real run keeps its queue; a rehearsal has its own
+    assert "group: daily-maintenance${{ github.ref != 'refs/heads/main' && format('-rehearsal-{0}', " \
+           "github.ref_name) || '' }}" in text
+    # the automatic fixes of the real candidate are carried over only by the real run
+    assert prepare.index('[ "$GITHUB_REF" = "refs/heads/main" ] && \\') < prepare.index("git cherry-pick -x")
+    assert "if: always() && github.ref != 'refs/heads/main'" in prepare.split("- name: A rehearsal publishes nothing")[1]
+    # the real shell of the first step, on main and on a branch
+    work = tmp_path / "work"
+    work.mkdir()
+    git(work, "init", "-q")
+    for msg in ("main", "trial"):
+        (work / "f.txt").write_text(msg)
+        git(work, "-c", "user.name=t", "-c", "user.email=t@t", "add", "-A")
+        git(work, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", msg)
+        if msg == "main":
+            git(work, "update-ref", "refs/remotes/origin/main", "HEAD")
+    trial = git(work, "rev-parse", "HEAD").strip()
+    main = git(work, "rev-parse", "origin/main").strip()
+    script = step_script("Start the candidate from current main", "daily-maintenance.yml")
+    for ref, start in (("refs/heads/main", main), ("refs/heads/trial/components-d", trial)):
+        env = dict(os.environ, GITHUB_REF=ref, GITHUB_REF_NAME=ref[len("refs/heads/"):], GITHUB_SHA=trial)
+        run = subprocess.run(["bash", "-e", "-c", script], cwd=work, env=env, capture_output=True, text=True,
+                             timeout=60)
+        assert run.returncode == 0, run.stdout + run.stderr
+        assert git(work, "rev-parse", "HEAD").strip() == start, ref
+        assert git(work, "rev-parse", "--abbrev-ref", "HEAD").strip() == "automation/daily-maintenance"
+        assert ("a rehearsal on trial/components-d" in run.stdout) is (start == trial)

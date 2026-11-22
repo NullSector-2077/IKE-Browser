@@ -816,3 +816,28 @@ def test_the_real_default_lists(tmp_path):
     assert data["state"] in ("ok", "findings", "unreachable")
     if data["state"] != "unreachable":
         assert data["engine"]["built"], data["engine"]
+
+
+FAKE_THIRD_PARTY = """\
+import json
+from pathlib import Path
+root = Path(__file__).resolve().parent.parent
+data = json.loads((root / "ike/resources/ubo-scriptlets.json").read_text("utf-8"))
+(root / "licenses").mkdir(exist_ok=True)
+with open(root / "licenses/seen.txt", "a", encoding="utf-8") as f:
+    f.write(data["scriptlets"]["abort-on-property-read.js"]["src"] + "\\n")
+"""
+
+
+@needs_node
+def test_the_licences_follow_every_component_applied(tool, repo, tmp_path):
+    """The trials of 2026-11-22: the candidate brought new uBlock Origin
+    scriptlets, but tools/third-party.py ran only for the crates, before the
+    scriptlets were copied; licenses/NOTICE.ubo-scriptlets kept the old commit
+    and the candidate's tests failed at "Licences". It now runs once, after
+    every component is applied, and sees the new scriptlets."""
+    (repo / "tools/third-party.py").write_text(FAKE_THIRD_PARTY, "utf-8")
+    make_ubo(tool.ubo, "v3")
+    assert tool.main(["--root", str(repo), "--ubo-src", str(tool.ubo), "--apply"]) == 0
+    seen = (repo / "licenses/seen.txt").read_text("utf-8").splitlines()
+    assert seen and "'v3'" in seen[-1], seen
