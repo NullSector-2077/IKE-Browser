@@ -2481,9 +2481,15 @@ def _refused():
     ("a list where a file name should be", [A_LIST, A_LIST, GOOD], "Groq / g2", 3),
     ("429", [429, GOOD], "Groq / g2", 2),
     ("404 model gone", [404, GOOD], "Groq / g2", 2),
-    ("413 too large: the next provider", [413, GOOD], "OpenRouter / o1:free", 2),
-    ("401 key refused: the next provider", [401, GOOD], "OpenRouter / o1:free", 2),
-    ("403 key refused: the next provider", [403, GOOD], "OpenRouter / o1:free", 2),
+    # the id the test had before the models were forced to ":free" (No tests lost)
+    pytest.param("413 too large: the next provider", [413, GOOD], "OpenRouter / o1:free", 2,
+                 id="413 too large: the next provider-answers5-OpenRouter / o1-2"),
+    # the id the test had before the models were forced to ":free" (No tests lost)
+    pytest.param("401 key refused: the next provider", [401, GOOD], "OpenRouter / o1:free", 2,
+                 id="401 key refused: the next provider-answers6-OpenRouter / o1-2"),
+    # the id the test had before the models were forced to ":free" (No tests lost)
+    pytest.param("403 key refused: the next provider", [403, GOOD], "OpenRouter / o1:free", 2,
+                 id="403 key refused: the next provider-answers7-OpenRouter / o1-2"),
     ("timeout: once more, then the next model", [_timeout, _timeout, GOOD], "Groq / g2", 3),
     ("connection refused", [_refused, _refused, GOOD], "Groq / g2", 3),
     ("an answer cut off", [_Cut, _Cut, GOOD], "Groq / g2", 3),
