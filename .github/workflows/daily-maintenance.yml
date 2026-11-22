@@ -1,8 +1,9 @@
 # Every day after the component check: when a bundled component has a new
 # version, prepare a candidate on the branch automation/daily-maintenance, open
-# (or update) a draft pull request for it and start the full tests and the Arch
-# package build on it. It never publishes a release and never writes to main:
-# the owner reviews, merges, signs and publishes.
+# (or update) a draft pull request for it and start the full tests, the
+# security tests and Arch Linux on it. It never publishes a release and never
+# writes to main: since 2026-11-22 tools/automerge.py (automerge.yml) merges the
+# candidate when it is fully verified, and the owner signs and publishes.
 # The candidate is rebuilt from the current main every time; the automatic
 # fixes made on the previous candidate (commits "autofix: ...") are carried over.
 # Started by hand on another branch than main, it is a rehearsal: the candidate
@@ -383,10 +384,10 @@ jobs:
           if [ -n "$pr" ]; then
             retry gh pr edit "$pr" --title "$title" --body-file "$body" --add-label maintenance
             if [ "$PUSH" = "true" ]; then
-              retry gh pr comment "$pr" --body "A new daily candidate was pushed. The tests and the Arch package build are running; this PR stays draft until all checks and the manual review are complete."
+              retry gh pr comment "$pr" --body "A new daily candidate was pushed. Tests, Security and Arch Linux are running; when every check passes and it is fully verified, the workflow merges it by itself (tools/automerge.py), otherwise it says here why it waits."
             fi
           else
-            sed -i "1i @$GITHUB_REPOSITORY_OWNER: un aggiornamento dei componenti da leggere prima di unirlo (chiedi a Claude).\n" "$body"
+            sed -i "1i @$GITHUB_REPOSITORY_OWNER: un aggiornamento dei componenti. Se passa tutti i controlli ed è verificato in tutto entra in main da solo e ti arriva l'avviso per firmarlo; altrimenti qui sotto c'è scritto perché aspetta (chiedi a Claude).\n" "$body"
             retry gh pr create --draft --base main --head automation/daily-maintenance \
               --title "$title" --label maintenance --assignee "$GITHUB_REPOSITORY_OWNER" --body-file "$body"
           fi
@@ -396,6 +397,10 @@ jobs:
             # (otherwise "not verified" in its report); never a reason to stop
             retry gh workflow run security.yml --ref automation/daily-maintenance \
               || echo "::warning::the security checks could not be started on the candidate"
+            # 2026-11-22 (the verified merge): Arch Linux's own packages on the candidate,
+            # which tools/automerge.py needs before it merges it ("arch-packaging")
+            retry gh workflow run arch.yml --ref automation/daily-maintenance \
+              || echo "::warning::arch.yml could not be started on the candidate (tools/automerge.py starts it)"
           else
             # the same candidate as yesterday: its tests were started then, unless
             # that run stopped after the push (audit of #65: then they never ran)
@@ -404,5 +409,12 @@ jobs:
             if [ "${runs:-0}" = "0" ]; then
               echo "::notice::the published candidate ($published) was never tested: the tests start now"
               retry gh workflow run tests.yml --ref automation/daily-maintenance
+            fi
+            # and Arch Linux, for a candidate published before it ran on candidates
+            arch=$(retry gh api "repos/$GITHUB_REPOSITORY/actions/workflows/arch.yml/runs?head_sha=$published&per_page=1" \
+              --jq '.total_count')
+            if [ "${arch:-0}" = "0" ]; then
+              echo "::notice::Arch Linux never ran on the published candidate ($published): it starts now"
+              retry gh workflow run arch.yml --ref automation/daily-maintenance || true
             fi
           fi
