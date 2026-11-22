@@ -667,6 +667,57 @@ def test_a_lists_analysis_without_provider_keeps_its_branch():
     assert led["dispatch"] and led["dispatch"][0]["key"].endswith("no-such-scriptlet@breaking")
 
 
+def test_a_fix_after_the_lists_branch_failed_its_tests_keeps_the_entry_coherent():
+    """PR #111 (2026-11-22): the analysis' change failed its tests; the automatic fix of that branch
+    (work run/<id>, tools/autofix-plan.py) reports to the finding's own entry by its branch."""
+    info = _lists_info()
+    led = ledger_tool.update(None, _empty(), now=NOW, work={"run_id": "777", "lists": info, "outcomes": []})
+    key, wid = led["dispatch"][0]["key"], led["dispatch"][0]["work"]
+    branch = "automation/update/lists-2026-11-22"
+    published = {"work": wid, "outcome": "published", "branch": branch, "pr": "111", "run": "6",
+                 "created": "2026-11-22T06:00:00Z", "artifact": "ai-work-outcome-publish"}
+    now = NOW + dt.timedelta(hours=2)
+    led = ledger_tool.update(led, _empty(), now=now, work={"run_id": "778", "lists": info, "outcomes": [published]})
+    assert led["entries"][key]["state"] == "testing"
+    attempts = led["entries"][key]["attempts"]
+    # attempt 2 after the tests failed: still testing, the days counted again from the new change
+    retry = {"work": "run/45039352924", "outcome": "published", "branch": branch, "pr": "111", "run": "7",
+             "created": "2026-11-28T06:00:00Z", "artifact": "ai-work-outcome-publish"}
+    now += dt.timedelta(days=6)
+    led = ledger_tool.update(led, _empty(), now=now, work={"run_id": "779", "lists": info, "outcomes": [retry]})
+    e = led["entries"][key]
+    assert e["state"] == "testing" and "after its tests failed" in e["reason"] and "PR #111" in e["reason"]
+    assert "ai-work/45039352924@retry" not in led["entries"] and e["attempts"] == attempts
+    now += dt.timedelta(days=4)                  # 10 days after the first change, 4 after the new one
+    led = ledger_tool.update(led, _empty(), now=now, work={"run_id": "780", "lists": info, "outcomes": []})
+    assert led["entries"][key]["state"] == "testing"
+    # the cap (or the AI or the checks could not): a person; the report's issue tells the owner
+    person = {"work": "run/45043411828", "outcome": "person", "branch": branch, "run": "8",
+              "reason": "needs-person: 4 automatic changes of I.K.E.'s adapter did not make it pass",
+              "created": "2026-12-02T07:00:00Z", "artifact": "ai-work-outcome-report"}
+    led = ledger_tool.update(led, _empty(), now=now + dt.timedelta(hours=1),
+                             work={"run_id": "781", "lists": info, "outcomes": [person]})
+    e = led["entries"][key]
+    assert e["state"] == "needs-person" and "4 automatic changes" in e["reason"] and led["notify"] == []
+    # an outcome of another branch, or of no branch, is not the finding's
+    for other in ("automation/update/lists-foo", "automation/update/darkreader", ""):
+        fresh = ledger_tool.update(None, _empty(), now=NOW, work={"run_id": "777", "lists": info, "outcomes": []})
+        fresh = ledger_tool.update(fresh, _empty(), now=NOW + dt.timedelta(hours=2),
+                                   work={"run_id": "778", "lists": info, "outcomes": [published]})
+        fresh = ledger_tool.update(fresh, _empty(), now=NOW + dt.timedelta(hours=3), work={
+            "run_id": "779", "lists": info, "outcomes": [dict(person, branch=other)]})
+        assert fresh["entries"][key]["state"] == "testing", other
+    # no free provider for that fix: it waits as any other fix does (its own entry, started again)
+    deferred = dict(person, outcome="deferred", run="9")
+    fresh = ledger_tool.update(fresh, _empty(), now=NOW + dt.timedelta(hours=4),
+                               work={"run_id": "782", "lists": info, "outcomes": [deferred]})
+    assert fresh["entries"]["ai-work/45043411828@retry"]["state"] == "retry-later"
+    assert fresh["entries"][key]["state"] == "testing"
+    # the report says the branch of the work
+    script = _step("Work that waits, or the filter lists' analysis")
+    assert '--arg branch "$PUSH_BRANCH"' in script and "branch: $branch" in script
+
+
 def _step(name, workflow="autofix.yml"):
     lines = (WORKFLOWS / workflow).read_text().splitlines()
     start = next(i for i, ln in enumerate(lines) if ln.strip() == "- name: %s" % name)

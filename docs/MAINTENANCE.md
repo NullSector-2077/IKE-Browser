@@ -578,8 +578,22 @@ test first proves itself on recorded rules I.K.E. reads and does not read.
 The finding is "testing" while its pull request waits (a person after
 `TESTING_DAYS`), "passed" once the lists check no longer reports it, and
 "needs-person" when the AI could not, or a check refused its change; after
-`MAX_ATTEMPTS` (2) attempts on one branch, a person. The run never opens the
+`MAX_ATTEMPTS` (2) analyses on one branch, a person. The run never opens the
 "ATTENZIONE..." issue: the ledger is where a person reads it.
+
+When the analysis' change makes the branch's **Tests** (or Arch Linux) fail,
+the automatic fix takes that failure like a full chain's candidate
+(2026-11-22; until then the plan skipped it and PR #111 waited for the
+`TESTING_DAYS`): `tools/autofix-plan.py` plans a fix of the same
+`automation/update/lists-<date>` (that exact name only) from its tip, in the
+same **lists mode** (the guard's `--lists`, the adapter only; the recorded
+rules are already on the branch), each attempt with a fresh context, the
+earlier change and the new logs, and the next free provider first. The
+analysis itself is attempt 1 (its `autofix:` commit); after `FIX_ATTEMPTS`
+(4) a person is told by the "ATTENZIONE..." issue and the branch is kept.
+Those runs report to the finding's entry by its branch
+(`tools/ai-work.py`): a new change keeps it "testing" and the
+`TESTING_DAYS` count again from it; the cap makes it "needs-person".
 
 ### Free AI providers, checked every week (WP9)
 
@@ -1233,7 +1247,8 @@ never touched.
 
    **More attempts, other free providers** (the full chain, 2026-11-22). On
    the isolated candidates (`automation/update/<id>`, `automation/builder/<id>`,
-   `automation/update/arch-testing-<date>`) a failure is fixed up to
+   `automation/update/arch-testing-<date>`, and since 2026-11-22 the filter
+   lists' `automation/update/lists-<date>`, in lists mode) a failure is fixed up to
    `FIX_ATTEMPTS` times (`tools/ai-providers.py`, a person's file, today 4).
    Each attempt is a new run of the automatic fix with a **fresh context**:
    the agent gets only the earlier fix, the new test logs and its summary, as
@@ -1245,7 +1260,8 @@ never touched.
    At the cap the branch is kept, the maintenance ledger says needs-person
    and the owner is told once. On `main`, `automation/autofix-main`, the
    combined candidate and the security branches the cap stays
-   `FIX_ATTEMPTS_MAIN` (two), Antigravity first each time.
+   `FIX_ATTEMPTS_MAIN` (two), Antigravity first each time. (Until 2026-11-22
+   the plan stopped the isolated candidates at that cap of two as well.)
 
    **A fix raises the version** (item 5 of the full chain). Every automation
    pull request that changes what ships (I.K.E.'s code, the engine's wrapper,
