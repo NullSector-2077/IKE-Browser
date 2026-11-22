@@ -4,6 +4,14 @@
 
 - uBlock Origin scriptlets: 2bc679d99a (2026-11-10) -> 5934db2a04 (2026-11-21) (1 changed, 0 new, 0 removed)
 - Rust crates of the AdBlock engine: 88 crates -> 88 crates (psl 2.1.253 -> 2.1.261; regex 1.13.1 -> 1.13.2; regex-automata 0.4.18 -> 0.4.19; regex-syntax 0.8.11 -> 0.8.12; smallvec 1.16.5 -> 1.16.6)
+- **Nothing gets worse** (automatic maintenance, nothing changes in the
+  browser): every commit is measured against `main` with the real browser,
+  the same way on the same fixed inputs (ad and tracker blocking, YouTube's
+  requests included, the fingerprinting surface at every level, the hosts
+  contacted by itself, the security settings), and anything weaker fails
+  (`tools/no-regression.py`, the step "Nothing gets worse" of tests.yml,
+  docs/MAINTENANCE.md). A change a person accepted goes in
+  tests/data/no-regression/allowlist.json.
 
 ## 1.1.22
 

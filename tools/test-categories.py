@@ -58,28 +58,39 @@ CATEGORIES = {
     # the full chain, item 4 (2026-11-22): on the commit itself, its engine against main's on today's lists
     "filter-lists": ("today's default filter lists in this commit's engine, no worse than in main's",
                      ("tests.yml", "tests", "Filter lists in this engine")),
+    # 2026-11-22: what I.K.E. does for its users (ad and tracker blocking, the fingerprinting
+    # surface, the hosts contacted by itself, the security settings) measured on the commit and on
+    # main's, in the same job, on the same inputs (tools/no-regression.py): anything weaker fails
+    "no-regression": ("nothing gets worse: blocking, fingerprinting surface, network and security settings "
+                      "measured on this commit and on main's, nothing weaker",
+                      ("tests.yml", "tests", "Nothing gets worse")),
     "desktop": ("a real desktop session (KDE Plasma, notifications, default browser), a real graphics card",
                 ("", "", None)),
 }
 # never run by GitHub Actions: always "not verified", said plainly
 NEVER_RUN = {"desktop": "GitHub's runners have no desktop session and no graphics card (software rendering only)"}
 
-# component kind (tools/inventory.py) -> the categories an update of it needs
-_ENGINE = ["rust", "licences", "unit-integration", "build", "old-cpu", "installed", "advisories", "tests-kept"]
+# component kind (tools/inventory.py) -> the categories an update of it needs.
+# "no-regression" for every kind that changes what reaches users: the AdBlock engine and its
+# crates, the builders' Dark Reader ("npm") and uBlock Origin scriptlets ("integrated"), I.K.E.'s
+# own code (an AI fix or a security fix is "integrated", tools/automerge.py kinds_of), the filter
+# lists, the PKGBUILD ("arch-package")
+_ENGINE = ["rust", "licences", "unit-integration", "build", "old-cpu", "installed", "advisories", "tests-kept",
+           "no-regression"]
 REQUIRED = {
     "crate": _ENGINE,
     "adblock-engine": _ENGINE + ["filter-lists", "arch-packaging"],
-    "arch-package": ["arch-packaging", "unit-integration", "installed"],
+    "arch-package": ["arch-packaging", "unit-integration", "installed", "no-regression"],
     "arch-optional": ["arch-packaging", "desktop"],
     "arch-build": ["build", "old-cpu", "arch-packaging"],
     "python-module": ["unit-integration", "arch-packaging", "installed"],
     "pyqt-module": ["unit-integration", "arch-packaging", "installed"],
     "pypi-test": ["lint", "unit-integration", "tests-kept"],
     "pypi-ci": ["lint", "unit-integration"],
-    "npm": ["unit-integration", "licences", "installed"],
+    "npm": ["unit-integration", "licences", "installed", "no-regression"],
     "node": ["unit-integration"],
-    "integrated": ["unit-integration", "licences", "installed", "tests-kept"],
-    "filter-list": ["filter-lists"],
+    "integrated": ["unit-integration", "licences", "installed", "tests-kept", "no-regression"],
+    "filter-list": ["filter-lists", "no-regression"],
     "github-action": ["lint", "unit-integration", "build"],
     "ci-tool": ["licences", "advisories"],
     "ci-runtime": ["lint", "unit-integration", "build"],

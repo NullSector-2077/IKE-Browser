@@ -1,0 +1,7 @@
+! Title: I.K.E. no-regression fixture, in place of uBlock filters - Unbreak
+! A small fixed sample of rules in the forms uBlock filters - Unbreak uses (uBlock Origin's uAssets, GPL-3.0-or-later), for
+! tools/no-regression.py only: the same rules on main and on a candidate, so
+! what changes between the two is I.K.E.'s code and engine, never the list.
+! Not a list to use.
+@@||cdn.news.example/ads/needed-player.js$script
+@@||shop.example/js/ads-free-cart.js$script

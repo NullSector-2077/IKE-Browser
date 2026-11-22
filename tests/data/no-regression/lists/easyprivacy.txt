@@ -1,0 +1,26 @@
+[Adblock Plus 2.0]
+! Title: I.K.E. no-regression fixture, in place of EasyPrivacy
+! A small fixed sample of rules in the forms EasyPrivacy uses (GPL-3.0-or-later / CC BY-SA 3.0), for
+! tools/no-regression.py only: the same rules on main and on a candidate, so
+! what changes between the two is I.K.E.'s code and engine, never the list.
+! Not a list to use.
+||google-analytics.com^
+||googletagmanager.com/gtag/js
+||googletagmanager.com/gtm.js
+||connect.facebook.net/*/fbevents.js
+||facebook.com/tr^
+||hotjar.com^$third-party
+||scorecardresearch.com^
+||quantserve.com^
+||mixpanel.com^$third-party
+||segment.io^
+||bat.bing.com^
+||clarity.ms^
+||stats.g.doubleclick.net^
+/tracking-pixel.$image
+||news.example/analytics/collect
+||youtube.com/api/stats/qoe?*adformat=
+||youtube.com/pagead/viewthroughconversion/
+||youtube.com/ptracking^
+||play.google.com/log^$third-party
+||shop.example^$removeparam=affiliate_ref

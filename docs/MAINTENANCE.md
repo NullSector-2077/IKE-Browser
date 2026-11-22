@@ -43,8 +43,10 @@ itself; the owner only signs.
    published, with its CHANGELOG line).
 4. **Tested, Arch included.** `tests.yml` (lint, the whole suite, the Rust
    tests, the licences, no tests lost, the package, the old processor, the
-   installed package, and for a new engine the default filter lists in that
-   engine against `main`'s), `security.yml` (the sandbox, the RustSec
+   installed package, for a new engine the default filter lists in that
+   engine against `main`'s, and "Nothing gets worse": blocking,
+   fingerprinting surface, network and security settings measured against
+   `main`'s, below), `security.yml` (the sandbox, the RustSec
    advisories) and `arch.yml` (Arch Linux's own packages) on its commit.
 5. **Fixed by an AI when they fail, on that branch only.** `autofix.yml`
    fixes the candidate's own branch under the guard
@@ -1816,6 +1818,78 @@ Anything less stays a pull request: one comment names the owner and says why
 writes it into the ledger as needs-person, or blocked for a security finding
 (the comment carries a mark the ledger reads). ChatGPT's and people's pull
 requests are never merged by themselves.
+
+## Nothing gets worse
+
+The verified merge has no person reading the change, and tests can miss a
+subtle weakening. So every commit is also measured against `main` (since
+2026-11-22): the step **"Nothing gets worse"** of `tests.yml` (the category
+`no-regression` of `tools/test-categories.py`, required for every kind that
+changes what reaches users: I.K.E.'s own code, so every AI fix and security
+fix, the AdBlock engine and its crates, the Dark Reader and uBlock Origin
+scriptlets builders, the filter lists, the PKGBUILD). It checks out `main`'s
+current commit (on `main` itself, the commit before) in a second worktree,
+gives it its own AdBlock engine, and runs `tools/no-regression.py` **from
+`main`'s copy**, with `main`'s copy of the inputs, on both commits in the same
+job: a candidate never judges itself, and both are measured the same way.
+
+What is measured, offline (a local server and proxy, nothing leaves the
+computer) and without a display, with the real browser of each commit:
+
+- **Ad and tracker blocking.** 100 fixed requests
+  (`tests/data/no-regression/corpus.json`: ad networks, trackers, malware,
+  cookie notices, YouTube's ads and telemetry, the home network, HTTPS and
+  tracking parameters, the hands-off sites) through I.K.E.'s own request check
+  at all five levels, with the eleven default filter lists replaced by small
+  local fixtures (`tests/data/no-regression/lists/`); 20 elements of three
+  pages loaded in the engine (element hiding and the pages' scriptlets); the
+  scriptlets of the video sites; the element-hiding rules of seven addresses.
+  Worse: a request blocked on `main` and allowed here, an element hidden on
+  `main` and shown here, a rule or scriptlet lost. YouTube is only read:
+  nothing here changes its blocking.
+- **Fingerprinting surface.** What a probe page's scripts read at every level
+  (navigator, screen, fonts, canvas, WebGL, audio, matchMedia, Client Hints,
+  workers, frames, permissions, storage, battery, the `ike:` pages), with a
+  fixed noise key so the values repeat. Worse: **any** value that differs
+  from `main`.
+- **Network.** The hosts the browser contacts by itself with a fresh profile,
+  at start and while loading the probe page (the engine and Qt through a
+  recording proxy, I.K.E.'s own Python through an audit hook that also
+  refuses the connection). Worse: a host `main` does not contact.
+- **Security settings.** The engine switches I.K.E. adds and what it drops
+  from a hostile environment (no sandbox, no site isolation, remote
+  debugging...), its lists of unsafe switches, tracking parameters and
+  hands-off sites, the WebEngine settings, permissions, scripts and request
+  headers of every level, the protective defaults. Worse: anything weaker or
+  missing (an added hands-off site, a switch that reads as weaker, a default
+  turned off).
+
+A candidate that blocks more, or is stricter, passes, and the report says
+so. A part that could not be measured fails: it is never passed. The step
+writes a JSON report and a summary in plain words to the run's summary and to
+the `test-results` download (`no-regression/report.md`, `report.json`).
+
+**Accepting a change.** When a difference is wanted (a better noise, a new
+spoofed value), a person adds an entry to
+`tests/data/no-regression/allowlist.json`: the observation's key as the report
+prints it (a glob), optionally its value on `main` and on the candidate (so it
+accepts that one change only), why, and who accepted it when. The file is
+under `tests/data/`: the automatic fix may not touch it, and a pull request
+that changes it is a test file changed, so it never merges by itself. An entry
+that no longer matches anything is listed in the report, to be removed.
+
+By hand: `python3 tools/no-regression.py check --base-repo <main checkout>
+--candidate-repo . --out-dir /tmp/nr` (each checkout needs its
+`vendor/adblock` engine built); `snapshot` and `compare` do the two halves.
+
+What it cannot see: a weakening outside the corpus (another site, request or
+API than those measured); YouTube's own pages, which need HTTPS (its requests,
+element-hiding rules and scriptlets are measured, not a page of it);
+timers that start after the first seconds; the sandbox really on (GitHub's
+runners refuse it: `security.yml` tests it); code that recognises the
+measurement and behaves differently there; a real graphics card and the
+user's own fonts (software rendering, the runner's fonts, the same on both
+sides).
 
 ## The owner's part
 
