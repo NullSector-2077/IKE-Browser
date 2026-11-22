@@ -114,6 +114,11 @@ jobs:
             gh issue comment "$open" --body-file "$body"
             exit 0
           fi
+          # the same version after one more merge by itself (2026-11-22: several verified merges go
+          # into one unpublished version): its list is kept current in the same notice; an edit
+          # mails nobody, so the owner still gets one notice per version
+          now=$(gh issue view "$open" --json body --jq .body)
+          if [ "$now" != "$(cat "$body")" ]; then gh issue edit "$open" --body-file "$body" > /dev/null; fi
           when=$(gh issue view "$open" --json createdAt,comments \
                  --jq '[.createdAt] + [.comments[] | select(.author.login == "github-actions") | .createdAt] | max')
           if [ $(( $(date -u +%s) - $(date -u -d "$when" +%s) )) -gt $(( 7 * 86400 )) ]; then

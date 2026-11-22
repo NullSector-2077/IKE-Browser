@@ -54,7 +54,11 @@ itself; the owner only signs.
    it wanted there is a written proposal for a person. At the cap the branch
    is kept, the ledger says needs-person and the owner is told once.
 6. **Merged by itself** when everything is green and verified
-   (`tools/automerge.py`, `automerge.yml`, read from `main`).
+   (`tools/automerge.py`, `automerge.yml`, read from `main`). Several
+   candidates go into the same unpublished version; one that is behind
+   `main` is refreshed first (`main` merged into its branch, its tests
+   again), and after every merge the others are judged again, so they all
+   converge into `main` one after another ("The verified merge", below).
 7. **The owner signs.** `release-ready.yml` mails the owner the command that
    signs and publishes the new version; every user then gets it by itself.
 
@@ -71,7 +75,7 @@ itself; the owner only signs.
 | Every day, 04:23 UTC, and on every PR and push to `main` | The security tests with the engine's sandbox really on (as a normal user), and the RustSec advisories of every crate of the AdBlock engine | `security.yml` | Checks on the PR; on `main` the issue "Rust advisories" when one is found; since 2026-11-22 a finding goes to an analysis and a fix on an isolated branch `automation/update/security-<id>`, never on `main`, or is blocked and the owner told (see "Security findings and vulnerability sources") |
 | Mondays, 07:41 UTC | The automation itself: every scheduled check (also the Arch and security ones, 1.1.19), one tiny question to each reserve of the automatic fix, and (WP9) whether every AI provider, Gemini included, answers and is free | `health.yml` | Issue "Automation health" when something stopped, failed, waits too long, a reserve's key or model no longer works, or a provider is not free (marked unavailable: the automatic fix skips it); artifact `ai-providers` |
 | Once a month | New versions of the GitHub actions used (a double check: `tools/ci-pins.py` moves them every day) | Dependabot | One PR labelled `maintenance`, for a person |
-| When a check of a pull request ends, or the automation's own Tests, Security and Arch Linux runs pass on its branch (a dispatch) | The verified merge (2026-11-22): a candidate per component (`automation/update/<id>`, the workflows' pins `automation/update/ci-<name>` and the PKGBUILD's `automation/update/pkgbuild` included), a builder's re-anchoring (`automation/builder/<id>`), the single combined candidate (`automation/daily-maintenance`), a fix of the automatic fix (`automation/autofix-main`) or a security fix (`automation/update/security-<id>`) is merged when it is fully verified: every check of its last commit passed (`tests`, `sandbox`, `rust-advisories`, `Arch Linux`, and "Arch Linux (testing)" for a fix of Arch's next packages), every category its components need passed with nothing "not verified" and no required test skipped, no test file changed or removed, no protected file or workflow (but the CI pins' own edit), the licences up to date, no open security finding, the version raised when main's is published, and no other merge by itself waiting for a signature; the automatic fix's files also follow the 1.1.19 rules, or on a candidate of the engine the wrapper's rules, or on a builder's branch the re-anchoring rule. Arch Linux is started on the commit when it has not run there. A fix of ChatGPT (`chatgpt/...`) that passes the 1.1.19 rules is only marked ready for the owner's order. Rules: `tools/automerge.py`, read from `main` | `automerge.yml` | Merged, then `main`'s Tests, Security and Arch Linux start and the release notice follows; otherwise one comment naming the owner with the reason (edited when the reason changes, never repeated), and the ledger says needs-person (blocked for a security finding); ChatGPT: one comment, ready and waiting for the owner's order |
+| When a check of a pull request ends, or the automation's own Tests, Security and Arch Linux runs pass on its branch (a dispatch) | The verified merge (2026-11-22): a candidate per component (`automation/update/<id>`, the workflows' pins `automation/update/ci-<name>` and the PKGBUILD's `automation/update/pkgbuild` included), a builder's re-anchoring (`automation/builder/<id>`), the single combined candidate (`automation/daily-maintenance`), a fix of the automatic fix (`automation/autofix-main`) or a security fix (`automation/update/security-<id>`) is merged when it is fully verified: every check of its last commit passed (`tests`, `sandbox`, `rust-advisories`, `Arch Linux`, and "Arch Linux (testing)" for a fix of Arch's next packages), every category its components need passed with nothing "not verified" and no required test skipped, no test file changed or removed, no protected file or workflow (but the CI pins' own edit), the licences up to date, no open security finding, the version raised when main's is published, and never a second raise on top of an unpublished version (several merges by themselves go into the same one); the automatic fix's files also follow the 1.1.19 rules, or on a candidate of the engine the wrapper's rules, or on a builder's branch the re-anchoring rule. Arch Linux is started on the commit when it has not run there. A fix of ChatGPT (`chatgpt/...`) that passes the 1.1.19 rules is only marked ready for the owner's order. A fully verified candidate behind `main` is refreshed instead: `main` merged into its branch (CHANGELOG.md and the version files resolved as decided, any other conflict for a person), pushed to that branch with the workflow's token, its Tests, Security and Arch Linux started again. After every merge the other open pull requests of the automation are judged again. Rules: `tools/automerge.py`, read from `main` | `automerge.yml` | Merged, then `main`'s Tests, Security and Arch Linux start and the release notice follows (one per version); otherwise one comment naming the owner with the reason (edited when the reason changes, never repeated), and the ledger says needs-person (blocked for a security finding); ChatGPT: one comment, ready and waiting for the owner's order |
 | When the tests of `main` pass (after a merge by itself: when its Tests and Security pass), and every day at 08:13 UTC | A version in `main` that is not published yet, with `tests` and `sandbox` green on its last commit | `release-ready.yml` | An issue "C'E' UNA NUOVA RELEASE IN MAIN PRONTA DA PUBBLICARE!!!" with the exact command, assigned to the owner and naming the owner (GitHub mails it), listing what was merged by itself since the last release (fully verified, so the owner knows what the signature covers); a reminder comment each week; closed by itself once the version is published; never opened again for a version whose notice the owner closed |
 
 ## Components followed
@@ -1469,7 +1473,10 @@ only when ALL of this holds:
   (`MERGE_ALWAYS`: lint, the whole suite, the engine's Rust tests, licences,
   no tests lost, the package, the old processor, the installed package, Arch
   Linux, the sandbox, the advisories), was run and passed on that commit:
-  nothing "not verified". The skipped tests are read from its Tests run: one
+  nothing "not verified" (read from the runs that really ran on it: a
+  `pull_request` run waiting for approval, "action_required", never hides
+  the automation's own run of the same commit). The skipped tests are read
+  from its Tests run: one
   that no other check of the commit runs is a required test not run.
   `EXPECTED_SKIPS` (`tools/test-categories.py`) names, from a real Tests run
   on GitHub's runners (2026-11-22), the skips that are environmental there,
@@ -1483,7 +1490,10 @@ only when ALL of this holds:
   engine can be fully verified: the filter lists are checked on its own
   commit. A kind that needs a real desktop is never fully verified here: it
   waits for the owner;
-- no test file changed or removed, no protected file of the guard
+- no test file changed or removed (a new file of the filter lists' recorded
+  evidence, `tests/data/lists-recorded/<name>.txt`, which the workflow writes
+  and the AI may not, is not a test change; a change, removal or rename of
+  one is), no protected file of the guard
   (`FORBIDDEN_FILES`; a candidate's own files, as `tools/test-requirements.txt`
   for the test packages, are its update's) and no workflow (but the CI pins'
   verified edit); the automatic fix's files follow the 1.1.19 rules (only
@@ -1501,8 +1511,54 @@ only when ALL of this holds:
   is free of them) and any security entry of the maintenance ledger that has
   not passed;
 - `main`'s version is not published yet, or the pull request raises it (or it
-  ships nothing, as a candidate of the test packages); and `main` holds no
-  other merge by itself not yet signed.
+  ships nothing, as a candidate of the test packages). Since 2026-11-22 (the
+  owner's decision: everything automatic and verified converges into `main`,
+  then one notice to sign) several merges by themselves go into the same
+  unpublished version: a pull request whose raise is `main`'s unpublished
+  version (a candidate made before `main` was raised), or that raises
+  nothing because `main` is raised already, merges; a second raise on top
+  (1.1.24 while 1.1.23 is not published), or a CHANGELOG heading of another
+  version, waits for a person. (Until then only one merge by itself was
+  allowed per unsigned version, review 2 of 1.1.19, M9; it still holds for
+  ChatGPT's fixes, which wait for the owner's order anyway.)
+
+**The refresh.** The candidates of one day are all made from the same `main`.
+Once the first one is merged, the others are behind `main` and, on
+CHANGELOG.md, in conflict with it. A fully verified candidate that is behind
+`main` is therefore not merged as it is; `tools/automerge.py` (in the same
+job, with the same token) refreshes it:
+
+- `main` is merged into the candidate's branch (`git merge-tree`, no AI);
+- CHANGELOG.md, when both changed it, is resolved as `main`'s with the
+  candidate's new lines added under the one `## <version>` heading: the
+  union of the bullet lines, no duplicates, `main`'s first (exactly what
+  `tools/prepare-maintenance.py` writes when it adds to an unpublished
+  version). A candidate that changes more than new bullet lines of that
+  version, or a `main` whose first section is another version, stops it;
+- a version file (`ike/__init__.py`, `PKGBUILD`, `README.md`) in conflict is
+  `main`'s when `main`'s version is the candidate's own;
+- any other conflict stops the refresh: the pull request waits for a person,
+  with one comment naming the owner, and the ledger says needs-person;
+- the commit `refresh: main <sha> into <branch> (tools/automerge.py, no AI)`
+  (two parents: the candidate's commit, then `main`'s) is pushed to that
+  branch only, as a fast-forward (never to `main`), and Tests, Security and
+  Arch Linux are started on it (a push of the workflow's token starts no
+  workflow). When they pass it is judged again, and merged.
+
+The merge accepts a refresh commit only when it is exactly that: its own
+message naming this branch and a commit of `main`, two parents in that
+order, the second one in `main`, and the very tree `tools/automerge.py`
+computes again from those two parents (`refresh_problem`); anything else in
+it (one more change, one parent, a "main" that is not `main`'s) keeps the
+pull request for a person. Its own commits are judged as before, and the
+refresh commit accounts for no file of the pull request by itself.
+
+After every merge by itself, `tools/automerge.py` dispatches `automerge.yml`
+again for every other open pull request of the automation (its last
+commit): the verified ones are refreshed and merged one after another
+without anyone. `release-ready.yml` opens one notice per version; when more
+merges by themselves come into the same version, the list in that notice is
+updated (an edit mails nobody) and no new notice or comment is sent.
 
 Then it is merged at exactly that commit with the workflow's token
 (`contents: write` only in that job), and `main`'s Tests, Security and Arch

@@ -755,8 +755,17 @@ def gh_api(path, method="GET", data=None, raw=False, tries=3):
     return json.loads(out.stdout) if out.stdout.strip() else {}
 
 
+# Runs that never ran and say nothing about the commit (2026-11-22, #107): a pull request opened by
+# the workflow's token gets a "pull_request" run of each workflow, created in the same second as the
+# automation's own dispatched run, that waits for a person's approval and has no jobs
+# ("action_required"). Taken as the newest run, it hid the real one and every category read "not
+# run". A run still in progress (conclusion None) is kept: a newer real run in progress still wins.
+NEVER_RAN = {"action_required"}
+
+
 def run_info(repo, workflow, api, sha=None, branch=None, completed=False):
-    """The newest run of a workflow for a commit or a branch, with its jobs and steps, or None."""
+    """The newest run of a workflow for a commit or a branch that really ran (or runs now), with its
+    jobs and steps, or None."""
     query = "per_page=10"
     if sha:
         query += "&head_sha=%s" % sha
@@ -765,7 +774,8 @@ def run_info(repo, workflow, api, sha=None, branch=None, completed=False):
     if completed:
         query += "&status=completed"
     runs = api("repos/%s/actions/workflows/%s/runs?%s" % (repo, workflow, query)).get("workflow_runs", [])
-    runs = [r for r in runs if (not sha or r.get("head_sha") == sha) and (not branch or r.get("head_branch") == branch)]
+    runs = [r for r in runs if (not sha or r.get("head_sha") == sha) and (not branch or r.get("head_branch") == branch)
+            and r.get("conclusion") not in NEVER_RAN]
     if not runs:
         return None
     run = max(runs, key=lambda r: (r.get("created_at") or "", r.get("id") or 0))
