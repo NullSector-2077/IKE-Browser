@@ -18,6 +18,17 @@ repository (tools/inventory.py: a component id never seen before) is an entry
 too: "passed" once the tests of main are green with it, "needs-person" when
 the inventory says it is used but not declared.
 
+Security findings (WP6 and WP7): each advisory of a component (RustSec for the
+crates, OSV for PyPI, npm and the GitHub Actions, Arch's security tracker for
+the Arch packages: the inventory's ``advisories``) is one entry, key
+``<component id>@<advisory id>``, recorded once; a failed sandbox test on main
+is one entry too. An advisory with no fixed version upstream is "blocked"; a
+crate's advisory with a fix follows its isolated branch
+``automation/update/security-<id>`` (testing, fixing, passed: waits for the
+owner's merge, or blocked when the automatic fix gave up). Every entry that
+becomes blocked or needs a person is said once in a comment that names the
+owner. An advisory no longer reported by a source that answered is "passed".
+
     maintenance-ledger.py gather --repo OWNER/NAME --out status.json [--advisories FILE]
                                  [--candidate-sha SHA]
         GET calls of GitHub's API only (gh, GH_TOKEN): main's commit, the
@@ -71,8 +82,15 @@ MAX_BODY = 60000               # GitHub's limit is 65536 characters
 CANDIDATE_KINDS = ("crate", "adblock-engine", "pypi-test", "pypi-ci", "integrated", "npm")
 ARCH_KINDS = ("arch-package", "arch-optional", "arch-build")
 PROPOSAL_KINDS = ("github-action", "ci-tool", "node", "ci-runtime")
-# the automatic fix's reports this ledger may close (tools/autofix-plan.py's titles)
-REPORT_WORKFLOWS = ("Tests",)
+# the automatic fix's reports this ledger may close (tools/autofix-plan.py's titles); a report
+# about "Security" is read too (a security fix the automatic fix gave up on is blocked), never
+# closed here (no run of it is compared)
+REPORT_WORKFLOWS = ("Tests", "Security")
+SECURITY_PREFIX = "automation/update/security-"
+SECURITY_FIX_ATTEMPTS = 2      # tools/autofix-plan.py MAX_ATTEMPTS: then the fix is blocked
+SANDBOX = {"id": "security:sandbox", "name": "Engine sandbox and isolation tests (security.yml)",
+           "kind": "security-test", "installed": "", "update_mode": "the automatic fix on an isolated branch "
+           "(automation/update/security-*), under the guard's security rules"}
 FAILED_STEP = re.compile(r"^## Job `([^`]+)` \(failed step: ([^)]*)\)", re.M)
 
 
@@ -234,7 +252,123 @@ def _candidate_verdict(status, kinds):
         % cand.get("pr", "?"), url
 
 
-def update(ledger, inv, status=None, report=None, cand_inv=None, now=None):
+def _security_tool():
+    return _tool("security-fix")
+
+
+def security_verdict(info):
+    """(state, reason, url) of a security fix's isolated branch from the runs of its last commit:
+    {"branch", "pr", "url", "sha", "runs": {"tests.yml": run, "security.yml": run},
+    "autofix_commits", "autofix_issue"}."""
+    branch, pr = info.get("branch", "?"), info.get("pr", "?")
+    runs = info.get("runs") or {}
+    url = ((runs.get("security.yml") or {}).get("url") or (runs.get("tests.yml") or {}).get("url") or
+           info.get("url") or "")
+    done = [r for r in runs.values() if r]
+    if len(done) < 2:
+        return "testing", "the fix is on %s (PR #%s); its Tests and Security checks have not all run" % (
+            branch, pr), url
+    failed = sorted(name for name, r in runs.items() if r and r.get("status") == "completed"
+                    and r.get("conclusion") not in ("success", "skipped"))
+    if failed:
+        if info.get("autofix_issue") or info.get("autofix_commits", 0) >= SECURITY_FIX_ATTEMPTS:
+            return ("blocked", "the fix on %s fails (%s) and the automatic fix found no safe fix (%s): the "
+                    "candidate is blocked, the owner decides" % (branch, ", ".join(failed),
+                                                                 info.get("autofix_issue") or "attempts used"), url)
+        return ("fixing", "the fix on %s fails (%s): the automatic fix works on it under the security rules "
+                "(%d fixes so far)" % (branch, ", ".join(failed), info.get("autofix_commits", 0)), url)
+    if any(r.get("status") != "completed" for r in done):
+        return "testing", "the checks of %s are running (PR #%s)" % (branch, pr), url
+    return "passed", "the fix on %s passed Tests and Security: waits for the owner's merge (PR #%s)" % (
+        branch, pr), url
+
+
+def _advisory_plan(rec, adv, branches):
+    """(state, reason, url) of one advisory of one component, before any run of its fix."""
+    kind, fixed = rec["kind"], ", ".join(adv.get("fixed") or [])
+    source = adv.get("source") or "?"
+    if not fixed:
+        return ("blocked", "%s: no fixed version upstream (%s): blocked and the owner is told; never ignored "
+                "(an exception needs a reason a person writes)" % (adv["id"], source), "")
+    if kind in ("crate", "adblock-engine", "vendored"):
+        branch = _security_tool().branch_for(adv["id"])
+        info = branches.get(branch)
+        if info:
+            return security_verdict(info)
+        return ("detected", "%s: fixed in %s; the Security workflow prepares %s from main (cargo update, no AI)"
+                % (adv["id"], fixed, branch), "")
+    if kind in ARCH_KINDS:
+        return ("detected", "%s: fixed in Arch %s: users get it with pacman -Syu; arch.yml on main verifies it"
+                % (adv["id"], fixed), "")
+    if kind == "github-action":
+        return ("needs-person", "%s: fixed in %s: a person moves the pinned commit (workflow files are proposals; "
+                "Dependabot proposes monthly)" % (adv["id"], fixed), "")
+    return ("detected", "%s: fixed in %s: the daily candidate takes the newer version (tools/check-components.py)"
+            % (adv["id"], fixed), "")
+
+
+def _source_host(adv):
+    source = adv.get("source") or ""
+    return ("api.osv.dev" if source == "OSV" else "security.archlinux.org" if source.startswith("Arch")
+            else "cargo-deny")
+
+
+def security_entries(ledger, inv, status, now):
+    """The security findings into the ledger (WP6, WP7); returns the notices for the owner: one
+    line for each entry that became blocked or needs a person."""
+    entries, notices, seen = ledger["entries"], [], set()
+    branches = (status or {}).get("security_branches") or {}
+    checked = {h for h, s in (inv.get("vulnerability_sources") or {}).items() if s == "ok"}
+    if (inv.get("advisories_state") or "unknown") in ("clean", "found"):
+        checked.add("cargo-deny")
+
+    def move(e, state, reason, url=""):
+        if set_state(e, state, reason, now, url or None) and state in ("blocked", "needs-person"):
+            notices.append("**%s** %s → %s: %s" % (e["name"], e["from"], e["to"], reason))
+
+    for rec in inv.get("components", []):
+        for adv in rec.get("advisories") or []:
+            key = "%s@%s" % (rec["id"], adv["id"])
+            seen.add(key)
+            state, reason, url = _advisory_plan(rec, adv, branches)
+            e = entries.get(key)
+            if e is None:
+                e = entries[key] = new_entry(rec, adv["id"], now, "", "detected")
+                e["history"], e["state"] = [], ""
+                e["security"], e["source_host"] = True, _source_host(adv)
+                e["url"] = adv.get("url", "")
+            e["last_seen"] = stamp(now)
+            move(e, state, reason, url)
+    # a failed sandbox test on main (security.yml, job sandbox)
+    sec = (status or {}).get("security_main") or {}
+    sandbox = ((sec.get("jobs") or {}).get("sandbox") or {}).get("conclusion")
+    sha = str(sec.get("head_sha") or "")[:10]          # the commit of main it failed on (the reason says it)
+    if sandbox == "failure":
+        key = "%s@%s" % (SANDBOX["id"], "failing on main")     # one entry while it fails
+        seen.add(key)
+        e = entries.get(key)
+        if e is None:
+            e = entries[key] = new_entry(SANDBOX, "failing on main", now, "", "detected", from_="main")
+            e["history"], e["state"] = [], ""
+            e["security"], e["source_host"] = True, "security.yml"
+        e["last_seen"] = stamp(now)
+        info = branches.get(SECURITY_PREFIX + "sandbox")
+        if info:
+            move(e, *security_verdict(info))
+        else:
+            move(e, "fixing", "the sandbox tests failed on main (commit %s, %s): the automatic fix works on "
+                 "%ssandbox under the security rules; with no safe fix the owner is told"
+                 % (sha or "?", sec.get("url", "?"), SECURITY_PREFIX), sec.get("url", ""))
+    if sandbox == "success":
+        checked.add("security.yml")
+    # what a source that answered no longer reports is fixed
+    for key, e in entries.items():
+        if e.get("security") and key not in seen and e["state"] != "passed" and e.get("source_host") in checked:
+            set_state(e, "passed", "no longer reported by %s: fixed" % e["source_host"], now)
+    return notices
+
+
+def update(ledger, inv, status=None, report=None, cand_inv=None, now=None, notices=None):
     """Today's facts into the ledger (returns it). Pure: no network."""
     now = now or utcnow()
     ledger = ledger if isinstance(ledger, dict) and ledger.get("schema") == SCHEMA else empty()
@@ -287,6 +421,8 @@ def update(ledger, inv, status=None, report=None, cand_inv=None, now=None):
     for rid, rec in records.items():
         if rec.get("result") not in UPDATE_RESULTS:
             continue
+        if rec.get("result") == "vulnerable" and rec.get("advisories"):
+            continue                    # each advisory is its own entry (security_entries), recorded once
         to = str(rec.get("available") or "")
         if not to or to.startswith(("unknown", "not checked")):
             continue
@@ -325,7 +461,7 @@ def update(ledger, inv, status=None, report=None, cand_inv=None, now=None):
                 e["attempts"] = e.get("attempts", 1) + 1
                 set_state(e, "detected", "tried again (attempt %d)" % e["attempts"], now)
         elif e["state"] == "blocked" and main_sha and e.get("basis") and e["basis"] != main_sha \
-                and e.get("attempts", 1) < MAX_ATTEMPTS and e["kind"] in CANDIDATE_KINDS \
+                and e.get("attempts", 1) < MAX_ATTEMPTS and e["kind"] in CANDIDATE_KINDS and not e.get("security") \
                 and e["key"] in seen and records.get(e["component"], {}).get("result") != "vulnerable":
             e["attempts"] = e.get("attempts", 1) + 1
             set_state(e, "detected", "main changed since it was blocked: tried again (attempt %d)" % e["attempts"],
@@ -367,6 +503,12 @@ def update(ledger, inv, status=None, report=None, cand_inv=None, now=None):
         elif arch.get("conclusion") == "failure":
             set_state(e, "fixing", "arch.yml failed on main: the automatic fix looks at it (an issue when it "
                       "cannot)", now, arch.get("url"))
+
+    # 6b. security findings (WP6, WP7): one entry per advisory of a component, and the sandbox;
+    # what became blocked or needs a person is said to the owner (main() comments, once)
+    told = security_entries(ledger, inv, status, now)
+    if notices is not None:
+        notices.extend(told)
 
     # 7. what blocked is tied to main's commit of today; old entries leave
     for key in list(entries):
@@ -548,7 +690,7 @@ def run_info(repo, workflow, api, sha=None, branch=None, completed=False):
     return {"id": run["id"], "url": run.get("html_url", ""), "status": run.get("status"),
             "conclusion": run.get("conclusion"), "head_sha": run.get("head_sha", ""),
             "created_at": run.get("created_at", ""),
-            "jobs": {j["name"]: {"status": j.get("status"), "conclusion": j.get("conclusion"),
+            "jobs": {j["name"]: {"id": j.get("id"), "status": j.get("status"), "conclusion": j.get("conclusion"),
                                  "steps": {s["name"]: s.get("conclusion") or "" for s in j.get("steps", [])}}
                      for j in jobs}}
 
@@ -650,6 +792,15 @@ def gather(repo, api=None, candidate_sha=None):
     safe("tests_runs", lambda: {"Tests": {b: run_info(repo, "tests.yml", api, branch=b, completed=True)
                                           for b in ("main", MAINTENANCE)}})
     safe("reports", lambda: open_reports(repo, api))
+    # WP6: what cargo-deny found on main (its job's log), and the isolated branches of the security fixes
+    safe("security_findings", lambda: security_findings(repo, api, status.get("security_main")))
+    safe("security_branches", lambda: security_branches(repo, api))
+    for rep in status.get("reports") or []:
+        if rep.get("workflow") == "Security":
+            for _, b in rep.get("marks") or []:
+                info = (status.get("security_branches") or {}).get(b)
+                if info is not None:
+                    info["autofix_issue"] = "#%s" % rep["number"]
     cand = status.get("candidate") or {}
     plan_titles = []
     for rep in status.get("reports") or []:
@@ -660,14 +811,50 @@ def gather(repo, api=None, candidate_sha=None):
     return status
 
 
+def security_findings(repo, api, sec):
+    """The findings of cargo-deny's last run on main (the failed job's log, read with
+    tools/security-fix.py), or [] when it passed; None when the log cannot be read."""
+    job = ((sec or {}).get("jobs") or {}).get("rust-advisories") or {}
+    if job.get("conclusion") != "failure" or not job.get("id"):
+        return []
+    log = api("repos/%s/actions/jobs/%s/logs" % (repo, job["id"]), raw=True)
+    text = log.decode("utf-8", "replace") if isinstance(log, bytes) else str(log)
+    return _security_tool().parse(text)
+
+
+def security_branches(repo, api):
+    """{branch: its pull request, commit, the runs of Tests and Security there and the automatic
+    fix's commits} for every open pull request of automation/update/security-*."""
+    out, owner = {}, repo.split("/")[0]
+    for pr in api("repos/%s/pulls?state=open&per_page=100" % repo):
+        head = pr.get("head") or {}
+        ref, sha = head.get("ref") or "", head.get("sha") or ""
+        if not ref.startswith(SECURITY_PREFIX) or not sha or (head.get("repo") or {}).get("full_name") not in (
+                None, repo) or (head.get("user") or {}).get("login") not in (None, owner):
+            continue
+        info = {"branch": ref, "pr": pr.get("number"), "url": pr.get("html_url", ""), "sha": sha,
+                "runs": {wf: run_info(repo, wf, api, sha=sha) for wf in ("tests.yml", "security.yml")}}
+        try:
+            cmp = api("repos/%s/compare/main...%s" % (repo, sha))
+            info["autofix_commits"] = sum(1 for c in cmp.get("commits", [])
+                                          if (c.get("commit") or {}).get("message", "").startswith("autofix:"))
+        except Exception:
+            info["autofix_commits"] = 0
+        out[ref] = info
+    return out
+
+
 def advisories_of(status):
-    """cargo-deny's last result on main (security.yml, job rust-advisories) for tools/inventory.py."""
+    """cargo-deny's last result on main (security.yml, job rust-advisories) for tools/inventory.py:
+    since WP6 with each advisory it named (security_findings) and their crates."""
     sec = (status or {}).get("security_main") or {}
     job = (sec.get("jobs") or {}).get("rust-advisories")
     if not job:
         return {"state": "unknown", "url": sec.get("url", ""), "date": sec.get("created_at", "")}
     state = {"success": "clean", "failure": "found"}.get(job.get("conclusion"), "unknown")
-    return {"state": state, "url": sec.get("url", ""), "date": sec.get("created_at", ""), "crates": []}
+    found = (status or {}).get("security_findings") or []
+    return {"state": state, "url": sec.get("url", ""), "date": sec.get("created_at", ""),
+            "crates": sorted({f["crate"] for f in found if f.get("crate")}), "advisories": found}
 
 
 def read_ledger(repo, api):
@@ -690,6 +877,15 @@ def write_ledger(repo, number, body, api):
         pass                                  # the label exists already
     return api("repos/%s/issues" % repo, method="POST", data={"title": TITLE, "body": body,
                                                             "labels": [LABEL]}).get("number")
+
+
+def notice_text(notices, owner):
+    """The comment that tells the owner (an edited body notifies nobody; a comment naming the
+    owner is mailed): security findings that became blocked or need a person, each once."""
+    lines = ["@%s: un problema di sicurezza è bloccato o aspetta una persona (chiedi a Claude)." % owner, "",
+             "Security findings that became blocked or need a person today (the ledger above has the details; "
+             "nothing was ignored and nothing merges by itself):", ""]
+    return "\n".join(lines + ["- " + n for n in notices]) + "\n"
 
 
 def close_reports(repo, closing, api):
@@ -750,7 +946,8 @@ def main(argv=None):
     number, ledger = (None, None) if args.dry_run else read_ledger(args.repo, gh_api)
     if number and ledger is None:
         print("::warning::the ledger in issue #%s could not be read: it starts again" % number)
-    ledger = update(ledger, inv, status, _read(args.report), _read(args.candidate_inventory))
+    notices = []
+    ledger = update(ledger, inv, status, _read(args.report), _read(args.candidate_inventory), notices=notices)
     closing = finished_reports(status.get("reports") or [], status.get("tests_runs") or {})
     closed = [] if args.dry_run else close_reports(args.repo, closing, gh_api)
     body = render(ledger, inv, closed)
@@ -761,6 +958,15 @@ def main(argv=None):
     if not args.dry_run:
         number = write_ledger(args.repo, number, body, gh_api)
         print("ledger: issue #%s" % number)
+        if notices and number:
+            owner = os.environ.get("GITHUB_REPOSITORY_OWNER") or args.repo.split("/")[0]
+            try:
+                gh_api("repos/%s/issues/%s/comments" % (args.repo, number), method="POST",
+                       data={"body": notice_text(notices, owner)})
+            except RuntimeError as e:
+                print("::warning::the owner could not be told: %s" % str(e)[:200].replace("::", ": "))
+    elif notices:
+        print(notice_text(notices, "owner"))
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a", encoding="utf-8") as f:

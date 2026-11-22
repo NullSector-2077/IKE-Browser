@@ -155,6 +155,22 @@ def engine_note(allow_adblock):
             "there, change nothing and say so in the summary.\n")
 
 
+SECURITY_RULES = (
+    "\n\n## A security finding\n\nThis run fixes a security finding on an isolated branch "
+    "(automation/update/security-*). Never change the engine's sandbox and isolation switches "
+    "(UNSAFE_SWITCHES, UNSAFE_FEATURES, UNSAFE_ENV, NOTICE_SWITCHES, LNA_FEATURES in `ike/app.py`), "
+    "`ENGINE_SAFETY` or the functions that decide them, the security tests (the files `security.yml` "
+    "runs), `ike-adblock/deny.toml`, or anything that names a RustSec advisory. The checker refuses such a "
+    "fix (--security) and no other assistant is asked. If the only way out is weakening a protection, "
+    "change nothing and say so in the summary.\n")
+
+
+def security_note(security):
+    """The rules of a fix of a security finding: the same the reserves get and the checker
+    enforces (--security, WP6)."""
+    return SECURITY_RULES if security else ""
+
+
 def key_variants(key):
     key = key.encode()
     out = {key, key[::-1]}
@@ -212,11 +228,13 @@ def main(argv=None):
     ap.add_argument("--total-timeout", type=int, default=TOTAL_TIMEOUT)
     ap.add_argument("--allow-adblock", action="store_true",
                     help="this run updates the ad blocker's engine (tools/autofix-plan.py)")
+    ap.add_argument("--security", action="store_true",
+                    help="this run fixes a security finding (tools/autofix-plan.py): the stricter rules")
     a = ap.parse_args(argv)
     key = os.environ.get("GEMINI_API_KEY", "")
     workdir, out = Path(a.workdir), Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    rules = Path(a.prompt).read_text("utf-8") + engine_note(a.allow_adblock)
+    rules = Path(a.prompt).read_text("utf-8") + engine_note(a.allow_adblock) + security_note(a.security)
     try:
         failure = (workdir / ".autofix" / "failure.md").read_text("utf-8", "replace")
     except OSError:

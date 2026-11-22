@@ -22,7 +22,7 @@ workflow pushes to `main` (the verified merge is a merge of a pull request).
 | On every PR, every push to `main`, every candidate or fix | Lint, all the tests, the Arch package and its tests | `tests.yml` | Checks on the PR, package download `ike-browser-package` |
 | When one of the three above fails, or `arch.yml` fails on `main` or on the fix branch | An automatic fix (for `arch.yml` only when `Tests` passed on the same commit) | `autofix.yml` | Draft PR labelled `autofix`, or an issue "ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!! (<workflow>)" assigned to the owner, which GitHub mails |
 | Every push to `main`, when the daily check finds Arch's packages changed, after a merge made by itself, on an automatic fix of an Arch failure, and Mondays at 03:41 UTC | The whole suite and the package on Arch Linux's own Python, Qt and Qt WebEngine (`archlinux:latest`), and a record of the versions it tested | `arch.yml` | Artifact `arch-versions` and the run's summary; a failure goes to the automatic fix (see "Arch Linux's own packages"); not a required check of the release |
-| Every day, 04:23 UTC, and on every PR and push to `main` | The security tests with the engine's sandbox really on (as a normal user), and the RustSec advisories of every crate of the AdBlock engine | `security.yml` | Checks on the PR; on `main` the issue "Rust advisories" when one is found (no automatic fix) |
+| Every day, 04:23 UTC, and on every PR and push to `main` | The security tests with the engine's sandbox really on (as a normal user), and the RustSec advisories of every crate of the AdBlock engine | `security.yml` | Checks on the PR; on `main` the issue "Rust advisories" when one is found; since 2026-11-22 a finding goes to an analysis and a fix on an isolated branch `automation/update/security-<id>`, never on `main`, or is blocked and the owner told (see "Security findings and vulnerability sources") |
 | Mondays, 07:41 UTC | The automation itself: every scheduled check (also the Arch and security ones, 1.1.19), and one tiny question to each reserve of the automatic fix | `health.yml` | Issue "Automation health" when something stopped, failed, waits too long, or a reserve's key or model no longer works |
 | Once a month | New versions of the GitHub actions used | Dependabot | One PR labelled `maintenance` |
 | When a check of a pull request ends, or the automation's own Tests, Security and Arch Linux runs pass on its branch (a dispatch) | The verified merge (2026-11-22): the daily candidate (`automation/daily-maintenance`), a fix of the automatic fix (`automation/autofix-main`) or an isolated update (`automation/update/...`) is merged when it is fully verified: every check of its last commit passed (`tests`, `sandbox`, `rust-advisories`, `Arch Linux`), every category its components need passed with nothing "not verified" and no required test skipped, no test file changed or removed, no protected file or workflow, the licences up to date, no open security finding, the version raised when main's is published, and no other merge by itself waiting for a signature; the automatic fix's files also follow the 1.1.19 rules (only existing interface modules under `ike/` and `docs/`, no line that reaches the environment, the network, the system or the test run, no module that decides the user's safety). Arch Linux is started on the commit when it has not run there. A fix of ChatGPT (`chatgpt/...`) that passes the 1.1.19 rules is only marked ready for the owner's order. Rules: `tools/automerge.py`, read from `main` | `automerge.yml` | Merged, then `main`'s Tests, Security and Arch Linux start and the release notice follows; otherwise one comment naming the owner with the reason (edited when the reason changes, never repeated), and the ledger says needs-person (blocked for a security finding); ChatGPT: one comment, ready and waiting for the owner's order |
@@ -277,7 +277,9 @@ needs a requirement change"), vulnerabilities, the last check and its result.
 What is not known or could not be read is "unknown" or "not checked", never
 guessed; a host that does not answer three times is not asked again that
 day. Vulnerabilities come only from a check that ran: the RustSec advisories
-of `security.yml`'s last run on `main` for the crates; everything else says
+of `security.yml`'s last run on `main` for the crates, and since WP7 the OSV
+database and Arch's security tracker for the rest (see "Security findings and
+vulnerability sources"); a source that did not answer leaves its components
 "not checked". On today's repository the inventory finds about 200
 components and no finding. Output: JSON and a Markdown summary (the daily
 check's run summary and artifact `maintenance-ledger`).
@@ -301,7 +303,7 @@ history. The states:
 | testing | the candidate's checks, or `arch.yml` on `main` for an Arch package, are running |
 | fixing | they failed: the automatic fix works on it |
 | passed | every required check passed (it waits for the owner's merge), or it is in `main` |
-| blocked | a RustSec advisory, or tried `MAX_ATTEMPTS` times |
+| blocked | an advisory with no fixed version upstream, a security fix the automatic fix gave up on, or tried `MAX_ATTEMPTS` times |
 | needs-person | a builder refused it, a workflow file (proposals only), a dependency used but not declared, the automatic fix gave up, or checks that passed but left a required category not verified |
 | retry-later | a source unreachable today (tried again the next day), or a new major version `cargo update` cannot take (looked at again weekly) |
 
@@ -336,12 +338,126 @@ The inventory, the ledger, the test categories, the candidate's report and
 `tools/check-components.py` itself are in the guard's protected files
 (`FORBIDDEN_FILES`): no agent changes what judges it.
 
-Not yet (later work packages): one candidate per component (WP5); security
-findings connected to an analysis and a fix on an isolated branch (WP6);
-advisories for Python, npm, Arch and the actions (WP7); the filter lists'
-classification (WP8); providers checked as free (WP9); the optional Arch
-packages tested one by one and `arch.yml` on the candidate (WP10); the
+Not yet (later work packages): one candidate per component (WP5); the filter
+lists' classification (WP8); providers checked as free (WP9); the optional
+Arch packages tested one by one and `arch.yml` on the candidate (WP10); the
 builders' re-anchoring path and workflow proposals (WP11, WP12).
+
+## Security findings and vulnerability sources
+
+WP6 and WP7 (2026-11-22). The owner's decisions: a vulnerability starts an
+analysis and a fix by the AI on an **isolated** branch, never on `main`; with
+no safe fix the candidate or update is **blocked** and the owner is told;
+agents never weaken the sandbox, disable a protection, weaken a test, ignore
+a vulnerability without a documented reason, or lower a check to accept a
+dependency; nothing merges by itself.
+
+**From a finding to a fix.** `security.yml`'s job `hand-over` gives a failure
+on `main`, a maintenance branch or an isolated branch (never a person's pull
+request) to `autofix.yml`; `tools/autofix-plan.py` decides:
+
+| Finding | On | What happens |
+|---|---|---|
+| A RustSec advisory with a fixed version | `main` | Job `security-update`, **no AI**: `tools/security-fix.py apply` runs `cargo update -p <crate>@<version> --precise <first fixed version>` on `automation/update/security-<advisory id>` made from `main`. Only `ike-adblock/Cargo.lock` may change (the job stops otherwise), and cargo-deny must no longer report the advisory (`verify`). Then a draft pull request with the report (the candidate report's format: what changes, AutoFix, problems, tests, security, licences, limits) and `Tests` and `Security` on that branch. A failure there goes to the AI **on that branch**, under the security rules below (I.K.E.'s wrapper of the ad blocker only, when the crate is `adblock` or `pyo3`) |
+| An advisory with no fixed version upstream ("No safe upgrade is available!"), a fixed version `cargo update` cannot take (a requirement of the crate that uses it must change), or one the update did not clear | `main`, its branch | **Blocked**: the automatic fix's issue (once while it is open) and the ledger tell the owner. Never ignored: an exception goes only in `ike-adblock/deny.toml`, written by a person with its reason |
+| An advisory only a candidate brings | a candidate | The candidate is blocked and the owner told |
+| A failed sandbox or isolation test (job `sandbox`) | `main` | The AI on `automation/update/security-sandbox`, made from `main`, under the security rules |
+| The same | a candidate | The AI on `automation/update/security-sandbox-<candidate>`, from the candidate's commit (`main` plus its update: from `main` alone the failure does not show); the candidate stays blocked |
+| A fix that still fails after `MAX_ATTEMPTS` (2) | its branch | Blocked, the owner told |
+
+The isolated branch is tested again by `tests.yml` (whose `hand-over` covers
+`automation/update/security-*`, and "No tests lost" runs there) and
+`security.yml`. Other `automation/update/*` and `automation/builder/*`
+branches are watched by `security.yml`'s hand-over but get no fix of their
+own yet (WP5, WP11).
+
+**The 1.1.18 safety property, kept.** Until 2026-11-22 it read "a finding
+here never starts an automatic fix". It now starts one, and the property is:
+**a security finding can never make an AI change a protection**. How it is
+guaranteed:
+
+1. The plan, the instructions and the checker are read from `main`, never
+   from the branch being fixed (as for every fix).
+2. Every patch of a security fix goes through `tools/check-autofix-patch.py
+   --security`, in the fix job (Antigravity's patch and each reserve's, before
+   it is kept) and in the guard job. `--security` comes from the plan's output
+   `security`, which is true for every finding of `Security` and every failure
+   on `automation/update/security-*`. It refuses, with exit status 3 (no other
+   assistant is asked, the owner looks):
+   - any added or removed line, in any file, that names one of the engine's
+     protections: every string of `UNSAFE_SWITCHES`, `UNSAFE_FEATURES`,
+     `UNSAFE_ENV`, `NOTICE_SWITCHES`, `LNA_FEATURES` and `PRIVACY_FEATURES`
+     (read with Python's parser from `ike/app.py` of the tree being checked,
+     so a switch added there later is protected with no change of the
+     checker), the names of those lists, `ENGINE_SAFETY` and the functions
+     that decide (`_engine_safety`, `unsafe_allowed`, `refuse_root`,
+     `sandbox_off`, `site_isolated`, `engine_safety_lines`),
+     `IKE_ALLOW_UNSAFE_ENGINE`, `QTWEBENGINE_DISABLE_SANDBOX`,
+     `IKE_TEST_SANDBOX`, `--site-per-process`;
+   - the security tests (`SECURITY_TESTS`: the nine files `security.yml` runs
+     with the sandbox on, plus `test_security.py`,
+     `test_home_network_engine.py` and `test_update_safety.py`);
+   - `ike-adblock/deny.toml`, and any added line that names a RustSec
+     advisory;
+   - and everything the checker refuses for every fix (workflows, tools,
+     Cargo files, weakened tests, keys...).
+3. For **every** fix, ordinary ones and ChatGPT's included, a line of
+   I.K.E.'s code (`ike/`, `ike_boot.py`, `launcher/`) that names those
+   protections, and `ike-adblock/deny.toml`, are refused the same way.
+4. The deterministic update changes only `Cargo.lock`; it never writes
+   `deny.toml`.
+5. An exception needs a reason: `security.yml` runs `tools/security-fix.py
+   check-ignores` before cargo-deny and fails when an `ignore` entry of
+   `deny.toml` has none (a bare id, a placeholder, under 20 characters).
+6. The security tests still run with the sandbox on against the fix, on its
+   branch, and no test may be lost.
+
+What this does not prove: the checker refuses lines by what they name; a
+change of behaviour that names no protection is caught only by the tests on
+the branch and by the owner, who reads the diff before ordering the merge
+(the pull request says so).
+
+**Vulnerability sources (WP7)**: `tools/vulnerabilities.py`, called by the
+inventory in the daily check's ledger job (its step has no token), only in
+GitHub Actions, never in the browser (README, "External services"):
+
+| Components | Source | How |
+|---|---|---|
+| Python test and CI packages (pinned in `tools/test-requirements.txt` or a workflow) | The OSV database: `POST https://api.osv.dev/v1/querybatch` (ecosystem PyPI), then `GET /v1/vulns/<id>` once per advisory found | The name and version only, in batches of 500 |
+| npm: Dark Reader's engine (the version in `darkreader-data.json`); the modules of `tools/*.mjs` when a version is pinned (today none: "not checked") | OSV, ecosystem npm | The same |
+| GitHub Actions pinned to a commit | OSV, ecosystem "GitHub Actions", by the release the pin's comment names (`# v7.0.1`: 7.0.1) | The same; an action with no release named is "not checked" |
+| Arch packages (depends, makedepends, optdepends, `ARCH_PACKAGES`) | Arch's security tracker, `GET https://security.archlinux.org/issues/all.json` (every advisory group, AVG, with its packages, status, affected and fixed versions: the JSON `arch-audit` reads) | By the version the last green `arch.yml` run on `main` tested (else the repositories' one), compared as pacman's `vercmp`: "Vulnerable" (no fix yet), "Testing" (a fix in [testing]), "Fixed" with a newer version |
+| Rust crates | RustSec through cargo-deny (`security.yml`), as before | The findings of `main`'s last run, read from its job's log |
+
+A source that does not answer, or answers in another layout, leaves its
+components **not checked** (the reason in `vulnerability_note`), never "none
+known"; the inventory's `vulnerability_sources` and its summary say which.
+Each advisory of a component is **one** ledger entry, key `<component
+id>@<advisory id>`: no fixed version upstream is "blocked"; a crate with a
+fix is "detected" and then follows its isolated branch (testing, fixing,
+passed: waits for the owner's merge, or blocked when the automatic fix gave
+up); an Arch package is "detected" (users get the fix with `pacman -Syu`,
+`arch.yml` verifies it); PyPI and npm are "detected" (the daily candidate
+takes the newer version); a GitHub Action "needs-person" (workflow files are
+proposals). A failed sandbox test on `main` is the entry
+`security:sandbox@failing on main`. An advisory a source that answered no longer reports is
+"passed". Every entry that becomes blocked or needs a person is said **once**
+in a comment on the ledger issue that names the owner (an edited body
+notifies nobody).
+
+Checked on 2026-11-22 while this was built: `api.osv.dev` and
+`security.archlinux.org` could not be reached from the development machine
+(its network refuses them), so their first real answers come with the first
+daily check after the merge; the formats follow their public documentation
+and the tests use recorded stand-ins. The deterministic update was tried for
+real on the positive control of docs/SECURITY.md (smallvec 1.6.0,
+RUSTSEC-2021-0003): `cargo update` took 1.6.1 and cargo-deny no longer
+reported it; with `smallvec = "=1.6.0"` it was blocked, as it must be.
+
+Still open: the pull request of a security fix is written when its branch is
+pushed (its tests "not verified" until they run); their later results are in
+the ledger, not yet written back into the pull request. A security fix that
+changes the browser gets its version when the owner orders the merge.
 
 ## The maintenance candidate
 

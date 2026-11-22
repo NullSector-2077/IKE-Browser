@@ -17,6 +17,7 @@ import datetime as dt
 import importlib.util
 import json
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -824,3 +825,533 @@ def test_the_maintenance_is_documented():
     for word in ("tools/inventory.py", "tools/maintenance-ledger.py", "maintenance-ledger", "tools/test-categories.py",
                  "tools/maintenance-report.py", "not verified", "used but not declared"):
         assert word in doc, word
+
+
+# --- WP6: security findings into the maintenance and the automatic fix ---------------------------------
+# --- WP7: vulnerability sources for the inventory (OSV, Arch's security tracker) ------------------------
+
+security_fix = load("security-fix")
+vulns = load("vulnerabilities")
+
+# cargo-deny 0.20.2's own output (the positive control of docs/SECURITY.md, smallvec 1.6.0), as it
+# appears in a GitHub job log (time stamps), and an advisory with no fixed version
+CARGO_DENY_LOG = """2026-11-22T04:30:01.0000000Z ##[group]Run cargo deny --manifest-path ike-adblock/Cargo.toml check advisories
+2026-11-22T04:30:09.1000000Z error[vulnerability]: Buffer overflow in SmallVec::insert_many
+2026-11-22T04:30:09.1000000Z   ┌─ /home/runner/work/IKE-Browser/IKE-Browser/ike-adblock/Cargo.lock:2:1
+2026-11-22T04:30:09.1000000Z   │
+2026-11-22T04:30:09.1000000Z 2 │ smallvec 1.6.0 registry+https://github.com/rust-lang/crates.io-index
+2026-11-22T04:30:09.1000000Z   │ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ security vulnerability detected
+2026-11-22T04:30:09.1000000Z   │
+2026-11-22T04:30:09.1000000Z   ├ ID: RUSTSEC-2021-0003
+2026-11-22T04:30:09.1000000Z   ├ Advisory: https://rustsec.org/advisories/RUSTSEC-2021-0003
+2026-11-22T04:30:09.1000000Z   ├ A bug in the `SmallVec::insert_many` method caused it to allocate a buffer that was smaller than needed.
+2026-11-22T04:30:09.1000000Z   ├ Announcement: https://github.com/servo/rust-smallvec/issues/252
+2026-11-22T04:30:09.1000000Z   ├ Solution: Upgrade to >=0.6.14, <1.0.0 OR >=1.6.1 (try `cargo update -p smallvec`)
+2026-11-22T04:30:09.1000000Z   ├ smallvec v1.6.0
+2026-11-22T04:30:09.1000000Z     └── ike-adblock v0.1.0
+2026-11-22T04:30:09.1000000Z
+2026-11-22T04:30:09.1000000Z error[unmaintained]: itoa is unmaintained
+2026-11-22T04:30:09.1000000Z   ┌─ /home/runner/work/IKE-Browser/IKE-Browser/ike-adblock/Cargo.lock:9:1
+2026-11-22T04:30:09.1000000Z   │
+2026-11-22T04:30:09.1000000Z 9 │ itoa 1.0.0 registry+https://github.com/rust-lang/crates.io-index
+2026-11-22T04:30:09.1000000Z   │
+2026-11-22T04:30:09.1000000Z   ├ ID: RUSTSEC-2099-0001
+2026-11-22T04:30:09.1000000Z   ├ Solution: No safe upgrade is available!
+2026-11-22T04:30:09.1000000Z advisories FAILED
+2026-11-22T04:30:09.2000000Z ##[error]Process completed with exit code 1.
+"""
+
+OSV_VULNS = {
+    "GHSA-pyte-st00-0001": {"id": "GHSA-pyte-st00-0001", "summary": "pytest writes a temporary file insecurely",
+                            "aliases": ["CVE-2026-0001"],
+                            "affected": [{"package": {"ecosystem": "PyPI", "name": "pytest"},
+                                          "ranges": [{"type": "ECOSYSTEM", "events": [
+                                              {"introduced": "0"}, {"fixed": "9.0.1"}]}]}]},
+    "GHSA-dark-read-0001": {"id": "GHSA-dark-read-0001", "summary": "Dark Reader: a style can leak",
+                            "affected": [{"package": {"ecosystem": "npm", "name": "darkreader"},
+                                          "ranges": [{"type": "SEMVER", "events": [{"introduced": "0"}]}]}]},
+    "GHSA-chec-kout-0001": {"id": "GHSA-chec-kout-0001", "summary": "checkout keeps a token",
+                            "affected": [{"package": {"ecosystem": "GitHub Actions", "name": "actions/checkout"},
+                                          "ranges": [{"type": "ECOSYSTEM", "events": [
+                                              {"introduced": "7.0.0"}, {"fixed": "7.0.2"}]}]}]},
+}
+ARCH_GROUPS = [
+    {"name": "AVG-2801", "packages": ["python"], "status": "Fixed", "severity": "High",
+     "type": "arbitrary code execution", "affected": "3.14.10-1", "fixed": "3.14.11-1", "issues": ["CVE-2026-1111"],
+     "advisories": []},
+    {"name": "AVG-2802", "packages": ["qt6-webengine", "qt6-base"], "status": "Vulnerable", "severity": "Critical",
+     "type": "multiple issues", "affected": "6.140.0-1", "fixed": None, "issues": ["CVE-2026-2222"]},
+    {"name": "AVG-2700", "packages": ["gcc"], "status": "Fixed", "severity": "Low", "type": "denial of service",
+     "affected": "14.0-1", "fixed": "15.0-1", "issues": []},                 # older than ours: not vulnerable
+    {"name": "AVG-2803", "packages": ["breeze"], "status": "Not affected", "affected": "6.5.3-1", "fixed": None},
+]
+OSV_DEFAULT = {("PyPI", "pytest", "9.0.0"): ["GHSA-pyte-st00-0001"] * 2,
+               ("npm", "darkreader", "4.9.135"): ["GHSA-dark-read-0001"],
+               ("GitHub Actions", "actions/checkout", "7.0.1"): ["GHSA-chec-kout-0001"]}
+
+
+class Advisories(Upstream):
+    """Upstream, plus the OSV database and Arch's security tracker (stand-ins, no network)."""
+
+    def __init__(self, osv=None, groups=None, **kw):
+        super().__init__(**kw)
+        self.osv = OSV_DEFAULT if osv is None else osv
+        self.groups = ARCH_GROUPS if groups is None else groups
+        self.posts = []
+
+    def get(self, url):
+        host = re.match(r"https://([^/]+)/", url).group(1)
+        if host in ("api.osv.dev", "security.archlinux.org"):
+            self.asked.append(url)
+            if host in self.down:
+                raise OSError("network unreachable")
+            if host == "api.osv.dev":
+                return json.dumps(OSV_VULNS[url.rsplit("/", 1)[1]]).encode()
+            assert url == vulns.ARCH_TRACKER_URL
+            return json.dumps(self.groups).encode()
+        return super().get(url)
+
+    def post(self, url, payload):
+        self.posts.append((url, payload))
+        if "api.osv.dev" in self.down:
+            raise OSError("Tunnel connection failed: 403")
+        assert url == vulns.OSV_BATCH_URL
+        res = []
+        for q in payload["queries"]:
+            found = self.osv.get((q["package"]["ecosystem"], q["package"]["name"], q["version"]), [])
+            res.append({"vulns": [{"id": i, "modified": "2026-11-01T00:00:00Z"} for i in found]} if found else {})
+        return json.dumps({"results": res}).encode()
+
+    def net(self):
+        return inv_tool.Net(get=self.get, ls_remote=self.ls_remote, post=self.post)
+
+
+def test_an_advisory_of_each_kind_is_found_and_recorded_once(fixture_repo):
+    """WP7: a Python, npm, GitHub Actions and Arch component with a known advisory is found, asked in one
+    batch, and becomes one ledger entry per advisory, the same on the next day."""
+    up = Advisories()
+    inv = take(fixture_repo, up, arch_tested=ARCH_TESTED)
+    found = ids(inv)
+    # one POST for every PyPI, npm and Action component (batched): names and versions only
+    assert len(up.posts) == 1
+    queries = {(q["package"]["ecosystem"], q["package"]["name"], q["version"]) for q in up.posts[0][1]["queries"]}
+    assert {("PyPI", "pytest", "9.0.0"), ("PyPI", "ruff", "0.17.6"), ("npm", "darkreader", "4.9.135"),
+            ("GitHub Actions", "actions/checkout", "7.0.1"), ("GitHub Actions", "actions/setup-python", "7.1.0")} \
+        <= queries
+    pytest_ = found["pypi-test:pytest"]
+    assert [a["id"] for a in pytest_["advisories"]] == ["GHSA-pyte-st00-0001"]        # twice in the answer, once here
+    assert pytest_["advisories"][0]["fixed"] == ["9.0.1"] and pytest_["advisories"][0]["aliases"] == ["CVE-2026-0001"]
+    assert pytest_["vulnerabilities"].startswith("1 known (OSV, PyPI 9.0.0): GHSA-pyte-st00-0001 fixed in 9.0.1")
+    assert found["pypi-test:ruff"]["vulnerabilities"] == "none known (OSV, PyPI 0.17.6)"
+    assert found["integrated:Dark Reader"]["advisories"][0]["fixed"] == []
+    assert found["github-action:actions/checkout"]["advisories"][0]["fixed"] == ["7.0.2"]
+    # Arch: by the version the last green arch.yml run tested
+    assert [a["id"] for a in found["arch-package:python"]["advisories"]] == ["AVG-2801"]
+    assert found["arch-package:python"]["advisories"][0]["fixed"] == ["3.14.11-1"]
+    assert found["arch-package:qt6-webengine"]["advisories"][0]["fixed"] == []        # Vulnerable: no fix yet
+    assert not found["arch-package:breeze"].get("advisories")                          # "Not affected"
+    assert found["arch-build:gcc"]["vulnerabilities"].startswith("none known (Arch security tracker")
+    assert inv["vulnerability_sources"] == {"api.osv.dev": "ok", "security.archlinux.org": "ok"}
+    text = inv_tool.to_markdown(inv)
+    assert "#### Known vulnerabilities" in text and "AVG-2802" in text and "**no fix upstream**" in text
+
+    # the ledger: one entry per advisory of a component, never twice
+    told = []
+    ledger = ledger_tool.update(None, inv, now=DAY1, notices=told)
+    sec = {k: e for k, e in ledger["entries"].items() if e.get("security")}
+    assert set(sec) == {"pypi-test:pytest@GHSA-pyte-st00-0001", "integrated:Dark Reader@GHSA-dark-read-0001",
+                        "github-action:actions/checkout@GHSA-chec-kout-0001", "arch-package:python@AVG-2801",
+                        "arch-package:qt6-webengine@AVG-2802", "arch-package:qt6-base@AVG-2802"}   # one group, two packages
+    assert sec["pypi-test:pytest@GHSA-pyte-st00-0001"]["state"] == "detected"
+    assert "the daily candidate takes the newer version" in sec["pypi-test:pytest@GHSA-pyte-st00-0001"]["reason"]
+    assert sec["arch-package:python@AVG-2801"]["state"] == "detected"
+    assert "pacman -Syu" in sec["arch-package:python@AVG-2801"]["reason"]
+    assert sec["arch-package:qt6-webengine@AVG-2802"]["state"] == "blocked"
+    assert sec["integrated:Dark Reader@GHSA-dark-read-0001"]["state"] == "blocked"
+    assert sec["github-action:actions/checkout@GHSA-chec-kout-0001"]["state"] == "needs-person"
+    assert len(told) == 4 and sum("AVG-2802" in n for n in told) == 2
+    again = []
+    ledger = ledger_tool.update(ledger, take(fixture_repo, Advisories(), arch_tested=ARCH_TESTED), now=DAY2,
+                                notices=again)
+    assert {k for k, e in ledger["entries"].items() if e.get("security")} == set(sec)   # recorded once
+    assert again == [] and all(len(e["history"]) == 1 for k, e in ledger["entries"].items() if k in sec)
+    assert ledger_tool.parse_body(ledger_tool.render(ledger, inv)) == ledger
+    # gone from the answer of a source that answered: fixed
+    ledger = ledger_tool.update(ledger, take(fixture_repo, Advisories(osv={}), arch_tested=ARCH_TESTED), now=DAY3)
+    assert ledger["entries"]["pypi-test:pytest@GHSA-pyte-st00-0001"]["state"] == "passed"
+    assert ledger["entries"]["arch-package:python@AVG-2801"]["state"] == "detected"     # Arch still reports it
+
+
+def test_an_unreachable_vulnerability_source_is_not_checked(fixture_repo):
+    """WP7: a source that does not answer (or answers nonsense) leaves its components "not checked", never
+    "none known", and an open advisory is not taken for fixed."""
+    ledger = ledger_tool.update(None, take(fixture_repo, Advisories(), arch_tested=ARCH_TESTED), now=DAY1)
+    inv = take(fixture_repo, Advisories(down={"api.osv.dev", "security.archlinux.org"}), arch_tested=ARCH_TESTED)
+    found = ids(inv)
+    for rid in ("pypi-test:pytest", "pypi-test:ruff", "integrated:Dark Reader", "github-action:actions/checkout",
+                "arch-package:python", "arch-build:gcc"):
+        assert found[rid]["vulnerabilities"] == "not checked", rid
+        assert "unreachable" in found[rid]["vulnerability_note"], rid
+        assert not found[rid].get("advisories"), rid
+    assert all(s.startswith("unreachable") for s in inv["vulnerability_sources"].values())
+    assert not any(str(r["vulnerabilities"]).startswith("none known") for r in inv["components"])
+    assert "are **not checked** today" in inv_tool.to_markdown(inv)
+    later = ledger_tool.update(ledger, inv, now=DAY2)
+    assert later["entries"]["pypi-test:pytest@GHSA-pyte-st00-0001"]["state"] == "detected"   # not "passed"
+    assert later["entries"]["arch-package:qt6-webengine@AVG-2802"]["state"] == "blocked"
+
+    # an answer laid out differently is not a clean answer either
+    class Garbled(Advisories):
+        def post(self, url, payload):
+            return json.dumps({"results": []}).encode()
+    inv = take(fixture_repo, Garbled(), arch_tested=ARCH_TESTED)
+    assert ids(inv)["pypi-test:pytest"]["vulnerabilities"] == "not checked"
+    assert inv["vulnerability_sources"]["api.osv.dev"].startswith("unreachable: ValueError")
+    # a version that cannot be asked about is not checked, with the reason
+    recs = {"pypi-ci:x": {"id": "pypi-ci:x", "kind": "pypi-ci", "name": "x", "installed": "unpinned"},
+            "github-action:a/b": {"id": "github-action:a/b", "kind": "github-action", "name": "a/b",
+                                  "pinned_sha": True, "release": ""}}
+    assert vulns.check_osv(recs, lambda *a: pytest.fail("nothing to ask"), None) == "ok"
+    assert {r["vulnerabilities"] for r in recs.values()} == {"not checked"}
+    # offline: nothing asked at all
+    assert inv_tool.inventory(fixture_repo, offline=True)["vulnerability_sources"] == {}
+    # Arch's versions are compared as pacman does
+    assert vulns.vercmp("1:1.0-1", "2.0-1") == 1 and vulns.vercmp("3.14.10-1", "3.14.11-1") == -1
+    assert vulns.vercmp("6.140.0-2", "6.140.0-10") == -1 and vulns.vercmp("1.0rc1-1", "1.0-1") == -1
+
+
+# --- WP6: the plan, the update and the stricter guard ---------------------------------------------------
+
+def security_run(branch="main", **kw):
+    run = {"name": "Security", "head_branch": branch, "conclusion": "failure", "head_sha": "abc123",
+           "head_repository": {"full_name": "o/r"}, "_repo": "o/r", "_tip": "abc123", "_main_tip": "main1",
+           "_attempts": 0, "_engine_update": False, "_security_prs": {}}
+    run.update(kw)
+    return run
+
+
+def failed_job(name, *steps):
+    return {"name": name, "conclusion": "failure", "steps": [{"name": s, "conclusion": "failure"} for s in steps]}
+
+
+def _tests_run(branch, **kw):
+    run = {"name": "Tests", "head_branch": branch, "conclusion": "failure", "head_sha": "abc",
+           "head_repository": {"full_name": "o/r"}, "_repo": "o/r", "_tip": "abc", "_main_tip": "main1",
+           "_attempts": 0, "_engine_update": False}
+    run.update(kw)
+    return run
+
+
+ADVISORY_JOB = [failed_job("rust-advisories", "RustSec advisories (every crate of Cargo.lock)")]
+SANDBOX_JOB = [failed_job("sandbox", "The sandbox is really on")]
+
+
+def test_a_rustsec_finding_plans_an_isolated_security_fix():
+    found = security_fix.parse(CARGO_DENY_LOG)
+    assert [(f["id"], f["crate"], f["version"], f["fix"]) for f in found] == [
+        ("RUSTSEC-2021-0003", "smallvec", "1.6.0", "1.6.1"), ("RUSTSEC-2099-0001", "itoa", "1.0.0", "")]
+    assert security_fix.fixed_version("Upgrade to >=0.6.14, <1.0.0 OR >=1.6.1", "0.6.10") == "0.6.14"
+    plan = plan_tool.decide(security_run(_advisories=found), ADVISORY_JOB, "")
+    # a deterministic update first (no AI), on an isolated branch made from main, never main
+    assert plan["action"] == "update" and plan["kind"] == "security" and plan["security"] == "true"
+    assert plan["push_branch"] == "automation/update/security-rustsec-2021-0003" and plan["checkout"] == "main1"
+    assert json.loads(plan["findings"])[0]["id"] == "RUSTSEC-2021-0003"
+    assert "RUSTSEC-2099-0001" in plan["reason"] and "no fixed version upstream" in plan["reason"]
+    # its branch waits already: nothing twice; the one with no fix is then blocked
+    waiting = {"automation/update/security-rustsec-2021-0003": "120"}
+    plan = plan_tool.decide(security_run(_advisories=found, _security_prs=waiting), ADVISORY_JOB, "")
+    assert plan["action"] == "issue" and plan["reason"].startswith("blocked: no fixed version upstream")
+    # the update's own tests fail there: the AI fixes that branch with the stricter guard
+    tests = plan_tool.decide(_tests_run("automation/update/security-rustsec-2021-0003", _engine_update=True),
+                             [failed_job("tests", "Tests of the AdBlock engine")], "")
+    assert (tests["action"], tests["kind"], tests["security"]) == ("fix", "security", "true")
+    assert tests["push_branch"] == "automation/update/security-rustsec-2021-0003" and tests["checkout"] == "abc"
+    assert tests["allow_adblock"] == "true"                      # the new crate: I.K.E.'s wrapper only
+    tired = plan_tool.decide(_tests_run("automation/update/security-rustsec-2021-0003", _attempts=2),
+                             [failed_job("tests", "Lint")], "")
+    assert tired["action"] == "issue" and tired["reason"].startswith("blocked: 2 automatic fixes")
+    # other automation/update/* branches are not fixed yet (WP5): only the security ones
+    assert plan_tool.decide(_tests_run("automation/update/crates"), [failed_job("tests", "Lint")], "")["action"] \
+        == "skip"
+    # a failed sandbox test: the AI on its isolated branch, from main or from the candidate's commit
+    plan = plan_tool.decide(security_run(), SANDBOX_JOB, "")
+    assert (plan["action"], plan["push_branch"], plan["checkout"], plan["security"]) == (
+        "fix", "automation/update/security-sandbox", "abc123", "true")
+    plan = plan_tool.decide(security_run("automation/daily-maintenance"), SANDBOX_JOB, "")
+    assert plan["push_branch"] == "automation/update/security-sandbox-daily-maintenance" and plan["action"] == "fix"
+    waiting = {"automation/update/security-sandbox": "121"}
+    assert plan_tool.decide(security_run(_security_prs=waiting), SANDBOX_JOB, "")["action"] == "skip"
+    plan = plan_tool.decide(security_run("automation/update/security-sandbox", _attempts=2), SANDBOX_JOB, "")
+    assert plan["action"] == "issue" and plan["reason"].startswith("blocked")
+    # never a person's pull request, a fork or a branch that moved; never main itself
+    for run in (security_run("fix/1.1.23"), security_run(head_repository={"full_name": "x/fork"}),
+                security_run(_tip="newer")):
+        assert plan_tool.decide(run, SANDBOX_JOB, "")["action"] == "skip"
+    for run in (security_run(), security_run("automation/daily-maintenance"), security_run("automation/autofix-main")):
+        for jobs in (SANDBOX_JOB, ADVISORY_JOB):
+            plan = plan_tool.decide(dict(run, _advisories=found), jobs, "")
+            assert plan["push_branch"] == "" or plan["push_branch"].startswith("automation/update/security-"), plan
+            assert plan["security"] == "true"
+    # a candidate that brings an advisory is blocked
+    cand = plan_tool.decide(security_run("automation/daily-maintenance", _advisories=found), ADVISORY_JOB, "")
+    assert cand["action"] == "issue" and "the candidate is blocked" in cand["reason"]
+    # what reaches the assistants: the security rules (from main), the same for all
+    assert "Never touch the engine's sandbox" in plan_tool.SECURITY_NOTE
+    assert "deny.toml" in load("autofix-agent").security_note(True) and load("autofix-agent").security_note(False) == ""
+    assert "deny.toml" in load("autofix-reserve").SECURITY_RULES
+
+
+def test_the_security_workflows_are_wired():
+    sec = (WORKFLOWS / "security.yml").read_text()
+    hand = _jobs(sec)["hand-over"]
+    assert "needs: [sandbox, rust-advisories]" in hand and "failure()" in hand
+    assert "github.event_name != 'pull_request'" in hand and "startsWith(github.ref_name, 'automation/update/')" in hand
+    assert re.search(r"permissions:\n\s+actions: write\n\s+steps:", hand)
+    assert 'gh workflow run autofix.yml --ref main -f run_id="$RUN_ID"' in hand
+    assert "python3 -I tools/security-fix.py check-ignores ike-adblock/deny.toml" in _jobs(sec)["rust-advisories"]
+    assert set(plan_tool.REPORTING_JOBS["Security"]) >= {"hand-over", "advisories-issue", "sandbox-issue"}
+    jobs = _jobs((WORKFLOWS / "autofix.yml").read_text())
+    # the stricter guard for the agent, the reserves and the guard job
+    assert 'if [ -f "$RUNNER_TEMP/security-finding" ]; then allow="$allow --security"; fi' in jobs["fix"]
+    assert 'if [ "$SECURITY" = "true" ]; then touch "$RUNNER_TEMP/security-finding"; fi' in jobs["fix"]
+    assert jobs["fix"].count('if [ "$SECURITY" = "true" ]; then allow="$allow --security"; fi') == 1
+    assert 'if [ "$SECURITY" = "true" ]; then allow="$allow --security"; fi' in jobs["guard"]
+    assert "security: ${{ steps.plan.outputs.security }}" in jobs["plan"]
+    update = jobs["security-update"]
+    assert "tools/security-fix.py apply" in update and "tools/security-fix.py verify" in update
+    assert 'if [ "$changed" != "ike-adblock/Cargo.lock " ]' in update
+    assert 'gh workflow run tests.yml --ref "$PUSH_BRANCH"' in update
+    assert 'gh workflow run security.yml --ref "$PUSH_BRANCH"' in update
+    assert "gh pr merge" not in update and "--draft" in update
+    assert "needs.security-update.outputs.outcome != 'ready'" in jobs["report"]
+    assert "tools/security-fix.py report" in jobs["publish"] and 'if [ "$KIND" = "security" ]' in jobs["publish"]
+    tests = (WORKFLOWS / "tests.yml").read_text()
+    assert tests.count("startsWith(github.ref_name, 'automation/update/security-')") == 2
+
+
+def _guard_repo(tmp_path):
+    root = tmp_path / "g"
+    files = {"ike/app.py": (ROOT / "ike/app.py").read_text(), "ike/window.py": "def width():\n    return 10\n",
+             "tests/test_sandbox.py": "def test_on():\n    assert 1\n",
+             "ike-adblock/deny.toml": (ROOT / "ike-adblock/deny.toml").read_text(),
+             "tools/helper.py": "X = 1\n", "docs/SECURITY.md": "# Security\n"}
+    for rel, text in files.items():
+        write(root, rel, text)
+    for args in (["init", "-q"], ["add", "-A"], ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "b"]):
+        subprocess.run(["git", "-C", str(root), *args], check=True, capture_output=True)
+    return root
+
+
+def _patch(root, rel, old, new):
+    p = root / rel
+    text = p.read_text()
+    assert old in text, (rel, old)
+    p.write_text(text.replace(old, new, 1))
+    out = subprocess.run(["git", "-C", str(root), "diff"], check=True, capture_output=True, text=True).stdout
+    subprocess.run(["git", "-C", str(root), "checkout", "-q", "--", "."], check=True)
+    return out
+
+
+def _check(root, tmp_path, patch, *extra):
+    pf = tmp_path / "x.patch"
+    pf.write_text(patch)
+    report = tmp_path / "r.md"
+    report.unlink(missing_ok=True)
+    code = guard.main(["--repo", str(root), "--patch", str(pf), "--report", str(report), "--check-only", *extra])
+    return code, report.read_text() if report.exists() else ""
+
+
+def test_the_guard_never_lets_a_fix_touch_the_protections(tmp_path):
+    """WP6: each rule of the stricter guard refuses its case (exit 3: no other assistant is asked), and an
+    ordinary fix still passes."""
+    root = _guard_repo(tmp_path)
+    sandbox_off = _patch(root, "ike/app.py", '    "--no-sandbox", ', "    ")
+    engine_safety = _patch(root, "ike/window.py", "    return 10\n", "    ENGINE_SAFETY['kept'] = []\n    return 10\n")
+    new_switch = _patch(root, "ike/window.py", "    return 10\n",
+                        "    os.environ['QTWEBENGINE_CHROMIUM_FLAGS'] = '--disable-web-security'\n    return 10\n")
+    features = _patch(root, "ike/window.py", "    return 10\n",
+                      "    f = '--disable-features=IsolateOrigins'\n    return 10\n")
+    for patch in (sandbox_off, engine_safety, new_switch, features):
+        for extra in ((), ("--security",)):                     # in every mode, not only for security findings
+            code, text = _check(root, tmp_path, patch, *extra)
+            assert code == 3 and "touches the engine's protections" in text, (patch, extra, text)
+    # the switches are read from ike/app.py itself: one added there later is protected with no change here
+    p = root / "ike/app.py"
+    p.write_text(p.read_text().replace('    "--ip-address-space-overrides",\n',
+                                       '    "--ip-address-space-overrides",\n    "--made-up-unsafe-switch",\n'))
+    subprocess.run(["git", "-C", str(root), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "s"],
+                   check=True)
+    made_up = _patch(root, "ike/window.py", "    return 10\n", "    f = '--made-up-unsafe-switch'\n    return 10\n")
+    assert _check(root, tmp_path, made_up)[0] == 3
+    assert "--made-up-unsafe-switch" in guard.protection_terms(root)
+    assert "--made-up-unsafe-switch" not in guard.protection_terms(tmp_path / "nowhere")
+    assert {"--no-sandbox", "ENGINE_SAFETY", "--site-per-process"} <= guard.protection_terms(tmp_path / "nowhere")
+    # deny.toml's ignores: a person's, in every mode, even with --allow-adblock
+    ignore = _patch(root, "ike-adblock/deny.toml", "ignore = []",
+                    'ignore = [{ id = "RUSTSEC-2021-0003", reason = "not called" }]')
+    for extra in ((), ("--security",), ("--allow-adblock",)):
+        code, text = _check(root, tmp_path, ignore, *extra)
+        assert code == 3 and "an exception to a RustSec advisory is a person's" in text, extra
+    # a fix of a security finding: never a security test, a protection named in any file, an advisory named
+    sec_test = _patch(root, "tests/test_sandbox.py", "    assert 1\n", "    assert 1\n    assert len('ab') == 2\n")
+    assert _check(root, tmp_path, sec_test)[0] == 0                    # an ordinary fix may correct it
+    code, text = _check(root, tmp_path, sec_test, "--security")
+    assert code == 3 and "a security test" in text
+    doc = _patch(root, "docs/SECURITY.md", "# Security\n", "# Security\n\nRun it with --no-sandbox.\n")
+    assert _check(root, tmp_path, doc)[0] == 0
+    code, text = _check(root, tmp_path, doc, "--security")
+    assert code == 3 and "touches the engine's protections" in text
+    named = _patch(root, "tools/helper.py", "X = 1\n", "X = 1\nIGNORED = 'RUSTSEC-2021-0003'\n")
+    assert _check(root, tmp_path, named)[0] == 0
+    code, text = _check(root, tmp_path, named, "--security")
+    assert code == 3 and "names a RustSec advisory" in text
+    # an ordinary fix of I.K.E.'s code still passes under the security rules
+    ordinary = _patch(root, "ike/window.py", "    return 10\n", "    return 12\n")
+    assert _check(root, tmp_path, ordinary, "--security")[0] == 0
+    # the reserves refuse the same files before the checker sees them, and check each fix with --security
+    reserve = load("autofix-reserve")
+    rule = reserve._checker_rule()
+    assert rule("tests/test_sandbox.py", False, True) and not rule("tests/test_sandbox.py", False, False)
+    (root / "tests/test_sandbox.py").write_text("def test_on():\n    assert 1\n    assert len('ab') == 2\n")
+    checker = str(ROOT / "tools/check-autofix-patch.py")
+    assert reserve.checked(root, checker, None, False, True)[0] == 3
+    assert reserve.checked(root, checker, None, False)[0] == 0
+    subprocess.run(["git", "-C", str(root), "checkout", "-q", "--", "."], check=True)
+    # the security tests are those security.yml runs with the sandbox on (and they exist)
+    named_in_workflow = set(re.findall(r"tests/test_\w+\.py", (WORKFLOWS / "security.yml").read_text()))
+    assert named_in_workflow and named_in_workflow <= guard.SECURITY_TESTS
+    assert all((ROOT / t).is_file() for t in guard.SECURITY_TESTS)
+    assert (ROOT / guard.DENY_CONFIG).is_file() and (ROOT / guard.ENGINE_FILE).is_file()
+    # today's ike/app.py: every list the guard names is there, with its switches
+    terms = guard.protection_terms(ROOT)
+    assert {"--no-sandbox", "--disable-web-security", "QTWEBENGINE_REMOTE_DEBUGGING", "localnetworkaccesschecks",
+            "LocalNetworkAccessChecks", "--disable-gpu-sandbox", "--ip-address-space-overrides"} <= terms
+    app = (ROOT / guard.ENGINE_FILE).read_text()
+    assert all(re.search(r"^%s\s*=" % name, app, re.M) for name in guard.PROTECTION_LISTS)
+
+
+def test_no_safe_fix_is_blocked_and_the_owner_is_told(fixture_repo):
+    found = security_fix.parse(CARGO_DENY_LOG)
+    nofix = [f for f in found if not f["fix"]]
+    plan = plan_tool.decide(security_run(_advisories=nofix), ADVISORY_JOB, "")
+    assert (plan["action"], plan["kind"]) == ("issue", "security") and plan["push_branch"] == ""
+    assert "never ignored" in plan["reason"] and "RUSTSEC-2099-0001" in plan["reason"]
+    # reported once: the next daily run finds the same open report
+    report = [{"title": plan_tool.ISSUE_TITLE % "Security", "shas": ["abc123"], "reported_at": ""}]
+    assert plan_tool.decide(security_run(_advisories=nofix), ADVISORY_JOB, "", report)["action"] == "skip"
+    # findings that cannot be read are a person's, never a clean result
+    assert plan_tool.decide(security_run(_advisories=None), ADVISORY_JOB, "")["action"] == "issue"
+    # the deterministic update: no fix, or cargo cannot take it -> blocked with the reason
+    lock_ = fixture_repo / "ike-adblock" / "Cargo.lock"
+    lock_.write_text(lock(("adblock", "0.13.6"), ("smallvec", "1.6.0"), ("itoa", "1.0.0")))
+
+    def cargo_ok(cmd, **kw):
+        lock_.write_text(lock_.read_text().replace('"smallvec"\nversion = "1.6.0"', '"smallvec"\nversion = "1.6.1"'))
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+    result = security_fix.apply(found, fixture_repo / "ike-adblock" / "Cargo.toml", run=cargo_ok)
+    assert result["updates"] == [{"id": "RUSTSEC-2021-0003", "crate": "smallvec", "from": "1.6.0", "to": "1.6.1",
+                                  "title": "Buffer overflow in SmallVec::insert_many",
+                                  "url": "https://rustsec.org/advisories/RUSTSEC-2021-0003"}]
+    assert [b["id"] for b in result["blocked"]] == ["RUSTSEC-2099-0001"]
+    assert "no fixed version upstream" in result["blocked"][0]["reason"]
+    failing = security_fix.apply(found[:1], fixture_repo / "ike-adblock" / "Cargo.toml",
+                                 run=lambda cmd, **kw: subprocess.CompletedProcess(
+                                     cmd, 101, "", "error: failed to select a version for `smallvec`"))
+    assert failing["updates"] == [] and "a person" in failing["blocked"][0]["reason"]
+    assert "failed to select a version" in failing["blocked"][0]["reason"]
+    assert security_fix.verify(CARGO_DENY_LOG, ["RUSTSEC-2021-0003"]) == ["RUSTSEC-2021-0003"]
+    assert security_fix.verify("advisories ok\n", ["RUSTSEC-2021-0003"]) == []
+    # the ledger: the advisory with no fix is blocked, and the owner is told once, by name
+    lock_.write_text(lock(("adblock", "0.13.6"), ("smallvec", "1.6.0"), ("itoa", "1.0.0")))
+    status = {"security_main": {"url": "https://x/runs/9", "head_sha": "main1", "jobs": {
+        "rust-advisories": {"conclusion": "failure"}, "sandbox": {"conclusion": "failure"}}},
+              "security_findings": found}
+    inv = take(fixture_repo, advisories=ledger_tool.advisories_of(status))
+    assert ids(inv)["crate:itoa"]["advisories"][0]["id"] == "RUSTSEC-2099-0001"
+    told = []
+    ledger = ledger_tool.update(None, inv, status, now=DAY1, notices=told)
+    e = ledger["entries"]
+    assert e["crate:itoa@RUSTSEC-2099-0001"]["state"] == "blocked"
+    assert e["crate:smallvec@RUSTSEC-2021-0003"]["state"] == "detected"
+    assert "automation/update/security-rustsec-2021-0003" in e["crate:smallvec@RUSTSEC-2021-0003"]["reason"]
+    assert e["security:sandbox@failing on main"]["state"] == "fixing"
+    assert len(told) == 1 and "RUSTSEC-2099-0001" in told[0]
+    assert ledger_tool.notice_text(told, "owner").startswith("@owner: ")
+    assert not [k for k in e if k.startswith("crate:itoa@") and "RUSTSEC" not in k]      # one entry, not two
+    # the isolated branch's checks: running, failed (the AI works), gave up (blocked, told), passed (the owner)
+    branch = "automation/update/security-rustsec-2021-0003"
+
+    def run_(conclusion, state="completed"):
+        return {"status": state, "conclusion": conclusion, "url": "https://x/runs/10"}
+    steps = [({"tests.yml": run_(None, "in_progress"), "security.yml": run_(None, "queued")}, {}, "testing"),
+             ({"tests.yml": run_("failure"), "security.yml": run_("success")}, {"autofix_commits": 1}, "fixing"),
+             ({"tests.yml": run_("failure"), "security.yml": run_("success")}, {"autofix_issue": "#130"}, "blocked"),
+             ({"tests.yml": run_("success"), "security.yml": run_("success")}, {}, "passed")]
+    for n, (runs, extra, state) in enumerate(steps):
+        info = dict({"branch": branch, "pr": 131, "runs": runs, "autofix_commits": 0}, **extra)
+        told = []
+        ledger = ledger_tool.update(ledger, inv, dict(status, security_branches={branch: info}),
+                                    now=DAY1 + dt.timedelta(hours=n + 1), notices=told)
+        entry = ledger["entries"]["crate:smallvec@RUSTSEC-2021-0003"]
+        assert entry["state"] == state, (state, entry["reason"])
+        assert bool(told) == (state == "blocked")
+    assert "waits for the owner's merge (PR #131)" in entry["reason"]
+    # the sandbox passes on main again and cargo-deny reports nothing: both are finished
+    clean = {"security_main": {"url": "u", "head_sha": "main2", "jobs": {"rust-advisories": {"conclusion": "success"},
+                                                                         "sandbox": {"conclusion": "success"}}}}
+    ledger = ledger_tool.update(ledger, take(fixture_repo, advisories=ledger_tool.advisories_of(clean)), clean,
+                                now=DAY2)
+    assert ledger["entries"]["security:sandbox@failing on main"]["state"] == "passed"
+    assert ledger["entries"]["crate:itoa@RUSTSEC-2099-0001"]["state"] == "passed"
+
+
+def test_an_exception_needs_a_reason_a_person_wrote(tmp_path):
+    """Never silenced by an ignore without a documented reason: security.yml fails on one."""
+    assert security_fix.check_ignores((ROOT / "ike-adblock/deny.toml").read_text()) == []
+    base = "[advisories]\nignore = [%s]\n"
+    assert security_fix.check_ignores(base % '{ id = "RUSTSEC-2021-0003", reason = "the vulnerable function '
+                                              'insert_many is never called by the engine" }') == []
+    for bad in ('"RUSTSEC-2021-0003"', '{ id = "RUSTSEC-2021-0003" }', '{ id = "RUSTSEC-2021-0003", reason = "TODO" }',
+                '{ id = "RUSTSEC-2021-0003", reason = "ok" }'):
+        assert security_fix.check_ignores(base % bad), bad
+    deny = tmp_path / "deny.toml"
+    deny.write_text(base % '"RUSTSEC-2021-0003"')
+    assert security_fix.main(["check-ignores", str(deny)]) == 1
+    assert security_fix.main(["check-ignores", str(ROOT / "ike-adblock/deny.toml")]) == 0
+
+
+def test_the_security_fix_pull_request_carries_the_report():
+    found = security_fix.parse(CARGO_DENY_LOG)
+    result = {"updates": [{"id": "RUSTSEC-2021-0003", "crate": "smallvec", "from": "1.6.0", "to": "1.6.1",
+                           "title": "Buffer overflow"}], "blocked": [dict(found[1], reason="no fixed version upstream")]}
+    body = security_fix.report(found, result, "automation/update/security-rustsec-2021-0003", "https://x/runs/1",
+                               commits="abc1234 security: RUSTSEC-2021-0003\n")
+    for section in ("## Security finding", "## What this candidate changes", "## Changes of the automatic fix",
+                    "## Problems found", "## Tests on this commit", "## Security checks", "## Licences", "## Limits"):
+        assert section in body, section
+    assert "smallvec 1.6.0 -> 1.6.1" in body and "no AI" in body and "**Blocked**: RUSTSEC-2099-0001" in body
+    assert "waits for the owner's order" in body and "Until then everything is **not verified**" in body
+    ai = security_fix.report(autofix_of="Security", branch="automation/update/security-sandbox", summary="Fatto.",
+                             guard="Patch accepted")
+    assert "--security" in ai and "### Summary of the agent" in ai and "Read its change before merging" in ai
+    assert security_fix.branch_for("RUSTSEC-2021-0003") == "automation/update/security-rustsec-2021-0003"
+    assert security_fix.branch_for("sandbox-daily maintenance") == "automation/update/security-sandbox-daily-maintenance"
+
+
+def test_no_agent_may_change_the_security_tools():
+    ctx = load("autofix-context")
+    for path in ("tools/security-fix.py", "tools/vulnerabilities.py"):
+        assert path in guard.FORBIDDEN_FILES and path in ctx.NOT_RECENT, path
+        assert guard.allowed_path(path, False) and guard.allowed_path(path, True, True), path
+    assert "tools/security-fix.py or tools/vulnerabilities.py" in (WORKFLOWS / "autofix.yml").read_text()
+
+
+def test_the_vulnerability_sources_are_documented():
+    """ROADMAP: no external service beyond those documented in README.md."""
+    readme, doc = (ROOT / "README.md").read_text(), (ROOT / "docs/MAINTENANCE.md").read_text()
+    for host in ("api.osv.dev", "security.archlinux.org"):
+        assert host in readme and host in doc, host
+    for word in ("automation/update/security-", "--security", "check-ignores", "not checked", "blocked"):
+        assert word in doc, word
+    assert vulns.OSV_BATCH_URL.startswith("https://api.osv.dev/")
+    assert vulns.ARCH_TRACKER_URL.startswith("https://security.archlinux.org/")

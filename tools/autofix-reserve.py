@@ -161,6 +161,17 @@ Answer with ONE JSON object and nothing else:
 """
 
 
+# WP6: the rules of a fix of a security finding (--security), the same Antigravity gets
+# (tools/autofix-agent.py) and the checker enforces
+SECURITY_RULES = (
+    "\n\nThis run fixes a security finding on an isolated branch (automation/update/security-*). Never "
+    "change the engine's sandbox and isolation switches (UNSAFE_SWITCHES, UNSAFE_FEATURES, UNSAFE_ENV, "
+    "NOTICE_SWITCHES, LNA_FEATURES in ike/app.py), ENGINE_SAFETY or the functions that decide them, the "
+    "security tests, ike-adblock/deny.toml, or anything that names a RustSec advisory: such a fix is "
+    "refused and no other model is asked. If only weakening a protection would make it pass, answer "
+    "\"fixable\": false.\n")
+
+
 def instructions(allow_adblock):
     return INSTRUCTIONS % {"wrapper": (
         "this run updates the ad blocker's engine, so I.K.E.'s own wrapper may change "
@@ -314,7 +325,7 @@ def _locate(current, find):
     return offsets[i], offsets[end_line] + len(lines[end_line])
 
 
-def apply_edits(workdir, edits, shown, allow_adblock=False):
+def apply_edits(workdir, edits, shown, allow_adblock=False, security=False):
     """Apply the edits (all or none). Returns the changed files; raises ValueError."""
     if not isinstance(edits, list):
         raise ValueError("the edits are not a list")
@@ -337,7 +348,7 @@ def apply_edits(workdir, edits, shown, allow_adblock=False):
             raise ValueError("%s may not be changed in this run (the ad blocker only with an "
                              "update of its engine)" % path)
         rule = _checker_rule()
-        why = rule(path, allow_adblock) if rule else ""
+        why = rule(path, allow_adblock, security) if rule else ""
         if why:
             raise ValueError("%s may not be changed: %s" % (path, why))
         current = new.get(path)
@@ -404,7 +415,7 @@ def undo(workdir, files):
     _git(workdir, "checkout", "-q", "--", *files)
 
 
-def checked(workdir, checker, related, allow_adblock):
+def checked(workdir, checker, related, allow_adblock, security=False):
     """(exit status, reasons) of the trusted checks on the work tree's changes."""
     with tempfile.NamedTemporaryFile("w", suffix=".patch", delete=False) as f:
         f.write(diff_of(workdir))
@@ -414,6 +425,8 @@ def checked(workdir, checker, related, allow_adblock):
         cmd += ["--related", related]
     if allow_adblock:
         cmd.append("--allow-adblock")
+    if security:
+        cmd.append("--security")          # WP6: a fix of a security finding, the stricter rules
     run = subprocess.run(cmd, capture_output=True, text=True, check=False)
     os.unlink(patch)
     return run.returncode, run.stdout.strip()[-2000:]
@@ -488,11 +501,12 @@ def one_model(url, key, model, base, tokens, deadline, opener, workdir, shown, a
                 # explicit "fixable": false counts as "cannot be fixed"
                 raise ValueError("the answer has no edits: give the exact edits of the fix, "
                                  "or \"fixable\": false if it cannot be fixed in the code")
-            applied[:] = apply_edits(workdir, obj["edits"], shown, a.allow_adblock)
+            applied[:] = apply_edits(workdir, obj["edits"], shown, a.allow_adblock, getattr(a, "security", False))
             summary = str(obj.get("summary") or "")
             print("  edits applied: %s" % for_log(", ".join(applied)), flush=True)
             if a.checker:
-                status, reasons = checked(workdir, a.checker, a.related, a.allow_adblock)
+                status, reasons = checked(workdir, a.checker, a.related, a.allow_adblock,
+                                          getattr(a, "security", False))
                 if status == 3:
                     undo(workdir, applied)
                     applied.clear()
@@ -568,6 +582,7 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     ap.add_argument("--checker", help="tools/check-autofix-patch.py from main: each fix is checked")
     ap.add_argument("--related", help="the files involved (for the checker)")
     ap.add_argument("--allow-adblock", action="store_true")
+    ap.add_argument("--security", action="store_true", help="a fix of a security finding: the stricter rules")
     ap.add_argument("--refused", help="why the checks refused Antigravity's fix")
     ap.add_argument("--lint", action="store_true", help="ruff on each fix (its safe fixes first)")
     a = ap.parse_args(argv)
@@ -582,7 +597,7 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     failure, context = read("failure.md"), read("context.md")
     related = [line.strip() for line in read("related.txt").splitlines() if line.strip()]
     shown = files_shown(workdir, related)
-    rules = Path(a.prompt).read_text("utf-8")
+    rules = Path(a.prompt).read_text("utf-8") + (SECURITY_RULES if a.security else "")
     keys = [env.get(p[2], "") for p in PROVIDERS]
     refused = ""
     if a.refused:

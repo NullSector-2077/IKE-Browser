@@ -458,8 +458,14 @@ def jobs_of(text):
 def test_autofix_workflow_permissions():
     text = (WORKFLOWS / "autofix.yml").read_text()
     jobs = jobs_of(text)
-    assert set(jobs) == {"plan", "rerun", "fix", "guard", "publish", "report", "self-test"}
+    assert set(jobs) == {"plan", "rerun", "fix", "guard", "publish", "report", "self-test", "security-update"}
     assert "permissions: {}" in text and "pull_request_target" not in text
+    # WP6: the deterministic security update has no secret, no AI and pushes only its isolated branch
+    update = jobs["security-update"]
+    assert "secrets." not in update and "persist-credentials: false" in update
+    assert "needs.plan.outputs.action == 'update'" in update
+    assert 'automation/update/security-*) ;; *) echo "::error::not an isolated branch' in update
+    assert "--force-with-lease" in update and "main:refs/heads/main" not in update
     # the agent: read only, the only job with the key, no GitHub token
     assert re.search(r"permissions:\n\s+contents: read\n\s+outputs:", jobs["fix"])
     assert "secrets.GEMINI_API_KEY" in jobs["fix"]

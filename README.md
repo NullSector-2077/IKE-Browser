@@ -191,6 +191,17 @@ I.K.E. has no servers of its own and sends no telemetry. It contacts only:
 | GitHub (github.com and its download servers) | once a day, unless I.K.E. updates are off | a plain download of the latest release's signed manifest, and of the update when you install it |
 | Chrome Web Store (chromewebstore.google.com, clients2.google.com) | only if you install an experimental Chrome extension | the extension's id; the package is downloaded |
 
+The project's own checks run in GitHub Actions only, never in the browser
+and never with anything about its users ([docs/MAINTENANCE.md](docs/MAINTENANCE.md)):
+
+| Service | When | What is sent |
+|---|---|---|
+| crates.io, PyPI, registry.npmjs.org, github.com, archlinux.org | the daily component check and candidate | plain requests for the newest versions of the components (no account, no key) |
+| The OSV vulnerability database (api.osv.dev), free, no account | the daily component check | the name and version of each Python test package, npm package and GitHub Action the project uses, to read their known vulnerabilities |
+| Arch Linux's security tracker (security.archlinux.org) | the daily component check | a plain download of its list of advisories (`/issues/all.json`), compared with the Arch packages I.K.E. depends on |
+| RustSec's advisory database (github.com/rustsec) | every day and on every pull request (cargo-deny) | a plain download of the database |
+| The automatic fix's free AI providers (Google Gemini, Groq, Z.AI, OpenRouter) | only when a check fails | the failure and the code around it (the repository is public) |
+
 ## Updates
 
 - Filter lists update themselves daily; the presented Chrome version is the
