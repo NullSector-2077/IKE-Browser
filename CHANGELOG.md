@@ -10,6 +10,17 @@
   what it costs with dark mode off. Shown frames and pages look exactly as
   before. tests/test_darkreader_frames.py loads frames one after the other,
   as Speedometer does, and checks both.
+- **Dark Reader: the colours of selected text written as colours** (the
+  owner's decision): Dark Reader wrote them as a CSS variable with the colour
+  as fallback, and a selection colour read from a variable makes the browser
+  work the selection style out again for every element that sets variables
+  of its own, at every restyle. One full restyle of Speedometer's Lit page
+  42-46 -> 34-35 ms (fastest of 41, three runs); Speedometer with Dark Reader
+  (Lit, Web Components and Charts, 10 iterations, three runs each) 5.46-5.71
+  -> 6.17-6.82, Lit 129-142 -> 105-115 ms. Selected text has the same colours,
+  pixel for pixel (screenshots of six pages, before and after); only that one
+  rule's text differs. The engine's tenth measured change
+  (`tools/build-darkreader.py`, "selection-colours").
 - **Why Brave with the Dark Reader extension scores more than I.K.E. with
   Dark Reader on Speedometer** (the owner's question): measured, the way
   I.K.E. gives Dark Reader to a page costs the same as the extension's own

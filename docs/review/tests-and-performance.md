@@ -160,15 +160,56 @@ ms before, 0.2 / 1.9 ms after (to a shown frame, 20-26 ms both); a shown
 frame dark as before, hidden frames not started, then dark once shown,
 with the same colours as the frame shown from the start.
 
-**Proposed, not done** (each needs the owner's word or is too small):
-the colours of selected text written as colours instead of `var()` (a
-build change measured in 1.1.21's study: -17 % for every full restyle of a
-page built with CSS variables, the same colours, but one rule's text
-differs, so `tests/test_darkreader.py`'s list of kept families would
-change); sharing the colour caches between frames of one site (about 3 ms
-of a frame's 30, and only in its loading, which Speedometer does not
-count); a V8 code cache for user scripts (Qt has none, and compiling is
-about 1 ms per frame anyway).
+**Not done**: remembering the kinds of a page's CSS variables from one
+load to the next (the owner said no); sharing the colour caches between
+frames of one site (about 3 ms of a frame's 30, and only in its loading,
+which Speedometer does not count); a V8 code cache for user scripts (Qt has
+none, and compiling is about 1 ms per frame anyway).
+
+## 1.1.23, the colours of selected text
+
+The owner's decision of 2026-11-22, from the list above: patch
+`selection-colours` in `tools/build-darkreader.py`. Dark Reader's user-agent
+style had
+
+    ::selection {
+        background-color: var(--darkreader-background-0060d4, #004daa) !important;
+        color: var(--darkreader-text-ffffff, #e8e6e3) !important;
+    }
+
+and now has `#004daa` and `#e8e6e3` there (for any theme: the colour that
+was the fallback). The variable is written only when `color-variables` puts
+it on `:root` (a site fix names it, or the same variable had another colour);
+otherwise var() always gave its fallback, so the colour is the same. Why it
+matters: a `::selection` that reads a variable is worked out again for every
+element whose variables differ from its parent's, at every restyle (the
+1.1.21 study counted 1,695 more style resolutions in one restyle of the Lit
+page). That rule is the only text that changes: `tests/test_darkreader.py`
+counts the patch among the kept families (now ten) and checks, in the
+browser, the rule's text and the computed colours of selected text
+(rgb(0, 77, 170) behind rgb(232, 230, 227), as before).
+
+**Pixels.** Text selected on six pages (a plain page, a page whose every row
+sets its own colour variables, a page with its own `::selection` colours, a
+text area, Speedometer's Lit and JavaScript-ES5 complex pages), one browser
+process per engine, screenshots 1000x800 compared pixel by pixel: five
+identical, 0 pixels different; on the ES5 complex page 25 pixels differ in
+the icons at the top right, where two runs of the same engine differ by
+2,521 (Dark Reader's analysis of the icons finishes at a different moment);
+the selected text is identical there too. Computed selection colours
+identical on all six.
+
+**Speed** (same container; one process per run; old and new engine in
+turns):
+
+| | before | after |
+|---|---|---|
+| one full restyle of the Lit page (fastest of 41), 3 runs | 45.5 / 42.6 / 39.6 ms | 34.7 / 35.0 / 34.2 ms |
+| the same, median of 41 | 54.6 / 50.8 / 45.1 ms | 40.1 / 41.3 / 38.1 ms |
+| Speedometer, Lit-Complex-DOM, mean of 10 | 128.6 / 139.5 / 141.7 ms | 105.1 / 112.8 / 114.5 ms |
+| WebComponents-Complex-DOM | 219.1 / 235.4 / 215.0 ms | 170.6 / 176.0 / 204.7 ms |
+| Charts-observable-plot | 200.0 / 203.8 / 188.1 ms | 182.4 / 185.0 / 195.0 ms |
+| score of the three suites | 5.71 / 5.46 / 5.65 | 6.82 / 6.64 / 6.17 |
 
 ## 1.1.22, start and speed
 

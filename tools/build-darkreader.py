@@ -792,6 +792,48 @@ PATCHES = [
             }
             function ikeBuild(force) {
                 sheetModifier.modifySheet({"""),
+    # 1.1.23 (the owner's decision of 2026-11-22): the colours of selected text
+    # are written as colours. Dark Reader writes every colour as
+    # var(--darkreader-<kind>-<hex>, <colour>), its "::selection" rule too; a
+    # "::selection" that reads a variable makes the browser work out the
+    # selection style again for every element that sets a CSS variable of its
+    # own, at every restyle (1,695 more style resolutions in one restyle of
+    # Speedometer's Lit page). The colour itself is written when the variable
+    # is not set on :root (color-variables): the var() then always gives its
+    # fallback, which is that colour. Same colours on the screen; the text of
+    # this one rule is the only difference (docs/review/tests-and-performance.md,
+    # "1.1.23, the colours of selected text").
+    ("selection-colours", """\
+        ["::selection", "::-moz-selection"].forEach((selection) => {
+            lines.push(`${selection} {`);
+            lines.push(
+                `    background-color: ${backgroundColorSelection} !important;`
+            );
+            lines.push(`    color: ${foregroundColorSelection} !important;`);
+            lines.push("}");
+        });
+        return lines.join("\\n");
+    }
+""", """\
+        ["::selection", "::-moz-selection"].forEach((selection) => {
+            lines.push(`${selection} {`);
+            lines.push(
+                `    background-color: ${ikePlainColor(backgroundColorSelection)} !important;`
+            );
+            lines.push(`    color: ${ikePlainColor(foregroundColorSelection)} !important;`);
+            lines.push("}");
+        });
+        return lines.join("\\n");
+    }
+    // I.K.E.: var(--darkreader-<kind>-<hex>, <colour>) as the colour itself
+    function ikePlainColor(value) {
+        const m =
+            /^var\\((--darkreader-(?:background|text|border)-[0-9a-f]+), ([^()]+)\\)$/.exec(
+                value
+            );
+        return m && !ikeColorOnRoot(m[1], m[2]) ? m[2] : value;
+    }
+"""),
 ]
 
 
