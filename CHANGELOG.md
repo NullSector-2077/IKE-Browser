@@ -2,6 +2,14 @@
 
 ## 1.1.23
 
+- **Widevine installs again** (Settings -> DRM video): Google no longer serves the old zips on
+  dl.google.com/widevine-cdm/ ("HTTP Error 404" in 1.1.22). I.K.E. now asks Chrome's component
+  updater (update.googleapis.com) for the Widevine component, as a Chromium on x64 Linux would and
+  nothing more, downloads the package it names only over https from Google's own servers, and
+  installs it only if its SHA-256 matches the answer, it is signed with Widevine's own key and it
+  holds a 64-bit x86-64 Linux library. The old folder stays only as a fallback; when Google offers
+  nothing, the message says so and names the AUR package chromium-widevine as another way.
+  "Check for a newer version" asks the same question and says when the copy is already the newest.
 - uBlock Origin scriptlets: 2bc679d99a (2026-11-10) -> 5934db2a04 (2026-11-21) (1 changed, 0 new, 0 removed)
 
 ## 1.1.22
