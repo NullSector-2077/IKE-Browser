@@ -224,6 +224,139 @@ def test_plan_leaves_other_runs_alone(run, why):
     assert p["action"] == "skip" and why in p["reason"]
 
 
+LISTS = "automation/update/lists-2026-11-22"
+
+
+def failed_tests_jobs(step="Tests"):
+    return [{"name": "tests", "conclusion": "failure", "steps": [{"name": step, "conclusion": "failure"}]}]
+
+
+def test_a_lists_branch_whose_tests_fail_is_fixed_there_in_lists_mode():
+    """PR #111 (2026-11-22): the AI analysis of the filter lists made its tests fail and the plan
+    skipped it ("not one the automation fixes"); now that branch is fixed again, in lists mode."""
+    # attempt 1 was the analysis itself (its "autofix: attempt 1" commit): the next one is 2
+    run = failed_run(branch=LISTS, _attempts=1, _tip="abc", run_attempt=2)
+    p = plan_tool.decide(run, failed_tests_jobs(), "")
+    assert (p["action"], p["kind"], p["mode"], p["push_branch"], p["checkout"], p["attempt"]) == (
+        "fix", "update", "lists", LISTS, "abc", "2")
+    # never more of the ad blocker than the lists mode (I.K.E.'s adapter) allows; no new recorded rules
+    assert p["allow_adblock"] == "false" and p["recorded"] == "" and p["security"] == "false"
+    # a fresh context per attempt, the next free provider first, as on the other isolated branches
+    providers = load("ai-providers")
+    assert plan_tool.first_provider(p) == providers.first_provider(2) != providers.first_provider(1)
+    # Arch Linux on the same branch too (when Tests passed on the commit)
+    p = plan_tool.decide(failed_run(name="Arch Linux", branch=LISTS, _attempts=1, _tests="success", run_attempt=2),
+                         [{"name": "Arch Linux", "conclusion": "failure",
+                           "steps": [{"name": "Lint", "conclusion": "failure"}]}], "")
+    assert (p["action"], p["mode"], p["attempt"]) == ("fix", "lists", "2")
+    # every attempt up to the cap of tools/ai-providers.py, not MAX_ATTEMPTS of main
+    assert plan_tool.ISOLATED_ATTEMPTS > plan_tool.MAX_ATTEMPTS
+    for done in range(1, plan_tool.ISOLATED_ATTEMPTS):
+        p = plan_tool.decide(failed_run(branch=LISTS, _attempts=done, run_attempt=2), failed_tests_jobs(), "")
+        assert p["action"] == "fix" and p["attempt"] == str(done + 1), done
+    # at the cap: a person, the branch kept
+    p = plan_tool.decide(failed_run(branch=LISTS, _attempts=plan_tool.ISOLATED_ATTEMPTS, run_attempt=2),
+                         failed_tests_jobs(), "")
+    assert p["action"] == "issue" and "needs-person" in p["reason"] and "branch is kept" in p["reason"]
+    assert plan_tool.first_provider(p) == ""
+    # a test that failed once runs again first, as everywhere
+    assert plan_tool.decide(failed_run(branch=LISTS, _attempts=1), failed_tests_jobs(), "")["action"] == "rerun"
+    # an older failure of the branch: nothing
+    assert "older failure" in plan_tool.decide(failed_run(branch=LISTS, _tip="newer", _attempts=1),
+                                               failed_tests_jobs(), "")["reason"]
+
+
+@pytest.mark.parametrize("branch", ["automation/update/lists-foo", "automation/update/lists-2026-11-2",
+                                    "automation/update/lists-2026-11-22-x", "automation/update/lists-2026-11-22/x",
+                                    "x/automation/update/lists-2026-11-22", "lists-2026-11-22"])
+def test_only_a_real_lists_branch_is_fixed(branch):
+    assert not plan_tool.lists_branch(branch)
+    p = plan_tool.decide(failed_run(branch=branch, run_attempt=2), failed_tests_jobs(), "")
+    assert p["action"] == "skip" and "not one the automation fixes" in p["reason"]
+    # Arch Linux (testing) on a lists branch stays a person's (its runs are on main)
+    p = plan_tool.decide(failed_run(name="Arch Linux (testing)", branch=LISTS, run_attempt=2, _tests="success"),
+                         failed_tests_jobs(), "")
+    assert p["action"] == "skip" and "not one the automation fixes" in p["reason"]
+
+
+def test_the_isolated_candidates_get_every_attempt_of_their_cap():
+    """Until 2026-11-22 the cap of main (MAX_ATTEMPTS) stopped the isolated candidates too."""
+    run = failed_run(branch="automation/update/darkreader", _attempts=plan_tool.MAX_ATTEMPTS, run_attempt=2)
+    p = plan_tool.decide(run, failed_tests_jobs(), "")
+    assert p["action"] == "fix" and p["attempt"] == str(plan_tool.MAX_ATTEMPTS + 1)
+    # main's own branches keep theirs
+    p = plan_tool.decide(failed_run(branch="automation/daily-maintenance", _attempts=plan_tool.MAX_ATTEMPTS),
+                         [job("tests")], "")
+    assert p["action"] == "issue" and "%d automatic fixes" % plan_tool.MAX_ATTEMPTS in p["reason"]
+
+
+def test_a_lists_retry_counts_the_analysis_as_attempt_one(monkeypatch, tmp_path, capsys):
+    """The whole plan on a real git history: the analysis' own commit ("autofix: attempt 1 after a
+    failure of "Filter lists"") counts, main's later commits do not; the failure description says
+    what this run is and starts from the earlier change."""
+    if not shutil.which("git"):
+        pytest.skip("git is not installed")
+    work = tmp_path / "repo"
+    work.mkdir()
+
+    def g(*args):
+        return subprocess.run(["git", "-C", str(work), "-c", "user.name=t", "-c", "user.email=t@t", *args],
+                              capture_output=True, text=True, check=True).stdout.strip()
+    g("init", "-q", "-b", "main")
+    (work / "ike").mkdir()
+    (work / "ike" / "blocker.py").write_text("x = 1\n")
+    g("add", "-A")
+    g("commit", "-q", "-m", "base")
+    g("checkout", "-q", "-b", "lists")
+    (work / "ike" / "blocker.py").write_text("x = 2\n")
+    g("commit", "-q", "-am", 'autofix: attempt 1 after a failure of "Filter lists"')
+    tip = g("rev-parse", "HEAD")
+    g("checkout", "-q", "main")
+    (work / "README.md").write_text("later\n")
+    g("add", "-A")
+    g("commit", "-q", "-m", "autofix: attempt 1 after a failure of \"Tests\" (main's own, merged)")
+    g("update-ref", "refs/remotes/origin/main", "main")
+    g("update-ref", "refs/remotes/origin/" + LISTS, tip)
+    monkeypatch.chdir(work)
+    assert plan_tool.autofix_commits(LISTS) == 1
+    run = {"name": "Tests", "head_branch": LISTS, "conclusion": "failure", "status": "completed", "head_sha": tip,
+           "head_repository": {"full_name": "o/r"}, "html_url": "u", "run_attempt": 2}
+
+    def api(path, raw=False, **kw):
+        if path.endswith("/logs"):
+            return ("##[group]Run pytest\nAttributeError: 'Library' object has no attribute 'entry'\n"
+                    "##[error]Process completed with exit code 1.\n")
+        if path.endswith("/jobs?per_page=100"):
+            return {"jobs": [dict(failed_tests_jobs()[0], id=7)]}
+        if "/runs/" in path:
+            return run
+        return []
+    monkeypatch.setattr(plan_tool, "gh_api", api)
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    logs = tmp_path / "failure.md"
+    plan_tool.main(["--run-id", "1", "--logs", str(logs), "--repo", "o/r", "--event", "workflow_run"])
+    plan = json.loads(capsys.readouterr().out)
+    assert (plan["action"], plan["kind"], plan["mode"], plan["attempt"], plan["checkout"], plan["push_tip"]) == (
+        "fix", "update", "lists", "2", tip, tip)
+    text = logs.read_text()
+    assert "The filter lists' analysis, again" in text and "no attribute 'entry'" in text
+    assert "Previous automatic fix" in text and "+x = 2" in text
+
+
+def test_a_lists_retry_reaches_the_guard_in_lists_mode():
+    """The plan's mode reaches every step that limits the AI (the agent, the reserves, the guard);
+    the recorded rules are written only by the analysis' first attempt."""
+    text = (WORKFLOWS / "autofix.yml").read_text()
+    assert "mode: ${{ steps.plan.outputs.mode }}" in text
+    assert text.count("MODE: ${{ needs.plan.outputs.mode }}") == 2
+    assert 'if [ "$MODE" = "lists" ]; then echo lists > "$RUNNER_TEMP/lists-mode"; fi' in text
+    assert text.count('if [ -f "$RUNNER_TEMP/lists-mode" ]; then allow="$allow --lists"; fi') == 2
+    assert 'if [ "$MODE" = "lists" ]; then allow="$allow --lists"; fi' in text
+    assert text.count("if: needs.plan.outputs.mode == 'lists' && needs.plan.outputs.recorded != ''") == 2
+    # the failure description says what this run is
+    assert "tests/test_lists_recorded.py" in plan_tool.LISTS_RETRY_NOTE
+
+
 NOW = dt.datetime(2026, 11, 20, 12, tzinfo=dt.timezone.utc)
 
 
