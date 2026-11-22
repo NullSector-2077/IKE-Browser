@@ -19,7 +19,7 @@ import math
 
 from PyQt6.QtCore import QEasingCurve, QObject, QPoint, QPointF, QRect, QRectF, QSize, Qt, QVariantAnimation
 from PyQt6.QtGui import QColor, QIcon, QIconEngine, QImage, QLinearGradient, QPainter, QPalette, QPen, QPixmap
-from PyQt6.QtWidgets import QProxyStyle, QStyle, QStyledItemDelegate, QStyleOptionTab, QWidget
+from PyQt6.QtWidgets import QLabel, QProxyStyle, QStyle, QStyledItemDelegate, QStyleOptionTab, QToolButton, QWidget
 
 from . import effects
 
@@ -392,11 +392,11 @@ class TabLabelStyle(QProxyStyle):
                     -self.BEYOND, -self.BEYOND, self.BEYOND, self.BEYOND)):
                 self.skipped += 1
                 return                 # outside the part being painted (1.1.23)
-            if hasattr(widget, "hover_level") and element != QStyle.ControlElement.CE_TabBarTabLabel:
+            if element != QStyle.ControlElement.CE_TabBarTabLabel and getattr(widget, "hovering", False):
                 self._tab_with_hover(element, opt, p, widget)
                 return
         if element == QStyle.ControlElement.CE_TabBarTabLabel and isinstance(opt, QStyleOptionTab) \
-                and hasattr(widget, "enter_level"):
+                and getattr(widget, "_enter", None) is not None:
             k = widget.enter_level(opt.tabIndex)
             if k < 1.0:                # a new tab: its title and icon fade in (1.1.23)
                 p.save()
@@ -1271,6 +1271,232 @@ def soft_edge(rect, colour, strength):
     return QPen(g, 1.0)
 
 
+# --- a private window (1.1.23) ------------------------------------------------------
+PRIVATE_PURPLE = QColor("#8e44ad")   # Plasma's purple, mixed into the theme's own colours
+PRIVATE_MIX = 0.15
+
+
+def private_tint():
+    """The toolbar of a private window: Plasma's purple laid over the theme's
+    own toolbar at PRIVATE_MIX, so it is mixed into it, light or dark."""
+    c = QColor(PRIVATE_PURPLE)
+    c.setAlphaF(PRIVATE_MIX)
+    return c
+
+
+class PrivateBadge(QLabel):
+    """"Private" in a rounded badge on the toolbar of a private window: the
+    private-browsing icon of the desktop's theme before the text, a fill of
+    purple mixed into the highlight colour, and a 1-px border a shade darker
+    (light themes) or lighter (dark themes) than the fill. A label: its text
+    is measured as every other text of the window (the text-fit tests)."""
+
+    PAD_X, PAD_Y, GAP, ICON = 10, 3, 6, 16
+
+    def __init__(self, text, parent=None):
+        super().__init__(text, parent)
+        from .icons import themed
+        self.setObjectName("privateWindowBadge")
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.icon = themed(("view-private", "security-high"))
+        self._restyle()
+
+    def colours(self):
+        pal = self.palette()
+        fill = effects.blend(pal.color(QPalette.ColorRole.Highlight), PRIVATE_PURPLE, 0.35)
+        dark_theme = pal.color(QPalette.ColorRole.Window).lightnessF() < 0.5
+        edge = fill.lighter(140) if dark_theme else fill.darker(135)
+        from .uistyle import readable
+        text = readable(pal.color(QPalette.ColorRole.HighlightedText), fill, QColor("#ffffff"))
+        return fill, edge, text
+
+    def _restyle(self):
+        fill, edge, text = self.colours()
+        rtl = self.layoutDirection() == Qt.LayoutDirection.RightToLeft
+        icon_room = self.PAD_X + self.ICON + self.GAP
+        sheet = ("#privateWindowBadge { background: %s; color: %s; border: 1px solid %s; border-radius: %dpx;"
+                 " font-weight: 600; padding: %dpx %dpx %dpx %dpx; }" % (
+                     fill.name(), text.name(), edge.name(), round(RADIUS + 2), self.PAD_Y,
+                     icon_room if rtl else self.PAD_X, self.PAD_Y, self.PAD_X if rtl else icon_room))
+        if sheet != self.styleSheet():
+            self.setStyleSheet(sheet)
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        from PyQt6.QtCore import QEvent
+        if event.type() in (QEvent.Type.PaletteChange, QEvent.Type.LayoutDirectionChange):
+            self._restyle()          # a theme changed: the colours follow (the same sheet is not set again)
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        p = QPainter(self)
+        r = QRect(self.PAD_X + 1, (self.height() - self.ICON) // 2, self.ICON, self.ICON)
+        self.icon.paint(p, QStyle.visualRect(self.layoutDirection(), self.rect(), r),
+                        Qt.AlignmentFlag.AlignCenter, QIcon.Mode.Selected)
+        p.end()
+
+
+# --- popups: one radius and a light shadow (1.1.23) ---------------------------------
+POPUP_SHADOW = 6             # px of soft shadow around a popup I.K.E. paints itself
+
+
+def _base_style_name():
+    from PyQt6.QtWidgets import QApplication
+    st = QApplication.style()
+    base = st.baseStyle() if hasattr(st, "baseStyle") else st
+    return (base.name() if base is not None else "").lower()
+
+
+def native_popups():
+    """True where the widget style draws the menus' own rounded frame and has
+    the compositor draw their shadow (Breeze and Oxygen ask KWin for it,
+    Kvantum's themes have their own): those menus are left as they are."""
+    name = _base_style_name()
+    return name in ("breeze", "oxygen") or "kvantum" in name
+
+
+def translucent_popups():
+    """A popup can be see-through around its shape (Wayland, and the tests'
+    offscreen screen); on X11 the corners are cut instead, without a shadow
+    (an X11 desktop may have no compositor: see-through would be black)."""
+    from PyQt6.QtGui import QGuiApplication
+    return QGuiApplication.platformName() != "xcb"
+
+
+def paint_popup_panel(p, rect, palette, shadow):
+    """The rounded panel of a popup inside rect, its light shadow around it
+    (shadow px), and the separators' colour on its edge."""
+    p.save()
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    inner = QRectF(rect).adjusted(shadow + 0.5, shadow + 0.5, -shadow - 0.5, -shadow - 0.5)
+    if shadow:
+        p.setPen(Qt.PenStyle.NoPen)
+        dark = palette.color(QPalette.ColorRole.Window).lightnessF() < 0.5
+        for i in range(shadow, 0, -1):
+            c = QColor(0, 0, 0, round((40 if dark else 26) * (1 - (i - 1) / shadow) ** 2))
+            p.setBrush(c)
+            p.drawRoundedRect(inner.adjusted(-i, -i + 1, i, i + 1), RADIUS + i, RADIUS + i)
+    p.setPen(QPen(separator(palette), 1.0))
+    p.setBrush(palette.color(QPalette.ColorRole.Window))
+    p.drawRoundedRect(inner, RADIUS, RADIUS)
+    p.restore()
+
+
+def _rounded_mask(widget, shadow):
+    from PyQt6.QtGui import QPainterPath, QRegion
+    path = QPainterPath()
+    path.addRoundedRect(QRectF(widget.rect()).adjusted(shadow, shadow, -shadow, -shadow), RADIUS, RADIUS)
+    widget.setMask(QRegion(path.toFillPolygon().toPolygon()))
+
+
+class PopupPanelStyle(QProxyStyle):
+    """The style of a menu that holds one of I.K.E.'s panels (the shield, the
+    site information): the desktop's, except its panel, which is the rounded
+    panel with its shadow (paint_popup_panel). Only for styles whose menus
+    have no shadow of their own (native_popups)."""
+
+    def __init__(self, shadow):
+        super().__init__()
+        self.shadow = shadow
+
+    def drawPrimitive(self, element, opt, p, widget=None):
+        if element == QStyle.PrimitiveElement.PE_PanelMenu and widget is not None:
+            paint_popup_panel(p, widget.rect(), widget.palette(), self.shadow)
+            return
+        if element == QStyle.PrimitiveElement.PE_FrameMenu and widget is not None:
+            return
+        super().drawPrimitive(element, opt, p, widget)
+
+    def pixelMetric(self, metric, opt=None, widget=None):
+        v = super().pixelMetric(metric, opt, widget)
+        if metric == QStyle.PixelMetric.PM_MenuPanelWidth:
+            return max(v, 1) + self.shadow
+        return v
+
+
+class _RoundMenu(QObject):
+    def __init__(self, menu):
+        super().__init__(menu)
+        self.menu = menu
+        self.shadow = POPUP_SHADOW if translucent_popups() else 0
+        menu.setStyle(PopupPanelStyle(self.shadow))
+        menu.setProperty("_KDE_NET_WM_SKIP_SHADOW", True)       # its shadow is painted: none from KWin
+        if self.shadow:
+            menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        menu.installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        from PyQt6.QtCore import QEvent
+        if obj is self.menu and event.type() == QEvent.Type.Resize and not self.shadow:
+            _rounded_mask(self.menu, 0)
+        return False
+
+
+def round_menu(menu):
+    """The menu of a panel with the one radius and Breeze's light shadow,
+    where the widget style does not give its menus their own (1.1.23)."""
+    if native_popups() or getattr(menu, "_ike_round", None) is not None:
+        return menu
+    menu._ike_round = _RoundMenu(menu)
+    return menu
+
+
+class _RoundList(QObject):
+    """The address bar's suggestions: the rounded panel with its shadow
+    painted around the list; the list keeps the size and place the
+    completer gives it, the panel's room is added around it."""
+
+    def __init__(self, view):
+        super().__init__(view)
+        from PyQt6.QtWidgets import QFrame
+        self.view = view
+        self.shadow = POPUP_SHADOW if translucent_popups() else 0
+        self.room = self.shadow + 1
+        self._busy = False
+        self._given = None
+        view.setProperty("_KDE_NET_WM_SKIP_SHADOW", True)
+        if self.shadow:
+            view.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        view.setFrameShape(QFrame.Shape.NoFrame)
+        view.viewport().setAutoFillBackground(False)
+        view.setViewportMargins(self.room, self.room, self.room, self.room)
+        view.installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        from PyQt6.QtCore import QEvent
+        t = event.type()
+        if obj is not self.view:
+            return False
+        if t == QEvent.Type.Paint:
+            p = QPainter(self.view)
+            paint_popup_panel(p, self.view.rect(), self.view.palette(), self.shadow)
+            p.end()
+            return False
+        if t in (QEvent.Type.Show, QEvent.Type.Move, QEvent.Type.Resize) and not self._busy:
+            g = self.view.geometry()
+            if g != self._given:
+                # the completer placed the list: the room for the panel around it
+                self._busy = True
+                try:
+                    self._given = g.adjusted(-self.room, -self.room, self.room, self.room)
+                    self.view.setGeometry(self._given)
+                    if not self.shadow:
+                        _rounded_mask(self.view, 0)
+                finally:
+                    self._busy = False
+        elif t == QEvent.Type.Hide:
+            self._given = None
+        return False
+
+
+def round_list_popup(view):
+    """The address bar's suggestions with the one radius and the light
+    shadow, in every style (1.1.23)."""
+    if getattr(view, "_ike_round", None) is None:
+        view._ike_round = _RoundList(view)
+    return view
+
+
 class RoundHoverStyle(QProxyStyle):
     """Toolbar buttons with the desktop's style, except their hover: a soft
     highlight in the theme's colour, a rectangle with rounded corners and a
@@ -1299,15 +1525,17 @@ class RoundHoverStyle(QProxyStyle):
         o.features &= ~(F.HasMenu | F.MenuButtonPopup | F.PopupDelay)
         return o
 
-    def pixelMetric(self, metric, opt=None, widget=None):
-        if metric == QStyle.PixelMetric.PM_MenuButtonIndicator and widget is not None \
-                and widget.property(self.NO_ARROW):
-            return 0
-        return super().pixelMetric(metric, opt, widget)
-
     def sizeFromContents(self, ct, opt, size, widget=None):
-        if ct == QStyle.ContentsType.CT_ToolButton:
-            opt = self._plain(opt, widget)
+        if ct == QStyle.ContentsType.CT_ToolButton and widget is not None and widget.property(self.NO_ARROW):
+            plain = self._plain(opt, widget)
+            if plain is not opt:
+                # QToolButton added the arrow's part to the size it asks for
+                # (a button with its menu on a part of its own): taken off
+                if isinstance(widget, QToolButton) and \
+                        widget.popupMode() == QToolButton.ToolButtonPopupMode.MenuButtonPopup:
+                    size = QSize(max(0, size.width() - super().pixelMetric(
+                        QStyle.PixelMetric.PM_MenuButtonIndicator, plain, widget)), size.height())
+                opt = plain
         return super().sizeFromContents(ct, opt, size, widget)
 
     def subControlRect(self, cc, opt, sc, widget=None):
@@ -1382,6 +1610,13 @@ class HoverGlides(QObject):
             g = effects.Glide(b, self.config, functools.partial(self._level, b))
             self.glides[b] = g
             b.destroyed.connect(functools.partial(self._forget, b))
+
+    def take(self, b):
+        """Give a button the toolbar's style at once (adopt() does it a moment
+        after the button joins the toolbar): it is measured with it."""
+        if part("toolbar_hover") and b.style() is not self.style:
+            b.setStyle(self.style)
+            b.updateGeometry()
 
     def _forget(self, b, _obj=None):
         self.glides.pop(b, None)
