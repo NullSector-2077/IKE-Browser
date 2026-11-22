@@ -5,8 +5,10 @@ GitHub Actions keeps I.K.E. up to date and prepares the fixes. Since
 merges its own work. The automation's own pull requests (a candidate per
 component, an automatic fix, a security fix, a builder's re-anchoring) are
 merged by the workflow's own code read from `main` only when they are **fully
-verified** ("The verified merge", below); anything less waits for the owner,
-who is named in one comment. Claude merges the pull requests the owner asked
+verified** ("The verified merge", below). Since AUTOMAT (the owner's name for
+this whole system, and the owner's third decision of 2026-11-22: see "AUTOMAT:
+the full automation") anything less is tried again by itself, never left for
+a person and never closed; the owner's only step is the signature. Claude merges the pull requests the owner asked
 for once every check is green; ChatGPT's and people's pull requests wait for
 the owner's order (CLAUDE.md). The owner alone **signs and publishes** (one
 command on the owner's computer, in the issue GitHub mails when a release is
@@ -51,8 +53,9 @@ itself; the owner only signs.
    tests again after each. On a candidate of the engine (adblock, pyo3, a
    major crate) the AI may adapt I.K.E.'s wrapper; on a builder's branch it may
    only re-anchor I.K.E.'s existing patches. An AI never edits a workflow: what
-   it wanted there is a written proposal for a person. At the cap the branch
-   is kept, the ledger says needs-person and the owner is told once.
+   it wanted there is a written proposal for a person. The cap is per day:
+   when today's attempts are used up the branch stays open, the ledger says
+   "retrying" and the next day it goes on (AUTOMAT).
 6. **Merged by itself** when everything is green and verified
    (`tools/automerge.py`, `automerge.yml`, read from `main`). Several
    candidates go into the same unpublished version; one that is behind
@@ -61,6 +64,184 @@ itself; the owner only signs.
    converge into `main` one after another ("The verified merge", below).
 7. **The owner signs.** `release-ready.yml` mails the owner the command that
    signs and publishes the new version; every user then gets it by itself.
+
+## AUTOMAT: the full automation
+
+**AUTOMAT** is the owner's name for the whole automatic maintenance described
+in this document. The owner's decisions of 2026-11-22, in the owner's words:
+"intervento umano limitato solo alla firma. ike deve cercarsi gli
+aggiornamenti installarli testarli e correggerli da solo su github. 100%
+lavoro in team di ia", and "niente annullamenti automatici, l'automazione deve
+essere in grado di riparare tutto, anche se comporta molti tentativi... niente
+deve rimanere indietro". So: every update and every AI fix reaches `main` by
+itself when it is verified; what is not verified yet stays open and is tried
+again; the owner only signs, and the signing notice says what the signature
+covers. Where an older paragraph below still says "waits for a person" or
+"needs-person", this section is the rule.
+
+**Two tiers** (`tools/fix-guard.py`, `tier()`):
+
+| Tier | Files | An AI |
+|---|---|---|
+| B | the workflows (`.github/`), the tests, every tool (`tools/`: the guard, the merge, the reviewers, the plan, "Nothing gets worse"), the engine's sandbox and start (`ike/app.py`, `ike_boot.py`, `launcher/`), the signing and update channel (`ike/updater.py`, `ike/__init__.py`, `ike/extensions.py`), the package recipe, what comes from others or is generated (Dark Reader, uBlock Origin's scriptlets, the icon sets, the Cargo files, `vendor/`), YouTube's ad blocking (`videoads.js`, `videorelay.js`, `mediahook.js`, `Scriptlets.host_scripts`), and any file the guard does not know | never changes them. An update that needs one stays open as "retrying" with a note; the deterministic tools (the CI pins, the builders' re-anchoring rule) keep their own paths |
+| A | I.K.E.'s ad-blocking adapter (`ike/blocker.py`, `ike/scriptlets.py`, `ike-adblock/src/*.rs`, `vendor/adblock/__init__.py`), the modules that decide the user's safety (`PROTECTED_PY`: shields, passwords, webview, config, DoH...), I.K.E.'s own page scripts (`fingerprint.js` and the others), the look-alike table, a new entry of `components.json` | may fix them; the fix merges by itself only with everything below |
+| (none) | the other interface modules under `ike/` and `docs/` | as before (the 1.1.19 rules) |
+
+**The static guard** (a program, not an AI; `tools/check-autofix-patch.py
+--auto` before a patch is kept, and `tools/automerge.py` before the merge):
+
+1. *Additive only* (Python, on the syntax trees of the file before and
+   after): every old statement is still there, unchanged, in the same order
+   and nesting. No branch, condition, return or raise removed or changed; a
+   `try` keeps its handlers; functions keep their names and arguments.
+2. *No entry leaves a table*: an assignment to the same name may only grow (a
+   list, tuple, set, dict, a block of rules by its lines).
+3. *No new way out of old code*: a new `return`, `raise`, `break`, `continue`
+   or exit is allowed only under a new condition that is not a constant, or as
+   the last statement of a function; no constant given to (and no `del` of) a
+   name the old code sets.
+4. *Nothing new that reaches out*: no new import but a few harmless modules,
+   no more `eval`, `exec`, `open`, process, file-writing, loading or network
+   calls than before, no new address or host name.
+5. *Page scripts, Rust, the JSON table*: every old line of code still there,
+   in order; a new line may not leave old code, switch a value of the old file
+   to a constant, or reach out; the table may only grow. On a candidate of
+   the engine the wrapper follows the new engine (no additive rule there).
+6. *Small*: 5 files and 150 lines per attempt, 8 files and 400 lines for all
+   the AI commits of a pull request; no file added, removed or renamed.
+7. *The component manifest*: only a new entry, a plain download of a file
+   that is already there with the sha256 it declares.
+
+What it does not prove: a fix can still weaken a protection by *adding* code
+(a new condition true too often, a new entry in a list of exceptions). That
+is what "Nothing gets worse", the whole suite and the reviewers are for.
+
+**Two independent AI reviewers** (`tools/ai-review.py`, `ai-review.yml`).
+When every other condition holds on a commit, `tools/automerge.py` starts the
+review. Two free providers other than the one that wrote the fix (the
+`Author:` line the guard job writes into the `autofix:` commit), different
+from each other, first those that wrote nothing on the branch, get only the
+diff of the files the AI changed and the failure it answers, between marks
+made for that request and named as data. Each is asked how the change could
+weaken blocking, privacy, fingerprinting, the sandbox or the updates, and
+answers one JSON object, `{"verdict": "approve" | "reject", "reasons":
+[...]}`; anything else is no answer. Both approve: the commit gets the status
+`ai-review` and a comment with the verdicts, and the merge is judged again.
+One reject: the fix is refused and the next attempt of the automatic fix
+starts with the reasons (`work=refused/<sha>`). Fewer than two answers: nobody
+is asked; the review is started again later. The job with the providers' keys
+has no GitHub token and runs nothing a model wrote.
+
+**What a commit of an AI needs to merge** (`ai_requirements`), on top of the
+verified merge: the static guard on the whole AI change; the category
+`no-regression` ("Nothing gets worse": ad blocking with YouTube's, the
+fingerprinting surface, the network hosts, the security settings, against
+`main`) passed on that commit; the workflow's own status `ai-review` and its
+comment with two approving reviews of that very commit by two providers,
+none the author's; no test file changed beyond the recorded rules the
+workflow itself adds.
+
+**Nothing waits for a person, nothing is closed.** Each former "person" path
+and what happens now:
+
+| Before | Now |
+|---|---|
+| An AI fix of protected code (`ike/blocker.py`, `ike/scriptlets.py`, the safety modules, page scripts) | merges by itself under the static guard, `no-regression` and the two reviews |
+| A filter lists' fix | the same; the recorded rules the workflow adds are not a test change |
+| The cap of attempts (4 on a candidate, 2 on `main`'s branches and the security ones) | per day: when today's are used up the plan says "retry", nothing is closed, no issue; the next day the daily check starts it again, another free provider first, a fresh context with what was tried (`autofix_commits_today`, `tools/ai-work.py`) |
+| The AI could not, or a check refused its change ("ATTENZIONE..." issue) | the same daily retry; no issue |
+| No free provider five times | still retried every day; one informational note after `RETRY_CAP` |
+| A fix refused by the merge's rules or by the reviewers | the automatic fix again with the reasons (`refused/<sha>`) |
+| A refresh conflict beyond CHANGELOG and version | a candidate per component is rebuilt from `main` by the daily maintenance; on any other branch `main` is merged in with the files in conflict taken from `main` ("conflicts as main's"), its tests run again and the automatic fix goes on |
+| A second version raise, a CHANGELOG heading of another version | `main` merged in with "version as main's": the version files are `main`'s, the candidate's lines move under `main`'s unpublished version |
+| Checks passed but a category not verified, or a check that did not pass | the daily check starts its Tests, Security and Arch Linux again |
+| A builder that refused, a pin of the workflows that fails its tests, a dependency used but not declared | "retrying": the re-anchoring every day, the next release of the pin, the PKGBUILD's candidate; no AI touches tier B |
+| A lists finding no AI may fix (the engine itself) | as today the engine drops the rule; "retrying", it goes with a new engine |
+| A security fix that still fails | stays **blocked** and the owner is told (the owner's earlier decision), and the automatic fix tries again every day under the security rules |
+| An advisory with no fixed version upstream; YouTube's rules and uBlock Origin's own resources | unchanged: blocked and the owner told; the owner's own rules |
+| A failure of GitHub, a setting or a workflow | unchanged: an issue (no AI may fix a workflow) |
+
+The maintenance ledger shows these as **retrying** (with the number of tries
+or days); `tools/automerge.py --daily` (job `judge-again` of the daily check)
+judges every open pull request of the automation again once a day and starts
+what its last verdict left for the next day. The comment on a pull request
+that is not merged is informational and asks nothing.
+
+**AUTOMAT's memory of attempts** (`tools/automat-memory.py`). One record per
+attempt, written only by the workflow's own code (job `remember` of
+`autofix.yml`, no AI, no secret), never by an AI: the provider and model, the
+files touched, a short summary of the approach, how it ended (its tests
+failed with which error, the guard refused with which rule, the reviewers or
+the merge refused with which reasons, merged), the date and the attempt. The
+key is the component (its branch) and the **error signature**: a hash of the
+failing test names and the top error lines with numbers, paths, addresses and
+commits taken out, so the same error has the same signature in another run. A
+merged fix is recorded as what solved that signature. Stored as
+`memory.json` on the data branch `automat/memory` (never merged into `main`;
+chosen over a section of the ledger issue, whose body is near GitHub's limit
+and rewritten daily); bounded: 6 records per key, 3 solved hints per
+signature, 300 keys, 256 KB, the oldest dropped. Before each attempt the plan
+adds to the failure description, in a fence marked as data that may hold
+text from untrusted sources, at most 1,500 words: what was already tried for
+this error and failed (not to be repeated) and what solved a similar one;
+lines that look like instructions are left out. The reviewers get it with the
+failure, and the rotation prefers a provider that has not failed that error.
+
+**The component manifest** (`components.json`, `tools/component-manifest.py`).
+The one place an external integrated component is declared: its upstream
+(git with a tag pattern, npm or PyPI), the files it produces, an existing
+builder of I.K.E.'s or a plain download with its sha256, its licence file and
+the test categories it needs (never fewer than the default, `no-regression`
+among them). Dark Reader and uBlock Origin's scriptlets are declared there;
+`tools/update-candidates.py` and `tools/check-components.py` read it, so a
+new entry gets its candidate `automation/update/<id>` and the whole chain
+with no change of code. A plain download is made only when the entry's own
+version, downloaded again, gives exactly the file the repository has; hosts
+are limited to GitHub, npm, PyPI and crates.io over HTTPS. **The inventory
+guard** (`tests/test_inventory_guard.py`) fails when a file that looks like
+it comes from upstream (a vendored folder, anything under `ike/resources/`
+that is not one of I.K.E.'s own resources, `OWN_RESOURCES` in
+`tools/inventory.py`, a licence header, minified code) has no entry, with
+the entry to add in its message, or when a record of the inventory has no
+update path. The automatic fix may add that missing entry (rule 7 above).
+
+**The owner's token, needed once.** `main`'s protection requires the check
+`tests` of the pull request itself. A push or a pull request made with the
+workflow's own token starts no workflow: its `pull_request` runs wait for an
+approval forever, and the runs the automation dispatches are not taken for
+the required check (PRs #107 to #110: "Required status check "tests" is
+expected", HTTP 405). So **the repository secret `IKE_WORKFLOW_TOKEN` is
+required for AUTOMAT to be 100% unattended**: a fine-grained token of the
+owner's, for this repository only, with Contents, Pull requests and Workflows
+read and write. When it is set, the candidates' pushes and pull requests
+(`daily-maintenance.yml`), the automatic fix's (`autofix.yml`, job publish)
+and the refresh (`tools/automerge.py`) use it, so the pull request's own
+Tests, Security and Arch Linux start and the dispatched runs are not needed;
+a verified pull request that only has dispatched runs is closed and opened
+again with it, which starts them. It is only in those steps: no AI ever sees
+it, and the automatic fix's push checks once more that nothing under
+`.github/` changes. Without it nothing crashes and nothing is weakened: the
+verified candidate is "retrying", the owner gets one note that says how to
+make the token, and it merges by itself once the token exists. Branch
+protection is never changed, no check is faked, no run is approved by API.
+
+**The informed signature** (`tools/release-notice.py`, `release-ready.yml`).
+The notice lists every change merged since the last published version:
+first, marked, the ones that touch reserved files (tier B: today only the
+deterministic tools reach them), each with its diff link; then each AI change
+of protected code with its files, a one-line summary, the two reviewers'
+verdicts and the result of "Nothing gets worse"; the other changes; and what
+is still being retried or blocked. What could not be read is said as not
+read.
+
+**Residual risks, said plainly.** The reviewers are free models reading
+text an AI wrote: a fix that addresses them is one more reason to reject, the
+answer must be strict JSON, and they are never the last check, but they can
+be wrong. The static guard is strict about what is removed and cannot judge
+what is added. "Nothing gets worse" compares what it measures. Free quotas
+run out: then nothing merges, and the retry comes the next day. The owner's
+token has more rights than the workflow's own; it is used only by steps with
+no AI.
 
 ## What runs by itself
 
@@ -428,7 +609,8 @@ history. The states:
 | fixing | they failed: the automatic fix works on it, on the candidate's own branch |
 | passed | every required check passed (the verified merge takes it), or it is in `main` |
 | blocked | an advisory with no fixed version upstream, a security fix the automatic fix gave up on, or tried `MAX_ATTEMPTS` times |
-| needs-person | a builder refused it and its re-anchoring is not there yet, a pin of a workflow until its candidate exists (an AI's change of a workflow is only a proposal), a dependency used but not declared (until the PKGBUILD's candidate), the automatic fix reached its cap (`FIX_ATTEMPTS`: the branch is kept, the owner told once), or checks that passed but left a required category not verified |
+| retrying | AUTOMAT (2026-11-22): it could not be finished today and is tried again every day, with its tries or days: the automatic fix used its attempts of the day or could not, a check or the reviewers refused its change, a builder refused, a dependency is not declared yet, checks passed but a category is not verified. One informational note after `RETRY_NOTE_DAYS` |
+| needs-person | only what the owner's own rules keep for the owner (YouTube's rules, uBlock Origin's own resources) and entries written before AUTOMAT. Until then: a builder refused it and its re-anchoring is not there yet, a pin of a workflow until its candidate exists (an AI's change of a workflow is only a proposal), a dependency used but not declared (until the PKGBUILD's candidate), the automatic fix reached its cap (`FIX_ATTEMPTS`: the branch is kept, the owner told once), or checks that passed but left a required category not verified |
 | retry-later | a source unreachable today (tried again the next day), or a new major version `cargo update` cannot take (looked at again weekly) |
 
 Since the full chain each entry follows its own candidate: the ledger reads
@@ -1606,7 +1788,9 @@ requests are never merged by themselves.
    ([UPDATES.md](UPDATES.md)).
 
 An issue labelled `autofix` or `automation-health` means the automation needs a
-person: open a conversation and paste its link.
+person: open a conversation and paste its link. Since AUTOMAT these are only
+a security finding with no safe fix and the failures of GitHub, a setting or
+a workflow; everything else is retried by itself.
 
 ## Repository settings (once)
 
@@ -1614,13 +1798,15 @@ person: open a conversation and paste its link.
   contents** (each job asks for what it needs) and tick **Allow GitHub Actions
   to create and approve pull requests** (otherwise the candidate and the fixes
   cannot open their pull requests).
-- Optional, for the workflows' pins (the full chain, 2026-11-22): the
+- **Required for AUTOMAT to run with no one** (see "The owner's token, needed
+  once" above), and for the workflows' pins (the full chain, 2026-11-22): the
   repository **secret** `IKE_WORKFLOW_TOKEN`, a fine-grained personal access
   token of the owner's, for this repository only, with the permissions
-  Contents, Pull requests and Workflows (read and write). Only two steps
-  receive it: the push of a CI pin's candidate (`daily-maintenance.yml`,
-  publish) and the merge of that candidate once `tools/automerge.py` verified
-  every changed line (`automerge.yml`); no AI step ever sees it. Without it
+  Contents, Pull requests and Workflows (read and write). Only the
+  workflow's own push and merge steps receive it (a candidate's push and pull
+  request in `daily-maintenance.yml`, the automatic fix's in `autofix.yml`
+  job publish, the refresh and the merge in `automerge.yml`); no AI step ever
+  sees it. Without it
   those candidates wait (a warning says why) and Dependabot's monthly pull
   request remains the way for the actions.
 - Settings → Secrets and variables → Actions → **Secrets**: `GEMINI_API_KEY`, a

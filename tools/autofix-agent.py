@@ -183,6 +183,20 @@ itself (the adblock-rust crate) could do it, change nothing and say so.
 """
 
 
+def auto_note(auto):
+    """The static guard's rules (tools/fix-guard.py), for a fix that may reach main by itself."""
+    if not auto:
+        return ""
+    return ("\n\n## This fix may reach main by itself: a program checks it\n\nNever change a test, a tool, a "
+            "workflow, `ike/app.py`, `ike_boot.py`, `ike/updater.py`, `ike/__init__.py` or `ike/extensions.py`: "
+            "fix I.K.E.'s code instead, or change nothing and say why. In the ad-blocking adapter, the modules "
+            "that decide the user's safety and I.K.E.'s page scripts only ADD statements: every existing "
+            "statement, condition, return and raise stays exactly as it is; no new return or raise before "
+            "existing code unless under a new condition; no new import, address, file write or process. If "
+            "`tests/test_inventory_guard.py` fails, add the missing entry to `components.json` exactly as its "
+            "message says (a plain download, never a build command).\n")
+
+
 def engine_note(allow_adblock, lists=False):
     """Whether this run may touch the ad blocker's wrapper: the same answer the
     reserves get and the checker enforces (--allow-adblock; --lists: the filter
@@ -295,12 +309,13 @@ def main(argv=None):
     ap.add_argument("--builder", default="", choices=["", *sorted(BUILDERS)],
                     help="the builders' re-anchoring (WP11): that builder's existing patches only")
     ap.add_argument("--first", default="", help="the provider this attempt starts with (tools/ai-providers.py)")
+    ap.add_argument("--auto", action="store_true", help="a fix that may reach main by itself: the static guard")
     a = ap.parse_args(argv)
     key = os.environ.get("GEMINI_API_KEY", "")
     workdir, out = Path(a.workdir), Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     rules = (Path(a.prompt).read_text("utf-8") + engine_note(a.allow_adblock, a.lists) + security_note(a.security)
-             + builder_note(getattr(a, "builder", "")))
+             + builder_note(getattr(a, "builder", "")) + auto_note(a.auto and not getattr(a, "builder", "")))
     try:
         failure = (workdir / ".autofix" / "failure.md").read_text("utf-8", "replace")
     except OSError:

@@ -37,6 +37,8 @@ jobs:
       contents: read
       issues: write
       checks: read
+      pull-requests: read      # what each merged pull request changed, and its AI reviews (tools/release-notice.py)
+      actions: read            # the result of "Nothing gets worse" on the merged commits
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -100,6 +102,16 @@ jobs:
             echo
             echo "<!-- release-ready: $version -->"
           } > "$body"
+          # AUTOMAT, the informed signature (2026-11-22: the signature is the only human step): every change
+          # merged since the last published version, reserved files first, each AI change of protected code
+          # with its files, its two reviewers' verdicts and "Nothing gets worse", and what is still being
+          # retried (tools/release-notice.py, GET calls only). The short text above stays when it cannot be made.
+          if python3 -I tools/release-notice.py --repo "$GH_REPO" --version "$version" --owner "$OWNER" \
+               --out "$body.full" && grep -q "<!-- release-ready: $version -->" "$body.full"; then
+            mv "$body.full" "$body"
+          else
+            echo "::warning::the detailed notice could not be written: the short one is used"
+          fi
           if [ -z "$open" ]; then
             gh label create release-ready --color 0e8a16 --description "A version in main waits to be published" 2>/dev/null || true
             gh issue create --title "$title" --label release-ready --assignee "$OWNER" --body-file "$body" \

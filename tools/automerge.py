@@ -91,7 +91,35 @@ with no unsafe code, process, file, network or environment access added
 (wrapper_problem). A fix for Arch's testing packages
 (automation/update/arch-testing-<date>) needs "Arch Linux (testing)" too.
 
+**The full automation** (2026-11-22, the owner's words: "human intervention only for the
+signature; I.K.E. looks for its updates, installs, tests and fixes them by itself on GitHub; 100%
+work of a team of AIs", and: "no automatic cancelling: the automation must be able to repair
+everything, even with many attempts; nothing stays behind"). judge() is the verdict main() acts on:
+decide(), and for a pull request with a commit an AI wrote (ai_requirements):
+
+- the static guard (tools/fix-guard.py): an AI's change of tier-A protected code (the ad-blocking
+  adapter, the modules that decide the user's safety, I.K.E.'s page scripts, a new entry of the
+  component manifest) only adds statements, removes or changes none, adds no way out of old code and
+  nothing that reaches the network, the system or files; tier B (the workflows, the tests, the tools,
+  the sandbox and start, the signing and update channel, the package, what comes from others,
+  YouTube's ad blocking) is never an AI's; the whole AI change stays small;
+- the category "no-regression" (the differential check "Nothing gets worse") passed on the commit;
+- two independent AI reviewers approved this very commit (tools/ai-review.py: a status "ai-review" of
+  the workflow and its comment, two providers, none the one that wrote the fix).
+
+Nothing waits for a person any more, and nothing is closed or dropped: a pull request that is not
+merged gets one informational comment (no action asked) saying why and what happens next
+(next_step): the automatic fix tries again with the reasons (at most its attempts of the day, again
+the next day: tools/autofix-plan.py), the candidate is rebuilt from main (the daily maintenance), its
+checks are started again by the daily check, or main is merged in with the files in conflict taken
+from main (refresh: "conflicts as main's") and the version files and CHANGELOG moved to main's
+unpublished version. Only an open security finding still blocks and names the owner (the owner's
+earlier decision). The ledger shows these as "retrying".
+
     automerge.py --repo OWNER/NAME --sha HEAD_SHA [--dry-run]
+    automerge.py --repo OWNER/NAME --daily [--dry-run]      (the daily check: every open pull request of
+                                                            the automation is judged again, its checks or
+                                                            its fix started again as its last verdict says)
 """
 
 import argparse
@@ -309,9 +337,32 @@ def version_problem(name, patch, repo):
     return ""
 
 
-def file_problem(f, guard_allowed, repo=""):
-    """Why this changed file keeps the pull request for a person, or ""."""
+def _fix_guard():
+    return _tool("fix-guard")
+
+
+def protected_problem(f, ref="", sha_of=None):
+    """Why the static guard (tools/fix-guard.py) refuses an AI's change of this file, or "": tier B
+    never, tier A only added to (on a candidate of the engine the wrapper follows the new engine)."""
     name = f.get("filename", "")
+    fg = _fix_guard()
+    if fg.tier(name) == "B":
+        return "%s: the static guard refuses it: tier B, never changed by an AI (%s)" % (name, fg.tier_b_reason(name))
+    if f.get("status") != "modified" or f.get("previous_filename"):
+        return "%s: the static guard refuses it: added, removed or renamed" % name
+    if "old_source" not in f or "new_source" not in f:
+        return "%s: the whole file could not be read" % name
+    engine = is_wrapper(name) and _candidates().wrapper_allowed(ref)
+    why = fg.file_problems(name, f["old_source"], f["new_source"], "modified", engine, sha_of)
+    return "the static guard refuses it: %s" % why[0] if why else ""
+
+
+def file_problem(f, guard_allowed, repo="", auto=False, ref="", sha_of=None):
+    """Why this changed file keeps the pull request out of main, or "". auto: a fix of the automatic
+    fix (2026-11-22): a tier-A protected file is judged by the static guard instead of being refused."""
+    name = f.get("filename", "")
+    if auto and name not in VERSION_LINES and name != "CHANGELOG.md" and _fix_guard().tier(name) == "A":
+        return protected_problem(f, ref, sha_of)
     if f.get("status") in ("removed", "renamed", "copied") or f.get("previous_filename"):
         return "%s: removed or renamed" % name
     if f.get("status") == "added":
@@ -588,7 +639,7 @@ def origins(commits):
     return out
 
 
-def verified_file_problem(f, by, guard_allowed, repo, ref="", tags=None):
+def verified_file_problem(f, by, guard_allowed, repo, ref="", tags=None, sha_of=None):
     """Why a file of the candidate or of an update keeps it for a person, or ""."""
     name = f.get("filename", "")
     cid = candidate_id(ref)
@@ -617,6 +668,13 @@ def verified_file_problem(f, by, guard_allowed, repo, ref="", tags=None):
             why = ci.verify_change(cid, f["old_source"], f["new_source"], **({"tags": tags} if tags else {}))
             return "%s: %s" % (name, why) if why else ""
         own = _candidates().spec(cid)["files"] if cid and _candidates().spec(cid) else ()
+        mf = _tool("component-manifest")
+        if name == mf.FILE and name in own:
+            # a plain download of the component manifest: only its entry's version and checksums
+            if "old_source" not in f or "new_source" not in f or sha_of is None:
+                return "%s: the whole manifest could not be read" % name
+            why = mf.update_problem(cid, f["old_source"], f["new_source"], sha_of)
+            return "%s: %s" % (name, why) if why else ""
         if not name.startswith(UPDATE_FILES + own):
             return "%s: not a file an update changes" % name
         return ""
@@ -629,18 +687,20 @@ def verified_file_problem(f, by, guard_allowed, repo, ref="", tags=None):
             why = _tool("builder-anchor").problem(cid, f["old_source"], f["new_source"])
             return "%s: more than a re-anchoring (%s)" % (name, why) if why else ""
         if is_wrapper(name) and _candidates().wrapper_allowed(ref):
-            return wrapper_problem(f)            # item 2: the wrapper adapted to a new engine
-        return file_problem(f, guard_allowed, repo)     # the 1.1.19 rules of a fix of the automatic fix
+            # item 2: the wrapper adapted to a new engine (and the static guard's capability rules)
+            return wrapper_problem(f) or (protected_problem(f, ref, sha_of) if "new_source" in f else "")
+        # the 1.1.19 rules of a fix of the automatic fix; a protected file: the static guard
+        return file_problem(f, guard_allowed, repo, auto=True, ref=ref, sha_of=sha_of)
     if by == {"update", "autofix"} and is_wrapper(name) and _candidates().wrapper_allowed(ref):
         # item 2: the engine's own file the update moved (ENGINE_VERSION in lib.rs) adapted by the fix
-        return wrapper_problem(f)
+        return wrapper_problem(f) or (protected_problem(f, ref, sha_of) if "new_source" in f else "")
     return "%s: changed by the update and by the automatic fix" % name
 
 
 # --- the refresh of a verified candidate behind main (2026-11-22) ---------------------------------
 
-REFRESH = re.compile(r"^refresh: main ([0-9a-f]{40}) into (automation/[A-Za-z0-9._/-]{1,120}) "
-                     r"\(tools/automerge\.py, no AI\)$")
+REFRESH = re.compile(r"^refresh: main ([0-9a-f]{40}) into (automation/[A-Za-z0-9._/-]{1,120}?)"
+                     r"(, version as main's)?(, conflicts as main's)? \(tools/automerge\.py, no AI\)$")
 BOT_NAME, BOT_MAIL = "github-actions[bot]", "41898282+github-actions[bot]@users.noreply.github.com"
 
 
@@ -671,7 +731,7 @@ def _show(cwd, rev, path):
     return out.stdout.decode("utf-8") if out.returncode == 0 else None
 
 
-def changelog_union(base, ours, theirs, version):
+def changelog_union(base, ours, theirs, version, own=""):
     """(text, why): main's CHANGELOG.md (theirs) with the candidate's new bullet lines (ours against
     base) added at the end of its "## version" section, as tools/prepare-maintenance.py adds to an
     unpublished version: one heading, the union of the bullet lines, no duplicates, main's first.
@@ -692,7 +752,9 @@ def changelog_union(base, ours, theirs, version):
         if line.startswith("- "):
             if line not in bullets:
                 bullets.append(line)
-        elif line.strip() and line != heading:
+        elif line.strip() and line != heading and not (own and line == "## %s" % own):
+            # (own: the candidate's own raise, made before main was raised further: its lines move
+            # into main's unpublished version, 2026-11-22)
             return "", "CHANGELOG.md: the candidate adds more than bullet lines of %s (%s)" % (version, line[:60])
     top = "# Changelog\n"
     if not theirs.startswith(top) or theirs.split("\n").count(heading) != 1:
@@ -710,10 +772,14 @@ def changelog_union(base, ours, theirs, version):
     return top + "\n" + heading + "\n" + section + "\n" + "\n".join(more) + "\n\n" + tail[end:].lstrip("\n"), ""
 
 
-def refreshed_tree(ours, theirs, cwd=ROOT):
+def refreshed_tree(ours, theirs, cwd=ROOT, reset=False, reversion=False):
     """(tree, why): main (theirs) merged into the candidate (ours) by git, CHANGELOG.md resolved by
     changelog_union when both changed it, a conflicting version file taken from main when main's
-    version is the candidate's own; ("", why) for any other conflict (a person resolves it)."""
+    version is the candidate's own; ("", why) for any other conflict. Since 2026-11-22 nothing is
+    parked: reversion ("version as main's": a candidate that raised another version than main's
+    unpublished one) takes the version files from main and moves the candidate's CHANGELOG lines
+    under main's version; reset ("conflicts as main's") takes every other file in conflict from main:
+    the candidate's tests run again on it, and the automatic fix goes on from there."""
     out = _git(cwd, "merge-tree", "--write-tree", "--name-only", "--no-messages", "-z", ours, theirs, check=False)
     if out.returncode not in (0, 1):
         return "", "main could not be merged in: %s" % out.stderr.decode("utf-8", "replace").strip()[:200]
@@ -725,21 +791,34 @@ def refreshed_tree(ours, theirs, cwd=ROOT):
     logs = [_show(cwd, c, "CHANGELOG.md") for c in (base, ours, theirs)]
     if None not in logs and logs[1] != logs[0] and logs[2] != logs[0] and logs[1] != logs[2]:
         # both added to it: always the union (a clean text merge could keep two headings of one version)
-        if mine != mains:
+        if mine != mains and not reversion:
             return "", "CHANGELOG.md: the candidate's version %s is not main's %s" % (mine or "-", mains or "-")
-        text, why = changelog_union(*logs, mains)
+        text, why = changelog_union(*logs, mains, own=mine if mine != mains else "")
         if why:
             return "", why
         texts["CHANGELOG.md"] = text
+    elif reversion and mine != mains and mains and None not in logs and logs[1] != logs[0]:
+        # only the candidate added to it: its lines move under main's version all the same
+        text, why = changelog_union(logs[0], logs[1], logs[2], mains, own=mine)
+        if why:
+            return "", why
+        texts["CHANGELOG.md"] = text
+    if reversion and mine != mains and mains:
+        for name in VERSION_LINES:               # the version files are main's, in conflict or not
+            blob = _git(cwd, "rev-parse", "-q", "--verify", "%s:%s" % (theirs, name), check=False)
+            if blob.returncode == 0:
+                blobs[name] = blob.stdout.decode().strip()
     for name in conflicted:
         if name in texts:
             continue
-        if name in VERSION_LINES and mine and mine == mains:
+        if name in blobs:
+            continue
+        if (name in VERSION_LINES and mine and mine == mains) or reset:
             blob = _git(cwd, "rev-parse", "-q", "--verify", "%s:%s" % (theirs, name), check=False)
             if blob.returncode == 0:
                 blobs[name] = blob.stdout.decode().strip()
                 continue
-        return "", "%s: a conflict with main that a person resolves" % name
+        return "", "%s: %s" % (name, CONFLICT)
     if not blobs and not texts:
         return tree, ""
     with tempfile.TemporaryDirectory() as tmp:
@@ -752,14 +831,19 @@ def refreshed_tree(ours, theirs, cwd=ROOT):
         return _out(cwd, "write-tree", env=env), ""
 
 
-def make_refresh(ref, head, main_sha, cwd=ROOT):
+CONFLICT = "a conflict with main"
+
+
+def make_refresh(ref, head, main_sha, cwd=ROOT, reset=False, reversion=False):
     """(commit, why): the refresh commit of the candidate's head with main merged in (not pushed)."""
-    tree, why = refreshed_tree(head, main_sha, cwd)
+    tree, why = refreshed_tree(head, main_sha, cwd, reset, reversion)
     if why:
         return "", why
-    message = ("refresh: main %s into %s (tools/automerge.py, no AI)\n\nThe verified candidate was behind main: "
-               "main merged in, CHANGELOG.md and the version files resolved as decided; its tests run again.\n"
-               % (main_sha, ref))
+    message = ("refresh: main %s into %s%s (tools/automerge.py, no AI)\n\nThe candidate was behind main: "
+               "main merged in, CHANGELOG.md and the version files resolved as decided%s; its tests run again.\n"
+               % (main_sha, ref, (", version as main's" if reversion else "") +
+                  (", conflicts as main's" if reset else ""),
+                  ", every other file in conflict taken from main" if reset else ""))
     env = dict(os.environ, GIT_AUTHOR_NAME=BOT_NAME, GIT_AUTHOR_EMAIL=BOT_MAIL, GIT_COMMITTER_NAME=BOT_NAME,
                GIT_COMMITTER_EMAIL=BOT_MAIL)
     return _out(cwd, "commit-tree", tree, "-p", head, "-p", main_sha, data=message.encode("utf-8"), env=env), ""
@@ -780,7 +864,7 @@ def refresh_problem(sha, ref, cwd=ROOT, main_ref="origin/main"):
             return "its second parent is not the main it names"
         if _git(cwd, "merge-base", "--is-ancestor", parents[1], main_ref, check=False).returncode:
             return "the main it names is not in main"
-        tree, why = refreshed_tree(parents[0], parents[1], cwd)
+        tree, why = refreshed_tree(parents[0], parents[1], cwd, reset=bool(m.group(4)), reversion=bool(m.group(3)))
         if why:
             return why
         if tree != _out(cwd, "rev-parse", "%s^{tree}" % sha):
@@ -847,7 +931,7 @@ def version_rule(files, main_version, published):
 
 
 def decide(repo, pr, commits, files, checks, guard_allowed, published=False, unread=False, evidence=None,
-           findings=(), protected=None, tags=None, main_version=None):
+           findings=(), protected=None, tags=None, main_version=None, sha_of=None):
     """("merge", "") for a fully verified pull request of the automation, ("ready", "") for a green
     and harmless one of ChatGPT (it waits for the owner's order), ("wait", why) while its checks run,
     or ("person", why). main_version: main's version (version_rule); None only where a test of other
@@ -898,7 +982,9 @@ def decide(repo, pr, commits, files, checks, guard_allowed, published=False, unr
                 return "person", "%s: a protected file" % n
     if chatgpt or ref == FIX_MAIN:
         for f in files:
-            why = file_problem(f, guard_allowed, repo)
+            if not chatgpt and recorded_evidence(f):
+                continue                         # the workflow's own recorded rules (a lists fix of main's branch)
+            why = file_problem(f, guard_allowed, repo, auto=not chatgpt, ref=ref, sha_of=sha_of)
             if why:
                 return "person", why
         if published and not any(f.get("filename") == "ike/__init__.py" for f in files):
@@ -910,7 +996,9 @@ def decide(repo, pr, commits, files, checks, guard_allowed, published=False, unr
             return "person", why
         by = origins(commits)
         for f in files:
-            why = verified_file_problem(f, by.get(f.get("filename", "")), guard_allowed, repo, ref, tags)
+            if recorded_evidence(f) and by.get(f.get("filename", "")) == {"autofix"}:
+                continue                         # the recorded rules the workflow wrote with the AI's commit
+            why = verified_file_problem(f, by.get(f.get("filename", "")), guard_allowed, repo, ref, tags, sha_of)
             if why:
                 return "person", why
         names = [f.get("filename", "") for f in files]
@@ -955,6 +1043,163 @@ def decide(repo, pr, commits, files, checks, guard_allowed, published=False, unr
     if findings:
         return "person", "%s: %s" % (SECURITY_WHY, "; ".join(list(findings)[:6]))
     return "merge", ""
+
+
+# --- the full automation (2026-11-22): what a commit of an AI needs, and what happens next ----------
+
+NO_REVIEW = "the two independent AI reviews have not run on this commit yet"
+NO_REGRESSION = "no-regression"            # tools/test-categories.py: the differential check "Nothing gets worse"
+REJECTED = "the AI reviewers rejected the fix"
+GUARD_WHY = "the static guard refuses"
+
+
+NO_REGRESSION_AT = ("tests.yml", "tests", "Nothing gets worse")     # where tests.yml runs it
+NO_ANSWER = "the AI reviewers have not answered yet"
+REVIEW_AGAIN_HOURS = 6
+
+
+def _hours_since(stamp):
+    import datetime
+    try:
+        then = datetime.datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
+    except ValueError:
+        return 10 ** 6
+    return (datetime.datetime.now(datetime.timezone.utc) - then).total_seconds() / 3600
+
+
+def no_regression(evidence):
+    """(state, detail) of the differential check on the commit: "passed", "failed" or "not verified"
+    (not run there, skipped, still running, or not in main yet). Read at the place
+    tools/test-categories.py gives the category, else at the step of tests.yml."""
+    where = (_tool("test-categories").CATEGORIES.get(NO_REGRESSION) or (None, NO_REGRESSION_AT))[1]
+    workflow, job, step = where
+    run = ((evidence or {}).get("runs") or {}).get(workflow) or {}
+    j = (run.get("jobs") or {}).get(job) or {}
+    result = ((j.get("steps") or {}).get(step) if step else j.get("conclusion")) or ""
+    if result == "success":
+        return "passed", "the step passed"
+    if result in ("failure", "timed_out"):
+        return "failed", "the step failed"
+    return "not verified", ("the step \"%s\" has no result on this commit%s" % (
+        step or job, ": " + result if result else ""))
+
+
+def ai_commits(commits):
+    return [c for c in commits if AUTOFIX_COMMIT.match((c.get("commit") or {}).get("message") or "")]
+
+
+def ai_files(ref, commits, files):
+    """The files of the pull request an AI commit changed (on the automatic fix's own branch: all)."""
+    if ref == FIX_MAIN or any(c.get("files") is None for c in ai_commits(commits)):
+        return [f for f in files]
+    names = {n for c in ai_commits(commits) for n in c.get("files") or ()}
+    return [f for f in files if f.get("filename") in names]
+
+
+def ai_requirements(pr, commits, files, evidence, review, sha_of=None):
+    """("merge", "") when the pull request has no AI commit, or when its AI commits have everything the
+    full automation asks (the static guard on the whole AI change, "no-regression" passed, two
+    independent approving reviews of this commit); else ("wait", why) or ("person", why)."""
+    head = pr.get("head") or {}
+    ref, sha = head.get("ref", ""), head.get("sha", "")
+    commits = [c for c in commits if not REFRESH.match(_first(c))]
+    if not ai_commits(commits):
+        return "merge", ""
+    fg = _fix_guard()
+    mine = [f for f in ai_files(ref, commits, files)
+            if f.get("filename") not in VERSION_FILES and not recorded_evidence(f)]
+    builder = _tool("builder-anchor").BUILDERS.get(candidate_id(ref)) if ref.startswith(BUILDER_PREFIX) else None
+    changes = [{"filename": f.get("filename", ""), "status": f.get("status", ""), "old_source": f.get("old_source"),
+                "new_source": f.get("new_source")} for f in mine if fg.tier(f.get("filename", "")) != ""]
+    bad = fg.check(changes, engine_candidate=_candidates().wrapper_allowed(ref), exempt=(builder,) if builder else (),
+                   sha_of=sha_of)
+    sizes = []
+    lines = sum(int(f.get("changes") or 0) for f in mine)
+    if len(mine) > fg.MAX_FILES or lines > fg.MAX_LINES:
+        sizes = ["the AI's change is too large: %d files, %d lines (at most %d and %d)" % (
+            len(mine), lines, fg.MAX_FILES, fg.MAX_LINES)]
+    if bad or sizes:
+        return "person", "%s the AI's change: %s" % (GUARD_WHY, (bad + sizes)[0])
+    state, detail = no_regression(evidence)
+    if state != "passed":
+        return ("person" if state == "failed" else "wait"), (
+            "%s %s (%s): an AI's change needs the differential check \"Nothing gets worse\"" % (
+                NO_REGRESSION, state, detail))
+    if review is None or not isinstance(review.get("result"), dict):
+        return "wait", NO_REVIEW
+    result = review["result"]
+    rv = _tool("ai-review")
+    if result.get("sha") != sha:
+        return "wait", NO_REVIEW
+    if result.get("verdict") == "reject":
+        said = "; ".join("%s: %s" % (r.get("provider"), "; ".join(r.get("reasons") or [])[:300])
+                         for r in result.get("reviews") or [] if r.get("verdict") == "reject")
+        return "person", "%s: %s" % (REJECTED, said[:600] or "no reason given")
+    if result.get("verdict") != "approve":
+        return "wait", "%s (%s): asked again later" % (NO_ANSWER, str(result.get("why"))[:200])
+    why = rv.problem(result, sha, rv.authors(commits)[0])
+    if why:
+        return "person", "the AI review of this commit does not count: %s" % why
+    if not review.get("status"):
+        return "wait", "the status ai-review of the workflow is not on this commit yet"
+    return "merge", ""
+
+
+def judge(repo, pr, commits, files, checks, guard_allowed, review=None, **kw):
+    """The verdict main() acts on: decide(), then what a commit of an AI needs (ai_requirements)."""
+    kind, why = decide(repo, pr, commits, files, checks, guard_allowed, **kw)
+    if kind != "merge":
+        return kind, why
+    return ai_requirements(pr, commits, files, kw.get("evidence"), review, kw.get("sha_of"))
+
+
+# what happens to a pull request that is not merged (never "a person looks", never closed):
+#   blocked   an open security finding: it stays blocked and the owner is told (the owner's own rule)
+#   fix       the automatic fix tries again with this reason (its attempts of the day, again tomorrow)
+#   rebuild   the daily maintenance rebuilds the candidate from main (its update applied again)
+#   refresh   main merged in, the version files and CHANGELOG moved to main's unpublished version
+#   checks    the daily check starts its Tests, Security and Arch Linux again
+#   judge     nothing to start: the daily check judges it again (a trial, a person's commit)
+NEXT = {
+    "blocked": "resta bloccata finché l'avviso di sicurezza è aperto",
+    "fix": "la correzione automatica riprova partendo da questo motivo (i tentativi di oggi, poi di nuovo domani, "
+           "con un altro assistente gratuito per primo)",
+    "rebuild": "la manutenzione giornaliera ricostruisce questo candidato da `main`",
+    "refresh": "`main` viene unito nel ramo e la versione portata a quella di `main`; poi ripartono i test",
+    "checks": "il controllo giornaliero fa ripartire test, Security e Arch Linux su questo ramo",
+    "judge": "il controllo giornaliero la valuta di nuovo ogni giorno",
+}
+NEXT_MARK = "<!-- automerge-next: %s -->"
+NEXT_RE = re.compile(r"<!-- automerge-next: (blocked|fix|rebuild|refresh|checks|judge) -->")
+VERSION_WHY = ("a second version raise", "CHANGELOG.md: a heading of another version", "CHANGELOG.md: more than")
+RAISE_WHY = "main's version is published already"
+FOREIGN_WHY = ("a trial", "a commit the automation did not write", "a commit the automatic fix did not write",
+               "not an open pull request", "not a branch of this repository", "not a pull request of the automation",
+               "no commits", "no files, or too many to read")
+CHECK_WHY = ("not fully verified", "the check ", NO_REGRESSION)
+
+
+def rebuilt_daily(ref):
+    """The daily maintenance makes this branch again from main (a candidate per component, or the combined one)."""
+    return ref == CANDIDATE or (ref.startswith(UPDATE_PREFIX) and bool(candidate_id(ref))
+                                and not ref.startswith(ARCH_TESTING_PREFIX))
+
+
+def next_step(why, ref, has_ai):
+    """What happens next to a pull request the judge did not merge (a key of NEXT)."""
+    if why.startswith(SECURITY_WHY):
+        return "blocked"
+    if why.startswith(FOREIGN_WHY):
+        return "judge"
+    if why.startswith(VERSION_WHY) or "the version jumps" in why or "more than the version" in why:
+        return "refresh"
+    if why.startswith(RAISE_WHY):
+        return "rebuild" if rebuilt_daily(ref) else "fix"
+    if why.startswith(CHECK_WHY):
+        return "checks"
+    if has_ai:
+        return "fix"                             # the static guard, the reviewers, a file rule of the AI's change
+    return "rebuild" if rebuilt_daily(ref) else "judge"
 
 
 def gh(*args, data=None):
@@ -1002,18 +1247,69 @@ BOT = "github-actions[bot]"
 NO_EVIDENCE = "the results of its checks could not be read"
 
 
-def person_text(n, why, owner, sha):
-    security = why.startswith(SECURITY_WHY)
-    return ("%s\n@%s: questa pull request **non** entra in `main` da sola: %s.\n\n"
-            "Prima di unirla va letta: chiedi a Claude di revisionare la pull request #%d.\n%s"
-            % (MARK, owner, why, n, VERDICT % (sha or "-", "security" if security else "person")))
+# main's protection asks for the check "tests" of the pull request itself; a pull request the workflow's
+# own token pushed has only dispatched runs (its pull_request runs wait for an approval), so GitHub
+# answers 405 "Required status check ... is expected" (PRs #107-#110, run 45059559126)
+EXPECTED_CHECK = re.compile(r"Required status check .{0,80}is expected", re.S)
+TOKEN_WHY = "GitHub does not take its checks for the required ones"
 
 
-def tell_person(repo, n, why, owner, sha=""):
-    """One comment per pull request, naming the owner (a mail with GitHub's
-    notification settings of docs/MAINTENANCE.md); a later reason is written
-    into that same comment, never in a new one (no second mail)."""
-    body = person_text(n, why, owner, sha)
+def token_text(owner, sha):
+    return ("%s\n@%s: nota informativa (una volta sola). Questa pull request è **verificata in tutto**, ma GitHub "
+            "non la lascia entrare in `main`: il controllo obbligatorio \"tests\" deve venire dalla pull request "
+            "stessa, e una pull request aperta dal robot di GitHub non fa partire i suoi controlli.\n\n"
+            "Serve un token tuo, una volta sola: su GitHub, Settings → Developer settings → Fine-grained tokens → "
+            "nuovo token **solo per questo repository**, con i permessi **Contents**, **Pull requests** e "
+            "**Workflows** in lettura e scrittura; poi nel repository Settings → Secrets and variables → Actions "
+            "→ nuovo secret di nome **IKE_WORKFLOW_TOKEN** con quel token. Da quel momento AUTOMAT riprova da solo "
+            "(questa pull request entra senza altri passi) e non ti chiede più niente; fino ad allora resta aperta "
+            "e viene riprovata ogni giorno.\n%s\n%s" % (MARK, owner, NEXT_MARK % "judge",
+                                                         VERDICT % (sha or "-", "retrying")))
+
+
+def retrigger(repo, n):
+    """The pull request closed and opened again with the owner's token (only when that token is set):
+    its own pull_request runs then start on the same commit, and their check "tests" is the required
+    one. Nothing is merged or changed; False when there is no token or GitHub refused."""
+    token = os.environ.get("IKE_WORKFLOW_TOKEN") or ""
+    if not token:
+        return False
+    old = os.environ.get("GH_TOKEN")
+    os.environ["GH_TOKEN"] = token
+    try:
+        for state in ("closed", "open"):
+            gh("api", "-X", "PATCH", "repos/%s/pulls/%d" % (repo, n), "-f", "state=" + state)
+        return True
+    except RuntimeError as e:
+        print("::warning::#%d could not be opened again with the owner's token: %s" % (n, str(e)[:200]))
+        return False
+    finally:
+        if old is None:
+            os.environ.pop("GH_TOKEN", None)
+        else:
+            os.environ["GH_TOKEN"] = old
+
+
+def person_text(n, why, owner, sha, step="judge"):
+    """The one comment of a pull request that is not merged. Since the full automation it asks nothing
+    of anyone: it says why and what the automation does next; only an open security finding still
+    names the owner (blocked: the owner's own decision)."""
+    if why.startswith(TOKEN_WHY):
+        return token_text(owner, sha)
+    if why.startswith(SECURITY_WHY):
+        return ("%s\n@%s: questa pull request **non** entra in `main` da sola: %s.\n\n"
+                "Resta bloccata finché l'avviso di sicurezza è aperto: chiedi a Claude di guardare la pull request "
+                "#%d.\n%s\n%s" % (MARK, owner, why, n, NEXT_MARK % "blocked", VERDICT % (sha or "-", "security")))
+    return ("%s\n**Nota informativa, non serve fare niente.** Questa pull request non è ancora entrata in `main`: "
+            "%s.\n\nCosa succede adesso: %s. Niente viene chiuso o abbandonato: AUTOMAT (la manutenzione "
+            "automatica) riprova finché passa.\n%s\n%s" % (MARK, why, NEXT.get(step, NEXT["judge"]), NEXT_MARK % step,
+                                 VERDICT % (sha or "-", "retrying")))
+
+
+def tell_person(repo, n, why, owner, sha="", step="judge"):
+    """One comment per pull request (informational; a security finding names the owner); a later
+    reason is written into that same comment, never in a new one."""
+    body = person_text(n, why, owner, sha, step)
     said = json.loads(gh("api", "repos/%s/issues/%d/comments?per_page=100" % (repo, n), "--jq",
                          '[.[] | select(.user.login == "%s") | {id, body}]' % BOT) or "[]")
     mine = [c for c in said if MARK in (c.get("body") or "")]
@@ -1122,29 +1418,32 @@ def behind_main(repo, sha):
         return False
 
 
-def refresh_branch(repo, ref, sha, cwd=ROOT):
-    """(commit, why): main merged into the verified candidate's branch (make_refresh), checked as the
-    merge will check it, pushed with the workflow's token to that branch only (a fast-forward, never
-    main), then Tests, Security and Arch Linux started on it (the token's push starts no workflow)."""
+def refresh_branch(repo, ref, sha, cwd=ROOT, reset=False, reversion=False):
+    """(commit, why): main merged into the candidate's branch (make_refresh; reset: the files in
+    conflict as main's), checked as the merge will check it, pushed with the workflow's token to that
+    branch only (a fast-forward, never main), then Tests, Security and Arch Linux started on it (the
+    token's push starts no workflow)."""
     import base64
     if not verified_branch(ref) or not ref.startswith("automation/"):
         return "", "not a branch of the automation"
     if not fetch_commit(sha, cwd):
         return "", "the commits could not be fetched"
     main_sha = _out(cwd, "rev-parse", "origin/main^{commit}")
-    commit, why = make_refresh(ref, sha, main_sha, cwd)
+    commit, why = make_refresh(ref, sha, main_sha, cwd, reset, reversion)
     if why:
         return "", why
     why = refresh_problem(commit, ref, cwd)
     if why:
         return "", "the refresh is not what the merge accepts (%s)" % why
-    auth = base64.b64encode(("x-access-token:%s" % os.environ.get("GH_TOKEN", "")).encode()).decode()
+    # the owner's token when it is set: its push starts the pull request's own runs (the workflow's starts none)
+    own = os.environ.get("IKE_WORKFLOW_TOKEN") or ""
+    auth = base64.b64encode(("x-access-token:%s" % (own or os.environ.get("GH_TOKEN", ""))).encode()).decode()
     try:
         _git(cwd, "-c", "http.https://github.com/.extraheader=AUTHORIZATION: basic " + auth, "push", "-q", "origin",
              "%s:refs/heads/%s" % (commit, ref))
     except RuntimeError as e:
         return "", "the refresh could not be pushed (%s)" % str(e).replace(auth, "***")[:200]
-    for workflow in ("tests.yml", "security.yml", "arch.yml"):
+    for workflow in () if own else ("tests.yml", "security.yml", "arch.yml"):
         try:
             gh("workflow", "run", workflow, "--repo", repo, "--ref", ref)
         except RuntimeError as e:
@@ -1216,12 +1515,115 @@ def merge_it(repo, pr, sha):
         gh("workflow", "run", workflow, "--repo", repo, "--ref", "main")
 
 
+def gather_review(repo, n, sha):
+    """The AI review of this commit: {"status": the workflow's own status "ai-review" is success,
+    "result": the data of its comment} (tools/ai-review.py), or None when it cannot be read."""
+    rv = _tool("ai-review")
+    try:
+        statuses = api("repos/%s/commits/%s/statuses?per_page=100" % (repo, sha))
+        comments = api("repos/%s/issues/%d/comments?per_page=100" % (repo, n))
+    except (RuntimeError, ValueError) as e:
+        print("::warning::the AI review could not be read: %s" % str(e)[:200])
+        return None
+    mine = [x for x in statuses or () if x.get("context") == rv.STATUS and (x.get("creator") or {}).get("login") == BOT]
+    when = [c.get("created_at") or "" for c in comments or () if (c.get("user") or {}).get("login") == BOT
+            and (rv.MARK_RE.search((c.get("body") or "").split("\n", 1)[0]) or [None, ""])[1] == sha]
+    return {"status": bool(mine) and mine[0].get("state") == "success", "result": rv.result_in(comments, sha),
+            "when": max(when) if when else ""}
+
+
+def start(repo, workflow, ref, *fields):
+    """A workflow of this repository started by a dispatch; False (and a warning) when it could not be."""
+    try:
+        gh("workflow", "run", workflow, "--repo", repo, "--ref", ref, *[x for f in fields for x in ("-f", f)])
+        return True
+    except RuntimeError as e:
+        print("::warning::%s could not be started on %s: %s" % (workflow, ref, str(e)[:200]))
+        return False
+
+
+def follow(repo, pr, sha, why, step, dry_run=False):
+    """The follow-up of a pull request that is not merged: its informational comment, and what the
+    automation starts at once (the fix with the reason, the rebuild, the refresh); the daily check
+    starts the rest (--daily). Returns the step taken."""
+    n, ref = pr["number"], pr["head"]["ref"]
+    owner = repo.split("/")[0]
+    if dry_run:
+        print("#%d (%s): next: %s" % (n, ref, step))
+        return step
+    if step == "refresh":
+        # the version files and CHANGELOG moved to main's unpublished version, main merged in
+        commit, bad = refresh_branch(repo, ref, sha, reversion=True)
+        if bad and CONFLICT in bad:
+            if rebuilt_daily(ref):
+                step = "rebuild"
+            else:
+                commit, bad = refresh_branch(repo, ref, sha, reset=True, reversion=True)
+        if not bad:
+            gh("pr", "comment", str(n), "--repo", repo, "--body",
+               "Nota informativa: `main` è stato unito nel ramo (%s, nessuna AI; versione e CHANGELOG portati a quelli "
+               "di `main`). Ripartono test, Security e Arch Linux." % commit[:10])
+            return "refresh"
+        if step == "refresh":
+            why, step = "%s; the refresh stopped: %s" % (why, bad), "rebuild" if rebuilt_daily(ref) else "judge"
+    if step == "rebuild":
+        start(repo, "daily-maintenance.yml", "main", *(["mode=combined"] if ref == CANDIDATE else []))
+    elif step == "fix":
+        start(repo, "autofix.yml", "main", "run_id=%s" % (os.environ.get("GITHUB_RUN_ID") or "0"),
+              "work=refused/%s" % sha)
+    tell_person(repo, n, why, owner, sha, step)
+    return step
+
+
+def daily(repo, dry_run=False):
+    """The daily check's part (2026-11-22: nothing stays behind): every open pull request of the
+    automation is judged again, and what its last verdict left to the next day is started: its
+    checks again, or the automatic fix with the reason. One round a day, so nothing loops."""
+    rv = _tool("ai-review")
+    done = []
+    for p in api("repos/%s/pulls?state=open&per_page=100" % repo) or ():
+        head = p.get("head") or {}
+        ref, sha = head.get("ref", ""), head.get("sha") or ""
+        if (head.get("repo") or {}).get("full_name") != repo or not verified_branch(ref) \
+                or not re.fullmatch(r"[0-9a-f]{40}", sha):
+            continue
+        try:
+            said = api("repos/%s/issues/%d/comments?per_page=100" % (repo, p["number"]))
+        except (RuntimeError, ValueError):
+            said = []
+        mine = [c.get("body") or "" for c in said if (c.get("user") or {}).get("login") == BOT
+                and MARK in (c.get("body") or "")]
+        step = (NEXT_RE.search(mine[-1]) if mine else None)
+        step = step.group(1) if step and (VERDICT % (sha, "retrying")) in mine[-1] else "judge"
+        review = rv.result_in(said, sha)
+        if review and review.get("verdict") == "reject":
+            step = "fix"
+        done.append((p["number"], ref, step))
+        if dry_run:
+            continue
+        if step == "checks":
+            for workflow in ("tests.yml", "security.yml", "arch.yml"):
+                start(repo, workflow, ref)
+        elif step == "fix":
+            start(repo, "autofix.yml", "main", "run_id=%s" % (os.environ.get("GITHUB_RUN_ID") or "0"),
+                  "work=refused/%s" % sha)
+        else:
+            start(repo, "automerge.yml", "main", "sha=" + sha)
+    for n, ref, step in done:
+        print("#%s (%s): %s" % (n, ref, step))
+    return done
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--repo", required=True)
-    ap.add_argument("--sha", required=True)
+    ap.add_argument("--sha", default="")
+    ap.add_argument("--daily", action="store_true", help="the daily check: every open pull request again")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args(argv)
+    if a.daily:
+        daily(a.repo, a.dry_run)
+        return 0
     if not re.fullmatch(r"[0-9a-f]{40}", a.sha):
         print("not a commit: %s" % a.sha[:60])
         return 0
@@ -1243,15 +1645,27 @@ def main(argv=None):
         commit_files(a.repo, commits)
     files = api("repos/%s/pulls/%d/files?per_page=100" % (a.repo, n))
     base = (pr.get("base") or {}).get("sha", "")
+    fg = _fix_guard()
     for f in files:                       # the whole files, before and after (N1)
-        whole = f.get("filename", "").endswith((".py", ".rs")) or f.get("filename", "") == "PKGBUILD" or \
-            f.get("filename", "").startswith((".github/", "tools/build-"))
+        name = f.get("filename", "")
+        whole = name.endswith((".py", ".rs")) or name == "PKGBUILD" or name.startswith((".github/", "tools/build-")) \
+            or (verified and fg.tier(name) == "A")
         if whole and f.get("status") == "modified":
             try:
-                f["old_source"] = file_at(a.repo, f["filename"], base)
-                f["new_source"] = file_at(a.repo, f["filename"], a.sha)
+                f["old_source"] = file_at(a.repo, name, base)
+                f["new_source"] = file_at(a.repo, name, a.sha)
             except (RuntimeError, ValueError, KeyError):
                 pass
+
+    def sha_of(path):
+        """The sha256 of a file of the pull request's commit, or "" (the component manifest's entries)."""
+        import base64
+        import hashlib
+        try:
+            data = api("repos/%s/contents/%s?ref=%s" % (a.repo, path, a.sha))
+            return hashlib.sha256(base64.b64decode(data["content"])).hexdigest()
+        except (RuntimeError, ValueError, KeyError, TypeError):
+            return ""
     guard = _guard()
     main_version = version_of_main()
     published = released(a.repo, "v" + main_version)
@@ -1265,30 +1679,48 @@ def main(argv=None):
         ensure_arch(a.repo, ref, a.sha)
         if ref.startswith(ARCH_TESTING_PREFIX):
             ensure_arch(a.repo, ref, a.sha, workflow="arch-testing.yml")
+    has_ai = verified and bool(ai_commits(commits))
     # a check still running (another workflow's last job): read again for a
     # while, so that the deciding run does not end on "wait" for good (N7)
     for _round in range(16):
         checks = api("repos/%s/commits/%s/check-runs?per_page=100" % (a.repo, a.sha)).get("check_runs", [])
         args = (a.repo, pr, commits, files, checks, lambda name: guard.allowed_path(name, False))
         unread = unread_merge(a.repo) if not verified else False      # M9: ChatGPT's fix only (2026-11-22)
-        kind, why = decide(*args, published=published, unread=unread, protected=guard.FORBIDDEN_FILES,
-                           main_version=main_version)
+        kw = dict(published=published, unread=unread, protected=guard.FORBIDDEN_FILES, main_version=main_version,
+                  sha_of=sha_of)
+        kind, why = judge(*args, **kw)
         if kind == "wait" and why == NO_EVIDENCE:
             # every check passed: what they verified, and the open security findings
             passed = any(c.get("name") == "rust-advisories" and c.get("conclusion") == "success" for c in checks)
-            kind, why = decide(*args, published=published, unread=unread, protected=guard.FORBIDDEN_FILES,
-                               evidence=gather_evidence(a.repo, a.sha), findings=gather_findings(a.repo, passed),
-                               main_version=main_version)
+            kw.update(evidence=gather_evidence(a.repo, a.sha), findings=gather_findings(a.repo, passed))
+            kind, why = judge(*args, **kw)
+            if kind == "wait" and why == NO_REVIEW:
+                # everything else holds: the two independent reviewers (asked once per commit)
+                review = gather_review(a.repo, n, a.sha)
+                kind, why = judge(*args, review=review or {}, **kw)
+                # asked once per commit; when the reviewers did not answer (busy, out of quota), again
+                # after REVIEW_AGAIN_HOURS (the daily check judges every open pull request again)
+                stale = why.startswith(NO_ANSWER) and review is not None and _hours_since(review.get("when")) \
+                    >= REVIEW_AGAIN_HOURS
+                if kind == "wait" and (why == NO_REVIEW or stale) and not a.dry_run and review is not None:
+                    start(a.repo, "ai-review.yml", "main", "sha=" + a.sha)
+                    print("#%d (%s): the two independent AI reviews are asked for %s" % (n, ref, a.sha[:10]))
+                    return 0
         # Arch Linux takes an hour: its own merge-ready job asks again when it ends
-        if kind != "wait" or a.dry_run or "Arch Linux" in why:
+        if kind != "wait" or a.dry_run or "Arch Linux" in why or why.startswith(("the AI review", "the status")) \
+                or why == NO_REVIEW or NO_REGRESSION in why or why.startswith(NO_ANSWER):
             break
         time.sleep(30)
     print("#%d (%s): %s" % (n, ref, {"merge": "fully verified: merge", "ready": "ready for the owner's order",
-                                     "wait": "waiting: ", "person": "left for a person: "}[kind] + why))
+                                     "wait": "waiting: ", "person": "not merged: "}[kind] + why))
     if a.dry_run or kind == "wait":
         return 0
     if kind == "person":
-        tell_person(a.repo, n, why, a.repo.split("/")[0], a.sha)
+        if not verified:
+            tell_person(a.repo, n, why, a.repo.split("/")[0], a.sha)      # ChatGPT's: it waits for the owner
+            return 0
+        step = follow(a.repo, pr, a.sha, why, next_step(why, ref, has_ai))
+        print("#%d (%s): next: %s" % (n, ref, step))
         return 0
     if kind == "ready":
         # ChatGPT's fix: never merged by itself (CLAUDE.md), it waits for the owner's order
@@ -1302,10 +1734,14 @@ def main(argv=None):
     if behind_main(a.repo, a.sha):
         # verified, but on an older main: main merged in (the refresh), then its tests again
         commit, why = refresh_branch(a.repo, ref, a.sha)
+        if why and CONFLICT in why and not rebuilt_daily(ref):
+            # a real conflict on a branch nothing rebuilds: the files in conflict as main's, its tests
+            # again, and the automatic fix goes on from there (nothing is parked)
+            commit, why = refresh_branch(a.repo, ref, a.sha, reset=True)
         if why:
-            print("#%d (%s): left for a person: %s" % (n, ref, why))
-            tell_person(a.repo, n, "it is verified but behind main, and the refresh stopped: %s" % why,
-                        a.repo.split("/")[0], a.sha)
+            step = follow(a.repo, pr, a.sha, "it is verified but behind main, and the refresh stopped: %s" % why,
+                          "rebuild" if rebuilt_daily(ref) else "judge")
+            print("#%d (%s): not merged: %s; next: %s" % (n, ref, why, step))
             return 0
         gh("pr", "comment", str(n), "--repo", a.repo, "--body",
            "Verificata, ma indietro rispetto a `main`: `main` è stato unito nel ramo (%s, nessuna AI; CHANGELOG e "
@@ -1313,8 +1749,24 @@ def main(argv=None):
            "sola." % commit[:10])
         print("#%d refreshed with main (%s): its tests run again, then it is judged again" % (n, commit[:10]))
         return 0
-    merge_it(a.repo, pr, a.sha)
+    try:
+        merge_it(a.repo, pr, a.sha)
+    except RuntimeError as e:
+        if not EXPECTED_CHECK.search(str(e)):
+            raise
+        # verified, but its checks are not the pull request's own (see EXPECTED_CHECK): with the owner's
+        # token its own runs are started and it merges when they pass; without it: retrying, one note
+        if retrigger(a.repo, n):
+            print("#%d: verified; its own pull request runs were started with the owner's token" % n)
+            return 0
+        tell_person(a.repo, n, "%s (%s): the secret IKE_WORKFLOW_TOKEN is not set" % (
+            TOKEN_WHY, "Required status check is expected"), a.repo.split("/")[0], a.sha)
+        print("#%d (%s): verified, not merged: %s; retrying (the owner is told once)" % (n, ref, TOKEN_WHY))
+        return 0
     print("merged #%d; the tests of main started (then the signing notice)" % n)
+    if os.environ.get("GITHUB_OUTPUT") and has_ai:
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write("merged=%s\n" % ref)             # AUTOMAT's memory: this branch's fix solved its error
     asked = redispatch_others(a.repo, n)
     if asked:
         print("judged again: %s" % ", ".join("#%s" % x for x in asked))

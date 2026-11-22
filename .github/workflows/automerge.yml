@@ -26,6 +26,15 @@
 # pushed with this job's token to that branch only, never to main) and its
 # Tests, Security and Arch Linux start again; after every merge the other
 # open pull requests of the automation are judged again (a dispatch each).
+#
+# AUTOMAT, the full automation (2026-11-22, the owner's decision: the only human step is the
+# signature): a pull request with a commit an AI wrote also needs the static guard
+# (tools/fix-guard.py), "Nothing gets worse" (no-regression) and two independent AI reviewers that
+# approved this very commit (ai-review.yml, started from here once everything else holds; its status
+# "ai-review" and its comment are read back). Nothing waits for a person: what is not merged gets one
+# informational comment and is tried again (the automatic fix with the reason, a rebuild from main,
+# main merged in with the conflicts as main's; the daily check judges every open one again). Only an
+# open security finding still blocks and names the owner.
 name: Merge green fixes
 
 on:
@@ -57,6 +66,7 @@ jobs:
       issues: read             # its own earlier comment, the security issues, the maintenance ledger
       actions: write           # the runs and test results of the commit; Arch on it; main's tests after the merge; the others judged again
       checks: read             # the checks of the commit
+      statuses: read           # the status "ai-review" of the two independent AI reviewers (ai-review.yml)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -64,6 +74,7 @@ jobs:
           fetch-depth: 0           # the refresh merges main into the candidate (git merge-tree)
           persist-credentials: false
       - name: Merge it when it is fully verified
+        id: merge
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.event.inputs.sha || github.event.workflow_run.head_sha }}
@@ -71,3 +82,26 @@ jobs:
           # GitHub refuses workflow changes to the workflow's own token; empty when the owner set none
           IKE_WORKFLOW_TOKEN: ${{ secrets.IKE_WORKFLOW_TOKEN }}
         run: python3 -I tools/automerge.py --repo "${{ github.repository }}" --sha "$SHA"
+      # AUTOMAT's memory (tools/automat-memory.py, the data branch automat/memory): the fix that was merged
+      # solved its error; a later error with the same signature gets it as a hint. No AI here.
+      - name: AUTOMAT's memory of the fix that was merged
+        if: steps.merge.outputs.merged != ''
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMPONENT: ${{ steps.merge.outputs.merged }}
+        run: |
+          case "$COMPONENT" in automation/*) ;; *) exit 0 ;; esac
+          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          remote="https://github.com/$GITHUB_REPOSITORY"
+          data="$RUNNER_TEMP/memory-branch"
+          git init -q "$data"
+          cd "$data"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch -q --depth 1 "$remote" refs/heads/automat/memory 2> /dev/null || exit 0
+          git checkout -q -B data FETCH_HEAD
+          python3 -I "$GITHUB_WORKSPACE/tools/automat-memory.py" merged --memory memory.json --component "$COMPONENT"
+          git add memory.json
+          git -c core.hooksPath=/dev/null commit -q -m "AUTOMAT's memory: $COMPONENT merged" || exit 0
+          git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" push -q "$remote" HEAD:refs/heads/automat/memory

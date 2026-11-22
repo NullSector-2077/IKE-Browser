@@ -141,17 +141,39 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/failure"
           # the daily check's work (tools/ai-work.py), only in its own forms
-          if ! printf '%s' "$WORK" | grep -Eq '^(lists/[0-9]{4}-[0-9]{2}-[0-9]{2}/lists/[a-z-]+/[a-z0-9.-]+@[a-z]+|run/[0-9]{1,20}|builder/(darkreader|ubo-scriptlets)/[0-9]{4}-[0-9]{2}-[0-9]{2})$'; then
+          if ! printf '%s' "$WORK" | grep -Eq '^(lists/[0-9]{4}-[0-9]{2}-[0-9]{2}/lists/[a-z-]+/[a-z0-9.-]+@[a-z]+|run/[0-9]{1,20}|builder/(darkreader|ubo-scriptlets)/[0-9]{4}-[0-9]{2}-[0-9]{2}|refused/[0-9a-f]{40})$'; then
             WORK=""
           fi
           if [ "${WORK#lists/}" != "$WORK" ]; then
             python3 -I tools/filter-lists.py plan --run-id "$RUN_ID" --work "$WORK" --out-dir "$RUNNER_TEMP/failure"
+          elif [ "${WORK#refused/}" != "$WORK" ]; then
+            # AUTOMAT: a fix that passed its tests but was refused (the verified merge's static guard, the AI
+            # reviewers): the next attempt on its branch, with the reasons (tools/autofix-plan.py)
+            python3 -I tools/autofix-plan.py --refused-work "$WORK" --run-id "$RUN_ID" --out-dir "$RUNNER_TEMP/failure"
           elif [ "${WORK#builder/}" != "$WORK" ]; then
             # WP11: a builder refused a new upstream version (the daily maintenance's report)
             python3 -I tools/autofix-plan.py --builder-work "$WORK" --run-id "$RUN_ID" --out-dir "$RUNNER_TEMP/failure"
           else
             python3 -I tools/autofix-plan.py --run-id "$RUN_ID" --logs "$RUNNER_TEMP/failure/failure.md" \
               --event "$EVENT"
+          fi
+          # AUTOMAT's memory of attempts (tools/automat-memory.py; the data branch automat/memory, written only
+          # by the job remember below): what was already tried for this error, and what solved a similar one,
+          # goes into the failure description as quoted data; the rotation prefers a provider that has not
+          # failed this error yet
+          if [ -s "$RUNNER_TEMP/failure/failure.md" ] && \
+             git show "origin/automat/memory:memory.json" > "$RUNNER_TEMP/memory.json" 2> /dev/null; then
+            component=$(sed -n 's/^push_branch=//p' "$GITHUB_OUTPUT" | tail -n 1)
+            first=$(sed -n 's/^first=//p' "$GITHUB_OUTPUT" | tail -n 1)
+            if [ -n "$first" ]; then
+              better=$(python3 -I tools/automat-memory.py first --memory "$RUNNER_TEMP/memory.json" \
+                         --component "$component" --failure "$RUNNER_TEMP/failure/failure.md" \
+                         --default "$first" --names "Antigravity,Groq,Z.AI,OpenRouter" || true)
+              case "$better" in Antigravity|Groq|Z.AI|OpenRouter) echo "first=$better" >> "$GITHUB_OUTPUT" ;; esac
+            fi
+            python3 -I tools/automat-memory.py prompt --memory "$RUNNER_TEMP/memory.json" --component "$component" \
+              --failure "$RUNNER_TEMP/failure/failure.md" --out "$RUNNER_TEMP/memory.md" || true
+            if [ -s "$RUNNER_TEMP/memory.md" ]; then cat "$RUNNER_TEMP/memory.md" >> "$RUNNER_TEMP/failure/failure.md"; fi
           fi
           echo "work=${WORK:-run/$RUN_ID}" >> "$GITHUB_OUTPUT"
       # WP9: the providers the last weekly check found not free (tools/provider-check.py,
@@ -245,6 +267,8 @@ jobs:
           done
           # WP11: the builders' re-anchoring rule, which the checker reads beside itself
           git show "origin/main:tools/builder-anchor.py" > "$RUNNER_TEMP/builder-anchor.py"
+          # AUTOMAT: the static guard and the component manifest's rules, which the checker reads beside itself
+          for f in fix-guard.py component-manifest.py; do git show "origin/main:tools/$f" > "$RUNNER_TEMP/$f"; done
       - name: Failure description
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -522,6 +546,8 @@ jobs:
           if [ -f "$RUNNER_TEMP/security-finding" ]; then allow="$allow --security"; fi
           if [ -f "$RUNNER_TEMP/lists-mode" ]; then allow="$allow --lists"; fi
           if [ -s "$RUNNER_TEMP/builder" ]; then allow="$allow --builder $(cat "$RUNNER_TEMP/builder")"; fi
+          # AUTOMAT: this fix may reach main by itself, so the static guard reads it too (tools/fix-guard.py)
+          allow="$allow --auto"
           first=""
           if [ -s "$RUNNER_TEMP/first" ]; then first="--first $(cat "$RUNNER_TEMP/first")"; fi
           AUTOFIX_UNAVAILABLE="$(cat "$RUNNER_TEMP/unavailable" 2> /dev/null || true)"
@@ -615,6 +641,8 @@ jobs:
           if [ "$SECURITY" = "true" ]; then allow="$allow --security"; fi
           if [ -f "$RUNNER_TEMP/lists-mode" ]; then allow="$allow --lists"; fi
           if [ -s "$RUNNER_TEMP/builder" ]; then allow="$allow --builder $(cat "$RUNNER_TEMP/builder")"; fi
+          # AUTOMAT: this fix may reach main by itself, so the static guard reads it too (tools/fix-guard.py)
+          allow="$allow --auto"
           first=""
           if [ -s "$RUNNER_TEMP/first" ]; then first="--first $(cat "$RUNNER_TEMP/first")"; fi
           AUTOFIX_UNAVAILABLE="$(cat "$RUNNER_TEMP/unavailable" 2> /dev/null || true)"
@@ -764,6 +792,14 @@ jobs:
           if blocked.is_file():
               text += "\n\n" + blocked.read_text("utf-8", errors="replace")[:1500]
           (out / "summary.md").write_text(text, "utf-8")
+          # who wrote the fix that is kept (the commit's Author line: the AI reviewers must be other providers)
+          import re
+          author = ""
+          if reserve is not None and reserve.get("result") == "ok":
+              author = str(reserve.get("model") or "")
+          elif status.get("result") == "ok":
+              author = "Antigravity / %s" % (status.get("model") or "?")
+          (out / "author.txt").write_text(re.sub(r"[^A-Za-z0-9._/: ()-]", "", author)[:140] + "\n", "utf-8")
           for name in ("autofix.patch", "summary.md"):
               data = (out / name).read_bytes()
               if any(v and v in data for v in variants):
@@ -809,6 +845,7 @@ jobs:
             ${{ runner.temp }}/autofix/summary.md
             ${{ runner.temp }}/autofix/related.txt
             ${{ runner.temp }}/autofix/workflow-proposal.patch
+            ${{ runner.temp }}/autofix/author.txt
           if-no-files-found: ignore
           retention-days: 14
 
@@ -836,7 +873,7 @@ jobs:
       - name: Checking tools from main, never from the branch being fixed
         run: |
           mkdir -p "$RUNNER_TEMP/trusted"
-          for f in check-autofix-patch.py prepare-maintenance.py builder-anchor.py; do
+          for f in check-autofix-patch.py prepare-maintenance.py builder-anchor.py fix-guard.py component-manifest.py; do
             git show "origin/main:tools/$f" > "$RUNNER_TEMP/trusted/$f"
           done
       - name: Check and apply the patch
@@ -852,6 +889,8 @@ jobs:
           if [ "$SECURITY" = "true" ]; then allow="$allow --security"; fi
           if [ "$MODE" = "lists" ]; then allow="$allow --lists"; fi
           case "$BUILDER" in darkreader|ubo-scriptlets) allow="$allow --builder $BUILDER" ;; esac
+          # AUTOMAT: the static guard of a fix that may reach main by itself (tools/fix-guard.py)
+          allow="$allow --auto"
           related=""
           if [ -s "$RUNNER_TEMP/autofix/related.txt" ]; then related="--related $RUNNER_TEMP/autofix/related.txt"; fi
           python3 -I "$RUNNER_TEMP/trusted/check-autofix-patch.py" --repo . \
@@ -918,6 +957,11 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           printf 'autofix: attempt %s after a failure of "%s"\n\nPrepared by the automatic fix (Antigravity or a reserve), accepted by tools/check-autofix-patch.py.\nRun: %s\n' \
             "$ATTEMPT" "$WORKFLOW" "$RUN_URL" > "$RUNNER_TEMP/message"
+          # who wrote it (the fix job's record, checked here): the two AI reviewers must be other providers
+          author=$(head -n 1 "$RUNNER_TEMP/autofix/author.txt" 2> /dev/null || true)
+          if printf '%s' "$author" | grep -Eq '^(Antigravity|Groq|Z\.AI|OpenRouter)( / [A-Za-z0-9._/: ()-]{1,100})?$'; then
+            printf 'Author: %s\n' "$author" >> "$RUNNER_TEMP/message"
+          fi
           git -c core.hooksPath=/dev/null commit -q -F "$RUNNER_TEMP/message"
           git bundle create "$RUNNER_TEMP/autofix/fix.bundle" "$CHECKOUT..HEAD"
       - name: Keep the accepted fix
@@ -973,6 +1017,8 @@ jobs:
           WORKFLOW: ${{ needs.plan.outputs.workflow }}
           ATTEMPT: ${{ needs.plan.outputs.attempt }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # the owner's fine-grained token (optional): only for this step's push and pull request
+          IKE_WORKFLOW_TOKEN: ${{ secrets.IKE_WORKFLOW_TOKEN }}
         run: |
           b="$RUNNER_TEMP/autofix/fix.bundle"
           git bundle verify "$b"
@@ -1014,8 +1060,18 @@ jobs:
             printf '### Not published\n\n%s: this fix is not pushed.\n' "$overtaken" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
             exit 0
           fi
+          # AUTOMAT: with the owner's IKE_WORKFLOW_TOKEN the push and the pull request are the owner's, so the pull
+          # request's own Tests, Security and Arch Linux start (a push of the workflow's token starts none: their
+          # pull_request runs wait for an approval forever, and main's required check "tests" stays "expected").
+          # The token is only in this step, which runs no AI and nothing an AI wrote
+          push_token="${IKE_WORKFLOW_TOKEN:-$GH_TOKEN}"
+          # that token could push a workflow change (the workflow's own cannot): checked once more, here
+          if [ -n "$(git diff --name-only "$CHECKOUT" refs/heads/autofix-result -- .github | head -n 1)" ]; then
+            echo "::error::the fix changes .github/: an AI never changes a workflow, nothing is pushed"
+            exit 1
+          fi
           if [ "$old" != "$new" ]; then
-            auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+            auth=$(printf 'x-access-token:%s' "$push_token" | base64 -w0)
             git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" \
               push --force-with-lease="refs/heads/$PUSH_BRANCH:$old" origin "refs/heads/autofix-result:refs/heads/$PUSH_BRANCH"
           fi
@@ -1026,7 +1082,7 @@ jobs:
             echo "**Automatic fix, attempt $ATTEMPT** after a failure of \"$WORKFLOW\" ([run]($RUN_URL))."
             echo
             echo "Prepared by the automatic fix (Antigravity or a reserve, see the summary) without any GitHub credential; accepted by the automatic checks."
-            echo "The tests and the sandbox tests run again on this branch. When they pass, tools/automerge.py merges it only if it is a small change of the interface code; otherwise it says here that a person must read it first."
+            echo "The tests and the sandbox tests run again on this branch. When they pass, AUTOMAT's verified merge (tools/automerge.py) takes it only when the static guard accepts the change, \"Nothing gets worse\" passed and two independent AI reviewers approved this commit; otherwise it says here why, and the automatic fix tries again."
             echo
             echo "### Summary of the agent"
             echo
@@ -1054,16 +1110,18 @@ jobs:
           if [ -n "$pr" ]; then
             retry gh pr comment "$pr" --body-file "$body"
             retry gh pr edit "$pr" --add-label autofix
-          elif ! gh pr create --draft --base main --head "$PUSH_BRANCH" --label autofix \
+          elif ! env GH_TOKEN="$push_token" gh pr create --draft --base main --head "$PUSH_BRANCH" --label autofix \
               --title "$title" --body-file "$body"; then
             # it may have been made all the same: look before asking again
             sleep 15
             pr=$(retry gh pr list --head "$PUSH_BRANCH" --base main --state open --json number --jq '.[0].number // empty')
             if [ -z "$pr" ]; then
-              retry gh pr create --draft --base main --head "$PUSH_BRANCH" --label autofix \
+              retry env GH_TOKEN="$push_token" gh pr create --draft --base main --head "$PUSH_BRANCH" --label autofix \
                 --title "$title" --body-file "$body"
             fi
           fi
+          # started by a dispatch only without the owner's token (with it the pull request's own runs start)
+          if [ -z "$IKE_WORKFLOW_TOKEN" ]; then
           retry gh workflow run tests.yml --ref "$PUSH_BRANCH"
           # the sandbox tests too: the merge needs them (review 2 of 1.1.19, H3)
           retry gh workflow run security.yml --ref "$PUSH_BRANCH"
@@ -1075,6 +1133,7 @@ jobs:
           if [ "$WORKFLOW" = "Arch Linux" ] || [ "${arch_fix:-0}" != "0" ] || [ "$KIND" = "update" ] || \
              [ "$KIND" = "builder" ] || [ "$KIND" = "arch-testing" ]; then
             retry gh workflow run arch.yml --ref "$PUSH_BRANCH"
+          fi
           fi
           # WP10 (b): a fix for Arch's next packages merges only when it passes on testing too
           if [ "$KIND" = "arch-testing" ]; then retry gh workflow run arch-testing.yml --ref "$PUSH_BRANCH"; fi
@@ -1219,7 +1278,7 @@ jobs:
   report:
     needs: [plan, fix, guard, publish, security-update]
     if: >-
-      always() && (needs.plan.outputs.action == 'issue' ||
+      always() && (needs.plan.outputs.action == 'issue' || needs.plan.outputs.action == 'retry' ||
       (needs.plan.outputs.action == 'fix' && needs.publish.result != 'success') ||
       (needs.plan.outputs.action == 'update' && needs.security-update.outputs.outcome != 'ready'))
     runs-on: ubuntu-24.04
@@ -1269,6 +1328,10 @@ jobs:
           tell=true
           if [ "$ACTION" = "fix" ] && [ "$DEFERRED" = "true" ]; then outcome=deferred; tell=false; fi
           if [ "$KIND" = "lists" ]; then tell=false; fi
+          # AUTOMAT (2026-11-22, nothing is given up and nobody is asked): a fix that did not come, was refused
+          # or used up today's attempts is tried again tomorrow (the ledger says "retrying"). Only what no AI
+          # may fix is told: a security finding with no safe fix, GitHub, a setting or a workflow (action issue)
+          if [ "$ACTION" != "issue" ]; then tell=false; fi
           if [ "$KIND" = "infra" ]; then outcome=""; fi
           echo "tell=$tell" >> "$GITHUB_OUTPUT"
           if [ -n "$outcome" ] && [ -n "$WORK" ]; then
@@ -1451,6 +1514,97 @@ jobs:
               issue="$first"
             fi
           fi
+
+  # AUTOMAT's memory of attempts (tools/automat-memory.py): one record per attempt on the data branch
+  # automat/memory (never merged into main), written only here, by the workflow's own code, from the
+  # attempt's results: who tried, which files, how it ended. No AI runs in this job and none can write
+  # the branch; the next plan quotes it to the AIs as data, so a failed approach is not repeated.
+  remember:
+    needs: [plan, fix, guard, publish]
+    if: always() && needs.plan.outputs.action == 'fix' && needs.plan.outputs.push_branch != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    continue-on-error: true
+    concurrency:
+      group: automat-memory
+      cancel-in-progress: false
+    permissions:
+      contents: write        # the data branch automat/memory only (never main)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: autofix-failure
+          path: ${{ runner.temp }}/failure
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: autofix-result
+          path: ${{ runner.temp }}/autofix
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: needs.guard.result == 'failure'
+        continue-on-error: true
+        with:
+          name: autofix-refused
+          path: ${{ runner.temp }}/autofix
+      - name: Record the attempt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMPONENT: ${{ needs.plan.outputs.push_branch }}
+          ATTEMPT: ${{ needs.plan.outputs.attempt }}
+          WORK: ${{ needs.plan.outputs.work }}
+          FIX_RESULT: ${{ needs.fix.outputs.result }}
+          PATCH: ${{ needs.fix.outputs.patch }}
+          GUARD: ${{ needs.guard.result }}
+          PUBLISH: ${{ needs.publish.result }}
+        run: |
+          case "$COMPONENT" in automation/*) ;; *) echo "not a branch of the automation"; exit 0 ;; esac
+          failure="$RUNNER_TEMP/failure/failure.md"
+          out="$RUNNER_TEMP/autofix"
+          data="$RUNNER_TEMP/memory-branch"
+          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          remote="https://github.com/$GITHUB_REPOSITORY"
+          rm -rf "$data"
+          git init -q "$data"
+          cd "$data"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch -q --depth 1 "$remote" refs/heads/automat/memory 2> /dev/null; then
+            git checkout -q -B data FETCH_HEAD
+          else
+            git checkout -q --orphan data
+          fi
+          tool="$GITHUB_WORKSPACE/tools/automat-memory.py"
+          outcome=no-fix
+          detail="$FIX_RESULT"
+          if [ "$PUBLISH" = "success" ]; then
+            outcome=published
+            detail=""
+          elif [ "$PATCH" = "true" ] && [ "$GUARD" != "success" ]; then
+            outcome=guard-refused
+            detail=$(grep -m 1 '^- ' "$out/guard.md" 2> /dev/null | cut -c1-300 || true)
+          fi
+          author=$(head -n 1 "$out/author.txt" 2> /dev/null || true)
+          provider="${author%% / *}"
+          model=""
+          case "$author" in *" / "*) model="${author#* / }" ;; esac
+          files=$(grep -E '^diff --git a/' "$out/autofix.patch" 2> /dev/null | sed -E 's#^diff --git a/(.*) b/.*#\1#' \
+                  | sort -u | head -n 8 | paste -sd, - || true)
+          # a refused fix planned again: first how the attempt before it ended (the reasons of the refusal)
+          if [ "${WORK#refused/}" != "$WORK" ]; then
+            python3 -I "$tool" note --memory memory.json --component "$COMPONENT" --failure "$failure" \
+              --outcome merge-refused --detail "$(grep -m 3 '^- ' "$failure" 2> /dev/null | cut -c1-300 | tr '\n' ' ')"
+          fi
+          python3 -I "$tool" note --memory memory.json --component "$COMPONENT" --failure "$failure" \
+            --outcome "$outcome" --provider "$provider" --model "$model" --files "$files" \
+            --summary "$out/summary.md" --detail "$detail" --attempt "$ATTEMPT"
+          git add memory.json
+          git -c core.hooksPath=/dev/null commit -q -m "AUTOMAT's memory: attempt $ATTEMPT on $COMPONENT ($outcome)" || exit 0
+          git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" push -q "$remote" HEAD:refs/heads/automat/memory
 
   # By hand only (workflow_dispatch with self_test): does Antigravity's deny list
   # hold with --dangerously-skip-permissions? The same closed room as the fix

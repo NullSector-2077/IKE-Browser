@@ -23,8 +23,10 @@ are agreed with the project owner; do not reopen them without asking.
   owner's standing order), ChatGPT only on the owner's order; the
   automation's own PRs (daily candidate, AutoFix fix, isolated update) are
   merged by the workflow's own code from `main` only when fully verified
-  (the verified merge, below), everything else waits for the owner (see
-  CLAUDE.md); signing and publishing stay with the owner. The repository is
+  (the verified merge, below; since AUTOMAT also an AI's fix of protected
+  code, under the static guard and two AI reviews), ChatGPT's and people's
+  pull requests wait for the owner (see CLAUDE.md); signing and publishing
+  stay with the owner. The repository is
   public: never commit personal data, keys or secrets.
 - The private signing key stays with the owner: never in the repository, in a
   package or on GitHub Actions.
@@ -64,6 +66,27 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Owner's decisions
 
+- 2026-11-22, **AUTOMAT**, the full automation (the owner's name for the
+  whole automatic maintenance; in the owner's words: "intervento umano
+  limitato solo alla firma... 100% lavoro in team di ia", and "niente
+  annullamenti automatici... niente deve rimanere indietro"). The owner's
+  only step is the signature. An AI fix of tier-A protected code (the
+  ad-blocking adapter, the safety modules, I.K.E.'s page scripts) merges by
+  itself when it is fully verified, "Nothing gets worse" (no-regression)
+  passed, the static guard accepts it (`tools/fix-guard.py`: only statements
+  added) and two independent AI reviewers of other providers approved that
+  commit (`tools/ai-review.py`). Tier B (workflows, tests, tools, sandbox and
+  start, signing and updates, the package, YouTube's ad blocking) is never an
+  AI's. Nothing waits for a person, nothing is closed: the attempts are
+  capped per day and go on the next day ("retrying" in the ledger, with
+  AUTOMAT's memory of what was tried, `tools/automat-memory.py`); a refresh
+  conflict or a second version raise is resolved by a rebuild or by main
+  merged in; only a security finding with no safe fix stays blocked and the
+  owner is told. Every external component is declared in `components.json`
+  and updated by the same chain (a guard fails when one is not). The signing
+  notice lists everything the signature covers. For AUTOMAT to run with no
+  one, the owner sets the repository secret `IKE_WORKFLOW_TOKEN` once
+  (docs/MAINTENANCE.md, "AUTOMAT: the full automation").
 - 2026-11-22, everything automatic and verified converges into `main`, then
   one notice to sign: several verified merges go into the same unpublished
   version (a second raise on top waits for a person); a verified candidate

@@ -332,3 +332,27 @@ jobs:
           fi
           retry gh workflow run arch.yml --ref main
           echo "Arch's packages changed: \"Arch Linux\" started on main" >> "$GITHUB_STEP_SUMMARY"
+
+  # AUTOMAT (2026-11-22, nothing stays behind): every open pull request of the automation is judged
+  # again once a day, and what its last verdict left for the next day is started: its checks again, or
+  # the automatic fix with the reason (tools/automerge.py --daily). One round a day: nothing loops.
+  # It only reads pull requests and starts workflows; it never fails the daily check.
+  judge-again:
+    needs: ledger
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    continue-on-error: true
+    permissions:
+      actions: write        # start automerge.yml, autofix.yml and a branch's checks
+      contents: read
+      pull-requests: read   # the open pull requests of the automation and their last verdict
+      issues: read          # (their comments)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Every open pull request of the automation, again
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/automerge.py --repo "$GITHUB_REPOSITORY" --daily || echo "::warning::not judged again today"

@@ -114,7 +114,8 @@ def _first_state(f):
         return "needs-person", "%s (rule %s)" % (cls, f["rule"])
     if f["ai"]:
         return "detected", "%s: queued for an AI analysis" % cls
-    return "needs-person", "%s (rule %s): no AI may touch it" % (cls, f["rule"])
+    return "retrying", ("%s (rule %s): the engine drops the rule as today; it goes with a new engine (its own "
+                        "candidate), and the lists check looks again every day" % (cls, f["rule"]))
 
 
 def _short_list(name):
@@ -133,20 +134,20 @@ def _dispatch(e, work_id, run_id, now, set_state, why):
     return {"key": e["key"], "run_id": str(run_id), "work": work_id}
 
 
-def _defer(e, now, set_state, why, cap, notify):
-    """No free provider: retry-later, or the owner at the cap."""
+def _defer(e, now, set_state, why, cap, notify, what="no free AI provider"):
+    """The work could not be done today (no free provider, or the AI could not, or a check refused its
+    change): "retrying", started again after RETRY_HOURS with another provider first, as many times
+    as it takes (2026-11-22: nothing is given up). After `cap` tries the owner gets one informational
+    note; the work goes on all the same."""
     w = _work(e)
     w["retries"] = w.get("retries", 0) + 1
-    if w["retries"] >= cap:
-        set_state(e, "needs-person", "no free AI provider in %d tries (%s): the owner is told" % (w["retries"], why),
-                  now)
-        if not e.get("told"):
-            e["told"] = stamp(now)
-            notify.append(e["key"])
-        return
-    set_state(e, "retry-later", "no free AI provider (%s): tried again after %d hours, try %d of %d" % (
-        why, REGISTRY.RETRY_HOURS, w["retries"], cap), now)
+    set_state(e, "retrying", "%s (%s): tried again after %d hours, try %d" % (
+        what, why, REGISTRY.RETRY_HOURS, w["retries"]), now)
+    e["retries"] = w["retries"]
     e["next_retry"] = stamp(now + dt.timedelta(hours=REGISTRY.RETRY_HOURS))
+    if w["retries"] >= cap and not e.get("told"):
+        e["told"] = stamp(now)
+        notify.append(e["key"])
 
 
 LISTS_BRANCH = re.compile(r"^automation/update/lists-\d{4}-\d\d-\d\d$")
@@ -174,7 +175,8 @@ def _retry_outcome(e, out, what, now, set_state):
                                               out.get("run") or "?"), now)
     else:
         reason = str(out.get("reason") or "")[:160]
-        set_state(e, "needs-person", "the automatic fix after its tests failed on %s could not make them pass%s"
+        set_state(e, "retrying", "the automatic fix after its tests failed on %s could not make them pass today%s: "
+                  "it tries again every day, the engine drops the rule until then"
                   % (branch, ": " + reason if reason else ""), now)
 
 
@@ -215,7 +217,7 @@ def merge(ledger, work, now, set_state, cap=None):
                     _retry_outcome(le, out, what, now, set_state)
                 if lists_e:
                     continue
-            if e is None and what == "deferred":
+            if e is None and what in ("deferred", "person"):
                 e = entries[key] = _entry(key, "Automatic fix of \"%s\" (run %s)" % (
                     out.get("workflow") or "?", wid.split("/", 1)[1]), "ai-work", now, out.get("url", ""))
                 e["work"] = {"branch": out.get("branch", ""), "retries": 0, "started": "", "id": wid}
@@ -233,8 +235,8 @@ def merge(ledger, work, now, set_state, cap=None):
                       "the AI's change is on %s%s: its tests decide, then the owner" % (
                           out.get("branch") or "its branch", " (PR #%s)" % out["pr"] if out.get("pr") else ""), now)
         elif what == "person":
-            set_state(e, "needs-person", "the AI could not do it, or the checks refused its change%s" % (
-                ": " + reason if reason else ""), now)
+            _defer(e, now, set_state, reason or "see its run", cap, notify,
+                   what="the AI could not do it today, or the checks refused its change")
         else:
             set_state(e, "passed", "nothing to do any more: %s" % (reason or "the plan skipped it"), now)
     old = (now - dt.timedelta(days=OUTCOME_DAYS + 1)).strftime("%Y-%m-%d")
@@ -293,9 +295,11 @@ def merge(ledger, work, now, set_state, cap=None):
             _defer(e, now, set_state, "the run did not report back", cap, notify)
         elif e["state"] == "testing" and now - (parse_time(e.get("changed") or "") or now) > \
                 dt.timedelta(days=TESTING_DAYS):
-            set_state(e, "needs-person", "the AI's change on %s waits for more than %d days: its tests or the "
-                      "owner's merge" % (w.get("branch") or "its branch", TESTING_DAYS), now)
-        elif e["state"] == "retry-later" and (parse_time(e.get("next_retry") or "") or now) <= now:
+            set_state(e, "retrying", "the AI's change on %s is not in main after %d days: its branch keeps being "
+                      "fixed and judged every day (the next finding does not wait for it)"
+                      % (w.get("branch") or "its branch", TESTING_DAYS), now)
+        elif e["state"] in ("retry-later", "retrying") and e.get("next_retry") and \
+                (parse_time(e.get("next_retry") or "") or now) <= now:
             wid = w.get("id") or ""
             if e["kind"] == "ai-work" and wid.startswith("run/"):
                 dispatch.append(_dispatch(e, wid, wid.split("/", 1)[1], now, set_state,
@@ -397,13 +401,15 @@ def notify_text(ledger, owner):
     if not keys:
         return ""
     entries = ledger.get("entries", {})
-    lines = ["@%s: questi lavori non hanno trovato un assistente AI gratuito per %d volte, e aspettano te "
-             "(chiedi a Claude):" % (owner, REGISTRY.RETRY_CAP), ""]
+    lines = ["@%s: nota informativa, non serve fare niente. Questi lavori non sono riusciti per %d volte (nessun "
+             "assistente AI gratuito libero, oppure la correzione non ha superato i controlli) e AUTOMAT (la "
+             "manutenzione automatica) continua a riprovarli ogni giorno:" % (owner, REGISTRY.RETRY_CAP), ""]
     for k in keys:
         e = entries.get(k) or {}
         lines.append("- %s: %s" % (e.get("name", k), e.get("reason", "")))
-    lines += ["", "The cap is RETRY_CAP in tools/ai-providers.py; the providers' weekly check is in the issue "
-              "\"Automation health\"."]
+    lines += ["", "Nothing is given up: each work is started again every %d hours. This note comes once, after "
+              "RETRY_CAP tries (tools/ai-providers.py); the providers' weekly check is in the issue "
+              "\"Automation health\"." % REGISTRY.RETRY_HOURS]
     return "\n".join(lines) + "\n"
 
 

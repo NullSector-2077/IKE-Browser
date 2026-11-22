@@ -91,9 +91,28 @@ SHOWN_ROOTS = ROOTS + WRAPPER          # may be shown, as context, even when not
 LISTS_EDITABLE = ("ike/scriptlets.py", "ike/blocker.py", "ike-adblock/src/")
 
 
+# --auto (2026-11-22): a fix of the automation, which may reach main by itself. Never the tests or the
+# tools; the component manifest may get a missing entry (tools/fix-guard.py)
+AUTO = {"on": False}
+MANIFEST = "components.json"
+AUTO_RULES = (
+    "\n\nThis fix may reach main by itself, so a program checks it (tools/fix-guard.py). Never change a test, "
+    "a tool, a workflow, ike/app.py, ike_boot.py, ike/updater.py, ike/__init__.py or ike/extensions.py: fix "
+    "I.K.E.'s code instead, or answer \"fixable\": false. In the ad-blocking adapter, the modules that decide "
+    "the user's safety and I.K.E.'s page scripts only ADD statements: every existing statement, condition, "
+    "return and raise stays exactly as it is, no new return or raise before existing code unless under a new "
+    "condition, no new import, address, file write or process. If tests/test_inventory_guard.py fails, add "
+    "the missing entry to components.json exactly as its message says (a plain download, never a build).\n")
+
+
 def editable(path, allow_adblock, lists=False):
     if lists:
         return path.startswith(LISTS_EDITABLE)
+    if AUTO["on"]:
+        if path == MANIFEST:
+            return True
+        if path.startswith(("tests/", "tools/")):
+            return False
     return path.startswith(ROOTS + WRAPPER if allow_adblock else ROOTS)
 
 
@@ -473,7 +492,7 @@ def apply_edits(workdir, edits, shown, allow_adblock=False, security=False, list
                 "ike/blocker.py", "ike/scriptlets.py"))):
             raise ValueError("%s may not be changed in this run (the ad blocker only with an "
                              "update of its engine)" % path)
-        rule = None if builder else _checker_rule()
+        rule = None if builder or (AUTO["on"] and path == MANIFEST) else _checker_rule()
         why = rule(path, allow_adblock, security) if rule else ""
         if why:
             raise ValueError("%s may not be changed: %s" % (path, why))
@@ -503,7 +522,8 @@ def files_shown(workdir, related):
     out, used = {}, 0
     for path in related:
         p = workdir / path
-        if not path.startswith(SHOWN_ROOTS) or not p.is_file() or p.is_symlink():   # a link: never followed
+        if not (path.startswith(SHOWN_ROOTS) or (AUTO["on"] and path == MANIFEST)) or not p.is_file() \
+                or p.is_symlink():                                                    # a link: never followed
             continue
         text = p.read_text("utf-8", errors="replace")
         if used + len(text) > FILES_BUDGET:
@@ -569,6 +589,8 @@ def checked(workdir, checker, related, allow_adblock, security=False, lists=Fals
         cmd.append("--lists")
     if builder:
         cmd += ["--builder", builder]       # WP11: the builders' re-anchoring rule
+    if AUTO["on"]:
+        cmd.append("--auto")                # the static guard of a fix that may reach main by itself
     run = subprocess.run(cmd, capture_output=True, text=True, check=False)
     os.unlink(patch)
     return run.returncode, run.stdout.strip()[-2000:]
@@ -733,7 +755,9 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     ap.add_argument("--first", default="", help="the provider this attempt starts with (FIX_ATTEMPTS rotation)")
     ap.add_argument("--refused", help="why the checks refused Antigravity's fix")
     ap.add_argument("--lint", action="store_true", help="ruff on each fix (its safe fixes first)")
+    ap.add_argument("--auto", action="store_true", help="a fix that may reach main by itself: the static guard")
     a = ap.parse_args(argv)
+    AUTO["on"] = bool(a.auto)
     workdir = Path(a.workdir)
     auto = workdir / ".autofix"
 
@@ -745,7 +769,8 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     failure, context = read("failure.md"), read("context.md")
     related = [line.strip() for line in read("related.txt").splitlines() if line.strip()]
     shown = files_shown(workdir, related)
-    rules = Path(a.prompt).read_text("utf-8") + (SECURITY_RULES if a.security else "") + builder_rules(a.builder)
+    rules = Path(a.prompt).read_text("utf-8") + (SECURITY_RULES if a.security else "") + builder_rules(a.builder) \
+        + (AUTO_RULES if a.auto and not a.builder else "")
     keys = [env.get(p[2], "") for p in PROVIDERS]
     refused = ""
     if a.refused:

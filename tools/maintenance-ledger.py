@@ -67,8 +67,15 @@ SCHEMA = 1
 LABEL = "maintenance-ledger"
 TITLE = "Maintenance ledger"
 BEGIN, END = "<!-- maintenance-ledger:begin -->", "<!-- maintenance-ledger:end -->"
-STATES = ("detected", "candidate", "testing", "fixing", "passed", "blocked", "needs-person", "retry-later")
-OPEN_STATES = ("detected", "candidate", "testing", "fixing", "retry-later")
+# "retrying" (2026-11-22, the owner's decision: nothing is given up, nothing waits for a person): the
+# update could not be finished today (the automatic fix used its attempts of the day, a check refused
+# its change, the reviewers rejected it, it needs a file no AI may change); it stays open and is tried
+# again every day. "needs-person" is left only for what the owner's own rules keep for the owner
+# (YouTube's rules, uBlock Origin's own resources) and for entries written before.
+STATES = ("detected", "candidate", "testing", "fixing", "passed", "blocked", "needs-person", "retry-later",
+          "retrying")
+OPEN_STATES = ("detected", "candidate", "testing", "fixing", "retry-later", "retrying")
+RETRY_NOTE_DAYS = 3            # an entry retrying for this long: one informational note for the owner
 BOT = "github-actions[bot]"
 MAINTENANCE = "automation/daily-maintenance"
 RETRY_DAYS = 1                 # retry-later: tried again the next day
@@ -165,7 +172,7 @@ def set_state(entry, state, reason, when, run_url=None):
         return False
     # a failed update that goes into a candidate again is a new attempt
     if state in ("candidate", "testing") and entry.get("state") in ("fixing", "blocked", "retry-later",
-                                                                     "needs-person"):
+                                                                     "needs-person", "retrying"):
         entry["attempts"] = entry.get("attempts", 0) + 1
     entry["state"], entry["reason"] = state, reason
     entry["changed"] = stamp(when)
@@ -198,8 +205,9 @@ def _update_reason(rec):
         return ("workflow file: its pin moves only by tools/ci-pins.py on automation/update/ci-<name> (no AI: an "
                 "AI's change is only a proposal a person reads)")
     if rec.get("result") == "builder refused":
-        return ("I.K.E.'s builder refused the new version: an AI may re-anchor its existing patches on "
-                "automation/builder/<id> (tools/builder-anchor.py), else a person adapts it")
+        return ("I.K.E.'s builder refused the new version: an AI re-anchors its existing patches on "
+                "automation/builder/<id> (tools/builder-anchor.py), again every day until the builder accepts it; "
+                "the version in use stays until then")
     if rec.get("result") == "vulnerable":
         return "a RustSec advisory: a fix on an isolated branch, or blocked (Security, Rust advisories issue)"
     if str(rec.get("compatibility", "")).startswith("major update"):
@@ -211,8 +219,10 @@ def _update_reason(rec):
 
 
 def _first_state(rec):
-    if rec["kind"] in PROPOSAL_KINDS or rec.get("result") == "builder refused":
-        return "needs-person"
+    if rec.get("result") == "builder refused":
+        return "retrying"
+    if rec["kind"] in PROPOSAL_KINDS:
+        return "detected"                    # its pin's own candidate (tools/ci-pins.py)
     if rec.get("result") == "vulnerable":
         return "blocked"
     if str(rec.get("compatibility", "")).startswith("major update") and rec.get("type") != "direct":
@@ -242,22 +252,22 @@ def _candidate_verdict(status, kinds):
         return "candidate", "in the candidate (PR #%s); its tests have not run yet" % cand.get("pr", "?"), url
     if failed:
         if cand.get("autofix_issue"):
-            return ("needs-person", "the candidate's tests fail (%s) and the automatic fix could not fix them: %s"
-                    % (", ".join(failed), cand["autofix_issue"]), url)
+            return ("retrying", "the candidate's tests fail (%s) and the automatic fix could not fix them yet (%s): "
+                    "it tries again every day" % (", ".join(failed), cand["autofix_issue"]), url)
         return ("fixing", "the candidate's tests fail (%s): the automatic fix works on it (%d fixes so far)"
                 % (", ".join(failed), cand.get("autofix_commits", 0)), url)
     if waiting:
         return "testing", "the candidate's checks are running (%s)" % ", ".join(waiting), url
     merge = cand.get("merge") or {}
-    if merge.get("sha") == cand["sha"] and merge.get("verdict") in ("person", "security"):
-        # tools/automerge.py's verdict on this very commit (the verified merge, 2026-11-22): not fully
-        # verified waits for the owner; an open security finding blocks it
-        return ("blocked" if merge["verdict"] == "security" else "needs-person",
-                "not merged by itself: %s (PR #%s)" % (merge.get("why") or "?", cand.get("pr", "?")), url)
+    if merge.get("sha") == cand["sha"] and merge.get("verdict") in ("person", "security", "retrying"):
+        # tools/automerge.py's verdict on this very commit: an open security finding blocks it; anything
+        # else is tried again (the automatic fix, a rebuild, its checks: the comment says which)
+        return ("blocked" if merge["verdict"] == "security" else "retrying",
+                "not merged yet: %s (PR #%s)" % (merge.get("why") or "?", cand.get("pr", "?")), url)
     if unverified:
-        return ("needs-person", "the candidate's checks passed, but not verified: %s"
+        return ("retrying", "the candidate's checks passed, but not verified: %s; the daily check starts them again"
                 % "; ".join("%s (%s)" % (r["category"], r["detail"]) for r in unverified), url)
-    return "passed", "the candidate passed every required check: waits for the owner's merge (PR #%s)" \
+    return "passed", "the candidate passed every required check: the verified merge takes it (PR #%s)" \
         % cand.get("pr", "?"), url
 
 
@@ -289,14 +299,14 @@ def security_verdict(info):
                     and r.get("conclusion") not in ("success", "skipped"))
     if failed:
         if info.get("autofix_issue") or info.get("autofix_commits", 0) >= SECURITY_FIX_ATTEMPTS:
-            return ("blocked", "the fix on %s fails (%s) and the automatic fix found no safe fix (%s): the "
-                    "candidate is blocked, the owner decides" % (branch, ", ".join(failed),
-                                                                 info.get("autofix_issue") or "attempts used"), url)
+            return ("blocked", "the fix on %s fails (%s) and the automatic fix found no safe fix yet (%s): blocked "
+                    "and the owner is told; it tries again every day under the security rules"
+                    % (branch, ", ".join(failed), info.get("autofix_issue") or "today's attempts used"), url)
         return ("fixing", "the fix on %s fails (%s): the automatic fix works on it under the security rules "
                 "(%d fixes so far)" % (branch, ", ".join(failed), info.get("autofix_commits", 0)), url)
     if any(r.get("status") != "completed" for r in done):
         return "testing", "the checks of %s are running (PR #%s)" % (branch, pr), url
-    return "passed", "the fix on %s passed Tests and Security: waits for the owner's merge (PR #%s)" % (
+    return "passed", "the fix on %s passed Tests and Security: the verified merge takes it (PR #%s)" % (
         branch, pr), url
 
 
@@ -318,8 +328,8 @@ def _advisory_plan(rec, adv, branches):
         return ("detected", "%s: fixed in Arch %s: users get it with pacman -Syu; arch.yml on main verifies it"
                 % (adv["id"], fixed), "")
     if kind == "github-action":
-        return ("needs-person", "%s: fixed in %s: a person moves the pinned commit (workflow files are proposals; "
-                "Dependabot proposes monthly)" % (adv["id"], fixed), "")
+        return ("detected", "%s: fixed in %s: the pin's own candidate moves it (tools/ci-pins.py, "
+                "automation/update/ci-<name>, no AI; Dependabot proposes monthly too)" % (adv["id"], fixed), "")
     return ("detected", "%s: fixed in %s: the daily candidate takes the newer version (tools/check-components.py)"
             % (adv["id"], fixed), "")
 
@@ -340,7 +350,7 @@ def security_entries(ledger, inv, status, now):
         checked.add("cargo-deny")
 
     def move(e, state, reason, url=""):
-        if set_state(e, state, reason, now, url or None) and state in ("blocked", "needs-person"):
+        if set_state(e, state, reason, now, url or None) and state in ("blocked", "needs-person", "retrying"):
             notices.append("**%s** %s → %s: %s" % (e["name"], e["from"], e["to"], reason))
 
     for rec in inv.get("components", []):
@@ -410,7 +420,7 @@ def update(ledger, inv, status=None, report=None, cand_inv=None, now=None, notic
                                                              "; ".join(f["detail"] for f in found))
                           if found else "new in the repository (%s): waits for the tests of main"
                           % ", ".join(rec["origin"][:3]))
-                e = new_entry(rec, inst, now, reason, "needs-person" if found else "detected", from_="(new)")
+                e = new_entry(rec, inst, now, reason, "retrying" if found else "detected", from_="(new)")
                 e["new_dependency"] = True
                 entries[e["key"]] = e
         elif rid in known and known[rid] != inst:
@@ -430,7 +440,7 @@ def update(ledger, inv, status=None, report=None, cand_inv=None, now=None, notic
                     parse_time(tests_main["created_at"]) >= parse_time(e["first_seen"]):
                 set_state(e, "passed", "the tests of main are green with it (%s)" % str(tests_main.get("sha"))[:10],
                           now, tests_main.get("url"))
-        if e.get("new_dependency") and e["state"] == "needs-person" and e["component"] in records \
+        if e.get("new_dependency") and e["state"] in ("needs-person", "retrying") and e["component"] in records \
                 and e["component"] not in findings:
             set_state(e, "detected", "the inventory's finding is gone: waits for the tests of main", now)
 
@@ -455,7 +465,7 @@ def update(ledger, inv, status=None, report=None, cand_inv=None, now=None, notic
         e["from"] = rec.get("installed", e["from"])
         # today's facts that decide by themselves
         if rec.get("result") == "builder refused":
-            set_state(e, "needs-person", _update_reason(rec), now)
+            set_state(e, "retrying", _update_reason(rec), now)
         elif rec.get("result") == "vulnerable":
             set_state(e, "blocked", _update_reason(rec), now)
 
@@ -474,12 +484,9 @@ def update(ledger, inv, status=None, report=None, cand_inv=None, now=None, notic
             continue
         due = parse_time(e.get("next_retry") or "")
         if e["state"] == "retry-later" and due and due <= now:
-            if e.get("attempts", 1) >= MAX_ATTEMPTS:
-                set_state(e, "blocked", "tried %d times: a person looks (last: %s)" % (e["attempts"], e["reason"]),
-                          now)
-            else:
-                e["attempts"] = e.get("attempts", 1) + 1
-                set_state(e, "detected", "tried again (attempt %d)" % e["attempts"], now)
+            # no cap any more (2026-11-22): tried again as many times as it takes
+            e["attempts"] = e.get("attempts", 1) + 1
+            set_state(e, "detected", "tried again (attempt %d)" % e["attempts"], now)
         elif e["state"] == "blocked" and main_sha and e.get("basis") and e["basis"] != main_sha \
                 and e.get("attempts", 1) < MAX_ATTEMPTS and e["kind"] in CANDIDATE_KINDS and not e.get("security") \
                 and e["key"] in seen and records.get(e["component"], {}).get("result") != "vulnerable":
@@ -491,7 +498,8 @@ def update(ledger, inv, status=None, report=None, cand_inv=None, now=None, notic
     # (an entry the candidate's checks decided is decided again by today's checks)
     by_kind = {}
     for e in entries.values():
-        moving = e["state"] in ("detected", "candidate", "testing", "fixing") or e.get("via") == "candidate"
+        moving = e["state"] in ("detected", "candidate", "testing", "fixing", "retrying") or \
+            e.get("via") == "candidate"
         if moving and e["kind"] in CANDIDATE_KINDS and not e.get("new_dependency") \
                 and cand_installed.get(e["component"]) == e["to"]:
             by_kind.setdefault(e["kind"], []).append(e)
@@ -524,11 +532,13 @@ def update(ledger, inv, status=None, report=None, cand_inv=None, now=None, notic
                 continue
             state, reason, url = verdict
             if state == "fixing" and info.get("autofix_commits", 0) >= cap:
-                state, reason = "needs-person", ("%d automatic fixes, each with a fresh context and another free "
-                                                 "provider first, did not make %s pass: the branch is kept for a "
-                                                 "person (PR #%s)" % (cap, info.get("branch"), info.get("pr", "?")))
+                state, reason = "retrying", ("%d automatic fixes so far, each with a fresh context and another free "
+                                             "provider first, did not make %s pass: it stays open and the automatic "
+                                             "fix tries again every day (PR #%s)"
+                                             % (info.get("autofix_commits", 0), info.get("branch"),
+                                                info.get("pr", "?")))
             if set_state(e, state, reason.replace("the candidate", "the candidate %s" % info.get("branch"), 1),
-                         now, url) and state in ("needs-person", "blocked") and notices is not None:
+                         now, url) and state == "blocked" and notices is not None:
                 notices.append("**%s** %s → %s: %s" % (e["name"], e["from"], e["to"], e["reason"]))
             e["via"] = info.get("branch")
 
@@ -565,6 +575,21 @@ def update(ledger, inv, status=None, report=None, cand_inv=None, now=None, notic
             e["basis"] = main_sha
         elif e["state"] not in ("blocked", "needs-person"):
             e["basis"] = ""
+        # "retrying": since when and for how many days; after RETRY_NOTE_DAYS one informational note
+        if e["state"] == "retrying" and e.get("kind") not in WORK_KINDS:
+            since = parse_time(e.get("retrying_since") or "")
+            if not since:
+                e["retrying_since"], since = stamp(now), now
+            e["retries"] = (now - since).days + 1
+            if e["retries"] > RETRY_NOTE_DAYS and not e.get("told") and notices is not None and not e.get("security"):
+                e["told"] = stamp(now)
+                notices.append("(nota informativa, non serve fare niente) **%s** %s → %s: riprova da %d giorni: %s"
+                               % (e["name"], e["from"], e["to"], e["retries"], e["reason"]))
+        elif e["state"] != "retrying":
+            e.pop("retrying_since", None)
+            if e.get("kind") not in WORK_KINDS:
+                e.pop("retries", None)
+                e.pop("told", None)
         changed = parse_time(e.get("changed") or e["first_seen"]) or now
         last = parse_time(e.get("last_seen") or e["first_seen"]) or now
         if e["state"] == "passed" and now - changed > dt.timedelta(days=PRUNE_DAYS):
@@ -594,6 +619,11 @@ def _md(text):
 # fields an entry can do without in the issue (the artifact keeps them): the
 # last resort of the size guard, before any open entry would be left out
 SPARE_FIELDS = ("history", "basis", "update_mode", "next_retry", "last_run", "lists", "samples")
+
+
+def _state_cell(e):
+    """The state as the table shows it: "retrying (4)" with its tries, or days."""
+    return "retrying (%d)" % e["retries"] if e["state"] == "retrying" and e.get("retries") else e["state"]
 
 
 def render(ledger, inv=None, closed=()):
@@ -644,7 +674,8 @@ def _body(ledger, inv=None, closed=(), compact=False):
     if open_:
         out.append(head)
         out += ["| %s | %s → %s | **%s** | %s | %d | %s | %s |" % (
-            _md(e["name"]), _md(e["from"]), _md(e["to"]), e["state"], _md(e["reason"]), e.get("attempts", 1),
+            _md(e["name"]), _md(e["from"]), _md(e["to"]), _state_cell(e), _md(e["reason"]),
+            e.get("attempts", 1),
             "[run](%s)" % e["last_run"] if e.get("last_run") else "-", (e.get("next_retry") or "-")[:10])
             for e in open_]
     else:
@@ -657,7 +688,8 @@ def _body(ledger, inv=None, closed=(), compact=False):
     if done:
         out.append(head)
         out += ["| %s | %s → %s | %s | %s | %d | %s | - |" % (
-            _md(e["name"]), _md(e["from"]), _md(e["to"]), e["state"], _md(e["reason"]), e.get("attempts", 1),
+            _md(e["name"]), _md(e["from"]), _md(e["to"]), _state_cell(e), _md(e["reason"]),
+            e.get("attempts", 1),
             "[run](%s)" % e["last_run"] if e.get("last_run") else "-") for e in done]
     else:
         out.append("None.")
@@ -867,7 +899,7 @@ def gather(repo, api=None, candidate_sha=None):
         except Exception:
             cand["autofix_commits"] = 0
         # tools/automerge.py's verdict, in its one comment on the pull request (2026-11-22)
-        verdict = re.compile(r"<!-- automerge-verdict: ([0-9a-f]{40}) (person|security) -->")
+        verdict = re.compile(r"<!-- automerge-verdict: ([0-9a-f]{40}) (person|security|retrying) -->")
         try:
             comments = api("repos/%s/issues/%s/comments?per_page=100" % (repo, cand["pr"])) if cand["pr"] else []
         except Exception:
@@ -875,7 +907,7 @@ def gather(repo, api=None, candidate_sha=None):
         for c in comments:
             m = verdict.search(c.get("body") or "")
             if m and (c.get("user") or {}).get("login") == BOT:
-                why = re.search(r"da sola: (.*?)\.\n", c.get("body") or "")
+                why = re.search(r"(?:da sola|entrata in `main`): (.*?)\.\n", c.get("body") or "")
                 cand["merge"] = {"sha": m.group(1), "verdict": m.group(2), "why": why.group(1)[:300] if why else ""}
         return cand
     safe("candidate", candidate)
@@ -945,7 +977,7 @@ def update_branches(repo, api):
     runs of Tests, Arch Linux and Security there, its skipped tests, the automatic fix's commits and
     tools/automerge.py's verdict (GET only)."""
     out = {}
-    verdict = re.compile(r"<!-- automerge-verdict: ([0-9a-f]{40}) (person|security) -->")
+    verdict = re.compile(r"<!-- automerge-verdict: ([0-9a-f]{40}) (person|security|retrying) -->")
     for pr in api("repos/%s/pulls?state=open&per_page=100" % repo):
         head = pr.get("head") or {}
         ref, sha = head.get("ref") or "", head.get("sha") or ""
@@ -969,7 +1001,7 @@ def update_branches(repo, api):
         for c in comments:
             m = verdict.search(c.get("body") or "")
             if m and (c.get("user") or {}).get("login") == BOT:
-                why = re.search(r"da sola: (.*?)\.\n", c.get("body") or "")
+                why = re.search(r"(?:da sola|entrata in `main`): (.*?)\.\n", c.get("body") or "")
                 info["merge"] = {"sha": m.group(1), "verdict": m.group(2), "why": why.group(1)[:300] if why else ""}
         out[ref] = info
     return out
@@ -1013,9 +1045,11 @@ def write_ledger(repo, number, body, api):
 def notice_text(notices, owner):
     """The comment that tells the owner (an edited body notifies nobody; a comment naming the
     owner is mailed): security findings that became blocked or need a person, each once."""
-    lines = ["@%s: un problema di sicurezza è bloccato o aspetta una persona (chiedi a Claude)." % owner, "",
-             "Security findings that became blocked or need a person today (the ledger above has the details; "
-             "nothing was ignored and nothing merges by itself):", ""]
+    lines = ["@%s: nota dal registro della manutenzione. Un avviso di sicurezza senza correzione sicura resta "
+             "bloccato (chiedi a Claude); le righe che iniziano con \"nota informativa\" non chiedono niente: "
+             "AUTOMAT (la manutenzione automatica) continua a riprovare da solo." % owner, "",
+             "What became blocked, or has been retrying for days (the ledger above has the details; nothing was "
+             "ignored, nothing is given up, and nothing merges while a security finding is open):", ""]
     return "\n".join(lines + ["- " + n for n in notices]) + "\n"
 
 

@@ -1,0 +1,152 @@
+# AUTOMAT: two independent AI reviewers of a fix an AI wrote (2026-11-22, the owner's decision: the
+# only human step of the maintenance is the signature). Started by tools/automerge.py
+# (automerge.yml) for the last commit of a pull request of the automation, once every other
+# condition of the verified merge holds on it (every check and category, the static guard, "Nothing
+# gets worse"). tools/ai-review.py, read from main:
+#
+#   prepare  (no AI)  the diff of the files the AI commits changed and the failure the fix answers
+#                     (GET calls only; no key here)
+#   review   (AI)     two free providers other than the one that wrote the fix, each asked how the
+#                     change could weaken blocking, privacy, fingerprinting, the sandbox or the
+#                     updates; a strict JSON answer. The providers' keys only: no GitHub token, and
+#                     nothing a model writes is run
+#   publish  (no AI)  the comment on the pull request and the commit status "ai-review" (success
+#                     only when both approved this very commit), which the verified merge requires;
+#                     then the merge is judged again, or, after a reject, the automatic fix tries
+#                     again with the reasons. No answer: nothing is asked of anyone, the daily check
+#                     asks again
+#
+# Free providers only (tools/ai-providers.py). Never a push, never a merge.
+name: AI review
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "last commit of the pull request to review"
+        required: true
+
+permissions: {}
+
+concurrency:
+  group: ai-review-${{ github.event.inputs.sha }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read            # the failure description the fix was made from (an artifact of its run)
+    outputs:
+      review: ${{ steps.prepare.outputs.review }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: The change and the failure
+        id: prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.inputs.sha }}
+        run: python3 -I tools/ai-review.py prepare --repo "$GITHUB_REPOSITORY" --sha "$SHA" --out "$RUNNER_TEMP/review"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.prepare.outputs.review == 'true'
+        with:
+          name: ai-review-request
+          path: ${{ runner.temp }}/review/
+          if-no-files-found: error
+          retention-days: 7
+
+  review:
+    needs: prepare
+    if: needs.prepare.outputs.review == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ai-review-request
+          path: ${{ runner.temp }}/review
+      # the only step with the providers' keys: no GitHub token, and the change is read, never run
+      - name: Two independent reviewers
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          AUTOFIX_MODEL: ${{ vars.AUTOFIX_MODEL }}
+          AUTOFIX_GROQ_MODELS: ${{ vars.AUTOFIX_GROQ_MODELS }}
+          AUTOFIX_ZAI_MODELS: ${{ vars.AUTOFIX_ZAI_MODELS }}
+          AUTOFIX_OPENROUTER_MODELS: ${{ vars.AUTOFIX_OPENROUTER_MODELS }}
+        run: |
+          python3 -I tools/ai-review.py review --dir "$RUNNER_TEMP/review"
+          # never hand over a key: the result holds verdicts and short reasons only
+          python3 -I - "$RUNNER_TEMP/review/result.json" <<'PY'
+          import os, sys
+          data = open(sys.argv[1], "rb").read()
+          for name in ("GEMINI_API_KEY", "GROQ_API_KEY", "ZAI_API_KEY", "OPENROUTER_API_KEY"):
+              key = os.environ.get(name, "").encode()
+              if key and key in data:
+                  os.unlink(sys.argv[1])
+                  print("::error::the review's result contained a key: discarded")
+                  sys.exit(1)
+          PY
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ai-review-result
+          path: ${{ runner.temp }}/review/result.json
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: [prepare, review]
+    if: needs.review.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write     # the review's comment
+      statuses: write          # the commit status "ai-review"
+      actions: write           # the merge judged again, or the automatic fix with the reasons
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ai-review-request
+          path: ${{ runner.temp }}/review
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ai-review-result
+          path: ${{ runner.temp }}/review
+      - name: The comment, the status, and what follows
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.inputs.sha }}
+        run: |
+          python3 -I tools/ai-review.py publish --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/review"
+          verdict=$(sed -n 's/^verdict=//p' "$GITHUB_OUTPUT" | tail -n 1)
+          retry() { n=1; until "$@"; do [ "$n" -ge 3 ] && return 1; sleep $((n * 15)); n=$((n + 1)); done; }
+          if [ "$verdict" = "approve" ]; then
+            retry gh workflow run automerge.yml --repo "$GITHUB_REPOSITORY" --ref main -f sha="$SHA"
+          elif [ "$verdict" = "reject" ]; then
+            # the next attempt of the automatic fix starts with the reviewers' reasons (its attempts of the day)
+            retry gh workflow run autofix.yml --repo "$GITHUB_REPOSITORY" --ref main -f run_id="$GITHUB_RUN_ID" \
+              -f work="refused/$SHA"
+          else
+            echo "No answer from two reviewers: nobody is asked; the daily check asks again"
+          fi

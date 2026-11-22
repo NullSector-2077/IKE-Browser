@@ -77,11 +77,8 @@ SPECS = {
              "kinds": ("adblock-engine", "crate")},
     "crate-major-": {"files": ENGINE_FILES, "serial": "cargo", "ships": True, "wrapper": True,
                      "kinds": ("adblock-engine", "crate")},
-    "ubo-scriptlets": {"files": ("ike/resources/ubo-scriptlets.json",), "serial": "", "ships": True,
-                       "wrapper": False, "kinds": ("integrated",), "builder": "tools/build-ubo-scriptlets.mjs"},
-    "darkreader": {"files": ("ike/resources/darkreader.js", "ike/resources/darkreader-proxy.js",
-                             "ike/resources/darkreader-data.json"), "serial": "", "ships": True,
-                   "wrapper": False, "kinds": ("npm", "integrated"), "builder": "tools/build-darkreader.py"},
+    # Dark Reader, uBlock Origin's scriptlets and every component added later: components.json, the
+    # component manifest (tools/component-manifest.py); see spec() and manifest_specs() below
     "test-qt": {"files": ("tools/test-requirements.txt",), "serial": "test-requirements", "ships": False,
                 "wrapper": False, "kinds": ("pypi-test",)},
     "test-tools": {"files": ("tools/test-requirements.txt",), "serial": "test-requirements", "ships": False,
@@ -100,16 +97,33 @@ UPDATE_COMMIT = re.compile(r"^update: ([a-z0-9_-]+) (.{1,300}) -> (.{1,300}) \(n
 CI_COMMIT = re.compile(r"^ci: ([a-z0-9-]+) (\S{1,80}) -> (\S{1,80}) \(tools/ci-pins\.py, no AI\)$")
 
 
-def spec(cid):
-    """The SPECS entry of a candidate id, or None."""
-    if not cid or not ID.match(cid):
+def _manifest():
+    import importlib.util
+    path = Path(__file__).resolve().parent / "component-manifest.py"
+    sp = importlib.util.spec_from_file_location("component_manifest", path)
+    mod = importlib.util.module_from_spec(sp)
+    sp.loader.exec_module(mod)
+    return mod
+
+
+def manifest_specs(root=ROOT):
+    """{id: its candidate's rules} of every entry of the component manifest (components.json): its
+    files, its builder, its kinds. A new entry gets its candidate with no change here."""
+    mf = _manifest()
+    return {cid: mf.spec(cid, root) for cid in mf.components(root)}
+
+
+def spec(cid, root=ROOT):
+    """The rules of a candidate id (SPECS, or the component manifest's entry), or None."""
+    if not cid or not isinstance(cid, str):
         return None
     if cid in SPECS:
         return SPECS[cid]
-    for key, value in SPECS.items():
-        if key.endswith("-") and cid.startswith(key):
-            return value
-    return None
+    if ID.match(cid):
+        for key, value in SPECS.items():
+            if key.endswith("-") and cid.startswith(key):
+                return value
+    return manifest_specs(root).get(cid)
 
 
 def branch_for(cid):
@@ -139,6 +153,8 @@ def candidate_for(rec):
     candidate can (a major version of a crate only adblock brings: it comes with a new adblock)."""
     kind, name = rec.get("kind", ""), str(rec.get("name", ""))
     compat = str(rec.get("compatibility", ""))
+    if rec.get("candidate") and spec(rec["candidate"]):
+        return rec["candidate"]              # a component of the manifest: the inventory names its entry
     if kind == "adblock-engine":
         return "adblock"
     if kind == "crate":

@@ -61,8 +61,17 @@ whether the patch stays inside what an automatic fix may change:
   upstream (Dark Reader), or only the path of the library it imports (uBlock
   Origin); nothing else of the builder, no upstream code.
 
+- with --auto (2026-11-22, the full automation: a fix of the automation may reach main by itself):
+  the static guard of tools/fix-guard.py too. Never a tier B file (the workflows, the tests, the tools,
+  the sandbox and start, the signing and update channel, the package, what comes from others,
+  YouTube's ad blocking); a protected file (the ad-blocking adapter, the modules that decide the
+  user's safety, I.K.E.'s page scripts) only with statements added, nothing removed or changed, no
+  new way out of old code, nothing new that reaches the network, the system or files; the component
+  manifest only with a new entry of a plain download. ChatGPT's guard does not use it (its pull
+  requests wait for the owner's order).
+
     check-autofix-patch.py --repo DIR --patch FILE [--allow-adblock] [--security] [--lists] [--builder ID]
-                           [--related FILE] [--report FILE.md] [--check-only]
+                           [--related FILE] [--report FILE.md] [--check-only] [--auto]
 
 The patch is applied to the index and work tree of DIR only when every rule
 passes; the exit status is 0 then, 1 when the patch is refused (the reasons go
@@ -126,7 +135,13 @@ FORBIDDEN_FILES = {
     # the PKGBUILD's dependencies and the proofs of the whole chain
     "tools/update-candidates.py", "tools/ci-pins.py", "tools/builder-anchor.py", "tools/pkgbuild-sync.py",
     "tests/test_full_chain.py",
+    # full automation (2026-11-22): the static guard, the AI reviewers, the component manifest's tool, the
+    # signing notice and their proofs; the rules the AIs are judged by are never an AI's
+    "tools/fix-guard.py", "tools/ai-review.py", "tools/component-manifest.py", "tools/release-notice.py",
+    "tools/no-regression.py", "tests/test_full_auto.py", "tests/test_inventory_guard.py",
 }
+# the component manifest: with --auto an AI may add a missing entry (tools/fix-guard.py, rule 7)
+MANIFEST = "components.json"
 # WP11 (--builder ID): the builders' re-anchoring on automation/builder/<id>, only that builder
 BUILDERS = {"darkreader": "tools/build-darkreader.py", "ubo-scriptlets": "tools/build-ubo-scriptlets.mjs"}
 # WP8 (--lists): what the AI analysis of the filter lists may change, I.K.E.'s
@@ -430,10 +445,64 @@ def builder_reasons(repo, patch_text, builder, files):
         if why else []
 
 
-def check(repo, patch_text, allow_adblock=False, security=False, lists=False, builder=""):
+def _fix_guard():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("ike_fix_guard", Path(__file__).resolve().parent / "fix-guard.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _at_commit(repo, path):
+    """The bytes of a file at the commit being fixed, or None."""
+    shown = subprocess.run([*SAFE_GIT, "-C", str(repo), "show", "HEAD:" + path], capture_output=True,
+                           check=False, env=safe_git_env())
+    return shown.stdout if shown.returncode == 0 else None
+
+
+def auto_reasons(repo, patch_text, files, allow_adblock=False, lists=False, builder=""):
+    """--auto (2026-11-22): the static guard of a fix that may reach main by itself (tools/fix-guard.py):
+    tier B never, a protected file only with statements added, nothing new that reaches out. The old
+    files are the commit's, the new ones the patch applied to them in a folder of its own."""
+    import hashlib
+    import tempfile
+    fg = _fix_guard()
+    with tempfile.TemporaryDirectory() as tmp:
+        old = {}
+        for path in files:
+            data = _at_commit(repo, path)
+            old[path] = data.decode("utf-8", "replace") if data is not None else None
+            if data is not None:
+                target = Path(tmp) / path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(data)
+        done = git(tmp, "apply", "-", stdin=patch_text)
+        if done.returncode:
+            return ["the patch does not apply to the files of the commit: %s" % done.stderr.strip()[:200]]
+        changes = []
+        for path in sorted(files):
+            target = Path(tmp) / path
+            new = target.read_text("utf-8", "replace") if target.is_file() and not target.is_symlink() else None
+            changes.append({"filename": path, "old_source": old[path], "new_source": new,
+                            "status": "modified" if old[path] is not None and new is not None else "added"})
+
+        def sha_of(path):
+            target = Path(tmp) / path
+            if target.is_file() and not target.is_symlink():
+                return hashlib.sha256(target.read_bytes()).hexdigest()
+            data = _at_commit(repo, path)
+            return hashlib.sha256(data).hexdigest() if data is not None else ""
+        exempt = (BUILDERS[builder],) if builder in BUILDERS else ()
+        return ["static guard: " + r for r in fg.check(changes, engine_candidate=allow_adblock and not lists,
+                                                       exempt=exempt, max_files=MAX_FILES, max_lines=MAX_LINES,
+                                                       sha_of=sha_of)]
+
+
+def check(repo, patch_text, allow_adblock=False, security=False, lists=False, builder="", auto=False):
     """The list of reasons the patch is refused (empty: accepted). lists: the
     AI analysis of the filter lists (WP8), the adapter only. builder: the
-    builders' re-anchoring (WP11), that builder's PATCHES anchors only."""
+    builders' re-anchoring (WP11), that builder's PATCHES anchors only. auto: a fix
+    of the automation, which may reach main by itself: the static guard too."""
     allow_adblock = allow_adblock or lists
     reasons = []
     stat = git(repo, "apply", "--numstat", "--summary", "-", stdin=patch_text)
@@ -478,9 +547,13 @@ def check(repo, patch_text, allow_adblock=False, security=False, lists=False, bu
     for path in sorted(files):
         if builder and path == BUILDERS.get(builder):
             continue
+        if auto and path == MANIFEST and not lists:
+            continue                         # judged by the static guard (only a new entry, a plain download)
         why = allowed_path(path, allow_adblock, security)
         if why:
             reasons.append("%s: %s" % (path, why))
+    if auto:
+        reasons += auto_reasons(repo, patch_text, files, allow_adblock, lists, builder)
     if lists:
         reasons += lists_reasons(files, patch_text, repo)
     if len(files) > MAX_FILES:
@@ -825,6 +898,9 @@ def main(argv=None):
     ap.add_argument("--report", help="write the outcome here (Markdown)")
     ap.add_argument("--related", help="files involved in the failure, one per line")
     ap.add_argument("--check-only", action="store_true", help="check, do not apply")
+    ap.add_argument("--auto", action="store_true",
+                    help="a fix of the automation (it may reach main by itself): the static guard too "
+                         "(tools/fix-guard.py: no tier B file, no test, protected files only added to)")
     a = ap.parse_args(argv)
     # bytes, then text: reading as text would turn a lone carriage return into a
     # new line and hide it from the checks (git sees it as part of the line)
@@ -834,7 +910,7 @@ def main(argv=None):
         if a.report:
             Path(a.report).write_text("The agent changed nothing.\n", "utf-8")
         return 2
-    reasons = check(a.repo, patch_text, a.allow_adblock, a.security, a.lists, a.builder)
+    reasons = check(a.repo, patch_text, a.allow_adblock, a.security, a.lists, a.builder, a.auto)
     related = []
     if a.related:
         try:

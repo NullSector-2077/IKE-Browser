@@ -349,7 +349,7 @@ def test_a_new_dependency_is_found_and_recorded(fixture_repo):
     new = {e["component"]: e for e in ledger["entries"].values()}
     assert {"python-module:yaml", "crate:base64", "github-action:actions/cache", "arch-package:python-requests",
             "python-module:requests"} <= set(new)
-    assert new["python-module:yaml"]["state"] == "needs-person" and "python-yaml" in new["python-module:yaml"]["reason"]
+    assert new["python-module:yaml"]["state"] == "retrying" and "python-yaml" in new["python-module:yaml"]["reason"]
     assert new["crate:base64"]["state"] == "detected" and new["crate:base64"]["from"] == "(new)"
     assert new["crate:base64"]["to"] == "0.22.1"
     # the same facts again: nothing added twice, nothing moved
@@ -362,7 +362,7 @@ def test_a_new_dependency_is_found_and_recorded(fixture_repo):
     ledger = ledger_tool.update(ledger, day2, status, now=DAY3)
     new = {e["component"]: e for e in ledger["entries"].values()}
     assert new["crate:base64"]["state"] == "passed" and new["crate:base64"]["last_run"] == "https://x/runs/9"
-    assert new["python-module:yaml"]["state"] == "needs-person"
+    assert new["python-module:yaml"]["state"] == "retrying"          # the PKGBUILD's candidate declares it
     # the depend is added: the finding is gone, the import waits for main's tests
     write(fixture_repo, "PKGBUILD", (fixture_repo / "PKGBUILD").read_text().replace(
         "'python-requests')", "'python-requests' 'python-yaml')"))
@@ -408,7 +408,7 @@ def test_an_update_is_detected_and_follows_the_candidate_flow(fixture_repo, tmp_
     assert e["crate:serde_json"]["state"] == "detected" and e["crate:serde_json"]["key"] == "crate:serde_json@1.0.2"
     assert (e["crate:serde_json"]["from"], e["crate:serde_json"]["to"]) == ("1.0.1", "1.0.2")
     assert e["arch-package:qt6-webengine"]["state"] == "detected"
-    assert e["github-action:actions/checkout"]["state"] == "needs-person"
+    assert e["github-action:actions/checkout"]["state"] == "detected"         # its pin's own candidate (ci-pins)
     assert "proposal" in e["github-action:actions/checkout"]["reason"]
     count = len(ledger["entries"])
 
@@ -429,7 +429,7 @@ def test_an_update_is_detected_and_follows_the_candidate_flow(fixture_repo, tmp_
     assert entry["state"] == "fixing" and "licences" in entry["reason"] and entry["last_run"] == "https://x/runs/7"
     ledger = ledger_tool.update(ledger, inv, candidate({"tests.yml": failed}, autofix_issue="#97"),
                                 cand_inv=cand_inv, now=DAY1 + dt.timedelta(hours=4))
-    assert ledger["entries"]["crate:serde_json@1.0.2"]["state"] == "needs-person"
+    assert ledger["entries"]["crate:serde_json@1.0.2"]["state"] == "retrying"     # fixed again every day
     # a person's fix: a new candidate, tested again (a new attempt)
     ledger = ledger_tool.update(ledger, inv, candidate(running), cand_inv=cand_inv,
                                 now=DAY1 + dt.timedelta(hours=4, minutes=30))
@@ -438,11 +438,11 @@ def test_an_update_is_detected_and_follows_the_candidate_flow(fixture_repo, tmp_
     ledger = ledger_tool.update(ledger, inv, candidate({"tests.yml": ALL_GREEN}), cand_inv=cand_inv,
                                 now=DAY1 + dt.timedelta(hours=5))
     entry = ledger["entries"]["crate:serde_json@1.0.2"]
-    assert entry["state"] == "needs-person" and "not verified: advisories" in entry["reason"]
+    assert entry["state"] == "retrying" and "not verified: advisories" in entry["reason"]
     ledger = ledger_tool.update(ledger, inv, candidate({"tests.yml": ALL_GREEN, "security.yml": SECURITY_GREEN}),
                                 cand_inv=cand_inv, now=DAY1 + dt.timedelta(hours=6))
     entry = ledger["entries"]["crate:serde_json@1.0.2"]
-    assert entry["state"] == "passed" and "owner's merge" in entry["reason"]
+    assert entry["state"] == "passed" and "the verified merge takes it" in entry["reason"]
     assert entry["attempts"] == 2                          # it went into a candidate again after failing
     assert len(ledger["entries"]) == count                  # never added twice
     # Arch: arch.yml started on main after the change was seen
@@ -477,11 +477,12 @@ def test_failed_updates_stay_and_are_tried_again(fixture_repo):
     assert ledger["entries"][key]["state"] == "retry-later"
     ledger = ledger_tool.update(ledger, inv, now=DAY2 + dt.timedelta(hours=1))
     assert ledger["entries"][key]["state"] == "detected" and ledger["entries"][key]["attempts"] == 2
-    # too many attempts: blocked for a person, the reason kept
+    # many attempts: never given up (2026-11-22), tried again as many times as it takes
     ledger["entries"][key]["attempts"] = ledger_tool.MAX_ATTEMPTS
     ledger = ledger_tool.update(ledger, inv, report=report, now=DAY3)
     ledger = ledger_tool.update(ledger, inv, now=DAY3 + dt.timedelta(days=2))
-    assert ledger["entries"][key]["state"] == "blocked" and "tried" in ledger["entries"][key]["reason"]
+    assert ledger["entries"][key]["state"] == "detected" and "tried again" in ledger["entries"][key]["reason"]
+    assert ledger["entries"][key]["attempts"] == ledger_tool.MAX_ATTEMPTS + 1
     # a major version cargo update cannot take waits a week, never a candidate
     major = take(fixture_repo, Upstream(crates={"itoa": ["1.0.0", "2.0.0"]}))
     ledger = ledger_tool.update(ledger, major, now=DAY3)
@@ -968,8 +969,8 @@ def test_an_advisory_of_each_kind_is_found_and_recorded_once(fixture_repo):
     assert "pacman -Syu" in sec["arch-package:python@AVG-2801"]["reason"]
     assert sec["arch-package:qt6-webengine@AVG-2802"]["state"] == "blocked"
     assert sec["integrated:Dark Reader@GHSA-dark-read-0001"]["state"] == "blocked"
-    assert sec["github-action:actions/checkout@GHSA-chec-kout-0001"]["state"] == "needs-person"
-    assert len(told) == 4 and sum("AVG-2802" in n for n in told) == 2
+    assert sec["github-action:actions/checkout@GHSA-chec-kout-0001"]["state"] == "detected"     # the pin's candidate
+    assert len(told) == 3 and sum("AVG-2802" in n for n in told) == 2      # only what is blocked is told
     again = []
     ledger = ledger_tool.update(ledger, take(fixture_repo, Advisories(), arch_tested=ARCH_TESTED), now=DAY2,
                                 notices=again)
@@ -1069,7 +1070,10 @@ def test_a_rustsec_finding_plans_an_isolated_security_fix():
     assert tests["allow_adblock"] == "true"                      # the new crate: I.K.E.'s wrapper only
     tired = plan_tool.decide(_tests_run("automation/update/security-rustsec-2021-0003", _attempts=2),
                              [failed_job("tests", "Lint")], "")
-    assert tired["action"] == "issue" and tired["reason"].startswith("blocked: 2 automatic fixes")
+    # the cap is per day: tried again tomorrow, under the same security rules (nothing weakened, nothing closed)
+    assert tired["action"] == "retry" and tired["reason"].startswith("today's 2 automatic fixes under the security")
+    assert plan_tool.decide(_tests_run("automation/update/security-rustsec-2021-0003", _attempts=2,
+                                       _attempts_today=0), [failed_job("tests", "Lint")], "")["action"] == "fix"
     # since WP5 (the full chain) the other candidates of automation/update/<id> are fixed on their own
     # branch too, never with the security rules; a branch that is no candidate of the chain is not
     crates = plan_tool.decide(_tests_run("automation/update/crates"), [failed_job("tests", "Lint")], "")
@@ -1086,7 +1090,10 @@ def test_a_rustsec_finding_plans_an_isolated_security_fix():
     waiting = {"automation/update/security-sandbox": "121"}
     assert plan_tool.decide(security_run(_security_prs=waiting), SANDBOX_JOB, "")["action"] == "skip"
     plan = plan_tool.decide(security_run("automation/update/security-sandbox", _attempts=2), SANDBOX_JOB, "")
-    assert plan["action"] == "issue" and plan["reason"].startswith("blocked")
+    assert plan["action"] == "retry" and "nothing was weakened" in plan["reason"]     # again tomorrow
+    plan = plan_tool.decide(security_run("automation/update/security-sandbox", _attempts=2, _attempts_today=0),
+                            SANDBOX_JOB, "")
+    assert plan["action"] == "fix" and plan["attempt"] == "3"
     # never a person's pull request, a fork or a branch that moved; never main itself
     for run in (security_run("fix/1.1.23"), security_run(head_repository={"full_name": "x/fork"}),
                 security_run(_tip="newer")):
@@ -1299,7 +1306,7 @@ def test_no_safe_fix_is_blocked_and_the_owner_is_told(fixture_repo):
         entry = ledger["entries"]["crate:smallvec@RUSTSEC-2021-0003"]
         assert entry["state"] == state, (state, entry["reason"])
         assert bool(told) == (state == "blocked")
-    assert "waits for the owner's merge (PR #131)" in entry["reason"]
+    assert "the verified merge takes it (PR #131)" in entry["reason"]
     # the sandbox passes on main again and cargo-deny reports nothing: both are finished
     clean = {"security_main": {"url": "u", "head_sha": "main2", "jobs": {"rust-advisories": {"conclusion": "success"},
                                                                          "sandbox": {"conclusion": "success"}}}}

@@ -1493,9 +1493,30 @@ def write_lists_report(info, json_path=None, markdown_path=None):
 FAMILIES = ("adblock", "crates", "ubo-scriptlets", "darkreader", "test-packages")
 
 
-def family_of(cid):
-    """The check (FAMILIES) a candidate id comes from, or "" for an unknown id."""
+def _manifest():
+    """tools/component-manifest.py, beside this file: the entries of components.json."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("component_manifest", Path(__file__).resolve().parent /
+                                                  "component-manifest.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def manifest_checks(root, get=None, tags=None):
+    """One check per plain-download entry of the component manifest (components.json): any entry
+    added there is checked, applied and made a candidate like the others, with no change here."""
+    mf = _manifest()
+    kw = dict({"get": get} if get else {}, **({"tags": tags} if tags else {}))
+    return [(e["name"], (lambda r, cid=cid: mf.check_entry(r, cid, **kw)), mf.apply_entry, (), cid)
+            for cid, e in sorted(mf.components(root).items()) if e.get("download")]
+
+
+def family_of(cid, root=ROOT):
+    """The check (FAMILIES, or the manifest's own id) a candidate id comes from, or "" for an unknown id."""
     if cid in ("adblock", "ubo-scriptlets", "darkreader"):
+        return cid
+    if cid and (_manifest().components(root).get(cid) or {}).get("download"):
         return cid
     if cid in ("crates", "pyo3") or re.fullmatch(r"crate-major-[A-Za-z0-9_-]+", cid or ""):
         return "crates"
@@ -1535,7 +1556,7 @@ def apply_candidate(root, results, cid):
     if cand.get("error") or cand.get("refused") or not cand.get("to"):
         raise LookupError("%s: %s" % (cid, cand.get("error") or ("refused by its builder" if cand.get("refused")
                                                                   else "nothing newer")))
-    fam = family_of(cid)
+    fam = family_of(cid, root)
     info = next(r for r in results if r.get("id") == fam)
     if cid == "crates":
         apply_compatible_crates(root, info)
@@ -1548,7 +1569,7 @@ def apply_candidate(root, results, cid):
     return cand
 
 
-def check_all(root, ubo_src=None, work=None, dr_src=None, only=None):
+def check_all(root, ubo_src=None, work=None, dr_src=None, only=None, get=None, tags=None):
     """Every check (or only the family of the candidate `only`), each result with its "id" (FAMILIES)."""
     work = Path(work or tempfile.mkdtemp(prefix="ike-check-"))
     work.mkdir(parents=True, exist_ok=True)
@@ -1559,8 +1580,9 @@ def check_all(root, ubo_src=None, work=None, dr_src=None, only=None):
         ("Dark Reader (engine and lists)", check_darkreader, apply_darkreader, (work, dr_src), "darkreader"),
         ("Qt WebEngine / PyQt6 (tests)", check_test_packages, apply_test_packages, (), "test-packages"),
     ]
+    checks += manifest_checks(root, get, tags)
     if only:
-        checks = [c for c in checks if c[4] == family_of(only)]
+        checks = [c for c in checks if c[4] == family_of(only, root)]
     results = []
     for name, check, apply, args, fam in checks:
         try:
@@ -1694,7 +1716,7 @@ def main(argv=None):
         except (OSError, ValueError) as e:
             saved = {"tested": None, "error": "%s: %s" % (type(e).__name__, e)}
         arch = check_arch(saved, db=arch_repo_versions())
-    if args.only and not family_of(args.only):
+    if args.only and not family_of(args.only, root):
         print("::error::not a candidate: %s" % args.only[:80])
         return 2
     results = check_all(root, args.ubo_src, dr_src=args.darkreader_src, only=args.only)

@@ -44,6 +44,8 @@ MAX_RECENT = 6
 # brought in by the latest commits, so no assistant is led to change one (a
 # refusal for safety stops every reserve)
 NOT_RECENT = {
+    "tools/fix-guard.py", "tools/ai-review.py", "tools/component-manifest.py", "tools/release-notice.py",
+    "tools/no-regression.py", "tests/test_full_auto.py", "tests/test_inventory_guard.py",
     "ike/__init__.py", "ike/updater.py", "tests/conftest.py", "tests/harness.py", "tests/settings-keys.json",
     "tools/make-release.py", "tools/publish.py", "tools/prepare-maintenance.py", "tools/check-autofix-patch.py",
     "tools/autofix-plan.py", "tools/autofix-agent.py", "tools/autofix-context.py", "tools/autofix-reserve.py",
@@ -197,6 +199,10 @@ def build(repo, failure, recent=True):
             for mod in modules_named(text, repo) + scripts_named(text, repo):
                 if mod not in related:
                     related.append(mod)
+    # the inventory guard names the component manifest: the fix adds the missing entry there
+    if "tests/test_inventory_guard.py" in failure and "components.json" not in related \
+            and (repo / "components.json").is_file():
+        related.insert(0, "components.json")
     recent = [p for p in recent_changes(repo) if p not in related] if recent else []
     related = (related + recent)[:MAX_RELATED]
     parts, used = [], 0
