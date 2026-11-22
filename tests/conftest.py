@@ -127,6 +127,7 @@ def run_ike(tmp_path):
         e.update(env or {})
         cmd = [sys.executable, str(APP / "ike_boot.py")]
         e.setdefault("PYTHONUTF8", "1")
+        e.setdefault("PYTHONFAULTHANDLER", "1")     # a crash of the browser shows where it was, in its stderr
         if command:
             cmd = list(command)
         if out_file.exists():

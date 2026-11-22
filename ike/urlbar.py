@@ -59,6 +59,7 @@ class UrlBar(QLineEdit):
         rows.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         rows.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         rows.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self._rows_view = rows                      # kept: the completer takes it, Python holds it too
         self._completer.setPopup(rows)
         self.setCompleter(self._completer)
         self._completer.activated[str].connect(self._picked)

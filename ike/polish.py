@@ -1419,7 +1419,8 @@ class _RoundMenu(QObject):
         super().__init__(menu)
         self.menu = menu
         self.shadow = POPUP_SHADOW if translucent_popups() else 0
-        menu.setStyle(PopupPanelStyle(self.shadow))
+        self.style = PopupPanelStyle(self.shadow)        # kept here: a widget does not own its style
+        menu.setStyle(self.style)
         menu.setProperty("_KDE_NET_WM_SKIP_SHADOW", True)       # its shadow is painted: none from KWin
         if self.shadow:
             menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -1505,10 +1506,10 @@ class RoundHoverStyle(QProxyStyle):
     own round one.
 
     1.1.23 (the owner): a button whose menu opens with a click (the ☰ menu,
-    dark mode for pages: their property "ike_no_arrow") shows its icon only,
-    with no arrow and no part of its own for one, in every widget style: the
-    style is given the button as one without a menu, and the arrow's part is
-    empty, so a click anywhere on it does what a click on its main part did."""
+    dark mode for pages: their property "ike_no_arrow", opening at once)
+    shows its icon only, with no arrow and no part of its own for one, in
+    every widget style: the style is given the button as one without a
+    menu (Qt's own styles draw a small arrow in a corner otherwise)."""
 
     NO_ARROW = "ike_no_arrow"
 

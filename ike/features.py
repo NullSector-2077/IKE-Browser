@@ -515,10 +515,9 @@ class WindowFeatures:
                 nav.setUpdatesEnabled(True)
         btn = nav.widgetForAction(self.act_dark)
         if isinstance(btn, QToolButton):
-            btn.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
-            if not btn.property("ikeMenuClickConnected"):
-                btn.clicked.connect(btn.showMenu)
-                btn.setProperty("ikeMenuClickConnected", True)
+            # 1.1.23 (the owner): its icon only; a click opens its menu, as the
+            # click on its main part did (the action itself does nothing)
+            btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
             if not btn.property("ike_no_arrow"):
                 # its icon only (1.1.23, polish.RoundHoverStyle), measured so below
                 btn.setProperty("ike_no_arrow", True)
