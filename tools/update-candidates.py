@@ -39,8 +39,12 @@ files (the version raised by tools/prepare-maintenance.py when main's version
 is published). The same function (commit_problem) is what the workflow checks
 before it pushes and what tools/automerge.py checks before it merges.
 
-    update-candidates.py plan --report report.json [--branches branches.json] --out plan.json
+    update-candidates.py plan --report report.json [--pins pins.json] [--pkgbuild pkgbuild.json]
+                              [--branches branches.json] --out plan.json [--markdown OUT]
     update-candidates.py message --report report.json --id ID
+    update-candidates.py bullet --report report.json --id ID      (the CHANGELOG line)
+    update-candidates.py component --report report.json --id ID --out FILE
+                              (the candidate as a component report, for tools/maintenance-report.py)
     update-candidates.py check --id ID --base REF --head REF
     update-candidates.py branches --repo OWNER/NAME --out branches.json   (GET calls only)
 """
@@ -57,7 +61,7 @@ PREFIX = "automation/update/"
 BUILDER_PREFIX = "automation/builder/"
 SECURITY_PREFIX = PREFIX + "security-"
 ID = re.compile(r"^(adblock|crates|pyo3|crate-major-[a-z0-9_-]{1,40}|ubo-scriptlets|darkreader|test-qt|test-tools"
-                r"|test-libs|pkgbuild|ci-[a-z0-9-]{1,60})$")
+                r"|test-libs|pkgbuild|ci-[a-z0-9-]{1,60}|arch-testing-\d{4}-\d\d-\d\d)$")
 ENGINE_FILES = ("ike-adblock/Cargo.toml", "ike-adblock/Cargo.lock")
 LICENCE_FILES = ("docs/THIRD-PARTY.md", "licenses/")
 VERSION_FILES = ("ike/__init__.py", "PKGBUILD", "README.md", "CHANGELOG.md")
@@ -87,6 +91,8 @@ SPECS = {
     "pkgbuild": {"files": (), "serial": "", "ships": True, "wrapper": False, "kinds": ("arch-package",)},
     "ci-": {"files": (".github/workflows/", ".github/actions/"), "serial": "", "ships": False, "wrapper": False,
             "kinds": ("github-action",)},
+    # WP10 (b): a fix of main's code for Arch's next packages (only the automatic fix's commits)
+    "arch-testing-": {"files": (), "serial": "", "ships": True, "wrapper": False, "kinds": ("arch-package",)},
 }
 # the order in which candidates of one serial group go (the security fixes' branches always count as open)
 PRIORITY = ("adblock", "pyo3", "crates", "crate-major-", "test-qt", "test-tools", "test-libs")
@@ -167,7 +173,7 @@ def commit_problem(cid, first_line, files):
     return ""
 
 
-def plan(report, branches=None):
+def plan(report, branches=None, builder_apply=()):
     """What today's run does with each candidate (pure): [{"id", "action", "branch", "reason", ...}].
 
     report: tools/check-components.py --json (its "candidates"); branches: {branch: {"pr", "sha",
@@ -189,16 +195,25 @@ def plan(report, branches=None):
     for c in cands:
         cid, s = c["id"], spec(c["id"])
         row = {"id": cid, "branch": branch_for(cid), "from": c.get("from", ""), "to": c.get("to", ""),
-               "component": c.get("component", ""), "wrapper": s["wrapper"], "ships": s["ships"]}
+               "component": c.get("component", ""), "wrapper": s["wrapper"], "ships": s["ships"],
+               "sha": c.get("sha", ""), "base": "main"}
+        on_builder = cid in (builder_apply or ()) and bool(s.get("builder"))
         if c.get("error"):
             out.append(dict(row, action="unreachable", reason="its source could not be read today: %s"
                             % c["error"][:200]))
+            continue
+        if on_builder and not c.get("refused") and c.get("to"):
+            # WP11: the re-anchored builder accepts the new version: the update goes onto its branch
+            b = builder_branch(cid)
+            out.append(dict(row, action="make", branch=b, base=b, message=message(c),
+                            reason="the re-anchored builder on %s accepts the new version: the update is applied "
+                                   "there" % b))
             continue
         if c.get("refused"):
             b = builder_branch(cid)
             if not s.get("builder"):
                 out.append(dict(row, action="skip", reason="refused, and no builder of I.K.E.'s for it"))
-            elif b in branches:
+            elif b in branches and not on_builder:
                 out.append(dict(row, action="skip", branch=b, reason="the builder's re-anchoring already waits on "
                                 "%s (PR #%s)" % (b, branches[b].get("pr", "?"))))
             else:
@@ -228,9 +243,45 @@ def plan(report, branches=None):
     return out
 
 
+def gather(report, pins=None, pkgbuild=None):
+    """Every candidate of today: the components' (tools/check-components.py), the workflows' pins
+    (tools/ci-pins.py check) and the PKGBUILD's dependencies (tools/pkgbuild-sync.py plan)."""
+    cands = list((report or {}).get("candidates") or ())
+    cands += [dict(c) for c in (pins or {}).get("candidates") or () if spec(c.get("id"))]
+    p = pkgbuild or {}
+    if p.get("depends") or p.get("optdepends") or p.get("move") or p.get("minima"):
+        what = ["depends + " + ", ".join(p.get("depends", []) + p.get("move", []))] if (p.get("depends") or
+                                                                                       p.get("move")) else []
+        what += ["optdepends + " + ", ".join(x[0] for x in p.get("optdepends", []))] if p.get("optdepends") else []
+        what += ["minima " + ", ".join("%s>=%s" % kv for kv in sorted(p.get("minima", {}).items()))] \
+            if p.get("minima") else []
+        cands.append({"id": "pkgbuild", "component": "PKGBUILD dependencies", "from": "the PKGBUILD of main",
+                      "to": "; ".join(what), "note": "what the code needs (tools/inventory.py, # needs: markers)"})
+    return {"candidates": cands}
+
+
+def bullet(cand):
+    """The CHANGELOG line of a candidate (no code, no link: tools/automerge.py version_problem)."""
+    text = "- %s: %s -> %s" % (cand.get("component") or cand["id"], cand.get("from") or "current",
+                               cand.get("to") or "updated")
+    if cand.get("note"):
+        text += " (%s)" % cand["note"]
+    text = re.sub(r"https?://\S+", "", text.replace("`", "'"))
+    return re.sub(r"\s+", " ", text).strip()[:400]
+
+
+def component(cand):
+    """A component report (tools/check-components.py's shape) of one candidate."""
+    return {"updates": 1, "errors": 0, "refused": 0, "candidates": [cand],
+            "components": [{"name": cand.get("component") or cand["id"], "current": cand.get("from", ""),
+                            "latest": cand.get("to", ""), "update": True, "note": cand.get("note", ""), "also": "",
+                            "error": "", "refused": None, "id": cand["id"]}]}
+
+
 def matrix(rows):
     """The candidates the workflow's matrix makes today (make and builder)."""
-    return [{"id": r["id"], "action": r["action"]} for r in rows if r["action"] in ("make", "builder")]
+    keys = ("id", "action", "branch", "base", "from", "to", "sha", "ships")
+    return [{k: str(r.get(k, "")) for k in keys} for r in rows if r["action"] in ("make", "builder")]
 
 
 def markdown(rows):
@@ -251,9 +302,21 @@ def git(*args):
     return subprocess.run(["git", *args], capture_output=True, text=True, check=True).stdout
 
 
+def _tool(name):
+    import importlib.util
+    path = Path(__file__).resolve().parent / (name + ".py")
+    sp = importlib.util.spec_from_file_location(name.replace("-", "_"), path)
+    mod = importlib.util.module_from_spec(sp)
+    sp.loader.exec_module(mod)
+    return mod
+
+
 def check_range(cid, base, head):
     """The problems of the commits base..head of candidate cid: each one its own update commit
-    (commit_problem) or a commit of the automatic fix (carried over from the open candidate)."""
+    (commit_problem) or a commit of the automatic fix (carried over from the open candidate); for a
+    CI pin only tools/ci-pins.py's commits and edits, for the PKGBUILD only tools/pkgbuild-sync.py's."""
+    if cid.startswith("ci-") or cid == "pkgbuild":
+        return check_tool_range(cid, base, head)
     bad = []
     for c in git("rev-list", "--reverse", "%s..%s" % (base, head)).split():
         first = git("log", "-1", "--format=%s", c).strip()
@@ -267,6 +330,32 @@ def check_range(cid, base, head):
             why = commit_problem(cid, first, files)
             if why:
                 bad.append("%s: %s" % (c[:10], why))
+    return bad
+
+
+def check_tool_range(cid, base, head):
+    """A CI pin's or the PKGBUILD's candidate: only its tool's commits, and only its tool's edits."""
+    bad = []
+    tool = _tool("ci-pins" if cid.startswith("ci-") else "pkgbuild-sync")
+    for c in git("rev-list", "--reverse", "%s..%s" % (base, head)).split():
+        first = git("log", "-1", "--format=%s", c).strip()
+        m = tool.COMMIT.match(first)
+        if not m or (cid.startswith("ci-") and m.group(1) != cid):
+            bad.append("%s: not the commit of %s's own tool (%s)" % (c[:10], cid, first[:60]))
+    for name in [n for n in git("diff", "--name-only", "-z", base, head).split("\0") if n]:
+        old = subprocess.run(["git", "show", "%s:%s" % (base, name)], capture_output=True, text=True).stdout
+        new = subprocess.run(["git", "show", "%s:%s" % (head, name)], capture_output=True, text=True).stdout
+        if cid.startswith("ci-"):
+            why = tool.verify_change(cid, old, new) if name.startswith((".github/workflows/", ".github/actions/")) \
+                else "not a workflow"
+        elif name == "PKGBUILD":
+            why = tool.problem(old, new)
+        elif name in VERSION_FILES:
+            why = ""                    # the version raised by tools/prepare-maintenance.py; the merge checks it
+        else:
+            why = "not the PKGBUILD"
+        if why:
+            bad.append("%s: %s" % (name, why))
     return bad
 
 
@@ -295,12 +384,18 @@ def main(argv=None):
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("plan")
     p.add_argument("--report", required=True)
+    p.add_argument("--pins")
+    p.add_argument("--pkgbuild")
     p.add_argument("--branches")
+    p.add_argument("--builder-apply", default="", help="a builder's candidate applied on its own branch (WP11)")
     p.add_argument("--out", required=True)
     p.add_argument("--markdown")
-    m = sub.add_parser("message")
-    m.add_argument("--report", required=True)
-    m.add_argument("--id", required=True)
+    p.add_argument("--candidates-out", help="every candidate of today, as the matrix's jobs read them")
+    for name in ("message", "bullet", "component"):
+        m = sub.add_parser(name)
+        m.add_argument("--report", required=True)
+        m.add_argument("--id", required=True)
+        m.add_argument("--out")
     c = sub.add_parser("check")
     c.add_argument("--id", required=True)
     c.add_argument("--base", required=True)
@@ -328,15 +423,29 @@ def main(argv=None):
         print("the candidate %s changes only its own files" % a.id)
         return 0
     report = json.loads(Path(a.report).read_text("utf-8"))
-    if a.cmd == "message":
+    if a.cmd in ("message", "bullet", "component"):
         cand = next((x for x in report.get("candidates") or () if x.get("id") == a.id), None)
         if not cand or not cand.get("to"):
             print("::error::no update of %s in the report" % a.id[:80])
             return 1
-        print(message(cand))
+        text = message(cand) if a.cmd == "message" else bullet(cand) if a.cmd == "bullet" else \
+            json.dumps(component(cand), indent=1)
+        if a.out:
+            Path(a.out).write_text(text + "\n", "utf-8")
+        print(text)
         return 0
-    branches = json.loads(Path(a.branches).read_text("utf-8")) if a.branches else {}
-    rows = plan(report, branches)
+
+    def read(path):
+        try:
+            return json.loads(Path(path).read_text("utf-8")) if path else {}
+        except (OSError, ValueError) as e:
+            print("::warning::%s could not be read: %s" % (path, e))
+            return {}
+    branches = read(a.branches)
+    everything = gather(report, read(a.pins), read(a.pkgbuild))
+    if a.candidates_out:
+        Path(a.candidates_out).write_text(json.dumps(everything, indent=1) + "\n", "utf-8")
+    rows = plan(everything, branches, builder_apply=[a.builder_apply] if a.builder_apply else ())
     Path(a.out).write_text(json.dumps({"rows": rows, "matrix": matrix(rows)}, indent=1) + "\n", "utf-8")
     if a.markdown:
         Path(a.markdown).write_text(markdown(rows), "utf-8")

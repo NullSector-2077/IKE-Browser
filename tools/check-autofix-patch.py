@@ -54,7 +54,14 @@ whether the patch stays inside what an automatic fix may change:
   a line that keeps a protection (trust, exceptions, ghide...). Patterns, not
   proof: tests/test_lists_recorded.py and the whole suite decide.
 
-    check-autofix-patch.py --repo DIR --patch FILE [--allow-adblock] [--security] [--lists]
+- with --builder ID (WP11, the builders' re-anchoring on automation/builder/<id>):
+  only that builder (tools/build-darkreader.py, tools/build-ubo-scriptlets.mjs)
+  may change, and only as tools/builder-anchor.py allows: the same patches in
+  the same order, the same replacement texts, only anchors re-found in the new
+  upstream (Dark Reader), or only the path of the library it imports (uBlock
+  Origin); nothing else of the builder, no upstream code.
+
+    check-autofix-patch.py --repo DIR --patch FILE [--allow-adblock] [--security] [--lists] [--builder ID]
                            [--related FILE] [--report FILE.md] [--check-only]
 
 The patch is applied to the index and work tree of DIR only when every rule
@@ -114,7 +121,14 @@ FORBIDDEN_FILES = {
     # providers or limits), and the test that proves the lists' new support
     "tools/filter-lists.py", "tools/ai-work.py", "tools/ai-providers.py", "tools/provider-check.py",
     "tests/test_lists_recorded.py",
+    # the last block of the full chain (2026-11-22): one candidate per component, the
+    # workflows' pins (a deterministic tool, never an AI), the builders' re-anchoring rule,
+    # the PKGBUILD's dependencies and the proofs of the whole chain
+    "tools/update-candidates.py", "tools/ci-pins.py", "tools/builder-anchor.py", "tools/pkgbuild-sync.py",
+    "tests/test_full_chain.py",
 }
+# WP11 (--builder ID): the builders' re-anchoring on automation/builder/<id>, only that builder
+BUILDERS = {"darkreader": "tools/build-darkreader.py", "ubo-scriptlets": "tools/build-ubo-scriptlets.mjs"}
 # WP8 (--lists): what the AI analysis of the filter lists may change, I.K.E.'s
 # adapter only
 LISTS_ALLOWED = ("ike/scriptlets.py", "ike/blocker.py")
@@ -379,9 +393,47 @@ def lists_reasons(files, patch_text, repo="."):
     return reasons
 
 
-def check(repo, patch_text, allow_adblock=False, security=False, lists=False):
+def _anchor_tool():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("ike_builder_anchor", Path(__file__).resolve().parent /
+                                                  "builder-anchor.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def builder_reasons(repo, patch_text, builder, files):
+    """--builder (WP11): only the builder of that component, and only a re-anchoring of its existing
+    patches (tools/builder-anchor.py): the old file is the commit's, the new one the patch applied to
+    it in a folder of its own."""
+    import tempfile
+    path = BUILDERS.get(builder)
+    if not path:
+        return ["--builder %s: not a builder of I.K.E.'s (protected file)" % builder]
+    reasons = ["%s: the builder's re-anchoring may change only %s (protected file)" % (f, path)
+               for f in sorted(files) if f != path]
+    if reasons or path not in files:
+        return reasons or ["the patch does not change %s" % path]
+    shown = git(repo, "show", "HEAD:" + path)
+    if shown.returncode:
+        return ["%s: the builder at the commit could not be read" % path]
+    with tempfile.TemporaryDirectory() as tmp:
+        target = Path(tmp) / path
+        target.parent.mkdir(parents=True)
+        target.write_text(shown.stdout, "utf-8")
+        done = git(tmp, "apply", "-", stdin=patch_text)
+        if done.returncode:
+            return ["%s: the patch does not apply to the builder: %s" % (path, done.stderr.strip()[:200])]
+        new = target.read_text("utf-8")
+    why = _anchor_tool().problem(builder, shown.stdout, new)
+    return ["%s: more than a re-anchoring of I.K.E.'s existing patches (protected file): %s" % (path, why)] \
+        if why else []
+
+
+def check(repo, patch_text, allow_adblock=False, security=False, lists=False, builder=""):
     """The list of reasons the patch is refused (empty: accepted). lists: the
-    AI analysis of the filter lists (WP8), the adapter only."""
+    AI analysis of the filter lists (WP8), the adapter only. builder: the
+    builders' re-anchoring (WP11), that builder's PATCHES anchors only."""
     allow_adblock = allow_adblock or lists
     reasons = []
     stat = git(repo, "apply", "--numstat", "--summary", "-", stdin=patch_text)
@@ -419,7 +471,13 @@ def check(repo, patch_text, allow_adblock=False, security=False, lists=False):
                 reasons.append("%s => %s: %s" % (old, new, why) if why else "renamed file: %s => %s" % (old, new))
     if not files and not reasons:
         return []
+    if builder:
+        # WP11: the one builder, by its own rule; nothing else (its protected status stays for every
+        # other run)
+        reasons += builder_reasons(repo, patch_text, builder, files)
     for path in sorted(files):
+        if builder and path == BUILDERS.get(builder):
+            continue
         why = allowed_path(path, allow_adblock, security)
         if why:
             reasons.append("%s: %s" % (path, why))
@@ -746,7 +804,8 @@ SAFETY = ("outside the repository", "protected file", "third-party or generated"
           "carriage return inside a line", "test file renamed or copied", "reads differently",
           "return in the body of a test", "assertion moved into a block", "decorator that may replace a test",
           "empties the parameters of a test", "behaves differently under the tests",
-          "touches the engine's protections", "names a RustSec advisory", "weakens blocking")
+          "touches the engine's protections", "names a RustSec advisory", "weakens blocking",
+          "more than a re-anchoring")
 
 
 def safety_refusal(reasons):
@@ -761,6 +820,8 @@ def main(argv=None):
     ap.add_argument("--security", action="store_true",
                     help="a fix of a security finding (automation/update/security-*): the stricter rules")
     ap.add_argument("--lists", action="store_true", help="the filter lists' AI analysis: the adapter only (WP8)")
+    ap.add_argument("--builder", default="", choices=["", *sorted(BUILDERS)],
+                    help="the builders' re-anchoring (WP11): that builder's existing patches only")
     ap.add_argument("--report", help="write the outcome here (Markdown)")
     ap.add_argument("--related", help="files involved in the failure, one per line")
     ap.add_argument("--check-only", action="store_true", help="check, do not apply")
@@ -773,7 +834,7 @@ def main(argv=None):
         if a.report:
             Path(a.report).write_text("The agent changed nothing.\n", "utf-8")
         return 2
-    reasons = check(a.repo, patch_text, a.allow_adblock, a.security, a.lists)
+    reasons = check(a.repo, patch_text, a.allow_adblock, a.security, a.lists, a.builder)
     related = []
     if a.related:
         try:

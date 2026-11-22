@@ -183,7 +183,26 @@ SECURITY_RULES = (
     "\"fixable\": false.\n")
 
 
-def instructions(allow_adblock, lists=False):
+# WP11 (--builder ID): only the refused builder's existing patches, re-anchored
+BUILDERS = {"darkreader": "tools/build-darkreader.py", "ubo-scriptlets": "tools/build-ubo-scriptlets.mjs"}
+BUILDER_RULES = (
+    "\n\nThis run re-anchors I.K.E.'s builder %(file)s on an isolated branch: a new upstream version moved "
+    "the text one of I.K.E.'s patches is anchored to (the failure description shows the new upstream lines "
+    "around it). Change ONLY %(file)s, and in it only the anchor texts of the existing patches (for Dark "
+    "Reader the second text of each PATCHES entry; for uBlock Origin only the path of the library it "
+    "imports): never a replacement text, never a new or removed patch, never other code, never the "
+    "upstream code or the generated files. If the patch cannot be re-anchored that way, answer "
+    "\"fixable\": false.\n")
+
+
+def builder_rules(builder):
+    return BUILDER_RULES % {"file": BUILDERS[builder]} if builder in BUILDERS else ""
+
+
+def instructions(allow_adblock, lists=False, builder=""):
+    if builder in BUILDERS:
+        return INSTRUCTIONS % {"wrapper": "this run re-anchors ONLY %s (its existing patches' anchors)"
+                               % BUILDERS[builder]} + builder_rules(builder)
     if lists:
         return INSTRUCTIONS % {"wrapper": "this run is the filter lists' analysis: ONLY ike/scriptlets.py, "
                                "ike/blocker.py or ike-adblock/src/, never a test"} + _agent_lists_note()
@@ -226,6 +245,17 @@ def chain(env=os.environ):
                 continue
             out.append((name, url, key, m, budget, tokens))
     return out
+
+
+def rotated(plan, first):
+    """The chain starting with the provider `first` (an attempt after a failed fix starts with
+    another free provider: tools/ai-providers.py FIX_ATTEMPTS), the others after it in their order;
+    the chain as it is when first is not one of its providers."""
+    names = [p[0] for p in plan]
+    if not first or first not in names:
+        return plan
+    i = names.index(first)
+    return plan[i:] + plan[:i]
 
 
 OPENROUTER_MODELS = REGISTRY.OPENROUTER_MODELS
@@ -413,7 +443,7 @@ def _locate(current, find):
     return offsets[i], offsets[end_line] + len(lines[end_line])
 
 
-def apply_edits(workdir, edits, shown, allow_adblock=False, security=False, lists=False):
+def apply_edits(workdir, edits, shown, allow_adblock=False, security=False, lists=False, builder=""):
     """Apply the edits (all or none). Returns the changed files; raises ValueError."""
     if not isinstance(edits, list):
         raise ValueError("the edits are not a list")
@@ -431,14 +461,19 @@ def apply_edits(workdir, edits, shown, allow_adblock=False, security=False, list
             path = path[2:]
         if ".." in Path(path).parts or path not in shown:
             raise ValueError("%s is not one of the files shown" % path)
-        if lists and not editable(path, True, lists=True):
+        if builder:
+            # WP11: the one builder, nothing else; the checker then judges the re-anchoring itself
+            if path != BUILDERS.get(builder):
+                raise ValueError("%s may not be changed when the builder is re-anchored: only %s"
+                                 % (path, BUILDERS.get(builder, "?")))
+        elif lists and not editable(path, True, lists=True):
             raise ValueError("%s may not be changed in the filter lists' analysis: only I.K.E.'s adapter "
                              "(ike/scriptlets.py, ike/blocker.py, ike-adblock/src/)" % path)
-        if not editable(path, allow_adblock) or (not allow_adblock and path in ("ike/blocker.py",
-                                                                              "ike/scriptlets.py")):
+        if not builder and (not editable(path, allow_adblock) or (not allow_adblock and path in (
+                "ike/blocker.py", "ike/scriptlets.py"))):
             raise ValueError("%s may not be changed in this run (the ad blocker only with an "
                              "update of its engine)" % path)
-        rule = _checker_rule()
+        rule = None if builder else _checker_rule()
         why = rule(path, allow_adblock, security) if rule else ""
         if why:
             raise ValueError("%s may not be changed: %s" % (path, why))
@@ -518,7 +553,7 @@ def _agent_lists_note():
         return ""
 
 
-def checked(workdir, checker, related, allow_adblock, security=False, lists=False):
+def checked(workdir, checker, related, allow_adblock, security=False, lists=False, builder=""):
     """(exit status, reasons) of the trusted checks on the work tree's changes."""
     with tempfile.NamedTemporaryFile("w", suffix=".patch", delete=False) as f:
         f.write(diff_of(workdir))
@@ -532,6 +567,8 @@ def checked(workdir, checker, related, allow_adblock, security=False, lists=Fals
         cmd.append("--security")          # WP6: a fix of a security finding, the stricter rules
     if lists:
         cmd.append("--lists")
+    if builder:
+        cmd += ["--builder", builder]       # WP11: the builders' re-anchoring rule
     run = subprocess.run(cmd, capture_output=True, text=True, check=False)
     os.unlink(patch)
     return run.returncode, run.stdout.strip()[-2000:]
@@ -607,12 +644,13 @@ def one_model(url, key, model, base, tokens, deadline, opener, workdir, shown, a
                 raise ValueError("the answer has no edits: give the exact edits of the fix, "
                                  "or \"fixable\": false if it cannot be fixed in the code")
             applied[:] = apply_edits(workdir, obj["edits"], shown, a.allow_adblock, getattr(a, "security", False),
-                                     getattr(a, "lists", False))
+                                     getattr(a, "lists", False), getattr(a, "builder", ""))
             summary = str(obj.get("summary") or "")
             print("  edits applied: %s" % for_log(", ".join(applied)), flush=True)
             if a.checker:
                 status, reasons = checked(workdir, a.checker, a.related, a.allow_adblock,
-                                          getattr(a, "security", False), getattr(a, "lists", False))
+                                          getattr(a, "security", False), getattr(a, "lists", False),
+                                          getattr(a, "builder", ""))
                 if status == 3:
                     undo(workdir, applied)
                     applied.clear()
@@ -690,6 +728,9 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     ap.add_argument("--allow-adblock", action="store_true")
     ap.add_argument("--security", action="store_true", help="a fix of a security finding: the stricter rules")
     ap.add_argument("--lists", action="store_true", help="the filter lists' analysis: the adapter only (WP8)")
+    ap.add_argument("--builder", default="", choices=["", *sorted(BUILDERS)],
+                    help="the builders' re-anchoring (WP11): that builder's existing patches only")
+    ap.add_argument("--first", default="", help="the provider this attempt starts with (FIX_ATTEMPTS rotation)")
     ap.add_argument("--refused", help="why the checks refused Antigravity's fix")
     ap.add_argument("--lint", action="store_true", help="ruff on each fix (its safe fixes first)")
     a = ap.parse_args(argv)
@@ -704,7 +745,7 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     failure, context = read("failure.md"), read("context.md")
     related = [line.strip() for line in read("related.txt").splitlines() if line.strip()]
     shown = files_shown(workdir, related)
-    rules = Path(a.prompt).read_text("utf-8") + (SECURITY_RULES if a.security else "")
+    rules = Path(a.prompt).read_text("utf-8") + (SECURITY_RULES if a.security else "") + builder_rules(a.builder)
     keys = [env.get(p[2], "") for p in PROVIDERS]
     refused = ""
     if a.refused:
@@ -715,7 +756,7 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     result, used, summary = "nokey", "", ""
     said_none, none_summary = [], ""          # the models that answered "fixable": false
     skip, deadline = set(), time.monotonic() + a.total_timeout
-    plan = chain(env)
+    plan = rotated(chain(env), a.first or env.get("AUTOFIX_FIRST", ""))
     discovered, refused_keys = False, []
     # WP9: whether any model really answered; a chain where each model was busy,
     # out of quota or not free ends "no provider available" (the work waits:
@@ -724,7 +765,7 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     for provider, url, key, model, budget, tokens in plan:      # the list may grow (free_models)
         if provider in skip:
             continue
-        base = [{"role": "system", "content": rules + "\n" + instructions(a.allow_adblock, a.lists)},
+        base = [{"role": "system", "content": rules + "\n" + instructions(a.allow_adblock, a.lists, a.builder)},
                 {"role": "user", "content": message_for(failure, context, shown, budget, refused)}]
         if time.monotonic() > deadline:
             result = result if result != "nokey" else "quota"

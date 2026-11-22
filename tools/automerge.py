@@ -54,6 +54,22 @@ never repeated, when the reason changes) and the ledger shows it as
 needs-person, or blocked for a security finding (tools/maintenance-ledger.py
 reads the comment's verdict mark).
 
+The full chain (2026-11-22, the last block): one candidate per component on
+automation/update/<id> (tools/update-candidates.py: its own "update: <id> ...
+(no AI)" commit may change only its id's files, the licences and the version),
+the workflows' pins on automation/update/ci-<name> (tools/ci-pins.py: every
+changed workflow line one pin of that name, the same action, a commit that
+`git ls-remote` shows is the release tag beside it, the tool's own commit; any
+other workflow change waits for a person), the PKGBUILD's dependencies on
+automation/update/pkgbuild (tools/pkgbuild-sync.py's rule), a builder's
+re-anchoring on automation/builder/<id> (the automatic fix's change of the
+builder only as tools/builder-anchor.py allows) and, on a candidate of the
+engine (adblock, pyo3, a major crate), the automatic fix's change of I.K.E.'s
+wrapper (ike-adblock/src/*.rs, vendor/adblock/__init__.py, ike/blocker.py)
+with no unsafe code, process, file, network or environment access added
+(wrapper_problem). A fix for Arch's testing packages
+(automation/update/arch-testing-<date>) needs "Arch Linux (testing)" too.
+
     automerge.py --repo OWNER/NAME --sha HEAD_SHA [--dry-run]
 """
 
@@ -318,6 +334,9 @@ def file_problem(f, guard_allowed, repo=""):
 CANDIDATE = "automation/daily-maintenance"
 FIX_MAIN = "automation/autofix-main"
 UPDATE_PREFIX = "automation/update/"
+BUILDER_PREFIX = "automation/builder/"
+ARCH_TESTING_PREFIX = UPDATE_PREFIX + "arch-testing-"
+ARCH_TESTING_CHECK = "Arch Linux (testing)"
 # the owner's words: "tests, sandbox, Security, Arch Linux"
 VERIFIED_CHECKS = ("tests", "sandbox", "rust-advisories", "Arch Linux")
 # what an update may change (the same list as daily-maintenance.yml's check of the candidate)
@@ -329,9 +348,17 @@ VERSION_FILES = ("ike/__init__.py", "PKGBUILD", "README.md", "CHANGELOG.md")
 # prefix ending in "-"), what it may change, whether the version files may move)
 UPDATE_COMMITS = (
     (re.compile(r"^maintenance: "), (CANDIDATE,), UPDATE_FILES, True),
+    # since the full chain (item 5) a security update raises the version too when main's is published
     (re.compile(r"^security: .+ \(cargo update, no AI\)$"), (UPDATE_PREFIX + "security-",),
-     ("ike-adblock/Cargo.lock",), False),
+     ("ike-adblock/Cargo.lock", "docs/THIRD-PARTY.md", "licenses/"), True),
 )
+# I.K.E.'s wrapper of the engine, which the automatic fix may adapt on a candidate of the engine
+WRAPPER_FILES = ("vendor/adblock/__init__.py", "ike/blocker.py")
+WRAPPER_RS = re.compile(r"^ike-adblock/src/[A-Za-z0-9_/]+\.rs$")
+# what an added line of Rust in the wrapper may not bring without a person
+RUST_RISKY = re.compile(r"\bunsafe\b|std::(process|net|fs|env|os|ffi|ptr|mem::transmute)|\bCommand\b"
+                        r"|include_(bytes|str)!|\benv!|option_env!|\basm!|global_asm!|\bextern\b|#\s*\[\s*link"
+                        r"|#\s*\[\s*no_mangle|\blibc\b|\bTcp|\bUdp|\bFile::|\bOpenOptions\b|https?://|\bprintln!")
 TEST_FILE = re.compile(r"(^|/)(tests?/|conftest\.py$|test_[^/]*\.py$|[^/]*_test\.py$)")
 NOT_SHIPPED = ("tools/", "tests/", "docs/", ".github/")
 SECURITY_WHY = "an open security finding"
@@ -340,7 +367,44 @@ VERDICT = "<!-- automerge-verdict: %s %s -->"     # read back by tools/maintenan
 
 def verified_branch(ref):
     """A branch of the automation whose fully verified pull request merges by itself."""
-    return ref in (CANDIDATE, FIX_MAIN) or (ref.startswith(UPDATE_PREFIX) and len(ref) > len(UPDATE_PREFIX))
+    return ref in (CANDIDATE, FIX_MAIN) or (ref.startswith(UPDATE_PREFIX) and len(ref) > len(UPDATE_PREFIX)) or \
+        (ref.startswith(BUILDER_PREFIX) and bool(_candidates().id_of_branch(ref)))
+
+
+def _candidates():
+    return _tool("update-candidates")
+
+
+def candidate_id(ref):
+    """The full chain's candidate id of the branch (tools/update-candidates.py), or ""."""
+    return _candidates().id_of_branch(ref) if ref.startswith((UPDATE_PREFIX, BUILDER_PREFIX)) else ""
+
+
+def wrapper_problem(f):
+    """Why the automatic fix's change of I.K.E.'s wrapper keeps the pull request for a person, or "".
+    Rust: no added unsafe code, process, file, network, environment or foreign code; Python: the
+    1.1.19 rules of lines and syntax trees (nothing risky the old file did not have)."""
+    name = f.get("filename", "")
+    if f.get("status") != "modified" or f.get("patch") is None:
+        return "%s: not a plain change of the wrapper" % name
+    parts = hunks(f["patch"])
+    if parts is None:
+        return "%s: change not readable" % name
+    for _start, _removed, added in parts:
+        for line in added:
+            if name.endswith(".rs") and RUST_RISKY.search(line):
+                return "%s: a line a person must read (%s)" % (name, line.strip()[:80])
+            if name.endswith(".py") and PERSON_LINES.search(line):
+                return "%s: a line a person must read (%s)" % (name, line.strip()[:80])
+    if name.endswith(".py"):
+        if "old_source" not in f or "new_source" not in f:
+            return "%s: the whole file could not be read" % name
+        return tree_problem(name, f["old_source"], f["new_source"])
+    return ""
+
+
+def is_wrapper(name):
+    return name in WRAPPER_FILES or bool(WRAPPER_RS.match(name))
 
 
 def _tool(name):
@@ -367,12 +431,19 @@ def lock_moves(patch, names=("adblock", "pyo3")):
     return False
 
 
-def kinds_of(files):
-    """The kinds of components (tools/inventory.py) a pull request changes, read from its files."""
+def kinds_of(files, ref=""):
+    """The kinds of components (tools/inventory.py) a pull request changes, read from its files (and,
+    for a candidate of the full chain, the kinds its id updates)."""
     kinds = set()
+    cid = candidate_id(ref)
+    if cid:
+        kinds.update(_candidates().spec(cid).get("kinds") or ())
     for f in files:
         name = f.get("filename", "")
         if name in VERSION_FILES or name.startswith("licenses/") or name == "docs/THIRD-PARTY.md":
+            continue
+        if name.startswith(".github/"):
+            kinds.add("github-action")
             continue
         if name == "ike-adblock/Cargo.toml" or name.startswith(("ike-adblock/src/", "vendor/adblock/")):
             kinds.add("adblock-engine")
@@ -432,6 +503,27 @@ def _on(ref, branches):
     return any(ref == b or (b.endswith("-") and ref.startswith(b)) for b in branches)
 
 
+def chain_commit_problem(ref, first, files):
+    """None when the commit is not one of the full chain's own tools; else why it keeps the pull
+    request for a person, or "" (an update, a CI pin, the PKGBUILD's dependencies)."""
+    uc = _candidates()
+    cid = candidate_id(ref)
+    if uc.UPDATE_COMMIT.match(first):
+        return uc.commit_problem(cid, first, files) if cid else "an update commit on another branch"
+    m = _tool("ci-pins").COMMIT.match(first)
+    if m:
+        if cid != m.group(1) or not ref.startswith(UPDATE_PREFIX):
+            return "a CI pin's commit on another branch than its own (%s)" % first[:60]
+        bad = [n for n in files if n and not n.startswith((".github/workflows/", ".github/actions/"))]
+        return "%s: the CI pin's commit may change only the workflows" % bad[0] if bad else ""
+    if _tool("pkgbuild-sync").COMMIT.match(first):
+        if cid != "pkgbuild":
+            return "a PKGBUILD commit on another branch than automation/update/pkgbuild"
+        bad = [n for n in files if n and n not in VERSION_FILES]
+        return "%s: the PKGBUILD's commit may change only the PKGBUILD and the version" % bad[0] if bad else ""
+    return None
+
+
 def commit_problem(ref, commits):
     """Why the commits of the candidate or of an update keep it for a person, or ""."""
     if not commits:
@@ -442,6 +534,13 @@ def commit_problem(ref, commits):
         if TRIAL.search(first):
             return "a trial"
         if AUTOFIX_COMMIT.match(msg):
+            continue
+        if c.get("files") is None:
+            return "the files of a commit could not be read (%s)" % first[:60]
+        why = chain_commit_problem(ref, first, c["files"])
+        if why is not None:
+            if why:
+                return why
             continue
         rule = [u for u in UPDATE_COMMITS if u[0].match(first) and _on(ref, u[1])]
         if not rule:
@@ -466,9 +565,10 @@ def origins(commits):
     return out
 
 
-def verified_file_problem(f, by, guard_allowed, repo):
+def verified_file_problem(f, by, guard_allowed, repo, ref="", tags=None):
     """Why a file of the candidate or of an update keeps it for a person, or ""."""
     name = f.get("filename", "")
+    cid = candidate_id(ref)
     if not by:
         return "%s: no commit of the branch accounts for it" % name
     if by == {"update"}:
@@ -476,20 +576,43 @@ def verified_file_problem(f, by, guard_allowed, repo):
             return "%s: renamed" % name
         if f.get("status") == "removed" and not name.startswith("licenses/"):
             return "%s: removed" % name
+        if name == "PKGBUILD" and cid == "pkgbuild":
+            # tools/pkgbuild-sync.py's rule: depends, optdepends and the version only
+            if "old_source" not in f or "new_source" not in f:
+                return "%s: the whole file could not be read" % name
+            why = _tool("pkgbuild-sync").problem(f["old_source"], f["new_source"])
+            return "%s: %s" % (name, why) if why else ""
         if name in VERSION_FILES:
             if f.get("patch") is None:
                 return "%s: change not readable" % name
             return version_problem(name, f["patch"], repo)
-        if not name.startswith(UPDATE_FILES):
+        if name.startswith(".github/") and cid.startswith("ci-"):
+            # tools/ci-pins.py's own edit: one pin per line, a release of the same action (git ls-remote)
+            if f.get("status") != "modified" or "old_source" not in f or "new_source" not in f:
+                return "%s: the whole workflow could not be read" % name
+            ci = _tool("ci-pins")
+            why = ci.verify_change(cid, f["old_source"], f["new_source"], **({"tags": tags} if tags else {}))
+            return "%s: %s" % (name, why) if why else ""
+        own = _candidates().spec(cid)["files"] if cid and _candidates().spec(cid) else ()
+        if not name.startswith(UPDATE_FILES + own):
             return "%s: not a file an update changes" % name
         return ""
     if by == {"autofix"}:
+        builder = _tool("builder-anchor").BUILDERS.get(cid) if ref.startswith(BUILDER_PREFIX) else None
+        if builder and name == builder:
+            # WP11: only a re-anchoring of I.K.E.'s existing patches
+            if f.get("status") != "modified" or "old_source" not in f or "new_source" not in f:
+                return "%s: the whole builder could not be read" % name
+            why = _tool("builder-anchor").problem(cid, f["old_source"], f["new_source"])
+            return "%s: more than a re-anchoring (%s)" % (name, why) if why else ""
+        if is_wrapper(name) and _candidates().wrapper_allowed(ref):
+            return wrapper_problem(f)            # item 2: the wrapper adapted to a new engine
         return file_problem(f, guard_allowed, repo)     # the 1.1.19 rules of a fix of the automatic fix
     return "%s: changed by the update and by the automatic fix" % name
 
 
 def decide(repo, pr, commits, files, checks, guard_allowed, published=False, unread=False, evidence=None,
-           findings=(), protected=None):
+           findings=(), protected=None, tags=None):
     """("merge", "") for a fully verified pull request of the automation, ("ready", "") for a green
     and harmless one of ChatGPT (it waits for the owner's order), ("wait", why) while its checks run,
     or ("person", why)."""
@@ -514,14 +637,20 @@ def decide(repo, pr, commits, files, checks, guard_allowed, published=False, unr
         return "person", "no files, or too many to read"
     if protected is None:
         protected = _guard().FORBIDDEN_FILES
+    cid = candidate_id(ref)
+    own = (_candidates().spec(cid) or {}).get("files", ()) if cid else ()
+    # the CI pins' candidate: its workflow edits are judged below, line by line (tools/ci-pins.py)
+    ci_branch = cid.startswith("ci-") and ref.startswith(UPDATE_PREFIX) and all(
+        _tool("ci-pins").COMMIT.match(m.split("\n", 1)[0]) for m in messages)
     # no test file changed or removed, no protected file, no workflow (the owner's rule)
     for f in files:
         for n in (f.get("filename", ""), f.get("previous_filename") or ""):
             if n and TEST_FILE.search(n):
                 return "person", "%s: a test file changed or removed" % n
-            if n.startswith(".github/"):
+            if n.startswith(".github/") and not ci_branch:
                 return "person", "%s: a workflow" % n
-            if n in protected and n not in VERSION_FILES and not (ref == CANDIDATE and n.startswith(UPDATE_FILES)):
+            if n in protected and n not in VERSION_FILES and not (ref == CANDIDATE and n.startswith(UPDATE_FILES)) \
+                    and not (own and n.startswith(own)):
                 return "person", "%s: a protected file" % n
     if chatgpt or ref == FIX_MAIN:
         for f in files:
@@ -537,7 +666,7 @@ def decide(repo, pr, commits, files, checks, guard_allowed, published=False, unr
             return "person", why
         by = origins(commits)
         for f in files:
-            why = verified_file_problem(f, by.get(f.get("filename", "")), guard_allowed, repo)
+            why = verified_file_problem(f, by.get(f.get("filename", "")), guard_allowed, repo, ref, tags)
             if why:
                 return "person", why
         names = [f.get("filename", "") for f in files]
@@ -547,14 +676,20 @@ def decide(repo, pr, commits, files, checks, guard_allowed, published=False, unr
         return "person", "main already holds a merge by itself not yet signed: that version is signed first (M9)"
     names = {}
     for c in checks:
-        if c.get("name") in OWN_JOBS:
-            continue                             # the automation's own reporting jobs (N7)
+        if c.get("name") in OWN_JOBS or (c.get("name") or "").split(" / ")[-1] in OWN_JOBS:
+            continue                             # the automation's own reporting jobs (N7), also when called
         if c.get("status") != "completed":
             return "wait", "a check is still running: %s" % c.get("name")
         if c.get("conclusion") in BAD_CONCLUSIONS:
             return "person", "the check %s did not pass" % c.get("name")
         names[c.get("name")] = c.get("conclusion")
     need = ["tests", "sandbox", "guard"] if chatgpt else list(VERIFIED_CHECKS)
+    if ref.startswith(ARCH_TESTING_PREFIX):
+        # WP10 (b): a fix for Arch's testing packages merges only when it passes on stable and testing
+        testing = [n for n in names if n.startswith(ARCH_TESTING_CHECK)]
+        if not testing:
+            return "wait", "the check %s has not run on this commit yet" % ARCH_TESTING_CHECK
+        need += testing
     for n in need:
         if n not in names:
             return "wait", "the check %s has not run on this commit yet" % n
@@ -564,7 +699,7 @@ def decide(repo, pr, commits, files, checks, guard_allowed, published=False, unr
         return "ready", ""
     if evidence is None:
         return "wait", NO_EVIDENCE
-    problems = verification_problems(evidence, kinds_of(files))
+    problems = verification_problems(evidence, kinds_of(files, ref))
     if problems:
         return "person", "not fully verified: %s" % "; ".join(problems[:6])
     if findings:
@@ -702,27 +837,52 @@ def gather_findings(repo, advisories_passed):
     return open_findings(issues, ledger, advisories_passed)
 
 
-def ensure_arch(repo, ref, sha):
+def ensure_arch(repo, ref, sha, workflow="arch.yml"):
     """Arch Linux must run on the commit (the owner's rule): started here when no run of arch.yml
     has this commit (the daily candidate starts it itself; a fix's branch may not have)."""
     try:
-        if api("repos/%s/actions/workflows/arch.yml/runs?head_sha=%s&per_page=1" % (repo, sha)).get("total_count"):
+        if api("repos/%s/actions/workflows/%s/runs?head_sha=%s&per_page=1" % (repo, workflow, sha)).get(
+                "total_count"):
             return False
-        gh("workflow", "run", "arch.yml", "--repo", repo, "--ref", ref)
-        print("arch.yml started on %s: Arch Linux had not run on %s" % (ref, sha[:10]))
+        gh("workflow", "run", workflow, "--repo", repo, "--ref", ref)
+        print("%s started on %s: it had not run on %s" % (workflow, ref, sha[:10]))
         return True
     except (RuntimeError, ValueError) as e:
         print("::warning::arch.yml could not be started on %s: %s" % (ref, str(e)[:200]))
         return False
 
 
+def merge_token(files):
+    """The token of the merge: the workflow's own, or for a pull request that changes the workflows (the
+    CI pins' candidate, already verified line by line) the repository secret IKE_WORKFLOW_TOKEN when the
+    owner set it (GitHub refuses workflow changes to the workflow's token)."""
+    import os
+    if any((f.get("filename") or "").startswith(".github/") for f in files or ()):
+        return os.environ.get("IKE_WORKFLOW_TOKEN") or None
+    return None
+
+
 def merge_it(repo, pr, sha):
     """The merge, with the workflow's token, at exactly this commit; then main's own checks."""
+    import os
     n = pr["number"]
     if pr.get("draft"):
         gh("pr", "ready", str(n), "--repo", repo)
-    gh("api", "-X", "PUT", "repos/%s/pulls/%d/merge" % (repo, n), "-f", "merge_method=merge", "-f", "sha=" + sha,
-       "-f", "commit_title=Merge pull request #%d: %s (merged by itself: fully verified)" % (n, pr.get("title", "")[:120]))
+    try:
+        files = api("repos/%s/pulls/%d/files?per_page=100" % (repo, n))
+    except (RuntimeError, ValueError):
+        files = []
+    token = merge_token(files)
+    old = os.environ.get("GH_TOKEN")
+    if token:
+        os.environ["GH_TOKEN"] = token
+    try:
+        gh("api", "-X", "PUT", "repos/%s/pulls/%d/merge" % (repo, n), "-f", "merge_method=merge", "-f", "sha=" + sha,
+           "-f", "commit_title=Merge pull request #%d: %s (merged by itself: fully verified)"
+           % (n, pr.get("title", "")[:120]))
+    finally:
+        if token and old is not None:
+            os.environ["GH_TOKEN"] = old
     gh("pr", "comment", str(n), "--repo", repo, "--body",
        "Unita in `main` da sola: verificata in tutto (test, sandbox, Security, Arch Linux, licenze, nessun test "
        "cambiato o saltato, nessun file protetto, nessun avviso di sicurezza aperto; tools/automerge.py). "
@@ -761,7 +921,9 @@ def main(argv=None):
     files = api("repos/%s/pulls/%d/files?per_page=100" % (a.repo, n))
     base = (pr.get("base") or {}).get("sha", "")
     for f in files:                       # the whole files, before and after (N1)
-        if f.get("filename", "").endswith(".py") and f.get("status") == "modified":
+        whole = f.get("filename", "").endswith((".py", ".rs")) or f.get("filename", "") == "PKGBUILD" or \
+            f.get("filename", "").startswith((".github/", "tools/build-"))
+        if whole and f.get("status") == "modified":
             try:
                 f["old_source"] = file_at(a.repo, f["filename"], base)
                 f["new_source"] = file_at(a.repo, f["filename"], a.sha)
@@ -771,6 +933,8 @@ def main(argv=None):
     published = released(a.repo, "v" + version_of_main())
     if verified and not a.dry_run:
         ensure_arch(a.repo, ref, a.sha)
+        if ref.startswith(ARCH_TESTING_PREFIX):
+            ensure_arch(a.repo, ref, a.sha, workflow="arch-testing.yml")
     # a check still running (another workflow's last job): read again for a
     # while, so that the deciding run does not end on "wait" for good (N7)
     for _round in range(16):

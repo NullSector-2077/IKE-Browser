@@ -70,6 +70,8 @@ MESSAGES = {
     "error": "L'agente si è fermato per un errore imprevisto.",
     "unavailable": "Gemini non è gratuito per questa chiave o questo modello (fatturazione), oppure il "
                    "controllo settimanale l'ha segnato non disponibile: Antigravity non è partito.",
+    "rotated": "Questo tentativo comincia da un altro fornitore gratuito (un tentativo precedente non è "
+               "bastato): Antigravity non è partito, provano le riserve.",
 }
 # a billing error: the model or the project is not on the free tier (WP9; the
 # same words as tools/autofix-reserve.py, never a quota's advice)
@@ -207,6 +209,23 @@ SECURITY_RULES = (
     "change nothing and say so in the summary.\n")
 
 
+BUILDERS = {"darkreader": "tools/build-darkreader.py", "ubo-scriptlets": "tools/build-ubo-scriptlets.mjs"}
+
+
+def builder_note(builder):
+    """WP11: the builders' re-anchoring, the same rule the reserves get and the checker enforces
+    (--builder, tools/builder-anchor.py)."""
+    if builder not in BUILDERS:
+        return ""
+    return ("\n\n## This run: re-anchor I.K.E.'s builder\n\nA new upstream version moved the text one of "
+            "I.K.E.'s patches is anchored to; the failure description shows the new upstream lines around it. "
+            "Change ONLY `%s`, and in it only the anchor texts of the existing patches (Dark Reader: the second "
+            "text of each `PATCHES` entry; uBlock Origin: only the path of the library it imports). Never a "
+            "replacement text, never a new or removed patch, never other code, never upstream code or the "
+            "generated files in `ike/resources/`. If that is not enough, change nothing and say so.\n"
+            % BUILDERS[builder])
+
+
 def security_note(security):
     """The rules of a fix of a security finding: the same the reserves get and the checker
     enforces (--security, WP6)."""
@@ -273,11 +292,15 @@ def main(argv=None):
     ap.add_argument("--security", action="store_true",
                     help="this run fixes a security finding (tools/autofix-plan.py): the stricter rules")
     ap.add_argument("--lists", action="store_true", help="the filter lists' analysis (tools/filter-lists.py)")
+    ap.add_argument("--builder", default="", choices=["", *sorted(BUILDERS)],
+                    help="the builders' re-anchoring (WP11): that builder's existing patches only")
+    ap.add_argument("--first", default="", help="the provider this attempt starts with (tools/ai-providers.py)")
     a = ap.parse_args(argv)
     key = os.environ.get("GEMINI_API_KEY", "")
     workdir, out = Path(a.workdir), Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    rules = Path(a.prompt).read_text("utf-8") + engine_note(a.allow_adblock, a.lists) + security_note(a.security)
+    rules = (Path(a.prompt).read_text("utf-8") + engine_note(a.allow_adblock, a.lists) + security_note(a.security)
+             + builder_note(getattr(a, "builder", "")))
     try:
         failure = (workdir / ".autofix" / "failure.md").read_text("utf-8", "replace")
     except OSError:
@@ -289,6 +312,14 @@ def main(argv=None):
     result, used, detail = "error", "", ""
     deadline = time.monotonic() + a.total_timeout
     off = {n.strip() for n in (os.environ.get("AUTOFIX_UNAVAILABLE") or "").split(",") if n.strip()}
+    first = a.first or os.environ.get("AUTOFIX_FIRST", "")
+    if first and first not in ("Antigravity", "Gemini"):
+        # a later attempt starts with another free provider (tools/ai-providers.py FIX_ATTEMPTS): a
+        # fresh context, another model family; the reserves begin with that one
+        Path(a.status).write_text(json.dumps({"result": "rotated", "model": "", "message": MESSAGES["rotated"],
+                                              "detail": first}, ensure_ascii=False), "utf-8")
+        print("Outcome: rotated (this attempt starts with %s)" % first.replace("::", ": ")[:40], flush=True)
+        return 0
     if off & {"Antigravity", "Gemini"}:
         # the weekly check found Gemini not free (tools/provider-check.py): not started
         Path(a.status).write_text(json.dumps({"result": "unavailable", "model": "", "message":

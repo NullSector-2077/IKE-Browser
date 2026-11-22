@@ -988,9 +988,22 @@ def closure_roots(root=ROOT):
     except OSError:
         return names
     for key in ("depends", "makedepends", "optdepends"):
-        m = re.search(r"^%s=\((.*?)\)" % key, text, re.M | re.S)
-        for word in re.findall(r"'([^']*)'|\"([^\"]*)\"|(\S+)", m.group(1) if m else ""):
-            w = next(x for x in word if x)
+        m = re.search(r"^%s=\(" % key, text, re.M)
+        words, quote, word = [], "", ""
+        for ch in text[m.end():] if m else "":
+            if quote:
+                quote, word = ("", word) if ch == quote else (quote, word + ch)
+            elif ch in "'\"":
+                quote = ch
+            elif ch.isspace() or ch == ")":
+                if word:
+                    words.append(word)
+                word = ""
+                if ch == ")":
+                    break
+            else:
+                word += ch
+        for w in words:
             name = re.split(r"[<>=:]", w.strip(), maxsplit=1)[0].strip()
             if name and not name.startswith("#") and name not in names:
                 names.append(name)

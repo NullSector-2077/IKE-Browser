@@ -65,6 +65,25 @@ OPENROUTER_KEY_INFO = "https://openrouter.ai/api/v1/key"
 RETRY_HOURS = 24
 RETRY_CAP = 5
 
+# Fixes of one failure (the owner's decision of 2026-11-22: "more attempts and other free
+# providers if needed"). Each attempt is a new run of the automatic fix with a fresh context:
+# only the earlier fix, the new test logs and its summary go in, as data; the tests run again
+# after each (Tests, Security, Arch Linux on the branch). On the isolated candidates of the full
+# chain (automation/update/<id>, automation/builder/<id>, automation/update/arch-testing-<date>)
+# attempt n starts with the n-th provider of all_names(), round robin, so after a fix that did
+# not pass another free provider and model family tries first; at FIX_ATTEMPTS the branch is
+# kept, the maintenance ledger says needs-person and the owner is told once. On main, the
+# automatic fix's branch, the daily candidate and the security branches FIX_ATTEMPTS_MAIN
+# (tools/autofix-plan.py MAX_ATTEMPTS), Antigravity first each time.
+FIX_ATTEMPTS = 4
+FIX_ATTEMPTS_MAIN = 2
+
+
+def first_provider(attempt):
+    """The provider attempt n (1, 2, ...) of an isolated candidate starts with."""
+    names = all_names()
+    return names[(max(1, int(attempt)) - 1) % len(names)]
+
 
 def reserve_names():
     return tuple(r[0] for r in RESERVES)

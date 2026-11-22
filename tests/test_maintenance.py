@@ -1070,9 +1070,13 @@ def test_a_rustsec_finding_plans_an_isolated_security_fix():
     tired = plan_tool.decide(_tests_run("automation/update/security-rustsec-2021-0003", _attempts=2),
                              [failed_job("tests", "Lint")], "")
     assert tired["action"] == "issue" and tired["reason"].startswith("blocked: 2 automatic fixes")
-    # other automation/update/* branches are not fixed yet (WP5): only the security ones
-    assert plan_tool.decide(_tests_run("automation/update/crates"), [failed_job("tests", "Lint")], "")["action"] \
-        == "skip"
+    # since WP5 (the full chain) the other candidates of automation/update/<id> are fixed on their own
+    # branch too, never with the security rules; a branch that is no candidate of the chain is not
+    crates = plan_tool.decide(_tests_run("automation/update/crates"), [failed_job("tests", "Lint")], "")
+    assert (crates["action"], crates["kind"], crates["push_branch"], crates["security"]) == (
+        "fix", "update", "automation/update/crates", "false")
+    assert plan_tool.decide(_tests_run("automation/update/not-a-candidate"), [failed_job("tests", "Lint")],
+                            "")["action"] == "skip"
     # a failed sandbox test: the AI on its isolated branch, from main or from the candidate's commit
     plan = plan_tool.decide(security_run(), SANDBOX_JOB, "")
     assert (plan["action"], plan["push_branch"], plan["checkout"], plan["security"]) == (
