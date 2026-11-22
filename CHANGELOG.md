@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.23
+
+- uBlock Origin scriptlets: 2bc679d99a (2026-11-10) -> 5934db2a04 (2026-11-21) (1 changed, 0 new, 0 removed)
+
 ## 1.1.22
 
 Two things the owner saw in 1.1.21 on KDE Plasma:
