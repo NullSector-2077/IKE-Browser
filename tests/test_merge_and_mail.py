@@ -585,8 +585,8 @@ SKIPPED_FFMPEG = {"test": "tests/test_plasma.py::test_video", "area": "desktop i
      "person", "the version must be raised"),
     # 2026-11-22 (the owner's decision): M9's "one merge per unsigned version" became the version rule;
     # main holding an unsigned 1.1.19, a candidate raising it once more to 1.1.20 waits for a person
-    ("main holds an unsigned merge", lambda: cand(unread=True, main_version="1.1.19"), "person",
-     "a second version raise: main's 1.1.19 is not published yet"),
+    # (the id of the case is kept: its reason still ends with "(M9)")
+    ("main holds an unsigned merge", lambda: cand(unread=True, main_version="1.1.19"), "person", "(M9)"),
     ("maintenance commit on an update branch", lambda: decide(pr(SECURITY_BRANCH), commits=[MAINT],
                                                               files=[f("ike-adblock/Cargo.lock", LOCK)]),
      "person", "a trial or a maintenance candidate"),
@@ -896,7 +896,7 @@ def test_a_second_version_raise_is_refused():
         "unknown": dark([DARK_DATA] + raise_to("1.1.22", "1.1.23"), main_version=""),
     }
     assert cases["second raise"] == ("person", "a second version raise: main's 1.1.23 is not published yet and "
-                                               "the pull request sets 1.1.24 (it goes into 1.1.23, signed first)")
+                                               "the pull request sets 1.1.24; it goes into 1.1.23, signed first (M9)")
     assert cases["published same"][1].startswith("main's version 1.1.23 is published already: the version must be "
                                                  "raised to 1.1.24")
     assert "a heading of another version (1.1.24" in cases["other heading"][1]

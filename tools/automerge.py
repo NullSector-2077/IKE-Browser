@@ -820,8 +820,8 @@ def version_rule(files, main_version, published):
         return "main's version %s is published already: the version must be raised to %s, not %s" % (
             main_version, next_version(main_version), target)
     if not published and target and target != main_version:
-        return ("a second version raise: main's %s is not published yet and the pull request sets %s "
-                "(it goes into %s, signed first)" % (main_version, target, main_version))
+        return ("a second version raise: main's %s is not published yet and the pull request sets %s; "
+                "it goes into %s, signed first (M9)" % (main_version, target, main_version))
     version = target or ("" if published else main_version)
     for f in files:
         if f.get("filename") == "CHANGELOG.md":
