@@ -384,6 +384,21 @@ def tell_person(repo, n, why, owner):
        "Prima di unirla va letta: chiedi a Claude di revisionare la pull request #%d." % (MARK, owner, why, n))
 
 
+READY_MARK = "<!-- ike-automerge-ready -->"
+
+
+def tell_ready(repo, n, owner):
+    """One comment per pull request: green and harmless, waiting for the
+    owner's order (no merge into main by itself, 2026-11-22)."""
+    said = gh("api", "repos/%s/issues/%d/comments?per_page=100" % (repo, n), "--jq",
+              '[.[] | select(.user.login == "github-actions[bot]") | .body] | join("\\n")')
+    if READY_MARK in said:
+        return
+    gh("pr", "comment", str(n), "--repo", repo, "--body",
+       "%s\n@%s: tutti i controlli sono verdi e la correzione non tocca test né file protetti. "
+       "**Non** entra in `main` da sola: si unisce solo su tuo ordine (a Claude o a ChatGPT)." % (READY_MARK, owner))
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--repo", required=True)
@@ -433,22 +448,13 @@ def main(argv=None):
     if kind == "person":
         tell_person(a.repo, n, why, a.repo.split("/")[0])
         return 0
+    # Since 2026-11-22 (the owner's decision) nothing merges into main by
+    # itself: a green, harmless fix is marked ready and the owner is told once;
+    # it is merged only on the owner's explicit order (by Claude or ChatGPT).
     if pr.get("draft"):
         gh("pr", "ready", str(n), "--repo", a.repo)
-    gh("api", "-X", "PUT", "repos/%s/pulls/%d/merge" % (a.repo, n), "-f", "merge_method=merge", "-f", "sha=" + a.sha,
-       "-f", "commit_title=Merge pull request #%d: %s (merged by itself: green, no test or protected file)"
-       % (n, pr.get("title", "")[:120]))
-    gh("pr", "comment", str(n), "--repo", a.repo, "--body",
-       "Unita in `main` da sola: tutti i controlli verdi, nessun test e nessun file protetto toccati "
-       "(tools/automerge.py). I test di `main` ripartono ora.")
-    # a merge made with the workflow's token starts no workflow by itself:
-    # the tests and the security tests of main are started here
-    gh("workflow", "run", "tests.yml", "--repo", a.repo, "--ref", "main")
-    gh("workflow", "run", "security.yml", "--repo", a.repo, "--ref", "main")
-    # and the tests on Arch Linux's own packages (arch.yml runs on every push
-    # to main, but a merge made with the workflow's token is no such push)
-    gh("workflow", "run", "arch.yml", "--repo", a.repo, "--ref", "main")
-    print("merged #%d; the tests of main started" % n)
+    tell_ready(a.repo, n, a.repo.split("/")[0])
+    print("#%d ready: every check green; it waits for the owner's order" % n)
     return 0
 
 

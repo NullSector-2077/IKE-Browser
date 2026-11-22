@@ -1,11 +1,13 @@
-# A green fix of the automation or of ChatGPT goes into main by itself (1.1.19,
-# the owner's decision): only a small change of the browser's interface code,
-# with every check of its last commit passed, the sandbox tests included
-# (tools/automerge.py, read from main: a pull request never brings the rules it
-# is judged by). New files, the modules that decide the user's safety, lines
-# that reach the network or the system, tests, tools and workflows wait for a
-# person, who is named in one comment (review 2 of 1.1.19). The owner only
-# signs and publishes (release-ready.yml).
+# A green fix of the automation or of ChatGPT is judged here (1.1.19): only a
+# small change of the browser's interface code, with every check of its last
+# commit passed, the sandbox tests included (tools/automerge.py, read from
+# main: a pull request never brings the rules it is judged by). Since
+# 2026-11-22 (the owner's decision) nothing merges into main by itself: a fix
+# that passes is marked ready and the owner is told once; it is merged only on
+# the owner's explicit order. New files, the modules that decide the user's
+# safety, lines that reach the network or the system, tests, tools and
+# workflows are left for a person, named in one comment. The owner signs and
+# publishes (release-ready.yml).
 #
 # Runs the automation started with its own token send no "workflow_run": the
 # Tests and Security runs of automation/autofix-main start this one with a
@@ -36,7 +38,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
-      contents: write          # the merge
+      contents: read           # no merge into main by itself (2026-11-22)
       pull-requests: write     # ready for review, the comment
       issues: read             # its own earlier comment
       actions: write           # the tests, security and Arch tests of main after the merge

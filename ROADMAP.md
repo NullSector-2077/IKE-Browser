@@ -17,9 +17,11 @@ are agreed with the project owner; do not reopen them without asking.
 - Keep the project independent: no other browser's branding or identity, no
   external services beyond those documented in README.md.
 - Each step goes on its own branch with a pull request whose base is `main`
-  (no pull requests stacked on other pull requests). Since 2026-11-18 Claude
-  merges pull requests by itself once GitHub Actions is green; signing and
-  publishing stay with the owner (see CLAUDE.md). The repository is public:
+  (no pull requests stacked on other pull requests). Since 2026-11-22 nothing
+  merges into `main` by itself: Claude merges what the owner asked for once
+  GitHub Actions is green, ChatGPT only on the owner's order, automatic
+  updates and fixes wait for the owner (see CLAUDE.md); signing and
+  publishing stay with the owner. The repository is public:
   never commit personal data, keys or secrets.
 - The private signing key stays with the owner: never in the repository, in a
   package or on GitHub Actions.
