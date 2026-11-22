@@ -1346,19 +1346,22 @@ class WindowButton(QToolButton):
             p.drawComplexControl(QStyle.ComplexControl.CC_ToolButton, self._option())
             return
         from PyQt6.QtCore import QRectF
-        from PyQt6.QtGui import QColor, QIcon, QPainter, QPalette
+        from PyQt6.QtGui import QIcon, QPainter, QPen
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         level = self._glide.value
         if self.isDown():
             level = 1.4
+        d = min(self.width(), self.height()) - 4
+        circle = QRectF((self.width() - d) / 2, (self.height() - d) / 2, d, d)
         if level > 0:
-            c = QColor(self.palette().color(QPalette.ColorRole.Highlight))
-            c.setAlphaF(min(0.45, 0.22 * level))
-            d = min(self.width(), self.height()) - 4
-            p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(c)
-            p.drawEllipse(QRectF((self.width() - d) / 2, (self.height() - d) / 2, d, d))
+            # 1.1.23: Breeze's hover, as the toolbar's buttons (polish.hover_fill)
+            fill, edge = polish.hover_fill(self.palette(), level)
+            p.setPen(QPen(edge, 1.0))
+            p.setBrush(fill)
+            p.drawEllipse(circle.adjusted(0.5, 0.5, -0.5, -0.5))
+        if polish.keyboard_focus(self):          # reached with Tab: Breeze's ring
+            polish.focus_ring(p, circle.adjusted(-1.5, -1.5, 1.5, 1.5), self.palette())
         mode = QIcon.Mode.Normal if self.isEnabled() else QIcon.Mode.Disabled
         s = self._side
         self.icon().paint(p, QRect((self.width() - s) // 2, (self.height() - s) // 2, s, s),

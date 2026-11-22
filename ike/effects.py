@@ -219,9 +219,27 @@ def blend(a, b, t):
                   round(a.blue() + (b.blue() - a.blue()) * t), round(a.alpha() + (b.alpha() - a.alpha()) * t))
 
 
+_marks = {}                  # (icon, angle, colour): the mark's picture (1.1.23)
+
+
 def loading_icon(base, angle, palette):
     """A tab icon with the small mark of a page that is loading: an open ring
-    in the accent colour over the icon's upper left corner, turned by angle."""
+    in the accent colour over the icon's upper left corner, turned by angle.
+
+    The twelve pictures of a tab's mark are drawn once and kept (1.1.23: one
+    new picture at every step, eleven times a second, while a page loaded)."""
+    colour = palette.color(QPalette.ColorRole.Highlight)
+    key = (base.cacheKey(), int(angle) % 360, colour.rgba())
+    ic = _marks.get(key)
+    if ic is not None:
+        return ic
+    if len(_marks) >= 240:
+        _marks.clear()
+    ic = _marks[key] = _loading_icon(base, angle, colour)
+    return ic
+
+
+def _loading_icon(base, angle, colour):
     pm = QPixmap(32, 32)
     pm.fill(Qt.GlobalColor.transparent)
     p = QPainter(pm)
@@ -233,7 +251,7 @@ def loading_icon(base, angle, palette):
     p.setBrush(QColor(0, 0, 0))
     p.drawEllipse(QRectF(-1, -1, 19, 19))
     p.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
-    pen = QPen(palette.color(QPalette.ColorRole.Highlight), 3.2)
+    pen = QPen(colour, 3.2)
     pen.setCapStyle(Qt.PenCapStyle.RoundCap)
     p.setPen(pen)
     p.setBrush(Qt.BrushStyle.NoBrush)

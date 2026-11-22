@@ -11,21 +11,30 @@ resources" window does) once a second while the card is shown and never
 otherwise.
 """
 
+import math
 import time
 
-from PyQt6.QtCore import QPoint, QRectF, Qt, QTimer
+from PyQt6.QtCore import QPoint, QRect, QRectF, Qt, QTimer
 from PyQt6.QtGui import QColor, QGuiApplication, QPainter, QPainterPath, QPalette, QPen
 from PyQt6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
+from .polish import RADIUS  # 1.1.23: one radius for everything I.K.E. draws (was 8)
+
 WIDTH = 240
 MAX_HEIGHT = 180
-RADIUS = 8
 PAD = 6
 REFRESH_MS = 1000
 
 
 def capture(view):
-    """Remember a small picture of what the tab shows."""
+    """Remember a small picture of what the tab shows.
+
+    1.1.23: taken when the mouse comes to the tabs or once a page has loaded
+    (window.py), not at every change of tab: a picture of the page is a
+    read-back of the graphics card's memory, about half the time of a
+    change of tab (8 ms of 15 with OpenGL). Only the part the card shows is
+    grabbed and scaled: a quick halving down to twice the card's size, then
+    the smooth step; the card shows the same picture."""
     try:
         if not view.isVisible() or view.width() < 50 or view.height() < 50:
             return
@@ -34,15 +43,30 @@ def capture(view):
         return
     if pm.isNull():
         return
-    # in the screen's own pixels: on a scaled screen (2x) the picture was
-    # half the card's width (1.1.21)
+    # only the top of the page that fills the card at its width is scaled
+    # (a grab of a part of the view damaged memory in Qt 6.12: the whole is
+    # grabbed and the part copied)
+    need = min(pm.height(), int(math.ceil(pm.width() * MAX_HEIGHT / WIDTH)) + 2)
+    if need < pm.height():
+        pm = pm.copy(QRect(0, 0, pm.width(), need))
+    view.preview_at = time.monotonic()
+    view.preview_stale = False
+    view.preview = shrink(pm)
+
+
+def shrink(pm):
+    """The card's picture from a grab of the page: the card's width, in the
+    screen's own pixels (1.1.21: on a scaled screen (2x) the picture was half
+    the card's width), at most MAX_HEIGHT tall."""
     dpr = pm.devicePixelRatio() or 1.0
     width, top = int(round(WIDTH * dpr)), int(round(MAX_HEIGHT * dpr))
+    if pm.width() > 2 * width:
+        pm = pm.scaledToWidth(2 * width, Qt.TransformationMode.FastTransformation)
     pm = pm.scaledToWidth(width, Qt.TransformationMode.SmoothTransformation)
     if pm.height() > top:                     # a tall window: the top of the page
         pm = pm.copy(0, 0, width, top)
     pm.setDevicePixelRatio(dpr)
-    view.preview = pm
+    return pm
 
 
 def _level_colour(fraction):
@@ -220,9 +244,10 @@ class TabPreview(QWidget):
         G = QPalette.ColorGroup.Active
         bg = QColor(pal.color(G, QPalette.ColorRole.Window))
         bg.setAlpha(255)                      # always full, whatever the style's colour says
-        border = QColor(pal.color(G, QPalette.ColorRole.WindowText))
-        border.setAlphaF(0.22)
-        p.setPen(QPen(border, 1))
+        from .polish import separator
+        active = QPalette(pal)
+        active.setCurrentColorGroup(G)
+        p.setPen(QPen(separator(active), 1))     # 1.1.23: the separators' colour
         p.setBrush(bg)
         p.drawPath(self._shape())
         p.end()

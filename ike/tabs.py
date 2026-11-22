@@ -25,15 +25,124 @@ class TabBar(QTabBar):
         self.setStyle(self.label_style)
         self.setElideMode(Qt.TextElideMode.ElideNone)   # the title is cut by fading (polish.py)
         self.mark = polish.MarkGlide(self, config, self._mark_target)
+        self.mark.square = True
         self.currentChanged.connect(self.mark.current_changed)
+        # 1.1.23: the hover comes and goes softly (Breeze's colour), and a new
+        # tab's title fades in; each only while it moves, nothing at rest
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
+        self._hover = -1
+        self._levels = {}            # tab: animation of its hover colour coming or going
+        self._enter = None           # (tab, animation) of a new tab coming in
+        self.restoring = None        # callable: True while a session comes back (no fades then)
+
+    # --- the hover and the new tab (1.1.23) ----------------------------------
+    HOVER_IN = 110
+    HOVER_OUT = 120
+
+    def hover_level(self, index):
+        """How much of the hover colour tab index shows, 0-1."""
+        anim = self._levels.get(index)
+        if anim is not None and anim.state() == QVariantAnimation.State.Running:
+            return float(anim.currentValue())
+        return 1.0 if index == self._hover else 0.0
+
+    def enter_level(self, index):
+        """How far a new tab's title has come in, 0-1 (1: there)."""
+        if self._enter is None or self._enter[0] != index:
+            return 1.0
+        anim = self._enter[1]
+        return float(anim.currentValue()) if anim.state() == QVariantAnimation.State.Running else 1.0
+
+    def _animate(self, store, index, start, end, ms, name):
+        old = store.pop(index, None)
+        if old is not None:
+            old.stop()
+        if not polish.moving(self.config, name) or not self.isVisible():
+            self._repaint_tab(index)
+            return None
+        anim = QVariantAnimation(self)
+        anim.setDuration(ms)
+        anim.setStartValue(float(start))
+        anim.setEndValue(float(end))
+        anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        anim.valueChanged.connect(lambda _v, i=index: self._repaint_tab(i))
+
+        def done(i=index, a=anim):
+            if store.get(i) is a:
+                del store[i]
+            if self._enter is not None and self._enter[1] is a:
+                self._enter = None
+            a.deleteLater()
+            self._repaint_tab(i)
+        anim.finished.connect(done)
+        store[index] = anim
+        anim.start()
+        return anim
+
+    def _repaint_tab(self, index):
+        if 0 <= index < self.count():
+            self.update(self.tabRect(index))
+
+    def _hover_to(self, index):
+        if index == self._hover:
+            return
+        old, self._hover = self._hover, index
+        if old >= 0:
+            self._animate(self._levels, old, self._level_now(old, 1.0), 0.0, self.HOVER_OUT, "tab_hover")
+        if index >= 0:
+            self._animate(self._levels, index, self._level_now(index, 0.0), 1.0, self.HOVER_IN, "tab_hover")
+
+    def _level_now(self, index, default):
+        anim = self._levels.get(index)
+        if anim is not None and anim.state() == QVariantAnimation.State.Running:
+            return float(anim.currentValue())
+        return default
+
+    def _forget(self):
+        """Tabs added, removed or moved: no fade goes on with an old place."""
+        for anim in self._levels.values():
+            anim.stop()
+        self._levels.clear()
+        self._hover = -1
+        if self._enter is not None:
+            self._enter[1].stop()
+            self._enter = None
+
+    def event(self, event):
+        t = event.type()
+        if t in (QEvent.Type.HoverMove, QEvent.Type.HoverEnter):
+            self._hover_to(self.tabAt(event.position().toPoint()))
+        elif t == QEvent.Type.HoverLeave:
+            self._hover_to(-1)
+        return super().event(event)
+
+    def tabInserted(self, index):
+        super().tabInserted(index)
+        self._forget()
+        restoring = self.restoring is not None and self.restoring()
+        if self.count() > 1 and not restoring:
+            anim = self._animate({}, index, 0.0, 1.0, polish.ENTER_MS, "tab_enter")
+            if anim is not None:
+                self._enter = (index, anim)
+
+    def tabRemoved(self, index):
+        super().tabRemoved(index)
+        self._forget()
+
+    def tabLayoutChange(self):
+        super().tabLayoutChange()
+        if self._enter is not None:          # the tab's place moved while it came in
+            self._repaint_tab(self._enter[0])
 
     def _mark_target(self):
+        """Breeze's line under the current tab (1.1.23): 2 px, square ends,
+        the tab's width less the corner radius (was 2.5 px, round, 20 % in)."""
         i = self.currentIndex()
         if i < 0:
             return None
         r = self.tabRect(i)
-        inset = min(10, r.width() // 5)
-        return QRectF(r.left() + inset, r.bottom() - 2.5, r.width() - 2 * inset, 2.5)
+        inset = min(polish.RADIUS / 2, r.width() / 4)
+        return QRectF(r.left() + inset, r.bottom() - 1, r.width() - 2 * inset, 2)
 
     def set_title(self, index, text):
         """The tab's title, held to TITLE_CHARS characters: a longer one is cut
@@ -43,7 +152,14 @@ class TabBar(QTabBar):
         self.setTabText(index, text[:TITLE_CHARS] if cut else text)
 
     def paintEvent(self, event):
-        super().paintEvent(event)
+        # the part being painted: the tabs outside it are not drawn again
+        # (polish.TabLabelStyle; 1.1.23: the loading mark of one tab redrew
+        # every tab, eleven times a second)
+        self.painting = event.rect()
+        try:
+            super().paintEvent(event)
+        finally:
+            self.painting = None
         p = QPainter(self)
         self.mark.paint(p)
         p.end()
