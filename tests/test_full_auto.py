@@ -409,6 +409,27 @@ def test_one_problem_per_attempt():
     assert '"temperature": 0.1' in (ROOT / "tools/ai-review.py").read_text() and rv.ANSWER_TOKENS <= 2000
 
 
+def test_the_context_says_what_each_file_of_the_traceback_is_for(tmp_path):
+    """Pre-digested by code: the first paragraph of the module docstring of each file the failure
+    names, a few lines and no extra call."""
+    ctx = load("autofix-context")
+    (tmp_path / "ike").mkdir()
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "ike/tabs.py").write_text('"""The tab bar: titles, `close` buttons\nand the order of tabs.\n\n'
+                                          'A second paragraph that is not needed.\n"""\n\n\ndef title(tab):\n'
+                                          '    return tab.name\n')
+    (tmp_path / "ike/plain.py").write_text("x = 1\n")
+    (tmp_path / "tests/test_tabs.py").write_text("def test_title():\n    assert False\n")
+    text = ctx.purposes(tmp_path, ["ike/tabs.py", "ike/plain.py", "ike/tabs.py", "ike/missing.py", "ike/x.js"])
+    assert text.count("- `ike/tabs.py`: The tab bar: titles, 'close' buttons and the order of tabs.") == 1
+    assert "second paragraph" not in text and "plain.py" not in text and "missing" not in text
+    long = ctx.purposes(tmp_path, ["ike/tabs.py"] * 3 + ["ike/n%d.py" % n for n in range(20)])
+    assert len(long) < ctx.PURPOSE_FILES * (ctx.PURPOSE_CHARS + 80) + 200
+    built, _related = ctx.build(tmp_path, 'File "ike/tabs.py", line 8, in title\nAssertionError\n', recent=False)
+    assert "## What these files are for" in built and "The tab bar" in built
+    assert ctx.purposes(tmp_path, ["ike/plain.py"]) == ""
+
+
 def review_of(verdict="approve", author="Groq", reviewers=("Z.AI", "OpenRouter"), sha=SHA):
     return {"sha": sha, "pr": 7, "ref": "automation/autofix-main", "verdict": verdict, "author": author, "why": "",
             "files": ["ike/blocker.py"],

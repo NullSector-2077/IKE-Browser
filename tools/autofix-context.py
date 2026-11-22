@@ -187,6 +187,33 @@ def recent_changes(repo, commits=RECENT_COMMITS):
     return found[:MAX_RECENT]
 
 
+PURPOSE_CHARS = 400
+PURPOSE_FILES = 6
+
+
+def purposes(repo, paths):
+    """What each file the failure names is for: the first paragraph of its module docstring (read
+    with Python's parser, never run), a few lines at no extra call. The free models know nothing of
+    I.K.E.'s code between calls; its modules say what they are for at their top."""
+    import ast
+    lines, seen = [], set()
+    for path in paths:
+        if path in seen or not path.endswith(".py") or len(lines) >= PURPOSE_FILES:
+            continue
+        seen.add(path)
+        try:
+            target = repo / path
+            if target.is_symlink():
+                continue
+            doc = ast.get_docstring(ast.parse(target.read_text("utf-8", errors="replace"))) or ""
+        except (OSError, SyntaxError, ValueError):
+            continue
+        first = " ".join(doc.strip().split("\n\n", 1)[0].split()).replace("`", "'")
+        if first:
+            lines.append("- `%s`: %s" % (path, first[:PURPOSE_CHARS]))
+    return "\n## What these files are for (their own first lines)\n\n%s\n" % "\n".join(lines) if lines else ""
+
+
 def build(repo, failure, recent=True):
     found = places(failure, repo)
     related = []
@@ -220,6 +247,7 @@ def build(repo, failure, recent=True):
         text = ("# Code at the failure\n\nPrepared by GitHub from the places the failure names "
                 "(line numbers on the left; they are not part of the files).\n\n" + "\n".join(parts))
     text += examples(repo, failure, found)
+    text += purposes(repo, [path for path, _line in found])
     recent = [p for p in recent if p in related]
     if recent:
         text += ("\nChanged by the latest commits (the cause is often there): %s\n"

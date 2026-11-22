@@ -191,7 +191,7 @@ failure, and the rotation prefers a provider that has not failed that error.
 Groq, Z.AI, OpenRouter's `:free` models). What the workflow's own code does
 for them, never an AI: the failed step's log trimmed to its error and the
 places the tracebacks name with the lines around them (`tools/autofix-plan.py`,
-`tools/autofix-context.py`, since 1.1.16); **one problem per attempt**: when
+`tools/autofix-context.py`, since 1.1.16), with the first paragraph of the module docstring of each file the failure names; **one problem per attempt**: when
 the tests fail for several different errors the failure description asks for
 the first group only (`focus_section`); AUTOMAT's memory as hints; a strict
 answer format with a quick informed retry when it cannot be applied, the
