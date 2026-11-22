@@ -55,8 +55,9 @@ CATEGORIES = {
                        ("arch.yml", "Arch Linux", None)),
     "sandbox": ("the security tests with the engine's sandbox really on", ("security.yml", "sandbox", None)),
     "advisories": ("RustSec advisories of every crate (cargo-deny)", ("security.yml", "rust-advisories", None)),
-    "filter-lists": ("today's default filter lists in the candidate's engine",
-                     ("daily-maintenance.yml", "prepare", "The default filter lists in the candidate's engine")),
+    # the full chain, item 4 (2026-11-22): on the commit itself, its engine against main's on today's lists
+    "filter-lists": ("today's default filter lists in this commit's engine, no worse than in main's",
+                     ("tests.yml", "tests", "Filter lists in this engine")),
     "desktop": ("a real desktop session (KDE Plasma, notifications, default browser), a real graphics card",
                 ("", "", None)),
 }
@@ -113,9 +114,10 @@ MAX_LISTED = 200
 # pull request goes into main by itself only when every category below passed
 # on its last commit, whatever components it changes (the owner's words:
 # "tests, sandbox, Security, Arch Linux"), plus what its components' kinds
-# need (REQUIRED). "filter-lists" (read on the maintenance run, not on the
-# commit) and "desktop" (never run by GitHub) are not here: a kind that needs
-# them is never fully verified, so it waits for the owner.
+# need (REQUIRED). "desktop" (never run by GitHub) is not here: a kind that
+# needs it is never fully verified, so it waits for the owner. "filter-lists"
+# is read on the commit itself since the full chain (tests.yml, the step
+# "Filter lists in this engine"), so a new AdBlock engine can be fully verified.
 MERGE_ALWAYS = ("lint", "unit-integration", "rust", "licences", "tests-kept", "build", "old-cpu", "installed",
                 "arch-packaging", "sandbox", "advisories")
 

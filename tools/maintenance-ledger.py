@@ -191,17 +191,23 @@ def _update_reason(rec):
     if kind in ARCH_KINDS:
         return "Arch changed since the last green arch.yml run on main: the daily check starts arch.yml on main"
     if kind == "github-action":
-        return ("workflow file: changed only as a proposal a person reads (Dependabot's monthly pull request for "
-                "the actions)")
+        return ("workflow file: its pin moves only by tools/ci-pins.py on automation/update/ci-<name> (no AI: an "
+                "AI's change of a workflow is only a proposal a person reads), to a release of the same action; "
+                "Dependabot's monthly pull request stays as a double check")
     if kind in PROPOSAL_KINDS:
-        return "workflow file: changed only as a proposal a person reads (the version is pinned in the workflow)"
+        return ("workflow file: its pin moves only by tools/ci-pins.py on automation/update/ci-<name> (no AI: an "
+                "AI's change is only a proposal a person reads)")
     if rec.get("result") == "builder refused":
-        return "I.K.E.'s builder refused the new version: a person adapts it (components issue)"
+        return ("I.K.E.'s builder refused the new version: an AI may re-anchor its existing patches on "
+                "automation/builder/<id> (tools/builder-anchor.py), else a person adapts it")
     if rec.get("result") == "vulnerable":
         return "a RustSec advisory: a fix on an isolated branch, or blocked (Security, Rust advisories issue)"
     if str(rec.get("compatibility", "")).startswith("major update"):
+        if rec.get("type") == "direct":
+            return ("a new major version of a crate of ike-adblock: its own candidate raises the requirement "
+                    "(automation/update/crate-major-<name>, pyo3 on automation/update/pyo3)")
         return "a new major version: cargo update cannot take it; it comes with the crate that uses it"
-    return "newer version: goes into the daily candidate (automation/daily-maintenance)"
+    return "newer version: its own candidate (automation/update/<id>, tools/update-candidates.py)"
 
 
 def _first_state(rec):
@@ -209,7 +215,7 @@ def _first_state(rec):
         return "needs-person"
     if rec.get("result") == "vulnerable":
         return "blocked"
-    if str(rec.get("compatibility", "")).startswith("major update"):
+    if str(rec.get("compatibility", "")).startswith("major update") and rec.get("type") != "direct":
         return "retry-later"
     return "detected"
 
@@ -257,6 +263,14 @@ def _candidate_verdict(status, kinds):
 
 def _security_tool():
     return _tool("security-fix")
+
+
+def _fix_attempts():
+    """The automatic fix's cap on an isolated candidate (tools/ai-providers.py FIX_ATTEMPTS)."""
+    try:
+        return int(_tool("ai-providers").FIX_ATTEMPTS)
+    except Exception:
+        return 4
 
 
 def security_verdict(info):
@@ -489,6 +503,34 @@ def update(ledger, inv, status=None, report=None, cand_inv=None, now=None, notic
                 for e in group:
                     set_state(e, state, reason, now, url)
                     e["via"] = "candidate"
+
+    # 5b. the full chain (2026-11-22): one candidate per component, each on its own branch
+    # (automation/update/<id>, automation/builder/<id>; tools/update-candidates.py), decided by the
+    # checks of that branch's last commit; at the automatic fix's cap the branch is kept, the entry
+    # needs a person and the owner is told once
+    branches = (status or {}).get("update_branches") or {}
+    if branches:
+        uc = _tool("update-candidates")
+        cap = _fix_attempts()
+        for e in entries.values():
+            if e.get("security") or e.get("kind") in WORK_KINDS or e.get("new_dependency") or e["state"] == "passed":
+                continue
+            cid = uc.candidate_for(records.get(e["component"]) or {"kind": e["kind"], "name": e["name"]})
+            info = branches.get(uc.branch_for(cid)) or branches.get(uc.builder_branch(cid)) if cid else None
+            if not info:
+                continue
+            verdict = _candidate_verdict({"candidate": info}, [e["kind"]])
+            if not verdict:
+                continue
+            state, reason, url = verdict
+            if state == "fixing" and info.get("autofix_commits", 0) >= cap:
+                state, reason = "needs-person", ("%d automatic fixes, each with a fresh context and another free "
+                                                 "provider first, did not make %s pass: the branch is kept for a "
+                                                 "person (PR #%s)" % (cap, info.get("branch"), info.get("pr", "?")))
+            if set_state(e, state, reason.replace("the candidate", "the candidate %s" % info.get("branch"), 1),
+                         now, url) and state in ("needs-person", "blocked") and notices is not None:
+                notices.append("**%s** %s → %s: %s" % (e["name"], e["from"], e["to"], e["reason"]))
+            e["via"] = info.get("branch")
 
     # 6. Arch: arch.yml on main after the change was seen
     arch = (status or {}).get("arch_main") or {}
@@ -836,6 +878,8 @@ def gather(repo, api=None, candidate_sha=None):
     # WP6: what cargo-deny found on main (its job's log), and the isolated branches of the security fixes
     safe("security_findings", lambda: security_findings(repo, api, status.get("security_main")))
     safe("security_branches", lambda: security_branches(repo, api))
+    # the full chain: every candidate's own branch (automation/update/<id>, automation/builder/<id>)
+    safe("update_branches", lambda: update_branches(repo, api))
     for rep in status.get("reports") or []:
         if rep.get("workflow") == "Security":
             for _, b in rep.get("marks") or []:
@@ -881,6 +925,42 @@ def security_branches(repo, api):
                                           if (c.get("commit") or {}).get("message", "").startswith("autofix:"))
         except Exception:
             info["autofix_commits"] = 0
+        out[ref] = info
+    return out
+
+
+def update_branches(repo, api):
+    """{branch: what _candidate_verdict reads} for the open pull request of every candidate of the full
+    chain (automation/update/<id> but the security fixes', automation/builder/<id>): its commit, the
+    runs of Tests, Arch Linux and Security there, its skipped tests, the automatic fix's commits and
+    tools/automerge.py's verdict (GET only)."""
+    out = {}
+    verdict = re.compile(r"<!-- automerge-verdict: ([0-9a-f]{40}) (person|security) -->")
+    for pr in api("repos/%s/pulls?state=open&per_page=100" % repo):
+        head = pr.get("head") or {}
+        ref, sha = head.get("ref") or "", head.get("sha") or ""
+        if not ref.startswith(("automation/update/", "automation/builder/")) or ref.startswith(SECURITY_PREFIX) \
+                or not sha or (head.get("repo") or {}).get("full_name") not in (None, repo):
+            continue
+        info = {"branch": ref, "sha": sha, "pr": pr.get("number"), "url": pr.get("html_url", ""),
+                "runs": {wf: run_info(repo, wf, api, sha=sha) for wf in ("tests.yml", "arch.yml", "security.yml")}}
+        tests = info["runs"].get("tests.yml")
+        info["skips"] = run_skips(repo, tests["id"], api) if tests and tests.get("status") == "completed" else None
+        try:
+            cmp = api("repos/%s/compare/main...%s" % (repo, sha))
+            info["autofix_commits"] = sum(1 for c in cmp.get("commits", [])
+                                          if (c.get("commit") or {}).get("message", "").startswith("autofix:"))
+        except Exception:
+            info["autofix_commits"] = 0
+        try:
+            comments = api("repos/%s/issues/%s/comments?per_page=100" % (repo, info["pr"]))
+        except Exception:
+            comments = []
+        for c in comments:
+            m = verdict.search(c.get("body") or "")
+            if m and (c.get("user") or {}).get("login") == BOT:
+                why = re.search(r"da sola: (.*?)\.\n", c.get("body") or "")
+                info["merge"] = {"sha": m.group(1), "verdict": m.group(2), "why": why.group(1)[:300] if why else ""}
         out[ref] = info
     return out
 

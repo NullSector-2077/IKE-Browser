@@ -47,6 +47,11 @@ tests/test_lists_recorded.py proves that I.K.E. now reads each of them with
 every option it has.
 
     filter-lists.py classify --lists lists.json [--json OUT] [--markdown OUT] [--baseline FILE]
+    filter-lists.py compare --base main.json --candidate cand.json [--markdown OUT]
+        (the full chain, item 4: a candidate's engine against main's on the same
+        day's lists, on the candidate's own commit; prints pass, fail or
+        unverified: tests.yml, job filter-lists, the category tools/automerge.py
+        reads)
     filter-lists.py plan --run-id ID --work lists/<date>/<key> --out-dir DIR [--repo OWNER/NAME]
         (autofix.yml's plan, GET calls only: the lists report of that daily
         check run; GitHub outputs as tools/autofix-plan.py writes them, the
@@ -448,9 +453,57 @@ def _git(*args):
     return subprocess.run(["git", *args], capture_output=True, text=True, check=False)
 
 
+def compare(base, cand, rise=SHARE_RISE):
+    """(verdict, lines) of a candidate's engine against main's on the same lists (both runs of
+    tools/check-components.py --filter-lists, the same day). "fail": the candidate's engine does not
+    load or build from them, refuses or fails on a list main's engine reads, or leaves a list's
+    unread share higher by more than `rise`; "unverified": a list could not be downloaded in either
+    run, or there were no lists (nothing compared is never passed); else "pass"."""
+    lines, verdict = [], "pass"
+    b_eng, c_eng = (base or {}).get("engine") or {}, (cand or {}).get("engine") or {}
+    if b_eng.get("built") and not c_eng.get("built"):
+        verdict = "fail"
+        lines.append("the candidate's engine does not load or build from today's lists: %s"
+                     % (c_eng.get("error") or "?"))
+    b_rows = {r.get("url"): r for r in (base or {}).get("lists") or ()}
+    c_rows = (cand or {}).get("lists") or []
+    if not c_rows:
+        return "unverified", ["no lists were checked"]
+    refused_b = {f.split(":", 1)[0] for f in (base or {}).get("findings") or () if "the engine refused" in f}
+    unverified = []
+    for row in c_rows:
+        b = b_rows.get(row.get("url"))
+        name = row.get("name", "?")
+        if b is None or "unreachable" in (row.get("state"), b.get("state")):
+            unverified.append(name)
+            continue
+        if row.get("error", "").startswith("parse report") and not b.get("error", "").startswith("parse report"):
+            verdict = "fail"
+            lines.append("%s: the candidate's engine fails while reading it (%s)" % (name, row["error"][:160]))
+        share_b, share_c = b.get("unread_share"), row.get("unread_share")
+        if isinstance(share_b, (int, float)) and isinstance(share_c, (int, float)) and share_c > share_b + rise:
+            verdict = "fail"
+            lines.append("%s: unread %.1f%% with the candidate's engine, %.1f%% with main's" % (
+                name, share_c * 100, share_b * 100))
+        elif isinstance(share_c, (int, float)) and isinstance(share_b, (int, float)):
+            lines.append("%s: unread %.1f%% (main's engine %.1f%%)" % (name, share_c * 100, share_b * 100))
+    for f in (cand or {}).get("findings") or ():
+        if "the engine refused" in f and f.split(":", 1)[0] not in refused_b:
+            verdict = "fail"
+            lines.append(f[:200])
+    if unverified and verdict == "pass":
+        verdict = "unverified"
+        lines.append("not downloaded today, so not compared: %s" % ", ".join(unverified[:12]))
+    return verdict, lines
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
+    k = sub.add_parser("compare")
+    k.add_argument("--base", required=True)
+    k.add_argument("--candidate", required=True)
+    k.add_argument("--markdown")
     c = sub.add_parser("classify")
     c.add_argument("--lists", required=True)
     c.add_argument("--json")
@@ -462,6 +515,21 @@ def main(argv=None):
     p.add_argument("--out-dir", required=True)
     p.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", ""))
     a = ap.parse_args(argv)
+    if a.cmd == "compare":
+        def read(path):
+            try:
+                return json.loads(Path(path).read_text("utf-8"))
+            except (OSError, ValueError):
+                return {}
+        verdict, lines = compare(read(a.base), read(a.candidate))
+        if a.markdown:
+            text = ["### The default filter lists in this commit's engine (against main's)", "",
+                    "**%s**" % {"pass": "passed: no list is read worse than with main's engine",
+                                "fail": "failed: the candidate's engine reads today's lists worse",
+                                "unverified": "not verified"}[verdict], ""] + ["- " + x for x in lines]
+            Path(a.markdown).write_text("\n".join(text) + "\n", "utf-8")
+        print(verdict)
+        return 0
     if a.cmd == "classify":
         info = json.loads(Path(a.lists).read_text("utf-8"))
         base = None

@@ -130,6 +130,38 @@ def id_of_branch(ref):
     return ""
 
 
+TEST_TOOLS = ("pytest", "ruff", "pluggy", "iniconfig", "packaging", "pygments", "colorama", "exceptiongroup",
+              "tomli")                 # as tools/check-components.py's groups of the test packages
+
+
+def candidate_for(rec):
+    """The candidate id that carries an inventory record's update (tools/inventory.py), or "" when no
+    candidate can (a major version of a crate only adblock brings: it comes with a new adblock)."""
+    kind, name = rec.get("kind", ""), str(rec.get("name", ""))
+    compat = str(rec.get("compatibility", ""))
+    if kind == "adblock-engine":
+        return "adblock"
+    if kind == "crate":
+        if name == "pyo3":
+            return "pyo3" if compat.startswith("major") else "crates"
+        if compat.startswith("major"):
+            return "crate-major-%s" % name if rec.get("type") == "direct" else ""
+        return "crates"
+    if kind in ("integrated", "npm"):
+        return "darkreader" if name.lower().startswith("dark") else "ubo-scriptlets" if "ublock" in name.lower() \
+            else ""
+    if kind == "pypi-test":
+        low = re.sub(r"[-_.]+", "-", name).lower()
+        return "test-qt" if low.startswith("pyqt6") else "test-tools" if low in TEST_TOOLS else "test-libs"
+    if kind == "github-action":
+        return "ci-" + re.sub(r"[^a-z0-9]+", "-", "/".join(name.split("/")[:2]).lower()).strip("-")
+    if kind == "ci-tool" and name == "cargo-deny":
+        return "ci-cargo-deny"
+    if kind in ("ci-runtime", "node"):
+        return "ci-node" if "node" in name.lower() else "ci-python" if "python" in name.lower() else ""
+    return ""
+
+
 def priority(cid):
     for n, key in enumerate(PRIORITY):
         if cid == key or (key.endswith("-") and cid.startswith(key)):

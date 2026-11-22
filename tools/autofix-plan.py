@@ -630,6 +630,20 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
                             "could not be read: a person looks")
                 return plan
     elif name == "Daily maintenance candidate":
+        # the full chain: one candidate per component (plan-candidates, candidate (<id>), publish (<id>))
+        chain = [j for j in job_names if j in ("plan-candidates", "retire-combined")
+                 or j.startswith(("candidate (", "publish ("))]
+        if chain and len(chain) == len(job_names):
+            steps = [st for j in failed_jobs if j["name"] in chain for st in failed_steps(j)]
+            if any(st.startswith(SOURCES_STEP) for st in steps):
+                plan.update(action="issue", kind="infra", reason="a component source could not be reached or "
+                            "checked (step: %s): nothing on main to fix, the next daily run tries again"
+                            % SOURCES_STEP)
+            else:
+                plan.update(action="issue", reason="a candidate per component could not be made or published "
+                            "(jobs: %s): not main's code; the next daily run tries again, a person looks if it "
+                            "repeats" % ", ".join(chain))
+            return plan
         if "prepare" not in job_names:
             plan.update(action="issue", reason="the maintenance candidate could not be published "
                         "(failed: %s); this is a repository setting or a workflow, not code" % ", ".join(job_names))
