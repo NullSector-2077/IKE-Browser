@@ -582,8 +582,22 @@ test first proves itself on recorded rules I.K.E. reads and does not read.
 The finding is "testing" while its pull request waits (a person after
 `TESTING_DAYS`), "passed" once the lists check no longer reports it, and
 "needs-person" when the AI could not, or a check refused its change; after
-`MAX_ATTEMPTS` (2) attempts on one branch, a person. The run never opens the
+`MAX_ATTEMPTS` (2) analyses on one branch, a person. The run never opens the
 "ATTENZIONE..." issue: the ledger is where a person reads it.
+
+When the analysis' change makes the branch's **Tests** (or Arch Linux) fail,
+the automatic fix takes that failure like a full chain's candidate
+(2026-11-22; until then the plan skipped it and PR #111 waited for the
+`TESTING_DAYS`): `tools/autofix-plan.py` plans a fix of the same
+`automation/update/lists-<date>` (that exact name only) from its tip, in the
+same **lists mode** (the guard's `--lists`, the adapter only; the recorded
+rules are already on the branch), each attempt with a fresh context, the
+earlier change and the new logs, and the next free provider first. The
+analysis itself is attempt 1 (its `autofix:` commit); after `FIX_ATTEMPTS`
+(4) a person is told by the "ATTENZIONE..." issue and the branch is kept.
+Those runs report to the finding's entry by its branch
+(`tools/ai-work.py`): a new change keeps it "testing" and the
+`TESTING_DAYS` count again from it; the cap makes it "needs-person".
 
 ### Free AI providers, checked every week (WP9)
 
@@ -1237,7 +1251,8 @@ never touched.
 
    **More attempts, other free providers** (the full chain, 2026-11-22). On
    the isolated candidates (`automation/update/<id>`, `automation/builder/<id>`,
-   `automation/update/arch-testing-<date>`) a failure is fixed up to
+   `automation/update/arch-testing-<date>`, and since 2026-11-22 the filter
+   lists' `automation/update/lists-<date>`, in lists mode) a failure is fixed up to
    `FIX_ATTEMPTS` times (`tools/ai-providers.py`, a person's file, today 4).
    Each attempt is a new run of the automatic fix with a **fresh context**:
    the agent gets only the earlier fix, the new test logs and its summary, as
@@ -1249,7 +1264,8 @@ never touched.
    At the cap the branch is kept, the maintenance ledger says needs-person
    and the owner is told once. On `main`, `automation/autofix-main`, the
    combined candidate and the security branches the cap stays
-   `FIX_ATTEMPTS_MAIN` (two), Antigravity first each time.
+   `FIX_ATTEMPTS_MAIN` (two), Antigravity first each time. (Until 2026-11-22
+   the plan stopped the isolated candidates at that cap of two as well.)
 
    **A fix raises the version** (item 5 of the full chain). Every automation
    pull request that changes what ships (I.K.E.'s code, the engine's wrapper,
@@ -1541,9 +1557,14 @@ job, with the same token) refreshes it:
   with one comment naming the owner, and the ledger says needs-person;
 - the commit `refresh: main <sha> into <branch> (tools/automerge.py, no AI)`
   (two parents: the candidate's commit, then `main`'s) is pushed to that
-  branch only, as a fast-forward (never to `main`), and Tests, Security and
-  Arch Linux are started on it (a push of the workflow's token starts no
-  workflow). When they pass it is judged again, and merged.
+  branch only, as a fast-forward (never to `main`). With the owner's
+  `IKE_WORKFLOW_TOKEN` it is pushed with that token, and GitHub runs the
+  pull request's own Tests, Security and Arch Linux for it; without it, it is
+  pushed with the workflow's token and those are started by a dispatch. (A
+  push of the workflow's token leaves the pull request's own runs "waiting
+  for approval", and `main`'s required check `tests` is then never met: the
+  merge is refused with "Required status check "tests" is expected", as on
+  2026-11-22.) When they pass it is judged again, and merged.
 
 The merge accepts a refresh commit only when it is exactly that: its own
 message naming this branch and a commit of `main`, two parents in that
@@ -1603,8 +1624,9 @@ person: open a conversation and paste its link.
   token of the owner's, for this repository only, with the permissions
   Contents, Pull requests and Workflows (read and write). Only two steps
   receive it: the push of a CI pin's candidate (`daily-maintenance.yml`,
-  publish) and the merge of that candidate once `tools/automerge.py` verified
-  every changed line (`automerge.yml`); no AI step ever sees it. Without it
+  publish) and, in `automerge.yml`, the merge of that candidate once
+  `tools/automerge.py` verified every changed line and the push of a
+  refresh (so the pull request's own checks run); no AI step ever sees it. Without it
   those candidates wait (a warning says why) and Dependabot's monthly pull
   request remains the way for the actions.
 - Settings → Secrets and variables → Actions → **Secrets**: `GEMINI_API_KEY`, a

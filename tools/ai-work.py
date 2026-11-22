@@ -26,7 +26,10 @@ What each run of autofix.yml did comes back as a small artifact
 (``ai-work-outcome-<job>``: work, outcome, url): published (a branch and a
 pull request: "testing"), deferred (no provider: "retry-later"), person (the
 AI could not, or a guard refused: "needs-person"), skipped (nothing to do any
-more: "passed").
+more: "passed"). A fix of a lists branch after its tests failed (work
+``run/<id>``, planned by tools/autofix-plan.py) counts for that finding's
+entry, by its branch: published keeps it "testing" from the new change,
+person makes it "needs-person".
 
     ai-work.py gather --repo OWNER/NAME --out work.json [--lists lists.json] [--run-id ID]
         GET calls only: the outcomes of the last days' autofix runs, and today's lists report
@@ -146,6 +149,35 @@ def _defer(e, now, set_state, why, cap, notify):
     e["next_retry"] = stamp(now + dt.timedelta(hours=REGISTRY.RETRY_HOURS))
 
 
+LISTS_BRANCH = re.compile(r"^automation/update/lists-\d{4}-\d\d-\d\d$")
+
+
+def _lists_entries(entries, branch):
+    """The open filter-list entries whose analysis works on this lists branch."""
+    if not LISTS_BRANCH.match(branch or ""):
+        return []
+    return [e for e in entries.values() if e.get("kind") == "filter-list" and e.get("state") != "passed"
+            and (e.get("work") or {}).get("branch") == branch]
+
+
+def _retry_outcome(e, out, what, now, set_state):
+    """A fix of the lists branch after its tests failed: still "testing" with the new change (the days
+    of TESTING_DAYS count again from it), or "needs-person" (the cap, or the AI or the checks could
+    not; the report's issue tells the owner)."""
+    e["last_seen"] = stamp(now)
+    if out.get("url"):
+        e["last_run"] = out["url"]
+    branch = out.get("branch") or "its branch"
+    if what == "published":
+        set_state(e, "testing", "a new automatic fix after its tests failed is on %s%s (run %s): its tests "
+                  "decide, then the owner" % (branch, " (PR #%s)" % out["pr"] if out.get("pr") else "",
+                                              out.get("run") or "?"), now)
+    else:
+        reason = str(out.get("reason") or "")[:160]
+        set_state(e, "needs-person", "the automatic fix after its tests failed on %s could not make them pass%s"
+                  % (branch, ": " + reason if reason else ""), now)
+
+
 def merge(ledger, work, now, set_state, cap=None):
     """Today's AI work into the ledger (returns it). Pure: no network.
 
@@ -175,6 +207,14 @@ def merge(ledger, work, now, set_state, cap=None):
         else:
             key = "ai-work/%s@retry" % wid.split("/", 1)[1]
             e = entries.get(key)
+            if e is None and what in ("published", "person"):
+                # a fix of a filter lists' branch after its tests failed (tools/autofix-plan.py):
+                # it belongs to that finding's entry
+                lists_e = _lists_entries(entries, out.get("branch"))
+                for le in lists_e:
+                    _retry_outcome(le, out, what, now, set_state)
+                if lists_e:
+                    continue
             if e is None and what == "deferred":
                 e = entries[key] = _entry(key, "Automatic fix of \"%s\" (run %s)" % (
                     out.get("workflow") or "?", wid.split("/", 1)[1]), "ai-work", now, out.get("url", ""))
