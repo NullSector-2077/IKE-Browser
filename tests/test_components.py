@@ -73,6 +73,8 @@ def tool(monkeypatch, tmp_path, repo):
     monkeypatch.setattr(mod, "arch_webengine", lambda: up["arch"])
     up["pyo3"] = mod.current_pyo3(repo) + ".0"
     monkeypatch.setattr(mod, "latest_pyo3", lambda: up["pyo3"])
+    # WP5: the newest major version of the other direct crates (none newer here)
+    monkeypatch.setattr(mod, "latest_crate", lambda name: up.get("crate-" + name, ""))
     calls = []
     real_run = mod.run
     monkeypatch.setattr(mod, "run", lambda cmd, **kw: calls.append(cmd) if cmd[0] == "cargo" else real_run(cmd, **kw))
