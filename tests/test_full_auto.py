@@ -674,7 +674,7 @@ def test_with_the_owners_token_the_pull_requests_own_runs_are_started(monkeypatc
             if "IKE_WORKFLOW_TOKEN" in block and "secrets.IKE_WORKFLOW_TOKEN" in block:
                 assert "GEMINI_API_KEY" not in block and "autofix-agent.py" not in block
     source = (ROOT / "tools/automerge.py").read_text()
-    assert 'own = os.environ.get("IKE_WORKFLOW_TOKEN") or ""' in source          # the refresh's push too
+    assert 'owner_token = os.environ.get("IKE_WORKFLOW_TOKEN") or ""' in source  # the refresh's push too
 
 
 # --- the plan: a refused fix, again, with the reasons ---------------------------------------------------

@@ -1783,9 +1783,14 @@ job, with the same token) refreshes it:
   with one comment naming the owner, and the ledger says needs-person;
 - the commit `refresh: main <sha> into <branch> (tools/automerge.py, no AI)`
   (two parents: the candidate's commit, then `main`'s) is pushed to that
-  branch only, as a fast-forward (never to `main`), and Tests, Security and
-  Arch Linux are started on it (a push of the workflow's token starts no
-  workflow). When they pass it is judged again, and merged.
+  branch only, as a fast-forward (never to `main`). With the owner's
+  `IKE_WORKFLOW_TOKEN` it is pushed with that token, and GitHub runs the
+  pull request's own Tests, Security and Arch Linux for it; without it, it is
+  pushed with the workflow's token and those are started by a dispatch. (A
+  push of the workflow's token leaves the pull request's own runs "waiting
+  for approval", and `main`'s required check `tests` is then never met: the
+  merge is refused with "Required status check "tests" is expected", as on
+  2026-11-22.) When they pass it is judged again, and merged.
 
 The merge accepts a refresh commit only when it is exactly that: its own
 message naming this branch and a commit of `main`, two parents in that

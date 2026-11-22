@@ -1420,9 +1420,10 @@ def behind_main(repo, sha):
 
 def refresh_branch(repo, ref, sha, cwd=ROOT, reset=False, reversion=False):
     """(commit, why): main merged into the candidate's branch (make_refresh; reset: the files in
-    conflict as main's), checked as the merge will check it, pushed with the workflow's token to that
-    branch only (a fast-forward, never main), then Tests, Security and Arch Linux started on it (the
-    token's push starts no workflow)."""
+    conflict as main's; reversion: the version as main's), checked as the merge will check it, pushed
+    to that branch only (a fast-forward, never main) with the owner's token IKE_WORKFLOW_TOKEN when set
+    (its push starts the pull request's own checks), else with the workflow's token and then Tests,
+    Security and Arch Linux started on it (that token's push starts no workflow)."""
     import base64
     if not verified_branch(ref) or not ref.startswith("automation/"):
         return "", "not a branch of the automation"
@@ -1435,15 +1436,19 @@ def refresh_branch(repo, ref, sha, cwd=ROOT, reset=False, reversion=False):
     why = refresh_problem(commit, ref, cwd)
     if why:
         return "", "the refresh is not what the merge accepts (%s)" % why
-    # the owner's token when it is set: its push starts the pull request's own runs (the workflow's starts none)
-    own = os.environ.get("IKE_WORKFLOW_TOKEN") or ""
-    auth = base64.b64encode(("x-access-token:%s" % (own or os.environ.get("GH_TOKEN", ""))).encode()).decode()
+    # the owner's token when set: GitHub runs the pull request's own checks for its push (a push of
+    # the workflow's token leaves them "waiting for approval", and main's required check "tests" is
+    # then never met); without it the workflow's token, and the checks are started below
+    owner_token = os.environ.get("IKE_WORKFLOW_TOKEN") or ""
+    auth = base64.b64encode(("x-access-token:%s" % (owner_token or os.environ.get("GH_TOKEN", ""))).encode()).decode()
     try:
         _git(cwd, "-c", "http.https://github.com/.extraheader=AUTHORIZATION: basic " + auth, "push", "-q", "origin",
              "%s:refs/heads/%s" % (commit, ref))
     except RuntimeError as e:
         return "", "the refresh could not be pushed (%s)" % str(e).replace(auth, "***")[:200]
-    for workflow in () if own else ("tests.yml", "security.yml", "arch.yml"):
+    if owner_token:
+        return commit, ""
+    for workflow in ("tests.yml", "security.yml", "arch.yml"):
         try:
             gh("workflow", "run", workflow, "--repo", repo, "--ref", ref)
         except RuntimeError as e:

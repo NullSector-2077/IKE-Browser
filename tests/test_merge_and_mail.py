@@ -1146,6 +1146,7 @@ def test_the_refresh_is_pushed_to_the_candidates_branch_only(tmp_path, monkeypat
     git("remote", "add", "origin", str(origin))
     git("checkout", "-q", "--detach", "main")
     calls = []
+    monkeypatch.delenv("IKE_WORKFLOW_TOKEN", raising=False)
     monkeypatch.setattr(merge, "gh", lambda *a: calls.append(a) or "")
     commit, why = merge.refresh_branch("o/r", DARK, sha["dark"], cwd=repo)
     assert why == "" and commit
@@ -1159,6 +1160,26 @@ def test_the_refresh_is_pushed_to_the_candidates_branch_only(tmp_path, monkeypat
     for ref in ("main", "fix/1.1.23", "automation/update/"):
         assert merge.refresh_branch("o/r", ref, sha["dark"], cwd=repo) == ("", "not a branch of the automation")
     assert remote("main") == sha["main"]
+
+
+def test_the_refresh_with_the_owners_token_lets_the_pull_requests_checks_run(tmp_path, monkeypatch):
+    """With IKE_WORKFLOW_TOKEN the refresh is pushed with the owner's token: GitHub runs the pull
+    request's own checks for that push (a push of the workflow's token leaves them waiting for an
+    approval, and main's required check "tests" is never met), so nothing is started by hand."""
+    import subprocess
+    repo, git, sha = _world(tmp_path)
+    origin = tmp_path / "origin.git"
+    subprocess.run(["git", "clone", "-q", "--bare", str(repo), str(origin)], check=True)
+    git("remote", "add", "origin", str(origin))
+    git("checkout", "-q", "--detach", "main")
+    calls = []
+    monkeypatch.setenv("IKE_WORKFLOW_TOKEN", "owner-token")
+    monkeypatch.setattr(merge, "gh", lambda *a: calls.append(a) or "")
+    commit, why = merge.refresh_branch("o/r", DARK, sha["dark"], cwd=repo)
+    assert why == "" and commit and calls == []
+    out = subprocess.run(["git", "rev-parse", DARK], cwd=origin, capture_output=True, text=True).stdout.strip()
+    assert out == commit
+    assert "IKE_WORKFLOW_TOKEN: ${{ secrets.IKE_WORKFLOW_TOKEN }}" in (WORKFLOWS / "automerge.yml").read_text()
 
 
 def test_after_a_merge_the_others_are_judged_again(monkeypatch):
