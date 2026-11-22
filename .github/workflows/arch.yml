@@ -168,6 +168,8 @@ jobs:
           QT_QPA_PLATFORMTHEME=kde python3 -m pytest -ra -q -p no:cacheprovider \
               tests/test_text_fit.py tests/test_switches.py tests/test_tabpreview.py \
               tests/test_icons.py::test_every_icon_is_kdes_own_on_kde \
+              "tests/test_menu_looks.py::test_menu_texts_share_one_left_edge[Breeze-it]" \
+              "tests/test_menu_looks.py::test_menu_texts_share_one_left_edge[Breeze-en]" \
               "tests/test_desktop_colours.py::test_windows_take_the_desktops_colours[kde]" \
               2>&1 | tee -a out/styles.log
           rm -f /etc/xdg/kdeglobals

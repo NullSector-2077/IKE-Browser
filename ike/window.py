@@ -613,8 +613,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             tb.private = True
         self.menu_btn = QToolButton(self)
         self.menu_btn.setIcon(icon(("application-menu", "open-menu-symbolic"), SP.SP_TitleBarMenuButton))
-        self.menu_btn.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
-        self.menu_btn.clicked.connect(self.menu_btn.showMenu)
+        # 1.1.23 (the owner): its icon only; a click opens the menu, as the
+        # click on its main part did (the button has no action of its own)
+        self.menu_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.menu_btn.setProperty("ike_no_arrow", True)       # its icon only (1.1.23, polish.RoundHoverStyle)
         self._hover.take(self.menu_btn)                       # its size without the arrow from the start
         self.menu_btn.setToolTip(T("Menu"))

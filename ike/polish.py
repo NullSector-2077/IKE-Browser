@@ -1505,10 +1505,10 @@ class RoundHoverStyle(QProxyStyle):
     own round one.
 
     1.1.23 (the owner): a button whose menu opens with a click (the ☰ menu,
-    dark mode for pages: their property "ike_no_arrow") shows its icon only,
-    with no arrow and no part of its own for one, in every widget style: the
-    style is given the button as one without a menu, and the arrow's part is
-    empty, so a click anywhere on it does what a click on its main part did."""
+    dark mode for pages: their property "ike_no_arrow", opening at once)
+    shows its icon only, with no arrow and no part of its own for one, in
+    every widget style: the style is given the button as one without a
+    menu (Qt's own styles draw a small arrow in a corner otherwise)."""
 
     NO_ARROW = "ike_no_arrow"
 

@@ -72,7 +72,7 @@ def test_menu_buttons_show_their_icon_only(run_ike, tmp_path, style):
         assert got["size"] == out["plain"], (style, name, got, out["plain"])     # no room for an arrow
         assert got["arrow_part"] is False, (style, name, got)
         assert got["clicks"] == [True, True], (style, name, got)                 # a click opens the menu
-        assert got["mode"] == "MenuButtonPopup", got                             # long press: as before
+        assert got["mode"] == "InstantPopup", got                                # no part for an arrow
 
 
 ALIGN = r'''
