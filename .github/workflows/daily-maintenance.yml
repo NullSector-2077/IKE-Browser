@@ -213,6 +213,9 @@ jobs:
             echo
             if [ -s component-report.md ]; then cat component-report.md; else echo "(no component report: the check step stopped)"; fi
           } >> "$GITHUB_STEP_SUMMARY"
+          # in the log too: the summary cannot be read through GitHub's API
+          echo "Files the candidate changes against $GITHUB_REF_NAME:"
+          git diff --stat "$GITHUB_SHA" HEAD || true
 
   # only the real run, on main, publishes (a rehearsal never touches the
   # candidate's branch or its pull request)
