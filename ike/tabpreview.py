@@ -324,9 +324,7 @@ class TabPreview(QWidget):
     def _cross(self, old, new, ms=120):
         from PyQt6.QtCore import QEasingCurve, QVariantAnimation
         from PyQt6.QtGui import QPixmap
-        anim = getattr(self, "_blend", None)
-        if anim is not None:
-            anim.stop()
+        self._stop_blend()
         if old is None or old.isNull() or new is None or new.isNull():
             return
 
@@ -346,12 +344,24 @@ class TabPreview(QWidget):
         anim.setEndValue(1.0)
         anim.setEasingCurve(QEasingCurve.Type.OutCubic)
         anim.valueChanged.connect(step)
-        anim.finished.connect(lambda: self.picture.setPixmap(new))
+        anim.finished.connect(lambda: (self.picture.setPixmap(new), self._stop_blend()))
         anim.start()
+
+    def _stop_blend(self):
+        """Stop and let go of the blend: its steps hold both pictures."""
+        anim, self._blend = getattr(self, "_blend", None), None
+        if anim is not None:
+            anim.stop()
+            anim.deleteLater()
 
     def hideEvent(self, event):
         self.timer.stop()
         self._last.clear()
+        # nothing kept while hidden: the picture belongs to its tab, which
+        # may close (1.1.23: the card kept the last picture, and the finished
+        # blend both, until it was shown again)
+        self._stop_blend()
+        self.picture.setPixmap(None)
         super().hideEvent(event)
 
     def hide_preview(self):
