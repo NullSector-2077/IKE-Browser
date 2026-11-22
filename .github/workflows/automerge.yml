@@ -1,17 +1,22 @@
-# A green fix of the automation or of ChatGPT is judged here (1.1.19): only a
-# small change of the browser's interface code, with every check of its last
-# commit passed, the sandbox tests included (tools/automerge.py, read from
-# main: a pull request never brings the rules it is judged by). Since
-# 2026-11-22 (the owner's decision) nothing merges into main by itself: a fix
-# that passes is marked ready and the owner is told once; it is merged only on
-# the owner's explicit order. New files, the modules that decide the user's
-# safety, lines that reach the network or the system, tests, tools and
-# workflows are left for a person, named in one comment. The owner signs and
-# publishes (release-ready.yml).
+# The verified merge (2026-11-22, the owner's decision): the automation's own
+# pull request (the daily maintenance candidate automation/daily-maintenance,
+# an AutoFix fix automation/autofix-main or automation/update/...) goes into
+# main by itself only when it is FULLY VERIFIED: every check of its last commit
+# passed (tests, sandbox, Security, Arch Linux), every category of
+# tools/test-categories.py its components need was run and passed with no
+# required test skipped, no test file changed or removed, no protected file or
+# workflow touched, the licences up to date and no security finding open.
+# Then the tests of main run and release-ready.yml tells the owner a version
+# is ready to sign; signing and publishing stay with the owner.
+# The rules are tools/automerge.py read from main, never from the pull
+# request: no agent merges its own work. Anything short of fully verified
+# waits, with one comment naming the owner (and the ledger says why). A fix of
+# ChatGPT is only marked ready, and a person's pull request is not touched:
+# both wait for the owner's order (CLAUDE.md).
 #
 # Runs the automation started with its own token send no "workflow_run": the
-# Tests and Security runs of automation/autofix-main start this one with a
-# dispatch when they pass (review 2 of 1.1.19, H1).
+# Tests, Security and Arch Linux runs of its branches start this one with a
+# dispatch when they pass (job merge-ready; review 2 of 1.1.19, H1).
 name: Merge green fixes
 
 on:
@@ -36,19 +41,19 @@ jobs:
   merge:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
-      contents: read           # no merge into main by itself (2026-11-22)
-      pull-requests: write     # ready for review, the comment
-      issues: read             # its own earlier comment
-      actions: write           # the tests, security and Arch tests of main after the merge
-      checks: read
+      contents: write          # the merge of a fully verified pull request of the automation, nothing else
+      pull-requests: write     # ready for review, the one comment
+      issues: read             # its own earlier comment, the security issues, the maintenance ledger
+      actions: write           # the runs and test results of the commit; Arch on it; main's tests after the merge
+      checks: read             # the checks of the commit
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
           persist-credentials: false
-      - name: Merge it when every rule holds
+      - name: Merge it when it is fully verified
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.event.inputs.sha || github.event.workflow_run.head_sha }}

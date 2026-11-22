@@ -20,7 +20,9 @@ failed and skipped, the skipped ones with their reasons by area, as JSON and as
 Markdown for the run's summary. It never fails the run: it only reports.
 `verify()` (used by tools/maintenance-report.py) turns the results of a
 candidate's runs into a state per required category: passed, failed or not
-verified (with the reason).
+verified (with the reason). `merge_required()` and `unexpected_skips()` are
+what tools/automerge.py asks before the automation's own pull request goes
+into main by itself (the verified merge, 2026-11-22).
 
 No network, no GitHub token: the GitHub answers are read by the callers.
 """
@@ -28,6 +30,7 @@ No network, no GitHub token: the GitHub answers are read by the callers.
 import argparse
 import fnmatch
 import json
+import re
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -104,6 +107,45 @@ AREAS = (
 )
 DEFAULT_AREA = "interface and features"
 MAX_LISTED = 200
+
+
+# The verified merge (2026-11-22, the owner's decision): the automation's own
+# pull request goes into main by itself only when every category below passed
+# on its last commit, whatever components it changes (the owner's words:
+# "tests, sandbox, Security, Arch Linux"), plus what its components' kinds
+# need (REQUIRED). "filter-lists" (read on the maintenance run, not on the
+# commit) and "desktop" (never run by GitHub) are not here: a kind that needs
+# them is never fully verified, so it waits for the owner.
+MERGE_ALWAYS = ("lint", "unit-integration", "rust", "licences", "tests-kept", "build", "old-cpu", "installed",
+                "arch-packaging", "sandbox", "advisories")
+
+# A skipped test is a required test not run, and keeps the merge for the
+# owner, unless another check of the same commit runs it or it only runs on
+# purpose. (reason, as pytest writes it) -> where it is verified instead.
+EXPECTED_SKIPS = (
+    (r"^IKE_TEST_SANDBOX=1 only", "security.yml's sandbox job runs it with the sandbox on (and fails if it skips)"),
+    (r"^this run has every protection on", "the sandbox run of security.yml"),
+    (r"^only for the installed package \(IKE_TEST_APP\)", "the tests of the installed package"),
+    (r"^the sources are checked once, not for the installed copy", "the tests of the sources"),
+    (r"^cargo is not installed here: GitHub Actions runs this check", "the Licences step"),
+    (r"^only as root \(the Arch container\)", "arch.yml runs as root"),
+    (r"^IKE_TEST_NETWORK=1 ", "the daily component check uses the real sources"),
+    (r"^IKE_UI_SHOTS=", "pictures for a person, not a check"),
+    (r"^IKE_FIT_LANGS: one group", "a split run of the same test"),
+    (r"^KDE's Breeze icons and platform theme are not installed here|^KDE's theme did not load here"
+     r"|^the \S+ style is not installed here|^desktop \w+: ", "arch.yml installs the desktops' themes and runs it"),
+)
+
+
+def merge_required(kinds):
+    """The categories a merge by itself needs for components of these kinds, in CATEGORIES' order."""
+    need = set(required_for(kinds)) | set(MERGE_ALWAYS)
+    return [c for c in CATEGORIES if c in need]
+
+
+def unexpected_skips(skips):
+    """The skipped tests that no other check of the commit runs (EXPECTED_SKIPS): required tests not run."""
+    return [s for s in skips or () if not any(re.search(p, s.get("reason") or "") for p, _ in EXPECTED_SKIPS)]
 
 
 def area_of(test_file):
