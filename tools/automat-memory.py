@@ -30,6 +30,10 @@ guards, tests, workflows or secrets, to ignore rules, to approve) are left out (
 reviewers get the same text with the failure. The rotation of the providers prefers one that has
 not failed this signature yet (first_provider).
 
+One problem per attempt (focus_section): when the tests fail for several different errors, the
+failure description asks the attempt to fix only the first group.
+
+    automat-memory.py focus --failure FILE [--out FILE]
     automat-memory.py signature --failure FILE
     automat-memory.py prompt --memory FILE --component ID --failure FILE [--out FILE]
     automat-memory.py first --memory FILE --component ID --failure FILE --default NAME --names A,B,C
@@ -80,6 +84,8 @@ def normalise(line):
 
 def signature(failure):
     """The error signature of a failure description: stable across runs of the same error."""
+    # (without the notes the plan itself adds to the description: they are not the error)
+    failure = re.split(r"\n## (?:One problem per attempt|AUTOMAT's memory of this error)", failure or "")[0]
     tests, errors = [], []
     for raw in (failure or "").splitlines():
         line = raw.strip()
@@ -96,6 +102,43 @@ def signature(failure):
     if not basis:
         basis = [normalise(x) for x in (failure or "").splitlines() if x.strip()][-12:]
     return hashlib.sha256("\n".join(basis).encode("utf-8")).hexdigest()[:16]
+
+
+SUMMARY_LINE = re.compile(r"^(?:FAILED|ERROR) ((?:tests/)?[\w./-]+\.py(?:::[\w\[\]., -]+)?)(?: - (.*))?$")
+
+
+def groups(failure):
+    """The failing tests grouped by their error (pytest's summary lines, the error normalised as in
+    signature()), in the order they appear: [(error, [tests])]. Weak free models do better with one
+    problem at a time."""
+    out, where = [], {}
+    for raw in (failure or "").splitlines():
+        m = SUMMARY_LINE.match(raw.strip())
+        if not m:
+            continue
+        error = normalise(m.group(2) or "")[:160] or "(no message)"
+        if error not in where:
+            where[error] = len(out)
+            out.append((error, []))
+        if m.group(1) not in out[where[error]][1]:
+            out[where[error]][1].append(m.group(1))
+    return out
+
+
+def focus_section(failure, shown=12):
+    """One problem per attempt: when the tests fail for several different errors, the attempt is asked
+    to fix only the first group; the next attempt takes the next one ("" for a single group)."""
+    found = groups(failure)
+    if len(found) < 2:
+        return ""
+    error, tests = found[0]
+    rest = sum(len(t) for _e, t in found[1:])
+    return ("\n## One problem per attempt\n\nThe tests fail for %d different errors. In this attempt fix ONLY "
+            "the first group below and leave the others as they are (the next attempt takes the next group; a "
+            "small fix of one error is checked and merged more easily than a large one):\n\n%s\n\nError of this "
+            "group: %s\n\n(%d more failing tests in %d other groups, for later attempts.)\n" % (
+                len(found), "\n".join("- %s" % re.sub(r"[^\w./:\[\], -]", "", t)[:200] for t in tests[:shown]), clean(error, 200), rest,
+                len(found) - 1))
 
 
 def empty():
@@ -236,7 +279,7 @@ def prompt_section(memory, component, sig, budget=BUDGET_WORDS):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("cmd", choices=("signature", "prompt", "first", "note", "merged"))
+    ap.add_argument("cmd", choices=("signature", "prompt", "first", "note", "merged", "focus"))
     ap.add_argument("--memory")
     ap.add_argument("--component", default="")
     ap.add_argument("--failure")
@@ -261,6 +304,12 @@ def main(argv=None):
     sig = signature(failure)
     if a.cmd == "signature":
         print(sig)
+        return 0
+    if a.cmd == "focus":
+        section = "" if "\n## One problem per attempt" in failure else focus_section(failure)
+        if a.out:
+            Path(a.out).write_text(section, "utf-8")
+        print("one problem per attempt: %d groups of failing tests" % len(groups(failure)))
         return 0
     memory = load(a.memory)
     if a.cmd == "prompt":

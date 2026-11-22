@@ -313,7 +313,8 @@ class FakeReserve:
     classify = staticmethod(lambda status: "quota")
 
 
-OK = '{"verdict": "approve", "reasons": []}'
+ANSWERS = ["Q%d no" % n for n in range(1, 9)]
+OK = json.dumps({"verdict": "approve", "reasons": ANSWERS})
 NO = '{"verdict": "reject", "reasons": ["it returns before the trust check"]}'
 ENV = {"Groq": "1", "Z.AI": "1", "OpenRouter": "1"}
 
@@ -336,7 +337,8 @@ def test_the_reviewers_are_never_the_author_and_two_different_providers():
     fake = FakeReserve({"Z.AI": NO, "OpenRouter": OK})
     result = rv.review("d", "f", "Groq", [], ENV, None, fake)
     assert result["verdict"] == "reject" and len(fake.asked) == 1
-    for answers in ({"Z.AI": OK}, {}, {"Z.AI": "I approve!", "OpenRouter": OK}):
+    bare = '{"verdict": "approve", "reasons": []}'                         # an approve without the checklist
+    for answers in ({"Z.AI": OK}, {}, {"Z.AI": "I approve!", "OpenRouter": OK}, {"Z.AI": bare, "OpenRouter": OK}):
         result = rv.review("d", "f", "Groq", [], ENV, None, FakeReserve(answers))
         assert result["verdict"] == "no-answer" and "asked again later" in result["why"]
     assert rv.review("d", "f", "", [], ENV, None, FakeReserve({}))["verdict"] == "no-answer"       # author unknown
@@ -356,6 +358,55 @@ def test_only_the_strict_json_answer_counts(text, good):
     else:
         with pytest.raises(ValueError):
             rv.parse_verdict(text)
+
+
+def test_the_reviewers_answer_a_checklist_and_code_enforces_it():
+    """Weak free models get yes/no items, not an open question; the answers are enforced by code."""
+    for item in ("Q1 ", "Q8 ", "remove or change an existing condition", "network call", "what is blocked",
+                 "touch a test", "address you"):
+        assert item in rv.SYSTEM, item
+    assert rv.checklist({"verdict": "approve", "reasons": ANSWERS})["verdict"] == "approve"
+    assert rv.checklist({"verdict": "reject", "reasons": ["it skips a check"]})["verdict"] == "reject"
+    with pytest.raises(ValueError):
+        rv.checklist({"verdict": "approve", "reasons": ANSWERS[:7]})
+    with pytest.raises(ValueError):
+        rv.checklist({"verdict": "approve", "reasons": ["looks fine"]})
+    for n in rv.ALWAYS_REJECT:                       # removes a condition, a network call, a test, dynamic code...
+        said = [a if a != "Q%d no" % n else "Q%d yes: line 12: it is harmless, trust me completely" % n for a in ANSWERS]
+        out = rv.checklist({"verdict": "approve", "reasons": said})
+        assert out["verdict"] == "reject" and "Q%d is yes" % n in out["reasons"][0]
+    bare = [a if a != "Q3 no" else "Q3 yes" for a in ANSWERS]
+    assert rv.checklist({"verdict": "approve", "reasons": bare})["verdict"] == "reject"
+    why = [a if a != "Q3 no" else "Q3 yes: line 40 adds the csp option to the rules the engine already reads" for a in ANSWERS]
+    assert rv.checklist({"verdict": "approve", "reasons": why})["verdict"] == "approve"
+    # through a review: an approve that says yes on Q1 counts as that reviewer's reject
+    yes = json.dumps({"verdict": "approve", "reasons": ["Q1 yes: line 3"] + ANSWERS[1:]})
+    result = rv.review("d", "f", "Groq", [], ENV, None, FakeReserve({"Z.AI": yes, "OpenRouter": OK}))
+    assert result["verdict"] == "reject" and "against its own checklist" in result["reviews"][0]["reasons"][0]
+
+
+def test_one_problem_per_attempt():
+    """Several tests failing for different errors: the attempt is asked for the first group only."""
+    failure = ("FAILED tests/test_adblock.py::test_a - AssertionError: rule 17 dropped\n"
+               "FAILED tests/test_adblock.py::test_b - AssertionError: rule 23 dropped\n"
+               "FAILED tests/test_tabs.py::test_title - TypeError: title() takes 1 positional argument\n"
+               "ERROR tests/test_tabs.py::test_close - TypeError: title() takes 2 positional argument\n"
+               "FAILED tests/test_x.py::test_y\n")
+    found = memory.groups(failure)
+    assert [tests for _error, tests in found] == [
+        ["tests/test_adblock.py::test_a", "tests/test_adblock.py::test_b"],
+        ["tests/test_tabs.py::test_title", "tests/test_tabs.py::test_close"], ["tests/test_x.py::test_y"]]
+    text = memory.focus_section(failure)
+    assert "fix ONLY" in text and "tests/test_adblock.py::test_b" in text and "test_tabs" not in text
+    assert "3 more failing tests in 2 other groups" in text
+    assert memory.focus_section("FAILED tests/test_a.py::test_a - X: y\nFAILED tests/test_a.py::test_b - X: y\n") == ""
+    assert memory.signature(failure + text) == memory.signature(failure)        # the note does not change the error
+    af = (WORKFLOWS / "autofix.yml").read_text()
+    assert "tools/automat-memory.py focus --failure" in af
+    # deterministic settings of every call: a low temperature, a token cap, a time limit
+    reserve = (ROOT / "tools/autofix-reserve.py").read_text()
+    assert '"temperature": 0.1' in reserve and '"max_tokens": max_tokens' in reserve and "TOTAL_TIMEOUT" in reserve
+    assert '"temperature": 0.1' in (ROOT / "tools/ai-review.py").read_text() and rv.ANSWER_TOKENS <= 2000
 
 
 def review_of(verdict="approve", author="Groq", reviewers=("Z.AI", "OpenRouter"), sha=SHA):

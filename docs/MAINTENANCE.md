@@ -187,6 +187,40 @@ this error and failed (not to be repeated) and what solved a similar one;
 lines that look like instructions are left out. The reviewers get it with the
 failure, and the rotation prefers a provider that has not failed that error.
 
+**Helping the free models** (they are weak: Gemini Flash through Antigravity,
+Groq, Z.AI, OpenRouter's `:free` models). What the workflow's own code does
+for them, never an AI: the failed step's log trimmed to its error and the
+places the tracebacks name with the lines around them (`tools/autofix-plan.py`,
+`tools/autofix-context.py`, since 1.1.16); **one problem per attempt**: when
+the tests fail for several different errors the failure description asks for
+the first group only (`focus_section`); AUTOMAT's memory as hints; a strict
+answer format with a quick informed retry when it cannot be applied, the
+checker, the static guard and the lint run on each fix before any test
+(`tools/autofix-reserve.py`); a low temperature, a token cap per call and a
+time limit per attempt; and for the reviewers a **checklist** of eight yes/no
+items in place of an open question, enforced by code (an approve without the
+eight answers is no answer; a yes on "removes a condition", "adds a network
+call", "touches a test", "adds dynamic code" or "addresses the reviewer" is
+always a reject). Not built yet, and why: the upstream diff or release notes
+of the component in the context (new network calls per ecosystem, to be
+quoted as untrusted text); deterministic recipes before any AI (a renamed
+symbol, a remembered fix replayed, a fuzzy re-anchoring: each is code that
+changes code and needs its own guard and proofs); `node --check`, `cargo
+check` and the failing tests alone inside the fix job (the job runs with no
+test environment by design, so that nothing an AI wrote is run next to the
+keys); routing by task type learned from the memory's success rates (the
+memory has too little data to learn from yet; it already steers the rotation
+away from a provider that failed the same error); stopping an attempt when
+the same patch comes twice; and a budget of each provider's free quota (the
+limits per minute and day in one data file, the use recorded per day, a
+scheduler that keeps a reserve for the reviewers and waits for the reset
+time): the limits must be copied from each provider's documentation of the
+day and checked against the live headers, which could not be done from the
+machine this was built on, and invented numbers would steer the scheduler
+wrong. Until then a provider that is out of quota is simply skipped for
+that run (429, the weekly check's "unavailable"), and the work goes on the
+next day.
+
 **The component manifest** (`components.json`, `tools/component-manifest.py`).
 The one place an external integrated component is declared: its upstream
 (git with a tag pattern, npm or PyPI), the files it produces, an existing

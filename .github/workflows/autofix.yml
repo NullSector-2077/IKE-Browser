@@ -157,6 +157,13 @@ jobs:
             python3 -I tools/autofix-plan.py --run-id "$RUN_ID" --logs "$RUNNER_TEMP/failure/failure.md" \
               --event "$EVENT"
           fi
+          # AUTOMAT: one problem per attempt (the failing tests grouped by their error, by code: the attempt is
+          # asked to fix only the first group, the next attempt takes the next one)
+          if [ -s "$RUNNER_TEMP/failure/failure.md" ]; then
+            python3 -I tools/automat-memory.py focus --failure "$RUNNER_TEMP/failure/failure.md" \
+              --out "$RUNNER_TEMP/focus.md" || true
+            if [ -s "$RUNNER_TEMP/focus.md" ]; then cat "$RUNNER_TEMP/focus.md" >> "$RUNNER_TEMP/failure/failure.md"; fi
+          fi
           # AUTOMAT's memory of attempts (tools/automat-memory.py; the data branch automat/memory, written only
           # by the job remember below): what was already tried for this error, and what solved a similar one,
           # goes into the failure description as quoted data; the rotation prefers a provider that has not
