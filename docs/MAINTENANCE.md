@@ -306,7 +306,15 @@ history. The states:
 
 The same update is never added twice; a failed one keeps its reason and is
 tried again when its time comes or when `main` changes; finished entries
-leave after 30 days. A component never seen before (a new import, depend,
+leave after 30 days. The issue's body stays under `MAX_BODY` (60,000
+characters; GitHub's limit is 65,536): when it would not, the entries' history
+goes first, then the oldest finished entries are folded into one count line,
+then the open entries lose their spare fields one kind after the other (the
+sample rules last) and the filter lists' rows of the table become one line.
+A blocked, needs-person, fixing or other open entry is never left out; the
+artifact `maintenance-ledger` (`ledger.json`) always has everything. A test
+gives 5,000 rules of findings next to 22 component updates: 83 groups, a body
+of about 52,000 characters, every open entry present. A component never seen before (a new import, depend,
 crate or `uses:`) is an entry "(new) → version": passed once the tests of
 `main` are green with it, "needs-person" while the inventory has a finding
 about it. The ledger also **closes the automatic fix's reports whose failure
@@ -380,12 +388,16 @@ list-level problem gets one class, by the first matching rule of this table
 | `share-rise` | breaking | no | the unread share of a list rose by more than `SHARE_RISE` (5 points) since the day before (the ledger keeps yesterday's shares) |
 
 Findings are grouped by class, rule and detail (the option, the engine's
-reason, the scriptlet): `filter-list/<class>/<rule>/<detail>@finding`. The
-classes go into the `components` issue below the lists' table, and each
-finding becomes **one** ledger entry (the ledger remembers it while it is
-reported, also after its entry left): supported and harmless ones "passed",
-needs-a-person ones and those no AI may touch "needs-person", the others
-queued ("detected") for an AI analysis.
+reason, the scriptlet): `lists/<rule>/<detail>@<class>`, so 1,300 rules make
+about 60 groups, not 1,300 entries. The classes go into the `components` issue
+below the lists' table, and each **group** becomes **one** ledger entry (the
+ledger remembers it while it is reported, also after its entry left), with
+the number of rules, the lists concerned and at most three sample rules
+(80 characters each; a finished entry keeps only its count): supported and
+harmless ones "passed", needs-a-person ones and those no AI may touch
+"needs-person", the others queued ("detected") for an AI analysis. Every
+rule of every finding stays in the daily check's artifact `filter-lists`
+(`lists.json`, `classes.json`), never in the issue.
 
 Recorded on 2026-11-22 from the six uBlock Origin lists this sandbox could
 read (EasyList, EasyPrivacy, EasyList Italy, URLhaus and Fanboy's cookie list
@@ -402,9 +414,10 @@ for a person (69 rules of uBlock Origin's own resources, 3 YouTube rules). These
 engine's gaps of today, not new regressions: they are written in the ledger
 once, and analysed one at a time.
 
-**The AI analysis** (one at a time, the most severe first, never for a
-YouTube rule or a finding of a person; a finding that waits for a free
-provider holds the queue). The daily check's job `ai-work` (only `actions:
+**The AI analysis** (one group, that is one option or one scriptlet, per
+attempt; one at a time, the most severe first, at most one started a day,
+never for a YouTube rule or a finding of a person; a finding that waits for a
+free provider holds the queue). The daily check's job `ai-work` (only `actions:
 write`) starts `autofix.yml` with `work=lists/<date>/<finding>`. The plan
 (`tools/filter-lists.py plan`, GET calls only) reads that day's lists report,
 and writes the task and the finding's real rules (at most `RECORDED_MAX`).

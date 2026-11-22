@@ -235,7 +235,7 @@ def _decide_regex():
 
 def test_an_unknown_scriptlet_becomes_an_ai_plan_on_an_isolated_branch():
     info = _lists_info()
-    key = "filter-list/breaking/unknown-scriptlet/no-such-scriptlet@finding"
+    key = "lists/unknown-scriptlet/no-such-scriptlet@breaking"
     work = "lists/2026-11-22/" + key
     # the work id passes the workflow's own check and the queue's
     assert re.fullmatch(_decide_regex(), work) and work_tool.WORK_ID.match(work)
@@ -273,12 +273,17 @@ def test_the_ledger_takes_each_finding_once_and_starts_one_analysis():
     work = {"run_id": "777", "run_url": "u", "lists": info, "outcomes": []}
     led = ledger_tool.update(None, {"components": [], "findings": []}, now=NOW, work=work)
     entries = led["entries"]
-    unknown = entries["filter-list/breaking/unknown-scriptlet/no-such-scriptlet@finding"]
-    popup = entries["filter-list/security/protection-dropped/option-popup@finding"]
+    unknown = entries["lists/unknown-scriptlet/no-such-scriptlet@breaking"]
+    popup = entries["lists/protection-dropped/option-popup@security"]
     youtube = next(e for k, e in entries.items() if "/youtube/" in k)
-    assert youtube["state"] == "needs-person" and "CLAUDE.md" in youtube["reason"]
-    assert entries["filter-list/person/known-resource/noeval@finding"]["state"] == "needs-person"
-    assert entries["filter-list/harmless/other-platform/html-filtering@finding"]["state"] == "passed"
+    assert youtube["state"] == "needs-person" and "rule youtube" in youtube["reason"]
+    # one entry per group: its count, the lists concerned and at most three samples
+    assert popup["from"] == "1 rules" and popup["lists"] == "uBO filters" and popup["to"] == "security"
+    assert popup["samples"] == ["||bit.ly^$popup,domain=eurogamer.net"]
+    assert unknown["from"] == "2 rules" and len(unknown["samples"]) <= 3
+    assert "samples" not in entries["lists/other-platform/html-filtering@harmless"]     # finished: a count
+    assert entries["lists/known-resource/noeval@person"]["state"] == "needs-person"
+    assert entries["lists/other-platform/html-filtering@harmless"]["state"] == "passed"
     # the most severe first, one at a time: the security finding, on an isolated branch
     assert popup["state"] == "fixing" and popup["work"]["branch"] == "automation/update/lists-2026-11-22"
     assert unknown["state"] == "detected"
@@ -289,7 +294,7 @@ def test_the_ledger_takes_each_finding_once_and_starts_one_analysis():
     # while the first analysis runs
     body = ledger_tool.render(led)
     again = ledger_tool.parse_body(body)
-    assert again is not None and again["lists_known"].keys() == led["lists_known"].keys()
+    assert again is not None and again["lists_seen"].keys() == led["lists_seen"].keys()
     led2 = ledger_tool.update(again, {"components": [], "findings": []}, now=NOW + dt.timedelta(hours=20),
                               work=dict(work, run_id="778"))
     assert led2["entries"].keys() == entries.keys() and led2["dispatch"] == []
@@ -298,6 +303,18 @@ def test_the_ledger_takes_each_finding_once_and_starts_one_analysis():
     led3 = ledger_tool.update(again, {"components": [], "findings": []}, now=NOW + dt.timedelta(hours=20),
                               work=dict(work, run_id="778"))
     assert unknown["key"] not in led3["entries"]
+    # at most one analysis started a day, also when the first one is over the same day
+    deferred = {"work": led["dispatch"][0]["work"], "outcome": "deferred", "run": "9", "artifact": "x",
+                "created": "2026-11-22T06:00:00Z"}
+    gone = json.loads(json.dumps(info))
+    gone["lists"][0]["unread"] = [u for u in gone["lists"][0]["unread"] if "popup" not in u[1]]
+    same_day = ledger_tool.update(json.loads(json.dumps(led)), {"components": [], "findings": []},
+                                  now=NOW + dt.timedelta(hours=3), work={"run_id": "779", "lists": gone,
+                                                                         "outcomes": [deferred]})
+    assert same_day["entries"][popup["key"]]["state"] == "passed" and same_day["dispatch"] == []
+    next_day = ledger_tool.update(same_day, {"components": [], "findings": []}, now=NOW + dt.timedelta(days=1),
+                                  work={"run_id": "780", "lists": gone, "outcomes": []})
+    assert [d["key"] for d in next_day["dispatch"]] == [unknown["key"]]
     # the dispatch the job makes of it (no network: dry run)
     started = work_tool.dispatch(led, "o/r", dry_run=True)
     assert started == ["lists/2026-11-22/" + popup["key"]]
@@ -647,7 +664,7 @@ def test_a_lists_analysis_without_provider_keeps_its_branch():
                              work={"run_id": "802", "lists": fixed, "outcomes": []})
     assert led["entries"][key]["state"] == "passed"
     # the next finding is analysed now
-    assert led["dispatch"] and led["dispatch"][0]["key"].endswith("no-such-scriptlet@finding")
+    assert led["dispatch"] and led["dispatch"][0]["key"].endswith("no-such-scriptlet@breaking")
 
 
 def _step(name, workflow="autofix.yml"):
@@ -713,7 +730,7 @@ def test_the_report_asks_nobody_when_the_work_waits(tmp_path, env, tell, outcome
 
 def test_the_daily_check_runs_the_queue():
     text = (WORKFLOWS / "daily-check.yml").read_text()
-    assert "tools/filter-lists.py classify --lists lists.json --markdown classes.md" in text
+    assert "tools/filter-lists.py classify --lists lists.json --json classes.json --markdown classes.md" in text
     assert 'tools/ai-work.py gather --repo "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID"' in text
     assert "--out ledger.md --json ledger.json --work work.json" in text
     assert "tools/ai-work.py notify --ledger ledger.json" in text
@@ -750,3 +767,58 @@ def test_the_outcomes_are_read_from_the_runs_artifacts():
     assert found == [{"work": "run/7", "outcome": "deferred", "run": "55", "created": "2026-11-22T04:00:00Z",
                       "artifact": "ai-work-outcome-report"}]
     assert len(calls) == len(work_tool.OUTCOME_ARTIFACTS) + 1     # one listing each, one download
+
+
+def test_five_thousand_findings_fit_in_the_ledger_issue():
+    """GitHub's limit for an issue body is 65,536 characters: 5,000 rules the
+    engine does not read, in many lists, with many options and unknown
+    scriptlets, next to 22 updates of components (PR #100's dry run), give one
+    entry per group, a body under MAX_BODY, and every open entry in it."""
+    options = sorted(lists_tool.PROTECTIVE | lists_tool.NO_BLOCKING) + ["reason", "requestheader", "top", "shide"]
+    names = ["uBlock filters", "uBlock filters - Privacy", "uBlock filters - Badware", "uBlock filters - Unbreak",
+             "uBlock filters - Quick fixes", "EasyList", "EasyPrivacy", "EasyList Italy"]
+    rows = []
+    for i, name in enumerate(names):
+        unread = []
+        for n in range(5000 // len(names)):
+            option = options[(n + i) % len(options)]
+            rule = "%s||site%d.example^$script,%s=x" % ("@@" if n % 7 == 0 else "", n, option)
+            unread.append(["error", rule, "network filter error: unrecognised option"])
+        unread += [["error", "s%d.example##^script:has-text(ad)" % n, "cosmetic filter error: html filtering is "
+                    "unsupported"] for n in range(5)]
+        rows.append({"name": name, "state": "ok", "trusted": i < 5, "network": 1000, "cosmetic": 1000,
+                     "unread_share": 0.05, "scriptlets": {"rules": 10}, "unread": unread})
+    unknown = {"made-up-%d" % n: {"count": 3, "lists": ["uBlock filters"], "example":
+                                  "x%d.example##+js(made-up-%d, a)" % (n, n)} for n in range(30)}
+    info = {"state": "findings", "lists": rows, "findings": [], "engine": {"built": True, "backend": "adblock"},
+            "unknown_scriptlets": unknown}
+    assert sum(len(r["unread"]) for r in rows) >= 5000
+    led = ledger_tool.update(None, _empty(), now=NOW, work={"run_id": "1", "lists": info, "outcomes": []})
+    for n in range(22):
+        key = "crate:c%d@1.0.%d" % (n, n)
+        led["entries"][key] = {"key": key, "component": "crate:c%d" % n, "name": "crate c%d" % n, "kind": "crate",
+                               "from": "1.0.0", "to": "1.0.%d" % n, "state": ("candidate", "blocked", "passed")[n % 3],
+                               "reason": "r" * 150, "attempts": 1, "first_seen": "2026-11-21T05:00:00Z",
+                               "last_seen": "2026-11-22T05:00:00Z", "changed": "2026-11-2%dT05:00:00Z" % (n % 2),
+                               "last_run": "https://github.com/o/r/actions/runs/123456789", "next_retry": "",
+                               "history": [["2026-11-22T05:00:00Z", "candidate", "h" * 150]] * 4}
+    lists = [e for e in led["entries"].values() if e["kind"] == "filter-list"]
+    assert 50 <= len(lists) < 200                                  # one per group, never one per rule
+    body = ledger_tool.render(led)
+    assert len(body) <= ledger_tool.MAX_BODY, len(body)
+    back = ledger_tool.parse_body(body)
+    assert back is not None
+    opened = [k for k, e in led["entries"].items() if e["state"] != "passed"]
+    assert opened and all(k in back["entries"] and back["entries"][k]["state"] == led["entries"][k]["state"]
+                          for k in opened)
+    # only finished entries were folded, and the issue says how many
+    folded = [k for k in led["entries"] if k not in back["entries"]]
+    assert all(led["entries"][k]["state"] == "passed" for k in folded)
+    if folded:
+        assert back["folded"] == len(folded) and "%d older finished entries were folded" % len(folded) in body
+    # the next day reads it back: no finding added twice, nothing open lost
+    again = ledger_tool.update(back, _empty(), now=NOW + dt.timedelta(days=1),
+                               work={"run_id": "2", "lists": info, "outcomes": []})
+    assert all(k in again["entries"] for k in opened)
+    assert not any(k in again["entries"] for k in folded if k.startswith("lists/"))
+    assert len(ledger_tool.render(again)) <= ledger_tool.MAX_BODY

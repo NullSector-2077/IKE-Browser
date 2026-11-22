@@ -6,7 +6,7 @@ No AI here. Two kinds of work live in the maintenance ledger
 
 - "filter-list": each finding of the filter lists, classified by
   tools/filter-lists.py, becomes one entry, once (key
-  ``filter-list/<class>/<rule>/<detail>@finding``). Supported and harmless
+  ``lists/<rule>/<detail>@<class>``). Supported and harmless
   ones are "passed" at once; "needs a person" ones (YouTube, uBlock Origin's
   own resources, a list that is not a list) and those no AI may touch are
   "needs-person"; breaking and security findings about the syntax of rules or
@@ -60,7 +60,7 @@ TESTING_DAYS = 7               # a published lists branch whose finding is still
 SEEN_DAYS = 14                 # a finding not reported for this long is forgotten (it may come back as new)
 MAX_LIST_WORK = 1              # lists analyses running at the same time
 SEVERITY = {"security": 0, "breaking": 1}
-WORK_ID = re.compile(r"^(lists/\d{4}-\d\d-\d\d/filter-list/[a-z]+/[a-z-]+/[a-z0-9.-]+@finding|run/\d{1,20})$")
+WORK_ID = re.compile(r"^(lists/\d{4}-\d\d-\d\d/lists/[a-z-]+/[a-z0-9.-]+@[a-z]+|run/\d{1,20})$")
 BOT = "github-actions[bot]"
 
 
@@ -87,23 +87,35 @@ def parse_time(text):
 
 
 def _entry(key, name, kind, now, run_url=""):
-    return {"key": key, "component": key.split("@", 1)[0], "name": name, "kind": kind, "from": "", "to":
-            key.split("@", 1)[1], "state": "", "reason": "", "attempts": 1, "first_seen": stamp(now),
-            "last_seen": stamp(now), "last_run": run_url, "next_retry": "", "update_mode": "ai-work",
-            "basis": "", "history": []}
+    """A ledger entry, small: the issue holds every one of them (the rules
+    themselves stay in the daily check's artifact filter-lists)."""
+    e = {"key": key, "component": key.split("@", 1)[0], "name": name, "kind": kind, "from": "", "to":
+         key.split("@", 1)[1], "state": "", "reason": "", "attempts": 1, "first_seen": stamp(now),
+         "last_seen": stamp(now), "history": []}
+    if run_url:
+        e["last_run"] = run_url
+    return e
+
+
+CLASS_SHORT = {"supported": "supported", "harmless": "unsupported but harmless",
+               "breaking": "breaking incompatibility", "security": "possible security regression",
+               "person": "needs a person"}
 
 
 def _first_state(f):
+    """(state, reason) of a new finding; the rule's reason is in docs/MAINTENANCE.md."""
+    cls = CLASS_SHORT[f["class"]]
     if f["class"] in ("supported", "harmless"):
-        return "passed", "%s: %s" % (f["class"] if f["class"] == "supported" else "unsupported but harmless",
-                                     f["why"])
+        return "passed", cls
     if f["class"] == "person" or f["youtube"]:
-        return "needs-person", "needs a person: %s" % f["why"]
+        return "needs-person", "%s (rule %s)" % (cls, f["rule"])
     if f["ai"]:
-        return "detected", "%s: %s; queued for an AI analysis of I.K.E.'s adapter on an isolated branch" % (
-            "possible security regression" if f["class"] == "security" else "breaking incompatibility", f["why"])
-    return "needs-person", "%s: %s" % ("possible security regression" if f["class"] == "security"
-                                       else "breaking incompatibility", f["why"])
+        return "detected", "%s: queued for an AI analysis" % cls
+    return "needs-person", "%s (rule %s): no AI may touch it" % (cls, f["rule"])
+
+
+def _short_list(name):
+    return name.replace("uBlock filters - ", "uBO ").replace("uBlock filters", "uBO filters")
 
 
 def _work(e):
@@ -144,10 +156,11 @@ def merge(ledger, work, now, set_state, cap=None):
     cap = REGISTRY.RETRY_CAP if cap is None else cap
     work = work or {}
     entries = ledger.setdefault("entries", {})
-    seen = ledger.setdefault("lists_seen", {})
-    done = ledger.setdefault("outcomes_seen", [])
+    seen = ledger.setdefault("lists_seen", {})          # finding -> day last reported (once: never added again)
+    done = ledger.get("outcomes_seen")
+    done = done if isinstance(done, dict) else {}       # outcome -> day read
     dispatch, notify = [], []
-    run_id, run_url = str(work.get("run_id") or ""), work.get("run_url") or ""
+    run_id = str(work.get("run_id") or "")
 
     # 1. what the autofix runs did (each run's outcome once, oldest first)
     for out in sorted(work.get("outcomes") or [], key=lambda o: o.get("created", "")):
@@ -155,7 +168,7 @@ def merge(ledger, work, now, set_state, cap=None):
         mark = "%s:%s" % (out.get("run", ""), out.get("artifact", what))
         if not WORK_ID.match(wid or "") or what not in OUTCOMES or mark in done:
             continue
-        done.append(mark)
+        done[mark] = stamp(now)[:10]
         if wid.startswith("lists/"):
             key = wid.split("/", 2)[2]
             e = entries.get(key)
@@ -184,7 +197,8 @@ def merge(ledger, work, now, set_state, cap=None):
                 ": " + reason if reason else ""), now)
         else:
             set_state(e, "passed", "nothing to do any more: %s" % (reason or "the plan skipped it"), now)
-    ledger["outcomes_seen"] = done[-300:]
+    old = (now - dt.timedelta(days=OUTCOME_DAYS + 1)).strftime("%Y-%m-%d")
+    ledger["outcomes_seen"] = {k: d for k, d in done.items() if d >= old}
 
     # 2. today's filter-list findings: each one an entry, once
     lists = work.get("lists")
@@ -196,26 +210,36 @@ def merge(ledger, work, now, set_state, cap=None):
         for f in result["findings"]:
             key = f["key"]
             today.add(key)
-            seen[key] = stamp(now)
+            known = key in seen
+            seen[key] = stamp(now)[:10]
             e = entries.get(key)
             if e is None:
-                if key in ledger.get("lists_known", {}):
-                    continue                  # already had its entry (since pruned): once
-                e = entries[key] = _entry(key, "Filter lists: %s, %s" % (f["rule"], f["detail"]), "filter-list",
-                                          now, run_url)
-                e.update(lists_class=f["class"], ai=f["ai"], youtube=f["youtube"])
+                if known:
+                    continue                  # already had its entry (since pruned or folded): once
+                e = entries[key] = _entry(key, "Filter lists: %s (%s)" % (str(f["detail"])[:60], f["rule"]),
+                                          "filter-list", now)
+                e["ai"] = f["ai"]                 # the class is the entry's "to" (its key ends in it)
+                if f["youtube"]:
+                    e["youtube"] = True
                 set_state(e, *_first_state(f), now)
-                ledger.setdefault("lists_known", {})[key] = stamp(now)
+            # one entry per group: its count, the lists concerned and at most three
+            # sample rules (all the rules: the artifact filter-lists of the run)
             e["last_seen"] = stamp(now)
-            e["from"] = "%d rules in %s" % (f["count"], ", ".join(f["lists"])[:80])
+            e["from"] = "%d rules" % f["count"]
+            if e["state"] != "passed":         # a finished one needs no more than its count
+                e["lists"] = ", ".join(_short_list(n) for n in f["lists"])[:90]
+                e["samples"] = [x["rule"][:80] for x in f["examples"][:3]]
+            else:
+                e.pop("lists", None)
+                e.pop("samples", None)
         for key, e in entries.items():
+            branch = (e.get("work") or {}).get("branch")
             if e.get("kind") == "filter-list" and key not in today and e["state"] != "passed":
                 set_state(e, "passed", "no longer reported by the lists check%s" % (
-                    " (the AI's change on %s, or the lists changed)" % _work(e)["branch"]
-                    if _work(e).get("branch") else ""), now)
-        for key in [k for k, t in seen.items() if (parse_time(t) or now) < now - dt.timedelta(days=SEEN_DAYS)]:
+                    " (the AI's change on %s, or the lists changed)" % branch if branch else ""), now)
+        limit = (now - dt.timedelta(days=SEEN_DAYS)).strftime("%Y-%m-%d")
+        for key in [k for k, day in seen.items() if day[:10] < limit]:
             del seen[key]
-            ledger.get("lists_known", {}).pop(key, None)
 
     # 3. work in flight: started but silent, published but still found, waiting for a provider
     for e in entries.values():
@@ -237,7 +261,9 @@ def merge(ledger, work, now, set_state, cap=None):
                 dispatch.append(_dispatch(e, wid, wid.split("/", 1)[1], now, set_state,
                                           "started again: a free provider may answer now (try %d of %d)"
                                           % (w.get("retries", 0) + 1, cap)))
-            elif e["kind"] == "filter-list" and run_id and wid.startswith("lists/"):
+            elif e["kind"] == "filter-list" and run_id and wid.startswith("lists/") and \
+                    ledger.get("lists_started") != stamp(now)[:10]:
+                ledger["lists_started"] = stamp(now)[:10]
                 dispatch.append(_dispatch(e, wid, run_id, now, set_state,
                                           "AI analysis started again on %s (try %d of %d)"
                                           % (w.get("branch"), w.get("retries", 0) + 1, cap)))
@@ -248,9 +274,12 @@ def merge(ledger, work, now, set_state, cap=None):
                and e["state"] in ("fixing", "testing", "retry-later"))
     queued = sorted((e for e in entries.values() if e.get("kind") == "filter-list" and e["state"] == "detected"
                      and e.get("ai") and not e.get("youtube")),
-                    key=lambda e: (SEVERITY.get(e.get("lists_class"), 9), e["first_seen"], e["key"]))
+                    key=lambda e: (SEVERITY.get(e["to"], 9), e["first_seen"], e["key"]))
+    if ledger.get("lists_started") == stamp(now)[:10]:
+        busy = MAX_LIST_WORK                  # at most one analysis started a day
     for e in queued[:max(0, MAX_LIST_WORK - busy)] if run_id else []:
         date = now.strftime("%Y-%m-%d")
+        ledger["lists_started"] = date
         w = _work(e)
         if not w.get("branch"):
             w["branch"], w["date"] = "automation/update/lists-%s" % date, date

@@ -111,14 +111,18 @@ jobs:
           python3 tools/check-components.py --filter-lists lists.json --markdown lists.md
           # WP8: the findings in five classes (supported, harmless, breaking,
           # security, needs a person); the rules are written in the tool
-          python3 tools/filter-lists.py classify --lists lists.json --markdown classes.md \
+          python3 tools/filter-lists.py classify --lists lists.json --json classes.json --markdown classes.md \
             || echo "The findings could not be classified today (see the log)." > classes.md
           cat classes.md >> lists.md
           cat lists.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: filter-lists
-          path: lists.*
+          # every rule of every finding (lists.json) and the classes (classes.json):
+          # the ledger's issue keeps only counts and three samples
+          path: |
+            lists.*
+            classes.json
           if-no-files-found: error
           retention-days: 14
 

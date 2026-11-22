@@ -113,7 +113,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/failure"
           # the daily check's work (tools/ai-work.py), only in its own forms
-          if ! printf '%s' "$WORK" | grep -Eq '^(lists/[0-9]{4}-[0-9]{2}-[0-9]{2}/filter-list/[a-z]+/[a-z-]+/[a-z0-9.-]+@finding|run/[0-9]{1,20})$'; then
+          if ! printf '%s' "$WORK" | grep -Eq '^(lists/[0-9]{4}-[0-9]{2}-[0-9]{2}/lists/[a-z-]+/[a-z0-9.-]+@[a-z]+|run/[0-9]{1,20})$'; then
             WORK=""
           fi
           if [ "${WORK#lists/}" != "$WORK" ]; then

@@ -148,7 +148,8 @@ def slug(text, size=60):
 
 
 def finding_key(cls, rule, detail):
-    return "filter-list/%s/%s/%s@finding" % (cls, rule, slug(detail))
+    """lists/<rule>/<detail>@<class>: short, it is written several times in the ledger's issue."""
+    return "lists/%s/%s@%s" % (rule, slug(detail), cls)
 
 
 def _scriptlets(root=ROOT):
@@ -380,7 +381,7 @@ def adapter_lines(root=ROOT):
     return out
 
 
-WORK = re.compile(r"^lists/(\d{4}-\d\d-\d\d)/(filter-list/[a-z]+/[a-z-]+/[a-z0-9.-]+@finding)$")
+WORK = re.compile(r"^lists/(\d{4}-\d\d-\d\d)/(lists/[a-z-]+/[a-z0-9.-]+@[a-z]+)$")
 
 
 def parse_work(work):
@@ -391,7 +392,8 @@ def parse_work(work):
 
 
 def recorded_path(date, key):
-    return "%s/%s-%s.txt" % (RECORDED_DIR, date, slug(key.split("/", 1)[1].split("@")[0], 50))
+    rule_detail, cls = key.split("/", 1)[1].split("@")
+    return "%s/%s-%s-%s.txt" % (RECORDED_DIR, date, cls, slug(rule_detail, 50))
 
 
 def plan(info, work, main_sha, branch_tip="", attempts=0, root=ROOT):

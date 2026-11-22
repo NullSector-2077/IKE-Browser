@@ -401,8 +401,45 @@ def _md(text):
     return str(text or "").replace("|", "\\|").replace("\n", " ")
 
 
+# fields an entry can do without in the issue (the artifact keeps them): the
+# last resort of the size guard, before any open entry would be left out
+SPARE_FIELDS = ("history", "basis", "update_mode", "next_retry", "last_run", "lists", "samples")
+
+
 def render(ledger, inv=None, closed=()):
+    """The issue body, at most MAX_BODY characters: first the history goes, then
+    the oldest finished entries are folded into a count line, then the open
+    entries lose their spare fields and the filter lists' rows of the table
+    become one line. An open, blocked or needs-person entry is never left out."""
+    text = _body(ledger, inv, closed)
+    if len(text) <= MAX_BODY:
+        return text
+    slim = json.loads(json.dumps(ledger))
+    for e in slim["entries"].values():
+        e["history"] = e.get("history", [])[-2:]
+    passed = sorted((k for k, e in slim["entries"].items() if e["state"] == "passed"),
+                    key=lambda k: slim["entries"][k].get("changed", ""))
+    text = _body(slim, inv, closed)
+    while len(text) > MAX_BODY and passed:
+        for key in passed[:max(1, len(passed) // 4)]:
+            del slim["entries"][key]
+            slim["folded"] = slim.get("folded", 0) + 1
+        passed = passed[max(1, len(passed) // 4):]
+        text = _body(slim, inv, closed)
+    for n, field in enumerate(SPARE_FIELDS):     # then the spare fields, one kind after the other
+        if len(text) <= MAX_BODY:
+            break
+        for e in slim["entries"].values():
+            e.pop(field, None)
+            e["reason"] = str(e.get("reason", ""))[:80]
+        text = _body(slim, inv, closed, compact=n == len(SPARE_FIELDS) - 1)
+    return text
+
+
+def _body(ledger, inv=None, closed=(), compact=False):
     entries = sorted(ledger["entries"].values(), key=lambda e: (STATES.index(e["state"]), e["key"]))
+    lists = [e for e in entries if compact and e.get("kind") == "filter-list" and e["state"] != "passed"]
+    entries = [e for e in entries if e not in lists]
     open_ = [e for e in entries if e["state"] != "passed"]
     done = [e for e in entries if e["state"] == "passed"]
     people = sum(e["state"] in ("needs-person", "blocked") for e in entries)
@@ -422,6 +459,10 @@ def render(ledger, inv=None, closed=()):
             for e in open_]
     else:
         out.append("Nothing open.")
+    if lists:
+        out += ["", "Filter lists: %d open findings, in the machine-readable state below (%s)." % (
+            len(lists), ", ".join("%s %d" % (s, sum(e["state"] == s for e in lists)) for s in STATES
+                                  if any(e["state"] == s for e in lists)))]
     out += ["", "## Finished, last %d days (%d)" % (PRUNE_DAYS, len(done)), ""]
     if done:
         out.append(head)
@@ -430,6 +471,9 @@ def render(ledger, inv=None, closed=()):
             "[run](%s)" % e["last_run"] if e.get("last_run") else "-") for e in done]
     else:
         out.append("None.")
+    if ledger.get("folded"):
+        out += ["", "%d older finished entries were folded here to keep this issue under GitHub's limit (the "
+                "artifact maintenance-ledger of each daily run has them all)." % ledger["folded"]]
     if inv:
         out += ["", "## Inventory", "", "%d components (%s). Findings: %s." % (
             inv.get("total", 0), ", ".join("%s %d" % kv for kv in inv.get("counts", {}).items()),
@@ -439,19 +483,7 @@ def render(ledger, inv=None, closed=()):
     data = json.dumps(ledger, indent=0, sort_keys=True)
     out += ["", "<details><summary>Machine-readable state (read back by the next daily check)</summary>", "",
             BEGIN, "```json", data, "```", END, "", "</details>", ""]
-    text = "\n".join(out)
-    if len(text) > MAX_BODY:            # the history goes first, then the oldest finished entries
-        slim = json.loads(json.dumps(ledger))
-        for e in slim["entries"].values():
-            e["history"] = e.get("history", [])[-2:]
-        for key in sorted((k for k, e in slim["entries"].items() if e["state"] == "passed"),
-                          key=lambda k: slim["entries"][k].get("changed", "")):
-            if len(json.dumps(slim)) < MAX_BODY // 2:
-                break
-            del slim["entries"][key]
-        if slim != ledger:
-            return render(slim, inv, closed)
-    return text
+    return "\n".join(out)
 
 
 # --- the automatic fix's reports whose failure is gone ---------------------------------------
