@@ -1419,7 +1419,8 @@ class _RoundMenu(QObject):
         super().__init__(menu)
         self.menu = menu
         self.shadow = POPUP_SHADOW if translucent_popups() else 0
-        menu.setStyle(PopupPanelStyle(self.shadow))
+        self.style = PopupPanelStyle(self.shadow)        # kept here: a widget does not own its style
+        menu.setStyle(self.style)
         menu.setProperty("_KDE_NET_WM_SKIP_SHADOW", True)       # its shadow is painted: none from KWin
         if self.shadow:
             menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
