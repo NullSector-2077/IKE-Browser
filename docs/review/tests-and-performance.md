@@ -105,21 +105,28 @@ start); "warm" = the same profile started again (the usual start). Times
 from starting the process to the first paint of the window and to the
 new tab page loaded (`loadFinished`); main-thread CPU from
 `/proc/self/task/<pid>/schedstat`; PSS from `smaps_rollup` 3 s after the
-page. Median of 11 starts of each kind, interquartile range in brackets.
+page. Two series of 11 starts of each kind (the second one an hour later,
+with the container quieter); medians, interquartile range in brackets.
 
-| Start (11 starts each) | before | after | change |
+| Start | series 1: before → after | series 2: before → after | change |
 |---|---|---|---|
-| warm, to the first window | 480 ms [446–505] | 431 ms [399–453] | **-49 ms (-10 %)** |
-| warm, to the first page | 592 ms [563–633] | 546 ms [507–567] | **-46 ms (-8 %)** |
-| warm, CPU of the interface thread to the window | 350 ms [337–376] | 316 ms [292–349] | -34 ms |
-| warm, CPU of the interface thread to the page | 403 ms [390–431] | 368 ms [341–402] | -35 ms |
-| cold, to the first window | 640 ms [601–669] | 586 ms [553–651] | **-54 ms (-8 %)** |
-| cold, to the first page | 757 ms [707–796] | 707 ms [663–774] | **-50 ms (-7 %)** |
-| cold, CPU of the interface thread to the window | 364 ms [353–401] | 384 ms [350–420] | within the spread |
-| memory (PSS), warm: main process | 157.6 MB [157.1–177.5] | 154.2 MB [153.4–156.7] | -3 MB |
-| memory (PSS), warm: renderers / other processes | 86.4 / 33.0 MB | 81.7 / 33.3 MB | within the spread |
-| memory (PSS), cold: main process | 177.8 MB [175.5–179.8] | 174.3 MB [173.8–177.4] | -3 MB |
-| Python modules loaded up to the first page (`-X importtime`, one warm start each) | 248 | 224 | -24 |
+| warm, to the first window | 480 [446–505] → 431 [399–453] ms | 466 [431–506] → 417 [390–434] ms | **-49 / -49 ms (-10 %)** |
+| warm, to the first page | 592 [563–633] → 546 [507–567] ms | 573 [545–625] → 535 [495–557] ms | **-46 / -38 ms (-7 %)** |
+| warm, CPU of the interface thread to the window | 350 [337–376] → 316 [292–349] ms | 341 [332–395] → 310 [296–320] ms | -34 / -31 ms |
+| warm, CPU of the interface thread to the page | 403 [390–431] → 368 [341–402] ms | 390 [377–446] → 358 [338–375] ms | -35 / -32 ms |
+| cold, to the first window | 640 [601–669] → 586 [553–651] ms | 652 [608–693] → 563 [534–590] ms | **-54 / -89 ms (-8 / -14 %)** |
+| cold, to the first page | 757 [707–796] → 707 [663–774] ms | 760 [706–826] → 684 [639–709] ms | **-50 / -76 ms (-7 / -10 %)** |
+| cold, CPU of the interface thread to the window | 364 [353–401] → 384 [350–420] ms | 379 [371–416] → 362 [333–392] ms | within the spread |
+| memory (PSS) of the main process, warm | 157.6 [157.1–177.5] → 154.2 [153.4–156.7] MB | 169.8 [156.7–208.2] → 155.1 [152.7–201.6] MB | within the spread |
+| memory (PSS) of the main process, cold | 177.8 [175.5–179.8] → 174.3 [173.8–177.4] MB | 207.5 [177.3–236.8] → 174.6 [172.4–186.1] MB | within the spread |
+| memory (PSS) of the renderers, warm | 86.4 [80.0–114.4] → 81.7 [78.6–88.3] MB | 121.4 [90.3–125.9] → 89.9 [88.2–126.0] MB | within the spread |
+| Python modules loaded up to the first page (`-X importtime`, one warm start each) | 248 → 224 | | -24 |
+
+PSS divides a shared page among the processes that use it, and other
+browsers of another session were running in the container at times: the
+memory figures jump by 30–50 MB from start to start and show no change
+beyond that (series 1: about -3 MB for the main process, fewer modules
+loaded).
 
 **Where the time went (warm, before).** A timeline of one copy with time
 stamps at each step (5 starts): Python and `ike_boot.py` 22 ms; PyQt6 and
@@ -191,6 +198,21 @@ the session's tabs are restored lazily; the PSL parse was already cached
 needed by the interface's own text anyway; the font check's answer must
 be there before the first page. PyQt6 creates its enum classes the first
 time they are used (about 280 at start): the cost moves, it does not go.
+
+**Tests.** `ruff check .` clean. The whole suite on this branch: locally
+(Python 3.13, PyQt 6.12 from PyPI) 932 passed, 19 skipped, 2 failed; in the
+Arch container (Python 3.14, Arch's Qt) 929 passed, 21 skipped, 3 failed.
+None of the failures comes from this work:
+`test_the_default_lists_in_the_bundled_engine` needs the engine's parse
+report, which the engine library used here (built on 2026-11-20) does not
+have (it fails on `fix/1.1.22` as well); `test_a_check_does_not_wait_for_other_python_threads`
+is a timing test of the engine alone that failed while both suites ran at
+the same time, on `fix/1.1.22` as well, and passes on a quiet machine
+(test_adblock.py: 4 passed with both copies in the container and
+locally); `test_withdrawn_list_is_named_only_where_it_is_removed` asks
+git for the files, and the container's copy is not a git checkout (it
+passes locally). tests/test_start_speed.py: 14 passed locally and in the
+container.
 
 ## 1.1.21, Dark Reader: only the measured changes
 

@@ -26,13 +26,13 @@ Two things the owner saw in 1.1.21 on KDE Plasma:
 Speed, with every feature and protection as it was:
 
 - **A faster start, the same protection**: the window comes about 50 ms
-  sooner (480 → 431 ms in the test container, warm; 640 → 586 ms for a new
-  profile) and the first page too. The Public Suffix List's codes for the
+  sooner (480 → 431 ms in the test container), 54–89 ms for a new profile,
+  and the first page 38–76 ms sooner. The Public Suffix List's codes for the
   fingerprint protection are kept instead of being worked out at every start,
   and the usual start no longer loads Python modules it does not need. A
   filter engine built from the lists (a new profile, a list update) takes
-  175 ms instead of 235, and the interface waits at most about 8 ms meanwhile
-  instead of 17. Every protection is in place before the first page as
+  175 ms instead of 235, and the interface's longest pause meanwhile is
+  about 8 ms instead of 17 (medians). Every protection is in place before the first page as
   before, and what a page sees is unchanged (numbers and method:
   docs/review/tests-and-performance.md, "1.1.22, start and speed").
 
