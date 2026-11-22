@@ -3463,7 +3463,10 @@ def test_arch_reaches_the_automatic_fix_and_comes_back_tested_there():
     assert "success()" in ready and "github.ref_name == 'automation/autofix-main'" in ready
     assert 'gh workflow run automerge.yml --ref main -f sha="$SHA"' in ready
     merge = (ROOT / "tools/automerge.py").read_text()
-    assert '"workflow", "run", "arch.yml", "--repo", a.repo, "--ref", "main"' in merge
+    # since 2026-11-22 nothing is merged by itself, so no run of main is started
+    # here: the owner's merge is a push to main, which starts Tests, Security
+    # and Arch Linux by itself
+    assert "/merge" not in merge and "tell_ready(" in merge
     # the reporting jobs are the automation's own: the merge never waits for them
     automerge = load("automerge")
     assert {"hand-over", "merge-ready"} <= automerge.OWN_JOBS

@@ -214,8 +214,8 @@ def test_the_workflows_are_wired():
     af = (WORKFLOWS / "autofix.yml").read_text()
     assert 'retry gh workflow run security.yml --ref "$PUSH_BRANCH"' in af             # H3
     text = (ROOT / "tools" / "automerge.py").read_text()
-    assert '"sha=" + a.sha' in text and '"workflow", "run", "tests.yml"' in text
-    assert '"workflow", "run", "security.yml"' in text
+    # since 2026-11-22 nothing merges into main by itself (the owner's decision)
+    assert "/merge" not in text and "merge_method" not in text
     rr = (WORKFLOWS / "release-ready.yml").read_text()
     assert "for check in tests sandbox" in rr and "group: release-ready" in rr          # H3, M6
     assert 'select(.author.login == "github-actions")' in rr and "--state closed" in rr   # M6
@@ -366,3 +366,35 @@ def test_a_real_maintenance_candidate_passes_the_check(tmp_path):
         res = subprocess.run([sys.executable, "-I", str(script), str(ROOT), "NullSector-2077/IKE-Browser"],
                              cwd=repo, capture_output=True, text=True)
         assert res.returncode == 0, (keep, res.stdout + res.stderr)
+
+
+def test_a_green_harmless_fix_waits_for_the_owners_order(monkeypatch):
+    """2026-11-22, the owner's decision: no agent merges into main by itself.
+    A fix that would have merged is marked ready and the owner is told once;
+    the workflow cannot merge (its token only reads the contents)."""
+    calls = []
+    sha = "a" * 40
+    pr = {"number": 7, "draft": True, "title": "fix", "head": {"sha": sha, "ref": "automation/autofix-main",
+                                                                 "repo": {"full_name": "o/r"}},
+          "base": {"sha": "b" * 40}}
+
+    def api(path):
+        if path.startswith("repos/o/r/pulls?"):
+            return [pr]
+        if "/check-runs" in path:
+            return {"check_runs": []}
+        return []
+    monkeypatch.setattr(merge, "api", api)
+    monkeypatch.setattr(merge, "gh", lambda *a: calls.append(a) or "")
+    monkeypatch.setattr(merge, "decide", lambda *a, **k: ("merge", ""))
+    monkeypatch.setattr(merge, "_guard", lambda: type("G", (), {"allowed_path": lambda self, n, x: True})())
+    monkeypatch.setattr(merge, "released", lambda *a: False)
+    monkeypatch.setattr(merge, "version_of_main", lambda: "1.0")
+    monkeypatch.setattr(merge, "unread_merge", lambda *a: False)
+    assert merge.main(["--repo", "o/r", "--sha", sha]) == 0
+    flat = [" ".join(map(str, c)) for c in calls]
+    assert not any("/merge" in c or "merge_method" in c for c in flat), flat
+    assert any(c.startswith("pr ready 7") for c in flat), flat
+    assert any(c.startswith("pr comment 7") and "tuo ordine" in c for c in flat), flat
+    am = (WORKFLOWS / "automerge.yml").read_text()
+    assert "contents: write" not in am and "contents: read" in am

@@ -16,9 +16,24 @@ decisions, status) and CHANGELOG.md.
 - Do not change YouTube ad blocking and do not reorganize menus or settings
   without asking.
 - GitHub: Claude does everything on GitHub by itself (branches, pull requests,
-  merges after green tests, issues, workflows) without asking each time. Only
-  signing and publishing releases belong to the owner (`python3
-  tools/publish.py` on the owner's PC).
+  issues, workflows) without asking each time. Merging into `main` (the
+  owner's decision of 2026-11-22): nothing merges by itself, no automation
+  and no AI agent (AutoFix, Antigravity, Groq, Z.AI, OpenRouter...). Claude
+  merges only the versions and changes the owner asked for, after green
+  tests; ChatGPT merges only on the owner's explicit order, after green
+  tests; every automatic update or fix waits in its pull request for the
+  owner's order. Only signing and publishing releases belong to the owner
+  (`python3 tools/publish.py` on the owner's PC).
+- Automatic maintenance (the owner's decisions of 2026-11-22): AI agents work
+  only on isolated branches (`automation/update/*`, `automation/builder/*`
+  and the existing maintenance branches), never on `main`; for the builders of
+  Dark Reader and uBlock Origin they may only re-anchor I.K.E.'s existing
+  patches, with tests; workflow files only as proposals a person reads; they
+  never change their own protections or permissions. A vulnerability starts
+  an analysis and a fix on an isolated branch; with no safe fix the candidate
+  is blocked and the owner is told. Only free AI providers (the owner
+  confirmed no billing on Gemini, Groq, Z.AI, OpenRouter, Antigravity), with
+  periodic checks, `:free` models on OpenRouter, no local inference.
 - The private signing key never goes in the repository, in a package or on
   GitHub Actions. The repository is public: no personal data, keys or secrets.
 - Open pull requests with the REST API (`gh api
