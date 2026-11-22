@@ -2,6 +2,14 @@
 
 ## 1.1.23
 
+- **The application icon can be read when it is small**: at 16, 22, 24, 32,
+  48 and 64 px (the panel, the title bar, the task switcher, the menus) the
+  shield is drawn again for each size's own pixels, the same shield, colours
+  and plate, with larger, bolder letters on whole pixels (at 16 px "IKE", no
+  room for the dots), instead of the large logo shrunk to a grey smudge. They
+  are installed in the icon theme (hicolor) and the window icon carries them
+  all; 128 px and larger and the scalable logo are unchanged
+  (`tools/make-small-icons.py`, tests/test_brand.py).
 - uBlock Origin scriptlets: 2bc679d99a (2026-11-10) -> 5934db2a04 (2026-11-21) (1 changed, 0 new, 0 removed)
 
 ## 1.1.22

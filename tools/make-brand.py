@@ -12,6 +12,8 @@ system. Run this only to change the lettering; it rewrites
     ike/resources/ike.svg         the logo (shield with the "I.K.E" plate)
     data/icons/ike-browser.svg    the same file, for the desktop
     data/icons/*.png, ike/resources/icons/*.png   the logo at each icon size
+                                  from 128 px up (the smaller ones are drawn
+                                  for their own pixel grid: tools/make-small-icons.py)
     ike/resources/wordmark.svg    the full name, in the colour of the text around it
 
 Needs fontTools and PyQt6 (QtSvg) on the computer that runs it, not at run
@@ -41,7 +43,7 @@ NAME_TRACKING = 150
 NAME_SPACE = 520              # width of the space between the words
 NAME_CAP_HEIGHT = 100.0       # the wordmark's own units; it is scaled where it is used
 
-PNG_SIZES = {"data/icons": (48, 64, 128, 256, 512), "ike/resources/icons": (48, 64, 128, 256)}
+PNG_SIZES = {"data/icons": (128, 256, 512), "ike/resources/icons": (128, 256)}
 LETTERING_ID = "lettering"
 
 
