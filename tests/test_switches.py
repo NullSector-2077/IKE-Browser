@@ -42,7 +42,7 @@ def steps(ike, qapp, out):
     except ImportError:               # before 1.1.21: the switch of the extensions page only
         from ike.dialogs import Switch
     yield 400
-    plain, lists, seen = [], [], {"boxes": 0, "switches": 0}
+    plain, lists, cut, seen = [], [], [], {"boxes": 0, "switches": 0}
 
     def settle():
         for _ in range(3):
@@ -55,6 +55,24 @@ def steps(ike, qapp, out):
             seen["boxes"] += 1
             if isinstance(w, Switch):
                 seen["switches"] += 1
+                # the whole switch is drawn, beside its text, never over it
+                # (1.1.22: Breeze kept a check box's small box and cut it)
+                try:
+                    from ike.uistyle import switch_size
+                    from PyQt6.QtWidgets import QStyle, QStyleOptionButton
+                    opt = QStyleOptionButton()
+                    w.initStyleOption(opt)
+                    st = w.style()
+                    box = st.subElementRect(QStyle.SubElement.SE_CheckBoxIndicator, opt, w)
+                    text = st.subElementRect(QStyle.SubElement.SE_CheckBoxContents, opt, w)
+                    want_w, want_h = switch_size(w.fontMetrics())
+                    bad = (box.width() < want_w or box.height() < want_h or not w.rect().contains(box)
+                           or w.width() < want_w or (bool(w.text()) and text.intersects(box)))
+                    if bad:
+                        cut.append([where, w.text() or w.accessibleName(), [box.width(), box.height()],
+                                    [want_w, want_h], w.width()])
+                except ImportError:
+                    pass
             else:
                 plain.append([where, w.text() or w.accessibleName()])
         for v in top.findChildren(QAbstractItemView):
@@ -119,7 +137,10 @@ def steps(ike, qapp, out):
         yield 50
     out["plain"] = plain
     out["lists"] = lists
+    out["cut"] = cut
     out["seen"] = seen
+    st = qapp.style()                 # I.K.E.'s layer over the desktop's style: both names
+    out["style"] = " / ".join(x.name() for x in (st, getattr(st, "baseStyle", lambda: None)()) if x is not None)
 """
 
 
@@ -130,6 +151,25 @@ def test_every_check_box_is_a_switch(run_ike, tmp_path):
     report = "\n".join("%s | %s" % tuple(p) for p in out["plain"])
     assert not out["plain"], "%d check boxes are not switches:\n%s" % (len(out["plain"]), report)
     assert not out["lists"], "lists with ticks instead of switches: %r" % out["lists"]
+    assert not out["cut"], "switches cut or under their text: %r" % out["cut"][:10]
+
+
+@pytest.mark.parametrize("style", ["Breeze", "Fusion", "Windows", "Oxygen", "kvantum"])
+def test_switches_are_whole_in_the_desktops_style(run_ike, tmp_path, style):
+    """1.1.22, seen by the owner on KDE Plasma: with Breeze only the first part
+    of each switch showed (Breeze keeps a check box's box at its own size), and
+    in the shield its text was drawn over it. Fusion, the style of the other
+    tests, measured them right. Every widget style an Arch desktop may use
+    is tested where it is installed: Breeze (KDE Plasma), Fusion and Windows
+    (Qt's own), Oxygen (older KDE), Kvantum (themes, often on CachyOS); the
+    Arch Linux job installs them."""
+    env = dict(screen(tmp_path, 1366, 768), QT_STYLE_OVERRIDE=style)
+    out = run_ike(STEPS.replace("LANGS", repr(["en", "ar"])), env=env, timeout=400)
+    if style.lower() not in (out["style"] or "").lower():
+        pytest.skip("the %s style is not installed here (got %r)" % (style, out["style"]))
+    assert out["seen"]["switches"] > 40, out["seen"]
+    assert not out["cut"], "%d switches cut or under their text in %s:\n%s" % (
+        len(out["cut"]), style, "\n".join(map(repr, out["cut"][:15])))
 
 
 def test_menus_draw_a_switch_not_a_tick(run_ike, tmp_path):
@@ -352,3 +392,23 @@ def test_switch_screenshots(run_ike, tmp_path, scheme):
               .replace("LANGS", repr(langs)))
     out = run_ike(script, settings={"ui_scheme": scheme}, env=screen(tmp_path, 1920, 1200), timeout=300)
     assert len(out["saved"]) == 8 * len(langs)
+
+
+def test_a_narrowed_combo_box_forgets_its_wide_minimum(run_ike):
+    """1.1.22, found with KDE's own theme in Tamil: a combo box narrowed after
+    Qt had measured it (from its longest entry) kept that wide minimum, and
+    the Settings page needed sideways scrolling."""
+    out = run_ike(r'''
+def steps(ike, qapp, out):
+    from PyQt6.QtWidgets import QComboBox
+    from ike.dialogs import SettingsDialog
+    c = QComboBox()
+    c.addItem("Dark Reader (" + "a very long explanation of this choice " * 4 + ")")
+    c.addItem("short")
+    wide = c.minimumSizeHint().width()          # measured once, as a laid-out page does
+    SettingsDialog._narrow(c)
+    out["r"] = [wide, c.minimumSize().width() or c.minimumSizeHint().width(), c.sizeHint().width()]
+    yield 10
+''', timeout=60)
+    wide, minimum, hint = out["r"]
+    assert minimum <= hint < wide / 2, out["r"]

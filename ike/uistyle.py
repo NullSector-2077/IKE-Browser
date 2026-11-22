@@ -35,6 +35,45 @@ _switch_style = None     # the style of the switches (one for all of them, kept 
 
 
 # ----------------------------------------------------------------------
+# readable colours
+# ----------------------------------------------------------------------
+def contrast(a, b):
+    """WCAG's contrast ratio of two opaque colours: 1 (none) to 21."""
+    def lum(c):
+        def ch(v):
+            return v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
+        return 0.2126 * ch(c.redF()) + 0.7152 * ch(c.greenF()) + 0.0722 * ch(c.blueF())
+    la, lb = lum(QColor(a)), lum(QColor(b))
+    return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
+
+
+def readable(colour, background, text, least=4.5):
+    """colour as drawn on background, or the nearest mix of it with text that
+    reads at least least:1 against it (4.5: WCAG's level AA for normal text);
+    with black or white instead of text when text itself reads less (GNOME's
+    text in an inactive window). 1.1.22: a desktop's dimmed text, as KDE's
+    Breeze light or LXQt give it, can be 3.7:1 and less."""
+    colour, background, text = QColor(colour), QColor(background), QColor(text)
+    a = colour.alphaF()
+    colour = QColor(round(colour.red() * a + background.red() * (1 - a)),
+                    round(colour.green() * a + background.green() * (1 - a)),
+                    round(colour.blue() * a + background.blue() * (1 - a)))
+    if contrast(colour, background) >= least:
+        return colour
+    if contrast(text, background) < least:
+        text = QColor("#000000") if contrast("#000000", background) > contrast("#ffffff", background) \
+            else QColor("#ffffff")
+    for step in range(1, 21):
+        t = step / 20
+        mixed = QColor(round(colour.red() + (text.red() - colour.red()) * t),
+                       round(colour.green() + (text.green() - colour.green()) * t),
+                       round(colour.blue() + (text.blue() - colour.blue()) * t))
+        if contrast(mixed, background) >= least:
+            return mixed
+    return text
+
+
+# ----------------------------------------------------------------------
 # switches
 # ----------------------------------------------------------------------
 def switch_size(fm, small=False):
@@ -101,6 +140,84 @@ class SwitchStyle(QProxyStyle):
                 w, h = switch_size(fm, small=not isinstance(widget, QCheckBox))
                 return w if metric == PM.PM_IndicatorWidth else h
         return super().pixelMetric(metric, opt, widget)
+
+    # The box and the text of a Switch are measured and placed here, never by
+    # the desktop's style (1.1.22): Breeze keeps a check box's box at its own
+    # fixed size whatever PM_IndicatorWidth says, so the switch was cut to its
+    # first part (and in the shield its text was drawn over it). Fusion asked
+    # this style anyway, which is why the tests of 1.1.21 did not see it.
+    def _box_size(self, widget, opt):
+        fm = widget.fontMetrics() if widget is not None else opt.fontMetrics
+        return switch_size(fm)
+
+    def _spacing(self, opt, widget):
+        return max(4, super().pixelMetric(QStyle.PixelMetric.PM_CheckBoxLabelSpacing, opt, widget))
+
+    def _layout(self, opt, widget):
+        """(box rect, text rect) inside opt.rect, right to left too."""
+        w, h = self._box_size(widget, opt)
+        r = opt.rect
+        box = QRect(r.x(), r.y() + max(0, (r.height() - h) // 2), w, h)
+        text = QRect(r)
+        text.setLeft(box.right() + 1 + self._spacing(opt, widget))
+        box = QStyle.visualRect(opt.direction, r, box)
+        text = QStyle.visualRect(opt.direction, r, text)
+        return box, text
+
+    def sizeFromContents(self, ct, opt, size, widget=None):
+        from PyQt6.QtWidgets import QStyleOptionButton
+        if ct == QStyle.ContentsType.CT_CheckBox and isinstance(opt, QStyleOptionButton):
+            w, h = self._box_size(widget, opt)
+            if size.width() > 0:
+                return QSize(w + self._spacing(opt, widget) + size.width(), max(h, size.height()))
+            return QSize(w, h)
+        return super().sizeFromContents(ct, opt, size, widget)
+
+    def subElementRect(self, element, opt, widget=None):
+        SE = QStyle.SubElement
+        from PyQt6.QtWidgets import QStyleOptionButton
+        if element in (SE.SE_CheckBoxIndicator, SE.SE_CheckBoxContents, SE.SE_CheckBoxFocusRect,
+                       SE.SE_CheckBoxClickRect) and isinstance(opt, QStyleOptionButton):
+            box, text = self._layout(opt, widget)
+            if element == SE.SE_CheckBoxIndicator:
+                return box
+            if element == SE.SE_CheckBoxContents:
+                return text
+            if element == SE.SE_CheckBoxClickRect:
+                return QRect(opt.rect)
+            has_text = widget is not None and isinstance(widget, QCheckBox) and widget.text()
+            if not has_text:
+                return box
+            fm = widget.fontMetrics()
+            tw = min(text.width(), fm.horizontalAdvance(widget.text().replace("&", "")) + 4)
+            th = min(text.height(), fm.height() + 2)
+            x = text.right() + 1 - tw if opt.direction == Qt.LayoutDirection.RightToLeft else text.x()
+            return QRect(x, text.y() + (text.height() - th) // 2, tw, th)
+        return super().subElementRect(element, opt, widget)
+
+    def drawControl(self, element, opt, p, widget=None):
+        CE, PE, S = QStyle.ControlElement, QStyle.PrimitiveElement, QStyle.StateFlag
+        from PyQt6.QtWidgets import QStyleOptionButton
+        if element == CE.CE_CheckBox and isinstance(opt, QStyleOptionButton):
+            box, text = self._layout(opt, widget)
+            ind = QStyleOptionButton(opt)
+            ind.rect = box
+            self.drawPrimitive(PE.PE_IndicatorCheckBox, ind, p, widget)
+            if opt.text:
+                # the text only: the style's label at the place measured here
+                align = Qt.AlignmentFlag.AlignVCenter | (Qt.AlignmentFlag.AlignRight if
+                        opt.direction == Qt.LayoutDirection.RightToLeft else Qt.AlignmentFlag.AlignLeft)
+                self.drawItemText(p, text, int(align | Qt.TextFlag.TextShowMnemonic), opt.palette,
+                                  bool(opt.state & S.State_Enabled), opt.text, QPalette.ColorRole.WindowText)
+                if opt.state & S.State_HasFocus:
+                    from PyQt6.QtWidgets import QStyleOptionFocusRect
+                    f = QStyleOptionFocusRect()
+                    if widget is not None:
+                        f.initFrom(widget)
+                    f.rect = self.subElementRect(QStyle.SubElement.SE_CheckBoxFocusRect, opt, widget)
+                    super().drawPrimitive(PE.PE_FrameFocusRect, f, p, widget)
+            return
+        super().drawControl(element, opt, p, widget)
 
     def drawPrimitive(self, element, opt, p, widget=None):
         PE, S = QStyle.PrimitiveElement, QStyle.StateFlag
@@ -253,9 +370,33 @@ class IkeStyle(QProxyStyle):
             paint_switch(p, box, on, opt.palette, enabled=bool(opt.state & S.State_Enabled),
                          rtl=rtl, selected=selected)
 
+    def pixelMetric(self, metric, opt=None, widget=None):
+        v = super().pixelMetric(metric, opt, widget)
+        # Qt's "Windows" style draws a menu's entries against its sides (1.1.22:
+        # every widget style of an Arch desktop is measured): a little room
+        if metric == QStyle.PixelMetric.PM_MenuHMargin and self.baseStyle().name().lower() == "windows":
+            return max(v, 4)
+        return v
+
+    def _tall_enough(self, s, opt, widget):
+        """A button at least a line of its text tall plus 2 px above and below,
+        inside the larger of the style's frames (1.1.22: Kvantum and Qt's
+        Windows style left a single pixel around some languages' text)."""
+        PM = QStyle.PixelMetric.PM_DefaultFrameWidth
+        frame = max(self.pixelMetric(PM, opt, widget), self.pixelMetric(PM, None, widget))
+        fm = widget.fontMetrics() if widget is not None else opt.fontMetrics
+        tall = fm.height() + 2 * frame + 4
+        return QSize(s.width(), tall) if s.height() < tall else s
+
     def styleHint(self, hint, opt=None, widget=None, ret=None):
         if hint == QStyle.StyleHint.SH_Menu_Scrollable:
             return 1             # a menu taller than the screen scrolls (arrows at both ends)
+        if hint == QStyle.StyleHint.SH_FormLayoutWrapPolicy:
+            # a form's option goes under its name when the two do not fit side
+            # by side, instead of making the page wider than its window (1.1.22:
+            # GNOME's font, Adwaita Sans 11, in Tamil, Armenian, Macedonian)
+            from PyQt6.QtWidgets import QFormLayout
+            return QFormLayout.RowWrapPolicy.WrapLongRows.value
         return super().styleHint(hint, opt, widget, ret)
 
     def sizeFromContents(self, kind, opt, size, widget=None):
@@ -266,6 +407,9 @@ class IkeStyle(QProxyStyle):
             least = size.width() + 2 * (frame + TEXT_ROOM)
             if s.width() < least:
                 s = QSize(least, s.height())
+            # and above and below the text (1.1.22: Kvantum's default theme left
+            # one pixel for a line of Persian)
+            s = self._tall_enough(s, opt, widget)
         elif kind == CT.CT_MenuItem and isinstance(widget, QMenu) and isinstance(opt, QStyleOptionMenuItem) \
                 and opt.menuItemType != QStyleOptionMenuItem.MenuItemType.Separator:
             room = self._switch_room(opt, widget)
@@ -278,6 +422,7 @@ class IkeStyle(QProxyStyle):
                 least = size.width() + 2 * (TEXT_ROOM // 2 + 2)
                 if s.width() < least:
                     s = QSize(least, s.height())
+                s = self._tall_enough(s, opt, widget)
         return s
 
 

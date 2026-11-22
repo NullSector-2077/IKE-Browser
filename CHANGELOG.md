@@ -1,5 +1,68 @@
 # Changelog
 
+## 1.1.22
+
+Two things the owner saw in 1.1.21 on KDE Plasma:
+
+- **The switches are whole in every desktop style**: with Breeze (Plasma's
+  style) only the first part of each switch showed in the Settings and the
+  other windows, and in the shield panel its text was drawn over it. Breeze
+  (and Oxygen) keep a check box's box at their own size whatever they are
+  asked; the switch is now measured and placed by I.K.E. itself, as the one
+  of the "I.K.E. extensions" page was in 1.1.20. tests/test_switches.py
+  checks every switch of the windows in Breeze, Fusion, Windows, Oxygen and
+  Kvantum (in Breeze 162 were cut before, none now).
+- **Every text fits in every widget style**: the text-fit test of 1.1.21 now
+  also runs in Breeze, Oxygen, Kvantum and Qt's Windows style on Arch Linux
+  (the Arch job installs them). Two more things it found are fixed: buttons
+  keep at least 2 px above and below their text (Kvantum's default theme left
+  one for Persian), and in Qt's Windows style a menu's entries no longer touch
+  its left side.
+- **Also when I.K.E. follows the system**: with KDE Plasma's own theme (its
+  colours, light or dark, and its fonts) and with GNOME's (GTK), every text,
+  switch and the tab preview are measured too. It found one more thing: a
+  choice list with a long entry (dark mode, in Tamil) made the Appearance
+  page wider than the window, as Qt kept a width it had measured before the
+  list was narrowed; every long choice list of the Settings is now narrowed
+  for good (its open list still shows each entry whole).
+- **On KDE, KDE's own icons only**: following the system on Plasma, every
+  icon of the interface now comes from Breeze. Three came from another theme
+  installed on the computer (the containers' lock, twice, and the Privacy
+  page); each icon now asks first for Breeze's name for the same thing, and
+  other desktops keep theirs. tests/test_icons.py opens every window and menu
+  with KDE's theme and fails on any icon that is not Breeze's own.
+- **The other desktops' own look too**: following the system on GNOME,
+  Xfce, MATE, Cinnamon or LXQt, the icons now come from that desktop's own
+  theme (Adwaita, elementary, MATE's, Papirus, Breeze) instead of I.K.E.'s
+  drawings or Qt's (47 icons on GNOME, 42 on Xfce, 46 on MATE were not; with
+  no desktop theme at all no icon is left empty any more); GNOME's and MATE's
+  one-colour icons are painted in the text colour, so they show on dark
+  windows too. Text that the desktop's colours left too pale is made
+  readable (the notes of the Settings on KDE light, LXQt and plain Qt, the
+  tab preview's CPU and memory on GNOME, the numbers of the new tab page),
+  and with GNOME's larger font an option goes under its name instead of
+  making a Settings page wider than the window, and the site permissions
+  window no longer exceeds the screen. tests/test_icons.py and
+  tests/test_desktop_colours.py check each desktop, light and dark, on Arch
+  Linux.
+- **The tab preview shows the whole memory value**: CPU and memory were side
+  by side, half the card each, and "182 MB" could end in "…". They are now
+  one under the other, each the card's whole width; a test checks every
+  language with a large font.
+
+Speed, with every feature and protection as it was:
+
+- **A faster start, the same protection**: the window comes about 50 ms
+  sooner (480 → 431 ms in the test container), 54–89 ms for a new profile,
+  and the first page 38–76 ms sooner. The Public Suffix List's codes for the
+  fingerprint protection are kept instead of being worked out at every start,
+  and the usual start no longer loads Python modules it does not need. A
+  filter engine built from the lists (a new profile, a list update) takes
+  175 ms instead of 235, and the interface's longest pause meanwhile is
+  about 8 ms instead of 17 (medians). Every protection is in place before the first page as
+  before, and what a page sees is unchanged (numbers and method:
+  docs/review/tests-and-performance.md, "1.1.22, start and speed").
+
 ## 1.1.21
 
 Fingerprinting: the points left by the independent audit of 1.1.20, each

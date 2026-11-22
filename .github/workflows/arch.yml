@@ -66,12 +66,22 @@ jobs:
         run: git config --global --add safe.directory '*'
       - name: Arch's packages
         # the package's depends, makedepends and optdepends, plus what the tests use
+        # (breeze, oxygen, kvantum: the widget styles of Arch's desktops besides
+        # Qt's own, plasma-integration: KDE's own theme with its colours; the
+        # interface is measured in each, 1.1.22). The other desktops I.K.E.
+        # follows (tests/desktops.py): gtk3 for Qt's GTK theme (GNOME, Xfce,
+        # MATE, Cinnamon) on an Xvfb display, lxqt-qtplugin for LXQt's, and
+        # their icons: Adwaita (GNOME), elementary (Xfce), MATE's, Papirus
+        # (Cinnamon, and common with KDE)
         run: |
           pacman -S --noconfirm --needed \
               python python-pyqt6 python-pyqt6-webengine qt6-webengine qt6-webchannel qt6-svg \
               python-cryptography python-jeepney publicsuffix-list python-pytest \
               base-devel rust sudo nodejs \
-              ffmpeg dbus glib2 noto-fonts ttf-dejavu libnotify xdg-utils
+              ffmpeg dbus glib2 noto-fonts ttf-dejavu libnotify xdg-utils \
+              breeze oxygen kvantum plasma-integration breeze-icons \
+              gtk3 xorg-server-xvfb lxqt-qtplugin \
+              adwaita-icon-theme elementary-icon-theme mate-icon-theme papirus-icon-theme
       # What this run really tests: pacman's versions of the components I.K.E.
       # follows (tools/check-components.py, ARCH_PACKAGES), Python, Qt, PyQt and
       # the engine's Chromium as I.K.E. reports it. Never fails the run.
@@ -102,6 +112,35 @@ jobs:
         run: |
           set -o pipefail
           python3 -m pytest -ra --junitxml=out/tests-arch.xml 2>&1 | tee out/tests-arch.log
+      # The interface in the widget styles of Arch's desktops (1.1.22): every
+      # text, switch and the tab preview in each language, as the owner's KDE
+      # (Breeze) and the others draw them; the run above used Qt's Fusion.
+      # The icons and colours of every desktop I.K.E. follows (KDE, Papirus,
+      # GNOME, Xfce, MATE, Cinnamon, LXQt, light and dark, and Qt alone) are
+      # measured in the run above, each desktop a case of tests/test_icons.py
+      # and tests/test_desktop_colours.py; here every text once more with
+      # GNOME's own font (Adwaita Sans 11) and KDE's Breeze Dark.
+      - name: Interface in every widget style
+        run: |
+          set -o pipefail
+          for style in Breeze Oxygen kvantum Windows; do
+            echo "== $style"
+            QT_STYLE_OVERRIDE=$style python3 -m pytest -ra -q -p no:cacheprovider \
+                tests/test_text_fit.py tests/test_tabpreview.py 2>&1 | tee -a out/styles.log
+          done
+          echo "== GNOME's theme (GTK: Adwaita, Adwaita Sans 11)"
+          IKE_TEST_DESKTOP=gnome python3 -m pytest -ra -q -p no:cacheprovider \
+              tests/test_text_fit.py tests/test_switches.py tests/test_tabpreview.py 2>&1 | tee -a out/styles.log
+          # I.K.E. following the system on KDE Plasma: KDE's theme, Breeze Dark colours
+          cp /usr/share/color-schemes/BreezeDark.colors /etc/xdg/kdeglobals
+          printf '\n[General]\nColorScheme=BreezeDark\n\n[KDE]\nwidgetStyle=Breeze\n\n[Icons]\nTheme=breeze-dark\n' >> /etc/xdg/kdeglobals
+          echo "== KDE Plasma's theme (Breeze Dark)"
+          QT_QPA_PLATFORMTHEME=kde python3 -m pytest -ra -q -p no:cacheprovider \
+              tests/test_text_fit.py tests/test_switches.py tests/test_tabpreview.py \
+              tests/test_icons.py::test_every_icon_is_kdes_own_on_kde \
+              "tests/test_desktop_colours.py::test_windows_take_the_desktops_colours[kde]" \
+              2>&1 | tee -a out/styles.log
+          rm -f /etc/xdg/kdeglobals
       - name: Arch package (makepkg, pacman)
         run: |
           useradd -m builder

@@ -174,6 +174,10 @@ LIBRARY = Library()
 
 def split_args(raw):
     """Split scriptlet arguments: commas separate, quotes and \\, protect."""
+    if not ("'" in raw or '"' in raw or "`" in raw or "\\" in raw):
+        # no quote and no backslash: what the loop below gives, at once
+        # (most rules; 1.1.22)
+        return [a.strip() for a in raw.split(",")]
     args, cur, i, n = [], "", 0, len(raw)
     while i < n and raw[i] == " ":
         i += 1
@@ -182,7 +186,9 @@ def split_args(raw):
             args.append(cur.strip())
             break
         ch = raw[i]
-        if not cur.strip() and ch in "'\"`":
+        # "cur holds only blanks", without a copy of cur for every character
+        # (str.strip and str.isspace know the same blanks)
+        if ch in "'\"`" and (not cur or cur.isspace()):
             j = i + 1
             buf = ""
             while j < n and raw[j] != ch:
@@ -229,11 +235,26 @@ class Scriptlets:
     def clear(self):
         self.by_domain, self.negated, self.exceptions = {}, {}, {}
 
+    @staticmethod
+    def _js_lines(text):
+        """The lines of text.splitlines() that hold "+js(", in their order,
+        without splitting the 99 % of the lines that do not (1.1.22)."""
+        at = text.find("+js(")
+        while at >= 0:
+            start = text.rfind("\n", 0, at) + 1
+            end = text.find("\n", at)
+            if end < 0:
+                end = len(text)
+            # "\n" always ends a line of splitlines(): the lines of this
+            # piece are the lines of the whole text there
+            for line in text[start:end].splitlines():
+                if "+js(" in line:
+                    yield line
+            at = text.find("+js(", end)
+
     def add_list(self, text, trusted):
         lib = LIBRARY
-        for line in preprocess(text).splitlines():
-            if "+js(" not in line:
-                continue
+        for line in self._js_lines(preprocess(text)):
             m = _RULE.match(line.strip())
             if not m:
                 continue

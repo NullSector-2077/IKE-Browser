@@ -1,6 +1,5 @@
 """Application object and entry point."""
 
-import argparse
 import json
 import os
 import shutil
@@ -1399,12 +1398,13 @@ def _keep_running_after_errors():
     handler must not take every open tab with it: the error is written to
     the terminal and to errors.log in the cache folder, counted (Help → About)
     and the browser goes on."""
-    import traceback
-
     def hook(kind, value, tb):
         if issubclass(kind, KeyboardInterrupt):
             sys.__excepthook__(kind, value, tb)
             return
+        # imported only when there is an error to write: on Python 3.14 the
+        # module costs about 12 ms of every start (1.1.22)
+        import traceback
         text = "".join(traceback.format_exception(kind, value, tb))
         INTERNAL_ERRORS.append(text)
         del INTERNAL_ERRORS[:-50]
@@ -1473,13 +1473,28 @@ def _to_url(arg):
     return QUrl.fromUserInput(arg).toString()
 
 
-def main(argv=None):
+def parse_args(argv):
+    """(arguments, unknown options) of the command line.
+
+    With no option at all (the usual start, or addresses handed over by
+    another program) the answer is the one argparse gives, without argparse:
+    on Python 3.14 it costs about 12 ms of every start (its help colours bring
+    in dataclasses and inspect; 1.1.22). Anything that starts with "-" goes
+    through argparse as before."""
+    if not any(a.startswith("-") for a in argv):
+        from types import SimpleNamespace
+        return SimpleNamespace(urls=list(argv), private=False, profile=""), []
+    import argparse
     parser = argparse.ArgumentParser(prog=APP_ID, description=APP_LONG_NAME)
     parser.add_argument("urls", nargs="*", help="addresses to open")
     parser.add_argument("--private", action="store_true", help="open a private window")
     parser.add_argument("--profile", default="", help="use a separate named profile")
     parser.add_argument("--version", action="version", version="%s %s" % (APP_NAME, __version__))
-    args, unknown = parser.parse_known_args(argv if argv is not None else sys.argv[1:])
+    return parser.parse_known_args(argv)
+
+
+def main(argv=None):
+    args, unknown = parse_args(list(argv if argv is not None else sys.argv[1:]))
     if unknown:
         # not passed on to Qt: another program hands over its "address" as
         # an argument, and one that starts with "-" was read as an option of
@@ -1599,6 +1614,7 @@ def main(argv=None):
         import runpy
         runpy.run_path(hook, init_globals={"ike": ike, "qapp": qapp})
     code = qapp.exec()
+    ike.blocker.close()                  # a filter engine still being built finishes first
     _video_trial_done(CONFIG_DIR)          # a normal exit: video decoding "on" did no harm
     background.let_go()          # a download still waiting for its server must not be destroyed
     if config["clear_on_exit"] and sitedata.asked() and not getattr(ike, "_restart", False):

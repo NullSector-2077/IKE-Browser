@@ -3,10 +3,11 @@
 import time
 from pathlib import Path
 
-from PyQt6.QtCore import QRect, QSize, Qt, QTimer, QUrl
+from PyQt6.QtCore import QEvent, QRect, QSize, Qt, QTimer, QUrl
 from PyQt6.QtGui import QDesktopServices, QIcon, QPalette
 from PyQt6.QtWebEngineCore import QWebEngineDownloadRequest
 from PyQt6.QtWidgets import (
+    QApplication,
     QBoxLayout,
     QCheckBox,
     QComboBox,
@@ -173,15 +174,43 @@ class InfoButton(QToolButton):
 
 class Note(QLabel):
     """A short note or a state (the last check...) in the palette's
-    placeholder colour, wrapped and shown whole (1.1.21)."""
+    placeholder colour, wrapped and shown whole (1.1.21). Where that colour
+    is too pale to read on the window (KDE's Breeze light, LXQt, Qt's own:
+    3.7:1 and less) it is taken a little towards the text's (1.1.22)."""
 
     def __init__(self, text, parent=None):
         super().__init__(text, parent)
+        self._fitting = False
         self.setObjectName("ike_note")
         self.setWordWrap(True)
         self.setForegroundRole(QPalette.ColorRole.PlaceholderText)
         self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
+        self._fit_colour()
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if event.type() in (QEvent.Type.PaletteChange, QEvent.Type.ParentChange):
+            self._fit_colour()
+
+    def _fit_colour(self):
+        if self._fitting:
+            return
+        from .uistyle import readable
+        parent = self.parentWidget()
+        src = parent.palette() if parent is not None else QApplication.palette(self)
+        R, G = QPalette.ColorRole, QPalette.ColorGroup
+        pal = QPalette()                # only this colour: the others come from the window
+        for group in (G.Active, G.Inactive):
+            # 5:1 on the window leaves 4.5:1 on a group's frame, which Fusion draws a little darker
+            pal.setColor(group, R.PlaceholderText, readable(src.color(group, R.PlaceholderText),
+                                                            src.color(group, R.Window),
+                                                            src.color(group, R.WindowText), 5.0))
+        self._fitting = True
+        try:
+            self.setPalette(pal)
+        finally:
+            self._fitting = False
 
 
 def _info_row(widget, text, stretch=False):
@@ -242,6 +271,7 @@ def _row(form, label, field, hint=None):
 class SettingsDialog(QDialog):
     # The pages, in the order of the sidebar (1.1.20). Their names are what
     # open_settings(page) takes; the names of earlier versions still work.
+    WIDE_COMBO = 300      # px: a combo box with an entry wider than this is narrowed (_narrow)
     PAGES = ["general", "language", "appearance", "newtab", "search", "protection", "privacy",
              "extensions", "downloads", "updates", "system"]
     ALIASES = {"components": "extensions", "userscripts": "extensions"}
@@ -292,7 +322,7 @@ class SettingsDialog(QDialog):
                        T("The search engines of the address bar and of the new tab page.")),
             "protection": (self._protection, ("security-high", "preferences-security"),
                            T("What I.K.E. blocks: ads, trackers, fingerprinting and unsafe connections.")),
-            "privacy": (self._privacy, ("preferences-system-privacy", "view-private"),
+            "privacy": (self._privacy, ("view-private", "preferences-system-privacy"),
                         T("What is kept on this computer, and what sites are allowed to use.")),
             "extensions": (self._extensions, ("preferences-plugin", "application-x-addon"),
                            T("Features that come with I.K.E. Switch on only the ones you want.")),
@@ -319,6 +349,14 @@ class SettingsDialog(QDialog):
             self.stack.addWidget(area)
         self.nav.setFixedWidth(widest + 22 + 46)
         for combo in self.findChildren(QComboBox):
+            # any combo box whose longest entry would widen its page is narrowed
+            # (1.1.22: in Tamil with KDE's Breeze the dark-mode one needed
+            # sideways scrolling); its open list still shows every entry whole
+            if not combo.property("ike_elides") and not combo.isEditable() and combo.count():
+                fm = combo.fontMetrics()           # the entries themselves: the box's own size
+                longest = max(fm.horizontalAdvance(combo.itemText(i)) for i in range(combo.count()))
+                if longest > self.WIDE_COMBO:      # depends on the style, known only once shown
+                    self._narrow(combo)
             if combo.property("ike_elides"):
                 self._whole_list(combo)
         self.nav.currentRowChanged.connect(self._show_page)
@@ -885,6 +923,9 @@ class SettingsDialog(QDialog):
         """A combo box with long entries must not make the page wider than the window."""
         combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         combo.setMinimumContentsLength(16)
+        # Qt keeps a minimum size it worked out before (from the longest
+        # entry) after the policy changes: the narrow one is set as the minimum
+        combo.setMinimumWidth(combo.sizeHint().width())
         combo.setProperty("ike_elides", True)      # its entry may be cut short; its list shows it whole
 
     def _newtab_page(self):

@@ -528,16 +528,18 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_tb_bookmark = A(T("Bookmark this page"), self.toggle_bookmark, None, "bookmark-new",
                                  T("Add or remove this page from bookmarks"))
         self.act_tb_reader = A(T("Reader mode"), self.toggle_reader, None,
-                               icon(("view-readermode", "document-preview")),
+                               icon(("view-readermode", "document-preview", "view-reader-symbolic",
+                                     "x-office-document-symbolic")),
                                T("Show only the text of the article"))
         self.act_tb_shot = A(T("Screenshot"), self.screenshot, None,
                              icon(("camera-photo", "spectacle")),
                              T("Save a picture of the visible page"))
         self.act_tb_pip = A(T("Video in floating window"), self.float_video, None,
-                            icon(("picture-in-picture", "window-duplicate", "media-playback-start")),
+                            icon(("picture-in-picture", "window-duplicate", "focus-windows-symbolic",
+                                  "media-playback-start")),
                             T("Keep the video of this tab on top of other windows"))
         self.act_tb_split = A(T("Split view"), self.toggle_split, None,
-                              icon("view-split-left-right"),
+                              icon(("view-split-left-right", "view-dual-symbolic")),
                               T("Show two tabs side by side"))
         self.act_dark = A(T("Dark mode for pages"), None, None, icon("weather-clear-night"),
                           T("Dark mode: everywhere or only on this site"))
@@ -546,10 +548,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                 icon(("view-private", "security-high")),
                                 T("Open a window that keeps no history or cookies"))
         self.act_tb_clean = A(T("Clear this site's data"), self.clear_site_data, None,
-                              icon(("edit-clear-history", "edit-clear-all", "edit-clear")),
+                              icon(("edit-clear-history", "edit-clear-all-symbolic", "edit-clear-all", "edit-clear")),
                               T("Delete the cookies and stored data of the site in this tab"))
         self.act_downloads = self._action(T("Downloads"), self.app.show_downloads, "Ctrl+J",
-                                          icon("download", SP.SP_ArrowDown),
+                                          icon(("download", "folder-download-symbolic"), SP.SP_ArrowDown),
                                           T("Show downloaded files"))
         self._dl_icon = self.act_downloads.icon()
         for a in (self.act_tb_bookmark, self.act_tb_reader, self.act_tb_shot, self.act_tb_pip,
@@ -571,7 +573,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 " }")
             tb.addWidget(lab)
         self.menu_btn = QToolButton(self)
-        self.menu_btn.setIcon(icon("application-menu", SP.SP_TitleBarMenuButton))
+        self.menu_btn.setIcon(icon(("application-menu", "open-menu-symbolic"), SP.SP_TitleBarMenuButton))
         self.menu_btn.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
         self.menu_btn.clicked.connect(self.menu_btn.showMenu)
         self.menu_btn.setToolTip(T("Menu"))
@@ -645,7 +647,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.insertToolBarBreak(self.bookbar)
         bar.hide()
         self.act_customise = self._action(T("Customise toolbar…"), lambda: self.customise_toolbar(True), None,
-                                          icon(("configure-toolbars", "configure")),
+                                          icon(("configure-toolbars", "configure", "emblem-system-symbolic")),
                                           T("Move the toolbar buttons with the mouse"))
         self.act_customise_done = self._action("customise-done", lambda: self.customise_toolbar(False),
                                                ["Escape"])
@@ -678,7 +680,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_new_window = A(T("New window"), lambda: self.app.new_window(), "Ctrl+N", "window-new",
                                 T("Open a new window"))
         self.act_new_private = A(T("New private window"), lambda: self.app.new_window(private=True),
-                                 "Ctrl+Shift+N", "view-private",
+                                 "Ctrl+Shift+N", ("view-private", "preferences-system-privacy-symbolic"),
                                  T("Browse without saving history, cookies or cache"))
         self.act_pdf = A(T("Save as PDF…"), self.save_pdf, None, ("application-pdf", "document-save"),
                          T("Export the page as a PDF document"))
@@ -688,7 +690,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                           T("Save an image of the visible page"))
         self.act_quit = A(T("Quit"), self.app.quit, "Ctrl+Q", "application-exit",
                           T("Close every window and quit I.K.E."))
-        self.act_settings = A(T("Settings…"), lambda: self.open_settings(), "Ctrl+,", "configure",
+        self.act_settings = A(T("Settings…"), lambda: self.open_settings(), "Ctrl+,",
+                              ("configure", "emblem-system-symbolic"),
                               T("Configure I.K.E."))
         self.act_check_updates = A(T("Check for I.K.E. updates"), self.check_for_updates, None,
                                    ("system-software-update", "view-refresh"),
@@ -721,7 +724,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             m_file.addAction(a)
         m_file.addSeparator()
         m_file.addAction(A(T("Close tab"), lambda: self.close_tab(self.current_view()),
-                           "Ctrl+W", "tab-close", T("Close the current tab")))
+                           "Ctrl+W", ("tab-close", "window-close-symbolic"), T("Close the current tab")))
         m_file.addAction(A(T("Close window"), self.close, "Ctrl+Shift+W", "window-close",
                            T("Close this window")))
         m_file.addAction(self.act_quit)
@@ -746,15 +749,18 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         # --- View
         m_view = mb.addMenu(T("&View"))
         self.act_vertical = A(T("Vertical tabs"), self._toggle_vertical, "Ctrl+Shift+E",
-                              "view-sidetree", T("Show tabs in a side panel instead of a top bar"),
+                              ("view-sidetree", "sidebar-show-symbolic", "view-list-symbolic"),
+                              T("Show tabs in a side panel instead of a top bar"),
                               checkable=True)
-        self.act_menubar = A(T("Menu bar"), self._toggle_menubar, "Ctrl+M", "show-menu",
+        self.act_menubar = A(T("Menu bar"), self._toggle_menubar, "Ctrl+M",
+                             ("show-menu", "open-menu-symbolic", "application-menu"),
                              T("Show or hide the menu bar"), checkable=True)
-        self.act_titlebar = A(T("System title bar"), self._toggle_titlebar, None, "window",
+        self.act_titlebar = A(T("System title bar"), self._toggle_titlebar, None,
+                              ("window", "focus-top-bar-symbolic", "window-new"),
                               T("Hide the window title bar to leave more room for pages"),
                               checkable=True)
         self.act_bookbar = A(T("Bookmarks bar"), self._toggle_bookbar, "Ctrl+Shift+B",
-                             "bookmark-toolbar",
+                             ("bookmark-toolbar", "user-bookmarks-symbolic"),
                              T("Switch between: only on a new tab, always, hidden"))
         for a in (self.act_vertical, self.act_menubar, self.act_bookbar, self.act_titlebar,
                   self.act_customise):
@@ -782,10 +788,11 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         m_view.addAction(A(T("Full screen"), self.toggle_fullscreen, "F11", "view-fullscreen",
                            T("Show the page on the whole screen")))
         m_view.addSeparator()
-        m_view.addAction(A(T("Page source"), self.view_source, "Ctrl+U", "text-html",
+        m_view.addAction(A(T("Page source"), self.view_source, "Ctrl+U", ("text-html", "view-source"),
                            T("Show the HTML source of the page")))
         m_view.addAction(A(T("Developer tools"), lambda: self.open_devtools(), ["F12", "Ctrl+Shift+I"],
-                           "tools-report-bug", T("Inspect the page, network and console")))
+                           ("tools-report-bug", "bug-symbolic", "utilities-terminal-symbolic"),
+                           T("Inspect the page, network and console")))
 
         # --- History
         self.m_history = mb.addMenu(T("Hi&story"))
@@ -793,9 +800,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_reopen = A(T("Reopen closed tab"), self.reopen_tab, "Ctrl+Shift+T", "edit-undo",
                             T("Restore the tab closed most recently"))
         self.act_history = A(T("Show all history"), self.app.show_history, "Ctrl+H",
-                             "view-history", T("Browse and search visited pages"))
+                             ("view-history", "document-open-recent-symbolic"), T("Browse and search visited pages"))
         self.act_clear = A(T("Clear browsing data…"), self.app.show_clear_data, "Ctrl+Shift+Del",
-                           "edit-clear-history", T("Delete history, cookies and cache"))
+                           ("edit-clear-history", "edit-clear-all-symbolic", "edit-clear-all"),
+                           T("Delete history, cookies and cache"))
 
         # --- Bookmarks
         self.m_bookmarks = mb.addMenu(T("&Bookmarks"))
@@ -803,7 +811,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_bookmark = A(T("Bookmark this page"), self.toggle_bookmark, "Ctrl+D",
                               "bookmark-new", T("Add or remove this page from bookmarks"))
         self.act_bookmarks = A(T("Manage bookmarks"), self.app.show_bookmarks, "Ctrl+Shift+O",
-                               "bookmarks-organize", T("Edit, import and export bookmarks"))
+                               ("bookmarks-organize", "document-edit-symbolic", "user-bookmarks-symbolic", "bookmarks"),
+                               T("Edit, import and export bookmarks"))
 
         # --- Protection: the level for every site and the tools of protection
         self.level_group = QActionGroup(self)
@@ -817,7 +826,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self.level_group.addAction(a)
             levels.append(a)
         self.act_repair = A(T("Repair this site"), self.repair_site, None,
-                            ("tools-wizard", "tools-report-bug"),
+                            ("tools-wizard", "tools-report-bug", "applications-engineering-symbolic"),
                             T("Find the protection that breaks this page and turn off only that one"))
         self.act_update_lists = A(T("Update filter lists now"), self.app.update_now, None,
                                   "view-refresh", T("Download the latest blocking rules"))
@@ -865,7 +874,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
 
         # --- Tools
         m_tools = mb.addMenu(T("&Tools"))
-        self.act_command_bar = A(T("Command bar…"), self.open_command_bar, "F2", "system-search",
+        self.act_command_bar = A(T("Command bar…"), self.open_command_bar, "F2", ("system-search", "edit-find"),
                                  T("Commands, open tabs, bookmarks, history and settings in one search"))
         m_tools.addAction(self.act_command_bar)
         m_tools.addAction(self.act_downloads)
@@ -911,9 +920,11 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         for m in (self.m_level, self.m_extensions, self.m_dark, m_zoom):
             burger.addMenu(m)
         burger.addSeparator()
-        history = menu(T("History"), "view-history", T("Pages visited recently, and all the history"))
+        history = menu(T("History"), ("view-history", "document-open-recent-symbolic"),
+                       T("Pages visited recently, and all the history"))
         history.aboutToShow.connect(lambda: self._fill_history(history))
-        bookmarks = menu(T("Bookmarks"), "bookmarks", T("Your bookmarks, and the bookmarks bar"))
+        bookmarks = menu(T("Bookmarks"), ("bookmarks", "user-bookmarks-symbolic"),
+                         T("Your bookmarks, and the bookmarks bar"))
         bookmarks.aboutToShow.connect(lambda: self._fill_bookmarks(bookmarks))
         burger.addMenu(history)
         burger.addMenu(bookmarks)
@@ -922,7 +933,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         for a in (self.act_print, self.act_pdf, self.act_shot):
             burger.addAction(a)
         burger.addSeparator()
-        more = menu(T("More"), ("overflow-menu", "application-menu"),
+        more = menu(T("More"), ("overflow-menu", "application-menu", "view-more-symbolic"),
                     T("Every other command, as in the menu bar"))
         for m in (m_file, m_edit, m_view, m_tools, m_help):
             more.addMenu(m)
@@ -1260,7 +1271,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         ic = view.last_icon
         if ic.isNull():
             ic = self.app.icon if view.url().scheme() == "ike" else icon(
-                "globe", QStyle.StandardPixmap.SP_FileIcon)
+                ("globe", "web-browser-symbolic"), QStyle.StandardPixmap.SP_FileIcon)
         ic = view.tab_icon = tab_icon(ic, g["color"] if g else None, self.app.container_color(view.container))
         if getattr(view, "loading_marked", False):
             ic = effects.loading_icon(ic, getattr(self, "_spin_angle", 45), self.tabbar.palette())
@@ -1400,7 +1411,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         view = self.views[index]
         m = QMenu(self)
         m.addAction(icon("view-refresh"), T("Reload"), view.reload)
-        m.addAction(icon("tab-duplicate"), T("Duplicate tab"),
+        m.addAction(icon(("tab-duplicate", "edit-copy-symbolic")), T("Duplicate tab"),
                     lambda: self.add_tab(view.url(), after=view))
         m.addAction(icon("audio-volume-muted"),
                     T("Unmute tab") if view.page().isAudioMuted() else T("Mute tab"),
@@ -1410,8 +1421,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self.app.desktop.add_send_menu(m, view.pending_url or view.url().toString())
         self._tab_menu_extra(m, view)
         m.addSeparator()
-        m.addAction(icon("tab-close"), T("Close tab"), lambda: self.close_tab(view))
-        m.addAction(icon("tab-close-other"), T("Close other tabs"),
+        m.addAction(icon(("tab-close", "window-close-symbolic")), T("Close tab"), lambda: self.close_tab(view))
+        m.addAction(icon(("tab-close-other", "window-close-symbolic")), T("Close other tabs"),
                     lambda: [self.close_tab(v) for v in list(self.views) if v is not view])
         m.addAction(self.act_reopen)
         m.addSeparator()
@@ -1790,13 +1801,13 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         SP = QStyle.StandardPixmap
         scheme = url.scheme()
         if scheme == "https":
-            self.urlbar.lock.setIcon(icon("object-locked", SP.SP_DialogYesButton))
+            self.urlbar.lock.setIcon(icon(("object-locked", "channel-secure-symbolic"), SP.SP_DialogYesButton))
             self.urlbar.lock.setToolTip(T("Secure connection (HTTPS)"))
         elif scheme == "http":
             self.urlbar.lock.setIcon(icon("security-low", SP.SP_MessageBoxWarning))
             self.urlbar.lock.setToolTip(T("Connection is not encrypted"))
         else:
-            self.urlbar.lock.setIcon(icon("globe", SP.SP_FileIcon))
+            self.urlbar.lock.setIcon(icon(("globe", "web-browser-symbolic"), SP.SP_FileIcon))
             self.urlbar.lock.setToolTip("")
         from .extensions import store_id
         self.store_act.setVisible(bool(store_id(url.toString()))
@@ -1804,7 +1815,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self._zoom_sign()
         marked = bool(v) and self.app.storage.is_bookmarked(url.toString())
         if not polish.popping(self, "star"):
-            self.act_tb_bookmark.setIcon(icon("bookmarks" if marked else "bookmark-new",
+            self.act_tb_bookmark.setIcon(icon(("bookmarks", "starred-symbolic") if marked else "bookmark-new",
                                               SP.SP_DialogApplyButton if marked else SP.SP_DialogOpenButton))
         self.act_tb_bookmark.setToolTip(T("Remove bookmark") if marked else T("Bookmark this page"))
         self.urlbar.translate_act.setVisible(scheme in ("http", "https") and self.ext_on("translate"))
@@ -2054,7 +2065,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if ic.isNull():
             if fetch and not self.private:
                 fav.fetch(url)
-            return icon("globe", QStyle.StandardPixmap.SP_FileIcon)
+            return icon(("globe", "web-browser-symbolic"), QStyle.StandardPixmap.SP_FileIcon)
         return ic
 
     def _open_action(self, menu, url, title):

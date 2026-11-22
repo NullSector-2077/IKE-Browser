@@ -192,7 +192,7 @@ class WindowFeatures:
         self.split_title = QLabel(bar)
         close = QToolButton(bar)
         close.setAutoRaise(True)
-        close.setIcon(_theme("view-close", QStyle.StandardPixmap.SP_TitleBarCloseButton))
+        close.setIcon(_theme(("view-close", "window-close-symbolic"), QStyle.StandardPixmap.SP_TitleBarCloseButton))
         close.setToolTip(T("Close split view"))
         close.clicked.connect(self.unsplit)
         bl.addWidget(self.split_title, 1)
@@ -205,7 +205,8 @@ class WindowFeatures:
         b = QToolButton(parent)
         b.setAutoRaise(True)
         b.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        b.setIcon(_theme("view-list-icons", QStyle.StandardPixmap.SP_FileDialogListView))
+        b.setIcon(_theme(("view-list-icons", "view-app-grid-symbolic", "view-grid-symbolic"),
+                         QStyle.StandardPixmap.SP_FileDialogListView))
         b.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         b.setToolTip(T("Workspaces: separate sets of tabs in this window"))
         m = QMenu(b)
@@ -218,48 +219,60 @@ class WindowFeatures:
         them in the menu bar and in the ☰ menu (_build_menus)."""
         A = self._action
         self.m_containers = QMenu(T("New tab in container"), self)
-        self.m_containers.setIcon(_theme("folder-lock", QStyle.StandardPixmap.SP_DirIcon))
+        self.m_containers.setIcon(_theme(("folder-locked", "folder-lock", "channel-secure-symbolic", "object-locked"),
+                                         QStyle.StandardPixmap.SP_DirIcon))
         self.m_containers.aboutToShow.connect(self._fill_containers)
         self.m_profiles = QMenu(T("Profiles"), self)
-        self.m_profiles.setIcon(_theme("user-identity", QStyle.StandardPixmap.SP_DirHomeIcon))
+        self.m_profiles.setIcon(_theme(("user-identity", "avatar-default-symbolic"),
+                                       QStyle.StandardPixmap.SP_DirHomeIcon))
         self.m_profiles.aboutToShow.connect(self._fill_profiles)
-        self.act_import = A(T("Import from another browser…"), self.app.show_import, None, "document-import",
+        self.act_import = A(T("Import from another browser…"), self.app.show_import, None,
+                            ("document-import", "document-open-symbolic", "document-open"),
                             T("Copy bookmarks, history and passwords from Firefox or Chromium browsers"))
-        self.act_backup = A(T("Back up I.K.E. data…"), self.app.backup, None, "document-save-as",
+        self.act_backup = A(T("Back up I.K.E. data…"), self.app.backup, None, ("document-save-as", "document-save"),
                             T("Save settings, bookmarks, history and the password vault to one file"))
-        self.act_restore = A(T("Restore a backup…"), self.app.restore_backup, None, "document-revert",
+        self.act_restore = A(T("Restore a backup…"), self.app.restore_backup, None, ("document-revert", "edit-undo"),
                              T("Replace the current data with a backup file"))
-        self.act_split = A(T("Split view"), self.toggle_split, "Ctrl+Shift+2", "view-split-left-right",
+        self.act_split = A(T("Split view"), self.toggle_split, "Ctrl+Shift+2",
+                           ("view-split-left-right", "view-dual-symbolic"),
                            T("Show two tabs side by side"), checkable=True)
-        self.act_reader = A(T("Reader mode"), self.toggle_reader, "F9", "view-readermode",
+        self.act_reader = A(T("Reader mode"), self.toggle_reader, "F9",
+                            ("view-readermode", "view-reader-symbolic", "x-office-document-symbolic"),
                             T("Show only the article text, without clutter"))
         ws = self.m_workspaces = QMenu(T("Workspaces"), self)
-        ws.setIcon(_theme("view-list-icons", QStyle.StandardPixmap.SP_FileDialogListView))
+        ws.setIcon(_theme(("view-list-icons", "view-app-grid-symbolic", "view-grid-symbolic"),
+                          QStyle.StandardPixmap.SP_FileDialogListView))
         ws.aboutToShow.connect(lambda: self._fill_ws_menu(ws))
-        self.act_passwords = A(T("Passwords…"), self.app.show_passwords, "Ctrl+Shift+K", "dialog-password",
+        self.act_passwords = A(T("Passwords…"), self.app.show_passwords, "Ctrl+Shift+K",
+                               ("dialog-password", "object-locked"),
                                T("Saved logins, password generator, import and export"))
         self.act_fill_login = A(T("Fill login on this page"), self.fill_login, "Ctrl+Shift+L",
-                                "password-show-on", T("Fill the saved user name and password for this site"))
+                                ("password-show-on", "dialog-password-symbolic", "object-locked"),
+                                T("Fill the saved user name and password for this site"))
         # no shortcut of its own: Ctrl+Shift+A opens the extensions (owner's
         # decision for 1.1.20; with both, Qt ran neither)
         self.act_search_tabs = A(T("Search open tabs…"), self.search_tabs, None, "edit-find",
                                  T("Find an open tab by its title or address"))
-        self.act_translate = A(T("Translate page…"), self.translate_page, None, "translate",
+        self.act_translate = A(T("Translate page…"), self.translate_page, None,
+                               ("translate", "preferences-desktop-locale-symbolic", "preferences-desktop-locale"),
                                T("Translate this page through an external web service"))
         self.act_float = A(T("Video in floating window"), self.float_video, "Ctrl+Shift+V",
                            "media-playback-start",
                            T("Keep the video of this tab on top of other windows (picture in picture)"))
         self.act_suspend = A(T("Suspend inactive tabs now"), lambda: self.app.sleep_tabs(force=True), None,
-                             "system-suspend", T("Free the memory used by background tabs"))
+                             ("system-suspend", "media-playback-pause-symbolic", "media-playback-pause"),
+                             T("Free the memory used by background tabs"))
         self.act_resources = A(T("Site resources…"), self.app.show_resources, "Shift+Esc",
                                "utilities-system-monitor",
                                T("Memory, CPU and network used by each site, with optional limits"))
-        self.act_watches = A(T("Watched pages…"), self.app.show_watches, None, "view-visible",
+        self.act_watches = A(T("Watched pages…"), self.app.show_watches, None,
+                             ("view-visible", "view-reveal-symbolic", "document-open-recent-symbolic", "view-history"),
                              T("Pages and parts of pages you get notified about when they change"))
         self.act_permissions = A(T("Site permissions…"), self.app.show_permissions, None,
-                                 ("preferences-security", "object-locked"),
+                                 ("preferences-security", "object-locked", "security-high-symbolic"),
                                  T("Camera, microphone, location, notifications and clipboard access per site"))
-        self.act_store = A(T("Chrome Web Store"), self.open_web_store, None, "plugins",
+        self.act_store = A(T("Chrome Web Store"), self.open_web_store, None,
+                           ("plugins", "application-x-addon-symbolic", "application-x-addon", "preferences-plugin"),
                            T("Browse extensions; on an extension page use “Install in I.K.E.”"))
 
     def ext_on(self, ext_id):
@@ -311,8 +324,8 @@ class WindowFeatures:
     def _apply_vtabs_icons(self):
         on = bool(self.app.config["vtabs_icons_only"])
         SP = QStyle.StandardPixmap
-        self.vicons_btn.setIcon(_theme("view-list-details", SP.SP_FileDialogDetailedView) if on
-                                else _theme("view-grid", SP.SP_FileDialogListView))
+        self.vicons_btn.setIcon(_theme(("view-list-details", "view-list-symbolic"), SP.SP_FileDialogDetailedView) if on
+                                else _theme(("view-grid", "view-grid-symbolic"), SP.SP_FileDialogListView))
         self.vicons_btn.setToolTip(T("Show the titles of the tabs") if on else
                                    T("Show only the icons of the tabs"))
         self._vhead.setDirection(QBoxLayout.Direction.TopToBottom if on else QBoxLayout.Direction.LeftToRight)
@@ -340,8 +353,9 @@ class WindowFeatures:
         self._apply_vtabs_icons()
         auto = bool(self.app.config["vtabs_autohide"])
         SP = QStyle.StandardPixmap
-        self.vhide_btn.setIcon(_theme("window-pin", SP.SP_ArrowRight) if auto
-                               else _theme("sidebar-collapse-left", SP.SP_ArrowLeft))
+        self.vhide_btn.setIcon(_theme(("window-pin", "view-pin-symbolic"), SP.SP_ArrowRight) if auto
+                               else _theme(("sidebar-collapse-left", "sidebar-show-symbolic", "go-previous"),
+                                           SP.SP_ArrowLeft))
         self.vhide_btn.setToolTip(T("Keep the tabs always visible") if auto else
                                   T("Hide the tabs (they come back when the mouse touches "
                                     "the left edge)"))
@@ -596,7 +610,7 @@ class WindowFeatures:
             else:
                 b = WindowButton(self, side, getattr(self.app, "config", None))
                 b.setAutoRaise(True)
-                b.setIcon(_theme(name, fallback))
+                b.setIcon(_theme((name, name + "-symbolic"), fallback))
                 if name == "window-maximize":
                     self._max_btn = b
             b.setToolTip(tip)
@@ -618,8 +632,8 @@ class WindowFeatures:
             return
         big = self.isMaximized() or self.isFullScreen()
         SP = QStyle.StandardPixmap
-        b.setIcon(_theme("window-restore", SP.SP_TitleBarNormalButton) if big
-                  else _theme("window-maximize", SP.SP_TitleBarMaxButton))
+        b.setIcon(_theme(("window-restore", "window-restore-symbolic"), SP.SP_TitleBarNormalButton) if big
+                  else _theme(("window-maximize", "window-maximize-symbolic"), SP.SP_TitleBarMaxButton))
         b.setToolTip(T("Restore") if big else T("Maximize"))
 
     def _toggle_titlebar(self):
@@ -929,7 +943,7 @@ class WindowFeatures:
             self.set_current(jump)
 
     def _tab_menu_extra(self, m, view):
-        g = m.addMenu(_theme("tab-duplicate", QStyle.StandardPixmap.SP_DirIcon), T("Tab group"))
+        g = m.addMenu(_theme(("tab-duplicate", "edit-copy-symbolic"), QStyle.StandardPixmap.SP_DirIcon), T("Tab group"))
         for name in self.groups:
             a = g.addAction(name)
             a.setCheckable(True)
@@ -957,9 +971,10 @@ class WindowFeatures:
         if view is self.split:
             m.addAction(T("Close split view"), self.unsplit)
         elif self.ext_on("split"):
-            m.addAction(_theme("view-split-left-right", QStyle.StandardPixmap.SP_ArrowRight),
+            m.addAction(_theme(("view-split-left-right", "view-dual-symbolic"), QStyle.StandardPixmap.SP_ArrowRight),
                         T("Show on the right (split view)"), lambda: self.split_with(view))
-        m.addAction(_theme("system-suspend", QStyle.StandardPixmap.SP_MediaPause),
+        m.addAction(_theme(("system-suspend", "media-playback-pause-symbolic", "media-playback-pause"),
+                           QStyle.StandardPixmap.SP_MediaPause),
                     T("Suspend tab"), lambda: self._suspend(view))
 
     # ------------------------------------------------------------------

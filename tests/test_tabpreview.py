@@ -61,3 +61,44 @@ def _check(out):
     assert out["cpu"][1].endswith("%"), out          # a reading, not "…" or "—"
     assert out["mem"][1].endswith(("KB", "MB", "GB")), out
     assert out["stopped"], out                       # nothing is read once it is hidden
+
+
+FIT = r'''
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QPoint, QUrl
+    from PyQt6.QtGui import QPixmap
+    from ike import i18n
+    from ike.tabpreview import TabPreview
+    w = ike.windows[0]
+    yield 600
+    found = []
+    for code in LANGS:
+        i18n.setup(code)
+        prev = TabPreview(w)
+        pm = QPixmap(240, 135)
+        pm.fill()
+        prev.show_for(0, pm, "Example — example.org", w.mapToGlobal(QPoint(60, 40)))
+        yield 50
+        for meter, label, value in ((prev.cpu, i18n.T("CPU"), "100 %"), (prev.mem, i18n.T("Memory"), "1023 MB")):
+            meter.set(label, value, 1.0)
+            fm = meter.fontMetrics()
+            # the value and the name side by side, with room between them, inside the meter
+            need = fm.horizontalAdvance(value) + fm.horizontalAdvance("  ") + fm.horizontalAdvance(label)
+            if need > meter.width() or meter.geometry().right() > prev.width():
+                found.append([code, label, value, need, meter.width()])
+        prev.hide_preview()
+        prev.deleteLater()
+        yield 20
+    out["found"] = found
+'''
+
+
+def test_cpu_and_memory_are_shown_whole_with_a_large_font(run_ike):
+    """1.1.22, seen by the owner: the memory of the tab ended in "…" (the two
+    values side by side, half the card each). With a large font (144 dpi)
+    and in every language, the name and the whole value fit their line."""
+    import json
+    from pathlib import Path
+    codes = sorted(p.stem for p in (Path(__file__).resolve().parent.parent / "ike/resources/lang").glob("*.json"))
+    out = run_ike(FIT.replace("LANGS", json.dumps(["en"] + codes)), env={"QT_FONT_DPI": "144"}, timeout=180)
+    assert not out["found"], out["found"][:10]
