@@ -1025,6 +1025,7 @@
 "“%s” uses Manifest V%s. The engine only runs Manifest V3 extensions.": "„%s“ notar Manifest V%s. Vélin keyrir aðeins Manifest V3 viðbætur.",
 "“Send to device” with KDE Connect": "„Senda í tæki“ með KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ til að velja, Enter til að fara, Esc til að loka",
-"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Dulkóðað DNS svarar ekki eigin beiðnum I.K.E. (uppfærslur, síulistar): %s"
+"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Dulkóðað DNS svarar ekki eigin beiðnum I.K.E. (uppfærslur, síulistar): %s",
+"Shared by %d tabs of this site": "Deilt af %d flipum þessarar vefsíðu"
 }
 }

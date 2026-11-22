@@ -22,7 +22,6 @@ from PyQt6.QtCore import QObject, Qt, QTimer, QUrl, pyqtSignal
 from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineScript
 from PyQt6.QtWidgets import (
     QAbstractItemView,
-    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -38,6 +37,7 @@ from PyQt6.QtWidgets import (
 )
 
 from .i18n import T
+from .uistyle import Switch
 
 INTERVALS = ((15, "Every 15 minutes"), (60, "Every hour"), (360, "Every 6 hours"),
              (1440, "Once a day"))
@@ -294,7 +294,7 @@ class WatchesDialog(QDialog):
         self.setWindowTitle(T("Watched pages"))
         self.resize(760, 420)
         lay = QVBoxLayout(self)
-        self.on = QCheckBox(T("Check the watched pages while I.K.E. is open"), self)
+        self.on = Switch(T("Check the watched pages while I.K.E. is open"), self)
         self.on.setChecked(bool(app.config["page_watch_on"]))
         self.on.toggled.connect(self._toggle)
         lay.addWidget(self.on)

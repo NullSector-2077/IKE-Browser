@@ -1,5 +1,74 @@
 # Changelog
 
+## 1.1.21
+
+Fingerprinting: the points left by the independent audit of 1.1.20, each
+with a test that failed before the fix (docs/SECURITY.md has the table).
+
+- **Fonts at Strict and Maximum**: the engine itself now sees only the font
+  families most Linux computers have (DejaVu, Liberation, Noto, Cantarell,
+  Source Han, WenQuanYi), so a page's style sheet (`src: local()`) or a
+  worker can no longer find a font the user installed. Read at start: a
+  change of level applies after a restart. I.K.E.'s own interface uses the
+  same fonts at these levels.
+- **Processors**: the number shown is 4 or 8, the most common values (2 was
+  rare enough to single the browser out).
+- **Screen size at Strict**: `matchMedia` answers the shown screen size too;
+  a search over the device-width queries gave the real one away.
+- **The noise's site** follows the Public Suffix List: two unrelated sites
+  on one hosting service (a.altervista.org, b.altervista.org) no longer share
+  their noise.
+- **`window.name`** is emptied when the tab moves to another site.
+
+- **The tab preview** (the mouse over a tab that is not open) is a card of
+  I.K.E.'s own: fully opaque (a tooltip window, which some desktop styles draw
+  partly transparent), with rounded corners, its picture the card's whole
+  width on a scaled screen too (it filled half of it at 2x), and under the
+  title the tab's CPU and memory with a coloured bar each, read once a second
+  while the card is shown.
+
+The interface, as the owner tried it on KDE Plasma (no menu, setting or
+shortcut changed):
+
+- **An ⓘ instead of the grey line under each option**: in a narrow window or
+  with a larger font the explanations under the options could be cut. Each
+  one is now in a small round ⓘ right after its option (the desktop's own
+  icon): the mouse over it shows the explanation, a click, Space or Enter
+  shows it in a small window that a click or Esc closes, and screen readers
+  read it. The sentence at the top of each Settings page stays, wrapped.
+- **Texts never touch or cross a border**: buttons keep room around their
+  text, a check box's long text wraps beside its box (right to left too),
+  the toolbar buttons and permissions of the Settings wrap instead of
+  widening the page. A new test (tests/test_text_fit.py) opens the window,
+  the menus, every Settings page and the other windows in every language
+  pack and fails on any text that is cut, too close to its frame or needs
+  sideways scrolling: 101 problems in 58 languages before (176 on Arch
+  Linux with Noto Sans), none now.
+- **Everything fits the screen**: About is a window whose text scrolls, at
+  most the size of the screen (it could run past the bottom); the Settings,
+  the main window and the other windows never open larger than the screen.
+- **Menus longer than the screen scroll** (the ☰ menu, the menu bar,
+  history, bookmarks, context menus), whatever the desktop's style.
+- **Switches instead of check boxes**, as the owner asked: every on / off
+  option (the Settings, the shield's panel, the find bar, clear data,
+  import, passwords, resources, watched pages, site information, the email
+  question) is a switch like those of the "I.K.E. extensions" page, with
+  the same text in the same place; the filter lists and the user scripts
+  show a switch in each entry (a click on it or Space turns it); menu
+  entries turned on and off (menu bar, extensions, toolbar buttons, dark
+  mode, workspaces, tab groups, profiles, a video's loop and controls) show
+  a small switch instead of the tick, while a choice among several (the
+  protection level, the search engine) keeps its dot. Nothing else changes:
+  same settings, same signals. tests/test_switches.py fails on any check
+  box, ticked list or ticked menu entry that is not a switch.
+
+- **Dark Reader closer to its own version**: of I.K.E.'s 53 changes to Dark
+  Reader, only the 32 that measurably make pages faster are kept (new
+  colours, repeated icons and style sheets, shadow roots, the search for
+  shadow roots, large style sheets); the other 21 saved no time that could
+  be told from noise, so they went. Pages turn dark exactly as before, and
+  a new Dark Reader has fewer places where its automatic update can stop.
+
 ## 1.1.20
 
 An independent review of 1.1.19 (security and privacy) found 18 points; each

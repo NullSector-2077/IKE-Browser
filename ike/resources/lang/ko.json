@@ -1025,6 +1025,7 @@
 "“%s” uses Manifest V%s. The engine only runs Manifest V3 extensions.": "“%s”은(는) Manifest V%s를 사용합니다. 엔진은 Manifest V3 확장 프로그램만 실행합니다.",
 "“Send to device” with KDE Connect": "KDE Connect로 “기기로 보내기”",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ 선택, Enter 이동, Esc 닫기",
-"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "암호화된 DNS가 I.K.E. 자체 요청(업데이트, 필터 목록)에 응답하지 않습니다: %s"
+"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "암호화된 DNS가 I.K.E. 자체 요청(업데이트, 필터 목록)에 응답하지 않습니다: %s",
+"Shared by %d tabs of this site": "이 사이트의 탭 %d개가 공유"
 }
 }

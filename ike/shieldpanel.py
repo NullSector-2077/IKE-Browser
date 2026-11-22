@@ -4,21 +4,12 @@
 from PyQt6.QtCore import QPointF, QRect, QRectF, QSize, Qt, QTimer
 from PyQt6.QtGui import QColor, QIcon, QIconEngine, QPainter, QPainterPath, QPixmap
 from PyQt6.QtWebEngineCore import QWebEnginePage
-from PyQt6.QtWidgets import (
-    QCheckBox,
-    QComboBox,
-    QFrame,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QToolButton,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt6.QtWidgets import QComboBox, QFrame, QHBoxLayout, QLabel, QPushButton, QToolButton, QVBoxLayout, QWidget
 
 from . import APP_NAME
 from .config import LEVEL_NAMES, LEVELS, rank
 from .i18n import T
+from .uistyle import Switch
 
 LEVEL_LETTER = {"compatibility": "C", "balanced": "B", "strict": "S", "maximum": "M"}
 
@@ -213,10 +204,10 @@ class ShieldPanel(QWidget):
         self.cookies.addItem(T("Block cross-site cookies"), "3p")
         self.cookies.addItem(T("Block all cookies"), "all")
         self.cookies.addItem(T("Allow all cookies"), "allow")
-        self.fp = QCheckBox(T("Fingerprinting protection"), self.adv)
-        self.https = QCheckBox(T("Upgrade connections to HTTPS"), self.adv)
-        self.noscript = QCheckBox(T("Block scripts on this site"), self.adv)
-        self.dark = QCheckBox(T("Dark mode on this site"), self.adv)
+        self.fp = Switch(T("Fingerprinting protection"), self.adv)
+        self.https = Switch(T("Upgrade connections to HTTPS"), self.adv)
+        self.noscript = Switch(T("Block scripts on this site"), self.adv)
+        self.dark = Switch(T("Dark mode on this site"), self.adv)
         self.detail = QLabel(self.adv)
         self.detail.setTextFormat(Qt.TextFormat.RichText)
         self.perms = QLabel(self.adv)

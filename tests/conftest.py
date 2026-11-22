@@ -64,6 +64,14 @@ def write_profile(cfg, data_dir, settings=None, keep=False):
     (lists / name).write_text(TEST_LIST, "utf-8")
 
 
+def screen(folder, width, height):
+    """The environment for an offscreen screen of width x height (Qt's own is 800 x 800)."""
+    cfg = Path(folder) / ("screen-%dx%d.json" % (width, height))
+    cfg.write_text(json.dumps({"screens": [{"name": "ike-test", "x": 0, "y": 0, "width": width,
+                                            "height": height, "logicalDpi": 96, "dpr": 1}]}), "utf-8")
+    return {"QT_QPA_PLATFORM": "offscreen:configfile=%s" % cfg}
+
+
 @pytest.fixture
 def run_ike(tmp_path):
     def run(script, settings=None, env=None, timeout=90, args=(), keep_profile=False, command=None,

@@ -1025,6 +1025,7 @@
 "Middle-click on an empty part of a page, then move the mouse to scroll. Any click or Esc stops it.": "在页面空白处点击鼠标中键，然后移动鼠标即可滚动。任何点击或 Esc 键都会停止。",
 "Open selected text with middle click": "用中键打开所选文字",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "在页面空白处点击鼠标中键，会把你选中的文字作为地址或搜索打开。",
-"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "加密 DNS 无法响应 I.K.E. 自己的请求（更新、过滤列表）：%s"
+"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "加密 DNS 无法响应 I.K.E. 自己的请求（更新、过滤列表）：%s",
+"Shared by %d tabs of this site": "由此网站的 %d 个标签页共用"
 }
 }

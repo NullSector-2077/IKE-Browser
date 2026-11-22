@@ -1025,6 +1025,7 @@
 "“%s” uses Manifest V%s. The engine only runs Manifest V3 extensions.": "“%s” dùng Manifest V%s. Công cụ chỉ chạy tiện ích mở rộng Manifest V3.",
 "“Send to device” with KDE Connect": "“Gửi tới thiết bị” bằng KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ để chọn, Enter để mở, Esc để đóng",
-"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS mã hóa không trả lời các yêu cầu của chính I.K.E. (cập nhật, danh sách bộ lọc): %s"
+"Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS mã hóa không trả lời các yêu cầu của chính I.K.E. (cập nhật, danh sách bộ lọc): %s",
+"Shared by %d tabs of this site": "Chia sẻ bởi %d thẻ của trang này"
 }
 }

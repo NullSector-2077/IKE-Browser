@@ -166,7 +166,12 @@ def test_every_page_name_still_opens(run_ike):
                 lab = dlg.stack.widget(i).findChild(QLabel, "ike_page_about")
                 abouts.append(bool(lab and lab.text()))
             out["abouts"] = abouts
-            out["hints"] = len(dlg.findChildren(QLabel, "ike_hint"))
+            # 1.1.21: each explanation in the ⓘ after its option, none left as a grey line under it
+            from PyQt6.QtWidgets import QToolButton
+            infos = dlg.findChildren(QToolButton, "ike_info")
+            out["hints"] = len(infos)
+            out["hint_lines"] = len(dlg.findChildren(QLabel, "ike_hint"))
+            out["infos_named"] = all(b.accessibleName() and b.accessibleName() == b.whatsThis() for b in infos)
             # a card's Options… opens its page
             dlg._ext_options("page:newtab")
             out["options_page"] = dlg.PAGES[dlg.stack.currentIndex()]
@@ -185,7 +190,7 @@ def test_every_page_name_still_opens(run_ike):
     for name, page in expected.items():
         assert out["pages"][name][:2] == [True, page], (name, out["pages"][name])
     assert all(out["abouts"]) and len(out["abouts"]) == 11
-    assert out["hints"] > 60
+    assert out["hints"] > 60 and out["hint_lines"] == 0 and out["infos_named"]
     assert out["options_page"] == "newtab" and out["userscripts_window"]
 
 

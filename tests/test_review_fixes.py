@@ -685,6 +685,185 @@ def test_l10_the_site_of_a_name_follows_the_public_suffix_list(tmp_path, monkeyp
         shields.site_of.cache_clear()
 
 
+STEPS_L2 = r"""
+PSL = %r
+HOSTS = %r
+
+def steps(ike, qapp, out):
+    import hashlib
+    from PyQt6.QtCore import QUrl
+    from ike import shields
+    shields.PSL_PATHS[:] = [PSL]
+    shields._PSL.clear()
+    shields._PSL_CODES.clear()
+    ike.shields.apply_settings()
+    v = ike.windows[0].current_view()
+    for h in HOSTS:
+        v.setHtml("<title>t</title><body></body>", QUrl("https://%%s/" %% h))
+        yield 1500
+        got = {}
+        js = ("(function(){var c=document.createElement('canvas');c.width=120;c.height=40;"
+              "var x=c.getContext('2d');x.font='20px sans-serif';x.fillStyle='#3a7';"
+              "x.fillText('I.K.E. noise',4,26);return c.toDataURL();})()")
+        v.page().runJavaScript(js, 0, lambda r: got.__setitem__("r", r))
+        for _ in range(50):
+            yield 100
+            if got.get("r"):
+                break
+        out[h] = hashlib.sha1((got.get("r") or "").encode()).hexdigest()[:12]
+"""
+
+
+def test_l2_the_site_of_the_noise_follows_the_public_suffix_list(run_ike, tmp_path):
+    """Fingerprinting audit L-2: fingerprint.js used its own short list of
+    hosting domains, so two unrelated sites under another one
+    (a.altervista.org, b.altervista.org) were one site with the same noise:
+    linkable. Now the system's Public Suffix List decides, as for the rest of
+    I.K.E. (shields.site_of); names of one site keep one noise."""
+    psl = tmp_path / "psl.dat"
+    psl.write_text(PSL_SAMPLE + "// ===BEGIN PRIVATE DOMAINS===\naltervista.org\ncodeberg.page\n")
+    hosts = ["a.altervista.org", "b.altervista.org", "x.codeberg.page", "y.codeberg.page",
+             "www.bbc.co.uk", "news.bbc.co.uk", "p.y.blogspot.it", "q.y.blogspot.it",
+             "a.b.ck", "c.b.ck"]
+    out = run_ike(STEPS_L2 % (str(psl), hosts), settings={"shield_level": "balanced"}, timeout=120)
+    n = {h: out[h] for h in hosts}
+    assert hashlib_empty() not in n.values(), n
+    assert n["a.altervista.org"] != n["b.altervista.org"], n
+    assert n["x.codeberg.page"] != n["y.codeberg.page"], n
+    assert n["a.b.ck"] != n["c.b.ck"], n
+    assert n["www.bbc.co.uk"] == n["news.bbc.co.uk"], n
+    assert n["p.y.blogspot.it"] == n["q.y.blogspot.it"], n
+
+
+def hashlib_empty():
+    import hashlib
+    return hashlib.sha1(b"").hexdigest()[:12]
+
+
+STEPS_WINDOW_NAME = r"""
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QUrl
+    v = ike.windows[0].current_view()
+    def name(key):
+        got = {}
+        v.page().runJavaScript("window.name", 0, lambda r: got.__setitem__("r", r))
+        return got
+    # one site to another: emptied
+    v.setUrl(QUrl(BASE_A + "/a"))
+    yield 2000
+    v.page().runJavaScript("window.name = 'tracker-id-123'", 0)
+    yield 300
+    v.page().runJavaScript("location.href = %r" % (BASE_B + "/b"), 0)
+    yield 2500
+    g = name("cross"); yield 500; out["cross"] = g.get("r")
+    # within one site: kept; and a reload keeps it
+    v.page().runJavaScript("window.name = 'same-site'", 0)
+    yield 300
+    v.page().runJavaScript("location.href = %r" % (BASE_B + "/c"), 0)
+    yield 2500
+    g = name("same"); yield 500; out["same"] = g.get("r")
+    v.reload()
+    yield 2500
+    g = name("reload"); yield 500; out["reload"] = g.get("r")
+"""
+
+
+def test_l3_window_name_does_not_cross_sites(run_ike):
+    """Fingerprinting audit L-3: window.name written on one site was still
+    there after the tab went to another site (an identifier carried across
+    sites). Now emptied on a new navigation from another site; kept within a
+    site and on a reload."""
+    import http.server
+    import threading
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            body = b"<!doctype html><title>t</title><p>page</p>"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        port = srv.server_address[1]
+        steps = ("BASE_A = 'http://127.0.0.1:%d'\nBASE_B = 'http://localhost:%d'\n" % (port, port)) + STEPS_WINDOW_NAME
+        out = run_ike(steps, settings={"shield_level": "balanced"}, timeout=90)
+    finally:
+        srv.shutdown()
+    assert out["cross"] == "", out
+    assert out["same"] == "same-site" and out["reload"] == "same-site", out
+
+
+M2_PROBE = r"""(function () {
+  function search(feature) {
+    var lo = 1, hi = 20000;
+    while (lo < hi) {
+      var mid = (lo + hi + 1) >> 1;
+      if (matchMedia('(min-' + feature + ': ' + mid + 'px)').matches) lo = mid; else hi = mid - 1;
+    }
+    return lo;
+  }
+  function range(feature) {
+    var lo = 1, hi = 20000;
+    while (lo < hi) {
+      var mid = (lo + hi + 1) >> 1;
+      if (matchMedia('(' + feature + ' >= ' + mid + 'px)').matches) lo = mid; else hi = mid - 1;
+    }
+    return lo;
+  }
+  var W = screen.width, H = screen.height;
+  window.__fp = JSON.stringify({
+    shown: [W, H], min: [search('device-width'), search('device-height')],
+    range: [range('device-width'), range('device-height')],
+    exact: matchMedia('(device-width: ' + W + 'px) and (device-height: ' + H + 'px)').matches,
+    ratio: matchMedia('(device-aspect-ratio: ' + W + '/' + H + ')').matches,
+    media: matchMedia('screen and (min-device-width:100px)').media,
+    plain: matchMedia('(min-width: 1px)').matches && !matchMedia('(max-width: 1px)').matches,
+    or: matchMedia('(max-device-width: 1px), (min-width: 1px)').matches
+  });
+})();"""
+
+
+def test_m2_media_queries_answer_the_shown_screen(run_ike):
+    """Fingerprinting audit M-2: at Strict screen.width said a usual size,
+    and a binary search with matchMedia('(min-device-width: Npx)') gave the
+    real one. Now matchMedia answers the shown size (both syntaxes); the
+    query's own text is kept and other features are the engine's."""
+    import json
+    out = run_ike(STEPS_FP % M2_PROBE, settings={"shield_level": "strict"}, timeout=90)
+    r = json.loads(out["r"])
+    assert r["min"] == r["shown"] and r["range"] == r["shown"], r
+    assert r["exact"] and r["ratio"] and r["plain"] and r["or"], r
+    assert r["media"] == "screen and (min-device-width: 100px)", r
+
+
+def test_l2_page_and_python_agree_on_the_codes():
+    """The page's lookup (fingerprint.js inPsl) and shields.psl_code use the
+    same hash and digits: checked against the script's own text."""
+    import re
+
+    from ike import shields
+    from ike.config import RES_DIR
+    js = (RES_DIR / "fingerprint.js").read_text("utf-8")
+    assert "var PSL_DIGITS = '%s';" % shields.PSL_DIGITS in js
+    assert re.search(r"var h = 2166136261 >>> 0;\s*for \(var i = 0; i < str\.length; i\+\+\) \{\s*"
+                     r"h \^= str\.charCodeAt\(i\);\s*h = mul32\(h, 16777619\) >>> 0;", js)
+    assert "var v = hash(rule) >>> 8" in js and "for (var k = 18; k >= 0; k -= 6)" in js
+    assert list(shields.PSL_DIGITS) == sorted(shields.PSL_DIGITS)
+    # FNV-1a of "co.uk", by hand
+    h = 2166136261
+    for ch in "co.uk":
+        h = ((h ^ ord(ch)) * 16777619) & 0xFFFFFFFF
+    v = h >> 8
+    assert shields.psl_code("co.uk") == "".join(shields.PSL_DIGITS[(v >> k) & 63] for k in (18, 12, 6, 0))
+
+
 FP_PROBE = r"""
 (async function () {
   var R = {};
@@ -1532,6 +1711,103 @@ def test_fp_verify_the_second_round_of_bypasses_is_closed(run_ike):
     assert a["float16"] == "none" or a["float16"] != b["float16"], (a, b)
     assert a["local"] == "error,error,error,error", a
     assert a["pluginKeys"] is True and a["workerNoArg"] == "TypeError", a
+
+
+FONT_PROBE = r"""(function () {
+  var st = document.createElement('style');
+  st.textContent = '@font-face { font-family: "ikeprobe"; src: local("Zqxjkv Sans"); }';
+  document.head.appendChild(st);
+  function w(f) {
+    var e = document.createElement('span');
+    e.style.cssText = 'font-size:72px;position:absolute;white-space:nowrap;font-family:' + f;
+    e.textContent = 'mmmmmmmmmmlli1WQ@#%&ABCxyz'; document.body.appendChild(e);
+    var r = e.offsetWidth + 'x' + e.offsetHeight; e.remove(); return r;
+  }
+  w('ikeprobe, monospace');
+  setTimeout(function () {
+    window.__fp = JSON.stringify({ found: w('ikeprobe, monospace') !== w('monospace') });
+  }, 1500);
+})();"""
+
+
+def _probe_font(home):
+    """A font of a family no computer has ("Zqxjkv Sans"): DejaVu Sans with
+    its name changed (same length, so no table moves), in the user's own
+    font folder."""
+    import os
+
+    import pytest
+    src = None
+    for top in ("/usr/share/fonts", "/usr/local/share/fonts"):
+        for root, _dirs, files in os.walk(top):
+            if "DejaVuSans.ttf" in files:
+                src = os.path.join(root, "DejaVuSans.ttf")
+                break
+        if src:
+            break
+    if src is None:
+        pytest.skip("DejaVu Sans is not installed")
+    data = open(src, "rb").read()
+    data = data.replace(b"DejaVu", b"Zqxjkv").replace("DejaVu".encode("utf-16-be"), "Zqxjkv".encode("utf-16-be"))
+    fonts = home / ".local/share/fonts"
+    fonts.mkdir(parents=True, exist_ok=True)
+    (fonts / "ike-probe.ttf").write_bytes(data)
+
+
+def test_font_allowlist_style_sheets_cannot_find_a_users_font(run_ike, tmp_path):
+    """Fingerprinting audit, "Known limits" (owner's decision: 1.1.21): at
+    Strict a style sheet's own @font-face with src: local() found any
+    installed font, out of every script's reach. Now at the global levels
+    Strict and Maximum the engine sees only the most common families
+    (ike/fontallow.py); at Balanced the user's fonts stay usable."""
+    import json
+    _probe_font(tmp_path / "home")
+    found = {}
+    for level in ("balanced", "strict", "maximum"):
+        out = run_ike(STEPS_FP % FONT_PROBE, settings={"shield_level": level}, timeout=90)
+        found[level] = json.loads(out["r"])["found"]
+    assert found == {"balanced": True, "strict": False, "maximum": False}, found
+
+
+def test_font_allowlist_config_and_restart(tmp_path):
+    """The file includes the system's configuration; a restart or another
+    profile started by I.K.E. gets the user's own FONTCONFIG_FILE back."""
+    from ike import fontallow
+    fonts = tmp_path / "fonts" / "TTF"
+    fonts.mkdir(parents=True)
+    (fonts / "DejaVuSans.ttf").write_bytes(b"x")
+    user = tmp_path / "user.conf"
+    user.write_text("<fontconfig/>")
+    env = {"FONTCONFIG_FILE": str(user)}
+    assert fontallow.apply("balanced", tmp_path, env, dirs=[str(tmp_path / "fonts")]) is None
+    assert env == {"FONTCONFIG_FILE": str(user)}
+    path = fontallow.apply("strict", tmp_path, env, dirs=[str(tmp_path / "fonts")])
+    assert env["FONTCONFIG_FILE"] == str(path)
+    text = path.read_text()
+    assert '<include ignore_missing="no">%s</include>' % user in text
+    assert "<glob>/*.ttf</glob>" in text and "<glob>/*/DejaVu*</glob>" in text
+    assert fontallow.child_env(env) == {"FONTCONFIG_FILE": str(user)}
+    # the next start (inherits I.K.E.'s file) includes the user's, never its own
+    again = dict(env)
+    fontallow.apply("maximum", tmp_path, again, dirs=[str(tmp_path / "fonts")])
+    assert '<include ignore_missing="no">%s</include>' % user in path.read_text()
+    fontallow.apply("balanced", tmp_path, again, dirs=[str(tmp_path / "fonts")])
+    assert again == {"FONTCONFIG_FILE": str(user)}
+    # no allowed family installed: the fonts stay as they are
+    env = {}
+    assert fontallow.apply("strict", tmp_path, env, dirs=[str(tmp_path / "none")]) is None
+    assert env == {}
+
+
+def test_cores_are_a_common_number(run_ike):
+    """1.1.21 (the owner's Cover Your Tracks test): the number of cores shown
+    was one of 2, 4, 6, 8 (12, 16 at Balanced) per site, and "2" was rare
+    enough to make the browser stand out. Now 4 or 8, in every session and
+    at every level that changes it."""
+    for level in ("balanced", "strict", "strict", "maximum"):
+        out = run_ike(STEPS_FP % "window.__fp = JSON.stringify(navigator.hardwareConcurrency);",
+                      settings={"shield_level": level}, timeout=60)
+        assert out["r"] in ("4", "8"), (level, out["r"])
 
 
 def test_n12_addresses_from_the_menu_are_never_options(monkeypatch):

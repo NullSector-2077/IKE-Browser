@@ -24,7 +24,6 @@ from PyQt6.QtCore import QObject, Qt, QTimer
 from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineScript
 from PyQt6.QtWidgets import (
     QAbstractItemView,
-    QCheckBox,
     QDialog,
     QDialogButtonBox,
     QHBoxLayout,
@@ -39,6 +38,7 @@ from PyQt6.QtWidgets import (
 
 from .i18n import T
 from .shields import site_of
+from .uistyle import Switch
 
 _WORLD = QWebEngineScript.ScriptWorldId.ApplicationWorld   # unseen by the page
 CHECK_MS = 5000
@@ -307,14 +307,14 @@ class ResourcesDialog(QDialog):
 
         mem, cpu = self.mon.limits()
         cfg = app.config
-        self.mem_on = QCheckBox(T("Suspend background tabs of a site using more memory than"), self)
+        self.mem_on = Switch(T("Suspend background tabs of a site using more memory than"), self)
         self.mem = QSpinBox(self)
         self.mem.setRange(100, 64000)
         self.mem.setSingleStep(100)
         self.mem.setSuffix(" MB")
         self.mem.setValue(mem or int(cfg["res_mem_default"]))
         self.mem_on.setChecked(bool(mem))
-        self.cpu_on = QCheckBox(T("Freeze background tabs of a site using more CPU than"), self)
+        self.cpu_on = Switch(T("Freeze background tabs of a site using more CPU than"), self)
         self.cpu = QSpinBox(self)
         self.cpu.setRange(5, 400)
         self.cpu.setSingleStep(5)

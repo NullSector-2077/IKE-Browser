@@ -7,6 +7,7 @@ import os
 import random
 
 import pytest
+from conftest import screen
 
 from ike.config import DEFAULTS, TOOLBAR_ITEMS
 from ike.toolbar import LEFT, RIGHT, ToolbarLayout, default_layout
@@ -248,7 +249,8 @@ def steps(ike, qapp, out):
                     acts[-1] is win._win_btns[-1]]
     out["final"] = keys(win)
     out["final_saved"] = [list(ike.config["toolbar_order"]), list(ike.config["toolbar_left"])]
-    ''', settings={"system_titlebar": False, "start_maximized": False}, timeout=150)
+    ''', settings={"system_titlebar": False, "start_maximized": False}, timeout=150,
+       env=screen(tmp_path, 1600, 900))
     left, right = out["start"]
     assert left == LEFT_DEFAULT and right == RIGHT_DEFAULT
     # the drag: a marker and a ghost from the first real move, the toolbar itself untouched
@@ -281,7 +283,7 @@ def steps(ike, qapp, out):
 def steps(ike, qapp, out):
     yield 600
     out["keys"] = keys(ike.windows[0])
-    ''', keep_profile=True)
+    ''', keep_profile=True, env=screen(tmp_path, 1600, 900))   # a window never larger than the screen (1.1.21)
     assert again["keys"] == out["final"]
 
 

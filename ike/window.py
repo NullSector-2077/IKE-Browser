@@ -9,7 +9,6 @@ from PyQt6.QtGui import QAction, QActionGroup, QGuiApplication, QIcon, QKeySeque
 from PyQt6.QtWebEngineCore import QWebEnginePage
 from PyQt6.QtWidgets import (
     QAbstractItemView,
-    QCheckBox,
     QFileDialog,
     QFrame,
     QHBoxLayout,
@@ -37,6 +36,7 @@ from .features import WindowFeatures, tab_icon
 from .i18n import T
 from .shieldpanel import TOOLBAR_SHIELD_GROW, ShieldPanel, shield_icon
 from .tabs import AUDIO_ROLE, TabBar, VTabDelegate, VTabList
+from .uistyle import Switch
 from .urlbar import _URLISH, UrlBar
 from .webview import WebView
 
@@ -71,7 +71,7 @@ class FindBar(QWidget):
             self.info.setStyleSheet("#ikeFindCount { padding: 1px 9px; border-radius: 9px;"
                                     " background: palette(midlight); color: palette(window-text); }")
             self.info.hide()
-        self.case = QCheckBox(T("Match case"), self)
+        self.case = Switch(T("Match case"), self)
         close = QToolButton(self)
         close.setIcon(icon("window-close", QStyle.StandardPixmap.SP_TitleBarCloseButton))
         close.setAutoRaise(True)
@@ -254,7 +254,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self._devtools = []
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.setWindowIcon(app.icon)
-        self.resize(1280, 840)
+        from .uistyle import screen_area
+        area = screen_area(self)
+        self.resize(min(1280, area.width() - 40), min(840, area.height() - 40))    # 1.1.21: on the screen
 
         self._build_central()
         self._build_toolbar()
@@ -1453,7 +1455,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if t == QEvent.Type.MouseMove and prev.index == i:
             return False
         tip = self.tabbar.tabToolTip(i) or view.title()
-        prev.show_for(i, pm, tip, obj.mapToGlobal(pos))
+        prev.show_for(i, pm, tip, obj.mapToGlobal(pos), view)
         return t == QEvent.Type.ToolTip
 
     def eventFilter(self, obj, event):
@@ -2307,14 +2309,14 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             T("Components and licences"), rows,
             T("I.K.E. is free software (GPL-3.0). Every component keeps its own licence."))
 
+    def about_dialog(self):
+        """The About window (1.1.21: its text scrolls inside a window that fits the screen)."""
+        from .dialogs import AboutDialog
+        return AboutDialog(self.app.icon, self.about_text(), self)
+
     def show_about(self):
         from . import mediacheck
-        box = QMessageBox(self)
-        box.setWindowTitle(T("About I.K.E."))
-        box.setIconPixmap(self.app.icon.pixmap(64, 64))
-        box.setTextFormat(Qt.TextFormat.RichText)
-        box.setText(self.about_text())
-        box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        box = self.about_dialog()
         self._about_box = box
 
         def answered(result):

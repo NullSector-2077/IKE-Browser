@@ -432,7 +432,8 @@ class IkeApp(QObject):
         from .updater import boot_command
         if name == PROFILE:
             return
-        env = dict(os.environ)
+        from .fontallow import child_env
+        env = child_env(os.environ)          # the other profile chooses its own fonts
         env.pop("IKE_TEST_HOOK", None)
         env["IKE_PROFILE"] = name
         subprocess.Popen(boot_command() + ["--profile", name], env=env,
@@ -936,6 +937,10 @@ class IkeApp(QObject):
         dlg = factory()
         dlg.setWindowIcon(self.icon)
         self._dialogs[key] = dlg
+        # the size it asks for, never larger than the screen (1.1.21)
+        from . import uistyle
+        resized = dlg.testAttribute(Qt.WidgetAttribute.WA_Resized)
+        uistyle.fit_window(dlg, dlg.width() if resized else 0, dlg.height() if resized else 0)
         dlg.show()
         dlg.raise_()
         return dlg
@@ -1500,6 +1505,10 @@ def main(argv=None):
         return 1
     config = Config()
     _chromium_flags(config)
+    # at Strict and Maximum the engine sees only the most common font
+    # families (1.1.21): before Qt or the engine reads fontconfig
+    from . import fontallow
+    fontallow.apply(config["shield_level"], CONFIG_DIR)
     from .shields import register_scheme
     register_scheme()
 
@@ -1534,6 +1543,9 @@ def main(argv=None):
         # the whole interface from right to left, as the language is written
         # (1.1.20: Arabic, Hebrew, Persian and Urdu); pages decide for themselves
         qapp.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+    # room around button texts and menus that scroll, over the desktop's own style (1.1.21)
+    from . import uistyle
+    uistyle.install(qapp)
     from . import icons
     icons.apply_scheme(config)
     from . import themes
@@ -1597,7 +1609,8 @@ def main(argv=None):
         if server_name:
             QLocalServer.removeServer(server_name)
         boot = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ike_boot.py")
-        env = dict(os.environ, IKE_WAIT_PID=str(os.getpid()))
+        from .fontallow import child_env
+        env = dict(child_env(os.environ), IKE_WAIT_PID=str(os.getpid()))
         cmd = [sys.executable, boot] + (["--profile", args.profile] if args.profile else [])
         subprocess.Popen(cmd, env=env, start_new_session=True, stdin=subprocess.DEVNULL)
     return code
