@@ -684,7 +684,7 @@ def test_the_reserves_never_touch_other_files_and_skip_missing_keys(repo, tmp_pa
     no = json.dumps({"summary": "Un server era giù.", "fixable": False, "edits": []})
     reserve.main(["--workdir", str(repo), "--prompt", str(prompt), "--status", str(status)],
                  env={"GROQ_API_KEY": "k", "AUTOFIX_GROQ_MODELS": "g1,g2", "ZAI_API_KEY": "z",
-                      "AUTOFIX_ZAI_MODELS": "z1", "OPENROUTER_API_KEY": "k2", "AUTOFIX_OPENROUTER_MODELS": "o1"},
+                      "AUTOFIX_ZAI_MODELS": "z1", "OPENROUTER_API_KEY": "k2", "AUTOFIX_OPENROUTER_MODELS": "o1:free"},
                  opener=_opener([no, no, no], seen))
     assert json.loads(status.read_text())["result"] == "none"
     assert [s[1] for s in seen] == ["g1", "g2", "z1"], seen            # OpenRouter, a third provider: not asked
@@ -1200,7 +1200,7 @@ def test_openrouter_is_reached_when_groq_cannot_fix(repo, tmp_path, groq, why):
                                                   "replace": "    return 11\n"}]})
     seen = []
     env = {"GROQ_API_KEY": "k", "OPENROUTER_API_KEY": "k2", "AUTOFIX_GROQ_MODELS": "g1",
-           "AUTOFIX_OPENROUTER_MODELS": "o1"}
+           "AUTOFIX_OPENROUTER_MODELS": "o1:free"}
     orig_sleep = reserve.time.sleep
     reserve.time.sleep = lambda s: None
     try:
@@ -1209,7 +1209,7 @@ def test_openrouter_is_reached_when_groq_cannot_fix(repo, tmp_path, groq, why):
     finally:
         reserve.time.sleep = orig_sleep
     out = json.loads(status.read_text())
-    assert out["result"] == "ok" and out["model"] == "OpenRouter / o1", (why, out)
+    assert out["result"] == "ok" and out["model"] == "OpenRouter / o1:free", (why, out)
     assert seen[-1][0].startswith("https://openrouter.ai/"), why
 
 
@@ -2487,9 +2487,15 @@ def _refused():
     ("a list where a file name should be", [A_LIST, A_LIST, GOOD], "Groq / g2", 3),
     ("429", [429, GOOD], "Groq / g2", 2),
     ("404 model gone", [404, GOOD], "Groq / g2", 2),
-    ("413 too large: the next provider", [413, GOOD], "OpenRouter / o1", 2),
-    ("401 key refused: the next provider", [401, GOOD], "OpenRouter / o1", 2),
-    ("403 key refused: the next provider", [403, GOOD], "OpenRouter / o1", 2),
+    # the id the test had before the models were forced to ":free" (No tests lost)
+    pytest.param("413 too large: the next provider", [413, GOOD], "OpenRouter / o1:free", 2,
+                 id="413 too large: the next provider-answers5-OpenRouter / o1-2"),
+    # the id the test had before the models were forced to ":free" (No tests lost)
+    pytest.param("401 key refused: the next provider", [401, GOOD], "OpenRouter / o1:free", 2,
+                 id="401 key refused: the next provider-answers6-OpenRouter / o1-2"),
+    # the id the test had before the models were forced to ":free" (No tests lost)
+    pytest.param("403 key refused: the next provider", [403, GOOD], "OpenRouter / o1:free", 2,
+                 id="403 key refused: the next provider-answers7-OpenRouter / o1-2"),
     ("timeout: once more, then the next model", [_timeout, _timeout, GOOD], "Groq / g2", 3),
     ("connection refused", [_refused, _refused, GOOD], "Groq / g2", 3),
     ("an answer cut off", [_Cut, _Cut, GOOD], "Groq / g2", 3),
@@ -2516,7 +2522,7 @@ def test_reserve_error_simulations(repo, tmp_path, monkeypatch, name, answers, m
             return got
         return _Answer(json.dumps({"choices": [{"message": {"content": a}}]}).encode())
     env = {"GROQ_API_KEY": "gsk_TESTONLY", "AUTOFIX_GROQ_MODELS": "g1, g2",
-           "OPENROUTER_API_KEY": "sk-or-TESTONLY", "AUTOFIX_OPENROUTER_MODELS": "o1"}
+           "OPENROUTER_API_KEY": "sk-or-TESTONLY", "AUTOFIX_OPENROUTER_MODELS": "o1:free"}
     reserve.main(["--workdir", str(repo), "--prompt", str(prompt), "--status", str(status)], env=env, opener=opener)
     out = json.loads(status.read_text())
     assert out["result"] == "ok" and out["model"] == model, (name, out, seen)
@@ -2532,8 +2538,8 @@ def test_reserve_error_simulations(repo, tmp_path, monkeypatch, name, answers, m
 
 def test_a_reserve_without_its_key_is_never_asked(repo, tmp_path):
     seen = []
-    out = _run_reserves(repo, tmp_path, [GOOD], {"OPENROUTER_API_KEY": "k", "AUTOFIX_OPENROUTER_MODELS": "o1"}, seen)
-    assert out["result"] == "ok" and out["model"] == "OpenRouter / o1"
+    out = _run_reserves(repo, tmp_path, [GOOD], {"OPENROUTER_API_KEY": "k", "AUTOFIX_OPENROUTER_MODELS": "o1:free"}, seen)
+    assert out["result"] == "ok" and out["model"] == "OpenRouter / o1:free"
     assert [s[0].split("/")[2] for s in seen] == ["openrouter.ai"]
 
 

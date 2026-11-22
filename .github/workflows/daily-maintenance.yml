@@ -1,10 +1,27 @@
-# Every day after the component check: when a bundled component has a new
-# version, prepare a candidate on the branch automation/daily-maintenance, open
-# (or update) a draft pull request for it and start the full tests, the
-# security tests and Arch Linux on it. It never publishes a release and never
-# writes to main: since 2026-11-22 tools/automerge.py (automerge.yml) merges the
-# candidate when it is fully verified, and the owner signs and publishes.
-# The candidate is rebuilt from the current main every time; the automatic
+# Every day after the component check, ONE ISOLATED CANDIDATE PER COMPONENT
+# (the full chain, 2026-11-22: tools/update-candidates.py): each component, or
+# small coherent group, that has a new version gets its own branch
+# automation/update/<id> made from the current main (the engine, its crates, a
+# new pyo3 or major crate, uBlock Origin's scriptlets, Dark Reader, the test
+# packages in three groups, every pin of the workflows by tools/ci-pins.py, the
+# PKGBUILD's dependencies by tools/pkgbuild-sync.py), its own draft pull
+# request, and Tests, Security and Arch Linux on it. A failure there goes to the
+# automatic fix of that branch (autofix.yml); when everything is green and
+# verified tools/automerge.py merges it, and release-ready.yml tells the owner.
+# Idempotent: an open candidate is rebuilt from main and pushed only when it
+# differs; candidates that change the same file (the engine's Cargo.lock, the
+# test packages' pins) go one at a time. A builder that refuses a new upstream
+# version starts the builders' path instead (automation/builder/<id>: an AI may
+# only re-anchor I.K.E.'s existing patches); started again with mode "builder"
+# once re-anchored, the update is applied on that branch. It never publishes a
+# release and never writes to main.
+#
+# The single combined candidate (automation/daily-maintenance, the jobs prepare
+# and publish-candidate, below) is kept: started by hand with mode "combined"
+# (and its rehearsals); the schedule runs the candidates per component, and the
+# first such run on main closes the combined candidate's open pull request
+# (its branch stays; every update it carried is made again per component).
+# The combined candidate is rebuilt from the current main every time; the automatic
 # fixes made on the previous candidate (commits "autofix: ...") are carried over.
 # Started by hand on another branch than main, it is a rehearsal: the candidate
 # is built from that branch (its tools, say a Dark Reader patch adapted by a
@@ -18,17 +35,378 @@ on:
   schedule:
     - cron: "17 6 * * *" # after Daily component check
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "per-component (one candidate per component, the default), combined (the single candidate), builder (a re-anchored builder's update)"
+        required: false
+        default: "per-component"
+      id:
+        description: "mode builder: the component whose builder was re-anchored (darkreader, ubo-scriptlets)"
+        required: false
+        default: ""
 
 permissions:
   contents: read
 
-# a rehearsal waits only for rehearsals of its own branch, never for the real run
+# a rehearsal waits only for rehearsals of its own branch, never for the real run; a builder's
+# update has its own queue
 concurrency:
-  group: daily-maintenance${{ github.ref != 'refs/heads/main' && format('-rehearsal-{0}', github.ref_name) || '' }}
+  group: daily-maintenance${{ github.ref != 'refs/heads/main' && format('-rehearsal-{0}', github.ref_name) || '' }}${{ github.event.inputs.mode == 'builder' && format('-builder-{0}', github.event.inputs.id) || '' }}
   cancel-in-progress: false
 
 jobs:
+  # ---- one candidate per component (the full chain) --------------------------------
+  plan-candidates:
+    if: github.event.inputs.mode != 'combined'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: read   # GET: the open candidates
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      any: ${{ steps.plan.outputs.any }}
+    steps:
+      # a rehearsal: that branch's commit; mode builder: the builder's branch, re-anchored
+      - name: Check out main (all branches and tags, no credentials)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ (github.event.inputs.mode == 'builder' && format('automation/builder/{0}', github.event.inputs.id)) || (github.ref == 'refs/heads/main' && 'main') || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: Rust
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
+          rustup default stable
+      # the token only in this step, which runs no code of others
+      - name: The open candidates (GET only)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/update-candidates.py branches --repo "$GITHUB_REPOSITORY" --out branches.json
+      # a source that cannot be reached makes nothing of its component today (the next run tries
+      # again); a builder that refuses keeps its component and starts the builders' path
+      - name: Check and apply component updates (one candidate per component)
+        env:
+          MODE: ${{ github.event.inputs.mode }}
+          ID: ${{ github.event.inputs.id }}
+        run: |
+          only=""
+          if [ "$MODE" = "builder" ]; then
+            case "$ID" in darkreader|ubo-scriptlets) only="--only $ID" ;; *) echo "::error::not a builder: $ID"; exit 1 ;; esac
+          fi
+          python3 tools/check-components.py --json report.json --markdown report.md $only
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: The workflows' pins (tools/ci-pins.py, no AI)
+        if: github.event.inputs.mode != 'builder'
+        run: |
+          python3 tools/ci-pins.py check --json pins.json || echo '{"candidates": []}' > pins.json
+      - name: The PKGBUILD's dependencies (tools/pkgbuild-sync.py, no AI)
+        if: github.event.inputs.mode != 'builder'
+        run: |
+          python3 tools/inventory.py --offline --json inventory.json > /dev/null
+          python3 tools/pkgbuild-sync.py plan --inventory inventory.json --json pkgbuild.json
+      - name: Plan the candidates
+        id: plan
+        env:
+          MODE: ${{ github.event.inputs.mode }}
+          ID: ${{ github.event.inputs.id }}
+        run: |
+          apply=""
+          if [ "$MODE" = "builder" ]; then apply="--builder-apply $ID"; fi
+          python3 tools/update-candidates.py plan --report report.json --pins pins.json --pkgbuild pkgbuild.json \
+              --branches branches.json --out plan.json --markdown plan.md --candidates-out candidates.json $apply
+          cat plan.md >> "$GITHUB_STEP_SUMMARY"
+          python3 -I - plan.json "$GITHUB_OUTPUT" <<'PY'
+          import json, sys
+          rows = json.load(open(sys.argv[1]))["matrix"]
+          with open(sys.argv[2], "a") as out:
+              out.write("matrix=%s\n" % json.dumps({"include": rows}, separators=(",", ":")))
+              out.write("any=%s\n" % ("true" if rows else "false"))
+          PY
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: component-report
+          path: |
+            report.*
+            pins.json
+            pkgbuild.json
+            plan.*
+            candidates.json
+            branches.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+  # Each candidate is made apart, with no credentials (the code of others runs
+  # here: builders, cargo update, pip), then bundled for its publish job.
+  candidate:
+    needs: plan-candidates
+    if: needs.plan-candidates.outputs.any == 'true'
+    name: candidate (${{ matrix.id }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix: ${{ fromJSON(needs.plan-candidates.outputs.matrix) }}
+    steps:
+      - name: Check out main (all branches and tags, no credentials)
+        if: matrix.action == 'make'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.ref == 'refs/heads/main' && 'main' || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: matrix.action == 'make'
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: matrix.action == 'make'
+        with:
+          node-version: "22"
+      - name: Rust
+        if: matrix.action == 'make'
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
+          rustup default stable
+      - name: Download the plan
+        if: matrix.action == 'make'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: component-report
+          path: ${{ runner.temp }}/plan
+      - name: Make the candidate (no credentials)
+        id: make
+        if: matrix.action == 'make'
+        env:
+          ID: ${{ matrix.id }}
+          FROM: ${{ matrix.from }}
+          TO: ${{ matrix.to }}
+          SHA: ${{ matrix.sha }}
+          BASE: ${{ matrix.base }}
+          BRANCH: ${{ matrix.branch }}
+          SHIPS: ${{ matrix.ships }}
+        run: |
+          set -euo pipefail
+          plan="$RUNNER_TEMP/plan"
+          out="$RUNNER_TEMP/candidate"
+          mkdir -p "$out"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! printf '%s' "$ID" | grep -Eq '^[a-z0-9_-]{1,70}$' || ! printf '%s' "$BRANCH" | grep -Eq '^automation/(update|builder)/[a-z0-9_-]{1,70}$'; then
+            echo "::error::not a candidate: $ID on $BRANCH"; exit 1
+          fi
+          # from main (a rehearsal: from this branch), or a re-anchored builder's branch (WP11)
+          start=origin/main
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then start="$GITHUB_SHA"; fi
+          if [ "$BASE" != "main" ]; then start="origin/$BASE"; fi
+          git checkout -q -B candidate "$start"
+          case "$ID" in
+            ci-*)
+              python3 tools/ci-pins.py apply --id "$ID" --to "$TO" --sha "$SHA"
+              msg="ci: $ID $FROM -> $TO (tools/ci-pins.py, no AI)"
+              python3 tools/update-candidates.py component --report "$plan/candidates.json" --id "$ID" \
+                  --out "$out/component.json" > /dev/null ;;
+            pkgbuild)
+              python3 tools/inventory.py --offline --json "$out/inventory.json" > /dev/null
+              python3 tools/pkgbuild-sync.py apply --inventory "$out/inventory.json"
+              msg="pkgbuild: what the code needs (tools/pkgbuild-sync.py, no AI)"
+              python3 tools/update-candidates.py component --report "$plan/candidates.json" --id "$ID" \
+                  --out "$out/component.json" > /dev/null ;;
+            *)
+              python3 tools/check-components.py --only "$ID" --apply --json "$out/component.json" \
+                  --markdown "$out/component.md"
+              msg=$(python3 tools/update-candidates.py message --report "$out/component.json" --id "$ID") ;;
+          esac
+          if [ -z "$(git status --porcelain --untracked-files=no)" ] && [ -z "$(git status --porcelain -- licenses docs)" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Nothing changed for $ID today."
+            exit 0
+          fi
+          # what ships to users gets the next version when main's is published (tools/prepare-maintenance.py)
+          if [ "$SHIPS" = "True" ] || [ "$SHIPS" = "true" ]; then
+            base_version=$(git show origin/main:ike/__init__.py | sed -n 's/^__version__ = "\(.*\)"/\1/p')
+            keep=""
+            if [ -z "$(git tag -l "v$base_version")" ]; then keep="--keep-version"; fi
+            line=$(python3 tools/update-candidates.py bullet --report "$out/component.json" --id "$ID")
+            python3 tools/prepare-maintenance.py --root . --base-version "$base_version" $keep --bullet "$line"
+          fi
+          git add -u
+          git add -- licenses docs/THIRD-PARTY.md 2> /dev/null || true
+          printf '%s\n\nMade by daily-maintenance.yml (one candidate per component).\n' "$msg" > "$out/message"
+          git -c core.hooksPath=/dev/null commit -q -F "$out/message"
+          # the automatic fixes of the open candidate of the same update are carried over
+          seen=$(git rev-parse -q --verify "origin/$BRANCH" || true)
+          if [ -n "$seen" ] && [ "$BASE" = "main" ] && [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            first=$(git log --reverse --format=%s "origin/main..origin/$BRANCH" | grep -v '^autofix: ' | head -n 1 || true)
+            if [ "$first" = "$msg" ]; then
+              for c in $(git rev-list --reverse --grep '^autofix:' "origin/main..origin/$BRANCH"); do
+                git cherry-pick -x "$c" > /dev/null || { git cherry-pick --abort; echo "Not carried over (conflict): $c"; }
+              done
+            fi
+          fi
+          git bundle create "$out/candidate.bundle" HEAD
+          push=true
+          if [ -n "$seen" ] && [ "$(git rev-parse "origin/$BRANCH^{tree}")" = "$(git rev-parse 'HEAD^{tree}')" ]; then
+            push=false
+            echo "Same candidate as the one already published on $BRANCH: not pushed or tested again."
+          fi
+          python3 -I - "$out/meta.json" "$msg" "$push" "$seen" <<'PY'
+          import json, sys
+          json.dump({"message": sys.argv[2], "push": sys.argv[3] == "true", "seen": sys.argv[4]}, open(sys.argv[1], "w"))
+          PY
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          git diff --stat origin/main HEAD
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.make.outputs.changed == 'true'
+        with:
+          name: candidate-${{ matrix.id }}
+          path: ${{ runner.temp }}/candidate/
+          if-no-files-found: error
+          retention-days: 7
+
+  # Only the real run on main publishes (a rehearsal shows the candidates in its summary).
+  publish:
+    needs: [plan-candidates, candidate]
+    if: always() && needs.plan-candidates.outputs.any == 'true' && github.ref == 'refs/heads/main'
+    name: publish (${{ matrix.id }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      actions: write        # start the tests on the candidate; the builders' path (autofix.yml)
+      contents: write       # push the candidate's own branch (never main)
+      pull-requests: write
+      issues: write
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.plan-candidates.outputs.matrix) }}
+    steps:
+      - name: Check out main (its tools judge the candidate; no credentials)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      # WP11: the builder refused: an AI may re-anchor I.K.E.'s existing patches on
+      # automation/builder/<id> (autofix.yml reads the refusal from this run's report)
+      - name: The builders' path
+        if: matrix.action == 'builder'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ID: ${{ matrix.id }}
+        run: |
+          case "$ID" in darkreader|ubo-scriptlets) ;; *) echo "::error::not a builder: $ID"; exit 1 ;; esac
+          gh workflow run autofix.yml --ref main -f run_id="$GITHUB_RUN_ID" -f work="builder/$ID/$(date -u +%F)"
+          echo "The builder of $ID refused the new version: its re-anchoring starts (autofix.yml, automation/builder/$ID)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Download the candidate
+        id: get
+        if: matrix.action == 'make'
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: candidate-${{ matrix.id }}
+          path: ${{ runner.temp }}/candidate
+      # Code of others ran while the candidate was made: it may change only what its update changes
+      # (tools/update-candidates.py check, from main), and nothing but its update and the carried
+      # automatic fixes
+      - name: Push the candidate, open its draft PR and start the tests
+        if: matrix.action == 'make' && steps.get.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKFLOW_TOKEN: ${{ secrets.IKE_WORKFLOW_TOKEN }}
+          ID: ${{ matrix.id }}
+          FROM: ${{ matrix.from }}
+          TO: ${{ matrix.to }}
+          BRANCH: ${{ matrix.branch }}
+        run: |
+          set -euo pipefail
+          retry() { n=1; until "$@"; do [ "$n" -ge 3 ] && return 1; sleep $((n * 15)); n=$((n + 1)); done; }
+          cand="$RUNNER_TEMP/candidate"
+          case "$BRANCH" in automation/update/*|automation/builder/*) ;; *) echo "::error::not a candidate's branch: $BRANCH"; exit 1 ;; esac
+          git bundle verify "$cand/candidate.bundle" > /dev/null
+          git fetch -q "$cand/candidate.bundle" HEAD:refs/ike/candidate
+          python3 -I tools/update-candidates.py check --id "$ID" --base origin/main --head refs/ike/candidate
+          eval "$(python3 -I -c 'import json,shlex,sys; m=json.load(open(sys.argv[1])); print("push=%s seen=%s" % (shlex.quote(str(m["push"]).lower()), shlex.quote(m["seen"])))' "$cand/meta.json")"
+          if [ "$push" = "true" ]; then
+            token="$GH_TOKEN"
+            # the workflows' pins: GitHub refuses workflow changes to the workflow's own token
+            if [ "${ID#ci-}" != "$ID" ] && [ -n "$WORKFLOW_TOKEN" ]; then token="$WORKFLOW_TOKEN"; fi
+            auth=$(printf 'x-access-token:%s' "$token" | base64 -w0)
+            if ! git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" \
+                push --force-with-lease="refs/heads/$BRANCH:$seen" origin "refs/ike/candidate:refs/heads/$BRANCH"; then
+              if [ "${ID#ci-}" != "$ID" ]; then
+                echo "::warning::$ID could not be pushed: a change of the workflows needs the repository secret IKE_WORKFLOW_TOKEN (a token with the workflows permission, docs/MAINTENANCE.md); Dependabot's monthly proposal stays as the double check"
+                exit 0
+              fi
+              exit 1
+            fi
+          fi
+          git log --format='%h %s' --grep '^autofix:' "origin/main..refs/ike/candidate" > "$RUNNER_TEMP/autofix-commits.txt" || true
+          sha=$(git rev-parse refs/ike/candidate)
+          python3 tools/maintenance-ledger.py gather --repo "$GITHUB_REPOSITORY" --candidate-sha "$sha" \
+            --out "$RUNNER_TEMP/status.json" || true
+          body="$RUNNER_TEMP/body.md"
+          pushed=""
+          if [ "$push" = "true" ]; then pushed="--pushed"; fi
+          if ! python3 tools/maintenance-report.py --components "$cand/component.json" --status "$RUNNER_TEMP/status.json" \
+               --autofix "$RUNNER_TEMP/autofix-commits.txt" $pushed --out "$body" > /dev/null; then
+            printf 'Candidate `%s`: %s -> %s\n' "$ID" "$FROM" "$TO" > "$body"
+          fi
+          sed -i "1i **One candidate per component** (\`$ID\`, branch \`$BRANCH\`): its own tests, Arch Linux run, automatic fix and verified merge (tools/update-candidates.py).\n" "$body"
+          title=$(printf 'Update: %s %s -> %s' "$ID" "$FROM" "$TO" | cut -c1-200)
+          gh label create maintenance --color 0e8a16 --description "Automated component maintenance candidate" 2>/dev/null || true
+          pr=$(retry gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')
+          if [ -n "$pr" ]; then
+            retry gh pr edit "$pr" --body-file "$body" --add-label maintenance
+            if [ "$push" = "true" ]; then
+              retry gh pr comment "$pr" --body "A new candidate was pushed. Tests, Security and Arch Linux are running; when every check passes and it is fully verified, the workflow merges it by itself (tools/automerge.py), otherwise it says here why it waits."
+            fi
+          else
+            retry gh pr create --draft --base main --head "$BRANCH" --title "$title" --label maintenance --body-file "$body"
+          fi
+          if [ "$push" = "true" ]; then
+            retry gh workflow run tests.yml --ref "$BRANCH"
+            retry gh workflow run security.yml --ref "$BRANCH" || echo "::warning::the security checks could not be started"
+            retry gh workflow run arch.yml --ref "$BRANCH" || echo "::warning::arch.yml could not be started (tools/automerge.py starts it)"
+          else
+            # the same candidate as yesterday: its tests were started then, unless that run stopped
+            runs=$(retry gh api "repos/$GITHUB_REPOSITORY/actions/workflows/tests.yml/runs?head_sha=$seen&per_page=1" --jq '.total_count')
+            if [ "${runs:-0}" = "0" ]; then retry gh workflow run tests.yml --ref "$BRANCH"; fi
+          fi
+
+  # The single combined candidate's open pull request, once the candidates per component took
+  # over on main: closed with a comment (its branch stays; its updates are made again per component)
+  retire-combined:
+    needs: plan-candidates
+    if: github.ref == 'refs/heads/main' && github.event.inputs.mode != 'builder' && needs.plan-candidates.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Close the combined candidate's pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          pr=$(gh pr list --head automation/daily-maintenance --base main --state open --json number --jq '.[0].number // empty')
+          if [ -z "$pr" ]; then exit 0; fi
+          gh pr close "$pr" --comment "Superseded: each component now has its own candidate (automation/update/<id>, tools/update-candidates.py), with its own tests, automatic fix and verified merge. This branch stays; every update it carried is made again per component."
+
+  # ---- the single combined candidate (mode "combined", and its rehearsals) ---------
   prepare:
+    if: github.event.inputs.mode == 'combined'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:

@@ -18,6 +18,13 @@
 #   from daily-check.yml);
 # - once a week as a floor, on pull requests that touch the package or this
 #   file, and by hand.
+# Since the full chain (2026-11-22, WP10): it records the FULL dependency closure
+# it installed (pacman -Qi, recursively: Mesa, ffmpeg, NSS, ICU, the fonts...),
+# and the daily check starts it on main when any of those packages changed in
+# Arch; it installs the optional dependencies too, whose targeted tests
+# (tests/test_optional_deps.py) run where they are present and say "not
+# verified" where they are not. Once a week arch-testing.yml calls it with
+# Arch's [core-testing] and [extra-testing] (input testing).
 # A failure goes to the automatic fix (tools/autofix-plan.py, "Arch Linux"):
 # pacman, mirrors, keyring or downloads are GitHub's or Arch's matter (an
 # issue, no AI); a build or test failure is fixed only when "Tests" passed on
@@ -34,12 +41,21 @@ on:
   schedule:
     - cron: "41 3 * * 1"     # Mondays, 03:41 UTC
   workflow_dispatch:
+  # WP10 (b): arch-testing.yml, once a week, with Arch's testing repositories
+  workflow_call:
+    inputs:
+      testing:
+        description: "Arch's [core-testing] and [extra-testing] on"
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
 
+# the testing run (arch-testing.yml calls this file) has a queue of its own
 concurrency:
-  group: arch-${{ github.ref }}
+  group: arch-${{ github.ref }}${{ inputs.testing && '-testing' || '' }}
   cancel-in-progress: true
 
 jobs:
@@ -58,6 +74,16 @@ jobs:
       run:
         shell: bash
     steps:
+      # WP10 (b): the packages Arch is about to ship, before they reach users
+      - name: Arch's testing repositories (arch-testing.yml only)
+        if: inputs.testing
+        run: |
+          # the testing repositories come before core and extra, as Arch's own pacman.conf says
+          printf '[core-testing]\nInclude = /etc/pacman.d/mirrorlist\n\n[extra-testing]\nInclude = /etc/pacman.d/mirrorlist\n\n' > /tmp/testing.conf
+          awk '/^\[core\]$/ && !done { while ((getline line < "/tmp/testing.conf") > 0) print line; done = 1 } { print }' \
+              /etc/pacman.conf > /tmp/pacman.conf.new
+          cp /tmp/pacman.conf.new /etc/pacman.conf
+          grep -n '^\[' /etc/pacman.conf
       - name: Git (for the checkout)
         run: pacman -Syu --noconfirm --needed git
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -82,6 +108,7 @@ jobs:
               python-cryptography python-jeepney publicsuffix-list python-pytest \
               base-devel rust sudo nodejs \
               ffmpeg dbus glib2 noto-fonts ttf-dejavu libnotify xdg-utils \
+              noto-fonts-cjk intel-media-driver libva-nvidia-driver \
               breeze oxygen kvantum plasma-integration breeze-icons \
               gtk3 xorg-server-xvfb lxqt-qtplugin \
               adwaita-icon-theme elementary-icon-theme mate-icon-theme papirus-icon-theme
@@ -179,10 +206,12 @@ jobs:
       failure() && (
       (github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]' &&
       (github.ref_name == 'main' || github.ref_name == 'automation/autofix-main' ||
-      github.ref_name == 'automation/daily-maintenance')) ||
+      github.ref_name == 'automation/daily-maintenance' ||
+      startsWith(github.ref_name, 'automation/update/') || startsWith(github.ref_name, 'automation/builder/'))) ||
       (github.run_attempt > 1 && github.triggering_actor == 'github-actions[bot]' &&
       (github.ref_name == 'main' || github.ref_name == 'automation/autofix-main' ||
-      github.ref_name == 'automation/daily-maintenance')))
+      github.ref_name == 'automation/daily-maintenance' ||
+      startsWith(github.ref_name, 'automation/update/') || startsWith(github.ref_name, 'automation/builder/'))))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -212,7 +241,7 @@ jobs:
     if: >-
       success() && github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]' &&
       (github.ref_name == 'automation/autofix-main' || github.ref_name == 'automation/daily-maintenance' ||
-      startsWith(github.ref_name, 'automation/update/'))
+      startsWith(github.ref_name, 'automation/update/') || startsWith(github.ref_name, 'automation/builder/'))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:

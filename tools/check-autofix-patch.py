@@ -45,7 +45,23 @@ whether the patch stays inside what an automatic fix may change:
   wrapper (src/, and vendor/adblock/__init__.py) may change, and only with
   --allow-adblock; the engine itself (adblock-rust) is a crate, never in here.
 
-    check-autofix-patch.py --repo DIR --patch FILE [--allow-adblock] [--security]
+- with --lists (WP8, the AI analysis of the filter lists' findings, on
+  automation/update/lists-<date>): only I.K.E.'s adapter (ike/scriptlets.py,
+  ike/blocker.py, ike-adblock/src/*.rs) may change; never the lists, the
+  bundled uBlock Origin resources, the tests or their data, nor YouTube's ad
+  blocking (a changed line or a hunk about YouTube, Scriptlets.host_scripts or
+  the video scripts), and no change that removes more than it adds or removes
+  a line that keeps a protection (trust, exceptions, ghide...). Patterns, not
+  proof: tests/test_lists_recorded.py and the whole suite decide.
+
+- with --builder ID (WP11, the builders' re-anchoring on automation/builder/<id>):
+  only that builder (tools/build-darkreader.py, tools/build-ubo-scriptlets.mjs)
+  may change, and only as tools/builder-anchor.py allows: the same patches in
+  the same order, the same replacement texts, only anchors re-found in the new
+  upstream (Dark Reader), or only the path of the library it imports (uBlock
+  Origin); nothing else of the builder, no upstream code.
+
+    check-autofix-patch.py --repo DIR --patch FILE [--allow-adblock] [--security] [--lists] [--builder ID]
                            [--related FILE] [--report FILE.md] [--check-only]
 
 The patch is applied to the index and work tree of DIR only when every rule
@@ -100,7 +116,29 @@ FORBIDDEN_FILES = {
     "tools/test-categories.py", "tools/maintenance-report.py",
     # WP6/WP7: the security findings' tools (the deterministic update, the vulnerability sources)
     "tools/security-fix.py", "tools/vulnerabilities.py",
+    # WP8, WP9: the filter lists' classes, the AI work's queue and cap, the
+    # providers' registry and their weekly check (an agent never chooses its own
+    # providers or limits), and the test that proves the lists' new support
+    "tools/filter-lists.py", "tools/ai-work.py", "tools/ai-providers.py", "tools/provider-check.py",
+    "tests/test_lists_recorded.py",
+    # the last block of the full chain (2026-11-22): one candidate per component, the
+    # workflows' pins (a deterministic tool, never an AI), the builders' re-anchoring rule,
+    # the PKGBUILD's dependencies and the proofs of the whole chain
+    "tools/update-candidates.py", "tools/ci-pins.py", "tools/builder-anchor.py", "tools/pkgbuild-sync.py",
+    "tests/test_full_chain.py",
 }
+# WP11 (--builder ID): the builders' re-anchoring on automation/builder/<id>, only that builder
+BUILDERS = {"darkreader": "tools/build-darkreader.py", "ubo-scriptlets": "tools/build-ubo-scriptlets.mjs"}
+# WP8 (--lists): what the AI analysis of the filter lists may change, I.K.E.'s
+# adapter only
+LISTS_ALLOWED = ("ike/scriptlets.py", "ike/blocker.py")
+LISTS_ALLOWED_PREFIX = "ike-adblock/src/"
+# YouTube's ad blocking, in the adapter's code (the owner's rule, CLAUDE.md)
+YOUTUBE_CODE = re.compile(r"youtube|youtu\.be|ytimg|googlevideo|host_scripts|videoads|videorelay|mediahook"
+                          r"|video", re.I)
+# a removed line that keeps a protection of the adapter
+PROTECTION_CODE = re.compile(r"trust|ghide|generichide|BUILTIN_RULES|negated|exception|MAX_LIST_BYTES"
+                             r"|_ENV\b|preprocess|https://")
 # WP6 (2026-11-22): an exception to a RustSec advisory is written by a person, with its
 # reason (tools/security-fix.py check-ignores); never by an automatic fix, whatever the mode
 DENY_CONFIG = "ike-adblock/deny.toml"
@@ -304,8 +342,99 @@ def touched_protections(repo, patch_text, security=False):
     return reasons
 
 
-def check(repo, patch_text, allow_adblock=False, security=False):
-    """The list of reasons the patch is refused (empty: accepted)."""
+# the adapter's functions that are YouTube's ad blocking (the video sites' scripts)
+YOUTUBE_FUNCS = {"ike/scriptlets.py": ("host_scripts",)}
+
+
+def _ranges(repo, path):
+    """[(first, last)] lines of the YouTube functions of path in the tree."""
+    names = YOUTUBE_FUNCS.get(path)
+    if not names:
+        return []
+    try:
+        tree = ast.parse((Path(repo) / path).read_text("utf-8"))
+    except (OSError, SyntaxError, ValueError):
+        return [(1, 10 ** 9)]                  # cannot tell: the whole file counts
+    return [(n.lineno, n.end_lineno or n.lineno) for n in ast.walk(tree)
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name in names]
+
+
+def lists_reasons(files, patch_text, repo="."):
+    """--lists (WP8): only the adapter, never YouTube, never less protection."""
+    reasons = []
+    ranges = {path: _ranges(repo, path) for path in files}
+    for path in sorted(files):
+        if path not in LISTS_ALLOWED and not (path.startswith(LISTS_ALLOWED_PREFIX) and path.endswith(".rs")):
+            reasons.append("%s: the filter lists' analysis may change only I.K.E.'s adapter (protected file)" % path)
+    removed, added = {}, {}
+    for current, sign, code in patch_lines(patch_text):
+        if sign == "@@":
+            m = _HUNK.match(code)
+            first = int(re.match(r"^@@ -(\d+)", code).group(1)) if m else 0
+            last = first + (int(m.group(1)) if m and m.group(1) is not None else 1) - 1
+            context = code[m.end():] if m else code
+            if YOUTUBE_CODE.search(context) or any(a <= last and first <= b for a, b in ranges.get(current, ())):
+                reasons.append("%s: a change in YouTube's ad blocking (protected file): %s"
+                               % (current, code[:120]))
+        elif sign in ("+", "-"):
+            if YOUTUBE_CODE.search(code):
+                reasons.append("%s: a change in YouTube's ad blocking (protected file): %s"
+                               % (current, code.strip()[:120]))
+            side = added if sign == "+" else removed
+            side.setdefault(current, []).append(code.strip())
+    for path, lines in sorted(removed.items()):
+        kept = set(added.get(path, []))
+        if len([x for x in lines if x]) > len([x for x in added.get(path, []) if x]):
+            reasons.append("%s: removes more than it adds: blocking may weaken (weakens blocking)" % path)
+        for line in lines:
+            if line and line not in kept and PROTECTION_CODE.search(line):
+                reasons.append("%s: removes a line that keeps a protection (weakens blocking): %s"
+                               % (path, line[:120]))
+    return reasons
+
+
+def _anchor_tool():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("ike_builder_anchor", Path(__file__).resolve().parent /
+                                                  "builder-anchor.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def builder_reasons(repo, patch_text, builder, files):
+    """--builder (WP11): only the builder of that component, and only a re-anchoring of its existing
+    patches (tools/builder-anchor.py): the old file is the commit's, the new one the patch applied to
+    it in a folder of its own."""
+    import tempfile
+    path = BUILDERS.get(builder)
+    if not path:
+        return ["--builder %s: not a builder of I.K.E.'s (protected file)" % builder]
+    reasons = ["%s: the builder's re-anchoring may change only %s (protected file)" % (f, path)
+               for f in sorted(files) if f != path]
+    if reasons or path not in files:
+        return reasons or ["the patch does not change %s" % path]
+    shown = git(repo, "show", "HEAD:" + path)
+    if shown.returncode:
+        return ["%s: the builder at the commit could not be read" % path]
+    with tempfile.TemporaryDirectory() as tmp:
+        target = Path(tmp) / path
+        target.parent.mkdir(parents=True)
+        target.write_text(shown.stdout, "utf-8")
+        done = git(tmp, "apply", "-", stdin=patch_text)
+        if done.returncode:
+            return ["%s: the patch does not apply to the builder: %s" % (path, done.stderr.strip()[:200])]
+        new = target.read_text("utf-8")
+    why = _anchor_tool().problem(builder, shown.stdout, new)
+    return ["%s: more than a re-anchoring of I.K.E.'s existing patches (protected file): %s" % (path, why)] \
+        if why else []
+
+
+def check(repo, patch_text, allow_adblock=False, security=False, lists=False, builder=""):
+    """The list of reasons the patch is refused (empty: accepted). lists: the
+    AI analysis of the filter lists (WP8), the adapter only. builder: the
+    builders' re-anchoring (WP11), that builder's PATCHES anchors only."""
+    allow_adblock = allow_adblock or lists
     reasons = []
     stat = git(repo, "apply", "--numstat", "--summary", "-", stdin=patch_text)
     if stat.returncode:
@@ -342,10 +471,18 @@ def check(repo, patch_text, allow_adblock=False, security=False):
                 reasons.append("%s => %s: %s" % (old, new, why) if why else "renamed file: %s => %s" % (old, new))
     if not files and not reasons:
         return []
+    if builder:
+        # WP11: the one builder, by its own rule; nothing else (its protected status stays for every
+        # other run)
+        reasons += builder_reasons(repo, patch_text, builder, files)
     for path in sorted(files):
+        if builder and path == BUILDERS.get(builder):
+            continue
         why = allowed_path(path, allow_adblock, security)
         if why:
             reasons.append("%s: %s" % (path, why))
+    if lists:
+        reasons += lists_reasons(files, patch_text, repo)
     if len(files) > MAX_FILES:
         reasons.append("too many files: %d (at most %d)" % (len(files), MAX_FILES))
     if lines > MAX_LINES:
@@ -499,7 +636,7 @@ def patch_lines(patch_text):
             if m:
                 old_left = int(m.group(1)) if m.group(1) is not None else 1
                 new_left = int(m.group(2)) if m.group(2) is not None else 1
-                yield path or "", "@@", ""
+                yield path or "", "@@", line           # the whole header: its lines and its context
 
 
 def _code(line):
@@ -667,7 +804,8 @@ SAFETY = ("outside the repository", "protected file", "third-party or generated"
           "carriage return inside a line", "test file renamed or copied", "reads differently",
           "return in the body of a test", "assertion moved into a block", "decorator that may replace a test",
           "empties the parameters of a test", "behaves differently under the tests",
-          "touches the engine's protections", "names a RustSec advisory")
+          "touches the engine's protections", "names a RustSec advisory", "weakens blocking",
+          "more than a re-anchoring")
 
 
 def safety_refusal(reasons):
@@ -681,6 +819,9 @@ def main(argv=None):
     ap.add_argument("--allow-adblock", action="store_true")
     ap.add_argument("--security", action="store_true",
                     help="a fix of a security finding (automation/update/security-*): the stricter rules")
+    ap.add_argument("--lists", action="store_true", help="the filter lists' AI analysis: the adapter only (WP8)")
+    ap.add_argument("--builder", default="", choices=["", *sorted(BUILDERS)],
+                    help="the builders' re-anchoring (WP11): that builder's existing patches only")
     ap.add_argument("--report", help="write the outcome here (Markdown)")
     ap.add_argument("--related", help="files involved in the failure, one per line")
     ap.add_argument("--check-only", action="store_true", help="check, do not apply")
@@ -693,7 +834,7 @@ def main(argv=None):
         if a.report:
             Path(a.report).write_text("The agent changed nothing.\n", "utf-8")
         return 2
-    reasons = check(a.repo, patch_text, a.allow_adblock, a.security)
+    reasons = check(a.repo, patch_text, a.allow_adblock, a.security, a.lists, a.builder)
     related = []
     if a.related:
         try:

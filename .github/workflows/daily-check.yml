@@ -8,7 +8,11 @@
 # scriptlets) that refuses a new upstream version is a component
 # incompatibility, said in the issue for a person (1.1.20). And the filter
 # lists I.K.E. turns on by default are loaded into main's AdBlock engine and
-# read for their scriptlets (job lists): their findings go into the issue too.
+# read for their scriptlets (job lists): their findings go into the issue too,
+# in five classes (tools/filter-lists.py, WP8), and into the maintenance ledger
+# once each; a finding an AI may analyse starts one analysis on an isolated
+# branch, and AI work that found no free provider is started again (job
+# ai-work, tools/ai-work.py, WP9).
 name: Daily component check
 
 on:
@@ -105,11 +109,20 @@ jobs:
         id: lists
         run: |
           python3 tools/check-components.py --filter-lists lists.json --markdown lists.md
+          # WP8: the findings in five classes (supported, harmless, breaking,
+          # security, needs a person); the rules are written in the tool
+          python3 tools/filter-lists.py classify --lists lists.json --json classes.json --markdown classes.md \
+            || echo "The findings could not be classified today (see the log)." > classes.md
+          cat classes.md >> lists.md
           cat lists.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: filter-lists
-          path: lists.*
+          # every rule of every finding (lists.json) and the classes (classes.json):
+          # the ledger's issue keeps only counts and three samples
+          path: |
+            lists.*
+            classes.json
           if-no-files-found: error
           retention-days: 14
 
@@ -238,13 +251,20 @@ jobs:
             python3 tools/inventory.py --offline --root candidate --json candidate-inventory.json > /dev/null
           fi
           cat inventory.md >> "$GITHUB_STEP_SUMMARY"
+      # WP8, WP9 (tools/ai-work.py): first what the AI work of the last days
+      # became (GET only) and today's filter lists, for the ledger; last, the
+      # owner is told once about work that found no free provider RETRY_CAP times
       - name: The maintenance ledger
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          lists=""
+          if [ -s lists/lists.json ]; then lists="--lists lists/lists.json"; fi
+          python3 tools/ai-work.py gather --repo "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --out work.json $lists
           python3 tools/maintenance-ledger.py update --repo "$GITHUB_REPOSITORY" --inventory inventory.json \
               --candidate-inventory candidate-inventory.json --report report/report.json --status status.json \
-              --out ledger.md --json ledger.json
+              --out ledger.md --json ledger.json --work work.json
+          python3 tools/ai-work.py notify --ledger ledger.json --repo "$GITHUB_REPOSITORY" || echo "::warning::not told"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -254,9 +274,37 @@ jobs:
             candidate-inventory.json
             status.json
             advisories.json
+            work.json
             ledger.*
           if-no-files-found: ignore
           retention-days: 30
+
+  # WP8, WP9: the AI work the ledger made due today: a lists analysis
+  # (automation/update/lists-<date>) or a fix that found no free provider
+  # before, started again in autofix.yml. Its only permission starts a
+  # workflow; it never fails the daily check (a work not started is found
+  # silent by tomorrow's ledger and started again).
+  ai-work:
+    needs: ledger
+    if: ${{ !cancelled() && needs.ledger.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    continue-on-error: true
+    permissions:
+      actions: write        # start autofix.yml, nothing else
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: maintenance-ledger
+          path: ledger
+      - name: Start the AI work that is due
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/ai-work.py dispatch --ledger ledger/ledger.json --repo "$GITHUB_REPOSITORY"
 
   # Arch's packages changed since the last green "Arch Linux" run on main, or no
   # such run recorded its versions yet: that run starts on main. Its only

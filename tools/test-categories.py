@@ -55,8 +55,9 @@ CATEGORIES = {
                        ("arch.yml", "Arch Linux", None)),
     "sandbox": ("the security tests with the engine's sandbox really on", ("security.yml", "sandbox", None)),
     "advisories": ("RustSec advisories of every crate (cargo-deny)", ("security.yml", "rust-advisories", None)),
-    "filter-lists": ("today's default filter lists in the candidate's engine",
-                     ("daily-maintenance.yml", "prepare", "The default filter lists in the candidate's engine")),
+    # the full chain, item 4 (2026-11-22): on the commit itself, its engine against main's on today's lists
+    "filter-lists": ("today's default filter lists in this commit's engine, no worse than in main's",
+                     ("tests.yml", "tests", "Filter lists in this engine")),
     "desktop": ("a real desktop session (KDE Plasma, notifications, default browser), a real graphics card",
                 ("", "", None)),
 }
@@ -113,9 +114,10 @@ MAX_LISTED = 200
 # pull request goes into main by itself only when every category below passed
 # on its last commit, whatever components it changes (the owner's words:
 # "tests, sandbox, Security, Arch Linux"), plus what its components' kinds
-# need (REQUIRED). "filter-lists" (read on the maintenance run, not on the
-# commit) and "desktop" (never run by GitHub) are not here: a kind that needs
-# them is never fully verified, so it waits for the owner.
+# need (REQUIRED). "desktop" (never run by GitHub) is not here: a kind that
+# needs it is never fully verified, so it waits for the owner. "filter-lists"
+# is read on the commit itself since the full chain (tests.yml, the step
+# "Filter lists in this engine"), so a new AdBlock engine can be fully verified.
 MERGE_ALWAYS = ("lint", "unit-integration", "rust", "licences", "tests-kept", "build", "old-cpu", "installed",
                 "arch-packaging", "sandbox", "advisories")
 
@@ -134,6 +136,18 @@ EXPECTED_SKIPS = (
     (r"^IKE_FIT_LANGS: one group", "a split run of the same test"),
     (r"^KDE's Breeze icons and platform theme are not installed here|^KDE's theme did not load here"
      r"|^the \S+ style is not installed here|^desktop \w+: ", "arch.yml installs the desktops' themes and runs it"),
+    # 2026-11-22, read from a real Tests run on GitHub's runners (run 45020817248 of PR #105, its
+    # "What the tests verified"): environmental there, each verified elsewhere
+    (r"^the desktops are tested as Arch Linux packages them \(not Arch here\)$",
+     "arch.yml: the desktops' icons and colours as Arch packages them (tests/desktops.py), each desktop a case"),
+    (r"^Qt's kde platform theme is not installed$",
+     "arch.yml installs plasma-integration and runs KDE's colours (its step \"Interface in every widget style\")"),
+    # the PKGBUILD's optional dependencies (tests/test_optional_deps.py, WP10 (e)): Arch packages, not on
+    # Ubuntu's runners
+    (r"^optional dependency [a-z0-9+._-]+ is not installed here \(an Arch package: arch\.yml installs it",
+     "arch.yml installs the optional dependencies Arch ships and runs their cases"),
+    (r"^optional dependency [a-z0-9+._-]+ is not installed here \(an AUR package: no check of GitHub installs it",
+     "never: an AUR package no check can install; said as not verified (the owner's own system)"),
 )
 
 

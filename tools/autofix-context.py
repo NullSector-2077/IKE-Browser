@@ -52,6 +52,10 @@ NOT_RECENT = {
     "tools/third-party.py", "ike/blocker.py", "ike/scriptlets.py", "tools/automerge.py",
     "tools/check-components.py", "tools/inventory.py", "tools/maintenance-ledger.py", "tools/test-categories.py",
     "tools/maintenance-report.py", "tools/security-fix.py", "tools/vulnerabilities.py",
+    "tools/filter-lists.py", "tools/ai-work.py", "tools/ai-providers.py",
+    "tools/provider-check.py", "tests/test_lists_recorded.py",
+    "tools/update-candidates.py", "tools/ci-pins.py", "tools/builder-anchor.py", "tools/pkgbuild-sync.py",
+    "tests/test_full_chain.py",
 }
 MAX_EXAMPLES = 3            # other places that use a missing name (1.1.16)
 EXAMPLE_AROUND = 4

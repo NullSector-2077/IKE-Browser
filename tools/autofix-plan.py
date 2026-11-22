@@ -67,7 +67,29 @@ import sys
 import time
 from pathlib import Path
 
-MAX_ATTEMPTS = 2
+
+def _tool(name):
+    spec = importlib.util.spec_from_file_location(name.replace("-", "_"), Path(__file__).resolve().parent /
+                                                  (name + ".py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _registry_value(name, default):
+    """A limit of tools/ai-providers.py (the providers' registry, a person's file), or the default."""
+    try:
+        return int(getattr(_tool("ai-providers"), name))
+    except Exception:
+        return default
+
+
+# fixes of one failure on main, the automatic fix's branch, the daily candidate and the security
+# branches (unchanged since 1.1.15); on the isolated candidates of the full chain
+# (automation/update/<id>, automation/builder/<id>, arch-testing) the configurable cap of
+# tools/ai-providers.py, each attempt with a fresh context and the next free provider first
+MAX_ATTEMPTS = _registry_value("FIX_ATTEMPTS_MAIN", 2)
+ISOLATED_ATTEMPTS = _registry_value("FIX_ATTEMPTS", 4)
 MAINTENANCE = "automation/daily-maintenance"
 FIX_MAIN = "automation/autofix-main"
 FIXABLE_BRANCHES = ("main", MAINTENANCE, FIX_MAIN)
@@ -106,7 +128,12 @@ INFRA_TITLE = "GitHub or the runner failed: %s"
 # "Arch Linux": I.K.E. on Arch Linux's own packages (arch.yml)
 ARCH = "Arch Linux"
 ARCH_JOB = "Arch Linux"              # the name of arch.yml's job that builds and tests
-HANDLED = ("Tests", "Daily maintenance candidate", "Daily component check", ARCH)
+# WP10 (b): arch.yml with Arch's [core-testing] and [extra-testing] once a week (arch-testing.yml);
+# a failure there is fixed on automation/update/arch-testing-<date>, made from main
+ARCH_TESTING = "Arch Linux (testing)"
+ARCH_TESTING_PREFIX = "automation/update/arch-testing-"
+BUILDER_PREFIX = "automation/builder/"
+HANDLED = ("Tests", "Daily maintenance candidate", "Daily component check", ARCH, ARCH_TESTING)
 # WP6 (2026-11-22): security.yml's findings, on isolated branches only
 SECURITY = "Security"
 SECURITY_PREFIX = "automation/update/security-"
@@ -116,6 +143,7 @@ SECURITY_WATCHED = ("main", MAINTENANCE, FIX_MAIN)
 ISOLATED_PREFIXES = ("automation/update/", "automation/builder/")
 REPORTING_JOBS = {"Tests": ("hand-over",), "Daily component check": ("update-issue", "start-arch", "ledger"),
                   "Daily maintenance candidate": ("publish-candidate",), ARCH: ("hand-over", "merge-ready"),
+                  ARCH_TESTING: ("hand-over", "merge-ready"),
                   SECURITY: ("hand-over", "advisories-issue", "sandbox-issue", "merge-ready")}
 INFRA_STEP = re.compile(r"^(Set up job|Complete job|Post |Check out|Run actions/(checkout|setup-|upload-artifact"
                         r"|download-artifact|cache)|Upload |Download |Validate downloaded|Rust$|Test environment$)")
@@ -354,7 +382,8 @@ def infra_failure(name, failed_jobs):
     if steps and all(INFRA_STEP.match(st) for st in steps):
         return ("a step of GitHub or the runner failed (%s), not the code and not the maintenance: "
                 "the next run usually passes" % ", ".join(steps))
-    if name == ARCH and steps and all(INFRA_STEP.match(st) or ARCH_INFRA_STEP.match(st) for st in steps):
+    if name in (ARCH, ARCH_TESTING) and steps and all(INFRA_STEP.match(st) or ARCH_INFRA_STEP.match(st)
+                                                     for st in steps):
         return ("Arch Linux's packages could not be installed or a download failed (%s): pacman, Arch's mirrors, "
                 "keyring or package set, the container or crates.io, not the code: the next run usually passes"
                 % ", ".join(steps))
@@ -429,10 +458,21 @@ def security_branch(finding_id):
     return _security_tool().branch_for(finding_id)
 
 
+def isolated(branch):
+    """An isolated candidate of the full chain (WP5, WP10, WP11): automation/update/<id> (not a
+    security fix's, which has its own rules) or automation/builder/<id>."""
+    if branch.startswith(ARCH_TESTING_PREFIX):
+        return bool(re.fullmatch(r"\d{4}-\d\d-\d\d", branch[len(ARCH_TESTING_PREFIX):]))
+    if branch.startswith(SECURITY_PREFIX) or not branch.startswith(ISOLATED_PREFIXES):
+        return False
+    return bool(_tool("update-candidates").id_of_branch(branch))
+
+
 def fixable(name, branch):
-    """A failure of Tests or Arch on this branch is fixed: the automation's own branches, and
-    the isolated branches of the security fixes (WP6)."""
-    return branch in FIXABLE_BRANCHES or (name == "Tests" and branch.startswith(SECURITY_PREFIX))
+    """A failure of Tests or Arch on this branch is fixed: the automation's own branches, the
+    isolated branches of the security fixes (WP6) and of the full chain's candidates."""
+    return branch in FIXABLE_BRANCHES or (name == "Tests" and branch.startswith(SECURITY_PREFIX)) or \
+        (name in ("Tests", ARCH, ARCH_TESTING) and isolated(branch))
 
 
 def decide_security(run, failed_jobs, plan, open_issues=(), now=None):
@@ -538,7 +578,7 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
     if name == SECURITY:
         return decide_security(run, failed_jobs, plan, open_issues, now)
     job_names = [j["name"] for j in failed_jobs]
-    tested = name in ("Tests", ARCH)          # the workflows that test a branch
+    tested = name in ("Tests", ARCH, ARCH_TESTING)          # the workflows that test a branch
     if name in HANDLED:
         if tested and not fixable(name, branch):
             plan["reason"] = "branch %s is not one the automation fixes" % (branch or "?")
@@ -564,7 +604,7 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
 
     if name == "Tests":
         target = branch
-    elif name == ARCH:
+    elif name in (ARCH, ARCH_TESTING):
         tests = run.get("_tests") or ""
         if tests == "failure":
             plan["reason"] = ("Tests failed on the same commit too: its own automatic fix handles it (an Arch "
@@ -576,7 +616,34 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
                         "person looks" % (branch or "?", tests or "no run"))
             return plan
         target = branch
+        if name == ARCH_TESTING and branch == "main":
+            # WP10 (b): Arch's next packages break main: fixed on an isolated branch of its own, made
+            # from main, merged only when it passes on Arch's stable and testing packages both
+            target = ARCH_TESTING_PREFIX + str(run.get("created_at") or "")[:10]
+            waiting = run.get("_arch_testing_open") or {}
+            if waiting:
+                plan["reason"] = ("a fix for Arch's testing packages already waits on %s (PR #%s): its own runs "
+                                  "go on" % sorted(waiting.items())[0])
+                return plan
+            if not isolated(target):
+                plan.update(action="issue", reason="Arch Linux (testing) failed on main, but the date of the run "
+                            "could not be read: a person looks")
+                return plan
     elif name == "Daily maintenance candidate":
+        # the full chain: one candidate per component (plan-candidates, candidate (<id>), publish (<id>))
+        chain = [j for j in job_names if j in ("plan-candidates", "retire-combined")
+                 or j.startswith(("candidate (", "publish ("))]
+        if chain and len(chain) == len(job_names):
+            steps = [st for j in failed_jobs if j["name"] in chain for st in failed_steps(j)]
+            if any(st.startswith(SOURCES_STEP) for st in steps):
+                plan.update(action="issue", kind="infra", reason="a component source could not be reached or "
+                            "checked (step: %s): nothing on main to fix, the next daily run tries again"
+                            % SOURCES_STEP)
+            else:
+                plan.update(action="issue", reason="a candidate per component could not be made or published "
+                            "(jobs: %s): not main's code; the next daily run tries again, a person looks if it "
+                            "repeats" % ", ".join(chain))
+            return plan
         if "prepare" not in job_names:
             plan.update(action="issue", reason="the maintenance candidate could not be published "
                         "(failed: %s); this is a repository setting or a workflow, not code" % ", ".join(job_names))
@@ -641,6 +708,28 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
             plan.update(action="issue", reason="blocked: %d automatic fixes under the security rules did not make "
                         "%s pass; the owner decides" % (MAX_ATTEMPTS, target))
             return plan
+    elif isolated(target):
+        # the full chain (WP5, WP10, WP11): the candidate's own branch, fixed there with a fresh
+        # context per attempt, up to the configurable cap; the branch is kept at the cap
+        if target.startswith("automation/update/ci-"):
+            # a pin of the workflows broke the tests: an AI never edits a workflow (WP12), a person decides
+            plan.update(action="issue", reason="needs-person: the new pin on %s does not pass the tests; an AI "
+                        "never edits a workflow, so a person decides (Dependabot's proposal stays as the double "
+                        "check)" % target)
+            return plan
+        kind = "builder" if target.startswith(BUILDER_PREFIX) else \
+            "arch-testing" if target.startswith(ARCH_TESTING_PREFIX) else "update"
+        new_branch = kind == "arch-testing" and target != branch
+        plan.update(kind=kind, checkout=run["_main_tip"] if new_branch else run["_tip"], push_branch=target,
+                    attempt=str(1 if new_branch else run["_attempts"] + 1),
+                    allow_adblock="true" if (kind == "update" and run.get("_engine_update")) else "false")
+        if kind == "builder":
+            plan.update(mode="builder", builder=target[len(BUILDER_PREFIX):])
+        if int(plan["attempt"]) > ISOLATED_ATTEMPTS:
+            plan.update(action="issue", reason="needs-person: %d automatic fixes, each with a fresh context and "
+                        "another free provider first, did not make %s pass; the branch is kept for a person"
+                        % (ISOLATED_ATTEMPTS, target))
+            return plan
     else:
         plan.update(kind="maintenance", checkout=run["_tip"], push_branch=MAINTENANCE,
                     attempt=str(run["_attempts"] + 1),
@@ -649,12 +738,99 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
         plan.update(action="issue", reason="%d automatic fixes did not make it pass" % MAX_ATTEMPTS)
         return plan
     plan.update(action="fix", reason="%s failed on %s (jobs: %s)" % (name, branch or "?", ", ".join(job_names)))
-    if name == ARCH:
+    if name in (ARCH, ARCH_TESTING):
         changed = run.get("_arch_changes") or []
         what = ("changed since the last green run on main: " + ", ".join(changed[:6]) if changed
                 else "no followed package changed since the last green run on main")
         plan["reason"] = ("Arch Linux failed on %s while Tests passed on the same commit: an incompatibility with "
                           "Arch Linux's own packages (%s)" % (branch or "?", what))
+    return plan
+
+
+def first_provider(plan):
+    """The provider an attempt on an isolated candidate starts with ("" elsewhere: Antigravity first)."""
+    if plan.get("action") != "fix" or plan.get("kind") not in ("update", "builder", "arch-testing"):
+        return ""
+    try:
+        return _tool("ai-providers").first_provider(int(plan.get("attempt") or 1))
+    except Exception:
+        return ""
+
+
+# --- the builders' re-anchoring (WP11): a work the daily maintenance starts -------------------
+
+BUILDER_WORK = re.compile(r"^builder/(darkreader|ubo-scriptlets)/(\d{4}-\d\d-\d\d)$")
+
+
+def builder_failure(report, cid):
+    """The failure description of a builder that refused (tools/check-components.py's report), or None."""
+    fam = {"darkreader": "Dark Reader", "ubo-scriptlets": "uBlock Origin"}[cid]
+    for comp in (report or {}).get("components") or []:
+        ref = comp.get("refused")
+        if not ref or not str(comp.get("name", "")).startswith(fam):
+            continue
+        builder = _tool("builder-anchor").BUILDERS[cid]
+        parts = ["# The builder refused a new upstream version\n\n",
+                 "- Component: %s, %s -> %s\n- Refused at: %s\n- Reason: %s\n- Builder: `%s`\n\n"
+                 % (comp.get("name"), ref.get("current"), ref.get("latest"), ref.get("step"), ref.get("reason"),
+                    builder),
+                 "Re-anchor I.K.E.'s existing patch in `%s` to the new upstream text below: only the anchor, "
+                 "never the replacement, never a new patch.\n\n" % builder]
+        for title, key in (("The new upstream version around the anchor", "context"), ("The builder's log", "log")):
+            if ref.get(key):
+                parts.append("## %s\n\n```text\n%s\n```\n\n" % (title, str(ref[key])[:12000].replace("```", "` ` `")))
+        return "".join(parts)
+    return None
+
+
+def plan_builder(repo, work, run_id, out_dir, api=None, tip_of=None, attempts_of=None):
+    """The plan of a builder's re-anchoring (WP11) started by the daily maintenance: the refusal of its
+    run's component report, the branch automation/builder/<id>, at most ISOLATED_ATTEMPTS fixes."""
+    api = api or gh_api
+    tip_of = tip_of or tip
+    attempts_of = attempts_of or autofix_commits
+    m = BUILDER_WORK.match(work or "")
+    plan = {"action": "skip", "reason": "", "kind": "builder", "checkout": "", "push_branch": "", "attempt": "0",
+            "allow_adblock": "false", "workflow": "Builder", "security": "false", "findings": "", "mode": "builder",
+            "builder": "", "head_sha": "", "branch": "", "push_tip": "", "first": ""}
+    if not m:
+        plan["reason"] = "not a builder's work: %s" % (work or "")[:80]
+        return plan
+    cid = m.group(1)
+    branch = BUILDER_PREFIX + cid
+    report = None
+    try:
+        arts = api("repos/%s/actions/runs/%s/artifacts?name=component-report" % (repo, run_id)).get("artifacts", [])
+        for art in arts:
+            data = api("repos/%s/actions/artifacts/%s/zip" % (repo, art["id"]), raw=True)
+            import io
+            import zipfile
+            with zipfile.ZipFile(io.BytesIO(data)) as z:
+                name = next((n for n in z.namelist() if n.endswith(".json") and z.getinfo(n).file_size < 5_000_000),
+                            None)
+                report = json.loads(z.read(name).decode("utf-8")) if name else None
+    except Exception as e:
+        plan.update(action="issue", kind="infra", reason="the component report of run %s could not be read (%s): "
+                    "no re-anchoring without the refusal" % (run_id, str(e)[:120]))
+        return plan
+    failure = builder_failure(report, cid)
+    if not failure:
+        plan["reason"] = "the report of run %s has no refusal of %s any more: nothing to re-anchor" % (run_id, cid)
+        return plan
+    have = tip_of(branch)
+    attempt = (attempts_of(branch) if have else 0) + 1
+    plan.update(builder=cid, workflow="Builder %s" % cid, push_branch=branch, branch=branch, push_tip=have,
+                checkout=have or tip_of("main"), head_sha=have or tip_of("main"), attempt=str(attempt))
+    if attempt > ISOLATED_ATTEMPTS:
+        plan.update(action="issue", reason="needs-person: %d re-anchorings of %s did not make the builder accept "
+                    "the new version; the branch is kept for a person" % (ISOLATED_ATTEMPTS, cid))
+        return plan
+    plan.update(action="fix", reason="the builder of %s refused the new upstream version: an AI may re-anchor "
+                "I.K.E.'s existing patches on %s (tools/builder-anchor.py)" % (cid, branch))
+    plan["first"] = first_provider(plan)
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+    (Path(out_dir) / "failure.md").write_text(failure, "utf-8")
+    (Path(out_dir) / "related.txt").write_text(_tool("builder-anchor").BUILDERS[cid] + "\n", "utf-8")
     return plan
 
 
@@ -884,6 +1060,21 @@ def main(argv=None):
             if p.is_file():
                 p.write_text(neutralise(p.read_text("utf-8", "replace")), "utf-8")
         return 0
+    if argv[:1] == ["--builder-work"]:              # autofix-plan.py --builder-work WORK --run-id ID --out-dir DIR
+        bp = argparse.ArgumentParser()
+        bp.add_argument("--builder-work", required=True)
+        bp.add_argument("--run-id", required=True)
+        bp.add_argument("--out-dir", required=True)
+        bp.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", ""))
+        b = bp.parse_args(argv)
+        plan = plan_builder(b.repo, b.builder_work, b.run_id, b.out_dir)
+        print(json.dumps(plan, indent=1))
+        out = os.environ.get("GITHUB_OUTPUT")
+        if out:
+            with open(out, "a", encoding="utf-8") as f:
+                for k, v in plan.items():
+                    f.write("%s=%s\n" % (k, str(v).replace("\n", " ")))
+        return 0
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--run-id", required=True)
     ap.add_argument("--logs", required=True)
@@ -893,15 +1084,24 @@ def main(argv=None):
     repo = a.repo
     run = completed_run(repo, a.run_id)
     jobs = gh_api("repos/%s/actions/runs/%s/jobs?per_page=100" % (repo, a.run_id))["jobs"]
+    if run.get("name") == ARCH_TESTING:
+        # arch-testing.yml calls arch.yml: its jobs are "<caller> / Arch Linux", read as arch.yml's own
+        for j in jobs:
+            j["name"] = (j.get("name") or "").split(" / ")[-1]
     failed = [j for j in jobs if j.get("conclusion") == "failure"]
     branch = run.get("head_branch") or ""
     run["_repo"] = repo
     run["_event"] = a.event
     run["_tip"] = tip(branch) if branch else ""
     run["_main_tip"] = tip("main")
-    own_branch = branch in (MAINTENANCE, FIX_MAIN) or branch.startswith(SECURITY_PREFIX)
+    own_branch = branch in (MAINTENANCE, FIX_MAIN) or branch.startswith(SECURITY_PREFIX) or isolated(branch)
     run["_attempts"] = autofix_commits(branch) if own_branch else 0
-    run["_engine_update"] = (branch == MAINTENANCE or branch.startswith(SECURITY_PREFIX)) and engine_update(branch)
+    run["_engine_update"] = ((branch == MAINTENANCE or branch.startswith(SECURITY_PREFIX)) and engine_update(branch)) \
+        or (isolated(branch) and _tool("update-candidates").wrapper_allowed(branch))
+    if run["name"] == ARCH_TESTING and branch == "main":
+        run["_arch_testing_open"] = {p["head"]["ref"]: p["number"]
+                                     for p in gh_api("repos/%s/pulls?state=open&per_page=100" % repo)
+                                     if (p.get("head") or {}).get("ref", "").startswith(ARCH_TESTING_PREFIX)}
     if run["name"] == SECURITY:
         run["_security_prs"] = security_prs(repo)
         advisories = [j for j in failed if j["name"] == "rust-advisories"]
@@ -913,8 +1113,9 @@ def main(argv=None):
     # would then be fixed reads what it tested against the last green run on
     # main, and waits for the result of Tests on the same commit
     arch = None
-    plan = decide(dict(run, _tests="success") if run["name"] == ARCH else run, failed, open_fix_pr, reports)
-    if run["name"] == ARCH and plan["action"] == "fix":
+    arch_like = run["name"] in (ARCH, ARCH_TESTING)
+    plan = decide(dict(run, _tests="success") if arch_like else run, failed, open_fix_pr, reports)
+    if arch_like and plan["action"] == "fix":
         arch = arch_versions(repo, a.run_id)
         run["_arch_changes"] = arch_change_lines(*arch)
         run["_tests"] = tests_result(repo, run.get("head_sha", ""))
@@ -922,6 +1123,8 @@ def main(argv=None):
     # the commit that failed: the issue's message for ChatGPT starts from it when
     # no automatic fix is tried (after two attempts, for instance)
     plan["head_sha"] = run.get("head_sha", "")
+    # the full chain's candidates: attempt n starts with the n-th free provider (tools/ai-providers.py)
+    plan["first"] = first_provider(plan)
     plan["branch"] = branch                     # for the report's mark (audit of #65)
     if plan["action"] == "skip":
         print("::notice::no automatic fix: %s" % plan["reason"].replace("::", ": "))

@@ -41,9 +41,22 @@ import sys
 import time
 from pathlib import Path
 
-FREE_MODELS = ("Gemini 3.8 Flash (High)", "Gemini 3.7 Flash (High)", "Gemini 3.6 Flash (High)")
-MODEL_TIMEOUT = 8 * 60          # seconds for one model (wall clock)
-TOTAL_TIMEOUT = 25 * 60         # seconds for all models together
+
+def _registry():
+    """tools/ai-providers.py next to this script (both come from main in the
+    workflow): the one place for the providers' order, models and limits."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "ike_ai_providers", Path(__file__).resolve().parent / "ai-providers.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+REGISTRY = _registry()
+FREE_MODELS = tuple(REGISTRY.GEMINI_MODELS)
+MODEL_TIMEOUT = REGISTRY.MODEL_TIMEOUT          # seconds for one model (wall clock)
+TOTAL_TIMEOUT = REGISTRY.TOTAL_TIMEOUT          # seconds for all models together
 WAIT_MAX = 90                   # longest wait for a per-minute limit
 WAIT_TEMPORARY = 30
 
@@ -55,7 +68,17 @@ MESSAGES = {
     "temporary": "Google non risponde in questo momento: riprova più tardi.",
     "timeout": "Tempo massimo raggiunto: l'agente è stato fermato.",
     "error": "L'agente si è fermato per un errore imprevisto.",
+    "unavailable": "Gemini non è gratuito per questa chiave o questo modello (fatturazione), oppure il "
+                   "controllo settimanale l'ha segnato non disponibile: Antigravity non è partito.",
+    "rotated": "Questo tentativo comincia da un altro fornitore gratuito (un tentativo precedente non è "
+               "bastato): Antigravity non è partito, provano le riserve.",
 }
+# a billing error: the model or the project is not on the free tier (WP9; the
+# same words as tools/autofix-reserve.py, never a quota's advice)
+BILLING = re.compile(r"payment[ _]required|insufficient[ _](?:balance|credits?|funds)|BILLING_DISABLED"
+                     r"|billing (?:is )?(?:not )?(?:enabled|required)|requires? billing"
+                     r"|(?:paid|billing) (?:plan|tier|account) (?:is )?required|only available (?:on|for|to) (?:the )?paid",
+                     re.I)
 
 
 def models(wanted):
@@ -93,6 +116,8 @@ def classify(status, err):
                 info = json.loads(line.split(":", 1)[1])
             except ValueError:
                 info = {}
+    if BILLING.search(text):
+        return "unavailable", 0
     code = info.get("error_code")
     status_name = str(info.get("status") or "")
     if code is None:
@@ -142,9 +167,28 @@ def with_failure(rules, failure, done="", context=""):
     return text + body.decode("utf-8", "ignore") + extra
 
 
-def engine_note(allow_adblock):
+LISTS_NOTE = """
+
+## This run: the filter lists (an analysis of I.K.E.'s adapter)
+
+This run is not a failed test: the failure description names real rules of
+today's filter lists that I.K.E. does not read. Change only I.K.E.'s adapter
+(`ike/scriptlets.py`, `ike/blocker.py`, `ike-adblock/src/`) so that it reads
+them with the meaning uBlock Origin gives them. Never the filter lists,
+`ike/config.py`, the bundled uBlock Origin resources, the tests or their data,
+YouTube's ad blocking (`videoads.js`, `videorelay.js`, `mediahook.js`,
+`Scriptlets.host_scripts`) or `Cargo.toml`/`Cargo.lock`; never drop an option
+or a rule to make it parse, never remove a protection. If only the engine
+itself (the adblock-rust crate) could do it, change nothing and say so.
+"""
+
+
+def engine_note(allow_adblock, lists=False):
     """Whether this run may touch the ad blocker's wrapper: the same answer the
-    reserves get and the checker enforces (--allow-adblock)."""
+    reserves get and the checker enforces (--allow-adblock; --lists: the filter
+    lists' analysis, the adapter only, WP8)."""
+    if lists:
+        return LISTS_NOTE
     if allow_adblock:
         return ("\n\n## This run\n\nThis run updates the ad blocker's engine: I.K.E.'s own wrapper "
                 "(`ike-adblock/src/`, `vendor/adblock/__init__.py`, `ike/blocker.py`, "
@@ -163,6 +207,23 @@ SECURITY_RULES = (
     "runs), `ike-adblock/deny.toml`, or anything that names a RustSec advisory. The checker refuses such a "
     "fix (--security) and no other assistant is asked. If the only way out is weakening a protection, "
     "change nothing and say so in the summary.\n")
+
+
+BUILDERS = {"darkreader": "tools/build-darkreader.py", "ubo-scriptlets": "tools/build-ubo-scriptlets.mjs"}
+
+
+def builder_note(builder):
+    """WP11: the builders' re-anchoring, the same rule the reserves get and the checker enforces
+    (--builder, tools/builder-anchor.py)."""
+    if builder not in BUILDERS:
+        return ""
+    return ("\n\n## This run: re-anchor I.K.E.'s builder\n\nA new upstream version moved the text one of "
+            "I.K.E.'s patches is anchored to; the failure description shows the new upstream lines around it. "
+            "Change ONLY `%s`, and in it only the anchor texts of the existing patches (Dark Reader: the second "
+            "text of each `PATCHES` entry; uBlock Origin: only the path of the library it imports). Never a "
+            "replacement text, never a new or removed patch, never other code, never upstream code or the "
+            "generated files in `ike/resources/`. If that is not enough, change nothing and say so.\n"
+            % BUILDERS[builder])
 
 
 def security_note(security):
@@ -230,11 +291,16 @@ def main(argv=None):
                     help="this run updates the ad blocker's engine (tools/autofix-plan.py)")
     ap.add_argument("--security", action="store_true",
                     help="this run fixes a security finding (tools/autofix-plan.py): the stricter rules")
+    ap.add_argument("--lists", action="store_true", help="the filter lists' analysis (tools/filter-lists.py)")
+    ap.add_argument("--builder", default="", choices=["", *sorted(BUILDERS)],
+                    help="the builders' re-anchoring (WP11): that builder's existing patches only")
+    ap.add_argument("--first", default="", help="the provider this attempt starts with (tools/ai-providers.py)")
     a = ap.parse_args(argv)
     key = os.environ.get("GEMINI_API_KEY", "")
     workdir, out = Path(a.workdir), Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    rules = Path(a.prompt).read_text("utf-8") + engine_note(a.allow_adblock) + security_note(a.security)
+    rules = (Path(a.prompt).read_text("utf-8") + engine_note(a.allow_adblock, a.lists) + security_note(a.security)
+             + builder_note(getattr(a, "builder", "")))
     try:
         failure = (workdir / ".autofix" / "failure.md").read_text("utf-8", "replace")
     except OSError:
@@ -245,6 +311,21 @@ def main(argv=None):
         context = ""
     result, used, detail = "error", "", ""
     deadline = time.monotonic() + a.total_timeout
+    off = {n.strip() for n in (os.environ.get("AUTOFIX_UNAVAILABLE") or "").split(",") if n.strip()}
+    first = a.first or os.environ.get("AUTOFIX_FIRST", "")
+    if first and first not in ("Antigravity", "Gemini"):
+        # a later attempt starts with another free provider (tools/ai-providers.py FIX_ATTEMPTS): a
+        # fresh context, another model family; the reserves begin with that one
+        Path(a.status).write_text(json.dumps({"result": "rotated", "model": "", "message": MESSAGES["rotated"],
+                                              "detail": first}, ensure_ascii=False), "utf-8")
+        print("Outcome: rotated (this attempt starts with %s)" % first.replace("::", ": ")[:40], flush=True)
+        return 0
+    if off & {"Antigravity", "Gemini"}:
+        # the weekly check found Gemini not free (tools/provider-check.py): not started
+        Path(a.status).write_text(json.dumps({"result": "unavailable", "model": "", "message":
+                                              MESSAGES["unavailable"], "detail": ""}, ensure_ascii=False), "utf-8")
+        print("Outcome: unavailable (marked by the weekly check)", flush=True)
+        return 0
     for model in models(os.environ.get("AUTOFIX_MODEL")):
         tries = 0
         while True:
@@ -296,7 +377,7 @@ def main(argv=None):
         if result in ("quota", "temporary"):
             print("This model is not available now: the next model goes on", flush=True)
             continue
-        break                    # auth, config, timeout, error: switching model would not help
+        break                    # auth, config, timeout, error, unavailable: switching model would not help
     Path(a.status).write_text(json.dumps({"result": result, "model": used, "message": MESSAGES[result],
                                           "detail": detail}, ensure_ascii=False), "utf-8")
     print("Outcome: %s (%s)" % (result, used), flush=True)

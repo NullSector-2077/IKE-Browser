@@ -334,7 +334,131 @@ def check_crates(root):
     return {"current": "pyo3 %s, %d crates" % (old.get("pyo3", cur_req), len(old)),
             "latest": "pyo3 %s, %d crates" % (new.get("pyo3", req), len(new)),
             "update": bool(changed or added or gone or req != cur_req), "note": note[:900],
-            "_requirement": req}
+            "_requirement": req, "_candidates": crate_candidates(root, old, new if req == cur_req else None,
+                                                                 cur_req, req)}
+
+
+# --- one candidate per component (WP5, 2026-11-22) ------------------------------
+# The daily maintenance makes one isolated candidate per component, or per
+# small coherent group, on automation/update/<id> (tools/update-candidates.py):
+# its own tests, Arch run, automatic fix, ledger entry and verified merge.
+# The engine's crates give three kinds: "crates" (every semver-compatible
+# update, cargo update with the requirements as they are), "pyo3" (a new pyo3
+# release line: the requirement is raised) and "crate-major-<name>" (a new major
+# version of another direct dependency of ike-adblock: its requirement in
+# Cargo.toml is raised, then cargo update; a major version of a crate that only
+# adblock brings waits for a new adblock, which is its own candidate). A new
+# crate still passes deny.toml's licence and source checks (tests.yml,
+# "Licences"). The test packages give three groups: Qt's wheels, the test tools
+# (pytest, ruff) and the other libraries.
+
+TEST_TOOLS = ("pytest", "ruff", "pluggy", "iniconfig", "packaging", "pygments", "colorama", "exceptiongroup",
+              "tomli")
+
+
+def test_group(name):
+    """The candidate of a test package: test-qt, test-tools or test-libs."""
+    name = norm(name)
+    if name in QT_PACKAGES or name.startswith("pyqt6"):
+        return "test-qt"
+    return "test-tools" if name in TEST_TOOLS else "test-libs"
+
+
+def crate_index_url(name):
+    """The sparse index file of a crate on crates.io."""
+    n = name.lower()
+    path = ("1/%s" % n if len(n) == 1 else "2/%s" % n if len(n) == 2 else "3/%s/%s" % (n[0], n) if len(n) == 3
+            else "%s/%s/%s" % (n[:2], n[2:4], n))
+    return "https://index.crates.io/" + path
+
+
+def latest_crate(name):
+    """The newest stable, not yanked version of a crate on crates.io (raises when unreachable)."""
+    versions = []
+    for line in fetch_source(crate_index_url(name)).decode("utf-8").splitlines():
+        if line.strip():
+            entry = json.loads(line)
+            if not entry.get("yanked") and is_stable(entry["vers"]):
+                versions.append(entry["vers"])
+    return max(versions, key=vkey) if versions else ""
+
+
+def direct_requirements(root):
+    """{crate: requirement} of ike-adblock/Cargo.toml's [dependencies]."""
+    text = (root / "ike-adblock" / "Cargo.toml").read_text("utf-8")
+    deps = re.search(r"^\[dependencies\]\n(.*?)(?=^\[|\Z)", text, re.M | re.S)
+    out = {}
+    for line in (deps.group(1) if deps else "").splitlines():
+        m = re.match(r'^([A-Za-z0-9_-]+)\s*=\s*(?:"([^"]+)"|\{[^}]*?version\s*=\s*"([^"]+)")', line.strip())
+        if m:
+            out[m.group(1)] = m.group(2) or m.group(3)
+    return out
+
+
+def crate_candidates(root, old, compatible, cur_req, req):
+    """The candidates of the engine's crates: [{"id", "from", "to", "note", "requirement"?}]."""
+    out = []
+    if compatible is None:
+        try:
+            compatible = lock_packages(updated_lock(root, cur_req))
+        except Exception as e:        # cargo or the index: the combined result above still stands
+            compatible = {}
+            print("!! the semver-compatible crates could not be read apart: %s" % str(e)[:200])
+    changed = sorted(n for n in compatible if n in old and compatible[n] != old[n])
+    added = sorted(n for n in compatible if n not in old)
+    gone = sorted(n for n in old if compatible and n not in compatible)
+    if changed or added or gone:
+        parts = ["%s %s -> %s" % (n, old[n], compatible[n]) for n in changed]
+        parts += ["new: " + ", ".join(added)] if added else []
+        parts += ["no longer needed: " + ", ".join(gone)] if gone else []
+        out.append({"id": "crates", "from": "%d crates" % len(old), "to": "%d crates" % len(compatible),
+                    "note": "; ".join(parts)[:900]})
+    if req != cur_req:
+        out.append({"id": "pyo3", "from": cur_req, "to": req, "requirement": req, "crate": "pyo3",
+                    "note": "pyo3 %s -> %s: a new release line (adapt ike-adblock/src/lib.rs if its API changed)"
+                    % (cur_req, req)})
+    for name, creq in sorted(direct_requirements(root).items()):
+        if name in ("adblock", "pyo3") or creq.startswith("="):
+            continue
+        try:
+            newest = latest_crate(name)
+        except Exception as e:        # unreachable today: no major candidate, said in the note
+            out.append({"id": "crate-major-%s" % name, "from": creq, "to": "", "error": str(e)[:200]})
+            continue
+        line = pyo3_requirement(creq, newest) if newest else creq
+        if line != creq:
+            out.append({"id": "crate-major-%s" % name, "from": creq, "to": line, "requirement": line,
+                        "crate": name, "note": "%s %s -> %s: a new major version (the requirement in Cargo.toml "
+                        "is raised; I.K.E.'s wrapper may need to adapt)" % (name, creq, line)})
+    return out
+
+
+def apply_compatible_crates(root, info):
+    """cargo update with the requirements as they are (adblock stays at its exact version)."""
+    manifest = root / "ike-adblock" / "Cargo.toml"
+    if not shutil.which("cargo"):
+        print("!! cargo not found: run `cargo update` in ike-adblock/")
+        return
+    run(["cargo", "update", "--manifest-path", str(manifest)])
+
+
+def apply_requirement(root, crate, requirement):
+    """A new major version of a direct dependency: its requirement in Cargo.toml raised, then
+    cargo update of that crate (all of them when cargo cannot move it alone)."""
+    manifest = root / "ike-adblock" / "Cargo.toml"
+    text = manifest.read_text("utf-8")
+    new, n = re.subn(r'^(%s = (?:\{ version = )?")[^"]+"' % re.escape(crate), r"\g<1>" + requirement + '"', text,
+                     count=1, flags=re.M)
+    if n != 1:
+        raise ValueError("%s: its requirement is not in ike-adblock/Cargo.toml" % crate)
+    manifest.write_text(new, "utf-8")
+    if not shutil.which("cargo"):
+        print("!! cargo not found: run `cargo update -p %s` in ike-adblock/" % crate)
+        return
+    try:
+        run(["cargo", "update", "-p", crate, "--manifest-path", str(manifest)])
+    except subprocess.CalledProcessError:
+        run(["cargo", "update", "--manifest-path", str(manifest)])
 
 
 def apply_crates(root, info):
@@ -609,11 +733,18 @@ def check_test_packages(root):
     note = show(qt)
     if arch:
         note = "; ".join(x for x in (note, "Arch Linux qt6-webengine %s" % arch) if x)
+    groups = {}
+    for n in [*qt, *other, *gone]:
+        groups.setdefault(test_group(n), []).append(n)
+    cands = [{"id": g, "from": ", ".join("%s %s" % (pins[n][0], pins[n][1]) for n in names if n in pins)[:300],
+              "to": ", ".join("%s %s" % (new[n][0], new[n][1]) for n in names if n in new)[:300],
+              "note": show([n for n in names if n in new]) or ("no longer needed: " + ", ".join(names))}
+             for g, names in sorted(groups.items())]
     return {"current": label(pins), "latest": label(new),
             "update": bool(qt), "note": note,
             "also": "; ".join(x for x in (show(other), ("no longer needed: " + ", ".join(gone)) if gone else "")
                               if x),
-            "_set": new}
+            "_set": new, "_candidates": cands}
 
 
 def apply_test_packages(root, info):
@@ -623,6 +754,21 @@ def apply_test_packages(root, info):
     order = list(pins) + sorted(n for n in new if n not in pins)
     lines = ["%s==%s" % (pins[n][0] if n in pins else new[n][0], new[n][1]) for n in order if n in new]
     path.write_text("\n".join(header + lines) + "\n", "utf-8")
+
+
+def apply_test_group(root, info, group):
+    """Only the pins of one group (test_group) move; the others stay as they are."""
+    pins, new = read_pins(root), info["_set"]
+    path = root / "tools" / "test-requirements.txt"
+    header = [line for line in path.read_text("utf-8").splitlines() if line.startswith("#")]
+    out = []
+    for n in list(pins) + sorted(n for n in new if n not in pins):
+        if test_group(n) != group:
+            if n in pins:
+                out.append("%s==%s" % pins[n])
+        elif n in new:
+            out.append("%s==%s" % (pins[n][0] if n in pins else new[n][0], new[n][1]))
+    path.write_text("\n".join(header + out) + "\n", "utf-8")
 
 
 # --- Arch Linux's own packages (the system I.K.E. runs on) ---------------------
@@ -740,32 +886,171 @@ def arch_changes(old, new, skip_not_installed=False):
             if old.get(n, "") != new[n] and not (skip_not_installed and n in old and old[n] == "")]
 
 
-def check_arch(saved, get=None):
+# --- the full dependency closure (WP10, 2026-11-22) -----------------------------
+# Not only the packages I.K.E. names: everything pacman installs for them
+# (Mesa, ffmpeg, NSS, ICU, the fonts, the libraries of Qt...). arch.yml
+# records the closure it really tested (`pacman -Qi`, followed recursively
+# through "Depends On" and "Provides"), and the daily check compares it with
+# Arch's repository databases (core, extra; one download each, not one
+# question per package): any package of the closure in another version starts
+# arch.yml on main.
+
+ARCH_DB = "https://geo.mirror.pkgbuild.com/%s/os/x86_64/%s.db"
+ARCH_TESTING_REPOS = ("core-testing", "extra-testing")
+ARCH_DB_MAX = 64 * 1024 * 1024
+
+
+def parse_repo_db(data):
+    """{package: epoch:pkgver-pkgrel} of a pacman repository database (a tar, gzip, xz or zstd)."""
+    import io
+    import tarfile
+    raw = data
+    if raw[:4] == b"\x28\xb5\x2f\xfd":                     # zstd: Python's tarfile reads it from 3.14 only
+        if shutil.which("zstd"):
+            raw = subprocess.run(["zstd", "-dc"], input=data, capture_output=True, check=True).stdout
+        else:
+            raise ValueError("a zstd database and no zstd to read it")
+    out = {}
+    with tarfile.open(fileobj=io.BytesIO(raw), mode="r:*") as tar:
+        for member in tar:
+            if not member.isfile() or not member.name.endswith("/desc") or member.size > 1_000_000:
+                continue
+            text = tar.extractfile(member).read().decode("utf-8", "replace")
+            fields = dict(re.findall(r"%([A-Z0-9]+)%\n([^\n]*)", text))
+            if fields.get("NAME") and fields.get("VERSION"):
+                out[fields["NAME"]] = fields["VERSION"]
+    return out
+
+
+def arch_repo_versions(repos=ARCH_REPOS, get=None):
+    """({package: version} of Arch's repositories now, {repo: why it could not be read})."""
+    versions, errors = {}, {}
+    for repo in repos:
+        try:
+            data = (get or fetch)(ARCH_DB % (repo, repo), timeout=120)
+            if len(data) > ARCH_DB_MAX:
+                raise ValueError("too big")
+            versions.update(parse_repo_db(data))
+        except Exception as e:        # the mirror, the network: source unreachable, never a change
+            errors[repo] = "%s: %s" % (type(e).__name__, str(e).strip()[:200])
+    return versions, errors
+
+
+def parse_pacman_qi(text):
+    """{name: {"version", "depends", "provides"}} of `pacman -Qi` (every installed package)."""
+    out = {}
+    for block in re.split(r"\n\s*\n", text or ""):
+        fields, key = {}, None
+        for line in block.splitlines():
+            m = re.match(r"^([A-Z][A-Za-z ]+?)\s+:\s?(.*)$", line)
+            if m:
+                key = m.group(1).strip()
+                fields[key] = m.group(2).strip()
+            elif key and line.startswith(" "):
+                fields[key] += " " + line.strip()
+        name = fields.get("Name")
+        if not name:
+            continue
+
+        def names(value):
+            if not value or value == "None":
+                return []
+            return [re.split(r"[<>=:]", w, maxsplit=1)[0] for w in value.split()]
+        out[name] = {"version": fields.get("Version", ""), "depends": names(fields.get("Depends On")),
+                     "provides": names(fields.get("Provides"))}
+    return out
+
+
+def dependency_closure(roots, installed):
+    """{package: version} of every installed package the roots need, recursively (a dependency
+    named by something a package provides is that package)."""
+    provider = {}
+    for name, info in installed.items():
+        for p in info["provides"]:
+            provider.setdefault(p, name)
+    out, todo = {}, list(roots)
+    while todo:
+        want = todo.pop()
+        name = want if want in installed else provider.get(want)
+        if not name or name in out:
+            continue
+        out[name] = installed[name]["version"]
+        todo.extend(installed[name]["depends"])
+    return dict(sorted(out.items()))
+
+
+def closure_roots(root=ROOT):
+    """The packages the closure starts from: ARCH_PACKAGES and the PKGBUILD's depends, makedepends
+    and optdepends (an optional one counts when it is installed)."""
+    names = list(ARCH_PACKAGES)
+    try:
+        text = (Path(root) / "PKGBUILD").read_text("utf-8")
+    except OSError:
+        return names
+    for key in ("depends", "makedepends", "optdepends"):
+        m = re.search(r"^%s=\(" % key, text, re.M)
+        words, quote, word = [], "", ""
+        for ch in text[m.end():] if m else "":
+            if quote:
+                quote, word = ("", word) if ch == quote else (quote, word + ch)
+            elif ch in "'\"":
+                quote = ch
+            elif ch.isspace() or ch == ")":
+                if word:
+                    words.append(word)
+                word = ""
+                if ch == ")":
+                    break
+            else:
+                word += ch
+        for w in words:
+            name = re.split(r"[<>=:]", w.strip(), maxsplit=1)[0].strip()
+            if name and not name.startswith("#") and name not in names:
+                names.append(name)
+    return names
+
+
+def closure_changes(tested, current):
+    """[(package, tested, now)] of the recorded closure whose version in Arch differs (a package Arch
+    no longer has is not a change: its dependants changed, and they are listed)."""
+    return [(n, v, current[n]) for n, v in sorted((tested or {}).items()) if n in current and current[n] != v]
+
+
+def check_arch(saved, get=None, db=None):
     """Arch's repositories against the set saved by --save-arch-tested.
 
     state: "changed" (a package moved: compatibility to verify), "untested"
     (no green run on main recorded a set: verify), "unreachable" (Arch's site
     could not be read for some package and nothing else changed: no news, never
-    an update), "same"."""
+    an update), "same". db: ({package: version} of Arch's repository databases,
+    {repo: error}) to compare the recorded closure too (WP10); None: not compared."""
     tested = saved.get("tested") if isinstance(saved, dict) else None
     current, unreachable = arch_current(get)
     changed = arch_changes((tested or {}).get("packages", {}), current, skip_not_installed=True) if tested else []
+    closure, closure_errors = [], {}
+    if db is not None:
+        versions, closure_errors = db
+        closure = closure_changes((tested or {}).get("closure") or {}, versions) if tested else []
     if not tested:
         state = "untested"
-    elif changed:
+    elif changed or closure:
         state = "changed"
-    elif unreachable:
+    elif unreachable or closure_errors:
         state = "unreachable"
     else:
         state = "same"
     return {"state": state, "current": current, "unreachable": unreachable, "tested": tested,
-            "changed": changed, "read_error": (saved or {}).get("error", "") if isinstance(saved, dict) else ""}
+            "changed": changed, "closure_changed": closure, "closure_errors": closure_errors,
+            "closure_size": len((tested or {}).get("closure") or {}),
+            "read_error": (saved or {}).get("error", "") if isinstance(saved, dict) else ""}
 
 
 def arch_public(info):
     tested = info["tested"] or {}
     return {"state": info["state"], "current": info["current"], "unreachable": info["unreachable"],
             "changed": [{"package": n, "tested": o, "now": v} for n, o, v in info["changed"]],
+            "closure_changed": [{"package": n, "tested": o, "now": v} for n, o, v in info.get("closure_changed", [])],
+            "closure_size": info.get("closure_size", 0), "closure_errors": info.get("closure_errors", {}),
             "tested": {k: tested.get(k) for k in ("packages", "python", "qt", "pyqt", "chromium", "commit", "run")
                        if k in tested},
             "read_error": info["read_error"]}
@@ -816,6 +1101,22 @@ def arch_markdown(info):
     why = sorted(set(info["unreachable"].values()))
     if why:
         out += ["", "Source unreachable: " + "; ".join(_v(w) for w in why[:3])]
+    closure = info.get("closure_changed") or []
+    if info.get("closure_size") or closure:
+        out += ["", "**The whole dependency closure** (%d packages arch.yml installed and recorded, Mesa, ffmpeg, "
+                "NSS, ICU and the fonts included): %s" % (
+                    info.get("closure_size", 0), "%d in another version in Arch now" % len(closure) if closure
+                    else "every one the version tested")]
+        if closure:
+            out += ["", "| Package | Tested | In Arch now |", "|---|---|---|"]
+            out += ["| %s | %s | %s |" % (n, _v(o), _v(v)) for n, o, v in closure[:60]]
+            if len(closure) > 60:
+                out.append("| ... | %d more | |" % (len(closure) - 60))
+    elif info["tested"]:
+        out += ["", "The run tested on main recorded no dependency closure yet: the next arch.yml run records it."]
+    if info.get("closure_errors"):
+        out += ["", "Arch's repository databases not read (source unreachable): " +
+                "; ".join("%s: %s" % (r, _v(w)) for r, w in sorted(info["closure_errors"].items()))]
     return "\n".join(out) + "\n"
 
 
@@ -838,7 +1139,7 @@ print(json.dumps(out))
 """
 
 
-def record_arch(path, root=ROOT, query=None, probe=None):
+def record_arch(path, root=ROOT, query=None, probe=None, qi=None):
     """What this Arch system really has (arch.yml, after installing Arch's
     packages): `pacman -Q` of ARCH_PACKAGES, and Python, Qt, PyQt and the
     engine's Chromium as I.K.E. reports them. Writes the JSON to path and
@@ -865,6 +1166,15 @@ def record_arch(path, root=ROOT, query=None, probe=None):
     except Exception as e:
         facts = {"error": "%s: %s" % (type(e).__name__, e)}
     record = {"schema": 1, "packages": {n: installed.get(n, "") for n in ARCH_PACKAGES}}
+
+    def pacman_qi():
+        return subprocess.run(["pacman", "-Qi"], capture_output=True, text=True, check=False).stdout
+    try:
+        # WP10: the whole closure the run installed, recursively (pacman -Qi of every package)
+        record["closure"] = dependency_closure(closure_roots(root), parse_pacman_qi((qi or pacman_qi)()))
+    except Exception as e:
+        record["closure"] = {}
+        record["closure_error"] = "%s: %s" % (type(e).__name__, str(e)[:200])
     for key in ("python", "qt", "pyqt", "chromium", "error"):
         if facts.get(key):
             record[key] = str(facts[key])[:300]
@@ -878,6 +1188,7 @@ def record_arch(path, root=ROOT, query=None, probe=None):
                  record.get("chromium", "?")), "",
              "| Package | Version |", "|---|---|"]
     lines += ["| %s | %s |" % (n, v or "not installed") for n, v in record["packages"].items()]
+    lines += ["", "The whole dependency closure: %d packages (recorded in the artifact)." % len(record["closure"])]
     if record.get("error"):
         lines += ["", "Not read: " + _v(record["error"])]
     return "\n".join(lines) + "\n"
@@ -901,6 +1212,9 @@ LIST_INCLUDE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,80}\.txt")
 # syntax or of the engine shows
 LIST_UNREAD_SHARE = 0.25
 LIST_EXAMPLES = 8
+# every rule the engine does not read (at most this many per list), for the
+# classification of the findings (tools/filter-lists.py, WP8)
+LIST_UNREAD_KEEP = 4000
 # Scriptlet names the default lists use that are not uBlock Origin's
 # builtinScriptlets but its own resources (web_accessible_resources, also
 # usable with +js): tools/build-ubo-scriptlets.mjs takes only the
@@ -1042,7 +1356,7 @@ def check_filter_lists(root=ROOT, get=None, library=None, lists=None):
     texts = []
     for entry in lists:
         row = {"name": entry["name"], "url": entry["url"], "group": entry.get("group", ""), "state": "ok",
-               "error": "", "includes_missing": []}
+               "error": "", "includes_missing": [], "trusted": bool(trusted(entry["url"]))}
         out["lists"].append(row)
         try:
             text, row["includes_missing"] = download_list(entry["url"], get)
@@ -1057,9 +1371,10 @@ def check_filter_lists(root=ROOT, get=None, library=None, lists=None):
         texts.append((entry["name"], text))
         if parse_report:
             try:
-                rep = parse_report(text, False, LIST_EXAMPLES)
+                rep = parse_report(text, False, LIST_UNREAD_KEEP)
                 row.update({k: rep[k] for k in ("lines", "comments", "network", "cosmetic", "unsupported",
-                                                "errors")}, examples=[list(x) for x in rep["examples"]])
+                                                "errors")}, examples=[list(x) for x in rep["examples"][:LIST_EXAMPLES]],
+                           unread=[list(x) for x in rep["examples"]])
                 rules = rep["network"] + rep["cosmetic"] + rep["unsupported"] + rep["errors"]
                 share = (rep["unsupported"] + rep["errors"]) / rules if rules else 0.0
                 row["unread_share"] = round(share, 4)
@@ -1174,18 +1489,80 @@ def write_lists_report(info, json_path=None, markdown_path=None):
 
 # --- report -----------------------------------------------------------------
 
-def check_all(root, ubo_src=None, work=None, dr_src=None):
+# the check each candidate comes from (WP5): its family
+FAMILIES = ("adblock", "crates", "ubo-scriptlets", "darkreader", "test-packages")
+
+
+def family_of(cid):
+    """The check (FAMILIES) a candidate id comes from, or "" for an unknown id."""
+    if cid in ("adblock", "ubo-scriptlets", "darkreader"):
+        return cid
+    if cid in ("crates", "pyo3") or re.fullmatch(r"crate-major-[A-Za-z0-9_-]+", cid or ""):
+        return "crates"
+    if cid in ("test-qt", "test-tools", "test-libs"):
+        return "test-packages"
+    return ""
+
+
+def candidates_of(results):
+    """One record per candidate of today's results (WP5): {"id", "component", "from", "to", "note"},
+    with "refused" (a builder refused the new version: kept, for the builder's path) or "error" (its
+    source could not be read today: nothing to make)."""
+    out = []
+    for r in results:
+        fam = r.get("id", "")
+        base = {"component": r.get("name", "")}
+        if r.get("error"):
+            out.append(dict(base, id=fam, error=r["error"][:300], **{"from": r.get("current", ""), "to": ""}))
+            continue
+        if r.get("refused"):
+            out.append(dict(base, id=fam, refused=True, step=r["refused"].get("step", ""),
+                            **{"from": r.get("current", ""), "to": r.get("latest", "")}))
+            continue
+        if fam in ("crates", "test-packages"):
+            out += [dict(base, **c) for c in r.get("_candidates") or ()]
+        elif r.get("update"):
+            out.append(dict(base, id=fam, note=r.get("note", ""), **{"from": r.get("current", ""),
+                                                                      "to": r.get("latest", "")}))
+    return out
+
+
+def apply_candidate(root, results, cid):
+    """Apply only this candidate (WP5). Returns its record, or raises when today's results do not have it."""
+    cand = next((c for c in candidates_of(results) if c["id"] == cid), None)
+    if cand is None:
+        raise LookupError("no update of %s today" % cid)
+    if cand.get("error") or cand.get("refused") or not cand.get("to"):
+        raise LookupError("%s: %s" % (cid, cand.get("error") or ("refused by its builder" if cand.get("refused")
+                                                                  else "nothing newer")))
+    fam = family_of(cid)
+    info = next(r for r in results if r.get("id") == fam)
+    if cid == "crates":
+        apply_compatible_crates(root, info)
+    elif cid == "pyo3" or cid.startswith("crate-major-"):
+        apply_requirement(root, cand["crate"], cand["requirement"])
+    elif fam == "test-packages":
+        apply_test_group(root, info, cid)
+    else:
+        info["_apply"](root, info)
+    return cand
+
+
+def check_all(root, ubo_src=None, work=None, dr_src=None, only=None):
+    """Every check (or only the family of the candidate `only`), each result with its "id" (FAMILIES)."""
     work = Path(work or tempfile.mkdtemp(prefix="ike-check-"))
     work.mkdir(parents=True, exist_ok=True)
     checks = [
-        ("adblock-rust (AdBlock engine)", check_adblock, apply_adblock, ()),
-        ("Rust crates of the AdBlock engine", check_crates, apply_crates, ()),
-        ("uBlock Origin scriptlets", check_scriptlets, apply_scriptlets, (work, ubo_src)),
-        ("Dark Reader (engine and lists)", check_darkreader, apply_darkreader, (work, dr_src)),
-        ("Qt WebEngine / PyQt6 (tests)", check_test_packages, apply_test_packages, ()),
+        ("adblock-rust (AdBlock engine)", check_adblock, apply_adblock, (), "adblock"),
+        ("Rust crates of the AdBlock engine", check_crates, apply_crates, (), "crates"),
+        ("uBlock Origin scriptlets", check_scriptlets, apply_scriptlets, (work, ubo_src), "ubo-scriptlets"),
+        ("Dark Reader (engine and lists)", check_darkreader, apply_darkreader, (work, dr_src), "darkreader"),
+        ("Qt WebEngine / PyQt6 (tests)", check_test_packages, apply_test_packages, (), "test-packages"),
     ]
+    if only:
+        checks = [c for c in checks if c[4] == family_of(only)]
     results = []
-    for name, check, apply, args in checks:
+    for name, check, apply, args, fam in checks:
         try:
             info = check(root, *args)
             info.setdefault("also", "")
@@ -1201,6 +1578,7 @@ def check_all(root, ubo_src=None, work=None, dr_src=None):
                                            (getattr(e, "stderr", "") or str(e)).strip()[:300])}
         info.setdefault("refused", None)
         info["name"] = name
+        info["id"] = fam
         info["_apply"] = apply
         results.append(info)
     return results
@@ -1289,6 +1667,9 @@ def main(argv=None):
     ap.add_argument("--filter-lists", metavar="FILE",
                     help="only check the default filter lists in the bundled engine; JSON to FILE "
                          "(--markdown: its section)")
+    ap.add_argument("--only", metavar="ID",
+                    help="only this candidate (WP5: adblock, crates, pyo3, crate-major-<crate>, ubo-scriptlets, "
+                         "darkreader, test-qt, test-tools, test-libs): checked and, with --apply, applied alone")
     ap.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", ""), help="OWNER/NAME on GitHub")
     ap.add_argument("--root", default=str(ROOT), help=argparse.SUPPRESS)
     args = ap.parse_args(argv)
@@ -1312,8 +1693,11 @@ def main(argv=None):
             saved = json.loads(Path(args.arch).read_text("utf-8"))
         except (OSError, ValueError) as e:
             saved = {"tested": None, "error": "%s: %s" % (type(e).__name__, e)}
-        arch = check_arch(saved)
-    results = check_all(root, args.ubo_src, dr_src=args.darkreader_src)
+        arch = check_arch(saved, db=arch_repo_versions())
+    if args.only and not family_of(args.only):
+        print("::error::not a candidate: %s" % args.only[:80])
+        return 2
+    results = check_all(root, args.ubo_src, dr_src=args.darkreader_src, only=args.only)
     for r in results:
         state = "ERROR " + r["error"] if r["error"] else (
             "REFUSED" if r.get("refused") else ("NEW" if r["update"] else "ok"))
@@ -1321,7 +1705,8 @@ def main(argv=None):
                                          r["note"] or r["also"] or (r["error"] if r["error"] else "")))
     if arch:
         print("%-34s %-6s %s" % ("Arch Linux's own packages", arch["state"],
-                                 "; ".join("%s %s -> %s" % (n, o or "-", v) for n, o, v in arch["changed"])
+                                 "; ".join("%s %s -> %s" % (n, o or "-", v)
+                                           for n, o, v in arch["changed"] + arch["closure_changed"][:20])
                                  or ", ".join(sorted(arch["unreachable"]))))
     updates = sum(r["update"] for r in results)
     errors = sum(bool(r["error"]) for r in results)
@@ -1333,7 +1718,8 @@ def main(argv=None):
             print("::warning::component incompatibility: %s %s -> %s refused at %s: %s (kept at the version in use)"
                   % (r["name"], rep.get("current"), rep.get("latest"), rep.get("step"), rep.get("reason")))
     if args.json:
-        data = {"updates": updates, "errors": errors, "refused": refused, "components": public(results)}
+        data = {"updates": updates, "errors": errors, "refused": refused, "components": public(results),
+                "candidates": candidates_of(results)}
         if arch:
             data["arch"] = arch_public(arch)
         Path(args.json).write_text(json.dumps(data, indent=1) + "\n", "utf-8")
@@ -1345,6 +1731,19 @@ def main(argv=None):
             f.write("updates=%d\nerrors=%d\nrefused=%d\n" % (updates, errors, refused))
             if arch:
                 f.write("arch=%s\n" % arch["state"])
+    if args.apply and args.only:
+        # WP5: one candidate alone; its own source unreachable stops it (the next run tries again)
+        if errors:
+            print("::error::not applying %s: its source could not be reached or checked" % args.only)
+            return 1
+        try:
+            cand = apply_candidate(root, results, args.only)
+        except LookupError as e:
+            print("nothing applied: %s" % e)
+            return 0
+        print("applied: %s %s -> %s" % (cand["id"], cand.get("from", ""), cand.get("to", "")))
+        refresh_licences(root)
+        return 0
     if args.apply:
         if errors:
             # infrastructure (a source unreachable): fail closed, the next daily run tries again

@@ -27,7 +27,30 @@
 # branches (automation/update/security-*), never on main; there the guard runs
 # with --security (no change of the sandbox, ENGINE_SAFETY, the security tests
 # or deny.toml), and with no safe fix the finding is blocked and the owner told.
-# At most two automatic fixes for one failure (tools/autofix-plan.py). Needs the
+# Also (WP8, WP9, 2026-11-22), started by the daily check with `work`:
+#   lists/<date>/<finding>   an AI analysis of one finding of the filter lists
+#                            (tools/filter-lists.py): only I.K.E.'s adapter may
+#                            change (check-autofix-patch.py --lists), on the
+#                            isolated branch automation/update/lists-<date>;
+#   run/<id>                 a fix that found no free provider before, again.
+# A run where no provider at all was free (busy, out of quota, not free) asks
+# nobody: its outcome waits in the maintenance ledger (tools/ai-work.py) and
+# the daily check starts it again, up to RETRY_CAP (tools/ai-providers.py).
+#
+# The full chain (2026-11-22): a failure of Tests, Arch Linux or Arch Linux
+# (testing) on an isolated candidate (automation/update/<id>,
+# automation/builder/<id>, automation/update/arch-testing-<date>) is fixed on that
+# branch, up to FIX_ATTEMPTS of tools/ai-providers.py, each attempt a fresh
+# context starting with the next free provider; at the cap the branch is kept
+# and the owner told once. builder/<id>/<date> (from the daily maintenance): an
+# AI re-anchors I.K.E.'s existing patches in a builder that refused a new
+# upstream version (check-autofix-patch.py --builder, tools/builder-anchor.py).
+# A fix that changes what ships raises the version when main's is published,
+# with a CHANGELOG line from the plan's report. An AI never edits a workflow: a
+# workflow change it wanted is kept as a written proposal in the report for a
+# person (WP12), never pushed.
+#
+# At most two automatic fixes for one failure on main (tools/autofix-plan.py). Needs the
 # repository secret GEMINI_API_KEY; the repository variable AUTOFIX_MODEL may
 # choose the model (empty: the CLI's default). See docs/MAINTENANCE.md.
 name: Automatic fix
@@ -47,6 +70,10 @@ on:
         type: boolean
         required: false
         default: false
+      work:
+        description: "Set by the daily check: lists/<date>/<finding> or run/<id> (tools/ai-work.py); by the daily maintenance: builder/<id>/<date> (WP11)"
+        required: false
+        default: ""
 
 permissions: {}
 
@@ -88,6 +115,12 @@ jobs:
       push_tip: ${{ steps.plan.outputs.push_tip }}
       security: ${{ steps.plan.outputs.security }}
       findings: ${{ steps.plan.outputs.findings }}
+      mode: ${{ steps.plan.outputs.mode }}
+      recorded: ${{ steps.plan.outputs.recorded }}
+      work: ${{ steps.plan.outputs.work }}
+      unavailable: ${{ steps.providers.outputs.unavailable }}
+      builder: ${{ steps.plan.outputs.builder }}
+      first: ${{ steps.plan.outputs.first }}
     steps:
       - name: Check out main (all branches, no credentials)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -101,16 +134,60 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.event.inputs.run_id || github.event.workflow_run.id }}
           EVENT: ${{ github.event_name }}
+          WORK: ${{ github.event.inputs.work }}
         run: |
           mkdir -p "$RUNNER_TEMP/failure"
-          python3 -I tools/autofix-plan.py --run-id "$RUN_ID" --logs "$RUNNER_TEMP/failure/failure.md" \
-            --event "$EVENT"
+          # the daily check's work (tools/ai-work.py), only in its own forms
+          if ! printf '%s' "$WORK" | grep -Eq '^(lists/[0-9]{4}-[0-9]{2}-[0-9]{2}/lists/[a-z-]+/[a-z0-9.-]+@[a-z]+|run/[0-9]{1,20}|builder/(darkreader|ubo-scriptlets)/[0-9]{4}-[0-9]{2}-[0-9]{2})$'; then
+            WORK=""
+          fi
+          if [ "${WORK#lists/}" != "$WORK" ]; then
+            python3 -I tools/filter-lists.py plan --run-id "$RUN_ID" --work "$WORK" --out-dir "$RUNNER_TEMP/failure"
+          elif [ "${WORK#builder/}" != "$WORK" ]; then
+            # WP11: a builder refused a new upstream version (the daily maintenance's report)
+            python3 -I tools/autofix-plan.py --builder-work "$WORK" --run-id "$RUN_ID" --out-dir "$RUNNER_TEMP/failure"
+          else
+            python3 -I tools/autofix-plan.py --run-id "$RUN_ID" --logs "$RUNNER_TEMP/failure/failure.md" \
+              --event "$EVENT"
+          fi
+          echo "work=${WORK:-run/$RUN_ID}" >> "$GITHUB_OUTPUT"
+      # WP9: the providers the last weekly check found not free (tools/provider-check.py,
+      # the artifact of health.yml); the fix does not ask them
+      - name: Providers marked unavailable
+        id: providers
+        if: steps.plan.outputs.action == 'fix'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          names=$(python3 -I tools/provider-check.py unavailable --repo "$GITHUB_REPOSITORY" | tail -n 1 || true)
+          if ! printf '%s' "$names" | grep -Eq '^[A-Za-z.,]*$'; then names=""; fi
+          echo "unavailable=$names" >> "$GITHUB_OUTPUT"
+          if [ -n "$names" ]; then echo "Not asked (the weekly check found them not free): $names"; fi
+      # a work started again by the daily check that has nothing to do any more
+      # (an older failure, a finding that is gone): said to the ledger
+      - name: The work's outcome when the plan skips it
+        if: steps.plan.outputs.action == 'skip' && github.event.inputs.work != ''
+        env:
+          WORK: ${{ steps.plan.outputs.work }}
+          REASON: ${{ steps.plan.outputs.reason }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/outcome"
+          jq -n --arg work "$WORK" --arg reason "$REASON" --arg url "$RUN_URL" \
+            '{work: $work, outcome: "skipped", reason: $reason, url: $url}' > "$RUNNER_TEMP/outcome/outcome.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.plan.outputs.action == 'skip' && github.event.inputs.work != ''
+        with:
+          name: ai-work-outcome-plan
+          path: ${{ runner.temp }}/outcome/outcome.json
+          retention-days: 7
       - name: Keep the failure description
         if: steps.plan.outputs.action == 'fix' || steps.plan.outputs.action == 'issue'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: autofix-failure
-          path: ${{ runner.temp }}/failure/failure.md
+          # failure.md, and for the filter lists the recorded rules (recorded.txt)
+          path: ${{ runner.temp }}/failure/
           if-no-files-found: error
           retention-days: 7
 
@@ -149,6 +226,7 @@ jobs:
     outputs:
       patch: ${{ steps.agent.outputs.patch }}
       result: ${{ steps.agent.outputs.result }}
+      deferred: ${{ steps.agent.outputs.deferred }}
     steps:
       - name: Check out the commit to fix (no credentials)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -159,14 +237,42 @@ jobs:
       - name: Instructions and the agent's runner from main, never from the branch being fixed
         run: |
           git show origin/main:.github/autofix/prompt.md > "$RUNNER_TEMP/prompt.md"
-          for f in autofix-agent.py autofix-context.py autofix-reserve.py check-autofix-patch.py; do
+          for f in autofix-agent.py autofix-context.py autofix-reserve.py check-autofix-patch.py ai-providers.py; do
             git show "origin/main:tools/$f" > "$RUNNER_TEMP/$f"
           done
+          # WP11: the builders' re-anchoring rule, which the checker reads beside itself
+          git show "origin/main:tools/builder-anchor.py" > "$RUNNER_TEMP/builder-anchor.py"
       - name: Failure description
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: autofix-failure
           path: .autofix
+      # WP8, WP9: what kind of run this is, for the steps with the keys (files,
+      # not variables: those steps keep only their keys and settings)
+      - name: What this run is
+        env:
+          MODE: ${{ needs.plan.outputs.mode }}
+          UNAVAILABLE: ${{ needs.plan.outputs.unavailable }}
+          BUILDER: ${{ needs.plan.outputs.builder }}
+          FIRST: ${{ needs.plan.outputs.first }}
+          # only whether each reserve has a key, never the key: a rotation to a provider without
+          # one starts with Antigravity as usual
+          HAS_GROQ: ${{ secrets.GROQ_API_KEY != '' }}
+          HAS_ZAI: ${{ secrets.ZAI_API_KEY != '' }}
+          HAS_OPENROUTER: ${{ secrets.OPENROUTER_API_KEY != '' }}
+        run: |
+          if [ "$MODE" = "lists" ]; then echo lists > "$RUNNER_TEMP/lists-mode"; fi
+          printf '%s' "$UNAVAILABLE" | tr -cd 'A-Za-z.,' > "$RUNNER_TEMP/unavailable"
+          # WP11: the builders' re-anchoring, that builder only
+          case "$BUILDER" in darkreader|ubo-scriptlets) printf '%s' "$BUILDER" > "$RUNNER_TEMP/builder" ;; esac
+          # the full chain: attempt n starts with the n-th free provider (tools/ai-providers.py)
+          case "$FIRST" in
+            Groq) has="$HAS_GROQ" ;;
+            Z.AI) has="$HAS_ZAI" ;;
+            OpenRouter) has="$HAS_OPENROUTER" ;;
+            *) has=false ;;
+          esac
+          if [ "$has" = "true" ]; then printf '%s' "$FIRST" > "$RUNNER_TEMP/first"; fi
       # Every process of the agent user, gone, before the runner touches what it
       # could write (1.1.18): bounded, and an error when some survive.
       # (&stop-agent, &closed-room, &keep-installer: the job self-test runs these
@@ -374,6 +480,11 @@ jobs:
           # .autofix/ of the agent's tree
           cp "$GITHUB_WORKSPACE/.autofix/failure.md" "$inputs/failure.md"
           python3 -I "$RUNNER_TEMP/autofix-context.py" --repo "$repo" --failure "$inputs/failure.md" --out-dir "$inputs"
+          # WP11: the builders' re-anchoring: the refused builder is the one file involved (and shown)
+          case "$(cat "$RUNNER_TEMP/builder" 2> /dev/null || true)" in
+            darkreader) printf 'tools/build-darkreader.py\n' > "$inputs/related.txt" ;;
+            ubo-scriptlets) printf 'tools/build-ubo-scriptlets.mjs\n' > "$inputs/related.txt" ;;
+          esac
           cp "$inputs/related.txt" "$RUNNER_TEMP/autofix/related.txt"
           rm -rf "$repo/.autofix"
           mkdir "$repo/.autofix"
@@ -406,6 +517,12 @@ jobs:
           # a fix of a security finding: the guard's stricter rules (WP6), for the agent and its check
           # (the mark of the step before; this step keeps only the Gemini key and its settings)
           if [ -f "$RUNNER_TEMP/security-finding" ]; then allow="$allow --security"; fi
+          if [ -f "$RUNNER_TEMP/lists-mode" ]; then allow="$allow --lists"; fi
+          if [ -s "$RUNNER_TEMP/builder" ]; then allow="$allow --builder $(cat "$RUNNER_TEMP/builder")"; fi
+          first=""
+          if [ -s "$RUNNER_TEMP/first" ]; then first="--first $(cat "$RUNNER_TEMP/first")"; fi
+          AUTOFIX_UNAVAILABLE="$(cat "$RUNNER_TEMP/unavailable" 2> /dev/null || true)"
+          export AUTOFIX_UNAVAILABLE
           if [ -z "$GEMINI_API_KEY" ]; then
             echo "GEMINI_API_KEY is not set: Antigravity skipped, the reserves go on"
             printf '{"result": "nokey", "model": "", "message": "", "detail": ""}' > "$out/status.json"
@@ -413,7 +530,7 @@ jobs:
             exit 0
           fi
           python3 -I "$RUNNER_TEMP/autofix-agent.py" --workdir "$repo" --prompt "$RUNNER_TEMP/prompt.md" \
-            --out "$out" --status "$out/status.json" $allow \
+            --out "$out" --status "$out/status.json" $allow $first \
             --agent-cmd "sudo -u agent --preserve-env=GEMINI_API_KEY /opt/autofix/run-agent.sh"
           # the agent is done: nothing of it keeps running or starts again, and the
           # tree is the runner's again, writable by nobody else
@@ -493,6 +610,12 @@ jobs:
           if [ "$ALLOW_ADBLOCK" = "true" ]; then allow="--allow-adblock"; fi
           # a fix of a security finding: the guard's stricter rules (WP6), for the agent, the reserves and the checks
           if [ "$SECURITY" = "true" ]; then allow="$allow --security"; fi
+          if [ -f "$RUNNER_TEMP/lists-mode" ]; then allow="$allow --lists"; fi
+          if [ -s "$RUNNER_TEMP/builder" ]; then allow="$allow --builder $(cat "$RUNNER_TEMP/builder")"; fi
+          first=""
+          if [ -s "$RUNNER_TEMP/first" ]; then first="--first $(cat "$RUNNER_TEMP/first")"; fi
+          AUTOFIX_UNAVAILABLE="$(cat "$RUNNER_TEMP/unavailable" 2> /dev/null || true)"
+          export AUTOFIX_UNAVAILABLE
           # also when Antigravity's step ran out of time: nothing of the agent keeps
           # running or starts again, and the tree is the runner's
           "$RUNNER_TEMP/stop-agent"
@@ -538,6 +661,16 @@ jobs:
             if [ "$verdict" = "3" ]; then
               echo "Antigravity's fix was refused for safety: no reserve is asked"
               result=refused
+              # WP12: an AI never edits a workflow; the change it wanted there is kept as a
+              # written proposal for a person (in the report), never applied or pushed
+              python3 -I - "$out/antigravity.patch" "$out/workflow-proposal.patch" <<'PY'
+          import re, sys
+          text = open(sys.argv[1], encoding="utf-8", errors="replace").read()
+          parts = re.split(r"(?m)^(?=diff --git )", text)
+          keep = [p for p in parts if re.match(r"diff --git a/\.github/", p)]
+          if keep:
+              open(sys.argv[2], "w", encoding="utf-8").write("".join(keep)[:20000])
+          PY
             elif [ "$verdict" != "0" ]; then
               echo "Antigravity's fix was refused by the checks: the reserves are told why"
               result="refused-fix"
@@ -575,7 +708,7 @@ jobs:
               if [ -s "$out/refused.md" ]; then refused="--refused $out/refused.md"; fi
               python3 -I "$RUNNER_TEMP/autofix-reserve.py" --workdir "$repo" --prompt "$RUNNER_TEMP/prompt.md" \
                 --status "$out/reserve.json" --checker "$RUNNER_TEMP/check-autofix-patch.py" \
-                --related "$out/related.txt" $allow $refused --lint
+                --related "$out/related.txt" $allow $first $refused --lint
               reserve=$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["result"])' "$out/reserve.json")
               if [ "$reserve" = "ok" ]; then result=ok; fi
               if [ "$reserve" = "refused" ]; then result=refused; fi
@@ -639,6 +772,30 @@ jobs:
                   sys.exit(1)
           PY
           if [ -s "$out/autofix.patch" ]; then echo "patch=true"; else echo "patch=false"; fi >> "$GITHUB_OUTPUT"
+          # WP9: no provider at all could answer (busy, out of quota, not free):
+          # the work waits in the ledger, nobody is asked (tools/ai-work.py)
+          deferred=false
+          if [ ! -s "$out/autofix.patch" ]; then
+            deferred=$(python3 -I - "$out" <<'PY'
+          import json, sys
+          from pathlib import Path
+          out = Path(sys.argv[1])
+          def read(name):
+              try:
+                  return json.loads((out / name).read_text("utf-8"))
+              except (OSError, ValueError):
+                  return None
+          agent, reserve = read("status.json") or {}, read("reserve.json")
+          waiting = agent.get("result") in ("quota", "temporary", "unavailable", "nokey")
+          if reserve is not None:
+              waiting = waiting and bool(reserve.get("no_provider"))
+          elif agent.get("result") == "nokey":
+              waiting = False
+          print("true" if waiting else "false")
+          PY
+            )
+          fi
+          echo "deferred=$deferred" >> "$GITHUB_OUTPUT"
       - name: Keep the patch and the summary
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -648,6 +805,7 @@ jobs:
             ${{ runner.temp }}/autofix/autofix.patch
             ${{ runner.temp }}/autofix/summary.md
             ${{ runner.temp }}/autofix/related.txt
+            ${{ runner.temp }}/autofix/workflow-proposal.patch
           if-no-files-found: ignore
           retention-days: 14
 
@@ -675,18 +833,22 @@ jobs:
       - name: Checking tools from main, never from the branch being fixed
         run: |
           mkdir -p "$RUNNER_TEMP/trusted"
-          for f in check-autofix-patch.py prepare-maintenance.py; do
+          for f in check-autofix-patch.py prepare-maintenance.py builder-anchor.py; do
             git show "origin/main:tools/$f" > "$RUNNER_TEMP/trusted/$f"
           done
       - name: Check and apply the patch
         env:
           ALLOW_ADBLOCK: ${{ needs.plan.outputs.allow_adblock }}
           SECURITY: ${{ needs.plan.outputs.security }}
+          MODE: ${{ needs.plan.outputs.mode }}
+          BUILDER: ${{ needs.plan.outputs.builder }}
         run: |
           allow=""
           if [ "$ALLOW_ADBLOCK" = "true" ]; then allow="--allow-adblock"; fi
           # a fix of a security finding: the guard's stricter rules (WP6), for the agent, the reserves and the checks
           if [ "$SECURITY" = "true" ]; then allow="$allow --security"; fi
+          if [ "$MODE" = "lists" ]; then allow="$allow --lists"; fi
+          case "$BUILDER" in darkreader|ubo-scriptlets) allow="$allow --builder $BUILDER" ;; esac
           related=""
           if [ -s "$RUNNER_TEMP/autofix/related.txt" ]; then related="--related $RUNNER_TEMP/autofix/related.txt"; fi
           python3 -I "$RUNNER_TEMP/trusted/check-autofix-patch.py" --repo . \
@@ -696,17 +858,48 @@ jobs:
           v=$(grep -oE '^ruff==[0-9][0-9.]*$' tools/test-requirements.txt | head -1)
           python3 -m pip install --disable-pip-version-check -q "${v:-ruff}"
           ruff check .
+      # WP8: the real rules of the finding go with the AI's change (written here,
+      # never by the AI); tests/test_lists_recorded.py proves I.K.E. reads them
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: needs.plan.outputs.mode == 'lists'
+        with:
+          name: autofix-failure
+          path: ${{ runner.temp }}/failure
+      - name: The recorded rules of the filter lists
+        if: needs.plan.outputs.mode == 'lists'
+        env:
+          RECORDED: ${{ needs.plan.outputs.recorded }}
+        run: |
+          if ! printf '%s' "$RECORDED" | grep -Eq '^tests/data/lists-recorded/[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9.-]+\.txt$'; then
+            echo "::error::not a file of the recorded rules: $RECORDED"
+            exit 1
+          fi
+          test -s "$RUNNER_TEMP/failure/recorded.txt"
+          mkdir -p tests/data/lists-recorded
+          cp "$RUNNER_TEMP/failure/recorded.txt" "$RECORDED"
+          git add "$RECORDED"
+      # Item 5 of the full chain: every automation fix that changes what ships (I.K.E.'s code, the
+      # engine's wrapper, a builder's output) gets the next version when main's is published, with
+      # a CHANGELOG line written from the plan's report, unless its branch already raised it
       - name: A new version for users when a fix of main changes the browser
-        if: needs.plan.outputs.kind == 'main'
+        if: >-
+          needs.plan.outputs.kind == 'main' || needs.plan.outputs.kind == 'lists' ||
+          needs.plan.outputs.kind == 'security' || needs.plan.outputs.kind == 'update' ||
+          needs.plan.outputs.kind == 'builder' || needs.plan.outputs.kind == 'arch-testing'
         env:
           WORKFLOW: ${{ needs.plan.outputs.workflow }}
+          REASON: ${{ needs.plan.outputs.reason }}
+          PUSH_BRANCH: ${{ needs.plan.outputs.push_branch }}
         run: |
-          if git diff --cached --name-only | grep -q '^ike/' && [ -z "$(git diff origin/main -- CHANGELOG.md)" ]; then
+          if git diff --cached --name-only | grep -qvE '^(tools|tests|docs|\.github)/' && [ -z "$(git diff origin/main -- CHANGELOG.md)" ]; then
             base_version=$(git show origin/main:ike/__init__.py | sed -n 's/^__version__ = "\(.*\)"/\1/p')
             keep=""
             if [ -z "$(git tag -l "v$base_version")" ]; then keep="--keep-version"; fi
+            # the report's own words, as a CHANGELOG line (no code, no link: tools/automerge.py)
+            line=$(printf -- '- Automatic fix after a failure of "%s" on %s: %s' "$WORKFLOW" "$PUSH_BRANCH" "$REASON" \
+                   | tr -d '`\r' | sed -E 's#https?://[^ ]+##g' | cut -c1-300)
             python3 -I "$RUNNER_TEMP/trusted/prepare-maintenance.py" --root . --base-version "$base_version" $keep \
-              --bullet "- Automatic fix after a failure of \"$WORKFLOW\" (see its pull request)."
+              --bullet "$line"
             git add -u
           fi
       - name: Commit and bundle
@@ -792,7 +985,10 @@ jobs:
           overtaken=""
           if [ "$old" = "$new" ]; then
             echo "This fix is already on $PUSH_BRANCH: not pushed again"
-          elif [ "$KIND" = "maintenance" ] || [ "$ATTEMPT" != "1" ]; then
+          elif { [ "$KIND" = "builder" ] || [ "$KIND" = "arch-testing" ]; } && [ -z "$old" ]; then
+            echo "A new isolated branch: $PUSH_BRANCH"
+          elif [ "$KIND" = "maintenance" ] || [ "$KIND" = "update" ] || [ "$KIND" = "builder" ] || \
+               [ "$KIND" = "arch-testing" ] || [ "$ATTEMPT" != "1" ]; then
             if [ "$old" != "$CHECKOUT" ]; then
               overtaken="$PUSH_BRANCH has moved since the agent started (a newer candidate or fix)"
             fi
@@ -846,6 +1042,9 @@ jobs:
             title="Security fix: \"$WORKFLOW\" failed on $PUSH_BRANCH"
           fi
           gh label create autofix --color d93f0b --description "Automatic fix prepared by the AI agent" 2>/dev/null || true
+          if [ "$KIND" = "lists" ]; then title="Filter lists: an AI change of I.K.E.'s adapter ($PUSH_BRANCH)"; fi
+          if [ "$KIND" = "builder" ]; then title="Builder re-anchored: $PUSH_BRANCH (I.K.E.'s existing patches only)"; fi
+          if [ "$KIND" = "arch-testing" ]; then title="Arch Linux (testing): a fix of main for Arch's next packages ($PUSH_BRANCH)"; fi
           pr=$(retry gh pr list --head "$PUSH_BRANCH" --base main --state open --json number --jq '.[0].number // empty')
           if [ -n "$pr" ]; then
             retry gh pr comment "$pr" --body-file "$body"
@@ -868,9 +1067,34 @@ jobs:
           # workflow: the merge waits for every check of the last commit
           arch_fix=$(git log --format=%s "origin/main..refs/heads/autofix-result" \
                      | grep -c '^autofix: attempt [0-9]* after a failure of "Arch Linux"' || true)
-          if [ "$WORKFLOW" = "Arch Linux" ] || [ "${arch_fix:-0}" != "0" ]; then
+          if [ "$WORKFLOW" = "Arch Linux" ] || [ "${arch_fix:-0}" != "0" ] || [ "$KIND" = "update" ] || \
+             [ "$KIND" = "builder" ] || [ "$KIND" = "arch-testing" ]; then
             retry gh workflow run arch.yml --ref "$PUSH_BRANCH"
           fi
+          # WP10 (b): a fix for Arch's next packages merges only when it passes on testing too
+          if [ "$KIND" = "arch-testing" ]; then retry gh workflow run arch-testing.yml --ref "$PUSH_BRANCH"; fi
+          # WP11: the re-anchored builder: the daily maintenance applies the update on its branch
+          if [ "$KIND" = "builder" ]; then
+            retry gh workflow run daily-maintenance.yml --ref main -f mode=builder -f id="${PUSH_BRANCH#automation/builder/}"
+          fi
+      # WP8, WP9: what the work became, for the maintenance ledger (tools/ai-work.py)
+      - name: The work's outcome
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          WORK: ${{ needs.plan.outputs.work }}
+          PUSH_BRANCH: ${{ needs.plan.outputs.push_branch }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/outcome"
+          pr=$(gh pr list --head "$PUSH_BRANCH" --base main --state open --json number --jq '.[0].number // empty' || true)
+          jq -n --arg work "$WORK" --arg branch "$PUSH_BRANCH" --arg pr "$pr" --arg url "$RUN_URL" \
+            '{work: $work, outcome: "published", branch: $branch, pr: $pr, url: $url}' > "$RUNNER_TEMP/outcome/outcome.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ai-work-outcome-publish
+          path: ${{ runner.temp }}/outcome/outcome.json
+          retention-days: 7
 
   # WP6 (2026-11-22): a RustSec advisory found on main whose fixed version exists.
   # No AI: cargo update takes the crate to the first fixed version on the
@@ -960,6 +1184,14 @@ jobs:
           msg=$(python3 -I -c 'import json,sys; r=json.load(open(sys.argv[1])); print("; ".join("%s: %s %s -> %s" % (u["id"], u["crate"], u["from"], u["to"]) for u in r["updates"]))' "$out/result.json")
           printf 'security: %s (cargo update, no AI)\n\nRun: %s\n' "$msg" "$RUN_URL" > "$out/message"
           git add ike-adblock/Cargo.lock
+          # item 5 of the full chain: the fixed crate ships, so main's published version is raised
+          # (tools/prepare-maintenance.py; added to main's version when it is not published yet)
+          base_version=$(git show origin/main:ike/__init__.py | sed -n 's/^__version__ = "\(.*\)"/\1/p')
+          keep=""
+          if [ -z "$(git tag -l "v$base_version")" ]; then keep="--keep-version"; fi
+          python3 -I tools/prepare-maintenance.py --root . --base-version "$base_version" $keep \
+            --bullet "$(printf -- '- Security: %s' "$msg" | tr -d '`' | cut -c1-300)"
+          git add -u
           git -c core.hooksPath=/dev/null commit -q -F "$out/message"
           auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
           git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" \
@@ -1010,7 +1242,46 @@ jobs:
         with:
           name: autofix-failure
           path: ${{ runner.temp }}/failure
+      # WP8, WP9: a run where no provider at all was free asks nobody (the work
+      # waits in the maintenance ledger, the daily check starts it again; the
+      # owner is told only at the cap, tools/ai-work.py); the filter lists'
+      # analysis never opens the issue below (its finding is in the ledger)
+      - name: Work that waits, or the filter lists' analysis
+        id: wait
+        env:
+          ACTION: ${{ needs.plan.outputs.action }}
+          KIND: ${{ needs.plan.outputs.kind }}
+          WORK: ${{ needs.plan.outputs.work }}
+          DEFERRED: ${{ needs.fix.outputs.deferred }}
+          AGENT: ${{ needs.fix.outputs.result }}
+          REASON: ${{ needs.plan.outputs.reason }}
+          WORKFLOW: ${{ needs.plan.outputs.workflow }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/outcome"
+          outcome=person
+          tell=true
+          if [ "$ACTION" = "fix" ] && [ "$DEFERRED" = "true" ]; then outcome=deferred; tell=false; fi
+          if [ "$KIND" = "lists" ]; then tell=false; fi
+          if [ "$KIND" = "infra" ]; then outcome=""; fi
+          echo "tell=$tell" >> "$GITHUB_OUTPUT"
+          if [ -n "$outcome" ] && [ -n "$WORK" ]; then
+            jq -n --arg work "$WORK" --arg outcome "$outcome" --arg reason "${REASON:-$AGENT}" \
+              --arg workflow "$WORKFLOW" --arg url "$RUN_URL" \
+              '{work: $work, outcome: $outcome, reason: $reason, workflow: $workflow, url: $url}' \
+              > "$RUNNER_TEMP/outcome/outcome.json"
+          fi
+          if [ "$tell" = "false" ]; then
+            echo "No issue: the work's outcome ($outcome) goes to the maintenance ledger"
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ai-work-outcome-report
+          path: ${{ runner.temp }}/outcome/outcome.json
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Tell the owner
+        if: steps.wait.outputs.tell != 'false'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -1069,6 +1340,21 @@ jobs:
             for f in summary.md guard.md; do
               if [ -s "$RUNNER_TEMP/autofix/$f" ]; then echo; sed "s/@\([A-Za-z0-9]\)/@\xe2\x80\x8b\1/g" "$RUNNER_TEMP/autofix/$f"; fi
             done
+            # WP12: the workflow change an AI wanted, for a person to read and apply by hand (never applied)
+            if [ -s "$RUNNER_TEMP/autofix/workflow-proposal.patch" ]; then
+              echo
+              echo "### Proposta di modifica dei workflow (per una persona: mai applicata)"
+              echo
+              echo "Un'AI non cambia mai i workflow. Questa è la modifica che voleva fare in \`.github/\`: una persona la legge e decide."
+              echo
+              echo "<details><summary>La proposta (diff)</summary>"
+              echo
+              echo '````diff'
+              sed "s/@\([A-Za-z0-9]\)/@\xe2\x80\x8b\1/g" "$RUNNER_TEMP/autofix/workflow-proposal.patch"
+              echo '````'
+              echo
+              echo "</details>"
+            fi
             # ChatGPT's message whenever there is a failure to show (no automatic fix,
             # or two that did not pass: then it starts from the last of them)
             if [ "$KIND" = "infra" ]; then
@@ -1102,7 +1388,7 @@ jobs:
               echo "- Change only files under ike/, tests/, tools/ or docs/ that the error involves; at most 5 files and 150 changed lines."
               echo "- Never change .github/, PKGBUILD, ike/__init__.py (the version), ike/updater.py, the autofix or release tools, or files that come from others or are generated (Dark Reader, icons, ubo-scriptlets.json, docs/THIRD-PARTY.md)."
               echo "- Never change the ad blocker: ike-adblock/ (Cargo.toml, Cargo.lock, src/), vendor/, ike/blocker.py, ike/scriptlets.py, nor YouTube's ad blocking (ike/resources/videoads.js, videorelay.js, mediahook.js). If the failure is there, do not open a pull request: explain it in a comment on this issue instead."
-              echo "- Never change the tests' reference data (tests/data/, tests/settings-keys.json), tools/test-requirements.txt, tools/build-*, tools/third-party.py, tools/automation-health.py, tools/check-components.py, tools/inventory.py, tools/maintenance-ledger.py, tools/test-categories.py, tools/maintenance-report.py, tools/security-fix.py or tools/vulnerabilities.py."
+              echo "- Never change the tests' reference data (tests/data/, tests/settings-keys.json), tools/test-requirements.txt, tools/build-*, tools/third-party.py, tools/automation-health.py, tools/check-components.py, tools/inventory.py, tools/maintenance-ledger.py, tools/test-categories.py, tools/maintenance-report.py, tools/filter-lists.py, tools/ai-work.py, tools/ai-providers.py or tools/provider-check.py; nor tools/security-fix.py or tools/vulnerabilities.py."
               echo "- Never weaken a test (no deleted or renamed tests, no deleted assertions, no assert True, no early return, no skip or xfail). Add no dependency."
               echo "- Never change the engine's protections: the sandbox and isolation switches in ike/app.py (UNSAFE_SWITCHES, UNSAFE_FEATURES, UNSAFE_ENV, NOTICE_SWITCHES, LNA_FEATURES), ENGINE_SAFETY, or ike-adblock/deny.toml (an exception to an advisory is the owner's)."
               echo "- In the pull request description, explain in plain Italian what failed and what you changed."
@@ -1180,7 +1466,7 @@ jobs:
         with:
           persist-credentials: false
       - name: The self-test's tools, before the room is built
-        run: cp tools/autofix-selftest.py tools/autofix-agent.py tools/check-autofix-patch.py "$RUNNER_TEMP/"
+        run: cp tools/autofix-selftest.py tools/autofix-agent.py tools/check-autofix-patch.py tools/ai-providers.py "$RUNNER_TEMP/"
       - *stop-agent
       - *closed-room
       - *keep-installer

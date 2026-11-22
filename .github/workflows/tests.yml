@@ -272,6 +272,56 @@ jobs:
         run: |
           IKE_TEST_APP="$RUNNER_TEMP/pkgroot/usr/lib/ike-browser" python -m pytest \
               --junitxml="$RUNNER_TEMP/test-results/junit-installed.xml"
+      # The full chain, item 4 (2026-11-22): a commit of the automation that changes the
+      # AdBlock engine (adblock, pyo3, a crate, I.K.E.'s wrapper) gets today's default
+      # filter lists checked in ITS engine, on the commit itself, against main's engine
+      # on the same lists (tools/filter-lists.py compare): the category "filter-lists"
+      # tools/automerge.py reads before the merge by itself. A list that cannot be
+      # downloaded leaves the decisive step skipped: not verified, never passed.
+      - name: The engines, this commit's and main's
+        id: engines
+        if: >-
+          startsWith(github.head_ref, 'automation/') ||
+          (github.event_name == 'workflow_dispatch' && startsWith(github.ref_name, 'automation/'))
+        run: |
+          git fetch -q --no-tags origin main
+          if git diff --quiet FETCH_HEAD HEAD -- ike-adblock vendor/adblock ike/blocker.py ike/scriptlets.py; then
+            echo "same=true" >> "$GITHUB_OUTPUT"
+            echo "This commit's AdBlock engine is main's own."
+            exit 0
+          fi
+          echo "same=false" >> "$GITHUB_OUTPUT"
+          cargo build --release --locked --manifest-path ike-adblock/Cargo.toml
+          install -m755 ike-adblock/target/release/libike_adblock.so vendor/adblock/ike_adblock.abi3.so
+          git worktree add -q --detach "$RUNNER_TEMP/main" FETCH_HEAD
+          cargo build --release --locked --manifest-path "$RUNNER_TEMP/main/ike-adblock/Cargo.toml"
+          install -m755 "$RUNNER_TEMP/main/ike-adblock/target/release/libike_adblock.so" \
+              "$RUNNER_TEMP/main/vendor/adblock/ike_adblock.abi3.so"
+      - name: Today's lists in both engines
+        id: lists
+        if: steps.engines.outputs.same == 'false'
+        run: |
+          python3 tools/check-components.py --filter-lists "$RUNNER_TEMP/candidate.json" > /dev/null
+          python3 "$RUNNER_TEMP/main/tools/check-components.py" --filter-lists "$RUNNER_TEMP/main.json" > /dev/null
+          verdict=$(python3 tools/filter-lists.py compare --base "$RUNNER_TEMP/main.json" \
+                    --candidate "$RUNNER_TEMP/candidate.json" --markdown "$RUNNER_TEMP/compare.md")
+          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/compare.md" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Filter lists in this engine
+        if: steps.engines.outputs.same == 'true' || steps.lists.outputs.verdict == 'pass' || steps.lists.outputs.verdict == 'fail'
+        env:
+          SAME: ${{ steps.engines.outputs.same }}
+          VERDICT: ${{ steps.lists.outputs.verdict }}
+        run: |
+          if [ "$SAME" = "true" ]; then
+            echo "The engine is main's own: today's lists are checked in it every day (daily-check.yml, job lists)."
+            exit 0
+          fi
+          if [ "$VERDICT" != "pass" ]; then
+            echo "::error::this commit's AdBlock engine reads today's default filter lists worse than main's (see the step before)"
+            exit 1
+          fi
+          echo "This commit's engine reads today's default filter lists no worse than main's."
       # 2026-11-22 (WP4 of the maintenance plan): a skipped test is NOT VERIFIED,
       # never passed. The junit files of both test steps are read into the
       # run's summary (the skipped tests by area, with their reasons) and kept
@@ -283,7 +333,10 @@ jobs:
         run: |
           python3 tools/test-categories.py --junit "$RUNNER_TEMP/test-results/junit.xml" \
               --junit "$RUNNER_TEMP/test-results/junit-installed.xml" \
-              --json "$RUNNER_TEMP/test-results/summary.json" >> "$GITHUB_STEP_SUMMARY" || true
+              --json "$RUNNER_TEMP/test-results/summary.json" --markdown "$RUNNER_TEMP/test-results/summary.md" \
+              >> "$GITHUB_STEP_SUMMARY" || true
+          # the same in the job's log: the skipped tests' reasons can be read through GitHub's API
+          cat "$RUNNER_TEMP/test-results/summary.md" 2> /dev/null || true
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -307,10 +360,12 @@ jobs:
       (github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]' &&
       (github.ref_name == 'automation/autofix-main' || github.ref_name == 'automation/daily-maintenance' ||
       startsWith(github.ref_name, 'automation/update/security-') ||
+      startsWith(github.ref_name, 'automation/update/') || startsWith(github.ref_name, 'automation/builder/') ||
       github.ref_name == 'main')) ||
       (github.run_attempt > 1 && github.triggering_actor == 'github-actions[bot]' &&
       (github.ref_name == 'main' || github.ref_name == 'automation/autofix-main' ||
       startsWith(github.ref_name, 'automation/update/security-') ||
+      startsWith(github.ref_name, 'automation/update/') || startsWith(github.ref_name, 'automation/builder/') ||
       github.ref_name == 'automation/daily-maintenance')))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -343,7 +398,8 @@ jobs:
     if: >-
       success() && github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]' &&
       (github.ref_name == 'automation/autofix-main' || github.ref_name == 'main' ||
-      github.ref_name == 'automation/daily-maintenance' || startsWith(github.ref_name, 'automation/update/'))
+      github.ref_name == 'automation/daily-maintenance' || startsWith(github.ref_name, 'automation/update/') ||
+      startsWith(github.ref_name, 'automation/builder/'))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:

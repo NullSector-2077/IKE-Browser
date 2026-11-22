@@ -72,10 +72,12 @@ tc = load("test-categories")
 
 def runs(**changes):
     """The runs of a commit as tools/maintenance-ledger.py's run_info reads them, every job and step of
-    every category passed; changes: {category: result} (None: that workflow did not run)."""
+    every category passed; changes: {category: result} (None: that workflow did not run). The filter
+    lists' step runs only on a commit that changes the engine (the full chain, item 4): it is there
+    only when a change names it (filter_lists="success")."""
     out = {}
     for _cat, (_desc, (workflow, job, step)) in tc.CATEGORIES.items():
-        if not workflow or workflow == "daily-maintenance.yml":
+        if not workflow or workflow == "daily-maintenance.yml" or _cat == "filter-lists":
             continue
         run = out.setdefault(workflow, {"id": 1, "status": "completed", "conclusion": "success", "jobs": {}})
         j = run["jobs"].setdefault(job, {"status": "completed", "conclusion": "success", "steps": {}})
@@ -502,6 +504,9 @@ def test_a_fully_verified_candidate_merges():
              "files": ["tools/test-requirements.txt"]}
     assert cand(commits=[tools], files=[f("tools/test-requirements.txt", "@@ -1 +1 @@\n-ruff==0.9\n+ruff==1.0")],
                 published=True) == ("merge", "")
+    # the full chain, item 4: a new engine, its filter lists checked on its own commit, merges by itself
+    assert cand(files=[f("ike-adblock/Cargo.lock", ENGINE_LOCK)] + CAND_FILES[1:],
+                evidence={"runs": runs(filter_lists="success"), "skips": EXPECTED}) == ("merge", "")
     assert merge.kinds_of(CAND_FILES) == ["crate", "integrated"]
     assert merge.kinds_of([f("ike-adblock/Cargo.lock", ENGINE_LOCK)]) == ["adblock-engine", "crate"]
     assert merge.kinds_of([{"filename": "ike-adblock/Cargo.lock"}]) == ["adblock-engine", "crate"]   # unread
@@ -543,6 +548,14 @@ SKIPPED_FFMPEG = {"test": "tests/test_plasma.py::test_video", "area": "desktop i
     ("an engine update: filter lists not verified on the commit",
      lambda: cand(files=[f("ike-adblock/Cargo.lock", ENGINE_LOCK)] + CAND_FILES[1:]),
      "person", "filter-lists not verified"),
+    ("an engine update: the lists' step skipped (a list not downloaded)",
+     lambda: cand(files=[f("ike-adblock/Cargo.lock", ENGINE_LOCK)] + CAND_FILES[1:],
+                  evidence={"runs": runs(filter_lists="skipped"), "skips": EXPECTED}),
+     "person", "filter-lists not verified (the step was skipped)"),
+    ("an engine update: its engine reads the lists worse than main's",
+     lambda: cand(files=[f("ike-adblock/Cargo.lock", ENGINE_LOCK)] + CAND_FILES[1:],
+                  evidence={"runs": runs(filter_lists="failure"), "skips": EXPECTED}),
+     "person", "filter-lists failed"),
     ("a test file changed", lambda: fix_touching("tests/test_window.py"), "person", "a test file changed or removed"),
     ("a test file removed", lambda: fix_touching("tests/test_tabs.py", "removed"), "person", "a test file"),
     ("a conftest", lambda: fix_touching("ike/conftest.py"), "person", "a test file"),

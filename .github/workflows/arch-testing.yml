@@ -1,0 +1,55 @@
+# I.K.E. on the packages Arch Linux is about to ship (WP10 (b), 2026-11-22):
+# once a week arch.yml runs with Arch's [core-testing] and [extra-testing]
+# repositories on, so a change that would break I.K.E. is found before it
+# reaches users with `pacman -Syu`.
+#
+# A failure on main goes to the automatic fix (tools/autofix-plan.py,
+# "Arch Linux (testing)"): pacman, the mirrors and the container are not the
+# code's (an issue, no AI); a failure of the build or of the tests, while
+# "Tests" passed on the same commit, is fixed on the isolated branch
+# automation/update/arch-testing-<date>, made from main. That fix merges by
+# itself only when it passes on Arch's stable packages (arch.yml) AND on the
+# testing ones (this workflow, run on its branch), with every other check of
+# the verified merge (tools/automerge.py).
+#
+# The scheduled run starts the real one with a dispatch: runs the automation
+# starts with its own token hand their failure to the automatic fix themselves
+# (arch.yml, job hand-over), which a scheduled run cannot.
+name: Arch Linux (testing)
+
+on:
+  schedule:
+    - cron: "23 4 * * 3"     # Wednesdays, 04:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  start:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: write        # start this workflow on main, nothing else
+    steps:
+      - name: Start the testing run on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          for pause in 15 30 0; do
+            gh workflow run arch-testing.yml --ref main && exit 0
+            sleep "$pause"
+          done
+          exit 1
+
+  arch:
+    if: github.event_name == 'workflow_dispatch'
+    name: Arch Linux (testing)
+    permissions:
+      contents: read
+      actions: write        # arch.yml's hand-over and merge-ready (a dispatch each, nothing else)
+    uses: ./.github/workflows/arch.yml
+    with:
+      testing: true
