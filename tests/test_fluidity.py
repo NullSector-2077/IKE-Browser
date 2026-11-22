@@ -19,6 +19,35 @@ from conftest import APP
 sys.path.insert(0, str(APP))
 
 
+# --- background tabs suspended after an hour -----------------------------------
+
+def test_tabs_are_suspended_after_an_hour(tmp_path):
+    """1.1.23, the owner's choice: background tabs are suspended after 60
+    minutes (was 20). The old default becomes 60 once; any other value the
+    user chose stays, and stays after that; the memory-pressure rule is the
+    same."""
+    import json
+
+    from ike import app, config
+    assert config.DEFAULTS["tab_sleep_minutes"] == 60
+    p = tmp_path / "settings.json"
+    assert config.Config(p)["tab_sleep_minutes"] == 60          # a new profile
+    p.write_text(json.dumps({"tab_sleep_minutes": 20}))
+    cfg = config.Config(p)
+    assert cfg["tab_sleep_minutes"] == 60 and cfg["tab_sleep_1123"] is True
+    cfg.save()
+    for value in (5, 0, 45, 600):
+        p.write_text(json.dumps({"tab_sleep_minutes": value}))
+        cfg = config.Config(p)
+        assert cfg["tab_sleep_minutes"] == value
+        cfg.save()
+        assert config.Config(p)["tab_sleep_minutes"] == value
+    # moved once only: 20 chosen again afterwards stays 20
+    p.write_text(json.dumps({"tab_sleep_minutes": 20, "tab_sleep_1123": True}))
+    assert config.Config(p)["tab_sleep_minutes"] == 20
+    assert app.IkeApp.PRESSURE_IDLE_S == 5 * 60 and app.IkeApp.PRESSURE_TABS == 3
+
+
 # --- history and icons: WAL ---------------------------------------------------
 
 def test_history_and_icons_in_wal_mode(tmp_path, monkeypatch):

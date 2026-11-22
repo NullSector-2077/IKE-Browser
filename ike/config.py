@@ -297,7 +297,8 @@ DEFAULTS = {
     "di_downloads": True,               # downloads in Plasma's notifications
     "di_krunner": True,                 # open tabs and bookmarks in KRunner
     "di_kdeconnect": True,              # "Send to device" with KDE Connect
-    "tab_sleep_minutes": 20,
+    "tab_sleep_minutes": 60,            # 1.1.23: was 20 (the owner: background tabs suspended later)
+    "tab_sleep_1123": False,            # the old default of 20 was moved to 60 once (1.1.23)
     "autoplay_block": False,            # video and audio do not start by themselves (site_opts "autoplay")
     "mouse_gestures": False,            # right button held and dragged: back, forward, reload, close tab
     "site_zoom": {},
@@ -448,6 +449,11 @@ class Config:
         if d.get("default_engine") == "DuckDuckGo" and not d.get("engine_1119"):
             d["default_engine"] = "Startpage"
         d["engine_1119"] = True
+        # 1.1.23: background tabs are suspended after an hour (the owner's choice); 20
+        # minutes was the old default, so it becomes 60 once; any other value stays
+        if d.get("tab_sleep_minutes") == 20 and not d.get("tab_sleep_1123"):
+            d["tab_sleep_minutes"] = 60
+        d["tab_sleep_1123"] = True
         # 1.1.8: the new tab page gets I.K.E.'s own photo; whoever had none before gets it once
         if d.get("newtab_bg") == "" and not d.get("newtab_bg_118"):
             d["newtab_bg"] = "default"
