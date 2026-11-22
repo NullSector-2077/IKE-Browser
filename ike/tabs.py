@@ -162,7 +162,9 @@ class TabBar(QTabBar):
         # the part being painted: the tabs outside it are not drawn again
         # (polish.TabLabelStyle; 1.1.23: the loading mark of one tab redrew
         # every tab, eleven times a second)
-        self.painting = event.rect()
+        area = event.rect()
+        # a whole repaint draws every tab: nothing to look up for each
+        self.painting = None if area.contains(self.rect()) else area
         try:
             super().paintEvent(event)
         finally:
