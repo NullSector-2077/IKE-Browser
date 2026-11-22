@@ -59,7 +59,9 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: component-report
-          path: report.*
+          path: |
+            report.*
+            arch-tested.json
           if-no-files-found: error
           retention-days: 14
 
@@ -176,6 +178,85 @@ jobs:
             gh issue comment "$number" --body-file report/report.md
             gh issue close "$number"
           fi
+
+  # The inventory of every external component (tools/inventory.py: found in the
+  # repository itself, so a dependency added later appears with no hand edit)
+  # and the maintenance ledger (tools/maintenance-ledger.py: one tracked state
+  # per component update, in the issue labelled "maintenance-ledger"), 2026-11-22.
+  # Only main's own code runs; the candidate's files are read, never run. The
+  # token is in the steps that call GitHub, never in the inventory's step. It
+  # also closes the automatic fix's reports whose failure is gone (issue #97).
+  # It only reports: its failure is GitHub's or the ledger's, never an
+  # automatic fix (tools/autofix-plan.py, REPORTING_JOBS).
+  ledger:
+    needs: [check, lists]
+    if: ${{ !cancelled() && needs.check.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      actions: read         # GET: the runs of the candidate, of Arch and of the security checks
+      contents: read
+      issues: write         # the ledger issue; closing reports whose failure is gone
+      pull-requests: read   # GET: the candidate's pull request
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # the candidate's files, only read by the inventory (never run); there may be none
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        continue-on-error: true
+        with:
+          ref: automation/daily-maintenance
+          path: candidate
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - name: Download component report
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: component-report
+          path: report
+      - name: Download filter lists report
+        if: needs.lists.result == 'success'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: filter-lists
+          path: lists
+      - name: GitHub's state of the candidate, of Arch and of the security checks (GET only)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 tools/maintenance-ledger.py gather --repo "$GITHUB_REPOSITORY" --out status.json \
+              --advisories advisories.json
+      - name: Inventory of the external components
+        run: |
+          python3 tools/inventory.py --json inventory.json --markdown inventory.md \
+              --components report/report.json --lists lists/lists.json --arch-tested report/arch-tested.json \
+              --advisories advisories.json
+          if [ -f candidate/PKGBUILD ]; then
+            python3 tools/inventory.py --offline --root candidate --json candidate-inventory.json > /dev/null
+          fi
+          cat inventory.md >> "$GITHUB_STEP_SUMMARY"
+      - name: The maintenance ledger
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 tools/maintenance-ledger.py update --repo "$GITHUB_REPOSITORY" --inventory inventory.json \
+              --candidate-inventory candidate-inventory.json --report report/report.json --status status.json \
+              --out ledger.md --json ledger.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: maintenance-ledger
+          path: |
+            inventory.*
+            candidate-inventory.json
+            status.json
+            advisories.json
+            ledger.*
+          if-no-files-found: ignore
+          retention-days: 30
 
   # Arch's packages changed since the last green "Arch Linux" run on main, or no
   # such run recorded its versions yet: that run starts on main. Its only

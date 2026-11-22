@@ -83,6 +83,10 @@ FORBIDDEN_FILES = {
     "tools/test-requirements.txt", "tools/automation-health.py", "tools/third-party.py",
     # 1.1.19: the rules of the merge by itself
     "tools/automerge.py",
+    # 2026-11-22 (the owner's decisions): the automatic maintenance's detector, inventory,
+    # ledger, test categories and candidate report; an agent never changes what judges it
+    "tools/check-components.py", "tools/inventory.py", "tools/maintenance-ledger.py",
+    "tools/test-categories.py", "tools/maintenance-report.py",
 }
 FORBIDDEN_PREFIXES = (".github/", "tests/data/")      # the workflows; the tests' reference data
 FORBIDDEN_PATTERNS = ("tools/build-*.py", "tools/build-*.mjs")   # builders of what comes from others

@@ -331,7 +331,11 @@ def test_the_test_tools_are_pinned_too():
 ARCH_NOW = {"qt6-webengine": "6.140.0-1", "qt6-base": "6.12.0-5", "qt6-webchannel": "6.12.0-1",
             "qt6-svg": "6.12.0-1", "python-pyqt6": "6.12.1-1", "python-pyqt6-webengine": "6.140.1-1",
             "python": "3.14.10-1", "python-cryptography": "50.0.2-2", "python-jeepney": "0.9.0-3",
-            "publicsuffix-list": "20260507.2070-1", "rust": "1:1.100.0-1"}
+            "publicsuffix-list": "20260507.2070-1", "rust": "1:1.100.0-1",
+            # 1.1.21-1.1.22: the font allowlist, the widget styles and KDE's theme, video
+            "fontconfig": "2:2.17.1-1", "noto-fonts": "1:2026.11.01-1", "ttf-dejavu": "2.37+18+g9b5d1b2f-7",
+            "breeze": "6.5.3-1", "oxygen": "6.5.3-1", "kvantum": "1.1.5-1", "plasma-integration": "6.5.3-1",
+            "breeze-icons": "6.20.0-1", "ffmpeg": "2:8.0-3"}
 
 
 def arch_site(versions, down=(), testing=None):
@@ -405,6 +409,14 @@ def test_arch_versions_changed_unchanged_unreachable():
     fewer = {k: v for k, v in ARCH_NOW.items() if k != "publicsuffix-list"}
     assert mod.check_arch(arch_tested(fewer), arch_site(ARCH_NOW))["changed"] == [
         ("publicsuffix-list", "", "20260507.2070-1")]
+    # one the tested run recorded as not installed (arch.yml does not install it
+    # yet) was not tested: no change to verify, or arch.yml would start every day
+    absent = dict(ARCH_NOW, kvantum="")
+    quiet = mod.check_arch(arch_tested(absent), arch_site(ARCH_NOW))
+    assert quiet["state"] == "same" and quiet["changed"] == []
+    assert "| kvantum | 1.1.5-1 | not installed by arch.yml: **not verified** | - |" in mod.arch_markdown(quiet)
+    # the Arch failure's description still names it (the fix's AI reads it)
+    assert mod.arch_changes(absent, ARCH_NOW) == [("kvantum", "", "1.1.5-1")]
 
 
 def _zip(record):
@@ -540,9 +552,18 @@ def test_the_arch_workflows():
     assert "push:\n    branches: [main]" in head and "workflow_dispatch:" in head and "schedule:" in head
     assert "permissions:\n  contents: read\n" in head and "pull_request_target" not in arch
     install = arch.split("- name: Arch's packages", 1)[1].split("- name:", 1)[0]
-    # what is recorded is installed (qt6-base comes with python-pyqt6 and qt6-webengine)
+    # what is recorded is installed (qt6-base comes with python-pyqt6 and qt6-webengine,
+    # fontconfig with qt6-base)
+    brought = {"qt6-base", "fontconfig"}
+    # followed since 1.1.22 (the font allowlist, the widget styles and KDE's
+    # theme, video); arch.yml installs them on branch fix/1.1.22, which this
+    # branch must not touch: until it is merged they are recorded as "not
+    # installed" (not verified, never a change: test above). Only these may wait.
+    waiting = {"noto-fonts", "ttf-dejavu", "breeze", "oxygen", "kvantum", "plasma-integration", "breeze-icons",
+               "ffmpeg"}
+    assert waiting <= set(mod.ARCH_PACKAGES)
     for name in mod.ARCH_PACKAGES:
-        assert name == "qt6-base" or re.search(r"\s%s[\s\\]" % re.escape(name), install), name
+        assert name in brought | waiting or re.search(r"\s%s[\s\\]" % re.escape(name), install), name
     depends = re.search(r"^depends=\(([^)]*)\)", (ROOT / "PKGBUILD").read_text(), re.M).group(1)
     for name in re.findall(r"'([^']+)'", depends):
         assert name in mod.ARCH_PACKAGES or name == "hicolor-icon-theme", name   # every runtime dependency
@@ -555,7 +576,7 @@ def test_the_arch_workflows():
     daily = (ROOT / ".github/workflows/daily-check.yml").read_text()
     parts = re.split(r"^  ([a-z-]+):\n", daily.split("\njobs:\n", 1)[1], flags=re.M)
     jobs = dict(zip(parts[1::2], parts[2::2]))
-    assert set(jobs) == {"check", "lists", "update-issue", "start-arch"}
+    assert set(jobs) == {"check", "lists", "update-issue", "start-arch", "ledger"}
     # 1.1.20: the filter lists in main's engine; reads the repository only, no token
     lists = jobs["lists"]
     assert re.search(r"permissions:\n\s+contents: read\n\s+outputs:", lists) and "GH_TOKEN" not in lists

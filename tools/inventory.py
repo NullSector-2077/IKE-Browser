@@ -1,0 +1,1221 @@
+#!/usr/bin/env python3
+"""Inventory of every external component I.K.E. uses (WP2 of the maintenance plan).
+
+    python3 tools/inventory.py [--json FILE] [--markdown FILE] [--offline]
+                               [--components report.json] [--lists lists.json]
+                               [--arch-tested arch-tested.json] [--advisories FILE]
+
+Read-only: nothing in the repository is changed. Every component is found in
+the repository itself, so a dependency added later appears with no change
+here:
+
+- PKGBUILD: depends, makedepends, optdepends, and the commands of build();
+- the Python modules imported by ike/ and ike_boot.py (AST), each mapped to
+  the Arch package that provides it (Arch's rule: module ``foo`` is
+  ``python-foo``, with the exceptions of MODULE_PACKAGES); the PyQt6 modules
+  and the Qt packages they need;
+- every crate of ike-adblock/Cargo.lock, direct or transitive;
+- the Node.js modules imported by tools/*.mjs;
+- the PyPI packages the workflows install (pip ``-r FILE`` and single
+  packages), the tools installed with ``cargo install``, the Rust, Python and
+  Node.js versions, runner images and apt packages of the workflows;
+- every ``uses:`` of a GitHub Action, with the commit it is pinned to;
+- the integrated resources: Dark Reader, uBlock Origin's scriptlets, the
+  filter lists of ike/config.py DEFAULT_LISTS, the vendored AdBlock engine;
+- the programs ike/ starts (subprocess, QProcess; xdg-open through Qt's
+  QDesktopServices), each mapped to its Arch package.
+
+A module, program or build command that no declared Arch package covers is a
+finding "used but not declared".
+
+Each record has: name, kind, type, origin (where in the repository it was
+found), distribution, installed (pinned) version, available version (read from
+archlinux.org's JSON API, crates.io's index, PyPI, npm, GitHub's git tags;
+``--offline`` reads none), update mode, the tests an update needs
+(tools/test-categories.py), compatibility, vulnerabilities, last check and
+result. A value that is not known or could not be read is "unknown" or "not
+checked", never guessed. Vulnerabilities come only from checks already run
+(RustSec through cargo-deny in security.yml, given with --advisories); every
+other component says "not checked".
+
+Hosts asked (GET only, no token): archlinux.org, index.crates.io, pypi.org,
+registry.npmjs.org, github.com (git ls-remote).
+"""
+
+import argparse
+import ast
+import concurrent.futures
+import datetime
+import importlib.util
+import json
+import os
+import re
+import shlex
+import subprocess
+import sys
+import urllib.parse
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+SCHEMA = 1
+UNKNOWN = "unknown"
+NOT_CHECKED = "not checked"
+
+CRATES_SPARSE = "https://index.crates.io/%s"
+PYPI_JSON = "https://pypi.org/pypi/%s/json"
+NPM_LATEST = "https://registry.npmjs.org/%s/latest"
+GITHUB = "https://github.com/%s"
+NETWORK_FAILURES = 3          # a host that failed this many times is not asked again in this run
+WORKERS = 8
+
+# Arch's rule for Python modules is python-<name>; the exceptions
+MODULE_PACKAGES = {
+    "PyQt6": "python-pyqt6", "PyQt6-WebEngine": "python-pyqt6-webengine", "yaml": "python-yaml",
+    "PIL": "python-pillow", "dbus": "python-dbus", "gi": "python-gobject", "Crypto": "python-pycryptodome",
+    "bs4": "python-beautifulsoup4", "dateutil": "python-dateutil", "OpenSSL": "python-pyopenssl",
+    "google": "python-protobuf", "magic": "python-magic", "serial": "python-pyserial", "sip": "python-pyqt6-sip",
+}
+# the PyQt6 module -> the Arch packages it needs at run time
+QT_MODULE_PACKAGES = {
+    "QtWebEngineCore": ("python-pyqt6-webengine", "qt6-webengine"),
+    "QtWebEngineWidgets": ("python-pyqt6-webengine", "qt6-webengine"),
+    "QtWebEngineQuick": ("python-pyqt6-webengine", "qt6-webengine"),
+    "QtWebChannel": ("python-pyqt6", "qt6-webchannel"),
+    "QtSvg": ("python-pyqt6", "qt6-svg"), "QtSvgWidgets": ("python-pyqt6", "qt6-svg"),
+    "QtMultimedia": ("python-pyqt6", "qt6-multimedia"), "QtMultimediaWidgets": ("python-pyqt6", "qt6-multimedia"),
+    "QtPdf": ("python-pyqt6-webengine", "qt6-webengine"), "QtPdfWidgets": ("python-pyqt6-webengine", "qt6-webengine"),
+    "QtQml": ("python-pyqt6", "qt6-declarative"), "QtQuick": ("python-pyqt6", "qt6-declarative"),
+    "QtSerialPort": ("python-pyqt6", "qt6-serialport"), "QtPositioning": ("python-pyqt6", "qt6-positioning"),
+    "QtSpeech": ("python-pyqt6", "qt6-speech"), "QtCharts": ("python-pyqt6-charts", "qt6-charts"),
+}
+# in qt6-base, which python-pyqt6 brings
+QT_BASE_MODULES = ("QtCore", "QtGui", "QtWidgets", "QtNetwork", "QtPrintSupport", "QtDBus", "QtSql", "QtXml",
+                   "QtOpenGL", "QtOpenGLWidgets", "QtTest", "QtConcurrent", "sip")
+# a package brought by another declared one (its own depends in Arch)
+TRANSITIVE = {"qt6-base": "python-pyqt6"}
+# programs ike/ starts -> the Arch package that has them
+TOOL_PACKAGES = {
+    "notify-send": "libnotify", "xdg-settings": "xdg-utils", "xdg-open": "xdg-utils", "xdg-mime": "xdg-utils",
+    "xdg-email": "xdg-utils", "kde-open": "kde-cli-tools", "kioclient": "kio", "gsettings": "glib2",
+    "git": "git", "ffmpeg": "ffmpeg", "pacman": "pacman", "python3": "python", "python": "python",
+}
+# the build() commands of the PKGBUILD -> their Arch package
+BUILD_PACKAGES = {"cargo": "rust", "rustc": "rust", "gcc": "gcc", "cc": "gcc", "clang": "clang", "make": "make",
+                  "node": "nodejs", "npm": "npm", "python3": "python", "python": "python"}
+# always there with makepkg (base, base-devel)
+BASE_COMMANDS = {"cd", "install", "cp", "find", "rm", "mkdir", "ln", "sed", "chmod", "local", "printf", "echo",
+                 "for", "do", "done", "if", "then", "fi", "test", "tar", "sh", "bash", "return", "export", "true"}
+
+# how each kind of component is updated
+UPDATE_MODES = {
+    "arch-package": "system: users get it with pacman -Syu; the daily check starts arch.yml to verify it",
+    "arch-optional": "system: users get it with pacman -Syu; optional, installed by the user",
+    "arch-build": "system: the owner's makepkg uses the installed one",
+    "python-module": "through its Arch package (pacman -Syu)",
+    "pyqt-module": "through its Arch packages (pacman -Syu)",
+    "crate": "candidate: tools/check-components.py --apply (cargo update) on automation/daily-maintenance",
+    "adblock-engine": "candidate: tools/check-components.py --apply on automation/daily-maintenance",
+    "vendored": "rebuilt from ike-adblock/ (crates) in every build and in the signed self-update",
+    "pypi-test": "candidate: tools/check-components.py --apply (tools/test-requirements.txt)",
+    "pypi-ci": "follows tools/test-requirements.txt",
+    "npm": "candidate: tools/check-components.py --apply (rebuilt by tools/build-darkreader.py)",
+    "node": "workflow file (setup-node): a proposal for a person",
+    "integrated": "candidate: tools/check-components.py --apply (rebuilt by I.K.E.'s builder)",
+    "filter-list": "runtime: each browser downloads it (ike/blocker.py); checked daily in the bundled engine",
+    "github-action": "workflow file: Dependabot's monthly proposal, merged by a person",
+    "ci-tool": "workflow file: a proposal for a person (version pinned in the workflow)",
+    "ci-runtime": "workflow file: a proposal for a person",
+    "ci-package": "the runner's apt archive (unpinned)",
+    "runtime-tool": "system: its Arch package (pacman -Syu)",
+    "build-tool": "system: its Arch package (makedepends)",
+}
+
+
+def _components_tool():
+    """tools/check-components.py, beside this file: its fetch, Arch and Cargo.lock helpers."""
+    spec = importlib.util.spec_from_file_location("check_components", Path(__file__).resolve().parent /
+                                                  "check-components.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _tests_tool():
+    spec = importlib.util.spec_from_file_location("test_categories", Path(__file__).resolve().parent /
+                                                  "test-categories.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def now():
+    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def record(name, kind, type_, origin, distribution, installed, **kw):
+    rec = {"id": "%s:%s" % (kind, name), "name": name, "kind": kind, "type": type_,
+           "origin": sorted(set(origin)) if isinstance(origin, (list, set, tuple)) else [origin],
+           "distribution": distribution, "installed": installed or UNKNOWN, "available": NOT_CHECKED,
+           "available_source": "", "update_mode": UPDATE_MODES.get(kind, UNKNOWN), "tests_needed": [],
+           "compatibility": UNKNOWN, "vulnerabilities": NOT_CHECKED, "last_check": "", "result": NOT_CHECKED,
+           "notes": []}
+    rec.update(kw)
+    return rec
+
+
+def rel(root, path):
+    try:
+        return str(Path(path).resolve().relative_to(Path(root).resolve()))
+    except ValueError:
+        return str(path)
+
+
+# --- PKGBUILD ------------------------------------------------------------------
+
+def _bash_array(text, key):
+    """The words of every `key=(...)` array of a PKGBUILD: quoted strings or bare words, comments
+    dropped; a ")" inside quotes does not end the array."""
+    out = []
+    for m in re.finditer(r"^%s=\(" % re.escape(key), text, re.M):
+        i, word, quote, have = m.end(), "", "", False
+        while i < len(text):
+            ch = text[i]
+            if quote:
+                if ch == quote:
+                    quote = ""
+                else:
+                    word += ch
+            elif ch in "'\"":
+                quote, have = ch, True
+            elif ch == "#" and not have:
+                while i < len(text) and text[i] != "\n":
+                    i += 1
+                continue
+            elif ch.isspace() or ch == ")":
+                if have:
+                    out.append(word)
+                word, have = "", False
+                if ch == ")":
+                    break
+            else:
+                word, have = word + ch, True
+            i += 1
+    return out
+
+
+def parse_pkgbuild(text):
+    """{"depends": [names], "makedepends": [...], "optdepends": [(name, why)], "checkdepends": [...],
+    "build_commands": [command names of build()], "pkgver"}"""
+    out = {"depends": [], "makedepends": [], "optdepends": [], "checkdepends": [], "build_commands": [],
+           "pkgver": ""}
+    for key in ("depends", "makedepends", "optdepends", "checkdepends"):
+        for word in _bash_array(text, key):
+            if key == "optdepends":
+                name, _, why = word.partition(":")
+                out[key].append((re.split(r"[<>=]", name.strip())[0], why.strip()))
+            else:
+                out[key].append(re.split(r"[<>=]", word.strip())[0])
+    ver = re.search(r"^pkgver=([^\s#]+)", text, re.M)
+    out["pkgver"] = ver.group(1).strip("'\"") if ver else ""
+    body = re.search(r"^build\(\)\s*\{(.*?)^\}", text, re.M | re.S)
+    if body:
+        commands = []
+        for line in body.group(1).replace("\\\n", " ").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            try:
+                words = shlex.split(line, comments=True)
+            except ValueError:
+                words = line.split()
+            words = [w for w in words if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", w)]
+            if words and re.fullmatch(r"[A-Za-z][\w.+-]*", words[0]) and words[0] not in commands:
+                commands.append(words[0])
+        out["build_commands"] = commands
+    return out
+
+
+# --- Python imports of ike/ and ike_boot.py -------------------------------------
+
+def _stdlib():
+    names = set(getattr(sys, "stdlib_module_names", ()))
+    if not names:          # Python < 3.10: the modules this interpreter has built in or in its library
+        names = set(sys.builtin_module_names)
+        lib = Path(os.__file__).parent
+        names |= {p.stem for p in lib.glob("*.py")} | {p.name for p in lib.iterdir() if p.is_dir()}
+    return names
+
+
+def _optional(node, parents):
+    """True when the import sits in a try: whose handlers catch ImportError (or anything)."""
+    child = node
+    for p in parents:
+        if isinstance(p, ast.Try) and child in p.body:
+            for h in p.handlers:
+                names = []
+                for t in ([h.type] if not isinstance(h.type, ast.Tuple) else h.type.elts) if h.type else []:
+                    names.append(getattr(t, "id", getattr(t, "attr", "")))
+                if h.type is None or set(names) & {"ImportError", "ModuleNotFoundError", "Exception",
+                                                   "BaseException"}:
+                    return True
+        child = p
+    return False
+
+
+def python_files(root):
+    root = Path(root)
+    files = sorted((root / "ike").rglob("*.py")) if (root / "ike").is_dir() else []
+    if (root / "ike_boot.py").is_file():
+        files.append(root / "ike_boot.py")
+    return [f for f in files if "__pycache__" not in f.parts]
+
+
+def scan_python(root):
+    """({top module: {"files": [...], "optional": bool, "names": [full module names]}},
+    [(program, file:line, how)] started by the code, [syntax errors])."""
+    imports, tools, errors = {}, [], []
+    for f in python_files(root):
+        where = rel(root, f)
+        try:
+            tree = ast.parse(f.read_text("utf-8"), str(f))
+        except (SyntaxError, ValueError, OSError) as e:
+            errors.append("%s: %s" % (where, e))
+            continue
+        parents = {}
+        for node in ast.walk(tree):
+            for child in ast.iter_child_nodes(node):
+                parents[child] = node
+
+        def chain(n):
+            out = []
+            while n in parents:
+                n = parents[n]
+                out.append(n)
+            return out
+
+        for node in ast.walk(tree):
+            names = []
+            if isinstance(node, ast.Import):
+                names = [a.name for a in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                names = [node.module] + ["%s.%s" % (node.module, a.name) for a in node.names
+                                         if node.module == "PyQt6"]
+            for full in names:
+                top = full.split(".")[0]
+                entry = imports.setdefault(top, {"files": set(), "optional": True, "names": set()})
+                entry["files"].add(where)
+                entry["names"].add(full)
+                entry["optional"] = entry["optional"] and _optional(node, chain(node))
+            if isinstance(node, ast.Call):
+                prog = _started_program(node)
+                if prog:
+                    tools.append((prog[0], "%s:%d" % (where, node.lineno), prog[1]))
+    for entry in imports.values():
+        entry["files"] = sorted(entry["files"])
+        entry["names"] = sorted(entry["names"])
+    return imports, tools, errors
+
+
+_SUBPROCESS = {"run", "Popen", "call", "check_call", "check_output"}
+_OS_EXEC = {"execv", "execvp", "execvpe", "execl", "execlp", "spawnlp", "spawnvp"}
+
+
+def _started_program(call):
+    """(program, how) when this call starts a program named by a literal, else None."""
+    func = call.func
+    attr = getattr(func, "attr", getattr(func, "id", ""))
+    owner = getattr(getattr(func, "value", None), "id", "") or getattr(getattr(func, "value", None), "attr", "")
+    if attr == "openUrl" and owner == "QDesktopServices":
+        return ("xdg-open", "Qt's QDesktopServices.openUrl")
+    if not call.args:
+        return None
+    first = call.args[0]
+    literal = isinstance(first, ast.Constant) and isinstance(first.value, str) and first.value.strip()
+    if (owner == "subprocess" and attr in _SUBPROCESS) or (owner == "os" and attr in _OS_EXEC):
+        if isinstance(first, (ast.List, ast.Tuple)) and first.elts and isinstance(first.elts[0], ast.Constant) \
+                and isinstance(first.elts[0].value, str):
+            return (first.elts[0].value, "%s.%s" % (owner, attr))
+        if literal:
+            return (first.value.split()[0], "%s.%s" % (owner, attr))
+    # QProcess.startDetached("prog", [...]) / QProcess.execute(...), or a QProcess object's start("prog")
+    if attr in ("startDetached", "execute") and owner == "QProcess" and literal:
+        return (first.value.split()[0], "QProcess.%s" % attr)
+    if attr == "start" and literal and len(call.args) == 2:
+        return (first.value.split()[0], "QProcess.start")
+    return None
+
+
+def module_package(module):
+    """The Arch package of a Python module, by Arch's naming rule."""
+    if module in MODULE_PACKAGES:
+        return MODULE_PACKAGES[module]
+    return "python-" + re.sub(r"[_.]+", "-", module).lower()
+
+
+def qt_packages(name):
+    """The Arch packages a PyQt6 module needs, or None when the module is not known here."""
+    mod = name.split(".", 1)[1] if "." in name else name
+    if mod in QT_MODULE_PACKAGES:
+        return QT_MODULE_PACKAGES[mod]
+    if mod in QT_BASE_MODULES:
+        return ("python-pyqt6", "qt6-base")
+    return None
+
+
+# --- Cargo ---------------------------------------------------------------------
+
+def parse_cargo_lock(text):
+    """[{"name", "version", "source", "dependencies"}] of a Cargo.lock."""
+    out = []
+    for block in text.replace("\r\n", "\n").split("[[package]]")[1:]:
+        name = re.search(r'^name = "([^"]+)"', block, re.M)
+        version = re.search(r'^version = "([^"]+)"', block, re.M)
+        source = re.search(r'^source = "([^"]+)"', block, re.M)
+        deps = re.search(r"^dependencies = \[(.*?)\]", block, re.M | re.S)
+        if name and version:
+            out.append({"name": name.group(1), "version": version.group(1),
+                        "source": source.group(1) if source else "",
+                        "dependencies": [d.split()[0] for d in re.findall(r'"([^"]+)"', deps.group(1))]
+                        if deps else []})
+    return out
+
+
+def cargo_requirements(text):
+    """{crate: requirement} of the [dependencies] of a Cargo.toml."""
+    out = {}
+    section = re.search(r"^\[dependencies\]\n(.*?)(?=^\[|\Z)", text, re.M | re.S)
+    for line in (section.group(1) if section else "").splitlines():
+        m = re.match(r'^([A-Za-z0-9_-]+)\s*=\s*(?:"([^"]+)"|\{[^}]*?version\s*=\s*"([^"]+)")', line.strip())
+        if m:
+            out[m.group(1)] = m.group(2) or m.group(3)
+    return out
+
+
+# --- workflows ---------------------------------------------------------------------
+
+USES = re.compile(r"^\s*-?\s*uses:\s*([^\s#]+)\s*(?:#\s*(\S+))?", re.M)
+
+
+def workflow_files(root):
+    gh = Path(root) / ".github"
+    files = sorted(gh.glob("workflows/*.yml")) + sorted(gh.glob("workflows/*.yaml"))
+    files += sorted(gh.glob("actions/**/action.yml")) + sorted(gh.glob("actions/**/action.yaml"))
+    return files
+
+
+def _run_blocks(text):
+    """The shell lines of a workflow, continuation lines joined."""
+    return text.replace("\\\n", " ").splitlines()
+
+
+def scan_workflows(root):
+    """Everything the workflows use: actions, pip, cargo install, rustup, setup-python/node, images, apt."""
+    found = {"actions": {}, "pip_files": {}, "pip": {}, "cargo_install": {}, "rustup": {}, "python": {},
+             "node": {}, "runners": {}, "containers": {}, "apt": {}}
+    for f in workflow_files(root):
+        where = rel(root, f)
+        text = f.read_text("utf-8", "replace")
+        for m in USES.finditer(text):
+            ref = m.group(1).strip("'\"")
+            if ref.startswith("./"):
+                continue                                   # the repository's own action: read above
+            if ref.startswith("docker://"):
+                found["containers"].setdefault(ref[9:], set()).add(where)
+                continue
+            action, _, pin = ref.partition("@")
+            key = (action, pin)
+            entry = found["actions"].setdefault(key, {"files": set(), "comment": m.group(2) or ""})
+            entry["files"].add(where)
+        for line in _run_blocks(text):
+            s = line.strip()
+            if re.search(r"\bpip3?\s+install\b|-m\s+pip\s+install\b", s):
+                words = s.split("pip install", 1)[-1].split()
+                i = 0
+                while i < len(words):
+                    w = words[i].strip("'\"")
+                    if w in ("-r", "--requirement") and i + 1 < len(words):
+                        found["pip_files"].setdefault(words[i + 1].strip("'\""), set()).add(where)
+                        i += 2
+                        continue
+                    if w.startswith("-") or w in ("|", "&&", ";", ">", "2>&1") or w.startswith((">", "$(")):
+                        if w in ("|", "&&", ";"):
+                            break
+                        i += 1
+                        continue
+                    name = re.sub(r"^\$\{\w+:-", "", w).rstrip("}")
+                    m2 = re.match(r"^([A-Za-z][A-Za-z0-9._-]*)(?:==([\w.]+))?", name)
+                    if m2:
+                        found["pip"].setdefault(m2.group(1), {"files": set(), "version": m2.group(2) or ""})
+                        found["pip"][m2.group(1)]["files"].add(where)
+                    i += 1
+            for m2 in re.finditer(r"cargo install\s+(?:--\S+\s+)*([A-Za-z0-9_-]+)@([\w.]+)", s):
+                found["cargo_install"].setdefault((m2.group(1), m2.group(2)), set()).add(where)
+            m2 = re.search(r"rustup toolchain install\s+([\w.-]+)", s)
+            if m2:
+                found["rustup"].setdefault(m2.group(1), set()).add(where)
+            m2 = re.match(r"^python-version:\s*['\"]?([\w.]+)", s)
+            if m2:
+                found["python"].setdefault(m2.group(1), set()).add(where)
+            m2 = re.match(r"^node-version:\s*['\"]?([\w.]+)", s)
+            if m2:
+                found["node"].setdefault(m2.group(1), set()).add(where)
+            m2 = re.match(r"^runs-on:\s*['\"]?([\w.-]+)", s)
+            if m2:
+                found["runners"].setdefault(m2.group(1), set()).add(where)
+            m2 = re.match(r"^(?:container|image):\s*['\"]?([\w./-]+:[\w.-]+)['\"]?$", s)
+            if m2:
+                found["containers"].setdefault(m2.group(1), set()).add(where)
+            m2 = re.search(r"apt-get install\s+(.*)", s)
+            if m2:
+                for w in m2.group(1).split():
+                    if w in ("|", "&&", ";", ">") or w.startswith((">", "/")):
+                        break
+                    if not w.startswith("-") and re.fullmatch(r"[a-z0-9][a-z0-9.+-]+", w):
+                        found["apt"].setdefault(w, set()).add(where)
+    return found
+
+
+def read_pins(path):
+    pins = []
+    try:
+        lines = Path(path).read_text("utf-8").splitlines()
+    except OSError:
+        return pins
+    for line in lines:
+        line = line.split("#")[0].strip()
+        if "==" in line:
+            name, version = line.split("==", 1)
+            pins.append((name.strip(), version.strip()))
+        elif line and not line.startswith("-"):
+            pins.append((re.split(r"[<>=~!\s;]", line)[0], ""))
+    return pins
+
+
+# --- Node.js tools -----------------------------------------------------------------
+
+def scan_mjs(root):
+    """({npm package: [files]}, [files using Node.js built-ins])."""
+    npm, builtin = {}, []
+    for f in sorted((Path(root) / "tools").glob("*.mjs")):
+        text = f.read_text("utf-8", "replace")
+        specs = re.findall(r"""(?:\bfrom\s+|\bimport\s*\(\s*|\brequire\s*\(\s*|^\s*import\s+)['"]([^'"]+)['"]""",
+                           text, re.M)
+        for spec in specs:
+            if spec.startswith("node:"):
+                if rel(root, f) not in builtin:
+                    builtin.append(rel(root, f))
+            elif not spec.startswith((".", "/")):
+                name = "/".join(spec.split("/")[:2]) if spec.startswith("@") else spec.split("/")[0]
+                npm.setdefault(name, []).append(rel(root, f))
+    return npm, builtin
+
+
+# --- the filter lists -----------------------------------------------------------------
+
+def default_lists(root):
+    """DEFAULT_LISTS of ike/config.py, read without running it."""
+    path = Path(root) / "ike" / "config.py"
+    try:
+        tree = ast.parse(path.read_text("utf-8"))
+    except (OSError, SyntaxError):
+        return []
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(getattr(t, "id", "") == "DEFAULT_LISTS" for t in node.targets):
+            try:
+                value = ast.literal_eval(node.value)
+            except ValueError:
+                return []
+            return [e for e in value if isinstance(e, dict) and e.get("url")]
+    return []
+
+
+def followed_arch_packages(root):
+    """ARCH_PACKAGES of tools/check-components.py, read without running it."""
+    try:
+        tree = ast.parse((Path(root) / "tools" / "check-components.py").read_text("utf-8"))
+    except (OSError, SyntaxError):
+        return []
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(getattr(t, "id", "") == "ARCH_PACKAGES" for t in node.targets):
+            try:
+                return [str(n) for n in ast.literal_eval(node.value)]
+            except ValueError:
+                return []
+    return []
+
+
+# --- discovery -----------------------------------------------------------------------
+
+def discover(root, arch_tested=None):
+    """Every component found in the repository (no network). (records, findings, notes)."""
+    root = Path(root)
+    records, findings, notes = {}, [], []
+
+    def add(rec):
+        old = records.get(rec["id"])
+        if old:
+            old["origin"] = sorted(set(old["origin"]) | set(rec["origin"]))
+            return old
+        records[rec["id"]] = rec
+        return rec
+
+    tested = ((arch_tested or {}).get("tested") or {}).get("packages", {}) if isinstance(arch_tested, dict) else {}
+    pkg = {"depends": [], "makedepends": [], "optdepends": [], "checkdepends": [], "build_commands": []}
+    if (root / "PKGBUILD").is_file():
+        pkg = parse_pkgbuild((root / "PKGBUILD").read_text("utf-8"))
+    declared = {n: "depends" for n in pkg["depends"]}
+    for n in pkg["makedepends"]:
+        declared.setdefault(n, "makedepends")
+    for n, _ in pkg["optdepends"]:
+        declared.setdefault(n, "optdepends")
+
+    def arch_installed(name):
+        if tested.get(name):
+            return tested[name]
+        return "not pinned (rolling: pacman -Syu)"
+
+    for name in pkg["depends"]:
+        add(record(name, "arch-package", "runtime", "PKGBUILD depends", "Arch Linux (pacman)", arch_installed(name)))
+    for name in pkg["makedepends"]:
+        add(record(name, "arch-build", "build", "PKGBUILD makedepends", "Arch Linux (pacman)",
+                   arch_installed(name)))
+    for name, why in pkg["optdepends"]:
+        add(record(name, "arch-optional", "optional", "PKGBUILD optdepends", "Arch Linux (pacman)",
+                   arch_installed(name), notes=[why] if why else []))
+    for name in pkg["checkdepends"]:
+        add(record(name, "arch-build", "test", "PKGBUILD checkdepends", "Arch Linux (pacman)", arch_installed(name)))
+
+    # the Arch packages the daily check follows (tools/check-components.py ARCH_PACKAGES) that the
+    # PKGBUILD does not name: what arch.yml installs and records for I.K.E.'s features
+    for name in followed_arch_packages(root):
+        if name not in declared:
+            add(record(name, "arch-package", "tested", "tools/check-components.py ARCH_PACKAGES",
+                       "Arch Linux (pacman)", arch_installed(name),
+                       notes=["followed by the daily check; not a PKGBUILD dependency"]))
+
+    def covered(package):
+        """How a needed Arch package is declared: depends / optdepends / makedepends / via X / ''."""
+        if package in declared:
+            return declared[package]
+        via = TRANSITIVE.get(package)
+        if via and declared.get(via) == "depends":
+            return "via " + via
+        return ""
+
+    # build() commands
+    for cmd in pkg["build_commands"]:
+        if cmd in BASE_COMMANDS:
+            continue
+        package = BUILD_PACKAGES.get(cmd, "")
+        rec = add(record(cmd, "build-tool", "build", "PKGBUILD build()", "Arch Linux (pacman)",
+                         arch_installed(package) if package else UNKNOWN, provided_by=package or UNKNOWN))
+        if not package:
+            findings.append({"finding": "unknown provider", "component": rec["id"],
+                             "detail": "build() runs `%s`: its Arch package is not known (BUILD_PACKAGES)" % cmd})
+        elif not covered(package):
+            findings.append({"finding": "used but not declared", "component": rec["id"],
+                             "detail": "build() runs `%s` (package %s), not in makedepends or depends"
+                                       % (cmd, package)})
+    if (root / "PKGBUILD").is_file():
+        add(record("makepkg", "build-tool", "build", "PKGBUILD", "Arch Linux (pacman, base-devel)",
+                   "not pinned (rolling: pacman -Syu)", provided_by="pacman"))
+
+    # Python imports
+    imports, tools, errors = scan_python(root)
+    notes += ["not read (syntax error): %s" % e for e in errors]
+    stdlib = _stdlib()
+    for top, info in sorted(imports.items()):
+        if top in stdlib or top == "__future__":
+            continue
+        if top == "ike" or (root / "ike" / (top + ".py")).is_file() or (root / (top + ".py")).is_file():
+            continue                                                   # I.K.E.'s own
+        if (root / "vendor" / top).is_dir():
+            ver = ""
+            toml = root / "ike-adblock" / "Cargo.toml"
+            if toml.is_file():
+                req = cargo_requirements(toml.read_text("utf-8"))
+                ver = "adblock-rust %s" % req.get("adblock", "?").lstrip("=") if "adblock" in req else ""
+            add(record(top, "vendored", "runtime", ["vendor/%s" % top] + info["files"],
+                       "built from ike-adblock/ (Rust, crates.io) with the package", ver or UNKNOWN,
+                       notes=["imported by: %s" % ", ".join(info["files"][:6])]))
+            continue
+        package = module_package(top)
+        how = covered(package)
+        rec = add(record(top, "python-module", "optional" if info["optional"] else "runtime", info["files"],
+                         "Arch Linux (pacman), package %s" % package, "through %s" % package,
+                         provided_by=package, declared=how or "no"))
+        if not how:
+            findings.append({"finding": "used but not declared", "component": rec["id"],
+                             "detail": "`import %s` in %s: package %s is not in the PKGBUILD%s"
+                                       % (top, ", ".join(info["files"][:4]), package,
+                                          " (the import is optional)" if info["optional"] else "")})
+        elif how == "makedepends" or (how == "optdepends" and not info["optional"]):
+            findings.append({"finding": "declared too weakly", "component": rec["id"],
+                             "detail": "`import %s` is needed at run time, but %s is only in %s"
+                                       % (top, package, how)})
+        if top == "PyQt6":
+            for full in info["names"]:
+                if full == "PyQt6":
+                    continue
+                needs = qt_packages(full)
+                qrec = add(record(full, "pyqt-module", "runtime", info["files"], "Arch Linux (pacman)",
+                                  "through %s" % " + ".join(needs) if needs else UNKNOWN,
+                                  provided_by=list(needs) if needs else UNKNOWN))
+                if needs is None:
+                    findings.append({"finding": "unknown provider", "component": qrec["id"],
+                                     "detail": "%s: its Arch package is not known (QT_MODULE_PACKAGES)" % full})
+                    continue
+                missing = [p for p in needs if not covered(p)]
+                qrec["declared"] = "yes" if not missing else "no"
+                if missing:
+                    findings.append({"finding": "used but not declared", "component": qrec["id"],
+                                     "detail": "%s needs %s, not in the PKGBUILD depends"
+                                               % (full, ", ".join(missing))})
+
+    # programs ike/ starts
+    for prog, where, how in tools:
+        name = Path(prog).name
+        package = TOOL_PACKAGES.get(name, "")
+        rec = add(record(name, "runtime-tool", "runtime", where, "Arch Linux (pacman), package %s"
+                         % (package or UNKNOWN), "through %s" % package if package else UNKNOWN,
+                         provided_by=package or UNKNOWN, notes=["started by %s" % how]))
+        if not package:
+            findings.append({"finding": "unknown provider", "component": rec["id"],
+                             "detail": "ike/ starts `%s` (%s): its Arch package is not known (TOOL_PACKAGES)"
+                                       % (name, where)})
+        elif not covered(package):
+            findings.append({"finding": "used but not declared", "component": rec["id"],
+                             "detail": "ike/ starts `%s` (%s, %s): package %s is not in depends or optdepends"
+                                       % (name, where, how, package)})
+        else:
+            rec["declared"] = covered(package)
+
+    # Cargo.lock
+    lock = root / "ike-adblock" / "Cargo.lock"
+    if lock.is_file():
+        crates = parse_cargo_lock(lock.read_text("utf-8"))
+        roots = [c for c in crates if not c["source"]]
+        direct = {d for c in roots for d in c["dependencies"]}
+        reqs = cargo_requirements((root / "ike-adblock" / "Cargo.toml").read_text("utf-8")) \
+            if (root / "ike-adblock" / "Cargo.toml").is_file() else {}
+        seen = {}
+        for c in crates:
+            seen[c["name"]] = seen.get(c["name"], 0) + 1
+        for c in crates:
+            if not c["source"]:
+                continue                                                    # ike-adblock itself
+            kind = "adblock-engine" if c["name"] in ("adblock", "pyo3") else "crate"
+            dist = "crates.io" if "crates.io-index" in c["source"] else c["source"].split("+")[0]
+            rec = record(c["name"], kind, "direct" if c["name"] in direct else "transitive",
+                         "ike-adblock/Cargo.lock", dist, c["version"])
+            if seen[c["name"]] > 1:                 # two versions of one crate: one record each
+                rec["id"] = "%s:%s@%s" % (kind, c["name"], c["version"])
+            rec = add(rec)
+            if c["name"] in reqs:
+                rec["requirement"] = reqs[c["name"]]
+        for name in sorted(set(reqs) - {c["name"] for c in crates}):
+            findings.append({"finding": "not locked", "component": "crate:" + name,
+                             "detail": "%s is in ike-adblock/Cargo.toml but not in Cargo.lock" % name})
+
+    # tools/*.mjs
+    npm, builtin = scan_mjs(root)
+    for name, files in sorted(npm.items()):
+        add(record(name, "npm", "build", files, "npm", UNKNOWN,
+                   notes=["imported by a tool; no lockfile pins it"]))
+
+    # workflows
+    wf = scan_workflows(root)
+    node_versions = sorted(wf["node"].items())
+    if builtin or node_versions:
+        add(record("Node.js", "node", "build", builtin + [f for _, fs in node_versions for f in fs],
+                   "actions/setup-node", ", ".join(v for v, _ in node_versions) or UNKNOWN,
+                   notes=["major version only: setup-node takes its newest release"] if node_versions else []))
+    for (action, pin), info in sorted(wf["actions"].items()):
+        pinned = bool(re.fullmatch(r"[0-9a-f]{40}", pin))
+        rec = add(record("%s@%s" % (action, pin[:12]) if not pinned else action, "github-action", "ci",
+                         info["files"], "GitHub Actions (github.com/%s)" % "/".join(action.split("/")[:2]),
+                         "%s (%s)" % (info["comment"] or "?", pin) if pinned else pin or UNKNOWN,
+                         pin=pin, release=info["comment"], pinned_sha=pinned))
+        if not pinned:
+            findings.append({"finding": "not pinned", "component": rec["id"],
+                             "detail": "uses: %s@%s is not pinned to a commit" % (action, pin)})
+    for path, files in sorted(wf["pip_files"].items()):
+        for name, version in read_pins(root / path):
+            add(record(name, "pypi-test", "test", [path] + sorted(files), "PyPI", version or "unpinned"))
+    for name, info in sorted(wf["pip"].items()):
+        rid = "pypi-test:" + name
+        if rid in records:
+            records[rid]["origin"] = sorted(set(records[rid]["origin"]) | info["files"])
+            continue
+        add(record(name, "pypi-ci", "ci", info["files"], "PyPI", info["version"] or "unpinned"))
+    for (name, version), files in sorted(wf["cargo_install"].items()):
+        add(record(name, "ci-tool", "ci", files, "crates.io (cargo install)", version))
+    for channel, files in sorted(wf["rustup"].items()):
+        add(record("Rust toolchain (CI)", "ci-runtime", "ci", files, "rustup", channel,
+                   notes=["the %s channel: not pinned" % channel] if not re.match(r"^\d", channel) else []))
+    for version, files in sorted(wf["python"].items()):
+        add(record("Python %s (CI)" % version, "ci-runtime", "ci", files, "actions/setup-python", version))
+    for image, files in sorted(wf["runners"].items()):
+        add(record(image, "ci-runtime", "ci", files, "GitHub-hosted runner image", image))
+    for image, files in sorted(wf["containers"].items()):
+        add(record(image, "ci-runtime", "ci", files, "container image", image.split(":")[-1] if ":" in image
+                   else UNKNOWN))
+    for name, files in sorted(wf["apt"].items()):
+        add(record(name, "ci-package", "ci", files, "Ubuntu apt (runner)", "the runner's archive (unpinned)"))
+
+    # integrated resources
+    res = root / "ike" / "resources"
+    try:
+        dr = json.loads((res / "darkreader-data.json").read_text("utf-8"))
+        add(record("Dark Reader", "integrated", "runtime", ["ike/resources/darkreader.js",
+                                                             "ike/resources/darkreader-data.json"],
+                   "npm (darkreader) and github.com/darkreader/darkreader (lists), rebuilt by "
+                   "tools/build-darkreader.py", "%s, lists %s (%s)" % (dr.get("version", "?"),
+                                                                     str(dr.get("lists_commit", ""))[:10],
+                                                                     dr.get("lists_date", "?")),
+                   npm_version=dr.get("version", "")))
+    except (OSError, ValueError):
+        pass
+    try:
+        ubo = json.loads((res / "ubo-scriptlets.json").read_text("utf-8"))
+        add(record("uBlock Origin scriptlets", "integrated", "runtime", "ike/resources/ubo-scriptlets.json",
+                   "git (%s, default branch), rebuilt by tools/build-ubo-scriptlets.mjs"
+                   % ubo.get("source", "github.com/gorhill/uBlock"),
+                   "%s (%s)" % (str(ubo.get("commit", ""))[:10], ubo.get("date", "?")),
+                   commit=ubo.get("commit", ""), git=ubo.get("source", "")))
+    except (OSError, ValueError):
+        pass
+    for entry in default_lists(root):
+        add(record(entry.get("name") or entry["url"], "filter-list", "runtime", "ike/config.py DEFAULT_LISTS",
+                   "HTTPS: %s" % urllib.parse.urlsplit(entry["url"]).hostname,
+                   "not pinned (each browser downloads it)", url=entry["url"],
+                   enabled=bool(entry.get("enabled", True))))
+    return records, findings, notes
+
+
+# --- available versions -------------------------------------------------------------------
+
+class Net:
+    """GET with a per-host failure limit: a host that does not answer is not asked again."""
+
+    def __init__(self, get=None, ls_remote=None, offline=False):
+        self.cc = None
+        self._get = get
+        self._ls_remote = ls_remote
+        self.offline = offline
+        self.failures = {}
+        self.hosts = {}
+
+    def _fetch(self, url, timeout=30):
+        if self._get:
+            return self._get(url)
+        if self.cc is None:
+            self.cc = _components_tool()
+        return self.cc.fetch(url, timeout=timeout)
+
+    def get(self, url):
+        host = urllib.parse.urlsplit(url).hostname or url
+        if self.offline:
+            raise LookupError("offline")
+        if self.failures.get(host, 0) >= NETWORK_FAILURES:
+            raise OSError("%s did not answer earlier in this run" % host)
+        try:
+            data = self._fetch(url)
+            self.hosts.setdefault(host, "ok")
+            return data
+        except OSError as e:
+            self.failures[host] = self.failures.get(host, 0) + 1
+            self.hosts[host] = "unreachable: %s" % str(e)[:160]
+            raise
+
+    def json(self, url):
+        return json.loads(self.get(url).decode("utf-8"))
+
+    def ls_remote(self, url, *refs):
+        """{ref: sha} of a git repository (git ls-remote), GitHub's tags with no API token."""
+        host = urllib.parse.urlsplit(url).hostname or url
+        if self.offline:
+            raise LookupError("offline")
+        if self.failures.get(host, 0) >= NETWORK_FAILURES:
+            raise OSError("%s did not answer earlier in this run" % host)
+        try:
+            if self._ls_remote:
+                out = self._ls_remote(url, *refs)
+            else:
+                done = subprocess.run(["git", "ls-remote", url, *refs], capture_output=True, text=True,
+                                      timeout=60, check=False, env=dict(os.environ, GIT_TERMINAL_PROMPT="0"))
+                if done.returncode:
+                    raise OSError("git ls-remote %s: %s" % (url, done.stderr.strip()[:160]))
+                out = done.stdout
+            self.hosts.setdefault(host, "ok")
+        except (OSError, subprocess.SubprocessError) as e:
+            self.failures[host] = self.failures.get(host, 0) + 1
+            self.hosts[host] = "unreachable: %s" % str(e)[:160]
+            raise OSError(str(e)) from e
+        refs_out = {}
+        for line in out.splitlines():
+            parts = line.split()
+            if len(parts) == 2:
+                refs_out[parts[1]] = parts[0]
+        return refs_out
+
+
+def vkey(version):
+    return tuple(int(n) for n in re.findall(r"\d+", version or ""))
+
+
+def stable(version):
+    return re.fullmatch(r"v?[0-9]+(\.[0-9]+)*(\.post[0-9]+)?", version or "") is not None
+
+
+def crate_index_path(name):
+    n = name.lower()
+    if len(n) <= 2:
+        return "%d/%s" % (len(n), n)
+    if len(n) == 3:
+        return "3/%s/%s" % (n[0], n)
+    return "%s/%s/%s" % (n[:2], n[2:4], n)
+
+
+def compatible(old, new):
+    """Cargo's semver compatibility (same major, or same minor for 0.x, same patch for 0.0.x)."""
+    a, b = vkey(old), vkey(new)
+    if not a or not b:
+        return False
+    if a[0] != 0:
+        return a[0] == b[0]
+    if len(a) > 1 and a[1] != 0:
+        return len(b) > 1 and b[0] == 0 and a[1] == b[1]
+    return a[:3] == b[:3]
+
+
+def newest(versions):
+    good = [v for v in versions if stable(v)]
+    return max(good, key=vkey) if good else ""
+
+
+def _crate_versions(net, name):
+    versions = []
+    for line in net.get(CRATES_SPARSE % crate_index_path(name)).decode("utf-8").splitlines():
+        if line.strip():
+            entry = json.loads(line)
+            if not entry.get("yanked"):
+                versions.append(entry["vers"])
+    return versions
+
+
+def _compare(rec, latest, source):
+    rec["available"], rec["available_source"] = latest or UNKNOWN, source
+    inst = rec["installed"]
+    if not latest:
+        rec["result"] = "unknown"
+    elif not vkey(inst):
+        rec["result"] = "ok"
+        rec["compatibility"] = "installed version not pinned"
+    elif vkey(latest) > vkey(inst):
+        rec["result"] = "update available"
+        if rec["compatibility"] == UNKNOWN:
+            rec["compatibility"] = "newer version: to verify"
+    else:
+        rec["result"] = "ok"
+        if rec["compatibility"] == UNKNOWN:
+            rec["compatibility"] = "newest"
+
+
+def _lookup(rec, net, arch_get, components, lists):
+    """Fill the available version of one record (in a worker thread); never raises."""
+    kind = rec["kind"]
+    try:
+        if kind in ("arch-package", "arch-optional", "arch-build", "build-tool", "runtime-tool", "python-module"):
+            package = rec.get("provided_by") if kind in ("build-tool", "runtime-tool", "python-module") \
+                else rec["name"]
+            if not package or package == UNKNOWN:
+                return
+            latest = arch_get(package)
+            rec["available"], rec["available_source"] = latest, "archlinux.org (core, extra)"
+            inst = rec["installed"]
+            if kind in ("arch-package", "arch-optional", "arch-build") and vkey(inst):
+                rec["result"] = "changed since last tested" if inst != latest else "ok"
+                rec["compatibility"] = ("changed since the last green arch.yml run on main: to verify"
+                                        if inst != latest else "tested by the last green arch.yml run on main")
+            else:
+                rec["result"] = "ok"
+                rec["compatibility"] = ("not tested by arch.yml (not installed there)"
+                                        if kind == "arch-optional" else "not recorded by arch.yml")
+        elif kind == "pyqt-module":
+            return                                          # follows its packages (filled after)
+        elif kind in ("crate", "adblock-engine", "ci-tool"):
+            versions = _crate_versions(net, rec["name"])
+            latest = newest(versions)
+            _compare(rec, latest, "crates.io index")
+            if rec["result"] == "update available" and kind != "ci-tool":
+                same = newest([v for v in versions if compatible(rec["installed"], v)])
+                rec["newest_compatible"] = same or UNKNOWN
+                req = rec.get("requirement", "")
+                if req.startswith("="):
+                    rec["compatibility"] = "pinned exactly (%s): a new version is followed by check-components" % req
+                elif same and vkey(same) >= vkey(latest):
+                    rec["compatibility"] = "semver-compatible update (cargo update)"
+                else:
+                    rec["compatibility"] = "major update: needs a requirement change in the crate that uses it"
+        elif kind in ("pypi-test", "pypi-ci"):
+            data = net.json(PYPI_JSON % urllib.parse.quote(rec["name"]))
+            _compare(rec, data.get("info", {}).get("version", ""), "pypi.org")
+        elif kind == "npm":
+            data = net.json(NPM_LATEST % urllib.parse.quote(rec["name"], safe="@"))
+            _compare(rec, data.get("version", ""), "registry.npmjs.org")
+        elif kind == "github-action":
+            repo = "/".join(rec["name"].split("/")[:2])
+            tags = net.ls_remote(GITHUB % repo, "refs/tags/v*")
+            names = {t[len("refs/tags/"):].removesuffix("^{}"): sha for t, sha in tags.items()}
+            latest = newest(names)
+            rec["available"], rec["available_source"] = latest or UNKNOWN, "github.com tags (git ls-remote)"
+            if latest:
+                peeled = tags.get("refs/tags/%s^{}" % latest) or tags.get("refs/tags/%s" % latest, "")
+                rec["available_sha"] = peeled
+                current = rec.get("release") or ""
+                if rec.get("pin") and peeled and rec["pin"] == peeled:
+                    rec["result"], rec["compatibility"] = "ok", "pinned to the newest release"
+                elif vkey(current) and vkey(latest) > vkey(current):
+                    rec["result"] = "update available"
+                    rec["compatibility"] = ("same major release" if vkey(latest)[0] == vkey(current)[0]
+                                            else "new major release: read its notes")
+                elif vkey(current):
+                    rec["result"], rec["compatibility"] = "ok", "pinned to the newest release (by its comment)"
+                else:
+                    rec["result"] = "unknown"
+            else:
+                rec["result"] = "unknown"
+        elif kind == "integrated":
+            comp = _component_result(components, rec["name"])
+            if comp:
+                rec["available"] = comp.get("latest") or UNKNOWN
+                rec["available_source"] = "tools/check-components.py (the builder's own check)"
+                rec["result"] = ("builder refused" if comp.get("refused") else "unreachable" if comp.get("error")
+                                 else "update available" if comp.get("update") else "ok")
+                rec["compatibility"] = ("I.K.E.'s builder refused the new version: a person adapts it"
+                                        if comp.get("refused") else "the builder accepts it" if comp.get("update")
+                                        else rec["compatibility"])
+                if comp.get("error"):
+                    rec["available"] = "unknown (%s)" % comp["error"][:120]
+            elif rec["name"] == "Dark Reader":
+                data = net.json(NPM_LATEST % "darkreader")
+                _compare(rec, data.get("version", ""), "registry.npmjs.org (engine only; lists not read)")
+                rec["installed_engine"] = rec.get("npm_version", "")
+                if rec.get("npm_version") and data.get("version"):
+                    rec["result"] = "update available" if vkey(data["version"]) > vkey(rec["npm_version"]) \
+                        else "ok"
+            elif rec.get("git"):
+                head = net.ls_remote(rec["git"], "HEAD").get("HEAD", "")
+                rec["available"] = head[:10] if head else UNKNOWN
+                rec["available_source"] = "git ls-remote (default branch)"
+                rec["result"] = "ok" if head and head == rec.get("commit") else (
+                    "new upstream commit" if head else "unknown")
+                rec["compatibility"] = "an update only if the rebuilt scriptlets differ (tools/check-components.py)"
+        elif kind == "filter-list":
+            row = next((r for r in (lists or {}).get("lists", []) if r.get("url") == rec.get("url")), None)
+            if row:
+                rec["available"] = "downloaded today" if row.get("state") != "unreachable" else UNKNOWN
+                rec["available_source"] = "tools/check-components.py --filter-lists"
+                rec["result"] = row.get("state", UNKNOWN)
+                if "network" in row:
+                    rec["compatibility"] = "%d network / %d cosmetic rules read; %d unsupported, %d errors" % (
+                        row["network"], row["cosmetic"], row.get("unsupported", 0), row.get("errors", 0))
+    except LookupError as e:
+        if str(e) == "offline":
+            return
+        rec["available"], rec["result"] = "unknown (%s)" % str(e)[:120], "unknown"
+    except Exception as e:      # the network, a site, an answer laid out differently: never guessed
+        rec["available"] = "unknown (source unreachable: %s)" % ("%s: %s" % (type(e).__name__, e))[:160]
+        rec["result"] = "unreachable"
+
+
+def _component_result(components, name):
+    names = {"Dark Reader": "Dark Reader", "uBlock Origin scriptlets": "uBlock Origin scriptlets"}
+    want = names.get(name, name)
+    for c in (components or {}).get("components", []):
+        if str(c.get("name", "")).startswith(want):
+            return c
+    return None
+
+
+def lookup_versions(records, net, components=None, lists=None, arch_get=None):
+    """Fill available versions (in parallel); every record gets its last check time."""
+    stamp = now()
+    cache = {}
+
+    def arch(name):
+        """The version in Arch's core/extra (check-components' arch_version), once per package."""
+        if name not in cache:
+            if net.offline:
+                raise LookupError("offline")
+            if arch_get:
+                cache[name] = arch_get(name)
+            else:
+                if net.cc is None:
+                    net.cc = _components_tool()
+                cache[name] = net.cc.arch_version(name, get=lambda u, timeout=30: net.get(u))
+        return cache[name]
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1 if net.offline else WORKERS) as pool:
+        list(pool.map(lambda r: _lookup(r, net, arch, components, lists), list(records.values())))
+    for rec in records.values():
+        rec["last_check"] = stamp
+    # a PyQt6 module follows its Arch packages
+    for rec in records.values():
+        if rec["kind"] == "pyqt-module" and isinstance(rec.get("provided_by"), list) and not net.offline:
+            srcs = [records.get("arch-package:" + p) for p in rec["provided_by"]]
+            rec["available"] = "; ".join("%s %s" % (p, s["available"] if s else NOT_CHECKED)
+                                         for p, s in zip(rec["provided_by"], srcs))
+            rec["available_source"] = "its Arch packages"
+            if all(s and s["result"] not in ("unreachable", "unknown", NOT_CHECKED) for s in srcs):
+                rec["result"] = "ok"
+                rec["compatibility"] = "follows its Arch packages (arch.yml)"
+    return records
+
+
+def apply_advisories(records, advisories):
+    """Vulnerabilities from a check already run: RustSec through cargo-deny (security.yml).
+    advisories: {"state": "clean" | "found" | "unknown", "url", "date", "crates": [names]}."""
+    if not isinstance(advisories, dict):
+        return records
+    state, url = advisories.get("state"), advisories.get("url") or "?"
+    crates = set(advisories.get("crates") or [])
+    for rec in records.values():
+        if rec["kind"] not in ("crate", "adblock-engine", "vendored"):
+            continue
+        if state == "clean":
+            rec["vulnerabilities"] = "none known (RustSec via cargo-deny, %s)" % url
+        elif state == "found":
+            if not crates or rec["name"] in crates:
+                rec["vulnerabilities"] = "RustSec advisory reported (cargo-deny, %s)" % url
+                rec["result"] = "vulnerable" if rec["name"] in crates else rec["result"]
+            else:
+                rec["vulnerabilities"] = "none named for this crate (cargo-deny reported others: %s)" % url
+        else:
+            rec["vulnerabilities"] = "%s (cargo-deny's last result could not be read)" % NOT_CHECKED
+    return records
+
+
+def fill_tests(records):
+    tc = _tests_tool()
+    for rec in records.values():
+        rec["tests_needed"] = tc.required_for([rec["kind"]])
+    return records
+
+
+def inventory(root=ROOT, offline=False, net=None, components=None, lists=None, arch_tested=None,
+              advisories=None, arch_get=None):
+    """The whole inventory as a dict (see the module's docstring)."""
+    records, findings, notes = discover(root, arch_tested)
+    fill_tests(records)
+    net = net or Net(offline=offline)
+    lookup_versions(records, net, components, lists, arch_get)
+    apply_advisories(records, advisories)
+    for f in findings:
+        rec = records.get(f["component"])
+        if rec is not None:
+            rec["result"] = "finding: %s" % f["finding"]
+            rec["notes"] = rec.get("notes", []) + [f["detail"]]
+    counts = {}
+    for rec in records.values():
+        counts[rec["kind"]] = counts.get(rec["kind"], 0) + 1
+    commit = ""
+    try:
+        commit = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"], capture_output=True, text=True,
+                                check=False).stdout.strip()
+    except OSError:
+        pass
+    return {"schema": SCHEMA, "generated": now(), "commit": commit, "offline": bool(net.offline),
+            "counts": dict(sorted(counts.items())), "total": len(records),
+            "components": sorted(records.values(), key=lambda r: (r["kind"], r["name"].lower())),
+            "findings": findings, "notes": notes, "sources": dict(sorted(net.hosts.items()))}
+
+
+# --- report ------------------------------------------------------------------------------
+
+def _md(text):
+    return str(text).replace("|", "\\|").replace("\n", " ")
+
+
+def updates_of(inv):
+    return [r for r in inv["components"] if r["result"] in ("update available", "changed since last tested",
+                                                             "builder refused", "vulnerable")]
+
+
+def to_markdown(inv, full=True):
+    out = ["### Inventory of the external components", "",
+           "%d components found in the repository (commit `%s`), checked %s UTC by `tools/inventory.py`%s." % (
+               inv["total"], (inv.get("commit") or "?")[:10], inv["generated"][:16].replace("T", " "),
+               " (offline: no available versions read)" if inv.get("offline") else ""), "",
+           "| Kind | Components |", "|---|---|"]
+    out += ["| %s | %d |" % (k, n) for k, n in inv["counts"].items()]
+    out += ["", "#### Findings", ""]
+    if inv["findings"]:
+        out += ["- **%s**: `%s`: %s" % (f["finding"], f["component"], _md(f["detail"])) for f in inv["findings"]]
+    else:
+        out.append("None: every module, program and build command is covered by a declared package.")
+    ups = updates_of(inv)
+    out += ["", "#### Newer versions or changes to verify", ""]
+    if ups:
+        out += ["| Component | Kind | In use | Available | Compatibility | Update mode |", "|---|---|---|---|---|---|"]
+        out += ["| %s | %s | %s | %s | %s | %s |" % (_md(r["name"]), r["kind"], _md(r["installed"]),
+                                                     _md(r["available"]), _md(r["compatibility"]),
+                                                     _md(r["update_mode"])) for r in ups]
+    else:
+        out.append("None.")
+    unreachable = [r for r in inv["components"] if r["result"] == "unreachable"]
+    if unreachable:
+        out += ["", "Not checked today (source unreachable): %s." % ", ".join(r["name"] for r in unreachable[:30])]
+    if inv.get("sources"):
+        out += ["", "Sources: " + "; ".join("%s %s" % (h, s) for h, s in inv["sources"].items())]
+    if full:
+        out += ["", "<details><summary>Every component</summary>", "",
+                "| Component | Kind | Type | In use | Available | Result | Vulnerabilities | Tests needed |",
+                "|---|---|---|---|---|---|---|---|"]
+        out += ["| %s | %s | %s | %s | %s | %s | %s | %s |" % (
+            _md(r["name"]), r["kind"], r["type"], _md(r["installed"]), _md(r["available"]), _md(r["result"]),
+            _md(r["vulnerabilities"]), ", ".join(r["tests_needed"])) for r in inv["components"]]
+        out += ["", "</details>"]
+    return "\n".join(out) + "\n"
+
+
+def _read_json(path):
+    if not path:
+        return None
+    try:
+        return json.loads(Path(path).read_text("utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("--json", help="write the inventory as JSON")
+    ap.add_argument("--markdown", help="write the summary as Markdown")
+    ap.add_argument("--offline", action="store_true", help="read the repository only, no available versions")
+    ap.add_argument("--components", help="tools/check-components.py --json report (the builders' own check)")
+    ap.add_argument("--lists", help="tools/check-components.py --filter-lists report")
+    ap.add_argument("--arch-tested", help="tools/check-components.py --save-arch-tested file")
+    ap.add_argument("--advisories", help="cargo-deny's last result: {state, url, date, crates}")
+    ap.add_argument("--root", default=str(ROOT), help=argparse.SUPPRESS)
+    args = ap.parse_args(argv)
+    inv = inventory(Path(args.root), offline=args.offline, components=_read_json(args.components),
+                    lists=_read_json(args.lists), arch_tested=_read_json(args.arch_tested),
+                    advisories=_read_json(args.advisories))
+    if args.json:
+        Path(args.json).write_text(json.dumps(inv, indent=1) + "\n", "utf-8")
+    text = to_markdown(inv)
+    if args.markdown:
+        Path(args.markdown).write_text(text, "utf-8")
+    print(to_markdown(inv, full=False), end="")
+    out = os.environ.get("GITHUB_OUTPUT")
+    if out:
+        with open(out, "a", encoding="utf-8") as f:
+            f.write("components=%d\nfindings=%d\nupdates=%d\n" % (inv["total"], len(inv["findings"]),
+                                                                  len(updates_of(inv))))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

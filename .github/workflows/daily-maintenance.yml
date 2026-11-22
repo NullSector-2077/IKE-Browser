@@ -165,9 +165,25 @@ jobs:
           install -m755 ike-adblock/target/release/libike_adblock.so vendor/adblock/ike_adblock.abi3.so
           python3 tools/check-components.py --filter-lists filter-lists.json --markdown filter-lists.md
           cat filter-lists.md >> component-report.md
+      # 2026-11-22 (WP13): the licence files of the candidate against its crates
+      # and components, for its pull request's report. Never stops the
+      # candidate: the "Licences" step of its tests decides.
+      - name: The candidate's licence files
+        if: steps.changes.outputs.changed == 'true' && steps.engine.outputs.engine == 'builds'
+        continue-on-error: true
+        run: |
+          set +e
+          python3 tools/third-party.py --check > licences.txt 2>&1
+          echo "exit $?" >> licences.txt
+          tail -n 5 licences.txt
       - name: The candidate's report
         if: steps.changes.outputs.changed == 'true'
-        run: cp component-report.md "$RUNNER_TEMP/maintenance-candidate/component-report.md"
+        run: |
+          cp component-report.md "$RUNNER_TEMP/maintenance-candidate/component-report.md"
+          # what tools/maintenance-report.py reads for the pull request (each may be missing)
+          for f in component-report.json filter-lists.json licences.txt; do
+            if [ -f "$f" ]; then cp "$f" "$RUNNER_TEMP/maintenance-candidate/$f"; fi
+          done
       - name: Compare with the candidate already published
         id: compare
         if: steps.changes.outputs.changed == 'true'
@@ -334,6 +350,25 @@ jobs:
           version=$(git show refs/heads/automation/daily-maintenance:ike/__init__.py | sed -n 's/^__version__ = "\(.*\)"/\1/p')
           main_version=$(git show origin/main:ike/__init__.py | sed -n 's/^__version__ = "\(.*\)"/\1/p')
           body="$RUNNER_TEMP/maintenance-candidate/component-report.md"
+          # 2026-11-22 (WP13): the body lists the components old -> new and why, the
+          # automatic fix's changes, the problems found, the tests of this commit by
+          # category with what is NOT VERIFIED, the security checks, the licences
+          # and the limits (tools/maintenance-report.py); the component report
+          # follows it. A candidate pushed now has no results yet: the next daily
+          # run writes them here. Without the composer, the report alone, as before.
+          cand="$RUNNER_TEMP/maintenance-candidate"
+          if [ "$PUSH" = "true" ]; then sha=$(git rev-parse refs/heads/automation/daily-maintenance); pushed="--pushed"
+          else sha="$published"; pushed=""; fi
+          git log --format='%h %s' --grep '^autofix:' "origin/main..refs/heads/automation/daily-maintenance" \
+            > "$RUNNER_TEMP/autofix-commits.txt" || true
+          python3 tools/maintenance-ledger.py gather --repo "$GITHUB_REPOSITORY" --candidate-sha "$sha" \
+            --out "$RUNNER_TEMP/status.json" || true
+          if python3 tools/maintenance-report.py --components "$cand/component-report.json" \
+               --report-md "$body" --status "$RUNNER_TEMP/status.json" --autofix "$RUNNER_TEMP/autofix-commits.txt" \
+               --licences "$cand/licences.txt" --lists "$cand/filter-lists.json" --engine "$ENGINE" $pushed \
+               --out "$RUNNER_TEMP/pr-body.md" > /dev/null; then
+            body="$RUNNER_TEMP/pr-body.md"
+          fi
           if [ "$version" = "$main_version" ] && [ -n "$(git tag -l "v$main_version")" ]; then
             title="Maintenance: packages of the automatic tests (no new release)"
             printf '\n\nOnly the automatic tests use these packages: merging changes nothing for users and needs no release.\n' >> "$body"
@@ -357,6 +392,10 @@ jobs:
           fi
           if [ "$PUSH" = "true" ]; then
             retry gh workflow run tests.yml --ref automation/daily-maintenance
+            # 2026-11-22: the sandbox and the RustSec advisories on the candidate too
+            # (otherwise "not verified" in its report); never a reason to stop
+            retry gh workflow run security.yml --ref automation/daily-maintenance \
+              || echo "::warning::the security checks could not be started on the candidate"
           else
             # the same candidate as yesterday: its tests were started then, unless
             # that run stopped after the push (audit of #65: then they never ran)

@@ -15,7 +15,7 @@ signs anything, and no workflow pushes to `main`.
 
 | When | What | Workflow | Result |
 |---|---|---|---|
-| Every day, 05:17 UTC | Upstream versions of the bundled components (and whether I.K.E.'s builders still accept them), Arch Linux's own packages against the versions the last green `arch.yml` run on `main` tested, and the default filter lists loaded into `main`'s AdBlock engine | `daily-check.yml` | Issue labelled `components` (titled "Component incompatibility: ..." when a builder refused a new version); when Arch's packages changed, `arch.yml` started on `main` |
+| Every day, 05:17 UTC | Upstream versions of the bundled components (and whether I.K.E.'s builders still accept them), Arch Linux's own packages against the versions the last green `arch.yml` run on `main` tested, and the default filter lists loaded into `main`'s AdBlock engine | `daily-check.yml` | Issue labelled `components` (titled "Component incompatibility: ..." when a builder refused a new version); when Arch's packages changed, `arch.yml` started on `main`; the inventory of every external component and the issue "Maintenance ledger" (label `maintenance-ledger`), see "Inventory, ledger and what is verified" |
 | Every day, 06:17 UTC | The updates applied to a candidate built from current `main` | `daily-maintenance.yml` | Branch `automation/daily-maintenance`, draft PR labelled `maintenance` |
 | On every PR, every push to `main`, every candidate or fix | Lint, all the tests, the Arch package and its tests | `tests.yml` | Checks on the PR, package download `ike-browser-package` |
 | When one of the three above fails, or `arch.yml` fails on `main` or on the fix branch | An automatic fix (for `arch.yml` only when `Tests` passed on the same commit) | `autofix.yml` | Draft PR labelled `autofix`, or an issue "ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!! (<workflow>)" assigned to the owner, which GitHub mails |
@@ -167,7 +167,16 @@ outside I.K.E.'s releases. These are followed as components too
 (`ARCH_PACKAGES` in `tools/check-components.py`): `qt6-webengine`,
 `qt6-base`, `qt6-webchannel`, `qt6-svg`, `python-pyqt6`,
 `python-pyqt6-webengine`, `python`, `python-cryptography`, `python-jeepney`,
-`publicsuffix-list` and `rust` (it brings `cargo`, for the build).
+`publicsuffix-list` and `rust` (it brings `cargo`, for the build). Since
+1.1.22 also the packages features of 1.1.21 and 1.1.22 depend on:
+`fontconfig`, `noto-fonts` and `ttf-dejavu` (the font allowlist,
+`ike/fontallow.py`), `breeze`, `oxygen`, `kvantum`, `plasma-integration` and
+`breeze-icons` (the widget styles, KDE's theme and the icon test) and
+`ffmpeg` (video). `arch.yml` installs them from the branch `fix/1.1.22` on;
+until then a run records them as "not installed": the report says **not
+verified** for them, and Arch's new versions of a package a run did not
+install never start `arch.yml` (a package no run recorded at all still
+does, once).
 
 - **What was really tested.** `arch.yml` installs them in `archlinux:latest`
   and records, before the tests, what it tests: `pacman -Q` of each package,
@@ -219,6 +228,119 @@ outside I.K.E.'s releases. These are followed as components too
     the merge waits for every check of its commit; when `arch.yml` passes
     there, it asks for the merge as the other checks do.
 
+## Inventory, ledger and what is verified
+
+The first work packages of the full automatic maintenance (2026-11-22; the
+owner's decisions are in CLAUDE.md: nothing merges into `main` by itself, AI
+agents only on isolated branches, workflow files only as proposals, free
+providers only). They extend `tools/check-components.py` and the daily
+workflows; there is no second system.
+
+**The inventory** (`tools/inventory.py`, read-only). Every external component
+is found in the repository itself, so a dependency added later appears with
+no change of the tool:
+
+- PKGBUILD `depends`, `makedepends`, `optdepends` and the commands of
+  `build()` (`cargo`: `rust`; `gcc`; and `makepkg`);
+- the Arch packages the daily check follows (`ARCH_PACKAGES`);
+- the Python modules `ike/` and `ike_boot.py` import (AST), each mapped to its
+  Arch package by Arch's rule (`foo` is `python-foo`, with the exceptions of
+  `MODULE_PACKAGES`), and the PyQt6 modules with the Qt packages they need
+  (`QtWebEngineCore`: `python-pyqt6-webengine` and `qt6-webengine`, `QtSvg`:
+  `qt6-svg`...);
+- the programs `ike/` starts (`subprocess`, `QProcess`; `xdg-open` through
+  Qt's `QDesktopServices`), each mapped to its Arch package (`notify-send`:
+  `libnotify`, `xdg-settings`: `xdg-utils`);
+- every crate of `ike-adblock/Cargo.lock`, direct or transitive;
+- the Node.js modules of `tools/*.mjs`;
+- the PyPI packages the workflows install (`-r tools/test-requirements.txt`
+  and single packages), `cargo install` tools (cargo-deny), the Rust,
+  Python and Node.js versions, the runner images and apt packages;
+- every `uses:` of a GitHub Action with the commit it is pinned to;
+- Dark Reader, uBlock Origin's scriptlets, the default filter lists
+  (`ike/config.py` `DEFAULT_LISTS`) and the vendored AdBlock engine.
+
+A module, program or build command that no declared package covers is a
+finding **"used but not declared"** (an optional import whose package is only
+in `optdepends` is fine; a required one is "declared too weakly"); a program
+or Qt module whose package is not known is "unknown provider"; an action not
+pinned to a commit is "not pinned". Each record has its name, kind, type,
+origin (where in the repository it was found), distribution, the version in
+use, the available version (Arch from archlinux.org's JSON API as
+`check-components.py` reads it, crates.io's index, PyPI, npm, GitHub's tags
+with `git ls-remote`, the builders' own check for Dark Reader and uBlock
+Origin, the lists check for the lists), its update mode, the tests an update
+needs, its compatibility (a crate's update is "semver-compatible" or "major:
+needs a requirement change"), vulnerabilities, the last check and its result.
+What is not known or could not be read is "unknown" or "not checked", never
+guessed; a host that does not answer three times is not asked again that
+day. Vulnerabilities come only from a check that ran: the RustSec advisories
+of `security.yml`'s last run on `main` for the crates; everything else says
+"not checked". On today's repository the inventory finds about 200
+components and no finding. Output: JSON and a Markdown summary (the daily
+check's run summary and artifact `maintenance-ledger`).
+
+**The ledger** (`tools/maintenance-ledger.py`, job `ledger` of
+`daily-check.yml`: `contents: read`, `actions: read`, `pull-requests: read`,
+`issues: write`; the token only in the steps that call GitHub, never in the
+inventory's). One issue, "Maintenance ledger", labelled `maintenance-ledger`
+and written only by the daily check: a readable table and, between two
+markers, a JSON block the next run reads back (only from the bot's own issue;
+a block with an unknown state or a key that does not match its entry is not
+read, and the ledger starts again). One entry per update of one component,
+key `<component>@<new version>`, with from → to, state, reason, attempts,
+first and last seen, the last run's link, the next retry and a short
+history. The states:
+
+| State | When |
+|---|---|
+| detected | a newer version (or a new dependency) was found |
+| candidate | the daily candidate carries it (read from the candidate's files); its tests have not run |
+| testing | the candidate's checks, or `arch.yml` on `main` for an Arch package, are running |
+| fixing | they failed: the automatic fix works on it |
+| passed | every required check passed (it waits for the owner's merge), or it is in `main` |
+| blocked | a RustSec advisory, or tried `MAX_ATTEMPTS` times |
+| needs-person | a builder refused it, a workflow file (proposals only), a dependency used but not declared, the automatic fix gave up, or checks that passed but left a required category not verified |
+| retry-later | a source unreachable today (tried again the next day), or a new major version `cargo update` cannot take (looked at again weekly) |
+
+The same update is never added twice; a failed one keeps its reason and is
+tried again when its time comes or when `main` changes; finished entries
+leave after 30 days. A component never seen before (a new import, depend,
+crate or `uses:`) is an entry "(new) → version": passed once the tests of
+`main` are green with it, "needs-person" while the inventory has a finding
+about it. The ledger also **closes the automatic fix's reports whose failure
+is gone**: an open report of "Tests" (the bot's issue and its own comments
+only) is closed with a comment when, on every branch it names, a run of a
+later commit passed every step the report named as failed (with none named,
+the whole run). Issue #97 ("Licences", fixed by #95) closes when the next
+candidate passes "Licences" and "No tests lost".
+
+**What is verified** (`tools/test-categories.py`). A skipped test, or a check
+that did not run, is **not verified**, never passed. `tests.yml` writes
+pytest's junit for the suite and for the installed package; the step "What
+the tests verified" (always, never failing the run) puts the counts and every
+skipped test, by area and with its reason, in the run's summary, and keeps
+them in the artifact `test-results` for the ledger and the candidate's pull
+request. Each kind of component needs its categories (`REQUIRED`): a crate
+needs the Rust tests, the licences, the whole suite, the package build, the
+old processor, the installed package, the RustSec advisories and "no tests
+lost"; the AdBlock engine also the filter lists and Arch; an Arch package
+`arch.yml`; a test package the lint and the suite; and so on. A category not
+run on the candidate's commit is "not verified" with the reason; "desktop"
+(KDE Plasma, notifications, a real graphics card) is never run by GitHub and
+always says so.
+
+The inventory, the ledger, the test categories, the candidate's report and
+`tools/check-components.py` itself are in the guard's protected files
+(`FORBIDDEN_FILES`): no agent changes what judges it.
+
+Not yet (later work packages): one candidate per component (WP5); security
+findings connected to an analysis and a fix on an isolated branch (WP6);
+advisories for Python, npm, Arch and the actions (WP7); the filter lists'
+classification (WP8); providers checked as free (WP9); the optional Arch
+packages tested one by one and `arch.yml` on the candidate (WP10); the
+builders' re-anchoring path and workflow proposals (WP11, WP12).
+
 ## The maintenance candidate
 
 1. `daily-maintenance.yml` starts `automation/daily-maintenance` from the
@@ -258,6 +380,19 @@ once, after every component is applied (`refresh_licences`). Until the
 trials of 2026-11-22 it ran only with the crates' update, before uBlock
 Origin's scriptlets were copied: candidate `97df120` kept the old commit in
 `NOTICE.ubo-scriptlets` and failed at "Licences" (issue #97).
+
+The candidate's pull request (since 2026-11-22, `tools/maintenance-report.py`)
+lists, above the component report: the components old → new and why; the
+automatic fix's commits it carries; the problems found (a builder that
+refused, a source unreachable, a new engine that does not build, filter-list
+findings); the tests of its commit by category with their results and what
+is **not verified** (a category not run yet, a skipped test with its reason,
+what GitHub cannot run); the security checks (the sandbox and the RustSec
+advisories: `security.yml` is now started on the candidate with its tests);
+the licences (`tools/third-party.py --check` when the candidate was made,
+and the "Licences" step); and the limits of what was checked. A candidate
+pushed in this run has no results yet; the next daily run, which edits the
+pull request again, writes them.
 
 ### Rehearsing the maintenance on a branch
 
@@ -316,7 +451,15 @@ never touched.
    job that reports failed (`hand-over` of the tests, `update-issue` of the
    daily check, `publish-candidate` of the maintenance), there is no AI fix of
    `main`: an issue **"GitHub or the runner failed: <workflow>"** says so, in
-   its own words and without a message for ChatGPT. Its title is not the one
+   its own words and without a message for ChatGPT. Since 2026-11-22 the same
+   holds for git failing to reach GitHub inside the tests' bookkeeping steps
+   ("No tests lost", "The starting commit's tests on this code", which fetch
+   `main`): when every failed step is one of them and each failed job's log
+   ends with git's own network or server error and exit code 128 (run
+   44990600858: `git fetch` got HTTP 403, and an AI fix was planned), the
+   failed jobs run once more, and a second failure is that issue, no AI
+   (`infra_in_logs` in `tools/autofix-plan.py`; tests lost for real, or any
+   other failure, stay the code's). Its title is not the one
    the plan reads, so it never holds back the fix of a real failure. For
    `arch.yml`, pacman, Arch's mirrors and keyring, the container and the
    engine's crates' download count as such failures too, and a failure of
@@ -701,8 +844,9 @@ point was checked before it was changed, and each change has a test in
 
 Still open after the audit, by choice: the weekly health check does not yet
 report old autofix pull requests or count cancelled runs (L1); the plan reads
-the first 100 comments of an issue and never closes a report when its failure
-is gone (L2); ruff and pytest are not pinned, and the reserves' lint runs in
+the first 100 comments of an issue (L2: since 2026-11-22 the daily check's
+ledger closes a report of "Tests" when its failure is gone, see "Inventory,
+ledger and what is verified"); ruff and pytest are not pinned, and the reserves' lint runs in
 the step that holds their keys (ruff only reads files; L6).
 
 ### Trying the whole chain (end to end)

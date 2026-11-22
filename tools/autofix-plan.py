@@ -86,7 +86,7 @@ INFRA_TITLE = "GitHub or the runner failed: %s"
 ARCH = "Arch Linux"
 ARCH_JOB = "Arch Linux"              # the name of arch.yml's job that builds and tests
 HANDLED = ("Tests", "Daily maintenance candidate", "Daily component check", ARCH)
-REPORTING_JOBS = {"Tests": ("hand-over",), "Daily component check": ("update-issue", "start-arch"),
+REPORTING_JOBS = {"Tests": ("hand-over",), "Daily component check": ("update-issue", "start-arch", "ledger"),
                   "Daily maintenance candidate": ("publish-candidate",), ARCH: ("hand-over", "merge-ready")}
 INFRA_STEP = re.compile(r"^(Set up job|Complete job|Post |Check out|Run actions/(checkout|setup-|upload-artifact"
                         r"|download-artifact|cache)|Upload |Download |Validate downloaded|Rust$|Test environment$)")
@@ -95,6 +95,14 @@ INFRA_STEP = re.compile(r"^(Set up job|Complete job|Post |Check out|Run actions/
 # engine's crates: never the code's
 ARCH_INFRA_STEP = re.compile(r"^(Initialize containers|Stop containers|Git \(for the checkout\)|Git owner check"
                              r"|Arch's packages|AdBlock engine's crates)$")
+# Steps of tests.yml that only keep the books (they fetch main with git and compare
+# the tests with it): git failing to reach GitHub there is infrastructure (infra_in_logs)
+BOOKKEEPING_STEPS = ("No tests lost", "The starting commit's tests on this code")
+GIT_NETWORK = re.compile(
+    r"^(fatal|error): (unable to access '[^']*': |RPC failed|the remote end hung up|early EOF|expected flush"
+    r"|could not read (from remote repository|Username)|Could not resolve host|Failed to connect"
+    r"|unable to connect|Authentication failed|repository '[^']*' not found)"
+    r"|The requested URL returned error: (403|429|5\d\d)|^ssh: connect to host", re.I)
 LOG_TRIES = 3
 # Steps where a test may fail only sometimes (Qt WebEngine under load): failed
 # there once, the tests run once more before any AI is asked (audit of #65, M5)
@@ -322,6 +330,37 @@ def infra_failure(name, failed_jobs):
                 "keyring or package set, the container or crates.io, not the code: the next run usually passes"
                 % ", ".join(steps))
     return ""
+
+
+def git_network_failure(log):
+    """True when a step's log ends with git failing to reach GitHub: git's exit code 128 right after
+    a line of git's own about the network or the server (HTTP 403/5xx, a name not resolved, a cut
+    connection), as in run 44990600858 ("No tests lost": `git fetch` got HTTP 403)."""
+    lines = [ln.strip() for ln in (log or "").splitlines() if ln.strip()]
+    if not lines or lines[-1] != "##[error]Process completed with exit code 128.":
+        return False
+    return any(GIT_NETWORK.search(ln) for ln in lines[-6:-1])
+
+
+def infra_in_logs(plan, name, failed_jobs, logs, attempt):
+    """The plan when every failed step is one of the tests' bookkeeping steps (BOOKKEEPING_STEPS:
+    they fetch main with git before comparing the tests) and each failed job's log ends with git
+    failing to reach GitHub: infrastructure, not the code (until 2026-11-22 an AI fix was planned for
+    an HTTP 403 of `git fetch`). The first time the failed jobs run once more; then an issue of
+    GitHub's title, no AI. logs: {job name: the failed step's cleaned log}."""
+    if plan["action"] != "fix" or name != "Tests" or not failed_jobs:
+        return plan
+    steps = [st for j in failed_jobs for st in failed_steps(j)]
+    if not steps or not all(st in BOOKKEEPING_STEPS for st in steps):
+        return plan
+    if not all(git_network_failure(logs.get(j["name"])) for j in failed_jobs):
+        return plan
+    reason = ("git could not reach GitHub in a bookkeeping step of the tests (%s: git exit 128, a network or "
+              "server error): GitHub's, not the code's" % ", ".join(steps))
+    plan = dict(plan, kind="infra", checkout="", push_branch="", attempt="0", allow_adblock="false")
+    if int(attempt or 1) == 1:
+        return dict(plan, action="rerun", reason=reason + "; the failed jobs run once more")
+    return dict(plan, action="issue", reason=reason + "; it failed again after running once more")
 
 
 def logs_missing(plan):
@@ -700,7 +739,7 @@ def main(argv=None):
     parts = ["# Failure to fix\n",
              "- Workflow: %s\n- Branch: %s\n- Commit: %s\n- Run: %s\n" % (
                  run["name"], branch, run.get("head_sha", ""), run.get("html_url", ""))]
-    read, logs = 0, []
+    read, logs, by_job = 0, [], {}
     for job in failed:
         steps = [s["name"] for s in job.get("steps", []) if s.get("conclusion") == "failure"]
         log = job_log(repo, job) if plan["action"] in ("fix", "issue") else None
@@ -709,10 +748,13 @@ def main(argv=None):
         else:
             read += 1
             logs.append(log)
+            by_job[job["name"]] = log
         parts.append("\n## Job `%s` (failed step: %s)\n\nThe failed step's log:\n\n```text\n%s\n```\n"
                      % (job["name"], ", ".join(steps) or "?", log.replace("```", "'''")))
     if failed and not read:
         plan = logs_missing(plan)
+    # git failing to reach GitHub in a bookkeeping step is GitHub's, not the code's (2026-11-22)
+    plan = infra_in_logs(plan, run["name"], failed, by_job, run.get("run_attempt"))
     if arch and plan["action"] in ("fix", "issue"):
         parts.insert(2, arch_failure(arch[0], arch[1], run.get("_arch_changes") or [], "\n".join(logs)))
     # where the fix branch was when this plan was made: publish pushes only if
