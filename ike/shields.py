@@ -875,6 +875,13 @@ class Shields(QObject):
         colors = {"{{bg}}": pal.color(R.Window), "{{fg}}": pal.color(R.WindowText),
                   "{{card}}": pal.color(R.Base), "{{acc}}": pal.color(R.Highlight),
                   "{{line}}": pal.color(R.Mid), "{{mute}}": pal.color(R.PlaceholderText)}
+        # the dimmed text and the accent (the large numbers, the outlines) as
+        # readable on the page as WCAG asks, 4.5:1 and 3:1 (1.1.22: LXQt's dark
+        # palette gave a dark red #640b0c on #232323, 1.4:1)
+        from .uistyle import readable
+        bg, fg = colors["{{bg}}"], colors["{{fg}}"]
+        colors["{{mute}}"] = readable(colors["{{mute}}"], bg, fg)
+        colors["{{acc}}"] = readable(colors["{{acc}}"], bg, fg, 3.0)
         for k, c in colors.items():
             html = html.replace(k, c.name())
         import html as _html
