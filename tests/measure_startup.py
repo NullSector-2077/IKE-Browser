@@ -1,5 +1,6 @@
 """Start-up time of I.K.E.: from starting the program to its first window on
-screen, median of several starts, each with an empty profile (as the tests).
+screen, and to its first page (the new tab page) loaded (1.1.22), median of
+several starts, each with an empty profile (as the tests).
 
     python tests/measure_startup.py [runs]           this repository
     IKE_TEST_APP=/usr/lib/ike-browser python3 tests/measure_startup.py  an installed copy
@@ -22,13 +23,22 @@ APP = Path(os.environ.get("IKE_TEST_APP") or ROOT)
 HOOK = '''
 import json, os, time
 from PyQt6.QtCore import QTimer
+times = []
+def done():
+    with open(os.environ["IKE_T_OUT"], "w") as f:
+        f.write(json.dumps(times))
+    for w in list(ike.windows):
+        w.close()
+    QTimer.singleShot(50, qapp.quit)
+def page(ok=True):
+    if len(times) == 1:
+        times.append(time.time())
+        done()
 def check():
     if ike.windows and ike.windows[0].isVisible():
-        with open(os.environ["IKE_T_OUT"], "w") as f:
-            f.write(json.dumps(time.time()))
-        for w in list(ike.windows):
-            w.close()
-        QTimer.singleShot(50, qapp.quit)
+        times.append(time.time())
+        ike.windows[0].current_view().loadFinished.connect(page)
+        QTimer.singleShot(20000, page)
         return
     QTimer.singleShot(5, check)
 check()
@@ -40,7 +50,7 @@ def main(runs):
     hook = work / "hook.py"
     hook.write_text(HOOK, "utf-8")
     cmd = [sys.executable, str(APP / "ike_boot.py")]
-    times = []
+    times, pages = [], []
     for i in range(runs + 1):
         home = work / ("home%d" % i)
         cfg = home / ".config" / "ike-browser"
@@ -63,9 +73,13 @@ def main(runs):
         t0 = time.time()
         subprocess.run(cmd, env=env, capture_output=True, timeout=120)
         if i:
-            times.append(json.loads(out.read_text()) - t0)
+            window, first_page = json.loads(out.read_text())
+            times.append(window - t0)
+            pages.append(first_page - t0)
     print("start-up: median %.3f s over %d starts (%s)"
           % (statistics.median(times), len(times), " ".join("%.2f" % t for t in times)))
+    print("first page: median %.3f s (%s)"
+          % (statistics.median(pages), " ".join("%.2f" % t for t in pages)))
 
 
 if __name__ == "__main__":
