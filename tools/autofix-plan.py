@@ -15,6 +15,7 @@ at the failed run and writes, as GitHub outputs:
     attempt         1, 2, ... (at most MAX_ATTEMPTS fixes for one failure)
     allow_adblock   true only on a maintenance candidate that updates the engine
     workflow        name of the failed workflow
+    mode            "lists" on a filter lists' branch (the guard's --lists), "builder" on a builder's
 
 and writes the end of the failed jobs' logs to --logs (Markdown).
 
@@ -52,6 +53,15 @@ decision of 2026-11-22) starts an analysis and a fix on an isolated branch
 
 The outputs then also hold ``security`` (true: the checker runs with
 --security) and ``findings`` (the advisory the update takes, JSON).
+
+A filter lists' branch ``automation/update/lists-<date>`` (the AI analysis the
+daily check starts, tools/ai-work.py and tools/filter-lists.py) whose "Tests"
+or "Arch Linux" fail after an AI change is fixed there too (2026-11-22, PR
+#111 had been left to wait): kind "update", mode "lists" (the guard's --lists,
+I.K.E.'s adapter only, never more of the ad blocker), from the branch's tip,
+each attempt with a fresh context and the next free provider first, up to
+ISOLATED_ATTEMPTS counted from the analysis' own first attempt; then an issue
+for a person and the branch is kept.
 
     autofix-plan.py --run-id ID --logs FILE [--repo OWNER/NAME]
 """
@@ -133,6 +143,8 @@ ARCH_JOB = "Arch Linux"              # the name of arch.yml's job that builds an
 ARCH_TESTING = "Arch Linux (testing)"
 ARCH_TESTING_PREFIX = "automation/update/arch-testing-"
 BUILDER_PREFIX = "automation/builder/"
+# the filter lists' AI analysis (WP8): its isolated branch, one per day (tools/filter-lists.py BRANCH)
+LISTS_BRANCH = re.compile(r"automation/update/lists-\d{4}-\d\d-\d\d")
 HANDLED = ("Tests", "Daily maintenance candidate", "Daily component check", ARCH, ARCH_TESTING)
 # WP6 (2026-11-22): security.yml's findings, on isolated branches only
 SECURITY = "Security"
@@ -141,6 +153,8 @@ SECURITY_PREFIX = "automation/update/security-"
 # isolated branches the owner allowed the agents (automation/update/*, automation/builder/*)
 SECURITY_WATCHED = ("main", MAINTENANCE, FIX_MAIN)
 ISOLATED_PREFIXES = ("automation/update/", "automation/builder/")
+# the plans of the isolated branches: ISOLATED_ATTEMPTS fixes, the providers in turn
+ISOLATED_KINDS = ("update", "builder", "arch-testing")
 REPORTING_JOBS = {"Tests": ("hand-over",), "Daily component check": ("update-issue", "start-arch", "ledger"),
                   "Daily maintenance candidate": ("publish-candidate",), ARCH: ("hand-over", "merge-ready"),
                   ARCH_TESTING: ("hand-over", "merge-ready"),
@@ -468,11 +482,18 @@ def isolated(branch):
     return bool(_tool("update-candidates").id_of_branch(branch))
 
 
+def lists_branch(branch):
+    """automation/update/lists-<date> exactly: the branch of the filter lists' AI analysis."""
+    return bool(LISTS_BRANCH.fullmatch(branch or ""))
+
+
 def fixable(name, branch):
     """A failure of Tests or Arch on this branch is fixed: the automation's own branches, the
-    isolated branches of the security fixes (WP6) and of the full chain's candidates."""
+    isolated branches of the security fixes (WP6), of the full chain's candidates and of the
+    filter lists' analysis."""
     return branch in FIXABLE_BRANCHES or (name == "Tests" and branch.startswith(SECURITY_PREFIX)) or \
-        (name in ("Tests", ARCH, ARCH_TESTING) and isolated(branch))
+        (name in ("Tests", ARCH, ARCH_TESTING) and isolated(branch)) or \
+        (name in ("Tests", ARCH) and lists_branch(branch))
 
 
 def decide_security(run, failed_jobs, plan, open_issues=(), now=None):
@@ -708,6 +729,18 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
             plan.update(action="issue", reason="blocked: %d automatic fixes under the security rules did not make "
                         "%s pass; the owner decides" % (MAX_ATTEMPTS, target))
             return plan
+    elif lists_branch(target):
+        # the filter lists' analysis (WP8): its AI change failed the tests. Fixed on its branch in the
+        # same lists mode (the guard's --lists: I.K.E.'s adapter only; allow_adblock stays false, the
+        # mode alone decides), from the branch's tip; attempt 1 was the analysis itself. The recorded
+        # rules are already on the branch (written by attempt 1's workflow, never by the AI).
+        plan.update(kind="update", mode="lists", recorded="", checkout=run["_tip"], push_branch=target,
+                    attempt=str(run["_attempts"] + 1), allow_adblock="false")
+        if int(plan["attempt"]) > ISOLATED_ATTEMPTS:
+            plan.update(action="issue", reason="needs-person: %d automatic changes of I.K.E.'s adapter, each with a "
+                        "fresh context and another free provider first, did not make %s pass; the branch is kept "
+                        "for a person" % (ISOLATED_ATTEMPTS, target))
+            return plan
     elif isolated(target):
         # the full chain (WP5, WP10, WP11): the candidate's own branch, fixed there with a fresh
         # context per attempt, up to the configurable cap; the branch is kept at the cap
@@ -734,7 +767,9 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
         plan.update(kind="maintenance", checkout=run["_tip"], push_branch=MAINTENANCE,
                     attempt=str(run["_attempts"] + 1),
                     allow_adblock="true" if run.get("_engine_update") else "false")
-    if int(plan["attempt"]) > MAX_ATTEMPTS:
+    # the isolated kinds have their own cap (ISOLATED_ATTEMPTS, above): until 2026-11-22 this one
+    # stopped them at MAX_ATTEMPTS too
+    if plan["kind"] not in ISOLATED_KINDS and int(plan["attempt"]) > MAX_ATTEMPTS:
         plan.update(action="issue", reason="%d automatic fixes did not make it pass" % MAX_ATTEMPTS)
         return plan
     plan.update(action="fix", reason="%s failed on %s (jobs: %s)" % (name, branch or "?", ", ".join(job_names)))
@@ -748,8 +783,9 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
 
 
 def first_provider(plan):
-    """The provider an attempt on an isolated candidate starts with ("" elsewhere: Antigravity first)."""
-    if plan.get("action") != "fix" or plan.get("kind") not in ("update", "builder", "arch-testing"):
+    """The provider an attempt on an isolated candidate (a filter lists' branch too) starts with ("" elsewhere:
+    Antigravity first)."""
+    if plan.get("action") != "fix" or plan.get("kind") not in ISOLATED_KINDS:
         return ""
     try:
         return _tool("ai-providers").first_provider(int(plan.get("attempt") or 1))
@@ -880,6 +916,16 @@ SECURITY_NOTE = (
     "ENGINE_SAFETY or the functions that decide them, the security tests (the files security.yml runs), "
     "ike-adblock/deny.toml, or anything that names a RustSec advisory: a fix that does is refused, and no "
     "other assistant is asked. Weakening a protection is never a fix.\n")
+
+
+LISTS_RETRY_NOTE = (
+    "\n## The filter lists' analysis, again (its tests failed)\n\n"
+    "An earlier AI change of I.K.E.'s adapter on this branch made the tests below fail. This run is a failed "
+    "test, with the filter lists' rules: correct that change, starting from it (shown at the end), so that the "
+    "tests pass and I.K.E. still reads the rules recorded in tests/data/lists-recorded/ "
+    "(tests/test_lists_recorded.py). Change only `ike/scriptlets.py`, `ike/blocker.py` or `ike-adblock/src/`; "
+    "never the tests, their data, the filter lists or YouTube's ad blocking; never drop a rule or an option to "
+    "make it pass. If only the engine itself could do it, change nothing and say so.\n")
 
 
 def security_prs(repo):
@@ -1094,7 +1140,8 @@ def main(argv=None):
     run["_event"] = a.event
     run["_tip"] = tip(branch) if branch else ""
     run["_main_tip"] = tip("main")
-    own_branch = branch in (MAINTENANCE, FIX_MAIN) or branch.startswith(SECURITY_PREFIX) or isolated(branch)
+    own_branch = branch in (MAINTENANCE, FIX_MAIN) or branch.startswith(SECURITY_PREFIX) or isolated(branch) or \
+        lists_branch(branch)
     run["_attempts"] = autofix_commits(branch) if own_branch else 0
     run["_engine_update"] = ((branch == MAINTENANCE or branch.startswith(SECURITY_PREFIX)) and engine_update(branch)) \
         or (isolated(branch) and _tool("update-candidates").wrapper_allowed(branch))
@@ -1157,6 +1204,8 @@ def main(argv=None):
         parts.append(previous_fix(branch, repo))
     if plan["security"] == "true" and plan["action"] == "fix":
         parts.insert(1, SECURITY_NOTE)
+    if plan.get("mode") == "lists" and plan["action"] == "fix":
+        parts.insert(1, LISTS_RETRY_NOTE)
     Path(a.logs).write_text("".join(parts), "utf-8")
 
     print(json.dumps(plan, indent=1))
