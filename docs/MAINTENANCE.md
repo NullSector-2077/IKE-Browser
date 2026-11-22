@@ -251,6 +251,13 @@ outside I.K.E.'s releases. These are followed as components too
    matter), or the engine does not build although the candidate does not
    change it (not a matter for the wrapper).
 
+The licence files (`docs/THIRD-PARTY.md`, `licenses/RUST-CRATES.txt`,
+`licenses/NOTICE.ubo-scriptlets`) are written again by `tools/third-party.py`
+once, after every component is applied (`refresh_licences`). Until the
+trials of 2026-11-22 it ran only with the crates' update, before uBlock
+Origin's scriptlets were copied: candidate `97df120` kept the old commit in
+`NOTICE.ubo-scriptlets` and failed at "Licences" (issue #97).
+
 ### Rehearsing the maintenance on a branch
 
 Started by hand on another branch than `main` (Actions → "Daily maintenance
