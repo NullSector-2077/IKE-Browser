@@ -105,6 +105,17 @@ jobs:
         run: |
           set -o pipefail
           python3 -m pytest -ra --junitxml=out/tests-arch.xml 2>&1 | tee out/tests-arch.log
+      # The interface in the widget styles of Arch's desktops (1.1.22): every
+      # text, switch and the tab preview in each language, as the owner's KDE
+      # (Breeze) and the others draw them; the run above used Qt's Fusion.
+      - name: Interface in every widget style
+        run: |
+          set -o pipefail
+          for style in Breeze Oxygen kvantum Windows; do
+            echo "== $style"
+            QT_STYLE_OVERRIDE=$style python3 -m pytest -ra -q -p no:cacheprovider \
+                tests/test_text_fit.py tests/test_tabpreview.py 2>&1 | tee -a out/styles.log
+          done
       - name: Arch package (makepkg, pacman)
         run: |
           useradd -m builder

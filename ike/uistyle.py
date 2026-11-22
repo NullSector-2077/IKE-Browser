@@ -331,6 +331,24 @@ class IkeStyle(QProxyStyle):
             paint_switch(p, box, on, opt.palette, enabled=bool(opt.state & S.State_Enabled),
                          rtl=rtl, selected=selected)
 
+    def pixelMetric(self, metric, opt=None, widget=None):
+        v = super().pixelMetric(metric, opt, widget)
+        # Qt's "Windows" style draws a menu's entries against its sides (1.1.22:
+        # every widget style of an Arch desktop is measured): a little room
+        if metric == QStyle.PixelMetric.PM_MenuHMargin and self.baseStyle().name().lower() == "windows":
+            return max(v, 4)
+        return v
+
+    def _tall_enough(self, s, opt, widget):
+        """A button at least a line of its text tall plus 2 px above and below,
+        inside the larger of the style's frames (1.1.22: Kvantum and Qt's
+        Windows style left a single pixel around some languages' text)."""
+        PM = QStyle.PixelMetric.PM_DefaultFrameWidth
+        frame = max(self.pixelMetric(PM, opt, widget), self.pixelMetric(PM, None, widget))
+        fm = widget.fontMetrics() if widget is not None else opt.fontMetrics
+        tall = fm.height() + 2 * frame + 4
+        return QSize(s.width(), tall) if s.height() < tall else s
+
     def styleHint(self, hint, opt=None, widget=None, ret=None):
         if hint == QStyle.StyleHint.SH_Menu_Scrollable:
             return 1             # a menu taller than the screen scrolls (arrows at both ends)
@@ -344,6 +362,9 @@ class IkeStyle(QProxyStyle):
             least = size.width() + 2 * (frame + TEXT_ROOM)
             if s.width() < least:
                 s = QSize(least, s.height())
+            # and above and below the text (1.1.22: Kvantum's default theme left
+            # one pixel for a line of Persian)
+            s = self._tall_enough(s, opt, widget)
         elif kind == CT.CT_MenuItem and isinstance(widget, QMenu) and isinstance(opt, QStyleOptionMenuItem) \
                 and opt.menuItemType != QStyleOptionMenuItem.MenuItemType.Separator:
             room = self._switch_room(opt, widget)
@@ -356,6 +377,7 @@ class IkeStyle(QProxyStyle):
                 least = size.width() + 2 * (TEXT_ROOM // 2 + 2)
                 if s.width() < least:
                     s = QSize(least, s.height())
+                s = self._tall_enough(s, opt, widget)
         return s
 
 

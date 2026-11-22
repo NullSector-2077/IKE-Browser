@@ -7,11 +7,17 @@ Two things the owner saw in 1.1.21 on KDE Plasma:
 - **The switches are whole in every desktop style**: with Breeze (Plasma's
   style) only the first part of each switch showed in the Settings and the
   other windows, and in the shield panel its text was drawn over it. Breeze
-  keeps a check box's box at its own size whatever it is asked; the switch is
-  now measured and placed by I.K.E. itself, as the one of the "I.K.E.
-  extensions" page was in 1.1.20. tests/test_switches.py checks every switch
-  of the windows in Breeze and in Fusion (162 cut in Breeze before, none now;
-  the Arch Linux job installs Breeze to run it).
+  (and Oxygen) keep a check box's box at their own size whatever they are
+  asked; the switch is now measured and placed by I.K.E. itself, as the one
+  of the "I.K.E. extensions" page was in 1.1.20. tests/test_switches.py
+  checks every switch of the windows in Breeze, Fusion, Windows, Oxygen and
+  Kvantum (in Breeze 162 were cut before, none now).
+- **Every text fits in every widget style**: the text-fit test of 1.1.21 now
+  also runs in Breeze, Oxygen, Kvantum and Qt's Windows style on Arch Linux
+  (the Arch job installs them). Two more things it found are fixed: buttons
+  keep at least 2 px above and below their text (Kvantum's default theme left
+  one for Persian), and in Qt's Windows style a menu's entries no longer touch
+  its left side.
 - **The tab preview shows the whole memory value**: CPU and memory were side
   by side, half the card each, and "182 MB" could end in "…". They are now
   one under the other, each the card's whole width; a test checks every
