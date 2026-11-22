@@ -64,6 +64,15 @@ def permission_text(ptype):
     return names.get(ptype, T("use a protected feature"))
 
 
+# the colour of an empty page in dark mode, before it paints
+DARK_BLANK = "#181a1b"
+
+
+def is_newtab(url):
+    """Is url (a QUrl) the new tab page, ike:newtab?"""
+    return url.scheme() == "ike" and url.path() == "newtab"
+
+
 # reader mode reports the reader settings chosen on the page with this console prefix
 # (with a token of the session: a site cannot change them)
 READER_PREFIX = "\u0001ike-reader:%s:" % __import__("secrets").token_hex(8)
@@ -107,11 +116,11 @@ class WebPage(QWebEnginePage):
         self.mouse_locked = False
         self.loadStarted.connect(lambda: setattr(self, "mouse_locked", False))
         self._loaded_url = None                     # the address the last finished load showed
+        self._backdrop = None                       # the colour shown before the page paints
         if self.app.config["dark_mode"] == "on" and self.app.config.get("comp_dark", True):
             # dark from the first moment: a window a site opens shows an empty
             # page before its address loads (1.1.19: it was white)
-            from PyQt6.QtGui import QColor
-            self.setBackgroundColor(QColor("#181a1b"))
+            self.set_backdrop(DARK_BLANK)
         self.loadStarted.connect(lambda: setattr(self, "_loaded_url", None))
         self.permissionRequested.connect(self._permission)
         self.fullScreenRequested.connect(self._fullscreen)
@@ -278,11 +287,16 @@ class WebPage(QWebEnginePage):
         # dark too while dark mode is on for every site (1.1.19: it was white)
         blank = ((url.isEmpty() or url.toString() == "about:blank") and cfg["dark_mode"] == "on"
                  and cfg.get("comp_dark", True))
-        if (on, engine, blank) != (getattr(self, "_dark_on", None),
-                                   getattr(self, "_dark_engine", None), getattr(self, "_dark_blank", None)):
-            # also the colour shown between two pages: no white flash
-            self.setBackgroundColor(QColor("#181a1b") if reader_on or blank else QColor(Qt.GlobalColor.white))
-        self._dark_blank = blank
+        # the colour shown before the page paints and between two pages: no
+        # white flash. The new tab page's own colour for the new tab page,
+        # whatever the dark mode (1.1.23: white for about 0.1 s at every start
+        # and every new tab, the owner's "white flash")
+        if reader_on or blank:
+            self.set_backdrop(DARK_BLANK)
+        elif is_newtab(url):
+            self.set_backdrop(self.app.shields.newtab_background())
+        else:
+            self.set_backdrop(QColor(Qt.GlobalColor.white))
         self._dark_on = on
         self._dark_engine = engine
         # Dark Reader: scripts of the profile (darkpages.py), as the extension does it
@@ -296,6 +310,14 @@ class WebPage(QWebEnginePage):
         theme = dict(cfg["dark_theme"]) if isinstance(cfg["dark_theme"], dict) else {}
         darkpages.prepare(profile, url.toString(), host or url.scheme() + ":", theme, reader_on,
                           self.app.shields.dark_chosen(host))
+
+    def set_backdrop(self, colour):
+        """The page's background colour, the one shown before it paints."""
+        from PyQt6.QtGui import QColor
+        colour = QColor(colour)
+        if colour.rgba() != self._backdrop:
+            self._backdrop = colour.rgba()
+            self.setBackgroundColor(colour)
 
     def _set_scriptlets(self, url, host):
         """Install the list-provided scriptlets for the page about to load.
