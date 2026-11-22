@@ -16,6 +16,7 @@ import pytest
 from conftest import screen
 
 STYLES = ["Breeze", "Fusion", "Windows", "Oxygen", "kvantum"]
+TOLERANCE = 2              # px: see test_menu_texts_share_one_left_edge
 
 BUTTONS = r'''
 from PyQt6.QtCore import QPoint, Qt, QTimer
@@ -144,11 +145,16 @@ def test_menu_texts_share_one_left_edge(run_ike, tmp_path, style, lang):
     out = run_ike(ALIGN, env=env, settings={"language": lang}, timeout=400)
     if style.lower() not in (out["style"] or "").lower():
         pytest.skip("the %s style is not installed here (got %r)" % (style, out["style"]))
-    bad = {}
+    # the first coloured pixel of a text depends on its first letter's own
+    # side bearing ("I" starts a pixel later than "R"): 2 px are allowed; an
+    # icon or a switch column out of place is 15 px or more
+    bad = []
     for where, lefts in out["menus"].items():
-        if len(set(lefts.values())) > 1:
-            bad[where] = lefts
-    assert out["menus"] and not bad, (style, lang, bad)
+        if max(lefts.values()) - min(lefts.values()) > TOLERANCE:
+            low = min(lefts.values())
+            bad.append("%s: %s" % (where, ", ".join("%s +%d" % (k, v - low) for k, v in lefts.items()
+                                                     if v - low > TOLERANCE)))
+    assert out["menus"] and not bad, "%s %s\n%s" % (style, lang, "\n".join(bad))
 
 
 PRIVATE = r'''

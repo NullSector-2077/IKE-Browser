@@ -1534,7 +1534,7 @@ class RoundHoverStyle(QProxyStyle):
                 if isinstance(widget, QToolButton) and \
                         widget.popupMode() == QToolButton.ToolButtonPopupMode.MenuButtonPopup:
                     size = QSize(max(0, size.width() - super().pixelMetric(
-                        QStyle.PixelMetric.PM_MenuButtonIndicator, plain, widget)), size.height())
+                        QStyle.PixelMetric.PM_MenuButtonIndicator, opt, widget)), size.height())
                 opt = plain
         return super().sizeFromContents(ct, opt, size, widget)
 
