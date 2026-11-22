@@ -3,6 +3,14 @@
 ## 1.1.23
 
 - uBlock Origin scriptlets: 2bc679d99a (2026-11-10) -> 5934db2a04 (2026-11-21) (1 changed, 0 new, 0 removed)
+- **Nothing gets worse** (automatic maintenance, nothing changes in the
+  browser): every commit is measured against `main` with the real browser,
+  the same way on the same fixed inputs (ad and tracker blocking, YouTube's
+  requests included, the fingerprinting surface at every level, the hosts
+  contacted by itself, the security settings), and anything weaker fails
+  (`tools/no-regression.py`, the step "Nothing gets worse" of tests.yml,
+  docs/MAINTENANCE.md). A change a person accepted goes in
+  tests/data/no-regression/allowlist.json.
 
 ## 1.1.22
 
