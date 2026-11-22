@@ -30,7 +30,8 @@ guard = load("check-autofix-patch")
 REPO = "NullSector-2077/IKE-Browser"
 
 
-RELEASE = "C'E' UNA NUOVA RELEASE IN MAIN PRONTA DA PUBBLICARE!!!"
+RELEASE = "C'E' UNA NUOVA RELEASE IN MAIN PRONTA DA PUBBLICARE!!!"        # the title until 2026-11-22
+READY = "LA RELEASE E' PRONTA DA FIRMARE"                                 # the owner's words since
 CHATGPT = "ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!!"
 
 
@@ -40,7 +41,10 @@ def test_github_itself_tells_the_owner():
     mail service of ours: no address, password or mail secret anywhere."""
     rr = (WORKFLOWS / "release-ready.yml").read_text()
     af = (WORKFLOWS / "autofix.yml").read_text()
-    assert 'title="%s"' % RELEASE in rr and '--assignee "$OWNER"' in rr and 'echo "@$OWNER:' in rr
+    assert 'ready="%s"' % READY in rr and 'title="$ready: I.K.E. $version"' in rr          # with the version
+    assert 'echo "**$ready: I.K.E. $version**"' in rr                                       # and the first line
+    assert 'before="%s"' % RELEASE in rr                                 # a notice opened before is still found
+    assert '--assignee "$OWNER"' in rr and 'echo "@$OWNER:' in rr
     assert ("[ -d ~/IKE-Browser/.git ] || git clone https://github.com/NullSector-2077/IKE-Browser.git ~/IKE-Browser; "
             "cd ~/IKE-Browser && git checkout main && git pull --ff-only && python3 tools/publish.py") in rr
     assert 'gh issue close "$open"' in rr and 'gh release view "v$version"' in rr      # closed once published

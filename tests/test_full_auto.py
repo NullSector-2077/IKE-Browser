@@ -813,7 +813,15 @@ def test_the_signing_notice_says_what_the_signature_covers():
                  "tier_b": [".github/workflows/tests.yml"], "summary": ""},
                 {"n": 123, "title": "A person's change", "self": False, "ai": False, "tier_a": [], "tier_b": []}]}
     text = notice.body("1.1.23", "o/r", "owner", info)
-    assert text.startswith("@owner: **I.K.E. 1.1.23**") and notice.COMMAND in text
+    # the owner's words in capitals with the version, then the command in its own block, ready to copy
+    lines = text.split("\n")
+    assert lines[0] == "**LA RELEASE E' PRONTA DA FIRMARE: I.K.E. 1.1.23**"
+    assert lines[1:5] == ["", "```bash", notice.COMMAND, "```"] and "@owner: **I.K.E. 1.1.23**" in text
+    # the exact invocation: the repository, main up to date, python3 tools/publish.py; the same in fish
+    assert notice.COMMAND.startswith("bash -c '") and notice.COMMAND.endswith("python3 tools/publish.py'")
+    assert "cd ~/IKE-Browser && git checkout main && git pull --ff-only && python3 tools/publish.py" in notice.COMMAND
+    assert "'" not in notice.STEPS and (ROOT / "tools/publish.py").is_file()
+    assert subprocess.run(["bash", "-n", "-c", notice.COMMAND], capture_output=True).returncode == 0
     assert text.rstrip().endswith("<!-- release-ready: 1.1.23 -->")
     reserved, protected, rest, pending = (text.index("File riservati"), text.index("#121"), text.index("#120"),
                                           text.index("Aggiornamenti ancora in corso"))

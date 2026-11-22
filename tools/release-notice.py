@@ -34,8 +34,12 @@ from pathlib import Path
 
 SELF = "(merged by itself"
 MERGE = re.compile(r"^Merge pull request #(\d+)")
-COMMAND = ("[ -d ~/IKE-Browser/.git ] || git clone https://github.com/NullSector-2077/IKE-Browser.git ~/IKE-Browser; "
-           "cd ~/IKE-Browser && git checkout main && git pull --ff-only && python3 tools/publish.py")
+# the clone when it is not there, main up to date, then the one command that signs and publishes
+# (docs/UPDATES.md). In bash -c, so it is the same in fish (CachyOS's shell) as in bash.
+STEPS = ("[ -d ~/IKE-Browser/.git ] || git clone https://github.com/NullSector-2077/IKE-Browser.git ~/IKE-Browser; "
+         "cd ~/IKE-Browser && git checkout main && git pull --ff-only && python3 tools/publish.py")
+COMMAND = "bash -c '%s'" % STEPS
+READY = "LA RELEASE E' PRONTA DA FIRMARE"          # the owner's words: the notice's title and first line
 VERSION_FILES = ("ike/__init__.py", "PKGBUILD", "README.md", "CHANGELOG.md")
 MAX_LISTED = 40
 
@@ -151,9 +155,11 @@ def _regression(change):
 def body(version, repo, owner, info):
     """The notice's text."""
     link = "https://github.com/%s/pull/%%d/files" % repo
-    out = ["@%s: **I.K.E. %s** è in `main`, con tutti i test verdi, e non è ancora pubblicata." % (owner, version), "",
-           "Per firmarla e pubblicarla, apri un terminale sul tuo PC e incolla questo comando (una riga sola):", "",
+    out = ["**%s: I.K.E. %s**" % (READY, version), "",
            "```bash", COMMAND, "```", "",
+           "@%s: **I.K.E. %s** è in `main`, con tutti i test verdi, e non è ancora pubblicata. Per firmarla e "
+           "pubblicarla, apri un terminale sul tuo PC e incolla il comando qui sopra (una riga sola; va bene anche in "
+           "fish)." % (owner, version), "",
            "La tua firma è l'unico passo fatto da una persona: tutto il resto lo fa AUTOMAT, la manutenzione "
            "automatica. Qui sotto c'è tutto quello che la firma copre, cioè ogni "
            "modifica entrata in `main` dall'ultima versione pubblicata%s." % (
@@ -212,7 +218,7 @@ def body(version, repo, owner, info):
     out += ["Ti chiederà la password della tua chiave di firma. Se si ferma, dice perché e non cambia niente su "
             "GitHub.",
             "Per una prova a vuoto (tutto tranne la pubblicazione), cambia la fine in `python3 tools/publish.py "
-            "--dry-run`.", "",
+            "--dry-run'` (con l'apice finale).", "",
             "Le novità: [CHANGELOG.md](https://github.com/%s/blob/main/CHANGELOG.md). Quando è pubblicata, questo "
             "avviso si chiude da solo." % repo, "", "<!-- release-ready: %s -->" % version]
     return "\n".join(out) + "\n"

@@ -50,11 +50,15 @@ jobs:
           GH_REPO: ${{ github.repository }}
           OWNER: ${{ github.repository_owner }}
         run: |
-          title="C'E' UNA NUOVA RELEASE IN MAIN PRONTA DA PUBBLICARE!!!"
           version=$(sed -n 's/^__version__ = "\([0-9.]*\)"$/\1/p' ike/__init__.py)
+          # the owner's words, in capitals, with the version (2026-11-22); a notice opened with the title
+          # of before is still found, and gets this one
+          ready="LA RELEASE E' PRONTA DA FIRMARE"
+          before="C'E' UNA NUOVA RELEASE IN MAIN PRONTA DA PUBBLICARE!!!"
+          title="$ready: I.K.E. $version"
           head=$(git rev-parse HEAD)
           open=$(gh issue list --label release-ready --state open --json number,title \
-                 --jq "map(select(.title == \"$title\")) | sort_by(.number) | .[0].number // empty")
+                 --jq "map(select((.title | startswith(\"$ready\")) or .title == \"$before\")) | sort_by(.number) | .[0].number // empty")
           if gh release view "v$version" >/dev/null 2>&1; then
             echo "v$version is published"
             if [ -n "$open" ]; then gh issue close "$open" --comment "Pubblicata: v$version. Grazie!"; fi
@@ -81,6 +85,8 @@ jobs:
           fi
           body="$RUNNER_TEMP/body.md"
           {
+            echo "**$ready: I.K.E. $version**"
+            echo
             echo "@$OWNER: **I.K.E. $version** è in \`main\`, con tutti i test verdi, e non è ancora pubblicata."
             echo
             echo "Per firmarla e pubblicarla, apri un terminale sul tuo PC e incolla questo comando (una riga sola):"
@@ -123,6 +129,7 @@ jobs:
           said=$(gh issue view "$open" --json body,comments \
                  --jq '[.body] + [.comments[] | select(.author.login == "github-actions") | .body] | join("\n")')
           if ! printf '%s' "$said" | grep -q "<!-- release-ready: $version -->"; then
+            gh issue edit "$open" --title "$title" > /dev/null || true
             gh issue comment "$open" --body-file "$body"
             exit 0
           fi
