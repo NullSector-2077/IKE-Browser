@@ -113,12 +113,12 @@ family's own target page; CPU ms, run 1 / run 2 [/ run 3]):
 | style-groups | 12 | repeated SVG icons | 352 / 331 | 2393 / 2354 | 210 / 115 | **kept** (-85 %) |
 | shadow-texts | 1 | 200 shadow roots | 267 / 235 | 353 / 332 | 80 / 62 | **kept** (-24 / -29 %) |
 | shadow-host-walk | 1 | 42,000 elements | 1775 / 1582 / 1471 | 1874 / 1798 / 1660 | 228 / 216 / 91 | **kept** (-12 / -11 % in runs 2 and 3) |
-| dark-copy | 5 | 200 shadow roots | 274 / 218 / 254 | 325 / 254 / 272 | 58 / 30 / 49 | dropped (above the spread in 1 of 3 runs) |
-| declarations-modifiable | 6 | 2,000 CSS rules | 733 / 689 / 710 | 812 / 746 / 756 | 88 / 88 / 54 | dropped (-6 to -10 %, below the spread) |
-| variables-none | 1 | 2,000 CSS rules | 784 / 707 / 707 | 845 / 773 / 751 | 101 / 69 / 67 | dropped (below the spread) |
-| style-moves | 2 | moved style elements | 920 / 769 / 795 | 904 / 921 / 829 | 76 / 147 / 86 | dropped (above the spread in 1 of 3 runs) |
+| dark-copy | 5 | 200 shadow roots | 274 / 218 / 254 | 325 / 254 / 272 | 58 / 30 / 49 | **kept**, second step (above the spread in 1 of 3 runs here) |
+| declarations-modifiable | 6 | 2,000 CSS rules | 733 / 689 / 710 | 812 / 746 / 756 | 88 / 88 / 54 | **kept**, second step (-6 to -10 %, below the spread here) |
+| variables-none | 1 | 2,000 CSS rules | 784 / 707 / 707 | 845 / 773 / 751 | 101 / 69 / 67 | **kept**, second step (below the spread here) |
+| style-moves | 2 | moved style elements | 920 / 769 / 795 | 904 / 921 / 829 | 76 / 147 / 86 | **kept**, third step (above the spread in 1 of 3 runs here) |
 | svg-sizes | 9 | SVG chart | 648 / 720 / 705 | 679 / 731 / 761 | 71 / 43 / 31 | dropped (above the spread in 1 of 3 runs) |
-| shadow-styles-once | 1 | 200 shadow roots | 261 / 284 / 270 | 300 / 291 / 292 | 113 / 51 / 37 | dropped |
+| shadow-styles-once | 1 | 200 shadow roots | 261 / 284 / 270 | 300 / 291 / 292 | 113 / 51 / 37 | **kept**, second step (with dark-copy) |
 | var-rule-same-text | 2 | undefined variables; Lit-Complex | 358 / 329 / 351; 560 / 595 / 595 | 410 / 372 / 388; 592 / 600 / 592 | 87 / 55 / 53; 120 / 80 / 88 | dropped (its code path was never reached) |
 | adopted-vars-first | 1 | Lit-like variables; Lit-Complex | 287 / 320; 623 / 646 | 268 / 294; 668 / 581 | 28 / 55; 76 / 92 | dropped |
 | adopted-once | 4 | adopted sheets | 204 / 222 | 215 / 224 | 37 / 42 | dropped |
@@ -126,17 +126,16 @@ family's own target page; CPU ms, run 1 / run 2 [/ run 3]):
 | image-selectors | 1 | background images | 479 / 440 | 483 / 442 | 31 / 62 | dropped |
 | inline-style-key | 1 | inline colours | 1866 / 1903 | 1873 / 1861 | 157 / 60 | dropped |
 
-Kept: 17 changes in 4 families. Dropped: 36 changes in 12 families
-(`style-groups` also lost two declarations only `dark-copy` used). Runtime
-dependencies were checked: dark-copy needs style-groups, var-rule-same-text
-needs one-text, shadow-styles-once needs shadow-texts; no kept family needs
-a dropped one. Every load of every build gave the same computed colours
+Runtime dependencies were checked: dark-copy needs style-groups,
+var-rule-same-text needs one-text, shadow-styles-once needs shadow-texts;
+no kept family needs a dropped one. Every load of every build gave the same computed colours
 (colour, background, borders, fill, stroke, background image, shadows,
 outline, decoration and stop colours of every element of the document and
 of every shadow root).
 
-**The reduced build against the full one** (1.1.20's 53 changes = A,
-the 17 kept = B; CPU ms; + means the reduced build is slower):
+**First step: the four families alone against the full build** (1.1.20's
+53 changes = A, the 17 changes of color-variables, style-groups,
+shadow-texts and shadow-host-walk = B; CPU ms; + means B is slower):
 
 | page | run 1 | run 2 | run 3 | run 4 | reading |
 |---|---|---|---|---|---|
@@ -150,15 +149,15 @@ the 17 kept = B; CPU ms; + means the reduced build is slower):
 | undefined variables (Lit pattern) | 370 / 468 (+21 %, spread 70) | | 360 / 334 (-8 %) | 342 / 375 (+9 %) | slower in 1 of 3 runs |
 | other pages (moved styles, SVG chart, adopted sheets, background images, inline colours, Lit-like variables) | -2 to +13 %, all within the spread | | | | not slower |
 
-Colours: identical in all 1,062 loads of these runs and the ones below (no error in Dark
-Reader's world, every load settled and ran the build it claimed); the only
-difference between loads is how many of Dark Reader's own style elements
+Colours: identical in every load of these runs and the ones below (no error
+in Dark Reader's world, every load settled and ran the build it claimed);
+the only difference between loads is how many of Dark Reader's own style elements
 exist at the instant of the reading (11 or 12 on the icons page, 30 or 31
 on Lit-Complex), in both builds alike.
 
-**What makes the shadow-root and CSS-rule pages slower.** Measured family
-by family *against the reduced build* (kept + the family = A, kept = B,
-two runs each), where the spread is smaller than against the full build:
+**Second step: each dropped family added back to the four** (the four +
+the family = A, the four = B, two runs each), where the spread is smaller
+than against the full build:
 
 | added to the reduced build | page | run 1 | run 2 | reading |
 |---|---|---|---|---|
@@ -169,16 +168,64 @@ two runs each), where the spread is smaller than against the full build:
 | declarations-modifiable | 2,000 CSS rules | -6 % (spread 29 ms) | -9 % (spread 27 ms) | measurable alone |
 | variables-none | 2,000 CSS rules | -7 % (spread 40 ms) | -7 % (spread 40 ms) | measurable alone |
 | one-text | 2,000 CSS rules | -2 % | +8 % | no |
-| style-moves | repeated SVG icons | -7 % (below) | -9 % (above) | 1 of 2 |
+| style-moves | repeated SVG icons | -7 % (below) | -9 % (above) | 1 of 2 (see the third step) |
 | adopted-vars-first + adopted-once | Lit-Complex | +3 % | -4 % | no |
 | all twelve | shadow roots / CSS rules / icons / Lit-Complex | -29 / -19 / -15 / +2 % | -21 / -18 / -9 / -2 % | shadow roots and CSS rules measurable |
 
-So, by the same rule, `dark-copy` with `shadow-styles-once` and
-`declarations-modifiable` and `variables-none` do give a measurable gain on
+So, by the same rule, `dark-copy` with `shadow-styles-once`,
+`declarations-modifiable` and `variables-none` give a measurable gain on
 their own worst-case pages once the bigger changes are gone: measured
 against the full build their gain was hidden in its larger spread. They
-are left out in this branch as decided; whether to bring them back is the
-owner's choice (ROADMAP).
+were kept too (decision of 2026-11-21).
+
+**Third step: the eight families against the full build, then what is
+left** (1.1.20's 53 changes = A, the 30 changes of the eight families = B;
+CPU ms, + means B is slower; two runs, icons and Lit-Complex four):
+
+| page | run 1 | run 2 | run 3 | run 4 |
+|---|---|---|---|---|
+| ordinary article (separate) | 99 / 100 (+1 %) | 98 / 99 (+1 %) | | |
+| 200 shadow roots | 293 / 321 (+9 %) | 236 / 238 (+1 %) | | |
+| 2,000 CSS rules | 696 / 754 (+8 %) | 765 / 792 (+4 %) | | |
+| many new colours | 840 / 855 (+2 %) | 942 / 909 (-4 %) | | |
+| 42,000 elements | 1470 / 1457 (-1 %) | 1505 / 1466 (-3 %) | | |
+| repeated SVG icons | 351 / 360 (+2 %) | 377 / 413 (+9 %) | 319 / 369 (+14 %, spread 23) | 355 / 380 (+7 %) |
+| Speedometer TodoMVC-Lit-Complex-DOM | 614 / 642 (+4 %) | 548 / 589 (+7 %, spread 36) | 632 / 644 (+2 %) | 620 / 692 (+10 %, spread 72) |
+
+No page was slower beyond the spread in two runs, but the icons page and
+Lit-Complex were slower by a few per cent in most rounds. Added back to the
+eight families (the eight + X = A, the eight = B, two runs):
+
+| added to the eight | page | run 1 | run 2 | reading |
+|---|---|---|---|---|
+| style-moves | repeated SVG icons | -12 % (spread 31 ms) | -13 % (spread 33 ms) | measurable: kept |
+| style-moves | Lit-Complex | -5 % | -6 % | below the spread |
+| adopted-once + adopted-vars-first | Lit-Complex | -1 % | -8 % | below the spread |
+
+**Result.** Kept: 32 changes in 9 families (color-variables, style-groups,
+shadow-texts, shadow-host-walk, dark-copy, shadow-styles-once,
+declarations-modifiable with its three guards, variables-none,
+style-moves), exactly as in 1.1.20. Dropped: 21 changes in 7 families
+(svg-sizes, adopted-once, adopted-vars-first, one-text,
+var-rule-same-text, image-selectors, inline-style-key).
+
+**The shipped build (nine families) against the full build** (1.1.20's 53
+changes = A, the 32 kept = B; CPU ms; + means B is slower; two runs):
+
+| page | run 1 | run 2 | reading |
+|---|---|---|---|
+| ordinary article (separate) | 95 / 103 (+7 %, spread 14) | 96 / 94 (-2 %) | not slower |
+| 200 shadow roots | 298 / 336 (+11 %, spread 101) | 241 / 228 (-6 %) | not slower |
+| 2,000 CSS rules | 695 / 709 (+2 %) | 739 / 750 (+1 %) | not slower |
+| repeated SVG icons | 328 / 348 (+6 %, spread 47) | 377 / 369 (-2 %) | not slower |
+| many new colours | 820 / 817 (0 %) | 936 / 870 (-7 %) | not slower |
+| 42,000 elements | 1435 / 1408 (-2 %) | 1331 / 1327 (0 %) | not slower |
+| Speedometer TodoMVC-Lit-Complex-DOM | 637 / 645 (+1 %) | 526 / 539 (+2 %) | not slower |
+
+No page is slower beyond the spread in either run. Colours: one colour
+fingerprint per page across all 1,746 loads of this work (every build,
+every page); no error in Dark Reader's world, every load settled and ran
+the build it claimed.
 
 ## 1.1.19, page dark mode with Dark Reader
 

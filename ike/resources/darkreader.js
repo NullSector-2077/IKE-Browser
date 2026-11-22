@@ -2126,8 +2126,22 @@
               return [prop, regexp];
           })
         : null;
-    function iterateCSSDeclarations(style, iterate) {
+    // I.K.E.: the properties getModifiableCSSDeclaration can change
+    function ikeMayModify(property) {
+        return (
+            property.includes("color") ||
+            property === "fill" ||
+            property === "stroke" ||
+            property === "background-image" ||
+            property === "list-style-image" ||
+            property.includes("shadow") ||
+            property.startsWith("--") ||
+            bgPropsToCopy.includes(property)
+        );
+    }
+    function iterateCSSDeclarations(style, iterate, ikeOnly = false) {
         const cssText = style.cssText;
+        const ikeAll = !ikeOnly || cssText.includes("var(");
         if (cssText.includes("var(")) {
             if (isSafari) {
                 shorthandVarDepPropRegexps.forEach(([prop, regexp]) => {
@@ -2161,6 +2175,9 @@
             handleEmptyShorthand("border", style, iterate);
         }
         forEach(style, (property) => {
+            if (!ikeAll && !ikeMayModify(property)) {
+                return;
+            }
             const value = style.getPropertyValue(property).trim();
             if (!value) {
                 return;
@@ -4682,6 +4699,10 @@
             this.inlineStyleQueue.splice(0);
         }
         collectVarsFromCSSDeclarations(style) {
+            // I.K.E.: no "--" in the text, no variable to collect
+            if (!style.cssText.includes("--")) {
+                return;
+            }
             iterateCSSDeclarations(style, (property, value) => {
                 if (isVariable(property)) {
                     this.inspectVariable(property, value);
@@ -5242,6 +5263,8 @@
         let prevFilterKey = null;
         let hasNonLoadedLink = false;
         let wasRebuilt = false;
+        // I.K.E.: the last build had nothing asynchronous and no variables
+        let ikeStatic = false;
         function shouldRebuildStyle() {
             return hasNonLoadedLink && !wasRebuilt;
         }
@@ -5297,7 +5320,8 @@
                                 if (mod) {
                                     modDecs.push(mod);
                                 }
-                            }
+                            },
+                            true
                         );
                     let modRule = null;
                     if (modDecs.length > 0) {
@@ -5609,8 +5633,12 @@
                 setRule(target, index, rule);
             }
             buildStyleSheet();
+            ikeStatic =
+                !hasNonLoadedLink &&
+                asyncDeclarationCounter === 0 &&
+                varDeclarationCounter === 0;
         }
-        return {modifySheet, shouldRebuildStyle};
+        return {modifySheet, shouldRebuildStyle, ikeStatic: () => ikeStatic};
     }
 
     let canUseSheetProxy$1 = false;
@@ -6953,6 +6981,8 @@
     }
     // I.K.E.: groups of identical style elements share one copy
     const ikeStyleGroups = new WeakMap();
+    // I.K.E.: the dark copy of a group's rules, by theme and rules (1.1.19)
+    const ikeDarkTexts = new Map();
     let ikeStyleEpoch = 0;
     let ikeStyleEpochQueued = false;
     function ikeLastStyle(group) {
@@ -7021,6 +7051,7 @@
         const isAsyncCancelled = () => cancelAsyncOperations;
         // I.K.E.: this element in its group of identical style elements
         let ikeGroup = null;
+        let ikeApplied = null;
         let ikeCovered = false;
         let ikeRenderArgs = null;
         const ikeMember = {
@@ -7400,7 +7431,9 @@
                 }
                 syncStylePositionWatcher && syncStylePositionWatcher.stop();
                 insertStyle();
-                if (syncStyle.sheet == null) {
+                // I.K.E.: a copy given as text is emptied before a rebuild
+                if (syncStyle.sheet == null || ikeApplied !== null) {
+                    ikeApplied = null;
                     syncStyle.textContent = "";
                 }
                 const sheet = syncStyle.sheet;
@@ -7422,6 +7455,45 @@
             function buildOverrides() {
                 const force = forceRenderStyle;
                 forceRenderStyle = false;
+                // I.K.E.: the dark copy of the same rules, made once
+                let ikeKey = null;
+                if (
+                    ikeGroup &&
+                    !ikeGroup.ikeKey.includes("--") &&
+                    !ikeGroup.ikeKey.includes("url(")
+                ) {
+                    ikeKey = getThemeKey$1(theme) + "\u0000" + ikeGroup.ikeKey;
+                    const text = ikeDarkTexts.get(ikeKey);
+                    if (text !== undefined) {
+                        if (
+                            !force &&
+                            ikeApplied === ikeKey &&
+                            syncStyle &&
+                            syncStyle.isConnected
+                        ) {
+                            return;
+                        }
+                        prepareOverridesSheet();
+                        syncStyle.textContent = text;
+                        ikeApplied = ikeKey;
+                        isOverrideEmpty = text === "";
+                        return;
+                    }
+                }
+                ikeBuild(force);
+                if (ikeKey && sheetModifier.ikeStatic() && syncStyle && syncStyle.sheet) {
+                    let text = "";
+                    const made = syncStyle.sheet.cssRules;
+                    for (let i = 0; i < made.length; i++) {
+                        text += made[i].cssText + "\n";
+                    }
+                    if (ikeDarkTexts.size >= 256) {
+                        ikeDarkTexts.clear();
+                    }
+                    ikeDarkTexts.set(ikeKey, text);
+                }
+            }
+            function ikeBuild(force) {
                 sheetModifier.modifySheet({
                     prepareSheet: prepareOverridesSheet,
                     sourceCSSRules: rules,
@@ -8242,9 +8314,19 @@
         });
         const prevStyleSiblings = new WeakMap();
         const nextStyleSiblings = new WeakMap();
+        // I.K.E.: Dark Reader's own elements are not neighbours that count
+        function ikeStyleSibling(style, next) {
+            let el = next
+                ? style.nextElementSibling
+                : style.previousElementSibling;
+            while (el && el.classList.contains("darkreader")) {
+                el = next ? el.nextElementSibling : el.previousElementSibling;
+            }
+            return el;
+        }
         function saveStylePosition(style) {
-            prevStyleSiblings.set(style, style.previousElementSibling);
-            nextStyleSiblings.set(style, style.nextElementSibling);
+            prevStyleSiblings.set(style, ikeStyleSibling(style, false));
+            nextStyleSiblings.set(style, ikeStyleSibling(style, true));
         }
         function forgetStylePosition(style) {
             prevStyleSiblings.delete(style);
@@ -8252,8 +8334,8 @@
         }
         function didStylePositionChange(style) {
             return (
-                style.previousElementSibling !== prevStyleSiblings.get(style) ||
-                style.nextElementSibling !== nextStyleSiblings.get(style)
+                ikeStyleSibling(style, false) !== prevStyleSiblings.get(style) ||
+                ikeStyleSibling(style, true) !== nextStyleSiblings.get(style)
             );
         }
         currentStyles.forEach(saveStylePosition);
@@ -8871,6 +8953,24 @@
         observer.observe(root, {childList: true});
     }
     function createShadowStaticStyleOverrides(root) {
+        // I.K.E.: already there, first, in order, with today's texts
+        if (shadowRootsWithOverrides.has(root)) {
+            const map = staticStyleMap.get(root);
+            const a = map && map.get("darkreader--inline");
+            const b = map && map.get("darkreader--override");
+            const c = map && map.get("darkreader--invert");
+            if (
+                a && b && c &&
+                root.firstChild === a &&
+                a.nextSibling === b &&
+                b.nextSibling === c &&
+                a.textContent === ikeShadowTexts().inline &&
+                b.textContent === ikeShadowTexts().override &&
+                c.textContent === getInversionStyleValue()
+            ) {
+                return;
+            }
+        }
         const delayed = root.firstChild === null;
         createShadowStaticStyleOverridesInner(root);
         if (delayed) {

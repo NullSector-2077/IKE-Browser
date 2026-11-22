@@ -140,20 +140,19 @@ def test_the_engine_is_the_npm_engine_with_the_changes():
     assert engine.count(tool.PROXY_EVENT) == 1
 
 
-# The families kept because their gain was measured (2026-11-21), and what the
-# families dropped for no measurable gain left in the engine (their names and
-# their "I.K.E.:" notes): none of it may come back unmeasured.
-KEPT_FAMILIES = ("shadow-host-walk", "color-variables", "style-groups", "shadow-texts")
+# The families kept because their gain was measured (2026-11-21: four against
+# all of 1.1.20's changes, five more when added back to a build with fewer
+# changes), and what the families dropped for no measurable gain left in the
+# engine (their names and their "I.K.E.:" notes): none of it may come back
+# unmeasured.
+KEPT_FAMILIES = ("shadow-host-walk", "color-variables", "style-groups", "shadow-texts",
+                 "dark-copy", "shadow-styles-once", "declarations-modifiable", "variables-none",
+                 "style-moves")
 DROPPED_MARKS = (
-    "ikeStyleSibling", "Dark Reader's own elements are not neighbours",            # style-moves
     "ikeSVGRect", "ikeWithSVGRects", "ikePendingSVG",                               # svg-sizes
     "ikeSheets", "the list is changed here and set once",                         # adopted-once
     "ikeAnyImageSelector",                                                        # image-selectors
-    'no "--" in the text, no variable to collect',                                # variables-none
-    "ikeMayModify", "the properties getModifiableCSSDeclaration can change",       # declarations-modifiable
-    "already there, first, in order",                                             # shadow-styles-once
     "one loop, the same text as filter",                                          # inline-style-key
-    "ikeStatic", "ikeDarkTexts", "ikeApplied", "ikeBuild",                          # dark-copy
     "ikeRuleText", "ikeWriteAll", "ikeGroupText",                                   # one-text
     "ikeVarRuleTexts",                                                            # var-rule-same-text
     "ikeMatchedSheets", "ikeNewSheet",                                             # adopted-vars-first
@@ -161,9 +160,9 @@ DROPPED_MARKS = (
 
 
 def test_the_engine_has_only_the_measured_changes():
-    """The shipped engine carries the changes of the four measured families and
-    nothing of the ones dropped: every "I.K.E.:" note in it is one of a kept
-    change, each once."""
+    """The shipped engine carries the changes of the nine measured families
+    and nothing of the ones dropped: every "I.K.E.:" note in it is one of a
+    kept change, each once."""
     import re
     from ike.config import RES_DIR
     tool = build_tool()

@@ -54,15 +54,26 @@ PROXY_EVENT = ('document.dispatchEvent(new CustomEvent("__darkreader__stylesheet
 # (name, text of the engine, its replacement): the text must be found exactly
 # once, or the build stops.
 PATCHES = [
-    # Only the families whose gain was measured are kept (2026-11-21:
-    # color-variables, style-groups, shadow-texts, shadow-host-walk). The
-    # others (dark-copy, style-moves, svg-sizes, declarations-modifiable,
-    # variables-none, shadow-styles-once, adopted-vars-first, adopted-once,
-    # one-text, var-rule-same-text, image-selectors, inline-style-key) gave no
-    # gain larger than the spread of the measurement in two runs, so they
-    # went: the engine stays closer to Dark Reader's own, and a new engine has
-    # fewer texts to match. Numbers: docs/review/tests-and-performance.md,
-    # "1.1.21, Dark Reader: only the measured changes".
+    # Only changes with a measured gain are kept (2026-11-21, CPU time of the
+    # page's renderer, gain larger than the spread in two runs; numbers in
+    # docs/review/tests-and-performance.md, "1.1.21, Dark Reader: only the
+    # measured changes"):
+    # - measured against all 53 changes of 1.1.20: color-variables,
+    #   style-groups, shadow-texts, shadow-host-walk;
+    # - measured when added back to a build with only those four: dark-copy
+    #   with shadow-styles-once (200 shadow roots, -24 / -18 %),
+    #   declarations-modifiable (2,000 CSS rules, -6 / -9 %) and
+    #   variables-none (same page, -7 / -7 %);
+    # - measured when added back to a build with those eight: style-moves
+    #   (repeated SVG icons, -12 / -13 %).
+    #   Against the full build the gain of these five was hidden in its
+    #   larger spread.
+    # Removed, no gain larger than the spread in two runs, so the engine stays
+    # closer to Dark Reader's own and a new engine has fewer texts to match:
+    # svg-sizes (above the spread in 1 of 3 runs), adopted-once and
+    # adopted-vars-first (also when added back), one-text (also when added
+    # back) and var-rule-same-text (which needs it; its code path was never
+    # reached), image-selectors, inline-style-key.
 
     # Finding the elements that have a shadow root: the walk asked a script
     # function about every element; without it the same walk, in the same
@@ -97,6 +108,39 @@ PATCHES = [
                 continue;
             }
             if (node.classList.contains("surfingkeys_hints_host")) {
+"""),
+    # After a large change of the page, a style element counted as moved when
+    # the copy Dark Reader had put next to it was its new neighbour; its copy
+    # was then built again from scratch (and the browser styled the page
+    # again), once for every style added to the page since Dark Reader started.
+    # Dark Reader's own elements are not counted as neighbours.
+    ("style-moves", """\
+        function saveStylePosition(style) {
+            prevStyleSiblings.set(style, style.previousElementSibling);
+            nextStyleSiblings.set(style, style.nextElementSibling);
+        }
+""", """\
+        // I.K.E.: Dark Reader's own elements are not neighbours that count
+        function ikeStyleSibling(style, next) {
+            let el = next
+                ? style.nextElementSibling
+                : style.previousElementSibling;
+            while (el && el.classList.contains("darkreader")) {
+                el = next ? el.nextElementSibling : el.previousElementSibling;
+            }
+            return el;
+        }
+        function saveStylePosition(style) {
+            prevStyleSiblings.set(style, ikeStyleSibling(style, false));
+            nextStyleSiblings.set(style, ikeStyleSibling(style, true));
+        }
+"""),
+    ("style-moves-check", """\
+                style.previousElementSibling !== prevStyleSiblings.get(style) ||
+                style.nextElementSibling !== nextStyleSiblings.get(style)
+""", """\
+                ikeStyleSibling(style, false) !== prevStyleSiblings.get(style) ||
+                ikeStyleSibling(style, true) !== nextStyleSiblings.get(style)
 """),
     # Every colour Dark Reader changes is written as
     # var(--darkreader-<kind>-<hex>, <colour>), and the same variable was also
@@ -172,6 +216,8 @@ PATCHES = [
 """, """\
     // I.K.E.: groups of identical style elements share one copy
     const ikeStyleGroups = new WeakMap();
+    // I.K.E.: the dark copy of a group's rules, by theme and rules (1.1.19)
+    const ikeDarkTexts = new Map();
     let ikeStyleEpoch = 0;
     let ikeStyleEpochQueued = false;
     function ikeLastStyle(group) {
@@ -226,6 +272,7 @@ PATCHES = [
         const isAsyncCancelled = () => cancelAsyncOperations;
         // I.K.E.: this element in its group of identical style elements
         let ikeGroup = null;
+        let ikeApplied = null;
         let ikeCovered = false;
         let ikeRenderArgs = null;
         const ikeMember = {
@@ -526,6 +573,225 @@ PATCHES = [
             ikeCheckStyleGroups(root);
             deepObserve(root);
 """),
+    # 1.1.19 (measured: docs/review/tests-and-performance.md). A style sheet
+    # without CSS variables: the search for variables in it is skipped (every
+    # variable and every var() has "--" in its text).
+    ("variables-none", """\
+        collectVarsFromCSSDeclarations(style) {
+            iterateCSSDeclarations(style, (property, value) => {""", """\
+        collectVarsFromCSSDeclarations(style) {
+            // I.K.E.: no "--" in the text, no variable to collect
+            if (!style.cssText.includes("--")) {
+                return;
+            }
+            iterateCSSDeclarations(style, (property, value) => {"""),
+    # The values of properties Dark Reader never changes (width, margin...) are
+    # not read when a rule has no var(): getModifiableCSSDeclaration would
+    # answer null for them. The guards below stop the build when a new engine
+    # changes which properties it modifies, so the list never falls behind.
+    ("declarations-modifiable", """\
+    function iterateCSSDeclarations(style, iterate) {
+        const cssText = style.cssText;
+        if (cssText.includes("var(")) {""", """\
+    // I.K.E.: the properties getModifiableCSSDeclaration can change
+    function ikeMayModify(property) {
+        return (
+            property.includes("color") ||
+            property === "fill" ||
+            property === "stroke" ||
+            property === "background-image" ||
+            property === "list-style-image" ||
+            property.includes("shadow") ||
+            property.startsWith("--") ||
+            bgPropsToCopy.includes(property)
+        );
+    }
+    function iterateCSSDeclarations(style, iterate, ikeOnly = false) {
+        const cssText = style.cssText;
+        const ikeAll = !ikeOnly || cssText.includes("var(");
+        if (cssText.includes("var(")) {"""),
+    ("declarations-modifiable-skip", """\
+        forEach(style, (property) => {
+            const value = style.getPropertyValue(property).trim();
+            if (!value) {
+                return;
+            }
+            iterate(property, value);
+        });
+    }
+    function handleEmptyShorthand(""", """\
+        forEach(style, (property) => {
+            if (!ikeAll && !ikeMayModify(property)) {
+                return;
+            }
+            const value = style.getPropertyValue(property).trim();
+            if (!value) {
+                return;
+            }
+            iterate(property, value);
+        });
+    }
+    function handleEmptyShorthand("""),
+    ("declarations-modifiable-sheet", """\
+                                if (mod) {
+                                    modDecs.push(mod);
+                                }
+                            }
+                        );""", """\
+                                if (mod) {
+                                    modDecs.push(mod);
+                                }
+                            },
+                            true
+                        );"""),
+    ("declarations-modifiable-guard-colour", """\
+        } else if (
+            (property.includes("color") &&
+                property !== "-webkit-print-color-adjust") ||
+            property === "fill" ||
+            property === "stroke" ||
+            property === "stop-color"
+        ) {""", """\
+        } else if (
+            (property.includes("color") &&
+                property !== "-webkit-print-color-adjust") ||
+            property === "fill" ||
+            property === "stroke" ||
+            property === "stop-color"
+        ) {"""),
+    ("declarations-modifiable-guard-image", """\
+        } else if (
+            property === "background-image" ||
+            property === "list-style-image"
+        ) {""", """\
+        } else if (
+            property === "background-image" ||
+            property === "list-style-image"
+        ) {"""),
+    ("declarations-modifiable-guard-rest", """\
+        } else if (property.includes("shadow")) {
+            modifier = getShadowModifier(value);
+        } else if (bgPropsToCopy.includes(property) && value !== "initial") {
+            modifier = value;
+        }""", """\
+        } else if (property.includes("shadow")) {
+            modifier = getShadowModifier(value);
+        } else if (bgPropsToCopy.includes(property) && value !== "initial") {
+            modifier = value;
+        }"""),
+    # A shadow root asked for its three dark styles a second time (by the
+    # style watcher and by the inline-style watcher) when they are already
+    # there, first and in order, with the same text: nothing to do.
+    ("shadow-styles-once", """\
+    function createShadowStaticStyleOverrides(root) {
+        const delayed = root.firstChild === null;""", """\
+    function createShadowStaticStyleOverrides(root) {
+        // I.K.E.: already there, first, in order, with today's texts
+        if (shadowRootsWithOverrides.has(root)) {
+            const map = staticStyleMap.get(root);
+            const a = map && map.get("darkreader--inline");
+            const b = map && map.get("darkreader--override");
+            const c = map && map.get("darkreader--invert");
+            if (
+                a && b && c &&
+                root.firstChild === a &&
+                a.nextSibling === b &&
+                b.nextSibling === c &&
+                a.textContent === ikeShadowTexts().inline &&
+                b.textContent === ikeShadowTexts().override &&
+                c.textContent === getInversionStyleValue()
+            ) {
+                return;
+            }
+        }
+        const delayed = root.firstChild === null;"""),
+    # The same style element in many shadow roots (web components, Lit): its
+    # dark copy is made once, then given to each copy as text. Only for rules
+    # without CSS variables, url() or anything Dark Reader finishes later, so
+    # the copy depends on the rules and the theme alone; the key is the rules
+    # the element really has (style-groups). Emptied before any rebuild.
+    ("dark-copy-static", """\
+        return {modifySheet, shouldRebuildStyle};""", """\
+        return {modifySheet, shouldRebuildStyle, ikeStatic: () => ikeStatic};"""),
+    ("dark-copy-static-flag", """\
+        let hasNonLoadedLink = false;
+        let wasRebuilt = false;""", """\
+        let hasNonLoadedLink = false;
+        let wasRebuilt = false;
+        // I.K.E.: the last build had nothing asynchronous and no variables
+        let ikeStatic = false;"""),
+    ("dark-copy-static-set", """\
+            buildStyleSheet();
+        }
+        return {modifySheet,""", """\
+            buildStyleSheet();
+            ikeStatic =
+                !hasNonLoadedLink &&
+                asyncDeclarationCounter === 0 &&
+                varDeclarationCounter === 0;
+        }
+        return {modifySheet,"""),
+    ("dark-copy-rebuild", """\
+                syncStylePositionWatcher && syncStylePositionWatcher.stop();
+                insertStyle();
+                if (syncStyle.sheet == null) {
+                    syncStyle.textContent = "";
+                }""", """\
+                syncStylePositionWatcher && syncStylePositionWatcher.stop();
+                insertStyle();
+                // I.K.E.: a copy given as text is emptied before a rebuild
+                if (syncStyle.sheet == null || ikeApplied !== null) {
+                    ikeApplied = null;
+                    syncStyle.textContent = "";
+                }"""),
+    ("dark-copy-reuse", """\
+            function buildOverrides() {
+                const force = forceRenderStyle;
+                forceRenderStyle = false;
+                sheetModifier.modifySheet({""", """\
+            function buildOverrides() {
+                const force = forceRenderStyle;
+                forceRenderStyle = false;
+                // I.K.E.: the dark copy of the same rules, made once
+                let ikeKey = null;
+                if (
+                    ikeGroup &&
+                    !ikeGroup.ikeKey.includes("--") &&
+                    !ikeGroup.ikeKey.includes("url(")
+                ) {
+                    ikeKey = getThemeKey$1(theme) + "\\u0000" + ikeGroup.ikeKey;
+                    const text = ikeDarkTexts.get(ikeKey);
+                    if (text !== undefined) {
+                        if (
+                            !force &&
+                            ikeApplied === ikeKey &&
+                            syncStyle &&
+                            syncStyle.isConnected
+                        ) {
+                            return;
+                        }
+                        prepareOverridesSheet();
+                        syncStyle.textContent = text;
+                        ikeApplied = ikeKey;
+                        isOverrideEmpty = text === "";
+                        return;
+                    }
+                }
+                ikeBuild(force);
+                if (ikeKey && sheetModifier.ikeStatic() && syncStyle && syncStyle.sheet) {
+                    let text = "";
+                    const made = syncStyle.sheet.cssRules;
+                    for (let i = 0; i < made.length; i++) {
+                        text += made[i].cssText + "\\n";
+                    }
+                    if (ikeDarkTexts.size >= 256) {
+                        ikeDarkTexts.clear();
+                    }
+                    ikeDarkTexts.set(ikeKey, text);
+                }
+            }
+            function ikeBuild(force) {
+                sheetModifier.modifySheet({"""),
 ]
 
 

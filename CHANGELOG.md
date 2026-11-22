@@ -3,11 +3,11 @@
 ## 1.1.21 (in preparation)
 
 - **Dark Reader closer to its own version**: of I.K.E.'s 53 changes to Dark
-  Reader, only the 17 that measurably make pages faster are kept (new
-  colours, repeated icons, shadow roots, the search for shadow roots); the
-  other 36 saved no time that could be told from noise, so they went. Pages
-  turn dark exactly as before, and a new Dark Reader has fewer places where
-  its automatic update can stop.
+  Reader, only the 32 that measurably make pages faster are kept (new
+  colours, repeated icons and style sheets, shadow roots, the search for
+  shadow roots, large style sheets); the other 21 saved no time that could
+  be told from noise, so they went. Pages turn dark exactly as before, and
+  a new Dark Reader has fewer places where its automatic update can stop.
 
 ## 1.1.20
 
