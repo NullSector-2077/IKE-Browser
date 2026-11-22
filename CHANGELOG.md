@@ -31,6 +31,20 @@ Two things the owner saw in 1.1.21 on KDE Plasma:
   page); each icon now asks first for Breeze's name for the same thing, and
   other desktops keep theirs. tests/test_icons.py opens every window and menu
   with KDE's theme and fails on any icon that is not Breeze's own.
+- **The other desktops' own look too**: following the system on GNOME,
+  Xfce, MATE, Cinnamon or LXQt, the icons now come from that desktop's own
+  theme (Adwaita, elementary, MATE's, Papirus, Breeze) instead of I.K.E.'s
+  drawings or Qt's (47 icons on GNOME, 42 on Xfce, 46 on MATE were not; with
+  no desktop theme at all no icon is left empty any more); GNOME's and MATE's
+  one-colour icons are painted in the text colour, so they show on dark
+  windows too. Text that the desktop's colours left too pale is made
+  readable (the notes of the Settings on KDE light, LXQt and plain Qt, the
+  tab preview's CPU and memory on GNOME, the numbers of the new tab page),
+  and with GNOME's larger font an option goes under its name instead of
+  making a Settings page wider than the window, and the site permissions
+  window no longer exceeds the screen. tests/test_icons.py and
+  tests/test_desktop_colours.py check each desktop, light and dark, on Arch
+  Linux.
 - **The tab preview shows the whole memory value**: CPU and memory were side
   by side, half the card each, and "182 MB" could end in "…". They are now
   one under the other, each the card's whole width; a test checks every
