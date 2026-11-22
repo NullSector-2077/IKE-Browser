@@ -198,6 +198,111 @@ protection are as they were. The tab hover and the new tab's fade (Breeze
 touches) add about 10 repaints of one tab when a tab is opened, and only
 while the mouse moves over the tabs; nothing runs at rest (the rest rows).
 
+## 1.1.23, Speedometer: the engine and the protection
+
+The owner's question: Brave is much faster than I.K.E. on Speedometer 3.1,
+both without dark mode (on the owner's computer, both at their strongest
+protection: Brave 47.4, I.K.E. at Maximum 33.3). How much of it is I.K.E.?
+
+**How it was measured.** A container with 4 shared cores and no GPU
+(another session ran tests at the same time, so single runs vary by about
+5 %); PyQt 6.12.1, Qt WebEngine 6.12.0 = Chromium 140.0.7339.264 (Qt's own
+binary build, GCC); Chrome for Testing 153.0.8010.12 and 140.0.7339.207
+(Google's builds), headless, software drawing like Qt's `offscreen`;
+Speedometer 3.1 (`release/3.1`) served locally, the whole default set, 5
+iterations a run, medians of 3 runs unless said; nine of the eleven default
+lists. Scores here are about a third of a desktop's: only the comparisons
+count.
+
+| | Speedometer 3.1 score |
+|---|---|
+| A. Chrome 153 | 19.6 |
+| A'. Chrome 140, Google's build | 18.7 (Chrome 153 in the same series: 19.2) |
+| B. a bare Qt WebEngine window (Chromium 140, Qt's build) | 11.6 (12.3 in the Chrome 140 series) |
+| C. B with I.K.E.'s switches, profile and settings, no scripts | 11.9 at Balanced, 11.9 at Maximum |
+| D. I.K.E., shield Off | 11.8 |
+| E. I.K.E., Balanced | 11.7 (11.5 in a series of 5) |
+| F. I.K.E., Strict | 11.8 |
+| G. I.K.E., Maximum | 11.2 (11.6 in a series of 5; without fingerprint.js 11.9) |
+
+At Balanced, each piece switched off in turn (fingerprint.js, the video
+scripts, the request checks, the cookie banners, the interface's timers and
+effects, every script) moved the score by less than the spread of the runs
+(10.9-11.4 against 11.7). At Maximum, each of the font allowlist, the font
+masks, the text measure noise, the language rewrite and the screen/media
+query answers alone did the same (10.9-11.9 against 11.2).
+
+What the steps show:
+
+- **A -> A' (version): 2-5 %.** **A' -> B (the build): 1.5 times.** The
+  same Chromium 140 scores 18.7 as Google builds it and 12.3 as Qt ships it.
+  Google builds Chrome with clang, ThinLTO and profile-guided optimisation;
+  Qt's binary build uses GCC without them, and Arch's `qt6-webengine`, as
+  far as its build file shows, is built through Qt's CMake with the
+  distribution's GCC flags, also without them. The loss is in the synchronous part of the steps (JavaScript, DOM,
+  style and layout inside the step: 908 ms against 1,512 ms for the whole
+  set), more than in the part after it (448 against 671 ms): the same
+  pattern the owner saw between Brave and I.K.E. (NewsSite-Next 1.87 times
+  there, 1.95 times between Chrome and the bare Qt window here). Nothing in
+  I.K.E. can change it; it follows Qt's and Arch's builds.
+- **B -> C (settings): none** (C scored slightly more than B, within the
+  spread).
+- **C -> D/E/F/G (I.K.E.'s work): a few percent.** Renderer time per
+  iteration at Maximum: 3,780 ms, 3,484 ms without fingerprint.js (8 %,
+  about half of it while frames load, which Speedometer does not score).
+  Where it shows is the DOM-heavy pages: TodoMVC-jQuery at Maximum 269 ms,
+  243 ms without fingerprint.js.
+
+Counted during one iteration at Maximum (an instrumented copy): no wrapper
+sits on the measuring APIs (offsetWidth, getBoundingClientRect,
+getComputedStyle, getBBox, performance.now, Date are the engine's own);
+NewsSite-Next makes 3,600 appendChild calls through the frame guard,
+Perf-Dashboard 2,500 and 773 measureText, observable-plot 4,700
+insertBefore/appendChild, jQuery 600 innerHTML writes of up to 23 KB each.
+The costs found:
+
+1. **The frame guard's watch while a page is built.** It is a
+   MutationObserver on the document, disconnected once the page is built;
+   the engine, though, keeps the document marked as watched for good, and
+   every later insertion into it pays for that mark (measured in two frames
+   of one page, one watched once and disconnected: +17-27 % for innerHTML,
+   appendChild and text nodes, the same after garbage collection). jQuery
+   without the watch: 239 ms against 267. It is what protects a frame
+   written in a page's HTML before the page's next script reads it through
+   window[i]; nothing else runs at that moment, so it stays.
+2. **The guard read every HTML string written through innerHTML** (a
+   search for a frame tag: 14 microseconds for 23 KB, 9 ms per jQuery
+   iteration). Fixed: with no frame in the window the guard's check has
+   nothing to look at, so the string is not searched; a moved node is not
+   looked at either when the window had no frame before the call (only the
+   count can tell of a new frame then). jQuery at Balanced 284 -> 261 ms,
+   renderer time 348 -> 316 ms per iteration (6 runs each); the search is
+   gone from the profile.
+3. **At Maximum, calls that ask for no language were rewritten to en-US**,
+   which sends the engine down its slow way even when it already speaks
+   en-US (the global level Maximum starts it with --lang=en-US). Fixed: once
+   per kind, the engine's own objects made with no language and with en-US
+   are compared (every resolved option the same, the language exactly
+   en-US); when they agree, such a call is handed on as it is. Per call:
+   localeCompare 600 -> 75 ns (15 without the protection), Number
+   toLocaleString 850 -> 330 ns, Date toLocaleDateString 1,300 -> 700 ns,
+   toLocaleUpperCase 540 -> 50 ns, new Intl.NumberFormat 17.4 -> 14.6
+   microseconds. PluralRules resolves en-US to "en" when it is written and
+   keeps the rewrite; so do a site at Maximum while the browser is not.
+4. Smaller ones left as they are: an appendChild of an element through the
+   guard costs about 0.5 microseconds more; measureText with its width at
+   Strict and above about 1.4 microseconds more (the noise needs the text
+   and the font of each measure).
+
+tests/test_runtime_paths.py plays the ways a frame can still come in on the
+quick paths (written HTML, a subtree with a frame inside, a frame taken
+away behind the guard's back and another added, nodes moved with and
+without frames, a shadow root) at Balanced and Strict, and asks dates,
+numbers, sorting, case and every Intl kind with nothing, undefined, an empty
+list and languages the engine does not have, at the global Maximum and with
+one site at Maximum: every answer must be the one 'en-US' gives. The same
+tests pass on 1.1.22's fingerprint.js: the answers did not change.
+
 ## 1.1.22, start and speed
 
 The aim: a faster start, above all, with every feature and every

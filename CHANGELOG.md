@@ -2,6 +2,23 @@
 
 ## 1.1.23
 
+- **Pages run faster with the fingerprinting protection, which gives them
+  exactly the same answers** (Speedometer study of 1.1.23): the guard that
+  protects new frames no longer reads through all the HTML a page writes
+  (innerHTML, outerHTML) when the page has no frame, nor looks at a moved
+  part of the page when there was no frame to move (Speedometer's jQuery
+  page at Balanced: 284 -> 261 ms); at Maximum, when the engine already
+  speaks English, dates, numbers, sorting and upper or lower case that ask
+  for no language go straight to the engine (a sort compares 8 times
+  faster; numbers, dates and case as fast as with no protection). Tests
+  compare the quick and the usual ways' answers. The rest of the distance
+  from Chrome and Brave is the web engine: on the same computer Google's own
+  build of Chromium 140 (the version inside Qt 6.12) scores 1.5 times Qt's
+  build of it, and Chromium 153 only 2 % more than 140. I.K.E.'s own work
+  costs a few percent of the whole benchmark (2-4 % at Maximum) and up to a
+  tenth on pages that rewrite much of themselves, most of it the price of
+  protecting the frames a page writes in its HTML
+  (docs/review/tests-and-performance.md, "1.1.23").
 - uBlock Origin scriptlets: 2bc679d99a (2026-11-10) -> 5934db2a04 (2026-11-21) (1 changed, 0 new, 0 removed)
 - Rust crates of the AdBlock engine: 88 crates -> 88 crates (psl 2.1.253 -> 2.1.261; regex 1.13.1 -> 1.13.2; regex-automata 0.4.18 -> 0.4.19; regex-syntax 0.8.11 -> 0.8.12; smallvec 1.16.5 -> 1.16.6)
 - **No white flash at the start**: the view of a new tab shows the new tab
