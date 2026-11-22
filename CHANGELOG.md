@@ -2,6 +2,25 @@
 
 ## 1.1.23
 
+- **Dark Reader skips the frames nobody sees**: a frame that is not shown
+  (hidden, or a frame of a pixel or two, as trackers and advertisers use)
+  no longer starts Dark Reader until it gets a size; shown later, it is dark
+  from its first picture, as before. Each such frame costs about 20 ms less
+  to load in dark mode (about 30 ms of the page's processor time): about
+  what it costs with dark mode off. Shown frames and pages look exactly as
+  before. tests/test_darkreader_frames.py loads frames one after the other,
+  as Speedometer does, and checks both.
+- **Why Brave with the Dark Reader extension scores more than I.K.E. with
+  Dark Reader on Speedometer** (the owner's question): measured, the way
+  I.K.E. gives Dark Reader to a page costs the same as the extension's own
+  way. I.K.E.'s copy of Dark Reader put into Chrome as an extension costs
+  Chrome 43 % of its Speedometer score, exactly what it costs I.K.E. (43 %);
+  per frame, 26-30 against 27 ms. The difference is the engine under it: Qt
+  6.12 has Chromium 140, Brave a newer one, faster with or without Dark
+  Reader. Most of Dark Reader's cost on Speedometer comes from its work
+  while the tests change the page, by the way Dark Reader works; the
+  engine's own dark mode costs almost nothing. Details in
+  docs/review/tests-and-performance.md, "1.1.23, Dark Reader and Brave".
 - uBlock Origin scriptlets: 2bc679d99a (2026-11-10) -> 5934db2a04 (2026-11-21) (1 changed, 0 new, 0 removed)
 
 ## 1.1.22
