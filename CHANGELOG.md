@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.23
+
+- Rust crates of the AdBlock engine: 88 crates -> 88 crates (psl 2.1.253 -> 2.1.261; regex 1.13.1 -> 1.13.2; regex-automata 0.4.18 -> 0.4.19; regex-syntax 0.8.11 -> 0.8.12; smallvec 1.16.5 -> 1.16.6)
+
 ## 1.1.22
 
 Two things the owner saw in 1.1.21 on KDE Plasma:
