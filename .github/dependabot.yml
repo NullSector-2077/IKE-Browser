@@ -3,7 +3,17 @@
 # actions are pinned by their commit hash, with the version as a comment
 # (1.1.17): a tag can be moved to other code by whoever controls the action, a
 # hash cannot. Dependabot updates hash and comment together.
-# The automatic fix never changes .github/, so this is how the workflows stay current.
+#
+# Since the full chain (2026-11-22) the pins move by themselves every day through
+# tools/ci-pins.py (a deterministic tool, never an AI): one candidate per pin on
+# automation/update/ci-<name>, only to the commit of a release tag of the same
+# action, tested, and merged by the verified merge (tools/automerge.py). Decided:
+# Dependabot stays on, monthly, as a double check: its pull request is a person's
+# to merge (when the tool's candidate merged first, Dependabot closes its own),
+# and it still proposes the actions if the tool's candidate cannot be pushed
+# (a workflow change needs the repository secret IKE_WORKFLOW_TOKEN).
+# The automatic fix never changes .github/: an AI's workflow change is only a
+# written proposal for a person.
 version: 2
 updates:
   - package-ecosystem: github-actions

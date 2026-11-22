@@ -57,4 +57,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.event.inputs.sha || github.event.workflow_run.head_sha }}
+          # only for the merge of the CI pins' candidate, already verified line by line (tools/ci-pins.py):
+          # GitHub refuses workflow changes to the workflow's own token; empty when the owner set none
+          IKE_WORKFLOW_TOKEN: ${{ secrets.IKE_WORKFLOW_TOKEN }}
         run: python3 -I tools/automerge.py --repo "${{ github.repository }}" --sha "$SHA"

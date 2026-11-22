@@ -200,6 +200,8 @@ and never with anything about its users ([docs/MAINTENANCE.md](docs/MAINTENANCE.
 | The OSV vulnerability database (api.osv.dev), free, no account | the daily component check | the name and version of each Python test package, npm package and GitHub Action the project uses, to read their known vulnerabilities |
 | Arch Linux's security tracker (security.archlinux.org) | the daily component check | a plain download of its list of advisories (`/issues/all.json`), compared with the Arch packages I.K.E. depends on |
 | RustSec's advisory database (github.com/rustsec) | every day and on every pull request (cargo-deny) | a plain download of the database |
+| Arch Linux's package mirror (geo.mirror.pkgbuild.com) | the daily component check | a plain download of the core and extra package databases, to compare every package of I.K.E.'s Arch dependency closure with what arch.yml tested |
+| The release lists of the tools the workflows pin (github.com tags, raw.githubusercontent.com/actions/python-versions, nodejs.org/dist, static.rust-lang.org) | the daily maintenance (tools/ci-pins.py) | plain requests for the newest release of each pinned action and tool (no account, no key) |
 | The automatic fix's free AI providers (Google Gemini, Groq, Z.AI, OpenRouter) | only when a check fails | the failure and the code around it (the repository is public) |
 
 ## Updates

@@ -2,43 +2,94 @@
 
 GitHub Actions keeps I.K.E. up to date and prepares the fixes. Since
 2026-11-22 (the owner's decisions) no AI agent merges into `main` and no agent
-merges its own work. The automation's own pull requests (the daily candidate,
-an automatic fix, an isolated update) are merged by the workflow's own code
-read from `main` only when they are **fully verified** ("The verified merge",
-below); anything less waits for the owner, who is named in one comment.
-Claude merges the pull requests the owner asked for once every check is
-green; ChatGPT's and people's pull requests wait for the owner's order
-(CLAUDE.md). The owner alone **signs and publishes** (one command on the
-owner's computer, in the issue GitHub mails when a release is ready,
-[UPDATES.md](UPDATES.md)). No workflow releases or signs anything, and no
-workflow pushes to `main` (the verified merge is a merge of a pull request).
+merges its own work. The automation's own pull requests (a candidate per
+component, an automatic fix, a security fix, a builder's re-anchoring) are
+merged by the workflow's own code read from `main` only when they are **fully
+verified** ("The verified merge", below); anything less waits for the owner,
+who is named in one comment. Claude merges the pull requests the owner asked
+for once every check is green; ChatGPT's and people's pull requests wait for
+the owner's order (CLAUDE.md). The owner alone **signs and publishes** (one
+command on the owner's computer, in the issue GitHub mails when a release is
+ready, [UPDATES.md](UPDATES.md)). No workflow releases or signs anything, and
+no workflow pushes to `main` (the verified merge is a merge of a pull request).
+
+## The whole chain
+
+Every external component I.K.E. can update goes through the same chain by
+itself; the owner only signs.
+
+1. **Detected.** Every day `tools/check-components.py` (the bundled
+   components, the engine's crates, the test packages), `tools/ci-pins.py`
+   (the workflows' pins), `tools/pkgbuild-sync.py` (what the code needs from
+   the PKGBUILD), `tools/inventory.py` (every external component, a new one
+   included) and the Arch check (the whole dependency closure of I.K.E.'s Arch
+   packages) find what is new; `tools/maintenance-ledger.py` keeps one entry
+   per update in the issue "Maintenance ledger".
+2. **An isolated candidate.** `daily-maintenance.yml` makes one candidate per
+   component, or small coherent group, on its own branch
+   `automation/update/<id>` made from `main` (`tools/update-candidates.py`),
+   with no credentials while the code of others runs, and opens its draft pull
+   request. Candidates that change the same file go one at a time; an open
+   one is rebuilt and pushed only when it differs. A builder that refuses a
+   new upstream version goes to the builders' path instead
+   (`automation/builder/<id>`). An Arch package changed in the closure starts
+   `arch.yml` on `main`; Arch's next packages are tried once a week
+   (`arch-testing.yml`).
+3. **Integrated.** The candidate's own commit (`update: <id> <from> -> <to>
+   (no AI)`, `ci: ...`, `pkgbuild: ...`) changes only that component's files,
+   the licences and, when it ships, the version (raised when `main`'s is
+   published, with its CHANGELOG line).
+4. **Tested, Arch included.** `tests.yml` (lint, the whole suite, the Rust
+   tests, the licences, no tests lost, the package, the old processor, the
+   installed package, and for a new engine the default filter lists in that
+   engine against `main`'s), `security.yml` (the sandbox, the RustSec
+   advisories) and `arch.yml` (Arch Linux's own packages) on its commit.
+5. **Fixed by an AI when they fail, on that branch only.** `autofix.yml`
+   fixes the candidate's own branch under the guard
+   (`tools/check-autofix-patch.py`), a fresh run per attempt starting with the
+   next free provider, up to `FIX_ATTEMPTS` (`tools/ai-providers.py`), the
+   tests again after each. On a candidate of the engine (adblock, pyo3, a
+   major crate) the AI may adapt I.K.E.'s wrapper; on a builder's branch it may
+   only re-anchor I.K.E.'s existing patches. An AI never edits a workflow: what
+   it wanted there is a written proposal for a person. At the cap the branch
+   is kept, the ledger says needs-person and the owner is told once.
+6. **Merged by itself** when everything is green and verified
+   (`tools/automerge.py`, `automerge.yml`, read from `main`).
+7. **The owner signs.** `release-ready.yml` mails the owner the command that
+   signs and publishes the new version; every user then gets it by itself.
 
 ## What runs by itself
 
 | When | What | Workflow | Result |
 |---|---|---|---|
-| Every day, 05:17 UTC | Upstream versions of the bundled components (and whether I.K.E.'s builders still accept them), Arch Linux's own packages against the versions the last green `arch.yml` run on `main` tested, and the default filter lists loaded into `main`'s AdBlock engine | `daily-check.yml` | Issue labelled `components` (titled "Component incompatibility: ..." when a builder refused a new version); when Arch's packages changed, `arch.yml` started on `main`; the inventory of every external component and the issue "Maintenance ledger" (label `maintenance-ledger`), see "Inventory, ledger and what is verified" |
-| Every day, 06:17 UTC | The updates applied to a candidate built from current `main` | `daily-maintenance.yml` | Branch `automation/daily-maintenance`, draft PR labelled `maintenance` |
-| On every PR, every push to `main`, every candidate or fix | Lint, all the tests, the Arch package and its tests | `tests.yml` | Checks on the PR, package download `ike-browser-package` |
-| When one of the three above fails, or `arch.yml` fails on `main` or on the fix branch | An automatic fix (for `arch.yml` only when `Tests` passed on the same commit) | `autofix.yml` | Draft PR labelled `autofix`, or an issue "ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!! (<workflow>)" assigned to the owner, which GitHub mails |
-| Every push to `main`, when the daily check finds Arch's packages changed, after a merge made by itself, on an automatic fix of an Arch failure, and Mondays at 03:41 UTC | The whole suite and the package on Arch Linux's own Python, Qt and Qt WebEngine (`archlinux:latest`), and a record of the versions it tested | `arch.yml` | Artifact `arch-versions` and the run's summary; a failure goes to the automatic fix (see "Arch Linux's own packages"); not a required check of the release |
+| Every day, 05:17 UTC | Upstream versions of the bundled components (and whether I.K.E.'s builders still accept them), Arch Linux's own packages and their whole dependency closure against what the last green `arch.yml` run on `main` tested, and the default filter lists loaded into `main`'s AdBlock engine | `daily-check.yml` | Issue labelled `components` (titled "Component incompatibility: ..." when a builder refused a new version); when anything of Arch's closure changed, `arch.yml` started on `main`; the inventory of every external component and the issue "Maintenance ledger" (label `maintenance-ledger`), see "Inventory, ledger and what is verified" |
+| Every day, 06:17 UTC | One candidate per component (the full chain), each made from current `main`; a builder that refused starts its re-anchoring | `daily-maintenance.yml` | Branches `automation/update/<id>`, each with its draft PR labelled `maintenance` and its Tests, Security and Arch Linux; `automation/builder/<id>` for a builder (see "One candidate per component") |
+| On every PR, every push to `main`, every candidate or fix | Lint, all the tests, the Arch package and its tests; on a commit of the automation that changes the engine, today's filter lists in its engine against `main`'s | `tests.yml` | Checks on the PR, package download `ike-browser-package` |
+| When one of the three above fails, or `arch.yml` fails on `main`, on the fix branch or on a candidate | An automatic fix (for `arch.yml` only when `Tests` passed on the same commit) | `autofix.yml` | A fix on the failed branch (a candidate's own) or a draft PR labelled `autofix`, or an issue "ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!! (<workflow>)" assigned to the owner, which GitHub mails |
+| Every push to `main`, when the daily check finds Arch's closure changed, after a merge made by itself, on every candidate and fix, and Mondays at 03:41 UTC | The whole suite and the package on Arch Linux's own Python, Qt and Qt WebEngine (`archlinux:latest`), the optional dependencies installed, and a record of the versions it tested (the whole closure) | `arch.yml` | Artifact `arch-versions` and the run's summary; a failure goes to the automatic fix (see "Arch Linux's own packages"); not a required check of the release |
+| Wednesdays, 04:23 UTC | `arch.yml` with Arch's `[core-testing]` and `[extra-testing]` on | `arch-testing.yml` | A failure on `main` is fixed on `automation/update/arch-testing-<date>`, merged only when it passes on stable and testing |
 | Every day, 04:23 UTC, and on every PR and push to `main` | The security tests with the engine's sandbox really on (as a normal user), and the RustSec advisories of every crate of the AdBlock engine | `security.yml` | Checks on the PR; on `main` the issue "Rust advisories" when one is found; since 2026-11-22 a finding goes to an analysis and a fix on an isolated branch `automation/update/security-<id>`, never on `main`, or is blocked and the owner told (see "Security findings and vulnerability sources") |
 | Mondays, 07:41 UTC | The automation itself: every scheduled check (also the Arch and security ones, 1.1.19), one tiny question to each reserve of the automatic fix, and (WP9) whether every AI provider, Gemini included, answers and is free | `health.yml` | Issue "Automation health" when something stopped, failed, waits too long, a reserve's key or model no longer works, or a provider is not free (marked unavailable: the automatic fix skips it); artifact `ai-providers` |
-| Once a month | New versions of the GitHub actions used | Dependabot | One PR labelled `maintenance` |
-| When a check of a pull request ends, or the automation's own Tests, Security and Arch Linux runs pass on its branch (a dispatch) | The verified merge (2026-11-22): the daily candidate (`automation/daily-maintenance`), a fix of the automatic fix (`automation/autofix-main`) or an isolated update (`automation/update/...`) is merged when it is fully verified: every check of its last commit passed (`tests`, `sandbox`, `rust-advisories`, `Arch Linux`), every category its components need passed with nothing "not verified" and no required test skipped, no test file changed or removed, no protected file or workflow, the licences up to date, no open security finding, the version raised when main's is published, and no other merge by itself waiting for a signature; the automatic fix's files also follow the 1.1.19 rules (only existing interface modules under `ike/` and `docs/`, no line that reaches the environment, the network, the system or the test run, no module that decides the user's safety). Arch Linux is started on the commit when it has not run there. A fix of ChatGPT (`chatgpt/...`) that passes the 1.1.19 rules is only marked ready for the owner's order. Rules: `tools/automerge.py`, read from `main` | `automerge.yml` | Merged, then `main`'s Tests, Security and Arch Linux start and the release notice follows; otherwise one comment naming the owner with the reason (edited when the reason changes, never repeated), and the ledger says needs-person (blocked for a security finding); ChatGPT: one comment, ready and waiting for the owner's order |
+| Once a month | New versions of the GitHub actions used (a double check: `tools/ci-pins.py` moves them every day) | Dependabot | One PR labelled `maintenance`, for a person |
+| When a check of a pull request ends, or the automation's own Tests, Security and Arch Linux runs pass on its branch (a dispatch) | The verified merge (2026-11-22): a candidate per component (`automation/update/<id>`, the workflows' pins `automation/update/ci-<name>` and the PKGBUILD's `automation/update/pkgbuild` included), a builder's re-anchoring (`automation/builder/<id>`), the single combined candidate (`automation/daily-maintenance`), a fix of the automatic fix (`automation/autofix-main`) or a security fix (`automation/update/security-<id>`) is merged when it is fully verified: every check of its last commit passed (`tests`, `sandbox`, `rust-advisories`, `Arch Linux`, and "Arch Linux (testing)" for a fix of Arch's next packages), every category its components need passed with nothing "not verified" and no required test skipped, no test file changed or removed, no protected file or workflow (but the CI pins' own edit), the licences up to date, no open security finding, the version raised when main's is published, and no other merge by itself waiting for a signature; the automatic fix's files also follow the 1.1.19 rules, or on a candidate of the engine the wrapper's rules, or on a builder's branch the re-anchoring rule. Arch Linux is started on the commit when it has not run there. A fix of ChatGPT (`chatgpt/...`) that passes the 1.1.19 rules is only marked ready for the owner's order. Rules: `tools/automerge.py`, read from `main` | `automerge.yml` | Merged, then `main`'s Tests, Security and Arch Linux start and the release notice follows; otherwise one comment naming the owner with the reason (edited when the reason changes, never repeated), and the ledger says needs-person (blocked for a security finding); ChatGPT: one comment, ready and waiting for the owner's order |
 | When the tests of `main` pass (after a merge by itself: when its Tests and Security pass), and every day at 08:13 UTC | A version in `main` that is not published yet, with `tests` and `sandbox` green on its last commit | `release-ready.yml` | An issue "C'E' UNA NUOVA RELEASE IN MAIN PRONTA DA PUBBLICARE!!!" with the exact command, assigned to the owner and naming the owner (GitHub mails it), listing what was merged by itself since the last release (fully verified, so the owner knows what the signature covers); a reminder comment each week; closed by itself once the version is published; never opened again for a version whose notice the owner closed |
 
 ## Components followed
 
-`tools/check-components.py` checks:
+`tools/check-components.py` checks (each line is one candidate, or a small
+group of them, `--only <id>`):
 
-| Component | Version written in | What triggers an update |
-|---|---|---|
-| adblock-rust, the AdBlock engine library | `ike-adblock/Cargo.toml`, `ike-adblock/src/lib.rs`, `ike-adblock/Cargo.lock` | A newer stable release on crates.io |
-| The engine's other crates (pyo3, serde_json and every crate they and adblock bring, psl's list of public suffixes included; 1.1.19) | `ike-adblock/Cargo.lock`, and `ike-adblock/Cargo.toml` for a new pyo3 release line | A newer compatible version of any of them (`cargo update`, adblock kept at its exact version), or a new pyo3 line (the requirement is raised; the automatic fix may adapt I.K.E.'s wrapper, as for a new engine) |
-| uBlock Origin scriptlets | `ike/resources/ubo-scriptlets.json` | The rebuilt scriptlets differ, not merely a new upstream commit |
-| Dark Reader: engine (npm "darkreader") and the lists of its extension (GitHub) | `ike/resources/darkreader.js`, `darkreader-proxy.js`, `darkreader-data.json` (`tools/build-darkreader.py`) | A newer engine, or lists that changed (site fixes, dark sites, detector hints) |
-| Qt WebEngine / PyQt6 of the automatic tests | `tools/test-requirements.txt` | A newer Qt / PyQt6 package set on PyPI |
+| Component | Candidate | Version written in | What triggers an update |
+|---|---|---|---|
+| adblock-rust, the AdBlock engine library | `adblock` | `ike-adblock/Cargo.toml`, `ike-adblock/src/lib.rs`, `ike-adblock/Cargo.lock` | A newer stable release on crates.io |
+| The engine's other crates (serde_json and every crate pyo3 and adblock bring, psl's list of public suffixes included; 1.1.19) | `crates` | `ike-adblock/Cargo.lock` | A newer compatible version of any of them (`cargo update`, the requirements as they are, adblock kept at its exact version) |
+| pyo3, the bridge to Python | `pyo3` | `ike-adblock/Cargo.toml`, `ike-adblock/Cargo.lock` | A new release line: the requirement is raised (the automatic fix may adapt I.K.E.'s wrapper) |
+| A new major version of another direct crate of the engine (serde_json 2, ...) | `crate-major-<crate>` | `ike-adblock/Cargo.toml`, `ike-adblock/Cargo.lock` | Its requirement in `Cargo.toml` is raised, then `cargo update`; the automatic fix may adapt the wrapper. A major version of a crate only adblock brings (thiserror 2, rand, selectors...) cannot be taken by I.K.E.'s requirements: it comes with a new adblock, which is its own candidate; the ledger keeps it as retry-later, looked at weekly |
+| uBlock Origin scriptlets | `ubo-scriptlets` | `ike/resources/ubo-scriptlets.json` | The rebuilt scriptlets differ, not merely a new upstream commit |
+| Dark Reader: engine (npm "darkreader") and the lists of its extension (GitHub) | `darkreader` | `ike/resources/darkreader.js`, `darkreader-proxy.js`, `darkreader-data.json` (`tools/build-darkreader.py`) | A newer engine, or lists that changed (site fixes, dark sites, detector hints) |
+| The packages of the automatic tests: Qt's wheels; pytest, ruff and theirs; the other libraries | `test-qt`, `test-tools`, `test-libs` | `tools/test-requirements.txt` | A newer package set on PyPI (no new version of I.K.E.: nothing ships) |
+| The workflows' pins: every GitHub Action, cargo-deny, setup-python's and setup-node's versions, the Rust toolchain | `ci-<name>` | `.github/workflows/*.yml`, `.github/actions/*` (`tools/ci-pins.py`) | A newer release (see "The workflows' pins") |
+| The PKGBUILD's depends, optdepends and minima | `pkgbuild` | `PKGBUILD` (`tools/pkgbuild-sync.py`) | A module, Qt module or program the code uses and no package declares, a package needed at run time that is only optional, or a `# needs: <package> >= <version>` the code declares (see "Arch Linux's own packages") |
 
 The browser itself runs on Arch Linux's `qt6-webengine`, updated with the
 system (`sudo pacman -Syu`); the Chrome version presented to sites is the one of
@@ -60,7 +111,7 @@ apart:
 | What happened | Called | What it does |
 |---|---|---|
 | An upstream source could not be read: the network, crates.io, PyPI, npm, GitHub, `git clone`, npm's hash that does not match | **source unreachable** | Infrastructure. The report's row says "check failed: source unreachable: ..."; `--apply` applies **nothing** and exits 1 (fail closed); the maintenance's check step fails and the automatic fix opens "GitHub or the runner failed: Daily maintenance candidate", no AI. The next daily run tries again. |
-| The new version was downloaded, but I.K.E.'s builder does not accept it: a patch's anchor is gone or found twice, the proxy or `injectProxy` is not where it was, the npm package is laid out differently, the site fixes do not start with the common fix; uBlock Origin's library moved, the builder stopped, found no scriptlets, or a scriptlet needs an entry the library does not have | **builder refused**: a component incompatibility | That component **stays at the version in use, with I.K.E.'s changes** (never replaced by the unpatched upstream). Every other component is still applied and tested (the crates' security updates included); `--apply` exits 0. The report has a section for a person. No AI: `tools/build-*` and the components' files are a person's (the automatic fix's guard refuses them). |
+| The new version was downloaded, but I.K.E.'s builder does not accept it: a patch's anchor is gone or found twice, the proxy or `injectProxy` is not where it was, the npm package is laid out differently, the site fixes do not start with the common fix; uBlock Origin's library moved, the builder stopped, found no scriptlets, or a scriptlet needs an entry the library does not have | **builder refused**: a component incompatibility | That component **stays at the version in use, with I.K.E.'s changes** (never replaced by the unpatched upstream). Every other component is still applied and tested (the crates' security updates included); `--apply` exits 0. The report has a section for the owner, and since 2026-11-22 the builders' path starts (below): an AI may re-anchor the existing patches on `automation/builder/<id>` only; the guard refuses `tools/build-*` to every other run. |
 
 **How to read the report** (the `components` issue, the run's summary, and the
 maintenance candidate's pull request when other components changed). The
@@ -82,9 +133,32 @@ gives:
   and its exports, or the files next to it);
 - the builder's log.
 
-What a person does: adapt the patch (or the builder) to the new text in a
-pull request, as any change of `tools/`; the next daily run then takes the
-new version. Until then users keep the working, customised version.
+**The builders' path** (WP11, 2026-11-22). The daily maintenance starts it by
+itself (`autofix.yml`, work `builder/<id>/<date>`, with the refusal above as
+the failure description): on the isolated branch `automation/builder/<id>`
+an AI may **only re-anchor I.K.E.'s existing patches**, never add one, never
+change what a patch puts in, never change upstream code
+(`tools/builder-anchor.py`, enforced by the guard's `--builder <id>` mode and
+again by the verified merge):
+
+- Dark Reader (`tools/build-darkreader.py`): the same `PATCHES` by name and
+  in the same order, each replacement text byte-identical; only anchor texts
+  may change, re-found in the new upstream engine; everything outside
+  `PATCHES` byte-identical. Dark Reader keeps only measured patches (the
+  owner's decision of 2026-11-21): no patch can come in this way;
+- uBlock Origin (`tools/build-ubo-scriptlets.mjs`): only the path of the
+  library it imports (a file under the checkout, ending in `.js`).
+
+The re-anchored builder then runs: `daily-maintenance.yml` (mode `builder`)
+applies the update on that branch with it (the builder itself refuses an
+anchor found not exactly once), and its tests prove the result:
+`tests/test_darkreader.py` checks that the shipped engine is Dark Reader's own
+npm engine with exactly I.K.E.'s changes (byte identity) and only the measured
+families, and the Dark Reader cost test runs with the whole suite. A builder
+that still refuses is given to the AI again, up to `FIX_ATTEMPTS`; then the
+branch is kept and the owner told. A person may always adapt a patch by hand
+in a pull request, as any change of `tools/`. Until the new version is merged,
+users keep the working, customised version.
 
 ### The default filter lists in the bundled engine
 
@@ -205,6 +279,51 @@ does, once).
   as a floor). A mirror that lags behind Arch's site makes `arch.yml` test
   the older set; the next day the check finds the change again and starts it
   once more.
+- **The whole dependency closure** (WP10 (a), 2026-11-22). The record of
+  `arch.yml` also holds every package pacman installed for I.K.E.
+  (`pacman -Qi` of every installed package, followed recursively through
+  "Depends On" and "Provides", from `ARCH_PACKAGES` and the PKGBUILD's
+  depends, makedepends and the optdepends it installed): Mesa, ffmpeg, NSS,
+  ICU, the fonts, Qt's libraries and the rest. The daily check downloads
+  Arch's core and extra package databases once (geo.mirror.pkgbuild.com) and
+  compares every package of that closure with them: one in another version
+  (a new `pkgrel` too) is "Arch changed" and starts `arch.yml` on `main`.
+  A database that cannot be read is "source unreachable", never a change.
+- **Arch's next packages** (WP10 (b)). Once a week `arch-testing.yml` calls
+  `arch.yml` with Arch's `[core-testing]` and `[extra-testing]` repositories
+  on (before core and extra, as Arch's own `pacman.conf` says; its record is
+  kept apart, never the "last tested on main"). A failure of the build or of
+  the tests there, while `Tests` passed on the same commit, is fixed by the
+  automatic fix on `automation/update/arch-testing-<date>` made from `main`
+  (one at a time); that fix is tested on Arch's stable packages and on the
+  testing ones, and merges by itself only when both pass, with the version
+  raised. pacman, the mirrors and the container are not the code's: an issue,
+  no AI.
+- **An Arch update that breaks `main`** (WP10 (c)) is the failure below: the
+  automatic fix works on `automation/autofix-main`, tested on Arch too, and
+  the verified merge takes it with the version raised.
+- **The PKGBUILD kept right** (WP10 (d)). `tools/pkgbuild-sync.py` reads
+  what the code needs: the inventory's "used but not declared" (a required
+  import or Qt module goes into depends, an optional import or a program
+  `ike/` starts into optdepends with what uses it) and "declared too weakly"
+  (into depends), and the minima the code declares where it needs them, a
+  comment `# needs: <package> >= <version>` in `ike/` or `ike_boot.py` (the
+  PKGBUILD then says `'<package>>=<version>'`; a minimum is only raised).
+  The daily maintenance makes it a candidate, `automation/update/pkgbuild`;
+  the verified merge accepts only that change of the recipe (entries added,
+  minima raised, an optional entry moved into depends, and the version), and
+  `pacman -U` in `arch.yml` installs a new dependency, so its tests prove it.
+  An "unknown provider" stays for a person.
+- **The optional dependencies** (WP10 (e)). `arch.yml` installs those Arch
+  ships (libnotify, xdg-utils, noto-fonts, noto-fonts-cjk,
+  plasma-integration, intel-media-driver, libva-nvidia-driver);
+  `tests/test_optional_deps.py` has one case per optdepends entry of the
+  PKGBUILD: where the package is installed, pacman finds all its files and
+  what I.K.E. uses of it works (notify-send, xdg-settings, a Noto CJK font,
+  KDE's platform theme, the VA-API drivers, the Widevine library where
+  `ike/drm.py` looks); where it is not installed the case is skipped as
+  **not verified**, never "incompatible" (chromium-widevine is in the AUR:
+  no check of GitHub installs it, and it says so).
 - **A failure of `arch.yml`** goes to the automatic fix (`autofix.yml` listens
   to "Arch Linux"; the runs the automation itself started hand their failure
   over, as `tests.yml` does):
@@ -300,13 +419,19 @@ history. The states:
 | State | When |
 |---|---|
 | detected | a newer version (or a new dependency) was found |
-| candidate | the daily candidate carries it (read from the candidate's files); its tests have not run |
+| candidate | its own candidate carries it (`automation/update/<id>`, or the combined one); its tests have not run |
 | testing | the candidate's checks, or `arch.yml` on `main` for an Arch package, are running |
-| fixing | they failed: the automatic fix works on it |
-| passed | every required check passed (it waits for the owner's merge), or it is in `main` |
+| fixing | they failed: the automatic fix works on it, on the candidate's own branch |
+| passed | every required check passed (the verified merge takes it), or it is in `main` |
 | blocked | an advisory with no fixed version upstream, a security fix the automatic fix gave up on, or tried `MAX_ATTEMPTS` times |
-| needs-person | a builder refused it, a workflow file (proposals only), a dependency used but not declared, the automatic fix gave up, or checks that passed but left a required category not verified |
+| needs-person | a builder refused it and its re-anchoring is not there yet, a pin of a workflow until its candidate exists (an AI's change of a workflow is only a proposal), a dependency used but not declared (until the PKGBUILD's candidate), the automatic fix reached its cap (`FIX_ATTEMPTS`: the branch is kept, the owner told once), or checks that passed but left a required category not verified |
 | retry-later | a source unreachable today (tried again the next day), or a new major version `cargo update` cannot take (looked at again weekly) |
+
+Since the full chain each entry follows its own candidate: the ledger reads
+every open pull request of `automation/update/<id>` and `automation/builder/<id>`
+(`update_branches`: its commit, the runs of Tests, Arch Linux and Security
+there, its skipped tests, the automatic fix's commits and the merge's
+verdict) and gives the entry of that component the candidate's state.
 
 The same update is never added twice; a failed one keeps its reason and is
 tried again when its time comes or when `main` changes; finished entries
@@ -347,10 +472,12 @@ The inventory, the ledger, the test categories, the candidate's report and
 `tools/check-components.py` itself are in the guard's protected files
 (`FORBIDDEN_FILES`): no agent changes what judges it.
 
-Not yet (later work packages): one candidate per component (WP5); the optional Arch
-packages tested one by one and `arch.yml` on the candidate (WP10); the
-builders' re-anchoring path and workflow proposals (WP11, WP12). The filter
-lists' classification (WP8) and the free providers (WP9) are below.
+Since 2026-11-22 every work package of the plan is in: one candidate per
+component (WP5, "One candidate per component"), the security findings (WP6,
+WP7), the filter lists' classes and the free providers (WP8, WP9, below), Arch
+complete (WP10, "Arch Linux's own packages"), the builders' re-anchoring
+(WP11), the workflow proposals (WP12, "The automatic fix"), the candidate's
+report (WP13) and the end-to-end proofs (WP14, `tests/test_full_chain.py`).
 
 ## Filter lists in five classes, and free AI providers (WP8, WP9)
 
@@ -609,8 +736,9 @@ fix is "detected" and then follows its isolated branch (testing, fixing,
 passed: waits for the owner's merge, or blocked when the automatic fix gave
 up); an Arch package is "detected" (users get the fix with `pacman -Syu`,
 `arch.yml` verifies it); PyPI and npm are "detected" (the daily candidate
-takes the newer version); a GitHub Action "needs-person" (workflow files are
-proposals). A failed sandbox test on `main` is the entry
+takes the newer version: its own candidate per component); a GitHub Action
+"needs-person" (an AI's workflow change is only a proposal; the pin itself
+moves by `tools/ci-pins.py`'s candidate). A failed sandbox test on `main` is the entry
 `security:sandbox@failing on main`. An advisory a source that answered no longer reports is
 "passed". Every entry that becomes blocked or needs a person is said **once**
 in a comment on the ledger issue that names the owner (an edited body
@@ -630,7 +758,71 @@ pushed (its tests "not verified" until they run); their later results are in
 the ledger, not yet written back into the pull request. A security fix that
 changes the browser gets its version when the owner orders the merge.
 
-## The maintenance candidate
+## One candidate per component
+
+Since 2026-11-22 (WP5) the daily maintenance makes **one isolated candidate per
+component**, or per small coherent group, instead of one combined candidate
+(`daily-maintenance.yml`, `tools/update-candidates.py`):
+
+1. **plan-candidates** (no credentials but a read-only token for the list of
+   open pull requests): `tools/check-components.py --json` finds every
+   component's candidates, `tools/ci-pins.py check` the workflows' pins,
+   `tools/pkgbuild-sync.py plan` the PKGBUILD's; `tools/update-candidates.py
+   plan` decides each one: **make** (rebuilt from current `main`), **queued**
+   (candidates that change the same file go one at a time: the engine's
+   `Cargo.lock`, shared with the security fixes' branches, and the test
+   packages' pins; the first by priority goes first, the others wait until
+   it is merged or closed), **builder** (the builders' path, above),
+   **unreachable** (its source could not be read today: nothing made, tried
+   again tomorrow) or skip. The plan is in the run's summary and in the
+   artifact `component-report`.
+2. **candidate (<id>)**, one job per candidate (at most three at a time), with
+   **no credentials** (the code of others runs here: the builders, `cargo
+   update`, `pip`): from `main`, `tools/check-components.py --only <id>
+   --apply` (or `tools/ci-pins.py apply`, `tools/pkgbuild-sync.py apply`), the
+   licence files written again, the version raised by
+   `tools/prepare-maintenance.py` when the candidate ships (with its CHANGELOG
+   line; never for the test packages or the workflows' pins), and its own
+   commit, `update: <id> <from> -> <to> (no AI)` (`ci: ...`, `pkgbuild: ...`).
+   The automatic fixes of the open candidate of the same update (commits
+   `autofix: ...`) are carried over. The bundle and whether it differs from
+   the published branch go to the publish job.
+3. **publish (<id>)**, only on `main`: the candidate's commits are checked with
+   `main`'s own `tools/update-candidates.py check` (each commit its update's
+   own, changing only its files, or the automatic fix's carried over); pushed
+   to `automation/update/<id>` with a lease, only when it differs (idempotent:
+   the same update is never opened twice); its draft pull request (labelled
+   `maintenance`, the report of `tools/maintenance-report.py`) and Tests,
+   Security and Arch Linux on it. A pin of the workflows is pushed with the
+   repository secret `IKE_WORKFLOW_TOKEN` (GitHub refuses workflow changes to
+   the workflow's own token): without it, a warning, and Dependabot's monthly
+   pull request stays the way for those pins.
+4. From there each candidate goes its own way: a failure goes to the
+   automatic fix on its branch (`automation/update/<id>`), a green and
+   verified candidate merges by itself, and the ledger follows each one
+   (`tools/maintenance-ledger.py`: the branch, its runs, the automatic fix's
+   attempts, the verdict of the merge).
+
+A new engine that does not build with I.K.E.'s wrapper (a new adblock, pyo3
+or major crate) is still published: its tests fail on its branch, and the
+automatic fix may change I.K.E.'s wrapper there (`ike-adblock/src/`,
+`vendor/adblock/__init__.py`, `ike/blocker.py`), never `Cargo.toml` or
+`Cargo.lock`. A new crate still passes `deny.toml`'s licence and source
+checks (the "Licences" step of its tests). A candidate that changes the engine
+gets today's default filter lists checked in its own engine, on its own
+commit, against `main`'s engine on the same lists (`tests.yml`, the step
+"Filter lists in this engine", `tools/filter-lists.py compare`): an engine
+that reads them worse fails; a list not downloaded leaves it not verified.
+
+The first scheduled run on `main` closes the combined candidate's open pull
+request with a comment (job `retire-combined`; its branch stays, every update it
+carried is made again per component).
+
+### The single combined candidate (mode "combined")
+
+Kept, and started by hand: Actions → "Daily maintenance candidate" → Run
+workflow with mode `combined` (or `gh workflow run daily-maintenance.yml -f
+mode=combined`). It works as before 2026-11-22:
 
 1. `daily-maintenance.yml` starts `automation/daily-maintenance` from the
    current `main` every time and applies the component updates
@@ -687,7 +879,8 @@ pull request again, writes them.
 
 Started by hand on another branch than `main` (Actions → "Daily maintenance
 candidate" → Run workflow → that branch, or `gh workflow run
-daily-maintenance.yml --ref <branch>`), the daily maintenance is a
+daily-maintenance.yml --ref <branch>`; the candidates per component by
+default, the combined one with mode `combined`), the daily maintenance is a
 **rehearsal** (trials of 2026-11-22): the candidate is built from that
 branch's commit, with that branch's tools, and **nothing is published**: no
 push to `automation/daily-maintenance`, no pull request, no tests started, no
@@ -1038,6 +1231,38 @@ never touched.
    (and, 1.1.18, "una riserva ha preparato una correzione, ma i controlli
    automatici l'hanno respinta" when that is what happened).
 
+   **More attempts, other free providers** (the full chain, 2026-11-22). On
+   the isolated candidates (`automation/update/<id>`, `automation/builder/<id>`,
+   `automation/update/arch-testing-<date>`) a failure is fixed up to
+   `FIX_ATTEMPTS` times (`tools/ai-providers.py`, a person's file, today 4).
+   Each attempt is a new run of the automatic fix with a **fresh context**:
+   the agent gets only the earlier fix, the new test logs and its summary, as
+   data; the tests run again after each. Attempt *n* starts with the *n*-th
+   free provider of `all_names()` (Antigravity, Groq, Z.AI, OpenRouter, round
+   robin), so after a fix that did not pass another provider and model family
+   tries first (a provider without its key is skipped: Antigravity then goes
+   first as usual; the reserves follow in their order from the one named).
+   At the cap the branch is kept, the maintenance ledger says needs-person
+   and the owner is told once. On `main`, `automation/autofix-main`, the
+   combined candidate and the security branches the cap stays
+   `FIX_ATTEMPTS_MAIN` (two), Antigravity first each time.
+
+   **A fix raises the version** (item 5 of the full chain). Every automation
+   pull request that changes what ships (I.K.E.'s code, the engine's wrapper,
+   a builder's output, a security update of a crate) gets the next version
+   when `main`'s is published (`tools/prepare-maintenance.py`, patch +1; added
+   to `main`'s version when that is not published yet), with a CHANGELOG line
+   written from the plan's report (no code, no link), unless its branch raised
+   it already. So it can merge by itself and reach the owner as a version to
+   sign.
+
+   **Workflow changes are proposals** (WP12). An AI never edits a workflow:
+   the guard refuses `.github/` to every run. When Antigravity's fix touched
+   a workflow, the part of `.github/` it wanted is kept, never applied or
+   pushed, and the report's issue shows it as "Proposta di modifica dei
+   workflow (per una persona: mai applicata)", for a person to read and apply
+   by hand.
+
    **One run at a time per branch** (1.1.18). The workflow has no concurrency
    group of its own any more: GitHub keeps only one waiting run per group and
    replaces it with the next, so a run for a real failure was dropped for a
@@ -1173,6 +1398,40 @@ self_test=true`): the workflow and the self-test's tool come from that branch.
 The agent cannot see Plasma: shapes, effects and the look are always judged by
 the owner on the real system.
 
+## The workflows' pins
+
+The workflows pin every GitHub Action by the commit of a release (with the
+release as a comment), cargo-deny's version, the Python and Node.js versions
+of setup-python and setup-node, and the Rust toolchain (`stable`, which
+follows Rust's releases by itself: nothing to pin). Since 2026-11-22
+`tools/ci-pins.py`, a deterministic tool and **never an AI**, keeps them
+current, one candidate per pin on `automation/update/ci-<name>`:
+
+- an Action only to the commit of an official release tag (`vX.Y.Z`, no
+  pre-release) of the **same** action, read with `git ls-remote` from
+  github.com (an annotated tag peeled to its commit), the comment moved to
+  that tag;
+- cargo-deny to its newest release on crates.io; Python to the version Arch
+  ships (users run Arch's Python) when setup-python offers it; Node.js to the
+  newest LTS line; a numeric Rust toolchain to the newest stable release.
+
+Its commit is `ci: <name> <old> -> <new> (tools/ci-pins.py, no AI)` and
+changes one line per pin. The tests run on that branch with the new pin (a
+dispatched run uses the branch's own workflows). The verified merge accepts
+exactly these edits (`verify_change`): every changed line of a workflow is a
+pin of that name on both sides, at the same place, the same action, a commit
+that `git ls-remote` shows is the release tag written beside it, and every
+commit of the branch is the tool's; any other workflow change, or an AI's
+commit there, keeps it for a person. GitHub refuses workflow changes to the
+workflow's own token: the push and the merge of these candidates use the
+repository secret `IKE_WORKFLOW_TOKEN` (a fine-grained token of the owner's
+with Contents, Pull requests and Workflows write on this repository only,
+see "Repository settings"); without it the candidate waits and says why.
+**Dependabot stays on** for the Actions, monthly, as a double check (the
+owner's choice recorded in `.github/dependabot.yml`): its pull request is a
+person's, and when the tool's candidate merged first Dependabot closes its
+own.
+
 ## The verified merge
 
 The owner's decision of 2026-11-22: the AIs fix and carry the work on through
@@ -1182,7 +1441,17 @@ it when it is ready and has passed the tests. `tools/automerge.py`, run by
 it is judged by, and no agent merges its own work), merges a pull request
 only when ALL of this holds:
 
-- it is the automation's own: `automation/daily-maintenance` (the update's
+- it is the automation's own: a candidate per component
+  (`automation/update/<id>`: its own `update: <id> ... (no AI)` commit, which
+  may change only that id's files, the licences and the version, checked with
+  the same `tools/update-candidates.py` the daily maintenance uses; a CI pin's
+  `ci: ...` commits, judged line by line by `tools/ci-pins.py`; the
+  PKGBUILD's `pkgbuild: ...` commit, judged by `tools/pkgbuild-sync.py`; plus
+  the automatic fix's commits), a builder's re-anchoring
+  (`automation/builder/<id>`: the automatic fix's change of that builder only
+  as `tools/builder-anchor.py` allows, and the update it then accepts), a fix
+  of Arch's next packages (`automation/update/arch-testing-<date>`, which also
+  needs "Arch Linux (testing)" green), `automation/daily-maintenance` (the update's
   `maintenance:` commit, which may change only what an update changes, the
   same list as `daily-maintenance.yml`'s check, and the version files only by
   the version; plus the automatic fix's commits), `automation/autofix-main`
@@ -1201,16 +1470,29 @@ only when ALL of this holds:
   no tests lost, the package, the old processor, the installed package, Arch
   Linux, the sandbox, the advisories), was run and passed on that commit:
   nothing "not verified". The skipped tests are read from its Tests run: one
-  that no other check of the commit runs (`EXPECTED_SKIPS`: the sandbox test
-  runs in `security.yml`, the desktops' themes in `arch.yml`...) is a
-  required test not run. A kind that needs the filter lists (a new AdBlock
-  engine) or a real desktop is never fully verified here: it waits for the
-  owner;
+  that no other check of the commit runs is a required test not run.
+  `EXPECTED_SKIPS` (`tools/test-categories.py`) names, from a real Tests run
+  on GitHub's runners (2026-11-22), the skips that are environmental there,
+  each with where it is verified instead: the sandbox test (`security.yml`),
+  the desktops, widget styles and KDE's theme as Arch packages them and the
+  optional dependencies (`arch.yml`), the installed package's own tests, the
+  real network sources (the daily check), pictures for a person, a split
+  run, and what GitHub's runners do not have (no IPv6 loopback, no AUR
+  package); any other skip still blocks. Since the full chain a new AdBlock
+  engine can be fully verified: the filter lists are checked on its own
+  commit. A kind that needs a real desktop is never fully verified here: it
+  waits for the owner;
 - no test file changed or removed, no protected file of the guard
-  (`FORBIDDEN_FILES`) and no workflow; the automatic fix's files follow the
-  1.1.19 rules (only existing interface modules under `ike/` and `docs/`, no
-  line that reaches the environment, the network, the system or the test
-  run, no module that decides the user's safety);
+  (`FORBIDDEN_FILES`; a candidate's own files, as `tools/test-requirements.txt`
+  for the test packages, are its update's) and no workflow (but the CI pins'
+  verified edit); the automatic fix's files follow the 1.1.19 rules (only
+  existing interface modules under `ike/` and `docs/`, no line that reaches
+  the environment, the network, the system or the test run, no module that
+  decides the user's safety); on a candidate of the engine (adblock, pyo3, a
+  major crate) the automatic fix may also adapt I.K.E.'s wrapper
+  (`ike-adblock/src/*.rs`, `vendor/adblock/__init__.py`, `ike/blocker.py`)
+  with no added `unsafe` code, process, file, network or environment access
+  or foreign code in Rust, and nothing risky the old Python file did not have;
 - the licences are up to date (the "Licences" step: cargo-deny and the
   licence files);
 - no open security finding: the issue "Sandbox tests failed on main", the
@@ -1259,6 +1541,15 @@ person: open a conversation and paste its link.
   contents** (each job asks for what it needs) and tick **Allow GitHub Actions
   to create and approve pull requests** (otherwise the candidate and the fixes
   cannot open their pull requests).
+- Optional, for the workflows' pins (the full chain, 2026-11-22): the
+  repository **secret** `IKE_WORKFLOW_TOKEN`, a fine-grained personal access
+  token of the owner's, for this repository only, with the permissions
+  Contents, Pull requests and Workflows (read and write). Only two steps
+  receive it: the push of a CI pin's candidate (`daily-maintenance.yml`,
+  publish) and the merge of that candidate once `tools/automerge.py` verified
+  every changed line (`automerge.yml`); no AI step ever sees it. Without it
+  those candidates wait (a warning says why) and Dependabot's monthly pull
+  request remains the way for the actions.
 - Settings → Secrets and variables → Actions → **Secrets**: `GEMINI_API_KEY`, a
   Gemini API key from Google AI Studio, in a Google Cloud project **without
   billing** (free tier: nothing can be charged; Google may use the requests to

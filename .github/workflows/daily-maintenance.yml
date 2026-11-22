@@ -202,7 +202,7 @@ jobs:
           mkdir -p "$out"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if ! printf '%s' "$ID" | grep -Eq '^[a-z0-9-]{1,70}$' || ! printf '%s' "$BRANCH" | grep -Eq '^automation/(update|builder)/[a-z0-9-]{1,70}$'; then
+          if ! printf '%s' "$ID" | grep -Eq '^[a-z0-9_-]{1,70}$' || ! printf '%s' "$BRANCH" | grep -Eq '^automation/(update|builder)/[a-z0-9_-]{1,70}$'; then
             echo "::error::not a candidate: $ID on $BRANCH"; exit 1
           fi
           # from main (a rehearsal: from this branch), or a re-anchored builder's branch (WP11)

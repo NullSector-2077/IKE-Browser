@@ -237,7 +237,8 @@ jobs:
       - name: Instructions and the agent's runner from main, never from the branch being fixed
         run: |
           git show origin/main:.github/autofix/prompt.md > "$RUNNER_TEMP/prompt.md"
-          for f in autofix-agent.py autofix-context.py autofix-reserve.py check-autofix-patch.py ai-providers.py; do
+          for f in autofix-agent.py autofix-context.py autofix-reserve.py check-autofix-patch.py ai-providers.py \
+                   builder-anchor.py; do
             git show "origin/main:tools/$f" > "$RUNNER_TEMP/$f"
           done
       - name: Failure description
@@ -478,6 +479,11 @@ jobs:
           # .autofix/ of the agent's tree
           cp "$GITHUB_WORKSPACE/.autofix/failure.md" "$inputs/failure.md"
           python3 -I "$RUNNER_TEMP/autofix-context.py" --repo "$repo" --failure "$inputs/failure.md" --out-dir "$inputs"
+          # WP11: the builders' re-anchoring: the refused builder is the one file involved (and shown)
+          case "$(cat "$RUNNER_TEMP/builder" 2> /dev/null || true)" in
+            darkreader) printf 'tools/build-darkreader.py\n' > "$inputs/related.txt" ;;
+            ubo-scriptlets) printf 'tools/build-ubo-scriptlets.mjs\n' > "$inputs/related.txt" ;;
+          esac
           cp "$inputs/related.txt" "$RUNNER_TEMP/autofix/related.txt"
           rm -rf "$repo/.autofix"
           mkdir "$repo/.autofix"
@@ -826,7 +832,7 @@ jobs:
       - name: Checking tools from main, never from the branch being fixed
         run: |
           mkdir -p "$RUNNER_TEMP/trusted"
-          for f in check-autofix-patch.py prepare-maintenance.py; do
+          for f in check-autofix-patch.py prepare-maintenance.py builder-anchor.py; do
             git show "origin/main:tools/$f" > "$RUNNER_TEMP/trusted/$f"
           done
       - name: Check and apply the patch
@@ -1177,6 +1183,14 @@ jobs:
           msg=$(python3 -I -c 'import json,sys; r=json.load(open(sys.argv[1])); print("; ".join("%s: %s %s -> %s" % (u["id"], u["crate"], u["from"], u["to"]) for u in r["updates"]))' "$out/result.json")
           printf 'security: %s (cargo update, no AI)\n\nRun: %s\n' "$msg" "$RUN_URL" > "$out/message"
           git add ike-adblock/Cargo.lock
+          # item 5 of the full chain: the fixed crate ships, so main's published version is raised
+          # (tools/prepare-maintenance.py; added to main's version when it is not published yet)
+          base_version=$(git show origin/main:ike/__init__.py | sed -n 's/^__version__ = "\(.*\)"/\1/p')
+          keep=""
+          if [ -z "$(git tag -l "v$base_version")" ]; then keep="--keep-version"; fi
+          python3 -I tools/prepare-maintenance.py --root . --base-version "$base_version" $keep \
+            --bullet "$(printf -- '- Security: %s' "$msg" | tr -d '`' | cut -c1-300)"
+          git add -u
           git -c core.hooksPath=/dev/null commit -q -F "$out/message"
           auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
           git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" \

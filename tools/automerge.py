@@ -608,6 +608,9 @@ def verified_file_problem(f, by, guard_allowed, repo, ref="", tags=None):
         if is_wrapper(name) and _candidates().wrapper_allowed(ref):
             return wrapper_problem(f)            # item 2: the wrapper adapted to a new engine
         return file_problem(f, guard_allowed, repo)     # the 1.1.19 rules of a fix of the automatic fix
+    if by == {"update", "autofix"} and is_wrapper(name) and _candidates().wrapper_allowed(ref):
+        # item 2: the engine's own file the update moved (ENGINE_VERSION in lib.rs) adapted by the fix
+        return wrapper_problem(f)
     return "%s: changed by the update and by the automatic fix" % name
 
 

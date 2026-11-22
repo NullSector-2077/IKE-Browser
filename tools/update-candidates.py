@@ -96,7 +96,7 @@ SPECS = {
 }
 # the order in which candidates of one serial group go (the security fixes' branches always count as open)
 PRIORITY = ("adblock", "pyo3", "crates", "crate-major-", "test-qt", "test-tools", "test-libs")
-UPDATE_COMMIT = re.compile(r"^update: ([a-z0-9-]+) (.{1,300}) -> (.{1,300}) \(no AI\)$")
+UPDATE_COMMIT = re.compile(r"^update: ([a-z0-9_-]+) (.{1,300}) -> (.{1,300}) \(no AI\)$")
 CI_COMMIT = re.compile(r"^ci: ([a-z0-9-]+) (\S{1,80}) -> (\S{1,80}) \(tools/ci-pins\.py, no AI\)$")
 
 
@@ -258,13 +258,14 @@ def plan(report, branches=None, builder_apply=()):
         group = s["serial"]
         mine = row["branch"]
         holder = open_serial.get(group) if group else None
+        what = "the engine's Cargo.lock" if group == "cargo" else "the test packages' pins"
         if group and holder and holder != mine:
             out.append(dict(row, action="queued", reason="waits for %s (one change of %s at a time)" % (
-                holder, "the engine's Cargo.lock" if group == "cargo" else "the test packages' pins")))
+                holder, what)))
             continue
         if group and taken.get(group) and taken[group] != mine:
-            out.append(dict(row, action="queued", reason="waits for %s, made first today (one at a time)"
-                            % taken[group]))
+            out.append(dict(row, action="queued", reason="waits for %s, made first today (one change of %s at "
+                            "a time)" % (taken[group], what)))
             continue
         if group:
             taken[group] = mine

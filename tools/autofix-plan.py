@@ -711,6 +711,12 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
     elif isolated(target):
         # the full chain (WP5, WP10, WP11): the candidate's own branch, fixed there with a fresh
         # context per attempt, up to the configurable cap; the branch is kept at the cap
+        if target.startswith("automation/update/ci-"):
+            # a pin of the workflows broke the tests: an AI never edits a workflow (WP12), a person decides
+            plan.update(action="issue", reason="needs-person: the new pin on %s does not pass the tests; an AI "
+                        "never edits a workflow, so a person decides (Dependabot's proposal stays as the double "
+                        "check)" % target)
+            return plan
         kind = "builder" if target.startswith(BUILDER_PREFIX) else \
             "arch-testing" if target.startswith(ARCH_TESTING_PREFIX) else "update"
         new_branch = kind == "arch-testing" and target != branch
