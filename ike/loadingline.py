@@ -6,7 +6,7 @@ colour; it shows only for a load that takes a while (SHOW_AFTER) and never
 for I.K.E.'s own pages, which load at once. While it shows, every frame of
 the page under it repaints it: a picture costs much less than shapes."""
 
-from PyQt6.QtCore import QEvent, QRect, QRectF, Qt, QTimer
+from PyQt6.QtCore import QEvent, QPointF, QRect, QRectF, Qt, QTimer
 from PyQt6.QtGui import QColor, QPainter, QPalette, QPixmap
 from PyQt6.QtWidgets import QApplication, QWidget
 
@@ -162,7 +162,8 @@ class LoadingLine(QWidget):
         cap = min(6, end)
         dpr = bar.devicePixelRatio() or 1.0
         h = round(self.HEIGHT * dpr)
-        p.drawPixmap(QRectF(0, 0, end - cap, self.HEIGHT), bar, QRectF(0, 0, (end - cap) * dpr, h))
-        p.drawPixmap(QRectF(end - cap, 0, cap, self.HEIGHT), bar,
-                     QRectF(bar.width() - (cap + self.INSET) * dpr, 0, cap * dpr, h))
+        # copied pixel for pixel (no scaling: the quick way)
+        p.drawPixmap(QPointF(0, 0), bar, QRectF(0, 0, round((end - cap) * dpr), h))
+        p.drawPixmap(QPointF(end - cap, 0), bar,
+                     QRectF(bar.width() - round((cap + self.INSET) * dpr), 0, round(cap * dpr), h))
         p.end()

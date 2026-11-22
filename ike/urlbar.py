@@ -51,6 +51,15 @@ class UrlBar(QLineEdit):
         self._completer.setCompletionMode(QCompleter.CompletionMode.UnfilteredPopupCompletion)
         self._completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
         self._completer.setMaxVisibleItems(12)
+        # the list made here, as QCompleter makes its own, so that its panel
+        # can be rounded (polish.round_list_popup, 1.1.23)
+        from PyQt6.QtWidgets import QAbstractItemView, QListView
+        rows = QListView()
+        rows.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        rows.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        rows.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        rows.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self._completer.setPopup(rows)
         self.setCompleter(self._completer)
         self._completer.activated[str].connect(self._picked)
         self._timer = QTimer(self)
@@ -90,6 +99,8 @@ class UrlBar(QLineEdit):
             self._rows = polish.SuggestionDelegate(self._completer.popup(), self._icon_for)
             self._completer.popup().setItemDelegate(self._rows)
             self._completer.popup().installEventFilter(self)
+        # one radius and a light shadow, as the other popups (1.1.23)
+        polish.round_list_popup(self._completer.popup())
         self.textChanged.connect(lambda _t: None if self.hasFocus() else self.highlight_domain())
 
     # --- the shield inside the field, at its right end (1.1.10) ---------------

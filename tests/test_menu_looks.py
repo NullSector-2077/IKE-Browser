@@ -16,6 +16,7 @@ import pytest
 from conftest import screen
 
 STYLES = ["Breeze", "Fusion", "Windows", "Oxygen", "kvantum"]
+TOLERANCE = 2              # px: see test_menu_texts_share_one_left_edge
 
 BUTTONS = r'''
 from PyQt6.QtCore import QPoint, Qt, QTimer
@@ -144,8 +145,73 @@ def test_menu_texts_share_one_left_edge(run_ike, tmp_path, style, lang):
     out = run_ike(ALIGN, env=env, settings={"language": lang}, timeout=400)
     if style.lower() not in (out["style"] or "").lower():
         pytest.skip("the %s style is not installed here (got %r)" % (style, out["style"]))
-    bad = {}
+    # the first coloured pixel of a text depends on its first letter's own
+    # side bearing ("I" starts a pixel later than "R"): 2 px are allowed; an
+    # icon or a switch column out of place is 15 px or more
+    bad = []
     for where, lefts in out["menus"].items():
-        if len(set(lefts.values())) > 1:
-            bad[where] = lefts
-    assert out["menus"] and not bad, (style, lang, bad)
+        if max(lefts.values()) - min(lefts.values()) > TOLERANCE:
+            low = min(lefts.values())
+            bad.append("%s: %s" % (where, ", ".join("%s +%d" % (k, v - low) for k, v in lefts.items()
+                                                     if v - low > TOLERANCE)))
+    assert out["menus"] and not bad, "%s %s\n%s" % (style, lang, "\n".join(bad))
+
+
+PRIVATE = r'''
+from PyQt6.QtCore import QPoint
+from PyQt6.QtGui import QColor
+from PyQt6.QtWidgets import QLabel, QStyle
+
+def steps(ike, qapp, out):
+    from ike import polish
+    win = ike.windows[0]
+    private = ike.new_window(private=True)
+    yield 800
+    def bar(w):
+        img = w.grab().toImage()
+        g = w.nav.geometry()
+        return QColor(img.pixel(g.left() + 2, g.top() + 2)).name()
+    from ike import effects
+    out["tint"] = [win.nav.tint() is None, private.nav.tint() is not None, bar(win), bar(private),
+                   effects.blend(QColor(bar(win)), polish.PRIVATE_PURPLE, polish.PRIVATE_MIX).name()]
+    badge = private.findChild(QLabel, "privateWindowBadge")
+    sheet = badge.styleSheet()
+    out["badge"] = {"icon": not badge.icon.isNull(), "border": "border: 1px solid" in sheet,
+                    "radius": "border-radius" in sheet, "colours": badge.colours()[0].name() != badge.colours()[1].name(),
+                    "visible": badge.isVisible(), "text_fits": badge.sizeHint().width() >=
+                    badge.fontMetrics().horizontalAdvance(badge.text()) + 2 * badge.PAD_X + badge.ICON}
+    out["normal_badge"] = win.findChild(QLabel, "privateWindowBadge") is None
+    # the panels' menus and the suggestions: the one radius and a light shadow
+    menu = win.shield_menu
+    out["native"] = polish.native_popups()
+    out["menu_style"] = type(menu.style()).__name__
+    out["menu_panel"] = menu.style().pixelMetric(QStyle.PixelMetric.PM_MenuPanelWidth, None, menu)
+    menu.popup(win.mapToGlobal(QPoint(300, 60)))
+    yield 400
+    img = menu.grab().toImage()
+    out["menu_corner_alpha"] = QColor(img.pixelColor(1, 1)).alpha()
+    out["menu_inside_alpha"] = QColor(img.pixelColor(img.width() // 2, polish.POPUP_SHADOW + 3)).alpha()
+    menu.hide()
+    pop = win.urlbar._completer.popup()
+    out["list"] = [getattr(pop, "_ike_round", None) is not None, pop.frameShape().name]
+    private.close()
+'''
+
+
+def test_private_window_and_rounded_popups(run_ike):
+    """1.1.23: a private window's toolbar is a little purple and its badge has
+    the private icon and a border; ordinary windows are unchanged. The
+    shield's and the site's panels and the suggestions are rounded with the
+    one radius and a light shadow (here Qt's Fusion, which has neither)."""
+    out = run_ike(PRIVATE, timeout=120)
+    normal_none, private_tinted, normal_px, private_px, mixed = out["tint"]
+    assert normal_none and private_tinted, out
+    assert normal_px != private_px, out
+    near = [abs(int(private_px[i:i + 2], 16) - int(mixed[i:i + 2], 16)) <= 2 for i in (1, 3, 5)]
+    assert all(near), out                                # the toolbar's own colour with 15 % purple
+    assert all(out["badge"].values()), out
+    assert out["normal_badge"], out
+    assert out["native"] is False and out["menu_style"] == "PopupPanelStyle", out
+    assert out["menu_panel"] >= 6, out
+    assert out["menu_corner_alpha"] == 0 and out["menu_inside_alpha"] == 255, out
+    assert out["list"] == [True, "NoFrame"], out

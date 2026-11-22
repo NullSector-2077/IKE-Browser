@@ -152,6 +152,15 @@ class NavBar(QToolBar):
     on it: "follow the system" touches nothing)."""
 
     opaque = False
+    private = False          # a private window's toolbar: a little purple (1.1.23)
+
+    def tint(self):
+        """The colour laid over the toolbar's own background (whatever the
+        style paints there), or None: a private window's purple."""
+        if self.private:
+            from . import polish
+            return polish.private_tint()
+        return None
 
     def set_opaque(self, on):
         self.opaque = bool(on)
@@ -159,12 +168,18 @@ class NavBar(QToolBar):
         self.update()
 
     def paintEvent(self, event):
+        from PyQt6.QtGui import QPainter, QPalette
         if self.opaque:
-            from PyQt6.QtGui import QPainter, QPalette
             p = QPainter(self)
             p.fillRect(event.rect(), self.palette().brush(QPalette.ColorRole.Window))
             p.end()
         super().paintEvent(event)
+        tint = self.tint()
+        if tint is not None:
+            # over the style's own toolbar (a gradient in some), under the buttons
+            p = QPainter(self)
+            p.fillRect(event.rect(), tint)
+            p.end()
 
 
 class BookmarksBar(QToolBar):
@@ -487,7 +502,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.urlbar_act = tb.addWidget(self.urlbar)
         # the lock opens the site information panel (siteinfo.py)
         from .siteinfo import SiteInfoPanel
-        self.site_info_menu = QMenu(self)
+        self.site_info_menu = polish.round_menu(QMenu(self))
         self.site_info = SiteInfoPanel(self)
         wa_info = QWidgetAction(self.site_info_menu)
         wa_info.setDefaultWidget(self.site_info)
@@ -519,7 +534,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.shield_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.shield_btn.clicked.connect(self.show_shield_menu)
         self.shield_btn.setToolTip(T("I.K.E. Shield: choose the protection level"))
-        self.shield_menu = QMenu(self)
+        self.shield_menu = polish.round_menu(QMenu(self))
         self.shield_panel = ShieldPanel(self)
         # the panel scrolls when it is taller than the room below the shield (1.1.10: with
         # "Advanced controls" open it went past the bottom of the screen)
@@ -591,24 +606,17 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                   self.act_downloads):
             tb.addAction(a)
         if self.private:
-            lab = QLabel(T("Private"), self)
-            lab.setObjectName("privateWindowBadge")
-            lab.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            lab.setContentsMargins(10, 3, 10, 3)
-            lab.setStyleSheet(
-                "#privateWindowBadge {"
-                " background: palette(highlight);"
-                " color: palette(highlighted-text);"
-                " border: 1px solid palette(highlight);"
-                " border-radius: 9px;"
-                " font-weight: 600;"
-                " }")
-            tb.addWidget(lab)
+            # 1.1.23: the private-browsing icon before the text, a border, and
+            # the toolbar a little purple (NavBar.tint)
+            self.private_badge = polish.PrivateBadge(T("Private"), self)
+            tb.addWidget(self.private_badge)
+            tb.private = True
         self.menu_btn = QToolButton(self)
         self.menu_btn.setIcon(icon(("application-menu", "open-menu-symbolic"), SP.SP_TitleBarMenuButton))
         self.menu_btn.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
         self.menu_btn.clicked.connect(self.menu_btn.showMenu)
         self.menu_btn.setProperty("ike_no_arrow", True)       # its icon only (1.1.23, polish.RoundHoverStyle)
+        self._hover.take(self.menu_btn)                       # its size without the arrow from the start
         self.menu_btn.setToolTip(T("Menu"))
         # buttons that do not fit in a narrow window (see _fit_urlbar)
         self.more_btn = QToolButton(self)

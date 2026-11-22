@@ -39,6 +39,13 @@ class TabBar(QTabBar):
     HOVER_IN = 110
     HOVER_OUT = 120
 
+    @property
+    def hovering(self):
+        """A tab is under the mouse, or its hover colour is still fading: only
+        then are the tabs drawn with I.K.E.'s own hover (polish.TabLabelStyle);
+        otherwise the desktop's style draws them as before, at no extra cost."""
+        return self._hover >= 0 or bool(self._levels)
+
     def hover_level(self, index):
         """How much of the hover colour tab index shows, 0-1."""
         anim = self._levels.get(index)
