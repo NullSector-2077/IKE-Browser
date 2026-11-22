@@ -31,7 +31,10 @@
 #   lists/<date>/<finding>   an AI analysis of one finding of the filter lists
 #                            (tools/filter-lists.py): only I.K.E.'s adapter may
 #                            change (check-autofix-patch.py --lists), on the
-#                            isolated branch automation/update/lists-<date>;
+#                            isolated branch automation/update/lists-<date>
+#                            (when its tests then fail, the plan fixes that
+#                            branch again in the same lists mode, up to
+#                            FIX_ATTEMPTS, as the full chain's candidates);
 #   run/<id>                 a fix that found no free provider before, again.
 # A run where no provider at all was free (busy, out of quota, not free) asks
 # nobody: its outcome waits in the maintenance ledger (tools/ai-work.py) and
@@ -859,14 +862,16 @@ jobs:
           python3 -m pip install --disable-pip-version-check -q "${v:-ruff}"
           ruff check .
       # WP8: the real rules of the finding go with the AI's change (written here,
-      # never by the AI); tests/test_lists_recorded.py proves I.K.E. reads them
+      # never by the AI); tests/test_lists_recorded.py proves I.K.E. reads them.
+      # A later fix of the same branch after its tests failed (tools/autofix-plan.py)
+      # has no recorded rules of its own: attempt 1 already put them on the branch
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        if: needs.plan.outputs.mode == 'lists'
+        if: needs.plan.outputs.mode == 'lists' && needs.plan.outputs.recorded != ''
         with:
           name: autofix-failure
           path: ${{ runner.temp }}/failure
       - name: The recorded rules of the filter lists
-        if: needs.plan.outputs.mode == 'lists'
+        if: needs.plan.outputs.mode == 'lists' && needs.plan.outputs.recorded != ''
         env:
           RECORDED: ${{ needs.plan.outputs.recorded }}
         run: |
@@ -1256,6 +1261,7 @@ jobs:
           AGENT: ${{ needs.fix.outputs.result }}
           REASON: ${{ needs.plan.outputs.reason }}
           WORKFLOW: ${{ needs.plan.outputs.workflow }}
+          PUSH_BRANCH: ${{ needs.plan.outputs.push_branch }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           mkdir -p "$RUNNER_TEMP/outcome"
@@ -1267,8 +1273,8 @@ jobs:
           echo "tell=$tell" >> "$GITHUB_OUTPUT"
           if [ -n "$outcome" ] && [ -n "$WORK" ]; then
             jq -n --arg work "$WORK" --arg outcome "$outcome" --arg reason "${REASON:-$AGENT}" \
-              --arg workflow "$WORKFLOW" --arg url "$RUN_URL" \
-              '{work: $work, outcome: $outcome, reason: $reason, workflow: $workflow, url: $url}' \
+              --arg workflow "$WORKFLOW" --arg url "$RUN_URL" --arg branch "$PUSH_BRANCH" \
+              '{work: $work, outcome: $outcome, reason: $reason, workflow: $workflow, url: $url, branch: $branch}' \
               > "$RUNNER_TEMP/outcome/outcome.json"
           fi
           if [ "$tell" = "false" ]; then
