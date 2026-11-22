@@ -84,6 +84,114 @@ between the two sessions; only figures of the same session are compared.)
 These numbers describe a small container without a GPU. They say that the
 versions do not differ, not how fast I.K.E. is on the owner's computer.
 
+## 1.1.22, start and speed
+
+The aim: a faster start, above all, with every feature and every
+protection as it was. The shields, the filter rules and the fingerprint
+script are in place before the first page, as before; nothing a page can
+observe changed (no injected script was touched; the Public Suffix List
+codes fingerprint.js receives are the same string).
+
+**How it was measured.** The Arch container (Python 3.14, PyQt 6.12,
+qt6-webengine 6.140, 4 shared cores, no GPU, `offscreen`; another session
+was running tests in the same container, so the spreads are wide). Before
+= branch `fix/1.1.22` (3af6015), after = branch `perf/1.1.22`; the two
+copies alternate start by start (ABAB). The nine default lists that could
+be had (EasyList, EasyPrivacy, uBlock filters, quick fixes, privacy,
+badware, unbreak, cookie notices, EasyList Cookie List; URLhaus and
+EasyList Italy were missing), so the filter engine has its real size.
+"Cold" = a new profile (the engine and the other caches built at that
+start); "warm" = the same profile started again (the usual start). Times
+from starting the process to the first paint of the window and to the
+new tab page loaded (`loadFinished`); main-thread CPU from
+`/proc/self/task/<pid>/schedstat`; PSS from `smaps_rollup` 3 s after the
+page. Median of 11 starts of each kind, interquartile range in brackets.
+
+| Start (11 starts each) | before | after | change |
+|---|---|---|---|
+| warm, to the first window | 480 ms [446–505] | 431 ms [399–453] | **-49 ms (-10 %)** |
+| warm, to the first page | 592 ms [563–633] | 546 ms [507–567] | **-46 ms (-8 %)** |
+| warm, CPU of the interface thread to the window | 350 ms [337–376] | 316 ms [292–349] | -34 ms |
+| warm, CPU of the interface thread to the page | 403 ms [390–431] | 368 ms [341–402] | -35 ms |
+| cold, to the first window | 640 ms [601–669] | 586 ms [553–651] | **-54 ms (-8 %)** |
+| cold, to the first page | 757 ms [707–796] | 707 ms [663–774] | **-50 ms (-7 %)** |
+| cold, CPU of the interface thread to the window | 364 ms [353–401] | 384 ms [350–420] | within the spread |
+| memory (PSS), warm: main process | 157.6 MB [157.1–177.5] | 154.2 MB [153.4–156.7] | -3 MB |
+| memory (PSS), warm: renderers / other processes | 86.4 / 33.0 MB | 81.7 / 33.3 MB | within the spread |
+| memory (PSS), cold: main process | 177.8 MB [175.5–179.8] | 174.3 MB [173.8–177.4] | -3 MB |
+| Python modules loaded up to the first page (`-X importtime`, one warm start each) | 248 | 224 | -24 |
+
+**Where the time went (warm, before).** A timeline of one copy with time
+stamps at each step (5 starts): Python and `ike_boot.py` 22 ms; PyQt6 and
+Qt WebEngine's libraries 65–75 ms; the command line 22 ms (argparse and,
+on Python 3.14, the `_colorize`, `dataclasses`, `inspect` and `ast` it
+brings in); the first web profile 105–135 ms (Qt WebEngine starting
+Chromium); the profile's scripts 22 ms, 19 of them the Public Suffix
+List's codes for fingerprint.js; the window 70–85 ms; the new tab page in
+its renderer 100–115 ms after the window. The cold start adds the PSL
+parse (about 28 ms, once per list update) and the filter engine built in
+its thread while the interface is set up: its Python parts (reading,
+`!#if` branches, the generichide fix, the scriptlet index, about 150 ms)
+take turns with the interface for Python's lock. What is left is mostly
+Qt and Chromium (the profile, the renderer, the widgets): no switch or
+flag was used to change it.
+
+**What changed, and what each part gained** (each part in a fresh process
+with the caches of an earlier start, before and after alternating; median
+of 15 [interquartile range] unless said otherwise):
+
+| Change | before | after | test |
+|---|---|---|---|
+| The PSL codes for fingerprint.js kept next to the parsed list (`pslcodes-1-<size>-<time>.txt` in the cache, same size and time of the system's file as the parsed list, a format number in the name); a new or damaged copy is worked out again | 20.5 ms [20.3–22.2] (list read + codes) | 2.1 ms [2.0–2.2] | `test_psl_codes_are_kept_and_are_the_same`, `test_psl_codes_follow_a_new_list`, `test_psl_codes_without_the_system_list` |
+| The usual start (no option on the command line) reads it without argparse, the same answer; the error handler imports traceback only when there is an error to write | 17.4 ms [16.3–17.9] | 0.0 ms | `test_the_command_line_reads_as_before`, `test_the_usual_start_does_not_load_argparse`, `test_an_error_in_a_handler_does_not_end_the_browser` (test_security) |
+| The engine's build thread is I.K.E.'s own (one thread kept for every build, as before) instead of concurrent.futures, which loads logging and with it traceback; a build running at exit still finishes | `prepare()` 4.2 ms [4.1–6.2] (9 runs) | 1.5 ms [1.3–1.6] (9 runs) | `test_the_start_loads_no_module_it_does_not_need`, `test_the_build_thread_runs_every_build_and_hands_back_results`, `test_a_build_running_at_exit_finishes_first` |
+| A build from the lists reads each list once and chooses its `!#if` branches once (twice for the scriptlets until 1.1.21); the generichide fix searches from one `@@` to the next; the scriptlet index splits only the lines with `+js(` and most arguments at once | an engine rebuilt in the running browser (as after a list update), 7 starts × 5 rebuilds: 234.5 ms (225–258), longest stall of the interface 17.2 ms (13.5–18.6) | 174.5 ms (171–188), stall 7.7 ms (6.1–14.6) | `test_sanitize_changes_the_same_lines_as_before`, `test_sanitize_takes_less_time_than_before`, `test_scriptlet_arguments_split_as_before`, `test_scriptlet_rules_are_read_as_before`, `test_scriptlet_index_takes_less_time_than_before`, `test_a_build_reads_each_list_once_and_gives_the_same_engine` |
+
+The first engine from its cache (warm) takes the same time: 17.0 ms when
+built in the interface's own thread, before and after; the time `load()`
+waits for it at start was within the spread (26.0 [25.7–28.4] before,
+29.1 [27.9–32.8] after in one series of 15; 26.4 against 19.8 ms in a
+series of 11, concurrent.futures against the new thread on their own).
+
+Every change gives the same result as before, checked three ways: the old
+code (kept in tests/test_start_speed.py) against the new on thousands of
+random texts with every line separator Python knows; on the nine real
+lists, the old and the new copy give the same generichide fix, the same
+scriptlet index and the same engine file, byte for byte (SHA-1 compared);
+and the PSL codes read back are compared with the ones worked out.
+
+**The injected scripts on a page** (unchanged by this work; measured to
+know their cost). A small local page (200 paragraphs), 12 loads per start
+after 2 warm-up loads, 7 starts of each copy alternating; "first" = when
+the page's first script runs (`performance.now()` in `<head>`), CPU = the
+renderers' main threads from the navigation to 300 ms after the load;
+medians, the range of the 7 starts in brackets:
+
+| Page | first script, before / after | renderer CPU, before / after |
+|---|---|---|
+| shields off for the site | 13.5 (11.5–15.6) / 13.4 (12.4–16.0) ms | 20.5 (18.3–25.9) / 20.0 (19.2–25.5) ms |
+| Balanced (default) | 16.4 (13.9–19.7) / 16.6 (14.3–19.7) ms | 24.8 (22.1–29.2) / 24.3 (22.2–28.7) ms |
+| Strict, before the font check has answered (all 714 names masked) | 37.2 (35.3–43.5) / 39.2 (33.9–45.6) ms | 45.5 (45.0–50.3) / 46.6 (42.6–54.2) ms |
+| Balanced with the page dark mode (Dark Reader) | 22.7 (22.3–25.5) / 25.5 (23.0–27.3) ms | 48.7 (44.2–49.9) / 47.9 (46.8–55.8) ms |
+
+So, against the shields off for the site, Balanced costs about 3 ms
+before a page's own code and about 4 ms of renderer CPU per page. Strict,
+until the font check has answered (15 s after the first start, then
+remembered), costs about 21 ms more than Balanced on both counts, mostly
+the masks of the font list; Dark Reader adds about 6 ms before the page's
+code and 24 ms of CPU to Balanced. No change was made there: each would
+change what a page can observe or how soon a protection applies.
+
+**Looked at and left as it was.** The start's timers were already late
+(update check at 1.5 s and then once every 24 hours, the engines' icons at
+4 s, the health confirmation at 20 s, the font check at 15 s and only when
+its answer is not known); Dark Reader is read only when dark mode is on;
+the session's tabs are restored lazily; the PSL parse was already cached
+(1.1.20). The font database (`QFontDatabase.families()`, about 9 ms) is
+needed by the interface's own text anyway; the font check's answer must
+be there before the first page. PyQt6 creates its enum classes the first
+time they are used (about 280 at start): the cost moves, it does not go.
+
 ## 1.1.21, Dark Reader: only the measured changes
 
 The owner's rule (2026-11-21): a change to Dark Reader stays only if it

@@ -23,6 +23,19 @@ Two things the owner saw in 1.1.21 on KDE Plasma:
   one under the other, each the card's whole width; a test checks every
   language with a large font.
 
+Speed, with every feature and protection as it was:
+
+- **A faster start, the same protection**: the window comes about 50 ms
+  sooner (480 → 431 ms in the test container, warm; 640 → 586 ms for a new
+  profile) and the first page too. The Public Suffix List's codes for the
+  fingerprint protection are kept instead of being worked out at every start,
+  and the usual start no longer loads Python modules it does not need. A
+  filter engine built from the lists (a new profile, a list update) takes
+  175 ms instead of 235, and the interface waits at most about 8 ms meanwhile
+  instead of 17. Every protection is in place before the first page as
+  before, and what a page sees is unchanged (numbers and method:
+  docs/review/tests-and-performance.md, "1.1.22, start and speed").
+
 ## 1.1.21
 
 Fingerprinting: the points left by the independent audit of 1.1.20, each
