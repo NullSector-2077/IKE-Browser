@@ -272,6 +272,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.apply_layout()
         from . import themes
         self.apply_theme(themes.current(app.config))
+        self._opaque_toolbar()
         app.shields.blocked.connect(self._blocked)
 
     # ------------------------------------------------------------------
@@ -1514,10 +1515,19 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         view = view or self.current_view()
         if view is None:
             return
-        QTimer.singleShot(delay, lambda v=view: self._picture_now(v))
+        timer = getattr(self, "_picture_timer", None)
+        if timer is None:
+            # the window's own timer: it goes with the window
+            timer = self._picture_timer = QTimer(self)
+            timer.setSingleShot(True)
+            timer.timeout.connect(lambda: self._picture_now(self._picture_view))
+        self._picture_view = view
+        timer.start(delay)
 
     def _picture_now(self, view):
-        if view is not self.current_view() or not self.isVisible() or getattr(view, "loading", False):
+        self._picture_view = None
+        if view is None or view not in self.views or view is not self.current_view() \
+                or not self.isVisible() or getattr(view, "loading", False):
             return
         if (not getattr(view, "preview_stale", True) and getattr(view, "preview", None) is not None
                 and time.monotonic() - getattr(view, "preview_at", 0) < self.PREVIEW_AGAIN):
@@ -2642,6 +2652,24 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         from . import themes
         themes.style_window(self, theme)
         self._themed = theme is not None
+        self._opaque_toolbar()
+
+    # widget styles whose window background is one flat colour: there the
+    # toolbar can paint its own (the same colour) and Qt stops a repaint of
+    # its buttons, of the "+N" and of the cursor of the address field at the
+    # toolbar, instead of repainting the window behind it (1.1.23); styles
+    # with a gradient or a picture behind their windows (Oxygen, Kvantum's
+    # themes) keep the window's
+    FLAT_STYLES = ("breeze", "fusion", "windows", "windowsvista")
+
+    def _opaque_toolbar(self):
+        if getattr(self, "_themed", False):
+            return                            # an I.K.E. theme fills its bars already (themes.py)
+        from PyQt6.QtWidgets import QApplication
+        style = QApplication.style()
+        base = style.baseStyle() if hasattr(style, "baseStyle") else style
+        name = (base.name() if base is not None else "").lower()
+        self.nav.setAutoFillBackground(name in self.FLAT_STYLES)
 
     def changeEvent(self, event):
         if event.type() == QEvent.Type.WindowStateChange:

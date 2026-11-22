@@ -238,3 +238,54 @@ def test_tab_pictures_are_taken_off_the_switch_and_the_mark_repaints_one_tab(run
     assert out["mark_paints"] >= 3 and out["mark_rects_in_tab"] is True, out
     assert out["tabs"] >= 10 and out["skipped_per_paint"] >= out["tabs"] - 4, out
     assert out["full_skips"] == 0, out
+
+
+# --- what a repaint of the toolbar and of the "+N" reaches --------------------
+
+TOOLBAR = r'''
+from PyQt6.QtCore import QEvent, QObject
+from PyQt6.QtGui import QColor
+
+def steps(ike, qapp, out):
+    import time
+    win = ike.windows[0]
+    yield 800
+    paints = []
+    class Paints(QObject):
+        def eventFilter(self, obj, ev):
+            if ev.type() == QEvent.Type.Paint and obj is win:
+                paints.append(1)
+            return False
+    watch = Paints()
+    win.installEventFilter(watch)
+    out["opaque"] = win.nav.autoFillBackground()
+    # a button of the toolbar repainted (its hover, the cursor of the
+    # address field): the window behind the toolbar is not painted again
+    from PyQt6.QtWidgets import QToolButton
+    [b for b in win.nav.findChildren(QToolButton) if b.isVisible()][0].repaint()
+    out["window_paints"] = len(paints)
+    win.removeEventFilter(watch)
+    # the toolbar keeps the colour of the window around it
+    img = win.grab().toImage()
+    nav = win.nav.geometry()
+    out["colours"] = [QColor(img.pixel(nav.right() - 2, nav.bottom() - 1)).name(),
+                      win.palette().color(win.palette().ColorRole.Window).name()]
+    # the "+N" rises at 30 pictures a second, not one per frame of the screen
+    count = win.shield_count
+    count.last, count.key = 0, ("k", "h")
+    win.shield_btn.setText("1")
+    start = time.monotonic()
+    count.count(5, ("k", "h"))
+    while count.isVisible() and time.monotonic() - start < 3:
+        yield 20
+    out["count"] = [count.frames, round(time.monotonic() - start, 2)]
+'''
+
+
+def test_the_toolbar_stops_repaints_and_the_count_rises_at_30_pictures(run_ike):
+    out = run_ike(TOOLBAR, env={"IKE_REDUCED_MOTION": "0"})
+    assert out["opaque"] is True, out                    # Fusion (offscreen): a flat window
+    assert out["window_paints"] == 0, out
+    assert out["colours"][0] == out["colours"][1], out
+    frames, seconds = out["count"]
+    assert frames and frames <= seconds * 30 + 3, out
