@@ -170,6 +170,9 @@ OWN_RESOURCES = (
     "ike/resources/userscript.js", "ike/resources/videoads.js", "ike/resources/videorelay.js",
     "ike/resources/newtab.html", "ike/resources/lookalike.json", "ike/resources/ike.svg",
     "ike/resources/wordmark.svg", "ike/resources/newtab-background.jpg",
+    # 1.1.24: the new tab page's greeting, and its table of holiday dates (checked by hand on
+    # 2026-11-23; its yearly refresh by AUTOMAT is planned with the other ageing data)
+    "ike/resources/greeting.js", "ike/resources/holidays.json",
 )
 # folders of I.K.E.'s own resources: its language packs, and the icon sets (Lucide, Phosphor and the
 # Orbitron font: fixed copies with their licences in licenses/, chosen by the owner, not followed

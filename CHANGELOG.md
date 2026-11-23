@@ -312,18 +312,6 @@ Privacy package (A2b; every item agreed by the owner):
 - 27 new interface strings, translated into all 59 languages; the welcome's
   four steps are measured by the text-fit test in every language
   (tests/test_extras_124.py).
-- **Desktop notifications without libnotify**: I.K.E. now calls the notification
-  service of the desktop (org.freedesktop.Notifications, through Qt's own D-Bus)
-  instead of starting `notify-send`. Same app name, icon, title, text and timeout;
-  a page's text can still never become an option or markup; with no service
-  nothing happens, as before. `libnotify` is no longer an optional dependency.
-- **The Public Suffix List copy is JSON, not marshal**: the parsed copy of the
-  list kept in the cache is plain JSON (about as fast to load: 0.81 ms against
-  0.74 ms for a list of 8,700 rules). An old marshal copy is ignored and deleted;
-  a damaged copy is rebuilt from the list.
-- **"Not secure" in the address bar**: a page over plain http shows a small
-  red "Not secure" (translated in every language) after the lock. Not for
-  localhost, 127.x.x.x, ::1, file:, about: or ike: pages.
 - **The frame guard looks less, and protects as before**: a node put into a
   tree a page is still building outside the document (no frame there gets a
   window) is no longer looked at further, a call that swaps nodes no longer
