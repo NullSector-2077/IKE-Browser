@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Webhelytároló: %d",
 "Cache: %d": "Gyorsítótár: %d",
 "Permissions kept: %s": "Megtartott engedélyek: %s",
+"Not secure": "Nem biztonságos",
 "Print or save as PDF": "Nyomtatás vagy mentés PDF-ként",
 "Print the page, or save it as a PDF document": "Az oldal nyomtatása vagy mentése PDF-dokumentumként",
 "Send this page to a phone or a computer paired with KDE Connect": "Az oldal elküldése a KDE Connecttel párosított telefonra vagy számítógépre",

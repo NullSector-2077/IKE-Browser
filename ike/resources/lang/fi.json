@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Sivuston tallennustila: %d",
 "Cache: %d": "Välimuisti: %d",
 "Permissions kept: %s": "Säilytetyt luvat: %s",
+"Not secure": "Ei suojattu",
 "Print or save as PDF": "Tulosta tai tallenna PDF:nä",
 "Print the page, or save it as a PDF document": "Tulosta sivu tai tallenna se PDF-asiakirjana",
 "Send this page to a phone or a computer paired with KDE Connect": "Lähetä tämä sivu KDE Connectilla yhdistettyyn puhelimeen tai tietokoneeseen",

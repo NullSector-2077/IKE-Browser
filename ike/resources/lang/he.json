@@ -1043,6 +1043,7 @@
 "Site storage: %d": "אחסון האתר: %d",
 "Cache: %d": "מטמון: %d",
 "Permissions kept: %s": "הרשאות שנשמרו: %s",
+"Not secure": "לא מאובטח",
 "Print or save as PDF": "הדפסה או שמירה כ־PDF",
 "Print the page, or save it as a PDF document": "הדפסת הדף או שמירתו כמסמך PDF",
 "Send this page to a phone or a computer paired with KDE Connect": "שליחת הדף הזה לטלפון או למחשב שמוצמדים דרך KDE Connect",

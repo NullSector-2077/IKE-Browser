@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Úložiště webu: %d",
 "Cache: %d": "Mezipaměť: %d",
 "Permissions kept: %s": "Ponechaná oprávnění: %s",
+"Not secure": "Nezabezpečeno",
 "Print or save as PDF": "Tisk nebo uložení do PDF",
 "Print the page, or save it as a PDF document": "Vytisknout stránku nebo ji uložit jako dokument PDF",
 "Send this page to a phone or a computer paired with KDE Connect": "Odeslat tuto stránku do telefonu nebo počítače spárovaného přes KDE Connect",

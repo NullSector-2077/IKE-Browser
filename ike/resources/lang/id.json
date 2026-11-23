@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Penyimpanan situs: %d",
 "Cache: %d": "Cache: %d",
 "Permissions kept: %s": "Izin yang dipertahankan: %s",
+"Not secure": "Tidak aman",
 "Print or save as PDF": "Cetak atau simpan sebagai PDF",
 "Print the page, or save it as a PDF document": "Cetak halaman, atau simpan sebagai dokumen PDF",
 "Send this page to a phone or a computer paired with KDE Connect": "Kirim halaman ini ke ponsel atau komputer yang terhubung dengan KDE Connect",

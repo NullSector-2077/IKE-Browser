@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Хранилище сайта: %d",
 "Cache: %d": "Кэш: %d",
 "Permissions kept: %s": "Сохранённые разрешения: %s",
+"Not secure": "Не защищено",
 "Print or save as PDF": "Печать или сохранение в PDF",
 "Print the page, or save it as a PDF document": "Напечатать страницу или сохранить её как документ PDF",
 "Send this page to a phone or a computer paired with KDE Connect": "Отправить эту страницу на телефон или компьютер, сопряжённый через KDE Connect",

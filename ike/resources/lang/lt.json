@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Svetainės saugykla: %d",
 "Cache: %d": "Podėlis: %d",
 "Permissions kept: %s": "Išsaugoti leidimai: %s",
+"Not secure": "Nesaugu",
 "Print or save as PDF": "Spausdinti arba įrašyti kaip PDF",
 "Print the page, or save it as a PDF document": "Išspausdinti puslapį arba įrašyti jį kaip PDF dokumentą",
 "Send this page to a phone or a computer paired with KDE Connect": "Siųsti šį puslapį į telefoną ar kompiuterį, susietą per KDE Connect",

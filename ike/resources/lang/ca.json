@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Emmagatzematge del lloc: %d",
 "Cache: %d": "Memòria cau: %d",
 "Permissions kept: %s": "Permisos conservats: %s",
+"Not secure": "No segur",
 "Print or save as PDF": "Imprimeix o desa com a PDF",
 "Print the page, or save it as a PDF document": "Imprimeix la pàgina o desa-la com a document PDF",
 "Send this page to a phone or a computer paired with KDE Connect": "Envia aquesta pàgina a un telèfon o un ordinador aparellat amb KDE Connect",

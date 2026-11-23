@@ -1043,6 +1043,7 @@
 "Site storage: %d": "საიტის საცავი: %d",
 "Cache: %d": "ქეში: %d",
 "Permissions kept: %s": "შენარჩუნებული ნებართვები: %s",
+"Not secure": "დაუცველი",
 "Print or save as PDF": "ბეჭდვა ან PDF-ად შენახვა",
 "Print the page, or save it as a PDF document": "გვერდის დაბეჭდვა ან PDF დოკუმენტად შენახვა",
 "Send this page to a phone or a computer paired with KDE Connect": "ამ გვერდის გაგზავნა KDE Connect-ით დაწყვილებულ ტელეფონზე ან კომპიუტერზე",

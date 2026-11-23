@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Storage ng site: %d",
 "Cache: %d": "Cache: %d",
 "Permissions kept: %s": "Mga pahintulot na itinago: %s",
+"Not secure": "Hindi secure",
 "Print or save as PDF": "I-print o i-save bilang PDF",
 "Print the page, or save it as a PDF document": "I-print ang page, o i-save ito bilang PDF na dokumento",
 "Send this page to a phone or a computer paired with KDE Connect": "Ipadala ang page na ito sa phone o computer na naka-pair sa KDE Connect",

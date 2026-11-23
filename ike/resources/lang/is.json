@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Geymsla vefs: %d",
 "Cache: %d": "Skyndiminni: %d",
 "Permissions kept: %s": "Heimildum haldið: %s",
+"Not secure": "Ekki öruggt",
 "Print or save as PDF": "Prenta eða vista sem PDF",
 "Print the page, or save it as a PDF document": "Prenta síðuna eða vista hana sem PDF-skjal",
 "Send this page to a phone or a computer paired with KDE Connect": "Senda þessa síðu í síma eða tölvu sem er pöruð með KDE Connect",

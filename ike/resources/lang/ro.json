@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Stocarea site-ului: %d",
 "Cache: %d": "Cache: %d",
 "Permissions kept: %s": "Permisiuni păstrate: %s",
+"Not secure": "Nesigur",
 "Print or save as PDF": "Tipărește sau salvează ca PDF",
 "Print the page, or save it as a PDF document": "Tipărește pagina sau salveaz-o ca document PDF",
 "Send this page to a phone or a computer paired with KDE Connect": "Trimite această pagină la un telefon sau calculator asociat prin KDE Connect",

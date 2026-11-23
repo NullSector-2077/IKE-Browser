@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Сайт қоймасы: %d",
 "Cache: %d": "Кэш: %d",
 "Permissions kept: %s": "Сақталған рұқсаттар: %s",
+"Not secure": "Қауіпсіз емес",
 "Print or save as PDF": "Басып шығару немесе PDF ретінде сақтау",
 "Print the page, or save it as a PDF document": "Бетті басып шығару немесе PDF құжаты ретінде сақтау",
 "Send this page to a phone or a computer paired with KDE Connect": "Бұл бетті KDE Connect арқылы жұпталған телефонға немесе компьютерге жіберу",

@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Hapësira e sajtit: %d",
 "Cache: %d": "Fshehtina: %d",
 "Permissions kept: %s": "Lejet e mbajtura: %s",
+"Not secure": "Jo e sigurt",
 "Print or save as PDF": "Shtyp ose ruaj si PDF",
 "Print the page, or save it as a PDF document": "Shtyp faqen ose ruaje si dokument PDF",
 "Send this page to a phone or a computer paired with KDE Connect": "Dërgoje këtë faqe te një telefon ose kompjuter i çiftuar me KDE Connect",

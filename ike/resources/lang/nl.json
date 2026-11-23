@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Siteopslag: %d",
 "Cache: %d": "Cache: %d",
 "Permissions kept: %s": "Behouden toestemmingen: %s",
+"Not secure": "Niet veilig",
 "Print or save as PDF": "Afdrukken of opslaan als pdf",
 "Print the page, or save it as a PDF document": "De pagina afdrukken of opslaan als pdf-document",
 "Send this page to a phone or a computer paired with KDE Connect": "Deze pagina naar een telefoon of computer sturen die met KDE Connect is gekoppeld",

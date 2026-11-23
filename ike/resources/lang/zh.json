@@ -1043,6 +1043,7 @@
 "Site storage: %d": "网站存储：%d",
 "Cache: %d": "缓存：%d",
 "Permissions kept: %s": "保留的权限：%s",
+"Not secure": "不安全",
 "Print or save as PDF": "打印或另存为 PDF",
 "Print the page, or save it as a PDF document": "打印此页，或将其另存为 PDF 文档",
 "Send this page to a phone or a computer paired with KDE Connect": "将此页发送到通过 KDE Connect 配对的手机或电脑",
