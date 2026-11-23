@@ -215,3 +215,48 @@ def test_private_window_and_rounded_popups(run_ike):
     assert out["menu_panel"] >= 6, out
     assert out["menu_corner_alpha"] == 0 and out["menu_inside_alpha"] == 255, out
     assert out["list"] == [True, "NoFrame"], out
+
+
+STALE = r'''
+from PyQt6.QtCore import QSize
+from PyQt6.QtWidgets import QPushButton, QStyle, QStyleOptionButton, QStyleOptionTab, QToolButton
+from PyQt6.QtCore import Qt
+
+def steps(ike, qapp, out):
+    from ike import uistyle
+    yield 300
+    st = qapp.style()
+    CT = QStyle.ContentsType
+    b = QPushButton("Una scritta piuttosto lunga")
+    t = QToolButton()
+    t.setText("Testo")
+    t.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+    size = QSize(40, 12)
+    right = QStyleOptionButton()
+    right.initFrom(b)
+    right.text = b.text()
+    # an option of another kind where a button's was expected: what PyQt 6.12
+    # handed over now and then, a stale wrapper found at the same address
+    wrong = QStyleOptionTab()
+    wrong.text = ""
+    out["push"] = [st.sizeFromContents(CT.CT_PushButton, right, size, b).width(),
+                   st.sizeFromContents(CT.CT_PushButton, wrong, size, b).width()]
+    out["tool"] = [st.sizeFromContents(CT.CT_ToolButton, right, size, t).width(),
+                   st.sizeFromContents(CT.CT_ToolButton, wrong, size, t).width()]
+    out["least"] = size.width() + 2 * uistyle.TEXT_ROOM
+'''
+
+
+def test_a_buttons_text_is_asked_of_the_button(run_ike):
+    """1.1.23: "SystemError: Negative size passed to PyUnicode_New" in
+    IkeStyle.sizeFromContents (tests on Arch, main too): PyQt 6.12 now and
+    then hands a Python method of a style the wrapper of an option that no
+    longer exists, of another kind, found at the same address; its text was
+    then read as garbage (or the program crashed). The text and the tool
+    button's style are asked of the button itself: an option of the wrong
+    kind no longer loses the room around the text."""
+    out = run_ike(STALE)
+    # the room around the text is given from the button's own text, whatever
+    # the option says (with an option of another kind it was not: 40 < 56)
+    assert min(out["push"]) >= out["least"], out
+    assert out["tool"][0] == out["tool"][1], out

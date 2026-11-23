@@ -184,7 +184,7 @@ I.K.E. has no servers of its own and sends no telemetry. It contacts only:
 | The sites of the installed search engines | once per engine, until its icon is known | a plain request for the site's icon (favicon.ico), nothing else |
 | Encrypted DNS provider | only if you turn DNS over HTTPS on | the names of the sites you visit |
 | Google Translate (or the address you set) | only when you translate a page | the address of the page |
-| Google's Widevine download (dl.google.com) | only if you ask I.K.E. to install Widevine | a plain download |
+| Google's update service for Chrome components (update.googleapis.com), then Google's download servers (dl.google.com, *.gvt1.com) | only if you ask I.K.E. to install Widevine or to check for a newer one | one request that says only "a Chromium on x64 Linux, engine version N, wants the Widevine component" (as if none were installed; no cookies, no user or installation id, no other component), then a plain download of the package it names; the old dl.google.com/widevine-cdm/ folder only if that offers nothing |
 | Open-Meteo (open-meteo.com), free, no account, no key | weather on the new tab page, only after you choose a city | finding the city: its name, once; then only the city's coordinates (rounded), at most every 30 minutes and only when a new tab is open. Your location is never asked. Can be switched off in Settings → New tab page |
 | The pages you chose to watch | at the interval you chose, only while I.K.E. is open | a normal page load, like a private window: without your cookies |
 | The sites of your user scripts | once a day, if automatic updates are on | a plain download of each script |
