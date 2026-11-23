@@ -865,9 +865,22 @@ ENV = {"GROQ_API_KEY": "gsk_TESTONLY", "ZAI_API_KEY": "zai_TESTONLY", "OPENROUTE
        "AUTOFIX_REVIEWERS": "Antigravity,Groq,Z.AI,OpenRouter"}
 
 
+class QuietTime:
+    """The time module for one loaded tool, without the waiting."""
+
+    def __getattr__(self, name):
+        import time
+        return getattr(time, name)
+
+    @staticmethod
+    def sleep(seconds):
+        return None
+
+
 def reserves(tmp_path, answers, extra=(), env=ENV, files=FILES, failure=FAILURE, related="ike/window.py\n"):
     reserve = load("autofix-reserve")
-    reserve.time.sleep = lambda s: None
+    # (this copy of the tool gets a clock of its own that does not wait: the real time.sleep is everybody's)
+    reserve.time = QuietTime()
     repo = make_repo(tmp_path, files)
     auto = repo / ".autofix"
     auto.mkdir()
@@ -1346,6 +1359,14 @@ def test_the_rounds_note_is_no_part_of_the_error_and_a_round_is_always_counted()
     assert counted < plan.index("tools/autofix-inner.py round --repo")
     # no route, no upstream lookup and no memory read for a plan that asks no AI
     assert '[ -z "$adopt" ] && [ "$action" = "fix" ]; then' in plan
+
+
+def test_these_tests_leave_the_clock_as_it_is():
+    """A tool's waits are skipped in a copy of the tool, never in the time module every other test uses."""
+    import time
+    assert time.sleep.__module__ == "time" and type(time.sleep).__name__ == "builtin_function_or_method"
+    text = Path(__file__).read_text("utf-8")
+    assert not re.search(r"^\s*\w+\.time\.sleep\s*=", text, re.M)
 
 
 # =====================================================================================================
