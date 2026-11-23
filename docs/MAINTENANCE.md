@@ -404,8 +404,13 @@ that holds tokens. So only what a program can prove harmless opens:
   may change a test); `UNSAFE_SWITCHES`, `UNSAFE_FEATURES`, `UNSAFE_ENV`,
   `LNA_FEATURES` and `ENGINE_SAFETY` only grow, and no new code names them;
   the update check stays once every 24 hours (the comparison with
-  `last_app_check` is the same). The patch checker's own rule stays above
-  all this: no added or removed line that names an engine protection;
+  `last_app_check` is the same); and new code stays away from what decides:
+  it may not name a frozen function or the updater (a new line that calls
+  `save_state(...)` would change the update channel without changing one of
+  its functions), write to or call the configuration, call a setter
+  (`set...(...)`), or hold a text that names an engine switch or a sandbox
+  setting. The patch checker's own rule stays above all this: no added or
+  removed line that names an engine protection;
 - **a third independent free reviewer** for any such change (three reviews
   of three providers, none the author's), and the change is **listed first**
   in the signing notice, with its files and the three verdicts.

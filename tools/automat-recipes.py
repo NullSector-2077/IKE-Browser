@@ -349,7 +349,7 @@ def main(argv=None):
                 else:
                     target.write_text(new, "utf-8")
                     summary = SUMMARY["re-anchor"] % re.sub(r"[^\w .-]", "", name)[:80]
-        except (OSError, ValueError, KeyError) as e:
+        except Exception as e:                    # a recipe never ends the attempt: undone, the next one
             status["tried"].append("%s: %s" % (recipe, type(e).__name__))
             undo_all()
             continue

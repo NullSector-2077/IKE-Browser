@@ -896,7 +896,7 @@ SAFETY = ("outside the repository", "protected file", "third-party or generated"
           "empties the parameters of a test", "behaves differently under the tests",
           "touches the engine's protections", "names a RustSec advisory", "weakens blocking",
           "more than a re-anchoring", "is frozen", "protection lists", "not a pinned version",
-          "once every 24 hours")
+          "once every 24 hours", "stays away from the functions that decide")
 
 
 def safety_refusal(reasons):

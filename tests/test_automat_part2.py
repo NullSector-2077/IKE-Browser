@@ -162,6 +162,7 @@ class Rules:
      "binds check again"),
     ("an entry taken out by a method", OLD + "\n\ndef tidy():\n    OPTIONS.pop('a')\n", "calls OPTIONS.pop()"),
     ("an entry rewritten by its index", OLD + "\n\nOPTIONS['a'] = 0\n", "changes OPTIONS in place"),
+    ("an entry rewritten by update()", OLD + "\n\ndef late():\n    OPTIONS.update({'a': 0})\n", "calls OPTIONS.update()"),
     ("an old name deleted", OLD + "\n\ndel check\n", "binds check again"),
 ])
 def test_no_old_name_is_bound_again(what, new, word):
@@ -456,6 +457,31 @@ def test_the_protection_lists_only_grow_and_no_new_code_names_them():
         assert tier_b_problems("ike/app.py", APP, APP + added), added
     # a new statement that touches none of this is the additive rule's alone
     assert tier_b_problems("ike/app.py", APP, APP + "\n\ndef _label(text):\n    return (text or '').strip()\n") == []
+
+
+@pytest.mark.parametrize("name, added, word", [
+    # a new line that calls a function of the update channel changes it without changing one of its functions
+    ("ike/updater.py", "\n\nsave_state({'bad': []})\n", "a reference to save_state"),
+    ("ike/updater.py", "\n\ndef _again(m, p):\n    return stage(m, p)\n", "a reference to stage"),
+    ("ike/updater.py", "\n\n_check = verify_signature\n", "a reference to verify_signature"),
+    ("ike_boot.py", "\n\nrollback(load_state(), '0', 'x')\n", "a reference to rollback"),
+    ("ike/app.py", "\n\ndef _now(app):\n    app.updater.run(install=True)\n", "a reference to .updater"),
+    ("ike/app.py", "\n\ndef _off(app):\n    app.config['app_updates'] = 'off'\n", "a write to the configuration"),
+    ("ike/app.py", "\n\ndef _off(app):\n    app.config.update({'auto_update': False})\n", "a call on the configuration"),
+    ("ike/app.py", "\n\ndef _weak(page):\n    page.settings().setAttribute(1, True)\n", "a call of the setter setAttribute()"),
+    ("ike/app.py", "\n\ndef _flag(flags):\n    return flags + ['--disable-web-security']\n", "a text that names an engine switch"),
+    ("ike/app.py", "\n\n_ENV = 'QTWEBENGINE_CHROMIUM_FLAGS'\n", "a text that names an engine switch"),
+    ("ike/app.py", "\n\ndef _again(app):\n    app.check_updates()\n", "a reference to .check_updates"),
+])
+def test_new_code_of_a_tier_b_file_stays_away_from_what_decides(name, added, word):
+    old = {"ike/updater.py": UPDATER, "ike/app.py": APP, "ike_boot.py": BOOT}[name]
+    found = tier_b_problems(name, old, old + added)
+    assert any(word in p for p in found), found
+    assert guard.safety_refusal(["static guard: " + p for p in found])
+    # code that reaches none of it is the additive rule's alone, in every one of the three files
+    harmless = "\n\ndef _label(text):\n    words = (text or '').split()\n    return ' '.join(words)\n"
+    assert tier_b_problems(name, old, old + harmless) == []
+    assert tier_b_problems(name, old, old) == []
 
 
 def test_the_update_check_stays_once_every_24_hours():

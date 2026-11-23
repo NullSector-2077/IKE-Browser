@@ -42,6 +42,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -50,6 +51,7 @@ from pathlib import Path
 HOSTS = ("api.github.com", "crates.io", "pypi.org")
 UA = {"User-Agent": "ike-browser-upstream-diff", "Accept": "application/json"}
 BUDGET = 6000
+TOTAL_SECONDS = 150           # for every request together: the plan never waits long for other people's servers
 MAX_COMPONENTS = 3
 MAX_COMMITS = 15
 LOCK = "ike-adblock/Cargo.lock"
@@ -429,10 +431,13 @@ def main(argv=None, opener=urllib.request.urlopen, env=None):
         failure = ""
     token = (env.get("GH_TOKEN") or "").strip()
     cache = {}
+    deadline = time.monotonic() + TOTAL_SECONDS
 
     def get(url):
         if url not in cache:
             try:
+                if time.monotonic() > deadline:
+                    raise RuntimeError("out of time")
                 cache[url] = fetch(url, token, opener)
             except (RuntimeError, ValueError) as e:
                 cache[url] = e

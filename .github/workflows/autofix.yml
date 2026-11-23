@@ -729,8 +729,9 @@ jobs:
           python3 -I "$RUNNER_TEMP/automat-recipes.py" --workdir "$repo" --failure "$RUNNER_TEMP/autofix-inputs/failure.md" \
             --status "$out/recipe.json" $remembered $upstream --component "$(cat "$RUNNER_TEMP/candidate")" \
             --related "$out/related.txt" --checker "$RUNNER_TEMP/check-autofix-patch.py" $rules --lint \
-            --tried "$RUNNER_TEMP/tried" --cargo-cmd "$(cat "$RUNNER_TEMP/cargo-cmd" 2> /dev/null || true)"
-          recipe=$(python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["recipe"] if d.get("result") == "ok" else "")' "$out/recipe.json")
+            --tried "$RUNNER_TEMP/tried" --cargo-cmd "$(cat "$RUNNER_TEMP/cargo-cmd" 2> /dev/null || true)" \
+            || echo "::warning::the recipes stopped: the AIs are asked as usual"
+          recipe=$(python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["recipe"] if d.get("result") == "ok" else "")' "$out/recipe.json" 2> /dev/null || true)
           case "$recipe" in
             remembered-fix|renamed-symbol|re-anchor)
               # kept as the fix of this attempt: the next steps check it once more; no AI is asked
@@ -741,7 +742,12 @@ jobs:
               echo "applied=true" >> "$GITHUB_OUTPUT"
               echo "A recipe made the fix ($recipe): no AI is asked"
               ;;
-            *) rm -f "$out/status.json" ;;
+            *)
+              # no recipe: the AIs start from the commit as it is, whatever a recipe left half done
+              rm -f "$out/status.json"
+              "$RUNNER_TEMP/rgit" checkout -q -- .
+              "$RUNNER_TEMP/rgit" clean -q -fd -e .autofix
+              ;;
           esac
       # Antigravity alone, with the Gemini key only (1.1.18: the reserves' keys
       # are not in this step). Model after model, at most 25 minutes in all
@@ -948,6 +954,23 @@ jobs:
                 echo "The fix is the very change that already failed for this error: the reserves are told"
                 echo "This exact change was already tried for this error and its tests failed (AUTOMAT's memory): find another way." > "$out/refused.md"
                 result="refused-fix"
+              fi
+              # the cheap checks of the inner loop, on Antigravity's fix too (tools/autofix-inner.py: Python
+              # compiled and never run, node --check, cargo check as the user with no key): what they find
+              # goes to the reserves as the reason
+              touched=$(gitr diff --name-only --no-ext-diff | head -n 20)
+              if [ "$result" = "ok" ] && [ -n "$touched" ] && [ -f "$RUNNER_TEMP/autofix-inner.py" ]; then
+                set +e
+                env -u GROQ_API_KEY -u ZAI_API_KEY -u OPENROUTER_API_KEY python3 -I "$RUNNER_TEMP/autofix-inner.py" check \
+                  --workdir "$repo" --cargo-cmd "$(cat "$RUNNER_TEMP/cargo-cmd" 2> /dev/null || true)" $touched \
+                  > "$out/cheap.txt" 2>&1
+                cheap=$?
+                set -e
+                if [ "$cheap" = "1" ]; then          # (1: a check found something; anything else refuses nothing)
+                  echo "The fix does not pass the cheap checks: the reserves are told why"
+                  { echo "The cheap checks refused the fix:"; echo; tail -c 2500 "$out/cheap.txt"; } > "$out/refused.md"
+                  result="refused-fix"
+                fi
               fi
               # the lint the guard runs, now: ruff's own safe fixes first (an
               # unused import, the order of imports), then what is left goes to

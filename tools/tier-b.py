@@ -30,7 +30,12 @@ What opens, and nothing else:
      ENGINE_SAFETY (and NOTICE_SWITCHES, PRIVACY_FEATURES) keep every entry, and no new code names
      them at all (an alias could change a dict in place);
    - *the update check stays once every 24 hours*: the comparison with ``last_app_check`` is the
-     same, and its interval is 24 * 3600 seconds.
+     same, and its interval is 24 * 3600 seconds;
+   - *new code stays away from what decides* (reach_problems): it may not name a frozen function
+     or the updater (a new line that calls ``save_state(...)`` or ``self.updater.run(...)`` would
+     change the update channel without changing one of its functions), may not write to or call the
+     configuration, may not call a setter (``set...(...)``: an engine setting, a permission, an
+     attribute), and may not hold a text that names an engine switch or a sandbox setting.
 3. **A third independent free reviewer** for any change of these files (tools/ai-review.py,
    tools/automerge.py: needed_reviews), and the change is listed first in the signing notice
    (tools/release-notice.py).
@@ -69,6 +74,11 @@ FROZEN = re.compile(
     r"|updater|update\.json|execv|setuid|QTWEBENGINE|chromium_flags|__version__|security|extension", re.I)
 # the update channel and the choice of the signed update: every function there is frozen
 FROZEN_FILES = ("ike/updater.py", "ike_boot.py")
+# what new code of these files may not reach (reach_problems)
+SENSITIVE = ("updater", "config")
+SETTER = re.compile(r"^set[A-Z_]|^setattr$|^__setattr__$|^__setitem__$")
+SWITCH_TEXT = re.compile(r"--[a-z][a-z0-9]*-[a-z0-9-]+|QTWEBENGINE_|QT_QPA_|IKE_ALLOW_UNSAFE|sandbox|isolat|site-per-process"
+                         r"|remote-debugging|web-security|update\.json|pubkey", re.I)
 MAX_PIN_LINES = 40
 REVIEWS = 3
 
@@ -240,6 +250,63 @@ def intervals(tree):
     return out
 
 
+def _chain(node):
+    """The names of an attribute, index or call chain (self.config["x"].get -> self, config, get)."""
+    out = []
+    while True:
+        if isinstance(node, ast.Attribute):
+            out.append(node.attr)
+            node = node.value
+        elif isinstance(node, (ast.Subscript, ast.Call)):
+            node = node.value if isinstance(node, ast.Subscript) else node.func
+        elif isinstance(node, ast.Name):
+            out.append(node.id)
+            return out
+        else:
+            return out
+
+
+def reach(tree, kept):
+    """A count of what a module's code reaches of the things that decide: references to the frozen
+    functions (kept: their names) and to the updater, writes to and calls on the configuration,
+    setter calls, and texts that name an engine switch or a sandbox setting."""
+    import collections
+    out = collections.Counter()
+    names = {k.rsplit(".", 1)[-1] for k in kept} | {"updater"}
+    tables = {id(n) for v in _tables(tree).values() for n in ast.walk(v)}       # the protection lists' own entries
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and node.id in names:
+            out["a reference to %s" % node.id] += 1
+        elif isinstance(node, ast.Attribute) and node.attr in names:
+            out["a reference to .%s" % node.attr] += 1
+        if isinstance(node, ast.Call):
+            chain = _chain(node.func)
+            if chain and SETTER.search(chain[0]):
+                out["a call of the setter %s()" % chain[0]] += 1
+            if any(n in SENSITIVE[1:] for n in chain[1:]):
+                out["a call on the configuration"] += 1
+        targets = []
+        if isinstance(node, (ast.Assign, ast.AugAssign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        elif isinstance(node, ast.Delete):
+            targets = node.targets
+        for t in targets:
+            for sub in ([t] if not isinstance(t, (ast.Tuple, ast.List)) else t.elts):
+                if isinstance(sub, (ast.Attribute, ast.Subscript)) and any(n in SENSITIVE[1:] for n in _chain(sub)):
+                    out["a write to the configuration"] += 1
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in tables \
+                and SWITCH_TEXT.search(node.value):
+            out["a text that names an engine switch or a sandbox setting"] += 1
+    return out
+
+
+def reach_problems(name, a, b, kept):
+    """New code may not reach what decides: nothing of reach() may be there more often than before."""
+    return ["%s: new code has %s (new code of this file stays away from the functions that decide, the updater, "
+            "the configuration, the setters and the engine's switches)" % (name, what)
+            for what in sorted(reach(b, kept) - reach(a, kept))]
+
+
 def python_problems(name, old, new, guard):
     """Why an AI's change of ike/app.py, ike/updater.py or ike_boot.py is refused (a list). guard: the
     functions of tools/fix-guard.py (additive_problems, capability_problems, _grows)."""
@@ -282,7 +349,8 @@ def python_problems(name, old, new, guard):
     for _d, seconds in here:
         if INTERVAL_SECONDS not in seconds:
             out.append("%s: the update check is not once every 24 hours (%s seconds)" % (name, seconds))
-    return out
+    # new code stays away from what decides (a new entry of a protection list is the lists' own rule, above)
+    return out + reach_problems(name, a, b, kept)
 
 
 def file_problems(name, old, new, guard, tags=None):

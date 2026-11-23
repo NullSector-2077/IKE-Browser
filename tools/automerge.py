@@ -1265,6 +1265,16 @@ def adopt(repo, pr, sha, dry_run=False):
                  "work=chatgpt/%d/%s" % (n, sha)):
         return False
     base = (pr.get("base") or {}).get("ref", "main")
+    try:
+        _adopt_note(repo, n, mark, base)
+    except RuntimeError as e:
+        # the work is started all the same; without the note it may be started once more, and the
+        # automatic fix then finds the same fix already on its branch
+        print("::warning::#%d: the note of the adoption could not be written: %s" % (n, str(e)[:200]))
+    return True
+
+
+def _adopt_note(repo, n, mark, base):
     gh("pr", "comment", str(n), "--repo", repo, "--body",
        "%s\n**Nota informativa, non serve fare niente.** I controlli di questa correzione di ChatGPT sono verdi e "
        "l'interruttore `%s` è acceso (lo ha acceso il proprietario): AUTOMAT la prende in carico. La modifica viene "
@@ -1272,7 +1282,6 @@ def adopt(repo, pr, sha, dry_run=False):
        "supera tutto: i test, il controllo automatico delle regole, \"niente peggiora\" e due AI revisori "
        "indipendenti. Questa pull request viene chiusa quando la modifica è su quel ramo." % (
            mark, CHATGPT_SWITCH, "`%s`" % (FIX_MAIN if base == "main" else base)))
-    return True
 
 
 # what happens to a pull request that is not merged (never "a person looks", never closed):

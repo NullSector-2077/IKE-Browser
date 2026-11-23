@@ -373,7 +373,7 @@ def _line(node):
 # methods that take entries out of a table or change one in place
 REMOVING_METHODS = {"clear", "pop", "popitem", "remove", "discard", "difference_update", "intersection_update",
                     "symmetric_difference_update", "__delitem__", "__setitem__", "__setattr__", "__delattr__",
-                    "__init__", "sort", "reverse", "insert"}
+                    "__init__", "sort", "reverse", "insert", "update"}
 
 
 def _target_names(target):
