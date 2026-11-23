@@ -1042,6 +1042,19 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s és un programa o un script, i mai abans no havies visitat %s. Baixa'l només si confies en el lloc.",
 "Site storage: %d": "Emmagatzematge del lloc: %d",
 "Cache: %d": "Memòria cau: %d",
-"Permissions kept: %s": "Permisos conservats: %s"
+"Permissions kept: %s": "Permisos conservats: %s",
+"Protected time zone": "Fus horari protegit",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Els llocs veuen el fus horari UTC, no el teu. Alguns llocs mostraran hores errònies. Després de reiniciar.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Esborra les dades dels llocs que només et redirigeixen (seguiment per rebot)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Un lloc pel qual només passes, sense fer-lo servir, perd les galetes i les dades desades poc després. Els llocs que has fet servir, tens oberts o a les adreces d'interès no es toquen mai.",
+"Ask quietly in the address bar": "Pregunta discretament a la barra d'adreces",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Notificacions, ubicació, càmera i micròfon: un petit senyal a la barra d'adreces en lloc d'una finestra. Les notificacions demanades sense un clic a la pàgina es rebutgen.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Comprova les contrasenyes en filtracions de dades conegudes (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Quan es desa o s'emplena una contrasenya, només s'envien els primers 5 caràcters de la seva empremta SHA-1 a api.pwnedpasswords.com; la contrasenya no surt mai d'aquest ordinador. Desactivat per defecte.",
+"The password used on %s appears %d times in known data breaches: change it.": "La contrasenya usada a %s apareix %d vegades en filtracions de dades conegudes: canvia-la.",
+"Update the system": "Actualitza el sistema",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "El motor web (Qt WebEngine %s) té un problema de seguretat conegut (%s), corregit en una versió més recent. Obre un terminal i executa: %s",
+"Battery saver": "Estalvi de bateria",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Amb bateria, les pestanyes en segon pla es posen en pausa després d'un minut i s'aturen les animacions de la interfície i les imatges de les pestanyes."
 }
 }

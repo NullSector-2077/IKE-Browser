@@ -1042,6 +1042,19 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s एउटा प्रोग्राम वा स्क्रिप्ट हो, र तपाईं पहिले कहिल्यै %s मा जानुभएको छैन। साइटमाथि विश्वास छ भने मात्र डाउनलोड गर्नुहोस्।",
 "Site storage: %d": "साइट भण्डारण: %d",
 "Cache: %d": "क्यास: %d",
-"Permissions kept: %s": "राखिएका अनुमतिहरू: %s"
+"Permissions kept: %s": "राखिएका अनुमतिहरू: %s",
+"Protected time zone": "सुरक्षित समय क्षेत्र",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "साइटहरूले तपाईंको होइन, UTC समय क्षेत्र देख्छन्। केही साइटहरूले गलत समय देखाउनेछन्। पुनः सुरु गरेपछि।",
+"Clear the data of sites that only redirect you (bounce tracking)": "केवल रिडाइरेक्ट गर्ने साइटहरूको डेटा मेटाउनुहोस् (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "प्रयोग नगरी तपाईं केवल पार गर्ने साइटले केही बेरपछि आफ्ना कुकी र भण्डार गरिएको डेटा गुमाउँछ। तपाईंले प्रयोग गरेका, खुला भएका वा बुकमार्कमा भएका साइटहरूलाई कहिल्यै छोइँदैन।",
+"Ask quietly in the address bar": "ठेगाना पट्टीमा चुपचाप सोध्नुहोस्",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "सूचना, स्थान, क्यामेरा र माइक्रोफोन: विन्डोको सट्टा ठेगाना पट्टीमा सानो चिन्ह। पृष्ठमा क्लिक नगरी मागिएका सूचनाहरू अस्वीकार गरिन्छन्।",
+"Check passwords against known data breaches (Have I Been Pwned)": "ज्ञात डेटा चुहावटमा पासवर्ड जाँच्नुहोस् (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "पासवर्ड सुरक्षित वा भरिँदा, त्यसको SHA-1 छापका पहिला 5 अक्षर मात्र api.pwnedpasswords.com मा पठाइन्छन्; पासवर्ड कहिल्यै यो कम्प्युटर छाड्दैन। पूर्वनिर्धारित रूपमा बन्द।",
+"The password used on %s appears %d times in known data breaches: change it.": "%s मा प्रयोग गरिएको पासवर्ड ज्ञात डेटा चुहावटमा %d पटक देखिन्छ: यसलाई बदल्नुहोस्।",
+"Update the system": "प्रणाली अद्यावधिक गर्नुहोस्",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "वेब इन्जिनमा (Qt WebEngine %s) एउटा ज्ञात सुरक्षा समस्या छ (%s), जुन नयाँ संस्करणमा सच्याइएको छ। टर्मिनल खोल्नुहोस् र चलाउनुहोस्: %s",
+"Battery saver": "ब्याट्री बचत",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "ब्याट्रीमा, पृष्ठभूमिका ट्याबहरू एक मिनेटपछि रोकिन्छन् र इन्टरफेसका एनिमेसन र ट्याबका तस्बिरहरू रोकिन्छन्।"
 }
 }

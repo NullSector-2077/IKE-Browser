@@ -191,6 +191,14 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Status
 
+- 1.1.24 privacy package A2b (branch `feature/1.1.24-privacy`, approved by
+  the owner item by item): bounce tracking cleaned (on), the protected time
+  zone in the shield (off), quiet permission questions in the address bar
+  (on), the password breach check (off), "Update the system" from a signed
+  engine advisory (shown only once the owner writes
+  `data/engine-advisory.json` before signing a release) and the battery
+  saver (off). To be tried by the owner on KDE Plasma: the sign in the
+  address bar and the battery saver on a laptop (UPower).
 - 1.1.18 was not published (the last tag is v1.1.17); 1.1.19 carries it and
   its own work (the engine's home-network protection, a faster Dark Reader,
   the vertical tabs' separator, Startpage by default) and waits for the

@@ -973,6 +973,9 @@ class Shields(QObject):
             corner += '<div class="weather" id="weather">%s</div>' % _html.escape(self.weather_text())
         from . import i18n, newtabbg
         html = html.replace("{{corner}}", corner).replace("{{lang}}", i18n.current().replace("_", "-"))
+        from . import timezone
+        # the clock in the user's own zone while pages see UTC (1.1.24); a checked name only
+        html = html.replace("{{tz}}", timezone.real_zone() if timezone.active() else "")
         from . import effects, newtab
         photo = newtabbg.style(self.config)
         html = html.replace("{{background}}", photo)

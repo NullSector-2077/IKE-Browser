@@ -1042,6 +1042,19 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s é um programa ou script, e você nunca visitou %s antes. Baixe-o somente se confiar no site.",
 "Site storage: %d": "Armazenamento do site: %d",
 "Cache: %d": "Cache: %d",
-"Permissions kept: %s": "Permissões mantidas: %s"
+"Permissions kept: %s": "Permissões mantidas: %s",
+"Protected time zone": "Fuso horário protegido",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Os sites veem o fuso horário UTC, não o seu. Alguns sites vão mostrar horas erradas. Depois de reiniciar.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Apagar os dados de sites que só o redirecionam (rastreamento por salto)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Um site por onde só passa, sem o usar, perde os cookies e os dados guardados pouco depois. Os sites que usou, tem abertos ou nos marcadores nunca são tocados.",
+"Ask quietly in the address bar": "Perguntar discretamente na barra de endereço",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Notificações, localização, câmara e microfone: um pequeno sinal na barra de endereço em vez de uma janela. As notificações pedidas sem um clique na página são recusadas.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Verificar as palavras-passe em fugas de dados conhecidas (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Quando uma palavra-passe é guardada ou preenchida, só os primeiros 5 caracteres da sua impressão SHA-1 são enviados para api.pwnedpasswords.com; a palavra-passe nunca sai deste computador. Desligado por omissão.",
+"The password used on %s appears %d times in known data breaches: change it.": "A palavra-passe usada em %s aparece %d vezes em fugas de dados conhecidas: mude-a.",
+"Update the system": "Atualize o sistema",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "O motor web (Qt WebEngine %s) tem um problema de segurança conhecido (%s), corrigido numa versão mais recente. Abra um terminal e execute: %s",
+"Battery saver": "Poupança de bateria",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Com bateria, os separadores em segundo plano pausam após um minuto e as animações da interface e as imagens dos separadores param."
 }
 }

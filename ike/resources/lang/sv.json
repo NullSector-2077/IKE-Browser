@@ -1042,6 +1042,19 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s är ett program eller ett skript, och du har aldrig besökt %s förut. Ladda bara ner det om du litar på webbplatsen.",
 "Site storage: %d": "Webbplatslagring: %d",
 "Cache: %d": "Cache: %d",
-"Permissions kept: %s": "Behållna behörigheter: %s"
+"Permissions kept: %s": "Behållna behörigheter: %s",
+"Protected time zone": "Skyddad tidszon",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Webbplatser ser tidszonen UTC, inte din. Vissa webbplatser visar fel tider. Efter en omstart.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Rensa data från webbplatser som bara skickar dig vidare (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "En webbplats som du bara passerar utan att använda den förlorar strax därefter sina kakor och sparade data. Webbplatser som du har använt, har öppna eller som bokmärke rörs aldrig.",
+"Ask quietly in the address bar": "Fråga diskret i adressfältet",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Aviseringar, plats, kamera och mikrofon: ett litet tecken i adressfältet i stället för ett fönster. Aviseringar som begärs utan ett klick på sidan nekas.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Kontrollera lösenord mot kända dataläckor (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "När ett lösenord sparas eller fylls i skickas bara de första 5 tecknen av dess SHA-1-fingeravtryck till api.pwnedpasswords.com; lösenordet lämnar aldrig den här datorn. Av som standard.",
+"The password used on %s appears %d times in known data breaches: change it.": "Lösenordet som används på %s förekommer %d gånger i kända dataläckor: byt det.",
+"Update the system": "Uppdatera systemet",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Webbmotorn (Qt WebEngine %s) har ett känt säkerhetsproblem (%s), åtgärdat i en nyare version. Öppna en terminal och kör: %s",
+"Battery saver": "Batterisparläge",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "På batteri pausas flikar i bakgrunden efter en minut och gränssnittets animationer och flikbilder stoppas."
 }
 }

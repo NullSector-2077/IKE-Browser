@@ -1042,6 +1042,19 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s on ohjelma tai komentosarja, etkä ole koskaan aiemmin käynyt sivustolla %s. Lataa se vain, jos luotat sivustoon.",
 "Site storage: %d": "Sivuston tallennustila: %d",
 "Cache: %d": "Välimuisti: %d",
-"Permissions kept: %s": "Säilytetyt luvat: %s"
+"Permissions kept: %s": "Säilytetyt luvat: %s",
+"Protected time zone": "Suojattu aikavyöhyke",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Sivustot näkevät aikavyöhykkeen UTC, eivät sinun. Jotkin sivustot näyttävät vääriä aikoja. Uudelleenkäynnistyksen jälkeen.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Tyhjennä vain uudelleenohjaavien sivustojen tiedot (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Sivusto, jonka kautta vain kuljet käyttämättä sitä, menettää evästeensä ja tallennetut tietonsa hetken kuluttua. Sivustoihin, joita olet käyttänyt, joita sinulla on auki tai kirjanmerkeissä, ei kosketa koskaan.",
+"Ask quietly in the address bar": "Kysy huomaamattomasti osoiterivillä",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Ilmoitukset, sijainti, kamera ja mikrofoni: pieni merkki osoiterivillä ikkunan sijaan. Ilmoitukset, joita pyydetään ilman napsautusta sivulla, hylätään.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Tarkista salasanat tunnetuista tietovuodoista (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Kun salasana tallennetaan tai täytetään, vain sen SHA-1-sormenjäljen ensimmäiset 5 merkkiä lähetetään osoitteeseen api.pwnedpasswords.com; salasana ei koskaan poistu tältä tietokoneelta. Oletuksena pois.",
+"The password used on %s appears %d times in known data breaches: change it.": "Sivustolla %s käytetty salasana esiintyy %d kertaa tunnetuissa tietovuodoissa: vaihda se.",
+"Update the system": "Päivitä järjestelmä",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Verkkomoottorissa (Qt WebEngine %s) on tunnettu tietoturvaongelma (%s), joka on korjattu uudemmassa versiossa. Avaa pääte ja suorita: %s",
+"Battery saver": "Virransäästö akulla",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Akulla taustavälilehdet pysähtyvät minuutin kuluttua, ja käyttöliittymän animaatiot ja välilehtien kuvat pysähtyvät."
 }
 }

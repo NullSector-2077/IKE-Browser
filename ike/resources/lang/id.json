@@ -1042,6 +1042,19 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s adalah program atau skrip, dan Anda belum pernah mengunjungi %s sebelumnya. Unduh hanya jika Anda memercayai situs tersebut.",
 "Site storage: %d": "Penyimpanan situs: %d",
 "Cache: %d": "Cache: %d",
-"Permissions kept: %s": "Izin yang dipertahankan: %s"
+"Permissions kept: %s": "Izin yang dipertahankan: %s",
+"Protected time zone": "Zona waktu terlindungi",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Situs melihat zona waktu UTC, bukan milik Anda. Beberapa situs akan menampilkan waktu yang salah. Setelah memulai ulang.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Hapus data situs yang hanya mengalihkan Anda (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Situs yang hanya Anda lewati, tanpa digunakan, kehilangan cookie dan data tersimpannya tak lama kemudian. Situs yang pernah Anda gunakan, sedang terbuka, atau ada di markah tidak pernah disentuh.",
+"Ask quietly in the address bar": "Tanya diam-diam di bilah alamat",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Notifikasi, lokasi, kamera, dan mikrofon: tanda kecil di bilah alamat, bukan jendela. Notifikasi yang diminta tanpa klik pada halaman ditolak.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Periksa kata sandi terhadap kebocoran data yang diketahui (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Saat kata sandi disimpan atau diisikan, hanya 5 karakter pertama sidik jari SHA-1-nya yang dikirim ke api.pwnedpasswords.com; kata sandi tidak pernah meninggalkan komputer ini. Mati secara bawaan.",
+"The password used on %s appears %d times in known data breaches: change it.": "Kata sandi yang dipakai di %s muncul %d kali dalam kebocoran data yang diketahui: ubahlah.",
+"Update the system": "Perbarui sistem",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Mesin web (Qt WebEngine %s) memiliki masalah keamanan yang diketahui (%s), diperbaiki di versi yang lebih baru. Buka terminal dan jalankan: %s",
+"Battery saver": "Penghemat baterai",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Saat memakai baterai, tab latar belakang dijeda setelah satu menit, serta animasi antarmuka dan gambar tab berhenti."
 }
 }

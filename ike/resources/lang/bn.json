@@ -1042,6 +1042,19 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s একটি প্রোগ্রাম বা স্ক্রিপ্ট, এবং আপনি আগে কখনো %s দেখেননি। সাইটটিকে বিশ্বাস করলে তবেই ডাউনলোড করুন।",
 "Site storage: %d": "সাইটের সঞ্চয়স্থান: %d",
 "Cache: %d": "ক্যাশ: %d",
-"Permissions kept: %s": "রাখা অনুমতি: %s"
+"Permissions kept: %s": "রাখা অনুমতি: %s",
+"Protected time zone": "সুরক্ষিত সময় অঞ্চল",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "সাইটগুলো আপনার নয়, UTC সময় অঞ্চল দেখে। কিছু সাইট ভুল সময় দেখাবে। পুনরায় চালুর পরে।",
+"Clear the data of sites that only redirect you (bounce tracking)": "শুধু রিডাইরেক্ট করা সাইটগুলোর ডেটা মুছুন (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "যে সাইট আপনি ব্যবহার না করে শুধু পার হয়ে যান, তা কিছুক্ষণ পরে তার কুকি ও সংরক্ষিত ডেটা হারায়। আপনি যেসব সাইট ব্যবহার করেছেন, খোলা আছে বা বুকমার্কে আছে, সেগুলোতে কখনো হাত দেওয়া হয় না।",
+"Ask quietly in the address bar": "ঠিকানা বারে চুপচাপ জিজ্ঞাসা করুন",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "বিজ্ঞপ্তি, অবস্থান, ক্যামেরা ও মাইক্রোফোন: উইন্ডোর বদলে ঠিকানা বারে একটি ছোট চিহ্ন। পাতায় ক্লিক না করে চাওয়া বিজ্ঞপ্তি প্রত্যাখ্যান করা হয়।",
+"Check passwords against known data breaches (Have I Been Pwned)": "জানা ডেটা ফাঁসে পাসওয়ার্ড যাচাই করুন (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "পাসওয়ার্ড সংরক্ষণ বা পূরণ করার সময় এর SHA-1 ছাপের শুধু প্রথম 5টি অক্ষর api.pwnedpasswords.com-এ পাঠানো হয়; পাসওয়ার্ড কখনো এই কম্পিউটার ছেড়ে যায় না। ডিফল্টভাবে বন্ধ।",
+"The password used on %s appears %d times in known data breaches: change it.": "%s-এ ব্যবহৃত পাসওয়ার্ডটি জানা ডেটা ফাঁসে %d বার আছে: এটি বদলান।",
+"Update the system": "সিস্টেম আপডেট করুন",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "ওয়েব ইঞ্জিনে (Qt WebEngine %s) একটি জানা নিরাপত্তা সমস্যা আছে (%s), যা নতুন সংস্করণে ঠিক করা হয়েছে। একটি টার্মিনাল খুলে চালান: %s",
+"Battery saver": "ব্যাটারি সাশ্রয়",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "ব্যাটারিতে চলার সময় পটভূমির ট্যাবগুলো এক মিনিট পরে থেমে যায় এবং ইন্টারফেসের অ্যানিমেশন ও ট্যাবের ছবি বন্ধ হয়।"
 }
 }

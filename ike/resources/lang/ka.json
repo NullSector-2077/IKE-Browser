@@ -1042,6 +1042,19 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s პროგრამა ან სკრიპტია, და აქამდე არასდროს გინახავთ %s. ჩამოტვირთეთ მხოლოდ იმ შემთხვევაში, თუ საიტს ენდობით.",
 "Site storage: %d": "საიტის საცავი: %d",
 "Cache: %d": "ქეში: %d",
-"Permissions kept: %s": "შენარჩუნებული ნებართვები: %s"
+"Permissions kept: %s": "შენარჩუნებული ნებართვები: %s",
+"Protected time zone": "დაცული დროის სარტყელი",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "საიტები ხედავენ დროის სარტყელს UTC და არა თქვენსას. ზოგი საიტი არასწორ დროს აჩვენებს. გადატვირთვის შემდეგ.",
+"Clear the data of sites that only redirect you (bounce tracking)": "მხოლოდ გადამმისამართებელი საიტების მონაცემების წაშლა (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "საიტი, რომელზეც უბრალოდ გადიხართ მისი გამოყენების გარეშე, ცოტა ხანში კარგავს ქუქიებს და შენახულ მონაცემებს. საიტებს, რომლებიც გამოიყენეთ, ღიაა ან სანიშნეებშია, არასოდეს ეხება.",
+"Ask quietly in the address bar": "ჩუმად კითხვა მისამართების ზოლში",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "შეტყობინებები, მდებარეობა, კამერა და მიკროფონი: პატარა ნიშანი მისამართების ზოლში ფანჯრის ნაცვლად. გვერდზე დაწკაპუნების გარეშე მოთხოვნილი შეტყობინებები უარყოფილია.",
+"Check passwords against known data breaches (Have I Been Pwned)": "პაროლების შემოწმება ცნობილ მონაცემთა გაჟონვებში (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "პაროლის შენახვისას ან შევსებისას api.pwnedpasswords.com-ზე იგზავნება მისი SHA-1 ანაბეჭდის მხოლოდ პირველი 5 სიმბოლო; პაროლი არასოდეს ტოვებს ამ კომპიუტერს. ნაგულისხმევად გამორთულია.",
+"The password used on %s appears %d times in known data breaches: change it.": "%s-ზე გამოყენებული პაროლი ცნობილ მონაცემთა გაჟონვებში %d-ჯერ გვხვდება: შეცვალეთ იგი.",
+"Update the system": "განაახლეთ სისტემა",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "ვებ ძრავს (Qt WebEngine %s) აქვს ცნობილი უსაფრთხოების პრობლემა (%s), რომელიც ახალ ვერსიაშია გასწორებული. გახსენით ტერმინალი და გაუშვით: %s",
+"Battery saver": "ბატარეის დაზოგვა",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "ბატარეაზე ფონური ჩანართები ერთი წუთის შემდეგ ჩერდება, ხოლო ინტერფეისის ანიმაციები და ჩანართების სურათები წყდება."
 }
 }

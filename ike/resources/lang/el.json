@@ -1042,6 +1042,19 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "Το %s είναι πρόγραμμα ή σενάριο, και δεν έχετε επισκεφθεί ποτέ πριν το %s. Κατεβάστε το μόνο αν εμπιστεύεστε τον ιστότοπο.",
 "Site storage: %d": "Αποθήκευση ιστότοπου: %d",
 "Cache: %d": "Προσωρινή μνήμη: %d",
-"Permissions kept: %s": "Άδειες που διατηρούνται: %s"
+"Permissions kept: %s": "Άδειες που διατηρούνται: %s",
+"Protected time zone": "Προστατευμένη ζώνη ώρας",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Οι ιστότοποι βλέπουν τη ζώνη ώρας UTC, όχι τη δική σας. Κάποιοι ιστότοποι θα δείχνουν λάθος ώρες. Μετά από επανεκκίνηση.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Διαγραφή δεδομένων ιστοτόπων που μόνο σας ανακατευθύνουν (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Ένας ιστότοπος από τον οποίο απλώς περνάτε, χωρίς να τον χρησιμοποιήσετε, χάνει λίγο αργότερα τα cookies και τα αποθηκευμένα δεδομένα του. Οι ιστότοποι που χρησιμοποιήσατε, έχετε ανοιχτούς ή στους σελιδοδείκτες δεν αγγίζονται ποτέ.",
+"Ask quietly in the address bar": "Διακριτική ερώτηση στη γραμμή διευθύνσεων",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Ειδοποιήσεις, τοποθεσία, κάμερα και μικρόφωνο: ένα μικρό σήμα στη γραμμή διευθύνσεων αντί για παράθυρο. Οι ειδοποιήσεις που ζητούνται χωρίς κλικ στη σελίδα απορρίπτονται.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Έλεγχος κωδικών σε γνωστές διαρροές δεδομένων (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Όταν ένας κωδικός αποθηκεύεται ή συμπληρώνεται, στέλνονται στο api.pwnedpasswords.com μόνο οι πρώτοι 5 χαρακτήρες του αποτυπώματος SHA-1· ο κωδικός δεν φεύγει ποτέ από αυτόν τον υπολογιστή. Απενεργοποιημένο από προεπιλογή.",
+"The password used on %s appears %d times in known data breaches: change it.": "Ο κωδικός που χρησιμοποιείται στο %s εμφανίζεται %d φορές σε γνωστές διαρροές δεδομένων: αλλάξτε τον.",
+"Update the system": "Ενημερώστε το σύστημα",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Η μηχανή ιστού (Qt WebEngine %s) έχει γνωστό πρόβλημα ασφαλείας (%s), διορθωμένο σε νεότερη έκδοση. Ανοίξτε ένα τερματικό και εκτελέστε: %s",
+"Battery saver": "Εξοικονόμηση μπαταρίας",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Με μπαταρία, οι καρτέλες στο παρασκήνιο σταματούν μετά από ένα λεπτό και τα εφέ κίνησης της διεπαφής και οι εικόνες των καρτελών σταματούν."
 }
 }

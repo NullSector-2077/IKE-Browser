@@ -18,6 +18,7 @@ from PyQt6.QtCore import QPoint, QRect, QRectF, Qt, QTimer
 from PyQt6.QtGui import QColor, QGuiApplication, QPainter, QPainterPath, QPalette, QPen
 from PyQt6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
+from . import battery
 from .polish import RADIUS  # 1.1.23: one radius for everything I.K.E. draws (was 8)
 
 WIDTH = 240
@@ -35,6 +36,8 @@ def capture(view):
     change of tab (8 ms of 15 with OpenGL). Only the part the card shows is
     grabbed and scaled: a quick halving down to twice the card's size, then
     the smooth step; the card shows the same picture."""
+    if battery.saving():
+        return                          # battery saver (1.1.24): no read-back of the page
     try:
         if not view.isVisible() or view.width() < 50 or view.height() < 50:
             return

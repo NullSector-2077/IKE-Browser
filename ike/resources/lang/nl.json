@@ -1042,6 +1042,19 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s is een programma of script, en je hebt %s nog nooit bezocht. Download het alleen als je de site vertrouwt.",
 "Site storage: %d": "Siteopslag: %d",
 "Cache: %d": "Cache: %d",
-"Permissions kept: %s": "Behouden toestemmingen: %s"
+"Permissions kept: %s": "Behouden toestemmingen: %s",
+"Protected time zone": "Beschermde tijdzone",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Sites zien de tijdzone UTC, niet de jouwe. Sommige sites tonen verkeerde tijden. Na een herstart.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Gegevens wissen van sites die je alleen doorsturen (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Een site waar je alleen doorheen gaat, zonder hem te gebruiken, verliest kort daarna zijn cookies en opgeslagen gegevens. Sites die je gebruikt hebt, open hebt of als bladwijzer hebt, worden nooit aangeraakt.",
+"Ask quietly in the address bar": "Onopvallend vragen in de adresbalk",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Meldingen, locatie, camera en microfoon: een klein teken in de adresbalk in plaats van een venster. Meldingen die worden gevraagd zonder klik op de pagina worden geweigerd.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Wachtwoorden controleren op bekende datalekken (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Wanneer een wachtwoord wordt opgeslagen of ingevuld, worden alleen de eerste 5 tekens van de SHA-1-vingerafdruk naar api.pwnedpasswords.com gestuurd; het wachtwoord verlaat deze computer nooit. Standaard uit.",
+"The password used on %s appears %d times in known data breaches: change it.": "Het wachtwoord dat op %s wordt gebruikt, komt %d keer voor in bekende datalekken: wijzig het.",
+"Update the system": "Werk het systeem bij",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "De webengine (Qt WebEngine %s) heeft een bekend beveiligingsprobleem (%s), opgelost in een nieuwere versie. Open een terminal en voer uit: %s",
+"Battery saver": "Batterijbesparing",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Op de batterij pauzeren achtergrondtabbladen na een minuut en stoppen de animaties van de interface en de afbeeldingen van tabbladen."
 }
 }

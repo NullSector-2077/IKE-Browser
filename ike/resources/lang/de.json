@@ -1042,6 +1042,19 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s ist ein Programm oder Skript, und Sie haben %s noch nie besucht. Laden Sie es nur herunter, wenn Sie der Website vertrauen.",
 "Site storage: %d": "Website-Speicher: %d",
 "Cache: %d": "Cache: %d",
-"Permissions kept: %s": "Beibehaltene Berechtigungen: %s"
+"Permissions kept: %s": "Beibehaltene Berechtigungen: %s",
+"Protected time zone": "Geschützte Zeitzone",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Websites sehen die Zeitzone UTC, nicht deine. Manche Websites zeigen falsche Uhrzeiten. Nach einem Neustart.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Daten von Websites löschen, die dich nur weiterleiten (Bounce-Tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Eine Website, die du nur durchläufst, ohne sie zu benutzen, verliert kurz darauf ihre Cookies und gespeicherten Daten. Websites, die du benutzt hast, geöffnet hast oder als Lesezeichen hast, bleiben unberührt.",
+"Ask quietly in the address bar": "Unauffällig in der Adressleiste fragen",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Benachrichtigungen, Standort, Kamera und Mikrofon: ein kleines Zeichen in der Adressleiste statt eines Fensters. Benachrichtigungen, die ohne Klick auf die Seite angefragt werden, werden abgelehnt.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Passwörter mit bekannten Datenlecks abgleichen (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Wenn ein Passwort gespeichert oder ausgefüllt wird, werden nur die ersten 5 Zeichen seines SHA-1-Fingerabdrucks an api.pwnedpasswords.com gesendet; das Passwort verlässt diesen Computer nie. Standardmäßig aus.",
+"The password used on %s appears %d times in known data breaches: change it.": "Das auf %s verwendete Passwort kommt %d-mal in bekannten Datenlecks vor: ändere es.",
+"Update the system": "System aktualisieren",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Die Web-Engine (Qt WebEngine %s) hat ein bekanntes Sicherheitsproblem (%s), das in einer neueren Version behoben ist. Öffne ein Terminal und führe aus: %s",
+"Battery saver": "Energiesparen bei Akku",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Im Akkubetrieb pausieren Hintergrund-Tabs nach einer Minute, und die Animationen der Oberfläche sowie die Tab-Vorschaubilder stoppen."
 }
 }

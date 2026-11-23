@@ -1042,6 +1042,19 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s е програма или скрипт, а вие никога досега не сте посещавали %s. Изтеглете го само ако имате доверие на сайта.",
 "Site storage: %d": "Хранилище на сайта: %d",
 "Cache: %d": "Кеш: %d",
-"Permissions kept: %s": "Запазени разрешения: %s"
+"Permissions kept: %s": "Запазени разрешения: %s",
+"Protected time zone": "Защитена часова зона",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Сайтовете виждат часовата зона UTC, не вашата. Някои сайтове ще показват грешен час. След рестартиране.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Изчистване на данните на сайтове, които само ви пренасочват (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Сайт, през който само минавате, без да го използвате, малко след това губи бисквитките и запазените си данни. Сайтовете, които сте използвали, имате отворени или в отметки, никога не се докосват.",
+"Ask quietly in the address bar": "Питай дискретно в адресната лента",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Известия, местоположение, камера и микрофон: малък знак в адресната лента вместо прозорец. Известия, поискани без щракване върху страницата, се отказват.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Проверявай паролите в известни изтичания на данни (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Когато парола се запазва или попълва, към api.pwnedpasswords.com се изпращат само първите 5 знака от нейния SHA-1 отпечатък; паролата никога не напуска този компютър. Изключено по подразбиране.",
+"The password used on %s appears %d times in known data breaches: change it.": "Паролата, използвана в %s, се среща %d пъти в известни изтичания на данни: сменете я.",
+"Update the system": "Обновете системата",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Уеб двигателят (Qt WebEngine %s) има известен проблем със сигурността (%s), поправен в по-нова версия. Отворете терминал и изпълнете: %s",
+"Battery saver": "Пестене на батерия",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "На батерия разделите във фонов режим спират след минута, а анимациите на интерфейса и картините на разделите спират."
 }
 }

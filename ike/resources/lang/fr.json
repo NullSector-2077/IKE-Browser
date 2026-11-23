@@ -1042,6 +1042,19 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s est un programme ou un script, et vous n'avez jamais visité %s auparavant. Ne le téléchargez que si vous faites confiance au site.",
 "Site storage: %d": "Stockage du site : %d",
 "Cache: %d": "Cache : %d",
-"Permissions kept: %s": "Autorisations conservées : %s"
+"Permissions kept: %s": "Autorisations conservées : %s",
+"Protected time zone": "Fuseau horaire protégé",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Les sites voient le fuseau horaire UTC, pas le vôtre. Certains sites afficheront des heures fausses. Après un redémarrage.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Effacer les données des sites qui ne font que vous rediriger (pistage par rebond)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Un site par lequel vous ne faites que passer, sans l'utiliser, perd ses cookies et ses données enregistrées peu après. Les sites que vous avez utilisés, ouverts ou mis en favoris ne sont jamais touchés.",
+"Ask quietly in the address bar": "Demander discrètement dans la barre d'adresse",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Notifications, position, caméra et micro : un petit signe dans la barre d'adresse au lieu d'une fenêtre. Les notifications demandées sans clic sur la page sont refusées.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Vérifier les mots de passe dans les fuites de données connues (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Quand un mot de passe est enregistré ou rempli, seuls les 5 premiers caractères de son empreinte SHA-1 sont envoyés à api.pwnedpasswords.com ; le mot de passe ne quitte jamais cet ordinateur. Désactivé par défaut.",
+"The password used on %s appears %d times in known data breaches: change it.": "Le mot de passe utilisé sur %s apparaît %d fois dans des fuites de données connues : changez-le.",
+"Update the system": "Mettez à jour le système",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Le moteur web (Qt WebEngine %s) a un problème de sécurité connu (%s), corrigé dans une version plus récente. Ouvrez un terminal et lancez : %s",
+"Battery saver": "Économiseur de batterie",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Sur batterie, les onglets en arrière-plan se mettent en pause après une minute et les animations de l'interface et les aperçus des onglets s'arrêtent."
 }
 }

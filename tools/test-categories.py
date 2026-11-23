@@ -111,7 +111,7 @@ AREAS = (
                               "test_client_hints.py", "test_engine_switches.py", "test_lookalike.py",
                               "test_passwords.py", "test_media_secret.py", "test_page_traces.py",
                               "test_accept_language.py", "test_switches.py", "test_safe_downloads.py",
-                              "test_clean_site.py")),
+                              "test_clean_site.py", "test_privacy_124.py")),
     ("desktop integration", ("test_plasma.py", "test_platform.py", "test_mailto.py", "test_videogpu.py",
                              "test_mediacheck.py", "test_handoff.py")),
     ("updates", ("test_updater.py", "test_update_safety.py", "test_versions.py", "test_engine_age.py",

@@ -1042,6 +1042,19 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s은(는) 프로그램 또는 스크립트이며, %s에 방문한 적이 없습니다. 사이트를 신뢰하는 경우에만 다운로드하세요.",
 "Site storage: %d": "사이트 저장소: %d",
 "Cache: %d": "캐시: %d",
-"Permissions kept: %s": "유지된 권한: %s"
+"Permissions kept: %s": "유지된 권한: %s",
+"Protected time zone": "보호된 시간대",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "사이트는 사용자의 시간대가 아닌 UTC를 보게 됩니다. 일부 사이트는 시간을 잘못 표시합니다. 다시 시작한 후 적용됩니다.",
+"Clear the data of sites that only redirect you (bounce tracking)": "리디렉션만 하는 사이트의 데이터 지우기(바운스 추적)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "사용하지 않고 거쳐 가기만 한 사이트는 잠시 후 쿠키와 저장된 데이터를 잃습니다. 사용했거나 열려 있거나 북마크한 사이트는 절대 건드리지 않습니다.",
+"Ask quietly in the address bar": "주소 표시줄에서 조용히 묻기",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "알림, 위치, 카메라, 마이크: 창 대신 주소 표시줄에 작은 표시가 나타납니다. 페이지를 클릭하지 않고 요청한 알림은 거부됩니다.",
+"Check passwords against known data breaches (Have I Been Pwned)": "알려진 데이터 유출에서 비밀번호 확인(Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "비밀번호를 저장하거나 채울 때 SHA-1 지문의 처음 5자만 api.pwnedpasswords.com으로 전송되며, 비밀번호는 이 컴퓨터를 절대 떠나지 않습니다. 기본값은 꺼짐입니다.",
+"The password used on %s appears %d times in known data breaches: change it.": "%s에서 사용한 비밀번호가 알려진 데이터 유출에 %d번 나타납니다: 변경하세요.",
+"Update the system": "시스템을 업데이트하세요",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "웹 엔진(Qt WebEngine %s)에 알려진 보안 문제(%s)가 있으며 최신 버전에서 수정되었습니다. 터미널을 열고 실행하세요: %s",
+"Battery saver": "배터리 절약",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "배터리 사용 중에는 백그라운드 탭이 1분 후 일시 중지되고 인터페이스 애니메이션과 탭 그림이 멈춥니다."
 }
 }

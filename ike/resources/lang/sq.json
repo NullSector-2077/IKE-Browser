@@ -1042,6 +1042,19 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s është program ose skript, dhe nuk e keni vizituar kurrë më parë %s. Shkarkojeni vetëm nëse i besoni sajtit.",
 "Site storage: %d": "Hapësira e sajtit: %d",
 "Cache: %d": "Fshehtina: %d",
-"Permissions kept: %s": "Lejet e mbajtura: %s"
+"Permissions kept: %s": "Lejet e mbajtura: %s",
+"Protected time zone": "Zonë kohore e mbrojtur",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Sajtet shohin zonën kohore UTC, jo tuajën. Disa sajte do të tregojnë orë të gabuara. Pas një rinisjeje.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Pastro të dhënat e sajteve që vetëm të ridrejtojnë (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Një sajt nga i cili vetëm kalon, pa e përdorur, i humb pak më vonë cookie-t dhe të dhënat e ruajtura. Sajtet që ke përdorur, që i ke të hapura ose te faqeshënuesit nuk preken kurrë.",
+"Ask quietly in the address bar": "Pyet me maturi te shiriti i adresës",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Njoftime, vendndodhje, kamerë dhe mikrofon: një shenjë e vogël te shiriti i adresës në vend të një dritareje. Njoftimet e kërkuara pa një klikim në faqe refuzohen.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Kontrollo fjalëkalimet në rrjedhje të njohura të dhënash (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Kur një fjalëkalim ruhet ose plotësohet, te api.pwnedpasswords.com dërgohen vetëm 5 shenjat e para të gjurmës së tij SHA-1; fjalëkalimi nuk largohet kurrë nga ky kompjuter. Fikur si parazgjedhje.",
+"The password used on %s appears %d times in known data breaches: change it.": "Fjalëkalimi i përdorur te %s shfaqet %d herë në rrjedhje të njohura të dhënash: ndryshoje.",
+"Update the system": "Përditëso sistemin",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Motori i uebit (Qt WebEngine %s) ka një problem të njohur sigurie (%s), të ndrequr në një version më të ri. Hap një terminal dhe ekzekuto: %s",
+"Battery saver": "Kursim baterie",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Me bateri, skedat në sfond ndalen pas një minute dhe animacionet e ndërfaqes dhe figurat e skedave ndalen."
 }
 }

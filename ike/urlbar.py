@@ -89,6 +89,12 @@ class UrlBar(QLineEdit):
                                        QLineEdit.ActionPosition.TrailingPosition)
         self.zoom_act.setVisible(False)
         self.zoom_act.triggered.connect(lambda: window.zoom(0))
+        # a site's question about a permission, answered with a click (quietperms.py, 1.1.24)
+        self.perm_act = self.addAction(icon("dialog-question", QStyle.StandardPixmap.SP_MessageBoxQuestion),
+                                       QLineEdit.ActionPosition.TrailingPosition)
+        self.perm_act.setVisible(False)
+        from . import quietperms
+        self.perm_act.triggered.connect(lambda: quietperms.menu(window))
         self._pill = None
         if polish.part("url_pill"):
             # rounded, with an edge that lights up softly while the field is used (polish.py)

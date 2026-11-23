@@ -1042,6 +1042,19 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s er forrit eða skrifta, og þú hefur aldrei heimsótt %s áður. Sæktu það aðeins ef þú treystir vefnum.",
 "Site storage: %d": "Geymsla vefs: %d",
 "Cache: %d": "Skyndiminni: %d",
-"Permissions kept: %s": "Heimildum haldið: %s"
+"Permissions kept: %s": "Heimildum haldið: %s",
+"Protected time zone": "Varið tímabelti",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Vefsvæði sjá tímabeltið UTC, ekki þitt. Sum vefsvæði munu sýna rangan tíma. Eftir endurræsingu.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Hreinsa gögn vefsvæða sem aðeins áframsenda þig (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Vefsvæði sem þú ferð aðeins í gegnum, án þess að nota það, missir vafrakökur sínar og vistuð gögn skömmu síðar. Vefsvæði sem þú hefur notað, ert með opin eða í bókamerkjum eru aldrei snert.",
+"Ask quietly in the address bar": "Spyrja hljóðlega í veffangastikunni",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Tilkynningar, staðsetning, myndavél og hljóðnemi: lítið merki í veffangastikunni í stað glugga. Tilkynningum sem beðið er um án smells á síðuna er hafnað.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Athuga lykilorð gegn þekktum gagnalekum (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Þegar lykilorð er vistað eða fyllt út eru aðeins fyrstu 5 stafirnir í SHA-1-fingrafari þess sendir til api.pwnedpasswords.com; lykilorðið fer aldrei úr þessari tölvu. Slökkt sjálfgefið.",
+"The password used on %s appears %d times in known data breaches: change it.": "Lykilorðið sem notað er á %s kemur %d sinnum fyrir í þekktum gagnalekum: breyttu því.",
+"Update the system": "Uppfærðu kerfið",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Vefvélin (Qt WebEngine %s) er með þekkt öryggisvandamál (%s), lagað í nýrri útgáfu. Opnaðu skipanalínu og keyrðu: %s",
+"Battery saver": "Rafhlöðusparnaður",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Á rafhlöðu gera flipar í bakgrunni hlé eftir eina mínútu og hreyfingar viðmótsins og myndir flipa stöðvast."
 }
 }

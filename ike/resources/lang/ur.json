@@ -1042,6 +1042,19 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s ایک پروگرام یا اسکرپٹ ہے، اور آپ پہلے کبھی %s پر نہیں گئے۔ اسے صرف اس صورت میں ڈاؤن لوڈ کریں جب آپ سائٹ پر بھروسہ کرتے ہوں۔",
 "Site storage: %d": "سائٹ اسٹوریج: %d",
 "Cache: %d": "کیش: %d",
-"Permissions kept: %s": "رکھی گئی اجازتیں: %s"
+"Permissions kept: %s": "رکھی گئی اجازتیں: %s",
+"Protected time zone": "محفوظ ٹائم زون",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "سائٹس آپ کا نہیں، UTC ٹائم زون دیکھتی ہیں۔ کچھ سائٹس غلط وقت دکھائیں گی۔ دوبارہ شروع کرنے کے بعد۔",
+"Clear the data of sites that only redirect you (bounce tracking)": "صرف ری ڈائریکٹ کرنے والی سائٹس کا ڈیٹا صاف کریں (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "جس سائٹ سے آپ استعمال کیے بغیر بس گزرتے ہیں، وہ تھوڑی دیر بعد اپنی کوکیز اور محفوظ ڈیٹا کھو دیتی ہے۔ جو سائٹس آپ نے استعمال کیں، کھلی ہیں یا بک مارک میں ہیں، انہیں کبھی نہیں چھیڑا جاتا۔",
+"Ask quietly in the address bar": "ایڈریس بار میں خاموشی سے پوچھیں",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "اطلاعات، مقام، کیمرا اور مائیکروفون: ونڈو کے بجائے ایڈریس بار میں ایک چھوٹا نشان۔ صفحے پر کلک کیے بغیر مانگی گئی اطلاعات مسترد کی جاتی ہیں۔",
+"Check passwords against known data breaches (Have I Been Pwned)": "معلوم ڈیٹا لیکس میں پاس ورڈ جانچیں (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "جب کوئی پاس ورڈ محفوظ یا پُر کیا جاتا ہے تو اس کے SHA-1 فنگر پرنٹ کے صرف پہلے 5 حروف api.pwnedpasswords.com کو بھیجے جاتے ہیں؛ پاس ورڈ کبھی اس کمپیوٹر سے باہر نہیں جاتا۔ طے شدہ طور پر بند۔",
+"The password used on %s appears %d times in known data breaches: change it.": "%s پر استعمال ہونے والا پاس ورڈ معلوم ڈیٹا لیکس میں %d بار آتا ہے: اسے بدلیں۔",
+"Update the system": "سسٹم اپ ڈیٹ کریں",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "ویب انجن (Qt WebEngine %s) میں ایک معلوم سیکیورٹی مسئلہ ہے (%s)، جو نئے ورژن میں ٹھیک ہو چکا ہے۔ ٹرمینل کھولیں اور چلائیں: %s",
+"Battery saver": "بیٹری بچت",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "بیٹری پر، پس منظر کے ٹیب ایک منٹ بعد رک جاتے ہیں اور انٹرفیس کی حرکت پذیری اور ٹیب کی تصویریں رک جاتی ہیں۔"
 }
 }

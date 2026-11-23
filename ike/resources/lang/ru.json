@@ -1042,6 +1042,19 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s — это программа или скрипт, а вы никогда раньше не посещали %s. Скачивайте его, только если доверяете сайту.",
 "Site storage: %d": "Хранилище сайта: %d",
 "Cache: %d": "Кэш: %d",
-"Permissions kept: %s": "Сохранённые разрешения: %s"
+"Permissions kept: %s": "Сохранённые разрешения: %s",
+"Protected time zone": "Защищённый часовой пояс",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Сайты видят часовой пояс UTC, а не ваш. Некоторые сайты будут показывать неверное время. После перезапуска.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Удалять данные сайтов, которые только перенаправляют (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Сайт, через который вы только проходите, не пользуясь им, вскоре теряет свои куки и сохранённые данные. Сайты, которыми вы пользовались, которые открыты или в закладках, никогда не затрагиваются.",
+"Ask quietly in the address bar": "Спрашивать ненавязчиво в адресной строке",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Уведомления, местоположение, камера и микрофон: маленький значок в адресной строке вместо окна. Запросы уведомлений без щелчка по странице отклоняются.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Проверять пароли по известным утечкам данных (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Когда пароль сохраняется или подставляется, на api.pwnedpasswords.com отправляются только первые 5 символов его отпечатка SHA-1; сам пароль никогда не покидает этот компьютер. По умолчанию выключено.",
+"The password used on %s appears %d times in known data breaches: change it.": "Пароль, используемый на %s, встречается в известных утечках данных %d раз: смените его.",
+"Update the system": "Обновите систему",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "У веб-движка (Qt WebEngine %s) есть известная проблема безопасности (%s), исправленная в более новой версии. Откройте терминал и выполните: %s",
+"Battery saver": "Экономия батареи",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "От батареи фоновые вкладки приостанавливаются через минуту, а анимации интерфейса и картинки вкладок останавливаются."
 }
 }

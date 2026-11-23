@@ -1042,6 +1042,19 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s dastur yoki skript, siz esa ilgari hech qachon %s saytiga kirmagansiz. Faqat saytga ishonsangiz yuklab oling.",
 "Site storage: %d": "Sayt xotirasi: %d",
 "Cache: %d": "Kesh: %d",
-"Permissions kept: %s": "Saqlangan ruxsatlar: %s"
+"Permissions kept: %s": "Saqlangan ruxsatlar: %s",
+"Protected time zone": "Himoyalangan vaqt mintaqasi",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Saytlar sizniki emas, UTC vaqt mintaqasini ko'radi. Ba'zi saytlar noto'g'ri vaqt ko'rsatadi. Qayta ishga tushirgandan keyin.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Faqat yo'naltiradigan saytlar ma'lumotlarini tozalash (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Foydalanmasdan faqat o'tib ketadigan sayt birozdan so'ng cookie fayllari va saqlangan ma'lumotlarini yo'qotadi. Siz foydalangan, ochiq turgan yoki xatcho'plardagi saytlarga hech qachon tegilmaydi.",
+"Ask quietly in the address bar": "Manzil satrida sezdirmasdan so'rash",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Bildirishnomalar, joylashuv, kamera va mikrofon: oyna o'rniga manzil satrida kichik belgi. Sahifani bosmasdan so'ralgan bildirishnomalar rad etiladi.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Parollarni ma'lum ma'lumotlar sizishlarida tekshirish (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Parol saqlanganda yoki to'ldirilganda, uning SHA-1 izining faqat dastlabki 5 belgisi api.pwnedpasswords.com manziliga yuboriladi; parol hech qachon bu kompyuterdan chiqmaydi. Standart bo'yicha o'chiq.",
+"The password used on %s appears %d times in known data breaches: change it.": "%s saytida ishlatilgan parol ma'lum ma'lumotlar sizishlarida %d marta uchraydi: uni o'zgartiring.",
+"Update the system": "Tizimni yangilang",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Veb dvigatelda (Qt WebEngine %s) yangiroq versiyada tuzatilgan ma'lum xavfsizlik muammosi bor (%s). Terminalni oching va bajaring: %s",
+"Battery saver": "Batareyani tejash",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Batareyada fon varaqlari bir daqiqadan so'ng to'xtaydi, interfeys animatsiyalari va varaq rasmlari to'xtatiladi."
 }
 }

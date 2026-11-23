@@ -1042,6 +1042,19 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s é un programa ou un script, e nunca antes visitaches %s. Descárgao só se confías no sitio.",
 "Site storage: %d": "Almacenamento do sitio: %d",
 "Cache: %d": "Caché: %d",
-"Permissions kept: %s": "Permisos conservados: %s"
+"Permissions kept: %s": "Permisos conservados: %s",
+"Protected time zone": "Fuso horario protexido",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Os sitios ven o fuso horario UTC, non o teu. Algúns sitios mostrarán horas erradas. Despois dun reinicio.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Borrar os datos dos sitios que só te redirixen (rastrexo por rebote)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Un sitio polo que só pasas, sen usalo, perde as cookies e os datos gardados pouco despois. Os sitios que usaches, tes abertos ou nos marcadores nunca se tocan.",
+"Ask quietly in the address bar": "Preguntar discretamente na barra de enderezos",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Notificacións, localización, cámara e micrófono: un pequeno sinal na barra de enderezos en vez dunha xanela. As notificacións pedidas sen un clic na páxina rexéitanse.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Comprobar os contrasinais en filtracións de datos coñecidas (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Cando se garda ou enche un contrasinal, só se envían os primeiros 5 caracteres da súa pegada SHA-1 a api.pwnedpasswords.com; o contrasinal nunca sae deste ordenador. Desactivado de inicio.",
+"The password used on %s appears %d times in known data breaches: change it.": "O contrasinal usado en %s aparece %d veces en filtracións de datos coñecidas: cámbiao.",
+"Update the system": "Actualiza o sistema",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "O motor web (Qt WebEngine %s) ten un problema de seguranza coñecido (%s), corrixido nunha versión máis recente. Abre un terminal e executa: %s",
+"Battery saver": "Aforro de batería",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Con batería, as lapelas en segundo plano detéñense tras un minuto e páranse as animacións da interface e as imaxes das lapelas."
 }
 }

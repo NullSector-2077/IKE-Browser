@@ -1042,6 +1042,19 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s یک برنامه یا اسکریپت است و شما پیش از این هرگز از %s بازدید نکرده‌اید. فقط اگر به سایت اعتماد دارید آن را بارگیری کنید.",
 "Site storage: %d": "فضای ذخیره‌سازی سایت: %d",
 "Cache: %d": "حافظهٔ نهان: %d",
-"Permissions kept: %s": "مجوزهای نگه‌داشته‌شده: %s"
+"Permissions kept: %s": "مجوزهای نگه‌داشته‌شده: %s",
+"Protected time zone": "منطقه زمانی محافظت‌شده",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "سایت‌ها منطقه زمانی UTC را می‌بینند، نه منطقه شما را. برخی سایت‌ها ساعت نادرست نشان می‌دهند. پس از راه‌اندازی دوباره.",
+"Clear the data of sites that only redirect you (bounce tracking)": "پاک کردن داده‌های سایت‌هایی که فقط شما را هدایت می‌کنند (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "سایتی که فقط از آن عبور می‌کنید، بدون استفاده از آن، کمی بعد کوکی‌ها و داده‌های ذخیره‌شده‌اش را از دست می‌دهد. به سایت‌هایی که استفاده کرده‌اید، باز هستند یا نشانک شده‌اند هرگز دست زده نمی‌شود.",
+"Ask quietly in the address bar": "پرسیدن بی‌سروصدا در نوار نشانی",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "اعلان‌ها، مکان، دوربین و میکروفون: نشانه‌ای کوچک در نوار نشانی به‌جای پنجره. اعلان‌هایی که بدون کلیک روی صفحه درخواست شوند رد می‌شوند.",
+"Check passwords against known data breaches (Have I Been Pwned)": "بررسی گذرواژه‌ها در نشت‌های شناخته‌شده داده (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "وقتی گذرواژه‌ای ذخیره یا پر می‌شود، فقط ۵ نویسه نخست اثر انگشت SHA-1 آن به api.pwnedpasswords.com فرستاده می‌شود؛ گذرواژه هرگز این رایانه را ترک نمی‌کند. به‌طور پیش‌فرض خاموش.",
+"The password used on %s appears %d times in known data breaches: change it.": "گذرواژه استفاده‌شده در %s در نشت‌های شناخته‌شده داده %d بار آمده است: آن را تغییر دهید.",
+"Update the system": "سیستم را به‌روز کنید",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "موتور وب (Qt WebEngine %s) یک مشکل امنیتی شناخته‌شده دارد (%s) که در نسخه تازه‌تر رفع شده است. یک پایانه باز کنید و اجرا کنید: %s",
+"Battery saver": "صرفه‌جویی باتری",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "با باتری، زبانه‌های پس‌زمینه پس از یک دقیقه متوقف می‌شوند و جنبش‌های رابط و تصویرهای زبانه‌ها می‌ایستند."
 }
 }

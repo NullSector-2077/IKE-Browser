@@ -2,6 +2,49 @@
 
 ## 1.1.24
 
+Privacy package (A2b; every item agreed by the owner):
+
+- **Bounce tracking is cleaned up** (on by default; Settings -> Protection): a
+  site you only pass through, because a link sends you there and it
+  redirects you on at once (by its server or by its own script, without a
+  click), loses its cookies and stored data (local storage, databases,
+  caches, service workers) half a minute later, as Brave and Firefox do.
+  Never for sites you used in the last 45 days (a click, a key, an address
+  typed; the sites already in the history count as used), have open in a
+  tab or bookmarked, allowed in the shield, or for sign-in and payment
+  services. One check per page change, nothing per request
+  (`ike/bounce.py`, tests/test_privacy_124.py).
+- **Protected time zone** ("Fuso orario protetto", in the shield, off by
+  default): every site sees UTC instead of your time zone, in pages, frames
+  and every kind of worker (those a site starts from a file of its own too),
+  because the web engine itself runs in UTC; I.K.E.'s own menus, history and
+  new tab clock keep your time. Some sites will show wrong times; it applies
+  after a restart (`ike/timezone.py`).
+- **Quiet permission questions** (on by default; Settings -> Privacy): a site
+  asking for notifications, your location, the camera or the microphone
+  shows a small sign in the address bar instead of a window; a click on it
+  answers (Allow, Block, Not now). Notifications asked for without a click
+  on the page are refused at once, and the refusal is not remembered. The
+  answers are kept per site as before (`ike/quietperms.py`).
+- **Password breach check** (off by default; the Passwords window): when a
+  password is saved or filled in, Have I Been Pwned's range service is asked
+  with only the first 5 characters of its SHA-1 fingerprint (and the padding
+  header); the comparison is made on the computer, and a password found in
+  known breaches is said once (`ike/breach.py`).
+- **"Update the system"** ("Aggiorna il sistema"): when the signed update
+  information read once a day names a security problem of the web engine
+  fixed in a newer version than the installed one, I.K.E. says so once per
+  session, with the command `sudo pacman -Syu`. The field is written by the
+  release tool from `data/engine-advisory.json` (absent until the owner
+  writes one: no notice), and read only after the signature is verified
+  (`ike/advisory.py`, docs/UPDATES.md).
+- **Battery saver** (off by default; Settings -> System): on battery, tabs in
+  the background pause after a minute, and the interface's animations and
+  the pictures of the tabs for their preview cards stop; plugged in again,
+  everything runs as before. Whether the computer is on battery comes from
+  UPower's own signal (QtDBus, nothing to install, nothing polled)
+  (`ike/battery.py`).
+
 - **xdg-utils is no longer used** (its Arch advisory AVG-1420 has no fix and
   stopped every automatic merge): a downloaded file, a folder or a link
   (mailto:, magnet:...) goes to the XDG desktop portal

@@ -58,8 +58,17 @@ profiles: `ike-browser --profile NAME`.
   from site to site and from session to session (at Balanced a common model
   of the same maker chosen per site instead of the exact one; at Strict and
   Maximum no name at all); Strict and Maximum also give common values for the
-  screen, fonts, memory, languages and voices. Not covered: the time zone, and
-  workers a site starts from a file of its own.
+  screen, fonts, memory, languages and voices. Not covered: workers a site
+  starts from a file of its own.
+- **Protected time zone** (the shield, off by default): every site sees the
+  time zone UTC, in pages, frames and every kind of worker alike; I.K.E.'s
+  own menus and its new tab clock keep yours. Some sites will show wrong
+  times; it applies after a restart.
+- **Bounce tracking** (on by default): a site you only pass through, because
+  a link redirected you there and on at once, loses its cookies and stored
+  data half a minute later. Sites you used in the last 45 days, have open or
+  bookmarked, sign-in and payment services and sites you allowed in the
+  shield are never touched.
 - Sites see Chrome on Linux with the version of I.K.E.'s own engine: header,
   client hints and JavaScript agree (at Strict and Maximum only its major
   number, today 140.0.0.0, in pages, workers and request headers). One
@@ -125,6 +134,16 @@ profiles: `ike-browser --profile NAME`.
   two that are off until you choose them: automatic scrolling with the middle
   button, and opening the selected text with the middle button.
 - I.K.E.'s own pages for sites that cannot be reached, with "Try again".
+- Quiet permission questions (on by default; Settings → Privacy): a site
+  asking for notifications, the location, the camera or the microphone shows
+  a small sign in the address bar; a click answers. Notifications asked for
+  without a click on the page are refused at once (not remembered).
+- An optional check of saved passwords against known data breaches (Have I
+  Been Pwned, off by default; the Passwords window): only the first 5
+  characters of the password's SHA-1 fingerprint leave the computer.
+- Battery saver (off by default; Settings → System): on battery, background
+  tabs pause after a minute and the interface's animations and tab pictures
+  stop. It listens to UPower, nothing is polled.
 - Reader mode with light, sepia or dark and the text size of your choice.
 - Free choice of search engines (Startpage by default since 1.1.19: the old default, DuckDuckGo, becomes Startpage once; another engine chosen is kept), suggestions, keywords; the
   engine in use right after the lock and in the new tab page, a click to change it.
@@ -208,6 +227,7 @@ I.K.E. has no servers of its own and sends no telemetry. It contacts only:
 | The sites of your user scripts | once a day, if automatic updates are on | a plain download of each script |
 | GitHub (github.com and its download servers) | once a day, unless I.K.E. updates are off | a plain download of the latest release's signed manifest, and of the update when you install it |
 | Chrome Web Store (chromewebstore.google.com, clients2.google.com) | only if you install an experimental Chrome extension | the extension's id; the package is downloaded |
+| Have I Been Pwned's password range service (api.pwnedpasswords.com), free, no account | only if you turn the breach check on (Passwords window), when a password is saved or filled in, once per password and session | the first 5 hexadecimal characters of the password's SHA-1 fingerprint, with the padding header (every answer about the same size); the comparison is made on your computer |
 
 The project's own checks run in GitHub Actions only, never in the browser
 and never with anything about its users ([docs/MAINTENANCE.md](docs/MAINTENANCE.md)):
@@ -226,7 +246,10 @@ and never with anything about its users ([docs/MAINTENANCE.md](docs/MAINTENANCE.
 
 - Filter lists update themselves daily; the presented Chrome version is the
   web engine's own, so it changes when the system's `qt6-webengine` does.
-- The web engine updates with the system (`sudo pacman -Syu`).
+- The web engine updates with the system (`sudo pacman -Syu`). When a
+  security problem of the engine is published and fixed in a newer version,
+  the signed update information I.K.E. already reads once a day can say so,
+  and I.K.E. shows "Update the system" with that command (no other request).
 - I.K.E. itself updates by itself from the latest GitHub release, signed with
   the project's key and checked before use, the AdBlock engine included
   (Settings → Updates: automatic by default, or ask, or off at your own risk);

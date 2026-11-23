@@ -1042,6 +1042,19 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s on programm või skript ja sa pole kunagi varem saiti %s külastanud. Laadi see alla ainult siis, kui usaldad saiti.",
 "Site storage: %d": "Saidi salvestusruum: %d",
 "Cache: %d": "Vahemälu: %d",
-"Permissions kept: %s": "Säilitatud load: %s"
+"Permissions kept: %s": "Säilitatud load: %s",
+"Protected time zone": "Kaitstud ajavöönd",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Saidid näevad ajavööndit UTC, mitte sinu oma. Mõned saidid näitavad valesid kellaaegu. Pärast taaskäivitust.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Kustuta ainult edasi suunavate saitide andmed (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Sait, mille kaudu sa ainult läbi lähed seda kasutamata, kaotab veidi hiljem oma küpsised ja salvestatud andmed. Saite, mida oled kasutanud, mis on avatud või järjehoidjates, ei puudutata kunagi.",
+"Ask quietly in the address bar": "Küsi vaikselt aadressiribal",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Teavitused, asukoht, kaamera ja mikrofon: väike märk aadressiribal akna asemel. Teavitused, mida küsitakse ilma lehel klõpsamata, keelatakse.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Kontrolli paroole teadaolevates andmelekete loendites (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Kui parool salvestatakse või täidetakse, saadetakse aadressile api.pwnedpasswords.com ainult selle SHA-1 sõrmejälje esimesed 5 märki; parool ei lahku kunagi sellest arvutist. Vaikimisi väljas.",
+"The password used on %s appears %d times in known data breaches: change it.": "Saidil %s kasutatud parool esineb teadaolevates andmeleketes %d korda: muuda seda.",
+"Update the system": "Uuenda süsteemi",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Veebimootoril (Qt WebEngine %s) on teadaolev turvaprobleem (%s), mis on uuemas versioonis parandatud. Ava terminal ja käivita: %s",
+"Battery saver": "Akusäästja",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Akutoitel peatuvad taustakaardid minuti pärast ning liidese animatsioonid ja kaartide pildid peatuvad."
 }
 }

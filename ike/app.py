@@ -63,9 +63,12 @@ class IkeApp(QObject):
         from .passwords import PasswordManager
         from .updater import Updater
         self.passwords = PasswordManager(self)
+        from .breach import BreachCheck
+        self.breach = BreachCheck(self)      # opt-in (1.1.24)
         self.shields.pw_source = self.passwords.script_source()
         self.updater = Updater(config, self)
         self.updater.finished.connect(self._app_update_done)
+        self.updater.advisory.connect(self._engine_advisory)
         self._containers = {}
         from .favicons import Favicons
         self.favicons = Favicons(self)
@@ -103,6 +106,11 @@ class IkeApp(QObject):
         self._apply_dns()
         self.profile = self.shields.make_profile(parent=self)
         self._wire_profile(self.profile)
+        from .bounce import BounceGuard
+        self.bounce = BounceGuard(self)      # bounce tracking (1.1.24)
+        from .battery import Battery
+        self.battery = Battery(self)         # battery saver (1.1.24): connects only when chosen
+        self.battery.start()
         self.blocker.updated.connect(self._lists_updated)
         self._timer = QTimer(self)
         self._timer.setInterval(3600 * 1000)
@@ -116,6 +124,8 @@ class IkeApp(QObject):
         self._sleep_timer.setInterval(60 * 1000)
         self._sleep_timer.timeout.connect(self.sleep_tabs)
         self._sleep_timer.start()
+        # the advisory kept from the last update check, while the engine still lacks its fix
+        QTimer.singleShot(5000, self.advisory_notice)
         # progress ring of the Downloads button (see downloadring)
         self._dl_state = ("idle", None)
         self._dl_done = False
@@ -404,6 +414,7 @@ class IkeApp(QObject):
         return out
 
     def sleep_tabs(self, force=False):
+        self.battery.rest()                  # on battery with the saver: background tabs pause
         minutes = self.config["tab_sleep_minutes"]
         if not force and not minutes:
             return
@@ -543,6 +554,28 @@ class IkeApp(QObject):
                 "security fixes. Update the system (sudo pacman -Syu) to stay protected.") % behind)
         return behind
 
+    def _engine_advisory(self, data):
+        """The advisory of the verified update information (advisory.py)."""
+        from . import advisory
+        advisory.remember(self.config, data)
+        self.config.save()
+        self.advisory_notice()
+
+    def advisory_notice(self):
+        """Once per session: "Update the system", when the engine lacks a published fix."""
+        from . import advisory
+        if getattr(self, "_advisory_told", False):
+            return ""
+        text = advisory.notice(self.config)
+        if text:
+            self._advisory_told = True
+            from .i18n import T
+            from .osinfo import notify
+            title = T("Update the system")
+            self._notify("%s: %s" % (title, text))
+            notify(title, text)
+        return text
+
     def _check_chrome_version(self):
         """Once a day: learn the current stable Chrome version (see chromever)."""
         from . import chromever
@@ -575,6 +608,7 @@ class IkeApp(QObject):
     # --- settings / updates ------------------------------------------
     def settings_changed(self):
         self.desktop.settings_changed()
+        self.battery.start()
         self.shields.apply_settings()
         self._apply_dns()
         self.blocker.load()
@@ -1184,6 +1218,7 @@ class IkeApp(QObject):
         if history:
             self.storage.clear_history()
             self.profile.clearAllVisitedLinks()
+            self.config["bounce_used"] = {}      # the sites used, a kind of history (bounce.py)
         if cookies:
             for p in self.all_profiles():
                 p.cookieStore().deleteAllCookies()
@@ -1724,7 +1759,13 @@ def main(argv=None):
             qapp.installTranslator(tr)
             qapp._translators.append(tr)
     _keep_running_after_errors()
-    ike = IkeApp(qapp, config)
+    # the protected time zone (1.1.24): the engine starts with it, I.K.E. keeps its own
+    from . import timezone
+    timezone.apply(config)
+    try:
+        ike = IkeApp(qapp, config)
+    finally:
+        timezone.restore()
 
     server = QLocalServer(qapp)
     server_name = ""

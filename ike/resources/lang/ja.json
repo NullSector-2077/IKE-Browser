@@ -1042,6 +1042,19 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s はプログラムまたはスクリプトで、%s にはこれまで一度もアクセスしたことがありません。サイトを信頼できる場合にのみダウンロードしてください。",
 "Site storage: %d": "サイトのストレージ: %d",
 "Cache: %d": "キャッシュ: %d",
-"Permissions kept: %s": "保持された権限: %s"
+"Permissions kept: %s": "保持された権限: %s",
+"Protected time zone": "保護されたタイムゾーン",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "サイトにはあなたのタイムゾーンではなく UTC が見えます。一部のサイトでは時刻が正しく表示されません。再起動後に有効。",
+"Clear the data of sites that only redirect you (bounce tracking)": "リダイレクトするだけのサイトのデータを消去（バウンストラッキング）",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "使わずに通り過ぎただけのサイトは、少し後に Cookie と保存データを失います。使ったサイト、開いているサイト、ブックマークしたサイトには決して触れません。",
+"Ask quietly in the address bar": "アドレスバーで控えめに確認",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "通知、位置情報、カメラ、マイク：ウィンドウの代わりにアドレスバーに小さな印を表示します。ページをクリックせずに求められた通知は拒否されます。",
+"Check passwords against known data breaches (Have I Been Pwned)": "既知のデータ漏洩でパスワードを確認（Have I Been Pwned）",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "パスワードを保存または入力するとき、SHA-1 フィンガープリントの最初の 5 文字だけが api.pwnedpasswords.com に送られます。パスワード自体がこのコンピューターから出ることはありません。既定ではオフ。",
+"The password used on %s appears %d times in known data breaches: change it.": "%s で使われているパスワードは既知のデータ漏洩に %d 回含まれています。変更してください。",
+"Update the system": "システムを更新してください",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "ウェブエンジン（Qt WebEngine %s）には既知のセキュリティ問題（%s）があり、新しいバージョンで修正されています。ターミナルを開いて実行してください: %s",
+"Battery saver": "バッテリー節約",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "バッテリー使用中は、バックグラウンドのタブが 1 分後に一時停止し、インターフェースのアニメーションとタブの画像が止まります。"
 }
 }

@@ -1042,6 +1042,19 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s 是程序或脚本，而您以前从未访问过 %s。只有在信任该网站时才下载。",
 "Site storage: %d": "网站存储：%d",
 "Cache: %d": "缓存：%d",
-"Permissions kept: %s": "保留的权限：%s"
+"Permissions kept: %s": "保留的权限：%s",
+"Protected time zone": "受保护的时区",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "网站看到的是 UTC 时区，而不是你的时区。部分网站会显示错误的时间。重启后生效。",
+"Clear the data of sites that only redirect you (bounce tracking)": "清除只做重定向的网站的数据（跳转跟踪）",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "你只是经过而未使用的网站，会在片刻后失去它的 Cookie 和存储的数据。你用过、正在打开或已加入书签的网站绝不会被处理。",
+"Ask quietly in the address bar": "在地址栏中安静地询问",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "通知、位置、摄像头和麦克风：在地址栏中显示一个小标记，而不是弹出窗口。未点击页面就请求的通知会被拒绝。",
+"Check passwords against known data breaches (Have I Been Pwned)": "在已知数据泄露中检查密码（Have I Been Pwned）",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "保存或填写密码时，只会把其 SHA-1 指纹的前 5 个字符发送到 api.pwnedpasswords.com；密码本身绝不会离开这台电脑。默认关闭。",
+"The password used on %s appears %d times in known data breaches: change it.": "在 %s 上使用的密码在已知数据泄露中出现了 %d 次：请更改它。",
+"Update the system": "请更新系统",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "网页引擎（Qt WebEngine %s）存在已知的安全问题（%s），已在较新版本中修复。打开终端并运行：%s",
+"Battery saver": "省电模式",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "使用电池时，后台标签页在一分钟后暂停，界面动画和标签页图片也会停止。"
 }
 }
