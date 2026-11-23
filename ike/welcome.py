@@ -35,10 +35,6 @@ STEPS = 4
 LEVELS = ("compatibility", "balanced", "strict")
 
 
-def wanted(config):
-    return not config["welcome_done"]
-
-
 def level_line(level):
     """One plain line about a protection level, for the welcome."""
     return {"compatibility": T("Blocks ads and trackers. For sites that do not work otherwise."),

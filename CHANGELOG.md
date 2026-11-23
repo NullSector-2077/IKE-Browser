@@ -96,6 +96,44 @@
   as PDF (its menu), Send to device (the phones and computers paired with KDE
   Connect, with the Plasma integration extension) and Site resources (with
   its extension). A click opens their menu, as with the dark mode button.
+- **History by day**: the history window groups the pages under "Today",
+  "Yesterday" and then the date, written as the interface's language writes
+  it; each page shows the time of its last visit. The search works as
+  before and keeps the grouping; a day's heading is never opened nor
+  deleted.
+- **Reader mode: the column and the type**: on the reader's bar, a narrow,
+  medium or wide column and serif or sans-serif type, next to the text size
+  and the colours; I.K.E. remembers the choice.
+- **Screenshot of the whole page or of an area**: "Screenshot…" (☰ menu,
+  File, a page's right-click menu) opens its choices: the visible part, the
+  whole page (taken a screen at a time and put together, the bars that stay
+  in place shown once, up to 16,000 pixels) or an area dragged with the
+  mouse over a still picture of the page (Esc cancels). Ctrl+Shift+S and the
+  toolbar button take the visible part as before; the picture is saved as
+  before (`ike/screenshot.py`).
+- **Dark PDFs** (off by default; Settings → Appearance → Web pages, "Show
+  PDFs with dark colours"): PDFs in I.K.E.'s own viewer are shown with their
+  colours turned around, light text on a dark page, the open ones at once.
+  Nothing runs on other pages, and nothing at all while it is off. "Open
+  with Okular" for a PDF is the one of the handoffs above.
+- **A welcome at the very first start** (`ike/welcome.py`): four short steps
+  in plain words, before the first window: the language (the computer's,
+  confirmed or changed: the welcome itself changes language at once), how
+  much I.K.E. blocks (Compatibility, Balanced, Strict, one plain line each),
+  the search engine, and, only if ticked, I.K.E. as the default browser.
+  "Skip" changes nothing; everything stays changeable in the Settings. It
+  is never shown again, and never to a profile that already had settings.
+- **"Copy clean link" in a link's right-click menu**: the address without
+  utm_, fbclid, gclid, mc_eid and the other tracking parameters I.K.E.
+  already removes (the same list), as the address bar's own "Copy clean
+  link"; the address bar keeps "Paste and go".
+- **History → Recently closed tabs**: the last 10 tabs closed, newest
+  first, with their title and the site's icon; one chosen opens again (in
+  the ☰ menu's History too). Ctrl+Shift+T still reopens the last one;
+  private windows keep no list.
+- 27 new interface strings, translated into all 59 languages; the welcome's
+  four steps are measured by the text-fit test in every language
+  (tests/test_extras_124.py).
 
 ## 1.1.23
 
