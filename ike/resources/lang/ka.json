@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s პროგრამა ან სკრიპტია, და აქამდე არასდროს გინახავთ %s. ჩამოტვირთეთ მხოლოდ იმ შემთხვევაში, თუ საიტს ენდობით.",
 "Site storage: %d": "საიტის საცავი: %d",
 "Cache: %d": "ქეში: %d",
-"Permissions kept: %s": "შენარჩუნებული ნებართვები: %s"
+"Permissions kept: %s": "შენარჩუნებული ნებართვები: %s",
+"Not secure": "დაუცველი"
 }
 }

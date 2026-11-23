@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s — это программа или скрипт, а вы никогда раньше не посещали %s. Скачивайте его, только если доверяете сайту.",
 "Site storage: %d": "Хранилище сайта: %d",
 "Cache: %d": "Кэш: %d",
-"Permissions kept: %s": "Сохранённые разрешения: %s"
+"Permissions kept: %s": "Сохранённые разрешения: %s",
+"Not secure": "Не защищено"
 }
 }

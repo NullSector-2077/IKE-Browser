@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s este un program sau un script, iar dumneavoastră nu ați mai vizitat niciodată %s. Descărcați-l doar dacă aveți încredere în site.",
 "Site storage: %d": "Stocarea site-ului: %d",
 "Cache: %d": "Cache: %d",
-"Permissions kept: %s": "Permisiuni păstrate: %s"
+"Permissions kept: %s": "Permisiuni păstrate: %s",
+"Not secure": "Nesigur"
 }
 }

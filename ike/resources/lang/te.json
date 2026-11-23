@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s ఒక ప్రోగ్రామ్ లేదా స్క్రిప్ట్, మరియు మీరు ఇంతకు ముందు ఎప్పుడూ %sను సందర్శించలేదు. సైట్‌ను నమ్మితేనే డౌన్‌లోడ్ చేయండి.",
 "Site storage: %d": "సైట్ నిల్వ: %d",
 "Cache: %d": "కాష్: %d",
-"Permissions kept: %s": "ఉంచిన అనుమతులు: %s"
+"Permissions kept: %s": "ఉంచిన అనుమతులు: %s",
+"Not secure": "సురక్షితం కాదు"
 }
 }

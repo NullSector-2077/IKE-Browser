@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "Ang %s ay isang programa o script, at hindi mo pa kailanman nabisita ang %s. I-download lamang ito kung pinagkakatiwalaan mo ang site.",
 "Site storage: %d": "Storage ng site: %d",
 "Cache: %d": "Cache: %d",
-"Permissions kept: %s": "Mga pahintulot na itinago: %s"
+"Permissions kept: %s": "Mga pahintulot na itinago: %s",
+"Not secure": "Hindi secure"
 }
 }

@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s เป็นโปรแกรมหรือสคริปต์ และคุณไม่เคยเข้าชม %s มาก่อน ดาวน์โหลดเฉพาะเมื่อคุณเชื่อถือเว็บไซต์นี้",
 "Site storage: %d": "พื้นที่เก็บข้อมูลของเว็บไซต์: %d",
 "Cache: %d": "แคช: %d",
-"Permissions kept: %s": "สิทธิ์ที่เก็บไว้: %s"
+"Permissions kept: %s": "สิทธิ์ที่เก็บไว้: %s",
+"Not secure": "ไม่ปลอดภัย"
 }
 }

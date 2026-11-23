@@ -107,7 +107,7 @@ jobs:
               python python-pyqt6 python-pyqt6-webengine qt6-webengine qt6-webchannel qt6-svg \
               python-cryptography python-jeepney publicsuffix-list python-pytest \
               base-devel rust sudo nodejs \
-              ffmpeg dbus glib2 noto-fonts ttf-dejavu libnotify \
+              ffmpeg dbus glib2 noto-fonts ttf-dejavu \
               noto-fonts-cjk intel-media-driver libva-nvidia-driver \
               breeze oxygen kvantum plasma-integration breeze-icons \
               gtk3 xorg-server-xvfb lxqt-qtplugin \

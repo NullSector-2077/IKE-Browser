@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s 是程序或脚本，而您以前从未访问过 %s。只有在信任该网站时才下载。",
 "Site storage: %d": "网站存储：%d",
 "Cache: %d": "缓存：%d",
-"Permissions kept: %s": "保留的权限：%s"
+"Permissions kept: %s": "保留的权限：%s",
+"Not secure": "不安全"
 }
 }

@@ -12,8 +12,7 @@ license=('GPL-3.0-or-later')
 depends=('python' 'python-pyqt6' 'python-pyqt6-webengine' 'qt6-webengine' 'qt6-webchannel'
          'qt6-svg' 'python-cryptography' 'python-jeepney' 'hicolor-icon-theme' 'publicsuffix-list')
 makedepends=('rust' 'gcc')
-optdepends=('libnotify: desktop notifications'
-            'noto-fonts-cjk: Chinese, Japanese and Korean interface text'
+optdepends=('noto-fonts-cjk: Chinese, Japanese and Korean interface text'
             'noto-fonts: Arabic, Hebrew, Indic, Thai, Georgian, Armenian and other scripts'
             'plasma-integration: Plasma theme, colours and file dialogs'
             'chromium-widevine: system-wide Widevine instead of the copy I.K.E. downloads'

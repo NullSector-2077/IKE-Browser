@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s on ohjelma tai komentosarja, etkä ole koskaan aiemmin käynyt sivustolla %s. Lataa se vain, jos luotat sivustoon.",
 "Site storage: %d": "Sivuston tallennustila: %d",
 "Cache: %d": "Välimuisti: %d",
-"Permissions kept: %s": "Säilytetyt luvat: %s"
+"Permissions kept: %s": "Säilytetyt luvat: %s",
+"Not secure": "Ei suojattu"
 }
 }

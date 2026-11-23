@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s ni programu au hati, na hujawahi kutembelea %s kabla. Ipakue tu ikiwa unaiamini tovuti.",
 "Site storage: %d": "Hifadhi ya tovuti: %d",
 "Cache: %d": "Akiba: %d",
-"Permissions kept: %s": "Ruhusa zilizobaki: %s"
+"Permissions kept: %s": "Ruhusa zilizobaki: %s",
+"Not secure": "Si salama"
 }
 }

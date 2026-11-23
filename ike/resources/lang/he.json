@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s הוא תוכנה או סקריפט, ומעולם לא ביקרת ב־%s. הורד אותו רק אם אתה סומך על האתר.",
 "Site storage: %d": "אחסון האתר: %d",
 "Cache: %d": "מטמון: %d",
-"Permissions kept: %s": "הרשאות שנשמרו: %s"
+"Permissions kept: %s": "הרשאות שנשמרו: %s",
+"Not secure": "לא מאובטח"
 }
 }

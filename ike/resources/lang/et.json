@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s on programm või skript ja sa pole kunagi varem saiti %s külastanud. Laadi see alla ainult siis, kui usaldad saiti.",
 "Site storage: %d": "Saidi salvestusruum: %d",
 "Cache: %d": "Vahemälu: %d",
-"Permissions kept: %s": "Säilitatud load: %s"
+"Permissions kept: %s": "Säilitatud load: %s",
+"Not secure": "Pole turvaline"
 }
 }

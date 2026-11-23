@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s একটি প্রোগ্রাম বা স্ক্রিপ্ট, এবং আপনি আগে কখনো %s দেখেননি। সাইটটিকে বিশ্বাস করলে তবেই ডাউনলোড করুন।",
 "Site storage: %d": "সাইটের সঞ্চয়স্থান: %d",
 "Cache: %d": "ক্যাশ: %d",
-"Permissions kept: %s": "রাখা অনুমতি: %s"
+"Permissions kept: %s": "রাখা অনুমতি: %s",
+"Not secure": "নিরাপদ নয়"
 }
 }

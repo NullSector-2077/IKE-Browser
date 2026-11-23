@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s là chương trình hoặc tập lệnh, và bạn chưa từng truy cập %s trước đây. Chỉ tải xuống nếu bạn tin tưởng trang này.",
 "Site storage: %d": "Bộ nhớ trang: %d",
 "Cache: %d": "Bộ nhớ đệm: %d",
-"Permissions kept: %s": "Quyền được giữ lại: %s"
+"Permissions kept: %s": "Quyền được giữ lại: %s",
+"Not secure": "Không bảo mật"
 }
 }

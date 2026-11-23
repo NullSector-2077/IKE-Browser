@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s ir programma vai skripts, un jūs nekad iepriekš neesat apmeklējis %s. Lejupielādējiet to tikai tad, ja uzticaties vietnei.",
 "Site storage: %d": "Vietnes krātuve: %d",
 "Cache: %d": "Kešatmiņa: %d",
-"Permissions kept: %s": "Saglabātās atļaujas: %s"
+"Permissions kept: %s": "Saglabātās atļaujas: %s",
+"Not secure": "Nav drošs"
 }
 }

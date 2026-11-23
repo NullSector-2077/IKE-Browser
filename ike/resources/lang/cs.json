@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s je program nebo skript a %s jste nikdy předtím nenavštívili. Stáhněte ho, jen pokud webu důvěřujete.",
 "Site storage: %d": "Úložiště webu: %d",
 "Cache: %d": "Mezipaměť: %d",
-"Permissions kept: %s": "Ponechaná oprávnění: %s"
+"Permissions kept: %s": "Ponechaná oprávnění: %s",
+"Not secure": "Nezabezpečeno"
 }
 }

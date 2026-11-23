@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s är ett program eller ett skript, och du har aldrig besökt %s förut. Ladda bara ner det om du litar på webbplatsen.",
 "Site storage: %d": "Webbplatslagring: %d",
 "Cache: %d": "Cache: %d",
-"Permissions kept: %s": "Behållna behörigheter: %s"
+"Permissions kept: %s": "Behållna behörigheter: %s",
+"Not secure": "Inte säker"
 }
 }

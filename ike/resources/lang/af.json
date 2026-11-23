@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s is 'n program of 'n skrip, en jy het %s nog nooit tevore besoek nie. Laai dit net af as jy die werf vertrou.",
 "Site storage: %d": "Werfberging: %d",
 "Cache: %d": "Kas: %d",
-"Permissions kept: %s": "Toestemmings behou: %s"
+"Permissions kept: %s": "Toestemmings behou: %s",
+"Not secure": "Nie veilig nie"
 }
 }

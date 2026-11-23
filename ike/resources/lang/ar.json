@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s برنامج أو نص برمجي، ولم تزر %s من قبل. لا تنزّله إلا إذا كنت تثق بالموقع.",
 "Site storage: %d": "تخزين الموقع: %d",
 "Cache: %d": "ذاكرة التخزين المؤقت: %d",
-"Permissions kept: %s": "الأذونات المحتفظ بها: %s"
+"Permissions kept: %s": "الأذونات المحتفظ بها: %s",
+"Not secure": "غير آمن"
 }
 }

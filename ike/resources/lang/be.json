@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s — гэта праграма або скрыпт, а вы ніколі раней не наведвалі %s. Спампоўвайце яго, толькі калі давяраеце сайту.",
 "Site storage: %d": "Сховішча сайта: %d",
 "Cache: %d": "Кэш: %d",
-"Permissions kept: %s": "Захаваныя дазволы: %s"
+"Permissions kept: %s": "Захаваныя дазволы: %s",
+"Not secure": "Небяспечна"
 }
 }

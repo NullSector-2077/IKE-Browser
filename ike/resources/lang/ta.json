@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s ஒரு நிரல் அல்லது ஸ்கிரிப்ட், மேலும் நீங்கள் இதற்கு முன் %s ஐப் பார்வையிட்டதில்லை. தளத்தை நம்பினால் மட்டும் பதிவிறக்குங்கள்.",
 "Site storage: %d": "தளச் சேமிப்பகம்: %d",
 "Cache: %d": "தற்காலிக நினைவகம்: %d",
-"Permissions kept: %s": "வைக்கப்பட்ட அனுமதிகள்: %s"
+"Permissions kept: %s": "வைக்கப்பட்ட அனுமதிகள்: %s",
+"Not secure": "பாதுகாப்பற்றது"
 }
 }

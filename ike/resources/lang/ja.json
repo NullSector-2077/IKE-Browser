@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s はプログラムまたはスクリプトで、%s にはこれまで一度もアクセスしたことがありません。サイトを信頼できる場合にのみダウンロードしてください。",
 "Site storage: %d": "サイトのストレージ: %d",
 "Cache: %d": "キャッシュ: %d",
-"Permissions kept: %s": "保持された権限: %s"
+"Permissions kept: %s": "保持された権限: %s",
+"Not secure": "保護されていない通信"
 }
 }

@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s is een programma of script, en je hebt %s nog nooit bezocht. Download het alleen als je de site vertrouwt.",
 "Site storage: %d": "Siteopslag: %d",
 "Cache: %d": "Cache: %d",
-"Permissions kept: %s": "Behouden toestemmingen: %s"
+"Permissions kept: %s": "Behouden toestemmingen: %s",
+"Not secure": "Niet veilig"
 }
 }

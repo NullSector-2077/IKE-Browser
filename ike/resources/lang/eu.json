@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s programa edo script bat da, eta ez duzu inoiz %s bisitatu. Deskargatu gunean konfiantza baduzu bakarrik.",
 "Site storage: %d": "Gunearen biltegiratzea: %d",
 "Cache: %d": "Cachea: %d",
-"Permissions kept: %s": "Gordetako baimenak: %s"
+"Permissions kept: %s": "Gordetako baimenak: %s",
+"Not secure": "Ez da segurua"
 }
 }
