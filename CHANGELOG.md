@@ -79,9 +79,10 @@
   Windows; in styles that paint the tab otherwise (Oxygen, Kvantum's
   pictures) the same shade of white is laid over it.
 - **The close button of a tab glows red under the mouse**, like Plasma's
-  window close button: a disc in Breeze's negative colour (KDE's own when
-  the colour scheme sets it) with the cross in the window's colour, coming
-  in over 120 ms.
+  window close button and drawn by the same code as the vertical tabs' and
+  the window's own close buttons (`ike/closebutton.py`: a disc in Breeze's
+  negative colour, KDE's own when the colour scheme sets it, or the Aurorae
+  theme's button), coming in over 120 ms.
 - **Tabs slide aside while one is dragged**, in the horizontal bar (Qt's
   own movement, now following "Interface effects" and the desktop's reduced
   motion) and in the vertical tabs (the rows open a place for the dragged

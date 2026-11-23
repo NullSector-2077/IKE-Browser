@@ -533,12 +533,12 @@ def steps(ike, qapp, out):
     fb = win.findbar
     fb.open_bar()
     from ike import polish
-    slide = fb.findChild(polish._SlideIn, "ike_slide_in")
+    slide = fb.findChild(polish.SlidingPicture, "ike_slide_in")
     yield 40
-    out["slide"] = [slide is not None, slide is not None and 0 < slide.offset() < fb.height(),
+    out["slide"] = [slide is not None, slide is not None and 0 < slide.offset().y() < fb.height(),
                     slide is not None and slide.geometry() == fb.rect()]
     yield 400
-    out["slid"] = fb.findChild(polish._SlideIn, "ike_slide_in") is None
+    out["slid"] = fb.findChild(polish.SlidingPicture, "ike_slide_in") is None
     QTest.keyClicks(fb.edit, "zzqqxxnothing")
     for _ in range(30):
         if fb.edit.property("nothing_found"):
@@ -611,9 +611,10 @@ def steps(ike, qapp, out):
         gesture(G.PanNativeGesture, 0.0, QPointF(30, 2))
     gesture(G.EndNativeGesture)
     yield 60
-    from ike.gestures import PageSlide
-    slides = win.findChildren(PageSlide)
-    out["slide"] = [len(slides), slides[0].shift() > 0 if slides else None]
+    from ike.polish import SlidingPicture
+    def slides():
+        return [s for s in win.findChildren(SlidingPicture) if s.objectName() == "ike_page_slide"]
+    out["slide"] = [len(slides()), slides()[0].offset().x() > 0 if slides() else None]
     yield 1500
     out["back"] = v.title()
     # a short stroke does nothing
@@ -630,7 +631,7 @@ def steps(ike, qapp, out):
     yield 1500
     out["forward"] = v.title()
     yield 300
-    out["slides_left"] = len(win.findChildren(PageSlide))
+    out["slides_left"] = len(slides())
     out["more"] = more(busy(win), rest)
 '''
 

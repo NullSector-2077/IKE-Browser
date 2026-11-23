@@ -10,9 +10,7 @@ gives them. The page's own scrolling is never touched. Nothing runs between
 gestures; with "Interface effects" off or reduced motion the page changes
 without sliding."""
 
-from PyQt6.QtCore import QEasingCurve, QPoint, QRect, Qt, QVariantAnimation
-from PyQt6.QtGui import QPainter
-from PyQt6.QtWidgets import QWidget
+from PyQt6.QtCore import QPoint, Qt
 
 from . import polish
 
@@ -85,46 +83,14 @@ def swipe(view, back):
         return False
     win = view.window_ref
     if polish.moving(win.app.config, "gestures"):
-        PageSlide(view, 1 if back else -1)
+        page_slide(view, 1 if back else -1)
     view.back() if back else view.forward()
     return True
 
 
-class PageSlide(QWidget):
-    """A picture of the page as it was, sliding out sideways over the page."""
-
-    def __init__(self, view, direction, ms=SLIDE_MS):
-        holder = view.parentWidget()
-        super().__init__(holder)
-        self.setObjectName("ike_page_slide")
-        polish.keep(self)
-        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.picture = view.grab()
-        self.place = QRect(view.geometry())
-        self.direction = direction
-        self.setGeometry(self.place)
-        self.t = 0.0
-        self.anim = QVariantAnimation(self)
-        self.anim.setDuration(ms)
-        self.anim.setStartValue(0.0)
-        self.anim.setEndValue(1.0)
-        self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
-        self.anim.valueChanged.connect(self._step)
-        self.anim.finished.connect(self.deleteLater)
-        self.show()
-        self.raise_()
-        self.anim.start()
-
-    def _step(self, v):
-        self.t = float(v)
-        self.update()
-
-    def shift(self):
-        return round(self.direction * self.t * self.width())
-
-    def paintEvent(self, _event):
-        p = QPainter(self)
-        p.setOpacity(1.0 - 0.6 * self.t)
-        p.drawPixmap(QPoint(self.shift(), 0), self.picture)
-        p.end()
+def page_slide(view, direction, ms=SLIDE_MS):
+    """A picture of the page as it was, sliding out sideways over the page
+    and fading (polish.SlidingPicture, as the find bar's)."""
+    r = view.geometry()
+    return polish.SlidingPicture(view.parentWidget(), view.grab(), r, QPoint(0, 0),
+                                 QPoint(direction * r.width(), 0), ms, "ike_page_slide", fade_to=0.4)

@@ -102,17 +102,27 @@ AUDIO_PERIOD = 1.4           # seconds of one pulse of the speaker
 AUDIO_TICK = 90              # ms between two steps of the pulse
 
 
+CLOSE_SIZE = 18              # closebutton.CloseButtonStyle's own disc
 SLIDE_MS = 200               # tabs sliding aside (1.1.24), when the style names no time of its own
-_red = []
+_closers = {}
+
+
+def closer(size):
+    """The close button of the vertical tabs and of the window
+    (closebutton.CloseButtonStyle, Plasma's look), at size px: one of each
+    size, made once (it reads the desktop's settings)."""
+    c = _closers.get(size)
+    if c is None:
+        from .closebutton import CloseButtonStyle
+        c = _closers[size] = CloseButtonStyle()
+        c.SIZE = size
+    return c
 
 
 def close_red():
     """The desktop's negative colour (Breeze's red; KDE's ForegroundNegative
-    when it is set), read once."""
-    if not _red:
-        from .closebutton import CloseButtonStyle
-        _red.append(QColor(CloseButtonStyle().negative))
-    return QColor(_red[0])
+    when it is set), as the close buttons use it."""
+    return QColor(closer(CLOSE_SIZE).negative)
 
 
 _alive = set()
@@ -331,21 +341,24 @@ class FoldStrip(QWidget):
 SLIDE_IN_MS = 160
 
 
-class _SlideIn(QWidget):
-    """A picture of a bar laid over it, its contents rising from the bottom
-    edge into place: the bar itself is already where it belongs (the page
-    makes room for it once), only this picture moves, then goes."""
+class SlidingPicture(QWidget):
+    """A picture laid over a part of the window that slides from start to
+    end (offsets, QPoint) and fades to fade_to, then goes: the find bar
+    rising into place (slide_in) and the page leaving on a touchpad swipe
+    (gestures.py). The widgets under it are already where they belong;
+    only this picture moves (1.1.24)."""
 
-    def __init__(self, bar, ms):
-        super().__init__(bar)
-        self.setObjectName("ike_slide_in")
+    def __init__(self, parent, picture, rect, start, end, ms, name, fade_to=1.0, fill=None):
+        super().__init__(parent)
+        self.setObjectName(name)
         keep(self)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.setAutoFillBackground(True)
-        self.setBackgroundRole(bar.backgroundRole())
-        self.picture = bar.grab()
-        self.setGeometry(bar.rect())
+        if fill is not None:                 # the background the picture leaves behind
+            self.setAutoFillBackground(True)
+            self.setBackgroundRole(fill)
+        self.picture, self.start, self.end, self.fade_to = picture, QPoint(start), QPoint(end), fade_to
+        self.setGeometry(rect)
         self.t = 0.0
         self.anim = QVariantAnimation(self)
         self.anim.setDuration(ms)
@@ -363,11 +376,14 @@ class _SlideIn(QWidget):
         self.update()
 
     def offset(self):
-        return round((1.0 - self.t) * self.height())
+        """Where the picture is now, from the widget's corner."""
+        return QPoint(round(self.start.x() + (self.end.x() - self.start.x()) * self.t),
+                      round(self.start.y() + (self.end.y() - self.start.y()) * self.t))
 
     def paintEvent(self, _event):
         p = QPainter(self)
-        p.drawPixmap(0, self.offset(), self.picture)
+        p.setOpacity(1.0 - (1.0 - self.fade_to) * self.t)
+        p.drawPixmap(self.offset(), self.picture)
         p.end()
 
 
@@ -385,10 +401,11 @@ def slide_in(bar, config, ms=SLIDE_IN_MS):
             w.layout().activate()
     if bar.height() < 2:
         return None
-    for old in bar.findChildren(_SlideIn, "ike_slide_in", Qt.FindChildOption.FindDirectChildrenOnly):
+    for old in bar.findChildren(SlidingPicture, "ike_slide_in", Qt.FindChildOption.FindDirectChildrenOnly):
         old.anim.stop()
         old.deleteLater()
-    return _SlideIn(bar, ms)
+    return SlidingPicture(bar, bar.grab(), bar.rect(), QPoint(0, bar.height()), QPoint(0, 0), ms,
+                          "ike_slide_in", fill=bar.backgroundRole())
 
 
 # --- the mark of the current tab -------------------------------------------
@@ -703,9 +720,10 @@ class TabLabelStyle(QProxyStyle):
         super().drawPrimitive(element, opt, p, widget)
 
     def _close_glow(self, opt, p, widget, level):
-        """The close button of a tab under the mouse (1.1.24): a disc in the
-        desktop's negative colour (Breeze's red) with the cross in the
-        window's colour, as Plasma's window close button; it comes in over
+        """The close button of a tab under the mouse (1.1.24): drawn as the
+        vertical tabs' and the window's close button (closebutton.py,
+        Plasma's: a disc in the desktop's negative colour, the cross cut out,
+        or the Aurorae theme's own), at the button's size; it comes in over
         the style's own button while the glow rises."""
         from PyQt6.QtWidgets import QStyleOption
         o = QStyleOption(opt)
@@ -714,25 +732,11 @@ class TabLabelStyle(QProxyStyle):
             p.setOpacity(p.opacity() * (1.0 - level))
             super().drawPrimitive(QStyle.PrimitiveElement.PE_IndicatorTabClose, o, p, widget)
             p.restore()
-        r = QRectF(widget.rect())
-        side = min(r.width(), r.height())
-        disc = QRectF(r.center().x() - side / 2, r.center().y() - side / 2, side, side)
-        red = close_red()
-        if o.state & QStyle.StateFlag.State_Sunken:
-            red = red.lighter(125)
+        r = widget.rect()
         p.save()
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setOpacity(p.opacity() * level)
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(red)
-        p.drawEllipse(disc)
-        pen = QPen(o.palette.color(QPalette.ColorRole.Window), 1.3)
-        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        p.setPen(pen)
-        u = side / 18.0
-        x, y = disc.left(), disc.top()
-        p.drawLine(QPointF(x + 5.5 * u, y + 5.5 * u), QPointF(x + 12.5 * u, y + 12.5 * u))
-        p.drawLine(QPointF(x + 12.5 * u, y + 5.5 * u), QPointF(x + 5.5 * u, y + 12.5 * u))
+        closer(max(8, min(r.width(), r.height()) - 1)).paint(
+            p, r, o.palette, True, bool(o.state & QStyle.StateFlag.State_Sunken))
         p.restore()
 
     def styleHint(self, hint, opt=None, widget=None, data=None):
