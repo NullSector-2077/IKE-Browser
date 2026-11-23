@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "מחר יום חדש",
 "Link copied": "הקישור הועתק",
 "Bookmark added": "הסימנייה נוספה",
-"Screenshot saved": "צילום המסך נשמר"
+"Screenshot saved": "צילום המסך נשמר",
+"Print or save as PDF": "הדפסה או שמירה כ־PDF",
+"Print the page, or save it as a PDF document": "הדפסת הדף או שמירתו כמסמך PDF",
+"Send this page to a phone or a computer paired with KDE Connect": "שליחת הדף הזה לטלפון או למחשב שמוצמדים דרך KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "אין מכשיר שמוצמד דרך KDE Connect, או שאין דף אינטרנט בלשונית הזו",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "קיצורי מקלדת, עדכונים והגרסאות של I.K.E.",
+"Web pages": "דפי אינטרנט",
+"Find a setting": "חיפוש הגדרה",
+"No setting found": "לא נמצאה הגדרה"
 }
 }

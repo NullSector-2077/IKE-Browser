@@ -66,6 +66,19 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Owner's decisions
 
+- 2026-11-23, **the menus and the Settings regrouped again, for 1.1.24**
+  (work package B2; the owner: "puoi riorganizzarli tu, ma devono essere
+  fatti con criterio e logica, e con le scritte centrate bene, annota anche
+  il fatto di risolvere sta parte di altro"). The ☰ menu goes new tabs and
+  windows → this page → print and save → history, bookmarks, downloads →
+  protection, extensions, More → Settings, Help → Quit; "More" ("Altro")
+  holds the menu bar's File, Edit, View and Tools with their icons, and its
+  texts no longer touch the submenu arrows (in Breeze they did: fixed for
+  every menu, tests/test_menus_124.py and the text-fit test). Settings: the
+  pages in the order of everyday use, Appearance in groups, the options of
+  each page on one line, a search field. Five toolbar buttons a user can
+  add, off by default. Nothing removed, every shortcut kept. Any further
+  reorganisation goes back to asking the owner.
 - 2026-11-23, **the AUTOMAT drill** (the owner's request: "un test fake
   fatto bene, molto complicato, uno scenario reale di un aggiornamento
   massivo di Qt e di tutte le altre componenti installabili, per vedere se

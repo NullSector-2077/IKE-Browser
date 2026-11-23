@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "Ertaga yangi kun",
 "Link copied": "Havola nusxalandi",
 "Bookmark added": "Xatcho‘p qo‘shildi",
-"Screenshot saved": "Ekran surati saqlandi"
+"Screenshot saved": "Ekran surati saqlandi",
+"Print or save as PDF": "Chop etish yoki PDF sifatida saqlash",
+"Print the page, or save it as a PDF document": "Sahifani chop etish yoki PDF hujjat sifatida saqlash",
+"Send this page to a phone or a computer paired with KDE Connect": "Bu sahifani KDE Connect orqali ulangan telefon yoki kompyuterga yuborish",
+"No device paired with KDE Connect, or no web page in this tab": "KDE Connect orqali ulangan qurilma yoʻq yoki bu varaqda veb-sahifa yoʻq",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Klaviatura yorliqlari, yangilanishlar va I.K.E. versiyalari",
+"Web pages": "Veb-sahifalar",
+"Find a setting": "Sozlamani topish",
+"No setting found": "Hech qanday sozlama topilmadi"
 }
 }

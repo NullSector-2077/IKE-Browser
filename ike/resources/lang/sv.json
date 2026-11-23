@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "I morgon är en ny dag",
 "Link copied": "Länk kopierad",
 "Bookmark added": "Bokmärke tillagt",
-"Screenshot saved": "Skärmbild sparad"
+"Screenshot saved": "Skärmbild sparad",
+"Print or save as PDF": "Skriv ut eller spara som PDF",
+"Print the page, or save it as a PDF document": "Skriv ut sidan eller spara den som ett PDF-dokument",
+"Send this page to a phone or a computer paired with KDE Connect": "Skicka den här sidan till en telefon eller dator som är parkopplad med KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Ingen enhet parkopplad med KDE Connect, eller ingen webbsida i den här fliken",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Kortkommandon, uppdateringar och versionerna av I.K.E.",
+"Web pages": "Webbsidor",
+"Find a setting": "Hitta en inställning",
+"No setting found": "Ingen inställning hittades"
 }
 }

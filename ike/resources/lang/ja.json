@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "明日は新しい一日です",
 "Link copied": "リンクをコピーしました",
 "Bookmark added": "ブックマークを追加しました",
-"Screenshot saved": "スクリーンショットを保存しました"
+"Screenshot saved": "スクリーンショットを保存しました",
+"Print or save as PDF": "印刷または PDF として保存",
+"Print the page, or save it as a PDF document": "ページを印刷するか、PDF 文書として保存します",
+"Send this page to a phone or a computer paired with KDE Connect": "このページを KDE Connect でペアリングしたスマートフォンやコンピューターに送ります",
+"No device paired with KDE Connect, or no web page in this tab": "KDE Connect でペアリングしたデバイスがないか、このタブに Web ページがありません",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "キーボードショートカット、アップデート、I.K.E. のバージョン",
+"Web pages": "Web ページ",
+"Find a setting": "設定を検索",
+"No setting found": "設定が見つかりません"
 }
 }

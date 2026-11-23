@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "Վաղը նոր օր է",
 "Link copied": "Հղումը պատճենվեց",
 "Bookmark added": "Էջանիշն ավելացվեց",
-"Screenshot saved": "Էկրանի նկարը պահպանվեց"
+"Screenshot saved": "Էկրանի նկարը պահպանվեց",
+"Print or save as PDF": "Տպել կամ պահել որպես PDF",
+"Print the page, or save it as a PDF document": "Տպել էջը կամ պահել այն որպես PDF փաստաթուղթ",
+"Send this page to a phone or a computer paired with KDE Connect": "Ուղարկել այս էջը KDE Connect-ով զուգակցված հեռախոսին կամ համակարգչին",
+"No device paired with KDE Connect, or no web page in this tab": "KDE Connect-ով զուգակցված սարք չկա, կամ այս ներդիրում վեբ էջ չկա",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Ստեղնաշարի դյուրանցումներ, թարմացումներ և I.K.E.-ի տարբերակները",
+"Web pages": "Վեբ էջեր",
+"Find a setting": "Գտնել կարգավորում",
+"No setting found": "Կարգավորում չի գտնվել"
 }
 }

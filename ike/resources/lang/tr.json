@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "Yarın yeni bir gün",
 "Link copied": "Bağlantı kopyalandı",
 "Bookmark added": "Yer imi eklendi",
-"Screenshot saved": "Ekran görüntüsü kaydedildi"
+"Screenshot saved": "Ekran görüntüsü kaydedildi",
+"Print or save as PDF": "Yazdır veya PDF olarak kaydet",
+"Print the page, or save it as a PDF document": "Sayfayı yazdır veya PDF belgesi olarak kaydet",
+"Send this page to a phone or a computer paired with KDE Connect": "Bu sayfayı KDE Connect ile eşleştirilmiş bir telefona veya bilgisayara gönder",
+"No device paired with KDE Connect, or no web page in this tab": "KDE Connect ile eşleştirilmiş cihaz yok veya bu sekmede web sayfası yok",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Klavye kısayolları, güncellemeler ve I.K.E. sürümleri",
+"Web pages": "Web sayfaları",
+"Find a setting": "Bir ayar bul",
+"No setting found": "Ayar bulunamadı"
 }
 }

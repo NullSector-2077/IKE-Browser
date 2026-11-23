@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "내일은 새로운 하루예요",
 "Link copied": "링크를 복사했습니다",
 "Bookmark added": "북마크를 추가했습니다",
-"Screenshot saved": "스크린샷을 저장했습니다"
+"Screenshot saved": "스크린샷을 저장했습니다",
+"Print or save as PDF": "인쇄 또는 PDF로 저장",
+"Print the page, or save it as a PDF document": "페이지를 인쇄하거나 PDF 문서로 저장합니다",
+"Send this page to a phone or a computer paired with KDE Connect": "이 페이지를 KDE Connect로 연결된 휴대폰이나 컴퓨터로 보냅니다",
+"No device paired with KDE Connect, or no web page in this tab": "KDE Connect로 연결된 기기가 없거나 이 탭에 웹 페이지가 없습니다",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "키보드 단축키, 업데이트 및 I.K.E. 버전",
+"Web pages": "웹 페이지",
+"Find a setting": "설정 찾기",
+"No setting found": "찾은 설정이 없습니다"
 }
 }

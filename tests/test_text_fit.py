@@ -8,7 +8,8 @@ menu bar, the shield's panel, the find bar, the notice of a page in full
 screen, every page of the Settings and the other windows that open without
 a question (About, history, bookmarks, downloads, clear data, user scripts,
 the colours editor, languages, import, resources, watched pages, site
-permissions, the command bar).
+permissions, the command bar); since 1.1.24 also the menus of the toolbar
+buttons a user can add and the Settings' search with nothing found.
 tests/textfit.py says what is checked: a button's text at least 4 px from
 its frame on each side, labels, check boxes and combo boxes with all of
 their text, nothing cut by a parent or wider than the screen, menus taller
@@ -119,6 +120,14 @@ def steps(ike, qapp, out):
         for a in win.menuBar().actions():
             for menu, path in menus_of(a.menu(), textfit.plain(a.text()), seen):
                 check_menu(menu, code + ": " + path, corner)
+        # 1.1.24: the menus of the toolbar buttons a user can add (Send to device:
+        # its one entry that says no device is paired)
+        for name in ("m_zoom", "m_print", "m_send"):
+            menu = getattr(win, name, None)
+            if menu is not None and id(menu) not in seen:
+                seen.add(id(menu))
+                menu.aboutToShow.emit()
+                check_menu(menu, code + ": toolbar > " + name[2:], corner)
         win.show_shield_menu()
         settle()
         problems.extend(textfit.check(win.shield_scroll, code + ": shield panel"))
@@ -137,6 +146,13 @@ def steps(ike, qapp, out):
             settle()
             log("settings", page)
             problems.extend(textfit.check(dlg, code + ": Settings > " + page))
+        if hasattr(dlg, "search"):
+            # 1.1.24: the search field, nothing found (its note under the pages' list)
+            dlg.search.setText("qqqxxyy")
+            settle()
+            problems.extend(textfit.check(dlg, code + ": Settings > search, nothing found"))
+            dlg.search.clear()
+            settle()
         dlg.close()
         dlg.deleteLater()
         if hasattr(win, "about_dialog"):

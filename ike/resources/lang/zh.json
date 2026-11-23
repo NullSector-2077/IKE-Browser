@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "明天又是新的一天",
 "Link copied": "链接已复制",
 "Bookmark added": "书签已添加",
-"Screenshot saved": "截图已保存"
+"Screenshot saved": "截图已保存",
+"Print or save as PDF": "打印或另存为 PDF",
+"Print the page, or save it as a PDF document": "打印此页，或将其另存为 PDF 文档",
+"Send this page to a phone or a computer paired with KDE Connect": "将此页发送到通过 KDE Connect 配对的手机或电脑",
+"No device paired with KDE Connect, or no web page in this tab": "没有通过 KDE Connect 配对的设备，或此标签页中没有网页",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "键盘快捷键、更新和 I.K.E. 的版本",
+"Web pages": "网页",
+"Find a setting": "查找设置",
+"No setting found": "未找到设置"
 }
 }

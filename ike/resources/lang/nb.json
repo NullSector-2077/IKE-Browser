@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "I morgen er en ny dag",
 "Link copied": "Lenke kopiert",
 "Bookmark added": "Bokmerke lagt til",
-"Screenshot saved": "Skjermbilde lagret"
+"Screenshot saved": "Skjermbilde lagret",
+"Print or save as PDF": "Skriv ut eller lagre som PDF",
+"Print the page, or save it as a PDF document": "Skriv ut siden, eller lagre den som et PDF-dokument",
+"Send this page to a phone or a computer paired with KDE Connect": "Send denne siden til en telefon eller datamaskin som er paret med KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Ingen enhet paret med KDE Connect, eller ingen nettside i denne fanen",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Hurtigtaster, oppdateringer og versjonene av I.K.E.",
+"Web pages": "Nettsider",
+"Find a setting": "Finn en innstilling",
+"No setting found": "Fant ingen innstilling"
 }
 }

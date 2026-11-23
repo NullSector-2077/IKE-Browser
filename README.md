@@ -143,7 +143,14 @@ profiles: `ike-browser --profile NAME`.
 - Toolbar buttons shown, hidden and moved to either side of the address bar
   ("Customise toolbar"); Back, Forward, Home and Reload keep their place at the
   start, and the shield its place inside the address bar, at its end. In a narrow
-  window the buttons that do not fit are listed under a » button.
+  window the buttons that do not fit are listed under a » button. Buttons you
+  can add (off at first): Zoom, Manage bookmarks, Print or save as PDF, Send to
+  device (KDE Connect) and Site resources.
+- The ☰ menu grouped as you look for things: new tabs and windows, this page
+  (find, zoom, dark mode, reader mode, translation), print and save, history,
+  bookmarks and downloads, protection and extensions, Settings and Help; every
+  other command is under "More", as in the menu bar. Settings have a search
+  field that finds an option by its name or its explanation, in any language.
 - **Site resources** (Shift+Esc): memory, CPU and network of each open site,
   with optional limits that suspend or freeze greedy background tabs.
 - **Watched pages**: right-click a page, or a part of it such as a price, to be

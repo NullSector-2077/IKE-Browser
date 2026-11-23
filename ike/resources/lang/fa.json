@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "فردا روزی تازه است",
 "Link copied": "پیوند کپی شد",
 "Bookmark added": "نشانک افزوده شد",
-"Screenshot saved": "تصویر صفحه ذخیره شد"
+"Screenshot saved": "تصویر صفحه ذخیره شد",
+"Print or save as PDF": "چاپ یا ذخیره به‌صورت PDF",
+"Print the page, or save it as a PDF document": "چاپ صفحه یا ذخیرهٔ آن به‌صورت سند PDF",
+"Send this page to a phone or a computer paired with KDE Connect": "ارسال این صفحه به تلفن یا رایانه‌ای که با KDE Connect جفت شده است",
+"No device paired with KDE Connect, or no web page in this tab": "هیچ دستگاهی با KDE Connect جفت نشده یا در این زبانه صفحهٔ وبی نیست",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "میان‌برهای صفحه‌کلید، به‌روزرسانی‌ها و نسخه‌های I.K.E.",
+"Web pages": "صفحه‌های وب",
+"Find a setting": "یافتن یک تنظیم",
+"No setting found": "هیچ تنظیمی پیدا نشد"
 }
 }

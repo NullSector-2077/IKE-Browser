@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "Αύριο είναι μια νέα μέρα",
 "Link copied": "Ο σύνδεσμος αντιγράφηκε",
 "Bookmark added": "Ο σελιδοδείκτης προστέθηκε",
-"Screenshot saved": "Το στιγμιότυπο οθόνης αποθηκεύτηκε"
+"Screenshot saved": "Το στιγμιότυπο οθόνης αποθηκεύτηκε",
+"Print or save as PDF": "Εκτύπωση ή αποθήκευση ως PDF",
+"Print the page, or save it as a PDF document": "Εκτύπωση της σελίδας ή αποθήκευσή της ως έγγραφο PDF",
+"Send this page to a phone or a computer paired with KDE Connect": "Αποστολή αυτής της σελίδας σε τηλέφωνο ή υπολογιστή συζευγμένο με το KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Καμία συσκευή συζευγμένη με το KDE Connect ή καμία ιστοσελίδα σε αυτή την καρτέλα",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Συντομεύσεις πληκτρολογίου, ενημερώσεις και οι εκδόσεις του I.K.E.",
+"Web pages": "Ιστοσελίδες",
+"Find a setting": "Εύρεση ρύθμισης",
+"No setting found": "Δεν βρέθηκε ρύθμιση"
 }
 }

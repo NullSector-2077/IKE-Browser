@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "Holnap új nap lesz",
 "Link copied": "Hivatkozás másolva",
 "Bookmark added": "Könyvjelző hozzáadva",
-"Screenshot saved": "Képernyőkép mentve"
+"Screenshot saved": "Képernyőkép mentve",
+"Print or save as PDF": "Nyomtatás vagy mentés PDF-ként",
+"Print the page, or save it as a PDF document": "Az oldal nyomtatása vagy mentése PDF-dokumentumként",
+"Send this page to a phone or a computer paired with KDE Connect": "Az oldal elküldése a KDE Connecttel párosított telefonra vagy számítógépre",
+"No device paired with KDE Connect, or no web page in this tab": "Nincs a KDE Connecttel párosított eszköz, vagy ezen a lapon nincs weboldal",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Billentyűparancsok, frissítések és az I.K.E. verziói",
+"Web pages": "Weboldalak",
+"Find a setting": "Beállítás keresése",
+"No setting found": "Nincs ilyen beállítás"
 }
 }

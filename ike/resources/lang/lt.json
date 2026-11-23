@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "Rytoj nauja diena",
 "Link copied": "Nuoroda nukopijuota",
 "Bookmark added": "Žymelė pridėta",
-"Screenshot saved": "Ekrano kopija įrašyta"
+"Screenshot saved": "Ekrano kopija įrašyta",
+"Print or save as PDF": "Spausdinti arba įrašyti kaip PDF",
+"Print the page, or save it as a PDF document": "Išspausdinti puslapį arba įrašyti jį kaip PDF dokumentą",
+"Send this page to a phone or a computer paired with KDE Connect": "Siųsti šį puslapį į telefoną ar kompiuterį, susietą per KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Nėra įrenginio, susieto per KDE Connect, arba šioje kortelėje nėra tinklalapio",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Spartieji klavišai, atnaujinimai ir I.K.E. versijos",
+"Web pages": "Tinklalapiai",
+"Find a setting": "Rasti nustatymą",
+"No setting found": "Nustatymų nerasta"
 }
 }

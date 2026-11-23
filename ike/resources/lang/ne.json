@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "भोलि नयाँ दिन हो",
 "Link copied": "लिङ्क प्रतिलिपि भयो",
 "Bookmark added": "बुकमार्क थपियो",
-"Screenshot saved": "स्क्रिनसट सुरक्षित भयो"
+"Screenshot saved": "स्क्रिनसट सुरक्षित भयो",
+"Print or save as PDF": "प्रिन्ट गर्नुहोस् वा PDF को रूपमा सुरक्षित गर्नुहोस्",
+"Print the page, or save it as a PDF document": "पृष्ठ प्रिन्ट गर्नुहोस्, वा PDF कागजातको रूपमा सुरक्षित गर्नुहोस्",
+"Send this page to a phone or a computer paired with KDE Connect": "यो पृष्ठ KDE Connect सँग जोडिएको फोन वा कम्प्युटरमा पठाउनुहोस्",
+"No device paired with KDE Connect, or no web page in this tab": "KDE Connect सँग जोडिएको कुनै यन्त्र छैन, वा यो ट्याबमा कुनै वेब पृष्ठ छैन",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "किबोर्ड सर्टकट, अद्यावधिक र I.K.E. का संस्करणहरू",
+"Web pages": "वेब पृष्ठहरू",
+"Find a setting": "सेटिङ खोज्नुहोस्",
+"No setting found": "कुनै सेटिङ फेला परेन"
 }
 }

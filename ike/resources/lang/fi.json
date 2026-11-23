@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "Huomenna on uusi päivä",
 "Link copied": "Linkki kopioitu",
 "Bookmark added": "Kirjanmerkki lisätty",
-"Screenshot saved": "Kuvakaappaus tallennettu"
+"Screenshot saved": "Kuvakaappaus tallennettu",
+"Print or save as PDF": "Tulosta tai tallenna PDF:nä",
+"Print the page, or save it as a PDF document": "Tulosta sivu tai tallenna se PDF-asiakirjana",
+"Send this page to a phone or a computer paired with KDE Connect": "Lähetä tämä sivu KDE Connectilla yhdistettyyn puhelimeen tai tietokoneeseen",
+"No device paired with KDE Connect, or no web page in this tab": "Ei KDE Connectilla yhdistettyä laitetta tai tässä välilehdessä ei ole verkkosivua",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Pikanäppäimet, päivitykset ja I.K.E.:n versiot",
+"Web pages": "Verkkosivut",
+"Find a setting": "Etsi asetus",
+"No setting found": "Asetusta ei löytynyt"
 }
 }

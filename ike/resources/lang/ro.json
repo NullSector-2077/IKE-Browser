@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "Mâine e o zi nouă",
 "Link copied": "Link copiat",
 "Bookmark added": "Marcaj adăugat",
-"Screenshot saved": "Captură de ecran salvată"
+"Screenshot saved": "Captură de ecran salvată",
+"Print or save as PDF": "Tipărește sau salvează ca PDF",
+"Print the page, or save it as a PDF document": "Tipărește pagina sau salveaz-o ca document PDF",
+"Send this page to a phone or a computer paired with KDE Connect": "Trimite această pagină la un telefon sau calculator asociat prin KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Niciun dispozitiv asociat prin KDE Connect sau nicio pagină web în această filă",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Comenzi rapide de la tastatură, actualizări și versiunile I.K.E.",
+"Web pages": "Pagini web",
+"Find a setting": "Caută o setare",
+"No setting found": "Nu s-a găsit nicio setare"
 }
 }

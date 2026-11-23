@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "غدًا يوم جديد",
 "Link copied": "تم نسخ الرابط",
 "Bookmark added": "تمت إضافة الإشارة المرجعية",
-"Screenshot saved": "تم حفظ لقطة الشاشة"
+"Screenshot saved": "تم حفظ لقطة الشاشة",
+"Print or save as PDF": "طباعة أو حفظ بصيغة PDF",
+"Print the page, or save it as a PDF document": "طباعة الصفحة أو حفظها كمستند PDF",
+"Send this page to a phone or a computer paired with KDE Connect": "إرسال هذه الصفحة إلى هاتف أو حاسوب مقترن عبر KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "لا يوجد جهاز مقترن عبر KDE Connect، أو لا توجد صفحة ويب في علامة التبويب هذه",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "اختصارات لوحة المفاتيح والتحديثات وإصدارات I.K.E.",
+"Web pages": "صفحات الويب",
+"Find a setting": "البحث عن إعداد",
+"No setting found": "لم يُعثر على أي إعداد"
 }
 }

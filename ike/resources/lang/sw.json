@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "Kesho ni siku mpya",
 "Link copied": "Kiungo kimenakiliwa",
 "Bookmark added": "Alamisho limeongezwa",
-"Screenshot saved": "Picha ya skrini imehifadhiwa"
+"Screenshot saved": "Picha ya skrini imehifadhiwa",
+"Print or save as PDF": "Chapisha au hifadhi kama PDF",
+"Print the page, or save it as a PDF document": "Chapisha ukurasa, au uhifadhi kama hati ya PDF",
+"Send this page to a phone or a computer paired with KDE Connect": "Tuma ukurasa huu kwa simu au kompyuta iliyooanishwa na KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Hakuna kifaa kilichooanishwa na KDE Connect, au hakuna ukurasa wa wavuti katika kichupo hiki",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Mikato ya kibodi, masasisho na matoleo ya I.K.E.",
+"Web pages": "Kurasa za wavuti",
+"Find a setting": "Tafuta mpangilio",
+"No setting found": "Hakuna mpangilio uliopatikana"
 }
 }

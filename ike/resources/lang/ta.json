@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "நாளை புதிய நாள்",
 "Link copied": "இணைப்பு நகலெடுக்கப்பட்டது",
 "Bookmark added": "புக்மார்க் சேர்க்கப்பட்டது",
-"Screenshot saved": "திரைப்பிடிப்பு சேமிக்கப்பட்டது"
+"Screenshot saved": "திரைப்பிடிப்பு சேமிக்கப்பட்டது",
+"Print or save as PDF": "அச்சிடு அல்லது PDF ஆகச் சேமி",
+"Print the page, or save it as a PDF document": "பக்கத்தை அச்சிடவும், அல்லது PDF ஆவணமாகச் சேமிக்கவும்",
+"Send this page to a phone or a computer paired with KDE Connect": "இந்தப் பக்கத்தை KDE Connect உடன் இணைக்கப்பட்ட தொலைபேசிக்கோ கணினிக்கோ அனுப்பவும்",
+"No device paired with KDE Connect, or no web page in this tab": "KDE Connect உடன் இணைக்கப்பட்ட சாதனம் இல்லை, அல்லது இந்தத் தாவலில் இணையப் பக்கம் இல்லை",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "விசைப்பலகை குறுக்குவழிகள், புதுப்பிப்புகள் மற்றும் I.K.E. பதிப்புகள்",
+"Web pages": "இணையப் பக்கங்கள்",
+"Find a setting": "ஓர் அமைப்பைத் தேடு",
+"No setting found": "எந்த அமைப்பும் கிடைக்கவில்லை"
 }
 }

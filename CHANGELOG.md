@@ -182,6 +182,55 @@
   follows "Interface effects" and the desktop's reduced motion, changing
   at once without them (`ike/polish.py`, `ike/tabs.py`, `ike/motion.py`,
   `ike/gestures.py`, tests/test_touches_124.py).
+- **The ☰ menu regrouped with one logic** (the owner's go-ahead: "with
+  criterion and logic"): new tab, window and private window; then this page
+  (Find in page, Zoom, Dark mode for pages, Reader mode, Translate page);
+  then keeping it (Print, Save as PDF, Save page as, Screenshot); then the
+  library (History, Bookmarks, Downloads); then Protection, I.K.E.
+  extensions and More; then Settings and Help; then Quit. Find, Reader
+  mode, Translate and Save page as are new in the ☰ menu itself; "Check for
+  I.K.E. updates" and "About I.K.E." moved into its new Help submenu (with
+  Keyboard shortcuts and About Qt), so nothing is there twice any more.
+  Nothing was removed and every keyboard shortcut is the same
+  (tests/test_menus_124.py checks every entry of 1.1.23's menus and every
+  shortcut).
+- **"More" ("Altro") fixed**: in KDE's Breeze its texts touched or crossed
+  the arrows of their submenus ("Visualizza", "Strumenti"), and its
+  entries, without icons, began left of every other menu's texts. It now
+  holds the menu bar's File, Edit, View and Tools, each with its icon (Help
+  moved up into the ☰ menu); and in every menu, in every widget style, an
+  entry that opens a submenu gets half a line of room before its arrow
+  (Breeze left 3 px or less). The text-fit test now measures, in all 59
+  languages, that no text comes within 6 px of a submenu's arrow, and
+  tests/test_menus_124.py does it in Breeze, Fusion, Windows, Oxygen and
+  Kvantum, left to right and right to left.
+- **The menu bar's View and Tools in groups**: View goes zoom → full screen,
+  reader mode, dark mode → vertical tabs, split view, workspaces → the
+  window's bars → page source and developer tools; Tools goes command bar
+  and tab search → downloads and passwords → translate, floating video, mute
+  → site resources, suspending tabs, watched pages → search engines and the
+  Chrome Web Store → Settings. File, Edit, History, Bookmarks, Protection,
+  Extensions and Help are as before.
+- **A search field in the Settings**: type a word and only the pages that
+  have it stay in the list, its options marked with a light frame in the
+  desktop's highlight colour; it finds an option by its name, by its ⓘ
+  explanation or by a choice of its list, without minding capitals or
+  accents (modalita finds modalità), in every language; "No setting found"
+  when nothing has it; Esc empties the field, Ctrl+F goes to it. No new
+  library, nothing done while nothing is typed.
+- **The Settings in a clearer order**: General, Appearance, New tab page,
+  Search, Downloads, then Protection and Privacy, then I.K.E. extensions,
+  then Language, Updates and System (every page keeps its name, so links to
+  a page still open it). Appearance is in groups: the colours and icons,
+  Window, Toolbar buttons, Web pages (zoom and dark mode). On every page the
+  options of all its groups start on one line, and the names stand in the
+  middle of their option's height.
+- **Toolbar buttons you can add** (off until you choose them in Settings →
+  Appearance → Toolbar buttons or with a right click on the toolbar): Zoom
+  (its menu: zoom in, zoom out, actual size), Manage bookmarks, Print or save
+  as PDF (its menu), Send to device (the phones and computers paired with KDE
+  Connect, with the Plasma integration extension) and Site resources (with
+  its extension). A click opens their menu, as with the dark mode button.
 
 ## 1.1.23
 

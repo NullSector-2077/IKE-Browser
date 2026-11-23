@@ -71,9 +71,11 @@ def test_menu_bar_and_burger_menu(run_ike):
             out["protection"] = [a.text() for a in menus["&Protection"].actions() if not a.isSeparator()]
             out["extensions"] = [a.text() for a in menus["E&xtensions"].actions() if not a.isSeparator()]
             # the same QActions in both places
+            # (1.1.24: "Check for I.K.E. updates" is under ☰ → Help, the menu bar's Help with an icon)
             out["same"] = (win.act_settings in burger.actions() and win.act_settings in menus["&Tools"].actions()
                            and win.act_check_updates in menus["&Help"].actions()
-                           and win.act_check_updates in burger.actions())
+                           and win.act_check_updates in win.m_help_burger.actions()
+                           and win.m_help_burger.menuAction() in burger.actions())
             out["level_icon"] = not win.m_level.icon().isNull()
             out["menubar_icons"] = [a.text() for a in win.menuBar().actions() if not a.icon().isNull()]
             # every action of every menu keeps a shortcut it had before
@@ -87,10 +89,14 @@ def test_menu_bar_and_burger_menu(run_ike):
     """)
     assert out["bar"] == ["&File", "&Edit", "&View", "Hi&story", "&Bookmarks", "&Protection", "E&xtensions",
                           "&Tools", "&Help"]
-    assert out["burger"] == ["New tab", "New window", "New private window", "Protection", "I.K.E. extensions",
-                             "Dark mode for pages", "Zoom", "History", "Bookmarks", "Downloads", "Print…",
-                             "Save as PDF…", "Screenshot…", "More", "Settings…", "Check for I.K.E. updates",
-                             "About I.K.E.", "Quit"]
+    # 1.1.24 (the owner's go-ahead to regroup it): new tabs and windows; this page;
+    # keep or print it; the library; protection and extensions; Settings and Help; Quit
+    assert out["burger"] == ["New tab", "New window", "New private window",
+                             "Find in page…", "Zoom", "Dark mode for pages", "Reader mode", "Translate page…",
+                             "Print…", "Save as PDF…", "Save page as…", "Screenshot…",
+                             "History", "Bookmarks", "Downloads",
+                             "Protection", "I.K.E. extensions", "More",
+                             "Settings…", "Help", "Quit"]
     assert out["no_icon"] == [] and out["no_tip"] == [], out
     assert out["settings_in_tools"] and out["settings_keys"] == "Ctrl+,"
     assert out["help"][:3] == ["Keyboard shortcuts", "Check for I.K.E. updates", "About I.K.E."]
@@ -200,7 +206,9 @@ NOT_DEFAULT = {
     "video_hw": "off", "homepage": "https://example.org/", "tabs_position": "vertical",
     "newtab_tiles": "visited", "blocked_counter": "total", "userscripts_enabled": False,
     "show_menubar": True, "bookmarks_bar": "always", "system_titlebar": False, "vtabs_autohide": True,
-    "start_maximized": False, "ui_effects": False, "site_tint": False, "toolbar_hidden": ["home", "pip"],
+    "start_maximized": False, "ui_effects": False, "site_tint": False,
+    # (1.1.24: the buttons a user can add start hidden in a profile that did not know them)
+    "toolbar_hidden": ["home", "pip", "zoom", "bookmarks", "print", "send", "resources"],
     "default_zoom": 1.25, "search_suggestions": False, "shield_level": "strict", "https_only": False,
     "block_third_party_cookies": False, "strip_tracking_params": False, "trim_referrer": False,
     "send_gpc": False, "webrtc_hide_ip": False, "clear_on_exit": True, "repair_button": False,

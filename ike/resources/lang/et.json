@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "Homme on uus päev",
 "Link copied": "Link kopeeritud",
 "Bookmark added": "Järjehoidja lisatud",
-"Screenshot saved": "Ekraanipilt salvestatud"
+"Screenshot saved": "Ekraanipilt salvestatud",
+"Print or save as PDF": "Prindi või salvesta PDF-ina",
+"Print the page, or save it as a PDF document": "Prindi leht või salvesta see PDF-dokumendina",
+"Send this page to a phone or a computer paired with KDE Connect": "Saada see leht KDE Connectiga seotud telefoni või arvutisse",
+"No device paired with KDE Connect, or no web page in this tab": "KDE Connectiga pole ühtegi seadet seotud või sellel kaardil pole veebilehte",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Kiirklahvid, uuendused ja I.K.E. versioonid",
+"Web pages": "Veebilehed",
+"Find a setting": "Otsi seadet",
+"No setting found": "Ühtegi seadet ei leitud"
 }
 }

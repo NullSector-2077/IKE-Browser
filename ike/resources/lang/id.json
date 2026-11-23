@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "Besok adalah hari baru",
 "Link copied": "Tautan disalin",
 "Bookmark added": "Markah ditambahkan",
-"Screenshot saved": "Tangkapan layar disimpan"
+"Screenshot saved": "Tangkapan layar disimpan",
+"Print or save as PDF": "Cetak atau simpan sebagai PDF",
+"Print the page, or save it as a PDF document": "Cetak halaman, atau simpan sebagai dokumen PDF",
+"Send this page to a phone or a computer paired with KDE Connect": "Kirim halaman ini ke ponsel atau komputer yang terhubung dengan KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Tidak ada perangkat yang terhubung dengan KDE Connect, atau tidak ada halaman web di tab ini",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Pintasan keyboard, pembaruan, dan versi I.K.E.",
+"Web pages": "Halaman web",
+"Find a setting": "Cari pengaturan",
+"No setting found": "Pengaturan tidak ditemukan"
 }
 }

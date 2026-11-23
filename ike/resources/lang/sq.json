@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "Nesër është një ditë e re",
 "Link copied": "Lidhja u kopjua",
 "Bookmark added": "Faqeruajtësi u shtua",
-"Screenshot saved": "Pamja e ekranit u ruajt"
+"Screenshot saved": "Pamja e ekranit u ruajt",
+"Print or save as PDF": "Shtyp ose ruaj si PDF",
+"Print the page, or save it as a PDF document": "Shtyp faqen ose ruaje si dokument PDF",
+"Send this page to a phone or a computer paired with KDE Connect": "Dërgoje këtë faqe te një telefon ose kompjuter i çiftuar me KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Asnjë pajisje e çiftuar me KDE Connect, ose asnjë faqe interneti në këtë skedë",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Shkurtoret e tastierës, përditësimet dhe versionet e I.K.E.",
+"Web pages": "Faqe interneti",
+"Find a setting": "Gjej një parametër",
+"No setting found": "Nuk u gjet asnjë parametër"
 }
 }

@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "Amanhã é um novo dia",
 "Link copied": "Link copiado",
 "Bookmark added": "Favorito adicionado",
-"Screenshot saved": "Captura de ecrã guardada"
+"Screenshot saved": "Captura de ecrã guardada",
+"Print or save as PDF": "Imprimir ou salvar como PDF",
+"Print the page, or save it as a PDF document": "Imprimir a página ou salvá-la como documento PDF",
+"Send this page to a phone or a computer paired with KDE Connect": "Enviar esta página para um telefone ou computador pareado com o KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Nenhum dispositivo pareado com o KDE Connect, ou nenhuma página da web nesta aba",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Atalhos de teclado, atualizações e as versões do I.K.E.",
+"Web pages": "Páginas da web",
+"Find a setting": "Procurar uma configuração",
+"No setting found": "Nenhuma configuração encontrada"
 }
 }

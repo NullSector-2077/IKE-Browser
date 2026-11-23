@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "Сутра је нови дан",
 "Link copied": "Веза је копирана",
 "Bookmark added": "Обележивач је додат",
-"Screenshot saved": "Снимак екрана је сачуван"
+"Screenshot saved": "Снимак екрана је сачуван",
+"Print or save as PDF": "Штампај или сачувај као PDF",
+"Print the page, or save it as a PDF document": "Штампај страницу или је сачувај као PDF документ",
+"Send this page to a phone or a computer paired with KDE Connect": "Пошаљи ову страницу на телефон или рачунар упарен преко KDE Connect-а",
+"No device paired with KDE Connect, or no web page in this tab": "Нема уређаја упареног преко KDE Connect-а или у овом језичку нема веб странице",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Пречице на тастатури, ажурирања и верзије I.K.E.",
+"Web pages": "Веб странице",
+"Find a setting": "Пронађи подешавање",
+"No setting found": "Није пронађено ниједно подешавање"
 }
 }

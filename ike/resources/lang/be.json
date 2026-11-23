@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "Заўтра новы дзень",
 "Link copied": "Спасылка скапіравана",
 "Bookmark added": "Закладка дададзена",
-"Screenshot saved": "Здымак экрана захаваны"
+"Screenshot saved": "Здымак экрана захаваны",
+"Print or save as PDF": "Друк або захаванне ў PDF",
+"Print the page, or save it as a PDF document": "Надрукаваць старонку або захаваць яе як дакумент PDF",
+"Send this page to a phone or a computer paired with KDE Connect": "Адправіць гэту старонку на тэлефон або камп'ютар, злучаны праз KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Няма прылады, злучанай праз KDE Connect, або ў гэтай укладцы няма вэб-старонкі",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Спалучэнні клавіш, абнаўленні і версіі I.K.E.",
+"Web pages": "Вэб-старонкі",
+"Find a setting": "Знайсці наладу",
+"No setting found": "Налад не знойдзена"
 }
 }

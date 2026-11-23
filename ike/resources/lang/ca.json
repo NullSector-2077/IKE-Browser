@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "Demà és un nou dia",
 "Link copied": "S'ha copiat l'enllaç",
 "Bookmark added": "S'ha afegit l'adreça d'interès",
-"Screenshot saved": "S'ha desat la captura de pantalla"
+"Screenshot saved": "S'ha desat la captura de pantalla",
+"Print or save as PDF": "Imprimeix o desa com a PDF",
+"Print the page, or save it as a PDF document": "Imprimeix la pàgina o desa-la com a document PDF",
+"Send this page to a phone or a computer paired with KDE Connect": "Envia aquesta pàgina a un telèfon o un ordinador aparellat amb KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "No hi ha cap dispositiu aparellat amb KDE Connect, o no hi ha cap pàgina web en aquesta pestanya",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Dreceres de teclat, actualitzacions i les versions d'I.K.E.",
+"Web pages": "Pàgines web",
+"Find a setting": "Cerca un paràmetre",
+"No setting found": "No s'ha trobat cap paràmetre"
 }
 }

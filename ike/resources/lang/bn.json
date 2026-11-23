@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "আগামীকাল নতুন দিন",
 "Link copied": "লিংক কপি হয়েছে",
 "Bookmark added": "বুকমার্ক যোগ হয়েছে",
-"Screenshot saved": "স্ক্রিনশট সংরক্ষিত হয়েছে"
+"Screenshot saved": "স্ক্রিনশট সংরক্ষিত হয়েছে",
+"Print or save as PDF": "প্রিন্ট বা PDF হিসেবে সংরক্ষণ",
+"Print the page, or save it as a PDF document": "পৃষ্ঠাটি প্রিন্ট করুন, বা PDF নথি হিসেবে সংরক্ষণ করুন",
+"Send this page to a phone or a computer paired with KDE Connect": "KDE Connect দিয়ে যুক্ত ফোন বা কম্পিউটারে এই পৃষ্ঠাটি পাঠান",
+"No device paired with KDE Connect, or no web page in this tab": "KDE Connect দিয়ে যুক্ত কোনো ডিভাইস নেই, বা এই ট্যাবে কোনো ওয়েব পৃষ্ঠা নেই",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "কীবোর্ড শর্টকাট, আপডেট এবং I.K.E.-এর সংস্করণ",
+"Web pages": "ওয়েব পৃষ্ঠা",
+"Find a setting": "একটি সেটিং খুঁজুন",
+"No setting found": "কোনো সেটিং পাওয়া যায়নি"
 }
 }

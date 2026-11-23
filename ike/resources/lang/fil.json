@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "Bagong araw bukas",
 "Link copied": "Nakopya ang link",
 "Bookmark added": "Naidagdag ang bookmark",
-"Screenshot saved": "Na-save ang screenshot"
+"Screenshot saved": "Na-save ang screenshot",
+"Print or save as PDF": "I-print o i-save bilang PDF",
+"Print the page, or save it as a PDF document": "I-print ang page, o i-save ito bilang PDF na dokumento",
+"Send this page to a phone or a computer paired with KDE Connect": "Ipadala ang page na ito sa phone o computer na naka-pair sa KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Walang device na naka-pair sa KDE Connect, o walang web page sa tab na ito",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Mga keyboard shortcut, mga update at ang mga bersyon ng I.K.E.",
+"Web pages": "Mga web page",
+"Find a setting": "Maghanap ng setting",
+"No setting found": "Walang nahanap na setting"
 }
 }

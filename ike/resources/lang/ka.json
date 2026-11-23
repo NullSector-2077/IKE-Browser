@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "ხვალ ახალი დღეა",
 "Link copied": "ბმული დაკოპირდა",
 "Bookmark added": "სანიშნე დაემატა",
-"Screenshot saved": "ეკრანის სურათი შეინახა"
+"Screenshot saved": "ეკრანის სურათი შეინახა",
+"Print or save as PDF": "ბეჭდვა ან PDF-ად შენახვა",
+"Print the page, or save it as a PDF document": "გვერდის დაბეჭდვა ან PDF დოკუმენტად შენახვა",
+"Send this page to a phone or a computer paired with KDE Connect": "ამ გვერდის გაგზავნა KDE Connect-ით დაწყვილებულ ტელეფონზე ან კომპიუტერზე",
+"No device paired with KDE Connect, or no web page in this tab": "KDE Connect-ით დაწყვილებული მოწყობილობა არ არის, ან ამ ჩანართში ვებგვერდი არ არის",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "კლავიატურის მალსახმობები, განახლებები და I.K.E.-ის ვერსიები",
+"Web pages": "ვებგვერდები",
+"Find a setting": "პარამეტრის ძებნა",
+"No setting found": "პარამეტრი ვერ მოიძებნა"
 }
 }

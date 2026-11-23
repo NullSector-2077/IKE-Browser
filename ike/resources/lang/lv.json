@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "Rīt ir jauna diena",
 "Link copied": "Saite nokopēta",
 "Bookmark added": "Grāmatzīme pievienota",
-"Screenshot saved": "Ekrānuzņēmums saglabāts"
+"Screenshot saved": "Ekrānuzņēmums saglabāts",
+"Print or save as PDF": "Drukāt vai saglabāt kā PDF",
+"Print the page, or save it as a PDF document": "Izdrukāt lapu vai saglabāt to kā PDF dokumentu",
+"Send this page to a phone or a computer paired with KDE Connect": "Nosūtīt šo lapu uz tālruni vai datoru, kas savienots pārī ar KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Nav ierīces, kas savienota pārī ar KDE Connect, vai šajā cilnē nav tīmekļa lapas",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Īsinājumtaustiņi, atjauninājumi un I.K.E. versijas",
+"Web pages": "Tīmekļa lapas",
+"Find a setting": "Meklēt iestatījumu",
+"No setting found": "Neviens iestatījums nav atrasts"
 }
 }

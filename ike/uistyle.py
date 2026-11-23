@@ -442,6 +442,12 @@ class IkeStyle(QProxyStyle):
         elif kind == CT.CT_MenuItem and isinstance(widget, QMenu) and isinstance(opt, QStyleOptionMenuItem) \
                 and opt.menuItemType != QStyleOptionMenuItem.MenuItemType.Separator:
             room = self._switch_room(opt, widget)
+            if opt.menuItemType == QStyleOptionMenuItem.MenuItemType.SubMenu:
+                # 1.1.24: room between the text and the arrow of a submenu. KDE's
+                # Breeze leaves 3 px or less, so the longest name of a menu without
+                # shortcuts touched its arrow (☰ → More → View, Tools); half a line
+                # more, in every style: a menu is only wider when such a name is its longest
+                room += max(4, opt.fontMetrics.height() // 2)
             if room:
                 s = QSize(s.width() + room, s.height())
         elif kind == CT.CT_ToolButton and opt is not None and text and tool_style is not None:

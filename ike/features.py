@@ -617,15 +617,17 @@ class WindowFeatures:
                     nav.insertAction(self.more_act, act)
             finally:
                 nav.setUpdatesEnabled(True)
-        btn = nav.widgetForAction(self.act_dark)
-        if isinstance(btn, QToolButton):
-            # 1.1.23 (the owner): its icon only; a click opens its menu, as the
-            # click on its main part did (the action itself does nothing)
-            btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-            if not btn.property("ike_no_arrow"):
-                # its icon only (1.1.23, polish.RoundHoverStyle), measured so below
-                btn.setProperty("ike_no_arrow", True)
-                self._hover.take(btn)
+        for act in getattr(self, "_menu_buttons", (self.act_dark,)):
+            btn = nav.widgetForAction(act)
+            if isinstance(btn, QToolButton):
+                # 1.1.23 (the owner): its icon only; a click opens its menu, as the
+                # click on its main part did (the action itself does nothing);
+                # 1.1.24: the same for Zoom, Print and Send to device
+                btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+                if not btn.property("ike_no_arrow"):
+                    # its icon only (1.1.23, polish.RoundHoverStyle), measured so below
+                    btn.setProperty("ike_no_arrow", True)
+                    self._hover.take(btn)
         # the toolbar builds a new button whenever an action is inserted
         for key, act in by_key.items():
             if act in want_left or act in want_right:

@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "उद्या नवा दिवस आहे",
 "Link copied": "दुवा कॉपी झाला",
 "Bookmark added": "बुकमार्क जोडला",
-"Screenshot saved": "स्क्रीनशॉट जतन झाला"
+"Screenshot saved": "स्क्रीनशॉट जतन झाला",
+"Print or save as PDF": "प्रिंट करा किंवा PDF म्हणून जतन करा",
+"Print the page, or save it as a PDF document": "पृष्ठ प्रिंट करा, किंवा ते PDF दस्तऐवज म्हणून जतन करा",
+"Send this page to a phone or a computer paired with KDE Connect": "हे पृष्ठ KDE Connect ने जोडलेल्या फोन किंवा संगणकावर पाठवा",
+"No device paired with KDE Connect, or no web page in this tab": "KDE Connect ने जोडलेले कोणतेही डिव्हाइस नाही, किंवा या टॅबमध्ये वेब पृष्ठ नाही",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "कीबोर्ड शॉर्टकट, अद्यतने आणि I.K.E. च्या आवृत्त्या",
+"Web pages": "वेब पृष्ठे",
+"Find a setting": "सेटिंग शोधा",
+"No setting found": "कोणतीही सेटिंग सापडली नाही"
 }
 }

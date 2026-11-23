@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "Bihar egun berri bat da",
 "Link copied": "Esteka kopiatu da",
 "Bookmark added": "Laster-marka gehitu da",
-"Screenshot saved": "Pantaila-argazkia gorde da"
+"Screenshot saved": "Pantaila-argazkia gorde da",
+"Print or save as PDF": "Inprimatu edo gorde PDF gisa",
+"Print the page, or save it as a PDF document": "Inprimatu orria edo gorde PDF dokumentu gisa",
+"Send this page to a phone or a computer paired with KDE Connect": "Bidali orri hau KDE Connect bidez parekatutako telefono edo ordenagailu batera",
+"No device paired with KDE Connect, or no web page in this tab": "Ez dago KDE Connect bidez parekatutako gailurik, edo ez dago web-orririk fitxa honetan",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Laster-teklak, eguneratzeak eta I.K.E.-ren bertsioak",
+"Web pages": "Web-orriak",
+"Find a setting": "Bilatu ezarpen bat",
+"No setting found": "Ez da ezarpenik aurkitu"
 }
 }

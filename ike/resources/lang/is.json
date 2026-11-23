@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "Á morgun er nýr dagur",
 "Link copied": "Tengill afritaður",
 "Bookmark added": "Bókamerki bætt við",
-"Screenshot saved": "Skjámynd vistuð"
+"Screenshot saved": "Skjámynd vistuð",
+"Print or save as PDF": "Prenta eða vista sem PDF",
+"Print the page, or save it as a PDF document": "Prenta síðuna eða vista hana sem PDF-skjal",
+"Send this page to a phone or a computer paired with KDE Connect": "Senda þessa síðu í síma eða tölvu sem er pöruð með KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Ekkert tæki parað með KDE Connect, eða engin vefsíða í þessum flipa",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Flýtilyklar, uppfærslur og útgáfur I.K.E.",
+"Web pages": "Vefsíður",
+"Find a setting": "Finna stillingu",
+"No setting found": "Engin stilling fannst"
 }
 }

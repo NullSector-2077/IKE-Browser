@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "Утре е нов ден",
 "Link copied": "Връзката е копирана",
 "Bookmark added": "Отметката е добавена",
-"Screenshot saved": "Снимката на екрана е запазена"
+"Screenshot saved": "Снимката на екрана е запазена",
+"Print or save as PDF": "Печат или запис като PDF",
+"Print the page, or save it as a PDF document": "Отпечатване на страницата или запис като PDF документ",
+"Send this page to a phone or a computer paired with KDE Connect": "Изпращане на тази страница към телефон или компютър, сдвоен чрез KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Няма устройство, сдвоено чрез KDE Connect, или в този раздел няма уеб страница",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Клавишни комбинации, обновления и версиите на I.K.E.",
+"Web pages": "Уеб страници",
+"Find a setting": "Търсене на настройка",
+"No setting found": "Не е намерена настройка"
 }
 }

@@ -62,7 +62,8 @@ EXTENSIONS = (
          "ext_containers", options="page:privacy", actions=("m_containers",)),
     _ext("resources", "Site resources", ("utilities-system-monitor", "configure"),
          "Shows the memory and processor each site uses, with limits if you want them.",
-         "ext_resources", options="dialog:show_resources", actions=("act_resources",), hook="resources"),
+         "ext_resources", options="dialog:show_resources", actions=("act_resources",), toolbar=("resources",),
+         hook="resources"),
     _ext("weather", "Weather on the new tab page", ("weather-few-clouds", "globe"),
          "Shows the weather of the city you choose on the new tab page.",
          "newtab_weather", options="page:newtab", hook="newtab"),
@@ -71,7 +72,7 @@ EXTENSIONS = (
          "ext_command_bar", actions=("act_command_bar",)),
     _ext("plasma", "Plasma integration", ("plasma", "start-here-kde", "preferences-desktop-theme"),
          "Media keys, downloads in the notifications, KRunner and KDE Connect.",
-         "ext_plasma", options="page:system", hook="plasma"),
+         "ext_plasma", options="page:system", toolbar=("send",), hook="plasma"),
     _ext("autoscroll", "Automatic scrolling", ("transform-move-vertical", "go-down"),
          "Middle-click on an empty part of a page, then move the mouse to scroll. "
          "Any click or Esc stops it.",

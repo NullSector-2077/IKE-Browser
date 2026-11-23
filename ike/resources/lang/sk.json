@@ -1185,6 +1185,14 @@
 "Tomorrow is a new day": "Zajtra je nový deň",
 "Link copied": "Odkaz skopírovaný",
 "Bookmark added": "Záložka pridaná",
-"Screenshot saved": "Snímka obrazovky uložená"
+"Screenshot saved": "Snímka obrazovky uložená",
+"Print or save as PDF": "Tlačiť alebo uložiť ako PDF",
+"Print the page, or save it as a PDF document": "Vytlačiť stránku alebo ju uložiť ako dokument PDF",
+"Send this page to a phone or a computer paired with KDE Connect": "Odoslať túto stránku do telefónu alebo počítača spárovaného cez KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Žiadne zariadenie spárované cez KDE Connect alebo na tejto karte nie je webová stránka",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Klávesové skratky, aktualizácie a verzie I.K.E.",
+"Web pages": "Webové stránky",
+"Find a setting": "Nájsť nastavenie",
+"No setting found": "Nenašlo sa žiadne nastavenie"
 }
 }
