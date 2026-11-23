@@ -1,0 +1,7 @@
+! Title: I.K.E. no-regression fixture, in place of the Malicious URL Blocklist
+! A small fixed sample of rules in the forms the Malicious URL Blocklist uses (CC0 / MIT), for
+! tools/no-regression.py only: the same rules on main and on a candidate, so
+! what changes between the two is I.K.E.'s code and engine, never the list.
+! Not a list to use.
+||malware-host.example^
+||192.0.2.55^

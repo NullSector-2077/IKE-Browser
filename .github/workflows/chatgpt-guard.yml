@@ -5,6 +5,15 @@
 # main: a pull request cannot change the rules it is checked against. Nothing of
 # the pull request is ever run here; only its diff is read. The tests run on it
 # as on any pull request (tests.yml).
+#
+# AUTOMAT part 2 (2026-11-23): the notice "DEVI AIUTARCI CON CHATGPT" asks for a pull request against
+# the branch that failed: main, or a candidate's own branch (automation/...). Against a candidate the
+# changes checked are still ChatGPT's own only (from where its branch leaves that candidate): the
+# candidate's own update is judged by the candidate's own checks. The rules are the same ones, never
+# wider (the ad blocker stays closed to ChatGPT on every branch). Against main nothing changes. A
+# ChatGPT fix never merges by its checks alone: it waits for the owner's order, or, with the owner's
+# repository variable AUTOMAT_CHATGPT_AUTOMERGE, it is adopted and goes through everything an AI's fix
+# needs (tools/automerge.py).
 name: ChatGPT fix guard
 
 on:
@@ -29,13 +38,19 @@ jobs:
       - name: The changes of the pull request, checked like an automatic fix
         env:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
           git fetch -q --no-tags origin "+$HEAD_SHA:refs/remotes/pr/head"
           # ChatGPT's own changes only: its branch may start from the automation's
           # branch (after two automatic attempts, with their version bump), so the
           # base is the closest of main and the automation's branches
           base=$(git merge-base origin/main refs/remotes/pr/head)
-          for b in automation/autofix-main automation/daily-maintenance; do
+          # (a pull request against a candidate's own branch: that branch too; only a branch of the automation)
+          candidate=""
+          if printf '%s' "$BASE_REF" | grep -Eq '^automation/[A-Za-z0-9._/-]{1,100}$' && [ "${BASE_REF#*..}" = "$BASE_REF" ]; then
+            candidate="$BASE_REF"
+          fi
+          for b in automation/autofix-main automation/daily-maintenance $candidate; do
             git fetch -q --no-tags origin "+refs/heads/$b:refs/remotes/origin/$b" 2>/dev/null || continue
             mb=$(git merge-base "origin/$b" refs/remotes/pr/head) || continue
             if git merge-base --is-ancestor "$base" "$mb"; then base=$mb; fi

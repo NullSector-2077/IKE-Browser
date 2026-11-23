@@ -30,7 +30,8 @@ guard = load("check-autofix-patch")
 REPO = "NullSector-2077/IKE-Browser"
 
 
-RELEASE = "C'E' UNA NUOVA RELEASE IN MAIN PRONTA DA PUBBLICARE!!!"
+RELEASE = "C'E' UNA NUOVA RELEASE IN MAIN PRONTA DA PUBBLICARE!!!"        # the title until 2026-11-22
+READY = "LA RELEASE E' PRONTA DA FIRMARE"                                 # the owner's words since
 CHATGPT = "ATTENZIONE E' RICHIESTO IL TUO INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!!"
 
 
@@ -40,7 +41,10 @@ def test_github_itself_tells_the_owner():
     mail service of ours: no address, password or mail secret anywhere."""
     rr = (WORKFLOWS / "release-ready.yml").read_text()
     af = (WORKFLOWS / "autofix.yml").read_text()
-    assert 'title="%s"' % RELEASE in rr and '--assignee "$OWNER"' in rr and 'echo "@$OWNER:' in rr
+    assert 'ready="%s"' % READY in rr and 'title="$ready: I.K.E. $version"' in rr          # with the version
+    assert 'echo "**$ready: I.K.E. $version**"' in rr                                       # and the first line
+    assert 'before="%s"' % RELEASE in rr                                 # a notice opened before is still found
+    assert '--assignee "$OWNER"' in rr and 'echo "@$OWNER:' in rr
     assert ("[ -d ~/IKE-Browser/.git ] || git clone https://github.com/NullSector-2077/IKE-Browser.git ~/IKE-Browser; "
             "cd ~/IKE-Browser && git checkout main && git pull --ff-only && python3 tools/publish.py") in rr
     assert 'gh issue close "$open"' in rr and 'gh release view "v$version"' in rr      # closed once published
@@ -112,7 +116,24 @@ CODE = [{"filename": "ike/window.py", "status": "modified", "patch": "@@ -1 +1 @
          "old_source": BASE, "new_source": BASE.replace("return 1", "return 2")},
         {"filename": "CHANGELOG.md", "status": "modified",
          "patch": "@@ -3,0 +4,2 @@\n+## 1.1.20\n+- Automatic fix"}]
-COMMITS = [{"commit": {"message": "autofix: attempt 1 after a failure of \"Tests\"\n\nPrepared by..."}}]
+COMMITS = [{"commit": {"message": "autofix: attempt 1 after a failure of \"Tests\"\n\nPrepared by...\n"
+                                  "Author: Groq / qwen/qwen3.8-27b\n"}}]
+
+
+def with_no_regression(evidence, result="success"):
+    """The evidence with the differential check's step ("Nothing gets worse", category no-regression)."""
+    import copy
+    out = copy.deepcopy(evidence)
+    workflow, job, step = merge.NO_REGRESSION_AT
+    out["runs"][workflow]["jobs"][job]["steps"][step] = result
+    return out
+
+
+def approved(sha, author="Groq", reviewers=("Z.AI", "OpenRouter")):
+    """What gather_review() reads when two independent reviewers approved this commit."""
+    return {"status": True, "result": {"sha": sha, "verdict": "approve", "author": author, "why": "",
+                                       "reviews": [{"provider": r, "model": "m", "verdict": "approve", "reasons": []}
+                                                   for r in reviewers]}}
 VERSION = [{"filename": "ike/__init__.py", "status": "modified",
             "patch": '@@ -5 +5 @@\n-__version__ = "1.1.19"\n+__version__ = "1.1.20"'},
            {"filename": "PKGBUILD", "status": "modified", "patch": "@@ -2 +2 @@\n-pkgver=1.1.19\n+pkgver=1.1.20"},
@@ -659,8 +680,10 @@ def _main_world(monkeypatch, p, commits, files, checks, arch_runs=1, behind=0):
     monkeypatch.setattr(merge, "released", lambda *a: True)
     monkeypatch.setattr(merge, "version_of_main", lambda: "1.1.19")
     monkeypatch.setattr(merge, "unread_merge", lambda *a: False)
-    monkeypatch.setattr(merge, "gather_evidence", lambda repo, sha: VERIFIED)
+    monkeypatch.setattr(merge, "gather_evidence", lambda repo, sha: with_no_regression(VERIFIED))
     monkeypatch.setattr(merge, "gather_findings", lambda repo, passed: [])
+    # the full automation: two independent AI reviewers approved this commit (tools/ai-review.py)
+    monkeypatch.setattr(merge, "gather_review", lambda repo, n, sha: approved(sha))
     return calls
 
 
@@ -716,26 +739,31 @@ def test_the_one_comment_is_edited_not_repeated(monkeypatch):
         return json.dumps(said)
     monkeypatch.setattr(merge, "gh", gh)
     merge.tell_person("o/r", 7, "the check tests did not pass", "owner", "c" * 40)
-    assert calls[-1][:2] == ("pr", "comment") and "@owner:" in calls[-1][-1]
+    # since the full automation the comment asks nothing of anyone; only a security finding names the owner
+    assert calls[-1][:2] == ("pr", "comment") and "Nota informativa, non serve fare niente" in calls[-1][-1]
+    assert "@owner" not in calls[-1][-1] and merge.NEXT_MARK % "judge" in calls[-1][-1]
+    assert "@owner:" in merge.person_text(7, merge.SECURITY_WHY + ": x", "owner", "c" * 40)
     said.append({"id": 55, "body": calls[-1][-1]})
     calls.clear()
     merge.tell_person("o/r", 7, "the check tests did not pass", "owner", "c" * 40)
     assert len(calls) == 1                                               # the same: nothing written
     merge.tell_person("o/r", 7, "not fully verified: old-cpu failed", "owner", "d" * 40)
     assert calls[-1][:4] == ("api", "-X", "PATCH", "repos/o/r/issues/comments/55")
-    assert merge.VERDICT % ("d" * 40, "person") in calls[-1][-1]
+    assert merge.VERDICT % ("d" * 40, "retrying") in calls[-1][-1]
     assert not any(c[:2] == ("pr", "comment") for c in calls[1:])
 
 
 def test_the_ledger_shows_why_it_waits():
-    """Short of fully verified: needs-person in the ledger; an open security finding: blocked."""
+    """Short of fully verified: retrying in the ledger; an open security finding: blocked."""
     ledger = load("maintenance-ledger")
     sha = "c" * 40
     base = {"sha": sha, "pr": 43, "runs": runs(), "skips": []}
     assert ledger._candidate_verdict({"candidate": base}, ["crate"])[0] == "passed"
     held = dict(base, merge={"sha": sha, "verdict": "person", "why": "not fully verified: old-cpu failed"})
     state, reason, _url = ledger._candidate_verdict({"candidate": held}, ["crate"])
-    assert state == "needs-person" and "old-cpu failed" in reason and "#43" in reason
+    assert state == "retrying" and "old-cpu failed" in reason and "#43" in reason
+    held = dict(base, merge={"sha": sha, "verdict": "retrying", "why": "not fully verified: old-cpu failed"})
+    assert ledger._candidate_verdict({"candidate": held}, ["crate"])[0] == "retrying"
     blocked = dict(base, merge={"sha": sha, "verdict": "security", "why": "x"})
     assert ledger._candidate_verdict({"candidate": blocked}, ["crate"])[0] == "blocked"
     older = dict(base, merge={"sha": "d" * 40, "verdict": "person", "why": "x"})      # an older commit's verdict
@@ -758,7 +786,7 @@ def test_the_ledger_shows_why_it_waits():
             return []
         raise RuntimeError("HTTP 404")
     cand_ = ledger.gather("o/r", api)["candidate"]
-    assert cand_["merge"] == {"sha": sha, "verdict": "person", "why": "not fully verified: old-cpu failed"}
+    assert cand_["merge"] == {"sha": sha, "verdict": "retrying", "why": "not fully verified: old-cpu failed"}
 
 
 def test_arch_linux_runs_on_the_candidate(monkeypatch):
@@ -815,7 +843,7 @@ def test_the_token_rights_are_the_least_needed():
     rights = dict(re.findall(r"^      ([a-z-]+): (read|write)\b", jobs[2].split("permissions:\n", 1)[1]
                              .split("    steps:", 1)[0], re.M))
     assert rights == {"contents": "write", "pull-requests": "write", "issues": "read", "actions": "write",
-                      "checks": "read"}
+                      "checks": "read", "statuses": "read"}       # (read: the status of the two AI reviewers)
     assert am.count("contents: write") == 1
     assert "ref: main" in jobs[2] and "persist-credentials: false" in jobs[2]
     assert "python3 -I tools/automerge.py" in jobs[2] and "pull_request_target" not in am
@@ -1020,8 +1048,14 @@ def test_a_conflict_beyond_changelog_and_version_goes_to_a_person(tmp_path, monk
     main2 = git("rev-parse", "main")
     git("update-ref", "refs/remotes/origin/main", main2)
     commit, why = merge.make_refresh("automation/update/ubo-scriptlets", sha["ubo"], main2, cwd=repo)
-    assert commit == "" and why == "ike/resources/ubo-scriptlets.json: a conflict with main that a person resolves"
-    # a second raise is not resolved either: the candidate on 1.1.24 while main holds 1.1.23
+    assert commit == "" and why == "ike/resources/ubo-scriptlets.json: a conflict with main"
+    # ... unless the files in conflict are taken as main's (2026-11-22: nothing is parked): the refresh says so
+    # in its message, and the merge accepts it only as exactly that
+    reset, why = merge.make_refresh("automation/update/ubo-scriptlets", sha["ubo"], main2, cwd=repo, reset=True)
+    assert why == "" and git("show", "%s:ike/resources/ubo-scriptlets.json" % reset) == "someone else's"
+    assert "conflicts as main's" in git("log", "-1", "--format=%s", reset)
+    assert merge.refresh_problem(reset, "automation/update/ubo-scriptlets", cwd=repo) == ""
+    # a second raise is resolved too: the candidate on 1.1.24 while main holds 1.1.23 goes into 1.1.23
     git("checkout", "-q", "-B", "second", "main")
     (repo / "ike/__init__.py").write_text('"""I.K.E."""\n\n__version__ = "1.1.24"\n')
     (repo / "CHANGELOG.md").write_text((repo / "CHANGELOG.md").read_text().replace(
@@ -1030,9 +1064,17 @@ def test_a_conflict_beyond_changelog_and_version_goes_to_a_person(tmp_path, monk
     git("checkout", "-q", "main")
     (repo / "CHANGELOG.md").write_text((repo / "CHANGELOG.md").read_text().replace("- Rust", "- Other\n- Rust"))
     git("commit", "-q", "-am", "log")
-    assert "is not main's 1.1.23" in merge.make_refresh(DARK, git("rev-parse", "second"), git("rev-parse", "main"),
-                                                         cwd=repo)[1]
-    # through main(): the owner is named once with the reason (the ledger reads its mark); no merge
+    second, main3 = git("rev-parse", "second"), git("rev-parse", "main")
+    assert "is not main's 1.1.23" in merge.make_refresh(DARK, second, main3, cwd=repo)[1]    # not without asking
+    moved, why = merge.make_refresh(DARK, second, main3, cwd=repo, reversion=True)
+    assert "version as main's" in git("log", "-1", "--format=%s", moved)
+    assert why == "" and merge.version_in(git("show", "%s:ike/__init__.py" % moved)) == "1.1.23"
+    log = git("show", "%s:CHANGELOG.md" % moved)
+    assert "## 1.1.24" not in log and log.count("## 1.1.23") == 1 and "- x" in log and "- Other" in log
+    git("update-ref", "refs/remotes/origin/main", main3)
+    assert merge.refresh_problem(moved, DARK, cwd=repo) == ""
+    # through main(): one informational comment with the reason (the ledger reads its mark), the candidate is
+    # rebuilt from main by the daily maintenance; no merge, nobody asked
     p = dict(pr("automation/update/ubo-scriptlets"),
              head={"ref": "automation/update/ubo-scriptlets", "sha": "c" * 40, "repo": {"full_name": "o/r"}},
              base={"ref": "main", "sha": "b" * 40})
@@ -1040,15 +1082,16 @@ def test_a_conflict_beyond_changelog_and_version_goes_to_a_person(tmp_path, monk
            "files": ["ike/resources/ubo-scriptlets.json"]}
     calls = _main_world(monkeypatch, p, [ubo], [f("ike/resources/ubo-scriptlets.json", "@@ -1 +1 @@\n-a\n+b")],
                         FULL_CHECKS, behind=3)
-    conflict = "ike/resources/ubo-scriptlets.json: a conflict with main that a person resolves"
+    conflict = "ike/resources/ubo-scriptlets.json: a conflict with main"
     monkeypatch.setattr(merge, "released", lambda *a: False)          # main's 1.1.19 not published: nothing to raise
-    monkeypatch.setattr(merge, "refresh_branch", lambda repo_, ref, s: ("", conflict))
+    monkeypatch.setattr(merge, "refresh_branch", lambda repo_, ref, s, **kw: ("", conflict))
     assert merge.main(["--repo", "o/r", "--sha", "c" * 40]) == 0
     flat = [" ".join(map(str, c[1:])) for c in calls if c[0] == "gh"]
     assert not any("/merge" in c for c in flat), flat
     said = [c for c in flat if c.startswith("pr comment 7")]
-    assert len(said) == 1 and "@o:" in said[0] and conflict in said[0]
-    assert merge.VERDICT % ("c" * 40, "person") in said[0]
+    assert len(said) == 1 and "@o" not in said[0] and conflict in said[0] and "Nota informativa" in said[0]
+    assert merge.VERDICT % ("c" * 40, "retrying") in said[0] and merge.NEXT_MARK % "rebuild" in said[0]
+    assert "workflow run daily-maintenance.yml --repo o/r --ref main" in flat
 
 
 def test_the_refresh_commit_is_accepted_and_a_disguised_one_refused(tmp_path):

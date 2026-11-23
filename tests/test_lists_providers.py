@@ -604,7 +604,7 @@ def test_no_provider_waits_then_resumes_then_the_owner_is_told():
                 "created": "2026-11-22T04:00:00Z", "artifact": "ai-work-outcome-report"}
     led = ledger_tool.update(None, _empty(), now=NOW, work={"run_id": "9", "outcomes": [deferred]})
     e = led["entries"]["ai-work/4242@retry"]
-    assert e["state"] == "retry-later" and e["work"]["retries"] == 1 and e["attempts"] == 1
+    assert e["state"] == "retrying" and e["work"]["retries"] == 1 and e["attempts"] == 1
     assert e["next_retry"] == "2026-11-23T05:30:00Z" and led["dispatch"] == [] and led["notify"] == []
     # the same outcome read again changes nothing
     led = ledger_tool.update(led, _empty(), now=NOW + dt.timedelta(hours=1), work={"run_id": "9",
@@ -623,18 +623,18 @@ def test_no_provider_waits_then_resumes_then_the_owner_is_told():
                                  work={"run_id": "9", "outcomes": [again]})
         e = led["entries"]["ai-work/4242@retry"]
         if n < registry.RETRY_CAP:
-            assert e["state"] == "retry-later" and e["work"]["retries"] == n and led["notify"] == []
-    # the cap: a person, told once
-    assert e["state"] == "needs-person" and "the owner is told" in e["reason"]
+            assert e["state"] == "retrying" and e["work"]["retries"] == n and led["notify"] == []
+    # after RETRY_CAP tries: still retrying (2026-11-22: nothing is given up), one informational note
+    assert e["state"] == "retrying" and e["retries"] == registry.RETRY_CAP
     assert led["notify"] == [e["key"]]
     text = work_tool.notify_text(led, "Owner")
-    assert text.startswith("@Owner:") and "RETRY_CAP in tools/ai-providers.py" in text
+    assert text.startswith("@Owner: nota informativa, non serve fare niente") and "RETRY_CAP" in text
     led = ledger_tool.update(led, _empty(), now=now + dt.timedelta(days=2), work={"run_id": "9", "outcomes": []})
-    assert led["notify"] == [] and led["dispatch"] == []
+    assert led["notify"] == [] and led["dispatch"] == [{"key": e["key"], "run_id": "4242", "work": "run/4242"}]
     # the cap is one number, in one place
     one = ledger_tool.update(None, _empty(), now=NOW, work={"run_id": "9", "outcomes": [deferred]})
     one = work_tool.merge(one, {"outcomes": [dict(deferred, run="x")]}, NOW, ledger_tool.set_state, cap=2)
-    assert one["entries"]["ai-work/4242@retry"]["state"] == "needs-person" and one["notify"]
+    assert one["entries"]["ai-work/4242@retry"]["state"] == "retrying" and one["notify"]
 
 
 def test_a_lists_analysis_without_provider_keeps_its_branch():
@@ -646,7 +646,7 @@ def test_a_lists_analysis_without_provider_keeps_its_branch():
     later = NOW + dt.timedelta(hours=2)
     led = ledger_tool.update(led, _empty(), now=later, work={"run_id": "778", "lists": info, "outcomes": [deferred]})
     e = led["entries"][key]
-    assert e["state"] == "retry-later" and e["work"]["branch"] == "automation/update/lists-2026-11-22"
+    assert e["state"] == "retrying" and e["work"]["branch"] == "automation/update/lists-2026-11-22"
     # the next day: started again on the same branch, with today's lists report
     led = ledger_tool.update(led, _empty(), now=later + dt.timedelta(hours=25),
                              work={"run_id": "800", "lists": info, "outcomes": []})
@@ -698,7 +698,7 @@ def test_a_fix_after_the_lists_branch_failed_its_tests_keeps_the_entry_coherent(
     led = ledger_tool.update(led, _empty(), now=now + dt.timedelta(hours=1),
                              work={"run_id": "781", "lists": info, "outcomes": [person]})
     e = led["entries"][key]
-    assert e["state"] == "needs-person" and "4 automatic changes" in e["reason"] and led["notify"] == []
+    assert e["state"] == "retrying" and "4 automatic changes" in e["reason"] and led["notify"] == []
     # an outcome of another branch, or of no branch, is not the finding's
     for other in ("automation/update/lists-foo", "automation/update/darkreader", ""):
         fresh = ledger_tool.update(None, _empty(), now=NOW, work={"run_id": "777", "lists": info, "outcomes": []})
@@ -711,7 +711,7 @@ def test_a_fix_after_the_lists_branch_failed_its_tests_keeps_the_entry_coherent(
     deferred = dict(person, outcome="deferred", run="9")
     fresh = ledger_tool.update(fresh, _empty(), now=NOW + dt.timedelta(hours=4),
                                work={"run_id": "782", "lists": info, "outcomes": [deferred]})
-    assert fresh["entries"]["ai-work/45043411828@retry"]["state"] == "retry-later"
+    assert fresh["entries"]["ai-work/45043411828@retry"]["state"] == "retrying"
     assert fresh["entries"][key]["state"] == "testing"
     # the report says the branch of the work
     script = _step("Work that waits, or the filter lists' analysis")
@@ -753,10 +753,14 @@ def test_the_fix_job_says_when_no_provider_answered(tmp_path, agent, reserve, de
 
 @pytest.mark.parametrize("env, tell, outcome", [
     ({"ACTION": "fix", "DEFERRED": "true", "KIND": "main"}, "false", "deferred"),
-    ({"ACTION": "fix", "DEFERRED": "false", "KIND": "main"}, "true", "person"),
+    # AUTOMAT (2026-11-22): a fix that did not come asks nobody, it is tried again tomorrow (the old id stays)
+    pytest.param({"ACTION": "fix", "DEFERRED": "false", "KIND": "main"}, "false", "person", id="env1-true-person"),
     ({"ACTION": "fix", "DEFERRED": "false", "KIND": "lists"}, "false", "person"),
     ({"ACTION": "issue", "DEFERRED": "", "KIND": "lists"}, "false", "person"),
     ({"ACTION": "issue", "DEFERRED": "", "KIND": "infra"}, "true", None),
+    # (new cases last: the ids of the ones above stay)
+    ({"ACTION": "retry", "DEFERRED": "", "KIND": "update"}, "false", "person"),
+    ({"ACTION": "issue", "DEFERRED": "", "KIND": "security"}, "true", "person"),
 ])
 def test_the_report_asks_nobody_when_the_work_waits(tmp_path, env, tell, outcome):
     if not shutil.which("jq"):

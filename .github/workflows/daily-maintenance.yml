@@ -340,8 +340,11 @@ jobs:
           eval "$(python3 -I -c 'import json,shlex,sys; m=json.load(open(sys.argv[1])); print("push=%s seen=%s" % (shlex.quote(str(m["push"]).lower()), shlex.quote(m["seen"])))' "$cand/meta.json")"
           if [ "$push" = "true" ]; then
             token="$GH_TOKEN"
-            # the workflows' pins: GitHub refuses workflow changes to the workflow's own token
-            if [ "${ID#ci-}" != "$ID" ] && [ -n "$WORKFLOW_TOKEN" ]; then token="$WORKFLOW_TOKEN"; fi
+            # AUTOMAT: the owner's IKE_WORKFLOW_TOKEN for every candidate when it is set: the pull request's own
+            # Tests, Security and Arch Linux then start (a push of the workflow's token starts none, and main's
+            # required check "tests" stays "expected"); and for the workflows' pins GitHub refuses workflow
+            # changes to the workflow's own token. Only in this step: no AI, no code of others runs here
+            if [ -n "$WORKFLOW_TOKEN" ]; then token="$WORKFLOW_TOKEN"; fi
             auth=$(printf 'x-access-token:%s' "$token" | base64 -w0)
             if ! git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" \
                 push --force-with-lease="refs/heads/$BRANCH:$seen" origin "refs/ike/candidate:refs/heads/$BRANCH"; then
@@ -373,9 +376,11 @@ jobs:
               retry gh pr comment "$pr" --body "A new candidate was pushed. Tests, Security and Arch Linux are running; when every check passes and it is fully verified, the workflow merges it by itself (tools/automerge.py), otherwise it says here why it waits."
             fi
           else
-            retry gh pr create --draft --base main --head "$BRANCH" --title "$title" --label maintenance --body-file "$body"
+            retry env GH_TOKEN="${WORKFLOW_TOKEN:-$GH_TOKEN}" gh pr create --draft --base main --head "$BRANCH" --title "$title" --label maintenance --body-file "$body"
           fi
-          if [ "$push" = "true" ]; then
+          if [ -n "$WORKFLOW_TOKEN" ]; then
+            echo "Pushed with the owner's token: the pull request's own Tests, Security and Arch Linux start"
+          elif [ "$push" = "true" ]; then
             retry gh workflow run tests.yml --ref "$BRANCH"
             retry gh workflow run security.yml --ref "$BRANCH" || echo "::warning::the security checks could not be started"
             retry gh workflow run arch.yml --ref "$BRANCH" || echo "::warning::arch.yml could not be started (tools/automerge.py starts it)"

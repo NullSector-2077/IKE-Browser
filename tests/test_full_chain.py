@@ -15,6 +15,7 @@ the workflows call them, with GitHub's and the upstreams' answers stood in:
 Each new protective rule has a test here that fails without it.
 """
 
+import datetime as dt
 import importlib.util
 import json
 import re
@@ -429,7 +430,8 @@ def test_an_action_pin_takes_the_tool_path_and_merges(tmp_path):
            "_attempts": 0, "_engine_update": False}
     p = plan_tool.decide(run, [{"name": "tests", "conclusion": "failure",
                                 "steps": [{"name": "Lint", "conclusion": "failure"}]}], "")
-    assert p["action"] == "issue" and "never edits a workflow" in p["reason"]
+    # an AI never edits a workflow (tier B): the candidate stays open and is tried again, nobody is asked
+    assert p["action"] == "retry" and "never edits a workflow" in p["reason"] and "stays open" in p["reason"]
 
 
 def test_the_tools_pins_and_dependabot_are_decided_and_documented():
@@ -551,9 +553,15 @@ def test_the_builders_path_is_planned_and_capped(tmp_path):
     assert (p["action"], p["kind"], p["mode"], p["builder"], p["push_branch"]) == (
         "fix", "builder", "builder", "darkreader", "automation/builder/darkreader")
     assert (tmp_path / "related.txt").read_text() == "tools/build-darkreader.py\n"
+    # the cap is per day (2026-11-22): today's attempts used up, it stays open and goes on tomorrow
     tired = plan_tool.plan_builder(REPO, "builder/darkreader/2026-11-23", "77", tmp_path, api=api,
-                                   tip_of=lambda b: "t" * 40, attempts_of=lambda b: plan_tool.ISOLATED_ATTEMPTS)
-    assert tired["action"] == "issue" and "needs-person" in tired["reason"] and "kept" in tired["reason"]
+                                   tip_of=lambda b: "t" * 40, attempts_of=lambda b: plan_tool.ISOLATED_ATTEMPTS,
+                                   today_of=lambda b: plan_tool.ISOLATED_ATTEMPTS)
+    assert tired["action"] == "retry" and "tries again tomorrow" in tired["reason"] and "stays" in tired["reason"]
+    again = plan_tool.plan_builder(REPO, "builder/darkreader/2026-11-23", "77", tmp_path, api=api,
+                                   tip_of=lambda b: "t" * 40, attempts_of=lambda b: plan_tool.ISOLATED_ATTEMPTS,
+                                   today_of=lambda b: 0)
+    assert again["action"] == "fix" and again["attempt"] == str(plan_tool.ISOLATED_ATTEMPTS + 1)
     assert plan_tool.plan_builder(REPO, "builder/../x", "77", tmp_path, api=api)["action"] == "skip"
 
 
@@ -631,8 +639,13 @@ def test_more_attempts_rotate_the_free_providers_and_stop_at_the_cap():
            "_main_tip": "m" * 40, "_attempts": providers.FIX_ATTEMPTS, "_engine_update": False}
     p = plan_tool.decide(run, [{"name": "tests", "conclusion": "failure",
                                 "steps": [{"name": "Lint", "conclusion": "failure"}]}], "")
-    assert p["action"] == "issue" and "needs-person" in p["reason"] and "branch is kept" in p["reason"]
-    # the ledger at the cap: needs-person, the owner told once
+    # the cap is per day: nothing is closed, no one is asked; the next day it goes on, another provider first
+    assert p["action"] == "retry" and "stays open" in p["reason"] and "tries again tomorrow" in p["reason"]
+    p = plan_tool.decide(dict(run, _attempts_today=0), [{"name": "tests", "conclusion": "failure",
+                                                        "steps": [{"name": "Lint", "conclusion": "failure"}]}], "")
+    assert p["action"] == "fix" and p["attempt"] == str(providers.FIX_ATTEMPTS + 1)
+    assert plan_tool.first_provider(p, 1) == providers.first_provider(providers.FIX_ATTEMPTS + 2)
+    # the ledger at the cap: retrying (never needs-person), an informational note only after days
     inv = {"components": [{"id": "integrated:Dark Reader", "kind": "integrated", "name": "Dark Reader",
                            "installed": "4.9.1", "available": "4.9.2", "result": "update available",
                            "origin": ["ike/resources"]}], "findings": []}
@@ -645,10 +658,16 @@ def test_more_attempts_rotate_the_free_providers_and_stop_at_the_cap():
     ledger = ledger_tool.update(ledger, inv, status, now=ledger_tool.parse_time("2026-11-23T08:00:00Z"),
                                 notices=told)
     entry = ledger["entries"]["integrated:Dark Reader@4.9.2"]
-    assert entry["state"] == "needs-person" and "kept" in entry["reason"] and len(told) == 1
+    assert entry["state"] == "retrying" and "stays open" in entry["reason"] and told == []
     told2 = []
-    ledger_tool.update(ledger, inv, status, now=ledger_tool.parse_time("2026-11-24T08:00:00Z"), notices=told2)
-    assert told2 == []                                                     # told once
+    days = ledger_tool.RETRY_NOTE_DAYS + 1
+    for day in range(1, days + 2):
+        ledger = ledger_tool.update(ledger, inv, status, notices=told2,
+                                    now=ledger_tool.parse_time("2026-11-23T08:00:00Z") + dt.timedelta(days=day))
+    entry = ledger["entries"]["integrated:Dark Reader@4.9.2"]
+    assert entry["state"] == "retrying" and entry["retries"] == days + 2
+    assert len(told2) == 1 and "nota informativa" in told2[0]              # told once, and it asks nothing
+    assert "retrying (%d)" % entry["retries"] in ledger_tool.render(ledger)
     # the workflow: the attempt's first provider only when it has a key, and the CHANGELOG line
     af = (WORKFLOWS / "autofix.yml").read_text()
     assert "HAS_GROQ: ${{ secrets.GROQ_API_KEY != '' }}" in af and '--first $(cat "$RUNNER_TEMP/first")' in af

@@ -1,0 +1,44 @@
+[Adblock Plus 2.0]
+! Title: I.K.E. no-regression fixture, in place of EasyList
+! A small fixed sample of rules in the forms EasyList uses (GPL-3.0-or-later / CC BY-SA 3.0), for
+! tools/no-regression.py only: the same rules on main and on a candidate, so
+! what changes between the two is I.K.E.'s code and engine, never the list.
+! Not a list to use.
+||doubleclick.net^
+||googlesyndication.com^
+||adnxs.com^
+||amazon-adsystem.com^
+||criteo.com^$third-party
+||taboola.com^$third-party
+||outbrain.com^$third-party
+||pubmatic.com^
+||rubiconproject.com^
+||adsrvr.org^
+||openx.net^
+||moatads.com^
+||ads.example^
+/banner-ad.
+/ads/banner_
+-ad-300x250.
+/adframe.$subdocument
+||cdn.news.example/ads/
+@@||cdn.news.example/ads/allowed-by-exception.js$script,domain=news.example
+||googletagservices.com/tag/js/gpt.js$script,redirect=noopjs
+||youtube.com/get_video_info?*adformat=$xmlhttprequest
+||youtube.com/pagead/
+||youtube.com/get_midroll_info
+##.ad-banner
+##.adsbygoogle
+###ad-top
+##div[id^="div-gpt-ad"]
+##[data-ad-slot]
+##.ad-banner-allowed
+news.example##.sponsored-box
+news.example###sidebar-promo
+news.example#@#.ad-banner-allowed
+shop.example##.promoted-listing
+youtube.com##ytd-ad-slot-renderer
+youtube.com##ytd-promoted-sparkles-web-renderer
+youtube.com###masthead-ad
+youtube.com##.video-ads
+youtube.com##ytd-banner-promo-renderer

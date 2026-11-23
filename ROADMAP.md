@@ -23,8 +23,10 @@ are agreed with the project owner; do not reopen them without asking.
   owner's standing order), ChatGPT only on the owner's order; the
   automation's own PRs (daily candidate, AutoFix fix, isolated update) are
   merged by the workflow's own code from `main` only when fully verified
-  (the verified merge, below), everything else waits for the owner (see
-  CLAUDE.md); signing and publishing stay with the owner. The repository is
+  (the verified merge, below; since AUTOMAT also an AI's fix of protected
+  code, under the static guard and two AI reviews), ChatGPT's and people's
+  pull requests wait for the owner (see CLAUDE.md); signing and publishing
+  stay with the owner. The repository is
   public: never commit personal data, keys or secrets.
 - The private signing key stays with the owner: never in the repository, in a
   package or on GitHub Actions.
@@ -64,6 +66,59 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Owner's decisions
 
+- 2026-11-23, **the AUTOMAT drill** (the owner's request: "un test fake
+  fatto bene, molto complicato, uno scenario reale di un aggiornamento
+  massivo di Qt e di tutte le altre componenti installabili, per vedere se
+  le IA riescono a risolvere il problema"). One command,
+  `gh workflow run automat-drill.yml --ref main`, starts a simulated major
+  release of Qt, PyQt and jeepney on `automation/update/drill-qt` (six
+  breaks in I.K.E.'s code, one in a protected module), and AUTOMAT's real
+  chain fixes it; it is never merged, never in the signing notice or the
+  ledger, and mails the owner once, at its end, with the report
+  (`tools/automat-drill.py`, docs/MAINTENANCE.md "The AUTOMAT drill").
+- 2026-11-23, **AUTOMAT, part 2** (what the first part left unbuilt; the
+  owner wants nothing left behind). Built, all inert towards `main` until a
+  check passes: the notice "DEVI AIUTARCI CON CHATGPT" after
+  `AUTOMAT_CHATGPT_AFTER` (default 4) failed attempts in a row on one error,
+  or two days without any free provider, with a ready message for ChatGPT
+  (`tools/automat-help.py`); the budget of each provider's free quota, its
+  limits as data (`tools/ai-quota.json`, unverified ones marked) corrected by
+  the live headers, a reserve kept for the reviewers (`tools/ai-quota.py`);
+  deterministic recipes before any AI (`tools/automat-recipes.py`); the
+  upstream change in the context (`tools/upstream-diff.py`); the inner loop
+  (strict patch format, cheap checks, the errors back to the same AI, the
+  failing tests first: `tools/autofix-inner.py`, the job `try`); routing by
+  kind of task and loop detection (`tools/automat-route.py`). The static
+  guard also refuses a new statement that binds an old name again. Two
+  switches, **off until the owner turns them on** in GitHub's settings:
+  `AUTOMAT_CHATGPT_AUTOMERGE` (a verified ChatGPT fix is adopted and merges
+  under the gate of an AI's fix) and `AUTOMAT_TIER_B` (tier B in its
+  narrowest form: a workflow's pinned versions; statements added to
+  `ike/app.py`, `ike/updater.py`, `ike_boot.py` outside their frozen
+  functions; three reviewers). Still to do by a person: check each
+  provider's limits against its documentation and mark them verified
+  (docs/MAINTENANCE.md, "AUTOMAT, part 2").
+- 2026-11-22, **AUTOMAT**, the full automation (the owner's name for the
+  whole automatic maintenance; in the owner's words: "intervento umano
+  limitato solo alla firma... 100% lavoro in team di ia", and "niente
+  annullamenti automatici... niente deve rimanere indietro"). The owner's
+  only step is the signature. An AI fix of tier-A protected code (the
+  ad-blocking adapter, the safety modules, I.K.E.'s page scripts) merges by
+  itself when it is fully verified, "Nothing gets worse" (no-regression)
+  passed, the static guard accepts it (`tools/fix-guard.py`: only statements
+  added) and two independent AI reviewers of other providers approved that
+  commit (`tools/ai-review.py`). Tier B (workflows, tests, tools, sandbox and
+  start, signing and updates, the package, YouTube's ad blocking) is never an
+  AI's. Nothing waits for a person, nothing is closed: the attempts are
+  capped per day and go on the next day ("retrying" in the ledger, with
+  AUTOMAT's memory of what was tried, `tools/automat-memory.py`); a refresh
+  conflict or a second version raise is resolved by a rebuild or by main
+  merged in; only a security finding with no safe fix stays blocked and the
+  owner is told. Every external component is declared in `components.json`
+  and updated by the same chain (a guard fails when one is not). The signing
+  notice lists everything the signature covers. For AUTOMAT to run with no
+  one, the owner sets the repository secret `IKE_WORKFLOW_TOKEN` once
+  (docs/MAINTENANCE.md, "AUTOMAT: the full automation").
 - 2026-11-22, everything automatic and verified converges into `main`, then
   one notice to sign: several verified merges go into the same unpublished
   version (a second raise on top waits for a person); a verified candidate

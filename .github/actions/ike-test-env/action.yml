@@ -1,5 +1,6 @@
-# The environment of the automatic tests (tests.yml, and security.yml's sandbox
-# job; the automatic fix runs no tests itself, GitHub runs tests.yml on its fix):
+# The environment of the automatic tests (tests.yml, security.yml's sandbox job,
+# and the automatic fix's job "try", which runs the tests that failed on a fix
+# before GitHub runs the whole suite on it; that job holds no key):
 # Python with the packages of the tests, Rust (the runner's own rustup, no
 # third-party action), the system libraries Qt WebEngine needs without a
 # display, the packaging tools, and the AdBlock engine built into vendor/adblock.
@@ -39,6 +40,17 @@ runs:
       shell: bash
       run: |
         python -m pip install --disable-pip-version-check -q -r tools/test-requirements.txt
+    # An AUTOMAT drill (tools/automat-drill.py): only a drill's branch carries tools/automat-drill.active,
+    # and only there this Python gets the drill's simulated major release of Qt (tools/automat-drill-shim.py,
+    # active only for processes started from the drill's checkout). Anywhere else nothing is installed.
+    - name: The AUTOMAT drill's simulated release (a drill's branch only)
+      shell: bash
+      run: |
+        if [ -f tools/automat-drill.active ]; then
+          python tools/automat-drill.py shim --install --root .
+        else
+          echo "not a drill's branch: the test environment is the real one"
+        fi
     - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: |

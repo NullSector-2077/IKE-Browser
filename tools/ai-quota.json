@@ -1,0 +1,78 @@
+{
+ "schema": 1,
+ "about": "The free quota of each AI provider of AUTOMAT, as data (docs/MAINTENANCE.md, \"The budget of the free quotas\"). tools/ai-quota.py reads it; change a number here, never in code. Every number has its source. \"verified\": false means the number could not be checked against the provider's documentation on the day it was written: it is a conservative value (lower than what the provider is believed to allow), and the live rate-limit headers and 429 answers of each call correct the budget at run time. A person who checks a number against the provider's page sets it, with the date, and \"verified\": true.",
+ "checked": "2026-11-23",
+ "chars_per_token": 3,
+ "reserve": {
+  "reviews": 2,
+  "reviews_tier_b": 3,
+  "review_requests": 1,
+  "review_tokens": 9000,
+  "source": "tools/ai-review.py asks two independent providers (three for a tier-B change) once each; one review is the diff, the failure and the checklist (MAX_DIFF, FAILURE_SHOWN, ANSWER_TOKENS), estimated here at 9,000 tokens"
+ },
+ "share_per_candidate": 0.5,
+ "share_source": "the owner's request of 2026-11-22: one candidate cannot drain a provider; at most half of a provider's daily budget goes to one candidate's fixes",
+ "routing": {
+  "strong": ["Antigravity", "OpenRouter", "Z.AI", "Groq"],
+  "fast": ["Groq", "Z.AI", "OpenRouter", "Antigravity"],
+  "min_samples": 3,
+  "temperature": 0.1,
+  "answer_tokens": {"simple": 2000, "hard": 6000},
+  "source": "a starting order only (strong: the agent that reads files and the largest context first; fast: the quickest answers first), unverified; tools/automat-route.py replaces it with the success rate AUTOMAT's memory records per provider and kind of task once a pair has min_samples attempts"
+ },
+ "providers": {
+  "Antigravity": {
+   "what": "Gemini's free tier, used by the Antigravity agent (one session reads and edits files in several requests) and by the reviewers through the Gemini API",
+   "requests_per_day": 20,
+   "requests_per_minute": 5,
+   "tokens_per_day": null,
+   "tokens_per_minute": 100000,
+   "session_requests": 10,
+   "verified": false,
+   "source": "requests_per_day and session_requests: this repository's own note of 2026-11-19 (.github/autofix/prompt.md: \"about 20 model requests a day\", \"at most 10 steps\"). The others: ai.google.dev/gemini-api/docs/rate-limits could not be reached on 2026-11-23; conservative values",
+   "headers": {},
+   "day_words": ["PerDay", "per day", "daily"]
+  },
+  "Groq": {
+   "what": "Groq's free plan (OpenAI-compatible)",
+   "requests_per_day": 200,
+   "requests_per_minute": 20,
+   "tokens_per_day": 100000,
+   "tokens_per_minute": 6000,
+   "verified": false,
+   "source": "tokens_per_minute: below this repository's own note (tools/ai-providers.py: \"about 8,000 tokens a minute\"). The others: console.groq.com/docs/rate-limits could not be reached on 2026-11-23; conservative values",
+   "headers": {
+    "requests": {"limit": "x-ratelimit-limit-requests", "remaining": "x-ratelimit-remaining-requests", "reset": "x-ratelimit-reset-requests", "window": "day"},
+    "tokens": {"limit": "x-ratelimit-limit-tokens", "remaining": "x-ratelimit-remaining-tokens", "reset": "x-ratelimit-reset-tokens", "window": "minute"}
+   },
+   "day_words": ["per day", "(RPD)", "(TPD)", "daily"]
+  },
+  "Z.AI": {
+   "what": "Z.AI's free GLM Flash models (OpenAI-compatible)",
+   "requests_per_day": 100,
+   "requests_per_minute": 2,
+   "tokens_per_day": 400000,
+   "tokens_per_minute": 60000,
+   "verified": false,
+   "source": "docs.z.ai could not be reached on 2026-11-23, and no number of its free models is recorded in this repository; conservative values",
+   "headers": {
+    "requests": {"limit": "x-ratelimit-limit-requests", "remaining": "x-ratelimit-remaining-requests", "reset": "x-ratelimit-reset-requests", "window": "minute"},
+    "tokens": {"limit": "x-ratelimit-limit-tokens", "remaining": "x-ratelimit-remaining-tokens", "reset": "x-ratelimit-reset-tokens", "window": "minute"}
+   },
+   "day_words": ["per day", "daily", "1302", "1305"]
+  },
+  "OpenRouter": {
+   "what": "OpenRouter's \":free\" models only (tools/ai-providers.py FREE_SUFFIX)",
+   "requests_per_day": 50,
+   "requests_per_minute": 10,
+   "tokens_per_day": null,
+   "tokens_per_minute": null,
+   "verified": false,
+   "source": "openrouter.ai/docs/api-reference/limits could not be reached on 2026-11-23; conservative values (the lower daily limit of an account without purchased credits, as remembered, not checked)",
+   "headers": {
+    "requests": {"limit": "x-ratelimit-limit", "remaining": "x-ratelimit-remaining", "reset": "x-ratelimit-reset", "window": "day"}
+   },
+   "day_words": ["per day", "free-models-per-day", "daily"]
+  }
+ }
+}
