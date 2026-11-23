@@ -1043,6 +1043,7 @@
 "Site storage: %d": "தளச் சேமிப்பகம்: %d",
 "Cache: %d": "தற்காலிக நினைவகம்: %d",
 "Permissions kept: %s": "வைக்கப்பட்ட அனுமதிகள்: %s",
+"Not secure": "பாதுகாப்பற்றது",
 "Print or save as PDF": "அச்சிடு அல்லது PDF ஆகச் சேமி",
 "Print the page, or save it as a PDF document": "பக்கத்தை அச்சிடவும், அல்லது PDF ஆவணமாகச் சேமிக்கவும்",
 "Send this page to a phone or a computer paired with KDE Connect": "இந்தப் பக்கத்தை KDE Connect உடன் இணைக்கப்பட்ட தொலைபேசிக்கோ கணினிக்கோ அனுப்பவும்",

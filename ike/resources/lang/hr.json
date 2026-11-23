@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Pohrana stranice: %d",
 "Cache: %d": "Predmemorija: %d",
 "Permissions kept: %s": "Zadržana dopuštenja: %s",
+"Not secure": "Nije sigurno",
 "Print or save as PDF": "Ispiši ili spremi kao PDF",
 "Print the page, or save it as a PDF document": "Ispiši stranicu ili je spremi kao PDF dokument",
 "Send this page to a phone or a computer paired with KDE Connect": "Pošalji ovu stranicu na telefon ili računalo upareno putem KDE Connecta",

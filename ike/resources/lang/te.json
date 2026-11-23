@@ -1043,6 +1043,7 @@
 "Site storage: %d": "సైట్ నిల్వ: %d",
 "Cache: %d": "కాష్: %d",
 "Permissions kept: %s": "ఉంచిన అనుమతులు: %s",
+"Not secure": "సురక్షితం కాదు",
 "Print or save as PDF": "ముద్రించు లేదా PDF గా సేవ్ చేయి",
 "Print the page, or save it as a PDF document": "పేజీని ముద్రించండి, లేదా PDF పత్రంగా సేవ్ చేయండి",
 "Send this page to a phone or a computer paired with KDE Connect": "ఈ పేజీని KDE Connect తో జత చేసిన ఫోన్ లేదా కంప్యూటర్‌కు పంపండి",

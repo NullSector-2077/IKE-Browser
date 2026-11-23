@@ -1043,6 +1043,7 @@
 "Site storage: %d": "সাইটের সঞ্চয়স্থান: %d",
 "Cache: %d": "ক্যাশ: %d",
 "Permissions kept: %s": "রাখা অনুমতি: %s",
+"Not secure": "নিরাপদ নয়",
 "Print or save as PDF": "প্রিন্ট বা PDF হিসেবে সংরক্ষণ",
 "Print the page, or save it as a PDF document": "পৃষ্ঠাটি প্রিন্ট করুন, বা PDF নথি হিসেবে সংরক্ষণ করুন",
 "Send this page to a phone or a computer paired with KDE Connect": "KDE Connect দিয়ে যুক্ত ফোন বা কম্পিউটারে এই পৃষ্ঠাটি পাঠান",

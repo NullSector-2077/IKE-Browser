@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Կայքի պահոց՝ %d",
 "Cache: %d": "Քեշ՝ %d",
 "Permissions kept: %s": "Պահպանված թույլտվություններ՝ %s",
+"Not secure": "Անապահով",
 "Print or save as PDF": "Տպել կամ պահել որպես PDF",
 "Print the page, or save it as a PDF document": "Տպել էջը կամ պահել այն որպես PDF փաստաթուղթ",
 "Send this page to a phone or a computer paired with KDE Connect": "Ուղարկել այս էջը KDE Connect-ով զուգակցված հեռախոսին կամ համակարգչին",

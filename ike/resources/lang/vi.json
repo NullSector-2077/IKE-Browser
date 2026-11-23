@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Bộ nhớ trang: %d",
 "Cache: %d": "Bộ nhớ đệm: %d",
 "Permissions kept: %s": "Quyền được giữ lại: %s",
+"Not secure": "Không bảo mật",
 "Print or save as PDF": "In hoặc lưu thành PDF",
 "Print the page, or save it as a PDF document": "In trang, hoặc lưu thành tài liệu PDF",
 "Send this page to a phone or a computer paired with KDE Connect": "Gửi trang này đến điện thoại hoặc máy tính đã ghép đôi bằng KDE Connect",

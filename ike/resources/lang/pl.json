@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Pamięć witryny: %d",
 "Cache: %d": "Pamięć podręczna: %d",
 "Permissions kept: %s": "Zachowane uprawnienia: %s",
+"Not secure": "Niezabezpieczona",
 "Print or save as PDF": "Drukuj lub zapisz jako PDF",
 "Print the page, or save it as a PDF document": "Wydrukuj stronę lub zapisz ją jako dokument PDF",
 "Send this page to a phone or a computer paired with KDE Connect": "Wyślij tę stronę na telefon lub komputer sparowany przez KDE Connect",

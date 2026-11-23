@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Saidi salvestusruum: %d",
 "Cache: %d": "Vahemälu: %d",
 "Permissions kept: %s": "Säilitatud load: %s",
+"Not secure": "Pole turvaline",
 "Print or save as PDF": "Prindi või salvesta PDF-ina",
 "Print the page, or save it as a PDF document": "Prindi leht või salvesta see PDF-dokumendina",
 "Send this page to a phone or a computer paired with KDE Connect": "Saada see leht KDE Connectiga seotud telefoni või arvutisse",

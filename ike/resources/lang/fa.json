@@ -1043,6 +1043,7 @@
 "Site storage: %d": "فضای ذخیره‌سازی سایت: %d",
 "Cache: %d": "حافظهٔ نهان: %d",
 "Permissions kept: %s": "مجوزهای نگه‌داشته‌شده: %s",
+"Not secure": "ناامن",
 "Print or save as PDF": "چاپ یا ذخیره به‌صورت PDF",
 "Print the page, or save it as a PDF document": "چاپ صفحه یا ذخیرهٔ آن به‌صورت سند PDF",
 "Send this page to a phone or a computer paired with KDE Connect": "ارسال این صفحه به تلفن یا رایانه‌ای که با KDE Connect جفت شده است",

@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Sayt yaddaşı: %d",
 "Cache: %d": "Keş: %d",
 "Permissions kept: %s": "Saxlanılan icazələr: %s",
+"Not secure": "Təhlükəsiz deyil",
 "Print or save as PDF": "Çap et və ya PDF kimi saxla",
 "Print the page, or save it as a PDF document": "Səhifəni çap et və ya PDF sənədi kimi saxla",
 "Send this page to a phone or a computer paired with KDE Connect": "Bu səhifəni KDE Connect ilə qoşulmuş telefona və ya kompüterə göndər",

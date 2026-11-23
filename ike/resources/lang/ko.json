@@ -1043,6 +1043,7 @@
 "Site storage: %d": "사이트 저장소: %d",
 "Cache: %d": "캐시: %d",
 "Permissions kept: %s": "유지된 권한: %s",
+"Not secure": "안전하지 않음",
 "Print or save as PDF": "인쇄 또는 PDF로 저장",
 "Print the page, or save it as a PDF document": "페이지를 인쇄하거나 PDF 문서로 저장합니다",
 "Send this page to a phone or a computer paired with KDE Connect": "이 페이지를 KDE Connect로 연결된 휴대폰이나 컴퓨터로 보냅니다",

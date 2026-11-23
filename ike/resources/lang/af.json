@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Werfberging: %d",
 "Cache: %d": "Kas: %d",
 "Permissions kept: %s": "Toestemmings behou: %s",
+"Not secure": "Nie veilig nie",
 "Print or save as PDF": "Druk of stoor as PDF",
 "Print the page, or save it as a PDF document": "Druk die bladsy, of stoor dit as 'n PDF-dokument",
 "Send this page to a phone or a computer paired with KDE Connect": "Stuur hierdie bladsy na 'n foon of rekenaar wat met KDE Connect gekoppel is",

@@ -37,7 +37,7 @@ from .i18n import T
 from .shieldpanel import TOOLBAR_SHIELD_GROW, ShieldPanel, shield_icon
 from .tabs import AUDIO_ROLE, TabBar, VTabDelegate, VTabList
 from .uistyle import Switch
-from .urlbar import _URLISH, UrlBar
+from .urlbar import _URLISH, UrlBar, is_not_secure
 from .webview import WebView
 
 NEWTAB = "ike:newtab"
@@ -2010,6 +2010,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         else:
             self.urlbar.lock.setIcon(icon(("globe", "web-browser-symbolic"), SP.SP_FileIcon))
             self.urlbar.lock.setToolTip("")
+        self.urlbar.set_not_secure(is_not_secure(url))
         from .extensions import store_id
         self.store_act.setVisible(bool(store_id(url.toString()))
                                   and bool(self.app.config["experimental_extensions"]))

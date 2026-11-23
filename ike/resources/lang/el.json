@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Αποθήκευση ιστότοπου: %d",
 "Cache: %d": "Προσωρινή μνήμη: %d",
 "Permissions kept: %s": "Άδειες που διατηρούνται: %s",
+"Not secure": "Μη ασφαλές",
 "Print or save as PDF": "Εκτύπωση ή αποθήκευση ως PDF",
 "Print the page, or save it as a PDF document": "Εκτύπωση της σελίδας ή αποθήκευσή της ως έγγραφο PDF",
 "Send this page to a phone or a computer paired with KDE Connect": "Αποστολή αυτής της σελίδας σε τηλέφωνο ή υπολογιστή συζευγμένο με το KDE Connect",

@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Hifadhi ya tovuti: %d",
 "Cache: %d": "Akiba: %d",
 "Permissions kept: %s": "Ruhusa zilizobaki: %s",
+"Not secure": "Si salama",
 "Print or save as PDF": "Chapisha au hifadhi kama PDF",
 "Print the page, or save it as a PDF document": "Chapisha ukurasa, au uhifadhi kama hati ya PDF",
 "Send this page to a phone or a computer paired with KDE Connect": "Tuma ukurasa huu kwa simu au kompyuta iliyooanishwa na KDE Connect",

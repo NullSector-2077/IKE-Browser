@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Gunearen biltegiratzea: %d",
 "Cache: %d": "Cachea: %d",
 "Permissions kept: %s": "Gordetako baimenak: %s",
+"Not secure": "Ez da segurua",
 "Print or save as PDF": "Inprimatu edo gorde PDF gisa",
 "Print the page, or save it as a PDF document": "Inprimatu orria edo gorde PDF dokumentu gisa",
 "Send this page to a phone or a computer paired with KDE Connect": "Bidali orri hau KDE Connect bidez parekatutako telefono edo ordenagailu batera",

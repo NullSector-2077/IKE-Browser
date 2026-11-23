@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Webbplatslagring: %d",
 "Cache: %d": "Cache: %d",
 "Permissions kept: %s": "Behållna behörigheter: %s",
+"Not secure": "Inte säker",
 "Print or save as PDF": "Skriv ut eller spara som PDF",
 "Print the page, or save it as a PDF document": "Skriv ut sidan eller spara den som ett PDF-dokument",
 "Send this page to a phone or a computer paired with KDE Connect": "Skicka den här sidan till en telefon eller dator som är parkopplad med KDE Connect",
