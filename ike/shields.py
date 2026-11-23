@@ -747,7 +747,7 @@ class IkeSchemeHandler(QWebEngineUrlSchemeHandler):
             q = q.replace("+", " ")
             job.redirect(QUrl(self.s.search_url(q)))
             return
-        if path in ("open", "engine", "tile") and not secrets.compare_digest(
+        if path in ("open", "engine", "tile", "greet") and not secrets.compare_digest(
                 QUrlQuery_value(url, "k") or "", self.s.action_key):
             # an address that changes something works only from the new tab
             # page itself, which carries this session's key in its links: a
@@ -761,6 +761,14 @@ class IkeSchemeHandler(QWebEngineUrlSchemeHandler):
             if what in ("settings", "background"):
                 self.s.open_requested.emit(what)
             job.redirect(QUrl("ike:newtab"))
+            return
+        if path == "greet":
+            # the little the greeting remembers, sent home by the new tab page itself (greeting.py)
+            self.s.keep_greeting(QUrlQuery_value(url, "s"))
+            buf = QBuffer(job)
+            buf.setData(QByteArray(b""))
+            buf.open(QIODevice.OpenModeFlag.ReadOnly)
+            job.reply(b"image/gif", buf)
             return
         if path == "engine":
             # an engine chosen in the new tab page's search box: the default from now on
@@ -838,6 +846,7 @@ class Shields(QObject):
         self._media_src = (RES_DIR / "mediahook.js").read_text("utf-8")
         self._consent_src = (RES_DIR / "consent.js").read_text("utf-8")
         # the full name is drawn as paths (tools/make-brand.py), in the colour of the page text
+        self._greeting_js = None
         self._newtab_src = (RES_DIR / "newtab.html").read_text("utf-8").replace(
             "{{wordmark}}", (RES_DIR / "wordmark.svg").read_text("utf-8").strip())
         self._videoads_src = (RES_DIR / "videoads.js").read_text("utf-8")
@@ -963,6 +972,9 @@ class Shields(QObject):
         bg, fg = colors["{{bg}}"], colors["{{fg}}"]
         colors["{{mute}}"] = readable(colors["{{mute}}"], bg, fg)
         colors["{{acc}}"] = readable(colors["{{acc}}"], bg, fg, 3.0)
+        # 1.1.24: the K of "Kontrol" in the wordmark, a light cyan of the shield's family
+        from PyQt6.QtGui import QColor
+        colors["{{k}}"] = readable(QColor("#7df3ff"), bg, fg, 3.0)
         for k, c in colors.items():
             html = html.replace(k, c.name())
         import html as _html
@@ -975,14 +987,22 @@ class Shields(QObject):
         html = html.replace("{{corner}}", corner).replace("{{lang}}", i18n.current().replace("_", "-"))
         from . import effects, newtab
         photo = newtabbg.style(self.config)
+        if photo:
+            # a soft pane behind each group of text, as strong as the photo under it needs: the page
+            # works it out from this grid of the photo (newtabbg.glass_data, newtab.html "glass")
+            data = newtabbg.glass_data(self.config, fg.lightnessF() > bg.lightnessF())
+            if data:
+                photo += ('<script type="application/json" id="glass-data">%s</script>'
+                          % data.replace("<", "\\u003c"))
         html = html.replace("{{background}}", photo)
         app = self.parent()
         for k, v in {
             "{{placeholder}}": _html.escape(T("Search with %s or enter address") % e["name"], quote=True),
             # tiles lift on hover, only with the interface effects on (polish.py)
             "{{fx}}": "fx" if effects.on(self.config) else "",
-            "{{photo}}": " photo" if photo else "",
+            "{{photo}}": " photo glass" if photo else "",
             "{{buttons}}": self._newtab_buttons(),
+            "{{greeting}}": self._newtab_greeting(),
             "{{engines}}": newtab.engines_html(self.config),
             "{{tiles}}": newtab.tiles_html(self.config, getattr(app, "storage", None)),
             "{{stats}}": newtab.stats_html(self.config, T("Protection level"),
@@ -1027,6 +1047,50 @@ class Shields(QObject):
                        '<span class="name">%s</span></a>' % (cls, what, _html.escape(label, quote=True), svg,
                                                             _html.escape(label)))
         return "".join(out)
+
+    def weather_info(self):
+        """What the greeting needs of the weather: {"k": rain | snow | clear, "warm": bool} or {}."""
+        from . import greeting
+        weather = getattr(self.parent(), "weather", None)
+        w = weather.current() if weather is not None and self.config["newtab_weather"] else None
+        return greeting.weather_kind(w["code"], w["temp"], w["unit"], w.get("wind")) if w else {}
+
+    def keep_greeting(self, text):
+        """The state of the greeting, as the page sent it: cleaned, kept only with the greeting on."""
+        from . import greeting
+        if not self.config["newtab_greeting"] or len(text or "") > 8000:
+            return
+        try:
+            state = json.loads(text)
+        except ValueError:
+            return
+        self.config["greeting_state"] = greeting.clean_state(state)
+
+    def greeting_hemisphere(self):
+        """1 north, -1 south, 0 not known: the sign of the weather city's latitude, kept in the settings."""
+        try:
+            lat = float(self.config["weather_lat"])
+        except (TypeError, ValueError):
+            return 0
+        return 1 if lat > 0 else -1 if lat < 0 else 0
+
+    def _newtab_greeting(self):
+        """The greeting of the new tab page (1.1.24): empty when it is switched off. The page
+        writes it from the clock; the words come in as JSON data, never as script."""
+        if not self.config["newtab_greeting"]:
+            return ""
+        from . import __version__, greeting
+        from .i18n import T
+        cfg = self.config
+        if self._greeting_js is None:
+            self._greeting_js = (RES_DIR / "greeting.js").read_text("utf-8")
+        return ('<div class="greet" id="greet" dir="auto"><div class="greet-t" id="greet-t"></div>'
+                '<div class="greet-l" id="greet-l"></div></div>'
+                '<script type="application/json" id="greet-data">%s</script>'
+                '<script>%s</script>'
+                % (greeting.page_data(T, self.weather_info(), self.greeting_hemisphere(), __version__,
+                                      cfg["newtab_greeting_tone"], cfg["greeting_holidays"],
+                                      cfg["greeting_state"], self.action_key), self._greeting_js))
 
     def weather_text(self):
         """"☁ 12 °C · Cloudy · Rome", or "" (no city, switched off, not known yet)."""

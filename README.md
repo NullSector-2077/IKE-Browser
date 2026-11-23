@@ -133,6 +133,13 @@ profiles: `ike-browser --profile NAME`.
   a wide window); the trackers and ads blocked
   this month; your own photo as its background if you like (kept on the
   computer, never uploaded).
+- A greeting and short friendly messages on the new tab page, worked out in the
+  page itself; to avoid repeating itself, I.K.E. keeps in its own settings only
+  the dates of the first and last visit of the new tab page, the days of use, the
+  streak, the usual hour, the version last seen and the messages shown lately
+  (never a site, an address or your history), nothing leaves your computer, and
+  all of it is off with the switch in Settings → New tab page. Holidays are
+  greeted only for the traditions you choose there (none at first).
 - Toolbar buttons shown, hidden and moved to either side of the address bar
   ("Customise toolbar"); Back, Forward, Home and Reload keep their place at the
   start, and the shield its place inside the address bar, at its end. In a narrow
@@ -204,7 +211,7 @@ I.K.E. has no servers of its own and sends no telemetry. It contacts only:
 | Encrypted DNS provider | only if you turn DNS over HTTPS on | the names of the sites you visit |
 | Google Translate (or the address you set) | only when you translate a page | the address of the page |
 | Google's update service for Chrome components (update.googleapis.com), then Google's download servers (dl.google.com, *.gvt1.com) | only if you ask I.K.E. to install Widevine or to check for a newer one | one request that says only "a Chromium on x64 Linux, engine version N, wants the Widevine component" (as if none were installed; no cookies, no user or installation id, no other component), then a plain download of the package it names; the old dl.google.com/widevine-cdm/ folder only if that offers nothing |
-| Open-Meteo (open-meteo.com), free, no account, no key | weather on the new tab page, only after you choose a city | finding the city: its name, once; then only the city's coordinates (rounded), at most every 30 minutes and only when a new tab is open. Your location is never asked. Can be switched off in Settings → New tab page |
+| Open-Meteo (open-meteo.com), free, no account, no key | weather on the new tab page, only after you choose a city | finding the city: its name, once; then only the city's coordinates (rounded) asking for the temperature, the weather and the wind, at most every 30 minutes and only when a new tab is open. Your location is never asked. Can be switched off in Settings → New tab page |
 | The pages you chose to watch | at the interval you chose, only while I.K.E. is open | a normal page load, like a private window: without your cookies |
 | The sites of your user scripts | once a day, if automatic updates are on | a plain download of each script |
 | GitHub (github.com and its download servers) | once a day, unless I.K.E. updates are off | a plain download of the latest release's signed manifest, and of the update when you install it |

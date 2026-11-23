@@ -27,6 +27,30 @@
   (`components.json`, entry `breeze-icons`), and a release that lost one of
   the icons is refused and the set kept as it is. Licence: LGPL-3.0-or-later,
   `licenses/LICENSE.breeze-icons` (tests/test_breeze_icons.py).
+- **A greeting and friendly messages on the new tab page** (top left; at narrow
+  widths it stops short of the Settings button): "Good morning" (05:00),
+  "Good afternoon" (12:00), "Good evening" (18:00), "Good night" (23:00), in the
+  language of I.K.E., and under it at most one short line from a pool of 98
+  messages in groups (the days away or a streak, an update, the small hours, the
+  evening before the clocks change, the first of a season and of a month, the
+  weather the page already has, the week of the page's language, the time of day,
+  fun facts that are true, encouragement). A line comes again only after the
+  others of its group (a shuffled bag per group) and not within three days; it
+  stays for two hours or until the period changes, not on every new tab. In
+  Settings, New tab page: the greeting (on), the tone ("Greetings only" or "Also
+  friendly messages", the default) and "Holidays to remember", one switch per
+  tradition, all off: Christian, Orthodox Christian, Islamic, Jewish, Hindu,
+  Buddhist, Lunar New Year, Nowruz and the civil New Year; I.K.E. never guesses
+  them. The days come from the engine's own calendars (Umm al-Qura, Hebrew,
+  Chinese) and the computus for Easter, a small table for Diwali, Holi, Vesak and
+  the Lunar New Year of some years (`ike/resources/holidays.json`, to be
+  refreshed). Worked out in the page; kept in I.K.E.'s own settings and nowhere
+  else: the first and last day, the days of use, the streak, the usual hour of
+  the first opening, the version seen and the messages shown; nothing is asked of
+  the network (the wind speed joins the temperature and the weather code in the
+  weather request). The words go into the page as data, never as script
+  (`ike/greeting.py`, `ike/resources/greeting.js`, tests/test_greeting.py). The
+  "Add" tile is as visible as the Settings button.
 - **xdg-utils is no longer used** (its Arch advisory AVG-1420 has no fix and
   stopped every automatic merge): a downloaded file, a folder or a link
   (mailto:, magnet:...) goes to the XDG desktop portal
