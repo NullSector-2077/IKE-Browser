@@ -90,6 +90,12 @@ def release_notes(changelog_text, version):
     return m.group(1).strip() + "\n"
 
 
+def check_runs_path(sha, name):
+    """The API path of the checks of a commit that have this name (all of them, whatever else ran)."""
+    from urllib.parse import quote
+    return "repos/%s/commits/%s/check-runs?check_name=%s&filter=all&per_page=100" % (REPO, sha, quote(name))
+
+
 def tests_passed(check_runs, name=CHECK_NAME):
     """'ok', 'running' or 'failed' for the check `name` of a commit."""
     runs = [r for r in check_runs if r.get("name") == name]
@@ -169,9 +175,11 @@ def publish(a):
     say("Versione %s, pacchetto %s, commit %s" % (version, pkgrel, sha[:10]))
 
     say("Controllo che i test di GitHub siano passati su questo commit")
-    checks = json.loads(run(["gh", "api", "repos/%s/commits/%s/check-runs?per_page=100" % (REPO, sha)]))
-    # the tests, and the security tests with the sandbox on (review 2 of 1.1.19, H3)
+    # the tests, and the security tests with the sandbox on (review 2 of 1.1.19, H3); each asked by
+    # its name: a commit of main carries more than 100 checks (the automation's own runs), and the
+    # first page of all of them may not hold "tests" at all (1.1.23: "not started" although it passed)
     for name, what in ((CHECK_NAME, "i test"), ("sandbox", "i test di sicurezza (sandbox)")):
+        checks = json.loads(run(["gh", "api", check_runs_path(sha, name)]))
         state = tests_passed(checks.get("check_runs", []), name)
         if state != "ok":
             raise Stop({"missing": "%s non sono ancora partiti su questo commit" % what,

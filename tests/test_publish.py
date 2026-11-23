@@ -95,3 +95,14 @@ def test_nothing_secret_and_no_force():
     assert "--target" in text and "--dry-run" in text
     # the private key is only handed to make-release.py, never read here
     assert "load_key" not in text and "read_bytes" not in text
+
+
+def test_each_check_is_asked_by_its_name():
+    """1.1.23: a commit of main carried 112 checks; the first 100 held no "tests", and the
+    publication stopped with "not started" although the tests had passed. Each check is now
+    asked by its own name."""
+    path = publish.check_runs_path("a" * 40, "tests")
+    assert "check_name=tests" in path and "/commits/" + "a" * 40 + "/check-runs" in path
+    assert "check_name=sandbox" in publish.check_runs_path("a" * 40, "sandbox")
+    src = (publish.ROOT / "tools" / "publish.py").read_text("utf-8")
+    assert "check-runs?per_page=100\" % (REPO, sha)" not in src
