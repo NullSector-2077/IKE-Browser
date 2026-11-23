@@ -349,7 +349,7 @@ def test_toolbar_buttons_to_add(run_ike, tmp_path):
     assert out["zoom_menu"] == ["Zoom in", "Zoom out", "Actual size"]
     assert out["print_menu"] == ["Print…", "Save as PDF…"]
     # no KDE Connect here: one entry that says so, disabled
-    assert len(out["send_menu"]) == 1 and out["send_menu"][0][1] is False
+    assert out["send_menu"][0][1] is False and out["send_menu"][-1] == ["Desktop integration", True]
     assert out["popup"] == ["InstantPopup"] * 3
     assert out["calls"] == ["bookmarks", "resources"]
     assert out["resources_off"] is False and out["resources_on"] is True

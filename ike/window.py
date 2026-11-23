@@ -1161,8 +1161,14 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if v is not None and not self.private:
             url = getattr(v, "pending_url", None) or v.url().toString()
         if not self.app.desktop.fill_send_menu(m, url):
-            a = m.addAction(T("No device paired with KDE Connect, or no web page in this tab"))
+            # with an icon, its text in the column of the other menus' (Oxygen drew it at the edge)
+            a = m.addAction(icon(("dialog-information", "help-about")),
+                            T("No device paired with KDE Connect, or no web page in this tab"))
             a.setEnabled(False)
+        # where "Send to device" is switched on and off (Settings → System)
+        m.addSeparator()
+        m.addAction(icon(("configure", "preferences-system")), T("Desktop integration"),
+                    lambda: self.open_settings("system"))
 
     def _fill_dark_menu(self):
         cfg = self.app.config
