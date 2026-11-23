@@ -117,6 +117,11 @@ def paint_switch(p, rect, on, palette, enabled=True, focus=False, rtl=False, sel
         track = palette.color(R.Highlight) if on else palette.color(R.Mid)
         knob = palette.color(R.HighlightedText) if on else palette.color(R.Base)
         line = palette.color(R.Mid)
+        if not on:
+            # 1.1.24, the owner's report: a switch turned off hardly showed (its border was the colour
+            # of its own track); a thin outline in the text colour, half seen, draws its shape
+            line = QColor(palette.color(R.WindowText))
+            line.setAlphaF(0.45)
     radius = switch_radius(h)
     if focus:
         p.setPen(QPen(palette.color(R.Highlight), 1))

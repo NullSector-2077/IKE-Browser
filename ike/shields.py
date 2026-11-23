@@ -982,7 +982,11 @@ class Shields(QObject):
         if self.config["newtab_clock"]:
             corner += '<div class="clock" id="clock"></div><div class="date" id="date"></div>'
         if self.config["newtab_weather"]:
-            corner += '<div class="weather" id="weather">%s</div>' % _html.escape(self.weather_text())
+            text = self.weather_text()
+            sym, _sp, rest = text.partition(" ") if " " in text else ("", "", text)
+            # 1.1.24: the symbol larger, before the rest (as the page's ikeWeather() does)
+            corner += '<div class="weather" id="weather">%s%s</div>' % (
+                '<span class="wsym">%s</span> ' % _html.escape(sym) if sym else "", _html.escape(rest))
         from . import i18n, newtabbg
         html = html.replace("{{corner}}", corner).replace("{{lang}}", i18n.current().replace("_", "-"))
         from . import timezone

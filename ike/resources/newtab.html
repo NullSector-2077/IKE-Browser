@@ -97,7 +97,8 @@ input:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(-
 @media (prefers-reduced-motion:reduce){.fx .greet{animation:none}}
 .clock{font-size:42px;font-weight:300;line-height:1.1;font-variant-numeric:tabular-nums}
 .date{font-size:13px;color:var(--mute);margin-top:2px}
-.weather{font-size:15px;margin-top:10px}
+.weather{font-size:15px;margin-top:10px;display:flex;align-items:center;justify-content:flex-end;gap:8px}
+.weather .wsym{font-size:2cm;line-height:1}   /* 1.1.24, the owner: about two centimetres */
 .weather:empty{display:none}
 /* 1.1.10: the search engine in use, left in the search box; a click lists the engines */
 .search{position:relative}
@@ -291,7 +292,13 @@ function ikeIconLater(img) {
   } catch (e) {}
   window.ikeWeather = function (text, info) {
     var w = document.getElementById("weather");
-    if (w) w.textContent = text;
+    if (w) {
+      // 1.1.24: the weather's symbol (sun, cloud...) larger, before the rest (text only, never HTML)
+      var cut = text.indexOf(" "), sym = cut > 0 ? text.slice(0, cut) : "", rest = cut > 0 ? text.slice(cut + 1) : text;
+      w.textContent = "";
+      if (sym) { var i = document.createElement("span"); i.className = "wsym"; i.textContent = sym; w.appendChild(i); }
+      w.appendChild(document.createTextNode((sym ? " " : "") + rest));   // the same text as before, read aloud too
+    }
     if (info !== undefined && hi) hi.setWeather(info);
   };
 })();

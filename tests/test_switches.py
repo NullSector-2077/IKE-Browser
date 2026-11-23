@@ -467,3 +467,28 @@ def test_switches_are_squared_with_rounded_corners_and_a_little_smaller():
     top = H / 2 - side / 2
     assert near(img, int(right) - 2, int(top) + 1, QColor("#ffffff")), \
         img.pixelColor(int(right) - 2, int(top) + 1).name()
+
+
+def test_a_switch_turned_off_has_an_outline():
+    """1.1.24, the owner's report: a switch turned off hardly showed, its border being the colour
+    of its own track; it has a thin outline in the text colour, half seen."""
+    from PyQt6.QtCore import QRect
+    from PyQt6.QtGui import QColor, QImage, QPainter, QPalette
+    from PyQt6.QtWidgets import QApplication
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    app = QApplication.instance() or QApplication([])                  # noqa: F841 (kept alive)
+    from ike.uistyle import paint_switch
+    pal = QPalette()
+    R = QPalette.ColorRole
+    for role, colour in ((R.Highlight, "#3daee9"), (R.HighlightedText, "#ffffff"), (R.Mid, "#bdc3c7"),
+                         (R.Base, "#ffffff"), (R.WindowText, "#232627")):
+        pal.setColor(role, QColor(colour))
+    W, H = 34, 18
+    img = QImage(W, H, QImage.Format.Format_ARGB32)
+    img.fill(QColor("#eff0f1"))
+    p = QPainter(img)
+    paint_switch(p, QRect(0, 0, W, H), False, pal)
+    p.end()
+    edge, inside = img.pixelColor(W - 3, H // 2), img.pixelColor(W - 6, H // 2)
+    assert inside.name() == "#bdc3c7"
+    assert edge.lightness() < inside.lightness() - 30, (edge.name(), inside.name())
