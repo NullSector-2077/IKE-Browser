@@ -2,6 +2,22 @@
 
 ## 1.1.23
 
+- **Widevine installs again** (Settings -> DRM video): Google no longer serves the old zips on
+  dl.google.com/widevine-cdm/ ("HTTP Error 404" in 1.1.22). I.K.E. now asks Chrome's component
+  updater (update.googleapis.com) for the Widevine component, as a Chromium on x64 Linux would and
+  nothing more, downloads the package it names only over https from Google's own servers, and
+  installs it only if its SHA-256 matches the answer, it is signed with Widevine's own key and it
+  holds a 64-bit x86-64 Linux library. The old folder stays only as a fallback; when Google offers
+  nothing, the message says so and names the AUR package chromium-widevine as another way.
+  "Check for a newer version" asks the same question and says when the copy is already the newest.
+- **The application icon can be read when it is small**: at 16, 22, 24, 32,
+  48 and 64 px (the panel, the title bar, the task switcher, the menus) the
+  shield is drawn again for each size's own pixels, the same shield, colours
+  and plate, with larger, bolder letters on whole pixels (at 16 px "IKE", no
+  room for the dots), instead of the large logo shrunk to a grey smudge. They
+  are installed in the icon theme (hicolor) and the window icon carries them
+  all; 128 px and larger and the scalable logo are unchanged
+  (`tools/make-small-icons.py`, tests/test_brand.py).
 - **Dark Reader skips the frames nobody sees**: a frame that is not shown
   (hidden, or a frame of a pixel or two, as trackers and advertisers use)
   no longer starts Dark Reader until it gets a size; shown later, it is dark
@@ -34,6 +50,7 @@
   docs/review/tests-and-performance.md, "1.1.23, Dark Reader and Brave".
 - uBlock Origin scriptlets: 2bc679d99a (2026-11-10) -> 5934db2a04 (2026-11-21) (1 changed, 0 new, 0 removed)
 - Rust crates of the AdBlock engine: 88 crates -> 88 crates (psl 2.1.253 -> 2.1.261; regex 1.13.1 -> 1.13.2; regex-automata 0.4.18 -> 0.4.19; regex-syntax 0.8.11 -> 0.8.12; smallvec 1.16.5 -> 1.16.6)
+- Dark Reader (engine and lists): 4.9.135, lists 30e8a10e65 (2026-11-16) -> 4.9.135, lists 16a1eccbfa (2026-11-21) (lists changed)
 - **No white flash at the start**: the view of a new tab shows the new tab
   page's own colour before the page paints (dark grey on a dark interface),
   at the start and for every new tab; sites in light mode keep white between

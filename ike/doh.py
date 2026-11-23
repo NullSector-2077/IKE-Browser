@@ -216,21 +216,27 @@ def lookup(name):
         raise OSError(str(exc)) from None
 
 
-def urlopen(req, timeout):
+def urlopen(req, timeout, handlers=()):
     """urllib.request.urlopen, connecting to the provider's address for the
-    name while encrypted DNS is on (unless a proxy resolves names itself)."""
+    name while encrypted DNS is on (unless a proxy resolves names itself).
+    handlers: extra urllib handlers, such as one that refuses some redirects."""
     import urllib.parse
     import urllib.request
-    if not active():
+
+    def plain():
+        if handlers:
+            return urllib.request.build_opener(*handlers).open(req, timeout=timeout)
         return urllib.request.urlopen(req, timeout=timeout)
+    if not active():
+        return plain()
     url = req.full_url if isinstance(req, urllib.request.Request) else req
     scheme, host = url.split(":", 1)[0], urllib.parse.urlsplit(url).hostname
     proxies = urllib.request.getproxies()
     if proxies.get(scheme) and not urllib.request.proxy_bypass(host or ""):
-        return urllib.request.urlopen(req, timeout=timeout)
+        return plain()
     from .userscripts import _pinned_handlers
     try:
-        return urllib.request.build_opener(*_pinned_handlers(True)).open(req, timeout=timeout)
+        return urllib.request.build_opener(*handlers, *_pinned_handlers(True)).open(req, timeout=timeout)
     except Exception:
         _tell_problem()
         raise

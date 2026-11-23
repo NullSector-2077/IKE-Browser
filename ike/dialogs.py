@@ -1441,8 +1441,8 @@ class SettingsDialog(QDialog):
             self, T("DRM video (Widevine)"),
             T("Widevine is proprietary software by Google, needed by services such as Netflix. "
               "It is not part of I.K.E.: it will be downloaded from Google's server "
-              "(dl.google.com) and stored in I.K.E.'s folder in your home directory. "
-              "By installing it you accept Google's licence for it. Continue?")
+              "(update.googleapis.com, dl.google.com, gvt1.com) and stored in I.K.E.'s folder "
+              "in your home directory. By installing it you accept Google's licence for it. Continue?")
         ) == QMessageBox.StandardButton.Yes
 
     def _drm_run(self, zip_path=None):
@@ -1452,6 +1452,7 @@ class SettingsDialog(QDialog):
         self.drm_label.setText(T("Installing Widevine…"))
         job = self._drm_job = drm.Installer(self, zip_path)
         job.finished_ok.connect(self._drm_done)
+        job.up_to_date.connect(lambda v: self._drm_refresh(T("Widevine %s is already the newest version.") % v))
         job.failed.connect(lambda why: self._drm_refresh(T("Not installed: %s") % why))
         from . import background
         background.start(job)
