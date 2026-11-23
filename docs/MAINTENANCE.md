@@ -495,15 +495,21 @@ wrapper is compiled by `cargo check`, which runs the crates' build scripts
 and therefore runs as a user of its own with no key, no sudo and no network
 (the crates fetched before). What a check finds goes back to the **same**
 model, at most three answers per model; a refusal for safety still stops
-everything. Then the job `try`, which holds no key and a token that only
-reads, runs **the tests that failed** (those of the group this attempt was
-asked to fix) on the accepted fix, in the tests' own environment: when they
-pass the fix is pushed and GitHub runs the whole suite as before; when they
-still fail it is not pushed, and the job `again` starts the next round with
-the fix and the tests' output for the same AI (at most three rounds). The
-publish job pushes only the bundle whose checksum the guard job wrote. A
-failure with no test to run, or an environment that could not be set up, is
-"not-run": the fix is published and tested by GitHub as before.
+everything; Antigravity's own fix gets the same cheap checks, and what they
+find goes to the reserves. Then the job `try`, which holds no key and a
+token that only reads, runs **the tests that failed** (those of the group
+this attempt was asked to fix) on the accepted fix, in the tests' own
+environment. That job runs what an AI wrote, and the workflow runs for
+`main` (its caches and artifacts are `main`'s), so the tests run as a user of
+their own with no sudo and no network but the machine's own, on a copy of the
+tree: nothing of the job's own processes can be read from there. When the
+tests pass the fix is pushed and GitHub runs the whole suite as before; when
+at least one of them still fails **with the same error** it is not pushed,
+and the job `again` starts the next round with the fix and the tests' output
+for the same AI (at most three rounds). The publish job pushes only the
+bundle whose checksum the guard job wrote. A failure with no test to run, an
+environment that could not be set up, or tests that fail in another way now,
+is "not-run": the fix is published and tested by GitHub as before.
 
 **Routing and going in circles** (`tools/automat-route.py`). The kind of
 task is read from the failure (rust, multi-file, builder, lists, manifest,

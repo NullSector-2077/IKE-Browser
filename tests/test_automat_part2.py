@@ -912,6 +912,11 @@ def test_without_the_reviewers_reserve_the_fix_waits_and_nobody_is_called(tmp_pa
     assert seen == [] and out["result"] == "budget" and out["no_provider"] is True
     assert "la correzione aspetta" in out["message"] and "the reviewers' reserve" in out["budget"]["Groq"]
     assert json.loads(usage.read_text())["calls"] == [] and (repo / "ike/window.py").read_text().endswith("return 10\n")
+    # a provider the weekly check marked unavailable is no reviewer (it names Gemini, behind Antigravity)
+    state.write_text(json.dumps(quota.empty_state()))
+    marked = dict(ENV, AUTOFIX_UNAVAILABLE="Gemini,OpenRouter")
+    out, seen, _repo = reserves(tmp_path / "u", [GOOD], ["--quota-state", str(state)], env=marked)
+    assert seen == [] and out["result"] == "budget" and "the reviewers' reserve" in out["budget"]["Groq"]
     # a 429 that says "per day" spends the provider for the next run too (through the delta)
     out, seen, _repo = reserves(tmp_path / "b", [(429, {"Retry-After": "86400"}, "requests per day (RPD)"), GOOD],
                                 ["--quota-usage", str(usage)])
@@ -1605,6 +1610,92 @@ def test_a_builders_patch_is_re_anchored_by_a_program_when_one_place_is_clear(tm
     out, repo = recipe_run(tmp_path / "b", dict(WRAPPER, **files), PY_FAILURE, ["--builder", "ubo-scriptlets"],
                            "vendor/adblock/__init__.py\n", up=RENAMED)
     assert out["result"] == "none"
+
+
+REAL_TOOLS = ("autofix-agent.py", "autofix-context.py", "autofix-reserve.py", "check-autofix-patch.py", "ai-providers.py",
+              "builder-anchor.py", "fix-guard.py", "component-manifest.py", "tier-b.py", "ci-pins.py", "ai-quota.py",
+              "ai-quota.json", "automat-route.py", "automat-memory.py", "autofix-inner.py", "automat-recipes.py")
+
+
+def fix_job(tmp_path, files, failure, related, memory_data=None, answers=(), env=None):
+    """The real shell of the fix job's steps with the real tools of this commit (a fake sudo, a fake
+    provider answering over HTTP on this machine is not needed: the reserves are given a stub opener
+    through a tiny wrapper only when answers are given). Returns (outputs, temp, repo)."""
+    import os
+
+    import test_automation as ta
+    repo = make_repo(tmp_path, files)
+    (repo / ".git/info/exclude").write_text(".autofix/\n")
+    temp = tmp_path / "runner"
+    (temp / "autofix").mkdir(parents=True)
+    (temp / "prompt.md").write_text("RULES")
+    for name in REAL_TOOLS:
+        (temp / name).write_text((ROOT / "tools" / name).read_text("utf-8"), "utf-8")
+    (temp / "autofix" / "related.txt").write_text(related)
+    (temp / "autofix-inputs").mkdir()
+    for name, text in (("failure.md", failure), ("context.md", "# Code\n"), ("related.txt", related)):
+        (temp / "autofix-inputs" / name).write_text(text)
+    work = tmp_path / "workspace"
+    (work / ".autofix").mkdir(parents=True)
+    (work / ".autofix/failure.md").write_text(failure)
+    (temp / "candidate").write_text("automation/update/test-libs")
+    (temp / "reviewers").write_text("Antigravity,Groq,Z.AI,OpenRouter")
+    (temp / "tried").write_text("")
+    if memory_data is not None:
+        (temp / "memory.json").write_text(json.dumps(memory_data))
+    bin_ = tmp_path / "bin"
+    bin_.mkdir()
+    (bin_ / "sudo").write_text("#!/bin/sh\nexit 0\n")
+    (bin_ / "sudo").chmod(0o755)
+    out_file = tmp_path / "github_output"
+    base = dict(os.environ, RUNNER_TEMP=str(temp), GITHUB_OUTPUT=str(out_file), GITHUB_WORKSPACE=str(work),
+                ALLOW_ADBLOCK="false", SECURITY="false", PATH="%s:%s" % (bin_, os.environ["PATH"]))
+    for key in ("GEMINI_API_KEY", "GROQ_API_KEY", "ZAI_API_KEY", "OPENROUTER_API_KEY"):
+        base.pop(key, None)
+    base.update(env or {})
+    runs = {}
+    for name in ("How the agent is stopped", "Git for the runner on the agent's tree",
+                 "Recipes before any AI (no AI, no key)", "Reserves, then the patch"):
+        script = ta.step_script(name).replace("/srv/autofix/repo", str(repo))
+        runs[name] = subprocess.run(["bash", "-e", "-c", script], env=base, capture_output=True, text=True, timeout=180)
+        assert runs[name].returncode == 0, (name, runs[name].stdout[-1500:], runs[name].stderr[-1500:])
+    outputs = dict(line.split("=", 1) for line in out_file.read_text().splitlines() if "=" in line)
+    return outputs, temp, repo, runs
+
+
+def test_the_real_steps_of_the_fix_job_keep_a_recipes_fix_and_ask_no_ai(tmp_path):
+    files = {"ike/tabs.py": "def title(t):\n    return t\n", "ike/__init__.py": '__version__ = "1.1.10"\n',
+             "tests/test_tabs.py": "def test_title():\n    assert 1\n"}
+    failure = "FAILED tests/test_tabs.py::test_title - TypeError: title() missing 1 required positional argument\n"
+    patch = ("diff --git a/ike/tabs.py b/ike/tabs.py\n--- a/ike/tabs.py\n+++ b/ike/tabs.py\n@@ -1,2 +1,2 @@\n"
+             "-def title(t):\n+def title(t, short=False):\n     return t\n")
+    m = memory.empty()
+    sig = memory.signature(failure)
+    memory.note(m, "automation/update/crates", sig, "published", "Z.AI", "glm", ["ike/tabs.py"], "added the argument",
+                attempt=1, task="python", patch=patch, now=NOW)
+    memory.merged(m, "automation/update/crates", now=NOW)
+    outputs, temp, repo, runs = fix_job(tmp_path, files, failure, "ike/tabs.py\n", m)
+    # the recipe made the fix: Antigravity's step is skipped by its condition, no reserve is asked (no key at all)
+    assert outputs["applied"] == "true" and outputs["result"] == "ok" and outputs["patch"] == "true"
+    assert "A recipe made the fix (remembered-fix): no AI is asked" in runs["Recipes before any AI (no AI, no key)"].stdout
+    assert (temp / "autofix/author.txt").read_text().strip() == "Recipe / remembered-fix"
+    kept = (temp / "autofix/autofix.patch").read_text()
+    assert "+def title(t, short=False):" in kept and memory.patch_hash(kept) == memory.patch_hash(patch)
+    assert "nessuna AI" in (temp / "autofix/summary.md").read_text()
+    assert not (temp / "autofix/reserve.json").exists()
+    # the guard job's own rule for the commit's Author line takes it
+    assert re.fullmatch(r"(Antigravity|Groq|Z\.AI|OpenRouter|ChatGPT|Recipe)( / [A-Za-z0-9._/: ()-]{1,100})?",
+                        (temp / "autofix/author.txt").read_text().strip())
+
+
+def test_the_real_steps_of_the_fix_job_leave_the_commit_alone_when_no_recipe_applies(tmp_path):
+    files = {"ike/tabs.py": "def title(t):\n    return t\n", "ike/__init__.py": '__version__ = "1.1.10"\n'}
+    failure = "FAILED tests/test_tabs.py::test_title - TypeError: title() missing 1 required positional argument\n"
+    outputs, temp, repo, runs = fix_job(tmp_path, files, failure, "ike/tabs.py\n", memory.empty())
+    assert "applied" not in outputs
+    # no recipe, no key at all: nothing changed, no patch, and the tree is the commit's own
+    assert outputs["patch"] == "false" and git(repo, "status", "--porcelain").strip() == ""
+    assert "Recipes: none" in runs["Recipes before any AI (no AI, no key)"].stdout
 
 
 # =====================================================================================================

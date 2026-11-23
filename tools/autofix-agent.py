@@ -382,7 +382,8 @@ def main(argv=None):
         limits = quota.load_limits(a.quota_limits)
         named = [n.strip() for n in (os.environ.get("AUTOFIX_REVIEWERS") or "").split(",") if n.strip() in quota.NAMES]
         spend = quota.Budget(limits, quota.load_state(a.quota_state) if a.quota_state else None, a.candidate,
-                             tier_b=tier_b, available=[n for n in (named or quota.NAMES) if n not in off])
+                             tier_b=tier_b, available=[n for n in (named or quota.NAMES) if n not in off
+                                                       and not (n == "Antigravity" and "Gemini" in off)])
         session = int(limits["providers"]["Antigravity"].get("session_requests") or 10)
         allowed, why = spend.allows("Antigravity", 0, "fix", requests=session)
         if not allowed:

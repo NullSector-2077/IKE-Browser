@@ -970,15 +970,16 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     if a.quota_limits or a.quota_state or a.quota_usage:
         quota = _tool("ai-quota")
         limits = quota.load_limits(a.quota_limits)
-        has_key = [n for n in quota.NAMES if n not in unavailable(env) and (
+        # (the weekly check names Gemini, the provider behind Antigravity)
+        gone = unavailable(env) | ({"Antigravity"} if "Gemini" in unavailable(env) else set())
+        has_key = [n for n in quota.NAMES if n not in gone and (
             env.get(REGISTRY.GEMINI_KEY, "").strip() if n == "Antigravity" else
             env.get(next(p[2] for p in PROVIDERS if p[0] == n), "").strip())]
         # the reviewers may also be providers whose key this step does not hold (Gemini): the workflow says
         # which ones have a key at all (AUTOFIX_REVIEWERS), else those this step can see
         named = [n.strip() for n in (env.get("AUTOFIX_REVIEWERS") or "").split(",") if n.strip() in quota.NAMES]
         spend = quota.Budget(limits, quota.load_state(a.quota_state) if a.quota_state else None, a.candidate,
-                              tier_b=TIER_B["on"], available=[n for n in (named or has_key)
-                                                              if n not in unavailable(env)])
+                              tier_b=TIER_B["on"], available=[n for n in (named or has_key) if n not in gone])
     if a.task:
         route = _tool("automat-route")
         limits = limits or _tool("ai-quota").load_limits(a.quota_limits)
