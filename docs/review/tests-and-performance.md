@@ -84,6 +84,133 @@ between the two sessions; only figures of the same session are compared.)
 These numbers describe a small container without a GPU. They say that the
 versions do not differ, not how fast I.K.E. is on the owner's computer.
 
+## 1.1.23, Dark Reader and Brave
+
+The owner's measurement, Speedometer 3.1 on his own computer: Brave with the
+Dark Reader extension scores more than I.K.E. with Dark Reader, and I.K.E.
+with the engine's own dark mode scores more than Brave with Dark Reader. The
+question: does I.K.E.'s way of giving Dark Reader to a page cost more than
+the extension's?
+
+**How it was measured.** Ubuntu container, 4 shared cores, no GPU (another
+session was running tests at the same time); PyQt 6.12 / Qt WebEngine 6.12
+(Chromium 140) offscreen, and Chrome for Testing 153 headless. Local pages
+only. Per frame: a page creates 30-40 same-origin frames one after the
+other (each a small light page with 150 colour rules), as Speedometer does,
+waits for each to load, changes its list (100 items added, completed,
+removed) and removes it. CPU = the main thread of the page's renderer, read
+from /proc; variants alternate round by round in one process. In Chrome,
+I.K.E.'s own engine (darkmode.js with darkreader.js, the proxy in the page's
+world, the site's settings) was loaded as an extension's content scripts,
+run_at document_start, all_frames, as the Dark Reader extension declares
+them; the extension itself could not be run here (the session's rules
+refused loading a downloaded extension), so it was read instead
+(darkreader/darkreader at v4.9.135).
+
+**Per frame** (renderer CPU per frame, median of rounds):
+
+| | off | Dark Reader | added |
+|---|---|---|---|
+| I.K.E. (Qt 6.12, Chromium 140), user script | 24.8 ms | 51.9 ms | +27 ms |
+| Chrome 153, the same engine as an extension's content script | 19.5 / 20.3 ms | 45.5 / 50.5 ms | +26 / +30 ms |
+
+So the way the script is given makes no difference. In Chrome: script
+time 0.1 -> 19.2 ms per frame, style 4.0 -> 5.5 ms, the page's memory +0.26
+MB per frame; of Dark Reader's time, 10 ms is the dark copy of the frame's
+style sheet and 3 ms its start (`createThemeAndWatchForUpdates`); compiling
+its 387 KB and the isolated world cost about 1 ms (a frame with the engine
+installed but not started against one without: first script of the page
+10.6 against 9.4 ms). darkreader-data.json never reaches a page: the site's
+fix and hints are picked in Python (`ike/darkfixes.py`), as the extension's
+background does, and each frame receives only the small result. Starting
+Dark Reader after the frame's HTML is read (as the extension does, when the
+background's answer arrives) and the plain engine without I.K.E.'s changes
+cost the same per frame (within the noise).
+
+**Speedometer** (six suites: TodoMVC JavaScript-ES5, ES5-Complex-DOM, React,
+Svelte-Complex-DOM, Lit-Complex-DOM, jQuery; 5 iterations):
+
+| | off | Dark Reader | engine's dark mode |
+|---|---|---|---|
+| I.K.E. (Qt 6.12), score | 11.96 | 6.81 (-43 %) | 11.76 |
+| Chrome 153, score | 18.5 | 10.5 with I.K.E.'s engine as an extension (-43 %) | |
+
+Dark Reader costs both browsers the same share. The owner's two results
+follow from that and from the engine under each browser: Brave runs a
+newer Chromium than Qt 6.12's 140 (here Chrome 153 scored 55 % more than
+I.K.E. with no dark mode at all), so 0.57 of a higher score is still more
+than 0.57 of I.K.E.'s, and less than I.K.E. with the engine's dark mode,
+which costs almost nothing. The new Chromium cannot be had before Qt ships
+it. Speedometer counts only the tests' steps, not the loading of each frame;
+what it sees of Dark Reader is its work while the tests change the page
+(new styles, new elements, the restyles that follow): in Chrome 1,578
+against 832 ms of renderer CPU per iteration of the six suites; in the
+profile, Dark Reader's JavaScript about 160 ms, the engine's own work
+(style, layout) about 220 ms more, garbage collection 97 against 37 ms.
+
+**What changed in 1.1.23**: a frame with no size (display:none, or one or
+two pixels) waits for its first size before it starts Dark Reader
+(`ike/resources/darkmode.js`, no change to Dark Reader's own engine). The
+browser tells a frame its new size before drawing it, so a frame shown
+later is dark from its first picture. Hidden frames, interleaved, 4 rounds
+of 30: renderer CPU per frame 43.3 ms -> 13.8 ms (with dark mode off: 11.8);
+frames of one pixel 56.0 -> 28.2 ms. `tests/test_darkreader_frames.py` in
+I.K.E. itself: load time added by Dark Reader to a hidden frame 17.6 / 21.7
+ms before, 0.2 / 1.9 ms after (to a shown frame, 20-26 ms both); a shown
+frame dark as before, hidden frames not started, then dark once shown,
+with the same colours as the frame shown from the start.
+
+**Not done**: remembering the kinds of a page's CSS variables from one
+load to the next (the owner said no); sharing the colour caches between
+frames of one site (about 3 ms of a frame's 30, and only in its loading,
+which Speedometer does not count); a V8 code cache for user scripts (Qt has
+none, and compiling is about 1 ms per frame anyway).
+
+## 1.1.23, the colours of selected text
+
+The owner's decision of 2026-11-22, from the list above: patch
+`selection-colours` in `tools/build-darkreader.py`. Dark Reader's user-agent
+style had
+
+    ::selection {
+        background-color: var(--darkreader-background-0060d4, #004daa) !important;
+        color: var(--darkreader-text-ffffff, #e8e6e3) !important;
+    }
+
+and now has `#004daa` and `#e8e6e3` there (for any theme: the colour that
+was the fallback). The variable is written only when `color-variables` puts
+it on `:root` (a site fix names it, or the same variable had another colour);
+otherwise var() always gave its fallback, so the colour is the same. Why it
+matters: a `::selection` that reads a variable is worked out again for every
+element whose variables differ from its parent's, at every restyle (the
+1.1.21 study counted 1,695 more style resolutions in one restyle of the Lit
+page). That rule is the only text that changes: `tests/test_darkreader.py`
+counts the patch among the kept families (now ten) and checks, in the
+browser, the rule's text and the computed colours of selected text
+(rgb(0, 77, 170) behind rgb(232, 230, 227), as before).
+
+**Pixels.** Text selected on six pages (a plain page, a page whose every row
+sets its own colour variables, a page with its own `::selection` colours, a
+text area, Speedometer's Lit and JavaScript-ES5 complex pages), one browser
+process per engine, screenshots 1000x800 compared pixel by pixel: five
+identical, 0 pixels different; on the ES5 complex page 25 pixels differ in
+the icons at the top right, where two runs of the same engine differ by
+2,521 (Dark Reader's analysis of the icons finishes at a different moment);
+the selected text is identical there too. Computed selection colours
+identical on all six.
+
+**Speed** (same container; one process per run; old and new engine in
+turns):
+
+| | before | after |
+|---|---|---|
+| one full restyle of the Lit page (fastest of 41), 3 runs | 45.5 / 42.6 / 39.6 ms | 34.7 / 35.0 / 34.2 ms |
+| the same, median of 41 | 54.6 / 50.8 / 45.1 ms | 40.1 / 41.3 / 38.1 ms |
+| Speedometer, Lit-Complex-DOM, mean of 10 | 128.6 / 139.5 / 141.7 ms | 105.1 / 112.8 / 114.5 ms |
+| WebComponents-Complex-DOM | 219.1 / 235.4 / 215.0 ms | 170.6 / 176.0 / 204.7 ms |
+| Charts-observable-plot | 200.0 / 203.8 / 188.1 ms | 182.4 / 185.0 / 195.0 ms |
+| score of the three suites | 5.71 / 5.46 / 5.65 | 6.82 / 6.64 / 6.17 |
+
 ## 1.1.23, speed and fluidity
 
 Two read-only studies of 2026-11-22 measured where the interface thread and

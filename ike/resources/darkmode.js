@@ -25,10 +25,28 @@
     }
   } catch (e) {}
   if (!topHost) return;
-  if (reg[topHost]) { go(reg[topHost]); return; }
+  if (reg[topHost]) { whenShown(reg[topHost]); return; }
   window.__ikeDarkGo = function (host) {
-    if (host === topHost && reg[host]) { window.__ikeDarkGo = null; go(reg[host]); }
+    if (host === topHost && reg[host]) { window.__ikeDarkGo = null; whenShown(reg[host]); }
   };
+
+  // A frame that is not shown (display:none, or a frame of a pixel or two, as
+  // the frames of trackers and advertisers are) has nothing to make dark:
+  // Dark Reader starts there only when the frame gets a size. The browser
+  // tells a frame its new size before it draws it, so a frame shown later is
+  // dark from its first picture, as before. This saves Dark Reader's whole
+  // start (about 30 ms of the page's processor time) in each hidden frame.
+  function shown() {
+    return window.top === window || (innerWidth > 2 && innerHeight > 2);
+  }
+  function whenShown(site) {
+    if (shown()) { go(site); return; }
+    addEventListener('resize', function onResize() {
+      if (!shown()) return;
+      removeEventListener('resize', onResize);
+      go(site);
+    });
+  }
 
   function go(site) {
   var CFG = {theme: __IKE_DR_THEME__, common: __IKE_DR_COMMON__, fix: site.fix, detect: site.detect,
