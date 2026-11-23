@@ -1028,6 +1028,14 @@
 "“Send to device” with KDE Connect": "KDE Connect மூலம் “சாதனத்திற்கு அனுப்பு”",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ மூலம் தேர்ந்தெடு, Enter மூலம் செல், Esc மூலம் மூடு",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "மறைகுறியாக்கப்பட்ட DNS, I.K.E.-இன் சொந்தக் கோரிக்கைகளுக்கு (புதுப்பிப்புகள், வடிகட்டிப் பட்டியல்கள்) பதிலளிக்காது: %s",
-"Shared by %d tabs of this site": "இந்தத் தளத்தின் %d தாவல்கள் பகிர்கின்றன"
+"Shared by %d tabs of this site": "இந்தத் தளத்தின் %d தாவல்கள் பகிர்கின்றன",
+"Print or save as PDF": "அச்சிடு அல்லது PDF ஆகச் சேமி",
+"Print the page, or save it as a PDF document": "பக்கத்தை அச்சிடவும், அல்லது PDF ஆவணமாகச் சேமிக்கவும்",
+"Send this page to a phone or a computer paired with KDE Connect": "இந்தப் பக்கத்தை KDE Connect உடன் இணைக்கப்பட்ட தொலைபேசிக்கோ கணினிக்கோ அனுப்பவும்",
+"No device paired with KDE Connect, or no web page in this tab": "KDE Connect உடன் இணைக்கப்பட்ட சாதனம் இல்லை, அல்லது இந்தத் தாவலில் இணையப் பக்கம் இல்லை",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "விசைப்பலகை குறுக்குவழிகள், புதுப்பிப்புகள் மற்றும் I.K.E. பதிப்புகள்",
+"Web pages": "இணையப் பக்கங்கள்",
+"Find a setting": "ஓர் அமைப்பைத் தேடு",
+"No setting found": "எந்த அமைப்பும் கிடைக்கவில்லை"
 }
 }

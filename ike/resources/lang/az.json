@@ -1028,6 +1028,14 @@
 "“Send to device” with KDE Connect": "KDE Connect ilə “Cihaza göndər”",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ seçmək üçün, Enter keçmək üçün, Esc bağlamaq üçün",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Şifrələnmiş DNS I.K.E.-nin öz sorğularına (yeniləmələr, filtr siyahıları) cavab vermir: %s",
-"Shared by %d tabs of this site": "Bu saytın %d vərəqi arasında paylaşılır"
+"Shared by %d tabs of this site": "Bu saytın %d vərəqi arasında paylaşılır",
+"Print or save as PDF": "Çap et və ya PDF kimi saxla",
+"Print the page, or save it as a PDF document": "Səhifəni çap et və ya PDF sənədi kimi saxla",
+"Send this page to a phone or a computer paired with KDE Connect": "Bu səhifəni KDE Connect ilə qoşulmuş telefona və ya kompüterə göndər",
+"No device paired with KDE Connect, or no web page in this tab": "KDE Connect ilə qoşulmuş cihaz yoxdur və ya bu tabda veb səhifə yoxdur",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Klaviatura qısayolları, yeniləmələr və I.K.E. versiyaları",
+"Web pages": "Veb səhifələr",
+"Find a setting": "Ayar axtar",
+"No setting found": "Heç bir ayar tapılmadı"
 }
 }

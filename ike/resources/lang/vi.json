@@ -1028,6 +1028,14 @@
 "“Send to device” with KDE Connect": "“Gửi tới thiết bị” bằng KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ để chọn, Enter để mở, Esc để đóng",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS mã hóa không trả lời các yêu cầu của chính I.K.E. (cập nhật, danh sách bộ lọc): %s",
-"Shared by %d tabs of this site": "Chia sẻ bởi %d thẻ của trang này"
+"Shared by %d tabs of this site": "Chia sẻ bởi %d thẻ của trang này",
+"Print or save as PDF": "In hoặc lưu thành PDF",
+"Print the page, or save it as a PDF document": "In trang, hoặc lưu thành tài liệu PDF",
+"Send this page to a phone or a computer paired with KDE Connect": "Gửi trang này đến điện thoại hoặc máy tính đã ghép đôi bằng KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Không có thiết bị nào ghép đôi bằng KDE Connect, hoặc không có trang web trong thẻ này",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Phím tắt, bản cập nhật và các phiên bản của I.K.E.",
+"Web pages": "Trang web",
+"Find a setting": "Tìm một cài đặt",
+"No setting found": "Không tìm thấy cài đặt nào"
 }
 }

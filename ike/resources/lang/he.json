@@ -1028,6 +1028,14 @@
 "“Send to device” with KDE Connect": "“שליחה למכשיר” באמצעות KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ לבחירה, Enter למעבר, Esc לסגירה",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS מוצפן לא עונה לבקשות של I.K.E. עצמו (עדכונים, רשימות מסנן): %s",
-"Shared by %d tabs of this site": "משותף ל-%d לשוניות של אתר זה"
+"Shared by %d tabs of this site": "משותף ל-%d לשוניות של אתר זה",
+"Print or save as PDF": "הדפסה או שמירה כ־PDF",
+"Print the page, or save it as a PDF document": "הדפסת הדף או שמירתו כמסמך PDF",
+"Send this page to a phone or a computer paired with KDE Connect": "שליחת הדף הזה לטלפון או למחשב שמוצמדים דרך KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "אין מכשיר שמוצמד דרך KDE Connect, או שאין דף אינטרנט בלשונית הזו",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "קיצורי מקלדת, עדכונים והגרסאות של I.K.E.",
+"Web pages": "דפי אינטרנט",
+"Find a setting": "חיפוש הגדרה",
+"No setting found": "לא נמצאה הגדרה"
 }
 }

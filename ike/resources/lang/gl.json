@@ -1028,6 +1028,14 @@
 "“Send to device” with KDE Connect": "“Enviar ao dispositivo” con KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ para escoller, Intro para ir, Esc para pechar",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "O DNS cifrado non responde ás solicitudes propias de I.K.E. (actualizacións, listas de filtros): %s",
-"Shared by %d tabs of this site": "Compartido por %d lapelas deste sitio"
+"Shared by %d tabs of this site": "Compartido por %d lapelas deste sitio",
+"Print or save as PDF": "Imprimir ou gardar como PDF",
+"Print the page, or save it as a PDF document": "Imprimir a páxina ou gardala como documento PDF",
+"Send this page to a phone or a computer paired with KDE Connect": "Enviar esta páxina a un teléfono ou computador emparellado con KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Ningún dispositivo emparellado con KDE Connect, ou ningunha páxina web nesta lapela",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Atallos de teclado, actualizacións e as versións de I.K.E.",
+"Web pages": "Páxinas web",
+"Find a setting": "Buscar un axuste",
+"No setting found": "Non se atopou ningún axuste"
 }
 }

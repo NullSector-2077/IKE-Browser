@@ -1028,6 +1028,14 @@
 "Open selected text with middle click": "Otvoriť vybraný text stredným tlačidlom",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "Kliknutie stredným tlačidlom na prázdne miesto stránky otvorí vybraný text ako adresu alebo ako vyhľadávanie.",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Šifrované DNS neodpovedá na vlastné požiadavky I.K.E. (aktualizácie, zoznamy filtrov): %s",
-"Shared by %d tabs of this site": "Zdieľajú ho karty tohto webu: %d"
+"Shared by %d tabs of this site": "Zdieľajú ho karty tohto webu: %d",
+"Print or save as PDF": "Tlačiť alebo uložiť ako PDF",
+"Print the page, or save it as a PDF document": "Vytlačiť stránku alebo ju uložiť ako dokument PDF",
+"Send this page to a phone or a computer paired with KDE Connect": "Odoslať túto stránku do telefónu alebo počítača spárovaného cez KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Žiadne zariadenie spárované cez KDE Connect alebo na tejto karte nie je webová stránka",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Klávesové skratky, aktualizácie a verzie I.K.E.",
+"Web pages": "Webové stránky",
+"Find a setting": "Nájsť nastavenie",
+"No setting found": "Nenašlo sa žiadne nastavenie"
 }
 }

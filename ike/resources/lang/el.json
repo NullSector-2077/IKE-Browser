@@ -1028,6 +1028,14 @@
 "“Send to device” with KDE Connect": "«Αποστολή σε συσκευή» με το KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ για επιλογή, Enter για μετάβαση, Esc για κλείσιμο",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Το κρυπτογραφημένο DNS δεν απαντά στα ίδια τα αιτήματα του I.K.E. (ενημερώσεις, λίστες φίλτρων): %s",
-"Shared by %d tabs of this site": "Κοινόχρηστο από %d καρτέλες αυτού του ιστότοπου"
+"Shared by %d tabs of this site": "Κοινόχρηστο από %d καρτέλες αυτού του ιστότοπου",
+"Print or save as PDF": "Εκτύπωση ή αποθήκευση ως PDF",
+"Print the page, or save it as a PDF document": "Εκτύπωση της σελίδας ή αποθήκευσή της ως έγγραφο PDF",
+"Send this page to a phone or a computer paired with KDE Connect": "Αποστολή αυτής της σελίδας σε τηλέφωνο ή υπολογιστή συζευγμένο με το KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Καμία συσκευή συζευγμένη με το KDE Connect ή καμία ιστοσελίδα σε αυτή την καρτέλα",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Συντομεύσεις πληκτρολογίου, ενημερώσεις και οι εκδόσεις του I.K.E.",
+"Web pages": "Ιστοσελίδες",
+"Find a setting": "Εύρεση ρύθμισης",
+"No setting found": "Δεν βρέθηκε ρύθμιση"
 }
 }

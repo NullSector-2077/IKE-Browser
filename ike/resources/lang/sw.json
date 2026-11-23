@@ -1028,6 +1028,14 @@
 "“Send to device” with KDE Connect": "“Tuma kwa kifaa” kwa KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ kuchagua, Enter kwenda, Esc kufunga",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS iliyosimbwa haijibu maombi ya I.K.E. yenyewe (masasisho, orodha za vichujio): %s",
-"Shared by %d tabs of this site": "Inashirikiwa na vichupo %d vya tovuti hii"
+"Shared by %d tabs of this site": "Inashirikiwa na vichupo %d vya tovuti hii",
+"Print or save as PDF": "Chapisha au hifadhi kama PDF",
+"Print the page, or save it as a PDF document": "Chapisha ukurasa, au uhifadhi kama hati ya PDF",
+"Send this page to a phone or a computer paired with KDE Connect": "Tuma ukurasa huu kwa simu au kompyuta iliyooanishwa na KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Hakuna kifaa kilichooanishwa na KDE Connect, au hakuna ukurasa wa wavuti katika kichupo hiki",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Mikato ya kibodi, masasisho na matoleo ya I.K.E.",
+"Web pages": "Kurasa za wavuti",
+"Find a setting": "Tafuta mpangilio",
+"No setting found": "Hakuna mpangilio uliopatikana"
 }
 }

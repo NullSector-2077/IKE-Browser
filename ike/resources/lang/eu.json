@@ -1028,6 +1028,14 @@
 "“Send to device” with KDE Connect": "“Bidali gailura” KDE Connect-ekin",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ aukeratzeko, Sartu joateko, Esc ixteko",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS zifratuak ez die erantzuten I.K.E.-ren berezko eskaerei (eguneratzeak, iragazki-zerrendak): %s",
-"Shared by %d tabs of this site": "Gune honetako %d fitxak partekatzen dute"
+"Shared by %d tabs of this site": "Gune honetako %d fitxak partekatzen dute",
+"Print or save as PDF": "Inprimatu edo gorde PDF gisa",
+"Print the page, or save it as a PDF document": "Inprimatu orria edo gorde PDF dokumentu gisa",
+"Send this page to a phone or a computer paired with KDE Connect": "Bidali orri hau KDE Connect bidez parekatutako telefono edo ordenagailu batera",
+"No device paired with KDE Connect, or no web page in this tab": "Ez dago KDE Connect bidez parekatutako gailurik, edo ez dago web-orririk fitxa honetan",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Laster-teklak, eguneratzeak eta I.K.E.-ren bertsioak",
+"Web pages": "Web-orriak",
+"Find a setting": "Bilatu ezarpen bat",
+"No setting found": "Ez da ezarpenik aurkitu"
 }
 }

@@ -1028,6 +1028,14 @@
 "Open selected text with middle click": "選択したテキストを中クリックで開く",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "ページの空白部分を中クリックすると、選択したテキストをアドレスまたは検索として開きます。",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "暗号化 DNS が I.K.E. 自身のリクエスト(アップデート、フィルターリスト)に応答しません: %s",
-"Shared by %d tabs of this site": "このサイトの %d 個のタブで共有"
+"Shared by %d tabs of this site": "このサイトの %d 個のタブで共有",
+"Print or save as PDF": "印刷または PDF として保存",
+"Print the page, or save it as a PDF document": "ページを印刷するか、PDF 文書として保存します",
+"Send this page to a phone or a computer paired with KDE Connect": "このページを KDE Connect でペアリングしたスマートフォンやコンピューターに送ります",
+"No device paired with KDE Connect, or no web page in this tab": "KDE Connect でペアリングしたデバイスがないか、このタブに Web ページがありません",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "キーボードショートカット、アップデート、I.K.E. のバージョン",
+"Web pages": "Web ページ",
+"Find a setting": "設定を検索",
+"No setting found": "設定が見つかりません"
 }
 }

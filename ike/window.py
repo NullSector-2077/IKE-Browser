@@ -46,6 +46,13 @@ def icon(name, fallback=None):
     return themed(name, fallback)
 
 
+def plain_title(text):
+    """A menu's name without its keyboard accelerator: "&File" -> "File",
+    "ファイル(&F)" -> "ファイル" (1.1.24: the ☰ menu's copies of the menu bar's)."""
+    text = re.sub(r"\s*\(&[^&)]\)\s*$", "", text or "")
+    return re.sub(r"&(.)", r"\1", text)
+
+
 class FindBar(QWidget):
     def __init__(self, window):
         super().__init__(window)
@@ -601,9 +608,24 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                           icon(("download", "folder-download-symbolic"), SP.SP_ArrowDown),
                                           T("Show downloaded files"))
         self._dl_icon = self.act_downloads.icon()
+        # 1.1.24: buttons the user can add, hidden until chosen (config.TOOLBAR_ITEMS);
+        # the menus of Zoom, Print and Send are given in _build_menus
+        self.act_tb_zoom = A(T("Zoom"), None, None, "zoom-in", T("Make the page larger or smaller"))
+        self.act_tb_bookmarks = A(T("Manage bookmarks"), self.app.show_bookmarks, None,
+                                  icon(("bookmarks-organize", "bookmarks", "user-bookmarks-symbolic")),
+                                  T("Edit, import and export bookmarks"))
+        self.act_tb_print = A(T("Print or save as PDF"), None, None, "document-print",
+                              T("Print the page, or save it as a PDF document"))
+        self.act_tb_send = A(T("Send to device"), None, None,
+                             icon(("kdeconnect", "smartphone", "phone", "document-send")),
+                             T("Send this page to a phone or a computer paired with KDE Connect"))
+        self.act_tb_resources = A(T("Site resources"), self.app.show_resources, None,
+                                  "utilities-system-monitor",
+                                  T("Memory, CPU and network used by each site, with optional limits"))
         for a in (self.act_tb_bookmark, self.act_tb_reader, self.act_tb_shot, self.act_tb_pip,
                   self.act_tb_split, self.act_dark, self.act_tb_private, self.act_tb_clean,
-                  self.act_downloads):
+                  self.act_downloads, self.act_tb_zoom, self.act_tb_bookmarks, self.act_tb_print,
+                  self.act_tb_send, self.act_tb_resources):
             tb.addAction(a)
         if self.private:
             # 1.1.23: the private-browsing icon before the text, a border, and
@@ -646,7 +668,14 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                            ("dark", self.act_dark, right),
                            ("private", self.act_tb_private, right),
                            ("cleansite", self.act_tb_clean, right),
-                           ("downloads", self.act_downloads, right)]
+                           ("downloads", self.act_downloads, right),
+                           ("zoom", self.act_tb_zoom, right),
+                           ("bookmarks", self.act_tb_bookmarks, right),
+                           ("print", self.act_tb_print, right),
+                           ("send", self.act_tb_send, right),
+                           ("resources", self.act_tb_resources, right)]
+        # buttons whose click opens their menu, with no arrow (1.1.23 for dark mode)
+        self._menu_buttons = (self.act_dark, self.act_tb_zoom, self.act_tb_print, self.act_tb_send)
 
         self.bookbar = BookmarksBar(T("Bookmarks bar"), self)
         self.bookbar.setObjectName("bookmarks")
@@ -757,9 +786,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         m_file.addSeparator()
         m_file.addAction(A(T("Open file…"), self.open_file, "Ctrl+O", "document-open",
                            T("Open a file from this computer")))
-        m_file.addAction(A(T("Save page as…"), lambda: self._web(WA.SavePage), "Ctrl+S",
-                           "document-save", T("Save the page to disk")))
-        for a in (self.act_pdf, self.act_print, self.act_shot):
+        self.act_save_page = A(T("Save page as…"), lambda: self._web(WA.SavePage), "Ctrl+S",
+                               "document-save", T("Save the page to disk"))
+        for a in (self.act_save_page, self.act_pdf, self.act_print, self.act_shot):
             m_file.addAction(a)
         m_file.addSeparator()
         for a in (self.act_import, self.act_backup, self.act_restore):
@@ -785,8 +814,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             a.triggered.connect(lambda _c=False, w=wa: self._web(w))
             m_edit.addAction(a)
         m_edit.addSeparator()
-        m_edit.addAction(A(T("Find in page…"), self.findbar.open_bar, "Ctrl+F", "edit-find",
-                           T("Search for text in the current page")))
+        self.act_find = A(T("Find in page…"), self.findbar.open_bar, "Ctrl+F", "edit-find",
+                          T("Search for text in the current page"))
+        m_edit.addAction(self.act_find)
 
         # --- View
         m_view = mb.addMenu(T("&View"))
@@ -804,17 +834,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_bookbar = A(T("Bookmarks bar"), self._toggle_bookbar, "Ctrl+Shift+B",
                              ("bookmark-toolbar", "user-bookmarks-symbolic"),
                              T("Switch between: only on a new tab, always, hidden"))
-        for a in (self.act_vertical, self.act_menubar, self.act_bookbar, self.act_titlebar,
-                  self.act_customise):
-            m_view.addAction(a)
-        m_view.addSeparator()
-        m_view.addAction(self.act_split)
-        m_view.addAction(self.act_reader)
-        m_view.addMenu(self.m_workspaces)
-        m_view.addSeparator()
-        for a in (self.act_zoom_in, self.act_zoom_out, self.act_zoom_reset):
-            m_view.addAction(a)
-        m_view.addSeparator()
         self.m_dark = menu(T("Dark mode for pages"), "weather-clear-night",
                            T("Dark mode: everywhere or only on this site"))
         self.act_dark_all = QAction(T("On everywhere"), self, checkable=True)
@@ -826,10 +845,20 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.m_dark.addAction(self.act_dark_site)
         self.m_dark.aboutToShow.connect(self._fill_dark_menu)
         self.act_dark.setMenu(self.m_dark)
-        m_view.addMenu(self.m_dark)
-        m_view.addAction(A(T("Full screen"), self.toggle_fullscreen, "F11", "view-fullscreen",
-                           T("Show the page on the whole screen")))
-        m_view.addSeparator()
+        self.act_fullscreen = A(T("Full screen"), self.toggle_fullscreen, "F11", "view-fullscreen",
+                                T("Show the page on the whole screen"))
+        # 1.1.24: the page first (its size, how it is shown), then the tabs, then
+        # the window's bars, then the developer's tools
+        for group in ((self.act_zoom_in, self.act_zoom_out, self.act_zoom_reset),
+                      (self.act_fullscreen, self.act_reader, self.m_dark),
+                      (self.act_vertical, self.act_split, self.m_workspaces),
+                      (self.act_menubar, self.act_bookbar, self.act_titlebar, self.act_customise)):
+            for a in group:
+                if isinstance(a, QMenu):
+                    m_view.addMenu(a)
+                else:
+                    m_view.addAction(a)
+            m_view.addSeparator()
         m_view.addAction(A(T("Page source"), self.view_source, "Ctrl+U", ("text-html", "view-source"),
                            T("Show the HTML source of the page")))
         m_view.addAction(A(T("Developer tools"), lambda: self.open_devtools(), ["F12", "Ctrl+Shift+I"],
@@ -918,24 +947,22 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         m_tools = mb.addMenu(T("&Tools"))
         self.act_command_bar = A(T("Command bar…"), self.open_command_bar, "F2", ("system-search", "edit-find"),
                                  T("Commands, open tabs, bookmarks, history and settings in one search"))
-        m_tools.addAction(self.act_command_bar)
-        m_tools.addAction(self.act_downloads)
-        m_tools.addSeparator()
-        for a in (self.act_passwords, self.act_fill_login):
-            m_tools.addAction(a)
-        m_tools.addSeparator()
-        for a in (self.act_search_tabs, self.act_translate, self.act_float):
-            m_tools.addAction(a)
-        m_tools.addAction(A(T("Mute tab"), self.toggle_mute, "Ctrl+Shift+M", "audio-volume-muted",
-                            T("Mute or unmute the sound of the current tab")))
-        for a in (self.act_suspend, self.act_resources, self.act_watches):
-            m_tools.addAction(a)
-        m_tools.addSeparator()
-        m_tools.addAction(A(T("Search engines…"), lambda: self.open_settings("search"), None,
-                            "edit-find", T("Choose and add search engines")))
-        m_tools.addAction(self.act_store)
-        m_tools.addSeparator()
-        m_tools.addAction(self.act_settings)
+        self.act_mute = A(T("Mute tab"), self.toggle_mute, "Ctrl+Shift+M", "audio-volume-muted",
+                          T("Mute or unmute the sound of the current tab"))
+        self.act_engines = A(T("Search engines…"), lambda: self.open_settings("search"), None,
+                             "edit-find", T("Choose and add search engines"))
+        # 1.1.24: finding, then what you keep (files, logins), then the page and its
+        # sound, then the work of the sites, then what I.K.E. searches with, then Settings
+        for group in ((self.act_command_bar, self.act_search_tabs),
+                      (self.act_downloads, self.act_passwords, self.act_fill_login),
+                      (self.act_translate, self.act_float, self.act_mute),
+                      (self.act_resources, self.act_suspend, self.act_watches),
+                      (self.act_engines, self.act_store),
+                      (self.act_settings,)):
+            if m_tools.actions():
+                m_tools.addSeparator()
+            for a in group:
+                m_tools.addAction(a)
 
         # --- Help (no separator before "About I.K.E.": moved to with the arrow keys)
         m_help = mb.addMenu(T("&Help"))
@@ -950,43 +977,71 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                   m_tools, m_help):
             m.setToolTipsVisible(True)
 
-        # --- the ☰ menu: the everyday entries, and every other one under "More"
+        def mirror(src, ico, tip):
+            """The ☰ menu's copy of a menu of the menu bar: the same actions, with
+            an icon of its own and its name without the "&" of the menu bar."""
+            m = menu(plain_title(src.title()), ico, tip)
+            for a in src.actions():
+                if a.isSeparator():
+                    m.addSeparator()
+                elif a.menu() is not None:
+                    m.addMenu(a.menu())
+                else:
+                    m.addAction(a)
+            return m
+
+        # --- the ☰ menu (1.1.24, the owner's go-ahead: "with criterion and logic"):
+        # new tabs and windows; this page; keep or print it; your library; protection
+        # and extensions; Settings and help; Quit. Every other command is under "More",
+        # in the menus of the menu bar, each with its icon (the menu bar's own have none).
         burger = QMenu(self)
         burger.setToolTipsVisible(True)
-        for a in (self.act_new_tab, self.act_new_window, self.act_new_private):
-            burger.addAction(a)
-        burger.addSeparator()
-        m_zoom = menu(T("Zoom"), "zoom-in", T("Make the page larger or smaller"))
+        self.m_zoom = menu(T("Zoom"), "zoom-in", T("Make the page larger or smaller"))
         for a in (self.act_zoom_in, self.act_zoom_out, self.act_zoom_reset):
-            m_zoom.addAction(a)
-        for m in (self.m_level, self.m_extensions, self.m_dark, m_zoom):
-            burger.addMenu(m)
-        burger.addSeparator()
+            self.m_zoom.addAction(a)
+        self.act_tb_zoom.setMenu(self.m_zoom)
         history = menu(T("History"), ("view-history", "document-open-recent-symbolic"),
                        T("Pages visited recently, and all the history"))
         history.aboutToShow.connect(lambda: self._fill_history(history))
         bookmarks = menu(T("Bookmarks"), ("bookmarks", "user-bookmarks-symbolic"),
                          T("Your bookmarks, and the bookmarks bar"))
         bookmarks.aboutToShow.connect(lambda: self._fill_bookmarks(bookmarks))
-        burger.addMenu(history)
-        burger.addMenu(bookmarks)
-        burger.addAction(self.act_downloads)
-        burger.addSeparator()
-        for a in (self.act_print, self.act_pdf, self.act_shot):
-            burger.addAction(a)
-        burger.addSeparator()
         more = menu(T("More"), ("overflow-menu", "application-menu", "view-more-symbolic"),
                     T("Every other command, as in the menu bar"))
-        for m in (m_file, m_edit, m_view, m_tools, m_help):
-            more.addMenu(m)
-        burger.addMenu(more)
-        burger.addSeparator()
-        for a in (self.act_settings, self.act_check_updates, self.act_about):
-            burger.addAction(a)
-        burger.addSeparator()
-        burger.addAction(self.act_quit)
+        self.m_more = more
+        for src, ico in ((m_file, ("document-multiple", "folder-documents", "document-open")),
+                         (m_edit, ("edit-copy", "document-edit", "edit-paste")),
+                         (m_view, ("view-visible", "view-reveal-symbolic", "view-fullscreen")),
+                         (m_tools, ("tools", "applications-utilities", "preferences-other",
+                                    "configure"))):
+            more.addMenu(mirror(src, ico, None))
+        self.m_help_burger = mirror(m_help, ("help-contents", "help-about", "system-help"),
+                                    T("Keyboard shortcuts, updates and the versions of I.K.E."))
+        for group in ((self.act_new_tab, self.act_new_window, self.act_new_private),
+                      (self.act_find, self.m_zoom, self.m_dark, self.act_reader, self.act_translate),
+                      (self.act_print, self.act_pdf, self.act_save_page, self.act_shot),
+                      (history, bookmarks, self.act_downloads),
+                      (self.m_level, self.m_extensions, more),
+                      (self.act_settings, self.m_help_burger),
+                      (self.act_quit,)):
+            if burger.actions():
+                burger.addSeparator()
+            for a in group:
+                if isinstance(a, QMenu):
+                    burger.addMenu(a)
+                else:
+                    burger.addAction(a)
         self.burger = burger
         self.menu_btn.setMenu(effects.fading(burger, self.app.config))
+
+        # the toolbar buttons with a menu (1.1.24; Dark mode's is given above)
+        self.m_print = menu(T("Print or save as PDF"), "document-print", None)
+        self.m_print.addAction(self.act_print)
+        self.m_print.addAction(self.act_pdf)
+        self.act_tb_print.setMenu(self.m_print)
+        self.m_send = menu(T("Send to device"), "kdeconnect", None)
+        self.m_send.aboutToShow.connect(self._fill_send_menu)
+        self.act_tb_send.setMenu(self.m_send)
 
         # Extra shortcuts without a menu entry.
         A("focus-url", self._focus_url, ["Ctrl+L", "Alt+D", "F6"])
@@ -1096,6 +1151,18 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if not os.environ.get("IKE_WIDEVINE"):
             text += " — " + T("restart I.K.E. to use it")
         return text
+
+    def _fill_send_menu(self):
+        """The toolbar's "Send to device": the devices paired with KDE Connect (1.1.24)."""
+        m = self.m_send
+        m.clear()
+        v = self.current_view()
+        url = ""
+        if v is not None and not self.private:
+            url = getattr(v, "pending_url", None) or v.url().toString()
+        if not self.app.desktop.fill_send_menu(m, url):
+            a = m.addAction(T("No device paired with KDE Connect, or no web page in this tab"))
+            a.setEnabled(False)
 
     def _fill_dark_menu(self):
         cfg = self.app.config

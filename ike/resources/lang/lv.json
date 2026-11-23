@@ -1028,6 +1028,14 @@
 "“Send to device” with KDE Connect": "„Sūtīt uz ierīci“ ar KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ izvēlēties, Enter doties, Esc aizvērt",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Šifrētais DNS neatbild uz paša I.K.E. pieprasījumiem (atjauninājumi, filtru saraksti): %s",
-"Shared by %d tabs of this site": "Kopīgo šīs vietnes cilnes: %d"
+"Shared by %d tabs of this site": "Kopīgo šīs vietnes cilnes: %d",
+"Print or save as PDF": "Drukāt vai saglabāt kā PDF",
+"Print the page, or save it as a PDF document": "Izdrukāt lapu vai saglabāt to kā PDF dokumentu",
+"Send this page to a phone or a computer paired with KDE Connect": "Nosūtīt šo lapu uz tālruni vai datoru, kas savienots pārī ar KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Nav ierīces, kas savienota pārī ar KDE Connect, vai šajā cilnē nav tīmekļa lapas",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Īsinājumtaustiņi, atjauninājumi un I.K.E. versijas",
+"Web pages": "Tīmekļa lapas",
+"Find a setting": "Meklēt iestatījumu",
+"No setting found": "Neviens iestatījums nav atrasts"
 }
 }

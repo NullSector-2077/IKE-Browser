@@ -198,7 +198,8 @@ DEFAULTS = {
     "toolbar_known": ["back", "forward", "reload", "home", "downloads"],
     # 1.1.9: the owner's arrangement (Reload is fixed, toolbar.py; the shield is in the address bar)
     "toolbar_order": ["dark", "private", "cleansite", "screenshot", "split", "pip",
-                      "bookmark", "downloads", "reader"],    # the menu: fixed before the window buttons (1.1.16)
+                      "bookmark", "downloads", "reader",     # the menu: fixed before the window buttons (1.1.16)
+                      "zoom", "bookmarks", "print", "send", "resources"],    # 1.1.24: hidden until chosen
     "toolbar_left": ["dark", "private", "cleansite", "screenshot", "split", "pip"],
     "urlbar_width": 50,                 # address bar: per cent of the window width (60 until 1.1.6)
     "urlbar_width_117": False,          # the old default of 60 was moved to 50 once (1.1.7)
@@ -349,7 +350,10 @@ DEFAULTS = {
 TOOLBAR_ITEMS = (("back", False), ("forward", False), ("reload", False), ("home", False),
                  ("bookmark", False), ("reader", False), ("screenshot", False), ("pip", True),
                  ("split", False), ("dark", False), ("private", False), ("cleansite", False),
-                 ("downloads", False))
+                 ("downloads", False),
+                 # 1.1.24: buttons the user can add (Settings → Appearance, or a right
+                 # click on the toolbar), off until chosen
+                 ("zoom", True), ("bookmarks", True), ("print", True), ("send", True), ("resources", True))
 
 
 # settings of the Cyber theme, removed in 1.1.2: dropped from settings.json when it is read

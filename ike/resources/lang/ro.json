@@ -1028,6 +1028,14 @@
 "“Send to device” with KDE Connect": "„Trimite către dispozitiv” cu KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ pentru alegere, Enter pentru a merge, Esc pentru a închide",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS-ul criptat nu răspunde cererilor proprii ale I.K.E. (actualizări, liste de filtre): %s",
-"Shared by %d tabs of this site": "Partajat de %d file ale acestui site"
+"Shared by %d tabs of this site": "Partajat de %d file ale acestui site",
+"Print or save as PDF": "Tipărește sau salvează ca PDF",
+"Print the page, or save it as a PDF document": "Tipărește pagina sau salveaz-o ca document PDF",
+"Send this page to a phone or a computer paired with KDE Connect": "Trimite această pagină la un telefon sau calculator asociat prin KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Niciun dispozitiv asociat prin KDE Connect sau nicio pagină web în această filă",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Comenzi rapide de la tastatură, actualizări și versiunile I.K.E.",
+"Web pages": "Pagini web",
+"Find a setting": "Caută o setare",
+"No setting found": "Nu s-a găsit nicio setare"
 }
 }

@@ -1028,6 +1028,14 @@
 "Open selected text with middle click": "Ouvrir le texte sélectionné avec le clic du milieu",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "Le clic du milieu sur une partie vide d'une page ouvre le texte que vous avez sélectionné, comme adresse ou comme recherche.",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Le DNS chiffré ne répond pas aux requêtes propres d'I.K.E. (mises à jour, listes de filtres) : %s",
-"Shared by %d tabs of this site": "Partagé par %d onglets de ce site"
+"Shared by %d tabs of this site": "Partagé par %d onglets de ce site",
+"Print or save as PDF": "Imprimer ou enregistrer en PDF",
+"Print the page, or save it as a PDF document": "Imprimer la page ou l'enregistrer comme document PDF",
+"Send this page to a phone or a computer paired with KDE Connect": "Envoyer cette page à un téléphone ou un ordinateur associé avec KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Aucun appareil associé avec KDE Connect, ou aucune page web dans cet onglet",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Raccourcis clavier, mises à jour et versions d'I.K.E.",
+"Web pages": "Pages web",
+"Find a setting": "Rechercher un paramètre",
+"No setting found": "Aucun paramètre trouvé"
 }
 }

@@ -1028,6 +1028,14 @@
 "“Send to device” with KDE Connect": "«Envia al dispositiu» amb KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ per triar, Retorn per anar-hi, Esc per tancar",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "El DNS xifrat no respon a les sol·licituds pròpies d'I.K.E. (actualitzacions, llistes de filtres): %s",
-"Shared by %d tabs of this site": "Compartit per %d pestanyes d'aquest lloc"
+"Shared by %d tabs of this site": "Compartit per %d pestanyes d'aquest lloc",
+"Print or save as PDF": "Imprimeix o desa com a PDF",
+"Print the page, or save it as a PDF document": "Imprimeix la pàgina o desa-la com a document PDF",
+"Send this page to a phone or a computer paired with KDE Connect": "Envia aquesta pàgina a un telèfon o un ordinador aparellat amb KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "No hi ha cap dispositiu aparellat amb KDE Connect, o no hi ha cap pàgina web en aquesta pestanya",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Dreceres de teclat, actualitzacions i les versions d'I.K.E.",
+"Web pages": "Pàgines web",
+"Find a setting": "Cerca un paràmetre",
+"No setting found": "No s'ha trobat cap paràmetre"
 }
 }

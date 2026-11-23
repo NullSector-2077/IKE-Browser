@@ -1028,6 +1028,14 @@
 "Open selected text with middle click": "用中键打开所选文字",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "在页面空白处点击鼠标中键，会把你选中的文字作为地址或搜索打开。",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "加密 DNS 无法响应 I.K.E. 自己的请求（更新、过滤列表）：%s",
-"Shared by %d tabs of this site": "由此网站的 %d 个标签页共用"
+"Shared by %d tabs of this site": "由此网站的 %d 个标签页共用",
+"Print or save as PDF": "打印或另存为 PDF",
+"Print the page, or save it as a PDF document": "打印此页，或将其另存为 PDF 文档",
+"Send this page to a phone or a computer paired with KDE Connect": "将此页发送到通过 KDE Connect 配对的手机或电脑",
+"No device paired with KDE Connect, or no web page in this tab": "没有通过 KDE Connect 配对的设备，或此标签页中没有网页",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "键盘快捷键、更新和 I.K.E. 的版本",
+"Web pages": "网页",
+"Find a setting": "查找设置",
+"No setting found": "未找到设置"
 }
 }

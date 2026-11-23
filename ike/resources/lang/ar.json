@@ -1028,6 +1028,14 @@
 "“Send to device” with KDE Connect": "“الإرسال إلى جهاز” عبر KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ للاختيار، Enter للانتقال، Esc للإغلاق",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS المشفّر لا يستجيب لطلبات I.K.E. نفسه (التحديثات وقوائم المرشحات): %s",
-"Shared by %d tabs of this site": "مشتركة بين %d علامات تبويب من هذا الموقع"
+"Shared by %d tabs of this site": "مشتركة بين %d علامات تبويب من هذا الموقع",
+"Print or save as PDF": "طباعة أو حفظ بصيغة PDF",
+"Print the page, or save it as a PDF document": "طباعة الصفحة أو حفظها كمستند PDF",
+"Send this page to a phone or a computer paired with KDE Connect": "إرسال هذه الصفحة إلى هاتف أو حاسوب مقترن عبر KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "لا يوجد جهاز مقترن عبر KDE Connect، أو لا توجد صفحة ويب في علامة التبويب هذه",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "اختصارات لوحة المفاتيح والتحديثات وإصدارات I.K.E.",
+"Web pages": "صفحات الويب",
+"Find a setting": "البحث عن إعداد",
+"No setting found": "لم يُعثر على أي إعداد"
 }
 }

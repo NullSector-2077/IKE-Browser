@@ -1028,6 +1028,14 @@
 "“Send to device” with KDE Connect": "“Naar apparaat sturen” met KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ om te kiezen, Enter om te gaan, Esc om te sluiten",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Versleutelde DNS beantwoordt de eigen verzoeken van I.K.E. niet (updates, filterlijsten): %s",
-"Shared by %d tabs of this site": "Gedeeld door %d tabbladen van deze site"
+"Shared by %d tabs of this site": "Gedeeld door %d tabbladen van deze site",
+"Print or save as PDF": "Afdrukken of opslaan als pdf",
+"Print the page, or save it as a PDF document": "De pagina afdrukken of opslaan als pdf-document",
+"Send this page to a phone or a computer paired with KDE Connect": "Deze pagina naar een telefoon of computer sturen die met KDE Connect is gekoppeld",
+"No device paired with KDE Connect, or no web page in this tab": "Geen apparaat gekoppeld met KDE Connect, of geen webpagina in dit tabblad",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Sneltoetsen, updates en de versies van I.K.E.",
+"Web pages": "Webpagina's",
+"Find a setting": "Een instelling zoeken",
+"No setting found": "Geen instelling gevonden"
 }
 }

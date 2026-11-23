@@ -1028,6 +1028,14 @@
 "Open selected text with middle click": "Отвори изабрани текст средњим кликом",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "Средњи клик на празан део странице отвара изабрани текст, као адресу или као претрагу.",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Шифровани DNS не одговара на сопствене захтеве програма I.K.E. (ажурирања, листе филтера): %s",
-"Shared by %d tabs of this site": "Деле %d картице ове странице"
+"Shared by %d tabs of this site": "Деле %d картице ове странице",
+"Print or save as PDF": "Штампај или сачувај као PDF",
+"Print the page, or save it as a PDF document": "Штампај страницу или је сачувај као PDF документ",
+"Send this page to a phone or a computer paired with KDE Connect": "Пошаљи ову страницу на телефон или рачунар упарен преко KDE Connect-а",
+"No device paired with KDE Connect, or no web page in this tab": "Нема уређаја упареног преко KDE Connect-а или у овом језичку нема веб странице",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Пречице на тастатури, ажурирања и верзије I.K.E.",
+"Web pages": "Веб странице",
+"Find a setting": "Пронађи подешавање",
+"No setting found": "Није пронађено ниједно подешавање"
 }
 }

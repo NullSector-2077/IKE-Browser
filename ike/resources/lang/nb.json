@@ -1028,6 +1028,14 @@
 "“Send to device” with KDE Connect": "«Send til enhet» med KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ for å velge, Enter for å gå, Esc for å lukke",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Kryptert DNS svarer ikke på I.K.E.s egne forespørsler (oppdateringer, filterlister): %s",
-"Shared by %d tabs of this site": "Delt av %d faner på dette nettstedet"
+"Shared by %d tabs of this site": "Delt av %d faner på dette nettstedet",
+"Print or save as PDF": "Skriv ut eller lagre som PDF",
+"Print the page, or save it as a PDF document": "Skriv ut siden, eller lagre den som et PDF-dokument",
+"Send this page to a phone or a computer paired with KDE Connect": "Send denne siden til en telefon eller datamaskin som er paret med KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Ingen enhet paret med KDE Connect, eller ingen nettside i denne fanen",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Hurtigtaster, oppdateringer og versjonene av I.K.E.",
+"Web pages": "Nettsider",
+"Find a setting": "Finn en innstilling",
+"No setting found": "Fant ingen innstilling"
 }
 }

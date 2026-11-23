@@ -1028,6 +1028,14 @@
 "“Send to device” with KDE Connect": "„Küldés eszközre” a KDE Connecttel",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ a választáshoz, Enter az ugráshoz, Esc a bezáráshoz",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "A titkosított DNS nem válaszol az I.K.E. saját kéréseire (frissítések, szűrőlisták): %s",
-"Shared by %d tabs of this site": "Ennek a webhelynek %d lapja osztozik rajta"
+"Shared by %d tabs of this site": "Ennek a webhelynek %d lapja osztozik rajta",
+"Print or save as PDF": "Nyomtatás vagy mentés PDF-ként",
+"Print the page, or save it as a PDF document": "Az oldal nyomtatása vagy mentése PDF-dokumentumként",
+"Send this page to a phone or a computer paired with KDE Connect": "Az oldal elküldése a KDE Connecttel párosított telefonra vagy számítógépre",
+"No device paired with KDE Connect, or no web page in this tab": "Nincs a KDE Connecttel párosított eszköz, vagy ezen a lapon nincs weboldal",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Billentyűparancsok, frissítések és az I.K.E. verziói",
+"Web pages": "Weboldalak",
+"Find a setting": "Beállítás keresése",
+"No setting found": "Nincs ilyen beállítás"
 }
 }

@@ -1028,6 +1028,14 @@
 "“Send to device” with KDE Connect": "KDE Connect bilan “Qurilmaga yuborish”",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ tanlash uchun, Enter oʻtish uchun, Esc yopish uchun",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Shifrlangan DNS I.K.E.ning oʻz soʻrovlariga (yangilanishlar, filtr roʻyxatlari) javob bermaydi: %s",
-"Shared by %d tabs of this site": "Bu saytning %d ta varagʻi ulashadi"
+"Shared by %d tabs of this site": "Bu saytning %d ta varagʻi ulashadi",
+"Print or save as PDF": "Chop etish yoki PDF sifatida saqlash",
+"Print the page, or save it as a PDF document": "Sahifani chop etish yoki PDF hujjat sifatida saqlash",
+"Send this page to a phone or a computer paired with KDE Connect": "Bu sahifani KDE Connect orqali ulangan telefon yoki kompyuterga yuborish",
+"No device paired with KDE Connect, or no web page in this tab": "KDE Connect orqali ulangan qurilma yoʻq yoki bu varaqda veb-sahifa yoʻq",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Klaviatura yorliqlari, yangilanishlar va I.K.E. versiyalari",
+"Web pages": "Veb-sahifalar",
+"Find a setting": "Sozlamani topish",
+"No setting found": "Hech qanday sozlama topilmadi"
 }
 }

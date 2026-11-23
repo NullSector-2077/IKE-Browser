@@ -1028,6 +1028,14 @@
 "“Send to device” with KDE Connect": "«ارسال به دستگاه» با KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ برای انتخاب، Enter برای رفتن، Esc برای بستن",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS رمزگذاری‌شده به درخواست‌های خود I.K.E. (به‌روزرسانی‌ها، فهرست‌های فیلتر) پاسخ نمی‌دهد: %s",
-"Shared by %d tabs of this site": "مشترک بین %d زبانه از این سایت"
+"Shared by %d tabs of this site": "مشترک بین %d زبانه از این سایت",
+"Print or save as PDF": "چاپ یا ذخیره به‌صورت PDF",
+"Print the page, or save it as a PDF document": "چاپ صفحه یا ذخیرهٔ آن به‌صورت سند PDF",
+"Send this page to a phone or a computer paired with KDE Connect": "ارسال این صفحه به تلفن یا رایانه‌ای که با KDE Connect جفت شده است",
+"No device paired with KDE Connect, or no web page in this tab": "هیچ دستگاهی با KDE Connect جفت نشده یا در این زبانه صفحهٔ وبی نیست",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "میان‌برهای صفحه‌کلید، به‌روزرسانی‌ها و نسخه‌های I.K.E.",
+"Web pages": "صفحه‌های وب",
+"Find a setting": "یافتن یک تنظیم",
+"No setting found": "هیچ تنظیمی پیدا نشد"
 }
 }

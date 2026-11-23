@@ -1028,6 +1028,14 @@
 "“Send to device” with KDE Connect": "KDE Connect арқылы “Құрылғыға жіберу”",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ таңдау үшін, Enter өту үшін, Esc жабу үшін",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Шифрланған DNS I.K.E. өз сұрауларына (жаңартулар, сүзгі тізімдері) жауап бермейді: %s",
-"Shared by %d tabs of this site": "Осы сайттың %d қойындысы ортақ пайдаланады"
+"Shared by %d tabs of this site": "Осы сайттың %d қойындысы ортақ пайдаланады",
+"Print or save as PDF": "Басып шығару немесе PDF ретінде сақтау",
+"Print the page, or save it as a PDF document": "Бетті басып шығару немесе PDF құжаты ретінде сақтау",
+"Send this page to a phone or a computer paired with KDE Connect": "Бұл бетті KDE Connect арқылы жұпталған телефонға немесе компьютерге жіберу",
+"No device paired with KDE Connect, or no web page in this tab": "KDE Connect арқылы жұпталған құрылғы жоқ немесе бұл бетте веб-бет жоқ",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Пернетақта тіркесімдері, жаңартулар және I.K.E. нұсқалары",
+"Web pages": "Веб-беттер",
+"Find a setting": "Баптауды табу",
+"No setting found": "Баптау табылмады"
 }
 }

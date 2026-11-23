@@ -1028,6 +1028,14 @@
 "“Send to device” with KDE Connect": "KDE Connectతో “పరికరానికి పంపు”",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ ఎంచుకోవడానికి, Enter వెళ్ళడానికి, Esc మూసివేయడానికి",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "ఎన్‌క్రిప్ట్ చేసిన DNS, I.K.E. సొంత అభ్యర్థనలకు (అప్డేట్‌లు, ఫిల్టర్ జాబితాలు) సమాధానం ఇవ్వదు: %s",
-"Shared by %d tabs of this site": "ఈ సైట్‌లోని %d ట్యాబ్‌లు పంచుకుంటున్నాయి"
+"Shared by %d tabs of this site": "ఈ సైట్‌లోని %d ట్యాబ్‌లు పంచుకుంటున్నాయి",
+"Print or save as PDF": "ముద్రించు లేదా PDF గా సేవ్ చేయి",
+"Print the page, or save it as a PDF document": "పేజీని ముద్రించండి, లేదా PDF పత్రంగా సేవ్ చేయండి",
+"Send this page to a phone or a computer paired with KDE Connect": "ఈ పేజీని KDE Connect తో జత చేసిన ఫోన్ లేదా కంప్యూటర్‌కు పంపండి",
+"No device paired with KDE Connect, or no web page in this tab": "KDE Connect తో జత చేసిన పరికరం లేదు, లేదా ఈ ట్యాబ్‌లో వెబ్ పేజీ లేదు",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "కీబోర్డ్ షార్ట్‌కట్‌లు, నవీకరణలు మరియు I.K.E. సంస్కరణలు",
+"Web pages": "వెబ్ పేజీలు",
+"Find a setting": "ఒక సెట్టింగ్‌ను కనుగొనండి",
+"No setting found": "ఏ సెట్టింగ్ కనుగొనబడలేదు"
 }
 }

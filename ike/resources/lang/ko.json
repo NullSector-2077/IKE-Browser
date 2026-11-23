@@ -1028,6 +1028,14 @@
 "“Send to device” with KDE Connect": "KDE Connect로 “기기로 보내기”",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ 선택, Enter 이동, Esc 닫기",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "암호화된 DNS가 I.K.E. 자체 요청(업데이트, 필터 목록)에 응답하지 않습니다: %s",
-"Shared by %d tabs of this site": "이 사이트의 탭 %d개가 공유"
+"Shared by %d tabs of this site": "이 사이트의 탭 %d개가 공유",
+"Print or save as PDF": "인쇄 또는 PDF로 저장",
+"Print the page, or save it as a PDF document": "페이지를 인쇄하거나 PDF 문서로 저장합니다",
+"Send this page to a phone or a computer paired with KDE Connect": "이 페이지를 KDE Connect로 연결된 휴대폰이나 컴퓨터로 보냅니다",
+"No device paired with KDE Connect, or no web page in this tab": "KDE Connect로 연결된 기기가 없거나 이 탭에 웹 페이지가 없습니다",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "키보드 단축키, 업데이트 및 I.K.E. 버전",
+"Web pages": "웹 페이지",
+"Find a setting": "설정 찾기",
+"No setting found": "찾은 설정이 없습니다"
 }
 }

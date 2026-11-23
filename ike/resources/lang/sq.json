@@ -1028,6 +1028,14 @@
 "“Send to device” with KDE Connect": "“Dërgoje te pajisje” me KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ për të zgjedhur, Enter për të shkuar, Esc për të mbyllur",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS-ja e fshehtëzuar nuk u përgjigjet kërkesave të vetë I.K.E.-së (përditësime, lista filtrash): %s",
-"Shared by %d tabs of this site": "Ndahet nga %d skeda të kësaj faqeje"
+"Shared by %d tabs of this site": "Ndahet nga %d skeda të kësaj faqeje",
+"Print or save as PDF": "Shtyp ose ruaj si PDF",
+"Print the page, or save it as a PDF document": "Shtyp faqen ose ruaje si dokument PDF",
+"Send this page to a phone or a computer paired with KDE Connect": "Dërgoje këtë faqe te një telefon ose kompjuter i çiftuar me KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Asnjë pajisje e çiftuar me KDE Connect, ose asnjë faqe interneti në këtë skedë",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Shkurtoret e tastierës, përditësimet dhe versionet e I.K.E.",
+"Web pages": "Faqe interneti",
+"Find a setting": "Gjej një parametër",
+"No setting found": "Nuk u gjet asnjë parametër"
 }
 }

@@ -1028,6 +1028,14 @@
 "Open selected text with middle click": "Відкривати виділений текст середнім клацанням",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "Середнє клацання на порожньому місці сторінки відкриває виділений текст як адресу або як пошуковий запит.",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Зашифрований DNS не відповідає на власні запити I.K.E. (оновлення, списки фільтрів): %s",
-"Shared by %d tabs of this site": "Спільний для вкладок цього сайту: %d"
+"Shared by %d tabs of this site": "Спільний для вкладок цього сайту: %d",
+"Print or save as PDF": "Друк або збереження як PDF",
+"Print the page, or save it as a PDF document": "Надрукувати сторінку або зберегти її як документ PDF",
+"Send this page to a phone or a computer paired with KDE Connect": "Надіслати цю сторінку на телефон або комп'ютер, сполучений через KDE Connect",
+"No device paired with KDE Connect, or no web page in this tab": "Немає пристрою, сполученого через KDE Connect, або в цій вкладці немає вебсторінки",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Клавіатурні скорочення, оновлення та версії I.K.E.",
+"Web pages": "Вебсторінки",
+"Find a setting": "Знайти налаштування",
+"No setting found": "Налаштувань не знайдено"
 }
 }

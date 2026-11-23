@@ -1028,6 +1028,14 @@
 "“Send to device” with KDE Connect": "„Saada seadmesse“ KDE Connectiga",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ valimiseks, Enter minemiseks, Esc sulgemiseks",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Krüptitud DNS ei vasta I.K.E. enda päringutele (uuendused, filtriloendid): %s",
-"Shared by %d tabs of this site": "Jagavad %d selle saidi kaarti"
+"Shared by %d tabs of this site": "Jagavad %d selle saidi kaarti",
+"Print or save as PDF": "Prindi või salvesta PDF-ina",
+"Print the page, or save it as a PDF document": "Prindi leht või salvesta see PDF-dokumendina",
+"Send this page to a phone or a computer paired with KDE Connect": "Saada see leht KDE Connectiga seotud telefoni või arvutisse",
+"No device paired with KDE Connect, or no web page in this tab": "KDE Connectiga pole ühtegi seadet seotud või sellel kaardil pole veebilehte",
+"Keyboard shortcuts, updates and the versions of I.K.E.": "Kiirklahvid, uuendused ja I.K.E. versioonid",
+"Web pages": "Veebilehed",
+"Find a setting": "Otsi seadet",
+"No setting found": "Ühtegi seadet ei leitud"
 }
 }
