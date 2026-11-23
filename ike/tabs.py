@@ -2,16 +2,18 @@
 drawn and its close and audio buttons. The small touches they share (the
 gliding mark of the current tab, titles that fade out) are in polish.py."""
 
+import functools
 
-from PyQt6.QtCore import QEasingCurve, QEvent, QRect, QRectF, QSize, Qt, QVariantAnimation, pyqtSignal
+from PyQt6.QtCore import QEasingCurve, QEvent, QObject, QRect, QRectF, QSize, Qt, QVariantAnimation, pyqtSignal
 from PyQt6.QtGui import QIcon, QPainter
-from PyQt6.QtWidgets import QListWidget, QStyle, QStyledItemDelegate, QTabBar
+from PyQt6.QtWidgets import QApplication, QListWidget, QStyle, QStyledItemDelegate, QTabBar
 
 from . import polish
 from .closebutton import CloseButtonStyle
 
 AUDIO_ROLE = Qt.ItemDataRole.UserRole + 5       # "" | "on" | "muted"
 TITLE_CHARS = 27         # a horizontal tab is about this many characters wide at most
+TAB_MIME = "application/x-ike-tab"   # a tab being dragged out of its window (1.1.24)
 
 
 class TabBar(QTabBar):
@@ -25,8 +27,16 @@ class TabBar(QTabBar):
         self.setStyle(self.label_style)
         self.setElideMode(Qt.TextElideMode.ElideNone)   # the title is cut by fading (polish.py)
         self.mark = polish.MarkGlide(self, config, self._mark_target)
-        self.mark.square = True
+        self.mark.top = True             # Breeze's line along the top of the tab (1.1.24)
+        self.own_mark = True             # False: the style's own fixed mark (the tests compare the two)
         self.currentChanged.connect(self.mark.current_changed)
+        # 1.1.24: a tab dragged away from the bar (tear_off(index) opens it
+        # in a new window); while the current tab is dragged its mark moves
+        # with it (polish.TabLabelStyle draws it into the dragged picture)
+        self.tear_off = None
+        self._press = None               # (index, point) of a left press on a tab
+        self.dragging = False
+        self._glows = {}                 # close button: its glow (1.1.24)
         # 1.1.23: the hover comes and goes softly (Breeze's colour), and a new
         # tab's title fades in; each only while it moves, nothing at rest
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
@@ -126,6 +136,7 @@ class TabBar(QTabBar):
     def tabInserted(self, index):
         super().tabInserted(index)
         self._forget()
+        self._glow(index)
         restoring = self.restoring is not None and self.restoring()
         if self.count() > 1 and not restoring:
             anim = self._animate({}, index, 0.0, 1.0, polish.ENTER_MS, "tab_enter")
@@ -142,14 +153,15 @@ class TabBar(QTabBar):
             self._repaint_tab(self._enter[0])
 
     def _mark_target(self):
-        """Breeze's line under the current tab (1.1.23): 2 px, square ends,
-        the tab's width less the corner radius (was 2.5 px, round, 20 % in)."""
+        """Breeze's mark of the current tab (1.1.24, the owner's choice): its
+        accent line along the top edge, the tab's whole width, following the
+        rounded top corners (polish.top_line_path); it glides from tab to
+        tab. The line under the tab (1.1.3-1.1.23) is gone: with Breeze's own
+        fixed line there were two."""
         i = self.currentIndex()
-        if i < 0:
+        if i < 0 or not self.own_mark or self.dragging:
             return None
-        r = self.tabRect(i)
-        inset = min(polish.RADIUS / 2, r.width() / 4)
-        return QRectF(r.left() + inset, r.bottom() - 1, r.width() - 2 * inset, 2)
+        return polish.top_line_rect(self.tabRect(i))
 
     def set_title(self, index, text):
         """The tab's title, held to TITLE_CHARS characters: a longer one is cut
@@ -157,6 +169,101 @@ class TabBar(QTabBar):
         cut = len(text) > TITLE_CHARS + 1
         self.setTabData(index, "cut" if cut else None)
         self.setTabText(index, text[:TITLE_CHARS] if cut else text)
+
+    # --- the close button's red glow (1.1.24) ---------------------------------
+    GLOW_MS = 120
+
+    def _glow(self, index):
+        """The close button of tab index glows in Breeze's red under the
+        mouse (polish.TabLabelStyle draws it), coming in over GLOW_MS."""
+        from PyQt6.QtWidgets import QTabBar
+        for side in (QTabBar.ButtonPosition.RightSide, QTabBar.ButtonPosition.LeftSide):
+            b = self.tabButton(index, side)
+            if b is None or b in self._glows:
+                continue
+            # kept here as well as by the button: a Qt child held only by Qt
+            # loses its Python side (its event filter) to Python's collector
+            g = self._glows[b] = _CloseGlow(b, self.config)
+            b.destroyed.connect(functools.partial(self._glows.pop, b, None))
+            b.installEventFilter(g)
+            # the button is drawn by the tab bar's style (a widget's own style
+            # does not reach its children by itself)
+            b.setStyle(self.label_style)
+
+    # --- dragging a tab, and tearing it off (1.1.24) ---------------------------
+    TEAR_PX = 40             # how far above or below the bar the mouse goes before the tab comes off
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            i = self.tabAt(event.position().toPoint())
+            self._press = (i, event.position().toPoint()) if i >= 0 else None
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        press = self._press
+        if press is not None and event.buttons() & Qt.MouseButton.LeftButton:
+            pos = event.position().toPoint()
+            if not self.dragging and (pos - press[1]).manhattanLength() >= QApplication.startDragDistance():
+                self.dragging = True
+                self.update()
+            if self.away(pos) and self.tear_off is not None and polish.part("tab_tear_off"):
+                self._press = None
+                self._end_drag(press[1])
+                self.tear_off(press[0])
+                return
+        super().mouseMoveEvent(event)
+
+    def away(self, pos):
+        """Is pos (in the bar) far enough above or below it for the tab to come off?"""
+        return pos.y() < -self.TEAR_PX or pos.y() > self.height() + self.TEAR_PX
+
+    def _end_drag(self, at):
+        """The bar's own move of the tab ends where it began (a release there)."""
+        from PyQt6.QtCore import QPointF
+        from PyQt6.QtGui import QMouseEvent
+        p = QPointF(at)
+        super().mouseReleaseEvent(QMouseEvent(QEvent.Type.MouseButtonRelease, p, self.mapToGlobal(p),
+                                              Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton,
+                                              Qt.KeyboardModifier.NoModifier))
+        self._dropped()
+
+    def mouseReleaseEvent(self, event):
+        super().mouseReleaseEvent(event)
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._press = None
+            self._dropped()
+
+    def _dropped(self):
+        if self.dragging:
+            self.dragging = False
+            self.update()
+
+    # a torn-off tab dropped back on a tab bar: on its own, it stays; on
+    # another window's, it moves there (take_tab(key))
+    take_tab = None
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasFormat(TAB_MIME):
+            event.setDropAction(Qt.DropAction.MoveAction)
+            event.accept()
+        else:
+            super().dragEnterEvent(event)
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasFormat(TAB_MIME):
+            event.setDropAction(Qt.DropAction.MoveAction)
+            event.accept()
+        else:
+            super().dragMoveEvent(event)
+
+    def dropEvent(self, event):
+        if event.mimeData().hasFormat(TAB_MIME):
+            event.setDropAction(Qt.DropAction.MoveAction)
+            event.accept()
+            if self.take_tab is not None:
+                self.take_tab(bytes(event.mimeData().data(TAB_MIME)).decode("ascii", "replace"))
+            return
+        super().dropEvent(event)
 
     def paintEvent(self, event):
         # the part being painted: the tabs outside it are not drawn again
@@ -174,19 +281,55 @@ class TabBar(QTabBar):
         p.end()
 
 
+class _CloseGlow(QObject):
+    """The glow of one close button: a child of the button, so it lives and
+    dies with it; the level is kept as the button's property "ike_glow"."""
+
+    def __init__(self, button, config):
+        super().__init__(button)
+        self.setObjectName("ike_close_glow")
+        self.button = button
+        from .effects import Glide
+        self.glide = Glide(self, config, self._level, ms=TabBar.GLOW_MS)
+
+    def _level(self):
+        self.button.setProperty("ike_glow", self.glide.value)
+        self.button.update()
+
+    def eventFilter(self, obj, event):
+        t = event.type()
+        if t == QEvent.Type.Enter and obj.isEnabled():
+            self.glide.to(1)
+        elif t in (QEvent.Type.Leave, QEvent.Type.Hide):
+            self.glide.to(0)
+        return False
+
+
 class VTabList(QListWidget):
     """The vertical tabs: a bar on the left edge of the current row that glides
-    to the next one."""
+    to the next one. 1.1.24: while a row is dragged the others slide aside
+    to open its place (Qt's own list shows only a line where it would go),
+    and a row dropped outside the list opens in a new window (tear_off)."""
+
+    SLIDE_MS = 160
 
     def __init__(self, parent, config=None):
         super().__init__(parent)
         self.config = config
         self.mark = polish.MarkGlide(self.viewport(), config, self._mark_target)
         self.currentRowChanged.connect(self.mark.current_changed)
+        self.tear_off = None             # callable(row): the row dropped outside the list
+        self.picture = None              # callable(row) -> QPixmap: what follows the mouse
+        self.key = None                  # callable(row) -> str: the tab, for another window's tab bar
+        self.drag_row = -1               # the row being dragged (-1: none)
+        self.gap = -1                    # where it would go: an insertion row
+        self._offsets = {}               # row: how far it is moved now (px)
+        self._from, self._to = {}, {}
+        self._slide = None
 
     def _mark_target(self):
         item = self.currentItem()
-        if item is None:
+        if item is None or self.drag_row >= 0:
             return None
         r = self.visualItemRect(item)
         if r.isEmpty():
@@ -199,6 +342,157 @@ class VTabList(QListWidget):
         p = QPainter(self.viewport())
         self.mark.paint(p)
         p.end()
+
+    # --- rows sliding aside while one is dragged (1.1.24) ---------------------
+    def offset(self, row):
+        """How far row is drawn from its place now (px; the delegate moves it)."""
+        return self._offsets.get(row, 0.0)
+
+    def sliding(self):
+        return self.drag_row >= 0 and polish.part("tab_slide")
+
+    def startDrag(self, actions):
+        row = self.currentRow()
+        indexes = self.selectedIndexes()
+        if row < 0 or not indexes:
+            return
+        from PyQt6.QtCore import QPoint
+        from PyQt6.QtGui import QDrag
+        drag = QDrag(self)
+        mime = self.model().mimeData(indexes)
+        if self.key is not None:
+            mime.setData(TAB_MIME, self.key(row).encode("ascii"))
+        drag.setMimeData(mime)
+        pm = self.picture(row) if self.picture is not None else None
+        if pm is None or pm.isNull():
+            rect = self.visualItemRect(self.item(row))
+            pm = self.viewport().grab(rect)
+        drag.setPixmap(pm)
+        dpr = pm.devicePixelRatio() or 1.0
+        drag.setHotSpot(QPoint(round(pm.width() / dpr / 2), min(12, round(pm.height() / dpr / 2))))
+        self.drag_row, self.gap = row, row
+        shown = self.showDropIndicator()
+        if self.sliding():
+            self.setDropIndicatorShown(False)
+        self.viewport().update()
+        try:
+            result = run_drag(drag, Qt.DropAction.MoveAction)
+        finally:
+            self.setDropIndicatorShown(shown)
+            self._end_slide()
+        if result == Qt.DropAction.IgnoreAction and self.tear_off is not None and polish.part("tab_tear_off") \
+                and not cancelled():
+            self.tear_off(row)
+
+    def _end_slide(self):
+        if self._slide is not None:
+            self._slide.stop()
+        self.drag_row, self.gap = -1, -1
+        self._offsets, self._from, self._to = {}, {}, {}
+        self.viewport().update()
+
+    def _gap_at(self, y):
+        """The insertion row for the mouse at y: the visible rows as they
+        stand without the dragged one, the gap where the mouse is."""
+        rows = [r for r in range(self.count()) if not self.item(r).isHidden()]
+        for r in rows:
+            rect = self.visualItemRect(self.item(r))
+            if y < rect.center().y():
+                return r
+        return rows[-1] + 1 if rows else 0
+
+    def _targets(self, gap):
+        h = self.visualItemRect(self.item(self.drag_row)).height()
+        out = {}
+        for r in range(self.count()):
+            if r == self.drag_row or self.item(r).isHidden():
+                continue
+            if self.drag_row < r < gap:
+                out[r] = -h
+            elif gap <= r < self.drag_row:
+                out[r] = h
+        return out
+
+    def slide_to(self, gap):
+        """Open the dragged row's place at insertion row gap: the rows
+        between its old place and the new one glide up or down."""
+        if self.drag_row < 0 or gap == self.gap:
+            return
+        self.gap = gap
+        target = self._targets(gap)
+        if not polish.moving(self.config, "tab_slide") or not self.isVisible():
+            self._offsets = dict(target)
+            self.viewport().update()
+            return
+        self._from, self._to = dict(self._offsets), target
+        if self._slide is None:
+            self._slide = QVariantAnimation(self)
+            self._slide.setStartValue(0.0)
+            self._slide.setEndValue(1.0)
+            self._slide.setEasingCurve(QEasingCurve.Type.OutCubic)
+            self._slide.valueChanged.connect(self._slide_step)
+        self._slide.stop()
+        self._slide.setDuration(self.SLIDE_MS)
+        self._slide.start()
+
+    def _slide_step(self, v):
+        t = float(v)
+        rows = set(self._from) | set(self._to)
+        self._offsets = {r: self._from.get(r, 0.0) + (self._to.get(r, 0.0) - self._from.get(r, 0.0)) * t
+                         for r in rows}
+        self.viewport().update()
+
+    def dragMoveEvent(self, event):
+        super().dragMoveEvent(event)
+        if self.drag_row >= 0 and event.source() is self:
+            self.slide_to(self._gap_at(event.position().toPoint().y()))
+            if self.sliding():
+                event.accept()
+
+    def dropEvent(self, event):
+        if self.drag_row >= 0 and event.source() is self and self.sliding():
+            self.drop_at(event.position().toPoint().y())
+            event.setDropAction(Qt.DropAction.CopyAction)   # nothing for the drag to remove
+            event.accept()
+            return
+        super().dropEvent(event)
+
+    def drop_at(self, y):
+        """The dragged row goes where its place was opened, as the user saw it."""
+        from PyQt6.QtCore import QModelIndex
+        gap = self._gap_at(y)
+        row = self.drag_row
+        self._end_slide()
+        if row >= 0 and gap not in (row, row + 1):
+            self.model().moveRows(QModelIndex(), row, 1, QModelIndex(), gap)
+
+
+# The drag of a tab (1.1.24): QDrag.exec, a function the tests replace (a
+# drag waits for the mouse, which an offscreen test has none of)
+_cancel = {"esc": False}
+
+
+def run_drag(drag, actions):
+    from PyQt6.QtCore import QObject as _Q
+
+    class _Esc(_Q):
+        def eventFilter(self, _obj, event):
+            if event.type() == QEvent.Type.KeyPress and event.key() == Qt.Key.Key_Escape:
+                _cancel["esc"] = True
+            return False
+    _cancel["esc"] = False
+    watch = _Esc()
+    app = QApplication.instance()
+    app.installEventFilter(watch)
+    try:
+        return drag.exec(actions)
+    finally:
+        app.removeEventFilter(watch)
+
+
+def cancelled():
+    """Was the last drag given up with Esc? (then the tab stays)"""
+    return _cancel["esc"]
 
 
 class VTabDelegate(QStyledItemDelegate):
@@ -366,6 +660,11 @@ class VTabDelegate(QStyledItemDelegate):
         selected = bool(option.state & QStyle.StateFlag.State_Selected)
         enter = self._value(self._enter, row)
         painter.save()
+        if getattr(self.view, "drag_row", -1) >= 0 and polish.part("tab_slide"):
+            if row == self.view.drag_row:           # its place is the gap the others open
+                painter.restore()
+                return
+            painter.translate(0, round(self.view.offset(row)))
         if enter is not None:            # a new row: comes in from a little to the left, fading in
             painter.setOpacity(painter.opacity() * enter)
             painter.translate(round((enter - 1) * 12), 0)
