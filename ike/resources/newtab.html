@@ -134,88 +134,29 @@ function ikeIconLater(img) {
   // 1.1.23: the text is written only when it changes, and the page wakes up at
   // the next minute instead of every second (each write made a new frame: the
   // page, the window and the graphics process woke once a second for nothing)
-  var wake = null;
-  // 1.1.24: the greeting (ike/greeting.py has the same rules and the tests compare them)
-  var greet = document.getElementById("greet"), gData = {s: {}, w: {}, g: 0, v: "", h: 0};
-  try { gData = JSON.parse(document.getElementById("greet-data").textContent); } catch (e) {}
-  // the week of the page's language: 1 = Monday ... 7 = Sunday; Monday first and Saturday-Sunday off if unknown
-  function weekOf() {
+  var wake = null, hi = null;
+  // 1.1.24: the greeting (ike/resources/greeting.js); the state it keeps goes home to I.K.E. by an image request
+  var greet = document.getElementById("greet");
+  if (greet && window.IkeGreeting) {
     try {
-      var loc = new Intl.Locale(lang), wi = loc.getWeekInfo ? loc.getWeekInfo() : loc.weekInfo;
-      if (wi && wi.firstDay && wi.weekend && wi.weekend.length) return {first: wi.firstDay, weekend: wi.weekend};
+      var gD = JSON.parse(document.getElementById("greet-data").textContent);
+      gD.lang = lang;
+      hi = IkeGreeting.create(gD, {
+        title: function (t) { put(document.getElementById("greet-t"), t); },
+        line: function (t) { put(document.getElementById("greet-l"), t); }
+      }, function (st) { new Image().src = "ike:greet?k=" + gD.k + "&s=" + encodeURIComponent(JSON.stringify(st)); });
     } catch (e) {}
-    return {first: 1, weekend: [6, 7]};
-  }
-  function dayBefore(d) { return (d - 2 + 7) % 7 + 1; }
-  function workStart(w) {
-    var d = w.first;
-    for (var i = 0; i < 7; i++) { if (w.weekend.indexOf(d) < 0) return d; d = d % 7 + 1; }
-    return w.first;
-  }
-  function beforeWeekend(w) {
-    for (var i = 0; i < w.weekend.length; i++) { if (w.weekend.indexOf(dayBefore(w.weekend[i])) < 0) return dayBefore(w.weekend[i]); }
-    return 0;
-  }
-  // 1 north, -1 south, 0 unknown: from the weather's city if there is one, else from the months of summer time
-  function hemisphere(d, st) {
-    if (st.h) return st.h;
-    var jan = new Date(d.getFullYear(), 0, 1).getTimezoneOffset(), jul = new Date(d.getFullYear(), 6, 1).getTimezoneOffset();
-    return jan > jul ? 1 : jan < jul ? -1 : 0;
-  }
-  function seasonOf(m, n, h) {
-    if (n != 1 || !h || [3, 6, 9, 12].indexOf(m) < 0) return null;
-    var north = {3: "spring", 6: "summer", 9: "autumn", 12: "winter"}[m];
-    return h == 1 ? north : {spring: "autumn", summer: "winter", autumn: "spring", winter: "summer"}[north];
-  }
-  // the second line: the first rule that fits wins (ike/greeting.py has the same table)
-  var RULES = [
-    ["updated", function (c) { return !!c.updated; }],
-    ["away", function (c) { return c.gap >= 3; }],
-    ["welcome", function (c) { return c.gap >= 1; }],
-    ["late", function (c) { return c.hour >= 1 && c.hour < 5; }],
-    ["dst", function (c) { return c.dst && c.hour >= 18; }],
-    ["spring", function (c) { return c.season == "spring"; }],
-    ["summer", function (c) { return c.season == "summer"; }],
-    ["autumn", function (c) { return c.season == "autumn"; }],
-    ["winter", function (c) { return c.season == "winter"; }],
-    ["rain", function (c) { return c.w.k == "rain"; }],
-    ["snow", function (c) { return c.w.k == "snow"; }],
-    ["fog", function (c) { return c.w.k == "fog"; }],
-    ["wind", function (c) { return !!c.w.wind; }],
-    ["hot", function (c) { return !!c.w.hot; }],
-    ["cold", function (c) { return !!c.w.cold; }],
-    ["sun", function (c) { return c.w.k == "clear" && !!c.w.warm && c.hour >= 7 && c.hour < 19; }],
-    ["week", function (c) { return c.day == workStart(c.week) && c.hour >= 5 && c.hour < 12; }],
-    ["soon", function (c) { return c.day == beforeWeekend(c.week); }],
-    ["weekend", function (c) { return c.week.weekend.indexOf(c.day) >= 0; }]
-  ];
-  function greetFor(d, w, week, st) {
-    st = st || gData;
-    var h = d.getHours(), tomorrow = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 12);
-    var c = {hour: h, day: d.getDay() || 7, w: w || {}, week: week || weekOf(), gap: st.g, updated: st.v,
-             dst: tomorrow.getTimezoneOffset() != new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12).getTimezoneOffset(),
-             season: seasonOf(d.getMonth() + 1, d.getDate(), hemisphere(d, st))};
-    var p = h >= 5 && h < 12 ? "morning" : h >= 12 && h < 18 ? "afternoon" : h >= 18 && h < 23 ? "evening" : "night";
-    for (var i = 0; i < RULES.length; i++) if (RULES[i][1](c)) return [p, RULES[i][0], c];
-    return [p, null, c];
-  }
-  window.ikeGreetFor = greetFor;
-  function hello(now) {
-    if (!greet) return;
-    var g = greetFor(now, gData.w);
-    put(document.getElementById("greet-t"), gData.s[g[0]] || "");
-    put(document.getElementById("greet-l"), g[1] ? (gData.s[g[1]] || "").replace("{version}", gData.v) : "");
   }
   function put(el, text) { if (el && el.textContent !== text) el.textContent = text; }
   function tick() {
     var now = new Date();
     put(clock, fmt(now, {hour: "2-digit", minute: "2-digit"}));
     put(date, fmt(now, {weekday: "long", day: "numeric", month: "long"}));
-    hello(now);
+    if (hi) hi.update(now);
     clearTimeout(wake);
     wake = setTimeout(tick, 60000 - now.getTime() % 60000 + 50);
   }
-  if (clock || date || greet) {
+  if (clock || date || hi) {
     tick();
     // back in view (a tab shown again, a computer woken up): at once
     document.addEventListener("visibilitychange", function () { if (!document.hidden) tick(); });
@@ -265,7 +206,7 @@ function ikeIconLater(img) {
   window.ikeWeather = function (text, info) {
     var w = document.getElementById("weather");
     if (w) w.textContent = text;
-    if (info !== undefined) { gData.w = info || {}; hello(new Date()); }
+    if (info !== undefined && hi) hi.setWeather(info);
   };
 })();
 </script>

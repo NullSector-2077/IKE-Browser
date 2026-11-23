@@ -2,37 +2,30 @@
 
 ## 1.1.24
 
-- **A greeting on the new tab page** (top left, under "Settings" at narrow
-  widths it stops short of the button): "Good morning" (05:00), "Good
-  afternoon" (12:00), "Good evening" (18:00), "Good night" (23:00), in the
-  language of I.K.E., and under it at most one short line, the first rule that
-  fits: the days since the page was last opened ("Welcome back", "It's been a
-  while"), the day of an update ("I.K.E. has been updated to 1.1.24"), the
-  small hours ("It's late: remember to rest"), the evening before the clocks
-  change, the first day of a season (the 1st of March, June, September and
-  December; swapped in the south, known from the weather city or from the
-  months of summer time), the weather the page already has (rain, snow, fog,
-  strong wind, very hot, very cold, "Enjoy the sun"), the start of the working
-  week, "The weekend is near" and "Have a nice weekend", the days following the
-  week of the page's language (Intl weekInfo: Friday-Saturday weekends, a week
-  that starts on Sunday). No holiday yet. Everything is worked out in the
-  page from the clock; only a date (the last opening) and the version seen are
-  kept, in I.K.E.'s own settings; nothing is asked of the network. The wind
-  speed joins the temperature and the weather code in the weather request
-  (same service, same coordinates). A switch in Settings, New tab page
-  ("Show a greeting", on). The words go into the page as data, never as script
-  (`ike/greeting.py`, tests/test_greeting.py). The "Add" tile of the page is as
-  visible as the Settings button: a solid border, the + and its name in the
-  text colour, the same lift under the mouse.
-- **Squared switches, closer to Plasma** (the owner's choice): every on / off
-  switch is a rectangle with rounded corners and a square knob, no longer a
-  pill. Those of the windows and the Settings are a little smaller (a line and
-  two pixels tall, they were a line and four), as are those of the lists (one
-  line, they were a line and two); those of the menus keep their size.
-- **The new tab page's Settings button shows the desktop's own icon** (KDE's
-  Breeze "configure"), read from the icon theme in use and drawn in the
-  page's text colour; the shipped icon when the theme has none. Only a plain
-  drawing is put in the page (no script, link or outside reference).
+- **A greeting and friendly messages on the new tab page** (top left; at narrow
+  widths it stops short of the Settings button): "Good morning" (05:00),
+  "Good afternoon" (12:00), "Good evening" (18:00), "Good night" (23:00), in the
+  language of I.K.E., and under it at most one short line from a pool of 70
+  messages in groups (the days away or a streak, an update, the small hours, the
+  evening before the clocks change, the first of a season and of a month, the
+  weather the page already has, the week of the page's language, the time of day,
+  fun facts that are true, encouragement). A line comes again only after the
+  others of its group (a shuffled bag per group) and not within three days; it
+  stays for two hours or until the period changes, not on every new tab. In
+  Settings, New tab page: the greeting (on), the tone ("Greetings only" or "Also
+  friendly messages", the default) and "Holidays to remember", one switch per
+  tradition, all off: Christian, Orthodox Christian, Islamic, Jewish, Hindu,
+  Buddhist, Lunar New Year, Nowruz and the civil New Year; I.K.E. never guesses
+  them. The days come from the engine's own calendars (Umm al-Qura, Hebrew,
+  Chinese) and the computus for Easter, a small table for Diwali, Holi, Vesak and
+  the Lunar New Year of some years (`ike/resources/holidays.json`, to be
+  refreshed). Worked out in the page; kept in I.K.E.'s own settings and nowhere
+  else: the first and last day, the days of use, the streak, the usual hour of
+  the first opening, the version seen and the messages shown; nothing is asked of
+  the network (the wind speed joins the temperature and the weather code in the
+  weather request). The words go into the page as data, never as script
+  (`ike/greeting.py`, `ike/resources/greeting.js`, tests/test_greeting.py). The
+  "Add" tile is as visible as the Settings button.
 - **xdg-utils is no longer used** (its Arch advisory AVG-1420 has no fix and
   stopped every automatic merge): a downloaded file, a folder or a link
   (mailto:, magnet:...) goes to the XDG desktop portal

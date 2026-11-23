@@ -731,7 +731,7 @@ class SettingsDialog(QDialog):
         """New tab page: clock and weather (see weather.py)."""
         self.nt_clock = Switch(T("Show the clock and the date"))
         self.nt_clock.setChecked(bool(self.cfg["newtab_clock"]))
-        self.nt_greeting = Switch(T("Show a greeting"))
+        self.nt_greeting = Switch(T("Greeting on the new tab page"))
         self.nt_greeting.setChecked(bool(self.cfg["newtab_greeting"]))
         self.nt_weather = Switch(T("Show the weather"))
         self.nt_weather.setChecked(bool(self.cfg["newtab_weather"]))
@@ -760,6 +760,13 @@ class SettingsDialog(QDialog):
         self.unit.setCurrentIndex(max(0, self.unit.findData(self.cfg["weather_unit"])))
         _row(f, T("New tab page"), self.nt_clock, T("The time and the date at the bottom of the page."))
         _row(f, "", self.nt_greeting, T("A short hello at the top left, from the time of day; nothing leaves your computer."))
+        self.nt_tone = QComboBox()
+        self.nt_tone.addItem(T("Greetings only"), "greetings")
+        self.nt_tone.addItem(T("Also friendly messages"), "friendly")
+        self.nt_tone.setCurrentIndex(max(0, self.nt_tone.findData(self.cfg["newtab_greeting_tone"])))
+        _row(f, T("Tone"), self.nt_tone,
+             T("Friendly messages are short lines under the greeting: weather, small tips and curiosities."))
+        self._holiday_rows(f)
         _row(f, "", self.nt_weather, T("The same switch as the “Weather on the new tab page” extension."))
         _row(f, T("City for the weather"), row,
              T("The weather comes from Open-Meteo (free, no account). Finding the city sends "
@@ -770,6 +777,23 @@ class SettingsDialog(QDialog):
         self._show_found(False)
         _row(f, T("Temperature"), self.unit, T("Degrees Celsius or Fahrenheit."))
         self._background_rows(f)
+
+    def _holiday_rows(self, f):
+        """New tab page: the holidays to remember, one switch per tradition, all off at first (greeting.py)."""
+        from . import greeting
+        box, form = self._group(T("Holidays to remember"))
+        note = QLabel(T("Choose the holidays you want remembered on the new tab page. "
+                        "I.K.E. never guesses them by itself."))
+        note.setWordWrap(True)
+        form.addRow(note)
+        chosen = self.cfg["greeting_holidays"]
+        self.nt_holidays = {}
+        for ident, name, hint in greeting.TRADITIONS:
+            sw = Switch(T(name))
+            sw.setChecked(ident in chosen)
+            self.nt_holidays[ident] = sw
+            _row(form, "", sw, T(hint) if hint else None)
+        f.addRow(box)
 
     def _background_rows(self, f):
         """New tab page: a photo of the user's as its background (see newtabbg.py)."""
@@ -1591,6 +1615,8 @@ class SettingsDialog(QDialog):
                              for i, n in enumerate(dict.fromkeys(names))]
         cfg["newtab_clock"] = self.nt_clock.isChecked()
         cfg["newtab_greeting"] = self.nt_greeting.isChecked()
+        cfg["newtab_greeting_tone"] = self.nt_tone.currentData()
+        cfg["greeting_holidays"] = [i for i, sw in self.nt_holidays.items() if sw.isChecked()]
         before = (cfg["weather_city"], cfg["weather_lat"], cfg["weather_lon"], cfg["weather_unit"])
         cfg["weather_unit"] = self.unit.currentData()
         if self._city_pick is not None:

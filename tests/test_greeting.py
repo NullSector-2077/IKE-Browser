@@ -1,9 +1,11 @@
-"""The greeting of the new tab page (1.1.24): the rules (ike/greeting.py and their twin in
-newtab.html are compared over many moments), the switch, the local memory and the text fitting
-beside the Settings button in every language."""
+"""The greeting and the friendly messages of the new tab page (1.1.24): the pool and its rotation,
+what the greeting remembers (and nothing else), the holidays (all off unless chosen), the switches
+in Settings, and the text fitting beside the Settings button in every language. The page's logic
+(ike/resources/greeting.js) runs in the real engine; the rest is plain Python."""
 
 import datetime
 import json
+import re
 import sys
 
 from conftest import ROOT
@@ -11,66 +13,10 @@ from test_security import JS
 
 sys.path.insert(0, str(ROOT))
 
-NORTH = {"first": 1, "weekend": [6, 7]}
-GULF = {"first": 6, "weekend": [5, 6]}
-IRAN = {"first": 6, "weekend": [5]}
-US = {"first": 7, "weekend": [6, 7]}
-WEATHERS = [{}, {"k": "rain"}, {"k": "snow"}, {"k": "fog"}, {"k": "clear", "warm": True},
-            {"k": "clear", "warm": False}, {"k": "", "hot": True}, {"k": "", "cold": True},
-            {"k": "", "wind": True}]
+PERIOD_WORDS = ("Good morning", "Good afternoon", "Good evening", "Good night")
 
 
-def test_periods_of_the_day():
-    from ike import greeting
-
-    for hour, name in ((5, "morning"), (11, "morning"), (12, "afternoon"), (17, "afternoon"),
-                       (18, "evening"), (22, "evening"), (23, "night"), (0, "night"), (4, "night")):
-        assert greeting.period(hour) == name, hour
-
-
-def test_the_second_line_rules():
-    from ike import greeting
-    c = greeting.choose
-
-    assert c(3, 3)[1] == "late" and c(1, 3)[1] == "late" and c(5, 3)[1] is None and c(0, 3)[1] is None
-    assert c(9, 1)[1] == "week" and c(14, 1)[1] is None            # Monday morning only
-    assert c(14, 5)[1] == "soon"                                    # Friday
-    assert c(14, 6)[1] == "weekend" and c(14, 7)[1] == "weekend"
-    assert c(14, 3)[1] is None                                      # nothing at all: just the greeting
-    # the week of the language: Friday-Saturday weekend, Sunday first workday
-    assert c(9, 7, week=GULF)[1] == "week" and c(14, 4, week=GULF)[1] == "soon"
-    assert c(14, 5, week=GULF)[1] == "weekend" and c(14, 6, week=GULF)[1] == "weekend"
-    assert c(14, 5, week=IRAN)[1] == "weekend" and c(14, 6, week=IRAN)[1] is None
-    assert c(9, 7, week=US)[1] == "weekend" and c(9, 1, week=US)[1] == "week"     # Sunday is weekend there
-    # weather
-    assert c(14, 3, {"k": "rain"})[1] == "rain" and c(14, 3, {"k": "snow"})[1] == "snow"
-    assert c(14, 3, {"k": "fog"})[1] == "fog" and c(14, 3, {"wind": True})[1] == "wind"
-    assert c(14, 3, {"hot": True})[1] == "hot" and c(14, 3, {"cold": True})[1] == "cold"
-    assert c(14, 3, {"k": "clear", "warm": True})[1] == "sun"
-    assert c(22, 3, {"k": "clear", "warm": True})[1] is None        # the sun by day only
-    assert c(14, 3, {"k": "clear"})[1] is None
-    assert c(3, 3, {"k": "rain"})[1] == "late"                       # the rest comes first
-    # what the page remembers
-    assert c(14, 3, gap=1)[1] == "welcome" and c(14, 3, gap=3)[1] == "away" and c(14, 3, gap=0)[1] is None
-    assert c(14, 3, gap=-1)[1] is None                               # a first use: no "back"
-    assert c(14, 3, gap=5, updated="1.1.24")[1] == "updated"
-    assert c(19, 3, dst=True)[1] == "dst" and c(10, 3, dst=True)[1] is None
-    assert c(14, 3, season="spring")[1] == "spring"
-    # no holiday anywhere
-    keys = {k for k, _ in greeting.WORDS}
-    assert not keys & {"newyear", "xmas", "eve", "easter", "eid"}
-
-
-def test_seasons_by_hemisphere():
-    from ike import greeting
-
-    assert greeting.season_of(3, 1, 1) == "spring" and greeting.season_of(3, 1, -1) == "autumn"
-    assert greeting.season_of(12, 1, 1) == "winter" and greeting.season_of(12, 1, -1) == "summer"
-    assert greeting.season_of(6, 1, 1) == "summer" and greeting.season_of(9, 1, -1) == "spring"
-    assert greeting.season_of(3, 2, 1) is None and greeting.season_of(4, 1, 1) is None
-    assert greeting.season_of(3, 1, 0) is None and greeting.season_of(3, 1, None) is None   # unknown: skipped
-
-
+# --- plain Python ----------------------------------------------------------------------------------
 def test_weather_kinds():
     from ike import greeting
     k = greeting.weather_kind
@@ -89,131 +35,237 @@ def test_the_words_go_into_the_page_as_data():
     from ike import greeting
 
     hostile = lambda text: "</script><script>window.pwned=1</script>&amp;"        # noqa: E731
-    data = greeting.page_data(hostile, {"k": "rain"}, 2, "1.1.24", 1)
+    data = greeting.page_data(hostile, {"k": "rain"}, 1, "1.1.24", "friendly", ["christian", "nope"],
+                              {"days": 3, "bags": {"fact": ["fact1", "<b>"]}}, "key")
     assert "<" not in data and ">" not in data and "&" not in data
     back = json.loads(data)
     assert back["s"]["morning"] == "</script><script>window.pwned=1</script>&amp;"
-    assert back["g"] == 2 and back["v"] == "1.1.24" and back["h"] == 1 and back["w"] == {"k": "rain"}
+    assert back["hol"] == ["christian"] and back["h"] == 1 and back["w"] == {"k": "rain"} and back["k"] == "key"
+    assert back["st"]["bags"] == {"fact": ["fact1"]}
+    # greetings only: no friendly line and no holiday words unless a tradition is chosen
+    only = json.loads(greeting.page_data(lambda t: t, tone="greetings"))
+    assert set(only["s"]) == {"morning", "afternoon", "evening", "night"} and only["hol"] == []
+    assert only["tab"] == {}
 
 
-class Cfg(dict):
-    pass
+def test_what_the_greeting_keeps_and_nothing_else():
+    from ike import greeting
+
+    hostile = {"first": "2026-11-23", "last": "https://example.org/secret", "upd": "x", "ver": "<script>",
+               "days": 5, "streak": -1, "hn": True, "hour": 99, "url": "https://example.org/", "history": ["a"],
+               "bags": {"fact": ["fact2", "zzz", 5], "nonsense": ["fact1"], "cheer": "no"},
+               "cool": {"fact2": 20000, "https://x": 3, "cheer1": "soon"},
+               "cur": {"p": "morning", "d": "2026-11-23", "t": 5, "k": "nope"}}
+    got = greeting.clean_state(hostile)
+    assert set(got) == {"first", "last", "upd", "ver", "updDone", "days", "streak", "hn", "hour", "bags", "cool", "cur"}
+    assert got["first"] == "2026-11-23" and got["last"] == "" and got["ver"] == "" and got["days"] == 5
+    assert got["streak"] == 0 and got["hn"] == 0 and got["hour"] == 0
+    assert got["bags"] == {}                                                    # a list with anything foreign in it
+    assert got["cool"] == {"fact2": 20000} and got["cur"] == {}
+    assert greeting.clean_state("x") == {} and greeting.clean_state(None) == {}
+    good = {"first": "2026-11-01", "last": "2026-11-23", "upd": "", "ver": "1.1.24", "updDone": "", "days": 9,
+            "streak": 3, "hn": 9, "hour": 8.25, "bags": {"fact": ["fact1", "fact2"]}, "cool": {"fact3": 20400},
+            "cur": {"p": "night", "d": "2026-11-23", "t": 1790000000000, "k": "late"}}
+    assert greeting.clean_state(good) == good
 
 
-class Fake:
-    def __init__(self, **data):
-        self.config = Cfg(greeting_last_open="", greeting_version="", greeting_update_day="")
-        self.config.update(data)
-
-
-def test_what_the_greeting_remembers():
-    from ike import __version__, shields
-
-    day = datetime.date(2026, 11, 23)
-    fake = Fake()
-    state = lambda today: shields.Shields.greeting_state(fake, today)               # noqa: E731
-    assert state(day) == (-1, "")                       # a first use: never before, no update to tell
-    assert fake.config == {"greeting_last_open": "2026-11-23", "greeting_version": __version__,
-                           "greeting_update_day": ""}   # a date and a version, nothing else
-    assert state(day) == (0, "")
-    assert state(day + datetime.timedelta(days=1))[0] == 1
-    assert state(day + datetime.timedelta(days=5))[0] == 4
-    # a new version: told that day
-    fake.config["greeting_version"] = "1.0.0"
-    assert state(day + datetime.timedelta(days=5)) == (0, __version__)
-    assert state(day + datetime.timedelta(days=5)) == (0, __version__)
-    assert state(day + datetime.timedelta(days=6))[1] == ""
-    # a damaged date does not stop anything
-    fake.config["greeting_last_open"] = "not a date"
-    assert state(day)[0] == -1
-    # the clock set back
-    fake.config["greeting_last_open"] = "2030-01-01"
-    assert state(day)[0] == 0
-
-
-def test_the_hemisphere_comes_from_the_cities_latitude():
-    from ike import shields
-
-    for lat, want in ((41.89, 1), (-33.87, -1), (0.0, 0), (None, 0), ("x", 0)):
-        fake = Fake()
-        fake.config["weather_lat"] = lat
-        assert shields.Shields.greeting_hemisphere(fake) == want, lat
-
-
-def test_the_switch_is_on_by_default_and_in_settings():
+def test_holidays_are_off_by_default_and_the_tables_are_sane():
+    from ike import greeting
     from ike.config import DEFAULTS
 
-    assert DEFAULTS["newtab_greeting"] is True
-    assert DEFAULTS["greeting_last_open"] == "" and DEFAULTS["greeting_version"] == ""
+    assert DEFAULTS["newtab_greeting"] is True and DEFAULTS["newtab_greeting_tone"] == "friendly"
+    assert DEFAULTS["greeting_holidays"] == [] and DEFAULTS["greeting_state"] == {}
+    assert greeting.holiday_tables([]) == {}
+    tab = greeting.holiday_tables(["hindu", "buddhist"])
+    assert set(tab) == {"diwali", "holi", "vesak"}
+    assert set(greeting.holiday_tables(["lunar"])) == {"lunarny"}
+    for days in tab.values():
+        for d in days:
+            datetime.date.fromisoformat(d)
+    assert greeting.holiday_tables(["hindu"]).keys() == {"diwali", "holi"}
+    assert {t[0] for t in greeting.TRADITIONS} == {"christian", "orthodox", "islamic", "jewish", "hindu", "buddhist",
+                                                   "lunar", "nowruz", "civil"}
+
+
+def test_the_pool_is_small_enough_to_fit_and_nothing_leaves_the_computer():
+    from ike import greeting
+
+    for key, text in greeting.WORDS + greeting.HOLIDAY_WORDS + greeting.GREETINGS:
+        assert len(text) <= 60, (key, text)
+    js = (ROOT / "ike" / "resources" / "greeting.js").read_text("utf-8")
+    for word in ("fetch(", "XMLHttpRequest", "sendBeacon", "WebSocket", "EventSource", "importScripts", "eval(",
+                 "document.write", "innerHTML", "setInterval", "setTimeout", "Image(", "http:", "https:"):
+        assert word not in js, word          # the page's own script sends the state home, this file never does
+
+
+def test_the_switches_are_in_settings():
     src = (ROOT / "ike" / "dialogs.py").read_text("utf-8")
-    assert 'T("Show a greeting")' in src and 'cfg["newtab_greeting"] = self.nt_greeting.isChecked()' in src
+    assert 'T("Greeting on the new tab page")' in src and 'cfg["newtab_greeting"] = self.nt_greeting.isChecked()' in src
+    assert 'T("Holidays to remember")' in src and 'cfg["greeting_holidays"]' in src and 'T("Tone")' in src
 
 
-def moments():
-    """(date, week, weather, state) over a week, every hour, the weathers and the weeks."""
-    for day in range(23, 30):                           # Monday 23 November 2026 ... Sunday 29
-        for hour in range(24):
-            for week in (NORTH, GULF, IRAN, US):
-                for w in WEATHERS:
-                    for gap, updated in ((-1, ""), (0, ""), (1, ""), (3, ""), (0, "1.1.24")):
-                        yield (2026, 11, day, hour), week, w, {"g": gap, "v": updated, "h": 1}
-
-
-STEPS_PARITY = JS + r'''
+# --- the page's logic in the engine ---------------------------------------------------------------
+STEPS_LOGIC = JS + r'''
 def steps(ike, qapp, out):
     view = ike.windows[0].current_view()
     yield 1500
-    cases = json.loads(CASES)
-    code = """(function () {
-      var cases = %s, res = [];
-      for (var i = 0; i < cases.length; i++) {
-        var c = cases[i], r = ikeGreetFor(new Date(c[0][0], c[0][1] - 1, c[0][2], c[0][3], 30), c[2], c[1], c[3]);
-        res.push([r[0], r[1], r[2].dst, r[2].season]);
-      }
-      return res; })()""" % json.dumps(cases)
-    out["res"] = yield from js(view, code)
-    # the hemisphere and the seasons over a whole year, and the weather's own hemisphere
-    code = """(function () {
-      var res = [];
-      for (var h = -1; h <= 1; h += 2) for (var m = 0; m < 12; m++) for (var d = 1; d <= 28; d++) {
-        var r = ikeGreetFor(new Date(2026, m, d, 14, 0), {}, {first: 1, weekend: [6, 7]}, {g: 0, v: "", h: h});
-        res.push([h, m + 1, d, r[2].season]);
-      }
-      return res; })()"""
-    out["seasons"] = yield from js(view, code)
-    out["text"] = yield from js(view, "[document.getElementById('greet-t').textContent,"
-                                      " document.getElementById('greet-l').textContent,"
-                                      " document.getElementById('greet').getAttribute('dir')]")
-    out["add"] = yield from js(view, """(function () {
-      var ico = getComputedStyle(document.querySelector('.tile.add .ico')),
-          name = getComputedStyle(document.querySelector('.tile.add .open'));
-      return [ico.borderTopStyle, name.color, getComputedStyle(document.body).color, ico.backgroundColor,
-              getComputedStyle(document.querySelector('.nt-settings .ico')).borderTopStyle]; })()""")
+    out["res"] = yield from js(view, SCRIPT)
 '''
 
+HEAD = r"""
+var G = IkeGreeting;
+function rngFrom(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function D(extra) { var d = {st: {}, s: {}, w: {}, h: 1, v: "1.1.24", tone: "friendly", hol: [], tab: {}, lang: "en"};
+  for (var k in extra) d[k] = extra[k]; return d; }
+function at(y, m, d, h, mi) { return new Date(y, m - 1, d, h, mi || 0); }
+"""
 
-def test_the_page_follows_the_rules_of_greeting_py(run_ike):
+
+def run_logic(run_ike, script, **kw):
+    code = STEPS_LOGIC.replace("SCRIPT", repr("(function () {" + HEAD + script + "})()"))
+    return run_ike(code, timeout=kw.pop("timeout", 120), **kw)["res"]
+
+
+def test_the_keys_of_the_page_and_of_the_words_are_the_same(run_ike):
     from ike import greeting
 
-    cases = []
-    for when, week, w, st in moments():
-        cases.append([list(when), week, w, st])
-    out = run_ike(STEPS_PARITY.replace("CASES", repr(json.dumps(cases))), timeout=180)
-    assert len(out["res"]) == len(cases)
-    for (when, week, w, st), (period, key, dst, season) in zip(moments(), out["res"]):
-        y, mo, d, h = when
-        weekday = datetime.date(y, mo, d).isoweekday()
-        want = greeting.choose(h, weekday, w, week, st["g"], st["v"], dst, season)
-        assert (period, key) == want, (when, week, w, st)
-        assert dst is False and season is None           # 23-29 November in UTC: nothing yet
-    for h, m, d, season in out["seasons"]:
-        assert season == greeting.season_of(m, d, h), (h, m, d)
-    title, line, direction = out["text"]
-    assert title in ("Good morning", "Good afternoon", "Good evening", "Good night") and direction == "auto"
-    # the Add tile is as visible as Settings: a solid border and the text colour, 1.1.24
-    ico_border, name_colour, text_colour, ico_back, settings_border = out["add"]
-    assert ico_border == "solid" == settings_border and name_colour == text_colour
-    assert ico_back != "rgba(0, 0, 0, 0)"
+    res = run_logic(run_ike, "return [G.keys(), G.groups()];")
+    keys, groups = res
+    assert sorted(keys) == sorted(greeting.ALL_KEYS) and len(keys) == len(set(keys))
+    assert {g: tuple(k) for g, k in groups} == greeting.GROUP_KEYS
+    assert len(greeting.WORDS) >= 50
+
+
+def test_a_line_is_not_shown_again_until_the_others_of_its_group_were_(run_ike):
+    res = run_logic(run_ike, r"""
+      var st = {}, c = {p: "morning"}, out = {bags: [], cool: null}, rng = rngFrom(7), today = 20000;
+      for (var round = 0; round < 3; round++) {
+        var bag = [];
+        for (var i = 0; i < 12; i++) bag.push(G.bag("fact", st, c, today + round * 10 + i * 0, rng));
+        out.bags.push(bag);
+      }
+      // cooldown: all but one shown the very day: that one comes
+      var st2 = {cool: {}}; for (var i = 1; i <= 11; i++) st2.cool["fact" + i] = 30000;
+      out.cool = G.bag("fact", st2, c, 30000, rngFrom(3));
+      // all of them in cooldown: still one (never nothing)
+      var st3 = {cool: {}}; for (var i = 1; i <= 12; i++) st3.cool["fact" + i] = 30000;
+      out.all = G.bag("fact", st3, c, 30001, rngFrom(3));
+      // a group of one comes every time
+      out.single = [G.bag("late", {}, c, 1, rngFrom(1)), G.bag("late", {bags: {late: []}, cool: {late: 1}}, c, 1, rngFrom(1))];
+      // only the lines that fit the period: the bag keeps the others for later
+      var st4 = {}, seen = [];
+      for (var i = 0; i < 6; i++) seen.push(G.bag("period", st4, {p: "evening"}, 100 + i * 10, rngFrom(i)));
+      out.evening = seen;
+      return out;""")
+    from ike import greeting
+    facts = {k for k, _ in dict(greeting.POOL)["fact"]}
+    for bag in res["bags"]:
+        assert len(bag) == 12 and set(bag) == facts, bag                  # every one once before any again
+    assert res["cool"] == "fact12" and res["all"] in facts
+    assert res["single"] == ["late", "late"]
+    assert set(res["evening"]) <= {"evening1", "evening2"} and res["evening"][0] != res["evening"][1]
+
+
+def test_the_line_is_kept_for_a_while_then_changes(run_ike):
+    res = run_logic(run_ike, r"""
+      var d = D({}), out = {}, rng = rngFrom(11);
+      var a = G.decide(d, at(2026, 11, 25, 14, 0), rng), cur = JSON.stringify(d.st.cur);
+      var b = G.decide(d, at(2026, 11, 25, 14, 50), rngFrom(99));     // another new tab soon after
+      var c = G.decide(d, at(2026, 11, 25, 15, 59), rngFrom(5));      // still under two hours
+      out.same = [a.key, b.key, c.key]; out.kept = JSON.stringify(d.st.cur) === cur;
+      var e = G.decide(d, at(2026, 11, 25, 16, 30), rngFrom(1));      // two hours and a half
+      out.later_t = d.st.cur.t > JSON.parse(cur).t;
+      var f = G.decide(d, at(2026, 11, 25, 18, 5), rngFrom(2));       // the period changed
+      out.period = [d.st.cur.p, f.p];
+      // a new day
+      G.decide(d, at(2026, 11, 26, 14, 10), rngFrom(3));
+      out.day = d.st.cur.d;
+      return out;""")
+    assert res["same"][0] == res["same"][1] == res["same"][2] and res["kept"]
+    assert res["later_t"] and res["period"] == ["evening", "evening"] and res["day"] == "2026-11-26"
+
+
+def test_what_decides_the_line(run_ike):
+    res = run_logic(run_ike, r"""
+      var out = {};
+      function pick(extra, when, n) {
+        var set = {}, upd = {};
+        for (var s = 1; s <= n; s++) { var d = D(JSON.parse(JSON.stringify(extra))); set[G.decide(d, when, rngFrom(s)).key] = 1; }
+        return Object.keys(set);
+      }
+      // first opening after five days: "It's been a while" can come; after one day "Welcome back"
+      out.away = pick({st: {last: "2026-11-18", days: 4, streak: 2}}, at(2026, 11, 25, 14), 80);
+      out.welcome = pick({st: {last: "2026-11-24", days: 4, streak: 2}}, at(2026, 11, 25, 14), 80);
+      out.streak = pick({st: {last: "2026-11-24", days: 9, streak: 8}}, at(2026, 11, 25, 14), 120);
+      // an update: that line, once
+      var d = D({st: {ver: "1.0.0", last: "2026-11-24"}});
+      var one = G.decide(d, at(2026, 11, 25, 9), rngFrom(1)).key;
+      var two = G.decide(d, at(2026, 11, 25, 13), rngFrom(1)).key;
+      out.update = [one, two, d.st.updDone, d.st.ver];
+      var fresh = D({}); out.install = pick({}, at(2026, 11, 25, 9), 40);
+      // the small hours, the weather, the evening before the clocks change (a day of summer time's end elsewhere: not here)
+      out.late = pick({st: {last: "2026-11-25"}}, at(2026, 11, 25, 3), 80);
+      out.rain = pick({st: {last: "2026-11-25"}, w: {k: "rain"}}, at(2026, 11, 25, 14), 150);
+      out.hot = pick({st: {last: "2026-11-25"}, w: {k: "clear", warm: true, hot: true}}, at(2026, 11, 25, 14), 150);
+      out.sunnight = pick({st: {last: "2026-11-25"}, w: {k: "clear", warm: true}}, at(2026, 11, 25, 22), 150);
+      // greetings only: nothing under the greeting
+      out.only = pick({tone: "greetings", st: {last: "2026-11-18"}}, at(2026, 11, 25, 14), 40);
+      return out;""")
+    assert "away" in res["away"] and "welcome" not in res["away"]
+    assert "welcome" in res["welcome"] and "away" not in res["welcome"]
+    assert {"streak3", "streak7"} & set(res["streak"])
+    assert res["update"] == ["updated", res["update"][1], "1.1.24", "1.1.24"] and res["update"][1] != "updated"
+    assert "updated" not in res["install"] and "away" not in res["install"] and "welcome" not in res["install"]
+    assert "late" in res["late"] and "rain" in res["rain"] and "hot" in res["hot"]
+    assert "sun" not in res["sunnight"]                                        # the sun by day only
+    assert res["only"] == [""]
+
+
+def test_the_signals_kept_locally(run_ike):
+    res = run_logic(run_ike, r"""
+      var st = {}, out = [], days = [[2026, 11, 20, 8, 0], [2026, 11, 20, 20, 0], [2026, 11, 21, 10, 0], [2026, 11, 22, 9, 0],
+                                     [2026, 11, 25, 7, 30], [2026, 11, 26, 8, 0]];
+      days.forEach(function (x) { var u = G.usage(st, at(x[0], x[1], x[2], x[3], x[4]), "1.1.24");
+        out.push([u.first, u.gap, st.days, st.streak, st.first, st.last, st.hour, st.hn, st.ver]); });
+      return {rows: out, keys: Object.keys(st).sort()};""")
+    rows = res["rows"]
+    assert rows[0][:6] == [True, -1, 1, 1, "2026-11-20", "2026-11-20"]
+    assert rows[1][0] is False and rows[1][2:4] == [1, 1]                      # the same day: nothing counted again
+    assert rows[2][1:4] == [1, 2, 2] and rows[3][1:4] == [1, 3, 3]            # the streak grows
+    assert rows[4][1:4] == [3, 4, 1] and rows[4][4] == "2026-11-20"           # a break: the streak starts again
+    assert rows[5][2:4] == [5, 2] and rows[5][8] == "1.1.24"
+    assert rows[0][6] == 8.0 and abs(rows[2][6] - 9.0) < 0.01 and rows[5][7] == 5      # a running average of the first hour
+    assert set(res["keys"]) <= {"first", "last", "upd", "updDone", "ver", "days", "streak", "hour", "hn"}
+
+
+def test_the_week_the_seasons_and_the_clocks(run_ike):
+    res = run_logic(run_ike, r"""
+      var out = {};
+      function keys(c) { var o = {}; G.options(c).forEach(function (g) { o[g[0]] = g[2]; }); return o; }
+      function ctx(d, extra) { var c = G.context(D(extra || {}), d, {first: false, gap: 0}); return c; }
+      var NORTH = {first: 1, weekend: [6, 7]}, GULF = {first: 6, weekend: [5, 6]}, US = {first: 7, weekend: [6, 7]};
+      function week(d, w) { var c = ctx(d); c.week = w; return (keys(c).week || []); }
+      out.mon = [week(at(2026, 11, 23, 9), NORTH), week(at(2026, 11, 23, 14), NORTH)];
+      out.fri = week(at(2026, 11, 27, 14), NORTH); out.sat = week(at(2026, 11, 28, 14), NORTH);
+      out.gulf = [week(at(2026, 11, 22, 9), GULF), week(at(2026, 11, 26, 14), GULF), week(at(2026, 11, 27, 14), GULF)];
+      out.us = [week(at(2026, 11, 22, 9), US), week(at(2026, 11, 23, 9), US)];
+      out.tue = week(at(2026, 11, 24, 14), NORTH);
+      // seasons: the 1st of March, June, September, December, by hemisphere
+      var s = [];
+      [1, -1].forEach(function (h) { [[3, 1], [6, 1], [9, 1], [12, 1], [3, 2], [4, 1]].forEach(function (m) {
+        s.push([h, m[0], m[1], ctx(at(2026, m[0], m[1], 14), {h: h}).season]); }); });
+      out.seasons = s;
+      out.weekinfo = [G.weekOf("en-US"), G.weekOf("it"), G.weekOf("ar-SA"), G.weekOf("xx-nonsense-")];
+      return out;""")
+    assert res["mon"] == [["week"], []] and res["fri"] == ["soon"] and res["sat"] == ["weekend"]
+    assert res["gulf"] == [["week"], ["soon"], ["weekend"]]
+    assert res["us"] == [["weekend"], ["week"]] and res["tue"] == []
+    want = {1: ["spring", "summer", "autumn", "winter", None, None], -1: ["autumn", "winter", "spring", "summer", None, None]}
+    for h in (1, -1):
+        assert [x[3] for x in res["seasons"] if x[0] == h] == want[h]
+    assert res["weekinfo"][1]["first"] == 1 and res["weekinfo"][1]["weekend"] == [6, 7]
+    assert res["weekinfo"][0]["first"] == 7                                    # the American week starts on Sunday
 
 
 STEPS_TZ = JS + r'''
@@ -221,35 +273,146 @@ def steps(ike, qapp, out):
     view = ike.windows[0].current_view()
     yield 1500
     code = """(function () {
-      var res = [];
+      var G = IkeGreeting, res = [];
+      function c(d, h) { return G.context({st: {}, w: {}, h: h, v: "", lang: "en"}, d, {first: false, gap: 0}); }
       [[2026, 3, 27], [2026, 3, 28], [2026, 3, 29], [2026, 10, 24], [2026, 10, 25], [2026, 6, 15],
-       [2026, 9, 30], [2026, 10, 3], [2026, 10, 4], [2026, 4, 3], [2026, 4, 4], [2026, 4, 5]].forEach(function (d) {
-        var r = ikeGreetFor(new Date(d[0], d[1] - 1, d[2], 19, 0), {}, {first: 1, weekend: [6, 7]}, {g: 0, v: "", h: 0});
-        res.push([d, r[1], r[2].dst]);
-      });
-      // no city: the hemisphere is read from the months of summer time (Rome north, Sydney south)
+       [2026, 10, 3], [2026, 10, 4], [2026, 4, 3], [2026, 4, 4], [2026, 4, 5]].forEach(function (d) {
+        res.push([d, c(new Date(d[0], d[1] - 1, d[2], 19, 0), 0).dst]); });
       [[2026, 3, 1], [2026, 9, 1], [2026, 12, 1]].forEach(function (d) {
-        var r = ikeGreetFor(new Date(d[0], d[1] - 1, d[2], 14, 0), {}, {first: 1, weekend: [6, 7]}, {g: 0, v: "", h: 0});
-        res.push([d, r[1], r[2].season]);
-      });
+        res.push([d, c(new Date(d[0], d[1] - 1, d[2], 14, 0), 0).season]); });
       return res; })()"""
     out["res"] = yield from js(view, code)
 '''
 
 
 def test_the_evening_before_the_clocks_change_and_the_hemisphere_from_the_time_zone(run_ike):
-    rome = run_ike(STEPS_TZ, env={"TZ": "Europe/Rome"})["res"]
-    on = {tuple(d) for d, key, dst in rome[:12] if dst}
-    assert on == {(2026, 3, 28), (2026, 10, 24)}, rome
-    assert [key for d, key, dst in rome[:12] if tuple(d) in on] == ["dst", "dst"]
-    assert [s for d, key, s in rome[12:]] == ["spring", "autumn", "winter"]
-    sydney = run_ike(STEPS_TZ, env={"TZ": "Australia/Sydney"})["res"]
-    on = {tuple(d) for d, key, dst in sydney[:12] if dst}
-    assert on == {(2026, 10, 3), (2026, 4, 4)}, sydney
-    assert [s for d, key, s in sydney[12:]] == ["autumn", "spring", "summer"]
-    utc = run_ike(STEPS_TZ, env={"TZ": "UTC"})["res"]
-    assert not any(dst for d, key, dst in utc[:12])
-    assert [s for d, key, s in utc[12:]] == [None, None, None]          # no summer time, no city: skipped
+    for zone, change, seasons in (("Europe/Rome", {(2026, 3, 28), (2026, 10, 24)}, ["spring", "autumn", "winter"]),
+                                  ("Australia/Sydney", {(2026, 10, 3), (2026, 4, 4)}, ["autumn", "spring", "summer"]),
+                                  ("UTC", set(), [None, None, None])):
+        res = run_ike(STEPS_TZ, env={"TZ": zone})["res"]
+        assert {tuple(d) for d, dst in res[:11] if dst} == change, (zone, res)
+        assert [s for d, s in res[11:]] == seasons, (zone, res)
+
+
+def test_the_holidays_of_known_years(run_ike):
+    from ike import greeting
+
+    tables = greeting.holiday_tables(greeting.TRADITION_IDS)
+    res = run_logic(run_ike, "var tab = %s;" % json.dumps(tables) + r"""
+      var out = {};
+      // the engine's own Chinese calendar, without the table
+      out.lunar_engine = [];
+      for (var y = 2028; y <= 2029; y++) for (var m = 0; m < 3; m++) for (var d = 1; d <= 31; d++) {
+        var dt = new Date(y, m, d, 12); if (dt.getMonth() !== m) continue;
+        if (G.holidayOn(dt, ["lunar"], {})) out.lunar_engine.push(y + "-0" + (m + 1) + "-" + (d < 10 ? "0" : "") + d);
+      }
+      ["christian", "orthodox", "islamic", "jewish", "hindu", "buddhist", "lunar", "nowruz", "civil"].forEach(function (t) {
+        var found = [];
+        for (var y = 2026; y <= 2028; y++) for (var m = 0; m < 12; m++) for (var d = 1; d <= 31; d++) {
+          var date = new Date(y, m, d, 12); if (date.getMonth() !== m) continue;
+          var h = G.holidayOn(date, [t], tab); if (h) found.push([y + "-" + (m + 1 < 10 ? "0" : "") + (m + 1) + "-" + (d < 10 ? "0" : "") + d, h]);
+        }
+        out[t] = found; });
+      var none = 0;
+      for (var y = 2026; y <= 2028; y++) for (var m = 0; m < 12; m++) for (var d = 1; d <= 31; d++)
+        if (G.holidayOn(new Date(y, m, d, 12), [], tab)) none++;
+      out.none = none;
+      // never on a day without the tradition chosen, and the line wins all day, for every new tab
+      var st = {last: "2026-12-25"}, dd = D({hol: ["christian"], st: st});
+      out.xmas = [G.decide(dd, at(2026, 12, 25, 9), rngFrom(1)).key, G.decide(dd, at(2026, 12, 25, 21), rngFrom(2)).key];
+      var off = D({st: {last: "2026-12-25"}}); out.xmas_off = G.decide(off, at(2026, 12, 25, 9), rngFrom(1)).key;
+      var go = D({hol: ["christian"], tone: "greetings", st: {last: "2026-12-25"}});
+      out.xmas_only = G.decide(go, at(2026, 12, 25, 9), rngFrom(1)).key;
+      out.easter = [G.easter(2027, false).toDateString(), G.easter(2027, true).toDateString(),
+                    G.easter(2025, false).toDateString(), G.easter(2025, true).toDateString()];
+      return out;""")
+    assert res["none"] == 0                                                    # nothing without a chosen tradition
+    assert res["xmas"] == ["christmas", "christmas"] and res["xmas_off"] != "christmas"
+    assert res["xmas_only"] == "christmas"
+    assert res["easter"] == ["Sun Mar 28 2027", "Sun May 02 2027", "Sun Apr 20 2025", "Sun Apr 20 2025"]
+    traditions = ("christian", "orthodox", "islamic", "jewish", "hindu", "buddhist", "lunar", "nowruz", "civil")
+    got = {t: dict((d, k) for d, k in res[t]) for t in traditions}
+
+    def near(tradition, key, want, tolerance=0):
+        day = datetime.date.fromisoformat(want)
+        days = [datetime.date.fromisoformat(d) for d, k in res[tradition] if k == key]
+        assert any(abs((d - day).days) <= tolerance for d in days), (tradition, key, want, res[tradition])
+
+    # Christian: Christmas and Easter (Gregorian computus)
+    assert got["christian"]["2026-12-25"] == "christmas" and got["christian"]["2027-03-28"] == "easter"
+    assert got["christian"]["2026-04-05"] == "easter" and got["christian"]["2028-04-16"] == "easter"
+    # Orthodox: Christmas on 7 January, Easter by the Julian computus
+    assert got["orthodox"]["2027-01-07"] == "christmas" and got["orthodox"]["2027-05-02"] == "easter"
+    assert got["orthodox"]["2026-04-12"] == "easter" and got["orthodox"]["2028-04-16"] == "easter"
+    # Islamic (Umm al-Qura of the engine: a day either way of the local sighting)
+    near("islamic", "ramadan", "2027-02-08", 1)
+    near("islamic", "eid", "2027-03-10", 1)
+    near("islamic", "eid", "2027-05-17", 1)
+    assert len([1 for k in got["islamic"].values() if k == "eid"]) >= 4      # both Eids, three years
+    # Jewish (the day itself; the holiday begins at the evening before)
+    near("jewish", "shana", "2027-10-02")
+    near("jewish", "kippur", "2027-10-11")
+    near("jewish", "hanukkah", "2027-12-25")
+    near("jewish", "hanukkah", "2026-12-05")
+    near("jewish", "passover", "2027-04-22")
+    # Lunar New Year, Nowruz, the civil year, the tables
+    assert got["lunar"]["2027-02-06"] == "lunarny" and got["lunar"]["2026-02-17"] == "lunarny"
+    assert got["lunar"]["2028-01-26"] == "lunarny"
+    assert res["lunar_engine"] and all(d in ("2028-01-26", "2028-01-27", "2029-02-12", "2029-02-13", "2029-02-14")
+                                       for d in res["lunar_engine"])            # the engine alone: a day either way
+    assert set(got["nowruz"]) == {"2026-03-21", "2027-03-21", "2028-03-21"}
+    assert set(got["civil"]) == {"2026-01-01", "2027-01-01", "2028-01-01"}
+    assert got["hindu"]["2027-03-22"] == "holi" and got["hindu"]["2027-10-29"] == "diwali"
+    assert got["buddhist"]["2027-05-20"] == "vesak"
+
+
+# --- the page and the browser ---------------------------------------------------------------------
+STEPS_PAGE = JS + r'''
+def steps(ike, qapp, out):
+    view = ike.windows[0].current_view()
+    yield 1500
+    out["text"] = yield from js(view, "[document.getElementById('greet-t').textContent,"
+                                      " document.getElementById('greet-l').textContent,"
+                                      " document.getElementById('greet').getAttribute('dir')]")
+    yield 500
+    out["state"] = ike.config["greeting_state"]
+    out["add"] = yield from js(view, """(function () {
+      var ico = getComputedStyle(document.querySelector('.tile.add .ico')),
+          name = getComputedStyle(document.querySelector('.tile.add .open'));
+      return [ico.borderTopStyle, name.color, getComputedStyle(document.body).color, ico.backgroundColor,
+              getComputedStyle(document.querySelector('.nt-settings .ico')).borderTopStyle]; })()""")
+    # a web page cannot write the state, with the key of the session or without it
+    ike.config["greeting_state"] = {"days": 1}
+    key = ike.shields.action_key
+    from PyQt6.QtCore import QUrl
+    page = ('<body><img src="ike:greet?k=%s&s=%%7B%%22days%%22%%3A99%%7D"><img src="ike:greet?s=%%7B%%22days%%22%%3A98%%7D">'
+            '<script>fetch("ike:greet?k=%s&s=%%7B%%22days%%22%%3A97%%7D").catch(function () {});</script>' % (key, key))
+    view.setHtml(page, QUrl("http://site.example/"))
+    yield 1500
+    out["web"] = ike.config["greeting_state"]
+    # the page's own address, with the key, does
+    view.load(QUrl("ike:greet?k=%s&s=%%7B%%22days%%22%%3A7%%7D" % key))
+    yield 800
+    out["own"] = ike.config["greeting_state"].get("days")
+    # junk and an oversized state are refused
+    ike.shields.keep_greeting("not json")
+    ike.shields.keep_greeting("{\"days\": 5, \"x\": \"" + "a" * 9000 + "\"}")
+    out["junk"] = ike.config["greeting_state"].get("days")
+'''
+
+
+def test_the_page_greets_and_keeps_only_its_own_state(run_ike):
+    out = run_ike(STEPS_PAGE)
+    title, line, direction = out["text"]
+    assert title in PERIOD_WORDS and direction == "auto"
+    today = datetime.date.today().isoformat()
+    assert out["state"]["last"] == today and out["state"]["days"] == 1 and out["state"]["streak"] == 1
+    assert out["state"]["ver"]                                                  # the version seen
+    ico_border, name_colour, text_colour, ico_back, settings_border = out["add"]
+    assert ico_border == "solid" == settings_border and name_colour == text_colour
+    assert ico_back != "rgba(0, 0, 0, 0)"
+    assert out["web"] == {"days": 1}                                           # nothing from a web page
+    assert out["own"] == 7 and out["junk"] == 7
 
 
 STEPS_OFF = JS + r'''
@@ -257,14 +420,43 @@ def steps(ike, qapp, out):
     view = ike.windows[0].current_view()
     yield 1500
     out["off"] = yield from js(view, "[!!document.getElementById('greet'), !!document.getElementById('greet-data'),"
-                                     " !!document.querySelector('.greet'), typeof ikeGreetFor,"
+                                     " !!document.querySelector('.greet'), typeof IkeGreeting,"
                                      " !!document.querySelector('.clock')]")
+    yield 500
+    ike.shields.keep_greeting('{"days": 5}')
+    out["state"] = ike.config["greeting_state"]
 '''
 
 
-def test_switched_off_nothing_is_on_the_page(run_ike):
+def test_switched_off_nothing_is_on_the_page_and_nothing_is_kept(run_ike):
     out = run_ike(STEPS_OFF, settings={"newtab_greeting": False})
-    assert out["off"][:3] == [False, False, False] and out["off"][4] is True        # the clock stays
+    assert out["off"][:4] == [False, False, False, "undefined"] and out["off"][4] is True      # the clock stays
+    assert out["state"] == {}
+
+
+STEPS_TONE = JS + r'''
+def steps(ike, qapp, out):
+    win = ike.windows[0]
+    yield 600
+    dlg = ike.show_settings(win, "newtab")
+    yield 300
+    out["start"] = [dlg.nt_greeting.isChecked(), dlg.nt_tone.currentData(),
+                    sorted(i for i, sw in dlg.nt_holidays.items() if sw.isChecked()), sorted(dlg.nt_holidays)]
+    dlg.nt_holidays["christian"].setChecked(True)
+    dlg.nt_holidays["islamic"].setChecked(True)
+    dlg.nt_tone.setCurrentIndex(dlg.nt_tone.findData("greetings"))
+    dlg.apply()
+    dlg.close()
+    out["saved"] = [ike.config["newtab_greeting_tone"], ike.config["greeting_holidays"]]
+'''
+
+
+def test_the_choices_in_settings(run_ike):
+    out = run_ike(STEPS_TONE)
+    assert out["start"][:3] == [True, "friendly", []]                          # on, friendly, no holiday
+    assert out["start"][3] == ["buddhist", "christian", "civil", "hindu", "islamic", "jewish", "lunar", "nowruz",
+                               "orthodox"]
+    assert out["saved"][0] == "greetings" and sorted(out["saved"][1]) == ["christian", "islamic"]
 
 
 STEPS_FIT = JS + r'''
@@ -272,24 +464,23 @@ def steps(ike, qapp, out):
     win = ike.windows[0]
     view = win.current_view()
     yield 1500
-    packs = json.loads(PACKS)
     res = {}
-    for width in WIDTHS:
+    for width in (800, 500):
         win.resize(width, 700)
         yield 700
         code = """(function () {
           var packs = %s, bad = [], t = document.getElementById('greet-t'), l = document.getElementById('greet-l'),
-              g = document.getElementById('greet'), s = document.querySelector('.nt-settings');
+              g = document.getElementById('greet'), s = document.querySelector('.nt-settings'), n = 0;
           for (var code in packs) {
-            var lines = packs[code].lines;
+            var lines = packs[code].lines, titles = packs[code].titles;
             for (var i = 0; i < lines.length; i++) {
-              t.textContent = packs[code].title; l.textContent = lines[i];
+              t.textContent = titles[i %% titles.length]; l.textContent = lines[i]; n++;
               var a = g.getBoundingClientRect(), b = s.getBoundingClientRect();
               var overlap = a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
               if (overlap || a.right > window.innerWidth || a.left < 0) bad.push([code, lines[i], a.right, b.left]);
             }
           }
-          return [window.innerWidth, bad]; })()""" % json.dumps(packs)
+          return [window.innerWidth, bad, n]; })()""" % json.dumps(PACKS)
         res[width] = yield from js(view, code)
     out["fit"] = res
 '''
@@ -299,14 +490,13 @@ def test_the_greeting_stays_clear_of_settings_in_every_language(run_ike):
     from ike import greeting
 
     packs = {}
-    folder = ROOT / "ike" / "resources" / "lang"
-    for f in sorted(folder.glob("*.json")):
+    for f in sorted((ROOT / "ike" / "resources" / "lang").glob("*.json")):
         strings = json.loads(f.read_text("utf-8"))["strings"]
-        title = max((strings[v] for _, v in greeting.GREETINGS), key=len)
-        lines = [strings[v].replace("{version}", "1.1.24") for _, v in greeting.WORDS]
-        packs[f.stem] = {"title": title, "lines": lines}
+        lines = [strings[t].replace("{version}", "1.1.24").replace("%d", "30")
+                 for _k, t in greeting.WORDS + greeting.HOLIDAY_WORDS]
+        packs[f.stem] = {"titles": [strings[t] for _k, t in greeting.GREETINGS], "lines": lines}
     assert len(packs) >= 59
-    out = run_ike(STEPS_FIT.replace("PACKS", repr(json.dumps(packs))).replace("WIDTHS", "(800, 500)"),
-                  timeout=180)
-    for width, (inner, bad) in out["fit"].items():
-        assert inner <= int(width) and not bad, (width, bad[:5])
+    out = run_ike(STEPS_FIT.replace("PACKS", repr(packs)), timeout=180)
+    for width, (inner, bad, n) in out["fit"].items():
+        assert inner <= int(width) and not bad and n > 59 * 60, (width, bad[:5], n)
+    assert re.fullmatch(r"\d+", str(len(packs)))
