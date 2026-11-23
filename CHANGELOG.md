@@ -18,7 +18,9 @@
   highlight colour (Kvantum themes that draw a mark in their own pictures
   keep it).
 - **The current tab stands a little raised**: its background is a shade
-  lighter than the window's (a little white mixed in), as Breeze's.
+  lighter than the window's (a little white mixed in) in Breeze, Fusion and
+  Windows; in styles that paint the tab otherwise (Oxygen, Kvantum's
+  pictures) the same shade of white is laid over it.
 - **The close button of a tab glows red under the mouse**, like Plasma's
   window close button: a disc in Breeze's negative colour (KDE's own when
   the colour scheme sets it) with the cross in the window's colour, coming

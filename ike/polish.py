@@ -442,6 +442,15 @@ def highlight(widget):
     return pal.color(group, QPalette.ColorRole.Highlight)
 
 
+def raise_veil(colour):
+    """The white laid over the current tab where the style does not paint it
+    with the window's colour: the same step as raised()."""
+    c = QColor(colour)
+    white = QColor(255, 255, 255)
+    white.setAlphaF(0.045 if c.lightnessF() < 0.5 else 0.45)
+    return white
+
+
 def raised(colour):
     """The background of the current tab, a shade lighter than the window's
     (1.1.24): a little white mixed in, more on a light window, where the
@@ -649,18 +658,40 @@ class TabLabelStyle(QProxyStyle):
         picture that moves with the mouse: its mark is drawn there."""
         o = QStyleOptionTab(opt)
         own = getattr(widget, "own_mark", True) and part("tab_mark")
-        if own or part("tab_raised"):
-            pal = QPalette(o.palette)
-            if own:
-                pal.setColor(QPalette.ColorRole.Highlight, QColor(0, 0, 0, 0))
-            if part("tab_raised"):
-                for group in (QPalette.ColorGroup.Active, QPalette.ColorGroup.Inactive):
-                    pal.setColor(group, QPalette.ColorRole.Window,
-                                 raised(o.palette.color(group, QPalette.ColorRole.Window)))
-            o.palette = pal
+        lift = part("tab_raised")
+        by_palette = lift and self._raise_by_palette()
+        if own or by_palette:
+            o.palette = self._current_palette(o.palette, own, by_palette)
         self._draw(QStyle.ControlElement.CE_TabBarTabShape, o, p, widget)
+        if lift and not by_palette:
+            # a style that does not paint the tab with the window's colour
+            # (Oxygen, Kvantum's pictures): the same shade of white laid over it
+            p.save()
+            p.setRenderHint(QPainter.RenderHint.Antialiasing)
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(raise_veil(o.palette.color(QPalette.ColorRole.Window)))
+            p.drawPath(top_line_path(QRectF(o.rect)))
+            p.restore()
         if own and not isinstance(p.device(), QWidget):
             paint_top_line(p, top_line_rect(o.rect), highlight(widget))
+
+    @staticmethod
+    def _current_palette(base, own, lift):
+        pal = QPalette(base)
+        if own:
+            pal.setColor(QPalette.ColorRole.Highlight, QColor(0, 0, 0, 0))
+        if lift:
+            for group in (QPalette.ColorGroup.Active, QPalette.ColorGroup.Inactive):
+                pal.setColor(group, QPalette.ColorRole.Window, raised(base.color(group, QPalette.ColorRole.Window)))
+        return pal
+
+    # the styles that paint the current tab with the window's colour, where a
+    # lighter window colour raises it; the others (Oxygen, Kvantum's
+    # pictures...) get a veil of white laid over the tab instead
+    PAINT_WITH_WINDOW = ("breeze", "fusion", "windows")
+
+    def _raise_by_palette(self):
+        return self.baseStyle().name().lower() in self.PAINT_WITH_WINDOW
 
     def drawPrimitive(self, element, opt, p, widget=None):
         if element == QStyle.PrimitiveElement.PE_IndicatorTabClose and widget is not None \

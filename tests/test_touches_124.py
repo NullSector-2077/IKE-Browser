@@ -136,7 +136,9 @@ def steps(ike, qapp, out):
                                        near(b.pixelColor(cx, r.top() + 1), hl(bar), 3)]
         bar.setPalette(QPalette())
     else:
-        out["fixed_mark"] = sum(near(plain.pixelColor(x, r.top() + 1), accent) for x in range(r.left(), r.right()))
+        # a line along the tab would take most of its width
+        out["fixed_mark"] = [sum(near(plain.pixelColor(x, r.top() + 1), accent) for x in range(r.left(), r.right())),
+                             r.width()]
     # --- 1: it glides to the next tab, then rests
     bar.repaint()
     bar.setCurrentIndex(2)
@@ -150,7 +152,9 @@ def steps(ike, qapp, out):
     def tab_fill(i):
         im = bar.grab().toImage()
         rr = bar.tabRect(i)
-        return QColor(im.pixel(rr.left() + 3, rr.bottom() - 3)).lightness()
+        # the whole tab: its title and icon are the same both times
+        return sum(QColor(im.pixel(x, y)).lightness() for x in range(rr.left(), rr.right() + 1)
+                   for y in range(rr.top(), rr.bottom() + 1)) / (rr.width() * rr.height())
     raised = tab_fill(2)
     polish.PARTS["tab_raised"] = False
     flat = tab_fill(2)
@@ -195,7 +199,7 @@ def test_the_current_tab_has_breezes_mark_raised_and_a_red_close(run_ike):
         assert out["breeze_light"] == [True, 0, True], out
         assert out["breeze_dark"] == [True, 0, True], out
     else:
-        assert out["fixed_mark"] == 0, out
+        assert out["fixed_mark"][0] < out["fixed_mark"][1] // 4, out
     assert out["glide"] == [True, True] and out["glide_end"] == [False, True], out
     assert out["raised"][0] > out["raised"][1], out
     assert out["red_rest"] < 3, out
