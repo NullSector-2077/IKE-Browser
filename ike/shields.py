@@ -983,6 +983,7 @@ class Shields(QObject):
             "{{fx}}": "fx" if effects.on(self.config) else "",
             "{{photo}}": " photo" if photo else "",
             "{{buttons}}": self._newtab_buttons(),
+            "{{greeting}}": self._newtab_greeting(),
             "{{engines}}": newtab.engines_html(self.config),
             "{{tiles}}": newtab.tiles_html(self.config, getattr(app, "storage", None)),
             "{{stats}}": newtab.stats_html(self.config, T("Protection level"),
@@ -1027,6 +1028,55 @@ class Shields(QObject):
                        '<span class="name">%s</span></a>' % (cls, what, _html.escape(label, quote=True), svg,
                                                             _html.escape(label)))
         return "".join(out)
+
+    def weather_info(self):
+        """What the greeting needs of the weather: {"k": rain | snow | clear, "warm": bool} or {}."""
+        from . import greeting
+        weather = getattr(self.parent(), "weather", None)
+        w = weather.current() if weather is not None and self.config["newtab_weather"] else None
+        return greeting.weather_kind(w["code"], w["temp"], w["unit"], w.get("wind")) if w else {}
+
+    def greeting_state(self, today=None):
+        """What the greeting remembers, in I.K.E.'s own settings and nowhere else (1.1.24): the
+        days since the new tab page was last shown, and the version on the day of an update.
+        Returns (gap, version): gap -1 = never before, 0 = already today; version "" = no update today."""
+        import datetime
+
+        from . import __version__
+        cfg = self.config
+        today = today or datetime.date.today()
+        gap = -1
+        try:
+            gap = max(0, (today - datetime.date.fromisoformat(str(cfg["greeting_last_open"]))).days)
+        except ValueError:
+            pass
+        cfg["greeting_last_open"] = today.isoformat()
+        if cfg["greeting_version"] != __version__:
+            if cfg["greeting_version"]:                 # not on a first installation
+                cfg["greeting_update_day"] = today.isoformat()
+            cfg["greeting_version"] = __version__
+        return gap, (__version__ if cfg["greeting_update_day"] == today.isoformat() else "")
+
+    def greeting_hemisphere(self):
+        """1 north, -1 south, 0 not known: the sign of the weather city's latitude, kept in the settings."""
+        try:
+            lat = float(self.config["weather_lat"])
+        except (TypeError, ValueError):
+            return 0
+        return 1 if lat > 0 else -1 if lat < 0 else 0
+
+    def _newtab_greeting(self):
+        """The greeting of the new tab page (1.1.24): empty when it is switched off. The page
+        writes it from the clock; the words come in as JSON data, never as script."""
+        if not self.config["newtab_greeting"]:
+            return ""
+        from . import greeting
+        from .i18n import T
+        return ('<div class="greet" id="greet" dir="auto"><div class="greet-t" id="greet-t"></div>'
+                '<div class="greet-l" id="greet-l"></div></div>'
+                '<script type="application/json" id="greet-data">%s</script>'
+                % greeting.page_data(T, self.weather_info(), *self.greeting_state(),
+                                     hemisphere=self.greeting_hemisphere()))
 
     def weather_text(self):
         """"☁ 12 °C · Cloudy · Rome", or "" (no city, switched off, not known yet)."""

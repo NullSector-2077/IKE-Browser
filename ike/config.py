@@ -203,6 +203,10 @@ DEFAULTS = {
     "urlbar_width": 50,                 # address bar: per cent of the window width (60 until 1.1.6)
     "urlbar_width_117": False,          # the old default of 60 was moved to 50 once (1.1.7)
     "newtab_clock": True,               # clock and date on the new tab page
+    "newtab_greeting": True,            # a greeting top left on the new tab page (see greeting.py)
+    "greeting_last_open": "",           # the day the new tab page was last shown (the greeting's "Welcome back")
+    "greeting_version": "",             # the version last seen, to greet the day of an update
+    "greeting_update_day": "",          # the day that version came
     "newtab_weather": True,             # weather on the new tab page (needs a city, see weather.py)
     "newtab_bg": "default",             # photo behind the new tab page: "default" (I.K.E.'s own), "" or the user's copy (see newtabbg.py)
     "newtab_bg_118": False,             # I.K.E.'s own photo was given once to whoever had none (1.1.8)

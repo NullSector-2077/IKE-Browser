@@ -731,6 +731,8 @@ class SettingsDialog(QDialog):
         """New tab page: clock and weather (see weather.py)."""
         self.nt_clock = Switch(T("Show the clock and the date"))
         self.nt_clock.setChecked(bool(self.cfg["newtab_clock"]))
+        self.nt_greeting = Switch(T("Show a greeting"))
+        self.nt_greeting.setChecked(bool(self.cfg["newtab_greeting"]))
         self.nt_weather = Switch(T("Show the weather"))
         self.nt_weather.setChecked(bool(self.cfg["newtab_weather"]))
         self.city = QLineEdit(self.cfg["weather_city"])
@@ -757,6 +759,7 @@ class SettingsDialog(QDialog):
         self.unit.addItem("°F", "fahrenheit")
         self.unit.setCurrentIndex(max(0, self.unit.findData(self.cfg["weather_unit"])))
         _row(f, T("New tab page"), self.nt_clock, T("The time and the date at the bottom of the page."))
+        _row(f, "", self.nt_greeting, T("A short hello at the top left, from the time of day; nothing leaves your computer."))
         _row(f, "", self.nt_weather, T("The same switch as the “Weather on the new tab page” extension."))
         _row(f, T("City for the weather"), row,
              T("The weather comes from Open-Meteo (free, no account). Finding the city sends "
@@ -1587,6 +1590,7 @@ class SettingsDialog(QDialog):
         cfg["containers"] = [{"name": n, "color": old.get(n, palette[i % len(palette)])}
                              for i, n in enumerate(dict.fromkeys(names))]
         cfg["newtab_clock"] = self.nt_clock.isChecked()
+        cfg["newtab_greeting"] = self.nt_greeting.isChecked()
         before = (cfg["weather_city"], cfg["weather_lat"], cfg["weather_lon"], cfg["weather_unit"])
         cfg["weather_unit"] = self.unit.currentData()
         if self._city_pick is not None:
