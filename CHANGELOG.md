@@ -18,6 +18,53 @@
   are installed in the icon theme (hicolor) and the window icon carries them
   all; 128 px and larger and the scalable logo are unchanged
   (`tools/make-small-icons.py`, tests/test_brand.py).
+- **Pages run faster with the fingerprinting protection, which gives them
+  exactly the same answers** (Speedometer study of 1.1.23): the guard that
+  protects new frames no longer reads through all the HTML a page writes
+  (innerHTML, outerHTML) when the page has no frame, nor looks at a moved
+  part of the page when there was no frame to move (Speedometer's jQuery
+  page at Balanced: 284 -> 261 ms); at Maximum, when the engine already
+  speaks English, dates, numbers, sorting and upper or lower case that ask
+  for no language go straight to the engine (a sort compares 8 times
+  faster; numbers, dates and case as fast as with no protection). Tests
+  compare the quick and the usual ways' answers. The rest of the distance
+  from Chrome and Brave is the web engine: on the same computer Google's own
+  build of Chromium 140 (the version inside Qt 6.12) scores 1.5 times Qt's
+  build of it, and Chromium 153 only 2 % more than 140. I.K.E.'s own work
+  costs a few percent of the whole benchmark (2-4 % at Maximum) and up to a
+  tenth on pages that rewrite much of themselves, most of it the price of
+  protecting the frames a page writes in its HTML
+  (docs/review/tests-and-performance.md, "1.1.23").
+- **Dark Reader skips the frames nobody sees**: a frame that is not shown
+  (hidden, or a frame of a pixel or two, as trackers and advertisers use)
+  no longer starts Dark Reader until it gets a size; shown later, it is dark
+  from its first picture, as before. Each such frame costs about 20 ms less
+  to load in dark mode (about 30 ms of the page's processor time): about
+  what it costs with dark mode off. Shown frames and pages look exactly as
+  before. tests/test_darkreader_frames.py loads frames one after the other,
+  as Speedometer does, and checks both.
+- **Dark Reader: the colours of selected text written as colours** (the
+  owner's decision): Dark Reader wrote them as a CSS variable with the colour
+  as fallback, and a selection colour read from a variable makes the browser
+  work the selection style out again for every element that sets variables
+  of its own, at every restyle. One full restyle of Speedometer's Lit page
+  42-46 -> 34-35 ms (fastest of 41, three runs); Speedometer with Dark Reader
+  (Lit, Web Components and Charts, 10 iterations, three runs each) 5.46-5.71
+  -> 6.17-6.82, Lit 129-142 -> 105-115 ms. Selected text has the same colours,
+  pixel for pixel (screenshots of six pages, before and after); only that one
+  rule's text differs. The engine's tenth measured change
+  (`tools/build-darkreader.py`, "selection-colours").
+- **Why Brave with the Dark Reader extension scores more than I.K.E. with
+  Dark Reader on Speedometer** (the owner's question): measured, the way
+  I.K.E. gives Dark Reader to a page costs the same as the extension's own
+  way. I.K.E.'s copy of Dark Reader put into Chrome as an extension costs
+  Chrome 43 % of its Speedometer score, exactly what it costs I.K.E. (43 %);
+  per frame, 26-30 against 27 ms. The difference is the engine under it: Qt
+  6.12 has Chromium 140, Brave a newer one, faster with or without Dark
+  Reader. Most of Dark Reader's cost on Speedometer comes from its work
+  while the tests change the page, by the way Dark Reader works; the
+  engine's own dark mode costs almost nothing. Details in
+  docs/review/tests-and-performance.md, "1.1.23, Dark Reader and Brave".
 - uBlock Origin scriptlets: 2bc679d99a (2026-11-10) -> 5934db2a04 (2026-11-21) (1 changed, 0 new, 0 removed)
 - Rust crates of the AdBlock engine: 88 crates -> 88 crates (psl 2.1.253 -> 2.1.261; regex 1.13.1 -> 1.13.2; regex-automata 0.4.18 -> 0.4.19; regex-syntax 0.8.11 -> 0.8.12; smallvec 1.16.5 -> 1.16.6)
 - Dark Reader (engine and lists): 4.9.135, lists 30e8a10e65 (2026-11-16) -> 4.9.135, lists 16a1eccbfa (2026-11-21) (lists changed)

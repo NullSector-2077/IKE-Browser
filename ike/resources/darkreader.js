@@ -3625,12 +3625,20 @@
         ["::selection", "::-moz-selection"].forEach((selection) => {
             lines.push(`${selection} {`);
             lines.push(
-                `    background-color: ${backgroundColorSelection} !important;`
+                `    background-color: ${ikePlainColor(backgroundColorSelection)} !important;`
             );
-            lines.push(`    color: ${foregroundColorSelection} !important;`);
+            lines.push(`    color: ${ikePlainColor(foregroundColorSelection)} !important;`);
             lines.push("}");
         });
         return lines.join("\n");
+    }
+    // I.K.E.: var(--darkreader-<kind>-<hex>, <colour>) as the colour itself
+    function ikePlainColor(value) {
+        const m =
+            /^var\((--darkreader-(?:background|text|border)-[0-9a-f]+), ([^()]+)\)$/.exec(
+                value
+            );
+        return m && !ikeColorOnRoot(m[1], m[2]) ? m[2] : value;
     }
     function getModifiedScrollbarStyle(theme) {
         let colorTrack;

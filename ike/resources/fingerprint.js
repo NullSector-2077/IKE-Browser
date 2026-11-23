@@ -692,7 +692,7 @@
   // page's is used to make them (audit, H-A).
   var PLUGIN_VIEWS = hardMap(), PLUGIN_FAKES = hardMap(), NONE = {};
   var R_GET = Reflect.get, R_HAS = Reflect.has, O_CREATE = Object.create, R_OWNKEYS = Reflect.ownKeys;
-  var R_GOPD = Reflect.getOwnPropertyDescriptor;
+  var R_GOPD = Reflect.getOwnPropertyDescriptor, R_CONSTRUCT = Reflect.construct;
   var CAPS = { b: 'B', c: 'C', d: 'D', f: 'F', g: 'G', h: 'H', j: 'J', k: 'K', l: 'L', m: 'M', n: 'N', p: 'P',
     r: 'R', s: 'S', t: 'T', v: 'V', w: 'W', z: 'Z' };
   function word(next, len, low) {
@@ -1830,7 +1830,34 @@
       // An empty list, or languages the engine does not have, fell back to
       // the system's own language too (review 4, N5). The list is read once,
       // as the engine itself would, and handed on already read.
+      // The engine's own objects of each kind, taken before any page script.
+      // When the engine itself already answers as LOC (the global level
+      // Maximum starts it in en-US), a call that asks for no language is
+      // handed on as it is: the same answer, and the engine keeps its quick
+      // way (localeCompare was about 30 times slower through the rewrite).
+      // Decided once per kind, on the first call, from the engine's own
+      // resolved options of both (every field the same, and the language
+      // exactly LOC); any difference keeps the rewrite (1.1.23).
+      var ORIGC = { __proto__: null }, SAME = { __proto__: null };
+      var sameDefault = function (kind) {
+        var same = SAME[kind];
+        if (same !== undefined) return same;
+        same = false;
+        var c = ORIGC[kind === '' ? 'DateTimeFormat' : kind];
+        if (c) {
+          try {
+            var d = RAPPLY(c[1], R_CONSTRUCT(c[0], [], c[0]), []);
+            var x = RAPPLY(c[1], R_CONSTRUCT(c[0], [LOC], c[0]), []);
+            var kd = R_OWNKEYS(d), kx = R_OWNKEYS(x);
+            same = d.locale === LOC && kd.length === kx.length;
+            for (var i = 0; same && i < kd.length; i++) same = kd[i] === kx[i] && d[kd[i]] === x[kx[i]];
+          } catch (e) { same = false; }
+        }
+        SAME[kind] = same;
+        return same;
+      };
       var fixLocales = function (args, at, kind) {
+        if ((at < args.length ? args[at] : undefined) === undefined && sameDefault(kind)) return args;
         var a = RAPPLY(SLICE, args, []), v = a[at];
         if (v === undefined) { put(a, at, LOC); return a; }
         var list = RAPPLY(GCL, w.Intl, [v]), sup = SUPPORTED[kind];
@@ -1843,6 +1870,7 @@
         var C = w.Intl[n];
         if (typeof C !== 'function') return;
         if (typeof C.supportedLocalesOf === 'function') SUPPORTED[n] = [C.supportedLocalesOf, C];
+        if (C.prototype && typeof C.prototype.resolvedOptions === 'function') ORIGC[n] = [C, C.prototype.resolvedOptions];
         var fix = function (args) { return fixLocales(args, 0, n); };
         var P = new w.Proxy(C, {
           construct: function (t, args, nt) {
@@ -2194,6 +2222,10 @@
     }
     // innerHTML / outerHTML: only HTML that writes a frame can bring a new one
     function after(node, v) {
+      // no frame in this window and a node of this document: check() would
+      // find nothing to look at, so the HTML is not searched (1.1.23: the
+      // search cost pages that rewrite big lists through innerHTML)
+      if (framesOf(w) === 0 && ours(node)) { known = 0; return; }
       if (typeof v !== 'string' || RAPPLY(RE_TEST, FRAME_HTML, [v])) check(node, true);
     }
     // The DOM methods a page calls most (appendChild, insertBefore...) get one
@@ -2211,23 +2243,29 @@
       // window). Counting before and after the call, not against the count
       // of the last check: a frame removed earlier, then another added, keeps
       // the count the same (1.1.18, independent review).
+      // With no frame in the window before the call, a node already in this
+      // document holds none of its frames: only the count can tell of a new
+      // one, and the moved node is not looked at (1.1.23). The guard's count
+      // is then left as check() leaves it.
       var f = ({ [orig.name || name](a, b) {
-        var n = arguments.length, r, pre, moved;
+        var n = arguments.length, r, pre, moved, post;
         if (n === 1) {
           if (!force && !mayNode(a)) return invoke(this, a);
-          pre = framesOf(w); moved = !force && placed(a);
+          pre = framesOf(w); moved = !force && pre !== 0 && placed(a);
           r = invoke(this, a);
         } else if (n === 2) {
           if (!force && !mayNode(a) && !mayNode(b)) return invoke(this, a, b);
-          pre = framesOf(w); moved = !force && (placed(a) || placed(b));
+          pre = framesOf(w); moved = !force && pre !== 0 && (placed(a) || placed(b));
           r = invoke(this, a, b);
         } else {
           if (!force && !mayAny(arguments)) return reflectApply(orig, this, arguments);
           pre = framesOf(w); moved = false;
-          if (!force) for (var i = 0; i < arguments.length; i++) if (placed(arguments[i])) moved = true;
+          if (!force && pre !== 0) for (var i = 0; i < arguments.length; i++) if (placed(arguments[i])) moved = true;
           r = reflectApply(orig, this, arguments);
         }
-        if (force || moved || framesOf(w) !== pre || !ours(this)) check(this, true);
+        post = framesOf(w);
+        if (force || moved || post !== pre || !ours(this)) check(this, true);
+        else if (post === 0) known = 0;
         return r;
       } })[orig.name || name];
       try { Object.defineProperty(f, 'length', { value: orig.length, configurable: true }); } catch (e) {}
@@ -2282,7 +2320,10 @@
     }
     // a target of this document (or outside any document), not of another one
     function ours(target) {
-      return target === own || docOf(target) === own;
+      if (target === own) return true;
+      // the usual answer first: a node of this document (1.1.23)
+      try { if (ownerOf(target) === own) return true; } catch (e) {}
+      return docOf(target) === own;
     }
     function hooked(obj, name) { hook(obj, name, false); }
     function swapped(obj, name) { hook(obj, name, true); }

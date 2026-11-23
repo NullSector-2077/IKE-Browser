@@ -144,10 +144,15 @@ def test_the_engine_is_the_npm_engine_with_the_changes():
 # all of 1.1.20's changes, five more when added back to a build with fewer
 # changes), and what the families dropped for no measurable gain left in the
 # engine (their names and their "I.K.E.:" notes): none of it may come back
-# unmeasured.
+# unmeasured. 1.1.23 (the owner's decision of 2026-11-22) adds "selection-colours":
+# the one change that alters a rule's text, the "::selection" rule of Dark
+# Reader's user-agent style (its two colours written as colours instead of
+# var(--darkreader-...-<hex>, <the same colour>)), measured and shown to give
+# the same pixels (docs/review/tests-and-performance.md, "1.1.23, the colours of
+# selected text").
 KEPT_FAMILIES = ("shadow-host-walk", "color-variables", "style-groups", "shadow-texts",
                  "dark-copy", "shadow-styles-once", "declarations-modifiable", "variables-none",
-                 "style-moves")
+                 "style-moves", "selection-colours")
 DROPPED_MARKS = (
     "ikeSVGRect", "ikeWithSVGRects", "ikePendingSVG",                               # svg-sizes
     "ikeSheets", "the list is changed here and set once",                         # adopted-once
@@ -160,7 +165,7 @@ DROPPED_MARKS = (
 
 
 def test_the_engine_has_only_the_measured_changes():
-    """The shipped engine carries the changes of the nine measured families
+    """The shipped engine carries the changes of the ten measured families
     and nothing of the ones dropped: every "I.K.E.:" note in it is one of a
     kept change, each once."""
     import re
@@ -301,6 +306,37 @@ def test_dark_mode_off_changes_nothing(run_ike, site):
     assert out["light"]["dr"] == 0 and out["light"]["body"] == "rgb(255, 255, 255)"
     assert out["csp"]["dr"] == 0 and out["csp"]["a"] == "rgb(255, 255, 255)"
     assert json.dumps(out["dark"]["body"]) == '"rgb(18, 18, 18)"'
+
+
+SELECTION_STEPS = JS + r'''
+SITE = "__SITE__"
+
+def steps(ike, qapp, out):
+    view = ike.windows[0].current_view()
+    yield 500
+    yield from load(view, SITE + "/light")
+    yield 2500
+    out["sel"] = json.loads((yield from js(view, """JSON.stringify({
+      css: (document.querySelector('style.darkreader--user-agent') || {}).textContent || '',
+      bg: getComputedStyle(document.body, '::selection').backgroundColor,
+      fg: getComputedStyle(document.body, '::selection').color})""")))
+'''
+
+
+def test_the_colours_of_selected_text_are_written_as_colours(run_ike, site):
+    """selection-colours (1.1.23): Dark Reader's "::selection" rule gives its two
+    colours as colours, not as var(--darkreader-...-<hex>, <the same colour>),
+    and selected text has the same colours as before (rgb(0, 77, 170) behind
+    rgb(232, 230, 227), Dark Reader's own for the default theme)."""
+    out = run_ike(SELECTION_STEPS.replace("__SITE__", site),
+                  settings={"dark_mode": "on", "dark_engine": "reader"}, timeout=150)
+    sel = out["sel"]
+    start = sel["css"].find("::selection {")
+    sel["rule"] = sel["css"][start:sel["css"].find("}", start) + 1] if start >= 0 else ""
+    del sel["css"]
+    assert "background-color: #004daa !important;" in sel["rule"], sel
+    assert "color: #e8e6e3 !important;" in sel["rule"] and "var(" not in sel["rule"], sel
+    assert sel["bg"] == "rgb(0, 77, 170)" and sel["fg"] == "rgb(232, 230, 227)", sel
 
 
 # --- what Dark Reader darkens (I.K.E.'s changes to its engine keep all of it) ------
