@@ -757,8 +757,17 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                          T("Export the page as a PDF document"))
         self.act_print = A(T("Print…"), self.print_page, "Ctrl+P", "document-print",
                            T("Print the current page"))
-        self.act_shot = A(T("Screenshot…"), self.screenshot, "Ctrl+Shift+S", "camera-photo",
+        self.act_shot = A(T("Screenshot…"), lambda: self.screenshot(), "Ctrl+Shift+S", "camera-photo",
                           T("Save an image of the visible page"))
+        # 1.1.24: its submenu, what to take (Ctrl+Shift+S: the visible part, as before)
+        self.m_shot = menu(T("Screenshot…"), "camera-photo", None)
+        for text, mode, ico in ((T("Visible part"), "visible", ("camera-photo", "spectacle")),
+                                (T("Whole page"), "page", ("zoom-fit-height", "view-fullscreen")),
+                                (T("Selected area"), "area", ("select-rectangular", "transform-crop"))):
+            a = self.m_shot.addAction(icon(ico), text)
+            a.setData(mode)
+            a.triggered.connect(lambda _c=False, m=mode: self.screenshot(m))
+        self.act_shot.setMenu(self.m_shot)
         self.act_quit = A(T("Quit"), self.app.quit, "Ctrl+Q", "application-exit",
                           T("Close every window and quit I.K.E."))
         self.act_settings = A(T("Settings…"), lambda: self.open_settings(), "Ctrl+,",
@@ -868,8 +877,11 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         # --- History
         self.m_history = mb.addMenu(T("Hi&story"))
         self.m_history.aboutToShow.connect(lambda: self._fill_history(self.m_history))
-        self.act_reopen = A(T("Reopen closed tab"), self.reopen_tab, "Ctrl+Shift+T", "edit-undo",
+        self.act_reopen = A(T("Reopen closed tab"), lambda: self.reopen_tab(), "Ctrl+Shift+T", "edit-undo",
                             T("Restore the tab closed most recently"))
+        self.m_closed = menu(T("Recently closed tabs"), ("tab-close", "edit-undo", "window-close-symbolic"),
+                             T("The last tabs you closed: choose one to open it again"))
+        self.m_closed.aboutToShow.connect(self._fill_closed)
         self.act_history = A(T("Show all history"), self.app.show_history, "Ctrl+H",
                              ("view-history", "document-open-recent-symbolic"), T("Browse and search visited pages"))
         self.act_clear = A(T("Clear browsing data…"), self.app.show_clear_data, "Ctrl+Shift+Del",
@@ -984,7 +996,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             for a in src.actions():
                 if a.isSeparator():
                     m.addSeparator()
-                elif a.menu() is not None:
+                elif a.menu() is not None and a is a.menu().menuAction():
                     m.addMenu(a.menu())
                 else:
                     m.addAction(a)
@@ -1502,7 +1514,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         i = self.views.index(view)
         url = view.pending_url or view.url().toString()
         if url and url != NEWTAB and not self.private:
-            self.closed_tabs.append(url)
+            # with its title, for History → Recently closed tabs (1.1.24)
+            self.closed_tabs.append((url, view.title() if view.title() not in ("", url) else ""))
             del self.closed_tabs[:-25]
         was_current = view is self.current_view()
         item = self.vtabs.item(i)
@@ -1539,9 +1552,31 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         page.deleteLater()
         view.deleteLater()
 
-    def reopen_tab(self):
-        if self.closed_tabs:
-            self.add_tab(self.closed_tabs.pop())
+    def reopen_tab(self, index=-1):
+        """Open a closed tab again: the last one closed (Ctrl+Shift+T), or the
+        one at `index` of closed_tabs (History → Recently closed tabs)."""
+        if self.closed_tabs and -len(self.closed_tabs) <= index < len(self.closed_tabs):
+            self.add_tab(self.closed_tabs.pop(index)[0])
+
+    CLOSED_SHOWN = 10        # the closed tabs listed under History → Recently closed tabs
+
+    def _fill_closed(self):
+        """History → Recently closed tabs: the last ones closed, newest first,
+        with their title and the site's icon."""
+        m = self.m_closed
+        m.clear()
+        n = len(self.closed_tabs)
+        for i in range(n - 1, max(-1, n - 1 - self.CLOSED_SHOWN), -1):
+            url, title = self.closed_tabs[i]
+            a = self._open_action(m, url, title)
+            a.triggered.disconnect()
+            a.triggered.connect(lambda _c=False, u=url: self._reopen_url(u))
+
+    def _reopen_url(self, url):
+        for i in range(len(self.closed_tabs) - 1, -1, -1):
+            if self.closed_tabs[i][0] == url:
+                self.reopen_tab(i)
+                return
 
     def _cycle(self, step):
         if self.views:
@@ -2140,6 +2175,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self.app.storage.add_visit(view.url().toString(), view.title())
         if ok:
             view.reader = False
+            if self.app.config["dark_pdf"]:
+                from .webview import dark_pdf
+                dark_pdf(view, True)
         if (ok and view is not self.current_view() and view in self.views
                 and view.url().scheme() in ("http", "https") and polish.part("tab_unseen")):
             view.unseen = True                  # a dot on its tab until it is opened (1.1.9)
@@ -2299,6 +2337,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         m.addAction(self.act_fwd)
         m.addAction(self.act_home)
         m.addAction(self.act_reopen)
+        m.addMenu(self.m_closed)
+        self.m_closed.menuAction().setEnabled(bool(self.closed_tabs))
         m.addSeparator()
         m.addAction(self.act_history)
         m.addAction(self.act_clear)
@@ -2353,11 +2393,23 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self._printer = printer
             v.print(printer)
 
-    def screenshot(self):
+    def screenshot(self, mode="visible"):
+        """Screenshot… : "visible" (the toolbar's button and Ctrl+Shift+S), "page"
+        (the whole page) or "area" (a part chosen with the mouse), 1.1.24."""
         v = self.current_view()
         if not v:
             return
-        pm = v.grab()
+        from . import screenshot
+        if mode == "page":
+            screenshot.whole_page(v, self._save_screenshot)
+        elif mode == "area":
+            screenshot.AreaPicker(v, self, self._save_screenshot)
+        else:
+            self._save_screenshot(screenshot.visible(v))
+
+    def _save_screenshot(self, pm):
+        if pm is None or pm.isNull():
+            return
         path, _f = QFileDialog.getSaveFileName(
             self, T("Save screenshot"), str(self.app.download_dir() / "screenshot.png"),
             "PNG (*.png)")

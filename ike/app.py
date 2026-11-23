@@ -1749,7 +1749,12 @@ def main(argv=None):
             conn.readyRead.connect(read)
         server.newConnection.connect(incoming)
 
-    ike.start(urls, args.private)
+    from . import welcome
+    if welcome.wanted(config):
+        # the first start (1.1.24): a short welcome, then the first window
+        welcome.show_first(ike, lambda: ike.start(urls, args.private))
+    else:
+        ike.start(urls, args.private)
     notice = engine_safety_lines(i18n.T)
     if notice and not os.environ.get("IKE_TEST_NOASK"):
         # protections of the engine changed by switches: the user sees it at once

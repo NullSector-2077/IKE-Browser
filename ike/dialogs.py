@@ -1008,6 +1008,8 @@ class SettingsDialog(QDialog):
         self.dark_engine.addItem(T("Dark Reader (can be set per site, immediate)"), "reader")
         self.dark_engine.addItem(T("Chromium Auto Dark Mode (can be set per site, immediate)"), "engine")
         self.dark_engine.setCurrentIndex(max(0, self.dark_engine.findData(self.cfg["dark_engine"])))
+        self.dark_pdf = Switch(T("Show PDFs with dark colours"))
+        self.dark_pdf.setChecked(bool(self.cfg["dark_pdf"]))
         from . import icons
         self.icon_theme = QComboBox()
         self._narrow(self.icon_theme)          # long set names in some languages must not widen the page
@@ -1052,6 +1054,9 @@ class SettingsDialog(QDialog):
                "“Dark mode for pages” extension."))
         _row(g, T("Dark mode method"), self.dark_engine,
              T("Dark Reader gives better colours; Chromium's own is built into the engine and lighter."))
+        _row(g, "", _wrapping(self.dark_pdf),
+             T("In I.K.E.'s own PDF viewer the pages are shown with their colours turned around: "
+               "light text on a dark page. Off by default."))
         lay.addWidget(box)
         lay.addStretch(1)
         return w
@@ -1875,6 +1880,12 @@ class SettingsDialog(QDialog):
         cfg["site_tint"] = self.site_tint.isChecked()
         cfg["toolbar_hidden"] = [k for k, c in self.tb_btns.items() if not c.isChecked()]
         cfg["default_zoom"] = round(self.zoom.value(), 2)
+        if cfg["dark_pdf"] != self.dark_pdf.isChecked():
+            cfg["dark_pdf"] = self.dark_pdf.isChecked()
+            from .webview import dark_pdf
+            for win in self.app.windows:              # the PDFs already open change at once
+                for view in win.all_views():
+                    dark_pdf(view, cfg["dark_pdf"])
         dark_choice, dark_engine = self.dark.currentData(), self.dark_engine.currentData()
         if dark_choice != cfg["dark_mode"] or dark_engine != cfg["dark_engine"]:
             from PyQt6.QtCore import QTimer
@@ -2311,7 +2322,8 @@ class HistoryDialog(QDialog):
         lay.addWidget(self.search)
         self.tree = QTreeWidget()
         self.tree.setHeaderLabels([T("Title"), T("Address"), T("Last visit")])
-        self.tree.setRootIsDecorated(False)
+        # 1.1.24: grouped by day (Today, Yesterday, then the dates as the language writes them)
+        self.tree.setRootIsDecorated(True)
         self.tree.setSelectionMode(QTreeWidget.SelectionMode.ExtendedSelection)
         self.tree.setColumnWidth(0, 300)
         self.tree.setColumnWidth(1, 340)
@@ -2328,21 +2340,49 @@ class HistoryDialog(QDialog):
         lay.addLayout(row)
         self.fill()
 
+    @staticmethod
+    def day_name(day, today, locale):
+        """"Today", "Yesterday", or the date written as the interface's language does."""
+        if day == today:
+            return T("Today")
+        if day == today.addDays(-1):
+            return T("Yesterday")
+        from PyQt6.QtCore import QLocale
+        return locale.toString(day, QLocale.FormatType.LongFormat)
+
     def fill(self, *_):
+        from PyQt6.QtCore import QDate, QDateTime, QLocale
+
+        from . import i18n
         self.tree.clear()
+        locale = QLocale(i18n.current())
+        today = QDate.currentDate()
+        bold = self.tree.font()
+        bold.setBold(True)
+        group, group_day = None, None
         for url, title, last in self.app.storage.history(self.search.text()):
-            QTreeWidgetItem(self.tree, [title or url, url,
-                                        time.strftime("%d/%m/%Y %H:%M", time.localtime(last))])
+            when = QDateTime.fromSecsSinceEpoch(int(last))
+            day = when.date()
+            if day != group_day:
+                group_day = day
+                group = QTreeWidgetItem(self.tree, [self.day_name(day, today, locale)])
+                group.setFlags(Qt.ItemFlag.ItemIsEnabled)          # a heading: never opened nor deleted
+                group.setFont(0, bold)
+                group.setFirstColumnSpanned(True)
+                group.setExpanded(True)
+            QTreeWidgetItem(group, [title or url, url,
+                                    locale.toString(when.time(), QLocale.FormatType.ShortFormat)])
 
     def _open(self, item):
         win = self.app.active_window()
-        if win:
+        if win and item.text(1):
             win.add_tab(item.text(1))
             win.activateWindow()
 
     def _delete(self):
         for it in self.tree.selectedItems():
-            self.app.storage.delete_history(it.text(1))
+            if it.text(1):
+                self.app.storage.delete_history(it.text(1))
         self.fill()
 
 

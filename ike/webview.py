@@ -249,18 +249,23 @@ class WebPage(QWebEnginePage):
         self._ike_scripts = []
 
     def _reader_prefs(self, text):
-        """Light, sepia or dark and the text size chosen in reader mode (reader.js)."""
+        """Light, sepia or dark, the text size, the column's width and serif or
+        sans-serif type chosen in reader mode (reader.js)."""
         import json
         try:
             d = json.loads(text)
             theme, size = d["theme"], int(d["size"])
-        except (ValueError, KeyError, TypeError):
+            width, font = d.get("width", "medium"), d.get("font", "serif")
+        except (ValueError, KeyError, TypeError, AttributeError):
             return
-        if theme not in ("auto", "light", "sepia", "dark") or not 14 <= size <= 28:
+        if (theme not in ("auto", "light", "sepia", "dark") or not 14 <= size <= 28
+                or width not in ("narrow", "medium", "wide") or font not in ("serif", "sans")):
             return
         cfg = self.app.config
-        if (cfg["reader_theme"], cfg["reader_size"]) != (theme, size):
-            cfg["reader_theme"], cfg["reader_size"] = theme, size
+        keys = ("reader_theme", "reader_size", "reader_width", "reader_font")
+        if tuple(cfg[k] for k in keys) != (theme, size, width, font):
+            for k, v in zip(keys, (theme, size, width, font)):
+                cfg[k] = v
             cfg.save()
 
     def _loading_changed(self, info):
@@ -969,6 +974,31 @@ class WebView(QWebEngineView):
         self._ctx_menu = build(self, self.lastContextMenuRequest())
         self._ctx_menu.popup(event.globalPos())
         event.accept()
+
+
+# Dark PDFs (1.1.24, off by default): the engine's PDF viewer is a plugin in
+# an <embed> of a page of its own (document.contentType "application/pdf");
+# its colours turned around, the hues kept. Run in I.K.E.'s own world, only
+# when the switch is on (nothing on other pages' loads while it is off).
+DARK_PDF_JS = ("(function(on){if(document.contentType!=='application/pdf')return false;"
+               "var e=document.querySelector('embed[type=\"application/pdf\"]')||document.documentElement;"
+               "e.style.filter=on?'invert(0.9) hue-rotate(180deg)':'';return true;})(%s)")
+
+
+def dark_pdf(view, on, done=None):
+    """Dark colours for a PDF shown in the engine's viewer (Settings →
+    Appearance → Show PDFs with dark colours); any other page is left alone."""
+    try:
+        page = view.page()
+    except RuntimeError:
+        return
+    if page is None:
+        return
+    js = DARK_PDF_JS % ("true" if on else "false")
+    if done is None:
+        page.runJavaScript(js, 1)
+    else:
+        page.runJavaScript(js, 1, done)
 
 
 def notify(notification):
