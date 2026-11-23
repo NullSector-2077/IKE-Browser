@@ -816,7 +816,10 @@ class SettingsDialog(QDialog):
             c.setChecked(bool(self.cfg[key]))
             self.di[key] = c
             _row(f, "", _wrapping(c))
-        _row(f, "", Note(T("For KDE Plasma. All of it is off while the “Plasma integration” extension is off.")))
+        # the note of the whole box, across its width (1.1.24: in the options'
+        # column, set on one line with the other boxes', it could need three
+        # lines, GNOME's font in Filipino, and Qt's form gave it two)
+        f.addRow(Note(T("For KDE Plasma. All of it is off while the “Plasma integration” extension is off.")))
         lay.addWidget(box)
         box, f = self._group(T("Speed and memory"))
         self.video_hw = QComboBox()
