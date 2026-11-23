@@ -1028,6 +1028,9 @@
 "Open selected text with middle click": "Отвори избран текст со среден клик",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "Среден клик на празен дел од страницата го отвора избраниот текст, како адреса или како пребарување.",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Шифрираниот DNS не одговара на сопствените барања на I.K.E. (ажурирања, списоци со филтри): %s",
-"Shared by %d tabs of this site": "Делат %d картички на оваа страница"
+"Shared by %d tabs of this site": "Делат %d картички на оваа страница",
+"Link copied": "Врската е копирана",
+"Bookmark added": "Обележувачот е додаден",
+"Screenshot saved": "Сликата од екранот е зачувана"
 }
 }

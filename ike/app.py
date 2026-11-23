@@ -48,6 +48,8 @@ class IkeApp(QObject):
         from .storage import Storage
         self.qapp = qapp
         self.config = config
+        from .motion import AppTouches
+        self.touches = AppTouches(self)       # tooltips that fade, the keys of the buttons (1.1.24)
         self.storage = Storage()
         self.blocker = Blocker(config, self)
         self.blocker.prepare()               # built meanwhile; start() waits for it before any page

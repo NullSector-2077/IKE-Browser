@@ -1028,6 +1028,9 @@
 "Open selected text with middle click": "Адкрываць вылучаны тэкст сярэдняй пстрычкай",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "Сярэдняя пстрычка на пустым месцы старонкі адкрывае вылучаны тэкст як адрас або як пошукавы запыт.",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Зашыфраваны DNS не адказвае на ўласныя запыты I.K.E. (абнаўленні, спісы фільтраў): %s",
-"Shared by %d tabs of this site": "Агульны для %d укладак гэтага сайта"
+"Shared by %d tabs of this site": "Агульны для %d укладак гэтага сайта",
+"Link copied": "Спасылка скапіравана",
+"Bookmark added": "Закладка дададзена",
+"Screenshot saved": "Здымак экрана захаваны"
 }
 }

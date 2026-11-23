@@ -1028,6 +1028,9 @@
 "“Send to device” with KDE Connect": "“שליחה למכשיר” באמצעות KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ לבחירה, Enter למעבר, Esc לסגירה",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS מוצפן לא עונה לבקשות של I.K.E. עצמו (עדכונים, רשימות מסנן): %s",
-"Shared by %d tabs of this site": "משותף ל-%d לשוניות של אתר זה"
+"Shared by %d tabs of this site": "משותף ל-%d לשוניות של אתר זה",
+"Link copied": "הקישור הועתק",
+"Bookmark added": "הסימנייה נוספה",
+"Screenshot saved": "צילום המסך נשמר"
 }
 }

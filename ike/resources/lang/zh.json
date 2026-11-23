@@ -1028,6 +1028,9 @@
 "Open selected text with middle click": "用中键打开所选文字",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "在页面空白处点击鼠标中键，会把你选中的文字作为地址或搜索打开。",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "加密 DNS 无法响应 I.K.E. 自己的请求（更新、过滤列表）：%s",
-"Shared by %d tabs of this site": "由此网站的 %d 个标签页共用"
+"Shared by %d tabs of this site": "由此网站的 %d 个标签页共用",
+"Link copied": "链接已复制",
+"Bookmark added": "书签已添加",
+"Screenshot saved": "截图已保存"
 }
 }

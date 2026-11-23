@@ -1028,6 +1028,9 @@
 "“Send to device” with KDE Connect": "“ส่งไปยังอุปกรณ์” ด้วย KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ เพื่อเลือก Enter เพื่อไป Esc เพื่อปิด",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS ที่เข้ารหัสไม่ตอบสนองต่อคำขอของ I.K.E. เอง (การอัปเดต รายการตัวกรอง): %s",
-"Shared by %d tabs of this site": "ใช้ร่วมกันโดย %d แท็บของไซต์นี้"
+"Shared by %d tabs of this site": "ใช้ร่วมกันโดย %d แท็บของไซต์นี้",
+"Link copied": "คัดลอกลิงก์แล้ว",
+"Bookmark added": "เพิ่มบุ๊กมาร์กแล้ว",
+"Screenshot saved": "บันทึกภาพหน้าจอแล้ว"
 }
 }

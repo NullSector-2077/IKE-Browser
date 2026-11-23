@@ -1028,6 +1028,9 @@
 "“Send to device” with KDE Connect": "KDE Connect ile “Cihaza gönder”",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ seçmek için, Enter gitmek için, Esc kapatmak için",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Şifreli DNS, I.K.E.'nin kendi isteklerine (güncellemeler, filtre listeleri) yanıt vermiyor: %s",
-"Shared by %d tabs of this site": "Bu sitenin %d sekmesi tarafından paylaşılıyor"
+"Shared by %d tabs of this site": "Bu sitenin %d sekmesi tarafından paylaşılıyor",
+"Link copied": "Bağlantı kopyalandı",
+"Bookmark added": "Yer imi eklendi",
+"Screenshot saved": "Ekran görüntüsü kaydedildi"
 }
 }

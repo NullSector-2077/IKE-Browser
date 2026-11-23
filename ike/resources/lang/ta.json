@@ -1028,6 +1028,9 @@
 "“Send to device” with KDE Connect": "KDE Connect மூலம் “சாதனத்திற்கு அனுப்பு”",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ மூலம் தேர்ந்தெடு, Enter மூலம் செல், Esc மூலம் மூடு",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "மறைகுறியாக்கப்பட்ட DNS, I.K.E.-இன் சொந்தக் கோரிக்கைகளுக்கு (புதுப்பிப்புகள், வடிகட்டிப் பட்டியல்கள்) பதிலளிக்காது: %s",
-"Shared by %d tabs of this site": "இந்தத் தளத்தின் %d தாவல்கள் பகிர்கின்றன"
+"Shared by %d tabs of this site": "இந்தத் தளத்தின் %d தாவல்கள் பகிர்கின்றன",
+"Link copied": "இணைப்பு நகலெடுக்கப்பட்டது",
+"Bookmark added": "புக்மார்க் சேர்க்கப்பட்டது",
+"Screenshot saved": "திரைப்பிடிப்பு சேமிக்கப்பட்டது"
 }
 }

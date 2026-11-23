@@ -1028,6 +1028,9 @@
 "“Send to device” with KDE Connect": "„Siųsti į įrenginį“ naudojant KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ pasirinkti, Enter eiti, Esc uždaryti",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Šifruotas DNS neatsako į paties I.K.E. užklausas (naujiniai, filtrų sąrašai): %s",
-"Shared by %d tabs of this site": "Bendrinama šios svetainės skirtukų: %d"
+"Shared by %d tabs of this site": "Bendrinama šios svetainės skirtukų: %d",
+"Link copied": "Nuoroda nukopijuota",
+"Bookmark added": "Žymelė pridėta",
+"Screenshot saved": "Ekrano kopija įrašyta"
 }
 }

@@ -1028,6 +1028,9 @@
 "Open selected text with middle click": "Abrir o texto selecionado com o clique do meio",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "O clique do meio em uma parte vazia da página abre o texto selecionado, como endereço ou como pesquisa.",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "O DNS criptografado não responde às solicitações do próprio I.K.E. (atualizações, listas de filtros): %s",
-"Shared by %d tabs of this site": "Compartilhado por %d abas deste site"
+"Shared by %d tabs of this site": "Compartilhado por %d abas deste site",
+"Link copied": "Link copiado",
+"Bookmark added": "Favorito adicionado",
+"Screenshot saved": "Captura de ecrã guardada"
 }
 }

@@ -1028,6 +1028,9 @@
 "“Send to device” with KDE Connect": "“Lähetä laitteelle” KDE Connectilla",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ valitaksesi, Enter siirtyäksesi, Esc sulkeaksesi",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Salattu DNS ei vastaa I.K.E.:n omiin pyyntöihin (päivitykset, suodatinlistat): %s",
-"Shared by %d tabs of this site": "Jaettu %d tämän sivuston välilehden kesken"
+"Shared by %d tabs of this site": "Jaettu %d tämän sivuston välilehden kesken",
+"Link copied": "Linkki kopioitu",
+"Bookmark added": "Kirjanmerkki lisätty",
+"Screenshot saved": "Kuvakaappaus tallennettu"
 }
 }

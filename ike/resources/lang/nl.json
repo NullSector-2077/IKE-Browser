@@ -1028,6 +1028,9 @@
 "“Send to device” with KDE Connect": "“Naar apparaat sturen” met KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ om te kiezen, Enter om te gaan, Esc om te sluiten",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Versleutelde DNS beantwoordt de eigen verzoeken van I.K.E. niet (updates, filterlijsten): %s",
-"Shared by %d tabs of this site": "Gedeeld door %d tabbladen van deze site"
+"Shared by %d tabs of this site": "Gedeeld door %d tabbladen van deze site",
+"Link copied": "Link gekopieerd",
+"Bookmark added": "Bladwijzer toegevoegd",
+"Screenshot saved": "Schermafbeelding opgeslagen"
 }
 }

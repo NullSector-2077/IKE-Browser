@@ -1,5 +1,73 @@
 # Changelog
 
+## 1.1.24
+
+- **One mark on the current tab, Breeze's own, and it glides** (the
+  owner's choice, with a mockup): Breeze drew its fixed accent line on the
+  current tab and I.K.E. its own gliding line under it, so two blue lines
+  showed. Now there is one: Breeze's line along the top edge of the tab,
+  following its two rounded top corners and not down the sides, with
+  Breeze's thickness (3 px), corner radius (5 px) and colour (the palette's
+  highlight, the inactive one in an inactive window). It glides from tab
+  to tab (position and width) and jumps with reduced motion; the line
+  under the tab is gone and the style's own fixed mark is not drawn in
+  I.K.E.'s tab bar. Measured on Breeze's code and render: in Breeze the
+  tab bar with I.K.E.'s mark is the same picture, pixel for pixel, as
+  Breeze draws it with its own (light and dark, tests/test_touches_124.py).
+  Fusion, Oxygen, Kvantum and Windows get the same shape in their
+  highlight colour (Kvantum themes that draw a mark in their own pictures
+  keep it).
+- **The current tab stands a little raised**: its background is a shade
+  lighter than the window's (a little white mixed in), as Breeze's.
+- **The close button of a tab glows red under the mouse**, like Plasma's
+  window close button: a disc in Breeze's negative colour (KDE's own when
+  the colour scheme sets it) with the cross in the window's colour, coming
+  in over 120 ms.
+- **Tabs slide aside while one is dragged**, in the horizontal bar (Qt's
+  own movement, now following "Interface effects" and the desktop's reduced
+  motion) and in the vertical tabs (the rows open a place for the dragged
+  one, where Qt only showed a line; it is dropped where the place opened).
+- **The vertical tabs' panel widens and narrows smoothly** between only
+  the icons and the titles (200 ms).
+- **The vertical tabs' panel keeps its width** (the owner's report): the
+  width the user drags it to is kept in the settings and comes back after
+  a restart, in a new window and when vertical tabs are chosen again (the
+  panel shown again took its smallest width); it is saved at once when the
+  window closes, and a stored width is held between 120 px and the smaller
+  of 720 px and half the screen.
+- **A tab pulled out of the window opens in a new window**: pulled more than
+  40 px above or below the tab bar, the tab follows the mouse as a small
+  picture of its page (the tab preview's picture); dropped outside every
+  tab bar it opens in a new window, on another window's tab bar it moves
+  there, back on its own bar or with Esc it stays. A row of the vertical
+  tabs dropped outside the list does the same.
+- **Quick actions say they were done in a small box**, like Plasma's
+  on-screen display: a rounded box with the desktop's icon and the text
+  ("Link copied", "Bookmark added", "Screenshot saved", the zoom), in the
+  desktop's colours, fading in and out in about 1.2 s and never taking the
+  keyboard or the mouse.
+- **Tooltips fade in and out** briefly (90 and 110 ms; on Wayland the
+  desktop's own effects do it, as for menus).
+- **The find bar (Ctrl+F) slides in from the bottom**, and its field
+  flashes red for a moment when nothing is found, then keeps its soft tint.
+- **Touchpad gestures**: a horizontal swipe goes back or forward, the page
+  sliding away; a pinch zooms the page, the zoom shown in the small box and
+  kept for the site as with Ctrl+wheel. They are Qt's native gestures (on
+  Wayland the compositor's: a two-finger pinch; a swipe as the compositor
+  sends it, with three or more fingers where two-finger strokes scroll).
+- **Ctrl or Alt held for a second shows the keys of the toolbar buttons**:
+  small labels under the buttons (Alt+Left, Ctrl+R, Ctrl+D...), gone when
+  the key is let go or another key is pressed.
+- **Tab groups take Breeze's colours** (the desktop's accent first, then
+  the colour scheme's positive, neutral, negative, visited and link colours,
+  then KDE's yellow, turquoise and grey) **and fold and unfold smoothly**,
+  in the horizontal and the vertical tabs.
+- Every one of these costs nothing at rest (no timer, no animation once it
+  has played: the tests compare what runs before and after each), and each
+  follows "Interface effects" and the desktop's reduced motion, changing
+  at once without them (`ike/polish.py`, `ike/tabs.py`, `ike/motion.py`,
+  `ike/gestures.py`, tests/test_touches_124.py).
+
 ## 1.1.23
 
 - **Widevine installs again** (Settings -> DRM video): Google no longer serves the old zips on

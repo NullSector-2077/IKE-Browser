@@ -1028,6 +1028,9 @@
 "Open selected text with middle click": "Відкривати виділений текст середнім клацанням",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "Середнє клацання на порожньому місці сторінки відкриває виділений текст як адресу або як пошуковий запит.",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Зашифрований DNS не відповідає на власні запити I.K.E. (оновлення, списки фільтрів): %s",
-"Shared by %d tabs of this site": "Спільний для вкладок цього сайту: %d"
+"Shared by %d tabs of this site": "Спільний для вкладок цього сайту: %d",
+"Link copied": "Посилання скопійовано",
+"Bookmark added": "Закладку додано",
+"Screenshot saved": "Знімок екрана збережено"
 }
 }

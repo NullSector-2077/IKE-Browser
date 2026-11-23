@@ -1028,6 +1028,9 @@
 "“Send to device” with KDE Connect": "«Ուղարկել սարքին» KDE Connect-ով",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ ընտրելու համար, Enter՝ անցնելու, Esc՝ փակելու",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Գաղտնագրված DNS-ը չի պատասխանում հենց I.K.E.-ի հարցումներին (թարմացումներ, զտիչների ցանկեր): %s",
-"Shared by %d tabs of this site": "Կիսվում է այս կայքի %d ներդիրի կողմից"
+"Shared by %d tabs of this site": "Կիսվում է այս կայքի %d ներդիրի կողմից",
+"Link copied": "Հղումը պատճենվեց",
+"Bookmark added": "Էջանիշն ավելացվեց",
+"Screenshot saved": "Էկրանի նկարը պահպանվեց"
 }
 }

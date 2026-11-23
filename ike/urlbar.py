@@ -34,7 +34,8 @@ class UrlBar(QLineEdit):
         clean.setToolTip(T("Copy the address without tracking parameters"))
         clean.setEnabled(bool(url))
         clean.triggered.connect(
-            lambda: QGuiApplication.clipboard().setText(strip_tracking(url) or url))
+            lambda: (QGuiApplication.clipboard().setText(strip_tracking(url) or url),
+                     self.win.osd(T("Link copied"), "edit-copy")))
         m.insertAction(first, go)
         m.insertAction(first, clean)
         m.insertSeparator(first)

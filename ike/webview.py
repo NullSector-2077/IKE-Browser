@@ -913,6 +913,10 @@ class WebView(QWebEngineView):
             self.page()._ike_input = time.monotonic()   # the user acts on the page (downloads)
         if t == QEvent.Type.Wheel and self._wheel(event):
             return True
+        if t == QEvent.Type.NativeGesture:                # touchpad: swipe and pinch (1.1.24)
+            from .gestures import handle
+            if handle(self, event):
+                return True
         if (t in (QEvent.Type.MouseButtonPress, QEvent.Type.MouseMove, QEvent.Type.MouseButtonRelease)
                 and self.window_ref.app.config["mouse_gestures"] and self._gesture(obj, event)):
             return True
@@ -949,6 +953,19 @@ class WebView(QWebEngineView):
         if not final:
             QTimer.singleShot(550, lambda t=text: self._ensure_copied(text=t, final=True))
 
+    def _osd_for(self, menu):
+        """The quick actions of the page's menu say they were done (1.1.24):
+        an address copied, a link bookmarked (window.osd)."""
+        said = {T("Copy link address"): (T("Link copied"), "edit-copy"),
+                T("Copy image address"): (T("Link copied"), "edit-copy"),
+                T("Copy media address"): (T("Link copied"), "edit-copy"),
+                T("Bookmark this link"): (T("Bookmark added"), "bookmark-new")}
+        win = self.window_ref
+        for a in menu.actions():
+            done = said.get(a.text())
+            if done is not None:
+                a.triggered.connect(lambda _c=False, d=done: win.osd(*d))
+
     def contextMenuEvent(self, event):
         from .contextmenu import build
         old = getattr(self, "_ctx_menu", None)
@@ -961,6 +978,7 @@ class WebView(QWebEngineView):
         # Keep a reference: a menu held only by a local variable is destroyed
         # as soon as this method returns, and nothing would be shown.
         self._ctx_menu = build(self, self.lastContextMenuRequest())
+        self._osd_for(self._ctx_menu)
         self._ctx_menu.popup(event.globalPos())
         event.accept()
 

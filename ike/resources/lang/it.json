@@ -1028,6 +1028,9 @@
 "Open selected text with middle click": "Apri il testo selezionato con il clic centrale",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "Il clic centrale su una parte vuota della pagina apre il testo che hai selezionato, come indirizzo o come ricerca.",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Il DNS cifrato non risponde alle richieste di I.K.E. stesso (aggiornamenti, liste filtri): %s",
-"Shared by %d tabs of this site": "Condiviso da %d schede di questo sito"
+"Shared by %d tabs of this site": "Condiviso da %d schede di questo sito",
+"Link copied": "Link copiato",
+"Bookmark added": "Segnalibro aggiunto",
+"Screenshot saved": "Schermata salvata"
 }
 }

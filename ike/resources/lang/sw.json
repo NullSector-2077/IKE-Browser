@@ -1028,6 +1028,9 @@
 "“Send to device” with KDE Connect": "“Tuma kwa kifaa” kwa KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ kuchagua, Enter kwenda, Esc kufunga",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS iliyosimbwa haijibu maombi ya I.K.E. yenyewe (masasisho, orodha za vichujio): %s",
-"Shared by %d tabs of this site": "Inashirikiwa na vichupo %d vya tovuti hii"
+"Shared by %d tabs of this site": "Inashirikiwa na vichupo %d vya tovuti hii",
+"Link copied": "Kiungo kimenakiliwa",
+"Bookmark added": "Alamisho limeongezwa",
+"Screenshot saved": "Picha ya skrini imehifadhiwa"
 }
 }

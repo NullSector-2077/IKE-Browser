@@ -1028,6 +1028,9 @@
 "“Send to device” with KDE Connect": "„მოწყობილობაზე გაგზავნა“ KDE Connect-ით",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ ასარჩევად, Enter გადასასვლელად, Esc დასახურად",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "დაშიფრული DNS არ პასუხობს თავად I.K.E.-ის მოთხოვნებს (განახლებები, ფილტრის სიები): %s",
-"Shared by %d tabs of this site": "იზიარებს ამ საიტის %d ჩანართი"
+"Shared by %d tabs of this site": "იზიარებს ამ საიტის %d ჩანართი",
+"Link copied": "ბმული დაკოპირდა",
+"Bookmark added": "სანიშნე დაემატა",
+"Screenshot saved": "ეკრანის სურათი შეინახა"
 }
 }

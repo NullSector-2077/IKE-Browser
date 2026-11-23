@@ -1028,6 +1028,9 @@
 "Open selected text with middle click": "Otevřít vybraný text prostředním tlačítkem",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "Kliknutí prostředním tlačítkem na prázdné místo stránky otevře vybraný text jako adresu nebo jako hledání.",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Šifrované DNS neodpovídá na vlastní požadavky I.K.E. (aktualizace, seznamy filtrů): %s",
-"Shared by %d tabs of this site": "Sdíleno panely tohoto webu: %d"
+"Shared by %d tabs of this site": "Sdíleno panely tohoto webu: %d",
+"Link copied": "Odkaz zkopírován",
+"Bookmark added": "Záložka přidána",
+"Screenshot saved": "Snímek obrazovky uložen"
 }
 }

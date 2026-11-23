@@ -1028,6 +1028,9 @@
 "“Send to device” with KDE Connect": "„Senda í tæki“ með KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ til að velja, Enter til að fara, Esc til að loka",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Dulkóðað DNS svarar ekki eigin beiðnum I.K.E. (uppfærslur, síulistar): %s",
-"Shared by %d tabs of this site": "Deilt af %d flipum þessarar vefsíðu"
+"Shared by %d tabs of this site": "Deilt af %d flipum þessarar vefsíðu",
+"Link copied": "Tengill afritaður",
+"Bookmark added": "Bókamerki bætt við",
+"Screenshot saved": "Skjámynd vistuð"
 }
 }

@@ -1028,6 +1028,9 @@
 "“Send to device” with KDE Connect": "KDE Connect로 “기기로 보내기”",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ 선택, Enter 이동, Esc 닫기",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "암호화된 DNS가 I.K.E. 자체 요청(업데이트, 필터 목록)에 응답하지 않습니다: %s",
-"Shared by %d tabs of this site": "이 사이트의 탭 %d개가 공유"
+"Shared by %d tabs of this site": "이 사이트의 탭 %d개가 공유",
+"Link copied": "링크를 복사했습니다",
+"Bookmark added": "북마크를 추가했습니다",
+"Screenshot saved": "스크린샷을 저장했습니다"
 }
 }

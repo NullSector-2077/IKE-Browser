@@ -1028,6 +1028,9 @@
 "“Send to device” with KDE Connect": "“Gửi tới thiết bị” bằng KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ để chọn, Enter để mở, Esc để đóng",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS mã hóa không trả lời các yêu cầu của chính I.K.E. (cập nhật, danh sách bộ lọc): %s",
-"Shared by %d tabs of this site": "Chia sẻ bởi %d thẻ của trang này"
+"Shared by %d tabs of this site": "Chia sẻ bởi %d thẻ của trang này",
+"Link copied": "Đã sao chép liên kết",
+"Bookmark added": "Đã thêm dấu trang",
+"Screenshot saved": "Đã lưu ảnh chụp màn hình"
 }
 }

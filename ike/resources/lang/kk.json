@@ -1028,6 +1028,9 @@
 "“Send to device” with KDE Connect": "KDE Connect арқылы “Құрылғыға жіберу”",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ таңдау үшін, Enter өту үшін, Esc жабу үшін",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Шифрланған DNS I.K.E. өз сұрауларына (жаңартулар, сүзгі тізімдері) жауап бермейді: %s",
-"Shared by %d tabs of this site": "Осы сайттың %d қойындысы ортақ пайдаланады"
+"Shared by %d tabs of this site": "Осы сайттың %d қойындысы ортақ пайдаланады",
+"Link copied": "Сілтеме көшірілді",
+"Bookmark added": "Бетбелгі қосылды",
+"Screenshot saved": "Экран суреті сақталды"
 }
 }

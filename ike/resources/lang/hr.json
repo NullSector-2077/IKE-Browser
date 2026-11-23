@@ -1028,6 +1028,9 @@
 "Open selected text with middle click": "Otvori odabrani tekst srednjim klikom",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "Klik srednjom tipkom na prazno mjesto na stranici otvara odabrani tekst kao adresu ili kao pretraživanje.",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Šifrirani DNS ne odgovara na vlastite zahtjeve I.K.E.-a (ažuriranja, popisi filtara): %s",
-"Shared by %d tabs of this site": "Dijele %d kartice ove stranice"
+"Shared by %d tabs of this site": "Dijele %d kartice ove stranice",
+"Link copied": "Poveznica kopirana",
+"Bookmark added": "Knjižna oznaka dodana",
+"Screenshot saved": "Snimka zaslona spremljena"
 }
 }

@@ -90,6 +90,9 @@ class FindBar(QWidget):
 
     def open_bar(self):
         if not self.isVisible():
+            self.show()
+            # 1.1.24: it slides in from the bottom as it fades in
+            polish.slide_in(self, self.win.app.config)
             polish.fade_child(self, self.win.app.config)
         self.show()
         self.edit.setFocus()
@@ -125,16 +128,38 @@ class FindBar(QWidget):
 
     def _nothing(self, nothing):
         """No match: the field is tinted red, softly, as in other browsers."""
-        from PyQt6.QtGui import QColor, QPalette
         if nothing == getattr(self, "_tinted", False):
             return
         self._tinted = nothing
-        pal = QPalette(self.palette())
-        if nothing:
-            base = pal.color(QPalette.ColorRole.Base)
-            pal.setColor(QPalette.ColorRole.Base, effects.blend(base, QColor("#e5484d"), 0.22))
-        self.edit.setPalette(pal)
+        flash = getattr(self, "_flash", None)
+        if flash is not None:
+            flash.stop()
+        self._tint(0.22 if nothing else 0.0)
         self.edit.setProperty("nothing_found", nothing)
+        if nothing and polish.moving(self.win.app.config, "find_slide"):
+            # 1.1.24: the field flashes red for a moment, then keeps its soft tint
+            from PyQt6.QtCore import QEasingCurve, QVariantAnimation
+            if flash is None:
+                flash = self._flash = QVariantAnimation(self)
+                flash.setEasingCurve(QEasingCurve.Type.OutCubic)
+                flash.valueChanged.connect(lambda v: self._tint(float(v)))
+            flash.setDuration(self.FLASH_MS)
+            flash.setStartValue(0.6)
+            flash.setEndValue(0.22)
+            flash.start()
+
+    FLASH_MS = 420
+    NOTHING_RED = "#e5484d"
+
+    def _tint(self, k):
+        """The field's background with k of red in it (0: the theme's own)."""
+        from PyQt6.QtGui import QColor, QPalette
+        pal = QPalette(self.palette())
+        if k > 0:
+            base = pal.color(QPalette.ColorRole.Base)
+            pal.setColor(QPalette.ColorRole.Base, effects.blend(base, QColor(self.NOTHING_RED), k))
+        self.edit.setPalette(pal)
+        self.tint_level = k
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
@@ -334,6 +359,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             lambda pos: self._tab_menu(self.tabbar.tabAt(pos), self.tabbar.mapToGlobal(pos)))
         self.tabbar.installEventFilter(self)
         self.tabbar.restoring = lambda: bool(getattr(self, "_restoring", False))
+        self.tabbar.tear_off = self._tear_off           # 1.1.24: a tab pulled out opens a new window
+        self.tabbar.take_tab = self._take_tab
+        self.tabbar.setAcceptDrops(True)
 
         self.htab_row = QWidget(self)
         row = QHBoxLayout(self.htab_row)
@@ -370,6 +398,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                        if self.vtabs.itemAt(pos) else -1,
                                        self.vtabs.viewport().mapToGlobal(pos)))
         self.vtabs.viewport().installEventFilter(self)
+        self.vtabs.tear_off = lambda r: self._torn(self.views[r]) if 0 <= r < len(self.views) else None
+        self.vtabs.picture = self._drag_picture
+        self.vtabs.key = lambda r: self._tab_key(self.views[r])
 
         self.vtab_panel = QWidget(self)
         vl = QVBoxLayout(self.vtab_panel)
@@ -436,7 +467,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.splitter.addWidget(right)
         self.splitter.setStretchFactor(0, 0)
         self.splitter.setStretchFactor(1, 1)
-        vw = max(120, int(self.app.config["vtabs_width"]))
+        vw = self.vtabs_clamp(self.app.config["vtabs_width"])
         self.splitter.setSizes([vw, max(400, 1280 - vw)])
         self.splitter.setChildrenCollapsible(False)
         self.splitter.splitterMoved.connect(self._vtabs_resized)
@@ -1507,7 +1538,71 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     def _detach(self, view):
         url = QUrl(view.pending_url) if view.pending_url else view.url()
         self.close_tab(view)
-        self.app.new_window(private=self.private, urls=[url])
+        return self.app.new_window(private=self.private, urls=[url])
+
+    # --- a tab dragged out of the window (1.1.24) --------------------------------
+    def _tab_key(self, view):
+        """The name of a tab while it is dragged (this process and the tab)."""
+        return "%d:%d" % (os.getpid(), id(view))
+
+    def _drag_picture(self, i):
+        """What follows the mouse while tab i is dragged: its preview."""
+        from .tabpreview import drag_picture
+        view = self.views[i]
+        if self.tabbar.isVisible():
+            fallback = self.tabbar.grab(self.tabbar.tabRect(i))
+        else:
+            fallback = self.vtabs.viewport().grab(self.vtabs.visualItemRect(self.vtabs.item(i)))
+        return drag_picture(view, fallback, self.palette())
+
+    def _tear_off(self, i):
+        """Tab i was pulled away from the tab bar: it follows the mouse as a
+        small picture; dropped outside a tab bar, it opens in a new window
+        (as in other browsers); on another window's tab bar, it moves there;
+        back on its own, or with Esc, it stays."""
+        if not 0 <= i < len(self.views):
+            return
+        from PyQt6.QtCore import QMimeData
+        from PyQt6.QtGui import QDrag
+
+        from . import tabs
+        view = self.views[i]
+        pm = self._drag_picture(i)
+        drag = QDrag(self.tabbar)
+        mime = QMimeData()
+        mime.setData(tabs.TAB_MIME, self._tab_key(view).encode("ascii"))
+        drag.setMimeData(mime)
+        drag.setPixmap(pm)
+        dpr = pm.devicePixelRatio() or 1.0
+        drag.setHotSpot(QPoint(round(pm.width() / dpr / 2), 12))
+        result = tabs.run_drag(drag, Qt.DropAction.MoveAction)
+        if result == Qt.DropAction.IgnoreAction and not tabs.cancelled():
+            self._torn(view)
+
+    def _torn(self, view):
+        """A tab dropped outside every tab bar: a new window with it (the
+        only tab of a window stays: the window is already its own)."""
+        if view not in self.views or len(self.views) < 2:
+            return None
+        win = self._detach(view)
+        from PyQt6.QtGui import QCursor
+        if win is not None and not win.isMaximized():
+            win.move(QCursor.pos() - QPoint(win.width() // 3, 20))   # where it was dropped (X11)
+        return win
+
+    def _take_tab(self, key):
+        """A tab of another window dropped on this window's tab bar: it opens
+        here and closes there (only between windows of the same kind)."""
+        for w in list(self.app.windows):
+            for v in list(w.views):
+                if w._tab_key(v) != key:
+                    continue
+                if w is self or w.private != self.private:
+                    return
+                url = QUrl(v.pending_url) if v.pending_url else v.url()
+                w.close_tab(v)
+                self.set_current(self.add_tab(url))
+                return
 
     def _tab_preview_event(self, obj, event):
         """Show the picture of a tab when the mouse rests on it (instead of
@@ -1759,7 +1854,25 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 v.setZoomFactor(cands[0] if direction > 0 else cands[-1])
         self._remember_zoom(v)
         self._zoom_sign()
-        self.toast(T("Zoom: %d%%") % round(v.zoomFactor() * 100), 1500)
+        self.zoom_osd(v)
+
+    def zoom_osd(self, v):
+        usual = self.app.config["default_zoom"]
+        self.osd(T("Zoom: %d%%") % round(v.zoomFactor() * 100),
+                 "zoom-out" if v.zoomFactor() < usual - 0.005 else "zoom-in")
+
+    OSD_MS = 1200
+
+    def osd(self, text, icon_names):
+        """A quick action done (link copied, bookmark added, screenshot,
+        zoom): a small box over the page with the desktop's icon and the
+        text, as Plasma's on-screen display; it fades in and out in about
+        OSD_MS and never takes the keyboard (1.1.24)."""
+        if polish.part("toasts") and polish.part("osd"):
+            from .icons import themed
+            self.toast_pill.show_text(text, self.OSD_MS, themed(icon_names))
+            return
+        self.toast(text, 1500)
 
     def toast(self, text, ms=1800):
         """A short message for the user: in a pill over the page (polish.py), or the status bar."""
@@ -2179,6 +2292,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.sync_urlbar()
         if added:          # the star fills with a small pop (1.1.9)
             polish.pop_in(self, "star", self.act_tb_bookmark.icon(), self.app.config, self.act_tb_bookmark.setIcon)
+            self.osd(T("Bookmark added"), "bookmark-new")
 
     def site_icon(self, url, fetch=False):
         """Stored icon of the site, or the generic globe."""
@@ -2267,8 +2381,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         path, _f = QFileDialog.getSaveFileName(
             self, T("Save screenshot"), str(self.app.download_dir() / "screenshot.png"),
             "PNG (*.png)")
-        if path:
-            pm.save(path if path.lower().endswith(".png") else path + ".png", "PNG")
+        if path and pm.save(path if path.lower().endswith(".png") else path + ".png", "PNG"):
+            self.osd(T("Screenshot saved"), ("camera-photo", "spectacle"))
 
     def open_settings(self, page=None):
         return self.app.show_settings(self, page)
@@ -2735,6 +2849,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
 
     def closeEvent(self, event):
         self.repair_bar.cancel()           # nothing half-done is saved
+        save = getattr(self, "_vtabs_save", None)
+        if save is not None and save.isActive():     # the tab panel's new width (1.1.24)
+            save.stop()
+            self.app.config.save()
         self.app.window_closing(self)
         for d in list(self._devtools):
             d.close()

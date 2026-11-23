@@ -1028,6 +1028,9 @@
 "“Send to device” with KDE Connect": "“Hantar ke peranti” dengan KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ untuk memilih, Enter untuk pergi, Esc untuk menutup",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS disulitkan tidak menjawab permintaan I.K.E. sendiri (kemas kini, senarai penapis): %s",
-"Shared by %d tabs of this site": "Dikongsi oleh %d tab tapak ini"
+"Shared by %d tabs of this site": "Dikongsi oleh %d tab tapak ini",
+"Link copied": "Pautan disalin",
+"Bookmark added": "Penanda buku ditambah",
+"Screenshot saved": "Tangkapan skrin disimpan"
 }
 }

@@ -1028,6 +1028,9 @@
 "“Send to device” with KDE Connect": "“Bidali gailura” KDE Connect-ekin",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ aukeratzeko, Sartu joateko, Esc ixteko",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS zifratuak ez die erantzuten I.K.E.-ren berezko eskaerei (eguneratzeak, iragazki-zerrendak): %s",
-"Shared by %d tabs of this site": "Gune honetako %d fitxak partekatzen dute"
+"Shared by %d tabs of this site": "Gune honetako %d fitxak partekatzen dute",
+"Link copied": "Esteka kopiatu da",
+"Bookmark added": "Laster-marka gehitu da",
+"Screenshot saved": "Pantaila-argazkia gorde da"
 }
 }

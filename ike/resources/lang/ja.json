@@ -1028,6 +1028,9 @@
 "Open selected text with middle click": "選択したテキストを中クリックで開く",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "ページの空白部分を中クリックすると、選択したテキストをアドレスまたは検索として開きます。",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "暗号化 DNS が I.K.E. 自身のリクエスト(アップデート、フィルターリスト)に応答しません: %s",
-"Shared by %d tabs of this site": "このサイトの %d 個のタブで共有"
+"Shared by %d tabs of this site": "このサイトの %d 個のタブで共有",
+"Link copied": "リンクをコピーしました",
+"Bookmark added": "ブックマークを追加しました",
+"Screenshot saved": "スクリーンショットを保存しました"
 }
 }
