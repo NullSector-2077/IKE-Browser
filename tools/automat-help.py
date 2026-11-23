@@ -118,6 +118,7 @@ def defused(text):
 def trimmed(failure, limit=LOG_CHARS):
     """The failure's own log (without the notes the plan added), its start and its end within the limit."""
     text = re.split(r"\n## (?:One problem per attempt|AUTOMAT's memory of this error|What changed upstream"
+                    r"|The fix of this attempt's last round"
                     r"|Why earlier fixes were refused|Previous automatic fix)", failure or "")[0].strip()
     if len(text) <= limit:
         return text

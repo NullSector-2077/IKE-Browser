@@ -240,8 +240,8 @@ def rename_pairs(patches, notes=""):
 def named_in(failure):
     """The names an error mentions (for what to show first)."""
     out = []
-    head = re.split(r"\n## (?:One problem per attempt|AUTOMAT's memory of this error|What changed upstream)",
-                    failure or "")[0]
+    head = re.split(r"\n## (?:One problem per attempt|AUTOMAT's memory of this error|What changed upstream"
+                    r"|The fix of this attempt's last round)", failure or "")[0]
     for m in NAMED.finditer(head[-20000:]):
         for g in m.groups():
             if g:

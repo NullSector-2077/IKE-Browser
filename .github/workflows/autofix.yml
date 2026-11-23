@@ -232,7 +232,11 @@ jobs:
             if [ -s "$RUNNER_TEMP/memory.md" ]; then cat "$RUNNER_TEMP/memory.md" >> "$RUNNER_TEMP/failure/failure.md"; fi
           fi
           adopt=$(sed -n 's/^adopt=//p' "$GITHUB_OUTPUT" | tail -n 1)
-          if [ -s "$RUNNER_TEMP/failure/failure.md" ] && [ -z "$adopt" ]; then
+          action=$(sed -n 's/^action=//p' "$GITHUB_OUTPUT" | tail -n 1)
+          # (a round of the inner loop is counted whatever could be read of the round before it: never more
+          # than three rounds for one attempt)
+          if [ -n "$round" ]; then echo "round=$round" >> "$GITHUB_OUTPUT"; fi
+          if [ -s "$RUNNER_TEMP/failure/failure.md" ] && [ -z "$adopt" ] && [ "$action" = "fix" ]; then
             component=$(sed -n 's/^push_branch=//p' "$GITHUB_OUTPUT" | tail -n 1)
             attempt=$(sed -n 's/^attempt=//p' "$GITHUB_OUTPUT" | tail -n 1)
             mode=$(sed -n 's/^mode=//p' "$GITHUB_OUTPUT" | tail -n 1)
@@ -256,7 +260,6 @@ jobs:
                 --out "$RUNNER_TEMP/round.md" --author "$RUNNER_TEMP/round-author" || true
               if [ -s "$RUNNER_TEMP/round.md" ]; then
                 cat "$RUNNER_TEMP/round.md" >> "$RUNNER_TEMP/failure/failure.md"
-                echo "round=$round" >> "$GITHUB_OUTPUT"
                 same=$(cat "$RUNNER_TEMP/round-author" 2> /dev/null || true)
                 case "$same" in
                   Antigravity|Groq|Z.AI|OpenRouter)

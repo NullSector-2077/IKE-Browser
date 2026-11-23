@@ -103,7 +103,8 @@ def normalise(line):
 def signature(failure):
     """The error signature of a failure description: stable across runs of the same error."""
     # (without the notes the plan itself adds to the description: they are not the error)
-    failure = re.split(r"\n## (?:One problem per attempt|AUTOMAT's memory of this error)", failure or "")[0]
+    failure = re.split(r"\n## (?:One problem per attempt|AUTOMAT's memory of this error|What changed upstream"
+                       r"|The fix of this attempt's last round)", failure or "")[0]
     tests, errors = [], []
     for raw in (failure or "").splitlines():
         line = raw.strip()

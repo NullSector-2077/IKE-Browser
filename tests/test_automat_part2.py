@@ -1326,6 +1326,28 @@ def test_the_next_round_gets_the_fix_and_the_tests_output(tmp_path):
     assert not (tmp_path / "no").exists()
 
 
+def test_the_rounds_note_is_no_part_of_the_error_and_a_round_is_always_counted():
+    error = "FAILED tests/test_tabs.py::test_title - TypeError: title() missing 1 required positional argument\n"
+    note = inner.round_section("-a\n+b\n", "FAILED tests/test_other.py::test_new - ValueError: something else\n"
+                               "E   NameError: name 'check_updates' is not defined\n", 2)
+    whole = error + note
+    # the same error keeps its signature, its tests, its kind and its log in the next round
+    assert memory.signature(whole) == memory.signature(error)
+    assert inner.failing_tests(whole) == inner.failing_tests(error) == ["tests/test_tabs.py::test_title"]
+    assert inner.error_part(whole).strip() == recipes.error_part(whole).strip() == error.strip()
+    assert route.task_type(whole) == route.task_type(error)
+    assert upstream.named_in(whole) == upstream.named_in(error)
+    assert "test_other" not in helper.trimmed(whole) and "test_title" in helper.trimmed(whole)
+    # the plan writes the round whatever it could read of the round before: the job again stops at three
+    plan = (ROOT / ".github/workflows/autofix.yml").read_text("utf-8").split("\n  fix:\n")[0]
+    assert plan.count('echo "round=$round" >> "$GITHUB_OUTPUT"') == 1
+    assert 'if [ -n "$round" ]; then echo "round=$round" >> "$GITHUB_OUTPUT"; fi' in plan
+    counted = plan.index('echo "round=$round"')
+    assert counted < plan.index("tools/autofix-inner.py round --repo")
+    # no route, no upstream lookup and no memory read for a plan that asks no AI
+    assert '[ -z "$adopt" ] && [ "$action" = "fix" ]; then' in plan
+
+
 # =====================================================================================================
 # 6. The upstream change in the context
 # =====================================================================================================

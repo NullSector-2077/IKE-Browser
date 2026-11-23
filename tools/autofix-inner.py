@@ -216,7 +216,8 @@ def failing_tests(failure, limit=MAX_TESTS):
             if m:
                 ids.append(m.group(1))
     if not ids:
-        head = re.split(r"\n## (?:One problem per attempt|AUTOMAT's memory of this error|What changed upstream)",
+        head = re.split(r"\n## (?:One problem per attempt|AUTOMAT's memory of this error|What changed upstream"
+                        r"|The fix of this attempt's last round)",
                         failure)[0]
         for line in head.splitlines():
             m = TEST_ID.match(line.strip())

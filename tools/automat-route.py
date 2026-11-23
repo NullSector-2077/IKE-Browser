@@ -68,6 +68,7 @@ def task_type(failure, related=(), mode="", builder="", groups=None):
         return "lists"
     # the error itself, not the notes the plan adds after it
     failure = re.split(r"\n## (?:One problem per attempt|AUTOMAT's memory of this error|What changed upstream"
+                       r"|The fix of this attempt's last round"
                        r"|Why earlier fixes were refused|Previous automatic fix)", failure or "")[0]
     files = [f for f in list(related or ()) + code_files(failure) if not f.startswith(("tests/", "tools/", "docs/"))]
     files = list(dict.fromkeys(files))
