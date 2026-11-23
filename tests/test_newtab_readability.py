@@ -149,7 +149,7 @@ def _ratio(a, b):
     return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
 
 
-@pytest.mark.parametrize("scheme", ["dark", "light"])
+@pytest.mark.parametrize("scheme", ["theme:ike", "light"])
 def test_every_text_reads_over_any_photo(run_ike, tmp_path, scheme):
     out, shots = run_scheme(run_ike, tmp_path, scheme)
     check(out, shots, scheme)
@@ -160,8 +160,8 @@ def test_every_text_reads_over_any_photo(run_ike, tmp_path, scheme):
 
 def test_a_strong_or_no_veil_changes_nothing_about_the_guarantee(run_ike, tmp_path):
     for veil in (0, 90):
-        out, shots = run_scheme(run_ike, tmp_path, "dark", veil=veil, names=("white", "busy"))
-        check(out, shots, "dark", names=("white", "busy"))
+        out, shots = run_scheme(run_ike, tmp_path, "theme:ike", veil=veil, names=("white", "busy"))
+        check(out, shots, "theme:ike", names=("white", "busy"))
 
 
 def test_the_k_colour_and_nothing_extra_without_a_photo(run_ike, tmp_path):
