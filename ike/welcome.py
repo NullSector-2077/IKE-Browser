@@ -130,9 +130,8 @@ class WelcomeDialog(QDialog):
         pl.addStretch(1)
         self.pages.addWidget(page)
 
-        self.later = QLabel()
-        self.later.setWordWrap(True)
-        self.later.setEnabled(False)               # the quieter colour of a note
+        from .dialogs import Note
+        self.later = Note("")                      # the quieter colour of a note, still readable
         lay.addWidget(self.later)
         row = QHBoxLayout()
         self.skip = QPushButton()
