@@ -85,6 +85,10 @@ def steps(ike, qapp, out):
     bar = win.tabbar
     bar.setCurrentIndex(1)
     yield 400
+    for _ in range(40):                 # a busy computer: the glide may still be on its way
+        if not bar.mark.gliding:
+            break
+        yield 50
     rest = busy(win)
     out["style"] = bar.label_style.baseStyle().name()
     # --- 1: where the mark is, and its shape
@@ -146,6 +150,10 @@ def steps(ike, qapp, out):
     shown = bar.mark._shown
     out["glide"] = [bar.mark.gliding, shown is not None and bar.tabRect(1).x() < shown.x() < bar.tabRect(2).x()]
     yield 400
+    for _ in range(40):
+        if not bar.mark.gliding:
+            break
+        yield 50
     bar.repaint()
     out["glide_end"] = [bar.mark.gliding, bar.mark._shown == bar.mark.target()]
     # --- 2: the current tab is a shade lighter
