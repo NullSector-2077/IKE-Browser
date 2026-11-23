@@ -8,8 +8,9 @@ installed (it is not a dependency of the package). Here:
 
 - the set is offered, every icon loads and draws, and it has an icon for every
   name the interface asks for and every name the other sets have;
-- the new tab page's Settings icon (icons.theme_svg) falls back to it when no
-  installed theme has the icon;
+- the new tab page's Settings icon (icons.theme_svg) is Breeze's whatever the
+  icon theme in use: the installed Breeze theme, else this set (before the
+  theme in use, never Lucide);
 - choosing it in Settings switches the interface's icons to it;
 - its licence (LGPL-3.0-or-later: Breeze's notice and the complete LGPL v3) and
   its record (release tag, commit, the Breeze file of each icon) are there;
@@ -148,6 +149,8 @@ def test_the_new_tab_settings_icon_falls_back_to_the_shipped_breeze(tmp_path):
 
     from ike import icons
     paths, name = QIcon.themeSearchPaths(), QIcon.themeName()
+    kept = icons._set, icons._system_theme
+    icons._set, icons._system_theme = None, None          # the default choice ("system")
     try:
         # no icon theme at all (a desktop without breeze-icons): the shipped Breeze icon
         QIcon.setThemeSearchPaths([str(tmp_path / "none")])
@@ -156,19 +159,47 @@ def test_the_new_tab_settings_icon_falls_back_to_the_shipped_breeze(tmp_path):
         assert svg and svg == icons._plain_svg(SET / "configure.svg")
         assert svg.startswith("<svg") and "currentColor" in svg and "<style" not in svg
         assert icons.theme_svg("no-such-icon-anywhere") == ""
-        # an installed theme still comes first (the desktop's own Breeze, or the theme in use)
+        # another icon theme in use (Papirus, Adwaita...) and no Breeze installed: the shipped Breeze
+        # icon still wins (the owner's choice: the new tab page's Settings icon is always KDE's)
+        other = tmp_path / "themes" / "papirus" / "actions" / "22"
+        other.mkdir(parents=True)
+        for icon in ("configure", "only-in-papirus"):
+            (other / (icon + ".svg")).write_text('<svg xmlns="http://www.w3.org/2000/svg"><path id="papirus" '
+                                                 'd="M0 0h1v1z"/></svg>')
+        QIcon.setThemeSearchPaths([str(tmp_path / "themes")])
+        QIcon.setThemeName("papirus")
+        assert icons.theme_svg("configure") == icons._plain_svg(SET / "configure.svg")
+        assert 'id="papirus"' in icons.theme_svg("only-in-papirus")       # what Breeze has not: the theme in use
+        # the installed Breeze themes come first of all (breeze, then breeze-dark)
+        dark = tmp_path / "themes" / "breeze-dark" / "actions" / "22"
+        dark.mkdir(parents=True)
+        (dark / "configure.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg"><path id="dark" '
+                                            'd="M0 0h1v1z"/></svg>')
+        assert 'id="dark"' in icons.theme_svg("configure")
         own = tmp_path / "themes" / "breeze" / "actions" / "22"
         own.mkdir(parents=True)
         (own / "configure.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg"><path id="mine" '
                                            'd="M0 0h1v1z"/></svg>')
-        QIcon.setThemeSearchPaths([str(tmp_path / "themes")])
         assert 'id="mine"' in icons.theme_svg("configure")
+        (dark / "configure.svg").unlink()
+        # another icon theme chosen in the Settings (#138): that theme first
+        icons._system_theme = "breeze"
+        assert 'id="papirus"' in icons.theme_svg("configure")
+        icons._system_theme = None
+        # a set shipped with I.K.E. chosen: its own drawing; "Breeze (KDE)" is the shipped Breeze,
+        # even where the Breeze theme is installed
+        icons._set = "breeze"
+        assert icons.theme_svg("configure") == icons._plain_svg(SET / "configure.svg")
+        icons._set = "lucide"
+        assert icons.theme_svg("configure") == icons._plain_svg(SET.parent / "lucide" / "configure.svg")
+        icons._set = None
         # and a file that is more than a drawing is never put into the page
         (own / "configure.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg"><script>x()</script></svg>')
         assert icons.theme_svg("configure") == icons._plain_svg(SET / "configure.svg")
     finally:
         QIcon.setThemeSearchPaths(paths)
         QIcon.setThemeName(name)
+        icons._set, icons._system_theme = kept
 
 
 SWITCH = r"""
@@ -176,6 +207,11 @@ def steps(ike, qapp, out):
     from PyQt6.QtGui import QIcon
     from ike import icons
     yield 300
+    # the default choice ("system") on a desktop with no icon theme at all (no breeze-icons): the new
+    # tab page's Settings button is still KDE's Breeze, the one shipped with I.K.E.
+    out["choice"] = ike.config["icon_theme"]
+    QIcon.setThemeSearchPaths([])
+    out["newtab_default"] = ike.shields._newtab_buttons()
     win = ike.windows[0]
     dlg = win.open_settings("appearance")
     yield 200
@@ -198,6 +234,7 @@ def steps(ike, qapp, out):
     QIcon.setThemeName("nothing-here")
     out["newtab"] = ike.shields._newtab_buttons()
     out["breeze_configure"] = icons._plain_svg(icons._SETS_DIR / "breeze" / "configure.svg")
+    out["lucide_configure"] = (icons._SETS_DIR / "lucide" / "configure.svg").read_text("utf-8")
 """
 
 
@@ -209,7 +246,12 @@ def test_choosing_breeze_in_settings_switches_the_icons(run_ike):
     assert out["icons"] == [[["configure"], ["set", "configure"], True], [["go-home"], ["set", "go-home"], True],
                             [["view-refresh"], ["set", "view-refresh"], True],
                             [["picture-in-picture"], ["set", "picture-in-picture"], True]]
-    assert out["breeze_configure"] and out["breeze_configure"] in out["newtab"]
+    # Breeze wins over Lucide on the new tab page even without breeze-icons installed: with the
+    # default choice, and with the set "Breeze (KDE)" chosen
+    assert out["choice"] == "system"
+    for page in (out["newtab_default"], out["newtab"]):
+        assert out["breeze_configure"] and out["breeze_configure"] in page
+        assert out["lucide_configure"].strip() not in page
 
 
 # --- the builder, on a stand-in upstream --------------------------------------------------------------

@@ -18,9 +18,11 @@
   KDE's even on a desktop without breeze-icons (still not a dependency of the
   package). Only the icons I.K.E. uses are shipped: 103 from breeze-icons
   6.32.0, 84 KB, read when they are first shown. The new tab page's Settings
-  icon uses it where no installed theme has one. `tools/build-breeze-icons.py`
-  copies them from KDE's release (the colour-scheme style removed, nothing
-  else of the drawing changed; anything but a plain drawing stops it); the
+  icon uses it where the Breeze theme is not installed (with the default
+  choice, before the icon theme in use), and when the set is chosen.
+  `tools/build-breeze-icons.py` copies them from KDE's release (the
+  colour-scheme style removed, nothing else of the drawing changed; anything
+  but a plain drawing stops it); the
   daily maintenance follows breeze-icons' new releases by itself
   (`components.json`, entry `breeze-icons`), and a release that lost one of
   the icons is refused and the set kept as it is. Licence: LGPL-3.0-or-later,

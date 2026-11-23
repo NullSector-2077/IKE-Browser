@@ -251,24 +251,20 @@ def _plain_svg(path):
 
 def theme_svg(name, sizes=("22", "24", "symbolic", "32", "16")):
     """The text of the SVG for name that follows the icon choice, to be put in
-    a page of I.K.E.: KDE's Breeze for the default choice and on Plasma, the
-    chosen theme's or the chosen shipped set's otherwise (1.1.24, the owner's
-    choice: KDE's Settings icon on the new tab page). Its colour style is
-    dropped, so the icon takes the page's text colour. Where neither theme has
-    it (Breeze not installed), the Breeze icon shipped with I.K.E.
-    (resources/icons/sets/breeze); "" when there is none, or when the file
-    holds anything but a drawing."""
+    a page of I.K.E. (1.1.24, the owner's choice: KDE's Settings icon on the
+    new tab page). A set shipped with I.K.E. chosen: its own drawing (Breeze
+    (KDE) included). Otherwise the icon theme chosen in the Settings first,
+    then KDE's Breeze: the installed theme (breeze, breeze-dark), then the
+    Breeze icon shipped with I.K.E. (there even without breeze-icons), then
+    the desktop's icon theme in use; so the default choice and Plasma show
+    Breeze's. Its colour style is dropped, so the icon takes the page's text
+    colour; "" when there is none, or when the file holds anything but a
+    drawing."""
     from pathlib import Path
     if _set:                  # a set shipped with I.K.E. was chosen: its own drawing
-        try:
-            return _file(name, _set).read_text("utf-8").strip()
-        except OSError:
-            return ""
-    # the default ("system") and Plasma: KDE's Breeze first (the owner's choice);
-    # another icon theme chosen in the Settings: that theme first
-    chosen = QIcon.themeName() if _system_theme is not None and QIcon.themeName() != _system_theme else ""
-    themes = [t for t in (chosen, "breeze", "breeze-dark", QIcon.themeName()) if t]
-    for theme in dict.fromkeys(themes):
+        return _plain_svg(_file(name, _set))
+
+    def installed(theme):
         for base in QIcon.themeSearchPaths():
             if base.startswith(":"):
                 continue
@@ -276,7 +272,18 @@ def theme_svg(name, sizes=("22", "24", "symbolic", "32", "16")):
                 text = _plain_svg(Path(base) / theme / "actions" / size / (name + ".svg"))
                 if text:
                     return text
-    return _plain_svg(_SETS_DIR / "breeze" / (name + ".svg"))
+        return ""
+    # another icon theme chosen in the Settings: that theme first; then KDE's Breeze (the owner's choice)
+    chosen = QIcon.themeName() if _system_theme is not None and QIcon.themeName() != _system_theme else ""
+    for theme in dict.fromkeys(t for t in (chosen, "breeze", "breeze-dark") if t):
+        text = installed(theme)
+        if text:
+            return text
+    text = _plain_svg(_SETS_DIR / "breeze" / (name + ".svg"))   # KDE's, shipped with I.K.E.
+    if text:
+        return text
+    theme = QIcon.themeName()
+    return installed(theme) if theme and theme not in (chosen, "breeze", "breeze-dark") else ""
 
 
 _found = {}          # (names, standard, set, theme): (icon, where it came from) (1.1.23)
