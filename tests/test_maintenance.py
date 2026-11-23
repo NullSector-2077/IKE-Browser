@@ -319,9 +319,10 @@ def test_the_real_repository_is_covered():
         assert inv["counts"].get(kind), kind
     for name in ("PyQt6.QtWebEngineCore", "PyQt6.QtSvg", "PyQt6.QtWebChannel"):
         assert "pyqt-module:" + name in found
-    for tool in ("notify-send", "kioclient", "gio", "exo-open"):
+    for tool in ("kioclient", "gio", "exo-open"):
         assert "runtime-tool:" + tool in found
-    for tool in ("xdg-settings", "xdg-open", "xdg-mime", "xdg-email"):
+    # 1.1.24: notifications are a D-Bus call, no notify-send (libnotify) and no xdg-utils
+    for tool in ("notify-send", "xdg-settings", "xdg-open", "xdg-mime", "xdg-email"):
         assert "runtime-tool:" + tool not in found, tool
     for tool in ("kioclient", "gio", "exo-open"):           # the desktop's own, not dependencies
         assert found["runtime-tool:" + tool]["declared"].startswith("the desktop's own"), found["runtime-tool:" + tool]
