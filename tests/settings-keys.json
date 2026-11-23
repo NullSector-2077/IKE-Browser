@@ -23,6 +23,7 @@
  "dark_env_migrated",
  "dark_exclude",
  "dark_mode",
+ "dark_pdf",
  "dark_sites",
  "dark_theme",
  "default_engine",
@@ -81,8 +82,10 @@
  "page_watches",
  "passwords_offer_save",
  "perm_block",
+ "reader_font",
  "reader_size",
  "reader_theme",
+ "reader_width",
  "repair_button",
  "res_cpu_default",
  "res_cpu_limit",
@@ -136,5 +139,6 @@
  "weather_lat",
  "weather_lon",
  "weather_unit",
- "webrtc_hide_ip"
+ "webrtc_hide_ip",
+ "welcome_done"
 ]

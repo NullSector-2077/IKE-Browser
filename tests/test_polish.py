@@ -425,7 +425,9 @@ def test_shield_downloads_suggestions_and_reader(run_ike, pages, tmp_path):
     assert ads >= 1 and fired >= 1 and out["pulse_again"] is False
     assert out["bars"][0] is True and out["bars"][1][0] >= 1 and out["bars"][2] is True
     assert out["engine_icon"] == "#123456"
-    assert out["reader"]["tools"] == 5 and "min read" in out["reader"]["meta"]
+    # smaller, larger, light, sepia, dark; since 1.1.24 also the narrow, medium and wide
+    # column and serif or sans-serif type (tests/test_extras_124.py)
+    assert out["reader"]["tools"] == 10 and "min read" in out["reader"]["meta"]
     assert out["reader_after"] == ["sepia"]
     assert out["saved"] == ["sepia", 20]
     assert out["not_changed"] == ["sepia", 20]

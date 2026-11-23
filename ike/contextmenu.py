@@ -17,6 +17,13 @@ def _ic(name):
     return themed(name)
 
 
+def clean_link(url):
+    """The address without its tracking parameters (shields.strip_tracking);
+    the same address when it has none."""
+    from .shields import strip_tracking
+    return strip_tracking(url) or url
+
+
 def build(view, req):
     """Return the menu for a context-menu request (never None)."""
     win = view.window_ref
@@ -80,6 +87,11 @@ def build(view, req):
                 ("view-split-left-right", "view-dual-symbolic"))
         menu.addSeparator()
         add(T("Copy link address"), copy_text(link.toString()), "edit-copy")
+        if link.scheme() in ("http", "https"):
+            # without utm_, fbclid, gclid... (shields.TRACKING_PARAMS, the same list
+            # that cleans links when they are opened), as in the address bar (1.1.24)
+            add(T("Copy clean link"), copy_text(clean_link(link.toString())), "edit-copy",
+                tip=T("Copy the address without tracking parameters"))
         add(T("Save link as…"), engine(WA.DownloadLinkToDisk), "document-save")
         if link.scheme() in ("http", "https", "file") and link.path().lower().endswith(".ics"):
             # an event or a calendar: to the desktop's calendar app, when there is one (1.1.24)
@@ -199,7 +211,7 @@ def build(view, req):
         if win.ext_on("translate"):
             add(T("Translate page…"), win.translate_page,
                 ("translate", "preferences-desktop-locale-symbolic", "preferences-desktop-locale"))
-        add(T("Screenshot…"), win.screenshot, "camera-photo")
+        menu.addAction(win.act_shot)         # its submenu: visible part, whole page, an area (1.1.24)
         menu.addSeparator()
         add(T("Select all"), engine(WA.SelectAll), "edit-select-all")
         add(T("Page source"), win.view_source, ("text-html", "view-source"))

@@ -1303,9 +1303,13 @@ class WindowFeatures:
         from .webview import READER_PREFIX
         cfg = self.app.config
         prefs = {"theme": cfg["reader_theme"], "size": cfg["reader_size"], "tools": polish.part("reader_tools"),
+                 "width": cfg["reader_width"], "font": cfg["reader_font"],
                  "prefix": READER_PREFIX,
                  "labels": {"smaller": T("Zoom out"), "larger": T("Zoom in"), "light": T("Light"),
-                            "sepia": T("Sepia"), "dark": T("Dark"), "minutes": T("%d min read")}}
+                            "sepia": T("Sepia"), "dark": T("Dark"), "minutes": T("%d min read"),
+                            "narrow": T("Narrow column"), "medium": T("Medium column"),
+                            "wide": T("Wide column"), "serif": T("Serif font"),
+                            "sans": T("Sans-serif font")}}
         src = "var IKE_READER = %s;\n%s" % (json.dumps(prefs), src)
 
         def done(ok):

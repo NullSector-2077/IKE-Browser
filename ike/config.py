@@ -309,6 +309,10 @@ DEFAULTS = {
     "site_zoom": {},
     "reader_theme": "auto",             # reader mode: auto | light | sepia | dark
     "reader_size": 19,                  # reader mode: text size in pixels (14 - 28)
+    "welcome_done": False,              # the welcome of the first start was shown (1.1.24, welcome.py)
+    "dark_pdf": False,                  # PDFs in the engine's viewer with dark colours (1.1.24)
+    "reader_width": "medium",           # reader mode: the column, narrow | medium | wide (1.1.24)
+    "reader_font": "serif",             # reader mode: serif | sans (1.1.24)
     "smooth_scrolling": True,           # pages scroll smoothly (an engine switch: after a restart)                    # host: zoom factor chosen for that site (not in private windows)
     "res_mem_limit": 0,                 # MB: suspend background tabs of a site above it (0 = off)
     "res_cpu_limit": 0,                 # % of a core: freeze background tabs above it (0 = off)
@@ -442,6 +446,10 @@ class Config:
         if isinstance(stored, dict):
             self.data.update(sound_settings(stored))
         d = self.data
+        # 1.1.24: the welcome is for a first start only: a profile that already
+        # has settings never sees it
+        if isinstance(stored, dict) and "welcome_done" not in stored:
+            d["welcome_done"] = True
         # 1.1.7: the address bar takes half of the window (the owner's choice); 60 was the old default
         if d.get("urlbar_width") == 60 and not d.get("urlbar_width_117"):
             d["urlbar_width"] = 50
