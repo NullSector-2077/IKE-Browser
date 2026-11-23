@@ -15,5 +15,6 @@
   <path d="M16 2 L27 5.385 V16 C27 22.776 22.402 27.704 16 30 C9.598 27.704 5 22.776 5 16 V5.385 Z" fill="url(#body)"/>
   <rect x="6" y="9" width="20" height="11" rx="0" fill="#19c3e6" opacity="0.7"/>
   <rect x="7" y="10" width="18" height="9" rx="0" fill="#07131f"/>
-  <path id="lettering" fill="#eafcff" d="M8 11h1v7h-1Z M12 11h1v3h-1Z M16 11h1v1h-1Z M20 11h4v1h-4Z M15 12h1v1h-1Z M20 12h1v2h-1Z M14 13h1v1h-1Z M12 14h2v1h-2Z M20 14h3v1h-3Z M12 15h1v3h-1Z M14 15h1v1h-1Z M20 15h1v2h-1Z M15 16h1v1h-1Z M10 17h1v1h-1Z M16 17h1v1h-1Z M18 17h1v1h-1Z M20 17h4v1h-4Z"/>
+  <path id="lettering" fill="#eafcff" d="M8 11h1v7h-1Z M20 11h4v1h-4Z M20 12h1v2h-1Z M20 14h3v1h-3Z M20 15h1v2h-1Z M10 17h1v1h-1Z M18 17h1v1h-1Z M20 17h4v1h-4Z"/>
+  <path id="lettering-k" fill="#7df3ff" d="M12 11h1v3h-1Z M16 11h1v1h-1Z M15 12h1v1h-1Z M14 13h1v1h-1Z M12 14h2v1h-2Z M12 15h1v3h-1Z M14 15h1v1h-1Z M15 16h1v1h-1Z M16 17h1v1h-1Z"/>
 </svg>

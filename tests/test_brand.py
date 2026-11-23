@@ -13,13 +13,14 @@ APP = Path(os.environ.get("IKE_TEST_APP") or ROOT)
 SHOTS = os.environ.get("IKE_TEST_SHOTS", "")
 OLD_NAME = re.compile(r"I\.C\.E|\bICE\b|\bIce\b|\bice[-_.:]\w")
 # 1.1.23: the sizes drawn for their own pixel grid (tools/make-small-icons.py),
-# and the large ones, which stay the logo itself (tools/make-brand.py), unchanged
+# and the large ones, which stay the logo itself (tools/make-brand.py); the
+# hashes below changed once, in 1.1.24, when the K became light cyan (#7df3ff)
 SMALL = (16, 22, 24, 32, 48, 64)
 SMALL_DIR = "data/icons/small"
-LOGO_SHA256 = "b5f68e388951f38dd8fdebaa80a9d0956517dfbfdb245a60d164c46e43bfc3fc"
-LARGE_SHA256 = {128: "b3ea0fc32a92173a11919986c0aff01526dd128b8215bfc30d019e9ccaee5219",
-                256: "f9dc03bc3ef7f966176dab9d06402140c0d65276879a1ab2bae8372c20b8635e",
-                512: "e9796fc798f5027b55b0438afe3c02f395f195e371a032088b07b5e78629763f"}
+LOGO_SHA256 = "126de1dbfd6490beb8630ad13c28c5ff383cdebed3c7412bee5c07d2b8fc9921"
+LARGE_SHA256 = {128: "5024c214cc2a1f0f6b2060b3b8673e01fee1e661ca770fd5a39059c25c4476b2",
+                256: "814927022d04bed9c40b43e976ebcede2854a86613db62e7c565c35678b17272",
+                512: "d794c2b4b94278797bf1a950c722e6c7e297f6bcaf1f95d7b83bb9be60a89a46"}
 # files of other projects, where the three letters mean something else
 THIRD_PARTY = ("ike/resources/darkreader.js", "ike/resources/darkreader-proxy.js", "ike/resources/darkreader-data.json", "ike/resources/ubo-scriptlets.json", "ike-adblock/Cargo.lock",
                "ike/resources/icons/sets/")
@@ -30,17 +31,31 @@ def test_logo_files():
     assert "<title>I.K.E</title>" in logo
     # drawn as shapes: no text, no font needed where it is shown
     assert "<text" not in logo and "font-family" not in logo and "@font-face" not in logo
-    lettering = re.search(r'<path id="lettering"[^>]* d="([^"]+)"', logo)
+    lettering = re.search(r'<path id="lettering" fill="#eafcff" d="([^"]+)"', logo)
     assert lettering, "the lettering path is missing"
+    k = re.search(r'<path id="lettering-k" fill="#7df3ff" d="([^"]+)"', logo)
+    assert k, "1.1.24: the K path (light cyan #7df3ff) is missing"
+    # 1.1.24: the K is its own path, after the rest of the lettering, in the
+    # shield edge's light cyan
+    assert logo.index('id="lettering-k"') > logo.index('id="lettering"')
+    assert k.group(1).count("Z") == 1 and k.group(1).count("M") == 1
     d = lettering.group(1)
-    # I . K . E: five closed outlines, straight strokes only (the earlier lettering had curves)
-    assert d.count("Z") == 5 and d.count("M") == 5
-    assert not re.search(r"[CQSTA]", d)
+    # I . E: four closed outlines (I, two dots, E) and the K's one, all straight
+    # strokes only (the earlier lettering had curves); was five outlines in one path
+    # before the K was set apart
+    assert d.count("Z") == 4 and d.count("M") == 4
+    assert not re.search(r"[CQSTA]", d + k.group(1))
     wordmark = (APP / "ike/resources/wordmark.svg").read_text("utf-8")
     assert 'aria-label="Internet Kontrol Experience"' in wordmark
     assert 'fill="currentColor"' in wordmark and "<text" not in wordmark
     # 25 letters, each at least one closed outline
     assert wordmark.count("Z") >= 25
+    # 1.1.24: the K of KONTROL is a path of its own, in the text colour unless the
+    # page's CSS (h1 svg .k) colours it
+    assert len(re.findall(r'<path class="k" fill="currentColor" d="[^"]+"/>', wordmark)) == 1
+    assert wordmark.count("<path") == 2
+    kd = re.search(r'<path class="k"[^>]* d="([^"]+)"', wordmark).group(1)
+    assert kd.count("Z") == 1 and kd.count("M") == 1
     if APP == ROOT:
         assert (ROOT / "data/icons/ike-browser.svg").read_text("utf-8") == logo
         assert (ROOT / "licenses/LICENSE.orbitron").read_text("utf-8").count("SIL OPEN FONT LICENSE") >= 1
@@ -121,8 +136,13 @@ def test_small_icons(run_ike):
         assert "<title>I.K.E</title>" in svg
         assert "<text" not in svg and "font" not in svg and "<image" not in svg
         letters = re.search(r'<path id="lettering" fill="#eafcff" d="([^"]+)"/>', svg).group(1)
+        # 1.1.24: the K is drawn apart, in the shield edge's light cyan
+        k_pixels = re.search(r'<path id="lettering-k" fill="#7df3ff" d="([^"]+)"/>', svg), n
+        assert k_pixels[0], n
         # rectangles on whole pixels: no curve, no fraction of a pixel
         assert re.fullmatch(r"M\d+ \d+h\d+v\d+h-\d+Z( M\d+ \d+h\d+v\d+h-\d+Z)*", letters), n
+        assert re.fullmatch(r"M\d+ \d+h\d+v\d+h-\d+Z( M\d+ \d+h\d+v\d+h-\d+Z)*", k_pixels[0].group(1)), n
+        assert svg.index('id="lettering-k"') > svg.index('id="lettering"')
     # the large ones stay the logo itself, unchanged
     assert sha256(APP / "ike/resources/ike.svg") == LOGO_SHA256
     for n in (128, 256):

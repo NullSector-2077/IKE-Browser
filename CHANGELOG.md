@@ -51,6 +51,12 @@
   weather request). The words go into the page as data, never as script
   (`ike/greeting.py`, `ike/resources/greeting.js`, tests/test_greeting.py). The
   "Add" tile is as visible as the Settings button.
+- **The K of I.K.E. is light cyan** (#7df3ff, the light stop of the shield's
+  edge) in the logo, in every icon size and in "Kontrol" of the full name; the
+  lettering and its font are unchanged and the other letters keep their colour.
+  `tools/make-brand.py` and `tools/make-small-icons.py` now draw the K as its
+  own path (`lettering-k`; in the wordmark `<path class="k">`, which is the
+  text colour until the page's CSS colours it) (tests/test_brand.py).
 - **xdg-utils is no longer used** (its Arch advisory AVG-1420 has no fix and
   stopped every automatic merge): a downloaded file, a folder or a link
   (mailto:, magnet:...) goes to the XDG desktop portal
