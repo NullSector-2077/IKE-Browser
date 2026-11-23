@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s је програм или скрипта, а никада раније нисте посетили %s. Преузмите га само ако верујете сајту.",
 "Site storage: %d": "Складиште сајта: %d",
 "Cache: %d": "Кеш: %d",
-"Permissions kept: %s": "Задржане дозволе: %s"
+"Permissions kept: %s": "Задржане дозволе: %s",
+"Not secure": "Није безбедно"
 }
 }

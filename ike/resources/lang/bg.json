@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s е програма или скрипт, а вие никога досега не сте посещавали %s. Изтеглете го само ако имате доверие на сайта.",
 "Site storage: %d": "Хранилище на сайта: %d",
 "Cache: %d": "Кеш: %d",
-"Permissions kept: %s": "Запазени разрешения: %s"
+"Permissions kept: %s": "Запазени разрешения: %s",
+"Not secure": "Не е защитено"
 }
 }

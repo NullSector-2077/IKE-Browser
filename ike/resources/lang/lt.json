@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s yra programa arba scenarijus, o svetainėje %s anksčiau niekada nesilankėte. Atsisiųskite, tik jei pasitikite svetaine.",
 "Site storage: %d": "Svetainės saugykla: %d",
 "Cache: %d": "Podėlis: %d",
-"Permissions kept: %s": "Išsaugoti leidimai: %s"
+"Permissions kept: %s": "Išsaugoti leidimai: %s",
+"Not secure": "Nesaugu"
 }
 }

@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s është program ose skript, dhe nuk e keni vizituar kurrë më parë %s. Shkarkojeni vetëm nëse i besoni sajtit.",
 "Site storage: %d": "Hapësira e sajtit: %d",
 "Cache: %d": "Fshehtina: %d",
-"Permissions kept: %s": "Lejet e mbajtura: %s"
+"Permissions kept: %s": "Lejet e mbajtura: %s",
+"Not secure": "Jo e sigurt"
 }
 }

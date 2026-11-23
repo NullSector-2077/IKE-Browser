@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s és un programa o un script, i mai abans no havies visitat %s. Baixa'l només si confies en el lloc.",
 "Site storage: %d": "Emmagatzematge del lloc: %d",
 "Cache: %d": "Memòria cau: %d",
-"Permissions kept: %s": "Permisos conservats: %s"
+"Permissions kept: %s": "Permisos conservats: %s",
+"Not secure": "No segur"
 }
 }

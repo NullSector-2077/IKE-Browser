@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s adalah program atau skrip, dan Anda belum pernah mengunjungi %s sebelumnya. Unduh hanya jika Anda memercayai situs tersebut.",
 "Site storage: %d": "Penyimpanan situs: %d",
 "Cache: %d": "Cache: %d",
-"Permissions kept: %s": "Izin yang dipertahankan: %s"
+"Permissions kept: %s": "Izin yang dipertahankan: %s",
+"Not secure": "Tidak aman"
 }
 }

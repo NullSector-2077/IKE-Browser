@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s er forrit eða skrifta, og þú hefur aldrei heimsótt %s áður. Sæktu það aðeins ef þú treystir vefnum.",
 "Site storage: %d": "Geymsla vefs: %d",
 "Cache: %d": "Skyndiminni: %d",
-"Permissions kept: %s": "Heimildum haldið: %s"
+"Permissions kept: %s": "Heimildum haldið: %s",
+"Not secure": "Ekki öruggt"
 }
 }

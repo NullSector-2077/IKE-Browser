@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "Το %s είναι πρόγραμμα ή σενάριο, και δεν έχετε επισκεφθεί ποτέ πριν το %s. Κατεβάστε το μόνο αν εμπιστεύεστε τον ιστότοπο.",
 "Site storage: %d": "Αποθήκευση ιστότοπου: %d",
 "Cache: %d": "Προσωρινή μνήμη: %d",
-"Permissions kept: %s": "Άδειες που διατηρούνται: %s"
+"Permissions kept: %s": "Άδειες που διατηρούνται: %s",
+"Not secure": "Μη ασφαλές"
 }
 }

@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s je program ali skript, %s pa še nikoli niste obiskali. Prenesite ga le, če zaupate strani.",
 "Site storage: %d": "Shramba strani: %d",
 "Cache: %d": "Predpomnilnik: %d",
-"Permissions kept: %s": "Ohranjena dovoljenja: %s"
+"Permissions kept: %s": "Ohranjena dovoljenja: %s",
+"Not secure": "Ni varno"
 }
 }

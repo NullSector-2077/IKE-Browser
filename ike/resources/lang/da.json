@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s er et program eller et script, og du har aldrig besøgt %s før. Hent det kun, hvis du stoler på webstedet.",
 "Site storage: %d": "Webstedslager: %d",
 "Cache: %d": "Cache: %d",
-"Permissions kept: %s": "Bevarede tilladelser: %s"
+"Permissions kept: %s": "Bevarede tilladelser: %s",
+"Not secure": "Ikke sikker"
 }
 }

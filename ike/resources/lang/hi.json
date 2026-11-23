@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s एक प्रोग्राम या स्क्रिप्ट है, और आप पहले कभी %s पर नहीं गए हैं। इसे तभी डाउनलोड करें जब आपको साइट पर भरोसा हो।",
 "Site storage: %d": "साइट संग्रहण: %d",
 "Cache: %d": "कैश: %d",
-"Permissions kept: %s": "रखी गई अनुमतियाँ: %s"
+"Permissions kept: %s": "रखी गई अनुमतियाँ: %s",
+"Not secure": "सुरक्षित नहीं"
 }
 }

@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s은(는) 프로그램 또는 스크립트이며, %s에 방문한 적이 없습니다. 사이트를 신뢰하는 경우에만 다운로드하세요.",
 "Site storage: %d": "사이트 저장소: %d",
 "Cache: %d": "캐시: %d",
-"Permissions kept: %s": "유지된 권한: %s"
+"Permissions kept: %s": "유지된 권한: %s",
+"Not secure": "안전하지 않음"
 }
 }

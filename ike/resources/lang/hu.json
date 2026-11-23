@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "A(z) %s egy program vagy szkript, és még soha nem járt a(z) %s oldalon. Csak akkor töltse le, ha megbízik az oldalban.",
 "Site storage: %d": "Webhelytároló: %d",
 "Cache: %d": "Gyorsítótár: %d",
-"Permissions kept: %s": "Megtartott engedélyek: %s"
+"Permissions kept: %s": "Megtartott engedélyek: %s",
+"Not secure": "Nem biztonságos"
 }
 }

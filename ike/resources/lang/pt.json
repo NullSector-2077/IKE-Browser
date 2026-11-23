@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s é um programa ou script, e você nunca visitou %s antes. Baixe-o somente se confiar no site.",
 "Site storage: %d": "Armazenamento do site: %d",
 "Cache: %d": "Cache: %d",
-"Permissions kept: %s": "Permissões mantidas: %s"
+"Permissions kept: %s": "Permissões mantidas: %s",
+"Not secure": "Não seguro"
 }
 }

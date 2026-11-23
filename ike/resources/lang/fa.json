@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s یک برنامه یا اسکریپت است و شما پیش از این هرگز از %s بازدید نکرده‌اید. فقط اگر به سایت اعتماد دارید آن را بارگیری کنید.",
 "Site storage: %d": "فضای ذخیره‌سازی سایت: %d",
 "Cache: %d": "حافظهٔ نهان: %d",
-"Permissions kept: %s": "مجوزهای نگه‌داشته‌شده: %s"
+"Permissions kept: %s": "مجوزهای نگه‌داشته‌شده: %s",
+"Not secure": "ناامن"
 }
 }

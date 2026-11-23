@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s dastur yoki skript, siz esa ilgari hech qachon %s saytiga kirmagansiz. Faqat saytga ishonsangiz yuklab oling.",
 "Site storage: %d": "Sayt xotirasi: %d",
 "Cache: %d": "Kesh: %d",
-"Permissions kept: %s": "Saqlangan ruxsatlar: %s"
+"Permissions kept: %s": "Saqlangan ruxsatlar: %s",
+"Not secure": "Xavfsiz emas"
 }
 }

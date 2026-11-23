@@ -1042,6 +1042,7 @@
 "%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s-ը ծրագիր կամ սկրիպտ է, և դուք նախկինում երբեք չեք այցելել %s։ Ներբեռնեք այն միայն եթե վստահում եք կայքին։",
 "Site storage: %d": "Կայքի պահոց՝ %d",
 "Cache: %d": "Քեշ՝ %d",
-"Permissions kept: %s": "Պահպանված թույլտվություններ՝ %s"
+"Permissions kept: %s": "Պահպանված թույլտվություններ՝ %s",
+"Not secure": "Անապահով"
 }
 }
