@@ -150,4 +150,10 @@ class WindowCloseButton(QToolButton):
         self.style_.paint(painter, self.rect(), self.palette(),
                           self._hovered and self.isEnabled(), self.isDown(),
                           self._glide.value if self._glide.moving and self.isEnabled() else None)
+        from . import polish
+        if polish.keyboard_focus(self):          # reached with Tab: Breeze's ring (1.1.23)
+            from PyQt6.QtCore import QRectF
+            s = self.style_.SIZE + 4.0
+            c = QRectF(self.rect()).center()
+            polish.focus_ring(painter, QRectF(c.x() - s / 2, c.y() - s / 2, s, s), self.palette())
         painter.end()

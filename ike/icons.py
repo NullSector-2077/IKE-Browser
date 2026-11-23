@@ -229,12 +229,32 @@ def _from_theme(name):
     return ic
 
 
+_found = {}          # (names, standard, set, theme): (icon, where it came from) (1.1.23)
+
+
 def themed(names, standard=None):
     """The icon for the first usable name: shipped set (if chosen), theme,
-    own glyph, the theme's shorter name, Qt."""
+    own glyph, the theme's shorter name, Qt.
+
+    The answer is kept for the same names, icon set and desktop theme
+    (1.1.23: the window asked 130 times at its start, many for the same
+    names, each time looking through the theme)."""
     if isinstance(names, str):
         names = (names,)
     names = tuple(names)
+    key = (names, standard, _set, QIcon.themeName(), QIcon.fallbackThemeName())
+    got = _found.get(key)
+    if got is not None:
+        seen[names] = got[1]
+        return got[0]
+    ic = _themed(names, standard)
+    if standard is None or seen.get(names, ("",))[0] != "qt":
+        # Qt's own icons follow the widget style, which can change: not kept
+        _found[key] = (ic, seen[names])
+    return ic
+
+
+def _themed(names, standard):
     if _set is not None:
         for name in names:
             ic = bundled(name, _set)

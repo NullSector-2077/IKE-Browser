@@ -84,6 +84,120 @@ between the two sessions; only figures of the same session are compared.)
 These numbers describe a small container without a GPU. They say that the
 versions do not differ, not how fast I.K.E. is on the owner's computer.
 
+## 1.1.23, speed and fluidity
+
+Two read-only studies of 2026-11-22 measured where the interface thread and
+the page loads spend their time (the interface's own work at the start, new
+tabs, changes of tab, page loads, rest and painting; then a comparison of
+page loads with Falkon's way of injecting scripts). This section gives the
+changes made from them and the numbers before and after, measured with the
+studies' own probes.
+
+**How it was measured.** A 4-core shared cloud container, no GPU, Python
+3.13, PyQt 6.12 / Qt 6.12 from PyPI, Chromium 140; local pages only. Before =
+`main` at b0f6eb2 (1.1.22 plus #115), after = this branch; the copies were
+run one after the other for each scenario, alternating. "Offscreen" is Qt's
+software screen of the tests; "OpenGL" is Xvfb at 1920×1080 with Mesa's
+llvmpipe, where the page is an OpenGL surface as on a real graphics card (a
+picture of the page is then a read-back). The interface-thread scenario
+(`probe/scenario.py`: rest, 12 new tabs, page loads, 60 changes of tab with
+10 tabs, repaints, hovering the toolbar) ran five times each, alternating
+(the medians below); the others once or twice (both given when twice).
+Function times come from timers wrapped around about 150 functions of
+I.K.E. (they add 0.5–1 µs a call). The machine is shared: spreads of
+10–20 % between runs are usual, and only differences larger than that are
+read as changes.
+
+| What | Before | After |
+|---|---|---|
+| Rest, new tab page in front, OpenGL: CPU of all processes / interface wake-ups a second | 5.6 % / 12.2 | **2.5 % / 3.0** (clock F1) |
+| Rest, new tab page in front, offscreen (5 runs): CPU / wake-ups a second | 1.1 % / 4.2 | **0.4 % / 2.2** |
+| Rest, one tab (5 runs): CPU / wake-ups a second | 1.5 % / 3.0 | **1.1 % / 0.8** |
+| Rest, ten tabs (5 runs): CPU / wake-ups a second | 2.4 % / 2.9 | 2.0 % / 2.9 |
+| Change of tab, offscreen (5 runs, 57 changes each) | 3.9 ms (CPU 3.3; the picture 1.6) | **2.1 ms (CPU 1.9; the picture 0)** |
+| Change of tab, OpenGL (two runs) | 11.3 / 10.4 ms | **4.3 / 6.1 ms** (preview picture F2) |
+| New tab, offscreen (5 runs): `add_tab` / page loaded | 11.1 ms / 96 ms | **7.5 ms** / 101 ms (within the spread: 76–117 ms both) |
+| New tab, OpenGL (two runs): `add_tab` | 22.7 / 20.2 ms | **13.4 / 16.1 ms** |
+| Heavy page (402 requests, 100 blocked), interface CPU (5 runs) | 447 ms [375–538] | **406 ms [389–427]** |
+| of which the loading mark, the loading line, the line over the page, the address field under the "+N", the "+N" | 6.9, 15.2, 6.9, 13.7, 9.4 ms | **2.8, 12.0, 0.7, 7.4, 4.5 ms** |
+| Slow page with 10 tabs, interface CPU for 3.3 s, effects on | 2.6 % (140 ms of Python) | **1.4 % (61 ms)** (mark F3/F7) |
+| Four slow pages in the background | 2.3 % (122 ms of Python) | **1.7 % (65 ms)** |
+| Animated page, 60 frames/s: interface CPU / I.K.E.'s Python each 5 s | 10.1 % / 23 ms | **5.3 % / 0 ms** (line out of the page F4) |
+| Same, with the loading line shown | 8.1 % / 51 ms | 7.1 % / **23 ms** |
+| Scrolling by script, 60 frames/s: Python each 5 s | 20 ms | **0 ms** |
+| Hovering ten toolbar buttons (5 runs): interface CPU / window repaints | 115 ms / 115 | 109 ms (within the spread) / **0** |
+| Whole window repainted / the tab bar / the toolbar (5 runs) | 7.1 / 0.97 / 3.9 ms | **4.7** / 1.1 / 4.0 ms (the last two within the spread) |
+| Start, warm (9 starts, two series): navigation of the first page | 239 / 266 ms | **227 / 234 ms** |
+| Start, warm: the new tab page loaded | 340 / 392 ms | **318 / 328 ms** |
+| Start, cold: navigation of the first page | 277 / 263 ms | **234 / 230 ms** |
+| New site (a new page process each load, 24 sites' scriptlets installed, real lists): article | 82.6 ms (DOMContentLoaded 72.7) | **60.9 ms (50.7)** (F-b2) |
+| Same: page with 20 frames blocked by the lists | 580 ms | **383 ms** (F-b1) |
+| Same: page with 10 frames of another site | 233 ms | **210 ms** |
+| Same: page with 20 empty frames | 259 ms | 252 ms |
+
+What was changed (the numbers of the studies in brackets):
+
+- **F1, the new tab page's clock** (`newtab.html`): its text is written only
+  when it changes, and the page wakes at the next minute (and when it is
+  shown again) instead of every second.
+- **F2, the preview picture of a tab** (`tabpreview.capture`, `window.py`):
+  taken when the mouse comes to the tabs (a click follows 0.1 s later or
+  more), and 0.6 s after a page of the tab in view finished loading; at a
+  change of tab only for a tab with no picture or whose page changed since.
+  Only the top of the page the card shows is scaled, a quick halving first,
+  then the smooth step: the card's picture is the same as before within a
+  few levels a colour (tests/test_fluidity.py).
+- **F3/F7, the loading mark and the tab bar**: the twelve pictures of a tab's
+  mark are drawn once; a tab that is not in the part being repainted is not
+  drawn again (QTabBar draws every tab for any repaint): the mark repaints
+  its own tab only. With few tabs this saves little; with ten tabs the
+  slow-load row above.
+- **F4, the line between the bars and the page** (`ChromeEdge`): the page
+  area keeps its first row for it, so it is no longer under the page's
+  frames; **the loading line** is a flat bar drawn from two pictures, shows
+  only for loads longer than 0.15 s and never for `ike:` pages.
+- **F5/F8/F13**: the "+N" and the ring of the shield at 30 pictures a second;
+  the toolbar paints its own (flat) background where the widget style's
+  window is one flat colour (Breeze, Fusion, Windows), so Qt stops a repaint
+  of a button, the "+N" or the field's cursor at the toolbar: the window is
+  no longer repainted behind a hover (row above). Its look is unchanged.
+- **F6, the start**: the first view is made and its page asked for right
+  after the tab bar and the page area, before the toolbar and the menus;
+  the filter engine, the request interceptor and every page script are in
+  place before that moment (tests/test_start_speed.py checks it, and that it
+  comes before the bars). The theme's icons are kept per name, icon set and
+  theme. Filling menus only when they open was not done: tests and other
+  code read the menus' entries directly (the ☰ menu, the menu bar's, the
+  extensions' switches), and the menus that change were already filled when
+  they open.
+- **Falkon comparison**: `// ==UserScript== @exclude chrome-error://*` at the
+  end of the page scripts (fingerprint protection, media hook, cookie
+  banners, list scriptlets, the video sites' scripts): the engine no longer
+  runs them in the error page of a frame the shield blocked; `@include`
+  limits a site's list scriptlets and (owner's OK of 2026-11-22) the video
+  sites' scripts to their hosts and to empty frames, which take their
+  parent's host; each script keeps its own check of the host. At the end of
+  the script, so the line numbers an error's stack shows are the same. The
+  engine's own probes (tests/test_script_limits.py) show where each runs, a
+  control script shows the error page does run unlimited scripts, and the
+  YouTube tests pass unchanged. History and site icons: WAL with
+  synchronous=NORMAL (a backup checkpoints first; clearing checkpoints so
+  nothing stays in the -wal file; a restore removes an old -wal file).
+- **fingerprint.js, per-site values once per document**: looked at and left
+  as it is. The site's key, its two SHA-256 and the Public Suffix lookup are
+  already worked out once per document (once per run of the script); a
+  frame is its own document, and sharing them with the page around it would
+  mean handing them over through something the page can reach. Working out
+  SHA-256's constant tables once per document instead of twice gave the
+  same values and no measurable gain (0.24–0.41 ms before and after for a
+  document's whole site setup, cold, in Node), so it was not kept.
+
+What the faster paths cost: none of the changes touches a protection
+decision; the request checks, the filter engine and the fingerprint
+protection are as they were. The tab hover and the new tab's fade (Breeze
+touches) add about 10 repaints of one tab when a tab is opened, and only
+while the mouse moves over the tabs; nothing runs at rest (the rest rows).
+
 ## 1.1.22, start and speed
 
 The aim: a faster start, above all, with every feature and every

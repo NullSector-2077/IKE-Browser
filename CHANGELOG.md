@@ -21,6 +21,70 @@
 - uBlock Origin scriptlets: 2bc679d99a (2026-11-10) -> 5934db2a04 (2026-11-21) (1 changed, 0 new, 0 removed)
 - Rust crates of the AdBlock engine: 88 crates -> 88 crates (psl 2.1.253 -> 2.1.261; regex 1.13.1 -> 1.13.2; regex-automata 0.4.18 -> 0.4.19; regex-syntax 0.8.11 -> 0.8.12; smallvec 1.16.5 -> 1.16.6)
 - Dark Reader (engine and lists): 4.9.135, lists 30e8a10e65 (2026-11-16) -> 4.9.135, lists 16a1eccbfa (2026-11-21) (lists changed)
+- **No white flash at the start**: the view of a new tab shows the new tab
+  page's own colour before the page paints (dark grey on a dark interface),
+  at the start and for every new tab; sites in light mode keep white between
+  pages.
+- **The tab preview keeps no pictures it does not show**: the hidden card
+  lets go of the last picture, and a finished blend from one tab to the next
+  releases both.
+
+Speed and fluidity (two studies measured where the time went, the numbers
+before and after are in docs/review/tests-and-performance.md, "1.1.23"):
+
+- **Pages with blocked ads load sooner**: I.K.E.'s page scripts no longer
+  run in the error page of a frame the shield blocked (nothing can reach
+  it), and a site's own scriptlets (and, with the owner's OK, the video
+  sites' scripts) are compiled only on that site, not in every page: a page
+  with 20 blocked ad frames loads in 383 ms instead of 580 ms, an article on
+  a new site in 61 ms instead of 83 ms. What the scripts do where they run
+  is the same (tests/test_script_limits.py; the YouTube tests unchanged).
+- **The new tab page's clock wakes once a minute**: it wrote its text every
+  second, and the whole window repainted with it; with the new tab page in
+  front the computer now does 4/5 less (2.5 % of a core instead of 5.6 %,
+  3 wake-ups a second instead of 12).
+- **Changing tab is about twice as quick** (2.1 ms instead of 3.9 ms here,
+  4–6 ms instead of 10–11 ms with OpenGL; a new tab 7.5 ms instead of 11): the small
+  picture of a tab for its preview card is taken when the mouse comes to
+  the tabs or once its page has loaded, not at every change of tab. The card
+  shows the same picture.
+- **Loading costs less**: the turning mark of a loading tab is drawn once
+  and repaints only its own tab; the line between the bars and the page no
+  longer lies over the page (it was repainted at every frame of a video or
+  of scrolling: 60 times a second); the loading line is drawn from a
+  picture, appears only for a load that takes more than 0.15 s and never
+  for I.K.E.'s own pages; the "+N" and the ring of the shield move at 30
+  pictures a second; the toolbar paints its own background where the
+  window's is one flat colour, so a hover or the "+N" no longer repaints the
+  whole window behind it.
+- **The first page is asked for sooner**: while the window builds its bars
+  and menus (about 40 ms earlier), with the filter engine, the request
+  interceptor and every page script already in place, as before
+  (tests/test_start_speed.py checks it).
+- **History and site icons** use SQLite's WAL mode: saving no longer waits
+  for the disk; a backup still has the last visits, and clearing them leaves
+  nothing behind.
+- **Background tabs are suspended after an hour** (was 20 minutes; the
+  owner's choice): whoever kept the old 20 gets 60 once, any other value
+  stays. When the computer is short of memory, tabs are still suspended
+  sooner, as before.
+
+The look, in the colours of the theme in use (Breeze's own ways):
+
+- One corner radius for everything I.K.E. draws; a flat loading bar; the
+  line under the current tab with square ends; spacing on Breeze's 4-px
+  step; Breeze's hover colour on the toolbar's buttons and the tabs, which
+  now come and go softly (only the button or tab under the mouse, nothing
+  at rest; no fade with reduced motion or the effects off); a new tab fades
+  in and a closed one fades out; a focus ring on the buttons I.K.E. draws
+  itself when they are reached with Tab; one colour for every separator line.
+- **The ☰ menu button and the dark mode button show their icon only**, with
+  no arrow, in every widget style; a click opens their menu as before.
+- **A private window is easier to tell apart**: its toolbar is a little
+  purple, and its "Private" badge has the private-browsing icon and a border.
+- **The address suggestions, and the shield's and the site's panels** have
+  the same corner radius and a light shadow (the panels only where the
+  widget style gives its menus none of its own: Breeze and Oxygen do).
 
 ## 1.1.22
 

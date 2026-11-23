@@ -513,6 +513,15 @@ class WindowFeatures:
                     nav.insertAction(self.more_act, act)
             finally:
                 nav.setUpdatesEnabled(True)
+        btn = nav.widgetForAction(self.act_dark)
+        if isinstance(btn, QToolButton):
+            # 1.1.23 (the owner): its icon only; a click opens its menu, as the
+            # click on its main part did (the action itself does nothing)
+            btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+            if not btn.property("ike_no_arrow"):
+                # its icon only (1.1.23, polish.RoundHoverStyle), measured so below
+                btn.setProperty("ike_no_arrow", True)
+                self._hover.take(btn)
         # the toolbar builds a new button whenever an action is inserted
         for key, act in by_key.items():
             if act in want_left or act in want_right:
@@ -520,12 +529,6 @@ class WindowFeatures:
                 self.toolbar_mover.attach(key, button)
                 if button is not None:
                     self._tool_widths[key] = button.sizeHint().width() + 2
-        btn = nav.widgetForAction(self.act_dark)
-        if isinstance(btn, QToolButton):
-            btn.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
-            if not btn.property("ikeMenuClickConnected"):
-                btn.clicked.connect(btn.showMenu)
-                btn.setProperty("ikeMenuClickConnected", True)
         # what did not fit is listed under the » button
         shown = layout.shown(LEFT) + layout.shown(RIGHT)
         self.more_menu.clear()
@@ -1346,19 +1349,22 @@ class WindowButton(QToolButton):
             p.drawComplexControl(QStyle.ComplexControl.CC_ToolButton, self._option())
             return
         from PyQt6.QtCore import QRectF
-        from PyQt6.QtGui import QColor, QIcon, QPainter, QPalette
+        from PyQt6.QtGui import QIcon, QPainter, QPen
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         level = self._glide.value
         if self.isDown():
             level = 1.4
+        d = min(self.width(), self.height()) - 4
+        circle = QRectF((self.width() - d) / 2, (self.height() - d) / 2, d, d)
         if level > 0:
-            c = QColor(self.palette().color(QPalette.ColorRole.Highlight))
-            c.setAlphaF(min(0.45, 0.22 * level))
-            d = min(self.width(), self.height()) - 4
-            p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(c)
-            p.drawEllipse(QRectF((self.width() - d) / 2, (self.height() - d) / 2, d, d))
+            # 1.1.23: Breeze's hover, as the toolbar's buttons (polish.hover_fill)
+            fill, edge = polish.hover_fill(self.palette(), level)
+            p.setPen(QPen(edge, 1.0))
+            p.setBrush(fill)
+            p.drawEllipse(circle.adjusted(0.5, 0.5, -0.5, -0.5))
+        if polish.keyboard_focus(self):          # reached with Tab: Breeze's ring
+            polish.focus_ring(p, circle.adjusted(-1.5, -1.5, 1.5, 1.5), self.palette())
         mode = QIcon.Mode.Normal if self.isEnabled() else QIcon.Mode.Disabled
         s = self._side
         self.icon().paint(p, QRect((self.width() - s) // 2, (self.height() - s) // 2, s, s),

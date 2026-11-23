@@ -500,3 +500,70 @@ def test_scriptlet_index_takes_less_time_than_before():
     assert new.dump() == old.dump()
     assert best(lambda s, t, tr: s.add_list(t, tr)) < best(_old_add_list) * 0.8
 
+
+# --- protections before the first page (1.1.23) ------------------------------
+
+BOOT_WATCHED = r'''
+import os, sys
+APP = sys.argv[1]
+sys.path.insert(0, APP)
+sys.path.append(os.path.join(APP, "vendor"))
+os.environ.setdefault("IKE_APP_DIR", APP)
+os.environ.setdefault("IKE_SYSTEM_DIR", APP)
+import ike
+ike.early_args([])
+import ike.app
+import ike.webview
+from PyQt6.QtWebEngineCore import QWebEngineProfile, QWebEnginePage
+
+WITH_INTERCEPTOR = set()
+SEEN = []
+_set = QWebEngineProfile.setUrlRequestInterceptor
+
+def set_interceptor(profile, interceptor):
+    if interceptor is not None:
+        WITH_INTERCEPTOR.add(id(profile))
+    return _set(profile, interceptor)
+QWebEngineProfile.setUrlRequestInterceptor = set_interceptor
+
+def watched(original):
+    def load(self, *a, **k):
+        page = self.page() if hasattr(self, "page") else self
+        profile = page.profile()
+        app = getattr(page, "app", None)
+        SEEN.append({"interceptor": id(profile) in WITH_INTERCEPTOR,
+                     "engine": app is not None and (app.blocker.engine is not None
+                                                    or app.blocker.fallback is not None),
+                     "scripts": [s.name() for s in profile.scripts().toList()],
+                     "window_built": hasattr(getattr(page, "window_ref", None), "nav")})
+        return original(self, *a, **k)
+    return load
+ike.webview.WebView.load = watched(ike.webview.WebView.load)
+QWebEnginePage.load = watched(QWebEnginePage.load)
+QWebEnginePage.setUrl = watched(QWebEnginePage.setUrl)
+sys.exit(ike.app.main([]))
+'''
+
+
+def test_protections_are_in_place_before_the_first_page(run_ike, tmp_path):
+    """The first page is asked for while the window is still being built
+    (1.1.23: its bars and menus are built meanwhile), and at that moment, as
+    at every later one, the filter engine, the request interceptor and the
+    page scripts (fingerprinting protection, media hook, cookie banners) are
+    already in place."""
+    boot = tmp_path / "boot_watched.py"
+    boot.write_text(BOOT_WATCHED)
+    out = run_ike(r'''
+def steps(ike, qapp, out):
+    import __main__
+    yield 300
+    out["seen"] = __main__.SEEN
+    out["page"] = ike.windows[0].current_view().url().toString()
+''', command=[sys.executable, str(boot), str(APP)])
+    seen = out["seen"]
+    assert seen and out["page"] == "ike:newtab", out
+    assert seen[0]["window_built"] is False, seen[0]     # asked for before the bars and menus
+    for s in seen:
+        assert s["interceptor"] is True and s["engine"] is True, s
+        assert {"content", "content-2", "ike-consent"} <= set(s["scripts"]), s
+

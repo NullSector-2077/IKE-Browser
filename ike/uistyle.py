@@ -399,10 +399,29 @@ class IkeStyle(QProxyStyle):
             return QFormLayout.RowWrapPolicy.WrapLongRows.value
         return super().styleHint(hint, opt, widget, ret)
 
+    @staticmethod
+    def _button_text(opt, widget):
+        """A button's text and its tool-button style, asked of the button
+        itself when there is one (1.1.23). PyQt 6.12 can hand a Python method
+        of a style the wrapper of an option that no longer exists, of another
+        kind, found at the same address (a button's text then read as
+        garbage, or a crash: seen in the tests on Arch); the widget is always
+        the real one."""
+        from PyQt6.QtWidgets import QAbstractButton, QToolButton
+        if isinstance(widget, QAbstractButton):
+            style = widget.toolButtonStyle() if isinstance(widget, QToolButton) else None
+            return widget.text(), style
+        if opt is None:
+            return "", None
+        return getattr(opt, "text", ""), getattr(opt, "toolButtonStyle", None)
+
     def sizeFromContents(self, kind, opt, size, widget=None):
         s = super().sizeFromContents(kind, opt, size, widget)
         CT = QStyle.ContentsType
-        if kind == CT.CT_PushButton and opt is not None and getattr(opt, "text", ""):
+        if kind not in (CT.CT_PushButton, CT.CT_ToolButton, CT.CT_MenuItem):
+            return s
+        text, tool_style = self._button_text(opt, widget) if kind != CT.CT_MenuItem else ("", None)
+        if kind == CT.CT_PushButton and opt is not None and text:
             frame = self.pixelMetric(QStyle.PixelMetric.PM_DefaultFrameWidth, opt, widget)
             least = size.width() + 2 * (frame + TEXT_ROOM)
             if s.width() < least:
@@ -415,10 +434,9 @@ class IkeStyle(QProxyStyle):
             room = self._switch_room(opt, widget)
             if room:
                 s = QSize(s.width() + room, s.height())
-        elif kind == CT.CT_ToolButton and opt is not None and getattr(opt, "text", "") \
-                and getattr(opt, "toolButtonStyle", None) is not None:
+        elif kind == CT.CT_ToolButton and opt is not None and text and tool_style is not None:
             from PyQt6.QtCore import Qt
-            if opt.toolButtonStyle != Qt.ToolButtonStyle.ToolButtonIconOnly:
+            if tool_style != Qt.ToolButtonStyle.ToolButtonIconOnly:
                 least = size.width() + 2 * (TEXT_ROOM // 2 + 2)
                 if s.width() < least:
                     s = QSize(least, s.height())

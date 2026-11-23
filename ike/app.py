@@ -213,7 +213,9 @@ class IkeApp(QObject):
     # --- windows -----------------------------------------------------
     def new_window(self, private=False, urls=None, open_default=True, popup=False):
         from .window import NEWTAB, BrowserWindow
-        win = BrowserWindow(self, private=private, popup=popup)
+        # the first page is asked for while the window is built (1.1.23)
+        first = urls[0] if urls else (NEWTAB if open_default else None)
+        win = BrowserWindow(self, private=private, popup=popup, first=first)
         self.windows.append(win)
         if self._dl_state[0] != "idle":
             win.show_download_progress(*self._dl_state)
