@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.24
+
+- Automatic fix after a failure of "Tests" on automation/update/drill-qt: Tests failed on automation/update/drill-qt (jobs: tests)
+
 ## 1.1.23
 
 - **Widevine installs again** (Settings -> DRM video): Google no longer serves the old zips on
