@@ -14,7 +14,8 @@ from .config import RES_DIR
 
 _DIR = RES_DIR / "icons" / "fallback"
 _SETS_DIR = RES_DIR / "icons" / "sets"
-SETS = (("ike", "I.K.E."), ("lucide", "Lucide"), ("phosphor", "Phosphor"), ("phosphor-bold", "Phosphor Bold"))
+SETS = (("ike", "I.K.E."), ("lucide", "Lucide"), ("phosphor", "Phosphor"), ("phosphor-bold", "Phosphor Bold"),
+        ("breeze", "Breeze (KDE)"))       # 1.1.24: KDE's own, built by tools/build-breeze-icons.py
 _cache = {}
 _system_theme = None
 _set = None                 # name of the shipped set in use, if any
@@ -229,14 +230,34 @@ def _from_theme(name):
     return ic
 
 
+def _plain_svg(path):
+    """The text of an SVG file to be put in a page of I.K.E., its colour style
+    dropped; "" when it cannot be read or holds anything but a drawing."""
+    import re
+    try:
+        if not path.is_file() or path.stat().st_size > 64 * 1024:
+            return ""
+        text = path.read_text("utf-8")
+    except (OSError, UnicodeDecodeError):
+        return ""
+    low = text.lower()
+    if "<svg" not in low or re.search(r"<script|<foreignobject|\son\w+\s*=|javascript:|<!entity"
+                                        r"|xlink:href\s*=\s*[\"'](?!#)|\shref\s*=\s*[\"'](?!#)", low):
+        return ""             # only a plain drawing goes into the page
+    text = re.sub(r"<\?xml[^>]*\?>", "", text)
+    text = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.S | re.I)
+    return text.strip()
+
+
 def theme_svg(name, sizes=("22", "24", "symbolic", "32", "16")):
     """The text of the SVG for name that follows the icon choice, to be put in
     a page of I.K.E.: KDE's Breeze for the default choice and on Plasma, the
     chosen theme's or the chosen shipped set's otherwise (1.1.24, the owner's
     choice: KDE's Settings icon on the new tab page). Its colour style is
-    dropped, so the icon takes the page's text colour; "" when the theme has
-    no SVG for it, or when the file holds anything but a drawing."""
-    import re
+    dropped, so the icon takes the page's text colour. Where neither theme has
+    it (Breeze not installed), the Breeze icon shipped with I.K.E.
+    (resources/icons/sets/breeze); "" when there is none, or when the file
+    holds anything but a drawing."""
     from pathlib import Path
     if _set:                  # a set shipped with I.K.E. was chosen: its own drawing
         try:
@@ -252,21 +273,10 @@ def theme_svg(name, sizes=("22", "24", "symbolic", "32", "16")):
             if base.startswith(":"):
                 continue
             for size in sizes:
-                path = Path(base) / theme / "actions" / size / (name + ".svg")
-                try:
-                    if not path.is_file() or path.stat().st_size > 64 * 1024:
-                        continue
-                    text = path.read_text("utf-8")
-                except (OSError, UnicodeDecodeError):
-                    continue
-                low = text.lower()
-                if "<svg" not in low or re.search(r"<script|<foreignobject|\son\w+\s*=|javascript:|<!entity"
-                                                    r"|xlink:href\s*=\s*[\"'](?!#)|\shref\s*=\s*[\"'](?!#)", low):
-                    continue          # only a plain drawing goes into the page
-                text = re.sub(r"<\?xml[^>]*\?>", "", text)
-                text = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.S | re.I)
-                return text.strip()
-    return ""
+                text = _plain_svg(Path(base) / theme / "actions" / size / (name + ".svg"))
+                if text:
+                    return text
+    return _plain_svg(_SETS_DIR / "breeze" / (name + ".svg"))
 
 
 _found = {}          # (names, standard, set, theme): (icon, where it came from) (1.1.23)

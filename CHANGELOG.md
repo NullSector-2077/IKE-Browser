@@ -12,6 +12,19 @@
   icon theme's or shipped set's icon otherwise, drawn in the page's text
   colour; the shipped icon when none is found. Only a plain
   drawing is put in the page (no script, link or outside reference).
+- **KDE's Breeze icons come with I.K.E.** (the owner's request): Settings →
+  Appearance → Icons offers "Breeze (KDE) (included with I.K.E.)", drawn in
+  the interface's text colour like the other included sets, so the icons are
+  KDE's even on a desktop without breeze-icons (still not a dependency of the
+  package). Only the icons I.K.E. uses are shipped: 103 from breeze-icons
+  6.32.0, 84 KB, read when they are first shown. The new tab page's Settings
+  icon uses it where no installed theme has one. `tools/build-breeze-icons.py`
+  copies them from KDE's release (the colour-scheme style removed, nothing
+  else of the drawing changed; anything but a plain drawing stops it); the
+  daily maintenance follows breeze-icons' new releases by itself
+  (`components.json`, entry `breeze-icons`), and a release that lost one of
+  the icons is refused and the set kept as it is. Licence: LGPL-3.0-or-later,
+  `licenses/LICENSE.breeze-icons` (tests/test_breeze_icons.py).
 - **xdg-utils is no longer used** (its Arch advisory AVG-1420 has no fix and
   stopped every automatic merge): a downloaded file, a folder or a link
   (mailto:, magnet:...) goes to the XDG desktop portal

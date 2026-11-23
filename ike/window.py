@@ -2430,6 +2430,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         ubo = self._head_of("ubo-scriptlets.json", ("date", "commit"))
         if ubo.get("date"):
             rows.append(("uBlock Origin scriptlets", "%s (%s)" % (ubo["date"], ubo.get("commit", "")[:7])))
+        breeze = self._head_of("icons/sets/breeze/breeze-icons.json", ("version",))
+        if breeze.get("version"):
+            rows.append(("Breeze icons (KDE)", breeze["version"]))
         last = self.app.config["last_lists_update"]
         rows.append((T("Filter lists"), T("Last update: %s") % (
             time.strftime("%d/%m/%Y %H:%M", time.localtime(last)) if last else T("never"))))
@@ -2453,6 +2456,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         ("PyQt6 (Riverbank Computing)", "GPL-3.0"),
         ("Lucide icons", "ISC"),
         ("Phosphor Icons", "MIT"),
+        ("Breeze icons (KDE)", "LGPL-3.0"),
         ("Orbitron typeface (The Orbitron Project Authors)", "SIL OFL 1.1"),
     )
 
