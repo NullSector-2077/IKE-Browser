@@ -1039,7 +1039,11 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             want = True
         elif mode == "newtab":
             v = self.current_view()
-            url = (v.pending_url or v.url().toString()) if v else ""
+            # a tab just opened has no address yet: the one it was asked to
+            # load decides (1.1.23: the bar went away when the new tab page
+            # started loading and came back a moment later, so the page
+            # jumped; a site opened in a new tab showed it for a moment)
+            url = (v.pending_url or v.url().toString() or v.page().requestedUrl().toString()) if v else ""
             want = url in ("", NEWTAB) and not getattr(v, "loading", False) or url == NEWTAB
         else:
             want = False
