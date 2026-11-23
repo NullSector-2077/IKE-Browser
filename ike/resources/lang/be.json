@@ -1028,6 +1028,20 @@
 "Open selected text with middle click": "Адкрываць вылучаны тэкст сярэдняй пстрычкай",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "Сярэдняя пстрычка на пустым месцы старонкі адкрывае вылучаны тэкст як адрас або як пошукавы запыт.",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Зашыфраваны DNS не адказвае на ўласныя запыты I.K.E. (абнаўленні, спісы фільтраў): %s",
-"Shared by %d tabs of this site": "Агульны для %d укладак гэтага сайта"
+"Shared by %d tabs of this site": "Агульны для %d укладак гэтага сайта",
+"If you download it anyway, it is at your own risk.": "Калі вы ўсё ж спампуеце яго, гэта на вашу ўласную рызыку.",
+"Download anyway": "Усё ж спампаваць",
+"Open image in %s": "Адкрыць выяву ў %s",
+"Open with %s": "Адкрыць з дапамогай %s",
+"Open the page source in %s": "Адкрыць код старонкі ў %s",
+"Add to calendar": "Дадаць у каляндар",
+"Show in folder": "Паказаць у папцы",
+"No app of the desktop could open %s.": "Ніводная праграма працоўнага стала не змагла адкрыць %s.",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "I.K.E. спыніў спампоўванне %s: старонка бяспечная (https), але файл прыйшоў бы без абароны (http). Хтосьці ў сетцы мог бы прачытаць або падмяніць яго.",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "%s — гэта праграма або скрыпт, а %s знаходзіцца ў спісах абароны I.K.E. (сайты, што распаўсюджваюць шкоднасныя праграмы). Ён можа нашкодзіць гэтаму камп'ютару.",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s — гэта праграма або скрыпт, а вы ніколі раней не наведвалі %s. Спампоўвайце яго, толькі калі давяраеце сайту.",
+"Site storage: %d": "Сховішча сайта: %d",
+"Cache: %d": "Кэш: %d",
+"Permissions kept: %s": "Захаваныя дазволы: %s"
 }
 }

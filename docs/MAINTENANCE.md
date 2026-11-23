@@ -885,11 +885,11 @@ does, once).
   `pacman -U` in `arch.yml` installs a new dependency, so its tests prove it.
   An "unknown provider" stays for a person.
 - **The optional dependencies** (WP10 (e)). `arch.yml` installs those Arch
-  ships (libnotify, xdg-utils, noto-fonts, noto-fonts-cjk,
+  ships (libnotify, noto-fonts, noto-fonts-cjk,
   plasma-integration, intel-media-driver, libva-nvidia-driver);
   `tests/test_optional_deps.py` has one case per optdepends entry of the
   PKGBUILD: where the package is installed, pacman finds all its files and
-  what I.K.E. uses of it works (notify-send, xdg-settings, a Noto CJK font,
+  what I.K.E. uses of it works (notify-send, a Noto CJK font,
   KDE's platform theme, the VA-API drivers, the Widevine library where
   `ike/drm.py` looks); where it is not installed the case is skipped as
   **not verified**, never "incompatible" (chromium-widevine is in the AUR:
@@ -941,8 +941,12 @@ no change of the tool:
   (`QtWebEngineCore`: `python-pyqt6-webengine` and `qt6-webengine`, `QtSvg`:
   `qt6-svg`...);
 - the programs `ike/` starts (`subprocess`, `QProcess`; `xdg-open` through
-  Qt's `QDesktopServices`), each mapped to its Arch package (`notify-send`:
-  `libnotify`, `xdg-settings`: `xdg-utils`);
+  Qt's `QDesktopServices`, which `ike/` no longer calls since 1.1.24), each
+  mapped to its Arch package (`notify-send`: `libnotify`); the desktop's own
+  openers that `ike/handoff.py` starts only when no desktop portal answers and
+  only when installed (`kioclient`, `gio`, `exo-open`: `DESKTOP_TOOLS`) are
+  listed as the desktop's, not as dependencies (1.1.24: xdg-utils, whose Arch
+  advisory AVG-1420 has no fix, is no longer used or declared);
 - every crate of `ike-adblock/Cargo.lock`, direct or transitive;
 - the Node.js modules of `tools/*.mjs`;
 - the PyPI packages the workflows install (`-r tools/test-requirements.txt`

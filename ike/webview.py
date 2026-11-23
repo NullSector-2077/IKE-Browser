@@ -92,7 +92,13 @@ def careful(box, yes, no):
     box.setDefaultButton(no)
     box.setEscapeButton(no)
     yes.setEnabled(False)
-    QTimer.singleShot(SAFE_DELAY_MS, lambda: yes.setEnabled(True))
+
+    def enable():
+        try:
+            yes.setEnabled(True)
+        except RuntimeError:
+            pass                   # answered ("No") and closed before the delay ended
+    QTimer.singleShot(SAFE_DELAY_MS, enable)
 
 
 def permission_box(parent, origin, ptype):
@@ -188,7 +194,6 @@ class WebPage(QWebEnginePage):
         return True
 
     def _external_link(self, url):
-        from PyQt6.QtGui import QDesktopServices
         if not self.visible_tab():
             return                           # a tab in the background starts nothing
         if url.scheme().lower() == "mailto":
@@ -197,7 +202,8 @@ class WebPage(QWebEnginePage):
             mailto.open_link(self.app, url, self.window_ref, page=self)
             return
         if self.ask_external(origin_text(self.url()), url):
-            QDesktopServices.openUrl(url)
+            # the desktop portal, else the desktop's own opener (handoff.py, 1.1.24)
+            self.app.handoff.open_uri(url, self.window_ref)
 
     def ask_external(self, origin, url):
         """Ask before a link is handed to another application; True to open it."""

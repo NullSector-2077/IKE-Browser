@@ -1028,6 +1028,20 @@
 "“Send to device” with KDE Connect": "“Kirim ke perangkat” dengan KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ untuk memilih, Enter untuk membuka, Esc untuk menutup",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS terenkripsi tidak menjawab permintaan I.K.E. sendiri (pembaruan, daftar filter): %s",
-"Shared by %d tabs of this site": "Dibagikan oleh %d tab situs ini"
+"Shared by %d tabs of this site": "Dibagikan oleh %d tab situs ini",
+"If you download it anyway, it is at your own risk.": "Jika Anda tetap mengunduhnya, risikonya Anda tanggung sendiri.",
+"Download anyway": "Tetap unduh",
+"Open image in %s": "Buka gambar di %s",
+"Open with %s": "Buka dengan %s",
+"Open the page source in %s": "Buka kode sumber halaman di %s",
+"Add to calendar": "Tambahkan ke kalender",
+"Show in folder": "Tampilkan di folder",
+"No app of the desktop could open %s.": "Tidak ada aplikasi desktop yang dapat membuka %s.",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "I.K.E. menghentikan unduhan %s: halamannya aman (https), tetapi berkas akan datang tanpa perlindungan (http). Seseorang di jaringan dapat membaca atau menggantinya.",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "%s adalah program atau skrip, dan %s ada di daftar perlindungan I.K.E. (situs yang menyebarkan malware). Ini bisa merusak komputer ini.",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s adalah program atau skrip, dan Anda belum pernah mengunjungi %s sebelumnya. Unduh hanya jika Anda memercayai situs tersebut.",
+"Site storage: %d": "Penyimpanan situs: %d",
+"Cache: %d": "Cache: %d",
+"Permissions kept: %s": "Izin yang dipertahankan: %s"
 }
 }

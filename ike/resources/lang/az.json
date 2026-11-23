@@ -1028,6 +1028,20 @@
 "“Send to device” with KDE Connect": "KDE Connect ilə “Cihaza göndər”",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ seçmək üçün, Enter keçmək üçün, Esc bağlamaq üçün",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Şifrələnmiş DNS I.K.E.-nin öz sorğularına (yeniləmələr, filtr siyahıları) cavab vermir: %s",
-"Shared by %d tabs of this site": "Bu saytın %d vərəqi arasında paylaşılır"
+"Shared by %d tabs of this site": "Bu saytın %d vərəqi arasında paylaşılır",
+"If you download it anyway, it is at your own risk.": "Yenə də endirsəniz, risk sizin öhdənizdədir.",
+"Download anyway": "Yenə də endir",
+"Open image in %s": "Şəkli %s ilə aç",
+"Open with %s": "%s ilə aç",
+"Open the page source in %s": "Səhifənin mənbə kodunu %s ilə aç",
+"Add to calendar": "Təqvimə əlavə et",
+"Show in folder": "Qovluqda göstər",
+"No app of the desktop could open %s.": "Masaüstünün heç bir tətbiqi %s aça bilmədi.",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "I.K.E. %s endirilməsini dayandırdı: səhifə təhlükəsizdir (https), lakin fayl qorunmadan (http) gələcəkdi. Şəbəkədə kimsə onu oxuya və ya dəyişdirə bilər.",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "%s proqram və ya skriptdir və %s I.K.E.-nin qoruma siyahılarındadır (zərərli proqram yayan saytlar). Bu kompüterə zərər verə bilər.",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s proqram və ya skriptdir və siz %s saytına əvvəllər heç vaxt daxil olmamısınız. Yalnız sayta etibar edirsinizsə endirin.",
+"Site storage: %d": "Sayt yaddaşı: %d",
+"Cache: %d": "Keş: %d",
+"Permissions kept: %s": "Saxlanılan icazələr: %s"
 }
 }

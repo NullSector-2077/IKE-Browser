@@ -94,6 +94,29 @@ class Storage(Deferred):
         )
         self.commit_soon()
 
+    def visited_before(self, site, page_url=""):
+        """True when the history holds a visit of `site` (any of its hosts)
+        other than a single visit of `page_url` itself: the user knew the site
+        before that page (safer downloads, 1.1.24). Read only when a program
+        is downloaded."""
+        from urllib.parse import urlsplit
+        site = (site or "").lower().strip(".")
+        if not site:
+            return False
+        like = "%" + site.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        rows = self.db.execute("SELECT url, visits FROM history WHERE url LIKE ? ESCAPE '\\'", (like,))
+        for url, visits in rows:
+            try:
+                host = (urlsplit(url).hostname or "").lower()
+            except ValueError:
+                continue
+            if host != site and not host.endswith("." + site):
+                continue
+            if url == page_url and (visits or 0) < 2:
+                continue
+            return True
+        return False
+
     def most_visited(self, limit=200):
         """[(url, title)] of the pages opened most often, the most visited first."""
         return self.db.execute(

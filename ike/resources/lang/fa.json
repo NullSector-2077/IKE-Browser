@@ -1028,6 +1028,20 @@
 "“Send to device” with KDE Connect": "«ارسال به دستگاه» با KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ برای انتخاب، Enter برای رفتن، Esc برای بستن",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS رمزگذاری‌شده به درخواست‌های خود I.K.E. (به‌روزرسانی‌ها، فهرست‌های فیلتر) پاسخ نمی‌دهد: %s",
-"Shared by %d tabs of this site": "مشترک بین %d زبانه از این سایت"
+"Shared by %d tabs of this site": "مشترک بین %d زبانه از این سایت",
+"If you download it anyway, it is at your own risk.": "اگر باز هم آن را بارگیری کنید، مسئولیتش با خودتان است.",
+"Download anyway": "باز هم بارگیری کن",
+"Open image in %s": "باز کردن تصویر در %s",
+"Open with %s": "باز کردن با %s",
+"Open the page source in %s": "باز کردن کد منبع صفحه در %s",
+"Add to calendar": "افزودن به تقویم",
+"Show in folder": "نمایش در پوشه",
+"No app of the desktop could open %s.": "هیچ برنامه‌ای از میزکار نتوانست %s را باز کند.",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "I.K.E. بارگیری %s را متوقف کرد: صفحه امن است (https)، اما فایل بدون محافظت (http) می‌آمد. کسی در شبکه می‌توانست آن را بخواند یا جایگزین کند.",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "%s یک برنامه یا اسکریپت است و %s در فهرست‌های محافظت I.K.E. است (سایت‌هایی که بدافزار پخش می‌کنند). ممکن است به این رایانه آسیب بزند.",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s یک برنامه یا اسکریپت است و شما پیش از این هرگز از %s بازدید نکرده‌اید. فقط اگر به سایت اعتماد دارید آن را بارگیری کنید.",
+"Site storage: %d": "فضای ذخیره‌سازی سایت: %d",
+"Cache: %d": "حافظهٔ نهان: %d",
+"Permissions kept: %s": "مجوزهای نگه‌داشته‌شده: %s"
 }
 }

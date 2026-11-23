@@ -1028,6 +1028,20 @@
 "Open selected text with middle click": "Отваряне на избрания текст със средния бутон",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "Щракване със средния бутон на празно място в страницата отваря избрания текст като адрес или като търсене.",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Шифрованият DNS не отговаря на собствените заявки на I.K.E. (обновления, списъци с филтри): %s",
-"Shared by %d tabs of this site": "Споделен от %d раздела на този сайт"
+"Shared by %d tabs of this site": "Споделен от %d раздела на този сайт",
+"If you download it anyway, it is at your own risk.": "Ако все пак го изтеглите, това е на ваш собствен риск.",
+"Download anyway": "Изтегли въпреки това",
+"Open image in %s": "Отвори изображението в %s",
+"Open with %s": "Отвори с %s",
+"Open the page source in %s": "Отвори изходния код на страницата в %s",
+"Add to calendar": "Добави в календара",
+"Show in folder": "Покажи в папката",
+"No app of the desktop could open %s.": "Нито едно приложение на работния плот не можа да отвори %s.",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "I.K.E. спря изтеглянето на %s: страницата е защитена (https), но файлът би дошъл без защита (http). Някой в мрежата би могъл да го прочете или подмени.",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "%s е програма или скрипт, а %s е в списъците за защита на I.K.E. (сайтове, които разпространяват зловреден софтуер). Може да навреди на този компютър.",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s е програма или скрипт, а вие никога досега не сте посещавали %s. Изтеглете го само ако имате доверие на сайта.",
+"Site storage: %d": "Хранилище на сайта: %d",
+"Cache: %d": "Кеш: %d",
+"Permissions kept: %s": "Запазени разрешения: %s"
 }
 }

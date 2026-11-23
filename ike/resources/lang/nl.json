@@ -1028,6 +1028,20 @@
 "“Send to device” with KDE Connect": "“Naar apparaat sturen” met KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ om te kiezen, Enter om te gaan, Esc om te sluiten",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Versleutelde DNS beantwoordt de eigen verzoeken van I.K.E. niet (updates, filterlijsten): %s",
-"Shared by %d tabs of this site": "Gedeeld door %d tabbladen van deze site"
+"Shared by %d tabs of this site": "Gedeeld door %d tabbladen van deze site",
+"If you download it anyway, it is at your own risk.": "Als je het toch downloadt, is dat op eigen risico.",
+"Download anyway": "Toch downloaden",
+"Open image in %s": "Afbeelding openen in %s",
+"Open with %s": "Openen met %s",
+"Open the page source in %s": "Paginabron openen in %s",
+"Add to calendar": "Toevoegen aan agenda",
+"Show in folder": "Tonen in map",
+"No app of the desktop could open %s.": "Geen enkele app van het bureaublad kon %s openen.",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "I.K.E. heeft de download van %s gestopt: de pagina is beveiligd (https), maar het bestand zou zonder bescherming (http) komen. Iemand op het netwerk zou het kunnen lezen of vervangen.",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "%s is een programma of script, en %s staat op de beschermingslijsten van I.K.E. (sites die malware verspreiden). Het kan deze computer schade toebrengen.",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s is een programma of script, en je hebt %s nog nooit bezocht. Download het alleen als je de site vertrouwt.",
+"Site storage: %d": "Siteopslag: %d",
+"Cache: %d": "Cache: %d",
+"Permissions kept: %s": "Behouden toestemmingen: %s"
 }
 }

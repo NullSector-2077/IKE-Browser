@@ -715,7 +715,7 @@ def test_a_link_never_starts_another_application_without_asking(run_ike):
     alone or from a tab in the background."""
     out = run_ike(JS + r'''
 from PyQt6.QtCore import QCoreApplication, QEvent, QObject, QPointF, Qt, QUrl, pyqtSlot
-from PyQt6.QtGui import QDesktopServices, QMouseEvent
+from PyQt6.QtGui import QMouseEvent
 
 class Desktop(QObject):
     def __init__(self):
@@ -739,7 +739,9 @@ def steps(ike, qapp, out):
     from ike import webview
     desktop = Desktop()
     ike._desktop_stand_in = desktop
-    QDesktopServices.setUrlHandler("iketestproto", desktop, "handle")
+    # 1.1.24: links of other kinds go to the desktop portal (handoff.py), never through
+    # Qt's QDesktopServices (xdg-open): the stand-in takes the portal's place
+    ike.handoff.open_uri = lambda url, parent=None: desktop.handle(QUrl(url))
     asked = []
     answer = [False]
     def ask(self, origin, url):
@@ -1035,16 +1037,23 @@ import os
 from PyQt6.QtCore import QUrl
 
 def steps(ike, qapp, out):
+    # 1.1.24: "evil.desktop" is a program from a site never visited: I.K.E.
+    # asks first (safedownload.py, tested in test_safe_downloads.py); here the
+    # user downloads it anyway, and its name and place are still I.K.E.'s
+    asked = []
+    type(ike)._ask_download_risk = lambda self, found, anyway: (asked.append(found["kind"]), anyway())
     view = ike.windows[0].current_view()
     for path in ("/a", "/b", "/c"):
         view.load(QUrl(os.environ["IKE_SITE"] + path))
         yield 1500
     out["paths"] = [str(ike.download_path(d)) for d in ike.downloads]
+    out["asked"] = asked
 ''', settings={"download_dir": str(folder)}, env={"IKE_SITE": "http://127.0.0.1:%d" % srv.server_address[1]},
                       timeout=120)
     finally:
         srv.shutdown()
     assert len(out["paths"]) == 3
+    assert out["asked"] == ["new"], out["asked"]
     for path in out["paths"]:
         assert Path(path).parent == folder, path
         assert Path(path).exists()

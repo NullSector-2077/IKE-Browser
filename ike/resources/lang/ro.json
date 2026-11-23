@@ -1028,6 +1028,20 @@
 "“Send to device” with KDE Connect": "„Trimite către dispozitiv” cu KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ pentru alegere, Enter pentru a merge, Esc pentru a închide",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS-ul criptat nu răspunde cererilor proprii ale I.K.E. (actualizări, liste de filtre): %s",
-"Shared by %d tabs of this site": "Partajat de %d file ale acestui site"
+"Shared by %d tabs of this site": "Partajat de %d file ale acestui site",
+"If you download it anyway, it is at your own risk.": "Dacă îl descărcați totuși, este pe propria răspundere.",
+"Download anyway": "Descarcă oricum",
+"Open image in %s": "Deschide imaginea în %s",
+"Open with %s": "Deschide cu %s",
+"Open the page source in %s": "Deschide codul sursă al paginii în %s",
+"Add to calendar": "Adaugă în calendar",
+"Show in folder": "Arată în dosar",
+"No app of the desktop could open %s.": "Nicio aplicație a desktopului nu a putut deschide %s.",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "I.K.E. a oprit descărcarea %s: pagina este securizată (https), dar fișierul ar veni fără protecție (http). Cineva din rețea l-ar putea citi sau înlocui.",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "%s este un program sau un script, iar %s este pe listele de protecție ale I.K.E. (site-uri care răspândesc programe malițioase). Ar putea dăuna acestui computer.",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s este un program sau un script, iar dumneavoastră nu ați mai vizitat niciodată %s. Descărcați-l doar dacă aveți încredere în site.",
+"Site storage: %d": "Stocarea site-ului: %d",
+"Cache: %d": "Cache: %d",
+"Permissions kept: %s": "Permisiuni păstrate: %s"
 }
 }

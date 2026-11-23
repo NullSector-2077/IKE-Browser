@@ -1028,6 +1028,20 @@
 "“Send to device” with KDE Connect": "“Skicka till enhet” med KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ för att välja, Enter för att gå, Esc för att stänga",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Krypterad DNS svarar inte på I.K.E.:s egna förfrågningar (uppdateringar, filterlistor): %s",
-"Shared by %d tabs of this site": "Delas av %d flikar på den här webbplatsen"
+"Shared by %d tabs of this site": "Delas av %d flikar på den här webbplatsen",
+"If you download it anyway, it is at your own risk.": "Om du ändå laddar ner den sker det på egen risk.",
+"Download anyway": "Ladda ner ändå",
+"Open image in %s": "Öppna bilden i %s",
+"Open with %s": "Öppna med %s",
+"Open the page source in %s": "Öppna sidans källkod i %s",
+"Add to calendar": "Lägg till i kalendern",
+"Show in folder": "Visa i mapp",
+"No app of the desktop could open %s.": "Inget program på skrivbordet kunde öppna %s.",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "I.K.E. stoppade nedladdningen av %s: sidan är säker (https), men filen skulle komma utan skydd (http). Någon i nätverket kan läsa eller byta ut den.",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "%s är ett program eller ett skript, och %s finns på I.K.E.:s skyddslistor (webbplatser som sprider skadlig kod). Det kan skada den här datorn.",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s är ett program eller ett skript, och du har aldrig besökt %s förut. Ladda bara ner det om du litar på webbplatsen.",
+"Site storage: %d": "Webbplatslagring: %d",
+"Cache: %d": "Cache: %d",
+"Permissions kept: %s": "Behållna behörigheter: %s"
 }
 }

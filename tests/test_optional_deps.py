@@ -69,13 +69,6 @@ def check_libnotify():
     assert "notify-send" in (ROOT / "ike" / "osinfo.py").read_text("utf-8")
 
 
-def check_xdg_utils():
-    """ike/dialogs.py: I.K.E. as the default browser with xdg-settings."""
-    assert shutil.which("xdg-settings"), "xdg-settings is not on the PATH"
-    done = subprocess.run(["xdg-settings", "--version"], capture_output=True, text=True, check=False)
-    assert done.returncode == 0, done.stderr
-
-
 def check_noto_fonts_cjk():
     """Chinese, Japanese and Korean text: fontconfig finds a Noto CJK font."""
     assert "CJK" in _fc(":lang=ja", "family"), "no Noto CJK font for Japanese"
@@ -113,7 +106,6 @@ def check_intel_media_driver():
 
 CHECKS = {
     "libnotify": check_libnotify,
-    "xdg-utils": check_xdg_utils,
     "noto-fonts-cjk": check_noto_fonts_cjk,
     "noto-fonts": check_noto_fonts,
     "plasma-integration": check_plasma_integration,
