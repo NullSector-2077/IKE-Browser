@@ -1137,7 +1137,10 @@ def test_the_security_workflows_are_wired():
     assert "needs.security-update.outputs.outcome != 'ready'" in jobs["report"]
     assert "tools/security-fix.py report" in jobs["publish"] and 'if [ "$KIND" = "security" ]' in jobs["publish"]
     tests = (WORKFLOWS / "tests.yml").read_text()
-    assert tests.count("startsWith(github.ref_name, 'automation/update/security-')") == 2
+    # both hand-over clauses cover a security branch: the dispatch by its ref, a run
+    # started again by its pull request's own branch (the drill of 2026-11-23)
+    assert tests.count("startsWith(github.ref_name, 'automation/update/security-')") == 1
+    assert tests.count("startsWith((github.head_ref || github.ref_name), 'automation/update/security-')") == 1
 
 
 def _guard_repo(tmp_path):

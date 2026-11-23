@@ -1835,6 +1835,22 @@ def test_the_agent_never_waits_for_a_review_nobody_gives():
     assert '"toolPermission"' not in fix                 # tools keep asking (and are denied)
 
 
+def test_a_pull_requests_run_started_again_is_handed_over_by_its_own_branch():
+    """The drill of 2026-11-23: on a pull request's run github.ref_name is
+    "<number>/merge", so a failed run the automatic fix started again (the plan
+    skips it, waiting for the hand-over) was never handed over and the fix
+    never came. The second attempt reads the pull request's own branch."""
+    for name, job in (("tests.yml", "hand-over"), ("arch.yml", "hand-over")):
+        text = (WORKFLOWS / name).read_text()
+        hand = text.split("\n  %s:\n" % job, 1)[1].split("runs-on:", 1)[0]
+        again = hand.split("github.run_attempt > 1", 1)[1]
+        assert "github.triggering_actor == 'github-actions[bot]'" in again, name
+        assert "startsWith((github.head_ref || github.ref_name), 'automation/update/')" in again, name
+        assert "(github.head_ref || github.ref_name) == 'automation/autofix-main'" in again, name
+        # a bare github.ref_name would be "<number>/merge" on a pull request
+        assert "github.ref_name" not in again.replace("(github.head_ref || github.ref_name)", ""), name
+
+
 def test_failures_of_tests_the_automation_started_reach_the_fix(monkeypatch):
     """2026-11-19: runs started with GITHUB_TOKEN send no workflow_run, so the
     second attempt never came and a failing maintenance candidate never reached

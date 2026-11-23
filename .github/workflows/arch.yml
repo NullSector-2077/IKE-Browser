@@ -211,9 +211,9 @@ jobs:
       github.ref_name == 'automation/daily-maintenance' ||
       startsWith(github.ref_name, 'automation/update/') || startsWith(github.ref_name, 'automation/builder/'))) ||
       (github.run_attempt > 1 && github.triggering_actor == 'github-actions[bot]' &&
-      (github.ref_name == 'main' || github.ref_name == 'automation/autofix-main' ||
-      github.ref_name == 'automation/daily-maintenance' ||
-      startsWith(github.ref_name, 'automation/update/') || startsWith(github.ref_name, 'automation/builder/'))))
+      ((github.head_ref || github.ref_name) == 'main' || (github.head_ref || github.ref_name) == 'automation/autofix-main' ||
+      (github.head_ref || github.ref_name) == 'automation/daily-maintenance' ||
+      startsWith((github.head_ref || github.ref_name), 'automation/update/') || startsWith((github.head_ref || github.ref_name), 'automation/builder/'))))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
