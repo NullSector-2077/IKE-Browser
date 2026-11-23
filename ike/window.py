@@ -1794,6 +1794,27 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if v and v.url().scheme() in ("http", "https", "file"):
             self.add_tab(QUrl("view-source:" + v.url().toString()), after=v)
 
+    def source_to_app(self, view):
+        """The page's code (as the page holds it now) in the desktop's text
+        editor, from a private copy (handoff.py, 1.1.24)."""
+        from . import handoff
+
+        def got(html):
+            if not isinstance(html, str):
+                return
+            folder = handoff.temp_dir()
+            self._source_n = getattr(self, "_source_n", 0) + 1
+            path = folder / ("%d-%d-%s-source.txt" % (int(time.time()), self._source_n,
+                                                       handoff.safe_name(view.url().host() or "page", "page")))
+            try:
+                fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    f.write(html)
+            except OSError:
+                return
+            self.app.handoff.open_file(path, self)
+        view.page().toHtml(got)
+
     def open_devtools(self, view=None):
         view = view or self.current_view()
         if not view:
@@ -2690,15 +2711,70 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             return
         profile = v.page().profile()
         store = profile.cookieStore()
-        for cookie in self.app.shields.site_cookies(profile, site):
+        # 1.1.24: every cookie of the site the engine may still have (a cookie
+        # set again by the site was missing from I.K.E.'s list, shields.py);
+        # what the store reports removed is what the summary counts
+        removed = set()
+
+        def gone(c):
+            d = c.domain().lstrip(".").lower()
+            if d == site or d.endswith("." + site):
+                removed.add((c.domain(), c.path(), bytes(c.name())))
+        store.cookieRemoved.connect(gone)
+        for cookie in self.app.shields.site_cookies(profile, site, ever=True):
             store.deleteCookie(cookie)
+        kept = self.site_permissions()
+        # 1.1.24: what goes is counted as it goes, in I.K.E.'s own script
+        # world (the page sees nothing of it), and shown in a short summary
+        from PyQt6.QtWebEngineCore import QWebEngineScript
+        world = int(QWebEngineScript.ScriptWorldId.ApplicationWorld.value)
         v.page().runJavaScript(
-            "(async function(){try{localStorage.clear();sessionStorage.clear();}catch(e){}"
-            "try{var d=await indexedDB.databases();d.forEach(function(x){indexedDB.deleteDatabase(x.name);});}catch(e){}"
-            "try{var k=await caches.keys();await Promise.all(k.map(function(x){return caches.delete(x);}));}catch(e){}"
-            "try{var r=await navigator.serviceWorker.getRegistrations();r.forEach(function(x){x.unregister();});}catch(e){}"
-            "})();", 0, lambda _r: QTimer.singleShot(300, v.reload) if v in self.views else None)
-        self.app._notify(T("Data of %s deleted.") % site)
+            "(async function(){var n={storage:0,cache:0};"
+            "try{n.storage+=localStorage.length+sessionStorage.length;localStorage.clear();sessionStorage.clear();}"
+            "catch(e){}"
+            "try{var d=await indexedDB.databases();n.storage+=d.length;"
+            "d.forEach(function(x){indexedDB.deleteDatabase(x.name);});}catch(e){}"
+            "try{var k=await caches.keys();n.cache+=k.length;"
+            "await Promise.all(k.map(function(x){return caches.delete(x);}));}catch(e){}"
+            "try{var r=await navigator.serviceWorker.getRegistrations();n.storage+=r.length;"
+            "r.forEach(function(x){x.unregister();});}catch(e){}"
+            "window.__ikeCleaned=n;})();0", world)
+        tries = [0]
+
+        def poll():
+            if v in self.views:
+                v.page().runJavaScript("window.__ikeCleaned||null", world, done)
+            else:
+                tries[0] = 30
+                done(None)                   # the tab was closed: the cookies still go
+
+        def done(found):
+            if not isinstance(found, dict) and tries[0] < 30:
+                tries[0] += 1
+                QTimer.singleShot(100, poll)
+                return
+            found = found if isinstance(found, dict) else {}
+            try:
+                store.cookieRemoved.disconnect(gone)
+            except (TypeError, RuntimeError):
+                pass
+            self.site_cleaned(site, len(removed), int(found.get("storage") or 0), int(found.get("cache") or 0),
+                              kept)
+            if v in self.views:
+                QTimer.singleShot(300, v.reload)
+        QTimer.singleShot(300, poll)         # the store has reported the deleted cookies by then
+
+    def site_cleaned(self, site, cookies, storage, cache, kept):
+        """The summary of "Clear this site's data" (1.1.24): what went, and the
+        permissions it keeps (they are reset in the site's panel)."""
+        lines = [T("Cookies: %d") % cookies, T("Site storage: %d") % storage, T("Cache: %d") % cache]
+        if kept:
+            lines.append(T("Permissions kept: %s") % ", ".join(kept))
+        box = QMessageBox(QMessageBox.Icon.Information, APP_NAME, T("Data of %s deleted.") % site, parent=self)
+        box.setInformativeText("\n".join(lines))
+        box.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        self._cleaned_box = box
+        box.open()
 
     def show_download_progress(self, state, fraction=None):
         """state: "idle", "active" (fraction 0..1 or None) or "done"."""

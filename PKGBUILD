@@ -3,7 +3,7 @@
 # Builds I.K.E. from this repository. Run `makepkg -si` from a clone; the
 # sources are taken from the clone itself (no download).
 pkgname=ike-browser
-pkgver=1.1.23
+pkgver=1.1.24
 pkgrel=1
 pkgdesc="I.K.E. - Internet Kontrol Experience: private, independent web browser"
 arch=('x86_64')
@@ -15,7 +15,6 @@ makedepends=('rust' 'gcc')
 optdepends=('libnotify: desktop notifications'
             'noto-fonts-cjk: Chinese, Japanese and Korean interface text'
             'noto-fonts: Arabic, Hebrew, Indic, Thai, Georgian, Armenian and other scripts'
-            'xdg-utils: set I.K.E. as the default browser'
             'plasma-integration: Plasma theme, colours and file dialogs'
             'chromium-widevine: system-wide Widevine instead of the copy I.K.E. downloads'
             'libva-nvidia-driver: video decoding with NVIDIA graphics cards (Settings, experimental)'

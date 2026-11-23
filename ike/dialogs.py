@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 
 from PyQt6.QtCore import QEvent, QRect, QSize, Qt, QTimer, QUrl
-from PyQt6.QtGui import QDesktopServices, QIcon, QPalette
+from PyQt6.QtGui import QIcon, QPalette
 from PyQt6.QtWebEngineCore import QWebEngineDownloadRequest
 from PyQt6.QtWidgets import (
     QAbstractButton,
@@ -936,10 +936,11 @@ class SettingsDialog(QDialog):
             self.language.setCurrentIndex(max(0, self.language.findData(dlg.installed)))
 
     def _make_default(self):
-        import subprocess
+        # 1.1.24: written in ~/.config/mimeapps.list as the XDG specification
+        # says (handoff.py); xdg-settings (xdg-utils) is no longer used
+        from .handoff import set_default_browser
         try:
-            subprocess.run(["xdg-settings", "set", "default-web-browser", "ike-browser.desktop"],
-                           check=True, timeout=10)
+            set_default_browser()
             QMessageBox.information(self, "I.K.E.", T("I.K.E. is now the default browser."))
         except Exception:
             QMessageBox.warning(self, "I.K.E.", T(
@@ -2059,7 +2060,7 @@ class UserScriptsDialog(QDialog):
     def _us_folder(self):
         from .userscripts import DIR
         DIR.mkdir(parents=True, exist_ok=True)
-        QDesktopServices.openUrl(QUrl.fromLocalFile(str(DIR)))
+        self.app.handoff.open_file(DIR, self)
 
 
 class ThemeEditor(QDialog):
@@ -2435,15 +2436,22 @@ class DownloadsDialog(QDialog):
         self.tree.setIconSize(QSize(24, 24))
         self._icons = {}
         self.tree.itemActivated.connect(lambda _i, _c: self._open(False))
+        self.tree.currentItemChanged.connect(lambda *_a: self._handoff_buttons())
         lay.addWidget(self.tree, 1)
         row = QHBoxLayout()
-        for label, slot in ((T("Open file"), lambda: self._open(False)),
-                            (T("Open folder"), lambda: self._open(True)),
-                            (T("Cancel download"), self._cancel),
-                            (T("Clear finished"), self._clear)):
-            b = QPushButton(label)
+        buttons = {}
+        for key, label, slot in (("open", T("Open file"), lambda: self._open(False)),
+                                 ("folder", T("Show in folder"), lambda: self._open(True)),
+                                 ("app", "", self._open_with_app),
+                                 ("cancel", T("Cancel download"), self._cancel),
+                                 ("clear", T("Clear finished"), self._clear)):
+            b = buttons[key] = QPushButton(label)
             b.clicked.connect(slot)
             row.addWidget(b)
+        # 1.1.24: "Show in folder" only with a file manager; an archive or a
+        # calendar file also gets its app's button (Ark, the calendar)
+        self.folder_button, self.app_button = buttons["folder"], buttons["app"]
+        self.app_button.hide()
         row.addStretch(1)
         lay.addLayout(row)
         self.timer = QTimer(self)
@@ -2476,6 +2484,31 @@ class DownloadsDialog(QDialog):
                     item.setData(1, FRACTION_ROLE, got / total)
         if cur >= 0:
             self.tree.setCurrentItem(self.tree.topLevelItem(cur))
+        self._handoff_buttons()
+
+    def _handoff_buttons(self):
+        """Show the handoffs the desktop has an app for (handoff.py): the file
+        manager, and for a finished archive or calendar file its app."""
+        from . import handoff
+        S = QWebEngineDownloadRequest.DownloadState
+        self.folder_button.setVisible(handoff.app_for("inode/directory") is not None)
+        d = self._current()
+        text = ""
+        if d is not None and d.state() == S.DownloadCompleted:
+            path = self.app.download_path(d)
+            kind = handoff.kind_of(handoff.file_type(path)) if path.is_file() else ""
+            if kind in ("archive", "calendar"):
+                found = handoff.app_for(handoff.file_type(path).name())
+                if found is not None:
+                    text = T("Add to calendar") if kind == "calendar" else T("Open with %s") % found.name
+        if self.app_button.text() != text:
+            self.app_button.setText(text)
+        self.app_button.setVisible(bool(text))
+
+    def _open_with_app(self):
+        d = self._current()
+        if d is not None and self.app.download_path(d).is_file():
+            self.app.handoff.open_file(self.app.download_path(d), self)
 
     def _file_icon(self, name):
         """The icon of the file's kind, from the icon theme (kept: the list is filled often)."""
@@ -2499,16 +2532,21 @@ class DownloadsDialog(QDialog):
         return self.app.downloads[0] if self.app.downloads else None
 
     def _open(self, folder):
+        """Open the file, or show it in its folder, through the desktop (handoff.py)."""
         d = self._current()
+        handoff = self.app.handoff
         if d is None:
             if folder:        # nothing downloaded yet: show the download folder itself
-                QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.app.download_dir())))
+                handoff.open_file(self.app.download_dir(), self)
             return
         path = self.app.download_path(d)
+        if folder and path.is_file():
+            handoff.show_in_folder(path, self)
+            return
         target = path.parent if folder else path
         if not target.exists():
             target = path.parent if path.parent.exists() else self.app.download_dir()
-        QDesktopServices.openUrl(QUrl.fromLocalFile(str(target)))
+        handoff.open_file(target, self)
 
     def _cancel(self):
         d = self._current()

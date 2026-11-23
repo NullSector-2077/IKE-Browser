@@ -1,5 +1,53 @@
 # Changelog
 
+## 1.1.24
+
+- **xdg-utils is no longer used** (its Arch advisory AVG-1420 has no fix and
+  stopped every automatic merge): a downloaded file, a folder or a link
+  (mailto:, magnet:...) goes to the XDG desktop portal
+  (org.freedesktop.portal.OpenURI) through I.K.E.'s own D-Bus code: OpenFile
+  with a descriptor of the very file, OpenDirectory to show a file in its
+  folder, OpenURI for links. With no portal, the desktop's own opener when it
+  is installed (kioclient on KDE, gio, exo-open on Xfce), else a message that
+  says where the file is; never xdg-open. "Make I.K.E. the default browser"
+  writes `~/.config/mimeapps.list` itself, as the XDG MIME Applications
+  specification says (http, https and text/html), atomically and keeping
+  every other entry; a desktop's own list and KDE's kdeglobals are updated
+  only where they already name a browser. xdg-utils left the PKGBUILD's
+  optional dependencies and the Arch check (`ike/handoff.py`,
+  tests/test_handoff.py).
+- **Handoffs to the desktop's apps**, shown only when the desktop has the app
+  (read from the mimeapps.list files and the apps' .desktop files, nothing
+  started to find out): "Open with Okular" for a PDF, "Open image in
+  Gwenview" in an image's menu, "Open the page source in Kate" in a page's
+  menu, "Add to calendar" for `.ics` links, and in the downloads window "Show
+  in folder" (Dolphin or the file manager, the file selected), "Open with
+  Ark" for an archive and "Add to calendar" for a calendar file. On other
+  desktops the names are those of their own PDF reader, image viewer, editor,
+  archive manager and calendar. An image or PDF is fetched by the engine
+  itself into a private folder (`~/.cache/ike-browser/handoff`, emptied after a
+  day) and handed over only when its content is of that kind.
+- **Safer downloads**: a program or a script (AppImage, .run, .sh, .exe, .msi,
+  .deb, .rpm, .jar, .py, .bat, .cmd, .ps1, .desktop, by name or MIME type) from
+  a site on I.K.E.'s protection lists or from a site never visited before
+  asks first; a file over http from an https page (a mixed download) is
+  stopped. "Cancel" is the default and the Esc answer, "Download anyway"
+  works after a moment and lets that one download through, at the user's
+  risk. Nothing is asked of the network (`ike/safedownload.py`,
+  tests/test_safe_downloads.py).
+- **"Clear this site's data" says what it removed**: cookies, the site's
+  storage (local and session storage, databases, service workers) and caches,
+  counted by the clean itself in I.K.E.'s own script world (the page sees
+  nothing), and the permissions it keeps. Found on the way: when a site set
+  the same cookie again in a later answer, the engine reported it removed and
+  never added back, so I.K.E.'s list lost it and the clean left that cookie
+  behind; every cookie the site may still have is now deleted
+  (tests/test_clean_site.py).
+- A question with a delayed "yes" button (permissions, a burst of downloads)
+  answered "no" before the delay ended no longer raises an error.
+- 14 new interface strings, translated into all 59 languages; the downloads
+  window's new buttons are measured by the text-fit test in every language.
+
 ## 1.1.23
 
 - **Widevine installs again** (Settings -> DRM video): Google no longer serves the old zips on

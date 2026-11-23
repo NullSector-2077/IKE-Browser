@@ -88,7 +88,6 @@ are **not verified**.
 | libnotify (optional) | desktop notifications | LGPL-2.1 |
 | noto-fonts-cjk (optional) | Chinese and Japanese text | OFL-1.1 |
 | noto-fonts (optional) | Arabic, Hebrew, Indic, Thai, Georgian, Armenian and other scripts | OFL-1.1 |
-| xdg-utils (optional) | default browser setting | MIT |
 | plasma-integration (optional) | Plasma theme and dialogs | LGPL / GPL (KDE) |
 | chromium-widevine (optional) | Widevine from the system | proprietary (Google) |
 | libva-nvidia-driver (optional) | video decoding, NVIDIA | MIT |
