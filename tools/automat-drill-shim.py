@@ -32,7 +32,6 @@ changes its own code with its names) keep today's names. Nothing else changes: t
 underneath, so a fix that uses the new name, with a fallback to the old one, works in both worlds.
 """
 
-import importlib.abc
 import json
 import os
 import sys
@@ -214,7 +213,9 @@ def apply_all(module, breaks=None):
             sys.stderr.write("AUTOMAT drill: break %s not applied: %s\n" % (b.get("id"), e))
 
 
-class _Loader(importlib.abc.Loader):
+class _Loader:
+    """The real loader, then the breaks (no base class: importlib.abc would load inspect at every start)."""
+
     def __init__(self, real):
         self.real = real
 
@@ -226,7 +227,7 @@ class _Loader(importlib.abc.Loader):
         apply_all(module)
 
 
-class Finder(importlib.abc.MetaPathFinder):
+class Finder:
     """In front of Python's own finders: the drill's modules get their breaks once loaded."""
 
     def find_spec(self, name, path=None, target=None):

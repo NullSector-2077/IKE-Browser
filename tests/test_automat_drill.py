@@ -172,6 +172,7 @@ import json, sys
 site = sys.argv[1]
 import site as _site
 _site.addsitedir(site)
+heavy = [m for m in ("argparse", "traceback", "logging", "dataclasses", "inspect") if m in sys.modules]
 import importlib
 data = json.loads(sys.argv[2])
 out = {}
@@ -192,6 +193,7 @@ for b in data:
     out[b["id"]] = row
 import ike_automat_drill_shim as shim
 out["_root"] = str(shim._STATE["root"])
+out["_heavy"] = heavy
 print(json.dumps(out))
 """
 
@@ -228,6 +230,7 @@ def test_the_simulated_release_breaks_only_ikes_code_in_a_drills_checkout(repo, 
     # I.K.E.'s code in the drill's checkout: every chosen API is broken the way a major release breaks it
     got = _probe(repo / "ike" / "_drill_probe.py", repo, site, breaks)
     assert got["_root"] == str(repo.resolve())
+    assert got["_heavy"] == []                     # the start loads nothing more (tests/test_start_speed.py)
     for b in breaks:
         row = got[b["id"]]
         assert row["old"] is (b["kind"] == "max_args"), b["id"]
@@ -413,8 +416,8 @@ def job(name, steps=("Tests",)):
 
 def test_the_plan_fixes_a_drill_like_a_candidate_and_tells_nobody():
     cap = drill.attempts_for(BRANCH, plan_tool.ISOLATED_ATTEMPTS)
-    data = main_scenarios() or MAIN_DATA
-    assert cap == data["scenarios"]["qt"]["attempts_per_day"] or ON_DRILL_BRANCH
+    if not ON_DRILL_BRANCH:                         # (a drill's branch holds the breaks only; main plans it)
+        assert cap == MAIN_DATA["scenarios"]["qt"]["attempts_per_day"]
     assert drill.attempts_for("automation/update/test-qt", 4) == 4 and drill.attempts_for("main", 2) == 2
     p = plan_tool.decide(failed_run(), [job("tests")], "")
     assert p["action"] == "fix" and p["kind"] == "update" and p["push_branch"] == BRANCH
