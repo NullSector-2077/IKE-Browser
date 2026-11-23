@@ -617,7 +617,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_tb_print = A(T("Print or save as PDF"), None, None, "document-print",
                               T("Print the page, or save it as a PDF document"))
         self.act_tb_send = A(T("Send to device"), None, None,
-                             icon(("kdeconnect", "smartphone", "phone", "document-send")),
+                             icon(("kdeconnect", "smartphone", "phone", "document-send"), SP.SP_DriveNetIcon),
                              T("Send this page to a phone or a computer paired with KDE Connect"))
         self.act_tb_resources = A(T("Site resources"), self.app.show_resources, None,
                                   "utilities-system-monitor",
@@ -1039,7 +1039,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.m_print.addAction(self.act_print)
         self.m_print.addAction(self.act_pdf)
         self.act_tb_print.setMenu(self.m_print)
-        self.m_send = menu(T("Send to device"), "kdeconnect", None)
+        self.m_send = menu(T("Send to device"), self.act_tb_send.icon(), None)
         self.m_send.aboutToShow.connect(self._fill_send_menu)
         self.act_tb_send.setMenu(self.m_send)
 
