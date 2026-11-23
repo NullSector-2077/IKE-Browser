@@ -764,7 +764,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.m_shot = menu(T("Screenshot…"), "camera-photo", None)
         for text, mode, ico, keys in ((T("Visible part"), "visible", ("camera-photo", "spectacle"), "Ctrl+Shift+S"),
                                       (T("Whole page"), "page", ("zoom-fit-height", "view-fullscreen"), None),
-                                      (T("Selected area"), "area", ("select-rectangular", "transform-crop"), None)):
+                                      (T("Selected area"), "area", ("select-rectangular", "transform-crop", "edit-select-all"), None)):
             a = A(text, lambda _c=False, m=mode: self.screenshot(m), keys, ico)
             a.setData(mode)
             self.m_shot.addAction(a)
