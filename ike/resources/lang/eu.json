@@ -1028,6 +1028,21 @@
 "“Send to device” with KDE Connect": "“Bidali gailura” KDE Connect-ekin",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ aukeratzeko, Sartu joateko, Esc ixteko",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS zifratuak ez die erantzuten I.K.E.-ren berezko eskaerei (eguneratzeak, iragazki-zerrendak): %s",
-"Shared by %d tabs of this site": "Gune honetako %d fitxak partekatzen dute"
+"Shared by %d tabs of this site": "Gune honetako %d fitxak partekatzen dute",
+"If you download it anyway, it is at your own risk.": "Hala ere deskargatzen baduzu, zure arriskupean izango da.",
+"Download anyway": "Deskargatu hala ere",
+"Open image in %s": "Ireki irudia %s aplikazioan",
+"Open with %s": "Ireki %s aplikazioarekin",
+"Open the page source in %s": "Ireki orriaren iturburu-kodea %s aplikazioan",
+"Add to calendar": "Gehitu egutegira",
+"Show in folder": "Erakutsi karpetan",
+"No app of the desktop could open %s.": "Mahaigaineko aplikazio batek ere ezin izan du %s ireki.",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "I.K.E.-k %s fitxategiaren deskarga gelditu du: orria segurua da (https), baina fitxategia babesik gabe etorriko litzateke (http). Sareko norbaitek irakurri edo ordeztu lezake.",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "%s programa edo script bat da, eta %s I.K.E.-ren babes-zerrendetan dago (malwarea zabaltzen duten guneak). Ordenagailu honi kalte egin liezaioke.",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s programa edo script bat da, eta ez duzu inoiz %s bisitatu. Deskargatu gunean konfiantza baduzu bakarrik.",
+"Site storage: %d": "Gunearen biltegiratzea: %d",
+"Cache: %d": "Cachea: %d",
+"Permissions kept: %s": "Gordetako baimenak: %s",
+"Not secure": "Ez da segurua"
 }
 }

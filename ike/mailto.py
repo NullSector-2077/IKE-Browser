@@ -89,7 +89,6 @@ def open_link(app, url, win, page=None, from_desktop=False):
 
     page is the WebPage whose link was clicked (None for a link that came
     from another program)."""
-    from PyQt6.QtGui import QDesktopServices
     if win is None:
         return
     text = bytes(url.toEncoded()).decode("ascii", "replace")
@@ -104,11 +103,11 @@ def open_link(app, url, win, page=None, from_desktop=False):
             app.config["mail_handler"] = choice
             app.config.save()
         if choice == "system":
-            QDesktopServices.openUrl(url)          # the user just chose it: no second question
+            app.handoff.open_uri(url, win)         # the user just chose it: no second question
             return
     if choice == "system":
         if page is not None and page.ask_external(_origin(page), url):
-            QDesktopServices.openUrl(url)
+            app.handoff.open_uri(url, win)         # the desktop portal (handoff.py, 1.1.24)
         return
     target = compose_url(choice, text)
     if target:

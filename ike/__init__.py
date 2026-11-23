@@ -2,7 +2,7 @@
 
 import os
 
-__version__ = "1.1.23"
+__version__ = "1.1.24"
 # Oldest installed system part (ike_boot.py, launcher, desktop icons) this ike/
 # folder goes with. Raise it only when a release cannot work without a new
 # system part: older installations are then told to update the package instead

@@ -208,7 +208,11 @@ def test_plan_maintenance_candidate_is_fixed_on_its_branch():
 
 def test_plan_stops_after_two_attempts():
     p = plan_tool.decide(failed_run(branch="automation/autofix-main", _attempts=2), [job("tests")], "5")
-    assert p["action"] == "issue" and "2 automatic fixes" in p["reason"]
+    # the cap is per day (2026-11-22): no issue asks anyone, the next day it goes on
+    assert p["action"] == "retry" and "2 automatic fixes" in p["reason"] and "tries again tomorrow" in p["reason"]
+    p = plan_tool.decide(failed_run(branch="automation/autofix-main", _attempts=2, _attempts_today=0),
+                         [job("tests")], "5")
+    assert p["action"] == "fix" and p["attempt"] == "3"
 
 
 @pytest.mark.parametrize("run,why", [
@@ -257,7 +261,7 @@ def test_a_lists_branch_whose_tests_fail_is_fixed_there_in_lists_mode():
     # at the cap: a person, the branch kept
     p = plan_tool.decide(failed_run(branch=LISTS, _attempts=plan_tool.ISOLATED_ATTEMPTS, run_attempt=2),
                          failed_tests_jobs(), "")
-    assert p["action"] == "issue" and "needs-person" in p["reason"] and "branch is kept" in p["reason"]
+    assert p["action"] == "retry" and "stays open" in p["reason"] and "tries again tomorrow" in p["reason"]
     assert plan_tool.first_provider(p) == ""
     # a test that failed once runs again first, as everywhere
     assert plan_tool.decide(failed_run(branch=LISTS, _attempts=1), failed_tests_jobs(), "")["action"] == "rerun"
@@ -287,7 +291,7 @@ def test_the_isolated_candidates_get_every_attempt_of_their_cap():
     # main's own branches keep theirs
     p = plan_tool.decide(failed_run(branch="automation/daily-maintenance", _attempts=plan_tool.MAX_ATTEMPTS),
                          [job("tests")], "")
-    assert p["action"] == "issue" and "%d automatic fixes" % plan_tool.MAX_ATTEMPTS in p["reason"]
+    assert p["action"] == "retry" and "%d automatic fixes" % plan_tool.MAX_ATTEMPTS in p["reason"]
 
 
 def test_a_lists_retry_counts_the_analysis_as_attempt_one(monkeypatch, tmp_path, capsys):
@@ -591,7 +595,15 @@ def jobs_of(text):
 def test_autofix_workflow_permissions():
     text = (WORKFLOWS / "autofix.yml").read_text()
     jobs = jobs_of(text)
-    assert set(jobs) == {"plan", "rerun", "fix", "guard", "publish", "report", "self-test", "security-update"}
+    # (part 2 of AUTOMAT, 2026-11-23: adopt, try, again, help and adopt-refused; their rights and what they
+    # may hold are proved in tests/test_automat_part2.py)
+    assert set(jobs) == {"plan", "rerun", "fix", "guard", "publish", "report", "self-test", "security-update",
+                         "remember", "adopt", "try", "again", "help", "adopt-refused"}
+    for name in ("adopt", "try", "again", "help", "adopt-refused"):
+        assert "secrets." not in jobs[name], name
+    # AUTOMAT's memory: no AI, no secret; it writes the data branch automat/memory only, never main
+    assert "secrets." not in jobs["remember"] and "HEAD:refs/heads/automat/memory" in jobs["remember"]
+    assert "persist-credentials: false" in jobs["remember"] and "refs/heads/main" not in jobs["remember"]
     assert "permissions: {}" in text and "pull_request_target" not in text
     # WP6: the deterministic security update has no secret, no AI and pushes only its isolated branch
     update = jobs["security-update"]
@@ -603,8 +615,13 @@ def test_autofix_workflow_permissions():
     assert re.search(r"permissions:\n\s+contents: read\n\s+outputs:", jobs["fix"])
     assert "secrets.GEMINI_API_KEY" in jobs["fix"]
     assert "github.token" not in jobs["fix"] and "GH_TOKEN" not in jobs["fix"]
-    for name in ("plan", "guard", "publish", "report"):
+    for name in ("plan", "guard", "report"):
         assert "secrets." not in jobs[name], name
+    # publish: only the owner's optional token, for its own push and pull request (AUTOMAT: the pull request's
+    # own runs then start); never in the jobs where an AI runs or its patch is applied
+    assert set(re.findall(r"secrets\.(\w+)", jobs["publish"])) == {"IKE_WORKFLOW_TOKEN"}
+    assert "IKE_WORKFLOW_TOKEN" not in jobs["fix"] + jobs["guard"] + jobs["plan"]
+    assert 'the fix changes .github/' in jobs["publish"]
     for name in ("plan", "fix", "guard", "publish"):
         assert "persist-credentials: false" in jobs[name], name
     assert "contents: write" not in jobs["guard"] and "contents: write" not in jobs["plan"]
@@ -674,7 +691,7 @@ def test_no_workflow_publishes_merges_or_runs_forks():
         if path.name not in ("chatgpt-guard.yml", "chatgpt-cleanup.yml"):
             assert "pull_request_target" not in text, path.name
         assert "gh pr merge" not in text and "gh release create" not in text, path.name
-        assert "GEMINI_API_KEY" not in text or path.name in ("autofix.yml", "health.yml"), path.name
+        assert "GEMINI_API_KEY" not in text or path.name in ("autofix.yml", "health.yml", "ai-review.yml"), path.name
     maintenance = (WORKFLOWS / "daily-maintenance.yml").read_text()
     assert "git add -u" in maintenance                      # Dark Reader files too
     assert "git checkout -B automation/daily-maintenance origin/main" in maintenance
@@ -1427,6 +1444,8 @@ def run_fix_steps(repo, tmp_path, scenario, reserve_key="gsk_TESTONLY"):
     (temp / "autofix-agent.py").write_text(AGENT_STUB)
     (temp / "autofix-reserve.py").write_text(RESERVE_STUB)
     (temp / "check-autofix-patch.py").write_text((ROOT / "tools/check-autofix-patch.py").read_text())
+    for beside in ("fix-guard.py", "component-manifest.py"):         # what the checker reads beside itself (--auto)
+        (temp / beside).write_text((ROOT / "tools" / beside).read_text())
     (temp / "autofix" / "related.txt").write_text("ike/window.py\n")
     (temp / "autofix-inputs").mkdir()
     for name, text in (("failure.md", FAILURE), ("context.md", "# Code\n"), ("related.txt", "ike/window.py\n")):
@@ -1816,6 +1835,22 @@ def test_the_agent_never_waits_for_a_review_nobody_gives():
     assert '"toolPermission"' not in fix                 # tools keep asking (and are denied)
 
 
+def test_a_pull_requests_run_started_again_is_handed_over_by_its_own_branch():
+    """The drill of 2026-11-23: on a pull request's run github.ref_name is
+    "<number>/merge", so a failed run the automatic fix started again (the plan
+    skips it, waiting for the hand-over) was never handed over and the fix
+    never came. The second attempt reads the pull request's own branch."""
+    for name, job in (("tests.yml", "hand-over"), ("arch.yml", "hand-over")):
+        text = (WORKFLOWS / name).read_text()
+        hand = text.split("\n  %s:\n" % job, 1)[1].split("runs-on:", 1)[0]
+        again = hand.split("github.run_attempt > 1", 1)[1]
+        assert "github.triggering_actor == 'github-actions[bot]'" in again, name
+        assert "startsWith((github.head_ref || github.ref_name), 'automation/update/')" in again, name
+        assert "(github.head_ref || github.ref_name) == 'automation/autofix-main'" in again, name
+        # a bare github.ref_name would be "<number>/merge" on a pull request
+        assert "github.ref_name" not in again.replace("(github.head_ref || github.ref_name)", ""), name
+
+
 def test_failures_of_tests_the_automation_started_reach_the_fix(monkeypatch):
     """2026-11-19: runs started with GITHUB_TOKEN send no workflow_run, so the
     second attempt never came and a failing maintenance candidate never reached
@@ -2023,7 +2058,10 @@ def test_no_dead_parts_in_the_workflows():
     assert callers == []
     env = (ROOT / ".github/actions/ike-test-env/action.yml").read_text()
     users = [p.name for p in WORKFLOWS.glob("*.yml") if "uses: ./.github/actions/ike-test-env" in p.read_text()]
-    assert sorted(users) == ["security.yml", "tests.yml"]      # 1.1.18: the sandbox job uses it too
+    # 1.1.18: the sandbox job uses it too; part 2 of AUTOMAT: the automatic fix's job try runs the tests
+    # that failed on a fix before the whole suite (a job with no key and a token that only reads)
+    assert sorted(users) == ["autofix.yml", "security.yml", "tests.yml"]
+    assert jobs_of((WORKFLOWS / "autofix.yml").read_text())["try"].count("uses: ./.github/actions/ike-test-env") == 1
     assert "autofix.yml:" not in env and "shared by tests.yml and autofix.yml" not in env
     assert "guard-refused.md" not in (WORKFLOWS / "autofix.yml").read_text()
 
@@ -3378,9 +3416,11 @@ def _arch_run(**kw):
     ([{"name": "Arch Linux", "conclusion": "failure", "steps": []}], "success", "main", "fix", "main", ""),
     # Tests red on the same commit: its own fix handles it
     ([_with_steps("Arch Linux", "Tests (Arch's Qt)")], "failure", "main", "skip", "", "Tests failed"),
-    # Tests without a result: a person looks (no blind fix, no silence)
-    ([_with_steps("Arch Linux", "Tests (Arch's Qt)")], "", "main", "issue", "", "no run"),
-    ([_with_steps("Arch Linux", "Tests (Arch's Qt)")], "running", "main", "issue", "", "running"),
+    # Tests without a result: no blind fix, no silence; looked at again tomorrow (the ids are the old ones)
+    pytest.param([_with_steps("Arch Linux", "Tests (Arch's Qt)")], "", "main", "retry", "", "no run",
+                 id="jobs_12--main-issue--no run"),
+    pytest.param([_with_steps("Arch Linux", "Tests (Arch's Qt)")], "running", "main", "retry", "", "running",
+                 id="jobs_13-running-main-issue--running"),
     # the automation's branches only, as for Tests
     ([_with_steps("Arch Linux", "Tests (Arch's Qt)")], "success", "fix/1.1.20-review", "skip", "", "not one"),
 ])
@@ -3417,7 +3457,7 @@ def test_an_arch_failure_follows_the_rules_of_the_tests():
     p = plan_tool.decide(_arch_run(head_branch="automation/autofix-main", _attempts=1), tests_failed, "87")
     assert (p["action"], p["attempt"], p["push_branch"]) == ("fix", "2", "automation/autofix-main")
     p = plan_tool.decide(_arch_run(head_branch="automation/autofix-main", _attempts=2), tests_failed, "87")
-    assert p["action"] == "issue" and "2 automatic fixes" in p["reason"]
+    assert p["action"] == "retry" and "2 automatic fixes" in p["reason"]
     # the reason names what changed in Arch
     p = plan_tool.decide(_arch_run(_arch_changes=["qt6-webengine 6.140.0-1 -> 6.141.0-1"]), tests_failed, "")
     assert "qt6-webengine 6.140.0-1 -> 6.141.0-1" in p["reason"] and "Tests passed on the same commit" in p["reason"]
@@ -3582,7 +3622,7 @@ def test_the_failure_of_arch_without_a_green_run_or_with_tests_red(monkeypatch, 
     assert "## Arch Linux:" not in text
     # no Tests result: an issue for a person, with what Arch changed
     plan, text, asked = _arch_main(monkeypatch, tmp_path, capsys, tests="cancelled")
-    assert plan["action"] == "issue" and plan["kind"] == "" and "no run" in plan["reason"]
+    assert plan["action"] == "retry" and plan["kind"] == "" and "no run" in plan["reason"]
     assert "- qt6-webengine 6.140.0-1 -> 6.141.0-1\n" in text
 
 

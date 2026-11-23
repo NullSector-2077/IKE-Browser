@@ -1028,6 +1028,21 @@
 "Open selected text with middle click": "Ouvrir le texte sélectionné avec le clic du milieu",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "Le clic du milieu sur une partie vide d'une page ouvre le texte que vous avez sélectionné, comme adresse ou comme recherche.",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Le DNS chiffré ne répond pas aux requêtes propres d'I.K.E. (mises à jour, listes de filtres) : %s",
-"Shared by %d tabs of this site": "Partagé par %d onglets de ce site"
+"Shared by %d tabs of this site": "Partagé par %d onglets de ce site",
+"If you download it anyway, it is at your own risk.": "Si vous le téléchargez quand même, c'est à vos risques.",
+"Download anyway": "Télécharger quand même",
+"Open image in %s": "Ouvrir l'image dans %s",
+"Open with %s": "Ouvrir avec %s",
+"Open the page source in %s": "Ouvrir le code source de la page dans %s",
+"Add to calendar": "Ajouter au calendrier",
+"Show in folder": "Afficher dans le dossier",
+"No app of the desktop could open %s.": "Aucune application du bureau n'a pu ouvrir %s.",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "I.K.E. a arrêté le téléchargement de %s : la page est sécurisée (https), mais le fichier arriverait sans protection (http). Quelqu'un sur le réseau pourrait le lire ou le remplacer.",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "%s est un programme ou un script, et %s figure sur les listes de protection d'I.K.E. (sites qui propagent des logiciels malveillants). Il pourrait nuire à cet ordinateur.",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s est un programme ou un script, et vous n'avez jamais visité %s auparavant. Ne le téléchargez que si vous faites confiance au site.",
+"Site storage: %d": "Stockage du site : %d",
+"Cache: %d": "Cache : %d",
+"Permissions kept: %s": "Autorisations conservées : %s",
+"Not secure": "Non sécurisé"
 }
 }

@@ -1,0 +1,18 @@
+! Title: I.K.E. no-regression fixture, in place of uBlock filters
+! A small fixed sample of rules in the forms uBlock filters uses (uBlock Origin's uAssets, GPL-3.0-or-later), for
+! tools/no-regression.py only: the same rules on main and on a candidate, so
+! what changes between the two is I.K.E.'s code and engine, never the list.
+! Not a list to use.
+||youtube.com/api/stats/ads^$xhr
+||googlevideo.com/videoplayback*&ctier=L&*&oad=$xhr,media,domain=youtube.com
+www.youtube.com##+js(json-prune, playerResponse.adPlacements playerResponse.playerAds playerResponse.adSlots adPlacements playerAds adSlots)
+www.youtube.com##+js(set, ytInitialPlayerResponse.playerAds, undefined)
+www.youtube.com##+js(set, ytInitialPlayerResponse.adPlacements, undefined)
+m.youtube.com,music.youtube.com,www.youtube.com,youtube-nocookie.com##+js(set, ytInitialPlayerResponse.adSlots, undefined)
+youtube.com##+js(json-prune, entries.[-].command.reelWatchEndpoint.adClientParams.isAd)
+news.example##+js(set-constant, canRunAds, true)
+news.example##+js(abort-on-property-read, adblockDetector)
+shop.example##+js(no-setTimeout-if, adblock)
+||popads.net^
+||popcash.net^$all
+*$script,3p,domain=popups.example

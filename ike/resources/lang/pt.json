@@ -1028,6 +1028,21 @@
 "Open selected text with middle click": "Abrir o texto selecionado com o clique do meio",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "O clique do meio em uma parte vazia da página abre o texto selecionado, como endereço ou como pesquisa.",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "O DNS criptografado não responde às solicitações do próprio I.K.E. (atualizações, listas de filtros): %s",
-"Shared by %d tabs of this site": "Compartilhado por %d abas deste site"
+"Shared by %d tabs of this site": "Compartilhado por %d abas deste site",
+"If you download it anyway, it is at your own risk.": "Se você baixá-lo mesmo assim, será por sua conta e risco.",
+"Download anyway": "Baixar mesmo assim",
+"Open image in %s": "Abrir imagem no %s",
+"Open with %s": "Abrir com %s",
+"Open the page source in %s": "Abrir o código-fonte da página no %s",
+"Add to calendar": "Adicionar ao calendário",
+"Show in folder": "Mostrar na pasta",
+"No app of the desktop could open %s.": "Nenhum aplicativo da área de trabalho conseguiu abrir %s.",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "O I.K.E. interrompeu o download de %s: a página é segura (https), mas o arquivo chegaria sem proteção (http). Alguém na rede poderia lê-lo ou substituí-lo.",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "%s é um programa ou script, e %s está nas listas de proteção do I.K.E. (sites que espalham malware). Pode prejudicar este computador.",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s é um programa ou script, e você nunca visitou %s antes. Baixe-o somente se confiar no site.",
+"Site storage: %d": "Armazenamento do site: %d",
+"Cache: %d": "Cache: %d",
+"Permissions kept: %s": "Permissões mantidas: %s",
+"Not secure": "Não seguro"
 }
 }

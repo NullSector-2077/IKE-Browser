@@ -1028,6 +1028,21 @@
 "Open selected text with middle click": "Открывать выделенный текст средним щелчком",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "Средний щелчок на пустом месте страницы открывает выделенный текст как адрес или как поисковый запрос.",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Зашифрованный DNS не отвечает на собственные запросы I.K.E. (обновления, списки фильтров): %s",
-"Shared by %d tabs of this site": "Общий для вкладок этого сайта: %d"
+"Shared by %d tabs of this site": "Общий для вкладок этого сайта: %d",
+"If you download it anyway, it is at your own risk.": "Если вы всё же скачаете его, это на ваш страх и риск.",
+"Download anyway": "Всё равно скачать",
+"Open image in %s": "Открыть изображение в %s",
+"Open with %s": "Открыть с помощью %s",
+"Open the page source in %s": "Открыть исходный код страницы в %s",
+"Add to calendar": "Добавить в календарь",
+"Show in folder": "Показать в папке",
+"No app of the desktop could open %s.": "Ни одно приложение рабочего стола не смогло открыть %s.",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "I.K.E. остановил загрузку %s: страница защищена (https), но файл пришёл бы без защиты (http). Кто-то в сети мог бы прочитать или подменить его.",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "%s — это программа или скрипт, а %s есть в списках защиты I.K.E. (сайты, распространяющие вредоносные программы). Он может навредить этому компьютеру.",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s — это программа или скрипт, а вы никогда раньше не посещали %s. Скачивайте его, только если доверяете сайту.",
+"Site storage: %d": "Хранилище сайта: %d",
+"Cache: %d": "Кэш: %d",
+"Permissions kept: %s": "Сохранённые разрешения: %s",
+"Not secure": "Не защищено"
 }
 }

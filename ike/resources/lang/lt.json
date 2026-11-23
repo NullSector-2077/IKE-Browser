@@ -1028,6 +1028,21 @@
 "“Send to device” with KDE Connect": "„Siųsti į įrenginį“ naudojant KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ pasirinkti, Enter eiti, Esc uždaryti",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Šifruotas DNS neatsako į paties I.K.E. užklausas (naujiniai, filtrų sąrašai): %s",
-"Shared by %d tabs of this site": "Bendrinama šios svetainės skirtukų: %d"
+"Shared by %d tabs of this site": "Bendrinama šios svetainės skirtukų: %d",
+"If you download it anyway, it is at your own risk.": "Jei vis tiek jį atsisiųsite, tai bus jūsų pačių rizika.",
+"Download anyway": "Vis tiek atsisiųsti",
+"Open image in %s": "Atidaryti paveikslėlį programoje %s",
+"Open with %s": "Atidaryti su %s",
+"Open the page source in %s": "Atidaryti puslapio kodą programoje %s",
+"Add to calendar": "Pridėti į kalendorių",
+"Show in folder": "Rodyti aplanke",
+"No app of the desktop could open %s.": "Nė viena darbalaukio programa negalėjo atidaryti %s.",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "I.K.E. sustabdė %s atsisiuntimą: puslapis saugus (https), bet failas atkeliautų be apsaugos (http). Kas nors tinkle galėtų jį perskaityti ar pakeisti.",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "%s yra programa arba scenarijus, o %s yra I.K.E. apsaugos sąrašuose (svetainės, platinančios kenkėjiškas programas). Tai gali pakenkti šiam kompiuteriui.",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s yra programa arba scenarijus, o svetainėje %s anksčiau niekada nesilankėte. Atsisiųskite, tik jei pasitikite svetaine.",
+"Site storage: %d": "Svetainės saugykla: %d",
+"Cache: %d": "Podėlis: %d",
+"Permissions kept: %s": "Išsaugoti leidimai: %s",
+"Not secure": "Nesaugu"
 }
 }

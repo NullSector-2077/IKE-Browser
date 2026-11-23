@@ -53,6 +53,31 @@
 # workflow change it wanted is kept as a written proposal in the report for a
 # person (WP12), never pushed.
 #
+# AUTOMAT part 2 (2026-11-23):
+#   recipes  (no AI)   in the job fix, before any AI: a fix that already solved this very error, a symbol
+#                      the upstream change renamed, a builder's patch re-anchored
+#                      (tools/automat-recipes.py); an AI is asked only when none applies or its result fails
+#   budget             every call is counted against the provider's free quota (tools/ai-quota.py and
+#                      its data tools/ai-quota.json; today's use on the data branch automat/memory): a
+#                      provider spent today is not asked, and a fix is not started unless two other
+#                      providers (three for tier B) keep room to review it
+#   inner loop         the answer must be the strict patch format; Python is compiled (never run),
+#                      JavaScript parsed, the wrapper compiled by cargo check (a user of its own with no
+#                      key and no network), the checker with the static guard and the lint read it, and
+#                      what they find goes back to the same AI (tools/autofix-inner.py)
+#   try      (no AI, no key, no token that writes) the tests that failed, on the accepted fix, before
+#                      the whole suite: when they still fail the fix is not pushed and the same AI gets
+#                      their output (job again: at most three rounds)
+#   adopt    (no AI)   only with the owner's repository variable AUTOMAT_CHATGPT_AUTOMERGE = on, and
+#                      started by tools/automerge.py: ChatGPT's own diff, read from its pull request,
+#                      takes the place of the job fix; the guard checks it as an AI's patch
+#   help     (no AI)   the notice "DEVI AIUTARCI CON CHATGPT" after AUTOMAT_CHATGPT_AFTER (default 4)
+#                      failed attempts in a row on one error, or two days without any free provider
+#                      (tools/automat-help.py): one issue per error, edited, closed when a fix lands
+# With the owner's repository variable AUTOMAT_TIER_B = on a few tier-B files open in their narrowest
+# form (tools/tier-b.py): a workflow where nothing but a pinned version changes, checked once more
+# before the push. Off, the default: an AI never changes a workflow.
+#
 # At most two automatic fixes for one failure on main (tools/autofix-plan.py). Needs the
 # repository secret GEMINI_API_KEY; the repository variable AUTOFIX_MODEL may
 # choose the model (empty: the CLI's default). See docs/MAINTENANCE.md.
@@ -74,7 +99,7 @@ on:
         required: false
         default: false
       work:
-        description: "Set by the daily check: lists/<date>/<finding> or run/<id> (tools/ai-work.py); by the daily maintenance: builder/<id>/<date> (WP11)"
+        description: "Set by the daily check: lists/<date>/<finding> or run/<id> (tools/ai-work.py); by the daily maintenance: builder/<id>/<date> (WP11); by the merge: refused/<sha>, chatgpt/<pr>/<sha>; by this workflow: inner/<run>/<run>/<round>"
         required: false
         default: ""
 
@@ -124,6 +149,13 @@ jobs:
       unavailable: ${{ steps.providers.outputs.unavailable }}
       builder: ${{ steps.plan.outputs.builder }}
       first: ${{ steps.plan.outputs.first }}
+      # AUTOMAT part 2
+      adopt: ${{ steps.plan.outputs.adopt }}
+      adopt_sha: ${{ steps.plan.outputs.adopt_sha }}
+      adopt_base: ${{ steps.plan.outputs.adopt_base }}
+      round: ${{ steps.plan.outputs.round }}
+      task: ${{ steps.plan.outputs.task }}
+      order: ${{ steps.plan.outputs.order }}
     steps:
       - name: Check out main (all branches, no credentials)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -138,20 +170,118 @@ jobs:
           RUN_ID: ${{ github.event.inputs.run_id || github.event.workflow_run.id }}
           EVENT: ${{ github.event_name }}
           WORK: ${{ github.event.inputs.work }}
+          # the owner's switch (a repository variable; default off): a ChatGPT fix may be adopted
+          AUTOMAT_CHATGPT_AUTOMERGE: ${{ vars.AUTOMAT_CHATGPT_AUTOMERGE }}
         run: |
           mkdir -p "$RUNNER_TEMP/failure"
           # the daily check's work (tools/ai-work.py), only in its own forms
-          if ! printf '%s' "$WORK" | grep -Eq '^(lists/[0-9]{4}-[0-9]{2}-[0-9]{2}/lists/[a-z-]+/[a-z0-9.-]+@[a-z]+|run/[0-9]{1,20}|builder/(darkreader|ubo-scriptlets)/[0-9]{4}-[0-9]{2}-[0-9]{2})$'; then
+          if ! printf '%s' "$WORK" | grep -Eq '^(lists/[0-9]{4}-[0-9]{2}-[0-9]{2}/lists/[a-z-]+/[a-z0-9.-]+@[a-z]+|run/[0-9]{1,20}|builder/(darkreader|ubo-scriptlets)/[0-9]{4}-[0-9]{2}-[0-9]{2}|chatgpt/[0-9]{1,8}/[0-9a-f]{40}|inner/[0-9]{1,20}/[0-9]{1,20}/[23]|refused/[0-9a-f]{40})$'; then
             WORK=""
           fi
-          if [ "${WORK#lists/}" != "$WORK" ]; then
+          round=""
+          previous=""
+          if [ "${WORK#inner/}" != "$WORK" ]; then
+            # AUTOMAT part 2, the inner loop: the next round of an attempt whose fix still failed the tests it
+            # was meant to fix (job try). The same failed run is planned again; the fix just tried and the
+            # tests' output after it are added below, as data, and the same AI goes first
+            RUN_ID=$(printf '%s' "$WORK" | cut -d/ -f2)
+            previous=$(printf '%s' "$WORK" | cut -d/ -f3)
+            round=$(printf '%s' "$WORK" | cut -d/ -f4)
+            WORK=""
+            EVENT=workflow_dispatch
+          fi
+          if [ "${WORK#chatgpt/}" != "$WORK" ]; then
+            # AUTOMAT part 2: a ChatGPT fix adopted (only with the owner's switch, checked by the tool too)
+            python3 -I tools/autofix-plan.py --chatgpt-work "$WORK" --out-dir "$RUNNER_TEMP/failure"
+          elif [ "${WORK#lists/}" != "$WORK" ]; then
             python3 -I tools/filter-lists.py plan --run-id "$RUN_ID" --work "$WORK" --out-dir "$RUNNER_TEMP/failure"
+          elif [ "${WORK#refused/}" != "$WORK" ]; then
+            # AUTOMAT: a fix that passed its tests but was refused (the verified merge's static guard, the AI
+            # reviewers): the next attempt on its branch, with the reasons (tools/autofix-plan.py)
+            python3 -I tools/autofix-plan.py --refused-work "$WORK" --run-id "$RUN_ID" --out-dir "$RUNNER_TEMP/failure"
           elif [ "${WORK#builder/}" != "$WORK" ]; then
             # WP11: a builder refused a new upstream version (the daily maintenance's report)
             python3 -I tools/autofix-plan.py --builder-work "$WORK" --run-id "$RUN_ID" --out-dir "$RUNNER_TEMP/failure"
           else
             python3 -I tools/autofix-plan.py --run-id "$RUN_ID" --logs "$RUNNER_TEMP/failure/failure.md" \
               --event "$EVENT"
+          fi
+          # AUTOMAT: one problem per attempt (the failing tests grouped by their error, by code: the attempt is
+          # asked to fix only the first group, the next attempt takes the next one)
+          if [ -s "$RUNNER_TEMP/failure/failure.md" ]; then
+            python3 -I tools/automat-memory.py focus --failure "$RUNNER_TEMP/failure/failure.md" \
+              --out "$RUNNER_TEMP/focus.md" || true
+            if [ -s "$RUNNER_TEMP/focus.md" ]; then cat "$RUNNER_TEMP/focus.md" >> "$RUNNER_TEMP/failure/failure.md"; fi
+          fi
+          # AUTOMAT's memory of attempts (tools/automat-memory.py; the data branch automat/memory, written only
+          # by the job remember below): what was already tried for this error, and what solved a similar one,
+          # goes into the failure description as quoted data; the rotation prefers a provider that has not
+          # failed this error yet
+          if [ -s "$RUNNER_TEMP/failure/failure.md" ] && \
+             git show "origin/automat/memory:memory.json" > "$RUNNER_TEMP/memory.json" 2> /dev/null; then
+            component=$(sed -n 's/^push_branch=//p' "$GITHUB_OUTPUT" | tail -n 1)
+            first=$(sed -n 's/^first=//p' "$GITHUB_OUTPUT" | tail -n 1)
+            if [ -n "$first" ]; then
+              better=$(python3 -I tools/automat-memory.py first --memory "$RUNNER_TEMP/memory.json" \
+                         --component "$component" --failure "$RUNNER_TEMP/failure/failure.md" \
+                         --default "$first" --names "Antigravity,Groq,Z.AI,OpenRouter" || true)
+              case "$better" in Antigravity|Groq|Z.AI|OpenRouter) echo "first=$better" >> "$GITHUB_OUTPUT" ;; esac
+            fi
+            python3 -I tools/automat-memory.py prompt --memory "$RUNNER_TEMP/memory.json" --component "$component" \
+              --failure "$RUNNER_TEMP/failure/failure.md" --out "$RUNNER_TEMP/memory.md" || true
+            if [ -s "$RUNNER_TEMP/memory.md" ]; then cat "$RUNNER_TEMP/memory.md" >> "$RUNNER_TEMP/failure/failure.md"; fi
+          fi
+          adopt=$(sed -n 's/^adopt=//p' "$GITHUB_OUTPUT" | tail -n 1)
+          action=$(sed -n 's/^action=//p' "$GITHUB_OUTPUT" | tail -n 1)
+          # (a round of the inner loop is counted whatever could be read of the round before it: never more
+          # than three rounds for one attempt)
+          if [ -n "$round" ]; then echo "round=$round" >> "$GITHUB_OUTPUT"; fi
+          if [ -s "$RUNNER_TEMP/failure/failure.md" ] && [ -z "$adopt" ] && [ "$action" = "fix" ]; then
+            component=$(sed -n 's/^push_branch=//p' "$GITHUB_OUTPUT" | tail -n 1)
+            attempt=$(sed -n 's/^attempt=//p' "$GITHUB_OUTPUT" | tail -n 1)
+            mode=$(sed -n 's/^mode=//p' "$GITHUB_OUTPUT" | tail -n 1)
+            # AUTOMAT part 2: the kind of task and the order of the free providers for it (hard ones to the
+            # strongest first, simple ones to the fast ones; the success rate AUTOMAT's memory measured per
+            # provider and kind of task; one that failed this very error last): tools/automat-route.py
+            remembered=""
+            if [ -s "$RUNNER_TEMP/memory.json" ]; then remembered="--memory $RUNNER_TEMP/memory.json"; fi
+            python3 -I tools/automat-route.py plan --failure "$RUNNER_TEMP/failure/failure.md" --mode "$mode" \
+              $remembered --component "$component" --attempt "${attempt:-1}" > "$RUNNER_TEMP/route.txt" || true
+            task=$(sed -n 's/^task=//p' "$RUNNER_TEMP/route.txt" | tail -n 1)
+            order=$(sed -n 's/^order=//p' "$RUNNER_TEMP/route.txt" | tail -n 1)
+            if printf '%s' "$task" | grep -Eq '^[a-z-]{1,20}$'; then echo "task=$task" >> "$GITHUB_OUTPUT"; fi
+            if printf '%s' "$order" | grep -Eq '^(Antigravity|Groq|Z\.AI|OpenRouter)(,(Antigravity|Groq|Z\.AI|OpenRouter)){0,3}$'; then
+              echo "order=$order" >> "$GITHUB_OUTPUT"
+              echo "first=${order%%,*}" >> "$GITHUB_OUTPUT"
+            fi
+            # the inner loop's next round: the fix just tried and the failing tests after it, and its author first
+            if [ -n "$round" ]; then
+              python3 -I tools/autofix-inner.py round --repo "$GITHUB_REPOSITORY" --run "$previous" --round "$round" \
+                --out "$RUNNER_TEMP/round.md" --author "$RUNNER_TEMP/round-author" || true
+              if [ -s "$RUNNER_TEMP/round.md" ]; then
+                cat "$RUNNER_TEMP/round.md" >> "$RUNNER_TEMP/failure/failure.md"
+                same=$(cat "$RUNNER_TEMP/round-author" 2> /dev/null || true)
+                case "$same" in
+                  Antigravity|Groq|Z.AI|OpenRouter)
+                    # the same AI first, the others after it in the order of the task
+                    rest=$(printf '%s' "$order" | tr ',' '\n' | grep -vx "$same" | paste -sd, - || true)
+                    echo "first=$same" >> "$GITHUB_OUTPUT"
+                    echo "order=$same${rest:+,$rest}" >> "$GITHUB_OUTPUT"
+                    ;;
+                esac
+              fi
+            fi
+            # what the authors of the updated component changed between the two versions (crates, Dark
+            # Reader, uBlock Origin's scriptlets, PyPI), cut to a budget and quoted as data; and, for the
+            # recipes, the renames a program is sure of (tools/upstream-diff.py; GET calls only)
+            case "$component" in
+              automation/update/*|automation/builder/*)
+                python3 -I tools/upstream-diff.py --repo-dir . --branch "$component" \
+                  --failure "$RUNNER_TEMP/failure/failure.md" --out "$RUNNER_TEMP/upstream.md" \
+                  --json "$RUNNER_TEMP/failure/upstream.json" || true
+                if [ -s "$RUNNER_TEMP/upstream.md" ]; then cat "$RUNNER_TEMP/upstream.md" >> "$RUNNER_TEMP/failure/failure.md"; fi
+                ;;
+            esac
           fi
           echo "work=${WORK:-run/$RUN_ID}" >> "$GITHUB_OUTPUT"
       # WP9: the providers the last weekly check found not free (tools/provider-check.py,
@@ -217,10 +347,11 @@ jobs:
 
   fix:
     needs: plan
-    if: needs.plan.outputs.action == 'fix'
+    # (a ChatGPT fix that is adopted is not written here: the job adopt reads it)
+    if: needs.plan.outputs.action == 'fix' && needs.plan.outputs.adopt == ''
     runs-on: ubuntu-24.04
-    # above the two long steps together (32 + 20 minutes) and the set-up
-    timeout-minutes: 70
+    # above the long steps together (Antigravity 32, the reserves 20, the recipes 12, cargo's user 10) and the set-up
+    timeout-minutes: 90
     concurrency:
       group: autofix-fix-${{ needs.plan.outputs.push_branch }}
       cancel-in-progress: false
@@ -245,6 +376,19 @@ jobs:
           done
           # WP11: the builders' re-anchoring rule, which the checker reads beside itself
           git show "origin/main:tools/builder-anchor.py" > "$RUNNER_TEMP/builder-anchor.py"
+          # AUTOMAT: the static guard and the component manifest's rules, which the checker reads beside itself
+          for f in fix-guard.py component-manifest.py; do git show "origin/main:tools/$f" > "$RUNNER_TEMP/$f"; done
+          # AUTOMAT part 2: the narrow form of tier B (and the pins' rule it reuses), the budget of the free
+          # quotas with its data, the routing, AUTOMAT's memory, the inner loop and the recipes
+          for f in tier-b.py ci-pins.py ai-quota.py ai-quota.json automat-route.py automat-memory.py \
+                   autofix-inner.py automat-recipes.py; do
+            git show "origin/main:tools/$f" > "$RUNNER_TEMP/$f"
+          done
+          # the data branch (never merged into main; written only by the jobs remember): AUTOMAT's memory
+          # and today's use of the free quotas. Read, never written here
+          for f in memory.json quota.json; do
+            git show "origin/automat/memory:$f" > "$RUNNER_TEMP/$f" 2> /dev/null || rm -f "$RUNNER_TEMP/$f"
+          done
       - name: Failure description
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -263,7 +407,33 @@ jobs:
           HAS_GROQ: ${{ secrets.GROQ_API_KEY != '' }}
           HAS_ZAI: ${{ secrets.ZAI_API_KEY != '' }}
           HAS_OPENROUTER: ${{ secrets.OPENROUTER_API_KEY != '' }}
+          HAS_GEMINI: ${{ secrets.GEMINI_API_KEY != '' }}
+          # AUTOMAT part 2
+          ORDER: ${{ needs.plan.outputs.order }}
+          TASK: ${{ needs.plan.outputs.task }}
+          PUSH_BRANCH: ${{ needs.plan.outputs.push_branch }}
+          # the owner's switch (a repository variable; default off): tier B in its narrowest form
+          AUTOMAT_TIER_B: ${{ vars.AUTOMAT_TIER_B }}
         run: |
+          # AUTOMAT part 2: the order of the providers for this kind of task, the branch whose share of the
+          # quota this run uses, who could review a fix (the providers with a key: the reserve of the
+          # budget), the fingerprints of the patches that already failed for this error, the owner's switch
+          printf '%s' "$ORDER" | tr -cd 'A-Za-z.,' > "$RUNNER_TEMP/order"
+          printf '%s' "$TASK" | tr -cd 'a-z-' > "$RUNNER_TEMP/task"
+          printf '%s' "$PUSH_BRANCH" | tr -cd 'A-Za-z0-9._/-' > "$RUNNER_TEMP/candidate"
+          reviewers=""
+          if [ "$HAS_GEMINI" = "true" ]; then reviewers="Antigravity"; fi
+          if [ "$HAS_GROQ" = "true" ]; then reviewers="$reviewers,Groq"; fi
+          if [ "$HAS_ZAI" = "true" ]; then reviewers="$reviewers,Z.AI"; fi
+          if [ "$HAS_OPENROUTER" = "true" ]; then reviewers="$reviewers,OpenRouter"; fi
+          printf '%s' "${reviewers#,}" > "$RUNNER_TEMP/reviewers"
+          : > "$RUNNER_TEMP/tried"
+          if [ -s "$RUNNER_TEMP/memory.json" ]; then
+            python3 -I "$RUNNER_TEMP/automat-memory.py" tried --memory "$RUNNER_TEMP/memory.json" \
+              --component "$(cat "$RUNNER_TEMP/candidate")" --failure "$GITHUB_WORKSPACE/.autofix/failure.md" \
+              | grep -E '^[0-9a-f]{16}$' > "$RUNNER_TEMP/tried" || true
+          fi
+          if [ "$(printf '%s' "$AUTOMAT_TIER_B" | tr 'A-Z' 'a-z' | tr -d ' ')" = "on" ]; then touch "$RUNNER_TEMP/tier-b"; fi
           if [ "$MODE" = "lists" ]; then echo lists > "$RUNNER_TEMP/lists-mode"; fi
           printf '%s' "$UNAVAILABLE" | tr -cd 'A-Za-z.,' > "$RUNNER_TEMP/unavailable"
           # WP11: the builders' re-anchoring, that builder only
@@ -499,12 +669,97 @@ jobs:
           # the ruff of the tests (tools/test-requirements.txt), only a version number taken from it
           v=$(grep -oE '^ruff==[0-9][0-9.]*$' "$GITHUB_WORKSPACE/tools/test-requirements.txt" | head -1)
           python3 -m pip install --disable-pip-version-check -q "${v:-ruff}"
+      # AUTOMAT part 2, the inner loop: `cargo check` compiles a change of the engine's wrapper before any
+      # test. It runs the build scripts of the crates, which are other people's code, so it never runs next
+      # to a key: a user of its own ("checker": no sudo, no network at all, nothing of the runner's), the
+      # crates fetched before by the runner (cargo fetch runs nobody's code), then offline. When this step
+      # cannot be set up nothing is refused: cargo check is simply not run (GitHub's tests compile it later).
+      - name: A user with no key and no network for cargo check
+        if: needs.plan.outputs.allow_adblock == 'true' || needs.plan.outputs.mode == 'lists'
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          sudo useradd --create-home --user-group --shell /bin/sh checker
+          sudo iptables -N CHECKER
+          sudo iptables -A CHECKER -j REJECT
+          sudo iptables -I OUTPUT 1 -m owner --uid-owner checker -j CHECKER
+          sudo ip6tables -N CHECKER
+          sudo ip6tables -A CHECKER -j REJECT
+          sudo ip6tables -I OUTPUT 1 -m owner --uid-owner checker -j CHECKER
+          if sudo -u checker curl -s -m 5 -o /dev/null https://1.1.1.1; then
+            echo "::warning::the checker user can reach the network: cargo check is not run"; exit 1
+          fi
+          if sudo -u checker sudo -n true 2> /dev/null; then
+            echo "::warning::the checker user has sudo: cargo check is not run"; exit 1
+          fi
+          rustup toolchain install stable --profile minimal --no-self-update
+          rustup default stable
+          sudo cp -a "$(rustc --print sysroot)" /srv/autofix/rust
+          sudo install -d -o "$(id -un)" -m 755 /srv/autofix/cargo-home
+          env -i PATH="/srv/autofix/rust/bin:/usr/bin:/bin" HOME="$HOME" CARGO_HOME=/srv/autofix/cargo-home \
+            cargo fetch --locked --manifest-path /srv/autofix/repo/ike-adblock/Cargo.toml
+          sudo chown -R checker:checker /srv/autofix/cargo-home
+          sudo chmod -R a+rX /srv/autofix/rust
+          sudo install -d -o checker -g checker -m 755 /srv/autofix/target
+          printf '%s' 'sudo -u checker -H env -i PATH=/srv/autofix/rust/bin:/usr/bin:/bin HOME=/home/checker CARGO_HOME=/srv/autofix/cargo-home CARGO_TARGET_DIR=/srv/autofix/target cargo' \
+            > "$RUNNER_TEMP/cargo-cmd"
+      # AUTOMAT part 2: deterministic recipes before any AI is asked (tools/automat-recipes.py, no key in
+      # this step): a fix that already solved this very error, a symbol the upstream change renamed, a
+      # builder's patch re-anchored. What a recipe makes is checked here as an AI's fix is, and again by
+      # the next step and the guard; when none applies, or its result is refused, the AIs are asked as before.
+      - name: Recipes before any AI (no AI, no key)
+        id: recipes
+        continue-on-error: true
+        timeout-minutes: 12
+        env:
+          ALLOW_ADBLOCK: ${{ needs.plan.outputs.allow_adblock }}
+          SECURITY: ${{ needs.plan.outputs.security }}
+        run: |
+          out="$RUNNER_TEMP/autofix"
+          repo=/srv/autofix/repo
+          mkdir -p "$out"
+          # the same rules as the AIs' fixes get from the checker (the static guard always)
+          rules="--auto"
+          case "$ALLOW_ADBLOCK" in true) rules="$rules --allow-adblock" ;; esac
+          case "$SECURITY" in true) rules="$rules --security" ;; esac
+          test ! -f "$RUNNER_TEMP/lists-mode" || rules="$rules --lists"
+          test ! -s "$RUNNER_TEMP/builder" || rules="$rules --builder $(cat "$RUNNER_TEMP/builder")"
+          test ! -f "$RUNNER_TEMP/tier-b" || rules="$rules --tier-b"
+          remembered=""
+          if [ -s "$RUNNER_TEMP/memory.json" ]; then remembered="--memory $RUNNER_TEMP/memory.json"; fi
+          upstream=""
+          if [ -s "$GITHUB_WORKSPACE/.autofix/upstream.json" ]; then upstream="--upstream $GITHUB_WORKSPACE/.autofix/upstream.json"; fi
+          python3 -I "$RUNNER_TEMP/automat-recipes.py" --workdir "$repo" --failure "$RUNNER_TEMP/autofix-inputs/failure.md" \
+            --status "$out/recipe.json" $remembered $upstream --component "$(cat "$RUNNER_TEMP/candidate")" \
+            --related "$out/related.txt" --checker "$RUNNER_TEMP/check-autofix-patch.py" $rules --lint \
+            --tried "$RUNNER_TEMP/tried" --cargo-cmd "$(cat "$RUNNER_TEMP/cargo-cmd" 2> /dev/null || true)" \
+            || echo "::warning::the recipes stopped: the AIs are asked as usual"
+          recipe=$(python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["recipe"] if d.get("result") == "ok" else "")' "$out/recipe.json" 2> /dev/null || true)
+          case "$recipe" in
+            remembered-fix|renamed-symbol|re-anchor)
+              # kept as the fix of this attempt: the next steps check it once more; no AI is asked
+              printf '{"result": "ok", "model": "%s", "message": "", "detail": "", "author": "Recipe / %s"}' \
+                "$recipe" "$recipe" > "$out/status.json"
+              cp "$repo/.autofix/summary.md" "$RUNNER_TEMP/agent-summary.md"
+              touch "$RUNNER_TEMP/agent-scanned"
+              echo "applied=true" >> "$GITHUB_OUTPUT"
+              echo "A recipe made the fix ($recipe): no AI is asked"
+              ;;
+            *)
+              # no recipe: the AIs start from the commit as it is, whatever a recipe left half done
+              rm -f "$out/status.json"
+              "$RUNNER_TEMP/rgit" checkout -q -- .
+              "$RUNNER_TEMP/rgit" clean -q -fd -e .autofix
+              ;;
+          esac
       # Antigravity alone, with the Gemini key only (1.1.18: the reserves' keys
       # are not in this step). Model after model, at most 25 minutes in all
       # (tools/autofix-agent.py); the step's own limit is above that, and when
       # it is reached anyway the next step throws the agent's work away.
       - name: Antigravity
         id: antigravity
+        # (not when a recipe already made the fix: no AI is asked then)
+        if: steps.recipes.outputs.applied != 'true'
         timeout-minutes: 32
         continue-on-error: true
         env:
@@ -522,6 +777,16 @@ jobs:
           if [ -f "$RUNNER_TEMP/security-finding" ]; then allow="$allow --security"; fi
           if [ -f "$RUNNER_TEMP/lists-mode" ]; then allow="$allow --lists"; fi
           if [ -s "$RUNNER_TEMP/builder" ]; then allow="$allow --builder $(cat "$RUNNER_TEMP/builder")"; fi
+          # AUTOMAT: this fix may reach main by itself, so the static guard reads it too (tools/fix-guard.py)
+          allow="$allow --auto"
+          # AUTOMAT part 2: the owner's switch (tier B in its narrowest form), and the budget of Gemini's
+          # free quota: a session is not started when the quota is spent today, this candidate used its
+          # share, or no room would be left for the reviewers (tools/ai-quota.py)
+          if [ -f "$RUNNER_TEMP/tier-b" ]; then allow="$allow --tier-b"; fi
+          quota="--quota-limits $RUNNER_TEMP/ai-quota.json --quota-usage $out/usage-agent.json"
+          if [ -s "$RUNNER_TEMP/quota.json" ]; then quota="$quota --quota-state $RUNNER_TEMP/quota.json"; fi
+          AUTOFIX_REVIEWERS="$(cat "$RUNNER_TEMP/reviewers" 2> /dev/null || true)"
+          export AUTOFIX_REVIEWERS
           first=""
           if [ -s "$RUNNER_TEMP/first" ]; then first="--first $(cat "$RUNNER_TEMP/first")"; fi
           AUTOFIX_UNAVAILABLE="$(cat "$RUNNER_TEMP/unavailable" 2> /dev/null || true)"
@@ -533,7 +798,7 @@ jobs:
             exit 0
           fi
           python3 -I "$RUNNER_TEMP/autofix-agent.py" --workdir "$repo" --prompt "$RUNNER_TEMP/prompt.md" \
-            --out "$out" --status "$out/status.json" $allow $first \
+            --out "$out" --status "$out/status.json" $allow $first $quota --candidate "$(cat "$RUNNER_TEMP/candidate")" \
             --agent-cmd "sudo -u agent --preserve-env=GEMINI_API_KEY /opt/autofix/run-agent.sh"
           # the agent is done: nothing of it keeps running or starts again, and the
           # tree is the runner's again, writable by nobody else
@@ -615,10 +880,16 @@ jobs:
           if [ "$SECURITY" = "true" ]; then allow="$allow --security"; fi
           if [ -f "$RUNNER_TEMP/lists-mode" ]; then allow="$allow --lists"; fi
           if [ -s "$RUNNER_TEMP/builder" ]; then allow="$allow --builder $(cat "$RUNNER_TEMP/builder")"; fi
+          # AUTOMAT: this fix may reach main by itself, so the static guard reads it too (tools/fix-guard.py)
+          allow="$allow --auto"
+          # AUTOMAT part 2: the owner's switch (tier B in its narrowest form)
+          if [ -f "$RUNNER_TEMP/tier-b" ]; then allow="$allow --tier-b"; fi
           first=""
           if [ -s "$RUNNER_TEMP/first" ]; then first="--first $(cat "$RUNNER_TEMP/first")"; fi
           AUTOFIX_UNAVAILABLE="$(cat "$RUNNER_TEMP/unavailable" 2> /dev/null || true)"
           export AUTOFIX_UNAVAILABLE
+          AUTOFIX_REVIEWERS="$(cat "$RUNNER_TEMP/reviewers" 2> /dev/null || true)"
+          export AUTOFIX_REVIEWERS
           # also when Antigravity's step ran out of time: nothing of the agent keeps
           # running or starts again, and the tree is the runner's
           "$RUNNER_TEMP/stop-agent"
@@ -679,6 +950,31 @@ jobs:
               result="refused-fix"
             else
               rm -f "$out/refused.md"
+              # AUTOMAT part 2, going in circles: the very change that already failed for this error
+              # (its fingerprint is in AUTOMAT's memory) is not kept a second time
+              ph=$(python3 -I "$RUNNER_TEMP/automat-memory.py" hash --patch "$out/antigravity.patch" || true)
+              if [ -n "$ph" ] && grep -qx "$ph" "$RUNNER_TEMP/tried" 2> /dev/null; then
+                echo "The fix is the very change that already failed for this error: the reserves are told"
+                echo "This exact change was already tried for this error and its tests failed (AUTOMAT's memory): find another way." > "$out/refused.md"
+                result="refused-fix"
+              fi
+              # the cheap checks of the inner loop, on Antigravity's fix too (tools/autofix-inner.py: Python
+              # compiled and never run, node --check, cargo check as the user with no key): what they find
+              # goes to the reserves as the reason
+              touched=$(gitr diff --name-only --no-ext-diff | head -n 20)
+              if [ "$result" = "ok" ] && [ -n "$touched" ] && [ -f "$RUNNER_TEMP/autofix-inner.py" ]; then
+                set +e
+                env -u GROQ_API_KEY -u ZAI_API_KEY -u OPENROUTER_API_KEY python3 -I "$RUNNER_TEMP/autofix-inner.py" check \
+                  --workdir "$repo" --cargo-cmd "$(cat "$RUNNER_TEMP/cargo-cmd" 2> /dev/null || true)" $touched \
+                  > "$out/cheap.txt" 2>&1
+                cheap=$?
+                set -e
+                if [ "$cheap" = "1" ]; then          # (1: a check found something; anything else refuses nothing)
+                  echo "The fix does not pass the cheap checks: the reserves are told why"
+                  { echo "The cheap checks refused the fix:"; echo; tail -c 2500 "$out/cheap.txt"; } > "$out/refused.md"
+                  result="refused-fix"
+                fi
+              fi
               # the lint the guard runs, now: ruff's own safe fixes first (an
               # unused import, the order of imports), then what is left goes to
               # the reserves as the reason
@@ -709,9 +1005,18 @@ jobs:
             if [ -n "$GROQ_API_KEY$ZAI_API_KEY$OPENROUTER_API_KEY" ]; then
               refused=""
               if [ -s "$out/refused.md" ]; then refused="--refused $out/refused.md"; fi
+              # AUTOMAT part 2: the inner loop (strict format, cheap checks, the errors back to the same
+              # model), the budget of the free quotas, the order for this kind of task, the patches that
+              # already failed for this error (tools/autofix-inner.py, ai-quota.py, automat-route.py)
+              more="--inner --quota-limits $RUNNER_TEMP/ai-quota.json --quota-usage $out/usage-reserve.json"
+              if [ -s "$RUNNER_TEMP/quota.json" ]; then more="$more --quota-state $RUNNER_TEMP/quota.json"; fi
+              if [ -s "$RUNNER_TEMP/order" ]; then more="$more --order $(cat "$RUNNER_TEMP/order")"; fi
+              if [ -s "$RUNNER_TEMP/task" ]; then more="$more --task $(cat "$RUNNER_TEMP/task")"; fi
               python3 -I "$RUNNER_TEMP/autofix-reserve.py" --workdir "$repo" --prompt "$RUNNER_TEMP/prompt.md" \
                 --status "$out/reserve.json" --checker "$RUNNER_TEMP/check-autofix-patch.py" \
-                --related "$out/related.txt" $allow $first $refused --lint
+                --related "$out/related.txt" $allow $first $refused --lint $more --tried "$RUNNER_TEMP/tried" \
+                --candidate "$(cat "$RUNNER_TEMP/candidate")" \
+                --cargo-cmd "$(cat "$RUNNER_TEMP/cargo-cmd" 2> /dev/null || true)"
               reserve=$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["result"])' "$out/reserve.json")
               if [ "$reserve" = "ok" ]; then result=ok; fi
               if [ "$reserve" = "refused" ]; then result=refused; fi
@@ -764,8 +1069,19 @@ jobs:
           if blocked.is_file():
               text += "\n\n" + blocked.read_text("utf-8", errors="replace")[:1500]
           (out / "summary.md").write_text(text, "utf-8")
-          for name in ("autofix.patch", "summary.md"):
-              data = (out / name).read_bytes()
+          # who wrote the fix that is kept (the commit's Author line: the AI reviewers must be other providers)
+          import re
+          author = ""
+          if reserve is not None and reserve.get("result") == "ok":
+              author = str(reserve.get("model") or "")
+          elif status.get("result") == "ok":
+              # (a recipe's fix names itself: "Recipe / <name>", written by the step of the recipes)
+              author = str(status.get("author") or "") if str(status.get("author") or "").startswith("Recipe / ") \
+                  else "Antigravity / %s" % (status.get("model") or "?")
+          (out / "author.txt").write_text(re.sub(r"[^A-Za-z0-9._/: ()-]", "", author)[:140] + "\n", "utf-8")
+          for name in ("autofix.patch", "summary.md", "reserve.json", "usage-reserve.json", "usage-agent.json",
+                       "recipe.json"):
+              data = (out / name).read_bytes() if (out / name).is_file() else b""
               if any(v and v in data for v in variants):
                   for f in out.glob("*"):
                       f.unlink()
@@ -789,7 +1105,7 @@ jobs:
               except (OSError, ValueError):
                   return None
           agent, reserve = read("status.json") or {}, read("reserve.json")
-          waiting = agent.get("result") in ("quota", "temporary", "unavailable", "nokey")
+          waiting = agent.get("result") in ("quota", "temporary", "unavailable", "nokey", "budget")
           if reserve is not None:
               waiting = waiting and bool(reserve.get("no_provider"))
           elif agent.get("result") == "nokey":
@@ -809,12 +1125,81 @@ jobs:
             ${{ runner.temp }}/autofix/summary.md
             ${{ runner.temp }}/autofix/related.txt
             ${{ runner.temp }}/autofix/workflow-proposal.patch
+            ${{ runner.temp }}/autofix/author.txt
+            ${{ runner.temp }}/autofix/reserve.json
+            ${{ runner.temp }}/autofix/recipe.json
+            ${{ runner.temp }}/autofix/usage-agent.json
+            ${{ runner.temp }}/autofix/usage-reserve.json
           if-no-files-found: ignore
           retention-days: 14
 
+  # AUTOMAT part 2: a ChatGPT fix adopted (2026-11-23). Only when the owner turned the repository
+  # variable AUTOMAT_CHATGPT_AUTOMERGE on, and only started by tools/automerge.py for a ChatGPT pull
+  # request whose own checks passed (the plan checks the switch and the pull request again). No AI and
+  # no key here: ChatGPT's own changes are read from its pull request as a patch (never run) and take
+  # the place of the job fix. The guard below then checks them exactly as an AI's patch (the checker,
+  # the static guard) and writes the commit "autofix: ..." with "Author: ChatGPT"; from there the fix
+  # needs everything an AI's fix needs before main (the tests, "Nothing gets worse", two reviewers).
+  adopt:
+    needs: plan
+    if: needs.plan.outputs.action == 'fix' && needs.plan.outputs.adopt != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      patch: ${{ steps.diff.outputs.patch }}
+    steps:
+      - name: Check out main (all branches, no credentials)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: ChatGPT's own changes, as a patch (read, never run)
+        id: diff
+        env:
+          ADOPT: ${{ needs.plan.outputs.adopt }}
+          ADOPT_SHA: ${{ needs.plan.outputs.adopt_sha }}
+          ADOPT_BASE: ${{ needs.plan.outputs.adopt_base }}
+          PUSH_BRANCH: ${{ needs.plan.outputs.push_branch }}
+        run: |
+          printf '%s' "$ADOPT" | grep -Eq '^[0-9]{1,8}$'
+          printf '%s' "$ADOPT_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          git fetch -q --no-tags origin "+$ADOPT_SHA:refs/remotes/pr/head"
+          # ChatGPT's own changes only, read as chatgpt-guard.yml reads them: from the closest of main and
+          # the branches of the automation it may start from (the one it answers among them)
+          base=$(git merge-base origin/main refs/remotes/pr/head)
+          for b in automation/autofix-main automation/daily-maintenance "$PUSH_BRANCH" "$ADOPT_BASE"; do
+            case "$b" in automation/*) ;; *) continue ;; esac
+            git rev-parse -q --verify "refs/remotes/origin/$b" > /dev/null || continue
+            mb=$(git merge-base "origin/$b" refs/remotes/pr/head) || continue
+            if git merge-base --is-ancestor "$base" "$mb"; then base=$mb; fi
+          done
+          out="$RUNNER_TEMP/autofix"
+          mkdir -p "$out"
+          git diff --binary --no-ext-diff --no-textconv "$base" refs/remotes/pr/head > "$out/autofix.patch"
+          printf 'ChatGPT\n' > "$out/author.txt"
+          {
+            echo "Correzione scritta da ChatGPT (pull request #$ADOPT), presa in carico da AUTOMAT perché il proprietario ha acceso l'interruttore AUTOMAT_CHATGPT_AUTOMERGE."
+            echo "Qui è stata ricontrollata come una correzione delle AI; prima di entrare in main deve superare i test, \"niente peggiora\" e due AI revisori indipendenti."
+          } > "$out/summary.md"
+          if [ -s "$out/autofix.patch" ]; then echo "patch=true"; else echo "patch=false"; fi >> "$GITHUB_OUTPUT"
+      - name: Keep the patch and the summary
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: autofix-result
+          path: |
+            ${{ runner.temp }}/autofix/autofix.patch
+            ${{ runner.temp }}/autofix/summary.md
+            ${{ runner.temp }}/autofix/author.txt
+          if-no-files-found: error
+          retention-days: 14
+
   guard:
-    needs: [plan, fix]
-    if: needs.fix.outputs.patch == 'true'
+    needs: [plan, fix, adopt]
+    # (the patch of the job fix, or ChatGPT's adopted one: only one of the two jobs runs)
+    if: ${{ !cancelled() && (needs.fix.outputs.patch == 'true' || needs.adopt.outputs.patch == 'true') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     concurrency:
@@ -822,6 +1207,8 @@ jobs:
       cancel-in-progress: false
     permissions:
       contents: read
+    outputs:
+      bundle: ${{ steps.bundle.outputs.sha256 }}
     steps:
       - name: Check out the same commit (no credentials)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -836,7 +1223,8 @@ jobs:
       - name: Checking tools from main, never from the branch being fixed
         run: |
           mkdir -p "$RUNNER_TEMP/trusted"
-          for f in check-autofix-patch.py prepare-maintenance.py builder-anchor.py; do
+          for f in check-autofix-patch.py prepare-maintenance.py builder-anchor.py fix-guard.py component-manifest.py \
+                   tier-b.py ci-pins.py; do
             git show "origin/main:tools/$f" > "$RUNNER_TEMP/trusted/$f"
           done
       - name: Check and apply the patch
@@ -845,6 +1233,8 @@ jobs:
           SECURITY: ${{ needs.plan.outputs.security }}
           MODE: ${{ needs.plan.outputs.mode }}
           BUILDER: ${{ needs.plan.outputs.builder }}
+          # the owner's switch (a repository variable; default off): tier B in its narrowest form
+          AUTOMAT_TIER_B: ${{ vars.AUTOMAT_TIER_B }}
         run: |
           allow=""
           if [ "$ALLOW_ADBLOCK" = "true" ]; then allow="--allow-adblock"; fi
@@ -852,6 +1242,10 @@ jobs:
           if [ "$SECURITY" = "true" ]; then allow="$allow --security"; fi
           if [ "$MODE" = "lists" ]; then allow="$allow --lists"; fi
           case "$BUILDER" in darkreader|ubo-scriptlets) allow="$allow --builder $BUILDER" ;; esac
+          # AUTOMAT: the static guard of a fix that may reach main by itself (tools/fix-guard.py)
+          allow="$allow --auto"
+          # AUTOMAT part 2: only with the owner's switch, the narrow form of tier B (tools/tier-b.py)
+          if [ "$(printf '%s' "$AUTOMAT_TIER_B" | tr 'A-Z' 'a-z' | tr -d ' ')" = "on" ]; then allow="$allow --tier-b"; fi
           related=""
           if [ -s "$RUNNER_TEMP/autofix/related.txt" ]; then related="--related $RUNNER_TEMP/autofix/related.txt"; fi
           python3 -I "$RUNNER_TEMP/trusted/check-autofix-patch.py" --repo . \
@@ -908,6 +1302,7 @@ jobs:
             git add -u
           fi
       - name: Commit and bundle
+        id: bundle
         env:
           ATTEMPT: ${{ needs.plan.outputs.attempt }}
           WORKFLOW: ${{ needs.plan.outputs.workflow }}
@@ -918,8 +1313,17 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           printf 'autofix: attempt %s after a failure of "%s"\n\nPrepared by the automatic fix (Antigravity or a reserve), accepted by tools/check-autofix-patch.py.\nRun: %s\n' \
             "$ATTEMPT" "$WORKFLOW" "$RUN_URL" > "$RUNNER_TEMP/message"
+          # who wrote it (the fix job's record, checked here): the two AI reviewers must be other providers
+          author=$(head -n 1 "$RUNNER_TEMP/autofix/author.txt" 2> /dev/null || true)
+          # (ChatGPT: its fix adopted with the owner's switch; Recipe: a deterministic recipe, no AI)
+          if printf '%s' "$author" | grep -Eq '^(Antigravity|Groq|Z\.AI|OpenRouter|ChatGPT|Recipe)( / [A-Za-z0-9._/: ()-]{1,100})?$'; then
+            printf 'Author: %s\n' "$author" >> "$RUNNER_TEMP/message"
+          fi
           git -c core.hooksPath=/dev/null commit -q -F "$RUNNER_TEMP/message"
           git bundle create "$RUNNER_TEMP/autofix/fix.bundle" "$CHECKOUT..HEAD"
+          # AUTOMAT part 2: the job try runs the fix's tests (code an AI wrote) in this same run; the publish
+          # job pushes only the bundle with this checksum, whatever happens to the stored file meanwhile
+          echo "sha256=$(sha256sum "$RUNNER_TEMP/autofix/fix.bundle" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
       - name: Keep the accepted fix
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -939,9 +1343,185 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  publish:
+  # AUTOMAT part 2, the inner loop: the tests that failed, first (2026-11-23). On the fix the guard
+  # accepted, the failing tests of the group this attempt was asked to fix run here, in the tests' own
+  # environment, before anything is pushed: when they pass the fix is published and GitHub runs the
+  # whole suite on it as before (tests.yml); when they still fail with the same error it is not pushed,
+  # and the job again starts the next round with their output for the same AI. This job runs code an AI
+  # wrote, so it has no key, no secret and a token that can only read; and, because this workflow runs
+  # for main (its caches and artifacts are main's), that code runs as a user of its own ("tester": no
+  # sudo, no network but this machine's own, a copy of the tree), which can read nothing of the job's
+  # own processes, the tokens of the cache and of the artifacts included. Its only results are a
+  # verdict and a text, read as data by main's own tool. A failure description with no test to run (a
+  # lint, a build, Arch Linux), a set-up that fails, or tests that now fail in another way, is
+  # "not-run": the fix is published and tested by GitHub as before. Never a way around a check.
+  try:
     needs: [plan, guard]
-    if: needs.guard.result == 'success'
+    # (!cancelled(): one of the jobs fix and adopt is always skipped, and a job after a skipped one is
+    # skipped too unless its condition says otherwise)
+    if: ${{ !cancelled() && needs.guard.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    outputs:
+      verdict: ${{ steps.verdict.outputs.verdict }}
+    env:
+      QTWEBENGINE_DISABLE_SANDBOX: "1"
+    steps:
+      - name: Check out the same commit (no credentials)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.checkout }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: autofix-accepted
+          path: ${{ runner.temp }}/autofix
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: autofix-failure
+          path: ${{ runner.temp }}/failure
+      - name: The tests that failed (from main's own tool, before the fix is checked out)
+        id: ids
+        env:
+          BUNDLE: ${{ needs.guard.outputs.bundle }}
+        run: |
+          git show origin/main:tools/autofix-inner.py > "$RUNNER_TEMP/autofix-inner.py"
+          git show origin/main:tools/automat-memory.py > "$RUNNER_TEMP/automat-memory.py"
+          : > "$RUNNER_TEMP/ids.txt"
+          if [ -s "$RUNNER_TEMP/failure/failure.md" ]; then
+            python3 -I "$RUNNER_TEMP/autofix-inner.py" tests --failure "$RUNNER_TEMP/failure/failure.md" \
+              --out "$RUNNER_TEMP/ids.txt"
+          fi
+          echo "count=$(wc -l < "$RUNNER_TEMP/ids.txt" | tr -d ' ')" >> "$GITHUB_OUTPUT"
+          # the fix the guard accepted, and no other
+          test "$(sha256sum "$RUNNER_TEMP/autofix/fix.bundle" | cut -d' ' -f1)" = "$BUNDLE"
+          git bundle verify "$RUNNER_TEMP/autofix/fix.bundle"
+          git fetch -q "$RUNNER_TEMP/autofix/fix.bundle" HEAD:refs/heads/autofix-result
+          git checkout -q --detach refs/heads/autofix-result
+      - name: Test environment
+        id: env
+        if: steps.ids.outputs.count != '0'
+        continue-on-error: true
+        uses: ./.github/actions/ike-test-env
+      # The tests run what an AI wrote: as a user of their own. No sudo, so nothing of this job's own
+      # processes can be read (the runner's tokens for main's caches and artifacts among them); no
+      # network but this machine's own (the tests' local servers); a copy of the tree, so the checkout
+      # the cache is saved from stays as the runner built it.
+      - name: A user with no rights for the fix's own code
+        id: tester
+        if: steps.ids.outputs.count != '0' && steps.env.outcome == 'success'
+        continue-on-error: true
+        run: |
+          sudo useradd --create-home --user-group --shell /bin/sh tester
+          sudo iptables -N TESTER
+          sudo iptables -A TESTER -o lo -p udp --dport 53 -j REJECT
+          sudo iptables -A TESTER -o lo -p tcp --dport 53 -j REJECT
+          sudo iptables -A TESTER -o lo -j ACCEPT
+          sudo iptables -A TESTER -j REJECT
+          sudo iptables -I OUTPUT 1 -m owner --uid-owner tester -j TESTER
+          sudo ip6tables -N TESTER
+          sudo ip6tables -A TESTER -o lo -j ACCEPT
+          sudo ip6tables -A TESTER -j REJECT
+          sudo ip6tables -I OUTPUT 1 -m owner --uid-owner tester -j TESTER
+          if sudo -u tester sudo -n true 2> /dev/null; then echo "::error::the tester user has sudo"; exit 1; fi
+          if sudo -u tester curl -s -m 5 -o /dev/null https://1.1.1.1; then
+            echo "::error::the tester user reaches the network"; exit 1
+          fi
+          sudo install -d -o tester -g tester -m 755 /srv/try
+          sudo cp -a "$GITHUB_WORKSPACE" /srv/try/repo
+          sudo rm -rf /srv/try/repo/ike-adblock/target
+          sudo chown -R tester:tester /srv/try/repo
+          # the fonts' settings of the tests' environment (the layout tests measure text widths)
+          sudo -u tester mkdir -p /home/tester/.config
+          if [ -d "$HOME/.config/fontconfig" ]; then
+            sudo cp -a "$HOME/.config/fontconfig" /home/tester/.config/
+            sudo chown -R tester:tester /home/tester/.config
+          fi
+          sudo install -m 644 "$RUNNER_TEMP/ids.txt" /srv/try/ids.txt
+      - name: The failing tests, on the fix
+        id: run
+        if: steps.tester.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 20
+        run: |
+          mkdir -p "$RUNNER_TEMP/try"
+          set +e
+          sudo -u tester -H env -i HOME=/home/tester PATH="$PATH" LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}" \
+            QTWEBENGINE_DISABLE_SANDBOX=1 LANG=C.UTF-8 \
+            sh -c 'cd /srv/try/repo && exec xargs -d "\n" -a /srv/try/ids.txt python -m pytest -o addopts= -q -p no:cacheprovider --maxfail=5' \
+            > "$RUNNER_TEMP/try/output.txt" 2>&1
+          code=$?
+          set -e
+          sudo pkill -KILL -u tester 2> /dev/null || true
+          # (what the tests print is somebody else's text: never a workflow command in this log)
+          tail -n 60 "$RUNNER_TEMP/try/output.txt" | sed 's/::/: :/g'
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+      - name: The verdict
+        id: verdict
+        if: always()
+        env:
+          COUNT: ${{ steps.ids.outputs.count }}
+          CODE: ${{ steps.run.outputs.code }}
+        run: |
+          # main's own tool reads the output as data. passed: pytest ran them and every one passed.
+          # failed: at least one of them still fails with the same error as in the failure description.
+          # Anything else (none to run, the environment, a collection error, another error now): not-run
+          mkdir -p "$RUNNER_TEMP/try"
+          touch "$RUNNER_TEMP/try/output.txt"
+          verdict=$(python3 -I "$RUNNER_TEMP/autofix-inner.py" verdict --failure "$RUNNER_TEMP/failure/failure.md" \
+                      --output "$RUNNER_TEMP/try/output.txt" --ids "$RUNNER_TEMP/ids.txt" --code "${CODE:-none}" | tail -n 1 || true)
+          case "$verdict" in passed|failed) ;; *) verdict=not-run ;; esac
+          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+          {
+            echo "The failing tests run first on the fix: $verdict (${COUNT:-0} test(s))."
+            echo
+            tail -c 6000 "$RUNNER_TEMP/try/output.txt"
+          } > "$RUNNER_TEMP/try/try.md"
+          echo "The failing tests, first: $verdict" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: autofix-try
+          path: ${{ runner.temp }}/try/try.md
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # The next round of the inner loop (no AI, no key): the fix still failed the tests it was meant to fix,
+  # so the same failed run is planned again with that fix and the tests' output, for the same AI first.
+  # At most three rounds for one attempt (tools/autofix-inner.py ROUNDS); only for a plain failed run.
+  again:
+    needs: [plan, try]
+    if: >-
+      ${{ !cancelled() && needs.try.outputs.verdict == 'failed' && needs.plan.outputs.round != '3' &&
+      startsWith(needs.plan.outputs.work, 'run/') && needs.plan.outputs.adopt == '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Start the next round
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          WORK: ${{ needs.plan.outputs.work }}
+          ROUND: ${{ needs.plan.outputs.round }}
+        run: |
+          retry() { n=1; until "$@"; do [ "$n" -ge 3 ] && return 1; sleep $((n * 15)); n=$((n + 1)); done; }
+          failed="${WORK#run/}"
+          printf '%s' "$failed" | grep -Eq '^[0-9]{1,20}$'
+          next=2
+          if [ "$ROUND" = "2" ]; then next=3; fi
+          retry gh workflow run autofix.yml --ref main -f run_id="$failed" -f work="inner/$failed/$GITHUB_RUN_ID/$next"
+          echo "Round $next of this attempt started: the same AI gets the failing tests' output"
+
+  publish:
+    needs: [plan, guard, try]
+    # (not when the failing tests still fail on the fix: the job again starts the next round instead)
+    if: ${{ !cancelled() && needs.guard.result == 'success' && needs.try.outputs.verdict != 'failed' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     concurrency:
@@ -973,8 +1553,19 @@ jobs:
           WORKFLOW: ${{ needs.plan.outputs.workflow }}
           ATTEMPT: ${{ needs.plan.outputs.attempt }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # the owner's fine-grained token (optional): only for this step's push and pull request
+          IKE_WORKFLOW_TOKEN: ${{ secrets.IKE_WORKFLOW_TOKEN }}
+          # AUTOMAT part 2: the bundle's checksum as the guard job wrote it; the owner's switches
+          BUNDLE: ${{ needs.guard.outputs.bundle }}
+          AUTOMAT_TIER_B: ${{ vars.AUTOMAT_TIER_B }}
+          ADOPT: ${{ needs.plan.outputs.adopt }}
         run: |
           b="$RUNNER_TEMP/autofix/fix.bundle"
+          # the very bundle the guard accepted (the job try ran the fix's code in this run meanwhile)
+          if [ "$(sha256sum "$b" | cut -d' ' -f1)" != "$BUNDLE" ]; then
+            echo "::error::the accepted fix is not the one the guard wrote: nothing is pushed"
+            exit 1
+          fi
           git bundle verify "$b"
           git fetch "$b" HEAD:refs/heads/autofix-result
           old=$(git rev-parse -q --verify "refs/remotes/origin/$PUSH_BRANCH" || true)
@@ -1014,8 +1605,26 @@ jobs:
             printf '### Not published\n\n%s: this fix is not pushed.\n' "$overtaken" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
             exit 0
           fi
+          # AUTOMAT: with the owner's IKE_WORKFLOW_TOKEN the push and the pull request are the owner's, so the pull
+          # request's own Tests, Security and Arch Linux start (a push of the workflow's token starts none: their
+          # pull_request runs wait for an approval forever, and main's required check "tests" stays "expected").
+          # The token is only in this step, which runs no AI and nothing an AI wrote
+          push_token="${IKE_WORKFLOW_TOKEN:-$GH_TOKEN}"
+          # that token could push a workflow change (the workflow's own cannot): checked once more, here
+          if [ -n "$(git diff --name-only "$CHECKOUT" refs/heads/autofix-result -- .github | head -n 1)" ]; then
+            # AUTOMAT part 2: only with the owner's switch AUTOMAT_TIER_B, only with the owner's token (GitHub
+            # refuses a workflow change to the workflow's own), and only when main's own tool finds, once
+            # more and with the network, that nothing but pinned versions changed (tools/tier-b.py)
+            if [ "$(printf '%s' "$AUTOMAT_TIER_B" | tr 'A-Z' 'a-z' | tr -d ' ')" = "on" ] && [ -n "$IKE_WORKFLOW_TOKEN" ] \
+               && python3 -I tools/tier-b.py verify --base "$CHECKOUT" --head refs/heads/autofix-result; then
+              echo "The fix changes only pinned versions of the workflows (the owner's switch AUTOMAT_TIER_B is on)"
+            else
+              echo "::error::the fix changes .github/: an AI never changes a workflow, nothing is pushed"
+              exit 1
+            fi
+          fi
           if [ "$old" != "$new" ]; then
-            auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+            auth=$(printf 'x-access-token:%s' "$push_token" | base64 -w0)
             git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" \
               push --force-with-lease="refs/heads/$PUSH_BRANCH:$old" origin "refs/heads/autofix-result:refs/heads/$PUSH_BRANCH"
           fi
@@ -1026,7 +1635,7 @@ jobs:
             echo "**Automatic fix, attempt $ATTEMPT** after a failure of \"$WORKFLOW\" ([run]($RUN_URL))."
             echo
             echo "Prepared by the automatic fix (Antigravity or a reserve, see the summary) without any GitHub credential; accepted by the automatic checks."
-            echo "The tests and the sandbox tests run again on this branch. When they pass, tools/automerge.py merges it only if it is a small change of the interface code; otherwise it says here that a person must read it first."
+            echo "The tests and the sandbox tests run again on this branch. When they pass, AUTOMAT's verified merge (tools/automerge.py) takes it only when the static guard accepts the change, \"Nothing gets worse\" passed and two independent AI reviewers approved this commit; otherwise it says here why, and the automatic fix tries again."
             echo
             echo "### Summary of the agent"
             echo
@@ -1054,16 +1663,18 @@ jobs:
           if [ -n "$pr" ]; then
             retry gh pr comment "$pr" --body-file "$body"
             retry gh pr edit "$pr" --add-label autofix
-          elif ! gh pr create --draft --base main --head "$PUSH_BRANCH" --label autofix \
+          elif ! env GH_TOKEN="$push_token" gh pr create --draft --base main --head "$PUSH_BRANCH" --label autofix \
               --title "$title" --body-file "$body"; then
             # it may have been made all the same: look before asking again
             sleep 15
             pr=$(retry gh pr list --head "$PUSH_BRANCH" --base main --state open --json number --jq '.[0].number // empty')
             if [ -z "$pr" ]; then
-              retry gh pr create --draft --base main --head "$PUSH_BRANCH" --label autofix \
+              retry env GH_TOKEN="$push_token" gh pr create --draft --base main --head "$PUSH_BRANCH" --label autofix \
                 --title "$title" --body-file "$body"
             fi
           fi
+          # started by a dispatch only without the owner's token (with it the pull request's own runs start)
+          if [ -z "$IKE_WORKFLOW_TOKEN" ]; then
           retry gh workflow run tests.yml --ref "$PUSH_BRANCH"
           # the sandbox tests too: the merge needs them (review 2 of 1.1.19, H3)
           retry gh workflow run security.yml --ref "$PUSH_BRANCH"
@@ -1076,8 +1687,14 @@ jobs:
              [ "$KIND" = "builder" ] || [ "$KIND" = "arch-testing" ]; then
             retry gh workflow run arch.yml --ref "$PUSH_BRANCH"
           fi
+          fi
           # WP10 (b): a fix for Arch's next packages merges only when it passes on testing too
           if [ "$KIND" = "arch-testing" ]; then retry gh workflow run arch-testing.yml --ref "$PUSH_BRANCH"; fi
+          # AUTOMAT part 2: ChatGPT's pull request whose fix was adopted is told where it went, and closed
+          if printf '%s' "$ADOPT" | grep -Eq '^[0-9]{1,8}$'; then
+            retry gh pr comment "$ADOPT" --body "Nota informativa, non serve fare niente: la modifica di questa pull request è stata ricontrollata come una correzione delle AI e portata sul ramo \`$PUSH_BRANCH\` (commit ${new}). Lì girano tutti i test; entra in \`main\` da sola solo se supera anche \"niente peggiora\" e due AI revisori indipendenti. Questa pull request viene chiusa: il lavoro continua nella pull request di quel ramo." || true
+            retry gh pr close "$ADOPT" || true
+          fi
           # WP11: the re-anchored builder: the daily maintenance applies the update on its branch
           if [ "$KIND" = "builder" ]; then
             retry gh workflow run daily-maintenance.yml --ref main -f mode=builder -f id="${PUSH_BRANCH#automation/builder/}"
@@ -1219,7 +1836,7 @@ jobs:
   report:
     needs: [plan, fix, guard, publish, security-update]
     if: >-
-      always() && (needs.plan.outputs.action == 'issue' ||
+      always() && (needs.plan.outputs.action == 'issue' || needs.plan.outputs.action == 'retry' ||
       (needs.plan.outputs.action == 'fix' && needs.publish.result != 'success') ||
       (needs.plan.outputs.action == 'update' && needs.security-update.outputs.outcome != 'ready'))
     runs-on: ubuntu-24.04
@@ -1269,6 +1886,10 @@ jobs:
           tell=true
           if [ "$ACTION" = "fix" ] && [ "$DEFERRED" = "true" ]; then outcome=deferred; tell=false; fi
           if [ "$KIND" = "lists" ]; then tell=false; fi
+          # AUTOMAT (2026-11-22, nothing is given up and nobody is asked): a fix that did not come, was refused
+          # or used up today's attempts is tried again tomorrow (the ledger says "retrying"). Only what no AI
+          # may fix is told: a security finding with no safe fix, GitHub, a setting or a workflow (action issue)
+          if [ "$ACTION" != "issue" ]; then tell=false; fi
           if [ "$KIND" = "infra" ]; then outcome=""; fi
           echo "tell=$tell" >> "$GITHUB_OUTPUT"
           if [ -n "$outcome" ] && [ -n "$WORK" ]; then
@@ -1451,6 +2072,226 @@ jobs:
               issue="$first"
             fi
           fi
+
+  # AUTOMAT's memory of attempts (tools/automat-memory.py): one record per attempt on the data branch
+  # automat/memory (never merged into main), written only here, by the workflow's own code, from the
+  # attempt's results: who tried, which files, how it ended. No AI runs in this job and none can write
+  # the branch; the next plan quotes it to the AIs as data, so a failed approach is not repeated.
+  remember:
+    needs: [plan, fix, adopt, guard, try, publish]
+    if: always() && needs.plan.outputs.action == 'fix' && needs.plan.outputs.push_branch != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    continue-on-error: true
+    concurrency:
+      group: automat-memory
+      cancel-in-progress: false
+    permissions:
+      contents: write        # the data branch automat/memory only (never main)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: autofix-failure
+          path: ${{ runner.temp }}/failure
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: autofix-result
+          path: ${{ runner.temp }}/autofix
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: needs.guard.result == 'failure'
+        continue-on-error: true
+        with:
+          name: autofix-refused
+          path: ${{ runner.temp }}/autofix
+      - name: Record the attempt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMPONENT: ${{ needs.plan.outputs.push_branch }}
+          ATTEMPT: ${{ needs.plan.outputs.attempt }}
+          WORK: ${{ needs.plan.outputs.work }}
+          FIX_RESULT: ${{ needs.fix.outputs.result }}
+          PATCH: ${{ needs.fix.outputs.patch }}
+          GUARD: ${{ needs.guard.result }}
+          PUBLISH: ${{ needs.publish.result }}
+          # AUTOMAT part 2
+          TASK: ${{ needs.plan.outputs.task }}
+          TRY: ${{ needs.try.outputs.verdict }}
+          DEFERRED: ${{ needs.fix.outputs.deferred }}
+          ADOPTED: ${{ needs.adopt.outputs.patch }}
+        run: |
+          case "$COMPONENT" in automation/*) ;; *) echo "not a branch of the automation"; exit 0 ;; esac
+          failure="$RUNNER_TEMP/failure/failure.md"
+          out="$RUNNER_TEMP/autofix"
+          data="$RUNNER_TEMP/memory-branch"
+          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          remote="https://github.com/$GITHUB_REPOSITORY"
+          # (a function: when another job wrote the data branch meanwhile, the record is made once more
+          # from its newest commit; the reviewers' use of the quotas is written there too, automat-quota.yml)
+          record() {
+          cd "$GITHUB_WORKSPACE"
+          rm -rf "$data"
+          git init -q "$data"
+          cd "$data"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch -q --depth 1 "$remote" refs/heads/automat/memory 2> /dev/null; then
+            git checkout -q -B data FETCH_HEAD
+          else
+            git checkout -q --orphan data
+          fi
+          tool="$GITHUB_WORKSPACE/tools/automat-memory.py"
+          outcome=no-fix
+          detail="$FIX_RESULT"
+          if [ "$PUBLISH" = "success" ]; then
+            outcome=published
+            detail=""
+          elif { [ "$PATCH" = "true" ] || [ "$ADOPTED" = "true" ]; } && [ "$GUARD" != "success" ]; then
+            outcome=guard-refused
+            detail=$(grep -m 1 '^- ' "$out/guard.md" 2> /dev/null | cut -c1-300 || true)
+          elif [ "$TRY" = "failed" ]; then
+            # AUTOMAT part 2: the tests it was meant to fix still fail on it (run before the whole suite)
+            outcome=tests-failed
+            detail="the tests it was meant to fix still fail on it (run first, before the whole suite)"
+          fi
+          # going in circles: the same patch twice stopped the attempt (tools/automat-route.py)
+          if [ "$outcome" = "no-fix" ] && grep -q '"result": "loop"' "$out/reserve.json" 2> /dev/null; then
+            detail="loop: the same patch was produced twice, the attempt was stopped"
+          fi
+          task=""
+          if printf '%s' "$TASK" | grep -Eq '^[a-z-]{1,20}$'; then task="$TASK"; fi
+          author=$(head -n 1 "$out/author.txt" 2> /dev/null || true)
+          provider="${author%% / *}"
+          model=""
+          case "$author" in *" / "*) model="${author#* / }" ;; esac
+          files=$(grep -E '^diff --git a/' "$out/autofix.patch" 2> /dev/null | sed -E 's#^diff --git a/(.*) b/.*#\1#' \
+                  | sort -u | head -n 8 | paste -sd, - || true)
+          # a refused fix planned again: first how the attempt before it ended (the reasons of the refusal)
+          if [ "${WORK#refused/}" != "$WORK" ]; then
+            python3 -I "$tool" note --memory memory.json --component "$COMPONENT" --failure "$failure" \
+              --outcome merge-refused --detail "$(grep -m 3 '^- ' "$failure" 2> /dev/null | cut -c1-300 | tr '\n' ' ')"
+          fi
+          python3 -I "$tool" note --memory memory.json --component "$COMPONENT" --failure "$failure" \
+            --outcome "$outcome" --provider "$provider" --model "$model" --files "$files" \
+            --summary "$out/summary.md" --detail "$detail" --attempt "$ATTEMPT" --task "$task" \
+            --patch "$out/autofix.patch" || return 1
+          # AUTOMAT part 2: today's use of the free quotas (tools/ai-quota.py), from the numbers the steps
+          # with the keys left (checked there: known providers and counts only), and whether any free
+          # provider answered in this run
+          quota="$GITHUB_WORKSPACE/tools/ai-quota.py"
+          deltas=""
+          for f in "$out/usage-agent.json" "$out/usage-reserve.json"; do
+            if [ -s "$f" ]; then deltas="$deltas --delta $f"; fi
+          done
+          python3 -I "$quota" merge --state quota.json $deltas || true
+          if [ "$ADOPTED" != "true" ]; then
+            if [ "$DEFERRED" = "true" ]; then
+              python3 -I "$quota" ran --state quota.json --result no-provider || true
+            else
+              python3 -I "$quota" ran --state quota.json --result answered || true
+            fi
+          fi
+          git add memory.json quota.json || return 1
+          git -c core.hooksPath=/dev/null commit -q -m "AUTOMAT's memory: attempt $ATTEMPT on $COMPONENT ($outcome)" || return 0
+          git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" push -q "$remote" HEAD:refs/heads/automat/memory
+          }
+          record || { echo "the data branch moved meanwhile, or the record failed: once more"; sleep 7; record; }
+
+  # AUTOMAT part 2: "DEVI AIUTARCI CON CHATGPT" (the owner's words, 2026-11-22). After the attempt is
+  # recorded: when the AIs failed AUTOMAT_CHATGPT_AFTER times in a row (a repository variable, default
+  # 4) on the same error of this branch, or no free provider at all could answer for two days, one
+  # issue names the owner with a ready message for ChatGPT (tools/automat-help.py). One issue per
+  # error: edited, never repeated; closed when an automatic fix lands (automat-help.yml). AUTOMAT keeps
+  # retrying meanwhile. No AI here and no key; the log and the memory go into the issue as fenced data.
+  help:
+    needs: [plan, remember]
+    if: always() && needs.plan.outputs.action == 'fix' && needs.plan.outputs.push_branch != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    continue-on-error: true
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: autofix-failure
+          path: ${{ runner.temp }}/failure
+      - name: Ask for ChatGPT's help when it is due
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMPONENT: ${{ needs.plan.outputs.push_branch }}
+          WORKFLOW: ${{ needs.plan.outputs.workflow }}
+          BRANCH: ${{ needs.plan.outputs.branch }}
+          CHECKOUT: ${{ needs.plan.outputs.checkout }}
+          # the owner's settings (repository variables): after how many failures in a row, and whether a
+          # verified ChatGPT fix is adopted by itself (the notice says which of the two applies)
+          AUTOMAT_CHATGPT_AFTER: ${{ vars.AUTOMAT_CHATGPT_AFTER }}
+          AUTOMAT_CHATGPT_AUTOMERGE: ${{ vars.AUTOMAT_CHATGPT_AUTOMERGE }}
+        run: |
+          case "$COMPONENT" in automation/*) ;; *) echo "not a branch of the automation"; exit 0 ;; esac
+          # the data branch as the job remember just left it (read without a token: the repository is public)
+          data="$RUNNER_TEMP/memory-branch"
+          git init -q "$data"
+          git -C "$data" fetch -q --depth 1 "https://github.com/$GITHUB_REPOSITORY" refs/heads/automat/memory \
+            || { echo "no memory yet: nothing to count"; exit 0; }
+          for f in memory.json quota.json; do
+            git -C "$data" show "FETCH_HEAD:$f" > "$RUNNER_TEMP/$f" 2> /dev/null || rm -f "$RUNNER_TEMP/$f"
+          done
+          quota=""
+          if [ -s "$RUNNER_TEMP/quota.json" ]; then quota="--quota $RUNNER_TEMP/quota.json"; fi
+          python3 -I tools/automat-help.py check --repo "$GITHUB_REPOSITORY" --component "$COMPONENT" \
+            --workflow "$WORKFLOW" --branch "${BRANCH:-$COMPONENT}" --checkout "$CHECKOUT" \
+            --failure "$RUNNER_TEMP/failure/failure.md" --memory "$RUNNER_TEMP/memory.json" $quota
+
+  # AUTOMAT part 2: a ChatGPT fix that could not be adopted (the checks refused its patch, or the tests it
+  # could run failed) is told on its own pull request, which stays open: the owner decides, or ChatGPT
+  # corrects it (a new commit is judged again by itself). No AI, no key.
+  adopt-refused:
+    needs: [plan, adopt, guard, try, publish]
+    if: >-
+      always() && needs.plan.outputs.action == 'fix' && needs.plan.outputs.adopt != '' &&
+      needs.publish.result != 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    continue-on-error: true
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: needs.guard.result == 'failure'
+        continue-on-error: true
+        with:
+          name: autofix-refused
+          path: ${{ runner.temp }}/autofix
+      - name: Say it on ChatGPT's pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ADOPT: ${{ needs.plan.outputs.adopt }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          printf '%s' "$ADOPT" | grep -Eq '^[0-9]{1,8}$'
+          {
+            echo "**Nota informativa.** AUTOMAT non ha potuto prendere in carico questa correzione di ChatGPT: i controlli automatici (gli stessi di una correzione delle AI) non l'hanno accettata. Resta aperta: decide il proprietario, oppure ChatGPT la corregge (un nuovo commit viene valutato di nuovo da solo)."
+            echo
+            if [ -s "$RUNNER_TEMP/autofix/guard.md" ]; then
+              sed "s/@\([A-Za-z0-9]\)/@\xe2\x80\x8b\1/g" "$RUNNER_TEMP/autofix/guard.md" | head -c 3000
+              echo
+            fi
+            echo "Run: $RUN_URL"
+          } > "$RUNNER_TEMP/note.md"
+          gh pr comment "$ADOPT" --body-file "$RUNNER_TEMP/note.md"
 
   # By hand only (workflow_dispatch with self_test): does Antigravity's deny list
   # hold with --dangerously-skip-permissions? The same closed room as the fix

@@ -1028,6 +1028,21 @@
 "Open selected text with middle click": "Отвори избран текст со среден клик",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "Среден клик на празен дел од страницата го отвора избраниот текст, како адреса или како пребарување.",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Шифрираниот DNS не одговара на сопствените барања на I.K.E. (ажурирања, списоци со филтри): %s",
-"Shared by %d tabs of this site": "Делат %d картички на оваа страница"
+"Shared by %d tabs of this site": "Делат %d картички на оваа страница",
+"If you download it anyway, it is at your own risk.": "Ако сепак ја преземете, тоа е на ваш сопствен ризик.",
+"Download anyway": "Сепак преземи",
+"Open image in %s": "Отвори ја сликата во %s",
+"Open with %s": "Отвори со %s",
+"Open the page source in %s": "Отвори го изворниот код на страницата во %s",
+"Add to calendar": "Додај во календарот",
+"Show in folder": "Прикажи во папката",
+"No app of the desktop could open %s.": "Ниту една апликација на работната површина не можеше да го отвори %s.",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "I.K.E. го запре преземањето на %s: страницата е безбедна (https), но датотеката би дошла без заштита (http). Некој на мрежата би можел да ја прочита или замени.",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "%s е програма или скрипта, а %s е на листите за заштита на I.K.E. (страници што шират злонамерен софтвер). Може да му наштети на овој компјутер.",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s е програма или скрипта, а никогаш досега не сте ја посетиле %s. Преземете ја само ако ѝ верувате на страницата.",
+"Site storage: %d": "Складиште на страницата: %d",
+"Cache: %d": "Кеш: %d",
+"Permissions kept: %s": "Задржани дозволи: %s",
+"Not secure": "Не е безбедно"
 }
 }

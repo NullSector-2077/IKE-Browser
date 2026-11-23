@@ -44,6 +44,11 @@ MAX_RECENT = 6
 # brought in by the latest commits, so no assistant is led to change one (a
 # refusal for safety stops every reserve)
 NOT_RECENT = {
+    "tools/fix-guard.py", "tools/ai-review.py", "tools/component-manifest.py", "tools/release-notice.py",
+    "tools/no-regression.py", "tests/test_full_auto.py", "tests/test_inventory_guard.py",
+    "tools/tier-b.py", "tools/ai-quota.py", "tools/ai-quota.json", "tools/automat-memory.py",
+    "tools/automat-help.py", "tools/automat-recipes.py", "tools/automat-route.py", "tools/autofix-inner.py",
+    "tools/upstream-diff.py", "tests/test_automat_part2.py",
     "ike/__init__.py", "ike/updater.py", "tests/conftest.py", "tests/harness.py", "tests/settings-keys.json",
     "tools/make-release.py", "tools/publish.py", "tools/prepare-maintenance.py", "tools/check-autofix-patch.py",
     "tools/autofix-plan.py", "tools/autofix-agent.py", "tools/autofix-context.py", "tools/autofix-reserve.py",
@@ -185,6 +190,33 @@ def recent_changes(repo, commits=RECENT_COMMITS):
     return found[:MAX_RECENT]
 
 
+PURPOSE_CHARS = 400
+PURPOSE_FILES = 6
+
+
+def purposes(repo, paths):
+    """What each file the failure names is for: the first paragraph of its module docstring (read
+    with Python's parser, never run), a few lines at no extra call. The free models know nothing of
+    I.K.E.'s code between calls; its modules say what they are for at their top."""
+    import ast
+    lines, seen = [], set()
+    for path in paths:
+        if path in seen or not path.endswith(".py") or len(lines) >= PURPOSE_FILES:
+            continue
+        seen.add(path)
+        try:
+            target = repo / path
+            if target.is_symlink():
+                continue
+            doc = ast.get_docstring(ast.parse(target.read_text("utf-8", errors="replace"))) or ""
+        except (OSError, SyntaxError, ValueError):
+            continue
+        first = " ".join(doc.strip().split("\n\n", 1)[0].split()).replace("`", "'")
+        if first:
+            lines.append("- `%s`: %s" % (path, first[:PURPOSE_CHARS]))
+    return "\n## What these files are for (their own first lines)\n\n%s\n" % "\n".join(lines) if lines else ""
+
+
 def build(repo, failure, recent=True):
     found = places(failure, repo)
     related = []
@@ -197,6 +229,10 @@ def build(repo, failure, recent=True):
             for mod in modules_named(text, repo) + scripts_named(text, repo):
                 if mod not in related:
                     related.append(mod)
+    # the inventory guard names the component manifest: the fix adds the missing entry there
+    if "tests/test_inventory_guard.py" in failure and "components.json" not in related \
+            and (repo / "components.json").is_file():
+        related.insert(0, "components.json")
     recent = [p for p in recent_changes(repo) if p not in related] if recent else []
     related = (related + recent)[:MAX_RELATED]
     parts, used = [], 0
@@ -214,6 +250,7 @@ def build(repo, failure, recent=True):
         text = ("# Code at the failure\n\nPrepared by GitHub from the places the failure names "
                 "(line numbers on the left; they are not part of the files).\n\n" + "\n".join(parts))
     text += examples(repo, failure, found)
+    text += purposes(repo, [path for path, _line in found])
     recent = [p for p in recent if p in related]
     if recent:
         text += ("\nChanged by the latest commits (the cause is often there): %s\n"

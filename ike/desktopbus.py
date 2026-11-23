@@ -8,7 +8,9 @@ thread is needed. If jeepney or a session bus is missing, ``connect()`` returns
 False and the desktop integration simply stays off.
 """
 
+import array
 import os
+import socket
 from itertools import count
 
 from PyQt6.QtCore import QObject, QSocketNotifier
@@ -29,6 +31,11 @@ try:
     AVAILABLE = True
 except Exception:          # not installed: the integration stays off
     AVAILABLE = False
+try:                       # file descriptors over the bus (jeepney 0.7 and later)
+    from jeepney.fds import FileDescriptor, fds_buf_size
+    FDS = True
+except Exception:
+    FDS = False
 
 DBUS = ("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus")
 
@@ -40,10 +47,14 @@ class BusError(Exception):
 
 
 class Bus(QObject):
-    """Exports objects, calls methods asynchronously and receives signals."""
+    """Exports objects, calls methods asynchronously and receives signals.
 
-    def __init__(self, parent=None):
+    fds=True: the connection can pass file descriptors (type "h"), as the
+    desktop portal's OpenFile wants (handoff.py, 1.1.24)."""
+
+    def __init__(self, parent=None, fds=False):
         super().__init__(parent)
+        self.fds = fds
         self.sock = None
         self.parser = None
         self.serial = count(1)
@@ -56,10 +67,10 @@ class Bus(QObject):
 
     # --- connection ----------------------------------------------------------
     def connect(self):
-        if not AVAILABLE or not os.environ.get("DBUS_SESSION_BUS_ADDRESS"):
+        if not AVAILABLE or not os.environ.get("DBUS_SESSION_BUS_ADDRESS") or (self.fds and not FDS):
             return False
         try:
-            sock = prep_socket(get_bus("SESSION"), enable_fds=False, timeout=2.0)
+            sock = prep_socket(get_bus("SESSION"), enable_fds=self.fds, timeout=2.0)
             self.sock, self.parser = sock, Parser()
             hello = new_method_call(DBusAddress(DBUS[1], DBUS[0], DBUS[2]), "Hello")
             serial = next(self.serial)
@@ -109,10 +120,18 @@ class Bus(QObject):
         if self.sock is None:
             return 0
         serial = next(self.serial)
-        data = msg.serialise(serial=serial)
+        fds = array.array("i") if self.fds else None
+        data = msg.serialise(serial=serial, fds=fds)
         try:
             self.sock.setblocking(True)
-            self.sock.sendall(data)
+            if fds:
+                # the descriptors travel with the first bytes (SCM_RIGHTS); the
+                # bus has its own copies once sendmsg returns
+                sent = self.sock.sendmsg([data], [(socket.SOL_SOCKET, socket.SCM_RIGHTS, fds)])
+                if sent < len(data):
+                    self.sock.sendall(data[sent:])
+            else:
+                self.sock.sendall(data)
             self.sock.setblocking(False)
         except OSError:
             self.close()
@@ -121,8 +140,13 @@ class Bus(QObject):
 
     def _readable(self, *_):
         while self.sock is not None:
+            got = []
             try:
-                data = self.sock.recv(65536)
+                if self.fds:
+                    data, anc, _flags, _addr = self.sock.recvmsg(65536, fds_buf_size())
+                    got = FileDescriptor.from_ancdata(anc)
+                else:
+                    data = self.sock.recv(65536)
             except (BlockingIOError, InterruptedError):
                 break
             except OSError:
@@ -131,7 +155,7 @@ class Bus(QObject):
             if not data:
                 self.close()
                 return
-            self.parser.add_data(data)
+            self.parser.add_data(data, fds=got)
         while self.parser is not None:
             try:
                 msg = self.parser.get_next_message()

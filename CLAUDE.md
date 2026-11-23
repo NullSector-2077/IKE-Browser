@@ -21,7 +21,14 @@ decisions, status) and CHANGELOG.md.
   Antigravity, Groq, Z.AI, OpenRouter...), and no agent ever merges its own
   work. Claude merges the PRs the owner asked for when all checks are green
   (the owner's standing order); ChatGPT merges only on the owner's explicit
-  order, after green tests; people's PRs wait for the owner's order. The one
+  order, after green tests; people's PRs wait for the owner's order. Two
+  switches exist, both off until the owner turns them on in GitHub's settings
+  (repository variables; docs/MAINTENANCE.md, "AUTOMAT, part 2", says how):
+  `AUTOMAT_CHATGPT_AUTOMERGE` (a ChatGPT fix whose checks passed is adopted
+  by AUTOMAT and reaches `main` only under the gate of an AI's fix) and
+  `AUTOMAT_TIER_B` (a few tier-B files open to the AIs in their narrowest
+  form, with a third reviewer); turning either on is the owner's decision,
+  and no agent, workflow or file of the repository ever sets them. The one
   exception, the verified merge (the owner's second decision of 2026-11-22):
   the automation's own PRs (the daily candidate
   `automation/daily-maintenance`, an AutoFix fix `automation/autofix-main` or
@@ -31,11 +38,34 @@ decisions, status) and CHANGELOG.md.
   Linux), every category `tools/test-categories.py` requires for the changed
   components passed with nothing "not verified" and no required test
   skipped, no test file changed or removed, no protected file or workflow
-  touched, licences up to date, no open security finding. Anything less
-  stays a PR, with one comment naming the owner, and in the ledger as
-  needs-person or blocked. After a merge `release-ready.yml` tells the owner
-  a version is ready to sign. Only signing and publishing releases belong to
-  the owner (`python3 tools/publish.py` on the owner's PC).
+  touched, licences up to date, no open security finding. AUTOMAT, the full
+  automation (the owner's third decision of 2026-11-22; AUTOMAT is the
+  owner's name for the whole automatic maintenance; in the owner's words:
+  "intervento umano limitato solo alla firma. ike deve cercarsi gli
+  aggiornamenti installarli testarli e correggerli da solo su github. 100%
+  lavoro in team di ia", and: "niente annullamenti automatici, l'automazione
+  deve essere in grado di riparare tutto, anche se comporta molti
+  tentativi... niente deve rimanere indietro"): an AI fix of tier-A
+  protected code (the ad-blocking adapter, the modules that decide the
+  user's safety, I.K.E.'s own page scripts) merges by itself when it is fully
+  verified as above and also "Nothing gets worse" passed (the category
+  `no-regression`), the static guard accepts it (`tools/fix-guard.py`: only
+  statements added, nothing removed or weakened, nothing new that reaches
+  out) and two independent AI reviewers of other free providers than the
+  author's approved that commit (`tools/ai-review.py`). Tier B (workflows,
+  tests, tools, the sandbox and start, the signing and update channel, the
+  package, what comes from others, YouTube's ad blocking) is never changed
+  by an AI. Nothing waits for a person and nothing is closed or given up:
+  what is not merged stays open as "retrying" and is tried again every day
+  (the attempts capped per day, the free providers rotated, a fresh context
+  with AUTOMAT's memory of what was already tried), with informational notes
+  only; a security finding with no safe fix stays blocked and the owner is
+  told. The signature is the one human step, so `release-ready.yml`'s notice
+  lists everything it covers (changes of reserved files first, each AI
+  change of protected code with its files, its two reviewers' verdicts and
+  the no-regression result, and what is still being retried). Only signing
+  and publishing releases belong to the owner (`python3 tools/publish.py` on
+  the owner's PC).
 - Automatic maintenance (the owner's decisions of 2026-11-22): AI agents work
   only on isolated branches (`automation/update/*`, `automation/builder/*`
   and the existing maintenance branches), never on `main`; for the builders of

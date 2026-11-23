@@ -1,0 +1,12 @@
+! Title: I.K.E. no-regression fixture, in place of uBlock filters - Quick fixes
+! A small fixed sample of rules in the forms uBlock filters - Quick fixes uses (uBlock Origin's uAssets, GPL-3.0-or-later), for
+! tools/no-regression.py only: the same rules on main and on a candidate, so
+! what changes between the two is I.K.E.'s code and engine, never the list.
+! Not a list to use.
+www.youtube.com##+js(trusted-replace-xhr-response, '"adPlacements"', '"no_ads"', /playlist\?list=|\/player(?:\?.+)?$|watch\?[tv]=/)
+!#if !cap_html_filtering
+www.youtube.com##+js(trusted-rpfr, '"adPlacements"', '"no_ads"', player?)
+www.youtube.com##+js(trusted-rpfr, '"adSlots"', '"no_ads"', player?)
+!#endif
+||youtube.com/pagead/conversion/
+||youtube.com/youtubei/v1/player/ad_break

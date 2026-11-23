@@ -1028,6 +1028,21 @@
 "“Send to device” with KDE Connect": "KDE Connect மூலம் “சாதனத்திற்கு அனுப்பு”",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ மூலம் தேர்ந்தெடு, Enter மூலம் செல், Esc மூலம் மூடு",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "மறைகுறியாக்கப்பட்ட DNS, I.K.E.-இன் சொந்தக் கோரிக்கைகளுக்கு (புதுப்பிப்புகள், வடிகட்டிப் பட்டியல்கள்) பதிலளிக்காது: %s",
-"Shared by %d tabs of this site": "இந்தத் தளத்தின் %d தாவல்கள் பகிர்கின்றன"
+"Shared by %d tabs of this site": "இந்தத் தளத்தின் %d தாவல்கள் பகிர்கின்றன",
+"If you download it anyway, it is at your own risk.": "இருந்தாலும் பதிவிறக்கினால், அது உங்கள் சொந்தப் பொறுப்பு.",
+"Download anyway": "இருந்தாலும் பதிவிறக்கு",
+"Open image in %s": "படத்தை %s இல் திற",
+"Open with %s": "%s மூலம் திற",
+"Open the page source in %s": "பக்கத்தின் மூலக் குறியீட்டை %s இல் திற",
+"Add to calendar": "நாட்காட்டியில் சேர்",
+"Show in folder": "கோப்புறையில் காட்டு",
+"No app of the desktop could open %s.": "டெஸ்க்டாப்பின் எந்தப் பயன்பாடும் %s ஐத் திறக்க முடியவில்லை.",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "I.K.E. %s இன் பதிவிறக்கத்தை நிறுத்தியது: பக்கம் பாதுகாப்பானது (https), ஆனால் கோப்பு பாதுகாப்பின்றி (http) வரும். பிணையத்தில் உள்ள ஒருவர் அதைப் படிக்கலாம் அல்லது மாற்றலாம்.",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "%s ஒரு நிரல் அல்லது ஸ்கிரிப்ட், மேலும் %s I.K.E. இன் பாதுகாப்புப் பட்டியல்களில் உள்ளது (தீம்பொருளைப் பரப்பும் தளங்கள்). இது இந்தக் கணினிக்குத் தீங்கு விளைவிக்கலாம்.",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s ஒரு நிரல் அல்லது ஸ்கிரிப்ட், மேலும் நீங்கள் இதற்கு முன் %s ஐப் பார்வையிட்டதில்லை. தளத்தை நம்பினால் மட்டும் பதிவிறக்குங்கள்.",
+"Site storage: %d": "தளச் சேமிப்பகம்: %d",
+"Cache: %d": "தற்காலிக நினைவகம்: %d",
+"Permissions kept: %s": "வைக்கப்பட்ட அனுமதிகள்: %s",
+"Not secure": "பாதுகாப்பற்றது"
 }
 }

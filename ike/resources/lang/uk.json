@@ -1028,6 +1028,21 @@
 "Open selected text with middle click": "Відкривати виділений текст середнім клацанням",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "Середнє клацання на порожньому місці сторінки відкриває виділений текст як адресу або як пошуковий запит.",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Зашифрований DNS не відповідає на власні запити I.K.E. (оновлення, списки фільтрів): %s",
-"Shared by %d tabs of this site": "Спільний для вкладок цього сайту: %d"
+"Shared by %d tabs of this site": "Спільний для вкладок цього сайту: %d",
+"If you download it anyway, it is at your own risk.": "Якщо ви все ж завантажите його, це на ваш власний ризик.",
+"Download anyway": "Усе одно завантажити",
+"Open image in %s": "Відкрити зображення в %s",
+"Open with %s": "Відкрити за допомогою %s",
+"Open the page source in %s": "Відкрити код сторінки в %s",
+"Add to calendar": "Додати до календаря",
+"Show in folder": "Показати в теці",
+"No app of the desktop could open %s.": "Жодна програма стільниці не змогла відкрити %s.",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "I.K.E. зупинив завантаження %s: сторінка захищена (https), але файл надійшов би без захисту (http). Хтось у мережі міг би прочитати або підмінити його.",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "%s — це програма або скрипт, а %s є у списках захисту I.K.E. (сайти, що поширюють шкідливе ПЗ). Він може зашкодити цьому комп'ютеру.",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s — це програма або скрипт, а ви ніколи раніше не відвідували %s. Завантажуйте його, лише якщо довіряєте сайту.",
+"Site storage: %d": "Сховище сайту: %d",
+"Cache: %d": "Кеш: %d",
+"Permissions kept: %s": "Збережені дозволи: %s",
+"Not secure": "Незахищено"
 }
 }

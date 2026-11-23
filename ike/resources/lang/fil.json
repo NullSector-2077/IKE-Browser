@@ -1028,6 +1028,21 @@
 "“Send to device” with KDE Connect": "“Ipadala sa device” gamit ang KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ para pumili, Enter para pumunta, Esc para isara",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Hindi sumasagot ang naka-encrypt na DNS sa sariling mga kahilingan ng I.K.E. (mga update, listahan ng filter): %s",
-"Shared by %d tabs of this site": "Ibinabahagi ng %d tab ng site na ito"
+"Shared by %d tabs of this site": "Ibinabahagi ng %d tab ng site na ito",
+"If you download it anyway, it is at your own risk.": "Kung ida-download mo pa rin ito, ikaw ang mananagot sa panganib.",
+"Download anyway": "I-download pa rin",
+"Open image in %s": "Buksan ang larawan sa %s",
+"Open with %s": "Buksan gamit ang %s",
+"Open the page source in %s": "Buksan ang source code ng pahina sa %s",
+"Add to calendar": "Idagdag sa kalendaryo",
+"Show in folder": "Ipakita sa folder",
+"No app of the desktop could open %s.": "Walang app ng desktop na nakapagbukas ng %s.",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "Itinigil ng I.K.E. ang pag-download ng %s: ligtas ang pahina (https), pero darating ang file nang walang proteksyon (http). Maaari itong basahin o palitan ng isang tao sa network.",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "Ang %s ay isang programa o script, at ang %s ay nasa mga listahan ng proteksyon ng I.K.E. (mga site na nagkakalat ng malware). Maaari nitong saktan ang computer na ito.",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "Ang %s ay isang programa o script, at hindi mo pa kailanman nabisita ang %s. I-download lamang ito kung pinagkakatiwalaan mo ang site.",
+"Site storage: %d": "Storage ng site: %d",
+"Cache: %d": "Cache: %d",
+"Permissions kept: %s": "Mga pahintulot na itinago: %s",
+"Not secure": "Hindi secure"
 }
 }

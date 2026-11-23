@@ -53,7 +53,7 @@ pkgver=1.0.0
 depends=('python' 'python-pyqt6' 'python-pyqt6-webengine' 'qt6-webengine' 'python-jeepney')
 makedepends=('rust' 'gcc')
 optdepends=('libnotify: desktop notifications'
-            'xdg-utils: set the default browser (Settings, experimental)')
+            'noto-fonts-cjk: Chinese, Japanese and Korean interface text')
 
 build() {
   cd "$startdir"
@@ -155,7 +155,7 @@ def fixture_repo(tmp_path):
 
 ARCH = {"python": "3.14.10-1", "python-pyqt6": "6.12.1-1", "python-pyqt6-webengine": "6.140.1-1",
         "qt6-webengine": "6.140.0-1", "python-jeepney": "0.9.0-3", "rust": "1:1.100.0-1", "gcc": "16.1.1-1",
-        "libnotify": "0.8.8-1", "xdg-utils": "1.2.1-2", "qt6-base": "6.12.0-5", "breeze": "6.5.3-1",
+        "libnotify": "0.8.8-1", "noto-fonts-cjk": "20240730-1", "qt6-base": "6.12.0-5", "breeze": "6.5.3-1",
         "python-yaml": "6.0.3-1", "python-requests": "2.33.0-1", "pacman": "7.1.0-1"}
 CRATES = {"adblock": ["0.13.6"], "serde_json": ["1.0.1"], "itoa": ["1.0.0"], "cargo-deny": ["0.20.2"],
           "base64": ["0.22.1"]}
@@ -235,7 +235,7 @@ def test_the_inventory_finds_every_kind_in_the_repository(fixture_repo):
     found = ids(inv)
     expected = {
         "arch-package:python", "arch-package:qt6-webengine", "arch-package:breeze",       # depends, ARCH_PACKAGES
-        "arch-build:rust", "arch-build:gcc", "arch-optional:libnotify", "arch-optional:xdg-utils",
+        "arch-build:rust", "arch-build:gcc", "arch-optional:libnotify", "arch-optional:noto-fonts-cjk",
         "build-tool:cargo", "build-tool:gcc", "build-tool:makepkg",
         "python-module:PyQt6", "python-module:jeepney", "pyqt-module:PyQt6.QtWidgets",
         "pyqt-module:PyQt6.QtWebEngineCore", "vendored:adblock", "runtime-tool:notify-send",
@@ -251,7 +251,7 @@ def test_the_inventory_finds_every_kind_in_the_repository(fixture_repo):
         assert rec["tests_needed"], rec["id"]
     assert inv["findings"] == []
     # the details read from the repository
-    assert found["arch-optional:xdg-utils"]["notes"] == ["set the default browser (Settings, experimental)"]
+    assert found["arch-optional:noto-fonts-cjk"]["notes"] == ["Chinese, Japanese and Korean interface text"]
     assert found["python-module:jeepney"]["type"] == "optional"              # imported in try/except ImportError
     assert found["crate:itoa"]["type"] == "transitive" and found["crate:serde_json"]["type"] == "direct"
     assert found["crate:serde_json"]["requirement"] == "1"
@@ -306,7 +306,10 @@ def test_the_real_repository_is_covered():
         assert "arch-package:" + name in found, name
     for name, _ in pkg["optdepends"]:
         assert "arch-optional:" + name in found, name
-    assert len(pkg["optdepends"]) == 8 and "rust" in pkg["makedepends"]
+    assert len(pkg["optdepends"]) == 6 and "rust" in pkg["makedepends"]
+    # 1.1.24: xdg-utils (advisory AVG-1420, no fix) is gone; files and links go to the desktop
+    # portal or the desktop's own opener (ike/handoff.py), never xdg-open or xdg-settings
+    assert "xdg-utils" not in [name for name, _ in pkg["optdepends"]] + pkg["depends"]
     lists = inv_tool.default_lists(ROOT)
     assert lists and all("filter-list:" + e["name"] in found for e in lists)
     crates = inv_tool.parse_cargo_lock((ROOT / "ike-adblock/Cargo.lock").read_text())
@@ -316,8 +319,13 @@ def test_the_real_repository_is_covered():
         assert inv["counts"].get(kind), kind
     for name in ("PyQt6.QtWebEngineCore", "PyQt6.QtSvg", "PyQt6.QtWebChannel"):
         assert "pyqt-module:" + name in found
-    for tool in ("notify-send", "xdg-settings", "xdg-open"):
+    for tool in ("kioclient", "gio", "exo-open"):
         assert "runtime-tool:" + tool in found
+    # 1.1.24: notifications are a D-Bus call, no notify-send (libnotify) and no xdg-utils
+    for tool in ("notify-send", "xdg-settings", "xdg-open", "xdg-mime", "xdg-email"):
+        assert "runtime-tool:" + tool not in found, tool
+    for tool in ("kioclient", "gio", "exo-open"):           # the desktop's own, not dependencies
+        assert found["runtime-tool:" + tool]["declared"].startswith("the desktop's own"), found["runtime-tool:" + tool]
     assert inv_tool.to_markdown(inv).startswith("### Inventory of the external components")
 
 
@@ -349,7 +357,7 @@ def test_a_new_dependency_is_found_and_recorded(fixture_repo):
     new = {e["component"]: e for e in ledger["entries"].values()}
     assert {"python-module:yaml", "crate:base64", "github-action:actions/cache", "arch-package:python-requests",
             "python-module:requests"} <= set(new)
-    assert new["python-module:yaml"]["state"] == "needs-person" and "python-yaml" in new["python-module:yaml"]["reason"]
+    assert new["python-module:yaml"]["state"] == "retrying" and "python-yaml" in new["python-module:yaml"]["reason"]
     assert new["crate:base64"]["state"] == "detected" and new["crate:base64"]["from"] == "(new)"
     assert new["crate:base64"]["to"] == "0.22.1"
     # the same facts again: nothing added twice, nothing moved
@@ -362,7 +370,7 @@ def test_a_new_dependency_is_found_and_recorded(fixture_repo):
     ledger = ledger_tool.update(ledger, day2, status, now=DAY3)
     new = {e["component"]: e for e in ledger["entries"].values()}
     assert new["crate:base64"]["state"] == "passed" and new["crate:base64"]["last_run"] == "https://x/runs/9"
-    assert new["python-module:yaml"]["state"] == "needs-person"
+    assert new["python-module:yaml"]["state"] == "retrying"          # the PKGBUILD's candidate declares it
     # the depend is added: the finding is gone, the import waits for main's tests
     write(fixture_repo, "PKGBUILD", (fixture_repo / "PKGBUILD").read_text().replace(
         "'python-requests')", "'python-requests' 'python-yaml')"))
@@ -408,7 +416,7 @@ def test_an_update_is_detected_and_follows_the_candidate_flow(fixture_repo, tmp_
     assert e["crate:serde_json"]["state"] == "detected" and e["crate:serde_json"]["key"] == "crate:serde_json@1.0.2"
     assert (e["crate:serde_json"]["from"], e["crate:serde_json"]["to"]) == ("1.0.1", "1.0.2")
     assert e["arch-package:qt6-webengine"]["state"] == "detected"
-    assert e["github-action:actions/checkout"]["state"] == "needs-person"
+    assert e["github-action:actions/checkout"]["state"] == "detected"         # its pin's own candidate (ci-pins)
     assert "proposal" in e["github-action:actions/checkout"]["reason"]
     count = len(ledger["entries"])
 
@@ -429,7 +437,7 @@ def test_an_update_is_detected_and_follows_the_candidate_flow(fixture_repo, tmp_
     assert entry["state"] == "fixing" and "licences" in entry["reason"] and entry["last_run"] == "https://x/runs/7"
     ledger = ledger_tool.update(ledger, inv, candidate({"tests.yml": failed}, autofix_issue="#97"),
                                 cand_inv=cand_inv, now=DAY1 + dt.timedelta(hours=4))
-    assert ledger["entries"]["crate:serde_json@1.0.2"]["state"] == "needs-person"
+    assert ledger["entries"]["crate:serde_json@1.0.2"]["state"] == "retrying"     # fixed again every day
     # a person's fix: a new candidate, tested again (a new attempt)
     ledger = ledger_tool.update(ledger, inv, candidate(running), cand_inv=cand_inv,
                                 now=DAY1 + dt.timedelta(hours=4, minutes=30))
@@ -438,11 +446,11 @@ def test_an_update_is_detected_and_follows_the_candidate_flow(fixture_repo, tmp_
     ledger = ledger_tool.update(ledger, inv, candidate({"tests.yml": ALL_GREEN}), cand_inv=cand_inv,
                                 now=DAY1 + dt.timedelta(hours=5))
     entry = ledger["entries"]["crate:serde_json@1.0.2"]
-    assert entry["state"] == "needs-person" and "not verified: advisories" in entry["reason"]
+    assert entry["state"] == "retrying" and "not verified: advisories" in entry["reason"]
     ledger = ledger_tool.update(ledger, inv, candidate({"tests.yml": ALL_GREEN, "security.yml": SECURITY_GREEN}),
                                 cand_inv=cand_inv, now=DAY1 + dt.timedelta(hours=6))
     entry = ledger["entries"]["crate:serde_json@1.0.2"]
-    assert entry["state"] == "passed" and "owner's merge" in entry["reason"]
+    assert entry["state"] == "passed" and "the verified merge takes it" in entry["reason"]
     assert entry["attempts"] == 2                          # it went into a candidate again after failing
     assert len(ledger["entries"]) == count                  # never added twice
     # Arch: arch.yml started on main after the change was seen
@@ -477,11 +485,12 @@ def test_failed_updates_stay_and_are_tried_again(fixture_repo):
     assert ledger["entries"][key]["state"] == "retry-later"
     ledger = ledger_tool.update(ledger, inv, now=DAY2 + dt.timedelta(hours=1))
     assert ledger["entries"][key]["state"] == "detected" and ledger["entries"][key]["attempts"] == 2
-    # too many attempts: blocked for a person, the reason kept
+    # many attempts: never given up (2026-11-22), tried again as many times as it takes
     ledger["entries"][key]["attempts"] = ledger_tool.MAX_ATTEMPTS
     ledger = ledger_tool.update(ledger, inv, report=report, now=DAY3)
     ledger = ledger_tool.update(ledger, inv, now=DAY3 + dt.timedelta(days=2))
-    assert ledger["entries"][key]["state"] == "blocked" and "tried" in ledger["entries"][key]["reason"]
+    assert ledger["entries"][key]["state"] == "detected" and "tried again" in ledger["entries"][key]["reason"]
+    assert ledger["entries"][key]["attempts"] == ledger_tool.MAX_ATTEMPTS + 1
     # a major version cargo update cannot take waits a week, never a candidate
     major = take(fixture_repo, Upstream(crates={"itoa": ["1.0.0", "2.0.0"]}))
     ledger = ledger_tool.update(ledger, major, now=DAY3)
@@ -968,8 +977,8 @@ def test_an_advisory_of_each_kind_is_found_and_recorded_once(fixture_repo):
     assert "pacman -Syu" in sec["arch-package:python@AVG-2801"]["reason"]
     assert sec["arch-package:qt6-webengine@AVG-2802"]["state"] == "blocked"
     assert sec["integrated:Dark Reader@GHSA-dark-read-0001"]["state"] == "blocked"
-    assert sec["github-action:actions/checkout@GHSA-chec-kout-0001"]["state"] == "needs-person"
-    assert len(told) == 4 and sum("AVG-2802" in n for n in told) == 2
+    assert sec["github-action:actions/checkout@GHSA-chec-kout-0001"]["state"] == "detected"     # the pin's candidate
+    assert len(told) == 3 and sum("AVG-2802" in n for n in told) == 2      # only what is blocked is told
     again = []
     ledger = ledger_tool.update(ledger, take(fixture_repo, Advisories(), arch_tested=ARCH_TESTED), now=DAY2,
                                 notices=again)
@@ -1069,7 +1078,10 @@ def test_a_rustsec_finding_plans_an_isolated_security_fix():
     assert tests["allow_adblock"] == "true"                      # the new crate: I.K.E.'s wrapper only
     tired = plan_tool.decide(_tests_run("automation/update/security-rustsec-2021-0003", _attempts=2),
                              [failed_job("tests", "Lint")], "")
-    assert tired["action"] == "issue" and tired["reason"].startswith("blocked: 2 automatic fixes")
+    # the cap is per day: tried again tomorrow, under the same security rules (nothing weakened, nothing closed)
+    assert tired["action"] == "retry" and tired["reason"].startswith("today's 2 automatic fixes under the security")
+    assert plan_tool.decide(_tests_run("automation/update/security-rustsec-2021-0003", _attempts=2,
+                                       _attempts_today=0), [failed_job("tests", "Lint")], "")["action"] == "fix"
     # since WP5 (the full chain) the other candidates of automation/update/<id> are fixed on their own
     # branch too, never with the security rules; a branch that is no candidate of the chain is not
     crates = plan_tool.decide(_tests_run("automation/update/crates"), [failed_job("tests", "Lint")], "")
@@ -1086,7 +1098,10 @@ def test_a_rustsec_finding_plans_an_isolated_security_fix():
     waiting = {"automation/update/security-sandbox": "121"}
     assert plan_tool.decide(security_run(_security_prs=waiting), SANDBOX_JOB, "")["action"] == "skip"
     plan = plan_tool.decide(security_run("automation/update/security-sandbox", _attempts=2), SANDBOX_JOB, "")
-    assert plan["action"] == "issue" and plan["reason"].startswith("blocked")
+    assert plan["action"] == "retry" and "nothing was weakened" in plan["reason"]     # again tomorrow
+    plan = plan_tool.decide(security_run("automation/update/security-sandbox", _attempts=2, _attempts_today=0),
+                            SANDBOX_JOB, "")
+    assert plan["action"] == "fix" and plan["attempt"] == "3"
     # never a person's pull request, a fork or a branch that moved; never main itself
     for run in (security_run("fix/1.1.23"), security_run(head_repository={"full_name": "x/fork"}),
                 security_run(_tip="newer")):
@@ -1130,7 +1145,10 @@ def test_the_security_workflows_are_wired():
     assert "needs.security-update.outputs.outcome != 'ready'" in jobs["report"]
     assert "tools/security-fix.py report" in jobs["publish"] and 'if [ "$KIND" = "security" ]' in jobs["publish"]
     tests = (WORKFLOWS / "tests.yml").read_text()
-    assert tests.count("startsWith(github.ref_name, 'automation/update/security-')") == 2
+    # both hand-over clauses cover a security branch: the dispatch by its ref, a run
+    # started again by its pull request's own branch (the drill of 2026-11-23)
+    assert tests.count("startsWith(github.ref_name, 'automation/update/security-')") == 1
+    assert tests.count("startsWith((github.head_ref || github.ref_name), 'automation/update/security-')") == 1
 
 
 def _guard_repo(tmp_path):
@@ -1299,7 +1317,7 @@ def test_no_safe_fix_is_blocked_and_the_owner_is_told(fixture_repo):
         entry = ledger["entries"]["crate:smallvec@RUSTSEC-2021-0003"]
         assert entry["state"] == state, (state, entry["reason"])
         assert bool(told) == (state == "blocked")
-    assert "waits for the owner's merge (PR #131)" in entry["reason"]
+    assert "the verified merge takes it (PR #131)" in entry["reason"]
     # the sandbox passes on main again and cargo-deny reports nothing: both are finished
     clean = {"security_main": {"url": "u", "head_sha": "main2", "jobs": {"rust-advisories": {"conclusion": "success"},
                                                                          "sandbox": {"conclusion": "success"}}}}

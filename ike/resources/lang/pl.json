@@ -1028,6 +1028,21 @@
 "Open selected text with middle click": "Otwieraj zaznaczony tekst środkowym przyciskiem",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "Kliknięcie środkowym przyciskiem pustego miejsca na stronie otwiera zaznaczony tekst jako adres lub jako wyszukiwanie.",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Szyfrowany DNS nie odpowiada na własne żądania I.K.E. (aktualizacje, listy filtrów): %s",
-"Shared by %d tabs of this site": "Współdzielone przez karty tej witryny: %d"
+"Shared by %d tabs of this site": "Współdzielone przez karty tej witryny: %d",
+"If you download it anyway, it is at your own risk.": "Jeśli mimo to go pobierzesz, robisz to na własne ryzyko.",
+"Download anyway": "Pobierz mimo to",
+"Open image in %s": "Otwórz obraz w %s",
+"Open with %s": "Otwórz za pomocą %s",
+"Open the page source in %s": "Otwórz źródło strony w %s",
+"Add to calendar": "Dodaj do kalendarza",
+"Show in folder": "Pokaż w folderze",
+"No app of the desktop could open %s.": "Żadna aplikacja pulpitu nie mogła otworzyć %s.",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "I.K.E. zatrzymał pobieranie %s: strona jest bezpieczna (https), ale plik przyszedłby bez ochrony (http). Ktoś w sieci mógłby go odczytać lub podmienić.",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "%s to program lub skrypt, a %s jest na listach ochrony I.K.E. (witryny rozpowszechniające złośliwe oprogramowanie). Może zaszkodzić temu komputerowi.",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s to program lub skrypt, a witryny %s nigdy wcześniej nie odwiedzano. Pobierz go tylko wtedy, gdy ufasz tej witrynie.",
+"Site storage: %d": "Pamięć witryny: %d",
+"Cache: %d": "Pamięć podręczna: %d",
+"Permissions kept: %s": "Zachowane uprawnienia: %s",
+"Not secure": "Niezabezpieczona"
 }
 }

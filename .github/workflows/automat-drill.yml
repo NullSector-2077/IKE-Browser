@@ -1,0 +1,95 @@
+# AUTOMAT's drill (2026-11-23, the owner's request): a realistic emergency rehearsed live, never
+# reaching main or users (tools/automat-drill.py, docs/MAINTENANCE.md "The AUTOMAT drill").
+#
+#   start   one command: gh workflow run automat-drill.yml --ref main
+#           For each scenario of tools/automat-drill.json: its branch automation/update/drill-<name> from
+#           main with the drill's marker (one commit, no AI), its draft pull request "DRILL: ..." with
+#           the label automat-drill, its Tests, Security and Arch Linux started; one drill issue (no
+#           one named). From there AUTOMAT's real chain runs by itself: in the drill's own test runs
+#           the environment simulates a major Qt release (tools/automat-drill-shim.py), the tests fail,
+#           the automatic fix plans, tries its recipes and the free AIs, the guard, the job try, the
+#           reviewers, the retries and the memory do their work; tools/automerge.py never merges it.
+#   tick    every three hours, and when tools/automerge.py finds a drill complete: the report in the
+#           drill's issue (an edit: no mail) and in this run's summary; at the end (every drill complete,
+#           or its hours over) the final report, the drill's only mail to the owner.
+#   stop    by hand: the final report now, and the end.
+#   report  by hand: the report in this run's summary only.
+#
+# No AI and no AI key here. Only on main. The owner's IKE_WORKFLOW_TOKEN (when set) only pushes the
+# drill's branch and opens its pull request, as the daily maintenance does, so its own checks start.
+name: AUTOMAT drill
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "start, tick, stop or report"
+        required: false
+        default: "start"
+      scenario:
+        description: "the scenarios of tools/automat-drill.json to start (comma-separated)"
+        required: false
+        default: "qt"
+      restart:
+        description: "start again although a drill runs (its branch is made again from main)"
+        type: boolean
+        required: false
+        default: false
+  schedule:
+    - cron: "41 */3 * * *"     # every three hours: nothing to do when no drill runs
+
+permissions: {}
+
+concurrency:
+  group: automat-drill
+  cancel-in-progress: false
+
+jobs:
+  drill:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write        # the drill's own branch (never main)
+      pull-requests: write   # its draft pull request, closed at the end
+      issues: write          # the drill's issue
+      actions: write         # its Tests, Security and Arch Linux; the reports of its runs (artifacts)
+      checks: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: The drill
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          WORKFLOW_TOKEN: ${{ secrets.IKE_WORKFLOW_TOKEN }}
+          ACTION: ${{ github.event.inputs.action || 'tick' }}
+          SCENARIO: ${{ github.event.inputs.scenario || 'qt' }}
+          RESTART: ${{ github.event.inputs.restart }}
+        run: |
+          case "$ACTION" in start|tick|stop|report) ;; *) echo "::error::not an action: $ACTION"; exit 1 ;; esac
+          case "$SCENARIO" in *[!a-z0-9,]*|"") echo "::error::not a scenario: $SCENARIO"; exit 1 ;; esac
+          out="$RUNNER_TEMP/drill"
+          mkdir -p "$out"
+          if [ "$ACTION" = start ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            restart=""
+            if [ "$RESTART" = "true" ]; then restart="--restart"; fi
+            python3 -I tools/automat-drill.py start --repo "$GITHUB_REPOSITORY" --scenario "$SCENARIO" $restart
+          else
+            # the token that may push is not needed to read and report
+            unset WORKFLOW_TOKEN
+            python3 -I tools/automat-drill.py "$ACTION" --repo "$GITHUB_REPOSITORY" --out "$out/report.md" \
+              --json "$out/report.json"
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: automat-drill-report
+          path: ${{ runner.temp }}/drill/
+          if-no-files-found: ignore
+          retention-days: 30

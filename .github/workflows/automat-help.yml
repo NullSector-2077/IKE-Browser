@@ -1,0 +1,43 @@
+# AUTOMAT part 2 (2026-11-23): the notice "DEVI AIUTARCI CON CHATGPT" closes by itself.
+#
+# The notice is opened by autofix.yml (job help, tools/automat-help.py) when the free AI agents failed
+# on the same error several times in a row. When the merge workflow has run, this one reads AUTOMAT's
+# memory (the data branch automat/memory, read without any token): every open notice whose branch got a
+# fix merged into main since the notice was opened is closed with a note. Its own workflow, so the
+# merge workflow keeps its single job and its rights. No AI, no key, nothing of a pull request is run.
+name: AUTOMAT help notice
+
+on:
+  workflow_run:
+    workflows: ["Merge green fixes"]
+    types: [completed]
+
+permissions: {}
+
+concurrency:
+  group: automat-help
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Close the notices whose branch got its fix into main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          data="$RUNNER_TEMP/memory-branch"
+          git init -q "$data"
+          git -C "$data" fetch -q --depth 1 "https://github.com/$GITHUB_REPOSITORY" refs/heads/automat/memory \
+            || { echo "no memory yet: nothing to close"; exit 0; }
+          git -C "$data" show FETCH_HEAD:memory.json > "$RUNNER_TEMP/memory.json" || exit 0
+          python3 -I tools/automat-help.py sweep --repo "$GITHUB_REPOSITORY" --memory "$RUNNER_TEMP/memory.json"

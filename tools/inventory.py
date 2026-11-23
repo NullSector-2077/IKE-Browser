@@ -23,7 +23,10 @@ here:
 - the integrated resources: Dark Reader, uBlock Origin's scriptlets, the
   filter lists of ike/config.py DEFAULT_LISTS, the vendored AdBlock engine;
 - the programs ike/ starts (subprocess, QProcess; xdg-open through Qt's
-  QDesktopServices), each mapped to its Arch package.
+  QDesktopServices, which ike/ no longer calls since 1.1.24), each mapped to
+  its Arch package; the desktop's own openers (DESKTOP_TOOLS), started only
+  when the desktop has them, are listed as the desktop's, not as
+  dependencies.
 
 A module, program or build command that no declared Arch package covers is a
 finding "used but not declared".
@@ -100,9 +103,13 @@ TRANSITIVE = {"qt6-base": "python-pyqt6"}
 # programs ike/ starts -> the Arch package that has them
 TOOL_PACKAGES = {
     "notify-send": "libnotify", "xdg-settings": "xdg-utils", "xdg-open": "xdg-utils", "xdg-mime": "xdg-utils",
-    "xdg-email": "xdg-utils", "kde-open": "kde-cli-tools", "kioclient": "kio", "gsettings": "glib2",
+    "xdg-email": "xdg-utils", "kde-open": "kde-cli-tools", "kioclient": "kde-cli-tools", "gsettings": "glib2",
+    "gio": "glib2", "exo-open": "exo",
     "git": "git", "ffmpeg": "ffmpeg", "pacman": "pacman", "python3": "python", "python": "python",
 }
+# programs of the user's desktop that ike/ starts only when they are there (ike/handoff.py: the
+# opener of KDE, of the GLib desktops, of Xfce when no desktop portal answers): not dependencies
+DESKTOP_TOOLS = ("kioclient", "gio", "exo-open")
 # the build() commands of the PKGBUILD -> their Arch package
 BUILD_PACKAGES = {"cargo": "rust", "rustc": "rust", "gcc": "gcc", "cc": "gcc", "clang": "clang", "make": "make",
                   "node": "nodejs", "npm": "npm", "python3": "python", "python": "python"}
@@ -142,6 +149,148 @@ def _components_tool():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
+
+def _manifest_tool():
+    spec = importlib.util.spec_from_file_location("component_manifest", Path(__file__).resolve().parent /
+                                                  "component-manifest.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+# --- the inventory guard (2026-11-22): nothing from upstream without an update path ---------------
+
+# I.K.E.'s own files under ike/resources/, written for I.K.E. and kept by its own commits (page
+# scripts, pages, the look-alike table, its pictures). Everything else there must be declared: an
+# entry of components.json, or one of the kinds below.
+OWN_RESOURCES = (
+    "ike/resources/consent.js", "ike/resources/darkmode.js", "ike/resources/fingerprint.js",
+    "ike/resources/mediahook.js", "ike/resources/passwords.js", "ike/resources/reader.js",
+    "ike/resources/userscript.js", "ike/resources/videoads.js", "ike/resources/videorelay.js",
+    "ike/resources/newtab.html", "ike/resources/lookalike.json", "ike/resources/ike.svg",
+    "ike/resources/wordmark.svg", "ike/resources/newtab-background.jpg",
+)
+# folders of I.K.E.'s own resources: its language packs, and the icon sets (Lucide, Phosphor and the
+# Orbitron font: fixed copies with their licences in licenses/, chosen by the owner, not followed
+# upstream: docs/THIRD-PARTY.md)
+OWN_RESOURCE_DIRS = ("ike/resources/lang/", "ike/resources/icons/")
+# what another auto-discovered kind covers: the vendored engine is rebuilt from ike-adblock/ (crates)
+COVERED_DIRS = ("vendor/adblock/",)
+EXTERNAL_DIRS = re.compile(r"(^|/)(vendor|vendored|third_party|third-party|thirdparty|node_modules|external|deps)/")
+UPSTREAM_HEADER = re.compile(
+    r"@license\b|@preserve\b|SPDX-License-Identifier|\bMIT License\b|Permission is hereby granted"
+    r"|GNU (?:Lesser |Affero )?General Public License|Apache License|Mozilla Public License|BSD \d-Clause"
+    r"|\(c\) \d{4}|Copyright (?:\(c\) )?\d{4}", re.I)
+CODE_SUFFIXES = (".js", ".mjs", ".css", ".json", ".wasm", ".html")
+MINIFIED_LINE = 2000
+
+
+def looks_external(root, path):
+    """Why a file of the repository looks like it comes from upstream, or "" (read, never run)."""
+    if EXTERNAL_DIRS.search(path):
+        return "it is in a folder of vendored code"
+    if path.startswith("ike/resources/") and path not in OWN_RESOURCES and not path.startswith(OWN_RESOURCE_DIRS):
+        return "it is under ike/resources/ and not one of I.K.E.'s own resources (OWN_RESOURCES)"
+    if not path.startswith("ike/") or not path.endswith(CODE_SUFFIXES):
+        return ""
+    if re.search(r"\.min\.(js|css)$", path):
+        return "a minified file"
+    try:
+        text = (Path(root) / path).read_text("utf-8", "replace")
+    except OSError:
+        return ""
+    if path.endswith((".js", ".mjs", ".css")):
+        if UPSTREAM_HEADER.search(text[:3000]) and path not in OWN_RESOURCES:
+            return "it starts with an upstream licence header"
+        if any(len(line) > MINIFIED_LINE for line in text.split("\n")) and path not in OWN_RESOURCES:
+            return "minified code (a line of more than %d characters)" % MINIFIED_LINE
+    return ""
+
+
+def tracked_files(root):
+    out = subprocess.run(["git", "-C", str(root), "ls-files", "-z"], capture_output=True, text=True, check=False)
+    if out.returncode == 0 and out.stdout:
+        return [n for n in out.stdout.split("\0") if n]
+    return sorted(str(p.relative_to(root)) for p in Path(root).rglob("*")
+                  if p.is_file() and ".git" not in p.parts and "__pycache__" not in p.parts)
+
+
+def entry_hint(root, path):
+    """The entry of components.json to add for an undeclared file: what the test's message shows."""
+    import hashlib
+    try:
+        digest = hashlib.sha256((Path(root) / path).read_bytes()).hexdigest()
+    except OSError:
+        digest = "<sha256 of the file>"
+    cid = re.sub(r"[^a-z0-9]+", "-", Path(path).stem.lower()).strip("-")[:40] or "component"
+    return json.dumps({cid: {
+        "name": "<what it is>", "upstream": {"git": "https://github.com/<owner>/<repository>", "tag": "v*"},
+        "files": [path], "version": "<the version in use>",
+        "download": [{"url": "https://raw.githubusercontent.com/<owner>/<repository>/{tag}/<path upstream>",
+                      "file": path, "sha256": digest}],
+        "licence": "licenses/<its licence file>",
+        "tests": list(_manifest_tool().DEFAULT_TESTS)}}, indent=1)
+
+
+def undeclared_files(root=ROOT, files=None):
+    """[(file, why it looks external, the entry to add)]: files from upstream that no entry of the
+    component manifest and no auto-discovered kind covers. Empty in a healthy repository."""
+    mf = _manifest_tool()
+    declared = {f for e in mf.components(root).values() for f in e["files"]}
+    out = []
+    for path in (files if files is not None else tracked_files(root)):
+        if path in declared or path.startswith(COVERED_DIRS):
+            continue
+        why = looks_external(root, path)
+        if why:
+            out.append((path, why, entry_hint(root, path)))
+    return out
+
+
+# kinds whose update comes through a candidate of its own (tools/update-candidates.py candidate_for)
+CANDIDATE_KINDS = ("adblock-engine", "crate", "integrated", "npm", "pypi-test", "github-action")
+
+
+def update_path(rec):
+    """How this record is updated: its candidate ("candidate automation/update/<id>"), or its update
+    mode when its kind is not updated through a candidate (the system's packages, the lists the
+    browser downloads, what follows another record); "" when it has none (the guard then fails)."""
+    mode = str(rec.get("update_mode") or "")
+    if not mode or mode == UNKNOWN:
+        return ""
+    if rec.get("kind") in CANDIDATE_KINDS:
+        uc_spec = importlib.util.spec_from_file_location("update_candidates", Path(__file__).resolve().parent /
+                                                         "update-candidates.py")
+        uc = importlib.util.module_from_spec(uc_spec)
+        uc_spec.loader.exec_module(uc)
+        cid = uc.candidate_for(rec)
+        if cid:
+            return "candidate automation/update/%s" % cid
+        if rec.get("kind") == "crate":
+            return "with the crate that brings it (a candidate of adblock, pyo3 or the crates)"
+        return ""
+    return mode
+
+
+def guard_problems(root=ROOT, inv=None, files=None):
+    """What the inventory guard refuses (a list of messages; empty: every external component is
+    catalogued and has an update path)."""
+    out = []
+    try:
+        _manifest_tool().read(root)
+    except ValueError as e:
+        out.append(str(e))
+    for path, why, hint in undeclared_files(root, files):
+        out.append("%s looks like a file from upstream (%s) and no entry of components.json declares it. Add this "
+                   "entry to \"components\" in components.json, with its real upstream, version and licence "
+                   "(the sha256 is the file's own):\n%s" % (path, why, hint))
+    for rec in (inv or {}).get("components", []):
+        if not update_path(rec):
+            out.append("%s (%s) has no update path: its update mode is %r and no candidate carries it "
+                       "(tools/inventory.py UPDATE_MODES, tools/update-candidates.py candidate_for, or an entry "
+                       "of components.json)" % (rec.get("id"), rec.get("kind"), rec.get("update_mode")))
+    return out
 
 
 def _vulnerabilities_tool():
@@ -695,6 +844,9 @@ def discover(root, arch_tested=None):
             findings.append({"finding": "unknown provider", "component": rec["id"],
                              "detail": "ike/ starts `%s` (%s): its Arch package is not known (TOOL_PACKAGES)"
                                        % (name, where)})
+        elif name in DESKTOP_TOOLS and not covered(package):
+            rec["declared"] = "the desktop's own (started only when installed)"
+            rec["notes"].append("the desktop's own program: used only when the desktop has it")
         elif not covered(package):
             findings.append({"finding": "used but not declared", "component": rec["id"],
                              "detail": "ike/ starts `%s` (%s, %s): package %s is not in depends or optdepends"
@@ -785,7 +937,7 @@ def discover(root, arch_tested=None):
                    "tools/build-darkreader.py", "%s, lists %s (%s)" % (dr.get("version", "?"),
                                                                      str(dr.get("lists_commit", ""))[:10],
                                                                      dr.get("lists_date", "?")),
-                   npm_version=dr.get("version", "")))
+                   npm_version=dr.get("version", ""), candidate="darkreader"))
     except (OSError, ValueError):
         pass
     try:
@@ -794,9 +946,17 @@ def discover(root, arch_tested=None):
                    "git (%s, default branch), rebuilt by tools/build-ubo-scriptlets.mjs"
                    % ubo.get("source", "github.com/gorhill/uBlock"),
                    "%s (%s)" % (str(ubo.get("commit", ""))[:10], ubo.get("date", "?")),
-                   commit=ubo.get("commit", ""), git=ubo.get("source", "")))
+                   commit=ubo.get("commit", ""), git=ubo.get("source", ""), candidate="ubo-scriptlets"))
     except (OSError, ValueError):
         pass
+    # every other entry of the component manifest (components.json): a plain download, its own candidate
+    for cid, entry in sorted(_manifest_tool().components(root).items()):
+        if entry.get("download"):
+            add(record(entry["name"], "integrated", "runtime", list(entry["files"]) + ["components.json"],
+                       "components.json: %s" % ", ".join("%s %s" % kv for kv in sorted(entry["upstream"].items())),
+                       entry.get("version", ""), candidate=cid,
+                       update_mode="candidate: automation/update/%s (components.json; tools/check-components.py "
+                                   "--only %s --apply, a download checked by its sha256)" % (cid, cid)))
     for entry in default_lists(root):
         add(record(entry.get("name") or entry["url"], "filter-list", "runtime", "ike/config.py DEFAULT_LISTS",
                    "HTTPS: %s" % urllib.parse.urlsplit(entry["url"]).hostname,

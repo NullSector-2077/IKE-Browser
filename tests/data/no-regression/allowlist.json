@@ -1,0 +1,4 @@
+{
+ "about": "Nothing gets worse (tools/no-regression.py, docs/MAINTENANCE.md): the differences from main that a person read and accepted. Only a person edits this file: it is under tests/, so the automatic fix may not touch it and a pull request that changes it never merges by itself. Each entry names one observation (\"key\", a glob of the keys the report prints), may pin the value on main (\"base\") and on the candidate (\"candidate\") so it accepts that one change only, and says why (\"why\") and who accepted it and when (\"accepted\"). An entry no longer needed is removed.",
+ "entries": []
+}

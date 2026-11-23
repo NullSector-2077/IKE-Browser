@@ -1028,6 +1028,21 @@
 "“Send to device” with KDE Connect": "“Gửi tới thiết bị” bằng KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ để chọn, Enter để mở, Esc để đóng",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS mã hóa không trả lời các yêu cầu của chính I.K.E. (cập nhật, danh sách bộ lọc): %s",
-"Shared by %d tabs of this site": "Chia sẻ bởi %d thẻ của trang này"
+"Shared by %d tabs of this site": "Chia sẻ bởi %d thẻ của trang này",
+"If you download it anyway, it is at your own risk.": "Nếu bạn vẫn tải xuống, bạn tự chịu rủi ro.",
+"Download anyway": "Vẫn tải xuống",
+"Open image in %s": "Mở hình ảnh trong %s",
+"Open with %s": "Mở bằng %s",
+"Open the page source in %s": "Mở mã nguồn trang trong %s",
+"Add to calendar": "Thêm vào lịch",
+"Show in folder": "Hiện trong thư mục",
+"No app of the desktop could open %s.": "Không ứng dụng nào của màn hình nền mở được %s.",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "I.K.E. đã dừng tải xuống %s: trang an toàn (https), nhưng tệp sẽ đến mà không được bảo vệ (http). Ai đó trên mạng có thể đọc hoặc thay thế nó.",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "%s là chương trình hoặc tập lệnh, và %s nằm trong danh sách bảo vệ của I.K.E. (các trang phát tán phần mềm độc hại). Nó có thể gây hại cho máy tính này.",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s là chương trình hoặc tập lệnh, và bạn chưa từng truy cập %s trước đây. Chỉ tải xuống nếu bạn tin tưởng trang này.",
+"Site storage: %d": "Bộ nhớ trang: %d",
+"Cache: %d": "Bộ nhớ đệm: %d",
+"Permissions kept: %s": "Quyền được giữ lại: %s",
+"Not secure": "Không bảo mật"
 }
 }

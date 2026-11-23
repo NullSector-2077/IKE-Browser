@@ -28,8 +28,11 @@ jobs:
   tests:
     runs-on: ubuntu-24.04
     # room for the starting commit's tests too, when a branch of the automation
-    # or of ChatGPT changed tests/ (audit of #65)
-    timeout-minutes: 100
+    # or of ChatGPT changed tests/ (audit of #65), and for "Nothing gets worse"
+    # after them (up to 20 minutes): PR #116's run on 86525f6 had every step
+    # green after 100 minutes, the whole suite three times, and was cancelled
+    # by the old limit in "Nothing gets worse"
+    timeout-minutes: 140
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -322,6 +325,57 @@ jobs:
             exit 1
           fi
           echo "This commit's engine reads today's default filter lists no worse than main's."
+      # Nothing gets worse (2026-11-22, the category "no-regression" that the merge by
+      # itself needs, tools/test-categories.py): what I.K.E. does for its users,
+      # measured the same way on the same fixed inputs on this commit and on main's
+      # (on main itself: on the commit before), in this job, offline and without a
+      # display: ad and tracker blocking (YouTube's requests included, read only),
+      # the fingerprinting surface at every level, the hosts contacted by itself,
+      # the security settings. Anything weaker fails, unless a person accepted that
+      # change in tests/data/no-regression/allowlist.json. Main's own copy of
+      # tools/no-regression.py and of its inputs measures both: a candidate never
+      # judges itself (docs/MAINTENANCE.md, "Nothing gets worse").
+      - name: Nothing gets worse
+        timeout-minutes: 20
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          git fetch -q --no-tags --unshallow origin main 2>/dev/null || git fetch -q --no-tags origin main
+          if [ "$REF" = refs/heads/main ]; then
+            base=$(git rev-parse HEAD^1)
+          else
+            base=$(git rev-parse FETCH_HEAD)
+          fi
+          if git diff --quiet "$base" HEAD; then
+            echo "This commit's files are those of $base: nothing can be worse."
+            exit 0
+          fi
+          where="$RUNNER_TEMP/nr-main"
+          rm -rf "$where"
+          git worktree add -q --detach "$where" "$base"
+          # main's AdBlock engine: this one when the engine did not change, else built from main's sources
+          if git diff --quiet "$base" HEAD -- ike-adblock vendor/adblock; then
+            cp vendor/adblock/ike_adblock.abi3.so "$where/vendor/adblock/"
+          else
+            cargo build --release --locked --manifest-path "$where/ike-adblock/Cargo.toml" \
+                --target-dir "$GITHUB_WORKSPACE/ike-adblock/target"
+            install -m755 ike-adblock/target/release/libike_adblock.so "$where/vendor/adblock/ike_adblock.abi3.so"
+          fi
+          tool="$where/tools/no-regression.py"
+          if [ ! -f "$tool" ]; then
+            echo "::notice::$base has no tools/no-regression.py yet: this commit's own copy measures both (once)"
+            tool=tools/no-regression.py
+          fi
+          out="$RUNNER_TEMP/test-results/no-regression"
+          set +e
+          python3 "$tool" check --base-repo "$where" --candidate-repo . \
+              --allowlist tests/data/no-regression/allowlist.json --out-dir "$out"
+          code=$?
+          set -e
+          cat "$out/report.md" >> "$GITHUB_STEP_SUMMARY" 2> /dev/null || true
+          cat "$out/report.md" 2> /dev/null || echo "::error::no report: the check did not run to its end"
+          git worktree remove --force "$where"
+          exit $code
       # 2026-11-22 (WP4 of the maintenance plan): a skipped test is NOT VERIFIED,
       # never passed. The junit files of both test steps are read into the
       # run's summary (the skipped tests by area, with their reasons) and kept
@@ -363,10 +417,10 @@ jobs:
       startsWith(github.ref_name, 'automation/update/') || startsWith(github.ref_name, 'automation/builder/') ||
       github.ref_name == 'main')) ||
       (github.run_attempt > 1 && github.triggering_actor == 'github-actions[bot]' &&
-      (github.ref_name == 'main' || github.ref_name == 'automation/autofix-main' ||
-      startsWith(github.ref_name, 'automation/update/security-') ||
-      startsWith(github.ref_name, 'automation/update/') || startsWith(github.ref_name, 'automation/builder/') ||
-      github.ref_name == 'automation/daily-maintenance')))
+      ((github.head_ref || github.ref_name) == 'main' || (github.head_ref || github.ref_name) == 'automation/autofix-main' ||
+      startsWith((github.head_ref || github.ref_name), 'automation/update/security-') ||
+      startsWith((github.head_ref || github.ref_name), 'automation/update/') || startsWith((github.head_ref || github.ref_name), 'automation/builder/') ||
+      (github.head_ref || github.ref_name) == 'automation/daily-maintenance')))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:

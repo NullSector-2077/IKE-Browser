@@ -72,6 +72,9 @@ MESSAGES = {
                    "controllo settimanale l'ha segnato non disponibile: Antigravity non è partito.",
     "rotated": "Questo tentativo comincia da un altro fornitore gratuito (un tentativo precedente non è "
                "bastato): Antigravity non è partito, provano le riserve.",
+    # part 2 of AUTOMAT: the budget of the free quotas (tools/ai-quota.py)
+    "budget": "La quota gratuita di Gemini di oggi non basta (finita, già usata da questo candidato, oppure "
+              "non resterebbe quota per far rivedere la correzione da altre AI): Antigravity non è partito.",
 }
 # a billing error: the model or the project is not on the free tier (WP9; the
 # same words as tools/autofix-reserve.py, never a quota's advice)
@@ -181,6 +184,42 @@ YouTube's ad blocking (`videoads.js`, `videorelay.js`, `mediahook.js`,
 or a rule to make it parse, never remove a protection. If only the engine
 itself (the adblock-rust crate) could do it, change nothing and say so.
 """
+
+
+def auto_note(auto):
+    """The static guard's rules (tools/fix-guard.py), for a fix that may reach main by itself."""
+    if not auto:
+        return ""
+    return ("\n\n## This fix may reach main by itself: a program checks it\n\nNever change a test, a tool, a "
+            "workflow, `ike/app.py`, `ike_boot.py`, `ike/updater.py`, `ike/__init__.py` or `ike/extensions.py`: "
+            "fix I.K.E.'s code instead, or change nothing and say why. In the ad-blocking adapter, the modules "
+            "that decide the user's safety and I.K.E.'s page scripts only ADD statements: every existing "
+            "statement, condition, return and raise stays exactly as it is; no new return or raise before "
+            "existing code unless under a new condition; no new import, address, file write or process. If "
+            "`tests/test_inventory_guard.py` fails, add the missing entry to `components.json` exactly as its "
+            "message says (a plain download, never a build command).\n")
+
+
+def tier_b_note(on):
+    """The narrow form of tier B the owner opened with AUTOMAT_TIER_B (tools/tier-b.py)."""
+    if not on:
+        return ""
+    return ("\n\n## The owner opened a few reserved files, in their narrowest form\n\nA program checks it "
+            "(tools/tier-b.py). In a workflow under `.github/` ONLY a pinned version may change (an action's full "
+            "commit with its version comment, cargo-deny's version, the Python, Node.js or Rust version): never a "
+            "command, a permission, a secret, a trigger, `runs-on` or a step, never an older version. In "
+            "`ike/app.py`, `ike/updater.py` and `ike_boot.py` only ADD statements, never inside a function that "
+            "decides the signature, the update, the sandbox or the update check (they are frozen), and never name "
+            "UNSAFE_SWITCHES, UNSAFE_FEATURES, UNSAFE_ENV, LNA_FEATURES or ENGINE_SAFETY. Everything else that the "
+            "section above forbids stays forbidden.\n")
+
+
+def _quota():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("ike_ai_quota", Path(__file__).resolve().parent / "ai-quota.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
 def engine_note(allow_adblock, lists=False):
@@ -295,12 +334,21 @@ def main(argv=None):
     ap.add_argument("--builder", default="", choices=["", *sorted(BUILDERS)],
                     help="the builders' re-anchoring (WP11): that builder's existing patches only")
     ap.add_argument("--first", default="", help="the provider this attempt starts with (tools/ai-providers.py)")
+    ap.add_argument("--auto", action="store_true", help="a fix that may reach main by itself: the static guard")
+    # part 2 of AUTOMAT
+    ap.add_argument("--tier-b", action="store_true", help="the owner turned AUTOMAT_TIER_B on (tools/tier-b.py)")
+    ap.add_argument("--quota-limits", help="tools/ai-quota.json (the free quotas, as data)")
+    ap.add_argument("--quota-state", help="quota.json of the data branch (today's use)")
+    ap.add_argument("--quota-usage", help="where this run's use is written (numbers only)")
+    ap.add_argument("--candidate", default="", help="the branch being fixed (its share of the quota)")
     a = ap.parse_args(argv)
     key = os.environ.get("GEMINI_API_KEY", "")
     workdir, out = Path(a.workdir), Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
+    tier_b = bool(a.tier_b and a.auto and not getattr(a, "builder", ""))
     rules = (Path(a.prompt).read_text("utf-8") + engine_note(a.allow_adblock, a.lists) + security_note(a.security)
-             + builder_note(getattr(a, "builder", "")))
+             + builder_note(getattr(a, "builder", "")) + auto_note(a.auto and not getattr(a, "builder", ""))
+             + tier_b_note(tier_b))
     try:
         failure = (workdir / ".autofix" / "failure.md").read_text("utf-8", "replace")
     except OSError:
@@ -326,6 +374,26 @@ def main(argv=None):
                                               MESSAGES["unavailable"], "detail": ""}, ensure_ascii=False), "utf-8")
         print("Outcome: unavailable (marked by the weekly check)", flush=True)
         return 0
+    # part 2 of AUTOMAT: the budget of Gemini's free quota. One session of the agent is counted as
+    # session_requests requests (it reads and edits files in several requests)
+    spend, session = None, 0
+    if a.quota_limits or a.quota_state or a.quota_usage:
+        quota = _quota()
+        limits = quota.load_limits(a.quota_limits)
+        named = [n.strip() for n in (os.environ.get("AUTOFIX_REVIEWERS") or "").split(",") if n.strip() in quota.NAMES]
+        spend = quota.Budget(limits, quota.load_state(a.quota_state) if a.quota_state else None, a.candidate,
+                             tier_b=tier_b, available=[n for n in (named or quota.NAMES) if n not in off
+                                                       and not (n == "Antigravity" and "Gemini" in off)])
+        session = int(limits["providers"]["Antigravity"].get("session_requests") or 10)
+        allowed, why = spend.allows("Antigravity", 0, "fix", requests=session)
+        if not allowed:
+            spend.skipped["Antigravity"] = why
+            Path(a.status).write_text(json.dumps({"result": "budget", "model": "", "message": MESSAGES["budget"],
+                                                  "detail": why}, ensure_ascii=False), "utf-8")
+            if a.quota_usage:
+                Path(a.quota_usage).write_text(json.dumps(spend.delta()) + "\n", "utf-8")
+            print("Outcome: budget (%s)" % why.replace("::", ": ")[:200], flush=True)
+            return 0
     for model in models(os.environ.get("AUTOFIX_MODEL")):
         tries = 0
         while True:
@@ -354,6 +422,8 @@ def main(argv=None):
             if status and said.strip():
                 # what the agent had produced when it stopped (its own words, no key): for the diagnosis
                 detail += "\n--- the agent's last output ---\n" + said.decode("utf-8", "replace")[-1500:]
+            if spend is not None:
+                spend.note("Antigravity", 0, "fix", requests=session)
             if status == 0:
                 result = "ok"
                 break
@@ -371,6 +441,10 @@ def main(argv=None):
                 time.sleep(WAIT_TEMPORARY)
                 continue
             result = {"day": "quota", "minute": "quota", "temporary": "temporary"}.get(kind, kind)
+            if spend is not None and kind == "day":
+                spend.mark_spent("Antigravity", "429: the quota of the day")
+            if spend is not None and kind == "unavailable":
+                spend.mark_spent("Antigravity", "not free (billing)")
             break
         if result == "ok":
             break
@@ -380,6 +454,9 @@ def main(argv=None):
         break                    # auth, config, timeout, error, unavailable: switching model would not help
     Path(a.status).write_text(json.dumps({"result": result, "model": used, "message": MESSAGES[result],
                                           "detail": detail}, ensure_ascii=False), "utf-8")
+    if spend is not None and a.quota_usage:
+        spend.result = "answered" if result in ("ok", "timeout", "error") else ""
+        Path(a.quota_usage).write_text(json.dumps(spend.delta()) + "\n", "utf-8")
     print("Outcome: %s (%s)" % (result, used), flush=True)
     return 0
 

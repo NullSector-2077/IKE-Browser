@@ -18,6 +18,8 @@ automatic fix, ledger entry and verified merge (tools/automerge.py).
     test-libs          the other libraries of the automatic tests
     pkgbuild           the PKGBUILD's depends, optdepends and minima (tools/pkgbuild-sync.py)
     ci-<name>          a pin of the workflows (tools/ci-pins.py: actions, cargo-deny, Python, Node.js, Rust)
+    drill-<name>       an AUTOMAT drill (tools/automat-drill.py): never in a daily plan, never merged; its
+                       commit only adds the drill's marker and the scenario's breaks
 
 Rules (the plan below; the workflow follows them):
 
@@ -61,7 +63,7 @@ PREFIX = "automation/update/"
 BUILDER_PREFIX = "automation/builder/"
 SECURITY_PREFIX = PREFIX + "security-"
 ID = re.compile(r"^(adblock|crates|pyo3|crate-major-[a-z0-9_-]{1,40}|ubo-scriptlets|darkreader|test-qt|test-tools"
-                r"|test-libs|pkgbuild|ci-[a-z0-9-]{1,60}|arch-testing-\d{4}-\d\d-\d\d)$")
+                r"|test-libs|pkgbuild|ci-[a-z0-9-]{1,60}|arch-testing-\d{4}-\d\d-\d\d|drill-[a-z0-9]{1,30})$")
 ENGINE_FILES = ("ike-adblock/Cargo.toml", "ike-adblock/Cargo.lock")
 LICENCE_FILES = ("docs/THIRD-PARTY.md", "licenses/")
 VERSION_FILES = ("ike/__init__.py", "PKGBUILD", "README.md", "CHANGELOG.md")
@@ -77,11 +79,8 @@ SPECS = {
              "kinds": ("adblock-engine", "crate")},
     "crate-major-": {"files": ENGINE_FILES, "serial": "cargo", "ships": True, "wrapper": True,
                      "kinds": ("adblock-engine", "crate")},
-    "ubo-scriptlets": {"files": ("ike/resources/ubo-scriptlets.json",), "serial": "", "ships": True,
-                       "wrapper": False, "kinds": ("integrated",), "builder": "tools/build-ubo-scriptlets.mjs"},
-    "darkreader": {"files": ("ike/resources/darkreader.js", "ike/resources/darkreader-proxy.js",
-                             "ike/resources/darkreader-data.json"), "serial": "", "ships": True,
-                   "wrapper": False, "kinds": ("npm", "integrated"), "builder": "tools/build-darkreader.py"},
+    # Dark Reader, uBlock Origin's scriptlets and every component added later: components.json, the
+    # component manifest (tools/component-manifest.py); see spec() and manifest_specs() below
     "test-qt": {"files": ("tools/test-requirements.txt",), "serial": "test-requirements", "ships": False,
                 "wrapper": False, "kinds": ("pypi-test",)},
     "test-tools": {"files": ("tools/test-requirements.txt",), "serial": "test-requirements", "ships": False,
@@ -93,6 +92,10 @@ SPECS = {
             "kinds": ("github-action",)},
     # WP10 (b): a fix of main's code for Arch's next packages (only the automatic fix's commits)
     "arch-testing-": {"files": (), "serial": "", "ships": True, "wrapper": False, "kinds": ("arch-package",)},
+    # an AUTOMAT drill (tools/automat-drill.py): its own commit only adds the drill's marker and writes the
+    # scenario's breaks; no serial group (it never holds back a real candidate); tools/automerge.py never merges it
+    "drill-": {"files": ("tools/automat-drill.active", "tools/automat-drill.json"), "serial": "", "ships": False,
+               "wrapper": False, "kinds": ("pypi-test",), "drill": True},
 }
 # the order in which candidates of one serial group go (the security fixes' branches always count as open)
 PRIORITY = ("adblock", "pyo3", "crates", "crate-major-", "test-qt", "test-tools", "test-libs")
@@ -100,16 +103,33 @@ UPDATE_COMMIT = re.compile(r"^update: ([a-z0-9_-]+) (.{1,300}) -> (.{1,300}) \(n
 CI_COMMIT = re.compile(r"^ci: ([a-z0-9-]+) (\S{1,80}) -> (\S{1,80}) \(tools/ci-pins\.py, no AI\)$")
 
 
-def spec(cid):
-    """The SPECS entry of a candidate id, or None."""
-    if not cid or not ID.match(cid):
+def _manifest():
+    import importlib.util
+    path = Path(__file__).resolve().parent / "component-manifest.py"
+    sp = importlib.util.spec_from_file_location("component_manifest", path)
+    mod = importlib.util.module_from_spec(sp)
+    sp.loader.exec_module(mod)
+    return mod
+
+
+def manifest_specs(root=ROOT):
+    """{id: its candidate's rules} of every entry of the component manifest (components.json): its
+    files, its builder, its kinds. A new entry gets its candidate with no change here."""
+    mf = _manifest()
+    return {cid: mf.spec(cid, root) for cid in mf.components(root)}
+
+
+def spec(cid, root=ROOT):
+    """The rules of a candidate id (SPECS, or the component manifest's entry), or None."""
+    if not cid or not isinstance(cid, str):
         return None
     if cid in SPECS:
         return SPECS[cid]
-    for key, value in SPECS.items():
-        if key.endswith("-") and cid.startswith(key):
-            return value
-    return None
+    if ID.match(cid):
+        for key, value in SPECS.items():
+            if key.endswith("-") and cid.startswith(key):
+                return value
+    return manifest_specs(root).get(cid)
 
 
 def branch_for(cid):
@@ -139,6 +159,8 @@ def candidate_for(rec):
     candidate can (a major version of a crate only adblock brings: it comes with a new adblock)."""
     kind, name = rec.get("kind", ""), str(rec.get("name", ""))
     compat = str(rec.get("compatibility", ""))
+    if rec.get("candidate") and spec(rec["candidate"]):
+        return rec["candidate"]              # a component of the manifest: the inventory names its entry
     if kind == "adblock-engine":
         return "adblock"
     if kind == "crate":

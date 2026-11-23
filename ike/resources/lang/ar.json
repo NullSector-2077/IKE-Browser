@@ -1028,6 +1028,21 @@
 "“Send to device” with KDE Connect": "“الإرسال إلى جهاز” عبر KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ للاختيار، Enter للانتقال، Esc للإغلاق",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS المشفّر لا يستجيب لطلبات I.K.E. نفسه (التحديثات وقوائم المرشحات): %s",
-"Shared by %d tabs of this site": "مشتركة بين %d علامات تبويب من هذا الموقع"
+"Shared by %d tabs of this site": "مشتركة بين %d علامات تبويب من هذا الموقع",
+"If you download it anyway, it is at your own risk.": "إذا نزّلته رغم ذلك، فعلى مسؤوليتك الخاصة.",
+"Download anyway": "نزّل رغم ذلك",
+"Open image in %s": "افتح الصورة في %s",
+"Open with %s": "افتح باستخدام %s",
+"Open the page source in %s": "افتح مصدر الصفحة في %s",
+"Add to calendar": "أضف إلى التقويم",
+"Show in folder": "أظهر في المجلد",
+"No app of the desktop could open %s.": "لم يتمكن أي تطبيق في سطح المكتب من فتح %s.",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "أوقف I.K.E. تنزيل %s: الصفحة آمنة (https)، لكن الملف سيصل دون حماية (http). يمكن لشخص على الشبكة قراءته أو استبداله.",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "%s برنامج أو نص برمجي، و%s مدرج في قوائم الحماية في I.K.E. (مواقع تنشر البرمجيات الخبيثة). قد يضر بهذا الحاسوب.",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s برنامج أو نص برمجي، ولم تزر %s من قبل. لا تنزّله إلا إذا كنت تثق بالموقع.",
+"Site storage: %d": "تخزين الموقع: %d",
+"Cache: %d": "ذاكرة التخزين المؤقت: %d",
+"Permissions kept: %s": "الأذونات المحتفظ بها: %s",
+"Not secure": "غير آمن"
 }
 }
