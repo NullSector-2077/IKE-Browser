@@ -1410,25 +1410,45 @@ class Shields(QObject):
             return False
 
     # --- per page ----------------------------------------------------
+    SEEN_MAX = 20000
+
     def _track_cookies(self, profile):
-        """Keep a list of the profile's cookies, to be able to delete one site's."""
+        """Keep a list of the profile's cookies, to be able to delete one site's.
+
+        1.1.24: also every cookie ever added (cookies_seen). When a site sets
+        the same cookie again in a later answer, the engine reports the old one
+        removed and never the new one added: the cookie is there, the list
+        lost it, and "Clear this site's data" left it (found by its new
+        summary, tests/test_clean_site.py). Deleting one that is gone already
+        does nothing."""
         jar = {}
+        seen = {}
         if not hasattr(self, "cookie_jars"):
             self.cookie_jars = {}
+            self.cookies_seen = {}
         self.cookie_jars[profile] = jar
+        self.cookies_seen[profile] = seen
         store = profile.cookieStore()
 
         def key(c):
             return (c.domain(), c.path(), bytes(c.name()))
         from PyQt6.QtNetwork import QNetworkCookie
-        # a copy: the object handed to the signal only lives during the call
-        store.cookieAdded.connect(lambda c: jar.__setitem__(key(c), QNetworkCookie(c)))
+
+        def added(c):
+            k = key(c)
+            jar[k] = QNetworkCookie(c)    # a copy: the object handed to the signal only lives during the call
+            if len(seen) >= self.SEEN_MAX and k not in seen:
+                seen.pop(next(iter(seen)))
+            seen[k] = jar[k]
+        store.cookieAdded.connect(added)
         store.cookieRemoved.connect(lambda c: jar.pop(key(c), None))
 
-    def site_cookies(self, profile, site):
-        """Cookies of a registrable domain (and its subdomains) in a profile."""
+    def site_cookies(self, profile, site, ever=False):
+        """Cookies of a registrable domain (and its subdomains) in a profile;
+        ever=True: also those the engine may still have (see _track_cookies)."""
         out = []
-        for c in list(getattr(self, "cookie_jars", {}).get(profile, {}).values()):
+        source = getattr(self, "cookies_seen" if ever else "cookie_jars", {}).get(profile, {})
+        for c in list(source.values()):
             domain = c.domain().lstrip(".").lower()
             if domain == site or domain.endswith("." + site):
                 out.append(c)

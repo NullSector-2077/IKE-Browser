@@ -1028,6 +1028,20 @@
 "“Send to device” with KDE Connect": "«Envia al dispositiu» amb KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ per triar, Retorn per anar-hi, Esc per tancar",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "El DNS xifrat no respon a les sol·licituds pròpies d'I.K.E. (actualitzacions, llistes de filtres): %s",
-"Shared by %d tabs of this site": "Compartit per %d pestanyes d'aquest lloc"
+"Shared by %d tabs of this site": "Compartit per %d pestanyes d'aquest lloc",
+"If you download it anyway, it is at your own risk.": "Si el baixes igualment, és sota la teva responsabilitat.",
+"Download anyway": "Baixa igualment",
+"Open image in %s": "Obre la imatge amb %s",
+"Open with %s": "Obre amb %s",
+"Open the page source in %s": "Obre el codi font de la pàgina amb %s",
+"Add to calendar": "Afegeix al calendari",
+"Show in folder": "Mostra a la carpeta",
+"No app of the desktop could open %s.": "Cap aplicació de l'escriptori no ha pogut obrir %s.",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "I.K.E. ha aturat la baixada de %s: la pàgina és segura (https), però el fitxer arribaria sense protecció (http). Algú de la xarxa el podria llegir o substituir.",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "%s és un programa o un script, i %s és a les llistes de protecció d'I.K.E. (llocs que escampen programari maliciós). Podria fer mal a aquest ordinador.",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s és un programa o un script, i mai abans no havies visitat %s. Baixa'l només si confies en el lloc.",
+"Site storage: %d": "Emmagatzematge del lloc: %d",
+"Cache: %d": "Memòria cau: %d",
+"Permissions kept: %s": "Permisos conservats: %s"
 }
 }

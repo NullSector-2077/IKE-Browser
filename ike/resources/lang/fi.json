@@ -1028,6 +1028,20 @@
 "“Send to device” with KDE Connect": "“Lähetä laitteelle” KDE Connectilla",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ valitaksesi, Enter siirtyäksesi, Esc sulkeaksesi",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Salattu DNS ei vastaa I.K.E.:n omiin pyyntöihin (päivitykset, suodatinlistat): %s",
-"Shared by %d tabs of this site": "Jaettu %d tämän sivuston välilehden kesken"
+"Shared by %d tabs of this site": "Jaettu %d tämän sivuston välilehden kesken",
+"If you download it anyway, it is at your own risk.": "Jos lataat sen silti, se tapahtuu omalla vastuullasi.",
+"Download anyway": "Lataa silti",
+"Open image in %s": "Avaa kuva sovelluksessa %s",
+"Open with %s": "Avaa sovelluksella %s",
+"Open the page source in %s": "Avaa sivun lähdekoodi sovelluksessa %s",
+"Add to calendar": "Lisää kalenteriin",
+"Show in folder": "Näytä kansiossa",
+"No app of the desktop could open %s.": "Mikään työpöydän sovellus ei voinut avata kohdetta %s.",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "I.K.E. pysäytti tiedoston %s latauksen: sivu on suojattu (https), mutta tiedosto tulisi ilman suojausta (http). Joku verkossa voisi lukea tai vaihtaa sen.",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "%s on ohjelma tai komentosarja, ja %s on I.K.E.:n suojauslistoilla (sivustoja, jotka levittävät haittaohjelmia). Se voi vahingoittaa tätä tietokonetta.",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s on ohjelma tai komentosarja, etkä ole koskaan aiemmin käynyt sivustolla %s. Lataa se vain, jos luotat sivustoon.",
+"Site storage: %d": "Sivuston tallennustila: %d",
+"Cache: %d": "Välimuisti: %d",
+"Permissions kept: %s": "Säilytetyt luvat: %s"
 }
 }

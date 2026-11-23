@@ -151,7 +151,18 @@ def steps(ike, qapp, out):
         for name in ("show_history", "show_bookmarks", "show_downloads", "show_clear_data",
                      "show_userscripts", "show_import", "show_resources", "show_watches",
                      "show_permissions"):
-            dialog(code + ": " + name[5:], getattr(ike, name)())
+            shown = getattr(ike, name)()
+            if name == "show_downloads" and hasattr(shown, "app_button"):
+                # 1.1.24: the handoff buttons, as on a desktop with a file manager,
+                # a calendar app and an archive app with a long name
+                shown.timer.stop()
+                shown.folder_button.show()
+                shown.app_button.setText(i18n.T("Add to calendar"))
+                shown.app_button.show()
+                settle()
+                problems.extend(textfit.check(shown, code + ": downloads, calendar file"))
+                shown.app_button.setText(i18n.T("Open with %s") % "Merkuro Calendar")
+            dialog(code + ": " + name[5:], shown)
         from ike.dialogs import LanguageDownloadDialog, ThemeEditor
         d = LanguageDownloadDialog(ike, win)
         d.show()

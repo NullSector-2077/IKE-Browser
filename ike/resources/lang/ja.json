@@ -1028,6 +1028,20 @@
 "Open selected text with middle click": "選択したテキストを中クリックで開く",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "ページの空白部分を中クリックすると、選択したテキストをアドレスまたは検索として開きます。",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "暗号化 DNS が I.K.E. 自身のリクエスト(アップデート、フィルターリスト)に応答しません: %s",
-"Shared by %d tabs of this site": "このサイトの %d 個のタブで共有"
+"Shared by %d tabs of this site": "このサイトの %d 個のタブで共有",
+"If you download it anyway, it is at your own risk.": "それでもダウンロードする場合は、自己責任となります。",
+"Download anyway": "それでもダウンロード",
+"Open image in %s": "%s で画像を開く",
+"Open with %s": "%s で開く",
+"Open the page source in %s": "%s でページのソースを開く",
+"Add to calendar": "カレンダーに追加",
+"Show in folder": "フォルダーに表示",
+"No app of the desktop could open %s.": "デスクトップのどのアプリでも %s を開けませんでした。",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "I.K.E. は %s のダウンロードを停止しました: ページは安全 (https) ですが、ファイルは保護なし (http) で届きます。ネットワーク上の誰かが読み取ったり差し替えたりできます。",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "%s はプログラムまたはスクリプトで、%s は I.K.E. の保護リスト (マルウェアを広めるサイト) に載っています。このコンピューターに害を与える可能性があります。",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s はプログラムまたはスクリプトで、%s にはこれまで一度もアクセスしたことがありません。サイトを信頼できる場合にのみダウンロードしてください。",
+"Site storage: %d": "サイトのストレージ: %d",
+"Cache: %d": "キャッシュ: %d",
+"Permissions kept: %s": "保持された権限: %s"
 }
 }

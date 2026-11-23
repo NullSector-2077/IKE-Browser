@@ -47,7 +47,7 @@ def test_the_desktop_can_hand_email_links_to_ike():
 
 STEPS = r'''
 from PyQt6.QtCore import QCoreApplication, QEvent, QObject, QPointF, Qt, QUrl, pyqtSlot
-from PyQt6.QtGui import QDesktopServices, QMouseEvent
+from PyQt6.QtGui import QMouseEvent
 
 class Desktop(QObject):
     def __init__(self):
@@ -71,7 +71,9 @@ def steps(ike, qapp, out):
     from ike import mailto, webview
     desktop = Desktop()
     ike._desktop_stand_in = desktop
-    QDesktopServices.setUrlHandler("mailto", desktop, "handle")
+    # 1.1.24: links of other kinds go to the desktop portal (handoff.py), never through
+    # Qt's QDesktopServices (xdg-open): the stand-in takes the portal's place
+    ike.handoff.open_uri = lambda url, parent=None: desktop.handle(QUrl(url))
     win = ike.windows[0]
     opened = []
     real_add = win.add_tab

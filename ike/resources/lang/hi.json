@@ -1028,6 +1028,20 @@
 "“Send to device” with KDE Connect": "KDE Connect से “डिवाइस पर भेजें”",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ से चुनें, Enter से जाएँ, Esc से बंद करें",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "एन्क्रिप्टेड DNS I.K.E. के अपने अनुरोधों (अपडेट, फ़िल्टर सूचियाँ) का जवाब नहीं देता: %s",
-"Shared by %d tabs of this site": "इस साइट के %d टैब द्वारा साझा"
+"Shared by %d tabs of this site": "इस साइट के %d टैब द्वारा साझा",
+"If you download it anyway, it is at your own risk.": "अगर आप फिर भी इसे डाउनलोड करते हैं, तो यह आपके अपने जोखिम पर है।",
+"Download anyway": "फिर भी डाउनलोड करें",
+"Open image in %s": "छवि %s में खोलें",
+"Open with %s": "%s से खोलें",
+"Open the page source in %s": "पेज का स्रोत कोड %s में खोलें",
+"Add to calendar": "कैलेंडर में जोड़ें",
+"Show in folder": "फ़ोल्डर में दिखाएँ",
+"No app of the desktop could open %s.": "डेस्कटॉप का कोई भी ऐप %s नहीं खोल सका।",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "I.K.E. ने %s का डाउनलोड रोक दिया: पेज सुरक्षित है (https), लेकिन फ़ाइल बिना सुरक्षा (http) के आएगी। नेटवर्क पर कोई इसे पढ़ या बदल सकता है।",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "%s एक प्रोग्राम या स्क्रिप्ट है, और %s I.K.E. की सुरक्षा सूचियों में है (मैलवेयर फैलाने वाली साइटें)। यह इस कंप्यूटर को नुकसान पहुँचा सकता है।",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s एक प्रोग्राम या स्क्रिप्ट है, और आप पहले कभी %s पर नहीं गए हैं। इसे तभी डाउनलोड करें जब आपको साइट पर भरोसा हो।",
+"Site storage: %d": "साइट संग्रहण: %d",
+"Cache: %d": "कैश: %d",
+"Permissions kept: %s": "रखी गई अनुमतियाँ: %s"
 }
 }

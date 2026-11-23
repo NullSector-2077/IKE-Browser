@@ -1028,6 +1028,20 @@
 "Open selected text with middle click": "Odpri izbrano besedilo s srednjim klikom",
 "Middle-click on an empty part of a page opens the text you selected, as an address or as a search.": "Srednji klik na prazen del strani odpre izbrano besedilo kot naslov ali kot iskanje.",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "Šifrirani DNS ne odgovarja na lastne zahteve I.K.E. (posodobitve, seznami filtrov): %s",
-"Shared by %d tabs of this site": "Deli ga zavihki tega spletnega mesta: %d"
+"Shared by %d tabs of this site": "Deli ga zavihki tega spletnega mesta: %d",
+"If you download it anyway, it is at your own risk.": "Če ga kljub temu prenesete, je to na lastno odgovornost.",
+"Download anyway": "Vseeno prenesi",
+"Open image in %s": "Odpri sliko v %s",
+"Open with %s": "Odpri z %s",
+"Open the page source in %s": "Odpri izvorno kodo strani v %s",
+"Add to calendar": "Dodaj v koledar",
+"Show in folder": "Pokaži v mapi",
+"No app of the desktop could open %s.": "Nobena aplikacija namizja ni mogla odpreti %s.",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "I.K.E. je ustavil prenos %s: stran je varna (https), datoteka pa bi prišla brez zaščite (http). Nekdo v omrežju bi jo lahko prebral ali zamenjal.",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "%s je program ali skript, %s pa je na I.K.E.-jevih seznamih zaščite (strani, ki širijo zlonamerno programsko opremo). Lahko škodi temu računalniku.",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s je program ali skript, %s pa še nikoli niste obiskali. Prenesite ga le, če zaupate strani.",
+"Site storage: %d": "Shramba strani: %d",
+"Cache: %d": "Predpomnilnik: %d",
+"Permissions kept: %s": "Ohranjena dovoljenja: %s"
 }
 }

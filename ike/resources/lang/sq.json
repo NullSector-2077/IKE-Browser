@@ -1028,6 +1028,20 @@
 "“Send to device” with KDE Connect": "“Dërgoje te pajisje” me KDE Connect",
 "↑ ↓ to choose, Enter to go, Esc to close": "↑ ↓ për të zgjedhur, Enter për të shkuar, Esc për të mbyllur",
 "Encrypted DNS does not answer I.K.E.'s own requests (updates, filter lists): %s": "DNS-ja e fshehtëzuar nuk u përgjigjet kërkesave të vetë I.K.E.-së (përditësime, lista filtrash): %s",
-"Shared by %d tabs of this site": "Ndahet nga %d skeda të kësaj faqeje"
+"Shared by %d tabs of this site": "Ndahet nga %d skeda të kësaj faqeje",
+"If you download it anyway, it is at your own risk.": "Nëse e shkarkoni sidoqoftë, është në rrezikun tuaj.",
+"Download anyway": "Shkarkoje sidoqoftë",
+"Open image in %s": "Hape figurën në %s",
+"Open with %s": "Hape me %s",
+"Open the page source in %s": "Hape kodin burim të faqes në %s",
+"Add to calendar": "Shtoje në kalendar",
+"Show in folder": "Shfaqe në dosje",
+"No app of the desktop could open %s.": "Asnjë aplikacion i desktopit nuk mundi ta hapë %s.",
+"I.K.E. stopped the download of %s: the page is secure (https), but the file would come without protection (http). Someone on the network could read it or replace it.": "I.K.E. ndaloi shkarkimin e %s: faqja është e sigurt (https), por skedari do të vinte pa mbrojtje (http). Dikush në rrjet mund ta lexonte ose ta zëvendësonte.",
+"%s is a program or a script, and %s is on I.K.E.'s protection lists (sites that spread malware). It could harm this computer.": "%s është program ose skript, dhe %s është në listat e mbrojtjes të I.K.E. (sajte që përhapin malware). Mund ta dëmtojë këtë kompjuter.",
+"%s is a program or a script, and you have never visited %s before. Download it only if you trust the site.": "%s është program ose skript, dhe nuk e keni vizituar kurrë më parë %s. Shkarkojeni vetëm nëse i besoni sajtit.",
+"Site storage: %d": "Hapësira e sajtit: %d",
+"Cache: %d": "Fshehtina: %d",
+"Permissions kept: %s": "Lejet e mbajtura: %s"
 }
 }

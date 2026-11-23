@@ -9,7 +9,7 @@ The interface, protections, password manager and updater are I.K.E.'s own code
 provided and kept up to date by Arch Linux. I.K.E. is developed on and for
 KDE Plasma (CachyOS / Arch Linux) and works on the other Arch-based desktops.
 
-**Version 1.1.23** - see [CHANGELOG.md](CHANGELOG.md).
+**Version 1.1.24** - see [CHANGELOG.md](CHANGELOG.md).
 
 ## Install (Arch Linux, CachyOS)
 
@@ -17,7 +17,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.1.23-1-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.1.24-1-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:
@@ -79,6 +79,14 @@ profiles: `ike-browser --profile NAME`.
   real addresses without a false alarm), and any site can be marked as fine.
 - **Repair this site**: when a page does not work, the shield finds the
   protection that breaks it and turns off only that one, for that site only.
+- **Safer downloads**: a program or a script (AppImage, `.run`, `.sh`, `.exe`,
+  `.msi`, `.deb`, `.rpm`, `.jar`, `.py`, `.bat`, `.cmd`, `.ps1`, `.desktop`)
+  from a site on the protection lists or from a site you never visited before
+  asks first; a file over plain http from an https page is stopped. "Cancel"
+  is the default, "Download anyway" is at your own risk. Nothing is asked of
+  the network.
+- "Clear this site's data" says what it removed: cookies, the site's storage,
+  its caches, and the permissions it kept.
 
 **Browsing**
 - Horizontal or vertical tabs (vertical ones also with only their icons), tab groups, workspaces, containers with separate
@@ -143,6 +151,16 @@ profiles: `ike-browser --profile NAME`.
   when done) and as progress on I.K.E.'s icon in the task manager; open tabs
   and bookmarks in KRunner, with "Mute", "Unmute" and "Close tab"; "Send to
   device" to a phone paired with KDE Connect.
+- Files, folders and links go to the desktop through the XDG desktop portal
+  (xdg-utils is not used): a download opens with the app the desktop chose
+  for it, "Show in folder" selects it in Dolphin or the file manager. With no
+  portal running, the desktop's own opener does it when it is there
+  (kioclient, gio, exo-open). Only where the desktop has the app: "Open with
+  Okular" for a PDF, "Open image in Gwenview", archives in Ark, "Add to
+  calendar" for `.ics` files, the page's code in Kate (on other desktops their
+  PDF reader, image viewer, archive manager, calendar and text editor).
+- Settings → "Make I.K.E. the default browser" writes `~/.config/mimeapps.list`
+  as the XDG specification says, keeping every other entry.
 
 **Appearance and languages**
 - Follows the system theme by default; icon themes installed on the computer or
