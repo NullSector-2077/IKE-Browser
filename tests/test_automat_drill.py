@@ -618,6 +618,7 @@ def test_the_report_says_what_was_fixed_by_whom_and_the_end_mails_the_owner_once
     assert all(states[b["id"]]["state"] == "broken" for b in rest[1:] if not set(b["tests"]) & set(at_head)
                or any(at_head.get(t) == "failed" for t in b["tests"]))
     assert d["checks"]["no-regression"] == "passed" and d["complete"] is True
+    assert [c["no_regression"] for c in d["commits"]] == ["passed", "passed"]      # green on every AI commit
     assert d["quota"] == {"Z.AI": {"requests": 7, "tokens": 51000}}
     assert [r["verdict"] for r in d["reviews"]] == ["approve"] and d["help"] == [(33, "u", "open")]
     assert drill.due(info) == (True, "every break fixed, every check green and both reviews approve: the drill is "
@@ -625,6 +626,7 @@ def test_the_report_says_what_was_fixed_by_whom_and_the_end_mails_the_owner_once
     text = drill.markdown(info, final=True, why="completa")
     for word in ("Esercitazione AUTOMAT (DRILL)", "**risolto**", "non risolto", "Recipe / renamed-symbol",
                  "Z.AI / glm", "rule 1: an old statement changed", "51000 token", "no-regression): passed",
+                 "\"niente peggiora\": passed",
                  "Le soluzioni attese", first["expected"]["summary"][:30], "#33"):
         assert word in text, word
     assert "@" not in text.replace("@​", "")

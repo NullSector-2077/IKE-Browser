@@ -186,10 +186,10 @@ def _git(cwd, *args, env=None, check=True):
 
 
 def make_branch(repo_dir, name, data, drill_id, now, base="origin/main"):
-    """The drill's commit on a local branch drill-work/<candidate> made from base: (branch, sha, files)."""
+    """The drill's commit on a local branch automat-drill-local-<candidate> made from base: (branch, sha, files)."""
     sc = data["scenarios"][name]
     base_sha = _git(repo_dir, "rev-parse", base)
-    local = "drill-work/" + sc["candidate"]
+    local = "automat-drill-local-" + sc["candidate"]
     _git(repo_dir, "checkout", "-q", "-B", local, base_sha)
     (Path(repo_dir) / MARKER).write_text(json.dumps(marker(name, sc, drill_id, now, base_sha), indent=2) + "\n",
                                          "utf-8")
@@ -405,7 +405,7 @@ def gather(repo, api=gh_api, memory=None, quota=None, now=None, root=ROOT):
         except Exception:
             d["checks"]["no-regression"] = "not read"
         # each break: its state now, and the first commit of an AI (or a recipe) after which its tests passed
-        junits = {}
+        junits, tests_runs = {}, {}
 
         def junit_at(commit_sha):
             if commit_sha not in junits:
@@ -413,6 +413,7 @@ def gather(repo, api=gh_api, memory=None, quota=None, now=None, root=ROOT):
                     run = led.run_info(repo, "tests.yml", api, sha=commit_sha, completed=True)
                 except Exception:
                     run = None
+                tests_runs[commit_sha] = run
                 junits[commit_sha] = junit_of_run(repo, run["id"], api) if run else {}
             return junits[commit_sha]
         head = junit_at(sha) if sha else {}
@@ -426,6 +427,14 @@ def gather(repo, api=gh_api, memory=None, quota=None, now=None, root=ROOT):
                         row.update(by=c["author"], attempt=c["attempt"], after_hours=_hours(d["started"], c["date"]))
                         break
             d["breaks"].append(row)
+        # "Nothing gets worse" on each commit an AI or a recipe wrote: did it stay green all along?
+        for c in d["commits"]:
+            junit_at(c["sha"])
+            run = tests_runs.get(c["sha"])
+            try:
+                c["no_regression"] = am.no_regression({"runs": {"tests.yml": run}})[0] if run else "no run"
+            except Exception:
+                c["no_regression"] = "not read"
         for key, records in ((memory or {}).get("attempts") or {}).items():
             if key.split("@", 1)[0] != ref:
                 continue
@@ -497,8 +506,8 @@ def markdown(info, final=False, why=""):
         if d["commits"]:
             out += ["Correzioni pubblicate sul ramo:", ""]
             for c in d["commits"]:
-                out.append("- tentativo %d, `%s`, scritta da **%s** (%s)" % (c["attempt"], c["sha"][:10],
-                                                                            _md(c["author"]), c["date"]))
+                out.append("- tentativo %d, `%s`, scritta da **%s** (%s); \"niente peggiora\": %s" % (
+                    c["attempt"], c["sha"][:10], _md(c["author"]), c["date"], c.get("no_regression", "?")))
             out.append("")
         if d["reviews"]:
             out += ["Revisioni delle AI:", ""]

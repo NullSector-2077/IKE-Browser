@@ -617,8 +617,8 @@ under today's Qt (checked before the drill was published).
 Tests run), by which provider or recipe and at which attempt (the first `autofix:` commit after
 which its tests passed, its `Author:` line), after how many hours; the attempts of AUTOMAT's memory
 with how each ended (the guard's rule, the reviewers' reasons); the reviewers' verdicts; the checks
-of the last commit and "Nothing gets worse"; the free quota the drill used per provider; the drill's
-help notice. At the end it adds the expected solutions, to judge the drill.
+of the last commit, and "Nothing gets worse" on it and on every commit an AI or a recipe wrote; the
+free quota the drill used per provider; the drill's help notice. At the end it adds the expected solutions, to judge the drill.
 
 **What only the live run shows**: whether the free models find the fixes; how many attempts and
 how much quota they use; whether the reviewers approve; the real duration of the runs; what the
