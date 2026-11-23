@@ -30,6 +30,20 @@
     "summary": "Il componente aggiornato ha cambiato nome a recentlyAudible (ora isRecentlyAudible): un programma ha sostituito il vecchio nome con il nuovo nei file di I.K.E. coinvolti, senza chiedere a nessuna AI. _(ricetta automatica \"renamed-symbol\", nessuna AI)_",
     "task": "python"
    }
+  ],
+  "automation/update/lists-2026-11-22@bf8bb9289850a76b": [
+   {
+    "attempt": 2,
+    "date": "2026-11-23",
+    "detail": "rotated",
+    "files": [],
+    "model": "",
+    "outcome": "no-fix",
+    "provider": "",
+    "sig": "bf8bb9289850a76b",
+    "summary": "L'agente non ha scritto un riassunto. **Riserve: La quota gratuita di oggi non basta per scrivere una correzione e farla anche rivedere da altre AI: la correzione aspetta, nessuna quota \u00e8 stata sprecata. Riprova da sola. Non interpellati per la quota gratuita: Groq (the request i",
+    "task": "lists"
+   }
   ]
  },
  "schema": 1,
@@ -39,6 +53,12 @@
    "date": "2026-11-23",
    "n": 1,
    "sig": "19bd99de16c06f44",
+   "since": "2026-11-23"
+  },
+  "automation/update/lists-2026-11-22": {
+   "date": "2026-11-23",
+   "n": 1,
+   "sig": "bf8bb9289850a76b",
    "since": "2026-11-23"
   }
  }
