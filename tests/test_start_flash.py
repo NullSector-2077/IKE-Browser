@@ -35,7 +35,8 @@ def steps(ike, qapp, out):
         frames = []
         start = time.monotonic()
         while time.monotonic() - start < 8:
-            frames.append([round(time.monotonic() - t0, 3), look(v), v.page().backgroundColor().name()])
+            frames.append([round(time.monotonic() - t0, 3), look(v), v.page().backgroundColor().name(),
+                           [v.width(), v.height()]])
             if "t" in done and time.monotonic() > done["t"] + until:
                 break
             yield 5
@@ -86,6 +87,16 @@ def _run(run_ike, site, **settings):
                   env={"IKE_TEST_DELAY": "0"}, timeout=90)
     assert out["loaded"] == [True, True], out["loaded"]
     assert all(len(f) > 5 for f in out["frames"]), out["frames"]
+    # The page never jumps (1.1.23): the bookmarks bar of the new tab page
+    # went away when the page started loading and came back a moment later,
+    # so the view grew by its height and shrank again; a frame taken in
+    # between showed what the engine had not painted yet at the new size
+    # (transparent, or a foreign colour such as #dee246). Once the window
+    # has its width, the view keeps one size.
+    for frames in out["frames"]:
+        final = frames[-1][3]
+        sizes = [f[3] for f in frames if f[3][0] == final[0]]
+        assert all(size == final for size in sizes), [(f[0], f[3]) for f in frames]
     return out
 
 
@@ -101,7 +112,7 @@ def test_a_dark_new_tab_page_is_dark_from_the_first_frame(run_ike, site, scheme,
     assert _lightness(bg) < 60, bg
     assert out["first_backdrop"] == bg and out["new_backdrop"] == bg, out
     for frames in out["frames"]:
-        for t, seen, backdrop in frames:
+        for t, seen, backdrop, _size in frames:
             assert backdrop == bg, (t, backdrop)
             assert all(_lightness(c) < 60 for c in seen), (t, seen, frames[:5])
     assert out["site_backdrop"] == ("#181a1b" if dark == "on" else "#ffffff"), out["site_backdrop"]
@@ -116,6 +127,6 @@ def test_a_light_new_tab_page_starts_in_its_own_colour(run_ike, site, dark):
     bg = out["newtab_bg"]
     assert bg != "#ffffff" and out["first_backdrop"] == bg and out["new_backdrop"] == bg, out
     for frames in out["frames"]:
-        for t, seen, backdrop in frames:
+        for t, seen, backdrop, _size in frames:
             assert backdrop == bg and all(c == bg for c in seen), (t, seen, backdrop)
     assert out["site_backdrop"] == ("#181a1b" if dark == "on" else "#ffffff"), out["site_backdrop"]

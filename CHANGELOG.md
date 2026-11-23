@@ -72,6 +72,13 @@
   page's own colour before the page paints (dark grey on a dark interface),
   at the start and for every new tab; sites in light mode keep white between
   pages.
+- **The new tab page no longer jumps when it opens**: the bookmarks bar
+  ("only on a new tab") went away for a moment when the page started
+  loading and came back when it arrived, so the page grew and shrank again
+  and, in that moment, showed what the engine had not painted yet. The bar
+  now follows the address the tab was asked to open, so it stays put; a site
+  opened in a new tab no longer shows it for a moment either
+  (tests/test_start_flash.py).
 - **The tab preview keeps no pictures it does not show**: the hidden card
   lets go of the last picture, and a finished blend from one tab to the next
   releases both.
