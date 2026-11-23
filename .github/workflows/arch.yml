@@ -62,7 +62,10 @@ jobs:
   arch:
     name: Arch Linux
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    # 1.1.24: the run on main took 85 of the 90 minutes (the tests twice,
+    # every widget style, the package); with the runners busy a branch's
+    # run was cut in its last step. 140, as tests.yml's tests job
+    timeout-minutes: 140
     container:
       image: archlinux:latest
       # Chromium's sandbox needs user namespaces that a container on the
