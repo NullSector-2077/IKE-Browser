@@ -1,10 +1,35 @@
 {
  "days": {
   "2026-11-23": {
-   "answered": 1,
+   "answered": 2,
    "no_provider": 0,
-   "providers": {},
-   "runs": 1
+   "providers": {
+    "OpenRouter": {
+     "by": {
+      "automation/update/drill-qt": {
+       "requests": 6,
+       "tokens": 227703
+      }
+     },
+     "observed": {},
+     "requests": 6,
+     "spent": "",
+     "tokens": 227703
+    },
+    "Z.AI": {
+     "by": {
+      "automation/update/drill-qt": {
+       "requests": 5,
+       "tokens": 67882
+      }
+     },
+     "observed": {},
+     "requests": 5,
+     "spent": "",
+     "tokens": 67882
+    }
+   },
+   "runs": 2
   }
  },
  "schema": 1

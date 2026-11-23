@@ -1,16 +1,29 @@
 {
  "attempts": {
+  "automation/update/drill-qt@19bd99de16c06f44": [
+   {
+    "attempt": 2,
+    "date": "2026-11-23",
+    "detail": "rotated",
+    "files": [],
+    "model": "",
+    "outcome": "no-fix",
+    "provider": "",
+    "sig": "19bd99de16c06f44",
+    "summary": "L'agente non ha scritto un riassunto. **Riserve: Le riserve hanno esaurito la quota o non rispondono: riprova pi\u00f9 tardi. Non interpellati per la quota gratuita: Groq (the request is larger than its limit per minute (8980 tokens, 6000 a minute)).**",
+    "task": "multi-file"
+   }
+  ],
   "automation/update/drill-qt@5269ae9140634c90": [
    {
     "attempt": 1,
     "date": "2026-11-23",
-    "detail": "",
+    "detail": "its tests failed after it (error 19bd99de16c06f44)",
     "files": [
      "ike/window.py"
     ],
     "model": "renamed-symbol",
-    "outcome": "published",
-    "patch": "diff --git a/ike/window.py b/ike/window.py\nindex 95da2fc..1ca0252 100644\n--- a/ike/window.py\n+++ b/ike/window.py\n@@ -1326,7 +1326,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):\n             prefix = \"\ud83d\udca4 \"\n         elif view.page().isAudioMuted():\n             prefix = \"\ud83d\udd07 \"\n-        elif view.page().recentlyAudible():\n+        elif view.page().isRecentlyAudible():\n             prefix = \"\ud83d\udd0a \"\n         tip = title\n         g = self.groups.get(view.group) if view.group else None\n",
+    "outcome": "tests-failed",
     "ph": "45bae370dc40c1b3",
     "provider": "Recipe",
     "sig": "5269ae9140634c90",
@@ -24,8 +37,8 @@
  "streak": {
   "automation/update/drill-qt": {
    "date": "2026-11-23",
-   "n": 0,
-   "sig": "5269ae9140634c90",
+   "n": 1,
+   "sig": "19bd99de16c06f44",
    "since": "2026-11-23"
   }
  }
