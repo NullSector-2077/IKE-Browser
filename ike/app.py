@@ -708,7 +708,12 @@ class IkeApp(QObject):
         the file is moved to the chosen place when both are done. Waiting for the
         dialog inside this handler made downloads fail on some desktops."""
         from .i18n import T
-        if self._download_burst(item):
+        if self._handoff_download(item):
+            return                        # a copy for a desktop app (hand_off), not the user's download
+        passed = self._download_passed(item)
+        if not passed and self._download_burst(item):
+            return
+        if not passed and self._download_risk(item):
             return
         folder = self.download_dir()
         name = item.downloadFileName()
@@ -835,6 +840,140 @@ class IkeApp(QObject):
         box.finished.connect(lambda _r: done(box.clickedButton() is allow))
         box.finished.connect(box.deleteLater)
         box.open()
+
+    # --- safer downloads (1.1.24, safedownload.py) -----------------------
+    PASS_SECONDS = 60                     # "Download anyway" lets that one address through once
+
+    def _download_passed(self, item):
+        """True once for a download the user let through ("Download anyway")."""
+        passes = self.__dict__.setdefault("_dl_pass", {})
+        key = item.url().toString()
+        when = passes.pop(key, None)
+        return when is not None and time.monotonic() - when < self.PASS_SECONDS
+
+    def _download_risk(self, item):
+        """True when this download is stopped for the user's answer: a program
+        or script from a listed or never visited site, or a file over http from
+        an https page. "Download anyway" starts it again, at the user's risk."""
+        from . import safedownload
+        try:
+            if item.isSavePageDownload():
+                return False
+            page = item.page()
+        except (AttributeError, RuntimeError):
+            page = None
+        try:
+            page_url = page.url().toString() if page is not None else ""
+        except RuntimeError:
+            page, page_url = None, ""
+        found = safedownload.risk(item.url().toString(), page_url, item.downloadFileName(), item.mimeType(),
+                                  self.blocker, self.storage.visited_before)
+        if not found:
+            return False
+        url, name = QUrl(item.url()), item.downloadFileName()
+        item.cancel()
+
+        def anyway():
+            target = page
+            if target is None:
+                win = self.active_window()
+                view = win.current_view() if win is not None else None
+                target = view.page() if view is not None else None
+            if target is None:
+                return
+            self.__dict__.setdefault("_dl_pass", {})[url.toString()] = time.monotonic()
+            try:
+                target.download(url, name)
+            except RuntimeError:
+                pass                      # the page is gone
+        self._ask_download_risk(found, anyway)
+        return True
+
+    def _ask_download_risk(self, found, anyway):
+        """Non-blocking question, "Cancel" the default (as _ask_download_burst)."""
+        from PyQt6.QtWidgets import QMessageBox
+
+        from . import safedownload
+        from .i18n import T
+        box = QMessageBox(self.active_window())
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setWindowTitle(T("Downloads"))
+        box.setText(safedownload.message(found))
+        box.setInformativeText(T("If you download it anyway, it is at your own risk."))
+        go = box.addButton(T("Download anyway"), QMessageBox.ButtonRole.AcceptRole)
+        stop = box.addButton(T("Cancel"), QMessageBox.ButtonRole.RejectRole)
+        from .webview import careful
+        careful(box, go, stop)
+        box.finished.connect(lambda _r: box.clickedButton() is go and anyway())
+        box.finished.connect(box.deleteLater)
+        self._risk_box = box
+        box.open()
+
+    # --- copies handed to a desktop app (1.1.24, handoff.py) -------------
+    HANDOFF_SECONDS = 60
+
+    @property
+    def handoff(self):
+        """Files, folders and links to the desktop's apps (handoff.py), made when first needed."""
+        h = self.__dict__.get("_handoff")
+        if h is None:
+            from .handoff import Handoff
+            h = self._handoff = Handoff(self)
+        return h
+
+    def hand_off(self, url, kind, page, name=""):
+        """Give what `url` holds (kind "image", "pdf" or "calendar") to the
+        desktop's app for it: a local file at once, else a copy fetched by the
+        engine (the page's own cookies and cache) into a private folder. The
+        copy is opened only when its content is of that kind."""
+        from . import handoff
+        url = QUrl(url)
+        if url.isLocalFile():
+            path = Path(url.toLocalFile())
+            if path.is_file() and handoff.kind_of(handoff.file_type(path, "content")) == kind:
+                self.handoff.open_file(path, self.active_window())
+            return
+        if url.scheme() not in ("http", "https") or page is None:
+            return
+        self.__dict__.setdefault("_handoff_wait", {})[url.toString()] = (time.monotonic(), kind)
+        page.download(url, handoff.safe_name(name or url.fileName(), kind))
+
+    def _handoff_download(self, item):
+        wait = self.__dict__.get("_handoff_wait")
+        want = wait.pop(item.url().toString(), None) if wait else None
+        if want is None or time.monotonic() - want[0] > self.HANDOFF_SECONDS:
+            return False
+        from . import handoff
+        folder = handoff.temp_dir()
+        self._handoff_n = getattr(self, "_handoff_n", 0) + 1
+        name = "%d-%d-%s" % (int(time.time()), self._handoff_n, handoff.safe_name(item.downloadFileName(), want[1]))
+        item.setDownloadDirectory(str(folder))
+        item.setDownloadFileName(name)
+        item.isFinishedChanged.connect(lambda i=item, k=want[1]: self._handoff_finished(i, k))
+        item.accept()
+        return True
+
+    def _handoff_finished(self, item, kind):
+        from PyQt6.QtWebEngineCore import QWebEngineDownloadRequest as DR
+
+        from . import handoff
+        if not item.isFinished():
+            return
+        path = Path(item.downloadDirectory()) / item.downloadFileName()
+        if item.state() != DR.DownloadState.DownloadCompleted or not path.is_file():
+            path.unlink(missing_ok=True)
+            return
+        mime = handoff.file_type(path, "content")
+        if handoff.kind_of(mime) != kind:
+            path.unlink(missing_ok=True)       # not what the menu offered: never handed over
+            return
+        suffix = mime.preferredSuffix()
+        if suffix and not path.name.lower().endswith("." + suffix.lower()):
+            try:
+                path = path.rename(path.with_name(path.name + "." + suffix))
+            except OSError:
+                return
+        self.handoff.open_file(path, self.active_window())
 
     def download_path(self, item):
         """Where the file of a download is (or will be)."""

@@ -27,8 +27,9 @@ What it changes:
 - When none of these families is installed the rule is not written: the
   pages would have no font at all.
 - The programs I.K.E. starts itself (another profile, the restart) get the
-  user's own configuration back (child_env); a file opened from the
-  downloads with the desktop's program inherits it (Qt starts xdg-open).
+  user's own configuration back (child_env), the desktop's own opener too
+  (handoff.py); a file handed to the desktop portal is opened by the
+  desktop, outside I.K.E.
 """
 
 import os

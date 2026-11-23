@@ -23,7 +23,10 @@ here:
 - the integrated resources: Dark Reader, uBlock Origin's scriptlets, the
   filter lists of ike/config.py DEFAULT_LISTS, the vendored AdBlock engine;
 - the programs ike/ starts (subprocess, QProcess; xdg-open through Qt's
-  QDesktopServices), each mapped to its Arch package.
+  QDesktopServices, which ike/ no longer calls since 1.1.24), each mapped to
+  its Arch package; the desktop's own openers (DESKTOP_TOOLS), started only
+  when the desktop has them, are listed as the desktop's, not as
+  dependencies.
 
 A module, program or build command that no declared Arch package covers is a
 finding "used but not declared".
@@ -100,9 +103,13 @@ TRANSITIVE = {"qt6-base": "python-pyqt6"}
 # programs ike/ starts -> the Arch package that has them
 TOOL_PACKAGES = {
     "notify-send": "libnotify", "xdg-settings": "xdg-utils", "xdg-open": "xdg-utils", "xdg-mime": "xdg-utils",
-    "xdg-email": "xdg-utils", "kde-open": "kde-cli-tools", "kioclient": "kio", "gsettings": "glib2",
+    "xdg-email": "xdg-utils", "kde-open": "kde-cli-tools", "kioclient": "kde-cli-tools", "gsettings": "glib2",
+    "gio": "glib2", "exo-open": "exo",
     "git": "git", "ffmpeg": "ffmpeg", "pacman": "pacman", "python3": "python", "python": "python",
 }
+# programs of the user's desktop that ike/ starts only when they are there (ike/handoff.py: the
+# opener of KDE, of the GLib desktops, of Xfce when no desktop portal answers): not dependencies
+DESKTOP_TOOLS = ("kioclient", "gio", "exo-open")
 # the build() commands of the PKGBUILD -> their Arch package
 BUILD_PACKAGES = {"cargo": "rust", "rustc": "rust", "gcc": "gcc", "cc": "gcc", "clang": "clang", "make": "make",
                   "node": "nodejs", "npm": "npm", "python3": "python", "python": "python"}
@@ -837,6 +844,9 @@ def discover(root, arch_tested=None):
             findings.append({"finding": "unknown provider", "component": rec["id"],
                              "detail": "ike/ starts `%s` (%s): its Arch package is not known (TOOL_PACKAGES)"
                                        % (name, where)})
+        elif name in DESKTOP_TOOLS and not covered(package):
+            rec["declared"] = "the desktop's own (started only when installed)"
+            rec["notes"].append("the desktop's own program: used only when the desktop has it")
         elif not covered(package):
             findings.append({"finding": "used but not declared", "component": rec["id"],
                              "detail": "ike/ starts `%s` (%s, %s): package %s is not in depends or optdepends"

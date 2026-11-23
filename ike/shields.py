@@ -158,8 +158,9 @@ _PSL_FILE = []           # (cache file named after the list's size and time, its
 def _psl_cached(path):
     """The list as parsed at an earlier start, while the file is the same
     (size and time): about 1 ms instead of about 16 (performance review of
-    1.1.20, L4). (cache file, its sets or None)."""
-    import marshal
+    1.1.20, L4). JSON, never marshal: a file that is not valid JSON of the
+    right shape is ignored and the list is parsed again. (cache file, its
+    sets or None)."""
     import os
 
     from .config import CACHE_DIR
@@ -167,24 +168,23 @@ def _psl_cached(path):
         st = os.stat(path)
     except OSError:
         return None, None
-    cache = CACHE_DIR / ("psl-%d-%d.bin" % (st.st_size, st.st_mtime_ns))
+    cache = CACHE_DIR / ("psl-%d-%d.json" % (st.st_size, st.st_mtime_ns))
     try:
-        rules, wild, exc = marshal.loads(cache.read_bytes())
-        if len(rules) > 1000:
+        rules, wild, exc = json.loads(cache.read_bytes())
+        if isinstance(rules, list) and isinstance(wild, list) and isinstance(exc, list) and len(rules) > 1000:
             return cache, (frozenset(rules), frozenset(wild), frozenset(exc))
-    except (OSError, ValueError, EOFError, TypeError):
+    except (OSError, ValueError, TypeError):      # ValueError: bad JSON or bad text; TypeError: unhashable item
         pass
     return cache, None
 
 
 def _psl_keep(cache, found):
-    import marshal
     try:
         cache.parent.mkdir(parents=True, exist_ok=True)
-        for old in cache.parent.glob("psl-*.bin"):
-            old.unlink(missing_ok=True)
+        for old in list(cache.parent.glob("psl-*.json")) + list(cache.parent.glob("psl-*.bin")):
+            old.unlink(missing_ok=True)       # older lists, and the marshal cache of 1.1.23 and before
         tmp = cache.with_suffix(".tmp")
-        tmp.write_bytes(marshal.dumps(tuple(tuple(sorted(s)) for s in found)))
+        tmp.write_bytes(json.dumps([sorted(s) for s in found], separators=(",", ":")).encode("ascii"))
         tmp.replace(cache)
     except OSError:
         pass
@@ -1410,25 +1410,45 @@ class Shields(QObject):
             return False
 
     # --- per page ----------------------------------------------------
+    SEEN_MAX = 20000
+
     def _track_cookies(self, profile):
-        """Keep a list of the profile's cookies, to be able to delete one site's."""
+        """Keep a list of the profile's cookies, to be able to delete one site's.
+
+        1.1.24: also every cookie ever added (cookies_seen). When a site sets
+        the same cookie again in a later answer, the engine reports the old one
+        removed and never the new one added: the cookie is there, the list
+        lost it, and "Clear this site's data" left it (found by its new
+        summary, tests/test_clean_site.py). Deleting one that is gone already
+        does nothing."""
         jar = {}
+        seen = {}
         if not hasattr(self, "cookie_jars"):
             self.cookie_jars = {}
+            self.cookies_seen = {}
         self.cookie_jars[profile] = jar
+        self.cookies_seen[profile] = seen
         store = profile.cookieStore()
 
         def key(c):
             return (c.domain(), c.path(), bytes(c.name()))
         from PyQt6.QtNetwork import QNetworkCookie
-        # a copy: the object handed to the signal only lives during the call
-        store.cookieAdded.connect(lambda c: jar.__setitem__(key(c), QNetworkCookie(c)))
+
+        def added(c):
+            k = key(c)
+            jar[k] = QNetworkCookie(c)    # a copy: the object handed to the signal only lives during the call
+            if len(seen) >= self.SEEN_MAX and k not in seen:
+                seen.pop(next(iter(seen)))
+            seen[k] = jar[k]
+        store.cookieAdded.connect(added)
         store.cookieRemoved.connect(lambda c: jar.pop(key(c), None))
 
-    def site_cookies(self, profile, site):
-        """Cookies of a registrable domain (and its subdomains) in a profile."""
+    def site_cookies(self, profile, site, ever=False):
+        """Cookies of a registrable domain (and its subdomains) in a profile;
+        ever=True: also those the engine may still have (see _track_cookies)."""
         out = []
-        for c in list(getattr(self, "cookie_jars", {}).get(profile, {}).values()):
+        source = getattr(self, "cookies_seen" if ever else "cookie_jars", {}).get(profile, {})
+        for c in list(source.values()):
             domain = c.domain().lstrip(".").lower()
             if domain == site or domain.endswith("." + site):
                 out.append(c)

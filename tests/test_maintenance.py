@@ -53,7 +53,7 @@ pkgver=1.0.0
 depends=('python' 'python-pyqt6' 'python-pyqt6-webengine' 'qt6-webengine' 'python-jeepney')
 makedepends=('rust' 'gcc')
 optdepends=('libnotify: desktop notifications'
-            'xdg-utils: set the default browser (Settings, experimental)')
+            'noto-fonts-cjk: Chinese, Japanese and Korean interface text')
 
 build() {
   cd "$startdir"
@@ -155,7 +155,7 @@ def fixture_repo(tmp_path):
 
 ARCH = {"python": "3.14.10-1", "python-pyqt6": "6.12.1-1", "python-pyqt6-webengine": "6.140.1-1",
         "qt6-webengine": "6.140.0-1", "python-jeepney": "0.9.0-3", "rust": "1:1.100.0-1", "gcc": "16.1.1-1",
-        "libnotify": "0.8.8-1", "xdg-utils": "1.2.1-2", "qt6-base": "6.12.0-5", "breeze": "6.5.3-1",
+        "libnotify": "0.8.8-1", "noto-fonts-cjk": "20240730-1", "qt6-base": "6.12.0-5", "breeze": "6.5.3-1",
         "python-yaml": "6.0.3-1", "python-requests": "2.33.0-1", "pacman": "7.1.0-1"}
 CRATES = {"adblock": ["0.13.6"], "serde_json": ["1.0.1"], "itoa": ["1.0.0"], "cargo-deny": ["0.20.2"],
           "base64": ["0.22.1"]}
@@ -235,7 +235,7 @@ def test_the_inventory_finds_every_kind_in_the_repository(fixture_repo):
     found = ids(inv)
     expected = {
         "arch-package:python", "arch-package:qt6-webengine", "arch-package:breeze",       # depends, ARCH_PACKAGES
-        "arch-build:rust", "arch-build:gcc", "arch-optional:libnotify", "arch-optional:xdg-utils",
+        "arch-build:rust", "arch-build:gcc", "arch-optional:libnotify", "arch-optional:noto-fonts-cjk",
         "build-tool:cargo", "build-tool:gcc", "build-tool:makepkg",
         "python-module:PyQt6", "python-module:jeepney", "pyqt-module:PyQt6.QtWidgets",
         "pyqt-module:PyQt6.QtWebEngineCore", "vendored:adblock", "runtime-tool:notify-send",
@@ -251,7 +251,7 @@ def test_the_inventory_finds_every_kind_in_the_repository(fixture_repo):
         assert rec["tests_needed"], rec["id"]
     assert inv["findings"] == []
     # the details read from the repository
-    assert found["arch-optional:xdg-utils"]["notes"] == ["set the default browser (Settings, experimental)"]
+    assert found["arch-optional:noto-fonts-cjk"]["notes"] == ["Chinese, Japanese and Korean interface text"]
     assert found["python-module:jeepney"]["type"] == "optional"              # imported in try/except ImportError
     assert found["crate:itoa"]["type"] == "transitive" and found["crate:serde_json"]["type"] == "direct"
     assert found["crate:serde_json"]["requirement"] == "1"
@@ -306,7 +306,10 @@ def test_the_real_repository_is_covered():
         assert "arch-package:" + name in found, name
     for name, _ in pkg["optdepends"]:
         assert "arch-optional:" + name in found, name
-    assert len(pkg["optdepends"]) == 8 and "rust" in pkg["makedepends"]
+    assert len(pkg["optdepends"]) == 6 and "rust" in pkg["makedepends"]
+    # 1.1.24: xdg-utils (advisory AVG-1420, no fix) is gone; files and links go to the desktop
+    # portal or the desktop's own opener (ike/handoff.py), never xdg-open or xdg-settings
+    assert "xdg-utils" not in [name for name, _ in pkg["optdepends"]] + pkg["depends"]
     lists = inv_tool.default_lists(ROOT)
     assert lists and all("filter-list:" + e["name"] in found for e in lists)
     crates = inv_tool.parse_cargo_lock((ROOT / "ike-adblock/Cargo.lock").read_text())
@@ -316,8 +319,13 @@ def test_the_real_repository_is_covered():
         assert inv["counts"].get(kind), kind
     for name in ("PyQt6.QtWebEngineCore", "PyQt6.QtSvg", "PyQt6.QtWebChannel"):
         assert "pyqt-module:" + name in found
-    for tool in ("notify-send", "xdg-settings", "xdg-open"):
+    for tool in ("kioclient", "gio", "exo-open"):
         assert "runtime-tool:" + tool in found
+    # 1.1.24: notifications are a D-Bus call, no notify-send (libnotify) and no xdg-utils
+    for tool in ("notify-send", "xdg-settings", "xdg-open", "xdg-mime", "xdg-email"):
+        assert "runtime-tool:" + tool not in found, tool
+    for tool in ("kioclient", "gio", "exo-open"):           # the desktop's own, not dependencies
+        assert found["runtime-tool:" + tool]["declared"].startswith("the desktop's own"), found["runtime-tool:" + tool]
     assert inv_tool.to_markdown(inv).startswith("### Inventory of the external components")
 
 
@@ -1137,7 +1145,10 @@ def test_the_security_workflows_are_wired():
     assert "needs.security-update.outputs.outcome != 'ready'" in jobs["report"]
     assert "tools/security-fix.py report" in jobs["publish"] and 'if [ "$KIND" = "security" ]' in jobs["publish"]
     tests = (WORKFLOWS / "tests.yml").read_text()
-    assert tests.count("startsWith(github.ref_name, 'automation/update/security-')") == 2
+    # both hand-over clauses cover a security branch: the dispatch by its ref, a run
+    # started again by its pull request's own branch (the drill of 2026-11-23)
+    assert tests.count("startsWith(github.ref_name, 'automation/update/security-')") == 1
+    assert tests.count("startsWith((github.head_ref || github.ref_name), 'automation/update/security-')") == 1
 
 
 def _guard_repo(tmp_path):

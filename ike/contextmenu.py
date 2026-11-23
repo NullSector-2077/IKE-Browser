@@ -6,6 +6,7 @@ from PyQt6.QtWebEngineCore import QWebEngineContextMenuRequest as Req
 from PyQt6.QtWebEngineCore import QWebEnginePage
 from PyQt6.QtWidgets import QMenu
 
+from . import handoff
 from .i18n import T
 
 WA = QWebEnginePage.WebAction
@@ -80,6 +81,11 @@ def build(view, req):
         menu.addSeparator()
         add(T("Copy link address"), copy_text(link.toString()), "edit-copy")
         add(T("Save link as…"), engine(WA.DownloadLinkToDisk), "document-save")
+        if link.scheme() in ("http", "https", "file") and link.path().lower().endswith(".ics"):
+            # an event or a calendar: to the desktop's calendar app, when there is one (1.1.24)
+            if handoff.app_for(handoff.CALENDAR) is not None:
+                add(T("Add to calendar"), lambda: app.hand_off(link, "calendar", page),
+                    ("view-calendar", "x-office-calendar", "office-calendar"))
         if not win.private:
             app.desktop.add_send_menu(menu, link.toString())
         add(T("Bookmark this link"),
@@ -94,6 +100,12 @@ def build(view, req):
         if has_media:
             add(T("Open image in new tab"), lambda: win.add_tab(media, background=True, after=view,
                                                                 container=container), "tab-new")
+        if has_media and media.scheme() in ("http", "https", "file"):
+            # the desktop's image viewer (Gwenview on KDE), when there is one (1.1.24)
+            viewer = handoff.app_for(handoff.image_type(media.fileName()))
+            if viewer is not None:
+                add(T("Open image in %s") % viewer.name, lambda: app.hand_off(media, "image", page),
+                    ("image-x-generic", "view-preview"))
         add(T("Save image as…"), engine(WA.DownloadImageToDisk), "document-save")
         add(T("Copy image"), engine(WA.CopyImageToClipboard), "edit-copy")
         if has_media:
@@ -119,6 +131,17 @@ def build(view, req):
                 bool(mflags & MF.MediaCanSave) or True)
             add(T("Copy media address"), copy_text(media.toString()), "edit-copy")
         menu.addSeparator()
+
+    # --- a PDF in the engine's viewer: to the desktop's PDF app (Okular on KDE), 1.1.24 ---
+    pdf = (media if mtype == MT.MediaTypePlugin and has_media
+           else view.url() if view.url().path().lower().endswith(".pdf") else None)
+    if (pdf is not None and not has_link and not sel and not editable
+            and pdf.scheme() in ("http", "https", "file")):
+        reader = handoff.app_for("application/pdf")
+        if reader is not None:
+            add(T("Open with %s") % reader.name, lambda: app.hand_off(pdf, "pdf", page),
+                ("application-pdf", "x-office-document"))
+            menu.addSeparator()
 
     # --- spelling ---------------------------------------------------------
     if req and editable and req.misspelledWord():
@@ -180,6 +203,11 @@ def build(view, req):
         menu.addSeparator()
         add(T("Select all"), engine(WA.SelectAll), "edit-select-all")
         add(T("Page source"), win.view_source, ("text-html", "view-source"))
+        if view.url().scheme() in ("http", "https", "file"):
+            editor = handoff.app_for("text/plain")       # Kate on KDE (1.1.24)
+            if editor is not None:
+                add(T("Open the page source in %s") % editor.name, lambda: win.source_to_app(view),
+                    ("accessories-text-editor", "text-x-generic"))
     if (not win.private and view.url().scheme() in ("http", "https")
             and app.config["page_watch_on"] and not editable):
         from .watcher import pick_and_watch

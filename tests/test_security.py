@@ -488,36 +488,7 @@ def steps(ike, qapp, out):
 # ----------------------------------------------------------------------
 # small things
 # ----------------------------------------------------------------------
-def test_notification_text_cannot_become_an_option(tmp_path, monkeypatch):
-    from ike import osinfo
-    log = tmp_path / "argv.json"
-    fake = tmp_path / "notify-send"
-    fake.write_text("#!%s\nimport json, sys\njson.dump(sys.argv[1:], open(%r, 'w'))\n" % (sys.executable, str(log)))
-    fake.chmod(0o755)
-    monkeypatch.setenv("PATH", "%s:%s" % (tmp_path, os.environ["PATH"]))
-    import time
-    shown = []
-    for title, text in (("--icon=/etc/passwd", "-u critical"),
-                        ("Site", '<a href="https://evil.example/">click</a> <img src="file:///etc/passwd"> & more'),
-                        ("", ""), ("x" * 5000, "y" * 50000)):
-        if log.exists():
-            log.unlink()
-        osinfo.notify(title, text)
-        for _ in range(100):
-            if log.exists() and log.stat().st_size:
-                break
-            time.sleep(0.05)
-        argv = json.loads(log.read_text())
-        sep = argv.index("--")
-        # the fixed options, "--", then exactly two texts: nothing a page wrote is an option
-        assert argv[:sep] == ["-a", "I.K.E.", "-i", "ike-browser"] and len(argv) == sep + 3, argv
-        shown_title, shown_text = argv[sep + 1:]
-        assert "<" not in shown_text and ">" not in shown_text
-        assert len(shown_title) <= 200 and len(shown_text) <= 12000
-        shown.append((shown_title, shown_text))
-    assert shown[0] == ("--icon=/etc/passwd", "-u critical")
-    assert shown[1][1].startswith("&lt;a href=") and "&amp; more" in shown[1][1]
-    osinfo.notify("nul\0byte", "x")              # cannot be passed to a program: ignored, no error
+# test_notification_text_cannot_become_an_option moved to tests/test_small_1124.py (1.1.24: D-Bus, not notify-send)
 
 
 def test_switches_that_turn_protections_off_need_a_test_session(monkeypatch):
@@ -715,7 +686,7 @@ def test_a_link_never_starts_another_application_without_asking(run_ike):
     alone or from a tab in the background."""
     out = run_ike(JS + r'''
 from PyQt6.QtCore import QCoreApplication, QEvent, QObject, QPointF, Qt, QUrl, pyqtSlot
-from PyQt6.QtGui import QDesktopServices, QMouseEvent
+from PyQt6.QtGui import QMouseEvent
 
 class Desktop(QObject):
     def __init__(self):
@@ -739,7 +710,9 @@ def steps(ike, qapp, out):
     from ike import webview
     desktop = Desktop()
     ike._desktop_stand_in = desktop
-    QDesktopServices.setUrlHandler("iketestproto", desktop, "handle")
+    # 1.1.24: links of other kinds go to the desktop portal (handoff.py), never through
+    # Qt's QDesktopServices (xdg-open): the stand-in takes the portal's place
+    ike.handoff.open_uri = lambda url, parent=None: desktop.handle(QUrl(url))
     asked = []
     answer = [False]
     def ask(self, origin, url):
@@ -1035,16 +1008,23 @@ import os
 from PyQt6.QtCore import QUrl
 
 def steps(ike, qapp, out):
+    # 1.1.24: "evil.desktop" is a program from a site never visited: I.K.E.
+    # asks first (safedownload.py, tested in test_safe_downloads.py); here the
+    # user downloads it anyway, and its name and place are still I.K.E.'s
+    asked = []
+    type(ike)._ask_download_risk = lambda self, found, anyway: (asked.append(found["kind"]), anyway())
     view = ike.windows[0].current_view()
     for path in ("/a", "/b", "/c"):
         view.load(QUrl(os.environ["IKE_SITE"] + path))
         yield 1500
     out["paths"] = [str(ike.download_path(d)) for d in ike.downloads]
+    out["asked"] = asked
 ''', settings={"download_dir": str(folder)}, env={"IKE_SITE": "http://127.0.0.1:%d" % srv.server_address[1]},
                       timeout=120)
     finally:
         srv.shutdown()
     assert len(out["paths"]) == 3
+    assert out["asked"] == ["new"], out["asked"]
     for path in out["paths"]:
         assert Path(path).parent == folder, path
         assert Path(path).exists()
