@@ -226,6 +226,12 @@ class ShieldPanel(QWidget):
         self.repaired.setWordWrap(True)
         self.repaired_undo = QPushButton(T("Undo the repair"), self)
         self.repaired_undo.clicked.connect(self._undo_repair)
+        # the protected time zone (1.1.24, timezone.py): for every site, after a restart
+        self.zone = Switch(T("Protected time zone"), self)
+        self.zone_hint = QLabel(T("Sites see the time zone UTC, not yours. Some sites will show "
+                                  "wrong times. After a restart."), self)
+        self.zone_hint.setWordWrap(True)
+        self.zone.clicked.connect(self._zone_changed)
         settings = QPushButton(T("Protection settings…"), self)
         sep = QFrame(self)
         sep.setFrameShape(QFrame.Shape.HLine)
@@ -253,6 +259,8 @@ class ShieldPanel(QWidget):
         lay.addWidget(sep)
         lay.addWidget(QLabel(T("Default for all sites"), self))
         lay.addWidget(self.global_level)
+        lay.addWidget(self.zone)
+        lay.addWidget(self.zone_hint)
         lay.addWidget(settings)
         self.master.clicked.connect(self._master_clicked)
         self.adv_btn.toggled.connect(self._adv_toggled)
@@ -304,6 +312,7 @@ class ShieldPanel(QWidget):
         self.count.setText(str(st["ads"] + st["scripts"]))
         self.site_level.setCurrentIndex(LEVELS.index(level))
         self.global_level.setCurrentIndex(LEVELS.index(cfg["shield_level"]))
+        self.zone.setChecked(bool(cfg.get("protect_timezone")))
         self.hint.setText(T(self.HINTS[level]))
         self.ads.setCurrentIndex(1 if cfg.site_opt(host, "ads") is False else 0)
         self.cookies.setCurrentIndex(max(0, self.cookies.findData(cfg.site_opt(host, "cookies"))))
@@ -400,6 +409,16 @@ class ShieldPanel(QWidget):
         if cfg["site_levels"].get(host) == cfg["shield_level"]:
             cfg["site_levels"].pop(host, None)
         self._apply()
+
+    def _zone_changed(self, on):
+        if self._busy:
+            return
+        cfg = self.win.app.config
+        cfg["protect_timezone"] = bool(on)
+        cfg.save()
+        from . import timezone
+        if timezone.active() != bool(on):
+            self.win.toast(T("Restart I.K.E. to use it."), 5000)
 
     def _toggle_list(self, key, host, present):
         lst = self.win.app.config[key]

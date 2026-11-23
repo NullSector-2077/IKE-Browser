@@ -146,7 +146,12 @@ function ikeIconLater(img) {
 <script>
 (function () {
   var lang = "{{lang}}", clock = document.getElementById("clock"), date = document.getElementById("date");
-  function fmt(d, opts) { try { return d.toLocaleString(lang, opts); } catch (e) { return d.toLocaleString(undefined, opts); } }
+  // with the protected time zone (1.1.24) pages see UTC: this page shows the user's own
+  var zone = "{{tz}}";
+  function fmt(d, opts) {
+    if (zone) opts.timeZone = zone;
+    try { return d.toLocaleString(lang, opts); } catch (e) { delete opts.timeZone; return d.toLocaleString(undefined, opts); }
+  }
   // 1.1.23: the text is written only when it changes, and the page wakes up at
   // the next minute instead of every second (each write made a new frame: the
   // page, the window and the graphics process woke once a second for nothing)

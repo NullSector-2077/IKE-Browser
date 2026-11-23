@@ -1220,6 +1220,19 @@
 "Whole page": "Цела страница",
 "Selected area": "Изабрана област",
 "Recently closed tabs": "Недавно затворене картице",
-"The last tabs you closed: choose one to open it again": "Последње картице које сте затворили: изаберите једну да је поново отворите"
+"The last tabs you closed: choose one to open it again": "Последње картице које сте затворили: изаберите једну да је поново отворите",
+"Protected time zone": "Заштићена временска зона",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Сајтови виде временску зону UTC, а не вашу. Неки сајтови ће приказивати погрешно време. После поновног покретања.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Брисање података сајтова који вас само преусмере (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Сајт кроз који само прођете, а да га не користите, убрзо затим губи своје колачиће и сачуване податке. Сајтови које сте користили, имате отворене или у обележивачима никад се не дирају.",
+"Ask quietly in the address bar": "Питај дискретно у траци за адресу",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Обавештења, локација, камера и микрофон: мали знак у траци за адресу уместо прозора. Обавештења затражена без клика на страницу се одбијају.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Проверавај лозинке у познатим цурењима података (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Када се лозинка сачува или попуни, на api.pwnedpasswords.com се шаље само првих 5 знакова њеног SHA-1 отиска; лозинка никад не напушта овај рачунар. Подразумевано искључено.",
+"The password used on %s appears %d times in known data breaches: change it.": "Лозинка коришћена на %s појављује се %d пута у познатим цурењима података: промените је.",
+"Update the system": "Ажурирајте систем",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Веб погон (Qt WebEngine %s) има познат безбедносни проблем (%s), исправљен у новијој верзији. Отворите терминал и покрените: %s",
+"Battery saver": "Штедња батерије",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "На батерији се картице у позадини паузирају после минута, а анимације интерфејса и слике картица се заустављају."
 }
 }

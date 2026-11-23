@@ -1220,6 +1220,19 @@
 "Whole page": "మొత్తం పేజీ",
 "Selected area": "ఎంచుకున్న ప్రాంతం",
 "Recently closed tabs": "ఇటీవల మూసిన ట్యాబ్‌లు",
-"The last tabs you closed: choose one to open it again": "మీరు చివరగా మూసిన ట్యాబ్‌లు: మళ్లీ తెరవడానికి ఒకదాన్ని ఎంచుకోండి"
+"The last tabs you closed: choose one to open it again": "మీరు చివరగా మూసిన ట్యాబ్‌లు: మళ్లీ తెరవడానికి ఒకదాన్ని ఎంచుకోండి",
+"Protected time zone": "రక్షిత సమయ మండలం",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "సైట్‌లకు మీది కాదు, UTC సమయ మండలం కనిపిస్తుంది. కొన్ని సైట్‌లు తప్పు సమయాలు చూపిస్తాయి. పునఃప్రారంభం తర్వాత.",
+"Clear the data of sites that only redirect you (bounce tracking)": "కేవలం దారి మళ్లించే సైట్‌ల డేటాను తుడిచివేయి (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "ఉపయోగించకుండా మీరు కేవలం దాటి వెళ్లే సైట్ కొద్దిసేపటికి తన కుకీలు మరియు నిల్వ చేసిన డేటాను కోల్పోతుంది. మీరు ఉపయోగించిన, తెరిచి ఉన్న లేదా బుక్‌మార్క్‌లో ఉన్న సైట్‌లను ఎప్పుడూ తాకరు.",
+"Ask quietly in the address bar": "చిరునామా పట్టీలో నిశ్శబ్దంగా అడుగు",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "నోటిఫికేషన్‌లు, స్థానం, కెమెరా మరియు మైక్రోఫోన్: విండోకు బదులు చిరునామా పట్టీలో ఒక చిన్న గుర్తు. పేజీపై క్లిక్ చేయకుండా అడిగిన నోటిఫికేషన్‌లు తిరస్కరించబడతాయి.",
+"Check passwords against known data breaches (Have I Been Pwned)": "తెలిసిన డేటా లీక్‌లలో పాస్‌వర్డ్‌లను తనిఖీ చేయి (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "పాస్‌వర్డ్ సేవ్ లేదా నింపినప్పుడు, దాని SHA-1 వేలిముద్రలోని మొదటి 5 అక్షరాలు మాత్రమే api.pwnedpasswords.com కు పంపబడతాయి; పాస్‌వర్డ్ ఈ కంప్యూటర్‌ను ఎప్పుడూ వదలదు. డిఫాల్ట్‌గా ఆఫ్.",
+"The password used on %s appears %d times in known data breaches: change it.": "%s లో ఉపయోగించిన పాస్‌వర్డ్ తెలిసిన డేటా లీక్‌లలో %d సార్లు కనిపిస్తుంది: దాన్ని మార్చండి.",
+"Update the system": "సిస్టమ్‌ను నవీకరించండి",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "వెబ్ ఇంజిన్‌లో (Qt WebEngine %s) తెలిసిన భద్రతా సమస్య ఉంది (%s), అది కొత్త వెర్షన్‌లో సరిచేయబడింది. టెర్మినల్ తెరిచి అమలు చేయండి: %s",
+"Battery saver": "బ్యాటరీ ఆదా",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "బ్యాటరీపై ఉన్నప్పుడు, నేపథ్య ట్యాబ్‌లు ఒక నిమిషం తర్వాత ఆగుతాయి, ఇంటర్‌ఫేస్ యానిమేషన్‌లు మరియు ట్యాబ్ చిత్రాలు ఆగిపోతాయి."
 }
 }

@@ -1220,6 +1220,19 @@
 "Whole page": "Visas puslapis",
 "Selected area": "Pažymėta sritis",
 "Recently closed tabs": "Neseniai uždarytos kortelės",
-"The last tabs you closed: choose one to open it again": "Paskutinės jūsų uždarytos kortelės: pasirinkite vieną, kad vėl ją atvertumėte"
+"The last tabs you closed: choose one to open it again": "Paskutinės jūsų uždarytos kortelės: pasirinkite vieną, kad vėl ją atvertumėte",
+"Protected time zone": "Apsaugota laiko juosta",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Svetainės mato laiko juostą UTC, o ne jūsų. Kai kurios svetainės rodys neteisingą laiką. Po paleidimo iš naujo.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Išvalyti svetainių, kurios tik nukreipia, duomenis (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Svetainė, per kurią tik pereinate jos nenaudodami, netrukus praranda slapukus ir išsaugotus duomenis. Svetainės, kurias naudojote, turite atvertas ar žymelėse, niekada neliečiamos.",
+"Ask quietly in the address bar": "Klausti tyliai adreso juostoje",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Pranešimai, vieta, kamera ir mikrofonas: mažas ženklas adreso juostoje vietoj lango. Pranešimai, prašomi be spustelėjimo puslapyje, atmetami.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Tikrinti slaptažodžius žinomuose duomenų nutekėjimuose (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Kai slaptažodis išsaugomas ar įrašomas, į api.pwnedpasswords.com siunčiami tik pirmieji 5 jo SHA-1 atspaudo simboliai; slaptažodis niekada nepalieka šio kompiuterio. Pagal numatymą išjungta.",
+"The password used on %s appears %d times in known data breaches: change it.": "Svetainėje %s naudotas slaptažodis žinomuose duomenų nutekėjimuose aptinkamas %d kartų: pakeiskite jį.",
+"Update the system": "Atnaujinkite sistemą",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Žiniatinklio variklis (Qt WebEngine %s) turi žinomą saugumo problemą (%s), ištaisytą naujesnėje versijoje. Atverkite terminalą ir paleiskite: %s",
+"Battery saver": "Akumuliatoriaus taupymas",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Veikiant iš akumuliatoriaus, foninės kortelės po minutės pristabdomos, o sąsajos animacijos ir kortelių paveikslėliai sustabdomi."
 }
 }

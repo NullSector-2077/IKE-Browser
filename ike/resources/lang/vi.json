@@ -1220,6 +1220,19 @@
 "Whole page": "Toàn trang",
 "Selected area": "Vùng đã chọn",
 "Recently closed tabs": "Thẻ đã đóng gần đây",
-"The last tabs you closed: choose one to open it again": "Các thẻ bạn đóng gần nhất: chọn một thẻ để mở lại"
+"The last tabs you closed: choose one to open it again": "Các thẻ bạn đóng gần nhất: chọn một thẻ để mở lại",
+"Protected time zone": "Múi giờ được bảo vệ",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Các trang web thấy múi giờ UTC, không phải của bạn. Một số trang sẽ hiển thị sai giờ. Sau khi khởi động lại.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Xóa dữ liệu của các trang chỉ chuyển hướng bạn (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Một trang bạn chỉ đi qua mà không dùng sẽ mất cookie và dữ liệu đã lưu ngay sau đó. Các trang bạn đã dùng, đang mở hoặc đã đánh dấu không bao giờ bị động đến.",
+"Ask quietly in the address bar": "Hỏi kín đáo trên thanh địa chỉ",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Thông báo, vị trí, camera và micrô: một dấu nhỏ trên thanh địa chỉ thay cho cửa sổ. Yêu cầu thông báo khi chưa nhấp vào trang sẽ bị từ chối.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Kiểm tra mật khẩu trong các vụ rò rỉ dữ liệu đã biết (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Khi mật khẩu được lưu hoặc điền, chỉ 5 ký tự đầu của dấu vân tay SHA-1 được gửi tới api.pwnedpasswords.com; mật khẩu không bao giờ rời khỏi máy tính này. Mặc định tắt.",
+"The password used on %s appears %d times in known data breaches: change it.": "Mật khẩu dùng trên %s xuất hiện %d lần trong các vụ rò rỉ dữ liệu đã biết: hãy đổi nó.",
+"Update the system": "Cập nhật hệ thống",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Bộ máy web (Qt WebEngine %s) có một lỗi bảo mật đã biết (%s), đã được sửa ở phiên bản mới hơn. Mở terminal và chạy: %s",
+"Battery saver": "Tiết kiệm pin",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Khi dùng pin, các thẻ nền tạm dừng sau một phút, hiệu ứng chuyển động của giao diện và ảnh thẻ dừng lại."
 }
 }

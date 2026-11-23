@@ -1220,6 +1220,19 @@
 "Whole page": "Página completa",
 "Selected area": "Área seleccionada",
 "Recently closed tabs": "Pestañas cerradas recientemente",
-"The last tabs you closed: choose one to open it again": "Las últimas pestañas que cerraste: elige una para abrirla de nuevo"
+"The last tabs you closed: choose one to open it again": "Las últimas pestañas que cerraste: elige una para abrirla de nuevo",
+"Protected time zone": "Zona horaria protegida",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Los sitios ven la zona horaria UTC, no la tuya. Algunos sitios mostrarán horas equivocadas. Tras un reinicio.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Borrar los datos de los sitios que solo te redirigen (rastreo por rebote)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Un sitio por el que solo pasas, sin usarlo, pierde sus cookies y datos guardados poco después. Los sitios que has usado, tienes abiertos o en marcadores nunca se tocan.",
+"Ask quietly in the address bar": "Preguntar discretamente en la barra de direcciones",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Notificaciones, ubicación, cámara y micrófono: una pequeña señal en la barra de direcciones en lugar de una ventana. Las notificaciones pedidas sin un clic en la página se rechazan.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Comprobar las contraseñas en filtraciones de datos conocidas (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Cuando se guarda o rellena una contraseña, solo se envían los primeros 5 caracteres de su huella SHA-1 a api.pwnedpasswords.com; la contraseña nunca sale de este equipo. Desactivado por defecto.",
+"The password used on %s appears %d times in known data breaches: change it.": "La contraseña usada en %s aparece %d veces en filtraciones de datos conocidas: cámbiala.",
+"Update the system": "Actualiza el sistema",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "El motor web (Qt WebEngine %s) tiene un problema de seguridad conocido (%s), corregido en una versión más reciente. Abre una terminal y ejecuta: %s",
+"Battery saver": "Ahorro de batería",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Con batería, las pestañas en segundo plano se pausan tras un minuto y se detienen las animaciones de la interfaz y las imágenes de las pestañas."
 }
 }

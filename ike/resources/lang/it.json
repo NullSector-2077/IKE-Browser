@@ -1220,6 +1220,19 @@
 "Whole page": "Pagina intera",
 "Selected area": "Area selezionata",
 "Recently closed tabs": "Schede chiuse di recente",
-"The last tabs you closed: choose one to open it again": "Le ultime schede che hai chiuso: scegline una per riaprirla"
+"The last tabs you closed: choose one to open it again": "Le ultime schede che hai chiuso: scegline una per riaprirla",
+"Protected time zone": "Fuso orario protetto",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "I siti vedono il fuso orario UTC, non il tuo. Alcuni siti mostreranno orari sbagliati. Dopo un riavvio.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Cancella i dati dei siti che ti reindirizzano soltanto (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Un sito da cui passi soltanto, senza usarlo, perde i suoi cookie e i dati salvati poco dopo. I siti che hai usato, che hai aperti o tra i segnalibri non vengono mai toccati.",
+"Ask quietly in the address bar": "Chiedi in modo discreto nella barra degli indirizzi",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Notifiche, posizione, fotocamera e microfono: un piccolo segno nella barra degli indirizzi invece di una finestra. Le notifiche chieste senza un clic sulla pagina vengono rifiutate.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Controlla le password tra le violazioni di dati note (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Quando una password viene salvata o compilata, solo i primi 5 caratteri della sua impronta SHA-1 vengono inviati a api.pwnedpasswords.com; la password non lascia mai questo computer. Disattivato in partenza.",
+"The password used on %s appears %d times in known data breaches: change it.": "La password usata su %s compare %d volte in violazioni di dati note: cambiala.",
+"Update the system": "Aggiorna il sistema",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Il motore web (Qt WebEngine %s) ha un problema di sicurezza noto (%s), corretto in una versione più recente. Apri un terminale ed esegui: %s",
+"Battery saver": "Risparmio batteria",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "A batteria, le schede in secondo piano si fermano dopo un minuto e le animazioni dell'interfaccia e le immagini delle schede si interrompono."
 }
 }

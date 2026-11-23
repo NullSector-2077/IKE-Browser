@@ -1220,6 +1220,19 @@
 "Whole page": "Ukurasa mzima",
 "Selected area": "Eneo lililochaguliwa",
 "Recently closed tabs": "Vichupo vilivyofungwa hivi karibuni",
-"The last tabs you closed: choose one to open it again": "Vichupo vya mwisho ulivyofunga: chagua kimoja ili kukifungua tena"
+"The last tabs you closed: choose one to open it again": "Vichupo vya mwisho ulivyofunga: chagua kimoja ili kukifungua tena",
+"Protected time zone": "Saa za eneo zilizolindwa",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Tovuti zinaona saa za eneo UTC, si zako. Baadhi ya tovuti zitaonyesha saa zisizo sahihi. Baada ya kuwasha upya.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Futa data ya tovuti zinazokuelekeza tu kwingine (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Tovuti unayopitia tu, bila kuitumia, hupoteza vidakuzi na data iliyohifadhiwa muda mfupi baadaye. Tovuti ulizotumia, ulizofungua au zilizo kwenye alamisho haziguswi kamwe.",
+"Ask quietly in the address bar": "Uliza kimya kwenye upau wa anwani",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Arifa, mahali, kamera na maikrofoni: alama ndogo kwenye upau wa anwani badala ya dirisha. Arifa zinazoombwa bila kubofya ukurasa hukataliwa.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Kagua nenosiri dhidi ya uvujaji wa data unaojulikana (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Nenosiri linapohifadhiwa au kujazwa, ni herufi 5 za kwanza tu za alama ya SHA-1 zinazotumwa kwa api.pwnedpasswords.com; nenosiri halitoki kamwe kwenye kompyuta hii. Imezimwa kwa chaguo-msingi.",
+"The password used on %s appears %d times in known data breaches: change it.": "Nenosiri lililotumiwa kwenye %s linaonekana mara %d katika uvujaji wa data unaojulikana: libadilishe.",
+"Update the system": "Sasisha mfumo",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Injini ya wavuti (Qt WebEngine %s) ina tatizo la usalama linalojulikana (%s), lililorekebishwa katika toleo jipya zaidi. Fungua terminal na uendeshe: %s",
+"Battery saver": "Kiokoa betri",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Ukiwa kwenye betri, vichupo vya nyuma husitishwa baada ya dakika moja, na uhuishaji wa kiolesura na picha za vichupo husimama."
 }
 }

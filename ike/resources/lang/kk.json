@@ -1220,6 +1220,19 @@
 "Whole page": "Бүкіл бет",
 "Selected area": "Таңдалған аймақ",
 "Recently closed tabs": "Жақында жабылған қойындылар",
-"The last tabs you closed: choose one to open it again": "Соңғы жабылған қойындылар: қайта ашу үшін біреуін таңдаңыз"
+"The last tabs you closed: choose one to open it again": "Соңғы жабылған қойындылар: қайта ашу үшін біреуін таңдаңыз",
+"Protected time zone": "Қорғалған уақыт белдеуі",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Сайттар сіздің емес, UTC уақыт белдеуін көреді. Кейбір сайттар уақытты қате көрсетеді. Қайта іске қосқаннан кейін.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Тек қайта бағыттайтын сайттардың деректерін тазалау (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Пайдаланбай тек өтіп кететін сайт біраздан соң cookie файлдары мен сақталған деректерін жоғалтады. Сіз пайдаланған, ашық тұрған немесе бетбелгідегі сайттарға ешқашан тиіспейді.",
+"Ask quietly in the address bar": "Мекенжай жолағында байқатпай сұрау",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Хабарландырулар, орналасу, камера және микрофон: терезенің орнына мекенжай жолағында кішкентай белгі. Бетті баспай сұралған хабарландырулар қабылданбайды.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Құпиясөздерді белгілі деректер ағуларынан тексеру (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Құпиясөз сақталғанда немесе толтырылғанда, api.pwnedpasswords.com мекенжайына оның SHA-1 ізінің тек алғашқы 5 таңбасы жіберіледі; құпиясөз бұл компьютерден ешқашан шықпайды. Әдепкі бойынша өшірулі.",
+"The password used on %s appears %d times in known data breaches: change it.": "%s сайтында қолданылған құпиясөз белгілі деректер ағуларында %d рет кездеседі: оны өзгертіңіз.",
+"Update the system": "Жүйені жаңартыңыз",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Веб қозғалтқышында (Qt WebEngine %s) белгілі қауіпсіздік мәселесі бар (%s), ол жаңарақ нұсқада түзетілген. Терминалды ашып, орындаңыз: %s",
+"Battery saver": "Батареяны үнемдеу",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Батареядан жұмыс істегенде фондық қойындылар бір минуттан кейін тоқтайды, ал интерфейс анимациялары мен қойынды суреттері тоқтатылады."
 }
 }

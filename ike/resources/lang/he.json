@@ -1220,6 +1220,19 @@
 "Whole page": "העמוד כולו",
 "Selected area": "אזור נבחר",
 "Recently closed tabs": "כרטיסיות שנסגרו לאחרונה",
-"The last tabs you closed: choose one to open it again": "הכרטיסיות האחרונות שסגרתם: בחרו אחת כדי לפתוח אותה שוב"
+"The last tabs you closed: choose one to open it again": "הכרטיסיות האחרונות שסגרתם: בחרו אחת כדי לפתוח אותה שוב",
+"Protected time zone": "אזור זמן מוגן",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "אתרים רואים את אזור הזמן UTC, לא שלך. חלק מהאתרים יציגו שעות שגויות. לאחר הפעלה מחדש.",
+"Clear the data of sites that only redirect you (bounce tracking)": "ניקוי הנתונים של אתרים שרק מפנים אותך הלאה (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "אתר שאתה רק עובר דרכו, בלי להשתמש בו, מאבד זמן קצר לאחר מכן את העוגיות והנתונים השמורים שלו. באתרים שהשתמשת בהם, שפתוחים או שבסימניות לא נוגעים לעולם.",
+"Ask quietly in the address bar": "לשאול בשקט בשורת הכתובת",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "התראות, מיקום, מצלמה ומיקרופון: סימן קטן בשורת הכתובת במקום חלון. התראות שמתבקשות בלי לחיצה על הדף נדחות.",
+"Check passwords against known data breaches (Have I Been Pwned)": "בדיקת סיסמאות מול דליפות מידע ידועות (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "כששומרים או ממלאים סיסמה, נשלחים אל api.pwnedpasswords.com רק 5 התווים הראשונים של טביעת ה-SHA-1 שלה; הסיסמה אף פעם לא יוצאת מהמחשב הזה. כבוי כברירת מחדל.",
+"The password used on %s appears %d times in known data breaches: change it.": "הסיסמה שבשימוש ב-%s מופיעה %d פעמים בדליפות מידע ידועות: החלף אותה.",
+"Update the system": "עדכן את המערכת",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "במנוע הרשת (Qt WebEngine %s) יש בעיית אבטחה ידועה (%s), שתוקנה בגרסה חדשה יותר. פתח מסוף והרץ: %s",
+"Battery saver": "חיסכון בסוללה",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "על סוללה, לשוניות ברקע נעצרות אחרי דקה, והאנימציות של הממשק ותמונות הלשוניות נעצרות."
 }
 }

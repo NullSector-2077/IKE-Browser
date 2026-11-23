@@ -1220,6 +1220,19 @@
 "Whole page": "Celá stránka",
 "Selected area": "Vybraná oblast",
 "Recently closed tabs": "Nedávno zavřené karty",
-"The last tabs you closed: choose one to open it again": "Naposledy zavřené karty: vyberte jednu a znovu ji otevřete"
+"The last tabs you closed: choose one to open it again": "Naposledy zavřené karty: vyberte jednu a znovu ji otevřete",
+"Protected time zone": "Chráněné časové pásmo",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Weby vidí časové pásmo UTC, ne vaše. Některé weby ukážou špatný čas. Po restartu.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Mazat data webů, které vás jen přesměrují (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Web, kterým jen projdete, aniž byste ho použili, krátce nato ztratí své cookies a uložená data. Weby, které jste použili, máte otevřené nebo v záložkách, se nikdy neruší.",
+"Ask quietly in the address bar": "Ptát se nenápadně v adresním řádku",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Oznámení, poloha, kamera a mikrofon: malá značka v adresním řádku místo okna. Oznámení vyžádaná bez kliknutí na stránku se odmítnou.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Kontrolovat hesla ve známých únicích dat (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Když se heslo uloží nebo vyplní, odešle se na api.pwnedpasswords.com jen prvních 5 znaků jeho otisku SHA-1; heslo nikdy neopustí tento počítač. Ve výchozím stavu vypnuto.",
+"The password used on %s appears %d times in known data breaches: change it.": "Heslo použité na %s se ve známých únicích dat vyskytuje %dkrát: změňte ho.",
+"Update the system": "Aktualizujte systém",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Webové jádro (Qt WebEngine %s) má známý bezpečnostní problém (%s), opravený v novější verzi. Otevřete terminál a spusťte: %s",
+"Battery saver": "Úspora baterie",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Na baterii se karty na pozadí po minutě pozastaví a animace rozhraní a obrázky karet se zastaví."
 }
 }

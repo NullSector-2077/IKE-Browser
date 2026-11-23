@@ -1220,6 +1220,19 @@
 "Whole page": "Уся сторінка",
 "Selected area": "Вибрана область",
 "Recently closed tabs": "Нещодавно закриті вкладки",
-"The last tabs you closed: choose one to open it again": "Останні закриті вкладки: виберіть одну, щоб відкрити її знову"
+"The last tabs you closed: choose one to open it again": "Останні закриті вкладки: виберіть одну, щоб відкрити її знову",
+"Protected time zone": "Захищений часовий пояс",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Сайти бачать часовий пояс UTC, а не ваш. Деякі сайти показуватимуть неправильний час. Після перезапуску.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Видаляти дані сайтів, які лише перенаправляють (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Сайт, через який ви лише проходите, не користуючись ним, невдовзі втрачає свої куки та збережені дані. Сайти, якими ви користувалися, які відкриті або в закладках, ніколи не зачіпаються.",
+"Ask quietly in the address bar": "Питати непомітно в адресному рядку",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Сповіщення, розташування, камера й мікрофон: маленький знак в адресному рядку замість вікна. Запити сповіщень без клацання на сторінці відхиляються.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Перевіряти паролі у відомих витоках даних (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Коли пароль зберігається або підставляється, на api.pwnedpasswords.com надсилаються лише перші 5 символів його відбитка SHA-1; сам пароль ніколи не залишає цей комп'ютер. Типово вимкнено.",
+"The password used on %s appears %d times in known data breaches: change it.": "Пароль, що використовується на %s, трапляється у відомих витоках даних %d разів: змініть його.",
+"Update the system": "Оновіть систему",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Веб-рушій (Qt WebEngine %s) має відому проблему безпеки (%s), виправлену в новішій версії. Відкрийте термінал і виконайте: %s",
+"Battery saver": "Економія батареї",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Від батареї фонові вкладки призупиняються через хвилину, а анімації інтерфейсу та зображення вкладок зупиняються."
 }
 }

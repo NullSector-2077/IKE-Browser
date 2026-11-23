@@ -1220,6 +1220,19 @@
 "Whole page": "ทั้งหน้า",
 "Selected area": "พื้นที่ที่เลือก",
 "Recently closed tabs": "แท็บที่ปิดล่าสุด",
-"The last tabs you closed: choose one to open it again": "แท็บล่าสุดที่คุณปิด: เลือกหนึ่งแท็บเพื่อเปิดอีกครั้ง"
+"The last tabs you closed: choose one to open it again": "แท็บล่าสุดที่คุณปิด: เลือกหนึ่งแท็บเพื่อเปิดอีกครั้ง",
+"Protected time zone": "เขตเวลาที่ได้รับการปกป้อง",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "เว็บไซต์จะเห็นเขตเวลา UTC ไม่ใช่ของคุณ บางเว็บไซต์จะแสดงเวลาผิด หลังจากเริ่มใหม่",
+"Clear the data of sites that only redirect you (bounce tracking)": "ล้างข้อมูลของเว็บไซต์ที่แค่เปลี่ยนเส้นทางคุณ (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "เว็บไซต์ที่คุณแค่ผ่านไปโดยไม่ได้ใช้ จะเสียคุกกี้และข้อมูลที่เก็บไว้ในอีกไม่นาน เว็บไซต์ที่คุณเคยใช้ เปิดอยู่ หรือบุ๊กมาร์กไว้จะไม่ถูกแตะต้องเลย",
+"Ask quietly in the address bar": "ถามอย่างเงียบ ๆ ในแถบที่อยู่",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "การแจ้งเตือน ตำแหน่ง กล้อง และไมโครโฟน: เครื่องหมายเล็ก ๆ ในแถบที่อยู่แทนหน้าต่าง การแจ้งเตือนที่ขอโดยไม่มีการคลิกบนหน้าจะถูกปฏิเสธ",
+"Check passwords against known data breaches (Have I Been Pwned)": "ตรวจรหัสผ่านกับข้อมูลรั่วไหลที่ทราบ (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "เมื่อบันทึกหรือกรอกรหัสผ่าน จะส่งเพียง 5 อักขระแรกของลายนิ้วมือ SHA-1 ไปยัง api.pwnedpasswords.com รหัสผ่านจะไม่ออกจากคอมพิวเตอร์นี้เลย ปิดอยู่โดยค่าเริ่มต้น",
+"The password used on %s appears %d times in known data breaches: change it.": "รหัสผ่านที่ใช้บน %s ปรากฏ %d ครั้งในข้อมูลรั่วไหลที่ทราบ: โปรดเปลี่ยน",
+"Update the system": "อัปเดตระบบ",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "เอนจินเว็บ (Qt WebEngine %s) มีปัญหาความปลอดภัยที่ทราบ (%s) ซึ่งแก้แล้วในรุ่นใหม่กว่า เปิดเทอร์มินัลแล้วรัน: %s",
+"Battery saver": "ประหยัดแบตเตอรี่",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "เมื่อใช้แบตเตอรี่ แท็บเบื้องหลังจะหยุดชั่วคราวหลังหนึ่งนาที และภาพเคลื่อนไหวของส่วนติดต่อและรูปแท็บจะหยุด"
 }
 }

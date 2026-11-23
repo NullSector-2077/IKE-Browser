@@ -180,6 +180,9 @@ class WebPage(QWebEnginePage):
             self.app.userscripts.offer(self.window_ref, url.toString(), home_ok=home_ok)
             return False
         if is_main_frame:
+            # bounce tracking (1.1.24, bounce.py): a site that only redirected onward
+            acted = getattr(self, "_ike_input", -99.0) > getattr(self, "_ike_page_since", -99.0)
+            self.app.bounce.navigation(self, url, nav_type, acted)
             self._ike_page_since = time.monotonic()
             self.nav_scheme = url.scheme().lower()      # where it goes (the loading line, 1.1.23)
             host = url.host().lower()
@@ -623,6 +626,9 @@ class WebPage(QWebEnginePage):
         if test_switch("IKE_TEST_PERMS") in ("grant", "deny"):
             perm.grant() if test_switch("IKE_TEST_PERMS") == "grant" else perm.deny()
             return
+        from . import quietperms
+        if quietperms.handle(self, perm):
+            return                       # a sign in the address bar instead of a window (1.1.24)
         if not self.visible_tab():
             # a tab in the background waits: its question would appear over the
             # page the user is looking at, which is easy to answer by mistake
@@ -922,6 +928,7 @@ class WebView(QWebEngineView):
         if t in (QEvent.Type.MouseButtonPress, QEvent.Type.KeyPress) \
                 and not getattr(self.page(), "_ike_synthetic", False):
             self.page()._ike_input = time.monotonic()   # the user acts on the page (downloads)
+            self.window_ref.app.bounce.used(self.page())     # a site the user used (bounce.py)
         if t == QEvent.Type.Wheel and self._wheel(event):
             return True
         if t == QEvent.Type.NativeGesture:                # touchpad: swipe and pinch (1.1.24)

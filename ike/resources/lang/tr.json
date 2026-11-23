@@ -1220,6 +1220,19 @@
 "Whole page": "Sayfanın tamamı",
 "Selected area": "Seçilen alan",
 "Recently closed tabs": "Son kapatılan sekmeler",
-"The last tabs you closed: choose one to open it again": "Son kapattığınız sekmeler: yeniden açmak için birini seçin"
+"The last tabs you closed: choose one to open it again": "Son kapattığınız sekmeler: yeniden açmak için birini seçin",
+"Protected time zone": "Korunan saat dilimi",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Siteler sizin saat diliminizi değil, UTC'yi görür. Bazı siteler yanlış saatler gösterecektir. Yeniden başlatmadan sonra.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Yalnızca yönlendiren sitelerin verilerini temizle (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Kullanmadan yalnızca içinden geçtiğiniz bir site kısa süre sonra çerezlerini ve kayıtlı verilerini kaybeder. Kullandığınız, açık tuttuğunuz veya yer imlerinizdeki sitelere asla dokunulmaz.",
+"Ask quietly in the address bar": "Adres çubuğunda sessizce sor",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Bildirimler, konum, kamera ve mikrofon: pencere yerine adres çubuğunda küçük bir işaret. Sayfaya tıklanmadan istenen bildirimler reddedilir.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Parolaları bilinen veri sızıntılarında denetle (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Bir parola kaydedildiğinde veya doldurulduğunda, SHA-1 parmak izinin yalnızca ilk 5 karakteri api.pwnedpasswords.com adresine gönderilir; parola bu bilgisayardan asla çıkmaz. Varsayılan olarak kapalı.",
+"The password used on %s appears %d times in known data breaches: change it.": "%s üzerinde kullanılan parola bilinen veri sızıntılarında %d kez geçiyor: değiştirin.",
+"Update the system": "Sistemi güncelleyin",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Web motorunda (Qt WebEngine %s) daha yeni bir sürümde düzeltilmiş bilinen bir güvenlik sorunu var (%s). Bir terminal açın ve çalıştırın: %s",
+"Battery saver": "Pil tasarrufu",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Pildeyken arka plandaki sekmeler bir dakika sonra duraklar, arayüz animasyonları ve sekme resimleri durur."
 }
 }

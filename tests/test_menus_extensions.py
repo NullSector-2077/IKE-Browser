@@ -224,6 +224,8 @@ NOT_DEFAULT = {
     "ext_passwords": False, "ext_split": False, "ext_pip": False, "ext_translate": False,
     "ext_containers": False, "ext_resources": False, "ext_command_bar": False, "ext_plasma": False,
     "ext_autoscroll": True, "ext_middleclick": True,
+    # 1.1.24 (privacy package)
+    "bounce_protect": False, "quiet_permissions": False, "battery_saver": True,
 }
 
 
@@ -249,7 +251,8 @@ def test_apply_keeps_every_setting(run_ike):
                      "comp_adblock": dlg.comp["comp_adblock"], "auto_update": dlg.auto_update,
                      "login_compat": dlg.login_compat, "lazy_restore": dlg.lazy, "autoplay_block": dlg.autoplay,
                      "mouse_gestures": dlg.gestures, "smooth_scrolling": dlg.smooth,
-                     "newtab_clock": dlg.nt_clock, "ask_download_location": dlg.dl_ask}
+                     "newtab_clock": dlg.nt_clock, "ask_download_location": dlg.dl_ask,
+                     "battery_saver": dlg.battery_saver}
             boxes.update(dlg.checks)
             boxes.update(dlg.di)
             from ike import ikeextensions

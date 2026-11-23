@@ -1220,6 +1220,19 @@
 "Whole page": "الصفحة كاملة",
 "Selected area": "المنطقة المحددة",
 "Recently closed tabs": "علامات تبويب مغلقة مؤخراً",
-"The last tabs you closed: choose one to open it again": "آخر علامات التبويب التي أغلقتها: اختر واحدة لفتحها من جديد"
+"The last tabs you closed: choose one to open it again": "آخر علامات التبويب التي أغلقتها: اختر واحدة لفتحها من جديد",
+"Protected time zone": "منطقة زمنية محمية",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "ترى المواقع المنطقة الزمنية UTC وليس منطقتك. ستعرض بعض المواقع أوقاتاً خاطئة. بعد إعادة التشغيل.",
+"Clear the data of sites that only redirect you (bounce tracking)": "امسح بيانات المواقع التي تعيد توجيهك فقط (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "الموقع الذي تمر عبره فقط دون أن تستخدمه يفقد ملفات تعريف الارتباط والبيانات المخزنة بعد لحظات. المواقع التي استخدمتها أو المفتوحة أو في الإشارات المرجعية لا تُمس أبداً.",
+"Ask quietly in the address bar": "اسأل بهدوء في شريط العنوان",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "الإشعارات والموقع والكاميرا والميكروفون: علامة صغيرة في شريط العنوان بدلاً من نافذة. تُرفض الإشعارات المطلوبة دون نقرة على الصفحة.",
+"Check passwords against known data breaches (Have I Been Pwned)": "افحص كلمات المرور في تسريبات البيانات المعروفة (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "عند حفظ كلمة مرور أو تعبئتها، تُرسل فقط أول 5 أحرف من بصمتها SHA-1 إلى api.pwnedpasswords.com؛ ولا تغادر كلمة المرور هذا الحاسوب أبداً. معطل افتراضياً.",
+"The password used on %s appears %d times in known data breaches: change it.": "كلمة المرور المستخدمة على %s تظهر %d مرة في تسريبات بيانات معروفة: غيّرها.",
+"Update the system": "حدّث النظام",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "في محرك الويب (Qt WebEngine %s) مشكلة أمنية معروفة (%s) أُصلحت في إصدار أحدث. افتح طرفية وشغّل: %s",
+"Battery saver": "توفير البطارية",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "عند العمل على البطارية، تتوقف علامات التبويب في الخلفية بعد دقيقة، وتتوقف حركات الواجهة وصور علامات التبويب."
 }
 }

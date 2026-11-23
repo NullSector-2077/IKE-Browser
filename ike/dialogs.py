@@ -842,6 +842,11 @@ class SettingsDialog(QDialog):
         self.sleep.setValue(int(self.cfg["tab_sleep_minutes"]))
         _row(f, T("Suspend inactive tabs after"), self.sleep,
              T("Background tabs unused for this long are suspended to free memory"))
+        # battery saver (1.1.24, battery.py): off by default
+        self.battery_saver = Switch(T("Battery saver"))
+        self.battery_saver.setChecked(bool(self.cfg["battery_saver"]))
+        _row(f, "", self.battery_saver, T("On battery, background tabs pause after a minute and the "
+                                          "interface's animations and tab pictures stop."))
         lay.addWidget(box)
         box, f = self._group(T("Translation"))
         self.translate = QLineEdit(self.cfg["translate_url"])
@@ -1446,6 +1451,9 @@ class SettingsDialog(QDialog):
              T("Asks sites not to sell or share your data. In some countries they must obey it.")),
             ("webrtc_hide_ip", T("Hide local IP addresses from WebRTC"),
              T("Video calls still work; sites do not see your address in the home network.")),
+            ("bounce_protect", T("Clear the data of sites that only redirect you (bounce tracking)"),
+             T("A site you only pass through, without using it, loses its cookies and stored data "
+               "a moment later. Sites you used, have open or bookmarked are never touched.")),
         ):
             c = Switch(label)
             c.setChecked(bool(self.cfg[key]))
@@ -1552,6 +1560,12 @@ class SettingsDialog(QDialog):
         # four columns were too narrow for "Microphone" in Tamil)
         g.addRow(QLabel(T("Always refuse:")))
         g.addRow(_with_hint(prow, T("Sites never get these, and you are not asked."), g.fieldGrowthPolicy()))
+        c = Switch(T("Ask quietly in the address bar"))
+        c.setChecked(bool(self.cfg["quiet_permissions"]))
+        self.checks["quiet_permissions"] = c
+        _row(g, "", _wrapping(c), T("Notifications, location, camera and microphone: a small sign in "
+                                    "the address bar instead of a window. Notifications asked for "
+                                    "without a click on the page are refused."))
         sites = QPushButton(T("Reset per-site exceptions (%d)") % (
             len(self.cfg["site_levels"]) + len(self.cfg["site_noscript"])))
         sites.clicked.connect(lambda: (self.cfg["site_levels"].clear(),
@@ -1950,6 +1964,7 @@ class SettingsDialog(QDialog):
         cfg["autoplay_block"] = self.autoplay.isChecked()
         cfg["mouse_gestures"] = self.gestures.isChecked()
         cfg["smooth_scrolling"] = self.smooth.isChecked()
+        cfg["battery_saver"] = self.battery_saver.isChecked()
         cfg["perm_block"] = [k for k, c in self.perm_block.items() if c.isChecked()]
         cfg["experimental_extensions"] = self.ext_on.isChecked()
         old = {c["name"]: c["color"] for c in cfg["containers"]}

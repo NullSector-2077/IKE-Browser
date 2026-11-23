@@ -1220,6 +1220,19 @@
 "Whole page": "Teljes oldal",
 "Selected area": "Kijelölt terület",
 "Recently closed tabs": "Nemrég bezárt lapok",
-"The last tabs you closed: choose one to open it again": "Az utoljára bezárt lapok: válasszon egyet, hogy újra megnyissa"
+"The last tabs you closed: choose one to open it again": "Az utoljára bezárt lapok: válasszon egyet, hogy újra megnyissa",
+"Protected time zone": "Védett időzóna",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "A webhelyek az UTC időzónát látják, nem a tiédet. Egyes webhelyek hibás időt mutatnak majd. Újraindítás után.",
+"Clear the data of sites that only redirect you (bounce tracking)": "A csak továbbirányító webhelyek adatainak törlése (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Egy webhely, amelyen csak áthaladsz anélkül, hogy használnád, nem sokkal később elveszíti a sütijeit és a tárolt adatait. Azokhoz a webhelyekhez, amelyeket használtál, nyitva vannak vagy könyvjelzőben vannak, soha nem nyúl.",
+"Ask quietly in the address bar": "Diszkrét kérdés a címsorban",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Értesítések, hely, kamera és mikrofon: egy kis jel a címsorban ablak helyett. Az oldalra kattintás nélkül kért értesítéseket elutasítja.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Jelszavak ellenőrzése ismert adatszivárgásokban (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Jelszó mentésekor vagy kitöltésekor csak az SHA-1 ujjlenyomatának első 5 karaktere kerül elküldésre az api.pwnedpasswords.com címre; a jelszó soha nem hagyja el ezt a számítógépet. Alapból kikapcsolva.",
+"The password used on %s appears %d times in known data breaches: change it.": "A(z) %s oldalon használt jelszó %d alkalommal szerepel ismert adatszivárgásokban: változtasd meg.",
+"Update the system": "Frissítsd a rendszert",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "A webmotornak (Qt WebEngine %s) ismert biztonsági hibája van (%s), amelyet egy újabb verzió javít. Nyiss egy terminált, és futtasd: %s",
+"Battery saver": "Akkumulátorkímélő",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Akkumulátorról a háttérlapok egy perc után szünetelnek, a felület animációi és a lapok képei leállnak."
 }
 }

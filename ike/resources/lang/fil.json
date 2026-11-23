@@ -1220,6 +1220,19 @@
 "Whole page": "Buong pahina",
 "Selected area": "Napiling bahagi",
 "Recently closed tabs": "Mga kamakailang isinarang tab",
-"The last tabs you closed: choose one to open it again": "Ang mga huling tab na isinara mo: pumili ng isa para buksan ulit"
+"The last tabs you closed: choose one to open it again": "Ang mga huling tab na isinara mo: pumili ng isa para buksan ulit",
+"Protected time zone": "Protektadong time zone",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Nakikita ng mga site ang time zone na UTC, hindi ang sa iyo. May mga site na magpapakita ng maling oras. Pagkatapos ng restart.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Burahin ang data ng mga site na nagre-redirect lang sa iyo (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Ang site na dinadaanan mo lang, nang hindi ginagamit, ay nawawalan ng cookies at naka-save na data nito makalipas ang ilang sandali. Hindi kailanman ginagalaw ang mga site na ginamit mo, bukas, o naka-bookmark.",
+"Ask quietly in the address bar": "Magtanong nang tahimik sa address bar",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Notification, lokasyon, camera at mikropono: isang maliit na tanda sa address bar sa halip na isang window. Tinatanggihan ang mga notification na hiniling nang walang click sa page.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Suriin ang mga password laban sa mga kilalang data breach (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Kapag may password na sine-save o pinupunan, ang unang 5 character lang ng SHA-1 fingerprint nito ang ipinapadala sa api.pwnedpasswords.com; hindi kailanman umaalis ang password sa computer na ito. Naka-off bilang default.",
+"The password used on %s appears %d times in known data breaches: change it.": "Ang password na ginamit sa %s ay lumalabas nang %d beses sa mga kilalang data breach: palitan ito.",
+"Update the system": "I-update ang system",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "May kilalang problema sa seguridad ang web engine (Qt WebEngine %s) (%s), na naayos sa mas bagong bersyon. Magbukas ng terminal at patakbuhin: %s",
+"Battery saver": "Pantipid ng baterya",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Kapag nasa baterya, humihinto ang mga tab sa background pagkalipas ng isang minuto, at tumitigil ang mga animation ng interface at ang mga larawan ng tab."
 }
 }

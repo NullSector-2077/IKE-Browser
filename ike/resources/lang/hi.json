@@ -1220,6 +1220,19 @@
 "Whole page": "पूरा पन्ना",
 "Selected area": "चुना हुआ हिस्सा",
 "Recently closed tabs": "हाल में बंद किए गए टैब",
-"The last tabs you closed: choose one to open it again": "आपके बंद किए आख़िरी टैब: फिर से खोलने के लिए एक चुनें"
+"The last tabs you closed: choose one to open it again": "आपके बंद किए आख़िरी टैब: फिर से खोलने के लिए एक चुनें",
+"Protected time zone": "सुरक्षित समय क्षेत्र",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "साइटें आपका नहीं, UTC समय क्षेत्र देखती हैं। कुछ साइटें गलत समय दिखाएँगी। पुनः आरंभ के बाद।",
+"Clear the data of sites that only redirect you (bounce tracking)": "केवल रीडायरेक्ट करने वाली साइटों का डेटा मिटाएँ (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "जिस साइट से आप बिना इस्तेमाल किए बस गुज़रते हैं, वह थोड़ी देर बाद अपनी कुकी और सहेजा गया डेटा खो देती है। जिन साइटों का आपने इस्तेमाल किया, जो खुली हैं या बुकमार्क में हैं, उन्हें कभी छुआ नहीं जाता।",
+"Ask quietly in the address bar": "पता बार में चुपचाप पूछें",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "सूचनाएँ, स्थान, कैमरा और माइक्रोफ़ोन: विंडो की जगह पता बार में एक छोटा चिह्न। पेज पर क्लिक किए बिना माँगी गई सूचनाएँ अस्वीकार की जाती हैं।",
+"Check passwords against known data breaches (Have I Been Pwned)": "ज्ञात डेटा लीक में पासवर्ड जाँचें (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "जब कोई पासवर्ड सहेजा या भरा जाता है, तो उसके SHA-1 फ़िंगरप्रिंट के केवल पहले 5 अक्षर api.pwnedpasswords.com पर भेजे जाते हैं; पासवर्ड कभी इस कंप्यूटर से बाहर नहीं जाता। डिफ़ॉल्ट रूप से बंद।",
+"The password used on %s appears %d times in known data breaches: change it.": "%s पर इस्तेमाल किया गया पासवर्ड ज्ञात डेटा लीक में %d बार दिखता है: इसे बदलें।",
+"Update the system": "सिस्टम अपडेट करें",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "वेब इंजन (Qt WebEngine %s) में एक ज्ञात सुरक्षा समस्या है (%s), जो नए संस्करण में ठीक है। टर्मिनल खोलें और चलाएँ: %s",
+"Battery saver": "बैटरी सेवर",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "बैटरी पर, पृष्ठभूमि टैब एक मिनट बाद रुक जाते हैं और इंटरफ़ेस के एनिमेशन और टैब की तस्वीरें रुक जाती हैं।"
 }
 }

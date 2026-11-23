@@ -351,6 +351,16 @@ DEFAULTS = {
     "ext_plasma": True,
     "ext_autoscroll": False,            # middle click and move the mouse to scroll
     "ext_middleclick": False,           # middle click opens the selected text
+    # privacy package of 1.1.24 (bounce.py, timezone.py, quietperms.py, breach.py,
+    # advisory.py, battery.py)
+    "bounce_protect": True,             # sites that only bounce the user on lose their data
+    "bounce_used": {},                  # site -> day the user last used it (bounce.py)
+    "bounce_seeded": False,             # the sites of the history before it counted once
+    "protect_timezone": False,          # pages see UTC (after a restart; opt-in)
+    "quiet_permissions": True,          # a sign in the address bar instead of a window
+    "pw_breach_check": False,           # Have I Been Pwned, k-anonymity (opt-in)
+    "engine_advisory": {},              # the last verified advisory of the web engine
+    "battery_saver": False,             # lighter work while on battery (opt-in)
 }
 
 

@@ -2164,6 +2164,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.store_act.setVisible(bool(store_id(url.toString()))
                                   and bool(self.app.config["experimental_extensions"]))
         self._zoom_sign()
+        from . import quietperms
+        quietperms.sign(self)            # a site's question waiting in the address bar (1.1.24)
         marked = bool(v) and self.app.storage.is_bookmarked(url.toString())
         if not polish.popping(self, "star"):
             self.act_tb_bookmark.setIcon(icon(("bookmarks", "starred-symbolic") if marked else "bookmark-new",

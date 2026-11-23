@@ -1220,6 +1220,19 @@
 "Whole page": "Hele bladsy",
 "Selected area": "Gekose area",
 "Recently closed tabs": "Onlangs gesluite oortjies",
-"The last tabs you closed: choose one to open it again": "Die laaste oortjies wat jy gesluit het: kies een om dit weer oop te maak"
+"The last tabs you closed: choose one to open it again": "Die laaste oortjies wat jy gesluit het: kies een om dit weer oop te maak",
+"Protected time zone": "Beskermde tydsone",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Werwe sien die tydsone UTC, nie joune nie. Sommige werwe sal verkeerde tye wys. Ná 'n herbegin.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Vee die data uit van werwe wat jou net aanstuur (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "'n Werf waardeur jy net gaan, sonder om dit te gebruik, verloor kort daarna sy koekies en gestoorde data. Werwe wat jy gebruik het, oop het of as boekmerk het, word nooit aangeraak nie.",
+"Ask quietly in the address bar": "Vra stil in die adresbalk",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Kennisgewings, ligging, kamera en mikrofoon: 'n klein teken in die adresbalk in plaas van 'n venster. Kennisgewings wat sonder 'n klik op die bladsy gevra word, word geweier.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Kontroleer wagwoorde teen bekende datalekke (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Wanneer 'n wagwoord gestoor of ingevul word, word slegs die eerste 5 karakters van sy SHA-1-vingerafdruk na api.pwnedpasswords.com gestuur; die wagwoord verlaat nooit hierdie rekenaar nie. Verstek af.",
+"The password used on %s appears %d times in known data breaches: change it.": "Die wagwoord wat op %s gebruik word, kom %d keer in bekende datalekke voor: verander dit.",
+"Update the system": "Dateer die stelsel op",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Die webenjin (Qt WebEngine %s) het 'n bekende sekuriteitsprobleem (%s), reggestel in 'n nuwer weergawe. Maak 'n terminaal oop en voer uit: %s",
+"Battery saver": "Batterybespaarder",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Op battery pouseer agtergrondoortjies ná 'n minuut en die koppelvlak se animasies en oortjieprente stop."
 }
 }

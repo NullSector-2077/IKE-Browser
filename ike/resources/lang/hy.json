@@ -1220,6 +1220,19 @@
 "Whole page": "Ամբողջ էջը",
 "Selected area": "Ընտրված տարածքը",
 "Recently closed tabs": "Վերջերս փակված ներդիրներ",
-"The last tabs you closed: choose one to open it again": "Ձեր վերջին փակած ներդիրները՝ ընտրեք մեկը՝ այն նորից բացելու համար"
+"The last tabs you closed: choose one to open it again": "Ձեր վերջին փակած ներդիրները՝ ընտրեք մեկը՝ այն նորից բացելու համար",
+"Protected time zone": "Պաշտպանված ժամային գոտի",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Կայքերը տեսնում են UTC ժամային գոտին, ոչ թե ձերը։ Որոշ կայքեր սխալ ժամ ցույց կտան։ Վերագործարկումից հետո։",
+"Clear the data of sites that only redirect you (bounce tracking)": "Մաքրել միայն վերահղող կայքերի տվյալները (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Կայքը, որով պարզապես անցնում եք՝ առանց այն օգտագործելու, շուտով կորցնում է իր թխուկներն ու պահված տվյալները։ Ձեր օգտագործած, բաց կամ էջանիշներում եղած կայքերին երբեք չեն դիպչում։",
+"Ask quietly in the address bar": "Հարցնել աննկատ հասցեագոտում",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Ծանուցումներ, տեղադրություն, տեսախցիկ և խոսափող՝ փոքր նշան հասցեագոտում պատուհանի փոխարեն։ Էջի վրա առանց սեղմելու խնդրված ծանուցումները մերժվում են։",
+"Check passwords against known data breaches (Have I Been Pwned)": "Ստուգել գաղտնաբառերը հայտնի տվյալների արտահոսքերում (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Երբ գաղտնաբառը պահվում կամ լրացվում է, api.pwnedpasswords.com է ուղարկվում միայն նրա SHA-1 հետքի առաջին 5 նիշը. գաղտնաբառը երբեք չի լքում այս համակարգիչը։ Լռելյայն անջատված է։",
+"The password used on %s appears %d times in known data breaches: change it.": "%s-ում օգտագործված գաղտնաբառը հայտնի տվյալների արտահոսքերում հանդիպում է %d անգամ. փոխեք այն։",
+"Update the system": "Թարմացրեք համակարգը",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Վեբ շարժիչն (Qt WebEngine %s) ունի հայտնի անվտանգության խնդիր (%s), որը շտկված է ավելի նոր տարբերակում։ Բացեք տերմինալ և գործարկեք՝ %s",
+"Battery saver": "Մարտկոցի խնայում",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Մարտկոցով աշխատելիս ֆոնային ներդիրները մեկ րոպե անց դադարում են, իսկ միջերեսի անիմացիաներն ու ներդիրների նկարները կանգ են առնում։"
 }
 }

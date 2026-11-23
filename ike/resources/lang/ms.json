@@ -1220,6 +1220,19 @@
 "Whole page": "Seluruh halaman",
 "Selected area": "Kawasan yang dipilih",
 "Recently closed tabs": "Tab yang baru ditutup",
-"The last tabs you closed: choose one to open it again": "Tab terakhir yang anda tutup: pilih satu untuk membukanya semula"
+"The last tabs you closed: choose one to open it again": "Tab terakhir yang anda tutup: pilih satu untuk membukanya semula",
+"Protected time zone": "Zon waktu dilindungi",
+"Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Laman melihat zon waktu UTC, bukan zon anda. Sesetengah laman akan menunjukkan masa yang salah. Selepas dimulakan semula.",
+"Clear the data of sites that only redirect you (bounce tracking)": "Kosongkan data laman yang hanya mengubah hala anda (bounce tracking)",
+"A site you only pass through, without using it, loses its cookies and stored data a moment later. Sites you used, have open or bookmarked are never touched.": "Laman yang anda hanya lalui, tanpa menggunakannya, kehilangan kuki dan data simpanannya tidak lama kemudian. Laman yang anda gunakan, sedang dibuka atau ditanda buku tidak pernah disentuh.",
+"Ask quietly in the address bar": "Tanya secara senyap di bar alamat",
+"Notifications, location, camera and microphone: a small sign in the address bar instead of a window. Notifications asked for without a click on the page are refused.": "Pemberitahuan, lokasi, kamera dan mikrofon: tanda kecil di bar alamat dan bukannya tetingkap. Pemberitahuan yang diminta tanpa klik pada halaman ditolak.",
+"Check passwords against known data breaches (Have I Been Pwned)": "Semak kata laluan dalam kebocoran data yang diketahui (Have I Been Pwned)",
+"When a password is saved or filled in, only the first 5 characters of its SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never leaves this computer. Off by default.": "Apabila kata laluan disimpan atau diisi, hanya 5 aksara pertama cap jari SHA-1nya dihantar ke api.pwnedpasswords.com; kata laluan tidak pernah meninggalkan komputer ini. Dimatikan secara lalai.",
+"The password used on %s appears %d times in known data breaches: change it.": "Kata laluan yang digunakan di %s muncul %d kali dalam kebocoran data yang diketahui: tukarkannya.",
+"Update the system": "Kemas kini sistem",
+"The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Enjin web (Qt WebEngine %s) mempunyai masalah keselamatan yang diketahui (%s), dibaiki dalam versi yang lebih baharu. Buka terminal dan jalankan: %s",
+"Battery saver": "Penjimat bateri",
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Apabila menggunakan bateri, tab latar dijeda selepas seminit, dan animasi antara muka serta gambar tab berhenti."
 }
 }
