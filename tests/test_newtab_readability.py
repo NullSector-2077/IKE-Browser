@@ -39,6 +39,7 @@ def test_the_grid_of_a_photo(tmp_path):
     from PyQt6.QtGui import QGuiApplication
 
     from ike import newtabbg
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")      # no screen on the test machines
     app = QGuiApplication.instance() or QGuiApplication([])
     photos = make_photos(tmp_path)
     w, h, cells = newtabbg.grid(photos["white"], True)
@@ -121,6 +122,7 @@ def run_scheme(run_ike, tmp_path, scheme, veil=35, names=("white", "black", "bus
 
 def check(out, shots, scheme, names=("white", "black", "busy", "default")):
     from PyQt6.QtGui import QGuiApplication, QImage
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")      # no screen on the test machines
     app = QGuiApplication.instance() or QGuiApplication([])
     seen = 0
     for name in names:
