@@ -324,6 +324,31 @@ Privacy package (A2b; every item agreed by the owner):
 - **"Not secure" in the address bar**: a page over plain http shows a small
   red "Not secure" (translated in every language) after the lock. Not for
   localhost, 127.x.x.x, ::1, file:, about: or ike: pages.
+- **The frame guard looks less, and protects as before**: a node put into a
+  tree a page is still building outside the document (no frame there gets a
+  window) is no longer looked at further, a call that swaps nodes no longer
+  counts the frames before it, and with no frame at the guard's last look
+  only the count after the call is read. Measured in a page doing what
+  Speedometer's pages do (4 shared cores, Balanced, 48 rounds each,
+  medians): elements appended one by one 13.75 -> 13.1 ms, trees built
+  outside the page then put in 8.4 -> 7.4 ms, tests/measure_dom.py's page
+  13.1 -> 12.55 ms (shield Off: 9.2, 5.8 and 10.05 ms), so 14-38 % of the
+  guard's own cost there; Speedometer (14 DOM suites, 7 runs each) 12.9 ->
+  13.2, within the spread of the runs (11.4-14.3). The larger part left,
+  about a fifth on pages that insert a lot, is the watch of frames written
+  in the page's HTML while it loads: the engine keeps a document marked as
+  watched for good once it was, and nothing else can protect such a frame
+  before the page's next script reads it through window[i] (measured: the
+  engine runs nothing in that frame first, and its load event comes only
+  for an empty frame), so it stays. A new test plays every quick path as
+  an attack (132 frames read at once through window[i], frames[i], by
+  name, contentWindow and contentDocument; frames in frames, swapped
+  frames, a page lying about isConnected, firstElementChild, localName and
+  length, shadow roots); its frames load a page, so none is saved by its
+  own load event. Found and noted, the same before: a script or a custom
+  element put in together with a frame runs inside that very call, before
+  the guard looks (docs/review/tests-and-performance.md, "1.1.24, the frame
+  guard"; tests/test_frame_guard_paths.py).
 
 ## 1.1.23
 
