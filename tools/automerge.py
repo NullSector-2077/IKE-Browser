@@ -116,6 +116,22 @@ from main (refresh: "conflicts as main's") and the version files and CHANGELOG m
 unpublished version. Only an open security finding still blocks and names the owner (the owner's
 earlier decision). The ledger shows these as "retrying".
 
+**Part 2 of AUTOMAT: two switches only the owner sets** (repository variables, in GitHub's settings:
+no file of the repository and no workflow can set them; the workflow passes them in as environment):
+
+- ``AUTOMAT_TIER_B`` = ``on``: a few tier-B files open to the AIs in their narrowest form
+  (tools/tier-b.py: a workflow where nothing changes but a pinned version; ike/app.py, ike/updater.py
+  and ike_boot.py under the additive rule plus fixed invariants). Such a change needs **three**
+  independent reviewers. Off (the default): tier B is never an AI's, as before.
+- ``AUTOMAT_CHATGPT_AUTOMERGE`` = ``on``: a ChatGPT fix (chatgpt/...) whose own checks passed is
+  **adopted** (adoptable, adopt): its diff becomes the next ``autofix:`` commit of the branch it
+  answers (the automatic fix's own for a failure of main, the candidate's for a failure of a
+  candidate), written by the workflow's guard job, never merged as it is. From there it is an AI's
+  fix like any other and reaches main only through judge(): chatgpt-guard.yml and every check, the
+  required categories with "no-regression", the static guard, two independent AI reviews (ChatGPT is
+  none of the free providers), no test changed. A fix that touches a test or a tier-B file is not
+  adopted: it waits for the owner's order. Off (the default): today's rule, it only waits.
+
     automerge.py --repo OWNER/NAME --sha HEAD_SHA [--dry-run]
     automerge.py --repo OWNER/NAME --daily [--dry-run]      (the daily check: every open pull request of
                                                             the automation is judged again, its checks or
@@ -341,28 +357,37 @@ def _fix_guard():
     return _tool("fix-guard")
 
 
-def protected_problem(f, ref="", sha_of=None):
+def tier_b_on(env=None):
+    """The owner's switch AUTOMAT_TIER_B (a repository variable the workflow passes in)."""
+    return _tool("tier-b").on(env)
+
+
+def protected_problem(f, ref="", sha_of=None, tier_b=False, tags=None):
     """Why the static guard (tools/fix-guard.py) refuses an AI's change of this file, or "": tier B
-    never, tier A only added to (on a candidate of the engine the wrapper follows the new engine)."""
+    never (but the few files the owner's switch opens, in their narrow form: tier_b), tier A only
+    added to (on a candidate of the engine the wrapper follows the new engine)."""
     name = f.get("filename", "")
     fg = _fix_guard()
-    if fg.tier(name) == "B":
+    if fg.tier(name) == "B" and not (tier_b and fg.tier_b_open(name)):
         return "%s: the static guard refuses it: tier B, never changed by an AI (%s)" % (name, fg.tier_b_reason(name))
     if f.get("status") != "modified" or f.get("previous_filename"):
         return "%s: the static guard refuses it: added, removed or renamed" % name
     if "old_source" not in f or "new_source" not in f:
         return "%s: the whole file could not be read" % name
     engine = is_wrapper(name) and _candidates().wrapper_allowed(ref)
-    why = fg.file_problems(name, f["old_source"], f["new_source"], "modified", engine, sha_of)
+    why = fg.file_problems(name, f["old_source"], f["new_source"], "modified", engine, sha_of, tier_b,
+                           **({"tags": tags} if tags else {}))
     return "the static guard refuses it: %s" % why[0] if why else ""
 
 
-def file_problem(f, guard_allowed, repo="", auto=False, ref="", sha_of=None):
+def file_problem(f, guard_allowed, repo="", auto=False, ref="", sha_of=None, tier_b=False, tags=None):
     """Why this changed file keeps the pull request out of main, or "". auto: a fix of the automatic
-    fix (2026-11-22): a tier-A protected file is judged by the static guard instead of being refused."""
+    fix (2026-11-22): a tier-A protected file is judged by the static guard instead of being refused.
+    tier_b: the owner's switch is on: so is one of the few tier-B files it opens."""
     name = f.get("filename", "")
-    if auto and name not in VERSION_LINES and name != "CHANGELOG.md" and _fix_guard().tier(name) == "A":
-        return protected_problem(f, ref, sha_of)
+    if auto and name not in VERSION_LINES and name != "CHANGELOG.md" and (
+            _fix_guard().tier(name) == "A" or (tier_b and _fix_guard().tier_b_open(name))):
+        return protected_problem(f, ref, sha_of, tier_b, tags)
     if f.get("status") in ("removed", "renamed", "copied") or f.get("previous_filename"):
         return "%s: removed or renamed" % name
     if f.get("status") == "added":
@@ -639,7 +664,7 @@ def origins(commits):
     return out
 
 
-def verified_file_problem(f, by, guard_allowed, repo, ref="", tags=None, sha_of=None):
+def verified_file_problem(f, by, guard_allowed, repo, ref="", tags=None, sha_of=None, tier_b=False):
     """Why a file of the candidate or of an update keeps it for a person, or ""."""
     name = f.get("filename", "")
     cid = candidate_id(ref)
@@ -690,7 +715,7 @@ def verified_file_problem(f, by, guard_allowed, repo, ref="", tags=None, sha_of=
             # item 2: the wrapper adapted to a new engine (and the static guard's capability rules)
             return wrapper_problem(f) or (protected_problem(f, ref, sha_of) if "new_source" in f else "")
         # the 1.1.19 rules of a fix of the automatic fix; a protected file: the static guard
-        return file_problem(f, guard_allowed, repo, auto=True, ref=ref, sha_of=sha_of)
+        return file_problem(f, guard_allowed, repo, auto=True, ref=ref, sha_of=sha_of, tier_b=tier_b, tags=tags)
     if by == {"update", "autofix"} and is_wrapper(name) and _candidates().wrapper_allowed(ref):
         # item 2: the engine's own file the update moved (ENGINE_VERSION in lib.rs) adapted by the fix
         return wrapper_problem(f) or (protected_problem(f, ref, sha_of) if "new_source" in f else "")
@@ -931,7 +956,7 @@ def version_rule(files, main_version, published):
 
 
 def decide(repo, pr, commits, files, checks, guard_allowed, published=False, unread=False, evidence=None,
-           findings=(), protected=None, tags=None, main_version=None, sha_of=None):
+           findings=(), protected=None, tags=None, main_version=None, sha_of=None, tier_b=False):
     """("merge", "") for a fully verified pull request of the automation, ("ready", "") for a green
     and harmless one of ChatGPT (it waits for the owner's order), ("wait", why) while its checks run,
     or ("person", why). main_version: main's version (version_rule); None only where a test of other
@@ -970,21 +995,30 @@ def decide(repo, pr, commits, files, checks, guard_allowed, published=False, unr
     # the CI pins' candidate: its workflow edits are judged below, line by line (tools/ci-pins.py)
     ci_branch = cid.startswith("ci-") and ref.startswith(UPDATE_PREFIX) and all(
         _tool("ci-pins").COMMIT.match(m.split("\n", 1)[0]) for m in messages)
-    # no test file changed or removed, no protected file, no workflow (the owner's rule)
+    # no test file changed or removed, no protected file, no workflow (the owner's rule). Part 2 of
+    # AUTOMAT: with the owner's switch AUTOMAT_TIER_B, a file it opens that only AI commits changed is
+    # judged below by the static guard's narrow form (tools/tier-b.py) instead
+    whose = origins(commits) if not chatgpt else {}
+    fg = _fix_guard()
+
+    def opened(f, n):
+        return tier_b and not chatgpt and fg.tier_b_open(n) and f.get("status") == "modified" \
+            and not f.get("previous_filename") and (ref == FIX_MAIN or whose.get(n) == {"autofix"})
     for f in files:
         for n in (f.get("filename", ""), f.get("previous_filename") or ""):
             if n and TEST_FILE.search(n) and not recorded_evidence(f):
                 return "person", "%s: a test file changed or removed" % n
-            if n.startswith(".github/") and not ci_branch:
+            if n.startswith(".github/") and not ci_branch and not opened(f, n):
                 return "person", "%s: a workflow" % n
             if n in protected and n not in VERSION_FILES and not (ref == CANDIDATE and n.startswith(UPDATE_FILES)) \
-                    and not (own and n.startswith(own)):
+                    and not (own and n.startswith(own)) and not opened(f, n):
                 return "person", "%s: a protected file" % n
     if chatgpt or ref == FIX_MAIN:
         for f in files:
             if not chatgpt and recorded_evidence(f):
                 continue                         # the workflow's own recorded rules (a lists fix of main's branch)
-            why = file_problem(f, guard_allowed, repo, auto=not chatgpt, ref=ref, sha_of=sha_of)
+            why = file_problem(f, guard_allowed, repo, auto=not chatgpt, ref=ref, sha_of=sha_of,
+                               tier_b=tier_b and not chatgpt, tags=tags)
             if why:
                 return "person", why
         if published and not any(f.get("filename") == "ike/__init__.py" for f in files):
@@ -998,7 +1032,8 @@ def decide(repo, pr, commits, files, checks, guard_allowed, published=False, unr
         for f in files:
             if recorded_evidence(f) and by.get(f.get("filename", "")) == {"autofix"}:
                 continue                         # the recorded rules the workflow wrote with the AI's commit
-            why = verified_file_problem(f, by.get(f.get("filename", "")), guard_allowed, repo, ref, tags, sha_of)
+            why = verified_file_problem(f, by.get(f.get("filename", "")), guard_allowed, repo, ref, tags, sha_of,
+                                        tier_b)
             if why:
                 return "person", why
         names = [f.get("filename", "") for f in files]
@@ -1096,10 +1131,11 @@ def ai_files(ref, commits, files):
     return [f for f in files if f.get("filename") in names]
 
 
-def ai_requirements(pr, commits, files, evidence, review, sha_of=None):
+def ai_requirements(pr, commits, files, evidence, review, sha_of=None, tier_b=False, tags=None):
     """("merge", "") when the pull request has no AI commit, or when its AI commits have everything the
     full automation asks (the static guard on the whole AI change, "no-regression" passed, two
-    independent approving reviews of this commit); else ("wait", why) or ("person", why)."""
+    independent approving reviews of this commit, three when a tier-B file the owner's switch opens
+    is among the AI's files); else ("wait", why) or ("person", why)."""
     head = pr.get("head") or {}
     ref, sha = head.get("ref", ""), head.get("sha", "")
     commits = [c for c in commits if not REFRESH.match(_first(c))]
@@ -1112,7 +1148,7 @@ def ai_requirements(pr, commits, files, evidence, review, sha_of=None):
     changes = [{"filename": f.get("filename", ""), "status": f.get("status", ""), "old_source": f.get("old_source"),
                 "new_source": f.get("new_source")} for f in mine if fg.tier(f.get("filename", "")) != ""]
     bad = fg.check(changes, engine_candidate=_candidates().wrapper_allowed(ref), exempt=(builder,) if builder else (),
-                   sha_of=sha_of)
+                   sha_of=sha_of, tier_b=tier_b, **({"tags": tags} if tags else {}))
     sizes = []
     lines = sum(int(f.get("changes") or 0) for f in mine)
     if len(mine) > fg.MAX_FILES or lines > fg.MAX_LINES:
@@ -1137,7 +1173,9 @@ def ai_requirements(pr, commits, files, evidence, review, sha_of=None):
         return "person", "%s: %s" % (REJECTED, said[:600] or "no reason given")
     if result.get("verdict") != "approve":
         return "wait", "%s (%s): asked again later" % (NO_ANSWER, str(result.get("why"))[:200])
-    why = rv.problem(result, sha, rv.authors(commits)[0])
+    # three reviewers for a change of a tier-B file (counted here from the files, not from the comment)
+    needed = _tool("tier-b").needed_reviews([f.get("filename", "") for f in mine])
+    why = rv.problem(result, sha, rv.authors(commits)[0], needed)
     if why:
         return "person", "the AI review of this commit does not count: %s" % why
     if not review.get("status"):
@@ -1150,7 +1188,91 @@ def judge(repo, pr, commits, files, checks, guard_allowed, review=None, **kw):
     kind, why = decide(repo, pr, commits, files, checks, guard_allowed, **kw)
     if kind != "merge":
         return kind, why
-    return ai_requirements(pr, commits, files, kw.get("evidence"), review, kw.get("sha_of"))
+    return ai_requirements(pr, commits, files, kw.get("evidence"), review, kw.get("sha_of"),
+                           bool(kw.get("tier_b")), kw.get("tags"))
+
+
+# --- part 2 of AUTOMAT: a verified ChatGPT fix is adopted (only with the owner's switch) -----------------
+
+CHATGPT_SWITCH = "AUTOMAT_CHATGPT_AUTOMERGE"
+ADOPT_MARK = "<!-- automat-adopt: %s -->"
+
+
+def chatgpt_automerge_on(env=None):
+    """True only when the owner set the repository variable AUTOMAT_CHATGPT_AUTOMERGE to "on"."""
+    env = os.environ if env is None else env
+    return str(env.get(CHATGPT_SWITCH) or "").strip().lower() == "on"
+
+
+def adoptable(repo, pr, commits, files, checks):
+    """("adopt", "") for a ChatGPT fix that may be taken into AUTOMAT's own chain (its diff becomes
+    the next ``autofix:`` commit of the branch it answers, and from there it needs everything an AI's
+    fix needs), ("wait", why) while its checks run, ("person", why) when it waits for the owner's
+    order as before: a base that is neither main nor a branch of the automation, a trial, a test, a
+    tier-B file, a file added or removed, a check that did not pass."""
+    head, base = pr.get("head") or {}, pr.get("base") or {}
+    ref, base_ref = head.get("ref", ""), base.get("ref", "")
+    if pr.get("state") != "open" or not ref.startswith("chatgpt/"):
+        return "person", "not an open pull request of ChatGPT"
+    if (head.get("repo") or {}).get("full_name") != repo or ((base.get("repo") or {}).get("full_name") or repo) != repo:
+        return "person", "not a branch of this repository"
+    if base_ref != "main" and not (verified_branch(base_ref) and base_ref != FIX_MAIN):
+        return "person", "its base is neither main nor a candidate of the automation (%s)" % base_ref[:60]
+    firsts = [_first(c) for c in commits] + [str(pr.get("title") or "")]
+    if any(TRIAL.search(x) for x in firsts):
+        return "person", "a trial"
+    if not files or len(files) >= 100:
+        return "person", "no files, or too many to read"
+    fg = _fix_guard()
+    for f in files:
+        name = f.get("filename", "")
+        if f.get("status") != "modified" or f.get("previous_filename"):
+            return "person", "%s: added, removed or renamed (a fix changes existing files only)" % name
+        if TEST_FILE.search(name):
+            return "person", "%s: a test file changed" % name
+        if fg.tier(name) == "B":
+            return "person", "%s: tier B, never changed by an AI (%s)" % (name, fg.tier_b_reason(name))
+    names = {}
+    for c in checks:
+        if c.get("name") in OWN_JOBS or (c.get("name") or "").split(" / ")[-1] in OWN_JOBS:
+            continue
+        if c.get("status") != "completed":
+            return "wait", "a check is still running: %s" % c.get("name")
+        if c.get("conclusion") in BAD_CONCLUSIONS:
+            return "person", "the check %s did not pass" % c.get("name")
+        names[c.get("name")] = c.get("conclusion")
+    # ChatGPT's own guard always; the tests and the sandbox tests too where they run on its pull request
+    # (into main). On a candidate's branch they run after the adoption, on that branch itself
+    for n in ["guard"] + (["tests", "sandbox"] if base_ref == "main" else []):
+        if n not in names:
+            return "wait", "the check %s has not run on this commit yet" % n
+        if names[n] != "success":
+            return "person", "the check %s did not pass (%s)" % (n, names[n])
+    return "adopt", ""
+
+
+def adopt(repo, pr, sha, dry_run=False):
+    """The automatic fix is started with ChatGPT's pull request as its work (once per commit): its guard
+    job checks the diff as an AI's patch and writes the ``autofix:`` commit. True when it was started."""
+    n = pr["number"]
+    mark = ADOPT_MARK % sha
+    said = api("repos/%s/issues/%d/comments?per_page=100" % (repo, n))
+    if any((c.get("user") or {}).get("login") == BOT and mark in (c.get("body") or "") for c in said or ()):
+        return False
+    if dry_run:
+        return True
+    if not start(repo, "autofix.yml", "main", "run_id=%s" % (os.environ.get("GITHUB_RUN_ID") or "0"),
+                 "work=chatgpt/%d/%s" % (n, sha)):
+        return False
+    base = (pr.get("base") or {}).get("ref", "main")
+    gh("pr", "comment", str(n), "--repo", repo, "--body",
+       "%s\n**Nota informativa, non serve fare niente.** I controlli di questa correzione di ChatGPT sono verdi e "
+       "l'interruttore `%s` è acceso (lo ha acceso il proprietario): AUTOMAT la prende in carico. La modifica viene "
+       "ricontrollata come una correzione delle AI e portata sul ramo %s; da lì entra in `main` da sola solo se "
+       "supera tutto: i test, il controllo automatico delle regole, \"niente peggiora\" e due AI revisori "
+       "indipendenti. Questa pull request viene chiusa quando la modifica è su quel ramo." % (
+           mark, CHATGPT_SWITCH, "`%s`" % (FIX_MAIN if base == "main" else base)))
+    return True
 
 
 # what happens to a pull request that is not merged (never "a person looks", never closed):
@@ -1674,6 +1796,7 @@ def main(argv=None):
     guard = _guard()
     main_version = version_of_main()
     published = released(a.repo, "v" + main_version)
+    tier_b = tier_b_on()                 # the owner's switch (a repository variable; default off)
     # a refresh commit is judged from git: fetched, and computed again from its parents
     refreshes = [c for c in commits if REFRESH.match(_first(c))] if verified else []
     if refreshes:
@@ -1692,7 +1815,23 @@ def main(argv=None):
         args = (a.repo, pr, commits, files, checks, lambda name: guard.allowed_path(name, False))
         unread = unread_merge(a.repo) if not verified else False      # M9: ChatGPT's fix only (2026-11-22)
         kw = dict(published=published, unread=unread, protected=guard.FORBIDDEN_FILES, main_version=main_version,
-                  sha_of=sha_of)
+                  sha_of=sha_of, tier_b=tier_b)
+        if not verified and chatgpt_automerge_on():
+            # part 2 of AUTOMAT, the owner's switch: a ChatGPT fix whose own checks passed is adopted into
+            # AUTOMAT's chain (never merged as it is); what cannot be adopted waits for the owner, as before
+            how, reason = adoptable(a.repo, pr, commits, files, checks)
+            if how == "adopt":
+                started = adopt(a.repo, pr, a.sha, a.dry_run)
+                print("#%d (%s): ChatGPT's fix %s" % (n, ref, "is adopted: the automatic fix checks it and commits "
+                      "it on AUTOMAT's branch" if started else "was already handed to the automatic fix"))
+                return 0
+            if how == "wait":
+                if not a.dry_run and _round < 15:
+                    time.sleep(30)
+                    continue
+                print("#%d (%s): waiting: %s" % (n, ref, reason))
+                return 0
+            print("#%d (%s): not adopted (%s): today's rule applies" % (n, ref, reason))
         kind, why = judge(*args, **kw)
         if kind == "wait" and why == NO_EVIDENCE:
             # every check passed: what they verified, and the open security findings

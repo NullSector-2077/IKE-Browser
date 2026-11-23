@@ -1,5 +1,6 @@
-# The environment of the automatic tests (tests.yml, and security.yml's sandbox
-# job; the automatic fix runs no tests itself, GitHub runs tests.yml on its fix):
+# The environment of the automatic tests (tests.yml, security.yml's sandbox job,
+# and the automatic fix's job "try", which runs the tests that failed on a fix
+# before GitHub runs the whole suite on it; that job holds no key):
 # Python with the packages of the tests, Rust (the runner's own rustup, no
 # third-party action), the system libraries Qt WebEngine needs without a
 # display, the packaging tools, and the AdBlock engine built into vendor/adblock.

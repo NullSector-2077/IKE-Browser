@@ -16,6 +16,12 @@
 #                     again with the reasons. No answer: nothing is asked of anyone, the daily check
 #                     asks again
 #
+# AUTOMAT part 2: three reviewers for a change of a tier-B file the owner opened with the repository
+# variable AUTOMAT_TIER_B (tools/tier-b.py; the request says how many, the merge counts them again);
+# the reviewers' calls are counted in the budget of the free quotas (tools/ai-quota.py): a provider
+# spent today is not asked, and the use is written as numbers next to the result (automat-quota.yml,
+# another workflow with no key, records it on the data branch).
+#
 # Free providers only (tools/ai-providers.py). Never a push, never a merge.
 name: AI review
 
@@ -78,6 +84,13 @@ jobs:
         with:
           name: ai-review-request
           path: ${{ runner.temp }}/review
+      # AUTOMAT part 2: today's use of the free quotas, from the data branch (read without any token: the
+      # repository is public); missing: an empty record
+      - name: Today's use of the free quotas
+        continue-on-error: true
+        run: |
+          git fetch -q --depth 1 origin automat/memory
+          git show FETCH_HEAD:quota.json > "$RUNNER_TEMP/quota.json"
       # the only step with the providers' keys: no GitHub token, and the change is read, never run
       - name: Two independent reviewers
         env:
@@ -90,22 +103,28 @@ jobs:
           AUTOFIX_ZAI_MODELS: ${{ vars.AUTOFIX_ZAI_MODELS }}
           AUTOFIX_OPENROUTER_MODELS: ${{ vars.AUTOFIX_OPENROUTER_MODELS }}
         run: |
-          python3 -I tools/ai-review.py review --dir "$RUNNER_TEMP/review"
-          # never hand over a key: the result holds verdicts and short reasons only
-          python3 -I - "$RUNNER_TEMP/review/result.json" <<'PY'
+          python3 -I tools/ai-review.py review --dir "$RUNNER_TEMP/review" --quota-state "$RUNNER_TEMP/quota.json"
+          # never hand over a key: the result holds verdicts and short reasons only (and the use of the
+          # quotas: numbers)
+          python3 -I - "$RUNNER_TEMP/review/result.json" "$RUNNER_TEMP/review/usage.json" <<'PY'
           import os, sys
-          data = open(sys.argv[1], "rb").read()
-          for name in ("GEMINI_API_KEY", "GROQ_API_KEY", "ZAI_API_KEY", "OPENROUTER_API_KEY"):
-              key = os.environ.get(name, "").encode()
-              if key and key in data:
-                  os.unlink(sys.argv[1])
-                  print("::error::the review's result contained a key: discarded")
-                  sys.exit(1)
+          for path in sys.argv[1:]:
+              if not os.path.isfile(path):
+                  continue
+              data = open(path, "rb").read()
+              for name in ("GEMINI_API_KEY", "GROQ_API_KEY", "ZAI_API_KEY", "OPENROUTER_API_KEY"):
+                  key = os.environ.get(name, "").encode()
+                  if key and key in data:
+                      os.unlink(path)
+                      print("::error::the review's result contained a key: discarded")
+                      sys.exit(1)
           PY
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ai-review-result
-          path: ${{ runner.temp }}/review/result.json
+          path: |
+            ${{ runner.temp }}/review/result.json
+            ${{ runner.temp }}/review/usage.json
           if-no-files-found: error
           retention-days: 14
 

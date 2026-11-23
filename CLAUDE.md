@@ -21,7 +21,14 @@ decisions, status) and CHANGELOG.md.
   Antigravity, Groq, Z.AI, OpenRouter...), and no agent ever merges its own
   work. Claude merges the PRs the owner asked for when all checks are green
   (the owner's standing order); ChatGPT merges only on the owner's explicit
-  order, after green tests; people's PRs wait for the owner's order. The one
+  order, after green tests; people's PRs wait for the owner's order. Two
+  switches exist, both off until the owner turns them on in GitHub's settings
+  (repository variables; docs/MAINTENANCE.md, "AUTOMAT, part 2", says how):
+  `AUTOMAT_CHATGPT_AUTOMERGE` (a ChatGPT fix whose checks passed is adopted
+  by AUTOMAT and reaches `main` only under the gate of an AI's fix) and
+  `AUTOMAT_TIER_B` (a few tier-B files open to the AIs in their narrowest
+  form, with a third reviewer); turning either on is the owner's decision,
+  and no agent, workflow or file of the repository ever sets them. The one
   exception, the verified merge (the owner's second decision of 2026-11-22):
   the automation's own PRs (the daily candidate
   `automation/daily-maintenance`, an AutoFix fix `automation/autofix-main` or

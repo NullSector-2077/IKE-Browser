@@ -6,6 +6,10 @@ Since 2026-11-22 the only human step of the maintenance is the owner's signature
 mails it) must let the owner judge before signing. For the version in main that is not published
 yet it lists every change merged since the last published version:
 
+0. before everything else (part 2 of AUTOMAT), each **change an AI wrote on a reserved file** (tier B
+   in the narrow form the owner opened with the repository variable AUTOMAT_TIER_B, tools/tier-b.py:
+   a pinned version of a workflow, statements added to ike/app.py, ike/updater.py or ike_boot.py):
+   its files, the three independent reviewers with their verdicts, "Nothing gets worse", its diff link;
 1. first, clearly marked, the changes merged by themselves that touch **reserved files** (tier B of
    tools/fix-guard.py: the workflows, the tools, the sandbox and start, the signing and update
    channel, the package): today only the automation's own deterministic tools change them (a pin of
@@ -17,7 +21,10 @@ yet it lists every change merged since the last published version:
    merged by a person's order, one line each;
 4. the updates that are **still being retried** (the maintenance ledger's "retrying" and "blocked"
    entries, the open pull requests of the automation): nothing the owner must do, but what this
-   version does not contain yet.
+   version does not contain yet;
+5. the **free quota of each AI provider** (part 2 of AUTOMAT, tools/ai-quota.py): what was used today
+   and in the last days, the limit, what is left, and whether the limit was verified or is a careful
+   guess.
 
 GET calls only. What cannot be read is said as "non letto", never left out or guessed.
 
@@ -70,7 +77,7 @@ def change_of(repo, number, api, tools):
     "reviews", "no_regression", "summary"}; unread parts are None."""
     fg, rv, am = tools
     out = {"n": number, "title": "", "ai": False, "tier_a": [], "tier_b": [], "files": None, "reviews": None,
-           "no_regression": None, "summary": "", "author": ""}
+           "no_regression": None, "summary": "", "author": "", "tier_b_ai": []}
     try:
         pr = api("repos/%s/pulls/%d" % (repo, number))
         commits = api("repos/%s/pulls/%d/commits?per_page=100" % (repo, number))
@@ -87,6 +94,16 @@ def change_of(repo, number, api, tools):
                            and n not in ("docs/THIRD-PARTY.md",) and not n.startswith("ike/resources/")
                            and not n.startswith(("ike-adblock/", "vendor/")))
     out["tier_a"] = sorted(n for n in names if fg.tier(n) == "A") if ai else []
+    # a reserved file an AI commit itself changed (only possible with the owner's switch AUTOMAT_TIER_B)
+    if ai and any(fg.tier_b_open(n) for n in names):
+        touched = set()
+        for c in ai:
+            try:
+                data = api("repos/%s/commits/%s" % (repo, c.get("sha")))
+                touched.update(x.get("filename", "") for x in data.get("files") or [])
+            except (RuntimeError, ValueError, AttributeError):
+                touched.update(names)                  # not read: said as an AI's, never left out
+        out["tier_b_ai"] = sorted(n for n in names if fg.tier_b_open(n) and n in touched)
     out["author"] = rv.authors(commits)[0]
     for line in "\n".join(f.get("patch") or "" for f in files if f.get("filename") == "CHANGELOG.md").split("\n"):
         if line.startswith("+- "):
@@ -109,7 +126,7 @@ def change_of(repo, number, api, tools):
 def gather(repo, api=gh_api):
     """{"last": the last published tag, "changes": [change], "pending": [text], "unread": [what]}."""
     tools = (_tool("fix-guard"), _tool("ai-review"), _tool("automerge"))
-    info = {"last": "", "changes": [], "pending": [], "unread": []}
+    info = {"last": "", "changes": [], "pending": [], "unread": [], "quota": None}
     try:
         info["last"] = (api("repos/%s/releases/latest" % repo) or {}).get("tag_name", "")
         commits = api("repos/%s/compare/%s...main" % (repo, info["last"])).get("commits", []) if info["last"] else []
@@ -135,6 +152,17 @@ def gather(repo, api=gh_api):
                     plain(e.get("reason"), 220)))
     except Exception:
         info["unread"].append("il registro della manutenzione")
+    try:
+        # the use of the free quotas, from the data branch (tools/ai-quota.py); the limits from this checkout
+        import base64
+        quota = _tool("ai-quota")
+        data = api("repos/%s/contents/%s?ref=%s" % (repo, quota.FILE, quota.BRANCH))
+        state = json.loads(base64.b64decode(data["content"]).decode("utf-8"))
+        if not isinstance(state, dict) or not isinstance(state.get("days"), dict):
+            raise ValueError("not the quota's record")
+        info["quota"] = quota.summary(quota.load_limits(), state)
+    except Exception:
+        info["unread"].append("l'uso della quota gratuita degli assistenti AI")
     return info
 
 
@@ -144,7 +172,30 @@ def _verdicts(change):
         return "revisione delle due AI: **non letta**"
     said = ", ".join("%s %s" % (plain(r.get("provider"), 20), "approva" if r.get("verdict") == "approve"
                                 else "respinge") for r in reviews.get("reviews") or []) or "nessuna risposta"
-    return "revisione di due AI indipendenti (scritta da %s): %s" % (plain(change.get("author") or "?", 20), said)
+    how_many = "tre" if len(reviews.get("reviews") or []) >= 3 else "due"
+    return "revisione di %s AI indipendenti (scritta da %s): %s" % (how_many, plain(change.get("author") or "?", 20),
+                                                                   said)
+
+
+def quota_lines(rows):
+    """The free quota of each provider, one line each."""
+    def of(used, limit):
+        return "%s su %s" % (used, limit) if limit is not None else "%s (nessun limite al giorno noto)" % used
+    out = []
+    for r in rows or []:
+        left = []
+        if r.get("requests_left") is not None:
+            left.append("%d richieste" % r["requests_left"])
+        if r.get("tokens_left") is not None:
+            left.append("%d token" % r["tokens_left"])
+        note = "" if r.get("verified") else (" Limite **non verificato** (stima prudente%s)." % (
+            ", corretta oggi dalle risposte del fornitore" if r.get("live") else ""))
+        spent = " **Finita per oggi** (%s)." % plain(r.get("spent"), 80) if r.get("spent") else ""
+        out.append("- **%s**: oggi %s richieste, %s token; restano %s. Ultimi giorni: %d richieste, %d token.%s%s" % (
+            plain(r.get("provider"), 20), of(r.get("requests", 0), r.get("requests_limit")),
+            of(r.get("tokens", 0), r.get("tokens_limit")), " e ".join(left) or "non noto",
+            r.get("week_requests", 0), r.get("week_tokens", 0), spent, note))
+    return out
 
 
 def _regression(change):
@@ -165,9 +216,23 @@ def body(version, repo, owner, info):
            "modifica entrata in `main` dall'ultima versione pubblicata%s." % (
                " (%s)" % info["last"] if info.get("last") else ""), ""]
     changes = info.get("changes") or []
-    reserved = [c for c in changes if c.get("self") and c.get("tier_b")]
-    protected = [c for c in changes if c.get("self") and c.get("tier_a")]
-    rest = [c for c in changes if c not in reserved and c not in protected]
+    by_ai = [c for c in changes if c.get("self") and c.get("tier_b_ai")]
+    reserved = [c for c in changes if c.get("self") and c.get("tier_b") and c not in by_ai]
+    protected = [c for c in changes if c.get("self") and c.get("tier_a") and c not in by_ai]
+    rest = [c for c in changes if c not in reserved and c not in protected and c not in by_ai]
+    if by_ai:
+        out += ["### ⚠⚠ Modifiche scritte da un'AI a file riservati: guardale per prime", "",
+                "Sono possibili solo perché hai acceso tu l'interruttore `AUTOMAT_TIER_B`, e solo nella forma più "
+                "stretta: in un workflow può cambiare soltanto una versione fissata; in `ike/app.py`, `ike/updater.py` "
+                "e `ike_boot.py` solo righe aggiunte, mai nelle funzioni che decidono firma, aggiornamenti e sandbox. "
+                "Ognuna è passata da tre AI revisori indipendenti invece di due.", ""]
+        for c in by_ai[:MAX_LISTED]:
+            out.append("- **#%d** %s" % (c["n"], c.get("summary") or c["title"]))
+            out.append("  - File riservati: %s" % ", ".join("`%s`" % x for x in c["tier_b_ai"][:8]))
+            out.append("  - %s" % _verdicts(c))
+            out.append("  - \"Niente peggiora\" (no-regression): %s. [Vedi le differenze](%s)" % (
+                _regression(c), link % c["n"]))
+        out.append("")
     if reserved:
         out += ["### ⚠ Modifiche a file riservati (workflow, strumenti, sandbox, firma e aggiornamenti)", "",
                 "Guardale per prime. Nessuna AI può cambiare questi file: qui arrivano solo dagli strumenti "
@@ -213,6 +278,12 @@ def body(version, repo, owner, info):
     else:
         out.append("Nessuno: tutto quello che è stato trovato è in questa versione.")
     out.append("")
+    if info.get("quota"):
+        out += ["### Quota gratuita degli assistenti AI", "",
+                "Solo fornitori gratuiti. Quanto è stato usato e quanto resta oggi (AUTOMAT tiene sempre da parte la "
+                "quota per far rivedere ogni correzione da altre AI):", ""]
+        out += quota_lines(info["quota"])
+        out.append("")
     if info.get("unread"):
         out += ["**Non letto** (GitHub non ha risposto): %s." % ", ".join(info["unread"]), ""]
     out += ["Ti chiederà la password della tua chiave di firma. Se si ferma, dice perché e non cambia niente su "

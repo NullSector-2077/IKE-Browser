@@ -42,6 +42,26 @@ What a model writes reaches the log only through for_log(): one line, and no
 --refused FILE: why the checks refused Antigravity's fix (the reserves are told,
 so they do not repeat it).
 
+Part 2 of AUTOMAT (each only with its option; without them nothing above changes):
+
+--inner            the inner loop (tools/autofix-inner.py): the answer must be exactly the
+                   patch format; the cheap checks run at once (Python compiled, never run;
+                   node --check; cargo check through --cargo-cmd only; then the checker with
+                   the static guard, then ruff) and what they find goes back to the SAME
+                   model, at most INNER_TRIES answers per model; a refusal for safety still
+                   stops everything.
+--quota-limits, --quota-state, --quota-usage, --candidate
+                   the budget of the free quotas (tools/ai-quota.py): a provider spent today
+                   is never asked, the reviewers' reserve and the candidate's share are kept,
+                   a limit per minute is waited out; every call's headers and 429s correct
+                   the budget; the run's use is written as numbers to --quota-usage.
+--order A,B,C, --task KIND
+                   the order of the providers for this kind of task (tools/automat-route.py),
+                   and the cap of the answer; --tried FILE: the fingerprints of the patches
+                   that already failed for this error: the same patch twice stops the attempt
+                   (result "loop").
+--tier-b           the owner turned AUTOMAT_TIER_B on: the narrow form of tools/tier-b.py.
+
 The outcome goes to --status (JSON: result, model, message in Italian) and the
 Italian summary to .autofix/summary.md. Keys never reach a file or the log.
 
@@ -105,9 +125,29 @@ AUTO_RULES = (
     "the missing entry to components.json exactly as its message says (a plain download, never a build).\n")
 
 
+# --tier-b (the owner's switch AUTOMAT_TIER_B): the few tier-B files of tools/tier-b.py
+TIER_B = {"on": False}
+TIER_B_FILES = ("ike/app.py", "ike/updater.py", "ike_boot.py")
+TIER_B_ROOTS = (".github/workflows/", ".github/actions/")
+TIER_B_RULES = (
+    "\n\nThe owner opened a few reserved files in their narrowest form (a program checks it, tools/tier-b.py): "
+    "in a workflow under .github/ ONLY a pinned version may change (an action's full commit with its version "
+    "comment, cargo-deny's version, the Python, Node.js or Rust version), never a command, a permission, a "
+    "secret, a trigger, runs-on or a step, and never to an older version; in ike/app.py, ike/updater.py and "
+    "ike_boot.py only ADD statements, never inside a function that decides the signature, the update, the "
+    "sandbox or the update check (they are frozen), never naming UNSAFE_SWITCHES, UNSAFE_FEATURES, UNSAFE_ENV, "
+    "LNA_FEATURES or ENGINE_SAFETY. If the fix needs more than that, answer \"fixable\": false.\n")
+
+
+def tier_b_path(path):
+    return TIER_B["on"] and (path in TIER_B_FILES or path.startswith(TIER_B_ROOTS))
+
+
 def editable(path, allow_adblock, lists=False):
     if lists:
         return path.startswith(LISTS_EDITABLE)
+    if tier_b_path(path):
+        return True
     if AUTO["on"]:
         if path == MANIFEST:
             return True
@@ -137,6 +177,17 @@ def _checker_rule():
     return mod.allowed_path if mod else None
 
 
+@functools.lru_cache(maxsize=None)
+def _tool(name):
+    """A tool next to this script (all come from main in the workflow)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("ike_" + name.replace("-", "_"),
+                                                  Path(__file__).resolve().parent / (name + ".py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 def _git(workdir, *args, text=True):
     """git on the work tree, as the checker runs it (SAFE_GIT, 1.1.18): no system
     or global configuration, hooks, fsmonitor, attributes file or submodules."""
@@ -161,6 +212,11 @@ MESSAGES = {
                "nessun'altra riserva è stata interpellata.",
     "unavailable": "Nessuna riserva gratuita disponibile (a pagamento, senza credito o segnata non "
                    "disponibile dal controllo settimanale): il lavoro riprova più tardi.",
+    # part 2 of AUTOMAT
+    "budget": "La quota gratuita di oggi non basta per scrivere una correzione e farla anche rivedere da "
+              "altre AI: la correzione aspetta, nessuna quota è stata sprecata. Riprova da sola.",
+    "loop": "La riserva (%s) ha proposto due volte la stessa modifica: il tentativo si ferma qui e viene "
+            "registrato, il prossimo parte da un altro assistente.",
 }
 
 INSTRUCTIONS = """
@@ -277,6 +333,16 @@ def rotated(plan, first):
     return plan[i:] + plan[:i]
 
 
+def ordered(plan, order):
+    """The chain in the order of the providers tools/automat-route.py gives for this kind of task
+    (names it does not list keep their place after them); the chain as it is for an empty order."""
+    order = [n for n in order if n]
+    if not order:
+        return plan
+    rank = {n: i for i, n in enumerate(order)}
+    return sorted(plan, key=lambda p: rank.get(p[0], len(rank)))
+
+
 OPENROUTER_MODELS = REGISTRY.OPENROUTER_MODELS
 DISCOVERED = 2          # free models taken from OpenRouter's list when a listed one is gone
 MODEL_ID = re.compile(r"^[A-Za-z0-9._/:-]{3,100}:free$")
@@ -370,16 +436,22 @@ def classify(status):
 
 
 def ask(url, key, model, messages, timeout=REQUEST_TIMEOUT, opener=urllib.request.urlopen,
-        max_tokens=MAX_TOKENS):
-    """The model's answer text, or raises (kind, detail)."""
-    body = json.dumps({"model": model, "messages": messages, "temperature": 0.1,
-                       "max_tokens": max_tokens}).encode()
+        max_tokens=MAX_TOKENS, temperature=0.1, meter=None):
+    """The model's answer text, or raises (kind, detail). meter(status, headers, usage, body): what
+    the answer says about the quota (tools/ai-quota.py), also for an error."""
+    request = {"model": model, "messages": messages, "temperature": 0.1, "max_tokens": max_tokens}
+    if temperature != 0.1:
+        request["temperature"] = min(0.3, max(0.0, float(temperature)))      # always low: never above 0.3
+    body = json.dumps(request).encode()
     req = urllib.request.Request(url, data=body, method="POST", headers={
         "Authorization": "Bearer " + key, "Content-Type": "application/json",
         "User-Agent": "IKE-autofix", "X-Title": "I.K.E. automatic fix"})
     try:
         with opener(req, timeout=timeout) as r:
             data = json.loads(r.read(4_000_000).decode("utf-8", "replace"))
+            headers = getattr(r, "headers", None)
+        if meter:
+            meter(200, headers, data.get("usage") if isinstance(data, dict) else None, "")
     except urllib.error.HTTPError as e:
         wait = 0
         try:
@@ -390,6 +462,8 @@ def ask(url, key, model, messages, timeout=REQUEST_TIMEOUT, opener=urllib.reques
             said = e.read(20_000).decode("utf-8", "replace") if e.fp is not None else ""
         except Exception:
             said = ""
+        if meter:
+            meter(402 if billing_in(said) else e.code, e.headers, None, said[:2000])
         if billing_in(said):                # never a quota to wait for: money is asked
             raise Stop("unavailable", "HTTP %d, billing" % e.code, 0)
         raise Stop(classify(e.code), "HTTP %d" % e.code, wait)
@@ -488,11 +562,11 @@ def apply_edits(workdir, edits, shown, allow_adblock=False, security=False, list
         elif lists and not editable(path, True, lists=True):
             raise ValueError("%s may not be changed in the filter lists' analysis: only I.K.E.'s adapter "
                              "(ike/scriptlets.py, ike/blocker.py, ike-adblock/src/)" % path)
-        if not builder and (not editable(path, allow_adblock) or (not allow_adblock and path in (
-                "ike/blocker.py", "ike/scriptlets.py"))):
+        if not builder and not tier_b_path(path) and (not editable(path, allow_adblock) or (
+                not allow_adblock and path in ("ike/blocker.py", "ike/scriptlets.py"))):
             raise ValueError("%s may not be changed in this run (the ad blocker only with an "
                              "update of its engine)" % path)
-        rule = None if builder or (AUTO["on"] and path == MANIFEST) else _checker_rule()
+        rule = None if builder or (AUTO["on"] and path == MANIFEST) or tier_b_path(path) else _checker_rule()
         why = rule(path, allow_adblock, security) if rule else ""
         if why:
             raise ValueError("%s may not be changed: %s" % (path, why))
@@ -522,7 +596,8 @@ def files_shown(workdir, related):
     out, used = {}, 0
     for path in related:
         p = workdir / path
-        if not (path.startswith(SHOWN_ROOTS) or (AUTO["on"] and path == MANIFEST)) or not p.is_file() \
+        if not (path.startswith(SHOWN_ROOTS) or (AUTO["on"] and path == MANIFEST) or tier_b_path(path)) \
+                or not p.is_file() \
                 or p.is_symlink():                                                    # a link: never followed
             continue
         text = p.read_text("utf-8", errors="replace")
@@ -533,10 +608,29 @@ def files_shown(workdir, related):
     return out
 
 
+NOTES = re.compile(r"\n(?=## (?:One problem per attempt|AUTOMAT's memory of this error|What changed upstream"
+                   r"|Why earlier fixes were refused|Previous automatic fix))")
+
+
+def failure_within(failure, room):
+    """The failure description within `room` characters: the end of the error itself (its last lines
+    say what failed), then the notes the plan added after it (one problem per attempt, AUTOMAT's
+    memory, what changed upstream, earlier refusals), each cut to its share from its start. Without
+    such notes: the end of the text, as before."""
+    parts = NOTES.split(failure)
+    if len(parts) == 1:
+        return failure[-room:]
+    error, notes = parts[0], parts[1:]
+    share = max(600, (room // 2) // len(notes))
+    kept = [n if len(n) <= share else n[:share].rstrip() + "\n(... cut)\n" for n in notes]
+    left = max(room // 2, room - sum(len(k) + 1 for k in kept))
+    return error[-left:].rstrip() + "\n\n" + "\n".join(kept)
+
+
 def message_for(failure, context, shown, budget, refused=""):
     """The user message within the provider's budget (characters): the failure,
     the code at it, then whole files while they fit."""
-    head = "# The failure\n\n%s\n\n" % failure[-max(2000, budget // 3):]
+    head = "# The failure\n\n%s\n\n" % failure_within(failure, max(2000, budget // 3))
     if refused:
         head += ("# A fix already refused\n\nThe automatic checks refused an earlier fix for this "
                  "failure:\n\n%s\nDo not repeat it.\n\n" % refused[:2000])
@@ -591,6 +685,8 @@ def checked(workdir, checker, related, allow_adblock, security=False, lists=Fals
         cmd += ["--builder", builder]       # WP11: the builders' re-anchoring rule
     if AUTO["on"]:
         cmd.append("--auto")                # the static guard of a fix that may reach main by itself
+    if TIER_B["on"]:
+        cmd.append("--tier-b")              # the owner's switch: the narrow form of tools/tier-b.py
     run = subprocess.run(cmd, capture_output=True, text=True, check=False)
     os.unlink(patch)
     return run.returncode, run.stdout.strip()[-2000:]
@@ -628,18 +724,55 @@ def for_log(text, limit=300):
     return re.sub(r":(?=:)", ": ", text)[:limit]
 
 
-def one_model(url, key, model, base, tokens, deadline, opener, workdir, shown, a, refused, applied):
-    """Ask one model, at most twice. Returns (outcome, text, refused): outcome is
-    ok | none | refused | error | quota | auth | toolarge, text its summary (or
-    the checker's reasons for "refused"), refused why the checks refused its
-    fix (for the next model). The files it changed stay listed in `applied`
-    until they are undone, so the caller can undo them after any error."""
+class Feedback(ValueError):
+    """What a check found wrong with a fix, to tell the same model (the inner loop)."""
+
+
+def one_model(url, key, model, base, tokens, deadline, opener, workdir, shown, a, refused, applied, run=None):
+    """Ask one model, at most twice (with --inner: INNER_TRIES answers, each told what the checks
+    found). Returns (outcome, text, refused): outcome is ok | none | refused | error | quota | auth |
+    toolarge | budget | loop, text its summary (or the checker's reasons for "refused"), refused why
+    the checks refused its fix (for the next model). The files it changed stay listed in `applied`
+    until they are undone, so the caller can undo them after any error. run: what part 2 of AUTOMAT
+    adds to a run ({"provider", "budget", "loop", "inner", "limits", "temperature"}), or None."""
+    run = run or {}
+    inner = _tool("autofix-inner") if getattr(a, "inner", False) else None
+    budget, provider, loop = run.get("budget"), run.get("provider", ""), run.get("loop")
     messages, tries, waited = list(base), 0, False
-    while tries < 2:
+    most = inner.INNER_TRIES if inner else 2
+    answers, stops = 0, 0
+    while tries < most:
         tries += 1
+        size = 0
+        if budget is not None:
+            size = _tool("ai-quota").estimate_tokens(sum(len(m.get("content") or "") for m in messages), tokens,
+                                                     budget.limits)
+            ok, why = budget.allows(provider, size, "fix")
+            if not ok:
+                print("  not asked: %s" % for_log(why), flush=True)
+                budget.skipped[provider] = why
+                return "budget", "", refused
+            pause = budget.wait_seconds(provider, size)
+            if pause:
+                if pause > 75 or time.monotonic() + pause > deadline:
+                    print("  its limit per minute is used up for %d s: the next one" % pause, flush=True)
+                    return "quota", "", refused
+                time.sleep(pause)
+        seen = {}
+
+        def meter(status, headers, usage, body, seen=seen):
+            seen.update(done=True)
+            if budget is not None:
+                budget.note(provider, size, "fix", usage=usage, headers=headers, status=status, body=body)
         try:
-            answer = ask(url, key, model, messages, opener=opener, max_tokens=tokens)
+            answer = ask(url, key, model, messages, opener=opener, max_tokens=tokens,
+                         temperature=run.get("temperature", 0.1), meter=meter)
         except Stop as s:
+            if budget is not None and not seen:
+                budget.note(provider, 0, "fix", requests=1)        # asked, no answer read: one request all the same
+            stops += 1
+            if inner and stops > 2:
+                return "quota", "", refused
             kind = s.args[0]
             wait = s.args[2] if len(s.args) > 2 else 0
             print("  stopped: %s (%s)" % (kind, for_log(s.args[1])), flush=True)
@@ -656,8 +789,11 @@ def one_model(url, key, model, base, tokens, deadline, opener, workdir, shown, a
             if kind in ("auth", "toolarge", "config", "unavailable"):
                 return kind, "", refused
             return ("quota" if kind in ("quota", "temporary") else "error"), "", refused
+        answers += 1
         try:
             obj = parse(answer)
+            if inner:
+                obj = inner.strict(obj)             # exactly the patch format, small edits
             if obj.get("fixable") is False:
                 return "none", str(obj.get("summary") or ""), refused
             if not obj.get("edits"):
@@ -669,6 +805,22 @@ def one_model(url, key, model, base, tokens, deadline, opener, workdir, shown, a
                                      getattr(a, "lists", False), getattr(a, "builder", ""))
             summary = str(obj.get("summary") or "")
             print("  edits applied: %s" % for_log(", ".join(applied)), flush=True)
+            if loop is not None:
+                # going in circles: the same patch twice stops the attempt (tools/automat-route.py)
+                seen_before = loop.check(_tool("automat-memory").patch_hash(diff_of(workdir)))
+                if seen_before == "twice":
+                    undo(workdir, applied)
+                    applied.clear()
+                    print("  the same patch twice: the attempt stops here", flush=True)
+                    return "loop", summary, refused
+                if seen_before == "tried":
+                    raise Feedback("this exact change was already tried for this error and its tests failed "
+                                   "(AUTOMAT's memory): find another way, do not send it again")
+            if inner:
+                why, ran = inner.cheap(workdir, applied, getattr(a, "cargo_cmd", "") or "")
+                print("  cheap checks: %s" % for_log(", ".join("%s %s" % r for r in ran)), flush=True)
+                if why:
+                    raise Feedback(why)
             if a.checker:
                 status, reasons = checked(workdir, a.checker, a.related, a.allow_adblock,
                                           getattr(a, "security", False), getattr(a, "lists", False),
@@ -679,6 +831,9 @@ def one_model(url, key, model, base, tokens, deadline, opener, workdir, shown, a
                     print("  refused for safety: no other model is asked", flush=True)
                     return "refused", reasons, refused
                 if status in (1, 2):         # refused, or the edits changed nothing
+                    if inner and tries < most:
+                        refused = reasons
+                        raise Feedback("The automatic checks refused the fix:\n\n%s" % reasons)
                     undo(workdir, applied)
                     applied.clear()
                     print("  refused by the checks: the next model is told why", flush=True)
@@ -686,11 +841,23 @@ def one_model(url, key, model, base, tokens, deadline, opener, workdir, shown, a
             if a.lint:
                 clean, said = linted(workdir, applied)
                 if not clean:
+                    if inner and tries < most:
+                        refused = "The lint (ruff) refused the fix:\n\n" + said
+                        raise Feedback(refused)
                     undo(workdir, applied)
                     applied.clear()
                     print("  refused by the lint: the next model is told why", flush=True)
                     return "error", summary, "The lint (ruff) refused the fix:\n\n" + said
             return "ok", summary, refused
+        except Feedback as e:
+            # the inner loop: undone, and the same model is told what the checks found
+            if applied:
+                undo(workdir, applied)
+                applied.clear()
+            print("  refused by a check: the same model is told why (answer %d of %d)" % (answers, most), flush=True)
+            messages = base + [{"role": "assistant", "content": str(answer)[:20000]},
+                               {"role": "user", "content": "That fix was undone. %s\n\nAnswer again with one "
+                                "JSON object as described: a fix that passes this check." % str(e)[:3000]}]
         except (ValueError, OSError) as e:
             if applied:
                 undo(workdir, applied)
@@ -756,8 +923,21 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     ap.add_argument("--refused", help="why the checks refused Antigravity's fix")
     ap.add_argument("--lint", action="store_true", help="ruff on each fix (its safe fixes first)")
     ap.add_argument("--auto", action="store_true", help="a fix that may reach main by itself: the static guard")
+    # part 2 of AUTOMAT
+    ap.add_argument("--inner", action="store_true", help="the inner loop: strict format, cheap checks, the errors "
+                                                         "back to the same model (tools/autofix-inner.py)")
+    ap.add_argument("--cargo-cmd", default="", help="how cargo is run for `cargo check` (a user with no keys)")
+    ap.add_argument("--quota-limits", help="tools/ai-quota.json (the free quotas, as data)")
+    ap.add_argument("--quota-state", help="quota.json of the data branch (today's use)")
+    ap.add_argument("--quota-usage", help="where this run's use is written (numbers only)")
+    ap.add_argument("--candidate", default="", help="the branch being fixed (its share of the quota)")
+    ap.add_argument("--order", default="", help="the providers in the order of this kind of task")
+    ap.add_argument("--task", default="", help="the kind of task (tools/automat-route.py)")
+    ap.add_argument("--tried", help="the fingerprints of the patches that already failed for this error")
+    ap.add_argument("--tier-b", action="store_true", help="the owner turned AUTOMAT_TIER_B on (tools/tier-b.py)")
     a = ap.parse_args(argv)
     AUTO["on"] = bool(a.auto)
+    TIER_B["on"] = bool(a.tier_b and a.auto)
     workdir = Path(a.workdir)
     auto = workdir / ".autofix"
 
@@ -770,7 +950,7 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     related = [line.strip() for line in read("related.txt").splitlines() if line.strip()]
     shown = files_shown(workdir, related)
     rules = Path(a.prompt).read_text("utf-8") + (SECURITY_RULES if a.security else "") + builder_rules(a.builder) \
-        + (AUTO_RULES if a.auto and not a.builder else "")
+        + (AUTO_RULES if a.auto and not a.builder else "") + (TIER_B_RULES if TIER_B["on"] and not a.builder else "")
     keys = [env.get(p[2], "") for p in PROVIDERS]
     refused = ""
     if a.refused:
@@ -782,6 +962,34 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     said_none, none_summary = [], ""          # the models that answered "fixable": false
     skip, deadline = set(), time.monotonic() + a.total_timeout
     plan = rotated(chain(env), a.first or env.get("AUTOFIX_FIRST", ""))
+    if a.order:
+        plan = ordered(plan, a.order.split(","))
+    # part 2 of AUTOMAT: the budget of the free quotas, the cap of the answer for this kind of task, and
+    # the patches that already failed for this error
+    spend, limits, route = None, None, None
+    if a.quota_limits or a.quota_state or a.quota_usage:
+        quota = _tool("ai-quota")
+        limits = quota.load_limits(a.quota_limits)
+        has_key = [n for n in quota.NAMES if n not in unavailable(env) and (
+            env.get(REGISTRY.GEMINI_KEY, "").strip() if n == "Antigravity" else
+            env.get(next(p[2] for p in PROVIDERS if p[0] == n), "").strip())]
+        # the reviewers may also be providers whose key this step does not hold (Gemini): the workflow says
+        # which ones have a key at all (AUTOFIX_REVIEWERS), else those this step can see
+        named = [n.strip() for n in (env.get("AUTOFIX_REVIEWERS") or "").split(",") if n.strip() in quota.NAMES]
+        spend = quota.Budget(limits, quota.load_state(a.quota_state) if a.quota_state else None, a.candidate,
+                              tier_b=TIER_B["on"], available=[n for n in (named or has_key)
+                                                              if n not in unavailable(env)])
+    if a.task:
+        route = _tool("automat-route")
+        limits = limits or _tool("ai-quota").load_limits(a.quota_limits)
+    tried = []
+    if a.tried:
+        try:
+            tried = [x.strip() for x in Path(a.tried).read_text("utf-8").split() if x.strip()]
+        except OSError:
+            tried = []
+    loop = _tool("automat-route").Loop(tried) if (a.inner or a.tried) else None
+    looped = ""
     discovered, refused_keys = False, []
     # WP9: whether any model really answered; a chain where each model was busy,
     # out of quota or not free ends "no provider available" (the work waits:
@@ -798,9 +1006,13 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
         used = "%s / %s" % (provider, model)
         print("Reserve: %s" % for_log(used), flush=True)
         applied = []
+        if route is not None:
+            tokens = route.answer_tokens(a.task, tokens, limits)
+        extra = {"provider": provider, "budget": spend, "loop": loop,
+                 "temperature": route.temperature(limits) if route is not None else 0.1}
         try:
             outcome, said, refused = one_model(url, key, model, base, tokens, deadline, opener,
-                                               workdir, shown, a, refused, applied)
+                                               workdir, shown, a, refused, applied, extra)
         except Exception as e:                    # 1.1.18: a malformed answer never ends the chain
             if applied:
                 undo(workdir, applied)
@@ -815,6 +1027,17 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
             # not free here; none of its models is asked again in this run
             not_free.append(provider)
             skip.add(provider)
+            if spend is not None:
+                spend.mark_spent(provider, "not free (billing, or a cost in the answer)")
+        if outcome == "budget":
+            # the budget of the free quotas says no (spent today, the reviewers' reserve, this candidate's
+            # share): none of this provider's models is asked in this run
+            skip.add(provider)
+        if outcome == "loop":
+            # the same patch twice: the attempt stops and is recorded (tools/automat-route.py)
+            looped = used
+            result = "loop"
+            break
         if outcome == "none":
             # 1.1.18: one model's word is not enough (a weak free model gives up on
             # a plain fix); the chain stops when two different models agree
@@ -844,9 +1067,13 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
         if outcome == "config":
             outcome = "error"
         result = outcome or "error"
-    no_provider = bool(outcomes) and all(o in ("quota", "unavailable") for o in outcomes)
+    no_provider = bool(outcomes) and all(o in ("quota", "unavailable", "budget") for o in outcomes)
     if no_provider and not_free and result != "quota":
         result = "unavailable"
+    if no_provider and outcomes and all(o == "budget" for o in outcomes):
+        result = "budget"
+    if looped:
+        result, used = "loop", looped
     if result != "ok" and result != "refused" and said_none:
         # nobody fixed it, and at least one model said it cannot be fixed in the code
         result, used, summary = "none", said_none[-1], none_summary
@@ -859,9 +1086,22 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     if not_free:
         message += " Non gratuite in questo run (fatturazione o costo nella risposta): %s." % ", ".join(
             sorted(set(not_free)))
-    Path(a.status).write_text(json.dumps({"result": result, "model": used, "message": message,
-                                          "no_provider": no_provider and result not in ("ok", "refused", "none"),
-                                          "not_free": sorted(set(not_free))}, ensure_ascii=False), "utf-8")
+    status = {"result": result, "model": used, "message": message,
+              "no_provider": no_provider and result not in ("ok", "refused", "none", "loop"),
+              "not_free": sorted(set(not_free))}
+    if spend is not None:
+        # the run's use of the free quotas, as numbers, for the job that writes the data branch
+        spend.result = "no-provider" if status["no_provider"] else ("answered" if outcomes else "")
+        status["budget"] = {n: for_log(w, 200) for n, w in sorted(spend.skipped.items())}
+        if spend.skipped:
+            message += " Non interpellati per la quota gratuita: %s." % "; ".join(
+                "%s (%s)" % (n, for_log(w, 160)) for n, w in sorted(spend.skipped.items()))
+            status["message"] = message
+        if a.quota_usage:
+            Path(a.quota_usage).write_text(json.dumps(spend.delta()) + "\n", "utf-8")
+    if loop is not None and loop.stopped:
+        status["loop"] = loop.stopped
+    Path(a.status).write_text(json.dumps(status, ensure_ascii=False), "utf-8")
     print("Reserves: %s (%s)" % (result, for_log(used or "none")), flush=True)
     return 0
 

@@ -10,7 +10,9 @@ this whole system, and the owner's third decision of 2026-11-22: see "AUTOMAT:
 the full automation") anything less is tried again by itself, never left for
 a person and never closed; the owner's only step is the signature. Claude merges the pull requests the owner asked
 for once every check is green; ChatGPT's and people's pull requests wait for
-the owner's order (CLAUDE.md). The owner alone **signs and publishes** (one
+the owner's order (CLAUDE.md; a verified ChatGPT fix is adopted by AUTOMAT
+only when the owner turned the switch `AUTOMAT_CHATGPT_AUTOMERGE` on: "AUTOMAT,
+part 2"). The owner alone **signs and publishes** (one
 command on the owner's computer, in the issue GitHub mails when a release is
 ready, [UPDATES.md](UPDATES.md)). No workflow releases or signs anything, and
 no workflow pushes to `main` (the verified merge is a merge of a pull request).
@@ -85,7 +87,7 @@ covers. Where an older paragraph below still says "waits for a person" or
 
 | Tier | Files | An AI |
 |---|---|---|
-| B | the workflows (`.github/`), the tests, every tool (`tools/`: the guard, the merge, the reviewers, the plan, "Nothing gets worse"), the engine's sandbox and start (`ike/app.py`, `ike_boot.py`, `launcher/`), the signing and update channel (`ike/updater.py`, `ike/__init__.py`, `ike/extensions.py`), the package recipe, what comes from others or is generated (Dark Reader, uBlock Origin's scriptlets, the icon sets, the Cargo files, `vendor/`), YouTube's ad blocking (`videoads.js`, `videorelay.js`, `mediahook.js`, `Scriptlets.host_scripts`), and any file the guard does not know | never changes them. An update that needs one stays open as "retrying" with a note; the deterministic tools (the CI pins, the builders' re-anchoring rule) keep their own paths |
+| B | the workflows (`.github/`), the tests, every tool (`tools/`: the guard, the merge, the reviewers, the plan, "Nothing gets worse"), the engine's sandbox and start (`ike/app.py`, `ike_boot.py`, `launcher/`), the signing and update channel (`ike/updater.py`, `ike/__init__.py`, `ike/extensions.py`), the package recipe, what comes from others or is generated (Dark Reader, uBlock Origin's scriptlets, the icon sets, the Cargo files, `vendor/`), YouTube's ad blocking (`videoads.js`, `videorelay.js`, `mediahook.js`, `Scriptlets.host_scripts`), and any file the guard does not know | never changes them. An update that needs one stays open as "retrying" with a note; the deterministic tools (the CI pins, the builders' re-anchoring rule) keep their own paths. Only with the owner's switch `AUTOMAT_TIER_B` a few of these files open in their narrowest form ("Tier B, behind the owner's switch", below) |
 | A | I.K.E.'s ad-blocking adapter (`ike/blocker.py`, `ike/scriptlets.py`, `ike-adblock/src/*.rs`, `vendor/adblock/__init__.py`), the modules that decide the user's safety (`PROTECTED_PY`: shields, passwords, webview, config, DoH...), I.K.E.'s own page scripts (`fingerprint.js` and the others), the look-alike table, a new entry of `components.json` | may fix them; the fix merges by itself only with everything below |
 | (none) | the other interface modules under `ike/` and `docs/` | as before (the 1.1.19 rules) |
 
@@ -102,6 +104,17 @@ covers. Where an older paragraph below still says "waits for a person" or
    or exit is allowed only under a new condition that is not a constant, or as
    the last statement of a function; no constant given to (and no `del` of) a
    name the old code sets.
+   *No old name is bound again* (part 2, found while building tier B: the
+   additive rule alone let it through). A new statement may not define,
+   import, assign, loop over or delete a name the old module or class
+   already binds: a second `def allowed(...)` at the end of a file would
+   silently replace the first, `TABLE = TABLE[:1]` would empty a table after
+   it was written. It may not hide an old function, class or import inside a
+   function, and may not change an old module-level object through an
+   attribute, an index or a method that removes entries (`K.method = ...`,
+   `TABLE[k] = ...`, `TABLE.clear()`). In a page script or in Rust: no old
+   declaration declared again where the old code stands, nothing the old
+   file declares assigned to.
 4. *Nothing new that reaches out*: no new import but a few harmless modules,
    no more `eval`, `exec`, `open`, process, file-writing, loading or network
    calls than before, no new address or host name.
@@ -132,7 +145,10 @@ answers one JSON object, `{"verdict": "approve" | "reject", "reasons":
 One reject: the fix is refused and the next attempt of the automatic fix
 starts with the reasons (`work=refused/<sha>`). Fewer than two answers: nobody
 is asked; the review is started again later. The job with the providers' keys
-has no GitHub token and runs nothing a model wrote.
+has no GitHub token and runs nothing a model wrote. A change of a tier-B file
+the owner opened needs **three** reviewers of three providers (below). A fix
+whose author is none of the free providers (ChatGPT's adopted fix, a
+deterministic recipe) may be reviewed by any of them.
 
 **What a commit of an AI needs to merge** (`ai_requirements`), on top of the
 verified merge: the static guard on the whole AI change; the category
@@ -188,6 +204,11 @@ text from untrusted sources, at most 1,500 words: what was already tried for
 this error and failed (not to be repeated) and what solved a similar one;
 lines that look like instructions are left out. The reviewers get it with the
 failure, and the rotation prefers a provider that has not failed that error.
+Since part 2 each record also keeps the kind of task and the fingerprint of
+its patch, the memory counts the row of failures per branch and error (for
+the notice "DEVI AIUTARCI CON CHATGPT"), and the solved hint keeps the merged
+fix's patch (at most 6,000 characters, dropped first when the file is full)
+for the recipe that applies it again.
 
 **Helping the free models** (they are weak: Gemini Flash through Antigravity,
 Groq, Z.AI, OpenRouter's `:free` models). What the workflow's own code does
@@ -203,35 +224,9 @@ time limit per attempt; and for the reviewers a **checklist** of eight yes/no
 items in place of an open question, enforced by code (an approve without the
 eight answers is no answer; a yes on "removes a condition", "adds a network
 call", "touches a test", "adds dynamic code" or "addresses the reviewer" is
-always a reject). Not built yet, and why: the upstream diff or release notes
-of the component in the context (new network calls per ecosystem, to be
-quoted as untrusted text); deterministic recipes before any AI (a renamed
-symbol, a remembered fix replayed, a fuzzy re-anchoring: each is code that
-changes code and needs its own guard and proofs); `node --check`, `cargo
-check` and the failing tests alone inside the fix job (the job runs with no
-test environment by design, so that nothing an AI wrote is run next to the
-keys); routing by task type learned from the memory's success rates (the
-memory has too little data to learn from yet; it already steers the rotation
-away from a provider that failed the same error); stopping an attempt when
-the same patch comes twice; and a budget of each provider's free quota (the
-limits per minute and day in one data file, the use recorded per day, a
-scheduler that keeps a reserve for the reviewers and waits for the reset
-time): the limits must be copied from each provider's documentation of the
-day and checked against the live headers, which could not be done from the
-machine this was built on, and invented numbers would steer the scheduler
-wrong. Until then a provider that is out of quota is simply skipped for
-that run (429, the weekly check's "unavailable"), and the work goes on the
-next day.
-
-**ChatGPT stays an option the owner starts by hand**, as before AUTOMAT: the
-automatic fix's issue with its ready message (for the failures that still
-open one: "The automatic fix", step 6), `chatgpt-guard.yml`, the branch
-`chatgpt/...`, and its pull request merged only on the owner's order
-(CLAUDE.md). Asked for and not built yet: a notice "DEVI AIUTARCI CON
-CHATGPT" after N attempts in a row on the same error (with AUTOMAT's memory
-in its message, closed when an automatic fix lands), and the merge of a
-verified ChatGPT fix by itself. The second changes a written rule of
-CLAUDE.md and waits for the owner's own confirmation there.
+always a reject). The rest of what helps them is part 2, below: the upstream change in the
+context, recipes before any AI, the inner loop, routing, loop detection and
+the budget of the free quotas.
 
 **The component manifest** (`components.json`, `tools/component-manifest.py`).
 The one place an external integrated component is declared: its upstream
@@ -273,12 +268,15 @@ protection is never changed, no check is faked, no run is approved by API.
 
 **The informed signature** (`tools/release-notice.py`, `release-ready.yml`).
 The notice lists every change merged since the last published version:
-first, marked, the ones that touch reserved files (tier B: today only the
-deterministic tools reach them), each with its diff link; then each AI change
+before everything else each change an AI wrote on a reserved file (only
+possible with the owner's switch `AUTOMAT_TIER_B`: its files, its three
+reviewers' verdicts, "Nothing gets worse"); then, marked, the other ones that
+touch reserved files (tier B: the deterministic tools), each with its diff
+link; then each AI change
 of protected code with its files, a one-line summary, the two reviewers'
 verdicts and the result of "Nothing gets worse"; the other changes; and what
-is still being retried or blocked. What could not be read is said as not
-read.
+is still being retried or blocked; and the use and the remaining budget of
+each provider's free quota. What could not be read is said as not read.
 
 **Residual risks, said plainly.** The reviewers are free models reading
 text an AI wrote: a fix that addresses them is one more reason to reject, the
@@ -287,12 +285,239 @@ be wrong. The static guard is strict about what is removed and cannot judge
 what is added. "Nothing gets worse" compares what it measures. Free quotas
 run out: then nothing merges, and the retry comes the next day. The owner's
 token has more rights than the workflow's own; it is used only by steps with
-no AI.
+no AI. Part 2 adds its own: the limits of the free quotas are careful guesses
+until a person checks them (the live headers correct them, but a provider
+that sends none is only counted); a recipe's rename or re-anchoring is a
+program's guess, kept only when every check passes; the job `try` runs code
+an AI wrote (with no key, a token that only reads, and a checksum on the fix
+that is pushed); with `AUTOMAT_CHATGPT_AUTOMERGE` on, a fix written outside
+this repository reaches `main` with no person reading it, under the same
+gate as an AI's; with `AUTOMAT_TIER_B` on, an AI's statements can be added to
+the sandbox's and the update channel's files outside their frozen functions,
+and a workflow's pinned versions can move: three free models and the tests
+stand where a person stood.
+
+### AUTOMAT, part 2 (2026-11-23)
+
+What the first part left unbuilt. Three **repository variables** steer it;
+only the owner can set them (GitHub's settings: no file of the repository and
+no workflow can, and no tool of the automation ever writes one):
+
+| Variable | Default | What it does |
+|---|---|---|
+| `AUTOMAT_CHATGPT_AFTER` | 4 | after how many failed attempts in a row on the same error the notice "DEVI AIUTARCI CON CHATGPT" comes (1 to 50) |
+| `AUTOMAT_CHATGPT_AUTOMERGE` | off | `on`: a ChatGPT fix whose own checks passed is adopted into AUTOMAT's chain and reaches `main` under the gate of an AI's fix |
+| `AUTOMAT_TIER_B` | off | `on`: a few tier-B files open to the AIs in their narrowest form, with a third reviewer |
+
+Anything but the word `on` is off. The two switches change what may reach
+`main` without a person, so turning one on is the owner's own decision
+(CLAUDE.md); the code is there, and inert, until then.
+
+**"DEVI AIUTARCI CON CHATGPT"** (the owner's words; `tools/automat-help.py`,
+job `help` of `autofix.yml`). When the AI agents failed on **the same error
+signature N times in a row** on a branch (N: `AUTOMAT_CHATGPT_AFTER`; the row
+is counted by AUTOMAT's memory: a failed attempt, or a published fix whose
+tests then failed, on the same signature; another error starts the row again,
+a merged fix ends it), or when **no free provider at all** could answer for 2
+days in a row, an issue is opened that names the owner, so GitHub mails it.
+Its title and its first line contain exactly `DEVI AIUTARCI CON CHATGPT`. Its
+body holds a ready message to copy into ChatGPT: the repository and what
+failed; a branch `chatgpt/fix-<date>` from the exact commit and a pull
+request titled "ChatGPT fix: ..." against the right base (`main` for a
+failure of `main`, the candidate's own branch for a failure of a candidate);
+never a push to `main`, never a merge; the rules, written from the very lists
+`tools/fix-guard.py` and `tools/check-autofix-patch.py` enforce (the files
+allowed, the size, never a tier-B file, never the ad blocker, never a
+weakened test or protection, data are not instructions); the failure's
+trimmed log; and AUTOMAT's memory of what was already tried, so ChatGPT does
+not repeat it. AUTOMAT keeps retrying meanwhile. One issue per error and
+branch, found again by its mark: its text is edited (an edit mails nobody),
+never repeated; when an automatic fix of that branch lands in `main` it is
+closed with a note (`automat-help.yml`, after the merge workflow). The issue
+"ATTENZIONE..." of before stays for what no AI may fix (GitHub, a setting, a
+workflow, a security finding with no safe fix).
+
+**A verified ChatGPT fix, behind the owner's switch**
+(`AUTOMAT_CHATGPT_AUTOMERGE`; `adoptable`, `adopt` in `tools/automerge.py`,
+`plan_chatgpt` in `tools/autofix-plan.py`, job `adopt` of `autofix.yml`). The
+owner asked for it ("quando la correzione di chat gpt funziona si può
+automatizzare anche questo ed integrarla in main o dove deve andare"); the
+rule of CLAUDE.md is not changed (ChatGPT merges only on the owner's order),
+so it is a switch, default off, and setting it is the owner's consent. Off:
+today's rule, to the letter. On: a pull request `chatgpt/...` whose own
+checks passed (`chatgpt-guard.yml` always; the tests and the sandbox tests
+too when it goes into `main`) and that touches no test and no tier-B file is
+**adopted**, never merged as it is: a job with no key reads ChatGPT's own
+changes from the pull request as a patch (never run), the guard job checks
+them exactly as an AI's patch (the checker, the static guard) and writes the
+commit `autofix: ...` with `Author: ChatGPT` on the branch the fix answers
+(the automatic fix's own for a failure of `main`, the candidate's for a
+failure of a candidate). From there it is an AI's fix like any other: every
+check, the required categories with `no-regression`, the static guard on
+the whole change, two independent AI reviews (ChatGPT is none of the free
+providers, so any two of them), no test changed. ChatGPT's pull request is
+told where its change went and closed. What cannot be adopted (a test, a
+tier-B file, a failed check) waits for the owner's order, as before.
+ChatGPT's guard gets no wider rules for this: the ad blocker stays closed to
+ChatGPT on every branch; against a candidate's branch it reads ChatGPT's own
+changes only (from where its branch leaves that candidate).
+
+**Come si accende `AUTOMAT_CHATGPT_AUTOMERGE`** (lo può fare solo il
+proprietario, dal sito di GitHub):
+
+1. Apri la pagina del repository su GitHub e vai su **Settings**.
+2. Nel menu a sinistra: **Secrets and variables** → **Actions**.
+3. Scegli la scheda **Variables** (non "Secrets") e premi **New repository
+   variable**.
+4. In "Name" scrivi `AUTOMAT_CHATGPT_AUTOMERGE`, in "Value" scrivi `on`, poi
+   premi "Add variable".
+
+Da quel momento una correzione di ChatGPT che supera tutti i controlli entra
+da sola. Per spegnerlo: nella stessa pagina cancella la variabile, oppure
+cambia il valore in `off`. Qualsiasi valore diverso da `on` vuol dire spento.
+
+**Tier B, behind the owner's switch, in its narrowest form**
+(`AUTOMAT_TIER_B`; `tools/tier-b.py`, called by the static guard). The
+concern stands: a workflow step an AI may edit is arbitrary shell in a job
+that holds tokens. So only what a program can prove harmless opens:
+
+- **a workflow where nothing changes but a pinned version**, checked line by
+  line with the logic of `tools/ci-pins.py`: the file keeps its number of
+  lines; every changed line is, before and after, the same pin (an action's
+  full commit with its version comment, the same action, a release tag whose
+  commit is read with `git ls-remote` from the action's own repository;
+  cargo-deny's version; the Python, Node.js or numeric Rust version), the
+  line otherwise identical, never an older version. A command, a permission,
+  a secret, a trigger, `runs-on`, a new step is no pin and is refused. The
+  fix's push checks it once more with the network, and needs the owner's
+  `IKE_WORKFLOW_TOKEN` (GitHub refuses a workflow change to the workflow's
+  own token);
+- **Python in `ike/app.py`, `ike/updater.py` and `ike_boot.py`** under tier
+  A's additive rule, plus fixed invariants: every function of the update
+  channel (`ike/updater.py`, `ike_boot.py`) and, in `ike/app.py`, every
+  function whose code decides the sandbox and isolation switches, the update
+  check or the extensions is **frozen** (the very same syntax tree: an added
+  `if ...: return True` inside `verify_signature` would be additive, and is
+  refused), so the signature check still refuses an unsigned or wrongly
+  signed update (the protected tests `tests/test_updater.py::test_signature`
+  and `::test_bad_signature_is_refused` prove it on every commit, and no AI
+  may change a test); `UNSAFE_SWITCHES`, `UNSAFE_FEATURES`, `UNSAFE_ENV`,
+  `LNA_FEATURES` and `ENGINE_SAFETY` only grow, and no new code names them;
+  the update check stays once every 24 hours (the comparison with
+  `last_app_check` is the same). The patch checker's own rule stays above
+  all this: no added or removed line that names an engine protection;
+- **a third independent free reviewer** for any such change (three reviews
+  of three providers, none the author's), and the change is **listed first**
+  in the signing notice, with its files and the three verdicts.
+
+Everything else of tier B stays never an AI's, and so do the rule-keepers:
+`tools/fix-guard.py`, `tools/automerge.py`, `tools/ai-review.py`,
+`tools/no-regression.py`, `tools/check-autofix-patch.py`, `tools/tier-b.py`
+and `chatgpt-guard.yml` (a workflow: only a pin of it could ever change).
+
+**Come si accende `AUTOMAT_TIER_B`** (lo può fare solo il proprietario, dal
+sito di GitHub):
+
+1. Apri la pagina del repository su GitHub e vai su **Settings**.
+2. Nel menu a sinistra: **Secrets and variables** → **Actions**.
+3. Scegli la scheda **Variables** (non "Secrets") e premi **New repository
+   variable**.
+4. In "Name" scrivi `AUTOMAT_TIER_B`, in "Value" scrivi `on`, poi premi "Add
+   variable".
+
+Da quel momento le AI possono proporre quelle poche modifiche, sempre con
+tre revisori e sempre elencate per prime nell'avviso di firma. Per spegnerlo:
+nella stessa pagina cancella la variabile, oppure cambia il valore in `off`.
+Non dare mai al token `IKE_WORKFLOW_TOKEN` il permesso "Variables": così
+nessun workflow può accendere un interruttore al posto tuo.
+
+**The budget of the free quotas** (`tools/ai-quota.py`, data in
+`tools/ai-quota.json`). The limits of each provider (requests and tokens per
+day and per minute) are data, each with its source; where the provider's
+documentation could not be read on the day the file was written the number
+is a conservative one and says `"verified": false` (today: all four; a person
+who checks one sets it with the date). The answers correct it: the rate-limit
+headers of every call (their names per provider are data too) and a 429 with
+its `retry-after`; what a provider says today counts more than the file. The
+use of each day is kept in `quota.json` on the data branch `automat/memory`,
+per provider and candidate; the steps that hold the keys only write numbers,
+and jobs without keys add them to the record (job `remember` of
+`autofix.yml`; `automat-quota.yml` for the reviewers, so `ai-review.yml`
+never gets the right to write). Before each call: a provider that is spent
+today is never asked; a fix is not started unless, after it, two other
+providers with a key (three for tier B) keep room for one review each (the
+reserve: without it the fix waits and nothing is wasted); one candidate's
+fixes take at most half of a provider's day; a limit per minute is waited
+out when it is short. The signing notice shows the use and what is left per
+provider, and whether each limit was verified.
+
+**Recipes before any AI** (`tools/automat-recipes.py`, a step of the job
+`fix` with no key, before Antigravity). A fix that already solved this very
+error (AUTOMAT's memory keeps the patch of a merged fix by the error's
+signature: applied again when the same error comes back, as on a candidate
+rebuilt from `main`); a symbol the upstream change renamed (the failure
+misses a name, and the upstream change says for sure it was renamed: replaced
+as a whole word in the files of I.K.E. involved); a builder's patch
+re-anchored (on a builder's branch, the new upstream lines the refusal shows
+are searched for the lines closest to the old anchor; one clear place only).
+What a recipe makes is treated exactly like an AI's fix: the cheap checks,
+the patch checker with the static guard (the builders' rule for an anchor),
+the lint, then the tests, "Nothing gets worse" and the reviewers before any
+merge (its commit says `Author: Recipe / <name>`). An AI is asked only when
+no recipe applies or its result is refused; a recipe that failed for an
+error is not tried again for it.
+
+**The upstream change in the context** (`tools/upstream-diff.py`, in the job
+`plan`: no key of any AI there). For a candidate of a component the failure
+description gets what its authors changed between the version in `main` and
+the new one: for the engine's crates the versions that differ in
+`Cargo.lock` (the ones the failure names first), each crate's repository from
+crates.io, then GitHub's comparison of the two release tags and the release
+notes; Dark Reader by its two versions; uBlock Origin's scriptlets by their
+two commits; the test packages from PyPI. Only api.github.com, crates.io and
+pypi.org are asked, JSON only, the repository's token to GitHub alone. It is
+cut to a budget (the lines about the names the failure mentions first) and
+quoted as data: lines that look like instructions are left out, links cut,
+fences defused. The renames a program is sure of go to the recipes.
+
+**The inner loop** (`tools/autofix-inner.py`, `tools/autofix-reserve.py
+--inner`, the jobs `try` and `again`). The answer must be exactly the patch
+format (one JSON object, a few small edits). Cheap checks run at once, none
+of which runs what the model wrote: Python is compiled, never run;
+JavaScript is parsed by `node --check`; JSON is read; the patch checker with
+the static guard and the lint read the change; a change of the engine's
+wrapper is compiled by `cargo check`, which runs the crates' build scripts
+and therefore runs as a user of its own with no key, no sudo and no network
+(the crates fetched before). What a check finds goes back to the **same**
+model, at most three answers per model; a refusal for safety still stops
+everything. Then the job `try`, which holds no key and a token that only
+reads, runs **the tests that failed** (those of the group this attempt was
+asked to fix) on the accepted fix, in the tests' own environment: when they
+pass the fix is pushed and GitHub runs the whole suite as before; when they
+still fail it is not pushed, and the job `again` starts the next round with
+the fix and the tests' output for the same AI (at most three rounds). The
+publish job pushes only the bundle whose checksum the guard job wrote. A
+failure with no test to run, or an environment that could not be set up, is
+"not-run": the fix is published and tested by GitHub as before.
+
+**Routing and going in circles** (`tools/automat-route.py`). The kind of
+task is read from the failure (rust, multi-file, builder, lists, manifest,
+page-script, python): hard ones go to the strongest free model first, simple
+ones to the fast ones; the starting order is data (`tools/ai-quota.json`),
+and once a provider has enough recorded attempts at a kind of task its
+success rate in AUTOMAT's memory places it. A provider that already failed
+this very error goes last. Every call keeps a low temperature and a cap on
+the answer, smaller for a simple task. The fingerprint of each patch (its
+added and removed lines) is compared with the ones of this attempt and with
+those that already failed for this error: the same patch twice stops the
+attempt, and that is recorded.
 
 ## What runs by itself
 
 | When | What | Workflow | Result |
 |---|---|---|---|
+| After every run of the two AI reviewers | Their use of the free quotas, added to the day's record (numbers only; no key, no AI) | `automat-quota.yml` | `quota.json` on the data branch `automat/memory` ("The budget of the free quotas") |
+| After every run of the merge workflow | The notices "DEVI AIUTARCI CON CHATGPT" of the branches whose fix landed in `main` are closed with a note (no key, no AI) | `automat-help.yml` | The issue labelled `automat-help` closed |
 | Every day, 05:17 UTC | Upstream versions of the bundled components (and whether I.K.E.'s builders still accept them), Arch Linux's own packages and their whole dependency closure against what the last green `arch.yml` run on `main` tested, and the default filter lists loaded into `main`'s AdBlock engine | `daily-check.yml` | Issue labelled `components` (titled "Component incompatibility: ..." when a builder refused a new version); when anything of Arch's closure changed, `arch.yml` started on `main`; the inventory of every external component and the issue "Maintenance ledger" (label `maintenance-ledger`), see "Inventory, ledger and what is verified" |
 | Every day, 06:17 UTC | One candidate per component (the full chain), each made from current `main`; a builder that refused starts its re-anchoring | `daily-maintenance.yml` | Branches `automation/update/<id>`, each with its draft PR labelled `maintenance` and its Tests, Security and Arch Linux; `automation/builder/<id>` for a builder (see "One candidate per component") |
 | On every PR, every push to `main`, every candidate or fix | Lint, all the tests, the Arch package and its tests; on a commit of the automation that changes the engine, today's filter lists in its engine against `main`'s | `tests.yml` | Checks on the PR, package download `ike-browser-package` |
@@ -1910,6 +2135,10 @@ sides).
 4. If it raised the version: sign and publish with one command
    ([UPDATES.md](UPDATES.md)).
 
+An issue titled "DEVI AIUTARCI CON CHATGPT" (label `automat-help`) asks nothing
+that blocks: AUTOMAT keeps retrying; pasting its message into ChatGPT helps it
+("AUTOMAT, part 2").
+
 An issue labelled `autofix` or `automation-health` means the automation needs a
 person: open a conversation and paste its link. Since AUTOMAT these are only
 a security finding with no safe fix and the failures of GitHub, a setting or
@@ -1932,6 +2161,11 @@ a workflow; everything else is retried by itself.
   sees it. Without it
   those candidates wait (a warning says why) and Dependabot's monthly pull
   request remains the way for the actions.
+- Settings → Secrets and variables → Actions → **Variables** (optional, the
+  owner's alone; "AUTOMAT, part 2" says what each does and how to set it):
+  `AUTOMAT_CHATGPT_AFTER` (a number, default 4), `AUTOMAT_CHATGPT_AUTOMERGE`
+  and `AUTOMAT_TIER_B` (`on`, default off). The token `IKE_WORKFLOW_TOKEN`
+  never gets the permission "Variables": no workflow can then set a switch.
 - Settings → Secrets and variables → Actions → **Secrets**: `GEMINI_API_KEY`, a
   Gemini API key from Google AI Studio, in a Google Cloud project **without
   billing** (free tier: nothing can be charged; Google may use the requests to

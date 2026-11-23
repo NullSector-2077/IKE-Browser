@@ -515,11 +515,26 @@ def test_an_ai_fix_of_protected_code_merges_only_with_everything():
     kind, why = judged({"status": True, "result": review_of(author="Groq", reviewers=("Groq", "Z.AI"))})
     assert kind == "person" and "does not count" in why
     assert judged({"status": False, "result": review_of()})[0] == "wait"
-    # "Nothing gets worse": not run on the commit (or not in main yet) waits, failed is refused
-    assert judged(approved, evidence=mm.VERIFIED)[0] == "wait" and "no-regression" in judged(
-        approved, evidence=mm.VERIFIED)[1]
+    # "Nothing gets worse". Since PR #114 the category "no-regression" is in tools/test-categories.py and
+    # required for I.K.E.'s code, so the fixture mm.VERIFIED holds its step: a commit where the step did
+    # not run, or was skipped, is "not verified" and never merged (its checks are started again); failed is
+    # refused. (Before #114 was merged in, the same commit waited: the assertion became this stronger one.)
+    import copy
+    missing = copy.deepcopy(mm.VERIFIED)
+    workflow, job, step = merge.NO_REGRESSION_AT
+    del missing["runs"][workflow]["jobs"][job]["steps"][step]
+    for evidence in (missing, mm.with_no_regression(mm.VERIFIED, "skipped")):
+        kind, why = judged(approved, evidence=evidence)
+        assert kind == "person" and "no-regression not verified" in why, (kind, why)
+        assert merge.next_step(why, "automation/update/lists-2026-11-22", True) == "checks"
+    # the AI's own requirement reads the same step: a second fence, should the category ever not be required
+    pr, commits, files = lists_pr()
+    assert merge.ai_requirements(pr, commits, files, missing, approved)[0] == "wait"
+    assert "no-regression" in merge.ai_requirements(pr, commits, files, missing, approved)[1]
+    assert merge.ai_requirements(pr, commits, files, mm.with_no_regression(mm.VERIFIED, "failure"), approved)[0] \
+        == "person"
     assert judged(approved, evidence=mm.with_no_regression(mm.VERIFIED, "failure"))[0] == "person"
-    assert judged(approved, evidence=mm.with_no_regression(mm.VERIFIED, "skipped"))[0] == "wait"
+    assert judged(approved, evidence=mm.VERIFIED) == ("merge", "")
     # the static guard: existing logic removed, or the whole file not read
     kind, why = judged(approved, new=OLD.replace("    if not url:\n        return False\n", ""))
     assert kind == "person" and why.startswith(merge.GUARD_WHY) and "removed or changed" in why

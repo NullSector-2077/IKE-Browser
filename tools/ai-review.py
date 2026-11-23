@@ -25,6 +25,13 @@ the differential check "Nothing gets worse".
   attempt of the automatic fix; fewer than two answers is "no answer": asked again later, nobody is
   called.
 
+Part 2 of AUTOMAT: **three** reviewers, of three different providers, for a change of a tier-B file
+the owner opened with AUTOMAT_TIER_B (tools/tier-b.py needed_reviews; the request says how many, and
+tools/automerge.py counts them again from the files). A fix whose author is not one of the free
+providers (ChatGPT's fix adopted with the owner's switch AUTOMAT_CHATGPT_AUTOMERGE, a deterministic
+recipe: EXTERNAL) is reviewed by any of them. The reviewers' calls are counted in the budget of the
+free quotas (tools/ai-quota.py: a provider spent today is not asked; the use is written as numbers).
+
 The result is a comment on the pull request (with a mark and the data tools/automerge.py and
 tools/release-notice.py read back) and a commit status ``ai-review`` on that commit, which the
 verified merge requires for every pull request with a commit an AI wrote. Free providers only, the
@@ -58,7 +65,10 @@ MARK = "<!-- ai-review: %s %s -->"
 MARK_RE = re.compile(r"<!-- ai-review: ([0-9a-f]{40}) (approve|reject|no-answer) -->")
 DATA_RE = re.compile(r"<!-- ai-review-data: (\{.*?\}) -->", re.S)
 AUTOFIX_COMMIT = re.compile(r"^autofix: attempt \d+ after a failure of ")
-AUTHOR = re.compile(r"^Author: (Antigravity|Groq|Z\.AI|OpenRouter)(?: / ([^\n]{1,120}))?$", re.M)
+AUTHOR = re.compile(r"^Author: (Antigravity|Groq|Z\.AI|OpenRouter|ChatGPT|Recipe)(?: / ([^\n]{1,120}))?$", re.M)
+# authors that are none of the free providers: every one of them is independent of such an author
+EXTERNAL = ("ChatGPT", "Recipe")
+MOST = 3                        # reviewers of a tier-B change (tools/tier-b.py REVIEWS)
 RUN = re.compile(r"^Run: https://github\.com/[\w.-]+/[\w.-]+/actions/runs/(\d{1,20})$", re.M)
 NOT_REVIEWED = ("ike/__init__.py", "PKGBUILD", "README.md", "CHANGELOG.md")     # the automation's own version raise
 RECORDED = "tests/data/lists-recorded/"                                         # written by the workflow
@@ -154,7 +164,7 @@ def authors(commits):
 def reviewers_for(author, all_authors=(), unavailable=()):
     """The providers that may review a fix of this author, in the order they are asked: never the
     author, first those that wrote nothing on the branch. [] when the author is not known."""
-    if author not in REGISTRY.all_names():
+    if author not in REGISTRY.all_names() and author not in EXTERNAL:
         return []
     names = [n for n in REGISTRY.all_names() if n != author and n not in unavailable]
     return [n for n in names if n not in all_authors] + [n for n in names if n in all_authors]
@@ -207,8 +217,9 @@ def gemini_id(model):
     return "-".join(model.split("(")[0].strip().lower().split())
 
 
-def ask_gemini(key, model, system, user, opener, reserve, timeout=150):
-    """The Gemini API's answer text (the provider behind Antigravity), or raises reserve.Stop."""
+def ask_gemini(key, model, system, user, opener, reserve, timeout=150, meter=None):
+    """The Gemini API's answer text (the provider behind Antigravity), or raises reserve.Stop.
+    meter(status, headers, usage, body): what the answer says about the quota (tools/ai-quota.py)."""
     body = json.dumps({"systemInstruction": {"parts": [{"text": system}]},
                        "contents": [{"role": "user", "parts": [{"text": user}]}],
                        "generationConfig": {"temperature": 0.1, "maxOutputTokens": ANSWER_TOKENS,
@@ -220,11 +231,16 @@ def ask_gemini(key, model, system, user, opener, reserve, timeout=150):
     try:
         with opener(req, timeout=timeout) as r:
             data = json.loads(r.read(4_000_000).decode("utf-8", "replace"))
+            headers = getattr(r, "headers", None)
+        if meter:
+            meter(200, headers, data.get("usageMetadata") if isinstance(data, dict) else None, "")
     except urllib.error.HTTPError as e:
         try:
             said = e.read(20_000).decode("utf-8", "replace") if e.fp is not None else ""
         except Exception:
             said = ""
+        if meter:
+            meter(402 if reserve.billing_in(said) else e.code, e.headers, None, said[:2000])
         if reserve.billing_in(said):
             raise reserve.Stop("unavailable", "HTTP %d, billing" % e.code, 0)
         raise reserve.Stop(reserve.classify(e.code), "HTTP %d" % e.code, 0)
@@ -245,29 +261,46 @@ def models_of(provider, env, reserve):
     if provider == "Antigravity":
         key = (env.get(REGISTRY.GEMINI_KEY) or "").strip()
         configured = [m.strip() for m in (env.get(REGISTRY.GEMINI_MODELS_VAR) or "").split(",") if m.strip()]
-        return [(m, GEMINI_BUDGET, (lambda s, u, o, m=m: ask_gemini(key, m, s, u, o, reserve)))
+        return [(m, GEMINI_BUDGET, (lambda s, u, o, meter=None, m=m: ask_gemini(key, m, s, u, o, reserve,
+                                                                                meter=meter)))
                 for m in (configured + list(REGISTRY.GEMINI_MODELS))[:3]] if key else []
     out = []
     for name, url, key, model, budget, _tokens in reserve.chain(env):
         if name == provider:
-            out.append((model, budget, (lambda s, u, o, url=url, key=key, model=model: reserve.ask(
+            out.append((model, budget, (lambda s, u, o, meter=None, url=url, key=key, model=model: reserve.ask(
                 url, key, model, [{"role": "system", "content": s}, {"role": "user", "content": u}],
-                opener=o, max_tokens=ANSWER_TOKENS))))
+                opener=o, max_tokens=ANSWER_TOKENS, **({"meter": meter} if meter else {})))))
     return out
 
 
-def ask_reviewer(provider, system, user, env, opener, reserve):
+def ask_reviewer(provider, system, user, env, opener, reserve, spend=None):
     """One provider's review: {"provider", "model", "verdict", "reasons"}, or None (no answer: every
-    model busy, out of quota, not free, too small for the change, or an answer that is not the JSON)."""
+    model busy, out of quota, not free, too small for the change, or an answer that is not the JSON).
+    spend: the budget of the free quotas (tools/ai-quota.py Budget), or None."""
     for model, budget, ask in models_of(provider, env, reserve):
         if len(system) + len(user) > budget:
             print("%s / %s: the change does not fit (%d characters): not asked" % (
                 provider, reserve.for_log(model), len(user)), flush=True)
             continue
         for _try in (1, 2):
+            size, meter = 0, None
+            if spend is not None:
+                size = int((len(system) + len(user)) / float(spend.limits.get("chars_per_token") or 3)) + ANSWER_TOKENS
+                ok, why = spend.allows(provider, size, "review")
+                if not ok:
+                    print("%s: not asked (%s)" % (provider, reserve.for_log(why)), flush=True)
+                    spend.skipped[provider] = why
+                    return None
+                seen = []
+
+                def meter(status, headers, usage, body, seen=seen, size=size):
+                    seen.append(status)
+                    spend.note(provider, size, "review", usage=usage, headers=headers, status=status, body=body)
             try:
-                answer = ask(system, user, opener)
+                answer = ask(system, user, opener, meter) if meter else ask(system, user, opener)
             except reserve.Stop as s:
+                if spend is not None and not seen:
+                    spend.note(provider, 0, "review")
                 print("%s / %s: no answer (%s)" % (provider, reserve.for_log(model), reserve.for_log(s.args[0])),
                       flush=True)
                 if s.args[0] in ("auth", "unavailable", "toolarge"):
@@ -285,10 +318,12 @@ def ask_reviewer(provider, system, user, env, opener, reserve):
 
 
 def review(diff, failure, author, all_authors=(), env=os.environ, opener=urllib.request.urlopen, reserve=None,
-           nonce=None):
-    """The reviews of one change: {"verdict": approve | reject | no-answer, "author", "reviews", "why"}."""
+           nonce=None, needed=NEEDED, spend=None):
+    """The reviews of one change: {"verdict": approve | reject | no-answer, "author", "reviews", "why",
+    "needed"}. needed: 2, or 3 for a change of a tier-B file (never fewer than NEEDED)."""
     reserve = reserve or _tool("autofix-reserve")
-    out = {"verdict": "no-answer", "author": author, "reviews": [], "why": ""}
+    needed = max(NEEDED, min(MOST, int(needed or NEEDED)))
+    out = {"verdict": "no-answer", "author": author, "reviews": [], "why": "", "needed": needed}
     if not diff.strip():
         return dict(out, why="the AI's change could not be read (no diff)")
     if len(diff) > MAX_DIFF:
@@ -299,32 +334,34 @@ def review(diff, failure, author, all_authors=(), env=os.environ, opener=urllib.
                              "told independent of it")
     user = request_text(diff, failure, nonce or secrets.token_hex(12))
     for provider in order:
-        got = ask_reviewer(provider, SYSTEM, user, env, opener, reserve)
+        got = ask_reviewer(provider, SYSTEM, user, env, opener, reserve, spend)
         if got is None:
             continue
         out["reviews"].append(got)
         if got["verdict"] == "reject":
             return dict(out, verdict="reject", why="%s rejected it" % provider)
-        if len(out["reviews"]) >= NEEDED:
-            return dict(out, verdict="approve", why="%d independent reviewers approved" % NEEDED)
+        if len(out["reviews"]) >= needed:
+            return dict(out, verdict="approve", why="%d independent reviewers approved" % needed)
     return dict(out, why="only %d of %d reviewers answered (the others are busy, out of quota or have no key): "
-                         "asked again later" % (len(out["reviews"]), NEEDED))
+                         "asked again later" % (len(out["reviews"]), needed))
 
 
-def problem(result, sha, author):
+def problem(result, sha, author, needed=NEEDED):
     """Why a published review does not let this commit merge, or "" (tools/automerge.py): it must be
-    of this commit, approve, with two reviews of two providers, none the author's."""
+    of this commit, approve, with two reviews of two providers (three of three for a change of a
+    tier-B file: needed), none the author's."""
+    need = max(NEEDED, int(needed or 0))          # never fewer than two
     if not isinstance(result, dict) or result.get("sha") != sha:
         return "no review of this commit"
     if result.get("verdict") != "approve":
         return "the reviewers did not approve (%s)" % clean(result.get("verdict"), 20)
     reviews = result.get("reviews")
-    if not isinstance(reviews, list) or len(reviews) < NEEDED or any(
+    if not isinstance(reviews, list) or len(reviews) < need or any(
             not isinstance(r, dict) or r.get("verdict") != "approve" for r in reviews):
-        return "fewer than %d approving reviews" % NEEDED
+        return "fewer than %d approving reviews" % need
     providers = [r.get("provider") for r in reviews]
-    if len(set(providers)) < NEEDED or any(p not in REGISTRY.all_names() for p in providers):
-        return "the reviewers are not %d different providers" % NEEDED
+    if len(set(providers)) < need or any(p not in REGISTRY.all_names() for p in providers):
+        return "the reviewers are not %d different providers" % need
     if not author or author in providers or result.get("author") != author:
         return "a reviewer is the provider that wrote the fix, or the author is not recorded"
     return ""
@@ -369,7 +406,8 @@ def rejections(comments):
 def comment_text(result):
     """The pull request's comment, in plain Italian, with the mark and the data read back later."""
     sha, verdict = result["sha"], result["verdict"]
-    words = {"approve": "**approvata** da due AI indipendenti", "reject": "**respinta**",
+    words = {"approve": "**approvata** da %s AI indipendenti" % ("tre" if result.get("needed") == MOST else "due"),
+             "reject": "**respinta**",
              "no-answer": "**non ancora fatta** (verrà richiesta di nuovo, non serve fare niente)"}[verdict]
     lines = [MARK % (sha, verdict), "### Revisione delle AI indipendenti (commit %s)" % sha[:10], "",
              "Correzione scritta da: %s. Revisione: %s. %s" % (result.get("author") or "non registrato", words,
@@ -464,7 +502,7 @@ def prepare(repo, sha, out, api=gh_api, diff=ai_diff):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     request = {"sha": sha, "pr": pr["number"], "ref": pr["head"]["ref"], "author": author, "authors": everyone,
-               "files": files}
+               "files": files, "needed": _tool("tier-b").needed_reviews(files)}
     (out / "request.json").write_text(json.dumps(request) + "\n", "utf-8")
     (out / "diff.patch").write_text(diff(sha, files), "utf-8")
     (out / "failure.md").write_text(failure_of(repo, run.group(1), api) if run else "", "utf-8")
@@ -477,7 +515,8 @@ def publish(repo, result, api=gh_api):
     said = ", ".join("%s: %s" % (r["provider"], r["verdict"]) for r in result.get("reviews") or []) or "no answer yet"
     api("repos/%s/issues/%d/comments" % (repo, result["pr"]), method="POST", data={"body": comment_text(result)})
     api("repos/%s/statuses/%s" % (repo, result["sha"]), method="POST",
-        data={"state": state, "context": STATUS, "description": ("two independent AI reviewers: " + said)[:140]})
+        data={"state": state, "context": STATUS, "description": ("%d independent AI reviewers: %s" % (
+            max(NEEDED, int(result.get("needed") or NEEDED)), said))[:140]})
     return state
 
 
@@ -490,6 +529,8 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     p.add_argument("--out", required=True)
     r = sub.add_parser("review")
     r.add_argument("--dir", required=True)
+    r.add_argument("--quota-limits", help="tools/ai-quota.json (default: next to this file)")
+    r.add_argument("--quota-state", help="quota.json of the data branch: today's use of the free quotas")
     u = sub.add_parser("publish")
     u.add_argument("--repo", required=True)
     u.add_argument("--dir", required=True)
@@ -513,11 +554,20 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     folder = Path(a.dir)
     request = json.loads((folder / "request.json").read_text("utf-8"))
     if a.cmd == "review":
+        spend = None
+        if a.quota_state or a.quota_limits:
+            quota = _tool("ai-quota")
+            spend = quota.Budget(quota.load_limits(a.quota_limits),
+                                 quota.load_state(a.quota_state) if a.quota_state else None, request.get("ref") or "")
+        # never fewer reviewers than the files ask for, whatever the request says
+        needed = max(int(request.get("needed") or NEEDED), _tool("tier-b").needed_reviews(request.get("files") or []))
         result = review((folder / "diff.patch").read_text("utf-8", "replace"),
                         (folder / "failure.md").read_text("utf-8", "replace"), request.get("author") or "",
-                        request.get("authors") or (), env, opener)
+                        request.get("authors") or (), env, opener, needed=needed, spend=spend)
         result.update(sha=request["sha"], pr=request["pr"], ref=request["ref"], files=request.get("files") or [])
         (folder / "result.json").write_text(json.dumps(result, ensure_ascii=True) + "\n", "utf-8")
+        if spend is not None:
+            (folder / "usage.json").write_text(json.dumps(spend.delta()) + "\n", "utf-8")
         print("AI review: %s (%s)" % (result["verdict"], clean(result["why"], 200)))
         return 0
     result = json.loads((folder / "result.json").read_text("utf-8"))

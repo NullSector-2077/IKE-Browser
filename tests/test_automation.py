@@ -595,8 +595,12 @@ def jobs_of(text):
 def test_autofix_workflow_permissions():
     text = (WORKFLOWS / "autofix.yml").read_text()
     jobs = jobs_of(text)
+    # (part 2 of AUTOMAT, 2026-11-23: adopt, try, again, help and adopt-refused; their rights and what they
+    # may hold are proved in tests/test_automat_part2.py)
     assert set(jobs) == {"plan", "rerun", "fix", "guard", "publish", "report", "self-test", "security-update",
-                         "remember"}
+                         "remember", "adopt", "try", "again", "help", "adopt-refused"}
+    for name in ("adopt", "try", "again", "help", "adopt-refused"):
+        assert "secrets." not in jobs[name], name
     # AUTOMAT's memory: no AI, no secret; it writes the data branch automat/memory only, never main
     assert "secrets." not in jobs["remember"] and "HEAD:refs/heads/automat/memory" in jobs["remember"]
     assert "persist-credentials: false" in jobs["remember"] and "refs/heads/main" not in jobs["remember"]
@@ -2038,7 +2042,10 @@ def test_no_dead_parts_in_the_workflows():
     assert callers == []
     env = (ROOT / ".github/actions/ike-test-env/action.yml").read_text()
     users = [p.name for p in WORKFLOWS.glob("*.yml") if "uses: ./.github/actions/ike-test-env" in p.read_text()]
-    assert sorted(users) == ["security.yml", "tests.yml"]      # 1.1.18: the sandbox job uses it too
+    # 1.1.18: the sandbox job uses it too; part 2 of AUTOMAT: the automatic fix's job try runs the tests
+    # that failed on a fix before the whole suite (a job with no key and a token that only reads)
+    assert sorted(users) == ["autofix.yml", "security.yml", "tests.yml"]
+    assert jobs_of((WORKFLOWS / "autofix.yml").read_text())["try"].count("uses: ./.github/actions/ike-test-env") == 1
     assert "autofix.yml:" not in env and "shared by tests.yml and autofix.yml" not in env
     assert "guard-refused.md" not in (WORKFLOWS / "autofix.yml").read_text()
 

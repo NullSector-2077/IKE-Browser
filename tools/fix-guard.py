@@ -40,6 +40,12 @@ The rules of a tier-A file, each one testable:
    allowed only under a new condition that is not a constant, or as the last statement of a
    function. A new statement may not give a constant to a name the old function already sets, nor
    delete it (the flag that says "blocked" overridden after the fact).
+3b. **No old name is bound again** (_rebinds, part 2 of AUTOMAT). A new statement may not define,
+   import, assign, loop over or delete a name the old module or class already binds (a second
+   `def allowed(...)` at the end of the file would silently replace the old one, `TABLE = TABLE[:1]`
+   would empty a table after it was written), may not shadow an old function, class or import inside a
+   function, and may not change an old module-level object through an attribute, an index or a
+   method that removes entries (`K.method = ...`, `TABLE[k] = ...`, `TABLE.clear()`).
 4. **Nothing new that reaches out** (capability_problems): no new import but a few harmless modules
    (SAFE_IMPORTS), no more calls than before of eval, exec, compile, __import__, open, os.system and
    the process, file-writing, loading and network calls (RISKY), and no new text that looks like an
@@ -60,6 +66,15 @@ The rules of a tier-A file, each one testable:
 What this does not prove: a fix can weaken a protection by adding code (a new condition that is
 true too often, a new entry in a list of exceptions). That is what the differential check
 ("Nothing gets worse", category no-regression), the whole suite and the two reviewers are for.
+
+**Tier B behind the owner's switch** (part 2 of AUTOMAT). With the repository variable
+``AUTOMAT_TIER_B`` set to ``on`` by the owner (only the owner can: a setting of the repository, never
+a file), and only then, callers pass ``tier_b=True`` and a few tier-B files open in their narrowest
+form, judged by tools/tier-b.py: a workflow where nothing changes but a pinned version, and
+ike/app.py, ike/updater.py and ike_boot.py under the additive rule above plus fixed invariants (the
+signature check, the engine's protection lists only grow, the 24-hour update check). Everything
+else of tier B stays never an AI's, and so do the rule-keepers (this file, the merge, the reviewers,
+"Nothing gets worse", the patch checker, ChatGPT's guard). Off, the default: nothing changes.
 
     fix-guard.py --base REV --head REV [--repo DIR] [--engine-candidate] [FILE ...]
 """
@@ -108,6 +123,15 @@ TIER_B_FUNCTIONS = {"ike/scriptlets.py": ("Scriptlets.host_scripts",)}
 
 
 MANIFEST = "components.json"       # the component manifest: an AI may add a missing entry (rule 7)
+# tier B in its narrowest form, only with the owner's switch AUTOMAT_TIER_B (tools/tier-b.py judges them)
+TIER_B_OPEN_PY = ("ike/app.py", "ike/updater.py", "ike_boot.py")
+TIER_B_OPEN_WORKFLOW = re.compile(r"^\.github/(?:workflows/[A-Za-z0-9_.-]+\.yml|actions/[A-Za-z0-9_./-]+/action\.yml)$")
+
+
+def tier_b_open(path):
+    """A tier-B file an AI may change in its narrowest form when the owner turned AUTOMAT_TIER_B on."""
+    path = str(path or "")
+    return path in TIER_B_OPEN_PY or (bool(TIER_B_OPEN_WORKFLOW.match(path)) and ".." not in path)
 
 
 def _tool(name):
@@ -344,8 +368,111 @@ def _line(node):
     return getattr(node, "lineno", 0)
 
 
-def _additive(old, new, where, tail_ok, old_targets, out):
-    """The new statements are the old ones, in order, with more between them (rules 1 to 3)."""
+# --- no old name is bound again (rule 3b) ---------------------------------------------------------
+
+# methods that take entries out of a table or change one in place
+REMOVING_METHODS = {"clear", "pop", "popitem", "remove", "discard", "difference_update", "intersection_update",
+                    "symmetric_difference_update", "__delitem__", "__setitem__", "__setattr__", "__delattr__",
+                    "__init__", "sort", "reverse", "insert"}
+
+
+def _target_names(target):
+    """The plain names a binding target binds (a tuple or a starred target: each of them)."""
+    if isinstance(target, (ast.Attribute, ast.Subscript)):
+        return set()
+    return {n.id for n in ast.walk(target) if isinstance(n, ast.Name)}
+
+
+def _bindings(stmts, callables=None):
+    """The names the statements bind in their own scope (not inside nested functions or classes): defs,
+    classes, imports, assignments, loop and with targets, handlers' names, walrus targets. callables,
+    when given, gets the names bound by a def, a class or an import."""
+    out = set()
+    todo = list(stmts)
+    while todo:
+        s = todo.pop()
+        if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            out.add(s.name)
+            if callables is not None:
+                callables.add(s.name)
+            todo.extend(s.decorator_list)
+            continue
+        if isinstance(s, ast.Lambda):
+            continue
+        if isinstance(s, (ast.Import, ast.ImportFrom)):
+            for a in s.names:
+                name = a.asname or a.name.split(".")[0]
+                out.add(name)
+                if callables is not None:
+                    callables.add(name)
+        elif isinstance(s, (ast.Assign, ast.AugAssign, ast.AnnAssign)):
+            for t in (s.targets if isinstance(s, ast.Assign) else [s.target]):
+                out |= _target_names(t)
+        elif isinstance(s, (ast.For, ast.AsyncFor, ast.comprehension)):
+            out |= _target_names(s.target)
+        elif isinstance(s, ast.withitem) and s.optional_vars is not None:
+            out |= _target_names(s.optional_vars)
+        elif isinstance(s, ast.ExceptHandler) and s.name:
+            out.add(s.name)
+        elif isinstance(s, ast.NamedExpr):
+            out |= _target_names(s.target)
+        elif isinstance(s, ast.Delete):
+            for t in s.targets:
+                out |= _target_names(t)
+        elif isinstance(s, (ast.MatchAs, ast.MatchStar)) and s.name:
+            out.add(s.name)
+        todo.extend(ast.iter_child_nodes(s))
+    return out
+
+
+def _base_name(node):
+    """The name an attribute or index chain starts from (K.m, TABLE[k].x -> K, TABLE), or ""."""
+    while isinstance(node, (ast.Attribute, ast.Subscript)):
+        node = node.value
+    return node.id if isinstance(node, ast.Name) else ""
+
+
+def _rebinds(stmt, kind, names, ctx):
+    """Why a new statement binds again, shadows or changes in place something the old code defines, or
+    "". kind: the scope the statement is added to ("module", "class" or "function"); names: what the old
+    code binds in that scope; ctx: {"module": the old module's names, "callables": its defs, classes and
+    imports, "locals": the old names of the function the statement is added to}."""
+    module, callables = ctx.get("module", set()), ctx.get("callables", set())
+    # 1. in the scope itself: the names the new statement binds
+    taken = names if kind in ("module", "class") else (callables - ctx.get("locals", set()))
+    again = sorted(_bindings([stmt]) & taken)
+    if again:
+        return "binds %s again, which the old code already defines (a later definition replaces it)" % again[0]
+    # 2. anywhere inside it (a new function runs when the new code calls it): an old module-level object
+    #    changed through an attribute, an index or a method that removes entries
+    local = (_bindings([stmt]) | ctx.get("locals", set())) if kind == "function" else set()
+    for node in ast.walk(stmt):
+        targets = []
+        if isinstance(node, (ast.Assign, ast.AugAssign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        elif isinstance(node, ast.Delete):
+            targets = node.targets
+        for t in targets:
+            for sub in ([t] if not isinstance(t, (ast.Tuple, ast.List)) else t.elts):
+                base = _base_name(sub) if isinstance(sub, (ast.Attribute, ast.Subscript)) else ""
+                if base and base in module and base not in local and base not in ("self", "cls"):
+                    return "changes %s in place (%s), which the old code defines" % (base, ast.unparse(sub)[:50])
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and \
+                node.func.attr in REMOVING_METHODS:
+            base = _base_name(node.func.value)
+            if base and base in module and base not in local and base not in ("self", "cls"):
+                return "calls %s.%s(), which takes entries out of or rewrites what the old code defines" % (
+                    base, node.func.attr)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node is not stmt \
+                and kind != "class" and node.name in callables:
+            return "defines %s again inside new code, which hides the old one" % node.name
+    return ""
+
+
+def _additive(old, new, where, tail_ok, old_targets, out, scope=None, ctx=None):
+    """The new statements are the old ones, in order, with more between them (rules 1 to 3b)."""
+    kind, names = scope or ("function", set())
+    ctx = ctx or {}
     j = 0
     pairs, inserted = [], []
     for o in old:
@@ -365,15 +492,21 @@ def _additive(old, new, where, tail_ok, old_targets, out):
             out.append("%s: line %d of the new file leaves the old code before it ran (%s): a new return, raise, "
                        "break or continue needs a new condition that is not a constant" % (
                            where, _line(n), ast.unparse(n).split("\n")[0][:70]))
-        why = _overrides(n, old_targets)
+        why = _overrides(n, old_targets) or _rebinds(n, kind, names, ctx)
         if why:
             out.append("%s: line %d of the new file %s" % (where, _line(n), why))
     for o, n in pairs:
         if _header(o) is None:
             continue
         inner = "%s > %s" % (where, getattr(o, "name", None) or "%s at line %d" % (type(o).__name__.lower(), _line(o)))
-        scope = isinstance(o, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
-        targets = _targets(o.body) if scope else old_targets
+        is_scope = isinstance(o, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        targets = _targets(o.body) if is_scope else old_targets
+        below, below_ctx = (kind, names), ctx
+        if isinstance(o, ast.ClassDef):
+            below = ("class", _bindings(o.body))
+        elif is_scope:
+            mine = _bindings(o.body) | {a.arg for a in ast.walk(o.args) if isinstance(a, ast.arg)}
+            below, below_ctx = ("function", mine), dict(ctx, locals=mine)
         if isinstance(o, (ast.Try, getattr(ast, "TryStar", ast.Try))):
             if len(n.handlers) < len(o.handlers) or any(
                     _dump(a.type) != _dump(b.type) or a.name != b.name for a, b in zip(o.handlers, n.handlers)):
@@ -381,7 +514,7 @@ def _additive(old, new, where, tail_ok, old_targets, out):
                     where, _line(o)))
                 continue
             for a, b in zip(o.handlers, n.handlers):
-                _additive(a.body, b.body, inner + " > except", False, targets, out)
+                _additive(a.body, b.body, inner + " > except", False, targets, out, below, below_ctx)
             for b in n.handlers[len(o.handlers):]:
                 if _leaves(b.body) is False and not any(isinstance(x, ast.Raise) for x in ast.walk(b)) and \
                         _dump(b.type) in ("", _dump(ast.Name("Exception")), _dump(ast.Name("BaseException"))):
@@ -390,14 +523,14 @@ def _additive(old, new, where, tail_ok, old_targets, out):
         old_parts, new_parts = dict(_bodies(o)), dict(_bodies(n))
         for label, body in old_parts.items():
             is_tail = isinstance(o, (ast.FunctionDef, ast.AsyncFunctionDef)) and label == "body"
-            _additive(body, new_parts.get(label, []), inner, is_tail, targets, out)
+            _additive(body, new_parts.get(label, []), inner, is_tail, targets, out, below, below_ctx)
         for label, body in new_parts.items():
             if label not in old_parts:           # a new else or finally of an old statement
                 if _leaves(body):
                     out.append("%s: a new %s at line %d leaves the old code that follows" % (
                         inner, "else" if label == "orelse" else label, _line(body[0])))
                 for s in body:
-                    why = _overrides(s, targets)
+                    why = _overrides(s, targets) or _rebinds(s, below[0], below[1], below_ctx)
                     if why:
                         out.append("%s: line %d of the new file %s" % (inner, _line(s), why))
 
@@ -426,7 +559,10 @@ def additive_problems(name, old, new):
     frozen = TIER_B_FUNCTIONS.get(name, ())
     if frozen and _function_ranges(a, frozen) != _function_ranges(b, frozen):
         out.append("%s: %s is YouTube's ad blocking: never changed by an AI (tier B)" % (name, ", ".join(frozen)))
-    _additive(a.body, b.body, name, False, _targets(a.body), out)
+    callables = set()
+    module = _bindings(a.body, callables)
+    _additive(a.body, b.body, name, False, _targets(a.body), out, ("module", module),
+              {"module": module, "callables": callables})
     return out
 
 
@@ -527,6 +663,19 @@ CONSTANT_ASSIGN = re.compile(r"^\s*(?:var\s+|let\s+|const\s+|let\s+mut\s+)?([\w$
                              r"(?:false|true|null|undefined|None|!0|!1|0|1|''|\"\"|'off'|\"off\"|\{\s*\}|\[\s*\])\s*[;,]?\s*$")
 
 
+# a declaration (JavaScript and Rust), and an assignment to a name, a property or an index
+DECLARES = re.compile(r"^\s*(?:export\s+)?(?:pub(?:\([a-z]+\))?\s+)?(?:async\s+)?"
+                      r"(function\s*\*?\s+|var\s+|let\s+mut\s+|let\s+|const\s+|static\s+(?:mut\s+)?|fn\s+)"
+                      r"([A-Za-z_$][\w$]*)")
+ASSIGNS = re.compile(r"^\s*(?:\}\s*)?([A-Za-z_$][\w$]*)((?:\s*\.\s*[\w$]+|\s*\[[^\]]*\])*)\s*"
+                     r"(?:[-+*/%|&^]|\|\||&&|\?\?|<<|>>>?)?=(?![=>])")
+
+
+def declared(text):
+    """The names a script declares (function, var, let, const, fn, static)."""
+    return {m.group(2) for m in (DECLARES.match(_strip_strings(ln)) for ln in (text or "").split("\n")) if m}
+
+
 def _code_lines(text):
     """The lines of code of a script, without blank lines and whole-line comments."""
     return [ln.strip() for ln in (text or "").split("\n")
@@ -561,15 +710,30 @@ def line_additive(name, old, new, risky):
     if j < len(b):
         runs.append(b[j:])
     known = set(re.findall(r"[A-Za-z_$][\w$]*", old or ""))
+    had = declared(old)
     before = hosts_in(_strings(old))
     for run in runs:
         depth = 0
+        mine = set()                              # what the new lines themselves declare inside their own blocks
         for line in run:
             bare = _strip_strings(line)
             opened_before = depth
             depth += bare.count("{") - bare.count("}")
             # a closing brace first ("} else {") ends the block before the line's own words
             level = min(opened_before, depth) if bare.lstrip().startswith("}") else opened_before
+            # rule 3b: an old declaration is not declared again where the old code stands (a second
+            # `function level()` replaces the first, a `let blocked` hides the old one), and nothing the
+            # old file declares is assigned to (its value, a property, an index)
+            d = DECLARES.match(bare)
+            if d and d.group(2) in had and (level <= 0 or d.group(1).startswith("var")):
+                out.append("%s: a new line declares %s again, which the old file already declares (%s)"
+                           % (name, d.group(2), line[:60]))
+            elif d and level > 0:
+                mine.add(d.group(2))
+            a = None if d else ASSIGNS.match(bare)
+            if a and a.group(1) in had and a.group(1) not in mine and a.group(1) not in ("self", "this"):
+                out.append("%s: a new line assigns to %s, which the old file declares (%s)"
+                           % (name, (a.group(1) + a.group(2)).replace(" ", "")[:40], line[:60]))
             if EXIT_WORD.search(bare) and level <= 0 and not re.search(
                     r"\b(?:function\b|fn\s|=>)", bare.split("return")[0].split("throw")[0]):
                 out.append("%s: a new line leaves the old code (%s): only inside a block the change itself opens"
@@ -605,11 +769,21 @@ def json_superset(old, new):
 
 # --- one file, one pull request ----------------------------------------------------------------
 
-def file_problems(name, old, new, status="modified", engine_candidate=False, sha_of=None):
+def file_problems(name, old, new, status="modified", engine_candidate=False, sha_of=None, tier_b=False,
+                  tags=None):
     """Why this file of an AI fix is refused by the static guard (a list; empty: accepted).
-    sha_of(path): the sha256 of a file of the changed tree, or "" (for the manifest's entries)."""
+    sha_of(path): the sha256 of a file of the changed tree, or "" (for the manifest's entries).
+    tier_b: the owner turned AUTOMAT_TIER_B on, so a few tier-B files open in their narrowest form
+    (tools/tier-b.py); tags(repo): an action's release tags (git ls-remote; tests pass their own)."""
     level = tier(name)
     if level == "B":
+        if tier_b and tier_b_open(name):
+            if status != "modified" or old is None or new is None:
+                return ["%s: added, removed or renamed (an AI fix changes existing files only)" % name]
+            import types
+            return ["tier B (the owner's switch): " + r for r in _tool("tier-b").file_problems(
+                name, old, new, types.SimpleNamespace(additive_problems=additive_problems,
+                                                      capability_problems=capability_problems, _grows=_grows), tags)]
         return ["%s: tier B, never changed by an AI (%s)" % (name, tier_b_reason(name))]
     if status != "modified" or old is None or new is None:
         return ["%s: added, removed or renamed (an AI fix changes existing files only)" % name]
@@ -644,12 +818,13 @@ def changed_lines(old, new):
                difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes() if tag != "equal")
 
 
-def check(changes, engine_candidate=False, exempt=(), max_files=MAX_FILES, max_lines=MAX_LINES, sha_of=None):
+def check(changes, engine_candidate=False, exempt=(), max_files=MAX_FILES, max_lines=MAX_LINES, sha_of=None,
+          tier_b=False, tags=None):
     """The reasons the AI's changes are refused (empty: the static guard passes).
 
     changes: [{"filename", "status", "old_source", "new_source"}], the files the AI commits changed,
     each whole, before and after. exempt: files judged by a rule of their own (a builder's
-    re-anchoring, tools/builder-anchor.py)."""
+    re-anchoring, tools/builder-anchor.py). tier_b: the owner's switch AUTOMAT_TIER_B is on."""
     out, lines, files = [], 0, 0
     for c in changes:
         name = c.get("filename", "")
@@ -657,7 +832,7 @@ def check(changes, engine_candidate=False, exempt=(), max_files=MAX_FILES, max_l
             continue
         files += 1
         old, new = c.get("old_source"), c.get("new_source")
-        out += file_problems(name, old, new, c.get("status", "modified"), engine_candidate, sha_of)
+        out += file_problems(name, old, new, c.get("status", "modified"), engine_candidate, sha_of, tier_b, tags)
         if old is not None and new is not None:
             lines += changed_lines(old, new)
     if files > max_files:
@@ -672,6 +847,11 @@ def protected(changes):
     return sorted(c.get("filename", "") for c in changes if tier(c.get("filename", "")) == "A")
 
 
+def reserved(changes):
+    """The tier-B files among the changes that the owner's switch opens (they need a third reviewer)."""
+    return sorted(c.get("filename", "") for c in changes if tier_b_open(c.get("filename", "")))
+
+
 def _show(repo, rev, path):
     out = subprocess.run(["git", "-C", str(repo), "show", "%s:%s" % (rev, path)], capture_output=True)
     return out.stdout.decode("utf-8", "replace") if out.returncode == 0 else None
@@ -683,6 +863,8 @@ def main(argv=None):
     ap.add_argument("--base", required=True)
     ap.add_argument("--head", required=True)
     ap.add_argument("--engine-candidate", action="store_true")
+    ap.add_argument("--tier-b", action="store_true",
+                    help="the owner turned AUTOMAT_TIER_B on: the narrow form of tools/tier-b.py")
     ap.add_argument("files", nargs="*", help="only these files (default: every file that differs)")
     a = ap.parse_args(argv)
     names = a.files or [n for n in subprocess.run(
@@ -699,7 +881,7 @@ def main(argv=None):
         text = _show(a.repo, a.head, path)
         return hashlib.sha256(subprocess.run(["git", "-C", a.repo, "show", "%s:%s" % (a.head, path)],
                                              capture_output=True).stdout).hexdigest() if text is not None else ""
-    reasons = check(changes, a.engine_candidate, sha_of=sha_of)
+    reasons = check(changes, a.engine_candidate, sha_of=sha_of, tier_b=a.tier_b)
     for r in reasons:
         print(re.sub(r":(?=:)", ": ", re.sub(r"\s+", " ", r))[:400])
     if not reasons:

@@ -83,6 +83,12 @@ jobs:
           # token), and the push of a refresh (its push runs the pull request's own checks, which a push
           # of the workflow's token leaves waiting for an approval)
           IKE_WORKFLOW_TOKEN: ${{ secrets.IKE_WORKFLOW_TOKEN }}
+          # AUTOMAT part 2: the owner's two switches. Repository variables: only the owner sets them, in
+          # GitHub's settings; no file of the repository and no workflow can. Anything but "on" is off.
+          #   AUTOMAT_TIER_B             a few tier-B files open to the AIs in their narrowest form (tools/tier-b.py)
+          #   AUTOMAT_CHATGPT_AUTOMERGE  a verified ChatGPT fix is adopted into AUTOMAT's chain (adoptable)
+          AUTOMAT_TIER_B: ${{ vars.AUTOMAT_TIER_B }}
+          AUTOMAT_CHATGPT_AUTOMERGE: ${{ vars.AUTOMAT_CHATGPT_AUTOMERGE }}
         run: python3 -I tools/automerge.py --repo "${{ github.repository }}" --sha "$SHA"
       # AUTOMAT's memory (tools/automat-memory.py, the data branch automat/memory): the fix that was merged
       # solved its error; a later error with the same signature gets it as a hint. No AI here.

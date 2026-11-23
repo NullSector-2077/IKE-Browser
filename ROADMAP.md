@@ -66,6 +66,28 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Owner's decisions
 
+- 2026-11-23, **AUTOMAT, part 2** (what the first part left unbuilt; the
+  owner wants nothing left behind). Built, all inert towards `main` until a
+  check passes: the notice "DEVI AIUTARCI CON CHATGPT" after
+  `AUTOMAT_CHATGPT_AFTER` (default 4) failed attempts in a row on one error,
+  or two days without any free provider, with a ready message for ChatGPT
+  (`tools/automat-help.py`); the budget of each provider's free quota, its
+  limits as data (`tools/ai-quota.json`, unverified ones marked) corrected by
+  the live headers, a reserve kept for the reviewers (`tools/ai-quota.py`);
+  deterministic recipes before any AI (`tools/automat-recipes.py`); the
+  upstream change in the context (`tools/upstream-diff.py`); the inner loop
+  (strict patch format, cheap checks, the errors back to the same AI, the
+  failing tests first: `tools/autofix-inner.py`, the job `try`); routing by
+  kind of task and loop detection (`tools/automat-route.py`). The static
+  guard also refuses a new statement that binds an old name again. Two
+  switches, **off until the owner turns them on** in GitHub's settings:
+  `AUTOMAT_CHATGPT_AUTOMERGE` (a verified ChatGPT fix is adopted and merges
+  under the gate of an AI's fix) and `AUTOMAT_TIER_B` (tier B in its
+  narrowest form: a workflow's pinned versions; statements added to
+  `ike/app.py`, `ike/updater.py`, `ike_boot.py` outside their frozen
+  functions; three reviewers). Still to do by a person: check each
+  provider's limits against its documentation and mark them verified
+  (docs/MAINTENANCE.md, "AUTOMAT, part 2").
 - 2026-11-22, **AUTOMAT**, the full automation (the owner's name for the
   whole automatic maintenance; in the owner's words: "intervento umano
   limitato solo alla firma... 100% lavoro in team di ia", and "niente

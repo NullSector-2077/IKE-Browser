@@ -75,8 +75,17 @@ of a fix that passed its tests but was refused by the verified merge or by the r
 no AI may ever fix stays an issue for the owner: a security advisory with no safe fix (blocked, the
 owner's own decision) and the failures of GitHub, a setting or a workflow.
 
+Part 2 of AUTOMAT. ``--chatgpt-work chatgpt/<pull request>/<sha>`` (started by tools/automerge.py,
+and only when the owner turned the repository variable AUTOMAT_CHATGPT_AUTOMERGE on; checked here
+again): ChatGPT's fix is **adopted**. Its own diff is not written by any AI of this workflow: the job
+``adopt`` reads it from the pull request, and the guard job checks it exactly as an AI's patch (the
+checker, the static guard) and writes the ``autofix:`` commit, ``Author: ChatGPT``, on the branch the
+fix answers: the automatic fix's own for a failure of main, the candidate's for a failure of a
+candidate. From there it is an AI's fix like any other (plan_chatgpt).
+
     autofix-plan.py --run-id ID --logs FILE [--repo OWNER/NAME]
     autofix-plan.py --refused-work refused/SHA --run-id ID --out-dir DIR [--repo OWNER/NAME]
+    autofix-plan.py --chatgpt-work chatgpt/N/SHA --out-dir DIR [--repo OWNER/NAME]
 """
 
 import argparse
@@ -916,6 +925,78 @@ def plan_refused(repo, work, out_dir, api=None, tip_of=None, attempts_of=None, t
     return plan
 
 
+# --- part 2 of AUTOMAT: a ChatGPT fix adopted into the chain (only with the owner's switch) -------------
+
+CHATGPT_WORK = re.compile(r"^chatgpt/(\d{1,8})/([0-9a-f]{40})$")
+CHATGPT_SWITCH = "AUTOMAT_CHATGPT_AUTOMERGE"
+
+
+def plan_chatgpt(repo, work, out_dir, api=None, tip_of=None, attempts_of=None, today_of=None, engine_of=None,
+                 env=None):
+    """The plan that adopts ChatGPT's pull request: where its diff goes (push_branch), from which commit
+    (checkout), as which attempt, under which rules (the same as a failure of that branch's tests).
+    Nothing when the owner's switch is off, the pull request moved, or it is not ChatGPT's."""
+    api = api or gh_api
+    tip_of = tip_of or tip
+    attempts_of = attempts_of or autofix_commits
+    today_of = today_of or autofix_commits_today
+    env = os.environ if env is None else env
+    plan = {"action": "skip", "reason": "", "kind": "", "checkout": "", "push_branch": "", "attempt": "0",
+            "allow_adblock": "false", "workflow": "ChatGPT fix", "security": "false", "findings": "", "mode": "",
+            "builder": "", "head_sha": "", "branch": "", "push_tip": "", "first": "", "recorded": "",
+            "adopt": "", "adopt_sha": "", "adopt_base": ""}
+    m = CHATGPT_WORK.match(work or "")
+    if not m:
+        plan["reason"] = "not a ChatGPT fix's work: %s" % (work or "")[:80]
+        return plan
+    if str(env.get(CHATGPT_SWITCH) or "").strip().lower() != "on":
+        plan["reason"] = "the owner's switch %s is off: a ChatGPT fix waits for the owner's order" % CHATGPT_SWITCH
+        return plan
+    number, sha = int(m.group(1)), m.group(2)
+    try:
+        pr = api("repos/%s/pulls/%d" % (repo, number))
+    except RuntimeError as e:
+        plan["reason"] = "pull request #%d could not be read (%s)" % (number, str(e)[:100])
+        return plan
+    head, base = pr.get("head") or {}, pr.get("base") or {}
+    ref, base_ref = head.get("ref") or "", base.get("ref") or ""
+    if pr.get("state") != "open" or head.get("sha") != sha or not ref.startswith("chatgpt/") \
+            or (head.get("repo") or {}).get("full_name") != repo:
+        plan["reason"] = "pull request #%d is closed, moved, or not a ChatGPT branch of this repository" % number
+        return plan
+    if base_ref == "main":
+        # a failure of main: the automatic fix's own branch, on top of what is there when a fix waits
+        waiting = bool(tip_of(FIX_MAIN)) and bool(api("repos/%s/pulls?state=open&head=%s:%s" % (
+            repo, repo.split("/")[0], FIX_MAIN)))
+        target = FIX_MAIN if waiting else "main"
+    elif base_ref != FIX_MAIN and fixable("Tests", base_ref) and tip_of(base_ref):
+        target = base_ref
+    else:
+        plan["reason"] = "the base of pull request #%d is neither main nor a candidate of the automation (%s)" % (
+            number, base_ref[:60])
+        return plan
+    engine = engine_of(target) if engine_of and target != "main" else False
+    run = {"name": "Tests", "conclusion": "failure", "head_branch": target, "head_sha": tip_of(target),
+           "_tip": tip_of(target), "_repo": repo, "head_repository": {"full_name": repo},
+           "_event": "workflow_dispatch", "run_attempt": 2, "_main_tip": tip_of("main"),
+           "_attempts": attempts_of(target) if target != "main" else 0,
+           "_attempts_today": today_of(target) if target != "main" else 0, "_engine_update": engine}
+    decided = decide(run, [{"name": "tests", "steps": []}], "")
+    plan.update({k: v for k, v in decided.items() if k != "workflow"})
+    title = re.sub(r"[^\w .,:()/-]", "", str(pr.get("title") or ""))[:120]
+    plan.update(workflow="ChatGPT fix #%d" % number, head_sha=run["head_sha"], branch=target,
+                push_tip=tip_of(plan["push_branch"]) if plan.get("push_branch") else "", first="")
+    if plan["action"] == "fix":
+        plan.update(adopt=str(number), adopt_sha=sha, adopt_base=base_ref,
+                    reason="ChatGPT's fix of pull request #%d (%s) is adopted on %s: checked as an AI's patch, "
+                    "then everything an AI's fix needs" % (number, title or ref, plan["push_branch"]))
+        Path(out_dir).mkdir(parents=True, exist_ok=True)
+        (Path(out_dir) / "failure.md").write_text(
+            "# A fix of ChatGPT is adopted\n\n- Pull request: #%d (%s)\n- Branch: %s\n- Into: %s\n- Commit: %s\n"
+            % (number, title, ref, base_ref, sha), "utf-8")
+    return plan
+
+
 # --- the builders' re-anchoring (WP11): a work the daily maintenance starts -------------------
 
 BUILDER_WORK = re.compile(r"^builder/(darkreader|ubo-scriptlets)/(\d{4}-\d\d-\d\d)$")
@@ -1245,6 +1326,27 @@ def main(argv=None):
                             shift=dt.datetime.now(dt.timezone.utc).toordinal())
         if plan["action"] == "skip":
             print("::notice::no automatic fix: %s" % plan["reason"].replace("::", ": "))
+        print(json.dumps(plan, indent=1))
+        out = os.environ.get("GITHUB_OUTPUT")
+        if out:
+            with open(out, "a", encoding="utf-8") as f:
+                for k, v in plan.items():
+                    f.write("%s=%s\n" % (k, str(v).replace("\n", " ")))
+        return 0
+    if argv[:1] == ["--chatgpt-work"]:              # autofix-plan.py --chatgpt-work chatgpt/N/SHA --out-dir DIR
+        cp = argparse.ArgumentParser()
+        cp.add_argument("--chatgpt-work", required=True)
+        cp.add_argument("--run-id", default="")
+        cp.add_argument("--out-dir", required=True)
+        cp.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", ""))
+        c = cp.parse_args(argv)
+
+        def engine_for(branch):
+            return ((branch == MAINTENANCE or branch.startswith(SECURITY_PREFIX)) and engine_update(branch)) or \
+                (isolated(branch) and _tool("update-candidates").wrapper_allowed(branch))
+        plan = plan_chatgpt(c.repo, c.chatgpt_work, c.out_dir, engine_of=engine_for)
+        if plan["action"] == "skip":
+            print("::notice::ChatGPT's fix is not adopted: %s" % plan["reason"].replace("::", ": "))
         print(json.dumps(plan, indent=1))
         out = os.environ.get("GITHUB_OUTPUT")
         if out:

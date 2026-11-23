@@ -70,8 +70,14 @@ whether the patch stays inside what an automatic fix may change:
   manifest only with a new entry of a plain download. ChatGPT's guard does not use it (its pull
   requests wait for the owner's order).
 
+- with --tier-b (part 2 of AUTOMAT; only together with --auto, and only when the owner turned the
+  repository variable AUTOMAT_TIER_B on): the few tier-B files of tools/tier-b.py are judged by its
+  narrow rules instead of being refused: a workflow where nothing changes but a pinned version,
+  ike/app.py, ike/updater.py and ike_boot.py under the additive rule plus the fixed invariants. Every
+  other rule of this file stays (the engine's protections are still never touched).
+
     check-autofix-patch.py --repo DIR --patch FILE [--allow-adblock] [--security] [--lists] [--builder ID]
-                           [--related FILE] [--report FILE.md] [--check-only] [--auto]
+                           [--related FILE] [--report FILE.md] [--check-only] [--auto] [--tier-b]
 
 The patch is applied to the index and work tree of DIR only when every rule
 passes; the exit status is 0 then, 1 when the patch is refused (the reasons go
@@ -139,6 +145,12 @@ FORBIDDEN_FILES = {
     # signing notice and their proofs; the rules the AIs are judged by are never an AI's
     "tools/fix-guard.py", "tools/ai-review.py", "tools/component-manifest.py", "tools/release-notice.py",
     "tools/no-regression.py", "tests/test_full_auto.py", "tests/test_inventory_guard.py",
+    # part 2 of AUTOMAT: the narrow form of tier B, the budget of the free quotas and its data, AUTOMAT's
+    # memory, the notice for ChatGPT, the recipes, the routing, the inner loop, the upstream change, and
+    # their proofs: an agent never changes what judges it, feeds it or counts it
+    "tools/tier-b.py", "tools/ai-quota.py", "tools/ai-quota.json", "tools/automat-memory.py",
+    "tools/automat-help.py", "tools/automat-recipes.py", "tools/automat-route.py", "tools/autofix-inner.py",
+    "tools/upstream-diff.py", "tests/test_automat_part2.py",
 }
 # the component manifest: with --auto an AI may add a missing entry (tools/fix-guard.py, rule 7)
 MANIFEST = "components.json"
@@ -460,7 +472,7 @@ def _at_commit(repo, path):
     return shown.stdout if shown.returncode == 0 else None
 
 
-def auto_reasons(repo, patch_text, files, allow_adblock=False, lists=False, builder=""):
+def auto_reasons(repo, patch_text, files, allow_adblock=False, lists=False, builder="", tier_b=False):
     """--auto (2026-11-22): the static guard of a fix that may reach main by itself (tools/fix-guard.py):
     tier B never, a protected file only with statements added, nothing new that reaches out. The old
     files are the commit's, the new ones the patch applied to them in a folder of its own."""
@@ -495,15 +507,18 @@ def auto_reasons(repo, patch_text, files, allow_adblock=False, lists=False, buil
         exempt = (BUILDERS[builder],) if builder in BUILDERS else ()
         return ["static guard: " + r for r in fg.check(changes, engine_candidate=allow_adblock and not lists,
                                                        exempt=exempt, max_files=MAX_FILES, max_lines=MAX_LINES,
-                                                       sha_of=sha_of)]
+                                                       sha_of=sha_of, tier_b=tier_b)]
 
 
-def check(repo, patch_text, allow_adblock=False, security=False, lists=False, builder="", auto=False):
+def check(repo, patch_text, allow_adblock=False, security=False, lists=False, builder="", auto=False,
+          tier_b=False):
     """The list of reasons the patch is refused (empty: accepted). lists: the
     AI analysis of the filter lists (WP8), the adapter only. builder: the
     builders' re-anchoring (WP11), that builder's PATCHES anchors only. auto: a fix
-    of the automation, which may reach main by itself: the static guard too."""
+    of the automation, which may reach main by itself: the static guard too. tier_b (with
+    auto only): the owner's switch AUTOMAT_TIER_B is on, the narrow form of tools/tier-b.py."""
     allow_adblock = allow_adblock or lists
+    tier_b = bool(tier_b and auto and not lists and not builder and not security)
     reasons = []
     stat = git(repo, "apply", "--numstat", "--summary", "-", stdin=patch_text)
     if stat.returncode:
@@ -549,11 +564,13 @@ def check(repo, patch_text, allow_adblock=False, security=False, lists=False, bu
             continue
         if auto and path == MANIFEST and not lists:
             continue                         # judged by the static guard (only a new entry, a plain download)
+        if tier_b and _fix_guard().tier_b_open(path):
+            continue                         # judged by the static guard's narrow form (tools/tier-b.py)
         why = allowed_path(path, allow_adblock, security)
         if why:
             reasons.append("%s: %s" % (path, why))
     if auto:
-        reasons += auto_reasons(repo, patch_text, files, allow_adblock, lists, builder)
+        reasons += auto_reasons(repo, patch_text, files, allow_adblock, lists, builder, tier_b)
     if lists:
         reasons += lists_reasons(files, patch_text, repo)
     if len(files) > MAX_FILES:
@@ -878,7 +895,8 @@ SAFETY = ("outside the repository", "protected file", "third-party or generated"
           "return in the body of a test", "assertion moved into a block", "decorator that may replace a test",
           "empties the parameters of a test", "behaves differently under the tests",
           "touches the engine's protections", "names a RustSec advisory", "weakens blocking",
-          "more than a re-anchoring")
+          "more than a re-anchoring", "is frozen", "protection lists", "not a pinned version",
+          "once every 24 hours")
 
 
 def safety_refusal(reasons):
@@ -901,6 +919,8 @@ def main(argv=None):
     ap.add_argument("--auto", action="store_true",
                     help="a fix of the automation (it may reach main by itself): the static guard too "
                          "(tools/fix-guard.py: no tier B file, no test, protected files only added to)")
+    ap.add_argument("--tier-b", action="store_true",
+                    help="with --auto, when the owner turned AUTOMAT_TIER_B on: the narrow form of tools/tier-b.py")
     a = ap.parse_args(argv)
     # bytes, then text: reading as text would turn a lone carriage return into a
     # new line and hide it from the checks (git sees it as part of the line)
@@ -910,7 +930,7 @@ def main(argv=None):
         if a.report:
             Path(a.report).write_text("The agent changed nothing.\n", "utf-8")
         return 2
-    reasons = check(a.repo, patch_text, a.allow_adblock, a.security, a.lists, a.builder, a.auto)
+    reasons = check(a.repo, patch_text, a.allow_adblock, a.security, a.lists, a.builder, a.auto, a.tier_b)
     related = []
     if a.related:
         try:

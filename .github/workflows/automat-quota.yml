@@ -1,0 +1,65 @@
+# AUTOMAT part 2 (2026-11-23): the reviewers' use of the free quotas, recorded.
+#
+# The AI providers of AUTOMAT are free ones only, and their quotas are budgeted (tools/ai-quota.py,
+# tools/ai-quota.json): the use of each day is kept in quota.json on the data branch automat/memory
+# (never merged into main), next to AUTOMAT's memory. The automatic fix records its own use in its job
+# remember. The two independent reviewers run in ai-review.yml, whose jobs never have contents: write;
+# the step with the keys there only writes numbers (usage.json, in the artifact ai-review-result).
+# This workflow, which holds no key and runs nothing an AI wrote, adds those numbers to the record:
+# tools/ai-quota.py merge takes only known providers and counts.
+name: AUTOMAT quota
+
+on:
+  workflow_run:
+    workflows: ["AI review"]
+    types: [completed]
+
+permissions: {}
+
+concurrency:
+  group: automat-quota
+  cancel-in-progress: false
+
+jobs:
+  record:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read          # the artifact of the review's run
+      contents: write        # the data branch automat/memory only (never main)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: The reviewers' use of the free quotas, into the data branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/review"
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name ai-review-result --dir "$RUNNER_TEMP/review" \
+            || { echo "that run left no result: nothing to record"; exit 0; }
+          test -s "$RUNNER_TEMP/review/usage.json" || { echo "no use was recorded in that run"; exit 0; }
+          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          remote="https://github.com/$GITHUB_REPOSITORY"
+          data="$RUNNER_TEMP/memory-branch"
+          record() {
+          cd "$GITHUB_WORKSPACE"
+          rm -rf "$data"
+          git init -q "$data"
+          cd "$data"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch -q --depth 1 "$remote" refs/heads/automat/memory 2> /dev/null; then
+            git checkout -q -B data FETCH_HEAD
+          else
+            git checkout -q --orphan data
+          fi
+          python3 -I "$GITHUB_WORKSPACE/tools/ai-quota.py" merge --state quota.json \
+            --delta "$RUNNER_TEMP/review/usage.json" || return 1
+          git add quota.json || return 1
+          git -c core.hooksPath=/dev/null commit -q -m "AUTOMAT's quota: the reviewers' use (run $RUN_ID)" || return 0
+          git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" push -q "$remote" HEAD:refs/heads/automat/memory
+          }
+          record || { echo "the data branch moved meanwhile: once more"; sleep 7; record; }

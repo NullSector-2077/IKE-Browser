@@ -33,6 +33,19 @@ not failed this signature yet (first_provider).
 One problem per attempt (focus_section): when the tests fail for several different errors, the
 failure description asks the attempt to fix only the first group.
 
+Part 2 of AUTOMAT adds, still written only by the workflow:
+
+- **the row of failures** (streak, consecutive): per component, how many attempts in a row failed on
+  the same error signature; a merged fix ends the row. tools/automat-help.py reads it for the notice
+  "DEVI AIUTARCI CON CHATGPT";
+- **the kind of task and the patch's fingerprint** of each record (``task``, ``ph``: patch_hash, the
+  added and removed lines without what changes between runs): tools/automat-route.py learns from the
+  success rate per provider and kind of task (rates), and a patch that was already tried and failed
+  for this error is recognised before it is tried again (tried_hashes);
+- **the patch of a merged fix** (at most PATCH_CHARS, in the solved hint): a deterministic recipe
+  (tools/automat-recipes.py) applies it again, with no AI, when the very same error comes back (a
+  candidate rebuilt from main, another component). It goes through every check again.
+
     automat-memory.py focus --failure FILE [--out FILE]
     automat-memory.py signature --failure FILE
     automat-memory.py prompt --memory FILE --component ID --failure FILE [--out FILE]
@@ -40,6 +53,9 @@ failure description asks the attempt to fix only the first group.
     automat-memory.py note --memory FILE --component ID --failure FILE --outcome OUTCOME [--provider P]
                            [--model M] [--files a,b] [--summary FILE] [--detail TEXT] [--attempt N]
     automat-memory.py merged --memory FILE --component ID
+    automat-memory.py streak --memory FILE --component ID            (prints: SIGNATURE COUNT)
+    automat-memory.py tried --memory FILE --component ID --failure FILE   (the fingerprints already tried)
+    automat-memory.py hash --patch FILE
 """
 
 import argparse
@@ -59,6 +75,8 @@ MAX_KEYS = 300
 MAX_BYTES = 256 * 1024
 BUDGET_WORDS = 1500
 SUMMARY_CHARS = 280
+PATCH_CHARS = 6000            # a merged fix's patch kept for the recipe that applies it again
+TASKS = ("rust", "multi-file", "python", "page-script", "builder", "lists", "manifest", "other")
 OUTCOMES = ("published", "tests-failed", "guard-refused", "review-rejected", "merge-refused", "no-fix", "merged")
 FAILED = ("tests-failed", "guard-refused", "review-rejected", "merge-refused", "no-fix")
 TEST_LINE = re.compile(r"^(?:FAILED|ERROR) ((?:tests/)?[\w./-]+\.py(?:::[\w\[\]., -]+)?)")
@@ -142,7 +160,21 @@ def focus_section(failure, shown=12):
 
 
 def empty():
-    return {"schema": SCHEMA, "attempts": {}, "solved": {}}
+    return {"schema": SCHEMA, "attempts": {}, "solved": {}, "streak": {}}
+
+
+def patch_hash(diff):
+    """The fingerprint of a patch: its added and removed lines (not the headers, the line numbers or
+    the spaces at the ends), so the same change has the same fingerprint whoever wrote it. "" for an
+    empty patch."""
+    lines = []
+    for raw in (diff or "").split("\n"):
+        if raw.startswith(("+++", "---")):
+            lines.append(re.sub(r"^(\+\+\+|---) [ab]/", "", raw).strip())
+        elif raw[:1] in ("+", "-"):
+            lines.append(raw[:1] + re.sub(r"\s+", " ", raw[1:]).strip())
+    lines = [ln for ln in lines if len(ln) > 1]
+    return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()[:16] if lines else ""
 
 
 def load(path):
@@ -153,6 +185,8 @@ def load(path):
     if not isinstance(data, dict) or data.get("schema") != SCHEMA or not isinstance(data.get("attempts"), dict) \
             or not isinstance(data.get("solved"), dict):
         return empty()
+    if not isinstance(data.get("streak"), dict):
+        data["streak"] = {}
     return data
 
 
@@ -178,16 +212,44 @@ def bound(memory):
         return max((r.get("date", "") for r in records), default="")
     while len(memory["attempts"]) > MAX_KEYS or (len(json.dumps(memory)) > MAX_BYTES and memory["attempts"]):
         del memory["attempts"][min(memory["attempts"], key=lambda k: newest(memory["attempts"][k]))]
+    while len(json.dumps(memory)) > MAX_BYTES and any(h.get("patch") for hs in memory["solved"].values() for h in hs):
+        # the patches kept for the recipes go first, the oldest first; the hints stay
+        old = min((h for hs in memory["solved"].values() for h in hs if h.get("patch")),
+                  key=lambda h: h.get("date", ""))
+        del old["patch"]
     while len(json.dumps(memory)) > MAX_BYTES and memory["solved"]:
         del memory["solved"][min(memory["solved"], key=lambda k: newest(memory["solved"][k]))]
+    streak = memory.setdefault("streak", {})
+    while len(streak) > MAX_KEYS:
+        del streak[min(streak, key=lambda k: str((streak[k] or {}).get("date", "")))]
     return memory
 
 
+def _failed(memory, component, sig, when):
+    """One more failed attempt of the component on this signature: the row of failures grows, or
+    starts again when the signature is another one."""
+    row = memory.setdefault("streak", {}).get(component)
+    if not isinstance(row, dict) or row.get("sig") != sig:
+        row = {"sig": sig, "n": 0, "since": when}
+    row.update(n=int(row.get("n") or 0) + 1, date=when)
+    memory["streak"][component] = row
+
+
+def consecutive(memory, component):
+    """(signature, count): how many attempts in a row failed on the same error of this component."""
+    row = (memory.get("streak") or {}).get(component)
+    if not isinstance(row, dict):
+        return "", 0
+    return str(row.get("sig") or ""), int(row.get("n") or 0)
+
+
 def note(memory, component, sig, outcome, provider="", model="", files=(), summary="", detail="", attempt=0,
-         now=None):
+         now=None, task="", patch=""):
     """One attempt's record. An earlier record of the component still "published" (its tests were to
     decide) is closed first: a new failure after it means its tests failed (with this signature), a
-    refusal that it was refused."""
+    refusal that it was refused. task: the kind of task (TASKS); patch: the attempt's patch (its
+    fingerprint is kept; the patch itself only while the attempt is "published", for the recipe that
+    applies a merged fix again)."""
     assert outcome in OUTCOMES, outcome
     when = (now or dt.datetime.now(dt.timezone.utc)).strftime("%Y-%m-%d")
     for key, records in memory["attempts"].items():
@@ -198,12 +260,26 @@ def note(memory, component, sig, outcome, provider="", model="", files=(), summa
                 r["outcome"] = outcome if outcome in ("review-rejected", "merge-refused") else "tests-failed"
                 r["detail"] = clean(detail, 400) if outcome in ("review-rejected", "merge-refused") else \
                     "its tests failed after it (error %s)" % sig
+                r.pop("patch", None)
+                _failed(memory, component, r.get("sig") or key.split("@", 1)[-1], when)
     if outcome in ("review-rejected", "merge-refused") and not provider:
         return bound(memory)                     # only the earlier attempt's ending was recorded
     record = {"provider": clean(provider, 40), "model": clean(model, 80), "files": [clean(f, 120) for f in files][:8],
               "summary": clean(summary), "outcome": outcome, "detail": clean(detail, 400), "date": when,
               "attempt": int(attempt or 0), "sig": sig}
+    if task in TASKS:
+        record["task"] = task
+    if patch_hash(patch):
+        record["ph"] = patch_hash(patch)
+    if outcome == "published" and patch and len(patch) <= PATCH_CHARS:
+        record["patch"] = patch
     memory["attempts"].setdefault(_key(component, sig), []).append(record)
+    if outcome in FAILED:
+        _failed(memory, component, sig, when)
+    elif outcome == "published":
+        row = memory.setdefault("streak", {}).get(component)
+        if not isinstance(row, dict) or row.get("sig") != sig:
+            memory["streak"][component] = {"sig": sig, "n": 0, "since": when, "date": when}
     return bound(memory)
 
 
@@ -220,10 +296,43 @@ def merged(memory, component, now=None):
     if last is None:
         return memory
     last.update(outcome="merged", detail="merged into main")
-    memory["solved"].setdefault(last["sig"], []).append(
-        {"component": component, "files": last.get("files", []), "summary": last.get("summary", ""),
-         "provider": last.get("provider", ""), "date": when})
+    hint = {"component": component, "files": last.get("files", []), "summary": last.get("summary", ""),
+            "provider": last.get("provider", ""), "date": when}
+    for key in ("task", "ph"):
+        if last.get(key):
+            hint[key] = last[key]
+    if last.get("patch"):
+        hint["patch"] = last.pop("patch")
+    memory["solved"].setdefault(last["sig"], []).append(hint)
+    memory.setdefault("streak", {}).pop(component, None)          # the row of failures ends
     return bound(memory)
+
+
+def solved_sigs(memory, component):
+    """The signatures a merged fix of this component solved (for the notice that is closed then)."""
+    return sorted(sig for sig, hints in (memory.get("solved") or {}).items()
+                  if any(h.get("component") == component for h in hints))
+
+
+def tried_hashes(memory, component, sig):
+    """The fingerprints of the patches that already failed for this error of this component."""
+    return sorted({r["ph"] for r in memory["attempts"].get(_key(component, sig), [])
+                   if r.get("outcome") in FAILED and r.get("ph")})
+
+
+def rates(memory):
+    """{(provider, task): [merged, failed]} over every record with a kind of task."""
+    out = {}
+    for records in memory["attempts"].values():
+        for r in records:
+            if not r.get("provider") or r.get("task") not in TASKS:
+                continue
+            row = out.setdefault((r["provider"], r["task"]), [0, 0])
+            if r.get("outcome") == "merged":
+                row[0] += 1
+            elif r.get("outcome") in FAILED:
+                row[1] += 1
+    return out
 
 
 def failed_providers(memory, component, sig):
@@ -279,7 +388,8 @@ def prompt_section(memory, component, sig, budget=BUDGET_WORDS):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("cmd", choices=("signature", "prompt", "first", "note", "merged", "focus"))
+    ap.add_argument("cmd", choices=("signature", "prompt", "first", "note", "merged", "focus", "streak", "tried",
+                                    "hash"))
     ap.add_argument("--memory")
     ap.add_argument("--component", default="")
     ap.add_argument("--failure")
@@ -293,6 +403,8 @@ def main(argv=None):
     ap.add_argument("--summary")
     ap.add_argument("--detail", default="")
     ap.add_argument("--attempt", default="0")
+    ap.add_argument("--task", default="")
+    ap.add_argument("--patch")
     a = ap.parse_args(argv)
 
     def text_of(path):
@@ -311,7 +423,16 @@ def main(argv=None):
             Path(a.out).write_text(section, "utf-8")
         print("one problem per attempt: %d groups of failing tests" % len(groups(failure)))
         return 0
+    if a.cmd == "hash":
+        print(patch_hash(text_of(a.patch)))
+        return 0
     memory = load(a.memory)
+    if a.cmd == "streak":
+        print("%s %d" % (consecutive(memory, a.component)[0] or "-", consecutive(memory, a.component)[1]))
+        return 0
+    if a.cmd == "tried":
+        print("\n".join(tried_hashes(memory, a.component, sig)))
+        return 0
     if a.cmd == "prompt":
         section = prompt_section(memory, a.component, sig)
         if a.out:
@@ -324,7 +445,7 @@ def main(argv=None):
     if a.cmd == "note":
         attempt = int(a.attempt) if a.attempt.isdigit() else 0
         note(memory, a.component, sig, a.outcome, a.provider, a.model, [f for f in a.files.split(",") if f],
-             text_of(a.summary), a.detail, attempt)
+             text_of(a.summary), a.detail, attempt, task=a.task, patch=text_of(a.patch))
     else:
         merged(memory, a.component)
     Path(a.memory).write_text(json.dumps(memory, indent=1, sort_keys=True, ensure_ascii=True) + "\n", "utf-8")
