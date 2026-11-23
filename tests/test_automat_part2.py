@@ -472,6 +472,8 @@ def test_the_protection_lists_only_grow_and_no_new_code_names_them():
     ("ike/app.py", "\n\ndef _flag(flags):\n    return flags + ['--disable-web-security']\n", "a text that names an engine switch"),
     ("ike/app.py", "\n\n_ENV = 'QTWEBENGINE_CHROMIUM_FLAGS'\n", "a text that names an engine switch"),
     ("ike/app.py", "\n\ndef _again(app):\n    app.check_updates()\n", "a reference to .check_updates"),
+    ("ike/app.py", "\n\ndef _quiet(app):\n    app.blocker.enabled = False\n", "a constant given to an attribute"),
+    ("ike/app.py", "\n\ndef _forget(app):\n    del app.shields.rules['x']\n", "a constant given to an attribute"),
 ])
 def test_new_code_of_a_tier_b_file_stays_away_from_what_decides(name, added, word):
     old = {"ike/updater.py": UPDATER, "ike/app.py": APP, "ike_boot.py": BOOT}[name]
@@ -479,7 +481,8 @@ def test_new_code_of_a_tier_b_file_stays_away_from_what_decides(name, added, wor
     assert any(word in p for p in found), found
     assert guard.safety_refusal(["static guard: " + p for p in found])
     # code that reaches none of it is the additive rule's alone, in every one of the three files
-    harmless = "\n\ndef _label(text):\n    words = (text or '').split()\n    return ' '.join(words)\n"
+    harmless = ("\n\ndef _label(win, text):\n    words = (text or '').split()\n    win.label = ' '.join(words)\n"
+                "    return win.label\n")
     assert tier_b_problems(name, old, old + harmless) == []
     assert tier_b_problems(name, old, old) == []
 

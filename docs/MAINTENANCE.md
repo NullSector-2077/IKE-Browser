@@ -408,8 +408,9 @@ that holds tokens. So only what a program can prove harmless opens:
   it may not name a frozen function or the updater (a new line that calls
   `save_state(...)` would change the update channel without changing one of
   its functions), write to or call the configuration, call a setter
-  (`set...(...)`), or hold a text that names an engine switch or a sandbox
-  setting. The patch checker's own rule stays above all this: no added or
+  (`set...(...)`), give a constant to an attribute or an entry of any object
+  (`self.blocker.enabled = False`), or hold a text that names an engine switch
+  or a sandbox setting. The patch checker's own rule stays above all this: no added or
   removed line that names an engine protection;
 - **a third independent free reviewer** for any such change (three reviews
   of three providers, none the author's), and the change is **listed first**

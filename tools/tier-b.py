@@ -35,7 +35,9 @@ What opens, and nothing else:
      or the updater (a new line that calls ``save_state(...)`` or ``self.updater.run(...)`` would
      change the update channel without changing one of its functions), may not write to or call the
      configuration, may not call a setter (``set...(...)``: an engine setting, a permission, an
-     attribute), and may not hold a text that names an engine switch or a sandbox setting.
+     attribute), may not give a constant to an attribute or an entry of any object
+     (``self.blocker.enabled = False``), and may not hold a text that names an engine switch or a
+     sandbox setting.
 3. **A third independent free reviewer** for any change of these files (tools/ai-review.py,
    tools/automerge.py: needed_reviews), and the change is listed first in the signing notice
    (tools/release-notice.py).
@@ -266,6 +268,20 @@ def _chain(node):
             return out
 
 
+def _constant(value):
+    """A value that is a constant (False, None, 0, "", an empty list...)."""
+    if isinstance(value, ast.Constant):
+        return True
+    if isinstance(value, ast.UnaryOp):
+        return _constant(value.operand)
+    if isinstance(value, (ast.List, ast.Tuple, ast.Set)):
+        return not value.elts
+    if isinstance(value, ast.Dict):
+        return not value.keys
+    return isinstance(value, ast.Call) and isinstance(value.func, ast.Name) and not value.args and \
+        not value.keywords and value.func.id in ("set", "list", "dict", "tuple", "frozenset", "str", "bool", "int")
+
+
 def reach(tree, kept):
     """A count of what a module's code reaches of the things that decide: references to the frozen
     functions (kept: their names) and to the updater, writes to and calls on the configuration,
@@ -290,10 +306,13 @@ def reach(tree, kept):
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
         elif isinstance(node, ast.Delete):
             targets = node.targets
+        fixed = isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None and _constant(node.value)
         for t in targets:
             for sub in ([t] if not isinstance(t, (ast.Tuple, ast.List)) else t.elts):
                 if isinstance(sub, (ast.Attribute, ast.Subscript)) and any(n in SENSITIVE[1:] for n in _chain(sub)):
                     out["a write to the configuration"] += 1
+                elif isinstance(sub, (ast.Attribute, ast.Subscript)) and (fixed or isinstance(node, ast.Delete)):
+                    out["a constant given to an attribute or an entry (or one deleted)"] += 1
         if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in tables \
                 and SWITCH_TEXT.search(node.value):
             out["a text that names an engine switch or a sandbox setting"] += 1
