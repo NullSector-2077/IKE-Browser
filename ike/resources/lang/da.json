@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Webstedslager: %d",
 "Cache: %d": "Cache: %d",
 "Permissions kept: %s": "Bevarede tilladelser: %s",
+"Not secure": "Ikke sikker",
 "Protected time zone": "Beskyttet tidszone",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Websteder ser tidszonen UTC, ikke din. Nogle websteder vil vise forkerte tider. Efter en genstart.",
 "Clear the data of sites that only redirect you (bounce tracking)": "Slet data fra websteder, der kun sender dig videre (bounce tracking)",

@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Hifadhi ya tovuti: %d",
 "Cache: %d": "Akiba: %d",
 "Permissions kept: %s": "Ruhusa zilizobaki: %s",
+"Not secure": "Si salama",
 "Protected time zone": "Saa za eneo zilizolindwa",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Tovuti zinaona saa za eneo UTC, si zako. Baadhi ya tovuti zitaonyesha saa zisizo sahihi. Baada ya kuwasha upya.",
 "Clear the data of sites that only redirect you (bounce tracking)": "Futa data ya tovuti zinazokuelekeza tu kwingine (bounce tracking)",

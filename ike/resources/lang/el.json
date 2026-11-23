@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Αποθήκευση ιστότοπου: %d",
 "Cache: %d": "Προσωρινή μνήμη: %d",
 "Permissions kept: %s": "Άδειες που διατηρούνται: %s",
+"Not secure": "Μη ασφαλές",
 "Protected time zone": "Προστατευμένη ζώνη ώρας",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Οι ιστότοποι βλέπουν τη ζώνη ώρας UTC, όχι τη δική σας. Κάποιοι ιστότοποι θα δείχνουν λάθος ώρες. Μετά από επανεκκίνηση.",
 "Clear the data of sites that only redirect you (bounce tracking)": "Διαγραφή δεδομένων ιστοτόπων που μόνο σας ανακατευθύνουν (bounce tracking)",

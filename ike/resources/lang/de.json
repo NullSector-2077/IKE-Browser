@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Website-Speicher: %d",
 "Cache: %d": "Cache: %d",
 "Permissions kept: %s": "Beibehaltene Berechtigungen: %s",
+"Not secure": "Nicht sicher",
 "Protected time zone": "Geschützte Zeitzone",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Websites sehen die Zeitzone UTC, nicht deine. Manche Websites zeigen falsche Uhrzeiten. Nach einem Neustart.",
 "Clear the data of sites that only redirect you (bounce tracking)": "Daten von Websites löschen, die dich nur weiterleiten (Bounce-Tracking)",

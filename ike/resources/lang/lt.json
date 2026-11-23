@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Svetainės saugykla: %d",
 "Cache: %d": "Podėlis: %d",
 "Permissions kept: %s": "Išsaugoti leidimai: %s",
+"Not secure": "Nesaugu",
 "Protected time zone": "Apsaugota laiko juosta",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Svetainės mato laiko juostą UTC, o ne jūsų. Kai kurios svetainės rodys neteisingą laiką. Po paleidimo iš naujo.",
 "Clear the data of sites that only redirect you (bounce tracking)": "Išvalyti svetainių, kurios tik nukreipia, duomenis (bounce tracking)",

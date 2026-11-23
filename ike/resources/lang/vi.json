@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Bộ nhớ trang: %d",
 "Cache: %d": "Bộ nhớ đệm: %d",
 "Permissions kept: %s": "Quyền được giữ lại: %s",
+"Not secure": "Không bảo mật",
 "Protected time zone": "Múi giờ được bảo vệ",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Các trang web thấy múi giờ UTC, không phải của bạn. Một số trang sẽ hiển thị sai giờ. Sau khi khởi động lại.",
 "Clear the data of sites that only redirect you (bounce tracking)": "Xóa dữ liệu của các trang chỉ chuyển hướng bạn (bounce tracking)",

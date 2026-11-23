@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Shramba strani: %d",
 "Cache: %d": "Predpomnilnik: %d",
 "Permissions kept: %s": "Ohranjena dovoljenja: %s",
+"Not secure": "Ni varno",
 "Protected time zone": "Zaščiten časovni pas",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Spletna mesta vidijo časovni pas UTC, ne vašega. Nekatera mesta bodo kazala napačen čas. Po ponovnem zagonu.",
 "Clear the data of sites that only redirect you (bounce tracking)": "Počisti podatke mest, ki vas samo preusmerijo (bounce tracking)",

@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Site depolaması: %d",
 "Cache: %d": "Önbellek: %d",
 "Permissions kept: %s": "Korunan izinler: %s",
+"Not secure": "Güvenli değil",
 "Protected time zone": "Korunan saat dilimi",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Siteler sizin saat diliminizi değil, UTC'yi görür. Bazı siteler yanlış saatler gösterecektir. Yeniden başlatmadan sonra.",
 "Clear the data of sites that only redirect you (bounce tracking)": "Yalnızca yönlendiren sitelerin verilerini temizle (bounce tracking)",

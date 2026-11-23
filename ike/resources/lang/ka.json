@@ -1043,6 +1043,7 @@
 "Site storage: %d": "საიტის საცავი: %d",
 "Cache: %d": "ქეში: %d",
 "Permissions kept: %s": "შენარჩუნებული ნებართვები: %s",
+"Not secure": "დაუცველი",
 "Protected time zone": "დაცული დროის სარტყელი",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "საიტები ხედავენ დროის სარტყელს UTC და არა თქვენსას. ზოგი საიტი არასწორ დროს აჩვენებს. გადატვირთვის შემდეგ.",
 "Clear the data of sites that only redirect you (bounce tracking)": "მხოლოდ გადამმისამართებელი საიტების მონაცემების წაშლა (bounce tracking)",

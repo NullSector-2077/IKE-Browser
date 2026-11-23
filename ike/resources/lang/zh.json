@@ -1043,6 +1043,7 @@
 "Site storage: %d": "网站存储：%d",
 "Cache: %d": "缓存：%d",
 "Permissions kept: %s": "保留的权限：%s",
+"Not secure": "不安全",
 "Protected time zone": "受保护的时区",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "网站看到的是 UTC 时区，而不是你的时区。部分网站会显示错误的时间。重启后生效。",
 "Clear the data of sites that only redirect you (bounce tracking)": "清除只做重定向的网站的数据（跳转跟踪）",

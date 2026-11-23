@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Сховище сайту: %d",
 "Cache: %d": "Кеш: %d",
 "Permissions kept: %s": "Збережені дозволи: %s",
+"Not secure": "Незахищено",
 "Protected time zone": "Захищений часовий пояс",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Сайти бачать часовий пояс UTC, а не ваш. Деякі сайти показуватимуть неправильний час. Після перезапуску.",
 "Clear the data of sites that only redirect you (bounce tracking)": "Видаляти дані сайтів, які лише перенаправляють (bounce tracking)",

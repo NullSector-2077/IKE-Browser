@@ -488,36 +488,7 @@ def steps(ike, qapp, out):
 # ----------------------------------------------------------------------
 # small things
 # ----------------------------------------------------------------------
-def test_notification_text_cannot_become_an_option(tmp_path, monkeypatch):
-    from ike import osinfo
-    log = tmp_path / "argv.json"
-    fake = tmp_path / "notify-send"
-    fake.write_text("#!%s\nimport json, sys\njson.dump(sys.argv[1:], open(%r, 'w'))\n" % (sys.executable, str(log)))
-    fake.chmod(0o755)
-    monkeypatch.setenv("PATH", "%s:%s" % (tmp_path, os.environ["PATH"]))
-    import time
-    shown = []
-    for title, text in (("--icon=/etc/passwd", "-u critical"),
-                        ("Site", '<a href="https://evil.example/">click</a> <img src="file:///etc/passwd"> & more'),
-                        ("", ""), ("x" * 5000, "y" * 50000)):
-        if log.exists():
-            log.unlink()
-        osinfo.notify(title, text)
-        for _ in range(100):
-            if log.exists() and log.stat().st_size:
-                break
-            time.sleep(0.05)
-        argv = json.loads(log.read_text())
-        sep = argv.index("--")
-        # the fixed options, "--", then exactly two texts: nothing a page wrote is an option
-        assert argv[:sep] == ["-a", "I.K.E.", "-i", "ike-browser"] and len(argv) == sep + 3, argv
-        shown_title, shown_text = argv[sep + 1:]
-        assert "<" not in shown_text and ">" not in shown_text
-        assert len(shown_title) <= 200 and len(shown_text) <= 12000
-        shown.append((shown_title, shown_text))
-    assert shown[0] == ("--icon=/etc/passwd", "-u critical")
-    assert shown[1][1].startswith("&lt;a href=") and "&amp; more" in shown[1][1]
-    osinfo.notify("nul\0byte", "x")              # cannot be passed to a program: ignored, no error
+# test_notification_text_cannot_become_an_option moved to tests/test_small_1124.py (1.1.24: D-Bus, not notify-send)
 
 
 def test_switches_that_turn_protections_off_need_a_test_session(monkeypatch):

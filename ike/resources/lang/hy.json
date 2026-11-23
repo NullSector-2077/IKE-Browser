@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Կայքի պահոց՝ %d",
 "Cache: %d": "Քեշ՝ %d",
 "Permissions kept: %s": "Պահպանված թույլտվություններ՝ %s",
+"Not secure": "Անապահով",
 "Protected time zone": "Պաշտպանված ժամային գոտի",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Կայքերը տեսնում են UTC ժամային գոտին, ոչ թե ձերը։ Որոշ կայքեր սխալ ժամ ցույց կտան։ Վերագործարկումից հետո։",
 "Clear the data of sites that only redirect you (bounce tracking)": "Մաքրել միայն վերահղող կայքերի տվյալները (bounce tracking)",

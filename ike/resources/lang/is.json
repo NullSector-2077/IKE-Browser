@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Geymsla vefs: %d",
 "Cache: %d": "Skyndiminni: %d",
 "Permissions kept: %s": "Heimildum haldið: %s",
+"Not secure": "Ekki öruggt",
 "Protected time zone": "Varið tímabelti",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Vefsvæði sjá tímabeltið UTC, ekki þitt. Sum vefsvæði munu sýna rangan tíma. Eftir endurræsingu.",
 "Clear the data of sites that only redirect you (bounce tracking)": "Hreinsa gögn vefsvæða sem aðeins áframsenda þig (bounce tracking)",

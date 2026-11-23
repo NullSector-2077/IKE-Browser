@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Úložisko stránky: %d",
 "Cache: %d": "Vyrovnávacia pamäť: %d",
 "Permissions kept: %s": "Ponechané povolenia: %s",
+"Not secure": "Nezabezpečené",
 "Protected time zone": "Chránené časové pásmo",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Stránky vidia časové pásmo UTC, nie vaše. Niektoré stránky ukážu nesprávny čas. Po reštarte.",
 "Clear the data of sites that only redirect you (bounce tracking)": "Mazať údaje stránok, ktoré vás len presmerujú (bounce tracking)",

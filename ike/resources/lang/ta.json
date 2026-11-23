@@ -1043,6 +1043,7 @@
 "Site storage: %d": "தளச் சேமிப்பகம்: %d",
 "Cache: %d": "தற்காலிக நினைவகம்: %d",
 "Permissions kept: %s": "வைக்கப்பட்ட அனுமதிகள்: %s",
+"Not secure": "பாதுகாப்பற்றது",
 "Protected time zone": "பாதுகாக்கப்பட்ட நேர மண்டலம்",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "தளங்கள் உங்களுடையதை அல்ல, UTC நேர மண்டலத்தைக் காணும். சில தளங்கள் தவறான நேரத்தைக் காட்டும். மறுதொடக்கத்திற்குப் பிறகு.",
 "Clear the data of sites that only redirect you (bounce tracking)": "திசைதிருப்ப மட்டும் செய்யும் தளங்களின் தரவை அழி (bounce tracking)",

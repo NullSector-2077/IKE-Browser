@@ -668,7 +668,7 @@ def test_l10_the_site_of_a_name_follows_the_public_suffix_list(tmp_path, monkeyp
         # (performance review of 1.1.20, L4): proven by a file of the same
         # size and time whose text would say otherwise
         import os
-        assert len(list((tmp_path / "cache").glob("psl-*.bin"))) == 1
+        assert len(list((tmp_path / "cache").glob("psl-*.json"))) == 1
         st = os.stat(psl)
         psl.write_text(PSL_SAMPLE.replace("wordpress.com", "wordpress.xyz"))
         os.utime(psl, ns=(st.st_atime_ns, st.st_mtime_ns))

@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Storan laman: %d",
 "Cache: %d": "Cache: %d",
 "Permissions kept: %s": "Kebenaran dikekalkan: %s",
+"Not secure": "Tidak selamat",
 "Protected time zone": "Zon waktu dilindungi",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Laman melihat zon waktu UTC, bukan zon anda. Sesetengah laman akan menunjukkan masa yang salah. Selepas dimulakan semula.",
 "Clear the data of sites that only redirect you (bounce tracking)": "Kosongkan data laman yang hanya mengubah hala anda (bounce tracking)",

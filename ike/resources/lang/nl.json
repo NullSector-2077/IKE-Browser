@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Siteopslag: %d",
 "Cache: %d": "Cache: %d",
 "Permissions kept: %s": "Behouden toestemmingen: %s",
+"Not secure": "Niet veilig",
 "Protected time zone": "Beschermde tijdzone",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Sites zien de tijdzone UTC, niet de jouwe. Sommige sites tonen verkeerde tijden. Na een herstart.",
 "Clear the data of sites that only redirect you (bounce tracking)": "Gegevens wissen van sites die je alleen doorsturen (bounce tracking)",

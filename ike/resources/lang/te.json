@@ -1043,6 +1043,7 @@
 "Site storage: %d": "సైట్ నిల్వ: %d",
 "Cache: %d": "కాష్: %d",
 "Permissions kept: %s": "ఉంచిన అనుమతులు: %s",
+"Not secure": "సురక్షితం కాదు",
 "Protected time zone": "రక్షిత సమయ మండలం",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "సైట్‌లకు మీది కాదు, UTC సమయ మండలం కనిపిస్తుంది. కొన్ని సైట్‌లు తప్పు సమయాలు చూపిస్తాయి. పునఃప్రారంభం తర్వాత.",
 "Clear the data of sites that only redirect you (bounce tracking)": "కేవలం దారి మళ్లించే సైట్‌ల డేటాను తుడిచివేయి (bounce tracking)",

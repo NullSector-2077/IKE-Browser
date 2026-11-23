@@ -1043,6 +1043,7 @@
 "Site storage: %d": "تخزين الموقع: %d",
 "Cache: %d": "ذاكرة التخزين المؤقت: %d",
 "Permissions kept: %s": "الأذونات المحتفظ بها: %s",
+"Not secure": "غير آمن",
 "Protected time zone": "منطقة زمنية محمية",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "ترى المواقع المنطقة الزمنية UTC وليس منطقتك. ستعرض بعض المواقع أوقاتاً خاطئة. بعد إعادة التشغيل.",
 "Clear the data of sites that only redirect you (bounce tracking)": "امسح بيانات المواقع التي تعيد توجيهك فقط (bounce tracking)",

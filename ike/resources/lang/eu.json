@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Gunearen biltegiratzea: %d",
 "Cache: %d": "Cachea: %d",
 "Permissions kept: %s": "Gordetako baimenak: %s",
+"Not secure": "Ez da segurua",
 "Protected time zone": "Ordu-zona babestua",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Guneek UTC ordu-zona ikusten dute, ez zurea. Gune batzuek ordu okerrak erakutsiko dituzte. Berrabiarazi ondoren.",
 "Clear the data of sites that only redirect you (bounce tracking)": "Birbideratu besterik egiten ez duten guneen datuak ezabatu (bounce tracking)",

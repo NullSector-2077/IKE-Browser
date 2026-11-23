@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Webhelytároló: %d",
 "Cache: %d": "Gyorsítótár: %d",
 "Permissions kept: %s": "Megtartott engedélyek: %s",
+"Not secure": "Nem biztonságos",
 "Protected time zone": "Védett időzóna",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "A webhelyek az UTC időzónát látják, nem a tiédet. Egyes webhelyek hibás időt mutatnak majd. Újraindítás után.",
 "Clear the data of sites that only redirect you (bounce tracking)": "A csak továbbirányító webhelyek adatainak törlése (bounce tracking)",

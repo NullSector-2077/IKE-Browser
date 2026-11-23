@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Hapësira e sajtit: %d",
 "Cache: %d": "Fshehtina: %d",
 "Permissions kept: %s": "Lejet e mbajtura: %s",
+"Not secure": "Jo e sigurt",
 "Protected time zone": "Zonë kohore e mbrojtur",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Sajtet shohin zonën kohore UTC, jo tuajën. Disa sajte do të tregojnë orë të gabuara. Pas një rinisjeje.",
 "Clear the data of sites that only redirect you (bounce tracking)": "Pastro të dhënat e sajteve që vetëm të ridrejtojnë (bounce tracking)",

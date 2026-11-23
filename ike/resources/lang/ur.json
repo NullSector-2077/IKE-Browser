@@ -1043,6 +1043,7 @@
 "Site storage: %d": "سائٹ اسٹوریج: %d",
 "Cache: %d": "کیش: %d",
 "Permissions kept: %s": "رکھی گئی اجازتیں: %s",
+"Not secure": "محفوظ نہیں",
 "Protected time zone": "محفوظ ٹائم زون",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "سائٹس آپ کا نہیں، UTC ٹائم زون دیکھتی ہیں۔ کچھ سائٹس غلط وقت دکھائیں گی۔ دوبارہ شروع کرنے کے بعد۔",
 "Clear the data of sites that only redirect you (bounce tracking)": "صرف ری ڈائریکٹ کرنے والی سائٹس کا ڈیٹا صاف کریں (bounce tracking)",

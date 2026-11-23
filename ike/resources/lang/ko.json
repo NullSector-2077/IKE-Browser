@@ -1043,6 +1043,7 @@
 "Site storage: %d": "사이트 저장소: %d",
 "Cache: %d": "캐시: %d",
 "Permissions kept: %s": "유지된 권한: %s",
+"Not secure": "안전하지 않음",
 "Protected time zone": "보호된 시간대",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "사이트는 사용자의 시간대가 아닌 UTC를 보게 됩니다. 일부 사이트는 시간을 잘못 표시합니다. 다시 시작한 후 적용됩니다.",
 "Clear the data of sites that only redirect you (bounce tracking)": "리디렉션만 하는 사이트의 데이터 지우기(바운스 추적)",

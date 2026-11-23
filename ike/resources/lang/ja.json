@@ -1043,6 +1043,7 @@
 "Site storage: %d": "サイトのストレージ: %d",
 "Cache: %d": "キャッシュ: %d",
 "Permissions kept: %s": "保持された権限: %s",
+"Not secure": "保護されていない通信",
 "Protected time zone": "保護されたタイムゾーン",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "サイトにはあなたのタイムゾーンではなく UTC が見えます。一部のサイトでは時刻が正しく表示されません。再起動後に有効。",
 "Clear the data of sites that only redirect you (bounce tracking)": "リダイレクトするだけのサイトのデータを消去（バウンストラッキング）",

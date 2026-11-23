@@ -1043,6 +1043,7 @@
 "Site storage: %d": "Storage ng site: %d",
 "Cache: %d": "Cache: %d",
 "Permissions kept: %s": "Mga pahintulot na itinago: %s",
+"Not secure": "Hindi secure",
 "Protected time zone": "Protektadong time zone",
 "Sites see the time zone UTC, not yours. Some sites will show wrong times. After a restart.": "Nakikita ng mga site ang time zone na UTC, hindi ang sa iyo. May mga site na magpapakita ng maling oras. Pagkatapos ng restart.",
 "Clear the data of sites that only redirect you (bounce tracking)": "Burahin ang data ng mga site na nagre-redirect lang sa iyo (bounce tracking)",
