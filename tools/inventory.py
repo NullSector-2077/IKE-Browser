@@ -175,6 +175,9 @@ OWN_RESOURCES = (
 # Orbitron font: fixed copies with their licences in licenses/, chosen by the owner, not followed
 # upstream: docs/THIRD-PARTY.md)
 OWN_RESOURCE_DIRS = ("ike/resources/lang/", "ike/resources/icons/")
+# folders under those that hold a component followed upstream (1.1.24: KDE's Breeze icons, built by
+# tools/build-breeze-icons.py): every file there must be declared in components.json
+FOLLOWED_DIRS = ("ike/resources/icons/sets/breeze/",)
 # what another auto-discovered kind covers: the vendored engine is rebuilt from ike-adblock/ (crates)
 COVERED_DIRS = ("vendor/adblock/",)
 EXTERNAL_DIRS = re.compile(r"(^|/)(vendor|vendored|third_party|third-party|thirdparty|node_modules|external|deps)/")
@@ -190,6 +193,8 @@ def looks_external(root, path):
     """Why a file of the repository looks like it comes from upstream, or "" (read, never run)."""
     if EXTERNAL_DIRS.search(path):
         return "it is in a folder of vendored code"
+    if path.startswith(FOLLOWED_DIRS):
+        return "it is in the folder of a component followed upstream (FOLLOWED_DIRS)"
     if path.startswith("ike/resources/") and path not in OWN_RESOURCES and not path.startswith(OWN_RESOURCE_DIRS):
         return "it is under ike/resources/ and not one of I.K.E.'s own resources (OWN_RESOURCES)"
     if not path.startswith("ike/") or not path.endswith(CODE_SUFFIXES):
@@ -949,6 +954,23 @@ def discover(root, arch_tested=None):
                    commit=ubo.get("commit", ""), git=ubo.get("source", ""), candidate="ubo-scriptlets"))
     except (OSError, ValueError):
         pass
+    # an entry of the manifest built by another builder of I.K.E.'s (1.1.24: KDE's Breeze icons): the
+    # version in use is in the record its builder writes (the entry's .json file), its own candidate
+    for cid, entry in sorted(_manifest_tool().components(root).items()):
+        if not entry.get("build") or cid in ("darkreader", "ubo-scriptlets"):
+            continue
+        made = next((f for f in entry["files"] if f.endswith(".json")), "")
+        try:
+            info = json.loads((root / made).read_text("utf-8")) if made else {}
+        except (OSError, ValueError):
+            continue
+        add(record(entry["name"], "integrated", "runtime", [made, "components.json"],
+                   "components.json: %s, rebuilt by %s" % (
+                       ", ".join("%s %s" % kv for kv in sorted(entry["upstream"].items())), entry["build"]),
+                   "%s (%s)" % (info.get("version", "?"), str(info.get("commit", ""))[:10]),
+                   candidate=cid, upstream_tag=info.get("tag", ""),
+                   update_mode="candidate: automation/update/%s (components.json; tools/check-components.py "
+                               "--only %s --apply, rebuilt by %s)" % (cid, cid, entry["build"])))
     # every other entry of the component manifest (components.json): a plain download, its own candidate
     for cid, entry in sorted(_manifest_tool().components(root).items()):
         if entry.get("download"):

@@ -9,7 +9,8 @@ updated by the chain itself, with no change of code):
       "name":     what it is,
       "upstream": {"git": URL, "tag": "v*"} | {"npm": NAME} | {"pypi": NAME}   where its versions are read,
       "files":    the files it produces in the repository,
-      "build":    an existing builder of I.K.E.'s (tools/build-*.py or .mjs: Dark Reader, uBlock Origin), or
+      "build":    an existing builder of I.K.E.'s (tools/build-*.py or .mjs: Dark Reader, uBlock Origin,
+                  KDE's Breeze icons), or
       "download": [{"url": "https://.../{version}/x.js", "file": "ike/resources/x.js", "sha256": "..."}]
                   with "version": the version in use (a plain download, checked by its sha256),
       "licence":  its licence file under licenses/,
@@ -54,7 +55,7 @@ ID = re.compile(r"^[a-z0-9][a-z0-9-]{1,40}$")
 # ids the chain already uses for other things (tools/update-candidates.py, the security and lists branches)
 RESERVED = ("adblock", "crates", "pyo3", "pkgbuild", "test-qt", "test-tools", "test-libs")
 RESERVED_PREFIXES = ("crate-major-", "ci-", "arch-testing-", "security-", "lists-", "revert-")
-BUILDERS = ("tools/build-darkreader.py", "tools/build-ubo-scriptlets.mjs")
+BUILDERS = ("tools/build-darkreader.py", "tools/build-ubo-scriptlets.mjs", "tools/build-breeze-icons.py")
 ALLOWED_HOSTS = ("github.com", "raw.githubusercontent.com", "codeload.github.com", "registry.npmjs.org",
                  "pypi.org", "files.pythonhosted.org", "crates.io", "static.crates.io")
 FILE_ROOTS = ("ike/resources/", "vendor/", "data/", "ike/")

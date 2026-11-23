@@ -164,7 +164,8 @@ profiles: `ike-browser --profile NAME`.
 
 **Appearance and languages**
 - Follows the system theme by default; icon themes installed on the computer or
-  the bundled Lucide and Phosphor sets; light or dark interface.
+  the bundled Lucide, Phosphor and Breeze (KDE's own icons, there even where
+  KDE's icon theme is not installed) sets; light or dark interface.
 - Other interface themes: five ready-made ones (I.K.E., Night, Paper, Forest,
   High contrast) and your own, with your choice of background, text, accent,
   toolbar and tab colours and of the font family and size.
@@ -272,6 +273,7 @@ I.K.E. stands on the work of these projects, each under its own licence:
 | [Dark Reader](https://github.com/darkreader/darkreader) | dark mode for pages | MIT |
 | Qt, Qt WebEngine (Chromium), PyQt6 | the window and the web engine, from the system | LGPL-3.0 / BSD / GPL-3.0 |
 | Lucide, Phosphor Icons | icon sets | ISC / MIT |
+| [Breeze icons](https://invent.kde.org/frameworks/breeze-icons) by KDE | icon set (the icons I.K.E. uses) | LGPL-3.0 |
 | Orbitron | the lettering of the logo | SIL OFL 1.1 |
 
 The filter lists are not shipped: the browser downloads them from their
