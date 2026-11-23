@@ -204,7 +204,13 @@ def test_the_default_browser_is_written_atomically_and_completely(tmp_path, monk
     (cfg / "gnome-mimeapps.list").write_text("[Default Applications]\nimage/png=eog.desktop;\n")
     (cfg / "kdeglobals").write_text("[General]\nBrowserApplication=firefox.desktop\nColorScheme=BreezeDark\n\n"
                                     "[KDE]\nBrowserApplication=other\n")
-    env = {"HOME": str(tmp_path), "XDG_CONFIG_HOME": str(cfg), "XDG_CURRENT_DESKTOP": "KDE:GNOME"}
+    # only this test's folders: the computer's own apps and lists (a Firefox installed on the
+    # runner, /etc/xdg) are never read
+    env = {"HOME": str(tmp_path), "XDG_CONFIG_HOME": str(cfg), "XDG_CURRENT_DESKTOP": "KDE:GNOME",
+           "XDG_DATA_HOME": str(tmp_path / "data"), "XDG_DATA_DIRS": str(tmp_path / "usr"),
+           "XDG_CONFIG_DIRS": str(tmp_path / "etc"), "PATH": os.environ["PATH"]}
+    make_app(tmp_path / "usr" / "applications", "ike-browser.desktop", "I.K.E.", list(handoff.BROWSER_TYPES))
+    make_app(tmp_path / "usr" / "applications", "firefox.desktop", "Firefox", list(handoff.BROWSER_TYPES))
     # a write that fails half way leaves the old file whole
     real_replace = os.replace
 
@@ -227,7 +233,12 @@ def test_the_default_browser_is_written_atomically_and_completely(tmp_path, monk
     assert (cfg / "gnome-mimeapps.list").read_text() == "[Default Applications]\nimage/png=eog.desktop;\n"
     assert (cfg / "kdeglobals").read_text() == ("[General]\nBrowserApplication=ike-browser.desktop\n"
                                                 "ColorScheme=BreezeDark\n\n[KDE]\nBrowserApplication=other\n")
-    # the browser the desktop now finds for web links is I.K.E. (never offered as a handoff, though)
+    # the browser the desktop now finds for web links is I.K.E., first in the list; a handoff
+    # never offers I.K.E. itself, so the one offered is the next installed browser
+    d = handoff.parse_groups((cfg / "kde-mimeapps.list").read_text())["Default Applications"]
+    assert handoff.ids(d["x-scheme-handler/https"])[0] == "ike-browser.desktop"
+    assert handoff.default_app("x-scheme-handler/https", env).id == "firefox.desktop"
+    (tmp_path / "usr" / "applications" / "firefox.desktop").unlink()
     assert handoff.default_app("x-scheme-handler/http", env) is None
 
 
