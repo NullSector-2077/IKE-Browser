@@ -64,20 +64,36 @@ CASES = [("--icon=/etc/passwd", "-u critical"),
          ("", ""), ("x" * 5000, "y" * 50000), ("nul\0byte", "te\0xt")]
 
 
-def _run_on_private_bus(cases):
+# a bare session bus: no service files, so nothing is started by the bus on a call to a name nobody owns
+# (a notification daemon of the machine could otherwise be activated)
+BUS_CONFIG = """<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-Bus Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig><type>session</type><listen>unix:tmpdir=/tmp</listen><auth>EXTERNAL</auth>
+<policy context="default"><allow send_destination="*" eavesdrop="true"/><allow eavesdrop="true"/>
+<allow own="*"/></policy></busconfig>
+"""
+
+
+def _bus_command(tmp_path):
     if not shutil.which("dbus-run-session"):
         pytest.skip("dbus-run-session is not installed here")
+    config = tmp_path / "bus.conf"
+    config.write_text(BUS_CONFIG)
+    return ["dbus-run-session", "--config-file=%s" % config, "--"]
+
+
+def _run_on_private_bus(cases, tmp_path):
     code = CLIENT % {"root": str(ROOT), "service": SERVICE, "cases": cases}
     env = dict(os.environ, QT_QPA_PLATFORM="offscreen")
-    p = subprocess.run(["dbus-run-session", "--", sys.executable, "-c", code], capture_output=True,
+    p = subprocess.run(_bus_command(tmp_path) + [sys.executable, "-c", code], capture_output=True,
                        text=True, timeout=120, env=env)
     lines = [ln for ln in p.stdout.splitlines() if ln.startswith("RESULT ")]
     assert lines, (p.stdout, p.stderr)
     return json.loads(lines[0][7:])
 
 
-def test_notification_is_a_dbus_notify_call_with_the_right_arguments():
-    seen = _run_on_private_bus(CASES)
+def test_notification_is_a_dbus_notify_call_with_the_right_arguments(tmp_path):
+    seen = _run_on_private_bus(CASES, tmp_path)
     assert len(seen) == len(CASES)
     for call in seen:
         assert call["path"] == "/org/freedesktop/Notifications"
@@ -96,7 +112,7 @@ def test_notification_is_a_dbus_notify_call_with_the_right_arguments():
     assert seen[4]["body"][3] == "nulbyte" and seen[4]["body"][4] == "text"
 
 
-def test_notification_without_a_service_or_a_bus_does_nothing():
+def test_notification_without_a_service_or_a_bus_does_nothing(tmp_path):
     code = ("import sys; sys.path.insert(0, %r)\n"
             "from PyQt6.QtCore import QCoreApplication\n"
             "app = QCoreApplication([])\n"
@@ -106,10 +122,9 @@ def test_notification_without_a_service_or_a_bus_does_nothing():
             "print('SILENT')\n" % str(ROOT))
     env = dict(os.environ, QT_QPA_PLATFORM="offscreen")
     # a bus where nobody owns the service
-    if shutil.which("dbus-run-session"):
-        p = subprocess.run(["dbus-run-session", "--", sys.executable, "-c", code], capture_output=True,
-                           text=True, timeout=60, env=env)
-        assert "SILENT" in p.stdout and p.returncode == 0, (p.stdout, p.stderr)
+    p = subprocess.run(_bus_command(tmp_path) + [sys.executable, "-c", code], capture_output=True,
+                       text=True, timeout=60, env=env)
+    assert "SILENT" in p.stdout and p.returncode == 0, (p.stdout, p.stderr)
     # no bus at all
     env["DBUS_SESSION_BUS_ADDRESS"] = "unix:path=/nonexistent/bus"
     p = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=60, env=env)

@@ -306,7 +306,7 @@ def test_the_real_repository_is_covered():
         assert "arch-package:" + name in found, name
     for name, _ in pkg["optdepends"]:
         assert "arch-optional:" + name in found, name
-    assert len(pkg["optdepends"]) == 7 and "rust" in pkg["makedepends"]
+    assert len(pkg["optdepends"]) == 6 and "rust" in pkg["makedepends"]
     # 1.1.24: xdg-utils (advisory AVG-1420, no fix) is gone; files and links go to the desktop
     # portal or the desktop's own opener (ike/handoff.py), never xdg-open or xdg-settings
     assert "xdg-utils" not in [name for name, _ in pkg["optdepends"]] + pkg["depends"]
