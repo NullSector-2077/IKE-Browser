@@ -33,5 +33,6 @@
   </g>
   <rect x="13" y="22" width="38" height="18" rx="2" fill="#19c3e6" opacity="0.7"/>
   <rect x="14" y="23" width="36" height="16" rx="1" fill="#07131f"/>
-  <path id="lettering" fill="#eafcff" d="M17 26h2v10h-2Z M25 26h2v4h-2Z M31 26h2v1h-2Z M39 26h8v2h-8Z M30 27h2v1h-2Z M29 28h2v1h-2Z M39 28h2v2h-2Z M28 29h2v1h-2Z M25 30h5v2h-5Z M39 30h7v2h-7Z M25 32h2v4h-2Z M28 32h2v1h-2Z M39 32h2v2h-2Z M29 33h2v1h-2Z M21 34h2v2h-2Z M30 34h2v1h-2Z M35 34h2v2h-2Z M39 34h8v2h-8Z M31 35h2v1h-2Z"/>
+  <path id="lettering" fill="#eafcff" d="M17 26h2v10h-2Z M39 26h8v2h-8Z M39 28h2v2h-2Z M39 30h7v2h-7Z M39 32h2v2h-2Z M21 34h2v2h-2Z M35 34h2v2h-2Z M39 34h8v2h-8Z"/>
+  <path id="lettering-k" fill="#7df3ff" d="M25 26h2v4h-2Z M31 26h2v1h-2Z M30 27h2v1h-2Z M29 28h2v1h-2Z M28 29h2v1h-2Z M25 30h5v2h-5Z M25 32h2v4h-2Z M28 32h2v1h-2Z M29 33h2v1h-2Z M30 34h2v1h-2Z M31 35h2v1h-2Z"/>
 </svg>

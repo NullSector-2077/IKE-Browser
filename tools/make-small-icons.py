@@ -40,6 +40,7 @@ PLATE_BORDER_OPACITY = "0.7"      # the logo's thin plate border looks this brig
 LINE = "#19c3e6"
 DOT = "#7df3ff"
 LETTER = "#eafcff"
+LETTER_K = "#7df3ff"          # the K: the shield edge's light stop (1.1.24)
 
 # --- the letters, pixel by pixel ("#" is lit) --------------------------------
 # cap 5, stroke 1: the logo's proportions at one pixel per stroke
@@ -161,8 +162,9 @@ def shield_path(cx, top, drop, half, y2, bottom):
         n(cx - c2x), n(c2y), n(cx - half), n(c1y), n(cx - half), n(y2), n(top + drop)))
 
 
-def lettering(glyphs, text, at):
-    """The letters as one path of whole-pixel rectangles (one per lit run)."""
+def lettering(glyphs, text, at, only=None, skip=None):
+    """The letters as one path of whole-pixel rectangles (one per lit run);
+    `only` keeps just that letter, `skip` leaves that letter out."""
     rows = len(glyphs["I"])
     x0, y0 = at
     runs = []
@@ -173,6 +175,9 @@ def lettering(glyphs, text, at):
             continue
         glyph = glyphs[item]
         assert len(glyph) == rows, item
+        if (only is not None and item != only) or item == skip:
+            x += len(glyph[0])
+            continue
         for r, line in enumerate(glyph):
             c = 0
             while c < len(line):
@@ -243,7 +248,8 @@ def drawing(size):
     outer = shield_path(cx, top, drop, half, y2, bottom)
     inner_half = half - edge
     inner = shield_path(cx, top + edge_top, drop * inner_half / half, inner_half, y2, bottom - edge_bottom)
-    letters = lettering(spec["glyphs"], spec["text"], spec["at"])
+    letters = lettering(spec["glyphs"], spec["text"], spec["at"], skip="K")
+    letters_k = lettering(spec["glyphs"], spec["text"], spec["at"], only="K")
     parts = [
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" width="%d" height="%d">' % (
             size, size, size, size),
@@ -291,6 +297,7 @@ def drawing(size):
             LINE, PLATE_BORDER_OPACITY))
         parts.append('  <path d="%s %s" fill="url(#edge)" fill-rule="evenodd"/>' % (outer, inner))
     parts.append('  <path id="lettering" fill="%s" d="%s"/>' % (LETTER, letters))
+    parts.append('  <path id="lettering-k" fill="%s" d="%s"/>' % (LETTER_K, letters_k))
     parts.append('</svg>')
     return "\n".join(parts) + "\n"
 
