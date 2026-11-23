@@ -27,6 +27,10 @@ GREETINGS = (
     ("evening", "Good evening"),
     ("night", "Good night"),
 )
+# more of the same, 1.1.24 (the second batch of the pool)
+MORE_FACTS = ['Fun fact: the Moon drifts away from Earth every year', 'Fun fact: the Pacific is bigger than all the land', 'Fun fact: Mount Everest grows a little every year', 'Fun fact: sharks are older than trees', 'Fun fact: a day on Mars lasts about 24 hours 40 minutes', 'Fun fact: the first webcam watched a coffee pot', 'Fun fact: the word robot comes from Czech', 'Fun fact: butterflies taste with their feet', 'Fun fact: Saturn is less dense than water', 'Fun fact: the Sahara was once green and full of lakes', 'Fun fact: Antarctica is the driest continent', 'Fun fact: in English, a group of flamingos is a flamboyance', 'Fun fact: Venus spins the opposite way to Earth', 'Fun fact: the first message on the internet was LO', 'Fun fact: the first text message was sent in 1992', 'Fun fact: the first computer mouse was made of wood', 'Fun fact: a year on Mercury lasts 88 Earth days', 'Fun fact: the Atlantic grows wider every year']
+MORE_CHEERS = ['Take a moment to look out of the window', 'Smile at someone today', 'You are doing better than you think', 'Progress, not perfection', 'Every day is a fresh page', 'Check in with a friend today', 'Stand up and stretch for a moment', 'Kindness costs nothing', 'Try something new today', 'Rest is part of the work', 'Take your time, there is no rush', 'A warm drink can help', 'Look away from the screen for twenty seconds', 'Be proud of what you did today', 'Curiosity is a good companion', 'Say thank you to someone today', 'Start with the easiest thing', 'A deep breath changes the moment', 'Make room for something you enjoy', 'Wishing you a calm day']
+PERIOD = ['Good things are coming today', 'A new day, a new chance', 'Keep going, you are halfway there', 'A good moment for some fresh air', 'Time to relax, you earned it', 'The day is done, well done', 'A quiet time to wind down', 'Tomorrow is a new day']
 # the pool of friendly lines: [group, [(key, words)]]; the groups, their weights and when each
 # line fits are in greeting.js (tests/test_greeting.py compares the two lists of keys)
 POOL = (
@@ -49,7 +53,10 @@ POOL = (
     ("period", (("morning1", "A fresh start to the day"), ("morning2", "Ready for a good day?"),
                 ("afternoon1", "Hope your day is going well"), ("afternoon2", "Time for a short break?"),
                 ("evening1", "Hope you had a good day"), ("evening2", "Time to slow down a little"),
-                ("night1", "Rest well when you can"), ("night2", "Sleep well when it's time"))),
+                ("night1", "Rest well when you can"), ("night2", "Sleep well when it's time"),
+                ("morning3", PERIOD[0]), ("morning4", PERIOD[1]), ("afternoon3", PERIOD[2]),
+                ("afternoon4", PERIOD[3]), ("evening3", PERIOD[4]), ("evening4", PERIOD[5]),
+                ("night3", PERIOD[6]), ("night4", PERIOD[7]))),
     ("fact", (("fact1", "Fun fact: the first website went online in 1991"),
               ("fact2", "Fun fact: honey never spoils"),
               ("fact3", "Fun fact: octopuses have three hearts"),
@@ -61,12 +68,14 @@ POOL = (
               ("fact9", "Fun fact: the first web browser was called WorldWideWeb"),
               ("fact10", "Fun fact: the Eiffel Tower is taller in summer"),
               ("fact11", "Fun fact: some penguins give pebbles as gifts"),
-              ("fact12", "Fun fact: in many languages, @ is named after an animal"))),
+              ("fact12", "Fun fact: in many languages, @ is named after an animal"))
+             + tuple(("fact%d" % (13 + i), t) for i, t in enumerate(MORE_FACTS))),
     ("cheer", (("cheer1", "You've got this"), ("cheer2", "Small steps count too"),
                ("cheer3", "One thing at a time"), ("cheer4", "Remember to drink some water"),
                ("cheer5", "A short stretch does wonders"), ("cheer6", "Breathe in, breathe out: you're doing fine"),
                ("cheer7", "A short break helps the next hour"), ("cheer8", "Be kind to yourself today"),
-               ("cheer9", "Good things take a little time"), ("cheer10", "Today is a good day to learn something"))),
+               ("cheer9", "Good things take a little time"), ("cheer10", "Today is a good day to learn something"))
+              + tuple(("cheer%d" % (11 + i), t) for i, t in enumerate(MORE_CHEERS))),
 )
 WORDS = tuple(w for _group, words in POOL for w in words)
 # the greetings of the holidays (respectful, nothing more); one word per holiday, shared where the

@@ -1,7 +1,7 @@
 {
-"about": "Dates of the holidays that have no rule the page can work out (the others come from the calendars of the engine, ike/resources/greeting.js). Diwali: the main day (Lakshmi Puja); Holi: Dhulandi; Lunar New Year: the day it falls on in China (the engine's own calendar is a day off in some years, 2027 among them, so these years are listed and other years come from the engine); Vesak: the full moon of May as the Theravada calendar of Sri Lanka keeps it (other countries differ). Written by hand from the published calendars and NOT yet checked against an authoritative source: to be verified and refreshed every year.",
-"diwali": ["2025-10-20", "2026-11-08", "2027-10-29", "2028-10-17", "2029-11-05", "2030-10-26"],
-"holi": ["2025-03-14", "2026-03-04", "2027-03-22", "2028-03-11", "2029-03-01", "2030-03-20"],
-"lunarny": ["2025-01-29", "2026-02-17", "2027-02-06", "2028-01-26", "2029-02-13", "2030-02-03", "2031-01-23", "2032-02-11", "2033-01-31", "2034-02-19", "2035-02-08"],
-"vesak": ["2025-05-12", "2026-05-01", "2027-05-20"]
+"about": "Dates of the holidays that have no rule the page can work out (the others come from the calendars of the engine, ike/resources/greeting.js). Diwali: the main day (Lakshmi Puja); Holi: Dhulandi (for 2027 drikpanchang says 22 March, India's central list 23 March); Lunar New Year: the day it falls on in China (the engine's own calendar is a day off in some years, 2027 among them, so these years are listed and other years come from the engine); Vesak: the full moon of May as Sri Lanka keeps it (other countries differ), only the years with an official source: from 2028 there is no Vesak greeting until the table is refreshed. Checked on 2026-11-23 against drikpanchang.com, samvat.in, panchang.astrosage.com, travelchinaguide.com, calendardate.com, Sri Lanka's gazette 2438/22, the Central Bank of Sri Lanka and publicholidays.lk. This table must be refreshed every year (a task for AUTOMAT).",
+"diwali": ["2026-11-08", "2027-10-29", "2028-10-17", "2029-11-05", "2030-10-26"],
+"holi": ["2026-03-04", "2027-03-22", "2028-03-11", "2029-03-01", "2030-03-20"],
+"lunarny": ["2026-02-17", "2027-02-06", "2028-01-26", "2029-02-13", "2030-02-03", "2031-01-23", "2032-02-11", "2033-01-31", "2034-02-19", "2035-02-08"],
+"vesak": ["2026-05-01", "2027-05-20"]
 }

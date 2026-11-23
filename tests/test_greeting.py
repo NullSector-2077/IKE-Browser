@@ -134,22 +134,24 @@ def test_the_keys_of_the_page_and_of_the_words_are_the_same(run_ike):
     keys, groups = res
     assert sorted(keys) == sorted(greeting.ALL_KEYS) and len(keys) == len(set(keys))
     assert {g: tuple(k) for g, k in groups} == greeting.GROUP_KEYS
-    assert len(greeting.WORDS) >= 50
+    assert len(greeting.WORDS) >= 95
 
 
 def test_a_line_is_not_shown_again_until_the_others_of_its_group_were_(run_ike):
-    res = run_logic(run_ike, r"""
+    from ike import greeting
+    nfacts = len(dict(greeting.POOL)["fact"])
+    res = run_logic(run_ike, "var FACTS = %d;" % nfacts + r"""
       var st = {}, c = {p: "morning"}, out = {bags: [], cool: null}, rng = rngFrom(7), today = 20000;
       for (var round = 0; round < 3; round++) {
         var bag = [];
-        for (var i = 0; i < 12; i++) bag.push(G.bag("fact", st, c, today + round * 10 + i * 0, rng));
+        for (var i = 0; i < FACTS; i++) bag.push(G.bag("fact", st, c, today + round * 10 + i * 0, rng));
         out.bags.push(bag);
       }
       // cooldown: all but one shown the very day: that one comes
-      var st2 = {cool: {}}; for (var i = 1; i <= 11; i++) st2.cool["fact" + i] = 30000;
+      var st2 = {cool: {}}; for (var i = 1; i < FACTS; i++) st2.cool["fact" + i] = 30000;
       out.cool = G.bag("fact", st2, c, 30000, rngFrom(3));
       // all of them in cooldown: still one (never nothing)
-      var st3 = {cool: {}}; for (var i = 1; i <= 12; i++) st3.cool["fact" + i] = 30000;
+      var st3 = {cool: {}}; for (var i = 1; i <= FACTS; i++) st3.cool["fact" + i] = 30000;
       out.all = G.bag("fact", st3, c, 30001, rngFrom(3));
       // a group of one comes every time
       out.single = [G.bag("late", {}, c, 1, rngFrom(1)), G.bag("late", {bags: {late: []}, cool: {late: 1}}, c, 1, rngFrom(1))];
@@ -161,10 +163,11 @@ def test_a_line_is_not_shown_again_until_the_others_of_its_group_were_(run_ike):
     from ike import greeting
     facts = {k for k, _ in dict(greeting.POOL)["fact"]}
     for bag in res["bags"]:
-        assert len(bag) == 12 and set(bag) == facts, bag                  # every one once before any again
-    assert res["cool"] == "fact12" and res["all"] in facts
+        assert len(bag) == len(facts) and set(bag) == facts, bag                  # every one once before any again
+    assert res["cool"] == "fact%d" % len(facts) and res["all"] in facts
     assert res["single"] == ["late", "late"]
-    assert set(res["evening"]) <= {"evening1", "evening2"} and res["evening"][0] != res["evening"][1]
+    evening = {"evening1", "evening2", "evening3", "evening4"}
+    assert set(res["evening"]) <= evening and set(res["evening"][:4]) == evening       # all four before any again
 
 
 def test_the_line_is_kept_for_a_while_then_changes(run_ike):
@@ -480,6 +483,18 @@ def steps(ike, qapp, out):
               if (overlap || a.right > window.innerWidth || a.left < 0) bad.push([code, lines[i], a.right, b.left]);
             }
           }
+          // the labels of the two buttons: never cut (no ellipsis, nothing hidden), at most two lines, on the screen
+          var names = [document.querySelector('.nt-settings .name'), document.querySelector('.nt-photo .name')];
+          for (var code in packs) {
+            for (var j = 0; j < 2; j++) {
+              var el = names[j], cs = getComputedStyle(el);
+              el.textContent = packs[code].labels[j];
+              var r = el.getBoundingClientRect(), line = parseFloat(cs.lineHeight) || 15;
+              if (el.scrollWidth > el.clientWidth + 1 || r.height > line * 2 + 4 || r.left < 0 || r.right > window.innerWidth ||
+                  cs.textOverflow === 'ellipsis' || cs.overflow === 'hidden') bad.push([code, 'label', packs[code].labels[j], r.width, r.height]);
+              n++;
+            }
+          }
           return [window.innerWidth, bad, n]; })()""" % json.dumps(PACKS)
         res[width] = yield from js(view, code)
     out["fit"] = res
@@ -494,7 +509,8 @@ def test_the_greeting_stays_clear_of_settings_in_every_language(run_ike):
         strings = json.loads(f.read_text("utf-8"))["strings"]
         lines = [strings[t].replace("{version}", "1.1.24").replace("%d", "30")
                  for _k, t in greeting.WORDS + greeting.HOLIDAY_WORDS]
-        packs[f.stem] = {"titles": [strings[t] for _k, t in greeting.GREETINGS], "lines": lines}
+        packs[f.stem] = {"titles": [strings[t] for _k, t in greeting.GREETINGS], "lines": lines,
+                         "labels": [strings["Settings"], strings["Background photo"]]}
     assert len(packs) >= 59
     out = run_ike(STEPS_FIT.replace("PACKS", repr(packs)), timeout=180)
     for width, (inner, bad, n) in out["fit"].items():

@@ -56,7 +56,7 @@ input:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(-
  .fx .tile{animation:none}}
 .corner{position:fixed;bottom:22px;right:30px;text-align:right}
 /* the two buttons of the page (1.1.7): Settings top right, the background photo bottom left */
-.nt-btn{position:fixed;width:92px;display:flex;flex-direction:column;align-items:center;gap:8px;padding:6px 2px;
+.nt-btn{position:fixed;width:120px;display:flex;flex-direction:column;align-items:center;gap:8px;padding:6px 2px;
  color:var(--mute);text-decoration:none;font-size:12px;border-radius:6px}
 .nt-btn .ico{color:var(--fg)}
 .nt-btn svg{width:26px;height:26px}
@@ -66,7 +66,8 @@ input:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(-
  box-shadow:0 4px 12px color-mix(in srgb,var(--fg) 16%,transparent)}
 .nt-settings{top:22px;right:30px}
 .nt-photo{bottom:22px;left:30px}
-.nt-btn .name{text-align:center;line-height:1.25}
+/* 1.1.24: the labels of the two buttons are never cut: they wrap to a second centred line when a language needs it */
+.nt-btn .name{text-align:center;line-height:1.25;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
 /* with a photo behind the page the logo and the name stay readable */
 .photo img.logo,.photo h1 svg{filter:drop-shadow(0 1px 3px rgba(0,0,0,.55))}
 .photo h1{color:var(--fg)}
@@ -85,8 +86,8 @@ input:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(-
 .glass h1{padding:12px 20px;margin:4px 0 20px}
 .glass .nt-btn .name,.glass .tile .name{padding:1px 6px}
 .glass .g0{background:none;-webkit-backdrop-filter:none;backdrop-filter:none}
-/* 1.1.24: the greeting, top left; it stops short of the Settings button (92px wide, 30px from the right) */
-.greet{position:fixed;top:26px;left:30px;max-width:max(96px,calc(100vw - 92px - 30px - 30px - 16px));
+/* 1.1.24: the greeting, top left; it stops short of the Settings button (120px wide, 30px from the right) */
+.greet{position:fixed;top:26px;left:30px;max-width:max(96px,calc(100vw - 120px - 30px - 30px - 16px));
  text-align:start;overflow-wrap:anywhere}
 .greet-t{font-size:24px;font-weight:300;line-height:1.2}
 .greet-l{font-size:13px;color:var(--mute);margin-top:4px;line-height:1.35}

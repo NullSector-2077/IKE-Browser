@@ -129,6 +129,12 @@
   // ---- the pool: [group, weight(c), [[key, fits(c)], ...]]
   function yes() { return true; }
   var W = function (c, k) { return c.w && c.w.k == k; };
+  // fact1 ... factN: lines that fit any moment
+  function numbered(name, n) {
+    var out = [];
+    for (var i = 1; i <= n; i++) out.push([name + i, yes]);
+    return out;
+  }
   var GROUPS = [
     ["updated", function (c) { return c.upd ? 100 : 0; }, [["updated", yes]]],
     ["away", function (c) { return c.first && c.gap >= 3 ? 10 : 0; }, [["away", yes]]],
@@ -154,13 +160,13 @@
       ["morning1", function (c) { return c.p == "morning"; }], ["morning2", function (c) { return c.p == "morning"; }],
       ["afternoon1", function (c) { return c.p == "afternoon"; }], ["afternoon2", function (c) { return c.p == "afternoon"; }],
       ["evening1", function (c) { return c.p == "evening"; }], ["evening2", function (c) { return c.p == "evening"; }],
-      ["night1", function (c) { return c.p == "night"; }], ["night2", function (c) { return c.p == "night"; }]]],
-    ["fact", function (c) { return 2; }, [
-      ["fact1", yes], ["fact2", yes], ["fact3", yes], ["fact4", yes], ["fact5", yes], ["fact6", yes],
-      ["fact7", yes], ["fact8", yes], ["fact9", yes], ["fact10", yes], ["fact11", yes], ["fact12", yes]]],
-    ["cheer", function (c) { return 2; }, [
-      ["cheer1", yes], ["cheer2", yes], ["cheer3", yes], ["cheer4", yes], ["cheer5", yes],
-      ["cheer6", yes], ["cheer7", yes], ["cheer8", yes], ["cheer9", yes], ["cheer10", yes]]]
+      ["night1", function (c) { return c.p == "night"; }], ["night2", function (c) { return c.p == "night"; }],
+      ["morning3", function (c) { return c.p == "morning"; }], ["morning4", function (c) { return c.p == "morning"; }],
+      ["afternoon3", function (c) { return c.p == "afternoon"; }], ["afternoon4", function (c) { return c.p == "afternoon"; }],
+      ["evening3", function (c) { return c.p == "evening"; }], ["evening4", function (c) { return c.p == "evening"; }],
+      ["night3", function (c) { return c.p == "night"; }], ["night4", function (c) { return c.p == "night"; }]]],
+    ["fact", function (c) { return 2; }, numbered("fact", 30)],
+    ["cheer", function (c) { return 2; }, numbered("cheer", 30)]
   ];
   function groupKeys(g) { return g[2].map(function (m) { return m[0]; }); }
   function allKeys() {
