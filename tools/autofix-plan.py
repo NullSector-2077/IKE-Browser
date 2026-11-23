@@ -572,6 +572,10 @@ def decide_security(run, failed_jobs, plan, open_issues=(), now=None):
     under the guard's security rules; blocked when there is no safe fix."""
     branch = run.get("head_branch") or ""
     plan["security"] = "true"
+    if _tool("automat-drill").is_drill_branch(branch):
+        plan["reason"] = ("%s is an AUTOMAT drill: its Security run is part of the exercise, no security finding (no "
+                          "security branch, no issue); its Tests failures drive the fixes" % branch)
+        return plan
     if branch not in SECURITY_WATCHED and not branch.startswith(ISOLATED_PREFIXES):
         plan["reason"] = "branch %s is not one the automation fixes (a person's pull request: its checks say it)" \
             % (branch or "?")
@@ -832,9 +836,11 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
                     allow_adblock="true" if (kind == "update" and run.get("_engine_update")) else "false")
         if kind == "builder":
             plan.update(mode="builder", builder=target[len(BUILDER_PREFIX):])
-        if not new_branch and today >= ISOLATED_ATTEMPTS:
+        # an AUTOMAT drill may have its own number per day (its scenario's attempts_per_day, at most 12)
+        cap = _tool("automat-drill").attempts_for(target, ISOLATED_ATTEMPTS)
+        if not new_branch and today >= cap:
             plan.update(action="retry", reason="today's %d automatic fixes, each with a fresh context and "
-                        "another free provider first, did not make %s pass: %s" % (ISOLATED_ATTEMPTS, target, RETRY))
+                        "another free provider first, did not make %s pass: %s" % (cap, target, RETRY))
             return plan
     else:
         plan.update(kind="maintenance", checkout=run["_tip"], push_branch=MAINTENANCE,
@@ -853,6 +859,14 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
                 else "no followed package changed since the last green run on main")
         plan["reason"] = ("Arch Linux failed on %s while Tests passed on the same commit: an incompatibility with "
                           "Arch Linux's own packages (%s)" % (branch or "?", what))
+    return plan
+
+
+def quiet_drill(plan, branch):
+    """An AUTOMAT drill tells nobody: what would open an issue (a failure of GitHub or the runner, a job
+    no fix handles) is retried with the drill's next run instead (tools/automat-drill.py)."""
+    if plan.get("action") == "issue" and _tool("automat-drill").is_drill_branch(branch):
+        plan.update(action="retry", reason="an AUTOMAT drill opens no issue: %s" % plan.get("reason", ""))
     return plan
 
 
@@ -1416,6 +1430,7 @@ def main(argv=None):
         run["_arch_changes"] = arch_change_lines(*arch)
         run["_tests"] = tests_result(repo, run.get("head_sha", ""))
         plan = decide(run, failed, open_fix_pr, reports)
+    plan = quiet_drill(plan, branch)
     # the commit that failed: the issue's message for ChatGPT starts from it when
     # no automatic fix is tried (after two attempts, for instance)
     plan["head_sha"] = run.get("head_sha", "")

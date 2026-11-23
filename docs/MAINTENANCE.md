@@ -524,10 +524,112 @@ added and removed lines) is compared with the ones of this attempt and with
 those that already failed for this error: the same patch twice stops the
 attempt, and that is recorded.
 
+### The AUTOMAT drill (2026-11-23)
+
+The owner asked for a live exercise of AUTOMAT on GitHub: "un test fake fatto bene, molto
+complicato, uno scenario reale di un aggiornamento massivo di Qt e di tutte le altre componenti
+installabili, per vedere se le IA riescono a risolvere il problema". The drill is that exercise. It
+runs AUTOMAT's real chain, end to end, on a realistic emergency, and it can never reach `main` or a
+user.
+
+**The one command** (on the owner's computer, or by Claude):
+
+```bash
+gh workflow run automat-drill.yml --ref main
+```
+
+`-f scenario=qt` is the default; `-f action=stop` ends a drill early with its final report;
+`-f action=report` writes the report into the run's summary only; `-f restart=true` starts again
+over a drill that runs.
+
+**The scenario** (`tools/automat-drill.json`, scenario `qt`): a major release of Qt and PyQt
+("PyQt6 7.0 / Qt 7.0", simulated), with jeepney 1.0 moving at the same time, changes some of the
+APIs I.K.E. really uses, as such releases do: enum members renamed, methods renamed, a method that no
+longer takes a callback. The breaks touch different files of I.K.E., ordinary interface modules and
+one protected (tier A) module; some are easy (a rename the release notes name, which the recipe
+`renamed-symbol` may try before any AI), some need the AI to understand the change (a callback
+replaced by a signal; a break inside `try` that fails silently; a renamed getter in the first line
+of a handler of the protected module, where the static guard's additive rule allows only adding
+code). The list, with what each break touches, the tests
+it breaks and **the expected solution, for judging the drill**, is in `tools/automat-drill.json`
+on `main` (a drill's branch carries only the breaks: the AIs' checkout does not hold the answers).
+The scenario's release notes (also there) are what "What changed upstream" gives the AIs, read
+from `main`'s copy, as a real release's notes would be. The expected solutions keep working with
+today's Qt (the new API with a fallback to the old one, or an API both releases have), because the
+drill also runs where today's Qt is: Arch Linux (`arch.yml`) does not get the simulated release, so
+a fix that forgot the fallback fails there, and AUTOMAT's Arch path fixes that too.
+
+The six breaks of scenario `qt` (their expected solutions: `tools/automat-drill.json` on `main`):
+
+| Break | What the new release changes | I.K.E.'s files | Difficulty |
+|---|---|---|---|
+| B1 | `QWebEnginePage.WebAction.ReloadAndBypassCache` renamed `ReloadBypassingCache` | `repair.py`, `shieldpanel.py`, `window.py` | easy |
+| B2 | `QWebEnginePage.recentlyAudible()` renamed `isRecentlyAudible()`: the whole browser fails at its first tab | `window.py`, `features.py`, `resources.py`, `plasma.py` | medium |
+| B3 | `QWebEnginePage.findText()` takes no result callback: the count comes with `findTextFinished` | `window.py` (the find bar) | hard |
+| B4 | `QWebEngineFullScreenRequest.toggleOn()` renamed `isToggleOn()`, in the first line of the full-screen handler | `webview.py` (protected, tier A: only additions) | hard |
+| B5 | `QWebEnginePage.LifecycleState.Discarded` renamed `Evicted`, inside `try`: tabs silently stay awake | `features.py`, `resources.py` | hard |
+| B6 | jeepney 1.0 (another component at once): `Message.serialise()` renamed `serialize()`, inside `try`: the desktop integration silently turns off | `desktopbus.py` | medium |
+
+Only I.K.E.'s own code (the checkout's `ike/` and `ike_boot.py`) sees the new names: the tests and
+their helpers, which no AI may change, and the libraries' own code keep today's, as a real release
+changes its own code along with its names. Each break fails at least the test the scenario names
+for it, and with every expected solution applied the tests pass under the simulated release and
+under today's Qt (checked before the drill was published).
+
+**How it runs** (`tools/automat-drill.py`, `automat-drill.yml`; no AI, no AI key):
+
+1. `start` makes, for each scenario, the branch `automation/update/drill-<name>` from `main`
+   with one commit `update: drill-<name> <from> -> <to> (no AI)` that only adds the marker
+   `tools/automat-drill.active` and writes the scenario's breaks into `tools/automat-drill.json`
+   (a candidate of the full chain: `tools/update-candidates.py` knows the ids `drill-*`, never in a
+   daily plan and in no serial group, so it holds back no real candidate). It opens the draft pull
+   request "DRILL: ..." with the label `automat-drill`, starts its Tests, Security and Arch Linux,
+   and opens one issue "DRILL: esercitazione di AUTOMAT in corso" (nobody named or assigned).
+2. In the drill's own test runs (Tests, the Security tests, the automatic fix's job `try`) the
+   composite action `ike-test-env` sees the marker and installs `tools/automat-drill-shim.py`
+   into that runner's Python: only a process started from the drill's checkout gets the simulated
+   release (`main`'s checkout in the same job, the base of "Nothing gets worse", keeps today's Qt).
+   On every other branch the step installs nothing.
+3. From there everything is AUTOMAT's own: the tests fail and hand over, the plan (one problem per
+   attempt, the memory, the upstream notes), the recipes, the free AIs with the inner loop, the
+   static guard, the job `try`, publish, Tests again, `tools/automerge.py` with "Nothing gets
+   worse" and the two reviewers, the retries with the reasons, the daily retry, and "DEVI AIUTARCI
+   CON CHATGPT" after `AUTOMAT_CHATGPT_AFTER` failures in a row on one error.
+4. `tick` (every three hours, and as soon as `tools/automerge.py` finds a drill complete) writes
+   the report into the drill's issue (an edit: no mail) and the run's summary; when every drill is
+   complete, or after its hours (`hours`, 48), the final report is one comment naming the owner,
+   the drill's only mail, and its issue, pull request and help notice are closed (the branch stays).
+
+**What makes it a drill and never more** (each tested in `tests/test_automat_drill.py`):
+
+| Where | What a drill gets |
+|---|---|
+| `tools/automerge.py` | judged like any other pull request, so the guard, "Nothing gets worse" and the reviewers really run; where it would merge, the verdict is "drill": a note on the pull request ("complete"), and the report is asked; `merge_it()` refuses one; no comment names the owner; never rebuilt by the daily maintenance |
+| any one mark | the branch `automation/update/drill-*`, the title `DRILL...`, the label `automat-drill`, the file `tools/automat-drill.active` |
+| `tools/release-notice.py` | never listed, neither as a change nor as an update still being retried |
+| `tools/maintenance-ledger.py` | never an entry (its branch is no update) |
+| `tools/automat-help.py` | "DEVI AIUTARCI CON CHATGPT" in drill mode: title `DRILL (esercitazione) DEVI AIUTARCI CON CHATGPT: ...`, the body says it is an exercise, the message for ChatGPT is the real one (its pull request would go against the drill's branch), nobody named or assigned; never the notice "no free provider at all" |
+| `tools/autofix-plan.py` | fixed like a candidate, with its scenario's attempts per day (`attempts_per_day`, at most 12; a real candidate keeps `FIX_ATTEMPTS`); its Security run opens no security branch; what would open an issue is retried instead |
+| `tools/upstream-diff.py` | "What changed upstream" is the scenario's release notes, from `main`'s copy, with no network |
+| AUTOMAT's memory and the quotas | the attempts are recorded under the drill's branch name, and the drill uses the real free quotas (its share is in the report; a candidate takes at most half of a provider's day) |
+
+**The report** says, for each break: fixed or not (its tests in the junit results of the last
+Tests run), by which provider or recipe and at which attempt (the first `autofix:` commit after
+which its tests passed, its `Author:` line), after how many hours; the attempts of AUTOMAT's memory
+with how each ended (the guard's rule, the reviewers' reasons); the reviewers' verdicts; the checks
+of the last commit and "Nothing gets worse"; the free quota the drill used per provider; the drill's
+help notice. At the end it adds the expected solutions, to judge the drill.
+
+**What only the live run shows**: whether the free models find the fixes; how many attempts and
+how much quota they use; whether the reviewers approve; the real duration of the runs; what the
+Arch Linux job says of fixes that forgot the fallback; whether GitHub starts the pull request's
+own checks (with the owner's `IKE_WORKFLOW_TOKEN`) or the dispatched ones.
+
 ## What runs by itself
 
 | When | What | Workflow | Result |
 |---|---|---|---|
+| By hand (`gh workflow run automat-drill.yml --ref main`), every three hours while it runs | The AUTOMAT drill: a simulated major Qt release on `automation/update/drill-<name>`, fixed by AUTOMAT's real chain, never merged (no key, no AI here) | `automat-drill.yml` | The drill's pull request "DRILL: ..." and issue (label `automat-drill`), the report in the issue and the run's summary; at the end one comment naming the owner |
 | After every run of the two AI reviewers | Their use of the free quotas, added to the day's record (numbers only; no key, no AI) | `automat-quota.yml` | `quota.json` on the data branch `automat/memory` ("The budget of the free quotas") |
 | After every run of the merge workflow | The notices "DEVI AIUTARCI CON CHATGPT" of the branches whose fix landed in `main` are closed with a note (no key, no AI) | `automat-help.yml` | The issue labelled `automat-help` closed |
 | Every day, 05:17 UTC | Upstream versions of the bundled components (and whether I.K.E.'s builders still accept them), Arch Linux's own packages and their whole dependency closure against what the last green `arch.yml` run on `main` tested, and the default filter lists loaded into `main`'s AdBlock engine | `daily-check.yml` | Issue labelled `components` (titled "Component incompatibility: ..." when a builder refused a new version); when anything of Arch's closure changed, `arch.yml` started on `main`; the inventory of every external component and the issue "Maintenance ledger" (label `maintenance-ledger`), see "Inventory, ledger and what is verified" |

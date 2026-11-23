@@ -66,6 +66,16 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Owner's decisions
 
+- 2026-11-23, **the AUTOMAT drill** (the owner's request: "un test fake
+  fatto bene, molto complicato, uno scenario reale di un aggiornamento
+  massivo di Qt e di tutte le altre componenti installabili, per vedere se
+  le IA riescono a risolvere il problema"). One command,
+  `gh workflow run automat-drill.yml --ref main`, starts a simulated major
+  release of Qt, PyQt and jeepney on `automation/update/drill-qt` (six
+  breaks in I.K.E.'s code, one in a protected module), and AUTOMAT's real
+  chain fixes it; it is never merged, never in the signing notice or the
+  ledger, and mails the owner once, at its end, with the report
+  (`tools/automat-drill.py`, docs/MAINTENANCE.md "The AUTOMAT drill").
 - 2026-11-23, **AUTOMAT, part 2** (what the first part left unbuilt; the
   owner wants nothing left behind). Built, all inert towards `main` until a
   check passes: the notice "DEVI AIUTARCI CON CHATGPT" after

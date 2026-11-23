@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "about": "AUTOMAT's drill (tools/automat-drill.py, docs/MAINTENANCE.md 'The AUTOMAT drill'): the scenarios. tools/automat-drill-shim.py applies each break in a drill's own test runs only; 'tests' are tests it breaks (the report reads them), 'expected' is the solution the drill is judged by. A drill's branch carries only the breaks, without 'expected' and 'notes'.",
+  "scenarios": {
+    "qt": {
+      "candidate": "drill-qt",
+      "title": "Aggiornamento massivo di Qt, PyQt e jeepney",
+      "component": "PyQt6",
+      "from": "PyQt6 6.12.1, Qt 6.12, PyQt6-WebEngine 6.140.1, jeepney 0.9.0",
+      "to": "PyQt6 7.0.0, Qt 7.0, PyQt6-WebEngine 7.0.0, jeepney 1.0.0 (simulated)",
+      "from_version": "6.12.1",
+      "to_version": "7.0.0",
+      "hours": 48,
+      "attempts_per_day": 8,
+      "notes": [
+        "PyQt6 7.0 and PyQt6-WebEngine 7.0 (Qt 7.0): porting notes",
+        "QWebEnginePage.WebAction: renamed ReloadAndBypassCache to ReloadBypassingCache.",
+        "QWebEnginePage: renamed recentlyAudible to isRecentlyAudible (the signal recentlyAudibleChanged keeps its name).",
+        "QWebEnginePage.findText(): the overload with a result callback is gone: findText(subString, options) only. The result arrives with the signal findTextFinished(QWebEngineFindTextResult), as in Qt 6.",
+        "QWebEngineFullScreenRequest: renamed toggleOn to isToggleOn (a getter of a bool, as elsewhere in Qt 7).",
+        "QWebEnginePage.LifecycleState: renamed Discarded to Evicted (Active and Frozen keep their names).",
+        "jeepney 1.0: Message renamed serialise to serialize (the American spelling; the same arguments)."
+      ],
+      "breaks": [
+        {
+          "id": "B1", "kind": "rename", "module": "PyQt6.QtWebEngineCore", "owner": "QWebEnginePage.WebAction",
+          "old": "ReloadAndBypassCache", "new": "ReloadBypassingCache",
+          "what": "an enum member renamed (the reload that skips the cache)",
+          "files": ["ike/repair.py", "ike/shieldpanel.py", "ike/window.py"], "difficulty": "easy",
+          "tests": ["tests/test_repair.py::test_repair_finds_one"],
+          "expected": {"summary": "WebAction.ReloadBypassingCache when the enum has it (hasattr), else WebAction.ReloadAndBypassCache, in the three places (repair.py's _reload, shieldpanel.py's reload after a change, window.py's hard-reload shortcut). A plain rename (the recipe renamed-symbol may make it, from the release notes) passes the drill's tests but fails Arch Linux, which has today's Qt: the fallback is part of the fix."}
+        },
+        {
+          "id": "B2", "kind": "rename", "module": "PyQt6.QtWebEngineCore", "owner": "QWebEnginePage",
+          "old": "recentlyAudible", "new": "isRecentlyAudible",
+          "what": "a method renamed that the window calls for every tab: the whole browser fails at its first tab",
+          "files": ["ike/window.py", "ike/features.py", "ike/resources.py", "ike/plasma.py"], "difficulty": "medium",
+          "tests": ["tests/test_accept_language.py::test_a_german_system_asks_for_german"],
+          "expected": {"summary": "Either every call becomes page.isRecentlyAudible() if hasattr(page, 'isRecentlyAudible') else page.recentlyAudible() (window.py, features.py twice, resources.py, plasma.py; two of them are inside try/except, where the failure is silent), or, in one place, a method recentlyAudible(self) added to webview.py's class WebPage that returns self.isRecentlyAudible() when QWebEnginePage has it and super().recentlyAudible() otherwise (additive: the static guard allows it in the protected module)."}
+        },
+        {
+          "id": "B3", "kind": "max_args", "module": "PyQt6.QtWebEngineCore", "owner": "QWebEnginePage",
+          "old": "findText", "max_args": 2,
+          "signature": "findText(self, subString: Optional[str], options: QWebEnginePage.FindFlag = QWebEnginePage.FindFlags())",
+          "what": "a method that no longer takes a result callback: the find bar's count comes with a signal",
+          "files": ["ike/window.py"], "difficulty": "hard",
+          "tests": ["tests/test_polish.py::test_touches_of_117"],
+          "expected": {"summary": "The find bar calls page.findText(text, flags) with two arguments and gets the result through the signal findTextFinished(QWebEngineFindTextResult), which today's Qt has too: connected once per page to the bar's handler (numberOfMatches, activeMatch), so the 'N of M' pill and the red tint work with both releases. Only dropping the callback loses the count, and the find pill's test fails."}
+        },
+        {
+          "id": "B4", "kind": "rename", "module": "PyQt6.QtWebEngineCore", "owner": "QWebEngineFullScreenRequest",
+          "old": "toggleOn", "new": "isToggleOn",
+          "what": "a getter renamed in the protected module webview.py, the first statement of its full-screen handler",
+          "files": ["ike/webview.py"], "difficulty": "hard",
+          "tests": ["tests/test_fullscreen.py::test_fullscreen_and_mouse_lock"],
+          "expected": {"summary": "webview.py is protected (tier A): the static guard allows only added statements, so the old line on = request.toggleOn() may not change. The fix adds, before it, a new branch under a condition that is not a constant (not hasattr(request, 'toggleOn')) that does the same with request.isToggleOn() (a tab in the background refused, accept, the window full screen and its notice) and returns; with today's Qt the old lines run as before. It needs the two independent reviewers like any change of protected code; a fix that edits the old line is refused by the guard."}
+        },
+        {
+          "id": "B5", "kind": "rename", "module": "PyQt6.QtWebEngineCore", "owner": "QWebEnginePage.LifecycleState",
+          "old": "Discarded", "new": "Evicted",
+          "what": "an enum member renamed inside try/except: background tabs are silently no longer suspended",
+          "files": ["ike/features.py", "ike/resources.py"], "difficulty": "hard",
+          "tests": ["tests/test_resources.py::test_memory_pressure_suspends_the_oldest_tabs"],
+          "expected": {"summary": "The failure is no AttributeError but tabs that stay awake (the exception is swallowed): the AI must find the try/except in features.py's _suspend and sleep_view and in resources.py's suspend. LifecycleState.Evicted when the enum has it, else LifecycleState.Discarded, in each place (features.py also compares lifecycleState() with it)."}
+        },
+        {
+          "id": "B6", "kind": "rename", "module": "jeepney.low_level", "owner": "Message",
+          "old": "serialise", "new": "serialize",
+          "what": "another component moving at once: jeepney 1.0 renamed Message.serialise; the bus is opened inside try/except, so the desktop integration silently turns off",
+          "files": ["ike/desktopbus.py"], "difficulty": "medium",
+          "tests": ["tests/test_plasma.py::test_media_controls"],
+          "expected": {"summary": "In desktopbus.py, both places that turn a message into bytes (connect's Hello and _send) call msg.serialize(serial=...) when the message has it (hasattr), else msg.serialise(serial=...), so the bus opens with both versions of jeepney and the KDE media controls, KRunner and the notifications come back. No new import is needed (a new import in an interface module is for a person to read, by the merge's rules)."}
+        }
+      ]
+    }
+  }
+}

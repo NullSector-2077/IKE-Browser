@@ -28,8 +28,11 @@ jobs:
   tests:
     runs-on: ubuntu-24.04
     # room for the starting commit's tests too, when a branch of the automation
-    # or of ChatGPT changed tests/ (audit of #65)
-    timeout-minutes: 100
+    # or of ChatGPT changed tests/ (audit of #65), and for "Nothing gets worse"
+    # after them (up to 20 minutes): PR #116's run on 86525f6 had every step
+    # green after 100 minutes, the whole suite three times, and was cancelled
+    # by the old limit in "Nothing gets worse"
+    timeout-minutes: 140
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

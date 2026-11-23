@@ -40,6 +40,17 @@ runs:
       shell: bash
       run: |
         python -m pip install --disable-pip-version-check -q -r tools/test-requirements.txt
+    # An AUTOMAT drill (tools/automat-drill.py): only a drill's branch carries tools/automat-drill.active,
+    # and only there this Python gets the drill's simulated major release of Qt (tools/automat-drill-shim.py,
+    # active only for processes started from the drill's checkout). Anywhere else nothing is installed.
+    - name: The AUTOMAT drill's simulated release (a drill's branch only)
+      shell: bash
+      run: |
+        if [ -f tools/automat-drill.active ]; then
+          python tools/automat-drill.py shim --install --root .
+        else
+          echo "not a drill's branch: the test environment is the real one"
+        fi
     - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: |

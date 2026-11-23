@@ -32,6 +32,11 @@ engine flag): the ad blocker stays closed to it on every branch, also on a candi
 Everything of other people's that goes into the issue (the log, the memory, a model's words) is in a
 fence, with mentions and closing words defused.
 
+**An AUTOMAT drill** (tools/automat-drill.py, a branch automation/update/drill-*): the same path, so the
+owner can see it work, but into an issue that says plainly it is an exercise ("DRILL" before the
+owner's words), with the drill's label, nobody named and nobody assigned (no mail: the drill mails the
+owner once, at its end), and never for "no free provider at all" (a real fact, told by real branches).
+
     automat-help.py check --repo OWNER/NAME --component BRANCH --workflow NAME --branch BRANCH --checkout SHA
                           --failure FILE [--memory FILE] [--quota FILE] [--dry-run]
     automat-help.py sweep --repo OWNER/NAME --memory FILE [--dry-run]
@@ -59,6 +64,10 @@ MARK = "<!-- automat-help: %s %s -->"
 MARK_RE = re.compile(r"<!-- automat-help: ([0-9a-z-]{4,32}) ([A-Za-z0-9._/-]{1,120}) -->")
 BOT = "github-actions[bot]"
 MAIN_BRANCHES = ("main", "automation/autofix-main")
+# an AUTOMAT drill (tools/automat-drill.py): the same notice, as an exercise, into an issue of its own
+DRILL_PREFIX = "automation/update/drill-"
+DRILL_TITLE = "DRILL (esercitazione) "
+DRILL_LABEL = "automat-drill"
 LOG_CHARS = 10000
 MEMORY_CHARS = 6000
 COOL_DAYS = 3
@@ -198,11 +207,30 @@ def message(repo, workflow, branch, checkout, component, failure, memory_text, k
     return defused("\n".join(parts))
 
 
-def title_of(kind, workflow, branch, sig):
-    """The issue's title: the owner's words first, then what failed."""
+def title_of(kind, workflow, branch, sig, drill=False):
+    """The issue's title: the owner's words first, then what failed (a drill's: "DRILL" before them)."""
     what = "nessun assistente gratuito disponibile" if kind == "no-provider" else "errore %s" % sig
-    return ("%s: %s su %s (%s)" % (PHRASE, re.sub(r"[^\w .()-]", "", str(workflow))[:60],
-                                  re.sub(r"[^A-Za-z0-9._/-]", "", str(branch))[:80], what))[:240]
+    return ("%s%s: %s su %s (%s)" % (DRILL_TITLE if drill else "", PHRASE,
+                                    re.sub(r"[^\w .()-]", "", str(workflow))[:60],
+                                    re.sub(r"[^A-Za-z0-9._/-]", "", str(branch))[:80], what))[:240]
+
+
+def drill_body(repo, workflow, branch, component, sig, count, text, n=AFTER_DEFAULT):
+    """The notice of an AUTOMAT drill (tools/automat-drill.py): the same path, said as an exercise, with no
+    owner named (the drill mails the owner once, at its end)."""
+    lines = [
+        "**DRILL: ESERCITAZIONE. %s**" % PHRASE, "",
+        "Questa è una **prova**: un'esercitazione di AUTOMAT su `%s`, non un problema vero. Gli assistenti AI "
+        "gratuiti hanno provato **%d volte di fila** a correggere lo stesso errore (workflow \"%s\") e non ci sono "
+        "riusciti: in un caso vero, qui ti chiederemmo una mano con ChatGPT. Non serve fare niente; se vuoi vedere "
+        "come funziona, il messaggio qui sotto è quello vero, e la sua pull request andrebbe contro il ramo "
+        "dell'esercitazione, mai contro `main`." % (branch, count, workflow), "",
+        "<details><summary>Messaggio per ChatGPT (esercitazione)</summary>", "",
+        "````text", "This is an AUTOMAT drill (an exercise on the branch %s, never merged into main)." % branch,
+        "", text, "````", "", "</details>", "",
+        "Si chiude da solo alla fine dell'esercitazione (dopo %d tentativi falliti di fila arriva questo avviso)." % n,
+        "", MARK % (sig, component)]
+    return "\n".join(lines) + "\n"
 
 
 def body(owner, repo, workflow, branch, component, kind, sig, count, text, automerge=False, n=AFTER_DEFAULT):
@@ -256,10 +284,10 @@ def notices(repo, api=gh_api, state="open"):
     return out
 
 
-def publish(repo, owner, sig, component, title, text, api=gh_api, now=None):
+def publish(repo, owner, sig, component, title, text, api=gh_api, now=None, drill=False):
     """The notice opened (the owner is named and assigned: GitHub mails it) or, when the one of this
     signature and branch is open already, edited. Returns (issue number, "opened" | "edited" | "same" |
-    "quiet")."""
+    "quiet"). A drill's notice is assigned to nobody and carries the drill's label too."""
     for issue, s, c in notices(repo, api):
         # (no free provider at all is one fact, whatever the branch: one notice for it)
         if s == sig and (c == component or sig == NO_PROVIDER):
@@ -281,6 +309,9 @@ def publish(repo, owner, sig, component, title, text, api=gh_api, now=None):
                                                "description": "AUTOMAT asks for ChatGPT's help"})
     except RuntimeError:
         pass
+    if drill:
+        return api("repos/%s/issues" % repo, "POST", {"title": title, "body": text,
+                                                      "labels": [LABEL, DRILL_LABEL]}).get("number"), "opened"
     try:
         made = api("repos/%s/issues" % repo, "POST", {"title": title, "body": text, "labels": [LABEL],
                                                       "assignees": [owner]})
@@ -371,6 +402,9 @@ def main(argv=None, env=None, api=gh_api):
     memory = mem.load(a.memory) if a.memory else mem.empty()
     state = quota.load_state(a.quota) if a.quota else None
     n = after(env)
+    drill = a.component.startswith(DRILL_PREFIX)
+    if drill:
+        state = None                   # no free provider at all is a real fact: never told by a drill
     what = due(memory, state, a.component, n)
     if state is not None and (not what or what[0] != "no-provider") and not a.dry_run:
         try:
@@ -398,12 +432,14 @@ def main(argv=None, env=None, api=gh_api):
         text = message(a.repo, a.workflow, branch, checkout, a.component, failure[-4000:], memory_text[:2000], kind,
                        count, date)
         full = body(owner, a.repo, a.workflow, branch, a.component, kind, sig, count, text, automerge_on(env), n)
-    title = title_of(kind, a.workflow, branch, sig)
+    if drill:
+        full = drill_body(a.repo, a.workflow, branch, a.component, sig, count, text[:40000], n)
+    title = title_of(kind, a.workflow, branch, sig, drill)
     if a.dry_run:
         print(title)
         print(full)
         return 0
-    number, how = publish(a.repo, owner, sig, a.component, title, full, api)
+    number, how = publish(a.repo, owner, sig, a.component, title, full, api, drill=drill)
     print("%s: #%s %s (%s, %d in a row)" % (PHRASE, number, how, sig, count))
     return 0
 

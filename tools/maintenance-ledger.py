@@ -97,6 +97,7 @@ WORK_KINDS = ("filter-list", "ai-work")
 # closed here (no run of it is compared)
 REPORT_WORKFLOWS = ("Tests", "Security")
 SECURITY_PREFIX = "automation/update/security-"
+DRILL_PREFIX = "automation/update/drill-"          # tools/automat-drill.py: an exercise, never in the ledger
 SECURITY_FIX_ATTEMPTS = 2      # tools/autofix-plan.py MAX_ATTEMPTS: then the fix is blocked
 SANDBOX = {"id": "security:sandbox", "name": "Engine sandbox and isolation tests (security.yml)",
            "kind": "security-test", "installed": "", "update_mode": "the automatic fix on an isolated branch "
@@ -984,6 +985,8 @@ def update_branches(repo, api):
         if not ref.startswith(("automation/update/", "automation/builder/")) or ref.startswith(SECURITY_PREFIX) \
                 or not sha or (head.get("repo") or {}).get("full_name") not in (None, repo):
             continue
+        if ref.startswith(DRILL_PREFIX):
+            continue                 # an AUTOMAT drill (tools/automat-drill.py): no update, never an entry here
         info = {"branch": ref, "sha": sha, "pr": pr.get("number"), "url": pr.get("html_url", ""),
                 "runs": {wf: run_info(repo, wf, api, sha=sha) for wf in ("tests.yml", "arch.yml", "security.yml")}}
         tests = info["runs"].get("tests.yml")

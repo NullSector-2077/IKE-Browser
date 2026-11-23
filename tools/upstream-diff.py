@@ -219,8 +219,10 @@ def rename_pairs(patches, notes=""):
     definition and exactly one added one have the same arguments and the old name is gone."""
     out = []
     for m in RENAMED.finditer(notes or ""):
-        pair = (m.group(1).split("::")[-1].split(".")[-1], m.group(2).split("::")[-1].split(".")[-1])
-        if pair[0] != pair[1] and pair not in out:
+        # (the full stop that ends the sentence is no part of the name: "renamed a to b." is (a, b))
+        pair = (m.group(1).rstrip(".:").split("::")[-1].split(".")[-1],
+                m.group(2).rstrip(".:").split("::")[-1].split(".")[-1])
+        if pair[0] != pair[1] and pair[0] and pair[1] and pair not in out:
             out.append(pair)
     removed, added = {}, {}
     for p in patches:
@@ -345,6 +347,16 @@ def changes_of(branch, show, failure=""):
     elif cid in ("adblock", "crates", "pyo3") or cid.startswith("crate-major-"):
         for name, old, new in crate_changes(show(main, LOCK), show(head, LOCK), show(head, MANIFEST), failure):
             out.append({"name": name, "old": old, "new": new, "kind": "crate", "repo": ""})
+    elif cid.startswith("drill-"):
+        # an AUTOMAT drill (tools/automat-drill.py): its simulated release notes, from main's copy of the
+        # scenarios (never from the branch, never from the network), as a real release's would be read
+        drill = _tool("automat-drill")
+        name, sc = drill.scenario_of(cid, data=drill.load_text(show(main, drill.DATA)))
+        notes = drill.notes_for("automation/update/" + cid, data=drill.load_text(show(main, drill.DATA)))
+        if sc and notes:
+            out.append({"name": (sc.get("component") or name).replace(" ", "-"), "old": sc.get("from_version", "0"),
+                        "new": sc.get("to_version", "0"), "kind": "drill", "repo": "(simulated)",
+                        "data": {"notes": notes, "commits": [], "files": []}})
     return [c for c in out if NAME.match(c["name"].split(" ")[0])]
 
 
@@ -382,8 +394,11 @@ def build(branch, show, failure, get, budget=BUDGET, memory=None):
     for c in shown:
         if not VERSION.match(c["old"]) and not SHA.match(c["old"]):
             continue
-        c["repo"] = resolve(c, get)
-        if not c["repo"]:
+        if c.get("kind") != "drill":              # (a drill's notes are already there: nothing is asked of anyone)
+            c["repo"] = resolve(c, get)
+        if c.get("kind") == "drill":
+            pass
+        elif not c["repo"]:
             c["why"] = "its registry names no repository on GitHub"
         else:
             exact = c.get("exact")

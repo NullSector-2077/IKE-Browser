@@ -132,6 +132,13 @@ no file of the repository and no workflow can set them; the workflow passes them
   none of the free providers), no test changed. A fix that touches a test or a tier-B file is not
   adopted: it waits for the owner's order. Off (the default): today's rule, it only waits.
 
+**An AUTOMAT drill is never merged** (tools/automat-drill.py, 2026-11-23). A drill's pull request (its
+branch automation/update/drill-*, its title "DRILL...", its label automat-drill or its file
+tools/automat-drill.active: any one is enough) is judged like any other, so that the static guard,
+"Nothing gets worse" and the two reviewers really run on it; where it would merge, judge() says
+"drill" instead: the pull request gets a note that the drill is complete and the drill's report is
+asked for. The merge call itself refuses one too, and nothing about a drill names the owner.
+
     automerge.py --repo OWNER/NAME --sha HEAD_SHA [--dry-run]
     automerge.py --repo OWNER/NAME --daily [--dry-run]      (the daily check: every open pull request of
                                                             the automation is judged again, its checks or
@@ -1183,13 +1190,24 @@ def ai_requirements(pr, commits, files, evidence, review, sha_of=None, tier_b=Fa
     return "merge", ""
 
 
+DRILL_WHY = "an AUTOMAT drill: everything holds and it would merge, but a drill never does"
+
+
+def drill(pr, files=()):
+    """An AUTOMAT drill's pull request (tools/automat-drill.py): never merged."""
+    return _tool("automat-drill").is_drill_pr(pr, files)
+
+
 def judge(repo, pr, commits, files, checks, guard_allowed, review=None, **kw):
-    """The verdict main() acts on: decide(), then what a commit of an AI needs (ai_requirements)."""
+    """The verdict main() acts on: decide(), then what a commit of an AI needs (ai_requirements). A
+    drill that would merge is "drill" instead: it never merges."""
     kind, why = decide(repo, pr, commits, files, checks, guard_allowed, **kw)
-    if kind != "merge":
-        return kind, why
-    return ai_requirements(pr, commits, files, kw.get("evidence"), review, kw.get("sha_of"),
-                           bool(kw.get("tier_b")), kw.get("tags"))
+    if kind == "merge":
+        kind, why = ai_requirements(pr, commits, files, kw.get("evidence"), review, kw.get("sha_of"),
+                                    bool(kw.get("tier_b")), kw.get("tags"))
+    if kind in ("merge", "ready") and drill(pr, files):
+        return "drill", DRILL_WHY
+    return kind, why
 
 
 # --- part 2 of AUTOMAT: a verified ChatGPT fix is adopted (only with the owner's switch) -----------------
@@ -1313,7 +1331,8 @@ CHECK_WHY = ("not fully verified", "the check ", NO_REGRESSION)
 def rebuilt_daily(ref):
     """The daily maintenance makes this branch again from main (a candidate per component, or the combined one)."""
     return ref == CANDIDATE or (ref.startswith(UPDATE_PREFIX) and bool(candidate_id(ref))
-                                and not ref.startswith(ARCH_TESTING_PREFIX))
+                                and not ref.startswith(ARCH_TESTING_PREFIX)
+                                and not _tool("automat-drill").is_drill_branch(ref))
 
 
 def next_step(why, ref, has_ai):
@@ -1421,13 +1440,13 @@ def retrigger(repo, n):
             os.environ["GH_TOKEN"] = old
 
 
-def person_text(n, why, owner, sha, step="judge"):
+def person_text(n, why, owner, sha, step="judge", drill_pr=False):
     """The one comment of a pull request that is not merged. Since the full automation it asks nothing
     of anyone: it says why and what the automation does next; only an open security finding still
-    names the owner (blocked: the owner's own decision)."""
-    if why.startswith(TOKEN_WHY):
+    names the owner (blocked: the owner's own decision). A drill's pull request never names the owner."""
+    if why.startswith(TOKEN_WHY) and not drill_pr:
         return token_text(owner, sha)
-    if why.startswith(SECURITY_WHY):
+    if why.startswith(SECURITY_WHY) and not drill_pr:
         return ("%s\n@%s: questa pull request **non** entra in `main` da sola: %s.\n\n"
                 "Resta bloccata finché l'avviso di sicurezza è aperto: chiedi a Claude di guardare la pull request "
                 "#%d.\n%s\n%s" % (MARK, owner, why, n, NEXT_MARK % "blocked", VERDICT % (sha or "-", "security")))
@@ -1437,10 +1456,10 @@ def person_text(n, why, owner, sha, step="judge"):
                                  VERDICT % (sha or "-", "retrying")))
 
 
-def tell_person(repo, n, why, owner, sha="", step="judge"):
-    """One comment per pull request (informational; a security finding names the owner); a later
-    reason is written into that same comment, never in a new one."""
-    body = person_text(n, why, owner, sha, step)
+def tell_person(repo, n, why, owner, sha="", step="judge", drill_pr=False):
+    """One comment per pull request (informational; a security finding names the owner, never on a
+    drill's); a later reason is written into that same comment, never in a new one."""
+    body = person_text(n, why, owner, sha, step, drill_pr)
     said = json.loads(gh("api", "repos/%s/issues/%d/comments?per_page=100" % (repo, n), "--jq",
                          '[.[] | select(.user.login == "%s") | {id, body}]' % BOT) or "[]")
     mine = [c for c in said if MARK in (c.get("body") or "")]
@@ -1624,12 +1643,14 @@ def merge_it(repo, pr, sha):
     """The merge, with the workflow's token, at exactly this commit; then main's own checks."""
     import os
     n = pr["number"]
-    if pr.get("draft"):
-        gh("pr", "ready", str(n), "--repo", repo)
     try:
         files = api("repos/%s/pulls/%d/files?per_page=100" % (repo, n))
     except (RuntimeError, ValueError):
         files = []
+    if drill(pr, files):
+        raise RuntimeError("#%d is an AUTOMAT drill: never merged" % n)
+    if pr.get("draft"):
+        gh("pr", "ready", str(n), "--repo", repo)
     token = merge_token(files)
     old = os.environ.get("GH_TOKEN")
     if token:
@@ -1707,8 +1728,26 @@ def follow(repo, pr, sha, why, step, dry_run=False):
     elif step == "fix":
         start(repo, "autofix.yml", "main", "run_id=%s" % (os.environ.get("GITHUB_RUN_ID") or "0"),
               "work=refused/%s" % sha)
-    tell_person(repo, n, why, owner, sha, step)
+    tell_person(repo, n, why, owner, sha, step, drill(pr))
     return step
+
+
+def drill_complete(repo, pr, sha, dry_run=False):
+    """A drill that would have merged: one note on its pull request (no one named), and the drill's
+    report asked for (tools/automat-drill.py tick ends the drill when every drill is complete)."""
+    n = pr["number"]
+    mark = _tool("automat-drill").DONE_MARK % sha
+    if dry_run:
+        print("#%d (%s): the drill is complete at %s" % (n, pr["head"]["ref"], sha[:10]))
+        return
+    said = gh("api", "repos/%s/issues/%d/comments?per_page=100" % (repo, n), "--jq",
+              '[.[] | select(.user.login == "%s") | .body] | join("\\n")' % BOT)
+    if mark not in said:
+        gh("pr", "comment", str(n), "--repo", repo, "--body",
+           "%s\nEsercitazione: a questo commit tutto è verificato (test, controlli, regole, \"niente peggiora\", "
+           "revisori). Una pull request vera entrerebbe in `main`; questa no, perché è un'esercitazione. Il risultato "
+           "arriva nell'issue dell'esercitazione." % mark)
+    start(repo, "automat-drill.yml", "main", "action=tick")
 
 
 def daily(repo, dry_run=False):
@@ -1865,7 +1904,10 @@ def main(argv=None):
             break
         time.sleep(30)
     print("#%d (%s): %s" % (n, ref, {"merge": "fully verified: merge", "ready": "ready for the owner's order",
-                                     "wait": "waiting: ", "person": "not merged: "}[kind] + why))
+                                     "wait": "waiting: ", "person": "not merged: ", "drill": "not merged: "}[kind] + why))
+    if kind == "drill":
+        drill_complete(a.repo, pr, a.sha, a.dry_run)
+        return 0
     if a.dry_run or kind == "wait":
         return 0
     if kind == "person":

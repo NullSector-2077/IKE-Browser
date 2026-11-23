@@ -18,6 +18,8 @@ automatic fix, ledger entry and verified merge (tools/automerge.py).
     test-libs          the other libraries of the automatic tests
     pkgbuild           the PKGBUILD's depends, optdepends and minima (tools/pkgbuild-sync.py)
     ci-<name>          a pin of the workflows (tools/ci-pins.py: actions, cargo-deny, Python, Node.js, Rust)
+    drill-<name>       an AUTOMAT drill (tools/automat-drill.py): never in a daily plan, never merged; its
+                       commit only adds the drill's marker and the scenario's breaks
 
 Rules (the plan below; the workflow follows them):
 
@@ -61,7 +63,7 @@ PREFIX = "automation/update/"
 BUILDER_PREFIX = "automation/builder/"
 SECURITY_PREFIX = PREFIX + "security-"
 ID = re.compile(r"^(adblock|crates|pyo3|crate-major-[a-z0-9_-]{1,40}|ubo-scriptlets|darkreader|test-qt|test-tools"
-                r"|test-libs|pkgbuild|ci-[a-z0-9-]{1,60}|arch-testing-\d{4}-\d\d-\d\d)$")
+                r"|test-libs|pkgbuild|ci-[a-z0-9-]{1,60}|arch-testing-\d{4}-\d\d-\d\d|drill-[a-z0-9]{1,30})$")
 ENGINE_FILES = ("ike-adblock/Cargo.toml", "ike-adblock/Cargo.lock")
 LICENCE_FILES = ("docs/THIRD-PARTY.md", "licenses/")
 VERSION_FILES = ("ike/__init__.py", "PKGBUILD", "README.md", "CHANGELOG.md")
@@ -90,6 +92,10 @@ SPECS = {
             "kinds": ("github-action",)},
     # WP10 (b): a fix of main's code for Arch's next packages (only the automatic fix's commits)
     "arch-testing-": {"files": (), "serial": "", "ships": True, "wrapper": False, "kinds": ("arch-package",)},
+    # an AUTOMAT drill (tools/automat-drill.py): its own commit only adds the drill's marker and writes the
+    # scenario's breaks; no serial group (it never holds back a real candidate); tools/automerge.py never merges it
+    "drill-": {"files": ("tools/automat-drill.active", "tools/automat-drill.json"), "serial": "", "ships": False,
+               "wrapper": False, "kinds": ("pypi-test",), "drill": True},
 }
 # the order in which candidates of one serial group go (the security fixes' branches always count as open)
 PRIORITY = ("adblock", "pyo3", "crates", "crate-major-", "test-qt", "test-tools", "test-libs")

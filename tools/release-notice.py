@@ -26,7 +26,8 @@ yet it lists every change merged since the last published version:
    and in the last days, the limit, what is left, and whether the limit was verified or is a careful
    guess.
 
-GET calls only. What cannot be read is said as "non letto", never left out or guessed.
+GET calls only. What cannot be read is said as "non letto", never left out or guessed. An AUTOMAT drill
+(tools/automat-drill.py) is never listed: it never merges, and it is no update being retried.
 
     release-notice.py --repo OWNER/NAME --version X.Y.Z --owner LOGIN --out FILE
 """
@@ -86,6 +87,7 @@ def change_of(repo, number, api, tools):
         return out
     sha = (pr.get("head") or {}).get("sha", "")
     out["title"] = plain(pr.get("title"))
+    out["drill"] = _tool("automat-drill").is_drill_pr(pr, files)
     names = [f.get("filename", "") for f in files if f.get("filename") not in VERSION_FILES]
     out["files"] = names
     ai = [c for c in commits if rv.AUTOFIX_COMMIT.match((c.get("commit") or {}).get("message") or "")]
@@ -126,6 +128,7 @@ def change_of(repo, number, api, tools):
 def gather(repo, api=gh_api):
     """{"last": the last published tag, "changes": [change], "pending": [text], "unread": [what]}."""
     tools = (_tool("fix-guard"), _tool("ai-review"), _tool("automerge"))
+    drill = _tool("automat-drill")
     info = {"last": "", "changes": [], "pending": [], "unread": [], "quota": None}
     try:
         info["last"] = (api("repos/%s/releases/latest" % repo) or {}).get("tag_name", "")
@@ -139,6 +142,8 @@ def gather(repo, api=gh_api):
         if not m or len(c.get("parents") or []) < 2:
             continue
         change = change_of(repo, int(m.group(1)), api, tools)
+        if change.get("drill") or drill.is_drill_title(first.split(":", 1)[-1]):
+            continue                         # an AUTOMAT drill is never part of a version (it never merges)
         change["self"] = SELF in first
         change["title"] = change["title"] or plain(first.split(":", 1)[-1])
         info["changes"].append(change)
@@ -146,6 +151,9 @@ def gather(repo, api=gh_api):
         led = _tool("maintenance-ledger")
         _number, ledger = led.read_ledger(repo, led.gh_api)
         for e in sorted(((ledger or {}).get("entries") or {}).values(), key=lambda e: e.get("key", "")):
+            if drill.is_drill_branch(e.get("via")) or str(e.get("component", "")).startswith("drill-") or \
+                    e.get("drill"):
+                continue                     # nor is it an update still being retried
             if e.get("state") in ("retrying", "blocked"):
                 info["pending"].append("%s%s: %s" % (
                     "**BLOCCATO** " if e["state"] == "blocked" else "", plain(e.get("name"), 80),
