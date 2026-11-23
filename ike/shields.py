@@ -1010,15 +1010,19 @@ class Shields(QObject):
         they are answers of the page itself (ike:open), refused from websites."""
         import html as _html
 
+        from . import icons
         from .config import RES_DIR
         from .i18n import T
         out = []
         for cls, what, icon, label in (("nt-settings", "settings", "configure", T("Settings")),
                                        ("nt-photo", "background", "image-x-generic", T("Background photo"))):
-            try:
-                svg = (RES_DIR / "icons" / "sets" / "lucide" / (icon + ".svg")).read_text("utf-8")
-            except OSError:
-                svg = ""
+            # 1.1.24: Settings shows the desktop's own icon (KDE's), the shipped one otherwise
+            svg = icons.theme_svg(icon) if what == "settings" else ""
+            if not svg:
+                try:
+                    svg = (RES_DIR / "icons" / "sets" / "lucide" / (icon + ".svg")).read_text("utf-8")
+                except OSError:
+                    svg = ""
             out.append('<a class="nt-btn %s" href="ike:open?what=%s" title="%s"><span class="ico">%s</span>'
                        '<span class="name">%s</span></a>' % (cls, what, _html.escape(label, quote=True), svg,
                                                             _html.escape(label)))

@@ -229,6 +229,46 @@ def _from_theme(name):
     return ic
 
 
+def theme_svg(name, sizes=("22", "24", "symbolic", "32", "16")):
+    """The text of the SVG for name that follows the icon choice, to be put in
+    a page of I.K.E.: KDE's Breeze for the default choice and on Plasma, the
+    chosen theme's or the chosen shipped set's otherwise (1.1.24, the owner's
+    choice: KDE's Settings icon on the new tab page). Its colour style is
+    dropped, so the icon takes the page's text colour; "" when the theme has
+    no SVG for it, or when the file holds anything but a drawing."""
+    import re
+    from pathlib import Path
+    if _set:                  # a set shipped with I.K.E. was chosen: its own drawing
+        try:
+            return _file(name, _set).read_text("utf-8").strip()
+        except OSError:
+            return ""
+    # the default ("system") and Plasma: KDE's Breeze first (the owner's choice);
+    # another icon theme chosen in the Settings: that theme first
+    chosen = QIcon.themeName() if _system_theme is not None and QIcon.themeName() != _system_theme else ""
+    themes = [t for t in (chosen, "breeze", "breeze-dark", QIcon.themeName()) if t]
+    for theme in dict.fromkeys(themes):
+        for base in QIcon.themeSearchPaths():
+            if base.startswith(":"):
+                continue
+            for size in sizes:
+                path = Path(base) / theme / "actions" / size / (name + ".svg")
+                try:
+                    if not path.is_file() or path.stat().st_size > 64 * 1024:
+                        continue
+                    text = path.read_text("utf-8")
+                except (OSError, UnicodeDecodeError):
+                    continue
+                low = text.lower()
+                if "<svg" not in low or re.search(r"<script|<foreignobject|\son\w+\s*=|javascript:|<!entity"
+                                                    r"|xlink:href\s*=\s*[\"'](?!#)|\shref\s*=\s*[\"'](?!#)", low):
+                    continue          # only a plain drawing goes into the page
+                text = re.sub(r"<\?xml[^>]*\?>", "", text)
+                text = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.S | re.I)
+                return text.strip()
+    return ""
+
+
 _found = {}          # (names, standard, set, theme): (icon, where it came from) (1.1.23)
 
 

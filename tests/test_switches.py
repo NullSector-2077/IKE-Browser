@@ -412,3 +412,58 @@ def steps(ike, qapp, out):
 ''', timeout=60)
     wide, minimum, hint = out["r"]
     assert minimum <= hint < wide / 2, out["r"]
+
+
+def test_switches_are_squared_with_rounded_corners_and_a_little_smaller():
+    """1.1.24, the owner's choice: the switches are squared with rounded
+    corners (closer to Plasma), not pills, with a square knob; those of the
+    windows and of the lists a little smaller, those of the menus as before."""
+    from PyQt6.QtCore import QRect
+    from PyQt6.QtGui import QColor, QFont, QFontMetrics, QImage, QPainter, QPalette
+    from PyQt6.QtWidgets import QApplication
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    app = QApplication.instance() or QApplication([])                  # noqa: F841 (kept alive)
+    from ike.uistyle import menu_switch_size, paint_switch, switch_size
+
+    fm = QFontMetrics(QFont("DejaVu Sans", 10))
+    w, h = switch_size(fm)
+    sw, sh = switch_size(fm, small=True)
+    assert h == max(16, fm.height() + 2) and w == round(h * 1.9)
+    assert sh == max(14, fm.height()) and sw == round(sh * 1.9)
+    assert sh < h                               # the lists' switch stays the smaller one
+    mh = max(10, round(fm.height() * 0.62))
+    assert menu_switch_size(fm) == (round(mh * 1.8), mh)     # the menus' switch unchanged
+
+    pal = QPalette()
+    R = QPalette.ColorRole
+    for role, colour in ((R.Highlight, "#3daee9"), (R.HighlightedText, "#ffffff"), (R.Mid, "#bdc3c7"),
+                         (R.Base, "#ffffff")):
+        pal.setColor(role, QColor(colour))
+    W, H = 38, 20
+
+    def drawn(on):
+        img = QImage(W, H, QImage.Format.Format_ARGB32)
+        img.fill(QColor("#000000"))
+        p = QPainter(img)
+        paint_switch(p, QRect(0, 0, W, H), on, pal)
+        p.end()
+        return img
+
+    def near(img, x, y, colour, tol=40):
+        c = img.pixelColor(x, y)
+        return all(abs(a - b) <= tol for a, b in ((c.red(), colour.red()), (c.green(), colour.green()),
+                                                  (c.blue(), colour.blue())))
+    # a pill (radius h / 2) leaves these corner pixels black; a squared switch fills
+    # them with its track (the knob covers the far end: on, its left; off, its right)
+    img = drawn(False)
+    for x, y in ((W - 5, 4), (W - 5, H - 5)):
+        assert near(img, x, y, QColor("#bdc3c7")), (x, y, img.pixelColor(x, y).name())
+    img = drawn(True)
+    for x, y in ((4, 4), (4, H - 5)):
+        assert near(img, x, y, QColor("#3daee9")), (x, y, img.pixelColor(x, y).name())
+    # the knob is a square: its corner region is white, where a round knob leaves the track
+    side = (H - 4) - 4
+    right = W - 2 - (H - 4) / 2 + side / 2
+    top = H / 2 - side / 2
+    assert near(img, int(right) - 2, int(top) + 1, QColor("#ffffff")), \
+        img.pixelColor(int(right) - 2, int(top) + 1).name()

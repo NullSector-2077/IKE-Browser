@@ -77,10 +77,18 @@ def readable(colour, background, text, least=4.5):
 # switches
 # ----------------------------------------------------------------------
 def switch_size(fm, small=False):
-    """(width, height) of a switch beside a text of the font fm: as tall as
-    a line and a little more (small: in a list entry; menus: menu_switch_size)."""
-    h = max(16, fm.height() + 2) if small else max(18, fm.height() + 4)
+    """(width, height) of a switch beside a text of the font fm: about as
+    tall as a line (small: in a list entry; menus: menu_switch_size). 1.1.24,
+    the owner's choice: both a little smaller than before (they were a line
+    and four pixels, and a line and two)."""
+    h = max(14, fm.height()) if small else max(16, fm.height() + 2)
     return round(h * 1.9), h
+
+
+def switch_radius(h):
+    """The corners of a switch of height h (1.1.24, the owner's choice: a
+    squared switch with rounded corners, closer to Plasma, not a pill)."""
+    return max(1.5, h * 0.18)
 
 
 def menu_switch_size(fm):
@@ -109,20 +117,22 @@ def paint_switch(p, rect, on, palette, enabled=True, focus=False, rtl=False, sel
         track = palette.color(R.Highlight) if on else palette.color(R.Mid)
         knob = palette.color(R.HighlightedText) if on else palette.color(R.Base)
         line = palette.color(R.Mid)
+    radius = switch_radius(h)
     if focus:
         p.setPen(QPen(palette.color(R.Highlight), 1))
         p.setBrush(Qt.BrushStyle.NoBrush)
-        p.drawRoundedRect(outer, outer.height() / 2, outer.height() / 2)
+        ring = switch_radius(outer.height())
+        p.drawRoundedRect(outer, ring, ring)
     p.setPen(QPen(line, 1))
     p.setBrush(track)
-    p.drawRoundedRect(r, h / 2, h / 2)
+    p.drawRoundedRect(r, radius, radius)
     end = on != rtl
     side = max(2.0, h - (4 if h >= 12 else 2.5))
     k = QRectF(0, 0, side, side)
     k.moveCenter(QPointF(r.right() - h / 2 if end else r.left() + h / 2, r.center().y()))
     p.setPen(Qt.PenStyle.NoPen)
     p.setBrush(knob)
-    p.drawEllipse(k)
+    p.drawRoundedRect(k, radius * 0.7, radius * 0.7)       # a square knob with rounded corners
     p.restore()
 
 
