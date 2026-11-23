@@ -972,6 +972,9 @@ class Shields(QObject):
         bg, fg = colors["{{bg}}"], colors["{{fg}}"]
         colors["{{mute}}"] = readable(colors["{{mute}}"], bg, fg)
         colors["{{acc}}"] = readable(colors["{{acc}}"], bg, fg, 3.0)
+        # 1.1.24: the K of "Kontrol" in the wordmark, a light cyan of the shield's family
+        from PyQt6.QtGui import QColor
+        colors["{{k}}"] = readable(QColor("#7df3ff"), bg, fg, 3.0)
         for k, c in colors.items():
             html = html.replace(k, c.name())
         import html as _html
@@ -984,13 +987,20 @@ class Shields(QObject):
         html = html.replace("{{corner}}", corner).replace("{{lang}}", i18n.current().replace("_", "-"))
         from . import effects, newtab
         photo = newtabbg.style(self.config)
+        if photo:
+            # a soft pane behind each group of text, as strong as the photo under it needs: the page
+            # works it out from this grid of the photo (newtabbg.glass_data, newtab.html "glass")
+            data = newtabbg.glass_data(self.config, fg.lightnessF() > bg.lightnessF())
+            if data:
+                photo += ('<script type="application/json" id="glass-data">%s</script>'
+                          % data.replace("<", "\\u003c"))
         html = html.replace("{{background}}", photo)
         app = self.parent()
         for k, v in {
             "{{placeholder}}": _html.escape(T("Search with %s or enter address") % e["name"], quote=True),
             # tiles lift on hover, only with the interface effects on (polish.py)
             "{{fx}}": "fx" if effects.on(self.config) else "",
-            "{{photo}}": " photo" if photo else "",
+            "{{photo}}": " photo glass" if photo else "",
             "{{buttons}}": self._newtab_buttons(),
             "{{greeting}}": self._newtab_greeting(),
             "{{engines}}": newtab.engines_html(self.config),

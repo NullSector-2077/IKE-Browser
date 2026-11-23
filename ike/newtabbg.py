@@ -192,3 +192,74 @@ def style(config, folder=None):
             'var(--bg) url("ike:background?%d") center / %s no-repeat fixed}'
             'body{background:transparent}'
             '</style>' % (veil_colour, veil_colour, stamp, size))
+
+
+# --- readable text over any photo (1.1.24) -------------------------------------------------
+# Over a photo each group of text on the page (the wordmark, the greeting, the clock, the tile
+# names, the counter, the buttons) sits on a soft pane in the page's own background colour. How
+# strong the pane must be depends on the photo under that very group, so the page works it out
+# itself (newtab.html, "glass"): from this grid of the photo, one byte per cell, the brightest
+# channel of the cell for light text and the darkest for dark text (a bound of what the text can
+# be laid on), it finds, for each group where it really is, the weakest pane with which every
+# text of the group reads at 4.5:1 (small text) or 3:1 (large figures), WCAG's level AA. A group
+# over a part of the photo that is dark enough for a dark theme gets no pane at all.
+_grid_cache = {}
+GRID_SIDE = 64
+
+
+def grid(path, light):
+    """(width, height, hex of one byte per cell) of the photo, at most GRID_SIDE cells on its long
+    side, or None. Transparent parts count as white (light text) or black (dark text)."""
+    try:
+        st = Path(path).stat()
+        key = (str(path), st.st_mtime_ns, st.st_size, bool(light))
+    except OSError:
+        return None
+    if key in _grid_cache:
+        return _grid_cache[key]
+    image, problem = load_scaled(path, GRID_SIDE)
+    out = None
+    if not problem:
+        from PyQt6.QtCore import Qt
+        if max(image.width(), image.height()) > GRID_SIDE:
+            image = image.scaled(GRID_SIDE, GRID_SIDE, Qt.AspectRatioMode.KeepAspectRatio,
+                                 Qt.TransformationMode.SmoothTransformation)
+        cells = bytearray()
+        for y in range(image.height()):
+            for x in range(image.width()):
+                c = image.pixelColor(x, y)
+                a = c.alphaF()
+                rgb = [c.red(), c.green(), c.blue()]
+                base = 255 if light else 0
+                v = max(rgb) if light else min(rgb)
+                cells.append(round(v * a + base * (1 - a)))
+        out = (image.width(), image.height(), bytes(cells).hex())
+    if len(_grid_cache) > 4:
+        _grid_cache.clear()
+    _grid_cache[key] = out
+    return out
+
+
+def glass_data(config, light):
+    """The JSON the page needs to put a pane behind its texts, or "" without a photo: the grid, the
+    size of the stored picture, its placement and the veil."""
+    path = current(config)
+    if path is None:
+        return ""
+    cells = grid(path, light)
+    size, problem = probe(path)
+    if cells is None or problem:
+        return ""
+    fit = config.get("newtab_bg_fit")
+    fit = {"fill": "cover", "fit": "contain", "centre": "auto"}.get(fit if isinstance(fit, str) else "", "cover")
+    import json
+    return json.dumps({"gw": cells[0], "gh": cells[1], "g": cells[2], "pw": size[0], "ph": size[1],
+                       "fit": fit, "veil": veil_of(config), "light": bool(light)})
+
+
+def veil_of(config):
+    """The veil the user chose, per cent, as style() uses it."""
+    try:
+        return max(0, min(VEIL_MAX, int(config.get("newtab_bg_veil") or 0)))
+    except (TypeError, ValueError):
+        return 0

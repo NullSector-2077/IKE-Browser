@@ -5,7 +5,7 @@
 - **A greeting and friendly messages on the new tab page** (top left; at narrow
   widths it stops short of the Settings button): "Good morning" (05:00),
   "Good afternoon" (12:00), "Good evening" (18:00), "Good night" (23:00), in the
-  language of I.K.E., and under it at most one short line from a pool of 70
+  language of I.K.E., and under it at most one short line from a pool of 52
   messages in groups (the days away or a streak, an update, the small hours, the
   evening before the clocks change, the first of a season and of a month, the
   weather the page already has, the week of the page's language, the time of day,
