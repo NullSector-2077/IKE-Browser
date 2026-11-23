@@ -204,9 +204,9 @@ def steps(ike, qapp, out):
     out["in_burger"] = win.act_shot in win.burger.actions()
     from ike import contextmenu
     out["in_page_menu"] = win.act_shot in contextmenu.build(v, None).actions()
-    out["keys"] = win.act_shot.shortcut().toString()
+    out["keys"] = [a.shortcut().toString() for a in win.m_shot.actions()]
     # the visible part (Ctrl+Shift+S, the toolbar's button)
-    win.act_shot.trigger()
+    win.m_shot.actions()[0].trigger()
     yield 200
     from PyQt6.QtGui import QImage
     img = QImage(saved[-1])
@@ -268,7 +268,7 @@ def test_screenshot_modes(run_ike, tmp_path):
     out = run_ike(SHOTS.replace("LONG_PAGE", repr(LONG_PAGE)), timeout=120,
                   settings={"start_maximized": False}, env=screen(tmp_path, 1366, 768))
     assert out["submenu"] == ["Visible part", "Whole page", "Selected area"]
-    assert out["in_burger"] and out["in_page_menu"] and out["keys"] == "Ctrl+Shift+S"
+    assert out["in_burger"] and out["in_page_menu"] and out["keys"] == ["Ctrl+Shift+S", "", ""]
     w, h, vw, vh = out["visible"]
     assert (w, h) == (vw, vh)
     pw, ph = out["page"]

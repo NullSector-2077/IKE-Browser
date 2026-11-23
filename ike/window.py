@@ -757,16 +757,17 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                          T("Export the page as a PDF document"))
         self.act_print = A(T("Print…"), self.print_page, "Ctrl+P", "document-print",
                            T("Print the current page"))
-        self.act_shot = A(T("Screenshot…"), lambda: self.screenshot(), "Ctrl+Shift+S", "camera-photo",
+        self.act_shot = A(T("Screenshot…"), lambda: self.screenshot(), None, "camera-photo",
                           T("Save an image of the visible page"))
-        # 1.1.24: its submenu, what to take (Ctrl+Shift+S: the visible part, as before)
+        # 1.1.24: its submenu, what to take; Ctrl+Shift+S is the visible part's,
+        # as before (on the submenu's entry: next to an arrow it had no room)
         self.m_shot = menu(T("Screenshot…"), "camera-photo", None)
-        for text, mode, ico in ((T("Visible part"), "visible", ("camera-photo", "spectacle")),
-                                (T("Whole page"), "page", ("zoom-fit-height", "view-fullscreen")),
-                                (T("Selected area"), "area", ("select-rectangular", "transform-crop"))):
-            a = self.m_shot.addAction(icon(ico), text)
+        for text, mode, ico, keys in ((T("Visible part"), "visible", ("camera-photo", "spectacle"), "Ctrl+Shift+S"),
+                                      (T("Whole page"), "page", ("zoom-fit-height", "view-fullscreen"), None),
+                                      (T("Selected area"), "area", ("select-rectangular", "transform-crop"), None)):
+            a = A(text, lambda _c=False, m=mode: self.screenshot(m), keys, ico)
             a.setData(mode)
-            a.triggered.connect(lambda _c=False, m=mode: self.screenshot(m))
+            self.m_shot.addAction(a)
         self.act_shot.setMenu(self.m_shot)
         self.act_quit = A(T("Quit"), self.app.quit, "Ctrl+Q", "application-exit",
                           T("Close every window and quit I.K.E."))
