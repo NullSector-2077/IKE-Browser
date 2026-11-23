@@ -260,10 +260,11 @@ def test_loading_line(run_ike, slow_page):
             out["geometry"] = [line.y() == win.content.y(), line.width() == win.content.width(),
                                line.height()]
             img = line.grab().toImage()
-            # the line reaches its full colour a little after its soft start (1.1.3)
+            # 1.1.23: a flat bar as Breeze's (1.1.3 to 1.1.22: a soft start), the
+            # accent colour from its start to where the page has got
             end = int(line.INSET + (line.width() - 2 * line.INSET) * line.value)
             out["colour"] = QColor(img.pixel(max(3, end - 8), 3)).name()
-            out["soft_start"] = QColor(img.pixel(2, 3)).alpha() < 255 or QColor(img.pixel(2, 3)).name() != out["colour"]
+            out["flat"] = QColor(img.pixel(4, 3)).name() == out["colour"]
             shots = os.environ.get("IKE_TEST_SHOTS")
             if shots:
                 win.grab().save(os.path.join(shots, "loading-line.png"))
@@ -286,7 +287,7 @@ def test_loading_line(run_ike, slow_page):
     shown = [v for vis, v in out["seen"] if vis]
     assert shown, out["seen"]
     assert out["geometry"] == [True, True, 6]
-    assert out["colour"] == "#19c3e6" and out["soft_start"] is True
+    assert out["colour"] == "#19c3e6" and out["flat"] is True
     assert out["other_tab"] is False and out["back_tab"] is True
     assert out["after"] is False and out["title"] == "slow"
 

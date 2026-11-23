@@ -119,12 +119,23 @@ function ikeIconLater(img) {
 (function () {
   var lang = "{{lang}}", clock = document.getElementById("clock"), date = document.getElementById("date");
   function fmt(d, opts) { try { return d.toLocaleString(lang, opts); } catch (e) { return d.toLocaleString(undefined, opts); } }
+  // 1.1.23: the text is written only when it changes, and the page wakes up at
+  // the next minute instead of every second (each write made a new frame: the
+  // page, the window and the graphics process woke once a second for nothing)
+  var wake = null;
+  function put(el, text) { if (el && el.textContent !== text) el.textContent = text; }
   function tick() {
     var now = new Date();
-    if (clock) clock.textContent = fmt(now, {hour: "2-digit", minute: "2-digit"});
-    if (date) date.textContent = fmt(now, {weekday: "long", day: "numeric", month: "long"});
+    put(clock, fmt(now, {hour: "2-digit", minute: "2-digit"}));
+    put(date, fmt(now, {weekday: "long", day: "numeric", month: "long"}));
+    clearTimeout(wake);
+    wake = setTimeout(tick, 60000 - now.getTime() % 60000 + 50);
   }
-  if (clock || date) { tick(); setInterval(tick, 1000); }
+  if (clock || date) {
+    tick();
+    // back in view (a tab shown again, a computer woken up): at once
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) tick(); });
+  }
   // the "Add" tile: its button opens a small field for the address; Enter adds the site
   var add = document.querySelector(".tile.add");
   if (add) {

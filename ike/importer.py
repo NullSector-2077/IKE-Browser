@@ -211,8 +211,13 @@ BACKUP_FILES = (("settings.json", CONFIG_DIR), ("ike.sqlite", DATA_DIR), ("vault
 
 
 def make_backup(target, storage=None):
+    from .storage import checkpoint, connect
     if storage is not None:
-        storage.db.commit()
+        checkpoint(storage.db)           # the last commits are in the -wal file until then (1.1.23)
+    elif (DATA_DIR / "ike.sqlite").exists():
+        db = connect(DATA_DIR / "ike.sqlite")
+        checkpoint(db)
+        db.close()
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("ike-backup.json", json.dumps({"format": 1, "created": int(time.time())}))
         for name, folder in BACKUP_FILES:
@@ -234,6 +239,11 @@ def restore_backup(source):
                 folder.mkdir(parents=True, exist_ok=True)
                 tmp = folder / (name + ".restore")
                 tmp.write_bytes(z.read(name))
+                if name.endswith(".sqlite"):
+                    # a -wal file left by the database being replaced belongs
+                    # to it, never to the restored one (1.1.23: WAL mode)
+                    for extra in ("-wal", "-shm"):
+                        (folder / (name + extra)).unlink(missing_ok=True)
                 tmp.replace(folder / name)
                 restored.append(name)
     return restored
