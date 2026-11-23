@@ -230,14 +230,23 @@ def _from_theme(name):
 
 
 def theme_svg(name, sizes=("22", "24", "symbolic", "32", "16")):
-    """The text of KDE's Breeze SVG for name (then the desktop's icon theme in
-    use), to be put in a page of I.K.E. (1.1.24, the owner's
+    """The text of the SVG for name that follows the icon choice, to be put in
+    a page of I.K.E.: KDE's Breeze for the default choice and on Plasma, the
+    chosen theme's or the chosen shipped set's otherwise (1.1.24, the owner's
     choice: KDE's Settings icon on the new tab page). Its colour style is
     dropped, so the icon takes the page's text colour; "" when the theme has
     no SVG for it, or when the file holds anything but a drawing."""
     import re
     from pathlib import Path
-    themes = [t for t in ("breeze", "breeze-dark", QIcon.themeName()) if t]      # KDE's first (the owner's choice)
+    if _set:                  # a set shipped with I.K.E. was chosen: its own drawing
+        try:
+            return _file(name, _set).read_text("utf-8").strip()
+        except OSError:
+            return ""
+    # the default ("system") and Plasma: KDE's Breeze first (the owner's choice);
+    # another icon theme chosen in the Settings: that theme first
+    chosen = QIcon.themeName() if _system_theme is not None and QIcon.themeName() != _system_theme else ""
+    themes = [t for t in (chosen, "breeze", "breeze-dark", QIcon.themeName()) if t]
     for theme in dict.fromkeys(themes):
         for base in QIcon.themeSearchPaths():
             if base.startswith(":"):

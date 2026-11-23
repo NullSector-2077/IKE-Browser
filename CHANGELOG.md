@@ -7,10 +7,10 @@
   pill. Those of the windows and the Settings are a little smaller (a line and
   two pixels tall, they were a line and four), as are those of the lists (one
   line, they were a line and two); those of the menus keep their size.
-- **The new tab page's Settings button shows KDE's own icon** (Breeze
-  "configure"), read from the installed Breeze theme (then the desktop's
-  icon theme in use) and drawn in the page's text colour; the shipped icon
-  when none is found. Only a plain
+- **The new tab page's Settings button follows the icon choice**: KDE's own
+  Breeze "configure" icon with the default choice and on Plasma, the chosen
+  icon theme's or shipped set's icon otherwise, drawn in the page's text
+  colour; the shipped icon when none is found. Only a plain
   drawing is put in the page (no script, link or outside reference).
 - **xdg-utils is no longer used** (its Arch advisory AVG-1420 has no fix and
   stopped every automatic merge): a downloaded file, a folder or a link
