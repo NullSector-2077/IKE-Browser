@@ -559,6 +559,11 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
             quota = _tool("ai-quota")
             spend = quota.Budget(quota.load_limits(a.quota_limits),
                                  quota.load_state(a.quota_state) if a.quota_state else None, request.get("ref") or "")
+            # OpenRouter's free models share one daily cap of the account: read from the account when it can be
+            key = (env.get("OPENROUTER_API_KEY") or "").strip()
+            if key:
+                spend.account("OpenRouter", quota.read_account(spend.conf("OpenRouter"), key, opener,
+                                                               REGISTRY.OPENROUTER_KEY_INFO))
         # never fewer reviewers than the files ask for, whatever the request says
         needed = max(int(request.get("needed") or NEEDED), _tool("tier-b").needed_reviews(request.get("files") or []))
         result = review((folder / "diff.patch").read_text("utf-8", "replace"),

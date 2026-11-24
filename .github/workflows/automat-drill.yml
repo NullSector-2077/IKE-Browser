@@ -12,6 +12,11 @@
 #   tick    every three hours, and when tools/automerge.py finds a drill complete: the report in the
 #           drill's issue (an edit: no mail) and in this run's summary; at the end (every drill complete,
 #           or its hours over) the final report, the drill's only mail to the owner.
+#           Real updates first (the owner's decision of 2026-11-24): the drill is background work. Its
+#           AI calls use only what is above each provider's reserve for security fixes and real
+#           updates and pause while one of those is pending (tools/ai-quota.py); the tick starts a
+#           fix the budget held back again (autofix.yml, work run/<id>) only when background work may
+#           run: no real update pending, or the last hours before a provider's reset.
 #   stop    by hand: the final report now, and the end.
 #   report  by hand: the report in this run's summary only.
 #
@@ -53,7 +58,7 @@ jobs:
       contents: write        # the drill's own branch (never main)
       pull-requests: write   # its draft pull request, closed at the end
       issues: write          # the drill's issue
-      actions: write         # its Tests, Security and Arch Linux; the reports of its runs (artifacts)
+      actions: write         # its Tests, Security and Arch Linux; the reports of its runs (artifacts); a held-back fix again
       checks: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

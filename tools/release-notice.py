@@ -199,10 +199,13 @@ def quota_lines(rows):
         note = "" if r.get("verified") else (" Limite **non verificato** (stima prudente%s)." % (
             ", corretta oggi dalle risposte del fornitore" if r.get("live") else ""))
         spent = " **Finita per oggi** (%s)." % plain(r.get("spent"), 80) if r.get("spent") else ""
-        out.append("- **%s**: oggi %s richieste, %s token; restano %s. Ultimi giorni: %d richieste, %d token.%s%s" % (
+        # real updates first (2026-11-24): what stays kept today for security fixes and real updates
+        keep = (" Tenute per sicurezza e aggiornamenti veri: %d richieste (già usate da loro oggi: %d)." % (
+            r["reserve_requests"], r.get("real_requests") or 0)) if isinstance(r.get("reserve_requests"), int) else ""
+        out.append("- **%s**: oggi %s richieste, %s token; restano %s. Ultimi giorni: %d richieste, %d token.%s%s%s" % (
             plain(r.get("provider"), 20), of(r.get("requests", 0), r.get("requests_limit")),
             of(r.get("tokens", 0), r.get("tokens_limit")), " e ".join(left) or "non noto",
-            r.get("week_requests", 0), r.get("week_tokens", 0), spent, note))
+            r.get("week_requests", 0), r.get("week_tokens", 0), keep, spent, note))
     return out
 
 

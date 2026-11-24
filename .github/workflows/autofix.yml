@@ -60,7 +60,11 @@
 #   budget             every call is counted against the provider's free quota (tools/ai-quota.py and
 #                      its data tools/ai-quota.json; today's use on the data branch automat/memory): a
 #                      provider spent today is not asked, and a fix is not started unless two other
-#                      providers (three for tier B) keep room to review it
+#                      providers (three for tier B) keep room to review it. Real updates first
+#                      (2026-11-24): a share of each provider's day is kept for security fixes and the
+#                      updates of what ships; CI updates and background work (the drill) use only what
+#                      is above it, and background work waits while a real update is pending (AUTOMAT's
+#                      memory), until the last hours before the provider's reset
 #   inner loop         the answer must be the strict patch format; Python is compiled (never run),
 #                      JavaScript parsed, the wrapper compiled by cargo check (a user of its own with no
 #                      key and no network), the checker with the static guard and the lint read it, and
@@ -794,6 +798,8 @@ jobs:
           if [ -f "$RUNNER_TEMP/tier-b" ]; then allow="$allow --tier-b"; fi
           quota="--quota-limits $RUNNER_TEMP/ai-quota.json --quota-usage $out/usage-agent.json"
           if [ -s "$RUNNER_TEMP/quota.json" ]; then quota="$quota --quota-state $RUNNER_TEMP/quota.json"; fi
+          # real updates first (2026-11-24): background work waits while a real update is pending or retrying
+          if [ -s "$RUNNER_TEMP/memory.json" ]; then quota="$quota --quota-memory $RUNNER_TEMP/memory.json"; fi
           AUTOFIX_REVIEWERS="$(cat "$RUNNER_TEMP/reviewers" 2> /dev/null || true)"
           export AUTOFIX_REVIEWERS
           first=""
@@ -1019,6 +1025,7 @@ jobs:
               # already failed for this error (tools/autofix-inner.py, ai-quota.py, automat-route.py)
               more="--inner --quota-limits $RUNNER_TEMP/ai-quota.json --quota-usage $out/usage-reserve.json"
               if [ -s "$RUNNER_TEMP/quota.json" ]; then more="$more --quota-state $RUNNER_TEMP/quota.json"; fi
+              if [ -s "$RUNNER_TEMP/memory.json" ]; then more="$more --quota-memory $RUNNER_TEMP/memory.json"; fi
               if [ -s "$RUNNER_TEMP/order" ]; then more="$more --order $(cat "$RUNNER_TEMP/order")"; fi
               if [ -s "$RUNNER_TEMP/task" ]; then more="$more --task $(cat "$RUNNER_TEMP/task")"; fi
               python3 -I "$RUNNER_TEMP/autofix-reserve.py" --workdir "$repo" --prompt "$RUNNER_TEMP/prompt.md" \

@@ -151,6 +151,8 @@ FORBIDDEN_FILES = {
     "tools/tier-b.py", "tools/ai-quota.py", "tools/ai-quota.json", "tools/automat-memory.py",
     "tools/automat-help.py", "tools/automat-recipes.py", "tools/automat-route.py", "tools/autofix-inner.py",
     "tools/upstream-diff.py", "tests/test_automat_part2.py",
+    # real updates first (2026-11-24): the proofs of the priority of the free quotas
+    "tests/test_automat_priority.py",
 }
 # the component manifest: with --auto an AI may add a missing entry (tools/fix-guard.py, rule 7)
 MANIFEST = "components.json"
