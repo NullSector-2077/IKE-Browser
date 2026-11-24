@@ -1253,6 +1253,15 @@
 "Colour…": "Түс…",
 "Only for this site": "Тек осы сайт үшін",
 "These choices for %s only": "Бұл таңдаулар тек %s үшін",
-"Dark mode settings…": "Қараңғы режим баптаулары…"
+"Dark mode settings…": "Қараңғы режим баптаулары…",
+"Clear recent history…": "Соңғы тарихты тазалау…",
+"Delete the pages visited in the last hour, today or ever": "Соңғы сағатта, бүгін немесе бұрын-соңды ашылған беттерді жою",
+"Clear recent history": "Соңғы тарихты тазалау",
+"Time range to clear:": "Тазалау уақыт аралығы:",
+"Last hour": "Соңғы сағат",
+"Everything": "Барлығы",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Тек ашқан беттеріңіз жойылады: cookie файлдары, құпиясөздер және кэштегі файлдар сақталады.",
+"This week": "Осы апта",
+"Earlier": "Ертерек"
 }
 }

@@ -1253,6 +1253,15 @@
 "Colour…": "Χρώμα…",
 "Only for this site": "Μόνο για αυτόν τον ιστότοπο",
 "These choices for %s only": "Αυτές οι επιλογές μόνο για %s",
-"Dark mode settings…": "Ρυθμίσεις σκούρας λειτουργίας…"
+"Dark mode settings…": "Ρυθμίσεις σκούρας λειτουργίας…",
+"Clear recent history…": "Εκκαθάριση πρόσφατου ιστορικού…",
+"Delete the pages visited in the last hour, today or ever": "Διαγραφή των σελίδων που επισκεφθήκατε την τελευταία ώρα, σήμερα ή ποτέ",
+"Clear recent history": "Εκκαθάριση πρόσφατου ιστορικού",
+"Time range to clear:": "Χρονικό διάστημα για εκκαθάριση:",
+"Last hour": "Τελευταία ώρα",
+"Everything": "Όλα",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Διαγράφονται μόνο οι σελίδες που επισκεφθήκατε: τα cookies, οι κωδικοί και τα αρχεία της κρυφής μνήμης μένουν.",
+"This week": "Αυτή την εβδομάδα",
+"Earlier": "Νωρίτερα"
 }
 }

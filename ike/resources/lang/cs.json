@@ -1253,6 +1253,15 @@
 "Colour…": "Barva…",
 "Only for this site": "Jen pro tento web",
 "These choices for %s only": "Tyto volby jen pro %s",
-"Dark mode settings…": "Nastavení tmavého režimu…"
+"Dark mode settings…": "Nastavení tmavého režimu…",
+"Clear recent history…": "Vymazat nedávnou historii…",
+"Delete the pages visited in the last hour, today or ever": "Smazat stránky navštívené za poslední hodinu, dnes nebo kdykoli",
+"Clear recent history": "Vymazat nedávnou historii",
+"Time range to clear:": "Časové období k vymazání:",
+"Last hour": "Poslední hodina",
+"Everything": "Vše",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Smažou se jen navštívené stránky: cookies, hesla a soubory v mezipaměti zůstanou.",
+"This week": "Tento týden",
+"Earlier": "Dříve"
 }
 }

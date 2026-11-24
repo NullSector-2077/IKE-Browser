@@ -1253,6 +1253,15 @@
 "Colour…": "Spalva…",
 "Only for this site": "Tik šiai svetainei",
 "These choices for %s only": "Šie pasirinkimai tik %s",
-"Dark mode settings…": "Tamsiojo režimo nustatymai…"
+"Dark mode settings…": "Tamsiojo režimo nustatymai…",
+"Clear recent history…": "Išvalyti naujausią istoriją…",
+"Delete the pages visited in the last hour, today or ever": "Ištrinti puslapius, aplankytus per paskutinę valandą, šiandien ar bet kada",
+"Clear recent history": "Išvalyti naujausią istoriją",
+"Time range to clear:": "Valomas laikotarpis:",
+"Last hour": "Paskutinė valanda",
+"Everything": "Viskas",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Ištrinami tik aplankyti puslapiai: slapukai, slaptažodžiai ir podėlio failai lieka.",
+"This week": "Šią savaitę",
+"Earlier": "Anksčiau"
 }
 }

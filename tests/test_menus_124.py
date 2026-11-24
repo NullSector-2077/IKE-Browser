@@ -69,8 +69,8 @@ def walk(menu, seen=None, path="", found=None):
     seen.add(id(menu))
     menu.aboutToShow.emit()
     for a in menu.actions():
-        if a.isSeparator():
-            continue
+        if a.isSeparator() and not a.text():
+            continue                  # a section (1.1.25: Protection's title) is an entry with its name
         t = a.text().replace("&", "")
         if t.startswith("Bookmarks bar:"):
             t = "Bookmarks bar"

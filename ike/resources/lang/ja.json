@@ -1253,6 +1253,15 @@
 "Colour…": "色…",
 "Only for this site": "このサイトのみ",
 "These choices for %s only": "これらの設定は %s のみ",
-"Dark mode settings…": "ダークモードの設定…"
+"Dark mode settings…": "ダークモードの設定…",
+"Clear recent history…": "最近の履歴を消去…",
+"Delete the pages visited in the last hour, today or ever": "過去 1 時間、今日、またはすべての期間に閲覧したページを削除",
+"Clear recent history": "最近の履歴を消去",
+"Time range to clear:": "消去する期間:",
+"Last hour": "過去 1 時間",
+"Everything": "すべて",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "閲覧したページだけが削除されます。Cookie、パスワード、キャッシュされたファイルは残ります。",
+"This week": "今週",
+"Earlier": "それ以前"
 }
 }

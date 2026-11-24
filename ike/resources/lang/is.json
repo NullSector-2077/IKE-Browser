@@ -1253,6 +1253,15 @@
 "Colour…": "Litur…",
 "Only for this site": "Aðeins fyrir þetta vefsvæði",
 "These choices for %s only": "Þessi val aðeins fyrir %s",
-"Dark mode settings…": "Stillingar dökks hams…"
+"Dark mode settings…": "Stillingar dökks hams…",
+"Clear recent history…": "Hreinsa nýlegan feril…",
+"Delete the pages visited in the last hour, today or ever": "Eyða síðum sem voru skoðaðar síðustu klukkustund, í dag eða nokkru sinni",
+"Clear recent history": "Hreinsa nýlegan feril",
+"Time range to clear:": "Tímabil sem á að hreinsa:",
+"Last hour": "Síðasta klukkustund",
+"Everything": "Allt",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Aðeins síðunum sem þú skoðaðir er eytt: vefkökur, lykilorð og skrár í skyndiminni haldast.",
+"This week": "Þessa viku",
+"Earlier": "Fyrr"
 }
 }

@@ -1253,6 +1253,15 @@
 "Colour…": "Värv…",
 "Only for this site": "Ainult selle saidi jaoks",
 "These choices for %s only": "Need valikud ainult saidile %s",
-"Dark mode settings…": "Tumeda režiimi seaded…"
+"Dark mode settings…": "Tumeda režiimi seaded…",
+"Clear recent history…": "Tühjenda hiljutine ajalugu…",
+"Delete the pages visited in the last hour, today or ever": "Kustuta viimase tunni, tänase päeva või kogu aja jooksul külastatud lehed",
+"Clear recent history": "Tühjenda hiljutine ajalugu",
+"Time range to clear:": "Tühjendatav ajavahemik:",
+"Last hour": "Viimane tund",
+"Everything": "Kõik",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Kustutatakse ainult külastatud lehed: küpsised, paroolid ja vahemälu failid jäävad alles.",
+"This week": "See nädal",
+"Earlier": "Varem"
 }
 }

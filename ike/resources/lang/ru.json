@@ -1253,6 +1253,15 @@
 "Colour…": "Цвет…",
 "Only for this site": "Только для этого сайта",
 "These choices for %s only": "Эти настройки только для %s",
-"Dark mode settings…": "Настройки тёмного режима…"
+"Dark mode settings…": "Настройки тёмного режима…",
+"Clear recent history…": "Удалить недавнюю историю…",
+"Delete the pages visited in the last hour, today or ever": "Удалить страницы, посещённые за последний час, сегодня или за всё время",
+"Clear recent history": "Удалить недавнюю историю",
+"Time range to clear:": "Период для удаления:",
+"Last hour": "Последний час",
+"Everything": "Всё",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Удаляются только посещённые страницы: файлы cookie, пароли и файлы в кэше остаются.",
+"This week": "На этой неделе",
+"Earlier": "Ранее"
 }
 }

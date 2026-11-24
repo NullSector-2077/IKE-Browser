@@ -174,7 +174,8 @@ def test_switches_are_whole_in_the_desktops_style(run_ike, tmp_path, style):
 
 def test_menus_draw_a_switch_not_a_tick(run_ike, tmp_path):
     """An entry that can be turned on and off is drawn with a switch, not
-    with the tick of the plain style; a choice among several keeps its dot."""
+    with the tick of the plain style; a choice among several keeps the
+    style's dot, or (1.1.25) KDE's radio where I.K.E. draws the menus."""
     out = run_ike("""
         def steps(ike, qapp, out):
             from PyQt6.QtCore import QRect, Qt
@@ -233,6 +234,14 @@ def test_menus_draw_a_switch_not_a_tick(run_ike, tmp_path):
                                    picture(ours, toggles, CT.NonExclusive, False))
             out["dot"] = differ(picture(ours, choice, CT.Exclusive, True),
                                 picture(theirs, choice, CT.Exclusive, True))
+            # 1.1.25: where I.K.E. draws the menus (not Breeze, Oxygen, Kvantum) a choice has
+            # KDE's radio: a ring, the accent's dot in it when chosen
+            out["own"] = ours.own_menus()
+            out["radio_on_off"] = differ(picture(ours, choice, CT.Exclusive, True),
+                                         picture(ours, choice, CT.Exclusive, False))
+            accent = qapp.palette().color(qapp.palette().ColorRole.Highlight).rgb()
+            on = picture(ours, choice, CT.Exclusive, True)
+            out["accent_dot"] = sum(on.pixel(x, y) == accent for x in range(40) for y in range(26))
             # the real menus: the switch keeps the text whole, and it is drawn in them
             import sys
             sys.path.insert(0, TESTS)
@@ -247,7 +256,10 @@ def test_menus_draw_a_switch_not_a_tick(run_ike, tmp_path):
     """.replace("TESTS", repr(str(Path(__file__).resolve().parent))), env=screen(tmp_path, 1366, 768))
     assert out["toggle_on"] > 20 and out["toggle_off"] > 20 and out["toggle_rtl"] > 20, out
     assert out["on_off"] > 20, out
-    assert out["dot"] == 0, out
+    if out["own"]:
+        assert out["radio_on_off"] > 20 and out["accent_dot"] >= 9, out
+    else:
+        assert out["dot"] == 0, out                 # the style's own dot, as it draws it
     assert not out["problems"], out["problems"]
 
 

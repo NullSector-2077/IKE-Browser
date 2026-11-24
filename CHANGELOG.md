@@ -30,6 +30,43 @@
   own (`dark_site_themes`). One visible change: the scroll bars of dark
   pages follow the page's colours ("Automatic", the default of the Dark
   Reader extension on Linux); they were left as the engine draws them.
+- **One look for every menu, and a new History menu** (the owner approved the
+  pictures; the menus keep the same entries, in the same order and places).
+  On KDE Plasma, Breeze still draws the menus (and Oxygen and Kvantum where
+  they are the style). With any other widget style (Fusion, Qt's Windows…)
+  I.K.E. draws them itself, as Breeze does: a rounded panel with a light
+  shadow, rows of one height, one column for the icons kept also where an
+  entry has none (every text starts on one line), a column for a switch
+  (an option turned on and off) or a radio (a choice among several) only in
+  the menus that have one, the keyboard shortcuts dimmed on one right edge,
+  the arrows of submenus in one column, thin separators, the entry under the
+  mouse in the accent colour with a thin outline, a submenu 2 to 3 px from
+  its menu on either side and from right to left too (`ike/uistyle.py`). On
+  every desktop:
+  - every entry has an icon where KDE has one: "Save as PDF…"
+    (document-export), "Page source" (format-text-code), "I.K.E.
+    extensions" (plugins), "About Qt", "Reset to default layout", the two
+    entries of "Dark mode for pages", a tab's "Tab group", "Move to
+    workspace" and "Reopen in container" and their entries (a group's or a
+    container's colour as a dot), a link's "Open link in container" (each
+    container's colour), the workspaces, profiles and containers menus, and in
+    "Send to device" each device as a phone, a tablet, a computer or a
+    television, as KDE Connect says;
+  - the titles inside two menus, Protection's "Protection level for every
+    site" and the toolbar menu's "Toolbar buttons", are real section names
+    (small and dimmed, where the texts start), no longer greyed entries;
+  - **History**: Back, Forward, Home, Reopen closed tab and Recently closed
+    tabs at the top, with their shortcuts; then the last 15 pages under Today,
+    Yesterday, This week (the five days before) and Earlier, each with its
+    icon, its title shortened in its middle to 290 px (no longer cut after 60
+    characters) and its site on the right, dimmed; the recently closed tabs
+    show their site too. At the bottom "Show all history" (Ctrl+H) and the new
+    **"Clear recent history…"**, which deletes only the pages visited in the
+    last hour, today or all of them (a small window to choose; "all" is the
+    history part of "Clear browsing data"): cookies, cache, permissions,
+    passwords, bookmarks and the private windows are left as they are.
+    "Clear browsing data…" (Ctrl+Shift+Del) stays under Protection. The new
+    texts in all 59 language packs; tests/test_menus_125.py.
 
 ## 1.1.24
 

@@ -1280,6 +1280,30 @@ class IkeApp(QObject):
         from .dialogs import ClearDataDialog
         return self._show("clear", lambda: ClearDataDialog(self, self.active_window()))
 
+    def show_clear_history(self):
+        """History → Clear recent history… (1.1.25): only the pages visited."""
+        from .dialogs import ClearHistoryDialog
+        return self._show("clear_history", lambda: ClearHistoryDialog(self, self.active_window()))
+
+    def clear_recent_history(self, span, now=None):
+        """Delete only the pages visited: "hour" (the last hour), "today"
+        (since midnight) or "all" (the history-only part of Clear browsing
+        data). Cookies, cache, permissions, passwords, bookmarks and the
+        private windows are left as they are."""
+        if span == "all":
+            self.clear_data(True, False, False, False)
+            return
+        import datetime
+        now = time.time() if now is None else now
+        if span == "hour":
+            since = now - 3600
+        else:
+            day = datetime.date.fromtimestamp(now)
+            since = datetime.datetime(day.year, day.month, day.day).timestamp()
+        urls = self.storage.clear_history(since) or []
+        if urls:
+            self.profile.clearVisitedLinks([QUrl(u) for u in urls])
+
     def clear_data(self, history, cookies, cache, permissions):
         if history:
             self.storage.clear_history()

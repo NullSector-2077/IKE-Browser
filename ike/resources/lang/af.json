@@ -1253,6 +1253,15 @@
 "Colour…": "Kleur…",
 "Only for this site": "Slegs vir hierdie werf",
 "These choices for %s only": "Hierdie keuses slegs vir %s",
-"Dark mode settings…": "Instellings vir donker modus…"
+"Dark mode settings…": "Instellings vir donker modus…",
+"Clear recent history…": "Vee onlangse geskiedenis uit…",
+"Delete the pages visited in the last hour, today or ever": "Vee die bladsye uit wat in die laaste uur, vandag of ooit besoek is",
+"Clear recent history": "Vee onlangse geskiedenis uit",
+"Time range to clear:": "Tydperk om uit te vee:",
+"Last hour": "Laaste uur",
+"Everything": "Alles",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Slegs die bladsye wat jy besoek het, word uitgevee: koekies, wagwoorde en gekasheerde lêers bly.",
+"This week": "Hierdie week",
+"Earlier": "Vroeër"
 }
 }

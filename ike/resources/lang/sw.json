@@ -1253,6 +1253,15 @@
 "Colour…": "Rangi…",
 "Only for this site": "Kwa tovuti hii tu",
 "These choices for %s only": "Chaguo hizi kwa %s tu",
-"Dark mode settings…": "Mipangilio ya hali nyeusi…"
+"Dark mode settings…": "Mipangilio ya hali nyeusi…",
+"Clear recent history…": "Futa historia ya hivi karibuni…",
+"Delete the pages visited in the last hour, today or ever": "Futa kurasa zilizotembelewa katika saa iliyopita, leo au wakati wowote",
+"Clear recent history": "Futa historia ya hivi karibuni",
+"Time range to clear:": "Kipindi cha kufuta:",
+"Last hour": "Saa iliyopita",
+"Everything": "Kila kitu",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Kurasa ulizotembelea pekee ndizo zinazofutwa: vidakuzi, manenosiri na faili za akiba zinabaki.",
+"This week": "Wiki hii",
+"Earlier": "Awali"
 }
 }

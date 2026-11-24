@@ -1253,6 +1253,15 @@
 "Colour…": "Колір…",
 "Only for this site": "Лише для цього сайту",
 "These choices for %s only": "Ці налаштування лише для %s",
-"Dark mode settings…": "Налаштування темного режиму…"
+"Dark mode settings…": "Налаштування темного режиму…",
+"Clear recent history…": "Видалити недавню історію…",
+"Delete the pages visited in the last hour, today or ever": "Видалити сторінки, відвідані за останню годину, сьогодні або за весь час",
+"Clear recent history": "Видалити недавню історію",
+"Time range to clear:": "Період для видалення:",
+"Last hour": "Остання година",
+"Everything": "Усе",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Видаляються лише відвідані сторінки: файли cookie, паролі та файли в кеші залишаються.",
+"This week": "Цього тижня",
+"Earlier": "Раніше"
 }
 }

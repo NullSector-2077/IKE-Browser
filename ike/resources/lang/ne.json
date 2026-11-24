@@ -1253,6 +1253,15 @@
 "Colour…": "रङ…",
 "Only for this site": "यो साइटका लागि मात्र",
 "These choices for %s only": "यी छनोटहरू %s का लागि मात्र",
-"Dark mode settings…": "डार्क मोड सेटिङ…"
+"Dark mode settings…": "डार्क मोड सेटिङ…",
+"Clear recent history…": "हालको इतिहास खाली गर्नुहोस्…",
+"Delete the pages visited in the last hour, today or ever": "पछिल्लो एक घण्टा, आज वा कहिल्यै हेरिएका पृष्ठहरू मेटाउनुहोस्",
+"Clear recent history": "हालको इतिहास खाली गर्नुहोस्",
+"Time range to clear:": "खाली गर्ने समयावधि:",
+"Last hour": "पछिल्लो एक घण्टा",
+"Everything": "सबै",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "तपाईंले हेरेका पृष्ठहरू मात्र मेटिन्छन्: कुकी, पासवर्ड र क्यास गरिएका फाइलहरू रहन्छन्।",
+"This week": "यो हप्ता",
+"Earlier": "पहिले"
 }
 }

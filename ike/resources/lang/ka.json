@@ -1253,6 +1253,15 @@
 "Colour…": "ფერი…",
 "Only for this site": "მხოლოდ ამ საიტისთვის",
 "These choices for %s only": "ეს არჩევანი მხოლოდ %s-ისთვის",
-"Dark mode settings…": "მუქი რეჟიმის პარამეტრები…"
+"Dark mode settings…": "მუქი რეჟიმის პარამეტრები…",
+"Clear recent history…": "ბოლო ისტორიის გასუფთავება…",
+"Delete the pages visited in the last hour, today or ever": "ბოლო ერთ საათში, დღეს ან ოდესმე მონახულებული გვერდების წაშლა",
+"Clear recent history": "ბოლო ისტორიის გასუფთავება",
+"Time range to clear:": "გასასუფთავებელი პერიოდი:",
+"Last hour": "ბოლო ერთი საათი",
+"Everything": "ყველაფერი",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "იშლება მხოლოდ თქვენ მიერ მონახულებული გვერდები: ქუქი-ფაილები, პაროლები და ქეშირებული ფაილები რჩება.",
+"This week": "ეს კვირა",
+"Earlier": "უფრო ადრე"
 }
 }

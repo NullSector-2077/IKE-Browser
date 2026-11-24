@@ -1253,6 +1253,15 @@
 "Colour…": "Ngjyrë…",
 "Only for this site": "Vetëm për këtë sajt",
 "These choices for %s only": "Këto zgjedhje vetëm për %s",
-"Dark mode settings…": "Rregullime të mënyrës së errët…"
+"Dark mode settings…": "Rregullime të mënyrës së errët…",
+"Clear recent history…": "Pastroni historikun e fundit…",
+"Delete the pages visited in the last hour, today or ever": "Fshini faqet e vizituara në orën e fundit, sot ose ndonjëherë",
+"Clear recent history": "Pastroni historikun e fundit",
+"Time range to clear:": "Periudha kohore për pastrim:",
+"Last hour": "Ora e fundit",
+"Everything": "Gjithçka",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Fshihen vetëm faqet që keni vizituar: cookie-t, fjalëkalimet dhe skedarët në fshehtinë mbeten.",
+"This week": "Këtë javë",
+"Earlier": "Më herët"
 }
 }

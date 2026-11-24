@@ -1253,6 +1253,15 @@
 "Colour…": "Color…",
 "Only for this site": "Només per a aquest lloc",
 "These choices for %s only": "Aquestes opcions només per a %s",
-"Dark mode settings…": "Configuració del mode fosc…"
+"Dark mode settings…": "Configuració del mode fosc…",
+"Clear recent history…": "Neteja l'historial recent…",
+"Delete the pages visited in the last hour, today or ever": "Suprimeix les pàgines visitades l'última hora, avui o mai",
+"Clear recent history": "Neteja l'historial recent",
+"Time range to clear:": "Interval de temps per netejar:",
+"Last hour": "L'última hora",
+"Everything": "Tot",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Només s'eliminen les pàgines que heu visitat: les galetes, les contrasenyes i els fitxers a la memòria cau es mantenen.",
+"This week": "Aquesta setmana",
+"Earlier": "Abans"
 }
 }

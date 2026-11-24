@@ -1253,6 +1253,15 @@
 "Colour…": "צבע…",
 "Only for this site": "רק לאתר הזה",
 "These choices for %s only": "הבחירות האלה רק עבור %s",
-"Dark mode settings…": "הגדרות המצב הכהה…"
+"Dark mode settings…": "הגדרות המצב הכהה…",
+"Clear recent history…": "ניקוי היסטוריה אחרונה…",
+"Delete the pages visited in the last hour, today or ever": "מחיקת הדפים שבוקרו בשעה האחרונה, היום או אי פעם",
+"Clear recent history": "ניקוי היסטוריה אחרונה",
+"Time range to clear:": "טווח הזמן לניקוי:",
+"Last hour": "השעה האחרונה",
+"Everything": "הכול",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "רק הדפים שביקרת בהם נמחקים: קובצי Cookie, ססמאות וקבצים במטמון נשארים.",
+"This week": "השבוע",
+"Earlier": "מוקדם יותר"
 }
 }

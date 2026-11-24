@@ -1253,6 +1253,15 @@
 "Colour…": "রং…",
 "Only for this site": "শুধু এই সাইটের জন্য",
 "These choices for %s only": "এই পছন্দগুলো শুধু %s-এর জন্য",
-"Dark mode settings…": "ডার্ক মোড সেটিংস…"
+"Dark mode settings…": "ডার্ক মোড সেটিংস…",
+"Clear recent history…": "সাম্প্রতিক ইতিহাস মুছুন…",
+"Delete the pages visited in the last hour, today or ever": "গত এক ঘণ্টায়, আজ বা কখনো দেখা পৃষ্ঠাগুলি মুছুন",
+"Clear recent history": "সাম্প্রতিক ইতিহাস মুছুন",
+"Time range to clear:": "মুছে ফেলার সময়সীমা:",
+"Last hour": "গত এক ঘণ্টা",
+"Everything": "সবকিছু",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "শুধু আপনার দেখা পৃষ্ঠাগুলি মোছা হয়: কুকি, পাসওয়ার্ড এবং ক্যাশ করা ফাইল থেকে যায়।",
+"This week": "এই সপ্তাহ",
+"Earlier": "আগে"
 }
 }

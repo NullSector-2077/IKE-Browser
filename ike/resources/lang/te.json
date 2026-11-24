@@ -1253,6 +1253,15 @@
 "Colour…": "రంగు…",
 "Only for this site": "ఈ సైట్‌కు మాత్రమే",
 "These choices for %s only": "ఈ ఎంపికలు %s కు మాత్రమే",
-"Dark mode settings…": "డార్క్ మోడ్ సెట్టింగ్‌లు…"
+"Dark mode settings…": "డార్క్ మోడ్ సెట్టింగ్‌లు…",
+"Clear recent history…": "ఇటీవలి చరిత్రను క్లియర్ చేయి…",
+"Delete the pages visited in the last hour, today or ever": "గత ఒక గంటలో, ఈరోజు లేదా ఎప్పుడైనా చూసిన పేజీలను తొలగించు",
+"Clear recent history": "ఇటీవలి చరిత్రను క్లియర్ చేయి",
+"Time range to clear:": "క్లియర్ చేయాల్సిన సమయ పరిధి:",
+"Last hour": "గత ఒక గంట",
+"Everything": "అన్నీ",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "మీరు చూసిన పేజీలు మాత్రమే తొలగించబడతాయి: కుకీలు, పాస్‌వర్డ్‌లు, కాష్ చేసిన ఫైల్‌లు అలాగే ఉంటాయి.",
+"This week": "ఈ వారం",
+"Earlier": "ఇంతకుముందు"
 }
 }

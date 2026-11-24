@@ -1253,6 +1253,15 @@
 "Colour…": "สี…",
 "Only for this site": "เฉพาะไซต์นี้",
 "These choices for %s only": "ตัวเลือกเหล่านี้เฉพาะ %s",
-"Dark mode settings…": "การตั้งค่าโหมดมืด…"
+"Dark mode settings…": "การตั้งค่าโหมดมืด…",
+"Clear recent history…": "ล้างประวัติล่าสุด…",
+"Delete the pages visited in the last hour, today or ever": "ลบหน้าที่เยี่ยมชมในชั่วโมงที่ผ่านมา วันนี้ หรือทั้งหมด",
+"Clear recent history": "ล้างประวัติล่าสุด",
+"Time range to clear:": "ช่วงเวลาที่จะล้าง:",
+"Last hour": "ชั่วโมงที่ผ่านมา",
+"Everything": "ทั้งหมด",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "จะลบเฉพาะหน้าที่คุณเยี่ยมชม: คุกกี้ รหัสผ่าน และไฟล์แคชยังคงอยู่",
+"This week": "สัปดาห์นี้",
+"Earlier": "ก่อนหน้านี้"
 }
 }

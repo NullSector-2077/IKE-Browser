@@ -1253,6 +1253,15 @@
 "Colour…": "رنگ…",
 "Only for this site": "فقط برای این سایت",
 "These choices for %s only": "این انتخاب‌ها فقط برای %s",
-"Dark mode settings…": "تنظیمات حالت تاریک…"
+"Dark mode settings…": "تنظیمات حالت تاریک…",
+"Clear recent history…": "پاک کردن تاریخچهٔ اخیر…",
+"Delete the pages visited in the last hour, today or ever": "حذف صفحه‌هایی که در یک ساعت گذشته، امروز یا تاکنون دیده شده‌اند",
+"Clear recent history": "پاک کردن تاریخچهٔ اخیر",
+"Time range to clear:": "بازهٔ زمانی برای پاک کردن:",
+"Last hour": "یک ساعت گذشته",
+"Everything": "همه",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "فقط صفحه‌هایی که دیده‌اید حذف می‌شوند: کوکی‌ها، گذرواژه‌ها و پرونده‌های حافظهٔ نهان می‌مانند.",
+"This week": "این هفته",
+"Earlier": "پیش‌تر"
 }
 }

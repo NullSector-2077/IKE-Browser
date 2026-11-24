@@ -174,6 +174,11 @@ profiles: `ike-browser --profile NAME`.
   bookmarks and downloads, protection and extensions, Settings and Help; every
   other command is under "More", as in the menu bar. Settings have a search
   field that finds an option by its name or its explanation, in any language.
+- One look for every menu: Breeze's on Plasma; with another widget style
+  I.K.E. draws them in the same way (rounded, a light shadow, the icons, texts
+  and shortcuts each on one line). History lists the last pages under Today,
+  Yesterday, This week and Earlier with their site, and "Clear recent
+  history…" deletes only the pages of the last hour, of today or all of them.
 - **Site resources** (Shift+Esc): memory, CPU and network of each open site,
   with optional limits that suspend or freeze greedy background tabs.
 - **Watched pages**: right-click a page, or a part of it such as a price, to be

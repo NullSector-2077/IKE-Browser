@@ -84,6 +84,31 @@ def tab_icon(base, group_color=None, container_color=None):
     return QIcon(pm)
 
 
+# a container's icon (the tab menu's "Reopen in container", the page's "Open link in container")
+CONTAINER_ICON = ("folder-locked", "folder-lock", "channel-secure-symbolic", "object-locked")
+
+
+def _workspace_icon():
+    return _theme(("view-list-icons", "view-grid-symbolic"), QStyle.StandardPixmap.SP_FileDialogListView)
+
+
+def colour_dot(colour):
+    """A tab group's or a container's colour as a menu entry's icon: a dot in
+    the middle of the icon's square (1.1.25)."""
+    if not colour:
+        return _theme(CONTAINER_ICON, QStyle.StandardPixmap.SP_DirClosedIcon)
+    pm = QPixmap(32, 32)
+    pm.fill(Qt.GlobalColor.transparent)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    p.setPen(Qt.PenStyle.NoPen)
+    p.setBrush(QColor(colour))
+    p.drawEllipse(6, 6, 20, 20)
+    p.end()
+    pm.setDevicePixelRatio(2)
+    return QIcon(pm)
+
+
 def _theme(name, fallback):
     from .icons import themed
     return themed(name, fallback)
@@ -910,14 +935,18 @@ class WindowFeatures:
     def _fill_ws_menu(self, m):
         m.clear()
         for name in self.workspaces:
-            a = m.addAction("%s  (%d)" % (name, len(self.workspaces[name])))
+            a = m.addAction(_workspace_icon(), "%s  (%d)" % (name, len(self.workspaces[name])))
             a.setCheckable(True)
             a.setChecked(name == self.workspace)
             a.triggered.connect(lambda _c=False, n=name: self.switch_workspace(n))
         m.addSeparator()
-        m.addAction(T("New workspace…"), self.new_workspace)
-        m.addAction(T("Rename workspace…"), self.rename_workspace)
-        d = m.addAction(T("Delete workspace"), self.delete_workspace)
+        m.addAction(_theme("list-add", QStyle.StandardPixmap.SP_FileDialogNewFolder), T("New workspace…"),
+                    self.new_workspace)
+        m.addAction(_theme(("edit-rename", "document-edit", "edit-delete"),
+                           QStyle.StandardPixmap.SP_FileDialogDetailedView),
+                    T("Rename workspace…"), self.rename_workspace)
+        d = m.addAction(_theme("edit-delete", QStyle.StandardPixmap.SP_TrashIcon), T("Delete workspace"),
+                        self.delete_workspace)
         d.setEnabled(len(self.workspaces) > 1)
 
     def _activate_ws(self, name):
@@ -1103,32 +1132,41 @@ class WindowFeatures:
 
     def _tab_menu_extra(self, m, view):
         g = m.addMenu(_theme(("tab-duplicate", "edit-copy-symbolic"), QStyle.StandardPixmap.SP_DirIcon), T("Tab group"))
+        # 1.1.25: every entry with its icon (the texts on one line in every desktop style)
         for name in self.groups:
-            a = g.addAction(name)
+            a = g.addAction(colour_dot(self.groups[name].get("color")), name)
             a.setCheckable(True)
             a.setChecked(view.group == name)
             a.triggered.connect(lambda _c=False, n=name: self.group_add(view, n))
-        g.addAction(T("New group…"), lambda: self.group_add(view))
+        g.addAction(_theme("list-add", QStyle.StandardPixmap.SP_FileDialogNewFolder), T("New group…"),
+                    lambda: self.group_add(view))
         if view.group:
             g.addSeparator()
-            g.addAction(T("Remove from group"), lambda: self.group_remove(view))
+            g.addAction(_theme(("list-remove", "edit-delete"), QStyle.StandardPixmap.SP_DialogCancelButton),
+                        T("Remove from group"), lambda: self.group_remove(view))
             collapsed = self.groups[view.group]["collapsed"]
-            g.addAction(T("Expand group") if collapsed else T("Collapse group"),
+            g.addAction(_theme("go-down", QStyle.StandardPixmap.SP_ArrowDown) if collapsed
+                        else _theme("go-up", QStyle.StandardPixmap.SP_ArrowUp),
+                        T("Expand group") if collapsed else T("Collapse group"),
                         lambda: self.group_toggle(view.group))
-            g.addAction(T("Close group"), lambda: self.group_close(view.group))
+            g.addAction(_theme(("tab-close", "window-close"), QStyle.StandardPixmap.SP_TitleBarCloseButton),
+                        T("Close group"), lambda: self.group_close(view.group))
         if len(self.workspaces) > 1:
-            w = m.addMenu(T("Move to workspace"))
+            w = m.addMenu(_workspace_icon(), T("Move to workspace"))
             for name in self.workspaces:
                 if name != self.workspace:
-                    w.addAction(name, lambda n=name: self.move_to_workspace(view, n))
+                    w.addAction(_workspace_icon(), name, lambda n=name: self.move_to_workspace(view, n))
         if not self.private and self.ext_on("containers"):
-            c = m.addMenu(T("Reopen in container"))
-            c.addAction(T("No container"), lambda: self._reopen_in(view, None))
+            c = m.addMenu(_theme(CONTAINER_ICON, QStyle.StandardPixmap.SP_DirClosedIcon), T("Reopen in container"))
+            c.addAction(_theme(("tab-new", "document-new", "window-new"), QStyle.StandardPixmap.SP_FileIcon),
+                        T("No container"), lambda: self._reopen_in(view, None))
             for cont in self.app.config["containers"]:
-                c.addAction(tab_icon(QIcon(), None, cont["color"]), cont["name"],
+                c.addAction(colour_dot(cont.get("color")), cont["name"],
                             lambda n=cont["name"]: self._reopen_in(view, n))
         if view is self.split:
-            m.addAction(T("Close split view"), self.unsplit)
+            m.addAction(_theme(("view-restore", "view-split-left-right", "window-close"),
+                               QStyle.StandardPixmap.SP_TitleBarNormalButton),
+                        T("Close split view"), self.unsplit)
         elif self.ext_on("split"):
             m.addAction(_theme(("view-split-left-right", "view-dual-symbolic"), QStyle.StandardPixmap.SP_ArrowRight),
                         T("Show on the right (split view)"), lambda: self.split_with(view))
@@ -1146,7 +1184,8 @@ class WindowFeatures:
             m.addAction(tab_icon(QIcon(), None, cont["color"]), cont["name"],
                         lambda n=cont["name"]: self.add_tab(container=n))
         m.addSeparator()
-        m.addAction(T("Manage containers…"), lambda: self.open_settings("privacy"))
+        m.addAction(_theme(("configure", "preferences-system"), QStyle.StandardPixmap.SP_FileDialogDetailedView),
+                    T("Manage containers…"), lambda: self.open_settings("privacy"))
 
     def _reopen_in(self, view, container):
         url = view.pending_url or view.url().toString()
@@ -1158,12 +1197,13 @@ class WindowFeatures:
         m = self.m_profiles
         m.clear()
         for name in list_profiles():
-            a = m.addAction(name)
+            a = m.addAction(_theme(("user-identity", "system-users"), QStyle.StandardPixmap.SP_DirHomeIcon), name)
             a.setCheckable(True)
             a.setChecked(name == PROFILE)
             a.triggered.connect(lambda _c=False, n=name: self.app.launch_profile(n))
         m.addSeparator()
-        m.addAction(T("New profile…"), self._new_profile)
+        m.addAction(_theme("list-add", QStyle.StandardPixmap.SP_FileDialogNewFolder), T("New profile…"),
+                    self._new_profile)
 
     def _new_profile(self):
         name, ok = QInputDialog.getText(self, T("New profile"),

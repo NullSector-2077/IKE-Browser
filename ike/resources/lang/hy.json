@@ -1253,6 +1253,15 @@
 "Colour…": "Գույն…",
 "Only for this site": "Միայն այս կայքի համար",
 "These choices for %s only": "Այս ընտրությունները միայն %s-ի համար",
-"Dark mode settings…": "Մութ ռեժիմի կարգավորումներ…"
+"Dark mode settings…": "Մութ ռեժիմի կարգավորումներ…",
+"Clear recent history…": "Մաքրել վերջին պատմությունը…",
+"Delete the pages visited in the last hour, today or ever": "Ջնջել վերջին ժամում, այսօր կամ երբևէ այցելած էջերը",
+"Clear recent history": "Մաքրել վերջին պատմությունը",
+"Time range to clear:": "Մաքրելու ժամանակահատվածը:",
+"Last hour": "Վերջին ժամը",
+"Everything": "Ամբողջը",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Ջնջվում են միայն ձեր այցելած էջերը. քուքիները, գաղտնաբառերը և քեշավորված ֆայլերը մնում են:",
+"This week": "Այս շաբաթ",
+"Earlier": "Ավելի վաղ"
 }
 }

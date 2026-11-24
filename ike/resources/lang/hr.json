@@ -1253,6 +1253,15 @@
 "Colour…": "Boja…",
 "Only for this site": "Samo za ovu web-stranicu",
 "These choices for %s only": "Ovi izbori samo za %s",
-"Dark mode settings…": "Postavke tamnog načina…"
+"Dark mode settings…": "Postavke tamnog načina…",
+"Clear recent history…": "Očisti nedavnu povijest…",
+"Delete the pages visited in the last hour, today or ever": "Izbriši stranice posjećene u zadnjih sat vremena, danas ili ikad",
+"Clear recent history": "Očisti nedavnu povijest",
+"Time range to clear:": "Vremenski raspon za brisanje:",
+"Last hour": "Zadnji sat",
+"Everything": "Sve",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Brišu se samo stranice koje ste posjetili: kolačići, lozinke i predmemorirane datoteke ostaju.",
+"This week": "Ovaj tjedan",
+"Earlier": "Ranije"
 }
 }

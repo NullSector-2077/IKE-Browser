@@ -189,7 +189,7 @@ def steps(ike, qapp, out):
             about.setText(win.about_text())
         about.show()
         dialog(code + ": About", about)
-        for name in ("show_history", "show_bookmarks", "show_downloads", "show_clear_data",
+        for name in ("show_history", "show_bookmarks", "show_downloads", "show_clear_data", "show_clear_history",
                      "show_userscripts", "show_import", "show_resources", "show_watches",
                      "show_permissions"):
             shown = getattr(ike, name)()

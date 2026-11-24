@@ -1253,6 +1253,15 @@
 "Colour…": "Warna…",
 "Only for this site": "Hanya untuk laman ini",
 "These choices for %s only": "Pilihan ini hanya untuk %s",
-"Dark mode settings…": "Tetapan mod gelap…"
+"Dark mode settings…": "Tetapan mod gelap…",
+"Clear recent history…": "Kosongkan sejarah terkini…",
+"Delete the pages visited in the last hour, today or ever": "Padam halaman yang dilawati dalam sejam terakhir, hari ini atau bila-bila masa",
+"Clear recent history": "Kosongkan sejarah terkini",
+"Time range to clear:": "Julat masa untuk dikosongkan:",
+"Last hour": "Sejam terakhir",
+"Everything": "Semua",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Hanya halaman yang anda lawati dipadam: kuki, kata laluan dan fail cache kekal.",
+"This week": "Minggu ini",
+"Earlier": "Lebih awal"
 }
 }

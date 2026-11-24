@@ -1253,6 +1253,15 @@
 "Colour…": "Rəng…",
 "Only for this site": "Yalnız bu sayt üçün",
 "These choices for %s only": "Bu seçimlər yalnız %s üçün",
-"Dark mode settings…": "Tünd rejim ayarları…"
+"Dark mode settings…": "Tünd rejim ayarları…",
+"Clear recent history…": "Son tarixçəni təmizlə…",
+"Delete the pages visited in the last hour, today or ever": "Son bir saatda, bu gün və ya hər zaman ziyarət edilən səhifələri sil",
+"Clear recent history": "Son tarixçəni təmizlə",
+"Time range to clear:": "Təmizlənəcək vaxt aralığı:",
+"Last hour": "Son bir saat",
+"Everything": "Hamısı",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Yalnız ziyarət etdiyiniz səhifələr silinir: kukilər, parollar və keşdəki fayllar qalır.",
+"This week": "Bu həftə",
+"Earlier": "Daha əvvəl"
 }
 }

@@ -1253,6 +1253,15 @@
 "Colour…": "Kolorea…",
 "Only for this site": "Webgune honetarako soilik",
 "These choices for %s only": "Aukera hauek %s webgunerako soilik",
-"Dark mode settings…": "Modu ilunaren ezarpenak…"
+"Dark mode settings…": "Modu ilunaren ezarpenak…",
+"Clear recent history…": "Garbitu azken historia…",
+"Delete the pages visited in the last hour, today or ever": "Ezabatu azken orduan, gaur edo inoiz bisitatutako orriak",
+"Clear recent history": "Garbitu azken historia",
+"Time range to clear:": "Garbitu beharreko denbora-tartea:",
+"Last hour": "Azken ordua",
+"Everything": "Dena",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Bisitatutako orriak soilik ezabatzen dira: cookieak, pasahitzak eta cachean gordetako fitxategiak geratzen dira.",
+"This week": "Aste honetan",
+"Earlier": "Lehenago"
 }
 }

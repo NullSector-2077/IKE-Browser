@@ -1253,6 +1253,15 @@
 "Colour…": "Rang…",
 "Only for this site": "Faqat shu sayt uchun",
 "These choices for %s only": "Bu tanlovlar faqat %s uchun",
-"Dark mode settings…": "Qorongʻi rejim sozlamalari…"
+"Dark mode settings…": "Qorongʻi rejim sozlamalari…",
+"Clear recent history…": "Yaqindagi tarixni tozalash…",
+"Delete the pages visited in the last hour, today or ever": "Oxirgi bir soatda, bugun yoki istalgan vaqtda koʻrilgan sahifalarni oʻchirish",
+"Clear recent history": "Yaqindagi tarixni tozalash",
+"Time range to clear:": "Tozalanadigan vaqt oraligʻi:",
+"Last hour": "Oxirgi bir soat",
+"Everything": "Hammasi",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Faqat siz koʻrgan sahifalar oʻchiriladi: cookie fayllar, parollar va keshdagi fayllar qoladi.",
+"This week": "Shu hafta",
+"Earlier": "Avvalroq"
 }
 }

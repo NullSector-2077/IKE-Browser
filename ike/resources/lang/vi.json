@@ -1253,6 +1253,15 @@
 "Colour…": "Màu…",
 "Only for this site": "Chỉ cho trang này",
 "These choices for %s only": "Các lựa chọn này chỉ cho %s",
-"Dark mode settings…": "Cài đặt chế độ tối…"
+"Dark mode settings…": "Cài đặt chế độ tối…",
+"Clear recent history…": "Xóa lịch sử gần đây…",
+"Delete the pages visited in the last hour, today or ever": "Xóa các trang đã truy cập trong giờ qua, hôm nay hoặc từ trước đến nay",
+"Clear recent history": "Xóa lịch sử gần đây",
+"Time range to clear:": "Khoảng thời gian cần xóa:",
+"Last hour": "Giờ qua",
+"Everything": "Tất cả",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Chỉ các trang bạn đã truy cập bị xóa: cookie, mật khẩu và tệp trong bộ nhớ đệm vẫn được giữ.",
+"This week": "Tuần này",
+"Earlier": "Trước đó"
 }
 }

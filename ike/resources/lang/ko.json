@@ -1253,6 +1253,15 @@
 "Colour…": "색…",
 "Only for this site": "이 사이트에만",
 "These choices for %s only": "이 선택은 %s에만",
-"Dark mode settings…": "다크 모드 설정…"
+"Dark mode settings…": "다크 모드 설정…",
+"Clear recent history…": "최근 방문 기록 삭제…",
+"Delete the pages visited in the last hour, today or ever": "지난 1시간, 오늘 또는 전체 기간에 방문한 페이지 삭제",
+"Clear recent history": "최근 방문 기록 삭제",
+"Time range to clear:": "삭제할 기간:",
+"Last hour": "지난 1시간",
+"Everything": "전체",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "방문한 페이지만 삭제됩니다. 쿠키, 비밀번호, 캐시된 파일은 그대로 남습니다.",
+"This week": "이번 주",
+"Earlier": "이전"
 }
 }

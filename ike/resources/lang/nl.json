@@ -1253,6 +1253,15 @@
 "Colour…": "Kleur…",
 "Only for this site": "Alleen voor deze site",
 "These choices for %s only": "Deze keuzes alleen voor %s",
-"Dark mode settings…": "Instellingen voor donkere modus…"
+"Dark mode settings…": "Instellingen voor donkere modus…",
+"Clear recent history…": "Recente geschiedenis wissen…",
+"Delete the pages visited in the last hour, today or ever": "De pagina's wissen die het afgelopen uur, vandaag of ooit zijn bezocht",
+"Clear recent history": "Recente geschiedenis wissen",
+"Time range to clear:": "Te wissen tijdsbereik:",
+"Last hour": "Afgelopen uur",
+"Everything": "Alles",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Alleen de bezochte pagina's worden gewist: cookies, wachtwoorden en gecachte bestanden blijven.",
+"This week": "Deze week",
+"Earlier": "Eerder"
 }
 }

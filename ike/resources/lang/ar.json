@@ -1253,6 +1253,15 @@
 "Colour…": "لون…",
 "Only for this site": "لهذا الموقع فقط",
 "These choices for %s only": "هذه الخيارات لـ %s فقط",
-"Dark mode settings…": "إعدادات الوضع الداكن…"
+"Dark mode settings…": "إعدادات الوضع الداكن…",
+"Clear recent history…": "مسح السجل الحديث…",
+"Delete the pages visited in the last hour, today or ever": "حذف الصفحات التي زرتها في الساعة الأخيرة أو اليوم أو في أي وقت",
+"Clear recent history": "مسح السجل الحديث",
+"Time range to clear:": "الفترة الزمنية المراد مسحها:",
+"Last hour": "الساعة الأخيرة",
+"Everything": "كل شيء",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "تُحذف الصفحات التي زرتها فقط: تبقى ملفات تعريف الارتباط وكلمات المرور والملفات المخزنة مؤقتًا.",
+"This week": "هذا الأسبوع",
+"Earlier": "في وقت سابق"
 }
 }

@@ -1253,6 +1253,15 @@
 "Colour…": "Szín…",
 "Only for this site": "Csak ennél a webhelynél",
 "These choices for %s only": "Ezek a beállítások csak ehhez: %s",
-"Dark mode settings…": "Sötét mód beállításai…"
+"Dark mode settings…": "Sötét mód beállításai…",
+"Clear recent history…": "Előzmények törlése az utóbbi időből…",
+"Delete the pages visited in the last hour, today or ever": "Az utolsó órában, ma vagy bármikor meglátogatott oldalak törlése",
+"Clear recent history": "Előzmények törlése az utóbbi időből",
+"Time range to clear:": "Törlendő időtartam:",
+"Last hour": "Az utolsó óra",
+"Everything": "Minden",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Csak a meglátogatott oldalak törlődnek: a sütik, a jelszavak és a gyorsítótárazott fájlok megmaradnak.",
+"This week": "Ezen a héten",
+"Earlier": "Korábban"
 }
 }

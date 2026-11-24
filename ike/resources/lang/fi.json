@@ -1253,6 +1253,15 @@
 "Colour…": "Väri…",
 "Only for this site": "Vain tälle sivustolle",
 "These choices for %s only": "Nämä valinnat vain sivustolle %s",
-"Dark mode settings…": "Tumman tilan asetukset…"
+"Dark mode settings…": "Tumman tilan asetukset…",
+"Clear recent history…": "Tyhjennä viimeaikainen historia…",
+"Delete the pages visited in the last hour, today or ever": "Poista viimeisen tunnin aikana, tänään tai koskaan vieraillut sivut",
+"Clear recent history": "Tyhjennä viimeaikainen historia",
+"Time range to clear:": "Tyhjennettävä aikaväli:",
+"Last hour": "Viimeinen tunti",
+"Everything": "Kaikki",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Vain vierailemasi sivut poistetaan: evästeet, salasanat ja välimuistin tiedostot säilyvät.",
+"This week": "Tällä viikolla",
+"Earlier": "Aiemmin"
 }
 }

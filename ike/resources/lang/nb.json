@@ -1253,6 +1253,15 @@
 "Colour…": "Farge…",
 "Only for this site": "Bare for dette nettstedet",
 "These choices for %s only": "Disse valgene bare for %s",
-"Dark mode settings…": "Innstillinger for mørk modus…"
+"Dark mode settings…": "Innstillinger for mørk modus…",
+"Clear recent history…": "Tøm nylig historikk…",
+"Delete the pages visited in the last hour, today or ever": "Slett sidene som er besøkt den siste timen, i dag eller noen gang",
+"Clear recent history": "Tøm nylig historikk",
+"Time range to clear:": "Tidsrom som skal tømmes:",
+"Last hour": "Siste time",
+"Everything": "Alt",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Bare sidene du har besøkt, slettes: informasjonskapsler, passord og hurtigbufrede filer blir værende.",
+"This week": "Denne uken",
+"Earlier": "Tidligere"
 }
 }

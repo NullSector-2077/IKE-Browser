@@ -1253,6 +1253,15 @@
 "Colour…": "Kulay…",
 "Only for this site": "Para lang sa site na ito",
 "These choices for %s only": "Ang mga pagpipiliang ito para lang sa %s",
-"Dark mode settings…": "Mga setting ng dark mode…"
+"Dark mode settings…": "Mga setting ng dark mode…",
+"Clear recent history…": "I-clear ang kamakailang history…",
+"Delete the pages visited in the last hour, today or ever": "Burahin ang mga pahinang binisita sa nakaraang oras, ngayon o kailanman",
+"Clear recent history": "I-clear ang kamakailang history",
+"Time range to clear:": "Saklaw ng oras na ki-clear:",
+"Last hour": "Nakaraang oras",
+"Everything": "Lahat",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Ang mga pahinang binisita mo lang ang buburahin: mananatili ang cookies, mga password at mga naka-cache na file.",
+"This week": "Ngayong linggo",
+"Earlier": "Mas maaga"
 }
 }

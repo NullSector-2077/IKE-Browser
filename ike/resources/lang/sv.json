@@ -1253,6 +1253,15 @@
 "Colour…": "Färg…",
 "Only for this site": "Bara för den här webbplatsen",
 "These choices for %s only": "De här valen bara för %s",
-"Dark mode settings…": "Inställningar för mörkt läge…"
+"Dark mode settings…": "Inställningar för mörkt läge…",
+"Clear recent history…": "Rensa senaste historik…",
+"Delete the pages visited in the last hour, today or ever": "Ta bort sidorna som besökts den senaste timmen, i dag eller någonsin",
+"Clear recent history": "Rensa senaste historik",
+"Time range to clear:": "Tidsintervall att rensa:",
+"Last hour": "Senaste timmen",
+"Everything": "Allt",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Bara sidorna du besökt tas bort: kakor, lösenord och cachade filer finns kvar.",
+"This week": "Den här veckan",
+"Earlier": "Tidigare"
 }
 }

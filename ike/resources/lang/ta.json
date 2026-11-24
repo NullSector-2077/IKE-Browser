@@ -1253,6 +1253,15 @@
 "Colour…": "நிறம்…",
 "Only for this site": "இந்தத் தளத்திற்கு மட்டும்",
 "These choices for %s only": "இந்தத் தேர்வுகள் %s க்கு மட்டும்",
-"Dark mode settings…": "இருள் பயன்முறை அமைப்புகள்…"
+"Dark mode settings…": "இருள் பயன்முறை அமைப்புகள்…",
+"Clear recent history…": "சமீபத்திய வரலாற்றை அழி…",
+"Delete the pages visited in the last hour, today or ever": "கடந்த ஒரு மணிநேரம், இன்று அல்லது எப்போதும் பார்த்த பக்கங்களை நீக்கு",
+"Clear recent history": "சமீபத்திய வரலாற்றை அழி",
+"Time range to clear:": "அழிக்க வேண்டிய கால அளவு:",
+"Last hour": "கடந்த ஒரு மணிநேரம்",
+"Everything": "அனைத்தும்",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "நீங்கள் பார்த்த பக்கங்கள் மட்டுமே நீக்கப்படும்: குக்கீகள், கடவுச்சொற்கள், தற்காலிகச் சேமிப்புக் கோப்புகள் அப்படியே இருக்கும்.",
+"This week": "இந்த வாரம்",
+"Earlier": "முன்பு"
 }
 }

@@ -1253,6 +1253,15 @@
 "Colour…": "Color…",
 "Only for this site": "Solo para este sitio",
 "These choices for %s only": "Estas opciones solo para %s",
-"Dark mode settings…": "Ajustes del modo oscuro…"
+"Dark mode settings…": "Ajustes del modo oscuro…",
+"Clear recent history…": "Borrar historial reciente…",
+"Delete the pages visited in the last hour, today or ever": "Eliminar las páginas visitadas en la última hora, hoy o en cualquier momento",
+"Clear recent history": "Borrar historial reciente",
+"Time range to clear:": "Intervalo de tiempo que borrar:",
+"Last hour": "Última hora",
+"Everything": "Todo",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Solo se eliminan las páginas que visitaste: las cookies, las contraseñas y los archivos en caché se mantienen.",
+"This week": "Esta semana",
+"Earlier": "Antes"
 }
 }

@@ -1253,6 +1253,15 @@
 "Colour…": "Culoare…",
 "Only for this site": "Doar pentru acest site",
 "These choices for %s only": "Aceste alegeri doar pentru %s",
-"Dark mode settings…": "Setări mod întunecat…"
+"Dark mode settings…": "Setări mod întunecat…",
+"Clear recent history…": "Șterge istoricul recent…",
+"Delete the pages visited in the last hour, today or ever": "Șterge paginile vizitate în ultima oră, azi sau oricând",
+"Clear recent history": "Șterge istoricul recent",
+"Time range to clear:": "Intervalul de timp de șters:",
+"Last hour": "Ultima oră",
+"Everything": "Tot",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Sunt șterse doar paginile vizitate: cookie-urile, parolele și fișierele din cache rămân.",
+"This week": "Săptămâna aceasta",
+"Earlier": "Mai devreme"
 }
 }

@@ -1253,6 +1253,15 @@
 "Colour…": "颜色…",
 "Only for this site": "仅限此网站",
 "These choices for %s only": "这些选择仅用于 %s",
-"Dark mode settings…": "深色模式设置…"
+"Dark mode settings…": "深色模式设置…",
+"Clear recent history…": "清除近期历史记录…",
+"Delete the pages visited in the last hour, today or ever": "删除过去一小时、今天或全部时间内访问过的页面",
+"Clear recent history": "清除近期历史记录",
+"Time range to clear:": "要清除的时间范围:",
+"Last hour": "过去一小时",
+"Everything": "全部",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "只删除您访问过的页面：Cookie、密码和缓存的文件会保留。",
+"This week": "本周",
+"Earlier": "更早"
 }
 }

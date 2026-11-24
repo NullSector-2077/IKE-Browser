@@ -1253,6 +1253,15 @@
 "Colour…": "Krāsa…",
 "Only for this site": "Tikai šai vietnei",
 "These choices for %s only": "Šīs izvēles tikai vietnei %s",
-"Dark mode settings…": "Tumšā režīma iestatījumi…"
+"Dark mode settings…": "Tumšā režīma iestatījumi…",
+"Clear recent history…": "Notīrīt neseno vēsturi…",
+"Delete the pages visited in the last hour, today or ever": "Dzēst lapas, kas apmeklētas pēdējā stundā, šodien vai jebkad",
+"Clear recent history": "Notīrīt neseno vēsturi",
+"Time range to clear:": "Notīrāmais laika posms:",
+"Last hour": "Pēdējā stunda",
+"Everything": "Viss",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Tiek dzēstas tikai apmeklētās lapas: sīkdatnes, paroles un kešatmiņas faili paliek.",
+"This week": "Šonedēļ",
+"Earlier": "Agrāk"
 }
 }

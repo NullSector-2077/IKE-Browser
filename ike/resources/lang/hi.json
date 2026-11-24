@@ -1253,6 +1253,15 @@
 "Colour…": "रंग…",
 "Only for this site": "सिर्फ़ इस साइट के लिए",
 "These choices for %s only": "ये विकल्प सिर्फ़ %s के लिए",
-"Dark mode settings…": "डार्क मोड सेटिंग्स…"
+"Dark mode settings…": "डार्क मोड सेटिंग्स…",
+"Clear recent history…": "हाल का इतिहास साफ़ करें…",
+"Delete the pages visited in the last hour, today or ever": "पिछले एक घंटे, आज या कभी भी देखे गए पेज हटाएँ",
+"Clear recent history": "हाल का इतिहास साफ़ करें",
+"Time range to clear:": "साफ़ करने की समय सीमा:",
+"Last hour": "पिछला एक घंटा",
+"Everything": "सब कुछ",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "केवल आपके देखे गए पेज हटाए जाते हैं: कुकी, पासवर्ड और कैश की गई फ़ाइलें बनी रहती हैं।",
+"This week": "इस सप्ताह",
+"Earlier": "पहले"
 }
 }

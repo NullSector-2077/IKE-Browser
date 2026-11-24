@@ -153,9 +153,19 @@ class Storage(Deferred):
         self.db.execute("DELETE FROM history WHERE url=?", (url,))
         checkpoint(self.db)              # nothing of it left in the -wal file
 
-    def clear_history(self):
-        self.db.execute("DELETE FROM history")
+    def clear_history(self, since=None):
+        """Delete the history: all of it, or (since, seconds) the pages seen
+        since then, whose addresses are returned (1.1.25: History → Clear
+        recent history…)."""
+        if since is None:
+            self.db.execute("DELETE FROM history")
+            checkpoint(self.db)
+            return None
+        since = int(since)
+        urls = [u for (u,) in self.db.execute("SELECT url FROM history WHERE last >= ?", (since,))]
+        self.db.execute("DELETE FROM history WHERE last >= ?", (since,))
         checkpoint(self.db)
+        return urls
 
     # --- bookmarks ---------------------------------------------------
     def add_bookmark(self, url, title, folder=""):
