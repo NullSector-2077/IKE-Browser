@@ -36,9 +36,36 @@
    "runs": 4
   },
   "2026-11-24": {
-   "answered": 2,
+   "answered": 3,
    "no_provider": 0,
    "providers": {
+    "Groq": {
+     "by": {
+      "automation/update/drill-qt": {
+       "requests": 4,
+       "tokens": 17984
+      }
+     },
+     "observed": {
+      "requests": {
+       "limit": 1000,
+       "mark": 4,
+       "remaining": 997,
+       "reset": 260,
+       "window": "day"
+      },
+      "tokens": {
+       "limit": 8000,
+       "mark": 17984,
+       "remaining": 4203,
+       "reset": 29,
+       "window": "minute"
+      }
+     },
+     "requests": 4,
+     "spent": "",
+     "tokens": 17984
+    },
     "Z.AI": {
      "by": {
       "automation/update/lists-2026-11-22": {
@@ -52,7 +79,7 @@
      "tokens": 23158
     }
    },
-   "runs": 2
+   "runs": 3
   }
  },
  "schema": 1
