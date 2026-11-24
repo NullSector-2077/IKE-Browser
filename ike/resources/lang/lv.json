@@ -1320,6 +1320,7 @@
 "SW": "DR",
 "W": "R",
 "NW": "ZR",
-"Pressure": "Spiediens"
+"Pressure": "Spiediens",
+"Automatic goes with the temperature unit.": "Automātiski seko temperatūras vienībai."
 }
 }

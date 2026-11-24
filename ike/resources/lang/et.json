@@ -1320,6 +1320,7 @@
 "SW": "edel",
 "W": "lääs",
 "NW": "loe",
-"Pressure": "Õhurõhk"
+"Pressure": "Õhurõhk",
+"Automatic goes with the temperature unit.": "Automaatne järgib temperatuuriühikut."
 }
 }

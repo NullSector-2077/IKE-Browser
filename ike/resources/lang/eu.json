@@ -1320,6 +1320,7 @@
 "SW": "HM",
 "W": "M",
 "NW": "IM",
-"Pressure": "Presioa"
+"Pressure": "Presioa",
+"Automatic goes with the temperature unit.": "Automatikoak tenperaturaren unitatea jarraitzen du."
 }
 }

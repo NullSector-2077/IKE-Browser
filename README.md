@@ -166,7 +166,8 @@ profiles: `ike-browser --profile NAME`.
   engine in use right after the lock and in the new tab page, a click to change it.
 - New tab page with a clock and, for a city you choose, the weather (with a
   discreet row of details: felt temperature, wind, humidity, pressure, chance
-  of precipitation); tiles of
+  of precipitation; units of your choice: °C or °F, wind in km/h, mph, m/s or
+  knots, pressure in hPa, mbar, inHg or mmHg); tiles of
   your bookmarks or of the sites you visit most (up to 32, sixteen per row on
   a wide window); the trackers and ads blocked
   this month; your own photo as its background if you like (kept on the

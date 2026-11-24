@@ -388,3 +388,104 @@ def test_symbol_and_text_are_one_tidy_block(run_ike, tmp_path):
     n, bad = out["every"]
     assert n >= 59 and not bad, bad[:5]
     del app
+
+
+# --- the units chosen in Settings (1.1.25) ----------------------------------------------------------------
+def test_wind_conversions_and_rounding_for_every_unit():
+    from ike import weather
+    # 1 mph = 1.609344 km/h, 1 m/s = 3.6 km/h, 1 kn = 1.852 km/h; km/h, mph and kn whole, m/s one decimal
+    assert weather.convert_wind(14.4, "kmh") == ("14", "km/h")
+    assert weather.convert_wind(14.4, "mph") == ("9", "mph")
+    assert weather.convert_wind(14.4, "ms") == ("4.0", "m/s")
+    assert weather.convert_wind(14.4, "kn") == ("8", "kn")
+    assert weather.convert_wind(40.0, "mph") == ("25", "mph")             # 24.85
+    assert weather.convert_wind(40.0, "ms") == ("11.1", "m/s")            # 11.11
+    assert weather.convert_wind(40.0, "kn") == ("22", "kn")               # 21.60
+    assert weather.convert_wind(1.609344 * 7, "mph")[0] == "7"
+    assert weather.convert_wind(3.6 * 5, "ms")[0] == "5.0" and weather.convert_wind(1.852 * 9, "kn")[0] == "9"
+    assert weather.convert_wind(0.0, "ms") == ("0.0", "m/s")
+    assert weather.WIND_UNITS == ("kmh", "mph", "ms", "kn")
+
+
+def test_pressure_conversions_and_rounding_for_every_unit():
+    from ike import weather
+    # 1 inHg = 33.8639 hPa, 1 mmHg = 1.333224 hPa; hPa, mbar and mmHg whole, inHg two decimals
+    assert weather.convert_pressure(1016.4, "hpa") == ("1016", "hPa")
+    assert weather.convert_pressure(1016.4, "mbar") == ("1016", "mbar")   # the same number as hPa
+    assert weather.convert_pressure(1016.6, "mbar")[0] == weather.convert_pressure(1016.6, "hpa")[0] == "1017"
+    assert weather.convert_pressure(1016.4, "inhg") == ("30.01", "inHg")
+    assert weather.convert_pressure(1016.4, "mmhg") == ("762", "mmHg")    # 762.39
+    assert weather.convert_pressure(33.8639 * 29.92, "inhg")[0] == "29.92"
+    assert weather.convert_pressure(1.333224 * 760, "mmhg")[0] == "760"
+    assert weather.PRESSURE_UNITS == ("hpa", "mbar", "inhg", "mmhg")
+
+
+def test_the_details_with_each_unit():
+    from ike import weather
+    for wu, want in (("kmh", "14 km/h NW"), ("mph", "9 mph NW"), ("ms", "4.0 m/s NW"), ("kn", "8 kn NW")):
+        assert weather.details(_w(wind_unit=wu))[1]["v"] == want, wu
+    for pu, want in (("hpa", "1016 hPa"), ("mbar", "1016 mbar"), ("inhg", "30.01 inHg"), ("mmhg", "762 mmHg")):
+        assert weather.details(_w(pressure_unit=pu))[3]["v"] == want, pu
+    # the units are independent of each other and of the temperature
+    mixed = weather.details(_w("°F", feels=50.4, wind_unit="kn", pressure_unit="mmhg"))
+    assert [x["v"] for x in mixed] == ["50 °F", "8 kn NW", "78%", "762 mmHg", "20%"]
+    # still air: no direction, whatever the unit
+    assert weather.details(_w(wind=0.3, wind_unit="ms"))[1]["v"] == "0.1 m/s NW"
+    assert weather.details(_w(wind=0.01, wind_unit="ms"))[1]["v"] == "0.0 m/s"
+    assert weather.details(_w(wind=0.3, wind_unit="mph"))[1]["v"] == "0 mph"
+    # a unit that is not one of the choices: the temperature decides, as before
+    assert weather.details(_w(wind_unit="furlong", pressure_unit=5))[1]["v"] == "14 km/h NW"
+    assert weather.details(_w("°F", wind_unit="auto", pressure_unit=None))[3]["v"] == "30.01 inHg"
+
+
+def _cfg(tmp_path, **kw):
+    from ike.config import Config
+    path = tmp_path / "settings.json"
+    path.write_text(json.dumps(kw))
+    return Config(path)
+
+
+def test_auto_follows_the_temperature_unit(tmp_path):
+    import time
+
+    from ike import weather
+    from ike.config import DEFAULTS
+    assert DEFAULTS["weather_wind_unit"] == "auto" and DEFAULTS["weather_pressure_unit"] == "auto"
+    c = _cfg(tmp_path)                                              # nothing chosen: nothing changes
+    assert (weather.wind_unit(c), weather.pressure_unit(c)) == ("kmh", "hpa")
+    f = _cfg(tmp_path, weather_unit="fahrenheit")
+    assert (weather.wind_unit(f), weather.pressure_unit(f)) == ("mph", "inhg")
+    both = _cfg(tmp_path, weather_unit="fahrenheit", weather_wind_unit="ms", weather_pressure_unit="mbar")
+    assert (weather.wind_unit(both), weather.pressure_unit(both)) == ("ms", "mbar")
+    # the weather handed to the page carries the units chosen; the data stays in km/h and hPa
+    for cfg, want in ((c, ("kmh", "hpa")), (f, ("mph", "inhg")), (both, ("ms", "mbar"))):
+        cfg["weather_city"], cfg["weather_lat"], cfg["weather_lon"] = "Rome", 41.89, 12.51
+        w = weather.Weather(cfg, None)
+        w.data = {"key": [41.89, 12.51, cfg["weather_unit"]], "time": time.time(), "temp": 12, "code": 2,
+                  "wind": 14.4, "wind_dir": 312.0, "pressure": 1016.4}
+        got = w.current()
+        assert (got["wind_unit"], got["pressure_unit"]) == want and got["wind"] == 14.4 and got["pressure"] == 1016.4
+
+
+def test_the_units_are_validated_when_the_settings_are_read(tmp_path):
+    from ike.config import Config
+    c = _cfg(tmp_path, weather_wind_unit="knots", weather_pressure_unit=["hpa"], weather_unit="kelvin")
+    assert (c["weather_wind_unit"], c["weather_pressure_unit"], c["weather_unit"]) == ("auto", "auto", "celsius")
+    c = _cfg(tmp_path, weather_wind_unit="kn", weather_pressure_unit="mmhg", weather_unit="fahrenheit")
+    assert (c["weather_wind_unit"], c["weather_pressure_unit"], c["weather_unit"]) == ("kn", "mmhg", "fahrenheit")
+    # a profile of 1.1.24 or earlier (no such keys) gets the defaults and is saved with them
+    old = tmp_path / "old" / "settings.json"
+    old.parent.mkdir()
+    old.write_text(json.dumps({"weather_unit": "fahrenheit", "weather_city": "Rome"}))
+    c = Config(old)
+    assert (c["weather_wind_unit"], c["weather_pressure_unit"], c["weather_unit"]) == ("auto", "auto", "fahrenheit")
+    c.save()
+    saved = json.loads(old.read_text("utf-8"))
+    assert saved["weather_wind_unit"] == "auto" and saved["weather_pressure_unit"] == "auto"
+
+
+def test_the_new_words_are_in_every_language():
+    for f in sorted((ROOT / "ike" / "resources" / "lang").glob("*.json")):
+        strings = json.loads(f.read_text("utf-8"))["strings"]
+        for w in ("Automatic", "Automatic goes with the temperature unit.", "Wind", "Pressure", "Temperature"):
+            assert strings.get(w, "").strip(), (f.stem, w)

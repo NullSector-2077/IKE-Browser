@@ -219,6 +219,8 @@ DEFAULTS = {
     "weather_lat": None,
     "weather_lon": None,
     "weather_unit": "celsius",          # celsius | fahrenheit
+    "weather_wind_unit": "auto",        # auto (follows weather_unit) | kmh | mph | ms | kn (1.1.25)
+    "weather_pressure_unit": "auto",    # auto (follows weather_unit) | hpa | mbar | inhg | mmhg (1.1.25)
     "default_zoom": 1.0,
     "search_engines": DEFAULT_ENGINES,
     "default_engine": "Startpage",      # 1.1.19, the owner's choice (see the change below for older profiles)
@@ -385,6 +387,11 @@ _REMOVED = ("cyber_accent", "cyber_shape", "cyber_glow", "cyber_corners", "cyber
 _LISTS_OF_DICTS = ("search_engines", "filter_lists", "containers", "page_watches")
 
 
+WEATHER_CHOICES = {"weather_unit": ("celsius", "fahrenheit"),
+                   "weather_wind_unit": ("auto", "kmh", "mph", "ms", "kn"),
+                   "weather_pressure_unit": ("auto", "hpa", "mbar", "inhg", "mmhg")}
+
+
 def sound_settings(stored):
     """The stored settings without the values that are not of the kind the
     program expects (a settings file edited by hand, damaged, or written by
@@ -462,6 +469,10 @@ class Config:
         if isinstance(stored, dict):
             self.data.update(sound_settings(stored))
         d = self.data
+        # 1.1.25: the weather's units: a value that is not one of the choices is the default
+        for key, choices in WEATHER_CHOICES.items():
+            if d.get(key) not in choices:
+                d[key] = DEFAULTS[key]
         # 1.1.24: the welcome is for a first start only: a profile that already
         # has settings never sees it
         if isinstance(stored, dict) and "welcome_done" not in stored:

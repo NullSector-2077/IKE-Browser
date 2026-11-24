@@ -1320,6 +1320,7 @@
 "SW": "ОБ",
 "W": "Б",
 "NW": "СБ",
-"Pressure": "Қысым"
+"Pressure": "Қысым",
+"Automatic goes with the temperature unit.": "Автоматты режим температура бірлігіне сәйкес келеді."
 }
 }

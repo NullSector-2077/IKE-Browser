@@ -2,6 +2,16 @@
 
 ## 1.1.25
 
+- **Weather units you can choose** (the owner): in Settings, next to the
+  temperature (°C / °F), the wind speed can be shown in km/h, mph, m/s or
+  knots and the pressure in hPa, millibar, inHg or mmHg. "Automatic" (the
+  default) follows the temperature as before (°C: km/h and hPa; °F: mph and
+  inHg), so nothing changes for anyone who does not choose. The conversions
+  are done on the computer from the service's km/h and hPa (the request is
+  the same); the new tab shows the choice the next time it is drawn. New
+  settings `weather_wind_unit` and `weather_pressure_unit`, a value that is
+  not one of the choices falling back to the default; tests/test_newtab_weather.py,
+  tests/test_settings.py.
 - **The History window shows the sites' icons** (the owner): "Show all history"
   lists every page with its site's stored icon (the globe when none is
   stored, nothing fetched for it) and every day with a calendar icon;

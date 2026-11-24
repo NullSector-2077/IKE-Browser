@@ -43,6 +43,49 @@ HOURLY = ("precipitation_probability",)
 FIELDS = BASIC + MORE + HOURLY
 KMH_PER_MPH = 1.609344
 INHG_PER_HPA = 0.0295300                      # the pressure in inches of mercury, with °F (as mph goes with °F)
+# 1.1.25: the units of the wind and of the pressure can be chosen in Settings; "auto" (the default)
+# follows the temperature (°C: km/h and hPa; °F: mph and inHg). The service always answers in km/h and
+# hPa: the conversions are done here, nothing in the request changes.
+KMH_PER_MS = 3.6
+KMH_PER_KN = 1.852
+HPA_PER_INHG = 33.8639
+HPA_PER_MMHG = 1.333224
+WIND_UNITS = ("kmh", "mph", "ms", "kn")
+PRESSURE_UNITS = ("hpa", "mbar", "inhg", "mmhg")
+# unit -> (how many of the service's unit make one, symbol, decimals shown)
+_WIND = {"kmh": (1.0, "km/h", 0), "mph": (KMH_PER_MPH, "mph", 0), "ms": (KMH_PER_MS, "m/s", 1),
+         "kn": (KMH_PER_KN, "kn", 0)}
+_PRESSURE = {"hpa": (1.0, "hPa", 0), "mbar": (1.0, "mbar", 0), "inhg": (HPA_PER_INHG, "inHg", 2),
+             "mmhg": (HPA_PER_MMHG, "mmHg", 0)}
+
+
+def _shown(value, per, decimals):
+    return "%.*f" % (decimals, round(value / per, decimals))
+
+
+def wind_unit(config):
+    """The wind's unit key (see WIND_UNITS) from the settings: "auto" or a value that is not one follows
+    the temperature unit."""
+    v = config["weather_wind_unit"]
+    return v if v in WIND_UNITS else ("mph" if config["weather_unit"] == "fahrenheit" else "kmh")
+
+
+def pressure_unit(config):
+    """The pressure's unit key (see PRESSURE_UNITS), as wind_unit."""
+    v = config["weather_pressure_unit"]
+    return v if v in PRESSURE_UNITS else ("inhg" if config["weather_unit"] == "fahrenheit" else "hpa")
+
+
+def convert_wind(kmh, unit):
+    """(text of the number, symbol) of a wind speed given in km/h."""
+    per, symbol, decimals = _WIND[unit]
+    return _shown(kmh, per, decimals), symbol
+
+
+def convert_pressure(hpa, unit):
+    """(text of the number, symbol) of a pressure given in hPa."""
+    per, symbol, decimals = _PRESSURE[unit]
+    return _shown(hpa, per, decimals), symbol
 
 # WMO weather codes -> (symbol, label); labels are translated when shown
 _CODES = (
@@ -109,8 +152,9 @@ def details(w, T=lambda t: t):
     """The small row of details under the weather (1.1.25, like Plasma's weather widget):
     [{"k": kind, "l": label, "v": value}], each only
     when the answer had it; kind is one of feels, wind, humidity, pressure, rain (the page's symbols).
-    Five at most, in one discreet row. The units follow the temperature unit chosen in Settings: °C
-    with km/h and hPa, °F with mph and inHg (the pressure at sea level)."""
+    Five at most, in one discreet row. The units are the ones chosen in Settings (w["wind_unit"],
+    w["pressure_unit"]); without them they follow the temperature unit: °C with km/h and hPa, °F with
+    mph and inHg (the pressure at sea level)."""
     if not w:
         return []
     out = []
@@ -120,9 +164,10 @@ def details(w, T=lambda t: t):
         out.append({"k": "feels", "l": T("Feels like"), "v": "%d %s" % (round(feels), "°F" if fahrenheit else "°C")})
     wind, direction = _num(w.get("wind")), _num(w.get("wind_dir"))
     if wind is not None and direction is not None:      # the 1.1.25 answer (1.1.24's cache had the speed only)
-        speed = round(wind / KMH_PER_MPH) if fahrenheit else round(wind)
-        item = {"k": "wind", "l": T("Wind"), "v": "%d %s" % (speed, "mph" if fahrenheit else "km/h")}
-        if speed > 0:                                   # where it comes from; none for still air
+        wu = w.get("wind_unit")
+        number, symbol = convert_wind(wind, wu if wu in WIND_UNITS else ("mph" if fahrenheit else "kmh"))
+        item = {"k": "wind", "l": T("Wind"), "v": "%s %s" % (number, symbol)}
+        if float(number) > 0:                                   # where it comes from; none for still air
             item["v"] += " " + T(compass(direction))
         out.append(item)
     hum = _num(w.get("humidity"))
@@ -130,8 +175,9 @@ def details(w, T=lambda t: t):
         out.append({"k": "humidity", "l": T("Humidity"), "v": "%d%%" % round(hum)})
     pressure = _num(w.get("pressure"))
     if pressure is not None:
-        out.append({"k": "pressure", "l": T("Pressure"),
-                    "v": "%.2f inHg" % (pressure * INHG_PER_HPA) if fahrenheit else "%d hPa" % round(pressure)})
+        pu = w.get("pressure_unit")
+        number, symbol = convert_pressure(pressure, pu if pu in PRESSURE_UNITS else ("inhg" if fahrenheit else "hpa"))
+        out.append({"k": "pressure", "l": T("Pressure"), "v": "%s %s" % (number, symbol)})
     rain = _num(w.get("rain"))
     if rain is not None:
         out.append({"k": "rain", "l": T("Chance of precipitation"), "v": "%d%%" % round(rain)})
@@ -192,7 +238,7 @@ class Weather(QObject):
         symbol, label = describe(self.data.get("code"))
         out = {"temp": self.data.get("temp"), "unit": "°F" if cfg["weather_unit"] == "fahrenheit" else "°C",
                "code": self.data.get("code"), "wind": self.data.get("wind"), "symbol": symbol, "label": label,
-               "city": cfg["weather_city"]}
+               "city": cfg["weather_city"], "wind_unit": wind_unit(cfg), "pressure_unit": pressure_unit(cfg)}
         for k, _field in _DETAILS:
             if _num(self.data.get(k)) is not None:
                 out[k] = self.data[k]

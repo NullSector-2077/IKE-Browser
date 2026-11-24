@@ -1320,6 +1320,7 @@
 "SW": "ЈЗ",
 "W": "З",
 "NW": "СЗ",
-"Pressure": "Притисак"
+"Pressure": "Притисак",
+"Automatic goes with the temperature unit.": "Аутоматски прати јединицу температуре."
 }
 }

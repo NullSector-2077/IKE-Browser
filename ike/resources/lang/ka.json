@@ -1320,6 +1320,7 @@
 "SW": "სდ",
 "W": "დ",
 "NW": "ჩდ",
-"Pressure": "წნევა"
+"Pressure": "წნევა",
+"Automatic goes with the temperature unit.": "ავტომატური მიჰყვება ტემპერატურის ერთეულს."
 }
 }

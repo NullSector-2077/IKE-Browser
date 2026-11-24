@@ -1320,6 +1320,7 @@
 "SW": "南西",
 "W": "西",
 "NW": "北西",
-"Pressure": "気圧"
+"Pressure": "気圧",
+"Automatic goes with the temperature unit.": "「自動」は気温の単位に合わせます。"
 }
 }

@@ -1320,6 +1320,7 @@
 "SW": "جنوب مغرب",
 "W": "مغرب",
 "NW": "شمال مغرب",
-"Pressure": "دباؤ"
+"Pressure": "دباؤ",
+"Automatic goes with the temperature unit.": "خودکار درجہ حرارت کی اکائی کے مطابق چلتا ہے۔"
 }
 }

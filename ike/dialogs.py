@@ -1115,6 +1115,18 @@ class SettingsDialog(QDialog):
         self._city_form = f
         self._show_found(False)
         _row(f, T("Temperature"), self.unit, T("Degrees Celsius or Fahrenheit."))
+        self.wind_unit = QComboBox()
+        self.wind_unit.addItem(T("Automatic"), "auto")
+        for key, label in (("kmh", "km/h"), ("mph", "mph"), ("ms", "m/s"), ("kn", "kn")):
+            self.wind_unit.addItem(label, key)
+        self.wind_unit.setCurrentIndex(max(0, self.wind_unit.findData(self.cfg["weather_wind_unit"])))
+        _row(f, T("Wind"), self.wind_unit, T("Automatic goes with the temperature unit."))
+        self.pressure_unit = QComboBox()
+        self.pressure_unit.addItem(T("Automatic"), "auto")
+        for key, label in (("hpa", "hPa"), ("mbar", "mbar"), ("inhg", "inHg"), ("mmhg", "mmHg")):
+            self.pressure_unit.addItem(label, key)
+        self.pressure_unit.setCurrentIndex(max(0, self.pressure_unit.findData(self.cfg["weather_pressure_unit"])))
+        _row(f, T("Pressure"), self.pressure_unit, T("Automatic goes with the temperature unit."))
         self._background_rows(f)
 
     def _holiday_rows(self, f):
@@ -1978,6 +1990,8 @@ class SettingsDialog(QDialog):
         cfg["greeting_holidays"] = [i for i, sw in self.nt_holidays.items() if sw.isChecked()]
         before = (cfg["weather_city"], cfg["weather_lat"], cfg["weather_lon"], cfg["weather_unit"])
         cfg["weather_unit"] = self.unit.currentData()
+        cfg["weather_wind_unit"] = self.wind_unit.currentData()          # 1.1.25: the new tab reads them as it is drawn
+        cfg["weather_pressure_unit"] = self.pressure_unit.currentData()
         if self._city_pick is not None:
             cfg["weather_city"] = self._city_pick["name"]
             cfg["weather_lat"] = round(self._city_pick["lat"], 2)

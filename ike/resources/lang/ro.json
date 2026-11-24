@@ -1320,6 +1320,7 @@
 "SW": "SV",
 "W": "V",
 "NW": "NV",
-"Pressure": "Presiune"
+"Pressure": "Presiune",
+"Automatic goes with the temperature unit.": "Automat urmează unitatea de temperatură."
 }
 }

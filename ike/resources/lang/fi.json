@@ -1320,6 +1320,7 @@
 "SW": "LO",
 "W": "L",
 "NW": "LU",
-"Pressure": "Ilmanpaine"
+"Pressure": "Ilmanpaine",
+"Automatic goes with the temperature unit.": "Automaattinen noudattaa lämpötilan yksikköä."
 }
 }

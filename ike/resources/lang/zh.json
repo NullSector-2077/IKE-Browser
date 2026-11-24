@@ -1320,6 +1320,7 @@
 "SW": "西南",
 "W": "西",
 "NW": "西北",
-"Pressure": "气压"
+"Pressure": "气压",
+"Automatic goes with the temperature unit.": "“自动”跟随温度单位。"
 }
 }

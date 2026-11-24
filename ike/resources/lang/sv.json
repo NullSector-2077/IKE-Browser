@@ -1320,6 +1320,7 @@
 "SW": "SV",
 "W": "V",
 "NW": "NV",
-"Pressure": "Lufttryck"
+"Pressure": "Lufttryck",
+"Automatic goes with the temperature unit.": "Automatiskt följer temperaturenheten."
 }
 }

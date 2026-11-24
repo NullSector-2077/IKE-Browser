@@ -1320,6 +1320,7 @@
 "SW": "PV",
 "W": "V",
 "NW": "ŠV",
-"Pressure": "Slėgis"
+"Pressure": "Slėgis",
+"Automatic goes with the temperature unit.": "Automatiškai seka temperatūros vienetą."
 }
 }

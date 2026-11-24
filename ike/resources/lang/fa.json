@@ -1320,6 +1320,7 @@
 "SW": "جنوب‌غربی",
 "W": "غرب",
 "NW": "شمال‌غربی",
-"Pressure": "فشار هوا"
+"Pressure": "فشار هوا",
+"Automatic goes with the temperature unit.": "حالت خودکار از واحد دما پیروی می‌کند."
 }
 }

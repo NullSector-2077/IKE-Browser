@@ -1320,6 +1320,7 @@
 "SW": "ΝΔ",
 "W": "Δ",
 "NW": "ΒΔ",
-"Pressure": "Πίεση"
+"Pressure": "Πίεση",
+"Automatic goes with the temperature unit.": "Το αυτόματο ακολουθεί τη μονάδα θερμοκρασίας."
 }
 }

@@ -1320,6 +1320,7 @@
 "SW": "SO",
 "W": "O",
 "NW": "NO",
-"Pressure": "Pression"
+"Pressure": "Pression",
+"Automatic goes with the temperature unit.": "Automatique suit l’unité de température."
 }
 }

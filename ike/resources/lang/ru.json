@@ -1320,6 +1320,7 @@
 "SW": "ЮЗ",
 "W": "З",
 "NW": "СЗ",
-"Pressure": "Давление"
+"Pressure": "Давление",
+"Automatic goes with the temperature unit.": "Автоматически: по единице температуры."
 }
 }

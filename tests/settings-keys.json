@@ -147,7 +147,9 @@
  "weather_city",
  "weather_lat",
  "weather_lon",
+ "weather_pressure_unit",
  "weather_unit",
+ "weather_wind_unit",
  "webrtc_hide_ip",
  "welcome_done"
 ]

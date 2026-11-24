@@ -1320,6 +1320,7 @@
 "SW": "SW",
 "W": "W",
 "NW": "NW",
-"Pressure": "Lugdruk"
+"Pressure": "Lugdruk",
+"Automatic goes with the temperature unit.": "Outomaties volg die temperatuureenheid."
 }
 }

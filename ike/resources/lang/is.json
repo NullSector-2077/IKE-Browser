@@ -1320,6 +1320,7 @@
 "SW": "SV",
 "W": "V",
 "NW": "NV",
-"Pressure": "Loftþrýstingur"
+"Pressure": "Loftþrýstingur",
+"Automatic goes with the temperature unit.": "Sjálfvirkt fylgir hitastigseiningunni."
 }
 }

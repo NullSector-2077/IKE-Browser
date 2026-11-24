@@ -1320,6 +1320,7 @@
 "SW": "BD",
 "W": "B",
 "NW": "BL",
-"Pressure": "Tekanan"
+"Pressure": "Tekanan",
+"Automatic goes with the temperature unit.": "Otomatis mengikuti satuan suhu."
 }
 }

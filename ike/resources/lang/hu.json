@@ -1320,6 +1320,7 @@
 "SW": "DNy",
 "W": "Ny",
 "NW": "ÉNy",
-"Pressure": "Légnyomás"
+"Pressure": "Légnyomás",
+"Automatic goes with the temperature unit.": "Az automatikus a hőmérséklet mértékegységét követi."
 }
 }

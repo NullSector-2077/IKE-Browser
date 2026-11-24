@@ -1320,6 +1320,7 @@
 "SW": "ЮЗ",
 "W": "З",
 "NW": "СЗ",
-"Pressure": "Налягане"
+"Pressure": "Налягане",
+"Automatic goes with the temperature unit.": "Автоматично следва единицата за температура."
 }
 }

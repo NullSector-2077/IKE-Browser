@@ -1320,6 +1320,7 @@
 "SW": "דרום-מערב",
 "W": "מערב",
 "NW": "צפון-מערב",
-"Pressure": "לחץ אוויר"
+"Pressure": "לחץ אוויר",
+"Automatic goes with the temperature unit.": "אוטומטי עוקב אחר יחידת הטמפרטורה."
 }
 }

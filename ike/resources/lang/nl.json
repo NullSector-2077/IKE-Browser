@@ -1320,6 +1320,7 @@
 "SW": "ZW",
 "W": "W",
 "NW": "NW",
-"Pressure": "Luchtdruk"
+"Pressure": "Luchtdruk",
+"Automatic goes with the temperature unit.": "Automatisch volgt de temperatuureenheid."
 }
 }

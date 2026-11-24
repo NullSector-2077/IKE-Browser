@@ -1320,6 +1320,7 @@
 "SW": "cənub-qərb",
 "W": "qərb",
 "NW": "şimal-qərb",
-"Pressure": "Təzyiq"
+"Pressure": "Təzyiq",
+"Automatic goes with the temperature unit.": "Avtomatik seçim temperatur vahidinə uyğun gəlir."
 }
 }

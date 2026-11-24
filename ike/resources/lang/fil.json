@@ -1320,6 +1320,7 @@
 "SW": "TK",
 "W": "K",
 "NW": "HK",
-"Pressure": "Presyon"
+"Pressure": "Presyon",
+"Automatic goes with the temperature unit.": "Sinusunod ng Awtomatiko ang yunit ng temperatura."
 }
 }

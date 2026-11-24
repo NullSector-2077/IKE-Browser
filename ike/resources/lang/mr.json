@@ -1320,6 +1320,7 @@
 "SW": "नैऋत्य",
 "W": "पश्चिम",
 "NW": "वायव्य",
-"Pressure": "दाब"
+"Pressure": "दाब",
+"Automatic goes with the temperature unit.": "स्वयंचलित पर्याय तापमानाच्या एककाप्रमाणे चालतो."
 }
 }

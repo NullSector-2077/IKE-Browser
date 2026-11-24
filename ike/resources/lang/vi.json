@@ -1320,6 +1320,7 @@
 "SW": "TN",
 "W": "T",
 "NW": "TB",
-"Pressure": "Áp suất"
+"Pressure": "Áp suất",
+"Automatic goes with the temperature unit.": "Tự động theo đơn vị nhiệt độ."
 }
 }

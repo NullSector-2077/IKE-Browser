@@ -1320,6 +1320,7 @@
 "SW": "남서",
 "W": "서",
 "NW": "북서",
-"Pressure": "기압"
+"Pressure": "기압",
+"Automatic goes with the temperature unit.": "자동은 온도 단위를 따릅니다."
 }
 }

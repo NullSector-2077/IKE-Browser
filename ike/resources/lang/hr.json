@@ -1320,6 +1320,7 @@
 "SW": "JZ",
 "W": "Z",
 "NW": "SZ",
-"Pressure": "Tlak"
+"Pressure": "Tlak",
+"Automatic goes with the temperature unit.": "Automatski slijedi jedinicu temperature."
 }
 }

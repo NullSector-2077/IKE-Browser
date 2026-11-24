@@ -1320,6 +1320,7 @@
 "SW": "janubi-g‘arb",
 "W": "g‘arb",
 "NW": "shimoli-g‘arb",
-"Pressure": "Bosim"
+"Pressure": "Bosim",
+"Automatic goes with the temperature unit.": "Avtomatik harorat birligiga mos keladi."
 }
 }

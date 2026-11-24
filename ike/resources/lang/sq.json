@@ -1320,6 +1320,7 @@
 "SW": "JP",
 "W": "P",
 "NW": "VP",
-"Pressure": "Presioni"
+"Pressure": "Presioni",
+"Automatic goes with the temperature unit.": "Automatike ndjek njësinë e temperaturës."
 }
 }

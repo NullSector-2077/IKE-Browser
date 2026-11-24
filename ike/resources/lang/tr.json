@@ -1320,6 +1320,7 @@
 "SW": "GB",
 "W": "B",
 "NW": "KB",
-"Pressure": "Basınç"
+"Pressure": "Basınç",
+"Automatic goes with the temperature unit.": "Otomatik, sıcaklık birimini izler."
 }
 }

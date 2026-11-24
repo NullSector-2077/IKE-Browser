@@ -1320,6 +1320,7 @@
 "SW": "ПдЗ",
 "W": "З",
 "NW": "ПнЗ",
-"Pressure": "Ціск"
+"Pressure": "Ціск",
+"Automatic goes with the temperature unit.": "Аўтаматычна: адпавядае адзінцы тэмпературы."
 }
 }
