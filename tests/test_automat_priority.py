@@ -912,8 +912,18 @@ def last_run_block(job):
     return textwrap.dedent("\n".join(lines)).rstrip("\n") + "\n"
 
 
+def step_run_block(job, name):
+    """The shell of a job's step, found by its name (the `run: |` block of that step)."""
+    step = job.split("- name: %s\n" % name, 1)[1]
+    step = re.split(r"\n      - ", step, maxsplit=1)[0]
+    return last_run_block(step + "\n")
+
+
+MEMORY_STEP = "AUTOMAT's memory of the fix that was merged"
+
+
 def memory_job_script(remote):
-    run = last_run_block(workflow_jobs("automerge.yml")["memory"])
+    run = step_run_block(workflow_jobs("automerge.yml")["merge"], MEMORY_STEP)
     line = 'remote="https://github.com/$GITHUB_REPOSITORY"'
     assert run.count(line) == 1
     return run.replace(line, 'remote="%s"' % remote)
@@ -997,10 +1007,16 @@ def test_a_memory_branch_that_cannot_be_read_is_tried_again_and_then_a_warning(t
 
 def test_no_writer_of_the_memory_waits_in_a_concurrency_group_and_each_retries():
     merge, autofix = workflow_jobs("automerge.yml"), workflow_jobs("autofix.yml")
-    assert not re.search(r"^    concurrency:", merge["memory"], re.M)
+    # the merge's record is a step of the one job `merge` (its rights stay the least needed: one job, one
+    # contents: write); neither writer waits in a concurrency group
+    assert list(merge) == ["merge"]
+    assert not re.search(r"^    concurrency:", merge["merge"], re.M)
     assert not re.search(r"^    concurrency:", autofix["remember"], re.M)
-    assert re.search(r"^    needs: merge$", merge["memory"], re.M)
-    assert re.search(r"^      merged: \$\{\{ steps\.merge\.outputs\.merged \}\}$", merge["merge"], re.M)
+    step = merge["merge"].split("- name: %s\n" % MEMORY_STEP, 1)[1].split("run: |", 1)[0]
+    assert "if: always()" in step and "COMPONENT: ${{ steps.merge.outputs.merged }}" in step
+    run = step_run_block(merge["merge"], MEMORY_STEP)
+    assert "for attempt in 1 2 3 4 5 6; do" in run and run.count("::warning title=AUTOMAT's memory::") == 1
+    assert 'git status --porcelain -- memory.json' in run
     remember = last_run_block(autofix["remember"])
     assert "for attempt in 1 2 3 4 5 6; do" in remember and "if record; then exit 0; fi" in remember
     assert "::warning title=AUTOMAT's memory::" in remember
