@@ -2,6 +2,12 @@
 
 ## 1.1.24
 
+- **Stronger audio fingerprinting protection**: each sample the engine renders
+  for a page is now changed by up to 0.1 % (was 0.01 %), still far below
+  hearing. With the smaller noise two sessions gave the same audio
+  fingerprint about one time in six once the page rounded it to 4 decimals,
+  as fingerprinting scripts do; now about one time in fifty. The noise still
+  depends on the site's key, the sample and the one before it.
 - **Squared switches, closer to Plasma** (the owner's choice): every on / off
   switch is a rectangle with rounded corners and a square knob, no longer a
   pill. Those of the windows and the Settings are a little smaller (a line and
