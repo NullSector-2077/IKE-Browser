@@ -109,15 +109,15 @@ input:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(-
 .weather .wg{display:inline-block}
 .weather .wtxt{display:block;min-width:0;max-width:min(19em,44vw);text-align:start;line-height:1.3;overflow-wrap:anywhere}
 .weather:empty{display:none}
-/* 1.1.25: the details under the weather, as in Plasma's weather widget: small symbols drawn in the text
-   colour and the values, in tidy columns; the name of each value is read aloud and shown on hover */
-.wx-more{display:grid;grid-template-columns:repeat(var(--cols,3),max-content);justify-content:end;gap:4px 16px;
- margin-top:8px;font-size:13px;line-height:1.3;color:var(--mute);font-variant-numeric:tabular-nums;text-align:start}
+/* 1.1.25: a few details under the weather, as in Plasma's weather widget, kept simple (the owner): one
+   discreet row of small symbols drawn in the text colour and their values, all on one middle line, flush
+   right with the rest; the name of each value is read aloud and shown on hover */
+.wx-more{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:4px 16px;
+ margin-top:8px;font-size:13px;line-height:1.3;color:var(--mute);font-variant-numeric:tabular-nums}
 .wx-more:empty{display:none}
 .wx-i{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
 .wx-s{flex:none;width:1.15em;height:1.15em;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;
  stroke-linejoin:round}
-.wx-s.wx-dir{width:.9em;height:.9em;margin-inline-start:-1px}
 .wx-l{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip-path:inset(50%);
  white-space:nowrap}
 .wx-defs{position:absolute;width:0;height:0;overflow:hidden}
@@ -164,10 +164,7 @@ function ikeIconLater(img) {
 <symbol id="wx-feels" viewBox="0 0 16 16"><path d="M6.5 9.4V3.2a1.5 1.5 0 0 1 3 0v6.2a3 3 0 1 1-3 0z"/><path d="M8 6.2v5"/></symbol>
 <symbol id="wx-wind" viewBox="0 0 16 16"><path d="M1.5 6h8.2a2 2 0 1 0-2-2"/><path d="M1.5 10h10.3a2 2 0 1 1-2 2"/><path d="M1.5 8h5"/></symbol>
 <symbol id="wx-humidity" viewBox="0 0 16 16"><path d="M8 1.8S3.6 6.6 3.6 9.9a4.4 4.4 0 0 0 8.8 0C12.4 6.6 8 1.8 8 1.8z"/></symbol>
-<symbol id="wx-pressure" viewBox="0 0 16 16"><path d="M2.2 12.2a6 6 0 1 1 11.6 0"/><path d="M8 11.4l2.9-3.6"/><path d="M4.1 7.4l.9.5M8 3.8v1M11.9 7.4l-.9.5"/></symbol>
 <symbol id="wx-rain" viewBox="0 0 16 16"><path d="M1.6 8.2a6.4 6.4 0 0 1 12.8 0z"/><path d="M8 8.2v4.6a1.5 1.5 0 0 1-3 0"/></symbol>
-<symbol id="wx-uv" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.7"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1"/></symbol>
-<symbol id="wx-dir" viewBox="0 0 16 16"><path d="M8 2.5v11M4.4 9.9L8 13.5l3.6-3.6"/></symbol>
 </svg>
 {{buttons}}
 {{greeting}}
@@ -297,7 +294,7 @@ function ikeIconLater(img) {
   }
   // 1.1.25: the details under the weather (weather.details in I.K.E.): a symbol of the page, the name
   // (read aloud, shown on hover) and the value, as text only; kinds the page does not know are left out
-  var KINDS = {feels: 1, wind: 1, humidity: 1, pressure: 1, rain: 1, uv: 1}, SVG = "http://www.w3.org/2000/svg";
+  var KINDS = {feels: 1, wind: 1, humidity: 1, rain: 1}, SVG = "http://www.w3.org/2000/svg";
   function icon(kind) {
     var s = document.createElementNS(SVG, "svg"), u = document.createElementNS(SVG, "use");
     s.setAttribute("class", "wx-s"); s.setAttribute("viewBox", "0 0 16 16"); s.setAttribute("aria-hidden", "true");
@@ -312,8 +309,6 @@ function ikeIconLater(img) {
     list = (Array.isArray(list) ? list : []).filter(function (x) {
       return x && KINDS[x.k] === 1 && typeof x.l === "string" && typeof x.v === "string";
     });
-    // tidy columns: three (two for four values), each symbol under the one above
-    box.style.setProperty("--cols", list.length == 4 ? 2 : Math.max(1, Math.min(3, list.length)));
     list.forEach(function (x) {
       var it = document.createElement("span"), name = document.createElement("span"), val = document.createElement("span");
       it.className = "wx-i wx-" + x.k;
@@ -324,12 +319,6 @@ function ikeIconLater(img) {
       it.appendChild(name);
       it.appendChild(document.createTextNode(" "));     // the text of the value: its name, a space, the value
       it.appendChild(val);
-      if (x.k === "wind" && typeof x.d === "number" && isFinite(x.d)) {
-        var a = icon("dir");                             // where the wind blows to
-        a.classList.add("wx-dir");
-        a.style.transform = "rotate(" + Math.round(x.d) % 360 + "deg)";
-        it.appendChild(a);
-      }
       box.appendChild(it);
     });
   }

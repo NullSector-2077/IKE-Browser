@@ -1,8 +1,8 @@
 """The weather of the new tab page, 1.1.25: the symbol and its text aligned as one block (measured in
 the page drawn for real, offscreen: the boxes and the ink of the pixels), and the small row of details
-under it as in Plasma's weather widget (felt temperature, wind and its direction, humidity, pressure,
-chance of precipitation, UV index), asked in the same request to Open-Meteo, with the units of the
-setting (°C with km/h, °F with mph; hPa). No test here reaches the network: a stand-in server answers,
+under it as in Plasma's weather widget, kept simple (felt temperature, wind and where it comes from,
+humidity, chance of precipitation: one discreet row), asked in the same request to Open-Meteo, with
+the units of the setting (°C with km/h, °F with mph). No test here reaches the network: a stand-in server answers,
 or the weather is put in place before the page is drawn."""
 
 import http.server
@@ -20,10 +20,9 @@ sys.path.insert(0, str(ROOT))
 FULL = {"latitude": 41.9, "longitude": 12.5, "current_units": {"temperature_2m": "°C", "wind_speed_10m": "km/h"},
         "current": {"time": "2026-11-24T14:00", "interval": 900, "temperature_2m": 12.4, "weather_code": 2,
                     "wind_speed_10m": 14.4, "wind_direction_10m": 312, "apparent_temperature": 10.2,
-                    "relative_humidity_2m": 78, "pressure_msl": 1016.4, "precipitation_probability": 20,
-                    "uv_index": 2.55}}
+                    "relative_humidity_2m": 78, "precipitation_probability": 20}}
 FIELDS = ("temperature_2m%2Cweather_code%2Cwind_speed_10m%2Cwind_direction_10m%2Capparent_temperature"
-          "%2Crelative_humidity_2m%2Cpressure_msl")
+          "%2Crelative_humidity_2m")
 NO_NETWORK = {"IKE_TEST_WEATHER": "http://127.0.0.1:9"}     # nothing listens there: never the real service
 
 
@@ -32,12 +31,15 @@ def test_the_answer_is_read_with_its_details():
     from ike import weather
     got = weather.parse(FULL)
     assert got == {"temp": 12, "code": 2, "wind": 14.4, "wind_dir": 312.0, "feels": 10.2, "humidity": 78.0,
-                   "pressure": 1016.4, "rain": 20.0, "uv": 2.55}
+                   "rain": 20.0}
+    # what I.K.E. does not show is not kept, even if the answer had it
+    assert weather.parse({"current": dict(FULL["current"], pressure_msl=1016.4, uv_index=2.5)}) == got
     # a detail the service did not give (null), or gave in a form that is not a number, is left out
-    odd = {"current": dict(FULL["current"], uv_index=None, precipitation_probability="20", relative_humidity_2m=True,
-                           pressure_msl=float("nan"))}
+    odd = {"current": dict(FULL["current"], precipitation_probability="20", relative_humidity_2m=True,
+                           wind_direction_10m=float("nan"))}
     del odd["current"]["apparent_temperature"]
-    assert weather.parse(odd) == {"temp": 12, "code": 2, "wind": 14.4, "wind_dir": 312.0}
+    assert weather.parse(odd) == {"temp": 12, "code": 2, "wind": 14.4}
+    assert weather.parse({"current": dict(FULL["current"], precipitation_probability=None)}).get("rain") is None
     # the 1.1.24 answer still works
     assert weather.parse({"current": {"temperature_2m": 12.4, "weather_code": 3}}) == {"temp": 12, "code": 3, "wind": 0.0}
     for broken in ({}, {"current": {"weather_code": 3}}, {"current": {"temperature_2m": "warm", "weather_code": 3}}):
@@ -48,14 +50,13 @@ def test_the_answer_is_read_with_its_details():
 def test_the_request_asks_for_the_details_and_nothing_more():
     from ike import weather
     assert weather.FIELDS == ("temperature_2m", "weather_code", "wind_speed_10m", "wind_direction_10m",
-                              "apparent_temperature", "relative_humidity_2m", "pressure_msl",
-                              "precipitation_probability", "uv_index")
+                              "apparent_temperature", "relative_humidity_2m", "precipitation_probability")
     assert weather.BASIC + weather.MORE + weather.HOURLY == weather.FIELDS
 
 
 def _w(unit="°C", **kw):
     w = {"temp": 12, "unit": unit, "code": 2, "wind": 14.4, "wind_dir": 312.0, "feels": 10.2, "humidity": 78.0,
-         "pressure": 1016.4, "rain": 20.0, "uv": 2.55}
+         "rain": 20.0}
     w.update(kw)
     return {k: v for k, v in w.items() if v is not None}
 
@@ -64,25 +65,24 @@ def test_the_details_and_their_units():
     from ike import weather
     assert weather.details(_w()) == [
         {"k": "feels", "l": "Feels like", "v": "10 °C"},
-        {"k": "wind", "l": "Wind", "v": "14 km/h NW", "d": 312},
+        {"k": "wind", "l": "Wind", "v": "14 km/h NW"},
         {"k": "humidity", "l": "Humidity", "v": "78%"},
-        {"k": "pressure", "l": "Pressure", "v": "1016 hPa"},
-        {"k": "rain", "l": "Chance of precipitation", "v": "20%"},
-        {"k": "uv", "l": "UV index", "v": "3"}]
-    # °F (the answer is in °F already): the wind in mph, worked out here from km/h; the pressure in hPa
+        {"k": "rain", "l": "Chance of precipitation", "v": "20%"}]
+    assert len(weather.details(_w())) <= 4                                    # a few, the owner: simple
+    # °F (the answer is in °F already): the wind in mph, worked out here from km/h
     f = weather.details(_w("°F", feels=50.4, wind=40.0, wind_dir=90.0))
-    assert [x["v"] for x in f[:3]] == ["50 °F", "25 mph E", "78%"] and f[3]["v"] == "1016 hPa"
+    assert [x["v"] for x in f] == ["50 °F", "25 mph E", "78%", "20%"]
     assert weather.details(_w("°F", wind=1.6))[1]["v"] == "1 mph NW"
-    # still air: no direction; no UV at night; the 1.1.24 cache (no direction): no wind line
+    # still air: no direction; a value the answer lacked: no line for it; the 1.1.24 cache: no details
     calm = weather.details(_w(wind=0.3))[1]
     assert calm == {"k": "wind", "l": "Wind", "v": "0 km/h"}
-    assert [x["k"] for x in weather.details(_w(uv=0.4))] == ["feels", "wind", "humidity", "pressure", "rain"]
+    assert [x["k"] for x in weather.details(_w(rain=None, feels=None))] == ["wind", "humidity"]
     old = {"temp": 12, "unit": "°C", "code": 2, "wind": 14.4}
     assert weather.details(old) == [] and weather.details(None) == [] and weather.details({}) == []
     # the words go through the translation
     tr = {"Feels like": "Percepita", "Wind": "Vento", "NW": "NO"}
     it = weather.details(_w(), lambda t: tr.get(t, t))
-    assert it[0]["l"] == "Percepita" and it[1] == {"k": "wind", "l": "Vento", "v": "14 km/h NO", "d": 312}
+    assert it[0]["l"] == "Percepita" and it[1] == {"k": "wind", "l": "Vento", "v": "14 km/h NO"}
 
 
 def test_the_points_of_the_compass():
@@ -102,7 +102,7 @@ def test_the_symbol_and_the_rest():
 
 def test_the_words_of_the_details_are_in_every_language():
     from ike import weather
-    words = ["Feels like", "Wind", "Humidity", "Pressure", "Chance of precipitation", "UV index"] + list(weather.COMPASS)
+    words = ["Feels like", "Wind", "Humidity", "Chance of precipitation"] + list(weather.COMPASS)
     for f in sorted((ROOT / "ike" / "resources" / "lang").glob("*.json")):
         strings = json.loads(f.read_text("utf-8"))["strings"]
         for w in words:
@@ -114,7 +114,7 @@ def test_the_words_of_the_details_are_in_every_language():
 @pytest.fixture
 def service():
     """Open-Meteo's stand-in: answers FULL; with mode "refuse" it answers 400 to a request with the
-    hourly fields (as the real service does to a field it does not know)."""
+    hourly field (as the real service does to a field it does not know)."""
     state = {"seen": [], "mode": "full"}
 
     class Handler(http.server.BaseHTTPRequestHandler):
@@ -124,8 +124,7 @@ def service():
             if state["mode"] == "refuse" and "precipitation_probability" in self.path:
                 code, body = 400, {"error": True, "reason": "Cannot initialize from invalid String value"}
             elif state["mode"] == "refuse":         # only what was asked for
-                body = {"current": {k: v for k, v in FULL["current"].items()
-                                    if k not in ("precipitation_probability", "uv_index")}}
+                body = {"current": {k: v for k, v in FULL["current"].items() if k != "precipitation_probability"}}
             elif "temperature_unit=fahrenheit" in self.path:
                 body = {"current": dict(FULL["current"], temperature_2m=54.3, apparent_temperature=50.4)}
             data = json.dumps(body).encode()
@@ -150,12 +149,12 @@ READ = """(function () {
   if (!w || !more) return null;
   return {text: w.textContent, html: w.innerHTML.replace(/ style="[^"]*"/g, ''), more: more.textContent,
           items: Array.prototype.map.call(more.querySelectorAll('.wx-i'), function (i) {
-            var use = i.querySelector('svg.wx-s use'), dir = i.querySelector('svg.wx-dir');
+            var use = i.querySelector('svg.wx-s use');
             return {cls: i.className, text: i.textContent, label: i.querySelector('.wx-l').textContent,
                     value: i.querySelector('.wx-v').textContent, title: i.title, icon: use && use.getAttribute('href'),
                     hidden: i.querySelector('svg').getAttribute('aria-hidden'),
                     labelWidth: i.querySelector('.wx-l').getBoundingClientRect().width,
-                    dir: dir ? dir.style.transform : null};
+                    svgs: i.querySelectorAll('svg').length};
           })};
 })()"""
 
@@ -185,19 +184,18 @@ def test_the_details_come_with_the_same_request(run_ike, service):
     out = _run(run_ike, service)
     forecasts = [p for p in service["seen"] if p.startswith("/forecast")]
     assert forecasts == ["/forecast?latitude=41.89&longitude=12.51&current=" + FIELDS
-                         + "%2Cprecipitation_probability%2Cuv_index"]
+                         + "%2Cprecipitation_probability"]
     for page in (out["pushed"], out["drawn"]):
         assert page["text"] == "⛅ 12 °C · Partly cloudy · Rome"                # the 1.1.24 rule: sym + " " + rest
         items = page["items"]
         assert [(i["label"], i["value"]) for i in items] == [
-            ("Feels like", "10 °C"), ("Wind", "14 km/h NW"), ("Humidity", "78%"), ("Pressure", "1016 hPa"),
-            ("Chance of precipitation", "20%"), ("UV index", "3")]
+            ("Feels like", "10 °C"), ("Wind", "14 km/h NW"), ("Humidity", "78%"), ("Chance of precipitation", "20%")]
         for i in items:
             assert i["text"] == i["label"] + " " + i["value"]                   # read aloud: the name and the value
             assert i["title"] == i["label"] + ": " + i["value"]                 # and shown on hover
             assert i["icon"] == "#wx-" + i["cls"].split("wx-")[-1] and i["hidden"] == "true"
             assert i["labelWidth"] <= 1                                         # the name is not drawn
-        assert items[1]["dir"] == "rotate(312deg)" and all(i["dir"] is None for i in items if i["label"] != "Wind")
+        assert all(i["svgs"] == 1 for i in items)                                # one symbol each, nothing more
     # the page that got the weather later and the page drawn with it: the same block
     assert out["pushed"]["html"] == out["drawn"]["html"]
     assert out["pushed"]["html"] == ('<span class="wsym"><span class="wg">⛅</span></span> '
@@ -208,7 +206,7 @@ def test_fahrenheit_and_miles_per_hour(run_ike, service):
     out = _run(run_ike, service, "fahrenheit")
     forecasts = [p for p in service["seen"] if p.startswith("/forecast")]
     assert forecasts == ["/forecast?latitude=41.89&longitude=12.51&current=" + FIELDS
-                         + "%2Cprecipitation_probability%2Cuv_index&temperature_unit=fahrenheit"]
+                         + "%2Cprecipitation_probability&temperature_unit=fahrenheit"]
     page = out["drawn"]
     assert page["text"] == "⛅ 54 °F · Partly cloudy · Rome"
     assert [i["value"] for i in page["items"]][:2] == ["50 °F", "9 mph NW"]
@@ -220,10 +218,10 @@ def test_a_refused_field_does_not_cost_the_weather(run_ike, service):
     out = _run(run_ike, service)
     forecasts = [p for p in service["seen"] if p.startswith("/forecast")]
     base = "/forecast?latitude=41.89&longitude=12.51&current=" + FIELDS
-    assert forecasts == [base + "%2Cprecipitation_probability%2Cuv_index", base]     # once more, at once, once
+    assert forecasts == [base + "%2Cprecipitation_probability", base]     # once more, at once, once
     page = out["drawn"]
     assert page["text"] == "⛅ 12 °C · Partly cloudy · Rome"
-    assert [i["label"] for i in page["items"]] == ["Feels like", "Wind", "Humidity", "Pressure"]
+    assert [i["label"] for i in page["items"]] == ["Feels like", "Wind", "Humidity"]
 
 
 # --- the layout, measured --------------------------------------------------------------------------------
@@ -234,7 +232,7 @@ MEASURE = """(function () {
   return {sym: box(q('#weather .wsym')), txt: box(q('#weather .wtxt')), weather: box(q('#weather')),
           clock: box(q('.clock')), date: box(q('.date')), more: box(q('#weather-more')), items: all('.wx-i'),
           corner: box(q('.corner')), stats: box(q('.stats')), shown: getComputedStyle(q('#weather-more')).display,
-          icons: all('.wx-i > svg.wx-s:not(.wx-dir)'), vals: all('.wx-v'), cols: getComputedStyle(q('#weather-more')).getPropertyValue('--cols'),
+          icons: all('.wx-i > svg.wx-s'), vals: all('.wx-v'),
           vw: innerWidth, vh: innerHeight, shift: q('#weather .wg').style.transform,
           bg: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()};
 })()"""
@@ -256,10 +254,13 @@ EVERY = """(function () {
     n++;
     if (Math.abs(mid(s) - mid(t)) > 1 || s[2] > t[0] || Math.abs(w[2] - c[2]) > 1.5 || Math.abs(m[2] - c[2]) > 1.5 ||
         w[0] < 0 || m[0] < 0 || w[2] > innerWidth || m[2] > innerWidth) bad.push([code, 'block', s, t, w, m, c]);
+    var lines = {};
     Array.prototype.forEach.call(document.querySelectorAll('.wx-i'), function (i) {
       var ic = box(i.querySelector('svg.wx-s')), v = box(i.querySelector('.wx-v')), b = box(i);
       if (Math.abs(mid(ic) - mid(v)) > 1 || b[0] < 0 || b[2] > innerWidth || ic[2] > v[0]) bad.push([code, 'item', i.textContent]);
+      lines[Math.round(mid(b))] = 1;
     });
+    if (Object.keys(lines).length > 2) bad.push([code, 'more than two lines', Object.keys(lines)]);    // a discreet row
   }
   return [n, bad];
 })()"""
@@ -336,20 +337,19 @@ def test_symbol_and_text_are_one_tidy_block(run_ike, tmp_path):
         if m["vh"] <= 540 or m["vw"] <= 820:
             assert m["shown"] == "none" and more[2] - more[0] == 0, name
         else:
-            assert m["shown"] == "grid" and abs(more[2] - clock[2]) <= 1.5 and more[0] >= 0 and more[3] <= m["vh"], name
-            assert len(m["items"]) == 6 and m["cols"].strip() == "3"
+            assert m["shown"] == "flex" and abs(more[2] - clock[2]) <= 1.5 and more[0] >= 0 and more[3] <= m["vh"], name
+            assert len(m["items"]) == 4
             st, co = m["stats"], m["corner"]
             assert st[2] <= co[0] or co[1] >= st[3], (name, st, co)                     # clear of the figures
         if name == "1100x760-1.5":
             assert sym[3] - sym[1] < 75, sym                                             # the symbol smaller
-        # the details: each symbol on its value's middle line; rows level, columns aligned
-        for icon, val in zip(m["icons"], m["vals"]) if m["shown"] != "none" else ():
+        # the details: one row, each symbol on its value's middle line, all on one middle line, in order
+        shown = m["shown"] != "none"
+        for icon, val in zip(m["icons"], m["vals"]) if shown else ():
             assert abs(mid(icon) - mid(val)) <= 1 and icon[2] <= val[0], (name, icon, val)
-        items = m["items"] if m["shown"] != "none" else [[0, 0, 0, 0]] * 6
-        assert abs(items[0][1] - items[2][1]) < 0.5 and abs(items[3][1] - items[5][1]) < 0.5, name
-        assert items[3][1] >= items[0][3] - 0.5, name                                        # two rows
-        for a, b in ((0, 3), (1, 4), (2, 5)):
-            assert abs(items[a][0] - items[b][0]) < 0.5, (name, items[a], items[b])         # in columns
+        items = m["items"] if shown else []
+        for a, b in zip(items, items[1:]):
+            assert abs(mid(a) - mid(b)) < 0.5 and a[2] + 10 <= b[0], (name, a, b)
         # the pixels: the ink of the symbol and the ink of the text have the same middle (counted where
         # nothing else of the page is under the corner: all but the crowded window at 150 %)
         st, co = m["stats"], m["corner"]
@@ -367,6 +367,11 @@ def test_symbol_and_text_are_one_tidy_block(run_ike, tmp_path):
         ink_sym, ink_txt = (s0 + s1 + 1) / 2, (t0 + t1 + 1) / 2
         assert abs(ink_sym - ink_txt) <= 2.5 * k, (name, (s0, s1), (t0, t1), m["shift"])
         assert abs(ink_sym - mid(sym) * k) <= 2 * k, (name, (s0, s1), sym)               # in the middle of its box
+        # and each small symbol's ink on its value's ink middle line
+        for icon, val in zip(m["icons"], m["vals"]) if shown else ():
+            i0, i1 = _ink_rows(image, int(icon[0] * k), int(icon[2] * k), int(icon[1] * k) - pad, int(icon[3] * k) + pad, bg)
+            v0, v1 = _ink_rows(image, int(val[0] * k), int(val[2] * k), int(val[1] * k), int(val[3] * k) + 1, bg)
+            assert abs((i0 + i1) - (v0 + v1)) / 2 <= 1.5 * k, (name, (i0, i1), (v0, v1))
     n, bad = out["every"]
     assert n >= 59 and not bad, bad[:5]
     del app

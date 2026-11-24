@@ -465,8 +465,7 @@ def test_newtab_clock_and_weather(run_ike, weather_server):
     forecasts = [p for p in seen if p.startswith("/forecast")]
     assert len(searches) == 1 and "name=Rome" in searches[0]
     # only the rounded coordinates (and what to return) are sent, once; 1.1.25 asks the same request
-    # for the details too (wind direction, felt temperature, humidity, pressure, precipitation, UV)
+    # for the few details too (wind direction, felt temperature, humidity, chance of precipitation)
     assert forecasts == ["/forecast?latitude=41.89&longitude=12.51&current=temperature_2m%2Cweather_code%2Cwind_speed_10m"
-                         "%2Cwind_direction_10m%2Capparent_temperature%2Crelative_humidity_2m%2Cpressure_msl"
-                         "%2Cprecipitation_probability%2Cuv_index"]
+                         "%2Cwind_direction_10m%2Capparent_temperature%2Crelative_humidity_2m%2Cprecipitation_probability"]
     assert out["off"] == ""

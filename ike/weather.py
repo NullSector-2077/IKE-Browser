@@ -8,8 +8,8 @@ Privacy:
 - the weather request sends only the city's coordinates, rounded to two
   decimals, and the temperature unit; it asks for the current temperature,
   weather code and wind speed and, since 1.1.25 and in the same request, the
-  wind direction, the felt temperature, the humidity, the pressure at sea
-  level, the chance of precipitation and the UV index (FIELDS); at most once
+  wind direction, the felt temperature, the humidity and the chance of
+  precipitation (FIELDS); at most once
   every 30 minutes and only when a new tab page is shown. The wind always
   comes in km/h and is turned into mph here: no other parameter is sent;
 - the answer is kept in the cache folder (weather.json).
@@ -33,12 +33,12 @@ if os.environ.get("IKE_TEST_WEATHER"):        # stand-in server for the tests
 REFRESH = 30 * 60
 CACHE = CACHE_DIR / "weather.json"
 # what the request asks for (Open-Meteo's "current" variables): BASIC until 1.1.24, the rest for the
-# small row of details under the weather (1.1.25). The last two come from Open-Meteo's hourly data:
-# should the service ever refuse them (it answers 400 to the whole request), the request is made once
-# more at once without them, and the details show without them.
+# small row of details under the weather (1.1.25; a few, the owner: simple and minimalist). The last
+# comes from Open-Meteo's hourly data: should the service ever refuse it (it answers 400 to the whole
+# request), the request is made once more at once without it, and the details show without it.
 BASIC = ("temperature_2m", "weather_code", "wind_speed_10m")
-MORE = ("wind_direction_10m", "apparent_temperature", "relative_humidity_2m", "pressure_msl")
-HOURLY = ("precipitation_probability", "uv_index")
+MORE = ("wind_direction_10m", "apparent_temperature", "relative_humidity_2m")
+HOURLY = ("precipitation_probability",)
 FIELDS = BASIC + MORE + HOURLY
 KMH_PER_MPH = 1.609344
 
@@ -57,8 +57,7 @@ _CODES = (
 COMPASS = ("N", "NE", "E", "SE", "S", "SW", "W", "NW")
 # what the answer's "current" block gives for the details: kept under these names
 _DETAILS = (("wind_dir", "wind_direction_10m"), ("feels", "apparent_temperature"),
-            ("humidity", "relative_humidity_2m"), ("pressure", "pressure_msl"),
-            ("rain", "precipitation_probability"), ("uv", "uv_index"))
+            ("humidity", "relative_humidity_2m"), ("rain", "precipitation_probability"))
 
 
 def describe(code):
@@ -105,10 +104,10 @@ def parse(answer):
 
 def details(w, T=lambda t: t):
     """The small row of details under the weather (1.1.25, like Plasma's weather widget):
-    [{"k": kind, "l": label, "v": value, "d": where the wind comes from, in degrees}], each only
-    when the answer had it; kind is one of feels, wind, humidity, pressure, rain, uv (the page's
-    symbols). The units follow the temperature unit chosen in Settings: °C with km/h, °F with mph;
-    the pressure in hPa."""
+    [{"k": kind, "l": label, "v": value}], each only
+    when the answer had it; kind is one of feels, wind, humidity, rain (the page's symbols). Four at
+    most, in one discreet row. The units follow the temperature unit chosen in Settings: °C with
+    km/h, °F with mph."""
     if not w:
         return []
     out = []
@@ -120,22 +119,15 @@ def details(w, T=lambda t: t):
     if wind is not None and direction is not None:      # the 1.1.25 answer (1.1.24's cache had the speed only)
         speed = round(wind / KMH_PER_MPH) if fahrenheit else round(wind)
         item = {"k": "wind", "l": T("Wind"), "v": "%d %s" % (speed, "mph" if fahrenheit else "km/h")}
-        if speed > 0:                                   # no direction for still air
+        if speed > 0:                                   # where it comes from; none for still air
             item["v"] += " " + T(compass(direction))
-            item["d"] = round(direction) % 360
         out.append(item)
     hum = _num(w.get("humidity"))
     if hum is not None:
         out.append({"k": "humidity", "l": T("Humidity"), "v": "%d%%" % round(hum)})
-    pressure = _num(w.get("pressure"))
-    if pressure is not None:
-        out.append({"k": "pressure", "l": T("Pressure"), "v": "%d hPa" % round(pressure)})
     rain = _num(w.get("rain"))
     if rain is not None:
         out.append({"k": "rain", "l": T("Chance of precipitation"), "v": "%d%%" % round(rain)})
-    uv = _num(w.get("uv"))
-    if uv is not None and round(uv) >= 1:              # no UV at night: nothing to say
-        out.append({"k": "uv", "l": T("UV index"), "v": "%d" % round(uv)})
     return out
 
 
@@ -180,7 +172,7 @@ class Weather(QObject):
 
     def current(self):
         """{"temp", "unit", "code", "wind", "symbol", "label", "city"} and, when the answer had
-        them, "wind_dir", "feels", "humidity", "pressure", "rain", "uv" (see details()); or None.
+        them, "wind_dir", "feels", "humidity", "rain" (see details()); or None.
         Starts a refresh in the background when the data is older than 30 minutes."""
         cfg = self.config
         if not cfg["newtab_weather"] or self._key() is None:
@@ -221,7 +213,7 @@ class Weather(QObject):
                 if reply.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute) == 400 \
                         and self._fields == FIELDS:
                     # the service refused a field (it answers 400 to the whole request): once
-                    # more, at once, without the two that come from its hourly data
+                    # more, at once, without the one that comes from its hourly data
                     self._fields = BASIC + MORE
                     self.refresh(again=True)
                 return
