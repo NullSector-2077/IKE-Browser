@@ -6,13 +6,26 @@ import re
 from PyQt6.QtCore import QCoreApplication, QEvent, QStringListModel, Qt, QTimer, QUrl
 from PyQt6.QtGui import QAction, QColor, QInputMethodEvent, QPalette, QResizeEvent, QTextCharFormat, QTextFormat
 from PyQt6.QtNetwork import QNetworkReply, QNetworkRequest
-from PyQt6.QtWidgets import QCompleter, QLineEdit, QStyle
+from PyQt6.QtWidgets import QCompleter, QLabel, QLineEdit, QStyle
 
 from . import effects, polish
 from .i18n import T
 from .icons import themed as icon
 
 _URLISH = re.compile(r"^([a-z][a-z0-9+.-]*:|localhost(:\d+)?(/|$)|[^\s/]+\.[^\s/.]{2,}([/:?#]|$)|\d+\.\d+\.\d+\.\d+)", re.I)
+
+
+_LOOPBACK4 = re.compile(r"127\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
+
+
+def is_not_secure(url):
+    """True for a page over plain http. Not for this computer's own addresses
+    (localhost, 127.x.x.x, ::1: nothing leaves the machine), nor file:, about:,
+    ike: and the other schemes: only http is "not secure"."""
+    if url.scheme() != "http":
+        return False
+    host = url.host().lower().rstrip(".")
+    return not (host == "localhost" or host.endswith(".localhost") or host == "::1" or _LOOPBACK4.match(host))
 
 
 class UrlBar(QLineEdit):
@@ -34,7 +47,8 @@ class UrlBar(QLineEdit):
         clean.setToolTip(T("Copy the address without tracking parameters"))
         clean.setEnabled(bool(url))
         clean.triggered.connect(
-            lambda: QGuiApplication.clipboard().setText(strip_tracking(url) or url))
+            lambda: (QGuiApplication.clipboard().setText(strip_tracking(url) or url),
+                     self.win.osd(T("Link copied"), "edit-copy")))
         m.insertAction(first, go)
         m.insertAction(first, clean)
         m.insertSeparator(first)
@@ -75,6 +89,12 @@ class UrlBar(QLineEdit):
         self._start = None             # the search engine, right after the lock (1.1.10)
         self._start_room = 0
         self._shifted = {}
+        # "Not secure", small and muted, right after the lock and the engine, for plain http pages
+        # (window.sync_urlbar); Breeze's negative text colour
+        self._badge = QLabel(T("Not secure"), self)
+        self._badge.setStyleSheet("QLabel { color: #da4453; font-size: 11px; padding: 0 3px; background: transparent; }")
+        self._badge.setCursor(Qt.CursorShape.ArrowCursor)
+        self._badge.hide()
         self.lock = self.addAction(icon(("globe", "web-browser-symbolic"), QStyle.StandardPixmap.SP_FileIcon),
                                    QLineEdit.ActionPosition.LeadingPosition)
         # "Translate page" in the address bar, as other browsers have it (1.1.6; the star of the
@@ -89,6 +109,12 @@ class UrlBar(QLineEdit):
                                        QLineEdit.ActionPosition.TrailingPosition)
         self.zoom_act.setVisible(False)
         self.zoom_act.triggered.connect(lambda: window.zoom(0))
+        # a site's question about a permission, answered with a click (quietperms.py, 1.1.24)
+        self.perm_act = self.addAction(icon(("dialog-question", "question"), QStyle.StandardPixmap.SP_MessageBoxQuestion),
+                                       QLineEdit.ActionPosition.TrailingPosition)
+        self.perm_act.setVisible(False)
+        from . import quietperms
+        self.perm_act.triggered.connect(lambda: quietperms.menu(window))
         self._pill = None
         if polish.part("url_pill"):
             # rounded, with an edge that lights up softly while the field is used (polish.py)
@@ -169,13 +195,28 @@ class UrlBar(QLineEdit):
         else:
             x = lock[0].geometry().right() + 1 if lock else 4
         w.setGeometry(x, (self.height() - h) // 2, width, h)
-        if width + 2 != self._start_room:
-            self._start_room = width + 2
+        room = width + 2
+        badge = self._badge
+        if not badge.isHidden():
+            bw, bh = badge.sizeHint().width(), min(badge.sizeHint().height(), self.height() - 4)
+            bx = x - bw if self.isRightToLeft() else x + width
+            badge.setGeometry(bx, (self.height() - bh) // 2, bw, bh)
+            badge.raise_()
+            room += bw
+        if room != self._start_room:
+            self._start_room = room
             self._margins()
         for b in lock:
             b.removeEventFilter(self)
             b.installEventFilter(self)
         w.raise_()
+
+    def set_not_secure(self, flag):
+        """Show or hide the "Not secure" label (plain http pages)."""
+        if flag == (not self._badge.isHidden()):
+            return
+        self._badge.setVisible(flag)
+        self.place_start()
 
     def _shift(self, b):
         """Move one of Qt's buttons on the right left of the shield, once

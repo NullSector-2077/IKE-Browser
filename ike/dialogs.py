@@ -4,9 +4,10 @@ import time
 from pathlib import Path
 
 from PyQt6.QtCore import QEvent, QRect, QSize, Qt, QTimer, QUrl
-from PyQt6.QtGui import QDesktopServices, QIcon, QPalette
+from PyQt6.QtGui import QIcon, QPalette
 from PyQt6.QtWebEngineCore import QWebEngineDownloadRequest
 from PyQt6.QtWidgets import (
+    QAbstractButton,
     QApplication,
     QBoxLayout,
     QCheckBox,
@@ -268,12 +269,243 @@ def _row(form, label, field, hint=None):
     form.addRow(QLabel() if label == "" else label, _with_hint(field, hint, form.fieldGrowthPolicy()))
 
 
+def fold(text):
+    """A text as the Settings' search compares it (1.1.24): no "&" of a
+    keyboard accelerator, no tags, small letters, accents of the Latin, Greek
+    and Cyrillic letters taken off (è = e), spaces made one; other scripts
+    are compared as they are written."""
+    import re
+    import unicodedata
+    text = re.sub(r"<[^>]+>", " ", text or "")
+    text = re.sub(r"\s*\(&[^&)]\)", "", text)
+    text = re.sub(r"&(.)", r"\1", text)
+    out = []
+    for ch in unicodedata.normalize("NFKD", text.casefold()):
+        if unicodedata.category(ch) == "Mn" and out and ord(out[-1]) < 0x0530:
+            continue
+        out.append(ch)
+    return " ".join("".join(out).split())
+
+
+def _texts_of(w):
+    """The words a widget shows or explains (its ⓘ's explanation, a combo box's choices)."""
+    if isinstance(w, InfoButton):
+        return [w.text_shown()]
+    if isinstance(w, QLabel):
+        return [w.text()]
+    if isinstance(w, QAbstractButton):
+        return [w.text(), w.accessibleName()]
+    if isinstance(w, QGroupBox):
+        return [w.title()]
+    if isinstance(w, QComboBox):
+        return [w.itemText(i) for i in range(w.count())]
+    if isinstance(w, QLineEdit):
+        return [w.placeholderText()]
+    return []
+
+
+def _layout_widgets(item):
+    """The widgets of a layout item, those inside its layouts too."""
+    if item is None:
+        return []
+    if item.widget() is not None:
+        return [item.widget()]
+    lay = item.layout()
+    if lay is None:
+        return []
+    out = []
+    for i in range(lay.count()):
+        out.extend(_layout_widgets(lay.itemAt(i)))
+    return out
+
+
+def _layout_holding(lay, w):
+    """The layout under lay that holds w itself (None: none)."""
+    if lay is None:
+        return None
+    if lay.indexOf(w) >= 0:
+        return lay
+    for i in range(lay.count()):
+        found = _layout_holding(lay.itemAt(i).layout(), w)
+        if found is not None:
+            return found
+    return None
+
+
+def _search_targets(page, query):
+    """What the search marks on a page: [[widgets, or a layout]], one entry per
+    option found. A row of a form is one option (its name, its field and its
+    ⓘ); an extension's card is one; any other text is one by itself."""
+    R = QFormLayout.ItemRole
+    targets, covered = [], set()
+
+    def words(widgets):
+        found = []
+        for w in widgets:
+            for x in [w] + w.findChildren(QWidget):
+                if id(x) in covered or not x.isVisibleTo(page):
+                    continue
+                covered.add(id(x))
+                found.extend(_texts_of(x))
+        return fold(" ".join(t for t in found if t))
+
+    for form in page.findChildren(QFormLayout):
+        for row in range(form.rowCount()):
+            parts = []
+            for role in (R.LabelRole, R.FieldRole, R.SpanningRole):
+                parts.extend(_layout_widgets(form.itemAt(row, role)))
+            parts = [w for w in parts if w.isVisibleTo(page)]
+            names = [x for w in parts for x in [w] + w.findChildren(QLabel) if isinstance(x, QLabel) and x.text()]
+            if len(names) > 4:
+                continue        # a row of many options (the toolbar's buttons): each is marked by itself
+            if parts and query in words(parts):
+                targets.append(parts)
+    for card in page.findChildren(QFrame, "ike_ext_card"):
+        if card.isVisibleTo(page) and query in words([card]):
+            targets.append([card])
+    for w in page.findChildren(QWidget):
+        if id(w) in covered or not w.isVisibleTo(page):
+            continue
+        covered.add(id(w))
+        texts = [t for t in _texts_of(w) if t]
+        if not texts or query not in fold(" ".join(texts)):
+            continue
+        if isinstance(w, InfoButton) and w.parentWidget() is not None:
+            # its option: the row of widgets it stands in
+            lay = _layout_holding(w.parentWidget().layout(), w)
+            targets.append([lay] if lay is not None else [w])
+        else:
+            targets.append([w])
+    return targets
+
+
+class _Marks(QWidget):
+    """The marks of the options found, drawn over a Settings page (1.1.24):
+    the palette's highlight, light, around each one; clicks go through."""
+
+    def __init__(self, page):
+        super().__init__(page)
+        self.page = page
+        self.targets = []
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        page.installEventFilter(self)
+        self.hide()
+
+    def show_targets(self, targets):
+        self.targets = targets
+        self.setGeometry(self.page.rect())
+        self.setVisible(bool(targets))
+        if targets:
+            self.raise_()
+        self.update()
+
+    def eventFilter(self, obj, event):
+        if obj is self.page and event.type() == QEvent.Type.Resize:
+            self.setGeometry(self.page.rect())
+        return False
+
+    def rects(self):
+        """Where each option found is, in the page."""
+        from PyQt6.QtCore import QPoint
+        out = []
+        for target in self.targets:
+            r = QRect()
+            for part in target:
+                if isinstance(part, QLayout):
+                    owner = part.parentWidget()
+                    g = part.geometry()
+                    if owner is None or g.isEmpty():
+                        continue
+                    g = QRect(owner.mapTo(self.page, g.topLeft()), g.size())
+                elif isinstance(part, QGroupBox):
+                    from PyQt6.QtWidgets import QStyleOptionGroupBox
+                    opt = QStyleOptionGroupBox()
+                    part.initStyleOption(opt)
+                    g = part.style().subControlRect(QStyle.ComplexControl.CC_GroupBox, opt,
+                                                    QStyle.SubControl.SC_GroupBoxLabel, part)
+                    g = QRect(part.mapTo(self.page, g.topLeft()), g.size())
+                else:
+                    if not part.isVisible():
+                        continue
+                    g = QRect(part.mapTo(self.page, QPoint(0, 0)), part.size())
+                r = g if r.isNull() else r.united(g)
+            if not r.isNull():
+                out.append(r.adjusted(-4, -2, 4, 2))
+        return out
+
+    def paintEvent(self, event):
+        from PyQt6.QtGui import QColor, QPainter, QPen
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        hl = self.palette().color(QPalette.ColorRole.Highlight)
+        fill, line = QColor(hl), QColor(hl)
+        fill.setAlpha(40)
+        line.setAlpha(170)
+        p.setPen(QPen(line, 1.0))
+        p.setBrush(fill)
+        for r in self.rects():
+            p.drawRoundedRect(r.toRectF().adjusted(0.5, 0.5, -0.5, -0.5), 4, 4)
+        p.end()
+
+
+def _align_forms(page):
+    """The options of every form of a page start on one line (1.1.24): the
+    names of a form whose options would start sooner (inside a group box they
+    start a little farther than outside, and the longest name decides) are
+    given the room that brings its options to the line of the others."""
+    from PyQt6.QtCore import QPoint
+    forms = [f for f in page.findChildren(QFormLayout) if f.rowCount()]
+    # each name in the middle of its option's height, on the side the style puts it
+    align = page.style().styleHint(QStyle.StyleHint.SH_FormLayoutLabelAlignment, None, page)
+    horizontal = Qt.AlignmentFlag(align) & Qt.AlignmentFlag.AlignHorizontal_Mask
+    for f in forms:
+        f.setLabelAlignment(horizontal | Qt.AlignmentFlag.AlignVCenter)
+    if len(forms) < 2:
+        return
+    R = QFormLayout.ItemRole
+    for w in [page] + page.findChildren(QWidget):
+        w.ensurePolished()
+    size = page.size()
+    page.resize(2400, 1600)                 # wide enough that no row puts its option under its name
+    for w in [page] + page.findChildren(QWidget):
+        if w.layout() is not None:
+            w.layout().activate()
+    rtl = page.isRightToLeft()
+    columns = []
+    for f in forms:
+        labels = []
+        for r in range(f.rowCount()):
+            item = f.itemAt(r, R.LabelRole)
+            if item is not None and item.widget() is not None:
+                labels.append(item.widget())
+        if not labels:
+            continue
+        # where the names end, from the page's edge (their options start right after)
+        if rtl:
+            end = max(page.width() - lab.mapTo(page, QPoint(0, 0)).x() for lab in labels)
+        else:
+            end = max(lab.mapTo(page, QPoint(lab.width(), 0)).x() for lab in labels)
+        columns.append((end, max(lab.sizeHint().width() for lab in labels), labels, f))
+    page.resize(size)
+    if len(columns) < 2:
+        return
+    line = max(end for end, _w, _labels, _f in columns)
+    for end, width, labels, _f in columns:
+        if 0 < line - end <= 400:           # (more: something else went wrong, left as it was)
+            for lab in labels:
+                lab.setMinimumWidth(width + line - end)
+
+
 class SettingsDialog(QDialog):
     # The pages, in the order of the sidebar (1.1.20). Their names are what
     # open_settings(page) takes; the names of earlier versions still work.
     WIDE_COMBO = 300      # px: a combo box with an entry wider than this is narrowed (_narrow)
-    PAGES = ["general", "language", "appearance", "newtab", "search", "protection", "privacy",
-             "extensions", "downloads", "updates", "system"]
+    # 1.1.24: everyday browsing first (start, look, new tab, search, downloads),
+    # then safety (protection, privacy), then the features, then I.K.E. itself
+    # (language, updates, how it works with the computer)
+    PAGES = ["general", "appearance", "newtab", "search", "downloads", "protection", "privacy",
+             "extensions", "language", "updates", "system"]
     ALIASES = {"components": "extensions", "userscripts": "extensions"}
 
     @staticmethod
@@ -304,8 +536,26 @@ class SettingsDialog(QDialog):
         self.nav.setUniformItemSizes(True)
         self.nav.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.stack = QStackedWidget(self)
-        body.addWidget(self.nav)
+        # 1.1.24: a search field on top of the pages' list: it keeps the pages
+        # that have the words typed and marks the options that have them
+        side = QVBoxLayout()
+        side.setContentsMargins(0, 0, 0, 0)
+        self.search = QLineEdit(self)
+        self.search.setObjectName("ike_settings_search")
+        self.search.setPlaceholderText(T("Find a setting"))
+        self.search.setClearButtonEnabled(True)
+        self.search.addAction(themed(("edit-find", "system-search"), QStyle.StandardPixmap.SP_FileDialogContentsView),
+                              QLineEdit.ActionPosition.LeadingPosition)
+        self.search.installEventFilter(self)
+        self.search_none = Note(T("No setting found"))
+        self.search_none.setObjectName("ike_settings_none")
+        self.search_none.hide()
+        side.addWidget(self.search)
+        side.addWidget(self.nav, 1)
+        side.addWidget(self.search_none)
+        body.addLayout(side)
         body.addWidget(self.stack, 1)
+        self._marks = {}
         names = self.page_names()
         # page: (builder, icon names, what the page holds in one sentence)
         sections = {
@@ -345,9 +595,16 @@ class SettingsDialog(QDialog):
             area = QScrollArea(self)          # a long page scrolls instead of stretching the window
             area.setWidgetResizable(True)
             area.setFrameShape(QFrame.Shape.NoFrame)
-            area.setWidget(self._page(label, about, build()))
+            page_widget = self._page(label, about, build())
+            _align_forms(page_widget)
+            area.setWidget(page_widget)
             self.stack.addWidget(area)
         self.nav.setFixedWidth(widest + 22 + 46)
+        self.search.setFixedWidth(self.nav.width())
+        self.search_none.setFixedWidth(self.nav.width())
+        self.search.textChanged.connect(self.find_options)
+        from PyQt6.QtGui import QKeySequence, QShortcut
+        QShortcut(QKeySequence(QKeySequence.StandardKey.Find), self, self.search.setFocus)
         for combo in self.findChildren(QComboBox):
             # any combo box whose longest entry would widen its page is narrowed
             # (1.1.22: in Tamil with KDE's Breeze the dark-mode one needed
@@ -414,6 +671,60 @@ class SettingsDialog(QDialog):
                 and polish.part("settings_fade")):
             effects.cross_fade([self.stack], self.cfg, ms=150)
         self.stack.setCurrentIndex(row)
+        marks = self._marks.get(row)
+        if marks is not None and marks.targets:
+            QTimer.singleShot(0, lambda m=marks, r=row: self._reveal(r, m))
+
+    # --- the search field (1.1.24) ------------------------------------
+    def eventFilter(self, obj, event):
+        # Esc in the search field empties it first; once empty, Esc closes the window as usual
+        if obj is self.search and event.type() == QEvent.Type.KeyPress \
+                and event.key() == Qt.Key.Key_Escape and self.search.text():
+            self.search.clear()
+            return True
+        return super().eventFilter(obj, event)
+
+    def find_options(self, text=None):
+        """Keep the pages that have the words typed (in their names, options,
+        explanations or choices) and mark those options; nothing typed: all.
+        Returns {page: number of options found}."""
+        query = fold(self.search.text() if text is None else text)
+        found = {}
+        first = None
+        for row, key in enumerate(self.PAGES):
+            page = self.stack.widget(row).widget()
+            targets = _search_targets(page, query) if query else []
+            in_name = bool(query) and query in fold(self.nav.item(row).text())
+            marks = self._marks.get(row)
+            if marks is None and targets:
+                marks = self._marks[row] = _Marks(page)
+            if marks is not None:
+                marks.show_targets(targets)
+            if targets or in_name:
+                found[key] = len(targets)
+                if first is None:
+                    first = row
+        nothing = bool(query) and first is None
+        for row in range(self.nav.count()):
+            self.nav.item(row).setHidden(bool(query) and not nothing and self.PAGES[row] not in found)
+        self.search_none.setVisible(nothing)
+        if first is not None and self.PAGES[self.nav.currentRow()] not in found:
+            self.nav.setCurrentRow(first)
+        elif first is not None:
+            self._show_page(self.nav.currentRow())
+        return found
+
+    def _reveal(self, row, marks):
+        """Scroll the page to its first option found."""
+        if not marks.targets or self.stack.currentIndex() != row:
+            return
+        area = self.stack.widget(row)
+        r = marks.rects()
+        if r:
+            top = min(x.top() for x in r)
+            bar = area.verticalScrollBar()
+            if top < bar.value() or top > bar.value() + area.viewport().height() - 40:
+                bar.setValue(max(0, top - 20))
 
     # --- pages -------------------------------------------------------
     def _general(self):
@@ -505,7 +816,10 @@ class SettingsDialog(QDialog):
             c.setChecked(bool(self.cfg[key]))
             self.di[key] = c
             _row(f, "", _wrapping(c))
-        _row(f, "", Note(T("For KDE Plasma. All of it is off while the “Plasma integration” extension is off.")))
+        # the note of the whole box, across its width (1.1.24: in the options'
+        # column, set on one line with the other boxes', it could need three
+        # lines, GNOME's font in Filipino, and Qt's form gave it two)
+        f.addRow(Note(T("For KDE Plasma. All of it is off while the “Plasma integration” extension is off.")))
         lay.addWidget(box)
         box, f = self._group(T("Speed and memory"))
         self.video_hw = QComboBox()
@@ -528,6 +842,11 @@ class SettingsDialog(QDialog):
         self.sleep.setValue(int(self.cfg["tab_sleep_minutes"]))
         _row(f, T("Suspend inactive tabs after"), self.sleep,
              T("Background tabs unused for this long are suspended to free memory"))
+        # battery saver (1.1.24, battery.py): off by default
+        self.battery_saver = Switch(T("Battery saver"))
+        self.battery_saver.setChecked(bool(self.cfg["battery_saver"]))
+        _row(f, "", self.battery_saver, T("On battery, background tabs pause after a minute and the "
+                                          "interface's animations and tab pictures stop."))
         lay.addWidget(box)
         box, f = self._group(T("Translation"))
         self.translate = QLineEdit(self.cfg["translate_url"])
@@ -625,18 +944,24 @@ class SettingsDialog(QDialog):
             self.language.setCurrentIndex(max(0, self.language.findData(dlg.installed)))
 
     def _make_default(self):
-        import subprocess
+        # 1.1.24: written in ~/.config/mimeapps.list as the XDG specification
+        # says (handoff.py); xdg-settings (xdg-utils) is no longer used
+        from .handoff import set_default_browser
         try:
-            subprocess.run(["xdg-settings", "set", "default-web-browser", "ike-browser.desktop"],
-                           check=True, timeout=10)
+            set_default_browser()
             QMessageBox.information(self, "I.K.E.", T("I.K.E. is now the default browser."))
         except Exception:
             QMessageBox.warning(self, "I.K.E.", T(
                 "Could not change the default browser. Set it in System Settings → Default Applications."))
 
     def _appearance(self):
+        """1.1.24: grouped as one looks for it: the interface's colours, the
+        window and its tabs, the toolbar's buttons, then the pages."""
         w = QWidget()
-        f = QFormLayout(w)
+        lay = QVBoxLayout(w)
+        lay.setContentsMargins(0, 0, 0, 0)
+        f = QFormLayout()
+        lay.addLayout(f)
         self.tabs_pos = QComboBox()
         self.tabs_pos.addItem(T("Horizontal (top bar)"), "horizontal")
         self.tabs_pos.addItem(T("Vertical (side panel)"), "vertical")
@@ -667,7 +992,10 @@ class SettingsDialog(QDialog):
                   "bookmark": T("Bookmark"), "reader": T("Reader mode"),
                   "screenshot": T("Screenshot"), "pip": T("Video in floating window"),
                   "split": T("Split view"), "dark": T("Dark mode for pages"),
-                  "private": T("New private window"), "cleansite": T("Clear this site's data")}
+                  "private": T("New private window"), "cleansite": T("Clear this site's data"),
+                  "zoom": T("Zoom"), "bookmarks": T("Manage bookmarks"),
+                  "print": T("Print or save as PDF"), "send": T("Send to device"),
+                  "resources": T("Site resources")}
         for i, (key, _hide) in enumerate(TOOLBAR_ITEMS):
             c = Switch(labels.get(key, key))
             c.setChecked(key not in self.cfg["toolbar_hidden"])
@@ -685,6 +1013,8 @@ class SettingsDialog(QDialog):
         self.dark_engine.addItem(T("Dark Reader (can be set per site, immediate)"), "reader")
         self.dark_engine.addItem(T("Chromium Auto Dark Mode (can be set per site, immediate)"), "engine")
         self.dark_engine.setCurrentIndex(max(0, self.dark_engine.findData(self.cfg["dark_engine"])))
+        self.dark_pdf = Switch(T("Show PDFs with dark colours"))
+        self.dark_pdf.setChecked(bool(self.cfg["dark_pdf"]))
         from . import icons
         self.icon_theme = QComboBox()
         self._narrow(self.icon_theme)          # long set names in some languages must not widen the page
@@ -707,29 +1037,41 @@ class SettingsDialog(QDialog):
              T("With “Follow the system” colours, icons and fonts are those of your desktop. "
                "A different icon choice is fully applied when I.K.E. is restarted."))
         _row(f, T("Icons"), self.icon_theme, T("The icons of the toolbar and of the menus."))
-        _row(f, T("Tabs"), self.tabs_pos, T("Tabs in a bar at the top, or in a list at the side."))
-        _row(f, "", self.menubar, T("The classic menus above the toolbar. Everything is also in the ☰ menu."))
-        _row(f, T("Bookmarks bar"), self.bookbar, T("The bar of your bookmarks under the address bar."))
-        _row(f, "", _wrapping(self.vauto), T("Only with vertical tabs: more room for pages."))
-        _row(f, "", _wrapping(self.titlebar), T("The bar with the window's name, drawn by the desktop."))
-        _row(f, "", self.maximized, T("New windows fill the screen."))
         _row(f, "", _wrapping(self.effects), T("They are also off when the desktop is set to show no animations"))
         _row(f, "", _wrapping(self.site_tint), T("A light tint of the site's own colour around the address bar."))
-        _row(f, T("Toolbar buttons"), tb_row,
-             T("Which buttons the toolbar shows. To move them, right-click the toolbar."))
-        _row(f, T("Default zoom"), self.zoom,
+        box, g = self._group(T("Window"))
+        _row(g, T("Tabs"), self.tabs_pos, T("Tabs in a bar at the top, or in a list at the side."))
+        _row(g, "", _wrapping(self.vauto), T("Only with vertical tabs: more room for pages."))
+        _row(g, T("Bookmarks bar"), self.bookbar, T("The bar of your bookmarks under the address bar."))
+        _row(g, "", self.menubar, T("The classic menus above the toolbar. Everything is also in the ☰ menu."))
+        _row(g, "", _wrapping(self.titlebar), T("The bar with the window's name, drawn by the desktop."))
+        _row(g, "", self.maximized, T("New windows fill the screen."))
+        lay.addWidget(box)
+        box, g = self._group(T("Toolbar buttons"))
+        g.addRow(_with_hint(tb_row, T("Which buttons the toolbar shows. To move them, right-click the toolbar."),
+                            g.fieldGrowthPolicy()))         # the whole width of the box
+        lay.addWidget(box)
+        box, g = self._group(T("Web pages"))
+        _row(g, T("Default zoom"), self.zoom,
              T("The size of the pages you have not zoomed yourself. 1.0 is the normal size."))
-        _row(f, T("Dark mode for pages"), self.dark,
+        _row(g, T("Dark mode for pages"), self.dark,
              T("Makes bright pages dark. Single sites: ☰ → Dark mode for pages. Part of the "
                "“Dark mode for pages” extension."))
-        _row(f, T("Dark mode method"), self.dark_engine,
+        _row(g, T("Dark mode method"), self.dark_engine,
              T("Dark Reader gives better colours; Chromium's own is built into the engine and lighter."))
+        _row(g, "", _wrapping(self.dark_pdf),
+             T("In I.K.E.'s own PDF viewer the pages are shown with their colours turned around: "
+               "light text on a dark page. Off by default."))
+        lay.addWidget(box)
+        lay.addStretch(1)
         return w
 
     def _newtab_rows(self, f):
         """New tab page: clock and weather (see weather.py)."""
         self.nt_clock = Switch(T("Show the clock and the date"))
         self.nt_clock.setChecked(bool(self.cfg["newtab_clock"]))
+        self.nt_greeting = Switch(T("Greeting on the new tab page"))
+        self.nt_greeting.setChecked(bool(self.cfg["newtab_greeting"]))
         self.nt_weather = Switch(T("Show the weather"))
         self.nt_weather.setChecked(bool(self.cfg["newtab_weather"]))
         self.city = QLineEdit(self.cfg["weather_city"])
@@ -756,6 +1098,14 @@ class SettingsDialog(QDialog):
         self.unit.addItem("°F", "fahrenheit")
         self.unit.setCurrentIndex(max(0, self.unit.findData(self.cfg["weather_unit"])))
         _row(f, T("New tab page"), self.nt_clock, T("The time and the date at the bottom of the page."))
+        _row(f, "", self.nt_greeting, T("A short hello at the top left, from the time of day; nothing leaves your computer."))
+        self.nt_tone = QComboBox()
+        self.nt_tone.addItem(T("Greetings only"), "greetings")
+        self.nt_tone.addItem(T("Also friendly messages"), "friendly")
+        self.nt_tone.setCurrentIndex(max(0, self.nt_tone.findData(self.cfg["newtab_greeting_tone"])))
+        _row(f, T("Tone"), self.nt_tone,
+             T("Friendly messages are short lines under the greeting: weather, small tips and curiosities."))
+        self._holiday_rows(f)
         _row(f, "", self.nt_weather, T("The same switch as the “Weather on the new tab page” extension."))
         _row(f, T("City for the weather"), row,
              T("The weather comes from Open-Meteo (free, no account). Finding the city sends "
@@ -766,6 +1116,23 @@ class SettingsDialog(QDialog):
         self._show_found(False)
         _row(f, T("Temperature"), self.unit, T("Degrees Celsius or Fahrenheit."))
         self._background_rows(f)
+
+    def _holiday_rows(self, f):
+        """New tab page: the holidays to remember, one switch per tradition, all off at first (greeting.py)."""
+        from . import greeting
+        box, form = self._group(T("Holidays to remember"))
+        note = QLabel(T("Choose the holidays you want remembered on the new tab page. "
+                        "I.K.E. never guesses them by itself."))
+        note.setWordWrap(True)
+        form.addRow(note)
+        chosen = self.cfg["greeting_holidays"]
+        self.nt_holidays = {}
+        for ident, name, hint in greeting.TRADITIONS:
+            sw = Switch(T(name))
+            sw.setChecked(ident in chosen)
+            self.nt_holidays[ident] = sw
+            _row(form, "", sw, T(hint) if hint else None)
+        f.addRow(box)
 
     def _background_rows(self, f):
         """New tab page: a photo of the user's as its background (see newtabbg.py)."""
@@ -1084,6 +1451,9 @@ class SettingsDialog(QDialog):
              T("Asks sites not to sell or share your data. In some countries they must obey it.")),
             ("webrtc_hide_ip", T("Hide local IP addresses from WebRTC"),
              T("Video calls still work; sites do not see your address in the home network.")),
+            ("bounce_protect", T("Clear the data of sites that only redirect you (bounce tracking)"),
+             T("A site you only pass through, without using it, loses its cookies and stored data "
+               "a moment later. Sites you used, have open or bookmarked are never touched.")),
         ):
             c = Switch(label)
             c.setChecked(bool(self.cfg[key]))
@@ -1185,7 +1555,17 @@ class SettingsDialog(QDialog):
             grid.addWidget(_wrapping(c), i // 4, i % 4)
         prow.addLayout(grid)
         prow.addStretch(1)
-        _row(g, T("Always refuse:"), prow, T("Sites never get these, and you are not asked."))
+        # 1.1.24: the name over the switches, which take the whole width of the box
+        # (beside the names of the page's other options, set on one line, the
+        # four columns were too narrow for "Microphone" in Tamil)
+        g.addRow(QLabel(T("Always refuse:")))
+        g.addRow(_with_hint(prow, T("Sites never get these, and you are not asked."), g.fieldGrowthPolicy()))
+        c = Switch(T("Ask quietly in the address bar"))
+        c.setChecked(bool(self.cfg["quiet_permissions"]))
+        self.checks["quiet_permissions"] = c
+        _row(g, "", _wrapping(c), T("Notifications, location, camera and microphone: a small sign in "
+                                    "the address bar instead of a window. Notifications asked for "
+                                    "without a click on the page are refused."))
         sites = QPushButton(T("Reset per-site exceptions (%d)") % (
             len(self.cfg["site_levels"]) + len(self.cfg["site_noscript"])))
         sites.clicked.connect(lambda: (self.cfg["site_levels"].clear(),
@@ -1541,6 +1921,12 @@ class SettingsDialog(QDialog):
         cfg["site_tint"] = self.site_tint.isChecked()
         cfg["toolbar_hidden"] = [k for k, c in self.tb_btns.items() if not c.isChecked()]
         cfg["default_zoom"] = round(self.zoom.value(), 2)
+        if cfg["dark_pdf"] != self.dark_pdf.isChecked():
+            cfg["dark_pdf"] = self.dark_pdf.isChecked()
+            from .webview import dark_pdf
+            for win in self.app.windows:              # the PDFs already open change at once
+                for view in win.all_views():
+                    dark_pdf(view, cfg["dark_pdf"])
         dark_choice, dark_engine = self.dark.currentData(), self.dark_engine.currentData()
         if dark_choice != cfg["dark_mode"] or dark_engine != cfg["dark_engine"]:
             from PyQt6.QtCore import QTimer
@@ -1578,6 +1964,7 @@ class SettingsDialog(QDialog):
         cfg["autoplay_block"] = self.autoplay.isChecked()
         cfg["mouse_gestures"] = self.gestures.isChecked()
         cfg["smooth_scrolling"] = self.smooth.isChecked()
+        cfg["battery_saver"] = self.battery_saver.isChecked()
         cfg["perm_block"] = [k for k, c in self.perm_block.items() if c.isChecked()]
         cfg["experimental_extensions"] = self.ext_on.isChecked()
         old = {c["name"]: c["color"] for c in cfg["containers"]}
@@ -1586,6 +1973,9 @@ class SettingsDialog(QDialog):
         cfg["containers"] = [{"name": n, "color": old.get(n, palette[i % len(palette)])}
                              for i, n in enumerate(dict.fromkeys(names))]
         cfg["newtab_clock"] = self.nt_clock.isChecked()
+        cfg["newtab_greeting"] = self.nt_greeting.isChecked()
+        cfg["newtab_greeting_tone"] = self.nt_tone.currentData()
+        cfg["greeting_holidays"] = [i for i, sw in self.nt_holidays.items() if sw.isChecked()]
         before = (cfg["weather_city"], cfg["weather_lat"], cfg["weather_lon"], cfg["weather_unit"])
         cfg["weather_unit"] = self.unit.currentData()
         if self._city_pick is not None:
@@ -1729,7 +2119,7 @@ class UserScriptsDialog(QDialog):
     def _us_folder(self):
         from .userscripts import DIR
         DIR.mkdir(parents=True, exist_ok=True)
-        QDesktopServices.openUrl(QUrl.fromLocalFile(str(DIR)))
+        self.app.handoff.open_file(DIR, self)
 
 
 class ThemeEditor(QDialog):
@@ -1977,7 +2367,8 @@ class HistoryDialog(QDialog):
         lay.addWidget(self.search)
         self.tree = QTreeWidget()
         self.tree.setHeaderLabels([T("Title"), T("Address"), T("Last visit")])
-        self.tree.setRootIsDecorated(False)
+        # 1.1.24: grouped by day (Today, Yesterday, then the dates as the language writes them)
+        self.tree.setRootIsDecorated(True)
         self.tree.setSelectionMode(QTreeWidget.SelectionMode.ExtendedSelection)
         self.tree.setColumnWidth(0, 300)
         self.tree.setColumnWidth(1, 340)
@@ -1994,21 +2385,49 @@ class HistoryDialog(QDialog):
         lay.addLayout(row)
         self.fill()
 
+    @staticmethod
+    def day_name(day, today, locale):
+        """"Today", "Yesterday", or the date written as the interface's language does."""
+        if day == today:
+            return T("Today")
+        if day == today.addDays(-1):
+            return T("Yesterday")
+        from PyQt6.QtCore import QLocale
+        return locale.toString(day, QLocale.FormatType.LongFormat)
+
     def fill(self, *_):
+        from PyQt6.QtCore import QDate, QDateTime, QLocale
+
+        from . import i18n
         self.tree.clear()
+        locale = QLocale(i18n.current())
+        today = QDate.currentDate()
+        bold = self.tree.font()
+        bold.setBold(True)
+        group, group_day = None, None
         for url, title, last in self.app.storage.history(self.search.text()):
-            QTreeWidgetItem(self.tree, [title or url, url,
-                                        time.strftime("%d/%m/%Y %H:%M", time.localtime(last))])
+            when = QDateTime.fromSecsSinceEpoch(int(last))
+            day = when.date()
+            if day != group_day:
+                group_day = day
+                group = QTreeWidgetItem(self.tree, [self.day_name(day, today, locale)])
+                group.setFlags(Qt.ItemFlag.ItemIsEnabled)          # a heading: never opened nor deleted
+                group.setFont(0, bold)
+                group.setFirstColumnSpanned(True)
+                group.setExpanded(True)
+            QTreeWidgetItem(group, [title or url, url,
+                                    locale.toString(when.time(), QLocale.FormatType.ShortFormat)])
 
     def _open(self, item):
         win = self.app.active_window()
-        if win:
+        if win and item.text(1):
             win.add_tab(item.text(1))
             win.activateWindow()
 
     def _delete(self):
         for it in self.tree.selectedItems():
-            self.app.storage.delete_history(it.text(1))
+            if it.text(1):
+                self.app.storage.delete_history(it.text(1))
         self.fill()
 
 
@@ -2105,15 +2524,22 @@ class DownloadsDialog(QDialog):
         self.tree.setIconSize(QSize(24, 24))
         self._icons = {}
         self.tree.itemActivated.connect(lambda _i, _c: self._open(False))
+        self.tree.currentItemChanged.connect(lambda *_a: self._handoff_buttons())
         lay.addWidget(self.tree, 1)
         row = QHBoxLayout()
-        for label, slot in ((T("Open file"), lambda: self._open(False)),
-                            (T("Open folder"), lambda: self._open(True)),
-                            (T("Cancel download"), self._cancel),
-                            (T("Clear finished"), self._clear)):
-            b = QPushButton(label)
+        buttons = {}
+        for key, label, slot in (("open", T("Open file"), lambda: self._open(False)),
+                                 ("folder", T("Show in folder"), lambda: self._open(True)),
+                                 ("app", "", self._open_with_app),
+                                 ("cancel", T("Cancel download"), self._cancel),
+                                 ("clear", T("Clear finished"), self._clear)):
+            b = buttons[key] = QPushButton(label)
             b.clicked.connect(slot)
             row.addWidget(b)
+        # 1.1.24: "Show in folder" only with a file manager; an archive or a
+        # calendar file also gets its app's button (Ark, the calendar)
+        self.folder_button, self.app_button = buttons["folder"], buttons["app"]
+        self.app_button.hide()
         row.addStretch(1)
         lay.addLayout(row)
         self.timer = QTimer(self)
@@ -2146,6 +2572,31 @@ class DownloadsDialog(QDialog):
                     item.setData(1, FRACTION_ROLE, got / total)
         if cur >= 0:
             self.tree.setCurrentItem(self.tree.topLevelItem(cur))
+        self._handoff_buttons()
+
+    def _handoff_buttons(self):
+        """Show the handoffs the desktop has an app for (handoff.py): the file
+        manager, and for a finished archive or calendar file its app."""
+        from . import handoff
+        S = QWebEngineDownloadRequest.DownloadState
+        self.folder_button.setVisible(handoff.app_for("inode/directory") is not None)
+        d = self._current()
+        text = ""
+        if d is not None and d.state() == S.DownloadCompleted:
+            path = self.app.download_path(d)
+            kind = handoff.kind_of(handoff.file_type(path)) if path.is_file() else ""
+            if kind in ("archive", "calendar"):
+                found = handoff.app_for(handoff.file_type(path).name())
+                if found is not None:
+                    text = T("Add to calendar") if kind == "calendar" else T("Open with %s") % found.name
+        if self.app_button.text() != text:
+            self.app_button.setText(text)
+        self.app_button.setVisible(bool(text))
+
+    def _open_with_app(self):
+        d = self._current()
+        if d is not None and self.app.download_path(d).is_file():
+            self.app.handoff.open_file(self.app.download_path(d), self)
 
     def _file_icon(self, name):
         """The icon of the file's kind, from the icon theme (kept: the list is filled often)."""
@@ -2169,16 +2620,21 @@ class DownloadsDialog(QDialog):
         return self.app.downloads[0] if self.app.downloads else None
 
     def _open(self, folder):
+        """Open the file, or show it in its folder, through the desktop (handoff.py)."""
         d = self._current()
+        handoff = self.app.handoff
         if d is None:
             if folder:        # nothing downloaded yet: show the download folder itself
-                QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.app.download_dir())))
+                handoff.open_file(self.app.download_dir(), self)
             return
         path = self.app.download_path(d)
+        if folder and path.is_file():
+            handoff.show_in_folder(path, self)
+            return
         target = path.parent if folder else path
         if not target.exists():
             target = path.parent if path.parent.exists() else self.app.download_dir()
-        QDesktopServices.openUrl(QUrl.fromLocalFile(str(target)))
+        handoff.open_file(target, self)
 
     def _cancel(self):
         d = self._current()

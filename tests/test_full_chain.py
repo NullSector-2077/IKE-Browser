@@ -709,10 +709,18 @@ def test_the_filter_lists_are_compared_with_mains_engine_on_the_commit():
     assert lists_tool.compare(info(0.10), info(0.10, state="unreachable"))[0] == "unverified"
     assert lists_tool.compare(info(0.10), {"lists": []})[0] == "unverified"
     assert tc.CATEGORIES["filter-lists"][1] == ("tests.yml", "tests", "Filter lists in this engine")
-    tests = (WORKFLOWS / "tests.yml").read_text().split("\n  tests:\n", 1)[1].split("\n  hand-over:\n", 1)[0]
-    step = tests.split("- name: Filter lists in this engine", 1)[1].split("\n      - ", 1)[0]
+    text = (WORKFLOWS / "tests.yml").read_text()
+    # since 2026-11-24 the step runs once in the job "tests checks", and the gate "tests" (the job the
+    # category reads) restates its outcome under the same name: skipped there, skipped here
+    checks = text.split("\n  checks:\n", 1)[1].split("\n  base-tests:\n", 1)[0]
+    step = checks.split("- name: Filter lists in this engine", 1)[1].split("\n      - ", 1)[0]
     assert "steps.lists.outputs.verdict == 'pass'" in step and "'unverified'" not in step   # skipped: not verified
-    assert "tools/filter-lists.py compare" in tests
+    assert "tools/filter-lists.py compare" in checks
+    assert "filter-lists: ${{ steps.filter-lists.outcome }}" in checks and "id: filter-lists" in step
+    tests = text.split("\n  tests:\n", 1)[1].split("\n  hand-over:\n", 1)[0]
+    mirror = tests.split("- name: Filter lists in this engine", 1)[1].split("\n      - ", 1)[0]
+    assert "needs.checks.outputs.filter-lists == 'success' || needs.checks.outputs.filter-lists == 'failure'" in mirror
+    assert 'test "$OUTCOME" = success' in mirror and "'skipped'" not in mirror
 
 
 # --- the PKGBUILD's dependencies -------------------------------------------------------------------
@@ -773,6 +781,10 @@ def test_the_expected_skips_are_environmental_and_an_unexpected_one_still_blocks
             "installs it): not verified")
     for reason in real:
         assert tc.unexpected_skips([{"test": "t", "reason": reason}]) == [], reason
+    # 1.1.24: the tab mark drawn as Breeze draws it runs on Arch only (Ubuntu's runners have no Breeze);
+    # unregistered, it held every update of 2026-11-24 back (#149, #150)
+    assert tc.unexpected_skips([{"test": "t", "reason": "Breeze (the widget style) is not installed here"}]) == []
+    assert tc.unexpected_skips([{"test": "t", "reason": "Breeze (the widget style) is not installed here, so"}])
     # strict: what GitHub's runners do run (the IPv6 loopback is there) still blocks when skipped
     for reason in ("ffmpeg not installed", "flaky", "", "not verified", "no IPv6 loopback on this machine",
                    "the desktops are tested elsewhere", "optional dependency x is not installed here"):

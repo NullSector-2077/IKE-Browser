@@ -7,7 +7,6 @@ give each run an empty profile).
 """
 
 import os
-import subprocess
 from pathlib import Path
 
 APP_ID = "ike-browser"
@@ -58,16 +57,36 @@ def chrome_user_agent(major):
 # ---- desktop notifications ---------------------------------------------------
 
 def notify(title, text):
-    """A desktop notification through notify-send.
+    """A desktop notification: a call to org.freedesktop.Notifications.Notify
+    on the session bus (QtDBus), with no program started.
 
-    Title and text can come from a web page: "--" keeps them from being read
-    as options of notify-send, and the text is escaped because notification
-    services show it as markup (links and pictures included)."""
+    Title and text can come from a web page; they travel as D-Bus strings,
+    never as program options, and the text is escaped because notification
+    services show it as markup (links and pictures included). The call is
+    not waited for; with no session bus or no service nothing happens."""
     import html
     try:
-        subprocess.Popen(["notify-send", "-a", "I.K.E.", "-i", "ike-browser", "--",
-                          str(title)[:200] or " ", html.escape(str(text)[:2000], quote=False)])
-    except (OSError, ValueError):
+        from PyQt6.QtCore import QMetaType
+        from PyQt6.QtDBus import QDBusArgument, QDBusConnection, QDBusMessage
+        bus = QDBusConnection.sessionBus()
+        if not bus.isConnected():
+            return
+        msg = QDBusMessage.createMethodCall("org.freedesktop.Notifications", "/org/freedesktop/Notifications",
+                                            "org.freedesktop.Notifications", "Notify")
+        # Notify(s app_name, u replaces_id, s app_icon, s summary, s body, as actions, a{sv} hints,
+        # i expire_timeout): the types are set explicitly, a bare Python int or list would be sent as i and av
+        def typed(value, kind):
+            arg = QDBusArgument()
+            arg.add(value, kind.value)
+            return arg
+        hints = QDBusArgument()                  # a{sv}, empty
+        hints.beginMap(QMetaType.Type.QString.value, QMetaType.fromName(b"QDBusVariant").id())
+        hints.endMap()
+        msg.setArguments(["I.K.E.", typed(0, QMetaType.Type.UInt), APP_ID, str(title)[:200].replace("\0", "") or " ",
+                          html.escape(str(text)[:2000].replace("\0", ""), quote=False),
+                          typed([], QMetaType.Type.QStringList), hints, -1])
+        bus.asyncCall(msg)
+    except Exception:
         pass
 
 

@@ -17,9 +17,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
-from conftest import ROOT
+from conftest import APP, ROOT
 
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(APP))
 
 cryptography = pytest.importorskip("cryptography")
 from cryptography.hazmat.primitives import serialization  # noqa: E402

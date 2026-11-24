@@ -8,7 +8,9 @@ menu bar, the shield's panel, the find bar, the notice of a page in full
 screen, every page of the Settings and the other windows that open without
 a question (About, history, bookmarks, downloads, clear data, user scripts,
 the colours editor, languages, import, resources, watched pages, site
-permissions, the command bar).
+permissions, the command bar); since 1.1.24 also the menus of the toolbar
+buttons a user can add, the Settings' search with nothing found and the
+four steps of the welcome of the first start.
 tests/textfit.py says what is checked: a button's text at least 4 px from
 its frame on each side, labels, check boxes and combo boxes with all of
 their text, nothing cut by a parent or wider than the screen, menus taller
@@ -119,6 +121,14 @@ def steps(ike, qapp, out):
         for a in win.menuBar().actions():
             for menu, path in menus_of(a.menu(), textfit.plain(a.text()), seen):
                 check_menu(menu, code + ": " + path, corner)
+        # 1.1.24: the menus of the toolbar buttons a user can add (Send to device:
+        # its one entry that says no device is paired)
+        for name in ("m_zoom", "m_print", "m_send"):
+            menu = getattr(win, name, None)
+            if menu is not None and id(menu) not in seen:
+                seen.add(id(menu))
+                menu.aboutToShow.emit()
+                check_menu(menu, code + ": toolbar > " + name[2:], corner)
         win.show_shield_menu()
         settle()
         problems.extend(textfit.check(win.shield_scroll, code + ": shield panel"))
@@ -137,6 +147,13 @@ def steps(ike, qapp, out):
             settle()
             log("settings", page)
             problems.extend(textfit.check(dlg, code + ": Settings > " + page))
+        if hasattr(dlg, "search"):
+            # 1.1.24: the search field, nothing found (its note under the pages' list)
+            dlg.search.setText("qqqxxyy")
+            settle()
+            problems.extend(textfit.check(dlg, code + ": Settings > search, nothing found"))
+            dlg.search.clear()
+            settle()
         dlg.close()
         dlg.deleteLater()
         if hasattr(win, "about_dialog"):
@@ -151,7 +168,18 @@ def steps(ike, qapp, out):
         for name in ("show_history", "show_bookmarks", "show_downloads", "show_clear_data",
                      "show_userscripts", "show_import", "show_resources", "show_watches",
                      "show_permissions"):
-            dialog(code + ": " + name[5:], getattr(ike, name)())
+            shown = getattr(ike, name)()
+            if name == "show_downloads" and hasattr(shown, "app_button"):
+                # 1.1.24: the handoff buttons, as on a desktop with a file manager,
+                # a calendar app and an archive app with a long name
+                shown.timer.stop()
+                shown.folder_button.show()
+                shown.app_button.setText(i18n.T("Add to calendar"))
+                shown.app_button.show()
+                settle()
+                problems.extend(textfit.check(shown, code + ": downloads, calendar file"))
+                shown.app_button.setText(i18n.T("Open with %s") % "Merkuro Calendar")
+            dialog(code + ": " + name[5:], shown)
         from ike.dialogs import LanguageDownloadDialog, ThemeEditor
         d = LanguageDownloadDialog(ike, win)
         d.show()
@@ -170,6 +198,18 @@ def steps(ike, qapp, out):
         bar = CommandBar(win)            # palette.open_bar runs its own loop
         bar.show()
         dialog(code + ": command bar", bar)
+        try:                             # 1.1.24: the welcome of the first start, each of its steps
+            from ike.welcome import WelcomeDialog
+        except ImportError:
+            WelcomeDialog = None
+        if WelcomeDialog is not None:
+            wd = WelcomeDialog(ike, win)
+            wd.show()
+            for step in range(4):
+                wd.go(step)
+                settle()
+                problems.extend(textfit.check(wd, code + ": welcome, step %d" % (step + 1)))
+            dialog(code + ": welcome", wd)
         win.close()
         win.deleteLater()
         yield 50

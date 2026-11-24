@@ -17,6 +17,9 @@ SHOTS = os.environ.get("IKE_TEST_SHOTS", "")
 KEYS = ["bookmark", "reader", "screenshot", "pip", "split", "dark", "private", "cleansite", "downloads"]
 LEFT_DEFAULT = ["dark", "private", "cleansite", "screenshot", "split"]          # pip starts hidden
 RIGHT_DEFAULT = ["bookmark", "downloads", "reader"]
+# 1.1.24: buttons a user can add, hidden until chosen (tests/test_menus_124.py); the
+# model's tests below use the buttons of 1.1.23, the real toolbar has these too
+NEW_KEYS = ["zoom", "bookmarks", "print", "send", "resources"]
 
 
 # ----------------------------------------------------------------------
@@ -91,8 +94,11 @@ def test_layout_is_stored_and_read_back():
     again = ToolbarLayout.from_config(cfg, KEYS)
     assert (again.left, again.right, again.hidden) == (lay.left, lay.right, lay.hidden)
     first = default_layout(KEYS, DEFAULTS, TOOLBAR_ITEMS)
-    assert first.left == DEFAULTS["toolbar_left"] and first.left + first.right == DEFAULTS["toolbar_order"]
-    assert first.hidden == {"pip"}
+    assert first.left == DEFAULTS["toolbar_left"]
+    assert first.left + first.right == [k for k in DEFAULTS["toolbar_order"] if k in KEYS]
+    assert first.hidden == {"pip"} | set(NEW_KEYS)              # (1.1.24: the new ones start hidden too)
+    full = default_layout(KEYS + NEW_KEYS, DEFAULTS, TOOLBAR_ITEMS)
+    assert full.left + full.right == DEFAULTS["toolbar_order"]
 
 
 # ----------------------------------------------------------------------
@@ -261,7 +267,7 @@ def steps(ike, qapp, out):
     order, saved_left = out["saved_first"]
     assert [k for k in saved_left if k != "pip"] == left            # pip: hidden, kept in its place
     assert order.index("downloads") < order.index("reader") < order.index("bookmark")
-    assert sorted(order) == sorted(KEYS)
+    assert sorted(order) == sorted(KEYS + NEW_KEYS)
     assert out["rebuilt"] and out["ghost_gone"] == [True, False]
     assert out["status_after"] == [False, ""]
     assert out["after_second"] == [["dark", "private", "cleansite", "bookmark", "screenshot", "split"],
@@ -390,14 +396,15 @@ def steps(ike, qapp, out):
     assert out["shown_dark"] and out["outlines_with_dark"] == 9
     assert out["home_hidden"] == [False, True, True]
     order, left, hidden = out["saved"]
-    assert left == ["private", "cleansite", "screenshot", "split", "pip"] and order[-1] == "dark"
-    assert sorted(order) == sorted(KEYS) and hidden == ["home"]
+    assert left == ["private", "cleansite", "screenshot", "split", "pip"]
+    assert [k for k in order if k not in NEW_KEYS][-1] == "dark"          # (the hidden new ones stay after it)
+    assert sorted(order) == sorted(KEYS + NEW_KEYS) and hidden == sorted(["home"] + NEW_KEYS)
     assert out["second"] == [["private", "cleansite", "screenshot", "split", "pip"],
                              ["bookmark", "reader", "downloads", "dark"]]
     assert out["second_mode"] == [False, False]
     keys_after, hidden, order, left, home, sep = out["reset"]
     assert keys_after == [LEFT_DEFAULT, RIGHT_DEFAULT]
-    assert hidden == ["pip"]
+    assert hidden == sorted(["pip"] + NEW_KEYS)
     assert order == DEFAULTS["toolbar_order"] and left == DEFAULTS["toolbar_left"] and home and sep
     assert out["still_on"] is True
     assert out["left_mode"] == [False, False, False]

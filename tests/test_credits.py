@@ -15,6 +15,8 @@ import re
 import sys
 from pathlib import Path
 
+from conftest import APP
+
 ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -67,11 +69,11 @@ def steps(ike, qapp, out):
 
 
 def test_withdrawn_list_is_never_offered(run_ike):
-    sys.path.insert(0, str(ROOT))
+    sys.path.insert(0, str(APP))
     try:
         from ike import config
     finally:
-        sys.path.remove(str(ROOT))
+        sys.path.remove(str(APP))
     hosts = [e["url"].split("/")[2] for e in config.DEFAULT_LISTS]
     assert not [h for h in hosts if config._withdrawn_list("https://%s/" % h)]
     out = run_ike(LISTS)
@@ -94,7 +96,7 @@ def test_withdrawn_list_dropped_from_old_settings(monkeypatch, tmp_path):
     """Settings of 1.1.17 or earlier lose the list once, whether it was on or
     off, also under another address of the same server; its downloaded copy is
     deleted, the other lists stay as they were, nothing is fetched again."""
-    sys.path.insert(0, str(ROOT))
+    sys.path.insert(0, str(APP))
     try:
         C = _fresh_config(monkeypatch, tmp_path)
         others = [dict(e) for e in C.DEFAULT_LISTS]
@@ -130,11 +132,11 @@ def test_withdrawn_list_dropped_from_old_settings(monkeypatch, tmp_path):
         again = C.Config()                                   # once only: nothing changes now
         assert [e.get("url") for e in again["filter_lists"]] == urls
     finally:
-        sys.path.remove(str(ROOT))
+        sys.path.remove(str(APP))
 
 
 def test_withdrawn_list_on_for_a_user_is_dropped_too(monkeypatch, tmp_path):
-    sys.path.insert(0, str(ROOT))
+    sys.path.insert(0, str(APP))
     try:
         C = _fresh_config(monkeypatch, tmp_path)
         path = Path(C.CONFIG_DIR) / "settings.json"
@@ -147,4 +149,4 @@ def test_withdrawn_list_on_for_a_user_is_dropped_too(monkeypatch, tmp_path):
         # the older steps still ran (the lists of video-ad rules and of malware)
         assert any("quick-fixes" in e["url"] for e in cfg["filter_lists"])
     finally:
-        sys.path.remove(str(ROOT))
+        sys.path.remove(str(APP))

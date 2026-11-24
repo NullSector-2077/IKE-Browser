@@ -62,20 +62,6 @@ def _fc(*args):
 
 
 # what I.K.E. uses of each optional dependency it names (ike/ and the PKGBUILD's reasons)
-def check_libnotify():
-    """ike/osinfo.py notify(): the notification is sent with notify-send."""
-    path = shutil.which("notify-send")
-    assert path, "notify-send is not on the PATH"
-    assert "notify-send" in (ROOT / "ike" / "osinfo.py").read_text("utf-8")
-
-
-def check_xdg_utils():
-    """ike/dialogs.py: I.K.E. as the default browser with xdg-settings."""
-    assert shutil.which("xdg-settings"), "xdg-settings is not on the PATH"
-    done = subprocess.run(["xdg-settings", "--version"], capture_output=True, text=True, check=False)
-    assert done.returncode == 0, done.stderr
-
-
 def check_noto_fonts_cjk():
     """Chinese, Japanese and Korean text: fontconfig finds a Noto CJK font."""
     assert "CJK" in _fc(":lang=ja", "family"), "no Noto CJK font for Japanese"
@@ -112,8 +98,6 @@ def check_intel_media_driver():
 
 
 CHECKS = {
-    "libnotify": check_libnotify,
-    "xdg-utils": check_xdg_utils,
     "noto-fonts-cjk": check_noto_fonts_cjk,
     "noto-fonts": check_noto_fonts,
     "plasma-integration": check_plasma_integration,
@@ -146,9 +130,9 @@ def test_an_optional_dependency_where_it_is_installed(package):
 def test_absent_is_not_verified_never_incompatible(monkeypatch):
     """The skip of an absent package says "not verified", never that it fails or is incompatible."""
     monkeypatch.setattr(shutil, "which", lambda name: None)
-    assert installed("libnotify") is False
+    assert installed("noto-fonts-cjk") is False
     with pytest.raises(pytest.skip.Exception) as e:
-        not_verified("libnotify")
+        not_verified("noto-fonts-cjk")
     assert "not verified" in str(e.value) and "incompatible" not in str(e.value)
     with pytest.raises(pytest.skip.Exception) as e:
         not_verified("chromium-widevine")

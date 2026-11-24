@@ -6,7 +6,8 @@ Privacy:
 - finding the city sends the typed name to Open-Meteo's geocoding service,
   once, when the user presses "Find";
 - the weather request sends only the city's coordinates, rounded to two
-  decimals, and the temperature unit; at most once every 30 minutes and only
+  decimals, and the temperature unit (it asks for the temperature, the weather
+  code and the wind speed); at most once every 30 minutes and only
   when a new tab page is shown;
 - the answer is kept in the cache folder (weather.json).
 """
@@ -100,7 +101,7 @@ class Weather(QObject):
             return None
         symbol, label = describe(self.data.get("code"))
         return {"temp": self.data.get("temp"), "unit": "°F" if cfg["weather_unit"] == "fahrenheit" else "°C",
-                "code": self.data.get("code"), "symbol": symbol, "label": label,
+                "code": self.data.get("code"), "wind": self.data.get("wind"), "symbol": symbol, "label": label,
                 "city": cfg["weather_city"]}
 
     def refresh(self):
@@ -110,7 +111,7 @@ class Weather(QObject):
             return
         self._last_try = time.time()
         query = {"latitude": "%.2f" % key[0], "longitude": "%.2f" % key[1],
-                 "current": "temperature_2m,weather_code"}
+                 "current": "temperature_2m,weather_code,wind_speed_10m"}
         if key[2] == "fahrenheit":
             query["temperature_unit"] = "fahrenheit"
         reply = self.network.get(_request(FORECAST + "?" + urlencode(query)))
@@ -125,7 +126,7 @@ class Weather(QObject):
             cur = json.loads(bytes(reply.readAll()).decode("utf-8"))["current"]
             self.data = {"key": key, "time": time.time(),
                          "temp": round(float(cur["temperature_2m"])),
-                         "code": int(cur["weather_code"])}
+                         "code": int(cur["weather_code"]), "wind": float(cur.get("wind_speed_10m") or 0)}
         except (ValueError, KeyError, TypeError):
             return
         finally:

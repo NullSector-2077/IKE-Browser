@@ -4,6 +4,18 @@
 # kept as a download of the run ("ike-browser-package").
 # The automation (daily maintenance, automatic fixes) starts it on its own
 # branches with workflow_dispatch, so its results show on the pull request.
+#
+# Since 2026-11-24 (the owner's priority, AUTOMAT block 1, step 1) the suite is
+# split across SHARDS parallel jobs, by whole test files balanced by their
+# recorded durations (tools/shard-tests.py, tools/test-timings.json), once for
+# the sources ("tests shard k/N") and once for the installed package ("tests
+# installed k/N"); every other step runs once, in "tests checks", "tests
+# package" or "tests of the starting commit". The job "tests" (main's required
+# check) is the gate: it proves that every test pytest collects ran exactly once
+# across the shards (tools/shard-tests.py verify), restates under their own
+# names the steps the categories of tools/test-categories.py read (job "tests",
+# step "Lint", "Tests", "Nothing gets worse"...), keeps the run's "test-results"
+# as before, and fails when any part failed, was cancelled or is missing.
 name: Tests
 
 on:
@@ -23,16 +35,120 @@ concurrency:
 env:
   # the runner restricts the user namespaces Chromium's sandbox needs
   QTWEBENGINE_DISABLE_SANDBOX: "1"
+  # how many parallel jobs run the suite, for the sources and for the installed
+  # package each: the one number to change (the gate checks every one of them)
+  SHARDS: "4"
 
 jobs:
-  tests:
+  # The shards' numbers, from SHARDS (a matrix cannot read the workflow's env)
+  plan:
+    name: tests plan
     runs-on: ubuntu-24.04
-    # room for the starting commit's tests too, when a branch of the automation
-    # or of ChatGPT changed tests/ (audit of #65), and for "Nothing gets worse"
-    # after them (up to 20 minutes): PR #116's run on 86525f6 had every step
-    # green after 100 minutes, the whole suite three times, and was cancelled
-    # by the old limit in "Nothing gets worse"
-    timeout-minutes: 140
+    timeout-minutes: 5
+    outputs:
+      shards: ${{ steps.shards.outputs.list }}
+    steps:
+      - name: The shards
+        id: shards
+        run: |
+          case "$SHARDS" in ''|*[!0-9]*|0) echo "::error::SHARDS must be a whole number from 1"; exit 1 ;; esac
+          echo "list=[$(seq -s, 1 "$SHARDS")]" | tee -a "$GITHUB_OUTPUT"
+
+  # The Arch package, built once from the PKGBUILD: the file people download,
+  # and the one every "tests installed" shard tests (by its sha256)
+  package:
+    name: tests package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      build: ${{ steps.build.outcome }}
+      old-cpu: ${{ steps.old-cpu.outcome }}
+      sha256: ${{ steps.sha256.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      # the test environment, as the single job had it (2026-11-24: without it the
+      # package's launcher found no PyQt6 for its --version)
+      - name: Test environment
+        uses: ./.github/actions/ike-test-env
+      - name: Arch package
+        id: build
+        run: |
+          mkdir -p "$RUNNER_TEMP/pkg" "$RUNNER_TEMP/pkgroot"
+          # built as on a computer whose makepkg.conf targets its own new
+          # processor (CachyOS and others): the package must still run on old ones
+          conf="$RUNNER_TEMP/makepkg.conf"
+          cat /etc/makepkg.conf > "$conf"
+          cat >> "$conf" <<'CONF'
+          CFLAGS="$CFLAGS -march=native"
+          RUSTFLAGS="-C target-cpu=native"
+          CONF
+          RUSTFLAGS="-C target-cpu=native" MAKEPKG_CONF="$conf" PKGDEST="$RUNNER_TEMP/pkg" PKGEXT=.pkg.tar.zst makepkg -d -f
+          pkg=$(find "$RUNNER_TEMP/pkg" -name 'ike-browser-*-x86_64.pkg.tar.zst' -print -quit)
+          test -n "$pkg"
+          tar -xf "$pkg" -C "$RUNNER_TEMP/pkgroot"
+          if find "$RUNNER_TEMP/pkgroot" -type f \( -name '*.key' -o -name '*.pem' \) | grep -q .; then
+            echo "Private-key-like file found in the package"; exit 1
+          fi
+          # the licences the package must carry (tests/test_licences.py checks their content)
+          licences="$RUNNER_TEMP/pkgroot/usr/share/licenses/ike-browser"
+          ls -l "$licences"
+          for f in LICENSE COPYRIGHT THIRD-PARTY.md RUST-CRATES.txt NOTICE.ubo-scriptlets RUST-STD-COPYRIGHT.html; do
+            test -s "$licences/$f" || { echo "::error::licence file $f missing from the package"; exit 1; }
+          done
+          python3 "$RUNNER_TEMP/pkgroot/usr/lib/ike-browser/ike_boot.py" --version
+      # kept (and its sha256 printed) as built, before any test runs code
+      # against it: a test cannot change the file people download (audit of #65)
+      - name: The package's sha256
+        id: sha256
+        run: |
+          sha256sum "$RUNNER_TEMP"/pkg/ike-browser-*-x86_64.pkg.tar.zst | tee "$RUNNER_TEMP/pkg.sha256"
+          echo "sha256=$(cut -d' ' -f1 "$RUNNER_TEMP/pkg.sha256")" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ike-browser-package
+          path: ${{ runner.temp }}/pkg/ike-browser-*-x86_64.pkg.tar.zst
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 30
+      - name: The package runs on an old processor
+        id: old-cpu
+        # an emulated Intel Ivy Bridge (an i5-3570K: no AVX2, no AVX-512):
+        # the AdBlock engine matches and the launcher starts, no "illegal instruction"
+        run: |
+          sudo apt-get install -y -qq qemu-user > /dev/null
+          root="$RUNNER_TEMP/pkgroot"
+          cat > "$RUNNER_TEMP/old-cpu.py" <<'PY'
+          import sys
+          sys.path.insert(0, sys.argv[1])
+          import adblock
+          fs = adblock.FilterSet()
+          fs.add_filter_list("||ads.example.test^\n##.ike-test-ad\n")
+          engine = adblock.Engine(fs)
+          url, src = "https://ads.example.test/a.js", "https://site.test/"
+          if hasattr(adblock, "Request") and hasattr(engine, "check_network_request"):
+              r = engine.check_network_request(adblock.Request(url, src, "script", "GET"))
+          else:
+              r = engine.check_network_urls(url, src, "script")
+          assert r.matched, "the engine did not block"
+          print("engine ok on the old processor")
+          PY
+          qemu-x86_64 -cpu IvyBridge /usr/bin/python3 -I "$RUNNER_TEMP/old-cpu.py" "$root/usr/lib/ike-browser/vendor"
+          IKE_LIBDIR="$root/usr/lib/ike-browser" qemu-x86_64 -cpu IvyBridge "$root/usr/bin/ike-browser" --version
+
+  # The suite on the sources, one part per job (tools/shard-tests.py run:
+  # collect, take this shard's whole files, run them with junit)
+  shard:
+    name: tests shard ${{ matrix.shard }}/${{ strategy.job-total }}
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -40,7 +156,95 @@ jobs:
           ref: ${{ github.sha }}
       - name: Test environment
         uses: ./.github/actions/ike-test-env
+      - name: Tests
+        # junit: the skipped tests and their reasons, for "What the tests verified" in the gate
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: python tools/shard-tests.py run --kind source --shard "$SHARD" --shards "$SHARDS" --out "$RUNNER_TEMP/shard"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: tests-shard-${{ matrix.shard }}
+          path: ${{ runner.temp }}/shard/
+          if-no-files-found: warn
+          overwrite: true
+          retention-days: 30
+
+  # The suite against the installed package, one part per job: the package of
+  # the job "tests package", checked by its sha256 before any test runs
+  installed:
+    name: tests installed ${{ matrix.shard }}/${{ strategy.job-total }}
+    needs: [plan, package]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Test environment
+        uses: ./.github/actions/ike-test-env
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ike-browser-package
+          path: ${{ runner.temp }}/pkg
+      - name: The package, as built
+        env:
+          SHA256: ${{ needs.package.outputs.sha256 }}
+        run: |
+          pkg=$(find "$RUNNER_TEMP/pkg" -name 'ike-browser-*-x86_64.pkg.tar.zst' -print -quit)
+          test -n "$pkg" && test -n "$SHA256"
+          echo "$SHA256  $pkg" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/pkgroot"
+          tar -xf "$pkg" -C "$RUNNER_TEMP/pkgroot"
+      - name: Tests of the installed package
+        env:
+          SHARD: ${{ matrix.shard }}
+          # recorded in the shard's results: the gate checks it is the package of "tests package"
+          IKE_PACKAGE_SHA256: ${{ needs.package.outputs.sha256 }}
+        run: |
+          IKE_TEST_APP="$RUNNER_TEMP/pkgroot/usr/lib/ike-browser" python tools/shard-tests.py run --kind installed \
+              --shard "$SHARD" --shards "$SHARDS" --out "$RUNNER_TEMP/shard"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: tests-installed-${{ matrix.shard }}
+          path: ${{ runner.temp }}/shard/
+          if-no-files-found: warn
+          overwrite: true
+          retention-days: 30
+
+  # Every step that is not the suite, once per commit
+  checks:
+    name: tests checks
+    runs-on: ubuntu-24.04
+    # "Nothing gets worse" has 20 minutes of its own
+    timeout-minutes: 60
+    outputs:
+      rust: ${{ steps.rust.outcome }}
+      licences: ${{ steps.licences.outcome }}
+      lint: ${{ steps.lint.outcome }}
+      kept: ${{ steps.kept.outcome }}
+      filter-lists: ${{ steps.filter-lists.outcome }}
+      no-regression: ${{ steps.no-regression.outcome }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Test environment
+        uses: ./.github/actions/ike-test-env
+      # the tests pytest collects here, apart from the shards: the gate checks
+      # that each of them ran exactly once in the shards (tools/shard-tests.py);
+      # first, so that a failure of a later step leaves it there
+      - name: The tests to run
+        run: python tools/shard-tests.py collect --out "$RUNNER_TEMP/test-results/collected.txt"
       - name: AdBlock engine (Rust tests)
+        id: rust
         # the tests are an ordinary program: without the "extension-module" feature
         run: cargo test --no-default-features --locked --manifest-path ike-adblock/Cargo.toml
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -48,6 +252,7 @@ jobs:
           path: ~/.cargo/bin/cargo-deny
           key: cargo-deny-0.20.2-${{ runner.os }}
       - name: Licences
+        id: licences
         # 1.1.18: every Rust library of the AdBlock engine under a licence
         # approved in ike-adblock/deny.toml and only from crates.io (cargo-deny),
         # and the licence files of the package in step with the crates' own
@@ -61,15 +266,14 @@ jobs:
               check licenses bans sources
           python3 tools/third-party.py --check
       - name: Lint
+        id: lint
         run: ruff check .
-      - name: Tests
-        # junit: the skipped tests and their reasons, for "What the tests verified" below
-        run: python -m pytest --junitxml="$RUNNER_TEMP/test-results/junit.xml"
       # review 2 of 1.1.19, H4: code under ike/ could make the test run report
       # success (by finding pytest or the runner). A test that must fail, kept
       # out of the tree, is run with every module of ike/ imported first: if
       # it does not fail, the run is not to be trusted.
       - name: A test that must fail still fails
+        id: canary
         run: |
           mkdir -p "$RUNNER_TEMP/canary"
           cat > "$RUNNER_TEMP/canary/test_canary.py" <<'PY'
@@ -99,6 +303,7 @@ jobs:
       # made this -qq, which prints no ids). When the starting commit cannot be
       # counted, it says so and goes on.
       - name: No tests lost
+        id: kept
         if: >-
           startsWith(github.head_ref, 'chatgpt/') || startsWith(github.head_ref, 'automation/') ||
           (github.event_name == 'workflow_dispatch' && startsWith(github.ref_name, 'automation/'))
@@ -144,6 +349,137 @@ jobs:
             head -n 50 "$RUNNER_TEMP/ids-lost" | sed 's/^/  lost: /'
             exit 1
           fi
+      # The full chain, item 4 (2026-11-22): a commit of the automation that changes the
+      # AdBlock engine (adblock, pyo3, a crate, I.K.E.'s wrapper) gets today's default
+      # filter lists checked in ITS engine, on the commit itself, against main's engine
+      # on the same lists (tools/filter-lists.py compare): the category "filter-lists"
+      # tools/automerge.py reads before the merge by itself. A list that cannot be
+      # downloaded leaves the decisive step skipped: not verified, never passed.
+      - name: The engines, this commit's and main's
+        id: engines
+        if: >-
+          startsWith(github.head_ref, 'automation/') ||
+          (github.event_name == 'workflow_dispatch' && startsWith(github.ref_name, 'automation/'))
+        run: |
+          git fetch -q --no-tags origin main
+          if git diff --quiet FETCH_HEAD HEAD -- ike-adblock vendor/adblock ike/blocker.py ike/scriptlets.py; then
+            echo "same=true" >> "$GITHUB_OUTPUT"
+            echo "This commit's AdBlock engine is main's own."
+            exit 0
+          fi
+          echo "same=false" >> "$GITHUB_OUTPUT"
+          cargo build --release --locked --manifest-path ike-adblock/Cargo.toml
+          install -m755 ike-adblock/target/release/libike_adblock.so vendor/adblock/ike_adblock.abi3.so
+          git worktree add -q --detach "$RUNNER_TEMP/main" FETCH_HEAD
+          cargo build --release --locked --manifest-path "$RUNNER_TEMP/main/ike-adblock/Cargo.toml"
+          install -m755 "$RUNNER_TEMP/main/ike-adblock/target/release/libike_adblock.so" \
+              "$RUNNER_TEMP/main/vendor/adblock/ike_adblock.abi3.so"
+      - name: Today's lists in both engines
+        id: lists
+        if: steps.engines.outputs.same == 'false'
+        run: |
+          python3 tools/check-components.py --filter-lists "$RUNNER_TEMP/candidate.json" > /dev/null
+          python3 "$RUNNER_TEMP/main/tools/check-components.py" --filter-lists "$RUNNER_TEMP/main.json" > /dev/null
+          verdict=$(python3 tools/filter-lists.py compare --base "$RUNNER_TEMP/main.json" \
+                    --candidate "$RUNNER_TEMP/candidate.json" --markdown "$RUNNER_TEMP/compare.md")
+          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/compare.md" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Filter lists in this engine
+        id: filter-lists
+        if: steps.engines.outputs.same == 'true' || steps.lists.outputs.verdict == 'pass' || steps.lists.outputs.verdict == 'fail'
+        env:
+          SAME: ${{ steps.engines.outputs.same }}
+          VERDICT: ${{ steps.lists.outputs.verdict }}
+        run: |
+          if [ "$SAME" = "true" ]; then
+            echo "The engine is main's own: today's lists are checked in it every day (daily-check.yml, job lists)."
+            exit 0
+          fi
+          if [ "$VERDICT" != "pass" ]; then
+            echo "::error::this commit's AdBlock engine reads today's default filter lists worse than main's (see the step before)"
+            exit 1
+          fi
+          echo "This commit's engine reads today's default filter lists no worse than main's."
+      # Nothing gets worse (2026-11-22, the category "no-regression" that the merge by
+      # itself needs, tools/test-categories.py): what I.K.E. does for its users,
+      # measured the same way on the same fixed inputs on this commit and on main's
+      # (on main itself: on the commit before), in this job, offline and without a
+      # display: ad and tracker blocking (YouTube's requests included, read only),
+      # the fingerprinting surface at every level, the hosts contacted by itself,
+      # the security settings. Anything weaker fails, unless a person accepted that
+      # change in tests/data/no-regression/allowlist.json. Main's own copy of
+      # tools/no-regression.py and of its inputs measures both: a candidate never
+      # judges itself (docs/MAINTENANCE.md, "Nothing gets worse").
+      - name: Nothing gets worse
+        id: no-regression
+        timeout-minutes: 20
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          git fetch -q --no-tags --unshallow origin main 2>/dev/null || git fetch -q --no-tags origin main
+          if [ "$REF" = refs/heads/main ]; then
+            base=$(git rev-parse HEAD^1)
+          else
+            base=$(git rev-parse FETCH_HEAD)
+          fi
+          if git diff --quiet "$base" HEAD; then
+            echo "This commit's files are those of $base: nothing can be worse."
+            exit 0
+          fi
+          where="$RUNNER_TEMP/nr-main"
+          rm -rf "$where"
+          git worktree add -q --detach "$where" "$base"
+          # main's AdBlock engine: this one when the engine did not change, else built from main's sources
+          if git diff --quiet "$base" HEAD -- ike-adblock vendor/adblock; then
+            cp vendor/adblock/ike_adblock.abi3.so "$where/vendor/adblock/"
+          else
+            cargo build --release --locked --manifest-path "$where/ike-adblock/Cargo.toml" \
+                --target-dir "$GITHUB_WORKSPACE/ike-adblock/target"
+            install -m755 ike-adblock/target/release/libike_adblock.so "$where/vendor/adblock/ike_adblock.abi3.so"
+          fi
+          tool="$where/tools/no-regression.py"
+          if [ ! -f "$tool" ]; then
+            echo "::notice::$base has no tools/no-regression.py yet: this commit's own copy measures both (once)"
+            tool=tools/no-regression.py
+          fi
+          out="$RUNNER_TEMP/test-results/no-regression"
+          set +e
+          python3 "$tool" check --base-repo "$where" --candidate-repo . \
+              --allowlist tests/data/no-regression/allowlist.json --out-dir "$out"
+          code=$?
+          set -e
+          cat "$out/report.md" >> "$GITHUB_STEP_SUMMARY" 2> /dev/null || true
+          cat "$out/report.md" 2> /dev/null || echo "::error::no report: the check did not run to its end"
+          git worktree remove --force "$where"
+          exit $code
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: tests-checks
+          path: ${{ runner.temp }}/test-results/
+          if-no-files-found: warn
+          overwrite: true
+          retention-days: 30
+
+  # The starting commit's tests on this code: the whole suite of the commit a
+  # branch of the automation or of ChatGPT starts from, when it changed tests/
+  # (the job always runs, so that no job of the chain is skipped; its steps run
+  # only on those branches)
+  base-tests:
+    name: tests of the starting commit
+    runs-on: ubuntu-24.04
+    # the whole suite of the starting commit, in one job
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Test environment
+        if: >-
+          startsWith(github.head_ref, 'chatgpt/') || startsWith(github.head_ref, 'automation/') ||
+          (github.event_name == 'workflow_dispatch' && startsWith(github.ref_name, 'automation/'))
+        uses: ./.github/actions/ike-test-env
       # The starting commit's tests on this code (audit of #65). When the branch
       # changed tests/, the tests of the commit it starts from run once more,
       # as they were, against its code: a test weakened, a module that changes
@@ -213,169 +549,109 @@ jobs:
                 % (len(cases), len(soft), len(hard)))
           sys.exit(1 if hard else 0)
           PY
-      - name: Arch package
-        run: |
-          mkdir -p "$RUNNER_TEMP/pkg" "$RUNNER_TEMP/pkgroot"
-          # built as on a computer whose makepkg.conf targets its own new
-          # processor (CachyOS and others): the package must still run on old ones
-          conf="$RUNNER_TEMP/makepkg.conf"
-          cat /etc/makepkg.conf > "$conf"
-          cat >> "$conf" <<'CONF'
-          CFLAGS="$CFLAGS -march=native"
-          RUSTFLAGS="-C target-cpu=native"
-          CONF
-          RUSTFLAGS="-C target-cpu=native" MAKEPKG_CONF="$conf" PKGDEST="$RUNNER_TEMP/pkg" PKGEXT=.pkg.tar.zst makepkg -d -f
-          pkg=$(find "$RUNNER_TEMP/pkg" -name 'ike-browser-*-x86_64.pkg.tar.zst' -print -quit)
-          test -n "$pkg"
-          tar -xf "$pkg" -C "$RUNNER_TEMP/pkgroot"
-          if find "$RUNNER_TEMP/pkgroot" -type f \( -name '*.key' -o -name '*.pem' \) | grep -q .; then
-            echo "Private-key-like file found in the package"; exit 1
-          fi
-          # the licences the package must carry (tests/test_licences.py checks their content)
-          licences="$RUNNER_TEMP/pkgroot/usr/share/licenses/ike-browser"
-          ls -l "$licences"
-          for f in LICENSE COPYRIGHT THIRD-PARTY.md RUST-CRATES.txt NOTICE.ubo-scriptlets RUST-STD-COPYRIGHT.html; do
-            test -s "$licences/$f" || { echo "::error::licence file $f missing from the package"; exit 1; }
-          done
-          python3 "$RUNNER_TEMP/pkgroot/usr/lib/ike-browser/ike_boot.py" --version
-      # kept (and its sha256 printed) as built, before any test runs code
-      # against it: a test cannot change the file people download (audit of #65)
-      - name: The package's sha256
-        run: sha256sum "$RUNNER_TEMP"/pkg/ike-browser-*-x86_64.pkg.tar.zst
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+
+  # The gate, main's required check "tests": every part above passed and every
+  # collected test ran exactly once. It runs whatever happened before it (a
+  # skipped "tests" would count as passed for GitHub's protection of main).
+  # The steps the categories read (tools/test-categories.py: job "tests", step
+  # "Lint", "Tests", "Nothing gets worse"...) are restated here under their own
+  # names, from the outcome of the step itself in its job: skipped there,
+  # skipped here (not verified); failed there, failed here.
+  tests:
+    needs: [plan, package, shard, installed, checks, base-tests]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          name: ike-browser-package
-          path: ${{ runner.temp }}/pkg/ike-browser-*-x86_64.pkg.tar.zst
-          if-no-files-found: error
-          retention-days: 30
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: ${{ !cancelled() }}
+        with:
+          pattern: tests-*
+          path: ${{ runner.temp }}/parts
+      - name: AdBlock engine (Rust tests)
+        if: ${{ !cancelled() && (needs.checks.outputs.rust == 'success' || needs.checks.outputs.rust == 'failure') }}
+        env:
+          OUTCOME: ${{ needs.checks.outputs.rust }}
+        run: |
+          echo "\"AdBlock engine (Rust tests)\", in the job \"tests checks\": $OUTCOME"
+          test "$OUTCOME" = success
+      - name: Licences
+        if: ${{ !cancelled() && (needs.checks.outputs.licences == 'success' || needs.checks.outputs.licences == 'failure') }}
+        env:
+          OUTCOME: ${{ needs.checks.outputs.licences }}
+        run: |
+          echo "\"Licences\", in the job \"tests checks\": $OUTCOME"
+          test "$OUTCOME" = success
+      - name: Lint
+        if: ${{ !cancelled() && (needs.checks.outputs.lint == 'success' || needs.checks.outputs.lint == 'failure') }}
+        env:
+          OUTCOME: ${{ needs.checks.outputs.lint }}
+        run: |
+          echo "\"Lint\", in the job \"tests checks\": $OUTCOME"
+          test "$OUTCOME" = success
+      - name: Tests
+        if: ${{ !cancelled() }}
+        env:
+          RESULT: ${{ needs.shard.result }}
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP/test-results"
+          python3 tools/shard-tests.py verify --kind source --shards "$SHARDS" --dir "$RUNNER_TEMP/parts" \
+              --collected "$RUNNER_TEMP/parts/tests-checks/collected.txt" --sha "$GITHUB_SHA" --run-id "$GITHUB_RUN_ID" \
+              --jobs-result "$RESULT" \
+              --merged-junit "$RUNNER_TEMP/test-results/junit.xml" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: No tests lost
+        if: ${{ !cancelled() && (needs.checks.outputs.kept == 'success' || needs.checks.outputs.kept == 'failure') }}
+        env:
+          OUTCOME: ${{ needs.checks.outputs.kept }}
+        run: |
+          echo "\"No tests lost\", in the job \"tests checks\": $OUTCOME"
+          test "$OUTCOME" = success
+      - name: Arch package
+        if: ${{ !cancelled() && (needs.package.outputs.build == 'success' || needs.package.outputs.build == 'failure') }}
+        env:
+          OUTCOME: ${{ needs.package.outputs.build }}
+        run: |
+          echo "\"Arch package\", in the job \"tests package\": $OUTCOME"
+          test "$OUTCOME" = success
       - name: The package runs on an old processor
-        # an emulated Intel Ivy Bridge (an i5-3570K: no AVX2, no AVX-512):
-        # the AdBlock engine matches and the launcher starts, no "illegal instruction"
+        if: ${{ !cancelled() && (needs.package.outputs.old-cpu == 'success' || needs.package.outputs.old-cpu == 'failure') }}
+        env:
+          OUTCOME: ${{ needs.package.outputs.old-cpu }}
         run: |
-          sudo apt-get install -y -qq qemu-user > /dev/null
-          root="$RUNNER_TEMP/pkgroot"
-          cat > "$RUNNER_TEMP/old-cpu.py" <<'PY'
-          import sys
-          sys.path.insert(0, sys.argv[1])
-          import adblock
-          fs = adblock.FilterSet()
-          fs.add_filter_list("||ads.example.test^\n##.ike-test-ad\n")
-          engine = adblock.Engine(fs)
-          url, src = "https://ads.example.test/a.js", "https://site.test/"
-          if hasattr(adblock, "Request") and hasattr(engine, "check_network_request"):
-              r = engine.check_network_request(adblock.Request(url, src, "script", "GET"))
-          else:
-              r = engine.check_network_urls(url, src, "script")
-          assert r.matched, "the engine did not block"
-          print("engine ok on the old processor")
-          PY
-          qemu-x86_64 -cpu IvyBridge /usr/bin/python3 -I "$RUNNER_TEMP/old-cpu.py" "$root/usr/lib/ike-browser/vendor"
-          IKE_LIBDIR="$root/usr/lib/ike-browser" qemu-x86_64 -cpu IvyBridge "$root/usr/bin/ike-browser" --version
+          echo "\"The package runs on an old processor\", in the job \"tests package\": $OUTCOME"
+          test "$OUTCOME" = success
       - name: Tests of the installed package
+        if: ${{ !cancelled() }}
+        env:
+          RESULT: ${{ needs.installed.result }}
+          PACKAGE: ${{ needs.package.outputs.sha256 }}
         run: |
-          IKE_TEST_APP="$RUNNER_TEMP/pkgroot/usr/lib/ike-browser" python -m pytest \
-              --junitxml="$RUNNER_TEMP/test-results/junit-installed.xml"
-      # The full chain, item 4 (2026-11-22): a commit of the automation that changes the
-      # AdBlock engine (adblock, pyo3, a crate, I.K.E.'s wrapper) gets today's default
-      # filter lists checked in ITS engine, on the commit itself, against main's engine
-      # on the same lists (tools/filter-lists.py compare): the category "filter-lists"
-      # tools/automerge.py reads before the merge by itself. A list that cannot be
-      # downloaded leaves the decisive step skipped: not verified, never passed.
-      - name: The engines, this commit's and main's
-        id: engines
-        if: >-
-          startsWith(github.head_ref, 'automation/') ||
-          (github.event_name == 'workflow_dispatch' && startsWith(github.ref_name, 'automation/'))
-        run: |
-          git fetch -q --no-tags origin main
-          if git diff --quiet FETCH_HEAD HEAD -- ike-adblock vendor/adblock ike/blocker.py ike/scriptlets.py; then
-            echo "same=true" >> "$GITHUB_OUTPUT"
-            echo "This commit's AdBlock engine is main's own."
-            exit 0
-          fi
-          echo "same=false" >> "$GITHUB_OUTPUT"
-          cargo build --release --locked --manifest-path ike-adblock/Cargo.toml
-          install -m755 ike-adblock/target/release/libike_adblock.so vendor/adblock/ike_adblock.abi3.so
-          git worktree add -q --detach "$RUNNER_TEMP/main" FETCH_HEAD
-          cargo build --release --locked --manifest-path "$RUNNER_TEMP/main/ike-adblock/Cargo.toml"
-          install -m755 "$RUNNER_TEMP/main/ike-adblock/target/release/libike_adblock.so" \
-              "$RUNNER_TEMP/main/vendor/adblock/ike_adblock.abi3.so"
-      - name: Today's lists in both engines
-        id: lists
-        if: steps.engines.outputs.same == 'false'
-        run: |
-          python3 tools/check-components.py --filter-lists "$RUNNER_TEMP/candidate.json" > /dev/null
-          python3 "$RUNNER_TEMP/main/tools/check-components.py" --filter-lists "$RUNNER_TEMP/main.json" > /dev/null
-          verdict=$(python3 tools/filter-lists.py compare --base "$RUNNER_TEMP/main.json" \
-                    --candidate "$RUNNER_TEMP/candidate.json" --markdown "$RUNNER_TEMP/compare.md")
-          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
-          cat "$RUNNER_TEMP/compare.md" | tee -a "$GITHUB_STEP_SUMMARY"
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP/test-results"
+          # the installed copy holds the same tests as the sources: the same independent collection
+          python3 tools/shard-tests.py verify --kind installed --shards "$SHARDS" --dir "$RUNNER_TEMP/parts" \
+              --collected "$RUNNER_TEMP/parts/tests-checks/collected.txt" --sha "$GITHUB_SHA" --run-id "$GITHUB_RUN_ID" \
+              --package-sha256 "$PACKAGE" --jobs-result "$RESULT" \
+              --merged-junit "$RUNNER_TEMP/test-results/junit-installed.xml" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Filter lists in this engine
-        if: steps.engines.outputs.same == 'true' || steps.lists.outputs.verdict == 'pass' || steps.lists.outputs.verdict == 'fail'
+        if: ${{ !cancelled() && (needs.checks.outputs.filter-lists == 'success' || needs.checks.outputs.filter-lists == 'failure') }}
         env:
-          SAME: ${{ steps.engines.outputs.same }}
-          VERDICT: ${{ steps.lists.outputs.verdict }}
+          OUTCOME: ${{ needs.checks.outputs.filter-lists }}
         run: |
-          if [ "$SAME" = "true" ]; then
-            echo "The engine is main's own: today's lists are checked in it every day (daily-check.yml, job lists)."
-            exit 0
-          fi
-          if [ "$VERDICT" != "pass" ]; then
-            echo "::error::this commit's AdBlock engine reads today's default filter lists worse than main's (see the step before)"
-            exit 1
-          fi
-          echo "This commit's engine reads today's default filter lists no worse than main's."
-      # Nothing gets worse (2026-11-22, the category "no-regression" that the merge by
-      # itself needs, tools/test-categories.py): what I.K.E. does for its users,
-      # measured the same way on the same fixed inputs on this commit and on main's
-      # (on main itself: on the commit before), in this job, offline and without a
-      # display: ad and tracker blocking (YouTube's requests included, read only),
-      # the fingerprinting surface at every level, the hosts contacted by itself,
-      # the security settings. Anything weaker fails, unless a person accepted that
-      # change in tests/data/no-regression/allowlist.json. Main's own copy of
-      # tools/no-regression.py and of its inputs measures both: a candidate never
-      # judges itself (docs/MAINTENANCE.md, "Nothing gets worse").
+          echo "\"Filter lists in this engine\", in the job \"tests checks\": $OUTCOME"
+          test "$OUTCOME" = success
       - name: Nothing gets worse
-        timeout-minutes: 20
+        if: ${{ !cancelled() && (needs.checks.outputs.no-regression == 'success' || needs.checks.outputs.no-regression == 'failure') }}
         env:
-          REF: ${{ github.ref }}
+          OUTCOME: ${{ needs.checks.outputs.no-regression }}
         run: |
-          git fetch -q --no-tags --unshallow origin main 2>/dev/null || git fetch -q --no-tags origin main
-          if [ "$REF" = refs/heads/main ]; then
-            base=$(git rev-parse HEAD^1)
-          else
-            base=$(git rev-parse FETCH_HEAD)
-          fi
-          if git diff --quiet "$base" HEAD; then
-            echo "This commit's files are those of $base: nothing can be worse."
-            exit 0
-          fi
-          where="$RUNNER_TEMP/nr-main"
-          rm -rf "$where"
-          git worktree add -q --detach "$where" "$base"
-          # main's AdBlock engine: this one when the engine did not change, else built from main's sources
-          if git diff --quiet "$base" HEAD -- ike-adblock vendor/adblock; then
-            cp vendor/adblock/ike_adblock.abi3.so "$where/vendor/adblock/"
-          else
-            cargo build --release --locked --manifest-path "$where/ike-adblock/Cargo.toml" \
-                --target-dir "$GITHUB_WORKSPACE/ike-adblock/target"
-            install -m755 ike-adblock/target/release/libike_adblock.so "$where/vendor/adblock/ike_adblock.abi3.so"
-          fi
-          tool="$where/tools/no-regression.py"
-          if [ ! -f "$tool" ]; then
-            echo "::notice::$base has no tools/no-regression.py yet: this commit's own copy measures both (once)"
-            tool=tools/no-regression.py
-          fi
-          out="$RUNNER_TEMP/test-results/no-regression"
-          set +e
-          python3 "$tool" check --base-repo "$where" --candidate-repo . \
-              --allowlist tests/data/no-regression/allowlist.json --out-dir "$out"
-          code=$?
-          set -e
-          cat "$out/report.md" >> "$GITHUB_STEP_SUMMARY" 2> /dev/null || true
-          cat "$out/report.md" 2> /dev/null || echo "::error::no report: the check did not run to its end"
-          git worktree remove --force "$where"
-          exit $code
+          echo "\"Nothing gets worse\", in the job \"tests checks\": $OUTCOME"
+          test "$OUTCOME" = success
       # 2026-11-22 (WP4 of the maintenance plan): a skipped test is NOT VERIFIED,
       # never passed. The junit files of both test steps are read into the
       # run's summary (the skipped tests by area, with their reasons) and kept
@@ -385,6 +661,9 @@ jobs:
       - name: What the tests verified
         if: always()
         run: |
+          mkdir -p "$RUNNER_TEMP/test-results"
+          # "Nothing gets worse"'s report, kept with the results as before
+          cp -r "$RUNNER_TEMP/parts/tests-checks/no-regression" "$RUNNER_TEMP/test-results/" 2> /dev/null || true
           python3 tools/test-categories.py --junit "$RUNNER_TEMP/test-results/junit.xml" \
               --junit "$RUNNER_TEMP/test-results/junit-installed.xml" \
               --json "$RUNNER_TEMP/test-results/summary.json" --markdown "$RUNNER_TEMP/test-results/summary.md" \
@@ -397,7 +676,27 @@ jobs:
           name: test-results
           path: ${{ runner.temp }}/test-results/
           if-no-files-found: ignore
+          overwrite: true
           retention-days: 30
+      # the gate's own verdict: every job above passed
+      - name: Every part of the tests passed
+        if: always()
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          python3 -I - <<'PY'
+          import json, os, sys
+          needs = json.loads(os.environ["NEEDS"])
+          bad = []
+          for job in ("plan", "package", "shard", "installed", "checks", "base-tests"):
+              result = (needs.get(job) or {}).get("result") or "no result"
+              print("%s: %s" % (job, result))
+              if result != "success":
+                  bad.append("%s (%s)" % (job, result))
+          if bad:
+              print("::error::not every part of the tests passed: %s" % ", ".join(bad))
+              sys.exit(1)
+          PY
 
   # When the automation itself started these tests (on its own branches), GitHub
   # sends no "workflow_run" for their failure: events of runs started with
@@ -409,18 +708,19 @@ jobs:
     needs: tests
     # also a run the automatic fix started again (audit of #65: a test failed
     # once is run again before any AI fix), on main too
+    # (a cancelled run is no failure: its gate runs and fails, and is not handed over)
     if: >-
-      failure() && (
+      failure() && !cancelled() && (
       (github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]' &&
       (github.ref_name == 'automation/autofix-main' || github.ref_name == 'automation/daily-maintenance' ||
       startsWith(github.ref_name, 'automation/update/security-') ||
       startsWith(github.ref_name, 'automation/update/') || startsWith(github.ref_name, 'automation/builder/') ||
       github.ref_name == 'main')) ||
       (github.run_attempt > 1 && github.triggering_actor == 'github-actions[bot]' &&
-      (github.ref_name == 'main' || github.ref_name == 'automation/autofix-main' ||
-      startsWith(github.ref_name, 'automation/update/security-') ||
-      startsWith(github.ref_name, 'automation/update/') || startsWith(github.ref_name, 'automation/builder/') ||
-      github.ref_name == 'automation/daily-maintenance')))
+      ((github.head_ref || github.ref_name) == 'main' || (github.head_ref || github.ref_name) == 'automation/autofix-main' ||
+      startsWith((github.head_ref || github.ref_name), 'automation/update/security-') ||
+      startsWith((github.head_ref || github.ref_name), 'automation/update/') || startsWith((github.head_ref || github.ref_name), 'automation/builder/') ||
+      (github.head_ref || github.ref_name) == 'automation/daily-maintenance')))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:

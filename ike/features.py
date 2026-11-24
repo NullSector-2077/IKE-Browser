@@ -28,8 +28,37 @@ from . import i18n
 from .config import RES_DIR, list_profiles
 from .i18n import T
 
-GROUP_COLORS = ["#3daee9", "#27ae60", "#f67400", "#da4453", "#9b59b6",
-                "#fdbc4b", "#1abc9c", "#7f8c8d"]
+# 1.1.24: the colours of tab groups are Breeze's: the desktop's accent first,
+# then the colour scheme's positive, neutral, negative, visited and link
+# colours (KDE's kdeglobals when it has them; Breeze's own otherwise), then
+# the yellow, turquoise and grey of KDE's palette (the HIG)
+SCHEME_ROLES = (("ForegroundPositive", "#27ae60"), ("ForegroundNeutral", "#f67400"),
+                ("ForegroundNegative", "#da4453"), ("ForegroundVisited", "#9b59b6"),
+                ("ForegroundLink", "#2980b9"))
+HIG_MORE = ("#fdbc4b", "#1cdc9a", "#7f8c8d")
+
+
+def group_colours(palette=None):
+    """The colours of the tab groups, in order (Breeze's palette)."""
+    from PyQt6.QtGui import QPalette
+    from PyQt6.QtWidgets import QApplication
+
+    from .closebutton import _kde_config
+    pal = palette or QApplication.palette()
+    out = [pal.color(QPalette.ColorRole.Highlight).name()]
+    scheme = _kde_config("kdeglobals").get("Colors:Window", {})
+    for key, default in SCHEME_ROLES:
+        try:
+            r, g, b = (int(x) for x in scheme.get(key, "").split(",")[:3])
+            out.append(QColor(r, g, b).name())
+        except ValueError:
+            out.append(default)
+    out.extend(HIG_MORE)
+    seen = []
+    for c in out:                       # the accent may be one of the others
+        if c.lower() not in seen:
+            seen.append(c.lower())
+    return seen
 _PERM_LABELS = None
 
 
@@ -315,11 +344,32 @@ class WindowFeatures:
         cfg.save()
         self.app.refresh_windows()
 
+    VTABS_MIN = 120                 # the panel with titles: never narrower...
+    VTABS_MAX = 720                 # ...nor wider than this, nor than half the screen (1.1.24)
+
     def vtabs_width_now(self):
-        """The width the tab panel has: narrow with only icons, else the user's."""
+        """The width the tab panel has: narrow with only icons, else the user's
+        (1.1.24: the width the user gave it, kept in the settings, within
+        VTABS_MIN and the smaller of VTABS_MAX and half the screen)."""
         if self.app.config["vtabs_icons_only"]:
             return self.VTABS_ICONS_WIDTH
-        return int(self.app.config["vtabs_width"])
+        return self.vtabs_clamp(self.app.config["vtabs_width"])
+
+    def vtabs_clamp(self, width):
+        try:
+            w = int(width)
+        except (TypeError, ValueError):
+            w = 240
+        screen = self.screen()
+        top = self.VTABS_MAX
+        if screen is not None:
+            top = min(top, max(self.VTABS_MIN, screen.availableGeometry().width() // 2))
+        return max(self.VTABS_MIN, min(top, w))
+
+    def _vtabs_place(self, w):
+        """Give the pinned panel width w (the page the rest)."""
+        total = self.splitter.width() if self.splitter.isVisible() else self.width()
+        self.splitter.setSizes([w, max(200, total - w - self.splitter.handleWidth())])
 
     def _apply_vtabs_icons(self):
         on = bool(self.app.config["vtabs_icons_only"])
@@ -332,21 +382,68 @@ class WindowFeatures:
         self.ws_btn_v.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly if on
                                          else Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.vplus.setText("" if on else T("New tab"))
-        if on:
-            self.vtab_panel.setMinimumWidth(self.VTABS_ICONS_WIDTH)
-            self.vtab_panel.setMaximumWidth(self.VTABS_ICONS_WIDTH)
-        else:
-            self.vtab_panel.setMaximumWidth(16777215)
-            self.vtab_panel.setMinimumWidth(120)
-        if getattr(self, "_vtabs_icons_state", None) != on:
+        before = getattr(self, "_vtabs_icons_state", None)
+        if before != on:
             self._vtabs_icons_state = on
+            start = self.vtab_panel.width()
+            if before is not None and self._vtabs_resize(start, self.vtabs_width_now()):
+                return              # the panel glides to its width; the limits are set at the end
+        self._vtabs_limits()
+        if before != on:
             if not self._vtabs_floating:
-                w = self.vtabs_width_now()
-                self.splitter.setSizes([w, max(200, self.width() - w)])
+                self._vtabs_place(self.vtabs_width_now())
             elif self.vtab_panel.isVisible():
                 self.vtab_panel.resize(self.vtabs_width_now(), self.vtab_panel.height())
             self.vtabs.doItemsLayout()
             self.vtabs.viewport().update()
+
+    def _vtabs_limits(self):
+        if self.app.config["vtabs_icons_only"]:
+            self.vtab_panel.setMinimumWidth(self.VTABS_ICONS_WIDTH)
+            self.vtab_panel.setMaximumWidth(self.VTABS_ICONS_WIDTH)
+        else:
+            self.vtab_panel.setMaximumWidth(16777215)
+            self.vtab_panel.setMinimumWidth(self.VTABS_MIN)
+
+    VTABS_RESIZE_MS = 200
+
+    def _vtabs_resize(self, start, end):
+        """The panel widens or narrows smoothly between only the icons and the
+        titles (1.1.24); the titles' width is the one the user chose. False
+        when it changes at once (effects off, the panel not shown)."""
+        from .polish import moving
+        anim = getattr(self, "_vtabs_width_anim", None)
+        if anim is not None:
+            anim.stop()
+        if start == end or not self.vtab_panel.isVisible() or not moving(self.app.config, "vtabs_resize"):
+            return False
+        from PyQt6.QtCore import QEasingCurve, QVariantAnimation
+        if anim is None:
+            anim = self._vtabs_width_anim = QVariantAnimation(self)
+            anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+            anim.valueChanged.connect(self._vtabs_resize_step)
+            anim.finished.connect(self._vtabs_resize_end)
+        self.vtab_panel.setMinimumWidth(self.VTABS_ICONS_WIDTH)
+        self.vtab_panel.setMaximumWidth(16777215)
+        anim.setDuration(self.VTABS_RESIZE_MS)
+        anim.setStartValue(int(start))
+        anim.setEndValue(int(end))
+        self.vtabs.doItemsLayout()
+        anim.start()
+        return True
+
+    def _vtabs_resize_step(self, w):
+        w = int(w)
+        if self._vtabs_floating:
+            self.vtab_panel.resize(w, self.vtab_panel.height())
+        else:
+            self._vtabs_place(w)
+
+    def _vtabs_resize_end(self):
+        self._vtabs_limits()
+        self._vtabs_resize_step(self.vtabs_width_now())
+        self.vtabs.doItemsLayout()
+        self.vtabs.viewport().update()
 
     def _apply_vtabs(self, show):
         """show: vertical tabs are in use and the window chrome is visible."""
@@ -376,19 +473,26 @@ class WindowFeatures:
             self._vtabs_hiding = False
             if getattr(self, "_vtabs_anim", None) is not None:
                 self._vtabs_anim.stop()
+            was_shown = self.vtab_panel.isVisibleTo(self) and not self._vtabs_floating
             if self._vtabs_floating:
                 self.splitter.insertWidget(0, self.vtab_panel)
                 self.splitter.setStretchFactor(0, 0)
-                w = self.vtabs_width_now()
-                self.splitter.setSizes([w, max(200, self.width() - w)])
                 self._vtabs_floating = False
             self.vtab_edge.hide()
             self.vtabs_edge.hide()
             self.vtab_panel.setVisible(show)
+            if show and not was_shown:
+                # 1.1.24: the panel comes back (vertical tabs chosen again, the
+                # panel pinned again) with the width the user gave it; the
+                # splitter alone gave a panel shown again its smallest width
+                self._vtabs_place(self.vtabs_width_now())
 
     def _vtabs_resized(self, *_a):
         """Remember the width the user gave to the tab panel."""
         if self._vtabs_floating or not self.vtab_panel.isVisible() or self.app.config["vtabs_icons_only"]:
+            return
+        anim = getattr(self, "_vtabs_width_anim", None)
+        if anim is not None and anim.state() == anim.State.Running:
             return
         w = self.vtab_panel.width()
         if w < 60 or w == self.app.config["vtabs_width"]:
@@ -438,7 +542,7 @@ class WindowFeatures:
             return
         root = self.centralWidget()
         w = self.VTABS_ICONS_WIDTH if self.app.config["vtabs_icons_only"] else \
-            max(160, min(int(self.app.config["vtabs_width"]), root.width() // 2))
+            max(160, min(self.vtabs_width_now(), root.width() // 2))
         if not hiding:
             self.vtab_panel.setGeometry(-w, 0, w, root.height())
         self._vtabs_hiding = False
@@ -513,15 +617,17 @@ class WindowFeatures:
                     nav.insertAction(self.more_act, act)
             finally:
                 nav.setUpdatesEnabled(True)
-        btn = nav.widgetForAction(self.act_dark)
-        if isinstance(btn, QToolButton):
-            # 1.1.23 (the owner): its icon only; a click opens its menu, as the
-            # click on its main part did (the action itself does nothing)
-            btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-            if not btn.property("ike_no_arrow"):
-                # its icon only (1.1.23, polish.RoundHoverStyle), measured so below
-                btn.setProperty("ike_no_arrow", True)
-                self._hover.take(btn)
+        for act in getattr(self, "_menu_buttons", (self.act_dark,)):
+            btn = nav.widgetForAction(act)
+            if isinstance(btn, QToolButton):
+                # 1.1.23 (the owner): its icon only; a click opens its menu, as the
+                # click on its main part did (the action itself does nothing);
+                # 1.1.24: the same for Zoom, Print and Send to device
+                btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+                if not btn.property("ike_no_arrow"):
+                    # its icon only (1.1.23, polish.RoundHoverStyle), measured so below
+                    btn.setProperty("ike_no_arrow", True)
+                    self._hover.take(btn)
         # the toolbar builds a new button whenever an action is inserted
         for key, act in by_key.items():
             if act in want_left or act in want_right:
@@ -891,7 +997,8 @@ class WindowFeatures:
         if not name:
             return
         if name not in self.groups:
-            self.groups[name] = {"color": GROUP_COLORS[len(self.groups) % len(GROUP_COLORS)],
+            colours = group_colours(self.palette())
+            self.groups[name] = {"color": colours[len(self.groups) % len(colours)],
                                  "collapsed": False}
         view.group = name
         members = [v for v in self.views if v.group == name and v is not view]
@@ -912,8 +1019,57 @@ class WindowFeatures:
     def group_toggle(self, name):
         g = self.groups.get(name)
         if g:
-            g["collapsed"] = not g["collapsed"]
+            folding = not g["collapsed"]
+            # 1.1.24: the group's tabs fold into its first one, and unfold, smoothly
+            rows = [i for i, v in enumerate(self.views) if v.group == name][1:]
+            before = self._fold_pictures(rows) if folding else None
+            g["collapsed"] = folding
             self._apply_groups()
+            self._fold(rows, folding, before)
+
+    def _fold_widgets(self):
+        from .polish import moving
+        if not moving(self.app.config, "group_fold"):
+            return []
+        out = []
+        if self.tabbar.isVisible():
+            out.append(("h", self.tabbar))
+        if self.vtabs.isVisible():
+            out.append(("v", self.vtabs.viewport()))
+        return out
+
+    def _fold_span(self, kind, rows):
+        """The part of the tab bar (x) or list (y) the rows take, shown."""
+        if kind == "h":
+            rects = [self.tabbar.tabRect(i) for i in rows if self.tabbar.isTabVisible(i)]
+            return (min(r.left() for r in rects), max(r.right() for r in rects) + 1) if rects else None
+        rects = [self.vtabs.visualItemRect(self.vtabs.item(i)) for i in rows
+                 if self.vtabs.item(i) is not None and not self.vtabs.item(i).isHidden()]
+        return (min(r.top() for r in rects), max(r.bottom() for r in rects) + 1) if rects else None
+
+    def _fold_pictures(self, rows):
+        out = {}
+        for kind, w in self._fold_widgets():
+            span = self._fold_span(kind, rows)
+            if span is not None:
+                out[kind] = (w.grab(), span)
+        return out
+
+    def _fold(self, rows, folding, before):
+        from .polish import FoldStrip
+        self.folds = []
+        for kind, w in self._fold_widgets():
+            if folding:
+                pic = (before or {}).get(kind)
+                if pic is None:
+                    continue
+                picture, span = pic
+            else:
+                span = self._fold_span(kind, rows)
+                if span is None:
+                    continue
+                picture = w.grab()
+            self.folds.append(FoldStrip(w, picture, span, kind == "v", folding))
 
     def group_close(self, name):
         for v in [v for v in self.views if v.group == name]:
@@ -1147,9 +1303,13 @@ class WindowFeatures:
         from .webview import READER_PREFIX
         cfg = self.app.config
         prefs = {"theme": cfg["reader_theme"], "size": cfg["reader_size"], "tools": polish.part("reader_tools"),
+                 "width": cfg["reader_width"], "font": cfg["reader_font"],
                  "prefix": READER_PREFIX,
                  "labels": {"smaller": T("Zoom out"), "larger": T("Zoom in"), "light": T("Light"),
-                            "sepia": T("Sepia"), "dark": T("Dark"), "minutes": T("%d min read")}}
+                            "sepia": T("Sepia"), "dark": T("Dark"), "minutes": T("%d min read"),
+                            "narrow": T("Narrow column"), "medium": T("Medium column"),
+                            "wide": T("Wide column"), "serif": T("Serif font"),
+                            "sans": T("Sans-serif font")}}
         src = "var IKE_READER = %s;\n%s" % (json.dumps(prefs), src)
 
         def done(ok):

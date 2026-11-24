@@ -295,6 +295,7 @@ from PyQt6.QtCore import QTimer, QUrl
 PLAN = json.load(open(os.environ["IKE_NR_PLAN"], encoding="utf-8"))
 OUT = {"errors": []}
 _gen = None
+_FONT_WAIT = [0]
 
 
 def _finish():
@@ -686,6 +687,33 @@ def network():
 
 def _start():
     global _gen
+    # a fresh profile shows the welcome of the first start (1.1.24) before any window: it is
+    # skipped as a new user skips it (the defaults kept), and the run waits for the first window.
+    # This hook runs from main against the candidate, so it must know the welcome before the
+    # version that brings it can pass "Nothing gets worse".
+    dlg = getattr(ike, "welcome", None)
+    if dlg is not None:
+        (getattr(dlg, "skip_all", None) or dlg.reject)()
+        QTimer.singleShot(500, _start)
+        return
+    # the fonts a page can find (ike/fontcheck.py) are asked once, about 15 s after the start;
+    # until then Strict and Maximum mask the whole list, afterwards only the fonts found here.
+    # Both protect the same, but a level measured before the answer and the same level measured
+    # after it differ: the run asks at once and waits for the answer (at most 60 s), so the
+    # base and the candidate are measured in the same state (2026-11-24, a false "worse" on
+    # fingerprint-config/maximum/fonts that stopped every pull request).
+    fc = getattr(ike, "font_check", None)
+    fcm = sys.modules.get("ike.fontcheck")
+    if fc is not None and fcm is not None and getattr(fcm, "findable", lambda: True)() is None \
+            and _FONT_WAIT[0] < 120:
+        if _FONT_WAIT[0] == 0:
+            try:
+                fc._run()
+            except Exception:
+                _FONT_WAIT[0] = 120
+        _FONT_WAIT[0] += 1
+        QTimer.singleShot(500, _start)
+        return
     _gen = measure() if PLAN["mode"] == "measure" else network()
     _step()
 

@@ -198,11 +198,16 @@ DEFAULTS = {
     "toolbar_known": ["back", "forward", "reload", "home", "downloads"],
     # 1.1.9: the owner's arrangement (Reload is fixed, toolbar.py; the shield is in the address bar)
     "toolbar_order": ["dark", "private", "cleansite", "screenshot", "split", "pip",
-                      "bookmark", "downloads", "reader"],    # the menu: fixed before the window buttons (1.1.16)
+                      "bookmark", "downloads", "reader",     # the menu: fixed before the window buttons (1.1.16)
+                      "zoom", "bookmarks", "print", "send", "resources"],    # 1.1.24: hidden until chosen
     "toolbar_left": ["dark", "private", "cleansite", "screenshot", "split", "pip"],
     "urlbar_width": 50,                 # address bar: per cent of the window width (60 until 1.1.6)
     "urlbar_width_117": False,          # the old default of 60 was moved to 50 once (1.1.7)
     "newtab_clock": True,               # clock and date on the new tab page
+    "newtab_greeting": True,            # a greeting top left on the new tab page (see greeting.py)
+    "newtab_greeting_tone": "friendly",  # "friendly" (also short friendly lines) or "greetings" (only the greeting)
+    "greeting_holidays": [],            # the traditions whose holidays are greeted: none unless chosen (greeting.py)
+    "greeting_state": {},               # what the greeting remembers, local only (greeting.py)
     "newtab_weather": True,             # weather on the new tab page (needs a city, see weather.py)
     "newtab_bg": "default",             # photo behind the new tab page: "default" (I.K.E.'s own), "" or the user's copy (see newtabbg.py)
     "newtab_bg_118": False,             # I.K.E.'s own photo was given once to whoever had none (1.1.8)
@@ -304,6 +309,10 @@ DEFAULTS = {
     "site_zoom": {},
     "reader_theme": "auto",             # reader mode: auto | light | sepia | dark
     "reader_size": 19,                  # reader mode: text size in pixels (14 - 28)
+    "welcome_done": False,              # the welcome of the first start was shown (1.1.24, welcome.py)
+    "dark_pdf": False,                  # PDFs in the engine's viewer with dark colours (1.1.24)
+    "reader_width": "medium",           # reader mode: the column, narrow | medium | wide (1.1.24)
+    "reader_font": "serif",             # reader mode: serif | sans (1.1.24)
     "smooth_scrolling": True,           # pages scroll smoothly (an engine switch: after a restart)                    # host: zoom factor chosen for that site (not in private windows)
     "res_mem_limit": 0,                 # MB: suspend background tabs of a site above it (0 = off)
     "res_cpu_limit": 0,                 # % of a core: freeze background tabs above it (0 = off)
@@ -342,6 +351,16 @@ DEFAULTS = {
     "ext_plasma": True,
     "ext_autoscroll": False,            # middle click and move the mouse to scroll
     "ext_middleclick": False,           # middle click opens the selected text
+    # privacy package of 1.1.24 (bounce.py, timezone.py, quietperms.py, breach.py,
+    # advisory.py, battery.py)
+    "bounce_protect": True,             # sites that only bounce the user on lose their data
+    "bounce_used": {},                  # site -> day the user last used it (bounce.py)
+    "bounce_seeded": False,             # the sites of the history before it counted once
+    "protect_timezone": False,          # pages see UTC (after a restart; opt-in)
+    "quiet_permissions": True,          # a sign in the address bar instead of a window
+    "pw_breach_check": False,           # Have I Been Pwned, k-anonymity (opt-in)
+    "engine_advisory": {},              # the last verified advisory of the web engine
+    "battery_saver": False,             # lighter work while on battery (opt-in)
 }
 
 
@@ -349,7 +368,10 @@ DEFAULTS = {
 TOOLBAR_ITEMS = (("back", False), ("forward", False), ("reload", False), ("home", False),
                  ("bookmark", False), ("reader", False), ("screenshot", False), ("pip", True),
                  ("split", False), ("dark", False), ("private", False), ("cleansite", False),
-                 ("downloads", False))
+                 ("downloads", False),
+                 # 1.1.24: buttons the user can add (Settings → Appearance, or a right
+                 # click on the toolbar), off until chosen
+                 ("zoom", True), ("bookmarks", True), ("print", True), ("send", True), ("resources", True))
 
 
 # settings of the Cyber theme, removed in 1.1.2: dropped from settings.json when it is read
@@ -434,6 +456,10 @@ class Config:
         if isinstance(stored, dict):
             self.data.update(sound_settings(stored))
         d = self.data
+        # 1.1.24: the welcome is for a first start only: a profile that already
+        # has settings never sees it
+        if isinstance(stored, dict) and "welcome_done" not in stored:
+            d["welcome_done"] = True
         # 1.1.7: the address bar takes half of the window (the owner's choice); 60 was the old default
         if d.get("urlbar_width") == 60 and not d.get("urlbar_width_117"):
             d["urlbar_width"] = 50

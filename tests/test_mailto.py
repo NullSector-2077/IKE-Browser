@@ -4,9 +4,9 @@ is remembered, and can also take the email links of other programs."""
 
 import sys
 
-from conftest import ROOT
+from conftest import APP, ROOT
 
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(APP))
 from ike import mailto  # noqa: E402
 
 LINK = "mailto:arc@example.it,b@example.org?subject=Ciao%20mondo&body=riga1%0Ariga2%20%26%20altro&cc=c@example.org"
@@ -47,7 +47,7 @@ def test_the_desktop_can_hand_email_links_to_ike():
 
 STEPS = r'''
 from PyQt6.QtCore import QCoreApplication, QEvent, QObject, QPointF, Qt, QUrl, pyqtSlot
-from PyQt6.QtGui import QDesktopServices, QMouseEvent
+from PyQt6.QtGui import QMouseEvent
 
 class Desktop(QObject):
     def __init__(self):
@@ -71,7 +71,9 @@ def steps(ike, qapp, out):
     from ike import mailto, webview
     desktop = Desktop()
     ike._desktop_stand_in = desktop
-    QDesktopServices.setUrlHandler("mailto", desktop, "handle")
+    # 1.1.24: links of other kinds go to the desktop portal (handoff.py), never through
+    # Qt's QDesktopServices (xdg-open): the stand-in takes the portal's place
+    ike.handoff.open_uri = lambda url, parent=None: desktop.handle(QUrl(url))
     win = ike.windows[0]
     opened = []
     real_add = win.add_tab

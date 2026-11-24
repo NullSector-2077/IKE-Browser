@@ -1,0 +1,47 @@
+# The weekly cleanup of the branches (2026-11-24; tools/branch-sweep.py, no AI): a branch is deleted
+# when its tip is fully contained in main (none of its commits is missing from main), no pull request
+# of it is open, its tip is older than seven days and it is not protected. Protected, in one place
+# (tools/branch-sweep.py PROTECTED): main, automat/memory, automation/autofix-main,
+# automation/daily-maintenance, automation/audit, the multiplatform archive (windows/port,
+# windows/engine, linux/packages, linux/flatpak, linux/distro-checks, docs/multiplatform-plan),
+# experiment/file-workers, any branch GitHub protects, and release/* until its pull request is merged.
+# A branch with commits that are not in main is never deleted. Every deletion is listed in the run's
+# summary. Automatic, the owner's decision: no dry run by default (by hand: tools/branch-sweep.py
+# sweep --dry-run).
+name: Branch cleanup
+
+on:
+  schedule:
+    - cron: "17 3 * * 0"     # Sundays, 03:17 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: branch-sweep
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write          # delete a branch that is fully in main (never main, never a protected one)
+      pull-requests: read      # the open pull requests: their branches stay
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Delete the branches that are fully in main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -I tools/branch-sweep.py sweep --repo "$GITHUB_REPOSITORY" --summary "$GITHUB_STEP_SUMMARY"
+      # what failed is said on the run's page and in its summary (the tool names the branches it could not
+      # delete or judge with ::warning, and a sweep that could not run with ::error)
+      - name: Say that the cleanup failed
+        if: failure()
+        run: |
+          echo "::error title=Branch cleanup::the weekly cleanup of the branches failed (see the step above): nothing more was deleted"
+          printf '## Branch cleanup\n\nFailed (see the step above): nothing more was deleted.\n' >> "$GITHUB_STEP_SUMMARY"

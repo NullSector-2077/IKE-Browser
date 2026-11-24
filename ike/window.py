@@ -37,13 +37,20 @@ from .i18n import T
 from .shieldpanel import TOOLBAR_SHIELD_GROW, ShieldPanel, shield_icon
 from .tabs import AUDIO_ROLE, TabBar, VTabDelegate, VTabList
 from .uistyle import Switch
-from .urlbar import _URLISH, UrlBar
+from .urlbar import _URLISH, UrlBar, is_not_secure
 from .webview import WebView
 
 NEWTAB = "ike:newtab"
 def icon(name, fallback=None):
     from .icons import themed
     return themed(name, fallback)
+
+
+def plain_title(text):
+    """A menu's name without its keyboard accelerator: "&File" -> "File",
+    "ファイル(&F)" -> "ファイル" (1.1.24: the ☰ menu's copies of the menu bar's)."""
+    text = re.sub(r"\s*\(&[^&)]\)\s*$", "", text or "")
+    return re.sub(r"&(.)", r"\1", text)
 
 
 class FindBar(QWidget):
@@ -90,6 +97,9 @@ class FindBar(QWidget):
 
     def open_bar(self):
         if not self.isVisible():
+            self.show()
+            # 1.1.24: it slides in from the bottom as it fades in
+            polish.slide_in(self, self.win.app.config)
             polish.fade_child(self, self.win.app.config)
         self.show()
         self.edit.setFocus()
@@ -125,16 +135,38 @@ class FindBar(QWidget):
 
     def _nothing(self, nothing):
         """No match: the field is tinted red, softly, as in other browsers."""
-        from PyQt6.QtGui import QColor, QPalette
         if nothing == getattr(self, "_tinted", False):
             return
         self._tinted = nothing
-        pal = QPalette(self.palette())
-        if nothing:
-            base = pal.color(QPalette.ColorRole.Base)
-            pal.setColor(QPalette.ColorRole.Base, effects.blend(base, QColor("#e5484d"), 0.22))
-        self.edit.setPalette(pal)
+        flash = getattr(self, "_flash", None)
+        if flash is not None:
+            flash.stop()
+        self._tint(0.22 if nothing else 0.0)
         self.edit.setProperty("nothing_found", nothing)
+        if nothing and polish.moving(self.win.app.config, "find_slide"):
+            # 1.1.24: the field flashes red for a moment, then keeps its soft tint
+            from PyQt6.QtCore import QEasingCurve, QVariantAnimation
+            if flash is None:
+                flash = self._flash = QVariantAnimation(self)
+                flash.setEasingCurve(QEasingCurve.Type.OutCubic)
+                flash.valueChanged.connect(lambda v: self._tint(float(v)))
+            flash.setDuration(self.FLASH_MS)
+            flash.setStartValue(0.6)
+            flash.setEndValue(0.22)
+            flash.start()
+
+    FLASH_MS = 420
+    NOTHING_RED = "#e5484d"
+
+    def _tint(self, k):
+        """The field's background with k of red in it (0: the theme's own)."""
+        from PyQt6.QtGui import QColor, QPalette
+        pal = QPalette(self.palette())
+        if k > 0:
+            base = pal.color(QPalette.ColorRole.Base)
+            pal.setColor(QPalette.ColorRole.Base, effects.blend(base, QColor(self.NOTHING_RED), k))
+        self.edit.setPalette(pal)
+        self.tint_level = k
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
@@ -334,6 +366,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             lambda pos: self._tab_menu(self.tabbar.tabAt(pos), self.tabbar.mapToGlobal(pos)))
         self.tabbar.installEventFilter(self)
         self.tabbar.restoring = lambda: bool(getattr(self, "_restoring", False))
+        self.tabbar.tear_off = self._tear_off           # 1.1.24: a tab pulled out opens a new window
+        self.tabbar.take_tab = self._take_tab
+        self.tabbar.setAcceptDrops(True)
 
         self.htab_row = QWidget(self)
         row = QHBoxLayout(self.htab_row)
@@ -370,6 +405,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                        if self.vtabs.itemAt(pos) else -1,
                                        self.vtabs.viewport().mapToGlobal(pos)))
         self.vtabs.viewport().installEventFilter(self)
+        self.vtabs.tear_off = lambda r: self._torn(self.views[r]) if 0 <= r < len(self.views) else None
+        self.vtabs.picture = self._drag_picture
+        self.vtabs.key = lambda r: self._tab_key(self.views[r])
 
         self.vtab_panel = QWidget(self)
         vl = QVBoxLayout(self.vtab_panel)
@@ -436,7 +474,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.splitter.addWidget(right)
         self.splitter.setStretchFactor(0, 0)
         self.splitter.setStretchFactor(1, 1)
-        vw = max(120, int(self.app.config["vtabs_width"]))
+        vw = self.vtabs_clamp(self.app.config["vtabs_width"])
         self.splitter.setSizes([vw, max(400, 1280 - vw)])
         self.splitter.setChildrenCollapsible(False)
         self.splitter.splitterMoved.connect(self._vtabs_resized)
@@ -601,9 +639,24 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                           icon(("download", "folder-download-symbolic"), SP.SP_ArrowDown),
                                           T("Show downloaded files"))
         self._dl_icon = self.act_downloads.icon()
+        # 1.1.24: buttons the user can add, hidden until chosen (config.TOOLBAR_ITEMS);
+        # the menus of Zoom, Print and Send are given in _build_menus
+        self.act_tb_zoom = A(T("Zoom"), None, None, "zoom-in", T("Make the page larger or smaller"))
+        self.act_tb_bookmarks = A(T("Manage bookmarks"), self.app.show_bookmarks, None,
+                                  icon(("bookmarks-organize", "bookmarks", "user-bookmarks-symbolic")),
+                                  T("Edit, import and export bookmarks"))
+        self.act_tb_print = A(T("Print or save as PDF"), None, None, "document-print",
+                              T("Print the page, or save it as a PDF document"))
+        self.act_tb_send = A(T("Send to device"), None, None,
+                             icon(("kdeconnect", "smartphone", "phone", "document-send"), SP.SP_DriveNetIcon),
+                             T("Send this page to a phone or a computer paired with KDE Connect"))
+        self.act_tb_resources = A(T("Site resources"), self.app.show_resources, None,
+                                  "utilities-system-monitor",
+                                  T("Memory, CPU and network used by each site, with optional limits"))
         for a in (self.act_tb_bookmark, self.act_tb_reader, self.act_tb_shot, self.act_tb_pip,
                   self.act_tb_split, self.act_dark, self.act_tb_private, self.act_tb_clean,
-                  self.act_downloads):
+                  self.act_downloads, self.act_tb_zoom, self.act_tb_bookmarks, self.act_tb_print,
+                  self.act_tb_send, self.act_tb_resources):
             tb.addAction(a)
         if self.private:
             # 1.1.23: the private-browsing icon before the text, a border, and
@@ -646,7 +699,14 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                            ("dark", self.act_dark, right),
                            ("private", self.act_tb_private, right),
                            ("cleansite", self.act_tb_clean, right),
-                           ("downloads", self.act_downloads, right)]
+                           ("downloads", self.act_downloads, right),
+                           ("zoom", self.act_tb_zoom, right),
+                           ("bookmarks", self.act_tb_bookmarks, right),
+                           ("print", self.act_tb_print, right),
+                           ("send", self.act_tb_send, right),
+                           ("resources", self.act_tb_resources, right)]
+        # buttons whose click opens their menu, with no arrow (1.1.23 for dark mode)
+        self._menu_buttons = (self.act_dark, self.act_tb_zoom, self.act_tb_print, self.act_tb_send)
 
         self.bookbar = BookmarksBar(T("Bookmarks bar"), self)
         self.bookbar.setObjectName("bookmarks")
@@ -728,8 +788,18 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                          T("Export the page as a PDF document"))
         self.act_print = A(T("Print…"), self.print_page, "Ctrl+P", "document-print",
                            T("Print the current page"))
-        self.act_shot = A(T("Screenshot…"), self.screenshot, "Ctrl+Shift+S", "camera-photo",
+        self.act_shot = A(T("Screenshot…"), lambda: self.screenshot(), None, "camera-photo",
                           T("Save an image of the visible page"))
+        # 1.1.24: its submenu, what to take; Ctrl+Shift+S is the visible part's,
+        # as before (on the submenu's entry: next to an arrow it had no room)
+        self.m_shot = menu(T("Screenshot…"), "camera-photo", None)
+        for text, mode, ico, keys in ((T("Visible part"), "visible", ("camera-photo", "spectacle"), "Ctrl+Shift+S"),
+                                      (T("Whole page"), "page", ("zoom-fit-height", "view-fullscreen"), None),
+                                      (T("Selected area"), "area", ("select-rectangular", "transform-crop", "edit-select-all"), None)):
+            a = A(text, lambda _c=False, m=mode: self.screenshot(m), keys, ico)
+            a.setData(mode)
+            self.m_shot.addAction(a)
+        self.act_shot.setMenu(self.m_shot)
         self.act_quit = A(T("Quit"), self.app.quit, "Ctrl+Q", "application-exit",
                           T("Close every window and quit I.K.E."))
         self.act_settings = A(T("Settings…"), lambda: self.open_settings(), "Ctrl+,",
@@ -757,9 +827,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         m_file.addSeparator()
         m_file.addAction(A(T("Open file…"), self.open_file, "Ctrl+O", "document-open",
                            T("Open a file from this computer")))
-        m_file.addAction(A(T("Save page as…"), lambda: self._web(WA.SavePage), "Ctrl+S",
-                           "document-save", T("Save the page to disk")))
-        for a in (self.act_pdf, self.act_print, self.act_shot):
+        self.act_save_page = A(T("Save page as…"), lambda: self._web(WA.SavePage), "Ctrl+S",
+                               "document-save", T("Save the page to disk"))
+        for a in (self.act_save_page, self.act_pdf, self.act_print, self.act_shot):
             m_file.addAction(a)
         m_file.addSeparator()
         for a in (self.act_import, self.act_backup, self.act_restore):
@@ -785,8 +855,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             a.triggered.connect(lambda _c=False, w=wa: self._web(w))
             m_edit.addAction(a)
         m_edit.addSeparator()
-        m_edit.addAction(A(T("Find in page…"), self.findbar.open_bar, "Ctrl+F", "edit-find",
-                           T("Search for text in the current page")))
+        self.act_find = A(T("Find in page…"), self.findbar.open_bar, "Ctrl+F", "edit-find",
+                          T("Search for text in the current page"))
+        m_edit.addAction(self.act_find)
 
         # --- View
         m_view = mb.addMenu(T("&View"))
@@ -804,17 +875,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_bookbar = A(T("Bookmarks bar"), self._toggle_bookbar, "Ctrl+Shift+B",
                              ("bookmark-toolbar", "user-bookmarks-symbolic"),
                              T("Switch between: only on a new tab, always, hidden"))
-        for a in (self.act_vertical, self.act_menubar, self.act_bookbar, self.act_titlebar,
-                  self.act_customise):
-            m_view.addAction(a)
-        m_view.addSeparator()
-        m_view.addAction(self.act_split)
-        m_view.addAction(self.act_reader)
-        m_view.addMenu(self.m_workspaces)
-        m_view.addSeparator()
-        for a in (self.act_zoom_in, self.act_zoom_out, self.act_zoom_reset):
-            m_view.addAction(a)
-        m_view.addSeparator()
         self.m_dark = menu(T("Dark mode for pages"), "weather-clear-night",
                            T("Dark mode: everywhere or only on this site"))
         self.act_dark_all = QAction(T("On everywhere"), self, checkable=True)
@@ -826,10 +886,20 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.m_dark.addAction(self.act_dark_site)
         self.m_dark.aboutToShow.connect(self._fill_dark_menu)
         self.act_dark.setMenu(self.m_dark)
-        m_view.addMenu(self.m_dark)
-        m_view.addAction(A(T("Full screen"), self.toggle_fullscreen, "F11", "view-fullscreen",
-                           T("Show the page on the whole screen")))
-        m_view.addSeparator()
+        self.act_fullscreen = A(T("Full screen"), self.toggle_fullscreen, "F11", "view-fullscreen",
+                                T("Show the page on the whole screen"))
+        # 1.1.24: the page first (its size, how it is shown), then the tabs, then
+        # the window's bars, then the developer's tools
+        for group in ((self.act_zoom_in, self.act_zoom_out, self.act_zoom_reset),
+                      (self.act_fullscreen, self.act_reader, self.m_dark),
+                      (self.act_vertical, self.act_split, self.m_workspaces),
+                      (self.act_menubar, self.act_bookbar, self.act_titlebar, self.act_customise)):
+            for a in group:
+                if isinstance(a, QMenu):
+                    m_view.addMenu(a)
+                else:
+                    m_view.addAction(a)
+            m_view.addSeparator()
         m_view.addAction(A(T("Page source"), self.view_source, "Ctrl+U", ("text-html", "view-source"),
                            T("Show the HTML source of the page")))
         m_view.addAction(A(T("Developer tools"), lambda: self.open_devtools(), ["F12", "Ctrl+Shift+I"],
@@ -839,8 +909,11 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         # --- History
         self.m_history = mb.addMenu(T("Hi&story"))
         self.m_history.aboutToShow.connect(lambda: self._fill_history(self.m_history))
-        self.act_reopen = A(T("Reopen closed tab"), self.reopen_tab, "Ctrl+Shift+T", "edit-undo",
+        self.act_reopen = A(T("Reopen closed tab"), lambda: self.reopen_tab(), "Ctrl+Shift+T", "edit-undo",
                             T("Restore the tab closed most recently"))
+        self.m_closed = menu(T("Recently closed tabs"), ("tab-close", "edit-undo", "window-close-symbolic"),
+                             T("The last tabs you closed: choose one to open it again"))
+        self.m_closed.aboutToShow.connect(self._fill_closed)
         self.act_history = A(T("Show all history"), self.app.show_history, "Ctrl+H",
                              ("view-history", "document-open-recent-symbolic"), T("Browse and search visited pages"))
         self.act_clear = A(T("Clear browsing data…"), self.app.show_clear_data, "Ctrl+Shift+Del",
@@ -918,24 +991,22 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         m_tools = mb.addMenu(T("&Tools"))
         self.act_command_bar = A(T("Command bar…"), self.open_command_bar, "F2", ("system-search", "edit-find"),
                                  T("Commands, open tabs, bookmarks, history and settings in one search"))
-        m_tools.addAction(self.act_command_bar)
-        m_tools.addAction(self.act_downloads)
-        m_tools.addSeparator()
-        for a in (self.act_passwords, self.act_fill_login):
-            m_tools.addAction(a)
-        m_tools.addSeparator()
-        for a in (self.act_search_tabs, self.act_translate, self.act_float):
-            m_tools.addAction(a)
-        m_tools.addAction(A(T("Mute tab"), self.toggle_mute, "Ctrl+Shift+M", "audio-volume-muted",
-                            T("Mute or unmute the sound of the current tab")))
-        for a in (self.act_suspend, self.act_resources, self.act_watches):
-            m_tools.addAction(a)
-        m_tools.addSeparator()
-        m_tools.addAction(A(T("Search engines…"), lambda: self.open_settings("search"), None,
-                            "edit-find", T("Choose and add search engines")))
-        m_tools.addAction(self.act_store)
-        m_tools.addSeparator()
-        m_tools.addAction(self.act_settings)
+        self.act_mute = A(T("Mute tab"), self.toggle_mute, "Ctrl+Shift+M", "audio-volume-muted",
+                          T("Mute or unmute the sound of the current tab"))
+        self.act_engines = A(T("Search engines…"), lambda: self.open_settings("search"), None,
+                             "edit-find", T("Choose and add search engines"))
+        # 1.1.24: finding, then what you keep (files, logins), then the page and its
+        # sound, then the work of the sites, then what I.K.E. searches with, then Settings
+        for group in ((self.act_command_bar, self.act_search_tabs),
+                      (self.act_downloads, self.act_passwords, self.act_fill_login),
+                      (self.act_translate, self.act_float, self.act_mute),
+                      (self.act_resources, self.act_suspend, self.act_watches),
+                      (self.act_engines, self.act_store),
+                      (self.act_settings,)):
+            if m_tools.actions():
+                m_tools.addSeparator()
+            for a in group:
+                m_tools.addAction(a)
 
         # --- Help (no separator before "About I.K.E.": moved to with the arrow keys)
         m_help = mb.addMenu(T("&Help"))
@@ -950,43 +1021,71 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                   m_tools, m_help):
             m.setToolTipsVisible(True)
 
-        # --- the ☰ menu: the everyday entries, and every other one under "More"
+        def mirror(src, ico, tip):
+            """The ☰ menu's copy of a menu of the menu bar: the same actions, with
+            an icon of its own and its name without the "&" of the menu bar."""
+            m = menu(plain_title(src.title()), ico, tip)
+            for a in src.actions():
+                if a.isSeparator():
+                    m.addSeparator()
+                elif a.menu() is not None and a is a.menu().menuAction():
+                    m.addMenu(a.menu())
+                else:
+                    m.addAction(a)
+            return m
+
+        # --- the ☰ menu (1.1.24, the owner's go-ahead: "with criterion and logic"):
+        # new tabs and windows; this page; keep or print it; your library; protection
+        # and extensions; Settings and help; Quit. Every other command is under "More",
+        # in the menus of the menu bar, each with its icon (the menu bar's own have none).
         burger = QMenu(self)
         burger.setToolTipsVisible(True)
-        for a in (self.act_new_tab, self.act_new_window, self.act_new_private):
-            burger.addAction(a)
-        burger.addSeparator()
-        m_zoom = menu(T("Zoom"), "zoom-in", T("Make the page larger or smaller"))
+        self.m_zoom = menu(T("Zoom"), "zoom-in", T("Make the page larger or smaller"))
         for a in (self.act_zoom_in, self.act_zoom_out, self.act_zoom_reset):
-            m_zoom.addAction(a)
-        for m in (self.m_level, self.m_extensions, self.m_dark, m_zoom):
-            burger.addMenu(m)
-        burger.addSeparator()
+            self.m_zoom.addAction(a)
+        self.act_tb_zoom.setMenu(self.m_zoom)
         history = menu(T("History"), ("view-history", "document-open-recent-symbolic"),
                        T("Pages visited recently, and all the history"))
         history.aboutToShow.connect(lambda: self._fill_history(history))
         bookmarks = menu(T("Bookmarks"), ("bookmarks", "user-bookmarks-symbolic"),
                          T("Your bookmarks, and the bookmarks bar"))
         bookmarks.aboutToShow.connect(lambda: self._fill_bookmarks(bookmarks))
-        burger.addMenu(history)
-        burger.addMenu(bookmarks)
-        burger.addAction(self.act_downloads)
-        burger.addSeparator()
-        for a in (self.act_print, self.act_pdf, self.act_shot):
-            burger.addAction(a)
-        burger.addSeparator()
         more = menu(T("More"), ("overflow-menu", "application-menu", "view-more-symbolic"),
                     T("Every other command, as in the menu bar"))
-        for m in (m_file, m_edit, m_view, m_tools, m_help):
-            more.addMenu(m)
-        burger.addMenu(more)
-        burger.addSeparator()
-        for a in (self.act_settings, self.act_check_updates, self.act_about):
-            burger.addAction(a)
-        burger.addSeparator()
-        burger.addAction(self.act_quit)
+        self.m_more = more
+        for src, ico in ((m_file, ("document-multiple", "folder-documents", "document-open")),
+                         (m_edit, ("edit-copy", "document-edit", "edit-paste")),
+                         (m_view, ("view-visible", "view-reveal-symbolic", "view-fullscreen")),
+                         (m_tools, ("tools", "applications-utilities", "preferences-other",
+                                    "configure"))):
+            more.addMenu(mirror(src, ico, None))
+        self.m_help_burger = mirror(m_help, ("help-contents", "help-about", "system-help"),
+                                    T("Keyboard shortcuts, updates and the versions of I.K.E."))
+        for group in ((self.act_new_tab, self.act_new_window, self.act_new_private),
+                      (self.act_find, self.m_zoom, self.m_dark, self.act_reader, self.act_translate),
+                      (self.act_print, self.act_pdf, self.act_save_page, self.act_shot),
+                      (history, bookmarks, self.act_downloads),
+                      (self.m_level, self.m_extensions, more),
+                      (self.act_settings, self.m_help_burger),
+                      (self.act_quit,)):
+            if burger.actions():
+                burger.addSeparator()
+            for a in group:
+                if isinstance(a, QMenu):
+                    burger.addMenu(a)
+                else:
+                    burger.addAction(a)
         self.burger = burger
         self.menu_btn.setMenu(effects.fading(burger, self.app.config))
+
+        # the toolbar buttons with a menu (1.1.24; Dark mode's is given above)
+        self.m_print = menu(T("Print or save as PDF"), "document-print", None)
+        self.m_print.addAction(self.act_print)
+        self.m_print.addAction(self.act_pdf)
+        self.act_tb_print.setMenu(self.m_print)
+        self.m_send = menu(T("Send to device"), self.act_tb_send.icon(), None)
+        self.m_send.aboutToShow.connect(self._fill_send_menu)
+        self.act_tb_send.setMenu(self.m_send)
 
         # Extra shortcuts without a menu entry.
         A("focus-url", self._focus_url, ["Ctrl+L", "Alt+D", "F6"])
@@ -1096,6 +1195,24 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if not os.environ.get("IKE_WIDEVINE"):
             text += " — " + T("restart I.K.E. to use it")
         return text
+
+    def _fill_send_menu(self):
+        """The toolbar's "Send to device": the devices paired with KDE Connect (1.1.24)."""
+        m = self.m_send
+        m.clear()
+        v = self.current_view()
+        url = ""
+        if v is not None and not self.private:
+            url = getattr(v, "pending_url", None) or v.url().toString()
+        if not self.app.desktop.fill_send_menu(m, url):
+            # with an icon, its text in the column of the other menus' (Oxygen drew it at the edge)
+            a = m.addAction(icon(("dialog-information", "help-about")),
+                            T("No device paired with KDE Connect, or no web page in this tab"))
+            a.setEnabled(False)
+        # where "Send to device" is switched on and off (Settings → System)
+        m.addSeparator()
+        m.addAction(icon(("configure", "preferences-system")), T("Desktop integration"),
+                    lambda: self.open_settings("system"))
 
     def _fill_dark_menu(self):
         cfg = self.app.config
@@ -1429,7 +1546,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         i = self.views.index(view)
         url = view.pending_url or view.url().toString()
         if url and url != NEWTAB and not self.private:
-            self.closed_tabs.append(url)
+            # with its title, for History → Recently closed tabs (1.1.24)
+            self.closed_tabs.append((url, view.title() if view.title() not in ("", url) else ""))
             del self.closed_tabs[:-25]
         was_current = view is self.current_view()
         item = self.vtabs.item(i)
@@ -1466,9 +1584,31 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         page.deleteLater()
         view.deleteLater()
 
-    def reopen_tab(self):
-        if self.closed_tabs:
-            self.add_tab(self.closed_tabs.pop())
+    def reopen_tab(self, index=-1):
+        """Open a closed tab again: the last one closed (Ctrl+Shift+T), or the
+        one at `index` of closed_tabs (History → Recently closed tabs)."""
+        if self.closed_tabs and -len(self.closed_tabs) <= index < len(self.closed_tabs):
+            self.add_tab(self.closed_tabs.pop(index)[0])
+
+    CLOSED_SHOWN = 10        # the closed tabs listed under History → Recently closed tabs
+
+    def _fill_closed(self):
+        """History → Recently closed tabs: the last ones closed, newest first,
+        with their title and the site's icon."""
+        m = self.m_closed
+        m.clear()
+        n = len(self.closed_tabs)
+        for i in range(n - 1, max(-1, n - 1 - self.CLOSED_SHOWN), -1):
+            url, title = self.closed_tabs[i]
+            a = self._open_action(m, url, title)
+            a.triggered.disconnect()
+            a.triggered.connect(lambda _c=False, u=url: self._reopen_url(u))
+
+    def _reopen_url(self, url):
+        for i in range(len(self.closed_tabs) - 1, -1, -1):
+            if self.closed_tabs[i][0] == url:
+                self.reopen_tab(i)
+                return
 
     def _cycle(self, step):
         if self.views:
@@ -1507,7 +1647,71 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     def _detach(self, view):
         url = QUrl(view.pending_url) if view.pending_url else view.url()
         self.close_tab(view)
-        self.app.new_window(private=self.private, urls=[url])
+        return self.app.new_window(private=self.private, urls=[url])
+
+    # --- a tab dragged out of the window (1.1.24) --------------------------------
+    def _tab_key(self, view):
+        """The name of a tab while it is dragged (this process and the tab)."""
+        return "%d:%d" % (os.getpid(), id(view))
+
+    def _drag_picture(self, i):
+        """What follows the mouse while tab i is dragged: its preview."""
+        from .tabpreview import drag_picture
+        view = self.views[i]
+        if self.tabbar.isVisible():
+            fallback = self.tabbar.grab(self.tabbar.tabRect(i))
+        else:
+            fallback = self.vtabs.viewport().grab(self.vtabs.visualItemRect(self.vtabs.item(i)))
+        return drag_picture(view, fallback, self.palette())
+
+    def _tear_off(self, i):
+        """Tab i was pulled away from the tab bar: it follows the mouse as a
+        small picture; dropped outside a tab bar, it opens in a new window
+        (as in other browsers); on another window's tab bar, it moves there;
+        back on its own, or with Esc, it stays."""
+        if not 0 <= i < len(self.views):
+            return
+        from PyQt6.QtCore import QMimeData
+        from PyQt6.QtGui import QDrag
+
+        from . import tabs
+        view = self.views[i]
+        pm = self._drag_picture(i)
+        drag = QDrag(self.tabbar)
+        mime = QMimeData()
+        mime.setData(tabs.TAB_MIME, self._tab_key(view).encode("ascii"))
+        drag.setMimeData(mime)
+        drag.setPixmap(pm)
+        dpr = pm.devicePixelRatio() or 1.0
+        drag.setHotSpot(QPoint(round(pm.width() / dpr / 2), 12))
+        result = tabs.run_drag(drag, Qt.DropAction.MoveAction)
+        if result == Qt.DropAction.IgnoreAction and not tabs.cancelled():
+            self._torn(view)
+
+    def _torn(self, view):
+        """A tab dropped outside every tab bar: a new window with it (the
+        only tab of a window stays: the window is already its own)."""
+        if view not in self.views or len(self.views) < 2:
+            return None
+        win = self._detach(view)
+        from PyQt6.QtGui import QCursor
+        if win is not None and not win.isMaximized():
+            win.move(QCursor.pos() - QPoint(win.width() // 3, 20))   # where it was dropped (X11)
+        return win
+
+    def _take_tab(self, key):
+        """A tab of another window dropped on this window's tab bar: it opens
+        here and closes there (only between windows of the same kind)."""
+        for w in list(self.app.windows):
+            for v in list(w.views):
+                if w._tab_key(v) != key:
+                    continue
+                if w is self or w.private != self.private:
+                    return
+                url = QUrl(v.pending_url) if v.pending_url else v.url()
+                w.close_tab(v)
+                self.set_current(self.add_tab(url))
+                return
 
     def _tab_preview_event(self, obj, event):
         """Show the picture of a tab when the mouse rests on it (instead of
@@ -1727,6 +1931,27 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if v and v.url().scheme() in ("http", "https", "file"):
             self.add_tab(QUrl("view-source:" + v.url().toString()), after=v)
 
+    def source_to_app(self, view):
+        """The page's code (as the page holds it now) in the desktop's text
+        editor, from a private copy (handoff.py, 1.1.24)."""
+        from . import handoff
+
+        def got(html):
+            if not isinstance(html, str):
+                return
+            folder = handoff.temp_dir()
+            self._source_n = getattr(self, "_source_n", 0) + 1
+            path = folder / ("%d-%d-%s-source.txt" % (int(time.time()), self._source_n,
+                                                       handoff.safe_name(view.url().host() or "page", "page")))
+            try:
+                fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    f.write(html)
+            except OSError:
+                return
+            self.app.handoff.open_file(path, self)
+        view.page().toHtml(got)
+
     def open_devtools(self, view=None):
         view = view or self.current_view()
         if not view:
@@ -1759,7 +1984,25 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 v.setZoomFactor(cands[0] if direction > 0 else cands[-1])
         self._remember_zoom(v)
         self._zoom_sign()
-        self.toast(T("Zoom: %d%%") % round(v.zoomFactor() * 100), 1500)
+        self.zoom_osd(v)
+
+    def zoom_osd(self, v):
+        usual = self.app.config["default_zoom"]
+        self.osd(T("Zoom: %d%%") % round(v.zoomFactor() * 100),
+                 "zoom-out" if v.zoomFactor() < usual - 0.005 else "zoom-in")
+
+    OSD_MS = 1200
+
+    def osd(self, text, icon_names):
+        """A quick action done (link copied, bookmark added, screenshot,
+        zoom): a small box over the page with the desktop's icon and the
+        text, as Plasma's on-screen display; it fades in and out in about
+        OSD_MS and never takes the keyboard (1.1.24)."""
+        if polish.part("toasts") and polish.part("osd"):
+            from .icons import themed
+            self.toast_pill.show_text(text, self.OSD_MS, themed(icon_names))
+            return
+        self.toast(text, 1500)
 
     def toast(self, text, ms=1800):
         """A short message for the user: in a pill over the page (polish.py), or the status bar."""
@@ -1916,10 +2159,13 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         else:
             self.urlbar.lock.setIcon(icon(("globe", "web-browser-symbolic"), SP.SP_FileIcon))
             self.urlbar.lock.setToolTip("")
+        self.urlbar.set_not_secure(is_not_secure(url))
         from .extensions import store_id
         self.store_act.setVisible(bool(store_id(url.toString()))
                                   and bool(self.app.config["experimental_extensions"]))
         self._zoom_sign()
+        from . import quietperms
+        quietperms.sign(self)            # a site's question waiting in the address bar (1.1.24)
         marked = bool(v) and self.app.storage.is_bookmarked(url.toString())
         if not polish.popping(self, "star"):
             self.act_tb_bookmark.setIcon(icon(("bookmarks", "starred-symbolic") if marked else "bookmark-new",
@@ -2046,6 +2292,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self.app.storage.add_visit(view.url().toString(), view.title())
         if ok:
             view.reader = False
+            if self.app.config["dark_pdf"]:
+                from .webview import dark_pdf
+                dark_pdf(view, True)
         if (ok and view is not self.current_view() and view in self.views
                 and view.url().scheme() in ("http", "https") and polish.part("tab_unseen")):
             view.unseen = True                  # a dot on its tab until it is opened (1.1.9)
@@ -2179,6 +2428,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.sync_urlbar()
         if added:          # the star fills with a small pop (1.1.9)
             polish.pop_in(self, "star", self.act_tb_bookmark.icon(), self.app.config, self.act_tb_bookmark.setIcon)
+            self.osd(T("Bookmark added"), "bookmark-new")
 
     def site_icon(self, url, fetch=False):
         """Stored icon of the site, or the generic globe."""
@@ -2205,6 +2455,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         m.addAction(self.act_fwd)
         m.addAction(self.act_home)
         m.addAction(self.act_reopen)
+        m.addMenu(self.m_closed)
+        self.m_closed.menuAction().setEnabled(bool(self.closed_tabs))
         m.addSeparator()
         m.addAction(self.act_history)
         m.addAction(self.act_clear)
@@ -2259,16 +2511,28 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self._printer = printer
             v.print(printer)
 
-    def screenshot(self):
+    def screenshot(self, mode="visible"):
+        """Screenshot… : "visible" (the toolbar's button and Ctrl+Shift+S), "page"
+        (the whole page) or "area" (a part chosen with the mouse), 1.1.24."""
         v = self.current_view()
         if not v:
             return
-        pm = v.grab()
+        from . import screenshot
+        if mode == "page":
+            screenshot.whole_page(v, self._save_screenshot)
+        elif mode == "area":
+            screenshot.AreaPicker(v, self, self._save_screenshot)
+        else:
+            self._save_screenshot(screenshot.visible(v))
+
+    def _save_screenshot(self, pm):
+        if pm is None or pm.isNull():
+            return
         path, _f = QFileDialog.getSaveFileName(
             self, T("Save screenshot"), str(self.app.download_dir() / "screenshot.png"),
             "PNG (*.png)")
-        if path:
-            pm.save(path if path.lower().endswith(".png") else path + ".png", "PNG")
+        if path and pm.save(path if path.lower().endswith(".png") else path + ".png", "PNG"):
+            self.osd(T("Screenshot saved"), ("camera-photo", "spectacle"))
 
     def open_settings(self, page=None):
         return self.app.show_settings(self, page)
@@ -2408,6 +2672,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         ubo = self._head_of("ubo-scriptlets.json", ("date", "commit"))
         if ubo.get("date"):
             rows.append(("uBlock Origin scriptlets", "%s (%s)" % (ubo["date"], ubo.get("commit", "")[:7])))
+        breeze = self._head_of("icons/sets/breeze/breeze-icons.json", ("version",))
+        if breeze.get("version"):
+            rows.append(("Breeze icons (KDE)", breeze["version"]))
         last = self.app.config["last_lists_update"]
         rows.append((T("Filter lists"), T("Last update: %s") % (
             time.strftime("%d/%m/%Y %H:%M", time.localtime(last)) if last else T("never"))))
@@ -2431,6 +2698,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         ("PyQt6 (Riverbank Computing)", "GPL-3.0"),
         ("Lucide icons", "ISC"),
         ("Phosphor Icons", "MIT"),
+        ("Breeze icons (KDE)", "LGPL-3.0"),
         ("Orbitron typeface (The Orbitron Project Authors)", "SIL OFL 1.1"),
     )
 
@@ -2623,15 +2891,70 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             return
         profile = v.page().profile()
         store = profile.cookieStore()
-        for cookie in self.app.shields.site_cookies(profile, site):
+        # 1.1.24: every cookie of the site the engine may still have (a cookie
+        # set again by the site was missing from I.K.E.'s list, shields.py);
+        # what the store reports removed is what the summary counts
+        removed = set()
+
+        def gone(c):
+            d = c.domain().lstrip(".").lower()
+            if d == site or d.endswith("." + site):
+                removed.add((c.domain(), c.path(), bytes(c.name())))
+        store.cookieRemoved.connect(gone)
+        for cookie in self.app.shields.site_cookies(profile, site, ever=True):
             store.deleteCookie(cookie)
+        kept = self.site_permissions()
+        # 1.1.24: what goes is counted as it goes, in I.K.E.'s own script
+        # world (the page sees nothing of it), and shown in a short summary
+        from PyQt6.QtWebEngineCore import QWebEngineScript
+        world = int(QWebEngineScript.ScriptWorldId.ApplicationWorld.value)
         v.page().runJavaScript(
-            "(async function(){try{localStorage.clear();sessionStorage.clear();}catch(e){}"
-            "try{var d=await indexedDB.databases();d.forEach(function(x){indexedDB.deleteDatabase(x.name);});}catch(e){}"
-            "try{var k=await caches.keys();await Promise.all(k.map(function(x){return caches.delete(x);}));}catch(e){}"
-            "try{var r=await navigator.serviceWorker.getRegistrations();r.forEach(function(x){x.unregister();});}catch(e){}"
-            "})();", 0, lambda _r: QTimer.singleShot(300, v.reload) if v in self.views else None)
-        self.app._notify(T("Data of %s deleted.") % site)
+            "(async function(){var n={storage:0,cache:0};"
+            "try{n.storage+=localStorage.length+sessionStorage.length;localStorage.clear();sessionStorage.clear();}"
+            "catch(e){}"
+            "try{var d=await indexedDB.databases();n.storage+=d.length;"
+            "d.forEach(function(x){indexedDB.deleteDatabase(x.name);});}catch(e){}"
+            "try{var k=await caches.keys();n.cache+=k.length;"
+            "await Promise.all(k.map(function(x){return caches.delete(x);}));}catch(e){}"
+            "try{var r=await navigator.serviceWorker.getRegistrations();n.storage+=r.length;"
+            "r.forEach(function(x){x.unregister();});}catch(e){}"
+            "window.__ikeCleaned=n;})();0", world)
+        tries = [0]
+
+        def poll():
+            if v in self.views:
+                v.page().runJavaScript("window.__ikeCleaned||null", world, done)
+            else:
+                tries[0] = 30
+                done(None)                   # the tab was closed: the cookies still go
+
+        def done(found):
+            if not isinstance(found, dict) and tries[0] < 30:
+                tries[0] += 1
+                QTimer.singleShot(100, poll)
+                return
+            found = found if isinstance(found, dict) else {}
+            try:
+                store.cookieRemoved.disconnect(gone)
+            except (TypeError, RuntimeError):
+                pass
+            self.site_cleaned(site, len(removed), int(found.get("storage") or 0), int(found.get("cache") or 0),
+                              kept)
+            if v in self.views:
+                QTimer.singleShot(300, v.reload)
+        QTimer.singleShot(300, poll)         # the store has reported the deleted cookies by then
+
+    def site_cleaned(self, site, cookies, storage, cache, kept):
+        """The summary of "Clear this site's data" (1.1.24): what went, and the
+        permissions it keeps (they are reset in the site's panel)."""
+        lines = [T("Cookies: %d") % cookies, T("Site storage: %d") % storage, T("Cache: %d") % cache]
+        if kept:
+            lines.append(T("Permissions kept: %s") % ", ".join(kept))
+        box = QMessageBox(QMessageBox.Icon.Information, APP_NAME, T("Data of %s deleted.") % site, parent=self)
+        box.setInformativeText("\n".join(lines))
+        box.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        self._cleaned_box = box
+        box.open()
 
     def show_download_progress(self, state, fraction=None):
         """state: "idle", "active" (fraction 0..1 or None) or "done"."""
@@ -2735,6 +3058,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
 
     def closeEvent(self, event):
         self.repair_bar.cancel()           # nothing half-done is saved
+        save = getattr(self, "_vtabs_save", None)
+        if save is not None and save.isActive():     # the tab panel's new width (1.1.24)
+            save.stop()
+            self.app.config.save()
         self.app.window_closing(self)
         for d in list(self._devtools):
             d.close()

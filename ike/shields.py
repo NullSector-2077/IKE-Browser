@@ -158,8 +158,9 @@ _PSL_FILE = []           # (cache file named after the list's size and time, its
 def _psl_cached(path):
     """The list as parsed at an earlier start, while the file is the same
     (size and time): about 1 ms instead of about 16 (performance review of
-    1.1.20, L4). (cache file, its sets or None)."""
-    import marshal
+    1.1.20, L4). JSON, never marshal: a file that is not valid JSON of the
+    right shape is ignored and the list is parsed again. (cache file, its
+    sets or None)."""
     import os
 
     from .config import CACHE_DIR
@@ -167,24 +168,23 @@ def _psl_cached(path):
         st = os.stat(path)
     except OSError:
         return None, None
-    cache = CACHE_DIR / ("psl-%d-%d.bin" % (st.st_size, st.st_mtime_ns))
+    cache = CACHE_DIR / ("psl-%d-%d.json" % (st.st_size, st.st_mtime_ns))
     try:
-        rules, wild, exc = marshal.loads(cache.read_bytes())
-        if len(rules) > 1000:
+        rules, wild, exc = json.loads(cache.read_bytes())
+        if isinstance(rules, list) and isinstance(wild, list) and isinstance(exc, list) and len(rules) > 1000:
             return cache, (frozenset(rules), frozenset(wild), frozenset(exc))
-    except (OSError, ValueError, EOFError, TypeError):
+    except (OSError, ValueError, TypeError):      # ValueError: bad JSON or bad text; TypeError: unhashable item
         pass
     return cache, None
 
 
 def _psl_keep(cache, found):
-    import marshal
     try:
         cache.parent.mkdir(parents=True, exist_ok=True)
-        for old in cache.parent.glob("psl-*.bin"):
-            old.unlink(missing_ok=True)
+        for old in list(cache.parent.glob("psl-*.json")) + list(cache.parent.glob("psl-*.bin")):
+            old.unlink(missing_ok=True)       # older lists, and the marshal cache of 1.1.23 and before
         tmp = cache.with_suffix(".tmp")
-        tmp.write_bytes(marshal.dumps(tuple(tuple(sorted(s)) for s in found)))
+        tmp.write_bytes(json.dumps([sorted(s) for s in found], separators=(",", ":")).encode("ascii"))
         tmp.replace(cache)
     except OSError:
         pass
@@ -747,7 +747,7 @@ class IkeSchemeHandler(QWebEngineUrlSchemeHandler):
             q = q.replace("+", " ")
             job.redirect(QUrl(self.s.search_url(q)))
             return
-        if path in ("open", "engine", "tile") and not secrets.compare_digest(
+        if path in ("open", "engine", "tile", "greet") and not secrets.compare_digest(
                 QUrlQuery_value(url, "k") or "", self.s.action_key):
             # an address that changes something works only from the new tab
             # page itself, which carries this session's key in its links: a
@@ -761,6 +761,14 @@ class IkeSchemeHandler(QWebEngineUrlSchemeHandler):
             if what in ("settings", "background"):
                 self.s.open_requested.emit(what)
             job.redirect(QUrl("ike:newtab"))
+            return
+        if path == "greet":
+            # the little the greeting remembers, sent home by the new tab page itself (greeting.py)
+            self.s.keep_greeting(QUrlQuery_value(url, "s"))
+            buf = QBuffer(job)
+            buf.setData(QByteArray(b""))
+            buf.open(QIODevice.OpenModeFlag.ReadOnly)
+            job.reply(b"image/gif", buf)
             return
         if path == "engine":
             # an engine chosen in the new tab page's search box: the default from now on
@@ -838,6 +846,7 @@ class Shields(QObject):
         self._media_src = (RES_DIR / "mediahook.js").read_text("utf-8")
         self._consent_src = (RES_DIR / "consent.js").read_text("utf-8")
         # the full name is drawn as paths (tools/make-brand.py), in the colour of the page text
+        self._greeting_js = None
         self._newtab_src = (RES_DIR / "newtab.html").read_text("utf-8").replace(
             "{{wordmark}}", (RES_DIR / "wordmark.svg").read_text("utf-8").strip())
         self._videoads_src = (RES_DIR / "videoads.js").read_text("utf-8")
@@ -963,6 +972,9 @@ class Shields(QObject):
         bg, fg = colors["{{bg}}"], colors["{{fg}}"]
         colors["{{mute}}"] = readable(colors["{{mute}}"], bg, fg)
         colors["{{acc}}"] = readable(colors["{{acc}}"], bg, fg, 3.0)
+        # 1.1.24: the K of "Kontrol" in the wordmark, a light cyan of the shield's family
+        from PyQt6.QtGui import QColor
+        colors["{{k}}"] = readable(QColor("#7df3ff"), bg, fg, 3.0)
         for k, c in colors.items():
             html = html.replace(k, c.name())
         import html as _html
@@ -970,19 +982,34 @@ class Shields(QObject):
         if self.config["newtab_clock"]:
             corner += '<div class="clock" id="clock"></div><div class="date" id="date"></div>'
         if self.config["newtab_weather"]:
-            corner += '<div class="weather" id="weather">%s</div>' % _html.escape(self.weather_text())
+            text = self.weather_text()
+            sym, _sp, rest = text.partition(" ") if " " in text else ("", "", text)
+            # 1.1.24: the symbol larger, before the rest (as the page's ikeWeather() does)
+            corner += '<div class="weather" id="weather">%s%s</div>' % (
+                '<span class="wsym">%s</span> ' % _html.escape(sym) if sym else "", _html.escape(rest))
         from . import i18n, newtabbg
         html = html.replace("{{corner}}", corner).replace("{{lang}}", i18n.current().replace("_", "-"))
+        from . import timezone
+        # the clock in the user's own zone while pages see UTC (1.1.24); a checked name only
+        html = html.replace("{{tz}}", timezone.real_zone() if timezone.active() else "")
         from . import effects, newtab
         photo = newtabbg.style(self.config)
+        if photo:
+            # a soft pane behind each group of text, as strong as the photo under it needs: the page
+            # works it out from this grid of the photo (newtabbg.glass_data, newtab.html "glass")
+            data = newtabbg.glass_data(self.config, fg.lightnessF() > bg.lightnessF())
+            if data:
+                photo += ('<script type="application/json" id="glass-data">%s</script>'
+                          % data.replace("<", "\\u003c"))
         html = html.replace("{{background}}", photo)
         app = self.parent()
         for k, v in {
             "{{placeholder}}": _html.escape(T("Search with %s or enter address") % e["name"], quote=True),
             # tiles lift on hover, only with the interface effects on (polish.py)
             "{{fx}}": "fx" if effects.on(self.config) else "",
-            "{{photo}}": " photo" if photo else "",
+            "{{photo}}": " photo glass" if photo else "",
             "{{buttons}}": self._newtab_buttons(),
+            "{{greeting}}": self._newtab_greeting(),
             "{{engines}}": newtab.engines_html(self.config),
             "{{tiles}}": newtab.tiles_html(self.config, getattr(app, "storage", None)),
             "{{stats}}": newtab.stats_html(self.config, T("Protection level"),
@@ -1010,19 +1037,67 @@ class Shields(QObject):
         they are answers of the page itself (ike:open), refused from websites."""
         import html as _html
 
+        from . import icons
         from .config import RES_DIR
         from .i18n import T
         out = []
         for cls, what, icon, label in (("nt-settings", "settings", "configure", T("Settings")),
                                        ("nt-photo", "background", "image-x-generic", T("Background photo"))):
-            try:
-                svg = (RES_DIR / "icons" / "sets" / "lucide" / (icon + ".svg")).read_text("utf-8")
-            except OSError:
-                svg = ""
+            # 1.1.24: Settings shows the desktop's own icon (KDE's), the shipped one otherwise
+            svg = icons.theme_svg(icon) if what == "settings" else ""
+            if not svg:
+                try:
+                    svg = (RES_DIR / "icons" / "sets" / "lucide" / (icon + ".svg")).read_text("utf-8")
+                except OSError:
+                    svg = ""
             out.append('<a class="nt-btn %s" href="ike:open?what=%s" title="%s"><span class="ico">%s</span>'
                        '<span class="name">%s</span></a>' % (cls, what, _html.escape(label, quote=True), svg,
                                                             _html.escape(label)))
         return "".join(out)
+
+    def weather_info(self):
+        """What the greeting needs of the weather: {"k": rain | snow | clear, "warm": bool} or {}."""
+        from . import greeting
+        weather = getattr(self.parent(), "weather", None)
+        w = weather.current() if weather is not None and self.config["newtab_weather"] else None
+        return greeting.weather_kind(w["code"], w["temp"], w["unit"], w.get("wind")) if w else {}
+
+    def keep_greeting(self, text):
+        """The state of the greeting, as the page sent it: cleaned, kept only with the greeting on."""
+        from . import greeting
+        if not self.config["newtab_greeting"] or len(text or "") > 8000:
+            return
+        try:
+            state = json.loads(text)
+        except ValueError:
+            return
+        self.config["greeting_state"] = greeting.clean_state(state)
+
+    def greeting_hemisphere(self):
+        """1 north, -1 south, 0 not known: the sign of the weather city's latitude, kept in the settings."""
+        try:
+            lat = float(self.config["weather_lat"])
+        except (TypeError, ValueError):
+            return 0
+        return 1 if lat > 0 else -1 if lat < 0 else 0
+
+    def _newtab_greeting(self):
+        """The greeting of the new tab page (1.1.24): empty when it is switched off. The page
+        writes it from the clock; the words come in as JSON data, never as script."""
+        if not self.config["newtab_greeting"]:
+            return ""
+        from . import __version__, greeting
+        from .i18n import T
+        cfg = self.config
+        if self._greeting_js is None:
+            self._greeting_js = (RES_DIR / "greeting.js").read_text("utf-8")
+        return ('<div class="greet" id="greet" dir="auto"><div class="greet-t" id="greet-t"></div>'
+                '<div class="greet-l" id="greet-l"></div></div>'
+                '<script type="application/json" id="greet-data">%s</script>'
+                '<script>%s</script>'
+                % (greeting.page_data(T, self.weather_info(), self.greeting_hemisphere(), __version__,
+                                      cfg["newtab_greeting_tone"], cfg["greeting_holidays"],
+                                      cfg["greeting_state"], self.action_key), self._greeting_js))
 
     def weather_text(self):
         """"☁ 12 °C · Cloudy · Rome", or "" (no city, switched off, not known yet)."""
@@ -1410,25 +1485,45 @@ class Shields(QObject):
             return False
 
     # --- per page ----------------------------------------------------
+    SEEN_MAX = 20000
+
     def _track_cookies(self, profile):
-        """Keep a list of the profile's cookies, to be able to delete one site's."""
+        """Keep a list of the profile's cookies, to be able to delete one site's.
+
+        1.1.24: also every cookie ever added (cookies_seen). When a site sets
+        the same cookie again in a later answer, the engine reports the old one
+        removed and never the new one added: the cookie is there, the list
+        lost it, and "Clear this site's data" left it (found by its new
+        summary, tests/test_clean_site.py). Deleting one that is gone already
+        does nothing."""
         jar = {}
+        seen = {}
         if not hasattr(self, "cookie_jars"):
             self.cookie_jars = {}
+            self.cookies_seen = {}
         self.cookie_jars[profile] = jar
+        self.cookies_seen[profile] = seen
         store = profile.cookieStore()
 
         def key(c):
             return (c.domain(), c.path(), bytes(c.name()))
         from PyQt6.QtNetwork import QNetworkCookie
-        # a copy: the object handed to the signal only lives during the call
-        store.cookieAdded.connect(lambda c: jar.__setitem__(key(c), QNetworkCookie(c)))
+
+        def added(c):
+            k = key(c)
+            jar[k] = QNetworkCookie(c)    # a copy: the object handed to the signal only lives during the call
+            if len(seen) >= self.SEEN_MAX and k not in seen:
+                seen.pop(next(iter(seen)))
+            seen[k] = jar[k]
+        store.cookieAdded.connect(added)
         store.cookieRemoved.connect(lambda c: jar.pop(key(c), None))
 
-    def site_cookies(self, profile, site):
-        """Cookies of a registrable domain (and its subdomains) in a profile."""
+    def site_cookies(self, profile, site, ever=False):
+        """Cookies of a registrable domain (and its subdomains) in a profile;
+        ever=True: also those the engine may still have (see _track_cookies)."""
         out = []
-        for c in list(getattr(self, "cookie_jars", {}).get(profile, {}).values()):
+        source = getattr(self, "cookies_seen" if ever else "cookie_jars", {}).get(profile, {})
+        for c in list(source.values()):
             domain = c.domain().lstrip(".").lower()
             if domain == site or domain.endswith("." + site):
                 out.append(c)

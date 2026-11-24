@@ -9,7 +9,7 @@ The interface, protections, password manager and updater are I.K.E.'s own code
 provided and kept up to date by Arch Linux. I.K.E. is developed on and for
 KDE Plasma (CachyOS / Arch Linux) and works on the other Arch-based desktops.
 
-**Version 1.1.24** - see [CHANGELOG.md](CHANGELOG.md).
+**Version 1.1.25** - see [CHANGELOG.md](CHANGELOG.md).
 
 ## Install (Arch Linux, CachyOS)
 
@@ -17,7 +17,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.1.24-1-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.1.25-1-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:
@@ -58,8 +58,17 @@ profiles: `ike-browser --profile NAME`.
   from site to site and from session to session (at Balanced a common model
   of the same maker chosen per site instead of the exact one; at Strict and
   Maximum no name at all); Strict and Maximum also give common values for the
-  screen, fonts, memory, languages and voices. Not covered: the time zone, and
-  workers a site starts from a file of its own.
+  screen, fonts, memory, languages and voices. Not covered: workers a site
+  starts from a file of its own.
+- **Protected time zone** (the shield, off by default): every site sees the
+  time zone UTC, in pages, frames and every kind of worker alike; I.K.E.'s
+  own menus and its new tab clock keep yours. Some sites will show wrong
+  times; it applies after a restart.
+- **Bounce tracking** (on by default): a site you only pass through, because
+  a link redirected you there and on at once, loses its cookies and stored
+  data half a minute later. Sites you used in the last 45 days, have open or
+  bookmarked, sign-in and payment services and sites you allowed in the
+  shield are never touched.
 - Sites see Chrome on Linux with the version of I.K.E.'s own engine: header,
   client hints and JavaScript agree (at Strict and Maximum only its major
   number, today 140.0.0.0, in pages, workers and request headers). One
@@ -79,6 +88,14 @@ profiles: `ike-browser --profile NAME`.
   real addresses without a false alarm), and any site can be marked as fine.
 - **Repair this site**: when a page does not work, the shield finds the
   protection that breaks it and turns off only that one, for that site only.
+- **Safer downloads**: a program or a script (AppImage, `.run`, `.sh`, `.exe`,
+  `.msi`, `.deb`, `.rpm`, `.jar`, `.py`, `.bat`, `.cmd`, `.ps1`, `.desktop`)
+  from a site on the protection lists or from a site you never visited before
+  asks first; a file over plain http from an https page is stopped. "Cancel"
+  is the default, "Download anyway" is at your own risk. Nothing is asked of
+  the network.
+- "Clear this site's data" says what it removed: cookies, the site's storage,
+  its caches, and the permissions it kept.
 
 **Browsing**
 - Horizontal or vertical tabs (vertical ones also with only their icons), tab groups, workspaces, containers with separate
@@ -117,6 +134,16 @@ profiles: `ike-browser --profile NAME`.
   two that are off until you choose them: automatic scrolling with the middle
   button, and opening the selected text with the middle button.
 - I.K.E.'s own pages for sites that cannot be reached, with "Try again".
+- Quiet permission questions (on by default; Settings → Privacy): a site
+  asking for notifications, the location, the camera or the microphone shows
+  a small sign in the address bar; a click answers. Notifications asked for
+  without a click on the page are refused at once (not remembered).
+- An optional check of saved passwords against known data breaches (Have I
+  Been Pwned, off by default; the Passwords window): only the first 5
+  characters of the password's SHA-1 fingerprint leave the computer.
+- Battery saver (off by default; Settings → System): on battery, background
+  tabs pause after a minute and the interface's animations and tab pictures
+  stop. It listens to UPower, nothing is polled.
 - Reader mode with light, sepia or dark and the text size of your choice.
 - Free choice of search engines (Startpage by default since 1.1.19: the old default, DuckDuckGo, becomes Startpage once; another engine chosen is kept), suggestions, keywords; the
   engine in use right after the lock and in the new tab page, a click to change it.
@@ -125,10 +152,24 @@ profiles: `ike-browser --profile NAME`.
   a wide window); the trackers and ads blocked
   this month; your own photo as its background if you like (kept on the
   computer, never uploaded).
+- A greeting and short friendly messages on the new tab page, worked out in the
+  page itself; to avoid repeating itself, I.K.E. keeps in its own settings only
+  the dates of the first and last visit of the new tab page, the days of use, the
+  streak, the usual hour, the version last seen and the messages shown lately
+  (never a site, an address or your history), nothing leaves your computer, and
+  all of it is off with the switch in Settings → New tab page. Holidays are
+  greeted only for the traditions you choose there (none at first).
 - Toolbar buttons shown, hidden and moved to either side of the address bar
   ("Customise toolbar"); Back, Forward, Home and Reload keep their place at the
   start, and the shield its place inside the address bar, at its end. In a narrow
-  window the buttons that do not fit are listed under a » button.
+  window the buttons that do not fit are listed under a » button. Buttons you
+  can add (off at first): Zoom, Manage bookmarks, Print or save as PDF, Send to
+  device (KDE Connect) and Site resources.
+- The ☰ menu grouped as you look for things: new tabs and windows, this page
+  (find, zoom, dark mode, reader mode, translation), print and save, history,
+  bookmarks and downloads, protection and extensions, Settings and Help; every
+  other command is under "More", as in the menu bar. Settings have a search
+  field that finds an option by its name or its explanation, in any language.
 - **Site resources** (Shift+Esc): memory, CPU and network of each open site,
   with optional limits that suspend or freeze greedy background tabs.
 - **Watched pages**: right-click a page, or a part of it such as a price, to be
@@ -143,10 +184,21 @@ profiles: `ike-browser --profile NAME`.
   when done) and as progress on I.K.E.'s icon in the task manager; open tabs
   and bookmarks in KRunner, with "Mute", "Unmute" and "Close tab"; "Send to
   device" to a phone paired with KDE Connect.
+- Files, folders and links go to the desktop through the XDG desktop portal
+  (xdg-utils is not used): a download opens with the app the desktop chose
+  for it, "Show in folder" selects it in Dolphin or the file manager. With no
+  portal running, the desktop's own opener does it when it is there
+  (kioclient, gio, exo-open). Only where the desktop has the app: "Open with
+  Okular" for a PDF, "Open image in Gwenview", archives in Ark, "Add to
+  calendar" for `.ics` files, the page's code in Kate (on other desktops their
+  PDF reader, image viewer, archive manager, calendar and text editor).
+- Settings → "Make I.K.E. the default browser" writes `~/.config/mimeapps.list`
+  as the XDG specification says, keeping every other entry.
 
 **Appearance and languages**
 - Follows the system theme by default; icon themes installed on the computer or
-  the bundled Lucide and Phosphor sets; light or dark interface.
+  the bundled Lucide, Phosphor and Breeze (KDE's own icons, there even where
+  KDE's icon theme is not installed) sets; light or dark interface.
 - Other interface themes: five ready-made ones (I.K.E., Night, Paper, Forest,
   High contrast) and your own, with your choice of background, text, accent,
   toolbar and tab colours and of the font family and size.
@@ -185,11 +237,12 @@ I.K.E. has no servers of its own and sends no telemetry. It contacts only:
 | Encrypted DNS provider | only if you turn DNS over HTTPS on | the names of the sites you visit |
 | Google Translate (or the address you set) | only when you translate a page | the address of the page |
 | Google's update service for Chrome components (update.googleapis.com), then Google's download servers (dl.google.com, *.gvt1.com) | only if you ask I.K.E. to install Widevine or to check for a newer one | one request that says only "a Chromium on x64 Linux, engine version N, wants the Widevine component" (as if none were installed; no cookies, no user or installation id, no other component), then a plain download of the package it names; the old dl.google.com/widevine-cdm/ folder only if that offers nothing |
-| Open-Meteo (open-meteo.com), free, no account, no key | weather on the new tab page, only after you choose a city | finding the city: its name, once; then only the city's coordinates (rounded), at most every 30 minutes and only when a new tab is open. Your location is never asked. Can be switched off in Settings → New tab page |
+| Open-Meteo (open-meteo.com), free, no account, no key | weather on the new tab page, only after you choose a city | finding the city: its name, once; then only the city's coordinates (rounded) asking for the temperature, the weather and the wind, at most every 30 minutes and only when a new tab is open. Your location is never asked. Can be switched off in Settings → New tab page |
 | The pages you chose to watch | at the interval you chose, only while I.K.E. is open | a normal page load, like a private window: without your cookies |
 | The sites of your user scripts | once a day, if automatic updates are on | a plain download of each script |
 | GitHub (github.com and its download servers) | once a day, unless I.K.E. updates are off | a plain download of the latest release's signed manifest, and of the update when you install it |
 | Chrome Web Store (chromewebstore.google.com, clients2.google.com) | only if you install an experimental Chrome extension | the extension's id; the package is downloaded |
+| Have I Been Pwned's password range service (api.pwnedpasswords.com), free, no account | only if you turn the breach check on (Passwords window), when a password is saved or filled in, once per password and session | the first 5 hexadecimal characters of the password's SHA-1 fingerprint, with the padding header (every answer about the same size); the comparison is made on your computer |
 
 The project's own checks run in GitHub Actions only, never in the browser
 and never with anything about its users ([docs/MAINTENANCE.md](docs/MAINTENANCE.md)):
@@ -208,7 +261,10 @@ and never with anything about its users ([docs/MAINTENANCE.md](docs/MAINTENANCE.
 
 - Filter lists update themselves daily; the presented Chrome version is the
   web engine's own, so it changes when the system's `qt6-webengine` does.
-- The web engine updates with the system (`sudo pacman -Syu`).
+- The web engine updates with the system (`sudo pacman -Syu`). When a
+  security problem of the engine is published and fixed in a newer version,
+  the signed update information I.K.E. already reads once a day can say so,
+  and I.K.E. shows "Update the system" with that command (no other request).
 - I.K.E. itself updates by itself from the latest GitHub release, signed with
   the project's key and checked before use, the AdBlock engine included
   (Settings → Updates: automatic by default, or ask, or off at your own risk);
@@ -254,6 +310,7 @@ I.K.E. stands on the work of these projects, each under its own licence:
 | [Dark Reader](https://github.com/darkreader/darkreader) | dark mode for pages | MIT |
 | Qt, Qt WebEngine (Chromium), PyQt6 | the window and the web engine, from the system | LGPL-3.0 / BSD / GPL-3.0 |
 | Lucide, Phosphor Icons | icon sets | ISC / MIT |
+| [Breeze icons](https://invent.kde.org/frameworks/breeze-icons) by KDE | icon set (the icons I.K.E. uses) | LGPL-3.0 |
 | Orbitron | the lettering of the logo | SIL OFL 1.1 |
 
 The filter lists are not shipped: the browser downloads them from their

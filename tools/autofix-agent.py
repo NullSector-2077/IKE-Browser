@@ -74,7 +74,8 @@ MESSAGES = {
                "bastato): Antigravity non è partito, provano le riserve.",
     # part 2 of AUTOMAT: the budget of the free quotas (tools/ai-quota.py)
     "budget": "La quota gratuita di Gemini di oggi non basta (finita, già usata da questo candidato, oppure "
-              "non resterebbe quota per far rivedere la correzione da altre AI): Antigravity non è partito.",
+              "non resterebbe quota per far rivedere la correzione da altre AI, oppure è lavoro di fondo che "
+              "aspetta: prima gli aggiornamenti veri): Antigravity non è partito.",
 }
 # a billing error: the model or the project is not on the free tier (WP9; the
 # same words as tools/autofix-reserve.py, never a quota's advice)
@@ -341,6 +342,10 @@ def main(argv=None):
     ap.add_argument("--quota-state", help="quota.json of the data branch (today's use)")
     ap.add_argument("--quota-usage", help="where this run's use is written (numbers only)")
     ap.add_argument("--candidate", default="", help="the branch being fixed (its share of the quota)")
+    ap.add_argument("--quota-memory", help="AUTOMAT's memory.json: the real updates still pending (background "
+                                           "work waits for them, tools/ai-quota.py)")
+    ap.add_argument("--quota-pending", help="the plan's list of the real updates still pending (open pull requests "
+                                            "whose checks are not green, and the memory's rows)")
     a = ap.parse_args(argv)
     key = os.environ.get("GEMINI_API_KEY", "")
     workdir, out = Path(a.workdir), Path(a.out)
@@ -383,7 +388,8 @@ def main(argv=None):
         named = [n.strip() for n in (os.environ.get("AUTOFIX_REVIEWERS") or "").split(",") if n.strip() in quota.NAMES]
         spend = quota.Budget(limits, quota.load_state(a.quota_state) if a.quota_state else None, a.candidate,
                              tier_b=tier_b, available=[n for n in (named or quota.NAMES) if n not in off
-                                                       and not (n == "Antigravity" and "Gemini" in off)])
+                                                       and not (n == "Antigravity" and "Gemini" in off)],
+                             pending=quota.pending_for_run(a.quota_memory, a.quota_pending, limits))
         session = int(limits["providers"]["Antigravity"].get("session_requests") or 10)
         allowed, why = spend.allows("Antigravity", 0, "fix", requests=session)
         if not allowed:

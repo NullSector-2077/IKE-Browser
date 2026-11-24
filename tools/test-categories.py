@@ -36,7 +36,11 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 # category -> (what it checks, where its result comes from: (workflow, job, step))
-# step None: the job's own conclusion
+# step None: the job's own conclusion. Since 2026-11-24 tests.yml runs the suite in parallel jobs
+# and its job "tests" is their gate: "Tests" and "Tests of the installed package" there are the
+# completeness check of every shard (tools/shard-tests.py verify), and each other step named here
+# restates, under the same name, the outcome of that very step in the job that ran it once ("tests
+# checks", "tests package"): skipped there, skipped here. arch.yml's job "Arch Linux" is its gate.
 CATEGORIES = {
     "lint": ("ruff on the whole repository", ("tests.yml", "tests", "Lint")),
     "unit-integration": ("the whole Python suite with the real Qt WebEngine (headless): unit, integration, "
@@ -103,16 +107,18 @@ REQUIRED = {
 AREAS = (
     ("licences", ("test_licences.py", "test_credits.py")),
     ("automation and maintenance", ("test_components.py", "test_automation.py", "test_merge_and_mail.py",
-                                    "test_publish.py", "test_inventory*.py", "test_maintenance*.py")),
+                                    "test_publish.py", "test_inventory*.py", "test_maintenance*.py",
+                                    "test_shards.py")),
     ("ad blocking", ("test_adblock.py", "test_videoads.py", "test_freeway.py", "test_userscript*.py")),
     ("dark mode (Dark Reader)", ("test_darkreader*.py", "test_dark_*.py", "test_sitetint.py")),
     ("security and privacy", ("test_sandbox.py", "test_security.py", "test_site_isolation.py", "test_fingerprint*.py",
                               "test_home_network*.py", "test_frame_guard*.py", "test_referrer.py",
                               "test_client_hints.py", "test_engine_switches.py", "test_lookalike.py",
                               "test_passwords.py", "test_media_secret.py", "test_page_traces.py",
-                              "test_accept_language.py", "test_switches.py")),
+                              "test_accept_language.py", "test_switches.py", "test_safe_downloads.py",
+                              "test_clean_site.py", "test_privacy_124.py")),
     ("desktop integration", ("test_plasma.py", "test_platform.py", "test_mailto.py", "test_videogpu.py",
-                             "test_mediacheck.py")),
+                             "test_mediacheck.py", "test_handoff.py")),
     ("updates", ("test_updater.py", "test_update_safety.py", "test_versions.py", "test_engine_age.py",
                  "test_repair.py")),
     ("speed", ("test_performance.py", "test_speed.py", "test_startup.py", "test_darkreader_cost.py")),
@@ -147,6 +153,10 @@ EXPECTED_SKIPS = (
     (r"^IKE_FIT_LANGS: one group", "a split run of the same test"),
     (r"^KDE's Breeze icons and platform theme are not installed here|^KDE's theme did not load here"
      r"|^the \S+ style is not installed here|^desktop \w+: ", "arch.yml installs the desktops' themes and runs it"),
+    # 1.1.24 (tests/test_touches_124.py, the tab mark drawn as Breeze draws it): arch.yml installs breeze
+    # and its "Tests (Arch's Qt)" run the whole suite there, where this test runs
+    (r"^Breeze \(the widget style\) is not installed here$",
+     "arch.yml installs breeze and runs it in its Tests (Arch's Qt)"),
     # 2026-11-22, read from a real Tests run on GitHub's runners (run 45020817248 of PR #105, its
     # "What the tests verified"): environmental there, each verified elsewhere
     (r"^the desktops are tested as Arch Linux packages them \(not Arch here\)$",

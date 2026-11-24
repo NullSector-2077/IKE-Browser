@@ -1835,6 +1835,22 @@ def test_the_agent_never_waits_for_a_review_nobody_gives():
     assert '"toolPermission"' not in fix                 # tools keep asking (and are denied)
 
 
+def test_a_pull_requests_run_started_again_is_handed_over_by_its_own_branch():
+    """The drill of 2026-11-23: on a pull request's run github.ref_name is
+    "<number>/merge", so a failed run the automatic fix started again (the plan
+    skips it, waiting for the hand-over) was never handed over and the fix
+    never came. The second attempt reads the pull request's own branch."""
+    for name, job in (("tests.yml", "hand-over"), ("arch.yml", "hand-over")):
+        text = (WORKFLOWS / name).read_text()
+        hand = text.split("\n  %s:\n" % job, 1)[1].split("runs-on:", 1)[0]
+        again = hand.split("github.run_attempt > 1", 1)[1]
+        assert "github.triggering_actor == 'github-actions[bot]'" in again, name
+        assert "startsWith((github.head_ref || github.ref_name), 'automation/update/')" in again, name
+        assert "(github.head_ref || github.ref_name) == 'automation/autofix-main'" in again, name
+        # a bare github.ref_name would be "<number>/merge" on a pull request
+        assert "github.ref_name" not in again.replace("(github.head_ref || github.ref_name)", ""), name
+
+
 def test_failures_of_tests_the_automation_started_reach_the_fix(monkeypatch):
     """2026-11-19: runs started with GITHUB_TOKEN send no workflow_run, so the
     second attempt never came and a failing maintenance candidate never reached
@@ -3254,9 +3270,17 @@ def test_the_package_is_kept_before_any_test_runs_against_it():
     """Audit of #65 (L8): the package was uploaded after the tests of the
     installed package, which run code of the branch against that very file."""
     text = (WORKFLOWS / "tests.yml").read_text()
-    tests = jobs_of(text)["tests"]
-    assert tests.index("name: ike-browser-package") < tests.index("name: Tests of the installed package")
-    assert tests.index('sha256sum "$RUNNER_TEMP"/pkg/') < tests.index("name: ike-browser-package")
+    # since 2026-11-24 the package is built and kept by its own job ("tests package"), before any
+    # test runs: the installed shards need that job, and test the very file it kept, by its sha256
+    jobs = jobs_of(text)
+    package, installed = jobs["package"], jobs["installed"]
+    assert package.index('sha256sum "$RUNNER_TEMP"/pkg/') < package.index("name: ike-browser-package")
+    steps = package.split("\n\n", 1)[0]                                    # the job, not the next one's comment
+    assert "pytest" not in steps and "shard-tests.py" not in steps         # no test runs where it is built
+    assert re.search(r"needs: \[[^\]]*\bpackage\b", installed)
+    assert "name: ike-browser-package" in installed and "SHA256: ${{ needs.package.outputs.sha256 }}" in installed
+    assert installed.index('sha256sum -c -') < installed.index("name: Tests of the installed package")
+    assert "sha256: ${{ steps.sha256.outputs.sha256 }}" in package and "id: sha256" in package
 
 
 def test_the_weekly_check_watches_every_scheduled_check_and_asks_the_reserves():
@@ -3619,13 +3643,20 @@ def test_arch_reaches_the_automatic_fix_and_comes_back_tested_there():
     arch = (WORKFLOWS / "arch.yml").read_text()
     assert "name: %s\n" % plan_tool.ARCH in arch.split("\njobs:\n")[0]
     jobs = jobs_of(arch)
-    assert set(jobs) == {"arch", "hand-over", "merge-ready"}
-    assert "    name: %s\n" % plan_tool.ARCH_JOB in jobs["arch"]
-    names = re.findall(r"^      - name: (.+)$", jobs["arch"], re.M)
+    # since 2026-11-24 the work runs in parallel parts (job "part": the shards and the styles) and
+    # "Arch Linux" (job "arch") is their gate: every step the plan runs again is a step of the parts
+    # and of the gate (which proves every collected test ran once); the gate installs nothing
+    assert set(jobs) == {"plan", "part", "arch", "hand-over", "merge-ready"}
+    assert "    name: %s\n" % plan_tool.ARCH_JOB in jobs["arch"] and plan_tool.GATES["Arch Linux"] == plan_tool.ARCH_JOB
+    names = re.findall(r"^      - name: (.+)$", jobs["part"], re.M)
+    gate = re.findall(r"^      - name: (.+)$", jobs["arch"], re.M)
     for step in plan_tool.ARCH_RERUN_STEPS:
-        assert step in names, step
+        assert step in names and step in gate, step
     infra = [n for n in names if plan_tool.ARCH_INFRA_STEP.match(n)]
-    assert infra == ["Git (for the checkout)", "Git owner check", "Arch's packages", "AdBlock engine's crates"]
+    # (the review of 2026-11-24: every part reads the plan's one snapshot of Arch's repositories first)
+    assert infra == ["Arch's snapshot", "Git (for the checkout)", "Git owner check", "Arch's packages",
+                     "AdBlock engine's crates"]
+    assert not [n for n in gate if plan_tool.ARCH_INFRA_STEP.match(n)]
     assert "cargo fetch --locked" in arch and "cargo build --release --frozen" in arch
     assert set(plan_tool.REPORTING_JOBS["Arch Linux"]) == {"hand-over", "merge-ready"}
     hand = jobs["hand-over"]

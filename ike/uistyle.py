@@ -77,10 +77,18 @@ def readable(colour, background, text, least=4.5):
 # switches
 # ----------------------------------------------------------------------
 def switch_size(fm, small=False):
-    """(width, height) of a switch beside a text of the font fm: as tall as
-    a line and a little more (small: in a list entry; menus: menu_switch_size)."""
-    h = max(16, fm.height() + 2) if small else max(18, fm.height() + 4)
+    """(width, height) of a switch beside a text of the font fm: about as
+    tall as a line (small: in a list entry; menus: menu_switch_size). 1.1.24,
+    the owner's choice: both a little smaller than before (they were a line
+    and four pixels, and a line and two)."""
+    h = max(14, fm.height()) if small else max(16, fm.height() + 2)
     return round(h * 1.9), h
+
+
+def switch_radius(h):
+    """The corners of a switch of height h (1.1.24, the owner's choice: a
+    squared switch with rounded corners, closer to Plasma, not a pill)."""
+    return max(1.5, h * 0.18)
 
 
 def menu_switch_size(fm):
@@ -109,20 +117,27 @@ def paint_switch(p, rect, on, palette, enabled=True, focus=False, rtl=False, sel
         track = palette.color(R.Highlight) if on else palette.color(R.Mid)
         knob = palette.color(R.HighlightedText) if on else palette.color(R.Base)
         line = palette.color(R.Mid)
+        if not on:
+            # 1.1.24, the owner's report: a switch turned off hardly showed (its border was the colour
+            # of its own track); a thin outline in the text colour, half seen, draws its shape
+            line = QColor(palette.color(R.WindowText))
+            line.setAlphaF(0.45)
+    radius = switch_radius(h)
     if focus:
         p.setPen(QPen(palette.color(R.Highlight), 1))
         p.setBrush(Qt.BrushStyle.NoBrush)
-        p.drawRoundedRect(outer, outer.height() / 2, outer.height() / 2)
+        ring = switch_radius(outer.height())
+        p.drawRoundedRect(outer, ring, ring)
     p.setPen(QPen(line, 1))
     p.setBrush(track)
-    p.drawRoundedRect(r, h / 2, h / 2)
+    p.drawRoundedRect(r, radius, radius)
     end = on != rtl
     side = max(2.0, h - (4 if h >= 12 else 2.5))
     k = QRectF(0, 0, side, side)
     k.moveCenter(QPointF(r.right() - h / 2 if end else r.left() + h / 2, r.center().y()))
     p.setPen(Qt.PenStyle.NoPen)
     p.setBrush(knob)
-    p.drawEllipse(k)
+    p.drawRoundedRect(k, radius * 0.7, radius * 0.7)       # a square knob with rounded corners
     p.restore()
 
 
@@ -432,6 +447,12 @@ class IkeStyle(QProxyStyle):
         elif kind == CT.CT_MenuItem and isinstance(widget, QMenu) and isinstance(opt, QStyleOptionMenuItem) \
                 and opt.menuItemType != QStyleOptionMenuItem.MenuItemType.Separator:
             room = self._switch_room(opt, widget)
+            if opt.menuItemType == QStyleOptionMenuItem.MenuItemType.SubMenu:
+                # 1.1.24: room between the text and the arrow of a submenu. KDE's
+                # Breeze leaves 3 px or less, so the longest name of a menu without
+                # shortcuts touched its arrow (☰ → More → View, Tools); half a line
+                # more, in every style: a menu is only wider when such a name is its longest
+                room += max(4, opt.fontMetrics.height() // 2)
             if room:
                 s = QSize(s.width() + room, s.height())
         elif kind == CT.CT_ToolButton and opt is not None and text and tool_style is not None:

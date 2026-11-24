@@ -19,7 +19,9 @@ at the visible widgets under ``widget`` and returns one line per problem:
 
 ``check_menu(menu)`` does the same for the entries of a menu: each text and
 its shortcut fit the entry, the menu fits the screen's width, and a menu
-taller than the screen scrolls.
+taller than the screen scrolls; since 1.1.24 also the text of an entry that
+opens a submenu keeps ARROW_GAP px from its arrow (the "More" menu of the ☰
+menu, in KDE's Breeze, had "View" and "Tools" touching it).
 """
 
 import re
@@ -281,9 +283,89 @@ def _far(c, r, g, b):
     return abs(((c >> 16) & 255) - r) + abs(((c >> 8) & 255) - g) + abs((c & 255) - b) > 90
 
 
+ARROW_GAP = 6       # px at least between the text of an entry and the arrow of its submenu (1.1.24)
+
+
+def _entry_picture(menu, a, text=None):
+    """The entry of a menu as the style draws it, with its own text or with text."""
+    from PyQt6.QtGui import QImage, QPainter
+    from PyQt6.QtWidgets import QStyleOptionMenuItem
+    r = menu.actionGeometry(a)
+    opt = QStyleOptionMenuItem()
+    try:
+        menu.initStyleOption(opt, a)
+    except RuntimeError:
+        # a menu made by Qt itself (the menu bar's addMenu): the option as QMenu
+        # fills it for an entry that opens a submenu
+        T = QStyleOptionMenuItem.MenuItemType
+        opt.initFrom(menu)
+        if not a.isEnabled():
+            opt.state &= ~QStyle.StateFlag.State_Enabled
+        opt.font = menu.font()
+        opt.fontMetrics = menu.fontMetrics()
+        opt.text = a.text()
+        opt.icon = a.icon()
+        opt.menuItemType = T.SubMenu
+        opt.checkType = QStyleOptionMenuItem.CheckType.NotCheckable
+        opt.menuHasCheckableItems = any(x.isCheckable() for x in menu.actions())
+        icons = any(not x.icon().isNull() for x in menu.actions())
+        opt.maxIconWidth = (menu.style().pixelMetric(QStyle.PixelMetric.PM_SmallIconSize, None, menu) + 4
+                            if icons else 0)
+        opt.reservedShortcutWidth = 0
+        opt.menuRect = menu.rect()
+    opt.rect = QRect(0, 0, r.width(), r.height())
+    opt.state &= ~QStyle.StateFlag.State_Selected
+    if text is not None:
+        opt.text = text
+    img = QImage(r.width(), r.height(), QImage.Format.Format_ARGB32)
+    img.fill(menu.palette().color(menu.backgroundRole()))
+    p = QPainter(img)
+    p.setLayoutDirection(menu.layoutDirection())       # as QMenu's own painter (right to left: AlignLeft is right)
+    p.setFont(menu.font())
+    menu.style().drawControl(QStyle.ControlElement.CE_MenuItem, opt, p, menu)
+    p.end()
+    return img
+
+
+def arrow_gap(menu, a):
+    """Pixels between the end of an entry's text and the arrow of its submenu
+    (None: nothing to measure). The entry is drawn by the style twice, with
+    and without its text: the text is what differs; the arrow is what is
+    drawn on the far half of the entry without a text."""
+    if a.menu() is None or not a.text():
+        return None
+    with_text, without = _entry_picture(menu, a), _entry_picture(menu, a, "")
+    w, h = with_text.width(), with_text.height()
+    rtl = menu.isRightToLeft()
+    text_x = [x for x in range(w) for y in range(h) if with_text.pixel(x, y) != without.pixel(x, y)]
+    if not text_x:
+        return None
+    counts = {}
+    for x in range(w):
+        for y in range(h):
+            c = without.pixel(x, y)
+            counts[c] = counts.get(c, 0) + 1
+    bg = max(counts, key=counts.get)
+    br, bgg, bb = (bg >> 16) & 255, (bg >> 8) & 255, bg & 255
+    half = range(0, w // 2) if rtl else range(w // 2, w)
+    arrow_x = [x for x in half for y in range(h) if _far(without.pixel(x, y), br, bgg, bb)]
+    if not arrow_x:
+        return None
+    if rtl:
+        return min(text_x) - max(arrow_x) - 1
+    return min(arrow_x) - max(text_x) - 1
+
+
 def check_menu(menu, where):
     """[(where, "QMenu", text, problem)] for the entries of an open menu."""
     out = []
+    # 1.1.24: the text of an entry never touches the arrow of its submenu
+    for a in menu.actions():
+        if a.isVisible() and a.menu() is not None and not a.isSeparator():
+            gap = arrow_gap(menu, a)
+            if gap is not None and gap < ARROW_GAP:
+                out.append((where, "QMenu", plain(a.text()),
+                            "text %d px from its submenu's arrow (wants %d)" % (gap, ARROW_GAP)))
     area = _screen_area(menu)
     if menu.width() > area.width() + 1:
         out.append((where, "QMenu", menu.title(), "menu wider than the screen"))

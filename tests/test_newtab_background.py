@@ -219,7 +219,8 @@ def steps(ike, qapp, out):
     yield 1500
     out["fill"] = json.loads((yield from js(view, LOOK)))
     shot = view.grab().toImage()
-    mid = QColor(shot.pixel(int(shot.width() * 0.1), int(shot.height() * 0.03)))
+    # (the middle of the left edge: the top left corner has the greeting's pane over the photo since 1.1.24)
+    mid = QColor(shot.pixel(int(shot.width() * 0.1), shot.height() // 2))
     out["pixel_fill"] = [mid.red(), mid.green(), mid.blue()]
     # another photo takes its place
     second = picture("second.png", 800, 800, colour="#2020c0", alpha=True)
