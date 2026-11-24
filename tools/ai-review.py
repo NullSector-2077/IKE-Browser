@@ -531,6 +531,8 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     r.add_argument("--dir", required=True)
     r.add_argument("--quota-limits", help="tools/ai-quota.json (default: next to this file)")
     r.add_argument("--quota-state", help="quota.json of the data branch: today's use of the free quotas")
+    r.add_argument("--quota-pending", help="the security fixes and real updates pending now, one branch a line (the "
+                   "prepare job's list; \"unknown\" or missing: the reviews of background work wait)")
     u = sub.add_parser("publish")
     u.add_argument("--repo", required=True)
     u.add_argument("--dir", required=True)
@@ -555,10 +557,15 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     request = json.loads((folder / "request.json").read_text("utf-8"))
     if a.cmd == "review":
         spend = None
-        if a.quota_state or a.quota_limits:
+        if a.quota_state or a.quota_limits or a.quota_pending:
             quota = _tool("ai-quota")
-            spend = quota.Budget(quota.load_limits(a.quota_limits),
-                                 quota.load_state(a.quota_state) if a.quota_state else None, request.get("ref") or "")
+            limits = quota.load_limits(a.quota_limits)
+            # real updates first (2026-11-24): the reviews of the CI's and background work wait like their fixes
+            # while a real update is pending, or while that could not be read (tools/ai-quota.py pending_for_run)
+            spend = quota.Budget(limits, quota.load_state(a.quota_state) if a.quota_state else None,
+                                 request.get("ref") or "",
+                                 pending=quota.pending_for_run(None, a.quota_pending, limits) if a.quota_pending
+                                 else None)
             # OpenRouter's free models share one daily cap of the account: read from the account when it can be
             key = (env.get("OPENROUTER_API_KEY") or "").strip()
             if key:

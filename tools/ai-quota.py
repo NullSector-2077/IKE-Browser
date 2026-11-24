@@ -234,13 +234,29 @@ def pending_work(memory, limits=None, now=None):
     return sorted(out)
 
 
+STAMP = re.compile(r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+DAY = re.compile(r"^\d{4}-\d\d-\d\d$")
+
+
+def after_last_failure(moment, row):
+    """True when moment (a UTC time, "YYYY-MM-DDTHH:MM:SSZ" as GitHub writes it) is strictly after the row's last
+    failure: its time ("at", written by tools/automat-memory.py), or for an older row with only a date, a later
+    day (the same day is not enough: the failure may have come after)."""
+    moment = str(moment or "")
+    if not STAMP.match(moment) or not isinstance(row, dict):
+        return False
+    at = str(row.get("at") or "")
+    if STAMP.match(at):
+        return moment > at
+    day = str(row.get("date") or row.get("since") or "")
+    return bool(DAY.match(day)) and moment[:10] > day
+
+
 def is_closed(component, row):
-    """True when the row's pull request was closed on or after its last failure (tools/automat-memory.py closed
-    marks it, never deletes it): the row stays for the count of failures in a row, and is only left out of the
+    """True when the row was marked closed (tools/automat-memory.py closed marks it, never deletes it) strictly
+    after its last failure: the row stays for the count of failures in a row, and is only left out of the
     priority. Never for a long-lived branch of the maintenance."""
-    mark = str((row or {}).get("closed") or "")
-    return bool(mark) and str(component) not in LONG_LIVED and \
-        mark >= str((row or {}).get("date") or (row or {}).get("since") or "")
+    return str(component) not in LONG_LIVED and after_last_failure((row or {}).get("closed"), row)
 
 
 GREEN = ("success", "skipped", "neutral")
@@ -297,7 +313,8 @@ def pending_from_prs(repo, api, limits=None):
 
 def closed_branches(repo, api, refs, memory=None):
     """Of these branches (none has an open pull request), those whose NEWEST pull request was closed (merged or
-    not) on or after the last failure of their row in AUTOMAT's memory: that work is over. Never a long-lived
+    not) strictly after the last failure of their row in AUTOMAT's memory (after_last_failure: full times):
+    that work is over. Never a long-lived
     branch of the maintenance (LONG_LIVED), never a branch without a row, never one whose pull requests cannot
     be read: rather wait than drop real work."""
     out = []
@@ -308,22 +325,20 @@ def closed_branches(repo, api, refs, memory=None):
         row = streak.get(ref)
         if ref in LONG_LIVED or not isinstance(row, dict):
             continue
-        last = str(row.get("date") or row.get("since") or "")
         try:
             got = api("repos/%s/pulls?state=all&head=%s:%s&sort=created&direction=desc&per_page=1"
                       % (repo, owner, ref)) or []
         except RuntimeError:
             continue
         newest = got[0] if isinstance(got, list) and got and isinstance(got[0], dict) else {}
-        when = str(newest.get("closed_at") or "")[:10]
-        if newest.get("state") == "closed" and re.fullmatch(r"\d{4}-\d\d-\d\d", when) and last and when >= last:
+        if newest.get("state") == "closed" and after_last_failure(newest.get("closed_at"), row):
             out.append(ref)
     return sorted(out)
 
 
 def gather_prs(repo, api, memory=None, limits=None, now=None, runs=True):
     """pending_from_prs, and "closed": the memory's rows whose branch has no open pull request any more and whose
-    newest pull request was closed after the row's last failure (closed_branches; GET calls only)."""
+    newest pull request was closed strictly after the row's last failure (closed_branches; GET calls only)."""
     prs = pending_from_prs(repo, api, limits) if runs else {"pending": [], "open": []}
     if not runs:
         for page in range(1, 6):
@@ -383,12 +398,16 @@ def provider_day(conf, now=None):
 
 def next_reset(conf, now=None, observed=None):
     """The next moment the provider's day starts again, in UTC: what its own headers said last (observed: a
-    daily window's reset in seconds and when it was read, "at"), else its "reset" (a time in its own zone)."""
+    daily window's reset in seconds and when it was read, "at", in the last two days; a reset already past is
+    rolled forward by whole days, so it keeps deciding), else its "reset" (a time in its own zone)."""
     now = now_utc(now)
     obs = observed if isinstance(observed, dict) else {}
     if obs.get("window") == "day" and isinstance(obs.get("reset"), int) and isinstance(obs.get("at"), int) \
-            and obs["reset"] > 0:
+            and obs["reset"] > 0 and obs["at"] >= now.timestamp() - OBSERVED_RESET_MAX:
         moment = dt.datetime.fromtimestamp(obs["at"] + obs["reset"], dt.timezone.utc)
+        if moment <= now:
+            # a reset already past: the provider's day starts again at the same time each day (whole days on)
+            moment += dt.timedelta(days=math.floor((now - moment).total_seconds() / 86400) + 1)
         if now < moment <= now + dt.timedelta(seconds=OBSERVED_RESET_MAX):
             return moment
     reset = (conf or {}).get("reset") or {"time": "00:00", "zone": "UTC"}

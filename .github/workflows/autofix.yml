@@ -297,13 +297,19 @@ jobs:
           # means nothing is pending
           if [ "$(sed -n 's/^action=//p' "$GITHUB_OUTPUT" | tail -n 1)" = "fix" ]; then
             touch "$RUNNER_TEMP/memory.json"
-            if pending=$(python3 -I tools/ai-quota.py pending --repo "$GITHUB_REPOSITORY" --memory "$RUNNER_TEMP/memory.json") \
-                 && printf '%s' "$pending" | grep -Eq '^[A-Za-z0-9._/,-]{0,4000}$'; then
-              echo "pending=${pending:-none}" >> "$GITHUB_OUTPUT"
+            if pending=$(python3 -I tools/ai-quota.py pending --repo "$GITHUB_REPOSITORY" --memory "$RUNNER_TEMP/memory.json"); then
+              case "$pending" in
+                "") pending=none ;;
+                *[!A-Za-z0-9._/,-]*) pending=unknown ;;
+              esac
+              if [ "${#pending}" -gt 4000 ]; then pending=unknown; fi
             else
-              echo "::warning::the pending real updates could not be read: background work pauses (unknown)"
-              echo "pending=unknown" >> "$GITHUB_OUTPUT"
+              pending=unknown
             fi
+            if [ "$pending" = unknown ]; then
+              echo "::warning::the pending real updates could not be read: background work pauses (unknown)"
+            fi
+            echo "pending=$pending" >> "$GITHUB_OUTPUT"
           fi
           echo "work=${WORK:-run/$RUN_ID}" >> "$GITHUB_OUTPUT"
       # WP9: the providers the last weekly check found not free (tools/provider-check.py,
@@ -2125,9 +2131,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     continue-on-error: true
-    concurrency:
-      group: automat-memory
-      cancel-in-progress: false
+    # no concurrency group: GitHub would cancel a waiting record when a third one arrives. Git orders the
+    # writers instead: a push that is not a fast-forward is made again from the branch's newest commit (below)
     permissions:
       contents: write        # the data branch automat/memory only (never main)
     steps:
@@ -2242,7 +2247,12 @@ jobs:
           git -c core.hooksPath=/dev/null commit -q -m "AUTOMAT's memory: attempt $ATTEMPT on $COMPONENT ($outcome)" || return 0
           git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" push -q "$remote" HEAD:refs/heads/automat/memory
           }
-          record || { echo "the data branch moved meanwhile, or the record failed: once more"; sleep 7; record; }
+          for attempt in 1 2 3 4 5 6; do
+            if record; then exit 0; fi
+            echo "the data branch moved meanwhile, or the record failed (attempt $attempt): made again from its newest commit"
+            sleep $((attempt * 4 + RANDOM % 7))
+          done
+          echo "::warning title=AUTOMAT's memory::the attempt on $COMPONENT was not recorded on automat/memory after 6 tries"
 
   # AUTOMAT part 2: "DEVI AIUTARCI CON CHATGPT" (the owner's words, 2026-11-22). After the attempt is
   # recorded: when the AIs failed AUTOMAT_CHATGPT_AFTER times in a row (a repository variable, default

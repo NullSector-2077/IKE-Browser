@@ -670,19 +670,23 @@ order of the work: the daily check starts the work waiting in the ledger by clas
   with GET calls (`tools/ai-quota.py pending`) and handed to the agent and the reserves
   (`--quota-pending`, with `--quota-memory`); and a row of failures in AUTOMAT's memory (`streak`) of
   the last `pending_days` (2) days. **Fail closed**: when the plan cannot read GitHub the list is
-  `unknown` (also when it is missing), and the background pauses; real work never waits for it (the
-  drill's tick does the same). Every merge of the automation ends its branch's row
+  `unknown` (also when it is missing; nothing pending is `none`), and the background pauses; real work
+  never waits for it (the drill's tick and the reviewers' budget, `ai-review.yml`, do the same). Every merge of the automation ends its branch's row
   (`tools/automat-memory.py merged`, also with no AI fix). A row whose branch has no open pull request
-  and whose newest pull request was closed on or after the row's last failure is left out of the
-  priority: `closed` (run by `automerge.yml` on each of its runs, in the `automat-memory` queue of the
-  automatic fix's own record, the record made again from the newest commit up to five times, a warning
-  when it could not be written) only marks the row, never deletes it, so the count of failures in a row
+  and whose newest pull request was closed strictly after the row's last failure (full times: the row
+  keeps the time of its last failure, `at`) is left out of the priority: `closed` (run by `automerge.yml`
+  on each of its runs) only marks the row, never deletes it, so the count of failures in a row
   that `tools/automat-help.py` reads stays; a new failure clears the mark. The long-lived branches
   (`automation/autofix-main`, `automation/daily-maintenance`, `automation/audit`) are never closed: a
-  broken `main` whose fix is retrying stays pending;
+  broken `main` whose fix is retrying stays pending. The writers of the data branch (the automatic fix's
+  record, the merge's) wait in no concurrency group (GitHub cancels a waiting job when a third arrives):
+  each makes its record from the branch's newest commit, writes only what changed, makes it again when
+  its push is not a fast-forward or the branch could not be read (six tries), and warns when it could
+  not;
 - **only in the provider's leftover window** (`leftover_window`): the last `release_hours` (3) hours
   before its own reset, never while its day has more than that left. For a reset a person verified, the
-  provider's own reset header, when it gave one, counts more than the data file. One not verified is more
+  provider's own reset header, when it gave one, counts more than the data file (a reset it gave that is
+  already past is rolled forward by whole days). One not verified is more
   careful: the later of the data file's reset time (its `"reset"`, even unverified) and the header's, and
   never during the real day's `maintenance_window` (04:00-12:00 UTC: the security tests, the daily check
   and candidates and their automatic fixes). Then they may use **everything left**, with no margin: the
@@ -2359,7 +2363,8 @@ the branch only if it still points at the commit that was judged; never an uncon
   never deleted**, whatever its age (an open candidate, a drill's record, the archive). At most 100 go in
   one run, and every deletion is listed in the run's summary (with what was kept and why); what went
   wrong is said on the run's page: a sweep that could not run is an `::error` naming why (and the summary
-  says it), branches not deleted or not judged because of an error a `::warning` naming them. Automatic, the
+  says it), branches not deleted, or not judged because of an error or because GitHub could not be read, a
+  `::warning` naming them (with the reason). Automatic, the
   owner's decision; a person can see what it would do with `python3 tools/branch-sweep.py sweep --repo
   OWNER/NAME --dry-run`, and `python3 tools/branch-sweep.py protected REF` says whether a name is
   protected.

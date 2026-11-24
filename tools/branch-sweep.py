@@ -54,6 +54,9 @@ DRILL_PREFIX = "automation/update/drill-"          # tools/automat-drill.py: a d
 MIN_AGE_DAYS = 7
 MAX_DELETIONS = 100                  # one run deletes at most this many (the next week goes on)
 NAME = re.compile(r"^[A-Za-z0-9._/-]{1,200}$")
+# judge()'s reasons when GitHub could not be read: the branch stays, and the run's page says it (notices)
+UNREAD = ("its commit could not be read", "its pull requests could not be read", "not compared with main",
+          "its commit's date could not be read")
 SHA = re.compile(r"^[0-9a-f]{40}$")
 
 
@@ -247,6 +250,10 @@ def notices(result):
     if failed:
         out.append("::warning title=Branch cleanup::%d branch(es) not judged because of an error: %s" % (
             len(failed), ", ".join(failed)[:900]))
+    unread = sorted((ref, why) for ref, why in result["kept"].items() if why in UNREAD)
+    if unread:
+        out.append("::warning title=Branch cleanup::%d branch(es) not judged because GitHub could not be read: %s" % (
+            len(unread), "; ".join("%s (%s)" % pair for pair in unread)[:900]))
     return out
 
 

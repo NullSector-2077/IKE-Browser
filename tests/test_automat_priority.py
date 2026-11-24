@@ -27,6 +27,9 @@ import datetime as dt
 import importlib.util
 import io
 import json
+import os
+import subprocess
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -207,8 +210,9 @@ def test_a_quota_answer_to_background_work_never_spends_the_provider_for_real_wo
 # =====================================================================================================
 
 def memory_with(*rows):
-    return {"schema": 1, "attempts": {}, "solved": {}, "streak": {c: {"sig": "s", "n": n, "since": d, "date": d}
-                                                                for c, n, d in rows}}
+    # each row with the time of its last failure (tools/automat-memory.py writes it: "at"), early that day
+    return {"schema": 1, "attempts": {}, "solved": {}, "streak": {c: {"sig": "s", "n": n, "since": d, "date": d,
+                                                                      "at": d + "T06:00:00Z"} for c, n, d in rows}}
 
 
 def test_the_pending_real_work_is_read_from_automats_memory():
@@ -227,7 +231,7 @@ def test_the_pending_real_work_is_read_from_automats_memory():
     # any merge ends it, also one with no fix of an AI recorded; and a closed pull request ends it too
     m = memory_with((REAL, 2, TODAY), ("automation/update/adblock", 1, TODAY))
     memory.merged(m, REAL, now=NOW)
-    memory.closed(m, ["automation/update/adblock"])
+    memory.closed(m, ["automation/update/adblock"], now=NOW)
     assert quota.pending_work(m, None, NOW) == [] and m["attempts"] == {}
 
 
@@ -368,9 +372,9 @@ def test_the_providers_own_reset_header_is_used_when_it_was_read():
     state = quota.merge(quota.empty_state(), json.loads(json.dumps(b.delta())), now=NOW)
     later = budget(REAL, state, now=NOW + dt.timedelta(minutes=30))
     assert later.next_reset("Groq") == NOW + dt.timedelta(hours=2)            # kept with when it was read
-    # a reset that is past, or absurdly far, is not used: the provider's "reset" of the data file is
-    assert budget(REAL, state, now=NOW + dt.timedelta(hours=3)).next_reset("Groq") == dt.datetime(
-        2026, 11, 25, tzinfo=dt.timezone.utc)
+    # a reset that is past is rolled forward by whole days (review N4: it keeps deciding); one absurdly far is
+    # not used: the provider's "reset" of the data file is
+    assert budget(REAL, state, now=NOW + dt.timedelta(hours=3)).next_reset("Groq") == NOW + dt.timedelta(hours=26)
     obs = {"window": "day", "reset": 10 ** 6, "at": int(NOW.timestamp())}
     assert quota.next_reset(quota.load_limits()["providers"]["Groq"], NOW, obs) == dt.datetime(
         2026, 11, 25, tzinfo=dt.timezone.utc)
@@ -749,11 +753,11 @@ def test_a_long_lived_branch_is_never_closed_and_a_closed_row_is_marked_never_de
     memory.closed(mem, list(long_lived) + ["automation/update/adblock"], now=NOW)
     for ref in long_lived + ("automation/update/adblock",):
         assert memory.consecutive(mem, ref) == ("s", 3), ref
-    assert mem["streak"]["automation/update/adblock"]["closed"] == TODAY
+    assert mem["streak"]["automation/update/adblock"]["closed"] == TODAY + "T12:00:00Z"
     assert not any("closed" in mem["streak"][ref] for ref in long_lived)
     assert quota.pending_work(mem, None, NOW) == sorted(long_lived)
     # a long-lived row with a mark (by hand, an old file) is still pending
-    mem["streak"]["automation/autofix-main"]["closed"] = TODAY
+    mem["streak"]["automation/autofix-main"]["closed"] = TODAY + "T12:00:00Z"
     assert "automation/autofix-main" in quota.pending_work(mem, None, NOW)
     # failing again after the close clears the mark: pending again, and the row goes on counting
     memory.note(mem, "automation/update/adblock", "s", "tests-failed", provider="Groq", now=NOW)
@@ -790,13 +794,60 @@ def test_an_unknown_list_of_pending_work_pauses_the_background_and_never_real_wo
     with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
         assert quota.main(["pending", "--repo", "o/r", "--out", str(tmp_path / "p.json")]) == 1
     assert not (tmp_path / "p.json").exists()                        # nothing is closed on a guess
-    # the workflow: an error is "unknown", nothing pending is "none", and a missing output is "unknown"
-    wf = (ROOT / ".github/workflows/autofix.yml").read_text("utf-8")
-    plan_step = wf.split("python3 -I tools/ai-quota.py pending --repo", 1)[1][:700]
-    assert '2> /dev/null || true' not in plan_step.split("fi\n", 1)[0]
-    assert 'echo "pending=${pending:-none}" >> "$GITHUB_OUTPUT"' in plan_step
-    assert 'echo "pending=unknown" >> "$GITHUB_OUTPUT"' in plan_step
-    assert 'none) : > "$RUNNER_TEMP/pending" ;;' in wf and '""|unknown) echo unknown > "$RUNNER_TEMP/pending" ;;' in wf
+
+
+def autofix_snippet(start, end):
+    """A piece of autofix.yml's shell, as GitHub runs it (bash -eo pipefail), from the line holding start to the
+    line before the one holding end."""
+    text = (ROOT / ".github/workflows/autofix.yml").read_text("utf-8")
+    first = text.rindex("\n", 0, text.index(start)) + 1
+    lines = text[first:text.index(end, first)].rsplit("\n", 1)[0]
+    return textwrap.dedent(lines)
+
+
+def run_bash(script, env):
+    return subprocess.run(["bash", "--noprofile", "--norc", "-eo", "pipefail", "-c", script], env=env,
+                          capture_output=True, text=True, timeout=60)
+
+
+@pytest.mark.parametrize("out, code, written", [
+    ("", 0, "none"),                                           # nothing pending: never "unknown" (review N1)
+    ("automation/update/darkreader,automation/update/security-x", 0,
+     "automation/update/darkreader,automation/update/security-x"),
+    ("unknown", 1, "unknown"),                                 # GitHub not read: the command fails
+    ("", 1, "unknown"),
+    ("automation/update/a b", 0, "unknown"),                   # not a list of branches
+    ("automation/update/a\npending=x", 0, "unknown"),          # never a second line in GITHUB_OUTPUT
+    ("automation/update/" + "a" * 4000, 0, "unknown"),
+])
+def test_the_plans_pending_step_runs_and_writes_none_the_list_or_unknown(tmp_path, out, code, written):
+    """The plan's own shell, executed: what it writes for the fix step (N1: an empty answer is "none")."""
+    snippet = autofix_snippet('if [ "$(sed -n \'s/^action=//p\' "$GITHUB_OUTPUT" | tail -n 1)" = "fix" ]; then',
+                              'echo "work=${WORK:-run/$RUN_ID}"')
+    assert "tools/ai-quota.py pending --repo" in snippet and snippet.rstrip().endswith("fi")
+    output = tmp_path / "output"
+    output.write_text("action=fix\n", "utf-8")
+    stub = 'python3() { printf \'%s\\n\' "$STUB_OUT"; return "$STUB_CODE"; }\n'
+    env = dict(os.environ, GITHUB_OUTPUT=str(output), RUNNER_TEMP=str(tmp_path), GITHUB_REPOSITORY="o/r",
+               STUB_OUT=out, STUB_CODE=str(code))
+    done = run_bash(stub + snippet, env)
+    assert done.returncode == 0, done.stderr
+    lines = output.read_text("utf-8").splitlines()
+    assert lines == ["action=fix", "pending=" + written]
+    assert ("::warning::" in done.stdout) is (written == "unknown")
+
+
+@pytest.mark.parametrize("value, content", [
+    ("none", ""), ("", "unknown\n"), ("unknown", "unknown\n"),
+    ("automation/update/a,automation/update/b", "automation/update/a\nautomation/update/b"),
+])
+def test_the_fix_step_turns_the_plans_value_into_the_list_it_reads(tmp_path, value, content):
+    snippet = autofix_snippet('case "$PENDING" in', 'reviewers=""')
+    done = run_bash(snippet, dict(os.environ, PENDING=value, RUNNER_TEMP=str(tmp_path)))
+    assert done.returncode == 0, done.stderr
+    assert (tmp_path / "pending").read_text("utf-8") == content
+    expected = {"": [], "unknown\n": [quota.UNKNOWN]}.get(content, ["automation/update/a", "automation/update/b"])
+    assert quota.pending_for_run(None, str(tmp_path / "pending")) == expected
 
 
 def test_a_lone_real_update_may_use_all_of_a_provider_and_two_pending_share_it():
@@ -841,20 +892,180 @@ def test_only_the_newest_run_of_each_workflow_decides_whether_a_pull_request_is_
     assert len(quota.latest_runs([{"conclusion": "success"}, {"conclusion": "failure"}])) == 2
 
 
-def test_the_memory_of_a_merge_is_written_in_the_memorys_queue_and_retried_never_lost_in_silence():
-    """M2: the merge workflow writes AUTOMAT's memory in the queue of the automatic fix's own record
-    (automat-memory), makes the record again from the newest commit when the branch moved, and warns when it
-    could not."""
+def memory_job_script(remote):
     import yaml
     wf = yaml.safe_load((ROOT / ".github/workflows/automerge.yml").read_text("utf-8"))
-    job = wf["jobs"]["memory"]
-    assert job["needs"] == "merge" and job["concurrency"] == {"group": "automat-memory", "cancel-in-progress": False}
-    assert job["permissions"] == {"contents": "write", "pull-requests": "read"}
-    assert wf["jobs"]["merge"]["outputs"]["merged"] == "${{ steps.merge.outputs.merged }}"
-    assert not any("automat-memory" in str(s) for s in wf["jobs"]["merge"]["steps"])
-    run = job["steps"][-1]["run"]
-    assert "for attempt in 1 2 3 4 5; do" in run and "|| return 1" in run and "record || code=$?" in run
-    assert run.count("::warning title=AUTOMAT's memory::") == 2
-    assert "COMPONENT: ${{ needs.merge.outputs.merged }}" in (ROOT / ".github/workflows/automerge.yml").read_text()
+    run = wf["jobs"]["memory"]["steps"][-1]["run"]
+    line = 'remote="https://github.com/$GITHUB_REPOSITORY"'
+    assert run.count(line) == 1
+    return run.replace(line, 'remote="%s"' % remote)
+
+
+def memory_remote(tmp_path, streak):
+    """A local data branch automat/memory with this memory.json (the job pushes to it like to GitHub)."""
+    env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@e", GIT_COMMITTER_NAME="t",
+               GIT_COMMITTER_EMAIL="t@e", GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1")
+    remote, seed = tmp_path / "remote.git", tmp_path / "seed"
+    subprocess.run(["git", "init", "-q", "--bare", str(remote)], check=True, env=env)
+    subprocess.run(["git", "init", "-q", str(seed)], check=True, env=env)
+    (seed / "memory.json").write_text(json.dumps({"schema": 1, "attempts": {}, "solved": {}, "streak": streak},
+                                                 indent=1, sort_keys=True, ensure_ascii=True) + "\n", "utf-8")
+    for cmd in (["add", "memory.json"], ["commit", "-q", "-m", "seed"],
+                ["push", "-q", str(remote), "HEAD:refs/heads/automat/memory"]):
+        subprocess.run(["git", "-C", str(seed)] + cmd, check=True, env=env)
+    return remote, env
+
+
+def remote_memory(remote, env):
+    out = subprocess.run(["git", "--git-dir", str(remote), "show", "automat/memory:memory.json"], env=env,
+                         capture_output=True, text=True, check=True).stdout
+    return json.loads(out)
+
+
+def remote_head(remote, env):
+    return subprocess.run(["git", "--git-dir", str(remote), "rev-parse", "automat/memory"], env=env,
+                          capture_output=True, text=True, check=True).stdout.strip()
+
+
+def run_memory_job(tmp_path, remote, env, component, prelude=""):
+    fake = tmp_path / "bin"
+    fake.mkdir(exist_ok=True)
+    (fake / "gh").write_text("#!/bin/sh\necho 'gh: offline' >&2\nexit 1\n", "utf-8")       # GitHub not read
+    (fake / "gh").chmod(0o755)
+    (tmp_path / "rt").mkdir(exist_ok=True)
+    run_env = dict(env, PATH="%s:%s" % (fake, os.environ["PATH"]), GITHUB_WORKSPACE=str(ROOT),
+                   RUNNER_TEMP=str(tmp_path / "rt"), GH_TOKEN="x", GITHUB_REPOSITORY="o/r", COMPONENT=component,
+                   TMPD=str(tmp_path))
+    script = "sleep() { :; }\n" + prelude + memory_job_script(remote)
+    return run_bash(script, run_env)
+
+
+ROW = {"sig": "s", "n": 2, "since": TODAY, "date": TODAY}
+
+
+def test_the_memory_of_a_merge_is_made_again_when_another_writer_pushed_first(tmp_path):
+    """N2: no concurrency group (GitHub would cancel a waiting record); git orders the writers: a push that is
+    not a fast-forward is made again from the branch's newest commit, and nobody's record is lost."""
+    remote, env = memory_remote(tmp_path, {"automation/update/adblock": dict(ROW)})
+    # another writer (the automatic fix's own record) pushes between this job's fetch and its push
+    (tmp_path / "compete.sh").write_text(
+        'set -e\nd="$TMPD/other"; rm -rf "$d"; git clone -q -b automat/memory "%s" "$d"\n'
+        'python3 - "$d/memory.json" <<"PY"\nimport json, sys\nm = json.load(open(sys.argv[1]))\n'
+        'm["streak"]["automation/update/other"] = {"sig": "o", "n": 1, "since": "x", "date": "x"}\n'
+        'open(sys.argv[1], "w").write(json.dumps(m))\nPY\n'
+        'git -C "$d" commit -q -am other\ngit -C "$d" push -q origin HEAD:refs/heads/automat/memory\n' % remote,
+        "utf-8")
+    prelude = ('python3() { if [ "$3" = merged ] && [ ! -e "$TMPD/raced" ]; then touch "$TMPD/raced"; '
+               'bash "$TMPD/compete.sh" >&2; fi; command python3 "$@"; }\n')
+    done = run_memory_job(tmp_path, remote, env, "automation/update/adblock", prelude)
+    assert done.returncode == 0, done.stderr
+    assert "moved meanwhile (attempt 1)" in done.stdout and "::warning" not in done.stdout
+    streak = remote_memory(remote, env)["streak"]
+    assert "automation/update/adblock" not in streak                   # the merge ended its row
+    assert "automation/update/other" in streak                         # the other writer's record stays
+    # nothing merged and nothing closed (GitHub not read): nothing is written at all
+    head = remote_head(remote, env)
+    done = run_memory_job(tmp_path, remote, env, "")
+    assert done.returncode == 0 and "nothing to write" in done.stdout and remote_head(remote, env) == head
+
+
+def test_a_memory_branch_that_cannot_be_read_is_tried_again_and_then_a_warning(tmp_path):
+    remote, env = memory_remote(tmp_path, {})
+    done = run_memory_job(tmp_path, tmp_path / "missing.git", env, "automation/update/adblock")
+    assert done.returncode == 0, done.stderr
+    assert done.stdout.count("could not be read (attempt") == 6
+    assert "::warning title=AUTOMAT's memory::not written after 6 tries: automation/update/adblock" in done.stdout
+
+
+def test_no_writer_of_the_memory_waits_in_a_concurrency_group_and_each_retries():
+    import yaml
+    merge = yaml.safe_load((ROOT / ".github/workflows/automerge.yml").read_text("utf-8"))
     autofix = yaml.safe_load((ROOT / ".github/workflows/autofix.yml").read_text("utf-8"))
-    assert autofix["jobs"]["remember"]["concurrency"]["group"] == job["concurrency"]["group"]
+    assert "concurrency" not in merge["jobs"]["memory"] and "concurrency" not in autofix["jobs"]["remember"]
+    assert merge["jobs"]["memory"]["needs"] == "merge"
+    assert merge["jobs"]["merge"]["outputs"]["merged"] == "${{ steps.merge.outputs.merged }}"
+    remember = autofix["jobs"]["remember"]["steps"][-1]["run"]
+    assert "for attempt in 1 2 3 4 5 6; do" in remember and "if record; then exit 0; fi" in remember
+    assert "::warning title=AUTOMAT's memory::" in remember
+
+
+def test_a_pull_request_closed_before_a_later_failure_of_the_same_day_is_not_closed():
+    """N3: full times, strictly after the row's last failure: a pull request closed at 06:00 and a failure at
+    09:00 the same day leave the work pending; closed at 10:00, it is over."""
+    memory = load("automat-memory")
+    m = memory.empty()
+    memory.note(m, REAL, "sig", "tests-failed", provider="Groq", now=at(9))
+    assert m["streak"][REAL]["at"] == TODAY + "T09:00:00Z"
+    for closed_at, over in (("2026-11-24T06:00:00Z", False), ("2026-11-24T09:00:00Z", False),
+                            ("2026-11-24T10:00:00Z", True)):
+        api = FakePRs([], {}, closed={REAL}, closed_at=closed_at)
+        assert (quota.closed_branches("o/r", api, [REAL], m) == [REAL]) is over, closed_at
+    # the mark too: closed at 10:00, then a failure at 11:00 clears it; a mark before the failure never counts
+    memory.closed(m, [REAL], now=at(10))
+    assert quota.pending_work(m, None, at(10)) == []
+    memory.note(m, REAL, "sig", "tests-failed", provider="Groq", now=at(11))
+    assert quota.pending_work(m, None, at(11)) == [REAL]
+    m["streak"][REAL]["closed"] = TODAY + "T10:30:00Z"
+    assert quota.pending_work(m, None, at(11)) == [REAL]
+    # an older row with only a date: only a later day closes it (the same day is not enough)
+    old = {"sig": "s", "n": 1, "since": TODAY, "date": TODAY}
+    assert not quota.after_last_failure("2026-11-24T23:00:00Z", old)
+    assert quota.after_last_failure("2026-11-25T00:10:00Z", old)
+    assert not quota.after_last_failure("2026-11-25", old) and not quota.after_last_failure("", old)
+
+
+def test_a_reset_header_already_past_is_rolled_forward_by_whole_days():
+    """N4: the provider said its day starts again at 14:00 UTC; later readings of the clock keep that time."""
+    obs = {"window": "day", "reset": 2 * 3600, "at": int(NOW.timestamp())}            # read at 12:00: 14:00
+    groq = quota.load_limits()["providers"]["Groq"]
+    assert quota.next_reset(groq, NOW, obs) == at(14)
+    assert quota.next_reset(groq, at(14), obs) == at(14, day=25)                      # exactly then: the next one
+    assert quota.next_reset(groq, at(15), obs) == at(14, day=25)
+    assert quota.next_reset(groq, at(13, day=25), obs) == at(14, day=25)
+    assert quota.next_reset(groq, at(15, day=25), obs) == at(14, day=26)
+    # a reading older than two days is not used: the data file's reset
+    assert quota.next_reset(groq, at(13, day=27), obs) == dt.datetime(2026, 11, 28, tzinfo=dt.timezone.utc)
+    # with a verified reset the rolled-forward header places the last hours: 11:00-14:00 UTC on the next day
+    limits = verified("Groq")
+    b = quota.Budget(limits, None, DRILL, now=at(12))
+    b.note("Groq", 10, "review", headers={"x-ratelimit-limit-requests": "1000", "x-ratelimit-remaining-requests": "990",
+                                           "x-ratelimit-reset-requests": "2h0m0s"})
+    later = quota.Budget(limits, b.state, DRILL, now=at(15))
+    assert later.next_reset("Groq") == at(14, day=25) and later.leftover_window("Groq")[0] is False
+
+
+@pytest.mark.parametrize("pending, paused", [("automation/update/darkreader\n", True), ("unknown\n", True),
+                                             (None, True), ("", False)])
+def test_the_reviews_of_background_work_wait_for_pending_real_updates(tmp_path, pending, paused):
+    """N5: the reviewers' budget gets the same list of pending real work as the fix: the reviews of a CI or
+    background branch wait while a real update is pending, or while that could not be read (or the list is
+    missing); a security fix's review never waits."""
+    rv = load("ai-review")
+    folder = tmp_path / "review"
+    folder.mkdir()
+    for ref in (DRILL, "automation/update/security-x"):
+        (folder / "request.json").write_text(json.dumps({
+            "sha": sha(9), "pr": 7, "ref": ref, "author": "Groq", "authors": ["Groq"], "files": ["ike/tabs.py"]}))
+        (folder / "diff.patch").write_text("diff --git a/ike/tabs.py b/ike/tabs.py\n+x = 1\n")
+        (folder / "failure.md").write_text("FAILED tests/test_tabs.py::test_x\n")
+        args = ["review", "--dir", str(folder), "--quota-limits", str(ROOT / "tools/ai-quota.json")]
+        if pending is not None:
+            (tmp_path / "pending").write_text(pending)
+        args += ["--quota-pending", str(tmp_path / "pending" if pending is not None else tmp_path / "missing")]
+        b = quota.Budget(quota.load_limits(), None, ref, now=LATE,
+                         pending=quota.pending_for_run(None, args[-1], quota.load_limits()))
+        assert (b.priority_why("Z.AI", 1, 9000, "review") != "") is (paused and ref == DRILL), (ref, pending)
+        asked = []
+
+        def opener(req, timeout=0):
+            asked.append(req.full_url)
+            raise OSError("offline")                                       # no provider answers in a test
+        env = {"ZAI_API_KEY": "z", "OPENROUTER_API_KEY": "o", "GEMINI_API_KEY": "g"}
+        assert rv.main(args, env=env, opener=opener) == 0
+        usage = json.loads((folder / "usage.json").read_text())
+        why = " ".join(usage["skipped"].values())
+        if ref == DRILL and paused:
+            assert "paused for real updates first" in why and usage["calls"] == []
+            assert not [u for u in asked if not u.endswith("/api/v1/key")]    # no model asked
+        else:
+            assert "paused" not in why

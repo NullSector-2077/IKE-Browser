@@ -356,6 +356,22 @@ def test_a_sweep_that_fails_says_what_failed_on_the_runs_page(tmp_path, capsys):
                             "--now", NOW.isoformat()], api=api) == 0
     out = capsys.readouterr().out
     assert "::warning title=Branch cleanup::1 branch(es) not judged because of an error: release/1.1.23" in out
+    # GitHub not read inside judge(): the branch stays, and the run's page names it with the reason (review L2)
+    gh = world()
+    real = gh.__call__
+
+    def flaky(path):
+        if path.endswith("/compare/main...%s" % sha(15)) or "head=o:claude/old-merged&" in path:
+            raise RuntimeError("HTTP 502")
+        return real(path)
+    assert sweep_tool.main(["sweep", "--repo", REPO, "--summary", str(summary), "--dry-run",
+                            "--now", NOW.isoformat()], api=flaky) == 0
+    out = capsys.readouterr().out
+    assert ("::warning title=Branch cleanup::2 branch(es) not judged because GitHub could not be read: "
+            "claude/old-merged (its pull requests could not be read); release/1.1.23 (not compared with main)") in out
+    source = (ROOT / "tools/branch-sweep.py").read_text("utf-8").split("def judge(", 1)[1].split("\ndef ", 1)[0]
+    unread = set(re.findall(r'return False, "([^"%]*(?:could not|not compared)[^"%]*)"', source))
+    assert unread == set(sweep_tool.UNREAD) and len(unread) == 4
     lines = sweep_tool.notices({"deleted": [], "kept": {}, "errors": ["claude/x: refused"]})
     assert lines == ["::warning title=Branch cleanup::1 branch(es) not deleted (refused or moved): claude/x: refused"]
     assert sweep_tool.notices({"deleted": [], "kept": {"a": "protected"}, "errors": []}) == []
