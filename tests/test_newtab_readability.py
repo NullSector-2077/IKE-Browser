@@ -91,7 +91,8 @@ def steps(ike, qapp, out):
     # 1.1.25: the weather and its details in the corner, put in place (no request: the data is fresh)
     ike.config["weather_city"], ike.config["weather_lat"], ike.config["weather_lon"] = "Roma", 41.89, 12.51
     ike.weather.data = {"key": [41.89, 12.51, "celsius"], "time": time.time(), "temp": 12, "code": 2, "wind": 14.4,
-                        "wind_dir": 312.0, "feels": 10.2, "humidity": 78.0, "rain": 20.0}
+                        "wind_dir": 312.0, "feels": 10.2, "humidity": 78.0, "pressure": 1016.4,
+                        "rain": 20.0}
     view = win.current_view()
     yield 800
     shots = SHOTS

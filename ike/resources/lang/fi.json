@@ -1268,6 +1268,7 @@
 "S": "E",
 "SW": "LO",
 "W": "L",
-"NW": "LU"
+"NW": "LU",
+"Pressure": "Ilmanpaine"
 }
 }

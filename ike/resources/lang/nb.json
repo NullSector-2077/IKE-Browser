@@ -1268,6 +1268,7 @@
 "S": "S",
 "SW": "SV",
 "W": "V",
-"NW": "NV"
+"NW": "NV",
+"Pressure": "Lufttrykk"
 }
 }

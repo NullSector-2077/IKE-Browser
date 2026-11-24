@@ -8,8 +8,8 @@ Privacy:
 - the weather request sends only the city's coordinates, rounded to two
   decimals, and the temperature unit; it asks for the current temperature,
   weather code and wind speed and, since 1.1.25 and in the same request, the
-  wind direction, the felt temperature, the humidity and the chance of
-  precipitation (FIELDS); at most once
+  wind direction, the felt temperature, the humidity, the pressure at sea
+  level and the chance of precipitation (FIELDS); at most once
   every 30 minutes and only when a new tab page is shown. The wind always
   comes in km/h and is turned into mph here: no other parameter is sent;
 - the answer is kept in the cache folder (weather.json).
@@ -33,14 +33,16 @@ if os.environ.get("IKE_TEST_WEATHER"):        # stand-in server for the tests
 REFRESH = 30 * 60
 CACHE = CACHE_DIR / "weather.json"
 # what the request asks for (Open-Meteo's "current" variables): BASIC until 1.1.24, the rest for the
-# small row of details under the weather (1.1.25; a few, the owner: simple and minimalist). The last
+# small row of details under the weather (1.1.25; a few, the owner: simple and minimalist, with the
+# wind and the pressure). The last
 # comes from Open-Meteo's hourly data: should the service ever refuse it (it answers 400 to the whole
 # request), the request is made once more at once without it, and the details show without it.
 BASIC = ("temperature_2m", "weather_code", "wind_speed_10m")
-MORE = ("wind_direction_10m", "apparent_temperature", "relative_humidity_2m")
+MORE = ("wind_direction_10m", "apparent_temperature", "relative_humidity_2m", "pressure_msl")
 HOURLY = ("precipitation_probability",)
 FIELDS = BASIC + MORE + HOURLY
 KMH_PER_MPH = 1.609344
+INHG_PER_HPA = 0.0295300                      # the pressure in inches of mercury, with °F (as mph goes with °F)
 
 # WMO weather codes -> (symbol, label); labels are translated when shown
 _CODES = (
@@ -57,7 +59,8 @@ _CODES = (
 COMPASS = ("N", "NE", "E", "SE", "S", "SW", "W", "NW")
 # what the answer's "current" block gives for the details: kept under these names
 _DETAILS = (("wind_dir", "wind_direction_10m"), ("feels", "apparent_temperature"),
-            ("humidity", "relative_humidity_2m"), ("rain", "precipitation_probability"))
+            ("humidity", "relative_humidity_2m"), ("pressure", "pressure_msl"),
+            ("rain", "precipitation_probability"))
 
 
 def describe(code):
@@ -105,9 +108,9 @@ def parse(answer):
 def details(w, T=lambda t: t):
     """The small row of details under the weather (1.1.25, like Plasma's weather widget):
     [{"k": kind, "l": label, "v": value}], each only
-    when the answer had it; kind is one of feels, wind, humidity, rain (the page's symbols). Four at
-    most, in one discreet row. The units follow the temperature unit chosen in Settings: °C with
-    km/h, °F with mph."""
+    when the answer had it; kind is one of feels, wind, humidity, pressure, rain (the page's symbols).
+    Five at most, in one discreet row. The units follow the temperature unit chosen in Settings: °C
+    with km/h and hPa, °F with mph and inHg (the pressure at sea level)."""
     if not w:
         return []
     out = []
@@ -125,6 +128,10 @@ def details(w, T=lambda t: t):
     hum = _num(w.get("humidity"))
     if hum is not None:
         out.append({"k": "humidity", "l": T("Humidity"), "v": "%d%%" % round(hum)})
+    pressure = _num(w.get("pressure"))
+    if pressure is not None:
+        out.append({"k": "pressure", "l": T("Pressure"),
+                    "v": "%.2f inHg" % (pressure * INHG_PER_HPA) if fahrenheit else "%d hPa" % round(pressure)})
     rain = _num(w.get("rain"))
     if rain is not None:
         out.append({"k": "rain", "l": T("Chance of precipitation"), "v": "%d%%" % round(rain)})
@@ -172,7 +179,7 @@ class Weather(QObject):
 
     def current(self):
         """{"temp", "unit", "code", "wind", "symbol", "label", "city"} and, when the answer had
-        them, "wind_dir", "feels", "humidity", "rain" (see details()); or None.
+        them, "wind_dir", "feels", "humidity", "pressure", "rain" (see details()); or None.
         Starts a refresh in the background when the data is older than 30 minutes."""
         cfg = self.config
         if not cfg["newtab_weather"] or self._key() is None:

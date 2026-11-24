@@ -14,19 +14,23 @@
   every language: the boxes and the ink of the pixels
   (tests/test_newtab_weather.py).
 - **A few weather details, as in Plasma's weather widget, kept simple** (the
-  owner: minimalist, nothing cluttered): under the weather one discreet row of
-  four small symbols drawn in the text's colour with their values, all on one
-  middle line, flush right: felt temperature, wind (speed and the point of the
-  compass it comes from), humidity and chance of precipitation. °C goes with
-  km/h, °F with mph. Each value is read aloud with its name (the name also
-  shows on hover). They come with the same single request to Open-Meteo, which
-  now also asks for `wind_direction_10m`, `apparent_temperature`,
-  `relative_humidity_2m` and `precipitation_probability` (still only the
-  rounded coordinates and the temperature unit are sent; the wind always comes
-  in km/h and is turned into mph by I.K.E.). Should the service refuse the
+  owner: minimalist, nothing cluttered; the wind and the pressure): under the
+  weather one discreet row of five small symbols drawn in the text's colour
+  with their values, all on one middle line, flush right: felt temperature,
+  wind (speed and the point of the compass it comes from), humidity, pressure
+  at sea level and chance of precipitation. °C goes with km/h and hPa, °F with
+  mph and inHg (as mph already goes with °F). Each value is read aloud with its
+  name (the name also shows on hover). They come with the same single request
+  to Open-Meteo, which now also asks for `wind_direction_10m`,
+  `apparent_temperature`, `relative_humidity_2m`, `pressure_msl` and
+  `precipitation_probability` (still only the rounded coordinates and the
+  temperature unit are sent; the wind always comes in km/h and the pressure
+  in hPa, turned into mph and inHg by I.K.E.). Should the service refuse the
   last one, the request is made once more at once without it. Over a photo the
   row sits on the same frosted glass as the clock and reads at 4.5:1
-  (tests/test_newtab_readability.py); in a small window it gives way.
+  (tests/test_newtab_readability.py). The row never wraps: in a small window,
+  or where the corner would meet the figures under the search field, it gives
+  way.
 - **23 more greeting lines for the moments of the day and of the week**, short
   and a little witty, in all 59 languages: early morning, mid-morning, the
   lunch break, late afternoon, evening, late night and deep night, the first
