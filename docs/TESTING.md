@@ -128,6 +128,27 @@ cannot start), then builds the Arch package with `makepkg`, runs the whole
 suite again against the installed copy and keeps the package as the run's
 `ike-browser-package` download.
 
+Since 2026-11-24 the suite runs in parallel jobs on GitHub (both `tests.yml`
+and `arch.yml`, four of each kind: the number `SHARDS` at the top of each
+workflow). `tools/shard-tests.py` splits it by whole test files, balanced by
+the durations recorded in `tools/test-timings.json` (a file not listed counts
+as the `default`), always the same way for the same files. The job `tests`
+(and `Arch Linux` in `arch.yml`) is the gate: it fails when a shard is
+missing, failed or was cancelled, or when any test pytest collects did not run
+exactly once across the shards, and it writes the run's junit files and "What
+the tests verified" as before (a skipped test is still **not verified**). The
+same split by hand, for one shard of four:
+
+```bash
+python3 tools/shard-tests.py collect --out /tmp/ids.txt
+python3 tools/shard-tests.py plan --collected /tmp/ids.txt --shards 4 --shard 1
+python3 tools/shard-tests.py run --kind source --shard 1 --shards 4 --out /tmp/shard-1
+```
+
+The recorded durations are refreshed from the junit files of a real run
+(`python3 tools/shard-tests.py timings --junit junit.xml`); they only balance
+the shards, the gate checks completeness whatever they say.
+
 With `IKE_TEST_SHOTS=<folder>` some tests also save screenshots there, to be
 checked by eye.
 

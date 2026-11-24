@@ -25,6 +25,18 @@
 # (tests/test_optional_deps.py) run where they are present and say "not
 # verified" where they are not. Once a week arch-testing.yml calls it with
 # Arch's [core-testing] and [extra-testing] (input testing).
+# Since 2026-11-24 (the owner's priority, AUTOMAT block 1, step 1) the work is
+# split across parallel jobs in the same container: the suite on the sources in
+# SHARDS parts ("Arch Linux shard k/N"), the suite against the package built and
+# installed with pacman in SHARDS parts ("Arch Linux installed k/N"), and the
+# widget styles ("Arch Linux styles"), by whole test files balanced by their
+# recorded durations (tools/shard-tests.py, tools/test-timings.json). Every part
+# installs the same packages: one day's snapshot of Arch's repositories (the Arch
+# Linux Archive, today's when it is there), chosen once by the job "plan". The job
+# "Arch Linux" is the gate the merge and the categories read: it proves that
+# every test pytest collects ran exactly once (tools/shard-tests.py verify) and
+# that every part had the same packages, and fails when any part failed, was
+# cancelled or is missing.
 # A failure goes to the automatic fix (tools/autofix-plan.py, "Arch Linux"):
 # pacman, mirrors, keyring or downloads are GitHub's or Arch's matter (an
 # issue, no AI); a build or test failure is fixed only when "Tests" passed on
@@ -58,11 +70,68 @@ concurrency:
   group: arch-${{ github.ref }}${{ inputs.testing && '-testing' || '' }}
   cancel-in-progress: true
 
+env:
+  # how many parallel jobs run the suite, for the sources and for the installed
+  # package each: the one number to change (the gate checks every one of them)
+  SHARDS: "4"
+
 jobs:
-  arch:
-    name: Arch Linux
+  # The parts' matrix, from SHARDS (a matrix cannot read the workflow's env)
+  plan:
+    name: Arch Linux plan
     runs-on: ubuntu-24.04
-    timeout-minutes: 150
+    timeout-minutes: 5
+    outputs:
+      parts: ${{ steps.parts.outputs.matrix }}
+      snapshot: ${{ steps.snapshot.outputs.snapshot }}
+    steps:
+      # One day of Arch's repositories for every part (and for a part run again):
+      # the Arch Linux Archive's snapshot of today when it is there, else of
+      # yesterday; with the testing repositories when this is arch-testing.yml's
+      # run. When the archive does not answer, the parts use Arch's mirrors as
+      # they are (and the gate still fails when their packages differ).
+      - name: Arch's snapshot
+        id: snapshot
+        env:
+          TESTING: ${{ inputs.testing && 'true' || 'false' }}
+        run: |
+          snapshot=""
+          for day in "$(date -u +%Y/%m/%d)" "$(date -u -d yesterday +%Y/%m/%d)"; do
+            url="https://archive.archlinux.org/repos/$day"
+            repos="core extra"
+            if [ "$TESTING" = true ]; then repos="$repos core-testing extra-testing"; fi
+            ok=true
+            for repo in $repos; do
+              curl -fsIL -m 30 --retry 2 -o /dev/null "$url/$repo/os/x86_64/$repo.db" || ok=false
+            done
+            if [ "$ok" = true ]; then snapshot="$url"; break; fi
+          done
+          if [ -z "$snapshot" ]; then
+            echo "::warning::the Arch Linux Archive did not answer: every part uses Arch's mirrors as they are"
+          fi
+          echo "snapshot=$snapshot" | tee -a "$GITHUB_OUTPUT"
+      - name: The parts
+        id: parts
+        run: |
+          case "$SHARDS" in ''|*[!0-9]*|0) echo "::error::SHARDS must be a whole number from 1"; exit 1 ;; esac
+          python3 -I - <<'PY' | tee -a "$GITHUB_OUTPUT"
+          import json, os
+          n = int(os.environ["SHARDS"])
+          parts = [{"kind": "source", "shard": k, "name": "Arch Linux shard %d/%d" % (k, n)} for k in range(1, n + 1)]
+          parts += [{"kind": "installed", "shard": k, "name": "Arch Linux installed %d/%d" % (k, n)}
+                    for k in range(1, n + 1)]
+          parts.append({"kind": "styles", "shard": 0, "name": "Arch Linux styles"})
+          print("matrix=" + json.dumps({"include": parts}, separators=(",", ":")))
+          PY
+
+  # One part per job, in Arch's container: the suite on the sources (a shard),
+  # the suite against the package built with makepkg and installed with pacman
+  # (a shard), or the interface in every widget style
+  part:
+    name: ${{ matrix.name }}
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
     container:
       image: archlinux:latest
       # Chromium's sandbox needs user namespaces that a container on the
@@ -73,6 +142,9 @@ jobs:
     defaults:
       run:
         shell: bash
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.parts) }}
     steps:
       # WP10 (b): the packages Arch is about to ship, before they reach users
       - name: Arch's testing repositories (arch-testing.yml only)
@@ -84,8 +156,43 @@ jobs:
               /etc/pacman.conf > /tmp/pacman.conf.new
           cp /tmp/pacman.conf.new /etc/pacman.conf
           grep -n '^\[' /etc/pacman.conf
+      # the plan's snapshot: the package databases from it alone, then the
+      # packages from Arch's mirrors while they still have that very version,
+      # else from the archive (pacman checks each against the snapshot's database)
+      - name: Arch's snapshot
+        env:
+          SNAPSHOT: ${{ needs.plan.outputs.snapshot }}
+        run: |
+          # the databases with curl (retried, and dropped when the archive is too slow:
+          # 2026-11-24, "Operation too slow" in pacman's own download); when they do
+          # not come, Arch's mirrors as they are, and the gate still compares every
+          # part's packages
+          got=""
+          if [ -n "$SNAPSHOT" ]; then
+            got=yes
+            repos=$(sed -n 's/^\[\(.*\)\]$/\1/p' /etc/pacman.conf | grep -vx options)
+            mkdir -p /tmp/sync
+            for repo in $repos; do
+              curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 20 \
+                   --speed-limit 20000 --speed-time 30 -m 300 \
+                   -o "/tmp/sync/$repo.db" "$SNAPSHOT/$repo/os/x86_64/$repo.db" || { got=""; break; }
+            done
+          fi
+          if [ -n "$got" ]; then
+            install -m644 /tmp/sync/*.db /var/lib/pacman/sync/
+            { grep '^Server' /etc/pacman.d/mirrorlist || true; echo "Server = $SNAPSHOT/\$repo/os/\$arch"; } > /tmp/mirrorlist
+            cp /tmp/mirrorlist /etc/pacman.d/mirrorlist
+            echo "Arch's repositories of $SNAPSHOT"
+          elif [ -n "$SNAPSHOT" ]; then
+            echo "::warning::the Arch Linux Archive was too slow: Arch's mirrors as they are now"
+            pacman -Syy
+          else
+            echo "::warning::no snapshot of Arch's repositories: Arch's mirrors as they are now"
+            pacman -Syy
+          fi
       - name: Git (for the checkout)
-        run: pacman -Syu --noconfirm --needed git
+        # the databases are the snapshot's (above): an upgrade, not a new download of them
+        run: pacman -Su --noconfirm --needed git
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -94,6 +201,7 @@ jobs:
         # later to the package builder): git refuses it, and the tests use git ls-files
         run: git config --global --add safe.directory '*'
       - name: Arch's packages
+        id: packages
         # the package's depends, makedepends and optdepends, plus what the tests use
         # (breeze, oxygen, kvantum: the widget styles of Arch's desktops besides
         # Qt's own, plasma-integration: KDE's own theme with its colours; the
@@ -112,19 +220,39 @@ jobs:
               breeze oxygen kvantum plasma-integration breeze-icons \
               gtk3 xorg-server-xvfb lxqt-qtplugin \
               adwaita-icon-theme elementary-icon-theme mate-icon-theme papirus-icon-theme
+          # the compiler names the engine's cache (a new Rust builds it anew)
+          echo "rust=$(rustc -V | tr -c 'A-Za-z0-9.\n' '-')" >> "$GITHUB_OUTPUT"
       # What this run really tests: pacman's versions of the components I.K.E.
       # follows (tools/check-components.py, ARCH_PACKAGES), Python, Qt, PyQt and
       # the engine's Chromium as I.K.E. reports it. Never fails the run.
       - name: The versions tested
+        # every part records them (the gate compares them); the styles' part keeps
+        # them for the daily check and writes them into the run's summary
+        env:
+          KIND: ${{ matrix.kind }}
         run: |
           mkdir -p out
-          python3 tools/check-components.py --record-arch out/arch-versions.json | tee -a "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+          if [ "$KIND" = styles ]; then
+            python3 tools/check-components.py --record-arch out/arch-versions.json | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            python3 tools/check-components.py --record-arch out/arch-versions.json
+          fi
+      - if: matrix.kind == 'styles'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: arch-versions
           path: out/arch-versions.json
           if-no-files-found: error
+          overwrite: true
           retention-days: 90
+      # the engine's crates and build, kept between runs: the same Cargo.lock,
+      # sources and Rust give the same engine (cargo checks it again anyway)
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ike-adblock/target
+          key: arch-adblock-${{ steps.packages.outputs.rust }}-${{ hashFiles('ike-adblock/Cargo.lock', 'ike-adblock/src/**') }}
       # downloaded apart from the build: a crate that cannot be downloaded is
       # crates.io's or the network's matter, not the code's (autofix-plan.py)
       - name: AdBlock engine's crates
@@ -138,10 +266,19 @@ jobs:
           python3 -c "from PyQt6.QtCore import QT_VERSION_STR, PYQT_VERSION_STR; \
           from PyQt6.QtWebEngineCore import qWebEngineChromiumVersion as c; \
           print('Qt', QT_VERSION_STR, '- PyQt', PYQT_VERSION_STR, '- Chromium', c())" | tee -a "$GITHUB_STEP_SUMMARY"
+      # the tests pytest collects here, apart from the shards: the gate checks that
+      # each ran exactly once in the shards, on the sources and installed
+      - name: The tests to run
+        if: matrix.kind == 'styles'
+        run: python3 tools/shard-tests.py collect --out out/collected.txt
       - name: Tests (Arch's Qt)
+        if: matrix.kind == 'source'
+        env:
+          SHARD: ${{ matrix.shard }}
         run: |
           set -o pipefail
-          python3 -m pytest -ra --junitxml=out/tests-arch.xml 2>&1 | tee out/tests-arch.log
+          python3 tools/shard-tests.py run --kind source --shard "$SHARD" --shards "$SHARDS" --out out/shard -- -ra \
+              2>&1 | tee out/tests-arch.log
       # The interface in the widget styles of Arch's desktops (1.1.22): every
       # text, switch and the tab preview in each language, as the owner's KDE
       # (Breeze) and the others draw them; the run above used Qt's Fusion.
@@ -151,6 +288,7 @@ jobs:
       # and tests/test_desktop_colours.py; here every text once more with
       # GNOME's own font (Adwaita Sans 11) and KDE's Breeze Dark.
       - name: Interface in every widget style
+        if: matrix.kind == 'styles'
         run: |
           set -o pipefail
           for style in Breeze Oxygen kvantum Windows; do
@@ -174,6 +312,7 @@ jobs:
               2>&1 | tee -a out/styles.log
           rm -f /etc/xdg/kdeglobals
       - name: Arch package (makepkg, pacman)
+        if: matrix.kind == 'installed'
         run: |
           useradd -m builder
           chown -R builder: .
@@ -186,17 +325,114 @@ jobs:
           pacman -U --noconfirm "$pkg"
           ike-browser --version
       - name: Tests of the installed package (Arch)
+        if: matrix.kind == 'installed'
+        env:
+          SHARD: ${{ matrix.shard }}
         run: |
           set -o pipefail
-          IKE_TEST_APP=/usr/lib/ike-browser python3 -m pytest -ra \
-              --junitxml=out/tests-arch-installed.xml 2>&1 | tee out/tests-arch-installed.log
+          # the package this part built and installed, recorded with its results
+          IKE_PACKAGE_SHA256=$(sha256sum out/ike-browser-*-x86_64.pkg.tar.zst | cut -d' ' -f1)
+          export IKE_PACKAGE_SHA256
+          IKE_TEST_APP=/usr/lib/ike-browser python3 tools/shard-tests.py run --kind installed --shard "$SHARD" \
+              --shards "$SHARDS" --out out/shard -- -ra 2>&1 | tee out/tests-arch-installed.log
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: arch
-          path: out/
+          name: arch-${{ matrix.kind }}-${{ matrix.shard }}
+          # the results and logs; not the package (each installed part builds its own)
+          path: |
+            out/
+            !out/*.pkg.tar.zst
           if-no-files-found: warn
+          overwrite: true
           retention-days: 30
+
+  # The gate "Arch Linux" (the check the verified merge needs, and the category
+  # "arch-packaging"): every part passed and every collected test ran exactly
+  # once, on the sources and on the installed package. It runs whatever happened
+  # before it, so a cancelled or skipped part is never taken for a pass.
+  arch:
+    name: Arch Linux
+    needs: [plan, part]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: ${{ !cancelled() }}
+        with:
+          pattern: arch-*
+          path: ${{ runner.temp }}/parts
+      - name: Tests (Arch's Qt)
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          python3 tools/shard-tests.py verify --kind source --shards "$SHARDS" --dir "$RUNNER_TEMP/parts" \
+              --collected "$RUNNER_TEMP/parts/arch-styles-0/collected.txt" --sha "$GITHUB_SHA" \
+              --run-id "$GITHUB_RUN_ID" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Tests of the installed package (Arch)
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          python3 tools/shard-tests.py verify --kind installed --shards "$SHARDS" --dir "$RUNNER_TEMP/parts" \
+              --collected "$RUNNER_TEMP/parts/arch-styles-0/collected.txt" --sha "$GITHUB_SHA" \
+              --run-id "$GITHUB_RUN_ID" | tee -a "$GITHUB_STEP_SUMMARY"
+      # each part installed Arch's packages itself (from the plan's snapshot):
+      # the run tested one set of packages only when every part recorded the same
+      # (the record kept for the daily check is the styles' part's). A difference
+      # is no fault of the code: the automatic fix runs the whole run again, then
+      # tells a person (tools/autofix-plan.py, gate_alone), never an AI.
+      - name: The same Arch packages in every part
+        if: ${{ !cancelled() }}
+        run: |
+          python3 -I - "$RUNNER_TEMP/parts" "$SHARDS" <<'PY'
+          import json, pathlib, sys
+          root, n = pathlib.Path(sys.argv[1]), int(sys.argv[2])
+          KEYS = ("packages", "closure", "python", "qt", "pyqt", "chromium")
+          records = {}
+          for f in sorted(root.glob("arch-*-*/arch-versions.json")):
+              try:
+                  data = json.loads(f.read_text("utf-8"))
+              except ValueError:
+                  data = {}
+              records[f.parent.name] = json.dumps({k: data.get(k) for k in KEYS}, sort_keys=True)
+          want = 2 * n + 1
+          print("%d of %d parts recorded their Arch packages" % (len(records), want))
+          bad = []
+          if len(records) != want:
+              bad.append("%d parts recorded their Arch packages, not %d" % (len(records), want))
+          groups = {}
+          for part, text in records.items():
+              groups.setdefault(text, []).append(part)
+          if len(groups) > 1:
+              bad.append("the parts tested different Arch packages: %s" % "; ".join(
+                  ", ".join(parts) for parts in groups.values()))
+          for why in bad:
+              print("::error::%s" % why)
+          sys.exit(1 if bad else 0)
+          PY
+      - name: Every part of Arch Linux passed
+        if: always()
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          python3 -I - <<'PY'
+          import json, os, sys
+          needs = json.loads(os.environ["NEEDS"])
+          bad = []
+          for job in ("plan", "part"):
+              result = (needs.get(job) or {}).get("result") or "no result"
+              print("%s: %s" % (job, result))
+              if result != "success":
+                  bad.append("%s (%s)" % (job, result))
+          if bad:
+              print("::error::not every part of Arch Linux passed: %s" % ", ".join(bad))
+              sys.exit(1)
+          PY
 
   # Runs the automation started with its own token (the daily check on main,
   # a merge made by itself, the automatic fix's branch) send no "workflow_run":
@@ -204,8 +440,9 @@ jobs:
   # automatic fix started again (a test that failed once runs once more).
   hand-over:
     needs: arch
+    # (a cancelled run is no failure: its gate runs and fails, and is not handed over)
     if: >-
-      failure() && (
+      failure() && !cancelled() && (
       (github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]' &&
       (github.ref_name == 'main' || github.ref_name == 'automation/autofix-main' ||
       github.ref_name == 'automation/daily-maintenance' ||
