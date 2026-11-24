@@ -16,8 +16,10 @@ Per page and mode:
                  sees). dE10 is the figure for the "within 2-3% of Dark Reader" goal:
                  a mean dilutes a broken box in a large dark page, a share does not.
   verdict        PASS only with no contrast failure, no image error and light_pct
-                 under 1 % (the owner's rule: no average hides a broken page;
-                 "off" is judged on readability and images only)
+                 under 1 % (the owner's rule: no average hides a broken page).
+                 Measured against the page without dark mode ("off", the
+                 reference): text already below 3:1 there, or an element that
+                 does not stand out there either, is the page's own design.
 """
 
 import argparse
@@ -119,39 +121,78 @@ def light_blocks(img, mask):
     return 100.0 * blocks.sum() / max(1, (~mask).sum())
 
 
-def analyse(d, page, mode, ref_off, ref_dr):
+def visible_ratio(img, r):
+    c = crop(img, r, 3)
+    if c is None:
+        return None
+    Y = luminance(c.reshape(-1, 3))
+    return float((np.percentile(Y, 98) + 0.05) / (np.percentile(Y, 2) + 0.05))
+
+
+def baseline(d, page):
+    """The page without dark mode: what it shows by its own design (contrast of each
+    text rectangle, how much each checked element stands out)."""
+    img = load(d / ("%s__off.png" % page))
+    info = json.loads((d / ("%s__off.json" % page)).read_text() or "{}")
+    return {"img": img, "dark": float(np.median(lab(img[::4, ::4])[..., 0])) < 45,
+            "text": {tuple(r): text_contrast(img, r) for r in info.get("text", [])},
+            "vis": {tuple(ch["rect"]): visible_ratio(img, ch["rect"]) for ch in info.get("checks", [])
+                    if ch["kind"] == "visible"}}
+
+
+def analyse(d, page, mode, base, ref_dr):
     img = load(d / ("%s__%s.png" % (page, mode)))
     info = json.loads((d / ("%s__%s.json" % (page, mode))).read_text() or "{}")
-    res = {}
-    cs = [(r, text_contrast(img, r)) for r in info.get("text", [])]
-    res["contrast_fail"] = [[r, round(c, 2)] for r, c in cs if c is not None and c < 3.0]
-    res["contrast_min"] = round(min([c for _, c in cs if c is not None], default=0), 2)
+    res = {"reasons": []}
+    fails = []
+    for r in info.get("text", []):
+        c = text_contrast(img, r)
+        if c is None or c >= 3.0:
+            continue
+        own = base["text"].get(tuple(r))
+        if mode == "off" or (own is not None and own < 3.0):
+            continue                     # low contrast by the page's own design, not the dark mode's doing
+        fails.append([r, round(c, 2), None if own is None else round(own, 2)])
+    res["contrast_fail"] = fails
     res["light_pct"] = round(light_blocks(img, media_mask(img.shape, info)), 2)
     errs = []
     for ch in info.get("checks", []):
         r = ch["rect"]
-        c = crop(img, r, 0 if ch["kind"] == "keep" else 3)
-        if c is None:
-            continue
-        if ch["kind"] == "keep" and ref_off is not None:
-            o = crop(ref_off, r)
-            if o is not None and o.shape == c.shape:
+        if ch["kind"] == "keep" and mode != "off":
+            c, o = crop(img, r), crop(base["img"], r)
+            if c is not None and o is not None and o.shape == c.shape:
                 de = float(ciede2000(lab(o), lab(c)).mean())
                 if de > 12:
-                    errs.append("%s changed (dE %.0f)" % (ch["tag"].lower(), de))
-        elif ch["kind"] == "visible":
-            Y = luminance(c.reshape(-1, 3))
-            ratio = (np.percentile(Y, 98) + 0.05) / (np.percentile(Y, 2) + 0.05)
-            if ratio < 1.6:
-                errs.append("%s invisible (%.2f:1)" % (ch["tag"].lower(), ratio))
+                    errs.append("%s at %s changed (dE %.0f)" % (ch["tag"].lower(), r[:2], de))
+        elif ch["kind"] == "visible" and mode != "off":
+            ratio, own = visible_ratio(img, r), base["vis"].get(tuple(r))
+            if ratio is not None and ratio < 1.6 and (own is None or own >= 1.6):
+                errs.append("%s at %s invisible (%.2f:1)" % (ch["tag"].lower(), r[:2], ratio))
     res["image_err"] = errs
-    if ref_dr is not None and mode != "dr":
+    if ref_dr is not None and mode not in ("dr", "off") and ref_dr.shape == img.shape:
         de = ciede2000(lab(ref_dr), lab(img))
         res["dE_mean"] = round(float(de.mean()), 2)
         res["dE10"] = round(100.0 * float((de > 10).mean()), 2)
-    ok = not res["contrast_fail"] and not errs and (mode == "off" or res["light_pct"] < 1.0)
-    res["verdict"] = "PASS" if ok else "FAIL"
+    if fails:
+        res["reasons"].append("%d text area(s) below 3:1 (worst %.2f)" % (len(fails), min(f[1] for f in fails)))
+    res["reasons"] += errs[:4] + (["... %d more" % (len(errs) - 4)] if len(errs) > 4 else [])
+    if mode != "off" and res["light_pct"] >= 1.0 and not base["dark"]:     # a dark site's own light parts
+        res["reasons"].append("light areas %.1f%% of the page" % res["light_pct"])
+    res["verdict"] = "ref" if mode == "off" else ("PASS" if not res["reasons"] else "FAIL")
+    res["engine"] = info.get("engine")
     return res
+
+
+def side_by_side(d, page, modes, out):
+    from PIL import ImageDraw
+    ims = [Image.open(d / ("%s__%s.png" % (page, m))).convert("RGB") for m in modes]
+    w, h = ims[0].size
+    sheet = Image.new("RGB", (w * len(ims) // 2, h // 2 + 24), (40, 40, 40))
+    for i, (m, im) in enumerate(zip(modes, ims)):
+        sheet.paste(im.resize((w // 2, h // 2)), (i * w // 2, 24))
+        ImageDraw.Draw(sheet).text((i * w // 2 + 8, 6), m, fill=(255, 255, 255))
+    out.mkdir(parents=True, exist_ok=True)
+    sheet.save(out / ("%s.png" % page))
 
 
 def main():
@@ -159,34 +200,29 @@ def main():
     ap.add_argument("dir")
     ap.add_argument("--modes", default="off,dr,native,proto")
     ap.add_argument("--json")
+    ap.add_argument("--sheets", help="folder for side-by-side pictures of the modes")
     a = ap.parse_args()
     d = Path(a.dir)
     modes = a.modes.split(",")
     pages = sorted({p.name.split("__")[0] for p in d.glob("*__off.png")} - {"calib", "bench"})
     out = {}
-    print("%-14s" % "page" + "".join("%-34s" % m for m in modes))
     for page in pages:
-        off = load(d / ("%s__off.png" % page))
-        dr = load(d / ("%s__dr.png" % page)) if (d / ("%s__dr.png" % page)).exists() else None
-        out[page] = {}
-        cells = []
-        for m in modes:
-            if not (d / ("%s__%s.png" % (page, m))).exists():
-                cells.append("-")
-                continue
-            r = out[page][m] = analyse(d, page, m, off, dr)
-            cell = "%s c<3:%d min%.1f L%.1f%%" % (r["verdict"], len(r["contrast_fail"]), r["contrast_min"],
-                                                 r["light_pct"])
-            if "dE10" in r:
-                cell += " dE%.1f/%.1f%%" % (r["dE_mean"], r["dE10"])
-            if r["image_err"]:
-                cell += " IMG"
-            cells.append(cell)
-        print("%-14s" % page + "".join("%-34s" % c for c in cells))
+        if not all((d / ("%s__%s.png" % (page, m))).exists() for m in modes):
+            continue
+        base = baseline(d, page)
+        dr = load(d / ("%s__dr.png" % page)) if "dr" in modes else None
+        out[page] = {m: analyse(d, page, m, base, dr) for m in modes}
+        if a.sheets:
+            side_by_side(d, page, modes, Path(a.sheets))
+    print("| page | " + " | ".join(m for m in modes if m != "off") + " | proto vs DR: mean dE / px dE>10 |")
+    for page, ms in out.items():
+        cells = [ms[m]["verdict"] for m in modes if m != "off"]
+        p = ms.get("proto", {})
+        print("| %s | %s | %s / %s%% |" % (page, " | ".join(cells), p.get("dE_mean", "-"), p.get("dE10", "-")))
     for page, ms in out.items():
         for m, r in ms.items():
-            if r["image_err"] or r["contrast_fail"]:
-                print("  %s/%s: %s %s" % (page, m, r["image_err"], r["contrast_fail"][:3]))
+            if r["reasons"]:
+                print("  %s / %s: %s" % (page, m, "; ".join(r["reasons"])))
     if a.json:
         Path(a.json).write_text(json.dumps(out, indent=1))
 

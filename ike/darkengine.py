@@ -6,6 +6,12 @@ sheets and inline styles once, writes one override style sheet per source
 sheet, then handles only what is added later. Dark Reader's lists
 (resources/darkreader-data.json, through darkfixes.py) give the per-site fixes
 (their CSS and INVERT selectors). Measured by tests/dark_engine/.
+
+Style sheets of other sites: the script asks the page bridge that Dark Reader
+already uses in I.K.E. (window.__ikeBridge.fetchCss, passwords.py PageBridge:
+style sheets only, the address the page itself loaded, no cookies, checked by
+the filter lists). The bridge must be attached to the page (as the browser
+does for every page) for those sheets to be made dark.
 """
 
 import json
