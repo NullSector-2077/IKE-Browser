@@ -69,6 +69,7 @@ GATHER = """(function () {
   }
   add("greeting", ".greet", "#greet-t", 4.5); add("greeting line", ".greet", "#greet-l", 4.5);
   add("clock", ".corner", ".clock", 4.5); add("date", ".corner", ".date", 4.5);
+  add("weather", ".corner", "#weather .wtxt", 4.5); add("weather details", ".corner", ".wx-v", 4.5);   // 1.1.25
   add("counter", ".stats", ".stats b", 3); add("counter label", ".stats", ".stats span", 4.5);
   add("wordmark", "h1", "h1 svg path:not(.k)", 4.5, "fill"); add("K", "h1", "h1 svg .k", 3, "fill");
   add("settings", ".nt-settings .name", ".nt-settings .name", 4.5);
@@ -84,8 +85,13 @@ def steps(ike, qapp, out):
     import os
     from PyQt6.QtCore import QPoint, QUrl
     from ike import newtabbg
+    import time
     win = ike.windows[0]
     win.resize(1100, 700)
+    # 1.1.25: the weather and its details in the corner, put in place (no request: the data is fresh)
+    ike.config["weather_city"], ike.config["weather_lat"], ike.config["weather_lon"] = "Roma", 41.89, 12.51
+    ike.weather.data = {"key": [41.89, 12.51, "celsius"], "time": time.time(), "temp": 12, "code": 2, "wind": 14.4,
+                        "wind_dir": 312.0, "feels": 10.2, "humidity": 78.0, "pressure": 1016.4, "rain": 20.0, "uv": 2.6}
     view = win.current_view()
     yield 800
     shots = SHOTS
@@ -111,7 +117,8 @@ def run_scheme(run_ike, tmp_path, scheme, veil=35, names=("white", "black", "bus
     shots.mkdir(exist_ok=True)
     script = (STEPS.replace("PHOTOS", repr([(n, photos.get(n, "")) for n in names]))
               .replace("GATHER", repr(GATHER)).replace("SHOTS", repr(str(shots))).replace("SCHEME", repr(scheme)).replace("VEIL", str(veil)))
-    out = run_ike(script, settings={"ui_scheme": scheme, "newtab_bg": ""}, timeout=240)
+    out = run_ike(script, settings={"ui_scheme": scheme, "newtab_bg": ""}, timeout=240,
+                  env={"IKE_TEST_WEATHER": "http://127.0.0.1:9"})          # never the real weather service
     keep = os.environ.get("IKE_TEST_SHOTS")
     if keep:
         os.makedirs(keep, exist_ok=True)
@@ -137,7 +144,7 @@ def check(out, shots, scheme, names=("white", "black", "busy", "default")):
             ratio = _ratio(colour, (c.red(), c.green(), c.blue()))
             assert ratio >= least - 0.1, (scheme, name, label, ratio, least, colour, (c.red(), c.green(), c.blue()), cls)
             seen += 1
-    assert seen >= len(names) * 9
+    assert seen >= len(names) * 11                                  # 1.1.25: the weather and its details too
     del app
 
 

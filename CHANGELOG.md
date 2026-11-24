@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.1.25 (unreleased)
+
+- **The weather's symbol and its text aligned** (the owner: they were not):
+  the symbol (about two centimetres since 1.1.24) has a square box of its own
+  and the text a box beside it, both on the same middle line; the text wraps
+  in its own column for a long name or language, and the block stays flush
+  right with the clock. Fonts draw a symbol higher or lower in its line: the
+  page draws it once on a small canvas to see where its ink really is and
+  moves it to the middle of its box, whatever the font and the zoom. In a low
+  window (or at a large zoom) the symbol is at most 13 % of the window's
+  height. Measured on the page drawn for real at 100, 150 and 200 % and in
+  every language: the boxes and the ink of the pixels
+  (tests/test_newtab_weather.py).
+- **More weather details, as in Plasma's weather widget**: under the weather a
+  discreet row of small symbols drawn in the text's colour with their values,
+  in aligned columns: felt temperature, wind speed and direction (the point
+  of the compass and a small arrow), humidity, pressure (hPa), chance of
+  precipitation and UV index (not at night). °C goes with km/h, °F with mph.
+  Each value is read aloud with its name (the name also shows on hover). They
+  come with the same single request to Open-Meteo, which now also asks for
+  `wind_direction_10m`, `apparent_temperature`, `relative_humidity_2m`,
+  `pressure_msl`, `precipitation_probability` and `uv_index` (still only the
+  rounded coordinates and the temperature unit are sent; the wind always comes
+  in km/h and is turned into mph by I.K.E.). Should the service refuse the
+  last two, the request is made once more at once without them. Over a photo
+  the details sit on the same frosted glass as the clock and read at 4.5:1
+  (tests/test_newtab_readability.py); in a small window they give way.
+- **23 more greeting lines for the moments of the day and of the week**, short
+  and a little witty, in all 59 languages: early morning, mid-morning, the
+  lunch break, late afternoon, evening, late night and deep night, the first
+  working day of the week, the evening before the weekend and the weekend
+  (the week of the page's language: Monday and Friday in most of Europe,
+  Sunday and Thursday in the Gulf). Nothing about a religion; a holiday the
+  user chose still wins all day, and "Greetings only" still shows no line.
+  Chosen at random as before (tests/test_greeting.py).
+
 ## 1.1.24
 
 - **Stronger audio fingerprinting protection**: each sample the engine renders

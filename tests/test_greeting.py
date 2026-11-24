@@ -271,6 +271,67 @@ def test_the_week_the_seasons_and_the_clocks(run_ike):
     assert res["weekinfo"][0]["first"] == 7                                    # the American week starts on Sunday
 
 
+# --- 1.1.25: the finer moments of the day and of the week -------------------------------------------------
+def test_the_new_lines_are_short_and_in_every_language():
+    from ike import greeting
+    new = greeting.MOMENTS + greeting.WEEKDAY
+    assert len(new) == 23 and dict(greeting.POOL)["moment"] == greeting.MOMENTS
+    assert dict(greeting.POOL)["weekday"] == greeting.WEEKDAY
+    for f in sorted((ROOT / "ike" / "resources" / "lang").glob("*.json")):
+        strings = json.loads(f.read_text("utf-8"))["strings"]
+        for key, text in new:
+            got = strings.get(text, "")
+            assert got.strip() and got != text, (f.stem, key)                  # translated, not left in English
+    # nothing about a religion or a named day: the week is the language's own
+    words = " ".join(t for _k, t in new).lower()
+    for w in ("monday", "friday", "sunday", "saturday", "church", "prayer", "god", "christmas", "coffee", "beer"):
+        assert w not in words, w
+
+
+def test_the_moments_of_the_day_and_of_the_week(run_ike):
+    res = run_logic(run_ike, r"""
+      var out = {};
+      function keys(c) { var o = {}; G.options(c).forEach(function (g) { o[g[0]] = g[2]; }); return o; }
+      function at2(d, w) { var c = G.context(D({}), d, {first: false, gap: 0}); if (w) c.week = w; return keys(c); }
+      var NORTH = {first: 1, weekend: [6, 7]}, GULF = {first: 6, weekend: [5, 6]};
+      // a Wednesday, hour by hour: the moment that fits
+      out.day = [];
+      for (var h = 0; h < 24; h++) out.day.push([h, at2(at(2026, 11, 25, h, 30), NORTH).moment || []]);
+      // the week: the first working day, the evening before the weekend, the weekend
+      out.week = {mon9: at2(at(2026, 11, 23, 9), NORTH).weekday, mon3: at2(at(2026, 11, 23, 3), NORTH).weekday,
+                  fri18: at2(at(2026, 11, 27, 18), NORTH).weekday, fri14: at2(at(2026, 11, 27, 14), NORTH).weekday,
+                  sat9: at2(at(2026, 11, 28, 9), NORTH).weekday, sat20: at2(at(2026, 11, 28, 20), NORTH).weekday,
+                  sun15: at2(at(2026, 11, 29, 15), NORTH).weekday, sat3: at2(at(2026, 11, 28, 3), NORTH).weekday,
+                  wed: at2(at(2026, 11, 25, 9), NORTH).weekday,
+                  gulfThu: at2(at(2026, 11, 26, 18), GULF).weekday, gulfSun: at2(at(2026, 11, 22, 9), GULF).weekday,
+                  gulfFri: at2(at(2026, 11, 27, 9), GULF).weekday};
+      // still random: many new tabs at lunch on a Monday bring lines of several groups
+      var seen = {};
+      for (var s = 1; s <= 200; s++) seen[G.decide(D({st: {last: "2026-11-23"}}), at(2026, 11, 23, 12, 40), rngFrom(s)).key] = 1;
+      out.lunch = Object.keys(seen);
+      // a holiday the user chose still wins all day, and "Greetings only" shows no line
+      out.xmas = G.decide(D({hol: ["christian"], st: {last: "2026-12-25"}}), at(2026, 12, 25, 12, 30), rngFrom(4)).key;
+      out.only = G.decide(D({tone: "greetings", st: {last: "2026-11-23"}}), at(2026, 11, 23, 12, 30), rngFrom(4)).key;
+      return out;""")
+    want = {0: "latenight", 1: "latenight", 2: "deep", 3: "deep", 4: "deep", 5: "early", 6: "early", 7: "early",
+            9: "mid", 10: "mid", 12: "lunch", 13: "lunch", 15: "after", 16: "after", 17: "after", 19: "eve",
+            20: "eve", 21: "eve", 22: "eve", 23: "latenight"}
+    for h, fit in res["day"]:
+        names = {re.sub(r"\d+$", "", k) for k in fit}
+        assert names == ({want[h]} if h in want else set()), (h, fit)
+    w = res["week"]
+    assert w["mon9"] == ["wkstart1", "wkstart2"] and w.get("mon3") is None
+    assert w["fri18"] == ["wkeve1", "wkeve2"] and w.get("fri14") is None and w.get("wed") is None
+    assert w["sat9"] == ["wkend1", "wkend2"] and w["sat20"] == ["wkend1", "wkend3"] and w["sun15"] == ["wkend1"]
+    assert w.get("sat3") is None
+    assert w["gulfThu"] == ["wkeve1", "wkeve2"] and w["gulfSun"] == ["wkstart1", "wkstart2"]
+    assert w["gulfFri"] == ["wkend1", "wkend2"]
+    lunch = set(res["lunch"])
+    assert lunch & {"lunch1", "lunch2", "lunch3"} and lunch & {"wkstart1", "wkstart2"}
+    assert len(lunch) >= 10 and not lunch & {"deep1", "early1", "eve1", "wkend1"}
+    assert res["xmas"] == "christmas" and res["only"] == ""
+
+
 STEPS_TZ = JS + r'''
 def steps(ike, qapp, out):
     view = ike.windows[0].current_view()

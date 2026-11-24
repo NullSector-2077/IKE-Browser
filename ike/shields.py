@@ -982,11 +982,18 @@ class Shields(QObject):
         if self.config["newtab_clock"]:
             corner += '<div class="clock" id="clock"></div><div class="date" id="date"></div>'
         if self.config["newtab_weather"]:
-            text = self.weather_text()
-            sym, _sp, rest = text.partition(" ") if " " in text else ("", "", text)
-            # 1.1.24: the symbol larger, before the rest (as the page's ikeWeather() does)
-            corner += '<div class="weather" id="weather">%s%s</div>' % (
-                '<span class="wsym">%s</span> ' % _html.escape(sym) if sym else "", _html.escape(rest))
+            from . import weather as _weather
+            sym, rest = _weather.split_symbol(self.weather_text())
+            # 1.1.24: the symbol larger, before the rest; 1.1.25: the rest in a box of its own, centred
+            # beside the symbol (the page's ikeWeather() builds the same), and the details under them,
+            # drawn by the page from this data (newtab.html, "drawMore")
+            more = json.dumps(self.weather_more(), ensure_ascii=True)
+            corner += ('<div class="weather" id="weather">%s%s</div><div class="wx-more" id="weather-more"></div>'
+                       '<script type="application/json" id="weather-more-data">%s</script>') % (
+                '<span class="wsym"><span class="wg">%s</span></span>%s' % (_html.escape(sym), " " if rest else "")
+                if sym else "",
+                '<span class="wtxt">%s</span>' % _html.escape(rest) if rest else "",
+                more.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026"))
         from . import i18n, newtabbg
         html = html.replace("{{corner}}", corner).replace("{{lang}}", i18n.current().replace("_", "-"))
         from . import timezone
@@ -1109,6 +1116,14 @@ class Shields(QObject):
         parts = ["%s %s %s" % (w["symbol"], w["temp"], w["unit"]), T(w["label"]) if w["label"] else "",
                  w["city"]]
         return " · ".join(p.strip() for p in parts if p and p.strip())
+
+    def weather_more(self):
+        """The details under the weather (1.1.25): [{"k", "l", "v", "d"}] (weather.details), or []."""
+        from . import weather as _weather
+        from .i18n import T
+        weather = getattr(self.parent(), "weather", None)
+        w = weather.current() if weather is not None and self.config["newtab_weather"] else None
+        return _weather.details(w, T)
 
     # --- profile -----------------------------------------------------
     def chrome_major(self):
