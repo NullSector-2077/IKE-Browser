@@ -214,6 +214,8 @@ jobs:
       - name: Tests of the installed package
         env:
           SHARD: ${{ matrix.shard }}
+          # recorded in the shard's results: the gate checks it is the package of "tests package"
+          IKE_PACKAGE_SHA256: ${{ needs.package.outputs.sha256 }}
         run: |
           IKE_TEST_APP="$RUNNER_TEMP/pkgroot/usr/lib/ike-browser" python tools/shard-tests.py run --kind installed \
               --shard "$SHARD" --shards "$SHARDS" --out "$RUNNER_TEMP/shard"
@@ -246,6 +248,11 @@ jobs:
           ref: ${{ github.sha }}
       - name: Test environment
         uses: ./.github/actions/ike-test-env
+      # the tests pytest collects here, apart from the shards: the gate checks
+      # that each of them ran exactly once in the shards (tools/shard-tests.py);
+      # first, so that a failure of a later step leaves it there
+      - name: The tests to run
+        run: python tools/shard-tests.py collect --out "$RUNNER_TEMP/test-results/collected.txt"
       - name: AdBlock engine (Rust tests)
         id: rust
         # the tests are an ordinary program: without the "extension-module" feature
@@ -271,10 +278,6 @@ jobs:
       - name: Lint
         id: lint
         run: ruff check .
-      # the tests pytest collects here, apart from the shards: the gate checks
-      # that each of them ran exactly once in the shards (tools/shard-tests.py)
-      - name: The tests to run
-        run: python tools/shard-tests.py collect --out "$RUNNER_TEMP/test-results/collected.txt"
       # review 2 of 1.1.19, H4: code under ike/ could make the test run report
       # success (by finding pytest or the runner). A test that must fail, kept
       # out of the tree, is run with every module of ike/ imported first: if
@@ -608,7 +611,8 @@ jobs:
           set -o pipefail
           mkdir -p "$RUNNER_TEMP/test-results"
           python3 tools/shard-tests.py verify --kind source --shards "$SHARDS" --dir "$RUNNER_TEMP/parts" \
-              --collected "$RUNNER_TEMP/parts/tests-checks/collected.txt" --sha "$GITHUB_SHA" --jobs-result "$RESULT" \
+              --collected "$RUNNER_TEMP/parts/tests-checks/collected.txt" --sha "$GITHUB_SHA" --run-id "$GITHUB_RUN_ID" \
+              --jobs-result "$RESULT" \
               --merged-junit "$RUNNER_TEMP/test-results/junit.xml" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: No tests lost
         if: ${{ !cancelled() && (needs.checks.outputs.kept == 'success' || needs.checks.outputs.kept == 'failure') }}
@@ -635,11 +639,14 @@ jobs:
         if: ${{ !cancelled() }}
         env:
           RESULT: ${{ needs.installed.result }}
+          PACKAGE: ${{ needs.package.outputs.sha256 }}
         run: |
           set -o pipefail
           mkdir -p "$RUNNER_TEMP/test-results"
+          # the installed copy holds the same tests as the sources: the same independent collection
           python3 tools/shard-tests.py verify --kind installed --shards "$SHARDS" --dir "$RUNNER_TEMP/parts" \
-              --sha "$GITHUB_SHA" --jobs-result "$RESULT" \
+              --collected "$RUNNER_TEMP/parts/tests-checks/collected.txt" --sha "$GITHUB_SHA" --run-id "$GITHUB_RUN_ID" \
+              --package-sha256 "$PACKAGE" --jobs-result "$RESULT" \
               --merged-junit "$RUNNER_TEMP/test-results/junit-installed.xml" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Filter lists in this engine
         if: ${{ !cancelled() && (needs.checks.outputs.filter-lists == 'success' || needs.checks.outputs.filter-lists == 'failure') }}
@@ -711,8 +718,9 @@ jobs:
     needs: tests
     # also a run the automatic fix started again (audit of #65: a test failed
     # once is run again before any AI fix), on main too
+    # (a cancelled run is no failure: its gate runs and fails, and is not handed over)
     if: >-
-      failure() && (
+      failure() && !cancelled() && (
       (github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]' &&
       (github.ref_name == 'automation/autofix-main' || github.ref_name == 'automation/daily-maintenance' ||
       startsWith(github.ref_name, 'automation/update/security-') ||

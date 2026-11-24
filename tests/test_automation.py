@@ -3653,7 +3653,9 @@ def test_arch_reaches_the_automatic_fix_and_comes_back_tested_there():
     for step in plan_tool.ARCH_RERUN_STEPS:
         assert step in names and step in gate, step
     infra = [n for n in names if plan_tool.ARCH_INFRA_STEP.match(n)]
-    assert infra == ["Git (for the checkout)", "Git owner check", "Arch's packages", "AdBlock engine's crates"]
+    # (the review of 2026-11-24: every part reads the plan's one snapshot of Arch's repositories first)
+    assert infra == ["Arch's snapshot", "Git (for the checkout)", "Git owner check", "Arch's packages",
+                     "AdBlock engine's crates"]
     assert not [n for n in gate if plan_tool.ARCH_INFRA_STEP.match(n)]
     assert "cargo fetch --locked" in arch and "cargo build --release --frozen" in arch
     assert set(plan_tool.REPORTING_JOBS["Arch Linux"]) == {"hand-over", "merge-ready"}

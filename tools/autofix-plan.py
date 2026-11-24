@@ -39,7 +39,11 @@ package"..., "Arch Linux" in "Arch Linux shard k/N" and the other parts; the
 job named as before ("tests", "Arch Linux": GATES) is the gate, which fails
 whenever a part fails. When a part failed, the gate's own failure only says so
 again: it is set aside (without_gate), and the plan reads the part's failed
-steps and log, as it read the single job's before.
+steps and log, as it read the single job's before. When the gate failed alone
+(a part cancelled or out of time, its results missing, a test that did not run
+exactly once, the Arch parts on other packages: gate_alone), it is never an
+AI's: the whole run once more the first time (``rerun`` "all"), then an issue.
+A run that was cancelled is skipped.
 
 "Security" (security.yml, handed over by its job hand-over; WP6, the owner's
 decision of 2026-11-22) starts an analysis and a fix on an isolated branch
@@ -196,10 +200,10 @@ INFRA_STEP = re.compile(r"^(Set up job|Complete job|Post |Check out|Run actions/
                         r"|download-artifact|cache)|Upload |Download |Validate downloaded|Rust$|Test environment$"
                         r"|Packaging tools$)")
 # arch.yml's steps that only install Arch's packages (pacman: mirrors, keyring,
-# a package not found, a conflict), start the container or download the
-# engine's crates: never the code's
+# a package not found, a conflict), start the container, read the Arch Linux
+# Archive's snapshot or download the engine's crates: never the code's
 ARCH_INFRA_STEP = re.compile(r"^(Initialize containers|Stop containers|Git \(for the checkout\)|Git owner check"
-                             r"|Arch's packages|AdBlock engine's crates)$")
+                             r"|Arch's packages|AdBlock engine's crates|Arch's snapshot)$")
 # Steps of tests.yml that only keep the books (they fetch main with git and compare
 # the tests with it): git failing to reach GitHub there is infrastructure (infra_in_logs)
 BOOKKEEPING_STEPS = ("No tests lost", "The starting commit's tests on this code")
@@ -460,6 +464,24 @@ def failed_steps(job):
     return [s.get("name") or "" for s in job.get("steps", []) if s.get("conclusion") == "failure"]
 
 
+def gate_alone(name, failed_jobs, parts):
+    """Why the gate failed with no part failed (a part cancelled or out of time, its results not
+    there, a test that did not run exactly once...), or "" when a part failed too or the run has no
+    parts (a run of before 2026-11-24, or a plan made without the run's jobs). parts: {name:
+    conclusion} of the run's jobs but the gate and the reporting ones (main() reads them)."""
+    gate, reporting = GATES.get(name), REPORTING_JOBS.get(name, ())
+    if gate is None or not parts:
+        return ""
+    names = [j.get("name") for j in failed_jobs if j.get("name") not in reporting]
+    if names != [gate]:
+        return ""
+    stopped = sorted(n for n, c in parts.items() if c in ("cancelled", "timed_out"))
+    if stopped:
+        return "parts cancelled or out of time: %s" % ", ".join(stopped)
+    steps = [st for j in failed_jobs if j.get("name") == gate for st in failed_steps(j)]
+    return "only the gate failed (%s)" % (", ".join(steps) or "no failed step")
+
+
 def without_gate(name, failed_jobs):
     """The failed jobs, the gate set aside when another job that is not one of the reporting jobs
     failed too: the gate (GATES) fails because a part failed, and its failed steps ("Tests", "Every
@@ -692,6 +714,8 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
             "attempt": "0", "allow_adblock": "false", "workflow": name, "security": "false", "findings": ""}
     if run.get("conclusion") != "failure":
         plan["reason"] = "the run did not fail (%s)" % run.get("conclusion")
+        if run.get("conclusion") == "cancelled":
+            plan["reason"] = "cancelled: the run was cancelled (a newer commit, or by hand), not a failure"
         return plan
     if (run.get("head_repository") or {}).get("full_name") != run.get("_repo"):
         plan["reason"] = "the run comes from another repository (fork)"
@@ -707,6 +731,22 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
             return plan
         if tested and run.get("_tip") != run.get("head_sha"):
             plan["reason"] = "the branch has moved since this run: an older failure"
+            return plan
+        alone = gate_alone(name, failed_jobs, run.get("_parts"))
+        if tested and alone:
+            # the code is not at fault here, or not yet known to be: never an AI's. The whole run once more
+            # (a failed gate re-read alone would find the same results), then an issue for the owner
+            attempt = int(run.get("run_attempt") or 1)
+            if attempt > 1 and run.get("_event") == "workflow_run" and \
+                    (run.get("triggering_actor") or {}).get("login") == BOT:
+                plan["reason"] = "a run the automatic fix started again: the tests hand its failure over themselves"
+                return plan
+            if attempt == 1:
+                plan.update(action="rerun", rerun="all", reason="%s: the whole run once more, no automatic fix "
+                            "(a part stopped, results missing or a test not run exactly once)" % alone)
+            else:
+                plan.update(action="issue", kind="infra", reason="%s, again after the whole run ran once more: "
+                            "for a person, not for an AI (tools/shard-tests.py verify says what is missing)" % alone)
             return plan
         infra = infra_failure(name, failed_jobs)
         if infra:
@@ -1427,6 +1467,11 @@ def main(argv=None):
             j["name"] = (j.get("name") or "").split(" / ")[-1]
     # a gate that failed because a part did is set aside: the part's own step and log are the failure
     failed = without_gate(run.get("name"), [j for j in jobs if j.get("conclusion") == "failure"])
+    # every part and its conclusion (a part cancelled or out of time is no failed job, and the gate
+    # then fails alone: gate_alone)
+    gate, reporting = GATES.get(run.get("name")), REPORTING_JOBS.get(run.get("name"), ())
+    run["_parts"] = {j.get("name"): j.get("conclusion") or "" for j in jobs
+                     if j.get("name") != gate and j.get("name") not in reporting}
     branch = run.get("head_branch") or ""
     run["_repo"] = repo
     run["_event"] = a.event

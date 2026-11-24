@@ -30,10 +30,13 @@
 # SHARDS parts ("Arch Linux shard k/N"), the suite against the package built and
 # installed with pacman in SHARDS parts ("Arch Linux installed k/N"), and the
 # widget styles ("Arch Linux styles"), by whole test files balanced by their
-# recorded durations (tools/shard-tests.py, tools/test-timings.json). The job
+# recorded durations (tools/shard-tests.py, tools/test-timings.json). Every part
+# installs the same packages: one day's snapshot of Arch's repositories (the Arch
+# Linux Archive, today's when it is there), chosen once by the job "plan". The job
 # "Arch Linux" is the gate the merge and the categories read: it proves that
 # every test pytest collects ran exactly once (tools/shard-tests.py verify) and
-# fails when any part failed, was cancelled or is missing.
+# that every part had the same packages, and fails when any part failed, was
+# cancelled or is missing.
 # A failure goes to the automatic fix (tools/autofix-plan.py, "Arch Linux"):
 # pacman, mirrors, keyring or downloads are GitHub's or Arch's matter (an
 # issue, no AI); a build or test failure is fixed only when "Tests" passed on
@@ -80,7 +83,33 @@ jobs:
     timeout-minutes: 5
     outputs:
       parts: ${{ steps.parts.outputs.matrix }}
+      snapshot: ${{ steps.snapshot.outputs.snapshot }}
     steps:
+      # One day of Arch's repositories for every part (and for a part run again):
+      # the Arch Linux Archive's snapshot of today when it is there, else of
+      # yesterday; with the testing repositories when this is arch-testing.yml's
+      # run. When the archive does not answer, the parts use Arch's mirrors as
+      # they are (and the gate still fails when their packages differ).
+      - name: Arch's snapshot
+        id: snapshot
+        env:
+          TESTING: ${{ inputs.testing && 'true' || 'false' }}
+        run: |
+          snapshot=""
+          for day in "$(date -u +%Y/%m/%d)" "$(date -u -d yesterday +%Y/%m/%d)"; do
+            url="https://archive.archlinux.org/repos/$day"
+            repos="core extra"
+            if [ "$TESTING" = true ]; then repos="$repos core-testing extra-testing"; fi
+            ok=true
+            for repo in $repos; do
+              curl -fsIL -m 30 --retry 2 -o /dev/null "$url/$repo/os/x86_64/$repo.db" || ok=false
+            done
+            if [ "$ok" = true ]; then snapshot="$url"; break; fi
+          done
+          if [ -z "$snapshot" ]; then
+            echo "::warning::the Arch Linux Archive did not answer: every part uses Arch's mirrors as they are"
+          fi
+          echo "snapshot=$snapshot" | tee -a "$GITHUB_OUTPUT"
       - name: The parts
         id: parts
         run: |
@@ -127,8 +156,26 @@ jobs:
               /etc/pacman.conf > /tmp/pacman.conf.new
           cp /tmp/pacman.conf.new /etc/pacman.conf
           grep -n '^\[' /etc/pacman.conf
+      # the plan's snapshot: the package databases from it alone, then the
+      # packages from Arch's mirrors while they still have that very version,
+      # else from the archive (pacman checks each against the snapshot's database)
+      - name: Arch's snapshot
+        env:
+          SNAPSHOT: ${{ needs.plan.outputs.snapshot }}
+        run: |
+          if [ -n "$SNAPSHOT" ]; then
+            grep '^Server' /etc/pacman.d/mirrorlist > /tmp/mirrors || true
+            echo "Server = $SNAPSHOT/\$repo/os/\$arch" > /etc/pacman.d/mirrorlist
+            pacman -Syy
+            { cat /tmp/mirrors; echo "Server = $SNAPSHOT/\$repo/os/\$arch"; } > /etc/pacman.d/mirrorlist
+            echo "Arch's repositories of $SNAPSHOT"
+          else
+            echo "::warning::no snapshot of Arch's repositories: Arch's mirrors as they are now"
+            pacman -Syy
+          fi
       - name: Git (for the checkout)
-        run: pacman -Syu --noconfirm --needed git
+        # the databases are the snapshot's (above): an upgrade, not a new download of them
+        run: pacman -Su --noconfirm --needed git
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -202,6 +249,11 @@ jobs:
           python3 -c "from PyQt6.QtCore import QT_VERSION_STR, PYQT_VERSION_STR; \
           from PyQt6.QtWebEngineCore import qWebEngineChromiumVersion as c; \
           print('Qt', QT_VERSION_STR, '- PyQt', PYQT_VERSION_STR, '- Chromium', c())" | tee -a "$GITHUB_STEP_SUMMARY"
+      # the tests pytest collects here, apart from the shards: the gate checks that
+      # each ran exactly once in the shards, on the sources and installed
+      - name: The tests to run
+        if: matrix.kind == 'styles'
+        run: python3 tools/shard-tests.py collect --out out/collected.txt
       - name: Tests (Arch's Qt)
         if: matrix.kind == 'source'
         env:
@@ -261,6 +313,9 @@ jobs:
           SHARD: ${{ matrix.shard }}
         run: |
           set -o pipefail
+          # the package this part built and installed, recorded with its results
+          IKE_PACKAGE_SHA256=$(sha256sum out/ike-browser-*-x86_64.pkg.tar.zst | cut -d' ' -f1)
+          export IKE_PACKAGE_SHA256
           IKE_TEST_APP=/usr/lib/ike-browser python3 tools/shard-tests.py run --kind installed --shard "$SHARD" \
               --shards "$SHARDS" --out out/shard -- -ra 2>&1 | tee out/tests-arch-installed.log
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -300,26 +355,49 @@ jobs:
         run: |
           set -o pipefail
           python3 tools/shard-tests.py verify --kind source --shards "$SHARDS" --dir "$RUNNER_TEMP/parts" \
-              --sha "$GITHUB_SHA" | tee -a "$GITHUB_STEP_SUMMARY"
+              --collected "$RUNNER_TEMP/parts/arch-styles-0/collected.txt" --sha "$GITHUB_SHA" \
+              --run-id "$GITHUB_RUN_ID" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Tests of the installed package (Arch)
         if: ${{ !cancelled() }}
         run: |
           set -o pipefail
           python3 tools/shard-tests.py verify --kind installed --shards "$SHARDS" --dir "$RUNNER_TEMP/parts" \
-              --sha "$GITHUB_SHA" | tee -a "$GITHUB_STEP_SUMMARY"
-      # each part installed Arch's packages itself: said when a mirror changed
-      # between them (the record kept is the styles' part's)
+              --collected "$RUNNER_TEMP/parts/arch-styles-0/collected.txt" --sha "$GITHUB_SHA" \
+              --run-id "$GITHUB_RUN_ID" | tee -a "$GITHUB_STEP_SUMMARY"
+      # each part installed Arch's packages itself (from the plan's snapshot):
+      # the run tested one set of packages only when every part recorded the same
+      # (the record kept for the daily check is the styles' part's). A difference
+      # is no fault of the code: the automatic fix runs the whole run again, then
+      # tells a person (tools/autofix-plan.py, gate_alone), never an AI.
       - name: The same Arch packages in every part
         if: ${{ !cancelled() }}
         run: |
-          found=$(find "$RUNNER_TEMP/parts" -name arch-versions.json -path '*/arch-*-*/*' | sort)
-          first=$(echo "$found" | head -n 1)
-          for f in $found; do
-            if ! cmp -s "$first" "$f"; then
-              echo "::warning::the parts of this run did not all get the same Arch packages: $first and $f differ"
-            fi
-          done
-          echo "$(echo "$found" | grep -c .) parts recorded their Arch packages"
+          python3 -I - "$RUNNER_TEMP/parts" "$SHARDS" <<'PY'
+          import json, pathlib, sys
+          root, n = pathlib.Path(sys.argv[1]), int(sys.argv[2])
+          KEYS = ("packages", "closure", "python", "qt", "pyqt", "chromium")
+          records = {}
+          for f in sorted(root.glob("arch-*-*/arch-versions.json")):
+              try:
+                  data = json.loads(f.read_text("utf-8"))
+              except ValueError:
+                  data = {}
+              records[f.parent.name] = json.dumps({k: data.get(k) for k in KEYS}, sort_keys=True)
+          want = 2 * n + 1
+          print("%d of %d parts recorded their Arch packages" % (len(records), want))
+          bad = []
+          if len(records) != want:
+              bad.append("%d parts recorded their Arch packages, not %d" % (len(records), want))
+          groups = {}
+          for part, text in records.items():
+              groups.setdefault(text, []).append(part)
+          if len(groups) > 1:
+              bad.append("the parts tested different Arch packages: %s" % "; ".join(
+                  ", ".join(parts) for parts in groups.values()))
+          for why in bad:
+              print("::error::%s" % why)
+          sys.exit(1 if bad else 0)
+          PY
       - name: Every part of Arch Linux passed
         if: always()
         env:
@@ -345,8 +423,9 @@ jobs:
   # automatic fix started again (a test that failed once runs once more).
   hand-over:
     needs: arch
+    # (a cancelled run is no failure: its gate runs and fails, and is not handed over)
     if: >-
-      failure() && (
+      failure() && !cancelled() && (
       (github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]' &&
       (github.ref_name == 'main' || github.ref_name == 'automation/autofix-main' ||
       github.ref_name == 'automation/daily-maintenance' ||

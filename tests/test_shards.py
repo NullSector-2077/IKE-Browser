@@ -46,6 +46,12 @@ SUITE = {
     "tests/test_d.py": "import pytest\n\npytest.importorskip('ike_no_such_module')\n\n\ndef test_never():\n    pass\n",
     "tests/test_e.py": "def test_four():\n    pass\n",
     "tests/test_f.py": "def test_five():\n    pass\n",
+    # a class skipped whole at collection (a collector of its own that skips)
+    "tests/conftest.py": ("import pytest\n\n\nclass Skipper(pytest.Class):\n    def collect(self):\n"
+                          "        pytest.skip('this class is skipped')\n\n\n"
+                          "def pytest_pycollect_makeitem(collector, name, obj):\n    if name == 'TestSkipped':\n"
+                          "        return Skipper.from_parent(collector, name=name, obj=obj)\n"),
+    "tests/test_g.py": "class TestSkipped:\n    def test_never(self):\n        pass\n\n\ndef test_six():\n    pass\n",
 }
 SHARDS = 3
 
@@ -61,7 +67,9 @@ def _suite(tmp_path):
 def _run_all(root, out, kind="source", sha="s1"):
     """Every shard of the small suite, as the shard jobs run them (a real pytest each)."""
     import os
-    env = dict(os.environ, GITHUB_SHA=sha)
+    env = dict(os.environ, GITHUB_SHA=sha, GITHUB_RUN_ID="r1", GITHUB_RUN_ATTEMPT="1")
+    env.pop("IKE_TEST_APP", None)
+    env.pop("IKE_PACKAGE_SHA256", None)
     for k in range(1, SHARDS + 1):
         run = subprocess.run([sys.executable, str(ROOT / "tools/shard-tests.py"), "run", "--kind", kind,
                               "--shard", str(k), "--shards", str(SHARDS), "--out", str(out / ("part-%d" % k)),
@@ -89,8 +97,8 @@ def _copy(ran, tmp_path):
 
 
 def _verify(out, ref, **kw):
-    return shards.verify("source", SHARDS, out, [ref], sha=kw.pop("sha", "s1"), timings_path=out / "none.json",
-                         **kw)
+    return shards.verify(kw.pop("kind", "source"), SHARDS, out, [ref], sha=kw.pop("sha", "s1"),
+                         run_id=kw.pop("run_id", "r1"), timings_path=out / "none.json", **kw)
 
 
 def test_the_collection_holds_every_test_and_each_file_skipped_whole(ran):
@@ -98,7 +106,9 @@ def test_the_collection_holds_every_test_and_each_file_skipped_whole(ran):
     assert "tests/test_b.py::test_odd[a::b]" in ids and "tests/test_b.py::TestGroup::test_in_class" in ids
     assert "tests/test_c.py::test_skipped" in ids
     assert "tests/test_d.py" in ids                       # a module skipped whole is one id: its file
-    assert len(ids) == len(set(ids)) == 11
+    assert "tests/test_g.py::TestSkipped" in ids           # and so is a class skipped whole
+    assert len(ids) == len(set(ids)) == 13
+    assert shards.read_ids(str(ran[2]) + ".skipped") == ["tests/test_d.py", "tests/test_g.py::TestSkipped"]
 
 
 def test_the_plan_puts_every_file_in_exactly_one_shard_and_is_always_the_same():
@@ -133,14 +143,14 @@ def test_every_shard_ran_and_every_test_ran_once(ran, tmp_path):
     merged = tmp_path / "junit.xml"
     problems, report = _verify(out, ref, merged_junit=merged)
     assert problems == [], problems
-    assert "11 tests collected" in report[0] and "9 passed, 0 failed, 2 skipped (not verified)" in report[0]
+    assert "13 tests collected" in report[0] and "10 passed, 0 failed, 3 skipped (not verified)" in report[0]
     # the run's one junit file, as tools/test-categories.py and the ledger read it: skips stay "not verified"
     info = tc.read_junit([merged])
-    assert info["tests"] == 11 and info["skipped"] == 2 and info["failed"] == 0
-    assert "tests/test_c.py::test_skipped" in {s["test"] for s in info["skips"]} and len(info["skips"]) == 2
+    assert info["tests"] == 13 and info["skipped"] == 3 and info["failed"] == 0
+    assert "tests/test_c.py::test_skipped" in {s["test"] for s in info["skips"]} and len(info["skips"]) == 3
     # the command line says the same, and passes
     run = subprocess.run([sys.executable, str(ROOT / "tools/shard-tests.py"), "verify", "--kind", "source",
-                          "--shards", str(SHARDS), "--dir", str(out), "--collected", str(ref), "--sha", "s1",
+                          "--shards", str(SHARDS), "--dir", str(out), "--collected", str(ref), "--sha", "s1", "--run-id", "r1",
                           "--timings", str(out / "none.json")], capture_output=True, text=True, timeout=60)
     assert run.returncode == 0 and "Complete: every collected test ran exactly once" in run.stdout, run.stdout
 
@@ -176,7 +186,7 @@ def test_a_test_that_did_not_run_fails_the_gate(ran, tmp_path):
     assert any("did not run: tests/test_a.py::test_two" in p for p in problems), problems
     # and on the command line: exit 1, the error said, the run not verified
     run = subprocess.run([sys.executable, str(ROOT / "tools/shard-tests.py"), "verify", "--kind", "source",
-                          "--shards", str(SHARDS), "--dir", str(out), "--collected", str(ref), "--sha", "s1",
+                          "--shards", str(SHARDS), "--dir", str(out), "--collected", str(ref), "--sha", "s1", "--run-id", "r1",
                           "--timings", str(out / "none.json")], capture_output=True, text=True, timeout=60)
     assert run.returncode == 1 and "::error::1 collected test(s) did not run" in run.stdout, run.stdout
     assert "NOT COMPLETE" in run.stdout
@@ -462,3 +472,198 @@ def test_the_gate_is_set_aside_only_when_a_part_failed():
     assert plan_tool.without_gate("Arch Linux (testing)", [arch, _job("Arch Linux styles", "x")])[0]["name"] != \
         "Arch Linux"
     assert plan_tool.without_gate("Security", [_job("sandbox", "x"), _job("tests", "y")])[1]["name"] == "tests"
+
+
+# --- the review of 2026-11-24 (seven findings), each held here ----------------------------------------
+
+def test_every_shard_records_its_run_and_the_gate_checks_it(ran, tmp_path):
+    """Finding 7: a shard's results name the commit, the run and its attempt, and (installed) the copy
+    and the package tested; the gate refuses results it cannot tie to this commit and this run."""
+    out, ref = _copy(ran, tmp_path)
+    rec = json.loads((out / "part-1" / "shard.json").read_text())
+    assert (rec["sha"], rec["run"], rec["attempt"], rec["app"], rec["package_sha256"]) == ("s1", "r1", "1", "", "")
+    assert any("--sha" in p for p in _verify(out, ref, sha="")[0])
+    assert any("--run-id" in p for p in _verify(out, ref, run_id="")[0])
+    assert any("is of run" in p for p in _verify(out, ref, run_id="r2")[0])
+    for change, said in (({"sha": ""}, "ran commit ''"), ({"run": "r0"}, "is of run 'r0'"),
+                         ({"app": "/usr/lib/ike-browser"}, "tested an installed copy")):
+        out, ref = _copy(ran, tmp_path / said[:12].replace(" ", "-").replace("'", ""))
+        rec = json.loads((out / "part-2" / "shard.json").read_text())
+        rec.update(change)
+        (out / "part-2" / "shard.json").write_text(json.dumps(rec))
+        assert any(said in p for p in _verify(out, ref)[0]), (said, _verify(out, ref)[0])
+    # the same results as the installed package's: they must name the copy and the package tested
+    out, ref = _copy(ran, tmp_path / "installed")
+    for k in range(1, SHARDS + 1):
+        f = out / ("part-%d" % k) / "shard.json"
+        rec = json.loads(f.read_text())
+        rec.update(kind="installed", app="/usr/lib/ike-browser", package_sha256="ab" * 32)
+        f.write_text(json.dumps(rec))
+    assert _verify(out, ref, kind="installed", package_sha256="ab" * 32)[0] == []
+    assert any("another package" in p for p in _verify(out, ref, kind="installed", package_sha256="cd" * 32)[0])
+    rec = json.loads((out / "part-3" / "shard.json").read_text())
+    rec.update(app="", package_sha256="")
+    (out / "part-3" / "shard.json").write_text(json.dumps(rec))
+    problems = _verify(out, ref, kind="installed")[0]
+    assert any("tested no installed copy" in p for p in problems) and any("recorded no package" in p for p in problems)
+
+
+def test_a_missing_independent_collection_fails_but_the_rest_is_still_checked(ran, tmp_path):
+    """Finding 2: the job that collects stopped early (a lint error): the gate says so and goes on with
+    the shards' own lists and the merge, never a crash."""
+    out, ref = _copy(ran, tmp_path)
+    merged = tmp_path / "junit.xml"
+    problems, report = _verify(out, tmp_path / "no-such" / "collected.txt", merged_junit=merged)
+    assert problems == ["the independent collection is missing (%s)" % (tmp_path / "no-such" / "collected.txt")]
+    assert merged.exists() and "13 tests collected" in report[0]
+    run = subprocess.run([sys.executable, str(ROOT / "tools/shard-tests.py"), "verify", "--kind", "source",
+                          "--shards", str(SHARDS), "--dir", str(out), "--collected", str(tmp_path / "none.txt"),
+                          "--sha", "s1", "--run-id", "r1", "--timings", str(out / "none.json")],
+                         capture_output=True, text=True, timeout=60)
+    assert run.returncode == 1 and "independent collection is missing" in run.stdout and "Traceback" not in run.stderr
+    # and the collection is the first step of "tests checks", right after the environment
+    checks = _jobs((WORKFLOWS / "tests.yml").read_text())["checks"]
+    assert _steps(checks)[:2] == ["Test environment", "The tests to run"]
+
+
+def test_a_shard_of_files_skipped_whole_passes_and_a_skipped_class_counts(tmp_path, monkeypatch):
+    """Finding 5: pytest ends with "no tests" (exit 5) when every file it runs is skipped whole; that
+    shard passed, and its skips are still in its junit for the gate."""
+    root = tmp_path / "repo"
+    for rel in ("pyproject.toml", "tests/test_d.py", "tests/test_a.py", "tests/conftest.py", "tests/test_g.py"):
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_text(SUITE[rel])
+    (root / "tests/test_g.py").write_text("class TestSkipped:\n    def test_never(self):\n        pass\n")
+    timings = tmp_path / "t.json"
+    timings.write_text(json.dumps({"default": 1, "files": {"tests/test_a.py": 100}}))
+    monkeypatch.setenv("GITHUB_SHA", "s1")
+    monkeypatch.setenv("GITHUB_RUN_ID", "r1")
+    monkeypatch.delenv("IKE_TEST_APP", raising=False)
+    codes = [shards.run_shard("source", k, 2, tmp_path / ("part-%d" % k), timings_path=timings, cwd=root)
+             for k in (1, 2)]
+    parts = [json.loads((tmp_path / ("part-%d" % k) / "shard.json").read_text())["files"] for k in (1, 2)]
+    assert parts == [["tests/test_a.py"], ["tests/test_d.py", "tests/test_g.py"]] and codes == [0, 0]
+    shards.collect(tmp_path / "ref.txt", cwd=root)
+    problems, report = shards.verify("source", 2, tmp_path, [tmp_path / "ref.txt"], sha="s1", run_id="r1",
+                                     timings_path=timings)
+    assert problems == [] and "2 skipped (not verified)" in report[0], problems
+    # a failing file next to a skipped one keeps its failure
+    (root / "tests/test_d.py").write_text(SUITE["tests/test_d.py"] + "\n\ndef test_x():\n    pass\n")
+    (root / "tests/test_g.py").write_text("def test_bad():\n    assert 0\n")
+    assert shards.run_shard("source", 2, 2, tmp_path / "again", timings_path=timings, cwd=root) == 1
+
+
+def test_the_gate_failing_alone_is_never_an_ais(tmp_path):
+    """Finding 4: a part cancelled or out of time, results missing, a test that did not run exactly
+    once, the Arch parts on other packages: the whole run once more, then an issue; never a fix."""
+    parts = {"tests plan": "success", "tests shard 1/4": "success", "tests shard 2/4": "cancelled",
+             "tests installed 1/4": "success", "tests checks": "success"}
+    for workflow, gate, step, stopped in (
+            ("Tests", "tests", "Tests", parts),
+            ("Tests", "tests", "Run actions/download-artifact@9000", dict(parts, **{"tests shard 2/4": "success"})),
+            ("Arch Linux", "Arch Linux", "The same Arch packages in every part",
+             {"Arch Linux plan": "success", "Arch Linux shard 1/4": "success", "Arch Linux styles": "success"}),
+            ("Arch Linux", "Arch Linux", "Tests (Arch's Qt)", {"Arch Linux shard 1/4": "timed_out"})):
+        jobs_ = [_job(gate, step), _job("hand-over", "Hand the failure to the automatic fix")]
+        first = plan_tool.decide(dict(_run(workflow), _parts=stopped), jobs_, "")
+        assert (first["action"], first.get("rerun")) == ("rerun", "all"), first
+        if "cancelled" in stopped.values() or "timed_out" in stopped.values():
+            assert "cancelled or out of time" in first["reason"], first
+        again = plan_tool.decide(dict(_run(workflow, attempt=2), _parts=stopped), jobs_, "")
+        assert (again["action"], again["kind"]) == ("issue", "infra"), again
+    # a part that failed is still the part's (the gate set aside), as before
+    p = plan_tool.decide(dict(_run(), _parts=parts), [_job("tests shard 1/4", "Tests"), _job("tests", "Tests")], "")
+    assert p["action"] == "rerun" and "rerun" not in p
+    # the automatic fix runs the whole run again when the plan says "all"
+    rerun = _jobs((WORKFLOWS / "autofix.yml").read_text())["rerun"]
+    assert "WHICH: ${{ needs.plan.outputs.rerun }}" in rerun and 'retry gh run rerun "$RUN_ID"\n' in rerun
+    assert 'if [ "$WHICH" = all ]; then' in rerun and 'gh run rerun "$RUN_ID" --failed' in rerun
+    assert "rerun: ${{ steps.plan.outputs.rerun }}" in _jobs((WORKFLOWS / "autofix.yml").read_text())["plan"]
+
+
+def test_a_cancelled_run_is_not_handed_over_nor_planned():
+    """Finding 3: a cancelled run's gate runs (if: always()) and fails: no hand-over, no plan."""
+    for name, gate in (("tests.yml", "tests"), ("arch.yml", "arch")):
+        hand = _jobs((WORKFLOWS / name).read_text())["hand-over"]
+        assert "needs: %s" % gate in hand and "failure() && !cancelled() && (" in hand, name
+    p = plan_tool.decide(dict(_run(), conclusion="cancelled", _parts={"tests shard 1/4": "cancelled"}),
+                         [_job("tests", "Tests")], "")
+    assert p["action"] == "skip" and p["reason"].startswith("cancelled"), p
+
+
+def test_the_installed_suite_is_held_to_the_sources_collection():
+    """Finding 6: the installed shards' ids are compared with an independent collection of the sources."""
+    tests = _jobs((WORKFLOWS / "tests.yml").read_text())["tests"]
+    installed = tests.split("- name: Tests of the installed package\n", 1)[1].split("\n      - ", 1)[0]
+    assert '--collected "$RUNNER_TEMP/parts/tests-checks/collected.txt"' in installed
+    assert '--package-sha256 "$PACKAGE"' in installed and "PACKAGE: ${{ needs.package.outputs.sha256 }}" in installed
+    shard = _jobs((WORKFLOWS / "tests.yml").read_text())["installed"]
+    assert "IKE_PACKAGE_SHA256: ${{ needs.package.outputs.sha256 }}" in shard
+    arch = _jobs((WORKFLOWS / "arch.yml").read_text())
+    collect = arch["part"].split("- name: The tests to run\n", 1)[1].split("\n      - ", 1)[0]
+    assert "if: matrix.kind == 'styles'" in collect and "tools/shard-tests.py collect --out out/collected.txt" in collect
+    for kind in ("source", "installed"):
+        step = arch["arch"].split("verify --kind %s" % kind, 1)[1].split("\n      - ", 1)[0]
+        assert '--collected "$RUNNER_TEMP/parts/arch-styles-0/collected.txt"' in step and "--run-id" in step, kind
+    assert "IKE_PACKAGE_SHA256=$(sha256sum out/ike-browser-" in arch["part"]
+
+
+def _same_packages_script():
+    gate = _jobs((WORKFLOWS / "arch.yml").read_text())["arch"]
+    body = gate.split("- name: The same Arch packages in every part\n", 1)[1].split("\n      - ", 1)[0]
+    assert "if: ${{ !cancelled() }}" in body
+    import textwrap
+    script = body.split("<<'PY'\n", 1)[1].split("\n          PY", 1)[0]
+    return textwrap.dedent(script)
+
+
+@pytest.mark.parametrize("change, ok", [
+    (None, True),
+    ({"date": "2026-11-25T00:00:00Z", "run": "2"}, True),            # when and where it ran: not the packages
+    ({"packages": {"qt6-webengine": "6.141.0-1"}}, False),
+    ({"closure": {"mesa": "1:26.0-2"}}, False),
+    ("missing", False),
+])
+def test_the_arch_parts_must_have_tested_the_same_packages(tmp_path, change, ok):
+    """Finding 1: the gate fails when a part had other Arch packages, or a part's record is missing."""
+    record = {"schema": 1, "packages": {"qt6-webengine": "6.140.0-1"}, "closure": {"mesa": "1:26.0-1"},
+              "python": "3.14.1", "qt": "6.12.0", "pyqt": "6.12.1", "chromium": "140", "date": "x", "run": "1"}
+    names = ["arch-source-1", "arch-source-2", "arch-installed-1", "arch-installed-2", "arch-styles-0"]
+    for i, name in enumerate(names):
+        rec = dict(record)
+        if i == 2 and isinstance(change, dict):
+            rec.update(change)
+        if i == 2 and change == "missing":
+            continue
+        (tmp_path / name).mkdir()
+        (tmp_path / name / "arch-versions.json").write_text(json.dumps(rec))
+    (tmp_path / "arch-versions").mkdir()                       # the record kept for the daily check: not a part
+    (tmp_path / "arch-versions" / "arch-versions.json").write_text("{}")
+    run = subprocess.run([sys.executable, "-I", "-", str(tmp_path), "2"], input=_same_packages_script(),
+                         capture_output=True, text=True, timeout=60)
+    assert (run.returncode == 0) is ok, run.stdout + run.stderr
+    if not ok:
+        assert "::error::" in run.stdout
+
+
+def test_every_arch_part_installs_one_snapshot_of_arch():
+    """Finding 1: the plan picks one day of the Arch Linux Archive (today's when it is there, the testing
+    repositories too for arch-testing.yml); every part reads its databases from it and nothing else."""
+    arch = _jobs((WORKFLOWS / "arch.yml").read_text())
+    plan = arch["plan"]
+    assert "snapshot: ${{ steps.snapshot.outputs.snapshot }}" in plan
+    assert 'for day in "$(date -u +%Y/%m/%d)" "$(date -u -d yesterday +%Y/%m/%d)"; do' in plan
+    assert 'url="https://archive.archlinux.org/repos/$day"' in plan
+    assert 'repos="$repos core-testing extra-testing"' in plan and "TESTING: ${{ inputs.testing && 'true' || 'false' }}" in plan
+    part = arch["part"]
+    names = _steps(part)
+    assert names.index("Arch's testing repositories (arch-testing.yml only)") < names.index("Arch's snapshot") < \
+        names.index("Git (for the checkout)") < names.index("Arch's packages")
+    snap = part.split("- name: Arch's snapshot\n", 1)[1].split("\n      - ", 1)[0]
+    assert "SNAPSHOT: ${{ needs.plan.outputs.snapshot }}" in snap
+    assert 'echo "Server = $SNAPSHOT/\\$repo/os/\\$arch" > /etc/pacman.d/mirrorlist\n            pacman -Syy' in snap
+    # after it no database is read again: the upgrade and the installs use the snapshot's
+    after = part.split("- name: Arch's snapshot\n", 1)[1].split("\n      - ", 1)[1]
+    assert "pacman -Su --noconfirm --needed git" in after
+    assert not re.search(r"pacman -S\w*y", after) and "pacman -Sy" not in after
+    assert plan_tool.ARCH_INFRA_STEP.match("Arch's snapshot")

@@ -155,6 +155,8 @@ jobs:
       adopt_base: ${{ steps.plan.outputs.adopt_base }}
       round: ${{ steps.plan.outputs.round }}
       task: ${{ steps.plan.outputs.task }}
+      # "all": the whole run once more (a gate of the tests that failed alone), else its failed jobs
+      rerun: ${{ steps.plan.outputs.rerun }}
       order: ${{ steps.plan.outputs.order }}
     steps:
       - name: Check out main (all branches, no credentials)
@@ -341,9 +343,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RUN_ID: ${{ github.event.inputs.run_id || github.event.workflow_run.id }}
+          WHICH: ${{ needs.plan.outputs.rerun }}
         run: |
           retry() { n=1; until "$@"; do [ "$n" -ge 3 ] && return 1; sleep $((n * 15)); n=$((n + 1)); done; }
-          retry gh run rerun "$RUN_ID" --failed
+          if [ "$WHICH" = all ]; then
+            # the gate of the tests failed alone (a part cancelled or out of time, results missing): every
+            # job again, since the gate alone would read the same results (tools/autofix-plan.py gate_alone)
+            retry gh run rerun "$RUN_ID"
+          else
+            retry gh run rerun "$RUN_ID" --failed
+          fi
 
   fix:
     needs: plan

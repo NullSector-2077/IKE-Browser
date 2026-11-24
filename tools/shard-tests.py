@@ -10,20 +10,27 @@ dependency.
     shard-tests.py collect --out FILE
         the test ids pytest would run here (its own collection, through a
         plugin of this tool, into a file: never read from pytest's output),
-        plus each test file skipped whole at collection (its id is the file);
+        plus each test file skipped whole at collection (its id is the file)
+        and each class skipped whole (its id), also listed in FILE.skipped;
     shard-tests.py plan --collected FILE --shards N [--shard K] [--timings FILE]
         which test files each shard runs: whole files, balanced by their
         recorded durations (TIMINGS), always the same answer for the same
         files, each file in exactly one shard;
     shard-tests.py run --kind KIND --shard K --shards N --out DIR [-- PYTEST ARGS]
         collects (DIR/collected.txt), plans, runs pytest on its own files only
-        (junit into DIR/junit.xml) and records what it did (DIR/shard.json);
-        exits with pytest's own code. A shard with no file runs nothing (pytest
-        with no file would run the whole suite);
-    shard-tests.py verify --kind KIND --shards N --dir DIR [--collected FILE ...]
-                          [--sha SHA] [--jobs-result RESULT] [--merged-junit OUT]
+        (junit into DIR/junit.xml) and records what it did (DIR/shard.json:
+        the commit, the run and its attempt, the installed copy tested and the
+        package's sha256 from IKE_PACKAGE_SHA256); exits with pytest's own code,
+        but 0 for pytest's "no tests" when every file of the shard is skipped
+        whole (their skips are still in its junit). A shard with no file runs
+        nothing (pytest with no file would run the whole suite);
+    shard-tests.py verify --kind KIND --shards N --dir DIR --sha SHA --run-id ID
+                          [--collected FILE ...] [--package-sha256 SUM]
+                          [--jobs-result RESULT] [--merged-junit OUT]
         the completeness gate: it fails when a shard is missing, ran another
-        commit or another part, failed or was cancelled; when the shards did
+        commit, another run or another part, failed or was cancelled (an
+        installed shard: with no installed copy, or another package); when an
+        independent collection is missing; when the shards did
         not collect the same tests (or not those of --collected, an independent
         collection); when any collected test did not run, ran twice, or a test
         ran that was not collected. Passed, failed and skipped all count as run:
@@ -74,11 +81,11 @@ _skipped = []
 def pytest_configure(config):
     _out.append(open(os.environ.pop("IKE_SHARD_IDS_FILE"), "w", encoding="utf-8"))
 def pytest_collectreport(report):
-    if report.skipped and report.nodeid and "::" not in report.nodeid:
+    if report.skipped and report.nodeid:
         _skipped.append(report.nodeid)
 def pytest_collection_finish(session):
     _out[0].write("".join(item.nodeid + "\\n" for item in session.items))
-    _out[0].write("".join(nodeid + "\\n" for nodeid in _skipped))
+    _out[0].write("".join("S " + nodeid + "\\n" for nodeid in _skipped))
     _out[0].close()
 '''
 
@@ -89,7 +96,7 @@ class Problem(Exception):
 
 # --- the ids and pytest's junit names ------------------------------------------------------------
 
-_ILLEGAL_XML = re.compile("[^\u0009\u000a\u000d -~\u0080-퟿-�\U00010000-\U0010ffff]")
+_ILLEGAL_XML = re.compile("[^\u0009\u000a\u000d\u0020-\u007e\u0080-\ud7ff\ue000-\ufffd\U00010000-\U0010ffff]")
 
 
 def _bin_xml_escape(text):
@@ -162,6 +169,12 @@ def plan(ids, shards, timings=None, default=DEFAULT_SECONDS):
 
 def collect(out, cwd=None, python=sys.executable, env=None):
     """The ids pytest would run in cwd (the repository's own settings), into the file out."""
+    return collect_all(out, cwd, python, env)[0]
+
+
+def collect_all(out, cwd=None, python=sys.executable, env=None):
+    """(every id, the ids of what was skipped whole at collection: a module, a class), into the file
+    out and, the skipped ones, into out + ".skipped"."""
     out = Path(out).resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="ike-shard-") as where:
@@ -176,11 +189,14 @@ def collect(out, cwd=None, python=sys.executable, env=None):
         if run.returncode != 0 or not raw.is_file():
             sys.stdout.write(run.stdout[-4000:] + run.stderr[-4000:])
             raise Problem("the collection failed (pytest exit %d)" % run.returncode)
-        ids = read_ids(raw)
+        lines = read_ids(raw)
+    skipped = [ln[2:] for ln in lines if ln.startswith("S ")]
+    ids = [ln for ln in lines if not ln.startswith("S ")] + skipped
     if not ids:
         raise Problem("the collection found no test")
     out.write_text("".join(i + "\n" for i in ids), "utf-8")
-    return ids
+    Path(str(out) + ".skipped").write_text("".join(i + "\n" for i in skipped), "utf-8")
+    return ids, skipped
 
 
 def run_shard(kind, shard, shards, out, pytest_args=(), timings_path=TIMINGS, cwd=None, python=sys.executable):
@@ -191,7 +207,7 @@ def run_shard(kind, shard, shards, out, pytest_args=(), timings_path=TIMINGS, cw
         raise Problem("shard %d of %d does not exist" % (shard, shards))
     out = Path(out).resolve()
     out.mkdir(parents=True, exist_ok=True)
-    ids = collect(out / COLLECTED_FILE, cwd=cwd, python=python)
+    ids, skipped = collect_all(out / COLLECTED_FILE, cwd=cwd, python=python)
     timings, default = load_timings(timings_path)
     files = plan(ids, shards, timings, default)[shard - 1]
     junit = out / JUNIT_FILE
@@ -203,10 +219,18 @@ def run_shard(kind, shard, shards, out, pytest_args=(), timings_path=TIMINGS, cw
         # the files in name order, as pytest orders the whole directory
         code = subprocess.run([python, "-m", "pytest", *pytest_args, "--junitxml=%s" % junit, *files],
                               cwd=cwd, check=False).returncode
+        mine = [i for i in ids if file_of(i) in set(files)]
+        if code == 5 and mine and set(mine) <= set(skipped):
+            # pytest's "no tests collected": every file of this shard is skipped whole at collection
+            # (their skips are in the junit, and the gate counts them)
+            print("every file of this shard is skipped whole: pytest's exit 5 is no failure", flush=True)
+            code = 0
     else:
         junit.write_text('<?xml version="1.0" encoding="utf-8"?><testsuites></testsuites>\n', "utf-8")
         code = 0
     record = {"kind": kind, "shard": shard, "shards": shards, "sha": os.environ.get("GITHUB_SHA", ""),
+              "run": os.environ.get("GITHUB_RUN_ID", ""), "attempt": os.environ.get("GITHUB_RUN_ATTEMPT", ""),
+              "app": os.environ.get("IKE_TEST_APP", ""), "package_sha256": os.environ.get("IKE_PACKAGE_SHA256", ""),
               "files": files, "exit": code}
     (out / SHARD_FILE).write_text(json.dumps(record, indent=1) + "\n", "utf-8")
     return code
@@ -243,11 +267,15 @@ def _cases(junit):
 
 
 def verify(kind, shards, root, collected=(), sha="", jobs_result="success", timings_path=TIMINGS,
-           merged_junit=None):
-    """(problems, lines of the report). No problem: every shard there and green, every collected
-    test run exactly once, nothing run that was not collected."""
+           merged_junit=None, run_id="", package_sha256=""):
+    """(problems, lines of the report). No problem: every shard there and green, of this commit and
+    this run, every collected test run exactly once, nothing run that was not collected."""
     problems, report = [], []
     timings, default = load_timings(timings_path)
+    if not sha:
+        problems.append("no commit to check the shards against (--sha)")
+    if not run_id:
+        problems.append("no run to check the shards against (--run-id)")
     if jobs_result != "success":
         problems.append("the shard jobs ended with \"%s\", not success" % (jobs_result or "no result"))
     found = _shard_dirs(root, kind)
@@ -267,13 +295,31 @@ def verify(kind, shards, root, collected=(), sha="", jobs_result="success", timi
     for k, (d, rec) in sorted(shard_of.items()):
         if rec.get("shards") != shards:
             problems.append("shard %d was split %r ways, not %d" % (k, rec.get("shards"), shards))
-        if sha and rec.get("sha") != sha:
+        if not rec.get("sha") or rec.get("sha") != sha:
             problems.append("shard %d ran commit %r, not %s" % (k, rec.get("sha"), sha))
+        if not rec.get("run") or rec.get("run") != run_id:
+            problems.append("shard %d is of run %r, not %s" % (k, rec.get("run"), run_id))
+        if kind == "installed" and not rec.get("app"):
+            problems.append("shard %d of the installed package tested no installed copy (IKE_TEST_APP)" % k)
+        if kind == "source" and rec.get("app"):
+            problems.append("shard %d of the sources tested an installed copy (%s)" % (k, rec.get("app")))
+        if kind == "installed" and not rec.get("package_sha256"):
+            problems.append("shard %d of the installed package recorded no package (sha256)" % k)
+        if kind == "installed" and package_sha256 and rec.get("package_sha256") != package_sha256:
+            problems.append("shard %d tested another package (sha256 %r, not %s)"
+                            % (k, rec.get("package_sha256"), package_sha256))
         if rec.get("exit") != 0:
             problems.append("shard %d of %d: pytest ended with exit code %r (a test failed, or pytest stopped: "
                             "see that shard's job)" % (k, shards, rec.get("exit")))
     # the same tests everywhere: the independent collection(s) and every shard's own
-    lists = [(str(p), read_ids(p)) for p in collected]
+    lists = []
+    for p in collected:
+        try:
+            lists.append((str(p), read_ids(p)))
+        except OSError:
+            # (the job that collects stopped before it, a lint error say): the shards' own lists still
+            # count, and the merge is still written; the gate fails
+            problems.append("the independent collection is missing (%s)" % p)
     for k, (d, rec) in sorted(shard_of.items()):
         try:
             lists.append(("shard %d" % k, read_ids(d / COLLECTED_FILE)))
@@ -438,7 +484,9 @@ def main(argv=None):
     v.add_argument("--shards", type=int, required=True)
     v.add_argument("--dir", required=True, help="where the shards' results were downloaded")
     v.add_argument("--collected", action="append", default=[], help="an independent collection (repeatable)")
-    v.add_argument("--sha", default="")
+    v.add_argument("--sha", required=True)
+    v.add_argument("--run-id", required=True)
+    v.add_argument("--package-sha256", default="", help="the package every installed shard must have tested")
     v.add_argument("--jobs-result", default="success", help="the shard jobs' result as GitHub gives it")
     v.add_argument("--timings", default=str(TIMINGS))
     v.add_argument("--merged-junit")
@@ -462,7 +510,7 @@ def main(argv=None):
             return run_shard(a.kind, a.shard, a.shards, a.out, extra, a.timings)
         elif a.cmd == "verify":
             problems, report = verify(a.kind, a.shards, a.dir, a.collected, a.sha, a.jobs_result, a.timings,
-                                      a.merged_junit)
+                                      a.merged_junit, a.run_id, a.package_sha256)
             print("\n".join(_line(r) for r in report))
             for why in problems:
                 print("::error::%s" % _line(why))

@@ -678,15 +678,36 @@ parallel jobs, with no test lost and no gate weakened:
   before, and only from every shard's results.
 - `arch.yml`: in Arch's container, `Arch Linux shard k/N`, `Arch Linux
   installed k/N` (each builds the package with makepkg and installs it with
-  pacman) and `Arch Linux styles` (the widget styles, and the record
-  `arch-versions` of the daily check); the engine's crates and build are kept
-  in GitHub's cache by `Cargo.lock`, its sources and the Rust compiler. The job
-  **`Arch Linux`** is the gate, as above. `arch-testing.yml` calls it as before.
-- The automatic fix (`tools/autofix-plan.py`, `GATES`, `without_gate`): when a
-  part failed, the gate's failure only says so again and is set aside; the
-  plan reads the part's failed steps and log, so a test that failed once in a
-  shard runs once more before any AI, and a runner's or pacman's failure in a
-  part is an issue, as with the one job of before.
+  pacman) and `Arch Linux styles` (the widget styles, an independent
+  collection of the tests, and the record `arch-versions` of the daily check);
+  the engine's crates and build are kept in GitHub's cache by `Cargo.lock`, its
+  sources and the Rust compiler. Every part installs the same packages: the job
+  `Arch Linux plan` picks one day's snapshot of Arch's repositories in the Arch
+  Linux Archive (today's when it is there, else yesterday's; with
+  `[core-testing]` and `[extra-testing]` for `arch-testing.yml`), every part
+  reads the package databases from it alone and takes the packages from Arch's
+  mirrors while they still have that version, else from the archive (when the
+  archive does not answer, Arch's mirrors as they are, with a warning). The job
+  **`Arch Linux`** is the gate, as above, and also fails when the parts did not
+  all record the same Arch packages, or a part's record is missing.
+  `arch-testing.yml` calls it as before.
+- What a shard records and the gate checks (`shard.json`): the commit, the run
+  and its attempt, the installed copy tested and the package's sha256; the gate
+  refuses results of another commit or run, an installed shard with no
+  installed copy or with another package than "tests package"'s, a source shard
+  that tested an installed copy. The installed shards are held to the same
+  independent collection as the sources. A shard whose files are all skipped
+  whole at collection passes (pytest's "no tests"), and their skips still count.
+- The automatic fix (`tools/autofix-plan.py`, `GATES`, `without_gate`,
+  `gate_alone`): when a part failed, the gate's failure only says so again and
+  is set aside; the plan reads the part's failed steps and log, so a test that
+  failed once in a shard runs once more before any AI, and a runner's or
+  pacman's failure in a part is an issue, as with the one job of before. When
+  the gate failed alone (a part cancelled or out of time, results missing, a
+  test that did not run exactly once, the Arch parts on different packages) it
+  is never an AI's: the whole run once more (`gh run rerun` of every job), then
+  an issue. A cancelled run is not handed over (`!cancelled()`) and the plan
+  skips it.
 - Refreshing the durations (they only balance the shards; the gate checks
   completeness whatever they say): download `test-results` of a green run and
   `python3 tools/shard-tests.py timings --junit junit.xml --junit junit-installed.xml`.
