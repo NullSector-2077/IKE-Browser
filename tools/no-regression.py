@@ -13,9 +13,10 @@ anything that got worse:
   with the default filter lists replaced by small local fixtures; pages whose ad
   elements must stay hidden, loaded in the real engine; the scriptlets of the
   video sites and of the pages; the element-hiding rules of fixed addresses.
-  Worse: a request blocked on main and allowed here, an element hidden on main
-  and shown here, a rule or scriptlet lost. YouTube's requests are in the
-  corpus, read only;
+  Worse: a request blocked on main and allowed here (unless the filter list
+  data that decides it changed: _by_lists), an element hidden on main and
+  shown here, a rule or scriptlet lost. YouTube's requests are in the corpus,
+  read only;
 - the fingerprinting surface: what a probe page's scripts read (navigator,
   screen, fonts, canvas, WebGL, audio, matchMedia, Client Hints, workers,
   frames, permissions...) at every level, in the real engine on a local page,
@@ -25,21 +26,34 @@ anything that got worse:
   protects, against the Off level's real value: worse when it is the real
   value again, no longer changes with the session, has a smaller noise, or
   shows more of a real list (_judge_fingerprint); a change that keeps the
-  protection passes. Worse for anything else: any value that differs from
-  main. A worse that a person accepted (tests/data/no-regression/
-  allowlist.json) passes;
+  protection passes. For anything else: any value that differs from main
+  cannot be judged, and is worse unless a test proves it needed (below);
 - the network: the hosts the browser contacts by itself, with a fresh profile,
   at start and while loading the probe page (a local proxy for the engine and
   Qt, a Python audit hook for I.K.E.'s own code; nothing leaves the computer).
-  Worse: a host main does not contact;
+  Worse: a host main does not contact, unless it is declared in
+  tests/data/no-regression/endpoints.json and this change's own code names it
+  (_by_registry);
 - the security settings: the engine switches I.K.E. adds and what it drops from
   a hostile environment, its lists of unsafe switches and hands-off sites, the
   WebEngine settings, permissions and scripts of every level, the protective
-  defaults, the request headers it sets. Worse: anything weaker or missing.
+  defaults, the request headers it sets. Worse: anything weaker, missing or
+  changed in a way the rules cannot judge; no evidence ever accepts it.
+
+What the rules cannot judge (a changed value with no rule of its own, a
+disguised value main left real...) is "unjudged": worse, unless a test of its
+area that fails on main passes here and this change touches the area's files
+(the owner's principle of 2026-11-24: a change needed for I.K.E. to work and
+for its protections to keep working is approved by the chain itself;
+_by_necessity). No evidence accepts a weakening the rules see; only a person
+does, in tests/data/no-regression/allowlist.json. The report says why each
+difference passed: the rule, the evidence, or the person.
 
     no-regression.py snapshot --repo DIR --out FILE [--levels ...] [--sections ...]
     no-regression.py compare --base FILE --candidate FILE [--allowlist FILE] [--json OUT] [--markdown OUT]
+        [--diff FILE] [--main-junit FILE ...] [--candidate-junit FILE ...] [--endpoints FILE]
     no-regression.py check --base-repo DIR --candidate-repo DIR [--out-dir DIR] [--allowlist FILE]
+        [--diff FILE] [--main-junit FILE ...] [--candidate-junit FILE ...] [--endpoints FILE]
 
 compare and check print "pass" or "fail" and exit 1 on "fail". Deterministic,
 offline (local fixtures, a local server and proxy) and headless (offscreen),
@@ -531,6 +545,42 @@ def _probe(view, tag, limit=40):
     return state.get("ok"), found
 
 
+def _list_verdicts():
+    """What the filter lists' own data says of each request of the corpus: an engine of this
+    checkout built from the lists alone (not I.K.E.'s own rules), keeping the rules' text, gives the
+    rule that blocks it, or the exception that lets it through, and the list each comes from; with
+    a digest of each list's data. Only evidence ("Nothing gets worse" accepts a request newly let
+    through when the list data that decides it changed): what cannot be read here is left out."""
+    OUT["list_verdicts"] = OUT["list_data"] = None
+    try:
+        from ike import blocker as bmod
+        from ike import shields as smod
+        ab = bmod.adblock
+        raw = {url: open(path, encoding="utf-8").read() for url, path in PLAN["lists"].items()}
+        clean = getattr(bmod, "sanitize", lambda t: t)
+        texts = {url: clean(t) for url, t in raw.items()}
+        fs = ab.FilterSet(debug=True)
+        for t in texts.values():
+            fs.add_filter_list(t)
+        eng = ab.Engine(fs, optimize=False)
+        lines = {url: {x.strip() for x in t.splitlines()} for url, t in texts.items()}
+
+        def source(rule):
+            return next((u for u in sorted(lines) if rule in lines[u]), None) if rule else None
+        types = getattr(smod, "_TYPES", {})
+        out = {}
+        for q in PLAN["requests"]:
+            r = eng.check_network_urls(q["url"], q.get("source") or "", types.get(Fake(q).rtype, "other"))
+            rule, exc = getattr(r, "filter", None), getattr(r, "exception", None)
+            stops = bool(r.matched) and not (exc and not getattr(r, "important", False))
+            out[q["id"]] = {"verdict": "block" if stops else "allow", "rule": rule, "rule_list": source(rule),
+                            "exception": exc, "exception_list": source(exc)}
+        OUT["list_verdicts"] = out
+        OUT["list_data"] = {url: hashlib.sha256(t.encode("utf-8")).hexdigest() for url, t in raw.items()}
+    except Exception:
+        OUT["list_verdicts"] = OUT["list_data"] = None
+
+
 def measure():
     yield 300
     b, sh, cfg = ike.blocker, ike.shields, ike.config        # noqa: F821
@@ -555,6 +605,8 @@ def measure():
         yield 50
     OUT["engine"] = {"native": bool(b.native), "built": b.engine is not None, "errors": b.errors,
                      "lists_written_late": late}
+    if "requests" in sections:
+        _list_verdicts()
     try:
         _keys(sh, PLAN["key"])
     except Exception:
@@ -1057,8 +1109,23 @@ def snapshot(repo, levels=LEVELS, sections=SECTIONS, fixtures=FIXTURES, keep=Non
                        "lists": len(corpus["lists"])},
             "seconds": round(time.monotonic() - t0, 1)}
     snap["errors"], snap["observations"] = observations(raw, levels, sections, corpus)
+    # the digest of each filter list's data the requests were measured with (evidence for a request
+    # newly let through: the list data that decides it changed)
+    snap["list_data"] = (raw.get("measure") or {}).get("list_data")
     snap["raw"] = raw
     return snap
+
+
+def _change(repo, since):
+    """git's diff of the checkout's HEAD from the commit `since` (None when git cannot give it)."""
+    if not since:
+        return None
+    try:
+        proc = subprocess.run(["git", "-C", str(repo), "diff", "-U0", "--no-color", "--no-ext-diff", "--no-renames",
+                               since, "HEAD"], capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return proc.stdout if proc.returncode == 0 else None
 
 
 def _version(repo):
@@ -1099,6 +1166,8 @@ def observations(raw, levels, sections, corpus):
             for rid in req_ids:
                 r = got.get(rid)
                 obs["requests/%s/%s" % (lv, rid)] = {"rule": "block", "value": r["action"] if r else None}
+                if isinstance(m.get("list_verdicts"), dict) and rid in m["list_verdicts"]:
+                    obs["requests/%s/%s" % (lv, rid)]["lists"] = m["list_verdicts"][rid]
                 for h, v in sorted(((r or {}).get("headers") or {}).items()):
                     obs["request-headers/%s/%s/%s" % (lv, rid, h)] = {"rule": "exact", "value": v}
         if "cosmetic" in sections:
@@ -1232,11 +1301,12 @@ def _section(key):
 
 
 def _judge(rule, base, cand, key=""):
-    """(kind, detail): kind one of "same", "worse", "stricter", "changed"."""
+    """(kind, detail): kind one of "same", "stricter", "changed", "worse" (weaker by the rule) or
+    "unjudged" (a change the rule cannot judge: worse too, unless evidence accepts it)."""
     if base == cand:
         return "same", ""
     if cand is None and rule not in ("no-new",):
-        return "worse", "not measured on the candidate"
+        return "unjudged", "not measured on the candidate"
     if rule == "block":
         if base is None:
             return "changed", "not measured on main"
@@ -1295,7 +1365,7 @@ def _judge(rule, base, cand, key=""):
         if safer is not None and cand is safer:
             return "stricter", "%s on main, %s here" % (base, cand)
         return "worse", "%s on main, %s here" % (base, cand)
-    return "worse", "%s on main, %s here" % (_short(base), _short(cand))
+    return "unjudged", "%s on main, %s here" % (_short(base), _short(cand))
 
 
 # WebEngine attributes whose safer value is known (anything else: any change is worse)
@@ -1372,25 +1442,26 @@ def _far(v, real):
 def _judge_part(name, path, b, c):
     """One part of a disguised value. b = (main, main's second session, Off on main, Off's second
     session on main), c = the same here; MISSING where not measured.
-    (kind, why): "same", "changed" (still protected) or "worse" (weaker, or it cannot be judged)."""
+    (kind, why): "same", "changed" (still protected), "worse" (weaker) or "unjudged" (it cannot be
+    judged: worse too, unless evidence accepts it)."""
     vb, vb2, ob, ob2 = b
     vc, vc2, oc, oc2 = c
     if vb == vc and (vb2 is MISSING or vc2 is MISSING or vb2 == vc2):
         return "same", ""
     if vc is MISSING:
-        return "worse", "not read here"
+        return "unjudged", "not read here"
     if isinstance(vc, str) and FAILED.match(vc):
-        return "worse", "could not be read here (%s)" % _short(vc, 60)
+        return "unjudged", "could not be read here (%s)" % _short(vc, 60)
     if ob is MISSING or oc is MISSING:
-        return "worse", "cannot be judged: the Off level was not measured"
+        return "unjudged", "cannot be judged: the Off level was not measured"
     if vb == ob:
-        return "worse", "main gave the real value (Off's): a change of it cannot be judged"
+        return "unjudged", "main gave the real value (Off's): a change of it cannot be judged"
     if vc == oc or vc2 == oc:
         return "worse", "the real value (Off's) here"
     if vb is None:
         return "worse", "hidden on main, readable here"
     if (ob2 is not MISSING and ob2 != ob) or (oc2 is not MISSING and oc2 != oc):
-        return "worse", "cannot be judged: it changes from one session to the next at Off too"
+        return "unjudged", "cannot be judged: it changes from one session to the next at Off too"
     names = not path and name in FP_LISTS and all(isinstance(x, str) for x in (vb, vc, ob, oc))
     if names and vb2 in (MISSING, vb):
         # a fixed list on main: no name of the real list that main did not show, and no closer to it
@@ -1403,10 +1474,10 @@ def _judge_part(name, path, b, c):
     if vb2 is MISSING:
         if vc2 is not MISSING and vc2 != vc:
             return "changed", "still not the real value, and different in each session"
-        return "worse", "cannot be judged: main's second session was not measured"
+        return "unjudged", "cannot be judged: main's second session was not measured"
     if vb2 != vb:
         if vc2 is MISSING:
-            return "worse", "cannot be judged: no second session measured here"
+            return "unjudged", "cannot be judged: no second session measured here"
         if vc2 == vc:
             return "worse", "the same in every session here (on main it changed with the session)"
         if names and isinstance(vb2, str) and isinstance(vc2, str):
@@ -1429,12 +1500,13 @@ def _judge_fingerprint(key, b, c, bo, co):
     - a fixed disguise on main: still not the real value in either session and, a list of names,
       showing no name of the real list main did not show and coming no closer to the real list;
     - the real value on main, the Off level not measured, a part that could not be read, a value
-      that changes between sessions at Off too: worse (it cannot be judged).
-    bo, co: every observation of main's snapshot and of the candidate's. (kind, detail)."""
+      that changes between sessions at Off too: "unjudged" (worse, unless evidence accepts it).
+    bo, co: every observation of main's snapshot and of the candidate's. (kind, detail): a weaker part
+    makes it "worse" whatever the other parts are."""
     if c is None:
-        return "worse", "not measured on the candidate"
+        return "unjudged", "not measured on the candidate"
     if b is None:
-        return "worse", "not measured on main: a new value cannot be judged"
+        return "unjudged", "not measured on main: a new value cannot be judged"
     head, _, name = key.split("/", 2)
     offkey = "%s/off/%s" % (head, name)
 
@@ -1446,28 +1518,32 @@ def _judge_fingerprint(key, b, c, bo, co):
 
     main = [split(b, "value"), split(b, "session2"), split(bo.get(offkey), "value"), split(bo.get(offkey), "session2")]
     here = [split(c, "value"), split(c, "session2"), split(co.get(offkey), "value"), split(co.get(offkey), "session2")]
-    worse, changed = [], []
+    found = {"worse": [], "unjudged": [], "changed": []}
     for path in sorted(set(main[0]) | set(here[0])):
         kind, why = _judge_part(name, path, tuple(at(x, path) for x in main), tuple(at(x, path) for x in here))
-        why = ("%s %s" % (path, why)) if path else why
-        if kind == "worse":
-            worse.append(why)
-        elif kind != "same":
-            changed.append(why)
-    if worse:
-        return "worse", "; ".join(worse[:6]) + ("; and %d more parts" % (len(worse) - 6) if len(worse) > 6 else "")
-    if not changed:            # the same parts, written another way: nothing to judge them by
-        return "worse", "written another way, the same parts: cannot be judged"
+        if kind != "same":
+            found[kind].append(("%s %s" % (path, why)) if path else why)
+    why = found["worse"] + found["unjudged"]
+    why = "; ".join(why[:6]) + ("; and %d more parts" % (len(why) - 6) if len(why) > 6 else "")
+    if found["worse"]:                 # a weaker part decides, whatever the other parts are
+        return "worse", why
+    # the size of the noise is judged even when a part cannot be: a smaller noise is a weakening
     nb, nc = b.get("noise"), c.get("noise")
+    noise = None
     if isinstance(nb, (int, float)) and nb > 0:
         if not isinstance(nc, (int, float)):
-            return "worse", "the size of the noise could not be measured here (%s on main)" % nb
-        if nc < nb * (1 - NOISE_TOLERANCE):
+            noise = "unjudged", "the size of the noise could not be measured here (%s on main)" % nb
+        elif nc < nb * (1 - NOISE_TOLERANCE):
             return "worse", "the noise is smaller: %s on main, %s here" % (nb, nc)
-        if nc > nb * (1 + NOISE_TOLERANCE):
-            return "stricter", "still protected, the noise larger: %s on main, %s here (x%.3g)" % (nb, nc, nc / nb)
-        return "changed", "still protected, the noise as large: %s on main, %s here" % (nb, nc)
-    return "changed", "still protected: " + "; ".join(changed[:4])
+        elif nc > nb * (1 + NOISE_TOLERANCE):
+            noise = "stricter", "still protected, the noise larger: %s on main, %s here (x%.3g)" % (nb, nc, nc / nb)
+        else:
+            noise = "changed", "still protected, the noise as large: %s on main, %s here" % (nb, nc)
+    if found["unjudged"]:
+        return "unjudged", why
+    if not found["changed"]:           # the same parts, written another way: nothing to judge them by
+        return "unjudged", "written another way, the same parts: cannot be judged"
+    return noise or ("changed", "still protected: " + "; ".join(found["changed"][:4]))
 
 
 def _rule(key, b, c):
@@ -1511,9 +1587,165 @@ def _accepted(entries, key, base, cand):
     return None
 
 
-def compare(base, cand, allowlist_entries=()):
-    """The report: every observation of both snapshots judged; verdict "pass" or "fail"."""
-    rows = {"worse": [], "accepted": [], "stricter": [], "changed": []}
+# --- evidence: what lets a change the rules call worse pass with no person ------------------------
+# Necessity (2026-11-24, the owner's principle: a change needed for I.K.E. to work and for its
+# protections to keep working is approved by the chain itself): a test that fails on main and passes
+# here shows the change is needed. It accepts only what the rules cannot judge ("unjudged"), never a
+# weakening, in an area whose files this change touches, with a test of that area. Never a security
+# setting (no exceptions), a request or a host: those have their own evidence below, or none.
+# (area, observation keys, the area's files, its tests as "file::name" globs)
+NECESSITY = (
+    ("fingerprinting", ("fingerprint/", "fingerprint-config/"),
+     ("ike/resources/fingerprint.js", "ike/shields.py", "ike/osinfo.py", "ike/fontcheck.py"),
+     ("tests/test_fingerprint*.py::*", "tests/test_client_hints.py::*", "*::*fp*", "*::*fingerprint*",
+      "*::*noise*", "*::*canvas*", "*::*audio*", "*::*webgl*", "*::*font*")),
+    ("the pages' scriptlets", ("page-scriptlets/",),
+     ("ike/blocker.py", "ike/scriptlets.py", "ike/shields.py", "ike/resources/*"),
+     ("tests/test_adblock.py::*", "*::*scriptlet*")),
+)
+# I.K.E.'s known external endpoints: a host contacted by itself that main does not contact passes
+# only when it is declared there and this change's own code names it. Only a person (or Claude,
+# with the change read in full) edits it: it is under tests/, as the allowlist
+ENDPOINTS = FIXTURES / "endpoints.json"
+# why a change passed, by the rule that judged it
+RULE_WHY = {
+    "block": "still stopped (blocked, or sent to a harmless local answer)",
+    "hidden": "the element hidden here",
+    "kept": "nothing lost, something more kept",
+    "no-new": "nothing new, something less",
+    "switches": "an added engine switch that does not read as weaker, none lost",
+    "safer-true": "now the safer value", "safer-false": "now the safer value",
+    "level": "a higher protection level", "permission": "a stricter permission",
+    "setting": "the safer WebEngine setting",
+    "fingerprint": "judged by what protects: still disguised (the fingerprinting rules)",
+}
+
+
+def _junit_file(case):
+    f = case.get("file")
+    if f:
+        return f
+    parts = (case.get("classname") or "").split(".")
+    for i in range(len(parts), 0, -1):
+        if parts[i - 1].startswith("test_"):
+            return "/".join(parts[:i]) + ".py"
+    return "?"
+
+
+def read_junit(paths):
+    """{"tests/test_x.py::name": "failed" | "passed" | "skipped"} from pytest's junit files; a test
+    failed in any of them is failed, else passed in one of them is passed. Unreadable files are left
+    out (no evidence from them)."""
+    import xml.etree.ElementTree as ET
+    out, rank = {}, {"skipped": 0, "passed": 1, "failed": 2}
+    for path in paths or ():
+        try:
+            root = ET.parse(path).getroot()
+        except (OSError, ET.ParseError):
+            continue
+        for case in root.iter("testcase"):
+            tid = "%s::%s" % (_junit_file(case), case.get("name") or "?")
+            state = "failed" if case.find("failure") is not None or case.find("error") is not None else \
+                "skipped" if case.find("skipped") is not None else "passed"
+            if rank[state] > rank.get(out.get(tid), -1):
+                out[tid] = state
+    return out
+
+
+def read_diff(text):
+    """(changed files, the lines this change adds outside tests/) from the output of git's diff."""
+    changed, added, path = set(), [], None
+    for line in (text or "").splitlines():
+        if line.startswith("diff --git "):
+            m = re.match(r"diff --git a/(.*) b/(.*)$", line)
+            if m:
+                changed.update(m.groups())
+                path = m.group(2)
+        elif line.startswith("+++ "):
+            path = line[6:] if line.startswith("+++ b/") else None
+        elif line.startswith("+") and path and not path.startswith("tests/"):
+            added.append(line[1:])
+    return sorted(changed), "\n".join(added)
+
+
+def load_endpoints(path):
+    """The declared endpoints [{"host", "purpose", ...}]; none when the file cannot be read."""
+    try:
+        data = json.loads(Path(path).read_text("utf-8"))
+    except (OSError, ValueError):
+        return []
+    return [e for e in data.get("endpoints") or () if isinstance(e, dict) and e.get("host") and
+            str(e.get("purpose") or "").strip()]
+
+
+def _fixed_tests(evidence):
+    main_t, cand_t = evidence.get("main_tests") or {}, evidence.get("candidate_tests") or {}
+    return sorted(t for t, st in main_t.items() if st == "failed" and cand_t.get(t) == "passed")
+
+
+def _by_necessity(row, evidence):
+    """Why a change the rules cannot judge is needed: a test of its area that fails on main passes
+    here, and this change touches the area's files. Never in the security settings."""
+    if row["section"] == "security":
+        return None
+    fixed = _fixed_tests(evidence)
+    for area, keys, files, tests in NECESSITY:
+        if not row["key"].startswith(keys):
+            continue
+        touched = sorted(f for f in evidence.get("changed") or () if any(fnmatch.fnmatchcase(f, g) for g in files))
+        proof = [t for t in fixed if any(fnmatch.fnmatchcase(t, g) for g in tests)]
+        if touched and proof:
+            return "needed (%s): the test %s fails on main and passes here, and this change touches %s" % (
+                area, proof[0], ", ".join(touched[:3]))
+    return None
+
+
+def _by_lists(key, b, c, base, cand):
+    """Why a request newly let through passes: the filter list data that decides it changed (an
+    exception in the list's new data lets it through, or the rule that blocked it is gone from it).
+    Main's lists must have stopped it (not I.K.E.'s own rules), and here the lists must let it go."""
+    if not key.startswith("requests/") or not b or not c or c.get("value") != "allow":
+        return None
+    lb, lc = b.get("lists"), c.get("lists")
+    db, dc = base.get("list_data") or {}, cand.get("list_data") or {}
+    if not isinstance(lb, dict) or not isinstance(lc, dict):
+        return None
+    if lb.get("verdict") != "block" or lc.get("verdict") != "allow":
+        return None
+
+    def changed(url):
+        return bool(url) and url in db and url in dc and db[url] != dc[url]
+    if lc.get("exception") and lc["exception"] != lb.get("exception") and changed(lc.get("exception_list")):
+        return "the list decides: its new data has the exception `%s` (%s)" % (lc["exception"], lc["exception_list"])
+    if not lc.get("rule") and changed(lb.get("rule_list")):
+        return "the list decides: the rule `%s` is gone from the new data of %s" % (lb.get("rule"), lb["rule_list"])
+    return None
+
+
+def _by_registry(key, bv, cv, evidence):
+    """Why new hosts pass: each is declared (ENDPOINTS) and named by this change's own code."""
+    if not key.startswith("network/"):
+        return None
+    new = sorted(set(cv or []) - set(bv or []))
+    known = {e["host"]: e for e in evidence.get("endpoints") or ()}
+    added = evidence.get("added")
+    def named(h):          # the host itself, not a longer name that ends or starts with it
+        return re.search(r"(?<![\w.-])%s(?![\w-]|\.\w)" % re.escape(h), added) is not None
+    if not new or added is None or any(h not in known or not named(h) for h in new):
+        return None
+    return "declared endpoints (tests/data/no-regression/endpoints.json), named by this change's code: %s" % (
+        "; ".join("%s, %s" % (h, known[h]["purpose"]) for h in new))
+
+
+def compare(base, cand, allowlist_entries=(), evidence=None):
+    """The report: every observation of both snapshots judged; verdict "pass" or "fail". A change the
+    rules call worse passes only by evidence (_by_necessity for what they cannot judge, never for a
+    weakening; _by_lists for a request; _by_registry for a host) or by a person (the allowlist).
+    Every row that passed says why ("why", "passed_by"). evidence: {"changed": [files], "added": the
+    lines this change adds outside tests/, "main_tests" and "candidate_tests": read_junit(),
+    "endpoints": load_endpoints()}; a part that is missing gives no evidence."""
+    evidence = evidence or {}
+    rows = {"worse": [], "evidence": [], "accepted": [], "stricter": [], "changed": []}
     used = set()
     errors = []
     for side, snap in (("main", base), ("candidate", cand)):
@@ -1540,14 +1772,30 @@ def compare(base, cand, allowlist_entries=()):
         if kind == "same":
             continue
         row = {"key": key, "section": _section(key), "rule": rule, "main": bv, "candidate": cv, "detail": detail}
-        if kind == "worse":
-            i = _accepted(allowlist_entries, key, bv, cv)
-            if i is not None:
-                used.add(i)
-                row["why"] = allowlist_entries[i].get("why")
-                rows["accepted"].append(row)
-                continue
-        rows[kind].append(row)
+        if kind not in ("worse", "unjudged"):
+            row.update(why="the rule `%s`: %s" % (rule, RULE_WHY.get(rule, "not weaker")), passed_by="rule")
+            rows[kind].append(row)
+            continue
+        row["weakening"] = kind == "worse"
+        if kind == "unjudged":
+            why, by = _by_necessity(row, evidence), "necessity"
+        elif rule == "block":
+            why, by = _by_lists(key, b, c, base, cand), "lists"
+        elif rule == "no-new":
+            why, by = _by_registry(key, bv, cv, evidence), "registry"
+        else:
+            why, by = None, None
+        if why:
+            row.update(why=why, passed_by=by)
+            rows["evidence"].append(row)
+            continue
+        i = _accepted(allowlist_entries, key, bv, cv)
+        if i is not None:
+            used.add(i)
+            row.update(why=allowlist_entries[i].get("why"), passed_by="person")
+            rows["accepted"].append(row)
+            continue
+        rows["worse"].append(row)
     verdict = "fail" if rows["worse"] or errors else "pass"
     sections = {}
     for kind, items in rows.items():
@@ -1561,6 +1809,12 @@ def compare(base, cand, allowlist_entries=()):
     return {"verdict": verdict, "errors": errors, "main": {k: base.get(k) for k in info},
             "candidate": {k: cand.get(k) for k in info}, "compared": counts,
             "sections": sections, "unused_allowlist": [e for i, e in enumerate(allowlist_entries) if i not in used],
+            "evidence_read": {"changed_files": len(evidence["changed"]) if evidence.get("changed") is not None
+                              else None,
+                              "main_tests": len(evidence.get("main_tests") or ()),
+                              "candidate_tests": len(evidence.get("candidate_tests") or ()),
+                              "fixed_tests": _fixed_tests(evidence),
+                              "endpoints": len(evidence.get("endpoints") or ())},
             **rows}
 
 
@@ -1603,28 +1857,47 @@ def markdown(report, limit=60):
                 c.get("version", "?"), (report["main"].get("corpus") or {}).get("requests", "?"),
                 len(report["main"].get("levels") or LEVELS),
                 (report["main"].get("corpus") or {}).get("elements", "?")), "",
-            "| What | Compared | Worse | Accepted by a person | Stricter | Changed |", "|---|---|---|---|---|---|"]
+            "| What | Compared | Worse | Passed by evidence | Accepted by a person | Stricter | Changed |",
+            "|---|---|---|---|---|---|---|"]
     for s in ("blocking", "fingerprinting", "network", "security"):
         n = report["sections"].get(s) or {}
-        out.append("| %s | %d | %d | %d | %d | %d |" % (SECTION_WORDS[s], report["compared"].get(s, 0),
-                                                         n.get("worse", 0), n.get("accepted", 0),
-                                                         n.get("stricter", 0), n.get("changed", 0)))
+        out.append("| %s | %d | %d | %d | %d | %d | %d |" % (
+            SECTION_WORDS[s], report["compared"].get(s, 0), n.get("worse", 0), n.get("evidence", 0),
+            n.get("accepted", 0), n.get("stricter", 0), n.get("changed", 0)))
+    ev = report.get("evidence_read") or {}
+    if ev:
+        fixed = ev.get("fixed_tests") or []
+        files = ev.get("changed_files")
+        out += ["", "Evidence read: %s; the tests of main (%d) and of this commit (%d): %s; %d declared "
+                "endpoints." % (
+                    "the files of this change not known" if files is None else
+                    "%d file%s this change touches" % (files, "" if files == 1 else "s"),
+                    ev.get("main_tests", 0), ev.get("candidate_tests", 0),
+                    "fixed here: %s" % ", ".join("`%s`" % t for t in fixed[:10]) if fixed else
+                    "none fails on main and passes here", ev.get("endpoints", 0))]
     if report["errors"]:
         out += ["", "Not measured (a check that did not run is never passed):", ""]
         out += ["- %s" % e.replace("\n", " ")[:400] for e in report["errors"][:20]]
-    for kind, title in (("worse", "Worse than on main"), ("accepted", "Worse, but accepted by a person "
-                                                                     "(tests/data/no-regression/allowlist.json)"),
+    for kind, title in (("worse", "Worse than on main"),
+                        ("evidence", "Passed by evidence, with no person (the evidence is said for each)"),
+                        ("accepted", "Worse, but accepted by a person (tests/data/no-regression/allowlist.json)"),
                         ("stricter", "Stricter than on main (fine, reported)"),
                         ("changed", "Changed, neither weaker nor stricter (reported)")):
-        rows = report[kind]
+        rows = report.get(kind) or []
         if not rows:
             continue
         out += ["", "#### %s (%d)" % (title, len(rows)), ""]
         for r in rows[:limit]:
             line = "- %s" % _plain(r).replace("\n", " ")
-            if r.get("why"):
-                line += " (accepted: %s)" % r["why"]
-            out.append(line[:600])
+            if kind == "worse":
+                line += " (%s)" % ("weaker" if r.get("weakening", True) else
+                                   "cannot be judged; a security setting: only a person accepts it"
+                                   if r["section"] == "security" else
+                                   "cannot be judged: a test of its area that fails on main and passes here, "
+                                   "with this change touching the area, shows it is needed")
+            elif r.get("why"):
+                line += " (%s: %s)" % ("accepted" if kind == "accepted" else "passed", r["why"])
+            out.append(line[:700])
         if len(rows) > limit:
             out.append("- and %d more (the JSON report has them all)" % (len(rows) - limit))
     if report["unused_allowlist"]:
@@ -1662,6 +1935,7 @@ def main(argv=None):
     c.add_argument("--allowlist", default=str(ALLOWLIST))
     c.add_argument("--json")
     c.add_argument("--markdown")
+    c.add_argument("--diff", help="this change as git's diff output (the files it touches, the lines it adds)")
     k = sub.add_parser("check", help="both snapshots, then the comparison")
     k.add_argument("--base-repo", required=True)
     k.add_argument("--candidate-repo", required=True)
@@ -1670,6 +1944,14 @@ def main(argv=None):
     k.add_argument("--fixtures", default=str(FIXTURES))
     k.add_argument("--json")
     k.add_argument("--markdown")
+    k.add_argument("--diff", help="this change as git's diff output (default: asked of git in the candidate's "
+                                  "checkout, from main's commit)")
+    for x in (c, k):
+        x.add_argument("--main-junit", action="append", default=[],
+                       help="pytest's junit file of main's tests (evidence: a test that fails there)")
+        x.add_argument("--candidate-junit", action="append", default=[],
+                       help="pytest's junit file of the candidate's tests (evidence: that test passes here)")
+        x.add_argument("--endpoints", default=str(ENDPOINTS), help="I.K.E.'s declared external endpoints")
     args = ap.parse_args(argv)
     if args.cmd == "snapshot":
         snap = snapshot(args.repo, args.levels, args.sections, args.fixtures, keep=args.keep)
@@ -1680,16 +1962,24 @@ def main(argv=None):
     entries, note = load_allowlist(args.allowlist)
     if note:
         print("allowlist: " + note, file=sys.stderr)
+    evidence = {"main_tests": read_junit(args.main_junit), "candidate_tests": read_junit(args.candidate_junit),
+                "endpoints": load_endpoints(args.endpoints)}
     if args.cmd == "compare":
         base = json.loads(Path(args.base).read_text("utf-8"))
         cand = json.loads(Path(args.candidate).read_text("utf-8"))
-        return _finish(compare(base, cand, entries), args)
+        if args.diff:
+            evidence["changed"], evidence["added"] = read_diff(Path(args.diff).read_text("utf-8", "replace"))
+        return _finish(compare(base, cand, entries, evidence), args)
     out = Path(args.out_dir)
     base = snapshot(args.base_repo, fixtures=args.fixtures)
     _write(out / "main.json", json.dumps(base, indent=1, ensure_ascii=False, default=str) + "\n")
     cand = snapshot(args.candidate_repo, fixtures=args.fixtures)
     _write(out / "candidate.json", json.dumps(cand, indent=1, ensure_ascii=False, default=str) + "\n")
-    report = compare(base, cand, entries)
+    diff = Path(args.diff).read_text("utf-8", "replace") if args.diff else \
+        _change(args.candidate_repo, (base.get("repo") or {}).get("commit"))
+    if diff is not None:
+        evidence["changed"], evidence["added"] = read_diff(diff)
+    report = compare(base, cand, entries, evidence)
     args.json = args.json or str(out / "report.json")
     args.markdown = args.markdown or str(out / "report.md")
     return _finish(report, args)

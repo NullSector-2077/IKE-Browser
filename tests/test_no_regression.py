@@ -209,7 +209,7 @@ def test_the_allowlist_and_the_corpus_are_protected_and_sound():
     guard = load("check-autofix-patch")
     merge = load("automerge")
     for name in ("tests/data/no-regression/allowlist.json", "tests/data/no-regression/corpus.json",
-                 "tests/data/no-regression/lists/easylist.txt"):
+                 "tests/data/no-regression/lists/easylist.txt", "tests/data/no-regression/endpoints.json"):
         assert (ROOT / name).is_file()
         assert guard.allowed_path(name, False) == "protected file", name
         assert merge.TEST_FILE.search(name), name
@@ -245,6 +245,19 @@ def test_the_step_of_tests_yml():
     assert "HEAD^1" in step and "refs/heads/main" in step, "on main: the commit before"
     assert "tests/data/no-regression/allowlist.json" in step
     assert text.index("- name: Nothing gets worse") < text.index("- name: What the tests verified")
+    # the evidence (2026-11-24): main's test results read in a step of their own, before, with a
+    # read-only token; the step that runs this commit's code gets no token, and hands the evidence
+    # only to a copy of the tool that reads it
+    at = text.index("- name: Main's test results\n")
+    fetch = text[at:text.index("\n      - ", at + 10)]
+    assert at < text.index("- name: Nothing gets worse\n")
+    assert "GH_TOKEN: ${{ github.token }}" in fetch and "gh run download" in fetch and "--commit \"$base\"" in fetch
+    assert "ike_boot" not in fetch and "pytest" not in fetch and "no-regression.py" not in fetch
+    assert "GH_TOKEN" not in step and "token" not in step
+    assert "grep -q -- '\"--main-junit\"' \"$tool\"" in step
+    assert "--candidate-junit" in step and "tests/data/no-regression/endpoints.json" in step
+    job = text.split("\n  tests:\n", 1)[1].split("\n    steps:\n", 1)[0]
+    assert job.endswith("permissions:\n      contents: read\n      actions: read") and "write" not in job
 
 
 # --- the fingerprinting values, judged by what protects (2026-11-24) -------------------------------
@@ -504,6 +517,234 @@ def test_the_rules_of_the_fingerprinting_values():
     assert nr._noise("audio", [{"audio_samples": [1.0]}], {"audio_samples": [1.0, 2.0]}) is None
     assert nr._noise("canvas", [{"canvas_noise": 0.01}, {"canvas_noise": 0.02}], {}) == 0.015
     assert nr._noise("canvas", [{"canvas_noise": "error x"}], {}) is None
+
+
+# --- evidence: a needed change passes by itself, a weakening never (2026-11-24) ---------------------
+N3 = "tests/test_review_fixes.py::test_n3_repeated_reads_or_a_known_buffer_do_not_remove_the_noise"
+FP_JS = "ike/resources/fingerprint.js"
+
+
+def needed(test=N3, main="failed", here="passed", changed=(FP_JS,), **more):
+    """Evidence: `test` in main's results and here, this change's files."""
+    ev = {"main_tests": {test: main} if main else {}, "candidate_tests": {test: here} if here else {},
+          "changed": list(changed)}
+    ev.update(more)
+    return ev
+
+
+# a value main left real that this change makes differ: the fingerprinting rules cannot judge it
+UNJUDGED = {"fingerprint/strict/navigator.hardwareConcurrency": disguised(8, 8)}
+
+
+def test_a_needed_change_the_rules_cannot_judge_passes_by_itself():
+    report = nr.compare(fp_snap(), fp_snap(UNJUDGED), [])
+    row = report["worse"][0]
+    assert report["verdict"] == "fail" and row["weakening"] is False and "cannot be judged" in nr.markdown(report)
+    report = nr.compare(fp_snap(), fp_snap(UNJUDGED), [], needed())
+    assert report["verdict"] == "pass", report["worse"]
+    row = report["evidence"][0]
+    assert row["key"] == "fingerprint/strict/navigator.hardwareConcurrency" and row["passed_by"] == "necessity"
+    assert N3 in row["why"] and FP_JS in row["why"], row["why"]
+    assert report["evidence_read"]["fixed_tests"] == [N3]
+    text = nr.markdown(report)
+    assert "#### Passed by evidence, with no person" in text and N3 in text and "fixed here" in text
+    # a test of the area by its file, too
+    test = "tests/test_fingerprint.py::test_anything"
+    assert nr.compare(fp_snap(), fp_snap(UNJUDGED), [], needed(test))["verdict"] == "pass"
+
+
+def test_what_is_not_evidence_of_need():
+    cases = {
+        "a test of another area": needed("tests/test_downloads.py::test_a_download_is_saved"),
+        "a change that does not touch the area": needed(changed=("ike/newtab.py",)),
+        "no change known": needed(changed=()),
+        "a test that fails here too": needed(here="failed"),
+        "a test skipped here": needed(here="skipped"),
+        "a test that passes on main": needed(main="passed"),
+        "a test main does not have": needed(main=None),
+        "a test this commit does not have": needed(here=None),
+    }
+    for what, ev in cases.items():
+        report = nr.compare(fp_snap(), fp_snap(UNJUDGED), [], ev)
+        assert report["verdict"] == "fail" and not report["evidence"], what
+
+
+def test_no_evidence_ever_accepts_a_weakening():
+    """An AI fix that turns a protection off and also makes a failing test pass (of the same area,
+    touching the area's files) is still worse."""
+    weak = {"fingerprint/strict/audio": disguised(AUDIO_OFF, AUDIO_OFF, 0.0),
+            "fingerprint/strict/audio.noised": {"rule": "safer-true", "value": False},
+            "fingerprint/strict/screen.width": disguised(2560, 2560)}
+    report = nr.compare(fp_snap(), fp_snap(dict(UNJUDGED, **weak)), [], needed())
+    assert keys(report["worse"]) == set(weak), report["worse"]
+    assert all(r["weakening"] for r in report["worse"])
+    assert keys(report["evidence"]) == set(UNJUDGED)
+    # a part that cannot be judged (the picture's first rows, real on main) does not hide a smaller noise
+    canvas = {"fingerprint/strict/canvas": disguised(["0badc0de", "0ddba11", 140.5159], ["1badc0de", "0ddba11",
+                                                                                         140.5154], 0.001)}
+    report = nr.compare(fp_snap(), fp_snap(canvas), [], needed())
+    assert report["worse"][0]["weakening"] and "noise is smaller" in report["worse"][0]["detail"], report["worse"]
+    canvas["fingerprint/strict/canvas"]["noise"] = 0.0149
+    report = nr.compare(fp_snap(), fp_snap(canvas), [], needed())
+    assert report["verdict"] == "pass" and report["evidence"][0]["passed_by"] == "necessity"
+    # every kind of regression of the hand-made snapshot, with a fixed test of every area and every
+    # file changed: still worse, each one. The one exception is no weakening the rules see: the
+    # hand-made snapshot has no Off level, so its fingerprinting value cannot be judged
+    everything = needed("tests/test_adblock.py::test_x_scriptlet_fp_noise",
+                        changed=(FP_JS, "ike/shields.py", "ike/blocker.py", "ike/app.py", "ike/config.py"))
+    base = snap(**BASE)
+    report = nr.compare(base, with_values(base, WORSE), [], everything)
+    unjudged = "fingerprint/strict/navigator.hardwareConcurrency"
+    assert keys(report["worse"]) == {k.replace("__", "/") for k in WORSE} - {unjudged}, report["evidence"]
+    assert keys(report["evidence"]) == {unjudged}
+    # a security setting the rules cannot judge (a header): no exceptions
+    referer = {"headers__strict__third-party__referer": "http://127.0.0.1:PORT/other"}
+    report = nr.compare(base, with_values(base, referer), [], everything)
+    assert report["verdict"] == "fail" and report["worse"][0]["weakening"] is False
+    assert "only a person accepts it" in nr.markdown(report)
+
+
+def request_snap(value, lists, data):
+    s = snap(**{"requests__balanced__ad-x": ("block", value)})
+    if lists is not None:
+        s["observations"]["requests/balanced/ad-x"]["lists"] = lists
+    s["list_data"] = data
+    return s
+
+
+EASY = "https://easylist.to/easylist/easylist.txt"
+UNBREAK = "https://ublockorigin.github.io/uAssets/filters/unbreak.txt"
+BLOCKED = {"verdict": "block", "rule": "||ads.example^", "rule_list": EASY, "exception": None, "exception_list": None}
+GONE = {"verdict": "allow", "rule": None, "rule_list": None, "exception": None, "exception_list": None}
+EXCEPTED = {"verdict": "allow", "rule": "||ads.example^", "rule_list": EASY, "exception": "@@||ads.example/player.js",
+            "exception_list": UNBREAK}
+DATA = {EASY: "e1", UNBREAK: "u1"}
+
+
+def test_a_request_let_through_passes_only_when_the_list_data_decides():
+    base = request_snap("block", BLOCKED, DATA)
+    # the rule is gone from the list's new data
+    report = nr.compare(base, request_snap("allow", GONE, dict(DATA, **{EASY: "e2"})), [])
+    assert report["verdict"] == "pass" and report["evidence"][0]["passed_by"] == "lists"
+    assert "||ads.example^" in report["evidence"][0]["why"] and EASY in report["evidence"][0]["why"]
+    # an exception in a list's new data
+    report = nr.compare(base, request_snap("allow", EXCEPTED, dict(DATA, **{UNBREAK: "u2"})), [])
+    assert report["verdict"] == "pass" and "@@||ads.example/player.js" in report["evidence"][0]["why"]
+    worse = {
+        "the list data the same (an engine or code change)": request_snap("allow", GONE, DATA),
+        "the exception's list the same": request_snap("allow", EXCEPTED, dict(DATA, **{EASY: "e2"})),
+        "another list changed": request_snap("allow", GONE, dict(DATA, **{UNBREAK: "u2"})),
+        "the lists still stop it (I.K.E.'s own code let it through)": request_snap("allow", BLOCKED,
+                                                                                   dict(DATA, **{EASY: "e2"})),
+        "not let through but redirected elsewhere": request_snap("redirect https://x.example/", GONE,
+                                                                 dict(DATA, **{EASY: "e2"})),
+        "no list verdicts (an older snapshot)": request_snap("allow", None, dict(DATA, **{EASY: "e2"})),
+    }
+    for what, cand in worse.items():
+        report = nr.compare(base, cand, [], needed(changed=("ike/blocker.py",)))
+        assert report["verdict"] == "fail" and report["worse"][0]["weakening"], what
+    # main blocked it by I.K.E.'s own rules, not the lists: the lists cannot let it through
+    report = nr.compare(request_snap("block", GONE, DATA), request_snap("allow", GONE, dict(DATA, **{EASY: "e2"})), [])
+    assert report["verdict"] == "fail"
+
+
+def test_a_new_host_passes_only_declared_and_named_by_this_change():
+    base = snap(**{"network__fresh-profile": ("no-new", ["easylist.to"])})
+    cand = with_values(base, {"network__fresh-profile": ["easylist.to", "updates.example"]})
+    declared = [{"host": "updates.example", "purpose": "I.K.E.'s update check", "where": "ike/updater.py"}]
+    diff = ("diff --git a/ike/updater.py b/ike/updater.py\n--- a/ike/updater.py\n+++ b/ike/updater.py\n"
+            "@@ -1 +1 @@\n-URL = None\n+URL = 'https://updates.example/latest.json'\n")
+    changed, added = nr.read_diff(diff)
+    report = nr.compare(base, cand, [], {"endpoints": declared, "changed": changed, "added": added})
+    assert report["verdict"] == "pass" and report["evidence"][0]["passed_by"] == "registry"
+    assert "updates.example, I.K.E.'s update check" in report["evidence"][0]["why"]
+    in_tests = diff.replace("ike/updater.py", "tests/test_updater.py")
+    other = with_values(base, {"network__fresh-profile": ["easylist.to", "updates.example", "telemetry.example"]})
+    for what, c, ev in (
+            ("not declared", cand, {"endpoints": [], "added": added}),
+            ("not named by the change", cand, {"endpoints": declared, "added": "x = 1"}),
+            ("only a longer name", cand, {"endpoints": declared, "added": "'https://updates.example.evil.test/'"}),
+            ("only a name ending with it", cand, {"endpoints": declared, "added": "'https://myupdates.example/'"}),
+            ("named only in tests/", cand, {"endpoints": declared, "added": nr.read_diff(in_tests)[1]}),
+            ("the change not known", cand, {"endpoints": declared}),
+            ("one of two not declared", other, {"endpoints": declared, "added": added + " telemetry.example"}),
+            ("a test fixed (no evidence for a host)", cand, needed(changed=("ike/updater.py",)))):
+        report = nr.compare(base, c, [], ev)
+        assert report["verdict"] == "fail" and report["worse"][0]["weakening"], what
+    # the registry file: only a person edits it, and it reads
+    entries = nr.load_endpoints(nr.ENDPOINTS)
+    assert entries and all(e["host"] == e["host"].strip().lower() and "*" not in e["host"] for e in entries)
+    assert "Only a person" in json.loads(nr.ENDPOINTS.read_text("utf-8"))["about"]
+    assert nr.load_endpoints(ROOT / "missing.json") == []
+
+
+def test_the_security_settings_have_no_exceptions():
+    base = snap(**BASE)
+    everything = needed("tests/test_security.py::test_fp_noise_scriptlet", changed=("ike/app.py", "ike/shields.py",
+                                                                                    "ike/config.py", FP_JS))
+    for key in ("switches__added", "webengine__balanced__page__JavascriptCanOpenWindows",
+                "webengine__balanced__page__AutoLoadImages", "defaults__https_only",
+                "permissions__balanced__geolocation", "headers__strict__third-party__referer"):
+        report = nr.compare(base, with_values(base, {key: WORSE[key]}), [], everything)
+        assert report["verdict"] == "fail" and not report["evidence"], key
+    report = nr.compare(base, with_values(base, {"defaults__shield_level": "strict"}), [], everything)
+    assert report["verdict"] == "pass" and "the rule `level`: a higher protection level" in report["stricter"][0]["why"]
+
+
+def test_the_report_says_why_each_difference_passed():
+    base = snap(**BASE)
+    cand = with_values(base, dict(STRICTER, **{"requests__balanced__ad-gpt": "redirect-data",
+                                               "fingerprint__strict__navigator.hardwareConcurrency": 8}))
+    entries = [{"key": "fingerprint/*/navigator.hardwareConcurrency", "why": "a person read it", "accepted": "x"}]
+    report = nr.compare(base, cand, entries)
+    assert report["verdict"] == "pass"
+    for kind in ("evidence", "accepted", "stricter", "changed"):
+        for r in report[kind]:
+            assert r["why"] and r["passed_by"] in ("rule", "necessity", "lists", "registry", "person"), r
+    assert report["accepted"][0]["passed_by"] == "person"
+    text = nr.markdown(report)
+    assert "(accepted: a person read it)" in text and "(passed: the rule `block`: still stopped" in text
+    assert "| What | Compared | Worse | Passed by evidence | Accepted by a person | Stricter | Changed |" in text
+    assert "the files of this change not known" in text
+    # a worse row says whether it is weaker or cannot be judged
+    report = nr.compare(base, with_values(base, {"requests__balanced__ad-gpt": "allow"}))
+    assert "allowed here (weaker)" in nr.markdown(report)
+
+
+def test_the_evidence_is_read_from_junit_and_diff(tmp_path):
+    main_xml, here_xml = tmp_path / "main.xml", tmp_path / "here.xml"
+    main_xml.write_text(
+        '<testsuites><testsuite><testcase classname="tests.test_review_fixes" name="test_n3_noise">'
+        '<failure message="x"/></testcase><testcase classname="tests.test_a" name="test_ok"/>'
+        '<testcase classname="tests.test_a.TestB" name="test_c"><error/></testcase></testsuite></testsuites>')
+    here_xml.write_text(
+        '<testsuites><testsuite><testcase classname="tests.test_review_fixes" name="test_n3_noise"/>'
+        '<testcase classname="tests.test_a" name="test_ok"><skipped/></testcase></testsuite></testsuites>')
+    installed = tmp_path / "installed.xml"
+    installed.write_text('<testsuites><testsuite><testcase classname="tests.test_a" name="test_ok"/>'
+                         '</testsuite></testsuites>')
+    assert nr.read_junit([main_xml]) == {"tests/test_review_fixes.py::test_n3_noise": "failed",
+                                         "tests/test_a.py::test_ok": "passed", "tests/test_a.py::test_c": "failed"}
+    assert nr.read_junit([here_xml, installed, tmp_path / "missing.xml"])["tests/test_a.py::test_ok"] == "passed"
+    diff = ("diff --git a/ike/resources/fingerprint.js b/ike/resources/fingerprint.js\n"
+            "--- a/ike/resources/fingerprint.js\n+++ b/ike/resources/fingerprint.js\n@@ -1 +1 @@\n-a\n+b\n"
+            "diff --git a/tests/test_x.py b/tests/test_x.py\n--- /dev/null\n+++ b/tests/test_x.py\n@@ -0,0 +1 @@\n+t\n"
+            "diff --git a/ike/old.py b/ike/old.py\n--- a/ike/old.py\n+++ /dev/null\n@@ -1 +0,0 @@\n-gone\n")
+    assert nr.read_diff(diff) == (["ike/old.py", "ike/resources/fingerprint.js", "tests/test_x.py"], "b")
+    # the whole way from the command line: the fingerprinting change the rules cannot judge passes
+    base, cand = tmp_path / "base.json", tmp_path / "cand.json"
+    base.write_text(json.dumps(fp_snap()))
+    cand.write_text(json.dumps(fp_snap(UNJUDGED)))
+    (tmp_path / "change.diff").write_text(diff)
+    allow = tmp_path / "allow.json"
+    allow.write_text(json.dumps({"entries": []}))
+    argv = ["compare", "--base", str(base), "--candidate", str(cand), "--allowlist", str(allow),
+            "--json", str(tmp_path / "r.json")]
+    assert nr.main(argv) == 1
+    assert nr.main(argv + ["--main-junit", str(main_xml), "--candidate-junit", str(here_xml),
+                           "--diff", str(tmp_path / "change.diff")]) == 0
+    report = json.loads((tmp_path / "r.json").read_text())
+    assert report["evidence"][0]["passed_by"] == "necessity" and report["evidence_read"]["changed_files"] == 3
 
 
 # --- the real check: this repository against a weakened copy ---------------------------------------

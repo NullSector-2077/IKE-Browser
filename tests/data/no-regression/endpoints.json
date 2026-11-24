@@ -1,0 +1,19 @@
+{
+ "about": "Nothing gets worse (tools/no-regression.py, docs/MAINTENANCE.md): I.K.E.'s known external endpoints, the hosts it may contact by itself. A host a candidate contacts and main does not passes with no person only when it is declared here and the candidate's own code (outside tests/) names it; otherwise it is worse. Only a person (or Claude, with the change read in full) edits this file: it is under tests/, so the automatic fix may not touch it and a pull request that changes it never merges by itself. Each entry: the exact host (\"host\"), what I.K.E. uses it for (\"purpose\"), where the code names it (\"where\"), and who declared it when (\"declared\").",
+ "endpoints": [
+  {"host": "easylist.to", "purpose": "the EasyList and EasyPrivacy filter lists", "where": "ike/config.py",
+   "declared": "Claude, 2026-11-24 (contacted by main's fresh profile)"},
+  {"host": "easylist-downloads.adblockplus.org", "purpose": "the regional EasyList filter lists",
+   "where": "ike/config.py", "declared": "Claude, 2026-11-24 (contacted by main's fresh profile)"},
+  {"host": "malware-filter.gitlab.io", "purpose": "the malware filter list (URLhaus)", "where": "ike/config.py",
+   "declared": "Claude, 2026-11-24 (contacted by main's fresh profile)"},
+  {"host": "secure.fanboy.co.nz", "purpose": "the cookie notice filter lists (Fanboy)", "where": "ike/config.py",
+   "declared": "Claude, 2026-11-24 (contacted by main's fresh profile)"},
+  {"host": "ublockorigin.github.io", "purpose": "uBlock Origin's filter lists", "where": "ike/config.py",
+   "declared": "Claude, 2026-11-24 (contacted by main's fresh profile)"},
+  {"host": "versionhistory.googleapis.com", "purpose": "Chrome's current stable version, for the user agent",
+   "where": "ike/chromever.py", "declared": "Claude, 2026-11-24 (contacted by main's fresh profile)"},
+  {"host": "www.startpage.com", "purpose": "the default search engine and its suggestions", "where": "ike/config.py",
+   "declared": "Claude, 2026-11-24 (contacted by main's fresh profile)"}
+ ]
+}

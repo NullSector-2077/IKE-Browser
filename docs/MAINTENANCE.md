@@ -2601,7 +2601,17 @@ computer) and without a display, with the real browser of each commit:
   scriptlets of the video sites; the element-hiding rules of seven addresses.
   Worse: a request blocked on `main` and allowed here, an element hidden on
   `main` and shown here, a rule or scriptlet lost. YouTube is only read:
-  nothing here changes its blocking.
+  nothing here changes its blocking. A request newly let through passes only
+  when the **filter list data** that decides it changed: an engine built from
+  the lists alone (not I.K.E.'s own rules) names the rule that blocked it on
+  `main` and the exception that lets it through here, with the list each comes
+  from and a digest of each list; the rule must be gone from its list's new
+  data, or the exception must come from a list whose data changed, and on
+  `main` the lists themselves must have stopped it. The same list data with
+  another result (an engine or code change) stays worse. The corpus's lists
+  are `main`'s on both sides in `tests.yml`, so there a request newly let
+  through is always worse; the rule applies to snapshots measured with
+  other list data (`compare`).
 - **Fingerprinting surface.** What a probe page's scripts read at every level
   (navigator, screen, fonts, canvas, WebGL, audio, matchMedia, Client Hints,
   workers, frames, permissions, storage, battery, the `ike:` pages), with a
@@ -2631,37 +2641,74 @@ computer) and without a display, with the real browser of each commit:
 
   When that holds, the change passes: "changed" (still protected), or
   "stricter" when the noise grew beyond the tolerance (the case of pull
-  request #148: the audio noise ten times larger). Worse: back to the real
-  value, the same in every session, a smaller noise, more of a real list, a
-  part that could not be read, and whatever cannot be judged: a value `main`
-  left real, a level measured without Off, a value that changes between
-  sessions at Off too, a value only one side has. The marks
+  request #148: the audio noise ten times larger). Weaker, so worse: back to
+  the real value, the same in every session, a smaller noise, more of a real
+  list, a hidden value now readable. What cannot be judged (a value
+  `main` left real, a level measured without Off, a value that changes
+  between sessions at Off too, a part that could not be read, a value only
+  one side has) is worse unless it is shown to be needed (below). The marks
   `canvas.noised`, `canvas_blob.noised`, `audio.noised` (the value differs
   from Off) are worse when they turn false. Everything else the probe reads
   (whether an API is offered, permissions, the native look of the replaced
-  functions, the `ike:` pages, the third-party image) keeps the exact rule:
-  **any** value that differs from `main` is worse.
+  functions, the `ike:` pages, the third-party image) cannot be judged: any
+  value that differs from `main` is worse unless it is shown to be needed.
 - **Network.** The hosts the browser contacts by itself with a fresh profile,
   at start and while loading the probe page (the engine and Qt through a
   recording proxy, I.K.E.'s own Python through an audit hook that also
-  refuses the connection). Worse: a host `main` does not contact.
+  refuses the connection). Worse: a host `main` does not contact, unless every
+  new host is declared in `tests/data/no-regression/endpoints.json` (I.K.E.'s
+  known external endpoints: the host, what it is for, where the code names
+  it) **and** this change's own code (outside `tests/`) names it. Only a
+  person, or Claude with the change read in full, edits that file: it is
+  under `tests/data/`, like the allowlist.
 - **Security settings.** The engine switches I.K.E. adds and what it drops
   from a hostile environment (no sandbox, no site isolation, remote
   debugging...), its lists of unsafe switches, tracking parameters and
   hands-off sites, the WebEngine settings, permissions, scripts and request
-  headers of every level, the protective defaults. Worse: anything weaker or
-  missing (an added hands-off site, a switch that reads as weaker, a default
-  turned off).
+  headers of every level, the protective defaults. Stricter or equal passes;
+  worse: anything weaker or missing (an added hands-off site, a switch that
+  reads as weaker, a default turned off) and any change the rules cannot
+  judge (a header, a setting whose safer value is not known). **No
+  exceptions**: no evidence accepts a change of a security setting, only a
+  person.
+
+**Needed changes pass by themselves** (the owner's principle of 2026-11-24:
+a change needed for I.K.E. to work correctly and for its protections to keep
+working is approved by the chain itself, nothing in it blocks such a change,
+now or in future cases). Each difference is either judged by its section's
+rules (stricter or still protected: it passes; weaker: it is worse), or it
+cannot be judged ("unjudged"). An unjudged difference passes by **evidence of
+need**: a test of the same area that **fails on `main` and passes here**, and
+this change touches the area's files (`NECESSITY` in the tool: the
+fingerprinting surface, with `fingerprint.js`, `shields.py`, `osinfo.py`,
+`fontcheck.py` and the tests of fingerprinting, noise, canvas, audio, WebGL
+and fonts; the pages' scriptlets, with `blocker.py`, `scriptlets.py`,
+`shields.py`, `ike/resources/` and the tests of ad blocking and scriptlets).
+For example, `test_n3_...` of `tests/test_review_fixes.py` failing on `main`
+by chance and passing with pull request #148. Main's results are those of the
+last finished run of `tests.yml` on `main`'s commit, read by the step **"Main's
+test results"** (a read-only token, in a step that runs none of the
+candidate's code); the candidate's are those of the same job. Evidence never
+accepts a weakening the rules see: an AI fix that turns a protection off and
+also makes a failing test pass is still worse. A request newly let through
+and a new host have only their own evidence (the list data, the registry);
+a security setting has none.
 
 A candidate that blocks more, or is stricter, passes, and the report says
 so. A part that could not be measured fails: it is never passed. The step
 writes a JSON report and a summary in plain words to the run's summary and to
-the `test-results` download (`no-regression/report.md`, `report.json`).
+the `test-results` download (`no-regression/report.md`, `report.json`). The
+report says **why** each difference passed (`why` and `passed_by` in the
+JSON): the rule that judged it, the evidence (which test, which files, which
+list rule, which declared endpoint), or the person who accepted it; each worse
+one says whether it is weaker or could not be judged; and the evidence it
+read (the files of the change, the tests fixed here, the endpoints).
 
 **Accepting a change.** A change that keeps or strengthens the protection
-(a larger or another noise, one disguise for another) passes by itself and
-needs no entry. The allowlist is for a real weakening, or a change the tool
-cannot judge, that a person read and wants: a person adds an entry to
+(a larger or another noise, one disguise for another) and a needed change
+with its evidence pass by themselves and need no entry. The allowlist is only
+for what a person read and wants although the tool calls it worse: a real
+weakening, or a change it cannot judge with no evidence. A person adds an entry to
 `tests/data/no-regression/allowlist.json`: the observation's key as the report
 prints it (a glob), optionally its value on `main` and on the candidate (so it
 accepts that one change only), why, and who accepted it when. The file is
@@ -2672,6 +2719,9 @@ that no longer matches anything is listed in the report, to be removed.
 By hand: `python3 tools/no-regression.py check --base-repo <main checkout>
 --candidate-repo . --out-dir /tmp/nr` (each checkout needs its
 `vendor/adblock` engine built); `snapshot` and `compare` do the two halves.
+The evidence: `--main-junit` and `--candidate-junit` (pytest's junit files),
+`--endpoints` (the registry), `--diff` (the change as git's diff; `check` asks
+git for it in the candidate's checkout, from `main`'s commit).
 
 What it cannot see: a weakening outside the corpus (another site, request or
 API than those measured); YouTube's own pages, which need HTTPS (its requests,
@@ -2685,10 +2735,13 @@ widths, the frame's and the worker's canvases: there, only "not the real
 value, and different in each session"); whether a new disguised value is
 rarer than the old one (the tool knows the real value only, not how common a
 value is: one disguise for another passes when neither is the real one).
-`main`'s side is measured by `main`'s copy of the tool, so these rules and the
-second session apply to both sides once they are on `main`; a snapshot of an
-older copy (no second session) compares safely: what it lacks is judged on the
-candidate alone, or is worse.
+Evidence of need is only as strong as the tests: a test that failed on
+`main` by chance counts (the change must still touch the area and its rules
+must still hold), and a needed change of an area no test covers waits for a
+person. `main`'s side is measured by `main`'s copy of the tool, so these rules,
+the second session and the evidence apply once they are on `main`; a snapshot
+of an older copy (no second session) compares safely: what it lacks is judged
+on the candidate alone, or is worse.
 
 ## The owner's part
 
