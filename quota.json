@@ -36,7 +36,7 @@
    "runs": 4
   },
   "2026-11-24": {
-   "answered": 1,
+   "answered": 2,
    "no_provider": 0,
    "providers": {
     "Z.AI": {
@@ -52,7 +52,7 @@
      "tokens": 23158
     }
    },
-   "runs": 1
+   "runs": 2
   }
  },
  "schema": 1

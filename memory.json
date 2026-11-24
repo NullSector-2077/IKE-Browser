@@ -12,6 +12,18 @@
     "sig": "19bd99de16c06f44",
     "summary": "L'agente non ha scritto un riassunto. **Riserve: Le riserve hanno esaurito la quota o non rispondono: riprova pi\u00f9 tardi. Non interpellati per la quota gratuita: Groq (the request is larger than its limit per minute (8980 tokens, 6000 a minute)).**",
     "task": "multi-file"
+   },
+   {
+    "attempt": 2,
+    "date": "2026-11-24",
+    "detail": "rotated",
+    "files": [],
+    "model": "",
+    "outcome": "no-fix",
+    "provider": "",
+    "sig": "19bd99de16c06f44",
+    "summary": "L'agente non ha scritto un riassunto. **Riserve: La quota gratuita di oggi non basta per scrivere una correzione e farla anche rivedere da altre AI: la correzione aspetta, nessuna quota \u00e8 stata sprecata. Riprova da sola. Non interpellati per la quota gratuita: Groq (the request i",
+    "task": "multi-file"
    }
   ],
   "automation/update/drill-qt@5269ae9140634c90": [
@@ -74,8 +86,8 @@
  "solved": {},
  "streak": {
   "automation/update/drill-qt": {
-   "date": "2026-11-23",
-   "n": 1,
+   "date": "2026-11-24",
+   "n": 2,
    "sig": "19bd99de16c06f44",
    "since": "2026-11-23"
   },
