@@ -2614,58 +2614,98 @@ computer) and without a display, with the real browser of each commit:
   other list data (`compare`).
 - **Fingerprinting surface.** What a probe page's scripts read at every level
   (navigator, screen, fonts, canvas, WebGL, audio, matchMedia, Client Hints,
-  workers, frames, permissions, storage, battery, the `ike:` pages), with a
-  noise key, and once more with a second key (a second session: a new start of
-  the browser has a new key); `check` gives both sides the same two keys,
-  random. Each noised value is also read twice in the same session, drawn in a
-  frame of another site, and the probe's canvas and sound are read on two
-  starts with a fresh profile and the browser's own random key. Since
-  2026-11-24 the values the protection disguises are judged by what protects
-  the user, not by the number: the canvas (its picture, `toBlob`, a picture of
-  known bytes at an offset, 112 stripes of flat colours, the frame's and the
-  worker's), the audio, WebGL (the card's name, its limits, extensions, and
-  `readPixels` of a texture of known bytes), the
-  navigator's identity (user agent, platform, cores, memory, languages,
-  plugins...), the screen, the fonts, Client Hints, the time zone and locale,
-  the media queries (`FP_JUDGED` in the tool). Each part of such a value is
-  compared with the **Off** level of its own snapshot (the real value; `main`'s
-  Off counts too):
-  - **noised** on `main` (it differs from Off and changes with the session):
-    it must still differ from Off in both sessions; a value drawn from a large
-    space (the hash of a picture or of a sound, random plugin names:
-    `NOISE_PARTS`) must still change with the session;
+  workers, frames, permissions, storage, battery, the `ike:` pages), in
+  **eight sessions** at every level but Off (two there): each a page load with
+  its own noise key, as a new start of the browser has; `check` gives both
+  sides the same eight keys, random. Each noised value is also read twice in
+  the same session and in a frame of another site; the probe's canvas and
+  sound are read on two starts with a fresh profile and the browser's own
+  random key; and the whole probe once more on **another machine** (another
+  time zone, language and screen size). Every level is measured after the
+  check of the fonts a page could find (`fontcheck.py`, which a start runs
+  after 15 s and which changes every level's settings) has answered, as on a
+  user's computer after the first start; no answer is an error. Since 2026-11-24 the values the
+  protection disguises are judged by what protects the user, not by the
+  number: the canvas (its picture, `toBlob`, a picture of known bytes at an
+  offset, 896 stripes each of its own flat colour, the frame's and the worker's), the
+  audio, WebGL (the card's name, its limits, extensions, and `readPixels` of
+  a texture of known bytes), the navigator's identity (user agent, platform,
+  cores, memory, languages, plugins...), the screen, the fonts, Client Hints,
+  the time zone and locale, the media queries (`FP_JUDGED` in the tool). Each
+  part of such a value is compared, in every session, with the **Off** level
+  (the real value; `main`'s and the candidate's both count). A rule written
+  against a weakening never lets it pass; what chance can produce is told
+  from it by more readings, not by looser rules (the second independent review
+  of 2026-11-24):
+  - the real value in a session only as often as chance gives it: where
+    chance never gives it (a picture's hash, a card's name not among the
+    common ones), in no session where `main` never gave it; where it does,
+    by how often it does as measured on `main` (a single text width: its
+    noise has 61 steps, one of them none, measured on `main`'s 128 widths of
+    every session; the extensions: each name left out about half the time,
+    measured on `main`'s 24 draws, also for the worker's list, `LIST_PEERS`)
+    and never more often than that leaves under 1 in 10,000 (`CHANCE`);
+    where `main` gave it too (the cores, one of two), never far more often
+    (an exact permutation test of both sides' sessions); never a hidden
+    value readable, never the real text in a text or more of the real one's
+    words than any of `main`'s readings had;
+  - **drawn from a large space** (the hash of a picture or of a sound, random
+    plugin names: `NOISE_PARTS`): still different with the session;
   - **drawn from a few common values** (`PICK_VALUES`, `PICK_PARTS`: the
-    card's name and maker, the extensions, the cores, a text width with its 61
-    steps): two sessions alike, or alike on `main`, or the real value in one
-    session, can be chance, so only what chance cannot explain is worse: the
-    real value in every session where `main` never gave it, a hidden value now
-    readable, fewer names changed beyond chance;
-  - **a fixed disguise** on `main` (it differs from Off, the same in both
-    sessions: a common user agent, a screen size, the card's name hidden): it
-    must not be the real value in either session and come no closer to it: a
-    list shows no name of the real list that `main` did not show and comes no
-    closer to the real list; a number is no nearer; a text holds no more of
-    the real one's words and never the real one; a value hidden on `main`
-    stays hidden; another kind of value cannot be judged;
+    card's name and maker, the extensions, the cores, a text width): the
+    page's own ones are read 24 times on each side (the 8 sessions and 16
+    more keys on a small page, `PICK_DRAWS`); never the same in all of them
+    where an exact permutation test of both sides' draws puts that under 1 in
+    10,000 (`CHANCE`; the card's name the same 24 times is far beyond chance,
+    its maker, one of two, is not);
+  - **a list drawn per session** (the extensions, also the worker's; the
+    plugins): as many names changed from the real list (the sessions' means,
+    beyond chance: Student's t over 8 + 8 sessions at 5, `COUNT_Z`) and at
+    least three different lists where `main` has them; a number drawn per
+    session (not a pick), as far from the real one, the same way; read in
+    fewer than three sessions, it cannot be judged;
+  - **a fixed disguise** on `main` (the same in every session, away from the
+    real value): no closer to the real value (a list shows no real name `main`
+    hid and comes no closer, a number is no nearer); a new fixed value only
+    when a person counts it among the common ones
+    (`tests/data/no-regression/common-values.json`, `main`'s copy); and on the
+    other machine it must not follow the real one (the `env.<value>` marks);
   - **the size of the noise** (`NOISE`), measured by the tool against Off's
-    real values from what the page hands over, only on pictures of varied
-    known bytes (a flat area is noised all or nothing for a given key, so its
-    size would be chance): the page's picture, the blob, the offset picture,
-    the frame's, WebGL's `readPixels` and the worker's; 128 text widths; the
-    audio samples. For each, the mean change and the share of elements
-    changed, and for the audio the spread of the factors (a constant gain has
-    none). Each must stay at least the larger of `main`'s and a **floor** a
-    person keeps (`tests/data/no-regression/noise-floor.json`, so merges
-    cannot lower the noise step by step), less only by chance: 20 %, or more
-    where few elements changed, four times the spread of two draws of the same
-    noise (`_tolerance`; a false "worse" from chance is 3 in 100,000 per
-    measure);
+    real values (the same on both sides, or it cannot be compared) on what the
+    page hands over: pictures of varied known bytes (the page's, its
+    `toDataURL`, the blob, the offset picture, the frame's and its
+    `toDataURL`, WebGL's `readPixels`, the worker's), the flat stripes (the
+    count of stripes changed), the text widths (the page's 128 and the
+    frame's 64), the audio samples. For each, the mean change, the share of
+    elements changed, and the share that differs **between sessions** (a
+    noise drawn the same each time, or at the same places, has less); for the
+    audio, the spread of the factors (a constant gain has none); for the text
+    widths also the session with the fewest changed (`widths_least`: a session
+    with no width noise, which a single width's real value cannot show beyond
+    chance, fails here). Each must
+    stay at least `main`'s less the tolerance of chance (four times the spread
+    of two draws of the same noise: a false "worse" 3 in 100,000 per measure;
+    at least 20 %, never more than 35 %, `TOLERANCE_CAP`: where it would be
+    more, more is measured, as the 896 stripes) **and at least the floor** a
+    person keeps (`tests/data/no-regression/noise-floor.json`), with no
+    tolerance on the floor, so merges cannot lower the noise step by step;
   - **marks** that must stay true where they are on `main`: `<value>.noised`
     (it differs from Off), `stable.<value>` (read twice in the same session, the
     same: a noise new at every read could be averaged away), `site.<value>`
     (another site's frame differs; in I.K.E. a frame shares its page's noise,
     so today false on `main`), `natural/<value>.differs` and `.noised` (two
-    starts with the browser's own keys differ from each other and from Off).
+    starts with the browser's own keys differ from each other and from Off),
+    `env.<value>` (a fixed disguise the same on the other machine);
+  - **the masked font names** (`fingerprint-config/<level>/fonts`, the
+    names fingerprint.js masks: they follow the computer's fonts and when
+    its check answered, so two runs of the same code could differ, as on
+    pull request #155): judged by what protects, not by their digest. The
+    tool measures itself, in the same run, which fonts a page can find (a
+    page of its own in a profile with none of I.K.E.'s scripts, over
+    fingerprint.js's names and the families installed); every one must be
+    masked (but the six every system has). A font found and left unmasked
+    where `main` masked it is worse; another list that masks every font
+    found is "changed"; not measured on the candidate, it cannot be judged.
 
   When that holds, the change passes: "changed" (still protected), or
   "stricter" when the noise grew beyond the tolerance (the case of pull
@@ -2673,8 +2713,9 @@ computer) and without a display, with the real browser of each commit:
   the real value, the same in every session, a smaller noise, more of a real
   list, nearer the real value, a hidden value now readable, a mark turned
   false. What cannot be judged is worse: a level measured without Off, a value
-  that changes between sessions at Off too, a part that could not be read, a
-  second session missing on the candidate, a value only one side has. Values
+  that changes between sessions at Off too, a part that could not be read,
+  fewer sessions on the candidate, a value only one side has, real values the
+  noise is measured against that differ between the two sides. Values
   with a **protective direction** (`PROTECTIVE`: the native look of the
   replaced functions, `webdriver`, Global Privacy Control, the APIs offered,
   media devices, battery, WebGPU, local fonts, the keyboard map, voices, the
@@ -2710,7 +2751,7 @@ need from a weakening (an independent review of the same day: "when in doubt,
 worse"). Each difference is judged by its section's rules (stricter or still
 protected: it passes; weaker: worse), or it cannot be judged (worse). The one
 kind evidence of need can accept is **a fingerprinting value `main` left real
-that the change now disguises in both sessions**, and only when all of this
+that the change now disguises in every session**, and only when all of this
 holds:
 
 - a person bound a test to that value in
@@ -2723,8 +2764,8 @@ holds:
   `actions: read`, which runs none of the candidate's code), and running it
   again **three times on each side** (`main`'s worktree, the candidate) it
   fails every time on `main` and passes every time here;
-- this change touches one of the binding's files, and the test claims at most
-  four values (`NECESSITY_CAP`).
+- this change touches one of the binding's files but not the test's own file,
+  and the test claims at most four values (`NECESSITY_CAP`).
 
 Evidence never accepts a weakening, a value that could not be read or was not
 measured, an Off-level row, a value with a protective direction, the
@@ -2747,8 +2788,11 @@ notice of the run, which the signing notice (`tools/release-notice.py`) lists
 under "Differenze passate per prova, senza una persona".
 
 **Accepting a change.** A change that keeps or strengthens the protection
-(a larger or another noise, one disguise for another) and a needed change
-with its evidence pass by themselves and need no entry. The allowlist is only
+(a larger or another noise, another draw of the same common values) and a
+needed change with its evidence pass by themselves and need no entry. A new
+fixed disguise (a screen size, a user agent...) passes once a person adds it
+to `tests/data/no-regression/common-values.json` (the value, the part, the
+common values, why). The allowlist is only
 for what a person read and wants although the tool calls it worse: a real
 weakening, or a change it cannot judge. A person adds an entry to
 `tests/data/no-regression/allowlist.json`: the observation's key as the report
@@ -2757,7 +2801,9 @@ accepts that one change only), why, and who accepted it when. The file is
 under `tests/data/`: the automatic fix may not touch it, and a pull request
 that changes it is a test file changed, so it never merges by itself. Since
 2026-11-24 `tests.yml` reads **`main`'s copy** of the allowlist, of the
-endpoints and of the tests' bindings, never the candidate's: an entry counts
+endpoints, of the tests' bindings, of the common values and of the floors,
+never the candidate's (a file of them that cannot be read is an error, never
+"none"): an entry counts
 once it is on `main` (first a pull request with the entry, then the change).
 An entry that no longer matches anything is listed in the report, to be
 removed. The noise floors (`noise-floor.json`) are raised when the noise is
@@ -2779,28 +2825,46 @@ runners refuse it: `security.yml` tests it); a real graphics card and the
 user's own fonts (software rendering, the runner's fonts, the same on both
 sides); whether a new disguised value is rarer than the old one when neither
 is nearer the real one (the tool knows the real value, not how common a value
-is), and a drawn value made the same in every session where it is drawn from
-a few common ones (a card's name, cores: chance cannot be told from it).
+is: for a fixed disguise a person decides, in the common values), a drawn
+value that can be alike in every draw by chance (the card's maker, one of two;
+the copies of the card's name in the worker and the frame, read in the 8
+sessions only), a real value shown somewhat more often than chance shows it
+(the real list of extensions in a tenth of the draws instead of 1 in 128
+fails one time in four; in a quarter, nine times in ten), and a noise in
+another site's frame (I.K.E.'s frames share
+their page's noise: `site.` is false on `main` and only guards a future
+per-frame noise).
 
 **False alarms.** A red from chance would hold back every real update of the
-day, so what chance can produce is never worse. Main against main in the same
-run (as in `tests.yml`: the same random keys on both sides) gives the same
-values, so nothing is judged at all. A rewrite of the noise of the same
-strength draws every noised value anew; measured as main against main with
-independent random keys: 16 snapshots, 240 ordered pairs, none with a "worse" (before this was
-measured and fixed, 109 of 132 pairs had one: the cleared `readPixels`
-picture, a card's name alike in two sessions by chance, the closeness rules
-applied to a draw that looked fixed). Computed bound for such a run: about
-fifty noise measures at 3 in 100,000 each, the lists' and the flat stripes'
-chances far below: under 0.2 % per run. Twenty real checks of main against
-main as in `tests.yml`: no "worse" in any.
+day; a pass from a looser rule would let a weakening through. So no rule is
+loosened for chance: what chance can produce is told from a weakening by more
+readings (eight sessions, 24 draws of the picks, 896 stripes, 128 widths).
+Main against main in the same run (as in `tests.yml`: the same random keys on
+both sides) gives the same values, so nothing is judged at all. A rewrite of
+the noise of the same strength draws every noised value anew; measured as main
+against main with independent random keys (16 snapshots, every ordered pair:
+240 comparisons), none had a "worse" on 2026-11-24. The same experiment found
+what more readings fixed: 84 of 240 with the real value of a text width or of
+the extensions' list in one session (chance gives it: now judged against how
+often, measured on `main`), and 5 of 240 with fewer flat stripes changed (448
+stripes repeating every 256 were noised alike in pairs: now 896, each of its
+own colour). Computed for such a run: 114 noise measures, each at most 3 in
+100,000 (together 0.03 %); the counts of 12 lists at 1 in 10,000 each
+(0.12 %); about 22 real-value tests at 1 in 10,000 each (0.22 %); the picks and
+the hashes far below: under 0.4 % per run. And 20 real runs of `check`, main
+against main as in `tests.yml`, gave 20 passes (an earlier 20 had one red: the
+storage estimate at Off ran out of its 3 s on a busy computer; it now has
+10 s).
 
 **Code that recognises the measurement** and behaves differently there
 is only partly guarded: the probe's address, title, global, the frame's host,
 the hook's files, its variable and the noise keys of `check` are random for
 each run, and the static guard (`tools/fix-guard.py`) and the AI reviewers
 (`tools/ai-review.py`) refuse an AI change that names what measures it
-(`IKE_TEST_*`, `IKE_NR*`, `nrResult`, "no regression", the offscreen platform,
+(`IKE_TEST_*`, `IKE_NR*`, `IKE_NO_SINGLE`, `nrResult`, "no regression", the
+offscreen platform, SwiftShader, the sandbox and D-Bus variables of the run,
+`GITHUB_ACTIONS`/`CI`/`RUNNER_*`, the local address, `.example` hosts,
+`addaudithook`/`sys.modules`, the probe's drawn text and known-bytes generator,
 the noise keys' store...); the code measured still runs in the same job, with
 its test hook. The gate should move to a job of its own on a fresh runner,
 planned with the sharded CI of the branch `automation/fast-tests`. `main`'s

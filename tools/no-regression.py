@@ -95,6 +95,14 @@ SECTIONS = ("requests", "cosmetic", "scriptlets", "fingerprint", "security", "ne
 FIXED_KEY = "6e6f2d72656772657373696f6e2d6b31"
 # the key of a second session (a new start has a new key): what the protection randomises must change
 FIXED_KEY_2 = "6e6f2d72656772657373696f6e2d6b32"
+# another real machine for the "env." marks: what a fixed disguise shows must not follow it
+OTHER_MACHINE = {"tz": "Pacific/Auckland", "lang": "de_DE.UTF-8", "screen": {"width": 1366, "height": 768}}
+
+
+def fixed_keys(n):
+    """The fixed noise keys of n sessions (a snapshot by hand; check draws random ones)."""
+    return [FIXED_KEY, FIXED_KEY_2] + [hashlib.sha256(("%s %d" % (FIXED_KEY, i)).encode()).hexdigest()[:32]
+                                       for i in range(3, n + 1)]
 # graphics switches given to the engine (software WebGL, as the tests); what I.K.E. adds is compared
 INPUT_FLAGS = ["--no-sandbox", "--enable-unsafe-swiftshader", "--use-angle=swiftshader", "--ignore-gpu-blocklist"]
 THIRD = "nr-third.example"           # a third-party host of the probe page (headers, Referer)
@@ -151,18 +159,20 @@ FP_LISTS = {"fonts_measured", "fonts_check", "navigator.languages", "navigator.p
 # what the probe hands over only for the size of the noise (no observation of its own): pictures of
 # known bytes as read back, the PNG of the canvases and of the blob, text widths, the audio samples;
 # and the canvas and sound of another site's frame (the "site." marks)
-SAMPLES = {"canvas_pixels", "canvas_offset_pixels", "webgl_pixels", "worker_pixels", "frame_pixels",
-           "text_widths", "audio_samples", "png", "third_frame"}
+SAMPLES = {"canvas_pixels", "canvas_offset_pixels", "canvas_flat_pixels", "webgl_pixels", "worker_pixels",
+           "frame_pixels", "frame_widths", "text_widths", "audio_samples", "png", "third_frame"}
 # the size of the noise of each noised value, against Off's real one, from SAMPLES: (kind, field, sub)
 # Only pictures of varied known bytes: a flat area is noised all or nothing for a given key, so its
 # size would be chance (the canvas's own picture has a flat rectangle: its size comes from the
 # picture of known bytes drawn the same way; the flat stripes have no size, only their marks).
 NOISE = {
-    "canvas": (("pixels", "canvas_pixels", None), ("widths", "text_widths", None)),
+    "canvas": (("pixels", "canvas_pixels", None), ("png", "png", "known"), ("widths", "text_widths", None),
+               ("site", "third_frame", None)),
     "canvas_blob": (("png", "png", "blob"),),
     "canvas_offset": (("pixels", "canvas_offset_pixels", None),),
+    "canvas_flat": (("stripes", "canvas_flat_pixels", None),),
     "webgl.read_pixels": (("pixels", "webgl_pixels", None),),
-    "frame": (("pixels", "frame_pixels", None),),
+    "frame": (("pixels", "frame_pixels", None), ("png", "png", "frame_known"), ("widths", "frame_widths", None)),
     "worker": (("pixels", "worker_pixels", None),),
     "audio": (("samples", "audio_samples", None),),
     "fonts_generic": (("widths", "text_widths", None),),
@@ -175,6 +185,30 @@ NOISE_TOLERANCE = 0.2
 # a false "worse" from chance is at most 3e-5 per measure (one-sided normal, z = 4): with about fifty
 # measures judged when a noise is rewritten, under 0.2 % for a whole run
 NOISE_Z = 4.0
+# the tolerance of chance never above this: where it would be, more readings are taken, not a looser rule
+TOLERANCE_CAP = 0.35
+# sessions measured at every level but Off (each a page load with its own noise key): enough for what
+# is drawn per session to be told from chance (CHANCE, COUNT_Z)
+SESSIONS = 8
+# a value drawn from a few common ones the same in all sessions is worse only when chance explains it
+# less often than this (_chance_alike, an exact permutation test of main's draws and the candidate's)
+CHANCE = 1e-4
+# the values drawn from a few common ones read again on a small page with this many more keys per level
+# (8 + 16 draws on each side: the card's name the same in all of them is 1e-10 by chance, its maker,
+# one of two, 1e-3: only the first can be judged, and it is)
+PICK_DRAWS = 16
+PICK_DRAWN = ("webgl.unmasked_renderer", "webgl.unmasked_vendor", "webgl.extensions", "navigator.hardwareConcurrency",
+              "navigator.plugins")
+# a count lower here than on main (names changed, a distance from the real value) is worse beyond
+# COUNT_Z times the spread of the difference of the sessions' means (Student's t with 14 degrees of
+# freedom for 8 + 8 sessions: 1e-4), the variance at least COUNT_VAR_FLOOR (a count that never varies)
+COUNT_Z = 5.0
+COUNT_VAR_FLOOR = 0.1
+# parts that are lists of names, besides FP_LISTS (the worker's WebGL extensions)
+LIST_PARTS = {("worker", "[6][1]")}
+# the new values of a fixed disguise a person counts among the common ones (a fixed disguise that
+# changes to anything else is worse); under tests/, as the allowlist
+COMMON_VALUES = FIXTURES / "common-values.json"
 # the least noise sizes a person keeps (so merges cannot lower the noise step by step); under tests/
 NOISE_FLOORS = FIXTURES / "noise-floor.json"
 LEVEL_NAMES = {"off": "Off", "compatibility": "Compatibility", "balanced": "Balanced", "strict": "Strict",
@@ -258,16 +292,25 @@ PROBE = r"""<!doctype html><html><head><meta charset="utf-8"><meta name="referre
     var ox = picture(64, 48, 555, 40, 40, 7, 3, 777);
     R.canvas_offset_pixels = readAll(ox); R.canvas_offset = hash(R.canvas_offset_pixels);
     ST.canvas_offset = readAll(ox) === R.canvas_offset_pixels;
-    // flat colours: a stripe of one colour is noised all or nothing for a given key (1 in 8), so 112
-    // stripes of their own colours: none noised at all by chance is (7/8)^112, about 3e-7
-    var fc = document.createElement('canvas'); fc.width = 16; fc.height = 112;
+    // flat colours: a stripe of one colour is noised all or nothing for a given key (1 in 8), so 896
+    // stripes, each of a colour of its own (the noise reads a byte without its lowest bit: the colours
+    // differ in the other bits; 448 stripes repeating every 256 were noised alike in pairs, and the count
+    // of stripes changed varied more than its tolerance of chance allowed, measured 2026-11-24): none
+    // noised at all by chance is (7/8)^896, and the count changed (about 1 in 8, 8 sessions) rests on
+    // enough for a tolerance of 20 %
+    var fc = document.createElement('canvas'); fc.width = 16; fc.height = 896;
     var fx = fc.getContext('2d');
-    for (var fr = 0; fr < 112; fr++) {
-      fx.fillStyle = 'rgb(' + ((fr * 37 + 11) & 255) + ',' + ((fr * 91 + 40) & 255) + ',' + ((fr * 53 + 90) & 255) + ')';
+    for (var fr = 0; fr < 896; fr++) {
+      var fa = fr & 127, fb = fr >> 7;
+      fx.fillStyle = 'rgb(' + (((fa * 37 + 11) & 127) << 1) + ',' + (((fb * 91 + fa * 13 + 40) & 127) << 1) + ',' +
+        (((fa * 53 + fb * 29 + 90) & 127) << 1) + ')';
       fx.fillRect(0, fr, 16, 1);
     }
-    var flat = readAll(fx); R.canvas_flat = hash(flat);
+    var flat = readAll(fx); R.canvas_flat = hash(flat); R.canvas_flat_pixels = flat;
     ST.canvas_flat = readAll(fx) === flat;
+    // what toDataURL gives of a picture of known bytes (its noise has a size; the canvas's own
+    // picture has a flat rectangle)
+    PNG.known = picture(64, 64, 8642).canvas.toDataURL();
   } catch (e) { R.canvas_offset = R.canvas_flat = 'error ' + e; }
   try {
     // enough varied opaque pixels that a noise always shows (a flat picture had a few bytes changed:
@@ -361,7 +404,13 @@ PROBE = r"""<!doctype html><html><head><meta charset="utf-8"><meta name="referre
     var fw = f.contentWindow;
     R.frame = [fw.navigator.hardwareConcurrency, fw.navigator.userAgent, fw.navigator.plugins.length,
       fw.screen.width, canvasHash(fw.document)];
-    R.frame_pixels = readAll(picture(64, 64, 1357, 0, 0, 0, 0, 0, fw.document));
+    var fpic = picture(64, 64, 1357, 0, 0, 0, 0, 0, fw.document);
+    R.frame_pixels = readAll(fpic);
+    PNG.frame_known = fpic.canvas.toDataURL();
+    var fwx = fw.document.createElement('canvas').getContext('2d');
+    fwx.font = '16px sans-serif';
+    R.frame_widths = [];
+    for (var fi = 0; fi < 64; fi++) R.frame_widths.push(fwx.measureText('Fr ' + fi + ' qz ' + (fi * 29) + ' Wy').width);
   } catch (e) { R.frame = 'error ' + e; }
   var FONTS = ['Arial', 'Times New Roman', 'Courier New', 'Helvetica', 'Verdana', 'Georgia', 'Comic Sans MS', 'Impact',
     'Trebuchet MS', 'Tahoma', 'DejaVu Sans', 'DejaVu Serif', 'DejaVu Sans Mono', 'Liberation Sans', 'Liberation Serif',
@@ -400,7 +449,7 @@ PROBE = r"""<!doctype html><html><head><meta charset="utf-8"><meta name="referre
       dateText: new Date(0).toString().replace(/^.*?GMT/, 'GMT')};
   } catch (e) { R.intl = 'error ' + e; }
   try {
-    var est = await settle(navigator.storage.estimate(), 3000, null);
+    var est = await settle(navigator.storage.estimate(), 10000, null);   // 3 s ran out once in 20 checks of a busy computer
     R.storage_quota = est ? est.quota : 'timeout';
   } catch (e) { R.storage_quota = 'error ' + e; }
   try { R.voices = window.speechSynthesis ? speechSynthesis.getVoices().length : 'none'; } catch (e) { R.voices = 'error ' + e; }
@@ -624,6 +673,10 @@ def _profile(p):
                     fpcfg = "unreadable"
     if isinstance(fpcfg, dict):
         fpcfg.pop("key", None)
+        if "fonts" in fpcfg:
+            # the names masked (None: the whole list of fingerprint.js), judged against the fonts a page
+            # can find, measured by the tool in the same run (fonts_findable)
+            out["fonts_masked"] = fpcfg["fonts"] if isinstance(fpcfg["fonts"], list) else None
         for big in ("psl", "fonts"):
             if big in fpcfg:
                 fpcfg[big] = "sha256 " + hashlib.sha256(json.dumps(fpcfg[big]).encode()).hexdigest()[:16]
@@ -645,10 +698,11 @@ def _keys(sh, key):
         sh.profile_keys[id(p)] = key
 
 
-def _probe(view, tag, limit=40):
-    """The probe page loaded at the level tag; (loaded, what its scripts read or None)."""
+def _probe(view, tag, limit=40, page=None):
+    """The probe page (or another of the server's) loaded at the level tag; (loaded, what its scripts
+    read or None)."""
     state, box, found = {}, {}, None
-    yield from _load(view, "%s/%s?%s=%s" % (PLAN["base"], PLAN["path"], PLAN["param"], tag), state, "ok")
+    yield from _load(view, "%s/%s?%s=%s" % (PLAN["base"], page or PLAN["path"], PLAN["param"], tag), state, "ok")
     end = time.monotonic() + limit
     while time.monotonic() < end:
         yield from _js(view, "window[%s] || ''" % json.dumps(PLAN["global"]), box)
@@ -695,6 +749,67 @@ def _list_verdicts():
         OUT["list_verdicts"] = OUT["list_data"] = None
 
 
+# the tool's own test of which fonts a page can find (a text's width in the font against the default
+# fonts), in a page of its own, in a profile with none of I.K.E.'s scripts
+FONTS_JS = r"""(function (names) {
+  var s = 'mmmmmmmmmmlli1WQ@#&ABCxyz', out = [], box = document.createElement('div');
+  document.body.appendChild(box);
+  function w(f) {
+    var e = document.createElement('span');
+    e.style.cssText = 'font-size:72px;position:absolute;white-space:nowrap;font-family:' + f;
+    e.textContent = s; box.appendChild(e);
+    var r = e.offsetWidth + 'x' + e.offsetHeight; box.removeChild(e); return r;
+  }
+  var base = {}; ['monospace', 'serif', 'sans-serif'].forEach(function (b) { base[b] = w(b); });
+  names.forEach(function (n) {
+    if (['monospace', 'serif', 'sans-serif'].some(function (b) {
+      return w("'" + n.replace(/'/g, '') + "'," + b) !== base[b];
+    })) out.push(n);
+  });
+  return out;
+})"""
+
+
+def _fonts_findable():
+    """OUT["fonts_findable"]: the names a page can find on this computer among those fingerprint.js
+    masks and the families installed; OUT["fonts_list"]: fingerprint.js's list (what is masked when
+    the settings carry none). Every level's masked names are judged against them (the tool's rule
+    "fonts"), not by the names' digest, which follows the computer and the time of the answer."""
+    import re as _re
+    from PyQt6.QtGui import QFontDatabase
+    from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile
+    from ike.config import RES_DIR
+    try:
+        text = open(os.path.join(str(RES_DIR), "fingerprint.js"), encoding="utf-8").read()
+        found = _re.search(r"var MASKED_FONTS = (\[.*?\]);", text, _re.S)
+        listed = json.loads(found.group(1)) if found else []
+        names, seen = [], set()
+        for n in list(listed) + [_re.sub(r"\s*\[[^\]]*\]$", "", str(f)).strip() for f in QFontDatabase.families()]:
+            if n and n.lower() not in seen:
+                seen.add(n.lower())
+                names.append(n)
+        OUT["fonts_list"] = listed
+        got, state = {}, {}
+        prof = QWebEngineProfile(qapp)              # noqa: F821  (off the record, none of I.K.E.'s scripts)
+        page = QWebEnginePage(prof, qapp)           # noqa: F821
+        page.loadFinished.connect(lambda ok: state.update(loaded=ok))
+        page.setHtml("<!doctype html><body></body>", QUrl("about:blank"))
+        end = time.monotonic() + 30
+        while "loaded" not in state and time.monotonic() < end:
+            yield 100
+        page.runJavaScript(FONTS_JS + "(%s)" % json.dumps(names), 0, lambda r: got.update(r=r))
+        end = time.monotonic() + 60
+        while "r" not in got and time.monotonic() < end:
+            yield 100
+        if isinstance(got.get("r"), list):
+            OUT["fonts_findable"] = [str(x) for x in got["r"]]
+        else:
+            _err("fonts", "the fonts a page can find could not be measured")
+        page.deleteLater()
+    except Exception:
+        _err("fonts")
+
+
 def measure():
     yield 300
     b, sh, cfg = ike.blocker, ike.shields, ike.config        # noqa: F821
@@ -719,10 +834,27 @@ def measure():
         yield 50
     OUT["engine"] = {"native": bool(b.native), "built": b.engine is not None, "errors": b.errors,
                      "lists_written_late": late}
+    # the fonts a page could find (fontcheck.py): asked once, 15 s after a start, and the levels' settings
+    # change with the answer; with eight sessions a level the answer came in the middle of the run, at
+    # one level or another (a false "worse" of fingerprint-config/<level>/fonts). Asked now and awaited,
+    # every level is measured as a user's browser is after its first start.
+    fc = getattr(ike, "font_check", None)            # noqa: F821
+    try:
+        if fc is not None and hasattr(fc, "_run"):
+            fc._run()
+            end = time.monotonic() + 60
+            while getattr(fc, "_page", None) is not None and time.monotonic() < end:
+                yield 100
+            if getattr(fc, "_page", None) is not None:
+                _err("fonts", "the check of the fonts a page could find gave no answer in 60 s")
+    except Exception:
+        _err("fonts")
+    if "security" in sections:
+        yield from _fonts_findable()
     if "requests" in sections:
         _list_verdicts()
     try:
-        _keys(sh, PLAN["key"])
+        _keys(sh, PLAN["keys"][0])
     except Exception:
         _err("fingerprint")
     view = ike.windows[0].current_view()            # noqa: F821
@@ -754,21 +886,40 @@ def measure():
                 here["profile"] = _profile(prof)
             except Exception:
                 _err("security")
-        if "fingerprint" in sections and PLAN.get("key2"):
-            # a second session: another noise key, as a new start of the browser has; what the
-            # protection randomises must differ from the first. Its own tag ("<level>.s2"), so the
-            # headers the server keeps for the level are the first session's.
-            here["probe_session2"] = None
+        if "fingerprint" in sections and PLAN.get("keys"):
+            # more sessions: other noise keys, as new starts of the browser have; what the protection
+            # randomises must differ between them (Off: one more, for its stability). Each with its own
+            # tag ("<level>.s<n>"), so the headers the server keeps for the level are the first session's.
+            here["probe_sessions"] = []
+            for n, key in enumerate(PLAN["keys"][1:2] if lv == "off" else PLAN["keys"][1:], 2):
+                got = None
+                try:
+                    _keys(sh, key)
+                    sh.apply_settings()
+                except Exception:
+                    _err("fingerprint")
+                else:
+                    yield 50
+                    _loaded, got = yield from _probe(view, "%s.s%d" % (lv, n))
+                here["probe_sessions"].append(got)
+            here["probe_session2"] = here["probe_sessions"][0] if here["probe_sessions"] else None
+            if lv != "off":
+                # the values drawn from a few common ones, read with more keys on a small page: enough
+                # draws for their being the same in every session to be told from chance
+                here["picks"] = []
+                for n, key in enumerate(PLAN.get("pick_keys") or (), 1):
+                    got = None
+                    try:
+                        _keys(sh, key)
+                        sh.apply_settings()
+                    except Exception:
+                        _err("fingerprint")
+                    else:
+                        yield 20
+                        _loaded, got = yield from _probe(view, "%s.p%d" % (lv, n), page=PLAN["pick"], limit=15)
+                    here["picks"].append(got)
             try:
-                _keys(sh, PLAN["key2"])
-                sh.apply_settings()
-            except Exception:
-                _err("fingerprint")
-            else:
-                yield 50
-                here["loaded_session2"], here["probe_session2"] = yield from _probe(view, lv + ".s2")
-            try:
-                _keys(sh, PLAN["key"])
+                _keys(sh, PLAN["keys"][0])
                 sh.apply_settings()
             except Exception:
                 _err("fingerprint")
@@ -995,6 +1146,25 @@ runpy.run_path(boot, run_name="__main__")
 '''
 
 
+# the values drawn from a few common ones (PICK_DRAWN), alone: read with PICK_DRAWS more keys per level
+PICK_PAGE = r"""<!doctype html><html><head><meta charset="utf-8"><title>__TITLE__</title></head><body>
+<script>
+(function () {
+  var R = {webgl: {}, navigator: {}};
+  try {
+    var gl = document.createElement('canvas').getContext('webgl');
+    var dbg = gl && gl.getExtension('WEBGL_debug_renderer_info');
+    R.webgl.unmasked_vendor = dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : null;
+    R.webgl.unmasked_renderer = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : null;
+    R.webgl.extensions = gl ? (gl.getSupportedExtensions() || []).join(',') : null;
+  } catch (e) { R.webgl = 'error ' + e; }
+  R.navigator.hardwareConcurrency = navigator.hardwareConcurrency;
+  R.navigator.plugins = Array.from(navigator.plugins).map(function (p) { return p.name; }).join(',');
+  window['__GLOBAL__'] = JSON.stringify(R);
+})();
+</script></body></html>"""
+
+
 # the probe's canvas and sound drawn the same way in a frame of another site (R.third_frame): with a
 # per-site noise they must differ from the probe page's own
 FRAME = r"""<!doctype html><html><head><meta charset="utf-8"><title>__TITLE__</title></head><body>
@@ -1016,8 +1186,18 @@ FRAME = r"""<!doctype html><html><head><meta charset="utf-8"><title>__TITLE__</t
     for (var i = 4500; i < 5000; i++) sum += Math.abs(d[i]);
     return sum.toFixed(10);
   }
+  // the page's picture of known bytes, read here too: its noise must differ where it is per site
+  function known() {
+    var c = document.createElement('canvas'); c.width = 96; c.height = 96;
+    var x = c.getContext('2d'), img = x.createImageData(96, 96), st = 12345;
+    for (var i = 0; i < img.data.length; i++) { st = (Math.imul(st, 1103515245) + 12345) >>> 0; img.data[i] = i % 4 === 3 ? 255 : st >>> 24; }
+    x.putImageData(img, 0, 0);
+    var d = x.getImageData(0, 0, 96, 96).data, s = '';
+    for (var j = 0; j < d.length; j += 8192) s += String.fromCharCode.apply(null, Array.from(d.subarray(j, j + 8192)));
+    return btoa(s);
+  }
   var v = null;
-  try { v = [canvasHash(document), await render()]; } catch (e) { v = 'error ' + e; }
+  try { v = [canvasHash(document), await render(), known()]; } catch (e) { v = 'error ' + e; }
   parent.postMessage({k: '__TAG__', v: v}, '*');
 })();
 </script></body></html>"""
@@ -1032,7 +1212,7 @@ def run_names():
     return {"path": t(), "param": "q" + t(), "title": t(), "global": "_" + t(), "frame": t(), "tag": t(),
             "third": "%s.example" % t(), "attr": "data-" + t(), "hook": "h" + t(), "wrapper": "w" + t(),
             "out": "o" + t(), "plan": "p" + t(), "env": "Q" + t().upper(), "netmod": "_" + t(),
-            "dirs": ["d" + t() for _ in range(3)]}
+            "dirs": ["d" + t() for _ in range(3)], "pick": t()}
 
 
 # --- the local server: probe pages, and the proxy every other address goes to ------------
@@ -1137,6 +1317,9 @@ class Server:
         if host == n["third"] and path == "/pixel.png":
             self._keep("third-party", lv, headers)
             return PNG, "image/png"
+        if host == "127.0.0.1" and path == "/" + n["pick"]:
+            return PICK_PAGE.replace("__GLOBAL__", n["global"]).replace("__TITLE__", n["title"]).encode("utf-8"), \
+                "text/html; charset=utf-8"
         if host == n["third"] and path == "/" + n["frame"]:
             return FRAME.replace("__TAG__", n["tag"]).replace("__TITLE__", n["title"]).encode("utf-8"), \
                 "text/html; charset=utf-8"
@@ -1178,8 +1361,9 @@ def _git(repo, *args):
         return ""
 
 
-def run_browser(repo, mode, plan, settings, server, workdir, timeout):
-    """Start the checkout's I.K.E. with a profile of its own in workdir; returns the hook's output."""
+def run_browser(repo, mode, plan, settings, server, workdir, timeout, other_machine=False):
+    """Start the checkout's I.K.E. with a profile of its own in workdir; returns the hook's output.
+    other_machine: another real environment (OTHER_MACHINE: time zone, language, screen size)."""
     workdir = Path(workdir)
     home = workdir / "home"
     cfg = home / ".config" / "ike-browser"
@@ -1198,7 +1382,7 @@ def run_browser(repo, mode, plan, settings, server, workdir, timeout):
     hook.write_text(HOOK.replace("__PLAN_ENV__", n["env"]), "utf-8")
     wrapper.write_text(WRAPPER.replace("__NETMOD__", n["netmod"]), "utf-8")
     out = workdir / ("%s.json" % n["out"])
-    plan = dict(plan, mode=mode, out=str(out), base=server.base, path=n["path"], param=n["param"],
+    plan = dict(plan, mode=mode, out=str(out), base=server.base, path=n["path"], param=n["param"], pick=n["pick"],
                 attr=n["attr"], netmod=n["netmod"], **{"global": n["global"]})
     (workdir / ("%s.json" % n["plan"])).write_text(json.dumps(plan), "utf-8")
     (workdir / "run").mkdir(mode=0o700, exist_ok=True)
@@ -1219,6 +1403,12 @@ def run_browser(repo, mode, plan, settings, server, workdir, timeout):
         "http_proxy": proxy, "https_proxy": proxy, "HTTP_PROXY": proxy, "HTTPS_PROXY": proxy,
         "all_proxy": proxy, "ALL_PROXY": proxy, "no_proxy": "127.0.0.1,localhost", "NO_PROXY": "127.0.0.1,localhost",
     })
+    if other_machine:
+        screen = workdir / ("%s.json" % n["out"].replace("o", "s", 1))
+        screen.write_text(json.dumps({"screens": [dict(OTHER_MACHINE["screen"], name="s", x=0, y=0, logicalDpi=96,
+                                                       logicalBaseDpi=96, dpr=1)]}), "utf-8")
+        env.update({"TZ": OTHER_MACHINE["tz"], "LANG": OTHER_MACHINE["lang"],
+                    "QT_QPA_PLATFORM": "offscreen:configfile=%s" % screen})
     cmd = [sys.executable, str(wrapper), str(Path(repo).resolve() / "ike_boot.py")]
     try:
         proc = subprocess.run(cmd, cwd=str(workdir), env=env, capture_output=True, text=True, encoding="utf-8",
@@ -1236,16 +1426,17 @@ def run_browser(repo, mode, plan, settings, server, workdir, timeout):
 
 
 def snapshot(repo, levels=LEVELS, sections=SECTIONS, fixtures=FIXTURES, keep=None, settle=6.0, keys=None):
-    """The behaviour snapshot of the checkout in `repo` (a dict, see FORMAT). keys: the two noise keys
-    of the measured sessions (default FIXED_KEY, FIXED_KEY_2; `check` gives both sides the same two
+    """The behaviour snapshot of the checkout in `repo` (a dict, see FORMAT). keys: the noise keys of
+    the measured sessions, SESSIONS of them (default fixed_keys(); `check` gives both sides the same
     random ones, so the code measured cannot know them in advance)."""
     repo = Path(repo).resolve()
     corpus = load_corpus(fixtures)
     t0 = time.monotonic()
-    key, key2 = keys or (FIXED_KEY, FIXED_KEY_2)
+    keys = list(keys or fixed_keys(SESSIONS + PICK_DRAWS))
     plan = {"levels": list(levels), "sections": list(sections), "lists": corpus["lists"],
             "requests": corpus["requests"], "pages": corpus["pages"], "cosmetic_urls": corpus["cosmetic_urls"],
-            "scriptlet_hosts": corpus["scriptlet_hosts"], "key": key, "key2": key2,
+            "scriptlet_hosts": corpus["scriptlet_hosts"], "keys": keys[:SESSIONS],
+            "pick_keys": keys[SESSIONS:SESSIONS + PICK_DRAWS],
             "defaults": sorted(SAFE_DEFAULTS),
             "hostile_flags": HOSTILE_FLAGS, "hostile_env": HOSTILE_ENV, "settle": settle}
     quiet = {"lists_version": _lists_version(repo), "last_lists_update": 4102444800,
@@ -1263,6 +1454,15 @@ def snapshot(repo, levels=LEVELS, sections=SECTIONS, fixtures=FIXTURES, keep=Non
             raw["measure"]["proxy_hosts"] = server.take()
             with server.lock:
                 raw["measure"]["headers"] = server.headers
+                server.headers = {}
+        if "fingerprint" in sections:
+            # the same page on another real machine (time zone, language, screen): a fixed disguise
+            # must not follow the real one (the "env." marks); one session, the first key
+            raw["env2"] = run_browser(repo, "measure", dict(plan, sections=["fingerprint"], keys=keys[:1], pick_keys=[]),
+                                      quiet,
+                                      server, Path(tmp) / (dirs[0] + "e"), timeout=300, other_machine=True)
+            raw["env2"]["proxy_hosts"] = server.take()
+            with server.lock:
                 server.headers = {}
         if "network" in sections:
             # a fresh profile, every default as a new user has it: what the browser contacts by itself;
@@ -1285,6 +1485,15 @@ def snapshot(repo, levels=LEVELS, sections=SECTIONS, fixtures=FIXTURES, keep=Non
                        "lists": len(corpus["lists"])},
             "seconds": round(time.monotonic() - t0, 1)}
     snap["errors"], snap["observations"] = observations(raw, levels, sections, corpus)
+    # the samples are in the observations as the noise's sizes and references: not kept twice
+    for part in ("measure", "env2"):
+        for here in ((raw.get(part) or {}).get("levels") or {}).values():
+            for p in [here.get("probe")] + list(here.get("probe_sessions") or []):
+                for k in SAMPLES - {"third_frame"}:
+                    (p or {}).pop(k, None)
+                if isinstance((p or {}).get("third_frame"), list):
+                    p["third_frame"] = p["third_frame"][:2]
+            here.pop("probe_session2", None)
     # the digest of each filter list's data the requests were measured with (evidence for a request
     # newly let through: the list data that decides it changed)
     snap["list_data"] = (raw.get("measure") or {}).get("list_data")
@@ -1362,10 +1571,46 @@ def _feature_set(flags, which):
     return out
 
 
+def _env_marks(lv, probe, flats, off, env2):
+    """{value: True | False}: for each value whose real one (Off) changed in the other real environment,
+    whether what this level shows stayed the same there (False: it follows the real machine). Only
+    parts fixed in every session are asked (a value drawn per session is judged otherwise); a value
+    that equals the real one here and stays when the real one changes is a fixed disguise too."""
+    levels2 = (env2.get("levels") or {})
+    p2, off2 = (levels2.get(lv) or {}).get("probe") or {}, (levels2.get("off") or {}).get("probe") or {}
+    if not p2 or not off2:
+        return {}
+    one, two, real1, real2 = {}, {}, {}, {}
+    for src, out in ((probe, one), (p2, two), (off, real1), (off2, real2)):
+        _flat("", {k: v for k, v in src.items() if k not in SAMPLES}, out, "exact")
+    marks = {}
+    for k, o in one.items():
+        if not FP_JUDGED.match(k) or k not in two or k not in real1 or k not in real2:
+            continue
+        parts = _parts(o["value"], k)
+        sessions = [_parts(f[k]["value"], k) for f in flats if k in f]
+        here2, r1, r2 = _parts(two[k]["value"], k), _parts(real1[k]["value"], k), _parts(real2[k]["value"], k)
+        held = None
+        for path, v in parts.items():
+            if _role(k, path) is not None or any(s.get(path, MISSING) != v for s in sessions):
+                continue                    # drawn per session: not a fixed disguise
+            if r1.get(path, MISSING) == r2.get(path, MISSING):
+                continue                    # the environment did not change the real one
+            held = (held is not False) and here2.get(path, MISSING) == v
+        if held is not None:
+            marks[k] = held
+    return marks
+
+
 def observations(raw, levels, sections, corpus):
     """(errors, {key: {"rule", "value"}}) from what the browser recorded."""
     errors, obs = [], {}
-    for part in ("measure", "network", "network2"):
+    for part in ("measure", "env2", "network", "network2"):
+        if part in raw and (raw[part] or {}).get("python_hosts", None) is None and "errors" in (raw[part] or {}) \
+                and not (raw[part] or {}).get("errors"):
+            # the audit hook that records I.K.E.'s own connections did not report: not measured
+            errors.append({"section": "network", "error": "the hosts I.K.E.'s own code contacted were not "
+                                                          "recorded (%s)" % part})
         for e in (raw.get(part) or {}).get("errors") or ():
             errors.append({"section": e.get("section", part), "error": e.get("error", "")[-1500:]})
     m = raw.get("measure") or {}
@@ -1393,36 +1638,60 @@ def observations(raw, levels, sections, corpus):
                     obs["page-scriptlets/%s/%s/%s" % (lv, pg["id"], k)] = {
                         "rule": "exact", "value": (res.get("probes") or {}).get(k)}
         if "fingerprint" in sections:
-            probe, second = here.get("probe"), here.get("probe_session2")
+            probe = here.get("probe")
+            others = here.get("probe_sessions")
+            if others is None and "probe_session2" in here:
+                others = [here.get("probe_session2")]           # a hook of an older copy
+            others = others or []
             if probe is None:
                 errors.append({"section": "fingerprint", "error": "the probe page gave no result at %s" % lv})
             else:
-                if "probe_session2" in here and second is None:
-                    errors.append({"section": "fingerprint", "error": "the probe page gave no result at %s in "
-                                                                      "the second session" % lv})
-                fp, fp2 = {}, {}
+                for n, p in enumerate(others, 2):
+                    if p is None:
+                        errors.append({"section": "fingerprint", "error": "the probe page gave no result at %s in "
+                                                                          "session %d" % (lv, n)})
+                fp, flats, picks = {}, [], []
+                for n, p in enumerate(here.get("picks") or (), 1):
+                    if p is None:
+                        errors.append({"section": "fingerprint", "error": "the page of the drawn values gave no "
+                                                                          "result at %s (draw %d)" % (lv, n)})
+                    f = {}
+                    _flat("", p or {}, f, "exact")
+                    picks.append({k: v["value"] for k, v in f.items()})
                 _flat("", {k: v for k, v in probe.items() if k not in SAMPLES}, fp, "exact")
-                if second is not None:
-                    _flat("", {k: v for k, v in second.items() if k not in SAMPLES}, fp2, "exact")
+                for p in others:
+                    f = {}
+                    _flat("", {k: v for k, v in (p or {}).items() if k not in SAMPLES}, f, "exact")
+                    flats.append(f)
                 off = ((m.get("levels") or {}).get("off") or {}).get("probe") or {}
                 for k, o in fp.items():
-                    if k in fp2:
-                        o["session2"] = fp2[k]["value"]
+                    if flats and k in flats[0]:
+                        o["session2"] = flats[0][k]["value"]
+                    if len(flats) > 1 and all(k in f for f in flats):
+                        o["sessions"] = [o["value"]] + [f[k]["value"] for f in flats]
+                        if k in PICK_DRAWN and picks:
+                            o["sessions"] += [p.get(k, "error not read") for p in picks]
                     if lv != "off" and FP_JUDGED.match(k):
                         o["rule"] = "fingerprint"
                     if MARKS.search(k):
                         o["rule"] = "safer-true"
                     if lv != "off" and k in NOISE and off:
-                        o["noise"] = _noise(k, [x for x in (probe, second) if x is not None], off)
+                        o["noise"] = _noise(k, [probe] + [p for p in others if p is not None], off)
+                    if lv == "off" and k in NOISE:
+                        o["samples_ref"] = _samples_ref(k, probe)
                 if lv != "off" and off:
                     for k in NOISED:
                         fp["%s.noised" % k] = {"rule": "safer-true", "value": probe.get(k) != off.get(k)}
                 # the same canvas and sound in another site's frame: different where the noise is per site
                 tf, top = probe.get("third_frame"), probe.get("canvas")
-                read = isinstance(tf, list) and len(tf) == 2
+                read = isinstance(tf, list) and len(tf) >= 2
                 fp["site.canvas"] = {"rule": "safer-true", "value": tf[0] != top[0]
                                      if read and isinstance(top, list) and top else None}
                 fp["site.audio"] = {"rule": "safer-true", "value": tf[1] != probe.get("audio") if read else None}
+                # another real environment (time zone, language, screen): a fixed disguise must not follow it
+                if lv != "off" and raw.get("env2"):
+                    for k, v in _env_marks(lv, probe, flats, off, raw["env2"]).items():
+                        fp["env.%s" % k] = {"rule": "safer-true", "value": v}
                 for k, v in fp.items():
                     obs["fingerprint/%s/%s" % (lv, k)] = v
         if "security" in sections:
@@ -1433,10 +1702,18 @@ def observations(raw, levels, sections, corpus):
             for k, v in sorted(prof.items()):
                 if k == "scripts":
                     obs["scripts/%s" % lv] = {"rule": "kept", "value": v}
+                elif k == "fonts_masked":
+                    continue                # with the fonts' digest below
                 elif k == "fingerprint_config":
                     fc = {}
                     _flat("", v if isinstance(v, dict) else {"config": v}, fc, "exact")
                     for kk, vv in fc.items():
+                        if kk == "fonts" and "fonts_masked" in prof:
+                            # judged by what protects (_judge_fonts): every font a page can find masked
+                            vv = dict(vv, rule="fonts", masked=prof["fonts_masked"],
+                                      findable=m.get("fonts_findable"))
+                            if prof["fonts_masked"] is None:
+                                vv["listed"] = m.get("fonts_list")
                         obs["fingerprint-config/%s/%s" % (lv, kk)] = vv
                 else:
                     obs["profile/%s/%s" % (lv, k)] = {"rule": "exact", "value": v}
@@ -1522,6 +1799,8 @@ def observations(raw, levels, sections, corpus):
                     if known and off.get(k) is not None else None}
     if m:
         hosts = set(m.get("proxy_hosts") or []) | set(m.get("python_hosts") or [])
+        for e in ("env2",):
+            hosts |= set((raw.get(e) or {}).get("proxy_hosts") or []) | set((raw.get(e) or {}).get("python_hosts") or [])
         obs["network/while-measuring"] = {"rule": "no-new", "value": sorted(hosts)}
     return errors, obs
 
@@ -1540,7 +1819,7 @@ def _judge(rule, base, cand, key=""):
     "unjudged" (a change the rule cannot judge: worse too, unless evidence accepts it)."""
     if base == cand:
         return "same", ""
-    if cand is None and rule not in ("no-new",):
+    if cand is None and (rule != "no-new" or base is not None):
         return "unjudged", "not measured on the candidate"
     if rule == "block":
         if base is None:
@@ -1674,8 +1953,11 @@ def _decoded(kind, value):
     try:
         if kind == "png":
             return _png_bytes(value)
-        if kind == "pixels":
+        if kind in ("pixels", "stripes"):
             return base64.b64decode(value) if isinstance(value, str) else None
+        if kind == "site":
+            return base64.b64decode(value[2]) if isinstance(value, list) and len(value) > 2 and \
+                isinstance(value[2], str) else None
         if isinstance(value, list) and all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in value):
             return [float(x) for x in value]
     except (TypeError, ValueError):
@@ -1684,93 +1966,149 @@ def _decoded(kind, value):
 
 
 def _measure(kind, got, real):
-    """(size, share changed) of one session's noise against Off's real values; None if not measurable."""
+    """(size, share changed, elements) of one session's noise against Off's real values; None if not
+    measurable. stripes: the rows of a picture of flat stripes (16 pixels wide) changed at all."""
     if got is None or real is None or len(got) != len(real) or not len(got):
         return None
+    if kind == "stripes":
+        rows = [got[i:i + 64] != real[i:i + 64] for i in range(0, len(got), 64)]
+        return sum(rows) / len(rows), sum(rows) / len(rows), len(rows)
     share = sum(1 for a, b in zip(got, real) if a != b) / len(got)
     if kind in ("png", "pixels"):
-        return sum(abs(a - b) for a, b in zip(got, real)) / len(got), share
+        return sum(abs(a - b) for a, b in zip(got, real)) / len(got), share, len(got)
     pairs = [(a, b) for a, b in zip(got, real) if b != 0.0]
     if not pairs:
         return None
     ratios = [a / b for a, b in pairs]
     if kind == "widths":
-        return sum(abs(r - 1.0) for r in ratios) / len(ratios), share
+        return sum(abs(r - 1.0) for r in ratios) / len(ratios), share, len(got)
     # the audio: how much the factors differ from one sample to the next (around their median); a
     # constant gain changes every sample and has none
     mid = sorted(ratios)[len(ratios) // 2]
-    return sum(abs(r - mid) for r in ratios) / len(ratios), share
+    return sum(abs(r - mid) for r in ratios) / len(ratios), share, len(got)
+
+
+def _between(kind, a, b):
+    """(share of elements that differ between two sessions' readings, elements); None if not measurable."""
+    if a is None or b is None or len(a) != len(b) or not len(a):
+        return None
+    if kind == "stripes":
+        rows = [a[i:i + 64] != b[i:i + 64] for i in range(0, len(a), 64)]
+        return sum(rows) / len(rows), len(rows)
+    return sum(1 for x, y in zip(a, b) if x != y) / len(a), len(a)
+
+
+def _sample(p, field, sub):
+    v = (p or {}).get(field)
+    return (v.get(sub) if isinstance(v, dict) else None) if sub else v
 
 
 def _noise(key, probes, off):
-    """The size of the noise of a value (NOISE), each measure the sessions' average:
-    {"png" | "pixels" | "widths" | "dispersion": size, ..._share: the share of elements changed};
-    a measure None where it cannot be measured."""
+    """The size of the noise of a value (NOISE), from every session's readings: for each kind
+    ("png", "pixels", "widths", "stripes", "dispersion" for the audio) the size against Off's real
+    values and the share of elements changed, and "<kind>_between": the share of elements that differ
+    from one session to the next (a noise drawn the same in every session, or at the same places,
+    has less); "site": the share of the known picture that differs in another site's frame. Each
+    measure "m" with "m_k", the number of elements it rests on (for its tolerance). None where a
+    measure cannot be read."""
     out = {}
     for kind, field, sub in NOISE[key]:
-        def pick(p):
-            v = (p or {}).get(field)
-            return (v.get(sub) if isinstance(v, dict) else None) if sub else v
-        real = _decoded(kind, pick(off))
-        got = [_measure(kind, _decoded(kind, pick(p)), real) for p in probes]
+        if kind == "site":
+            got = [_between("pixels", _decoded("pixels", (p or {}).get("canvas_pixels")), _decoded("site", p.get(field)))
+                   for p in probes]
+            if got and all(g is not None for g in got):
+                out["site"] = float("%.6g" % (sum(g[0] for g in got) / len(got)))
+                out["site_k"] = max(1, round(out["site"] * sum(g[1] for g in got)))
+            else:
+                out["site"] = None
+            continue
+        real = _decoded(kind, _sample(off, field, sub))
+        reads = [_decoded(kind, _sample(p, field, sub)) for p in probes]
+        got = [_measure(kind, r, real) for r in reads]
         name = "dispersion" if kind == "samples" else kind
         share = "share" if kind == "samples" else kind + "_share"
+        between = "between" if kind == "samples" else kind + "_between"
         if got and all(g is not None for g in got):
+            count = sum(g[2] for g in got)
             out[name] = float("%.6g" % (sum(g[0] for g in got) / len(got)))
             out[share] = float("%.6g" % (sum(g[1] for g in got) / len(got)))
-            # how many elements were measured: a size from few changed elements is judged loosely
-            out[name + "_n"] = len(_decoded(kind, pick(off))) * len(got)
+            out[name + "_k"] = out[share + "_k"] = max(1, round(out[share] * count))
+            if kind == "widths":
+                # the session with the fewest widths changed: a single width is judged against how
+                # often chance leaves it real (_real_chance), so a session with no noise is caught
+                # here; its elements for the tolerance: the share's spread in one session,
+                # sqrt(p (1 - p) / n), as 1 / sqrt(k)
+                least = min(got, key=lambda g: g[1])
+                p, n = least[1], max(1, least[2])
+                out["widths_least"] = float("%.6g" % p)
+                out["widths_least_k"] = max(1, round(p * n / max(1 - p, 1 / n)))
         else:
             out[name] = out[share] = None
+            if kind == "widths":
+                out["widths_least"] = None
+        pairs = [_between(kind, a, b) for a, b in zip(reads, reads[1:])]
+        if pairs and all(x is not None for x in pairs):
+            out[between] = float("%.6g" % (sum(x[0] for x in pairs) / len(pairs)))
+            out[between + "_k"] = max(1, round(out[between] * sum(x[1] for x in pairs)))
+        elif len(reads) > 1:
+            out[between] = None
     return out
 
 
-def _counted(m):
-    """The element count key of a measure (png_share -> png_n, share -> dispersion_n)."""
-    return ("dispersion" if m == "share" else m[:-6] if m.endswith("_share") else m) + "_n"
+def _samples_ref(key, off):
+    """A digest of Off's real values a value's noise is measured against: the two sides' noise can be
+    compared only against the same real values."""
+    h = hashlib.sha256()
+    for kind, field, sub in NOISE[key]:
+        if kind == "site":
+            continue
+        d = _decoded(kind, _sample(off, field, sub))
+        h.update(json.dumps(list(d) if d is not None else None).encode())
+    return h.hexdigest()[:16]
 
 
 def _tolerance(m, nb):
-    """How much smaller a noise measure may be before it is worse: NOISE_TOLERANCE, or NOISE_Z times the
+    """How much smaller a noise measure may be than main's before it is worse: NOISE_Z times the
     chance spread of the difference between two independent draws of the same noise (another key, or
-    a rewrite of the same strength), when larger: Z * sqrt(2) * cv / sqrt(k), k the elements changed
-    (main's share times the elements measured), cv the spread of one element: 1 for a count of changed
-    elements (Poisson) and for the size of a picture's changes (each +-1), 0.6 for the magnitudes of the
-    widths and of the audio's factors (uniform). One-sided chance of a false "worse": 3e-5 per measure."""
-    n = nb.get(_counted(m))
-    share = nb.get("share" if _counted(m) == "dispersion_n" else _counted(m)[:-2] + "_share")
-    if not isinstance(n, (int, float)) or not isinstance(share, (int, float)) or n <= 0 or share <= 0:
+    a rewrite of the same strength), Z * sqrt(2) * cv / sqrt(k), k the elements the measure rests on
+    (main's "m_k"), cv the spread of one element (1 for counts and +-1 changes, 0.6 for the uniform
+    magnitudes of widths and of the audio's factors); never below NOISE_TOLERANCE, never above
+    TOLERANCE_CAP (more readings, not a looser rule, where it would be). A false "worse" from chance:
+    3e-5 per measure; the floor is applied with no tolerance."""
+    k = nb.get(m + "_k")
+    if not isinstance(k, (int, float)) or isinstance(k, bool) or k <= 0:
         return NOISE_TOLERANCE
     cv = 0.6 if m in ("widths", "dispersion") else 1.0
-    return max(NOISE_TOLERANCE, NOISE_Z * 2 ** 0.5 * cv / (share * n) ** 0.5)
+    return min(TOLERANCE_CAP, max(NOISE_TOLERANCE, NOISE_Z * 2 ** 0.5 * cv / k ** 0.5))
 
 
 def load_floors(path=None):
     """{value: {measure: the least noise size}} kept by a person (NOISE_FLOORS): the noise is judged
-    against the larger of main's and this, so merges cannot lower it step by step."""
+    against the larger of main's (less the tolerance of chance) and this floor (with no tolerance), so
+    merges cannot lower it step by step. None when the file cannot be read (an error, never no floors)."""
     try:
         data = json.loads(Path(path or NOISE_FLOORS).read_text("utf-8"))
-    except (OSError, ValueError):
-        return {}
-    floors = data.get("floors") if isinstance(data, dict) else None
-    return {k: {m: float(x) for m, x in v.items() if isinstance(x, (int, float)) and not isinstance(x, bool)}
-            for k, v in (floors or {}).items() if isinstance(v, dict)}
+        floors = data["floors"]
+        return {k: {m: float(x) for m, x in v.items() if isinstance(x, (int, float)) and not isinstance(x, bool)}
+                for k, v in floors.items() if isinstance(v, dict)}
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return None
 
 
 def _judge_noise(name, nb, nc, floors):
     """The noise sizes of one value, main's against the candidate's: (kind, detail), or None when main
-    has none. A measure smaller than the larger of main's and the floor, by NOISE_TOLERANCE, is worse;
-    one main has and the candidate not is unjudged."""
+    has none. A measure below main's less the tolerance of chance (_tolerance), or below the floor
+    (no tolerance), is worse; one main has and the candidate not is unjudged."""
     if not isinstance(nb, dict):
         return None
     nc = nc if isinstance(nc, dict) else {}
     floor = (floors or {}).get(name) or {}
     smaller, larger, unread, kept = [], [], [], []
     for m, vb in sorted(nb.items()):
-        if m.endswith("_n") or not isinstance(vb, (int, float)) or isinstance(vb, bool) or vb <= 0:
+        if m.endswith("_k") or not isinstance(vb, (int, float)) or isinstance(vb, bool) or vb <= 0:
             continue
         vc = nc.get(m)
-        need = max(vb, floor.get(m, 0.0)) * (1 - min(_tolerance(m, nb), 1.0))
+        need = max(vb * (1 - _tolerance(m, nb)), floor.get(m, 0.0))
         if not isinstance(vc, (int, float)) or isinstance(vc, bool):
             unread.append(m)
         elif vc < need:
@@ -1845,6 +2183,14 @@ PICK_VALUES = {"webgl.unmasked_renderer", "webgl.unmasked_vendor", "webgl.extens
                "fonts_generic"}
 PICK_PARTS = {("canvas", "[2]"), ("frame", "[0]"), ("frame", "[4][2]"), ("worker", "[2]"), ("worker", "[5]"),
               ("worker", "[6]")}
+# single text widths: their noise has 61 steps and one of them is none, so the real width comes back
+# by chance (about 1 in 61 a session); how often is measured on main's 128 (the frame: 64) widths of
+# every session (the value's "widths" noise), and the real width here is judged against that
+WIDTH_PARTS = {("canvas", "[2]"), ("frame", "[4][2]")}
+WIDTH_VALUES = {"fonts_generic"}
+# a list disguised by the same rule as another value read in more sessions: how often that rule leaves
+# the real list is measured on the other (the worker's WebGL extensions: the page's, 24 draws a level)
+LIST_PEERS = {("worker", "[6][1]"): "webgl.extensions"}
 
 
 def _role(name, path):
@@ -1855,117 +2201,223 @@ def _role(name, path):
     return None
 
 
-def _judge_part(name, path, b, c):
-    """One part of a disguised value. b = (main, main's second session, Off on main, Off's second
-    session on main), c = the same here; MISSING where not measured. (kind, why): "same", "changed"
-    (still protected), "worse" (weaker), "unjudged" (it cannot be judged: worse) or "neutral" (a value
-    main left real now disguised, both sessions away from the real one: worse, unless a test proves
-    it needed)."""
-    vb, vb2, ob, ob2 = b
-    vc, vc2, oc, oc2 = c
-    if vb2 is not MISSING and vc2 is MISSING:
-        return "unjudged", "no second session measured here (main has one)"
-    if vb == vc and (vb2 is MISSING or vb2 == vc2):
+def _id(v):
+    return json.dumps(v, sort_keys=True, default=str)
+
+
+def _chance_alike(main, here):
+    """The chance that the candidate's draws, all alike, are so by chance: with main's and the
+    candidate's draws from the same distribution (a rewrite of the same noise), the share of the ways
+    to choose the candidate's n draws among all m + n that pick only that value (an exact permutation
+    test; it assumes nothing of the distribution)."""
+    import math
+    n, m = len(here), len(main)
+    k = sum(1 for x in main if _id(x) == _id(here[0]))
+    return math.comb(k + n, n) / math.comb(m + n, n)
+
+
+def _tail(n, q, r):
+    """The chance of r or more of n sessions showing the real value when each does with chance q."""
+    import math
+    return sum(math.comb(n, i) * q ** i * (1 - q) ** (n - i) for i in range(r, n + 1))
+
+
+def _more_often(rb, nb, rc, nc):
+    """The chance that the candidate's sessions hold rc or more of the rb + rc real values of both
+    sides' nb + nc sessions, with both drawn alike (an exact permutation test, hypergeometric)."""
+    import math
+    k, total = rb + rc, nb + nc
+    return sum(math.comb(k, i) * math.comb(total - k, nc - i)
+               for i in range(rc, min(k, nc) + 1)) / math.comb(total, nc)
+
+
+def _real_chance(name, path, sb, ob, noise, peer=None):
+    """How often a disguise drawn anew shows the real value by chance, per session, as measured on main;
+    None where it is not measured (a picture's hash, a card's name: the real value then never comes by
+    chance). A text width (WIDTH_PARTS): the share of main's widths of every session left unchanged
+    (Laplace's estimate, never 0). A list that only leaves names out (the extensions): for each real
+    name main left out in some sessions, the share of main's sessions that showed it, multiplied (the
+    names are drawn apart); peer: (main's sessions, Off) of the list disguised by the same rule and
+    read in more sessions (LIST_PEERS), measured there instead."""
+    if (name, path) in WIDTH_PARTS or name in WIDTH_VALUES:
+        n = noise if isinstance(noise, dict) else {}
+        share, k = n.get("widths_share"), n.get("widths_share_k")
+        if _number(share, k) and share > 0 and k > 0:
+            count = max(k, round(k / share))
+            return (count - k + 1) / (count + 2)
+        return None
+    if (not path and name in FP_LISTS or (name, path) in LIST_PARTS) and len(sb) >= 3 and \
+            all(isinstance(y, str) for y in sb + [ob]):
+        if peer and len(peer[0]) > len(sb) and all(isinstance(y, str) for y in list(peer[0]) + [peer[1]]):
+            sb, ob = peer
+        real = _names(ob)
+        if any(_names(y) - real for y in sb):
+            return None                     # it adds names too: how often it adds none is not measured
+        q = 1.0
+        for x in real:
+            shown = sum(1 for y in sb if x in _names(y))
+            if shown < len(sb):
+                q *= (shown + 1) / (len(sb) + 2)
+        return q
+    return None
+
+
+def _count_drop(main, here):
+    """Whether a count (names changed from the real list, a distance from the real value) is lower
+    here than on main beyond chance: the difference of the sessions' means against COUNT_Z times its
+    spread (the pooled variance of both sides' sessions, at least COUNT_VAR_FLOOR)."""
+    nb, nc = len(main), len(here)
+    if nb < 2 or nc < 2:
+        return False
+    mb, mc = sum(main) / nb, sum(here) / nc
+    pooled = (sum((x - mb) ** 2 for x in main) + sum((x - mc) ** 2 for x in here)) / (nb + nc - 2)
+    return mb - mc > COUNT_Z * (max(pooled, COUNT_VAR_FLOOR) * (1.0 / nb + 1.0 / nc)) ** 0.5
+
+
+def _judge_part(name, path, b, c, common=None, noise=None, peer=None):
+    """One part of a disguised value. b = (main's first session, main's sessions, Off on main, Off's
+    second session on main), c = the same here; a session's part MISSING where not measured; the
+    sessions list has one value where only one session was measured (an older snapshot). (kind, why):
+    "same", "changed" (still protected), "worse" (weaker), "unjudged" (it cannot be judged: worse) or
+    "neutral" (a value main left real now disguised, every session away from the real one: worse,
+    unless a test proves it needed). common: {(name, path): [values]} a person keeps (COMMON_VALUES).
+    noise: main's noise sizes of the value (how often a text width stays real by chance: _real_chance);
+    peer: main's sessions and Off of the list disguised by the same rule (LIST_PEERS)."""
+    vb, sb, ob, ob2 = b
+    vc, sc, oc, oc2 = c
+    if len(sb) > 1 and len(sc) < len(sb):
+        return "unjudged", "fewer sessions measured here (%d) than on main (%d)" % (len(sc), len(sb))
+    if vb == vc and (sb == sc or len(sb) == 1):           # an older main: its one session
         return "same", ""
-    if vc is MISSING:
+    if vc is MISSING or any(x is MISSING for x in sc):
         return "unjudged", "not read here"
-    if isinstance(vc, str) and FAILED.match(vc):
-        return "unjudged", "could not be read here (%s)" % _short(vc, 60)
+    failed = [x for x in sc if isinstance(x, str) and FAILED.match(x)]
+    if failed:
+        return "unjudged", "could not be read here (%s)" % _short(failed[0], 60)
     if ob is MISSING or oc is MISSING:
         return "unjudged", "cannot be judged: the Off level was not measured"
     if (ob2 is not MISSING and ob2 != ob) or (oc2 is not MISSING and oc2 != oc):
         return "unjudged", "cannot be judged: it changes from one session to the next at Off too"
+    sb = [x for x in sb if x is not MISSING] or [vb]
     role = _role(name, path)
-    if role == "pick":
-        # one of a few common values, drawn per session: two draws can be alike, or be the real
-        # value, by chance; only what chance cannot explain is judged
-        if vb is None and vc is not None:
-            return "worse", "hidden on main, readable here"
-        main_real = vb in (ob, oc) or vb2 in (ob, oc)
-        if not main_real and vc in (oc, ob) and (vc2 is MISSING or vc2 in (oc, ob)):
-            return "worse", "the real value (Off's) here, in every session"
-        if vb == ob and vb2 in (MISSING, ob):
-            # main gave the real value every time: not disguised there at all
-            if oc == ob and vc != oc and vc2 is not MISSING and vc2 != oc:
-                return "neutral", "main gave the real value; here a disguise, in both sessions"
-            return "unjudged", "main gave the real value (Off's): a change of it cannot be judged"
-        if not path and name in FP_LISTS and all(isinstance(x, str) for x in (vb, vb2, vc, vc2, ob, oc)) \
-                and vb2 != vb:
-            far_b, far_c = (_far(vb, ob) + _far(vb2, ob)) / 2.0, (_far(vc, oc) + _far(vc2, oc)) / 2.0
-            if far_b - far_c > NOISE_Z * (max(far_b, 1.0) / 2.0) ** 0.5:
-                return "worse", "fewer names changed from the real list: %g on main, %g here" % (far_b, far_c)
-        return "changed", "another of the few common values this disguise is drawn from, not the real one"
-    if vb == ob:
-        if oc == ob and vc != oc and vc2 is not MISSING and vc2 != oc:
-            return "neutral", "main gave the real value; here a disguise, in both sessions"
+    drawn_b, drawn_c = len({_id(x) for x in sb}), len({_id(x) for x in sc})
+    if all(x == ob for x in sb):
+        # main gave the real value every time: not disguised there at all
+        if oc == ob and len(sc) > 1 and all(x != oc for x in sc):
+            return "neutral", "main gave the real value; here a disguise, in every session"
         return "unjudged", "main gave the real value (Off's): a change of it cannot be judged"
     reals = (oc, ob)
-    if vc in reals or vc2 in reals:
-        return "worse", "the real value (Off's) here"
-    if vb is None:
+    rb, rc = sum(1 for x in sb if x in reals), sum(1 for x in sc if x in reals)
+    if rc:
+        # the real value in a session: worse unless chance, as measured, explains it
+        q = _real_chance(name, path, sb, ob, noise, peer)
+        if q is None and not rb:
+            return "worse", "the real value (Off's) here, in a session where main never gave it"
+        if q is None and _more_often(rb, len(sb), rc, len(sc)) < CHANCE:
+            return "worse", "the real value (Off's) in %d of %d sessions here, %d of %d on main" % (
+                rc, len(sc), rb, len(sb))
+        if q is not None and _tail(len(sc), q, rc) < CHANCE:
+            return "worse", "the real value (Off's) in %d of %d sessions here: more than chance gives " \
+                            "(%.2g a session, measured on main)" % (rc, len(sc), q)
+    if all(x is None for x in sb) and any(x is not None for x in sc):
         return "worse", "hidden on main, readable here"
-    names = not path and name in FP_LISTS and all(isinstance(x, str) for x in (vb, vc, ob, oc))
-    if vb2 in (MISSING, vb):
-        # a fixed disguise on main: here no closer to the real value than main's was
-        if names:
-            shown = sorted((_names(vc) | _names(vc2)) & _names(oc) - _names(vb))
+    names = (not path and name in FP_LISTS or (name, path) in LIST_PARTS) and \
+        all(isinstance(x, str) for x in sb + sc + [ob, oc])
+    if not names and all(isinstance(x, str) for x in sb + sc + [ob, oc]):
+        # a text: never the real one in it, never more of its words than main's draws had
+        if oc and any(oc in x for x in sc) and not any(ob and ob in y for y in sb):
+            return "worse", "the real value (Off's) is in it here"
+        most = max(len(_tokens(y) & _tokens(ob)) for y in sb)
+        more = max(len(_tokens(x) & _tokens(oc)) for x in sc)
+        if more > most:
+            return "worse", "more of the real value's words here (%d) than in any of main's sessions (%d)" % (
+                more, most)
+    numbers = all(_number(x) for x in sb + sc + [ob, oc])
+    if names:
+        if drawn_b == 1:
+            # a fixed list on main: no name of the real list main did not show, no closer to it
+            shown = sorted(set().union(*(_names(x) for x in sc)) & _names(oc) - _names(vb))
             if shown:
                 return "worse", "shows more of the real list: %s" % ", ".join(shown[:8])
-            near = min(_far(x, oc) for x in (vc, vc2) if isinstance(x, str))
-            if near < _far(vb, ob):
+            if min(_far(x, oc) for x in sc) < _far(vb, ob):
                 return "worse", "closer to the real list: %d names differ from it on main, %d here" % (
-                    _far(vb, ob), near)
-        elif _number(vb, ob, oc, vc) and (vc2 is MISSING or _number(vc2)):
-            near = min(abs(x - oc) for x in (vc, vc2) if x is not MISSING)
-            if near < abs(vb - ob):
-                return "worse", "closer to the real value: %g from it on main, %g here" % (abs(vb - ob), near)
-        elif all(isinstance(x, str) for x in (vb, ob, oc, vc)) and (vc2 is MISSING or isinstance(vc2, str)):
-            for x in (vc, vc2):
-                if x is MISSING:
-                    continue
-                if oc and oc in x:
-                    return "worse", "the real value (Off's) is in it here"
-                if len(_tokens(x) & _tokens(oc)) > len(_tokens(vb) & _tokens(ob)):
-                    return "worse", "more of the real value's words here (%d) than on main (%d)" % (
-                        len(_tokens(x) & _tokens(oc)), len(_tokens(vb) & _tokens(ob)))
+                    _far(vb, ob), min(_far(x, oc) for x in sc))
+        elif len(sb) < 3 or len(sc) < 3:
+            return "unjudged", "a list drawn per session, read in too few sessions to judge its count"
         else:
-            return "unjudged", "another disguise that cannot be compared with the real value"
-        if vb2 is not MISSING:
-            return "changed", "another disguise, no closer to the real value"
-    if vb2 is MISSING:
-        if vc2 is not MISSING and vc2 != vc:
+            # a list randomised on main: as many names changed (beyond chance), as many different lists
+            if _count_drop([_far(y, ob) for y in sb], [_far(x, oc) for x in sc]):
+                return "worse", "fewer names changed from the real list: %.3g on main, %.3g here (sessions' mean)" % (
+                    sum(_far(y, ob) for y in sb) / len(sb), sum(_far(x, oc) for x in sc) / len(sc))
+            if drawn_b >= 3 and drawn_c < 3:
+                return "worse", "%d different lists in %d sessions here, %d on main" % (drawn_c, len(sc), drawn_b)
+    elif numbers and role != "pick":
+        if drawn_b == 1:
+            if min(abs(x - oc) for x in sc) < abs(vb - ob):
+                return "worse", "closer to the real value: %g from it on main, %g here" % (
+                    abs(vb - ob), min(abs(x - oc) for x in sc))
+        elif len(sb) < 3 or len(sc) < 3:
+            return "unjudged", "a number drawn per session, read in too few sessions to judge it"
+        elif _count_drop([abs(y - ob) for y in sb], [abs(x - oc) for x in sc]):
+            return "worse", "closer to the real value (sessions' mean): %.3g on main, %.3g here" % (
+                sum(abs(y - ob) for y in sb) / len(sb), sum(abs(x - oc) for x in sc) / len(sc))
+    if role == "pick":
+        # one of a few common values, drawn per session: alike, or the real value, by chance is
+        # judged above; the same in every session where chance can hardly explain it is worse
+        if drawn_b > 1 and len(sc) > 2 and drawn_c == 1 and _chance_alike(sb, sc) < CHANCE:
+            return "worse", "the same in every one of the %d sessions here (on main it changed)" % len(sc)
+        return "changed", "another of the few common values this disguise is drawn from, not the real one"
+    if drawn_b == 1 and len(sb) > 1:
+        # a fixed disguise on main: a new fixed value only when a person counts it among the common ones
+        new = [x for x in sc if x != vb]
+        if new and role is None:
+            known = (common or {}).get((name, path), [])
+            if not all(any(x == k for k in known) for x in new):
+                return "unjudged", "a new disguise (%s) that is not among the common values a person keeps " \
+                                   "(tests/data/no-regression/common-values.json)" % _short(new[0], 60)
+        return "changed", "another disguise, a common one, no closer to the real value"
+    if len(sb) == 1:
+        if len(sc) > 1 and drawn_c > 1:
             return "changed", "still not the real value, and different in each session"
-        return "unjudged", "cannot be judged: main's second session was not measured"
-    if vc2 == vc:
+        return "unjudged", "cannot be judged: main's other sessions were not measured"
+    if drawn_c == 1:
         return "worse", "the same in every session here (on main it changed with the session)"
-    # a number randomised on main (a text width): how far from the real one is judged from 128 widths
-    # in the noise's size (NOISE "widths"); two readings would only be chance
     return "changed", "still noised (not the real value) and different in each session"
 
 
-def _judge_fingerprint(key, b, c, bo, co, floors=None):
+def _sessions(o, field="value"):
+    """A value's readings in every session measured (an older snapshot: the first one or two)."""
+    if o is None or field not in o:
+        return None
+    if isinstance(o.get("sessions"), list) and o["sessions"]:
+        return o["sessions"]
+    return [o["value"], o["session2"]] if "session2" in o else [o["value"]]
+
+
+def _judge_fingerprint(key, b, c, bo, co, floors=None, common=None):
     """A value the fingerprinting protection disguises (FP_JUDGED), judged by what protects, part by
-    part (_parts), on main and here, each against the Off level of its own snapshot (the real value;
-    both Offs count) and its own second session:
-    - randomised on main (it changed with the session): still not the real value, still different
-      in each session, a list changing as many names (beyond chance: NOISE_Z);
-    - a fixed disguise on main: not the real value in either session, and no closer to it: a list
-      shows no name of the real list main hid and comes no closer; a number is no nearer; a text
-      holds no more of the real one's words; anything else cannot be judged;
-    - its noise (NOISE: the sessions' average of each measure) not smaller than the larger of main's
-      and the floor (NOISE_FLOORS) beyond _tolerance ("stricter" when larger beyond NOISE_TOLERANCE);
-    - the real value on main, the Off level not measured, a part that could not be read, a second
-      session missing here, a value that changes between sessions at Off too: "unjudged" (worse);
-      a value main left real now disguised in both sessions: "neutral" (worse, unless a test proves
-      it needed: _by_necessity).
-    bo, co: every observation of main's snapshot and of the candidate's. (kind, detail): a weaker part
-    or a smaller noise makes it "worse" whatever the rest is."""
+    part (_parts) and over every session measured (SESSIONS), on main and here, each against the Off
+    level of its own snapshot (the real value; both Offs count):
+    - randomised on main: the real value in no more sessions than chance gives it (where chance never
+      does, in none where main never gave it; otherwise as measured on main: _real_chance); a large space
+      (NOISE_PARTS) still different with the session; a list changing as many names and as many
+      different lists, a number as far from the real one (beyond chance: _count_drop); a value drawn
+      from a few common ones (PICK_*) never the same in all sessions where chance cannot explain it;
+    - a fixed disguise on main: not the real value, no closer to it (a list, a number, a text's
+      words), and a new value only among the common ones a person keeps (COMMON_VALUES);
+    - its noise (NOISE) not below main's less the tolerance of chance, nor below the floor
+      (NOISE_FLOORS, no tolerance), measured against the same real values on both sides;
+    - what cannot be judged (fewer sessions here, Off not measured or unstable, a part that could
+      not be read, a value main left real) is "unjudged" (worse); a value main left real now
+      disguised in every session is "neutral" (worse, unless a test proves it needed).
+    (kind, detail): a weaker part or a smaller noise makes it "worse" whatever the rest is."""
     if c is None:
         return "unjudged", "not measured on the candidate"
     if b is None:
         return "unjudged", "not measured on main: a new value cannot be judged"
     head, _, name = key.split("/", 2)
     offkey = "%s/off/%s" % (head, name)
+    offb, offc = bo.get(offkey), co.get(offkey)
 
     def split(o, field):
         return _parts(o[field], name) if o is not None and field in o else None
@@ -1973,11 +2425,23 @@ def _judge_fingerprint(key, b, c, bo, co, floors=None):
     def at(parts, path):
         return MISSING if parts is None else parts.get(path, MISSING)
 
-    main = [split(b, "value"), split(b, "session2"), split(bo.get(offkey), "value"), split(bo.get(offkey), "session2")]
-    here = [split(c, "value"), split(c, "session2"), split(co.get(offkey), "value"), split(co.get(offkey), "session2")]
+    sb = [_parts(x, name) for x in _sessions(b)]
+    sc = [_parts(x, name) for x in _sessions(c)]
+    ob, ob2, oc, oc2 = split(offb, "value"), split(offb, "session2"), split(offc, "value"), split(offc, "session2")
     found = {"worse": [], "unjudged": [], "neutral": [], "changed": []}
-    for path in sorted(set(main[0]) | set(here[0])):
-        kind, why = _judge_part(name, path, tuple(at(x, path) for x in main), tuple(at(x, path) for x in here))
+
+    def peer(path):
+        other = LIST_PEERS.get((name, path))
+        level = key.split("/")[1]
+        po, pf = bo.get("%s/%s/%s" % (head, level, other)), bo.get("%s/off/%s" % (head, other))
+        if not other or not po or not pf or "value" not in pf:
+            return None
+        return _sessions(po), pf["value"]
+    for path in sorted(set(sb[0]) | set(sc[0])):
+        kind, why = _judge_part(name, path, (sb[0].get(path, MISSING), [s.get(path, MISSING) for s in sb],
+                                             at(ob, path), at(ob2, path)),
+                                (sc[0].get(path, MISSING), [s.get(path, MISSING) for s in sc], at(oc, path),
+                                 at(oc2, path)), common, b.get("noise"), peer(path))
         if kind != "same":
             found[kind].append(("%s %s" % (path, why)) if path else why)
 
@@ -1985,6 +2449,9 @@ def _judge_fingerprint(key, b, c, bo, co, floors=None):
         why = [w for k in kinds for w in found[k]]
         return "; ".join(why[:6]) + ("; and %d more parts" % (len(why) - 6) if len(why) > 6 else "")
     noise = _judge_noise(name, b.get("noise"), c.get("noise"), floors)
+    if noise and (offb or {}).get("samples_ref") != (offc or {}).get("samples_ref"):
+        noise = ("unjudged", "the real values (Off) the noise is measured against differ between main and "
+                             "here: the noise cannot be compared")
     if found["worse"]:                 # a weaker part decides, whatever the other parts are
         return "worse", said("worse", "unjudged", "neutral")
     if noise and noise[0] == "worse":  # and a smaller noise, even next to a part that cannot be judged
@@ -2029,7 +2496,7 @@ PROTECTIVE = (
 )
 # marks judged as a protection that must stay on: the value differs from Off (".noised"), from the
 # other start (".differs"), reads the same twice ("stable."), differs on another site ("site.")
-MARKS = re.compile(r"(\.noised|\.differs)$|^(stable|site)\.")
+MARKS = re.compile(r"(\.noised|\.differs)$|^(stable|site|env)\.")
 
 
 def _protective(name):
@@ -2062,7 +2529,46 @@ def _rule(key, b, c):
             return "protective"
     if parts[0] == "page-scriptlets":
         return "protective"
+    if parts[0] == "fingerprint-config" and len(parts) == 3 and parts[2] == "fonts":
+        return "fonts"
     return (b or c)["rule"]
+
+
+# the families every system answers to, never masked by fingerprint.js (fontcheck.py KEPT)
+FONTS_KEPT = {"arial", "helvetica", "times", "times new roman", "courier", "courier new"}
+
+
+def _unmasked(o):
+    """The fonts a page can find that the level does not mask (lower case), or None if not measured."""
+    if not isinstance(o, dict) or not isinstance(o.get("findable"), list):
+        return None
+    masked = o.get("masked") if isinstance(o.get("masked"), list) else o.get("listed")
+    if not isinstance(masked, list):
+        return None
+    return sorted({str(n).lower() for n in o["findable"]} - {str(n).lower() for n in masked} - FONTS_KEPT)
+
+
+def _judge_fonts(key, b, c):
+    """fingerprint-config/<level>/fonts: the names fingerprint.js masks, which follow the fonts of the
+    computer and when its check answered (a digest differs between two runs of the same code). Judged
+    by what protects: every font a page can find (measured by the tool in the same run, FONTS_JS) is
+    masked; a font left findable that main masked is worse, fewer names masked is not."""
+    if c is None:
+        return "unjudged", "not measured on the candidate"
+    ub, uc = _unmasked(b), _unmasked(c)
+    if uc is None:
+        if isinstance((b or {}).get("findable"), list):
+            return "unjudged", "the fonts a page can find were not measured here"
+        return _judge("exact", (b or {}).get("value"), c.get("value"), key)
+    new = sorted(set(uc) - set(ub or ()))
+    if new:
+        return "worse", "a font a page can find here is not masked: %s" % ", ".join(new[:8])
+    if ub and len(uc) < len(ub):
+        return "stricter", "%d fonts a page can find unmasked on main, %d here" % (len(ub), len(uc))
+    if (b or {}).get("value") == c.get("value") and ub == uc:
+        return "same", ""
+    return "changed", "every font a page can find is masked, as on main (%d found here, %s on main)" % (
+        len(c["findable"]), len(b["findable"]) if isinstance((b or {}).get("findable"), list) else "not measured")
 def _short(v, n=160):
     s = json.dumps(v, ensure_ascii=False) if not isinstance(v, str) else v
     return s if len(s) <= n else s[:n] + "..."
@@ -2123,6 +2629,7 @@ RULE_WHY = {
     "setting": "the safer WebEngine setting",
     "protective": "now protected (hidden, refused or native-looking)",
     "fingerprint": "judged by what protects: still disguised (the fingerprinting rules)",
+    "fonts": "judged by what protects: every font a page can find is masked",
 }
 
 
@@ -2238,6 +2745,8 @@ def _by_necessity(rows, evidence):
     for e in evidence.get("necessity") or ():
         if e["test"] not in fixed or not changed & set(e["files"]):
             continue
+        if e["test"].split("::", 1)[0] in changed:
+            continue                     # the change rewrote the test that would prove it needed
         rows_of = [r for r in rows if any(_key_matches(r["key"], p) for p in e["keys"])]
         if rows_of and len(rows_of) <= NECESSITY_CAP:
             for r in rows_of:
@@ -2287,7 +2796,18 @@ def _by_registry(key, bv, cv, evidence):
         "; ".join("%s, %s" % (h, known[h]["purpose"]) for h in new))
 
 
-def compare(base, cand, allowlist_entries=(), evidence=None, floors=None):
+def load_common(path=None):
+    """{(value, part): [values]} a person counts among the common values of a fixed disguise
+    (COMMON_VALUES); None when the file cannot be read (an error)."""
+    try:
+        data = json.loads(Path(path or COMMON_VALUES).read_text("utf-8"))
+        return {(e["value"], e.get("part") or ""): list(e["common"]) for e in data["entries"]
+                if isinstance(e, dict) and str(e.get("why") or "").strip() and isinstance(e.get("common"), list)}
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return None
+
+
+def compare(base, cand, allowlist_entries=(), evidence=None, floors=None, common=None):
     """The report: every observation of both snapshots judged; verdict "pass" or "fail". A change the
     rules call worse passes only by evidence (_by_necessity for the neutral kind only, _by_lists for
     a request, _by_registry for a host) or by a person (the allowlist). Every row that passed says
@@ -2297,9 +2817,14 @@ def compare(base, cand, allowlist_entries=(), evidence=None, floors=None):
     is missing gives no evidence. floors: load_floors() (default: this copy's NOISE_FLOORS)."""
     evidence = evidence or {}
     floors = load_floors() if floors is None else floors
+    common = load_common() if common is None else common
     rows = {"worse": [], "evidence": [], "accepted": [], "stricter": [], "changed": []}
     used = set()
     errors = []
+    if floors is None:
+        errors.append("the noise floors (tests/data/no-regression/noise-floor.json) could not be read")
+    if common is None:
+        errors.append("the common values (tests/data/no-regression/common-values.json) could not be read")
     for side, snap in (("main", base), ("candidate", cand)):
         if snap.get("format") != FORMAT:
             errors.append("%s: a snapshot of another format (%r)" % (side, snap.get("format")))
@@ -2318,9 +2843,10 @@ def compare(base, cand, allowlist_entries=(), evidence=None, floors=None):
         rule = _rule(key, b, c)
         bv, cv = (b or {}).get("value"), (c or {}).get("value")
         if rule == "fingerprint" and (bv != cv or (b and c and (
-                ("session2" in b and ("session2" not in c or b["session2"] != c["session2"]))
-                or b.get("noise") != c.get("noise")))):
-            kind, detail = _judge_fingerprint(key, b, c, bo, co, floors)
+                _sessions(b) != _sessions(c) or b.get("noise") != c.get("noise")))):
+            kind, detail = _judge_fingerprint(key, b, c, bo, co, floors, common)
+        elif rule == "fonts":
+            kind, detail = _judge_fonts(key, b, c)
         elif rule == "protective":
             test = None if key.startswith("page-scriptlets/") else _protective(key.split("/", 2)[2])[1]
             kind, detail = ("same", "") if bv == cv else \
@@ -2557,7 +3083,7 @@ def main(argv=None):
     out = Path(args.out_dir)
     # the same two noise keys for both sides, random: the code measured cannot know them in advance
     import secrets
-    keys = (secrets.token_hex(16), secrets.token_hex(16))
+    keys = [secrets.token_hex(16) for _ in range(SESSIONS + PICK_DRAWS)]
     base = snapshot(args.base_repo, fixtures=args.fixtures, keys=keys)
     _write(out / "main.json", json.dumps(base, indent=1, ensure_ascii=False, default=str) + "\n")
     cand = snapshot(args.candidate_repo, fixtures=args.fixtures, keys=keys)

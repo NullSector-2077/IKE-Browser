@@ -28,6 +28,7 @@ import copy
 import importlib.util
 import json
 import os
+import random
 import re
 import shutil
 import sys
@@ -175,6 +176,14 @@ def test_not_measured_is_never_passed():
     assert "could not be measured" in nr.markdown(report)
     report = nr.compare(dict(base, format=0), base)
     assert report["verdict"] == "fail"
+    # a list of hosts not measured on the candidate: never "nothing new"
+    report = nr.compare(base, with_values(base, {"network__fresh-profile": None}))
+    assert keys(report["worse"]) == {"network/fresh-profile"}
+    # the hosts I.K.E.'s own code contacted not recorded (the audit hook did not report): an error
+    raw = {"measure": {"errors": [], "levels": {}, "python_hosts": None, "proxy_hosts": []},
+           "network": {"errors": [], "python_hosts": ["x.example"], "proxy_hosts": [], "probe_done": True}}
+    errors, _obs = nr.observations(raw, ["balanced"], ["network"], {"requests": [], "pages": []})
+    assert any("were not recorded (measure)" in e["error"] for e in errors), errors
 
 
 def test_allowlist_accepts_exactly_what_a_person_read(tmp_path):
@@ -372,8 +381,9 @@ def judged(report, key):
     return "same", ""
 
 
-def cmp(changes=None, base=None, evidence=None, floors=None, entries=()):
-    return nr.compare(base or fp_snap(), fp_snap(changes), list(entries), evidence, {} if floors is None else floors)
+def cmp(changes=None, base=None, evidence=None, floors=None, entries=(), common=None):
+    return nr.compare(base or fp_snap(), fp_snap(changes), list(entries), evidence, {} if floors is None else floors,
+                      {} if common is None else common)
 
 
 def test_the_case_of_148_passes_with_no_allowlist():
@@ -459,16 +469,24 @@ def test_a_smaller_noise_is_worse():
                         (CANVAS_NOISE, "changed")):
         report = cmp({"fingerprint/strict/canvas": disguised(new[0], new[1], noise)})
         assert judged(report, "fingerprint/strict/canvas")[0] == kind, (noise, report["worse"])
-    # a size from few changed elements is judged by their chance spread (3 / sqrt(count)), many by 20 %
-    few = {"png": 0.000854, "png_share": 0.000854, "png_n": 8192}            # 7 bytes changed: no judgement
-    blob_main = disguised("1badc0de", "2badc0de", few)
-    for n, kind in ((8192, "changed"), (8192000, "worse")):
-        off = {"fingerprint/off/canvas_blob": fixed("0ffc0de")}
-        base = fp_snap(dict(off, **{"fingerprint/strict/canvas_blob": dict(blob_main, noise=dict(few, png_n=n))}))
-        here = dict(off, **{"fingerprint/strict/canvas_blob": disguised("3badc0de", "4badc0de",
-                                                                        {"png": 0.0004, "png_share": 0.0004,
-                                                                         "png_n": n})})
-        assert judged(cmp(here, base=base), "fingerprint/strict/canvas_blob")[0] == kind, n
+    # the tolerance of chance from the elements a size rests on (k): many, 20 %; few, wider, but never
+    # above 35 % (more readings, not a looser rule; second review of 2026-11-24): a size halved is
+    # always worse, however few its elements
+    off = {"fingerprint/off/canvas_blob": fixed("0ffc0de")}
+    for k, here_size, kind in ((7, 0.0006, "changed"), (7, 0.0004, "worse"), (8000, 0.0006, "worse")):
+        main_noise = {"png": 0.000854, "png_share": 0.000854, "png_k": k, "png_share_k": k}
+        base = fp_snap(dict(off, **{"fingerprint/strict/canvas_blob": disguised("1badc0de", "2badc0de", main_noise)}))
+        here = dict(off, **{"fingerprint/strict/canvas_blob": disguised(
+            "3badc0de", "4badc0de", {"png": here_size, "png_share": here_size, "png_k": k, "png_share_k": k})})
+        assert judged(cmp(here, base=base), "fingerprint/strict/canvas_blob")[0] == kind, (k, here_size)
+    # the floor of a person, with no tolerance: main's own noise already lowered cannot be lowered more
+    floors = {"canvas_blob": {"png": 0.0007}}
+    base = fp_snap(dict(off, **{"fingerprint/strict/canvas_blob": disguised(
+        "1badc0de", "2badc0de", {"png": 0.00072, "png_k": 9000})}))
+    here = dict(off, **{"fingerprint/strict/canvas_blob": disguised("3badc0de", "4badc0de",
+                                                                    {"png": 0.00069, "png_k": 9000})})
+    kind, detail = judged(cmp(here, base=base, floors=floors), "fingerprint/strict/canvas_blob")
+    assert kind == "worse" and "floor 0.0007" in detail, detail
     # a number randomised on main (one text width) is judged from the 128 widths of the noise's size,
     # never from its two readings, which would be chance (2026-11-24, the false-alarm review: a check
     # of this test once said "worse" here)
@@ -477,21 +495,11 @@ def test_a_smaller_noise_is_worse():
     assert judged(cmp({"fingerprint/strict/canvas": near_width}), "fingerprint/strict/canvas")[0] == "changed"
     small_widths = dict(near_width, noise=dict(CANVAS_NOISE, widths=1e-07))
     assert judged(cmp({"fingerprint/strict/canvas": small_widths}), "fingerprint/strict/canvas")[0] == "worse"
-    # a list randomised on main changing fewer names only beyond chance (each name hidden by half a
-    # chance: a drop from 3 to 1 can be chance and is not judged; once this test said it was worse)
+    # a list randomised on main changing fewer names: judged over eight sessions on each side
+    # (test_what_chance_can_do_is_not_worse_and_what_it_cannot_is); with two sessions it cannot be
+    # judged at all, so it is worse (second review of 2026-11-24: once a drop of 3 to 1 passed here)
     fewer = {"fingerprint/strict/webgl.extensions": disguised("A,B,C,D,E,F,G", "A,B,C,D,E,F,H")}
-    assert judged(cmp(fewer), "fingerprint/strict/webgl.extensions")[0] == "changed"
-    many = ",".join("N%d" % i for i in range(40))
-    wide_main = fp_snap({"fingerprint/off/webgl.extensions": fixed(many),
-                         "fingerprint/strict/webgl.extensions": disguised(",".join("N%d" % i for i in range(20)),
-                                                                          ",".join("N%d" % i for i in range(20, 40)))})
-    one_less = {"fingerprint/off/webgl.extensions": fixed(many),
-                "fingerprint/strict/webgl.extensions": disguised(",".join("N%d" % i for i in range(39)),
-                                                                 ",".join("N%d" % i for i in range(1, 40)))}
-    kind, detail = judged(cmp(one_less, base=wide_main), "fingerprint/strict/webgl.extensions")
-    assert kind == "worse" and "fewer names" in detail, detail
-    other = {"fingerprint/strict/webgl.extensions": disguised("B,C,D,F,G", "A,C,E,F,H")}
-    assert judged(cmp(other), "fingerprint/strict/webgl.extensions")[0] == "changed"
+    assert judged(cmp(fewer), "fingerprint/strict/webgl.extensions")[0] == "worse"
     # the noise read again with the same value: a smaller size alone is worse too
     same_value = dict(FP_MAIN["fingerprint/strict/audio"], noise={"dispersion": 1e-06, "share": 1.0})
     assert judged(cmp({"fingerprint/strict/audio": same_value}), "fingerprint/strict/audio")[0] == "worse"
@@ -536,49 +544,203 @@ def test_a_disguised_value_back_to_the_real_one_is_worse():
     frame = disguised([4, REAL_UA, ["0badc0de", "5a63666b", 140.5159]], [4, REAL_UA, ["1badc0de", "5a63666b", 140.5154]])
     kind, detail = judged(cmp({"fingerprint/strict/frame": frame}), "fingerprint/strict/frame")
     assert kind == "worse" and detail.startswith("[1] the real value"), detail
-    # one disguise for another, no nearer the real one: changed, it passes
+    # one fixed disguise for another, no nearer the real one: it passes only when a person counts the
+    # new value among the common ones (second review of 2026-11-24; once it passed by itself)
     other = {"fingerprint/strict/screen.width": disguised(1680, 1680),
              "fingerprint/strict/navigator.userAgent": disguised(COMMON_UA.replace("140", "141"),
                                                                  COMMON_UA.replace("140", "141")),
              "fingerprint/strict/fonts_measured": disguised("Arial,Liberation Sans", "Arial,Liberation Sans")}
     report = cmp(other)
+    assert report["verdict"] == "fail" and keys(report["worse"]) == set(other)
+    assert all("common values a person keeps" in r["detail"] for r in report["worse"]), report["worse"]
+    common = {("screen.width", ""): [1680], ("navigator.userAgent", ""): [COMMON_UA.replace("140", "141")],
+              ("fonts_measured", ""): ["Arial,Liberation Sans"]}
+    report = nr.compare(fp_snap(), fp_snap(other), [], None, {}, common)
     assert report["verdict"] == "pass", report["worse"]
     assert keys(report["changed"]) == set(other)
+    path = ROOT / "tests" / "data" / "no-regression" / "common-values.json"
+    assert nr.load_common(path) == {} and "Only a person" in json.loads(path.read_text("utf-8"))["about"]
 
 
-def test_what_chance_can_do_is_not_worse():
-    """A rewrite of the noise of the same strength draws every noised value anew (with the random
-    keys of a run, so does nothing else). What chance alone can produce is never worse: a value
-    drawn from a few common ones (a card's name, cores, a text width, a set of extensions) alike in
-    both sessions, or alike on main and judged "fixed", or the real one in a single session; the
-    large spaces (a picture's or a sound's hash) must still change with the session (2026-11-24, the
-    false-alarm measurement: 109 of 132 pairs of main against main had a "worse" from these)."""
-    intel = "ANGLE (Intel, Mesa Intel(R) UHD Graphics 630 (CFL GT2), OpenGL 4.6)"
-    nvidia = "ANGLE (NVIDIA Corporation, NVIDIA GeForce GTX 1650/PCIe/SSE2, OpenGL 4.5.0)"
-    gpu = "fingerprint/balanced/webgl.unmasked_renderer"
-    off_gpu = {"fingerprint/off/webgl.unmasked_renderer": fixed(REAL_GPU)}
-    for main, here in (((intel, nvidia), (intel, intel)),          # alike in both sessions here, by chance
-                       ((nvidia, nvidia), (intel, intel)),         # alike on main, another model here
-                       ((intel, nvidia), (REAL_GPU, intel))):      # the real one in one session (pool)
-        report = cmp(dict(off_gpu, **{gpu: disguised(*here)}), base=fp_snap(dict(off_gpu, **{gpu: disguised(*main)})))
-        assert judged(report, gpu)[0] == "changed", (main, here, report["worse"])
-    # the real one every time, where main never gave it: worse
-    report = cmp(dict(off_gpu, **{gpu: disguised(REAL_GPU, REAL_GPU)}),
-                 base=fp_snap(dict(off_gpu, **{gpu: disguised(intel, nvidia)})))
-    assert judged(report, gpu)[0] == "worse"
-    # a text width alike in both sessions on main, nearer the real one here: chance (61 steps)
-    width = disguised(["116ec122", "5a63666b", 140.5159], ["47441ec7", "5a63666b", 140.5159], CANVAS_NOISE)
-    nearer = disguised(["0badc0de", "5a63666b", 140.51563], ["1badc0de", "5a63666b", 140.51562], CANVAS_NOISE)
-    report = cmp({"fingerprint/strict/canvas": nearer}, base=fp_snap({"fingerprint/strict/canvas": width}))
-    assert judged(report, "fingerprint/strict/canvas")[0] == "changed", report["worse"]
-    # the large spaces: alike in both sessions is no chance
+def test_unreadable_rules_are_an_error(monkeypatch, tmp_path):
+    """The floors and the common values a person keeps are rules: a file that cannot be read fails
+    the check (never "no floor", never "no common value")."""
+    assert nr.load_floors(tmp_path / "missing.json") is None and nr.load_common(tmp_path / "missing.json") is None
+    assert nr.compare(fp_snap(), fp_snap(), [])["verdict"] == "pass"          # both read from their files
+    monkeypatch.setattr(nr, "NOISE_FLOORS", tmp_path / "missing.json")
+    report = nr.compare(fp_snap(), fp_snap(), [])
+    assert report["verdict"] == "fail" and "noise floors" in report["errors"][0]
+    monkeypatch.setattr(nr, "NOISE_FLOORS", ROOT / "tests" / "data" / "no-regression" / "noise-floor.json")
+    monkeypatch.setattr(nr, "COMMON_VALUES", tmp_path / "missing.json")
+    report = nr.compare(fp_snap(), fp_snap(), [])
+    assert report["verdict"] == "fail" and "common values" in report["errors"][0]
+    (tmp_path / "c.json").write_text(json.dumps({"entries": [
+        {"value": "screen.width", "common": [1680], "why": "a common laptop width"}, {"value": "x"}]}))
+    assert nr.load_common(tmp_path / "c.json") == {("screen.width", ""): [1680]}
+
+
+def drawn(values, noise=None):
+    """A disguised value read in every session (SESSIONS of them)."""
+    o = {"rule": "fingerprint", "value": values[0], "session2": values[1], "sessions": list(values)}
+    if noise is not None:
+        o["noise"] = dict(noise)
+    return o
+
+
+INTEL = ["ANGLE (Intel, Mesa Intel(R) UHD Graphics 630 (CFL GT2), OpenGL 4.6)",
+         "ANGLE (Intel, Mesa Intel(R) HD Graphics 520 (SKL GT2), OpenGL 4.6)",
+         "ANGLE (Intel, Mesa Intel(R) Xe Graphics (TGL GT2), OpenGL 4.6)"]
+NVIDIA = ["ANGLE (NVIDIA Corporation, NVIDIA GeForce GTX 1650/PCIe/SSE2, OpenGL 4.5.0)",
+          "ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 3060/PCIe/SSE2, OpenGL 4.5.0)"]
+
+
+def test_what_chance_can_do_is_not_worse_and_what_it_cannot_is():
+    """A rewrite of the noise draws every noised value anew. What chance can produce is not worse; what
+    it can hardly produce (over SESSIONS sessions) is: the first review of 2026-11-24 measured 109 of
+    132 pairs of main against main with a false "worse" from chance, the second asked that no
+    weakening pass by the rules written against it. More readings, not looser rules."""
+    gpu, off_gpu = "fingerprint/balanced/webgl.unmasked_renderer", {"fingerprint/off/webgl.unmasked_renderer":
+                                                                    fixed(REAL_GPU)}
+    models = INTEL + NVIDIA
+    rnd = random.Random(3)
+    main_draws = [rnd.choice(models) for _ in range(24)]          # 8 sessions and 16 draws of the small page
+    base = fp_snap(dict(off_gpu, **{gpu: drawn(main_draws)}))
+
+    def verdict(draws):
+        return judged(cmp(dict(off_gpu, **{gpu: drawn(draws)}), base=base), gpu)
+    # other draws of the same models, some alike: chance
+    assert verdict([rnd.choice(models) for _ in range(24)])[0] == "changed"
+    # the same model in all 24 draws: worse (an exact permutation test of the 48 draws: under 1e-4)
+    kind, detail = verdict([INTEL[0]] * 24)
+    assert kind == "worse" and "the same in every one of the 24 sessions" in detail, detail
+    # with 8 draws alone the same is not judged (8 + 8 cannot tell it from chance at 1e-4)
+    assert nr._chance_alike(main_draws[:8], [main_draws[0]] * 8) > nr.CHANCE
+    # the real card in one session where main never gave it: worse
+    assert verdict([INTEL[1], REAL_GPU] + main_draws[2:])[0] == "worse"
+    # the real value where main gave it too: worse only where it comes far more often than on main
+    # (an exact permutation test); before, any count passed
+    cores, off_cores = "fingerprint/balanced/navigator.hardwareConcurrency", {
+        "fingerprint/off/navigator.hardwareConcurrency": fixed(4)}
+    cb = fp_snap(dict(off_cores, **{cores: drawn([4, 8] * 12)}))
+    assert judged(cmp(dict(off_cores, **{cores: drawn([8, 4] * 12)}), base=cb), cores)[0] == "changed"
+    kind, detail = judged(cmp(dict(off_cores, **{cores: drawn([4] * 24)}), base=cb), cores)
+    assert kind == "worse" and "24 of 24 sessions here, 12 of 24 on main" in detail, detail
+    assert nr._more_often(12, 24, 24, 24) < nr.CHANCE < nr._more_often(12, 24, 16, 24)
+    # more of the real card's words than any of main's draws had: worse
+    nearer = "ANGLE (Mesa, llvmpipe (LLVM 20.1.2 256 bits), OpenGL 4.6)"
+    kind, detail = verdict([nearer] + main_draws[1:])
+    assert kind == "worse" and "words" in detail, detail
+    # the maker alone, of two: all eight alike is still likely by chance from main's draws (5 to 3)
+    vendor, off_vendor = "fingerprint/balanced/webgl.unmasked_vendor", {"fingerprint/off/webgl.unmasked_vendor":
+                                                                       fixed("Google Inc. (Mesa)")}
+    makers = ["Google Inc. (Intel)", "Google Inc. (NVIDIA Corporation)"]
+    maker_draws = [makers[i] for i in (0, 1, 0, 0, 1, 0, 1, 0) * 3]
+    vb = fp_snap(dict(off_vendor, **{vendor: drawn(maker_draws)}))
+    report = cmp(dict(off_vendor, **{vendor: drawn([makers[0]] * 24)}), base=vb)
+    assert judged(report, vendor)[0] == "changed"
+    assert nr._chance_alike(maker_draws, [makers[0]] * 24) > nr.CHANCE
+    assert nr._chance_alike(main_draws, [INTEL[0]] * 24) < nr.CHANCE
+    assert nr.PICK_DRAWS >= 16 and "webgl.unmasked_renderer" in nr.PICK_DRAWN
+    # a list drawn per session (the extensions): as many names changed, as many different lists
+    ext, off_ext = "fingerprint/strict/webgl.extensions", {"fingerprint/off/webgl.extensions": fixed(REAL_EXT)}
+    rng = random.Random(7)
+    names = REAL_EXT.split(",")
+
+    def lists(hidden, n=8, distinct=True):
+        """n lists, each hiding `hidden` names (never none, never all), different ones each session."""
+        out = []
+        while len(out) < n:
+            gone = set(rng.sample(names, hidden))
+            out.append(",".join(x for x in names if x not in gone))
+        return out if distinct else [out[0], out[1]] * (n // 2)
+    eb = fp_snap(dict(off_ext, **{ext: drawn(lists(4))}))
+    assert judged(cmp(dict(off_ext, **{ext: drawn(lists(4))}), base=eb), ext)[0] == "changed"
+    kind, detail = judged(cmp(dict(off_ext, **{ext: drawn(lists(1))}), base=eb), ext)
+    assert kind == "worse" and "fewer names" in detail, detail
+    kind, detail = judged(cmp(dict(off_ext, **{ext: drawn(lists(4, distinct=False))}), base=eb), ext)
+    assert kind == "worse" and "2 different lists" in detail, detail
+    # the real list, by chance, in one of 24 draws: every name is left out half the time, so chance
+    # gives it (measured on main's 24 draws); in many of them it is worse
+    pick = random.Random(5)
+    halves = [",".join(x for x in names if pick.random() < 0.5) for _ in range(24)]
+    hb = fp_snap(dict(off_ext, **{ext: drawn(halves)}))
+    q = nr._real_chance("webgl.extensions", "", halves, REAL_EXT, None)
+    assert 1 / 2000 < q < 1 / 50                    # eight names, each shown in about half of main's draws
+    assert judged(cmp(dict(off_ext, **{ext: drawn([REAL_EXT] + halves[1:])}), base=hb), ext)[0] == "changed"
+    kind, detail = judged(cmp(dict(off_ext, **{ext: drawn([REAL_EXT] * 8 + halves[8:])}), base=hb), ext)
+    assert kind == "worse" and "8 of 24 sessions here: more than chance gives" in detail, detail
+    # a list that adds names too: how often it adds none is not measured, so never by chance
+    assert nr._real_chance("navigator.plugins", "", ["PDF Viewer,A%d" % i for i in range(8)], "PDF Viewer",
+                           None) is None
+    # the worker's list: measured on the page's extensions of the same level (more draws)
+    assert nr._real_chance("worker", "[6][1]", ["B"] * 8, REAL_EXT, None, (halves, REAL_EXT)) == q
+    # a single text width: its noise has 61 steps, one of them none; how often the real width comes is
+    # measured on main's widths (here 2 of 128 unchanged)
+    width, off_width = "fingerprint/strict/fonts_generic", {"fingerprint/off/fonts_generic": fixed([953.5, 960.0])}
+    wn = {"widths": 1.5e-06, "widths_share": 0.984375, "widths_k": 1008, "widths_share_k": 1008,
+          "widths_least": 0.97, "widths_least_k": 4000}
+    sessions = [[953.5 + i / 1e4, 960.0 + i / 1e4] for i in range(1, 9)]
+    wb = fp_snap(dict(off_width, **{width: drawn(sessions, wn)}))
+    assert 0.01 < nr._real_chance("fonts_generic", "[0]", [], None, wn) < 0.02
+    one = [[953.5, 960.0 + 1 / 1e4]] + sessions[1:]
+    assert judged(cmp(dict(off_width, **{width: drawn(one, wn)}), base=wb), width)[0] == "changed"
+    kind, detail = judged(cmp(dict(off_width, **{width: drawn([[953.5, 960.0 + i / 1e4] for i in range(1, 9)], wn)}),
+                               base=wb), width)
+    assert kind == "worse" and "[0] the real value (Off's) in 8 of 8 sessions" in detail, detail
+    # and a session with no width noise at all: its widths' share is the least, worse
+    kind, detail = judged(cmp(dict(off_width, **{width: drawn(one, dict(wn, widths_least=0.0))}), base=wb), width)
+    assert kind == "worse" and "widths_least 0.97 on main" in detail, detail
+    # where main's widths were not measured, the real width is never chance
+    nb = fp_snap(dict(off_width, **{width: drawn(sessions)}))
+    assert judged(cmp(dict(off_width, **{width: drawn(one)}), base=nb), width)[0] == "worse"
+    # two sessions only: a count cannot be judged, so it is not passed
+    assert judged(cmp({"fingerprint/strict/webgl.extensions": disguised("B,C,D,F,G", "A,C,E,F,H")}),
+                  "fingerprint/strict/webgl.extensions")[0] == "worse"
+    # a large space (random plugin names): fewer fakes added, even by one in every session, is worse
+    plug, off_plug = "fingerprint/strict/navigator.plugins", {"fingerprint/off/navigator.plugins": fixed("PDF Viewer")}
+    pb = fp_snap(dict(off_plug, **{plug: drawn(["PDF Viewer,A%d,B%d" % (i, i) for i in range(8)])}))
+    assert judged(cmp(dict(off_plug, **{plug: drawn(["PDF Viewer,C%d,D%d" % (i, i) for i in range(8)])}), base=pb),
+                  plug)[0] == "changed"
+    kind, detail = judged(cmp(dict(off_plug, **{plug: drawn(["PDF Viewer,C%d" % i for i in range(8)])}), base=pb),
+                          plug)
+    assert kind == "worse" and "fewer names" in detail, detail
+    # the large spaces must change with the session: alike in two of two is no chance
     for key, value in (("canvas", disguised(["0badc0de", "5a63666b", 140.5159], ["0badc0de", "5a63666b", 140.5154],
                                             CANVAS_NOISE)),
                        ("audio", disguised("172.6715397447", "172.6715397447", AUDIO_NOISE))):
         assert judged(cmp({"fingerprint/strict/" + key: value}), "fingerprint/strict/" + key)[0] == "worse", key
+    # fewer sessions measured here than on main: cannot be judged
+    report = cmp(dict(off_gpu, **{gpu: disguised(INTEL[0], NVIDIA[0])}), base=base)
+    assert judged(report, gpu)[0] == "worse" and "fewer sessions" in judged(report, gpu)[1]
     assert nr._role("canvas", "[0]") == "noise" and nr._role("canvas", "[2]") == "pick"
     assert nr._role("worker", "[6][0]") == "pick" and nr._role("canvas_flat", "") == "noise"
     assert nr._role("screen.width", "") is None and nr._role("navigator.userAgent", "") is None
+    assert nr.SESSIONS >= 8 and len(nr.fixed_keys(nr.SESSIONS)) == nr.SESSIONS == len(set(nr.fixed_keys(8)))
+
+
+def test_a_fixed_disguise_must_not_follow_the_real_machine():
+    """Another real environment (time zone, language, screen): a fixed disguise that stays the same
+    there is marked env.<value> true; one that follows the real machine, false; main's true must stay."""
+    probe = {"navigator": {"languages": "en-US,en"}, "intl": {"timeZone": "UTC"}}
+    off = {"navigator": {"languages": "en-US"}, "intl": {"timeZone": "UTC"}}
+    env2 = {"levels": {"off": {"probe": {"navigator": {"languages": "de-DE"}, "intl": {"timeZone": "Pacific/Auckland"}}},
+                       "maximum": {"probe": {"navigator": {"languages": "en-US,en"}, "intl": {"timeZone": "UTC"}}}}}
+    flats = [{"navigator.languages": {"value": "en-US,en"}, "intl.timeZone": {"value": "UTC"}}]
+    assert nr._env_marks("maximum", probe, flats, off, env2) == {"navigator.languages": True, "intl.timeZone": True}
+    env2["levels"]["maximum"]["probe"]["navigator"]["languages"] = "de-DE,en"
+    assert nr._env_marks("maximum", probe, flats, off, env2)["navigator.languages"] is False
+    # the same as the real value on this machine, kept on the other one: a fixed disguise too (a real
+    # run once missed a copy that made Maximum's languages follow the machine)
+    same = {"navigator": {"languages": "en-US,en"}, "intl": {"timeZone": "UTC"}}
+    env2["levels"]["maximum"]["probe"]["navigator"]["languages"] = "en-US,en"
+    assert nr._env_marks("maximum", same, flats, same, env2) == {"navigator.languages": True, "intl.timeZone": True}
+    env2["levels"]["maximum"]["probe"]["navigator"]["languages"] = "de-DE,en"
+    assert nr._env_marks("maximum", same, flats, same, env2)["navigator.languages"] is False
+    report = cmp({"fingerprint/maximum/env.navigator.languages": mark(False)},
+                 base=fp_snap({"fingerprint/maximum/env.navigator.languages": mark(True)}))
+    assert keys(report["worse"]) == {"fingerprint/maximum/env.navigator.languages"}
+    assert nr._rule("fingerprint/strict/env.screen.width", {"rule": "exact"}, None) == "safer-true"
+    assert nr.OTHER_MACHINE["tz"] != "UTC" and not nr.OTHER_MACHINE["lang"].startswith(("C", "en"))
 
 
 def test_what_cannot_be_judged_stays_worse():
@@ -669,7 +831,7 @@ def test_a_snapshot_of_the_older_copy_compares_safely():
     # second session hides whether the noise still changes with the session)
     report = nr.compare(fp_snap(), old, [], None, {})
     assert report["verdict"] == "fail"
-    assert all("no second session" in r["detail"] for r in report["worse"] if r["rule"] == "fingerprint")
+    assert all("fewer sessions" in r["detail"] for r in report["worse"] if r["rule"] == "fingerprint")
 
 
 def test_the_rules_of_the_fingerprinting_values():
@@ -730,31 +892,54 @@ def test_the_size_of_the_noise_is_measured_against_off():
             "text_widths": [10.00001, 20.0], "canvas_pixels": "AAEA"}
     blob = nr._noise("canvas_blob", [here, here], off)
     assert blob["png"] == float("%.6g" % (1 / 60)) and blob["png_share"] == float("%.6g" % (1 / 60))
-    assert blob["png_n"] == 120
+    assert blob["png_k"] == 2                            # one byte changed in each of two sessions
+    # between the sessions: the same noise in both, nothing differs (a noise drawn the same every time)
+    assert blob["png_between"] == 0.0
+    other = {"png": {"blob": png_url(3, [list(r) for r in rows[:2]] + [[v ^ (i == 1) for i, v in enumerate(rows[2])]]
+                                     + [list(r) for r in rows[3:]], [0] * 5)}}
+    assert nr._noise("canvas_blob", [here, other], off)["png_between"] == float("%.6g" % (2 / 60))
     size = nr._noise("canvas", [here, here], off)
     assert size["pixels"] == float("%.6g" % (1 / 3)) and size["widths_share"] == 0.5 and size["widths"] > 0
-    assert set(nr.NOISE["canvas"]) == {("pixels", "canvas_pixels", None), ("widths", "text_widths", None)}
-    assert "canvas_flat" not in nr.NOISE                 # all or nothing per stripe: no size, only its marks
+    assert ("png", "png", "known") in nr.NOISE["canvas"] and ("site", "third_frame", None) in nr.NOISE["canvas"]
+    assert nr.NOISE["canvas_flat"] == (("stripes", "canvas_flat_pixels", None),)
+    # the flat stripes: the rows (16 pixels each) changed at all
+    import base64 as b64
+    flat_off = {"canvas_flat_pixels": b64.b64encode(bytes(64 * 4)).decode()}
+    flat_here = {"canvas_flat_pixels": b64.b64encode(bytes(64) + bytes([1]) + bytes(63) + bytes(128)).decode()}
+    stripes = nr._noise("canvas_flat", [flat_here, flat_here], flat_off)
+    assert stripes["stripes"] == 0.25 and stripes["stripes_between"] == 0.0
     audio = nr._noise("audio", [here], off)
     assert audio["share"] == 0.5 and audio["dispersion"] > 0
     # a constant gain: every sample changed, no dispersion
     gain = {"audio_samples": [0.5 * 1.001, -0.25 * 1.001, 0.125 * 1.001, 0.0]}
-    assert nr._noise("audio", [gain], off) == {"dispersion": 0.0, "share": 0.75, "dispersion_n": 4}
+    assert nr._noise("audio", [gain], off) == {"dispersion": 0.0, "share": 0.75, "dispersion_k": 3, "share_k": 3}
     # what cannot be measured is None, never 0
     assert nr._noise("audio", [{"audio_samples": [1.0]}], off) == {"dispersion": None, "share": None}
     assert nr._noise("canvas", [{}], off)["pixels"] is None
+    # the session with the fewest widths changed: one session with no width noise is 0 there
+    widths = nr._noise("fonts_generic", [here, here, {"text_widths": [10.0, 20.0]}], off)
+    assert widths["widths_least"] == 0.0 and widths["widths_share"] == float("%.6g" % (1 / 3))
+    assert nr._noise("fonts_generic", [here, here], off)["widths_least"] == 0.5
+    # the real values the noise is measured against: the same on both sides, or it cannot be compared
+    assert nr._samples_ref("audio", off) != nr._samples_ref("audio", dict(off, audio_samples=[0.5, -0.25, 0.126, 0.0]))
+    ref = {"fingerprint/off/audio": dict(fixed(AUDIO_OFF), samples_ref="a")}
+    report = cmp(dict(PR148, **{"fingerprint/off/audio": dict(fixed(AUDIO_OFF), samples_ref="b")}),
+                 base=fp_snap(ref))
+    kind, detail = judged(report, "fingerprint/strict/audio")
+    assert kind == "worse" and "cannot be compared" in detail, detail
     # the tolerance: NOISE_Z (4) times the chance spread of two draws, never below 20 %;
     # one-sided chance of a false "worse" per measure 3e-5
     import math
     assert abs(0.5 * math.erfc(nr.NOISE_Z / 2 ** 0.5) - 3.17e-05) < 1e-06
-    assert nr._tolerance("pixels", {"pixels": 0.0146, "pixels_share": 0.0146, "pixels_n": 73728}) == 0.2
-    assert round(nr._tolerance("pixels", {"pixels": 0.0144, "pixels_share": 0.0144, "pixels_n": 18432}), 3) == 0.347
-    assert round(nr._tolerance("widths", {"widths": 1.5e-06, "widths_share": 0.98, "widths_n": 256}), 3) == 0.214
-    assert nr._tolerance("dispersion", {"dispersion": 5e-05, "share": 1.0, "dispersion_n": 1000}) == 0.2
+    assert nr._tolerance("pixels", {"pixels": 0.0146, "pixels_k": 1076}) == 0.2
+    assert round(nr._tolerance("pixels", {"pixels": 0.0144, "pixels_k": 265}), 3) == 0.347
+    assert round(nr._tolerance("widths", {"widths": 1.5e-06, "widths_k": 251}), 3) == 0.214
+    assert nr._tolerance("dispersion", {"dispersion": 5e-05, "dispersion_k": 1000}) == 0.2
+    assert nr._tolerance("pixels", {"pixels": 0.01, "pixels_k": 30}) == nr.TOLERANCE_CAP == 0.35   # never looser
     assert nr._tolerance("pixels", {"pixels": 0.01}) == 0.2                 # no count known: 20 %
     floors = nr.load_floors()
     assert floors["audio"]["dispersion"] > 0 and set(floors) <= set(nr.NOISE)
-    assert nr.load_floors(ROOT / "missing.json") == {}
+    assert nr.load_floors(ROOT / "missing.json") is None
 
 
 # --- evidence: a needed change passes by itself, a weakening never (2026-11-24) ---------------------
@@ -796,6 +981,7 @@ def test_what_is_not_evidence_of_need():
     other = dict(BOUND, test="tests/test_downloads.py::test_a_download_is_saved")
     cases = {
         "a test not confirmed by running it again": needed(confirmed=()),
+        "a test whose own file the change rewrote": needed(changed=(FP_JS, N3.split("::")[0])),
         "a test no person bound to the value": needed(bound=()),
         "a test bound to another value": needed(bound=(dict(BOUND, keys=["fingerprint/*/screen.width"]),)),
         "a binding of another test": needed(bound=(other,)),
@@ -1052,6 +1238,61 @@ def test_the_evidence_is_read_from_junit_and_diff(tmp_path):
     assert report["evidence"][0]["passed_by"] == "necessity" and report["evidence_read"]["changed_files"] == 4
 
 
+def test_the_masked_fonts_are_judged_by_what_protects():
+    """fingerprint-config/<level>/fonts is the digest of the names fingerprint.js masks: they follow the
+    computer's fonts and when its check answered, so two runs of the same code can differ (pull request
+    #155, which touches no browser code, failed on it: a list on main, no answer yet here). Judged by
+    what protects: every font a page can find, measured by the tool in the same run, is masked."""
+    import hashlib
+
+    def fonts(masked, findable, listed=None):
+        o = {"rule": "exact", "value": "sha256 " + hashlib.sha256(json.dumps(masked).encode()).hexdigest()[:16],
+             "masked": masked, "findable": findable}
+        if masked is None:
+            o["listed"] = listed
+        return o
+    key = "fingerprint-config/maximum/fonts"
+    assert nr._rule(key, {"rule": "exact"}, None) == "fonts"           # the tool's own rule, whatever is carried
+    main = fonts(["DejaVu Sans", "Liberation Sans"], ["DejaVu Sans", "Liberation Sans", "Arial"])
+    base = fp_snap({key: main})
+    # two different lists, as two computers or two answers give: each masks every font found there
+    other = fonts(["Noto Color Emoji", "DejaVu Sans", "Liberation Sans"],
+                  ["Noto Color Emoji", "DejaVu Sans", "Liberation Sans", "Courier New"])
+    report = cmp({key: other}, base=base)
+    kind, detail = judged(report, key)
+    assert kind == "changed" and "every font a page can find is masked" in detail and report["verdict"] == "pass"
+    # the case of #155: no answer yet here, so fingerprint.js's whole list is masked
+    listed = ["DejaVu Sans", "Liberation Sans", "Noto Color Emoji", "Ubuntu"]
+    assert judged(cmp({key: fonts(None, ["DejaVu Sans", "Liberation Sans"], listed)}, base=base), key)[0] == "changed"
+    # a font a page can find left unmasked: worse (a shorter list, or the whole list without an installed family)
+    kind, detail = judged(cmp({key: fonts(["DejaVu Sans"], ["DejaVu Sans", "Liberation Sans"])}, base=base), key)
+    assert kind == "worse" and "not masked: liberation sans" in detail, detail
+    kind, detail = judged(cmp({key: fonts(None, ["DejaVu Sans", "IPAGothic"], listed)}, base=base), key)
+    assert kind == "worse" and "ipagothic" in detail, detail
+    # one unmasked on main, none here: stricter
+    loose = fp_snap({key: fonts(["DejaVu Sans"], ["DejaVu Sans", "Liberation Sans"])})
+    assert judged(cmp({key: main}, base=loose), key)[0] == "stricter"
+    # not measured here where main measured it: cannot be judged, so worse
+    kind, detail = judged(cmp({key: {"rule": "exact", "value": other["value"], "masked": other["masked"]}},
+                              base=base), key)
+    assert kind == "worse" and "not measured here" in detail, detail
+    # older snapshots with no measure on either side: the digest, as before
+    old = {"rule": "exact", "value": main["value"]}
+    assert judged(cmp({key: {"rule": "exact", "value": other["value"]}}, base=fp_snap({key: old})), key)[0] == "worse"
+    assert judged(cmp({key: dict(old)}, base=fp_snap({key: old})), key)[0] == "same"
+
+
+def test_every_level_is_measured_after_the_font_check():
+    """The fonts a page could find are asked 15 s after a start and change every level's settings; with
+    eight sessions a level the answer came in the middle of a run (a false "worse" seen in a weakened
+    copy's run of 2026-11-24): the hook asks first and waits, and no answer is an error."""
+    hook = nr.HOOK[nr.HOOK.index("def measure():"):]
+    assert hook.index("fc._run()") < hook.index("yield from _fonts_findable()") < hook.index('for lv in PLAN["levels"]:')
+    assert "gave no answer in 60 s" in hook
+    # the fonts a page can find: the tool's own test, in a profile with none of I.K.E.'s scripts
+    assert "QWebEngineProfile(qapp)" in nr.HOOK and "FONTS_JS" in nr.HOOK
+
+
 def test_the_code_measured_cannot_find_the_tool_by_its_names():
     """The probe's path, query, title, global, the frame's host, the hook's files and variable are
     this run's own random names (review of 2026-11-24, a partial measure); what is kept has the fixed
@@ -1075,7 +1316,10 @@ def test_the_code_measured_cannot_find_the_tool_by_its_names():
     # an AI fix that names what measures it is refused by the static guard and by the reviewers
     guard, review = load("fix-guard"), load("ai-review")
     for added in ("if os.environ.get('IKE_TEST_HOOK'): return", "if QGuiApplication.platformName() == 'offscreen':",
-                  "skip = len(shields.profile_keys) > 1"):
+                  "skip = len(shields.profile_keys) > 1", "if os.environ.get('GITHUB_ACTIONS'): return",
+                  "if 'swiftshader' in flags: pass", "if host.endswith('.example'): return",
+                  "if 'ike_nr_net' in sys.modules: return", "single = os.environ.get('IKE_NO_SINGLE')",
+                  "if os.environ.get('RUNNER_OS'): return", "if url.startswith('http://127.0.0.1'): return"):
         problems = guard.measurement_problems("ike/shields.py", "x = 1\n", "x = 1\n" + added + "\n")
         assert problems and "names what measures it" in problems[0], added
         diff = "--- a/ike/shields.py\n+++ b/ike/shields.py\n@@ -1 +1,2 @@\n x = 1\n+%s\n" % added

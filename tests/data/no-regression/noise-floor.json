@@ -1,13 +1,17 @@
 {
- "about": "Nothing gets worse (tools/no-regression.py NOISE_FLOORS, docs/MAINTENANCE.md): the least size of the fingerprinting protection's noise, per value and measure. A candidate's noise is judged against the larger of main's and this floor (with the tolerance of chance, tools/no-regression.py _tolerance), so merges cannot lower it step by step. Only for measures that do not depend on the computer's fonts or graphics (pictures of known varied bytes, the audio samples), set to half of what main measured on 2026-11-24 (room for other machines). Only a person (or Claude, with the change read in full) edits this file: it is under tests/, so the automatic fix may not touch it and a pull request that changes it never merges by itself. A floor is raised when the noise is made stronger, never lowered without a person reading why.",
- "measured": "2026-11-24, I.K.E. 1.1.24 (main c547993), Strict, twelve random pairs of keys: canvas pixels 0.0145-0.0162, canvas_blob png 0.0146-0.0167, canvas_offset pixels 0.0146-0.0166, frame pixels 0.0149-0.0160, webgl.read_pixels pixels 0.0147-0.0175, worker pixels 0.0147-0.0170 (pictures of known bytes), audio dispersion 4.80e-05-5.12e-05 and share 1.0",
+ "about": "Nothing gets worse (tools/no-regression.py NOISE_FLOORS, docs/MAINTENANCE.md): the least size of the fingerprinting protection's noise, per value and measure. A candidate's noise must stay at least main's less the tolerance of chance and at least this floor, with no tolerance on the floor, so merges cannot lower it step by step. Only for measures that do not depend on the computer's fonts or graphics card (pictures of varied known bytes, flat stripes, text widths' relative noise, the audio samples), set to about half of what main measured on 2026-11-24 (room for other machines). \"_between\" measures: the share of elements that differ from one session to the next. Only a person (or Claude, with the change read in full) edits this file: it is under tests/, so the automatic fix may not touch it and a pull request that changes it never merges by itself; tests.yml reads main's copy. A floor is raised when the noise is made stronger, never lowered without a person reading why.",
+ "measured": "2026-11-24, I.K.E. 1.1.24 (main c547993), Balanced/Strict, 8 sessions: pictures of known bytes 0.0151-0.0160 (changed) and 0.030-0.031 (between sessions), text widths 1.53e-06 (relative), 0.98 (changed, between) and 0.96 (the session with the fewest changed, \"widths_least\") at Strict, flat stripes 0.11 (changed) and 0.20 (between), audio dispersion 5.0e-05, share 1.0, between 1.0",
  "floors": {
-  "canvas": {"pixels": 0.0073, "pixels_share": 0.0073},
-  "canvas_blob": {"png": 0.0073, "png_share": 0.0073},
-  "canvas_offset": {"pixels": 0.0073, "pixels_share": 0.0073},
-  "frame": {"pixels": 0.0073, "pixels_share": 0.0073},
-  "webgl.read_pixels": {"pixels": 0.0073, "pixels_share": 0.0073},
-  "worker": {"pixels": 0.0073, "pixels_share": 0.0073},
-  "audio": {"dispersion": 2.4e-05, "share": 0.5}
+  "canvas": {"pixels": 0.0073, "pixels_share": 0.0073, "pixels_between": 0.014, "png": 0.0073, "png_share": 0.0073,
+             "png_between": 0.014, "widths": 7.5e-07, "widths_share": 0.45, "widths_between": 0.45, "widths_least": 0.45},
+  "canvas_blob": {"png": 0.0073, "png_share": 0.0073, "png_between": 0.014},
+  "canvas_offset": {"pixels": 0.0073, "pixels_share": 0.0073, "pixels_between": 0.014},
+  "canvas_flat": {"stripes": 0.05, "stripes_share": 0.05, "stripes_between": 0.09},
+  "frame": {"pixels": 0.0073, "pixels_share": 0.0073, "pixels_between": 0.014, "png": 0.0073, "png_share": 0.0073,
+            "png_between": 0.014, "widths": 7.5e-07, "widths_share": 0.45, "widths_between": 0.45, "widths_least": 0.45},
+  "webgl.read_pixels": {"pixels": 0.0073, "pixels_share": 0.0073, "pixels_between": 0.014},
+  "worker": {"pixels": 0.0073, "pixels_share": 0.0073, "pixels_between": 0.014},
+  "fonts_generic": {"widths": 7.5e-07, "widths_share": 0.45, "widths_between": 0.45, "widths_least": 0.45},
+  "audio": {"dispersion": 2.4e-05, "share": 0.5, "between": 0.5}
  }
 }
