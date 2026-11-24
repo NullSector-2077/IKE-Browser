@@ -163,12 +163,29 @@ jobs:
         env:
           SNAPSHOT: ${{ needs.plan.outputs.snapshot }}
         run: |
+          # the databases with curl (retried, and dropped when the archive is too slow:
+          # 2026-11-24, "Operation too slow" in pacman's own download); when they do
+          # not come, Arch's mirrors as they are, and the gate still compares every
+          # part's packages
+          got=""
           if [ -n "$SNAPSHOT" ]; then
-            grep '^Server' /etc/pacman.d/mirrorlist > /tmp/mirrors || true
-            echo "Server = $SNAPSHOT/\$repo/os/\$arch" > /etc/pacman.d/mirrorlist
-            pacman -Syy
-            { cat /tmp/mirrors; echo "Server = $SNAPSHOT/\$repo/os/\$arch"; } > /etc/pacman.d/mirrorlist
+            got=yes
+            repos=$(sed -n 's/^\[\(.*\)\]$/\1/p' /etc/pacman.conf | grep -vx options)
+            mkdir -p /tmp/sync
+            for repo in $repos; do
+              curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 20 \
+                   --speed-limit 20000 --speed-time 30 -m 300 \
+                   -o "/tmp/sync/$repo.db" "$SNAPSHOT/$repo/os/x86_64/$repo.db" || { got=""; break; }
+            done
+          fi
+          if [ -n "$got" ]; then
+            install -m644 /tmp/sync/*.db /var/lib/pacman/sync/
+            { grep '^Server' /etc/pacman.d/mirrorlist || true; echo "Server = $SNAPSHOT/\$repo/os/\$arch"; } > /tmp/mirrorlist
+            cp /tmp/mirrorlist /etc/pacman.d/mirrorlist
             echo "Arch's repositories of $SNAPSHOT"
+          elif [ -n "$SNAPSHOT" ]; then
+            echo "::warning::the Arch Linux Archive was too slow: Arch's mirrors as they are now"
+            pacman -Syy
           else
             echo "::warning::no snapshot of Arch's repositories: Arch's mirrors as they are now"
             pacman -Syy

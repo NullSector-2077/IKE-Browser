@@ -69,20 +69,10 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.sha }}
-      # the Python and Rust of the test environment (.github/actions/ike-test-env),
-      # without the libraries the browser needs: nothing here starts it
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        with:
-          python-version: "3.14"
-      - name: Rust
-        run: |
-          rustup toolchain install stable --profile minimal --no-self-update
-          rustup default stable
-          rustc --version
-      - name: Packaging tools
-        run: |
-          sudo apt-get update -q
-          sudo apt-get install -yq --no-install-recommends makepkg pacman-package-manager libarchive-tools fakeroot zstd
+      # the test environment, as the single job had it (2026-11-24: without it the
+      # package's launcher found no PyQt6 for its --version)
+      - name: Test environment
+        uses: ./.github/actions/ike-test-env
       - name: Arch package
         id: build
         run: |

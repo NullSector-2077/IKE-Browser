@@ -661,7 +661,13 @@ def test_every_arch_part_installs_one_snapshot_of_arch():
         names.index("Git (for the checkout)") < names.index("Arch's packages")
     snap = part.split("- name: Arch's snapshot\n", 1)[1].split("\n      - ", 1)[0]
     assert "SNAPSHOT: ${{ needs.plan.outputs.snapshot }}" in snap
-    assert 'echo "Server = $SNAPSHOT/\\$repo/os/\\$arch" > /etc/pacman.d/mirrorlist\n            pacman -Syy' in snap
+    # the databases come from the snapshot alone (curl, retried, dropped when too slow), then
+    # pacman's mirrorlist ends with it; only when they did not come, Arch's mirrors with a warning
+    assert '"$SNAPSHOT/$repo/os/x86_64/$repo.db"' in snap and "--speed-limit" in snap and "--retry" in snap
+    assert "install -m644 /tmp/sync/*.db /var/lib/pacman/sync/" in snap
+    assert 'echo "Server = $SNAPSHOT/\\$repo/os/\\$arch"; } > /tmp/mirrorlist' in snap
+    assert snap.count("pacman -Syy") == 2 and snap.count("::warning::") == 2
+    assert snap.index("install -m644") < snap.index("pacman -Syy")
     # after it no database is read again: the upgrade and the installs use the snapshot's
     after = part.split("- name: Arch's snapshot\n", 1)[1].split("\n      - ", 1)[1]
     assert "pacman -Su --noconfirm --needed git" in after
