@@ -309,6 +309,26 @@ def steps(ike, qapp, out):
     yield 300
     out["more"] = [panel.more.isVisible(), panel.font_combo.count() > 0,
                    menu.geometry().bottom() <= menu.screen().availableGeometry().bottom() + 1]
+    # the owner: everything aligned. One left edge for every label, the arrow of More and the
+    # last button; one right edge for the switches, the choice, the values, Reset and the fields;
+    # each label centred on its control's row
+    from PyQt6.QtCore import QPoint as _P
+    def box(w):
+        o = w.mapTo(panel, _P(0, 0))
+        return [o.x(), o.y(), o.x() + w.width(), o.y() + w.height()]
+    rows = [(panel.title, panel.master), (panel.site_label, panel.site)]
+    rows += [(panel.slider_labels[k], panel.sliders[k]) for k in panel.sliders]
+    rows += [(panel.slider_labels[k], panel.values[k]) for k in panel.sliders]
+    rows += list(zip(panel.more_labels, [panel.font_switch, panel.stroke, panel.bg, panel.fg, panel.bars,
+                                        panel.selection]))
+    out["centres"] = [((box(b)[1] + box(b)[3]) - (box(a)[1] + box(a)[3])) / 2 for a, b in rows]
+    out["lefts"] = sorted({box(w)[0] for w in [panel.site_label, panel.head_icon, panel.more_btn, panel.settings,
+                                                panel.only_site] + list(panel.slider_labels.values())
+                           + panel.more_labels})
+    out["rights"] = sorted({box(w)[2] for w in [panel.master, panel.site, panel.mode, panel.reset, panel.font_combo,
+                                                 panel.stroke, panel.bg, panel.fg, panel.bars, panel.selection]
+                            + list(panel.values.values())})
+    out["values_right"] = all(v.alignment() & Qt.AlignmentFlag.AlignRight for v in panel.values.values())
     panel.bars.setCurrentIndex(panel.bars.findData("hidden"))
     panel.bars.activated.emit(panel.bars.currentIndex())
     yield 500
@@ -397,6 +417,8 @@ def test_the_panel_in_the_browser(run_ike, site):
     assert out["reset"][:2] == [100, 100] and out["reset"][3] == "kept", out["reset"]
     assert abs(out["reset"][2] - before) < 3, (out["reset"], before)
     assert out["more"] == [True, True, True], out["more"]
+    assert all(abs(c) <= 1 for c in out["centres"]), out["centres"]
+    assert len(out["lefts"]) == 1 and len(out["rights"]) == 1 and out["values_right"], (out["lefts"], out["rights"])
     assert out["bars"] == ["hidden", True] and out["bars_back"] is False, (out["bars"], out["bars_back"])
     mode, bg, fg, light, marker = out["light"]
     assert mode == 0 and (bg, fg) == ("#dcdad7", "#181a1b") and marker == "kept", out["light"]

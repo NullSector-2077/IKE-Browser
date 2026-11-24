@@ -25,7 +25,6 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QSizePolicy,
     QSlider,
-    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -44,6 +43,37 @@ SLIDER_NAMES = {"brightness": "Brightness", "contrast": "Contrast", "sepia": "Se
 def _icon(names):
     from .icons import themed
     return themed(names)
+
+
+def trim_left(pm):
+    """The picture without the empty columns on its left: its drawing starts on
+    the panel's left edge, as the texts under it do."""
+    img = pm.toImage()
+    for x in range(img.width()):
+        if any(img.pixelColor(x, y).alpha() > 40 for y in range(img.height())):
+            return pm.copy(x, 0, img.width() - x, img.height()) if x else pm
+    return pm
+
+
+def triangle(down, size=10):
+    """The arrow of "More": a small triangle in the text's colour, drawn from the
+    panel's left edge (the style's own arrow is drawn a few pixels in)."""
+    ratio = 2
+    pm = QPixmap(size * ratio, size * ratio)
+    pm.setDevicePixelRatio(ratio)
+    pm.fill(Qt.GlobalColor.transparent)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    p.setPen(Qt.PenStyle.NoPen)
+    p.setBrush(QGuiApplication.palette().color(QPalette.ColorRole.WindowText))
+    from PyQt6.QtGui import QPolygonF
+    if down:
+        pts = [QPointF(0, 2), QPointF(size, 2), QPointF(size / 2, size - 2)]
+    else:
+        pts = [QPointF(1, 0), QPointF(size - 2, size / 2), QPointF(1, size)]
+    p.drawPolygon(QPolygonF(pts))
+    p.end()
+    return QIcon(pm)
 
 
 def chip(colour, size=16):
@@ -172,7 +202,7 @@ class DarkPanel(QWidget):
         head = QHBoxLayout()
         head.setSpacing(8)
         self.head_icon = QLabel(self)
-        self.head_icon.setPixmap(_icon(("weather-clear-night",)).pixmap(18, 18))
+        self.head_icon.setPixmap(trim_left(_icon(("weather-clear-night",)).pixmap(18, 18)))
         self.title = QLabel(T("Dark mode for pages"), self)
         f = self.title.font()
         f.setBold(True)
@@ -245,12 +275,13 @@ class DarkPanel(QWidget):
         lay.addLayout(reset_row)
 
         # 5. More
-        self.more_btn = QToolButton(self)
-        self.more_btn.setText(T("More"))
+        self.more_btn = QPushButton(triangle(False), T("More"), self)
         self.more_btn.setCheckable(True)
-        self.more_btn.setAutoRaise(True)
-        self.more_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.more_btn.setArrowType(Qt.ArrowType.RightArrow)
+        self.more_btn.setFlat(True)
+        self.more_btn.setIconSize(QSize(10, 10))
+        # its arrow on the panel's one left edge, open or closed (the owner: everything aligned)
+        self.more_btn.setStyleSheet("QPushButton { border: none; background: transparent; text-align: left;"
+                                    " padding: 4px 8px 4px 0px; }")
         self.more = QWidget(self)
         g = QGridLayout(self.more)
         g.setContentsMargins(0, 0, 0, 0)
@@ -311,7 +342,7 @@ class DarkPanel(QWidget):
         self.settings.setFlat(True)
         self.settings.setCursor(Qt.CursorShape.PointingHandCursor)
         self.settings.setStyleSheet("QPushButton { text-align: left; color: palette(link); border: none;"
-                                    " padding: 4px 6px; }"
+                                    " padding: 4px 8px 4px 0px; }"
                                     "QPushButton:hover { text-decoration: underline; }"
                                     "QPushButton:focus { text-decoration: underline; }")
         lay.addWidget(self.settings, 0, Qt.AlignmentFlag.AlignLeft)
@@ -443,7 +474,7 @@ class DarkPanel(QWidget):
 
     def _show_more(self, on):
         self.more.setVisible(on)
-        self.more_btn.setArrowType(Qt.ArrowType.DownArrow if on else Qt.ArrowType.RightArrow)
+        self.more_btn.setIcon(triangle(on))
         if on:
             self._fill_fonts()
 
