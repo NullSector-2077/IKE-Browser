@@ -1233,6 +1233,26 @@
 "Update the system": "시스템을 업데이트하세요",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "웹 엔진(Qt WebEngine %s)에 알려진 보안 문제(%s)가 있으며 최신 버전에서 수정되었습니다. 터미널을 열고 실행하세요: %s",
 "Battery saver": "배터리 절약",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "배터리 사용 중에는 백그라운드 탭이 1분 후 일시 중지되고 인터페이스 애니메이션과 탭 그림이 멈춥니다."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "배터리 사용 중에는 백그라운드 탭이 1분 후 일시 중지되고 인터페이스 애니메이션과 탭 그림이 멈춥니다.",
+"This site: %s": "이 사이트: %s",
+"Brightness": "밝기",
+"Contrast": "대비",
+"Grayscale": "회색조",
+"Reset": "초기화",
+"Brightness, contrast, sepia and grayscale back to their defaults": "밝기, 대비, 세피아, 회색조를 기본값으로 되돌립니다",
+"The sliders work with Dark Reader": "슬라이더는 Dark Reader에서 작동합니다",
+"Text font": "텍스트 글꼴",
+"Use another font for the pages": "페이지에 다른 글꼴 사용",
+"Text stroke": "텍스트 외곽선",
+"Background colour": "배경색",
+"Text colour": "텍스트 색",
+"Scrollbars": "스크롤바",
+"Selection colour": "선택 영역 색",
+"Automatic": "자동",
+"Hidden": "숨김",
+"Colour…": "색…",
+"Only for this site": "이 사이트에만",
+"These choices for %s only": "이 선택은 %s에만",
+"Dark mode settings…": "다크 모드 설정…"
 }
 }

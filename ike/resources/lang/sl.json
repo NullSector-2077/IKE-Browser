@@ -1233,6 +1233,26 @@
 "Update the system": "Posodobite sistem",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Spletni pogon (Qt WebEngine %s) ima znano varnostno težavo (%s), odpravljeno v novejši različici. Odprite terminal in zaženite: %s",
 "Battery saver": "Varčevanje z baterijo",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Na bateriji se zavihki v ozadju po minuti ustavijo, animacije vmesnika in slike zavihkov pa se ustavijo."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Na bateriji se zavihki v ozadju po minuti ustavijo, animacije vmesnika in slike zavihkov pa se ustavijo.",
+"This site: %s": "To spletno mesto: %s",
+"Brightness": "Svetlost",
+"Contrast": "Kontrast",
+"Grayscale": "Sivine",
+"Reset": "Ponastavi",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Svetlost, kontrast, sepija in sivine nazaj na privzete vrednosti",
+"The sliders work with Dark Reader": "Drsniki delujejo z Dark Readerjem",
+"Text font": "Pisava besedila",
+"Use another font for the pages": "Uporabi drugo pisavo za strani",
+"Text stroke": "Obroba besedila",
+"Background colour": "Barva ozadja",
+"Text colour": "Barva besedila",
+"Scrollbars": "Drsni trakovi",
+"Selection colour": "Barva izbora",
+"Automatic": "Samodejno",
+"Hidden": "Skriti",
+"Colour…": "Barva…",
+"Only for this site": "Samo za to spletno mesto",
+"These choices for %s only": "Te izbire samo za %s",
+"Dark mode settings…": "Nastavitve temnega načina…"
 }
 }

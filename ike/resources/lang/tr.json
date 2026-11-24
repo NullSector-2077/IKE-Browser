@@ -1233,6 +1233,26 @@
 "Update the system": "Sistemi güncelleyin",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Web motorunda (Qt WebEngine %s) daha yeni bir sürümde düzeltilmiş bilinen bir güvenlik sorunu var (%s). Bir terminal açın ve çalıştırın: %s",
 "Battery saver": "Pil tasarrufu",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Pildeyken arka plandaki sekmeler bir dakika sonra duraklar, arayüz animasyonları ve sekme resimleri durur."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Pildeyken arka plandaki sekmeler bir dakika sonra duraklar, arayüz animasyonları ve sekme resimleri durur.",
+"This site: %s": "Bu site: %s",
+"Brightness": "Parlaklık",
+"Contrast": "Karşıtlık",
+"Grayscale": "Gri tonlama",
+"Reset": "Sıfırla",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Parlaklık, karşıtlık, sepya ve gri tonlama varsayılana döner",
+"The sliders work with Dark Reader": "Kaydırıcılar Dark Reader ile çalışır",
+"Text font": "Metin yazı tipi",
+"Use another font for the pages": "Sayfalar için başka bir yazı tipi kullan",
+"Text stroke": "Metin dış çizgisi",
+"Background colour": "Arka plan rengi",
+"Text colour": "Metin rengi",
+"Scrollbars": "Kaydırma çubukları",
+"Selection colour": "Seçim rengi",
+"Automatic": "Otomatik",
+"Hidden": "Gizli",
+"Colour…": "Renk…",
+"Only for this site": "Yalnızca bu site için",
+"These choices for %s only": "Bu seçimler yalnızca %s için",
+"Dark mode settings…": "Koyu mod ayarları…"
 }
 }

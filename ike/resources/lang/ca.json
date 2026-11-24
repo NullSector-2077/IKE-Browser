@@ -1233,6 +1233,26 @@
 "Update the system": "Actualitza el sistema",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "El motor web (Qt WebEngine %s) té un problema de seguretat conegut (%s), corregit en una versió més recent. Obre un terminal i executa: %s",
 "Battery saver": "Estalvi de bateria",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Amb bateria, les pestanyes en segon pla es posen en pausa després d'un minut i s'aturen les animacions de la interfície i les imatges de les pestanyes."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Amb bateria, les pestanyes en segon pla es posen en pausa després d'un minut i s'aturen les animacions de la interfície i les imatges de les pestanyes.",
+"This site: %s": "Aquest lloc: %s",
+"Brightness": "Brillantor",
+"Contrast": "Contrast",
+"Grayscale": "Escala de grisos",
+"Reset": "Restableix",
+"Brightness, contrast, sepia and grayscale back to their defaults": "La brillantor, el contrast, el sèpia i l'escala de grisos tornen als valors per defecte",
+"The sliders work with Dark Reader": "Els controls lliscants funcionen amb Dark Reader",
+"Text font": "Tipus de lletra del text",
+"Use another font for the pages": "Fes servir un altre tipus de lletra per a les pàgines",
+"Text stroke": "Contorn del text",
+"Background colour": "Color de fons",
+"Text colour": "Color del text",
+"Scrollbars": "Barres de desplaçament",
+"Selection colour": "Color de la selecció",
+"Automatic": "Automàtic",
+"Hidden": "Amagades",
+"Colour…": "Color…",
+"Only for this site": "Només per a aquest lloc",
+"These choices for %s only": "Aquestes opcions només per a %s",
+"Dark mode settings…": "Configuració del mode fosc…"
 }
 }

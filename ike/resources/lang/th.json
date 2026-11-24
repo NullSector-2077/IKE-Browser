@@ -1233,6 +1233,26 @@
 "Update the system": "อัปเดตระบบ",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "เอนจินเว็บ (Qt WebEngine %s) มีปัญหาความปลอดภัยที่ทราบ (%s) ซึ่งแก้แล้วในรุ่นใหม่กว่า เปิดเทอร์มินัลแล้วรัน: %s",
 "Battery saver": "ประหยัดแบตเตอรี่",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "เมื่อใช้แบตเตอรี่ แท็บเบื้องหลังจะหยุดชั่วคราวหลังหนึ่งนาที และภาพเคลื่อนไหวของส่วนติดต่อและรูปแท็บจะหยุด"
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "เมื่อใช้แบตเตอรี่ แท็บเบื้องหลังจะหยุดชั่วคราวหลังหนึ่งนาที และภาพเคลื่อนไหวของส่วนติดต่อและรูปแท็บจะหยุด",
+"This site: %s": "ไซต์นี้: %s",
+"Brightness": "ความสว่าง",
+"Contrast": "คอนทราสต์",
+"Grayscale": "ระดับสีเทา",
+"Reset": "รีเซ็ต",
+"Brightness, contrast, sepia and grayscale back to their defaults": "คืนค่าความสว่าง คอนทราสต์ ซีเปีย และระดับสีเทาเป็นค่าเริ่มต้น",
+"The sliders work with Dark Reader": "แถบเลื่อนปรับค่าใช้ได้กับ Dark Reader",
+"Text font": "แบบอักษรของข้อความ",
+"Use another font for the pages": "ใช้แบบอักษรอื่นสำหรับหน้าเว็บ",
+"Text stroke": "เส้นขอบข้อความ",
+"Background colour": "สีพื้นหลัง",
+"Text colour": "สีข้อความ",
+"Scrollbars": "แถบเลื่อน",
+"Selection colour": "สีของส่วนที่เลือก",
+"Automatic": "อัตโนมัติ",
+"Hidden": "ซ่อน",
+"Colour…": "สี…",
+"Only for this site": "เฉพาะไซต์นี้",
+"These choices for %s only": "ตัวเลือกเหล่านี้เฉพาะ %s",
+"Dark mode settings…": "การตั้งค่าโหมดมืด…"
 }
 }

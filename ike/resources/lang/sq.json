@@ -1233,6 +1233,26 @@
 "Update the system": "Përditëso sistemin",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Motori i uebit (Qt WebEngine %s) ka një problem të njohur sigurie (%s), të ndrequr në një version më të ri. Hap një terminal dhe ekzekuto: %s",
 "Battery saver": "Kursim baterie",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Me bateri, skedat në sfond ndalen pas një minute dhe animacionet e ndërfaqes dhe figurat e skedave ndalen."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Me bateri, skedat në sfond ndalen pas një minute dhe animacionet e ndërfaqes dhe figurat e skedave ndalen.",
+"This site: %s": "Ky sajt: %s",
+"Brightness": "Ndriçimi",
+"Contrast": "Kontrasti",
+"Grayscale": "Shkallë gri",
+"Reset": "Rivendos",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Ndriçimi, kontrasti, sepia dhe shkalla gri kthehen te vlerat parazgjedhje",
+"The sliders work with Dark Reader": "Rrëshqitësit punojnë me Dark Reader",
+"Text font": "Shkronja e tekstit",
+"Use another font for the pages": "Përdor një shkronjë tjetër për faqet",
+"Text stroke": "Kontur i tekstit",
+"Background colour": "Ngjyra e sfondit",
+"Text colour": "Ngjyra e tekstit",
+"Scrollbars": "Shiritat e rrëshqitjes",
+"Selection colour": "Ngjyra e përzgjedhjes",
+"Automatic": "Automatike",
+"Hidden": "Të fshehura",
+"Colour…": "Ngjyrë…",
+"Only for this site": "Vetëm për këtë sajt",
+"These choices for %s only": "Këto zgjedhje vetëm për %s",
+"Dark mode settings…": "Rregullime të mënyrës së errët…"
 }
 }

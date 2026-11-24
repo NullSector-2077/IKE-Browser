@@ -1233,6 +1233,26 @@
 "Update the system": "Mettez à jour le système",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Le moteur web (Qt WebEngine %s) a un problème de sécurité connu (%s), corrigé dans une version plus récente. Ouvrez un terminal et lancez : %s",
 "Battery saver": "Économiseur de batterie",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Sur batterie, les onglets en arrière-plan se mettent en pause après une minute et les animations de l'interface et les aperçus des onglets s'arrêtent."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Sur batterie, les onglets en arrière-plan se mettent en pause après une minute et les animations de l'interface et les aperçus des onglets s'arrêtent.",
+"This site: %s": "Ce site : %s",
+"Brightness": "Luminosité",
+"Contrast": "Contraste",
+"Grayscale": "Niveaux de gris",
+"Reset": "Réinitialiser",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Luminosité, contraste, sépia et niveaux de gris reviennent à leurs valeurs par défaut",
+"The sliders work with Dark Reader": "Les curseurs fonctionnent avec Dark Reader",
+"Text font": "Police du texte",
+"Use another font for the pages": "Utiliser une autre police pour les pages",
+"Text stroke": "Contour du texte",
+"Background colour": "Couleur de fond",
+"Text colour": "Couleur du texte",
+"Scrollbars": "Barres de défilement",
+"Selection colour": "Couleur de la sélection",
+"Automatic": "Automatique",
+"Hidden": "Masquées",
+"Colour…": "Couleur…",
+"Only for this site": "Uniquement pour ce site",
+"These choices for %s only": "Ces choix uniquement pour %s",
+"Dark mode settings…": "Paramètres du mode sombre…"
 }
 }

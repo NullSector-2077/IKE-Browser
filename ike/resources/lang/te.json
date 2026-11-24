@@ -1233,6 +1233,26 @@
 "Update the system": "సిస్టమ్‌ను నవీకరించండి",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "వెబ్ ఇంజిన్‌లో (Qt WebEngine %s) తెలిసిన భద్రతా సమస్య ఉంది (%s), అది కొత్త వెర్షన్‌లో సరిచేయబడింది. టెర్మినల్ తెరిచి అమలు చేయండి: %s",
 "Battery saver": "బ్యాటరీ ఆదా",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "బ్యాటరీపై ఉన్నప్పుడు, నేపథ్య ట్యాబ్‌లు ఒక నిమిషం తర్వాత ఆగుతాయి, ఇంటర్‌ఫేస్ యానిమేషన్‌లు మరియు ట్యాబ్ చిత్రాలు ఆగిపోతాయి."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "బ్యాటరీపై ఉన్నప్పుడు, నేపథ్య ట్యాబ్‌లు ఒక నిమిషం తర్వాత ఆగుతాయి, ఇంటర్‌ఫేస్ యానిమేషన్‌లు మరియు ట్యాబ్ చిత్రాలు ఆగిపోతాయి.",
+"This site: %s": "ఈ సైట్: %s",
+"Brightness": "ప్రకాశం",
+"Contrast": "కాంట్రాస్ట్",
+"Grayscale": "గ్రేస్కేల్",
+"Reset": "రీసెట్",
+"Brightness, contrast, sepia and grayscale back to their defaults": "ప్రకాశం, కాంట్రాస్ట్, సెపియా, గ్రేస్కేల్ డిఫాల్ట్‌కు తిరిగి వస్తాయి",
+"The sliders work with Dark Reader": "స్లైడర్‌లు Dark Readerతో పని చేస్తాయి",
+"Text font": "టెక్స్ట్ ఫాంట్",
+"Use another font for the pages": "పేజీలకు వేరే ఫాంట్ ఉపయోగించండి",
+"Text stroke": "టెక్స్ట్ అంచు",
+"Background colour": "నేపథ్య రంగు",
+"Text colour": "టెక్స్ట్ రంగు",
+"Scrollbars": "స్క్రోల్‌బార్‌లు",
+"Selection colour": "ఎంపిక రంగు",
+"Automatic": "ఆటోమేటిక్",
+"Hidden": "దాచినవి",
+"Colour…": "రంగు…",
+"Only for this site": "ఈ సైట్‌కు మాత్రమే",
+"These choices for %s only": "ఈ ఎంపికలు %s కు మాత్రమే",
+"Dark mode settings…": "డార్క్ మోడ్ సెట్టింగ్‌లు…"
 }
 }

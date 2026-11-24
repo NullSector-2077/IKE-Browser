@@ -1233,6 +1233,26 @@
 "Update the system": "Atjauniniet sistēmu",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Tīmekļa dzinējam (Qt WebEngine %s) ir zināma drošības problēma (%s), kas novērsta jaunākā versijā. Atveriet termināli un palaidiet: %s",
 "Battery saver": "Akumulatora taupīšana",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Darbojoties ar akumulatoru, fona cilnes pēc minūtes tiek apturētas, un saskarnes animācijas un ciļņu attēli apstājas."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Darbojoties ar akumulatoru, fona cilnes pēc minūtes tiek apturētas, un saskarnes animācijas un ciļņu attēli apstājas.",
+"This site: %s": "Šī vietne: %s",
+"Brightness": "Spilgtums",
+"Contrast": "Kontrasts",
+"Grayscale": "Pelēktoņi",
+"Reset": "Atiestatīt",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Spilgtums, kontrasts, sēpija un pelēktoņi atpakaļ uz noklusējumu",
+"The sliders work with Dark Reader": "Slīdņi darbojas ar Dark Reader",
+"Text font": "Teksta fonts",
+"Use another font for the pages": "Lietot citu fontu lapām",
+"Text stroke": "Teksta kontūra",
+"Background colour": "Fona krāsa",
+"Text colour": "Teksta krāsa",
+"Scrollbars": "Ritjoslas",
+"Selection colour": "Atlases krāsa",
+"Automatic": "Automātiski",
+"Hidden": "Paslēptas",
+"Colour…": "Krāsa…",
+"Only for this site": "Tikai šai vietnei",
+"These choices for %s only": "Šīs izvēles tikai vietnei %s",
+"Dark mode settings…": "Tumšā režīma iestatījumi…"
 }
 }

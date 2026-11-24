@@ -71,11 +71,25 @@ def _engine(theme):
     return src.replace("__IKE_DR_LIB__", lib)
 
 
-def prepare(profile, url, host, theme, dark, chosen):
+def _set_site(scripts, st, host, cfg):
+    """The small script that registers host's settings (cfg: their JSON text)."""
+    if st["sites"].get(host) == cfg:
+        return
+    _remove(scripts, "ike-dark-site:" + host)
+    h = json.dumps(host)
+    scripts.insert(_script("ike-dark-site:" + host,
+                           "(window.__ikeDarkCfg || (window.__ikeDarkCfg = {}))[%s] = %s;\n"
+                           "if (window.__ikeDarkGo) window.__ikeDarkGo(%s);" % (h, cfg, h), False))
+    st["sites"][host] = cfg
+
+
+def prepare(profile, url, host, theme, dark, chosen, site_theme=None):
     """A page of host is about to load (main frame). dark: should it be dark with
     Dark Reader? chosen: did the user turn this site dark himself? Returns
     whether the page will be made dark (False for a site on Dark Reader's list
-    of dark sites, unless chosen)."""
+    of dark sites, unless chosen). theme: the colours of every site;
+    site_theme: host's own (1.1.25), or None. Both already checked
+    (darktheme.for_page)."""
     from . import darkfixes
     scripts = profile.scripts()
     st = _state.get(id(profile))
@@ -97,15 +111,11 @@ def prepare(profile, url, host, theme, dark, chosen):
                                True))
         scripts.insert(_script("ike-dark-engine", _engine(theme), False))
         st = _state[id(profile)] = {"key": key, "sites": {}, "order": []}
-    cfg = json.dumps({"fix": darkfixes.fix_for(page), "detect": not chosen,
-                      "hints": [] if chosen else darkfixes.hints_for(page)})
-    if st["sites"].get(host) != cfg:
-        _remove(scripts, "ike-dark-site:" + host)
-        h = json.dumps(host)
-        scripts.insert(_script("ike-dark-site:" + host,
-                               "(window.__ikeDarkCfg || (window.__ikeDarkCfg = {}))[%s] = %s;\n"
-                               "if (window.__ikeDarkGo) window.__ikeDarkGo(%s);" % (h, cfg, h), False))
-        st["sites"][host] = cfg
+    site = {"fix": darkfixes.fix_for(page), "detect": not chosen,
+            "hints": [] if chosen else darkfixes.hints_for(page)}
+    if site_theme:
+        site["theme"] = site_theme
+    _set_site(scripts, st, host, json.dumps(site))
     if host in st["order"]:
         st["order"].remove(host)
     st["order"].append(host)
@@ -114,6 +124,30 @@ def prepare(profile, url, host, theme, dark, chosen):
         _remove(scripts, "ike-dark-site:" + gone)
         st["sites"].pop(gone, None)
     return True
+
+
+def retheme(profile, theme, site_theme_of):
+    """The colours were changed in the dark mode panel (1.1.25): the pages this
+    profile loads from now on get them, without reloading anything. theme: the
+    colours of every site; site_theme_of(host): a site's own, or None. The pages
+    already open are given them by the browser (app.push_dark_theme)."""
+    st = _state.get(id(profile))
+    if st is None:
+        return
+    scripts = profile.scripts()
+    key = json.dumps(theme, sort_keys=True)
+    if st["key"] != key:
+        _remove(scripts, "ike-dark-engine")
+        scripts.insert(_script("ike-dark-engine", _engine(theme), False))
+        st["key"] = key
+    for host, cfg in list(st["sites"].items()):
+        site = json.loads(cfg)
+        own = site_theme_of(host)
+        if own:
+            site["theme"] = own
+        else:
+            site.pop("theme", None)
+        _set_site(scripts, st, host, json.dumps(site))
 
 
 def forget(profile):

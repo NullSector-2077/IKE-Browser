@@ -1233,6 +1233,26 @@
 "Update the system": "Eguneratu sistema",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Web-motorrak (Qt WebEngine %s) segurtasun-arazo ezagun bat du (%s), bertsio berriago batean konponduta. Ireki terminal bat eta exekutatu: %s",
 "Battery saver": "Bateria aurrezlea",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Bateriarekin, atzeko planoko fitxak pausatu egiten dira minutu baten ondoren, eta interfazearen animazioak eta fitxen irudiak gelditu egiten dira."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Bateriarekin, atzeko planoko fitxak pausatu egiten dira minutu baten ondoren, eta interfazearen animazioak eta fitxen irudiak gelditu egiten dira.",
+"This site: %s": "Webgune hau: %s",
+"Brightness": "Distira",
+"Contrast": "Kontrastea",
+"Grayscale": "Gris-eskala",
+"Reset": "Berrezarri",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Distira, kontrastea, sepia eta gris-eskala balio lehenetsietara",
+"The sliders work with Dark Reader": "Graduatzaileek Dark Reader-ekin funtzionatzen dute",
+"Text font": "Testuaren letra-tipoa",
+"Use another font for the pages": "Erabili beste letra-tipo bat orrietan",
+"Text stroke": "Testuaren ingerada",
+"Background colour": "Atzeko planoaren kolorea",
+"Text colour": "Testuaren kolorea",
+"Scrollbars": "Korritze-barrak",
+"Selection colour": "Hautapenaren kolorea",
+"Automatic": "Automatikoa",
+"Hidden": "Ezkutatuta",
+"Colour…": "Kolorea…",
+"Only for this site": "Webgune honetarako soilik",
+"These choices for %s only": "Aukera hauek %s webgunerako soilik",
+"Dark mode settings…": "Modu ilunaren ezarpenak…"
 }
 }

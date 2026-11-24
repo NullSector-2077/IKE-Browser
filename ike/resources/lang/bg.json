@@ -1233,6 +1233,26 @@
 "Update the system": "Обновете системата",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Уеб двигателят (Qt WebEngine %s) има известен проблем със сигурността (%s), поправен в по-нова версия. Отворете терминал и изпълнете: %s",
 "Battery saver": "Пестене на батерия",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "На батерия разделите във фонов режим спират след минута, а анимациите на интерфейса и картините на разделите спират."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "На батерия разделите във фонов режим спират след минута, а анимациите на интерфейса и картините на разделите спират.",
+"This site: %s": "Този сайт: %s",
+"Brightness": "Яркост",
+"Contrast": "Контраст",
+"Grayscale": "Сиви тонове",
+"Reset": "Нулиране",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Яркост, контраст, сепия и сиви тонове се връщат към стойностите по подразбиране",
+"The sliders work with Dark Reader": "Плъзгачите работят с Dark Reader",
+"Text font": "Шрифт на текста",
+"Use another font for the pages": "Друг шрифт за страниците",
+"Text stroke": "Контур на текста",
+"Background colour": "Цвят на фона",
+"Text colour": "Цвят на текста",
+"Scrollbars": "Ленти за превъртане",
+"Selection colour": "Цвят на избраното",
+"Automatic": "Автоматично",
+"Hidden": "Скрити",
+"Colour…": "Цвят…",
+"Only for this site": "Само за този сайт",
+"These choices for %s only": "Тези избори само за %s",
+"Dark mode settings…": "Настройки на тъмния режим…"
 }
 }

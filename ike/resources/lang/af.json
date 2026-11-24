@@ -1233,6 +1233,26 @@
 "Update the system": "Dateer die stelsel op",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Die webenjin (Qt WebEngine %s) het 'n bekende sekuriteitsprobleem (%s), reggestel in 'n nuwer weergawe. Maak 'n terminaal oop en voer uit: %s",
 "Battery saver": "Batterybespaarder",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Op battery pouseer agtergrondoortjies ná 'n minuut en die koppelvlak se animasies en oortjieprente stop."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Op battery pouseer agtergrondoortjies ná 'n minuut en die koppelvlak se animasies en oortjieprente stop.",
+"This site: %s": "Hierdie werf: %s",
+"Brightness": "Helderheid",
+"Contrast": "Kontras",
+"Grayscale": "Grysskaal",
+"Reset": "Herstel",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Helderheid, kontras, sepia en grysskaal terug na hul verstekwaardes",
+"The sliders work with Dark Reader": "Die skuifbalke werk met Dark Reader",
+"Text font": "Teksfont",
+"Use another font for the pages": "Gebruik 'n ander font vir die bladsye",
+"Text stroke": "Tekskontoer",
+"Background colour": "Agtergrondkleur",
+"Text colour": "Tekskleur",
+"Scrollbars": "Rolstawe",
+"Selection colour": "Seleksiekleur",
+"Automatic": "Outomaties",
+"Hidden": "Versteek",
+"Colour…": "Kleur…",
+"Only for this site": "Slegs vir hierdie werf",
+"These choices for %s only": "Hierdie keuses slegs vir %s",
+"Dark mode settings…": "Instellings vir donker modus…"
 }
 }

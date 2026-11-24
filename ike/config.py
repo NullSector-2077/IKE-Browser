@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from . import osinfo
+from . import darktheme, osinfo
 
 PROFILE = os.environ.get("IKE_PROFILE", "").strip() or "default"
 
@@ -263,7 +263,10 @@ DEFAULTS = {
     "dark_engine": "reader",
     "dark_sites": [],                   # hosts that are dark while dark mode is off
     "dark_exclude": [],                 # hosts that stay light while dark mode is on
-    "dark_theme": {"brightness": 100, "contrast": 100, "sepia": 0},
+    # Dark Reader's colours (1.1.25: every key of its theme, its own defaults; darktheme.py),
+    # and the sites with colours of their own ({host: theme}), set in the toolbar's panel
+    "dark_theme": dict(darktheme.DEFAULTS),
+    "dark_site_themes": {},
     "restore_once": False,              # reopen the last tabs at the next start (restart)
     "filter_lists": DEFAULT_LISTS,
     "custom_filters": "",
@@ -553,6 +556,10 @@ class Config:
             d["shield_level"] = "balanced"
         d["site_levels"] = {h: _LEVEL_ALIASES.get(lv, lv) for h, lv in d["site_levels"].items()
                             if _LEVEL_ALIASES.get(lv, lv) in LEVELS}
+        # 1.1.25: the dark mode's theme complete and checked (earlier versions kept three of
+        # its values; anything out of range or of another kind becomes Dark Reader's default)
+        d["dark_theme"] = darktheme.clean(d.get("dark_theme"))
+        d["dark_site_themes"] = darktheme.clean_sites(d.get("dark_site_themes"))
 
     def save(self):
         """Write the settings, unless the file already holds exactly them: the

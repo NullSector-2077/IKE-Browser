@@ -10,7 +10,9 @@ a question (About, history, bookmarks, downloads, clear data, user scripts,
 the colours editor, languages, import, resources, watched pages, site
 permissions, the command bar); since 1.1.24 also the menus of the toolbar
 buttons a user can add, the Settings' search with nothing found and the
-four steps of the welcome of the first start.
+four steps of the welcome of the first start; since 1.1.25 the dark mode
+panel of the toolbar (closed, with "More" open, and with Chromium's own dark
+mode).
 tests/textfit.py says what is checked: a button's text at least 4 px from
 its frame on each side, labels, check boxes and combo boxes with all of
 their text, nothing cut by a parent or wider than the screen, menus taller
@@ -140,6 +142,28 @@ def steps(ike, qapp, out):
         problems.extend(textfit.check(win.shield_scroll, code + ": shield panel, advanced"))
         win.shield_panel.adv_btn.setChecked(False)
         win.shield_menu.hide()
+        if hasattr(win, "show_dark_panel"):
+            # 1.1.25: the dark mode panel, closed and with "More" open, and with Chromium's
+            # own dark mode (its note about the sliders)
+            win.show_dark_panel()
+            settle()
+            problems.extend(textfit.check(win.dark_scroll, code + ": dark mode panel"))
+            problems.extend(textfit.check_menu(win.dark_menu, code + ": dark mode panel"))
+            win.dark_panel.more_btn.setChecked(True)
+            settle()
+            win.fit_dark_menu()
+            settle()
+            problems.extend(textfit.check(win.dark_scroll, code + ": dark mode panel, more"))
+            win.dark_menu.hide()
+            engine = ike.config["dark_engine"]
+            ike.config["dark_engine"] = "engine"
+            win.show_dark_panel()
+            settle()
+            problems.extend(textfit.check(win.dark_scroll, code + ": dark mode panel, Chromium's",
+                                          combos=False))
+            ike.config["dark_engine"] = engine
+            win.dark_panel.more_btn.setChecked(False)
+            win.dark_menu.hide()
         dlg = win.open_settings()
         settle()
         for i, page in enumerate(dlg.PAGES):

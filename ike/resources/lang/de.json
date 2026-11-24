@@ -1233,6 +1233,26 @@
 "Update the system": "System aktualisieren",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Die Web-Engine (Qt WebEngine %s) hat ein bekanntes Sicherheitsproblem (%s), das in einer neueren Version behoben ist. Öffne ein Terminal und führe aus: %s",
 "Battery saver": "Energiesparen bei Akku",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Im Akkubetrieb pausieren Hintergrund-Tabs nach einer Minute, und die Animationen der Oberfläche sowie die Tab-Vorschaubilder stoppen."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Im Akkubetrieb pausieren Hintergrund-Tabs nach einer Minute, und die Animationen der Oberfläche sowie die Tab-Vorschaubilder stoppen.",
+"This site: %s": "Diese Website: %s",
+"Brightness": "Helligkeit",
+"Contrast": "Kontrast",
+"Grayscale": "Graustufen",
+"Reset": "Zurücksetzen",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Helligkeit, Kontrast, Sepia und Graustufen auf die Standardwerte zurück",
+"The sliders work with Dark Reader": "Die Schieberegler wirken mit Dark Reader",
+"Text font": "Schriftart des Textes",
+"Use another font for the pages": "Eine andere Schriftart für die Seiten verwenden",
+"Text stroke": "Textkontur",
+"Background colour": "Hintergrundfarbe",
+"Text colour": "Textfarbe",
+"Scrollbars": "Bildlaufleisten",
+"Selection colour": "Auswahlfarbe",
+"Automatic": "Automatisch",
+"Hidden": "Ausgeblendet",
+"Colour…": "Farbe…",
+"Only for this site": "Nur für diese Website",
+"These choices for %s only": "Diese Auswahl nur für %s",
+"Dark mode settings…": "Einstellungen des Dunkelmodus…"
 }
 }

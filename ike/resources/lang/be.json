@@ -1233,6 +1233,26 @@
 "Update the system": "Абнавіце сістэму",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "У вэб-рухавіка (Qt WebEngine %s) ёсць вядомая праблема бяспекі (%s), выпраўленая ў навейшай версіі. Адкрыйце тэрмінал і выканайце: %s",
 "Battery saver": "Эканомія батарэі",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Ад батарэі фонавыя ўкладкі прыпыняюцца праз хвіліну, а анімацыі інтэрфейсу і выявы ўкладак спыняюцца."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Ад батарэі фонавыя ўкладкі прыпыняюцца праз хвіліну, а анімацыі інтэрфейсу і выявы ўкладак спыняюцца.",
+"This site: %s": "Гэты сайт: %s",
+"Brightness": "Яркасць",
+"Contrast": "Кантраснасць",
+"Grayscale": "Адценні шэрага",
+"Reset": "Скінуць",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Яркасць, кантраснасць, сэпія і адценні шэрага вяртаюцца да прадвызначаных",
+"The sliders work with Dark Reader": "Паўзункі працуюць з Dark Reader",
+"Text font": "Шрыфт тэксту",
+"Use another font for the pages": "Іншы шрыфт для старонак",
+"Text stroke": "Контур тэксту",
+"Background colour": "Колер фону",
+"Text colour": "Колер тэксту",
+"Scrollbars": "Паласы пракруткі",
+"Selection colour": "Колер вылучэння",
+"Automatic": "Аўтаматычна",
+"Hidden": "Схаваныя",
+"Colour…": "Колер…",
+"Only for this site": "Толькі для гэтага сайта",
+"These choices for %s only": "Гэтыя налады толькі для %s",
+"Dark mode settings…": "Налады цёмнага рэжыму…"
 }
 }

@@ -1233,6 +1233,26 @@
 "Update the system": "Päivitä järjestelmä",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Verkkomoottorissa (Qt WebEngine %s) on tunnettu tietoturvaongelma (%s), joka on korjattu uudemmassa versiossa. Avaa pääte ja suorita: %s",
 "Battery saver": "Virransäästö akulla",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Akulla taustavälilehdet pysähtyvät minuutin kuluttua, ja käyttöliittymän animaatiot ja välilehtien kuvat pysähtyvät."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Akulla taustavälilehdet pysähtyvät minuutin kuluttua, ja käyttöliittymän animaatiot ja välilehtien kuvat pysähtyvät.",
+"This site: %s": "Tämä sivusto: %s",
+"Brightness": "Kirkkaus",
+"Contrast": "Kontrasti",
+"Grayscale": "Harmaasävy",
+"Reset": "Palauta",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Kirkkaus, kontrasti, seepia ja harmaasävy oletusarvoihin",
+"The sliders work with Dark Reader": "Liukusäätimet toimivat Dark Readerin kanssa",
+"Text font": "Tekstin fontti",
+"Use another font for the pages": "Käytä sivuilla toista fonttia",
+"Text stroke": "Tekstin ääriviiva",
+"Background colour": "Taustaväri",
+"Text colour": "Tekstin väri",
+"Scrollbars": "Vierityspalkit",
+"Selection colour": "Valinnan väri",
+"Automatic": "Automaattinen",
+"Hidden": "Piilotettu",
+"Colour…": "Väri…",
+"Only for this site": "Vain tälle sivustolle",
+"These choices for %s only": "Nämä valinnat vain sivustolle %s",
+"Dark mode settings…": "Tumman tilan asetukset…"
 }
 }

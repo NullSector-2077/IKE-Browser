@@ -1233,6 +1233,26 @@
 "Update the system": "கணினியைப் புதுப்பியுங்கள்",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "வலை இயந்திரத்தில் (Qt WebEngine %s) அறியப்பட்ட பாதுகாப்புச் சிக்கல் உள்ளது (%s), அது புதிய பதிப்பில் சரிசெய்யப்பட்டுள்ளது. முனையத்தைத் திறந்து இயக்குங்கள்: %s",
 "Battery saver": "மின்கல சேமிப்பு",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "மின்கலத்தில் இயங்கும்போது, பின்னணித் தாவல்கள் ஒரு நிமிடத்திற்குப் பின் நிறுத்தப்படும்; இடைமுக அசைவூட்டங்களும் தாவல் படங்களும் நிற்கும்."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "மின்கலத்தில் இயங்கும்போது, பின்னணித் தாவல்கள் ஒரு நிமிடத்திற்குப் பின் நிறுத்தப்படும்; இடைமுக அசைவூட்டங்களும் தாவல் படங்களும் நிற்கும்.",
+"This site: %s": "இந்தத் தளம்: %s",
+"Brightness": "ஒளிர்வு",
+"Contrast": "மாறுபாடு",
+"Grayscale": "சாம்பல் நிறம்",
+"Reset": "மீட்டமை",
+"Brightness, contrast, sepia and grayscale back to their defaults": "ஒளிர்வு, மாறுபாடு, செப்பியா, சாம்பல் நிறம் இயல்புநிலைக்குத் திரும்பும்",
+"The sliders work with Dark Reader": "ஸ்லைடர்கள் Dark Reader உடன் வேலை செய்யும்",
+"Text font": "உரை எழுத்துரு",
+"Use another font for the pages": "பக்கங்களுக்கு வேறு எழுத்துருவைப் பயன்படுத்து",
+"Text stroke": "உரையின் வெளிக்கோடு",
+"Background colour": "பின்னணி நிறம்",
+"Text colour": "உரை நிறம்",
+"Scrollbars": "உருள்பட்டைகள்",
+"Selection colour": "தேர்வின் நிறம்",
+"Automatic": "தானியங்கி",
+"Hidden": "மறைக்கப்பட்டவை",
+"Colour…": "நிறம்…",
+"Only for this site": "இந்தத் தளத்திற்கு மட்டும்",
+"These choices for %s only": "இந்தத் தேர்வுகள் %s க்கு மட்டும்",
+"Dark mode settings…": "இருள் பயன்முறை அமைப்புகள்…"
 }
 }

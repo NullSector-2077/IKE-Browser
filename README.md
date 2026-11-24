@@ -121,6 +121,10 @@ profiles: `ike-browser --profile NAME`.
   dark theme; its lists come with each I.K.E. release), or with the engine's
   own dark mode, which is much lighter
   ([docs/review/tests-and-performance.md](docs/review/tests-and-performance.md)).
+  The toolbar's Dark mode button opens a panel: dark mode everywhere or on
+  this site, Dark or Light, brightness, contrast, sepia and grayscale (seen on
+  the page while the slider moves), and under "More" the font, text stroke,
+  colours, scroll bars and selection colour, for every site or for one.
 - Zoom kept for each site; videos and sounds that may not start by themselves
   (all sites, or one); the lock in the address bar opens the site's panel
   (connection, permissions, cookies, protection, zoom, autoplay).

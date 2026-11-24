@@ -1233,6 +1233,26 @@
 "Update the system": "Uppfærðu kerfið",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Vefvélin (Qt WebEngine %s) er með þekkt öryggisvandamál (%s), lagað í nýrri útgáfu. Opnaðu skipanalínu og keyrðu: %s",
 "Battery saver": "Rafhlöðusparnaður",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Á rafhlöðu gera flipar í bakgrunni hlé eftir eina mínútu og hreyfingar viðmótsins og myndir flipa stöðvast."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Á rafhlöðu gera flipar í bakgrunni hlé eftir eina mínútu og hreyfingar viðmótsins og myndir flipa stöðvast.",
+"This site: %s": "Þetta vefsvæði: %s",
+"Brightness": "Birtustig",
+"Contrast": "Birtuskil",
+"Grayscale": "Grátóna",
+"Reset": "Endurstilla",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Birtustig, birtuskil, sepía og grátóna aftur í sjálfgefin gildi",
+"The sliders work with Dark Reader": "Sleðarnir virka með Dark Reader",
+"Text font": "Letur texta",
+"Use another font for the pages": "Nota annað letur fyrir síðurnar",
+"Text stroke": "Útlína texta",
+"Background colour": "Bakgrunnslitur",
+"Text colour": "Textalitur",
+"Scrollbars": "Skrunstikur",
+"Selection colour": "Litur vals",
+"Automatic": "Sjálfvirkt",
+"Hidden": "Faldar",
+"Colour…": "Litur…",
+"Only for this site": "Aðeins fyrir þetta vefsvæði",
+"These choices for %s only": "Þessi val aðeins fyrir %s",
+"Dark mode settings…": "Stillingar dökks hams…"
 }
 }

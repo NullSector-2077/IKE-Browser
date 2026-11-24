@@ -1233,6 +1233,26 @@
 "Update the system": "Uuenda süsteemi",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Veebimootoril (Qt WebEngine %s) on teadaolev turvaprobleem (%s), mis on uuemas versioonis parandatud. Ava terminal ja käivita: %s",
 "Battery saver": "Akusäästja",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Akutoitel peatuvad taustakaardid minuti pärast ning liidese animatsioonid ja kaartide pildid peatuvad."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Akutoitel peatuvad taustakaardid minuti pärast ning liidese animatsioonid ja kaartide pildid peatuvad.",
+"This site: %s": "See sait: %s",
+"Brightness": "Heledus",
+"Contrast": "Kontrastsus",
+"Grayscale": "Halltoonid",
+"Reset": "Lähtesta",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Heledus, kontrastsus, seepia ja halltoonid vaikeväärtustele",
+"The sliders work with Dark Reader": "Liugurid töötavad koos Dark Readeriga",
+"Text font": "Teksti font",
+"Use another font for the pages": "Kasuta lehtedel teist fonti",
+"Text stroke": "Teksti kontuur",
+"Background colour": "Taustavärv",
+"Text colour": "Teksti värv",
+"Scrollbars": "Kerimisribad",
+"Selection colour": "Valiku värv",
+"Automatic": "Automaatne",
+"Hidden": "Peidetud",
+"Colour…": "Värv…",
+"Only for this site": "Ainult selle saidi jaoks",
+"These choices for %s only": "Need valikud ainult saidile %s",
+"Dark mode settings…": "Tumeda režiimi seaded…"
 }
 }

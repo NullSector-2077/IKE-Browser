@@ -1233,6 +1233,26 @@
 "Update the system": "I-update ang system",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "May kilalang problema sa seguridad ang web engine (Qt WebEngine %s) (%s), na naayos sa mas bagong bersyon. Magbukas ng terminal at patakbuhin: %s",
 "Battery saver": "Pantipid ng baterya",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Kapag nasa baterya, humihinto ang mga tab sa background pagkalipas ng isang minuto, at tumitigil ang mga animation ng interface at ang mga larawan ng tab."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Kapag nasa baterya, humihinto ang mga tab sa background pagkalipas ng isang minuto, at tumitigil ang mga animation ng interface at ang mga larawan ng tab.",
+"This site: %s": "Ang site na ito: %s",
+"Brightness": "Liwanag",
+"Contrast": "Contrast",
+"Grayscale": "Grayscale",
+"Reset": "I-reset",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Ibalik sa default ang liwanag, contrast, sepia at grayscale",
+"The sliders work with Dark Reader": "Gumagana ang mga slider sa Dark Reader",
+"Text font": "Font ng teksto",
+"Use another font for the pages": "Gumamit ng ibang font para sa mga page",
+"Text stroke": "Balangkas ng teksto",
+"Background colour": "Kulay ng background",
+"Text colour": "Kulay ng teksto",
+"Scrollbars": "Mga scrollbar",
+"Selection colour": "Kulay ng pinili",
+"Automatic": "Awtomatiko",
+"Hidden": "Nakatago",
+"Colour…": "Kulay…",
+"Only for this site": "Para lang sa site na ito",
+"These choices for %s only": "Ang mga pagpipiliang ito para lang sa %s",
+"Dark mode settings…": "Mga setting ng dark mode…"
 }
 }

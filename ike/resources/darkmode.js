@@ -49,8 +49,9 @@
   }
 
   function go(site) {
-  var CFG = {theme: __IKE_DR_THEME__, common: __IKE_DR_COMMON__, fix: site.fix, detect: site.detect,
-             hints: site.hints, topHost: topHost};
+  // the colours: the site's own when it has them (1.1.25, the dark mode panel), else every site's
+  var CFG = {theme: site.theme || __IKE_DR_THEME__, common: __IKE_DR_COMMON__, fix: site.fix,
+             detect: site.detect, hints: site.hints, topHost: topHost};
   var DR;
   try {
     var module = { exports: {} }, exports = module.exports;
@@ -263,7 +264,8 @@ __IKE_DR_LIB__
     if (early && document.head && early.parentNode !== document.head) {
       try { document.head.insertBefore(early, document.head.firstChild); } catch (e) {}
     }
-    try { DR.enable(CFG.theme, fix); } catch (e) {}
+    try { DR.enable(drTheme(CFG.theme), fix); running = true; } catch (e) {}
+    hideBars(running && CFG.theme.scrollbarColor === 'hidden');
     if (early) {
       var s = early;
       early = null;
@@ -273,10 +275,44 @@ __IKE_DR_LIB__
     // or a frame the hints name, as in the extension)
     if (CFG.detect && (window.top === window || (CFG.hints || []).some(function (h) { return h.iframe; }))) {
       detect(function (dark) {
-        if (dark) { try { DR.disable(); } catch (e) {} }
+        if (dark) { running = false; hideBars(false); try { DR.disable(); } catch (e) {} }
       });
     }
   }
+
+  // --- the colours of the dark mode panel (1.1.25) ---
+  // "hidden" scroll bars are I.K.E.'s: Dark Reader leaves them alone, a style hides them
+  var running = false, bars = null;
+  function drTheme(t) {
+    var o = {};
+    for (var k in t) { if (Object.prototype.hasOwnProperty.call(t, k)) o[k] = t[k]; }
+    if (o.scrollbarColor === 'hidden') o.scrollbarColor = '';
+    return o;
+  }
+  function hideBars(on) {
+    if (!on) {
+      if (bars) { try { bars.remove(); } catch (e) {} bars = null; }
+      return;
+    }
+    if (bars && bars.isConnected) return;
+    var root = document.head || document.documentElement;
+    if (!root) return;
+    bars = document.createElement('style');
+    bars.className = 'darkreader darkreader--ike-bars';
+    bars.textContent = '*{scrollbar-width:none!important}';
+    root.appendChild(bars);
+  }
+  // Called by the browser in this isolated world when the colours change (the page
+  // cannot reach it): the page takes them at once, without being loaded again. The
+  // colours were checked by the browser; a page that is not dark stays as it is.
+  window.__ikeDarkTheme = function (theme) {
+    if (!theme || typeof theme !== 'object') return false;
+    CFG.theme = theme;
+    if (!running) return false;
+    try { DR.enable(drTheme(theme), fix); } catch (e) { return false; }
+    hideBars(theme.scrollbarColor === 'hidden');
+    return true;
+  };
   if (document.head) { start(); return; }
   cover();
   new MutationObserver(function (_m, obs) {

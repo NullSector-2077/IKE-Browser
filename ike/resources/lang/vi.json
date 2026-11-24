@@ -1233,6 +1233,26 @@
 "Update the system": "Cập nhật hệ thống",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Bộ máy web (Qt WebEngine %s) có một lỗi bảo mật đã biết (%s), đã được sửa ở phiên bản mới hơn. Mở terminal và chạy: %s",
 "Battery saver": "Tiết kiệm pin",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Khi dùng pin, các thẻ nền tạm dừng sau một phút, hiệu ứng chuyển động của giao diện và ảnh thẻ dừng lại."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Khi dùng pin, các thẻ nền tạm dừng sau một phút, hiệu ứng chuyển động của giao diện và ảnh thẻ dừng lại.",
+"This site: %s": "Trang này: %s",
+"Brightness": "Độ sáng",
+"Contrast": "Độ tương phản",
+"Grayscale": "Thang độ xám",
+"Reset": "Đặt lại",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Độ sáng, độ tương phản, nâu đỏ và thang độ xám trở về mặc định",
+"The sliders work with Dark Reader": "Các thanh trượt hoạt động với Dark Reader",
+"Text font": "Phông chữ văn bản",
+"Use another font for the pages": "Dùng phông chữ khác cho các trang",
+"Text stroke": "Viền chữ",
+"Background colour": "Màu nền",
+"Text colour": "Màu chữ",
+"Scrollbars": "Thanh cuộn",
+"Selection colour": "Màu vùng chọn",
+"Automatic": "Tự động",
+"Hidden": "Ẩn",
+"Colour…": "Màu…",
+"Only for this site": "Chỉ cho trang này",
+"These choices for %s only": "Các lựa chọn này chỉ cho %s",
+"Dark mode settings…": "Cài đặt chế độ tối…"
 }
 }

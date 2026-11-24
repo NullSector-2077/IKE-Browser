@@ -1233,6 +1233,26 @@
 "Update the system": "Sasisha mfumo",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Injini ya wavuti (Qt WebEngine %s) ina tatizo la usalama linalojulikana (%s), lililorekebishwa katika toleo jipya zaidi. Fungua terminal na uendeshe: %s",
 "Battery saver": "Kiokoa betri",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Ukiwa kwenye betri, vichupo vya nyuma husitishwa baada ya dakika moja, na uhuishaji wa kiolesura na picha za vichupo husimama."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Ukiwa kwenye betri, vichupo vya nyuma husitishwa baada ya dakika moja, na uhuishaji wa kiolesura na picha za vichupo husimama.",
+"This site: %s": "Tovuti hii: %s",
+"Brightness": "Mwangaza",
+"Contrast": "Utofautishaji",
+"Grayscale": "Rangi za kijivu",
+"Reset": "Weka upya",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Mwangaza, utofautishaji, sepia na rangi za kijivu zirudi kwenye chaguomsingi",
+"The sliders work with Dark Reader": "Vitelezi hufanya kazi na Dark Reader",
+"Text font": "Fonti ya maandishi",
+"Use another font for the pages": "Tumia fonti nyingine kwa kurasa",
+"Text stroke": "Mstari wa maandishi",
+"Background colour": "Rangi ya mandharinyuma",
+"Text colour": "Rangi ya maandishi",
+"Scrollbars": "Pau za kusogeza",
+"Selection colour": "Rangi ya uteuzi",
+"Automatic": "Kiotomatiki",
+"Hidden": "Zimefichwa",
+"Colour…": "Rangi…",
+"Only for this site": "Kwa tovuti hii tu",
+"These choices for %s only": "Chaguo hizi kwa %s tu",
+"Dark mode settings…": "Mipangilio ya hali nyeusi…"
 }
 }
