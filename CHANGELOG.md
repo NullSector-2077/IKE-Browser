@@ -155,6 +155,19 @@
   Sunday and Thursday in the Gulf). Nothing about a religion; a holiday the
   user chose still wins all day, and "Greetings only" still shows no line.
   Chosen at random as before (tests/test_greeting.py).
+- **Dark Reader keeps updating by itself, cleaned of useless links** (the
+  owner's decisions of 2026-11-24, `tools/build-darkreader.py`). After every
+  update the builder removes from Dark Reader's code every link it does not
+  need: any link in a comment, and donation, social, news, analytics and
+  advertising links in its texts. Only the links Dark Reader needs or its MIT
+  licence's notice stay, each listed with its reason; none is ever contacted.
+  A link nobody has judged yet, a new network call, a missing part of what
+  I.K.E.'s Dark Reader panel uses, or site fixes that look like a script stop
+  the update: the Dark Reader in use stays until Claude or a person looks.
+- **A speed patch that no longer fits no longer holds Dark Reader back**: the
+  update ships without it (and without the patches that depend on it), and
+  the update's notes and the signing notice say which. The proxy change that
+  keeps Google's sites working is not optional: without it the update waits.
 
 ## 1.1.24
 
