@@ -5,10 +5,10 @@ from outside, so the hostile cases are tested here too (on this computer only)."
 import sys
 import time
 
-from conftest import ROOT
+from conftest import APP
 from test_security import JS
 
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(APP))
 
 
 class Cfg:

@@ -28,9 +28,9 @@ import time
 from pathlib import Path
 
 import pytest
-from conftest import ROOT
+from conftest import APP, ROOT
 
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(APP))
 from ike import handoff  # noqa: E402
 
 XDG_UTILS = ("xdg-open", "xdg-settings", "xdg-mime", "xdg-email", "xdg-desktop-menu", "xdg-icon-resource",

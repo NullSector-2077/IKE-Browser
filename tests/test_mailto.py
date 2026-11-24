@@ -4,9 +4,9 @@ is remembered, and can also take the email links of other programs."""
 
 import sys
 
-from conftest import ROOT
+from conftest import APP, ROOT
 
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(APP))
 from ike import mailto  # noqa: E402
 
 LINK = "mailto:arc@example.it,b@example.org?subject=Ciao%20mondo&body=riga1%0Ariga2%20%26%20altro&cc=c@example.org"
