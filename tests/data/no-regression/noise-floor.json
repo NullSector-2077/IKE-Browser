@@ -1,0 +1,12 @@
+{
+ "about": "Nothing gets worse (tools/no-regression.py NOISE_FLOORS, docs/MAINTENANCE.md): the least size of the fingerprinting protection's noise, per value and measure. A candidate's noise is judged against the larger of main's and this floor (20 % tolerance), so merges cannot lower it step by step. Only for measures that do not depend on the computer's fonts or graphics (pictures of known bytes, the audio samples), set to half of what main measured on 2026-11-24 (a little room for other machines). Only a person (or Claude, with the change read in full) edits this file: it is under tests/, so the automatic fix may not touch it and a pull request that changes it never merges by itself. A floor is raised when the noise is made stronger, never lowered without a person reading why.",
+ "measured": "2026-11-24, I.K.E. 1.1.24 (main c547993), Balanced/Strict/Maximum: canvas pixels 0.0146, canvas_blob png 0.0146 (a picture of known bytes), canvas_offset pixels 0.00745, webgl.read_pixels pixels 0.0144, worker pixels 0.0157, audio dispersion 4.98e-05 and share 1.0",
+ "floors": {
+  "canvas": {"pixels": 0.0073, "pixels_share": 0.0073},
+  "canvas_blob": {"png": 0.0073, "png_share": 0.0073},
+  "canvas_offset": {"pixels": 0.0037, "pixels_share": 0.0037},
+  "webgl.read_pixels": {"pixels": 0.0072, "pixels_share": 0.0072},
+  "worker": {"pixels": 0.0078, "pixels_share": 0.0078},
+  "audio": {"dispersion": 2.5e-05, "share": 0.5}
+ }
+}

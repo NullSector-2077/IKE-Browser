@@ -79,7 +79,7 @@ def change_of(repo, number, api, tools):
     "reviews", "no_regression", "summary"}; unread parts are None."""
     fg, rv, am = tools
     out = {"n": number, "title": "", "ai": False, "tier_a": [], "tier_b": [], "files": None, "reviews": None,
-           "no_regression": None, "summary": "", "author": "", "tier_b_ai": []}
+           "no_regression": None, "summary": "", "author": "", "tier_b_ai": [], "evidence": []}
     try:
         pr = api("repos/%s/pulls/%d" % (repo, number))
         commits = api("repos/%s/pulls/%d/commits?per_page=100" % (repo, number))
@@ -108,6 +108,7 @@ def change_of(repo, number, api, tools):
                 touched.update(names)                  # not read: said as an AI's, never left out
         out["tier_b_ai"] = sorted(n for n in names if fg.tier_b_open(n) and n in touched)
     out["author"] = rv.authors(commits)[0]
+    out["evidence"] = evidence_of(repo, sha, api)
     for line in "\n".join(f.get("patch") or "" for f in files if f.get("filename") == "CHANGELOG.md").split("\n"):
         if line.startswith("+- "):
             out["summary"] = plain(line[3:], 240)
@@ -124,6 +125,25 @@ def change_of(repo, number, api, tools):
         except Exception:
             out["no_regression"] = None
     return out
+
+
+EVIDENCE_TITLE = "Nothing gets worse: passed by evidence"      # tools/no-regression.py, the run's notice
+
+
+def evidence_of(repo, sha, api):
+    """What "Nothing gets worse" let pass by evidence, with no person, on the pull request's last
+    commit (the notice of the tests job's run); None when it cannot be read."""
+    try:
+        runs = (api("repos/%s/commits/%s/check-runs?check_name=tests&per_page=10" % (repo, sha)) or {}).get(
+            "check_runs") or []
+        found = []
+        for run in runs:
+            for a in api("repos/%s/check-runs/%s/annotations?per_page=100" % (repo, run.get("id"))) or []:
+                if a.get("title") == EVIDENCE_TITLE:
+                    found.append(plain(a.get("message"), 900))
+        return found
+    except (RuntimeError, ValueError, AttributeError, TypeError):
+        return None
 
 
 def gather(repo, api=gh_api):
@@ -272,6 +292,20 @@ def body(version, repo, owner, info):
             out.append("  - \"Niente peggiora\" (no-regression): %s. [Vedi le differenze](%s)" % (
                 _regression(c), link % c["n"]))
         out.append("")
+    proved = [c for c in changes if c.get("evidence")]
+    if proved:
+        out += ["### Differenze passate per prova, senza una persona", "",
+                "\"Niente peggiora\" le ha accettate da solo, ognuna con la sua prova (una regola della lista dei "
+                "filtri cambiata, un indirizzo dichiarato, un test che falliva prima e ora passa). Leggile: "
+                "la tua firma copre anche queste.", ""]
+        for c in proved[:MAX_LISTED]:
+            for e in c["evidence"][:5]:
+                out.append("- **#%d** %s. [Vedi le differenze](%s)" % (c["n"], e, link % c["n"]))
+        out.append("")
+    unread = [c for c in changes if c.get("evidence") is None and c.get("files") is not None]
+    if unread:
+        out += ["Non è stato possibile leggere che cosa \"Niente peggiora\" ha accettato per prova in: %s." % ", ".join(
+            "#%d" % c["n"] for c in unread[:MAX_LISTED]), ""]
     if rest:
         out += ["### Le altre modifiche", ""]
         for c in rest[:MAX_LISTED]:

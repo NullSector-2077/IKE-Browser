@@ -811,6 +811,24 @@ def file_problems(name, old, new, status="modified", engine_candidate=False, sha
     return line_additive(name, old, new, risky)
 
 
+# What only the measuring tools say (2026-11-24, the review of "Nothing gets worse"): code an AI adds
+# that names one of these could recognise the measurement or a test run and behave differently there.
+MEASUREMENT = re.compile(r"IKE_TEST_\w*|IKE_NR\w*|IKE_ALLOW_UNSAFE_ENGINE|nrResult|nr-third|no[-_ ]regression|"
+                         r"nothing gets worse|offscreen|QT_QPA_PLATFORM|platformName|profile_keys", re.I)
+
+
+def measurement_problems(name, old, new):
+    """The names of the measurement (MEASUREMENT) a change adds to a file: refused."""
+    def count(text):
+        out = {}
+        for m in MEASUREMENT.finditer(text or ""):
+            out[m.group(0).lower()] = out.get(m.group(0).lower(), 0) + 1
+        return out
+    before, after = count(old), count(new)
+    return ["%s: it names what measures it (%s): code must not tell a test or \"Nothing gets worse\" from a "
+            "user" % (name, w) for w in sorted(after) if after[w] > before.get(w, 0)]
+
+
 def changed_lines(old, new):
     import difflib
     a, b = (old or "").split("\n"), (new or "").split("\n")
@@ -833,6 +851,7 @@ def check(changes, engine_candidate=False, exempt=(), max_files=MAX_FILES, max_l
         files += 1
         old, new = c.get("old_source"), c.get("new_source")
         out += file_problems(name, old, new, c.get("status", "modified"), engine_candidate, sha_of, tier_b, tags)
+        out += measurement_problems(name, old, new)
         if old is not None and new is not None:
             lines += changed_lines(old, new)
     if files > max_files:

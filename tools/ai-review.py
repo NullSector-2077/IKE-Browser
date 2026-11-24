@@ -320,6 +320,13 @@ def ask_reviewer(provider, system, user, env, opener, reserve, spend=None):
     return None
 
 
+def measurement_marks(diff):
+    """The names of the measurement (tools/fix-guard.py MEASUREMENT) on the lines a diff adds."""
+    pattern = _tool("fix-guard").MEASUREMENT
+    return sorted({m.group(0) for line in diff.splitlines() if line.startswith("+") and not line.startswith("+++")
+                   for m in pattern.finditer(line)})
+
+
 def review(diff, failure, author, all_authors=(), env=os.environ, opener=urllib.request.urlopen, reserve=None,
            nonce=None, needed=NEEDED, spend=None):
     """The reviews of one change: {"verdict": approve | reject | no-answer, "author", "reviews", "why",
@@ -331,6 +338,10 @@ def review(diff, failure, author, all_authors=(), env=os.environ, opener=urllib.
         return dict(out, why="the AI's change could not be read (no diff)")
     if len(diff) > MAX_DIFF:
         return dict(out, why="the AI's change is too large to be read whole (%d characters)" % len(diff))
+    marks = measurement_marks(diff)
+    if marks:
+        return dict(out, verdict="reject", why="the change names what measures it (%s): code must not tell a test "
+                                               "or \"Nothing gets worse\" from a user" % ", ".join(marks[:5]))
     order = reviewers_for(author, all_authors, reserve.unavailable(env))
     if not order:
         return dict(out, why="the provider that wrote the fix is not recorded in its commit: no reviewer can be "
