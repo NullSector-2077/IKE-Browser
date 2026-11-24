@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 import pytest
+from conftest import APP
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -150,7 +151,7 @@ def _psl_text(n=1500):
 
 @pytest.fixture
 def psl(tmp_path, monkeypatch):
-    sys.path.insert(0, str(ROOT))
+    sys.path.insert(0, str(APP))
     from ike import config, shields
     path = tmp_path / "psl.dat"
     path.write_text(_psl_text())
@@ -235,7 +236,7 @@ def test_shields_has_no_marshal():
     ("http://127.0.0.1.example.com/", True),
 ])
 def test_not_secure_rule(url, expected):
-    sys.path.insert(0, str(ROOT))
+    sys.path.insert(0, str(APP))
     from PyQt6.QtCore import QUrl
 
     from ike.urlbar import is_not_secure
