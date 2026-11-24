@@ -686,6 +686,15 @@ def network():
 
 def _start():
     global _gen
+    # a fresh profile shows the welcome of the first start (1.1.24) before any window: it is
+    # skipped as a new user skips it (the defaults kept), and the run waits for the first window.
+    # This hook runs from main against the candidate, so it must know the welcome before the
+    # version that brings it can pass "Nothing gets worse".
+    dlg = getattr(ike, "welcome", None)
+    if dlg is not None:
+        (getattr(dlg, "skip_all", None) or dlg.reject)()
+        QTimer.singleShot(500, _start)
+        return
     _gen = measure() if PLAN["mode"] == "measure" else network()
     _step()
 
