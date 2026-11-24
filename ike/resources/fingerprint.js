@@ -125,6 +125,7 @@
   // a 32-bit multiply of our own (Math.imul belongs to the page)
   // a sample's float32 bits (made before any page script runs)
   var F32 = new Float32Array(1), B32 = new Uint32Array(F32.buffer);
+  var W64 = new Float64Array(1), W32 = new Uint32Array(W64.buffer);
   function bitsOf(x) { F32[0] = x; return B32[0] >>> 9; }
   function mul32(a, b) {
     var lo = (a & 0xffff) * b, hi = ((a >>> 16) * b) & 0xffff;
@@ -351,10 +352,21 @@
   // n is the length, read by the caller through the engine's own getter;
   // nothing a page can replace is used here (review of 1.1.19, N4).
   // Self-contained: it also runs inside workers (passed by its source).
-  function farble(data, seed, rng, n) {
+  // w (Strict and above, 1.1.25: WebGL reads): the width of the picture in
+  // pixels; a pixel with the colour of its four neighbours inside the buffer
+  // (the lowest bit left out; the border's own pixel outside it) is never
+  // changed, so a plain colour reads back as drawn.
+  function farble(data, seed, rng, n, w) {
     var step = n > 400000 ? 4 * (((n + 399999) / 400000) | 0) : 4, prev = 0;
+    var W = w > 0 && n % (4 * w) === 0 ? 4 * w : 0;
+    var at = function (q) { return (data[q] & 254) | ((data[q + 1] & 254) << 8) | ((data[q + 2] & 254) << 16) | (data[q + 3] << 24); };
     for (var i = 0; i + 3 < n; i += step) {
       var word = (data[i] & 254) | ((data[i + 1] & 254) << 8) | ((data[i + 2] & 254) << 16) | (data[i + 3] << 24);
+      if (W && word === (i % W ? at(i - 4) : word) && word === ((i + 4) % W ? (i + 4 < n ? at(i + 4) : word) : word) &&
+          word === (i >= W ? at(i - W) : word) && word === (i + W < n ? at(i + W) : word)) {
+        prev = word;
+        continue;
+      }
       if (data[i + 3] !== 0) {
         // the multiply by the FNV prime written as shifts (no Math.imul)
         var h = (seed ^ word) | 0;
@@ -371,6 +383,21 @@
       }
       prev = word;
     }
+  }
+  // A text's width with the site's noise (Strict and above): a factor of
+  // 1 +- 0.000003 chosen by the width's own bits and the seed; 0 stays 0.
+  // F, U: a Float64Array of one number and a Uint32Array over it, made
+  // before any page script. Self-contained: it also runs inside workers.
+  function widthNoise(real, seed, F, U) {
+    if (typeof real !== 'number' || !real) return real;
+    F[0] = real;
+    var h = (seed ^ U[0]) | 0;
+    h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) | 0;
+    h ^= U[1];
+    h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) | 0;
+    h ^= h >>> 15;
+    h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) | 0;
+    return real * (1 + ((((h >>> 8) % 61) - 30) / 10000000));
   }
   // A @font-face source list without its local() entries: comments taken
   // out and CSS escapes decoded first, entries split at the commas outside
@@ -431,7 +458,7 @@
   // canvas): the lowest bit of the chosen values is set, not of bytes (M-8).
   // T holds the engine's own getters, taken before the page ran.
   // Self-contained: it also runs inside workers (passed by its source).
-  function viewNoise(T, target, from, count, seed, rng, farble, half) {
+  function viewNoise(T, target, from, count, seed, rng, farble, half, w) {
     var buf, off, len, tag;
     try { tag = T.RA(T.tag, target, []); } catch (e) { tag = undefined; }
     try {
@@ -449,7 +476,7 @@
     from = from > 0 ? from : 0;
     var n = count >= 0 && from + count < len ? count : len - from;
     if (n <= 0) return;
-    if (!half) { farble(new T.U8(buf, off + from, n), seed, rng, n); return; }
+    if (!half) { farble(new T.U8(buf, off + from, n), seed, rng, n, w); return; }
     // 16-bit floats (target is the Float16Array itself): the noise at the
     // scale of 8-bit colours, as farble makes it, so the picture rounded to
     // 8 bits is the noisy one too (verification V-6: a change in the last
@@ -485,7 +512,10 @@
       for (var x = 0; x < w; x++) {
         if (step > 1 && (x + y * 7) % step) continue;
         var q = (y + 1) * W + (x + 1) * 4;
-        if (pad[q + 3] === 0) continue;
+        // opaque pixels only (1.1.25, review): a changed colour of a pixel
+        // that is partly transparent is not one the canvas can hold, and
+        // came back changed again when written and read (putImageData)
+        if (pad[q + 3] !== 255) continue;
         var me = at(q), left = at(q - 4);
         if (me === left && me === at(q + 4) && me === at(q - W) && me === at(q + W)) continue;
         var hh = (seed ^ me) | 0;
@@ -502,78 +532,107 @@
       }
     }
   }
-  // Which 2D canvases get noise at Strict and Maximum (1.1.25). A canvas that
-  // only ever got solid, opaque, whole-pixel rectangles (fillRect, clearRect
-  // with no transform, clip, shadow, filter or transparency) holds nothing
-  // the computer draws its own way: it is read back exactly as drawn, as
-  // Chrome does. Anything else (text, paths, pictures, gradients, other
-  // canvases, putImageData...) makes it a canvas with noise for good; a
-  // canvas nothing is known of (WebGL, a fresh one) gets the noise as before.
-  // rich, flat: sets of canvases; G: the engine's getters of the context;
-  // T: what reading a picture needs (the engine's getters, the noise:
-  // noise(img, [width, height, picture with one pixel more on every side])).
-  // Returns read(ctx, getImageData, args) and plain(canvas).
+  // Which 2D canvases get noise at Strict and Maximum (1.1.25). A canvas whose
+  // pixels all came from solid, opaque, whole-pixel rectangles (fillRect,
+  // clearRect), from the page's own pixels (putImageData) or from another
+  // such canvas copied as it is (drawImage at a whole pixel, unscaled) holds
+  // nothing the computer draws its own way: it is read back exactly as
+  // drawn, as Chrome does. Anything else (text, paths, pictures, gradients,
+  // a transform that is not a move by whole pixels, a clip, a shadow, a
+  // filter, transparency) makes it a canvas with noise, until putImageData
+  // covers all of it again; a canvas nothing is known of (WebGL, a fresh one)
+  // gets the noise as before. Only the methods that draw are wrapped, and
+  // the page's arguments are handed on as given: the engine reads them, once.
+  // state: canvas -> 1 (exact) or 2 (noise); G: the engine's getters of the
+  // context and of its canvas; T: what reading a picture needs (the engine's
+  // getters, the noise: noise(img, [width, height, picture with one pixel
+  // more on every side])). Returns read(ctx, getImageData, args), plain(canvas).
   // Self-contained: it also runs inside workers (passed by its source).
-  function canvasTrack(C2P, wrap, RA, rich, flat, G, T) {
+  function canvasTrack(C2P, wrap, RA, state, G, T) {
     var canvasOf = function (ctx) { try { return RA(G.canvas, ctx, []); } catch (e) { return null; } };
-    var plain = function (cv) { return !!cv && flat.has(cv) && !rich.has(cv); };
-    var odd = function (v) { var t = typeof v; return t === 'symbol' || t === 'bigint'; };
+    var plain = function (cv) { return !!cv && state.get(cv) === 1; };
+    var num = function (v) { return typeof v === 'number' && v === v && v !== 1 / 0 && v !== -1 / 0; };
+    var whole = function (v) { return num(v) && v % 1 === 0; };
+    var rich = function (ctx) { var cv = canvasOf(ctx); if (cv) state.set(cv, 2); };
+    var exact = function (ctx) { var cv = canvasOf(ctx); if (cv && state.get(cv) !== 2) state.set(cv, 1); };
+    // drawn over or copied, fully opaque, no filter or shadow, and moved by
+    // whole pixels at most (the transform read through the engine's own getters)
+    var still = function (ctx) {
+      var op = RA(G.op, ctx, []);
+      if (RA(G.alpha, ctx, []) !== 1 || (op !== 'source-over' && op !== 'copy')) return false;
+      if ((G.filter && RA(G.filter, ctx, []) !== 'none') || RA(G.blur, ctx, []) !== 0 ||
+          RA(G.sx, ctx, []) !== 0 || RA(G.sy, ctx, []) !== 0) return false;
+      if (!G.tf) return true;
+      var m = RA(G.tf, ctx, []), M = G.m;
+      return RA(M.a, m, []) === 1 && RA(M.b, m, []) === 0 && RA(M.c, m, []) === 0 && RA(M.d, m, []) === 1 &&
+        whole(RA(M.e, m, [])) && whole(RA(M.f, m, []));
+    };
     var mark = function (orig) {
-      return function () {
-        var r = RA(orig, this, arguments), cv = canvasOf(this);
-        if (cv) rich.add(cv);
-        return r;
-      };
+      return function () { var r = RA(orig, this, arguments); rich(this); return r; };
     };
-    var names = ['fillText', 'strokeText', 'fill', 'stroke', 'drawImage', 'putImageData', 'strokeRect',
-      'drawFocusIfNeeded', 'clip', 'translate', 'rotate', 'scale', 'transform', 'setTransform', 'beginLayer',
-      'endLayer'];
+    var names = ['fillText', 'strokeText', 'fill', 'stroke', 'strokeRect', 'drawFocusIfNeeded', 'clip',
+      'beginLayer', 'endLayer'];
     for (var i = 0; i < names.length; i++) wrap(C2P, names[i], mark);
-    var whole = function (v) { return v === v && v !== 1 / 0 && v !== -1 / 0 && v % 1 === 0; };
-    // an opaque colour (Chrome writes it #rrggbb), drawn over or copied, nothing else
-    var solid = function (ctx) {
-      var st = RA(G.fill, ctx, []), op = RA(G.op, ctx, []);
-      return typeof st === 'string' && st[0] === '#' && RA(G.alpha, ctx, []) === 1 &&
-        (op === 'source-over' || op === 'copy') && (!G.filter || RA(G.filter, ctx, []) === 'none') &&
-        RA(G.blur, ctx, []) === 0 && RA(G.sx, ctx, []) === 0 && RA(G.sy, ctx, []) === 0;
-    };
     var rects = ['fillRect', 'clearRect'];
     for (var j = 0; j < 2; j++) {
       (function (name) {
         wrap(C2P, name, function (orig) {
           return function (x, y, w, h) {
-            if (arguments.length < 4 || odd(x) || odd(y) || odd(w) || odd(h)) return RA(orig, this, arguments);
-            var a = [+x, +y, +w, +h];                 // read once, as the engine reads them
-            var r = RA(orig, this, a), cv = canvasOf(this);
-            if (cv && !rich.has(cv)) {
-              if (whole(a[0]) && whole(a[1]) && whole(a[2]) && whole(a[3]) &&
-                  (name === 'clearRect' || solid(this))) flat.add(cv);
-              else rich.add(cv);
+            var r = RA(orig, this, arguments), cv = canvasOf(this);
+            if (cv && state.get(cv) !== 2) {
+              var st = name === 'clearRect' ? '#' : RA(G.fill, this, []);
+              // an opaque colour (Chrome writes it #rrggbb)
+              if (whole(x) && whole(y) && whole(w) && whole(h) && typeof st === 'string' && st[0] === '#' &&
+                  (name === 'clearRect' || still(this))) state.set(cv, 1);
+              else state.set(cv, 2);
             }
             return r;
           };
         });
       })(rects[j]);
     }
+    // the page's own pixels: exact; all of the canvas covered: exact again
+    wrap(C2P, 'putImageData', function (orig) {
+      return function (img, dx, dy) {
+        var r = RA(orig, this, arguments), cv = canvasOf(this);
+        if (cv) {
+          var all = false;
+          try {
+            all = arguments.length === 3 && dx === 0 && dy === 0 &&
+              RA(T.w, img, []) === RA(G.cw, cv, []) && RA(T.h, img, []) === RA(G.ch, cv, []);
+          } catch (e) { all = false; }
+          if (all) state.set(cv, 1); else exact(this);
+        }
+        return r;
+      };
+    });
+    // a canvas that holds nothing of the computer's, copied as it is
+    wrap(C2P, 'drawImage', function (orig) {
+      return function (src, dx, dy) {
+        var r = RA(orig, this, arguments);
+        if (arguments.length === 3 && plain(src) && whole(dx) && whole(dy) && still(this)) exact(this);
+        else rich(this);
+        return r;
+      };
+    });
     var read = function (ctx, orig, args) {
-      var n = args.length, a0 = args[0], a1 = args[1], a2 = args[2], a3 = args[3], img;
-      if (n !== 4 || odd(a0) || odd(a1) || odd(a2) || odd(a3)) {
-        img = RA(orig, ctx, args);
-        if (!plain(canvasOf(ctx))) T.noise(img);
-        return img;
-      }
-      var a = [+a0, +a1, +a2, +a3];
-      img = RA(orig, ctx, a);
+      var a0 = args[0], a1 = args[1], a2 = args[2], a3 = args[3];
+      var img = RA(orig, ctx, args);
       if (plain(canvasOf(ctx))) return img;
       var px = T.px(img);
-      if (T.tag(px) !== 'Uint8ClampedArray') { T.noise(img); return img; }
+      // numbers given as they are (anything else is read by the engine
+      // alone, and gets the noise of the part read)
+      if (args.length !== 4 || !num(a0) || !num(a1) || !num(a2) || !num(a3) || T.tag(px) !== 'Uint8ClampedArray') {
+        T.noise(img);
+        return img;
+      }
       try {
         // the part read, as the engine took it: whole pixels, a negative
         // size going left or up from the corner given
         var w = RA(T.w, img, []), h = RA(T.h, img, []);
-        var x0 = a[0] - a[0] % 1, y0 = a[1] - a[1] % 1;
-        if (a[2] < 0) x0 -= w;
-        if (a[3] < 0) y0 -= h;
+        var x0 = a0 - a0 % 1, y0 = a1 - a1 % 1;
+        if (a2 < 0) x0 -= w;
+        if (a3 < 0) y0 -= h;
         T.noise(img, [w, h, T.px(RA(orig, ctx, [x0 - 1, y0 - 1, w + 2, h + 2]))]);
       } catch (e) { T.noise(img); }
       return img;
@@ -582,10 +641,10 @@
   }
   // Strict and Maximum (1.1.25): one WebGL identity for every user (GLX above):
   // the extensions offered are those of the fixed list the real context has,
-  // the others are never enabled; the limits are the fixed floor (never above
-  // the real ones); WEBGL_debug_renderer_info names the shared card where the
-  // engine gives a name (once the extension is enabled, as in Chrome; without
-  // it the engine's own INVALID_ENUM and null). Every number is read once.
+  // the others are never enabled (WEBGL_debug_renderer_info among them: the
+  // card's name gives the engine's own INVALID_ENUM and null, as Chrome
+  // without the extension); the limits are the fixed floor (never above the
+  // real ones). The enum is read once, as the engine reads it.
   // Self-contained: it also runs inside workers (passed by its source).
   function glIdentity(GLP, wrap, RA, low, tagOf, len, F32, I32, Arr, put, x) {
     var E = { __proto__: null }, L = { __proto__: null }, k;
@@ -615,7 +674,6 @@
       return function (p) {
         if (!arguments.length || odd(p)) return RA(orig, this, arguments);
         var e = p >>> 0, r = RA(orig, this, [e]);
-        if (e === 37445 || e === 37446) return typeof r === 'string' ? x.gpu[e - 37445] : r;
         var l = L[e];
         if (l === undefined || r === null || r === undefined) return r;
         if (typeof r === 'number') return l[0] === 1 ? (r > l[1] ? r : l[1]) : (r < l[1] ? r : l[1]);
@@ -675,7 +733,10 @@
           : [x | 0, y | 0, width | 0, height | 0, format >>> 0, type >>> 0, d];
         var r = RA(orig, this, a);
         if (view) {
-          if (bytes(dst)) noise(dst, n > 7 ? a[7] : 0, a[4] === 0x1908 && a[5] === 0x1401 ? (a[2] >>> 0) * (a[3] >>> 0) * 4 : -1);
+          if (bytes(dst)) {
+            var rgba = a[4] === 0x1908 && a[5] === 0x1401;
+            noise(dst, n > 7 ? a[7] : 0, rgba ? (a[2] >>> 0) * (a[3] >>> 0) * 4 : -1, rgba ? a[2] >>> 0 : 0);
+          }
         } else if (dst !== null && a[5] === 0x1401 && getParam) {
           var pb = RA(getParam, this, [0x88ED]);              // PIXEL_PACK_BUFFER_BINDING
           if (pb) packed.add(pb);
@@ -779,53 +840,47 @@
   // text's characters: nearly the same list everywhere until 1.1.18)
   EXT_POOL.forEach(function (name) { if ((hash(seed + '|' + name) >>> 16) & 1) hiddenExt[name] = 1; });
   // Strict and Maximum (1.1.25): one WebGL identity for every I.K.E. user,
-  // instead of no card name at all and a random part of the extensions hidden
-  // with the real limits (a combination of its own, and "suspicious" to the
-  // fingerprinting scripts that compare them):
-  // - the card named is the same for everyone: the most common one on Linux
-  //   (shared with many real users; a name of I.K.E.'s own would single its
-  //   users out), with WEBGL_debug_renderer_info offered as Chrome offers it;
-  // - the extensions are a fixed list that common desktop cards all have
-  //   (Intel, AMD, NVIDIA), never one the real context lacks;
-  // - the limits are a fixed floor that every current desktop card meets,
-  //   never above the real one (a page that used a higher one would break).
+  // instead of a random part of the extensions hidden with the real limits (a
+  // combination of its own, and "suspicious" to the fingerprinting scripts
+  // that compare them):
+  // - no card name: WEBGL_debug_renderer_info is not offered (the owner's
+  //   choice; a common card's name over limits that are not that card's own
+  //   would be a contradiction a script can prove);
+  // - the extensions are a fixed list every common desktop card has (Intel on
+  //   Mesa from Ivy Bridge on, AMD on Mesa, NVIDIA's own driver, the llvmpipe
+  //   software renderer), never one the real context lacks, never enabled;
+  // - the limits are a fixed floor every one of them meets, never above the
+  //   real one (a page that used a higher one would break), kept consistent
+  //   with each other as OpenGL ES 3.0 asks (components = vectors x 4, the
+  //   combined uniform components from the blocks).
+  // Where a number comes from (docs/SECURITY.md has the table): "ES3" is the
+  // minimum OpenGL ES 3.0 asks of every implementation; "llvmpipe" was read on
+  // the test computer; "Mesa" or "NVIDIA" values are from public reports and
+  // memory, not measured here.
   // Each limit: [0, at most a], [1, at least a] (a negative offset, an
   // alignment), [2, pair at most [a, b]], [3, range up to b].
   var GLX = strict ? {
-    gpu: [GPUS[0][0], GPUS[0][1]],
     exts: ['angle_instanced_arrays', 'ext_blend_minmax', 'ext_color_buffer_float', 'ext_color_buffer_half_float',
-      'ext_float_blend', 'ext_frag_depth', 'ext_shader_texture_lod', 'ext_srgb', 'ext_texture_compression_bptc',
-      'ext_texture_compression_rgtc', 'ext_texture_filter_anisotropic', 'khr_parallel_shader_compile',
-      'oes_draw_buffers_indexed', 'oes_element_index_uint', 'oes_fbo_render_mipmap', 'oes_standard_derivatives',
+      'ext_frag_depth', 'ext_srgb', 'ext_texture_compression_rgtc', 'ext_texture_filter_anisotropic',
+      'khr_parallel_shader_compile', 'oes_element_index_uint', 'oes_fbo_render_mipmap', 'oes_standard_derivatives',
       'oes_texture_float', 'oes_texture_float_linear', 'oes_texture_half_float', 'oes_texture_half_float_linear',
-      'oes_vertex_array_object', 'webgl_color_buffer_float', 'webgl_compressed_texture_s3tc',
-      'webgl_compressed_texture_s3tc_srgb', DEBUG_GPU_EXTENSION, 'webgl_debug_shaders', 'webgl_depth_texture',
+      'oes_vertex_array_object', 'webgl_color_buffer_float', 'webgl_compressed_texture_s3tc', 'webgl_depth_texture',
       'webgl_draw_buffers', 'webgl_lose_context', 'webgl_multi_draw'],
     lim: {
-      3379: [0, 16384], 34076: [0, 16384], 34024: [0, 16384], 3386: [2, 16384, 16384],   // textures, viewport
-      34921: [0, 16], 36347: [0, 4096], 36349: [0, 1024], 36348: [0, 30],                // attributes, uniforms, varyings
-      35660: [0, 16], 34930: [0, 16], 35661: [0, 32], 3408: [0, 4],                      // texture units, subpixel bits
-      33902: [3, 1, 1], 33901: [3, 1, 255], 34047: [0, 16], 34852: [0, 8], 36063: [0, 8], // lines, points, anisotropy, draw buffers
-      32883: [0, 2048], 35071: [0, 2048], 36183: [0, 4], 35375: [0, 24], 35376: [0, 65536], // WebGL 2
-      35371: [0, 12], 35373: [0, 12], 35374: [0, 24], 35658: [0, 16384], 35657: [0, 4096],
-      35377: [0, 212992], 35379: [0, 200704], 37154: [0, 120], 37157: [0, 120], 35659: [0, 120],
-      35978: [0, 64], 35979: [0, 4], 35968: [0, 4], 35076: [1, -8], 35077: [0, 7], 34045: [0, 15],
-      36203: [0, 4294967294], 35380: [1, 256]
+      3379: [0, 16384], 34076: [0, 16384], 34024: [0, 16384], 3386: [2, 16384, 16384],  // textures, viewport (llvmpipe, Mesa)
+      34921: [0, 16], 36347: [0, 1024], 36349: [0, 1024], 36348: [0, 15],               // attributes (ES3), uniforms (llvmpipe), varyings (ES3)
+      35660: [0, 16], 34930: [0, 16], 35661: [0, 32], 3408: [0, 4],                     // texture units, subpixel bits (ES3)
+      33902: [3, 1, 1], 33901: [3, 1, 255], 34047: [0, 16], 34852: [0, 8], 36063: [0, 8], // lines (ES3), points (Mesa), anisotropy, draw buffers
+      32883: [0, 2048], 35071: [0, 2048], 36183: [0, 4], 35375: [0, 24], 35376: [0, 16384], // WebGL 2: 3D, layers (llvmpipe); samples, bindings, block (ES3)
+      35371: [0, 12], 35373: [0, 12], 35374: [0, 24], 35658: [0, 4096], 35657: [0, 4096],  // blocks (ES3), components (vectors x 4)
+      35377: [0, 53248], 35379: [0, 53248], 37154: [0, 64], 37157: [0, 60], 35659: [0, 60], // combined (ES3 formula), in/out (ES3)
+      35978: [0, 64], 35979: [0, 4], 35968: [0, 4], 35076: [1, -8], 35077: [0, 7], 34045: [0, 2], // transform feedback, offsets, LOD bias (ES3)
+      36203: [0, 16777215], 35380: [1, 256], 33000: [0, 3000], 33001: [0, 3000]          // element index (ES3), alignment, elements (Mesa)
     }
   } : null;
   // the network shown at Strict and above: effective type, rtt (ms), downlink
   // (Mbit/s), as shields._NETWORK_HINTS (1.1.25)
   var NET = ['4g', 50, 10];
-  // the page's order of the brands (Strict and above, 1.1.25): a shared worker
-  // gets the engine's own list in the engine's order, which is not the order
-  // of the reduced list the profile gives the page there (shields._identity)
-  var BRAND_ORDER = null;
-  if (strict) {
-    try {
-      var ub = navigator.userAgentData && navigator.userAgentData.brands;
-      if (ub) { BRAND_ORDER = []; for (var bo = 0; bo < ub.length; bo++) put(BRAND_ORDER, bo, `${ub[bo].brand}`); }
-    } catch (e) { BRAND_ORDER = null; }
-  }
   var langs = null;
   if (maximum) langs = ['en-US', 'en'];
   else if (strict) {
@@ -835,6 +890,16 @@
     var real = navigator.languages, first = real && real.length ? `${real[0]}` : '';
     var dash = sindex(first, '-'), base = dash > 0 ? sslice(first, 0, dash) : first;
     langs = first ? (base !== first ? [first, base] : [first]) : null;
+  }
+  // the languages an inline worker shows: those of the page (1.1.25: at
+  // Balanced a shared worker gave the engine's one language, "it", where the
+  // page said "it-IT,it,en-US,en")
+  var workerLangs = langs;
+  if (!workerLangs) {
+    try {
+      var nl = navigator.languages;
+      if (nl && nl.length) { workerLangs = []; for (var li = 0; li < nl.length; li++) put(workerLangs, li, `${nl[li]}`); }
+    } catch (e) { workerLangs = null; }
   }
   var SCREENS = [[1280, 720], [1366, 768], [1440, 900], [1536, 864], [1600, 900], [1680, 1050],
     [1920, 1080], [1920, 1200], [2560, 1080], [2560, 1440], [3440, 1440], [3840, 2160]];
@@ -1133,7 +1198,7 @@
   // ---- inline workers -----------------------------------------------------------
   // Runs inside the worker; must not use anything from outside its own body.
   function workerPatch(c, rng, farble, gpuFor, viewNoise, cssLocal, glReads, farbleEdges, canvasTrack, glIdentity,
-                       seed, address) {
+                       widthNoise, seed, address) {
     var toStr = Function.prototype.toString, RAW = Reflect.apply, GD = Object.getOwnPropertyDescriptor;
     var CJ = JSON.stringify(c), JS = JSON.stringify, here = '';
     c.seed = seed;
@@ -1317,6 +1382,67 @@
         }
       } catch (e) {}
     }
+    if (c.strict && self.TextMetrics) {
+      // a text's width as in the page (1.1.25)
+      var WF = new Float64Array(1), WU = new Uint32Array(WF.buffer);
+      getter(TextMetrics.prototype, 'width', function (orig) { return widthNoise(RAW(orig, this, []), c.seed, WF, WU); });
+    }
+    // a worker the site started from a file of its own (1.1.25): it runs from
+    // a blob address, and every address its script gives relative to its own
+    // is read against the file's, as in the worker the site asked for
+    var FILE = null, URLC = self.URL, hrefW = getOf(URLC && URLC.prototype, 'href');
+    try { if (typeof address === 'string' && /^https?:/i.test(address)) FILE = address; } catch (e) {}
+    var absW = function (u) {
+      if (FILE === null || typeof u !== 'string') return u;
+      try { return RAW(hrefW, new URLC(u, FILE), []); } catch (e) { return u; }
+    };
+    if (FILE !== null) {
+      var firstAbs = function (orig) {
+        return function () {
+          var a = [];
+          for (var i = 0; i < arguments.length; i++) putW(a, i, arguments[i]);
+          if (a.length) putW(a, 0, absW(a[0]));
+          return RAW(orig, this, a);
+        };
+      };
+      var WGS = self.WorkerGlobalScope && WorkerGlobalScope.prototype;
+      wrap(WGS, 'importScripts', function (orig) {
+        return function () {
+          var a = [];
+          for (var i = 0; i < arguments.length; i++) putW(a, i, absW(arguments[i]));
+          return RAW(orig, this, a);
+        };
+      });
+      wrap(WGS, 'fetch', firstAbs);
+      if (self.XMLHttpRequest) {
+        wrap(XMLHttpRequest.prototype, 'open', function (orig) {
+          return function () {
+            var a = [];
+            for (var i = 0; i < arguments.length; i++) putW(a, i, arguments[i]);
+            if (a.length > 1) putW(a, 1, absW(a[1]));
+            return RAW(orig, this, a);
+          };
+        });
+      }
+      ['Request', 'WebSocket', 'EventSource'].forEach(function (name) {
+        var Orig = self[name];
+        if (typeof Orig !== 'function') return;
+        var RC0 = Reflect.construct;
+        var P = new Proxy(Orig, {
+          construct: function (t, args, nt) {
+            var a = [];
+            for (var i = 0; i < args.length; i++) putW(a, i, args[i]);
+            if (a.length) putW(a, 0, absW(a[0]));
+            return RC0(t, a, nt === P ? t : nt);
+          }
+        });
+        nat.set(P, RAW(toStr, Orig, []));
+        try {
+          Object.defineProperty(Orig.prototype, 'constructor', { value: P, writable: true, configurable: true });
+          Object.defineProperty(self, name, { value: P, writable: true, configurable: true });
+        } catch (e) {}
+      });
+    }
     var N = self.WorkerNavigator && WorkerNavigator.prototype;
     getter(N, 'hardwareConcurrency', function () { return c.cores; });
     if (c.mem) getter(N, 'deviceMemory', function () { return c.mem; });
@@ -1378,14 +1504,18 @@
     var rawGet = O2 && O2.getImageData;
     // Strict and above (1.1.25): as in the page, no noise on a canvas known to
     // hold only solid rectangles, the noise of the edges elsewhere
-    var setW = function () {
-      var m = new WeakSet(), has = WeakSet.prototype.has, add = WeakSet.prototype.add;
-      return Object.freeze({ has: function (o) { return RAW(has, m, [o]); }, add: function (o) { RAW(add, m, [o]); } });
-    };
-    var trackW = c.strict && O2 ? canvasTrack(O2, wrap, RAW, setW(), setW(), {
+    var stateW = (function () {
+      var m = new WeakMap(), get = WeakMap.prototype.get, set = WeakMap.prototype.set;
+      return Object.freeze({ get: function (k) { return RAW(get, m, [k]); }, set: function (k, v) { RAW(set, m, [k, v]); } });
+    })();
+    var DMW = self.DOMMatrixReadOnly && DOMMatrixReadOnly.prototype, OCWP0 = self.OffscreenCanvas && OffscreenCanvas.prototype;
+    var trackW = c.strict && O2 ? canvasTrack(O2, wrap, RAW, stateW, {
       canvas: getOf(O2, 'canvas'), fill: getOf(O2, 'fillStyle'), alpha: getOf(O2, 'globalAlpha'),
       op: getOf(O2, 'globalCompositeOperation'), filter: getOf(O2, 'filter'), blur: getOf(O2, 'shadowBlur'),
-      sx: getOf(O2, 'shadowOffsetX'), sy: getOf(O2, 'shadowOffsetY') }, Object.freeze({
+      sx: getOf(O2, 'shadowOffsetX'), sy: getOf(O2, 'shadowOffsetY'), tf: O2.getTransform,
+      m: Object.freeze({ a: getOf(DMW, 'a'), b: getOf(DMW, 'b'), c: getOf(DMW, 'c'), d: getOf(DMW, 'd'),
+        e: getOf(DMW, 'e'), f: getOf(DMW, 'f') }),
+      cw: getOf(OCWP0, 'width'), ch: getOf(OCWP0, 'height') }, Object.freeze({
       px: function (img) { return RAW(IMGD, img, []); }, tag: function (v) { return RAW(TAGG, v, []); },
       noise: noiseImage,
       w: getOf(self.ImageData && ImageData.prototype, 'width'), h: getOf(self.ImageData && ImageData.prototype, 'height') })) : null;
@@ -1428,8 +1558,8 @@
         // Strict and above: the same WebGL identity as the page (1.1.25)
         glIdentity(GL.prototype, wrap, RAW, lower, function (v) { return RAW(TAGG, v, []); },
           function (v) { return RAW(LENG, v, []); }, Float32Array, Int32Array, ARR, putW, c.glx);
-        glReads(GL.prototype, wrap, RAW, function (v) { return RAW(TAGG, v, []); }, function (d, f, n) {
-          viewNoise(TW, d, f, n, c.seed, rng, farble, false);
+        glReads(GL.prototype, wrap, RAW, function (v) { return RAW(TAGG, v, []); }, function (d, f, n, wd) {
+          viewNoise(TW, d, f, n, c.seed, rng, farble, false, c.strict ? wd : 0);
         }, packedW, rawParamW);
         return;
       }
@@ -1460,8 +1590,8 @@
         };
       });
       // pixels read back, as in the page (fingerprinting audit H-E, V-5)
-      glReads(GL.prototype, wrap, RAW, function (v) { return RAW(TAGG, v, []); }, function (d, f, n) {
-        viewNoise(TW, d, f, n, c.seed, rng, farble, false);
+      glReads(GL.prototype, wrap, RAW, function (v) { return RAW(TAGG, v, []); }, function (d, f, n, wd) {
+        viewNoise(TW, d, f, n, c.seed, rng, farble, false, c.strict ? wd : 0);
       }, packedW, rawParamW);
     });
     if (self.VideoFrame) {
@@ -1473,37 +1603,6 @@
           });
         };
       });
-    }
-    // the page's order of the brands (1.1.25): a shared worker gets the
-    // engine's own order, which at Strict is not the page's; a list already
-    // in the page's order is handed on as it is
-    var ISFROZEN = Object.isFrozen, FROZEN = Object.freeze;
-    var inOrder = function (list) {
-      if (!c.order || !list || typeof list !== 'object') return list;
-      var n = list.length, rank = function (b) {
-        for (var k = 0; k < c.order.length; k++) if (c.order[k] === b) return k;
-        return c.order.length;
-      };
-      var same = true, i, j;
-      for (i = 1; i < n && same; i++) if (rank(list[i - 1].brand) > rank(list[i].brand)) same = false;
-      if (same) return list;
-      var o = new ARR();
-      for (j = 0; j <= c.order.length; j++) {
-        for (i = 0; i < n; i++) if (rank(list[i].brand) === j) putW(o, o.length, list[i]);
-      }
-      return ISFROZEN(list) ? FROZEN(o) : o;
-    };
-    if (c.order && self.NavigatorUAData) {
-      var ordered = (function () {
-        var m = new WeakMap(), get = WeakMap.prototype.get, put = WeakMap.prototype.set;
-        return function (list) {
-          if (!list || typeof list !== 'object') return list;
-          var o = RAW(get, m, [list]);
-          if (o === undefined) { o = inOrder(list); RAW(put, m, [list, o]); }
-          return o;
-        };
-      })();
-      getter(self.NavigatorUAData.prototype, 'brands', function (orig) { return ordered(RAW(orig, this, [])); });
     }
     if (c.strict && self.NavigatorUAData) {
       // the same reduced Chrome version as the page and the headers (1.1.18,
@@ -1523,9 +1622,8 @@
               // no method of the worker's on the real versions (audit, H-A)
               var full = v.fullVersionList, list = [];
               for (var i = 0; i < full.length; i++) putW(list, i, { brand: full[i].brand, version: major(full[i].version) + '.0.0.0' });
-              v.fullVersionList = inOrder(list);
+              v.fullVersionList = list;
             }
-            if (v && v.brands) v.brands = inOrder(v.brands);
             return v;
           });
         };
@@ -1561,7 +1659,7 @@
       var meHead = '(' + RAW(toStr, workerPatch, []) + ')(' + CJ + ',' + RAW(toStr, rng, []) + ',' +
         RAW(toStr, farble, []) + ',' + RAW(toStr, gpuFor, []) + ',' + RAW(toStr, viewNoise, []) + ',' +
         RAW(toStr, cssLocal, []) + ',' + RAW(toStr, glReads, []) + ',' + RAW(toStr, farbleEdges, []) + ',' +
-        RAW(toStr, canvasTrack, []) + ',' + RAW(toStr, glIdentity, []) + ',';
+        RAW(toStr, canvasTrack, []) + ',' + RAW(toStr, glIdentity, []) + ',' + RAW(toStr, widthNoise, []) + ',';
       var RBUF = new Uint32Array(1), RGV = crypto.getRandomValues, CR = crypto;
       var preludeOf = function (addr, own) {
         var sd = c.seed;
@@ -1613,9 +1711,31 @@
               }
             }
             var send = function (x) { return given ? [x, ov] : [x]; };
+            u = absW(u);
             args = send(u);
+            var asked = args;
             try {
               var b = made.get(u);
+              if (c.strict && name === 'Worker' && lower(RAW(SSL, u, [0, 5])) !== 'blob:' &&
+                  lower(RAW(SSL, u, [0, 5])) !== 'data:' && XR && NB) {
+                // a worker from a file of the site, as in the page (1.1.25)
+                var fx = new URLC(u, FILE || undefined), fp = fx.protocol;
+                if ((fp === 'http:' || fp === 'https:') && fx.origin === self.origin) {
+                  var fa = RAW(hrefW, fx, []), js = { type: 'text/javascript' };
+                  if (module) {
+                    var fpre = RA(mk, Ur, [new NB([preludeOf(fa, true)], js)]);
+                    var ftop = RA(mk, Ur, [new NB(['import ' + RAW(JS, JSON, [fpre]) + ';\nawait import(' +
+                      RAW(JS, JSON, [fa]) + ');\n'], js)]);
+                    args = send(ftop);
+                  } else {
+                    var fr = new XR();
+                    RAW(XO, fr, ['GET', fa, false]);
+                    RAW(XS, fr, []);
+                    var fs = RAW(XST, fr, []);
+                    if (fs >= 200 && fs <= 299) args = send(RA(mk, Ur, [new NB([preludeOf(fa, false), RAW(XTX, fr, [])], js)]));
+                  }
+                }
+              }
               if (!b && lower(RAW(SSL, u, [0, 5])) === 'blob:' && XR) {
                 // an address made elsewhere (by the page, say): its text read
                 // here, once (verification V-4: such a worker had nothing)
@@ -1638,7 +1758,10 @@
                   RAW(SSL, u, [k + 1]));
               }
             } catch (e) {}
-            return RC(t, args, nt);
+            try { return RC(t, args, nt); } catch (e) {
+              if (args !== asked) return RC(t, asked, nt);
+              throw e;
+            }
           }
         });
         nat.set(P, RAW(toStr, Orig, []));
@@ -1658,7 +1781,7 @@
     RAPPLY(origToString, gpuFor, []) + ',' + RAPPLY(origToString, viewNoise, []) + ',' +
     RAPPLY(origToString, cssLocal, []) + ',' + RAPPLY(origToString, glReads, []) + ',' +
     RAPPLY(origToString, farbleEdges, []) + ',' + RAPPLY(origToString, canvasTrack, []) + ',' +
-    RAPPLY(origToString, glIdentity, []) + ',';
+    RAPPLY(origToString, glIdentity, []) + ',' + RAPPLY(origToString, widthNoise, []) + ',';
   var JSON_STR = JSON.stringify;
   var PRELUDE_LINES = 1;
   (function () {
@@ -1715,9 +1838,8 @@
   // the workers' configuration, made before any page script (its arrays
   // could otherwise be turned into something else by the page's toJSON);
   // at Strict and above it carries the masks for the workers' own fonts
-  WCFG = JSON_STR({ cores: cores, mem: strict ? 8 : 0, langs: langs, strict: strict, maximum: maximum,
+  WCFG = JSON_STR({ cores: cores, mem: strict ? 8 : 0, langs: workerLangs, strict: strict, maximum: maximum,
     gpus: GPUS, pick: PICK, hidden: hiddenExt, lines: PRELUDE_LINES, glx: GLX, net: strict ? NET : null,
-    order: BRAND_ORDER,
     fonts: strict ? MASKED : null, blank: strict ? BLANK_FONT : null });
   // A FontFace source written by the page at Strict and above: every local()
   // entry taken out, so no installed font can be asked for by name, however
@@ -1836,7 +1958,10 @@
 
   // the canvases of every realm known to hold only solid rectangles, or more
   // (canvasTrack, Strict and above), and what reading a picture needs
-  var RICH_CANVAS = hardSet(), FLAT_CANVAS = hardSet();
+  var CANVAS_STATE = hardMap();
+  var DMP = window.DOMMatrixReadOnly && DOMMatrixReadOnly.prototype;
+  var MATRIX = FREEZE({ a: getterOf(DMP, 'a'), b: getterOf(DMP, 'b'), c: getterOf(DMP, 'c'), d: getterOf(DMP, 'd'),
+    e: getterOf(DMP, 'e'), f: getterOf(DMP, 'f') });
   var READ = FREEZE({ px: pixels, tag: TAG, noise: noiseImage,
     w: getterOf(window.ImageData && ImageData.prototype, 'width'),
     h: getterOf(window.ImageData && ImageData.prototype, 'height') });
@@ -1871,13 +1996,16 @@
     var rawOffGet = O2D && O2D.getImageData;
     // Strict and Maximum (1.1.25): no noise on a canvas known to hold only
     // solid rectangles, the noise of the edges elsewhere (canvasTrack)
-    function ctxGetters(P) {
+    function ctxGetters(P, CP) {
       return { canvas: getterOf(P, 'canvas'), fill: getterOf(P, 'fillStyle'), alpha: getterOf(P, 'globalAlpha'),
         op: getterOf(P, 'globalCompositeOperation'), filter: getterOf(P, 'filter'), blur: getterOf(P, 'shadowBlur'),
-        sx: getterOf(P, 'shadowOffsetX'), sy: getterOf(P, 'shadowOffsetY') };
+        sx: getterOf(P, 'shadowOffsetX'), sy: getterOf(P, 'shadowOffsetY'), tf: P && P.getTransform, m: MATRIX,
+        cw: getterOf(CP, 'width'), ch: getterOf(CP, 'height') };
     }
-    var track = strict && C2D ? canvasTrack(C2D, wrap, RAPPLY, RICH_CANVAS, FLAT_CANVAS, ctxGetters(C2D), READ) : null;
-    var otrack = strict && O2D ? canvasTrack(O2D, wrap, RAPPLY, RICH_CANVAS, FLAT_CANVAS, ctxGetters(O2D), READ) : null;
+    var track = strict && C2D ? canvasTrack(C2D, wrap, RAPPLY, CANVAS_STATE,
+      ctxGetters(C2D, w.HTMLCanvasElement && w.HTMLCanvasElement.prototype), READ) : null;
+    var otrack = strict && O2D ? canvasTrack(O2D, wrap, RAPPLY, CANVAS_STATE,
+      ctxGetters(O2D, w.OffscreenCanvas && w.OffscreenCanvas.prototype), READ) : null;
     // the whole picture with its noise: the edges' at Strict and above (read
     // with one pixel more on every side, as getImageData reads it)
     function noiseAll(ctx, get, cw, ch) {
@@ -1942,27 +2070,13 @@
       });
     }
     if (strict && w.TextMetrics) {
-      // a tiny change of each text's width, its own for every text and font
-      // and site, and none for an empty text: the same offset for every text
-      // was read with measureText('') (review of 1.1.19, H1)
-      var measured = hardMap();
-      [w.CanvasRenderingContext2D, w.OffscreenCanvasRenderingContext2D].forEach(function (C) {
-        if (!C) return;
-        wrap(C.prototype, 'measureText', function (orig) {
-          return function (text) {
-            var m = RAPPLY(orig, this, arguments);
-            // the parts only; the key is made when the width is read (L5 of the
-            // performance review: joining here cost each call)
-            try { measured.set(m, [text, this.font]); } catch (e) {}
-            return m;
-          };
-        });
-      });
+      // a tiny change of each text's width, its own for every width and site,
+      // and none for an empty text (review of 1.1.19, H1). 1.1.25: keyed on
+      // the real width alone, not on the text and the font's name: two fonts
+      // that are not there measure the same, as in Chrome (each name gave its
+      // own width), and measureText itself is no longer wrapped
       getter(w.TextMetrics.prototype, 'width', function (orig) {
-        var real = RAPPLY(orig, this, []);
-        var key = measured.get(this);
-        if (!real || key === undefined) return real;
-        return real * (1 + (((hash(seed + '|' + String(key[0]) + '|' + key[1]) >>> 8) % 61) - 30) / 10000000);
+        return widthNoise(RAPPLY(orig, this, []), seed, W64, W32);
       });
     }
 
@@ -1975,8 +2089,8 @@
       var WArrG = w.Array;
       if (GLX) {
         glIdentity(GL.prototype, wrap, RAPPLY, lower, TAG, LEN, w.Float32Array, w.Int32Array, WArrG, put, GLX);
-        glReads(GL.prototype, wrap, RAPPLY, TAG, function (d, f, n) {
-          viewNoise(TV, d, f, n, seed, rng, farble, false);
+        glReads(GL.prototype, wrap, RAPPLY, TAG, function (d, f, n, wd) {
+          viewNoise(TV, d, f, n, seed, rng, farble, false, strict ? wd : 0);
         }, packed, rawGetParam);
         return;
       }
@@ -2010,8 +2124,8 @@
           return r;
         };
       });
-      glReads(GL.prototype, wrap, RAPPLY, TAG, function (d, f, n) {
-        viewNoise(TV, d, f, n, seed, rng, farble, false);
+      glReads(GL.prototype, wrap, RAPPLY, TAG, function (d, f, n, wd) {
+        viewNoise(TV, d, f, n, seed, rng, farble, false, strict ? wd : 0);
       }, packed, rawGetParam);
     });
     // a VideoFrame made from a canvas (or a picture) copied out as bytes
@@ -2434,6 +2548,43 @@
       } catch (e) { return u; }
     };
     var xStatus = getterOf(XP, 'status'), xText = getterOf(XP, 'responseText');
+    // Strict and Maximum (1.1.25, independent review): a dedicated worker the
+    // site starts from a file of its own (classic or module) is started from
+    // a blob address holding the prelude, which then runs the site's script
+    // with its real address (the location, relative addresses and errors as
+    // before: workerPatch, address). A classic script is read here, once,
+    // and put after the prelude; a module is imported after a prelude module.
+    // If that cannot be done (the script cannot be read, a content security
+    // policy refuses blob workers) the worker is started as the page asked,
+    // and the request check refuses its script at these levels
+    // (shields._WORKER_SCRIPTS): it never runs without the protection.
+    var UPR = U && U.prototype, uHref = getterOf(UPR, 'href'), uOrigin = getterOf(UPR, 'origin');
+    var uProto = getterOf(UPR, 'protocol'), baseOf = getterOf(w.Node && w.Node.prototype, 'baseURI');
+    var later = function (u) { RAPPLY(nLater, w, [function () { RAPPLY(rawRevoke, U, [u]); }, 30000]); };
+    function fromFile(url, module) {
+      var x = nConstruct(U, [url, RAPPLY(baseOf, doc, [])]), pr = RAPPLY(uProto, x, []);
+      if ((pr !== 'http:' && pr !== 'https:') || RAPPLY(uOrigin, x, []) !== w.location.origin) return null;
+      var abs = RAPPLY(uHref, x, []), js = { type: 'text/javascript' };
+      if (module) {
+        var pre = RAPPLY(rawCreate, U, [new NBlob([preludeFor(abs, true)], js)]);
+        // the site's module by import(), awaited: a static import of it would
+        // be fetched as a worker's script, which the request check refuses
+        var top = RAPPLY(rawCreate, U, [new NBlob(['import ' + RAPPLY(JSON_STR, JSON, [pre]) + ';\nawait import(' +
+          RAPPLY(JSON_STR, JSON, [abs]) + ');\n'], js)]);
+        PATCHED.set(top, abs);
+        later(pre); later(top);
+        return top;
+      }
+      var xr = new NXHR();
+      RAPPLY(xOpen, xr, ['GET', abs, false]);
+      RAPPLY(xSend, xr, []);
+      var st = RAPPLY(xStatus, xr, []);
+      if (st < 200 || st > 299) return null;
+      var made = RAPPLY(rawCreate, U, [new NBlob([preludeFor(abs, false), RAPPLY(xText, xr, [])], js)]);
+      PATCHED.set(made, abs);
+      later(made);
+      return made;
+    }
     if (rawCreate && rawRevoke && NBlob) {
       wrap(U, 'createObjectURL', function (orig) {
         return function (obj) {
@@ -2467,9 +2618,12 @@
             var url = tt !== null ? tt : `${first}`;
             var opt = workerOptions(args[1], args.length > 1);
             var send = function (u) { return opt.given ? [u, opt.value] : [u]; };
-            var call = send(tt !== null ? first : url);
+            var call = send(tt !== null ? first : url), asked = call;
             try {
-              if (sslice(url, 0, 5) === 'blob:') {
+              if (strict && name === 'Worker' && sslice(url, 0, 5) !== 'blob:' && lower(sslice(url, 0, 5)) !== 'data:') {
+                var file = fromFile(url, opt.module);
+                if (file) call = send(tt !== null ? asTrusted(file) : file);
+              } else if (sslice(url, 0, 5) === 'blob:') {
                 var blob = blobs.get(url);
                 if (!blob) {
                   // a blob address made elsewhere (in a worker, another frame):
@@ -2503,8 +2657,12 @@
               }
             } catch (e) {}
             // the engine's own errors (a policy of Trusted Types, say) without
-            // the protection's lines in their stack (M-5)
-            try { return nConstruct(target, call, nt); } catch (e) { clean(e); throw e; }
+            // the protection's lines in their stack (M-5); a blob address a
+            // policy refuses: the worker the page asked for (see fromFile)
+            try { return nConstruct(target, call, nt); } catch (e) {
+              if (call !== asked) { try { return nConstruct(target, asked, nt); } catch (e2) { clean(e2); throw e2; } }
+              clean(e); throw e;
+            }
           }
         });
         natives.set(P, RAPPLY(origToString, Orig, []));

@@ -20,9 +20,6 @@ from conftest import needs_engine
 
 from ike.osinfo import identity
 
-# the one card every user is told about at Strict and Maximum (1.1.25, fingerprint.js GLX)
-STRICT_CARD = ("Google Inc. (Intel)", "ANGLE (Intel, Mesa Intel(R) UHD Graphics 620 (KBL GT2), OpenGL 4.6)")
-
 PROBE = r"""<!doctype html><html><head><title>fp</title></head><body>
 <script>
 (async function () {
@@ -221,8 +218,7 @@ def test_scriptlets_do_not_change_fingerprint(run_ike, site, level):
     if level == "balanced":                 # Maximum hides the graphics card's name
         assert "Direct3D11" not in plain["webgl"][3], plain["webgl"]
     # 1.1.18: the card named to the site is a common model, without driver
-    # versions, the same in a worker; at Strict and Maximum (1.1.25) one card
-    # for every user, the same in a worker
+    # versions, the same in a worker; at Strict and Maximum no name at all
     webgl, in_worker = plain["webgl"], plain["worker"][6]
     if level == "balanced":
         assert webgl[2].startswith("Google Inc. (") and webgl[3].startswith("ANGLE ("), webgl
@@ -230,6 +226,6 @@ def test_scriptlets_do_not_change_fingerprint(run_ike, site, level):
         assert "WEBGL_debug_renderer_info" in webgl[5]
         assert in_worker[0] == webgl[3], (in_worker, webgl)
     else:
-        assert (webgl[2], webgl[3]) == STRICT_CARD, webgl
-        assert "WEBGL_debug_renderer_info" in webgl[5]
-        assert in_worker[0] == webgl[3] and in_worker[1] == webgl[5], (in_worker, webgl)
+        assert webgl[2] is None and webgl[3] is None, webgl
+        assert "WEBGL_debug_renderer_info" not in webgl[5]
+        assert in_worker[0] is None and "WEBGL_debug_renderer_info" not in in_worker[1], in_worker

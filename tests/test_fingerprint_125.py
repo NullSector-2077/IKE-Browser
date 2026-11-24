@@ -32,7 +32,6 @@ import threading
 
 import pytest
 
-STRICT_CARD = ["Google Inc. (Intel)", "ANGLE (Intel, Mesa Intel(R) UHD Graphics 620 (KBL GT2), OpenGL 4.6)"]
 PDF_PLUGINS = ["PDF Viewer", "Chrome PDF Viewer", "Chromium PDF Viewer", "Microsoft Edge PDF Viewer",
                "WebKit built-in PDF"]
 GL_FLAGS = "--no-sandbox --enable-unsafe-swiftshader --use-angle=swiftshader --ignore-gpu-blocklist"
@@ -194,7 +193,8 @@ def test_every_place_gives_the_same_identity(run_ike, site, level):
         assert (v["brands"], v["list"], v["full"], v["pv"]) == (page["brands"], page["list"], page["full"], ""), \
             (level, name, v, page)
     brands = json.loads(page["brands"])
-    assert [b["brand"] for b in brands] == ["Not=A?Brand", "Chromium"] or strict, brands   # the engine's own order
+    # the engine's own order at every level (review round 2: Qt sorted a list it was given at Strict)
+    assert [b["brand"] for b in brands] == ["Not=A?Brand", "Chromium"], brands
     assert "Google Chrome" not in page["brands"]
     major = page["full"].split(".")[0]
     if strict:
@@ -284,12 +284,16 @@ function glProbe(make) {
   var P = {};
   [0x0D33, 0x851C, 0x84E8, 0x8869, 0x8DFB, 0x8DFD, 0x8DFC, 0x8B4C, 0x8872, 0x8B4D, 0x0D50, 0x8073, 0x88FF, 0x8D57,
    0x8A2F, 0x8A30, 0x8A2B, 0x8A2D, 0x8A2E, 0x8B4A, 0x8B49, 0x8A31, 0x8A33, 0x9122, 0x9125, 0x8B4B, 0x8C8A, 0x8C8B,
-   0x8C80, 0x8904, 0x8905, 0x84FD, 0x8D6B, 0x8A34, 0x0D3A, 0x846E, 0x846D].forEach(function (p) {
+   0x8C80, 0x8904, 0x8905, 0x84FD, 0x8D6B, 0x8A34, 0x0D3A, 0x846E, 0x846D, 0x80E8, 0x80E9].forEach(function (p) {
     var v = gl.getParameter(p); gl.getError();
     P[p] = v && typeof v === 'object' ? [Object.prototype.toString.call(v), Array.from(v)] : v;
   });
   R.params = P;
   R.objectName = Array.from(gl.getParameter({ valueOf: function () { return 0x846E; } }) || []);
+  // a plain colour read back (review round 2: the noise changed some)
+  gl.clearColor(0.2, 0.4, 0.6, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+  var px = new Uint8Array(4 * 4 * 4); gl.readPixels(0, 0, 4, 4, gl.RGBA, gl.UNSIGNED_BYTE, px);
+  R.flat = Array.from(px).join() === Array(16).fill('51,102,153,255').join();
   if (gl.getInternalformatParameter) R.samples = Array.from(gl.getInternalformatParameter(gl.RENDERBUFFER, gl.RGBA8, gl.SAMPLES) || []);
   return R;
 }
@@ -314,19 +318,17 @@ GL_PAGE = r"""<!doctype html><title>gl</title><body><script>
 
 # the floor of the limits at Strict (fingerprint.js GLX.lim): [kind, a, b]
 FLOOR = {0x0D33: [0, 16384], 0x851C: [0, 16384], 0x84E8: [0, 16384], 0x0D3A: [2, 16384, 16384], 0x8869: [0, 16],
-         0x8DFB: [0, 4096], 0x8DFD: [0, 1024], 0x8DFC: [0, 30], 0x8B4C: [0, 16], 0x8872: [0, 16], 0x8B4D: [0, 32],
+         0x8DFB: [0, 1024], 0x8DFD: [0, 1024], 0x8DFC: [0, 15], 0x8B4C: [0, 16], 0x8872: [0, 16], 0x8B4D: [0, 32],
          0x0D50: [0, 4], 0x846E: [3, 1, 1], 0x846D: [3, 1, 255], 0x8073: [0, 2048], 0x88FF: [0, 2048],
-         0x8D57: [0, 4], 0x8A2F: [0, 24], 0x8A30: [0, 65536], 0x8A2B: [0, 12], 0x8A2D: [0, 12], 0x8A2E: [0, 24],
-         0x8B4A: [0, 16384], 0x8B49: [0, 4096], 0x8A31: [0, 212992], 0x8A33: [0, 200704], 0x9122: [0, 120],
-         0x9125: [0, 120], 0x8B4B: [0, 120], 0x8C8A: [0, 64], 0x8C8B: [0, 4], 0x8C80: [0, 4], 0x8904: [1, -8],
-         0x8905: [0, 7], 0x84FD: [0, 15], 0x8D6B: [0, 4294967294], 0x8A34: [1, 256]}
+         0x8D57: [0, 4], 0x8A2F: [0, 24], 0x8A30: [0, 16384], 0x8A2B: [0, 12], 0x8A2D: [0, 12], 0x8A2E: [0, 24],
+         0x8B4A: [0, 4096], 0x8B49: [0, 4096], 0x8A31: [0, 53248], 0x8A33: [0, 53248], 0x9122: [0, 64],
+         0x9125: [0, 60], 0x8B4B: [0, 60], 0x8C8A: [0, 64], 0x8C8B: [0, 4], 0x8C80: [0, 4], 0x8904: [1, -8],
+         0x8905: [0, 7], 0x84FD: [0, 2], 0x8D6B: [0, 16777215], 0x8A34: [1, 256], 0x80E8: [0, 3000], 0x80E9: [0, 3000]}
 ALLOWED = {"angle_instanced_arrays", "ext_blend_minmax", "ext_color_buffer_float", "ext_color_buffer_half_float",
-           "ext_float_blend", "ext_frag_depth", "ext_shader_texture_lod", "ext_srgb", "ext_texture_compression_bptc",
-           "ext_texture_compression_rgtc", "ext_texture_filter_anisotropic", "khr_parallel_shader_compile",
-           "oes_draw_buffers_indexed", "oes_element_index_uint", "oes_fbo_render_mipmap", "oes_standard_derivatives",
+           "ext_frag_depth", "ext_srgb", "ext_texture_compression_rgtc", "ext_texture_filter_anisotropic",
+           "khr_parallel_shader_compile", "oes_element_index_uint", "oes_fbo_render_mipmap", "oes_standard_derivatives",
            "oes_texture_float", "oes_texture_float_linear", "oes_texture_half_float", "oes_texture_half_float_linear",
            "oes_vertex_array_object", "webgl_color_buffer_float", "webgl_compressed_texture_s3tc",
-           "webgl_compressed_texture_s3tc_srgb", "webgl_debug_renderer_info", "webgl_debug_shaders",
            "webgl_depth_texture", "webgl_draw_buffers", "webgl_lose_context", "webgl_multi_draw"}
 
 
@@ -382,10 +384,12 @@ def test_strict_webgl_is_one_identity(run_ike, gl_site):
                  "worker": real["worker"][0], "worker2": real["worker"][1]}
         for name, g in places.items():
             r = reals[name]
-            # the engine's own answer before the extension is enabled (Chrome's: INVALID_ENUM
-            # and null), the one card after it
+            # no card name: the extension is not offered, the engine's own answer without it
+            # (Chrome's: INVALID_ENUM and null)
             assert g["before"] == r["before"] == [None, 0x0500], (name, g["before"], r["before"])
-            assert g["card"] == STRICT_CARD, (name, g["card"])
+            assert g["card"] is None and r["card"] is not None, (name, g["card"])
+            assert "WEBGL_debug_renderer_info" not in g["exts"] and "WEBGL_debug_shaders" not in g["exts"], name
+            assert g["flat"] is True and r["flat"] is True, name
             # the fixed list of extensions, never one the real context lacks, in the engine's order
             assert g["exts"] == [e for e in r["exts"] if e.lower() in ALLOWED], (name, g["exts"], r["exts"])
             assert g["hidden"] == [False, False] and r["hidden"] == [True, True], (name, g["hidden"], r["hidden"])
@@ -449,6 +453,14 @@ function text(doc) {
   R.part = hash(part);
   var f = document.createElement('iframe'); document.body.appendChild(f);
   R.frameText = shash(text(f.contentDocument).toDataURL());
+  // the same text drawn in 4 x 4 pieces: no small canvas is left without the noise (review
+  // round 2, LOW-11: pieces that small could be put together into any picture)
+  var tiles = [];
+  for (var ty = 0; ty < 16; ty += 4) for (var tq = 0; tq < 64; tq += 4) {
+    var tc = document.createElement('canvas'); tc.width = tc.height = 4; var tt = tc.getContext('2d');
+    tt.fillStyle = '#fff'; tt.fillRect(0, 0, 4, 4); tt.fillStyle = '#d02'; tt.font = '14px sans-serif';
+    tt.fillText('Wg Wg Wg', -tq, 12 - ty); tiles.push(hash(tt.getImageData(0, 0, 4, 4).data)); }
+  R.tiles = shash(tiles.join());
   tx.clearRect(0, 0, 200, 40);
   R.cleared = Math.max.apply(null, Array.from(tx.getImageData(0, 0, 8, 8).data));
   window.result = JSON.stringify(R);
@@ -495,4 +507,5 @@ def test_strict_canvas_noise_only_on_edges(run_ike, canvas_site):
     # the noise is there: text differs from the real picture, and between sessions
     assert a["textUrl"] != off["textUrl"] and a["textData"] != off["textData"] and a["part"] != off["part"], (a, off)
     assert a["textUrl"] != b["textUrl"] and a["textData"] != b["textData"], (a, b)
+    assert a["tiles"] != off["tiles"] and b["tiles"] != off["tiles"], (a, b, off)
     assert off["pixelMods"] == 0 and off["aloneSame"] is True

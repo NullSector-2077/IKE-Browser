@@ -338,8 +338,14 @@ _NETWORK_HINTS = {b"rtt": b"50", b"downlink": b"10", b"ect": b"4g"}
 # whatever frame or worker asks for it: register() fails as when the script
 # cannot be fetched, a shared worker reports an error. Shared workers from
 # blob: addresses get the protection's prelude and are not affected.
+# A dedicated worker from a site's file (1.1.25, independent review) is
+# started by the page's script from a blob address holding the protection
+# and the site's script (fingerprint.js, fromFile); one started any other
+# way (a policy that refuses blob workers, a script that could not be read)
+# is refused here, as when its script cannot be fetched: it never runs
+# without the protection.
 _WORKER_SCRIPTS = frozenset(t for t in (getattr(_RT, n, None) for n in (
-    "ResourceTypeServiceWorker", "ResourceTypeSharedWorker")) if t is not None)
+    "ResourceTypeServiceWorker", "ResourceTypeSharedWorker", "ResourceTypeWorker")) if t is not None)
 
 
 def _common_network(info):
@@ -643,7 +649,7 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             # fields, anti-fraud checks): never blocked or changed (1.1.14)
             return
         if lv >= 3 and rtype in _WORKER_SCRIPTS and cfg.site_opt(first_host, "fp") is not False:
-            info.block(True)           # no service or shared worker at Strict and Maximum (1.1.25)
+            info.block(True)           # no worker from a file without the protection (1.1.25)
             return
         if host == "accounts.google.com" and cfg["login_compat"]:
             # Google refuses sign-in from embedded Chromium engines; it accepts
@@ -1168,19 +1174,18 @@ class Shields(QObject):
         own (Chromium and its GREASE entry), the ones service and shared
         workers get: they never see the profile's client hints, and the
         "Google Chrome" brand I.K.E. added in the page showed that the two
-        lists were made apart. At the global level Strict and above the engine
-        itself gives the major version only (140.0.0.0), so workers from a
-        site's own file and the headers agree with the page there (service
-        and shared workers from a file are not started at those levels)."""
+        lists were made apart. Nothing is set over them at Strict and above
+        either (1.1.25, independent review): Qt sorts a list it is given, so
+        the page's frames, its headers and its shared workers came in two
+        orders; the major version only (140.0.0.0) is given there by the
+        request check (_reduce_full_version) and by the page's and the
+        workers' scripts (fingerprint.js), workers from a site's own file
+        included."""
         if profile.httpUserAgent() != self.user_agent():
             profile.setHttpUserAgent(self.user_agent())
         try:
             hints = profile.clientHints()
             hints.resetAll()                  # the engine's own values, in its own order
-            if rank(self.config["shield_level"]) >= 3:
-                hints.setFullVersionList({b: str(v).split(".")[0] + ".0.0.0"
-                                          for b, v in hints.fullVersionList().items()})
-                hints.setFullVersion(str(hints.fullVersion()).split(".")[0] + ".0.0.0")
             ident = osinfo.identity()
             hints.setPlatform(ident["platform"])
             hints.setPlatformVersion(ident["platform_version"])
