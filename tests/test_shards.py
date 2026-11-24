@@ -321,8 +321,12 @@ def _steps(job):
 def test_tests_yml_gate_is_the_required_check_and_fails_on_anything_missing():
     text = (WORKFLOWS / "tests.yml").read_text()
     jobs = _jobs(text)
-    assert set(jobs) == {"plan", "package", "shard", "installed", "checks", "base-tests", "tests", "hand-over",
-                         "merge-ready"}
+    # "main-results" (2026-11-24, "Nothing gets worse"'s evidence): main's junit for the job "tests checks";
+    # it never fails (anything unread is a notice), and has no if either
+    assert set(jobs) == {"main-results", "plan", "package", "shard", "installed", "checks", "base-tests", "tests",
+                         "hand-over", "merge-ready"}
+    assert "needs: main-results" in jobs["checks"] and "\n    if:" not in jobs["main-results"].split("steps:", 1)[0]
+    assert "exit 1" not in jobs["main-results"] and "if-no-files-found: ignore" in jobs["main-results"]
     # one number of shards, for both kinds of shard, read by the plan, the shards and the gate
     assert len(re.findall(r'^  SHARDS: "(\d+)"$', text, re.M)) == 1 and text.count("SHARDS:") == 1
     assert 'echo "list=[$(seq -s, 1 "$SHARDS")]"' in jobs["plan"]

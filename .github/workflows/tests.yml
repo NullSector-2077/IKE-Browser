@@ -271,9 +271,9 @@ jobs:
   # Every step that is not the suite, once per commit
   checks:
     name: tests checks
+    # main's results never fail their job (anything unread is a notice: no evidence then, nothing lost);
+    # no if here, as on every job before the gate (a skipped job would skip merge-ready)
     needs: main-results
-    # the checks run even when main's results could not be read (no evidence then, nothing else lost)
-    if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
     # "Nothing gets worse" has 45 minutes of its own (three runs for an AI's change of the fingerprinting)
     timeout-minutes: 90

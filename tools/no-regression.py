@@ -1449,13 +1449,15 @@ FRAME = r"""<!doctype html><html><head><meta charset="utf-8"><title>__TITLE__</t
 </script></body></html>"""
 
 
-def run_names():
+def run_names(seed=None):
     """This run's own names for what the code measured could see (the probe's path, its query, title,
     global, the frame's host and path, the hook's files and variable...): random, nothing that says
-    "no regression". What is kept is written back with the fixed ones (Server._plain)."""
+    "no regression". What is kept is written back with the fixed ones (Server._plain). seed: the same
+    names every time (a snapshot made on its own, as fixed_keys(): two of them compare)."""
+    import random
     import secrets
-    t = lambda: secrets.token_hex(5)  # noqa: E731
-    r = secrets.SystemRandom()
+    r = secrets.SystemRandom() if seed is None else random.Random(seed)
+    t = lambda: "%010x" % r.getrandbits(40)  # noqa: E731
 
     def word():
         """A name that reads like a real site's: syllables of a consonant and a vowel."""
@@ -1466,11 +1468,17 @@ def run_names():
     # and another common top-level domain ("e")
     tlds = ["com", "net", "org", "de", "fr", "it", "nl", "es", "io", "eu", "pl", "ch", "at", "se"]
     first, other = r.sample(tlds, 2)
-    a = "%s.%s" % (word(), first)
+    words = []
+    while len(words) < 6:
+        w = word()
+        if w not in words:
+            words.append(w)
+    a = "%s.%s" % (words[0], first)
     sites = {"a": a, "a2": "%s.%s" % (r.choice(("www", "shop", "news", "m", "app")), a),
-             "b": "%s.co.uk" % word(), "c": "%s.co.uk" % word(), "d": "%s.com" % word(), "e": "%s.%s" % (word(), other)}
+             "b": "%s.co.uk" % words[1], "c": "%s.co.uk" % words[2], "d": "%s.com" % words[3],
+             "e": "%s.%s" % (words[4], other)}
     return {"path": t(), "param": "q" + t(), "title": t(), "global": "_" + t(), "frame": t(), "tag": t(),
-            "third": "%s.%s" % (word(), r.choice(tlds)), "attr": "data-" + t(), "hook": "h" + t(),
+            "third": "%s.%s" % (words[5], r.choice(tlds)), "attr": "data-" + t(), "hook": "h" + t(),
             "wrapper": "w" + t(), "out": "o" + t(), "plan": "p" + t(), "env": "Q" + t().upper(), "netmod": "_" + t(),
             "dirs": ["d" + t() for _ in range(3)], "pick": t(), "site": t(), "wfile": t(), "sites": sites}
 
@@ -1758,7 +1766,7 @@ def run_browser(repo, mode, plan, settings, server, workdir, timeout, other_mach
         "http_proxy": proxy, "https_proxy": proxy, "HTTP_PROXY": proxy, "HTTPS_PROXY": proxy,
         "all_proxy": proxy, "ALL_PROXY": proxy, "no_proxy": "127.0.0.1,localhost", "NO_PROXY": "127.0.0.1,localhost",
     })
-    preexec = None
+    preexec, shim = None, None
     if other_machine:
         screen = workdir / ("%s.json" % n["out"].replace("o", "s", 1))
         screen.write_text(json.dumps({"screens": [dict(OTHER_MACHINE["screen"], name="s", x=0, y=0, logicalDpi=96,
@@ -1787,6 +1795,10 @@ def run_browser(repo, mode, plan, settings, server, workdir, timeout, other_mach
                             % (code, stderr[-2000:])}]}
     data = json.loads(out.read_text("utf-8"))
     data["exit"] = code
+    if other_machine and not shim:
+        # no other memory on the other machine: a disguise equal to this computer's could not be told
+        data.setdefault("errors", []).append({"section": "fingerprint", "error": "the other machine's memory could "
+                                              "not be set (no C compiler for its small library)"})
     return data
 
 
@@ -1819,7 +1831,7 @@ def snapshot(repo, levels=LEVELS, sections=SECTIONS, fixtures=FIXTURES, keep=Non
             "defaults": sorted(SAFE_DEFAULTS),
             "hostile_flags": HOSTILE_FLAGS, "hostile_env": HOSTILE_ENV, "settle": settle,
             "fonts_main": list(fonts_main or ())}
-    server = Server(corpus, names=names, shape=shape)
+    server = Server(corpus, names=names or run_names(seed=FIXED_KEY), shape=shape)
     quiet = {"lists_version": _lists_version(repo), "last_lists_update": 4102444800,
              "last_fast_update": 4102444800, "chrome_checked": 4102444800, "app_updates": "off",
              "auto_update": False, "newtab_bg": "", "newtab_bg_118": True, "app_updates_1113": True,

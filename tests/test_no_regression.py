@@ -275,7 +275,8 @@ def test_the_step_of_tests_yml():
     assert "name: main-test-results" in fetch and "base.txt" in fetch
     checks_job = jobs.split("\n  checks:\n", 1)[1].split("\n    steps:\n", 1)[0]
     assert "needs: main-results" in checks_job and "permissions" not in checks_job
-    assert "if: ${{ !cancelled() }}" in checks_job, "the checks run even when main's results cannot be read"
+    # main's results never fail their job: the checks run even when they cannot be read
+    assert "exit 1" not in fetch and "exit 0" in fetch
     head = text.split("\njobs:\n", 1)[0]
     assert "permissions:\n  contents: read\n" in head and "actions" not in head
     # the step that runs this commit's code gets no token, takes main's results only of its own base,
@@ -1424,6 +1425,10 @@ def test_the_fourth_review_sites_keys_frames_and_fonts():
     assert s["b"] != s["c"] and s["d"].endswith(".com") and s["e"].rsplit(".", 1)[1] != s["a"].rsplit(".", 1)[1]
     assert not any(h.endswith((".example", ".test", ".localhost")) or h[0].isdigit() for h in s.values())
     assert not names["third"].endswith(".example")
+    # a snapshot made on its own has the same names every time (two of them compare); check gives both
+    # sides the same random ones
+    assert nr.run_names(seed=nr.FIXED_KEY) == nr.run_names(seed=nr.FIXED_KEY) != nr.run_names()
+    assert len(set(s.values())) == 6
     # N2: the first key again: a value read another way in another load is worse (vC); sessions of a large
     # space alike where main's all differed (vD); the frame's canvas no longer the page's
     here = {"probe_again": {"audio": "171.5", "canvas": ["h1", "x", 1.0]}}

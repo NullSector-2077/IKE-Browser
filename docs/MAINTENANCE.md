@@ -2885,34 +2885,41 @@ sides); whether a new disguised value is rarer than the old one when neither
 is nearer the real one (the tool knows the real value, not how common a value
 is: for a fixed disguise a person decides, in the common values), a drawn
 value that can be alike in every draw by chance (the card's maker, one of two;
-the copies of the card's name in the worker and the frame, read in the 8
-sessions only), a real value shown somewhat more often than chance shows it
+the copies of the card's name in the shared and the file worker and in the
+frames made by `innerHTML` and `srcdoc`, read in the 8 sessions only), a real
+value shown somewhat more often than chance shows it
 (the real list of extensions in a tenth of the draws instead of 1 in 128
 fails one time in four; in a quarter, nine times in ten), and a noise in
 another site's frame (I.K.E.'s frames share
 their page's noise: `site.` is false on `main` and only guards a future
-per-frame noise).
+per-frame noise). What `main` itself leaves real cannot get worse and is
+only judged when it changes: on 2026-11-24 a dedicated worker started from
+a file of the site (not from a blob) read the real card, extensions and
+languages at Strict on `main` (an I.K.E. gap the probe now shows, reported
+for a fix of its own).
 
 **False alarms.** A red from chance would hold back every real update of the
 day; a pass from a looser rule would let a weakening through. So no rule is
 loosened for chance: what chance can produce is told from a weakening by more
 readings (eight sessions, 24 draws of the picks, 896 stripes, 128 widths).
-Main against main in the same run (as in `tests.yml`: the same random keys on
-both sides) gives the same values, so nothing is judged at all. A rewrite of
-the noise of the same strength draws every noised value anew; measured as main
-against main with independent random keys (16 snapshots, every ordered pair:
-240 comparisons), none had a "worse" on 2026-11-24. The same experiment found
-what more readings fixed: 84 of 240 with the real value of a text width or of
-the extensions' list in one session (chance gives it: now judged against how
-often, measured on `main`), and 5 of 240 with fewer flat stripes changed (448
-stripes repeating every 256 were noised alike in pairs: now 896, each of its
-own colour). Computed for such a run: 114 noise measures, each at most 3 in
-100,000 (together 0.03 %); the counts of 12 lists at 1 in 10,000 each
-(0.12 %); about 22 real-value tests at 1 in 10,000 each (0.22 %); the picks and
-the hashes far below: under 0.4 % per run. And 20 real runs of `check`, main
-against main as in `tests.yml`, gave 20 passes (an earlier 20 had one red: the
-storage estimate at Off ran out of its 3 s on a busy computer; it now has
-10 s).
+Main against main in the same run (as in `tests.yml`: the same random keys,
+sites and shape on both sides) gives the same values, so nothing is judged at
+all. A rewrite of the noise of the same strength draws every noised value
+anew; measured as main against main with independent random keys and sites
+(16 snapshots, every ordered pair: 240 comparisons), none had a "worse" on
+2026-11-24 (`main` f51ba83, with the fourth review's measures). The same
+experiment, in earlier rounds, found what more readings fixed: 84 of 240 with
+the real value of a text width or of the extensions' list in one session
+(chance gives it: now judged against how often, measured on `main`), and 5 of
+240 with fewer flat stripes changed (448 stripes repeating every 256 were
+noised alike in pairs: now 896, each of its own colour). Computed for such a
+run: 141 noise measures, each at most 3 in 100,000 (together 0.03 %); the
+counts of 24 lists drawn per session at 1 in 10,000 each (0.24 %); 43
+real-value tests at 1 in 10,000 each (0.43 %); the picks, the hashes and the
+marks far below: under 0.8 % per run. And 20 real runs of `check`, main
+against main as in `tests.yml`, gave 20 passes (an earlier 20, a round
+before, had one red: the storage estimate at Off ran out of its 3 s on a busy
+computer; it now has 10 s).
 
 **Code that recognises the measurement** and behaves differently there
 is only partly guarded: the probe's address, title, global, the frame's host,
