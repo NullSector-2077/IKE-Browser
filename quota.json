@@ -37,7 +37,7 @@
   },
   "2026-11-24": {
    "answered": 11,
-   "no_provider": 0,
+   "no_provider": 1,
    "providers": {
     "Groq": {
      "by": {
@@ -115,7 +115,7 @@
      "tokens": 23158
     }
    },
-   "runs": 11
+   "runs": 12
   }
  },
  "schema": 1
