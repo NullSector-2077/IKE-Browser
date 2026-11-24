@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (1.1.25)
+## 1.1.25
 
 - **A panel for the toolbar's Dark mode button** (the owner approved its
   look): a click opens it under the button, as the shield's panel opens, in
@@ -117,6 +117,44 @@
     passwords, bookmarks and the private windows are left as they are.
     "Clear browsing data…" (Ctrl+Shift+Del) stays under Protection. The new
     texts in all 59 language packs; tests/test_menus_125.py.
+
+- **The weather's symbol and its text aligned** (the owner: they were not):
+  the symbol (about two centimetres since 1.1.24) has a square box of its own
+  and the text a box beside it, both on the same middle line; the text wraps
+  in its own column for a long name or language, and the block stays flush
+  right with the clock. Fonts draw a symbol higher or lower in its line: the
+  page draws it once on a small canvas to see where its ink really is and
+  moves it to the middle of its box, whatever the font and the zoom. In a low
+  window (or at a large zoom) the symbol is at most 13 % of the window's
+  height. Measured on the page drawn for real at 100, 150 and 200 % and in
+  every language: the boxes and the ink of the pixels
+  (tests/test_newtab_weather.py).
+- **A few weather details, as in Plasma's weather widget, kept simple** (the
+  owner: minimalist, nothing cluttered; the wind and the pressure): under the
+  weather one discreet row of five small symbols drawn in the text's colour
+  with their values, all on one middle line, flush right: felt temperature,
+  wind (speed and the point of the compass it comes from), humidity, pressure
+  at sea level and chance of precipitation. °C goes with km/h and hPa, °F with
+  mph and inHg (as mph already goes with °F). Each value is read aloud with its
+  name (the name also shows on hover). They come with the same single request
+  to Open-Meteo, which now also asks for `wind_direction_10m`,
+  `apparent_temperature`, `relative_humidity_2m`, `pressure_msl` and
+  `precipitation_probability` (still only the rounded coordinates and the
+  temperature unit are sent; the wind always comes in km/h and the pressure
+  in hPa, turned into mph and inHg by I.K.E.). Should the service refuse the
+  last one, the request is made once more at once without it. Over a photo the
+  row sits on the same frosted glass as the clock and reads at 4.5:1
+  (tests/test_newtab_readability.py). The row never wraps: in a small window,
+  or where the corner would meet the figures under the search field, it gives
+  way.
+- **23 more greeting lines for the moments of the day and of the week**, short
+  and a little witty, in all 59 languages: early morning, mid-morning, the
+  lunch break, late afternoon, evening, late night and deep night, the first
+  working day of the week, the evening before the weekend and the weekend
+  (the week of the page's language: Monday and Friday in most of Europe,
+  Sunday and Thursday in the Gulf). Nothing about a religion; a holiday the
+  user chose still wins all day, and "Greetings only" still shows no line.
+  Chosen at random as before (tests/test_greeting.py).
 
 ## 1.1.24
 

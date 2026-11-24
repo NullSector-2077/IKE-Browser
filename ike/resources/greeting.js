@@ -129,6 +129,10 @@
   // ---- the pool: [group, weight(c), [[key, fits(c)], ...]]
   function yes() { return true; }
   var W = function (c, k) { return c.w && c.w.k == k; };
+  // from hour a (included) to hour b (excluded), across midnight when b < a
+  function hours(a, b) {
+    return function (c) { return a < b ? c.hour >= a && c.hour < b : c.hour >= a || c.hour < b; };
+  }
   // fact1 ... factN: lines that fit any moment
   function numbered(name, n) {
     var out = [];
@@ -156,6 +160,24 @@
       ["week", function (c) { return c.day == workStart(c.week) && c.hour >= 5 && c.hour < 12; }],
       ["soon", function (c) { return c.day == beforeWeekend(c.week); }],
       ["weekend", function (c) { return c.week.weekend.indexOf(c.day) >= 0; }]]],
+    // 1.1.25: the first working day, the evening before the weekend and the weekend, in the week of the
+    // page's language (Monday and Friday in most of Europe, Sunday and Thursday in the Gulf...)
+    ["weekday", function (c) { return 4; }, [
+      ["wkstart1", function (c) { return c.day == workStart(c.week) && c.hour >= 5; }],
+      ["wkstart2", function (c) { return c.day == workStart(c.week) && c.hour >= 5; }],
+      ["wkeve1", function (c) { return c.day == beforeWeekend(c.week) && c.hour >= 17; }],
+      ["wkeve2", function (c) { return c.day == beforeWeekend(c.week) && c.hour >= 17; }],
+      ["wkend1", function (c) { return c.week.weekend.indexOf(c.day) >= 0 && c.hour >= 5; }],
+      ["wkend2", function (c) { return c.week.weekend.indexOf(c.day) >= 0 && c.hour >= 5 && c.hour < 12; }],
+      ["wkend3", function (c) { return c.week.weekend.indexOf(c.day) >= 0 && c.hour >= 18 && c.hour < 23; }]]],
+    // 1.1.25: the finer moments of the day: early morning, mid-morning, lunch, late afternoon, evening,
+    // late night, deep night
+    ["moment", function (c) { return 4; }, [
+      ["early1", hours(5, 8)], ["early2", hours(5, 8)], ["mid1", hours(9, 11)],
+      ["lunch1", hours(12, 14)], ["lunch2", hours(12, 14)], ["lunch3", hours(12, 14)],
+      ["after1", hours(15, 18)], ["after2", hours(15, 18)], ["eve1", hours(19, 23)], ["eve2", hours(19, 23)],
+      ["latenight1", hours(23, 2)], ["latenight2", hours(23, 2)], ["latenight3", hours(23, 2)],
+      ["deep1", hours(2, 5)], ["deep2", hours(2, 5)], ["deep3", hours(2, 5)]]],
     ["period", function (c) { return 3; }, [
       ["morning1", function (c) { return c.p == "morning"; }], ["morning2", function (c) { return c.p == "morning"; }],
       ["afternoon1", function (c) { return c.p == "afternoon"; }], ["afternoon2", function (c) { return c.p == "afternoon"; }],
