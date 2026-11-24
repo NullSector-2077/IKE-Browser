@@ -329,3 +329,16 @@ def test_no_value_handed_to_a_page_toString(run_ike, site, level):
     assert got["stringThis"] == "throws TypeError", got
     for k in ("trapped", "own", "afterTop"):
         assert got[k] == got["page"], (k, got[k], got["page"])
+
+
+@pytest.mark.parametrize("level", ["strict", "balanced"])
+def test_a_frame_is_protected_once(run_ike, site, level):
+    """An empty frame whose toString the page sets to another engine function
+    before the frame's own script starts, then puts back: the frame is not
+    protected a second time (review round 3: its wrapped functions then read
+    as the protection's own source, and its text widths had the noise twice);
+    a replaced function always reads as the engine's."""
+    got = run(run_ike, site, [("t", "http://localhost:%d/twice.html")], level, gl=False)["t"]
+    assert got["after"] == got["before"] == got["own"], got
+    assert all("[native code]" in t for t in got["after"]), got
+    assert got["picture"][0] == got["picture"][1], got

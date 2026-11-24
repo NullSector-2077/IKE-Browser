@@ -1,0 +1,32 @@
+<!doctype html><body><script>
+// An empty frame whose toString the page sets to another engine function,
+// then the protection looks at the frames again (another frame added), and
+// the page puts a toString back: the frame's wrapped functions must still
+// read as the engine's own, and the frame keep one protection, the page's
+// (the review of 1.1.25, round 3, pg.html)
+function src(w) {
+  var ts = w.Function.prototype.toString, P = w.WebGLRenderingContext.prototype, C = w.HTMLCanvasElement.prototype;
+  return [ts.call(P.getParameter), ts.call(C.toDataURL), ts.call(ts), ts.call(Object.getOwnPropertyDescriptor(w.Navigator.prototype, 'hardwareConcurrency').get)];
+}
+function picture(w) {
+  var c = w.document.createElement('canvas'); c.width = 60; c.height = 20;
+  var x = c.getContext('2d'); x.font = '14px Arial'; x.fillText('Qg fj', 2, 15);
+  var d = x.getImageData(0, 0, 60, 20).data, h = 0;
+  for (var i = 0; i < d.length; i++) h = (h * 31 + d[i]) | 0;
+  x.font = '72px monospace';
+  return [h, x.measureText('mmmmmmmmmmlli').width];
+}
+window.__run = async function () {
+  var R = {};
+  var f = document.createElement('iframe'); document.body.appendChild(f); var w = f.contentWindow;
+  R.before = src(w);
+  w.Function.prototype.toString = w.Object.prototype.hasOwnProperty;
+  document.body.appendChild(document.createElement('iframe'));
+  await new Promise(function (r) { setTimeout(r, 200); });
+  w.Function.prototype.toString = Function.prototype.toString;
+  R.after = src(w);
+  R.own = src(window);
+  R.picture = [picture(window), picture(w)];
+  return R;
+};
+</script></body>

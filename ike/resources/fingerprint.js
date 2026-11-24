@@ -13,8 +13,17 @@
   // a realm another instance protected before this one started (a frame's
   // first page keeps the window of its empty document, which the page
   // around it protected): its toString is a function of another realm
+  // (any of a few functions every level replaces: a page can set the
+  // frame's toString to another function of the frame before this instance
+  // starts, review round 3)
   var REUSED = false;
-  try { REUSED = Object.getPrototypeOf(origToString) !== Function.prototype; } catch (e) {}
+  try {
+    var FPR = Function.prototype, GPR = Object.getPrototypeOf, C2P = window.CanvasRenderingContext2D &&
+      CanvasRenderingContext2D.prototype, HCP = window.HTMLCanvasElement && HTMLCanvasElement.prototype;
+    [origToString, C2P && C2P.getImageData, HCP && HCP.toDataURL, HCP && HCP.toBlob].forEach(function (f) {
+      if (typeof f === 'function' && GPR(f) !== FPR) REUSED = true;
+    });
+  } catch (e) {}
   // taken before any page script runs: a page that replaces call, bind or
   // Reflect.apply later cannot reach the protection's own calls (1.1.18)
   var CALL = Function.prototype.call, BIND = Function.prototype.bind, RAPPLY = Reflect.apply;
@@ -1147,17 +1156,27 @@
     } catch (x) {}
   }
   var natives = hardMap();         // replacement -> source text of the original
+  // The text the engine gives for its own function: the original's as read
+  // here, or the engine's form if that is no engine text (the original was
+  // a replacement of another instance's, read with a toString a page had
+  // set; review round 3: the protection's own source came out)
+  function nativeText(orig, kind, name) {
+    var t;
+    try { t = RAPPLY(origToString, orig, []); } catch (e) {}
+    if (typeof t === 'string' && sindex(t, '[native code]') >= 0 && sindex(t, 'RAPPLY') < 0) return t;
+    return 'function ' + kind + name + '() { [native code] }';
+  }
   function method(name, impl, orig) {
     var holder = { [name]() { try { return RAPPLY(impl, this, arguments); } catch (e) { clean(e); throw e; } } };
     var f = holder[name];
     try { Object.defineProperty(f, 'length', { value: orig.length, configurable: true }); } catch (e) {}
-    natives.set(f, RAPPLY(origToString, orig, []));
+    natives.set(f, nativeText(orig, '', name));
     return f;
   }
   function accessor(name, impl, orig) {
     var holder = { get [name]() { try { return RAPPLY(impl, this, []); } catch (e) { clean(e); throw e; } } };
     var g = Object.getOwnPropertyDescriptor(holder, name).get;
-    natives.set(g, orig ? RAPPLY(origToString, orig, []) : 'function get ' + name + '() { [native code] }');
+    natives.set(g, orig ? nativeText(orig, 'get ', name) : 'function get ' + name + '() { [native code] }');
     return g;
   }
   function wrap(obj, name, make) {
@@ -1185,7 +1204,7 @@
     var orig = d.set;
     var holder = { set [name](v) { try { RAPPLY(orig, this, [v]); } catch (e) { clean(e); throw e; } after(this, v); } };
     var s = Object.getOwnPropertyDescriptor(holder, name).set;
-    natives.set(s, RAPPLY(origToString, orig, []));
+    natives.set(s, nativeText(orig, 'set ', name));
     d.set = s;
     try { Object.defineProperty(obj, name, d); } catch (e) {}
   }
@@ -2054,7 +2073,7 @@
         }
       });
       var nConstructFF = Reflect.construct;
-      natives.set(PF, RAPPLY(origToString, FF, []));
+      natives.set(PF, nativeText(FF, '', 'FontFace'));
       try {
         Object.defineProperty(FF.prototype, 'constructor', { value: PF, writable: true, configurable: true });
         Object.defineProperty(w, 'FontFace', { value: PF, writable: true, configurable: true });
@@ -2465,7 +2484,7 @@
             try { return RAPPLY(t, self, fix(args)); } catch (e) { clean(e); throw e; }
           }
         });
-        natives.set(P, RAPPLY(origToString, C, []));
+        natives.set(P, nativeText(C, '', C.name));
         try {
           Object.defineProperty(w.Intl, n, { value: P, writable: true, configurable: true, enumerable: false });
           Object.defineProperty(C.prototype, 'constructor', { value: P, writable: true, configurable: true,
@@ -2830,7 +2849,7 @@
             return made;
           }
         });
-        natives.set(P, RAPPLY(origToString, Orig, []));
+        natives.set(P, nativeText(Orig, '', name));
         try {
           Object.defineProperty(Orig.prototype, 'constructor',
             { value: P, writable: true, configurable: true });
@@ -2977,7 +2996,7 @@
         return r;
       } })[orig.name || name];
       try { Object.defineProperty(f, 'length', { value: orig.length, configurable: true }); } catch (e) {}
-      natives.set(f, RAPPLY(origToString, orig, []));
+      natives.set(f, nativeText(orig, '', orig.name));
       d.value = f;
       try { Object.defineProperty(obj, name, d); } catch (e) {}
     }
@@ -3177,7 +3196,7 @@
         return r;
       } })[orig.name || n];
       try { Object.defineProperty(f, 'length', { value: orig.length, configurable: true }); } catch (e) {}
-      natives.set(f, natives.get(orig) || RAPPLY(origToString, orig, []));
+      natives.set(f, natives.get(orig) || nativeText(orig, '', orig.name));
       d.value = f;
       try { Object.defineProperty(D, n, d); } catch (e) {}
     });
