@@ -1670,6 +1670,25 @@ def merge_it(repo, pr, sha):
     # tests and Arch tests start here; tests.yml and security.yml then ask release-ready.yml
     for workflow in ("tests.yml", "security.yml", "arch.yml"):
         gh("workflow", "run", workflow, "--repo", repo, "--ref", "main")
+    delete_head(repo, pr, sha)
+
+
+def delete_head(repo, pr, sha):
+    """The merged head branch deleted (2026-11-24): GitHub's "delete head branches" does not fire for a
+    merge made by github-actions[bot]. Only an isolated candidate of the full chain (automation/update/<id>,
+    automation/builder/<id>), never automation/autofix-main, automation/daily-maintenance, automat/memory
+    or anything else, and only while its tip is still the merged commit (tools/branch-sweep.py). A branch
+    that could not be deleted stays for the weekly sweep; the merge is never undone for it."""
+    ref = (pr.get("head") or {}).get("ref") or ""
+    if ((pr.get("head") or {}).get("repo") or {}).get("full_name") not in (None, repo):
+        return "kept: a branch of another repository"
+    try:
+        why = _tool("branch-sweep").delete_after_merge(
+            repo, ref, sha, lambda path, method="GET": json.loads(gh("api", "-X", method, path) or "{}"))
+    except (RuntimeError, ValueError) as e:
+        why = "kept: %s" % str(e)[:200]
+    print("%s: %s" % (ref, why or "deleted after its merge"))
+    return why
 
 
 def gather_review(repo, n, sha):

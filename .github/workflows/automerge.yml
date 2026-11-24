@@ -35,6 +35,12 @@
 # informational comment and is tried again (the automatic fix with the reason, a rebuild from main,
 # main merged in with the conflicts as main's; the daily check judges every open one again). Only an
 # open security finding still blocks and names the owner.
+#
+# The merged head branch is deleted right after the merge (2026-11-24; GitHub's own setting does not
+# fire for a merge by github-actions[bot]): only an isolated candidate (automation/update/<id>,
+# automation/builder/<id>) whose tip is still the merged commit; automation/autofix-main,
+# automation/daily-maintenance, automat/memory and everything else stay (tools/branch-sweep.py, which
+# also sweeps the rest once a week: branch-sweep.yml).
 name: Merge green fixes
 
 on:
@@ -61,7 +67,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
-      contents: write          # the merge of a fully verified pull request of the automation; its refresh (its own branch)
+      contents: write          # the merge of a fully verified pull request of the automation; its refresh (its own branch); its head branch deleted after the merge
       pull-requests: write     # ready for review, the one comment
       issues: read             # its own earlier comment, the security issues, the maintenance ledger
       actions: write           # the runs and test results of the commit; Arch on it; main's tests after the merge; the others judged again
