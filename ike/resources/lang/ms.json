@@ -1233,6 +1233,26 @@
 "Update the system": "Kemas kini sistem",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Enjin web (Qt WebEngine %s) mempunyai masalah keselamatan yang diketahui (%s), dibaiki dalam versi yang lebih baharu. Buka terminal dan jalankan: %s",
 "Battery saver": "Penjimat bateri",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Apabila menggunakan bateri, tab latar dijeda selepas seminit, dan animasi antara muka serta gambar tab berhenti."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Apabila menggunakan bateri, tab latar dijeda selepas seminit, dan animasi antara muka serta gambar tab berhenti.",
+"This site: %s": "Laman ini: %s",
+"Brightness": "Kecerahan",
+"Contrast": "Kontras",
+"Grayscale": "Skala kelabu",
+"Reset": "Tetap semula",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Kecerahan, kontras, sepia dan skala kelabu kembali kepada lalai",
+"The sliders work with Dark Reader": "Peluncur berfungsi dengan Dark Reader",
+"Text font": "Fon teks",
+"Use another font for the pages": "Guna fon lain untuk halaman",
+"Text stroke": "Garis luar teks",
+"Background colour": "Warna latar",
+"Text colour": "Warna teks",
+"Scrollbars": "Bar skrol",
+"Selection colour": "Warna pilihan",
+"Automatic": "Automatik",
+"Hidden": "Tersembunyi",
+"Colour…": "Warna…",
+"Only for this site": "Hanya untuk laman ini",
+"These choices for %s only": "Pilihan ini hanya untuk %s",
+"Dark mode settings…": "Tetapan mod gelap…"
 }
 }

@@ -1233,6 +1233,26 @@
 "Update the system": "সিস্টেম আপডেট করুন",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "ওয়েব ইঞ্জিনে (Qt WebEngine %s) একটি জানা নিরাপত্তা সমস্যা আছে (%s), যা নতুন সংস্করণে ঠিক করা হয়েছে। একটি টার্মিনাল খুলে চালান: %s",
 "Battery saver": "ব্যাটারি সাশ্রয়",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "ব্যাটারিতে চলার সময় পটভূমির ট্যাবগুলো এক মিনিট পরে থেমে যায় এবং ইন্টারফেসের অ্যানিমেশন ও ট্যাবের ছবি বন্ধ হয়।"
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "ব্যাটারিতে চলার সময় পটভূমির ট্যাবগুলো এক মিনিট পরে থেমে যায় এবং ইন্টারফেসের অ্যানিমেশন ও ট্যাবের ছবি বন্ধ হয়।",
+"This site: %s": "এই সাইট: %s",
+"Brightness": "উজ্জ্বলতা",
+"Contrast": "কনট্রাস্ট",
+"Grayscale": "গ্রেস্কেল",
+"Reset": "রিসেট",
+"Brightness, contrast, sepia and grayscale back to their defaults": "উজ্জ্বলতা, কনট্রাস্ট, সেপিয়া ও গ্রেস্কেল ডিফল্টে ফিরে যায়",
+"The sliders work with Dark Reader": "স্লাইডারগুলো Dark Reader-এর সাথে কাজ করে",
+"Text font": "লেখার ফন্ট",
+"Use another font for the pages": "পেজগুলোর জন্য অন্য ফন্ট ব্যবহার করুন",
+"Text stroke": "লেখার আউটলাইন",
+"Background colour": "পটভূমির রং",
+"Text colour": "লেখার রং",
+"Scrollbars": "স্ক্রলবার",
+"Selection colour": "নির্বাচনের রং",
+"Automatic": "স্বয়ংক্রিয়",
+"Hidden": "লুকানো",
+"Colour…": "রং…",
+"Only for this site": "শুধু এই সাইটের জন্য",
+"These choices for %s only": "এই পছন্দগুলো শুধু %s-এর জন্য",
+"Dark mode settings…": "ডার্ক মোড সেটিংস…"
 }
 }

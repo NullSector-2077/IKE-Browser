@@ -1233,6 +1233,26 @@
 "Update the system": "Ενημερώστε το σύστημα",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Η μηχανή ιστού (Qt WebEngine %s) έχει γνωστό πρόβλημα ασφαλείας (%s), διορθωμένο σε νεότερη έκδοση. Ανοίξτε ένα τερματικό και εκτελέστε: %s",
 "Battery saver": "Εξοικονόμηση μπαταρίας",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Με μπαταρία, οι καρτέλες στο παρασκήνιο σταματούν μετά από ένα λεπτό και τα εφέ κίνησης της διεπαφής και οι εικόνες των καρτελών σταματούν."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Με μπαταρία, οι καρτέλες στο παρασκήνιο σταματούν μετά από ένα λεπτό και τα εφέ κίνησης της διεπαφής και οι εικόνες των καρτελών σταματούν.",
+"This site: %s": "Αυτός ο ιστότοπος: %s",
+"Brightness": "Φωτεινότητα",
+"Contrast": "Αντίθεση",
+"Grayscale": "Κλίμακα του γκρι",
+"Reset": "Επαναφορά",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Φωτεινότητα, αντίθεση, σέπια και κλίμακα του γκρι στις προεπιλογές τους",
+"The sliders work with Dark Reader": "Τα ρυθμιστικά λειτουργούν με το Dark Reader",
+"Text font": "Γραμματοσειρά κειμένου",
+"Use another font for the pages": "Άλλη γραμματοσειρά για τις σελίδες",
+"Text stroke": "Περίγραμμα κειμένου",
+"Background colour": "Χρώμα φόντου",
+"Text colour": "Χρώμα κειμένου",
+"Scrollbars": "Γραμμές κύλισης",
+"Selection colour": "Χρώμα επιλογής",
+"Automatic": "Αυτόματο",
+"Hidden": "Κρυφές",
+"Colour…": "Χρώμα…",
+"Only for this site": "Μόνο για αυτόν τον ιστότοπο",
+"These choices for %s only": "Αυτές οι επιλογές μόνο για %s",
+"Dark mode settings…": "Ρυθμίσεις σκούρας λειτουργίας…"
 }
 }

@@ -1233,6 +1233,26 @@
 "Update the system": "Frissítsd a rendszert",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "A webmotornak (Qt WebEngine %s) ismert biztonsági hibája van (%s), amelyet egy újabb verzió javít. Nyiss egy terminált, és futtasd: %s",
 "Battery saver": "Akkumulátorkímélő",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Akkumulátorról a háttérlapok egy perc után szünetelnek, a felület animációi és a lapok képei leállnak."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Akkumulátorról a háttérlapok egy perc után szünetelnek, a felület animációi és a lapok képei leállnak.",
+"This site: %s": "Ez a webhely: %s",
+"Brightness": "Fényerő",
+"Contrast": "Kontraszt",
+"Grayscale": "Szürkeárnyalat",
+"Reset": "Visszaállítás",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Fényerő, kontraszt, szépia és szürkeárnyalat vissza az alapértékekre",
+"The sliders work with Dark Reader": "A csúszkák a Dark Readerrel működnek",
+"Text font": "Szöveg betűtípusa",
+"Use another font for the pages": "Másik betűtípus az oldalakhoz",
+"Text stroke": "Szöveg körvonala",
+"Background colour": "Háttérszín",
+"Text colour": "Szövegszín",
+"Scrollbars": "Görgetősávok",
+"Selection colour": "Kijelölés színe",
+"Automatic": "Automatikus",
+"Hidden": "Rejtett",
+"Colour…": "Szín…",
+"Only for this site": "Csak ennél a webhelynél",
+"These choices for %s only": "Ezek a beállítások csak ehhez: %s",
+"Dark mode settings…": "Sötét mód beállításai…"
 }
 }

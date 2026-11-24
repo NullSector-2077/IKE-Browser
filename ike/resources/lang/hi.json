@@ -1233,6 +1233,26 @@
 "Update the system": "सिस्टम अपडेट करें",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "वेब इंजन (Qt WebEngine %s) में एक ज्ञात सुरक्षा समस्या है (%s), जो नए संस्करण में ठीक है। टर्मिनल खोलें और चलाएँ: %s",
 "Battery saver": "बैटरी सेवर",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "बैटरी पर, पृष्ठभूमि टैब एक मिनट बाद रुक जाते हैं और इंटरफ़ेस के एनिमेशन और टैब की तस्वीरें रुक जाती हैं।"
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "बैटरी पर, पृष्ठभूमि टैब एक मिनट बाद रुक जाते हैं और इंटरफ़ेस के एनिमेशन और टैब की तस्वीरें रुक जाती हैं।",
+"This site: %s": "यह साइट: %s",
+"Brightness": "चमक",
+"Contrast": "कंट्रास्ट",
+"Grayscale": "ग्रेस्केल",
+"Reset": "रीसेट",
+"Brightness, contrast, sepia and grayscale back to their defaults": "चमक, कंट्रास्ट, सेपिया और ग्रेस्केल डिफ़ॉल्ट पर लौटते हैं",
+"The sliders work with Dark Reader": "स्लाइडर Dark Reader के साथ काम करते हैं",
+"Text font": "टेक्स्ट फ़ॉन्ट",
+"Use another font for the pages": "पेजों के लिए दूसरा फ़ॉन्ट इस्तेमाल करें",
+"Text stroke": "टेक्स्ट की रूपरेखा",
+"Background colour": "पृष्ठभूमि का रंग",
+"Text colour": "टेक्स्ट का रंग",
+"Scrollbars": "स्क्रॉलबार",
+"Selection colour": "चयन का रंग",
+"Automatic": "स्वचालित",
+"Hidden": "छिपे हुए",
+"Colour…": "रंग…",
+"Only for this site": "सिर्फ़ इस साइट के लिए",
+"These choices for %s only": "ये विकल्प सिर्फ़ %s के लिए",
+"Dark mode settings…": "डार्क मोड सेटिंग्स…"
 }
 }

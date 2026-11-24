@@ -1233,6 +1233,26 @@
 "Update the system": "Uppdatera systemet",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Webbmotorn (Qt WebEngine %s) har ett känt säkerhetsproblem (%s), åtgärdat i en nyare version. Öppna en terminal och kör: %s",
 "Battery saver": "Batterisparläge",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "På batteri pausas flikar i bakgrunden efter en minut och gränssnittets animationer och flikbilder stoppas."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "På batteri pausas flikar i bakgrunden efter en minut och gränssnittets animationer och flikbilder stoppas.",
+"This site: %s": "Den här webbplatsen: %s",
+"Brightness": "Ljusstyrka",
+"Contrast": "Kontrast",
+"Grayscale": "Gråskala",
+"Reset": "Återställ",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Ljusstyrka, kontrast, sepia och gråskala tillbaka till standard",
+"The sliders work with Dark Reader": "Reglagen fungerar med Dark Reader",
+"Text font": "Teckensnitt för text",
+"Use another font for the pages": "Använd ett annat teckensnitt för sidorna",
+"Text stroke": "Textkontur",
+"Background colour": "Bakgrundsfärg",
+"Text colour": "Textfärg",
+"Scrollbars": "Rullningslister",
+"Selection colour": "Markeringsfärg",
+"Automatic": "Automatiskt",
+"Hidden": "Dolda",
+"Colour…": "Färg…",
+"Only for this site": "Bara för den här webbplatsen",
+"These choices for %s only": "De här valen bara för %s",
+"Dark mode settings…": "Inställningar för mörkt läge…"
 }
 }

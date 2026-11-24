@@ -1233,6 +1233,26 @@
 "Update the system": "Actualiza o sistema",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "O motor web (Qt WebEngine %s) ten un problema de seguranza coñecido (%s), corrixido nunha versión máis recente. Abre un terminal e executa: %s",
 "Battery saver": "Aforro de batería",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Con batería, as lapelas en segundo plano detéñense tras un minuto e páranse as animacións da interface e as imaxes das lapelas."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Con batería, as lapelas en segundo plano detéñense tras un minuto e páranse as animacións da interface e as imaxes das lapelas.",
+"This site: %s": "Este sitio: %s",
+"Brightness": "Brillo",
+"Contrast": "Contraste",
+"Grayscale": "Escala de grises",
+"Reset": "Restablecer",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Brillo, contraste, sepia e escala de grises volven aos valores predeterminados",
+"The sliders work with Dark Reader": "Os controis deslizantes funcionan con Dark Reader",
+"Text font": "Tipo de letra do texto",
+"Use another font for the pages": "Usar outro tipo de letra para as páxinas",
+"Text stroke": "Contorno do texto",
+"Background colour": "Cor de fondo",
+"Text colour": "Cor do texto",
+"Scrollbars": "Barras de desprazamento",
+"Selection colour": "Cor da selección",
+"Automatic": "Automático",
+"Hidden": "Agochadas",
+"Colour…": "Cor…",
+"Only for this site": "Só para este sitio",
+"These choices for %s only": "Estas opcións só para %s",
+"Dark mode settings…": "Axustes do modo escuro…"
 }
 }

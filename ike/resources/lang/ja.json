@@ -1233,6 +1233,26 @@
 "Update the system": "システムを更新してください",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "ウェブエンジン（Qt WebEngine %s）には既知のセキュリティ問題（%s）があり、新しいバージョンで修正されています。ターミナルを開いて実行してください: %s",
 "Battery saver": "バッテリー節約",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "バッテリー使用中は、バックグラウンドのタブが 1 分後に一時停止し、インターフェースのアニメーションとタブの画像が止まります。"
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "バッテリー使用中は、バックグラウンドのタブが 1 分後に一時停止し、インターフェースのアニメーションとタブの画像が止まります。",
+"This site: %s": "このサイト: %s",
+"Brightness": "明るさ",
+"Contrast": "コントラスト",
+"Grayscale": "グレースケール",
+"Reset": "リセット",
+"Brightness, contrast, sepia and grayscale back to their defaults": "明るさ、コントラスト、セピア、グレースケールを既定値に戻します",
+"The sliders work with Dark Reader": "スライダーは Dark Reader で使えます",
+"Text font": "テキストのフォント",
+"Use another font for the pages": "ページに別のフォントを使う",
+"Text stroke": "テキストの縁取り",
+"Background colour": "背景色",
+"Text colour": "テキストの色",
+"Scrollbars": "スクロールバー",
+"Selection colour": "選択範囲の色",
+"Automatic": "自動",
+"Hidden": "非表示",
+"Colour…": "色…",
+"Only for this site": "このサイトのみ",
+"These choices for %s only": "これらの設定は %s のみ",
+"Dark mode settings…": "ダークモードの設定…"
 }
 }

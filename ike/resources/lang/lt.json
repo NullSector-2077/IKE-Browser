@@ -1233,6 +1233,26 @@
 "Update the system": "Atnaujinkite sistemą",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Žiniatinklio variklis (Qt WebEngine %s) turi žinomą saugumo problemą (%s), ištaisytą naujesnėje versijoje. Atverkite terminalą ir paleiskite: %s",
 "Battery saver": "Akumuliatoriaus taupymas",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Veikiant iš akumuliatoriaus, foninės kortelės po minutės pristabdomos, o sąsajos animacijos ir kortelių paveikslėliai sustabdomi."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Veikiant iš akumuliatoriaus, foninės kortelės po minutės pristabdomos, o sąsajos animacijos ir kortelių paveikslėliai sustabdomi.",
+"This site: %s": "Ši svetainė: %s",
+"Brightness": "Ryškumas",
+"Contrast": "Kontrastas",
+"Grayscale": "Pilkumo tonai",
+"Reset": "Atkurti",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Ryškumas, kontrastas, sepija ir pilkumo tonai grąžinami į numatytuosius",
+"The sliders work with Dark Reader": "Slankikliai veikia su Dark Reader",
+"Text font": "Teksto šriftas",
+"Use another font for the pages": "Naudoti kitą šriftą puslapiams",
+"Text stroke": "Teksto kontūras",
+"Background colour": "Fono spalva",
+"Text colour": "Teksto spalva",
+"Scrollbars": "Slinkties juostos",
+"Selection colour": "Žymėjimo spalva",
+"Automatic": "Automatiškai",
+"Hidden": "Paslėptos",
+"Colour…": "Spalva…",
+"Only for this site": "Tik šiai svetainei",
+"These choices for %s only": "Šie pasirinkimai tik %s",
+"Dark mode settings…": "Tamsiojo režimo nustatymai…"
 }
 }

@@ -1233,6 +1233,26 @@
 "Update the system": "Жүйені жаңартыңыз",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Веб қозғалтқышында (Qt WebEngine %s) белгілі қауіпсіздік мәселесі бар (%s), ол жаңарақ нұсқада түзетілген. Терминалды ашып, орындаңыз: %s",
 "Battery saver": "Батареяны үнемдеу",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Батареядан жұмыс істегенде фондық қойындылар бір минуттан кейін тоқтайды, ал интерфейс анимациялары мен қойынды суреттері тоқтатылады."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Батареядан жұмыс істегенде фондық қойындылар бір минуттан кейін тоқтайды, ал интерфейс анимациялары мен қойынды суреттері тоқтатылады.",
+"This site: %s": "Осы сайт: %s",
+"Brightness": "Жарықтық",
+"Contrast": "Контраст",
+"Grayscale": "Сұр реңктер",
+"Reset": "Тастау",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Жарықтық, контраст, сепия және сұр реңктер әдепкі мәндерге қайтады",
+"The sliders work with Dark Reader": "Жүгірткілер Dark Reader-мен жұмыс істейді",
+"Text font": "Мәтін қарпі",
+"Use another font for the pages": "Беттер үшін басқа қаріп қолдану",
+"Text stroke": "Мәтін контуры",
+"Background colour": "Фон түсі",
+"Text colour": "Мәтін түсі",
+"Scrollbars": "Айналдыру жолақтары",
+"Selection colour": "Таңдау түсі",
+"Automatic": "Автоматты",
+"Hidden": "Жасырын",
+"Colour…": "Түс…",
+"Only for this site": "Тек осы сайт үшін",
+"These choices for %s only": "Бұл таңдаулар тек %s үшін",
+"Dark mode settings…": "Қараңғы режим баптаулары…"
 }
 }

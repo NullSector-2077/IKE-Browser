@@ -1,5 +1,36 @@
 # Changelog
 
+## Unreleased (1.1.25)
+
+- **A panel for the toolbar's Dark mode button** (the owner approved its
+  look): a click opens it under the button, as the shield's panel opens, in
+  place of the menu with two entries ("On everywhere" and "On for this site"
+  stay in the View and ☰ menus as they were). In it: dark mode for every site
+  (the switch of the title) and for this site; Dark or Light (Dark Reader's
+  two modes); Brightness, Contrast, Sepia and Grayscale with their values and
+  a "Reset" button; under "More" the text font (only one of the computer's
+  fonts), the text stroke, the background and text colours (of the dark or
+  of the light colours, as chosen), the scroll bars (Automatic, Hidden or a
+  colour), the colour of selected text, and "Only for this site" (the
+  choices kept for that site alone); at the end "Dark mode settings…", which
+  opens Settings → Appearance at the dark mode of pages. No link outside
+  I.K.E. (no Dark Reader news, donations or social sites). A slider moved
+  shows on the page of the tab at once (after 0.12 s, Dark Reader takes the
+  new colours in the page's isolated world: the page is not loaded again);
+  let go, the colours are kept and every open page gets them, and the pages
+  loaded afterwards. With Chromium's own dark mode the colours do nothing:
+  they are greyed, with the note "The sliders work with Dark Reader". Every
+  value is checked before it is kept or reaches a page (ranges, colours as
+  `#rrggbb`, a font name that can be written in a style sheet), and nothing a
+  page does can change them; the panel is made at its first click and does
+  nothing while closed (`ike/darkpanel.py`, `ike/darktheme.py`,
+  tests/test_dark_panel.py). The settings keep Dark Reader's whole theme
+  (`dark_theme`, with Dark Reader's own defaults; those of 1.1.24 are
+  completed, their three values kept) and the sites with colours of their
+  own (`dark_site_themes`). One visible change: the scroll bars of dark
+  pages follow the page's colours ("Automatic", the default of the Dark
+  Reader extension on Linux); they were left as the engine draws them.
+
 ## 1.1.24
 
 - **Stronger audio fingerprinting protection**: each sample the engine renders

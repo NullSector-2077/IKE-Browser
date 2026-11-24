@@ -1233,6 +1233,26 @@
 "Update the system": "Sistemi yeniləyin",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Veb mühərrikində (Qt WebEngine %s) daha yeni versiyada düzəldilmiş məlum təhlükəsizlik problemi var (%s). Terminal açın və icra edin: %s",
 "Battery saver": "Batareya qənaəti",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Batareya ilə işləyəndə arxa plandakı tablar bir dəqiqədən sonra dayanır, interfeys animasiyaları və tab şəkilləri dayanır."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Batareya ilə işləyəndə arxa plandakı tablar bir dəqiqədən sonra dayanır, interfeys animasiyaları və tab şəkilləri dayanır.",
+"This site: %s": "Bu sayt: %s",
+"Brightness": "Parlaqlıq",
+"Contrast": "Kontrast",
+"Grayscale": "Boz çalarlar",
+"Reset": "Sıfırla",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Parlaqlıq, kontrast, sepiya və boz çalarlar standart dəyərlərinə qayıdır",
+"The sliders work with Dark Reader": "Sürgülər Dark Reader ilə işləyir",
+"Text font": "Mətn şrifti",
+"Use another font for the pages": "Səhifələr üçün başqa şrift istifadə et",
+"Text stroke": "Mətn konturu",
+"Background colour": "Fon rəngi",
+"Text colour": "Mətn rəngi",
+"Scrollbars": "Sürüşdürmə zolaqları",
+"Selection colour": "Seçim rəngi",
+"Automatic": "Avtomatik",
+"Hidden": "Gizli",
+"Colour…": "Rəng…",
+"Only for this site": "Yalnız bu sayt üçün",
+"These choices for %s only": "Bu seçimlər yalnız %s üçün",
+"Dark mode settings…": "Tünd rejim ayarları…"
 }
 }

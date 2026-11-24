@@ -1233,6 +1233,26 @@
 "Update the system": "განაახლეთ სისტემა",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "ვებ ძრავს (Qt WebEngine %s) აქვს ცნობილი უსაფრთხოების პრობლემა (%s), რომელიც ახალ ვერსიაშია გასწორებული. გახსენით ტერმინალი და გაუშვით: %s",
 "Battery saver": "ბატარეის დაზოგვა",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "ბატარეაზე ფონური ჩანართები ერთი წუთის შემდეგ ჩერდება, ხოლო ინტერფეისის ანიმაციები და ჩანართების სურათები წყდება."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "ბატარეაზე ფონური ჩანართები ერთი წუთის შემდეგ ჩერდება, ხოლო ინტერფეისის ანიმაციები და ჩანართების სურათები წყდება.",
+"This site: %s": "ეს საიტი: %s",
+"Brightness": "სიკაშკაშე",
+"Contrast": "კონტრასტი",
+"Grayscale": "ნაცრისფერი ტონები",
+"Reset": "ჩამოყრა",
+"Brightness, contrast, sepia and grayscale back to their defaults": "სიკაშკაშე, კონტრასტი, სეპია და ნაცრისფერი ტონები ნაგულისხმევ მნიშვნელობებზე",
+"The sliders work with Dark Reader": "სლაიდერები მუშაობს Dark Reader-თან",
+"Text font": "ტექსტის შრიფტი",
+"Use another font for the pages": "გვერდებისთვის სხვა შრიფტის გამოყენება",
+"Text stroke": "ტექსტის კონტური",
+"Background colour": "ფონის ფერი",
+"Text colour": "ტექსტის ფერი",
+"Scrollbars": "გადახვევის ზოლები",
+"Selection colour": "მონიშვნის ფერი",
+"Automatic": "ავტომატური",
+"Hidden": "დამალული",
+"Colour…": "ფერი…",
+"Only for this site": "მხოლოდ ამ საიტისთვის",
+"These choices for %s only": "ეს არჩევანი მხოლოდ %s-ისთვის",
+"Dark mode settings…": "მუქი რეჟიმის პარამეტრები…"
 }
 }

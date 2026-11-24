@@ -1233,6 +1233,26 @@
 "Update the system": "حدّث النظام",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "في محرك الويب (Qt WebEngine %s) مشكلة أمنية معروفة (%s) أُصلحت في إصدار أحدث. افتح طرفية وشغّل: %s",
 "Battery saver": "توفير البطارية",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "عند العمل على البطارية، تتوقف علامات التبويب في الخلفية بعد دقيقة، وتتوقف حركات الواجهة وصور علامات التبويب."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "عند العمل على البطارية، تتوقف علامات التبويب في الخلفية بعد دقيقة، وتتوقف حركات الواجهة وصور علامات التبويب.",
+"This site: %s": "هذا الموقع: %s",
+"Brightness": "السطوع",
+"Contrast": "التباين",
+"Grayscale": "تدرج الرمادي",
+"Reset": "إعادة الضبط",
+"Brightness, contrast, sepia and grayscale back to their defaults": "إعادة السطوع والتباين والبني الداكن وتدرج الرمادي إلى قيمها الافتراضية",
+"The sliders work with Dark Reader": "تعمل المنزلقات مع Dark Reader",
+"Text font": "خط النص",
+"Use another font for the pages": "استخدام خط آخر للصفحات",
+"Text stroke": "حدود النص",
+"Background colour": "لون الخلفية",
+"Text colour": "لون النص",
+"Scrollbars": "أشرطة التمرير",
+"Selection colour": "لون التحديد",
+"Automatic": "تلقائي",
+"Hidden": "مخفية",
+"Colour…": "لون…",
+"Only for this site": "لهذا الموقع فقط",
+"These choices for %s only": "هذه الخيارات لـ %s فقط",
+"Dark mode settings…": "إعدادات الوضع الداكن…"
 }
 }

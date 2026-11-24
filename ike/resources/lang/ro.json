@@ -1233,6 +1233,26 @@
 "Update the system": "Actualizează sistemul",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Motorul web (Qt WebEngine %s) are o problemă de securitate cunoscută (%s), corectată într-o versiune mai nouă. Deschide un terminal și rulează: %s",
 "Battery saver": "Economisire baterie",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Pe baterie, filele din fundal se opresc după un minut, iar animațiile interfeței și imaginile filelor se opresc."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Pe baterie, filele din fundal se opresc după un minut, iar animațiile interfeței și imaginile filelor se opresc.",
+"This site: %s": "Acest site: %s",
+"Brightness": "Luminozitate",
+"Contrast": "Contrast",
+"Grayscale": "Tonuri de gri",
+"Reset": "Resetează",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Luminozitatea, contrastul, sepia și tonurile de gri revin la valorile implicite",
+"The sliders work with Dark Reader": "Glisoarele funcționează cu Dark Reader",
+"Text font": "Fontul textului",
+"Use another font for the pages": "Folosește alt font pentru pagini",
+"Text stroke": "Contur text",
+"Background colour": "Culoarea fundalului",
+"Text colour": "Culoarea textului",
+"Scrollbars": "Bare de derulare",
+"Selection colour": "Culoarea selecției",
+"Automatic": "Automat",
+"Hidden": "Ascunse",
+"Colour…": "Culoare…",
+"Only for this site": "Doar pentru acest site",
+"These choices for %s only": "Aceste alegeri doar pentru %s",
+"Dark mode settings…": "Setări mod întunecat…"
 }
 }

@@ -513,6 +513,69 @@ class IkeApp(QObject):
                             or (want and engine != getattr(page, "_dark_engine", None))):
                         v.reload()
 
+    def push_dark_theme(self, view):
+        """Give the page of a tab the colours of dark mode now (1.1.25, the dark mode
+        panel): Dark Reader takes them in the page's isolated world, without loading
+        it again. Only a page made dark by Dark Reader; the colours are checked first."""
+        import json
+
+        from PyQt6.QtWebEngineCore import QWebEngineScript
+
+        from . import darktheme
+        if view is None or getattr(view, "sleeping", False) or getattr(view, "pending_url", None):
+            return False
+        page = view.page()
+        if not getattr(page, "_dark_on", False) or getattr(page, "_dark_engine", None) != "reader":
+            return False
+        url = view.url()
+        if url.scheme() not in ("http", "https", "file"):
+            return False
+        theme, _own = darktheme.of(self.config, url.host().lower())
+        js = "window.__ikeDarkTheme && window.__ikeDarkTheme(%s)" % json.dumps(darktheme.for_page(theme))
+        world = int(QWebEngineScript.ScriptWorldId.ApplicationWorld.value)
+        try:
+            frames = [page.mainFrame()]
+        except (AttributeError, RuntimeError):
+            page.runJavaScript(js, QWebEngineScript.ScriptWorldId.ApplicationWorld)
+            return True
+        seen = 0
+        while frames and seen < 200:          # the page's frames too (Qt 6.8+), a bounded number
+            f = frames.pop()
+            seen += 1
+            try:
+                f.runJavaScript(js, world)
+                frames.extend(f.children())
+            except RuntimeError:
+                pass
+        return True
+
+    def dark_theme_changed(self):
+        """The colours of dark mode were changed and kept (the dark mode panel, 1.1.25):
+        saved, given to every open page made dark by Dark Reader, and to the pages
+        loaded from now on (darkpages.retheme). Nothing is loaded again."""
+        from . import darkpages, darktheme
+        cfg = self.config
+        cfg["dark_theme"] = darktheme.clean(cfg["dark_theme"])
+        cfg["dark_site_themes"] = darktheme.clean_sites(cfg["dark_site_themes"])
+        cfg.save()
+        theme = darktheme.for_page(cfg["dark_theme"])
+
+        def own(host):
+            t, has = darktheme.of(cfg, host)
+            return darktheme.for_page(t) if has else None
+        profiles = {}
+        for w in self.windows:
+            views = [v for vs in getattr(w, "workspaces", {}).values() for v in vs] or list(w.views)
+            for v in views:
+                self.push_dark_theme(v)
+                try:
+                    p = v.page().profile()
+                    profiles[id(p)] = p
+                except RuntimeError:
+                    pass
+        for p in profiles.values():
+            darkpages.retheme(p, theme, own)
+
     def restart(self):
         """Close and start again, reopening the current tabs."""
         self.config["restore_once"] = True

@@ -5,7 +5,7 @@ import re
 import time
 
 from PyQt6.QtCore import QCoreApplication, QEvent, QPoint, QSize, Qt, QTimer, QUrl
-from PyQt6.QtGui import QAction, QActionGroup, QGuiApplication, QIcon, QKeySequence
+from PyQt6.QtGui import QAction, QActionGroup, QCursor, QGuiApplication, QIcon, QKeySequence
 from PyQt6.QtWebEngineCore import QWebEnginePage
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -626,7 +626,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_tb_split = A(T("Split view"), self.toggle_split, None,
                               icon(("view-split-left-right", "view-dual-symbolic")),
                               T("Show two tabs side by side"))
-        self.act_dark = A(T("Dark mode for pages"), None, None, icon("weather-clear-night"),
+        # 1.1.25: its click opens the dark mode panel under it (darkpanel.py), made at the first click
+        self.dark_menu = None
+        self.act_dark = A(T("Dark mode for pages"), self.show_dark_panel, None, icon("weather-clear-night"),
                           T("Dark mode: everywhere or only on this site"))
         self.act_tb_private = A(T("New private window"),
                                 lambda: self.app.new_window(private=True), None,
@@ -885,7 +887,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.m_dark.addAction(self.act_dark_all)
         self.m_dark.addAction(self.act_dark_site)
         self.m_dark.aboutToShow.connect(self._fill_dark_menu)
-        self.act_dark.setMenu(self.m_dark)
+        # (the toolbar's Dark mode button opens its panel since 1.1.25: show_dark_panel;
+        # the View and ☰ menus keep this menu)
         self.act_fullscreen = A(T("Full screen"), self.toggle_fullscreen, "F11", "view-fullscreen",
                                 T("Show the page on the whole screen"))
         # 1.1.24: the page first (its size, how it is shown), then the tabs, then
@@ -1078,7 +1081,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.burger = burger
         self.menu_btn.setMenu(effects.fading(burger, self.app.config))
 
-        # the toolbar buttons with a menu (1.1.24; Dark mode's is given above)
+        # the toolbar buttons with a menu (1.1.24; Dark mode's opens its panel, 1.1.25)
         self.m_print = menu(T("Print or save as PDF"), "document-print", None)
         self.m_print.addAction(self.act_print)
         self.m_print.addAction(self.act_pdf)
@@ -2336,14 +2339,19 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     def fit_shield_menu(self, place=True):
         """The shield's panel as tall as its content, but never past the bottom of the
         screen: there it scrolls. place: the open menu is resized and kept on the screen."""
+        self._fit_panel(self.shield_panel, self.shield_scroll, self.shield_menu, self.shield_wa,
+                        self.shield_btn, place)
+
+    def _fit_panel(self, panel, scroll, menu, wa, anchor, place=True):
+        """A panel in its popup (the shield's, the dark mode's): as tall as its content,
+        never past the bottom of the screen, where it scrolls."""
         from PyQt6.QtGui import QActionEvent
-        panel, scroll, menu = self.shield_panel, self.shield_scroll, self.shield_menu
         panel.adjustSize()
-        want = panel.sizeHint()
-        screen = self.shield_btn.screen() or QGuiApplication.primaryScreen()
+        want = panel.sizeHint().expandedTo(panel.minimumSize())
+        screen = anchor.screen() or QGuiApplication.primaryScreen()
         area = screen.availableGeometry()
         top = (menu.geometry().top() if menu.isVisible()
-               else self.shield_btn.mapToGlobal(QPoint(0, self.shield_btn.height())).y())
+               else anchor.mapToGlobal(QPoint(0, anchor.height())).y())
         room = area.bottom() - max(area.top(), top) - 16
         height = min(want.height(), max(220, room))
         bar = scroll.verticalScrollBar().sizeHint().width() if height < want.height() else 0
@@ -2351,7 +2359,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                           else Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setFixedSize(want.width() + bar, height)
         # the menu measures its items again (it keeps the old size of the panel otherwise)
-        QCoreApplication.sendEvent(menu, QActionEvent(QEvent.Type.ActionChanged, self.shield_wa))
+        QCoreApplication.sendEvent(menu, QActionEvent(QEvent.Type.ActionChanged, wa))
         if place and menu.isVisible():
             size = menu.sizeHint()
             g = menu.geometry()
@@ -2366,6 +2374,82 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.fit_shield_menu(place=False)
         x = max(0, b.width() - menu.sizeHint().width())
         menu.popup(b.mapToGlobal(QPoint(x, b.height())))
+
+    # --- the dark mode panel (1.1.25, darkpanel.py) ----------------------------
+    def dark_popup(self):
+        """The popup of the Dark mode button, made the first time it opens (nothing
+        of it exists, or runs, before)."""
+        if self.dark_menu is None:
+            from PyQt6.QtWidgets import QScrollArea
+
+            from .darkpanel import DarkPanel
+            menu = polish.round_menu(QMenu(self))
+            panel = DarkPanel(self)
+            scroll = QScrollArea(self)
+            scroll.setObjectName("ike_dark_scroll")
+            scroll.setFrameShape(QFrame.Shape.NoFrame)
+            scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            scroll.setWidgetResizable(True)
+            scroll.setWidget(panel)
+            scroll.viewport().setAutoFillBackground(False)
+            panel.setAutoFillBackground(False)
+            wa = QWidgetAction(menu)
+            wa.setDefaultWidget(scroll)
+            menu.addAction(wa)
+            menu.aboutToShow.connect(panel.refresh)
+            menu.aboutToShow.connect(lambda: self.fit_dark_menu(place=False))
+            menu.aboutToHide.connect(panel.commit)          # a value still waiting is kept
+            menu.aboutToHide.connect(lambda: setattr(self, "_dark_hidden_at", time.monotonic()))
+            effects.fading(menu, self.app.config)
+            self.dark_menu, self.dark_panel, self.dark_scroll, self.dark_wa = menu, panel, scroll, wa
+        return self.dark_menu
+
+    def _dark_anchor(self):
+        """The Dark mode button, or » when it did not fit in the toolbar."""
+        b = self.nav.widgetForAction(self.act_dark)
+        if b is not None and b.isVisible():
+            return b
+        return self.more_btn if self.more_btn.isVisible() else self.menu_btn
+
+    def fit_dark_menu(self, place=True):
+        if self.dark_menu is not None:
+            self._fit_panel(self.dark_panel, self.dark_scroll, self.dark_menu, self.dark_wa,
+                            self._dark_anchor(), place)
+
+    def show_dark_panel(self, *_):
+        """The dark mode panel under its button, its right edge at the button's."""
+        b = self._dark_anchor()
+        if (time.monotonic() - getattr(self, "_dark_hidden_at", -9.0) < 0.3
+                and b.rect().contains(b.mapFromGlobal(QCursor.pos()))):
+            return                     # the click on the button that closed it: it stays closed
+        menu = self.dark_popup()
+        self.dark_panel.refresh()
+        self.fit_dark_menu(place=False)
+        x = b.width() - menu.sizeHint().width()
+        area = (b.screen() or QGuiApplication.primaryScreen()).availableGeometry()
+        if b.mapToGlobal(QPoint(x, 0)).x() < area.left():
+            x = 0                      # a button on the left of the toolbar: its left edge at the button's
+        menu.popup(b.mapToGlobal(QPoint(x, b.height())))
+
+    def open_dark_settings(self):
+        """Settings → Appearance, at the dark mode of pages."""
+        dlg = self.open_settings("appearance")
+        target = getattr(dlg, "dark", None)
+        if target is None:
+            return dlg
+
+        def reveal():
+            try:
+                area = target.parentWidget()
+                while area is not None and not hasattr(area, "ensureWidgetVisible"):
+                    area = area.parentWidget()
+                if area is not None:
+                    area.ensureWidgetVisible(target, 50, 80)
+                target.setFocus(Qt.FocusReason.OtherFocusReason)
+            except RuntimeError:
+                pass
+        QTimer.singleShot(0, reveal)
+        return dlg
 
     SHIELD_EVERY_MS = 100
 

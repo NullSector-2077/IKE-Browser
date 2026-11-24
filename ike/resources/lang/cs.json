@@ -1233,6 +1233,26 @@
 "Update the system": "Aktualizujte systém",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Webové jádro (Qt WebEngine %s) má známý bezpečnostní problém (%s), opravený v novější verzi. Otevřete terminál a spusťte: %s",
 "Battery saver": "Úspora baterie",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Na baterii se karty na pozadí po minutě pozastaví a animace rozhraní a obrázky karet se zastaví."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Na baterii se karty na pozadí po minutě pozastaví a animace rozhraní a obrázky karet se zastaví.",
+"This site: %s": "Tento web: %s",
+"Brightness": "Jas",
+"Contrast": "Kontrast",
+"Grayscale": "Odstíny šedi",
+"Reset": "Obnovit",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Jas, kontrast, sépie a odstíny šedi zpět na výchozí hodnoty",
+"The sliders work with Dark Reader": "Tyto ovladače fungují s Dark Readerem",
+"Text font": "Písmo textu",
+"Use another font for the pages": "Použít pro stránky jiné písmo",
+"Text stroke": "Obrys textu",
+"Background colour": "Barva pozadí",
+"Text colour": "Barva textu",
+"Scrollbars": "Posuvníky",
+"Selection colour": "Barva výběru",
+"Automatic": "Automaticky",
+"Hidden": "Skryté",
+"Colour…": "Barva…",
+"Only for this site": "Jen pro tento web",
+"These choices for %s only": "Tyto volby jen pro %s",
+"Dark mode settings…": "Nastavení tmavého režimu…"
 }
 }

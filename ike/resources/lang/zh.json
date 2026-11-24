@@ -1233,6 +1233,26 @@
 "Update the system": "请更新系统",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "网页引擎（Qt WebEngine %s）存在已知的安全问题（%s），已在较新版本中修复。打开终端并运行：%s",
 "Battery saver": "省电模式",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "使用电池时，后台标签页在一分钟后暂停，界面动画和标签页图片也会停止。"
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "使用电池时，后台标签页在一分钟后暂停，界面动画和标签页图片也会停止。",
+"This site: %s": "此网站：%s",
+"Brightness": "亮度",
+"Contrast": "对比度",
+"Grayscale": "灰度",
+"Reset": "重置",
+"Brightness, contrast, sepia and grayscale back to their defaults": "亮度、对比度、复古和灰度恢复为默认值",
+"The sliders work with Dark Reader": "滑块适用于 Dark Reader",
+"Text font": "文字字体",
+"Use another font for the pages": "为页面使用其他字体",
+"Text stroke": "文字描边",
+"Background colour": "背景颜色",
+"Text colour": "文字颜色",
+"Scrollbars": "滚动条",
+"Selection colour": "选中颜色",
+"Automatic": "自动",
+"Hidden": "隐藏",
+"Colour…": "颜色…",
+"Only for this site": "仅限此网站",
+"These choices for %s only": "这些选择仅用于 %s",
+"Dark mode settings…": "深色模式设置…"
 }
 }

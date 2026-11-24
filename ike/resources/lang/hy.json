@@ -1233,6 +1233,26 @@
 "Update the system": "Թարմացրեք համակարգը",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "Վեբ շարժիչն (Qt WebEngine %s) ունի հայտնի անվտանգության խնդիր (%s), որը շտկված է ավելի նոր տարբերակում։ Բացեք տերմինալ և գործարկեք՝ %s",
 "Battery saver": "Մարտկոցի խնայում",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Մարտկոցով աշխատելիս ֆոնային ներդիրները մեկ րոպե անց դադարում են, իսկ միջերեսի անիմացիաներն ու ներդիրների նկարները կանգ են առնում։"
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "Մարտկոցով աշխատելիս ֆոնային ներդիրները մեկ րոպե անց դադարում են, իսկ միջերեսի անիմացիաներն ու ներդիրների նկարները կանգ են առնում։",
+"This site: %s": "Այս կայքը՝ %s",
+"Brightness": "Պայծառություն",
+"Contrast": "Կոնտրաստ",
+"Grayscale": "Մոխրագույն երանգներ",
+"Reset": "Վերակայել",
+"Brightness, contrast, sepia and grayscale back to their defaults": "Պայծառությունը, կոնտրաստը, սեպիան և մոխրագույն երանգները վերադառնում են լռելյայն արժեքներին",
+"The sliders work with Dark Reader": "Սահիչներն աշխատում են Dark Reader-ի հետ",
+"Text font": "Տեքստի տառատեսակ",
+"Use another font for the pages": "Օգտագործել այլ տառատեսակ էջերի համար",
+"Text stroke": "Տեքստի ուրվագիծ",
+"Background colour": "Ֆոնի գույն",
+"Text colour": "Տեքստի գույն",
+"Scrollbars": "Ոլորման գոտիներ",
+"Selection colour": "Ընտրության գույն",
+"Automatic": "Ավտոմատ",
+"Hidden": "Թաքնված",
+"Colour…": "Գույն…",
+"Only for this site": "Միայն այս կայքի համար",
+"These choices for %s only": "Այս ընտրությունները միայն %s-ի համար",
+"Dark mode settings…": "Մութ ռեժիմի կարգավորումներ…"
 }
 }

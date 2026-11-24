@@ -1233,6 +1233,26 @@
 "Update the system": "עדכן את המערכת",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "במנוע הרשת (Qt WebEngine %s) יש בעיית אבטחה ידועה (%s), שתוקנה בגרסה חדשה יותר. פתח מסוף והרץ: %s",
 "Battery saver": "חיסכון בסוללה",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "על סוללה, לשוניות ברקע נעצרות אחרי דקה, והאנימציות של הממשק ותמונות הלשוניות נעצרות."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "על סוללה, לשוניות ברקע נעצרות אחרי דקה, והאנימציות של הממשק ותמונות הלשוניות נעצרות.",
+"This site: %s": "האתר הזה: %s",
+"Brightness": "בהירות",
+"Contrast": "ניגודיות",
+"Grayscale": "גווני אפור",
+"Reset": "איפוס",
+"Brightness, contrast, sepia and grayscale back to their defaults": "בהירות, ניגודיות, ספיה וגווני אפור חוזרים לברירת המחדל",
+"The sliders work with Dark Reader": "המחוונים פועלים עם Dark Reader",
+"Text font": "גופן הטקסט",
+"Use another font for the pages": "שימוש בגופן אחר לדפים",
+"Text stroke": "קו מתאר לטקסט",
+"Background colour": "צבע רקע",
+"Text colour": "צבע טקסט",
+"Scrollbars": "פסי גלילה",
+"Selection colour": "צבע הבחירה",
+"Automatic": "אוטומטי",
+"Hidden": "מוסתרים",
+"Colour…": "צבע…",
+"Only for this site": "רק לאתר הזה",
+"These choices for %s only": "הבחירות האלה רק עבור %s",
+"Dark mode settings…": "הגדרות המצב הכהה…"
 }
 }

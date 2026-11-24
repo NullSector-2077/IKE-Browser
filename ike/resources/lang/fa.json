@@ -1233,6 +1233,26 @@
 "Update the system": "سیستم را به‌روز کنید",
 "The web engine (Qt WebEngine %s) has a known security problem (%s), fixed in a newer version. Open a terminal and run: %s": "موتور وب (Qt WebEngine %s) یک مشکل امنیتی شناخته‌شده دارد (%s) که در نسخه تازه‌تر رفع شده است. یک پایانه باز کنید و اجرا کنید: %s",
 "Battery saver": "صرفه‌جویی باتری",
-"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "با باتری، زبانه‌های پس‌زمینه پس از یک دقیقه متوقف می‌شوند و جنبش‌های رابط و تصویرهای زبانه‌ها می‌ایستند."
+"On battery, background tabs pause after a minute and the interface's animations and tab pictures stop.": "با باتری، زبانه‌های پس‌زمینه پس از یک دقیقه متوقف می‌شوند و جنبش‌های رابط و تصویرهای زبانه‌ها می‌ایستند.",
+"This site: %s": "این سایت: %s",
+"Brightness": "روشنایی",
+"Contrast": "کنتراست",
+"Grayscale": "سیاه‌وسفید",
+"Reset": "بازنشانی",
+"Brightness, contrast, sepia and grayscale back to their defaults": "روشنایی، کنتراست، قهوه‌ای سپیا و سیاه‌وسفید به پیش‌فرض برمی‌گردند",
+"The sliders work with Dark Reader": "لغزنده‌ها با Dark Reader کار می‌کنند",
+"Text font": "قلم متن",
+"Use another font for the pages": "استفاده از قلمی دیگر برای صفحه‌ها",
+"Text stroke": "حاشیهٔ متن",
+"Background colour": "رنگ پس‌زمینه",
+"Text colour": "رنگ متن",
+"Scrollbars": "نوارهای پیمایش",
+"Selection colour": "رنگ انتخاب",
+"Automatic": "خودکار",
+"Hidden": "پنهان",
+"Colour…": "رنگ…",
+"Only for this site": "فقط برای این سایت",
+"These choices for %s only": "این انتخاب‌ها فقط برای %s",
+"Dark mode settings…": "تنظیمات حالت تاریک…"
 }
 }
