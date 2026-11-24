@@ -236,7 +236,21 @@ def summary(result, dry_run=False):
     return "\n".join(lines) + "\n"
 
 
-def main(argv=None):
+def notices(result):
+    """The lines GitHub shows on the run's page (::warning) for what went wrong in a sweep that ran: the branches
+    not deleted because GitHub refused, and those not judged because of an error."""
+    out = []
+    if result["errors"]:
+        out.append("::warning title=Branch cleanup::%d branch(es) not deleted (refused or moved): %s" % (
+            len(result["errors"]), "; ".join(result["errors"])[:900]))
+    failed = sorted(ref for ref, why in result["kept"].items() if str(why).startswith("error:"))
+    if failed:
+        out.append("::warning title=Branch cleanup::%d branch(es) not judged because of an error: %s" % (
+            len(failed), ", ".join(failed)[:900]))
+    return out
+
+
+def main(argv=None, api=gh_api):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("sweep")
@@ -256,9 +270,19 @@ def main(argv=None):
               "tip, it is fully in main, nothing open uses it and it is %d days old" % MIN_AGE_DAYS)
         return 1
     now = dt.datetime.fromisoformat(a.now) if a.now else None
-    result = sweep(a.repo, gh_api, now, a.dry_run)
+    try:
+        result = sweep(a.repo, api, now, a.dry_run)
+    except Exception as e:                           # the list of branches or pull requests could not be read
+        line = "the weekly cleanup of the branches could not run: %s" % " ".join(str(e).split())[:300]
+        print("::error title=Branch cleanup::%s" % line)
+        if a.summary:
+            with open(a.summary, "a", encoding="utf-8") as f:
+                f.write("## Branch cleanup\n\nNot run: %s\n" % line)
+        return 1
     text = summary(result, a.dry_run)
     print(text)
+    for line in notices(result):
+        print(line)
     for ref, sha, _why in result["deleted"]:
         print("%s %s (%s)" % ("would delete" if a.dry_run else "deleted", ref, sha[:10]))
     if a.summary:

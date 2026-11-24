@@ -73,9 +73,12 @@ are agreed with the project owner; do not reopen them without asking.
   they leave each day goes to self-improvement). AI work has four classes
   (security fixes, updates of what ships, the CI's, background such as the
   drill). The first two may always use all of every free quota; the other
-  two run only while none of the first is pending, and only in each
-  provider's leftover window (its last hours before a verified reset, else
-  after the day's maintenance window), each provider counted on its own day;
+  two run only while none of the first is pending (or while that cannot be
+  read), and only in each provider's leftover window (the last hours before
+  its reset; with a reset not verified, also never during the day's
+  maintenance window), each provider counted on its own day; one
+  candidate's share of a provider holds only while another real update is
+  pending at the same time;
   OpenRouter's free models are one budget of the account
   (`tools/ai-quota.py`, docs/MAINTENANCE.md "Real updates first"). The
   verified merge deletes the candidate branch it merged, and a weekly sweep
@@ -225,7 +228,7 @@ are agreed with the project owner; do not reopen them without asking.
   updates may use all of the free quota, background work (the drill, the
   CI's updates) only the day's leftovers and never while a real update is
   pending, OpenRouter's free models as one budget, the merged candidate
-  branches deleted and a weekly branch sweep (an independent review's
+  branches deleted and a weekly branch sweep (two independent reviews'
   findings fixed). Pushed without a pull request while the owner signs
   1.1.24; the providers' reset times are not verified.
 - 1.1.24 privacy package A2b (branch `feature/1.1.24-privacy`, approved by

@@ -11,9 +11,11 @@ left goes to self-evolution, drills etc.". The proofs, all offline (no AI, no ne
 - the pause: CI and background work (the drill) wait at once while a real update is pending or retrying
   (an open pull request whose checks are not green, AUTOMAT's memory's rows whose pull request was not
   closed), and a fix is not started when its reviewers have nothing left for it;
-- the leftover window: with a verified reset, the last hours before the provider's own reset; with an
-  unverified one, once the real day's maintenance window is over; each provider's use counted on its own
-  day; never while real work is pending;
+- the leftover window: only the last hours before the provider's own reset, verified or not (an unverified
+  one is more careful: the data file's time counts, and never during the real day's maintenance window);
+  each provider's use counted on its own day; never while real work is pending, nor while that cannot be
+  read (fail closed);
+- the share of one candidate holds only while another real update is pending at the same time;
 - OpenRouter: all its ":free" models are one budget of the account; GET /api/v1/key (no redirect followed)
   is read only for is_free_tier, the documented cap always stays, and the signing notice says when the
   account is not on the free tier;
@@ -121,6 +123,7 @@ def test_the_daily_check_starts_waiting_work_in_the_order_of_the_classes():
 # =====================================================================================================
 
 MAINTENANCE = dt.datetime(2026, 11, 24, 6, 30, tzinfo=dt.timezone.utc)   # the daily candidates' hour
+LATE = dt.datetime(2026, 11, 24, 22, 0, tzinfo=dt.timezone.utc)          # the last hours of a UTC day
 
 
 def test_real_updates_may_always_use_all_of_every_free_quota():
@@ -136,18 +139,23 @@ def test_real_updates_may_always_use_all_of_every_free_quota():
 
 def test_the_background_takes_what_real_work_leaves_and_all_of_it():
     limit = quota.load_limits()["providers"]["Groq"]["requests_per_day"]
-    # no real work pending, the real day's maintenance over (Groq's reset is not verified): everything left
+    # no real work pending, the last hours of Groq's day (its reset is not verified): everything left
     nearly = used("Groq", limit - 1, klass=quota.UPDATE)
-    assert budget(DRILL, nearly).allows("Groq", 2000, "review") == (True, "")
-    assert budget("automation/update/ci-pins", nearly).allows("Groq", 2000, "review") == (True, "")
-    assert "used up" in budget(DRILL, used("Groq", limit)).allows("Groq", 2000, "review")[1]
+    assert budget(DRILL, nearly, now=LATE).allows("Groq", 2000, "review") == (True, "")
+    assert budget("automation/update/ci-pins", nearly, now=LATE).allows("Groq", 2000, "review") == (True, "")
+    assert "used up" in budget(DRILL, used("Groq", limit), now=LATE).allows("Groq", 2000, "review")[1]
     # while the real day's maintenance runs, its needs are not known yet: the background waits
     ok, why = budget(DRILL, now=MAINTENANCE).allows("Groq", 2000)
     assert ok is False and "maintenance is over" in why and "04:00-12:00 UTC" in why
     ok, why = budget("automation/update/ci-pins", now=MAINTENANCE).allows("Groq", 2000)
     assert ok is False and "class 3" in why
-    assert budget(DRILL, now=dt.datetime(2026, 11, 24, 3, 59, tzinfo=dt.timezone.utc)).allows("Groq", 2000)[0]
-    assert budget(DRILL, now=dt.datetime(2026, 11, 24, 12, 0, tzinfo=dt.timezone.utc)).allows("Groq", 2000)[0]
+    # once it is over, still only the last hours of the provider's own day (review H1 of 2026-11-24: an
+    # unverified reset is never a reason to open earlier)
+    assert budget(DRILL, now=dt.datetime(2026, 11, 24, 21, 0, tzinfo=dt.timezone.utc)).allows("Groq", 2000)[0]
+    assert budget(DRILL, now=dt.datetime(2026, 11, 24, 23, 59, tzinfo=dt.timezone.utc)).allows("Groq", 2000)[0]
+    for hour, minute in ((3, 59), (12, 0), (12, 1), (20, 59)):
+        ok, why = budget(DRILL, now=dt.datetime(2026, 11, 24, hour, minute, tzinfo=dt.timezone.utc)).allows("Groq", 2000)
+        assert ok is False and "last 3 hours" in why and "unverified reset" in why, (hour, minute)
 
 
 def test_the_use_of_each_class_is_recorded_by_the_run_and_by_the_job_that_merges_it():
@@ -226,8 +234,9 @@ def test_the_pending_real_work_is_read_from_automats_memory():
 class FakePRs:
     """Open pull requests, the runs of their last commit, and closed ones (GET only)."""
 
-    def __init__(self, open_prs, runs, closed=()):
+    def __init__(self, open_prs, runs, closed=(), closed_at="2026-11-24T10:00:00Z"):
         self.open, self.runs, self.closed, self.calls = open_prs, runs, set(closed), []
+        self.closed_at = closed_at
 
     def __call__(self, path, *a):
         self.calls.append(path)
@@ -241,6 +250,10 @@ class FakePRs:
         if path.startswith("repos/o/r/pulls?state=closed&head=o:"):
             ref = path.split("head=o:", 1)[1].split("&", 1)[0]
             return [{"number": 1}] if ref in self.closed else []
+        if path.startswith("repos/o/r/pulls?state=all&head=o:"):            # the newest pull request of a branch
+            assert "sort=created&direction=desc&per_page=1" in path
+            ref = path.split("head=o:", 1)[1].split("&", 1)[0]
+            return [{"number": 1, "state": "closed", "closed_at": self.closed_at}] if ref in self.closed else []
         raise AssertionError(path)
 
 
@@ -282,7 +295,8 @@ def test_the_run_reads_the_plans_list_of_pending_work(tmp_path):
     mem = tmp_path / "memory.json"
     mem.write_text(json.dumps(memory_with((REAL, 1, dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d")))), "utf-8")
     assert quota.pending_for_run(str(mem), str(plan)) == ["automation/update/darkreader"]
-    assert quota.pending_for_run(str(mem), str(tmp_path / "none")) == [REAL]
+    # a list that should be there and is not: unknown, the background pauses (review H3: fail closed)
+    assert quota.pending_for_run(str(mem), str(tmp_path / "none")) == [REAL, quota.UNKNOWN]
     assert quota.pending_for_run(str(mem), None) == [REAL]
     plan.write_text("", "utf-8")
     assert quota.pending_for_run(str(mem), str(plan)) == []          # the plan saw nothing pending (rows closed)
@@ -300,18 +314,19 @@ def test_background_and_ci_pause_at_once_while_real_work_is_pending_and_real_wor
     # real work and security fixes never pause
     assert budget(REAL, pending=pending).allows("Groq", 2000) == (True, "")
     assert budget("automation/update/security-y", pending=pending).allows("Groq", 2000) == (True, "")
-    # background work named as pending is no reason to pause
-    assert budget(DRILL, pending=[DRILL, "automation/update/ci-pins"]).allows("Groq", 2000) == (True, "")
+    # background work named as pending is no reason to pause (in the last hours of Groq's day)
+    assert budget(DRILL, pending=[DRILL, "automation/update/ci-pins"], now=LATE).allows("Groq", 2000) == (True, "")
 
 
 def test_a_background_fix_waits_when_its_reviewers_have_nothing_left_for_it():
     limits = quota.load_limits()
     for name in ("Z.AI", "OpenRouter", "Antigravity"):
-        limits["providers"][name]["reset"] = {"time": "00:00", "zone": "UTC", "verified": True}
-    # their day has twelve hours left: their leftovers are not the background's yet, so nobody could review
-    ok, why = quota.Budget(limits, None, DRILL, now=NOW).allows("Groq", 2000)
+        limits["providers"][name]["reset"] = {"time": "12:00", "zone": "UTC", "verified": True}
+    # in the last hours of Groq's day the others' day has fourteen hours left: their leftovers are not the
+    # background's yet, so nobody could review
+    ok, why = quota.Budget(limits, None, DRILL, now=LATE).allows("Groq", 2000)
     assert ok is False and "the reviewers' reserve" in why
-    assert quota.Budget(limits, None, REAL, now=NOW).allows("Groq", 2000) == (True, "")   # real work: all of it
+    assert quota.Budget(limits, None, REAL, now=LATE).allows("Groq", 2000) == (True, "")   # real work: all of it
 
 
 # =====================================================================================================
@@ -425,7 +440,8 @@ def test_the_signing_notice_shows_what_real_work_and_the_background_used():
 def test_background_status_says_open_paused_released_or_no_room():
     limits = quota.load_limits()
     mem = memory_with((REAL, 1, TODAY))
-    assert quota.background_status(limits, quota.empty_state(), None, NOW)["state"] == "open"
+    assert quota.background_status(limits, quota.empty_state(), None, LATE)["state"] == "open"
+    assert quota.background_status(limits, quota.empty_state(), None, NOW)["state"] == "no-room"   # 12 h left
     paused = quota.background_status(limits, quota.empty_state(), mem, NOW)
     assert paused["state"] == "paused" and paused["pending"] == [REAL] and "real updates first" in paused["why"]
     late = quota.background_status(limits, quota.empty_state(), mem, dt.datetime(2026, 11, 24, 23, tzinfo=dt.timezone.utc))
@@ -635,7 +651,7 @@ def test_the_drills_report_says_when_it_waits_for_real_updates():
     assert "Priorità" not in drill.markdown(info, final=True)
     status = drill.priority(memory_with((REAL, 1, TODAY)), None, NOW)
     assert status["state"] == "paused" and status["pending"] == [REAL]
-    assert drill.priority(None, {"days": "x"}, NOW)["state"] == "open"
+    assert drill.priority(None, {"days": "x"}, LATE)["state"] == "open"
     # with the repository: an open real update whose checks fail pauses the drill, and a memory row whose pull
     # request was closed does not
     api = FakePRs([("automation/update/darkreader", sha(2))], {sha(2): [{"status": "completed",
@@ -646,7 +662,10 @@ def test_the_drills_report_says_when_it_waits_for_real_updates():
 
     def down(path, *a):
         raise RuntimeError("down")
-    assert drill.priority(memory_with((REAL, 1, TODAY)), None, NOW, "o/r", down)["pending"] == [REAL]
+    # not read: unknown, the drill pauses (review H3: fail closed), also with nothing in the memory
+    assert drill.priority(memory_with((REAL, 1, TODAY)), None, NOW, "o/r", down)["pending"] == [REAL, quota.UNKNOWN]
+    status = drill.priority(None, None, LATE, "o/r", down)
+    assert status["state"] == "paused" and status["pending"] == [quota.UNKNOWN] and "could not be read" in status["why"]
 
 
 def test_the_drill_workflow_says_it_and_keeps_its_permissions():
@@ -666,3 +685,176 @@ def test_the_documents_say_it():
         assert word in section, word
     roadmap = (ROOT / "ROADMAP.md").read_text("utf-8")
     assert "AUTOMAT, block 1" in roadmap and "AUTOMAT block 1 (2026-11-24" in roadmap.split("## Status", 1)[1]
+
+
+# =====================================================================================================
+# 7. The second review of 2026-11-24
+# =====================================================================================================
+
+def at(hour, minute=0, day=24):
+    return dt.datetime(2026, 11, day, hour, minute, tzinfo=dt.timezone.utc)
+
+
+def test_an_unverified_reset_never_opens_the_background_before_the_last_hours_of_the_providers_day():
+    """H1: Antigravity's day ends at 08:00 UTC (midnight in California, not verified): drills at 12:05 and 15:00
+    UTC must not take its twenty requests a security fix needs at 06:30 the next morning; a UTC provider is not
+    emptied at 12:01 with twelve hours of its day left."""
+    limits = quota.load_limits()
+    assert not limits["providers"]["Antigravity"]["reset"]["verified"]
+    for when in (at(12, 5), at(15), at(23), at(6, 30, 25), at(7, 59, 25)):
+        ok, why = quota.Budget(limits, None, DRILL, now=when).allows("Antigravity", 0, requests=10)
+        assert ok is False, when
+        assert "Antigravity" not in quota.background_status(limits, quota.empty_state(), None, when)["providers"]
+    # its last hours (05:00-08:00 UTC) fall in the real day's maintenance: an unverified reset waits for a person
+    assert "not verified" in quota.Budget(limits, None, DRILL, now=at(6, 0, 25)).leftover_window("Antigravity")[1]
+    assert quota.Budget(limits, None, REAL, now=at(6, 30, 25)).allows("Antigravity", 0, requests=10) == (True, "")
+    # a UTC provider: not at 12:01, only in its last three hours
+    for name in ("Groq", "Z.AI", "OpenRouter"):
+        assert quota.Budget(limits, None, DRILL, now=at(12, 1)).leftover_window(name)[0] is False, name
+        assert quota.Budget(limits, None, DRILL, now=at(21, 30)).leftover_window(name)[0] is True, name
+    # an unverified provider's own header saying its day ends soon never opens it earlier than the data file
+    b = quota.Budget(limits, None, DRILL, now=at(12, 1))
+    b.note("Groq", 10, "review", headers={"x-ratelimit-limit-requests": "1000", "x-ratelimit-remaining-requests": "990",
+                                           "x-ratelimit-reset-requests": "2m59.56s"})
+    assert b.leftover_window("Groq")[0] is False
+    # the window is data: release_hours of tools/ai-quota.json
+    wide = quota.load_limits()
+    wide["priority"]["release_hours"] = 12
+    assert quota.Budget(wide, None, DRILL, now=at(12, 1)).leftover_window("Groq")[0] is True
+
+
+def test_a_long_lived_branch_is_never_closed_and_a_closed_row_is_marked_never_deleted():
+    """H2: automation/autofix-main and automation/daily-maintenance had closed pull requests and none is open
+    while their fix fails before it publishes: they stay pending; a row of another branch is only marked, so the
+    count of failures in a row (tools/automat-help.py) stays."""
+    memory = load("automat-memory")
+    assert memory.LONG_LIVED == quota.LONG_LIVED
+    long_lived = ("automation/autofix-main", "automation/daily-maintenance")
+    mem = memory_with(*[(ref, 3, TODAY) for ref in long_lived + ("automation/update/adblock",)])
+    api = FakePRs([], {}, closed=set(long_lived) | {"automation/update/adblock"})
+    prs = quota.gather_prs("o/r", api, mem, None, NOW, runs=False)
+    assert prs["closed"] == ["automation/update/adblock"]
+    assert quota.pending_all(mem, None, NOW, prs) == sorted(long_lived)
+    assert quota.background_status(quota.load_limits(), quota.empty_state(), mem, LATE, prs=prs)["state"] == "paused"
+    # a pull request closed BEFORE the row's last failure: the work goes on (a new candidate fails again)
+    old = FakePRs([], {}, closed={"automation/update/adblock"}, closed_at="2026-11-23T10:00:00Z")
+    assert quota.gather_prs("o/r", old, mem, None, NOW, runs=False)["closed"] == []
+    # no row, or pull requests that cannot be read: not closed
+    assert quota.closed_branches("o/r", api, ["automation/update/adblock"], None) == []
+
+    def down(path, *a):
+        raise RuntimeError("down")
+    assert quota.closed_branches("o/r", down, ["automation/update/adblock"], mem) == []
+    # the memory: marked, never deleted; never a long-lived branch
+    memory.closed(mem, list(long_lived) + ["automation/update/adblock"], now=NOW)
+    for ref in long_lived + ("automation/update/adblock",):
+        assert memory.consecutive(mem, ref) == ("s", 3), ref
+    assert mem["streak"]["automation/update/adblock"]["closed"] == TODAY
+    assert not any("closed" in mem["streak"][ref] for ref in long_lived)
+    assert quota.pending_work(mem, None, NOW) == sorted(long_lived)
+    # a long-lived row with a mark (by hand, an old file) is still pending
+    mem["streak"]["automation/autofix-main"]["closed"] = TODAY
+    assert "automation/autofix-main" in quota.pending_work(mem, None, NOW)
+    # failing again after the close clears the mark: pending again, and the row goes on counting
+    memory.note(mem, "automation/update/adblock", "s", "tests-failed", provider="Groq", now=NOW)
+    assert "automation/update/adblock" in quota.pending_work(mem, None, NOW)
+    assert memory.consecutive(mem, "automation/update/adblock") == ("s", 4)
+    wf = (ROOT / ".github/workflows/automerge.yml").read_text("utf-8")
+    assert "memory.pop" not in (ROOT / "tools/automat-memory.py").read_text("utf-8").split("def closed(", 1)[1][:900]
+    assert " closed --memory memory.json --closed " in wf
+
+
+def test_an_unknown_list_of_pending_work_pauses_the_background_and_never_real_work(tmp_path, monkeypatch):
+    """H3: when the plan cannot read GitHub, the list is "unknown" (or missing): background work pauses, real
+    work and security fixes never wait for it."""
+    plan = tmp_path / "pending"
+    plan.write_text("unknown\n", "utf-8")
+    pending = quota.pending_for_run(None, str(plan))
+    assert pending == [quota.UNKNOWN]
+    for ref in (DRILL, "automation/update/ci-pins"):
+        ok, why = budget(ref, now=LATE, pending=pending).allows("Groq", 2000)
+        assert ok is False and "could not be read" in why, ref
+    for ref in (REAL, "automation/update/security-x", "automation/autofix-main"):
+        assert budget(ref, now=LATE, pending=pending).allows("Groq", 2000) == (True, ""), ref
+    status = quota.background_status(quota.load_limits(), quota.empty_state(), None, LATE, pending=pending)
+    assert status["state"] == "paused"
+    # the command of the plan: GitHub not read -> "unknown" and a failure, never an empty list
+    def down(path):
+        raise RuntimeError("HTTP 502")
+    monkeypatch.setattr(quota, "gh_api", down)
+    out = io.StringIO()
+    import contextlib
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+        assert quota.main(["pending", "--repo", "o/r"]) == 1
+    assert out.getvalue().strip() == quota.UNKNOWN
+    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+        assert quota.main(["pending", "--repo", "o/r", "--out", str(tmp_path / "p.json")]) == 1
+    assert not (tmp_path / "p.json").exists()                        # nothing is closed on a guess
+    # the workflow: an error is "unknown", nothing pending is "none", and a missing output is "unknown"
+    wf = (ROOT / ".github/workflows/autofix.yml").read_text("utf-8")
+    plan_step = wf.split("python3 -I tools/ai-quota.py pending --repo", 1)[1][:700]
+    assert '2> /dev/null || true' not in plan_step.split("fi\n", 1)[0]
+    assert 'echo "pending=${pending:-none}" >> "$GITHUB_OUTPUT"' in plan_step
+    assert 'echo "pending=unknown" >> "$GITHUB_OUTPUT"' in plan_step
+    assert 'none) : > "$RUNNER_TEMP/pending" ;;' in wf and '""|unknown) echo unknown > "$RUNNER_TEMP/pending" ;;' in wf
+
+
+def test_a_lone_real_update_may_use_all_of_a_provider_and_two_pending_share_it():
+    """M1 (the owner, 2026-11-24: no fixed share for real updates): the share of one candidate holds only while
+    another security fix or real update is pending at the same time."""
+    sec = "automation/update/security-x"
+    limit = quota.load_limits()["providers"]["Antigravity"]["requests_per_day"]
+    session = quota.load_limits()["providers"]["Antigravity"]["session_requests"]
+    lone = quota.Budget(quota.load_limits(), None, sec, now=NOW, pending=[sec, quota.UNKNOWN])
+    for _ in range(limit // session):
+        assert lone.allows("Antigravity", 0, requests=session) == (True, "")
+        lone.note("Antigravity", 0, "fix", requests=session)
+    assert "used up" in lone.allows("Antigravity", 0, requests=session)[1]        # only the provider's own quota
+    # with another real update pending at the same time: the second session of the same candidate waits
+    two = quota.Budget(quota.load_limits(), None, sec, now=NOW, pending=[sec, REAL])
+    assert two.allows("Antigravity", 0, requests=session) == (True, "")
+    two.note("Antigravity", 0, "fix", requests=session)
+    ok, why = two.allows("Antigravity", 0, requests=session)
+    assert ok is False and "already used its share" in why and "while another real update is pending" in why
+    other = quota.Budget(quota.load_limits(), two.state, REAL, now=NOW, pending=[sec, REAL])
+    assert other.allows("Antigravity", 0, requests=session) == (True, "")             # the other one gets its half
+    # the candidate's own id (without the prefix) is not "another one"
+    assert quota.Budget(quota.load_limits(), two.state, "security-x", now=NOW, pending=[sec]).allows(
+        "Antigravity", 0, requests=session) == (True, "")
+
+
+def test_only_the_newest_run_of_each_workflow_decides_whether_a_pull_request_is_pending():
+    """L1: a cancelled or superseded run of the same workflow on the head commit no longer keeps it pending."""
+    def run(wf, conclusion, created, status="completed"):
+        return {"workflow_id": wf, "status": status, "conclusion": conclusion, "created_at": created}
+    api = FakePRs([("automation/update/adblock", sha(1)), ("automation/update/darkreader", sha(2)),
+                   ("automation/update/pyqt6", sha(3))],
+                  {sha(1): [run(1, "success", "2026-11-24T10:00:00Z"), run(1, "cancelled", "2026-11-24T09:00:00Z"),
+                            run(2, "success", "2026-11-24T09:30:00Z")],
+                   sha(2): [run(1, "cancelled", "2026-11-24T08:00:00Z"), run(1, "failure", "2026-11-24T10:00:00Z")],
+                   sha(3): [run(1, "success", "2026-11-24T08:00:00Z"), run(1, None, "2026-11-24T10:00:00Z",
+                                                                        "in_progress")]})
+    assert quota.pending_from_prs("o/r", api)["pending"] == ["automation/update/darkreader", "automation/update/pyqt6"]
+    assert [r["conclusion"] for r in quota.latest_runs([run(1, "cancelled", "1"), run(1, "success", "2")])] == \
+        ["success"]
+    # runs that name no workflow each count
+    assert len(quota.latest_runs([{"conclusion": "success"}, {"conclusion": "failure"}])) == 2
+
+
+def test_the_memory_of_a_merge_is_written_in_the_memorys_queue_and_retried_never_lost_in_silence():
+    """M2: the merge workflow writes AUTOMAT's memory in the queue of the automatic fix's own record
+    (automat-memory), makes the record again from the newest commit when the branch moved, and warns when it
+    could not."""
+    import yaml
+    wf = yaml.safe_load((ROOT / ".github/workflows/automerge.yml").read_text("utf-8"))
+    job = wf["jobs"]["memory"]
+    assert job["needs"] == "merge" and job["concurrency"] == {"group": "automat-memory", "cancel-in-progress": False}
+    assert job["permissions"] == {"contents": "write", "pull-requests": "read"}
+    assert wf["jobs"]["merge"]["outputs"]["merged"] == "${{ steps.merge.outputs.merged }}"
+    assert not any("automat-memory" in str(s) for s in wf["jobs"]["merge"]["steps"])
+    run = job["steps"][-1]["run"]
+    assert "for attempt in 1 2 3 4 5; do" in run and "|| return 1" in run and "record || code=$?" in run
+    assert run.count("::warning title=AUTOMAT's memory::") == 2
+    assert "COMPONENT: ${{ needs.merge.outputs.merged }}" in (ROOT / ".github/workflows/automerge.yml").read_text()
+    autofix = yaml.safe_load((ROOT / ".github/workflows/autofix.yml").read_text("utf-8"))
+    assert autofix["jobs"]["remember"]["concurrency"]["group"] == job["concurrency"]["group"]

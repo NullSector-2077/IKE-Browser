@@ -334,6 +334,36 @@ def test_errors_never_stop_the_sweep_and_are_reported():
     assert result["errors"] and "claude/old-merged" in result["errors"][0]
 
 
+def test_a_sweep_that_fails_says_what_failed_on_the_runs_page(tmp_path, capsys):
+    """L2: a sweep that could not run is an ::error naming why (and the summary says it); branches not deleted
+    or not judged are a ::warning naming them; the workflow says it when a step failed."""
+    summary = tmp_path / "summary.md"
+
+    def down(path):
+        raise RuntimeError("gh api repos/o/r/branches: HTTP 502")
+    assert sweep_tool.main(["sweep", "--repo", REPO, "--summary", str(summary)], api=down) == 1
+    out = capsys.readouterr().out
+    assert "::error title=Branch cleanup::the weekly cleanup of the branches could not run: gh api" in out
+    assert "Not run: " in summary.read_text("utf-8") and "HTTP 502" in summary.read_text("utf-8")
+    gh = world()
+    real = gh.__call__
+
+    def api(path):
+        if path.endswith("/commits/%s" % sha(15)):
+            raise ValueError("broken answer")
+        return real(path)
+    assert sweep_tool.main(["sweep", "--repo", REPO, "--summary", str(summary), "--dry-run",
+                            "--now", NOW.isoformat()], api=api) == 0
+    out = capsys.readouterr().out
+    assert "::warning title=Branch cleanup::1 branch(es) not judged because of an error: release/1.1.23" in out
+    lines = sweep_tool.notices({"deleted": [], "kept": {}, "errors": ["claude/x: refused"]})
+    assert lines == ["::warning title=Branch cleanup::1 branch(es) not deleted (refused or moved): claude/x: refused"]
+    assert sweep_tool.notices({"deleted": [], "kept": {"a": "protected"}, "errors": []}) == []
+    wf = (WORKFLOWS / "branch-sweep.yml").read_text("utf-8")
+    tail = wf.split("- name: Say that the cleanup failed", 1)[1]
+    assert "if: failure()" in tail and "::error title=Branch cleanup::" in tail and "GITHUB_STEP_SUMMARY" in tail
+
+
 def test_at_most_a_few_deletions_a_run_and_many_branches_are_read_page_by_page():
     branches = {"claude/b%03d" % i: sha(1000 + i) for i in range(sweep_tool.MAX_DELETIONS + 30)}
     gh = FakeGitHub(dict(branches, main=sha(1)), in_main=set(branches.values()) | {sha(1)},

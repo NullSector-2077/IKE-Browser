@@ -38,3 +38,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 -I tools/branch-sweep.py sweep --repo "$GITHUB_REPOSITORY" --summary "$GITHUB_STEP_SUMMARY"
+      # what failed is said on the run's page and in its summary (the tool names the branches it could not
+      # delete or judge with ::warning, and a sweep that could not run with ::error)
+      - name: Say that the cleanup failed
+        if: failure()
+        run: |
+          echo "::error title=Branch cleanup::the weekly cleanup of the branches failed (see the step above): nothing more was deleted"
+          printf '## Branch cleanup\n\nFailed (see the step above): nothing more was deleted.\n' >> "$GITHUB_STEP_SUMMARY"

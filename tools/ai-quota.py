@@ -18,9 +18,10 @@ none for its reviewers. This file is the scheduler:
 - **Before each call** (Budget.allows): a provider that is spent today is never asked; one without
   room for the estimated size is skipped; a fix is not started unless, after it, two other providers
   (three for a tier-B change) still have room for one review each (the reserve: without it the fix
-  waits and nothing is wasted); and one candidate's fixes take at most ``share_per_candidate`` of a
-  provider's day, so one candidate cannot drain everything. A limit per minute is waited out when
-  it is short (wait_seconds).
+  waits and nothing is wasted); and while another security fix or real update is pending at the same
+  time, one candidate's fixes take at most ``share_per_candidate`` of a provider's day, so two real
+  updates share it fairly (a lone real update may use all of it). A limit per minute is waited out
+  when it is short (wait_seconds).
 - **The signing notice** shows the use and what is left per provider (summary).
 - A day when the automatic fix ran and no free provider at all could answer is counted (ran): two
   such days in a row start the notice "DEVI AIUTARCI CON CHATGPT" (tools/automat-help.py).
@@ -31,9 +32,10 @@ none for its reviewers. This file is the scheduler:
   4 background (the AUTOMAT drill, the replay bench, self-evolution). Real updates (classes 1 and 2)
   may always use ALL of every free quota; classes 3 and 4 get only what real work leaves, and all of it:
   never while work of class 1 or 2 is pending or retrying (pending_all: an open pull request whose
-  checks are not green, a row of failures in AUTOMAT's memory whose pull request was not closed), and
-  only in the provider's leftover window (leftover_window): the last release_hours hours before its own
-  reset when a person verified it, else once the real day's maintenance window (UTC) is over. Each
+  latest checks are not green, a row of failures in AUTOMAT's memory whose pull request was not closed
+  after it), never while that list could not be read (UNKNOWN: fail closed), and only in the provider's
+  leftover window (leftover_window): the last release_hours hours before its own reset; when a person
+  has not verified that reset, also never during the real day's maintenance window (UTC). Each
   provider's use is counted on its own day (provider_day: the time and zone of its "reset"), and a
   quota answer (429) to work of class 3 or 4 never spends a provider for classes 1 and 2.
 - **OpenRouter's free models share one budget**: every ":free" model counts against one daily cap
@@ -87,6 +89,11 @@ OBSERVED_RESET_MAX = 2 * 86400
 # security fix's or a real update's own branch prefix as a whole
 NEVER_LOW = ("automation/update/", "automation/builder/", "automation/update/security-", "automation/daily-maintenance",
              "automation/autofix-main")
+# the long-lived branches of the maintenance: never "closed" for the priority (their pull request is closed and
+# opened again while the work goes on: a broken main's fix retrying stays pending)
+LONG_LIVED = ("automation/autofix-main", "automation/daily-maintenance", "automation/audit")
+# the pending work could not be read (the plan's call to GitHub failed): background work pauses, real work never
+UNKNOWN = "unknown"
 RESET = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 ZONE = re.compile(r"^[A-Za-z][A-Za-z0-9_+/-]{0,60}$")
 
@@ -220,18 +227,45 @@ def pending_work(memory, limits=None, now=None):
     for component, row in (streak or {}).items() if isinstance(streak, dict) else ():
         if not isinstance(row, dict) or str(row.get("date") or row.get("since") or "") < since:
             continue
+        if is_closed(component, row):
+            continue
         if re.fullmatch(r"[A-Za-z0-9._/-]{1,120}", str(component)) and priority_of(component, limits) <= UPDATE:
             out.append(str(component))
     return sorted(out)
 
 
+def is_closed(component, row):
+    """True when the row's pull request was closed on or after its last failure (tools/automat-memory.py closed
+    marks it, never deletes it): the row stays for the count of failures in a row, and is only left out of the
+    priority. Never for a long-lived branch of the maintenance."""
+    mark = str((row or {}).get("closed") or "")
+    return bool(mark) and str(component) not in LONG_LIVED and \
+        mark >= str((row or {}).get("date") or (row or {}).get("since") or "")
+
+
 GREEN = ("success", "skipped", "neutral")
+
+
+def latest_runs(runs):
+    """Only the newest run of each workflow (a cancelled or superseded run of the same workflow no longer
+    counts); a run that names no workflow counts on its own."""
+    out, seen = [], set()
+    ordered = sorted((r for r in runs if isinstance(r, dict)), key=lambda r: str(r.get("created_at") or ""),
+                     reverse=True)
+    for n, r in enumerate(ordered):
+        key = r.get("workflow_id") or r.get("path") or r.get("name") or ("#", n)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(r)
+    return out
 
 
 def pending_from_prs(repo, api, limits=None):
     """The work of class 1 or 2 that is pending from GitHub itself: an open pull request of the automation
     (automation/update/*, automation/builder/*, automation/daily-maintenance, automation/autofix-main) whose last
-    commit has a run that is not green (failed, cancelled, or still running): {"pending": [...], "open": [...]},
+    commit has a run that is not green (failed, cancelled, or still running; only the newest run of each
+    workflow counts): {"pending": [...], "open": [...]},
     where "open" is every branch of the automation with an open pull request. GET calls only; a branch whose
     runs cannot be read counts as pending (rather wait than starve real work)."""
     out = {"pending": [], "open": []}
@@ -251,6 +285,7 @@ def pending_from_prs(repo, api, limits=None):
             except RuntimeError:
                 out["pending"].append(ref)
                 continue
+            runs = latest_runs(runs)
             if not runs or any(r.get("status") != "completed" or r.get("conclusion") not in GREEN for r in runs):
                 out["pending"].append(ref)
         if len(prs) < 100:
@@ -260,24 +295,35 @@ def pending_from_prs(repo, api, limits=None):
     return out
 
 
-def closed_branches(repo, api, refs):
-    """Of these branches, those whose pull request was closed (merged or not) and none is open: their row of
-    failures in AUTOMAT's memory is over."""
+def closed_branches(repo, api, refs, memory=None):
+    """Of these branches (none has an open pull request), those whose NEWEST pull request was closed (merged or
+    not) on or after the last failure of their row in AUTOMAT's memory: that work is over. Never a long-lived
+    branch of the maintenance (LONG_LIVED), never a branch without a row, never one whose pull requests cannot
+    be read: rather wait than drop real work."""
     out = []
     owner = repo.split("/")[0]
+    streak = (memory or {}).get("streak") if isinstance(memory, dict) else None
+    streak = streak if isinstance(streak, dict) else {}
     for ref in refs:
+        row = streak.get(ref)
+        if ref in LONG_LIVED or not isinstance(row, dict):
+            continue
+        last = str(row.get("date") or row.get("since") or "")
         try:
-            got = api("repos/%s/pulls?state=closed&head=%s:%s&per_page=1" % (repo, owner, ref)) or []
+            got = api("repos/%s/pulls?state=all&head=%s:%s&sort=created&direction=desc&per_page=1"
+                      % (repo, owner, ref)) or []
         except RuntimeError:
             continue
-        if got:
+        newest = got[0] if isinstance(got, list) and got and isinstance(got[0], dict) else {}
+        when = str(newest.get("closed_at") or "")[:10]
+        if newest.get("state") == "closed" and re.fullmatch(r"\d{4}-\d\d-\d\d", when) and last and when >= last:
             out.append(ref)
     return sorted(out)
 
 
 def gather_prs(repo, api, memory=None, limits=None, now=None, runs=True):
-    """pending_from_prs, and "closed": the memory's rows whose branch has no open pull request any more but had
-    one (GET calls only)."""
+    """pending_from_prs, and "closed": the memory's rows whose branch has no open pull request any more and whose
+    newest pull request was closed after the row's last failure (closed_branches; GET calls only)."""
     prs = pending_from_prs(repo, api, limits) if runs else {"pending": [], "open": []}
     if not runs:
         for page in range(1, 6):
@@ -287,7 +333,7 @@ def gather_prs(repo, api, memory=None, limits=None, now=None, runs=True):
                 break
         prs["open"] = sorted({r for r in prs["open"] if r.startswith("automation/")})
     rows = [r for r in pending_work(memory, limits, now) if r not in prs["open"]]
-    prs["closed"] = closed_branches(repo, api, rows)
+    prs["closed"] = closed_branches(repo, api, rows, memory)
     return prs
 
 
@@ -303,8 +349,8 @@ def gh_api(path):
 def pending_all(memory, limits=None, now=None, prs=None):
     """The work of class 1 or 2 pending now: the open pull requests with checks that are not green (prs, from
     pending_from_prs) together with the rows of failures of AUTOMAT's memory (pending_work); when the open pull
-    requests are known, a memory row of a branch that had a pull request and has none open any more is left out
-    (its pull request was closed)."""
+    requests are known, a memory row of a branch whose newest pull request was closed after it is left out
+    (closed_branches; never a long-lived branch). UNKNOWN in prs["pending"] stays: background work pauses."""
     rows = pending_work(memory, limits, now)
     if prs is not None:
         opened = set(prs.get("open") or ())
@@ -535,7 +581,7 @@ class Budget:
         self.day = day_of(now)
         # real updates first (2026-11-24): this run's class, and the work of class 1 or 2 still pending
         self.priority = priority_of(self.candidate, self.limits)
-        self.pending = sorted({str(c) for c in pending or () if priority_of(c, self.limits) <= UPDATE})
+        self.pending = sorted({str(c) for c in pending or () if c == UNKNOWN or priority_of(c, self.limits) <= UPDATE})
         self.available = tuple(available) if available is not None else NAMES
         self.calls = []                 # [(provider, requests, tokens, purpose)] of this run
         self.recent = {}                # provider -> [(time, requests, tokens)] for the limits per minute
@@ -646,26 +692,34 @@ class Budget:
 
     def leftover_window(self, provider):
         """(True, why) when the background (classes 3 and 4) may take this provider's leftovers now, by the
-        clock alone: a provider whose reset a person verified, in the last release_hours hours of its own day;
-        one whose reset is not verified, once the real day's maintenance window has passed (its use is
-        counted on its own day). (False, why not) otherwise."""
+        clock alone: only in the last release_hours hours of the provider's own day, never while its day has
+        more than that left. A reset a person verified: the provider's own reset header counts more than the
+        data file. One not verified is more careful: the later of the data file's reset (its "reset", even
+        unverified) and the header's, and never during the real day's maintenance window (UTC), when the
+        day's real needs are not known yet. (False, why not) otherwise."""
+        conf = self.conf(provider)
+        release = float(self.limits["priority"]["release_hours"])
         hours = (self.next_reset(provider) - self.now).total_seconds() / 3600.0
-        if (self.conf(provider).get("reset") or {}).get("verified"):
-            if hours <= float(self.limits["priority"]["release_hours"]):
-                return True, "the last %.1f hours of its day" % hours
-            return False, ("its day's leftovers go to the background only in its last %s hours (%.1f hours to its "
-                           "reset)" % (self.limits["priority"]["release_hours"], hours))
-        if self.in_maintenance():
-            win = self.limits["priority"].get("maintenance_window") or PRIORITY["maintenance_window"]
-            return False, ("its reset is not verified: the background waits until the real day's maintenance is "
-                           "over (%s-%s UTC)" % (win["start"], win["end"]))
-        return True, "the real day's maintenance is over (its reset is not verified)"
+        checked = bool((conf.get("reset") or {}).get("verified"))
+        if not checked:
+            hours = max(hours, (next_reset(conf, self.now) - self.now).total_seconds() / 3600.0)
+            if self.in_maintenance():
+                win = self.limits["priority"].get("maintenance_window") or PRIORITY["maintenance_window"]
+                return False, ("its reset is not verified: the background waits until the real day's maintenance "
+                               "is over (%s-%s UTC)" % (win["start"], win["end"]))
+        if hours <= release:
+            return True, "the last %.1f hours of its day%s" % (hours, "" if checked else " (its reset is not verified)")
+        return False, ("its day's leftovers go to the background only in its last %s hours (%.1f hours to its "
+                       "%sreset)" % (self.limits["priority"]["release_hours"], hours, "" if checked else "unverified "))
 
     def paused(self, provider=None):
         """Why work of class 3 or 4 pauses now ("" when it may run): work of class 1 or 2 is pending or retrying.
         Never lifted while it is: real updates may always use everything."""
         if not self.pending:
             return ""
+        if UNKNOWN in self.pending:
+            return ("paused for real updates first: the pending security fixes and real updates could not be read "
+                    "(unknown), so the background waits")
         return ("paused for real updates first: work of class 1 or 2 is pending or retrying (%s)"
                 % ", ".join(self.pending[:4]) + (" and %d more" % (len(self.pending) - 4) if len(self.pending) > 4 else ""))
 
@@ -683,6 +737,11 @@ class Budget:
             return why
         ok, why = self.leftover_window(provider)
         return "" if ok else "class %d (%s) uses only what real work leaves: %s" % (klass, CLASSES[klass], why)
+
+    def others_pending(self):
+        """The other security fixes and real updates pending now, besides this run's own (UNKNOWN is none)."""
+        mine = self.candidate if self.candidate.startswith("automation/") else "automation/update/" + self.candidate
+        return [c for c in self.pending if c != UNKNOWN and c not in (self.candidate, mine)]
 
     def reviewers_left(self, author):
         """The providers other than the author that still have room for one review today (for this run's
@@ -712,14 +771,16 @@ class Budget:
             p = self._p(provider)
             mine = p["by"].get(self.candidate) or {}
             share = self.limits["share_per_candidate"]
-            for kind, need in (("requests", requests), ("tokens", tokens)):
+            # the share holds only while ANOTHER security fix or real update is pending at the same time (two
+            # real updates share a provider fairly); a lone one may use all of it (the owner, 2026-11-24)
+            for kind, need in (("requests", requests), ("tokens", tokens)) if self.others_pending() else ():
                 limit = self.day_limit(provider, kind)
                 if limit is None or not self.candidate:
                     continue
                 most = max(1 if kind == "requests" else need, int(limit * share))
                 if int(mine.get(kind) or 0) + need > most:
-                    return False, ("this candidate already used its share of today's %s (%d of %d; at most %d%% of "
-                                   "a provider's day goes to one candidate)" % (
+                    return False, ("this candidate already used its share of today's %s (%d of %d; while another "
+                                   "real update is pending, at most %d%% of a provider's day goes to one candidate)" % (
                                        kind, int(mine.get(kind) or 0), limit, int(share * 100)))
             left = self.reviewers_left(provider)
             if len(left) < self.reviews_needed():
@@ -991,16 +1052,19 @@ def background_status(limits, state, memory=None, now=None, available=None, pend
 
 def pending_for_run(memory_path=None, pending_path=None, limits=None):
     """The pending work of class 1 or 2 a run of the automatic fix waits for: the plan's list (pending_path: the
-    open pull requests with checks not green and the memory's rows still open, one branch a line), else the
-    memory's rows alone."""
+    open pull requests with checks not green and the memory's rows still open, one branch a line; empty: nothing
+    pending), else the memory's rows alone. Fail closed: a list that says UNKNOWN (the plan could not read
+    GitHub) or that is missing gives the memory's rows and UNKNOWN, so background work pauses; real work never
+    waits for it."""
     if pending_path:
         try:
             lines = Path(pending_path).read_text("utf-8").split()
         except OSError:
-            lines = None
-        if lines is not None:
-            return sorted({x for x in lines if re.fullmatch(r"automation/[A-Za-z0-9._/-]{1,110}", x)
-                           and priority_of(x, limits) <= UPDATE})
+            lines = [UNKNOWN]
+        if UNKNOWN in lines:
+            return sorted(set(pending_work(_read_json(memory_path), limits)) | {UNKNOWN})
+        return sorted({x for x in lines if re.fullmatch(r"automation/[A-Za-z0-9._/-]{1,110}", x)
+                       and priority_of(x, limits) <= UPDATE})
     return pending_work(_read_json(memory_path), limits)
 
 
@@ -1048,7 +1112,13 @@ def main(argv=None):
     a = ap.parse_args(argv)
     if a.cmd == "pending":
         limits = load_limits(a.limits)
-        prs = gather_prs(a.repo, gh_api, _read_json(a.memory), limits, runs=not a.no_runs)
+        try:
+            prs = gather_prs(a.repo, gh_api, _read_json(a.memory), limits, runs=not a.no_runs)
+        except Exception as e:                   # not read: UNKNOWN (background pauses), and nothing is closed
+            print("::warning::the pending work could not be read: %s" % _text(e, 200), file=sys.stderr)
+            if not a.out:
+                print(UNKNOWN)
+            return 1
         prs["all"] = pending_all(_read_json(a.memory), limits, None, prs)
         if a.out:
             Path(a.out).write_text(json.dumps(prs, indent=1, sort_keys=True) + "\n", "utf-8")

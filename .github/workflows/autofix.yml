@@ -292,12 +292,18 @@ jobs:
           fi
           # real updates first (2026-11-24): the security fixes and real updates pending now (an open pull request
           # whose checks are not green, AUTOMAT's memory's rows whose pull request was not closed; GET calls only):
-          # work of the CI and background work wait for them (tools/ai-quota.py)
+          # work of the CI and background work wait for them (tools/ai-quota.py). Fail closed: when GitHub could
+          # not be read the list is "unknown" and background work pauses (real work never waits for it); "none"
+          # means nothing is pending
           if [ "$(sed -n 's/^action=//p' "$GITHUB_OUTPUT" | tail -n 1)" = "fix" ]; then
             touch "$RUNNER_TEMP/memory.json"
-            pending=$(python3 -I tools/ai-quota.py pending --repo "$GITHUB_REPOSITORY" --memory "$RUNNER_TEMP/memory.json" \
-                        2> /dev/null || true)
-            if printf '%s' "$pending" | grep -Eq '^[A-Za-z0-9._/,-]{0,4000}$'; then echo "pending=$pending" >> "$GITHUB_OUTPUT"; fi
+            if pending=$(python3 -I tools/ai-quota.py pending --repo "$GITHUB_REPOSITORY" --memory "$RUNNER_TEMP/memory.json") \
+                 && printf '%s' "$pending" | grep -Eq '^[A-Za-z0-9._/,-]{0,4000}$'; then
+              echo "pending=${pending:-none}" >> "$GITHUB_OUTPUT"
+            else
+              echo "::warning::the pending real updates could not be read: background work pauses (unknown)"
+              echo "pending=unknown" >> "$GITHUB_OUTPUT"
+            fi
           fi
           echo "work=${WORK:-run/$RUN_ID}" >> "$GITHUB_OUTPUT"
       # WP9: the providers the last weekly check found not free (tools/provider-check.py,
@@ -445,7 +451,13 @@ jobs:
           printf '%s' "$ORDER" | tr -cd 'A-Za-z.,' > "$RUNNER_TEMP/order"
           printf '%s' "$TASK" | tr -cd 'a-z-' > "$RUNNER_TEMP/task"
           printf '%s' "$PUSH_BRANCH" | tr -cd 'A-Za-z0-9._/-' > "$RUNNER_TEMP/candidate"
-          printf '%s' "$PENDING" | tr -cd 'A-Za-z0-9._/,-' | tr ',' '\n' > "$RUNNER_TEMP/pending"
+          # the plan's list of pending real work: "none" is nothing, a missing or unreadable one is "unknown"
+          # (fail closed: background work pauses, tools/ai-quota.py pending_for_run)
+          case "$PENDING" in
+            none) : > "$RUNNER_TEMP/pending" ;;
+            ""|unknown) echo unknown > "$RUNNER_TEMP/pending" ;;
+            *) printf '%s' "$PENDING" | tr -cd 'A-Za-z0-9._/,-' | tr ',' '\n' > "$RUNNER_TEMP/pending" ;;
+          esac
           reviewers=""
           if [ "$HAS_GEMINI" = "true" ]; then reviewers="Antigravity"; fi
           if [ "$HAS_GROQ" = "true" ]; then reviewers="$reviewers,Groq"; fi

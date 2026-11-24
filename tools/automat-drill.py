@@ -480,8 +480,9 @@ def priority(memory, quota, now=None, repo=None, api=None):
     """Whether the drill's work may ask a free AI now (tools/ai-quota.py background_status): the drill is
     background work, class 4. It pauses while a security fix or a real update is pending or retrying (an open
     pull request whose checks are not green, read with GET calls when repo is given, or a row of failures in
-    AUTOMAT's memory whose pull request was not closed), and otherwise takes what real work leaves, in each
-    provider's leftover window (its last hours before a verified reset, else after the day's maintenance)."""
+    AUTOMAT's memory whose pull request was not closed after it; when the pull requests cannot be read, it
+    pauses too: fail closed), and otherwise takes what real work leaves, in each provider's leftover window
+    (the last hours of its own day; with a reset not verified, also never during the day's maintenance)."""
     q = _tool("ai-quota")
     limits = q.load_limits()
     state = quota if isinstance(quota, dict) and isinstance(quota.get("days"), dict) else q.empty_state()
@@ -489,8 +490,10 @@ def priority(memory, quota, now=None, repo=None, api=None):
     if repo and api:
         try:
             prs = q.gather_prs(repo, api, memory, limits, now)
-        except Exception as e:                  # not read: the memory alone decides
+        except Exception as e:                  # not read: unknown, the drill pauses (fail closed)
             print("::warning::the open pull requests could not be read: %s" % str(e)[:200])
+            return q.background_status(limits, state, memory, now,
+                                       pending=q.pending_work(memory, limits, now) + [q.UNKNOWN])
     return q.background_status(limits, state, memory, now, prs=prs)
 
 
