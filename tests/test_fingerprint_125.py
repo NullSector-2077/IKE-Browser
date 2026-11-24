@@ -26,7 +26,6 @@ the workers' files; software WebGL for the WebGL checks.
 
 import http.server
 import json
-import os
 import re
 import threading
 
