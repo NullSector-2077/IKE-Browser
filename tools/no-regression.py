@@ -834,21 +834,12 @@ def measure():
         yield 50
     OUT["engine"] = {"native": bool(b.native), "built": b.engine is not None, "errors": b.errors,
                      "lists_written_late": late}
-    # the fonts a page could find (fontcheck.py): asked once, 15 s after a start, and the levels' settings
-    # change with the answer; with eight sessions a level the answer came in the middle of the run, at
-    # one level or another (a false "worse" of fingerprint-config/<level>/fonts). Asked now and awaited,
-    # every level is measured as a user's browser is after its first start.
-    fc = getattr(ike, "font_check", None)            # noqa: F821
-    try:
-        if fc is not None and hasattr(fc, "_run"):
-            fc._run()
-            end = time.monotonic() + 60
-            while getattr(fc, "_page", None) is not None and time.monotonic() < end:
-                yield 100
-            if getattr(fc, "_page", None) is not None:
-                _err("fonts", "the check of the fonts a page could find gave no answer in 60 s")
-    except Exception:
-        _err("fonts")
+    # the fonts a page could find (fontcheck.py) were asked and awaited before measure() (_start, the
+    # one wait): a check with no answer would let a level be measured before it and another after it
+    fcm = sys.modules.get("ike.fontcheck")
+    if getattr(ike, "font_check", None) is not None and fcm is not None and \
+            getattr(fcm, "findable", lambda: True)() is None:  # noqa: F821
+        _err("fonts", "the check of the fonts a page could find gave no answer in 60 s")
     if "security" in sections:
         yield from _fonts_findable()
     if "requests" in sections:

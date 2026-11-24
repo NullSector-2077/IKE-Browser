@@ -128,16 +128,21 @@ def change_of(repo, number, api, tools):
 
 
 EVIDENCE_TITLE = "Nothing gets worse: passed by evidence"      # tools/no-regression.py, the run's notice
+# the jobs of tests.yml that run "Nothing gets worse" (since the shards of 2026-11-24: "tests checks")
+EVIDENCE_JOBS = ("tests", "tests checks")
 
 
 def evidence_of(repo, sha, api):
     """What "Nothing gets worse" let pass by evidence, with no person, on the pull request's last
-    commit (the notice of the tests job's run); None when it cannot be read."""
+    commit (the notice of the run's job "tests checks", or "tests" before the shards); None when it
+    cannot be read."""
     try:
-        runs = (api("repos/%s/commits/%s/check-runs?check_name=tests&per_page=10" % (repo, sha)) or {}).get(
+        runs = (api("repos/%s/commits/%s/check-runs?per_page=50" % (repo, sha)) or {}).get(
             "check_runs") or []
         found = []
         for run in runs:
+            if run.get("name") not in EVIDENCE_JOBS:
+                continue
             for a in api("repos/%s/check-runs/%s/annotations?per_page=100" % (repo, run.get("id"))) or []:
                 if a.get("title") == EVIDENCE_TITLE:
                     found.append(plain(a.get("message"), 900))

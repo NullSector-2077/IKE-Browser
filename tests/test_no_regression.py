@@ -267,15 +267,15 @@ def test_the_step_of_tests_yml():
     # their own, the only one with actions: read, that runs none of this commit's code (no checkout),
     # only from a run of tests.yml pushed to main that ended in success or failure
     jobs = text.split("\njobs:\n", 1)[1]
-    fetch = jobs.split("\n  main-results:\n", 1)[1].split("\n  tests:\n", 1)[0]
+    fetch = jobs.split("\n  main-results:\n", 1)[1].split("\n  plan:\n", 1)[0]
     assert "permissions:\n      contents: read\n      actions: read\n" in fetch and "write" not in fetch
     assert "actions/checkout" not in fetch and "pytest" not in fetch and "ike_boot" not in fetch
     assert "--branch main --event push" in fetch and "--commit \"$base\"" in fetch
     assert '.conclusion == "success" or .conclusion == "failure"' in fetch and "gh run download" in fetch
     assert "name: main-test-results" in fetch and "base.txt" in fetch
-    tests_job = jobs.split("\n  tests:\n", 1)[1].split("\n    steps:\n", 1)[0]
-    assert "needs: main-results" in tests_job and "permissions" not in tests_job
-    assert "if: ${{ !cancelled() }}" in tests_job, "the tests run even when main's results cannot be read"
+    checks_job = jobs.split("\n  checks:\n", 1)[1].split("\n    steps:\n", 1)[0]
+    assert "needs: main-results" in checks_job and "permissions" not in checks_job
+    assert "if: ${{ !cancelled() }}" in checks_job, "the checks run even when main's results cannot be read"
     head = text.split("\njobs:\n", 1)[0]
     assert "permissions:\n  contents: read\n" in head and "actions" not in head
     # the step that runs this commit's code gets no token, takes main's results only of its own base,
@@ -288,6 +288,21 @@ def test_the_step_of_tests_yml():
         assert '"$where/tests/data/no-regression/%s.json"' % name in step, name
         assert " tests/data/no-regression/%s.json" % name not in step, name
     assert text.index("name: main-test-results\n          path:") < text.index("- name: Nothing gets worse\n")
+    # the bound tests are run here on this commit (the shards run in other jobs), only main's bindings
+    assert "$where/tests/data/no-regression/necessity.json\")" in step and "nr-candidate-junit.xml" in step
+    # an AI's change of the page scripts or of shields.py: three measures with independent keys (N5)
+    assert "runs=(--runs 3)" in step and '"${branch#automation/}" != "$branch"' in step
+    assert "ike/resources/[a-z]+\\.js$|^ike/shields\\.py$" in step
+    # the fingerprinting rows that are not the same or stricter: a step of their own, its outcome the
+    # job's output, never a red; restated in "tests" only when it passed (tools/automerge.py reads it)
+    fp = text[text.index("- name: Fingerprinting unchanged\n        id: fp-unchanged"):]
+    fp = fp[:fp.index("\n      - ", 10)]
+    assert "continue-on-error: true" in fp and "fingerprint_review" in fp
+    assert "fp-unchanged: ${{ steps.fp-unchanged.outcome }}" in text
+    gate = text.split("\n  tests:\n", 1)[1]
+    again = gate[gate.index("- name: Fingerprinting unchanged"):]
+    again = again[:again.index("\n      # ", 10)]
+    assert "needs.checks.outputs.fp-unchanged == 'success'" in again and "test \"$" not in again
 
 
 # --- the fingerprinting values, judged by what protects (2026-11-24) -------------------------------
@@ -1283,12 +1298,13 @@ def test_the_masked_fonts_are_judged_by_what_protects():
 
 
 def test_every_level_is_measured_after_the_font_check():
-    """The fonts a page could find are asked 15 s after a start and change every level's settings; with
-    eight sessions a level the answer came in the middle of a run (a false "worse" seen in a weakened
-    copy's run of 2026-11-24): the hook asks first and waits, and no answer is an error."""
-    hook = nr.HOOK[nr.HOOK.index("def measure():"):]
-    assert hook.index("fc._run()") < hook.index("yield from _fonts_findable()") < hook.index('for lv in PLAN["levels"]:')
-    assert "gave no answer in 60 s" in hook
+    """The fonts a page could find are asked 15 s after a start and change every level's settings: the
+    hook's start asks at once and waits (pull request #157, the one wait); measure() then finds the
+    answer there, and no answer is an error (a level measured before it and another after it)."""
+    hook = nr.HOOK[nr.HOOK.index("def measure():"):nr.HOOK.index("def _start():")]
+    assert "fc._run()" not in hook and nr.HOOK.count("fc._run()") == 1       # one wait, in _start
+    assert hook.index("gave no answer in 60 s") < hook.index("yield from _fonts_findable()") < \
+        hook.index('for lv in PLAN["levels"]:')
     # the fonts a page can find: the tool's own test, in a profile with none of I.K.E.'s scripts
     assert "QWebEngineProfile(qapp)" in nr.HOOK and "FONTS_JS" in nr.HOOK
 
@@ -1336,11 +1352,13 @@ def test_the_signing_notice_lists_what_passed_by_evidence():
     def api(path):
         seen.append(path)
         if "/check-runs?" in path:
-            return {"check_runs": [{"id": 7}]}
+            # the job that runs "Nothing gets worse" (since the shards: "tests checks"); a shard's notice
+            # of the same title does not count (it runs the candidate's tests)
+            return {"check_runs": [{"id": 7, "name": "tests checks"}, {"id": 8, "name": "tests shard 1/4"}]}
         return [{"title": notice.EVIDENCE_TITLE, "message": "1 passed by evidence: fingerprint/strict/x (necessity)"},
                 {"title": "other", "message": "no"}]
     assert notice.evidence_of("o/r", "abc", api) == ["1 passed by evidence: fingerprint/strict/x (necessity)"]
-    assert seen == ["repos/o/r/commits/abc/check-runs?check_name=tests&per_page=10",
+    assert seen == ["repos/o/r/commits/abc/check-runs?per_page=50",
                     "repos/o/r/check-runs/7/annotations?per_page=100"]
     assert notice.EVIDENCE_TITLE == nr.EVIDENCE_TITLE
 
