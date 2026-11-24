@@ -66,6 +66,26 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Owner's decisions
 
+- 2026-11-24, **AUTOMAT, block 1: real updates first, and the branches
+  cleaned** (the owner: "use the free AIs every day, always when needed,
+  above all for real updates; what is left goes to self-evolution, drills
+  etc.", and: real updates may use all of the free quota at any time; what
+  they leave each day goes to self-improvement). AI work has four classes
+  (security fixes, updates of what ships, the CI's, background such as the
+  drill). The first two may always use all of every free quota; the other
+  two run only while none of the first is pending (or while that cannot be
+  read), and only in each provider's leftover window (the last hours before
+  its reset; with a reset not verified, also never during the day's
+  maintenance window), each provider counted on its own day; one
+  candidate's share of a provider holds only while another real update is
+  pending at the same time;
+  OpenRouter's free models are one budget of the account
+  (`tools/ai-quota.py`, docs/MAINTENANCE.md "Real updates first"). The
+  verified merge deletes the candidate branch it merged, and a weekly sweep
+  deletes branches merged into `main` at their tip, never a protected one or
+  one with commits not in `main`, always by compare-and-swap
+  (`tools/branch-sweep.py`, `branch-sweep.yml`). Still to do by a person:
+  check each provider's reset time (all marked unverified).
 - 2026-11-23, **the menus and the Settings regrouped again, for 1.1.24**
   (work package B2; the owner: "puoi riorganizzarli tu, ma devono essere
   fatti con criterio e logica, e con le scritte centrate bene, annota anche
@@ -204,6 +224,13 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Status
 
+- AUTOMAT block 1 (2026-11-24, branch `automation/block1-priority`): real
+  updates may use all of the free quota, background work (the drill, the
+  CI's updates) only the day's leftovers and never while a real update is
+  pending, OpenRouter's free models as one budget, the merged candidate
+  branches deleted and a weekly branch sweep (two independent reviews'
+  findings fixed). Pushed without a pull request while the owner signs
+  1.1.24; the providers' reset times are not verified.
 - 1.1.24 privacy package A2b (branch `feature/1.1.24-privacy`, approved by
   the owner item by item): bounce tracking cleaned (on), the protected time
   zone in the shield (off), quiet permission questions in the address bar

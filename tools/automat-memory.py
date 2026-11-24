@@ -52,7 +52,8 @@ Part 2 of AUTOMAT adds, still written only by the workflow:
     automat-memory.py first --memory FILE --component ID --failure FILE --default NAME --names A,B,C
     automat-memory.py note --memory FILE --component ID --failure FILE --outcome OUTCOME [--provider P]
                            [--model M] [--files a,b] [--summary FILE] [--detail TEXT] [--attempt N]
-    automat-memory.py merged --memory FILE --component ID
+    automat-memory.py merged --memory FILE --component ID       (any merge: the row of failures ends)
+    automat-memory.py closed --memory FILE --closed PENDING.json      (closed pull requests: marked, never deleted)
     automat-memory.py streak --memory FILE --component ID            (prints: SIGNATURE COUNT)
     automat-memory.py tried --memory FILE --component ID --failure FILE   (the fingerprints already tried)
     automat-memory.py hash --patch FILE
@@ -76,6 +77,8 @@ MAX_BYTES = 256 * 1024
 BUDGET_WORDS = 1500
 SUMMARY_CHARS = 280
 PATCH_CHARS = 6000            # a merged fix's patch kept for the recipe that applies it again
+# the long-lived branches of the maintenance (the same as tools/ai-quota.py LONG_LIVED): never marked closed
+LONG_LIVED = ("automation/autofix-main", "automation/daily-maintenance", "automation/audit")
 TASKS = ("rust", "multi-file", "python", "page-script", "builder", "lists", "manifest", "other")
 OUTCOMES = ("published", "tests-failed", "guard-refused", "review-rejected", "merge-refused", "no-fix", "merged")
 FAILED = ("tests-failed", "guard-refused", "review-rejected", "merge-refused", "no-fix")
@@ -226,13 +229,22 @@ def bound(memory):
     return memory
 
 
-def _failed(memory, component, sig, when):
+def _stamp(now=None):
+    """The time of a record, as GitHub writes its times (UTC, to the second): a pull request closed after it
+    can be told from one closed before it on the same day (tools/ai-quota.py after_last_failure)."""
+    return (now or dt.datetime.now(dt.timezone.utc)).astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _failed(memory, component, sig, when, at=""):
     """One more failed attempt of the component on this signature: the row of failures grows, or
     starts again when the signature is another one."""
     row = memory.setdefault("streak", {}).get(component)
     if not isinstance(row, dict) or row.get("sig") != sig:
         row = {"sig": sig, "n": 0, "since": when}
     row.update(n=int(row.get("n") or 0) + 1, date=when)
+    if at:
+        row["at"] = at
+    row.pop("closed", None)                      # failing again: the work goes on
     memory["streak"][component] = row
 
 
@@ -253,6 +265,7 @@ def note(memory, component, sig, outcome, provider="", model="", files=(), summa
     applies a merged fix again)."""
     assert outcome in OUTCOMES, outcome
     when = (now or dt.datetime.now(dt.timezone.utc)).strftime("%Y-%m-%d")
+    at = _stamp(now)
     for key, records in memory["attempts"].items():
         if key.split("@", 1)[0] != component:
             continue
@@ -262,7 +275,7 @@ def note(memory, component, sig, outcome, provider="", model="", files=(), summa
                 r["detail"] = clean(detail, 400) if outcome in ("review-rejected", "merge-refused") else \
                     "its tests failed after it (error %s)" % sig
                 r.pop("patch", None)
-                _failed(memory, component, r.get("sig") or key.split("@", 1)[-1], when)
+                _failed(memory, component, r.get("sig") or key.split("@", 1)[-1], when, at)
     if outcome in ("review-rejected", "merge-refused") and not provider:
         return bound(memory)                     # only the earlier attempt's ending was recorded
     record = {"provider": clean(provider, 40), "model": clean(model, 80), "files": [clean(f, 120) for f in files][:8],
@@ -276,11 +289,14 @@ def note(memory, component, sig, outcome, provider="", model="", files=(), summa
         record["patch"] = patch
     memory["attempts"].setdefault(_key(component, sig), []).append(record)
     if outcome in FAILED:
-        _failed(memory, component, sig, when)
+        _failed(memory, component, sig, when, at)
     elif outcome == "published":
         row = memory.setdefault("streak", {}).get(component)
         if not isinstance(row, dict) or row.get("sig") != sig:
-            memory["streak"][component] = {"sig": sig, "n": 0, "since": when, "date": when}
+            memory["streak"][component] = {"sig": sig, "n": 0, "since": when, "date": when, "at": at}
+        else:
+            row.pop("closed", None)              # a new fix published: the work goes on
+            row["at"] = at
     return bound(memory)
 
 
@@ -295,6 +311,8 @@ def merged(memory, component, now=None):
                 if r.get("outcome") == "published" and (last is None or r.get("date", "") >= last.get("date", "")):
                     last = r
     if last is None:
+        # merged without a fix of an AI (or its record is gone): the row of failures ends all the same
+        memory.setdefault("streak", {}).pop(component, None)
         return memory
     last.update(outcome="merged", detail="merged into main")
     hint = {"component": component, "files": last.get("files", []), "summary": last.get("summary", ""),
@@ -307,6 +325,20 @@ def merged(memory, component, now=None):
     memory["solved"].setdefault(last["sig"], []).append(hint)
     memory.setdefault("streak", {}).pop(component, None)          # the row of failures ends
     return bound(memory)
+
+
+def closed(memory, components, now=None):
+    """The newest pull requests of these components were closed (merged or not) after their last failure: each
+    row is MARKED closed (the time), never deleted, so the count of failures in a row stays (tools/automat-help.py
+    reads it); the mark only leaves the row out of the priority of the free quotas (tools/ai-quota.py
+    is_closed) until the next failure or published fix clears it. Never a long-lived branch of the maintenance
+    (a broken main's fix that retries stays pending)."""
+    when = _stamp(now)
+    for component in components:
+        row = memory.setdefault("streak", {}).get(component)
+        if component not in LONG_LIVED and isinstance(row, dict):
+            row["closed"] = when
+    return memory
 
 
 def solved_sigs(memory, component):
@@ -389,7 +421,8 @@ def prompt_section(memory, component, sig, budget=BUDGET_WORDS):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("cmd", choices=("signature", "prompt", "first", "note", "merged", "focus", "streak", "tried",
+    ap.add_argument("cmd", choices=("signature", "prompt", "first", "note", "merged", "closed", "focus", "streak",
+                                    "tried",
                                     "hash"))
     ap.add_argument("--memory")
     ap.add_argument("--component", default="")
@@ -406,6 +439,7 @@ def main(argv=None):
     ap.add_argument("--attempt", default="0")
     ap.add_argument("--task", default="")
     ap.add_argument("--patch")
+    ap.add_argument("--closed", help="closed: tools/ai-quota.py pending --out's JSON (its \"closed\" branches)")
     a = ap.parse_args(argv)
 
     def text_of(path):
@@ -447,6 +481,12 @@ def main(argv=None):
         attempt = int(a.attempt) if a.attempt.isdigit() else 0
         note(memory, a.component, sig, a.outcome, a.provider, a.model, [f for f in a.files.split(",") if f],
              text_of(a.summary), a.detail, attempt, task=a.task, patch=text_of(a.patch))
+    elif a.cmd == "closed":
+        try:
+            names = json.loads(text_of(a.closed) or "{}").get("closed") or []
+        except (ValueError, AttributeError):
+            names = []
+        closed(memory, [str(n) for n in names if re.fullmatch(r"automation/[A-Za-z0-9._/-]{1,110}", str(n))])
     else:
         merged(memory, a.component)
     Path(a.memory).write_text(json.dumps(memory, indent=1, sort_keys=True, ensure_ascii=True) + "\n", "utf-8")
