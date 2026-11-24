@@ -97,15 +97,18 @@ jobs:
           AUTOMAT_CHATGPT_AUTOMERGE: ${{ vars.AUTOMAT_CHATGPT_AUTOMERGE }}
         run: python3 -I tools/automerge.py --repo "${{ github.repository }}" --sha "$SHA"
       # AUTOMAT's memory (tools/automat-memory.py, the data branch automat/memory): the fix that was merged
-      # solved its error; a later error with the same signature gets it as a hint. No AI here.
+      # solved its error; a later error with the same signature gets it as a hint. Since 2026-11-24 also: any
+      # merge of the automation ends its branch's row of failures, and so does a pull request that was closed
+      # (read with GET calls: tools/ai-quota.py pending), so that the priority of the free quotas does not wait
+      # for work that is over. No AI here.
       - name: AUTOMAT's memory of the fix that was merged
-        if: steps.merge.outputs.merged != ''
+        if: always()
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           COMPONENT: ${{ steps.merge.outputs.merged }}
         run: |
-          case "$COMPONENT" in automation/*) ;; *) exit 0 ;; esac
+          case "$COMPONENT" in automation/*|"") ;; *) exit 0 ;; esac
           auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
           remote="https://github.com/$GITHUB_REPOSITORY"
           data="$RUNNER_TEMP/memory-branch"
@@ -115,7 +118,13 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch -q --depth 1 "$remote" refs/heads/automat/memory 2> /dev/null || exit 0
           git checkout -q -B data FETCH_HEAD
-          python3 -I "$GITHUB_WORKSPACE/tools/automat-memory.py" merged --memory memory.json --component "$COMPONENT"
+          if [ -n "$COMPONENT" ]; then
+            python3 -I "$GITHUB_WORKSPACE/tools/automat-memory.py" merged --memory memory.json --component "$COMPONENT"
+          fi
+          if python3 -I "$GITHUB_WORKSPACE/tools/ai-quota.py" pending --repo "$GITHUB_REPOSITORY" --memory memory.json \
+               --no-runs --out "$RUNNER_TEMP/pending.json"; then
+            python3 -I "$GITHUB_WORKSPACE/tools/automat-memory.py" closed --memory memory.json --closed "$RUNNER_TEMP/pending.json"
+          fi
           git add memory.json
-          git -c core.hooksPath=/dev/null commit -q -m "AUTOMAT's memory: $COMPONENT merged" || exit 0
+          git -c core.hooksPath=/dev/null commit -q -m "AUTOMAT's memory: ${COMPONENT:-closed pull requests} merged or closed" || exit 0
           git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" push -q "$remote" HEAD:refs/heads/automat/memory

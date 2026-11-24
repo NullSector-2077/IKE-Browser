@@ -199,9 +199,14 @@ def quota_lines(rows):
         note = "" if r.get("verified") else (" Limite **non verificato** (stima prudente%s)." % (
             ", corretta oggi dalle risposte del fornitore" if r.get("live") else ""))
         spent = " **Finita per oggi** (%s)." % plain(r.get("spent"), 80) if r.get("spent") else ""
-        # real updates first (2026-11-24): what stays kept today for security fixes and real updates
-        keep = (" Tenute per sicurezza e aggiornamenti veri: %d richieste (già usate da loro oggi: %d)." % (
-            r["reserve_requests"], r.get("real_requests") or 0)) if isinstance(r.get("reserve_requests"), int) else ""
+        # real updates first (2026-11-24): real updates may use all of it; what they leave goes to the background
+        keep = (" Oggi a sicurezza e aggiornamenti veri %d richieste, al lavoro di fondo (quello che avanzava) %d." % (
+            r.get("real_requests") or 0, r.get("background_requests") or 0)) \
+            if isinstance(r.get("real_requests"), int) else ""
+        if r.get("account") == "not-free":
+            # what GET /api/v1/key said of OpenRouter's account (tools/ai-quota.py account_tier)
+            keep += (" **OpenRouter account is not free tier**: l'account non risulta nel livello gratuito; AUTOMAT "
+                     "resta al limite documentato delle richieste gratuite e il controllo settimanale lo segnala.")
         out.append("- **%s**: oggi %s richieste, %s token; restano %s. Ultimi giorni: %d richieste, %d token.%s%s%s" % (
             plain(r.get("provider"), 20), of(r.get("requests", 0), r.get("requests_limit")),
             of(r.get("tokens", 0), r.get("tokens_limit")), " e ".join(left) or "non noto",

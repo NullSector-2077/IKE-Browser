@@ -13,7 +13,7 @@
  "share_per_candidate": 0.5,
  "share_source": "the owner's request of 2026-11-22: one candidate cannot drain a provider; at most half of a provider's daily budget goes to one candidate's fixes",
  "priority": {
-  "about": "The owner's decision of 2026-11-24: the free AIs are used every day, always when needed, above all for real updates; what is left goes to self-evolution, drills and the like. tools/ai-quota.py priority_of() puts every piece of AI work in one of four classes by its branch: 1 security fixes, 2 updates of what ships to users (everything not named below: the engine and ad-blocking crates, Dark Reader, uBlock Origin's scriptlets, the filter lists, Python and Qt, the Breeze icons, the daily candidate, a fix of main), 3 updates of the CI and the tools, 4 background work (the AUTOMAT drill, the replay bench, self-evolution). A share of each provider's day is kept for classes 1 and 2 (reserve_share); classes 3 and 4 use only what is above it, and class 4 also pauses while work of class 1 or 2 is pending or retrying (AUTOMAT's memory holds its row of failures, of the last pending_days days). In the last release_hours hours before a provider's own reset, what is left above release_margin of its day goes to classes 3 and 4 too, so nothing is wasted.",
+  "about": "The owner's decisions of 2026-11-24: \"use the free AIs every day, always when needed, above all for real updates; what is left goes to self-evolution, drills etc.\", and: real updates may always use ALL of every provider's free quota, at any time; background work uses only what real work leaves, and all of it. tools/ai-quota.py priority_of() puts every piece of AI work in one of four classes by its branch: 1 security fixes, 2 updates of what ships to users (everything not named below: the engine and ad-blocking crates, Dark Reader, uBlock Origin's scriptlets, the filter lists, Python and Qt, the Breeze icons, the daily candidate, a fix of main), 3 updates of the CI and the tools, 4 background work (the AUTOMAT drill, the replay bench, self-evolution). Classes 1 and 2 are limited by nothing but the providers' own quotas (security first in the order of the work). Classes 3 and 4 run only while no work of class 1 or 2 is pending or retrying (an open pull request whose checks are not green, or a row of failures in AUTOMAT's memory of the last pending_days days whose pull request was not closed), and only in a provider's leftover window: the last release_hours hours before its own reset when a person verified that reset, else once the real day's maintenance_window (UTC) is over; then they may use everything left. Each provider's use is counted on its own day (the time and zone of its reset).",
   "security": [
    "automation/update/security-"
   ],
@@ -25,11 +25,15 @@
    "automation/bench/",
    "automation/evolve/"
   ],
-  "reserve_share": 0.6,
   "release_hours": 3,
-  "release_margin": 0.1,
   "pending_days": 2,
-  "source": "the owner's words of 2026-11-24 (\"use the free AIs every day, always when needed, above all for real updates; what is left goes to self-evolution, drills etc.\"); 60 %, 3 hours, 10 % and 2 days are this repository's starting values, not the providers'"
+  "maintenance_window": {
+   "start": "04:00",
+   "end": "12:00",
+   "zone": "UTC",
+   "source": "the real day's runs: security.yml 04:23, daily-check.yml 05:17, daily-maintenance.yml 06:17 UTC, then their tests and automatic fixes (several hours); until it is over the day's real needs are not known"
+  },
+  "source": "the owner's words of 2026-11-24; 3 hours, 2 days and the window are this repository's starting values, not the providers'"
  },
  "routing": {
   "strong": [
@@ -174,11 +178,9 @@
    },
    "shared_free_models": true,
    "account": {
-    "url": "https://openrouter.ai/api/v1/key",
     "free_tier_requests_per_day": 50,
-    "max_requests_per_day": 1000,
     "verified": false,
-    "source": "every :free model of OpenRouter counts against ONE daily cap of the account, not one per model: 50 requests a day for an account that never bought credits, as remembered from openrouter.ai/docs/api-reference/limits (not reachable on 2026-11-24). tools/ai-quota.py reads GET /api/v1/key with the key at the start of each run that holds it: a request cap of the day in its answer is taken (never above max_requests_per_day), is_free_tier true confirms the free-tier value; the count of the day comes from OpenRouter's own headers and its 429 \"free-models-per-day\""
+    "source": "every :free model of OpenRouter counts against ONE daily cap of the account, not one per model: 50 requests a day for an account that never bought credits, as remembered from openrouter.ai/docs/api-reference/limits (not reachable on 2026-11-24). tools/ai-quota.py reads only is_free_tier of GET /api/v1/key (the address is tools/ai-providers.py OPENROUTER_KEY_INFO), with the key, at the start of each run that holds it, following no redirect: true confirms this value; anything else keeps it too, and the signing notice says the account is not on the free tier. The count of the day comes from OpenRouter's own headers and its 429 \"free-models-per-day\""
    }
   }
  }

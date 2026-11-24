@@ -36,10 +36,10 @@ Qt) tells a fix that forgot the fallback.
   there opens no issue (tools/autofix-plan.py);
 - no mail to the owner but one: the final summary, a comment naming the owner on the drill's issue;
 - **real updates first** (the owner's decision of 2026-11-24): the drill is background work (class 4 of
-  tools/ai-quota.py). Its AI calls use only what is above each provider's reserve for security fixes and
-  real updates, and pause while one of those is pending or retrying; the tick (every three hours) starts a
-  fix the budget held back again only when background work may run (priority, to_resume), and the report
-  says whether the drill is paused.
+  tools/ai-quota.py). Real updates may use all of the free quota; the drill's AI calls use only what they
+  leave (each provider's leftover window), never while one of them is pending or retrying; the tick (every
+  three hours) starts a fix the budget held back again only when background work may run (priority,
+  to_resume), and the report says whether the drill is paused.
 
 **The report** (``report``, ``tick``): for each break, fixed or not, by which provider (or recipe)
 and at which attempt, after how long; the attempts of AUTOMAT's memory with how each ended (the
@@ -476,14 +476,22 @@ RESUMED_RE = re.compile(r"<!-- automat-drill-resumed: (\d{1,20}) (\d{4}-\d\d-\d\
 KEEP_MARKS = 20
 
 
-def priority(memory, quota, now=None):
+def priority(memory, quota, now=None, repo=None, api=None):
     """Whether the drill's work may ask a free AI now (tools/ai-quota.py background_status): the drill is
-    background work, class 4. It pauses while a security fix or a real update is pending or retrying, uses
-    only what is above each provider's reserve for them, and gets what is left in the last hours before a
-    provider's reset."""
+    background work, class 4. It pauses while a security fix or a real update is pending or retrying (an open
+    pull request whose checks are not green, read with GET calls when repo is given, or a row of failures in
+    AUTOMAT's memory whose pull request was not closed), and otherwise takes what real work leaves, in each
+    provider's leftover window (its last hours before a verified reset, else after the day's maintenance)."""
     q = _tool("ai-quota")
+    limits = q.load_limits()
     state = quota if isinstance(quota, dict) and isinstance(quota.get("days"), dict) else q.empty_state()
-    return q.background_status(q.load_limits(), state, memory, now)
+    prs = None
+    if repo and api:
+        try:
+            prs = q.gather_prs(repo, api, memory, limits, now)
+        except Exception as e:                  # not read: the memory alone decides
+            print("::warning::the open pull requests could not be read: %s" % str(e)[:200])
+    return q.background_status(limits, state, memory, now, prs=prs)
 
 
 def autofix_busy(repo, api):
@@ -548,10 +556,10 @@ def with_resumed(body, run_ids, today):
     return body + ("\n\n" + "\n".join(RESUMED_MARK % m for m in keep) + "\n" if keep else "\n")
 
 
-PRIORITY_IT = {"open": "può usare le AI gratuite (sopra la riserva per gli aggiornamenti veri)",
+PRIORITY_IT = {"open": "può usare quello che gli aggiornamenti veri hanno lasciato delle AI gratuite",
                "released": "può usare quello che avanza delle AI gratuite (è l'ultima parte della loro giornata)",
                "paused": "è in pausa: prima gli aggiornamenti veri",
-               "no-room": "aspetta: oggi le AI gratuite non hanno quota sopra la riserva per gli aggiornamenti veri"}
+               "no-room": "aspetta: ora le AI gratuite non hanno niente di avanzato per il lavoro di fondo"}
 
 
 def due(info, now=None):
@@ -847,7 +855,7 @@ def main(argv=None):
         return 0
     memory, quota = read_data_branch(a.repo, "memory.json"), read_data_branch(a.repo, "quota.json")
     info = gather(a.repo, gh_api, memory, quota)
-    info["priority"] = priority(memory, quota)
+    info["priority"] = priority(memory, quota, repo=a.repo, api=gh_api)
     done, why = due(info)
     final = a.cmd == "stop" or (a.cmd == "tick" and done)
     if a.cmd == "stop":

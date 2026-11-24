@@ -52,7 +52,8 @@ Part 2 of AUTOMAT adds, still written only by the workflow:
     automat-memory.py first --memory FILE --component ID --failure FILE --default NAME --names A,B,C
     automat-memory.py note --memory FILE --component ID --failure FILE --outcome OUTCOME [--provider P]
                            [--model M] [--files a,b] [--summary FILE] [--detail TEXT] [--attempt N]
-    automat-memory.py merged --memory FILE --component ID
+    automat-memory.py merged --memory FILE --component ID       (any merge: the row of failures ends)
+    automat-memory.py closed --memory FILE --closed PENDING.json      (the rows of closed pull requests end)
     automat-memory.py streak --memory FILE --component ID            (prints: SIGNATURE COUNT)
     automat-memory.py tried --memory FILE --component ID --failure FILE   (the fingerprints already tried)
     automat-memory.py hash --patch FILE
@@ -295,6 +296,8 @@ def merged(memory, component, now=None):
                 if r.get("outcome") == "published" and (last is None or r.get("date", "") >= last.get("date", "")):
                     last = r
     if last is None:
+        # merged without a fix of an AI (or its record is gone): the row of failures ends all the same
+        memory.setdefault("streak", {}).pop(component, None)
         return memory
     last.update(outcome="merged", detail="merged into main")
     hint = {"component": component, "files": last.get("files", []), "summary": last.get("summary", ""),
@@ -307,6 +310,14 @@ def merged(memory, component, now=None):
     memory["solved"].setdefault(last["sig"], []).append(hint)
     memory.setdefault("streak", {}).pop(component, None)          # the row of failures ends
     return bound(memory)
+
+
+def closed(memory, components):
+    """The pull requests of these components were closed (merged or not): their rows of failures end (the
+    work is no longer pending for the priority of the free quotas, tools/ai-quota.py)."""
+    for component in components:
+        memory.setdefault("streak", {}).pop(component, None)
+    return memory
 
 
 def solved_sigs(memory, component):
@@ -389,7 +400,8 @@ def prompt_section(memory, component, sig, budget=BUDGET_WORDS):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("cmd", choices=("signature", "prompt", "first", "note", "merged", "focus", "streak", "tried",
+    ap.add_argument("cmd", choices=("signature", "prompt", "first", "note", "merged", "closed", "focus", "streak",
+                                    "tried",
                                     "hash"))
     ap.add_argument("--memory")
     ap.add_argument("--component", default="")
@@ -406,6 +418,7 @@ def main(argv=None):
     ap.add_argument("--attempt", default="0")
     ap.add_argument("--task", default="")
     ap.add_argument("--patch")
+    ap.add_argument("--closed", help="closed: tools/ai-quota.py pending --out's JSON (its \"closed\" branches)")
     a = ap.parse_args(argv)
 
     def text_of(path):
@@ -447,6 +460,12 @@ def main(argv=None):
         attempt = int(a.attempt) if a.attempt.isdigit() else 0
         note(memory, a.component, sig, a.outcome, a.provider, a.model, [f for f in a.files.split(",") if f],
              text_of(a.summary), a.detail, attempt, task=a.task, patch=text_of(a.patch))
+    elif a.cmd == "closed":
+        try:
+            names = json.loads(text_of(a.closed) or "{}").get("closed") or []
+        except (ValueError, AttributeError):
+            names = []
+        closed(memory, [str(n) for n in names if re.fullmatch(r"automation/[A-Za-z0-9._/-]{1,110}", str(n))])
     else:
         merged(memory, a.component)
     Path(a.memory).write_text(json.dumps(memory, indent=1, sort_keys=True, ensure_ascii=True) + "\n", "utf-8")

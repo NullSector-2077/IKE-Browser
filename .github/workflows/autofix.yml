@@ -61,10 +61,10 @@
 #                      its data tools/ai-quota.json; today's use on the data branch automat/memory): a
 #                      provider spent today is not asked, and a fix is not started unless two other
 #                      providers (three for tier B) keep room to review it. Real updates first
-#                      (2026-11-24): a share of each provider's day is kept for security fixes and the
-#                      updates of what ships; CI updates and background work (the drill) use only what
-#                      is above it, and background work waits while a real update is pending (AUTOMAT's
-#                      memory), until the last hours before the provider's reset
+#                      (2026-11-24): security fixes and the updates of what ships may use all of the
+#                      free quota; CI updates and background work (the drill) only what they leave, in
+#                      each provider's leftover window, never while a real update is pending (the plan
+#                      reads the open pull requests and AUTOMAT's memory: tools/ai-quota.py pending)
 #   inner loop         the answer must be the strict patch format; Python is compiled (never run),
 #                      JavaScript parsed, the wrapper compiled by cargo check (a user of its own with no
 #                      key and no network), the checker with the static guard and the lint read it, and
@@ -162,6 +162,7 @@ jobs:
       # "all": the whole run once more (a gate of the tests that failed alone), else its failed jobs
       rerun: ${{ steps.plan.outputs.rerun }}
       order: ${{ steps.plan.outputs.order }}
+      pending: ${{ steps.plan.outputs.pending }}
     steps:
       - name: Check out main (all branches, no credentials)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -288,6 +289,15 @@ jobs:
                 if [ -s "$RUNNER_TEMP/upstream.md" ]; then cat "$RUNNER_TEMP/upstream.md" >> "$RUNNER_TEMP/failure/failure.md"; fi
                 ;;
             esac
+          fi
+          # real updates first (2026-11-24): the security fixes and real updates pending now (an open pull request
+          # whose checks are not green, AUTOMAT's memory's rows whose pull request was not closed; GET calls only):
+          # work of the CI and background work wait for them (tools/ai-quota.py)
+          if [ "$(sed -n 's/^action=//p' "$GITHUB_OUTPUT" | tail -n 1)" = "fix" ]; then
+            touch "$RUNNER_TEMP/memory.json"
+            pending=$(python3 -I tools/ai-quota.py pending --repo "$GITHUB_REPOSITORY" --memory "$RUNNER_TEMP/memory.json" \
+                        2> /dev/null || true)
+            if printf '%s' "$pending" | grep -Eq '^[A-Za-z0-9._/,-]{0,4000}$'; then echo "pending=$pending" >> "$GITHUB_OUTPUT"; fi
           fi
           echo "work=${WORK:-run/$RUN_ID}" >> "$GITHUB_OUTPUT"
       # WP9: the providers the last weekly check found not free (tools/provider-check.py,
@@ -425,6 +435,7 @@ jobs:
           ORDER: ${{ needs.plan.outputs.order }}
           TASK: ${{ needs.plan.outputs.task }}
           PUSH_BRANCH: ${{ needs.plan.outputs.push_branch }}
+          PENDING: ${{ needs.plan.outputs.pending }}
           # the owner's switch (a repository variable; default off): tier B in its narrowest form
           AUTOMAT_TIER_B: ${{ vars.AUTOMAT_TIER_B }}
         run: |
@@ -434,6 +445,7 @@ jobs:
           printf '%s' "$ORDER" | tr -cd 'A-Za-z.,' > "$RUNNER_TEMP/order"
           printf '%s' "$TASK" | tr -cd 'a-z-' > "$RUNNER_TEMP/task"
           printf '%s' "$PUSH_BRANCH" | tr -cd 'A-Za-z0-9._/-' > "$RUNNER_TEMP/candidate"
+          printf '%s' "$PENDING" | tr -cd 'A-Za-z0-9._/,-' | tr ',' '\n' > "$RUNNER_TEMP/pending"
           reviewers=""
           if [ "$HAS_GEMINI" = "true" ]; then reviewers="Antigravity"; fi
           if [ "$HAS_GROQ" = "true" ]; then reviewers="$reviewers,Groq"; fi
@@ -800,6 +812,7 @@ jobs:
           if [ -s "$RUNNER_TEMP/quota.json" ]; then quota="$quota --quota-state $RUNNER_TEMP/quota.json"; fi
           # real updates first (2026-11-24): background work waits while a real update is pending or retrying
           if [ -s "$RUNNER_TEMP/memory.json" ]; then quota="$quota --quota-memory $RUNNER_TEMP/memory.json"; fi
+          quota="$quota --quota-pending $RUNNER_TEMP/pending"
           AUTOFIX_REVIEWERS="$(cat "$RUNNER_TEMP/reviewers" 2> /dev/null || true)"
           export AUTOFIX_REVIEWERS
           first=""
@@ -1026,6 +1039,7 @@ jobs:
               more="--inner --quota-limits $RUNNER_TEMP/ai-quota.json --quota-usage $out/usage-reserve.json"
               if [ -s "$RUNNER_TEMP/quota.json" ]; then more="$more --quota-state $RUNNER_TEMP/quota.json"; fi
               if [ -s "$RUNNER_TEMP/memory.json" ]; then more="$more --quota-memory $RUNNER_TEMP/memory.json"; fi
+              more="$more --quota-pending $RUNNER_TEMP/pending"
               if [ -s "$RUNNER_TEMP/order" ]; then more="$more --order $(cat "$RUNNER_TEMP/order")"; fi
               if [ -s "$RUNNER_TEMP/task" ]; then more="$more --task $(cat "$RUNNER_TEMP/task")"; fi
               python3 -I "$RUNNER_TEMP/autofix-reserve.py" --workdir "$repo" --prompt "$RUNNER_TEMP/prompt.md" \

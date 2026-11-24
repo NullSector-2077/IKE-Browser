@@ -344,6 +344,8 @@ def main(argv=None):
     ap.add_argument("--candidate", default="", help="the branch being fixed (its share of the quota)")
     ap.add_argument("--quota-memory", help="AUTOMAT's memory.json: the real updates still pending (background "
                                            "work waits for them, tools/ai-quota.py)")
+    ap.add_argument("--quota-pending", help="the plan's list of the real updates still pending (open pull requests "
+                                            "whose checks are not green, and the memory's rows)")
     a = ap.parse_args(argv)
     key = os.environ.get("GEMINI_API_KEY", "")
     workdir, out = Path(a.workdir), Path(a.out)
@@ -387,7 +389,7 @@ def main(argv=None):
         spend = quota.Budget(limits, quota.load_state(a.quota_state) if a.quota_state else None, a.candidate,
                              tier_b=tier_b, available=[n for n in (named or quota.NAMES) if n not in off
                                                        and not (n == "Antigravity" and "Gemini" in off)],
-                             pending=quota.pending_work(quota._read_json(a.quota_memory), limits))
+                             pending=quota.pending_for_run(a.quota_memory, a.quota_pending, limits))
         session = int(limits["providers"]["Antigravity"].get("session_requests") or 10)
         allowed, why = spend.allows("Antigravity", 0, "fix", requests=session)
         if not allowed:

@@ -1673,19 +1673,20 @@ def merge_it(repo, pr, sha):
     delete_head(repo, pr, sha)
 
 
-def delete_head(repo, pr, sha):
+def delete_head(repo, pr, sha, push=None):
     """The merged head branch deleted (2026-11-24): GitHub's "delete head branches" does not fire for a
     merge made by github-actions[bot]. Only an isolated candidate of the full chain (automation/update/<id>,
-    automation/builder/<id>), never automation/autofix-main, automation/daily-maintenance, automat/memory
-    or anything else, and only while its tip is still the merged commit (tools/branch-sweep.py). A branch
-    that could not be deleted stays for the weekly sweep; the merge is never undone for it."""
+    automation/builder/<id>) of this repository, never automation/autofix-main, automation/daily-maintenance,
+    automat/memory or anything else, and only while its tip is still the merged commit: a compare-and-swap
+    push with the workflow's token (tools/branch-sweep.py). A branch that could not be deleted stays for the
+    weekly sweep; nothing here can stop the steps after the merge."""
     ref = (pr.get("head") or {}).get("ref") or ""
-    if ((pr.get("head") or {}).get("repo") or {}).get("full_name") not in (None, repo):
-        return "kept: a branch of another repository"
     try:
-        why = _tool("branch-sweep").delete_after_merge(
-            repo, ref, sha, lambda path, method="GET": json.loads(gh("api", "-X", method, path) or "{}"))
-    except (RuntimeError, ValueError) as e:
+        if str(((pr.get("head") or {}).get("repo") or {}).get("full_name") or repo).lower() != repo.lower():
+            return "kept: a branch of another repository"
+        sweep = _tool("branch-sweep")
+        why = sweep.delete_after_merge(repo, ref, sha, push or sweep.git_delete)
+    except Exception as e:                   # never in the way of the steps after the merge
         why = "kept: %s" % str(e)[:200]
     print("%s: %s" % (ref, why or "deleted after its merge"))
     return why
@@ -1978,9 +1979,11 @@ def main(argv=None):
         print("#%d (%s): verified, not merged: %s; retrying (the owner is told once)" % (n, ref, TOKEN_WHY))
         return 0
     print("merged #%d; the tests of main started (then the signing notice)" % n)
-    if os.environ.get("GITHUB_OUTPUT") and has_ai:
+    if os.environ.get("GITHUB_OUTPUT") and ref.startswith("automation/"):
+        # AUTOMAT's memory: this branch's fix solved its error (an AI's), and its row of failures ends (any
+        # merge: the work is no longer pending for the priority of the free quotas, tools/ai-quota.py)
         with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
-            f.write("merged=%s\n" % ref)             # AUTOMAT's memory: this branch's fix solved its error
+            f.write("merged=%s\n" % ref)
     asked = redispatch_others(a.repo, n)
     if asked:
         print("judged again: %s" % ", ".join("#%s" % x for x in asked))

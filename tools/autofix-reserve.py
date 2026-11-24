@@ -935,6 +935,8 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     ap.add_argument("--candidate", default="", help="the branch being fixed (its share of the quota)")
     ap.add_argument("--quota-memory", help="AUTOMAT's memory.json: the real updates still pending (background "
                                            "work waits for them, tools/ai-quota.py)")
+    ap.add_argument("--quota-pending", help="the plan's list of the real updates still pending (open pull requests "
+                                            "whose checks are not green, and the memory's rows)")
     ap.add_argument("--order", default="", help="the providers in the order of this kind of task")
     ap.add_argument("--task", default="", help="the kind of task (tools/automat-route.py)")
     ap.add_argument("--tried", help="the fingerprints of the patches that already failed for this error")
@@ -984,7 +986,7 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
         named = [n.strip() for n in (env.get("AUTOFIX_REVIEWERS") or "").split(",") if n.strip() in quota.NAMES]
         spend = quota.Budget(limits, quota.load_state(a.quota_state) if a.quota_state else None, a.candidate,
                               tier_b=TIER_B["on"], available=[n for n in (named or has_key) if n not in gone],
-                              pending=quota.pending_work(quota._read_json(a.quota_memory), limits))
+                              pending=quota.pending_for_run(a.quota_memory, a.quota_pending, limits))
         # OpenRouter's free models share one cap of requests a day for the whole account: read it from the
         # account itself (GET /api/v1/key, no model asked), else the documented default stays
         key = env.get(next(p[2] for p in PROVIDERS if p[0] == "OpenRouter"), "").strip()

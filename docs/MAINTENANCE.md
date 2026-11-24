@@ -459,9 +459,9 @@ providers with a key (three for tier B) keep room for one review each (the
 reserve: without it the fix waits and nothing is wasted); one candidate's
 fixes take at most half of a provider's day; a limit per minute is waited
 out when it is short. The signing notice shows the use and what is left per
-provider, and whether each limit was verified. Since 2026-11-24 a share of each
-provider's day is kept for security fixes and real updates, and background work
-(the drill) waits for them ("Real updates first, and every day's free quota
+provider, and whether each limit was verified. Since 2026-11-24 real updates may
+use all of the free quota; what they leave each day goes to self-improvement,
+the drill and the CI's updates ("Real updates first, and every day's free quota
 used", below).
 
 **Recipes before any AI** (`tools/automat-recipes.py`, a step of the job
@@ -618,7 +618,7 @@ under today's Qt (checked before the drill was published).
 | `tools/automat-help.py` | "DEVI AIUTARCI CON CHATGPT" in drill mode: title `DRILL (esercitazione) DEVI AIUTARCI CON CHATGPT: ...`, the body says it is an exercise, the message for ChatGPT is the real one (its pull request would go against the drill's branch), nobody named or assigned; never the notice "no free provider at all" |
 | `tools/autofix-plan.py` | fixed like a candidate, with its scenario's attempts per day (`attempts_per_day`, at most 12; a real candidate keeps `FIX_ATTEMPTS`); its Security run opens no security branch; what would open an issue is retried instead |
 | `tools/upstream-diff.py` | "What changed upstream" is the scenario's release notes, from `main`'s copy, with no network |
-| AUTOMAT's memory and the quotas | the attempts are recorded under the drill's branch name, and the drill uses the real free quotas (its share is in the report; a candidate takes at most half of a provider's day); since 2026-11-24 it is background work: only what is above the reserve for real updates, paused while one is pending ("Real updates first", below) |
+| AUTOMAT's memory and the quotas | the attempts are recorded under the drill's branch name, and the drill uses the real free quotas (its share is in the report; a candidate takes at most half of a provider's day); since 2026-11-24 it is background work: only what real updates leave, never while one is pending ("Real updates first", below) |
 
 **The report** says, for each break: fixed or not (its tests in the junit results of the last
 Tests run), by which provider or recipe and at which attempt (the first `autofix:` commit after
@@ -634,15 +634,17 @@ own checks (with the owner's `IKE_WORKFLOW_TOKEN`) or the dispatched ones.
 
 ### Real updates first, and every day's free quota used (2026-11-24)
 
-The owner's decision of 2026-11-24, in the owner's words: "use the free AIs every day, always when
-needed, above all for real updates; what is left goes to self-evolution, drills etc.". Still free
-providers only, no cost, nothing weakened; it only decides **who gets a free quota first**. The
-rules are in `tools/ai-quota.py` (the Budget every AI call already goes through), the numbers in
-`tools/ai-quota.json` (`"priority"`, and each provider's `"reset"`); the proofs are
-`tests/test_automat_priority.py`.
+The owner's decisions of 2026-11-24, in the owner's words: "use the free AIs every day, always when
+needed, above all for real updates; what is left goes to self-evolution, drills etc.", and then:
+**real updates may use all of the free quota, at any time; what they leave each day goes to
+self-improvement** (the drill, the replay bench, self-evolution, and the CI's updates after the real
+ones). There is no fixed share. Still free providers only, no cost, nothing weakened; it only decides
+**who gets a free quota first**. The rules are in `tools/ai-quota.py` (the Budget every AI call already
+goes through), the numbers in `tools/ai-quota.json` (`"priority"`, and each provider's `"reset"`); the
+proofs are `tests/test_automat_priority.py`.
 
-**Four classes**, by the branch of the work (`priority_of`; the prefixes are data, and a real
-update's branch can never be made background):
+**Four classes**, by the branch of the work (`priority_of`; the prefixes are data, each must end in `-`
+or `/`, and a real update's branch can never be made background):
 
 | Class | What | Branches |
 |---|---|---|
@@ -651,57 +653,67 @@ update's branch can never be made background):
 | 3 | updates of the CI and the tools | `automation/update/ci-*` |
 | 4 | background: the AUTOMAT drill, the replay bench, self-evolution | `automation/update/drill-*`, `automation/bench/*`, `automation/evolve/*` |
 
-**The reserve.** Of each provider's day, `reserve_share` (60 %) of its requests and of its tokens
-stays kept for classes 1 and 2, less what they already used today (the use of each class is
-counted per day in `quota.json`, `classes`). Classes 3 and 4 use only what is above it; classes 1
-and 2 may use everything (the old rules still hold for them: a candidate takes at most half of a
-provider's day, and a fix starts only when two other providers keep room to review it). A
-background fix is not started either when its reviews would have to take the reserve.
+**Classes 1 and 2 may always use all of every free quota**, at any time: nothing but the provider's own
+limits (and the rules that were already there: a candidate takes at most half of a provider's day, a fix
+starts only when two other providers can review it) ever stops them. Security fixes come first in the
+order of the work: the daily check starts the work waiting in the ledger by class (`tools/ai-work.py`).
 
-**The pause.** Background work (class 4) waits by itself while work of class 1 or 2 is pending or
-retrying: AUTOMAT's memory (`memory.json`, `streak`) still has its row of failures, or its fix
-published and waiting for its tests, written in the last `pending_days` (2) days; a merged fix
-ends the row (`pending_work`). The automatic fix passes the memory to the agent and the reserves
-(`--quota-memory`); a paused fix ends "budget", which is "deferred": it waits like any fix that
-found no free provider, nothing is lost. Reviews of a background fix already made are not paused
-(its quota is not wasted), but keep to the reserve. Class 3 never pauses.
+**Classes 3 and 4 get only what real work leaves, and all of it** (`priority_why`):
 
-**The end of a provider's day.** In the last `release_hours` (3) hours before a provider's own
-reset (its `"reset"`: a time and an IANA zone; Gemini's day ends at midnight in California, the
-others' at midnight UTC), what is left above `release_margin` (10 %) of its day goes to classes 3
-and 4 too, even while real work is pending, so nothing of a free day is wasted; the margin stays
-for real work arriving late. **Not verified**: none of the four reset times could be checked on
-2026-11-24 (the providers' pages could not be reached); each says so (`"verified": false`) with
-what it rests on, and a person who checks one sets it with the date. Where the counting day of
-`quota.json` (UTC) and a provider's day differ (Gemini), the provider's own answers (a 429 of the
-day) still stop it.
+- **never while work of class 1 or 2 is pending or retrying**, and they pause at once when one appears
+  (also their reviews). Pending (`pending_all`): an open pull request of the automation whose last commit
+  has a run that is not green (failed, cancelled, running, or not readable), read by the plan of
+  `autofix.yml` with GET calls (`tools/ai-quota.py pending`) and handed to the agent and the reserves
+  (`--quota-pending`; `--quota-memory` when the plan could not read it); and a row of failures in
+  AUTOMAT's memory (`streak`) of the last `pending_days` (2) days. Every merge of the automation ends its
+  branch's row (`tools/automat-memory.py merged`, also with no AI fix), and so does a closed pull
+  request (`closed`, run by `automerge.yml` on each of its runs);
+- **only in the provider's leftover window** (`leftover_window`): for a provider whose reset a person
+  verified, the last `release_hours` (3) hours before its own reset (the provider's own reset header,
+  when it gave one, counts more than the data file); for one whose reset is not verified, once the real
+  day's `maintenance_window` (04:00-12:00 UTC: the security tests, the daily check and candidates and
+  their automatic fixes) is over. Then they may use **everything left**, with no margin: the provider's
+  own limit is the only one.
 
-**The order.** The daily check starts the work waiting in the ledger in the order of the classes
-(`tools/ai-work.py`): security first, then real updates, then the CI's, then the background.
+A paused or early fix ends "budget", which is "deferred": it waits like any fix that found no free
+provider, and nothing is lost. A background fix is not started either when its reviewers have nothing
+left for it. **Each provider's use is counted on its own day** (`provider_day`: the date its day began in
+its own zone; Gemini's day ends at midnight in California, the others' at midnight UTC), so what is
+"left" is what is left of the provider's own day. **A quota answer (429) to work of class 3 or 4 never
+spends the provider for classes 1 and 2** (`spent_low`): real work still asks it; money asked (402) spends
+it for everybody.
 
-**OpenRouter: one budget for all its free models.** Every `:free` model counts against one daily
-cap of the account, never one per model (`"shared_free_models": true`; the budget's provider is
-"OpenRouter", whatever the model). The cap is read at the start of each run that holds the key
-(the reserves, the reviewers) with `GET https://openrouter.ai/api/v1/key` (`account_limit`): a cap
-of requests a day in its answer is taken (never above `max_requests_per_day`), `is_free_tier: true`
-confirms the free-tier value (50 a day, as remembered, not verified); money in the answer (usage,
-limit: credits) is never read as requests. The count of the day comes from OpenRouter's own
-headers and its 429 "free-models-per-day". Which models are used is unchanged.
+**Not verified**: none of the four reset times could be checked on 2026-11-24 (the providers' pages could
+not be reached); each says so (`"verified": false`) with what it rests on, so today no provider has a
+last-hours window and the background takes leftovers only after the maintenance window. A person who
+checks a reset sets it with the date.
 
-**The drill respects it** (`tools/automat-drill.py`, `automat-drill.yml`, every three hours): its
-report says whether the drill may use the free AIs, is paused for real updates (naming them), or
-gets what is left of the providers' day; the tick starts a drill's fix the budget held back again
-(`autofix.yml`, work `run/<id>`) only when background work may run, no automatic fix runs or waits,
-the failure is at least two hours old, once a day per failed run (the plan's attempts per day still
-count). The signing notice shows, per provider, what stays kept for security fixes and real
-updates and how much of it they used today.
+**OpenRouter: one budget for all its free models.** Every `:free` model counts against one daily cap
+of the account, never one per model (`"shared_free_models": true`; the budget's provider is
+"OpenRouter", whatever the model). At the start of each run that holds the key (the reserves, the
+reviewers) `GET https://openrouter.ai/api/v1/key` (`tools/ai-providers.py` `OPENROUTER_KEY_INFO`) is read
+with the key, following no redirect, for `is_free_tier` only (`account_tier`): the documented cap (50
+requests a day, as remembered, not verified) always stays; when the account is not on the free tier the
+signing notice says "OpenRouter account is not free tier". Money in the answer (usage, limit: credits) is
+never read as requests. The count of the day comes from OpenRouter's own headers and its 429
+"free-models-per-day". Which models are used is unchanged.
+
+**The drill respects it** (`tools/automat-drill.py`, `automat-drill.yml`, every three hours): its report
+says whether the drill may use the free AIs now, gets the providers' leftovers, or is paused for real
+updates (naming them, read from the open pull requests too); the tick starts a drill's fix the budget held
+back again (`autofix.yml`, work `run/<id>`) only when background work may run, no automatic fix runs or
+waits, the failure is at least two hours old, once a day per failed run (the plan's attempts per day still
+count). The signing notice shows, per provider, what real work and the background used today.
+
+**Antigravity and the background**: one session of the agent counts ten requests of Gemini's twenty a day,
+so a class 3 or 4 session fits only when real work left that much; it then waits like any other.
 
 ## What runs by itself
 
 | When | What | Workflow | Result |
 |---|---|---|---|
 | By hand (`gh workflow run automat-drill.yml --ref main`), every three hours while it runs | The AUTOMAT drill: a simulated major Qt release on `automation/update/drill-<name>`, fixed by AUTOMAT's real chain, never merged (no key, no AI here) | `automat-drill.yml` | The drill's pull request "DRILL: ..." and issue (label `automat-drill`), the report in the issue and the run's summary; at the end one comment naming the owner |
-| Sundays, 03:17 UTC | The cleanup of the branches: those fully contained in `main`, with no open pull request, older than seven days and not protected (no key, no AI) | `branch-sweep.yml` | The deleted branches listed in the run's summary ("The cleanup of the branches") |
+| Sundays, 03:17 UTC | The cleanup of the branches: those merged into `main` at their tip, fully contained in it, with no open pull request of them or based on them, older than seven days and not protected, each by compare-and-swap (no key, no AI) | `branch-sweep.yml` | The deleted branches listed in the run's summary ("The cleanup of the branches") |
 | After every run of the two AI reviewers | Their use of the free quotas, added to the day's record (numbers only; no key, no AI) | `automat-quota.yml` | `quota.json` on the data branch `automat/memory` ("The budget of the free quotas") |
 | After every run of the merge workflow | The notices "DEVI AIUTARCI CON CHATGPT" of the branches whose fix landed in `main` are closed with a note (no key, no AI) | `automat-help.yml` | The issue labelled `automat-help` closed |
 | Every day, 05:17 UTC | Upstream versions of the bundled components (and whether I.K.E.'s builders still accept them), Arch Linux's own packages and their whole dependency closure against what the last green `arch.yml` run on `main` tested, and the default filter lists loaded into `main`'s AdBlock engine | `daily-check.yml` | Issue labelled `components` (titled "Component incompatibility: ..." when a builder refused a new version); when anything of Arch's closure changed, `arch.yml` started on `main`; the inventory of every external component and the issue "Maintenance ledger" (label `maintenance-ledger`), see "Inventory, ledger and what is verified" |
@@ -2306,7 +2318,10 @@ requests are never merged by themselves.
 
 GitHub's setting "Automatically delete head branches" does not fire for a merge made by
 `github-actions[bot]`, so the branches the verified merge merged stayed. Two parts, one list of what
-is protected (`tools/branch-sweep.py`, `PROTECTED`; proofs in `tests/test_branch_sweep.py`):
+is protected (`tools/branch-sweep.py`, `PROTECTED`; proofs in `tests/test_branch_sweep.py`). Every
+deletion is a compare-and-swap: `git push --force-with-lease=refs/heads/<ref>:<sha> <repo>
+:refs/heads/<ref>` with the job's token (in the environment, never on the command line), so GitHub deletes
+the branch only if it still points at the commit that was judged; never an unconditional delete.
 
 - **Right after the verified merge** (`tools/automerge.py`, `delete_head`, the last step of
   `merge_it`): the head branch it merged is deleted, only an isolated candidate of the full chain
@@ -2314,20 +2329,24 @@ is protected (`tools/branch-sweep.py`, `PROTECTED`; proofs in `tests/test_branch
   while its tip is still the merged commit (a branch that moved keeps its new commits). The workflow's
   own token, with the `contents: write` the merge already has. `automation/autofix-main` is the
   automatic fix's long-lived branch and stays, as `automation/daily-maintenance`, `automat/memory` and
-  everything else. An error never fails or undoes the merge: the weekly sweep takes the branch later.
+  everything else. Any error is caught: it never fails or undoes the merge, the steps after it (AUTOMAT's
+  memory, the other pull requests judged again) always run, and the weekly sweep takes the branch later.
 - **Every week** (`branch-sweep.yml`, Sundays 03:17 UTC, or by hand; `contents: write` and
-  `pull-requests: read` only, from `main`): a branch is deleted when its tip is fully contained in
-  `main` (GitHub's compare: no commit of it missing from `main`), no pull request of it is open, its
+  `pull-requests: read` only, from `main`): a branch is deleted only when a pull request of it was
+  merged into the default branch at exactly its tip (its head, its commit and its base all match), its
+  tip is fully contained in `main` (GitHub's compare: `ahead_by` is the integer 0), no pull request of it
+  is open (from any repository) and none is based on it (the base of an open pull request stays), its
   tip is older than seven days, and it is not protected: `main`, `automat/memory`,
   `automation/autofix-main`, `automation/daily-maintenance`, `automation/audit`, the multiplatform
   archive (`windows/port`, `windows/engine`, `linux/packages`, `linux/flatpak`,
   `linux/distro-checks`, `docs/multiplatform-plan`), `experiment/file-workers`, any branch GitHub
-  itself protects, and `release/*` until its pull request is merged. **A branch with commits that are
-  not in `main` is never deleted**, whatever its age (an open candidate, a drill's record, the
-  archive). Each branch is read again right before its deletion (one that moved stays), at most 100
-  go in one run, and every deletion is listed in the run's summary. Automatic, the owner's decision; a
-  person can see what it would do with `python3 tools/branch-sweep.py sweep --repo OWNER/NAME
-  --dry-run`.
+  itself protects. A `release/*` branch follows the same rule: it stays until its pull request is merged
+  into the default branch, then goes like the others. **A branch with commits that are not in `main` is
+  never deleted**, whatever its age (an open candidate, a drill's record, the archive). At most 100 go in
+  one run, and every deletion is listed in the run's summary (with what was kept and why). Automatic, the
+  owner's decision; a person can see what it would do with `python3 tools/branch-sweep.py sweep --repo
+  OWNER/NAME --dry-run`, and `python3 tools/branch-sweep.py protected REF` says whether a name is
+  protected.
 
 ## Nothing gets worse
 

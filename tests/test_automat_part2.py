@@ -957,7 +957,7 @@ def test_antigravity_is_not_started_without_budget_and_counts_its_session(tmp_pa
         monkeypatch.delenv(name, raising=False)
     # Gemini's day is spent, or no room would be left for the reviewers: the agent is not started at all
     spent = quota.empty_state()
-    quota._prov(spent, quota.day_of(), "Antigravity")["spent"] = "429: the quota of the day"
+    quota._prov(spent, quota.provider_day(quota.load_limits()["providers"]["Antigravity"]), "Antigravity")["spent"] = "429: the quota of the day"
     state.write_text(json.dumps(spent))
     monkeypatch.setattr(agent.subprocess, "run", lambda *a, **k: pytest.fail("the agent was started"))
     assert agent.main(args) == 0
@@ -966,7 +966,7 @@ def test_antigravity_is_not_started_without_budget_and_counts_its_session(tmp_pa
     assert json.loads(usage.read_text())["calls"] == [] and "Antigravity" in json.loads(usage.read_text())["skipped"]
     none_left = quota.empty_state()
     for name in ("Groq", "Z.AI"):
-        quota._prov(none_left, quota.day_of(), name)["spent"] = "429"
+        quota._prov(none_left, quota.provider_day(quota.load_limits()["providers"][name]), name)["spent"] = "429"
     state.write_text(json.dumps(none_left))
     assert agent.main(args) == 0 and json.loads(status.read_text())["result"] == "budget"
     assert "the reviewers' reserve" in json.loads(status.read_text())["detail"]

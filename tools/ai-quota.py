@@ -28,15 +28,18 @@ none for its reviewers. This file is the scheduler:
   when needed, above all for real updates; what is left goes to self-evolution, drills etc."). Every
   piece of AI work has a class by its branch (priority_of; the prefixes are data, "priority" in
   tools/ai-quota.json): 1 security fixes, 2 updates of what ships to users, 3 the CI and the tools,
-  4 background (the AUTOMAT drill, the replay bench, self-evolution). A share of each provider's day
-  (reserve_share) is kept for classes 1 and 2: classes 3 and 4 use only what is above it, and class 4
-  pauses by itself while work of class 1 or 2 is pending or retrying (pending_work: AUTOMAT's memory
-  still has its row of failures). In the last hours before a provider's own reset (its "reset" in the
-  data, the time and zone of its day) what is left above a small margin goes to classes 3 and 4 too,
-  so nothing of a free day is wasted (release_window). The use of each class is counted per day.
+  4 background (the AUTOMAT drill, the replay bench, self-evolution). Real updates (classes 1 and 2)
+  may always use ALL of every free quota; classes 3 and 4 get only what real work leaves, and all of it:
+  never while work of class 1 or 2 is pending or retrying (pending_all: an open pull request whose
+  checks are not green, a row of failures in AUTOMAT's memory whose pull request was not closed), and
+  only in the provider's leftover window (leftover_window): the last release_hours hours before its own
+  reset when a person verified it, else once the real day's maintenance window (UTC) is over. Each
+  provider's use is counted on its own day (provider_day: the time and zone of its "reset"), and a
+  quota answer (429) to work of class 3 or 4 never spends a provider for classes 1 and 2.
 - **OpenRouter's free models share one budget**: every ":free" model counts against one daily cap
-  of the account (the provider "OpenRouter", never a model). The cap is read at the start of a run
-  that holds the key (GET /api/v1/key, account_limit), else the documented default.
+  of the account (the provider "OpenRouter", never a model). GET /api/v1/key is read (no redirect
+  followed) only for is_free_tier: the documented cap stays, and the signing notice says when the
+  account is not on the free tier.
 
     ai-quota.py merge --state quota.json --delta FILE [--delta FILE ...]   (the job that writes the branch)
     ai-quota.py ran --state quota.json --result answered|no-provider
@@ -77,10 +80,11 @@ CLASS_IT = {SECURITY: "correzione di sicurezza", UPDATE: "aggiornamento di ciò 
 # what is used when tools/ai-quota.json has no "priority" (or a value cannot be read)
 PRIORITY = {"security": ("automation/update/security-",), "ci": ("automation/update/ci-",),
             "background": ("automation/update/drill-", "automation/bench/", "automation/evolve/"),
-            "reserve_share": 0.6, "release_hours": 3, "release_margin": 0.1, "pending_days": 2}
+            "release_hours": 3, "pending_days": 2, "maintenance_window": {"start": "04:00", "end": "12:00"}}
+# a reset the provider's own headers gave is used only this close to now
+OBSERVED_RESET_MAX = 2 * 86400
 # a branch is only ever made a background one by a prefix of the automation's own work, and never a
 # security fix's or a real update's own branch prefix as a whole
-PREFIX = re.compile(r"^automation/[a-z0-9/._-]{1,80}$")
 NEVER_LOW = ("automation/update/", "automation/builder/", "automation/update/security-", "automation/daily-maintenance",
              "automation/autofix-main")
 RESET = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
@@ -135,9 +139,9 @@ def load_limits(path=None):
             conf["shared_free_models"] = raw.get("shared_free_models") is True
             account = raw.get("account")
             if isinstance(account, dict):
-                conf["account"] = {k: account[k] for k in ("free_tier_requests_per_day", "max_requests_per_day")
-                                   if isinstance(account.get(k), int) and not isinstance(account.get(k), bool)
-                                   and 0 < account[k] <= 100000}
+                value = account.get("free_tier_requests_per_day")
+                if isinstance(value, int) and not isinstance(value, bool) and 0 < value <= 100000:
+                    conf["account"] = {"free_tier_requests_per_day": value}
         out["providers"][name] = conf
     return out
 
@@ -149,17 +153,32 @@ def load_priority(raw):
     for key in ("security", "ci", "background"):
         value = raw.get(key)
         if isinstance(value, list) and value:
-            good = tuple(str(p) for p in value if isinstance(p, str) and PREFIX.match(p)
-                         and (key == "security" or not any(n.startswith(p) for n in NEVER_LOW)))
+            good = tuple(str(p) for p in value if _good_prefix(p, key))
             out[key] = good if good else PRIORITY[key]
         else:
             out[key] = PRIORITY[key]
-    for key, low, high in (("reserve_share", 0.0, 1.0), ("release_margin", 0.0, 0.5), ("release_hours", 0, 12),
-                           ("pending_days", 1, 7)):
+    for key, low, high in (("release_hours", 0, 12), ("pending_days", 1, 7)):
         value = raw.get(key)
         ok = isinstance(value, (int, float)) and not isinstance(value, bool) and low <= value <= high
         out[key] = value if ok else PRIORITY[key]
+    win = raw.get("maintenance_window") if isinstance(raw.get("maintenance_window"), dict) else {}
+    good = all(RESET.match(str(win.get(k) or "")) for k in ("start", "end")) and win.get("start") != win.get("end")
+    out["maintenance_window"] = {"start": win["start"], "end": win["end"]} if good else \
+        dict(PRIORITY["maintenance_window"])
     return out
+
+
+def _good_prefix(p, key):
+    """A prefix of the classes: a branch prefix of the automation that ends in "-" or "/" and is at least one
+    segment longer than automation/<word>/ when it is under automation/update/ or automation/builder/; a
+    background or CI prefix is never a prefix of a real update's own branches."""
+    if not isinstance(p, str) or not p.startswith("automation/") or not p.endswith(("-", "/")) or ".." in p:
+        return False
+    if not re.fullmatch(r"automation/[a-z0-9._/-]{2,80}", p) or "//" in p or p.count("/") < 2:
+        return False
+    if p.startswith(("automation/update/", "automation/builder/")) and len(p.split("/", 2)[2]) < 2:
+        return False
+    return key == "security" or not any(n.startswith(p) for n in NEVER_LOW)
 
 
 def _reset(raw):
@@ -206,6 +225,95 @@ def pending_work(memory, limits=None, now=None):
     return sorted(out)
 
 
+GREEN = ("success", "skipped", "neutral")
+
+
+def pending_from_prs(repo, api, limits=None):
+    """The work of class 1 or 2 that is pending from GitHub itself: an open pull request of the automation
+    (automation/update/*, automation/builder/*, automation/daily-maintenance, automation/autofix-main) whose last
+    commit has a run that is not green (failed, cancelled, or still running): {"pending": [...], "open": [...]},
+    where "open" is every branch of the automation with an open pull request. GET calls only; a branch whose
+    runs cannot be read counts as pending (rather wait than starve real work)."""
+    out = {"pending": [], "open": []}
+    for page in range(1, 6):
+        prs = api("repos/%s/pulls?state=open&per_page=100&page=%d" % (repo, page)) or []
+        for pr in prs:
+            head = pr.get("head") or {}
+            ref, sha = str(head.get("ref") or ""), str(head.get("sha") or "")
+            if not ref.startswith("automation/") or not re.fullmatch(r"[A-Za-z0-9._/-]{1,120}", ref):
+                continue
+            out["open"].append(ref)
+            if priority_of(ref, limits) > UPDATE or not re.fullmatch(r"[0-9a-f]{40}", sha):
+                continue
+            try:
+                runs = (api("repos/%s/actions/runs?head_sha=%s&per_page=50" % (repo, sha)) or {}).get(
+                    "workflow_runs") or []
+            except RuntimeError:
+                out["pending"].append(ref)
+                continue
+            if not runs or any(r.get("status") != "completed" or r.get("conclusion") not in GREEN for r in runs):
+                out["pending"].append(ref)
+        if len(prs) < 100:
+            break
+    out["pending"] = sorted(set(out["pending"]))
+    out["open"] = sorted(set(out["open"]))
+    return out
+
+
+def closed_branches(repo, api, refs):
+    """Of these branches, those whose pull request was closed (merged or not) and none is open: their row of
+    failures in AUTOMAT's memory is over."""
+    out = []
+    owner = repo.split("/")[0]
+    for ref in refs:
+        try:
+            got = api("repos/%s/pulls?state=closed&head=%s:%s&per_page=1" % (repo, owner, ref)) or []
+        except RuntimeError:
+            continue
+        if got:
+            out.append(ref)
+    return sorted(out)
+
+
+def gather_prs(repo, api, memory=None, limits=None, now=None, runs=True):
+    """pending_from_prs, and "closed": the memory's rows whose branch has no open pull request any more but had
+    one (GET calls only)."""
+    prs = pending_from_prs(repo, api, limits) if runs else {"pending": [], "open": []}
+    if not runs:
+        for page in range(1, 6):
+            got = api("repos/%s/pulls?state=open&per_page=100&page=%d" % (repo, page)) or []
+            prs["open"] += [str((x.get("head") or {}).get("ref") or "") for x in got]
+            if len(got) < 100:
+                break
+        prs["open"] = sorted({r for r in prs["open"] if r.startswith("automation/")})
+    rows = [r for r in pending_work(memory, limits, now) if r not in prs["open"]]
+    prs["closed"] = closed_branches(repo, api, rows)
+    return prs
+
+
+def gh_api(path):
+    """GitHub's API through gh (GET), for the CLI."""
+    import subprocess
+    out = subprocess.run(["gh", "api", path], capture_output=True, text=True)
+    if out.returncode:
+        raise RuntimeError("gh api %s: %s" % (path, out.stderr.strip()[:200]))
+    return json.loads(out.stdout) if out.stdout.strip() else {}
+
+
+def pending_all(memory, limits=None, now=None, prs=None):
+    """The work of class 1 or 2 pending now: the open pull requests with checks that are not green (prs, from
+    pending_from_prs) together with the rows of failures of AUTOMAT's memory (pending_work); when the open pull
+    requests are known, a memory row of a branch that had a pull request and has none open any more is left out
+    (its pull request was closed)."""
+    rows = pending_work(memory, limits, now)
+    if prs is not None:
+        opened = set(prs.get("open") or ())
+        closed = set(prs.get("closed") or ())
+        rows = [r for r in rows if r in opened or r not in closed]
+        rows += list(prs.get("pending") or ())
+    return sorted({r for r in rows if priority_of(r, limits) <= UPDATE})
+
+
 def _zone(name):
     try:
         from zoneinfo import ZoneInfo
@@ -214,51 +322,81 @@ def _zone(name):
         return dt.timezone.utc
 
 
-def next_reset(conf, now=None):
-    """The next moment the provider's day starts again (its "reset": a time in its own zone), in UTC."""
+def provider_day(conf, now=None):
+    """The provider's own day, as the date its current day began in its own zone (its "reset", verified or
+    not): the key of its use in quota.json, so that a provider whose day ends at midnight in California is
+    not counted on the day of UTC."""
+    reset = (conf or {}).get("reset") or {"time": "00:00", "zone": "UTC"}
+    hour, minute = (int(x) for x in reset.get("time", "00:00").split(":"))
+    local = now_utc(now).astimezone(_zone(reset.get("zone") or "UTC"))
+    start = local.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if start > local:
+        start -= dt.timedelta(days=1)
+    return start.date().isoformat()
+
+
+def next_reset(conf, now=None, observed=None):
+    """The next moment the provider's day starts again, in UTC: what its own headers said last (observed: a
+    daily window's reset in seconds and when it was read, "at"), else its "reset" (a time in its own zone)."""
+    now = now_utc(now)
+    obs = observed if isinstance(observed, dict) else {}
+    if obs.get("window") == "day" and isinstance(obs.get("reset"), int) and isinstance(obs.get("at"), int) \
+            and obs["reset"] > 0:
+        moment = dt.datetime.fromtimestamp(obs["at"] + obs["reset"], dt.timezone.utc)
+        if now < moment <= now + dt.timedelta(seconds=OBSERVED_RESET_MAX):
+            return moment
     reset = (conf or {}).get("reset") or {"time": "00:00", "zone": "UTC"}
     hour, minute = (int(x) for x in reset.get("time", "00:00").split(":"))
     zone = _zone(reset.get("zone") or "UTC")
-    local = now_utc(now).astimezone(zone)
+    local = now.astimezone(zone)
     moment = local.replace(hour=hour, minute=minute, second=0, microsecond=0)
     if moment <= local:
         moment = (local + dt.timedelta(days=1)).replace(hour=hour, minute=minute, second=0, microsecond=0)
     return moment.astimezone(dt.timezone.utc)
 
 
+def account_tier(info):
+    """What OpenRouter's GET /api/v1/key says of the account: "free" (is_free_tier true), "not-free" (false),
+    or "" when the answer cannot be read. Nothing else of the answer is read: money (usage, limit: credits)
+    is never requests, and the cap of the :free models stays the documented one of the data file."""
+    data = info.get("data") if isinstance(info, dict) and isinstance(info.get("data"), dict) else None
+    if not isinstance(data, dict) or not isinstance(data.get("is_free_tier"), bool):
+        return ""
+    return "free" if data["is_free_tier"] else "not-free"
+
+
 def account_limit(conf, info):
-    """OpenRouter's cap of requests a day for all its ":free" models together, from the answer of GET
-    /api/v1/key ({"data": {...}}), or None when the answer says nothing usable. A cap of the day named in
-    the answer is taken (never above max_requests_per_day); is_free_tier true gives the documented
-    free-tier value. Money in the answer (usage, limit: credits) is never read as requests."""
-    data = info.get("data") if isinstance(info, dict) and isinstance(info.get("data"), dict) else info
-    if not isinstance(data, dict):
-        return None
+    """OpenRouter's cap of requests a day for all its ":free" models together: the documented free-tier value
+    when the account says it is on the free tier, else None (the file's value stays: never more)."""
     account = (conf or {}).get("account") or {}
-    most = account.get("max_requests_per_day") or 1000
-    for key in ("free_requests_per_day", "requests_per_day", "free_model_requests_per_day"):
-        value = data.get(key)
-        if isinstance(value, int) and not isinstance(value, bool) and 0 < value:
-            return min(value, most)
-    rate = data.get("rate_limit")
-    if isinstance(rate, dict) and str(rate.get("interval") or "").lower() in ("1d", "24h", "day", "86400s"):
-        value = rate.get("requests")
-        if isinstance(value, int) and not isinstance(value, bool) and 0 < value:
-            return min(value, most)
-    if data.get("is_free_tier") is True and account.get("free_tier_requests_per_day"):
+    if account_tier(info) == "free" and account.get("free_tier_requests_per_day"):
         return account["free_tier_requests_per_day"]
     return None
 
 
-def read_account(conf, key, opener=None, url=None):
-    """GET /api/v1/key with the key (one call, no model is asked, nothing is counted): its JSON, or None."""
+def _no_redirects():
+    """An opener that follows no redirect: the key's Authorization header never goes to another address."""
+    import urllib.request
+
+    class Refuse(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            return None
+    return urllib.request.build_opener(Refuse()).open
+
+
+def read_account(conf, key, opener=None, url="https://openrouter.ai/api/v1/key"):
+    """GET /api/v1/key with the key (one call, no model is asked, nothing is counted, no redirect followed):
+    its JSON, or None."""
     import urllib.request
     if not key:
         return None
-    req = urllib.request.Request(url or "https://openrouter.ai/api/v1/key", headers={
-        "Authorization": "Bearer " + key, "User-Agent": "IKE-autofix"})
+    if opener is None or opener is urllib.request.urlopen:
+        opener = _no_redirects()
+    req = urllib.request.Request(url, headers={"Authorization": "Bearer " + key, "User-Agent": "IKE-autofix"})
     try:
-        with (opener or urllib.request.urlopen)(req, timeout=20) as r:
+        with opener(req, timeout=20) as r:
+            if getattr(r, "status", 200) != 200:
+                return None
             return json.loads(r.read(200_000).decode("utf-8", "replace"))
     except Exception:
         return None
@@ -392,6 +530,7 @@ class Budget:
         self.candidate = str(candidate or "")[:120]
         self.tier_b = bool(tier_b)
         self.clock = clock or time.time
+        self.started = self.clock()
         self.now = now_utc(now)
         self.day = day_of(now)
         # real updates first (2026-11-24): this run's class, and the work of class 1 or 2 still pending
@@ -408,23 +547,35 @@ class Budget:
     def conf(self, provider):
         return self.limits["providers"].get(provider) or dict(FALLBACK)
 
+    def day_for(self, provider):
+        """The key of the provider's own day in quota.json (provider_day)."""
+        return provider_day(self.conf(provider), self.now)
+
+    def _p(self, provider):
+        return _prov(self.state, self.day_for(provider), provider)
+
     def used(self, provider):
-        p = _prov(self.state, self.day, provider)
+        p = self._p(provider)
         return p["requests"], p["tokens"]
 
     def spent(self, provider):
-        return _prov(self.state, self.day, provider).get("spent") or ""
+        """Why the provider is spent today for this run's class ("" when it is not): a 429 that work of class 3
+        or 4 got spends it only for classes 3 and 4 (spent_low), never for security fixes and real updates."""
+        p = self._p(provider)
+        if self.priority >= CI and p.get("spent_low"):
+            return p.get("spent") or p["spent_low"]
+        return p.get("spent") or ""
 
     def day_limit(self, provider, kind):
         """Today's limit of requests or tokens: what the provider's own headers said, else the data file."""
-        obs = (_prov(self.state, self.day, provider).get("observed") or {}).get(kind) or {}
+        obs = (self._p(provider).get("observed") or {}).get(kind) or {}
         if obs.get("window") == "day" and isinstance(obs.get("limit"), int) and obs["limit"] > 0:
             return obs["limit"]
         return self.conf(provider).get("%s_per_day" % kind)
 
     def remaining(self, provider):
         """{"requests": n or None, "tokens": n or None} left today (None: no daily limit known)."""
-        p = _prov(self.state, self.day, provider)
+        p = self._p(provider)
         out = {}
         for kind in ("requests", "tokens"):
             limit = self.day_limit(provider, kind)
@@ -449,21 +600,25 @@ class Budget:
         return ""
 
     def minute_limit(self, provider, kind):
-        obs = (_prov(self.state, self.day, provider).get("observed") or {}).get(kind) or {}
+        obs = (self._p(provider).get("observed") or {}).get(kind) or {}
         if obs.get("window") == "minute" and isinstance(obs.get("limit"), int) and obs["limit"] > 0:
             return obs["limit"]
         return self.conf(provider).get("%s_per_minute" % kind)
 
     # --- real updates first (the owner's decision of 2026-11-24) ---
     def account(self, provider, info):
-        """What the provider's account says about its day (OpenRouter's GET /api/v1/key): the cap of requests a
-        day that all its free models share. True when a cap was read."""
+        """What the provider's account says about its day (OpenRouter's GET /api/v1/key): whether it is on the free
+        tier (recorded for the signing notice) and then the documented cap of requests a day that all its free
+        models share. True when the free tier's cap was taken; otherwise the file's value stays."""
         if provider not in self.limits["providers"]:
             return False
+        p = self._p(provider)
+        tier = account_tier(info)
+        if tier:
+            p["account"] = tier
         limit = account_limit(self.conf(provider), info)
         if not limit:
             return False
-        p = _prov(self.state, self.day, provider)
         obs = p["observed"].get("requests") or {}
         if obs.get("window") == "day" and isinstance(obs.get("remaining"), int):
             obs["limit"] = limit               # the headers' own count of the day stays
@@ -473,60 +628,61 @@ class Budget:
 
     def class_used(self, provider, classes=(SECURITY, UPDATE)):
         """(requests, tokens) used today by the work of these classes."""
-        by = _prov(self.state, self.day, provider).get("classes") or {}
+        by = self._p(provider).get("classes") or {}
         return (sum(int((by.get(str(c)) or {}).get("requests") or 0) for c in classes),
                 sum(int((by.get(str(c)) or {}).get("tokens") or 0) for c in classes))
 
-    def release_window(self, provider):
-        """(True, hours) in the last release_hours hours before the provider's own reset: what is left above
-        the margin then goes to the background too. (False, hours to the reset) otherwise."""
-        hours = (next_reset(self.conf(provider), self.now) - self.now).total_seconds() / 3600.0
-        return hours <= float(self.limits["priority"]["release_hours"]), round(hours, 2)
+    def next_reset(self, provider):
+        obs = (self._p(provider).get("observed") or {}).get("requests")
+        return next_reset(self.conf(provider), self.now, obs)
 
-    def reserve_left(self, provider, kind):
-        """How much of today's requests or tokens stays kept for classes 1 and 2 (None: no daily limit): the
-        reserve share of the day less what they already used, and in the release window only the margin."""
-        limit = self.day_limit(provider, kind)
-        if limit is None:
-            return None
-        pr = self.limits["priority"]
-        used = self.class_used(provider)[0 if kind == "requests" else 1]
-        keep = max(0, int(math.ceil(limit * float(pr["reserve_share"]))) - used)
-        if self.release_window(provider)[0]:
-            keep = min(keep, int(math.ceil(limit * float(pr["release_margin"]))))
-        return keep
+    def in_maintenance(self):
+        """True while the real day's maintenance runs (maintenance_window, UTC: the security tests, the daily
+        check and candidates, and their automatic fixes): the day's real needs are not known yet."""
+        win = self.limits["priority"].get("maintenance_window") or PRIORITY["maintenance_window"]
+        minute = self.now.hour * 60 + self.now.minute
+        start, end = (int(win[k][:2]) * 60 + int(win[k][3:]) for k in ("start", "end"))
+        return start <= minute < end if start <= end else (minute >= start or minute < end)
+
+    def leftover_window(self, provider):
+        """(True, why) when the background (classes 3 and 4) may take this provider's leftovers now, by the
+        clock alone: a provider whose reset a person verified, in the last release_hours hours of its own day;
+        one whose reset is not verified, once the real day's maintenance window has passed (its use is
+        counted on its own day). (False, why not) otherwise."""
+        hours = (self.next_reset(provider) - self.now).total_seconds() / 3600.0
+        if (self.conf(provider).get("reset") or {}).get("verified"):
+            if hours <= float(self.limits["priority"]["release_hours"]):
+                return True, "the last %.1f hours of its day" % hours
+            return False, ("its day's leftovers go to the background only in its last %s hours (%.1f hours to its "
+                           "reset)" % (self.limits["priority"]["release_hours"], hours))
+        if self.in_maintenance():
+            win = self.limits["priority"].get("maintenance_window") or PRIORITY["maintenance_window"]
+            return False, ("its reset is not verified: the background waits until the real day's maintenance is "
+                           "over (%s-%s UTC)" % (win["start"], win["end"]))
+        return True, "the real day's maintenance is over (its reset is not verified)"
 
     def paused(self, provider=None):
-        """Why background work pauses now ("" when it may run): work of class 1 or 2 is pending or retrying,
-        except in the provider's release window (then only its margin stays kept)."""
+        """Why work of class 3 or 4 pauses now ("" when it may run): work of class 1 or 2 is pending or retrying.
+        Never lifted while it is: real updates may always use everything."""
         if not self.pending:
-            return ""
-        if provider is not None and self.release_window(provider)[0]:
             return ""
         return ("paused for real updates first: work of class 1 or 2 is pending or retrying (%s)"
                 % ", ".join(self.pending[:4]) + (" and %d more" % (len(self.pending) - 4) if len(self.pending) > 4 else ""))
 
-    def priority_why(self, provider, requests, tokens, purpose="fix", klass=None):
-        """"" when work of this class may take this much of the provider now, else why not."""
+    def priority_why(self, provider, requests=1, tokens=0, purpose="fix", klass=None):
+        """"" when work of this class may ask the provider now, else why not (the owner's rule of 2026-11-24):
+        security fixes and real updates (classes 1 and 2) may always use all of every free quota; the CI's
+        updates and background work (classes 3 and 4) only what real work leaves: never while work of class 1 or
+        2 is pending, and only in the provider's leftover window (leftover_window). Then everything left is
+        theirs (the provider's own limits still hold)."""
         klass = self.priority if klass is None else klass
         if klass <= UPDATE:
             return ""
-        if klass >= BACKGROUND and purpose == "fix":
-            why = self.paused(provider)
-            if why:
-                return why
-        left = self.remaining(provider)
-        for kind, need in (("requests", requests), ("tokens", tokens)):
-            keep = self.reserve_left(provider, kind)
-            if keep is None or left[kind] is None:
-                continue
-            if left[kind] - need < keep:
-                return ("the reserve for security fixes and real updates: %d %s of today stay kept for them "
-                        "(%d left, %d needed; class %d, %s, uses only what is above it%s)" % (
-                            keep, kind, left[kind], need, klass, CLASSES[klass],
-                            "" if self.release_window(provider)[0] else
-                            "; released %s hours before its reset" % self.limits["priority"]["release_hours"]))
-        return ""
+        why = self.paused(provider)
+        if why:
+            return why
+        ok, why = self.leftover_window(provider)
+        return "" if ok else "class %d (%s) uses only what real work leaves: %s" % (klass, CLASSES[klass], why)
 
     def reviewers_left(self, author):
         """The providers other than the author that still have room for one review today (for this run's
@@ -553,7 +709,7 @@ class Budget:
         if why:
             return False, why
         if purpose == "fix":
-            p = _prov(self.state, self.day, provider)
+            p = self._p(provider)
             mine = p["by"].get(self.candidate) or {}
             share = self.limits["share_per_candidate"]
             for kind, need in (("requests", requests), ("tokens", tokens)):
@@ -619,7 +775,7 @@ class Budget:
                 real = value
         tokens = int(real if real is not None else max(0, int(tokens or 0)))
         requests = max(0, int(requests))
-        p = _prov(self.state, self.day, provider)
+        p = self._p(provider)
         p["requests"] += requests
         p["tokens"] += tokens
         if self.candidate and purpose == "fix":
@@ -633,6 +789,8 @@ class Budget:
         seen = observe(conf, headers)
         for kind, obs in seen.items():
             obs["mark"] = p[kind]
+            # when it was read, so that a reset of the day can be placed in time (next_reset)
+            obs["at"] = int(self.now.timestamp() + max(0, self.clock() - self.started))
             p["observed"][kind] = obs
             if obs.get("window") == "day" and obs.get("remaining") == 0:
                 p["spent"] = "its own headers say nothing is left today"
@@ -642,22 +800,30 @@ class Budget:
             wait = retry_after(headers)
             daily = any(w and w.lower() in str(body or "").lower() for w in conf.get("day_words") or ())
             if daily or wait > 3600:
-                p["spent"] = "429: the quota of the day (%s)" % ("it says so" if daily else "retry after %d s" % wait)
+                why = "429: the quota of the day (%s)" % ("it says so" if daily else "retry after %d s" % wait)
+                # work of class 3 or 4 spends it only for itself: security fixes and real updates still ask
+                p["spent_low" if self.priority >= CI else "spent"] = why
             else:
                 self.blocked_until[provider] = self.clock() + (wait if wait > 0 else 60)
         elif status == 402:
             p["spent"] = "it asked for money (not free)"
 
     def mark_spent(self, provider, why):
+        """Spent today: for everybody, except a quota answer (429) that work of class 3 or 4 got."""
         if provider in self.limits["providers"]:
-            _prov(self.state, self.day, provider)["spent"] = str(why)[:120]
+            low = self.priority >= CI and "429" in str(why)
+            self._p(provider)["spent_low" if low else "spent"] = str(why)[:120]
 
     def delta(self):
-        """What this run adds, for the job that writes the data branch (numbers and known names only)."""
-        day = _day(self.state, self.day)
-        return {"schema": SCHEMA, "day": self.day, "candidate": self.candidate, "calls": self.calls,
-                "spent": {n: p.get("spent") for n, p in day["providers"].items() if p.get("spent")},
-                "observed": {n: p.get("observed") for n, p in day["providers"].items() if p.get("observed")},
+        """What this run adds, for the job that writes the data branch (numbers and known names only); each
+        provider's use goes to its own day (days)."""
+        mine = {n: self._p(n) for n in NAMES if n in self.limits["providers"]}
+        return {"schema": SCHEMA, "day": self.day, "days": {n: self.day_for(n) for n in mine},
+                "candidate": self.candidate, "calls": self.calls,
+                "spent": {n: p.get("spent") for n, p in mine.items() if p.get("spent")},
+                "spent_low": {n: p.get("spent_low") for n, p in mine.items() if p.get("spent_low")},
+                "accounts": {n: p.get("account") for n, p in mine.items() if p.get("account") in ("free", "not-free")},
+                "observed": {n: p.get("observed") for n, p in mine.items() if p.get("observed")},
                 "skipped": dict(self.skipped), "result": self.result}
 
 
@@ -677,13 +843,25 @@ def merge(state, delta, now=None):
     if not re.fullmatch(r"\d{4}-\d\d-\d\d", day) or abs(
             (dt.date.fromisoformat(day) - now_utc(now).date()).days) > 1:
         return state                               # not of today (or yesterday, around midnight)
+    days = delta.get("days") if isinstance(delta.get("days"), dict) else {}
+
+    def day_of_provider(name):
+        """The provider's own day the run gave, when it is a date of today or yesterday; else the run's day."""
+        value = str(days.get(name) or "")
+        if re.fullmatch(r"\d{4}-\d\d-\d\d", value):
+            try:
+                if abs((dt.date.fromisoformat(value) - now_utc(now).date()).days) <= 1:
+                    return value
+            except ValueError:
+                pass
+        return day
     candidate = _text(delta.get("candidate"), 120)
     # the class of the run's work, by its branch (the reserve of classes 1 and 2 is counted per day)
     klass = priority_of(candidate if re.fullmatch(r"[A-Za-z0-9._/-]{1,120}", candidate) else "", load_limits())
     for call in (delta.get("calls") or [])[:400] if isinstance(delta.get("calls"), list) else ():
         if not isinstance(call, dict) or call.get("provider") not in NAMES:
             continue
-        p = _prov(state, day, call["provider"])
+        p = _prov(state, day_of_provider(call["provider"]), call["provider"])
         requests, tokens = _count(call.get("requests"), 10 ** 4), _count(call.get("tokens"))
         p["requests"] += requests
         p["tokens"] += tokens
@@ -694,13 +872,17 @@ def merge(state, delta, now=None):
             mine["tokens"] = _count(mine.get("tokens")) + tokens
             if len(p["by"]) > 40:
                 del p["by"][sorted(p["by"])[0]]
-    for name, why in (delta.get("spent") or {}).items() if isinstance(delta.get("spent"), dict) else ():
-        if name in NAMES and why:
-            _prov(state, day, name)["spent"] = _text(why, 120)
+    for field in ("spent", "spent_low"):
+        for name, why in (delta.get(field) or {}).items() if isinstance(delta.get(field), dict) else ():
+            if name in NAMES and why:
+                _prov(state, day_of_provider(name), name)[field] = _text(why, 120)
+    for name, tier in (delta.get("accounts") or {}).items() if isinstance(delta.get("accounts"), dict) else ():
+        if name in NAMES and tier in ("free", "not-free"):
+            _prov(state, day_of_provider(name), name)["account"] = tier
     for name, seen in (delta.get("observed") or {}).items() if isinstance(delta.get("observed"), dict) else ():
         if name not in NAMES or not isinstance(seen, dict):
             continue
-        p = _prov(state, day, name)
+        p = _prov(state, day_of_provider(name), name)
         for kind in ("requests", "tokens"):
             obs = seen.get(kind)
             if not isinstance(obs, dict):
@@ -708,7 +890,7 @@ def merge(state, delta, now=None):
             # the mark is the count at the reading in that run: here, the count after this run's calls. Only
             # what the reading had: a cap read from the account (no count) must not read as "nothing left"
             row = {"window": "day" if obs.get("window") == "day" else "minute", "mark": p[kind]}
-            for field, most in (("limit", 10 ** 10), ("remaining", 10 ** 10), ("reset", 10 ** 7)):
+            for field, most in (("limit", 10 ** 10), ("remaining", 10 ** 10), ("reset", 10 ** 7), ("at", 10 ** 11)):
                 if isinstance(obs.get(field), int) and not isinstance(obs.get(field), bool):
                     row[field] = _count(obs.get(field), most)
             if "limit" in row or "remaining" in row:
@@ -759,26 +941,31 @@ def summary(limits, state, now=None):
                      "tokens_limit": budget.day_limit(name, "tokens"),
                      "requests_left": left["requests"], "tokens_left": left["tokens"],
                      "verified": bool(conf.get("verified")), "spent": budget.spent(name),
-                     "live": bool((_prov(state, budget.day, name).get("observed") or {})),
+                     "live": bool((budget._p(name).get("observed") or {})),
                      "week_requests": week[0], "week_tokens": week[1],
                      # real updates first: today's use of classes 1 and 2, and what stays kept for them
-                     "real_requests": budget.class_used(name)[0], "reserve_requests": budget.reserve_left(name, "requests"),
-                     "reset_verified": bool((conf.get("reset") or {}).get("verified"))})
+                     "real_requests": budget.class_used(name)[0],
+                     "background_requests": budget.class_used(name, (CI, BACKGROUND))[0],
+                     "day": budget.day_for(name),
+                     "reset_verified": bool((conf.get("reset") or {}).get("verified")),
+                     "account": (budget._p(name).get("account") or "")})
     return rows
 
 
-def background_status(limits, state, memory=None, now=None, available=None, pending=None, klass=BACKGROUND):
+def background_status(limits, state, memory=None, now=None, available=None, pending=None, klass=BACKGROUND, prs=None):
     """Whether background work (class 4; or class 3 with klass) may ask a free AI now: {"state": "open" |
     "released" | "paused" | "no-room", "why", "pending", "providers": [those with room]}. Read by the drill's
-    scheduler (tools/automat-drill.py) before it starts any of the drill's work again."""
+    scheduler (tools/automat-drill.py) before it starts any of the drill's work again. prs: what
+    pending_from_prs read of the open pull requests (with "closed": branches whose pull request was closed)."""
     limits = limits or load_limits()
-    pending = pending_work(memory, limits, now) if pending is None else list(pending)
+    pending = pending_all(memory, limits, now, prs) if pending is None else list(pending)
     names = tuple(available) if available is not None else NAMES
     budget = Budget(limits, state, "", now=now, available=names, pending=pending)
     reserve = limits["reserve"]
     room, released, why = [], [], ""
     for name in names:
-        if name not in limits["providers"] or budget.spent(name):
+        if name not in limits["providers"] or budget.spent(name) or \
+                budget._p(name).get("spent_low"):
             continue
         # one request of the size of a review (within the provider's limit per minute)
         size = min(reserve["review_tokens"], budget.minute_limit(name, "tokens") or reserve["review_tokens"])
@@ -789,16 +976,32 @@ def background_status(limits, state, memory=None, now=None, available=None, pend
             why = why or no
             continue
         room.append(name)
-        if budget.release_window(name)[0]:
+        if (budget.conf(name).get("reset") or {}).get("verified"):
             released.append(name)
-    if room:
-        state_ = "released" if pending and released else "open"
-        why = ("the last hours of the providers' day: what is left above the margin goes to the background (%s)"
-               % ", ".join(released)) if state_ == "released" else ""
+    if pending:
+        state_, why = "paused", budget.paused()
+    elif room:
+        state_ = "released" if released else "open"
+        why = "what real work left today goes to the background (%s)" % ", ".join(room)
     else:
-        state_ = "paused" if pending and klass >= BACKGROUND else "no-room"
-        why = budget.paused() if state_ == "paused" else (why or "no free provider has room above the reserve today")
+        state_ = "no-room"
+        why = why or "no free provider has anything left for the background now"
     return {"state": state_, "why": why, "pending": pending, "providers": room}
+
+
+def pending_for_run(memory_path=None, pending_path=None, limits=None):
+    """The pending work of class 1 or 2 a run of the automatic fix waits for: the plan's list (pending_path: the
+    open pull requests with checks not green and the memory's rows still open, one branch a line), else the
+    memory's rows alone."""
+    if pending_path:
+        try:
+            lines = Path(pending_path).read_text("utf-8").split()
+        except OSError:
+            lines = None
+        if lines is not None:
+            return sorted({x for x in lines if re.fullmatch(r"automation/[A-Za-z0-9._/-]{1,110}", x)
+                           and priority_of(x, limits) <= UPDATE})
+    return pending_work(_read_json(memory_path), limits)
 
 
 def _read_json(path):
@@ -836,7 +1039,22 @@ def main(argv=None):
     q.add_argument("--state", default="")
     q.add_argument("--limits")
     q.add_argument("--memory")
+    w = sub.add_parser("pending")
+    w.add_argument("--repo", required=True)
+    w.add_argument("--memory")
+    w.add_argument("--limits")
+    w.add_argument("--out", help="the JSON {pending, open, closed}; without it the pending branches, comma-separated")
+    w.add_argument("--no-runs", action="store_true", help="only the open and closed pull requests (no runs read)")
     a = ap.parse_args(argv)
+    if a.cmd == "pending":
+        limits = load_limits(a.limits)
+        prs = gather_prs(a.repo, gh_api, _read_json(a.memory), limits, runs=not a.no_runs)
+        prs["all"] = pending_all(_read_json(a.memory), limits, None, prs)
+        if a.out:
+            Path(a.out).write_text(json.dumps(prs, indent=1, sort_keys=True) + "\n", "utf-8")
+        else:
+            print(",".join(prs["all"]))
+        return 0
     if a.cmd == "priority":
         limits = load_limits(a.limits)
         klass = priority_of(a.candidate, limits)
