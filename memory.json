@@ -169,12 +169,6 @@
    "sig": "e2bc2dd6dd0c696d",
    "since": "2026-11-24"
   },
-  "automation/update/darkreader": {
-   "date": "2026-11-24",
-   "n": 1,
-   "sig": "e2bc2dd6dd0c696d",
-   "since": "2026-11-24"
-  },
   "automation/update/drill-qt": {
    "date": "2026-11-24",
    "n": 2,
