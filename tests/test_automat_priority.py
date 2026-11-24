@@ -445,3 +445,14 @@ def test_the_drill_workflow_says_it_and_keeps_its_permissions():
     wf = (ROOT / ".github/workflows/automat-drill.yml").read_text("utf-8")
     assert "Real updates first" in wf and "actions: write" in wf and "contents: write" in wf
     assert '"41 */3 * * *"' in wf
+
+
+def test_the_documents_say_it():
+    doc = (ROOT / "docs/MAINTENANCE.md").read_text("utf-8")
+    section = doc.split("### Real updates first, and every day's free quota used (2026-11-24)", 1)[1].split("\n## ", 1)[0]
+    for word in ("reserve_share", "pending_days", "release_hours", "release_margin", "--quota-memory", "/api/v1/key",
+                 "shared_free_models", "Not verified", "automation/update/drill-*", "automation/update/ci-*",
+                 "automation/update/security-*", "tests/test_automat_priority.py", "run/<id>"):
+        assert word in section, word
+    roadmap = (ROOT / "ROADMAP.md").read_text("utf-8")
+    assert "AUTOMAT, block 1" in roadmap and "AUTOMAT block 1 (2026-11-24" in roadmap.split("## Status", 1)[1]

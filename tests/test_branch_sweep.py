@@ -288,3 +288,13 @@ def test_the_weekly_workflow_is_small_runs_from_main_and_writes_its_summary():
     assert "secrets." not in wf
     health = (WORKFLOWS / "health.yml").read_text("utf-8")
     assert "grep -q '^  schedule:'" in health                  # kept turned on like every scheduled workflow
+
+
+def test_the_documents_say_it():
+    doc = (ROOT / "docs/MAINTENANCE.md").read_text("utf-8")
+    section = doc.split("### The cleanup of the branches (2026-11-24)", 1)[1].split("\n## ", 1)[0]
+    for name in sorted(sweep_tool.PROTECTED):
+        assert "`%s`" % name in section, name
+    for word in ("delete_head", "branch-sweep.yml", "release/*", "never deleted", "--dry-run", "summary"):
+        assert word in section, word
+    assert "`branch-sweep.yml`" in doc.split("## What runs by itself", 1)[1]
