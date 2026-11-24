@@ -311,6 +311,13 @@ def steps(ike, qapp, out):
     v = win.current_view()
     v.load(QUrl.fromLocalFile(p))
     yield 3000
+    # the engine's viewer draws its grey (#282828) until the page is drawn: on a slow machine
+    # (Arch's runner) that takes longer than 3 s, so the page is waited for, up to 20 s more
+    for _ in range(40):
+        if v.grab().toImage().pixelColor(500, 350).name() != "#282828":
+            break
+        yield 500
+    yield 300
     res = {}
     def filt(key):
         v.page().runJavaScript("(document.querySelector('embed')||{style:{}}).style.filter||''", 1,
@@ -327,6 +334,10 @@ def steps(ike, qapp, out):
     dlg.apply()
     dlg.close()
     yield 800
+    for _ in range(20):           # the same wait once the filter changed (the page is drawn again)
+        if v.grab().toImage().pixelColor(500, 350).name() != "#282828":
+            break
+        yield 500
     filt("after")
     yield 300
     out["after"] = res.get("after")
