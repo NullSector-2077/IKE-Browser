@@ -1,5 +1,19 @@
 {
  "attempts": {
+  "automation/update/crates@e2bc2dd6dd0c696d": [
+   {
+    "attempt": 1,
+    "date": "2026-11-24",
+    "detail": "budget",
+    "files": [],
+    "model": "",
+    "outcome": "no-fix",
+    "provider": "",
+    "sig": "e2bc2dd6dd0c696d",
+    "summary": "Il test di regressione ha segnalato che l'hash del file fingerprint-config/maximum/fonts \u00e8 cambiato, indicando un peggioramento della privacy. Il cambiamento sembra derivare da una modifica nei dati di configurazione dei font, ma non \u00e8 chiaro quale sia la causa esatta nel codice.",
+    "task": "rust"
+   }
+  ],
   "automation/update/drill-qt@19bd99de16c06f44": [
    {
     "attempt": 2,
@@ -111,6 +125,12 @@
  "schema": 1,
  "solved": {},
  "streak": {
+  "automation/update/crates": {
+   "date": "2026-11-24",
+   "n": 1,
+   "sig": "e2bc2dd6dd0c696d",
+   "since": "2026-11-24"
+  },
   "automation/update/drill-qt": {
    "date": "2026-11-24",
    "n": 1,
