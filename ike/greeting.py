@@ -30,6 +30,27 @@ GREETINGS = (
 # more of the same, 1.1.24 (the second batch of the pool)
 MORE_FACTS = ['Fun fact: the Moon drifts away from Earth every year', 'Fun fact: the Pacific is bigger than all the land', 'Fun fact: Mount Everest grows a little every year', 'Fun fact: sharks are older than trees', 'Fun fact: a day on Mars lasts about 24 hours 40 minutes', 'Fun fact: the first webcam watched a coffee pot', 'Fun fact: the word robot comes from Czech', 'Fun fact: butterflies taste with their feet', 'Fun fact: Saturn is less dense than water', 'Fun fact: the Sahara was once green and full of lakes', 'Fun fact: Antarctica is the driest continent', 'Fun fact: in English, a group of flamingos is a flamboyance', 'Fun fact: Venus spins the opposite way to Earth', 'Fun fact: the first message on the internet was LO', 'Fun fact: the first text message was sent in 1992', 'Fun fact: the first computer mouse was made of wood', 'Fun fact: a year on Mercury lasts 88 Earth days', 'Fun fact: the Atlantic grows wider every year']
 MORE_CHEERS = ['Take a moment to look out of the window', 'Smile at someone today', 'You are doing better than you think', 'Progress, not perfection', 'Every day is a fresh page', 'Check in with a friend today', 'Stand up and stretch for a moment', 'Kindness costs nothing', 'Try something new today', 'Rest is part of the work', 'Take your time, there is no rush', 'A warm drink can help', 'Look away from the screen for twenty seconds', 'Be proud of what you did today', 'Curiosity is a good companion', 'Say thank you to someone today', 'Start with the easiest thing', 'A deep breath changes the moment', 'Make room for something you enjoy', 'Wishing you a calm day']
+# 1.1.25: lines for the finer moments of the day and of the week (when each fits: greeting.js, "moment"
+# and "weekday"); the week is the page language's own (Monday is its first working day, Friday the day
+# before its weekend), nothing about any religion or holiday
+MOMENTS = (
+    ("early1", "An early start: the world is still quiet"), ("early2", "Up early? Enjoy the calm before the day"),
+    ("mid1", "Mid-morning: a good time for the tricky tasks"),
+    ("lunch1", "Lunch time: the tabs will wait for you"), ("lunch2", "A real lunch break is time well spent"),
+    ("lunch3", "Hungry? Lunch first, browsing after"),
+    ("after1", "Afternoon dip? A short walk can help"), ("after2", "The home stretch of the day"),
+    ("eve1", "Evening: time for the things you enjoy"), ("eve2", "Evening mode: fewer tabs, more calm"),
+    ("latenight1", "Still up? The internet will be here tomorrow"), ("latenight2", "Night owl mode: on"),
+    ("latenight3", "One last tab, then off to bed?"),
+    ("deep1", "The quietest hour of the night"), ("deep2", "Even the servers are yawning"),
+    ("deep3", "Future you would love some sleep"),
+)
+WEEKDAY = (
+    ("wkstart1", "A new week: one step at a time"), ("wkstart2", "First day of the week: easy does it"),
+    ("wkeve1", "The week is done: well done"), ("wkeve2", "The weekend starts this evening"),
+    ("wkend1", "No rush today: it's the weekend"), ("wkend2", "A slow weekend morning: enjoy it"),
+    ("wkend3", "Make this weekend evening a nice one"),
+)
 PERIOD = ['Good things are coming today', 'A new day, a new chance', 'Keep going, you are halfway there', 'A good moment for some fresh air', 'Time to relax, you earned it', 'The day is done, well done', 'A quiet time to wind down', 'Tomorrow is a new day']
 # the pool of friendly lines: [group, [(key, words)]]; the groups, their weights and when each
 # line fits are in greeting.js (tests/test_greeting.py compares the two lists of keys)
@@ -50,6 +71,8 @@ POOL = (
                  ("sun", "Enjoy the sun"))),
     ("week", (("week", "Have a good start to the week"), ("soon", "The weekend is near"),
               ("weekend", "Have a nice weekend"))),
+    ("weekday", WEEKDAY),
+    ("moment", MOMENTS),
     ("period", (("morning1", "A fresh start to the day"), ("morning2", "Ready for a good day?"),
                 ("afternoon1", "Hope your day is going well"), ("afternoon2", "Time for a short break?"),
                 ("evening1", "Hope you had a good day"), ("evening2", "Time to slow down a little"),

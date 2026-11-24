@@ -74,10 +74,11 @@ def build(view, req):
         add(T("Open link in private window"),
             lambda: app.new_window(private=True, urls=[link]), ("view-private", "preferences-system-privacy-symbolic"))
         if not win.private and win.ext_on("containers"):
-            sub = menu.addMenu(_ic(("folder-locked", "folder-lock", "channel-secure-symbolic", "object-locked")),
-                               T("Open link in container"))
+            from .features import CONTAINER_ICON, colour_dot
+            sub = menu.addMenu(_ic(CONTAINER_ICON), T("Open link in container"))
             for c in app.config["containers"]:
-                a = sub.addAction(c["name"])
+                # 1.1.25: each with its colour, as in the tab menu's "Reopen in container"
+                a = sub.addAction(colour_dot(c.get("color")), c["name"])
                 a.triggered.connect(lambda _c=False, n=c["name"]: win.add_tab(
                     link, background=True, after=view, container=n))
         if win.ext_on("split"):

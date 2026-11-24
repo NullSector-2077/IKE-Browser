@@ -72,3 +72,38 @@ def test_settings_keys_unchanged(run_ike, tmp_path):
                              .read_text("utf-8")))
     expected = json.loads((ROOT / "tests" / "settings-keys.json").read_text("utf-8"))
     assert keys == expected
+
+
+def test_settings_write_the_weather_units(run_ike, tmp_path):
+    """Wind speed and pressure sit next to the temperature unit (1.1.25): "Automatic" first, the choices
+    as symbols; applying writes the keys."""
+    out = run_ike("""
+        def steps(ike, qapp, out):
+            yield 600
+            import json
+            from ike.config import CONFIG_DIR
+            dlg = ike.show_settings(ike.windows[0])
+            yield 400
+            out["wind_items"] = [dlg.wind_unit.itemText(i) for i in range(dlg.wind_unit.count())]
+            out["wind_data"] = [dlg.wind_unit.itemData(i) for i in range(dlg.wind_unit.count())]
+            out["p_items"] = [dlg.pressure_unit.itemText(i) for i in range(dlg.pressure_unit.count())]
+            out["p_data"] = [dlg.pressure_unit.itemData(i) for i in range(dlg.pressure_unit.count())]
+            out["start"] = [dlg.wind_unit.currentData(), dlg.pressure_unit.currentData()]
+            dlg.wind_unit.setCurrentIndex(dlg.wind_unit.findData("kn"))
+            dlg.pressure_unit.setCurrentIndex(dlg.pressure_unit.findData("mmhg"))
+            dlg.apply()
+            yield 100
+            saved = json.loads((CONFIG_DIR / "settings.json").read_text("utf-8"))
+            out["saved"] = [saved["weather_wind_unit"], saved["weather_pressure_unit"], saved["weather_unit"]]
+            dlg.close()
+            dlg = ike.show_settings(ike.windows[0])
+            yield 400
+            out["again"] = [dlg.wind_unit.currentData(), dlg.pressure_unit.currentData()]
+            dlg.close()
+    """, env=screen(tmp_path, 1280, 800))
+    assert out["wind_items"][1:] == ["km/h", "mph", "m/s", "kn"]
+    assert out["wind_data"] == ["auto", "kmh", "mph", "ms", "kn"]
+    assert out["p_items"][1:] == ["hPa", "mbar", "inHg", "mmHg"]
+    assert out["p_data"] == ["auto", "hpa", "mbar", "inhg", "mmhg"]
+    assert out["start"] == ["auto", "auto"]
+    assert out["saved"] == ["kn", "mmhg", "celsius"] and out["again"] == ["kn", "mmhg"]

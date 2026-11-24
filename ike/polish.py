@@ -1724,12 +1724,19 @@ def _base_style_name():
     return (base.name() if base is not None else "").lower()
 
 
+def native_popup_style(name):
+    """True for a widget style (by its name) that draws the menus' own
+    rounded frame and has the compositor draw their shadow."""
+    name = (name or "").lower()
+    return name in ("breeze", "oxygen") or "kvantum" in name
+
+
 def native_popups():
     """True where the widget style draws the menus' own rounded frame and has
     the compositor draw their shadow (Breeze and Oxygen ask KWin for it,
-    Kvantum's themes have their own): those menus are left as they are."""
-    name = _base_style_name()
-    return name in ("breeze", "oxygen") or "kvantum" in name
+    Kvantum's themes have their own): those menus are left as they are
+    (1.1.25: elsewhere I.K.E. draws every menu itself, uistyle.IkeStyle)."""
+    return native_popup_style(_base_style_name())
 
 
 def translucent_popups():

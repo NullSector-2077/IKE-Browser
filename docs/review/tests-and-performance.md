@@ -84,6 +84,102 @@ between the two sessions; only figures of the same session are compared.)
 These numbers describe a small container without a GPU. They say that the
 versions do not differ, not how fast I.K.E. is on the owner's computer.
 
+## 1.1.25 fingerprinting
+
+The owner asked whether the fingerprinting changes of 1.1.25 cost anything.
+
+**How it was measured.** `tests/measure_fp125.py` (new): the Arch container
+(4 shared cores, no GPU, software WebGL as the tests, `offscreen`), the
+default lists as far as they could be had offline. Before = `main` at
+5c26c2f, after = this branch; the two copies alternate start by start, at
+Balanced, Strict and Maximum; each start times every item 5 times inside the
+page (performance.now) and keeps the median; 5 starts of each copy at each
+level: the median of the 5 medians, and their spread (min-max), in ms.
+
+| ms | Balanced before | Balanced after | Strict before | Strict after | Maximum before | Maximum after |
+|---|---|---|---|---|---|---|
+| 30 frames put in and loaded | 390.9 (326.2-402.6) | 352.3 (336.4-389.8) | 978.0 (910.5-1089.9) | 1056.2 (941.0-1129.6) | 1005.8 (983.6-1106.7) | 1035.4 (961.4-1054.2) |
+| an inline (blob) worker, to its first message | 34.5 (30.1-41.0) | 33.2 (28.9-41.0) | 58.7 (52.0-68.1) | 44.3 (31.3-51.2) | 60.7 (55.4-73.0) | 40.6 (29.0-54.6) |
+| a worker from a file (classic) | 7.9 (7.1-10.0) | 7.7 (7.5-16.0) | 9.7 (7.9-12.6) | 19.6 (17.2-26.4) | 11.5 (10.7-13.8) | 17.8 (16.8-23.4) |
+| a worker from a file (module) | 7.6 (6.3-9.6) | 7.4 (6.9-8.5) | 8.5 (7.4-13.3) | 20.9 (18.8-22.1) | 9.1 (7.9-22.3) | 18.2 (16.8-21.7) |
+| 20 workers from a file at once | 72.7 (60.7-87.7) | 68.4 (62.9-88.5) | 77.8 (70.4-96.2) | 226.8 (195.3-235.4) | 93.0 (81.1-95.8) | 203.7 (195.0-261.6) |
+| getImageData, 1000 x 1000 canvas with text | 7.7 (6.9-9.1) | 7.5 (6.8-12.8) | 7.4 (7.3-8.2) | 8.4 (7.1-10.6) | 7.9 (7.5-11.5) | 8.7 (7.2-10.4) |
+| toDataURL, the same | 17.0 (14.4-17.4) | 16.7 (15.5-18.6) | 17.8 (15.2-23.4) | 17.0 (15.9-21.2) | 17.6 (16.9-18.7) | 18.9 (16.2-19.2) |
+| getImageData, 1000 x 1000 canvas of rectangles | 5.2 (4.8-5.6) | 5.1 (4.8-5.3) | 5.1 (4.8-5.8) | 3.2 (3.0-3.4) | 5.2 (4.7-5.7) | 3.3 (3.0-3.4) |
+| toDataURL, the same | 14.4 (12.6-15.3) | 13.7 (12.7-14.6) | 14.1 (11.8-18.1) | 6.3 (5.8-6.4) | 14.4 (13.1-14.6) | 6.3 (6.0-6.5) |
+| 10,000 WebGL getParameter | 1.6 (1.1-1.8) | 1.1 (0.9-1.2) | 1.1 (0.9-1.1) | 1.3 (1.1-2.5) | 1.2 (0.9-3.7) | 1.3 (1.3-2.1) |
+| 20 readPixels of 256 x 256 | 19.7 (15.5-25.1) | 17.8 (16.7-25.3) | 16.6 (16.2-29.3) | 24.0 (22.7-31.1) | 19.2 (18.5-21.2) | 25.4 (23.2-34.1) |
+| 10,000 measureText + width | 8.2 (5.7-11.8) | 6.5 (6.1-8.3) | 19.6 (18.1-28.8) | 8.6 (7.1-10.9) | 22.0 (18.9-32.8) | 8.0 (6.7-10.4) |
+
+**Reading.** Balanced: no difference larger than the spread (nothing of
+Balanced changed but the inline workers' languages). Strict and Maximum:
+
+- **Workers from a file** cost about 10 ms more to start (8-12 -> 17-21 ms),
+  20 at once about 130 ms more (78-93 -> 204-227 ms): before 1.1.25 such a
+  worker started with no protection at all; now it starts as an inline
+  worker does (the protection's own code first). Inline workers start
+  faster than before (59-61 -> 41-44 ms, see below). 20 at once cost less
+  after the review's third round (below).
+- **Canvas**: a canvas of solid rectangles is read about twice as fast
+  (no noise: toDataURL 14 -> 6 ms); one with text costs the same as before
+  within the spread (getImageData 7.4-7.9 -> 8.4-8.7 ms, toDataURL equal).
+- **measureText** is 2.5 times faster (20-22 -> 8-9 ms for 10,000): it is no
+  longer wrapped, the width's noise is computed from the width alone.
+- **WebGL readPixels**: the median is about 0.3 ms more per 256 x 256 read
+  (16.6-19.2 -> 24-25 ms for 20; the spreads touch at Strict, not at
+  Maximum): each pixel is compared with its neighbours so that a plain
+  colour reads back exactly. getParameter: no difference beyond the spread.
+- **Frames**: 30 frames 3-8 % slower (978-1006 -> 1035-1056 ms), inside the
+  spread of both copies (910-1107 against 941-1130): the protection installed
+  in each frame wraps a few more methods.
+
+**What was made cheaper after the first measurement** (the same method,
+Strict, first run against the final one):
+
+| ms | before (main) | first version | final |
+|---|---|---|---|
+| a worker from a file (classic) | 12.6 (8.4-15.2) | 36.3 (32.9-46.3) | 19.6 (17.2-26.4) |
+| a worker from a file (module) | 9.3 (7.5-12.2) | 43.8 (35.0-46.9) | 20.9 (18.8-22.1) |
+| 20 workers from a file at once | 96.1 (81.3-99.0) | 473.4 (467.2-495.4) | 226.8 (195.3-235.4) |
+| an inline (blob) worker, to its first message | 64.0 (54.4-83.1) | 58.7 (49.5-80.4) | 44.3 (31.3-51.2) |
+| getImageData, 1000 x 1000 canvas with text | 8.1 (7.9-9.6) | 19.9 (16.2-22.2) | 8.4 (7.1-10.6) |
+| toDataURL, the same | 18.3 (16.0-19.1) | 23.0 (21.9-27.1) | 17.0 (15.9-21.2) |
+
+- The font masks of a worker (one empty face for each installed font name a
+  site could test, needed at Strict and above) are made when the worker
+  first reaches its fonts (its font set, a FontFace, a canvas of its own),
+  not when it starts: they were about half of a worker's start, and most
+  workers draw no text.
+- The edge noise of a 2D read takes the four one-pixel rows and columns
+  around the part read instead of reading the whole part a second time with
+  a margin, and the whole canvas (toDataURL, toBlob, convertToBlob) needs no
+  second read at all; large pictures skip the pixels that are not looked at
+  instead of testing each one.
+
+**Workers from a file after the review's third round.** A classic script
+is no longer read by the page (the page waited for it, once per worker):
+the worker fetches it itself with `importScripts`; a module's first
+messages are held until it has run. Measured again the same way (5 starts
+of each copy, Strict and Maximum, all items; the others did not move beyond
+their spread):
+
+| ms | Strict before (main) | Strict, round 2 | Strict, round 3 | Maximum before (main) | Maximum, round 2 | Maximum, round 3 |
+|---|---|---|---|---|---|---|
+| a worker from a file (classic) | 8.8 (6.8-11.1) | 19.6 (17.2-26.4) | 18.5 (14.4-24.2) | 8.9 (7.8-10.6) | 17.8 (16.8-23.4) | 19.2 (15.1-23.7) |
+| a worker from a file (module) | 8.0 (5.9-8.5) | 20.9 (18.8-22.1) | 17.6 (15.1-22.8) | 8.6 (7.1-8.9) | 18.2 (16.8-21.7) | 17.4 (15.6-22.1) |
+| 20 workers from a file at once | 69.5 (53.5-75.0) | 226.8 (195.3-235.4) | 120.8 (115.6-157.1) | 66.6 (62.5-78.5) | 203.7 (195.0-261.6) | 133.5 (125.3-152.4) |
+| an inline (blob) worker, to its first message | 51.4 (43.6-58.1) | 44.3 (31.3-51.2) | 32.7 (30.2-46.5) | 57.6 (47.7-67.4) | 40.6 (29.0-54.6) | 39.0 (31.0-42.1) |
+
+("before" and "round 3" from this run; "round 2" from the run above.) One
+worker: the same as in round 2 within the spread, about 10 ms more than
+with no protection. 20 at once: about 50-65 ms more than with no
+protection, where round 2 cost 110-150 ms more: the workers' scripts are
+now fetched side by side, not one after the other by the page.
+
+Not tried: the owner's computer (a real GPU; Ivy Bridge), Speedometer (not
+reachable here). These figures say what differs between the two copies on
+this machine, not how fast I.K.E. is.
+
 ## 1.1.24, the frame guard
 
 The aim: the frame guard of fingerprint.js cheaper, with no frame of a

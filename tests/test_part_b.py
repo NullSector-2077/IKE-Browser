@@ -28,6 +28,7 @@ def test_bookmarks_overflow_button(run_ike):
             more = bar._more
             out["text"] = more.text()
             out["icon"] = not more.icon().isNull()
+            out["size"] = [more.width(), more.height()]
             out["visible"] = bar._more_action.isVisible()
             out["in_bar"] = sum(a.isVisible() for a in bar._marks)
             out["in_menu"] = len(bar._menu.actions())
@@ -42,8 +43,9 @@ def test_bookmarks_overflow_button(run_ike):
                 yield 400
             out["wide_visible"] = bar._more_action.isVisible()
     """, settings={"bookmarks_bar": "always"}, env={"IKE_TEST_SHOTS": SHOTS})
-    assert out["text"] == "»"
-    assert out["icon"] is False
+    # 1.1.25: KDE's double arrow in a square button, no "»" text (tests/test_more_arrows.py)
+    assert out["text"] == ""
+    assert out["icon"] is True and out["size"] == [26, 26]
     assert out["visible"]
     assert out["in_bar"] + out["in_menu"] == 40 and out["in_menu"] > 0
     assert out["wide_visible"] is False
@@ -464,6 +466,9 @@ def test_newtab_clock_and_weather(run_ike, weather_server):
     searches = [p for p in seen if p.startswith("/search")]
     forecasts = [p for p in seen if p.startswith("/forecast")]
     assert len(searches) == 1 and "name=Rome" in searches[0]
-    # only the rounded coordinates (and what to return) are sent, once
-    assert forecasts == ["/forecast?latitude=41.89&longitude=12.51&current=temperature_2m%2Cweather_code%2Cwind_speed_10m"]
+    # only the rounded coordinates (and what to return) are sent, once; 1.1.25 asks the same request
+    # for the few details too (wind direction, felt temperature, humidity, pressure, chance of precipitation)
+    assert forecasts == ["/forecast?latitude=41.89&longitude=12.51&current=temperature_2m%2Cweather_code%2Cwind_speed_10m"
+                         "%2Cwind_direction_10m%2Capparent_temperature%2Crelative_humidity_2m%2Cpressure_msl"
+                         "%2Cprecipitation_probability"]
     assert out["off"] == ""

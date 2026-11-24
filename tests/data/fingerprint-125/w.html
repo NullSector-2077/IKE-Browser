@@ -1,0 +1,14 @@
+<!doctype html><title>workers</title><body><script>
+function T(ms, p) { return Promise.race([p, new Promise(function (ok) { setTimeout(function () { ok('timeout'); }, ms); })]); }
+function ev(e) { return e instanceof ErrorEvent ? ['ErrorEvent', e.message, e.filename, e.lineno] : ['Event', e.type]; }
+function wk(url, opt) { return T(10000, new Promise(function (ok) { try { var w = new Worker(url, opt); w.onmessage = function (e) { ok(e.data); }; w.onerror = function (e) { ok(ev(e)); }; w.postMessage('go'); } catch (e) { ok('THROW ' + e.name); } })); }
+window.__run = async function () {
+  var R = {};
+  R.rel = await wk('relwk.js');
+  R.bad = await wk('/bad.js');
+  R.thrower = await wk('/thrower.js');
+  R.missing = await wk('/missing.js');
+  R.missingModule = await wk('/missing.js', { type: 'module' });
+  return R;
+};
+</script></body>

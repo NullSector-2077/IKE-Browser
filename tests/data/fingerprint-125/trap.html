@@ -1,0 +1,34 @@
+<!doctype html><body><script src="/fontsw.js"></script><script>
+// A page that replaces a frame's toString, then loads the frame, to catch a
+// value the protection hands to it (the review of 1.1.25, round 3, pf.html):
+// none is caught, and the frames find the same fonts as the page
+function T(ms, p) { return Promise.race([p, new Promise(function (ok) { setTimeout(function () { ok('timeout'); }, ms); })]); }
+function frameFonts() { return T(8000, new Promise(function (ok) { addEventListener('message', function h(e) { if (e.data && e.data.fontsFrame) { removeEventListener('message', h); ok(e.data.fontsFrame); } }); })); }
+window.__run = async function () {
+  var R = { page: found(document.createElement('canvas').getContext('2d')) }, caught = [];
+  function trap(w, tag) {
+    var o = w.Function.prototype.toString;
+    w.Function.prototype.toString = function () {
+      if (typeof this !== 'function') caught.push(tag + ' ' + typeof this + ' ' + String(this).slice(0, 60));
+      return o.call(this);
+    };
+  }
+  // an empty frame, its toString replaced, then loaded (its window kept)
+  var f1 = document.createElement('iframe'); document.body.appendChild(f1); trap(f1.contentWindow, 'f1');
+  var p1 = frameFonts(); f1.src = '/fontsf.html'; R.trapped = await p1;
+  // a frame whose own page replaces its toString, then the page around looks again
+  var f2 = document.createElement('iframe'); var p2 = frameFonts(); f2.src = '/fontsf.html'; document.body.appendChild(f2); R.own = await p2;
+  trap(f2.contentWindow, 'f2'); f2.contentWindow.document.body.appendChild(f2.contentWindow.document.createElement('iframe'));
+  document.body.appendChild(document.createElement('iframe'));
+  // the page's own toString replaced, then a new frame
+  trap(window, 'top');
+  var f3 = document.createElement('iframe'); var p3 = frameFonts(); f3.src = '/fontsf.html'; document.body.appendChild(f3); R.afterTop = await p3;
+  await new Promise(function (r) { setTimeout(r, 300); });
+  R.caught = caught;
+  // what a caught value would tell in a fresh frame: Chrome throws for a string
+  var fr = document.createElement('iframe'); document.body.appendChild(fr);
+  R.oracle = caught.map(function (c) { try { fr.contentWindow.Function.prototype.toString.call(c.split(' ').slice(2).join(' ')); return 'returns'; } catch (e) { return 'throws'; } });
+  try { fr.contentWindow.Function.prototype.toString.call('x'); R.stringThis = 'returns'; } catch (e) { R.stringThis = 'throws ' + e.name; }
+  return R;
+};
+</script></body>

@@ -1115,6 +1115,18 @@ class SettingsDialog(QDialog):
         self._city_form = f
         self._show_found(False)
         _row(f, T("Temperature"), self.unit, T("Degrees Celsius or Fahrenheit."))
+        self.wind_unit = QComboBox()
+        self.wind_unit.addItem(T("Automatic"), "auto")
+        for key, label in (("kmh", "km/h"), ("mph", "mph"), ("ms", "m/s"), ("kn", "kn")):
+            self.wind_unit.addItem(label, key)
+        self.wind_unit.setCurrentIndex(max(0, self.wind_unit.findData(self.cfg["weather_wind_unit"])))
+        _row(f, T("Wind"), self.wind_unit, T("Automatic goes with the temperature unit."))
+        self.pressure_unit = QComboBox()
+        self.pressure_unit.addItem(T("Automatic"), "auto")
+        for key, label in (("hpa", "hPa"), ("mbar", "mbar"), ("inhg", "inHg"), ("mmhg", "mmHg")):
+            self.pressure_unit.addItem(label, key)
+        self.pressure_unit.setCurrentIndex(max(0, self.pressure_unit.findData(self.cfg["weather_pressure_unit"])))
+        _row(f, T("Pressure"), self.pressure_unit, T("Automatic goes with the temperature unit."))
         self._background_rows(f)
 
     def _holiday_rows(self, f):
@@ -1978,6 +1990,8 @@ class SettingsDialog(QDialog):
         cfg["greeting_holidays"] = [i for i, sw in self.nt_holidays.items() if sw.isChecked()]
         before = (cfg["weather_city"], cfg["weather_lat"], cfg["weather_lon"], cfg["weather_unit"])
         cfg["weather_unit"] = self.unit.currentData()
+        cfg["weather_wind_unit"] = self.wind_unit.currentData()          # 1.1.25: the new tab reads them as it is drawn
+        cfg["weather_pressure_unit"] = self.pressure_unit.currentData()
         if self._city_pick is not None:
             cfg["weather_city"] = self._city_pick["name"]
             cfg["weather_lat"] = round(self._city_pick["lat"], 2)
@@ -2378,7 +2392,8 @@ class HistoryDialog(QDialog):
         dele = QPushButton(T("Delete selected"))
         clear = QPushButton(T("Clear all history"))
         dele.clicked.connect(self._delete)
-        clear.clicked.connect(lambda: (self.app.storage.clear_history(), self.fill()))
+        # (the downloads list is history too, 1.1.25)
+        clear.clicked.connect(lambda: (self.app.storage.clear_history(), self.app.forget_downloads(), self.fill()))
         row.addWidget(dele)
         row.addWidget(clear)
         row.addStretch(1)
@@ -2404,6 +2419,13 @@ class HistoryDialog(QDialog):
         today = QDate.currentDate()
         bold = self.tree.font()
         bold.setBold(True)
+        # 1.1.25 (the owner): every page with its site's icon, as in the History menu (the stored
+        # icon, nothing fetched for it), the generic globe otherwise; each day with a calendar
+        from PyQt6.QtWidgets import QStyle
+
+        from .icons import themed as icon
+        globe = icon(("globe", "web-browser-symbolic"), QStyle.StandardPixmap.SP_FileIcon)
+        calendar = icon(("view-calendar-day", "x-office-calendar", "view-calendar"), QStyle.StandardPixmap.SP_DirIcon)
         group, group_day = None, None
         for url, title, last in self.app.storage.history(self.search.text()):
             when = QDateTime.fromSecsSinceEpoch(int(last))
@@ -2415,8 +2437,11 @@ class HistoryDialog(QDialog):
                 group.setFont(0, bold)
                 group.setFirstColumnSpanned(True)
                 group.setExpanded(True)
-            QTreeWidgetItem(group, [title or url, url,
-                                    locale.toString(when.time(), QLocale.FormatType.ShortFormat)])
+                group.setIcon(0, calendar)
+            page = QTreeWidgetItem(group, [title or url, url,
+                                           locale.toString(when.time(), QLocale.FormatType.ShortFormat)])
+            fav = self.app.favicons.icon(url)
+            page.setIcon(0, globe if fav.isNull() else fav)
 
     def _open(self, item):
         win = self.app.active_window()
@@ -2677,6 +2702,39 @@ class ClearDataDialog(QDialog):
     def _clear(self):
         self.app.clear_data(self.history.isChecked(), self.cookies.isChecked(),
                             self.cache.isChecked(), self.perms.isChecked())
+        self.accept()
+
+
+class ClearHistoryDialog(QDialog):
+    """History → Clear recent history… (1.1.25): the pages visited in the
+    last hour, today or all of them; nothing else."""
+
+    SPANS = ("hour", "today", "all")
+
+    def __init__(self, app, parent=None):
+        super().__init__(parent)
+        self.app = app
+        self.setWindowTitle(T("Clear recent history"))
+        lay = QVBoxLayout(self)
+        form = QFormLayout()
+        self.span = QComboBox(self)
+        for key, text in zip(self.SPANS, (T("Last hour"), T("Today"), T("Everything"))):
+            self.span.addItem(text, key)
+        form.addRow(T("Time range to clear:"), self.span)
+        lay.addLayout(form)
+        note = QLabel(T("Only the pages you visited are deleted: cookies, passwords and cached files stay."))
+        note.setWordWrap(True)
+        note.setEnabled(False)
+        lay.addWidget(note)
+        bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok
+                              | QDialogButtonBox.StandardButton.Cancel)
+        bb.button(QDialogButtonBox.StandardButton.Ok).setText(T("Clear"))
+        bb.accepted.connect(self._clear)
+        bb.rejected.connect(self.reject)
+        lay.addWidget(bb)
+
+    def _clear(self):
+        self.app.clear_recent_history(self.span.currentData())
         self.accept()
 
 

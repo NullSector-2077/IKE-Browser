@@ -860,9 +860,10 @@ lists into the bundled engine: see "The default filter lists" below).
 ### When a builder refuses a new upstream version
 
 Two of the components are not copied but built, with I.K.E.'s own changes:
-Dark Reader (`tools/build-darkreader.py`: the proxy taken out of the engine
-and I.K.E.'s speed patches, `PATCHES`, each of which must find its text, its
-"anchor", exactly once) and uBlock Origin's scriptlets
+Dark Reader (`tools/build-darkreader.py`: the proxy taken out of the engine,
+I.K.E.'s speed patches, `PATCHES`, each of which must find its text, its
+"anchor", exactly once, and the checks of "Dark Reader's builder: the rules
+of every update" below) and uBlock Origin's scriptlets
 (`tools/build-ubo-scriptlets.mjs`: `builtinScriptlets` of
 `src/js/resources/scriptlets.js`, read with Node.js). Since 1.1.20 (the
 owner's decision) `tools/check-components.py` keeps two kinds of trouble
@@ -871,7 +872,7 @@ apart:
 | What happened | Called | What it does |
 |---|---|---|
 | An upstream source could not be read: the network, crates.io, PyPI, npm, GitHub, `git clone`, npm's hash that does not match | **source unreachable** | Infrastructure. The report's row says "check failed: source unreachable: ..."; `--apply` applies **nothing** and exits 1 (fail closed); the maintenance's check step fails and the automatic fix opens "GitHub or the runner failed: Daily maintenance candidate", no AI. The next daily run tries again. |
-| The new version was downloaded, but I.K.E.'s builder does not accept it: a patch's anchor is gone or found twice, the proxy or `injectProxy` is not where it was, the npm package is laid out differently, the site fixes do not start with the common fix; uBlock Origin's library moved, the builder stopped, found no scriptlets, or a scriptlet needs an entry the library does not have | **builder refused**: a component incompatibility | That component **stays at the version in use, with I.K.E.'s changes** (never replaced by the unpatched upstream). Every other component is still applied and tested (the crates' security updates included); `--apply` exits 0. The report has a section for the owner, and since 2026-11-22 the builders' path starts (below): an AI may re-anchor the existing patches on `automation/builder/<id>` only; the guard refuses `tools/build-*` to every other run. |
+| The new version was downloaded, but I.K.E.'s builder does not accept it: the proxy or `injectProxy` is not where it was, the npm package is laid out differently, the site fixes do not start with the common fix or hold what could be a script, a link a person must judge, a changed network call, the API of I.K.E.'s Dark Reader panel gone, a result that does not parse (Dark Reader's speed patches no longer stop it since 2026-11-24: see below); uBlock Origin's library moved, the builder stopped, found no scriptlets, or a scriptlet needs an entry the library does not have | **builder refused**: a component incompatibility | That component **stays at the version in use, with I.K.E.'s changes** (never replaced by the unpatched upstream). Every other component is still applied and tested (the crates' security updates included); `--apply` exits 0. The report has a section for the owner, and since 2026-11-22 the builders' path starts (below): an AI may re-anchor the existing patches on `automation/builder/<id>` only; the guard refuses `tools/build-*` to every other run. |
 
 **How to read the report** (the `components` issue, the run's summary, and the
 maintenance candidate's pull request when other components changed). The
@@ -882,9 +883,9 @@ gives:
 
 - the component and its versions, in use -> new (for Dark Reader the engine
   version and the lists' commit; for uBlock Origin the commits);
-- the step that refused: for Dark Reader the patch by its name in `PATCHES`
-  (for instance "I.K.E.'s patch 'style-moves'"), or the proxy / `injectProxy`
-  / the site fixes; for uBlock Origin the builder;
+- the step that refused: for Dark Reader the proxy / `injectProxy` / the site
+  fixes, the links check, the network calls check, the panel's API or the
+  parse check; for uBlock Origin the builder;
 - the reason, as the builder said it;
 - "The new upstream version around the anchor": the anchor's lines no longer
   found, and the new engine's lines (numbered) around the first anchor line
@@ -892,6 +893,33 @@ gives:
   uBlock Origin what the new checkout has where the builder looks (the file
   and its exports, or the files next to it);
 - the builder's log.
+
+**Dark Reader's builder: the rules of every update** (the owner's decisions
+of 2026-11-24; the comment at the top of `tools/build-darkreader.py`). Dark
+Reader keeps updating by itself; after every update the builder:
+
+| Step | What it does | When it stops (builder refused) |
+|---|---|---|
+| The proxy change (`PROXY_BLOCK`, `PROXY_EVENT`): the style-sheet proxy asked for by an event with the session's token, never an inline script | Made | Always when it cannot be made: without it Google's sites break, or a page could start the proxy. Not a speed patch |
+| The speed patches (`PATCHES`) | Each family is made when all its texts are found exactly once. A family that no longer fits is **left out**, with the families that need it (`PATCH_NEEDS`), and the update ships without it: the builder prints "speed patch left out: ...", `darkreader-data.json` records it (`"ike_build"`, written only when something was left out or removed), and the daily report's note, so the candidate's CHANGELOG line and the signing notice, name it | Never |
+| Links in `darkreader.js` and `darkreader-proxy.js` | Kept: the links of `LINKS_ALLOWED` (each with its reason: Dark Reader's site and MIT licence in its notices, `https://fonts.googleapis.com/` compared with a sheet's address, the SVG / XLink / XHTML namespaces) and a bare scheme the code compares with (`https://`, `moz-extension://`). Removed: any other link in a comment; a link of a denied kind in a string (the string becomes `""`) or in a template literal (only the link goes). Denied kinds (`LINK_DENY`): donation (Patreon, Open Collective, PayPal, Liberapay, Ko-fi, Buy Me a Coffee, GitHub Sponsors, "donate" pages), social (X / Twitter, Facebook, Mastodon, Reddit, YouTube channels, Discord, Telegram ...), news / blog / "what's new", analytics / telemetry, advertising | An unknown link in a string or template literal; a denied link the code compares with or looks up (removing it would change what the code does); a link the reader cannot place |
+| Network calls (`NETWORK_CALLS`): fetch, XMLHttpRequest, sendBeacon, WebSocket, EventSource, importScripts, counted in the code (4.9.135: fetch 4 times, nothing else) | Counted | A new kind or another count: a person reads the new call, then updates `NETWORK_CALLS` |
+| The API of I.K.E.'s Dark Reader panel (`PANEL_API`): `enable(theme, fixes)`, `disable`, `setFetchMethod` and the theme's fields (brightness, contrast, sepia, grayscale, mode, useFont, fontFamily, textStroke, the dark and light scheme colours, scrollbarColor, selectionColor) | Checked | Any of it gone (the panel and `darkmode.js` would break) |
+| The site fixes (`darkreader-data.json`): CSS put in a style element, selectors, flags. Sites' own image and font addresses in the CSS are allowed: they are the sites' assets, and this list is not scrubbed | Checked: no field but Dark Reader's, nothing but text | Anything that looks like a script (`DATA_SCRIPT_MARKS`: `<script`, `</style`, `javascript:`, `expression(`, `-moz-binding`, `behavior:`, an HTML or script `data:` address, `onload=` / `onerror=`): in Chromium none of the list can run as a script, and this keeps it so |
+| The result | Read again by the builder's own reader of scripts (`lex`): removing links must leave the same code; and `node --check` (when Node.js is there, as in the daily check) must accept the files whenever it accepts Dark Reader's own engine | When either says no |
+
+A build that stops writes nothing: the Dark Reader in use stays, nothing
+breaks, and the refusal waits for Claude or a person (the daily report says
+which step; the builders' path below cannot fix these steps, only anchors).
+Dark Reader's unused message types `MARK_NEWS_AS_READ` / `MARK_NEWS_AS_DISPLAYED`
+are left in: names of an enum, no link, nothing calls them, and removing them
+would need one more patch to keep anchored. `tests/test_darkreader.py` proves
+the rules: injected links of each kind (removed or stopping), a speed patch
+whose anchor is gone (left out, the others made, the script still parses), the
+proxy's anchor gone (stop), the panel's API, the site fixes, and the real
+engine made again from the shipped one, rebuilt byte for byte; a guard checks
+that the shipped `darkreader.js`, `darkreader-proxy.js` and `darkmode.js` have
+only allowed links.
 
 **The builders' path** (WP11, 2026-11-22). The daily maintenance starts it by
 itself (`autofix.yml`, work `builder/<id>/<date>`, with the refusal above as
@@ -905,16 +933,21 @@ again by the verified merge):
   in the same order, each replacement text byte-identical; only anchor texts
   may change, re-found in the new upstream engine; everything outside
   `PATCHES` byte-identical. Dark Reader keeps only measured patches (the
-  owner's decision of 2026-11-21): no patch can come in this way;
+  owner's decision of 2026-11-21): no patch can come in this way. Since
+  2026-11-24 a speed patch that no longer fits does not refuse the update
+  (it is left out, above), so this path starts only for a refusal; a left-out
+  patch is brought back by re-anchoring it under the same rule;
 - uBlock Origin (`tools/build-ubo-scriptlets.mjs`): only the path of the
   library it imports (a file under the checkout, ending in `.js`).
 
 The re-anchored builder then runs: `daily-maintenance.yml` (mode `builder`)
-applies the update on that branch with it (the builder itself refuses an
-anchor found not exactly once), and its tests prove the result:
-`tests/test_darkreader.py` checks that the shipped engine is Dark Reader's own
-npm engine with exactly I.K.E.'s changes (byte identity) and only the measured
-families, and the Dark Reader cost test runs with the whole suite. A builder
+applies the update on that branch with it (for uBlock Origin the builder
+itself refuses a library that is not there; for Dark Reader an anchor found
+not exactly once leaves its family out, said in the note), and its tests prove
+the result: `tests/test_darkreader.py` checks that the shipped engine is Dark
+Reader's own npm engine with exactly I.K.E.'s changes but the families
+recorded as left out (byte identity) and only the measured families, and the
+Dark Reader cost test runs with the whole suite. A builder
 that still refuses is given to the AI again, up to `FIX_ATTEMPTS`; then the
 branch is kept and the owner told. A person may always adapt a patch by hand
 in a pull request, as any change of `tools/`. Until the new version is merged,

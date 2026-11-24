@@ -68,7 +68,8 @@ def test_menu_bar_and_burger_menu(run_ike):
             out["settings_in_tools"] = "Settings…" in tools and "Settings…" not in edit
             out["settings_keys"] = win.act_settings.shortcut().toString()
             out["help"] = [a.text() for a in menus["&Help"].actions()]
-            out["protection"] = [a.text() for a in menus["&Protection"].actions() if not a.isSeparator()]
+            # its title is a section since 1.1.25: an entry with its name, still the first
+            out["protection"] = [a.text() for a in menus["&Protection"].actions() if not a.isSeparator() or a.text()]
             out["extensions"] = [a.text() for a in menus["E&xtensions"].actions() if not a.isSeparator()]
             # the same QActions in both places
             # (1.1.24: "Check for I.K.E. updates" is under ☰ → Help, the menu bar's Help with an icon)

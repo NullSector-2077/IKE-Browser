@@ -33,6 +33,14 @@ PLAYER = "org.mpris.MediaPlayer2.Player"
 PROPS = "org.freedesktop.DBus.Properties"
 RUNNER_PATH = "/runner"
 KDECONNECT = "org.kde.kdeconnect"
+# a KDE Connect device's kind -> its icon in "Send to device" (1.1.25)
+DEVICE_ICONS = {
+    "phone": ("smartphone", "phone"),
+    "tablet": ("tablet", "phone"),
+    "desktop": ("computer",),
+    "laptop": ("computer-laptop", "computer"),
+    "tv": ("video-television", "computer"),
+}
 JOBS = "org.kde.JobViewServer"
 _WORLD = QWebEngineScript.ScriptWorldId.ApplicationWorld
 _WORLD_ID = int(_WORLD.value)
@@ -148,6 +156,7 @@ class DesktopIntegration(QObject):
         self._mpris_on = False
         self._runner_on = False
         self.devices = {}           # KDE Connect: id -> name (paired and reachable)
+        self.device_types = {}      # KDE Connect: id -> its kind ("phone", "tablet", "desktop", "laptop", "tv")
         self.jobs = {}              # id(download) -> [item, job path or "", last update time]
         self._poll = QTimer(self)
         self._poll.setInterval(POLL_MS)
@@ -590,9 +599,32 @@ class DesktopIntegration(QObject):
 
         def got(names):
             self.devices = dict(names or {})
+            for dev_id in self.devices:
+                if dev_id not in self.device_types:
+                    self._ask_device_type(dev_id)
 
         self.bus.call(KDECONNECT, "/modules/kdeconnect", "org.kde.kdeconnect.daemon", "deviceNames",
                       "bb", (True, True), got, lambda _e: setattr(self, "devices", {}))
+
+    def _ask_device_type(self, device_id):
+        """A device's kind, for its icon in "Send to device" (1.1.25)."""
+        def got(value):
+            if isinstance(value, (tuple, list)) and len(value) == 2 and isinstance(value[0], str):
+                value = value[1]                  # a variant: (signature, value)
+            if isinstance(value, str):
+                self.device_types[device_id] = value.lower()
+
+        self.bus.call(KDECONNECT, "/modules/kdeconnect/devices/%s" % device_id, "org.freedesktop.DBus.Properties",
+                      "Get", "ss", ("org.kde.kdeconnect.device", "type"), got, lambda _e: None)
+
+    def device_icon(self, device_id):
+        """A phone, a tablet, a computer or a television, as KDE Connect tells;
+        its own icon when it does not (1.1.25)."""
+        from PyQt6.QtWidgets import QStyle
+
+        from .icons import themed
+        names = DEVICE_ICONS.get(self.device_types.get(device_id), ("kdeconnect", "smartphone", "phone"))
+        return themed(names, QStyle.StandardPixmap.SP_ComputerIcon)
 
     def send_to_device(self, device_id, url):
         name = self.devices.get(device_id, device_id)
@@ -614,8 +646,12 @@ class DesktopIntegration(QObject):
             return
         if QUrl(url).scheme() not in ("http", "https"):
             return
+        from PyQt6.QtWidgets import QStyle
+
         from .icons import themed
-        sub = menu.addMenu(themed("kdeconnect"), T("Send to device"))
+        # 1.1.25: the toolbar button's names (KDE Connect's own icon was missing outside KDE)
+        sub = menu.addMenu(themed(("kdeconnect", "smartphone", "phone", "document-send"),
+                                  QStyle.StandardPixmap.SP_DriveNetIcon), T("Send to device"))
         self.fill_send_menu(sub, url)
 
     def fill_send_menu(self, menu, url):
@@ -627,7 +663,7 @@ class DesktopIntegration(QObject):
         if QUrl(url).scheme() not in ("http", "https"):
             return 0
         for dev_id, name in sorted(self.devices.items(), key=lambda kv: kv[1].lower()):
-            a = menu.addAction(name)
+            a = menu.addAction(self.device_icon(dev_id), name)
             a.triggered.connect(lambda _c=False, d=dev_id: self.send_to_device(d, url))
         return len(self.devices)
 

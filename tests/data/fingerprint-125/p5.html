@@ -1,0 +1,9 @@
+<!doctype html><body><script>
+window.__run = async function () {
+  var R = {};
+  R.moduleImmediateMsg = await new Promise(function (ok) { var log = []; var w = new Worker('/m5.js', { type: 'module' }); w.onmessage = function (e) { log.push(e.data); if (/^got/.test(e.data)) ok(log); }; w.onerror = function (e) { log.push('ERR ' + e.message); ok(log); }; w.postMessage('early'); setTimeout(function () { ok(log.concat('TIMEOUT: early message never answered')); }, 4000); });
+  R.moduleLateMsg = await new Promise(function (ok) { var log = []; var w = new Worker('/m5.js', { type: 'module' }); w.onmessage = function (e) { log.push(e.data); if (e.data === 'ready') w.postMessage('late'); if (/^got/.test(e.data)) ok(log); }; setTimeout(function () { ok(log.concat('TIMEOUT')); }, 4000); });
+  R.classicImmediateMsg = await new Promise(function (ok) { var w = new Worker('/dw.js'); w.onmessage = function (e) { ok('answered'); }; w.postMessage('go'); setTimeout(function () { ok('TIMEOUT'); }, 4000); });
+  return R;
+};
+</script></body>

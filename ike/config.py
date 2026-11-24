@@ -4,10 +4,11 @@ import copy
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from . import osinfo
+from . import darktheme, osinfo
 
 PROFILE = os.environ.get("IKE_PROFILE", "").strip() or "default"
 
@@ -196,9 +197,10 @@ DEFAULTS = {
     "ui_effects": True,                 # short fades and the loading mark of tabs (see effects.py)
     "toolbar_hidden": [],               # keys of TOOLBAR_ITEMS the user does not want
     "toolbar_known": ["back", "forward", "reload", "home", "downloads"],
-    # 1.1.9: the owner's arrangement (Reload is fixed, toolbar.py; the shield is in the address bar)
+    # 1.1.9: the owner's arrangement (Reload is fixed, toolbar.py; the shield is in the address bar;
+    # 1.1.25: "Bookmark this page" is fixed right after the address bar, not in the zones)
     "toolbar_order": ["dark", "private", "cleansite", "screenshot", "split", "pip",
-                      "bookmark", "downloads", "reader",     # the menu: fixed before the window buttons (1.1.16)
+                      "downloads", "reader",                 # the menu: fixed before the window buttons (1.1.16)
                       "zoom", "bookmarks", "print", "send", "resources"],    # 1.1.24: hidden until chosen
     "toolbar_left": ["dark", "private", "cleansite", "screenshot", "split", "pip"],
     "urlbar_width": 50,                 # address bar: per cent of the window width (60 until 1.1.6)
@@ -217,6 +219,8 @@ DEFAULTS = {
     "weather_lat": None,
     "weather_lon": None,
     "weather_unit": "celsius",          # celsius | fahrenheit
+    "weather_wind_unit": "auto",        # auto (follows weather_unit) | kmh | mph | ms | kn (1.1.25)
+    "weather_pressure_unit": "auto",    # auto (follows weather_unit) | hpa | mbar | inhg | mmhg (1.1.25)
     "default_zoom": 1.0,
     "search_engines": DEFAULT_ENGINES,
     "default_engine": "Startpage",      # 1.1.19, the owner's choice (see the change below for older profiles)
@@ -263,7 +267,10 @@ DEFAULTS = {
     "dark_engine": "reader",
     "dark_sites": [],                   # hosts that are dark while dark mode is off
     "dark_exclude": [],                 # hosts that stay light while dark mode is on
-    "dark_theme": {"brightness": 100, "contrast": 100, "sepia": 0},
+    # Dark Reader's colours (1.1.25: every key of its theme, its own defaults; darktheme.py),
+    # and the sites with colours of their own ({host: theme}), set in the toolbar's panel
+    "dark_theme": dict(darktheme.DEFAULTS),
+    "dark_site_themes": {},
     "restore_once": False,              # reopen the last tabs at the next start (restart)
     "filter_lists": DEFAULT_LISTS,
     "custom_filters": "",
@@ -364,9 +371,10 @@ DEFAULTS = {
 }
 
 
-# Toolbar buttons the user can show or hide: (key, hidden when first seen)
+# Toolbar buttons the user can show or hide: (key, hidden when first seen). "Bookmark this
+# page" is not one since 1.1.25: fixed right after the address bar, always shown
 TOOLBAR_ITEMS = (("back", False), ("forward", False), ("reload", False), ("home", False),
-                 ("bookmark", False), ("reader", False), ("screenshot", False), ("pip", True),
+                 ("reader", False), ("screenshot", False), ("pip", True),
                  ("split", False), ("dark", False), ("private", False), ("cleansite", False),
                  ("downloads", False),
                  # 1.1.24: buttons the user can add (Settings → Appearance, or a right
@@ -377,6 +385,11 @@ TOOLBAR_ITEMS = (("back", False), ("forward", False), ("reload", False), ("home"
 # settings of the Cyber theme, removed in 1.1.2: dropped from settings.json when it is read
 _REMOVED = ("cyber_accent", "cyber_shape", "cyber_glow", "cyber_corners", "cyber_hint", "newtab_grid")
 _LISTS_OF_DICTS = ("search_engines", "filter_lists", "containers", "page_watches")
+
+
+WEATHER_CHOICES = {"weather_unit": ("celsius", "fahrenheit"),
+                   "weather_wind_unit": ("auto", "kmh", "mph", "ms", "kn"),
+                   "weather_pressure_unit": ("auto", "hpa", "mbar", "inhg", "mmhg")}
 
 
 def sound_settings(stored):
@@ -456,6 +469,10 @@ class Config:
         if isinstance(stored, dict):
             self.data.update(sound_settings(stored))
         d = self.data
+        # 1.1.25: the weather's units: a value that is not one of the choices is the default
+        for key, choices in WEATHER_CHOICES.items():
+            if d.get(key) not in choices:
+                d[key] = DEFAULTS[key]
         # 1.1.24: the welcome is for a first start only: a profile that already
         # has settings never sees it
         if isinstance(stored, dict) and "welcome_done" not in stored:
@@ -489,6 +506,11 @@ class Config:
             if isinstance(d.get(key), list) and "translate" in d[key]:
                 items = [x for x in d[key] if x != "bookmark"]
                 d[key] = ["bookmark" if x == "translate" else x for x in items]
+        # 1.1.25: "Bookmark this page" is fixed right after the address bar (the owner): it
+        # leaves the arrangement and the hidden buttons (hidden before: shown again)
+        for key in ("toolbar_order", "toolbar_left", "toolbar_hidden"):
+            if isinstance(d.get(key), list) and "bookmark" in d[key]:
+                d[key] = [x for x in d[key] if x != "bookmark"]
         # 1.1.18: the old default asked every site for Italian whatever the
         # system's language (a rare, identifying combination for everyone
         # else): it follows the system now; a list the user typed stays
@@ -553,6 +575,10 @@ class Config:
             d["shield_level"] = "balanced"
         d["site_levels"] = {h: _LEVEL_ALIASES.get(lv, lv) for h, lv in d["site_levels"].items()
                             if _LEVEL_ALIASES.get(lv, lv) in LEVELS}
+        # 1.1.25: the dark mode's theme complete and checked (earlier versions kept three of
+        # its values; anything out of range or of another kind becomes Dark Reader's default)
+        d["dark_theme"] = darktheme.clean(d.get("dark_theme"))
+        d["dark_site_themes"] = darktheme.clean_sites(d.get("dark_site_themes"))
 
     def save(self):
         """Write the settings, unless the file already holds exactly them: the
@@ -687,11 +713,26 @@ def system_accept_language(locale_name=None):
 def engine_language(config):
     """The languages the engine is given: at the global level Maximum,
     en-US for every page and worker (owner's decision for 1.1.20, audit M-7:
-    workers and the engine's own texts gave the real language away);
-    otherwise accept_language()."""
+    workers and the engine's own texts gave the real language away); at the
+    global level Strict the one language Strict shows, as Chrome sends it
+    ("it-IT,it;q=0.9"), so a worker started from a site's own file agrees
+    with the page and the header (1.1.25); otherwise accept_language()."""
     if config["shield_level"] == "maximum":
         return "en-US,en;q=0.9"
+    if config["shield_level"] == "strict":
+        return one_language_header(accept_language(config))
     return accept_language(config)
+
+
+def one_language_header(header):
+    """The first language of an Accept-Language list and its base language
+    after it, as Chrome sends one language: "it-IT,it;q=0.9" (only "it" for
+    a language with no region); en-US when the first one is not a language."""
+    first = (header or "").split(",")[0].split(";")[0].strip() or "en-US"
+    if not re.fullmatch(r"[A-Za-z]{1,8}(-[A-Za-z0-9]{1,8})*", first):
+        first = "en-US"
+    base = first.split("-")[0]
+    return first if base == first else "%s,%s;q=0.9" % (first, base)
 
 
 def accept_language(config):

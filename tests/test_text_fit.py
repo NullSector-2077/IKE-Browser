@@ -10,7 +10,10 @@ a question (About, history, bookmarks, downloads, clear data, user scripts,
 the colours editor, languages, import, resources, watched pages, site
 permissions, the command bar); since 1.1.24 also the menus of the toolbar
 buttons a user can add, the Settings' search with nothing found and the
-four steps of the welcome of the first start.
+four steps of the welcome of the first start; since 1.1.25 the dark mode
+panel of the toolbar (closed, with "More" open, and with Chromium's own dark
+mode), the zoom panel and the downloads panel (empty, and with a download of
+each kind).
 tests/textfit.py says what is checked: a button's text at least 4 px from
 its frame on each side, labels, check boxes and combo boxes with all of
 their text, nothing cut by a parent or wider than the screen, menus taller
@@ -140,6 +143,61 @@ def steps(ike, qapp, out):
         problems.extend(textfit.check(win.shield_scroll, code + ": shield panel, advanced"))
         win.shield_panel.adv_btn.setChecked(False)
         win.shield_menu.hide()
+        if hasattr(win, "show_dark_panel"):
+            # 1.1.25: the dark mode panel, closed and with "More" open, and with Chromium's
+            # own dark mode (its note about the sliders)
+            win.show_dark_panel()
+            settle()
+            problems.extend(textfit.check(win.dark_scroll, code + ": dark mode panel"))
+            problems.extend(textfit.check_menu(win.dark_menu, code + ": dark mode panel"))
+            win.dark_panel.more_btn.setChecked(True)
+            settle()
+            win.fit_dark_menu()
+            settle()
+            problems.extend(textfit.check(win.dark_scroll, code + ": dark mode panel, more"))
+            win.dark_menu.hide()
+            engine = ike.config["dark_engine"]
+            ike.config["dark_engine"] = "engine"
+            win.show_dark_panel()
+            settle()
+            problems.extend(textfit.check(win.dark_scroll, code + ": dark mode panel, Chromium's",
+                                          combos=False))
+            ike.config["dark_engine"] = engine
+            win.dark_panel.more_btn.setChecked(False)
+            win.dark_menu.hide()
+        if hasattr(win, "show_zoom_panel"):
+            # 1.1.25: the zoom panel; the downloads panel empty, then with a download of each kind
+            win.show_zoom_panel()
+            settle()
+            zmenu, _zp, zscroll, _za = win._panels["zoom"]
+            problems.extend(textfit.check(zscroll, code + ": zoom panel"))
+            problems.extend(textfit.check_menu(zmenu, code + ": zoom panel"))
+            zmenu.hide()
+            win.show_downloads_panel()
+            settle()
+            dmenu, dpanel, dscroll, _da = win._panels["downloads"]
+            problems.extend(textfit.check(dscroll, code + ": downloads panel, empty"))
+            dmenu.hide()
+            from ike.downloadlist import Entry
+            samples = []
+            for state, note in (("running", ""), ("paused", ""), ("done", ""), ("done", "known"),
+                                ("stopped", "mixed"), ("stopped", "listed"), ("stopped", "new"),
+                                ("failed", "Network error"), ("cancelled", "")):
+                e = Entry("a-file-with-a-rather-long-name-%s.tar.gz" % state, "/tmp/x", "https://files.example/x",
+                          512 * 1024 * 1024, state, 0, "files.example", "" if note == "known" else note)
+                e.got, e.speed, e.known = 200 * 1024 * 1024, 3.5 * 1024 * 1024, note == "known"
+                samples.append(e)
+            ike.download_log.entries[:0] = samples
+            win.show_downloads_panel()
+            settle()
+            win.fit_panel("downloads")
+            settle()
+            dpanel.rows[0].setFocus()
+            settle()
+            problems.extend(textfit.check(dscroll, code + ": downloads panel"))
+            problems.extend(textfit.check_menu(dmenu, code + ": downloads panel"))
+            dmenu.hide()
+            del ike.download_log.entries[:len(samples)]
         dlg = win.open_settings()
         settle()
         for i, page in enumerate(dlg.PAGES):
@@ -165,7 +223,7 @@ def steps(ike, qapp, out):
             about.setText(win.about_text())
         about.show()
         dialog(code + ": About", about)
-        for name in ("show_history", "show_bookmarks", "show_downloads", "show_clear_data",
+        for name in ("show_history", "show_bookmarks", "show_downloads", "show_clear_data", "show_clear_history",
                      "show_userscripts", "show_import", "show_resources", "show_watches",
                      "show_permissions"):
             shown = getattr(ike, name)()

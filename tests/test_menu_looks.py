@@ -3,7 +3,8 @@
 - The ☰ menu button and the dark mode button of the toolbar show their icon
   only, with no arrow and no part of their own for one, in every widget style
   that is installed (Breeze, Fusion, Windows, Oxygen, Kvantum): as wide as a
-  plain icon button, and a click anywhere on them opens their menu as before.
+  plain icon button, and a click anywhere on them opens their menu as before
+  (the dark mode button's panel since 1.1.25).
 - In every menu (the ☰ menu, its "More" and the menus under it, the menu
   bar's, the tab menu) the texts of all entries start at the same x, in
   every style and in Italian and English.
@@ -35,7 +36,8 @@ def steps(ike, qapp, out):
     dark = win.nav.widgetForAction(win.act_dark)
     out["plain"] = [plain.sizeHint().width(), plain.sizeHint().height()]
     res = {}
-    for name, b, menu in (("menu", win.menu_btn, win.burger), ("dark", dark, win.m_dark)):
+    # 1.1.25: the dark mode button opens its panel (made at its first click: asked for when looked at)
+    for name, b, menu in (("menu", win.menu_btn, lambda: win.burger), ("dark", dark, lambda: win.dark_menu)):
         opt = QStyleOptionToolButton()          # as QToolButton makes it for a button with a menu
         opt.initFrom(b)
         F = QStyleOptionToolButton.ToolButtonFeature
@@ -47,8 +49,9 @@ def steps(ike, qapp, out):
         for x in (b.width() // 2, b.width() - 3):
             seen = {}
             def look(m=menu, s=seen):
-                s["open"] = m.isVisible()
-                m.hide()
+                s["open"] = m() is not None and m().isVisible()
+                if m() is not None:
+                    m().hide()
             QTimer.singleShot(400, look)
             QTest.mouseClick(b, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, QPoint(x, b.height() // 2))
             for _ in range(20):
