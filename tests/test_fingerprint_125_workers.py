@@ -315,3 +315,17 @@ def test_every_context_finds_the_same_fonts(run_ike, site, level):
             assert abs(got[k]["generic"][g] - v) <= v * 1e-5, (k, g, got[k], got["page"])
     assert "monospace" not in [n.lower() for n in raw["findable"]], raw["findable"]
     assert "Times New Roman" in got["page"]["fonts"] and "DejaVu Sans" not in got["page"]["fonts"], got
+
+
+@pytest.mark.parametrize("level", ["strict", "balanced"])
+def test_no_value_handed_to_a_page_toString(run_ike, site, level):
+    """A page that replaces a frame's toString (or its own) and then loads the
+    frame or adds frames: the protection never calls such a function with a
+    value of its own (review round 3: it handed it the realm secret, which
+    then told I.K.E. apart in any frame, where Chrome throws). The frames
+    still find the same fonts as the page."""
+    got = run(run_ike, site, [("t", "http://localhost:%d/trap.html")], level, gl=False)["t"]
+    assert got["caught"] == [] and got["oracle"] == [], got
+    assert got["stringThis"] == "throws TypeError", got
+    for k in ("trapped", "own", "afterTop"):
+        assert got[k] == got["page"], (k, got[k], got["page"])
