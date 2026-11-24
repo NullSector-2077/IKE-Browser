@@ -110,7 +110,7 @@ class UrlBar(QLineEdit):
         self.zoom_act.setVisible(False)
         self.zoom_act.triggered.connect(lambda: window.zoom(0))
         # a site's question about a permission, answered with a click (quietperms.py, 1.1.24)
-        self.perm_act = self.addAction(icon("dialog-question", QStyle.StandardPixmap.SP_MessageBoxQuestion),
+        self.perm_act = self.addAction(icon(("dialog-question", "question"), QStyle.StandardPixmap.SP_MessageBoxQuestion),
                                        QLineEdit.ActionPosition.TrailingPosition)
         self.perm_act.setVisible(False)
         from . import quietperms
