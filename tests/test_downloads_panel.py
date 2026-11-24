@@ -341,7 +341,9 @@ def steps(ike, qapp, out):
     out["stopped"] = [ok, row.status.full, row.anyway.isHidden(), shown(row), Path(FOLDER, "tool.sh").exists()]
     row.setFocus()
     yield 300
-    out["stopped_focus"] = [row.anyway.isVisible(), shown(row), row.anyway.text()]
+    # the row is a line taller: the popup follows, its foot in view (no scrolling)
+    out["stopped_focus"] = [row.anyway.isVisible(), shown(row), row.anyway.text(),
+                            win._panels["downloads"][2].verticalScrollBar().maximum()]
     row.anyway.click()
     yield 500
     again = ike._risk_box
@@ -491,7 +493,7 @@ def test_the_panel_in_the_browser(run_ike, files_site, tmp_path):
     ok, line, hidden, buttons, on_disk = out["stopped"]
     assert ok and line == T("Stopped by I.K.E.: a program from a site never visited") and hidden, out["stopped"]
     assert buttons == [] and on_disk is False
-    assert out["stopped_focus"] == [True, ["remove"], T("Download anyway") + "…"], out["stopped_focus"]
+    assert out["stopped_focus"] == [True, ["remove"], T("Download anyway") + "…", 0], out["stopped_focus"]
     assert out["again"] == [True, True, True, T("Cancel"), T("Cancel"), False], out["again"]
     assert out["anyway"] == [True, True, "tool.sh", False], out["anyway"]
     ok, known, line, shield = out["known"]

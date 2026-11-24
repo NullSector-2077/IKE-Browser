@@ -242,7 +242,11 @@ class DownloadRow(QWidget):
             # "Retry" of a download that failed is always there (the owner's preview)
             b.setVisible(key in keys and (on or (key == "retry" and self.entry.state == "failed"))
                          and (key != "retry" or self.panel.can_retry(self.entry)))
-        self.anyway.setVisible(self.entry.state == "stopped" and on)
+        link = self.entry.state == "stopped" and on
+        if link != (not self.anyway.isHidden()):
+            self.anyway.setVisible(link)
+            # the row is a line taller or shorter: the popup follows (its foot stays in view)
+            QTimer.singleShot(0, self.panel.refit)
         self.update()
 
     # --- events --------------------------------------------------------------
@@ -455,12 +459,20 @@ class DownloadsPanel(QWidget):
             before = len(self.rows)
             self.refresh()
             if len(self.rows) != before:
-                QTimer.singleShot(0, lambda: self.win.fit_panel("downloads"))
+                QTimer.singleShot(0, self.refit)
 
     def showEvent(self, e):
         super().showEvent(e)
         if any(r.entry.live for r in self.rows):
             self.timer.start()
+
+    def refit(self):
+        """The popup as tall as the panel now is (a row grew or shrank)."""
+        try:
+            if self.isVisible():
+                self.win.fit_panel("downloads")
+        except RuntimeError:
+            pass
 
     def closed(self):
         self.timer.stop()
@@ -574,4 +586,4 @@ class DownloadsPanel(QWidget):
     def _clear(self):
         self.win.app.clear_download_list(self.win.private)
         self.refresh()
-        QTimer.singleShot(0, lambda: self.win.fit_panel("downloads"))
+        QTimer.singleShot(0, self.refit)
