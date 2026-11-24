@@ -389,6 +389,91 @@
    "candidate": "en-US,en;q=0.9",
    "why": "At the global level Strict the engine is given the one language Strict shows, as Chrome sends it (1.1.25), so workers from a site's own file agree with the page and the header (the header was already this).",
    "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes, and the independent review's round 2); entry written by Claude"
+  },
+  {
+   "key": "fingerprint-config/off/fonts",
+   "base": "sha256 709716953735f119",
+   "candidate": "sha256 f80590f36bb33f72",
+   "why": "The masked font list given to the pages (1.1.25): the engine's own family name 'Monospace' is never masked (it is what the generic monospace draws in workers; masking it made workers and the page disagree), and the font check asks again (fonts_key changed). Every findable font except the universal ones stays masked.",
+   "accepted": "the owner asked for the 1.1.25 fingerprinting work on 2026-11-24; entry written by Claude from the values GitHub's runner measured on PR #162"
+  },
+  {
+   "key": "fingerprint-config/compatibility/fonts",
+   "base": "sha256 709716953735f119",
+   "candidate": "sha256 f80590f36bb33f72",
+   "why": "The masked font list given to the pages (1.1.25): the engine's own family name 'Monospace' is never masked (it is what the generic monospace draws in workers; masking it made workers and the page disagree), and the font check asks again (fonts_key changed). Every findable font except the universal ones stays masked.",
+   "accepted": "the owner asked for the 1.1.25 fingerprinting work on 2026-11-24; entry written by Claude from the values GitHub's runner measured on PR #162"
+  },
+  {
+   "key": "fingerprint-config/balanced/fonts",
+   "base": "sha256 709716953735f119",
+   "candidate": "sha256 f80590f36bb33f72",
+   "why": "The masked font list given to the pages (1.1.25): the engine's own family name 'Monospace' is never masked (it is what the generic monospace draws in workers; masking it made workers and the page disagree), and the font check asks again (fonts_key changed). Every findable font except the universal ones stays masked.",
+   "accepted": "the owner asked for the 1.1.25 fingerprinting work on 2026-11-24; entry written by Claude from the values GitHub's runner measured on PR #162"
+  },
+  {
+   "key": "fingerprint-config/strict/fonts",
+   "base": "sha256 709716953735f119",
+   "candidate": "sha256 f80590f36bb33f72",
+   "why": "The masked font list given to the pages (1.1.25): the engine's own family name 'Monospace' is never masked (it is what the generic monospace draws in workers; masking it made workers and the page disagree), and the font check asks again (fonts_key changed). Every findable font except the universal ones stays masked.",
+   "accepted": "the owner asked for the 1.1.25 fingerprinting work on 2026-11-24; entry written by Claude from the values GitHub's runner measured on PR #162"
+  },
+  {
+   "key": "fingerprint-config/maximum/fonts",
+   "base": "sha256 709716953735f119",
+   "candidate": "sha256 f80590f36bb33f72",
+   "why": "The masked font list given to the pages (1.1.25): the engine's own family name 'Monospace' is never masked (it is what the generic monospace draws in workers; masking it made workers and the page disagree), and the font check asks again (fonts_key changed). Every findable font except the universal ones stays masked.",
+   "accepted": "the owner asked for the 1.1.25 fingerprinting work on 2026-11-24; entry written by Claude from the values GitHub's runner measured on PR #162"
+  },
+  {
+   "key": "fingerprint/strict/canvas",
+   "base": [
+    "c9dd8b7",
+    "5a63666b",
+    140.51590603125
+   ],
+   "candidate": [
+    "d570af30",
+    "5a63666b",
+    140.51592008281247
+   ],
+   "why": "Canvas noise only where the drawing has edges, keyed per site and session (1.1.25): the noised canvas hash and the text width a page reads change on purpose; flat canvases read back exactly as Chrome does.",
+   "accepted": "the owner asked for the 1.1.25 fingerprinting work on 2026-11-24; entry written by Claude from the values GitHub's runner measured on PR #162"
+  },
+  {
+   "key": "fingerprint/strict/frame",
+   "why": "A frame reads what the page reads (1.1.25): its canvas carries the new edge noise and its plugins are Chrome's five, so the frame row changes with the page's canvas and plugins. Key-only entry (the report shows these long values cut, so they cannot be pinned exactly): it is removed again right after the 1.1.25 pull request is merged.",
+   "accepted": "the owner asked for the 1.1.25 fingerprinting work on 2026-11-24; entry written by Claude from the values GitHub's runner measured on PR #162; TEMPORARY: to be removed right after #162 merges"
+  },
+  {
+   "key": "fingerprint/strict/worker",
+   "why": "A worker reads what the page reads (1.1.25): Chrome's brand list, no card name, the fixed WebGL identity and the coherent languages, so the worker row changes with the page. Key-only entry (the report shows these long values cut, so they cannot be pinned exactly): it is removed again right after the 1.1.25 pull request is merged.",
+   "accepted": "the owner asked for the 1.1.25 fingerprinting work on 2026-11-24; entry written by Claude from the values GitHub's runner measured on PR #162; TEMPORARY: to be removed right after #162 merges"
+  },
+  {
+   "key": "fingerprint/maximum/canvas",
+   "base": [
+    "c9dd8b7",
+    "5a63666b",
+    140.51590603125
+   ],
+   "candidate": [
+    "d570af30",
+    "5a63666b",
+    140.51592008281247
+   ],
+   "why": "Canvas noise only where the drawing has edges, keyed per site and session (1.1.25): the noised canvas hash and the text width a page reads change on purpose; flat canvases read back exactly as Chrome does.",
+   "accepted": "the owner asked for the 1.1.25 fingerprinting work on 2026-11-24; entry written by Claude from the values GitHub's runner measured on PR #162"
+  },
+  {
+   "key": "fingerprint/maximum/frame",
+   "why": "A frame reads what the page reads (1.1.25): its canvas carries the new edge noise and its plugins are Chrome's five, so the frame row changes with the page's canvas and plugins. Key-only entry (the report shows these long values cut, so they cannot be pinned exactly): it is removed again right after the 1.1.25 pull request is merged.",
+   "accepted": "the owner asked for the 1.1.25 fingerprinting work on 2026-11-24; entry written by Claude from the values GitHub's runner measured on PR #162; TEMPORARY: to be removed right after #162 merges"
+  },
+  {
+   "key": "fingerprint/maximum/worker",
+   "why": "A worker reads what the page reads (1.1.25): Chrome's brand list, no card name, the fixed WebGL identity and the coherent languages, so the worker row changes with the page. Key-only entry (the report shows these long values cut, so they cannot be pinned exactly): it is removed again right after the 1.1.25 pull request is merged.",
+   "accepted": "the owner asked for the 1.1.25 fingerprinting work on 2026-11-24; entry written by Claude from the values GitHub's runner measured on PR #162; TEMPORARY: to be removed right after #162 merges"
   }
  ]
 }
