@@ -144,14 +144,19 @@ that failed before the fix.
 | Languages at Strict | `navigator.languages` ["it-IT"], the header "it-IT,it;q=0.9", Intl "it" | ["it-IT", "it"], as the header; at the global level Strict the engine is given the same, so workers from a file agree |
 | Network at Strict | JavaScript rtt 0 and a downlink of about 9.5, the client hints 100 and about 1.7 | 4g, 50 ms, 10 Mbit/s in pages, inline workers and the hints a site asked for |
 
-Not solved: CreepJS still files the test computer's software WebGL as
-"suspicious capabilities" (also with the shield off): it compares all the
-limits with a list of real cards, which a floor of I.K.E.'s cannot match
-exactly; and a 2 x 2 test picture of curves it knows ("suspicious pixel
-data") gets the edge noise in about one session in three. A site set to
-Strict by itself, under a lower global level, keeps the engine's full version
-in workers from its own files; a dedicated worker from a site's file is still
-not covered.
+After the fix (the same run, the test computer's software WebGL): CreepJS
+finds no lie at Strict and Maximum (two before: "pixel data modified",
+"missing mimetype"). Not solved, and filed by CreepJS as "trash", not as
+lies: "suspicious capabilities" (also with the shield off: CreepJS compares
+all the WebGL limits with a list of real cards, which a floor of I.K.E.'s
+cannot match exactly), "suspicious gpu" at Strict and Maximum (the card's
+name with those limits is not in that list either; before, no name meant no
+such check), and "suspicious pixel data" in some sessions (a 2 x 2 picture
+of curves it knows gets the edge noise; seen in one of the two runs). A site
+set to Strict by itself, under a lower global level, keeps the engine's full
+version in workers from its own files; a dedicated worker from a site's file
+is still not covered (CreepJS's own worker falls back to one at Strict and
+Maximum and sees the real card there).
 
 ## Known limits (not solved)
 

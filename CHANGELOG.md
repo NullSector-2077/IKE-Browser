@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.25 (not released yet)
+## 1.1.25
 
 - **Fingerprinting: what the sites' own checks found** (a run of I.K.E.
   against browserleaks.com and CreepJS; the owner's decisions of 2026-11-24;

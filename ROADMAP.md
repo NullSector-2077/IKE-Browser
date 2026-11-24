@@ -268,7 +268,7 @@ are agreed with the project owner; do not reopen them without asking.
   file at Strict and Maximum, and there Chrome's own PDF plugins, one WebGL
   identity for everyone, canvas noise only on edges, the languages and the
   network speed as the headers say them. Left: CreepJS's list of real cards'
-  limits ("suspicious capabilities" on the test computer's software WebGL).
+  limits ("suspicious capabilities" and "suspicious gpu" as "trash", no lie).
 - **Still open from the fingerprinting audit**: Balanced's open values
   (L-4, owner's choice), workers loaded from an address (H-C, Qt limit;
   `experiment/file-workers`). Review 4's N11 (the embedded video click
