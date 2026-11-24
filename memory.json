@@ -14,6 +14,20 @@
     "task": "rust"
    }
   ],
+  "automation/update/darkreader@e2bc2dd6dd0c696d": [
+   {
+    "attempt": 1,
+    "date": "2026-11-24",
+    "detail": "budget",
+    "files": [],
+    "model": "",
+    "outcome": "no-fix",
+    "provider": "",
+    "sig": "e2bc2dd6dd0c696d",
+    "summary": "Il controllo \"Nothing gets worse\" segnala che la superficie di fingerprinting \u00e8 peggiorata: il campo fingerprint-config/maximum/fonts ha un hash diverso da main (709716953735f119 su main, 74234e98afe7498f qui). Questo \u00e8 un problema di regressione reale nel comportamento del brows",
+    "task": "rust"
+   }
+  ],
   "automation/update/drill-qt@19bd99de16c06f44": [
    {
     "attempt": 2,
@@ -150,6 +164,12 @@
  "solved": {},
  "streak": {
   "automation/update/crates": {
+   "date": "2026-11-24",
+   "n": 1,
+   "sig": "e2bc2dd6dd0c696d",
+   "since": "2026-11-24"
+  },
+  "automation/update/darkreader": {
    "date": "2026-11-24",
    "n": 1,
    "sig": "e2bc2dd6dd0c696d",

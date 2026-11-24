@@ -36,7 +36,7 @@
    "runs": 4
   },
   "2026-11-24": {
-   "answered": 7,
+   "answered": 8,
    "no_provider": 0,
    "providers": {
     "Groq": {
@@ -44,6 +44,10 @@
       "automation/update/crates": {
        "requests": 3,
        "tokens": 19721
+      },
+      "automation/update/darkreader": {
+       "requests": 3,
+       "tokens": 18708
       },
       "automation/update/drill-qt": {
        "requests": 8,
@@ -57,22 +61,22 @@
      "observed": {
       "requests": {
        "limit": 1000,
-       "mark": 13,
-       "remaining": 996,
-       "reset": 346,
+       "mark": 16,
+       "remaining": 998,
+       "reset": 173,
        "window": "day"
       },
       "tokens": {
        "limit": 8000,
-       "mark": 67109,
-       "remaining": 803,
-       "reset": 54,
+       "mark": 85817,
+       "remaining": 2837,
+       "reset": 39,
        "window": "minute"
       }
      },
-     "requests": 13,
+     "requests": 16,
      "spent": "",
-     "tokens": 67109
+     "tokens": 85817
     },
     "Z.AI": {
      "by": {
@@ -87,7 +91,7 @@
      "tokens": 23158
     }
    },
-   "runs": 7
+   "runs": 8
   }
  },
  "schema": 1
