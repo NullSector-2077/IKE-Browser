@@ -157,6 +157,18 @@
     "sig": "bf8bb9289850a76b",
     "summary": "La correzione automatica non pu\u00f2 essere applicata: il guard statico (fix-guard) rifiuta ogni modifica a ike/scriptlets.py che tocca righe esistenti (es. la riga 153, def entry(self, name):), perch\u00e9 quel file pu\u00f2 ricevere solo righe nuove. Il tentativo precedente \u00e8 stato rifiuto p",
     "task": "lists"
+   },
+   {
+    "attempt": 2,
+    "date": "2026-11-24",
+    "detail": "rotated",
+    "files": [],
+    "model": "",
+    "outcome": "no-fix",
+    "provider": "",
+    "sig": "bf8bb9289850a76b",
+    "summary": "Il fallimento non \u00e8 un errore del codice di I.K.E.: il guard statico (fix-guard) rifiuta ogni modifica a ike/scriptlets.py che tocca righe esistenti (es. la riga 153, def entry(self, name):), perch\u00e9 quel file pu\u00f2 ricevere solo righe nuove. Il tentativo precedente \u00e8 stato rifiuto ",
+    "task": "lists"
    }
   ]
  },
@@ -176,8 +188,9 @@
    "since": "2026-11-24"
   },
   "automation/update/lists-2026-11-22": {
+   "at": "2026-11-24T19:37:07Z",
    "date": "2026-11-24",
-   "n": 5,
+   "n": 6,
    "sig": "bf8bb9289850a76b",
    "since": "2026-11-23"
   }
