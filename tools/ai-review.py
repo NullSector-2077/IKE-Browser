@@ -27,7 +27,8 @@ the differential check "Nothing gets worse".
 
 Part 2 of AUTOMAT: **three** reviewers, of three different providers, for a change of a tier-B file
 the owner opened with AUTOMAT_TIER_B (tools/tier-b.py needed_reviews; the request says how many, and
-tools/automerge.py counts them again from the files). A fix whose author is not one of the free
+tools/automerge.py counts them again from the files), and, under the temporary stricter gate of
+2026-11-24, for an AI's change of ike/resources/fingerprint.js (tools/tier-b.py STRICT_GATE_FILES_INTERIM). A fix whose author is not one of the free
 providers (ChatGPT's fix adopted with the owner's switch AUTOMAT_CHATGPT_AUTOMERGE, a deterministic
 recipe: EXTERNAL) is reviewed by any of them. The reviewers' calls are counted in the budget of the
 free quotas (tools/ai-quota.py: a provider spent today is not asked; the use is written as numbers).
