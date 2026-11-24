@@ -30,12 +30,6 @@
   own (`dark_site_themes`). One visible change: the scroll bars of dark
   pages follow the page's colours ("Automatic", the default of the Dark
   Reader extension on Linux); they were left as the engine draws them.
-- **Dark Reader holds only what it needs** (the owner's rule): a test lists
-  every web address in Dark Reader's files with its reason (its attribution
-  and licence, never contacted), refuses any donation, payment or social site
-  and the network calls that are not the four known ones, so an automatic
-  update that brings one stops for a person to look
-  (tests/test_darkreader_clean.py).
 
 ## 1.1.24
 
