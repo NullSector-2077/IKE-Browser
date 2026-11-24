@@ -153,8 +153,8 @@ FORBIDDEN_FILES = {
     "tools/upstream-diff.py", "tests/test_automat_part2.py",
     # 2026-11-24: the proofs of the priority of the free quotas; the cleanup of the branches and its proofs
     "tests/test_automat_priority.py", "tools/branch-sweep.py", "tests/test_branch_sweep.py",
-    # 2026-11-24: the proofs of the temporary stricter gate of the fingerprint protection
-    "tests/test_interim_gate.py",
+    # 2026-11-24: the proofs of the stricter gate of the fingerprint protection
+    "tests/test_strict_gate.py",
 }
 # the component manifest: with --auto an AI may add a missing entry (tools/fix-guard.py, rule 7)
 MANIFEST = "components.json"

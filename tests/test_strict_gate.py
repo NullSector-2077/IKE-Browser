@@ -1,8 +1,7 @@
-"""The temporary stricter gate of the fingerprint protection (2026-11-24, approved by the owner).
+"""The stricter gate of the fingerprint protection (permanent: the owner's decision of 2026-11-24).
 
 An independent review showed weakened copies of ike/resources/fingerprint.js that pass both the static
-guard (tools/fix-guard.py) and "Nothing gets worse". Until the owner's word removes it, an AI's change of
-that file merges by itself only with three independent reviewers and with only "stricter" rows of the
+guard (tools/fix-guard.py) and "Nothing gets worse". So an AI's change of that file merges by itself only with three independent reviewers and with only "stricter" rows of the
 fingerprinting surface in the report of "Nothing gets worse". No person is involved: a change short of it
 is refused like any other AI fix and the automatic fix tries again with the reason. Everything else of
 AUTOMAT is judged as before. All offline: a fake GitHub, no key.
@@ -98,7 +97,7 @@ def judged(rev, rep, ref=LISTS, **kw):
 # --- the constant, and the three reviewers it asks for ------------------------------------------------------
 
 def test_the_gate_names_exactly_the_fingerprint_protection_and_asks_three_reviewers():
-    assert tb.STRICT_GATE_FILES_INTERIM == ("ike/resources/fingerprint.js",)
+    assert tb.STRICT_GATE_FILES == ("ike/resources/fingerprint.js",)
     assert (ROOT / FINGERPRINT).is_file() and fa.fg.tier(FINGERPRINT) == "A"
     assert tb.needed_reviews([FINGERPRINT]) == 3 == tb.REVIEWS
     assert tb.needed_reviews(["ike/tabs.py", FINGERPRINT]) == 3
@@ -110,11 +109,14 @@ def test_the_gate_names_exactly_the_fingerprint_protection_and_asks_three_review
     assert '"needed": _tool("tier-b").needed_reviews(files)' in (ROOT / "tools/ai-review.py").read_text("utf-8")
     source = (ROOT / "tools/automerge.py").read_text("utf-8")
     assert 'needed = _tool("tier-b").needed_reviews([f.get("filename", "") for f in mine])' in source
-    assert '_tool("tier-b").STRICT_GATE_FILES_INTERIM' in source
-    # dated, with the condition of its removal
+    assert '_tool("tier-b").STRICT_GATE_FILES' in source
+    # the comment carries the owner's decision, its date, and says it is permanent
     text = (ROOT / "tools/tier-b.py").read_text("utf-8")
-    block = text.split("STRICT_GATE_FILES_INTERIM = ", 1)[0].rsplit("REVIEWS = 3\n", 1)[1]
-    assert "TEMPORARY (2026-11-24" in block and "owner's word" in block and "re-checked" in block
+    block = text.split("STRICT_GATE_FILES = ", 1)[0].rsplit("REVIEWS = 3\n", 1)[1]
+    assert "PERMANENT (the owner's decision of 2026-11-24)" in block and "Why:" in block
+    for name in ("tools/tier-b.py", "tools/automerge.py", "tools/ai-review.py"):
+        assert "INTERIM" not in (ROOT / name).read_text("utf-8"), name
+    assert merge.STRICT_WHY == "the stricter gate of the fingerprint protection refuses the AI's change"
 
 
 # --- an AI's change of fingerprint.js ----------------------------------------------------------------------

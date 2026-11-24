@@ -107,17 +107,16 @@ decide(), and for a pull request with a commit an AI wrote (ai_requirements):
 - two independent AI reviewers approved this very commit (tools/ai-review.py: a status "ai-review" of
   the workflow and its comment, two providers, none the one that wrote the fix).
 
-**A temporary stricter gate** (2026-11-24, approved by the owner; no person is involved): an AI's change
-of ike/resources/fingerprint.js (tools/tier-b.py STRICT_GATE_FILES_INTERIM) also needs **three**
+**The stricter gate** (permanent: the owner's decision of 2026-11-24; no person is involved): an AI's change
+of ike/resources/fingerprint.js (tools/tier-b.py STRICT_GATE_FILES) also needs **three**
 independent reviewers, and the report of "Nothing gets worse" on the commit (the artifact of tests.yml)
 may hold only "stricter" rows of the fingerprinting surface: any "changed", "accepted", "worse" or
-other row of it refuses the change (strict_gate). An independent review showed weakened copies of
+other row of it refuses the change (strict_gate). Why: an independent review showed weakened copies of
 fingerprint.js that pass both the static guard and "Nothing gets worse" (only one first-party test site,
 APIs and realms it never reads, fonts judged on the settings, noise not tied to the key). A refused change
 is "retrying" like any other: the automatic fix tries again with the reason (next step "fix"); a report
 that cannot be read is "not verified" and its checks run again. Everything else merges by itself as
-before. Removed on the owner's word, once the hardening of "Nothing gets worse" and tools/fix-guard.py
-is merged and checked again.
+before.
 
 Nothing waits for a person any more, and nothing is closed or dropped: a pull request that is not
 merged gets one informational comment (no action asked) saying why and what happens next
@@ -1113,13 +1112,12 @@ NO_REGRESSION_AT = ("tests.yml", "tests", "Nothing gets worse")     # where test
 NO_ANSWER = "the AI reviewers have not answered yet"
 REVIEW_AGAIN_HOURS = 6
 
-# TEMPORARY (2026-11-24, approved by the owner): the stricter automatic gate of an AI's change of the files of
-# tools/tier-b.py STRICT_GATE_FILES_INTERIM (ike/resources/fingerprint.js): three reviewers (tier-b.py
-# needed_reviews) and only "stricter" fingerprinting rows of "Nothing gets worse" (strict_gate). An independent
-# review showed weakened copies of fingerprint.js that pass both tools/fix-guard.py and "Nothing gets worse".
-# No person: refused, it is retrying and the automatic fix tries again with the reason. Removed on the owner's
-# word, after the hardening of "Nothing gets worse" and tools/fix-guard.py is merged and re-checked.
-STRICT_WHY = "the temporary stricter gate of the fingerprint protection refuses the AI's change"
+# PERMANENT (the owner's decision of 2026-11-24): the stricter automatic gate of an AI's change of the files of
+# tools/tier-b.py STRICT_GATE_FILES (ike/resources/fingerprint.js): three reviewers (tier-b.py needed_reviews)
+# and only "stricter" fingerprinting rows of "Nothing gets worse" (strict_gate). Why: an independent review
+# showed weakened copies of fingerprint.js that pass both tools/fix-guard.py and "Nothing gets worse". No
+# person: refused, it is retrying and the automatic fix tries again with the reason.
+STRICT_WHY = "the stricter gate of the fingerprint protection refuses the AI's change"
 NR_ARTIFACT = "tests-checks"                   # tests.yml: the artifact of the job that runs "Nothing gets worse"
 NR_REPORT = "no-regression/report.json"        # in it: tools/no-regression.py check --out-dir's report
 NR_FINGERPRINT = "fingerprinting"              # tools/no-regression.py _section of fingerprint/, fingerprint-config/
@@ -1166,12 +1164,12 @@ def ai_files(ref, commits, files):
 
 
 def strict_gate_files(ref, commits, files):
-    """The files of the temporary stricter gate (tools/tier-b.py STRICT_GATE_FILES_INTERIM) that an AI commit
+    """The files of the stricter gate (tools/tier-b.py STRICT_GATE_FILES) that an AI commit
     of this pull request changed; none without an AI commit (an update with no AI, a person's pull request)."""
     commits = [c for c in commits if not REFRESH.match(_first(c))]
     if not ai_commits(commits):
         return []
-    gate = _tool("tier-b").STRICT_GATE_FILES_INTERIM
+    gate = _tool("tier-b").STRICT_GATE_FILES
     names = {n for f in ai_files(ref, commits, files) for n in (f.get("filename"), f.get("previous_filename")) if n}
     return sorted(n for n in names if n in gate)
 
@@ -1182,7 +1180,7 @@ def _fingerprint_row(row):
 
 
 def strict_gate(report):
-    """(state, detail) of the temporary stricter gate on the report of "Nothing gets worse" of the commit:
+    """(state, detail) of the stricter gate on the report of "Nothing gets worse" of the commit:
     "passed" when its verdict is pass with no error, the fingerprinting surface was measured and every
     fingerprinting row is "stricter" (a "same" one is not listed); "refused" for any other row of it
     ("changed", "accepted", "worse", or a kind this file does not know); "unread" when the report is missing."""
@@ -1216,7 +1214,7 @@ def ai_requirements(pr, commits, files, evidence, review, sha_of=None, tier_b=Fa
     """("merge", "") when the pull request has no AI commit, or when its AI commits have everything the
     full automation asks (the static guard on the whole AI change, "no-regression" passed, two
     independent approving reviews of this commit, three when a tier-B file the owner's switch opens
-    is among the AI's files; for a file of the temporary stricter gate also three, and only "stricter"
+    is among the AI's files; for a file of the stricter gate also three, and only "stricter"
     fingerprinting rows of "Nothing gets worse": strict_gate); else ("wait", why) or ("person", why)."""
     head = pr.get("head") or {}
     ref, sha = head.get("ref", ""), head.get("sha", "")
@@ -1245,7 +1243,7 @@ def ai_requirements(pr, commits, files, evidence, review, sha_of=None, tier_b=Fa
                 NO_REGRESSION, state, detail))
     gated = strict_gate_files(ref, commits, files)
     if gated:
-        # the temporary stricter gate (2026-11-24): before the reviewers are asked, so a refusal spends none
+        # the stricter gate (2026-11-24, permanent): before the reviewers are asked, so a refusal spends none
         state, detail = strict_gate((evidence or {}).get("no_regression_report"))
         if state == "unread":
             return "person", "%s not verified for the stricter gate of %s: %s" % (NO_REGRESSION, ", ".join(gated),
@@ -1599,7 +1597,7 @@ def gather_evidence(repo, sha):
 
 def gather_no_regression_report(repo, evidence):
     """The report of "Nothing gets worse" of the commit's Tests run (its artifact NR_ARTIFACT, GET calls
-    only), for the temporary stricter gate; None when it cannot be read."""
+    only), for the stricter gate; None when it cannot be read."""
     led = _tool("maintenance-ledger")
     run = ((evidence or {}).get("runs") or {}).get("tests.yml") or {}
     if not run.get("id"):
@@ -2012,7 +2010,7 @@ def main(argv=None):
             passed = any(c.get("name") == "rust-advisories" and c.get("conclusion") == "success" for c in checks)
             kw.update(evidence=gather_evidence(a.repo, a.sha), findings=gather_findings(a.repo, passed))
             if kw["evidence"] is not None and strict_gate_files(ref, commits, files):
-                # the temporary stricter gate (2026-11-24): the rows of "Nothing gets worse" themselves
+                # the stricter gate (2026-11-24, permanent): the rows of "Nothing gets worse" themselves
                 kw["evidence"] = dict(kw["evidence"],
                                       no_regression_report=gather_no_regression_report(a.repo, kw["evidence"]))
             kind, why = judge(*args, **kw)

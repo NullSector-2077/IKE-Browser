@@ -532,15 +532,13 @@ added and removed lines) is compared with the ones of this attempt and with
 those that already failed for this error: the same patch twice stops the
 attempt, and that is recorded.
 
-**Temporary stricter gate of the fingerprint protection** (2026-11-24,
-approved by the owner). An independent review showed weakened copies of
+**Stricter gate of the fingerprint protection** (permanent: the owner's
+decision of 2026-11-24). Why: an independent review showed weakened copies of
 `ike/resources/fingerprint.js` that pass both the static guard
 (`tools/fix-guard.py`) and "Nothing gets worse" (only one first-party test
 site, APIs and realms it never reads, fonts judged on the settings, noise not
-tied to the key). Until the owner's word removes it, once the hardening of
-"Nothing gets worse" and of the static guard is merged and checked again, an
-AI's change of that file (`STRICT_GATE_FILES_INTERIM` in `tools/tier-b.py`)
-merges by itself only when, besides everything an AI's fix always needs,
+tied to the key). So an AI's change of that file (`STRICT_GATE_FILES` in
+`tools/tier-b.py`) merges by itself only when, besides everything an AI's fix always needs,
 **three** independent reviewers of providers other than the author's approved
 it (the tier-B mechanism, `needed_reviews`) and the report of "Nothing gets
 worse" on the commit (the artifact `tests-checks` of `tests.yml`) has only
@@ -551,7 +549,8 @@ involved: a refused change is "retrying" like any other AI fix, and the
 automatic fix tries again with the reason (its attempts of the day, the
 providers rotated); a report that cannot be read is "not verified" and its
 checks run again. Every other file, an update with no AI, and a person's or
-Claude's pull request are judged exactly as before.
+Claude's pull request are judged exactly as before. The gate is permanent:
+it stays also after "Nothing gets worse" and the static guard are hardened.
 
 ### The AUTOMAT drill (2026-11-23)
 

@@ -42,15 +42,14 @@ What opens, and nothing else:
    tools/automerge.py: needed_reviews), and the change is listed first in the signing notice
    (tools/release-notice.py).
 
-**The temporary stricter gate** (2026-11-24, approved by the owner; switch or no switch): an AI's change
-of a file of STRICT_GATE_FILES_INTERIM (ike/resources/fingerprint.js, tier A) also needs three
+**The stricter gate** (permanent: the owner's decision of 2026-11-24; switch or no switch): an AI's
+change of a file of STRICT_GATE_FILES (ike/resources/fingerprint.js, tier A) also needs three
 independent reviewers (needed_reviews), and tools/automerge.py asks "Nothing gets worse" for only
-"stricter" rows of the fingerprinting surface (strict_gate_problem). An independent review showed
+"stricter" rows of the fingerprinting surface (strict_gate). Why: an independent review showed
 weakened copies of fingerprint.js that pass both tools/fix-guard.py and "Nothing gets worse" (only one
 first-party test site, APIs and realms it never reads, fonts judged on the settings, noise not tied to
 the key). No person is involved: a change that does not meet the gate is refused like any other AI fix
-and the automatic fix tries again with the reason. It is removed on the owner's word, once the
-hardening of "Nothing gets worse" and tools/fix-guard.py is merged and checked again.
+and the automatic fix tries again with the reason.
 
 Everything else of tier B stays never an AI's, and so do the rule-keepers: tools/fix-guard.py,
 tools/automerge.py, tools/ai-review.py, tools/no-regression.py, tools/check-autofix-patch.py, this
@@ -93,13 +92,12 @@ SWITCH_TEXT = re.compile(r"--[a-z][a-z0-9]*-[a-z0-9-]+|QTWEBENGINE_|QT_QPA_|IKE_
                          r"|remote-debugging|web-security|update\.json|pubkey", re.I)
 MAX_PIN_LINES = 40
 REVIEWS = 3
-# TEMPORARY (2026-11-24, approved by the owner): the stricter automatic gate of an AI's change of these
+# PERMANENT (the owner's decision of 2026-11-24): the stricter automatic gate of an AI's change of these
 # files: three independent reviewers (needed_reviews) and only "stricter" fingerprinting rows of "Nothing
-# gets worse" (tools/automerge.py strict_gate_problem). Why: an independent review showed weakened copies
-# of fingerprint.js that pass both tools/fix-guard.py and "Nothing gets worse" (one first-party test site,
-# unread APIs and realms, fonts judged on the settings, noise not tied to the key). Removed only on the
-# owner's word, after the hardening of "Nothing gets worse" and tools/fix-guard.py is merged and re-checked.
-STRICT_GATE_FILES_INTERIM = ("ike/resources/fingerprint.js",)
+# gets worse" (tools/automerge.py strict_gate). Why: an independent review showed weakened copies of
+# fingerprint.js that pass both tools/fix-guard.py and "Nothing gets worse" (one first-party test site,
+# unread APIs and realms, fonts judged on the settings, noise not tied to the key).
+STRICT_GATE_FILES = ("ike/resources/fingerprint.js",)
 
 
 def on(env=None):
@@ -115,9 +113,9 @@ def allowed(path):
 
 
 def needed_reviews(paths):
-    """Three independent reviewers when a tier-B file, or a file of the temporary stricter gate
-    (STRICT_GATE_FILES_INTERIM), is among the AI's files, else two."""
-    return REVIEWS if any(allowed(p) or str(p or "") in STRICT_GATE_FILES_INTERIM for p in paths or ()) else 2
+    """Three independent reviewers when a tier-B file, or a file of the stricter gate (STRICT_GATE_FILES),
+    is among the AI's files, else two."""
+    return REVIEWS if any(allowed(p) or str(p or "") in STRICT_GATE_FILES for p in paths or ()) else 2
 
 
 def _tool(name):

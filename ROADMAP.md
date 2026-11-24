@@ -66,18 +66,17 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Owner's decisions
 
-- 2026-11-24, **a temporary stricter gate for an AI's change of the
-  fingerprint protection** (approved by the owner; the owner never has to
+- 2026-11-24, **a stricter gate for an AI's change of the fingerprint
+  protection, permanent** (the owner's decision; the owner never has to
   intervene). An independent review showed weakened copies of
   `ike/resources/fingerprint.js` that pass both the static guard and "Nothing
-  gets worse". Until the owner's word removes it (after the hardening of
-  "Nothing gets worse" and `tools/fix-guard.py` is merged and re-checked), an
-  AI's change of that file merges by itself only with three independent AI
-  reviewers and with only "stricter" fingerprinting rows in "Nothing gets
-  worse"; short of that it is retried by the automatic fix with the reason,
-  like any refused AI fix. Nothing else changes (`tools/tier-b.py`
-  `STRICT_GATE_FILES_INTERIM`, `tools/automerge.py` `strict_gate`;
-  docs/MAINTENANCE.md, "AUTOMAT, part 2").
+  gets worse". So an AI's change of that file merges by itself only with
+  three independent AI reviewers and with only "stricter" fingerprinting rows
+  in "Nothing gets worse"; short of that it is retried by the automatic fix
+  with the reason, like any refused AI fix. The gate stays for good, also
+  after "Nothing gets worse" and the static guard are hardened. Nothing else
+  changes (`tools/tier-b.py` `STRICT_GATE_FILES`, `tools/automerge.py`
+  `strict_gate`; docs/MAINTENANCE.md, "AUTOMAT, part 2").
 - 2026-11-24, **AUTOMAT, block 1: real updates first, and the branches
   cleaned** (the owner: "use the free AIs every day, always when needed,
   above all for real updates; what is left goes to self-evolution, drills
