@@ -54,6 +54,20 @@
     "task": "multi-file"
    }
   ],
+  "automation/update/drill-qt@39b90afd81ee0e05": [
+   {
+    "attempt": 2,
+    "date": "2026-11-24",
+    "detail": "rotated",
+    "files": [],
+    "model": "",
+    "outcome": "no-fix",
+    "provider": "",
+    "sig": "39b90afd81ee0e05",
+    "summary": "L'agente non ha scritto un riassunto. **Riserve: La quota gratuita di oggi non basta per scrivere una correzione e farla anche rivedere da altre AI, oppure \u00e8 lavoro di fondo che aspetta (prima gli aggiornamenti veri): la correzione aspetta, nessuna quota \u00e8 stata sprecata. Riprova",
+    "task": "multi-file"
+   }
+  ],
   "automation/update/drill-qt@5269ae9140634c90": [
    {
     "attempt": 1,
@@ -182,9 +196,10 @@
    "since": "2026-11-24"
   },
   "automation/update/drill-qt": {
+   "at": "2026-11-24T20:10:53Z",
    "date": "2026-11-24",
-   "n": 2,
-   "sig": "e98371377381cad5",
+   "n": 1,
+   "sig": "39b90afd81ee0e05",
    "since": "2026-11-24"
   },
   "automation/update/lists-2026-11-22": {
