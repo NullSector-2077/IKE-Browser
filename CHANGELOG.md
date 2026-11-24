@@ -41,6 +41,8 @@
     the same fonts found by measuring text in the page, its frames and every
     kind of worker (a frame of the site's own found every installed font,
     workers lost Times New Roman once the font check had run);
+    no secret handed to a function a page could have replaced (a page that
+    replaced a frame's toString caught the value that told I.K.E. apart);
     the languages as the header says them ("it-IT", "it"); one common network
     speed in JavaScript and in the client hints (4g, 50 ms, 10 Mbit/s).
     Maximum stays different from Strict by its language only;

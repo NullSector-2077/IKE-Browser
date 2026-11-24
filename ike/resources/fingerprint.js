@@ -9,9 +9,12 @@
 (function () {
   'use strict';
   var CFG = __IKE_CFG__;
-  // lets instances recognise a protected realm; set below, per site (1.1.18)
-  var SECRET = null, SECRET_DOC = null;
   var origToString = Function.prototype.toString;
+  // a realm another instance protected before this one started (a frame's
+  // first page keeps the window of its empty document, which the page
+  // around it protected): its toString is a function of another realm
+  var REUSED = false;
+  try { REUSED = Object.getPrototypeOf(origToString) !== Function.prototype; } catch (e) {}
   // taken before any page script runs: a page that replaces call, bind or
   // Reflect.apply later cannot reach the protection's own calls (1.1.18)
   var CALL = Function.prototype.call, BIND = Function.prototype.bind, RAPPLY = Reflect.apply;
@@ -330,8 +333,6 @@
     }
   } catch (e) {}
   CFG.key = null;                                       // not kept once used
-  SECRET = 'ike:' + sha256('realm|' + SITE_KEY).slice(0, 32);
-  SECRET_DOC = SECRET + ':doc';
   var seed = parseInt(SITE_KEY.slice(0, 8), 16) || 1;
   function rng(s) {
     var x = s || 1;
@@ -1204,8 +1205,16 @@
     getter(I, 'device', function () { return ''; });
     getter(I, 'description', function () { return ''; });
   }
-  function isProtected(w) {
-    try { return RAPPLY(w.Function.prototype.toString, SECRET, []) === SECRET; } catch (e) { return false; }
+  // Is a frame's realm protected by an instance of its own (its document's
+  // own script)? Its toString is then not the engine's: read with this
+  // instance's own toString, never called. A realm was asked before with a
+  // secret handed to its toString, which a page could have replaced and so
+  // read the secret (review round 3)
+  function ownInstance(w) {
+    try {
+      var d = GOPD(w.Function.prototype, 'toString'), f = d && d.value;
+      return typeof f === 'function' && sindex(RAPPLY(origToString, f, []), '[native code]') < 0;
+    } catch (e) { return false; }
   }
 
   // ---- inline workers -----------------------------------------------------------
@@ -2068,25 +2077,24 @@
   function install(w) {
     var WPr = w.Promise;            // this realm's, for then()
     if (!w) return;
-    if (isProtected(w)) {
-      // a frame's first page after its empty document keeps the window and
-      // the realm the page around it protected: the instance that did it
-      // masks the fonts of the new document (review round 3: a frame of the
-      // site found every installed font by measuring text)
-      try { RAPPLY(w.Function.prototype.toString, SECRET_DOC, []); } catch (e) {}
-      return;
-    }
+    var reusedHere = w === window && REUSED;
+    if (w !== window && ownInstance(w)) return;
     var doc = w.document;
 
     // Function.prototype.toString: natives stay "[native code]" in every realm
     wrap(w.Function.prototype, 'toString', function (orig) {
       return function () {
-        if (this === SECRET) return SECRET;
-        if (this === SECRET_DOC) { if (strict) maskFonts(w); return SECRET_DOC; }
         var s = natives.get(this);
         return s !== undefined ? s : RAPPLY(orig, this, []);
       };
     });
+    // a realm another instance protected (REUSED): its wrappers are there;
+    // the new document's fonts are masked here (review round 3: a frame of
+    // the site found every installed font by measuring text)
+    if (reusedHere) {
+      if (strict) maskFonts(w);
+      return;
+    }
     if (CFG.gpc) {
       try {
         Object.defineProperty(w.Navigator.prototype, 'globalPrivacyControl', {
@@ -2850,7 +2858,7 @@
   var foreign = hardSet();              // frames of other sites: not ours to touch
   // Realms already protected, by their own Function object: a frame that loads
   // a new document keeps its window object but gets a new realm, which is then
-  // protected again. Asking a realm whether it is protected (isProtected) costs a
+  // protected again. Asking a realm whether it is protected (ownInstance) costs a
   // call into it; asking this set is free, and pages insert nodes very often.
   var realms = hardSet();
   function adopt(cw) {
