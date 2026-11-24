@@ -36,7 +36,11 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 # category -> (what it checks, where its result comes from: (workflow, job, step))
-# step None: the job's own conclusion
+# step None: the job's own conclusion. Since 2026-11-24 tests.yml runs the suite in parallel jobs
+# and its job "tests" is their gate: "Tests" and "Tests of the installed package" there are the
+# completeness check of every shard (tools/shard-tests.py verify), and each other step named here
+# restates, under the same name, the outcome of that very step in the job that ran it once ("tests
+# checks", "tests package"): skipped there, skipped here. arch.yml's job "Arch Linux" is its gate.
 CATEGORIES = {
     "lint": ("ruff on the whole repository", ("tests.yml", "tests", "Lint")),
     "unit-integration": ("the whole Python suite with the real Qt WebEngine (headless): unit, integration, "
@@ -103,7 +107,8 @@ REQUIRED = {
 AREAS = (
     ("licences", ("test_licences.py", "test_credits.py")),
     ("automation and maintenance", ("test_components.py", "test_automation.py", "test_merge_and_mail.py",
-                                    "test_publish.py", "test_inventory*.py", "test_maintenance*.py")),
+                                    "test_publish.py", "test_inventory*.py", "test_maintenance*.py",
+                                    "test_shards.py")),
     ("ad blocking", ("test_adblock.py", "test_videoads.py", "test_freeway.py", "test_userscript*.py")),
     ("dark mode (Dark Reader)", ("test_darkreader*.py", "test_dark_*.py", "test_sitetint.py")),
     ("security and privacy", ("test_sandbox.py", "test_security.py", "test_site_isolation.py", "test_fingerprint*.py",
