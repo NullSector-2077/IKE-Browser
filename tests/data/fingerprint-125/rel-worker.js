@@ -1,0 +1,1 @@
+postMessage({ href: location.href, stack: String(new Error('x').stack).split('\n')[1], gl: (function () { try { var g = new OffscreenCanvas(1, 1).getContext('webgl'); var d = g.getExtension('WEBGL_debug_renderer_info'); return d ? g.getParameter(37446) : 'no ext'; } catch (e) { return 'ERR ' + e; } })(), hc: navigator.hardwareConcurrency });

@@ -1,6 +1,6 @@
 """Workers a site starts from a file of its own, and the review of 1.1.25
-(the independent adversarial review, round 2; its probes are in
-tests/data/fingerprint-125/: p.html, p2.html, p3.html and their workers).
+(the independent adversarial review, rounds 2 and 3; its probes are in
+tests/data/fingerprint-125/: p.html to p5.html and their workers).
 
 At Strict and Maximum (the global level, or a site set to Strict by itself) a
 dedicated worker from a file of the site, classic or module, nested in a
@@ -21,6 +21,7 @@ localhost are two sites, both secure contexts).
 import http.server
 import json
 import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -34,6 +35,9 @@ def site():
     class H(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
             path = self.path.split("?")[0].lstrip("/") or "p.html"
+            if path == "slow.js":                     # a worker's script that takes 0.7 s to come
+                time.sleep(0.7)
+                path = "w4.js"
             f = DATA / path
             if "/" in path or not f.is_file():
                 self.send_response(404)
@@ -156,7 +160,7 @@ def test_file_workers_keep_their_own_address(run_ike, site):
     # relative addresses, the location, nested workers: as the site's own file
     assert (rel["loc"], rel["fetch"], rel["request"], rel["xhr"]) == \
         (off["rel"]["loc"], off["rel"]["fetch"], off["rel"]["request"], off["rel"]["xhr"]), (rel, off["rel"])
-    assert rel["fetch"] == "relative ok" and rel["loc"][0].endswith("/rel.js"), rel
+    assert rel["fetch"] == "relative ok" and rel["loc"][0].endswith("/relwk.js"), rel
     assert isinstance(rel["nested"], dict) and rel["nested"]["net"][:3] == ["4g", 50, 10], rel["nested"]
     assert rel["info"]["net"][:3] == ["4g", 50, 10] and rel["info"]["he"]["uaFullVersion"].endswith(".0.0.0"), rel["info"]
     # errors read as before: a syntax error, an exception, a missing script
@@ -227,3 +231,57 @@ def test_missing_fonts_measure_the_same(run_ike, site):
         assert a == b == c, (where, got)                     # no font: the fallback's width, for every name
         assert a != off[where][0], (where, got, off)         # the noise is there
     assert got["page"] == got["worker"], got
+
+
+
+def test_file_workers_start_like_the_engine(run_ike, site):
+    """The review of 1.1.25, round 3 (its probes p4.html and p5.html), at
+    Strict against the engine with the shield off: a message posted right
+    after a module worker is made is answered (it was lost); a worker whose
+    script is slow to come does not stop the page (the page waited for it);
+    a classic worker keeps "use strict", its address, its name and its first
+    stack frame; a script that throws, a missing one, a classic worker given
+    a module, a URL object, an error raised later: the same events as the
+    engine's, with the site's address, never the protection's blob address.
+    A policy against blob workers: the worker is refused with no report
+    naming the protection. A text file is refused (the engine runs it)."""
+    pages = [("p4", "http://localhost:%d/p4.html"), ("p5", "http://localhost:%d/p5.html")]
+    off = run(run_ike, site, pages, "off")
+    got = run(run_ike, site, pages, "strict")
+    assert got["p5"] == off["p5"], (got["p5"], off["p5"])
+    assert got["p5"]["moduleImmediateMsg"][-1].startswith("got early"), got["p5"]
+    a, b = got["p4"], off["p4"]
+    assert a["slowCtor"]["ctorMs"] < 300, a["slowCtor"]                  # the page does not wait for the file
+    for k in ("throwing", "missing", "classicAsModuleSyntax", "urlObj", "selfErr"):
+        assert a[k].get("error") == b[k].get("error"), (k, a[k], b[k])
+        assert k == "selfErr" or a[k].get("data") == b[k].get("data"), (k, a[k], b[k])
+    assert a["selfErr"]["data"] == b["selfErr"]["data"], (a["selfErr"], b["selfErr"])
+    for k in ("classic", "slowCtor"):
+        x, y = a[k]["data"], b[k]["data"]
+        for f in ("strict", "href", "locStr", "origin", "name", "ctor"):
+            assert x[f] == y[f], (k, f, x[f], y[f])
+        assert x["strict"] == "strict ok", x
+        assert x["stack"].split(" | ")[0] == y["stack"].split(" | ")[0], (x["stack"], y["stack"])
+        assert x["entries"] == y["entries"] == [], (x, y)       # its own script is not in its timeline
+    x, y = a["module"]["data"], b["module"]["data"]
+    for f in ("tag", "meta", "href", "stack", "name", "got"):
+        assert x[f] == y[f], (f, x[f], y[f])
+    assert a["csp"]["violations"] == [] and a["csp"]["worker"].startswith("ERROR"), a["csp"]
+    assert b["csp"]["worker"]["href"].endswith("/rel-worker.js"), b["csp"]
+    assert b["plainMime"]["data"] == "RAN from text/plain", b["plainMime"]
+    assert "data" not in a["plainMime"] and a["plainMime"]["error"] == [None] * 4, a["plainMime"]
+    assert "userscript" not in json.dumps(got) and "blob:" not in json.dumps(
+        {k: v for k, v in a.items() if k not in ("classic", "slowCtor")}), got
+
+
+def test_a_sandboxed_frame_gets_no_worker_from_a_file(run_ike, site):
+    """A sandboxed frame has an opaque origin: the engine refuses a worker
+    from a file there (SecurityError); at Strict too (review round 3: the
+    protection compared the address with location.origin and started it). A
+    frame of the site's own starts it, protected, as before."""
+    pages = [("s", "http://localhost:%d/sbx.html")]
+    off = run(run_ike, site, pages, "off", gl=False)["s"]
+    got = run(run_ike, site, pages, "strict", gl=False)["s"]
+    assert off["sandboxed"] == {"frame": "THROW SecurityError", "origin": "null"}, off
+    assert got["sandboxed"] == off["sandboxed"], (got, off)
+    assert got["own"] == off["own"] == {"frame": "worker", "origin": "http://localhost:%d" % site, "ok": True}, (got, off)

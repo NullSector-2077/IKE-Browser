@@ -117,9 +117,9 @@ Balanced changed but the inline workers' languages). Strict and Maximum:
 - **Workers from a file** cost about 10 ms more to start (8-12 -> 17-21 ms),
   20 at once about 130 ms more (78-93 -> 204-227 ms): before 1.1.25 such a
   worker started with no protection at all; now it starts as an inline
-  worker does (the protection's own code first), and a classic script is
-  read once by the page. Inline workers start faster than before
-  (59-61 -> 41-44 ms, see below).
+  worker does (the protection's own code first). Inline workers start
+  faster than before (59-61 -> 41-44 ms, see below). 20 at once cost less
+  after the review's third round (below).
 - **Canvas**: a canvas of solid rectangles is read about twice as fast
   (no noise: toDataURL 14 -> 6 ms); one with text costs the same as before
   within the spread (getImageData 7.4-7.9 -> 8.4-8.7 ms, toDataURL equal).
@@ -155,6 +155,26 @@ Strict, first run against the final one):
   a margin, and the whole canvas (toDataURL, toBlob, convertToBlob) needs no
   second read at all; large pictures skip the pixels that are not looked at
   instead of testing each one.
+
+**Workers from a file after the review's third round.** A classic script
+is no longer read by the page (the page waited for it, once per worker):
+the worker fetches it itself with `importScripts`; a module's first
+messages are held until it has run. Measured again the same way (5 starts
+of each copy, Strict and Maximum, all items; the others did not move beyond
+their spread):
+
+| ms | Strict before (main) | Strict, round 2 | Strict, round 3 | Maximum before (main) | Maximum, round 2 | Maximum, round 3 |
+|---|---|---|---|---|---|---|
+| a worker from a file (classic) | 8.8 (6.8-11.1) | 19.6 (17.2-26.4) | 18.5 (14.4-24.2) | 8.9 (7.8-10.6) | 17.8 (16.8-23.4) | 19.2 (15.1-23.7) |
+| a worker from a file (module) | 8.0 (5.9-8.5) | 20.9 (18.8-22.1) | 17.6 (15.1-22.8) | 8.6 (7.1-8.9) | 18.2 (16.8-21.7) | 17.4 (15.6-22.1) |
+| 20 workers from a file at once | 69.5 (53.5-75.0) | 226.8 (195.3-235.4) | 120.8 (115.6-157.1) | 66.6 (62.5-78.5) | 203.7 (195.0-261.6) | 133.5 (125.3-152.4) |
+| an inline (blob) worker, to its first message | 51.4 (43.6-58.1) | 44.3 (31.3-51.2) | 32.7 (30.2-46.5) | 57.6 (47.7-67.4) | 40.6 (29.0-54.6) | 39.0 (31.0-42.1) |
+
+("before" and "round 3" from this run; "round 2" from the run above.) One
+worker: the same as in round 2 within the spread, about 10 ms more than
+with no protection. 20 at once: about 50-65 ms more than with no
+protection, where round 2 cost 110-150 ms more: the workers' scripts are
+now fetched side by side, not one after the other by the page.
 
 Not tried: the owner's computer (a real GPU; Ivy Bridge), Speedometer (not
 reachable here). These figures say what differs between the two copies on

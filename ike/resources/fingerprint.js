@@ -1212,6 +1212,7 @@
   function workerPatch(c, rng, farble, gpuFor, viewNoise, cssLocal, glReads, farbleEdges, canvasTrack, glIdentity,
                        widthNoise, seed, address) {
     var toStr = Function.prototype.toString, RAW = Reflect.apply, GD = Object.getOwnPropertyDescriptor;
+    var RAW_IMPORT = self.importScripts;
     var CJ = JSON.stringify(c), JS = JSON.stringify, here = '';
     c.seed = seed;
     // the address of this worker's own prelude: revoked before the worker's
@@ -1445,6 +1446,23 @@
           };
         });
       }
+      var PFP = self.Performance && Performance.prototype, POL = self.PerformanceObserverEntryList &&
+        PerformanceObserverEntryList.prototype, eName = getOf(self.PerformanceEntry && PerformanceEntry.prototype, 'name');
+      var mine = function (list) {
+        if (!list || typeof list !== 'object') return list;
+        var o = new ARR();
+        for (var i = 0, n = list.length; i < n; i++) {
+          var nm = '';
+          try { nm = RAW(eName, list[i], []); } catch (e) {}
+          if (nm !== FILE) putW(o, o.length, list[i]);
+        }
+        return o;
+      };
+      [PFP, POL].forEach(function (proto) {
+        ['getEntries', 'getEntriesByType', 'getEntriesByName'].forEach(function (m) {
+          wrap(proto, m, function (orig) { return function () { return mine(RAW(orig, this, arguments)); }; });
+        });
+      });
       ['Request', 'WebSocket', 'EventSource'].forEach(function (name) {
         var Orig = self[name];
         if (typeof Orig !== 'function') return;
@@ -1682,10 +1700,11 @@
         RAW(toStr, cssLocal, []) + ',' + RAW(toStr, glReads, []) + ',' + RAW(toStr, farbleEdges, []) + ',' +
         RAW(toStr, canvasTrack, []) + ',' + RAW(toStr, glIdentity, []) + ',' + RAW(toStr, widthNoise, []) + ',';
       var RBUF = new Uint32Array(1), RGV = crypto.getRandomValues, CR = crypto;
-      var preludeOf = function (addr, own) {
+      var preludeOf = function (addr, own, run) {
         var sd = c.seed;
         if (own) { RAW(RGV, CR, [RBUF]); sd = RBUF[0] || 1; }
-        var p = meHead + sd + ',' + RAW(JS, JSON, [addr]) + ');\n';
+        var at = RAW(JS, JSON, [addr]);
+        var p = meHead + sd + ',' + at + (run ? ')(' + at + ');\n' : ');\n');
         while (p.length % 3) p += ' ';                 // so it can be joined to base64 data
         return p;
       };
@@ -1696,6 +1715,30 @@
           set: function (k, v) { RAW(put, m, [k, v]); } });
       })();
       var BSZ = getOf(self.Blob && Blob.prototype, 'size'), BTY = getOf(self.Blob && Blob.prototype, 'type');
+      // the errors of a nested worker from a file, as in the page (sameErrors)
+      var EEW = self.ErrorEvent && ErrorEvent.prototype, wFile = getOf(EEW, 'filename'), wMsg = getOf(EEW, 'message');
+      var wLine = getOf(EEW, 'lineno'), wCol = getOf(EEW, 'colno'), EVW = Event.prototype, ETW = EventTarget.prototype;
+      var wStop = EVW.stopImmediatePropagation, wPrev = EVW.preventDefault, wAdd = ETW.addEventListener, wFire = ETW.dispatchEvent;
+      var WEv = Event, WEE = self.ErrorEvent, WIMP = "Uncaught SyntaxError: Failed to execute 'importScripts' on 'WorkerGlobalScope': ";
+      var errorsAsAsked = function (wk, made) {
+        try {
+          RAW(wAdd, wk, ['error', function (e) {
+            var f, m;
+            try { f = RAW(wFile, e, []); m = `${RAW(wMsg, e, [])}`; } catch (x) { return; }
+            var again = null;
+            if (f === made && (RAW(SIX, m, ['NetworkError']) >= 0 || RAW(SIX, m, ['Failed to fetch dynamically imported module']) >= 0)) {
+              again = new WEv('error', { cancelable: true });
+            } else if (RAW(SIX, m, [WIMP]) === 0) {
+              again = new WEE('error', { message: 'Uncaught SyntaxError: ' + RAW(SSL, m, [WIMP.length]), filename: f,
+                lineno: RAW(wLine, e, []), colno: RAW(wCol, e, []), cancelable: true });
+            }
+            if (!again) return;
+            RAW(wStop, e, []);
+            RAW(wPrev, e, []);
+            RAW(wFire, wk, [again]);
+          }]);
+        } catch (e) {}
+      };
       // taken before the worker's own code: the prelude goes to no function
       // the worker could have replaced since (1.1.18, security audit)
       var NB = self.Blob, RA = Reflect.apply, RC = Reflect.construct, LT = self.setTimeout;
@@ -1734,7 +1777,7 @@
             var send = function (x) { return given ? [x, ov] : [x]; };
             u = absW(u);
             args = send(u);
-            var asked = args;
+            var asked = args, nestedMade = null;
             try {
               var b = made.get(u);
               if (c.strict && name === 'Worker' && lower(RAW(SSL, u, [0, 5])) !== 'blob:' &&
@@ -1745,16 +1788,12 @@
                   var fa = RAW(hrefW, fx, []), js = { type: 'text/javascript' };
                   if (module) {
                     var fpre = RA(mk, Ur, [new NB([preludeOf(fa, true)], js)]);
-                    var ftop = RA(mk, Ur, [new NB(['import ' + RAW(JS, JSON, [fpre]) + ';\nawait import(' +
-                      RAW(JS, JSON, [fa]) + ');\n'], js)]);
-                    args = send(ftop);
+                    nestedMade = RA(mk, Ur, [new NB([c.mtop[0] + RAW(JS, JSON, [fpre]) + c.mtop[1] +
+                      RAW(JS, JSON, [fa]) + c.mtop[2]], js)]);
                   } else {
-                    var fr = new XR();
-                    RAW(XO, fr, ['GET', fa, false]);
-                    RAW(XS, fr, []);
-                    var fs = RAW(XST, fr, []);
-                    if (fs >= 200 && fs <= 299) args = send(RA(mk, Ur, [new NB([preludeOf(fa, false), RAW(XTX, fr, [])], js)]));
+                    nestedMade = RA(mk, Ur, [new NB([preludeOf(fa, false, true)], js)]);
                   }
+                  args = send(nestedMade);
                 }
               }
               if (!b && lower(RAW(SSL, u, [0, 5])) === 'blob:' && XR) {
@@ -1779,16 +1818,23 @@
                   RAW(SSL, u, [k + 1]));
               }
             } catch (e) {}
-            try { return RC(t, args, nt); } catch (e) {
+            var wk;
+            try { wk = RC(t, args, nt); } catch (e) {
               if (args !== asked) return RC(t, asked, nt);
               throw e;
             }
+            if (nestedMade) errorsAsAsked(wk, nestedMade);
+            return wk;
           }
         });
         nat.set(P, RAW(toStr, Orig, []));
         try { Object.defineProperty(self, name, { value: P, writable: true, configurable: true }); } catch (e) {}
       });
     } catch (e) {}
+    // the engine's own importScripts, for a classic worker from a file: its
+    // blob calls it with the site's address at once, so the site's script
+    // runs below no function of the protection's (1.1.25, review round 3)
+    return RAW_IMPORT;
   }
   // The prelude of an inline worker. A worker could read its own address
   // (self.location.href, or the page through ErrorEvent.filename) and with
@@ -1810,11 +1856,31 @@
     for (var i = 0; i < all.length; i++) if (all[i] === '\n') PRELUDE_LINES++;
   })();
   var WCFG = '';                  // after the font list, below
+  // The first module of a worker the site starts from a module file of its own
+  // (Strict and above, 1.1.25): the protection's module, then the site's
+  // module by import(), awaited (a static import is fetched as a worker's
+  // script, which the request check refuses). Messages the worker gets while
+  // the site's module loads are held and handed on in order once it has run
+  // (review round 3, N-1: one posted at once was lost, its handler not set
+  // yet). In three parts around the two addresses (JSON).
+  var MODULE_TOP = ['import ', ';\nconst R = Reflect.apply, ET = EventTarget.prototype, ME = MessageEvent, Q = [];\n' +
+    'const G = (n) => Object.getOwnPropertyDescriptor(ME.prototype, n).get, A = ET.addEventListener, ' +
+    'D = ET.removeEventListener, F = ET.dispatchEvent, S = Event.prototype.stopImmediatePropagation, ' +
+    'TY = Object.getOwnPropertyDescriptor(Event.prototype, "type").get, DA = G("data"), OR = G("origin"), ' +
+    'LI = G("lastEventId"), SO = G("source"), PO = G("ports");\n' +
+    'const hold = function (e) { R(S, e, []); Q[Q.length] = e; };\n' +
+    'R(A, self, ["message", hold]); R(A, self, ["messageerror", hold]);\nawait import(',
+    ');\nR(D, self, ["message", hold]); R(D, self, ["messageerror", hold]);\n' +
+    'for (let i = 0; i < Q.length; i++) { const e = Q[i], ps = R(PO, e, []), pl = []; ' +
+    'for (let k = 0; k < ps.length; k++) pl[k] = ps[k]; R(F, self, [new ME(R(TY, e, []), { data: R(DA, e, []), ' +
+    'origin: R(OR, e, []), lastEventId: R(LI, e, []), source: R(SO, e, []), ports: pl })]); }\n'];
   var RND = new Uint32Array(1), RND_GET = crypto.getRandomValues, CRYPTO = crypto;
-  function preludeFor(address, ownSeed) {
+  // run: a classic worker from a file, whose prelude then runs the file
+  function preludeFor(address, ownSeed, run) {
     var sd = seed;
     if (ownSeed) { RAPPLY(RND_GET, CRYPTO, [RND]); sd = RND[0] || 1; }
-    var p = WP_HEAD + WCFG + WP_TAIL + sd + ',' + RAPPLY(JSON_STR, JSON, [address]) + ');\n';
+    var at = RAPPLY(JSON_STR, JSON, [address]);
+    var p = WP_HEAD + WCFG + WP_TAIL + sd + ',' + at + (run ? ')(' + at + ');\n' : ');\n');
     while (p.length % 3) p += ' ';               // so it can be joined to base64 data
     return p;
   }
@@ -1861,6 +1927,7 @@
   // at Strict and above it carries the masks for the workers' own fonts
   WCFG = JSON_STR({ cores: cores, mem: strict ? 8 : 0, langs: workerLangs, strict: strict, maximum: maximum,
     gpus: GPUS, pick: PICK, hidden: hiddenExt, lines: PRELUDE_LINES, glx: GLX, net: strict ? NET : null,
+    mtop: MODULE_TOP,
     fonts: strict ? MASKED : null, blank: strict ? BLANK_FONT : null });
   // A FontFace source written by the page at Strict and above: every local()
   // entry taken out, so no installed font can be asked for by name, however
@@ -2573,38 +2640,85 @@
     // site starts from a file of its own (classic or module) is started from
     // a blob address holding the prelude, which then runs the site's script
     // with its real address (the location, relative addresses and errors as
-    // before: workerPatch, address). A classic script is read here, once,
-    // and put after the prelude; a module is imported after a prelude module.
-    // If that cannot be done (the script cannot be read, a content security
-    // policy refuses blob workers) the worker is started as the page asked,
-    // and the request check refuses its script at these levels
+    // before: workerPatch, address): a classic script by importScripts (the
+    // engine's own fetch, in the worker, with its check of the script's type
+    // and the script's own "use strict"; review round 3: the page read it
+    // before, and waited for it), a module by import() after a prelude
+    // module (MODULE_TOP). If that cannot be done (a content security policy
+    // refuses blob workers) the worker is started as the page asked, and the
+    // request check refuses its script at these levels
     // (shields._WORKER_SCRIPTS): it never runs without the protection.
     var UPR = U && U.prototype, uHref = getterOf(UPR, 'href'), uOrigin = getterOf(UPR, 'origin');
     var uProto = getterOf(UPR, 'protocol'), baseOf = getterOf(w.Node && w.Node.prototype, 'baseURI');
     var later = function (u) { RAPPLY(nLater, w, [function () { RAPPLY(rawRevoke, U, [u]); }, 30000]); };
+    // the document's own origin, as the engine checks a worker's script
+    // against it: "null" in a sandboxed frame (where the engine refuses a
+    // worker from a file), the parent's in about:blank and srcdoc frames
+    // (review round 3: location.origin let a sandboxed frame start one)
+    var ownOrigin = null;
+    try { ownOrigin = `${w.origin}`; } catch (e) {}
     function fromFile(url, module) {
       var x = nConstruct(U, [url, RAPPLY(baseOf, doc, [])]), pr = RAPPLY(uProto, x, []);
-      if ((pr !== 'http:' && pr !== 'https:') || RAPPLY(uOrigin, x, []) !== w.location.origin) return null;
+      if ((pr !== 'http:' && pr !== 'https:') || RAPPLY(uOrigin, x, []) !== ownOrigin) return null;
       var abs = RAPPLY(uHref, x, []), js = { type: 'text/javascript' };
       if (module) {
         var pre = RAPPLY(rawCreate, U, [new NBlob([preludeFor(abs, true)], js)]);
-        // the site's module by import(), awaited: a static import of it would
-        // be fetched as a worker's script, which the request check refuses
-        var top = RAPPLY(rawCreate, U, [new NBlob(['import ' + RAPPLY(JSON_STR, JSON, [pre]) + ';\nawait import(' +
-          RAPPLY(JSON_STR, JSON, [abs]) + ');\n'], js)]);
+        var top = RAPPLY(rawCreate, U, [new NBlob([MODULE_TOP[0] + RAPPLY(JSON_STR, JSON, [pre]) + MODULE_TOP[1] +
+          RAPPLY(JSON_STR, JSON, [abs]) + MODULE_TOP[2]], js)]);
         PATCHED.set(top, abs);
         later(pre); later(top);
         return top;
       }
-      var xr = new NXHR();
-      RAPPLY(xOpen, xr, ['GET', abs, false]);
-      RAPPLY(xSend, xr, []);
-      var st = RAPPLY(xStatus, xr, []);
-      if (st < 200 || st > 299) return null;
-      var made = RAPPLY(rawCreate, U, [new NBlob([preludeFor(abs, false), RAPPLY(xText, xr, [])], js)]);
+      var made = RAPPLY(rawCreate, U, [new NBlob([preludeFor(abs, false, true)], js)]);
       PATCHED.set(made, abs);
       later(made);
       return made;
+    }
+    // What the engine reports when the site's script cannot be had or read,
+    // as it reports it for the worker the page asked for: a plain "error"
+    // event for a script that cannot be fetched or is no script (importScripts
+    // and import() report an exception of their own), a syntax error without
+    // importScripts' own words (the event is the protection's, not the engine's)
+    var EEP = w.ErrorEvent && w.ErrorEvent.prototype, eFile = getterOf(EEP, 'filename'), eMsg = getterOf(EEP, 'message');
+    var eLine = getterOf(EEP, 'lineno'), eCol = getterOf(EEP, 'colno');
+    var EVP = w.Event && w.Event.prototype, eStop = EVP && EVP.stopImmediatePropagation, ePrevent = EVP && EVP.preventDefault;
+    var ETP = w.EventTarget && w.EventTarget.prototype, eAdd = ETP && ETP.addEventListener, eFire = ETP && ETP.dispatchEvent;
+    var NEvent = w.Event, NErrorEvent = w.ErrorEvent;
+    var IMPORT = "Uncaught SyntaxError: Failed to execute 'importScripts' on 'WorkerGlobalScope': ";
+    function sameErrors(worker, made) {
+      try {
+        RAPPLY(eAdd, worker, ['error', function (e) {
+          var f, m;
+          try { f = RAPPLY(eFile, e, []); m = `${RAPPLY(eMsg, e, [])}`; } catch (x) { return; }
+          var again = null;
+          if (f === made && (sindex(m, 'NetworkError') >= 0 || sindex(m, 'Failed to fetch dynamically imported module') >= 0)) {
+            again = new NEvent('error', { cancelable: true });
+          } else if (sindex(m, IMPORT) === 0) {
+            again = new NErrorEvent('error', { message: 'Uncaught SyntaxError: ' + sslice(m, IMPORT.length), filename: f,
+              lineno: RAPPLY(eLine, e, []), colno: RAPPLY(eCol, e, []), cancelable: true });
+          }
+          if (!again) return;
+          RAPPLY(eStop, e, []);
+          RAPPLY(ePrevent, e, []);
+          RAPPLY(eFire, worker, [again]);
+        }]);
+      } catch (e) {}
+    }
+    // a content security policy that refuses the blob address: its report of
+    // the protection's own attempt is not the page's (review round 3, N-6);
+    // the worker the page asked for is then refused (see above)
+    var SPV = w.SecurityPolicyViolationEvent && w.SecurityPolicyViolationEvent.prototype;
+    var vBlocked = getterOf(SPV, 'blockedURI'), vSource = getterOf(SPV, 'sourceFile');
+    if (strict && vBlocked && vSource) {
+      try {
+        RAPPLY(eAdd, w, ['securitypolicyviolation', function (e) {
+          try {
+            if (RAPPLY(vBlocked, e, []) === 'blob' && sindex(`${RAPPLY(vSource, e, [])}`, 'userscript') === 0) {
+              RAPPLY(eStop, e, []);
+            }
+          } catch (x) {}
+        }, true]);
+      } catch (e) {}
     }
     if (rawCreate && rawRevoke && NBlob) {
       wrap(U, 'createObjectURL', function (orig) {
@@ -2629,7 +2743,7 @@
         if (typeof Orig !== 'function') return;
         var P = new w.Proxy(Orig, {
           construct: function (target, args, newTarget) {
-            var nt = newTarget === P ? target : newTarget;
+            var nt = newTarget === P ? target : newTarget, file = null;
             // no address: the engine's own TypeError (V-13)
             if (!args.length) { try { return nConstruct(target, args, nt); } catch (e) { clean(e); throw e; } }
             // the address as read here is the one used (an object whose text
@@ -2642,7 +2756,7 @@
             var call = send(tt !== null ? first : url), asked = call;
             try {
               if (strict && name === 'Worker' && sslice(url, 0, 5) !== 'blob:' && lower(sslice(url, 0, 5)) !== 'data:') {
-                var file = fromFile(url, opt.module);
+                file = fromFile(url, opt.module);
                 if (file) call = send(tt !== null ? asTrusted(file) : file);
               } else if (sslice(url, 0, 5) === 'blob:') {
                 var blob = blobs.get(url);
@@ -2680,10 +2794,13 @@
             // the engine's own errors (a policy of Trusted Types, say) without
             // the protection's lines in their stack (M-5); a blob address a
             // policy refuses: the worker the page asked for (see fromFile)
-            try { return nConstruct(target, call, nt); } catch (e) {
+            var made;
+            try { made = nConstruct(target, call, nt); } catch (e) {
               if (call !== asked) { try { return nConstruct(target, asked, nt); } catch (e2) { clean(e2); throw e2; } }
               clean(e); throw e;
             }
+            if (file) sameErrors(made, file);
+            return made;
           }
         });
         natives.set(P, RAPPLY(origToString, Orig, []));

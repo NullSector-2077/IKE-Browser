@@ -4,7 +4,7 @@
 
 - **Fingerprinting: what the sites' own checks found** (a run of I.K.E.
   against browserleaks.com and CreepJS, the owner's decisions of 2026-11-24,
-  then two rounds of an independent adversarial review; docs/SECURITY.md,
+  then three rounds of an independent adversarial review; docs/SECURITY.md,
   tests/test_fingerprint_125.py, tests/test_fingerprint_125_workers.py):
   - at every level the page, its frames, every kind of worker and the request
     headers give the same brand list in the same order, the same Chrome
@@ -19,9 +19,13 @@
     starts from a file of its own (classic or module, nested, in a frame of
     another site) gets the same protection as the page: it starts from a
     blob holding the protection, which then runs the site's script with its
-    real address (relative addresses, location and errors as before). Where
-    a page's security policy forbids that, the worker is refused, never
-    started without the protection. No service worker and no shared worker
+    real address (relative addresses, location and errors as before): a
+    classic script by the engine's own `importScripts` (the page no longer
+    waits for it, "use strict" kept), a module by `import()` with the
+    messages posted before it ran held and delivered in order (one posted at
+    once was lost). Where a page's security policy forbids that, the worker
+    is refused, never started without the protection, and the page sees no
+    policy report naming the protection. No service worker and no shared worker
     from a site's own file (one registered before at a lower level is
     unregistered);
   - Strict and Maximum: Chrome's own five PDF plugins with their two types

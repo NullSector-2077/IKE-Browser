@@ -133,7 +133,7 @@ Each with a test in `tests/test_review_fixes.py` that failed before the fix.
 
 A run of the real browser against browserleaks.com and CreepJS (the owner's
 decisions of 2026-11-24), then an independent adversarial review of the
-result (two rounds). Each point with a test in `tests/test_fingerprint_125.py`
+result (three rounds). Each point with a test in `tests/test_fingerprint_125.py`
 or `tests/test_fingerprint_125_workers.py` (the review's own probes, in
 `tests/data/fingerprint-125/`) that failed before the fix.
 
@@ -141,7 +141,7 @@ or `tests/test_fingerprint_125_workers.py` (the review's own probes, in
 |---|---|---|
 | Client hints, every level | Service and shared workers get the engine's own client hints, never the profile's: "Chromium" only, the engine's full version and the real kernel (6.18.44) where the page said "Google Chrome", 140.0.0.0 and 6.0.0 | The profile keeps the engine's own brand list, versions and order (nothing is set over them, at Strict either: Qt sorts a list it is given, and frames, headers and shared workers came in two orders); the engine leaves the kernel out (`ReduceUserAgentDataLinuxPlatformVersion`; the platform version is empty everywhere). At Strict and Maximum the major version (140.0.0.0) is given by the request check and by the scripts of pages and workers |
 | Service and shared workers from a file, Strict and Maximum | Started, with the engine's own values and no protection | Not started: their script is refused in the request check, in every frame and worker (`register()` fails as when the script cannot be fetched); one registered before at a lower level is unregistered |
-| Dedicated workers from a file, Strict and Maximum (also a site set to Strict by itself) | No protection at all: the real card, limits and extensions, canvas without noise, the installed fonts, the real network, the full version, every language | Started from a blob address holding the protection, which then runs the site's script with its real address: a classic script read once by the page and put after the protection, a module imported by `import()` after it. Inside, the location, `importScripts`, `fetch`, `Request`, `XMLHttpRequest`, `WebSocket`, `EventSource` and nested workers read relative addresses against the file's; a syntax error, an exception or a missing script reach the page as before; nested workers and workers in frames of other sites the same. Where a content security policy refuses blob workers, the worker the page asked for is refused by the request check, as when its script cannot be fetched: it never runs without the protection. Balanced: unchanged |
+| Dedicated workers from a file, Strict and Maximum (also a site set to Strict by itself) | No protection at all: the real card, limits and extensions, canvas without noise, the installed fonts, the real network, the full version, every language | Started from a blob address holding the protection, which then runs the site's script with its real address: a classic script by the engine's own `importScripts` (its fetch, its type check, its "use strict"; the page does not wait for it), a module by `import()`, the messages the page posts before the module has run held and delivered to it in order. Inside, the location, `importScripts`, `fetch`, `Request`, `XMLHttpRequest`, `WebSocket`, `EventSource` and nested workers read relative addresses against the file's; a syntax error, an exception or a missing script reach the page as before, with the site's address; nested workers and workers in frames of other sites the same; a sandboxed frame (an opaque origin) gets none, as with the engine. Where a content security policy refuses blob workers, the worker the page asked for is refused by the request check, as when its script cannot be fetched, and the page sees no policy report of the protection's: it never runs without the protection. Balanced: unchanged |
 | Plugins, Strict | Chrome's five PDF viewers plus two invented ones with no type (CreepJS: "missing mimetype") | Chrome's own five, with their two types, the same for everyone (Balanced keeps the invented ones) |
 | WebGL, Strict | `getParameter` of the debug enums gave null with no error (Chrome raises INVALID_ENUM), a random part of the extensions hidden with the real limits (CreepJS: "suspicious capabilities") | No card name (the owner's choice, as before): `WEBGL_debug_renderer_info` is not offered, and the debug enums give the engine's own INVALID_ENUM and null. A fixed list of extensions every common desktop card has, never one the real context lacks, never enabled otherwise (`WEBGL_debug_shaders` no longer offered); a fixed floor of limits (table below), never above the real one; plain colours read back exactly (`readPixels`). The same in pages, frames, workers and WebGL 2; WebGPU gives no adapter |
 | Canvas, Strict | The noise changed pixels of plain colours: CreepJS reads back single pixels it drew ("pixel data modified"); the page's own pixels (`putImageData`) came back changed | A canvas whose pixels all came from solid, opaque, whole-pixel rectangles, from `putImageData` or from another such canvas copied unscaled at a whole pixel is read back exactly; a `putImageData` that covers the whole canvas makes it exact again. Elsewhere only opaque pixels at an edge get noise (a pixel with the colour of its four neighbours never), and a pixel's noise depends on the canvas, not on the part read. No size is exempt (review point LOW-11): small canvases with the noise left out could be put together into any picture, a piece at a time |
@@ -185,7 +185,12 @@ OES_texture_half_float, OES_texture_half_float_linear,
 OES_vertex_array_object, WEBGL_color_buffer_float,
 WEBGL_compressed_texture_s3tc, WEBGL_depth_texture, WEBGL_draw_buffers,
 WEBGL_lose_context, WEBGL_multi_draw (every one of them on llvmpipe; on the
-others from memory; in doubt an extension was left out).
+others from memory; in doubt an extension was left out). What a page sees is
+the names that are both in this list and in the real context's: on the
+test computer WebGL 1 shows 22 of the 23 (EXT_color_buffer_float is WebGL
+2's alone) and WebGL 2 shows 9. A card that lacks one of them shows one
+fewer: the list is fixed only as far as the real context allows (an
+extension it does not have is never offered).
 
 **Known limits, not solved.**
 - The real limits can still be found by trying them: `activeTexture` up to
@@ -205,11 +210,43 @@ others from memory; in doubt an extension was left out).
   `valueOf` or `toString` (fewer since 1.1.25: transforms and `measureText`
   are no longer wrapped, `fillRect` and `getImageData` no longer convert the
   page's arguments themselves).
-- Workers from a file at Strict: the script is read by the page (its
-  request is an XMLHttpRequest's, not a worker's), a module's missing file
-  reaches the page as an exception of `import()`, a page with a content
-  security policy that refuses blob workers sees a policy report of the
-  blob address and gets no worker.
+- A site that probes behaviour rather than values (it asks for a texture
+  larger than the reported limit, times a draw, compares a canvas with one
+  drawn again) can still tell the protection is there: the values are
+  lowered, not the card.
+- Stacks: a stack read inside `fillRect`, `getImageData`, WebGL's
+  `getParameter` and `getExtension` and the `Worker` constructor (from an
+  argument's `valueOf`, `toString` or a getter) still has one line of the
+  protection's.
+- Workers from a file at Strict (the review's third round):
+  - their script is fetched by the worker (`importScripts` or `import()`),
+    not by the page as a worker's script: the server sees a script's request
+    (Sec-Fetch-Dest `script` and mode `no-cors` or `cors`, where the engine
+    sends `worker` and `same-origin`; no Referer) and the page's
+    own timeline does not list it (the engine lists it there);
+  - a module worker's imported files are in the worker's own timeline (the
+    engine leaves them out); its own script is not;
+  - a message the page posts to a module worker before the worker's module
+    has run is held and handed to it afterwards, in order, as a new event
+    (`isTrusted` false, where the engine's is true);
+  - the bottom line of a stack read in the script's first run is the blob
+    address (one line, under the site's own lines), and a relative
+    `importScripts` puts one line of the protection's between the imported
+    file and the script that imported it;
+  - a file served as `text/plain`: the engine runs it as a worker; at Strict
+    it is refused (`importScripts` asks for a script's type), as when the
+    file is missing;
+  - a page whose content security policy refuses blob workers (`worker-src
+    'self'`) gets no worker at all: the worker is refused, never started
+    without the protection (the owner's choice). The page sees no policy
+    report naming the protection; a report the policy sends to the site's
+    server (`report-uri`) is the engine's and may still be sent.
+- At Balanced, a shared or service worker from a file runs without the
+  protection (as before 1.1.25) and shows the engine's own languages (["it"]
+  on the test computer) where the page shows its full list ("it-IT", "it",
+  "en-US", "en"). At Strict and Maximum they are refused.
+- No canvas size is left exact (review point LOW-11, declined): a 2 x 2
+  canvas gets the same noise as any other.
 
 ## Known limits (not solved)
 

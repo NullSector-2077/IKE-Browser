@@ -321,7 +321,9 @@ docs/MAINTENANCE.md when the task touches them.
   `experiment/file-workers`, waiting for the owner's decision. At Strict and
   Maximum (1.1.25) such a worker gets the protection (its script runs after
   it from a blob address; refused where a page's policy forbids that), and
-  service and shared workers from a file are not started.
+  service and shared workers from a file are not started; what still differs
+  from the engine is in docs/SECURITY.md (its script's request, timelines,
+  one blob line under a stack, a `text/plain` file refused).
 - The ad-blocking engine is adblock-rust (open-source library, MPL-2.0)
   with uBlock Origin / EasyList filter lists and uBlock Origin scriptlets; the
   integration around them is I.K.E.'s own.
