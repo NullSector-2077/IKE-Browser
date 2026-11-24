@@ -480,7 +480,10 @@ def test_own_menus_aligned(run_ike, tmp_path, style, lang):
             elif abs((r["icon"][2] + r["icon"][3]) / 2 - mid) > 1:
                 problems.append("%s: %r icon centre %.1f, row middle %.1f" % (
                     name, r["text"], (r["icon"][2] + r["icon"][3]) / 2, mid))
-            if r.get("capital") and abs((r["capital"][2] + r["capital"][3]) / 2 - mid) > 1:
+            # the capital's ink, at scale 2: within one logical pixel (2 device pixels) of the middle. The
+            # rasterizer of GitHub's runner put the 'S' of "System title bar" 2 device pixels low where this
+            # computer, with the same font, gives 0 (PR #162); the icons keep the stricter 1.
+            if r.get("capital") and abs((r["capital"][2] + r["capital"][3]) / 2 - mid) > 2:
                 problems.append("%s: %r text centre %.1f, row middle %.1f" % (
                     name, r["text"], (r["capital"][2] + r["capital"][3]) / 2, mid))
         shorts = [r["short"][1] for r in items if r.get("short")]
