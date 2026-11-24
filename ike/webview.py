@@ -180,6 +180,9 @@ class WebPage(QWebEnginePage):
             self.app.userscripts.offer(self.window_ref, url.toString(), home_ok=home_ok)
             return False
         if is_main_frame:
+            # bounce tracking (1.1.24, bounce.py): a site that only redirected onward
+            acted = getattr(self, "_ike_input", -99.0) > getattr(self, "_ike_page_since", -99.0)
+            self.app.bounce.navigation(self, url, nav_type, acted)
             self._ike_page_since = time.monotonic()
             self.nav_scheme = url.scheme().lower()      # where it goes (the loading line, 1.1.23)
             host = url.host().lower()
@@ -249,18 +252,23 @@ class WebPage(QWebEnginePage):
         self._ike_scripts = []
 
     def _reader_prefs(self, text):
-        """Light, sepia or dark and the text size chosen in reader mode (reader.js)."""
+        """Light, sepia or dark, the text size, the column's width and serif or
+        sans-serif type chosen in reader mode (reader.js)."""
         import json
         try:
             d = json.loads(text)
             theme, size = d["theme"], int(d["size"])
-        except (ValueError, KeyError, TypeError):
+            width, font = d.get("width", "medium"), d.get("font", "serif")
+        except (ValueError, KeyError, TypeError, AttributeError):
             return
-        if theme not in ("auto", "light", "sepia", "dark") or not 14 <= size <= 28:
+        if (theme not in ("auto", "light", "sepia", "dark") or not 14 <= size <= 28
+                or width not in ("narrow", "medium", "wide") or font not in ("serif", "sans")):
             return
         cfg = self.app.config
-        if (cfg["reader_theme"], cfg["reader_size"]) != (theme, size):
-            cfg["reader_theme"], cfg["reader_size"] = theme, size
+        keys = ("reader_theme", "reader_size", "reader_width", "reader_font")
+        if tuple(cfg[k] for k in keys) != (theme, size, width, font):
+            for k, v in zip(keys, (theme, size, width, font)):
+                cfg[k] = v
             cfg.save()
 
     def _loading_changed(self, info):
@@ -618,6 +626,9 @@ class WebPage(QWebEnginePage):
         if test_switch("IKE_TEST_PERMS") in ("grant", "deny"):
             perm.grant() if test_switch("IKE_TEST_PERMS") == "grant" else perm.deny()
             return
+        from . import quietperms
+        if quietperms.handle(self, perm):
+            return                       # a sign in the address bar instead of a window (1.1.24)
         if not self.visible_tab():
             # a tab in the background waits: its question would appear over the
             # page the user is looking at, which is easy to answer by mistake
@@ -917,8 +928,13 @@ class WebView(QWebEngineView):
         if t in (QEvent.Type.MouseButtonPress, QEvent.Type.KeyPress) \
                 and not getattr(self.page(), "_ike_synthetic", False):
             self.page()._ike_input = time.monotonic()   # the user acts on the page (downloads)
+            self.window_ref.app.bounce.used(self.page())     # a site the user used (bounce.py)
         if t == QEvent.Type.Wheel and self._wheel(event):
             return True
+        if t == QEvent.Type.NativeGesture:                # touchpad: swipe and pinch (1.1.24)
+            from .gestures import handle
+            if handle(self, event):
+                return True
         if (t in (QEvent.Type.MouseButtonPress, QEvent.Type.MouseMove, QEvent.Type.MouseButtonRelease)
                 and self.window_ref.app.config["mouse_gestures"] and self._gesture(obj, event)):
             return True
@@ -955,6 +971,19 @@ class WebView(QWebEngineView):
         if not final:
             QTimer.singleShot(550, lambda t=text: self._ensure_copied(text=t, final=True))
 
+    def _osd_for(self, menu):
+        """The quick actions of the page's menu say they were done (1.1.24):
+        an address copied, a link bookmarked (window.osd)."""
+        said = {T("Copy link address"): (T("Link copied"), "edit-copy"),
+                T("Copy image address"): (T("Link copied"), "edit-copy"),
+                T("Copy media address"): (T("Link copied"), "edit-copy"),
+                T("Bookmark this link"): (T("Bookmark added"), "bookmark-new")}
+        win = self.window_ref
+        for a in menu.actions():
+            done = said.get(a.text())
+            if done is not None:
+                a.triggered.connect(lambda _c=False, d=done: win.osd(*d))
+
     def contextMenuEvent(self, event):
         from .contextmenu import build
         old = getattr(self, "_ctx_menu", None)
@@ -967,8 +996,34 @@ class WebView(QWebEngineView):
         # Keep a reference: a menu held only by a local variable is destroyed
         # as soon as this method returns, and nothing would be shown.
         self._ctx_menu = build(self, self.lastContextMenuRequest())
+        self._osd_for(self._ctx_menu)
         self._ctx_menu.popup(event.globalPos())
         event.accept()
+
+
+# Dark PDFs (1.1.24, off by default): the engine's PDF viewer is a plugin in
+# an <embed> of a page of its own (document.contentType "application/pdf");
+# its colours turned around, the hues kept. Run in I.K.E.'s own world, only
+# when the switch is on (nothing on other pages' loads while it is off).
+DARK_PDF_JS = ("(function(on){if(document.contentType!=='application/pdf')return false;"
+               "var e=document.querySelector('embed[type=\"application/pdf\"]')||document.documentElement;"
+               "e.style.filter=on?'invert(0.9) hue-rotate(180deg)':'';return true;})(%s)")
+
+
+def dark_pdf(view, on, done=None):
+    """Dark colours for a PDF shown in the engine's viewer (Settings →
+    Appearance → Show PDFs with dark colours); any other page is left alone."""
+    try:
+        page = view.page()
+    except RuntimeError:
+        return
+    if page is None:
+        return
+    js = DARK_PDF_JS % ("true" if on else "false")
+    if done is None:
+        page.runJavaScript(js, 1)
+    else:
+        page.runJavaScript(js, 1, done)
 
 
 def notify(notification):

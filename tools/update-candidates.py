@@ -13,6 +13,7 @@ automatic fix, ledger entry and verified merge (tools/automerge.py).
     crate-major-<c>    a new major version of another direct crate of the engine
     ubo-scriptlets     uBlock Origin's scriptlets (rebuilt by tools/build-ubo-scriptlets.mjs)
     darkreader         Dark Reader's engine and lists (rebuilt by tools/build-darkreader.py)
+    breeze-icons       KDE's Breeze icons of the set "Breeze (KDE)" (rebuilt by tools/build-breeze-icons.py)
     test-qt            Qt's wheels of the automatic tests
     test-tools         pytest, ruff and what they bring
     test-libs          the other libraries of the automatic tests
@@ -110,6 +111,16 @@ def _manifest():
     mod = importlib.util.module_from_spec(sp)
     sp.loader.exec_module(mod)
     return mod
+
+
+def _anchor_builders():
+    """The ids whose builder an AI may re-anchor on automation/builder/<id> (tools/builder-anchor.py)."""
+    import importlib.util
+    path = Path(__file__).resolve().parent / "builder-anchor.py"
+    sp = importlib.util.spec_from_file_location("builder_anchor", path)
+    mod = importlib.util.module_from_spec(sp)
+    sp.loader.exec_module(mod)
+    return tuple(mod.BUILDERS)
 
 
 def manifest_specs(root=ROOT):
@@ -267,6 +278,12 @@ def plan(report, branches=None, builder_apply=()):
             b = builder_branch(cid)
             if not s.get("builder"):
                 out.append(dict(row, action="skip", reason="refused, and no builder of I.K.E.'s for it"))
+            elif cid not in _anchor_builders():
+                # 1.1.24 (KDE's Breeze icons): a builder with no patches to re-anchor; the component stays
+                # at the version in use, the daily check tries every new release again
+                out.append(dict(row, action="skip", reason="refused by its builder (%s); it has no patches an AI "
+                                "may re-anchor (tools/builder-anchor.py): the component stays at the version in "
+                                "use and the daily report says why" % c.get("step", "?")))
             elif b in branches and not on_builder:
                 out.append(dict(row, action="skip", branch=b, reason="the builder's re-anchoring already waits on "
                                 "%s (PR #%s)" % (b, branches[b].get("pr", "?"))))

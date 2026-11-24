@@ -14,10 +14,11 @@ otherwise.
 import math
 import time
 
-from PyQt6.QtCore import QPoint, QRect, QRectF, Qt, QTimer
-from PyQt6.QtGui import QColor, QGuiApplication, QPainter, QPainterPath, QPalette, QPen
+from PyQt6.QtCore import QPoint, QPointF, QRect, QRectF, Qt, QTimer
+from PyQt6.QtGui import QColor, QGuiApplication, QPainter, QPainterPath, QPalette, QPen, QPixmap
 from PyQt6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
+from . import battery
 from .polish import RADIUS  # 1.1.23: one radius for everything I.K.E. draws (was 8)
 
 WIDTH = 240
@@ -35,6 +36,8 @@ def capture(view):
     change of tab (8 ms of 15 with OpenGL). Only the part the card shows is
     grabbed and scaled: a quick halving down to twice the card's size, then
     the smooth step; the card shows the same picture."""
+    if battery.saving():
+        return                          # battery saver (1.1.24): no read-back of the page
     try:
         if not view.isVisible() or view.width() < 50 or view.height() < 50:
             return
@@ -394,3 +397,40 @@ class TabPreview(QWidget):
         self.view = None
         self.timer.stop()
         self.hide()
+
+
+DRAG_WIDTH = 160             # the picture of a tab dragged out of its window (1.1.24)
+
+
+def drag_picture(view, fallback, palette):
+    """The small picture that follows the mouse while a tab is dragged out
+    of its window: the tab's preview (capture, taken now for the tab in
+    view when it has none), DRAG_WIDTH wide, in a rounded frame of the
+    theme's separator colour; fallback (a picture of the tab itself) when
+    the page has none."""
+    from .polish import separator
+    pm = getattr(view, "preview", None)
+    if pm is None or getattr(view, "preview_stale", True):
+        capture(view)
+        pm = getattr(view, "preview", None) or pm
+    if pm is None or pm.isNull():
+        return fallback
+    dpr = pm.devicePixelRatio() or 1.0
+    small = pm.scaledToWidth(round(DRAG_WIDTH * dpr), Qt.TransformationMode.SmoothTransformation)
+    small.setDevicePixelRatio(dpr)
+    w, h = DRAG_WIDTH, small.height() / dpr
+    out = QPixmap(round((w + 2) * dpr), round((h + 2) * dpr))
+    out.setDevicePixelRatio(dpr)
+    out.fill(Qt.GlobalColor.transparent)
+    p = QPainter(out)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    shape = QPainterPath()
+    shape.addRoundedRect(QRectF(1, 1, w, h), RADIUS, RADIUS)
+    p.setClipPath(shape)
+    p.drawPixmap(QPointF(1, 1), small)
+    p.setClipping(False)
+    p.setPen(separator(palette))
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    p.drawRoundedRect(QRectF(0.5, 0.5, w + 1, h + 1), RADIUS + 0.5, RADIUS + 0.5)
+    p.end()
+    return out

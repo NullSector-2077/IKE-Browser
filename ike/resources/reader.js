@@ -1,6 +1,7 @@
 // I.K.E. reader mode: keeps the main article and drops everything else.
 // Returns true when an article was found and the page was rewritten.
-// Light, sepia or dark and the size of the text are chosen on the page (1.1.5).
+// Light, sepia or dark and the size of the text are chosen on the page (1.1.5),
+// the width of the column and serif or sans-serif type too (1.1.24).
 (function () {
   'use strict';
   function textLen(el) {
@@ -41,6 +42,9 @@
   var R = (typeof IKE_READER === 'object' && IKE_READER) || {};
   var theme = /^(auto|light|sepia|dark)$/.test(R.theme) ? R.theme : 'auto';
   var size = Math.max(14, Math.min(28, parseInt(R.size, 10) || 19));
+  var WIDTHS = { narrow: '34em', medium: '42em', wide: '56em' };
+  var width = WIDTHS.hasOwnProperty(R.width) ? R.width : 'medium';
+  var font = R.font === 'sans' ? 'sans' : 'serif';
   var L = R.labels || {};
   var words = (copy.textContent || '').trim().split(/\s+/).length;
   var css = ':root{color-scheme:light dark}' +
@@ -48,7 +52,8 @@
     'html[data-theme=light] body{background:#fbfbf8;color:#1d1d1f}html[data-theme=light]{color-scheme:light}' +
     'html[data-theme=sepia] body{background:#f4ecd8;color:#5b4636}html[data-theme=sepia]{color-scheme:light}' +
     'html[data-theme=dark] body{background:#1c1c1e;color:#e6e6e6}html[data-theme=dark]{color-scheme:dark}' +
-    'body main{font-size:var(--ike-size,19px)}' +
+    'body main{font-size:var(--ike-size,19px);max-width:var(--ike-width,42em)}' +
+    'html[data-font=sans] body{font-family:system-ui,"Noto Sans",sans-serif}' +
     '.ike-meta{font:13px/1.4 system-ui,"Noto Sans",sans-serif;opacity:.65;margin:-.4em 0 2em}' +
     '.ike-tools{position:fixed;top:12px;right:14px;display:flex;gap:4px;padding:4px;border-radius:999px;' +
     'background:color-mix(in srgb,currentColor 8%,transparent);font:13px system-ui,"Noto Sans",sans-serif;z-index:9}' +
@@ -58,8 +63,11 @@
     '.ike-tools button[aria-pressed=true]{background:color-mix(in srgb,currentColor 22%,transparent)}' +
     '.ike-tools .sw{width:14px;height:14px;border-radius:50%;display:inline-block;vertical-align:-2px;' +
     'border:1px solid color-mix(in srgb,currentColor 40%,transparent)}' +
+    '.ike-tools .col{height:10px;display:inline-block;vertical-align:-1px;border:solid currentColor;' +
+    'border-width:0 2px;opacity:.8}' +
+    '.ike-tools .serif{font-family:Georgia,"Noto Serif",serif}' +
     '@media print{.ike-tools{display:none}}' +
-    'main{max-width:42em;margin:0 auto;padding:48px 24px 96px}' +
+    'main{margin:0 auto;padding:48px 24px 96px}' +
     'h1{font:600 1.9em/1.25 system-ui,"Noto Sans",sans-serif;margin:0 0 .8em}' +
     'h2,h3,h4{font-family:system-ui,"Noto Sans",sans-serif;line-height:1.3;margin:1.6em 0 .5em}' +
     'img,video,figure{max-width:100%;height:auto;margin:1em 0}figcaption{font-size:.8em;opacity:.7}' +
@@ -86,9 +94,11 @@
     if (theme === 'auto') document.documentElement.removeAttribute('data-theme');
     else document.documentElement.setAttribute('data-theme', theme);
     main.style.setProperty('--ike-size', size + 'px');
+    main.style.setProperty('--ike-width', WIDTHS[width]);
+    document.documentElement.setAttribute('data-font', font);
   }
   function save() {
-    if (R.prefix) console.log(R.prefix + JSON.stringify({ theme: theme, size: size }));
+    if (R.prefix) console.log(R.prefix + JSON.stringify({ theme: theme, size: size, width: width, font: font }));
   }
   apply();
   if (R.tools !== false) {
@@ -125,6 +135,20 @@
            function () { return theme === 'sepia'; });
     button(swatch('#1c1c1e'), L.dark, function () { theme = theme === 'dark' ? 'auto' : 'dark'; },
            function () { return theme === 'dark'; });
+    // the width of the column: narrow, medium, wide (drawn as a column between two bars)
+    [['narrow', 6], ['medium', 10], ['wide', 15]].forEach(function (w) {
+      var c = document.createElement('span');
+      c.className = 'col';
+      c.style.width = w[1] + 'px';
+      button(c, L[w[0]], function () { width = w[0]; }, function () { return width === w[0]; });
+    });
+    // serif or sans-serif type, each "Aa" drawn in its own kind
+    [['serif', L.serif], ['sans', L.sans]].forEach(function (f) {
+      var a = document.createElement('span');
+      a.textContent = 'Aa';
+      if (f[0] === 'serif') a.className = 'serif';
+      button(a, f[1], function () { font = f[0]; }, function () { return font === f[0]; });
+    });
     refresh();
     document.body.appendChild(bar);
   }

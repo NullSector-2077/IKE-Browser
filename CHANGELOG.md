@@ -2,6 +2,104 @@
 
 ## 1.1.24
 
+- **Squared switches, closer to Plasma** (the owner's choice): every on / off
+  switch is a rectangle with rounded corners and a square knob, no longer a
+  pill. Those of the windows and the Settings are a little smaller (a line and
+  two pixels tall, they were a line and four), as are those of the lists (one
+  line, they were a line and two); those of the menus keep their size.
+- **The new tab page's Settings button follows the icon choice**: KDE's own
+  Breeze "configure" icon with the default choice and on Plasma, the chosen
+  icon theme's or shipped set's icon otherwise, drawn in the page's text
+  colour; the shipped icon when none is found. Only a plain
+  drawing is put in the page (no script, link or outside reference).
+- **KDE's Breeze icons come with I.K.E.** (the owner's request): Settings →
+  Appearance → Icons offers "Breeze (KDE) (included with I.K.E.)", drawn in
+  the interface's text colour like the other included sets, so the icons are
+  KDE's even on a desktop without breeze-icons (still not a dependency of the
+  package). Only the icons I.K.E. uses are shipped: 103 from breeze-icons
+  6.32.0, 84 KB, read when they are first shown. The new tab page's Settings
+  icon uses it where the Breeze theme is not installed (with the default
+  choice, before the icon theme in use), and when the set is chosen.
+  `tools/build-breeze-icons.py` copies them from KDE's release (the
+  colour-scheme style removed, nothing else of the drawing changed; anything
+  but a plain drawing stops it); the
+  daily maintenance follows breeze-icons' new releases by itself
+  (`components.json`, entry `breeze-icons`), and a release that lost one of
+  the icons is refused and the set kept as it is. Licence: LGPL-3.0-or-later,
+  `licenses/LICENSE.breeze-icons` (tests/test_breeze_icons.py).
+- **A greeting and friendly messages on the new tab page** (top left; at narrow
+  widths it stops short of the Settings button): "Good morning" (05:00),
+  "Good afternoon" (12:00), "Good evening" (18:00), "Good night" (23:00), in the
+  language of I.K.E., and under it at most one short line from a pool of 98
+  messages in groups (the days away or a streak, an update, the small hours, the
+  evening before the clocks change, the first of a season and of a month, the
+  weather the page already has, the week of the page's language, the time of day,
+  fun facts that are true, encouragement). A line comes again only after the
+  others of its group (a shuffled bag per group) and not within three days; it
+  stays for two hours or until the period changes, not on every new tab. In
+  Settings, New tab page: the greeting (on), the tone ("Greetings only" or "Also
+  friendly messages", the default) and "Holidays to remember", one switch per
+  tradition, all off: Christian, Orthodox Christian, Islamic, Jewish, Hindu,
+  Buddhist, Lunar New Year, Nowruz and the civil New Year; I.K.E. never guesses
+  them. The days come from the engine's own calendars (Umm al-Qura, Hebrew,
+  Chinese) and the computus for Easter, a small table for Diwali, Holi, Vesak and
+  the Lunar New Year of some years (`ike/resources/holidays.json`, to be
+  refreshed). Worked out in the page; kept in I.K.E.'s own settings and nowhere
+  else: the first and last day, the days of use, the streak, the usual hour of
+  the first opening, the version seen and the messages shown; nothing is asked of
+  the network (the wind speed joins the temperature and the weather code in the
+  weather request). The words go into the page as data, never as script
+  (`ike/greeting.py`, `ike/resources/greeting.js`, tests/test_greeting.py). The
+  "Add" tile is as visible as the Settings button.
+- **The K of I.K.E. is light cyan** (#7df3ff, the light stop of the shield's
+  edge) in the logo, in every icon size and in "Kontrol" of the full name; the
+  lettering and its font are unchanged and the other letters keep their colour.
+  `tools/make-brand.py` and `tools/make-small-icons.py` now draw the K as its
+  own path (`lettering-k`; in the wordmark `<path class="k">`, which is the
+  text colour until the page's CSS colours it) (tests/test_brand.py).
+Privacy package (A2b; every item agreed by the owner):
+
+- **Bounce tracking is cleaned up** (on by default; Settings -> Protection): a
+  site you only pass through, because a link sends you there and it
+  redirects you on at once (by its server or by its own script, without a
+  click), loses its cookies and stored data (local storage, databases,
+  caches, service workers) half a minute later, as Brave and Firefox do.
+  Never for sites you used in the last 45 days (a click, a key, an address
+  typed; the sites already in the history count as used), have open in a
+  tab or bookmarked, allowed in the shield, or for sign-in and payment
+  services. One check per page change, nothing per request
+  (`ike/bounce.py`, tests/test_privacy_124.py).
+- **Protected time zone** ("Fuso orario protetto", in the shield, off by
+  default): every site sees UTC instead of your time zone, in pages, frames
+  and every kind of worker (those a site starts from a file of its own too),
+  because the web engine itself runs in UTC; I.K.E.'s own menus, history and
+  new tab clock keep your time. Some sites will show wrong times; it applies
+  after a restart (`ike/timezone.py`).
+- **Quiet permission questions** (on by default; Settings -> Privacy): a site
+  asking for notifications, your location, the camera or the microphone
+  shows a small sign in the address bar instead of a window; a click on it
+  answers (Allow, Block, Not now). Notifications asked for without a click
+  on the page are refused at once, and the refusal is not remembered. The
+  answers are kept per site as before (`ike/quietperms.py`).
+- **Password breach check** (off by default; the Passwords window): when a
+  password is saved or filled in, Have I Been Pwned's range service is asked
+  with only the first 5 characters of its SHA-1 fingerprint (and the padding
+  header); the comparison is made on the computer, and a password found in
+  known breaches is said once (`ike/breach.py`).
+- **"Update the system"** ("Aggiorna il sistema"): when the signed update
+  information read once a day names a security problem of the web engine
+  fixed in a newer version than the installed one, I.K.E. says so once per
+  session, with the command `sudo pacman -Syu`. The field is written by the
+  release tool from `data/engine-advisory.json` (absent until the owner
+  writes one: no notice), and read only after the signature is verified
+  (`ike/advisory.py`, docs/UPDATES.md).
+- **Battery saver** (off by default; Settings -> System): on battery, tabs in
+  the background pause after a minute, and the interface's animations and
+  the pictures of the tabs for their preview cards stop; plugged in again,
+  everything runs as before. Whether the computer is on battery comes from
+  UPower's own signal (QtDBus, nothing to install, nothing polled)
+  (`ike/battery.py`).
+
 - **xdg-utils is no longer used** (its Arch advisory AVG-1420 has no fix and
   stopped every automatic merge): a downloaded file, a folder or a link
   (mailto:, magnet:...) goes to the XDG desktop portal
@@ -59,6 +157,186 @@
 - **"Not secure" in the address bar**: a page over plain http shows a small
   red "Not secure" (translated in every language) after the lock. Not for
   localhost, 127.x.x.x, ::1, file:, about: or ike: pages.
+- **One mark on the current tab, Breeze's own, and it glides** (the
+  owner's choice, with a mockup): Breeze drew its fixed accent line on the
+  current tab and I.K.E. its own gliding line under it, so two blue lines
+  showed. Now there is one: Breeze's line along the top edge of the tab,
+  following its two rounded top corners and not down the sides, with
+  Breeze's thickness (3 px), corner radius (5 px) and colour (the palette's
+  highlight, the inactive one in an inactive window). It glides from tab
+  to tab (position and width) and jumps with reduced motion; the line
+  under the tab is gone and the style's own fixed mark is not drawn in
+  I.K.E.'s tab bar. Measured on Breeze's code and render: in Breeze the
+  tab bar with I.K.E.'s mark is the same picture, pixel for pixel, as
+  Breeze draws it with its own (light and dark, tests/test_touches_124.py).
+  Fusion, Oxygen, Kvantum and Windows get the same shape in their
+  highlight colour (Kvantum themes that draw a mark in their own pictures
+  keep it).
+- **The current tab stands a little raised**: its background is a shade
+  lighter than the window's (a little white mixed in) in Breeze, Fusion and
+  Windows; in styles that paint the tab otherwise (Oxygen, Kvantum's
+  pictures) the same shade of white is laid over it.
+- **The close button of a tab glows red under the mouse**, like Plasma's
+  window close button and drawn by the same code as the vertical tabs' and
+  the window's own close buttons (`ike/closebutton.py`: a disc in Breeze's
+  negative colour, KDE's own when the colour scheme sets it, or the Aurorae
+  theme's button), coming in over 120 ms.
+- **Tabs slide aside while one is dragged**, in the horizontal bar (Qt's
+  own movement, now following "Interface effects" and the desktop's reduced
+  motion) and in the vertical tabs (the rows open a place for the dragged
+  one, where Qt only showed a line; it is dropped where the place opened).
+- **The vertical tabs' panel widens and narrows smoothly** between only
+  the icons and the titles (200 ms).
+- **The vertical tabs' panel keeps its width** (the owner's report): the
+  width the user drags it to is kept in the settings and comes back after
+  a restart, in a new window and when vertical tabs are chosen again (the
+  panel shown again took its smallest width); it is saved at once when the
+  window closes, and a stored width is held between 120 px and the smaller
+  of 720 px and half the screen.
+- **A tab pulled out of the window opens in a new window**: pulled more than
+  40 px above or below the tab bar, the tab follows the mouse as a small
+  picture of its page (the tab preview's picture); dropped outside every
+  tab bar it opens in a new window, on another window's tab bar it moves
+  there, back on its own bar or with Esc it stays. A row of the vertical
+  tabs dropped outside the list does the same.
+- **Quick actions say they were done in a small box**, like Plasma's
+  on-screen display: a rounded box with the desktop's icon and the text
+  ("Link copied", "Bookmark added", "Screenshot saved", the zoom), in the
+  desktop's colours, fading in and out in about 1.2 s and never taking the
+  keyboard or the mouse.
+- **Tooltips fade in and out** briefly (90 and 110 ms; on Wayland the
+  desktop's own effects do it, as for menus).
+- **The find bar (Ctrl+F) slides in from the bottom**, and its field
+  flashes red for a moment when nothing is found, then keeps its soft tint.
+- **Touchpad gestures**: a horizontal swipe goes back or forward, the page
+  sliding away; a pinch zooms the page, the zoom shown in the small box and
+  kept for the site as with Ctrl+wheel. They are Qt's native gestures (on
+  Wayland the compositor's: a two-finger pinch; a swipe as the compositor
+  sends it, with three or more fingers where two-finger strokes scroll).
+- **Ctrl or Alt held for a second shows the keys of the toolbar buttons**:
+  small labels under the buttons (Alt+Left, Ctrl+R, Ctrl+D...), gone when
+  the key is let go or another key is pressed.
+- **Tab groups take Breeze's colours** (the desktop's accent first, then
+  the colour scheme's positive, neutral, negative, visited and link colours,
+  then KDE's yellow, turquoise and grey) **and fold and unfold smoothly**,
+  in the horizontal and the vertical tabs.
+- Every one of these costs nothing at rest (no timer, no animation once it
+  has played: the tests compare what runs before and after each), and each
+  follows "Interface effects" and the desktop's reduced motion, changing
+  at once without them (`ike/polish.py`, `ike/tabs.py`, `ike/motion.py`,
+  `ike/gestures.py`, tests/test_touches_124.py).
+- **The ☰ menu regrouped with one logic** (the owner's go-ahead: "with
+  criterion and logic"): new tab, window and private window; then this page
+  (Find in page, Zoom, Dark mode for pages, Reader mode, Translate page);
+  then keeping it (Print, Save as PDF, Save page as, Screenshot); then the
+  library (History, Bookmarks, Downloads); then Protection, I.K.E.
+  extensions and More; then Settings and Help; then Quit. Find, Reader
+  mode, Translate and Save page as are new in the ☰ menu itself; "Check for
+  I.K.E. updates" and "About I.K.E." moved into its new Help submenu (with
+  Keyboard shortcuts and About Qt), so nothing is there twice any more.
+  Nothing was removed and every keyboard shortcut is the same
+  (tests/test_menus_124.py checks every entry of 1.1.23's menus and every
+  shortcut).
+- **"More" ("Altro") fixed**: in KDE's Breeze its texts touched or crossed
+  the arrows of their submenus ("Visualizza", "Strumenti"), and its
+  entries, without icons, began left of every other menu's texts. It now
+  holds the menu bar's File, Edit, View and Tools, each with its icon (Help
+  moved up into the ☰ menu); and in every menu, in every widget style, an
+  entry that opens a submenu gets half a line of room before its arrow
+  (Breeze left 3 px or less). The text-fit test now measures, in all 59
+  languages, that no text comes within 6 px of a submenu's arrow, and
+  tests/test_menus_124.py does it in Breeze, Fusion, Windows, Oxygen and
+  Kvantum, left to right and right to left.
+- **The menu bar's View and Tools in groups**: View goes zoom → full screen,
+  reader mode, dark mode → vertical tabs, split view, workspaces → the
+  window's bars → page source and developer tools; Tools goes command bar
+  and tab search → downloads and passwords → translate, floating video, mute
+  → site resources, suspending tabs, watched pages → search engines and the
+  Chrome Web Store → Settings. File, Edit, History, Bookmarks, Protection,
+  Extensions and Help are as before.
+- **A search field in the Settings**: type a word and only the pages that
+  have it stay in the list, its options marked with a light frame in the
+  desktop's highlight colour; it finds an option by its name, by its ⓘ
+  explanation or by a choice of its list, without minding capitals or
+  accents (modalita finds modalità), in every language; "No setting found"
+  when nothing has it; Esc empties the field, Ctrl+F goes to it. No new
+  library, nothing done while nothing is typed.
+- **The Settings in a clearer order**: General, Appearance, New tab page,
+  Search, Downloads, then Protection and Privacy, then I.K.E. extensions,
+  then Language, Updates and System (every page keeps its name, so links to
+  a page still open it). Appearance is in groups: the colours and icons,
+  Window, Toolbar buttons, Web pages (zoom and dark mode). On every page the
+  options of all its groups start on one line, and the names stand in the
+  middle of their option's height.
+- **Toolbar buttons you can add** (off until you choose them in Settings →
+  Appearance → Toolbar buttons or with a right click on the toolbar): Zoom
+  (its menu: zoom in, zoom out, actual size), Manage bookmarks, Print or save
+  as PDF (its menu), Send to device (the phones and computers paired with KDE
+  Connect, with the Plasma integration extension) and Site resources (with
+  its extension). A click opens their menu, as with the dark mode button.
+- **History by day**: the history window groups the pages under "Today",
+  "Yesterday" and then the date, written as the interface's language writes
+  it; each page shows the time of its last visit. The search works as
+  before and keeps the grouping; a day's heading is never opened nor
+  deleted.
+- **Reader mode: the column and the type**: on the reader's bar, a narrow,
+  medium or wide column and serif or sans-serif type, next to the text size
+  and the colours; I.K.E. remembers the choice.
+- **Screenshot of the whole page or of an area**: "Screenshot…" (☰ menu,
+  File, a page's right-click menu) opens its choices: the visible part, the
+  whole page (taken a screen at a time and put together, the bars that stay
+  in place shown once, up to 16,000 pixels) or an area dragged with the
+  mouse over a still picture of the page (Esc cancels). Ctrl+Shift+S and the
+  toolbar button take the visible part as before; the picture is saved as
+  before (`ike/screenshot.py`).
+- **Dark PDFs** (off by default; Settings → Appearance → Web pages, "Show
+  PDFs with dark colours"): PDFs in I.K.E.'s own viewer are shown with their
+  colours turned around, light text on a dark page, the open ones at once.
+  Nothing runs on other pages, and nothing at all while it is off. "Open
+  with Okular" for a PDF is the one of the handoffs above.
+- **A welcome at the very first start** (`ike/welcome.py`): four short steps
+  in plain words, before the first window: the language (the computer's,
+  confirmed or changed: the welcome itself changes language at once), how
+  much I.K.E. blocks (Compatibility, Balanced, Strict, one plain line each),
+  the search engine, and, only if ticked, I.K.E. as the default browser.
+  "Skip" changes nothing; everything stays changeable in the Settings. It
+  is never shown again, and never to a profile that already had settings.
+- **"Copy clean link" in a link's right-click menu**: the address without
+  utm_, fbclid, gclid, mc_eid and the other tracking parameters I.K.E.
+  already removes (the same list), as the address bar's own "Copy clean
+  link"; the address bar keeps "Paste and go".
+- **History → Recently closed tabs**: the last 10 tabs closed, newest
+  first, with their title and the site's icon; one chosen opens again (in
+  the ☰ menu's History too). Ctrl+Shift+T still reopens the last one;
+  private windows keep no list.
+- 27 new interface strings, translated into all 59 languages; the welcome's
+  four steps are measured by the text-fit test in every language
+  (tests/test_extras_124.py).
+- **The frame guard looks less, and protects as before**: a node put into a
+  tree a page is still building outside the document (no frame there gets a
+  window) is no longer looked at further, a call that swaps nodes no longer
+  counts the frames before it, and with no frame at the guard's last look
+  only the count after the call is read. Measured in a page doing what
+  Speedometer's pages do (4 shared cores, Balanced, 48 rounds each,
+  medians): elements appended one by one 13.75 -> 13.1 ms, trees built
+  outside the page then put in 8.4 -> 7.4 ms, tests/measure_dom.py's page
+  13.1 -> 12.55 ms (shield Off: 9.2, 5.8 and 10.05 ms), so 14-38 % of the
+  guard's own cost there; Speedometer (14 DOM suites, 7 runs each) 12.9 ->
+  13.2, within the spread of the runs (11.4-14.3). The larger part left,
+  about a fifth on pages that insert a lot, is the watch of frames written
+  in the page's HTML while it loads: the engine keeps a document marked as
+  watched for good once it was, and nothing else can protect such a frame
+  before the page's next script reads it through window[i] (measured: the
+  engine runs nothing in that frame first, and its load event comes only
+  for an empty frame), so it stays. A new test plays every quick path as
+  an attack (132 frames read at once through window[i], frames[i], by
+  name, contentWindow and contentDocument; frames in frames, swapped
+  frames, a page lying about isConnected, firstElementChild, localName and
+  length, shadow roots); its frames load a page, so none is saved by its
+  own load event. Found and noted, the same before: a script or a custom
+  element put in together with a frame runs inside that very call, before
+  the guard looks (docs/review/tests-and-performance.md, "1.1.24, the frame
+  guard"; tests/test_frame_guard_paths.py).
 
 ## 1.1.23
 

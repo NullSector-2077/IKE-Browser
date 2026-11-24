@@ -16,5 +16,6 @@
   <rect x="2" y="3" width="12" height="9" fill="#07131f"/>
   <path d="M2 3h12v1h-12Z M2 11h12v1h-12Z" fill="#19c3e6" opacity="0.7"/>
   <path d="M8 0 L15 2 V7 C15 11.356 12.074 14.524 8 16 C3.926 14.524 1 11.356 1 7 V2 Z M8 1 L14 2.714 V7 C14 10.872 11.492 13.688 8 15 C4.508 13.688 2 10.872 2 7 V2.714 Z" fill="url(#edge)" fill-rule="evenodd"/>
-  <path id="lettering" fill="#eafcff" d="M3 5h1v5h-1Z M5 5h1v2h-1Z M8 5h1v1h-1Z M10 5h3v1h-3Z M7 6h1v1h-1Z M10 6h1v1h-1Z M5 7h2v1h-2Z M10 7h3v1h-3Z M5 8h1v2h-1Z M7 8h1v1h-1Z M10 8h1v1h-1Z M8 9h1v1h-1Z M10 9h3v1h-3Z"/>
+  <path id="lettering" fill="#eafcff" d="M3 5h1v5h-1Z M10 5h3v1h-3Z M10 6h1v1h-1Z M10 7h3v1h-3Z M10 8h1v1h-1Z M10 9h3v1h-3Z"/>
+  <path id="lettering-k" fill="#7df3ff" d="M5 5h1v2h-1Z M8 5h1v1h-1Z M7 6h1v1h-1Z M5 7h2v1h-2Z M5 8h1v2h-1Z M7 8h1v1h-1Z M8 9h1v1h-1Z"/>
 </svg>

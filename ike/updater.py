@@ -305,6 +305,8 @@ def take_rollback_notice():
 
 class _Worker(QThread):
     result = pyqtSignal(str, object)     # kind, data
+    # the web engine's advisory of verified, current update information (advisory.py, 1.1.24)
+    advisory = pyqtSignal(object)
 
     def __init__(self, src, channel, install, parent=None, manual=False):
         super().__init__(parent)
@@ -330,6 +332,7 @@ class _Worker(QThread):
             if _num(manifest.get("issued")) and manifest["issued"] > (state.get("issued") or 0):
                 state["issued"] = manifest["issued"]
                 save_state(state)
+            self.advisory.emit(manifest.get("engine_advisory"))
             withdraw(manifest)
             staged = load_state().get("current")
             newest = max(__version__, staged or "0", key=vtuple)
@@ -361,6 +364,7 @@ class _Worker(QThread):
 
 class Updater(QObject):
     finished = pyqtSignal(str, object)
+    advisory = pyqtSignal(object)        # see _Worker.advisory
 
     def __init__(self, config, parent=None):
         super().__init__(parent)
@@ -382,6 +386,7 @@ class Updater(QObject):
             channel = "stable"
         self._worker = _Worker(src, channel, install, self, manual=manual)
         self._worker.result.connect(self._done)
+        self._worker.advisory.connect(self.advisory.emit)
         background.start(self._worker)
         return True
 

@@ -14,6 +14,8 @@ import time
 from PyQt6.QtCore import QEasingCurve, QObject, QPropertyAnimation, QRectF, Qt, QVariantAnimation
 from PyQt6.QtGui import QColor, QIcon, QPainter, QPalette, QPen, QPixmap
 
+from . import battery
+
 FADE_MS = 120
 HOVER_MS = 110
 LINE_MS = 160
@@ -69,7 +71,7 @@ def on(config):
         wanted = bool(config["ui_effects"])
     except (KeyError, TypeError):
         wanted = True
-    return wanted and not reduced_motion()
+    return wanted and not reduced_motion() and not battery.saving()   # battery saver (1.1.24)
 
 
 class _Fader(QObject):

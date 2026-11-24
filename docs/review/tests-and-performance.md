@@ -84,6 +84,100 @@ between the two sessions; only figures of the same session are compared.)
 These numbers describe a small container without a GPU. They say that the
 versions do not differ, not how fast I.K.E. is on the owner's computer.
 
+## 1.1.24, the frame guard
+
+The aim: the frame guard of fingerprint.js cheaper, with no frame of a
+page's own site ever handed out unprotected.
+
+**How it was measured.** The Arch container (4 shared cores, no GPU,
+`offscreen`; other sessions ran tests at the same time, so single runs vary
+by 5-10 %). Before = `main` at d036bb1, after = this branch; the two copies
+alternate start by start. A page doing what Speedometer's pages do, each
+part timed on its own, 9 rounds a load, 3 loads a start, 16 starts of each
+copy (48 medians each, the median of them given):
+
+| ms | Off | before | after |
+|---|---|---|---|
+| 3,000 list items appended one by one (TodoMVC vanilla) | 9.2 | 13.75 | 13.1 |
+| 10 trees of 300 items built outside the page, then put in (React, Lit) | 5.8 | 8.4 | 7.4 |
+| HTML written with innerHTML (jQuery, Backbone) | 10.25 | 11.75 | 11.45 |
+| 6,000 text nodes put into the page | 2.1 | 2.65 | 2.6 |
+| insertBefore / after / replaceWith in the page | 2.55 | 3.9 | 3.7 |
+| the page of tests/measure_dom.py | 10.05 | 13.1 | 12.55 |
+
+Speedometer (main branch of WebKit/Speedometer, served locally; 14 DOM
+suites: the vanilla, Web Components, React, React-Redux, Backbone, Angular,
+Vue, jQuery, Preact, Svelte and Lit TodoMVCs and both news sites; 3
+iterations a run, 7 runs of each copy alternated): score 12.9 before, 13.2
+after, median; the runs spread over 11.4-14.3 for both. No claim is made
+from it: the guard is a small part of the whole benchmark (1.1.23).
+
+**Where the cost is.** Measured in a plain Qt WebEngine page (no I.K.E.):
+a MutationObserver that watched the document once and was disconnected
+leaves every later insertion 22 % slower (8.8 -> 10.7 ms for the page of
+measure_dom.py), because the engine keeps the document marked as watched
+for good. In I.K.E. (copies of fingerprint.js with one part taken out, for
+reference only): without the watch of the loading page, items appended
+12.9 -> 11.7 ms, innerHTML 11.0 -> 9.1; without the hooks of the DOM
+methods, items appended 12.9 -> 10.0, trees 7.9 -> 5.9. Inside the hooks,
+the function around the engine's method costs about 0.7 ms of the 3,000
+items, and each look through one of the engine's getters about 50 ns (as
+much as the number of frames of the window): in a loop alone 10-20 ns, in a
+real page several times that.
+
+**What changed** (fingerprint.js, `guard()`), in the order the looks are
+taken: the nodes put in, as before (text and an element without children
+that is not a frame: done; children are now looked at before the name, and
+the name is compared as a string); then the target: outside any document,
+nothing put there gets a window, and nothing more is looked at (taken
+before the call, since replaceWith takes the target itself out; a node in
+a shadow root is in the document when its host is; a Range is never
+"outside"); a call that swaps nodes no longer reads the count before it,
+which it never used (it is looked at after it in any case); with no frame
+at the guard's last look, the count before the call is taken as 0 (none
+after: nothing came in; any after: every frame is looked at, whatever the
+call did). With frames at the last look both counts are read as before, so
+the review's "frame removed, another added" attack is met the same way.
+The number of frames is read through a bound call.
+
+**What could not be made cheaper, and why.** The watch while the page
+loads protects a frame written in the page's HTML before the page's next
+script reads it through `window[i]` or by its name, which no getter can
+catch. Checked here: the engine runs nothing (not even a script injected
+for every frame at document creation) in a frame the parser just wrote
+before the parent's next script (a probe script saw "none" in both an
+empty frame and one with a src); the frame's load event comes at once only
+for an empty frame (no src, or about:blank), not for src, srcdoc, object or
+embed; and any MutationObserver, on any node of the document, leaves the
+same lasting mark. So the watch stays, and with it most of what the guard
+costs on pages that insert a lot (about a fifth of their insertion time).
+
+**Tests.** tests/test_frame_guard_paths.py (new) plays each quick path as
+an attack at Balanced and Strict: 22 ways to put a frame in, each read at
+once through window[i], frames[i], frames[name], window[name],
+getElementById(...).contentWindow and .contentDocument (132 frames), frames
+in frames (built outside the frame's page, the parent's own appendChild,
+document.write, by name), a frame swapped for another, taken out and put
+back, a page lying about isConnected, firstElementChild, localName and
+length, frames in shadow roots, an object frame. Its frames load a page:
+the existing tests mostly use empty frames, whose load event (heard by the
+guard inside the insertion) protects them whatever the hooks do; with the
+hooks taken out, every way in of the new test fails when read through
+window[i], frames[i] or a name. Three copies of the
+new code with a mistake each (isConnected read from the page's own
+property, the count after the call skipped, swaps not looked at) each fail
+it. It passes on `main` too: the answers did not change. The existing frame
+tests (test_frame_guard, test_frame_guard_review, test_runtime_paths,
+test_fingerprint) pass unchanged.
+
+Found while writing them, the same on `main`, not claimed: page code that
+runs inside the very call that puts a frame in reads it before the guard
+looks: a script in a fragment made by createContextualFragment put in with
+the frame, or a custom element's connectedCallback put in with it. It is
+the class of the known "script inside the same document.write"
+(test_frame_guard_review.py); closing it needs the insertion split or the
+custom element callbacks wrapped, left for a later version.
+
 ## 1.1.23, Dark Reader and Brave
 
 The owner's measurement, Speedometer 3.1 on his own computer: Brave with the
