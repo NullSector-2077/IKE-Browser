@@ -1,4 +1,4 @@
-"""History and bookmarks (SQLite)."""
+"""History, bookmarks and the list of downloads (SQLite)."""
 
 import sqlite3
 import time
@@ -78,6 +78,10 @@ class Storage(Deferred):
             -- the history menu, the new tab page (performance review of 1.1.20, L1)
             CREATE INDEX IF NOT EXISTS history_last ON history(last);
             CREATE INDEX IF NOT EXISTS history_visits ON history(visits DESC, last DESC);
+            -- 1.1.25: the downloads panel's list, the last ones of normal windows (downloadlist.py)
+            CREATE TABLE IF NOT EXISTS downloads(
+                id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, path TEXT, url TEXT,
+                size INTEGER, state TEXT, time INTEGER, host TEXT, note TEXT);
             """
         )
         self.db.commit()
@@ -155,7 +159,27 @@ class Storage(Deferred):
 
     def clear_history(self):
         self.db.execute("DELETE FROM history")
+        self.db.execute("DELETE FROM downloads")      # the downloads list is history too (1.1.25)
         checkpoint(self.db)
+
+    # --- the downloads list (1.1.25, downloadlist.py) ---------------------
+    def downloads(self, limit=50):
+        """[(name, path, url, size, state, time, host, note)], the newest first."""
+        return self.db.execute(
+            "SELECT name,path,url,size,state,time,host,note FROM downloads ORDER BY id DESC LIMIT ?",
+            (int(limit),)).fetchall()
+
+    def set_downloads(self, rows):
+        """The list as it is now (rows: the newest first), in place of the one written before."""
+        self.db.execute("DELETE FROM downloads")
+        self.db.executemany(
+            "INSERT INTO downloads(name,path,url,size,state,time,host,note) VALUES(?,?,?,?,?,?,?,?)",
+            [tuple(r) for r in reversed(list(rows))])
+        self.commit_soon()
+
+    def clear_downloads(self):
+        self.db.execute("DELETE FROM downloads")
+        checkpoint(self.db)                            # nothing of it left in the -wal file
 
     # --- bookmarks ---------------------------------------------------
     def add_bookmark(self, url, title, folder=""):

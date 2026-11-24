@@ -203,7 +203,9 @@ def test_window_buttons_and_centred_address_bar(run_ike):
                 win.resize(width, 800)
                 yield 600
                 ub = win.urlbar
-                centre = ub.mapTo(win, QPoint(ub.width() // 2, 0)).x()
+                # 1.1.25: the address bar and its bookmark button are centred as one block
+                bm = win.nav.widgetForAction(win.act_tb_bookmark)
+                centre = (ub.mapTo(win, QPoint(0, 0)).x() + bm.mapTo(win, QPoint(bm.width(), 0)).x()) // 2
                 out["sizes"].append([win.width(), centre, ub.width()])
                 out.setdefault("diag", []).append([width, win.nav.width(), getattr(win, "_urlbar_room", None),
                                                    getattr(win, "_urlbar_width", None),

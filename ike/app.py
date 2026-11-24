@@ -145,7 +145,8 @@ class IkeApp(QObject):
     # --- profiles ----------------------------------------------------
     def _wire_profile(self, profile):
         from .webview import notify
-        profile.downloadRequested.connect(self._download)
+        # the profile says whether its downloads are a private window's (1.1.25: never written)
+        profile.downloadRequested.connect(lambda item, off=profile.isOffTheRecord(): self._download(item, off))
         try:
             profile.setNotificationPresenter(notify)
         except Exception:
@@ -799,18 +800,19 @@ class IkeApp(QObject):
             QStandardPaths.StandardLocation.DownloadLocation) or str(Path.home())
         return Path(d)
 
-    def _download(self, item):
+    def _download(self, item, private=False):
         """Start a download. With "ask where to save" the transfer starts at once
         into a temporary folder while a normal (non-blocking) file dialog is open;
         the file is moved to the chosen place when both are done. Waiting for the
-        dialog inside this handler made downloads fail on some desktops."""
+        dialog inside this handler made downloads fail on some desktops.
+        private: it comes from a private window (listed there only, never written)."""
         from .i18n import T
         if self._handoff_download(item):
             return                        # a copy for a desktop app (hand_off), not the user's download
         passed = self._download_passed(item)
         if not passed and self._download_burst(item):
             return
-        if not passed and self._download_risk(item):
+        if not passed and self._download_risk(item, private):
             return
         folder = self.download_dir()
         name = item.downloadFileName()
@@ -831,6 +833,8 @@ class IkeApp(QObject):
         item.setDownloadFileName(name)
         item.accept()
         self.downloads.insert(0, item)
+        # the downloads panel's list (1.1.25): a program that passed the checks comes from a site visited before
+        self.download_log.add_live(item, private, known=not passed and self._known_program(item))
         item.isFinishedChanged.connect(lambda i=item: self._download_finished(i))
         item.isFinishedChanged.connect(self._download_tick)
         item.receivedBytesChanged.connect(lambda i=item: self.desktop.download_progress(i))
@@ -948,10 +952,12 @@ class IkeApp(QObject):
         when = passes.pop(key, None)
         return when is not None and time.monotonic() - when < self.PASS_SECONDS
 
-    def _download_risk(self, item):
+    def _download_risk(self, item, private=None):
         """True when this download is stopped for the user's answer: a program
         or script from a listed or never visited site, or a file over http from
-        an https page. "Download anyway" starts it again, at the user's risk."""
+        an https page. "Download anyway" starts it again, at the user's risk.
+        The stopped download is listed in the downloads panel (1.1.25), with
+        the reason; its "Download anyway…" asks the same question again."""
         from . import safedownload
         try:
             if item.isSavePageDownload():
@@ -983,8 +989,81 @@ class IkeApp(QObject):
                 target.download(url, name)
             except RuntimeError:
                 pass                      # the page is gone
-        self._ask_download_risk(found, anyway)
+        if private is None:
+            try:
+                private = page is not None and page.profile().isOffTheRecord()
+            except (AttributeError, RuntimeError):
+                private = False
+        entry = self.download_log.add_stopped(url.toString(), name, found, private)
+
+        def let_through():
+            self.download_log.remove(entry)     # the download that starts takes its place
+            anyway()
+        entry.anyway = let_through
+        self._ask_download_risk(found, let_through)
         return True
+
+    # --- the downloads panel's list (1.1.25, downloadlist.py) ------------
+    @property
+    def download_log(self):
+        """The list of downloads, read from the database the first time it is needed."""
+        log = self.__dict__.get("_download_log")
+        if log is None:
+            from .downloadlist import DownloadList
+            log = self._download_log = DownloadList(self.storage, self.download_path, self)
+        return log
+
+    @staticmethod
+    def _known_program(item):
+        """A program or a script that passed the safety checks (safedownload.py) from a
+        web site: that site was visited before (the panel says so, with a shield)."""
+        from . import safedownload
+        if not safedownload.is_executable(item.downloadFileName(), item.mimeType()):
+            return False
+        try:
+            page = item.page()
+            source = page.url() if page is not None and page.url().host() else item.url()
+        except (AttributeError, RuntimeError):
+            source = item.url()
+        return source.scheme() in ("http", "https") and bool(source.host())
+
+    def downloads_seen(self):
+        """The finished downloads were seen: the ring of the Downloads button is no longer green."""
+        if self._dl_done:
+            self._dl_done = False
+            self._download_tick()
+
+    def retry_download(self, entry, page):
+        """A failed (or stopped) download again, from its address, through the
+        normal path: every check of a new download applies (safedownload.py, the
+        burst of downloads)."""
+        if page is None or not entry.url:
+            return False
+        url = QUrl(entry.url)
+        if url.scheme() not in ("http", "https", "ftp", "file"):
+            return False
+        page._ike_input = time.monotonic()          # the user's click: worth one download
+        self.download_log.remove(entry)
+        try:
+            page.download(url, entry.name)
+        except RuntimeError:
+            return False
+        return True
+
+    def clear_download_list(self, private=False):
+        """The panel's "Clear the list": the downloads that ended leave the list (and
+        the downloads window); the ones still going on stay; the files stay."""
+        gone = self.download_log.clear(private)
+        items = {id(e.item) for e in gone if e.item is not None}
+        self.downloads[:] = [d for d in self.downloads if id(d) not in items]
+
+    def forget_downloads(self):
+        """The history was cleared: the list of downloads goes too."""
+        log = self.__dict__.get("_download_log")
+        if log is not None:
+            log.forget()
+        else:
+            self.storage.clear_downloads()
 
     def _ask_download_risk(self, found, anyway):
         """Non-blocking question, "Cancel" the default (as _ask_download_burst)."""
@@ -1124,6 +1203,7 @@ class IkeApp(QObject):
                 item._ike_tmp = None
         self._notify(T("Download finished: %s") % self.download_path(item).name)
         self.desktop.download_done(item, True)
+        self.download_log.update_item(item)     # where the file is now (moved after "Save as")
 
     def _weather_changed(self):
         """New weather: write it into the new tab pages that are open."""
@@ -1154,6 +1234,9 @@ class IkeApp(QObject):
             elif st == DR.DownloadState.DownloadCompleted and not getattr(item, "_ike_ring_seen", False):
                 item._ike_ring_seen = True
                 self._dl_done = True
+        log = self.__dict__.get("_download_log")
+        if log is not None:
+            log.tick()                          # the panel's bytes and speeds
         if active:
             total = sum(i.totalBytes() for i in active)
             known = all(i.totalBytes() > 0 for i in active)
@@ -1213,9 +1296,7 @@ class IkeApp(QObject):
 
     def show_downloads(self):
         from .dialogs import DownloadsDialog
-        if self._dl_done:                       # seen: the ring is no longer green
-            self._dl_done = False
-            self._download_tick()
+        self.downloads_seen()                   # seen: the ring is no longer green
         return self._show("downloads", lambda: DownloadsDialog(self, self.active_window()))
 
     def show_passwords(self):
@@ -1283,6 +1364,7 @@ class IkeApp(QObject):
     def clear_data(self, history, cookies, cache, permissions):
         if history:
             self.storage.clear_history()
+            self.forget_downloads()             # the downloads list is history too (1.1.25)
             self.profile.clearAllVisitedLinks()
             self.config["bounce_used"] = {}      # the sites used, a kind of history (bounce.py)
         if cookies:
