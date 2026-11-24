@@ -60,7 +60,11 @@
 #   budget             every call is counted against the provider's free quota (tools/ai-quota.py and
 #                      its data tools/ai-quota.json; today's use on the data branch automat/memory): a
 #                      provider spent today is not asked, and a fix is not started unless two other
-#                      providers (three for tier B) keep room to review it
+#                      providers (three for tier B) keep room to review it. Real updates first
+#                      (2026-11-24): security fixes and the updates of what ships may use all of the
+#                      free quota; CI updates and background work (the drill) only what they leave, in
+#                      each provider's leftover window, never while a real update is pending (the plan
+#                      reads the open pull requests and AUTOMAT's memory: tools/ai-quota.py pending)
 #   inner loop         the answer must be the strict patch format; Python is compiled (never run),
 #                      JavaScript parsed, the wrapper compiled by cargo check (a user of its own with no
 #                      key and no network), the checker with the static guard and the lint read it, and
@@ -158,6 +162,7 @@ jobs:
       # "all": the whole run once more (a gate of the tests that failed alone), else its failed jobs
       rerun: ${{ steps.plan.outputs.rerun }}
       order: ${{ steps.plan.outputs.order }}
+      pending: ${{ steps.plan.outputs.pending }}
     steps:
       - name: Check out main (all branches, no credentials)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -284,6 +289,27 @@ jobs:
                 if [ -s "$RUNNER_TEMP/upstream.md" ]; then cat "$RUNNER_TEMP/upstream.md" >> "$RUNNER_TEMP/failure/failure.md"; fi
                 ;;
             esac
+          fi
+          # real updates first (2026-11-24): the security fixes and real updates pending now (an open pull request
+          # whose checks are not green, AUTOMAT's memory's rows whose pull request was not closed; GET calls only):
+          # work of the CI and background work wait for them (tools/ai-quota.py). Fail closed: when GitHub could
+          # not be read the list is "unknown" and background work pauses (real work never waits for it); "none"
+          # means nothing is pending
+          if [ "$(sed -n 's/^action=//p' "$GITHUB_OUTPUT" | tail -n 1)" = "fix" ]; then
+            touch "$RUNNER_TEMP/memory.json"
+            if pending=$(python3 -I tools/ai-quota.py pending --repo "$GITHUB_REPOSITORY" --memory "$RUNNER_TEMP/memory.json"); then
+              case "$pending" in
+                "") pending=none ;;
+                *[!A-Za-z0-9._/,-]*) pending=unknown ;;
+              esac
+              if [ "${#pending}" -gt 4000 ]; then pending=unknown; fi
+            else
+              pending=unknown
+            fi
+            if [ "$pending" = unknown ]; then
+              echo "::warning::the pending real updates could not be read: background work pauses (unknown)"
+            fi
+            echo "pending=$pending" >> "$GITHUB_OUTPUT"
           fi
           echo "work=${WORK:-run/$RUN_ID}" >> "$GITHUB_OUTPUT"
       # WP9: the providers the last weekly check found not free (tools/provider-check.py,
@@ -421,6 +447,7 @@ jobs:
           ORDER: ${{ needs.plan.outputs.order }}
           TASK: ${{ needs.plan.outputs.task }}
           PUSH_BRANCH: ${{ needs.plan.outputs.push_branch }}
+          PENDING: ${{ needs.plan.outputs.pending }}
           # the owner's switch (a repository variable; default off): tier B in its narrowest form
           AUTOMAT_TIER_B: ${{ vars.AUTOMAT_TIER_B }}
         run: |
@@ -430,6 +457,13 @@ jobs:
           printf '%s' "$ORDER" | tr -cd 'A-Za-z.,' > "$RUNNER_TEMP/order"
           printf '%s' "$TASK" | tr -cd 'a-z-' > "$RUNNER_TEMP/task"
           printf '%s' "$PUSH_BRANCH" | tr -cd 'A-Za-z0-9._/-' > "$RUNNER_TEMP/candidate"
+          # the plan's list of pending real work: "none" is nothing, a missing or unreadable one is "unknown"
+          # (fail closed: background work pauses, tools/ai-quota.py pending_for_run)
+          case "$PENDING" in
+            none) : > "$RUNNER_TEMP/pending" ;;
+            ""|unknown) echo unknown > "$RUNNER_TEMP/pending" ;;
+            *) printf '%s' "$PENDING" | tr -cd 'A-Za-z0-9._/,-' | tr ',' '\n' > "$RUNNER_TEMP/pending" ;;
+          esac
           reviewers=""
           if [ "$HAS_GEMINI" = "true" ]; then reviewers="Antigravity"; fi
           if [ "$HAS_GROQ" = "true" ]; then reviewers="$reviewers,Groq"; fi
@@ -794,6 +828,9 @@ jobs:
           if [ -f "$RUNNER_TEMP/tier-b" ]; then allow="$allow --tier-b"; fi
           quota="--quota-limits $RUNNER_TEMP/ai-quota.json --quota-usage $out/usage-agent.json"
           if [ -s "$RUNNER_TEMP/quota.json" ]; then quota="$quota --quota-state $RUNNER_TEMP/quota.json"; fi
+          # real updates first (2026-11-24): background work waits while a real update is pending or retrying
+          if [ -s "$RUNNER_TEMP/memory.json" ]; then quota="$quota --quota-memory $RUNNER_TEMP/memory.json"; fi
+          quota="$quota --quota-pending $RUNNER_TEMP/pending"
           AUTOFIX_REVIEWERS="$(cat "$RUNNER_TEMP/reviewers" 2> /dev/null || true)"
           export AUTOFIX_REVIEWERS
           first=""
@@ -1019,6 +1056,8 @@ jobs:
               # already failed for this error (tools/autofix-inner.py, ai-quota.py, automat-route.py)
               more="--inner --quota-limits $RUNNER_TEMP/ai-quota.json --quota-usage $out/usage-reserve.json"
               if [ -s "$RUNNER_TEMP/quota.json" ]; then more="$more --quota-state $RUNNER_TEMP/quota.json"; fi
+              if [ -s "$RUNNER_TEMP/memory.json" ]; then more="$more --quota-memory $RUNNER_TEMP/memory.json"; fi
+              more="$more --quota-pending $RUNNER_TEMP/pending"
               if [ -s "$RUNNER_TEMP/order" ]; then more="$more --order $(cat "$RUNNER_TEMP/order")"; fi
               if [ -s "$RUNNER_TEMP/task" ]; then more="$more --task $(cat "$RUNNER_TEMP/task")"; fi
               python3 -I "$RUNNER_TEMP/autofix-reserve.py" --workdir "$repo" --prompt "$RUNNER_TEMP/prompt.md" \
@@ -2092,9 +2131,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     continue-on-error: true
-    concurrency:
-      group: automat-memory
-      cancel-in-progress: false
+    # no concurrency group: GitHub would cancel a waiting record when a third one arrives. Git orders the
+    # writers instead: a push that is not a fast-forward is made again from the branch's newest commit (below)
     permissions:
       contents: write        # the data branch automat/memory only (never main)
     steps:
@@ -2209,7 +2247,12 @@ jobs:
           git -c core.hooksPath=/dev/null commit -q -m "AUTOMAT's memory: attempt $ATTEMPT on $COMPONENT ($outcome)" || return 0
           git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" push -q "$remote" HEAD:refs/heads/automat/memory
           }
-          record || { echo "the data branch moved meanwhile, or the record failed: once more"; sleep 7; record; }
+          for attempt in 1 2 3 4 5 6; do
+            if record; then exit 0; fi
+            echo "the data branch moved meanwhile, or the record failed (attempt $attempt): made again from its newest commit"
+            sleep $((attempt * 4 + RANDOM % 7))
+          done
+          echo "::warning title=AUTOMAT's memory::the attempt on $COMPONENT was not recorded on automat/memory after 6 tries"
 
   # AUTOMAT part 2: "DEVI AIUTARCI CON CHATGPT" (the owner's words, 2026-11-22). After the attempt is
   # recorded: when the AIs failed AUTOMAT_CHATGPT_AFTER times in a row (a repository variable, default

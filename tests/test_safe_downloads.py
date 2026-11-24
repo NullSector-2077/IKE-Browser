@@ -14,9 +14,9 @@ import sys
 import threading
 
 import pytest
-from conftest import ROOT
+from conftest import APP
 
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(APP))
 from ike import safedownload  # noqa: E402
 from ike.storage import Storage  # noqa: E402
 

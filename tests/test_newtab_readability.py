@@ -9,10 +9,10 @@ import shutil
 import sys
 
 import pytest
-from conftest import ROOT
+from conftest import APP, ROOT
 from test_security import JS
 
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(APP))
 
 
 def make_photos(folder):

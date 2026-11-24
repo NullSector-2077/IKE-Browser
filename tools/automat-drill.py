@@ -34,7 +34,12 @@ Qt) tells a fix that forgot the fallback.
   owner named or assigned (tools/automat-help.py);
 - a Security failure of the drill's branch opens no security branch, and a failure of GitHub
   there opens no issue (tools/autofix-plan.py);
-- no mail to the owner but one: the final summary, a comment naming the owner on the drill's issue.
+- no mail to the owner but one: the final summary, a comment naming the owner on the drill's issue;
+- **real updates first** (the owner's decision of 2026-11-24): the drill is background work (class 4 of
+  tools/ai-quota.py). Real updates may use all of the free quota; the drill's AI calls use only what they
+  leave (each provider's leftover window), never while one of them is pending or retrying; the tick (every
+  three hours) starts a fix the budget held back again only when background work may run (priority,
+  to_resume), and the report says whether the drill is paused.
 
 **The report** (``report``, ``tick``): for each break, fixed or not, by which provider (or recipe)
 and at which attempt, after how long; the attempts of AUTOMAT's memory with how each ended (the
@@ -43,7 +48,8 @@ guard's rule, the reviewers' reasons); the reviewers' verdicts; the checks of th
 the drill's issue holds the latest one (an edit, which mails nobody); at the end one comment.
 
     automat-drill.py start --repo OWNER/NAME [--scenario qt[,libs]] [--restart] [--dry-run]
-    automat-drill.py tick --repo OWNER/NAME --out FILE        (every few hours: the report; the end when due)
+    automat-drill.py tick --repo OWNER/NAME --out FILE        (every few hours: the report; the end when due;
+                                                               a fix held back for real updates started again)
     automat-drill.py stop --repo OWNER/NAME --out FILE        (by hand: the final report now, and the end)
     automat-drill.py report --repo OWNER/NAME --out FILE [--json FILE]
     automat-drill.py shim --install [--root DIR] [--site DIR]
@@ -400,6 +406,8 @@ def gather(repo, api=gh_api, memory=None, quota=None, now=None, root=ROOT):
             runs = {}
         for wf, run in runs.items():
             d["checks"][wf] = (run or {}).get("conclusion") or (run or {}).get("status") or "no run"
+        # the Tests run of the drill's last commit: its automatic fix may be started again (to_resume)
+        d["tests_run"] = {k: (runs.get("tests.yml") or {}).get(k) for k in ("id", "conclusion", "status", "created_at")}
         try:
             d["checks"]["no-regression"] = am.no_regression({"runs": runs})[0]
         except Exception:
@@ -458,6 +466,103 @@ def gather(repo, api=gh_api, memory=None, quota=None, now=None, root=ROOT):
         d["help"] = notices
         out["drills"].append(d)
     return out
+
+
+# --- real updates first (the owner's decision of 2026-11-24) -----------------------------------------
+
+RESUME_AFTER_HOURS = 2          # a failed Tests run of the drill whose fix did not come: started again after this
+RESUMED_MARK = "<!-- automat-drill-resumed: %s %s -->"
+RESUMED_RE = re.compile(r"<!-- automat-drill-resumed: (\d{1,20}) (\d{4}-\d\d-\d\d) -->")
+KEEP_MARKS = 20
+
+
+def priority(memory, quota, now=None, repo=None, api=None):
+    """Whether the drill's work may ask a free AI now (tools/ai-quota.py background_status): the drill is
+    background work, class 4. It pauses while a security fix or a real update is pending or retrying (an open
+    pull request whose checks are not green, read with GET calls when repo is given, or a row of failures in
+    AUTOMAT's memory whose pull request was not closed after it; when the pull requests cannot be read, it
+    pauses too: fail closed), and otherwise takes what real work leaves, in each provider's leftover window
+    (the last hours of its own day; with a reset not verified, also never during the day's maintenance)."""
+    q = _tool("ai-quota")
+    limits = q.load_limits()
+    state = quota if isinstance(quota, dict) and isinstance(quota.get("days"), dict) else q.empty_state()
+    prs = None
+    if repo and api:
+        try:
+            prs = q.gather_prs(repo, api, memory, limits, now)
+        except Exception as e:                  # not read: unknown, the drill pauses (fail closed)
+            print("::warning::the open pull requests could not be read: %s" % str(e)[:200])
+            return q.background_status(limits, state, memory, now,
+                                       pending=q.pending_work(memory, limits, now) + [q.UNKNOWN])
+    return q.background_status(limits, state, memory, now, prs=prs)
+
+
+def autofix_busy(repo, api):
+    """True when an automatic fix runs or waits now (then nothing more is started)."""
+    for status in ("in_progress", "queued"):
+        try:
+            got = api("repos/%s/actions/workflows/autofix.yml/runs?status=%s&per_page=1" % (repo, status)) or {}
+        except RuntimeError:
+            return True                        # not known: rather not start
+        if int(got.get("total_count") or 0) or got.get("workflow_runs"):
+            return True
+    return False
+
+
+def resumed_marks(body):
+    return set(RESUMED_RE.findall(body or ""))
+
+
+def to_resume(info, status, resumed, busy, now=None):
+    """The drills whose last Tests run failed and whose automatic fix did not come (the budget held it back
+    while real updates went first): [(branch, run id)]. Only when background work may run now, no automatic
+    fix runs or waits, the failure is at least RESUME_AFTER_HOURS old and that run was not started again
+    today already (the plan's cap per day still counts every attempt)."""
+    if (status or {}).get("state") not in ("open", "released") or busy:
+        return []
+    now = now or info.get("now")
+    today = str(now)[:10]
+    out = []
+    for d in info.get("drills") or ():
+        run = d.get("tests_run") or {}
+        if not d.get("pr") or (d["pr"].get("state") or "open") != "open" or d.get("complete"):
+            continue
+        if run.get("conclusion") != "failure" or not re.fullmatch(r"\d{1,20}", str(run.get("id") or "")):
+            continue
+        if (_hours(run.get("created_at"), now) or 0) < RESUME_AFTER_HOURS or (str(run["id"]), today) in resumed:
+            continue
+        out.append((d["branch"], str(run["id"])))
+    return out
+
+
+def resume(repo, todo, api=gh_api):
+    """The automatic fix started again for each failed run (the work run/<id>, as the daily check does)."""
+    started = []
+    for branch, run_id in todo:
+        try:
+            api("repos/%s/actions/workflows/autofix.yml/dispatches" % repo, "POST",
+                {"ref": "main", "inputs": {"run_id": run_id, "work": "run/%s" % run_id}})
+        except RuntimeError as e:
+            print("::warning::the drill's fix of %s could not be started again: %s" % (branch, str(e)[:200]))
+            continue
+        print("the drill's automatic fix of %s started again (run %s): background work may run now"
+              % (branch, run_id))
+        started.append(run_id)
+    return started
+
+
+def with_resumed(body, run_ids, today):
+    """The issue's body with a mark for each run started again today (the newest KEEP_MARKS kept)."""
+    marks = RESUMED_RE.findall(body or "") + [(r, today) for r in run_ids]
+    body = RESUMED_RE.sub("", body or "").rstrip()
+    keep = marks[-KEEP_MARKS:]
+    return body + ("\n\n" + "\n".join(RESUMED_MARK % m for m in keep) + "\n" if keep else "\n")
+
+
+PRIORITY_IT = {"open": "può usare quello che gli aggiornamenti veri hanno lasciato delle AI gratuite",
+               "released": "può usare quello che avanza delle AI gratuite (è l'ultima parte della loro giornata)",
+               "paused": "è in pausa: prima gli aggiornamenti veri",
+               "no-room": "aspetta: ora le AI gratuite non hanno niente di avanzato per il lavoro di fondo"}
 
 
 def due(info, now=None):
@@ -537,6 +642,13 @@ def markdown(info, final=False, why=""):
             out += ["", "</details>", ""]
     if not any(d.get("pr") for d in info.get("drills") or ()):
         out += ["Nessuna esercitazione in corso.", ""]
+    status = info.get("priority")
+    if status and not final and any(d.get("pr") for d in info.get("drills") or ()):
+        # real updates first (2026-11-24): the drill is background work
+        out += ["Priorità: l'esercitazione è lavoro di fondo e %s%s." % (
+            PRIORITY_IT.get(status.get("state"), _md(status.get("state"))),
+            " (in attesa: %s)" % ", ".join("`%s`" % _md(c) for c in (status.get("pending") or [])[:4])
+            if status.get("state") == "paused" and status.get("pending") else ""), ""]
     return "\n".join(out) + "\n"
 
 
@@ -744,7 +856,9 @@ def main(argv=None):
     if not issues and a.cmd == "tick":
         print("no drill runs: nothing to do")
         return 0
-    info = gather(a.repo, gh_api, read_data_branch(a.repo, "memory.json"), read_data_branch(a.repo, "quota.json"))
+    memory, quota = read_data_branch(a.repo, "memory.json"), read_data_branch(a.repo, "quota.json")
+    info = gather(a.repo, gh_api, memory, quota)
+    info["priority"] = priority(memory, quota, repo=a.repo, api=gh_api)
     done, why = due(info)
     final = a.cmd == "stop" or (a.cmd == "tick" and done)
     if a.cmd == "stop":
@@ -760,8 +874,16 @@ def main(argv=None):
     if final:
         finish(a.repo, info, text, a.repo.split("/")[0], gh_api, why)
         return 0
+    # real updates first: a drill's fix the budget held back starts again only when background work may run
+    # (no real update pending, or the providers' last hours), never while one is
+    resumed = set()
+    for issue, _drill in issues:
+        resumed |= resumed_marks(issue.get("body") or "")
+    started = resume(a.repo, to_resume(info, info["priority"], resumed, autofix_busy(a.repo, gh_api)))
     for issue, _drill in issues:
         body = with_report(issue.get("body") or "", text)
+        if started:
+            body = with_resumed(body, started, str(info.get("now"))[:10])
         if body != (issue.get("body") or ""):
             gh_api("repos/%s/issues/%s" % (a.repo, issue["number"]), "PATCH", {"body": body})
     return 0

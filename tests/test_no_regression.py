@@ -308,3 +308,51 @@ def test_the_check_catches_a_realistic_weakening(tmp_path):
     assert not [r for r in same["worse"] if r["key"].startswith(("requests/balanced/", "fingerprint/balanced/"))], \
         same["worse"]
     assert re.search(r"\*\*Failed\*\*: \d+ things worse than on main", nr.markdown(report))
+
+
+def test_the_run_waits_for_the_font_check_before_measuring():
+    """2026-11-24: Strict and Maximum mask every listed font until ike/fontcheck.py has asked the
+    engine (about 15 s after the start), then only the fonts found here. A level measured before
+    the answer and the same level measured after it differed, and "Nothing gets worse" called
+    fingerprint-config/maximum/fonts worse on pull requests that changed nothing there. The run
+    now asks at once and measures only once the answer is known (or after 60 s)."""
+    src = nr.HOOK[nr.HOOK.index("def _start():"):nr.HOOK.index("QTimer.singleShot(300, _start)")]
+    calls = []
+
+    class Timer:
+        @staticmethod
+        def singleShot(ms, fn):
+            calls.append(("timer", ms))
+
+    class FontModule:
+        answer = None
+
+        @classmethod
+        def findable(cls):
+            return cls.answer
+
+    class Check:
+        def _run(self):
+            calls.append(("asked",))
+
+    class App:
+        welcome = None
+        font_check = Check()
+
+    g = {"ike": App(), "QTimer": Timer, "sys": type("S", (), {"modules": {"ike.fontcheck": FontModule}}),
+         "PLAN": {"mode": "measure"}, "_FONT_WAIT": [0], "_gen": None,
+         "measure": lambda: calls.append(("measure",)) or iter(()), "network": lambda: iter(()),
+         "_step": lambda: calls.append(("step",))}
+    exec(src, g)
+    g["_start"]()
+    g["_start"]()
+    assert calls == [("asked",), ("timer", 500), ("timer", 500)]          # asked once, then waits
+    FontModule.answer = ["Arial"]
+    g["_start"]()
+    assert calls[-2:] == [("measure",), ("step",)]                         # measured once known
+    # never forever: after 60 s without an answer it measures all the same
+    calls.clear()
+    FontModule.answer = None
+    g["_FONT_WAIT"][0] = 120
+    g["_start"]()
+    assert calls == [("measure",), ("step",)]

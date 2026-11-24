@@ -330,6 +330,12 @@ def merge(ledger, work, now, set_state, cap=None):
         wid = "lists/%s/%s" % (w["date"], e["key"])
         dispatch.append(_dispatch(e, wid, run_id, now, set_state,
                                   "an AI analysis of I.K.E.'s adapter works on it on %s" % w["branch"]))
+    # real updates first (the owner's decision of 2026-11-24): security fixes, then the updates of what
+    # ships, then the CI's, then background work (tools/ai-quota.py priority_of); the same class keeps its order
+    quota = _tool("ai-quota")
+    limits = quota.load_limits()
+    dispatch.sort(key=lambda d: quota.priority_of(((entries.get(d.get("key")) or {}).get("work") or {})
+                                                  .get("branch") or "", limits))
     ledger["dispatch"] = dispatch
     ledger["notify"] = notify
     return ledger
