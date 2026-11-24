@@ -55,6 +55,18 @@
     "sig": "bf8bb9289850a76b",
     "summary": "L'agente non ha scritto un riassunto. **Riserve: La quota gratuita di oggi non basta per scrivere una correzione e farla anche rivedere da altre AI: la correzione aspetta, nessuna quota \u00e8 stata sprecata. Riprova da sola. Non interpellati per la quota gratuita: Groq (the request i",
     "task": "lists"
+   },
+   {
+    "attempt": 2,
+    "date": "2026-11-24",
+    "detail": "rotated",
+    "files": [],
+    "model": "",
+    "outcome": "no-fix",
+    "provider": "",
+    "sig": "bf8bb9289850a76b",
+    "summary": "L'agente non ha scritto un riassunto. **Riserve: La quota gratuita di oggi non basta per scrivere una correzione e farla anche rivedere da altre AI: la correzione aspetta, nessuna quota \u00e8 stata sprecata. Riprova da sola. Non interpellati per la quota gratuita: Groq (the request i",
+    "task": "lists"
    }
   ]
  },
@@ -68,8 +80,8 @@
    "since": "2026-11-23"
   },
   "automation/update/lists-2026-11-22": {
-   "date": "2026-11-23",
-   "n": 2,
+   "date": "2026-11-24",
+   "n": 3,
    "sig": "bf8bb9289850a76b",
    "since": "2026-11-23"
   }
