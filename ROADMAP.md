@@ -262,13 +262,16 @@ are agreed with the project owner; do not reopen them without asking.
   noise's site (L-2), `window.name` across sites (L-3). The GPU name at
   Strict stays hidden (evaluated: rarer than "not available").
 - **Fingerprinting, done for 1.1.25** (docs/SECURITY.md, the owner's
-  decisions of 2026-11-24, from a run against browserleaks.com and CreepJS):
-  every kind of worker and the headers agree with the page (the engine's own
-  brand list, no kernel version), no service or shared worker from a site's
-  file at Strict and Maximum, and there Chrome's own PDF plugins, one WebGL
-  identity for everyone, canvas noise only on edges, the languages and the
-  network speed as the headers say them. Left: CreepJS's list of real cards'
-  limits ("suspicious capabilities" and "suspicious gpu" as "trash", no lie).
+  decisions of 2026-11-24, from a run against browserleaks.com and CreepJS
+  and two rounds of an independent adversarial review): every kind of worker
+  and the headers agree with the page (the engine's own brand list and
+  order, no kernel version); at Strict and Maximum workers from a site's own
+  file get the protection (service and shared ones are not started), and
+  there Chrome's own PDF plugins, one WebGL identity for everyone (no card
+  name), canvas noise only on edges, the languages and the network speed as
+  the headers say them. Left: CreepJS's list of real cards' limits
+  ("suspicious capabilities" as "trash", no lie); behavioural probes of the
+  real WebGL limits.
 - **Still open from the fingerprinting audit**: Balanced's open values
   (L-4, owner's choice), workers loaded from an address (H-C, Qt limit;
   `experiment/file-workers`). Review 4's N11 (the embedded video click
@@ -306,8 +309,8 @@ docs/MAINTENANCE.md when the task touches them.
   one's messages (scripts are installed by the user).
 - The graphics card presented to sites at Balanced is a common Intel or NVIDIA
   model; a script comparing rendering with the model could notice the
-  mismatch. At Strict and Maximum every user is told the same common Intel
-  model (1.1.25), with a floor of limits of I.K.E.'s, not that card's own.
+  mismatch. At Strict and Maximum no model is named (1.1.25: with one shared
+  set of extensions and a floor of limits for everyone).
 - Page dark mode with Dark Reader costs more than the engine's own dark mode
   (it rewrites the page's style sheets): measured in
   docs/review/tests-and-performance.md; the engine's dark mode is the lighter
@@ -315,8 +318,10 @@ docs/MAINTENANCE.md when the task touches them.
 - A worker a site starts from a file of its own (`new Worker("/w.js")`) sees
   the real values (graphics card, cores): Qt WebEngine gives no way to add a
   script to it. A partial way around it is on the branch
-  `experiment/file-workers`, waiting for the owner's decision. Service and
-  shared workers from a file are not started at Strict and Maximum (1.1.25).
+  `experiment/file-workers`, waiting for the owner's decision. At Strict and
+  Maximum (1.1.25) such a worker gets the protection (its script runs after
+  it from a blob address; refused where a page's policy forbids that), and
+  service and shared workers from a file are not started.
 - The ad-blocking engine is adblock-rust (open-source library, MPL-2.0)
   with uBlock Origin / EasyList filter lists and uBlock Origin scriptlets; the
   integration around them is I.K.E.'s own.

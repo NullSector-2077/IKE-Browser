@@ -58,12 +58,12 @@ profiles: `ike-browser --profile NAME`.
   session; at Balanced also the plugins, the WebGL extensions and the graphics
   card (a common model of the same maker chosen per site instead of the exact
   one). Strict and Maximum give everyone the same values instead: one WebGL
-  identity (the most common card on Linux, a fixed list of extensions, fixed
-  limits never above the real ones), Chrome's own PDF plugins, a common
-  network speed, screen, fonts, memory, languages and voices; their canvas
-  noise is only where a drawing has edges (never in plain colours), and they
-  start no service worker and no shared worker from a site's own file. Not
-  covered: a dedicated worker a site starts from a file of its own.
+  identity (no card name, a fixed list of extensions, fixed limits never
+  above the real ones), Chrome's own PDF plugins, a common network speed,
+  screen, fonts, memory, languages and voices; their canvas noise is only
+  where a drawing has edges (never in plain colours); a worker a site starts
+  from a file of its own gets the same protection, and they start no service
+  worker and no shared worker from a site's file.
 - **Protected time zone** (the shield, off by default): every site sees the
   time zone UTC, in pages, frames and every kind of worker alike; I.K.E.'s
   own menus and its new tab clock keep yours. Some sites will show wrong

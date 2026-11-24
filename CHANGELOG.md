@@ -3,33 +3,44 @@
 ## 1.1.25
 
 - **Fingerprinting: what the sites' own checks found** (a run of I.K.E.
-  against browserleaks.com and CreepJS; the owner's decisions of 2026-11-24;
-  docs/SECURITY.md, tests/test_fingerprint_125.py):
+  against browserleaks.com and CreepJS, the owner's decisions of 2026-11-24,
+  then two rounds of an independent adversarial review; docs/SECURITY.md,
+  tests/test_fingerprint_125.py, tests/test_fingerprint_125_workers.py):
   - at every level the page, its frames, every kind of worker and the request
     headers give the same brand list in the same order, the same Chrome
     version and no kernel version. Service and shared workers get the
     engine's own client hints, never the profile's: they said "Chromium"
     only, the engine's full version and the real kernel (6.18.44) where the
     page said "Google Chrome", 140.0.0.0 and 6.0.0. The profile now keeps the
-    engine's own list (Chromium and its GREASE entry; "Google Chrome" is no
-    longer added) and the engine leaves the kernel out (the platform version
-    is empty everywhere);
-  - Strict and Maximum: no service worker and no shared worker from a site's
-    own file (their script is refused, in every frame and worker; one
-    registered before at a lower level is unregistered). At the global level
-    Strict or Maximum the engine itself gives the major version only, so
-    workers from a site's file and the headers agree with the page;
+    engine's own list, versions and order ("Google Chrome" is no longer
+    added) and the engine leaves the kernel out (the platform version is
+    empty everywhere);
+  - Strict and Maximum (also a site set to Strict by itself): a worker a site
+    starts from a file of its own (classic or module, nested, in a frame of
+    another site) gets the same protection as the page: it starts from a
+    blob holding the protection, which then runs the site's script with its
+    real address (relative addresses, location and errors as before). Where
+    a page's security policy forbids that, the worker is refused, never
+    started without the protection. No service worker and no shared worker
+    from a site's own file (one registered before at a lower level is
+    unregistered);
   - Strict and Maximum: Chrome's own five PDF plugins with their two types
     (the two invented ones had no type: "missing mimetype"); one WebGL
-    identity for everyone (the most common card on Linux, offered as Chrome
-    offers it, a fixed list of extensions, a fixed floor of limits never
-    above the real ones, in pages, frames, workers and WebGL 2); canvas noise
-    only where a drawing has edges, none on a canvas of solid rectangles, and
-    the same for a pixel read alone as for the whole picture ("pixel data
-    modified" no more); the languages as the header says them ("it-IT",
-    "it"); one common network speed in JavaScript and in the client hints
-    (4g, 50 ms, 10 Mbit/s). Maximum stays different from Strict by its
-    language only.
+    identity for everyone (still no card name, a fixed list of extensions
+    common cards all have, a fixed floor of limits never above the real
+    ones, in pages, frames, workers and WebGL 2; plain colours read back
+    exactly); canvas noise only on opaque pixels at an edge, none on a canvas
+    of solid rectangles, of the page's own pixels or of such a canvas copied,
+    and the same for a pixel read alone as for the whole picture ("pixel data
+    modified" no more); text widths whose noise does not depend on a font's
+    name (two missing fonts measure the same, as in Chrome), in workers too;
+    the languages as the header says them ("it-IT", "it"); one common network
+    speed in JavaScript and in the client hints (4g, 50 ms, 10 Mbit/s).
+    Maximum stays different from Strict by its language only;
+  - Balanced: inline workers show the page's languages (a shared worker gave
+    the engine's single one).
+  - What it costs (docs/review/tests-and-performance.md, tests/measure_fp125.py):
+    see "1.1.25 fingerprinting" there.
 
 ## 1.1.24
 

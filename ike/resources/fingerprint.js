@@ -114,8 +114,9 @@
     sabLen: getterOf(window.SharedArrayBuffer && SharedArrayBuffer.prototype, 'byteLength'),
     U8: Uint8Array, U16: Uint16Array });
   function noiseImage(img) {
-    // around (Strict and above, 1.1.25): [width, height, the picture with one
-    // pixel more on every side]: the noise of the edges (farbleEdges)
+    // around (Strict and above, 1.1.25): [width, height, the rows and columns
+    // around the part read, or null for the whole canvas]: the noise of the
+    // edges (farbleEdges)
     var px = pixels(img), tag = TAG(px), around = arguments.length > 1 ? arguments[1] : null;
     if (around && tag === 'Uint8ClampedArray') farbleEdges(px, around[0], around[1], around[2], seed);
     else if (tag === 'Uint8ClampedArray') farble(px, seed, rng, LEN(px));
@@ -495,29 +496,37 @@
   // neighbours (the lowest bit of each colour left out) is never changed, so
   // flat areas and known test patterns read back exactly as drawn; a
   // fingerprinting script found the changed pixels there ("pixel data
-  // modified"). pad is the same picture with one pixel more on every side,
-  // read from the canvas itself (transparent outside it): which pixel is
-  // changed, and to what, depends on the canvas and the site's key, not on
+  // modified"). Its neighbours outside the part read come from the canvas
+  // itself (transparent outside it): which pixel is changed, and to what, depends on the canvas and the site's key, not on
   // the part read, so a pixel read alone gives what the whole picture gives.
   // As farble: the lowest bit is set to the noise, not flipped, and a pixel's
   // choice leaves the lowest bits out, so the noisy pixels written back and
   // read again give the same pixels. Large pictures: a part of the pixels.
   // Self-contained: it also runs inside workers (passed by its source).
-  function farbleEdges(data, w, h, pad, seed) {
-    var W = (w + 2) * 4, n = w * h, step = n > 100000 ? ((n + 99999) / 100000) | 0 : 1;
-    var at = function (q) {
-      return (pad[q] & 254) | ((pad[q + 1] & 254) << 8) | ((pad[q + 2] & 254) << 16) | (pad[q + 3] << 24);
+  function farbleEdges(data, w, h, around, seed) {
+    // around: [the row above, the row below, the column left, the column
+    // right] of the part read, each read from the canvas (transparent outside
+    // it), or null for the whole canvas. The noise sets only lowest bits,
+    // which the comparisons leave out: the pixels already noised can be read
+    // as neighbours.
+    var T = around && around[0], B = around && around[1], L = around && around[2], R = around && around[3];
+    var row = w * 4, n = w * h, step = n > 100000 ? ((n + 99999) / 100000) | 0 : 1;
+    var at = function (a, q) {
+      return (a[q] & 254) | ((a[q + 1] & 254) << 8) | ((a[q + 2] & 254) << 16) | (a[q + 3] << 24);
     };
     for (var y = 0; y < h; y++) {
-      for (var x = 0; x < w; x++) {
-        if (step > 1 && (x + y * 7) % step) continue;
-        var q = (y + 1) * W + (x + 1) * 4;
+      // large pictures: a part of the pixels, the same ones whatever is read
+      for (var x = step > 1 ? (step - (y * 7) % step) % step : 0; x < w; x += step) {
+        var q = y * row + x * 4;
         // opaque pixels only (1.1.25, review): a changed colour of a pixel
         // that is partly transparent is not one the canvas can hold, and
         // came back changed again when written and read (putImageData)
-        if (pad[q + 3] !== 255) continue;
-        var me = at(q), left = at(q - 4);
-        if (me === left && me === at(q + 4) && me === at(q - W) && me === at(q + W)) continue;
+        if (data[q + 3] !== 255) continue;
+        var me = at(data, q);
+        var left = x > 0 ? at(data, q - 4) : (L ? at(L, y * 4) : 0);
+        if (me === left && me === (x < w - 1 ? at(data, q + 4) : (R ? at(R, y * 4) : 0)) &&
+            me === (y > 0 ? at(data, q - row) : (T ? at(T, x * 4) : 0)) &&
+            me === (y < h - 1 ? at(data, q + row) : (B ? at(B, x * 4) : 0))) continue;
         var hh = (seed ^ me) | 0;
         hh = (hh + (hh << 1) + (hh << 4) + (hh << 7) + (hh << 8) + (hh << 24)) | 0;
         hh ^= left;
@@ -526,12 +535,13 @@
         hh = (hh + (hh << 1) + (hh << 4) + (hh << 7) + (hh << 8) + (hh << 24)) | 0;
         hh ^= hh >>> 13;
         if ((hh & 7) === 0) {
-          var c = (y * w + x) * 4 + ((hh >>> 3) & 0xffff) % 3;
+          var c = q + ((hh >>> 3) & 0xffff) % 3;
           data[c] = (data[c] & 254) | ((hh >>> 20) & 1);
         }
       }
     }
   }
+
   // Which 2D canvases get noise at Strict and Maximum (1.1.25). A canvas whose
   // pixels all came from solid, opaque, whole-pixel rectangles (fillRect,
   // clearRect), from the page's own pixels (putImageData) or from another
@@ -545,8 +555,8 @@
   // the page's arguments are handed on as given: the engine reads them, once.
   // state: canvas -> 1 (exact) or 2 (noise); G: the engine's getters of the
   // context and of its canvas; T: what reading a picture needs (the engine's
-  // getters, the noise: noise(img, [width, height, picture with one pixel
-  // more on every side])). Returns read(ctx, getImageData, args), plain(canvas).
+  // getters, the noise: noise(img, [width, height, the rows and columns
+  // around the part read])). Returns read(ctx, getImageData, args), plain(canvas).
   // Self-contained: it also runs inside workers (passed by its source).
   function canvasTrack(C2P, wrap, RA, state, G, T) {
     var canvasOf = function (ctx) { try { return RA(G.canvas, ctx, []); } catch (e) { return null; } };
@@ -633,7 +643,9 @@
         var x0 = a0 - a0 % 1, y0 = a1 - a1 % 1;
         if (a2 < 0) x0 -= w;
         if (a3 < 0) y0 -= h;
-        T.noise(img, [w, h, T.px(RA(orig, ctx, [x0 - 1, y0 - 1, w + 2, h + 2]))]);
+        var strip = function (x, y, sw, sh) { return T.px(RA(orig, ctx, [x, y, sw, sh])); };
+        T.noise(img, [w, h, [strip(x0, y0 - 1, w, 1), strip(x0, y0 + h, w, 1), strip(x0 - 1, y0, 1, h),
+          strip(x0 + w, y0, 1, h)]]);
       } catch (e) { T.noise(img); }
       return img;
     };
@@ -1289,8 +1301,9 @@
           var m = new WeakSet(), has = WeakSet.prototype.has, add = WeakSet.prototype.add;
           return Object.freeze({ has: function (o) { return RAW(has, m, [o]); }, add: function (o) { RAW(add, m, [o]); } });
         })();
-        var ownFaces = { __proto__: null };
+        var ownFaces = { __proto__: null }, filled = false;
         var fillW = function () {
+          filled = true;
           for (var i = 0; i < c.fonts.length; i++) {
             try {
               var f = ownFaces[i] || (ownFaces[i] = new FFW(c.fonts[i], fb, { unicodeRange: 'U+D800' }));   // no prototype: V-2
@@ -1353,13 +1366,21 @@
             var a = [];
             for (var i = 0; i < args.length; i++) putW(a, i, args[i]);
             if (args.length > 1) putW(a, 1, scrub(a[1]));
+            if (!filled) fillW();
             return RCW(t, a, nt === PFW ? t : nt);
           }
         });
         nat.set(PFW, RAW(toStr, FFW, []));
         Object.defineProperty(FFW.prototype, 'constructor', { value: PFW, writable: true, configurable: true });
         Object.defineProperty(self, 'FontFace', { value: PFW, writable: true, configurable: true });
-        fillW();
+        // made when the worker first reaches its fonts (its font set, a
+        // FontFace, a canvas of its own): they cost about half of a
+        // worker's start, and a worker that draws no text never needs them
+        var WGSF = self.WorkerGlobalScope && WorkerGlobalScope.prototype;
+        getter(WGSF, 'fonts', function (orig) { var fs = RAW(orig, this, []); if (!filled) fillW(); return fs; });
+        wrap(self.OffscreenCanvas && OffscreenCanvas.prototype, 'getContext', function (orig) {
+          return function () { if (!filled) fillW(); return RAW(orig, this, arguments); };
+        });
       } catch (e) {}
     }
     // the worker's location and its own errors: the page's address
@@ -1538,7 +1559,7 @@
               var ctx = RAW(OCV.ctx, copy, ['2d']);
               RAW(OCV.draw, ctx, [src, 0, 0]);
               var img = RAW(rawGet, ctx, [0, 0, ow, oh]);
-              noiseImage(img, trackW ? [ow, oh, RAW(IMGD, RAW(rawGet, ctx, [-1, -1, ow + 2, oh + 2]), [])] : null);
+              noiseImage(img, trackW ? [ow, oh, null] : null);      // the whole canvas: transparent around it
               RAW(OCV.put, ctx, [img, 0, 0]);
               src = copy;
             }
@@ -2010,7 +2031,7 @@
     // with one pixel more on every side, as getImageData reads it)
     function noiseAll(ctx, get, cw, ch) {
       var img = RAPPLY(get, ctx, [0, 0, cw, ch]);
-      if (strict) noiseImage(img, [cw, ch, pixels(RAPPLY(get, ctx, [-1, -1, cw + 2, ch + 2]))]);
+      if (strict) noiseImage(img, [cw, ch, null]);        // the whole canvas: transparent around it
       else noiseImage(img);
       return img;
     }
