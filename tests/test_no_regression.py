@@ -469,14 +469,26 @@ def test_a_smaller_noise_is_worse():
                                                                         {"png": 0.0004, "png_share": 0.0004,
                                                                          "png_n": n})})
         assert judged(cmp(here, base=base), "fingerprint/strict/canvas_blob")[0] == kind, n
-    # a number randomised on main now much nearer the real one (the text width)
+    # a number randomised on main (one text width) is judged from the 128 widths of the noise's size,
+    # never from its two readings, which would be chance (2026-11-24, the false-alarm review: a check
+    # of this test once said "worse" here)
     near_width = disguised(["0badc0de", "5a63666b", 140.5156251], ["1badc0de", "5a63666b", 140.5156249],
                            CANVAS_NOISE)
-    kind, detail = judged(cmp({"fingerprint/strict/canvas": near_width}), "fingerprint/strict/canvas")
-    assert kind == "worse" and "closer to the real value" in detail, detail
-    # a list randomised on main changing fewer names (1 in each session here, 3 on main)
+    assert judged(cmp({"fingerprint/strict/canvas": near_width}), "fingerprint/strict/canvas")[0] == "changed"
+    small_widths = dict(near_width, noise=dict(CANVAS_NOISE, widths=1e-07))
+    assert judged(cmp({"fingerprint/strict/canvas": small_widths}), "fingerprint/strict/canvas")[0] == "worse"
+    # a list randomised on main changing fewer names only beyond chance (each name hidden by half a
+    # chance: a drop from 3 to 1 can be chance and is not judged; once this test said it was worse)
     fewer = {"fingerprint/strict/webgl.extensions": disguised("A,B,C,D,E,F,G", "A,B,C,D,E,F,H")}
-    kind, detail = judged(cmp(fewer), "fingerprint/strict/webgl.extensions")
+    assert judged(cmp(fewer), "fingerprint/strict/webgl.extensions")[0] == "changed"
+    many = ",".join("N%d" % i for i in range(40))
+    wide_main = fp_snap({"fingerprint/off/webgl.extensions": fixed(many),
+                         "fingerprint/strict/webgl.extensions": disguised(",".join("N%d" % i for i in range(20)),
+                                                                          ",".join("N%d" % i for i in range(20, 40)))})
+    one_less = {"fingerprint/off/webgl.extensions": fixed(many),
+                "fingerprint/strict/webgl.extensions": disguised(",".join("N%d" % i for i in range(39)),
+                                                                 ",".join("N%d" % i for i in range(1, 40)))}
+    kind, detail = judged(cmp(one_less, base=wide_main), "fingerprint/strict/webgl.extensions")
     assert kind == "worse" and "fewer names" in detail, detail
     other = {"fingerprint/strict/webgl.extensions": disguised("B,C,D,F,G", "A,C,E,F,H")}
     assert judged(cmp(other), "fingerprint/strict/webgl.extensions")[0] == "changed"
@@ -532,6 +544,41 @@ def test_a_disguised_value_back_to_the_real_one_is_worse():
     report = cmp(other)
     assert report["verdict"] == "pass", report["worse"]
     assert keys(report["changed"]) == set(other)
+
+
+def test_what_chance_can_do_is_not_worse():
+    """A rewrite of the noise of the same strength draws every noised value anew (with the random
+    keys of a run, so does nothing else). What chance alone can produce is never worse: a value
+    drawn from a few common ones (a card's name, cores, a text width, a set of extensions) alike in
+    both sessions, or alike on main and judged "fixed", or the real one in a single session; the
+    large spaces (a picture's or a sound's hash) must still change with the session (2026-11-24, the
+    false-alarm measurement: 109 of 132 pairs of main against main had a "worse" from these)."""
+    intel = "ANGLE (Intel, Mesa Intel(R) UHD Graphics 630 (CFL GT2), OpenGL 4.6)"
+    nvidia = "ANGLE (NVIDIA Corporation, NVIDIA GeForce GTX 1650/PCIe/SSE2, OpenGL 4.5.0)"
+    gpu = "fingerprint/balanced/webgl.unmasked_renderer"
+    off_gpu = {"fingerprint/off/webgl.unmasked_renderer": fixed(REAL_GPU)}
+    for main, here in (((intel, nvidia), (intel, intel)),          # alike in both sessions here, by chance
+                       ((nvidia, nvidia), (intel, intel)),         # alike on main, another model here
+                       ((intel, nvidia), (REAL_GPU, intel))):      # the real one in one session (pool)
+        report = cmp(dict(off_gpu, **{gpu: disguised(*here)}), base=fp_snap(dict(off_gpu, **{gpu: disguised(*main)})))
+        assert judged(report, gpu)[0] == "changed", (main, here, report["worse"])
+    # the real one every time, where main never gave it: worse
+    report = cmp(dict(off_gpu, **{gpu: disguised(REAL_GPU, REAL_GPU)}),
+                 base=fp_snap(dict(off_gpu, **{gpu: disguised(intel, nvidia)})))
+    assert judged(report, gpu)[0] == "worse"
+    # a text width alike in both sessions on main, nearer the real one here: chance (61 steps)
+    width = disguised(["116ec122", "5a63666b", 140.5159], ["47441ec7", "5a63666b", 140.5159], CANVAS_NOISE)
+    nearer = disguised(["0badc0de", "5a63666b", 140.51563], ["1badc0de", "5a63666b", 140.51562], CANVAS_NOISE)
+    report = cmp({"fingerprint/strict/canvas": nearer}, base=fp_snap({"fingerprint/strict/canvas": width}))
+    assert judged(report, "fingerprint/strict/canvas")[0] == "changed", report["worse"]
+    # the large spaces: alike in both sessions is no chance
+    for key, value in (("canvas", disguised(["0badc0de", "5a63666b", 140.5159], ["0badc0de", "5a63666b", 140.5154],
+                                            CANVAS_NOISE)),
+                       ("audio", disguised("172.6715397447", "172.6715397447", AUDIO_NOISE))):
+        assert judged(cmp({"fingerprint/strict/" + key: value}), "fingerprint/strict/" + key)[0] == "worse", key
+    assert nr._role("canvas", "[0]") == "noise" and nr._role("canvas", "[2]") == "pick"
+    assert nr._role("worker", "[6][0]") == "pick" and nr._role("canvas_flat", "") == "noise"
+    assert nr._role("screen.width", "") is None and nr._role("navigator.userAgent", "") is None
 
 
 def test_what_cannot_be_judged_stays_worse():
@@ -677,13 +724,17 @@ def test_the_size_of_the_noise_is_measured_against_off():
     assert nr._png_bytes("data:image/jpeg;base64,AAAA") is None and nr._png_bytes("x") is None
     noisy = [list(r) for r in rows]
     noisy[2][5] ^= 1
-    off = {"png": {"canvas": url}, "audio_samples": [0.5, -0.25, 0.125, 0.0], "text_widths": [10.0, 20.0],
+    off = {"png": {"blob": url}, "audio_samples": [0.5, -0.25, 0.125, 0.0], "text_widths": [10.0, 20.0],
            "canvas_pixels": "AAAA"}
-    here = {"png": {"canvas": png_url(3, noisy, [4] * 5)}, "audio_samples": [0.5005, -0.25, 0.1251, 0.0],
+    here = {"png": {"blob": png_url(3, noisy, [4] * 5)}, "audio_samples": [0.5005, -0.25, 0.1251, 0.0],
             "text_widths": [10.00001, 20.0], "canvas_pixels": "AAEA"}
+    blob = nr._noise("canvas_blob", [here, here], off)
+    assert blob["png"] == float("%.6g" % (1 / 60)) and blob["png_share"] == float("%.6g" % (1 / 60))
+    assert blob["png_n"] == 120
     size = nr._noise("canvas", [here, here], off)
-    assert size["png"] == float("%.6g" % (1 / 60)) and size["png_share"] == float("%.6g" % (1 / 60))
     assert size["pixels"] == float("%.6g" % (1 / 3)) and size["widths_share"] == 0.5 and size["widths"] > 0
+    assert set(nr.NOISE["canvas"]) == {("pixels", "canvas_pixels", None), ("widths", "text_widths", None)}
+    assert "canvas_flat" not in nr.NOISE                 # all or nothing per stripe: no size, only its marks
     audio = nr._noise("audio", [here], off)
     assert audio["share"] == 0.5 and audio["dispersion"] > 0
     # a constant gain: every sample changed, no dispersion
@@ -691,7 +742,16 @@ def test_the_size_of_the_noise_is_measured_against_off():
     assert nr._noise("audio", [gain], off) == {"dispersion": 0.0, "share": 0.75, "dispersion_n": 4}
     # what cannot be measured is None, never 0
     assert nr._noise("audio", [{"audio_samples": [1.0]}], off) == {"dispersion": None, "share": None}
-    assert nr._noise("canvas", [{}], off)["png"] is None
+    assert nr._noise("canvas", [{}], off)["pixels"] is None
+    # the tolerance: NOISE_Z (4) times the chance spread of two draws, never below 20 %;
+    # one-sided chance of a false "worse" per measure 3e-5
+    import math
+    assert abs(0.5 * math.erfc(nr.NOISE_Z / 2 ** 0.5) - 3.17e-05) < 1e-06
+    assert nr._tolerance("pixels", {"pixels": 0.0146, "pixels_share": 0.0146, "pixels_n": 73728}) == 0.2
+    assert round(nr._tolerance("pixels", {"pixels": 0.0144, "pixels_share": 0.0144, "pixels_n": 18432}), 3) == 0.347
+    assert round(nr._tolerance("widths", {"widths": 1.5e-06, "widths_share": 0.98, "widths_n": 256}), 3) == 0.214
+    assert nr._tolerance("dispersion", {"dispersion": 5e-05, "share": 1.0, "dispersion_n": 1000}) == 0.2
+    assert nr._tolerance("pixels", {"pixels": 0.01}) == 0.2                 # no count known: 20 %
     floors = nr.load_floors()
     assert floors["audio"]["dispersion"] > 0 and set(floors) <= set(nr.NOISE)
     assert nr.load_floors(ROOT / "missing.json") == {}

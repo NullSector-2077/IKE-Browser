@@ -143,22 +143,26 @@ FP_JUDGED = re.compile(
     r"|language|languages|plugins|mimeTypes|maxTouchPoints|pdfViewerEnabled)"
     r"|screen\.\w+|hints\.\w+|intl\.\w+|fonts_(measured|check|generic|computed))$")
 # lists of names (comma separated): a disguised list that shows more of the real one (Off's), or comes
-# closer to it, is worse; one randomised on main may change fewer names by LIST_TOLERANCE at most
+# closer to it, is worse; one randomised on main may change fewer names only by chance: by more than
+# NOISE_Z times the spread of the difference of two draws (each name hidden or not by half a chance:
+# the variance of a session's count is half its mean) it is worse
 FP_LISTS = {"fonts_measured", "fonts_check", "navigator.languages", "navigator.plugins", "webgl.extensions"}
-LIST_TOLERANCE = 0.5
+
 # what the probe hands over only for the size of the noise (no observation of its own): pictures of
 # known bytes as read back, the PNG of the canvases and of the blob, text widths, the audio samples;
 # and the canvas and sound of another site's frame (the "site." marks)
-SAMPLES = {"canvas_pixels", "canvas_offset_pixels", "canvas_flat_pixels", "webgl_pixels", "worker_pixels",
+SAMPLES = {"canvas_pixels", "canvas_offset_pixels", "webgl_pixels", "worker_pixels", "frame_pixels",
            "text_widths", "audio_samples", "png", "third_frame"}
 # the size of the noise of each noised value, against Off's real one, from SAMPLES: (kind, field, sub)
+# Only pictures of varied known bytes: a flat area is noised all or nothing for a given key, so its
+# size would be chance (the canvas's own picture has a flat rectangle: its size comes from the
+# picture of known bytes drawn the same way; the flat stripes have no size, only their marks).
 NOISE = {
-    "canvas": (("png", "png", "canvas"), ("pixels", "canvas_pixels", None), ("widths", "text_widths", None)),
+    "canvas": (("pixels", "canvas_pixels", None), ("widths", "text_widths", None)),
     "canvas_blob": (("png", "png", "blob"),),
     "canvas_offset": (("pixels", "canvas_offset_pixels", None),),
-    "canvas_flat": (("pixels", "canvas_flat_pixels", None),),
     "webgl.read_pixels": (("pixels", "webgl_pixels", None),),
-    "frame": (("png", "png", "frame"),),
+    "frame": (("pixels", "frame_pixels", None),),
     "worker": (("pixels", "worker_pixels", None),),
     "audio": (("samples", "audio_samples", None),),
     "fonts_generic": (("widths", "text_widths", None),),
@@ -168,8 +172,9 @@ NOISED = ("canvas", "canvas_blob", "canvas_offset", "canvas_flat", "audio")
 # the size of the noise (the two sessions' average) may shrink by this share before it is worse (more
 # where few elements changed: _tolerance)
 NOISE_TOLERANCE = 0.2
-# a number randomised on main, from its two readings, may come this much nearer the real one
-NUMBER_TOLERANCE = 0.75
+# a false "worse" from chance is at most 3e-5 per measure (one-sided normal, z = 4): with about fifty
+# measures judged when a noise is rewritten, under 0.2 % for a whole run
+NOISE_Z = 4.0
 # the least noise sizes a person keeps (so merges cannot lower the noise step by step); under tests/
 NOISE_FLOORS = FIXTURES / "noise-floor.json"
 LEVEL_NAMES = {"off": "Off", "compatibility": "Compatibility", "balanced": "Balanced", "strict": "Strict",
@@ -209,11 +214,13 @@ PROBE = r"""<!doctype html><html><head><meta charset="utf-8"><meta name="referre
     return a;
   }
   // a picture: an opaque fill, and a block of known bytes put at (dx, dy) when kw is given
-  function picture(w, h, fill, kw, kh, dx, dy, seed) {
-    var c = document.createElement('canvas'); c.width = w; c.height = h;
-    var x = c.getContext('2d');
-    x.fillStyle = fill; x.fillRect(0, 0, w, h);
-    if (kw) { var img = x.createImageData(kw, kh); img.data.set(knownBytes(kw * kh, seed)); x.putImageData(img, dx, dy); }
+  // a picture of known varied bytes (seed), with another block of known bytes put at (dx, dy) when kw is
+  // given; doc: the document it belongs to (a frame's)
+  function picture(w, h, seed, kw, kh, dx, dy, seed2, doc) {
+    var c = (doc || document).createElement('canvas'); c.width = w; c.height = h;
+    var x = c.getContext('2d'), img = x.createImageData(w, h);
+    img.data.set(knownBytes(w * h, seed)); x.putImageData(img, 0, 0);
+    if (kw) { var b = x.createImageData(kw, kh); b.data.set(knownBytes(kw * kh, seed2)); x.putImageData(b, dx, dy); }
     return x;
   }
   function readAll(x) { return b64(x.getImageData(0, 0, x.canvas.width, x.canvas.height).data); }
@@ -246,19 +253,26 @@ PROBE = r"""<!doctype html><html><head><meta charset="utf-8"><meta name="referre
   try { R.canvas = canvasHash(document); ST.canvas = JSON.stringify(canvasHash(document)) === JSON.stringify(R.canvas); }
   catch (e) { R.canvas = 'error ' + e; }
   try {
-    var px = picture(96, 96, '#000', 96, 96, 0, 0, 12345);
+    var px = picture(96, 96, 12345);
     R.canvas_pixels = readAll(px); ST.canvas_pixels = readAll(px) === R.canvas_pixels;
-    var ox = picture(64, 48, '#204060', 40, 40, 7, 3, 777);
+    var ox = picture(64, 48, 555, 40, 40, 7, 3, 777);
     R.canvas_offset_pixels = readAll(ox); R.canvas_offset = hash(R.canvas_offset_pixels);
     ST.canvas_offset = readAll(ox) === R.canvas_offset_pixels;
-    var fx = picture(64, 32, '#3a6ea5');
-    R.canvas_flat_pixels = readAll(fx); R.canvas_flat = hash(R.canvas_flat_pixels);
-    ST.canvas_flat = readAll(fx) === R.canvas_flat_pixels;
+    // flat colours: a stripe of one colour is noised all or nothing for a given key (1 in 8), so 112
+    // stripes of their own colours: none noised at all by chance is (7/8)^112, about 3e-7
+    var fc = document.createElement('canvas'); fc.width = 16; fc.height = 112;
+    var fx = fc.getContext('2d');
+    for (var fr = 0; fr < 112; fr++) {
+      fx.fillStyle = 'rgb(' + ((fr * 37 + 11) & 255) + ',' + ((fr * 91 + 40) & 255) + ',' + ((fr * 53 + 90) & 255) + ')';
+      fx.fillRect(0, fr, 16, 1);
+    }
+    var flat = readAll(fx); R.canvas_flat = hash(flat);
+    ST.canvas_flat = readAll(fx) === flat;
   } catch (e) { R.canvas_offset = R.canvas_flat = 'error ' + e; }
   try {
     // enough varied opaque pixels that a noise always shows (a flat picture had a few bytes changed:
     // a start with no change at all was likely)
-    var bc = picture(64, 64, '#123456', 64, 56, 0, 8, 2468).canvas;
+    var bc = picture(64, 64, 2468).canvas;
     var bx = bc.getContext('2d'); bx.fillStyle = '#fff'; bx.fillText('ike', 2, 7);
     PNG.blob = await blobOf(bc);
     R.canvas_blob = PNG.blob === 'timeout' ? 'timeout' : hash(PNG.blob);
@@ -268,20 +282,20 @@ PROBE = r"""<!doctype html><html><head><meta charset="utf-8"><meta name="referre
     var tw = document.createElement('canvas').getContext('2d');
     tw.font = '16px sans-serif';
     R.text_widths = [];
-    for (var ti = 0; ti < 32; ti++) R.text_widths.push(tw.measureText('Wq ' + ti + ' gy ' + (ti * 37) + ' kAy').width);
+    for (var ti = 0; ti < 128; ti++) R.text_widths.push(tw.measureText('Wq ' + ti + ' gy ' + (ti * 37) + ' kAy').width);
   } catch (e) { R.text_widths = null; }
+  // what readPixels gives of a texture of known varied bytes (a cleared, flat picture is noised all
+  // or nothing for a given key)
+  try { R.webgl_pixels = glKnown(); ST.webgl_pixels = glKnown() === R.webgl_pixels; } catch (e) { R.webgl_pixels = null; }
   try {
     var gl = document.createElement('canvas').getContext('webgl');
     var dbg = gl && gl.getExtension('WEBGL_debug_renderer_info');
-    var px2 = null;
-    if (gl) { gl.clearColor(0.2, 0.4, 0.6, 1); gl.clear(gl.COLOR_BUFFER_BIT); var b = new Uint8Array(16); gl.readPixels(0, 0, 2, 2, gl.RGBA, gl.UNSIGNED_BYTE, b); px2 = Array.from(b).join(','); }
     R.webgl = gl ? {vendor: gl.getParameter(gl.VENDOR), renderer: gl.getParameter(gl.RENDERER),
       unmasked_vendor: dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : null,
       unmasked_renderer: dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : null,
       max_texture: gl.getParameter(gl.MAX_TEXTURE_SIZE), extensions: (gl.getSupportedExtensions() || []).join(','),
-      read_pixels: px2} : null;
+      read_pixels: R.webgl_pixels ? hash(R.webgl_pixels) : null} : null;
   } catch (e) { R.webgl = 'error ' + e; }
-  try { R.webgl_pixels = glKnown(); ST.webgl_pixels = glKnown() === R.webgl_pixels; } catch (e) { R.webgl_pixels = null; }
   try {
     var a1 = await render();
     R.audio = a1[0]; R.audio_samples = a1[1];
@@ -347,6 +361,7 @@ PROBE = r"""<!doctype html><html><head><meta charset="utf-8"><meta name="referre
     var fw = f.contentWindow;
     R.frame = [fw.navigator.hardwareConcurrency, fw.navigator.userAgent, fw.navigator.plugins.length,
       fw.screen.width, canvasHash(fw.document)];
+    R.frame_pixels = readAll(picture(64, 64, 1357, 0, 0, 0, 0, 0, fw.document));
   } catch (e) { R.frame = 'error ' + e; }
   var FONTS = ['Arial', 'Times New Roman', 'Courier New', 'Helvetica', 'Verdana', 'Georgia', 'Comic Sans MS', 'Impact',
     'Trebuchet MS', 'Tahoma', 'DejaVu Sans', 'DejaVu Serif', 'DejaVu Sans Mono', 'Liberation Sans', 'Liberation Serif',
@@ -1716,13 +1731,18 @@ def _counted(m):
 
 
 def _tolerance(m, nb):
-    """How much smaller a noise measure may be before it is worse: NOISE_TOLERANCE, or three times
-    the chance spread of the number of changed elements main measured (3 / sqrt(count)) when larger."""
+    """How much smaller a noise measure may be before it is worse: NOISE_TOLERANCE, or NOISE_Z times the
+    chance spread of the difference between two independent draws of the same noise (another key, or
+    a rewrite of the same strength), when larger: Z * sqrt(2) * cv / sqrt(k), k the elements changed
+    (main's share times the elements measured), cv the spread of one element: 1 for a count of changed
+    elements (Poisson) and for the size of a picture's changes (each +-1), 0.6 for the magnitudes of the
+    widths and of the audio's factors (uniform). One-sided chance of a false "worse": 3e-5 per measure."""
     n = nb.get(_counted(m))
     share = nb.get("share" if _counted(m) == "dispersion_n" else _counted(m)[:-2] + "_share")
     if not isinstance(n, (int, float)) or not isinstance(share, (int, float)) or n <= 0 or share <= 0:
         return NOISE_TOLERANCE
-    return max(NOISE_TOLERANCE, 3.0 / (share * n) ** 0.5)
+    cv = 0.6 if m in ("widths", "dispersion") else 1.0
+    return max(NOISE_TOLERANCE, NOISE_Z * 2 ** 0.5 * cv / (share * n) ** 0.5)
 
 
 def load_floors(path=None):
@@ -1813,6 +1833,28 @@ def _tokens(v):
     return set(re.findall(r"[A-Za-z0-9]+", v))
 
 
+# The parts of the disguised values by how they are drawn. "noise": a large space (a picture's or a
+# sound's hash, random plugin names): two sessions alike, or the real value, by chance is negligible,
+# so they must change with the session. "pick": one of a few common values per session (a card's
+# name, a list of extensions, a number of cores, a text width with its 61 steps): two sessions
+# alike, or a common real value, can be chance; they are judged only on what chance cannot explain.
+# Any other part: a fixed disguise or an unknown kind, judged strictly.
+NOISE_PARTS = {("canvas", "[0]"), ("canvas_blob", ""), ("canvas_offset", ""), ("canvas_flat", ""), ("audio", ""),
+               ("webgl.read_pixels", ""), ("navigator.plugins", ""), ("frame", "[4][0]")}
+PICK_VALUES = {"webgl.unmasked_renderer", "webgl.unmasked_vendor", "webgl.extensions", "navigator.hardwareConcurrency",
+               "fonts_generic"}
+PICK_PARTS = {("canvas", "[2]"), ("frame", "[0]"), ("frame", "[4][2]"), ("worker", "[2]"), ("worker", "[5]"),
+              ("worker", "[6]")}
+
+
+def _role(name, path):
+    if (name, path) in NOISE_PARTS:
+        return "noise"
+    if name in PICK_VALUES or any(name == n and path.startswith(p) for n, p in PICK_PARTS):
+        return "pick"
+    return None
+
+
 def _judge_part(name, path, b, c):
     """One part of a disguised value. b = (main, main's second session, Off on main, Off's second
     session on main), c = the same here; MISSING where not measured. (kind, why): "same", "changed"
@@ -1833,6 +1875,26 @@ def _judge_part(name, path, b, c):
         return "unjudged", "cannot be judged: the Off level was not measured"
     if (ob2 is not MISSING and ob2 != ob) or (oc2 is not MISSING and oc2 != oc):
         return "unjudged", "cannot be judged: it changes from one session to the next at Off too"
+    role = _role(name, path)
+    if role == "pick":
+        # one of a few common values, drawn per session: two draws can be alike, or be the real
+        # value, by chance; only what chance cannot explain is judged
+        if vb is None and vc is not None:
+            return "worse", "hidden on main, readable here"
+        main_real = vb in (ob, oc) or vb2 in (ob, oc)
+        if not main_real and vc in (oc, ob) and (vc2 is MISSING or vc2 in (oc, ob)):
+            return "worse", "the real value (Off's) here, in every session"
+        if vb == ob and vb2 in (MISSING, ob):
+            # main gave the real value every time: not disguised there at all
+            if oc == ob and vc != oc and vc2 is not MISSING and vc2 != oc:
+                return "neutral", "main gave the real value; here a disguise, in both sessions"
+            return "unjudged", "main gave the real value (Off's): a change of it cannot be judged"
+        if not path and name in FP_LISTS and all(isinstance(x, str) for x in (vb, vb2, vc, vc2, ob, oc)) \
+                and vb2 != vb:
+            far_b, far_c = (_far(vb, ob) + _far(vb2, ob)) / 2.0, (_far(vc, oc) + _far(vc2, oc)) / 2.0
+            if far_b - far_c > NOISE_Z * (max(far_b, 1.0) / 2.0) ** 0.5:
+                return "worse", "fewer names changed from the real list: %g on main, %g here" % (far_b, far_c)
+        return "changed", "another of the few common values this disguise is drawn from, not the real one"
     if vb == ob:
         if oc == ob and vc != oc and vc2 is not MISSING and vc2 != oc:
             return "neutral", "main gave the real value; here a disguise, in both sessions"
@@ -1876,18 +1938,8 @@ def _judge_part(name, path, b, c):
         return "unjudged", "cannot be judged: main's second session was not measured"
     if vc2 == vc:
         return "worse", "the same in every session here (on main it changed with the session)"
-    if names and isinstance(vb2, str) and isinstance(vc2, str):
-        # a list randomised on main: as many names changed from the real list (the sessions' average)
-        far_b, far_c = (_far(vb, ob) + _far(vb2, ob)) / 2.0, (_far(vc, oc) + _far(vc2, oc)) / 2.0
-        if far_c < far_b * (1 - LIST_TOLERANCE):
-            return "worse", "fewer names changed from the real list: %g on main, %g here" % (far_b, far_c)
-    if _number(vb, vb2, ob, vc, vc2, oc):
-        # a number randomised on main: as far from the real one (two readings only: NUMBER_TOLERANCE;
-        # the text widths are measured from many readings in the noise's size)
-        far_b, far_c = (abs(vb - ob) + abs(vb2 - ob)) / 2.0, (abs(vc - oc) + abs(vc2 - oc)) / 2.0
-        if far_c < far_b * (1 - NUMBER_TOLERANCE):
-            return "worse", "closer to the real value: %g from it on main, %g here (each session's average)" % (
-                far_b, far_c)
+    # a number randomised on main (a text width): how far from the real one is judged from 128 widths
+    # in the noise's size (NOISE "widths"); two readings would only be chance
     return "changed", "still noised (not the real value) and different in each session"
 
 
@@ -1896,13 +1948,12 @@ def _judge_fingerprint(key, b, c, bo, co, floors=None):
     part (_parts), on main and here, each against the Off level of its own snapshot (the real value;
     both Offs count) and its own second session:
     - randomised on main (it changed with the session): still not the real value, still different
-      in each session, a number as far from the real one, a list changing as many names
-      (LIST_TOLERANCE);
+      in each session, a list changing as many names (beyond chance: NOISE_Z);
     - a fixed disguise on main: not the real value in either session, and no closer to it: a list
       shows no name of the real list main hid and comes no closer; a number is no nearer; a text
       holds no more of the real one's words; anything else cannot be judged;
     - its noise (NOISE: the sessions' average of each measure) not smaller than the larger of main's
-      and the floor (NOISE_FLOORS) by NOISE_TOLERANCE ("stricter" when larger beyond it);
+      and the floor (NOISE_FLOORS) beyond _tolerance ("stricter" when larger beyond NOISE_TOLERANCE);
     - the real value on main, the Off level not measured, a part that could not be read, a second
       session missing here, a value that changes between sessions at Off too: "unjudged" (worse);
       a value main left real now disguised in both sessions: "neutral" (worse, unless a test proves
