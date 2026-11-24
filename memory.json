@@ -69,6 +69,18 @@
     "sig": "e98371377381cad5",
     "summary": "La correzione automatica ha alzato la versione a 1.1.24, ma quella versione \u00e8 gi\u00e0 pubblicata su main: il controllo automatico l'ha rifiutata. La versione va portata a 1.1.25. Non posso per\u00f2 correggerla: i due file che contengono la versione (PKGBUILD e ike/__init__.py) sono prote",
     "task": "python"
+   },
+   {
+    "attempt": 2,
+    "date": "2026-11-24",
+    "detail": "rotated",
+    "files": [],
+    "model": "",
+    "outcome": "no-fix",
+    "provider": "",
+    "sig": "e98371377381cad5",
+    "summary": "La correzione automatica ha alzato la versione a 1.1.24, ma quella versione \u00e8 gi\u00e0 pubblicata su main: il controllo automatico l'ha rifiutata. La versione va portata a 1.1.25. Non posso farlo io: il file PKGBUILD (e ike/__init__.py, dove sta la versione) sono file che le regole vi",
+    "task": "python"
    }
   ],
   "automation/update/lists-2026-11-22@bf8bb9289850a76b": [
@@ -145,7 +157,7 @@
   },
   "automation/update/drill-qt": {
    "date": "2026-11-24",
-   "n": 1,
+   "n": 2,
    "sig": "e98371377381cad5",
    "since": "2026-11-24"
   },
