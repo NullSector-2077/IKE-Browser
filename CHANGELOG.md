@@ -2,6 +2,10 @@
 
 ## 1.1.25
 
+- **The History window shows the sites' icons** (the owner): "Show all history"
+  lists every page with its site's stored icon (the globe when none is
+  stored, nothing fetched for it) and every day with a calendar icon;
+  tests/test_extras_124.py.
 - **A panel for the toolbar's Dark mode button** (the owner approved its
   look): a click opens it under the button, as the shield's panel opens, in
   place of the menu with two entries ("On everywhere" and "On for this site"

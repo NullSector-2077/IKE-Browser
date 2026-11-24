@@ -2405,6 +2405,13 @@ class HistoryDialog(QDialog):
         today = QDate.currentDate()
         bold = self.tree.font()
         bold.setBold(True)
+        # 1.1.25 (the owner): every page with its site's icon, as in the History menu (the stored
+        # icon, nothing fetched for it), the generic globe otherwise; each day with a calendar
+        from PyQt6.QtWidgets import QStyle
+
+        from .icons import themed as icon
+        globe = icon(("globe", "web-browser-symbolic"), QStyle.StandardPixmap.SP_FileIcon)
+        calendar = icon(("view-calendar-day", "x-office-calendar", "view-calendar"), QStyle.StandardPixmap.SP_DirIcon)
         group, group_day = None, None
         for url, title, last in self.app.storage.history(self.search.text()):
             when = QDateTime.fromSecsSinceEpoch(int(last))
@@ -2416,8 +2423,11 @@ class HistoryDialog(QDialog):
                 group.setFont(0, bold)
                 group.setFirstColumnSpanned(True)
                 group.setExpanded(True)
-            QTreeWidgetItem(group, [title or url, url,
-                                    locale.toString(when.time(), QLocale.FormatType.ShortFormat)])
+                group.setIcon(0, calendar)
+            page = QTreeWidgetItem(group, [title or url, url,
+                                           locale.toString(when.time(), QLocale.FormatType.ShortFormat)])
+            fav = self.app.favicons.icon(url)
+            page.setIcon(0, globe if fav.isNull() else fav)
 
     def _open(self, item):
         win = self.app.active_window()

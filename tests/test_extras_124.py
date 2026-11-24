@@ -19,9 +19,10 @@
 """
 
 import json
+import os
 
 import pytest
-from conftest import screen
+from conftest import APP, screen
 
 LONG_PAGE = """<!doctype html><html><head><title>Long</title><style>
 body{margin:0} .bar{position:fixed;top:0;left:0;right:0;height:40px;background:rgb(0,0,255)}
@@ -610,3 +611,56 @@ def steps(ike, qapp, out):
     priv.close()
 ''')
     assert out["empty"] is False and out["private"] == 0
+
+
+def test_the_history_window_shows_each_sites_icon(tmp_path):
+    """1.1.25 (the owner): "Show all history" lists every page with its site's stored icon (the
+    globe when none is stored, so the column never jumps) and each day with a calendar icon.
+    Run in a process of its own: the window's module brings Qt WebEngine, which must be loaded
+    before any QApplication."""
+    import subprocess
+    import sys
+    script = tmp_path / "history_icons.py"
+    script.write_text(HISTORY_ICONS, "utf-8")
+    env = dict(os.environ, QT_QPA_PLATFORM="offscreen", PYTHONPATH=str(APP))
+    done = subprocess.run([sys.executable, str(script)], env=env, capture_output=True, text=True, timeout=120)
+    assert done.returncode == 0 and done.stdout.strip().endswith("ok"), done.stdout + done.stderr[-2000:]
+
+
+HISTORY_ICONS = r'''
+import time
+
+from PyQt6.QtGui import QColor, QIcon, QPixmap
+from PyQt6.QtWidgets import QApplication
+
+from ike.dialogs import HistoryDialog
+
+app = QApplication([])
+known = QPixmap(16, 16)
+known.fill(QColor("red"))
+now = int(time.time())
+
+
+class Storage:
+    def history(self, _text=""):
+        return [("https://known.example/a", "Known", now), ("https://other.example/b", "Other", now - 86400)]
+
+
+class Favicons:
+    def icon(self, url):
+        return QIcon(known) if "known" in url else QIcon()
+
+
+class App:
+    storage, favicons = Storage(), Favicons()
+
+
+dlg = HistoryDialog(App())
+days = [dlg.tree.topLevelItem(i) for i in range(dlg.tree.topLevelItemCount())]
+assert len(days) == 2 and all(not d.icon(0).isNull() for d in days), "a day without its icon"
+pages = [d.child(j) for d in days for j in range(d.childCount())]
+assert [p.text(1) for p in pages] == ["https://known.example/a", "https://other.example/b"]
+assert all(not p.icon(0).isNull() for p in pages), "a page without an icon"
+assert pages[0].icon(0).pixmap(16, 16).toImage().pixelColor(8, 8) == QColor("red"), "not the site's icon"
+print("ok")
+'''
