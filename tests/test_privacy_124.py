@@ -12,9 +12,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
-from conftest import ROOT
+from conftest import APP
 
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(APP))
 
 NO_PROXY_ENV = {"http_proxy": "", "https_proxy": "", "HTTP_PROXY": "", "HTTPS_PROXY": "", "all_proxy": "",
                 "ALL_PROXY": "", "no_proxy": "*", "NO_PROXY": "*"}

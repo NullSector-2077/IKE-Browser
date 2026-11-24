@@ -114,6 +114,7 @@ processor time at rest and while the toolbar is used, and the memory. Outside Ar
 | `test_videoads.py` | The fallback for video ads that get past the lists (1.1.18), SIMULATED on a local page shaped like YouTube's player (not YouTube): it hides none of the page's ad boxes by itself (the lists decide, and keep #player-ads on purpose); during an ad the video is muted and sent to its end, and sound and speed come back afterwards; an ad that cannot be sought gets about one jump a second, not hundreds |
 | `test_videogpu.py` | (1.1.16) Video decoding with the graphics card: Automatic leaves it to the engine, On asks for it (experimental), Off turns it off; On falls back to Automatic by itself after I.K.E. did not close normally while it was on |
 | `test_mailto.py` | (1.1.16) Email links: a `mailto:` link is written with the web mail or the mail program the user chose; I.K.E. asks until a choice is remembered and can take the email links of other programs |
+| `test_lessons.py` | (1.1.25) AUTOMAT's own small jams kept as checks: no test puts the checkout on the import path (tests import I.K.E. from `conftest.APP`, the installed copy in its shards), and tests import only what `tools/test-requirements.txt` installs (or name a reason) |
 
 Lint (unused code and import order, settings in `pyproject.toml`):
 
