@@ -11,10 +11,10 @@ import sys
 import threading
 
 import pytest
-from conftest import ROOT
+from conftest import APP, ROOT
 from test_security import JS
 
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(APP))
 
 # what Open-Meteo answers for the request I.K.E. makes (its "current" block; recorded shape)
 FULL = {"latitude": 41.9, "longitude": 12.5, "current_units": {"temperature_2m": "°C", "wind_speed_10m": "km/h"},
