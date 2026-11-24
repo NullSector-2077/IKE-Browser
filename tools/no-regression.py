@@ -19,8 +19,15 @@ anything that got worse:
 - the fingerprinting surface: what a probe page's scripts read (navigator,
   screen, fonts, canvas, WebGL, audio, matchMedia, Client Hints, workers,
   frames, permissions...) at every level, in the real engine on a local page,
-  with a fixed noise key. Worse: any value that differs from main, unless a
-  person accepted that change in tests/data/no-regression/allowlist.json;
+  with a fixed noise key, and again with a second fixed key (a second session).
+  What the protection disguises (FP_JUDGED: canvas, audio, WebGL, navigator,
+  screen, fonts, Client Hints, time zone and language...) is judged by what
+  protects, against the Off level's real value: worse when it is the real
+  value again, no longer changes with the session, has a smaller noise, or
+  shows more of a real list (_judge_fingerprint); a change that keeps the
+  protection passes. Worse for anything else: any value that differs from
+  main. A worse that a person accepted (tests/data/no-regression/
+  allowlist.json) passes;
 - the network: the hosts the browser contacts by itself, with a fresh profile,
   at start and while loading the probe page (a local proxy for the engine and
   Qt, a Python audit hook for I.K.E.'s own code; nothing leaves the computer).
@@ -64,6 +71,8 @@ LEVELS = ("off", "compatibility", "balanced", "strict", "maximum")
 SECTIONS = ("requests", "cosmetic", "scriptlets", "fingerprint", "security", "network")
 # the noise of the fingerprint protection, the same on both sides (a real profile has a random one)
 FIXED_KEY = "6e6f2d72656772657373696f6e2d6b31"
+# the key of a second session (a new start has a new key): what the protection randomises must change
+FIXED_KEY_2 = "6e6f2d72656772657373696f6e2d6b32"
 # graphics switches given to the engine (software WebGL, as the tests); what I.K.E. adds is compared
 INPUT_FLAGS = ["--no-sandbox", "--enable-unsafe-swiftshader", "--use-angle=swiftshader", "--ignore-gpu-blocklist"]
 THIRD = "nr-third.example"           # a third-party host of the probe page (headers, Referer)
@@ -101,6 +110,25 @@ VOLATILE_HEADERS = {"host", "connection", "proxy-connection", "cache-control", "
                     "if-modified-since", "content-length", "content-type", "keep-alive", "te"}
 PNG = bytes.fromhex("89504e470d0a1a0a0000000d4948445200000001000000010806000000"
                     "1f15c4890000000d49444154789c6360000002000154a24f5d0000000049454e44ae426082")
+# What a page reads that the fingerprinting protection disguises (spoofs or noises): judged by what
+# protects the user (_judge_fingerprint), not by equality. Anything else the probe reads (whether an
+# API is offered, permissions, the native look of the replaced functions, the third-party image...)
+# keeps the exact rule: any change is worse.
+FP_JUDGED = re.compile(
+    r"^(canvas|canvas_blob|audio|frame|worker|media_queries"
+    r"|webgl\.(vendor|renderer|unmasked_vendor|unmasked_renderer|max_texture|extensions|read_pixels)"
+    r"|navigator\.(userAgent|appVersion|platform|vendor|product|productSub|oscpu|hardwareConcurrency|deviceMemory"
+    r"|language|languages|plugins|mimeTypes|maxTouchPoints|pdfViewerEnabled)"
+    r"|screen\.\w+|hints\.\w+|intl\.\w+|fonts_(measured|check|generic|computed))$")
+# lists of names (comma separated): a disguised list that shows more of the real one (Off's), or comes
+# closer to it, is worse; one randomised on main may change fewer names by LIST_TOLERANCE at most
+FP_LISTS = {"fonts_measured", "fonts_check", "navigator.languages", "navigator.plugins", "webgl.extensions"}
+LIST_TOLERANCE = 0.5
+# what the probe hands over for the size of the noise only (not an observation) -> the value it belongs
+# to: the canvas's noise measured by the page on a picture of known bytes, the audio samples themselves
+SAMPLES = {"canvas_noise": "canvas", "audio_samples": "audio"}
+# the size of the noise (the two sessions' average) may shrink by this share before it is worse
+NOISE_TOLERANCE = 0.2
 LEVEL_NAMES = {"off": "Off", "compatibility": "Compatibility", "balanced": "Balanced", "strict": "Strict",
                "maximum": "Maximum"}
 
@@ -124,6 +152,20 @@ PROBE = r"""<!doctype html><html><head><meta charset="utf-8"><meta name="referre
   function settle(p, ms, late) { return Promise.race([p, new Promise(function (ok) { setTimeout(function () { ok(late); }, ms); })]); }
   try { R.canvas = canvasHash(document); } catch (e) { R.canvas = 'error ' + e; }
   try {
+    // the size of the canvas noise (SAMPLES in the tool): a picture of known varied opaque bytes read
+    // back, the mean change of a byte (0 where nothing is noised)
+    var nc = document.createElement('canvas'); nc.width = 128; nc.height = 128;
+    var nx = nc.getContext('2d'), known = nx.createImageData(128, 128), kd = known.data, st = 12345, diff = 0;
+    for (var ki = 0; ki < kd.length; ki++) {
+      st = (Math.imul(st, 1103515245) + 12345) >>> 0;
+      kd[ki] = ki % 4 === 3 ? 255 : st >>> 24;
+    }
+    nx.putImageData(known, 0, 0);
+    var back = nx.getImageData(0, 0, 128, 128).data;
+    for (var kj = 0; kj < kd.length; kj++) diff += Math.abs(back[kj] - kd[kj]);
+    R.canvas_noise = diff / kd.length;
+  } catch (e) { R.canvas_noise = 'error ' + e; }
+  try {
     var bc = document.createElement('canvas'); bc.width = 64; bc.height = 16;
     var bx = bc.getContext('2d'); bx.fillStyle = '#123456'; bx.fillRect(0, 0, 64, 16); bx.fillStyle = '#fff'; bx.fillText('ike', 2, 12);
     R.canvas_blob = await settle(new Promise(function (ok) { bc.toBlob(function (b) {
@@ -146,6 +188,7 @@ PROBE = r"""<!doctype html><html><head><meta charset="utf-8"><meta name="referre
     var buf = await ac.startRendering(), d = buf.getChannelData(0), sum = 0;
     for (var i = 4500; i < 5000; i++) sum += Math.abs(d[i]);
     R.audio = sum.toFixed(10);
+    R.audio_samples = Array.from(d.slice(4500, 5000));
   } catch (e) { R.audio = 'error ' + e; }
   var n = navigator;
   R.navigator = {userAgent: n.userAgent, appVersion: n.appVersion, platform: n.platform, vendor: n.vendor,
@@ -469,6 +512,25 @@ COSMETIC_JS = r"""(function(keys, probes){var out={}; keys.forEach(function(k){
  return JSON.stringify({elements:out, probes:p});})(%s, %s)"""
 
 
+def _keys(sh, key):
+    for p in list(sh.profiles):
+        sh.profile_keys[id(p)] = key
+
+
+def _probe(view, tag, limit=40):
+    """The probe page loaded at the level tag; (loaded, what its scripts read or None)."""
+    state, box, found = {}, {}, None
+    yield from _load(view, PLAN["base"] + "/fp?lv=" + tag, state, "ok")
+    end = time.monotonic() + limit
+    while time.monotonic() < end:
+        yield from _js(view, "window.nrResult || ''", box)
+        if box.get("r"):
+            found = json.loads(box["r"])
+            break
+        yield 100
+    return state.get("ok"), found
+
+
 def measure():
     yield 300
     b, sh, cfg = ike.blocker, ike.shields, ike.config        # noqa: F821
@@ -494,8 +556,7 @@ def measure():
     OUT["engine"] = {"native": bool(b.native), "built": b.engine is not None, "errors": b.errors,
                      "lists_written_late": late}
     try:
-        for p in list(sh.profiles):
-            sh.profile_keys[id(p)] = PLAN["key"]
+        _keys(sh, PLAN["key"])
     except Exception:
         _err("fingerprint")
     view = ike.windows[0].current_view()            # noqa: F821
@@ -519,18 +580,7 @@ def measure():
                 except Exception as exc:
                     res[q["id"]] = {"action": "error %s" % type(exc).__name__, "headers": {}}
         if sections & {"fingerprint", "security"}:
-            state = {}
-            yield from _load(view, PLAN["base"] + "/fp?lv=" + lv, state, "ok")
-            box, found = {}, None
-            end = time.monotonic() + 40
-            while time.monotonic() < end:
-                yield from _js(view, "window.nrResult || ''", box)
-                if box.get("r"):
-                    found = json.loads(box["r"])
-                    break
-                yield 100
-            here["loaded"] = state.get("ok")
-            here["probe"] = found
+            here["loaded"], here["probe"] = yield from _probe(view, lv)
             try:
                 here["page_settings"] = _settings(view.page().settings())
                 prof = view.page().profile()
@@ -538,6 +588,25 @@ def measure():
                 here["profile"] = _profile(prof)
             except Exception:
                 _err("security")
+        if "fingerprint" in sections and PLAN.get("key2"):
+            # a second session: another noise key, as a new start of the browser has; what the
+            # protection randomises must differ from the first. Its own tag ("<level>.s2"), so the
+            # headers the server keeps for the level are the first session's.
+            here["probe_session2"] = None
+            try:
+                _keys(sh, PLAN["key2"])
+                sh.apply_settings()
+            except Exception:
+                _err("fingerprint")
+            else:
+                yield 50
+                here["loaded_session2"], here["probe_session2"] = yield from _probe(view, lv + ".s2")
+            try:
+                _keys(sh, PLAN["key"])
+                sh.apply_settings()
+            except Exception:
+                _err("fingerprint")
+            yield 50
         if "cosmetic" in sections:
             pages = here["pages"] = {}
             for pg in PLAN["pages"]:
@@ -951,7 +1020,8 @@ def snapshot(repo, levels=LEVELS, sections=SECTIONS, fixtures=FIXTURES, keep=Non
     t0 = time.monotonic()
     plan = {"levels": list(levels), "sections": list(sections), "lists": corpus["lists"],
             "requests": corpus["requests"], "pages": corpus["pages"], "cosmetic_urls": corpus["cosmetic_urls"],
-            "scriptlet_hosts": corpus["scriptlet_hosts"], "key": FIXED_KEY, "defaults": sorted(SAFE_DEFAULTS),
+            "scriptlet_hosts": corpus["scriptlet_hosts"], "key": FIXED_KEY, "key2": FIXED_KEY_2,
+            "defaults": sorted(SAFE_DEFAULTS),
             "hostile_flags": HOSTILE_FLAGS, "hostile_env": HOSTILE_ENV, "settle": settle}
     quiet = {"lists_version": _lists_version(repo), "last_lists_update": 4102444800,
              "last_fast_update": 4102444800, "chrome_checked": 4102444800, "app_updates": "off",
@@ -1041,16 +1111,28 @@ def observations(raw, levels, sections, corpus):
                     obs["page-scriptlets/%s/%s/%s" % (lv, pg["id"], k)] = {
                         "rule": "exact", "value": (res.get("probes") or {}).get(k)}
         if "fingerprint" in sections:
-            probe = here.get("probe")
+            probe, second = here.get("probe"), here.get("probe_session2")
             if probe is None:
                 errors.append({"section": "fingerprint", "error": "the probe page gave no result at %s" % lv})
             else:
-                fp = {}
-                _flat("", probe, fp, "exact")
+                if "probe_session2" in here and second is None:
+                    errors.append({"section": "fingerprint", "error": "the probe page gave no result at %s in "
+                                                                      "the second session" % lv})
+                fp, fp2 = {}, {}
+                _flat("", {k: v for k, v in probe.items() if k not in SAMPLES}, fp, "exact")
+                if second is not None:
+                    _flat("", {k: v for k, v in second.items() if k not in SAMPLES}, fp2, "exact")
                 off = ((m.get("levels") or {}).get("off") or {}).get("probe") or {}
+                for k, o in fp.items():
+                    if k in fp2:
+                        o["session2"] = fp2[k]["value"]
+                    if lv != "off" and FP_JUDGED.match(k):
+                        o["rule"] = "fingerprint"
+                    if lv != "off" and k in SAMPLES.values() and off:
+                        o["noise"] = _noise(k, [x for x in (probe, second) if x is not None], off)
                 if lv != "off" and off:
                     for k in ("canvas", "canvas_blob", "audio"):
-                        fp["%s.noised" % k] = {"rule": "exact", "value": probe.get(k) != off.get(k)}
+                        fp["%s.noised" % k] = {"rule": "safer-true", "value": probe.get(k) != off.get(k)}
                 for k, v in fp.items():
                     obs["fingerprint/%s/%s" % (lv, k)] = v
         if "security" in sections:
@@ -1227,6 +1309,180 @@ SAFER_SETTINGS = {
     "NavigateOnDropEnabled": False, "ReadingFromCanvasEnabled": False, "ForceDarkMode": None,
 }
 
+# --- the fingerprinting values, judged by what protects ------------------------------------------
+def _noise(key, probes, off):
+    """The size of the noise, the sessions' average: the mean relative change of the audio samples
+    from Off's (the real ones), the mean change of a byte of the canvas of known bytes (the page
+    measures it: 0 at Off). None when it cannot be measured."""
+    raw = next(r for r, k in SAMPLES.items() if k == key)
+    real = off.get(raw)
+    sizes = []
+    for p in probes:
+        got = p.get(raw)
+        try:
+            if key == "audio":
+                pairs = [(float(a), float(b)) for a, b in zip(got, real) if float(b) != 0.0]
+                if len(got) != len(real) or not pairs:
+                    return None
+                sizes.append(sum(abs(a / b - 1.0) for a, b in pairs) / len(pairs))
+            elif isinstance(got, (int, float)) and not isinstance(got, bool):
+                sizes.append(float(got))
+            else:
+                return None
+        except (TypeError, ValueError, ZeroDivisionError):
+            return None
+    return float("%.6g" % (sum(sizes) / len(sizes))) if sizes else None
+
+
+MISSING = object()          # a part a snapshot does not have (not the same as a value null)
+FAILED = re.compile(r"^(error\b|worker (error|timeout)$|timeout$|e$|e )")   # what the probe writes when a read fails
+
+
+def _parts(value, name):
+    """{path: leaf}: a disguised value judged part by part (a list by its items, a JSON text or a
+    mapping by its fields, the media queries one by one), so a part that went back to the real value
+    is not hidden by another part that changed. A plain value is its only part, path ""."""
+    if name == "media_queries" and isinstance(value, str):
+        found = re.findall(r"(\([^()]*\))=(\w+)", value)
+        if found:
+            value = dict(found)
+    elif isinstance(value, str) and value[:1] in "[{":
+        try:
+            value = json.loads(value)
+        except ValueError:
+            pass
+    if isinstance(value, (list, dict)) and value:
+        out = {}
+        for k, v in (enumerate(value) if isinstance(value, list) else sorted(value.items())):
+            for path, leaf in _parts(v, "").items():
+                out["[%s]%s" % (k, path)] = leaf
+        return out
+    return {"": value}
+
+
+def _names(v):
+    return {x.strip() for x in v.split(",") if x.strip()} if isinstance(v, str) else set()
+
+
+def _far(v, real):
+    """How many names a list shows differently from the real one (added or left out)."""
+    return len(_names(v) ^ _names(real))
+
+
+def _judge_part(name, path, b, c):
+    """One part of a disguised value. b = (main, main's second session, Off on main, Off's second
+    session on main), c = the same here; MISSING where not measured.
+    (kind, why): "same", "changed" (still protected) or "worse" (weaker, or it cannot be judged)."""
+    vb, vb2, ob, ob2 = b
+    vc, vc2, oc, oc2 = c
+    if vb == vc and (vb2 is MISSING or vc2 is MISSING or vb2 == vc2):
+        return "same", ""
+    if vc is MISSING:
+        return "worse", "not read here"
+    if isinstance(vc, str) and FAILED.match(vc):
+        return "worse", "could not be read here (%s)" % _short(vc, 60)
+    if ob is MISSING or oc is MISSING:
+        return "worse", "cannot be judged: the Off level was not measured"
+    if vb == ob:
+        return "worse", "main gave the real value (Off's): a change of it cannot be judged"
+    if vc == oc or vc2 == oc:
+        return "worse", "the real value (Off's) here"
+    if vb is None:
+        return "worse", "hidden on main, readable here"
+    if (ob2 is not MISSING and ob2 != ob) or (oc2 is not MISSING and oc2 != oc):
+        return "worse", "cannot be judged: it changes from one session to the next at Off too"
+    names = not path and name in FP_LISTS and all(isinstance(x, str) for x in (vb, vc, ob, oc))
+    if names and vb2 in (MISSING, vb):
+        # a fixed list on main: no name of the real list that main did not show, and no closer to it
+        shown = sorted((_names(vc) | _names(vc2)) & _names(oc) - _names(vb))
+        if shown:
+            return "worse", "shows more of the real list: %s" % ", ".join(shown[:8])
+        near = min(_far(x, oc) for x in (vc, vc2) if isinstance(x, str))
+        if near < _far(vb, ob):
+            return "worse", "closer to the real list: %d names differ from it on main, %d here" % (_far(vb, ob), near)
+    if vb2 is MISSING:
+        if vc2 is not MISSING and vc2 != vc:
+            return "changed", "still not the real value, and different in each session"
+        return "worse", "cannot be judged: main's second session was not measured"
+    if vb2 != vb:
+        if vc2 is MISSING:
+            return "worse", "cannot be judged: no second session measured here"
+        if vc2 == vc:
+            return "worse", "the same in every session here (on main it changed with the session)"
+        if names and isinstance(vb2, str) and isinstance(vc2, str):
+            # a list randomised on main: as many names changed from the real list (the sessions' average)
+            far_b, far_c = (_far(vb, ob) + _far(vb2, ob)) / 2.0, (_far(vc, oc) + _far(vc2, oc)) / 2.0
+            if far_c < far_b * (1 - LIST_TOLERANCE):
+                return "worse", "fewer names changed from the real list: %g on main, %g here" % (far_b, far_c)
+        return "changed", "still noised (not the real value) and different in each session"
+    return "changed", "another disguised value, still not the real one"
+
+
+def _judge_fingerprint(key, b, c, bo, co):
+    """A value the fingerprinting protection disguises (FP_JUDGED), judged by what protects, part by
+    part (_parts), on main and here, each against the Off level of its own snapshot (the real value)
+    and its own second session:
+    - randomised on main (it changed with the session): still not the real value, still different
+      in each session, and the size of its noise not smaller than main's: `noise` (audio, canvas)
+      by NOISE_TOLERANCE at most ("stricter" when larger beyond it), the names a list changes
+      (FP_LISTS) by LIST_TOLERANCE at most;
+    - a fixed disguise on main: still not the real value in either session and, a list of names,
+      showing no name of the real list main did not show and coming no closer to the real list;
+    - the real value on main, the Off level not measured, a part that could not be read, a value
+      that changes between sessions at Off too: worse (it cannot be judged).
+    bo, co: every observation of main's snapshot and of the candidate's. (kind, detail)."""
+    if c is None:
+        return "worse", "not measured on the candidate"
+    if b is None:
+        return "worse", "not measured on main: a new value cannot be judged"
+    head, _, name = key.split("/", 2)
+    offkey = "%s/off/%s" % (head, name)
+
+    def split(o, field):
+        return _parts(o[field], name) if o is not None and field in o else None
+
+    def at(parts, path):
+        return MISSING if parts is None else parts.get(path, MISSING)
+
+    main = [split(b, "value"), split(b, "session2"), split(bo.get(offkey), "value"), split(bo.get(offkey), "session2")]
+    here = [split(c, "value"), split(c, "session2"), split(co.get(offkey), "value"), split(co.get(offkey), "session2")]
+    worse, changed = [], []
+    for path in sorted(set(main[0]) | set(here[0])):
+        kind, why = _judge_part(name, path, tuple(at(x, path) for x in main), tuple(at(x, path) for x in here))
+        why = ("%s %s" % (path, why)) if path else why
+        if kind == "worse":
+            worse.append(why)
+        elif kind != "same":
+            changed.append(why)
+    if worse:
+        return "worse", "; ".join(worse[:6]) + ("; and %d more parts" % (len(worse) - 6) if len(worse) > 6 else "")
+    if not changed:            # the same parts, written another way: nothing to judge them by
+        return "worse", "written another way, the same parts: cannot be judged"
+    nb, nc = b.get("noise"), c.get("noise")
+    if isinstance(nb, (int, float)) and nb > 0:
+        if not isinstance(nc, (int, float)):
+            return "worse", "the size of the noise could not be measured here (%s on main)" % nb
+        if nc < nb * (1 - NOISE_TOLERANCE):
+            return "worse", "the noise is smaller: %s on main, %s here" % (nb, nc)
+        if nc > nb * (1 + NOISE_TOLERANCE):
+            return "stricter", "still protected, the noise larger: %s on main, %s here (x%.3g)" % (nb, nc, nc / nb)
+        return "changed", "still protected, the noise as large: %s on main, %s here" % (nb, nc)
+    return "changed", "still protected: " + "; ".join(changed[:4])
+
+
+def _rule(key, b, c):
+    """The rule of an observation: this copy's own for the disguised fingerprinting values
+    (FP_JUDGED) and the .noised marks, whatever rule the snapshots carry (one of an older copy is
+    judged the same way); otherwise the one main's snapshot gives."""
+    parts = key.split("/", 2)
+    if parts[0] == "fingerprint" and len(parts) == 3 and parts[1] != "off":
+        if FP_JUDGED.match(parts[2]):
+            return "fingerprint"
+        if parts[2].endswith(".noised"):
+            return "safer-true"
+    return (b or c)["rule"]
+
+
 def _short(v, n=160):
     s = json.dumps(v, ensure_ascii=False) if not isinstance(v, str) else v
     return s if len(s) <= n else s[:n] + "..."
@@ -1274,9 +1530,13 @@ def compare(base, cand, allowlist_entries=()):
             if (bo.get(rk) or {}).get("value") != (co.get(rk) or {}).get("value"):
                 continue          # the request itself is judged; its headers follow what it became
         b, c = bo.get(key), co.get(key)
-        rule = (b or c)["rule"]
+        rule = _rule(key, b, c)
         bv, cv = (b or {}).get("value"), (c or {}).get("value")
-        kind, detail = _judge(rule, bv, cv, key)
+        if rule == "fingerprint" and (bv != cv or (b and c and "session2" in b and "session2" in c and
+                                                   b["session2"] != c["session2"])):
+            kind, detail = _judge_fingerprint(key, b, c, bo, co)
+        else:
+            kind, detail = _judge(rule, bv, cv, key)
         if kind == "same":
             continue
         row = {"key": key, "section": _section(key), "rule": rule, "main": bv, "candidate": cv, "detail": detail}

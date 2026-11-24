@@ -2605,8 +2605,42 @@ computer) and without a display, with the real browser of each commit:
 - **Fingerprinting surface.** What a probe page's scripts read at every level
   (navigator, screen, fonts, canvas, WebGL, audio, matchMedia, Client Hints,
   workers, frames, permissions, storage, battery, the `ike:` pages), with a
-  fixed noise key so the values repeat. Worse: **any** value that differs
-  from `main`.
+  fixed noise key so the values repeat, and once more with a second fixed key
+  (a second session: a new start of the browser has a new key). Since
+  2026-11-24 the values the protection disguises are judged by what protects
+  the user, not by the number: the canvas (its pictures, `toBlob`, the frame's
+  and the worker's), the audio, WebGL (the card's name, its limits,
+  extensions and pixels), the navigator's identity (user agent, platform,
+  cores, memory, languages, plugins...), the screen, the fonts, Client Hints,
+  the time zone and locale, the media queries (`FP_JUDGED` in the tool). Each
+  part of such a value is compared with the **Off** level of the same
+  snapshot, which is the real value:
+  - **noised** on `main` (it differs from Off and changes with the session):
+    it must still differ from Off in both sessions, still change with the
+    session, and its noise must not be smaller: the audio's (the samples'
+    mean relative change from Off's) and the canvas's (the mean change of a
+    byte of a picture of known bytes) by 20 % at most (`NOISE_TOLERANCE`), the
+    number of names a list changes (WebGL extensions, plugins) by half at
+    most (`LIST_TOLERANCE`);
+  - **a fixed disguise** on `main` (it differs from Off, the same in both
+    sessions: a common user agent, a screen size, the card's name hidden): it
+    must still differ from Off in both sessions; a list of names (fonts,
+    languages, plugins, extensions) must show no name of the real list that
+    `main` did not show and come no closer to the real list; a value hidden
+    on `main` must stay hidden.
+
+  When that holds, the change passes: "changed" (still protected), or
+  "stricter" when the noise grew beyond the tolerance (the case of pull
+  request #148: the audio noise ten times larger). Worse: back to the real
+  value, the same in every session, a smaller noise, more of a real list, a
+  part that could not be read, and whatever cannot be judged: a value `main`
+  left real, a level measured without Off, a value that changes between
+  sessions at Off too, a value only one side has. The marks
+  `canvas.noised`, `canvas_blob.noised`, `audio.noised` (the value differs
+  from Off) are worse when they turn false. Everything else the probe reads
+  (whether an API is offered, permissions, the native look of the replaced
+  functions, the `ike:` pages, the third-party image) keeps the exact rule:
+  **any** value that differs from `main` is worse.
 - **Network.** The hosts the browser contacts by itself with a fresh profile,
   at start and while loading the probe page (the engine and Qt through a
   recording proxy, I.K.E.'s own Python through an audit hook that also
@@ -2624,8 +2658,10 @@ so. A part that could not be measured fails: it is never passed. The step
 writes a JSON report and a summary in plain words to the run's summary and to
 the `test-results` download (`no-regression/report.md`, `report.json`).
 
-**Accepting a change.** When a difference is wanted (a better noise, a new
-spoofed value), a person adds an entry to
+**Accepting a change.** A change that keeps or strengthens the protection
+(a larger or another noise, one disguise for another) passes by itself and
+needs no entry. The allowlist is for a real weakening, or a change the tool
+cannot judge, that a person read and wants: a person adds an entry to
 `tests/data/no-regression/allowlist.json`: the observation's key as the report
 prints it (a glob), optionally its value on `main` and on the candidate (so it
 accepts that one change only), why, and who accepted it when. The file is
@@ -2644,7 +2680,15 @@ timers that start after the first seconds; the sandbox really on (GitHub's
 runners refuse it: `security.yml` tests it); code that recognises the
 measurement and behaves differently there; a real graphics card and the
 user's own fonts (software rendering, the runner's fonts, the same on both
-sides).
+sides); the size of a noise where it is not measured (`toBlob`, the text
+widths, the frame's and the worker's canvases: there, only "not the real
+value, and different in each session"); whether a new disguised value is
+rarer than the old one (the tool knows the real value only, not how common a
+value is: one disguise for another passes when neither is the real one).
+`main`'s side is measured by `main`'s copy of the tool, so these rules and the
+second session apply to both sides once they are on `main`; a snapshot of an
+older copy (no second session) compares safely: what it lacks is judged on the
+candidate alone, or is worse.
 
 ## The owner's part
 
