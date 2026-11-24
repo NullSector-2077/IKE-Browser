@@ -507,7 +507,9 @@ def test_toolbar_window_buttons_and_address_bar(run_ike, pages):
                   timeout=150)
     assert out["icon_size"] == 24 and out["smooth"] is True
     assert "phosphor-bold" in out["sets"]
-    assert "translate" not in out["order"] and out["order"][:3] == ["shield", "reload", "bookmark"]
+    # 1.1.6 turned "translate" into "bookmark"; 1.1.25 fixed it after the address bar, out of the arrangement
+    assert "translate" not in out["order"] and "bookmark" not in out["order"]
+    assert out["order"][:3] == ["shield", "reload", "reader"]
     assert out["normal"] == ["Maximize", "window-maximize"] or out["normal"][0] == "Maximize"
     assert out["maximized"][0] == "Restore"
     assert out["normal_again"] == "Maximize"

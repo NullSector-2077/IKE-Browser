@@ -28,6 +28,7 @@ def test_bookmarks_overflow_button(run_ike):
             more = bar._more
             out["text"] = more.text()
             out["icon"] = not more.icon().isNull()
+            out["size"] = [more.width(), more.height()]
             out["visible"] = bar._more_action.isVisible()
             out["in_bar"] = sum(a.isVisible() for a in bar._marks)
             out["in_menu"] = len(bar._menu.actions())
@@ -42,8 +43,9 @@ def test_bookmarks_overflow_button(run_ike):
                 yield 400
             out["wide_visible"] = bar._more_action.isVisible()
     """, settings={"bookmarks_bar": "always"}, env={"IKE_TEST_SHOTS": SHOTS})
-    assert out["text"] == "»"
-    assert out["icon"] is False
+    # 1.1.25: KDE's double arrow in a square button, no "»" text (tests/test_more_arrows.py)
+    assert out["text"] == ""
+    assert out["icon"] is True and out["size"] == [26, 26]
     assert out["visible"]
     assert out["in_bar"] + out["in_menu"] == 40 and out["in_menu"] > 0
     assert out["wide_visible"] is False

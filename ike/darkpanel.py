@@ -31,6 +31,7 @@ from PyQt6.QtWidgets import (
 
 from . import darktheme
 from .i18n import T
+from .panelkit import link_button, title_row, trim_left  # noqa: F401 (trim_left: for the other panels too)
 from .uistyle import TEXT_ROOM, Switch
 
 LIVE_MS = 120          # a slider moved: the page of this tab shows it after this pause
@@ -43,16 +44,6 @@ SLIDER_NAMES = {"brightness": "Brightness", "contrast": "Contrast", "sepia": "Se
 def _icon(names):
     from .icons import themed
     return themed(names)
-
-
-def trim_left(pm):
-    """The picture without the empty columns on its left: its drawing starts on
-    the panel's left edge, as the texts under it do."""
-    img = pm.toImage()
-    for x in range(img.width()):
-        if any(img.pixelColor(x, y).alpha() > 40 for y in range(img.height())):
-            return pm.copy(x, 0, img.width() - x, img.height()) if x else pm
-    return pm
 
 
 def triangle(down, size=10):
@@ -199,19 +190,10 @@ class DarkPanel(QWidget):
         lay.setSpacing(8)
 
         # 1. the title and dark mode for every site
-        head = QHBoxLayout()
-        head.setSpacing(8)
-        self.head_icon = QLabel(self)
-        self.head_icon.setPixmap(trim_left(_icon(("weather-clear-night",)).pixmap(18, 18)))
-        self.title = QLabel(T("Dark mode for pages"), self)
-        f = self.title.font()
-        f.setBold(True)
-        self.title.setFont(f)
+        head, self.head_icon, self.title = title_row(self, _icon(("weather-clear-night",)), T("Dark mode for pages"))
         self.master = Switch(self)
         self.master.setToolTip(T("On everywhere"))
         self.master.setAccessibleName(T("On everywhere"))
-        head.addWidget(self.head_icon)
-        head.addWidget(self.title, 1)
         head.addWidget(self.master)
         lay.addLayout(head)
 
@@ -338,13 +320,7 @@ class DarkPanel(QWidget):
         sep = QFrame(self)
         sep.setFrameShape(QFrame.Shape.HLine)
         lay.addWidget(sep)
-        self.settings = QPushButton(_icon(("configure", "preferences-system")), T("Dark mode settings…"), self)
-        self.settings.setFlat(True)
-        self.settings.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.settings.setStyleSheet("QPushButton { text-align: left; color: palette(link); border: none;"
-                                    " padding: 4px 8px 4px 0px; }"
-                                    "QPushButton:hover { text-decoration: underline; }"
-                                    "QPushButton:focus { text-decoration: underline; }")
+        self.settings = link_button(self, _icon(("configure", "preferences-system")), T("Dark mode settings…"))
         lay.addWidget(self.settings, 0, Qt.AlignmentFlag.AlignLeft)
         self.setMinimumWidth(320 + 28)                  # as wide as the shield's panel
 

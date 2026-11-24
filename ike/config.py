@@ -196,9 +196,10 @@ DEFAULTS = {
     "ui_effects": True,                 # short fades and the loading mark of tabs (see effects.py)
     "toolbar_hidden": [],               # keys of TOOLBAR_ITEMS the user does not want
     "toolbar_known": ["back", "forward", "reload", "home", "downloads"],
-    # 1.1.9: the owner's arrangement (Reload is fixed, toolbar.py; the shield is in the address bar)
+    # 1.1.9: the owner's arrangement (Reload is fixed, toolbar.py; the shield is in the address bar;
+    # 1.1.25: "Bookmark this page" is fixed right after the address bar, not in the zones)
     "toolbar_order": ["dark", "private", "cleansite", "screenshot", "split", "pip",
-                      "bookmark", "downloads", "reader",     # the menu: fixed before the window buttons (1.1.16)
+                      "downloads", "reader",                 # the menu: fixed before the window buttons (1.1.16)
                       "zoom", "bookmarks", "print", "send", "resources"],    # 1.1.24: hidden until chosen
     "toolbar_left": ["dark", "private", "cleansite", "screenshot", "split", "pip"],
     "urlbar_width": 50,                 # address bar: per cent of the window width (60 until 1.1.6)
@@ -367,9 +368,10 @@ DEFAULTS = {
 }
 
 
-# Toolbar buttons the user can show or hide: (key, hidden when first seen)
+# Toolbar buttons the user can show or hide: (key, hidden when first seen). "Bookmark this
+# page" is not one since 1.1.25: fixed right after the address bar, always shown
 TOOLBAR_ITEMS = (("back", False), ("forward", False), ("reload", False), ("home", False),
-                 ("bookmark", False), ("reader", False), ("screenshot", False), ("pip", True),
+                 ("reader", False), ("screenshot", False), ("pip", True),
                  ("split", False), ("dark", False), ("private", False), ("cleansite", False),
                  ("downloads", False),
                  # 1.1.24: buttons the user can add (Settings → Appearance, or a right
@@ -492,6 +494,11 @@ class Config:
             if isinstance(d.get(key), list) and "translate" in d[key]:
                 items = [x for x in d[key] if x != "bookmark"]
                 d[key] = ["bookmark" if x == "translate" else x for x in items]
+        # 1.1.25: "Bookmark this page" is fixed right after the address bar (the owner): it
+        # leaves the arrangement and the hidden buttons (hidden before: shown again)
+        for key in ("toolbar_order", "toolbar_left", "toolbar_hidden"):
+            if isinstance(d.get(key), list) and "bookmark" in d[key]:
+                d[key] = [x for x in d[key] if x != "bookmark"]
         # 1.1.18: the old default asked every site for Italian whatever the
         # system's language (a rare, identifying combination for everyone
         # else): it follows the system now; a list the user typed stays
