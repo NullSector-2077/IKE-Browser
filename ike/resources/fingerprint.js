@@ -1713,7 +1713,7 @@
       var q = bitsOf(v), p = bitsOf(before);
       var x = mul32((q ^ seed) >>> 0, 0x9E3779B1);
       x ^= x >>> 15; x = mul32((x ^ p) >>> 0, 0x85EBCA77); x ^= x >>> 13;
-      return 1 + (((x >>> 0) % 2001) - 1000) / 10000000;
+      return 1 + (((x >>> 0) % 2001) - 1000) / 1000000;   // +-0.1 % (1.1.24: +-0.01 % was lost when a fingerprint rounds to 4 decimals)
     }
     var rendered = hardSet();
     [w.OfflineAudioContext, w.BaseAudioContext].forEach(function (C) {
