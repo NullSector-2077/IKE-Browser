@@ -1275,6 +1275,15 @@
 "Show all downloads": "Näytä kaikki lataukset",
 "Open the downloads folder": "Avaa latauskansio",
 "Clear the list": "Tyhjennä luettelo",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Päättyneet lataukset poistuvat luettelosta; käynnissä olevat jäävät. Tiedostot jäävät levylle."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Päättyneet lataukset poistuvat luettelosta; käynnissä olevat jäävät. Tiedostot jäävät levylle.",
+"Clear recent history…": "Tyhjennä viimeaikainen historia…",
+"Delete the pages visited in the last hour, today or ever": "Poista viimeisen tunnin aikana, tänään tai koskaan vieraillut sivut",
+"Clear recent history": "Tyhjennä viimeaikainen historia",
+"Time range to clear:": "Tyhjennettävä aikaväli:",
+"Last hour": "Viimeinen tunti",
+"Everything": "Kaikki",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Vain vierailemasi sivut poistetaan: evästeet, salasanat ja välimuistin tiedostot säilyvät.",
+"This week": "Tällä viikolla",
+"Earlier": "Aiemmin"
 }
 }

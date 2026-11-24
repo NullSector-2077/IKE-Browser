@@ -1275,6 +1275,15 @@
 "Show all downloads": "Tunjukkan semua muat turun",
 "Open the downloads folder": "Buka folder muat turun",
 "Clear the list": "Kosongkan senarai",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Muat turun yang tamat keluar daripada senarai; yang sedang berjalan kekal. Fail kekal pada cakera."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Muat turun yang tamat keluar daripada senarai; yang sedang berjalan kekal. Fail kekal pada cakera.",
+"Clear recent history…": "Kosongkan sejarah terkini…",
+"Delete the pages visited in the last hour, today or ever": "Padam halaman yang dilawati dalam sejam terakhir, hari ini atau bila-bila masa",
+"Clear recent history": "Kosongkan sejarah terkini",
+"Time range to clear:": "Julat masa untuk dikosongkan:",
+"Last hour": "Sejam terakhir",
+"Everything": "Semua",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Hanya halaman yang anda lawati dipadam: kuki, kata laluan dan fail cache kekal.",
+"This week": "Minggu ini",
+"Earlier": "Lebih awal"
 }
 }

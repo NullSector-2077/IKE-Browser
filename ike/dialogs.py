@@ -2681,6 +2681,39 @@ class ClearDataDialog(QDialog):
         self.accept()
 
 
+class ClearHistoryDialog(QDialog):
+    """History → Clear recent history… (1.1.25): the pages visited in the
+    last hour, today or all of them; nothing else."""
+
+    SPANS = ("hour", "today", "all")
+
+    def __init__(self, app, parent=None):
+        super().__init__(parent)
+        self.app = app
+        self.setWindowTitle(T("Clear recent history"))
+        lay = QVBoxLayout(self)
+        form = QFormLayout()
+        self.span = QComboBox(self)
+        for key, text in zip(self.SPANS, (T("Last hour"), T("Today"), T("Everything"))):
+            self.span.addItem(text, key)
+        form.addRow(T("Time range to clear:"), self.span)
+        lay.addLayout(form)
+        note = QLabel(T("Only the pages you visited are deleted: cookies, passwords and cached files stay."))
+        note.setWordWrap(True)
+        note.setEnabled(False)
+        lay.addWidget(note)
+        bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok
+                              | QDialogButtonBox.StandardButton.Cancel)
+        bb.button(QDialogButtonBox.StandardButton.Ok).setText(T("Clear"))
+        bb.accepted.connect(self._clear)
+        bb.rejected.connect(self.reject)
+        lay.addWidget(bb)
+
+    def _clear(self):
+        self.app.clear_recent_history(self.span.currentData())
+        self.accept()
+
+
 class AboutDialog(QDialog):
     """Help → About I.K.E. (1.1.21: in a scroll area, at most the size of the
     screen; the message box of earlier versions could run past its bottom)."""

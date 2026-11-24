@@ -1275,6 +1275,15 @@
 "Show all downloads": "Pokaži vse prenose",
 "Open the downloads folder": "Odpri mapo s prenosi",
 "Clear the list": "Počisti seznam",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Končani prenosi zapustijo seznam; tisti v teku ostanejo. Datoteke ostanejo na disku."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Končani prenosi zapustijo seznam; tisti v teku ostanejo. Datoteke ostanejo na disku.",
+"Clear recent history…": "Počisti nedavno zgodovino…",
+"Delete the pages visited in the last hour, today or ever": "Izbriši strani, obiskane v zadnji uri, danes ali kadar koli",
+"Clear recent history": "Počisti nedavno zgodovino",
+"Time range to clear:": "Časovni obseg za čiščenje:",
+"Last hour": "Zadnja ura",
+"Everything": "Vse",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Izbrišejo se samo obiskane strani: piškotki, gesla in predpomnjene datoteke ostanejo.",
+"This week": "Ta teden",
+"Earlier": "Prej"
 }
 }

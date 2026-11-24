@@ -1275,6 +1275,15 @@
 "Show all downloads": "Näita kõiki allalaadimisi",
 "Open the downloads folder": "Ava allalaadimiste kaust",
 "Clear the list": "Tühjenda loend",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Lõppenud allalaadimised lahkuvad loendist; käimasolevad jäävad. Failid jäävad kettale."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Lõppenud allalaadimised lahkuvad loendist; käimasolevad jäävad. Failid jäävad kettale.",
+"Clear recent history…": "Tühjenda hiljutine ajalugu…",
+"Delete the pages visited in the last hour, today or ever": "Kustuta viimase tunni, tänase päeva või kogu aja jooksul külastatud lehed",
+"Clear recent history": "Tühjenda hiljutine ajalugu",
+"Time range to clear:": "Tühjendatav ajavahemik:",
+"Last hour": "Viimane tund",
+"Everything": "Kõik",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Kustutatakse ainult külastatud lehed: küpsised, paroolid ja vahemälu failid jäävad alles.",
+"This week": "See nädal",
+"Earlier": "Varem"
 }
 }

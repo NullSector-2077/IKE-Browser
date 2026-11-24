@@ -1275,6 +1275,15 @@
 "Show all downloads": "Minden letöltés megjelenítése",
 "Open the downloads folder": "Letöltések mappa megnyitása",
 "Clear the list": "Lista törlése",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "A befejezett letöltések lekerülnek a listáról; a folyamatban lévők maradnak. A fájlok a lemezen maradnak."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "A befejezett letöltések lekerülnek a listáról; a folyamatban lévők maradnak. A fájlok a lemezen maradnak.",
+"Clear recent history…": "Előzmények törlése az utóbbi időből…",
+"Delete the pages visited in the last hour, today or ever": "Az utolsó órában, ma vagy bármikor meglátogatott oldalak törlése",
+"Clear recent history": "Előzmények törlése az utóbbi időből",
+"Time range to clear:": "Törlendő időtartam:",
+"Last hour": "Az utolsó óra",
+"Everything": "Minden",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Csak a meglátogatott oldalak törlődnek: a sütik, a jelszavak és a gyorsítótárazott fájlok megmaradnak.",
+"This week": "Ezen a héten",
+"Earlier": "Korábban"
 }
 }

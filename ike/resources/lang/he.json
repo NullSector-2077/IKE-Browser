@@ -1275,6 +1275,15 @@
 "Show all downloads": "הצג את כל ההורדות",
 "Open the downloads folder": "פתח את תיקיית ההורדות",
 "Clear the list": "נקה את הרשימה",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "הורדות שהסתיימו יוצאות מהרשימה; אלה שבתהליך נשארות. הקבצים נשארים בדיסק."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "הורדות שהסתיימו יוצאות מהרשימה; אלה שבתהליך נשארות. הקבצים נשארים בדיסק.",
+"Clear recent history…": "ניקוי היסטוריה אחרונה…",
+"Delete the pages visited in the last hour, today or ever": "מחיקת הדפים שבוקרו בשעה האחרונה, היום או אי פעם",
+"Clear recent history": "ניקוי היסטוריה אחרונה",
+"Time range to clear:": "טווח הזמן לניקוי:",
+"Last hour": "השעה האחרונה",
+"Everything": "הכול",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "רק הדפים שביקרת בהם נמחקים: קובצי Cookie, ססמאות וקבצים במטמון נשארים.",
+"This week": "השבוע",
+"Earlier": "מוקדם יותר"
 }
 }

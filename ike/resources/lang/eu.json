@@ -1275,6 +1275,15 @@
 "Show all downloads": "Erakutsi deskarga guztiak",
 "Open the downloads folder": "Ireki deskargen karpeta",
 "Clear the list": "Hustu zerrenda",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Amaitutako deskargak zerrendatik ateratzen dira; abian daudenak geratzen dira. Fitxategiak diskoan geratzen dira."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Amaitutako deskargak zerrendatik ateratzen dira; abian daudenak geratzen dira. Fitxategiak diskoan geratzen dira.",
+"Clear recent history…": "Garbitu azken historia…",
+"Delete the pages visited in the last hour, today or ever": "Ezabatu azken orduan, gaur edo inoiz bisitatutako orriak",
+"Clear recent history": "Garbitu azken historia",
+"Time range to clear:": "Garbitu beharreko denbora-tartea:",
+"Last hour": "Azken ordua",
+"Everything": "Dena",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Bisitatutako orriak soilik ezabatzen dira: cookieak, pasahitzak eta cachean gordetako fitxategiak geratzen dira.",
+"This week": "Aste honetan",
+"Earlier": "Lehenago"
 }
 }

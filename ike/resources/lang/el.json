@@ -1275,6 +1275,15 @@
 "Show all downloads": "Εμφάνιση όλων των λήψεων",
 "Open the downloads folder": "Άνοιγμα του φακέλου λήψεων",
 "Clear the list": "Εκκαθάριση της λίστας",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Οι λήψεις που τελείωσαν φεύγουν από τη λίστα· όσες είναι σε εξέλιξη μένουν. Τα αρχεία μένουν στον δίσκο."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Οι λήψεις που τελείωσαν φεύγουν από τη λίστα· όσες είναι σε εξέλιξη μένουν. Τα αρχεία μένουν στον δίσκο.",
+"Clear recent history…": "Εκκαθάριση πρόσφατου ιστορικού…",
+"Delete the pages visited in the last hour, today or ever": "Διαγραφή των σελίδων που επισκεφθήκατε την τελευταία ώρα, σήμερα ή ποτέ",
+"Clear recent history": "Εκκαθάριση πρόσφατου ιστορικού",
+"Time range to clear:": "Χρονικό διάστημα για εκκαθάριση:",
+"Last hour": "Τελευταία ώρα",
+"Everything": "Όλα",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Διαγράφονται μόνο οι σελίδες που επισκεφθήκατε: τα cookies, οι κωδικοί και τα αρχεία της κρυφής μνήμης μένουν.",
+"This week": "Αυτή την εβδομάδα",
+"Earlier": "Νωρίτερα"
 }
 }

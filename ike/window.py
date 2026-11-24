@@ -46,6 +46,42 @@ def icon(name, fallback=None):
     return themed(name, fallback)
 
 
+def _now():
+    """The clock History's days are counted from (a test sets its own)."""
+    return time.time()
+
+
+def history_day(last, now):
+    """The group of a page of History by the day it was seen (last, seconds):
+    "today", "yesterday", "week" (two to six days ago) or "earlier"."""
+    import datetime
+    try:
+        seen = datetime.date.fromtimestamp(int(last or 0))
+        days = (datetime.date.fromtimestamp(now) - seen).days
+    except (OverflowError, OSError, ValueError):
+        return "earlier"
+    if days <= 0:
+        return "today"
+    if days == 1:
+        return "yesterday"
+    return "week" if days < 7 else "earlier"
+
+
+def history_day_name(day):
+    """The name of a group of History's pages, as its section shows it."""
+    return {"today": T("Today"), "yesterday": T("Yesterday"), "week": T("This week")}.get(day) or T("Earlier")
+
+
+def site_name(url):
+    """A page's site as History shows it: its host, without "www."."""
+    from urllib.parse import urlsplit
+    try:
+        host = (urlsplit(url or "").hostname or "").lower()
+    except ValueError:
+        return ""
+    return host[4:] if host.startswith("www.") and host.count(".") > 1 else host
+
+
 def plain_title(text):
     """A menu's name without its keyboard accelerator: "&File" -> "File",
     "ファイル(&F)" -> "ファイル" (1.1.24: the ☰ menu's copies of the menu bar's)."""
@@ -808,7 +844,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_new_private = A(T("New private window"), lambda: self.app.new_window(private=True),
                                  "Ctrl+Shift+N", ("view-private", "preferences-system-privacy-symbolic"),
                                  T("Browse without saving history, cookies or cache"))
-        self.act_pdf = A(T("Save as PDF…"), self.save_pdf, None, ("application-pdf", "document-save"),
+        self.act_pdf = A(T("Save as PDF…"), self.save_pdf, None,
+                         ("document-export", "application-pdf", "document-save"),
                          T("Export the page as a PDF document"))
         self.act_print = A(T("Print…"), self.print_page, "Ctrl+P", "document-print",
                            T("Print the current page"))
@@ -901,9 +938,11 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                              T("Switch between: only on a new tab, always, hidden"))
         self.m_dark = menu(T("Dark mode for pages"), "weather-clear-night",
                            T("Dark mode: everywhere or only on this site"))
-        self.act_dark_all = QAction(T("On everywhere"), self, checkable=True)
+        self.act_dark_all = QAction(icon(("globe", "applications-internet", "web-browser")), T("On everywhere"),
+                                    self, checkable=True)
         self.act_dark_all.triggered.connect(lambda on: self._set_dark("on" if on else "off"))
-        self.act_dark_site = QAction(T("On for this site"), self, checkable=True)
+        self.act_dark_site = QAction(icon(("internet-web-browser", "web-browser", "applications-internet", "globe")),
+                                     T("On for this site"), self, checkable=True)
         self.act_dark_site.triggered.connect(
             lambda on: self.app.set_site_dark(self.current_host(), on))
         self.m_dark.addAction(self.act_dark_all)
@@ -925,7 +964,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 else:
                     m_view.addAction(a)
             m_view.addSeparator()
-        m_view.addAction(A(T("Page source"), self.view_source, "Ctrl+U", ("text-html", "view-source"),
+        m_view.addAction(A(T("Page source"), self.view_source, "Ctrl+U",
+                           ("format-text-code", "text-html", "view-source"),
                            T("Show the HTML source of the page")))
         m_view.addAction(A(T("Developer tools"), lambda: self.open_devtools(), ["F12", "Ctrl+Shift+I"],
                            ("tools-report-bug", "bug-symbolic", "utilities-terminal-symbolic"),
@@ -944,6 +984,11 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_clear = A(T("Clear browsing data…"), self.app.show_clear_data, "Ctrl+Shift+Del",
                            ("edit-clear-history", "edit-clear-all-symbolic", "edit-clear-all"),
                            T("Delete history, cookies and cache"))
+        # 1.1.25, the owner's choice: History's last entry clears only the pages visited
+        # (the last hour, today or all); "Clear browsing data…" stays under Protection
+        self.act_clear_recent = A(T("Clear recent history…"), self.app.show_clear_history, None,
+                                  ("edit-clear-history", "edit-clear-all-symbolic", "edit-clear-all"),
+                                  T("Delete the pages visited in the last hour, today or ever"))
 
         # --- Bookmarks
         self.m_bookmarks = mb.addMenu(T("&Bookmarks"))
@@ -981,8 +1026,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                             T("How much I.K.E. blocks, and the tools to repair or clean a site"))
         for m in (m_protection, self.m_level):
             m.setToolTipsVisible(True)
-            title = m.addAction(T("Protection level for every site"))
-            title.setEnabled(False)
+            # 1.1.25: a real section's name (drawn small and dimmed), not a greyed entry
+            m.addSection(T("Protection level for every site"))
             for a in protection:
                 if a is None:
                     m.addSeparator()
@@ -1003,7 +1048,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                 "Ctrl+Shift+A", ("preferences-plugin", "application-x-addon"),
                                 T("Switch I.K.E.'s own extensions on and off and change their options"))
         m_ext = mb.addMenu(T("E&xtensions"))
-        self.m_extensions = menu(T("I.K.E. extensions"), ("preferences-plugin", "application-x-addon"),
+        self.m_extensions = menu(T("I.K.E. extensions"), ("plugins", "preferences-plugin", "application-x-addon"),
                                  T("Features of I.K.E. you can switch on and off"))
         for m in (m_ext, self.m_extensions):
             m.setToolTipsVisible(True)
@@ -1039,7 +1084,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                            "preferences-desktop-keyboard", T("List the keyboard shortcuts")))
         m_help.addAction(self.act_check_updates)
         m_help.addAction(self.act_about)
-        about_qt = QAction(T("About Qt"), self)
+        about_qt = QAction(icon(("help-about", "dialog-information")), T("About Qt"), self)
         about_qt.triggered.connect(lambda: QMessageBox.aboutQt(self))
         m_help.addAction(about_qt)
         for m in (m_file, m_edit, m_view, self.m_history, self.m_bookmarks, m_protection, m_ext,
@@ -1051,7 +1096,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             an icon of its own and its name without the "&" of the menu bar."""
             m = menu(plain_title(src.title()), ico, tip)
             for a in src.actions():
-                if a.isSeparator():
+                if a.isSeparator() and a.text():
+                    m.addSection(a.text())
+                elif a.isSeparator():
                     m.addSeparator()
                 elif a.menu() is not None and a is a.menu().menuAction():
                     m.addMenu(a.menu())
@@ -1625,7 +1672,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         n = len(self.closed_tabs)
         for i in range(n - 1, max(-1, n - 1 - self.CLOSED_SHOWN), -1):
             url, title = self.closed_tabs[i]
-            a = self._open_action(m, url, title)
+            a = self._open_action(m, url, title, site=True)
             a.triggered.disconnect()
             a.triggered.connect(lambda _c=False, u=url: self._reopen_url(u))
 
@@ -2623,15 +2670,33 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             return icon(("globe", "web-browser-symbolic"), QStyle.StandardPixmap.SP_FileIcon)
         return ic
 
-    def _open_action(self, menu, url, title):
-        label = (title or url).replace("&", "&&")
-        a = menu.addAction(self.site_icon(url), label if len(label) < 60 else label[:59] + "…")
+    HISTORY_SHOWN = 15       # the pages listed under History
+    TITLE_ROOM = 290         # px: a page's title in History, shortened in its middle beyond it (1.1.25)
+
+    def _open_action(self, menu, url, title, site=False):
+        """An entry that opens url. site (History, 1.1.25): the title shortened
+        in its middle to TITLE_ROOM px and the site on the right, dimmed (in the
+        column of the shortcuts, so every desktop style puts it there)."""
+        if site:
+            label = menu.fontMetrics().elidedText(title or url, Qt.TextElideMode.ElideMiddle, self.TITLE_ROOM)
+            label = label.replace("&", "&&")
+            host = site_name(url)
+            if host:
+                label += "\t" + host
+        else:
+            label = (title or url).replace("&", "&&")
+            label = label if len(label) < 60 else label[:59] + "…"
+        a = menu.addAction(self.site_icon(url), label)
         a.setToolTip(url)
         a.setStatusTip(url)
         a.triggered.connect(lambda _c=False, u=url: self.navigate(u))
         return a
 
     def _fill_history(self, m=None):
+        """History (the menu bar's and the ☰ menu's): going back and forward,
+        the closed tabs, then the last pages under the day they were seen
+        (Today, Yesterday, This week, Earlier: 1.1.25), then all the history
+        and "Clear recent history…"."""
         m = m or self.m_history
         m.clear()
         m.addAction(self.act_back)
@@ -2640,12 +2705,17 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         m.addAction(self.act_reopen)
         m.addMenu(self.m_closed)
         self.m_closed.menuAction().setEnabled(bool(self.closed_tabs))
+        now = _now()
+        day = None
+        for url, title, last in self.app.storage.history(limit=self.HISTORY_SHOWN):
+            d = history_day(last, now)
+            if d != day:
+                m.addSection(history_day_name(d))
+                day = d
+            self._open_action(m, url, title, site=True)
         m.addSeparator()
         m.addAction(self.act_history)
-        m.addAction(self.act_clear)
-        m.addSeparator()
-        for url, title, _last in self.app.storage.history(limit=15):
-            self._open_action(m, url, title)
+        m.addAction(self.act_clear_recent)
 
     def _fill_bookmarks(self, m=None):
         m = m or self.m_bookmarks
@@ -3070,13 +3140,12 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 and not isinstance(child, QToolButton):
             return
         m = effects.fading(QMenu(self), self.app.config)
-        title = m.addAction(T("Toolbar buttons"))
-        title.setEnabled(False)
-        m.addSeparator()
+        # 1.1.25: a real section's name (drawn small and dimmed, it parts the menu itself)
+        m.addSection(T("Toolbar buttons"))
         self._fill_toolbar_buttons(m, clear=False)
         m.addSeparator()
         m.addAction(self.act_customise)
-        reset = m.addAction(T("Reset to default layout"))
+        reset = m.addAction(icon(("edit-reset", "edit-undo")), T("Reset to default layout"))
         chosen = m.exec(self.nav.mapToGlobal(pos))
         if chosen is reset:
             self.reset_toolbar()

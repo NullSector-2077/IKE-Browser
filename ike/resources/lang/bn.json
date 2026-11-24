@@ -1275,6 +1275,15 @@
 "Show all downloads": "সব ডাউনলোড দেখান",
 "Open the downloads folder": "ডাউনলোড ফোল্ডার খুলুন",
 "Clear the list": "তালিকা পরিষ্কার করুন",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "শেষ হওয়া ডাউনলোড তালিকা থেকে চলে যায়; চলমানগুলো থাকে। ফাইলগুলো ডিস্কে থাকে।"
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "শেষ হওয়া ডাউনলোড তালিকা থেকে চলে যায়; চলমানগুলো থাকে। ফাইলগুলো ডিস্কে থাকে।",
+"Clear recent history…": "সাম্প্রতিক ইতিহাস মুছুন…",
+"Delete the pages visited in the last hour, today or ever": "গত এক ঘণ্টায়, আজ বা কখনো দেখা পৃষ্ঠাগুলি মুছুন",
+"Clear recent history": "সাম্প্রতিক ইতিহাস মুছুন",
+"Time range to clear:": "মুছে ফেলার সময়সীমা:",
+"Last hour": "গত এক ঘণ্টা",
+"Everything": "সবকিছু",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "শুধু আপনার দেখা পৃষ্ঠাগুলি মোছা হয়: কুকি, পাসওয়ার্ড এবং ক্যাশ করা ফাইল থেকে যায়।",
+"This week": "এই সপ্তাহ",
+"Earlier": "আগে"
 }
 }

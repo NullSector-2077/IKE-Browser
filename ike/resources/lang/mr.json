@@ -1275,6 +1275,15 @@
 "Show all downloads": "सर्व डाउनलोड दाखवा",
 "Open the downloads folder": "डाउनलोड फोल्डर उघडा",
 "Clear the list": "यादी साफ करा",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "संपलेले डाउनलोड यादीतून जातात; सुरू असलेले राहतात. फाइल्स डिस्कवर राहतात."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "संपलेले डाउनलोड यादीतून जातात; सुरू असलेले राहतात. फाइल्स डिस्कवर राहतात.",
+"Clear recent history…": "अलीकडील इतिहास साफ करा…",
+"Delete the pages visited in the last hour, today or ever": "मागील एका तासात, आज किंवा कधीही पाहिलेली पाने हटवा",
+"Clear recent history": "अलीकडील इतिहास साफ करा",
+"Time range to clear:": "साफ करण्याचा कालावधी:",
+"Last hour": "मागील एक तास",
+"Everything": "सर्व काही",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "फक्त तुम्ही पाहिलेली पाने हटवली जातात: कुकी, पासवर्ड आणि कॅशमधील फाइल्स राहतात.",
+"This week": "या आठवड्यात",
+"Earlier": "आधी"
 }
 }

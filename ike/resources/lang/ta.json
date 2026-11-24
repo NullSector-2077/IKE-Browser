@@ -1275,6 +1275,15 @@
 "Show all downloads": "எல்லாப் பதிவிறக்கங்களையும் காட்டு",
 "Open the downloads folder": "பதிவிறக்கக் கோப்புறையைத் திற",
 "Clear the list": "பட்டியலை அழி",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "முடிந்த பதிவிறக்கங்கள் பட்டியலிலிருந்து வெளியேறும்; நடப்பவை இருக்கும். கோப்புகள் வட்டில் இருக்கும்."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "முடிந்த பதிவிறக்கங்கள் பட்டியலிலிருந்து வெளியேறும்; நடப்பவை இருக்கும். கோப்புகள் வட்டில் இருக்கும்.",
+"Clear recent history…": "சமீபத்திய வரலாற்றை அழி…",
+"Delete the pages visited in the last hour, today or ever": "கடந்த ஒரு மணிநேரம், இன்று அல்லது எப்போதும் பார்த்த பக்கங்களை நீக்கு",
+"Clear recent history": "சமீபத்திய வரலாற்றை அழி",
+"Time range to clear:": "அழிக்க வேண்டிய கால அளவு:",
+"Last hour": "கடந்த ஒரு மணிநேரம்",
+"Everything": "அனைத்தும்",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "நீங்கள் பார்த்த பக்கங்கள் மட்டுமே நீக்கப்படும்: குக்கீகள், கடவுச்சொற்கள், தற்காலிகச் சேமிப்புக் கோப்புகள் அப்படியே இருக்கும்.",
+"This week": "இந்த வாரம்",
+"Earlier": "முன்பு"
 }
 }

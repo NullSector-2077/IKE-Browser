@@ -5,8 +5,12 @@ widget; this thin layer over it only asks for a little more room where a
 text would otherwise come close to the frame of its button, lets any menu
 taller than the screen scroll instead of running past its edge, and draws a
 small switch, like those of the "I.K.E. extensions" page, for a menu entry
-that is turned on and off (a choice among several keeps its dot).
-tests/test_text_fit.py checks the result in every language.
+that is turned on and off (a choice among several keeps its dot, or a radio
+where I.K.E. draws the menus). tests/test_text_fit.py checks the result in
+every language. Since 1.1.25, where the style is not Breeze, Oxygen or
+Kvantum, it draws the menus too, in one look (rounded, a light shadow,
+icons, texts and shortcuts each on one line: tests/test_menus_125.py);
+those three keep drawing their own.
 
 Every on / off option of the interface is a Switch (a check box drawn as a
 sliding switch by SwitchStyle); the entries of a list that are turned on and
@@ -14,7 +18,7 @@ off are drawn the same way by SwitchDelegate (tests/test_switches.py).
 """
 
 from PyQt6.QtCore import QEvent, QPointF, QRect, QRectF, QSize, Qt
-from PyQt6.QtGui import QColor, QIcon, QPainter, QPalette, QPen
+from PyQt6.QtGui import QColor, QFontMetrics, QIcon, QPainter, QPalette, QPen, QPolygonF
 from PyQt6.QtWidgets import (
     QCheckBox,
     QMenu,
@@ -323,9 +327,232 @@ def _menu_has_switches(menu):
     return any(_toggle(a) and a.isVisible() for a in menu.actions())
 
 
+# ----------------------------------------------------------------------
+# menus drawn by I.K.E. (1.1.25, the owner's choice): where the widget
+# style is not Breeze, Oxygen or Kvantum (polish.native_popups), every menu
+# has one look: a rounded panel with a light shadow, rows of one height, one
+# icon column (kept also where an entry has none: the texts start on one
+# line), a check column only where an entry is turned on and off (a switch)
+# or chosen among several (a radio), shortcuts dimmed on one right edge, a
+# column for the arrows of submenus, 1 px separators, sections as small
+# dimmed titles that start where the texts start
+# ----------------------------------------------------------------------
+MENU_PAD = 8             # inside a row, before its first column and after its last
+MENU_GAP = 8             # between the check column, the icon and the text
+MENU_ICON = 16
+MENU_ARROW = 16          # the arrows' column, in every row: the shortcuts end on one edge
+MENU_SHORT_GAP = 28      # px at least between a text and its shortcut (or a page's site)
+MENU_SHORT_END = MENU_PAD + MENU_ARROW + 6     # from a row's end to its shortcuts' end
+MENU_DIM = 0.6           # a shortcut's colour: the text's, 60 % seen
+MENU_HEADER_DIM = 0.62   # a section's name
+MENU_HEADER_SCALE = 0.86
+
+
+def menu_row_height(fm):
+    """The one height of an entry of a menu drawn by I.K.E. (30 px with
+    KDE's usual 10 pt font, as Breeze's)."""
+    return max(30, fm.height() + 10)
+
+
+def menu_header_font(font):
+    """The font of a section's name: 0.86 of the menu's, semi-bold."""
+    from PyQt6.QtGui import QFont
+    f = QFont(font)
+    if f.pointSizeF() > 0:
+        f.setPointSizeF(f.pointSizeF() * MENU_HEADER_SCALE)
+    elif f.pixelSize() > 0:
+        f.setPixelSize(max(1, round(f.pixelSize() * MENU_HEADER_SCALE)))
+    f.setWeight(QFont.Weight.DemiBold)
+    return f
+
+
+def menu_check_width(opt, menu):
+    """The check column of a menu drawn by I.K.E.: none without an entry that
+    can be ticked, a switch's width with one turned on and off, else a radio's."""
+    if not opt.menuHasCheckableItems:
+        return 0
+    if isinstance(menu, QMenu) and _menu_has_switches(menu):
+        return menu_switch_size(opt.fontMetrics)[0]
+    return MENU_ICON
+
+
+def menu_text_offset(opt, menu):
+    """From a row's start to where its text starts (a section's name too)."""
+    cw = menu_check_width(opt, menu)
+    return MENU_PAD + (cw + MENU_GAP if cw else 0) + MENU_ICON + MENU_GAP
+
+
 class IkeStyle(QProxyStyle):
     """The desktop's style, with room around button texts, scrolling menus
-    and a small switch in the menu entries turned on and off."""
+    and a small switch in the menu entries turned on and off; where the style
+    is not Breeze, Oxygen or Kvantum, I.K.E.'s own menus (1.1.25)."""
+
+    _own = None
+
+    def own_menus(self):
+        """True where I.K.E. draws the menus itself (not Breeze, Oxygen, Kvantum)."""
+        if self._own is None:
+            from . import polish
+            base = self.baseStyle()
+            self._own = not polish.native_popup_style(base.name() if base is not None else "")
+        return self._own
+
+    @staticmethod
+    def menu_shadow():
+        from . import polish
+        return polish.POPUP_SHADOW if polish.translucent_popups() else 0
+
+    def _own_menu(self, widget):
+        return isinstance(widget, QMenu) and self.own_menus()
+
+    def polish(self, target):
+        if self._own_menu(target) and getattr(target, "_ike_round", None) is None:
+            if self.menu_shadow():
+                target.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+            else:
+                target.installEventFilter(self)          # X11: the corners cut (no compositor to count on)
+            target.setProperty("_KDE_NET_WM_SKIP_SHADOW", True)     # its shadow is painted
+        return super().polish(target)
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.Resize and isinstance(obj, QMenu) and not self.menu_shadow():
+            from . import polish
+            polish._rounded_mask(obj, 0)
+        return False
+
+    # --- the drawing of a menu by I.K.E.
+    def _own_menu_item(self, opt, p, menu):
+        from . import polish
+        MT = QStyleOptionMenuItem.MenuItemType
+        S = QStyle.StateFlag
+        A = Qt.AlignmentFlag
+        r = opt.rect
+        pal = opt.palette
+        rtl = opt.direction == Qt.LayoutDirection.RightToLeft
+        start = A.AlignAbsolute | (A.AlignRight if rtl else A.AlignLeft)
+
+        def vis(rect):
+            return QStyle.visualRect(opt.direction, r, rect)
+
+        enabled = bool(opt.state & S.State_Enabled)
+        group = QPalette.ColorGroup.Normal if enabled else QPalette.ColorGroup.Disabled
+        text_col = QColor(pal.color(group, QPalette.ColorRole.WindowText))
+        tx = r.left() + menu_text_offset(opt, menu)
+        p.save()
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        if opt.menuItemType == MT.Separator:
+            if opt.text:              # a section's name: small, dimmed, where the texts start
+                hf = menu_header_font(opt.font)
+                hm = QFontMetrics(hf)
+                c = QColor(pal.color(QPalette.ColorRole.WindowText))
+                c.setAlphaF(MENU_HEADER_DIM)
+                p.setFont(hf)
+                p.setPen(c)
+                room = max(0, r.right() - MENU_PAD - tx + 1)
+                base = round(r.top() + 3 + (r.height() + 3) / 2 + hm.capHeight() / 2)
+                box = QRect(tx, base - hm.ascent(), room, hm.height())
+                p.drawText(vis(box), int(start | A.AlignTop), hm.elidedText(opt.text, Qt.TextElideMode.ElideRight, room))
+            else:
+                p.setPen(QPen(polish.separator(pal), 1))
+                y = r.top() + r.height() // 2 + 0.5
+                p.drawLine(QPointF(r.left() + MENU_PAD, y), QPointF(r.right() - MENU_PAD + 1, y))
+            p.restore()
+            return
+        if opt.state & S.State_Selected and enabled:
+            hl = QColor(pal.color(QPalette.ColorRole.Highlight))
+            fill = QColor(hl)
+            fill.setAlphaF(0.22)
+            p.setPen(QPen(hl, 1))
+            p.setBrush(fill)
+            p.drawRoundedRect(QRectF(r).adjusted(1.5, 0.5, -1.5, -0.5), polish.RADIUS - 1, polish.RADIUS - 1)
+        cy = r.top() + r.height() / 2
+        x = r.left() + MENU_PAD
+        cw = menu_check_width(opt, menu)
+        if cw:
+            if opt.checkType == QStyleOptionMenuItem.CheckType.NonExclusive:
+                sw, sh = menu_switch_size(opt.fontMetrics)
+                box = QRect(x, r.top() + (r.height() - sh) // 2, sw, sh)
+                paint_switch(p, vis(box), bool(opt.checked), pal, enabled=enabled, rtl=rtl)
+            elif opt.checkType == QStyleOptionMenuItem.CheckType.Exclusive:
+                box = vis(QRect(x + (cw - 14) // 2, r.top() + (r.height() - 14) // 2, 14, 14))
+                c = QRectF(box).adjusted(0.5, 0.5, -0.5, -0.5)
+                accent = QColor(pal.color(QPalette.ColorRole.Highlight))
+                ring = QColor(accent) if opt.checked else QColor(text_col)
+                if not opt.checked:
+                    ring.setAlphaF(0.5)
+                if not enabled:
+                    p.setOpacity(0.45)
+                p.setPen(QPen(ring, 1))
+                p.setBrush(pal.color(QPalette.ColorRole.Base))
+                p.drawEllipse(c)
+                if opt.checked:
+                    p.setPen(Qt.PenStyle.NoPen)
+                    p.setBrush(accent)
+                    p.drawEllipse(c.center(), 3.5, 3.5)
+                p.setOpacity(1.0)
+            x += cw + MENU_GAP
+        if not opt.icon.isNull():
+            box = vis(QRect(x, r.top() + (r.height() - MENU_ICON) // 2, MENU_ICON, MENU_ICON))
+            mode = QIcon.Mode.Normal if enabled else QIcon.Mode.Disabled
+            state = QIcon.State.On if opt.checked else QIcon.State.Off
+            opt.icon.paint(p, box, A.AlignCenter, mode, state)
+        text, _tab, short = opt.text.partition("\t")
+        fm = QFontMetrics(opt.font)
+        right = r.right() - MENU_SHORT_END            # the shortcuts' one edge
+        base = round(cy + fm.capHeight() / 2)         # the capitals' middle on the row's
+        top = base - fm.ascent()
+        room = right - tx + 1
+        if short:
+            sw = fm.horizontalAdvance(short)
+            room -= sw + MENU_SHORT_GAP // 2
+            c = QColor(text_col)
+            c.setAlphaF(c.alphaF() * MENU_DIM)
+            p.setFont(opt.font)
+            p.setPen(c)
+            # the ink of every shortcut ends on one edge (not its advance: "1" and "T" differ)
+            ink = fm.tightBoundingRect(short)
+            left = A.AlignAbsolute | A.AlignLeft | A.AlignTop
+            x = (r.left() + r.right() - right - ink.left()) if rtl else (right - ink.right())
+            p.drawText(QRect(x, top, sw + 4, fm.height()), int(left), short)
+        p.setFont(opt.font)
+        p.setPen(text_col)
+        mnemonic = Qt.TextFlag.TextShowMnemonic if self.styleHint(
+            QStyle.StyleHint.SH_UnderlineShortcut, opt, menu) else Qt.TextFlag.TextHideMnemonic
+        flags = int(start | A.AlignTop | mnemonic)
+        plain = text.replace("&&", "\0").replace("&", "").replace("\0", "&")
+        if room > 0 and fm.horizontalAdvance(plain) > room:
+            text = fm.elidedText(plain, Qt.TextElideMode.ElideRight, room)
+            flags = int(start | A.AlignTop)
+        p.drawText(vis(QRect(tx, top, max(0, room), fm.height())), flags, text)
+        if opt.menuItemType == MT.SubMenu:
+            c = QColor(text_col)
+            c.setAlphaF(c.alphaF() * 0.75)
+            pen = QPen(c, 1.3)
+            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+            p.setPen(pen)
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            mid = r.right() - MENU_PAD - MENU_ARROW / 2 + 0.5
+            if rtl:
+                mid = r.left() + r.right() - mid + 1
+            d = -2.0 if rtl else 2.0
+            p.drawPolyline(QPolygonF([QPointF(mid - d, cy - 4), QPointF(mid + d, cy), QPointF(mid - d, cy + 4)]))
+        p.restore()
+
+    def _own_menu_size(self, opt, size, menu):
+        MT = QStyleOptionMenuItem.MenuItemType
+        if opt.menuItemType == MT.Separator:
+            if opt.text:
+                hm = QFontMetrics(menu_header_font(opt.font))
+                return QSize(menu_text_offset(opt, menu) + hm.horizontalAdvance(opt.text) + MENU_SHORT_END,
+                             hm.height() + 12)
+            return QSize(10, 9)
+        fm = QFontMetrics(opt.font)
+        width = menu_text_offset(opt, menu) + size.width()
+        # QMenu adds the column of the shortcuts itself (its widest): here the room before it
+        if "\t" in opt.text or opt.reservedShortcutWidth > 0:
+            width += MENU_SHORT_GAP
+        return QSize(width + MENU_SHORT_END, menu_row_height(fm))
 
     def _switch_room(self, opt, menu):
         """The room added before the entries of menu for their switches (0:
@@ -337,6 +564,16 @@ class IkeStyle(QProxyStyle):
         return menu_switch_size(opt.fontMetrics)[0] + 6
 
     def drawControl(self, element, opt, p, widget=None):
+        if self._own_menu(widget):
+            if element == QStyle.ControlElement.CE_MenuItem and isinstance(opt, QStyleOptionMenuItem) \
+                    and opt.menuItemType in (QStyleOptionMenuItem.MenuItemType.Normal,
+                                             QStyleOptionMenuItem.MenuItemType.DefaultItem,
+                                             QStyleOptionMenuItem.MenuItemType.SubMenu,
+                                             QStyleOptionMenuItem.MenuItemType.Separator):
+                self._own_menu_item(opt, p, widget)
+                return
+            if element == QStyle.ControlElement.CE_MenuEmptyArea:
+                return                   # the panel is painted (PE_PanelMenu)
         if element == QStyle.ControlElement.CE_MenuItem and isinstance(widget, QMenu) \
                 and isinstance(opt, QStyleOptionMenuItem) and opt.menuHasCheckableItems:
             T = QStyleOptionMenuItem.MenuItemType
@@ -385,7 +622,32 @@ class IkeStyle(QProxyStyle):
             paint_switch(p, box, on, opt.palette, enabled=bool(opt.state & S.State_Enabled),
                          rtl=rtl, selected=selected)
 
+    def drawPrimitive(self, element, opt, p, widget=None):
+        if self._own_menu(widget):
+            PE = QStyle.PrimitiveElement
+            if element == PE.PE_PanelMenu:
+                from . import polish
+                polish.paint_popup_panel(p, widget.rect(), widget.palette(), self.menu_shadow())
+                return
+            if element == PE.PE_FrameMenu:
+                return
+        super().drawPrimitive(element, opt, p, widget)
+
     def pixelMetric(self, metric, opt=None, widget=None):
+        if self._own_menu(widget):
+            PM = QStyle.PixelMetric
+            if metric == PM.PM_MenuPanelWidth:
+                return 1 + self.menu_shadow()
+            if metric == PM.PM_MenuHMargin:
+                return 3
+            if metric == PM.PM_MenuVMargin:
+                return 4
+            if metric == PM.PM_SmallIconSize:
+                return MENU_ICON
+            if metric == PM.PM_SubMenuOverlap:
+                # a submenu's panel 2 to 3 px from its menu's, on either side and from right
+                # to left too (measured), their shadows over each other
+                return 0
         v = super().pixelMetric(metric, opt, widget)
         # Qt's "Windows" style draws a menu's entries against its sides (1.1.22:
         # every widget style of an Arch desktop is measured): a little room
@@ -406,6 +668,8 @@ class IkeStyle(QProxyStyle):
     def styleHint(self, hint, opt=None, widget=None, ret=None):
         if hint == QStyle.StyleHint.SH_Menu_Scrollable:
             return 1             # a menu taller than the screen scrolls (arrows at both ends)
+        if hint == QStyle.StyleHint.SH_Menu_SupportsSections and self.own_menus():
+            return 1             # a section's name is drawn (Qt's Windows style drew a plain line)
         if hint == QStyle.StyleHint.SH_FormLayoutWrapPolicy:
             # a form's option goes under its name when the two do not fit side
             # by side, instead of making the page wider than its window (1.1.22:
@@ -431,6 +695,11 @@ class IkeStyle(QProxyStyle):
         return getattr(opt, "text", ""), getattr(opt, "toolButtonStyle", None)
 
     def sizeFromContents(self, kind, opt, size, widget=None):
+        if kind == QStyle.ContentsType.CT_MenuItem and self._own_menu(widget) \
+                and isinstance(opt, QStyleOptionMenuItem) and opt.menuItemType in (
+                    QStyleOptionMenuItem.MenuItemType.Normal, QStyleOptionMenuItem.MenuItemType.DefaultItem,
+                    QStyleOptionMenuItem.MenuItemType.SubMenu, QStyleOptionMenuItem.MenuItemType.Separator):
+            return self._own_menu_size(opt, size, widget)
         s = super().sizeFromContents(kind, opt, size, widget)
         CT = QStyle.ContentsType
         if kind not in (CT.CT_PushButton, CT.CT_ToolButton, CT.CT_MenuItem):

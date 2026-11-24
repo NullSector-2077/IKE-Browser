@@ -1275,6 +1275,15 @@
 "Show all downloads": "सबै डाउनलोड देखाउनुहोस्",
 "Open the downloads folder": "डाउनलोड फोल्डर खोल्नुहोस्",
 "Clear the list": "सूची खाली गर्नुहोस्",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "सकिएका डाउनलोड सूचीबाट हट्छन्; जारी रहेका रहन्छन्। फाइलहरू डिस्कमा रहन्छन्।"
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "सकिएका डाउनलोड सूचीबाट हट्छन्; जारी रहेका रहन्छन्। फाइलहरू डिस्कमा रहन्छन्।",
+"Clear recent history…": "हालको इतिहास खाली गर्नुहोस्…",
+"Delete the pages visited in the last hour, today or ever": "पछिल्लो एक घण्टा, आज वा कहिल्यै हेरिएका पृष्ठहरू मेटाउनुहोस्",
+"Clear recent history": "हालको इतिहास खाली गर्नुहोस्",
+"Time range to clear:": "खाली गर्ने समयावधि:",
+"Last hour": "पछिल्लो एक घण्टा",
+"Everything": "सबै",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "तपाईंले हेरेका पृष्ठहरू मात्र मेटिन्छन्: कुकी, पासवर्ड र क्यास गरिएका फाइलहरू रहन्छन्।",
+"This week": "यो हप्ता",
+"Earlier": "पहिले"
 }
 }

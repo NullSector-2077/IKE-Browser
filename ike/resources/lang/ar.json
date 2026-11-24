@@ -1275,6 +1275,15 @@
 "Show all downloads": "أظهر كل التنزيلات",
 "Open the downloads folder": "افتح مجلد التنزيلات",
 "Clear the list": "امسح القائمة",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "تخرج التنزيلات المنتهية من القائمة؛ وتبقى الجارية. وتبقى الملفات على القرص."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "تخرج التنزيلات المنتهية من القائمة؛ وتبقى الجارية. وتبقى الملفات على القرص.",
+"Clear recent history…": "مسح السجل الحديث…",
+"Delete the pages visited in the last hour, today or ever": "حذف الصفحات التي زرتها في الساعة الأخيرة أو اليوم أو في أي وقت",
+"Clear recent history": "مسح السجل الحديث",
+"Time range to clear:": "الفترة الزمنية المراد مسحها:",
+"Last hour": "الساعة الأخيرة",
+"Everything": "كل شيء",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "تُحذف الصفحات التي زرتها فقط: تبقى ملفات تعريف الارتباط وكلمات المرور والملفات المخزنة مؤقتًا.",
+"This week": "هذا الأسبوع",
+"Earlier": "في وقت سابق"
 }
 }

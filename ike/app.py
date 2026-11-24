@@ -1057,12 +1057,13 @@ class IkeApp(QObject):
         items = {id(e.item) for e in gone if e.item is not None}
         self.downloads[:] = [d for d in self.downloads if id(d) not in items]
 
-    def forget_downloads(self):
-        """The history was cleared: the list of downloads goes too."""
+    def forget_downloads(self, since=None):
+        """The history was cleared: the list of downloads goes too (with since, only
+        the downloads of that time; storage.clear_history already took them off the disk)."""
         log = self.__dict__.get("_download_log")
         if log is not None:
-            log.forget()
-        else:
+            log.forget(since)
+        elif since is None:
             self.storage.clear_downloads()
 
     def _ask_download_risk(self, found, anyway):
@@ -1360,6 +1361,31 @@ class IkeApp(QObject):
     def show_clear_data(self):
         from .dialogs import ClearDataDialog
         return self._show("clear", lambda: ClearDataDialog(self, self.active_window()))
+
+    def show_clear_history(self):
+        """History → Clear recent history… (1.1.25): only the pages visited."""
+        from .dialogs import ClearHistoryDialog
+        return self._show("clear_history", lambda: ClearHistoryDialog(self, self.active_window()))
+
+    def clear_recent_history(self, span, now=None):
+        """Delete only the pages visited: "hour" (the last hour), "today"
+        (since midnight) or "all" (the history-only part of Clear browsing
+        data). Cookies, cache, permissions, passwords, bookmarks and the
+        private windows are left as they are."""
+        if span == "all":
+            self.clear_data(True, False, False, False)
+            return
+        import datetime
+        now = time.time() if now is None else now
+        if span == "hour":
+            since = now - 3600
+        else:
+            day = datetime.date.fromtimestamp(now)
+            since = datetime.datetime(day.year, day.month, day.day).timestamp()
+        urls = self.storage.clear_history(since) or []
+        self.forget_downloads(since)           # the downloads of that time leave the list too
+        if urls:
+            self.profile.clearVisitedLinks([QUrl(u) for u in urls])
 
     def clear_data(self, history, cookies, cache, permissions):
         if history:

@@ -1275,6 +1275,15 @@
 "Show all downloads": "Барлық жүктеулерді көрсету",
 "Open the downloads folder": "Жүктеулер қалтасын ашу",
 "Clear the list": "Тізімді тазарту",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Аяқталған жүктеулер тізімнен шығады; жүріп жатқандары қалады. Файлдар дискіде қалады."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Аяқталған жүктеулер тізімнен шығады; жүріп жатқандары қалады. Файлдар дискіде қалады.",
+"Clear recent history…": "Соңғы тарихты тазалау…",
+"Delete the pages visited in the last hour, today or ever": "Соңғы сағатта, бүгін немесе бұрын-соңды ашылған беттерді жою",
+"Clear recent history": "Соңғы тарихты тазалау",
+"Time range to clear:": "Тазалау уақыт аралығы:",
+"Last hour": "Соңғы сағат",
+"Everything": "Барлығы",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Тек ашқан беттеріңіз жойылады: cookie файлдары, құпиясөздер және кэштегі файлдар сақталады.",
+"This week": "Осы апта",
+"Earlier": "Ертерек"
 }
 }

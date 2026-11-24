@@ -1275,6 +1275,15 @@
 "Show all downloads": "显示所有下载",
 "Open the downloads folder": "打开下载文件夹",
 "Clear the list": "清空列表",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "已结束的下载会离开列表；进行中的保留。文件仍保留在磁盘上。"
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "已结束的下载会离开列表；进行中的保留。文件仍保留在磁盘上。",
+"Clear recent history…": "清除近期历史记录…",
+"Delete the pages visited in the last hour, today or ever": "删除过去一小时、今天或全部时间内访问过的页面",
+"Clear recent history": "清除近期历史记录",
+"Time range to clear:": "要清除的时间范围:",
+"Last hour": "过去一小时",
+"Everything": "全部",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "只删除您访问过的页面：Cookie、密码和缓存的文件会保留。",
+"This week": "本周",
+"Earlier": "更早"
 }
 }

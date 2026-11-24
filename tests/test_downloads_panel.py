@@ -126,6 +126,25 @@ def test_kept_across_restarts_private_never(tmp_path):
     assert st.downloads() == []
 
 
+def test_recent_history_cleared_takes_only_the_downloads_of_that_time(tmp_path):
+    """History → Clear recent history… (1.1.25, the menus' branch) and the persistent list
+    (this branch) together: the downloads of the last hour leave the list and the
+    database, the older ones stay, private and running ones are not touched."""
+    from ike.storage import Storage
+    st = Storage(tmp_path / "ike.sqlite")
+    log = DownloadList(st)
+    old, new = Entry("old.txt", when=1000), Entry("new.txt", when=5000)
+    run, priv = Entry("run.iso", state="running", when=5000), Entry("p.txt", when=5000, private=True)
+    log.entries = [run, priv, new, old]
+    log.save()
+    st.clear_history(4000)
+    log.forget(4000)
+    assert log.entries == [run, priv, old]
+    st.flush()
+    names = [r[0] for r in Storage(tmp_path / "ike.sqlite").downloads()]
+    assert "old.txt" in names and "new.txt" not in names and "p.txt" not in names
+
+
 def test_clear_keeps_what_runs_and_the_private_ones():
     log = DownloadList(None)
     run, done, stop = (Entry("r", state="running"), Entry("d", state="done"), Entry("s", state="stopped"))

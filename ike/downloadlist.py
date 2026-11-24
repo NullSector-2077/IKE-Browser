@@ -192,13 +192,18 @@ class DownloadList(QObject):
             self._changed()
         return gone
 
-    def forget(self):
+    def forget(self, since=None):
         """The history was cleared: every entry of normal windows that has ended goes,
-        and nothing of them stays written."""
-        self.entries[:] = [e for e in self.entries if e.private or e.live]
-        if self.storage is not None:
-            self.storage.clear_downloads()
-        self._changed(save=False)
+        and nothing of them stays written; with since (seconds, History → Clear recent
+        history…, 1.1.25) only the ones of that time."""
+        self.entries[:] = [e for e in self.entries
+                           if e.private or e.live or (since is not None and e.when < since)]
+        if since is None:
+            if self.storage is not None:
+                self.storage.clear_downloads()
+            self._changed(save=False)
+        else:
+            self._changed()
 
     # --- kept across restarts ----------------------------------------------
     def load(self):

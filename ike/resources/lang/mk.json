@@ -1275,6 +1275,15 @@
 "Show all downloads": "Прикажи ги сите преземања",
 "Open the downloads folder": "Отвори ја папката за преземања",
 "Clear the list": "Исчисти ја листата",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Завршените преземања ја напуштаат листата; тие во тек остануваат. Датотеките остануваат на дискот."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Завршените преземања ја напуштаат листата; тие во тек остануваат. Датотеките остануваат на дискот.",
+"Clear recent history…": "Исчисти неодамнешна историја…",
+"Delete the pages visited in the last hour, today or ever": "Избриши ги страниците посетени во последниот час, денес или некогаш",
+"Clear recent history": "Исчисти неодамнешна историја",
+"Time range to clear:": "Временски опсег за чистење:",
+"Last hour": "Последниот час",
+"Everything": "Сè",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Се бришат само страниците што сте ги посетиле: колачињата, лозинките и кешираните датотеки остануваат.",
+"This week": "Оваа седмица",
+"Earlier": "Порано"
 }
 }

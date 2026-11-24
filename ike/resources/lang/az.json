@@ -1275,6 +1275,15 @@
 "Show all downloads": "Bütün endirmələri göstər",
 "Open the downloads folder": "Endirmələr qovluğunu aç",
 "Clear the list": "Siyahını təmizlə",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Bitmiş endirmələr siyahıdan çıxır; davam edənlər qalır. Fayllar diskdə qalır."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Bitmiş endirmələr siyahıdan çıxır; davam edənlər qalır. Fayllar diskdə qalır.",
+"Clear recent history…": "Son tarixçəni təmizlə…",
+"Delete the pages visited in the last hour, today or ever": "Son bir saatda, bu gün və ya hər zaman ziyarət edilən səhifələri sil",
+"Clear recent history": "Son tarixçəni təmizlə",
+"Time range to clear:": "Təmizlənəcək vaxt aralığı:",
+"Last hour": "Son bir saat",
+"Everything": "Hamısı",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Yalnız ziyarət etdiyiniz səhifələr silinir: kukilər, parollar və keşdəki fayllar qalır.",
+"This week": "Bu həftə",
+"Earlier": "Daha əvvəl"
 }
 }

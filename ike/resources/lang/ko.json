@@ -1275,6 +1275,15 @@
 "Show all downloads": "모든 다운로드 표시",
 "Open the downloads folder": "다운로드 폴더 열기",
 "Clear the list": "목록 지우기",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "끝난 다운로드는 목록에서 빠지고 진행 중인 것은 남습니다. 파일은 디스크에 남습니다."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "끝난 다운로드는 목록에서 빠지고 진행 중인 것은 남습니다. 파일은 디스크에 남습니다.",
+"Clear recent history…": "최근 방문 기록 삭제…",
+"Delete the pages visited in the last hour, today or ever": "지난 1시간, 오늘 또는 전체 기간에 방문한 페이지 삭제",
+"Clear recent history": "최근 방문 기록 삭제",
+"Time range to clear:": "삭제할 기간:",
+"Last hour": "지난 1시간",
+"Everything": "전체",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "방문한 페이지만 삭제됩니다. 쿠키, 비밀번호, 캐시된 파일은 그대로 남습니다.",
+"This week": "이번 주",
+"Earlier": "이전"
 }
 }

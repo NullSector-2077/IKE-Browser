@@ -1275,6 +1275,15 @@
 "Show all downloads": "అన్ని డౌన్‌లోడ్‌లను చూపు",
 "Open the downloads folder": "డౌన్‌లోడ్‌ల ఫోల్డర్ తెరువు",
 "Clear the list": "జాబితాను క్లియర్ చేయి",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "ముగిసిన డౌన్‌లోడ్‌లు జాబితా నుండి వెళ్లిపోతాయి; జరుగుతున్నవి ఉంటాయి. ఫైల్‌లు డిస్క్‌లో ఉంటాయి."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "ముగిసిన డౌన్‌లోడ్‌లు జాబితా నుండి వెళ్లిపోతాయి; జరుగుతున్నవి ఉంటాయి. ఫైల్‌లు డిస్క్‌లో ఉంటాయి.",
+"Clear recent history…": "ఇటీవలి చరిత్రను క్లియర్ చేయి…",
+"Delete the pages visited in the last hour, today or ever": "గత ఒక గంటలో, ఈరోజు లేదా ఎప్పుడైనా చూసిన పేజీలను తొలగించు",
+"Clear recent history": "ఇటీవలి చరిత్రను క్లియర్ చేయి",
+"Time range to clear:": "క్లియర్ చేయాల్సిన సమయ పరిధి:",
+"Last hour": "గత ఒక గంట",
+"Everything": "అన్నీ",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "మీరు చూసిన పేజీలు మాత్రమే తొలగించబడతాయి: కుకీలు, పాస్‌వర్డ్‌లు, కాష్ చేసిన ఫైల్‌లు అలాగే ఉంటాయి.",
+"This week": "ఈ వారం",
+"Earlier": "ఇంతకుముందు"
 }
 }

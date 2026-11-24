@@ -1275,6 +1275,15 @@
 "Show all downloads": "Vis alle downloads",
 "Open the downloads folder": "Åbn mappen med downloads",
 "Clear the list": "Ryd listen",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Afsluttede downloads forlader listen; dem, der er i gang, bliver. Filerne bliver på disken."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Afsluttede downloads forlader listen; dem, der er i gang, bliver. Filerne bliver på disken.",
+"Clear recent history…": "Ryd seneste historik…",
+"Delete the pages visited in the last hour, today or ever": "Slet de sider, der er besøgt den sidste time, i dag eller nogensinde",
+"Clear recent history": "Ryd seneste historik",
+"Time range to clear:": "Tidsrum, der skal ryddes:",
+"Last hour": "Den sidste time",
+"Everything": "Alt",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Kun de sider, du har besøgt, slettes: cookies, adgangskoder og cachelagrede filer bliver.",
+"This week": "Denne uge",
+"Earlier": "Tidligere"
 }
 }

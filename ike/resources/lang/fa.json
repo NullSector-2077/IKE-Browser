@@ -1275,6 +1275,15 @@
 "Show all downloads": "نمایش همهٔ بارگیری‌ها",
 "Open the downloads folder": "باز کردن پوشهٔ بارگیری‌ها",
 "Clear the list": "پاک کردن فهرست",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "بارگیری‌های پایان‌یافته از فهرست خارج می‌شوند؛ آن‌هایی که در حال انجام‌اند می‌مانند. پرونده‌ها روی دیسک می‌مانند."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "بارگیری‌های پایان‌یافته از فهرست خارج می‌شوند؛ آن‌هایی که در حال انجام‌اند می‌مانند. پرونده‌ها روی دیسک می‌مانند.",
+"Clear recent history…": "پاک کردن تاریخچهٔ اخیر…",
+"Delete the pages visited in the last hour, today or ever": "حذف صفحه‌هایی که در یک ساعت گذشته، امروز یا تاکنون دیده شده‌اند",
+"Clear recent history": "پاک کردن تاریخچهٔ اخیر",
+"Time range to clear:": "بازهٔ زمانی برای پاک کردن:",
+"Last hour": "یک ساعت گذشته",
+"Everything": "همه",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "فقط صفحه‌هایی که دیده‌اید حذف می‌شوند: کوکی‌ها، گذرواژه‌ها و پرونده‌های حافظهٔ نهان می‌مانند.",
+"This week": "این هفته",
+"Earlier": "پیش‌تر"
 }
 }

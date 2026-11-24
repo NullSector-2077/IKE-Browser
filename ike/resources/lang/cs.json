@@ -1275,6 +1275,15 @@
 "Show all downloads": "Zobrazit všechna stahování",
 "Open the downloads folder": "Otevřít složku stahování",
 "Clear the list": "Vymazat seznam",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Dokončená stahování ze seznamu odejdou; probíhající zůstanou. Soubory zůstanou na disku."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Dokončená stahování ze seznamu odejdou; probíhající zůstanou. Soubory zůstanou na disku.",
+"Clear recent history…": "Vymazat nedávnou historii…",
+"Delete the pages visited in the last hour, today or ever": "Smazat stránky navštívené za poslední hodinu, dnes nebo kdykoli",
+"Clear recent history": "Vymazat nedávnou historii",
+"Time range to clear:": "Časové období k vymazání:",
+"Last hour": "Poslední hodina",
+"Everything": "Vše",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Smažou se jen navštívené stránky: cookies, hesla a soubory v mezipaměti zůstanou.",
+"This week": "Tento týden",
+"Earlier": "Dříve"
 }
 }

@@ -1275,6 +1275,15 @@
 "Show all downloads": "Wys alle aflaaie",
 "Open the downloads folder": "Maak die aflaaivouer oop",
 "Clear the list": "Maak die lys skoon",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Klaar aflaaie verlaat die lys; dié wat aan die gang is, bly. Die lêers bly op die skyf."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Klaar aflaaie verlaat die lys; dié wat aan die gang is, bly. Die lêers bly op die skyf.",
+"Clear recent history…": "Vee onlangse geskiedenis uit…",
+"Delete the pages visited in the last hour, today or ever": "Vee die bladsye uit wat in die laaste uur, vandag of ooit besoek is",
+"Clear recent history": "Vee onlangse geskiedenis uit",
+"Time range to clear:": "Tydperk om uit te vee:",
+"Last hour": "Laaste uur",
+"Everything": "Alles",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Slegs die bladsye wat jy besoek het, word uitgevee: koekies, wagwoorde en gekasheerde lêers bly.",
+"This week": "Hierdie week",
+"Earlier": "Vroeër"
 }
 }

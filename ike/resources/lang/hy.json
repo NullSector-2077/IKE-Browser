@@ -1275,6 +1275,15 @@
 "Show all downloads": "Ցույց տալ բոլոր ներբեռնումները",
 "Open the downloads folder": "Բացել ներբեռնումների թղթապանակը",
 "Clear the list": "Մաքրել ցուցակը",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Ավարտված ներբեռնումները դուրս են գալիս ցուցակից, ընթացիկները մնում են։ Ֆայլերը մնում են սկավառակում։"
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Ավարտված ներբեռնումները դուրս են գալիս ցուցակից, ընթացիկները մնում են։ Ֆայլերը մնում են սկավառակում։",
+"Clear recent history…": "Մաքրել վերջին պատմությունը…",
+"Delete the pages visited in the last hour, today or ever": "Ջնջել վերջին ժամում, այսօր կամ երբևէ այցելած էջերը",
+"Clear recent history": "Մաքրել վերջին պատմությունը",
+"Time range to clear:": "Մաքրելու ժամանակահատվածը:",
+"Last hour": "Վերջին ժամը",
+"Everything": "Ամբողջը",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Ջնջվում են միայն ձեր այցելած էջերը. քուքիները, գաղտնաբառերը և քեշավորված ֆայլերը մնում են:",
+"This week": "Այս շաբաթ",
+"Earlier": "Ավելի վաղ"
 }
 }

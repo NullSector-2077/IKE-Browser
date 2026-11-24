@@ -1275,6 +1275,15 @@
 "Show all downloads": "Visa alla hämtningar",
 "Open the downloads folder": "Öppna mappen för hämtningar",
 "Clear the list": "Töm listan",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Avslutade hämtningar lämnar listan; de som pågår stannar. Filerna stannar kvar på disken."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Avslutade hämtningar lämnar listan; de som pågår stannar. Filerna stannar kvar på disken.",
+"Clear recent history…": "Rensa senaste historik…",
+"Delete the pages visited in the last hour, today or ever": "Ta bort sidorna som besökts den senaste timmen, i dag eller någonsin",
+"Clear recent history": "Rensa senaste historik",
+"Time range to clear:": "Tidsintervall att rensa:",
+"Last hour": "Senaste timmen",
+"Everything": "Allt",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Bara sidorna du besökt tas bort: kakor, lösenord och cachade filer finns kvar.",
+"This week": "Den här veckan",
+"Earlier": "Tidigare"
 }
 }

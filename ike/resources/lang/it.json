@@ -1275,6 +1275,15 @@
 "Show all downloads": "Mostra tutti i download",
 "Open the downloads folder": "Apri la cartella dei download",
 "Clear the list": "Cancella l'elenco",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Toglie dall'elenco i download finiti; quelli in corso restano. I file restano sul disco."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Toglie dall'elenco i download finiti; quelli in corso restano. I file restano sul disco.",
+"Clear recent history…": "Cancella cronologia recente…",
+"Delete the pages visited in the last hour, today or ever": "Elimina le pagine visitate nell'ultima ora, oggi o da sempre",
+"Clear recent history": "Cancella cronologia recente",
+"Time range to clear:": "Intervallo di tempo da cancellare:",
+"Last hour": "Ultima ora",
+"Everything": "Tutto",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Vengono eliminate solo le pagine visitate: cookie, password e file nella cache restano.",
+"This week": "Questa settimana",
+"Earlier": "Prima"
 }
 }

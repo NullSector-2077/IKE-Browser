@@ -586,7 +586,9 @@ def steps(ike, qapp, out):
     assert out["enabled"]
     closed = out["closed"]
     assert len(closed) == 10
-    assert [c[0] for c in closed] == ["Page %d" % i for i in range(11, 1, -1)]
+    # 1.1.25: each with its site on the right (after a tab: the column of the shortcuts)
+    assert [c[0].split("\t")[0] for c in closed] == ["Page %d" % i for i in range(11, 1, -1)]
+    assert [c[0].split("\t")[1] for c in closed] == ["site%d.example" % i for i in range(11, 1, -1)]
     assert closed[0][1] == "https://site11.example/" and all(c[2] for c in closed)
     assert out["picked"].startswith("https://site8.example")
     assert out["reopened"].startswith("https://site11.example")

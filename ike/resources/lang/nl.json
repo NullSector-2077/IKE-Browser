@@ -1275,6 +1275,15 @@
 "Show all downloads": "Alle downloads tonen",
 "Open the downloads folder": "Downloadmap openen",
 "Clear the list": "Lijst leegmaken",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Afgeronde downloads verdwijnen uit de lijst; lopende blijven staan. De bestanden blijven op de schijf."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Afgeronde downloads verdwijnen uit de lijst; lopende blijven staan. De bestanden blijven op de schijf.",
+"Clear recent history…": "Recente geschiedenis wissen…",
+"Delete the pages visited in the last hour, today or ever": "De pagina's wissen die het afgelopen uur, vandaag of ooit zijn bezocht",
+"Clear recent history": "Recente geschiedenis wissen",
+"Time range to clear:": "Te wissen tijdsbereik:",
+"Last hour": "Afgelopen uur",
+"Everything": "Alles",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Alleen de bezochte pagina's worden gewist: cookies, wachtwoorden en gecachte bestanden blijven.",
+"This week": "Deze week",
+"Earlier": "Eerder"
 }
 }

@@ -1275,6 +1275,15 @@
 "Show all downloads": "Rodyti visus atsisiuntimus",
 "Open the downloads folder": "Atverti atsisiuntimų aplanką",
 "Clear the list": "Išvalyti sąrašą",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Baigti atsisiuntimai pašalinami iš sąrašo; vykstantys lieka. Failai lieka diske."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Baigti atsisiuntimai pašalinami iš sąrašo; vykstantys lieka. Failai lieka diske.",
+"Clear recent history…": "Išvalyti naujausią istoriją…",
+"Delete the pages visited in the last hour, today or ever": "Ištrinti puslapius, aplankytus per paskutinę valandą, šiandien ar bet kada",
+"Clear recent history": "Išvalyti naujausią istoriją",
+"Time range to clear:": "Valomas laikotarpis:",
+"Last hour": "Paskutinė valanda",
+"Everything": "Viskas",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Ištrinami tik aplankyti puslapiai: slapukai, slaptažodžiai ir podėlio failai lieka.",
+"This week": "Šią savaitę",
+"Earlier": "Anksčiau"
 }
 }

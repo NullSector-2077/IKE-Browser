@@ -157,10 +157,22 @@ class Storage(Deferred):
         self.db.execute("DELETE FROM history WHERE url=?", (url,))
         checkpoint(self.db)              # nothing of it left in the -wal file
 
-    def clear_history(self):
-        self.db.execute("DELETE FROM history")
-        self.db.execute("DELETE FROM downloads")      # the downloads list is history too (1.1.25)
+    def clear_history(self, since=None):
+        """Delete the history: all of it, or (since, seconds) the pages seen
+        since then, whose addresses are returned (1.1.25: History → Clear
+        recent history…). The downloads list is history too (1.1.25): all of
+        it, or the downloads of that time."""
+        if since is None:
+            self.db.execute("DELETE FROM history")
+            self.db.execute("DELETE FROM downloads")
+            checkpoint(self.db)
+            return None
+        since = int(since)
+        urls = [u for (u,) in self.db.execute("SELECT url FROM history WHERE last >= ?", (since,))]
+        self.db.execute("DELETE FROM history WHERE last >= ?", (since,))
+        self.db.execute("DELETE FROM downloads WHERE time >= ?", (since,))
         checkpoint(self.db)
+        return urls
 
     # --- the downloads list (1.1.25, downloadlist.py) ---------------------
     def downloads(self, limit=50):

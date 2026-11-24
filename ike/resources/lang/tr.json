@@ -1275,6 +1275,15 @@
 "Show all downloads": "Tüm indirmeleri göster",
 "Open the downloads folder": "İndirilenler klasörünü aç",
 "Clear the list": "Listeyi temizle",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Biten indirmeler listeden çıkar; sürenler kalır. Dosyalar diskte kalır."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Biten indirmeler listeden çıkar; sürenler kalır. Dosyalar diskte kalır.",
+"Clear recent history…": "Yakın geçmişi temizle…",
+"Delete the pages visited in the last hour, today or ever": "Son bir saatte, bugün veya şimdiye kadar ziyaret edilen sayfaları sil",
+"Clear recent history": "Yakın geçmişi temizle",
+"Time range to clear:": "Temizlenecek zaman aralığı:",
+"Last hour": "Son bir saat",
+"Everything": "Tümü",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Yalnızca ziyaret ettiğiniz sayfalar silinir: çerezler, parolalar ve önbellekteki dosyalar kalır.",
+"This week": "Bu hafta",
+"Earlier": "Daha önce"
 }
 }

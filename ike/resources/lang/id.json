@@ -1275,6 +1275,15 @@
 "Show all downloads": "Tampilkan semua unduhan",
 "Open the downloads folder": "Buka folder unduhan",
 "Clear the list": "Kosongkan daftar",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Unduhan yang selesai keluar dari daftar; yang sedang berjalan tetap ada. Berkas tetap ada di disk."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Unduhan yang selesai keluar dari daftar; yang sedang berjalan tetap ada. Berkas tetap ada di disk.",
+"Clear recent history…": "Hapus riwayat terbaru…",
+"Delete the pages visited in the last hour, today or ever": "Hapus halaman yang dikunjungi dalam satu jam terakhir, hari ini, atau kapan pun",
+"Clear recent history": "Hapus riwayat terbaru",
+"Time range to clear:": "Rentang waktu yang dihapus:",
+"Last hour": "Satu jam terakhir",
+"Everything": "Semuanya",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Hanya halaman yang Anda kunjungi yang dihapus: cookie, kata sandi, dan file cache tetap ada.",
+"This week": "Minggu ini",
+"Earlier": "Sebelumnya"
 }
 }

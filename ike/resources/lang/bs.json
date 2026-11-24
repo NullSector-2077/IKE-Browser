@@ -1275,6 +1275,15 @@
 "Show all downloads": "Prikaži sva preuzimanja",
 "Open the downloads folder": "Otvori folder preuzimanja",
 "Clear the list": "Očisti listu",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Završena preuzimanja napuštaju listu; ona u toku ostaju. Datoteke ostaju na disku."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Završena preuzimanja napuštaju listu; ona u toku ostaju. Datoteke ostaju na disku.",
+"Clear recent history…": "Očisti nedavnu historiju…",
+"Delete the pages visited in the last hour, today or ever": "Obriši stranice posjećene u zadnjih sat vremena, danas ili ikad",
+"Clear recent history": "Očisti nedavnu historiju",
+"Time range to clear:": "Vremenski raspon za brisanje:",
+"Last hour": "Zadnji sat",
+"Everything": "Sve",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Brišu se samo stranice koje ste posjetili: kolačići, lozinke i keširane datoteke ostaju.",
+"This week": "Ova sedmica",
+"Earlier": "Ranije"
 }
 }

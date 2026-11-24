@@ -1275,6 +1275,15 @@
 "Show all downloads": "Hiện tất cả lượt tải xuống",
 "Open the downloads folder": "Mở thư mục tải xuống",
 "Clear the list": "Xóa danh sách",
-"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Các lượt tải đã kết thúc rời khỏi danh sách; các lượt đang tải vẫn ở lại. Tệp vẫn ở trên ổ đĩa."
+"The downloads that ended leave the list; those in progress stay. The files stay on the disk.": "Các lượt tải đã kết thúc rời khỏi danh sách; các lượt đang tải vẫn ở lại. Tệp vẫn ở trên ổ đĩa.",
+"Clear recent history…": "Xóa lịch sử gần đây…",
+"Delete the pages visited in the last hour, today or ever": "Xóa các trang đã truy cập trong giờ qua, hôm nay hoặc từ trước đến nay",
+"Clear recent history": "Xóa lịch sử gần đây",
+"Time range to clear:": "Khoảng thời gian cần xóa:",
+"Last hour": "Giờ qua",
+"Everything": "Tất cả",
+"Only the pages you visited are deleted: cookies, passwords and cached files stay.": "Chỉ các trang bạn đã truy cập bị xóa: cookie, mật khẩu và tệp trong bộ nhớ đệm vẫn được giữ.",
+"This week": "Tuần này",
+"Earlier": "Trước đó"
 }
 }
