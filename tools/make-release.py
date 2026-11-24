@@ -148,8 +148,30 @@ VALID_DAYS = 180
 ROLLOUT_HOURS = 24
 
 
+ADVISORY_FILE = ROOT / "data" / "engine-advisory.json"
+
+
+def engine_advisory(path=None):
+    """The web engine's security advisory signed into the manifest (1.1.24,
+    ike/advisory.py): data/engine-advisory.json when it exists, else None (no
+    field, no notice). A file that is not a valid advisory stops the release."""
+    path = Path(path or ADVISORY_FILE)
+    if not path.is_file():
+        return None
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    from ike.advisory import clean
+    try:
+        adv = clean(json.loads(path.read_text("utf-8")))
+    except ValueError:
+        adv = None
+    if adv is None:
+        raise SystemExit("%s is not a valid engine advisory (see ike/advisory.py)" % path.name)
+    return adv
+
+
 def make(key_path, out_dir, channels, passphrase=None, update_file=None, engine=None,
-         rollout_hours=ROLLOUT_HOURS, halt=False, now=None):
+         rollout_hours=ROLLOUT_HOURS, halt=False, now=None, advisory_file=None):
     key_path = Path(key_path).expanduser()
     if inside_repo(key_path):
         raise SystemExit("refusing to use a private key stored inside the repository: move it out")
@@ -168,6 +190,9 @@ def make(key_path, out_dir, channels, passphrase=None, update_file=None, engine=
                 "min_system": read_var("__min_system__"),
                 "issued": issued, "expires": issued + VALID_DAYS * 86400,
                 "rollout": {"start": issued, "hours": max(0, int(rollout_hours))}}
+    adv = engine_advisory(advisory_file)
+    if adv:
+        manifest["engine_advisory"] = adv       # "Update the system" (ike/advisory.py)
     if halt:
         # stops a release that went wrong: re-signed manifest of the same
         # version, uploaded over the release's own (docs/UPDATES.md)

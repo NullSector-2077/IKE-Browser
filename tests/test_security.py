@@ -674,7 +674,10 @@ def steps(ike, qapp, out):
         yield from js(view, "ask(); 1")
         yield 250
     out["second_page"] = [len(asked), (yield from js(view, "asked"))]
-''' % base, env={"IKE_TEST_PERMS": ""}, timeout=120)
+''' % base, env={"IKE_TEST_PERMS": ""}, timeout=120,
+                  # the question as a window; with the quiet sign of 1.1.24 (the
+                  # default) the same is checked in tests/test_privacy_124.py
+                  settings={"quiet_permissions": False})
     asked, answers = out["first_page"]
     assert asked == ["127.0.0.1"] and len(answers) == 4 and set(answers) <= {"denied", "default"}, out["first_page"]
     assert out["second_page"][0] == 1 and set(out["second_page"][1]) <= {"denied", "default"}
@@ -1376,7 +1379,8 @@ def steps(ike, qapp, out):
     yield 2000
     out["after_shown"] = list(asked)
     out["answers"] = yield from js(back, "asked")
-''' % base, env={"IKE_TEST_PERMS": ""}, timeout=120)
+''' % base, env={"IKE_TEST_PERMS": ""}, timeout=120,
+                  settings={"quiet_permissions": False})       # the window (the quiet sign: test_privacy_124.py)
     assert out["front"] and out["while_hidden"] == [], out
     assert out["after_shown"] == [["127.0.0.1", True]], out["after_shown"]
     assert out["answers"] and set(out["answers"]) == {"granted"}, out["answers"]

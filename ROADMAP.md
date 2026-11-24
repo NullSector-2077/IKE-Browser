@@ -66,6 +66,19 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Owner's decisions
 
+- 2026-11-23, **the menus and the Settings regrouped again, for 1.1.24**
+  (work package B2; the owner: "puoi riorganizzarli tu, ma devono essere
+  fatti con criterio e logica, e con le scritte centrate bene, annota anche
+  il fatto di risolvere sta parte di altro"). The ☰ menu goes new tabs and
+  windows → this page → print and save → history, bookmarks, downloads →
+  protection, extensions, More → Settings, Help → Quit; "More" ("Altro")
+  holds the menu bar's File, Edit, View and Tools with their icons, and its
+  texts no longer touch the submenu arrows (in Breeze they did: fixed for
+  every menu, tests/test_menus_124.py and the text-fit test). Settings: the
+  pages in the order of everyday use, Appearance in groups, the options of
+  each page on one line, a search field. Five toolbar buttons a user can
+  add, off by default. Nothing removed, every shortcut kept. Any further
+  reorganisation goes back to asking the owner.
 - 2026-11-23, **the AUTOMAT drill** (the owner's request: "un test fake
   fatto bene, molto complicato, uno scenario reale di un aggiornamento
   massivo di Qt e di tutte le altre componenti installabili, per vedere se
@@ -191,6 +204,14 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Status
 
+- 1.1.24 privacy package A2b (branch `feature/1.1.24-privacy`, approved by
+  the owner item by item): bounce tracking cleaned (on), the protected time
+  zone in the shield (off), quiet permission questions in the address bar
+  (on), the password breach check (off), "Update the system" from a signed
+  engine advisory (shown only once the owner writes
+  `data/engine-advisory.json` before signing a release) and the battery
+  saver (off). To be tried by the owner on KDE Plasma: the sign in the
+  address bar and the battery saver on a laptop (UPower).
 - 1.1.18 was not published (the last tag is v1.1.17); 1.1.19 carries it and
   its own work (the engine's home-network protection, a faster Dark Reader,
   the vertical tabs' separator, Startpage by default) and waits for the

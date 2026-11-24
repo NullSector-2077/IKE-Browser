@@ -60,7 +60,7 @@ the files named). What is left is said in the last column.
 | M2 | Enter or Space granted a permission (Allow was the default) | Enter and Esc block; Allow can be clicked only after 0.7 s | - |
 | M3 | Encrypted DNS did not cover I.K.E.'s own requests | `ike/doh.py`: the same provider (RFC 8484) for the home-network checks, dark mode's sheets, user scripts, icons, updates, filter lists; Qt requests pinned to its answer with the name in TLS; redirects followed as new requests; the user is told when the engine refuses the setting | Search suggestions, weather and the extension store (fixed hosts) still use the system resolver; an icon's redirect is not followed with encrypted DNS on |
 | M4 | Dark mode's sheet fetch skipped the lists and allowed http on https pages | Mixed content refused, the lists asked, the browser's User-Agent | - |
-| M5 | Spoofed values detectable | Getters keep the engine's receiver check; Strict: WebGPU present with no adapter, a battery on mains, the header's language = navigator.languages; Maximum: Intl, dates and numbers in en-US, in workers too | The time zone and GPC (not sent by Chrome) are not covered; an independent fingerprinting audit is planned |
+| M5 | Spoofed values detectable | Getters keep the engine's receiver check; Strict: WebGPU present with no adapter, a battery on mains, the header's language = navigator.languages; Maximum: Intl, dates and numbers in en-US, in workers too | GPC (not sent by Chrome) is not covered; the time zone only with the "Protected time zone" option (1.1.24, opt-in: UTC for the whole engine) |
 | L1 | Manifest not bound to its channel | Each manifest names its channel | Manifests without the field are accepted (older releases) |
 | L2 | Halt did not withdraw a staged copy | Withdrawn and listed as bad | - |
 | L3 | Own requests named I.K.E.; every engine asked at first start | The pages' User-Agent everywhere; only the engine in use | - |
@@ -163,7 +163,48 @@ Each with a test in `tests/test_review_fixes.py` that failed before the fix.
     Protect the router with a password and keep its firmware current.
 - **Workers started from a file of the site** see the real values of the
   computer (anti-fingerprinting, not an exploit protection); a partial way
-  around it waits for the owner on `experiment/file-workers`.
+  around it waits for the owner on `experiment/file-workers`. The protected
+  time zone (1.1.24) is the exception: it is the engine's own, so those
+  workers see UTC too.
+
+## The privacy package of 1.1.24
+
+- **Protected time zone** (`ike/timezone.py`, opt-in, the shield): the engine
+  starts with `TZ=UTC`, I.K.E. takes its own zone back right after (its
+  menus, history and the new tab clock stay local) and keeps `TZ` set, so the
+  engine never follows the system's time-zone files for its pages. Pages,
+  frames, inline workers and workers from a file agree on UTC
+  (`getTimezoneOffset`, `Intl...resolvedOptions().timeZone`, `Date` strings);
+  no script rewrites the date functions, so the Intl fast path of Maximum and
+  every page's speed are untouched. A change applies after a restart.
+- **Bounce tracking** (`ike/bounce.py`, on by default): a main-frame redirect
+  (the server's, or the page's own without a click) away from another
+  registrable domain marks that site; half a minute later its cookies go
+  and its local storage, databases, caches and service workers are cleared
+  from a hidden page at its address that loads nothing. Never for sites the
+  user used (a click, a key, an address typed) in the last 45 days or that
+  were in the history when the protection first ran, open in a tab,
+  bookmarked, allowed in the shield (protection off, cookies allowed), or
+  sign-in, payment and the other sensitive services. One check per
+  main-frame navigation, nothing per request; private windows are not
+  touched. The sites used are kept in the settings (`bounce_used`, emptied
+  with the history).
+- **Quiet permission prompts** (`ike/quietperms.py`, on by default):
+  notifications, location, camera and microphone ask through a sign in the
+  address bar instead of a window. A request for notifications without a
+  click or key on the page in the 5 seconds before is refused at once and
+  not stored (the site may ask again after a click). The engine keeps the
+  user's answers per site, as before.
+- **Password breach check** (`ike/breach.py`, opt-in): k-anonymity with Have
+  I Been Pwned's range API (5 hexadecimal characters of the SHA-1 sent,
+  `Add-Padding: true`, the comparison made locally, each password once per
+  session, nothing written).
+- **"Update the system"** (`ike/advisory.py`): an advisory signed into the
+  update manifest by the release tool, read only from a verified manifest
+  during the daily check (docs/UPDATES.md).
+- **Battery saver** (`ike/battery.py`, opt-in): UPower's `OnBattery` over the
+  system bus (QtDBus), asked once and then followed through its signal; no
+  connection at all while the saver is off.
 - **The engine's patch lag** depends on Qt and Arch: Chrome fixes arrive in
   `qt6-webengine` some weeks later.
 - **Certificate Transparency, HSTS preload, V8 hardening of Arch's build and

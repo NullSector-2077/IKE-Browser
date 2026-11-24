@@ -33,5 +33,6 @@
   </g>
   <rect x="9" y="17" width="30" height="13" rx="1" fill="#19c3e6" opacity="0.7"/>
   <rect x="10" y="18" width="28" height="11" rx="0" fill="#07131f"/>
-  <path id="lettering" fill="#eafcff" d="M13 20h2v7h-2Z M19 20h2v3h-2Z M24 20h2v1h-2Z M30 20h5v1h-5Z M23 21h2v1h-2Z M30 21h2v2h-2Z M22 22h2v1h-2Z M19 23h4v1h-4Z M30 23h4v1h-4Z M19 24h2v3h-2Z M22 24h2v1h-2Z M30 24h2v2h-2Z M16 25h2v2h-2Z M23 25h2v1h-2Z M27 25h2v2h-2Z M24 26h2v1h-2Z M30 26h5v1h-5Z"/>
+  <path id="lettering" fill="#eafcff" d="M13 20h2v7h-2Z M30 20h5v1h-5Z M30 21h2v2h-2Z M30 23h4v1h-4Z M30 24h2v2h-2Z M16 25h2v2h-2Z M27 25h2v2h-2Z M30 26h5v1h-5Z"/>
+  <path id="lettering-k" fill="#7df3ff" d="M19 20h2v3h-2Z M24 20h2v1h-2Z M23 21h2v1h-2Z M22 22h2v1h-2Z M19 23h4v1h-4Z M19 24h2v3h-2Z M22 24h2v1h-2Z M23 25h2v1h-2Z M24 26h2v1h-2Z"/>
 </svg>

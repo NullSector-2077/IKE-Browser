@@ -616,9 +616,20 @@ class DesktopIntegration(QObject):
             return
         from .icons import themed
         sub = menu.addMenu(themed("kdeconnect"), T("Send to device"))
+        self.fill_send_menu(sub, url)
+
+    def fill_send_menu(self, menu, url):
+        """One entry for each paired device that sends url to it (the toolbar's
+        "Send to device" button, 1.1.24, and the submenu above). Returns how
+        many there are: none without KDE Connect, a device or a web page."""
+        if not url or not self.devices or not self.opt("di_kdeconnect") or self.bus is None:
+            return 0
+        if QUrl(url).scheme() not in ("http", "https"):
+            return 0
         for dev_id, name in sorted(self.devices.items(), key=lambda kv: kv[1].lower()):
-            a = sub.addAction(name)
+            a = menu.addAction(name)
             a.triggered.connect(lambda _c=False, d=dev_id: self.send_to_device(d, url))
+        return len(self.devices)
 
     # --- downloads in the notifications ----------------------------------------
     def download_started(self, item):

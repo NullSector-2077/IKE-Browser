@@ -134,8 +134,9 @@
     var d = Object.getOwnPropertyDescriptor(window, 'length');
     return d && d.get;
   })();
+  var lengthOf = LENGTH ? RAPPLY(BIND, CALL, [LENGTH]) : null;   // a bound call: no array per call (1.1.24)
   function framesOf(win) {
-    try { return LENGTH ? RAPPLY(LENGTH, win, []) : win.length; } catch (e) { return 0; }
+    try { return lengthOf ? lengthOf(win) : win.length; } catch (e) { return 0; }
   }
   // the guards of the documents protected by this script, so that one
   // realm's document.open/write on another realm's document re-arms the
@@ -1712,7 +1713,7 @@
       var q = bitsOf(v), p = bitsOf(before);
       var x = mul32((q ^ seed) >>> 0, 0x9E3779B1);
       x ^= x >>> 15; x = mul32((x ^ p) >>> 0, 0x85EBCA77); x ^= x >>> 13;
-      return 1 + (((x >>> 0) % 2001) - 1000) / 10000000;
+      return 1 + (((x >>> 0) % 2001) - 1000) / 1000000;   // +-0.1 % (1.1.24: +-0.01 % was lost when a fingerprint rounds to 4 decimals)
     }
     var rendered = hardSet();
     [w.OfflineAudioContext, w.BaseAudioContext].forEach(function (C) {
@@ -2247,24 +2248,46 @@
       // document holds none of its frames: only the count can tell of a new
       // one, and the moved node is not looked at (1.1.23). The guard's count
       // is then left as check() leaves it.
+      // What a call costs is mostly the looks (1.1.24, measured in a page:
+      // about 50 ns for each of the engine's getters called this way, as much
+      // again for the number of frames), so each one is taken only when it
+      // can still tell something, in this order:
+      // - the nodes put in, as before (text and an element without children
+      //   cannot be or hold a frame: one or three looks, and done);
+      // - then the target: outside any document (a tree a framework builds
+      //   before it puts it in, a fragment, a template's content), nothing
+      //   put there gets a window and nothing more is looked at. Taken before
+      //   the call, since a replaceWith takes the target itself out. A node
+      //   in a shadow root is in the document when its host is;
+      // - a call that swaps nodes (force) is looked at after it in any case,
+      //   so the count before it, never used, is no longer read;
+      // - with no frame in the window at the guard's last look (known 0), the
+      //   count before the call is taken as 0: none after it either, no frame
+      //   came in; any after it, every frame of the window is looked at,
+      //   whatever the call did (a frame added or moved, or one the guard
+      //   had not counted yet). With frames at the last look, both counts
+      //   are read as before.
       var f = ({ [orig.name || name](a, b) {
-        var n = arguments.length, r, pre, moved, post;
+        var n = arguments.length, r, pre = 0, moved = false, post;
         if (n === 1) {
-          if (!force && !mayNode(a)) return invoke(this, a);
-          pre = framesOf(w); moved = !force && pre !== 0 && placed(a);
+          if ((!force && !mayNode(a)) || outside(this)) return invoke(this, a);
+          if (!force && known !== 0) { pre = framesOf(w); moved = pre !== 0 && placed(a); }
           r = invoke(this, a);
         } else if (n === 2) {
-          if (!force && !mayNode(a) && !mayNode(b)) return invoke(this, a, b);
-          pre = framesOf(w); moved = !force && pre !== 0 && (placed(a) || placed(b));
+          if ((!force && !mayNode(a) && !mayNode(b)) || outside(this)) return invoke(this, a, b);
+          if (!force && known !== 0) { pre = framesOf(w); moved = pre !== 0 && (placed(a) || placed(b)); }
           r = invoke(this, a, b);
         } else {
-          if (!force && !mayAny(arguments)) return reflectApply(orig, this, arguments);
-          pre = framesOf(w); moved = false;
-          if (!force && pre !== 0) for (var i = 0; i < arguments.length; i++) if (placed(arguments[i])) moved = true;
+          if ((!force && !mayAny(arguments)) || outside(this)) return reflectApply(orig, this, arguments);
+          if (!force && known !== 0) {
+            pre = framesOf(w);
+            if (pre !== 0) for (var i = 0; i < arguments.length; i++) if (placed(arguments[i])) moved = true;
+          }
           r = reflectApply(orig, this, arguments);
         }
+        if (force) { check(this, true); return r; }
         post = framesOf(w);
-        if (force || moved || post !== pre || !ours(this)) check(this, true);
+        if (moved || post !== pre || !ours(this)) check(this, true);
         else if (post === 0) known = 0;
         return r;
       } })[orig.name || name];
@@ -2273,9 +2296,9 @@
       d.value = f;
       try { Object.defineProperty(obj, name, d); } catch (e) {}
     }
-    // Can this insertion bring a frame into a document? Not when the target is
-    // outside any document (frameworks build whole trees there first), nor for
-    // text or an element without children that is not a frame itself.
+    // Can this insertion bring a frame into a document? Not for text or an
+    // element without children that is not a frame itself, nor when the
+    // target is outside any document (outside(), below).
     var FRAMES = { iframe: 1, frame: 1, object: 1, embed: 1 };
     var FRAME_HTML = /<\s*(i?frame|object|embed)\b/i;
     // its own exec and test: RegExp.prototype.test asks the object for exec,
@@ -2300,7 +2323,13 @@
       try { t = nodeTypeOf(a); } catch (e) { return true; }      // not a node (TrustedHTML...): may be HTML
       if (t === 11) return true;                                 // a fragment
       if (t !== 1) return false;                                 // text, comments
-      try { return FRAMES[localNameOf(a)] === 1 || firstElementOf(a) !== null; } catch (e) { return true; }
+      // children first (the usual subtree), then the element's own name,
+      // compared as it is (no lookup by a name: 1.1.24)
+      try {
+        if (firstElementOf(a) !== null) return true;
+        var ln = localNameOf(a);
+        return ln === 'iframe' || ln === 'frame' || ln === 'object' || ln === 'embed';
+      } catch (e) { return true; }
     }
     var ownerOf = native(w.Node && w.Node.prototype, 'ownerDocument');
     var defaultViewOf = native(w.Document && w.Document.prototype, 'defaultView');
@@ -2317,6 +2346,14 @@
     function placed(a) {
       if (!a || typeof a !== 'object') return false;
       try { return connectedOf(a) === true; } catch (e) { return false; }
+    }
+    // a target outside any document (a tree being built, a fragment, a
+    // template's content): a frame put there gets no window, and the nodes a
+    // call puts next to it (before, after, replaceWith) are outside too. A
+    // node in a shadow root counts as in the document when its host is. Not
+    // a node (a Range, anything else): not outside (1.1.24).
+    function outside(t) {
+      try { return connectedOf(t) === false; } catch (e) { return false; }
     }
     // a target of this document (or outside any document), not of another one
     function ours(target) {

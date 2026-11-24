@@ -82,7 +82,7 @@ def test_pkgbuild_installs_every_licence():
 def test_every_licence_file_is_documented():
     names = sorted(p.name for p in (ROOT / "licenses").iterdir())
     assert {"LICENSE.adblock-rust", "LICENSE.darkreader", "LICENSE.lucide", "LICENSE.orbitron",
-            "LICENSE.phosphor", "RUST-CRATES.txt", "NOTICE.ubo-scriptlets"} <= set(names)
+            "LICENSE.phosphor", "RUST-CRATES.txt", "NOTICE.ubo-scriptlets", "LICENSE.breeze-icons"} <= set(names)
     notice, text = (ROOT / "COPYRIGHT").read_text("utf-8"), doc()
     for name in names + ["RUST-STD-COPYRIGHT.html"]:
         assert name in notice, name

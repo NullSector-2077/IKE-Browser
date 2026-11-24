@@ -16,6 +16,11 @@ Components and where the version in use is written:
   tools/build-darkreader.py from the newest "darkreader" package on npm and
   the newest lists in Dark Reader's repository; only a new engine or changed
   lists count);
+- KDE's Breeze icons, the shipped icon set "breeze" (1.1.24):
+  ``ike/resources/icons/sets/breeze/`` (rebuilt with tools/build-breeze-icons.py
+  from the newest release tag of breeze-icons, only the icons I.K.E. uses;
+  only a change of those icons counts, not a new tag);
+- every other entry of components.json (the component manifest);
 - Qt WebEngine and PyQt6 of the automatic tests: ``tools/test-requirements.txt``
   (the newest set pip would install). The browser itself runs on Arch Linux's
   own qt6-webengine, updated by pacman: its current version is shown in the
@@ -680,6 +685,92 @@ def check_darkreader(root, work, dr_src=None):
 def apply_darkreader(root, info):
     for name in ("darkreader.js", "darkreader-proxy.js", "darkreader-data.json"):
         shutil.copyfile(Path(info["_dir"]) / name, root / "ike" / "resources" / name)
+
+
+# --- KDE's Breeze icons (the shipped icon set "breeze", 1.1.24) ------------------
+
+BREEZE_ID = "breeze-icons"
+BREEZE_GIT = "https://github.com/KDE/breeze-icons"
+BREEZE_RECORD = "ike/resources/icons/sets/breeze/breeze-icons.json"
+
+
+def breeze_tool(root):
+    """tools/build-breeze-icons.py as a module (build, write, Refused)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("build_breeze_icons", Path(root) / "tools" / "build-breeze-icons.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def breeze_refused(cur, latest, reason, step="tools/build-breeze-icons.py"):
+    return BuilderRefused({"component": "Breeze icons (KDE)", "current": cur, "latest": latest, "step": step,
+                           "reason": reason, "context": "", "log": ""})
+
+
+def check_breeze_icons(root, work, src=None, tags=None):
+    """The newest release tag of breeze-icons, built as I.K.E. ships it. Only a change of the icons
+    themselves (or of Breeze's licence notice) counts, not a new tag; an icon the set has that the
+    new release no longer gives is a refusal (the set stays at the version in use)."""
+    root, work = Path(root), Path(work)
+    mf = _manifest()
+    tool = breeze_tool(root)
+    cur = json.loads((root / BREEZE_RECORD).read_text("utf-8"))
+    current = "%s (%s)" % (cur["version"], cur["commit"][:10])
+    entry = mf.components(root).get(BREEZE_ID) or {"upstream": {"git": BREEZE_GIT, "tag": "v*"}}
+    if src:
+        checkout = Path(src)
+        tag = run(["git", "-C", str(checkout), "describe", "--tags", "--exact-match"]).strip()
+        version = tag.lstrip("v")
+    else:
+        try:
+            version, tag = mf.latest(entry, tags=tags or mf.git_tags)
+        except (OSError, subprocess.SubprocessError) as e:
+            raise SourceUnreachable("breeze-icons tags: %s" % e) from e
+        if vkey(version) <= vkey(cur["version"]):
+            return {"current": current, "latest": version, "update": False, "note": ""}
+        checkout = work / "breeze-icons-src"
+        if not checkout.exists():
+            try:
+                run(["git", "clone", "--quiet", "--depth", "1", "--branch", tag, entry["upstream"]["git"],
+                     str(checkout)])
+            except (subprocess.CalledProcessError, OSError) as e:
+                raise SourceUnreachable("git clone %s %s: %s" % (entry["upstream"]["git"], tag, (
+                    getattr(e, "stderr", "") or str(e)).strip()[:300])) from e
+    try:
+        files = tool.build(checkout, root, tag=tag)
+    except tool.Refused as e:
+        raise breeze_refused(current, version, str(e)) from None
+    new = json.loads(files[BREEZE_RECORD])
+    latest = "%s (%s)" % (new["version"], new["commit"][:10])
+    lost = sorted(set(cur["icons"]) - set(new["icons"]))
+    if lost:
+        raise breeze_refused(current, latest,
+                             "icons the set has are not in the new release (renamed or removed upstream): %s; a "
+                             "Breeze name for each goes into ALIASES" % ", ".join(lost[:12]),
+                             "tools/build-breeze-icons.py, the icons' names (ALIASES)")
+    old_icons = {p.name: p.read_text("utf-8") for p in (root / BREEZE_RECORD).parent.glob("*.svg")}
+    new_icons = {Path(rel).name: text for rel, text in files.items() if rel.endswith(".svg")}
+    changed = sorted(n for n in new_icons if n in old_icons and new_icons[n] != old_icons[n])
+    added = sorted(n for n in new_icons if n not in old_icons)
+    removed = sorted(n for n in old_icons if n not in new_icons)
+    licence = root / tool.LICENCE
+    notice = files[tool.LICENCE].split("\n--- %s ---\n" % tool.COPYING, 1)[-1]
+    licence_changed = not licence.is_file() or notice not in licence.read_text("utf-8")
+    note = ", ".join(x for x in ("%d changed, %d new, %d removed" % (len(changed), len(added), len(removed))
+                                 if changed or added or removed else "",
+                                 "licence notice changed" if licence_changed else "") if x)
+    return {"current": current, "latest": latest, "update": bool(changed or added or removed or licence_changed),
+            "note": note, "_files": files}
+
+
+def apply_breeze_icons(root, info):
+    breeze_tool(root).write(info["_files"], root)
+
+
+# components of the manifest built by a builder of I.K.E.'s (not a plain download), besides Dark
+# Reader and uBlock Origin's scriptlets: their check runs when components.json declares them
+MANIFEST_BUILDS = {BREEZE_ID: (check_breeze_icons, apply_breeze_icons)}
 
 
 # --- Qt WebEngine / PyQt6 of the automatic tests -----------------------------
@@ -1503,13 +1594,22 @@ def _manifest():
     return mod
 
 
-def manifest_checks(root, get=None, tags=None):
+def manifest_checks(root, get=None, tags=None, work=None):
     """One check per plain-download entry of the component manifest (components.json): any entry
-    added there is checked, applied and made a candidate like the others, with no change here."""
+    added there is checked, applied and made a candidate like the others, with no change here. And
+    one per entry built by a builder of MANIFEST_BUILDS (1.1.24: KDE's Breeze icons)."""
     mf = _manifest()
     kw = dict({"get": get} if get else {}, **({"tags": tags} if tags else {}))
-    return [(e["name"], (lambda r, cid=cid: mf.check_entry(r, cid, **kw)), mf.apply_entry, (), cid)
-            for cid, e in sorted(mf.components(root).items()) if e.get("download")]
+    out = [(e["name"], (lambda r, cid=cid: mf.check_entry(r, cid, **kw)), mf.apply_entry, (), cid)
+           for cid, e in sorted(mf.components(root).items()) if e.get("download")]
+    for cid, e in sorted(mf.components(root).items()):
+        if cid in MANIFEST_BUILDS and e.get("build"):
+            check, apply = MANIFEST_BUILDS[cid]
+            folder = Path(work or tempfile.mkdtemp(prefix="ike-check-")) / cid
+            folder.mkdir(parents=True, exist_ok=True)
+            out.append((e["name"], (lambda r, check=check, folder=folder: check(r, folder, tags=tags)), apply,
+                        (), cid))
+    return out
 
 
 def family_of(cid, root=ROOT):
@@ -1517,6 +1617,8 @@ def family_of(cid, root=ROOT):
     if cid in ("adblock", "ubo-scriptlets", "darkreader"):
         return cid
     if cid and (_manifest().components(root).get(cid) or {}).get("download"):
+        return cid
+    if cid in MANIFEST_BUILDS and (_manifest().components(root).get(cid) or {}).get("build"):
         return cid
     if cid in ("crates", "pyo3") or re.fullmatch(r"crate-major-[A-Za-z0-9_-]+", cid or ""):
         return "crates"
@@ -1580,7 +1682,7 @@ def check_all(root, ubo_src=None, work=None, dr_src=None, only=None, get=None, t
         ("Dark Reader (engine and lists)", check_darkreader, apply_darkreader, (work, dr_src), "darkreader"),
         ("Qt WebEngine / PyQt6 (tests)", check_test_packages, apply_test_packages, (), "test-packages"),
     ]
-    checks += manifest_checks(root, get, tags)
+    checks += manifest_checks(root, get, tags, work)
     if only:
         checks = [c for c in checks if c[4] == family_of(only, root)]
     results = []
@@ -1691,7 +1793,8 @@ def main(argv=None):
                          "(--markdown: its section)")
     ap.add_argument("--only", metavar="ID",
                     help="only this candidate (WP5: adblock, crates, pyo3, crate-major-<crate>, ubo-scriptlets, "
-                         "darkreader, test-qt, test-tools, test-libs): checked and, with --apply, applied alone")
+                         "darkreader, breeze-icons, test-qt, test-tools, test-libs, or another entry of "
+                         "components.json): checked and, with --apply, applied alone")
     ap.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", ""), help="OWNER/NAME on GitHub")
     ap.add_argument("--root", default=str(ROOT), help=argparse.SUPPRESS)
     args = ap.parse_args(argv)

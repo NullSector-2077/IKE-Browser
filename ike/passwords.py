@@ -579,6 +579,13 @@ class PasswordManager(QObject):
         if bridge is None or self._origin(page) != origin or not self.vault.unlocked:
             return                        # the page went elsewhere meanwhile
         bridge.fillRequested.emit(json.dumps({"u": entry["username"], "p": entry["password"]}))
+        self._breach(entry["password"], origin)
+
+    def _breach(self, password, origin):
+        """The breach check of a password saved or filled in (breach.py; only when chosen)."""
+        check = getattr(self.app, "breach", None)
+        if check is not None:
+            check.check(password, origin)
 
     def captured(self, page, username, password):
         if not self.available:
@@ -614,6 +621,7 @@ class PasswordManager(QObject):
             self.app.config.save()
         elif box.clickedButton() is save and self.ensure_unlocked(win):
             self.vault.put(origin, username, password)
+            self._breach(password, origin)
 
     def fill(self, view, interactive=False):
         page = view.page()
@@ -636,6 +644,7 @@ class PasswordManager(QObject):
                 return False
             entry = found[names.index(name)]
         bridge.fillRequested.emit(json.dumps({"u": entry["username"], "p": entry["password"]}))
+        self._breach(entry["password"], self._origin(page))
         return True
 
     # --- unlocking ---------------------------------------------------
@@ -790,9 +799,23 @@ class PasswordsDialog(QDialog):
         self.offer.setChecked(bool(app.config["passwords_offer_save"]))
         self.offer.toggled.connect(self._offer_changed)
         lay.addWidget(self.offer)
+        # Have I Been Pwned, with only 5 characters of the fingerprint sent (breach.py, 1.1.24)
+        self.breach = Switch(T("Check passwords against known data breaches (Have I Been Pwned)"))
+        self.breach.setChecked(bool(app.config.get("pw_breach_check")))
+        self.breach.toggled.connect(self._breach_changed)
+        lay.addWidget(self.breach)
+        why = QLabel(T("When a password is saved or filled in, only the first 5 characters of its "
+                       "SHA-1 fingerprint are sent to api.pwnedpasswords.com; the password never "
+                       "leaves this computer. Off by default."))
+        why.setWordWrap(True)
+        lay.addWidget(why)
         lay.addWidget(QLabel(T("The vault is encrypted with AES-256; the key comes from your "
                                "master password (scrypt). Without it the data cannot be read.")))
         self.fill()
+
+    def _breach_changed(self, on):
+        self.app.config["pw_breach_check"] = bool(on)
+        self.app.config.save()
 
     def _offer_changed(self, on):
         self.app.config["passwords_offer_save"] = on

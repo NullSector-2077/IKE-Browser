@@ -17,8 +17,19 @@ others.
 import functools
 import math
 
-from PyQt6.QtCore import QEasingCurve, QObject, QPoint, QPointF, QRect, QRectF, QSize, Qt, QVariantAnimation
-from PyQt6.QtGui import QColor, QIcon, QIconEngine, QImage, QLinearGradient, QPainter, QPalette, QPen, QPixmap
+from PyQt6.QtCore import QEasingCurve, QObject, QPoint, QPointF, QRect, QRectF, QSize, QSizeF, Qt, QVariantAnimation
+from PyQt6.QtGui import (
+    QColor,
+    QIcon,
+    QIconEngine,
+    QImage,
+    QLinearGradient,
+    QPainter,
+    QPainterPath,
+    QPalette,
+    QPen,
+    QPixmap,
+)
 from PyQt6.QtWidgets import QLabel, QProxyStyle, QStyle, QStyledItemDelegate, QStyleOptionTab, QToolButton, QWidget
 
 from . import effects
@@ -65,6 +76,18 @@ PARTS = {
     "tab_hover": True,       # horizontal tabs: the hover colour comes and goes softly
     "tab_enter": True,       # horizontal tabs: a new tab's title and icon fade in
     "tab_close": True,       # horizontal tabs: a closed tab fades out
+    # 1.1.24
+    "tab_raised": True,      # horizontal tabs: the current tab a shade lighter, as if raised
+    "tab_close_glow": True,  # horizontal tabs: the close button glows red under the mouse
+    "tab_slide": True,       # tabs slide aside while one is dragged (horizontal and vertical)
+    "vtabs_resize": True,    # the vertical tabs' panel widens and narrows smoothly (icons only <-> titles)
+    "tab_tear_off": True,    # a tab dragged out of the window opens in a new window
+    "osd": True,             # quick actions (copy, bookmark, screenshot, zoom): a small box with an icon
+    "tooltip_fade": True,    # tooltips fade in and out
+    "find_slide": True,      # the find bar slides in from the bottom; its field flashes red on no match
+    "gestures": True,        # touchpad: swipe for back and forward, pinch to zoom
+    "key_hints": True,       # Ctrl or Alt held for a second: the toolbar buttons show their keys
+    "group_fold": True,      # a tab group folds and unfolds smoothly
 }
 
 MARK_MS = 180
@@ -77,6 +100,42 @@ ENTER_MS = 170
 FADE_PX = 24                 # how long the fade at the end of a cut title is
 AUDIO_PERIOD = 1.4           # seconds of one pulse of the speaker
 AUDIO_TICK = 90              # ms between two steps of the pulse
+
+
+CLOSE_SIZE = 18              # closebutton.CloseButtonStyle's own disc
+SLIDE_MS = 200               # tabs sliding aside (1.1.24), when the style names no time of its own
+_closers = {}
+
+
+def closer(size):
+    """The close button of the vertical tabs and of the window
+    (closebutton.CloseButtonStyle, Plasma's look), at size px: one of each
+    size, made once (it reads the desktop's settings)."""
+    c = _closers.get(size)
+    if c is None:
+        from .closebutton import CloseButtonStyle
+        c = _closers[size] = CloseButtonStyle()
+        c.SIZE = size
+    return c
+
+
+def close_red():
+    """The desktop's negative colour (Breeze's red; KDE's ForegroundNegative
+    when it is set), as the close buttons use it."""
+    return QColor(closer(CLOSE_SIZE).negative)
+
+
+_alive = set()
+
+
+def keep(obj):
+    """Keep the Python side of obj (a passing picture, an overlay) until Qt
+    destroys it: a Qt child held by Qt alone loses its Python methods to
+    Python's collector (Python 3.14 and PyQt 6.12: its painting and its
+    animation's steps were gone)."""
+    _alive.add(obj)
+    obj.destroyed.connect(functools.partial(_alive.discard, obj))
+    return obj
 
 
 def part(name):
@@ -208,7 +267,216 @@ def fade_child(widget, config, ms=140):
     return anim
 
 
+# --- a tab group folding and unfolding (1.1.24) --------------------------------
+FOLD_MS = 200
+
+
+class FoldStrip(QWidget):
+    """A picture of the tab bar (or of the vertical list) over it while a
+    group's tabs fold into its first tab or come out of it: the part they
+    take (span, x or y) narrows to nothing, fading, and what follows moves
+    up to close it (or the other way round). The bar itself changed at
+    once; at the end this picture matches it and goes."""
+
+    def __init__(self, widget, picture, span, vertical, folding, ms=FOLD_MS):
+        super().__init__(widget)
+        self.setObjectName("ike_fold")
+        keep(self)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.setAutoFillBackground(True)
+        self.setBackgroundRole(QPalette.ColorRole.Window)
+        self.picture, self.span, self.vertical, self.folding = picture, span, vertical, folding
+        self.setGeometry(widget.rect())
+        self.t = 0.0
+        self.anim = QVariantAnimation(self)
+        self.anim.setDuration(ms)
+        self.anim.setStartValue(0.0)
+        self.anim.setEndValue(1.0)
+        self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.anim.valueChanged.connect(self._step)
+        self.anim.finished.connect(self.deleteLater)
+        self.show()
+        self.raise_()
+        self.anim.start()
+
+    def _step(self, v):
+        self.t = float(v)
+        self.update()
+
+    def open_part(self):
+        """How much of the span shows now (0..1)."""
+        return 1.0 - self.t if self.folding else self.t
+
+    def paintEvent(self, _event):
+        a, b = self.span
+        k = self.open_part()
+        size = round((b - a) * k)
+        pm = self.picture
+        dpr = pm.devicePixelRatio() or 1.0
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        W, H = self.width(), self.height()
+
+        def src(x, y, w, h):
+            return QRectF(x * dpr, y * dpr, w * dpr, h * dpr)
+        if not self.vertical:
+            p.drawPixmap(QRectF(0, 0, a, H), pm, src(0, 0, a, H))
+            p.save()
+            p.setOpacity(k)
+            p.drawPixmap(QRectF(a, 0, size, H), pm, src(a, 0, b - a, H))
+            p.restore()
+            p.drawPixmap(QRectF(a + size, 0, W - b, H), pm, src(b, 0, W - b, H))
+        else:
+            p.drawPixmap(QRectF(0, 0, W, a), pm, src(0, 0, W, a))
+            p.save()
+            p.setOpacity(k)
+            p.drawPixmap(QRectF(0, a, W, size), pm, src(0, a, W, b - a))
+            p.restore()
+            p.drawPixmap(QRectF(0, a + size, W, H - b), pm, src(0, b, W, H - b))
+        p.end()
+
+
+# --- a bar that slides in from the bottom (1.1.24) -----------------------------
+SLIDE_IN_MS = 160
+
+
+class SlidingPicture(QWidget):
+    """A picture laid over a part of the window that slides from start to
+    end (offsets, QPoint) and fades to fade_to, then goes: the find bar
+    rising into place (slide_in) and the page leaving on a touchpad swipe
+    (gestures.py). The widgets under it are already where they belong;
+    only this picture moves (1.1.24)."""
+
+    def __init__(self, parent, picture, rect, start, end, ms, name, fade_to=1.0, fill=None):
+        super().__init__(parent)
+        self.setObjectName(name)
+        keep(self)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        if fill is not None:                 # the background the picture leaves behind
+            self.setAutoFillBackground(True)
+            self.setBackgroundRole(fill)
+        self.picture, self.start, self.end, self.fade_to = picture, QPoint(start), QPoint(end), fade_to
+        self.setGeometry(rect)
+        self.t = 0.0
+        self.anim = QVariantAnimation(self)
+        self.anim.setDuration(ms)
+        self.anim.setStartValue(0.0)
+        self.anim.setEndValue(1.0)
+        self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.anim.valueChanged.connect(self._step)
+        self.anim.finished.connect(self.deleteLater)
+        self.show()
+        self.raise_()
+        self.anim.start()
+
+    def _step(self, v):
+        self.t = float(v)
+        self.update()
+
+    def offset(self):
+        """Where the picture is now, from the widget's corner."""
+        return QPoint(round(self.start.x() + (self.end.x() - self.start.x()) * self.t),
+                      round(self.start.y() + (self.end.y() - self.start.y()) * self.t))
+
+    def paintEvent(self, _event):
+        p = QPainter(self)
+        p.setOpacity(1.0 - (1.0 - self.fade_to) * self.t)
+        p.drawPixmap(self.offset(), self.picture)
+        p.end()
+
+
+def slide_in(bar, config, ms=SLIDE_IN_MS):
+    """The bar (shown, in its place) slides in from the bottom; None when it
+    just appears (effects off, reduced motion)."""
+    if not moving(config, "find_slide") or not bar.isVisible():
+        return None
+    chain, w = [], bar.parentWidget()
+    while w is not None:
+        chain.append(w)
+        w = w.parentWidget()
+    for w in reversed(chain):            # the bar's place, now that it is shown
+        if w.layout() is not None:
+            w.layout().activate()
+    if bar.height() < 2:
+        return None
+    for old in bar.findChildren(SlidingPicture, "ike_slide_in", Qt.FindChildOption.FindDirectChildrenOnly):
+        old.anim.stop()
+        old.deleteLater()
+    return SlidingPicture(bar, bar.grab(), bar.rect(), QPoint(0, bar.height()), QPoint(0, 0), ms,
+                          "ike_slide_in", fill=bar.backgroundRole())
+
+
 # --- the mark of the current tab -------------------------------------------
+# Breeze's mark of the current tab (1.1.24, the owner's choice): its accent
+# line along the top edge of the tab, following the two rounded top corners
+# and not down the sides. Measured from Breeze's own code and render
+# (kstyle/breezehelper.cpp, Helper::renderTabBarTab and roundedPath): the
+# tab's rectangle TabBar_ActiveEffectSize (3) px tall with the top corners of
+# Frame_FrameRadius (5) px, filled with the palette's highlight.
+TOP_LINE = 3
+
+
+def top_line_rect(tab_rect):
+    """Where Breeze draws the line of the current tab whose rectangle is tab_rect."""
+    r = QRectF(tab_rect)
+    return QRectF(r.x(), r.y(), r.width(), TOP_LINE)
+
+
+def top_line_path(r, radius=RADIUS):
+    """Breeze's roundedPath(rect, CornersTop, radius), point for point: its
+    arcs reach below the 3 px of the line, so the line's ends follow the
+    tab's rounded corners down a little and thin out."""
+    d = QSizeF(2 * radius, 2 * radius)
+    path = QPainterPath()
+    path.moveTo(r.topLeft() + QPointF(radius, 0))
+    path.arcTo(QRectF(r.topLeft(), d), 90, 90)
+    path.lineTo(r.bottomLeft())
+    path.lineTo(r.bottomRight())
+    path.lineTo(r.topRight() + QPointF(0, radius))
+    path.arcTo(QRectF(r.topRight() - QPointF(2 * radius, 0), d), 0, 90)
+    path.closeSubpath()
+    return path
+
+
+def paint_top_line(painter, r, colour):
+    painter.save()
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.setBrush(colour)
+    painter.drawPath(top_line_path(QRectF(r)))
+    painter.restore()
+
+
+def highlight(widget):
+    """The highlight colour as the style reads it for widget: the inactive
+    window's own when the window is not active (Breeze's line has it)."""
+    pal = widget.palette()
+    group = QPalette.ColorGroup.Active if widget.isActiveWindow() else QPalette.ColorGroup.Inactive
+    if not widget.isEnabled():
+        group = QPalette.ColorGroup.Disabled
+    return pal.color(group, QPalette.ColorRole.Highlight)
+
+
+def raise_veil(colour):
+    """The white laid over the current tab where the style does not paint it
+    with the window's colour: the same step as raised()."""
+    c = QColor(colour)
+    white = QColor(255, 255, 255)
+    white.setAlphaF(0.045 if c.lightnessF() < 0.5 else 0.45)
+    return white
+
+
+def raised(colour):
+    """The background of the current tab, a shade lighter than the window's
+    (1.1.24): a little white mixed in, more on a light window, where the
+    step to white is shorter."""
+    c = QColor(colour)
+    k = 0.045 if c.lightnessF() < 0.5 else 0.45
+    return effects.blend(c, QColor(255, 255, 255, c.alpha()), k)
+
+
 class MarkGlide(QObject):
     """Where the mark of the current tab is drawn: the target's rectangle, or on
     the way to it after the current tab changed."""
@@ -220,7 +488,8 @@ class MarkGlide(QObject):
         self._t = 1.0
         self._shown = None
         self._anim = None
-        self.square = False          # square ends (the horizontal tabs, as Breeze's line)
+        self.square = False          # square ends
+        self.top = False             # Breeze's line along the top of the current tab (1.1.24)
 
     @property
     def gliding(self):
@@ -285,6 +554,10 @@ class MarkGlide(QObject):
         if r is None or r.width() <= 0 or r.height() <= 0:
             return
         painter.save()
+        if self.top:
+            paint_top_line(painter, r, highlight(self.widget))
+            painter.restore()
+            return
         if self.square:
             painter.fillRect(r, accent(self.widget))
             painter.restore()
@@ -386,6 +659,97 @@ class TabLabelStyle(QProxyStyle):
     # the same place then became (a button's text read as garbage, and a
     # crash) (1.1.23).
     def drawControl(self, element, opt, p, widget=None):
+        if element == QStyle.ControlElement.CE_TabBarTabShape and isinstance(opt, QStyleOptionTab) \
+                and opt.state & QStyle.StateFlag.State_Selected and widget is not None \
+                and getattr(widget, "mark", None) is not None:
+            self._current_shape(opt, p, widget)
+            return
+        self._draw(element, opt, p, widget)
+
+    def _current_shape(self, opt, p, widget):
+        """The current tab (1.1.24): a shade lighter (raised), and without the
+        style's own fixed mark: I.K.E.'s mark (tabs.TabBar) has Breeze's shape
+        and glides from tab to tab, so there is one mark, never two. The
+        style draws its mark in the highlight colour: in this tab's colours
+        the highlight is see-through. A tab being dragged is drawn into a
+        picture that moves with the mouse: its mark is drawn there."""
+        o = QStyleOptionTab(opt)
+        own = getattr(widget, "own_mark", True) and part("tab_mark")
+        lift = part("tab_raised")
+        by_palette = lift and self._raise_by_palette()
+        if own or by_palette:
+            o.palette = self._current_palette(o.palette, own, by_palette)
+        self._draw(QStyle.ControlElement.CE_TabBarTabShape, o, p, widget)
+        if lift and not by_palette:
+            # a style that does not paint the tab with the window's colour
+            # (Oxygen, Kvantum's pictures): the same shade of white laid over it
+            p.save()
+            p.setRenderHint(QPainter.RenderHint.Antialiasing)
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(raise_veil(o.palette.color(QPalette.ColorRole.Window)))
+            p.drawPath(top_line_path(QRectF(o.rect)))
+            p.restore()
+        if own and not isinstance(p.device(), QWidget):
+            paint_top_line(p, top_line_rect(o.rect), highlight(widget))
+
+    @staticmethod
+    def _current_palette(base, own, lift):
+        pal = QPalette(base)
+        if own:
+            pal.setColor(QPalette.ColorRole.Highlight, QColor(0, 0, 0, 0))
+        if lift:
+            for group in (QPalette.ColorGroup.Active, QPalette.ColorGroup.Inactive):
+                pal.setColor(group, QPalette.ColorRole.Window, raised(base.color(group, QPalette.ColorRole.Window)))
+        return pal
+
+    # the styles that paint the current tab with the window's colour, where a
+    # lighter window colour raises it; the others (Oxygen, Kvantum's
+    # pictures...) get a veil of white laid over the tab instead
+    PAINT_WITH_WINDOW = ("breeze", "fusion", "windows")
+
+    def _raise_by_palette(self):
+        return self.baseStyle().name().lower() in self.PAINT_WITH_WINDOW
+
+    def drawPrimitive(self, element, opt, p, widget=None):
+        if element == QStyle.PrimitiveElement.PE_IndicatorTabClose and widget is not None \
+                and part("tab_close_glow"):
+            level = widget.property("ike_glow")
+            if level:
+                self._close_glow(opt, p, widget, float(level))
+                return
+        super().drawPrimitive(element, opt, p, widget)
+
+    def _close_glow(self, opt, p, widget, level):
+        """The close button of a tab under the mouse (1.1.24): drawn as the
+        vertical tabs' and the window's close button (closebutton.py,
+        Plasma's: a disc in the desktop's negative colour, the cross cut out,
+        or the Aurorae theme's own), at the button's size; it comes in over
+        the style's own button while the glow rises."""
+        from PyQt6.QtWidgets import QStyleOption
+        o = QStyleOption(opt)
+        if level < 1.0:
+            p.save()
+            p.setOpacity(p.opacity() * (1.0 - level))
+            super().drawPrimitive(QStyle.PrimitiveElement.PE_IndicatorTabClose, o, p, widget)
+            p.restore()
+        r = widget.rect()
+        p.save()
+        p.setOpacity(p.opacity() * level)
+        closer(max(8, min(r.width(), r.height()) - 1)).paint(
+            p, r, o.palette, True, bool(o.state & QStyle.StateFlag.State_Sunken))
+        p.restore()
+
+    def styleHint(self, hint, opt=None, widget=None, data=None):
+        value = super().styleHint(hint, opt, widget, data)
+        if hint == QStyle.StyleHint.SH_Widget_Animation_Duration and widget is not None \
+                and hasattr(widget, "mark"):
+            # tabs sliding aside while one is dragged, and the dropped tab
+            # sliding into place (Qt's own, 1.1.24): with I.K.E.'s effects
+            # and the desktop's motion, and never where they are off
+            return (value or SLIDE_MS) if moving(getattr(widget, "config", None), "tab_slide") else 0
+        return value
+
+    def _draw(self, element, opt, p, widget=None):
         if element in self._TAB_PARTS and isinstance(opt, QStyleOptionTab):
             area = getattr(widget, "painting", None)
             if area is not None and not area.intersects(widget.tabRect(opt.tabIndex).adjusted(
@@ -841,6 +1205,8 @@ class Toast(QWidget):
         self._events = QEvent.Type.Resize, QEvent.Type.Move
         self.anchor, self.config = anchor, config
         self.text = ""
+        self.icon = None
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)          # it never takes the keyboard
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -859,16 +1225,22 @@ class Toast(QWidget):
         self._opacity = float(v)
         self.update()
 
-    def show_text(self, text, ms=1800):
+    ICON = 22                # the OSD's icon (1.1.24)
+
+    def show_text(self, text, ms=1800, icon=None):
+        """text in the pill for ms; with icon (1.1.24, the quick actions), a
+        small box like Plasma's on-screen display: the icon before the text."""
         from PyQt6.QtGui import QFontMetrics
         self.text = text
+        self.icon = icon if icon is not None and not icon.isNull() else None
         f = self.font()
         if f.pointSizeF() > 0:
             f.setPointSizeF(self.parentWidget().font().pointSizeF() * 1.05)
             self.setFont(f)
         fm = QFontMetrics(self.font())
-        w = min(fm.horizontalAdvance(text) + 36, max(120, self.anchor.width() - 40))
-        self.resize(w, fm.height() + 18)
+        room = self.ICON + 10 if self.icon is not None else 0
+        w = min(fm.horizontalAdvance(text) + 36 + room, max(120, self.anchor.width() - 40))
+        self.resize(w, max(fm.height(), self.ICON if self.icon is not None else 0) + 18)
         self._place()
         self._anim.stop()
         if moving(self.config, "toasts") and not self.isVisible():
@@ -923,8 +1295,13 @@ class Toast(QWidget):
         p.drawRoundedRect(r, TOAST_RADIUS, TOAST_RADIUS)
         p.setPen(pal.color(QPalette.ColorRole.WindowText))
         from PyQt6.QtGui import QFontMetrics
-        p.drawText(self.rect().adjusted(16, 0, -16, 0), int(Qt.AlignmentFlag.AlignCenter),
-                   QFontMetrics(self.font()).elidedText(self.text, Qt.TextElideMode.ElideRight, self.width() - 32))
+        area = self.rect().adjusted(16, 0, -16, 0)
+        if self.icon is not None:
+            box = QRect(area.left(), (self.height() - self.ICON) // 2, self.ICON, self.ICON)
+            self.icon.paint(p, box, Qt.AlignmentFlag.AlignCenter)
+            area.setLeft(box.right() + 11)
+        p.drawText(area, int(Qt.AlignmentFlag.AlignCenter),
+                   QFontMetrics(self.font()).elidedText(self.text, Qt.TextElideMode.ElideRight, area.width()))
         p.end()
 
 

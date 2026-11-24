@@ -15,6 +15,11 @@ system. Run this only to change the lettering; it rewrites
                                   from 128 px up (the smaller ones are drawn
                                   for their own pixel grid: tools/make-small-icons.py)
     ike/resources/wordmark.svg    the full name, in the colour of the text around it
+                                  (1.1.24: the K of KONTROL is its own path, class "k", so
+                                  the page can colour it)
+
+The K of the logo and the K of "Kontrol" are the one accent: a light cyan from the
+shield's own palette (the edge's light stop, #7df3ff). The other letters keep their colour.
 
 Needs fontTools and PyQt6 (QtSvg) on the computer that runs it, not at run
 time. The font file is the variable Orbitron of
@@ -45,6 +50,11 @@ NAME_CAP_HEIGHT = 100.0       # the wordmark's own units; it is scaled where it 
 
 PNG_SIZES = {"data/icons": (128, 256, 512), "ike/resources/icons": (128, 256)}
 LETTERING_ID = "lettering"
+LETTERING_K_ID = "lettering-k"
+K_COLOUR = "#7df3ff"          # the shield edge's light stop
+LETTER_COLOUR = "#eafcff"
+LOGO_K_INDEX = LOGO_TEXT.index("K")
+NAME_K_INDEX = NAME_TEXT.index("K")
 
 
 def _num(v):
@@ -101,15 +111,18 @@ def _font(path, weight):
     return font
 
 
-def lettering(font_path, text, weight, tracking, cap_height, space=None):
-    """(path data, width, height) of `text`: the capitals `cap_height` tall,
-    the top left corner of the lettering at 0, 0."""
+def lettering(font_path, text, weight, tracking, cap_height, space=None, apart=None):
+    """(path data, left, top, right, bottom) of `text`: the capitals `cap_height` tall,
+    the top left corner of the lettering at 0, 0. With `apart` (the index of one
+    letter) the result has the path data of that letter as a sixth item, and the
+    first one holds all the others."""
     from fontTools.pens.recordingPen import DecomposingRecordingPen
     font = _font(font_path, weight)
     glyphs, cmap, hmtx = font.getGlyphSet(), font.getBestCmap(), font["hmtx"]
     scale = cap_height / font["OS/2"].sCapHeight
     pen = _Path()
     pen.scale, pen.dy = scale, cap_height
+    main_out, apart_out = pen.out, []
     x = 0.0
     last = len(text) - 1
     for i, ch in enumerate(text):
@@ -121,12 +134,15 @@ def lettering(font_path, text, weight, tracking, cap_height, space=None):
         if i == 0:
             x -= lsb                              # start at the ink, not at the side bearing
         pen.dx = x * scale
+        pen.out = apart_out if i == apart else main_out
         rec = DecomposingRecordingPen(glyphs)
         glyphs[name].draw(rec)
         rec.replay(pen)
         x += advance + (tracking if i != last else 0)
     left, top, right, bottom = pen.box
-    return " ".join(pen.out), left, top, right, bottom
+    if apart is None:
+        return " ".join(main_out), left, top, right, bottom
+    return " ".join(main_out), left, top, right, bottom, " ".join(apart_out)
 
 
 def _shift(d, dx, dy, scale=1.0):
@@ -136,22 +152,25 @@ def _shift(d, dx, dy, scale=1.0):
 
 
 def logo_path(font_path):
-    d, left, top, right, bottom = lettering(font_path, LOGO_TEXT, LOGO_WEIGHT, LOGO_TRACKING,
-                                            LOGO_CAP_HEIGHT)
+    d, left, top, right, bottom, k = lettering(font_path, LOGO_TEXT, LOGO_WEIGHT, LOGO_TRACKING,
+                                               LOGO_CAP_HEIGHT, apart=LOGO_K_INDEX)
     width, height = right - left, bottom - top
     scale = min(1.0, LOGO_MAX_WIDTH / width)
     px, py, pw, ph = PLATE
     dx = px + (pw - width * scale) / 2 - left * scale
     dy = py + (ph - height * scale) / 2 - top * scale
-    return _shift(d, dx, dy, scale)
+    return _shift(d, dx, dy, scale), _shift(k, dx, dy, scale)
 
 
 def write_logo(font_path):
     target = ROOT / "ike/resources/ike.svg"
     svg = target.read_text("utf-8")
-    new = '<path id="%s" fill="#eafcff" d="%s"/>' % (LETTERING_ID, logo_path(font_path))
-    # the lettering is the last path of the drawing
-    svg, n = re.subn(r'<path (?:id="%s" )?fill="#eafcff"[^>]*/>' % LETTERING_ID, lambda m: new, svg)
+    rest, k = logo_path(font_path)
+    new = ('<path id="%s" fill="%s" d="%s"/>\n  <path id="%s" fill="%s" d="%s"/>'
+           % (LETTERING_ID, LETTER_COLOUR, rest, LETTERING_K_ID, K_COLOUR, k))
+    # the lettering is the last two paths of the drawing: I . E and the K
+    svg, n = re.subn(r'<path (?:id="%s" )?fill="#eafcff"[^>]*/>(?:\s*<path id="%s"[^>]*/>)?'
+                     % (LETTERING_ID, LETTERING_K_ID), lambda m: new, svg)
     if n != 1:
         raise SystemExit("the lettering path was not found in %s" % target)
     if "<title>" not in svg:
@@ -162,13 +181,13 @@ def write_logo(font_path):
 
 
 def write_wordmark(font_path):
-    d, left, top, right, bottom = lettering(font_path, NAME_TEXT, NAME_WEIGHT, NAME_TRACKING,
-                                            NAME_CAP_HEIGHT, NAME_SPACE)
-    d = _shift(d, -left, -top)
+    d, left, top, right, bottom, k = lettering(font_path, NAME_TEXT, NAME_WEIGHT, NAME_TRACKING,
+                                               NAME_CAP_HEIGHT, NAME_SPACE, apart=NAME_K_INDEX)
+    d, k = _shift(d, -left, -top), _shift(k, -left, -top)
     svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %s %s" role="img" '
            'aria-label="Internet Kontrol Experience" fill="currentColor">'
-           '<title>Internet Kontrol Experience</title><path d="%s"/></svg>\n'
-           % (_num(right - left), _num(bottom - top), d))
+           '<title>Internet Kontrol Experience</title><path d="%s"/><path class="k" fill="currentColor" d="%s"/></svg>\n'
+           % (_num(right - left), _num(bottom - top), d, k))
     (ROOT / "ike/resources/wordmark.svg").write_text(svg, "utf-8")
 
 

@@ -233,10 +233,14 @@ The one place an external integrated component is declared: its upstream
 (git with a tag pattern, npm or PyPI), the files it produces, an existing
 builder of I.K.E.'s or a plain download with its sha256, its licence file and
 the test categories it needs (never fewer than the default, `no-regression`
-among them). Dark Reader and uBlock Origin's scriptlets are declared there;
-`tools/update-candidates.py` and `tools/check-components.py` read it, so a
-new entry gets its candidate `automation/update/<id>` and the whole chain
-with no change of code. A plain download is made only when the entry's own
+among them). Dark Reader and uBlock Origin's scriptlets are declared there,
+and since 1.1.24 KDE's Breeze icons (`breeze-icons`: the icons I.K.E. uses,
+built by `tools/build-breeze-icons.py` from breeze-icons' newest release tag;
+only a change of those icons makes an update, and a release that lost one of
+them is refused and kept at the version in use, as it has no patches an AI
+could re-anchor); `tools/update-candidates.py` and `tools/check-components.py`
+read it, so a new entry gets its candidate `automation/update/<id>` and the
+whole chain with no change of code. A plain download is made only when the entry's own
 version, downloaded again, gives exactly the file the repository has; hosts
 are limited to GitHub, npm, PyPI and crates.io over HTTPS. **The inventory
 guard** (`tests/test_inventory_guard.py`) fails when a file that looks like

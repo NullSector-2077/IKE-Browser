@@ -89,6 +89,33 @@ Downgrades were already refused (only a newer version than the running or
 staged one is installed), and every payload is checked against the signed
 SHA-256 before it is unpacked.
 
+## The web engine's advisory: "Update the system" (1.1.24)
+
+The web engine is the system's `qt6-webengine`; I.K.E. cannot update it. When
+a security problem of the engine is published and fixed in a newer version,
+the owner writes `data/engine-advisory.json` before signing a release:
+
+```json
+{"id": "CVE-2026-0000", "qtwebengine": "6.12.1", "chromium_security": "158.0.7444.59"}
+```
+
+`qtwebengine` is the first Qt WebEngine version with the fix,
+`chromium_security` the first Chromium security patch level with it
+(`qWebEngineChromiumSecurityPatchVersion`); either may be left out.
+`tools/make-release.py` validates the file (`ike/advisory.py`, `clean`) and
+signs it into every channel's manifest as `engine_advisory`; a file that is
+not exactly of this form stops the release. Without the file the field is
+absent and nothing is shown.
+
+The updater reads the field only from a manifest whose signature, channel
+and expiry were verified (`_Worker.advisory`), during the check it already
+makes once a day: no other request and no other schedule. I.K.E. keeps the
+last advisory in its settings (`engine_advisory`, emptied by a manifest
+without one) and, once per session while the installed engine is older than
+every version the advisory names, shows "Update the system" with the plain
+command `sudo pacman -Syu` (also as a desktop notification). Remove the file
+once Arch ships the fix, so later releases stop naming it.
+
 ## The signing key
 
 Generated once by the owner, on the owner's computer (fish shell):
