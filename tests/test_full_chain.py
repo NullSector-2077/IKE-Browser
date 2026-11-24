@@ -773,6 +773,10 @@ def test_the_expected_skips_are_environmental_and_an_unexpected_one_still_blocks
             "installs it): not verified")
     for reason in real:
         assert tc.unexpected_skips([{"test": "t", "reason": reason}]) == [], reason
+    # 1.1.24: the tab mark drawn as Breeze draws it runs on Arch only (Ubuntu's runners have no Breeze);
+    # unregistered, it held every update of 2026-11-24 back (#149, #150)
+    assert tc.unexpected_skips([{"test": "t", "reason": "Breeze (the widget style) is not installed here"}]) == []
+    assert tc.unexpected_skips([{"test": "t", "reason": "Breeze (the widget style) is not installed here, so"}])
     # strict: what GitHub's runners do run (the IPv6 loopback is there) still blocks when skipped
     for reason in ("ffmpeg not installed", "flaky", "", "not verified", "no IPv6 loopback on this machine",
                    "the desktops are tested elsewhere", "optional dependency x is not installed here"):
