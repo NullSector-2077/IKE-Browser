@@ -35,6 +35,12 @@
 # informational comment and is tried again (the automatic fix with the reason, a rebuild from main,
 # main merged in with the conflicts as main's; the daily check judges every open one again). Only an
 # open security finding still blocks and names the owner.
+#
+# The merged head branch is deleted right after the merge (2026-11-24; GitHub's own setting does not
+# fire for a merge by github-actions[bot]): only an isolated candidate (automation/update/<id>,
+# automation/builder/<id>) whose tip is still the merged commit; automation/autofix-main,
+# automation/daily-maintenance, automat/memory and everything else stay (tools/branch-sweep.py, which
+# also sweeps the rest once a week: branch-sweep.yml).
 name: Merge green fixes
 
 on:
@@ -61,7 +67,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
-      contents: write          # the merge of a fully verified pull request of the automation; its refresh (its own branch)
+      contents: write          # the merge of a fully verified pull request of the automation; its refresh (its own branch); its head branch deleted after the merge
       pull-requests: write     # ready for review, the one comment
       issues: read             # its own earlier comment, the security issues, the maintenance ledger
       actions: write           # the runs and test results of the commit; Arch on it; main's tests after the merge; the others judged again
@@ -90,26 +96,68 @@ jobs:
           AUTOMAT_TIER_B: ${{ vars.AUTOMAT_TIER_B }}
           AUTOMAT_CHATGPT_AUTOMERGE: ${{ vars.AUTOMAT_CHATGPT_AUTOMERGE }}
         run: python3 -I tools/automerge.py --repo "${{ github.repository }}" --sha "$SHA"
+
       # AUTOMAT's memory (tools/automat-memory.py, the data branch automat/memory): the fix that was merged
-      # solved its error; a later error with the same signature gets it as a hint. No AI here.
+      # solved its error; a later error with the same signature gets it as a hint. Since 2026-11-24 also: any
+      # merge of the automation ends its branch's row of failures, and a pull request that was closed after
+      # its row's last failure marks the row closed (never deleted: the count of failures in a row stays;
+      # never a long-lived branch such as automation/autofix-main), so that the priority of the free quotas
+      # does not wait for work that is over (read with GET calls: tools/ai-quota.py pending). No concurrency
+      # group (GitHub would cancel a waiting record, the automatic fix's own or a merged hint, when a third
+      # one arrives): git orders the writers. The record is made from the branch's newest commit and pushed
+      # only when it changed something; a push that is not a fast-forward, or a fetch that failed, is made
+      # again (six tries), and a record that could not be written is a visible warning. No AI here.
       - name: AUTOMAT's memory of the fix that was merged
-        if: steps.merge.outputs.merged != ''
+        if: always()
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           COMPONENT: ${{ steps.merge.outputs.merged }}
         run: |
-          case "$COMPONENT" in automation/*) ;; *) exit 0 ;; esac
+          case "$COMPONENT" in automation/*|"") ;; *) exit 0 ;; esac
           auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
           remote="https://github.com/$GITHUB_REPOSITORY"
           data="$RUNNER_TEMP/memory-branch"
-          git init -q "$data"
-          cd "$data"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch -q --depth 1 "$remote" refs/heads/automat/memory 2> /dev/null || exit 0
-          git checkout -q -B data FETCH_HEAD
-          python3 -I "$GITHUB_WORKSPACE/tools/automat-memory.py" merged --memory memory.json --component "$COMPONENT"
-          git add memory.json
-          git -c core.hooksPath=/dev/null commit -q -m "AUTOMAT's memory: $COMPONENT merged" || exit 0
-          git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" push -q "$remote" HEAD:refs/heads/automat/memory
+          # one record, made from the newest commit of the data branch: 0 written (or nothing to write),
+          # 1 not pushed (the branch moved meanwhile), 2 the branch could not be read; 1 and 2 are tried again
+          record() {
+            cd "$GITHUB_WORKSPACE"
+            rm -rf "$data"
+            git init -q "$data"
+            cd "$data"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git fetch -q --depth 1 "$remote" refs/heads/automat/memory 2> /dev/null || return 2
+            git checkout -q -B data FETCH_HEAD
+            if [ -n "$COMPONENT" ]; then
+              python3 -I "$GITHUB_WORKSPACE/tools/automat-memory.py" merged --memory memory.json --component "$COMPONENT" \
+                || return 2
+            fi
+            # the closed pull requests (GET), judged against this commit's rows (their last failures)
+            rm -f "$RUNNER_TEMP/pending.json"
+            if python3 -I "$GITHUB_WORKSPACE/tools/ai-quota.py" pending --repo "$GITHUB_REPOSITORY" --memory memory.json \
+                 --no-runs --out "$RUNNER_TEMP/pending.json"; then
+              python3 -I "$GITHUB_WORKSPACE/tools/automat-memory.py" closed --memory memory.json --closed "$RUNNER_TEMP/pending.json"
+            fi
+            # a run that merged nothing and closed nothing writes nothing
+            if [ -z "$(git status --porcelain -- memory.json)" ]; then
+              echo "nothing to write"
+              return 0
+            fi
+            git add memory.json
+            git -c core.hooksPath=/dev/null commit -q -m "AUTOMAT's memory: ${COMPONENT:-closed pull requests} merged or closed"
+            git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" push -q "$remote" HEAD:refs/heads/automat/memory \
+              || return 1
+          }
+          for attempt in 1 2 3 4 5 6; do
+            code=0
+            record || code=$?
+            if [ "$code" = 0 ]; then exit 0; fi
+            if [ "$code" = 2 ]; then
+              echo "the data branch could not be read (attempt $attempt): once more"
+            else
+              echo "the data branch moved meanwhile (attempt $attempt): made again from its newest commit"
+            fi
+            sleep $((attempt * 4 + RANDOM % 7))
+          done
+          echo "::warning title=AUTOMAT's memory::not written after 6 tries: ${COMPONENT:-the closed pull requests} not recorded on automat/memory"

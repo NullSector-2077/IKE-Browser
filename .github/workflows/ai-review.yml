@@ -60,6 +60,23 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.event.inputs.sha }}
         run: python3 -I tools/ai-review.py prepare --repo "$GITHUB_REPOSITORY" --sha "$SHA" --out "$RUNNER_TEMP/review"
+      # real updates first (2026-11-24): the security fixes and real updates pending now (GET calls only;
+      # tools/ai-quota.py pending), for the reviewers' budget: the reviews of the CI's and background work wait
+      # for them. Fail closed: when GitHub could not be read the list is "unknown" and those reviews wait too
+      - name: The real updates pending now
+        if: steps.prepare.outputs.review == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git fetch -q --depth 1 origin automat/memory 2> /dev/null; then
+            git show FETCH_HEAD:memory.json > "$RUNNER_TEMP/memory.json" 2> /dev/null || true
+          fi
+          pending=unknown
+          if out=$(python3 -I tools/ai-quota.py pending --repo "$GITHUB_REPOSITORY" --memory "$RUNNER_TEMP/memory.json"); then
+            case "$out" in *[!A-Za-z0-9._/,-]*) ;; *) pending="$out" ;; esac
+          fi
+          if [ "$pending" = unknown ]; then echo "::warning::the pending real updates could not be read (unknown)"; fi
+          printf '%s' "$pending" | tr ',' '\n' > "$RUNNER_TEMP/review/pending"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: steps.prepare.outputs.review == 'true'
         with:
@@ -103,7 +120,8 @@ jobs:
           AUTOFIX_ZAI_MODELS: ${{ vars.AUTOFIX_ZAI_MODELS }}
           AUTOFIX_OPENROUTER_MODELS: ${{ vars.AUTOFIX_OPENROUTER_MODELS }}
         run: |
-          python3 -I tools/ai-review.py review --dir "$RUNNER_TEMP/review" --quota-state "$RUNNER_TEMP/quota.json"
+          python3 -I tools/ai-review.py review --dir "$RUNNER_TEMP/review" --quota-state "$RUNNER_TEMP/quota.json" \
+            --quota-pending "$RUNNER_TEMP/review/pending"
           # never hand over a key: the result holds verdicts and short reasons only (and the use of the
           # quotas: numbers)
           python3 -I - "$RUNNER_TEMP/review/result.json" "$RUNNER_TEMP/review/usage.json" <<'PY'
