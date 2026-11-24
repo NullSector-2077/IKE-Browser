@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.25
+
+- Dark Reader (engine and lists): 4.9.135, lists 16a1eccbfa (2026-11-21) -> 4.9.135, lists 586f4b900d (2026-11-24) (lists changed)
+
 ## 1.1.24
 
 - **Stronger audio fingerprinting protection**: each sample the engine renders
