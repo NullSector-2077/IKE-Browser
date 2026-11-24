@@ -4,6 +4,7 @@ import copy
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -701,11 +702,26 @@ def system_accept_language(locale_name=None):
 def engine_language(config):
     """The languages the engine is given: at the global level Maximum,
     en-US for every page and worker (owner's decision for 1.1.20, audit M-7:
-    workers and the engine's own texts gave the real language away);
-    otherwise accept_language()."""
+    workers and the engine's own texts gave the real language away); at the
+    global level Strict the one language Strict shows, as Chrome sends it
+    ("it-IT,it;q=0.9"), so a worker started from a site's own file agrees
+    with the page and the header (1.1.25); otherwise accept_language()."""
     if config["shield_level"] == "maximum":
         return "en-US,en;q=0.9"
+    if config["shield_level"] == "strict":
+        return one_language_header(accept_language(config))
     return accept_language(config)
+
+
+def one_language_header(header):
+    """The first language of an Accept-Language list and its base language
+    after it, as Chrome sends one language: "it-IT,it;q=0.9" (only "it" for
+    a language with no region); en-US when the first one is not a language."""
+    first = (header or "").split(",")[0].split(";")[0].strip() or "en-US"
+    if not re.fullmatch(r"[A-Za-z]{1,8}(-[A-Za-z0-9]{1,8})*", first):
+        first = "en-US"
+    base = first.split("-")[0]
+    return first if base == first else "%s,%s;q=0.9" % (first, base)
 
 
 def accept_language(config):

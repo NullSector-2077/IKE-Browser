@@ -127,7 +127,137 @@ Each with a test in `tests/test_review_fixes.py` that failed before the fix.
 | M-2 | `matchMedia('(min-device-width: Npx)')` gave the real screen size behind Strict's usual one | `device-width`, `device-height`, `device-aspect-ratio` (both syntaxes) answered for the shown size; the query's text kept. Style sheets: see "Known limits of the noise" |
 | L-2 | The noise's site came from a short list of hosting domains: unrelated sites under another one shared their noise | The system's Public Suffix List, as for the rest of I.K.E., given to the page as sorted 24-bit hashes (about 35 KB); a chance match makes a site one label longer, never shared |
 | L-3 | `window.name` written on one site was still there on the next site of the tab | Emptied in a top-level document reached from another site (or from nowhere) on a new navigation, unless a script opened the tab; kept within a site and on a reload |
-| GPU name at Strict | Hidden ("not available" in Cover Your Tracks, about 7.5 bits) | Kept hidden: every Linux renderer name carries the driver's details and is rarer than "not available"; a fixed name of I.K.E.'s would mark its users |
+| GPU name at Strict | Hidden ("not available" in Cover Your Tracks, about 7.5 bits) | Kept hidden: every Linux renderer name carries the driver's details and is rarer than "not available"; a fixed name of I.K.E.'s would mark its users (still so in 1.1.25: no name, with one shared set of extensions and limits, below) |
+
+## Fingerprinting: the sites' own checks (1.1.25)
+
+A run of the real browser against browserleaks.com and CreepJS (the owner's
+decisions of 2026-11-24), then an independent adversarial review of the
+result (three rounds). Each point with a test in `tests/test_fingerprint_125.py`
+or `tests/test_fingerprint_125_workers.py` (the review's own probes, in
+`tests/data/fingerprint-125/`) that failed before the fix.
+
+| Point | Was | Now |
+|---|---|---|
+| Client hints, every level | Service and shared workers get the engine's own client hints, never the profile's: "Chromium" only, the engine's full version and the real kernel (6.18.44) where the page said "Google Chrome", 140.0.0.0 and 6.0.0 | The profile keeps the engine's own brand list, versions and order (nothing is set over them, at Strict either: Qt sorts a list it is given, and frames, headers and shared workers came in two orders); the engine leaves the kernel out (`ReduceUserAgentDataLinuxPlatformVersion`; the platform version is empty everywhere). At Strict and Maximum the major version (140.0.0.0) is given by the request check and by the scripts of pages and workers |
+| Service and shared workers from a file, Strict and Maximum | Started, with the engine's own values and no protection | Not started: their script is refused in the request check, in every frame and worker (`register()` fails as when the script cannot be fetched); one registered before at a lower level is unregistered |
+| Dedicated workers from a file, Strict and Maximum (also a site set to Strict by itself) | No protection at all: the real card, limits and extensions, canvas without noise, the installed fonts, the real network, the full version, every language | Started from a blob address holding the protection, which then runs the site's script with its real address: a classic script by the engine's own `importScripts` (its fetch, its type check, its "use strict"; the page does not wait for it), a module by `import()`, the messages the page posts before the module has run held and delivered to it in order. Inside, the location, `importScripts`, `fetch`, `Request`, `XMLHttpRequest`, `WebSocket`, `EventSource` and nested workers read relative addresses against the file's; a syntax error, an exception or a missing script reach the page as before, with the site's address; nested workers and workers in frames of other sites the same; a sandboxed frame (an opaque origin) gets none, as with the engine. Where a content security policy refuses blob workers, the worker the page asked for is refused by the request check, as when its script cannot be fetched, and the page sees no policy report of the protection's: it never runs without the protection. Balanced: unchanged |
+| Plugins, Strict | Chrome's five PDF viewers plus two invented ones with no type (CreepJS: "missing mimetype") | Chrome's own five, with their two types, the same for everyone (Balanced keeps the invented ones) |
+| WebGL, Strict | `getParameter` of the debug enums gave null with no error (Chrome raises INVALID_ENUM), a random part of the extensions hidden with the real limits (CreepJS: "suspicious capabilities") | No card name (the owner's choice, as before): `WEBGL_debug_renderer_info` is not offered, and the debug enums give the engine's own INVALID_ENUM and null. A fixed list of extensions every common desktop card has, never one the real context lacks, never enabled otherwise (`WEBGL_debug_shaders` no longer offered); a fixed floor of limits (table below), never above the real one; plain colours read back exactly (`readPixels`). The same in pages, frames, workers and WebGL 2; WebGPU gives no adapter |
+| Canvas, Strict | The noise changed pixels of plain colours: CreepJS reads back single pixels it drew ("pixel data modified"); the page's own pixels (`putImageData`) came back changed | A canvas whose pixels all came from solid, opaque, whole-pixel rectangles, from `putImageData` or from another such canvas copied unscaled at a whole pixel is read back exactly; a `putImageData` that covers the whole canvas makes it exact again. Elsewhere only opaque pixels at an edge get noise (a pixel with the colour of its four neighbours never), and a pixel's noise depends on the canvas, not on the part read. No size is exempt (review point LOW-11): small canvases with the noise left out could be put together into any picture, a piece at a time |
+| Text widths, Strict | The noise depended on the text and the font's name: two fonts that are not installed measured differently (Chrome: the same) | The noise depends on the real width alone, in pages and workers; `measureText` is no longer wrapped |
+| Fonts found by measuring text, Strict (review round 3) | A frame of the site's own found every installed font (its first page keeps the window of its empty document, which the page around had protected, and the fonts of the new document were not masked); once the font check had run (some seconds after a start) its list masked "Monospace", the engine's own name for monospace, and a worker's monospace became another font: workers no longer found Times New Roman where the page did | The new document of such a frame is masked by the protection that protected its window; "Monospace" is never masked (like Arial or Times New Roman, every system answers to it); the page, its frames and every kind of worker find the same fonts (`test_every_context_finds_the_same_fonts`) |
+| Languages, Strict | `navigator.languages` ["it-IT"], the header "it-IT,it;q=0.9", Intl "it" | ["it-IT", "it"], as the header; at the global level Strict the engine is given the same. Intl keeps the engine's "it": Chrome's default locale for Intl is its own interface language, not the first accepted language (the same engine code here). Balanced: inline workers carry the page's list too |
+| Network, Strict | JavaScript rtt 0 and a downlink of about 9.5, the client hints 100 and about 1.7 | 4g, 50 ms, 10 Mbit/s in pages, workers and the hints a site asked for. Balanced leaves the engine's values (an iframe's navigation can carry other ones in its headers) |
+
+**The WebGL floor at Strict** (`fingerprint.js`, `GLX.lim`). Every value is
+one that every common desktop card (Intel on Mesa from Ivy Bridge on, AMD on
+Mesa, NVIDIA's own driver, the llvmpipe software renderer) meets, so all of
+them report the same; where a number comes from: "ES3" is the minimum
+OpenGL ES 3.0 asks of every implementation, "llvmpipe" was measured on the
+test computer, "Mesa"/"NVIDIA" are from public reports and memory (not
+measured here).
+
+| Limit | Floor | Source |
+|---|---|---|
+| MAX_TEXTURE_SIZE, MAX_CUBE_MAP_TEXTURE_SIZE, MAX_RENDERBUFFER_SIZE, MAX_VIEWPORT_DIMS | 16384 | llvmpipe; Intel Gen7+, AMD, NVIDIA from memory |
+| MAX_VERTEX_ATTRIBS, MAX_VERTEX/TEXTURE_IMAGE_UNITS, SUBPIXEL_BITS | 16, 16, 16, 4 | ES3 |
+| MAX_COMBINED_TEXTURE_IMAGE_UNITS | 32 | ES3 |
+| MAX_VERTEX_UNIFORM_VECTORS, MAX_FRAGMENT_UNIFORM_VECTORS | 1024 | llvmpipe (Mesa's common value, from memory) |
+| MAX_VERTEX/FRAGMENT_UNIFORM_COMPONENTS | 4096 | the vectors x 4 |
+| MAX_VARYING_VECTORS, MAX_VARYING_COMPONENTS, MAX_VERTEX_OUTPUT_COMPONENTS, MAX_FRAGMENT_INPUT_COMPONENTS | 15, 60, 64, 60 | ES3 |
+| ALIASED_LINE_WIDTH_RANGE, ALIASED_POINT_SIZE_RANGE | [1, 1], [1, 255] | ES3; Mesa Intel 255.875, llvmpipe 256 |
+| MAX_TEXTURE_MAX_ANISOTROPY_EXT, MAX_DRAW_BUFFERS, MAX_COLOR_ATTACHMENTS | 16, 8, 8 | llvmpipe; desktop cards from memory |
+| MAX_3D_TEXTURE_SIZE, MAX_ARRAY_TEXTURE_LAYERS | 2048 | llvmpipe; desktop cards from memory |
+| MAX_SAMPLES, MAX_UNIFORM_BUFFER_BINDINGS, MAX_UNIFORM_BLOCK_SIZE, MAX_*_UNIFORM_BLOCKS, MAX_COMBINED_UNIFORM_BLOCKS | 4, 24, 16384, 12, 24 | ES3 |
+| MAX_COMBINED_VERTEX/FRAGMENT_UNIFORM_COMPONENTS | 53248 | ES3's formula from the values above |
+| Transform feedback (interleaved, separate attribs, separate components) | 64, 4, 4 | ES3 |
+| MIN/MAX_PROGRAM_TEXEL_OFFSET, MAX_TEXTURE_LOD_BIAS, MAX_ELEMENT_INDEX | -8, 7, 2, 2^24-1 | ES3 |
+| UNIFORM_BUFFER_OFFSET_ALIGNMENT | 256 at least | the largest ES3 allows (a larger alignment is always safe) |
+| MAX_ELEMENTS_VERTICES, MAX_ELEMENTS_INDICES | 3000 | llvmpipe (Mesa's default) |
+
+The extensions offered at Strict, those the real context has among:
+ANGLE_instanced_arrays, EXT_blend_minmax, EXT_color_buffer_float,
+EXT_color_buffer_half_float, EXT_frag_depth, EXT_sRGB,
+EXT_texture_compression_rgtc, EXT_texture_filter_anisotropic,
+KHR_parallel_shader_compile, OES_element_index_uint, OES_fbo_render_mipmap,
+OES_standard_derivatives, OES_texture_float, OES_texture_float_linear,
+OES_texture_half_float, OES_texture_half_float_linear,
+OES_vertex_array_object, WEBGL_color_buffer_float,
+WEBGL_compressed_texture_s3tc, WEBGL_depth_texture, WEBGL_draw_buffers,
+WEBGL_lose_context, WEBGL_multi_draw (every one of them on llvmpipe; on the
+others from memory; in doubt an extension was left out). What a page sees is
+the names that are both in this list and in the real context's: on the
+test computer WebGL 1 shows 22 of the 23 (EXT_color_buffer_float is WebGL
+2's alone) and WebGL 2 shows 9. A card that lacks one of them shows one
+fewer: the list is fixed only as far as the real context allows (an
+extension it does not have is never offered).
+
+**Known limits, not solved.**
+- The real limits can still be found by trying them: `activeTexture` up to
+  the real number of units, a texture or viewport larger than the floor,
+  wide lines. A protection written in JavaScript can only lower what is
+  reported, not what the card does.
+- CreepJS still files the test computer's software WebGL as "suspicious
+  capabilities" (also with the shield off: it compares the limits with a
+  list of real cards, which a floor cannot match exactly), and the 2 x 2
+  picture of curves it knows sometimes as "suspicious pixel data".
+- A pixel-aligned `rect()` + `fill()` (a path) gets the noise at its edges,
+  where Chrome draws it exactly: paths are not followed one by one.
+- A `putImageData` over part of a canvas that has text gets the noise at
+  its edges like the rest of the canvas.
+- Every wrapped function shows a line of the protection's own
+  (`userscript:content`) in a stack read from inside an argument's
+  `valueOf` or `toString` (fewer since 1.1.25: transforms and `measureText`
+  are no longer wrapped, `fillRect` and `getImageData` no longer convert the
+  page's arguments themselves).
+- A site that probes behaviour rather than values (it asks for a texture
+  larger than the reported limit, times a draw, compares a canvas with one
+  drawn again) can still tell the protection is there: the values are
+  lowered, not the card.
+- Stacks: a stack read inside `fillRect`, `getImageData`, WebGL's
+  `getParameter` and `getExtension` and the `Worker` constructor (from an
+  argument's `valueOf`, `toString` or a getter) still has one line of the
+  protection's.
+- Workers from a file at Strict (the review's third round):
+  - their script is fetched by the worker (`importScripts` or `import()`),
+    not by the page as a worker's script: the server sees a script's request
+    (Sec-Fetch-Dest `script` and mode `no-cors` or `cors`, where the engine
+    sends `worker` and `same-origin`; no Referer) and the page's
+    own timeline does not list it (the engine lists it there);
+  - a module worker's imported files are in the worker's own timeline (the
+    engine leaves them out); its own script is not;
+  - a message the page posts to a module worker before the worker's module
+    has run is held and handed to it afterwards, in order, as a new event:
+    `isTrusted` false (the engine's is true), and a stack read in its
+    handler ends with one line of the blob address. A module that waits at
+    its top level (`await`) gets the messages that came meanwhile once it
+    has run, where the engine hands them to the handlers already set, or
+    drops them when none is set;
+  - the bottom line of a stack read in the script's first run is the blob
+    address (one line, under the site's own lines), and a relative
+    `importScripts` puts one line of the protection's between the imported
+    file and the script that imported it;
+  - a file served as `text/plain`: the engine runs it as a worker; at Strict
+    it is refused (`importScripts` asks for a script's type), as when the
+    file is missing;
+  - a page whose content security policy refuses blob workers (`worker-src
+    'self'`) gets no worker at all: the worker is refused, never started
+    without the protection (the owner's choice). The page's own
+    `securitypolicyviolation` event naming the protection is stopped, but
+    the engine's report is not: a policy's `report-uri` or `report-to` and
+    a `ReportingObserver` still receive it, with the blocked address "blob"
+    and the source "userscript" (the protection's own line).
+- At Balanced, a shared or service worker from a file runs without the
+  protection (as before 1.1.25) and shows the engine's own languages (["it"]
+  on the test computer) where the page shows its full list ("it-IT", "it",
+  "en-US", "en"). At Strict and Maximum they are refused.
+- No canvas size is left exact (review point LOW-11, declined): a 2 x 2
+  canvas gets the same noise as any other.
+- A module worker has a noise seed of its own (verification V-3: a module's
+  imports run before the protection and could read the site's seed): its
+  text widths and canvas noise differ from the page's by their noise (a
+  few parts in a million for a width); the fonts it finds are the same.
 
 ## Known limits (not solved)
 

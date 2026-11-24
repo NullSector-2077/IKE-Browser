@@ -1,0 +1,21 @@
+<!doctype html><body><script>
+function T(ms, p) { return Promise.race([p, new Promise(function (ok) { setTimeout(function () { ok('timeout'); }, ms); })]); }
+function wk(url, opt, msg) { return T(8000, new Promise(function (ok) { try { var t = performance.now(); var w = new Worker(url, opt); var dt = performance.now() - t; w.onmessage = function (e) { ok({ ctorMs: Math.round(dt), data: e.data }); }; w.onerror = function (e) { ok({ ctorMs: Math.round(dt), error: [e.message, e.filename, e.lineno, e.colno] }); }; if (msg !== null) w.postMessage(msg || 'go'); } catch (e) { ok('THROW ' + e); } })); }
+window.__run = async function () {
+  var R = {};
+  R.classic = await wk('/w4.js', { name: 'myname' });
+  R.module = await wk('/m4.js', { type: 'module', name: 'modname' }, 'hello-module');
+  R.slowCtor = await wk('/slow.js', undefined);
+  R.throwing = await wk('/throw4.js', undefined, null);
+  R.plainMime = await wk('/plain.txt', undefined, null);
+  R.missing = await wk('/nope.js', undefined, null);
+  R.selfErr = await wk('/selferr.js', undefined, null);
+  R.classicAsModuleSyntax = await wk('/m4.js', undefined, null);
+  R.pageEntries = performance.getEntriesByType('resource').map(function (e) { return e.name.replace(location.origin, '').slice(0, 50) + ':' + e.initiatorType; });
+  // an object whose text is the address, URL object
+  R.urlObj = await wk(new URL('/throw4.js', location), undefined, null);
+  // CSP: meta worker-src self in a frame
+  R.csp = await T(9000, new Promise(function (ok) { addEventListener('message', function h(e) { if (e.data && e.data.csp) ok(e.data.csp); }); var f = document.createElement('iframe'); f.src = '/csp4.html'; document.body.appendChild(f); }));
+  return R;
+};
+</script></body>

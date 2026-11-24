@@ -1540,8 +1540,10 @@ LNA_FEATURES = ("LocalNetworkAccessChecks:LocalNetworkAccessChecksWarn/false",
                 "LocalNetworkAccessForNavigations", "LocalNetworkAccessChecksWebRTC")
 # the storage quota a site is told: a fixed 10 GiB for everyone instead of
 # 60 % of the disk, to the byte (fingerprinting audit, M-4); the real limits
-# do not change. Not a graphics switch.
-PRIVACY_FEATURES = ("StaticStorageQuota",)
+# do not change. The Linux kernel's version left out of the client hints
+# (1.1.25): service and shared workers get the engine's own value, never the
+# profile's, and gave the real kernel. Not graphics switches.
+PRIVACY_FEATURES = ("StaticStorageQuota", "ReduceUserAgentDataLinuxPlatformVersion")
 
 
 def split_flags(text):

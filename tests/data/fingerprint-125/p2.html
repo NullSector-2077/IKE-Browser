@@ -1,0 +1,57 @@
+<!doctype html><title>probe2</title><body>
+<script>
+function T(ms, p) { return Promise.race([p, new Promise(function (ok) { setTimeout(function () { ok('timeout'); }, ms); })]); }
+function wk(url, opt) { return T(10000, new Promise(function (ok) { try { var w = new Worker(url, opt); w.onmessage = function (e) { ok(e.data); }; w.onerror = function (e) { ok('ERR ' + (e.message || 'error event')); }; w.postMessage('go'); } catch (e) { ok('THROW ' + e); } })); }
+function mk(w, h) { var c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+async function run() {
+  var R = {};
+  R.fileWorker = await wk('/fw.js');
+  var src = await (await fetch('/fw.js')).text();
+  R.blobWorker = await wk(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+  // the same in the window
+  R.windowSame = await new Promise(function (ok) { var f = new Function('postMessage', src + '; return onmessage;'); try { f(ok)(); } catch (e) { ok('ERR ' + e); } });
+  // known-answer tests, larger
+  var o = {};
+  function twoHalves(prep) { var c = mk(256, 64), x = c.getContext('2d'); prep(x, c); var d = x.getImageData(0, 0, 256, 64).data, bad = 0; for (var i = 0; i < d.length; i += 4) { var q = (i / 4) % 256, e = q < 128 ? [10, 20, 30] : [255, 0, 128]; if (d[i] !== e[0] || d[i + 1] !== e[1] || d[i + 2] !== e[2] || d[i + 3] !== 255) bad++; } return bad; }
+  o.fillRectOnly = twoHalves(function (x) { x.fillStyle = '#0a141e'; x.fillRect(0, 0, 128, 64); x.fillStyle = '#ff0080'; x.fillRect(128, 0, 128, 64); });
+  o.rectPath = twoHalves(function (x) { x.fillStyle = '#0a141e'; x.beginPath(); x.rect(0, 0, 128, 64); x.fill(); x.fillStyle = '#ff0080'; x.beginPath(); x.rect(128, 0, 128, 64); x.fill(); });
+  o.afterSaveRestore = twoHalves(function (x) { x.save(); x.fillStyle = '#0a141e'; x.fillRect(0, 0, 128, 64); x.restore(); x.fillStyle = '#ff0080'; x.fillRect(128, 0, 128, 64); });
+  o.afterTranslate0 = twoHalves(function (x) { x.translate(0, 0); x.fillStyle = '#0a141e'; x.fillRect(0, 0, 128, 64); x.fillStyle = '#ff0080'; x.fillRect(128, 0, 128, 64); });
+  o.rgbSyntax = twoHalves(function (x) { x.fillStyle = 'rgb(10 20 30)'; x.fillRect(0, 0, 128, 64); x.fillStyle = 'hsl(330 100% 50%)'; x.fillRect(128, 0, 128, 64); });
+  o.drawImageOfFlat = twoHalves(function (x) { var s = mk(256, 64), y = s.getContext('2d'); y.fillStyle = '#0a141e'; y.fillRect(0, 0, 128, 64); y.fillStyle = '#ff0080'; y.fillRect(128, 0, 128, 64); x.drawImage(s, 0, 0); });
+  o.putImageData = twoHalves(function (x) { var id = x.createImageData(256, 64); for (var i = 0; i < id.data.length; i += 4) { var q = (i / 4) % 256, e = q < 128 ? [10, 20, 30] : [255, 0, 128]; id.data[i] = e[0]; id.data[i + 1] = e[1]; id.data[i + 2] = e[2]; id.data[i + 3] = 255; } x.putImageData(id, 0, 0); });
+  o.stripes1px = (function () { var c = mk(256, 64), x = c.getContext('2d'), id = x.createImageData(256, 64); for (var i = 0; i < id.data.length; i += 4) { var q = (i / 4) % 256, v = (q & 1) ? 255 : 0; id.data[i] = v; id.data[i + 1] = v; id.data[i + 2] = v; id.data[i + 3] = 255; } x.putImageData(id, 0, 0); var d = x.getImageData(0, 0, 256, 64).data, bad = 0; for (i = 0; i < d.length; i++) if (d[i] !== id.data[i]) bad++; return bad + ' of ' + d.length; })();
+  o.width1Reset = twoHalves(function (x, c) { x.font = '10px Arial'; x.fillText('x', 5, 20); c.width = 256; x.fillStyle = '#0a141e'; x.fillRect(0, 0, 128, 64); x.fillStyle = '#ff0080'; x.fillRect(128, 0, 128, 64); });
+  // toDataURL of a known picture against the exact PNG pixels (decoded by an <img> into ... a canvas: same noise path), so compare toDataURL of flat vs rich with the same pixels
+  (function () { var a = mk(64, 64), x = a.getContext('2d'); x.fillStyle = '#0a141e'; x.fillRect(0, 0, 32, 64); x.fillStyle = '#ff0080'; x.fillRect(32, 0, 32, 64);
+    var b = mk(64, 64), y = b.getContext('2d'); y.fillStyle = '#0a141e'; y.beginPath(); y.rect(0, 0, 32, 64); y.fill(); y.fillStyle = '#ff0080'; y.beginPath(); y.rect(32, 0, 32, 64); y.fill();
+    o.dataURLFlatVsRichSamePixels = a.toDataURL() === b.toDataURL(); })();
+  // noise visible? how many pixels of a text picture change vs the true one: draw text, read (noisy), compare with a read through a file worker (true pixels) -> done by hash above
+  // WebGL flat colour, larger
+  ['webgl', 'webgl2'].forEach(function (k) { try { var c = mk(256, 256), g = c.getContext(k, { preserveDrawingBuffer: true }); g.clearColor(0.2, 0.4, 0.6, 1); g.clear(g.COLOR_BUFFER_BIT); var px = new Uint8Array(256 * 256 * 4); g.readPixels(0, 0, 256, 256, g.RGBA, g.UNSIGNED_BYTE, px); var bad = 0; for (var i = 0; i < px.length; i += 4) if (px[i] !== 51 || px[i + 1] !== 102 || px[i + 2] !== 153 || px[i + 3] !== 255) bad++; o['glFlat_' + k] = bad + ' of 65536';
+      var x2 = mk(256, 256).getContext('2d'); x2.drawImage(c, 0, 0); var d = x2.getImageData(0, 0, 256, 256).data; bad = 0; for (i = 0; i < d.length; i += 4) if (d[i] !== 51 || d[i + 1] !== 102 || d[i + 2] !== 153) bad++; o['glFlatVia2D_' + k] = bad;
+      o['glFlatDataURLStable_' + k] = c.toDataURL() === c.toDataURL();
+    } catch (e) { o['glFlat_' + k] = 'ERR ' + e; } });
+  // Error.prepareStackTrace view of the wrappers
+  try { var seen = null, old = Error.prepareStackTrace; var cx = mk(4, 4).getContext('2d');
+    cx.fillRect({ valueOf: function () { Error.prepareStackTrace = function (e, fr) { return fr.map(function (f) { return (f.getFunctionName() || '?') + '@' + f.getFileName() + ' native=' + f.isNative(); }); }; seen = new Error('x').stack; Error.prepareStackTrace = old; return 0; } }, 0, 1, 1); o.callSites = seen; } catch (e) { o.callSites = 'ERR ' + e; }
+  // recursion-depth: frames used by a wrapped call vs an unwrapped native of similar kind
+  try { var depth = function (fn) { var n = 0; (function r() { n++; try { r(); } catch (e) { } })(); return n; };
+  } catch (e) {}
+  // timing of wrapped getters/methods (ns per call)
+  function bench(f) { var t = performance.now(); for (var i = 0; i < 200000; i++) f(); return Math.round((performance.now() - t) * 5); }
+  var g = mk(4, 4).getContext('webgl'), c2 = mk(4, 4).getContext('2d');
+  o.ns = { hc: bench(function () { return navigator.hardwareConcurrency; }), onLine: bench(function () { return navigator.onLine; }), langs: bench(function () { return navigator.languages; }), vendor: bench(function () { return navigator.vendor; }),
+    rtt: bench(function () { return navigator.connection.rtt; }), getParam: g ? bench(function () { return g.getParameter(3379); }) : null, isEnabled: g ? bench(function () { return g.isEnabled(3042); }) : null,
+    fillRect: bench(function () { c2.fillRect(0, 0, 1, 1); }), strokeRect: bench(function () { c2.strokeRect(0, 0, 1, 1); }), rect: bench(function () { c2.rect(0, 0, 1, 1); }) };
+  R.tests = o;
+  // screen / window (per-user?)
+  R.screen = [screen.width, screen.height, screen.availWidth, screen.availHeight, screen.colorDepth, devicePixelRatio, innerWidth, innerHeight, outerWidth, outerHeight, matchMedia('(prefers-color-scheme: dark)').matches, navigator.maxTouchPoints, navigator.pdfViewerEnabled, navigator.webdriver, navigator.vendor, navigator.productSub, navigator.doNotTrack, navigator.globalPrivacyControl, navigator.cookieEnabled, typeof window.chrome, Object.keys(window.chrome || {}).join(',')];
+  try { R.media = (await navigator.mediaDevices.enumerateDevices()).map(function (d) { return d.kind + ':' + d.label + ':' + d.deviceId.length; }); } catch (e) { R.media = 'ERR ' + e; }
+  try { R.voices = speechSynthesis.getVoices().length; } catch (e) {}
+  try { R.quota = (await navigator.storage.estimate()).quota; } catch (e) {}
+  try { R.perm = (await navigator.permissions.query({ name: 'notifications' })).state + '/' + Notification.permission; } catch (e) {}
+  return R;
+}
+window.__run = run;
+</script></body>

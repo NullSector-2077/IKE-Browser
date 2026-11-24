@@ -1,0 +1,15 @@
+<!doctype html><body><script>
+// a sandboxed frame (an opaque origin: the engine refuses a worker from a
+// file there) and a frame of the site's own (1.1.25 test, review round 3)
+function frame(sandbox) {
+  return new Promise(function (ok) {
+    var f = document.createElement('iframe');
+    window.addEventListener('message', function h(e) { if (e.source === f.contentWindow) { removeEventListener('message', h); ok(e.data); } });
+    if (sandbox) f.sandbox = 'allow-scripts';
+    f.src = '/sbxf.html';
+    document.body.appendChild(f);
+    setTimeout(function () { ok('timeout'); }, 8000);
+  });
+}
+window.__run = async function () { return { sandboxed: await frame(true), own: await frame(false) }; };
+</script></body>

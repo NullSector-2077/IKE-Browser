@@ -1,0 +1,201 @@
+<!doctype html><title>probe</title><body><canvas id=c width=64 height=64></canvas>
+<script src="/info.js"></script>
+<script>
+var R = {};
+function T(ms, p) { return Promise.race([p, new Promise(function (ok) { setTimeout(function () { ok('timeout'); }, ms); })]); }
+function wk(url, opt, msg) { return T(10000, new Promise(function (ok) { try { var w = new Worker(url, opt); w.onmessage = function (e) { ok(e.data); }; w.onerror = function (e) { ok('ERR ' + (e.message || 'error event')); }; w.postMessage(msg || 'go'); } catch (e) { ok('THROW ' + e); } })); }
+function frameMsg(tag) { return T(15000, new Promise(function (ok) { addEventListener('message', function h(e) { if (e.data && e.data.frame === tag) { removeEventListener('message', h); ok(e.data.data); } }); })); }
+async function infoSrc() { return await (await fetch('/info.js')).text(); }
+
+function tamper() {
+  var out = {};
+  var list = [
+    ['WebGLRenderingContext.prototype', 'getParameter', 1], ['WebGLRenderingContext.prototype', 'getExtension', 1],
+    ['WebGLRenderingContext.prototype', 'getSupportedExtensions', 0], ['WebGLRenderingContext.prototype', 'readPixels', 7],
+    ['WebGL2RenderingContext.prototype', 'getParameter', 1], ['WebGL2RenderingContext.prototype', 'getInternalformatParameter', 3],
+    ['CanvasRenderingContext2D.prototype', 'getImageData', 4], ['CanvasRenderingContext2D.prototype', 'fillRect', 4],
+    ['CanvasRenderingContext2D.prototype', 'clearRect', 4], ['CanvasRenderingContext2D.prototype', 'fillText', 3],
+    ['CanvasRenderingContext2D.prototype', 'drawImage', 3], ['CanvasRenderingContext2D.prototype', 'translate', 2],
+    ['CanvasRenderingContext2D.prototype', 'measureText', 1],
+    ['HTMLCanvasElement.prototype', 'toDataURL', 0], ['HTMLCanvasElement.prototype', 'getContext', 1],
+    ['Function.prototype', 'toString', 0], ['URL', 'createObjectURL', 1], ['GPU.prototype', 'requestAdapter', 0],
+    ['NavigatorUAData.prototype', 'getHighEntropyValues', 1], ['ServiceWorkerContainer.prototype', 'register', 1]];
+  list.forEach(function (it) {
+    try {
+      var o = eval(it[0]), d = Object.getOwnPropertyDescriptor(o, it[1]), f = d.value, r = [];
+      var s = Function.prototype.toString.call(f);
+      if (s !== 'function ' + it[1] + '() { [native code] }') r.push('toString=' + s.slice(0, 60));
+      if (f.name !== it[1]) r.push('name=' + f.name);
+      if (f.length !== it[2]) r.push('length=' + f.length + ' want ' + it[2]);
+      if ('prototype' in f) r.push('has prototype');
+      var keys = Reflect.ownKeys(f).join(','); if (keys !== 'length,name') r.push('keys=' + keys);
+      if (!(d.writable && d.enumerable && d.configurable) && it[0] !== 'URL' && it[0] !== 'Function.prototype') r.push('desc=' + JSON.stringify([d.writable, d.enumerable, d.configurable]));
+      try { new f(); r.push('new ok'); } catch (e) { if (!/is not a constructor/.test(e.message)) r.push('new: ' + e.message); }
+      try { f.call(undefined); } catch (e) { r.push('call(undefined): ' + e.name + ': ' + e.message + ' || ' + String(e.stack).split('\n').slice(1, 4).join(' | ')); }
+      try { Object.setPrototypeOf(f, f); r.push('proto cycle ok'); } catch (e) { if (e.message !== 'Cyclic __proto__ value') r.push('cycle: ' + e.message); }
+      try { f.arguments; r.push('arguments ok'); } catch (e) {}
+      try { var z = f.caller; r.push('caller ok'); } catch (e) {}
+      out[it[0] + '.' + it[1]] = r;
+    } catch (e) { out[it[0] + '.' + it[1]] = 'ERR ' + e; }
+  });
+  // getters
+  var gl = [['Navigator.prototype', 'languages'], ['Navigator.prototype', 'hardwareConcurrency'], ['Navigator.prototype', 'deviceMemory'], ['Navigator.prototype', 'plugins'],
+    ['NetworkInformation.prototype', 'rtt'], ['NetworkInformation.prototype', 'downlink'], ['NetworkInformation.prototype', 'effectiveType'], ['NetworkInformation.prototype', 'saveData'],
+    ['Screen.prototype', 'width'], ['NavigatorUAData.prototype', 'brands']];
+  gl.forEach(function (it) {
+    try {
+      var d = Object.getOwnPropertyDescriptor(eval(it[0]), it[1]), g = d.get, r = [];
+      var s = Function.prototype.toString.call(g);
+      if (s !== 'function get ' + it[1] + '() { [native code] }') r.push('toString=' + s.slice(0, 60));
+      if (g.name !== 'get ' + it[1]) r.push('name=' + g.name);
+      if ('prototype' in g) r.push('has prototype');
+      if (d.set !== undefined) r.push('has setter');
+      if (!(d.enumerable && d.configurable)) r.push('desc');
+      try { g.call({}); r.push('no throw on wrong this'); } catch (e) { r.push(e.name + ': ' + e.message + ' || ' + String(e.stack).split('\n').slice(1, 3).join(' | ')); }
+      out[it[0] + '.' + it[1]] = r;
+    } catch (e) { out[it[0] + '.' + it[1]] = 'ERR ' + e; }
+  });
+  // stack seen from inside an argument conversion
+  var st = {};
+  function grab(tag) { return { valueOf: function () { st[tag] = String(new Error('x').stack).split('\n').slice(1, 6).join(' | '); return 1; }, toString: function () { st[tag] = String(new Error('x').stack).split('\n').slice(1, 6).join(' | '); return 'OES_texture_float'; } }; }
+  var cv = document.createElement('canvas'), c2 = cv.getContext('2d'), g = document.createElement('canvas').getContext('webgl');
+  try { c2.fillRect(grab('fillRect'), 0, 1, 1); } catch (e) { st.fillRect = 'ERR ' + e; }
+  try { c2.getImageData(grab('getImageData'), 0, 1, 1); } catch (e) { st.getImageData = 'ERR ' + e; }
+  try { c2.translate(grab('translate'), 0); } catch (e) {}
+  if (g) { try { g.getParameter(grab('getParameter')); } catch (e) {} try { g.getExtension(grab('getExtension')); } catch (e) {} }
+  try { new Worker(grab('Worker')); } catch (e) { st.WorkerErr = String(e); }
+  out.argStacks = st;
+  // number of conversions (the engine converts each argument once, left to right)
+  var order = []; function cnt(n) { return { valueOf: function () { order.push(n); return 1; } }; }
+  try { c2.fillRect(cnt('x'), cnt('y'), cnt('w'), cnt('h')); } catch (e) {}
+  out.fillRectOrder = order.join('');
+  order = []; try { c2.getImageData(cnt('x'), cnt('y'), cnt('w'), cnt('h')); } catch (e) {} out.getImageDataOrder = order.join('');
+  // Worker proxy
+  try { out.Worker = [Function.prototype.toString.call(Worker), Worker.name, Worker.length, Reflect.ownKeys(Worker).join(','), Worker.prototype.constructor === Worker,
+    (function () { try { Worker(); } catch (e) { return e.message; } })(), (function () { try { new Worker(); } catch (e) { return e.message + ' || ' + String(e.stack).split('\n').slice(1, 3).join(' | '); } })(),
+    (function () { try { class X extends Worker {} ; return 'extends ok'; } catch (e) { return e.message; } })(),
+    (function () { try { return Object.create(Worker).toString(); } catch (e) { return e.message + ' || ' + String(e.stack).split('\n').slice(1, 3).join(' | '); } })()]; } catch (e) { out.Worker = 'ERR ' + e; }
+  // getParameter enum behaviour
+  if (g) {
+    var eb = {};
+    g.getError(); eb.noExt = [g.getParameter(37446), g.getError()];
+    eb.bad = [g.getParameter(0x1234), g.getError()];
+    eb.noArgs = (function () { try { g.getParameter(); } catch (e) { return e.message; } })();
+    eb.str = [g.getParameter('3379'), g.getError()];
+    eb.big = [g.getParameter(3379 + 4294967296), g.getError()];
+    eb.sym = (function () { try { g.getParameter(Symbol()); } catch (e) { return e.message; } })();
+    eb.extCase = [!!g.getExtension('webgl_debug_renderer_info'), !!g.getExtension('WEBGL_DEBUG_RENDERER_INFO')];
+    eb.extSame = g.getExtension('OES_texture_float') === g.getExtension('OES_texture_float');
+    eb.extNoArgs = (function () { try { g.getExtension(); } catch (e) { return e.message; } })();
+    out.glEnum = eb;
+  }
+  return out;
+}
+
+function canvasTests() {
+  var o = {};
+  function mk(w, h) { var c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+  function diffCount(a, b) { var n = 0; for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) n++; return n; }
+  // 1 solid rect
+  var c = mk(32, 32), x = c.getContext('2d'); x.fillStyle = '#336699'; x.fillRect(0, 0, 32, 32); var d = x.getImageData(0, 0, 32, 32).data, bad = 0;
+  for (var i = 0; i < d.length; i += 4) if (d[i] !== 0x33 || d[i + 1] !== 0x66 || d[i + 2] !== 0x99) bad++; o.solidBad = bad;
+  // 2 checkerboard by fillRect (flat)
+  c = mk(32, 32); x = c.getContext('2d'); for (var yy = 0; yy < 32; yy++) for (var xx = 0; xx < 32; xx++) { x.fillStyle = ((xx + yy) & 1) ? '#ff0000' : '#0000ff'; x.fillRect(xx, yy, 1, 1); }
+  d = x.getImageData(0, 0, 32, 32).data; bad = 0; for (i = 0; i < d.length; i += 4) { var q = i / 4, e = (((q % 32) + ((q / 32) | 0)) & 1); if (d[i] !== (e ? 255 : 0) || d[i + 2] !== (e ? 0 : 255)) bad++; } o.checkerFillRectBad = bad;
+  // 3 putImageData known answer
+  c = mk(32, 32); x = c.getContext('2d'); var id = x.createImageData(32, 32); for (i = 0; i < id.data.length; i += 4) { q = i / 4; id.data[i] = (q * 37) & 255; id.data[i + 1] = (q * 91) & 255; id.data[i + 2] = (q * 13) & 255; id.data[i + 3] = 255; }
+  x.putImageData(id, 0, 0); o.putImageDataDiff = diffCount(x.getImageData(0, 0, 32, 32).data, id.data);
+  // 4 fillRect with rgb() syntax / named colour / alpha / after a no-op translate
+  c = mk(16, 16); x = c.getContext('2d'); x.fillStyle = 'rgb(10,20,30)'; x.fillRect(0, 0, 8, 16); x.fillStyle = 'red'; x.fillRect(8, 0, 8, 16); d = x.getImageData(0, 0, 16, 16).data; bad = 0;
+  for (i = 0; i < d.length; i += 4) { q = (i / 4) % 16; if (q < 8 ? (d[i] !== 10 || d[i + 1] !== 20 || d[i + 2] !== 30) : (d[i] !== 255 || d[i + 1] !== 0 || d[i + 2] !== 0)) bad++; } o.twoRectsBad = bad;
+  c = mk(16, 16); x = c.getContext('2d'); x.translate(0, 0); x.fillStyle = '#0a141e'; x.fillRect(0, 0, 8, 16); x.fillStyle = '#ff0000'; x.fillRect(8, 0, 8, 16); d = x.getImageData(0, 0, 16, 16).data; bad = 0;
+  for (i = 0; i < d.length; i += 4) { q = (i / 4) % 16; if (q < 8 ? (d[i] !== 10 || d[i + 1] !== 20 || d[i + 2] !== 30) : (d[i] !== 255 || d[i + 1] !== 0 || d[i + 2] !== 0)) bad++; } o.afterTranslateBad = bad;
+  // 5 pixel-aligned path fill (rect()+fill(), no antialias needed): exact in Chrome
+  c = mk(16, 16); x = c.getContext('2d'); x.fillStyle = '#0a141e'; x.rect(0, 0, 8, 16); x.fill(); x.beginPath(); x.fillStyle = '#ff0000'; x.rect(8, 0, 8, 16); x.fill(); d = x.getImageData(0, 0, 16, 16).data; bad = 0;
+  for (i = 0; i < d.length; i += 4) { q = (i / 4) % 16; if (q < 8 ? (d[i] !== 10 || d[i + 1] !== 20 || d[i + 2] !== 30) : (d[i] !== 255 || d[i + 1] !== 0 || d[i + 2] !== 0)) bad++; } o.rectPathBad = bad;
+  // 6 drawImage of a flat canvas onto another: exact in Chrome
+  var src = mk(16, 16), sx = src.getContext('2d'); sx.fillStyle = '#0a141e'; sx.fillRect(0, 0, 8, 16); sx.fillStyle = '#ff0000'; sx.fillRect(8, 0, 8, 16);
+  c = mk(16, 16); x = c.getContext('2d'); x.drawImage(src, 0, 0); d = x.getImageData(0, 0, 16, 16).data; bad = 0;
+  for (i = 0; i < d.length; i += 4) { q = (i / 4) % 16; if (q < 8 ? (d[i] !== 10 || d[i + 1] !== 20 || d[i + 2] !== 30) : (d[i] !== 255 || d[i + 1] !== 0 || d[i + 2] !== 0)) bad++; } o.drawImageFlatBad = bad;
+  // 7 text: same text twice on two canvases; and read twice
+  function txt() { var c = mk(200, 40), x = c.getContext('2d'); x.font = '16px Arial'; x.fillText('Cwm fjordbank glyphs vext quiz', 2, 20); return [c, x]; }
+  var a = txt(), b = txt(); o.textTwoCanvasesDiff = diffCount(a[1].getImageData(0, 0, 200, 40).data, b[1].getImageData(0, 0, 200, 40).data);
+  o.textDataURLsEqual = a[0].toDataURL() === b[0].toDataURL();
+  // getImageData vs toDataURL of the same canvas (decode toDataURL through an unprotected path is async; compare 1px reads)
+  var whole = a[1].getImageData(0, 0, 200, 40).data, one = 0, cmp = 0; for (var k = 0; k < 400; k++) { var px = (k * 17) % 200, py = (k * 7) % 40, p1 = a[1].getImageData(px, py, 1, 1).data, off = (py * 200 + px) * 4; cmp++; if (p1[0] !== whole[off] || p1[1] !== whole[off + 1] || p1[2] !== whole[off + 2] || p1[3] !== whole[off + 3]) one++; } o.singlePixelVsWhole = one + '/' + cmp;
+  // 8 idempotence: put noisy data back and read again
+  var first = a[1].getImageData(0, 0, 200, 40); var c8 = mk(200, 40), x8 = c8.getContext('2d'); x8.putImageData(first, 0, 0); o.putBackDiff = diffCount(x8.getImageData(0, 0, 200, 40).data, first.data);
+  // 9 mirror symmetry of the noise: an exactly symmetric image
+  c = mk(32, 8); x = c.getContext('2d'); id = x.createImageData(32, 8); for (yy = 0; yy < 8; yy++) for (xx = 0; xx < 16; xx++) { var v = (xx * 53 + yy * 101) & 255; [xx, 31 - xx].forEach(function (X) { var p = (yy * 32 + X) * 4; id.data[p] = v; id.data[p + 1] = 255 - v; id.data[p + 2] = (v * 3) & 255; id.data[p + 3] = 255; }); }
+  x.putImageData(id, 0, 0); d = x.getImageData(0, 0, 32, 8).data; var asym = 0; for (yy = 0; yy < 8; yy++) for (xx = 0; xx < 16; xx++) { var p = (yy * 32 + xx) * 4, m = (yy * 32 + 31 - xx) * 4; if (d[p] !== d[m] || d[p + 1] !== d[m + 1] || d[p + 2] !== d[m + 2]) asym++; } o.mirrorAsym = asym;
+  // 10 timing: getImageData on a rich vs flat 1000x1000 canvas
+  function timeIt(rich) { var c = mk(1000, 1000), x = c.getContext('2d'); x.fillStyle = '#123456'; x.fillRect(0, 0, 1000, 1000); if (rich) { x.font = '20px Arial'; x.fillText('a', 10, 30); } x.getImageData(0, 0, 1, 1); var t = performance.now(); for (var i = 0; i < 5; i++) x.getImageData(0, 0, 1000, 1000); return (performance.now() - t) / 5; }
+  o.timeFlatMs = timeIt(false); o.timeRichMs = timeIt(true);
+  function time1(rich) { var c = mk(1000, 1000), x = c.getContext('2d'); x.fillStyle = '#123456'; x.fillRect(0, 0, 1000, 1000); if (rich) x.fillText('a', 10, 30); x.getImageData(0, 0, 1, 1); var t = performance.now(); for (var i = 0; i < 300; i++) x.getImageData(i, i, 1, 1); return (performance.now() - t) / 300; }
+  o.time1pxFlatMs = time1(false); o.time1pxRichMs = time1(true);
+  // 11 measureText / font metrics
+  x = mk(10, 10).getContext('2d'); x.font = '16px Arial'; var mt = x.measureText('mmmmmmmmmmlli'); o.measure = [mt.width, mt.actualBoundingBoxAscent, mt.actualBoundingBoxRight, mt.fontBoundingBoxAscent];
+  // 12 float canvas / willReadFrequently / toBlob path left for the async part
+  return o;
+}
+
+async function run() {
+  try { R.tamper = tamper(); } catch (e) { R.tamper = 'ERR ' + e + e.stack; }
+  try { R.canvas = canvasTests(); } catch (e) { R.canvas = 'ERR ' + e + e.stack; }
+  R.window = await collect();
+  R.plugins = { n: navigator.plugins.length, names: Array.from(navigator.plugins).map(function (p) { return p.name + '|' + p.filename + '|' + p.description + '|' + p.length + '|' + Array.from(p).map(function (m) { return m.type + ':' + m.suffixes + ':' + (m.enabledPlugin === p); }).join(','); }),
+    mimes: Array.from(navigator.mimeTypes).map(function (m) { return m.type + '|' + m.suffixes + '|' + m.description + '|' + (m.enabledPlugin && m.enabledPlugin.name); }),
+    pdf: navigator.pdfViewerEnabled, keys: Object.keys(navigator.plugins).join(','), ownNames: Object.getOwnPropertyNames(navigator.plugins).join(','), tag: Object.prototype.toString.call(navigator.plugins),
+    same: navigator.plugins === navigator.plugins, item0: navigator.plugins[0] === navigator.plugins.item(0), named: navigator.plugins['PDF Viewer'] === navigator.plugins.namedItem('PDF Viewer'),
+    proto: Object.getPrototypeOf(navigator.plugins) === PluginArray.prototype, mimeSame: navigator.mimeTypes['application/pdf'] === navigator.plugins[0][0], json: JSON.stringify(navigator.plugins) };
+  // same-origin iframes, read synchronously
+  function syncFrame(make) { var f = document.createElement('iframe'); make(f); document.body.appendChild(f); var w = f.contentWindow, r = {};
+    try { var g = w.document.createElement('canvas').getContext('webgl'), d = g && g.getExtension('WEBGL_debug_renderer_info'); r.gl = g ? [g.getParameter(37446), g.getParameter(g.MAX_TEXTURE_SIZE), g.getSupportedExtensions().length] : null;
+      r.nav = [w.navigator.hardwareConcurrency, w.navigator.deviceMemory, w.navigator.languages.join(','), w.navigator.plugins.length, w.navigator.connection && w.navigator.connection.rtt, w.navigator.userAgentData.brands.map(function (b) { return b.brand; }).join(',')];
+      r.toStr = w.Function.prototype.toString.call(w.WebGLRenderingContext.prototype.getParameter) + ' / ' + Function.prototype.toString.call(w.WebGLRenderingContext.prototype.getParameter) + ' / ' + w.Function.prototype.toString.call(WebGLRenderingContext.prototype.getParameter);
+      var c = w.document.createElement('canvas'); c.width = c.height = 16; var x = c.getContext('2d'), id = x.createImageData(16, 16); for (var i = 0; i < id.data.length; i += 4) { id.data[i] = (i * 7) & 255; id.data[i + 3] = 255; } x.putImageData(id, 0, 0); var b = x.getImageData(0, 0, 16, 16).data, n = 0; for (i = 0; i < b.length; i++) if (b[i] !== id.data[i]) n++; r.putDiff = n;
+    } catch (e) { r.err = String(e); } return r; }
+  R.frames = {};
+  R.frames.blank = syncFrame(function (f) {});
+  R.frames.aboutblank = syncFrame(function (f) { f.src = 'about:blank'; });
+  R.frames.srcdoc = syncFrame(function (f) { f.srcdoc = '<p>x</p>'; });
+  R.frames.jsurl = syncFrame(function (f) { f.src = 'javascript:"<p>x</p>"'; });
+  // async frames with the full collection
+  var src = await infoSrc();
+  var inner = '<script>' + src.replace(/<\//g, '<\\/') + '<\/script><script>collect().then(function(o){parent.postMessage({frame:"TAG",data:o},"*")})<\/script>';
+  var f1 = document.createElement('iframe'); f1.srcdoc = inner.replace('TAG', 'srcdoc'); var p1 = frameMsg('srcdoc'); document.body.appendChild(f1); R.frames.srcdocFull = await p1;
+  var f2 = document.createElement('iframe'); f2.src = 'data:text/html,' + encodeURIComponent(inner.replace('TAG', 'data')); var p2 = frameMsg('data'); document.body.appendChild(f2); R.frames.dataFull = await p2;
+  var f3 = document.createElement('iframe'); f3.src = URL.createObjectURL(new Blob([inner.replace('TAG', 'blob')], { type: 'text/html' })); var p3 = frameMsg('blob'); document.body.appendChild(f3); R.frames.blobFull = await p3;
+  var other = location.hostname === 'localhost' ? '127.0.0.1' : 'localhost';
+  var f4 = document.createElement('iframe'); f4.src = 'http://' + other + ':' + location.port + '/frame.html?x'; var p4 = frameMsg('?x'); document.body.appendChild(f4); R.frames.crossSite = await p4;
+  var f5 = document.createElement('iframe'); f5.src = '/frame.html?s'; var p5 = frameMsg('?s'); document.body.appendChild(f5); R.frames.sameSite = await p5;
+  var f6 = document.createElement('iframe'); f6.sandbox = 'allow-scripts'; f6.src = '/frame.html?sb'; var p6 = frameMsg('?sb'); document.body.appendChild(f6); R.frames.sandboxed = await p6;
+  // workers
+  var body = src + '\ncollect().then(function(o){ postMessage(o); });';
+  R.workers = {};
+  R.workers.blob = await wk(URL.createObjectURL(new Blob([body], { type: 'text/javascript' })));
+  R.workers.data = await wk('data:text/javascript,' + encodeURIComponent(body));
+  R.workers.dataB64 = await wk('data:text/javascript;base64,' + btoa(unescape(encodeURIComponent(body))));
+  R.workers.blobModule = await wk(URL.createObjectURL(new Blob([body], { type: 'text/javascript' })), { type: 'module' });
+  R.workers.blobImport = await wk(URL.createObjectURL(new Blob(["importScripts('" + location.origin + "/info.js'); collect().then(function(o){ postMessage(o); });"], { type: 'text/javascript' })));
+  R.workers.blobNestedFile = await wk(URL.createObjectURL(new Blob(["var w = new Worker('" + location.origin + "/dw.js'); w.onmessage = function(e){ postMessage(e.data); }; w.onerror=function(e){postMessage('ERR '+e.message)}; w.postMessage('go');"], { type: 'text/javascript' })));
+  R.workers.file = await wk('/dw.js');
+  R.workers.fileModule = await wk('/dwm.js', { type: 'module' });
+  R.workers.fileNestedBlob = await wk('/dw.js', undefined, 'nested');
+  // a canvas handed to a file worker
+  R.workers.sharedFile = await T(8000, new Promise(function (ok) { try { var s = new SharedWorker('/shw.js'); s.port.onmessage = function (e) { ok(e.data); }; s.port.start(); s.onerror = function (e) { ok('ERR error event'); }; } catch (e) { ok('THROW ' + e); } }));
+  R.workers.sharedBlob = await T(8000, new Promise(function (ok) { try { var s = new SharedWorker(URL.createObjectURL(new Blob([src + '\nonconnect = function (e) { var p = e.ports[0]; collect().then(function (o) { p.postMessage(o); }); };'], { type: 'text/javascript' }))); s.port.onmessage = function (e) { ok(e.data); }; s.port.start(); s.onerror = function (e) { ok('ERR error event'); }; } catch (e) { ok('THROW ' + e); } }));
+  R.sw = {};
+  try { R.sw.in = 'serviceWorker' in navigator; var t0 = performance.now(); var reg = await navigator.serviceWorker.register('/sw.js'); R.sw.reg = 'ok';
+    var sw = reg.installing || reg.waiting || reg.active;
+    R.sw.data = await T(10000, new Promise(function (ok) { navigator.serviceWorker.onmessage = function (e) { ok(e.data); }; var go = function () { (reg.active || sw).postMessage('hi'); }; if (reg.active) go(); else sw.addEventListener('statechange', function () { if (sw.state === 'activated') go(); }); }));
+  } catch (e) { R.sw.reg = 'ERR ' + e.name + ': ' + e.message; }
+  try { R.sw.regs = (await navigator.serviceWorker.getRegistrations()).length; } catch (e) { R.sw.regs = 'ERR ' + e; }
+  // toBlob / convertToBlob known answer through decode
+  try { var c = document.createElement('canvas'); c.width = c.height = 16; var x = c.getContext('2d'), id = x.createImageData(16, 16); for (var i = 0; i < id.data.length; i += 4) { id.data[i] = (i * 7) & 255; id.data[i + 1] = (i * 3) & 255; id.data[i + 3] = 255; } x.putImageData(id, 0, 0);
+    R.canvas.toDataURLlen = c.toDataURL().length; } catch (e) {}
+  await fetch('/after?' + Math.random());
+  return R;
+}
+window.__run = run;
+</script></body>

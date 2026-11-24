@@ -324,6 +324,43 @@ def _referer(info):
 
 _FULL_VERSION = (b"sec-ch-ua-full-version", b"sec-ch-ua-full-version-list")
 
+# Strict and Maximum (1.1.25): the network a page is told about, one common
+# set for everyone, the same in JavaScript (fingerprint.js, navigator.connection)
+# and in the client hints a site asked for: before, JavaScript said rtt 0 and
+# a downlink of about 9.5 while the headers said 100 and about 1.7.
+_NETWORK_HINTS = {b"rtt": b"50", b"downlink": b"10", b"ect": b"4g"}
+
+# Strict and Maximum (1.1.25, owner's decision of 2026-11-24): no service
+# worker and no shared worker from a site's own file. The engine gives them
+# its own values, never the profile's (the real kernel, the engine's full
+# version, other languages, the real graphics card), and no script of
+# I.K.E.'s can run in them. Their script is refused here, in the engine,
+# whatever frame or worker asks for it: register() fails as when the script
+# cannot be fetched, a shared worker reports an error. Shared workers from
+# blob: addresses get the protection's prelude and are not affected.
+# A dedicated worker from a site's file (1.1.25, independent review) is
+# started by the page's script from a blob address holding the protection
+# and the site's script (fingerprint.js, fromFile); one started any other
+# way (a policy that refuses blob workers, a script that could not be read)
+# is refused here, as when its script cannot be fetched: it never runs
+# without the protection.
+_WORKER_SCRIPTS = frozenset(t for t in (getattr(_RT, n, None) for n in (
+    "ResourceTypeServiceWorker", "ResourceTypeSharedWorker", "ResourceTypeWorker")) if t is not None)
+
+
+def _common_network(info):
+    """The network client hints a site asked for, as JavaScript gives them at
+    Strict and Maximum. Only hints the engine is already sending are changed."""
+    try:
+        headers = info.httpHeaders()
+    except Exception:
+        return
+    for k in headers:
+        name = bytes(k)
+        value = _NETWORK_HINTS.get(name.lower())
+        if value is not None:
+            info.setHttpHeader(name, value)
+
 
 def _reduce_full_version(info):
     """At Strict and Maximum JavaScript gives Chrome's version as 140.0.0.0
@@ -393,11 +430,8 @@ def one_language(cfg):
 
 @functools.lru_cache(maxsize=16)
 def _one_language(header):
-    first = (header or "").split(",")[0].split(";")[0].strip() or "en-US"
-    if not re.fullmatch(r"[A-Za-z]{1,8}(-[A-Za-z0-9]{1,8})*", first):
-        first = "en-US"
-    base = first.split("-")[0]
-    return (first if base == first else "%s,%s;q=0.9" % (first, base)).encode("ascii")
+    from .config import one_language_header
+    return one_language_header(header).encode("ascii")
 
 
 @functools.lru_cache(maxsize=4096)
@@ -614,6 +648,9 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             # PayPal's and Stripe's own parts of a shop (payment buttons and
             # fields, anti-fraud checks): never blocked or changed (1.1.14)
             return
+        if lv >= 3 and rtype in _WORKER_SCRIPTS and cfg.site_opt(first_host, "fp") is not False:
+            info.block(True)           # no worker from a file without the protection (1.1.25)
+            return
         if host == "accounts.google.com" and cfg["login_compat"]:
             # Google refuses sign-in from embedded Chromium engines; it accepts
             # the same request when it comes with a Firefox identity.
@@ -690,6 +727,7 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             info.setHttpHeader(b"Sec-GPC", b"1")
         if lv >= 3 and cfg.site_opt(first_host, "fp") is not False:
             _reduce_full_version(info)
+            _common_network(info)
             if lv >= 4:
                 info.setHttpHeader(b"Accept-Language", b"en-US,en;q=0.9")
             else:
@@ -1145,16 +1183,24 @@ class Shields(QObject):
 
     def _identity(self, profile):
         """Present the engine's own Chrome version, the same in the header, in
-        JavaScript and in the client hints (1.1.14; see chromever)."""
+        JavaScript and in the client hints (1.1.14; see chromever).
+
+        1.1.25: the brand list, the versions and their order are the engine's
+        own (Chromium and its GREASE entry), the ones service and shared
+        workers get: they never see the profile's client hints, and the
+        "Google Chrome" brand I.K.E. added in the page showed that the two
+        lists were made apart. Nothing is set over them at Strict and above
+        either (1.1.25, independent review): Qt sorts a list it is given, so
+        the page's frames, its headers and its shared workers came in two
+        orders; the major version only (140.0.0.0) is given there by the
+        request check (_reduce_full_version) and by the page's and the
+        workers' scripts (fingerprint.js), workers from a site's own file
+        included."""
         if profile.httpUserAgent() != self.user_agent():
             profile.setHttpUserAgent(self.user_agent())
         try:
-            from . import chromever
             hints = profile.clientHints()
-            full = chromever.engine_full()
-            hints.setFullVersionList({"Chromium": full, "Google Chrome": full,
-                                      "Not=A?Brand": "24.0.0.0"})
-            hints.setFullVersion(full)
+            hints.resetAll()                  # the engine's own values, in its own order
             ident = osinfo.identity()
             hints.setPlatform(ident["platform"])
             hints.setPlatformVersion(ident["platform_version"])

@@ -1,0 +1,9 @@
+<!doctype html><script>
+// a frame that starts a worker from a file of the site (1.1.25 test, review round 3)
+try {
+  var k = new Worker('dw.js');
+  k.onmessage = function (e) { parent.postMessage({ frame: 'worker', origin: String(self.origin), ok: !!e.data }, '*'); };
+  k.onerror = function () { parent.postMessage({ frame: 'error event', origin: String(self.origin) }, '*'); };
+  k.postMessage('go');
+} catch (e) { parent.postMessage({ frame: 'THROW ' + e.name, origin: String(self.origin) }, '*'); }
+</script>
