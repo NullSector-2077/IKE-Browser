@@ -148,6 +148,10 @@ EXPECTED_SKIPS = (
     (r"^IKE_FIT_LANGS: one group", "a split run of the same test"),
     (r"^KDE's Breeze icons and platform theme are not installed here|^KDE's theme did not load here"
      r"|^the \S+ style is not installed here|^desktop \w+: ", "arch.yml installs the desktops' themes and runs it"),
+    # 1.1.24 (tests/test_touches_124.py, the tab mark drawn as Breeze draws it): arch.yml installs breeze
+    # and its "Tests (Arch's Qt)" run the whole suite there, where this test runs
+    (r"^Breeze \(the widget style\) is not installed here$",
+     "arch.yml installs breeze and runs it in its Tests (Arch's Qt)"),
     # 2026-11-22, read from a real Tests run on GitHub's runners (run 45020817248 of PR #105, its
     # "What the tests verified"): environmental there, each verified elsewhere
     (r"^the desktops are tested as Arch Linux packages them \(not Arch here\)$",
