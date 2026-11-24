@@ -146,6 +146,7 @@ or `tests/test_fingerprint_125_workers.py` (the review's own probes, in
 | WebGL, Strict | `getParameter` of the debug enums gave null with no error (Chrome raises INVALID_ENUM), a random part of the extensions hidden with the real limits (CreepJS: "suspicious capabilities") | No card name (the owner's choice, as before): `WEBGL_debug_renderer_info` is not offered, and the debug enums give the engine's own INVALID_ENUM and null. A fixed list of extensions every common desktop card has, never one the real context lacks, never enabled otherwise (`WEBGL_debug_shaders` no longer offered); a fixed floor of limits (table below), never above the real one; plain colours read back exactly (`readPixels`). The same in pages, frames, workers and WebGL 2; WebGPU gives no adapter |
 | Canvas, Strict | The noise changed pixels of plain colours: CreepJS reads back single pixels it drew ("pixel data modified"); the page's own pixels (`putImageData`) came back changed | A canvas whose pixels all came from solid, opaque, whole-pixel rectangles, from `putImageData` or from another such canvas copied unscaled at a whole pixel is read back exactly; a `putImageData` that covers the whole canvas makes it exact again. Elsewhere only opaque pixels at an edge get noise (a pixel with the colour of its four neighbours never), and a pixel's noise depends on the canvas, not on the part read. No size is exempt (review point LOW-11): small canvases with the noise left out could be put together into any picture, a piece at a time |
 | Text widths, Strict | The noise depended on the text and the font's name: two fonts that are not installed measured differently (Chrome: the same) | The noise depends on the real width alone, in pages and workers; `measureText` is no longer wrapped |
+| Fonts found by measuring text, Strict (review round 3) | A frame of the site's own found every installed font (its first page keeps the window of its empty document, which the page around had protected, and the fonts of the new document were not masked); once the font check had run (some seconds after a start) its list masked "Monospace", the engine's own name for monospace, and a worker's monospace became another font: workers no longer found Times New Roman where the page did | The new document of such a frame is masked by the protection that protected its window; "Monospace" is never masked (like Arial or Times New Roman, every system answers to it); the page, its frames and every kind of worker find the same fonts (`test_every_context_finds_the_same_fonts`) |
 | Languages, Strict | `navigator.languages` ["it-IT"], the header "it-IT,it;q=0.9", Intl "it" | ["it-IT", "it"], as the header; at the global level Strict the engine is given the same. Intl keeps the engine's "it": Chrome's default locale for Intl is its own interface language, not the first accepted language (the same engine code here). Balanced: inline workers carry the page's list too |
 | Network, Strict | JavaScript rtt 0 and a downlink of about 9.5, the client hints 100 and about 1.7 | 4g, 50 ms, 10 Mbit/s in pages, workers and the hints a site asked for. Balanced leaves the engine's values (an iframe's navigation can carry other ones in its headers) |
 
@@ -227,8 +228,12 @@ extension it does not have is never offered).
   - a module worker's imported files are in the worker's own timeline (the
     engine leaves them out); its own script is not;
   - a message the page posts to a module worker before the worker's module
-    has run is held and handed to it afterwards, in order, as a new event
-    (`isTrusted` false, where the engine's is true);
+    has run is held and handed to it afterwards, in order, as a new event:
+    `isTrusted` false (the engine's is true), and a stack read in its
+    handler ends with one line of the blob address. A module that waits at
+    its top level (`await`) gets the messages that came meanwhile once it
+    has run, where the engine hands them to the handlers already set, or
+    drops them when none is set;
   - the bottom line of a stack read in the script's first run is the blob
     address (one line, under the site's own lines), and a relative
     `importScripts` puts one line of the protection's between the imported
@@ -238,15 +243,21 @@ extension it does not have is never offered).
     file is missing;
   - a page whose content security policy refuses blob workers (`worker-src
     'self'`) gets no worker at all: the worker is refused, never started
-    without the protection (the owner's choice). The page sees no policy
-    report naming the protection; a report the policy sends to the site's
-    server (`report-uri`) is the engine's and may still be sent.
+    without the protection (the owner's choice). The page's own
+    `securitypolicyviolation` event naming the protection is stopped, but
+    the engine's report is not: a policy's `report-uri` or `report-to` and
+    a `ReportingObserver` still receive it, with the blocked address "blob"
+    and the source "userscript" (the protection's own line).
 - At Balanced, a shared or service worker from a file runs without the
   protection (as before 1.1.25) and shows the engine's own languages (["it"]
   on the test computer) where the page shows its full list ("it-IT", "it",
   "en-US", "en"). At Strict and Maximum they are refused.
 - No canvas size is left exact (review point LOW-11, declined): a 2 x 2
   canvas gets the same noise as any other.
+- A module worker has a noise seed of its own (verification V-3: a module's
+  imports run before the protection and could read the site's seed): its
+  text widths and canvas noise differ from the page's by their noise (a
+  few parts in a million for a width); the fonts it finds are the same.
 
 ## Known limits (not solved)
 

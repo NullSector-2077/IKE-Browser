@@ -10,7 +10,7 @@
   'use strict';
   var CFG = __IKE_CFG__;
   // lets instances recognise a protected realm; set below, per site (1.1.18)
-  var SECRET = null;
+  var SECRET = null, SECRET_DOC = null;
   var origToString = Function.prototype.toString;
   // taken before any page script runs: a page that replaces call, bind or
   // Reflect.apply later cannot reach the protection's own calls (1.1.18)
@@ -331,6 +331,7 @@
   } catch (e) {}
   CFG.key = null;                                       // not kept once used
   SECRET = 'ike:' + sha256('realm|' + SITE_KEY).slice(0, 32);
+  SECRET_DOC = SECRET + ':doc';
   var seed = parseInt(SITE_KEY.slice(0, 8), 16) || 1;
   function rng(s) {
     var x = s || 1;
@@ -1943,7 +1944,7 @@
     return cssLocal(`${x}`, FCP);
   }
   var FILLS = hardMap();          // each masked font set -> how to put its masks back
-  var maskedFaces = hardSet(), maskedDocs = hardSet();
+  var maskedFaces = hardSet(), maskedDocs = hardSet(), maskedProtos = hardSet();
   function maskFonts(w) {
     var WPr = w.Promise;            // this realm's, for then()
     var doc = w.document;
@@ -1973,6 +1974,15 @@
     var FSP = Object.getPrototypeOf(set);
     if (!FSP) return;
     var FSP_add = FSP.add, FSP_forEach = FSP.forEach;
+    // a realm that gets a new document (a frame's first page after its empty
+    // one keeps the same window): its wrappers are there, only the new
+    // document's font set is masked (review round 3)
+    if (maskedProtos.has(FSP)) {
+      FILLS.set(set, fill);
+      fill();
+      return;
+    }
+    maskedProtos.add(FSP);
     function visible(target) {
       var out = [];
       RAPPLY(FSP_forEach, target, [function (f) { if (!maskedFaces.has(f)) put(out, out.length, f); }]);
@@ -2057,13 +2067,22 @@
   // ---- one realm ---------------------------------------------------------------
   function install(w) {
     var WPr = w.Promise;            // this realm's, for then()
-    if (!w || isProtected(w)) return;
+    if (!w) return;
+    if (isProtected(w)) {
+      // a frame's first page after its empty document keeps the window and
+      // the realm the page around it protected: the instance that did it
+      // masks the fonts of the new document (review round 3: a frame of the
+      // site found every installed font by measuring text)
+      try { RAPPLY(w.Function.prototype.toString, SECRET_DOC, []); } catch (e) {}
+      return;
+    }
     var doc = w.document;
 
     // Function.prototype.toString: natives stay "[native code]" in every realm
     wrap(w.Function.prototype, 'toString', function (orig) {
       return function () {
         if (this === SECRET) return SECRET;
+        if (this === SECRET_DOC) { if (strict) maskFonts(w); return SECRET_DOC; }
         var s = natives.get(this);
         return s !== undefined ? s : RAPPLY(orig, this, []);
       };
@@ -2658,7 +2677,7 @@
     var ownOrigin = null;
     try { ownOrigin = `${w.origin}`; } catch (e) {}
     function fromFile(url, module) {
-      var x = nConstruct(U, [url, RAPPLY(baseOf, doc, [])]), pr = RAPPLY(uProto, x, []);
+      var x = nConstruct(U, [url, RAPPLY(baseOf, w.document, [])]), pr = RAPPLY(uProto, x, []);
       if ((pr !== 'http:' && pr !== 'https:') || RAPPLY(uOrigin, x, []) !== ownOrigin) return null;
       var abs = RAPPLY(uHref, x, []), js = { type: 'text/javascript' };
       if (module) {

@@ -1,0 +1,22 @@
+<!doctype html><body><script src="/fontsw.js"></script><script>
+// the fonts found by measuring text in the page, a frame and every kind of
+// worker (1.1.25 test, review round 3)
+function T(ms, p) { return Promise.race([p, new Promise(function (ok) { setTimeout(function () { ok('timeout'); }, ms); })]); }
+function ask(w, msg) {
+  return T(8000, new Promise(function (ok) { w.onmessage = function (e) { ok(e.data); }; w.onerror = function (e) { ok('ERR ' + e.message); }; w.postMessage(msg); }));
+}
+window.__run = async function () {
+  var R = {};
+  R.page = found(document.createElement('canvas').getContext('2d'));
+  R.frame = await T(8000, new Promise(function (ok) {
+    addEventListener('message', function (e) { if (e.data && e.data.fontsFrame) ok(e.data.fontsFrame); });
+    var f = document.createElement('iframe'); f.src = '/fontsf.html'; document.body.appendChild(f);
+  }));
+  R.file = await ask(new Worker('/fontsw.js'), 'go');
+  R.module = await ask(new Worker('/fontsw.js', { type: 'module' }), 'go');
+  R.nested = await ask(new Worker('/fontsw.js'), 'nested');
+  var src = await (await fetch('/fontsw.js')).text();
+  R.blob = await ask(new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' }))), 'go');
+  return R;
+};
+</script></body>

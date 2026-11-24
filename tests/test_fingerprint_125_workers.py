@@ -68,6 +68,15 @@ STEPS = r'''
 from PyQt6.QtCore import QUrl
 
 def steps(ike, qapp, out):
+    if CHECK:                   # the font check done first, as some seconds after a start
+        from ike import fontcheck
+        ike.font_check._run()
+        for _ in range(600):
+            if fontcheck.findable() is not None:
+                break
+            yield 50
+        out["findable"] = fontcheck.findable()
+        ike.shields.apply_settings()
     view = ike.windows[0].current_view()
     for key, url in PAGES:
         done = {}
@@ -91,13 +100,15 @@ def steps(ike, qapp, out):
 '''
 
 
-def run(run_ike, port, pages, level, sites=None, gl=True):
+def run(run_ike, port, pages, level, sites=None, gl=True, check=False, raw=None):
     settings = {"shield_level": level}
     if sites:
         settings["site_levels"] = sites
-    script = "PAGES = %r\n" % [(k, u % port) for k, u in pages] + STEPS
+    script = "PAGES = %r\nCHECK = %r\n" % ([(k, u % port) for k, u in pages], check) + STEPS
     out = run_ike(script, settings=settings, env={"QTWEBENGINE_CHROMIUM_FLAGS": GL_FLAGS} if gl else None,
                   timeout=400)
+    if raw is not None:
+        raw.update(out)
     return {k: json.loads(out[k]) for k, u in pages}
 
 
@@ -285,3 +296,22 @@ def test_a_sandboxed_frame_gets_no_worker_from_a_file(run_ike, site):
     assert off["sandboxed"] == {"frame": "THROW SecurityError", "origin": "null"}, off
     assert got["sandboxed"] == off["sandboxed"], (got, off)
     assert got["own"] == off["own"] == {"frame": "worker", "origin": "http://localhost:%d" % site, "ok": True}, (got, off)
+
+
+@pytest.mark.parametrize("level", ["strict", "maximum"])
+def test_every_context_finds_the_same_fonts(run_ike, site, level):
+    """The fonts a script finds by measuring text: the same in the page, a
+    frame and every kind of worker (file, module, nested, blob), also once
+    the font check has run (review round 3: its list held the engine's own
+    name for monospace, "Monospace", and a worker's monospace then fell back
+    to another font, so a worker no longer found Times New Roman)."""
+    raw = {}
+    got = run(run_ike, site, [("f", "http://localhost:%d/fonts.html")], level, gl=False, check=True, raw=raw)["f"]
+    assert raw["findable"], raw                       # the check ran: its list is in use
+    for k in ("frame", "file", "module", "nested", "blob"):
+        assert got[k]["fonts"] == got["page"]["fonts"], (k, got[k], got["page"])
+        for g, v in got["page"]["generic"].items():      # the generic families: the same fonts
+            # (a module worker has a seed of its own: its noise, 3 in a million, differs)
+            assert abs(got[k]["generic"][g] - v) <= v * 1e-5, (k, g, got[k], got["page"])
+    assert "monospace" not in [n.lower() for n in raw["findable"]], raw["findable"]
+    assert "Times New Roman" in got["page"]["fonts"] and "DejaVu Sans" not in got["page"]["fonts"], got

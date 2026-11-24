@@ -38,6 +38,9 @@
     and the same for a pixel read alone as for the whole picture ("pixel data
     modified" no more); text widths whose noise does not depend on a font's
     name (two missing fonts measure the same, as in Chrome), in workers too;
+    the same fonts found by measuring text in the page, its frames and every
+    kind of worker (a frame of the site's own found every installed font,
+    workers lost Times New Roman once the font check had run);
     the languages as the header says them ("it-IT", "it"); one common network
     speed in JavaScript and in the client hints (4g, 50 ms, 10 Mbit/s).
     Maximum stays different from Strict by its language only;
