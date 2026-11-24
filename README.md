@@ -125,6 +125,13 @@ profiles: `ike-browser --profile NAME`.
   this site, Dark or Light, brightness, contrast, sepia and grayscale (seen on
   the page while the slider moves), and under "More" the font, text stroke,
   colours, scroll bars and selection colour, for every site or for one.
+- The toolbar's Zoom button opens a panel (− and +, a slider, actual size,
+  the default zoom); the Downloads button (Ctrl+J) a list of the downloads
+  with pause and resume, speed and time left, retry, the downloads stopped
+  by I.K.E.'s checks and why; the last 50 are kept across restarts (never a
+  private window's), and clearing the history clears them.
+- "Bookmark this page" sits right after the address bar, filled when the
+  page is bookmarked.
 - Zoom kept for each site; videos and sounds that may not start by themselves
   (all sites, or one); the lock in the address bar opens the site's panel
   (connection, permissions, cookies, protection, zoom, autoplay).

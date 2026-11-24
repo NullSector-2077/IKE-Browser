@@ -30,6 +30,56 @@
   own (`dark_site_themes`). One visible change: the scroll bars of dark
   pages follow the page's colours ("Automatic", the default of the Dark
   Reader extension on Linux); they were left as the engine draws them.
+- **Panels for the toolbar's Zoom and Downloads buttons** (the owner approved
+  their look), made at their first click with the dark mode panel's frame
+  (`ike/panelkit.py`, the popup machinery shared in `window._panel_popup`):
+  - **Zoom** (`ike/zoompanel.py`): the site's name, − 110 % +, a slider over
+    the same steps as Ctrl and +/− (30 % to 400 %) with 30 %, 100 % and 400 %
+    under their ticks, "Remembered for this site" (or "Not remembered in a
+    private window"), "Actual size" (Ctrl+0), the default zoom (the same
+    setting as Settings → Appearance, which keeps it; the pages at the old
+    default follow it) and "Also with Ctrl and the mouse wheel". It stays
+    open while the zoom changes, without the box over the page. The ☰ menu
+    keeps its Zoom submenu.
+  - **Downloads** (`ike/downloadpanel.py`, `ike/downloadlist.py`; Ctrl+J
+    and the button open it, the downloads window stays under "Show all
+    downloads"): one row per download with the icon of its kind, its name
+    shortened in the middle and one line of state: while it runs the bytes,
+    the speed and the time left (smoothed over time) with a slim bar; paused;
+    size, site and time once done; a program from a site visited before with
+    a shield; why it failed, in red, with "Retry" always there; a download
+    stopped by I.K.E.'s checks with the reason, in red, and "Download
+    anyway…", which asks the very same question again with "Cancel" chosen.
+    Its actions are small buttons shown under the mouse or the keyboard's
+    focus (pause, resume, cancel, open the file, show it in its folder,
+    retry, remove it from the list); a right click gives them all with Ark
+    or the calendar where the desktop has them and "Copy link address". New:
+    pause and resume, the speed and time left, retry (the same address
+    again through every check of a new download), the stopped downloads
+    listed, one entry removed. At its foot "Show all downloads", "Open the
+    downloads folder" and "Clear the list" (what ended leaves the list; what
+    runs and the files stay). Opening it clears the green "done" ring, as
+    the downloads window did. The list survives a restart (the owner's
+    choice): the last 50 entries of normal windows, metadata only (name,
+    place, address, size, state, time, site, a short note), in I.K.E.'s
+    database next to the history; a private window shows its own downloads
+    only and never writes them; clearing the history (or all browsing data)
+    clears it.
+- **The "more" buttons show KDE's double arrow**: the bookmarks bar's and the
+  toolbar's buttons for what does not fit show `arrow-right-double` (I.K.E.'s
+  own drawing where the theme has none) in a square 26 × 26 button, the
+  arrows exactly in its middle (measured on the painted pixels at scale 1 and
+  2); they showed the "»" text, a little off centre.
+- **"Bookmark this page" fixed after the address bar** (the owner's design):
+  4 pixels after its right edge, centred with it in height; it can no longer
+  be moved or hidden (settings that moved or hid it are mended once; it
+  left the toolbar's lists and Settings → Appearance), and the address bar
+  and the button are centred in the window as one block (the room the
+  toolbar really leaves is measured, so the block sits exactly in the
+  middle when it fits). A page already bookmarked shows the filled bookmark
+  (Breeze's `bookmarks-bookmarked`, I.K.E.'s own drawing where the theme has
+  none). The shipped Breeze set was built again from breeze-icons 6.32.0
+  for the new names.
 
 ## 1.1.24
 
