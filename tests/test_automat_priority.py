@@ -28,6 +28,7 @@ import importlib.util
 import io
 import json
 import os
+import re
 import subprocess
 import textwrap
 from pathlib import Path
@@ -892,10 +893,27 @@ def test_only_the_newest_run_of_each_workflow_decides_whether_a_pull_request_is_
     assert len(quota.latest_runs([{"conclusion": "success"}, {"conclusion": "failure"}])) == 2
 
 
+def workflow_jobs(name):
+    """A workflow's jobs as text, by name (no YAML library in the test environment)."""
+    text = (ROOT / ".github/workflows" / name).read_text("utf-8")
+    parts = re.split(r"^  ([A-Za-z0-9_-]+):\n", text.split("\njobs:\n", 1)[1], flags=re.M)
+    return dict(zip(parts[1::2], parts[2::2]))
+
+
+def last_run_block(job):
+    """The shell of a job's last step with a `run: |` block, dedented as GitHub runs it."""
+    head = job.rindex("run: |\n")
+    indent = len(job[job.rindex("\n", 0, head) + 1:head]) + 2
+    lines = []
+    for line in job[head + len("run: |\n"):].split("\n"):
+        if line.strip() and len(line) - len(line.lstrip(" ")) < indent:
+            break
+        lines.append(line)
+    return textwrap.dedent("\n".join(lines)).rstrip("\n") + "\n"
+
+
 def memory_job_script(remote):
-    import yaml
-    wf = yaml.safe_load((ROOT / ".github/workflows/automerge.yml").read_text("utf-8"))
-    run = wf["jobs"]["memory"]["steps"][-1]["run"]
+    run = last_run_block(workflow_jobs("automerge.yml")["memory"])
     line = 'remote="https://github.com/$GITHUB_REPOSITORY"'
     assert run.count(line) == 1
     return run.replace(line, 'remote="%s"' % remote)
@@ -978,13 +996,12 @@ def test_a_memory_branch_that_cannot_be_read_is_tried_again_and_then_a_warning(t
 
 
 def test_no_writer_of_the_memory_waits_in_a_concurrency_group_and_each_retries():
-    import yaml
-    merge = yaml.safe_load((ROOT / ".github/workflows/automerge.yml").read_text("utf-8"))
-    autofix = yaml.safe_load((ROOT / ".github/workflows/autofix.yml").read_text("utf-8"))
-    assert "concurrency" not in merge["jobs"]["memory"] and "concurrency" not in autofix["jobs"]["remember"]
-    assert merge["jobs"]["memory"]["needs"] == "merge"
-    assert merge["jobs"]["merge"]["outputs"]["merged"] == "${{ steps.merge.outputs.merged }}"
-    remember = autofix["jobs"]["remember"]["steps"][-1]["run"]
+    merge, autofix = workflow_jobs("automerge.yml"), workflow_jobs("autofix.yml")
+    assert not re.search(r"^    concurrency:", merge["memory"], re.M)
+    assert not re.search(r"^    concurrency:", autofix["remember"], re.M)
+    assert re.search(r"^    needs: merge$", merge["memory"], re.M)
+    assert re.search(r"^      merged: \$\{\{ steps\.merge\.outputs\.merged \}\}$", merge["merge"], re.M)
+    remember = last_run_block(autofix["remember"])
     assert "for attempt in 1 2 3 4 5 6; do" in remember and "if record; then exit 0; fi" in remember
     assert "::warning title=AUTOMAT's memory::" in remember
 
