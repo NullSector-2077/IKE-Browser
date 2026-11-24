@@ -644,6 +644,53 @@ own checks (with the owner's `IKE_WORKFLOW_TOKEN`) or the dispatched ones.
 | When a check of a pull request ends, or the automation's own Tests, Security and Arch Linux runs pass on its branch (a dispatch) | The verified merge (2026-11-22): a candidate per component (`automation/update/<id>`, the workflows' pins `automation/update/ci-<name>` and the PKGBUILD's `automation/update/pkgbuild` included), a builder's re-anchoring (`automation/builder/<id>`), the single combined candidate (`automation/daily-maintenance`), a fix of the automatic fix (`automation/autofix-main`) or a security fix (`automation/update/security-<id>`) is merged when it is fully verified: every check of its last commit passed (`tests`, `sandbox`, `rust-advisories`, `Arch Linux`, and "Arch Linux (testing)" for a fix of Arch's next packages), every category its components need passed with nothing "not verified" and no required test skipped, no test file changed or removed, no protected file or workflow (but the CI pins' own edit), the licences up to date, no open security finding, the version raised when main's is published, and never a second raise on top of an unpublished version (several merges by themselves go into the same one); the automatic fix's files also follow the 1.1.19 rules, or on a candidate of the engine the wrapper's rules, or on a builder's branch the re-anchoring rule. Arch Linux is started on the commit when it has not run there. A fix of ChatGPT (`chatgpt/...`) that passes the 1.1.19 rules is only marked ready for the owner's order. A fully verified candidate behind `main` is refreshed instead: `main` merged into its branch (CHANGELOG.md and the version files resolved as decided, any other conflict for a person), pushed to that branch with the workflow's token, its Tests, Security and Arch Linux started again. After every merge the other open pull requests of the automation are judged again. Rules: `tools/automerge.py`, read from `main` | `automerge.yml` | Merged, then `main`'s Tests, Security and Arch Linux start and the release notice follows (one per version); otherwise one comment naming the owner with the reason (edited when the reason changes, never repeated), and the ledger says needs-person (blocked for a security finding); ChatGPT: one comment, ready and waiting for the owner's order |
 | When the tests of `main` pass (after a merge by itself: when its Tests and Security pass), and every day at 08:13 UTC | A version in `main` that is not published yet, with `tests` and `sandbox` green on its last commit | `release-ready.yml` | An issue "LA RELEASE E' PRONTA DA FIRMARE: I.K.E. <version>" (until 2026-11-22: "C'E' UNA NUOVA RELEASE IN MAIN PRONTA DA PUBBLICARE!!!"), its first line the same words and right under it the one command, in `bash -c '...'` so it is the same in fish, with the exact command, assigned to the owner and naming the owner (GitHub mails it), listing what was merged by itself since the last release (fully verified, so the owner knows what the signature covers); a reminder comment each week; closed by itself once the version is published; never opened again for a version whose notice the owner closed |
 
+### The tests in parallel jobs (2026-11-24)
+
+The owner's priority (AUTOMAT block 1, step 1): one round of `tests.yml` took
+about 40 minutes and one of `arch.yml` 70 to 90; nothing of the chain above
+can go faster than its tests. Since 2026-11-24 both split the suite across
+parallel jobs, with no test lost and no gate weakened:
+
+- `tools/shard-tests.py` splits it by whole test files, balanced by the
+  durations in `tools/test-timings.json`, the same way for the same files;
+  each file in exactly one shard. The number of shards is `SHARDS` at the top
+  of each workflow (4), for the sources and for the installed package each.
+- `tests.yml`: `tests shard k/N` (the suite on the sources), `tests installed
+  k/N` (the suite against the package of `tests package`, checked by its
+  sha256 before any test runs), `tests checks` (lint, the licences, the Rust
+  tests, the test that must fail, "No tests lost", the filter lists, "Nothing
+  gets worse", once per commit), `tests of the starting commit` (on the
+  automation's and ChatGPT's branches) and **`tests`, the gate**: main's
+  required check, the job `publish.py`, `release-ready.yml` and the verified
+  merge read. It runs whatever happened before it, and passes only when every
+  job passed and every test pytest collects (an independent collection in
+  `tests checks`, and each shard's own) ran exactly once across the shards
+  (`tools/shard-tests.py verify`: a test missing, run twice, run in the wrong
+  shard or not collected, a shard missing, failed, cancelled or of another
+  commit all fail it; passed, failed and skipped all count as run). The steps
+  `tools/test-categories.py` reads keep their names on the job `tests`:
+  "Tests" and "Tests of the installed package" are the gate's completeness
+  checks, and every other one ("Lint", "Licences", "No tests lost", "Arch
+  package", "Nothing gets worse"...) restates the outcome of that very step in
+  the job that ran it (skipped there, skipped here: not verified). The gate
+  writes the run's `test-results` (the merged `junit.xml`,
+  `junit-installed.xml`, `summary.json`, "Nothing gets worse"'s report) as
+  before, and only from every shard's results.
+- `arch.yml`: in Arch's container, `Arch Linux shard k/N`, `Arch Linux
+  installed k/N` (each builds the package with makepkg and installs it with
+  pacman) and `Arch Linux styles` (the widget styles, and the record
+  `arch-versions` of the daily check); the engine's crates and build are kept
+  in GitHub's cache by `Cargo.lock`, its sources and the Rust compiler. The job
+  **`Arch Linux`** is the gate, as above. `arch-testing.yml` calls it as before.
+- The automatic fix (`tools/autofix-plan.py`, `GATES`, `without_gate`): when a
+  part failed, the gate's failure only says so again and is set aside; the
+  plan reads the part's failed steps and log, so a test that failed once in a
+  shard runs once more before any AI, and a runner's or pacman's failure in a
+  part is an issue, as with the one job of before.
+- Refreshing the durations (they only balance the shards; the gate checks
+  completeness whatever they say): download `test-results` of a green run and
+  `python3 tools/shard-tests.py timings --junit junit.xml --junit junit-installed.xml`.
+
 ## Components followed
 
 `tools/check-components.py` checks (each line is one candidate, or a small

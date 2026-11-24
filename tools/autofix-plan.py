@@ -33,6 +33,14 @@ description names the Arch packages that changed since the last green run on
 main (old -> new, from the versions both runs recorded), the failed tests and
 the files the logs name.
 
+Since 2026-11-24 both run the suite in parallel jobs (tools/shard-tests.py):
+"Tests" in "tests shard k/N", "tests installed k/N", "tests checks", "tests
+package"..., "Arch Linux" in "Arch Linux shard k/N" and the other parts; the
+job named as before ("tests", "Arch Linux": GATES) is the gate, which fails
+whenever a part fails. When a part failed, the gate's own failure only says so
+again: it is set aside (without_gate), and the plan reads the part's failed
+steps and log, as it read the single job's before.
+
 "Security" (security.yml, handed over by its job hand-over; WP6, the owner's
 decision of 2026-11-22) starts an analysis and a fix on an isolated branch
 ``automation/update/security-<id>``, never on main:
@@ -159,7 +167,7 @@ ENGINE_STEP = "Build AdBlock engine"
 INFRA_TITLE = "GitHub or the runner failed: %s"
 # "Arch Linux": I.K.E. on Arch Linux's own packages (arch.yml)
 ARCH = "Arch Linux"
-ARCH_JOB = "Arch Linux"              # the name of arch.yml's job that builds and tests
+ARCH_JOB = "Arch Linux"              # the name of arch.yml's gate (its parts: "Arch Linux shard 1/4"...)
 # WP10 (b): arch.yml with Arch's [core-testing] and [extra-testing] once a week (arch-testing.yml);
 # a failure there is fixed on automation/update/arch-testing-<date>, made from main
 ARCH_TESTING = "Arch Linux (testing)"
@@ -177,12 +185,16 @@ SECURITY_WATCHED = ("main", MAINTENANCE, FIX_MAIN)
 ISOLATED_PREFIXES = ("automation/update/", "automation/builder/")
 # the plans of the isolated branches: ISOLATED_ATTEMPTS fixes, the providers in turn
 ISOLATED_KINDS = ("update", "builder", "arch-testing")
+# the job of a workflow that only gathers its parts' results and fails when one of them failed
+# (tools/shard-tests.py verify): tests.yml's "tests" (main's required check), arch.yml's "Arch Linux"
+GATES = {"Tests": "tests", ARCH: ARCH_JOB, ARCH_TESTING: ARCH_JOB}
 REPORTING_JOBS = {"Tests": ("hand-over",), "Daily component check": ("update-issue", "start-arch", "ledger"),
                   "Daily maintenance candidate": ("publish-candidate",), ARCH: ("hand-over", "merge-ready"),
                   ARCH_TESTING: ("hand-over", "merge-ready"),
                   SECURITY: ("hand-over", "advisories-issue", "sandbox-issue", "merge-ready")}
 INFRA_STEP = re.compile(r"^(Set up job|Complete job|Post |Check out|Run actions/(checkout|setup-|upload-artifact"
-                        r"|download-artifact|cache)|Upload |Download |Validate downloaded|Rust$|Test environment$)")
+                        r"|download-artifact|cache)|Upload |Download |Validate downloaded|Rust$|Test environment$"
+                        r"|Packaging tools$)")
 # arch.yml's steps that only install Arch's packages (pacman: mirrors, keyring,
 # a package not found, a conflict), start the container or download the
 # engine's crates: never the code's
@@ -448,6 +460,18 @@ def failed_steps(job):
     return [s.get("name") or "" for s in job.get("steps", []) if s.get("conclusion") == "failure"]
 
 
+def without_gate(name, failed_jobs):
+    """The failed jobs, the gate set aside when another job that is not one of the reporting jobs
+    failed too: the gate (GATES) fails because a part failed, and its failed steps ("Tests", "Every
+    part of the tests passed"...) only say so again. A gate that failed alone (a test that did not
+    run, or ran twice) stays."""
+    gate, reporting = GATES.get(name), REPORTING_JOBS.get(name, ())
+    others = [j for j in failed_jobs if j.get("name") != gate and j.get("name") not in reporting]
+    if gate is None or not others:
+        return list(failed_jobs)
+    return [j for j in failed_jobs if j.get("name") != gate]
+
+
 def infra_failure(name, failed_jobs):
     """Why the failure is GitHub's, the runner's or a reporting job's, not the
     code's or the maintenance's; '' when it is a real failure. Only when every
@@ -493,6 +517,7 @@ def infra_in_logs(plan, name, failed_jobs, logs, attempt):
     GitHub's title, no AI. logs: {job name: the failed step's cleaned log}."""
     if plan["action"] != "fix" or name != "Tests" or not failed_jobs:
         return plan
+    failed_jobs = without_gate(name, failed_jobs)
     steps = [st for j in failed_jobs for st in failed_steps(j)]
     if not steps or not all(st in BOOKKEEPING_STEPS for st in steps):
         return plan
@@ -673,6 +698,7 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
         return plan
     if name == SECURITY:
         return decide_security(run, failed_jobs, plan, open_issues, now)
+    failed_jobs = without_gate(name, failed_jobs)
     job_names = [j["name"] for j in failed_jobs]
     tested = name in ("Tests", ARCH, ARCH_TESTING)          # the workflows that test a branch
     if name in HANDLED:
@@ -691,8 +717,11 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
                 (run.get("triggering_actor") or {}).get("login") == BOT:
             plan["reason"] = "a run the automatic fix started again: the tests hand its failure over themselves"
             return plan
-        job, again = ("tests", RERUN_STEPS) if name == "Tests" else (ARCH_JOB, ARCH_RERUN_STEPS)
-        steps = [st for j in failed_jobs if j["name"] == job for st in failed_steps(j)]
+        # the steps of every job of the run that failed (since 2026-11-24 the suite runs in parallel
+        # jobs: a shard's "Tests" is the step of the one job of before), the reporting ones aside
+        again = RERUN_STEPS if name == "Tests" else ARCH_RERUN_STEPS
+        reporting = REPORTING_JOBS.get(name, ())
+        steps = [st for j in failed_jobs if j["name"] not in reporting for st in failed_steps(j)]
         if tested and attempt == 1 and steps and all(st in again for st in steps):
             plan.update(action="rerun", reason="the tests failed once (step: %s): they run once more before any "
                         "automatic fix, a test that fails only sometimes is no matter for an AI" % ", ".join(steps))
@@ -1396,7 +1425,8 @@ def main(argv=None):
         # arch-testing.yml calls arch.yml: its jobs are "<caller> / Arch Linux", read as arch.yml's own
         for j in jobs:
             j["name"] = (j.get("name") or "").split(" / ")[-1]
-    failed = [j for j in jobs if j.get("conclusion") == "failure"]
+    # a gate that failed because a part did is set aside: the part's own step and log are the failure
+    failed = without_gate(run.get("name"), [j for j in jobs if j.get("conclusion") == "failure"])
     branch = run.get("head_branch") or ""
     run["_repo"] = repo
     run["_event"] = a.event
