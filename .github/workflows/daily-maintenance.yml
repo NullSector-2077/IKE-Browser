@@ -79,7 +79,7 @@ jobs:
           python-version: "3.14"
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version: "26"
       - name: Rust
         run: |
           rustup toolchain install stable --profile minimal --no-self-update
@@ -172,7 +172,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         if: matrix.action == 'make'
         with:
-          node-version: "22"
+          node-version: "26"
       - name: Rust
         if: matrix.action == 'make'
         run: |
@@ -444,7 +444,7 @@ jobs:
           python-version: "3.14"
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version: "26"
       - name: Rust
         run: |
           rustup toolchain install stable --profile minimal --no-self-update
