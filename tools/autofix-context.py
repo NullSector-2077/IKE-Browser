@@ -49,6 +49,7 @@ NOT_RECENT = {
     "tools/tier-b.py", "tools/ai-quota.py", "tools/ai-quota.json", "tools/automat-memory.py",
     "tools/automat-help.py", "tools/automat-recipes.py", "tools/automat-route.py", "tools/autofix-inner.py",
     "tools/upstream-diff.py", "tests/test_automat_part2.py",
+    "tests/test_automat_priority.py", "tools/branch-sweep.py", "tests/test_branch_sweep.py",
     "ike/__init__.py", "ike/updater.py", "tests/conftest.py", "tests/harness.py", "tests/settings-keys.json",
     "tools/make-release.py", "tools/publish.py", "tools/prepare-maintenance.py", "tools/check-autofix-patch.py",
     "tools/autofix-plan.py", "tools/autofix-agent.py", "tools/autofix-context.py", "tools/autofix-reserve.py",

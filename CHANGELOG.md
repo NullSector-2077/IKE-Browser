@@ -168,6 +168,7 @@
   update ships without it (and without the patches that depend on it), and
   the update's notes and the signing notice say which. The proxy change that
   keeps Google's sites working is not optional: without it the update waits.
+- Dark Reader (engine and lists): 4.9.135, lists 16a1eccbfa (2026-11-21) -> 4.9.135, lists 586f4b900d (2026-11-24) (lists changed)
 
 ## 1.1.24
 

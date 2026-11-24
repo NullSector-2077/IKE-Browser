@@ -727,7 +727,9 @@ def test_a_provider_spent_today_is_never_asked_and_the_reserve_for_the_reviewers
 
 
 def test_one_candidate_cannot_drain_a_provider_and_the_day_has_an_end():
-    b = budget()
+    # the share holds while another real update is pending at the same time (the owner's decision of
+    # 2026-11-24: a lone real update may use all of it; tests/test_automat_priority.py)
+    b = budget(pending=["automation/update/darkreader"])
     limit = b.limits["providers"]["OpenRouter"]["requests_per_day"]
     share = int(limit * b.limits["share_per_candidate"])
     for _ in range(share):
@@ -957,7 +959,7 @@ def test_antigravity_is_not_started_without_budget_and_counts_its_session(tmp_pa
         monkeypatch.delenv(name, raising=False)
     # Gemini's day is spent, or no room would be left for the reviewers: the agent is not started at all
     spent = quota.empty_state()
-    quota._prov(spent, quota.day_of(), "Antigravity")["spent"] = "429: the quota of the day"
+    quota._prov(spent, quota.provider_day(quota.load_limits()["providers"]["Antigravity"]), "Antigravity")["spent"] = "429: the quota of the day"
     state.write_text(json.dumps(spent))
     monkeypatch.setattr(agent.subprocess, "run", lambda *a, **k: pytest.fail("the agent was started"))
     assert agent.main(args) == 0
@@ -966,7 +968,7 @@ def test_antigravity_is_not_started_without_budget_and_counts_its_session(tmp_pa
     assert json.loads(usage.read_text())["calls"] == [] and "Antigravity" in json.loads(usage.read_text())["skipped"]
     none_left = quota.empty_state()
     for name in ("Groq", "Z.AI"):
-        quota._prov(none_left, quota.day_of(), name)["spent"] = "429"
+        quota._prov(none_left, quota.provider_day(quota.load_limits()["providers"][name]), name)["spent"] = "429"
     state.write_text(json.dumps(none_left))
     assert agent.main(args) == 0 and json.loads(status.read_text())["result"] == "budget"
     assert "the reviewers' reserve" in json.loads(status.read_text())["detail"]
@@ -978,10 +980,15 @@ def test_antigravity_is_not_started_without_budget_and_counts_its_session(tmp_pa
     session = quota.load_limits()["providers"]["Antigravity"]["session_requests"]
     assert delta["calls"] == [{"provider": "Antigravity", "requests": session, "tokens": 0, "purpose": "fix"}]
     assert "TESTONLY" not in usage.read_text()
-    # with today's careful limit, a candidate's share is one session a day: the next one is not started
+    # with today's careful limit and another real update pending at the same time, a candidate's share is one
+    # session a day: the next one is not started (the owner's decision of 2026-11-24: alone, it may use all)
     state.write_text(json.dumps(quota.merge(quota.empty_state(), delta)))
-    assert agent.main(args) == 0 and json.loads(status.read_text())["result"] == "budget"
+    others = tmp_path / "pending"
+    others.write_text("automation/update/darkreader\n")
+    assert agent.main(args + ["--quota-pending", str(others)]) == 0
+    assert json.loads(status.read_text())["result"] == "budget"
     assert "share" in json.loads(status.read_text())["detail"]
+    assert agent.main(args) == 0 and json.loads(status.read_text())["result"] == "ok"        # alone: all of it
     # the note of the owner's tier-B switch reaches the agent only with the switch
     assert "frozen" in agent.tier_b_note(True) and agent.tier_b_note(False) == ""
     assert 'if [ -f "$RUNNER_TEMP/tier-b" ]; then allow="$allow --tier-b"; fi' in jobs_of("autofix.yml")["fix"]
