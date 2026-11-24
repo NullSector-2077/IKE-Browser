@@ -53,13 +53,17 @@ profiles: `ike-browser --profile NAME`.
   stay blocked; ads served from the site's own domain are only hidden. Strict
   and Maximum check every request; YouTube is always checked.
 - Cookie banners refused and hidden automatically.
-- Fingerprinting protection (from Balanced, the default): canvas, WebGL, audio,
-  plugins, number of CPU cores, WebGL extensions and the graphics card change
-  from site to site and from session to session (at Balanced a common model
-  of the same maker chosen per site instead of the exact one; at Strict and
-  Maximum no name at all); Strict and Maximum also give common values for the
-  screen, fonts, memory, languages and voices. Not covered: workers a site
-  starts from a file of its own.
+- Fingerprinting protection (from Balanced, the default): canvas, WebGL, audio
+  and the number of CPU cores change from site to site and from session to
+  session; at Balanced also the plugins, the WebGL extensions and the graphics
+  card (a common model of the same maker chosen per site instead of the exact
+  one). Strict and Maximum give everyone the same values instead: one WebGL
+  identity (the most common card on Linux, a fixed list of extensions, fixed
+  limits never above the real ones), Chrome's own PDF plugins, a common
+  network speed, screen, fonts, memory, languages and voices; their canvas
+  noise is only where a drawing has edges (never in plain colours), and they
+  start no service worker and no shared worker from a site's own file. Not
+  covered: a dedicated worker a site starts from a file of its own.
 - **Protected time zone** (the shield, off by default): every site sees the
   time zone UTC, in pages, frames and every kind of worker alike; I.K.E.'s
   own menus and its new tab clock keep yours. Some sites will show wrong
@@ -71,7 +75,9 @@ profiles: `ike-browser --profile NAME`.
   shield are never touched.
 - Sites see Chrome on Linux with the version of I.K.E.'s own engine: header,
   client hints and JavaScript agree (at Strict and Maximum only its major
-  number, today 140.0.0.0, in pages, workers and request headers). One
+  number, today 140.0.0.0, in pages, workers and request headers), with the
+  engine's own brand list (Chromium) and no kernel version, the same in every
+  kind of worker. One
   exception, on by default: Google's sign-in page sees Firefox, because Google
   refuses sign-in from embedded Chromium (Settings → Protection).
 - Automatic HTTPS, optional encrypted DNS (DNS over HTTPS, off by default),

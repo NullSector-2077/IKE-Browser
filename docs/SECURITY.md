@@ -127,7 +127,31 @@ Each with a test in `tests/test_review_fixes.py` that failed before the fix.
 | M-2 | `matchMedia('(min-device-width: Npx)')` gave the real screen size behind Strict's usual one | `device-width`, `device-height`, `device-aspect-ratio` (both syntaxes) answered for the shown size; the query's text kept. Style sheets: see "Known limits of the noise" |
 | L-2 | The noise's site came from a short list of hosting domains: unrelated sites under another one shared their noise | The system's Public Suffix List, as for the rest of I.K.E., given to the page as sorted 24-bit hashes (about 35 KB); a chance match makes a site one label longer, never shared |
 | L-3 | `window.name` written on one site was still there on the next site of the tab | Emptied in a top-level document reached from another site (or from nowhere) on a new navigation, unless a script opened the tab; kept within a site and on a reload |
-| GPU name at Strict | Hidden ("not available" in Cover Your Tracks, about 7.5 bits) | Kept hidden: every Linux renderer name carries the driver's details and is rarer than "not available"; a fixed name of I.K.E.'s would mark its users |
+| GPU name at Strict | Hidden ("not available" in Cover Your Tracks, about 7.5 bits) | Kept hidden: every Linux renderer name carries the driver's details and is rarer than "not available"; a fixed name of I.K.E.'s would mark its users. 1.1.25: see below, one shared identity |
+
+## Fingerprinting: the sites' own checks (1.1.25)
+
+A run of the real browser against browserleaks.com and CreepJS (the owner's
+decisions of 2026-11-24). Each with a test in `tests/test_fingerprint_125.py`
+that failed before the fix.
+
+| Point | Was | Now |
+|---|---|---|
+| Service and shared workers | They get the engine's own client hints, never the profile's: "Chromium" only, the engine's full version and the real kernel (6.18.44) where the page said "Google Chrome", 140.0.0.0 and 6.0.0; no script of I.K.E.'s runs in them (real card, languages) | Every level: the profile keeps the engine's own brand list, versions and order, and the engine leaves the kernel out (`ReduceUserAgentDataLinuxPlatformVersion`; the platform version is empty everywhere). Strict and Maximum: no service worker and no shared worker from a site's own file (their script is refused in the request check, in every frame and worker: `register()` fails as when the script cannot be fetched); one registered before at a lower level is unregistered. At the global levels Strict and Maximum the engine itself gives the major version (140.0.0.0), so workers from a file and the headers agree with the page |
+| Plugins at Strict | Chrome's five PDF viewers plus two invented ones with no type (CreepJS: "missing mimetype") | Chrome's own five, with their two types, the same for everyone (Balanced keeps the invented ones) |
+| WebGL at Strict | No card name, `getParameter` of the debug enums gave null with no error (Chrome raises INVALID_ENUM), a random part of the extensions hidden with the real limits (CreepJS: "suspicious capabilities") | One identity for everyone: the most common Linux card's name (shared with many real users), offered as Chrome offers it (the engine's own error before the extension is enabled); a fixed list of extensions common desktop cards all have, never one the real context lacks (the others are never enabled); a fixed floor of limits (never above the real one), the same in pages, frames, workers and WebGL 2. WebGPU still gives no adapter |
+| Canvas at Strict | The noise changed pixels of plain colours: CreepJS reads back single pixels it drew ("pixel data modified") | A canvas that only got solid, opaque, whole-pixel rectangles is read back exactly; elsewhere only pixels at an edge get noise, and a pixel's noise depends on the canvas, not on the part read (a pixel read alone is the pixel of the whole picture) |
+| Languages at Strict | `navigator.languages` ["it-IT"], the header "it-IT,it;q=0.9", Intl "it" | ["it-IT", "it"], as the header; at the global level Strict the engine is given the same, so workers from a file agree |
+| Network at Strict | JavaScript rtt 0 and a downlink of about 9.5, the client hints 100 and about 1.7 | 4g, 50 ms, 10 Mbit/s in pages, inline workers and the hints a site asked for |
+
+Not solved: CreepJS still files the test computer's software WebGL as
+"suspicious capabilities" (also with the shield off): it compares all the
+limits with a list of real cards, which a floor of I.K.E.'s cannot match
+exactly; and a 2 x 2 test picture of curves it knows ("suspicious pixel
+data") gets the edge noise in about one session in three. A site set to
+Strict by itself, under a lower global level, keeps the engine's full version
+in workers from its own files; a dedicated worker from a site's file is still
+not covered.
 
 ## Known limits (not solved)
 

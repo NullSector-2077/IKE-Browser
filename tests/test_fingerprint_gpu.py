@@ -4,8 +4,8 @@ every kind (from an address, srcdoc, empty frames used at once, nested), and
 workers of every kind (blob of any type and size, data, module, from an
 address, shared, started by a worker, from a blob address made in a worker). At
 Balanced every place names the same common model for the site; at Strict and
-Maximum no place names a model and the WEBGL_debug_renderer_info extension
-is hidden everywhere. Software WebGL (SwiftShader) stands in for a graphics
+Maximum every place names the one card every user is told about (1.1.25; until
+then no model, and the WEBGL_debug_renderer_info extension hidden). Software WebGL (SwiftShader) stands in for a graphics
 card in the tests; its name must never reach a page.
 
 Known limit: a worker started from an address of the site
@@ -180,6 +180,8 @@ def steps(ike, qapp, out):
 '''
 
 FLAGS = "--no-sandbox --enable-unsafe-swiftshader --use-angle=swiftshader --ignore-gpu-blocklist"
+# the one card every user is told about at Strict and Maximum (1.1.25, fingerprint.js GLX)
+STRICT_CARD = ("Google Inc. (Intel)", "ANGLE (Intel, Mesa Intel(R) UHD Graphics 620 (KBL GT2), OpenGL 4.6)")
 
 
 UNREACHABLE = ("address_worker", "address_shared_worker")      # see the known limit above
@@ -218,7 +220,8 @@ def test_the_same_card_everywhere(run_ike, site, level):
         assert vendor.startswith("Google Inc. (") and renderer.startswith("ANGLE ("), (vendor, renderer)
         assert all(v[2] for v in seen.values()), seen
     else:
-        assert all(v[0] is None and v[1] is None and not v[2] for v in seen.values()), seen
+        # 1.1.25: one card for every user, offered as Chrome offers it, in every place
+        assert all((v[0], v[1]) == STRICT_CARD and v[2] for v in seen.values()), seen
     cores = {v[3] for v in seen.values()}
     assert len(cores) == 1, ("not the same number of cores everywhere", seen)
 

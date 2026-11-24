@@ -21,6 +21,328 @@
    "candidate": "172.6700392903",
    "why": "The audio noise grows from +-0.01 % to +-0.1 % per rendered sample (PR #148): the audio fingerprint a page reads changes on purpose, so two sessions no longer round to the same value. The noise is still applied (audio.noised stays true).",
    "accepted": "the owner asked for this change in 1.1.24 on 2026-11-24; entry written by Claude"
+  },
+  {
+   "key": "fingerprint-config/balanced/platformVersion",
+   "base": "6.0.0",
+   "candidate": "",
+   "why": "No kernel version in the client hints (1.1.25): service and shared workers get the engine's own value, never the profile's, and gave the real kernel (6.18.44) where the page said 6.0.0; the engine now leaves it out (ReduceUserAgentDataLinuxPlatformVersion) and the page, the headers and every worker say \"\" alike.",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint-config/compatibility/platformVersion",
+   "base": "6.0.0",
+   "candidate": "",
+   "why": "No kernel version in the client hints (1.1.25): service and shared workers get the engine's own value, never the profile's, and gave the real kernel (6.18.44) where the page said 6.0.0; the engine now leaves it out (ReduceUserAgentDataLinuxPlatformVersion) and the page, the headers and every worker say \"\" alike.",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint-config/maximum/platformVersion",
+   "base": "6.0.0",
+   "candidate": "",
+   "why": "No kernel version in the client hints (1.1.25): service and shared workers get the engine's own value, never the profile's, and gave the real kernel (6.18.44) where the page said 6.0.0; the engine now leaves it out (ReduceUserAgentDataLinuxPlatformVersion) and the page, the headers and every worker say \"\" alike.",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint-config/off/platformVersion",
+   "base": "6.0.0",
+   "candidate": "",
+   "why": "No kernel version in the client hints (1.1.25): service and shared workers get the engine's own value, never the profile's, and gave the real kernel (6.18.44) where the page said 6.0.0; the engine now leaves it out (ReduceUserAgentDataLinuxPlatformVersion) and the page, the headers and every worker say \"\" alike.",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint-config/strict/platformVersion",
+   "base": "6.0.0",
+   "candidate": "",
+   "why": "No kernel version in the client hints (1.1.25): service and shared workers get the engine's own value, never the profile's, and gave the real kernel (6.18.44) where the page said 6.0.0; the engine now leaves it out (ReduceUserAgentDataLinuxPlatformVersion) and the page, the headers and every worker say \"\" alike.",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/balanced/hints.brands",
+   "base": "[{\"brand\":\"Google Chrome\",\"version\":\"140\"},{\"brand\":\"Chromium\",\"version\":\"140\"},{\"brand\":\"Not=A?Brand\",\"version\":\"24\"}]",
+   "candidate": "[{\"brand\":\"Not=A?Brand\",\"version\":\"24\"},{\"brand\":\"Chromium\",\"version\":\"140\"}]",
+   "why": "The engine's own brand list and order (1.1.25): service and shared workers never see the profile's client hints and gave \"Not=A?Brand\", \"Chromium\" where the page said \"Google Chrome\" too; the page and the headers now give the engine's list (at Strict and Maximum the reduced 140.0.0.0 list the profile sets, whose order Qt fixes; service and shared workers from a file do not start there).",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/balanced/hints.high",
+   "base": "{\"architecture\":\"x86\",\"bitness\":\"64\",\"brands\":[{\"brand\":\"Google Chrome\",\"version\":\"140\"},{\"brand\":\"Chromium\",\"version\":\"140\"},{\"brand\":\"Not=A?Brand\",\"version\":\"24\"}],\"formFactors\":[\"Desktop\"],\"fullVersionList\":[{\"brand\":\"Google Chrome\",\"version\":\"140.0.7339.264\"},{\"brand\":\"Chromium\",\"version\":\"140.0.7339.264\"},{\"brand\":\"Not=A?Brand\",\"version\":\"24.0.0.0\"}],\"mobile\":false,\"model\":\"\",\"platform\":\"Linux\",\"platformVersion\":\"6.0.0\",\"uaFullVersion\":\"140.0.7339.264\",\"wow64\":false}",
+   "candidate": "{\"architecture\":\"x86\",\"bitness\":\"64\",\"brands\":[{\"brand\":\"Not=A?Brand\",\"version\":\"24\"},{\"brand\":\"Chromium\",\"version\":\"140\"}],\"formFactors\":[\"Desktop\"],\"fullVersionList\":[{\"brand\":\"Not=A?Brand\",\"version\":\"24.0.0.0\"},{\"brand\":\"Chromium\",\"version\":\"140.0.7339.264\"}],\"mobile\":false,\"model\":\"\",\"platform\":\"Linux\",\"platformVersion\":\"\",\"uaFullVersion\":\"140.0.7339.264\",\"wow64\":false}",
+   "why": "The same brand list as the engine's own and no kernel version (1.1.25, see hints.brands and platformVersion): the high-entropy client hints agree with every kind of worker and the headers.",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/compatibility/hints.brands",
+   "base": "[{\"brand\":\"Google Chrome\",\"version\":\"140\"},{\"brand\":\"Chromium\",\"version\":\"140\"},{\"brand\":\"Not=A?Brand\",\"version\":\"24\"}]",
+   "candidate": "[{\"brand\":\"Not=A?Brand\",\"version\":\"24\"},{\"brand\":\"Chromium\",\"version\":\"140\"}]",
+   "why": "The engine's own brand list and order (1.1.25): service and shared workers never see the profile's client hints and gave \"Not=A?Brand\", \"Chromium\" where the page said \"Google Chrome\" too; the page and the headers now give the engine's list (at Strict and Maximum the reduced 140.0.0.0 list the profile sets, whose order Qt fixes; service and shared workers from a file do not start there).",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/compatibility/hints.high",
+   "base": "{\"architecture\":\"x86\",\"bitness\":\"64\",\"brands\":[{\"brand\":\"Google Chrome\",\"version\":\"140\"},{\"brand\":\"Chromium\",\"version\":\"140\"},{\"brand\":\"Not=A?Brand\",\"version\":\"24\"}],\"formFactors\":[\"Desktop\"],\"fullVersionList\":[{\"brand\":\"Google Chrome\",\"version\":\"140.0.7339.264\"},{\"brand\":\"Chromium\",\"version\":\"140.0.7339.264\"},{\"brand\":\"Not=A?Brand\",\"version\":\"24.0.0.0\"}],\"mobile\":false,\"model\":\"\",\"platform\":\"Linux\",\"platformVersion\":\"6.0.0\",\"uaFullVersion\":\"140.0.7339.264\",\"wow64\":false}",
+   "candidate": "{\"architecture\":\"x86\",\"bitness\":\"64\",\"brands\":[{\"brand\":\"Not=A?Brand\",\"version\":\"24\"},{\"brand\":\"Chromium\",\"version\":\"140\"}],\"formFactors\":[\"Desktop\"],\"fullVersionList\":[{\"brand\":\"Not=A?Brand\",\"version\":\"24.0.0.0\"},{\"brand\":\"Chromium\",\"version\":\"140.0.7339.264\"}],\"mobile\":false,\"model\":\"\",\"platform\":\"Linux\",\"platformVersion\":\"\",\"uaFullVersion\":\"140.0.7339.264\",\"wow64\":false}",
+   "why": "The same brand list as the engine's own and no kernel version (1.1.25, see hints.brands and platformVersion): the high-entropy client hints agree with every kind of worker and the headers.",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/maximum/frame",
+   "base": [
+    4,
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+    7,
+    1440,
+    [
+     "116ec122",
+     "5a63666b",
+     140.51590603125
+    ]
+   ],
+   "candidate": [
+    4,
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+    5,
+    1440,
+    [
+     "116ec122",
+     "5a63666b",
+     140.51590603125
+    ]
+   ],
+   "why": "The frame's plugin count follows the page (1.1.25, see navigator.plugins): 5 at Strict and Maximum, Chrome's own PDF plugins; the frame's canvas and other values are unchanged.",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/maximum/hints.brands",
+   "base": "[{\"brand\":\"Google Chrome\",\"version\":\"140\"},{\"brand\":\"Chromium\",\"version\":\"140\"},{\"brand\":\"Not=A?Brand\",\"version\":\"24\"}]",
+   "candidate": "[{\"brand\":\"Chromium\",\"version\":\"140\"},{\"brand\":\"Not=A?Brand\",\"version\":\"24\"}]",
+   "why": "The engine's own brand list and order (1.1.25): service and shared workers never see the profile's client hints and gave \"Not=A?Brand\", \"Chromium\" where the page said \"Google Chrome\" too; the page and the headers now give the engine's list (at Strict and Maximum the reduced 140.0.0.0 list the profile sets, whose order Qt fixes; service and shared workers from a file do not start there).",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/maximum/hints.high",
+   "base": "{\"architecture\":\"x86\",\"bitness\":\"64\",\"brands\":[{\"brand\":\"Google Chrome\",\"version\":\"140\"},{\"brand\":\"Chromium\",\"version\":\"140\"},{\"brand\":\"Not=A?Brand\",\"version\":\"24\"}],\"formFactors\":[\"Desktop\"],\"fullVersionList\":[{\"brand\":\"Google Chrome\",\"version\":\"140.0.0.0\"},{\"brand\":\"Chromium\",\"version\":\"140.0.0.0\"},{\"brand\":\"Not=A?Brand\",\"version\":\"24.0.0.0\"}],\"mobile\":false,\"model\":\"\",\"platform\":\"Linux\",\"platformVersion\":\"6.0.0\",\"uaFullVersion\":\"140.0.0.0\",\"wow64\":false}",
+   "candidate": "{\"architecture\":\"x86\",\"bitness\":\"64\",\"brands\":[{\"brand\":\"Chromium\",\"version\":\"140\"},{\"brand\":\"Not=A?Brand\",\"version\":\"24\"}],\"formFactors\":[\"Desktop\"],\"fullVersionList\":[{\"brand\":\"Chromium\",\"version\":\"140.0.0.0\"},{\"brand\":\"Not=A?Brand\",\"version\":\"24.0.0.0\"}],\"mobile\":false,\"model\":\"\",\"platform\":\"Linux\",\"platformVersion\":\"\",\"uaFullVersion\":\"140.0.0.0\",\"wow64\":false}",
+   "why": "The same brand list as the engine's own and no kernel version (1.1.25, see hints.brands and platformVersion): the high-entropy client hints agree with every kind of worker and the headers.",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/maximum/navigator.plugins",
+   "base": "PDF Viewer,Chrome PDF Viewer,Chromium PDF Viewer,Microsoft Edge PDF Viewer,WebKit built-in PDF,Ludatod Pijugu,Dehopakuko Cucekuf",
+   "candidate": "PDF Viewer,Chrome PDF Viewer,Chromium PDF Viewer,Microsoft Edge PDF Viewer,WebKit built-in PDF",
+   "why": "Strict and Maximum give Chrome's own five PDF plugins with their two types (1.1.25): the two invented plugins had no type, which CreepJS reports as a lie (\"missing mimetype\"). Balanced keeps them.",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/maximum/webgl.extensions",
+   "base": "ANGLE_instanced_arrays,EXT_blend_minmax,EXT_color_buffer_half_float,EXT_float_blend,EXT_frag_depth,EXT_polygon_offset_clamp,EXT_texture_compression_bptc,EXT_texture_compression_rgtc,EXT_texture_filter_anisotropic,EXT_sRGB,OES_element_index_uint,OES_fbo_render_mipmap,OES_standard_derivatives,OES_texture_float,OES_texture_float_linear,OES_texture_half_float,OES_texture_half_float_linear,OES_vertex_array_object,WEBGL_color_buffer_float,WEBGL_compressed_texture_astc,WEBGL_compressed_texture_etc,WEBGL_compressed_texture_etc1,WEBGL_compressed_texture_s3tc,WEBGL_compressed_texture_s3tc_srgb,WEBGL_debug_shaders,WEBGL_depth_texture,WEBGL_draw_buffers,WEBGL_lose_context,WEBGL_multi_draw",
+   "candidate": "ANGLE_instanced_arrays,EXT_blend_minmax,EXT_color_buffer_half_float,EXT_float_blend,EXT_frag_depth,EXT_texture_compression_bptc,EXT_texture_compression_rgtc,EXT_texture_filter_anisotropic,EXT_sRGB,KHR_parallel_shader_compile,OES_element_index_uint,OES_fbo_render_mipmap,OES_standard_derivatives,OES_texture_float,OES_texture_float_linear,OES_texture_half_float,OES_texture_half_float_linear,OES_vertex_array_object,WEBGL_color_buffer_float,WEBGL_compressed_texture_s3tc,WEBGL_compressed_texture_s3tc_srgb,WEBGL_debug_renderer_info,WEBGL_debug_shaders,WEBGL_depth_texture,WEBGL_draw_buffers,WEBGL_lose_context,WEBGL_multi_draw",
+   "why": "Strict and Maximum: a fixed list of extensions common desktop cards all have, never one the real context lacks, the same for every user (1.1.25), instead of a random part hidden per site with WEBGL_debug_renderer_info hidden; CreepJS flagged the mix.",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/maximum/webgl.unmasked_renderer",
+   "base": null,
+   "candidate": "ANGLE (Intel, Mesa Intel(R) UHD Graphics 620 (KBL GT2), OpenGL 4.6)",
+   "why": "Strict and Maximum: one card name for every user, the most common on Linux, offered as Chrome offers it (1.1.25, the owner asked for a shared value instead of none: 7.5 bits on Cover Your Tracks).",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/maximum/webgl.unmasked_vendor",
+   "base": null,
+   "candidate": "Google Inc. (Intel)",
+   "why": "Strict and Maximum: the vendor of the one card every user is told about (1.1.25, see webgl.unmasked_renderer).",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/maximum/worker",
+   "base": [
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+    "Linux x86_64",
+    4,
+    8,
+    "en-US,en",
+    9703,
+    [
+     null,
+     "ANGLE_instanced_arrays,EXT_blend_minmax,EXT_color_buffer_half_float,EXT_float_blend,EXT_frag_depth,EXT_polygon_offset_clamp,EXT_texture_compression_bptc,EXT_texture_compression_rgtc,EXT_texture_filter_anisotropic,EXT_sRGB,OES_element_index_uint,OES_fbo_render_mipmap,OES_standard_derivatives,OES_texture_float,OES_texture_float_linear,OES_texture_half_float,OES_texture_half_float_linear,OES_vertex_array_object,WEBGL_color_buffer_float,WEBGL_compressed_texture_astc,WEBGL_compressed_texture_etc,WEBGL_compressed_texture_etc1,WEBGL_compressed_texture_s3tc,WEBGL_compressed_texture_s3tc_srgb,WEBGL_debug_shaders,WEBGL_depth_texture,WEBGL_draw_buffers,WEBGL_lose_context,WEBGL_multi_draw"
+    ]
+   ],
+   "candidate": [
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+    "Linux x86_64",
+    4,
+    8,
+    "en-US,en",
+    9703,
+    [
+     "ANGLE (Intel, Mesa Intel(R) UHD Graphics 620 (KBL GT2), OpenGL 4.6)",
+     "ANGLE_instanced_arrays,EXT_blend_minmax,EXT_color_buffer_half_float,EXT_float_blend,EXT_frag_depth,EXT_texture_compression_bptc,EXT_texture_compression_rgtc,EXT_texture_filter_anisotropic,EXT_sRGB,KHR_parallel_shader_compile,OES_element_index_uint,OES_fbo_render_mipmap,OES_standard_derivatives,OES_texture_float,OES_texture_float_linear,OES_texture_half_float,OES_texture_half_float_linear,OES_vertex_array_object,WEBGL_color_buffer_float,WEBGL_compressed_texture_s3tc,WEBGL_compressed_texture_s3tc_srgb,WEBGL_debug_renderer_info,WEBGL_debug_shaders,WEBGL_depth_texture,WEBGL_draw_buffers,WEBGL_lose_context,WEBGL_multi_draw"
+    ]
+   ],
+   "why": "The inline worker follows the page (1.1.25): the one shared WebGL card and the fixed extension list at Strict and Maximum, and at Strict the languages as the header says them (\"en-US,en\").",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/off/hints.brands",
+   "base": "[{\"brand\":\"Google Chrome\",\"version\":\"140\"},{\"brand\":\"Chromium\",\"version\":\"140\"},{\"brand\":\"Not=A?Brand\",\"version\":\"24\"}]",
+   "candidate": "[{\"brand\":\"Not=A?Brand\",\"version\":\"24\"},{\"brand\":\"Chromium\",\"version\":\"140\"}]",
+   "why": "The engine's own brand list and order (1.1.25): service and shared workers never see the profile's client hints and gave \"Not=A?Brand\", \"Chromium\" where the page said \"Google Chrome\" too; the page and the headers now give the engine's list (at Strict and Maximum the reduced 140.0.0.0 list the profile sets, whose order Qt fixes; service and shared workers from a file do not start there).",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/off/hints.high",
+   "base": "{\"architecture\":\"x86\",\"bitness\":\"64\",\"brands\":[{\"brand\":\"Google Chrome\",\"version\":\"140\"},{\"brand\":\"Chromium\",\"version\":\"140\"},{\"brand\":\"Not=A?Brand\",\"version\":\"24\"}],\"formFactors\":[\"Desktop\"],\"fullVersionList\":[{\"brand\":\"Google Chrome\",\"version\":\"140.0.7339.264\"},{\"brand\":\"Chromium\",\"version\":\"140.0.7339.264\"},{\"brand\":\"Not=A?Brand\",\"version\":\"24.0.0.0\"}],\"mobile\":false,\"model\":\"\",\"platform\":\"Linux\",\"platformVersion\":\"6.0.0\",\"uaFullVersion\":\"140.0.7339.264\",\"wow64\":false}",
+   "candidate": "{\"architecture\":\"x86\",\"bitness\":\"64\",\"brands\":[{\"brand\":\"Not=A?Brand\",\"version\":\"24\"},{\"brand\":\"Chromium\",\"version\":\"140\"}],\"formFactors\":[\"Desktop\"],\"fullVersionList\":[{\"brand\":\"Not=A?Brand\",\"version\":\"24.0.0.0\"},{\"brand\":\"Chromium\",\"version\":\"140.0.7339.264\"}],\"mobile\":false,\"model\":\"\",\"platform\":\"Linux\",\"platformVersion\":\"\",\"uaFullVersion\":\"140.0.7339.264\",\"wow64\":false}",
+   "why": "The same brand list as the engine's own and no kernel version (1.1.25, see hints.brands and platformVersion): the high-entropy client hints agree with every kind of worker and the headers.",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/strict/frame",
+   "base": [
+    4,
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+    7,
+    1440,
+    [
+     "116ec122",
+     "5a63666b",
+     140.51590603125
+    ]
+   ],
+   "candidate": [
+    4,
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+    5,
+    1440,
+    [
+     "116ec122",
+     "5a63666b",
+     140.51590603125
+    ]
+   ],
+   "why": "The frame's plugin count follows the page (1.1.25, see navigator.plugins): 5 at Strict and Maximum, Chrome's own PDF plugins; the frame's canvas and other values are unchanged.",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/strict/hints.brands",
+   "base": "[{\"brand\":\"Google Chrome\",\"version\":\"140\"},{\"brand\":\"Chromium\",\"version\":\"140\"},{\"brand\":\"Not=A?Brand\",\"version\":\"24\"}]",
+   "candidate": "[{\"brand\":\"Chromium\",\"version\":\"140\"},{\"brand\":\"Not=A?Brand\",\"version\":\"24\"}]",
+   "why": "The engine's own brand list and order (1.1.25): service and shared workers never see the profile's client hints and gave \"Not=A?Brand\", \"Chromium\" where the page said \"Google Chrome\" too; the page and the headers now give the engine's list (at Strict and Maximum the reduced 140.0.0.0 list the profile sets, whose order Qt fixes; service and shared workers from a file do not start there).",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/strict/hints.high",
+   "base": "{\"architecture\":\"x86\",\"bitness\":\"64\",\"brands\":[{\"brand\":\"Google Chrome\",\"version\":\"140\"},{\"brand\":\"Chromium\",\"version\":\"140\"},{\"brand\":\"Not=A?Brand\",\"version\":\"24\"}],\"formFactors\":[\"Desktop\"],\"fullVersionList\":[{\"brand\":\"Google Chrome\",\"version\":\"140.0.0.0\"},{\"brand\":\"Chromium\",\"version\":\"140.0.0.0\"},{\"brand\":\"Not=A?Brand\",\"version\":\"24.0.0.0\"}],\"mobile\":false,\"model\":\"\",\"platform\":\"Linux\",\"platformVersion\":\"6.0.0\",\"uaFullVersion\":\"140.0.0.0\",\"wow64\":false}",
+   "candidate": "{\"architecture\":\"x86\",\"bitness\":\"64\",\"brands\":[{\"brand\":\"Chromium\",\"version\":\"140\"},{\"brand\":\"Not=A?Brand\",\"version\":\"24\"}],\"formFactors\":[\"Desktop\"],\"fullVersionList\":[{\"brand\":\"Chromium\",\"version\":\"140.0.0.0\"},{\"brand\":\"Not=A?Brand\",\"version\":\"24.0.0.0\"}],\"mobile\":false,\"model\":\"\",\"platform\":\"Linux\",\"platformVersion\":\"\",\"uaFullVersion\":\"140.0.0.0\",\"wow64\":false}",
+   "why": "The same brand list as the engine's own and no kernel version (1.1.25, see hints.brands and platformVersion): the high-entropy client hints agree with every kind of worker and the headers.",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/strict/navigator.languages",
+   "base": "en-US",
+   "candidate": "en-US,en",
+   "why": "Strict shows the first language and its base, as the header says them (1.1.25): [\"en-US\"] alone contradicted the Accept-Language \"en-US,en;q=0.9\" and Intl; Maximum is unchanged.",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/strict/navigator.plugins",
+   "base": "PDF Viewer,Chrome PDF Viewer,Chromium PDF Viewer,Microsoft Edge PDF Viewer,WebKit built-in PDF,Ludatod Pijugu,Dehopakuko Cucekuf",
+   "candidate": "PDF Viewer,Chrome PDF Viewer,Chromium PDF Viewer,Microsoft Edge PDF Viewer,WebKit built-in PDF",
+   "why": "Strict and Maximum give Chrome's own five PDF plugins with their two types (1.1.25): the two invented plugins had no type, which CreepJS reports as a lie (\"missing mimetype\"). Balanced keeps them.",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/strict/webgl.extensions",
+   "base": "ANGLE_instanced_arrays,EXT_blend_minmax,EXT_color_buffer_half_float,EXT_float_blend,EXT_frag_depth,EXT_polygon_offset_clamp,EXT_texture_compression_bptc,EXT_texture_compression_rgtc,EXT_texture_filter_anisotropic,EXT_sRGB,OES_element_index_uint,OES_fbo_render_mipmap,OES_standard_derivatives,OES_texture_float,OES_texture_float_linear,OES_texture_half_float,OES_texture_half_float_linear,OES_vertex_array_object,WEBGL_color_buffer_float,WEBGL_compressed_texture_astc,WEBGL_compressed_texture_etc,WEBGL_compressed_texture_etc1,WEBGL_compressed_texture_s3tc,WEBGL_compressed_texture_s3tc_srgb,WEBGL_debug_shaders,WEBGL_depth_texture,WEBGL_draw_buffers,WEBGL_lose_context,WEBGL_multi_draw",
+   "candidate": "ANGLE_instanced_arrays,EXT_blend_minmax,EXT_color_buffer_half_float,EXT_float_blend,EXT_frag_depth,EXT_texture_compression_bptc,EXT_texture_compression_rgtc,EXT_texture_filter_anisotropic,EXT_sRGB,KHR_parallel_shader_compile,OES_element_index_uint,OES_fbo_render_mipmap,OES_standard_derivatives,OES_texture_float,OES_texture_float_linear,OES_texture_half_float,OES_texture_half_float_linear,OES_vertex_array_object,WEBGL_color_buffer_float,WEBGL_compressed_texture_s3tc,WEBGL_compressed_texture_s3tc_srgb,WEBGL_debug_renderer_info,WEBGL_debug_shaders,WEBGL_depth_texture,WEBGL_draw_buffers,WEBGL_lose_context,WEBGL_multi_draw",
+   "why": "Strict and Maximum: a fixed list of extensions common desktop cards all have, never one the real context lacks, the same for every user (1.1.25), instead of a random part hidden per site with WEBGL_debug_renderer_info hidden; CreepJS flagged the mix.",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/strict/webgl.unmasked_renderer",
+   "base": null,
+   "candidate": "ANGLE (Intel, Mesa Intel(R) UHD Graphics 620 (KBL GT2), OpenGL 4.6)",
+   "why": "Strict and Maximum: one card name for every user, the most common on Linux, offered as Chrome offers it (1.1.25, the owner asked for a shared value instead of none: 7.5 bits on Cover Your Tracks).",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/strict/webgl.unmasked_vendor",
+   "base": null,
+   "candidate": "Google Inc. (Intel)",
+   "why": "Strict and Maximum: the vendor of the one card every user is told about (1.1.25, see webgl.unmasked_renderer).",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/strict/worker",
+   "base": [
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+    "Linux x86_64",
+    4,
+    8,
+    "en-US",
+    9703,
+    [
+     null,
+     "ANGLE_instanced_arrays,EXT_blend_minmax,EXT_color_buffer_half_float,EXT_float_blend,EXT_frag_depth,EXT_polygon_offset_clamp,EXT_texture_compression_bptc,EXT_texture_compression_rgtc,EXT_texture_filter_anisotropic,EXT_sRGB,OES_element_index_uint,OES_fbo_render_mipmap,OES_standard_derivatives,OES_texture_float,OES_texture_float_linear,OES_texture_half_float,OES_texture_half_float_linear,OES_vertex_array_object,WEBGL_color_buffer_float,WEBGL_compressed_texture_astc,WEBGL_compressed_texture_etc,WEBGL_compressed_texture_etc1,WEBGL_compressed_texture_s3tc,WEBGL_compressed_texture_s3tc_srgb,WEBGL_debug_shaders,WEBGL_depth_texture,WEBGL_draw_buffers,WEBGL_lose_context,WEBGL_multi_draw"
+    ]
+   ],
+   "candidate": [
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+    "Linux x86_64",
+    4,
+    8,
+    "en-US,en",
+    9703,
+    [
+     "ANGLE (Intel, Mesa Intel(R) UHD Graphics 620 (KBL GT2), OpenGL 4.6)",
+     "ANGLE_instanced_arrays,EXT_blend_minmax,EXT_color_buffer_half_float,EXT_float_blend,EXT_frag_depth,EXT_texture_compression_bptc,EXT_texture_compression_rgtc,EXT_texture_filter_anisotropic,EXT_sRGB,KHR_parallel_shader_compile,OES_element_index_uint,OES_fbo_render_mipmap,OES_standard_derivatives,OES_texture_float,OES_texture_float_linear,OES_texture_half_float,OES_texture_half_float_linear,OES_vertex_array_object,WEBGL_color_buffer_float,WEBGL_compressed_texture_s3tc,WEBGL_compressed_texture_s3tc_srgb,WEBGL_debug_renderer_info,WEBGL_debug_shaders,WEBGL_depth_texture,WEBGL_draw_buffers,WEBGL_lose_context,WEBGL_multi_draw"
+    ]
+   ],
+   "why": "The inline worker follows the page (1.1.25): the one shared WebGL card and the fixed extension list at Strict and Maximum, and at Strict the languages as the header says them (\"en-US,en\").",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "headers/balanced/page/sec-ch-ua",
+   "base": "\"Google Chrome\";v=\"140\", \"Chromium\";v=\"140\", \"Not=A?Brand\";v=\"24\"",
+   "candidate": "\"Not=A?Brand\";v=\"24\", \"Chromium\";v=\"140\"",
+   "why": "The Sec-CH-UA header carries the engine's own brand list (1.1.25, see hints.brands), the same as the page and every worker.",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "headers/compatibility/page/sec-ch-ua",
+   "base": "\"Google Chrome\";v=\"140\", \"Chromium\";v=\"140\", \"Not=A?Brand\";v=\"24\"",
+   "candidate": "\"Not=A?Brand\";v=\"24\", \"Chromium\";v=\"140\"",
+   "why": "The Sec-CH-UA header carries the engine's own brand list (1.1.25, see hints.brands), the same as the page and every worker.",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "headers/maximum/page/sec-ch-ua",
+   "base": "\"Google Chrome\";v=\"140\", \"Chromium\";v=\"140\", \"Not=A?Brand\";v=\"24\"",
+   "candidate": "\"Chromium\";v=\"140\", \"Not=A?Brand\";v=\"24\"",
+   "why": "The Sec-CH-UA header carries the engine's own brand list (1.1.25, see hints.brands), the same as the page and every worker.",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "headers/off/page/sec-ch-ua",
+   "base": "\"Google Chrome\";v=\"140\", \"Chromium\";v=\"140\", \"Not=A?Brand\";v=\"24\"",
+   "candidate": "\"Not=A?Brand\";v=\"24\", \"Chromium\";v=\"140\"",
+   "why": "The Sec-CH-UA header carries the engine's own brand list (1.1.25, see hints.brands), the same as the page and every worker.",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "headers/strict/page/sec-ch-ua",
+   "base": "\"Google Chrome\";v=\"140\", \"Chromium\";v=\"140\", \"Not=A?Brand\";v=\"24\"",
+   "candidate": "\"Chromium\";v=\"140\", \"Not=A?Brand\";v=\"24\"",
+   "why": "The Sec-CH-UA header carries the engine's own brand list (1.1.25, see hints.brands), the same as the page and every worker.",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
+  },
+  {
+   "key": "profile/strict/httpAcceptLanguage",
+   "base": "en-US,en",
+   "candidate": "en-US,en;q=0.9",
+   "why": "At the global level Strict the engine is given the one language Strict shows, as Chrome sends it (1.1.25), so workers from a site's own file agree with the page and the header (the header was already this).",
+   "accepted": "the owner asked for these changes on 2026-11-24 (1.1.25 fingerprinting fixes); entry written by Claude"
   }
  ]
 }
