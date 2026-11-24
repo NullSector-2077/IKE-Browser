@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.25 (unreleased)
+## 1.1.25
 
 - **The weather's symbol and its text aligned** (the owner: they were not):
   the symbol (about two centimetres since 1.1.24) has a square box of its own
