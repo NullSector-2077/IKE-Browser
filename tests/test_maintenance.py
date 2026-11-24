@@ -807,9 +807,15 @@ def test_the_daily_check_writes_the_ledger_with_the_least_rights():
 
 
 def test_the_tests_report_what_they_did_not_verify():
-    tests = _jobs((WORKFLOWS / "tests.yml").read_text())["tests"]
-    assert 'python -m pytest --junitxml="$RUNNER_TEMP/test-results/junit.xml"' in tests
-    assert '--junitxml="$RUNNER_TEMP/test-results/junit-installed.xml"' in tests
+    jobs = _jobs((WORKFLOWS / "tests.yml").read_text())
+    tests = jobs["tests"]
+    # since 2026-11-24 each shard writes the junit of its part (tools/shard-tests.py run), and the gate
+    # "tests" writes the run's two files from all of them, only when every shard's is there
+    assert "tools/shard-tests.py run --kind source" in jobs["shard"]
+    assert "tools/shard-tests.py run --kind installed" in jobs["installed"]
+    assert '"--junitxml=%s" % junit' in (ROOT / "tools/shard-tests.py").read_text()
+    assert '--merged-junit "$RUNNER_TEMP/test-results/junit.xml"' in tests
+    assert '--merged-junit "$RUNNER_TEMP/test-results/junit-installed.xml"' in tests
     summary = tests.split("- name: What the tests verified", 1)[1]
     assert summary.lstrip().startswith("if: always()") and "tools/test-categories.py" in summary
     assert '>> "$GITHUB_STEP_SUMMARY" || true' in summary
