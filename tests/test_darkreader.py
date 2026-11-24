@@ -66,8 +66,23 @@ def build_tool():
     return mod
 
 
+def fake_api(tool):
+    """What the build checks besides the patches (2026-11-24): the API I.K.E.'s panel uses
+    (PANEL_API) and the engine's network calls (NETWORK_CALLS), as Dark Reader writes them."""
+    fields = tool.PANEL_API["theme"]
+    lines = ["    const DEFAULT_THEME = {"] + ["        %s: 0," % f for f in fields[:-1]] + \
+        ["        %s: 0" % fields[-1], "    };", "    function enable(themeOptions = {}, fixes = null) {",
+         "        const theme = {...DEFAULT_THEME, ...themeOptions};"] + \
+        ["        use(theme.%s);" % f for f in fields] + ["    }"]
+    for kind, n in tool.NETWORK_CALLS["darkreader.js"].items():
+        lines += ["    %s(address);" % kind] * n
+    lines += ["    exports.%s = %s;" % (name, name) for name in tool.PANEL_API["exports"]]
+    return "\r\n".join(lines) + "\r\n"
+
+
 def fake_engine(patches, skip=None):
-    """An engine with the proxy injection and the text every I.K.E. patch changes."""
+    """An engine with the proxy injection, the text every I.K.E. patch changes and the API I.K.E.'s
+    panel uses."""
     body = "".join(old for name, old, _new in patches if name != skip)
     return ("/**\r\n * Dark Reader v9.9.9\r\n */\r\n(function () {\r\n"
             "    function injectProxy(\r\n        a,\r\n        b\r\n    ) {\r\n        if (a) { b(); }\r\n    }\r\n"
@@ -75,7 +90,7 @@ def fake_engine(patches, skip=None):
             "            const proxyScript = createOrUpdateScript(\"darkreader--proxy\");\r\n"
             "            proxyScript.append(`(${injectProxy})(${a}, ${b})`);\r\n"
             "            proxyScript.remove();\r\n        }\r\n    }\r\n"
-            + body.replace("\n", "\r\n") + "})();\r\n")
+            + fake_api(build_tool()) + body.replace("\n", "\r\n") + "})();\r\n")
 
 
 def test_the_build_tool(tmp_path):
@@ -119,22 +134,59 @@ def test_the_build_tool(tmp_path):
     run = subprocess.run([sys.executable, str(root / "tools/build-darkreader.py"), "--lib", str(tmp_path / "bad.js"),
                           "--config", str(cfg), "--out", str(out)], capture_output=True, text=True)
     assert run.returncode != 0 and "proxy injection" in (run.stderr + run.stdout)
-    # an engine where one of the texts I.K.E. changes is missing is not half-adapted
+    assert "ike_build" not in data                         # built whole: nothing left out, nothing removed
+    # an engine where one of the texts of a speed patch is missing (the owner's decision of
+    # 2026-11-24): never half-adapted, that patch's family is left out whole, with the families
+    # that need it (shadow-styles-once reads ikeShadowTexts); every other patch is made, the build
+    # goes on and says what it left out
     (tmp_path / "changed.js").write_bytes(fake_engine(patches, skip="shadow-texts").encode())
     run = subprocess.run([sys.executable, str(root / "tools/build-darkreader.py"), "--lib", str(tmp_path / "changed.js"),
                           "--config", str(cfg), "--out", str(tmp_path)], capture_output=True, text=True)
-    assert run.returncode != 0 and "'shadow-texts'" in (run.stderr + run.stdout)
-    assert not (tmp_path / "darkreader.js").exists()
+    assert run.returncode == 0, run.stderr
+    assert "speed patch left out: shadow-texts (shadow-texts)" in run.stdout
+    assert "speed patch left out: shadow-styles-once (shadow-styles-once): it needs 'shadow-texts'" in run.stdout
+    engine = (tmp_path / "darkreader.js").read_bytes().decode()
+    for name, old, new in patches:
+        if name in ("shadow-texts", "shadow-styles-once"):
+            assert new.replace("\n", "\r\n") not in engine, name
+        else:
+            assert engine.count(new.replace("\n", "\r\n")) == 1, name
+    assert old_text(patches, "shadow-styles-once").replace("\n", "\r\n") in engine     # left as Dark Reader has it
+    built = json.loads((tmp_path / "darkreader-data.json").read_text())["ike_build"]
+    assert [d["family"] for d in built["speed_patches_dropped"]] == ["shadow-texts", "shadow-styles-once"]
+    assert "found 0 times instead of once" in built["speed_patches_dropped"][0]["reason"]
+
+
+def old_text(patches, name):
+    return next(old for n, old, _new in patches if n == name)
+
+
+def shipped_notes():
+    """What the build left out or removed in the shipped Dark Reader (darkreader-data.json)."""
+    from ike.config import RES_DIR
+    return json.loads((RES_DIR / "darkreader-data.json").read_text("utf-8")).get("ike_build") or {}
+
+
+def shipped_dropped(tool):
+    """The names of the speed patches the shipped engine was built without."""
+    fams = {d["family"] for d in shipped_notes().get("speed_patches_dropped") or ()}
+    return {name for name, _o, _n in tool.PATCHES if tool.patch_family(name) in fams}
 
 
 def test_the_engine_is_the_npm_engine_with_the_changes():
     """ike/resources/darkreader.js is what the build tool makes: undoing I.K.E.'s
-    changes gives back Dark Reader's own text, and every change is in it once."""
+    changes gives back Dark Reader's own text, and every change is in it once
+    (but those of a speed patch the build had to leave out, darkreader-data.json
+    "ike_build": none of their text is in it)."""
     from ike.config import RES_DIR
     tool = build_tool()
     engine = (RES_DIR / "darkreader.js").read_bytes().decode()
+    dropped = shipped_dropped(tool)
     for name, old, new in tool.PATCHES:
         new, old = new.replace("\n", "\r\n"), old.replace("\n", "\r\n")
+        if name in dropped:
+            assert new == old or engine.count(new) == 0, name
+            continue
         assert engine.count(new) == 1, name
         engine = engine.replace(new, old)
     assert engine.count(tool.PROXY_EVENT) == 1
@@ -177,11 +229,294 @@ def test_the_engine_has_only_the_measured_changes():
     assert all(any(n == f or n.startswith(f + "-") for f in KEPT_FAMILIES) for n in families), families
     engine = (RES_DIR / "darkreader.js").read_bytes().decode()
     notes = re.findall(r"// I\.K\.E\.:[^\r\n]*", engine)
-    kept_notes = [m for _n, _o, new in tool.PATCHES for m in re.findall(r"// I\.K\.E\.:[^\n]*", new)]
+    dropped = shipped_dropped(tool)
+    kept_notes = [m for n, _o, new in tool.PATCHES if n not in dropped
+                  for m in re.findall(r"// I\.K\.E\.:[^\n]*", new)]
     assert notes and sorted(notes) == sorted(kept_notes) and len(set(notes)) == len(notes), notes
     for mark in DROPPED_MARKS:
         assert mark not in engine, mark
         assert all(mark not in new for _n, _o, new in tool.PATCHES), mark
+
+
+# --- the builder's rules of 2026-11-24 (the owner's decisions; no network) ----------
+
+# Dark Reader 4.9.135's own proxy injection (npm "darkreader", darkreader.js), the
+# block PROXY_BLOCK takes out: with it, the shipped engine with I.K.E.'s patches
+# undone is Dark Reader's engine again, so the builder can be run on the real
+# engine here, offline.
+UPSTREAM_PROXY_BLOCK = (
+    "{\r\n"
+    "            const proxyScript = createOrUpdateScript(\"darkreader--proxy\");\r\n"
+    "            proxyScript.append(\r\n"
+    "                `(${injectProxy})(${enableStyleSheetsProxy}, ${enableCustomElementRegistryProxy})`\r\n"
+    "            );\r\n"
+    "            document.head.insertBefore(\r\n"
+    "                proxyScript,\r\n"
+    "                document.head.querySelector(\".darkreader\")?.nextSibling ??\r\n"
+    "                    document.head.firstElementChild\r\n"
+    "            );\r\n"
+    "            proxyScript.remove();\r\n"
+    "        }")
+
+
+def upstream_engine(tool):
+    """Dark Reader's own engine, made again from the shipped one (None when the shipped engine had links
+    removed or patches left out: then it cannot be made again exactly)."""
+    from ike.config import RES_DIR
+    notes = shipped_notes()
+    if notes.get("links_removed") or notes.get("speed_patches_dropped"):
+        return None
+    engine = (RES_DIR / "darkreader.js").read_bytes().decode()
+    for _name, old, new in tool.PATCHES:
+        engine = engine.replace(new.replace("\n", "\r\n"), old.replace("\n", "\r\n"))
+    return engine.replace(tool.PROXY_EVENT, UPSTREAM_PROXY_BLOCK)
+
+
+@pytest.fixture
+def upstream():
+    tool = build_tool()
+    lib = upstream_engine(tool)
+    if lib is None:
+        pytest.skip("the shipped engine was built with links removed or patches left out")
+    return tool, lib
+
+
+def node_ok(text):
+    """node --check of a script (None without Node.js)."""
+    return build_tool().node_parses(text)
+
+
+def test_the_shipped_engine_is_rebuilt_byte_for_byte(upstream):
+    """The real engine, made again from the shipped one, gives the shipped darkreader.js and
+    darkreader-proxy.js byte for byte: nothing is left out or removed today. With
+    IKE_DARKREADER_LIB (npm's darkreader.js of the version in use) the made-again engine is checked
+    against it, and with IKE_DARKREADER_CONFIG (src/config of Dark Reader's repository at the lists'
+    commit) darkreader-data.json too."""
+    import os
+    from pathlib import Path
+
+    from ike.config import RES_DIR
+    tool, lib = upstream
+    engine, proxy_js, notes = tool.build_engine(lib)
+    assert engine.encode() == (RES_DIR / "darkreader.js").read_bytes()
+    assert proxy_js.encode() == (RES_DIR / "darkreader-proxy.js").read_bytes()
+    assert notes == {"speed_patches_dropped": [], "links_removed": []}
+    npm = os.environ.get("IKE_DARKREADER_LIB")
+    if npm:
+        assert Path(npm).read_bytes().decode() == lib
+    cfg = os.environ.get("IKE_DARKREADER_CONFIG")
+    if cfg and npm:
+        data = json.loads((RES_DIR / "darkreader-data.json").read_text("utf-8"))
+        _e, _p, rebuilt = tool.build(npm, cfg, data["lists_commit"], data["lists_date"])
+        assert json.dumps(rebuilt, ensure_ascii=False, separators=(",", ":")) + "\n" == \
+            (RES_DIR / "darkreader-data.json").read_text("utf-8")
+
+
+def test_the_patch_families_are_what_the_code_needs():
+    """PATCH_NEEDS: every speed patch is in one family, the families are the measured ones, and a
+    family that uses a function or variable another family declares (ike...) needs that family."""
+    import re
+    tool = build_tool()
+    assert set(tool.PATCH_NEEDS) == set(KEPT_FAMILIES)
+    fams = {}
+    for name, _old, new in tool.PATCHES:
+        fams.setdefault(tool.patch_family(name), []).append(new)
+    assert set(fams) == set(KEPT_FAMILIES)
+    declared = {}
+    for fam, texts in fams.items():
+        for text in texts:
+            for ident in re.findall(r"\b(?:function|const|let|var)\s+(ike[A-Z]\w*)", text):
+                declared.setdefault(ident, fam)
+
+    def needs(fam):
+        out = set(tool.PATCH_NEEDS[fam])
+        for x in tool.PATCH_NEEDS[fam]:
+            out |= needs(x)
+        return out
+    for fam, texts in fams.items():
+        for ident in set(re.findall(r"(?<![.\w])(ike[A-Z]\w*)", "".join(texts))):    # not a property
+            owner = declared.get(ident)
+            assert owner is None or owner == fam or owner in needs(fam), (fam, ident, owner)
+    # the three dependencies are real ones
+    assert declared["ikeShadowTexts"] == "shadow-texts" and declared["ikeColorOnRoot"] == "color-variables"
+    assert declared["ikeGroup"] == "style-groups"
+
+
+def test_a_speed_patch_that_no_longer_fits_is_left_out_and_the_rest_ships(upstream):
+    """The real engine with the text of one speed patch changed: that family (and only what needs
+    it) is left out, every other patch is made, the proxy change is there and the script still
+    parses."""
+    tool, lib = upstream
+    anchor = old_text(tool.PATCHES, "style-moves-check").replace("\n", "\r\n")
+    assert lib.count(anchor) == 1
+    engine, _proxy, notes = tool.build_engine(lib.replace(anchor, anchor.replace("!==", "!= ")))
+    assert [(d["family"], d["patches"]) for d in notes["speed_patches_dropped"]] == \
+        [("style-moves", ["style-moves", "style-moves-check"])]
+    for name, _old, new in tool.PATCHES:
+        made = engine.count(new.replace("\n", "\r\n"))
+        assert made == (0 if name.startswith("style-moves") else 1), name
+    assert "ikeStyleSibling" not in engine and engine.count(tool.PROXY_EVENT) == 1
+    assert node_ok(engine) in (True, None)
+    # a family others need: selection-colours goes with color-variables
+    anchor = old_text(tool.PATCHES, "color-variables-register").replace("\n", "\r\n")
+    engine, _proxy, notes = tool.build_engine(lib.replace(anchor, anchor.replace("?.style", "?.style ")))
+    assert [d["family"] for d in notes["speed_patches_dropped"]] == ["color-variables", "selection-colours"]
+    assert "ikeColorOnRoot" not in engine and "ikePlainColor" not in engine
+    assert engine.count(old_text(tool.PATCHES, "shadow-texts").replace("\n", "\r\n")) == 0     # made
+    assert node_ok(engine) in (True, None)
+
+
+def test_the_proxy_change_that_no_longer_fits_stops_the_build(upstream):
+    """The proxy change is not a speed patch: without it the build stops."""
+    tool, lib = upstream
+    with pytest.raises(SystemExit, match="proxy injection"):
+        tool.build_engine(lib.replace(UPSTREAM_PROXY_BLOCK, UPSTREAM_PROXY_BLOCK.replace(
+            "proxyScript.remove();", "proxyScript.detach();")))
+    with pytest.raises(SystemExit, match="injectProxy"):
+        tool.build_engine(lib.replace("function injectProxy(", "function injectTheProxy("))
+
+
+LINKY = """// see https://unknown.example/notes and https://www.patreon.com/darkreader
+/* social: https://twitter.com/darkreaderapp */
+/*! https://ko-fi.com/darkreader*/
+const a = "https://www.patreon.com/darkreader";
+const b = 'https://opencollective.com/darkreader';
+const c = ["x", "https://twitter.com/darkreaderapp", "https://darkreader.org/blog/news-1"];
+const d = `<a href="https://www.buymeacoffee.com/x">${a}</a>`;
+const e = "https://fonts.googleapis.com/";
+const f = url.startsWith("https://") || url.startsWith("moz-extension://");
+const g = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+const h = "support us at patreon.com/darkreader";
+const re = /https?:\\/\\/[^/]+/;
+"""
+
+
+def test_links_are_removed_by_kind_and_the_script_stays_the_same_code():
+    tool = build_tool()
+    out, removed = tool.scrub_links(LINKY, "darkreader.js")
+    # comments lose the link, strings of a denied kind become "", a template loses only the link
+    assert "// see  and \n/* social:  */\n/*! */\n" in out
+    assert 'const a = "";' in out and "const b = '';" in out
+    assert 'const c = ["x", "", ""];' in out
+    assert 'const d = `<a href="">${a}</a>`;' in out
+    assert 'const h = "";' in out
+    # what Dark Reader needs stays: the allowed links, the schemes it compares with, a regular expression
+    for kept in ('const e = "https://fonts.googleapis.com/";', 'url.startsWith("https://")',
+                 'url.startsWith("moz-extension://")', '"http://www.w3.org/2000/svg"',
+                 "const re = /https?:\\/\\/[^/]+/;"):
+        assert kept in out, kept
+    kinds = sorted((r["where"], r["kind"], r["host"]) for r in removed)
+    assert kinds == [("comment", "donation", "ko-fi.com"), ("comment", "donation", "www.patreon.com"),
+                     ("comment", "social", "twitter.com"),
+                     ("comment", "unknown", "unknown.example"), ("string", "donation", "opencollective.com"),
+                     ("string", "donation", "patreon.com"), ("string", "donation", "www.patreon.com"),
+                     ("string", "news", "darkreader.org"), ("string", "social", "twitter.com"),
+                     ("template", "donation", "www.buymeacoffee.com")], kinds
+    assert tool.code_shape(out) == tool.code_shape(LINKY)
+    assert node_ok(out) in (True, None) and node_ok(LINKY) in (True, None)
+    # nothing left to remove; a second pass changes nothing
+    assert tool.scrub_links(out, "darkreader.js") == (out, [])
+
+
+@pytest.mark.parametrize("text,why", [
+    ('const a = "https://cdn.unknown.example/x.js";', "an unknown link in a string"),
+    ("const a = `see https://unknown.example/${x}`;", "an unknown link in a template literal"),
+    ('if (location.href === "https://www.youtube.com/@darkreader") {}', "a social link the code compares with"),
+    ('if (url.startsWith("https://www.patreon.com/")) {}', "a donation link the code compares with"),
+    ('const map = {"https://twitter.com/x": 1};', "a social link the code compares with"),
+])
+def test_a_link_a_person_must_judge_stops_the_build(text, why):
+    tool = build_tool()
+    with pytest.raises(SystemExit, match="links: darkreader.js: line 1, .*%s" % why):
+        tool.scrub_links(text, "darkreader.js")
+
+
+def test_links_in_the_real_engine(upstream):
+    """Links put into the real engine: removed, the rest of the build as usual; an unknown one stops it."""
+    tool, lib = upstream
+    extra = ("\r\n// news: https://darkreader.org/blog/whats-new\r\n"
+             "var ikeTestDonate = \"https://www.patreon.com/darkreader\";\r\n")
+    engine, _proxy, notes = tool.build_engine(lib + extra)
+    assert engine.endswith("\r\n// news: \r\nvar ikeTestDonate = \"\";\r\n")
+    assert [(r["kind"], r["host"]) for r in notes["links_removed"]] == [("news", "darkreader.org"),
+                                                                       ("donation", "www.patreon.com")]
+    assert node_ok(engine) in (True, None)
+    with pytest.raises(SystemExit, match="links: darkreader.js: .*an unknown link"):
+        tool.build_engine(lib + "\r\nvar ikeTest = \"https://cdn.unknown.example/a.js\";\r\n")
+
+
+def test_a_new_network_call_stops_the_build(upstream):
+    tool, lib = upstream
+    with pytest.raises(SystemExit, match="network calls: darkreader.js: sendBeacon 0 -> 1"):
+        tool.build_engine(lib + "\r\nnavigator.sendBeacon(\"/x\", y);\r\n")
+    with pytest.raises(SystemExit, match="network calls: darkreader.js: fetch 4 -> 5"):
+        tool.build_engine(lib + "\r\nfetch(y);\r\n")
+    # in a comment or a string it is no call
+    tool.build_engine(lib + "\r\n// fetch(y) and new WebSocket(z)\r\nvar ikeTest = \"fetch(y)\";\r\n")
+
+
+def test_the_api_of_the_panel_must_stay(upstream):
+    """DarkReader.enable(theme, fixes), disable, setFetchMethod and the theme's fields I.K.E.'s panel
+    and darkmode.js use: gone or changed, the build stops."""
+    import re
+    tool, lib = upstream
+    assert tool.api_problems(lib) == []
+    cases = {"exports.setFetchMethod": lib.replace("exports.setFetchMethod = setFetchMethod;", ""),
+             "exports.disable": lib.replace("exports.disable = disable;", "exports.off = disable;"),
+             "theme.scrollbarColor (DEFAULT_THEME)": lib.replace("        scrollbarColor: \"\",\r\n", ""),
+             "enable(theme, fixes): its second parameter": lib.replace(
+                 "function enable(themeOptions = {}, fixes = null) {", "function enable(themeOptions = {}) {")}
+    for what, text in cases.items():
+        assert text != lib, what
+        with pytest.raises(SystemExit, match="API that I.K.E.'s panel uses .*%s" % re.escape(what)):
+            tool.build_engine(text)
+
+
+def test_the_site_fixes_cannot_carry_a_script(tmp_path):
+    """darkreader-data.json is data (CSS for a style element, selectors, flags): anything that looks
+    like a script stops the build; the shipped lists have none."""
+    from ike.config import RES_DIR
+    tool = build_tool()
+    data = json.loads((RES_DIR / "darkreader-data.json").read_text("utf-8"))
+    assert tool.data_problems(data) == []
+    for css in ("a { background: url(javascript:alert(1)) }", "</style><script>alert(1)</script>",
+                "x { behavior: url(a.htc) }", "x { width: expression(alert(1)) }"):
+        bad = dict(data, fixes=data["fixes"] + [{"url": ["bad.example"], "css": css}])
+        assert tool.data_problems(bad), css
+    assert tool.data_problems(dict(data, fixes=[{"url": ["x"], "script": "a"}]))
+    lib = tmp_path / "lib.js"
+    lib.write_bytes(fake_engine(tool.PATCHES).encode())
+    cfg = tmp_path / "config"
+    cfg.mkdir()
+    (cfg / "dynamic-theme-fixes.config").write_text("*\n\nCSS\nbody { color: red }\n\n====\n\nbad.example\n\n"
+                                                    "CSS\na { background: url('javascript:alert(1)') }\n")
+    (cfg / "dark-sites.config").write_text("dark.example\n")
+    (cfg / "detector-hints.config").write_text("own.example\n\nNO DARK THEME\n")
+    with pytest.raises(SystemExit, match="could be a script: fixes\\[1\\].css \\(bad.example\\)"):
+        tool.build(lib, cfg)
+
+
+def test_the_shipped_dark_reader_has_only_allowed_links():
+    """The guard on what ships: in darkreader.js, darkreader-proxy.js and darkmode.js every absolute
+    link is allowed (LINKS_ALLOWED, or a bare scheme the code compares with), none of a denied kind;
+    the network calls and the panel's API are those the builder checks."""
+    from ike.config import RES_DIR
+    tool = build_tool()
+    for name in ("darkreader.js", "darkreader-proxy.js", "darkmode.js"):
+        text = (RES_DIR / name).read_text("utf-8")
+        found = tool.scan_links(text)
+        assert found, name
+        for f in found:
+            assert f["verdict"] == "keep", (name, f)
+            assert f["url"] in tool.LINKS_ALLOWED or f["url"].endswith("://"), (name, f)
+            assert not tool.link_kind(f["url"]), (name, f)
+    assert tool.network_calls((RES_DIR / "darkreader.js").read_text("utf-8")) == tool.NETWORK_CALLS["darkreader.js"]
+    assert tool.network_calls((RES_DIR / "darkreader-proxy.js").read_text("utf-8")) == {}
+    assert tool.api_problems((RES_DIR / "darkreader.js").read_text("utf-8")) == []
+    # darkmode.js calls only what PANEL_API keeps
+    mode = (RES_DIR / "darkmode.js").read_text("utf-8")
+    import re
+    assert set(re.findall(r"\bDR\.(\w+)\(", mode)) <= set(tool.PANEL_API["exports"])
 
 
 # --- in the browser -------------------------------------------------------------
