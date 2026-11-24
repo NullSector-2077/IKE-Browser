@@ -55,7 +55,11 @@ The rules of a tier-A file, each one testable:
    `break` or `continue` outside a block the change itself opens), give a constant to a name the old
    file has (a protection switched off), or reach out (JS_RISKY, RUST_RISKY, a new address). The
    JSON table may only grow (json_superset). On a candidate of the engine the wrapper follows the
-   engine's new interface: there the additive rule does not apply to it, the others do.
+   engine's new interface: there the additive rule does not apply to it, the others do. In I.K.E.'s
+   own page scripts (PROTECTED_JS: page_script_problems, the fourth review of "Nothing gets worse",
+   2026-11-24) a new line also may not leave code anywhere but inside a function the change adds, read
+   where or when the page is (PAGE_ENV), or change an object the old script has by a method or delete
+   from it (PAGE_MUTATE, PAGE_DELETE).
 7. **The component manifest** (components.json) may get a new entry for a file from upstream that has
    none (the inventory guard says which): only added entries, a plain download from an allowed host of
    a file that is already in the repository with the sha256 the entry declares, never a build command
@@ -671,6 +675,62 @@ ASSIGNS = re.compile(r"^\s*(?:\}\s*)?([A-Za-z_$][\w$]*)((?:\s*\.\s*[\w$]+|\s*\[[
                      r"(?:[-+*/%|&^]|\|\||&&|\?\?|<<|>>>?)?=(?![=>])")
 
 
+# I.K.E.'s own page scripts (PROTECTED_JS), the fourth review of "Nothing gets worse" (2026-11-24): copies
+# made of added lines only weakened the fingerprinting protection and passed rule 5. There a new line
+# may not: leave code (return, throw, break, continue) anywhere but inside a function the change itself
+# adds (an early exit in a new block skipped the noise on some sites, for sub-frames, for WebGL2);
+# read where or when the page is (PAGE_ENV: an address, a frame, the time, chance) to decide anything;
+# change an object the old script has by a method (PAGE_MUTATE: taking names out of the masked fonts,
+# hidden extensions or any list, putting a site into a list of exceptions) or delete from it.
+PAGE_ENV = re.compile(r"(?<![\w$])(location|hostname|protocol|origin|top|parent|frameElement|Date|performance"
+                      r"|ancestorOrigins|referrer|domain)(?![\w$])|Math\s*\.\s*random")
+PAGE_MUTATE = re.compile(r"(?<![\w$.])([A-Za-z_$][\w$]*)((?:\s*\.\s*[\w$]+|\s*\[[^\]]*\])*)\s*\.\s*"
+                         r"(splice|pop|shift|unshift|push|fill|copyWithin|reverse|sort|clear|delete|add|set)\s*\(")
+PAGE_DELETE = re.compile(r"(?<![\w$.])delete\s+([A-Za-z_$][\w$]*)")
+
+
+def page_script_problems(name, run, had):
+    """The rules of a page script's new lines (PROTECTED_JS): (problems). `run` is a run of new lines,
+    `had` what the old script declares."""
+    out, stack, mine = [], [], set()
+    for line in run:
+        bare = _strip_strings(line)
+        d = DECLARES.match(bare)
+        if d:
+            mine.add(d.group(2))
+        in_fn = "fn" in stack
+        # what the line itself opens before an exit word: a function written on the same line
+        head = re.split(r"(?<![\w$.])(?:return|throw|break|continue)(?![\w$])", bare, maxsplit=1)[0]
+        if EXIT_WORD.search(bare) and not in_fn and not re.search(r"\bfunction\b|=>", head):
+            out.append("%s: a new line leaves code outside a function the change adds (%s): in a page script "
+                       "an early exit skips the protection" % (name, line[:70]))
+        if PAGE_ENV.search(bare):
+            out.append("%s: a new line reads where or when the page is (%s): in a page script a protection may "
+                       "not depend on the site, the frame, the time or chance" % (name, line[:70]))
+        for m in PAGE_MUTATE.finditer(bare):
+            if m.group(1) in had and m.group(1) not in mine and m.group(1) not in ("this", "self"):
+                out.append("%s: a new line changes %s, which the old script has (%s): its lists and tables only "
+                           "change by a person" % (name, m.group(1), line[:70]))
+        for m in PAGE_DELETE.finditer(bare):
+            if m.group(1) in had and m.group(1) not in mine:
+                out.append("%s: a new line deletes from %s, which the old script has (%s)" % (name, m.group(1),
+                                                                                           line[:70]))
+        # the blocks this line opens and closes: a function or another block
+        text = ""
+        for ch in bare:
+            if ch == "{":
+                stack.append("fn" if re.search(r"\bfunction\b[^{}]*$|=>\s*$|\)\s*$", text) and
+                             re.search(r"\bfunction\b|=>", text) else "blk")
+                text = ""
+            elif ch == "}":
+                if stack:
+                    stack.pop()
+                text = ""
+            else:
+                text += ch
+    return out
+
+
 def declared(text):
     """The names a script declares (function, var, let, const, fn, static)."""
     return {m.group(2) for m in (DECLARES.match(_strip_strings(ln)) for ln in (text or "").split("\n")) if m}
@@ -713,6 +773,8 @@ def line_additive(name, old, new, risky):
     had = declared(old)
     before = hosts_in(_strings(old))
     for run in runs:
+        if name in PROTECTED_JS:
+            out += page_script_problems(name, run, had)
         depth = 0
         mine = set()                              # what the new lines themselves declare inside their own blocks
         for line in run:

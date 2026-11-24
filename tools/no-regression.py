@@ -96,7 +96,40 @@ FIXED_KEY = "6e6f2d72656772657373696f6e2d6b31"
 # the key of a second session (a new start has a new key): what the protection randomises must change
 FIXED_KEY_2 = "6e6f2d72656772657373696f6e2d6b32"
 # another real machine for the "env." marks: what a fixed disguise shows must not follow it
-OTHER_MACHINE = {"tz": "Pacific/Auckland", "lang": "de_DE.UTF-8", "screen": {"width": 1366, "height": 768}}
+OTHER_MACHINE = {"tz": "Pacific/Auckland", "lang": "de_DE.UTF-8", "screen": {"width": 1366, "height": 768},
+                 "cpus": 3, "memory_gb": 2}
+# the other machine's memory (N7): a small library loaded first (LD_PRELOAD) gives the engine another
+# amount of memory; built with the computer's C compiler, or not at all (then a notice in the report)
+MEMORY_SHIM = r"""#define _GNU_SOURCE
+#include <dlfcn.h>
+#include <unistd.h>
+#include <sys/sysinfo.h>
+long sysconf(int name) {
+  static long (*real)(int) = 0;
+  if (!real) real = (long (*)(int))dlsym(RTLD_NEXT, "sysconf");
+  if (name == _SC_PHYS_PAGES) { long ps = real(_SC_PAGESIZE); return ps > 0 ? (__GB__L << 30) / ps : real(name); }
+  return real(name);
+}
+int sysinfo(struct sysinfo *info) {
+  static int (*real)(struct sysinfo *) = 0;
+  if (!real) real = (int (*)(struct sysinfo *))dlsym(RTLD_NEXT, "sysinfo");
+  int r = real(info);
+  if (r == 0 && info->mem_unit) info->totalram = (__GB__UL << 30) / info->mem_unit;
+  return r;
+}
+"""
+
+
+def _memory_shim(workdir):
+    """The other machine's memory library, built in workdir; None when no compiler builds it."""
+    src, lib = Path(workdir) / "m.c", Path(workdir) / "m.so"
+    try:
+        src.write_text(MEMORY_SHIM.replace("__GB__", str(int(OTHER_MACHINE["memory_gb"]))), "utf-8")
+        subprocess.run(["cc", "-shared", "-fPIC", "-O1", "-o", str(lib), str(src), "-ldl"], capture_output=True,
+                       timeout=60, check=True)
+        return str(lib)
+    except (OSError, subprocess.SubprocessError):
+        return None
 
 
 def fixed_keys(n):
@@ -145,8 +178,9 @@ PNG = bytes.fromhex("89504e470d0a1a0a0000000d4948445200000001000000010806000000"
 # API is offered, permissions, the native look of the replaced functions, the third-party image...)
 # keeps the exact rule: any change is worse.
 FP_JUDGED = re.compile(
-    r"^(canvas|canvas_blob|canvas_offset|canvas_flat|audio|frame|worker|media_queries"
-    r"|webgl\.(vendor|renderer|unmasked_vendor|unmasked_renderer|max_texture|extensions|read_pixels)"
+    r"^(canvas|canvas_blob|canvas_offset|canvas_flat|canvas_offscreen|audio|audio_copy|audio_analyser|video_frame"
+    r"|frame|frame_x|frame_html|frame_srcdoc|worker|shared_worker|file_worker|media_queries"
+    r"|webgl2?\.(vendor|renderer|unmasked_vendor|unmasked_renderer|max_texture|extensions|read_pixels)"
     r"|navigator\.(userAgent|appVersion|platform|vendor|product|productSub|oscpu|hardwareConcurrency|deviceMemory"
     r"|language|languages|plugins|mimeTypes|maxTouchPoints|pdfViewerEnabled)"
     r"|screen\.\w+|hints\.\w+|intl\.\w+|fonts_(measured|check|generic|computed))$")
@@ -154,13 +188,15 @@ FP_JUDGED = re.compile(
 # closer to it, is worse; one randomised on main may change fewer names only by chance: by more than
 # NOISE_Z times the spread of the difference of two draws (each name hidden or not by half a chance:
 # the variance of a session's count is half its mean) it is worse
-FP_LISTS = {"fonts_measured", "fonts_check", "navigator.languages", "navigator.plugins", "webgl.extensions"}
+FP_LISTS = {"fonts_measured", "fonts_check", "navigator.languages", "navigator.plugins", "webgl.extensions",
+            "webgl2.extensions"}
 
 # what the probe hands over only for the size of the noise (no observation of its own): pictures of
 # known bytes as read back, the PNG of the canvases and of the blob, text widths, the audio samples;
 # and the canvas and sound of another site's frame (the "site." marks)
 SAMPLES = {"canvas_pixels", "canvas_offset_pixels", "canvas_flat_pixels", "webgl_pixels", "worker_pixels",
-           "frame_pixels", "frame_widths", "text_widths", "audio_samples", "png", "third_frame"}
+           "frame_pixels", "frame_widths", "text_widths", "audio_samples", "png", "third_frame", "webgl2_pixels",
+           "audio_copy_samples"}
 # the size of the noise of each noised value, against Off's real one, from SAMPLES: (kind, field, sub)
 # Only pictures of varied known bytes: a flat area is noised all or nothing for a given key, so its
 # size would be chance (the canvas's own picture has a flat rectangle: its size comes from the
@@ -176,9 +212,14 @@ NOISE = {
     "worker": (("pixels", "worker_pixels", None),),
     "audio": (("samples", "audio_samples", None),),
     "fonts_generic": (("widths", "text_widths", None),),
+    # the fourth review (N3): the APIs and realms a page has besides the ones above
+    "webgl2.read_pixels": (("pixels", "webgl2_pixels", None),),
+    "audio_copy": (("samples", "audio_copy_samples", None),),
+    "canvas_offscreen": (("png", "png", "offscreen"),),
 }
 # values whose ".noised" mark (differs from Off) is kept
-NOISED = ("canvas", "canvas_blob", "canvas_offset", "canvas_flat", "audio")
+NOISED = ("canvas", "canvas_blob", "canvas_offset", "canvas_flat", "audio", "audio_copy", "audio_analyser",
+          "canvas_offscreen", "video_frame")
 # the size of the noise (the two sessions' average) may shrink by this share before it is worse (more
 # where few elements changed: _tolerance)
 NOISE_TOLERANCE = 0.2
@@ -198,14 +239,33 @@ CHANCE = 1e-4
 # one of two, 1e-3: only the first can be judged, and it is)
 PICK_DRAWS = 16
 PICK_DRAWN = ("webgl.unmasked_renderer", "webgl.unmasked_vendor", "webgl.extensions", "navigator.hardwareConcurrency",
-              "navigator.plugins")
+              "navigator.plugins", "webgl2.unmasked_renderer", "webgl2.unmasked_vendor", "webgl2.extensions",
+              "worker", "frame_x")
 # a count lower here than on main (names changed, a distance from the real value) is worse beyond
 # COUNT_Z times the spread of the difference of the sessions' means (Student's t with 14 degrees of
 # freedom for 8 + 8 sessions: 1e-4), the variance at least COUNT_VAR_FLOOR (a count that never varies)
 COUNT_Z = 5.0
 COUNT_VAR_FLOOR = 0.1
-# parts that are lists of names, besides FP_LISTS (the worker's WebGL extensions)
-LIST_PARTS = {("worker", "[6][1]")}
+# parts that are lists of names, besides FP_LISTS (the workers' and the frames' WebGL extensions)
+LIST_PARTS = {("worker", "[6][1]"), ("shared_worker", "[6][1]"), ("file_worker", "[6][1]"), ("frame_x", "[2]"),
+              ("frame_html", "[2]"), ("frame_srcdoc", "[2]")}
+# the probe's shape, the same on both sides of a check and random from one check to the next (N3 of
+# the fourth review: a code that knew the probe's sizes, text or sound could leave just them alone)
+SHAPE = {"pw": 96, "gl": 48, "len": 5000, "freq": 10000, "seed": 12345, "text": "Sphinx of black quartz",
+         "word": "mo"}
+WORDS = ("amber", "birch", "cobalt", "dune", "ember", "fjord", "garnet", "harbor", "indigo", "juniper", "kelp",
+         "lumen", "maple", "nectar", "onyx", "prairie", "quartz", "rowan", "sable", "tundra", "umber", "violet",
+         "willow", "zephyr")
+
+
+def random_shape():
+    """A shape of the probe for one check: sizes, text and sound of its own (both sides the same)."""
+    import secrets
+    r = secrets.SystemRandom()
+    return {"pw": r.randrange(80, 113), "gl": r.randrange(40, 57), "len": r.randrange(4096, 6145),
+            "freq": r.randrange(7000, 12001), "seed": r.randrange(1000, 99999),
+            "text": " ".join(r.choice(WORDS).capitalize() if i == 0 else r.choice(WORDS) for i in range(4)),
+            "word": r.choice(WORDS)}
 # the new values of a fixed disguise a person counts among the common ones (a fixed disguise that
 # changes to anything else is worse); under tests/, as the allowlist
 COMMON_VALUES = FIXTURES / "common-values.json"
@@ -216,11 +276,23 @@ LEVEL_NAMES = {"off": "Off", "compatibility": "Compatibility", "balanced": "Bala
 
 
 # --- the probe page --------------------------------------------------------------------------
-PROBE = r"""<!doctype html><html><head><meta charset="utf-8"><meta name="referrer" content="unsafe-url">
-<title>__TITLE__</title></head><body><p>__TITLE__</p>
-<script>
-(async function () {
-  var R = {};
+# what the probe page, the page of the drawn values and the page of the sites share (COMMON_JS): this
+# run's shape (SHAPE), pictures of known varied bytes, WebGL and audio reads, the frames' and the
+# workers' reads. The workers' source (WORKER_JS) is also served as a file (a dedicated file worker).
+WORKER_JS = r"""function run(send){var c=null;try{var oc=new OffscreenCanvas(60,20),x=oc.getContext('2d');
+x.fillText('ike',2,10);c=Array.from(x.getImageData(0,0,60,20).data).join(',').length}catch(e){c='e'}
+var g=null;try{var gc=new OffscreenCanvas(4,4).getContext('webgl'),gd=gc&&gc.getExtension('WEBGL_debug_renderer_info');
+g=gc?[gd?gc.getParameter(gd.UNMASKED_RENDERER_WEBGL):null,(gc.getSupportedExtensions()||[]).join(',')]:'none'}catch(e){g='e '+e}
+var kb=null;try{var kc=new OffscreenCanvas(64,64),kx=kc.getContext('2d'),ki=kx.createImageData(64,64),st=99;
+for(var i=0;i<ki.data.length;i++){st=(Math.imul(st,1103515245)+12345)>>>0;ki.data[i]=i%4===3?255:st>>>24}
+kx.putImageData(ki,0,0);var kd=kx.getImageData(0,0,64,64).data,s='';
+for(var j=0;j<kd.length;j+=8192){s+=String.fromCharCode.apply(null,Array.from(kd.subarray(j,j+8192)))}kb=btoa(s)}
+catch(e){kb=null}
+send([navigator.userAgent,navigator.platform,navigator.hardwareConcurrency,navigator.deviceMemory,
+(navigator.languages||[]).join(','),c,g,kb])}
+"""
+COMMON_JS = r"""
+  var SHAPE = __SHAPE__;
   function hash(s) { var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); }
   // what the pictures, the frame's and the blob give, kept for the size of their noise (SAMPLES)
   var PNG = {};
@@ -228,12 +300,12 @@ PROBE = r"""<!doctype html><html><head><meta charset="utf-8"><meta name="referre
     var c = doc.createElement('canvas'); c.width = 220; c.height = 40;
     var x = c.getContext('2d');
     x.textBaseline = 'top'; x.font = '16px sans-serif'; x.fillStyle = '#f60'; x.fillRect(5, 5, 100, 20);
-    x.fillStyle = '#069'; x.fillText('Sphinx of black quartz ☺', 2, 10);
+    x.fillStyle = '#069'; x.fillText(SHAPE.text + ' ☺', 2, 10);
     x.strokeStyle = 'rgba(102,204,0,0.7)'; x.arc(160, 20, 15, 0, Math.PI * 2); x.stroke();
     var url = c.toDataURL(), at = doc === document ? 'canvas' : 'frame';
     if (!PNG[at]) PNG[at] = url;
     return [hash(url), hash(Array.from(x.getImageData(0, 0, 220, 40).data.slice(0, 4000)).join(',')),
-            x.measureText('Sphinx of black quartz').width];
+            x.measureText(SHAPE.text).width];
   }
   function settle(p, ms, late) { return Promise.race([p, new Promise(function (ok) { setTimeout(function () { ok(late); }, ms); })]); }
   function b64(bytes) {
@@ -247,7 +319,6 @@ PROBE = r"""<!doctype html><html><head><meta charset="utf-8"><meta name="referre
     for (var i = 0; i < a.length; i++) { st = (Math.imul(st, 1103515245) + 12345) >>> 0; a[i] = i % 4 === 3 ? 255 : st >>> 24; }
     return a;
   }
-  // a picture: an opaque fill, and a block of known bytes put at (dx, dy) when kw is given
   // a picture of known varied bytes (seed), with another block of known bytes put at (dx, dy) when kw is
   // given; doc: the document it belongs to (a frame's)
   function picture(w, h, seed, kw, kh, dx, dy, seed2, doc) {
@@ -258,36 +329,105 @@ PROBE = r"""<!doctype html><html><head><meta charset="utf-8"><meta name="referre
     return x;
   }
   function readAll(x) { return b64(x.getImageData(0, 0, x.canvas.width, x.canvas.height).data); }
+  function dataUrl(b) {
+    return new Promise(function (ok) { var fr = new FileReader(); fr.onload = function () { ok(String(fr.result)); };
+      fr.onerror = function () { ok('error'); }; fr.readAsDataURL(b); });
+  }
   function blobOf(c) {
-    return settle(new Promise(function (ok) { c.toBlob(function (b) {
-      var fr = new FileReader(); fr.onload = function () { ok(String(fr.result)); }; fr.readAsDataURL(b); }); }), 3000, 'timeout');
+    return settle(new Promise(function (ok) { c.toBlob(function (b) { dataUrl(b).then(ok); }); }), 3000, 'timeout');
   }
-  function glKnown() {
-    var g = document.createElement('canvas').getContext('webgl');
+  // a WebGL context (kind: webgl or webgl2) of a document: its identity, and what readPixels gives of
+  // a texture of known varied bytes (a cleared, flat picture is noised all or nothing for a given key)
+  function glRead(kind, doc) {
+    var g = (doc || document).createElement('canvas').getContext(kind);
     if (!g) return null;
-    var N = 48, tex = g.createTexture();
+    var dbg = g.getExtension('WEBGL_debug_renderer_info');
+    var out = {vendor: g.getParameter(g.VENDOR), renderer: g.getParameter(g.RENDERER),
+      unmasked_vendor: dbg ? g.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : null,
+      unmasked_renderer: dbg ? g.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : null,
+      max_texture: g.getParameter(g.MAX_TEXTURE_SIZE), extensions: (g.getSupportedExtensions() || []).join(',')};
+    var N = SHAPE.gl, tex = g.createTexture();
     g.bindTexture(g.TEXTURE_2D, tex);
-    g.texImage2D(g.TEXTURE_2D, 0, g.RGBA, N, N, 0, g.RGBA, g.UNSIGNED_BYTE, new Uint8Array(knownBytes(N * N, 4242).buffer));
-    var fb = g.createFramebuffer();
-    g.bindFramebuffer(g.FRAMEBUFFER, fb);
+    g.texImage2D(g.TEXTURE_2D, 0, g.RGBA, N, N, 0, g.RGBA, g.UNSIGNED_BYTE, new Uint8Array(knownBytes(N * N, SHAPE.seed + 4).buffer));
+    g.bindFramebuffer(g.FRAMEBUFFER, g.createFramebuffer());
     g.framebufferTexture2D(g.FRAMEBUFFER, g.COLOR_ATTACHMENT0, g.TEXTURE_2D, tex, 0);
-    var out = new Uint8Array(N * N * 4);
-    g.readPixels(0, 0, N, N, g.RGBA, g.UNSIGNED_BYTE, out);
-    return b64(out);
+    var px = new Uint8Array(N * N * 4);
+    g.readPixels(0, 0, N, N, g.RGBA, g.UNSIGNED_BYTE, px);
+    out.pixels = b64(px);
+    return out;
   }
-  async function render() {
-    var ac = new OfflineAudioContext(1, 5000, 44100), o = ac.createOscillator(), comp = ac.createDynamicsCompressor();
-    o.type = 'triangle'; o.frequency.value = 10000; o.connect(comp); comp.connect(ac.destination); o.start(0);
+  function oscillate(W, node) {
+    var ac = new W.OfflineAudioContext(1, SHAPE.len, 44100), o = ac.createOscillator(), n = node(ac);
+    o.type = 'triangle'; o.frequency.value = SHAPE.freq; o.connect(n); n.connect(ac.destination); o.start(0);
+    return ac;
+  }
+  // the sound of a window (a frame's): its last 500 samples, read by getChannelData
+  async function render(win) {
+    var ac = oscillate(win || window, function (a) { return a.createDynamicsCompressor(); }), len = SHAPE.len;
     var buf = await ac.startRendering(), d = buf.getChannelData(0), sum = 0;
-    for (var i = 4500; i < 5000; i++) sum += Math.abs(d[i]);
-    return [sum.toFixed(10), Array.from(d.slice(4500, 5000))];
+    for (var i = len - 500; i < len; i++) sum += Math.abs(d[i]);
+    return [sum.toFixed(10), Array.from(d.slice(len - 500, len))];
   }
+  // the same samples read by copyFromChannel of a buffer whose getChannelData was never called
+  async function renderCopy() {
+    var ac = oscillate(window, function (a) { return a.createDynamicsCompressor(); }), len = SHAPE.len;
+    var buf = await ac.startRendering(), cp = new Float32Array(500), sum = 0;
+    buf.copyFromChannel(cp, 0, len - 500);
+    for (var i = 0; i < 500; i++) sum += Math.abs(cp[i]);
+    return [sum.toFixed(10), Array.from(cp)];
+  }
+  // what an AnalyserNode gives of the same sound, halfway
+  async function analyse() {
+    var an = null, ac = oscillate(window, function (a) { an = a.createAnalyser(); return an; });
+    var f = new Float32Array(an.frequencyBinCount), b = new Uint8Array(an.frequencyBinCount), t = new Float32Array(an.fftSize);
+    ac.suspend(Math.floor(SHAPE.len / 256) * 128 / 44100).then(function () {
+      an.getFloatFrequencyData(f); an.getByteFrequencyData(b); an.getFloatTimeDomainData(t); ac.resume(); });
+    await ac.startRendering();
+    return hash(Array.from(f).map(function (v) { return v.toFixed(4); }).join(',') + '|' + Array.from(b).join(',') + '|' +
+      Array.from(t).map(function (v) { return v.toFixed(6); }).join(','));
+  }
+  // a frame's own reads: its canvas, card, extensions, sound, languages, cores, readPixels
+  async function frameRead(fw) {
+    var g = null, a = null;
+    try { g = glRead('webgl', fw.document); } catch (e) { g = null; }
+    try { a = (await render(fw))[0]; } catch (e) { a = 'error ' + e; }
+    return [canvasHash(fw.document)[0], g ? g.unmasked_renderer : null, g ? g.extensions : null, a,
+      (fw.navigator.languages || []).join(','), fw.navigator.hardwareConcurrency, g ? hash(g.pixels) : null];
+  }
+  var WORKER = __WORKER__;
+  // a worker's reads (dedicated from a blob, shared, or dedicated from a file of the site)
+  function worker(kind) {
+    return new Promise(function (ok) {
+      try {
+        var w;
+        if (kind === 'shared') {
+          w = new SharedWorker(URL.createObjectURL(new Blob([WORKER +
+            'onconnect=function(e){var p=e.ports[0];run(function(m){p.postMessage(m)})};'], {type: 'text/javascript'})));
+          w.port.onmessage = function (e) { ok(e.data); };
+          w.port.start();
+        } else {
+          w = kind === 'file' ? new Worker('/__WFILE__.js') : new Worker(URL.createObjectURL(new Blob([WORKER +
+            'run(function(m){postMessage(m)});'], {type: 'text/javascript'})));
+          w.onmessage = function (e) { ok(e.data); };
+          w.onerror = function () { ok('worker error'); };
+        }
+      } catch (e) { ok('worker error ' + e); }
+      setTimeout(function () { ok('worker timeout'); }, 4000);
+    });
+  }
+"""
+PROBE = r"""<!doctype html><html><head><meta charset="utf-8"><meta name="referrer" content="unsafe-url">
+<title>__TITLE__</title></head><body><p>__TITLE__</p>
+<script>
+(async function () {
+  var R = {};
+  __COMMON__
   // each noised value read twice in this session: it must read the same (ST, "stable" in the tool)
   var ST = {};
   try { R.canvas = canvasHash(document); ST.canvas = JSON.stringify(canvasHash(document)) === JSON.stringify(R.canvas); }
   catch (e) { R.canvas = 'error ' + e; }
   try {
-    var px = picture(96, 96, 12345);
+    var px = picture(SHAPE.pw, SHAPE.pw, SHAPE.seed);
     R.canvas_pixels = readAll(px); ST.canvas_pixels = readAll(px) === R.canvas_pixels;
     var ox = picture(64, 48, 555, 40, 40, 7, 3, 777);
     R.canvas_offset_pixels = readAll(ox); R.canvas_offset = hash(R.canvas_offset_pixels);
@@ -321,29 +461,54 @@ PROBE = r"""<!doctype html><html><head><meta charset="utf-8"><meta name="referre
     R.canvas_blob = PNG.blob === 'timeout' ? 'timeout' : hash(PNG.blob);
     ST.canvas_blob = (await blobOf(bc)) === PNG.blob;
   } catch (e) { R.canvas_blob = 'error ' + e; }
+  // an OffscreenCanvas of known bytes by convertToBlob, and a VideoFrame of a canvas copied out (N3)
+  try {
+    var offBlob = async function () {
+      var oc = new OffscreenCanvas(64, 64), ox = oc.getContext('2d'), oi = ox.createImageData(64, 64);
+      oi.data.set(knownBytes(64 * 64, SHAPE.seed + 7)); ox.putImageData(oi, 0, 0);
+      return dataUrl(await oc.convertToBlob());
+    };
+    PNG.offscreen = await settle(offBlob(), 3000, 'timeout');
+    R.canvas_offscreen = PNG.offscreen === 'timeout' ? 'timeout' : hash(PNG.offscreen);
+    ST.canvas_offscreen = (await settle(offBlob(), 3000, 'timeout')) === PNG.offscreen;
+  } catch (e) { R.canvas_offscreen = 'error ' + e; }
+  try {
+    var vfc = picture(32, 32, SHAPE.seed + 9).canvas, vf = new VideoFrame(vfc, {timestamp: 0});
+    var vbuf = new Uint8Array(vf.allocationSize());
+    await vf.copyTo(vbuf); vf.close();
+    R.video_frame = hash(b64(vbuf));
+  } catch (e) { R.video_frame = 'error ' + e; }
   try {
     var tw = document.createElement('canvas').getContext('2d');
     tw.font = '16px sans-serif';
     R.text_widths = [];
-    for (var ti = 0; ti < 128; ti++) R.text_widths.push(tw.measureText('Wq ' + ti + ' gy ' + (ti * 37) + ' kAy').width);
+    for (var ti = 0; ti < 128; ti++) R.text_widths.push(tw.measureText(SHAPE.word + ' ' + ti + ' gy ' + (ti * 37) + ' kAy').width);
   } catch (e) { R.text_widths = null; }
-  // what readPixels gives of a texture of known varied bytes (a cleared, flat picture is noised all
-  // or nothing for a given key)
-  try { R.webgl_pixels = glKnown(); ST.webgl_pixels = glKnown() === R.webgl_pixels; } catch (e) { R.webgl_pixels = null; }
-  try {
-    var gl = document.createElement('canvas').getContext('webgl');
-    var dbg = gl && gl.getExtension('WEBGL_debug_renderer_info');
-    R.webgl = gl ? {vendor: gl.getParameter(gl.VENDOR), renderer: gl.getParameter(gl.RENDERER),
-      unmasked_vendor: dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : null,
-      unmasked_renderer: dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : null,
-      max_texture: gl.getParameter(gl.MAX_TEXTURE_SIZE), extensions: (gl.getSupportedExtensions() || []).join(','),
-      read_pixels: R.webgl_pixels ? hash(R.webgl_pixels) : null} : null;
-  } catch (e) { R.webgl = 'error ' + e; }
+  // WebGL and WebGL2: the card, its limits and extensions, readPixels of a texture of known bytes
+  ['webgl', 'webgl2'].forEach(function (kind) {
+    try {
+      var gr = glRead(kind);
+      if (gr) {
+        R[kind + '_pixels'] = gr.pixels; delete gr.pixels;
+        gr.read_pixels = hash(R[kind + '_pixels']);
+        var again = glRead(kind);
+        ST[kind + '_pixels'] = !!again && again.pixels === R[kind + '_pixels'];
+      }
+      R[kind] = gr;
+    } catch (e) { R[kind] = 'error ' + e; }
+  });
   try {
     var a1 = await render();
     R.audio = a1[0]; R.audio_samples = a1[1];
     ST.audio = (await render())[0] === R.audio;
   } catch (e) { R.audio = 'error ' + e; }
+  try {
+    var a2 = await renderCopy();
+    R.audio_copy = a2[0]; R.audio_copy_samples = a2[1];
+    ST.audio_copy = (await renderCopy())[0] === R.audio_copy;
+  } catch (e) { R.audio_copy = 'error ' + e; }
+  try { R.audio_analyser = await analyse(); ST.audio_analyser = (await analyse()) === R.audio_analyser; }
+  catch (e) { R.audio_analyser = 'error ' + e; }
   var n = navigator;
   R.navigator = {userAgent: n.userAgent, appVersion: n.appVersion, platform: n.platform, vendor: n.vendor,
     product: n.product, productSub: n.productSub, oscpu: n.oscpu === undefined ? 'undefined' : n.oscpu,
@@ -377,28 +542,19 @@ PROBE = r"""<!doctype html><html><head><meta charset="utf-8"><meta name="referre
     } else R.webgpu = 'none';
   } catch (e) { R.webgpu = 'error ' + e; }
   try {
-    R.worker = await new Promise(function (ok) {
-      var src = "var c=null;try{var oc=new OffscreenCanvas(60,20),x=oc.getContext('2d');x.fillText('ike',2,10);" +
-        "c=Array.from(x.getImageData(0,0,60,20).data).join(',').length}catch(e){c='e'}" +
-        "var g=null;try{var gc=new OffscreenCanvas(4,4).getContext('webgl'),gd=gc&&gc.getExtension('WEBGL_debug_renderer_info');" +
-        "g=gc?[gd?gc.getParameter(gd.UNMASKED_RENDERER_WEBGL):null,(gc.getSupportedExtensions()||[]).join(',')]:'none'}catch(e){g='e '+e}" +
-        "var kb=null;try{var kc=new OffscreenCanvas(64,64),kx=kc.getContext('2d'),ki=kx.createImageData(64,64),st=99;" +
-        "for(var i=0;i<ki.data.length;i++){st=(Math.imul(st,1103515245)+12345)>>>0;ki.data[i]=i%4===3?255:st>>>24}" +
-        "kx.putImageData(ki,0,0);var kd=kx.getImageData(0,0,64,64).data,s='';" +
-        "for(var j=0;j<kd.length;j+=8192){s+=String.fromCharCode.apply(null,Array.from(kd.subarray(j,j+8192)))}kb=btoa(s)}" +
-        "catch(e){kb=null}" +
-        "postMessage([navigator.userAgent,navigator.platform,navigator.hardwareConcurrency,navigator.deviceMemory," +
-        "(navigator.languages||[]).join(','),c,g,kb])";
-      var w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
-      w.onmessage = function (e) {
-        var d = e.data;
-        if (Array.isArray(d) && d.length === 8) { R.worker_pixels = d[7]; d = d.slice(0, 7); }
-        ok(d);
-      };
-      w.onerror = function () { ok('worker error'); };
-      setTimeout(function () { ok('worker timeout'); }, 4000);
-    });
+    var wd = await worker('dedicated');
+    if (Array.isArray(wd) && wd.length === 8) { R.worker_pixels = wd[7]; wd = wd.slice(0, 7); }
+    R.worker = wd;
   } catch (e) { R.worker = 'error ' + e; }
+  // a shared worker, and a dedicated worker from a file of the site (N3): the same reads, the known
+  // picture's hash last
+  for (var wk of ['shared', 'file']) {
+    try {
+      var wr = await worker(wk);
+      if (Array.isArray(wr) && wr.length === 8) wr[7] = wr[7] ? hash(wr[7]) : null;
+      R[wk + '_worker'] = wr;
+    } catch (e) { R[wk + '_worker'] = 'error ' + e; }
+  }
   try {
     var f = document.createElement('iframe'); document.body.appendChild(f);
     var fw = f.contentWindow;
@@ -411,7 +567,19 @@ PROBE = r"""<!doctype html><html><head><meta charset="utf-8"><meta name="referre
     fwx.font = '16px sans-serif';
     R.frame_widths = [];
     for (var fi = 0; fi < 64; fi++) R.frame_widths.push(fwx.measureText('Fr ' + fi + ' qz ' + (fi * 29) + ' Wy').width);
+    R.frame_x = await frameRead(fw);
   } catch (e) { R.frame = 'error ' + e; }
+  // frames made other ways (N3): by innerHTML, and from srcdoc (loaded)
+  try {
+    var hd = document.createElement('div'); hd.innerHTML = '<iframe></iframe>'; document.body.appendChild(hd);
+    R.frame_html = await frameRead(hd.firstChild.contentWindow);
+  } catch (e) { R.frame_html = 'error ' + e; }
+  try {
+    var sw = await settle(new Promise(function (ok) {
+      var sf = document.createElement('iframe'); sf.onload = function () { ok(sf.contentWindow); };
+      sf.srcdoc = '<!doctype html><p>' + SHAPE.word + '</p>'; document.body.appendChild(sf); }), 3000, null);
+    R.frame_srcdoc = sw ? await frameRead(sw) : 'timeout';
+  } catch (e) { R.frame_srcdoc = 'error ' + e; }
   var FONTS = ['Arial', 'Times New Roman', 'Courier New', 'Helvetica', 'Verdana', 'Georgia', 'Comic Sans MS', 'Impact',
     'Trebuchet MS', 'Tahoma', 'DejaVu Sans', 'DejaVu Serif', 'DejaVu Sans Mono', 'Liberation Sans', 'Liberation Serif',
     'Liberation Mono', 'Noto Sans', 'Noto Serif', 'Noto Color Emoji', 'Ubuntu', 'Cantarell', 'Roboto', 'Open Sans',
@@ -487,12 +655,12 @@ PROBE = r"""<!doctype html><html><head><meta charset="utf-8"><meta name="referre
     im.src = 'ike:logo'; }), 3000, 'timeout');
   R.third_party = await settle(new Promise(function (ok) {
     var im = new Image(); im.onload = function () { ok('loaded'); }; im.onerror = function () { ok('error'); };
-    im.src = 'http://__THIRD__/pixel.png?__LVP__=__LV__'; document.body.appendChild(im); }), 4000, 'timeout');
+    im.src = location.protocol + '//__THIRD__/pixel.png?__LVP__=__LV__'; document.body.appendChild(im); }), 4000, 'timeout');
   // the same canvas and sound in a frame of another site: its noise must differ from this site's
   R.third_frame = await settle(new Promise(function (ok) {
     window.addEventListener('message', function (e) { if (e.data && e.data.k === '__TAG__') ok(e.data.v); });
     var tf = document.createElement('iframe');
-    tf.src = 'http://__THIRD__/__FRAME__?__LVP__=__LV__'; document.body.appendChild(tf); }), 6000, 'timeout');
+    tf.src = location.protocol + '//__THIRD__/__FRAME__?__LVP__=__LV__'; document.body.appendChild(tf); }), 6000, 'timeout');
   R.stable = ST;
   R.png = PNG;
   window['__GLOBAL__'] = JSON.stringify(R);
@@ -698,11 +866,12 @@ def _keys(sh, key):
         sh.profile_keys[id(p)] = key
 
 
-def _probe(view, tag, limit=40, page=None):
-    """The probe page (or another of the server's) loaded at the level tag; (loaded, what its scripts
-    read or None)."""
+def _probe(view, tag, limit=40, page=None, host=None):
+    """The probe page (or another of the server's) loaded at the level tag, on the run's first site or
+    on `host`; (loaded, what its scripts read or None)."""
     state, box, found = {}, {}, None
-    yield from _load(view, "%s/%s?%s=%s" % (PLAN["base"], page or PLAN["path"], PLAN["param"], tag), state, "ok")
+    base = ("%s://%s" % (PLAN.get("scheme") or "http", host)) if host else PLAN["base"]
+    yield from _load(view, "%s/%s?%s=%s" % (base, page or PLAN["path"], PLAN["param"], tag), state, "ok")
     end = time.monotonic() + limit
     while time.monotonic() < end:
         yield from _js(view, "window[%s] || ''" % json.dumps(PLAN["global"]), box)
@@ -770,11 +939,43 @@ FONTS_JS = r"""(function (names) {
 })"""
 
 
+# the fonts a page can find, tested inside the protected page itself and in a frame of it (N4 of the
+# fourth review): at Strict and Maximum none of the fonts a page can find on this computer may keep its
+# own width there
+FONTS_IN_PAGE_JS = r"""(function (names) {
+  function test(doc) {
+    var s = 'mmmmmmmmmmlli1WQ@#&ABCxyz', out = [], box = doc.createElement('div');
+    doc.body.appendChild(box);
+    function w(f) {
+      var e = doc.createElement('span');
+      e.style.cssText = 'font-size:72px;position:absolute;white-space:nowrap;font-family:' + f;
+      e.textContent = s; box.appendChild(e);
+      var r = e.offsetWidth + 'x' + e.offsetHeight; box.removeChild(e); return r;
+    }
+    var base = {}; ['monospace', 'serif', 'sans-serif'].forEach(function (b) { base[b] = w(b); });
+    names.forEach(function (n) {
+      if (['monospace', 'serif', 'sans-serif'].some(function (b) {
+        return w("'" + n.replace(/'/g, '') + "'," + b) !== base[b];
+      })) out.push(n);
+    });
+    box.remove();
+    return out;
+  }
+  var r = {page: test(document)};
+  try {
+    var f = document.createElement('iframe'); document.body.appendChild(f);
+    r.frame = test(f.contentWindow.document); f.remove();
+  } catch (e) { r.frame = 'error ' + e; }
+  return JSON.stringify(r);
+})"""
+
+
 def _fonts_findable():
     """OUT["fonts_findable"]: the names a page can find on this computer among those fingerprint.js
-    masks and the families installed; OUT["fonts_list"]: fingerprint.js's list (what is masked when
-    the settings carry none). Every level's masked names are judged against them (the tool's rule
-    "fonts"), not by the names' digest, which follows the computer and the time of the answer."""
+    masks (main's list and this one's: PLAN["fonts_main"]) and the families installed; OUT["fonts_list"]:
+    fingerprint.js's list (what is masked when the settings carry none). Every level's masked names are
+    judged against them (the tool's rule "fonts"), not by the names' digest, which follows the computer
+    and the time of the answer; and at Strict and Maximum each is tested in the protected page."""
     import re as _re
     from PyQt6.QtGui import QFontDatabase
     from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile
@@ -784,7 +985,8 @@ def _fonts_findable():
         found = _re.search(r"var MASKED_FONTS = (\[.*?\]);", text, _re.S)
         listed = json.loads(found.group(1)) if found else []
         names, seen = [], set()
-        for n in list(listed) + [_re.sub(r"\s*\[[^\]]*\]$", "", str(f)).strip() for f in QFontDatabase.families()]:
+        for n in list(listed) + list(PLAN.get("fonts_main") or ()) + \
+                [_re.sub(r"\s*\[[^\]]*\]$", "", str(f)).strip() for f in QFontDatabase.families()]:
             if n and n.lower() not in seen:
                 seen.add(n.lower())
                 names.append(n)
@@ -840,7 +1042,7 @@ def measure():
     if getattr(ike, "font_check", None) is not None and fcm is not None and \
             getattr(fcm, "findable", lambda: True)() is None:  # noqa: F821
         _err("fonts", "the check of the fonts a page could find gave no answer in 60 s")
-    if "security" in sections:
+    if sections & {"fingerprint", "security"}:
         yield from _fonts_findable()
     if "requests" in sections:
         _list_verdicts()
@@ -870,6 +1072,13 @@ def measure():
                     res[q["id"]] = {"action": "error %s" % type(exc).__name__, "headers": {}}
         if sections & {"fingerprint", "security"}:
             here["loaded"], here["probe"] = yield from _probe(view, lv)
+            if "fingerprint" in sections and OUT.get("fonts_findable") is not None:
+                box = {}
+                yield from _js(view, FONTS_IN_PAGE_JS + "(%s)" % json.dumps(OUT["fonts_findable"]), box, limit=30)
+                try:
+                    here["fonts_found"] = json.loads(box.get("r") or "null")
+                except ValueError:
+                    here["fonts_found"] = None
             try:
                 here["page_settings"] = _settings(view.page().settings())
                 prof = view.page().profile()
@@ -915,6 +1124,17 @@ def measure():
             except Exception:
                 _err("fingerprint")
             yield 50
+            # N1 of the fourth review: the page of the sites on the run's hosts (Off: the first one, its
+            # real values), the first key: other sites differ, two hosts of one site agree
+            if PLAN.get("sites") and PLAN.get("site"):
+                here["sites"] = {}
+                for name in (["a"] if lv == "off" else PLAN.get("site_order") or sorted(PLAN["sites"])):
+                    _loaded, got = yield from _probe(view, "%s.%s" % (lv, name), page=PLAN["site"], limit=15,
+                                                     host=PLAN["sites"][name])
+                    here["sites"][name] = got
+            # N2: the first key once more on the probe page: what is noised must read as it did then
+            if lv != "off" and PLAN.get("again", True):
+                _loaded, here["probe_again"] = yield from _probe(view, "%s.again" % lv)
         if "cosmetic" in sections:
             pages = here["pages"] = {}
             for pg in PLAN["pages"]:
@@ -1140,20 +1360,55 @@ runpy.run_path(boot, run_name="__main__")
 # the values drawn from a few common ones (PICK_DRAWN), alone: read with PICK_DRAWS more keys per level
 PICK_PAGE = r"""<!doctype html><html><head><meta charset="utf-8"><title>__TITLE__</title></head><body>
 <script>
-(function () {
-  var R = {webgl: {}, navigator: {}};
-  try {
-    var gl = document.createElement('canvas').getContext('webgl');
-    var dbg = gl && gl.getExtension('WEBGL_debug_renderer_info');
-    R.webgl.unmasked_vendor = dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : null;
-    R.webgl.unmasked_renderer = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : null;
-    R.webgl.extensions = gl ? (gl.getSupportedExtensions() || []).join(',') : null;
-  } catch (e) { R.webgl = 'error ' + e; }
+(async function () {
+  var R = {webgl: {}, webgl2: {}, navigator: {}};
+  __COMMON__
+  ['webgl', 'webgl2'].forEach(function (kind) {
+    try {
+      var gl = document.createElement('canvas').getContext(kind);
+      var dbg = gl && gl.getExtension('WEBGL_debug_renderer_info');
+      R[kind].unmasked_vendor = dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : null;
+      R[kind].unmasked_renderer = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : null;
+      R[kind].extensions = gl ? (gl.getSupportedExtensions() || []).join(',') : null;
+    } catch (e) { R[kind] = 'error ' + e; }
+  });
   R.navigator.hardwareConcurrency = navigator.hardwareConcurrency;
   R.navigator.plugins = Array.from(navigator.plugins).map(function (p) { return p.name; }).join(',');
+  // the worker's and a frame's card and extensions too, with the same draws (N8)
+  try {
+    var wd = await worker('dedicated');
+    R.worker = Array.isArray(wd) && wd.length === 8 ? wd.slice(0, 7) : wd;
+  } catch (e) { R.worker = 'error ' + e; }
+  try {
+    var f = document.createElement('iframe'); document.body.appendChild(f);
+    R.frame_x = await frameRead(f.contentWindow);
+  } catch (e) { R.frame_x = 'error ' + e; }
   window['__GLOBAL__'] = JSON.stringify(R);
 })();
 </script></body></html>"""
+
+# the page of the sites (N1 of the fourth review): read on two hosts of one site and on hosts of other
+# sites (one under a public suffix of two labels): different sites must differ, two hosts of one site
+# agree, and every host is noised
+SITE_PAGE = r"""<!doctype html><html><head><meta charset="utf-8"><title>__TITLE__</title></head><body>
+<script>
+(async function () {
+  var R = {};
+  __COMMON__
+  try { R.pic = hash(readAll(picture(SHAPE.pw, SHAPE.pw, SHAPE.seed + 11))); } catch (e) { R.pic = 'error ' + e; }
+  try { R.url = hash(picture(48, 48, SHAPE.seed + 13).canvas.toDataURL()); } catch (e) { R.url = 'error ' + e; }
+  try { R.audio = (await render())[0]; } catch (e) { R.audio = 'error ' + e; }
+  try { var g = glRead('webgl'); R.gl = g ? hash(g.pixels) : null; } catch (e) { R.gl = 'error ' + e; }
+  try {
+    var tw = document.createElement('canvas').getContext('2d'), ws = [];
+    tw.font = '16px sans-serif';
+    for (var i = 0; i < 32; i++) ws.push(tw.measureText(SHAPE.word + ' ' + i + ' ' + SHAPE.text).width);
+    R.width = hash(ws.join(','));
+  } catch (e) { R.width = 'error ' + e; }
+  window['__GLOBAL__'] = JSON.stringify(R);
+})();
+</script></body></html>"""
+SITE_READS = ("pic", "url", "audio", "gl", "width")
 
 
 # the probe's canvas and sound drawn the same way in a frame of another site (R.third_frame): with a
@@ -1166,24 +1421,24 @@ FRAME = r"""<!doctype html><html><head><meta charset="utf-8"><title>__TITLE__</t
     var c = doc.createElement('canvas'); c.width = 220; c.height = 40;
     var x = c.getContext('2d');
     x.textBaseline = 'top'; x.font = '16px sans-serif'; x.fillStyle = '#f60'; x.fillRect(5, 5, 100, 20);
-    x.fillStyle = '#069'; x.fillText('Sphinx of black quartz ☺', 2, 10);
+    x.fillStyle = '#069'; x.fillText(__TEXT__ + ' ☺', 2, 10);
     x.strokeStyle = 'rgba(102,204,0,0.7)'; x.arc(160, 20, 15, 0, Math.PI * 2); x.stroke();
     return hash(c.toDataURL());
   }
   async function render() {
-    var ac = new OfflineAudioContext(1, 5000, 44100), o = ac.createOscillator(), comp = ac.createDynamicsCompressor();
-    o.type = 'triangle'; o.frequency.value = 10000; o.connect(comp); comp.connect(ac.destination); o.start(0);
+    var len = __LEN__, ac = new OfflineAudioContext(1, len, 44100), o = ac.createOscillator(), comp = ac.createDynamicsCompressor();
+    o.type = 'triangle'; o.frequency.value = __FREQ__; o.connect(comp); comp.connect(ac.destination); o.start(0);
     var buf = await ac.startRendering(), d = buf.getChannelData(0), sum = 0;
-    for (var i = 4500; i < 5000; i++) sum += Math.abs(d[i]);
+    for (var i = len - 500; i < len; i++) sum += Math.abs(d[i]);
     return sum.toFixed(10);
   }
   // the page's picture of known bytes, read here too: its noise must differ where it is per site
   function known() {
-    var c = document.createElement('canvas'); c.width = 96; c.height = 96;
-    var x = c.getContext('2d'), img = x.createImageData(96, 96), st = 12345;
+    var P = __PW__, c = document.createElement('canvas'); c.width = P; c.height = P;
+    var x = c.getContext('2d'), img = x.createImageData(P, P), st = __SEED__;
     for (var i = 0; i < img.data.length; i++) { st = (Math.imul(st, 1103515245) + 12345) >>> 0; img.data[i] = i % 4 === 3 ? 255 : st >>> 24; }
     x.putImageData(img, 0, 0);
-    var d = x.getImageData(0, 0, 96, 96).data, s = '';
+    var d = x.getImageData(0, 0, P, P).data, s = '';
     for (var j = 0; j < d.length; j += 8192) s += String.fromCharCode.apply(null, Array.from(d.subarray(j, j + 8192)));
     return btoa(s);
   }
@@ -1200,10 +1455,29 @@ def run_names():
     "no regression". What is kept is written back with the fixed ones (Server._plain)."""
     import secrets
     t = lambda: secrets.token_hex(5)  # noqa: E731
+    r = secrets.SystemRandom()
+
+    def word():
+        """A name that reads like a real site's: syllables of a consonant and a vowel."""
+        return "".join(r.choice("bcdfgklmnprstvz") + r.choice("aeiou") for _ in range(r.randrange(2, 5)))
+    # the probe on hosts of real-looking sites (N1 of the fourth review: an address of this computer
+    # told the code measured where it was, and every page was one site): "a" and a host of the same
+    # site ("a2"), two sites under a public suffix of two labels ("b", "c": not one site), a .com ("d")
+    # and another common top-level domain ("e")
+    tlds = ["com", "net", "org", "de", "fr", "it", "nl", "es", "io", "eu", "pl", "ch", "at", "se"]
+    first, other = r.sample(tlds, 2)
+    a = "%s.%s" % (word(), first)
+    sites = {"a": a, "a2": "%s.%s" % (r.choice(("www", "shop", "news", "m", "app")), a),
+             "b": "%s.co.uk" % word(), "c": "%s.co.uk" % word(), "d": "%s.com" % word(), "e": "%s.%s" % (word(), other)}
     return {"path": t(), "param": "q" + t(), "title": t(), "global": "_" + t(), "frame": t(), "tag": t(),
-            "third": "%s.example" % t(), "attr": "data-" + t(), "hook": "h" + t(), "wrapper": "w" + t(),
-            "out": "o" + t(), "plan": "p" + t(), "env": "Q" + t().upper(), "netmod": "_" + t(),
-            "dirs": ["d" + t() for _ in range(3)], "pick": t()}
+            "third": "%s.%s" % (word(), r.choice(tlds)), "attr": "data-" + t(), "hook": "h" + t(),
+            "wrapper": "w" + t(), "out": "o" + t(), "plan": "p" + t(), "env": "Q" + t().upper(), "netmod": "_" + t(),
+            "dirs": ["d" + t() for _ in range(3)], "pick": t(), "site": t(), "wfile": t(), "sites": sites}
+
+
+# the fixed names a recorded value gets back for this run's sites (Server._plain)
+SITE_NAMES = {"a": "site-a.test", "a2": "www.site-a.test", "b": "site-b.test", "c": "site-c.test",
+              "d": "site-d.test", "e": "site-e.test"}
 
 
 # --- the local server: probe pages, and the proxy every other address goes to ------------
@@ -1211,9 +1485,13 @@ class Server:
     """127.0.0.1: the probe page (direct) and, as the engine's and Qt's proxy, the pages of the corpus's
     hosts; any other host the browser asks for is recorded and refused (nothing leaves the computer)."""
 
-    def __init__(self, corpus, names=None):
+    def __init__(self, corpus, names=None, shape=None):
         self.pages = {p["host"]: p for p in corpus["pages"]}
         self.names = names or run_names()
+        self.shape = dict(SHAPE, **(shape or {}))
+        self.sites = set((self.names.get("sites") or {}).values())
+        self.tls = None
+        self.ca = None
         self.contacted = []
         self.headers = {}
         self.lock = threading.Lock()
@@ -1227,14 +1505,37 @@ class Server:
 
             def do_CONNECT(self):
                 host = self.path.rsplit(":", 1)[0].strip("[]").lower()
+                if outer.tls is not None and self.path.endswith(":443") and \
+                        (host in outer.sites or host == outer.names["third"]):
+                    # the run's sites over https (N1 of the fourth review: secure contexts with real-looking
+                    # names): the tunnel ends here, with a certificate of this run's own authority
+                    self.send_response(200, "Connection established")
+                    self.end_headers()
+                    self.wfile.flush()
+                    try:
+                        conn = outer.tls.wrap_socket(self.connection, server_side=True)
+                    except OSError:
+                        self.close_connection = True
+                        return
+                    self.connection = conn
+                    self.rfile = conn.makefile("rb", -1)
+                    self.wfile = conn.makefile("wb", 0)
+                    self.tls_host = host
+                    self.close_connection = False
+                    self.handle_one_request()
+                    self.close_connection = True
+                    return
                 outer._record(host, "CONNECT")
                 self.send_error(403)
 
             def _any(self):
-                if self.path.startswith(("http://", "https://", "ws://", "wss://")):
+                if getattr(self, "tls_host", None) and not self.path.startswith(("http://", "https://")):
+                    u = urlsplit(self.path)
+                    host, path, query = self.tls_host, u.path or "/", u.query
+                elif self.path.startswith(("http://", "https://", "ws://", "wss://")):
                     u = urlsplit(self.path)
                     host = (u.hostname or "").lower()
-                    if host not in outer.pages and host != outer.names["third"]:
+                    if host not in outer.pages and host != outer.names["third"] and host not in outer.sites:
                         outer._record(host, self.command)
                         self.send_error(502)
                         return
@@ -1281,6 +1582,8 @@ class Server:
         so what is kept is the same from one run to the next."""
         v = re.sub(r":%s\b" % self.port, ":PORT", v)
         n = self.names
+        for k, host in sorted((n.get("sites") or {}).items(), key=lambda kv: -len(kv[1])):
+            v = v.replace(host, SITE_NAMES.get(k, "site.test"))
         return v.replace(n["third"], THIRD).replace("/%s?%s=" % (n["path"], n["param"]), "/fp?lv=")
 
     def _keep(self, which, lv, headers):
@@ -1293,27 +1596,39 @@ class Server:
         with self.lock:
             self.headers.setdefault(lv, {})[which] = kept
 
+    def _common(self, text):
+        n, s = self.names, self.shape
+        return text.replace("__COMMON__", COMMON_JS).replace("__SHAPE__", json.dumps(s)) \
+            .replace("__WORKER__", json.dumps(WORKER_JS)).replace("__WFILE__", n.get("wfile", "w")) \
+            .replace("__GLOBAL__", n["global"]).replace("__TITLE__", n["title"])
+
     def page(self, lv):
         n = self.names
-        return PROBE.replace("__THIRD__", n["third"]).replace("__LVP__", n["param"]).replace("__LV__", lv) \
-            .replace("__FRAME__", n["frame"]).replace("__TAG__", n["tag"]).replace("__GLOBAL__", n["global"]) \
-            .replace("__TITLE__", n["title"])
+        return self._common(PROBE.replace("__THIRD__", n["third"]).replace("__LVP__", n["param"])
+                            .replace("__LV__", lv).replace("__FRAME__", n["frame"]).replace("__TAG__", n["tag"]))
 
     def serve(self, host, path, query, headers):
-        n = self.names
+        n, s = self.names, self.shape
         lv = (query.get(n["param"]) or ["?"])[0]
-        if host == "127.0.0.1" and path == "/" + n["path"]:
-            self._keep("page", lv, headers)
+        ours = host == "127.0.0.1" or host in self.sites
+        if ours and path == "/" + n["path"]:
+            if lv.split(".")[0] in LEVELS and "." not in lv:
+                self._keep("page", lv, headers)
             return self.page(lv).encode("utf-8"), "text/html; charset=utf-8"
         if host == n["third"] and path == "/pixel.png":
             self._keep("third-party", lv, headers)
             return PNG, "image/png"
-        if host == "127.0.0.1" and path == "/" + n["pick"]:
-            return PICK_PAGE.replace("__GLOBAL__", n["global"]).replace("__TITLE__", n["title"]).encode("utf-8"), \
-                "text/html; charset=utf-8"
+        if ours and path == "/" + n["pick"]:
+            return self._common(PICK_PAGE).encode("utf-8"), "text/html; charset=utf-8"
+        if ours and path == "/" + n.get("site", "-"):
+            return self._common(SITE_PAGE).encode("utf-8"), "text/html; charset=utf-8"
+        if ours and path == "/%s.js" % n.get("wfile", "-"):
+            return (WORKER_JS + "run(function(m){postMessage(m)});").encode("utf-8"), "text/javascript"
         if host == n["third"] and path == "/" + n["frame"]:
-            return FRAME.replace("__TAG__", n["tag"]).replace("__TITLE__", n["title"]).encode("utf-8"), \
-                "text/html; charset=utf-8"
+            return FRAME.replace("__TAG__", n["tag"]).replace("__TITLE__", n["title"]) \
+                .replace("__PW__", str(int(s["pw"]))).replace("__SEED__", str(int(s["seed"]))) \
+                .replace("__TEXT__", json.dumps(s["text"])).replace("__LEN__", str(int(s["len"]))) \
+                .replace("__FREQ__", str(int(s["freq"]))).encode("utf-8"), "text/html; charset=utf-8"
         page = self.pages.get(host)
         if page and path == page["path"]:
             parts = []
@@ -1329,6 +1644,33 @@ class Server:
     def close(self):
         self.httpd.shutdown()
         self.httpd.server_close()
+
+    def https(self, folder):
+        """The run's own certificate authority and a certificate for its sites (openssl): the authority's
+        file to trust in the browser's profile, or None (the sites then over http, not secure contexts)."""
+        import ssl
+        folder = Path(folder)
+        folder.mkdir(parents=True, exist_ok=True)
+        hosts = sorted(self.sites | {self.names["third"]})
+        try:
+            def run(*cmd):
+                subprocess.run(["openssl", *cmd], cwd=str(folder), capture_output=True, timeout=60, check=True)
+            run("req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", "ca.key", "-out", "ca.pem", "-days", "2",
+                "-subj", "/CN=%s" % self.names["title"], "-addext", "basicConstraints=critical,CA:TRUE",
+                "-addext", "keyUsage=critical,keyCertSign,cRLSign")
+            run("req", "-newkey", "rsa:2048", "-nodes", "-keyout", "leaf.key", "-out", "leaf.csr",
+                "-subj", "/CN=%s" % hosts[0])
+            (folder / "ext.cnf").write_text("subjectAltName=%s\nbasicConstraints=CA:FALSE\n"
+                                            "extendedKeyUsage=serverAuth\nkeyUsage=digitalSignature,keyEncipherment\n"
+                                            % ",".join("DNS:%s" % h for h in hosts), "utf-8")
+            run("x509", "-req", "-in", "leaf.csr", "-CA", "ca.pem", "-CAkey", "ca.key", "-CAcreateserial",
+                "-out", "leaf.pem", "-days", "2", "-extfile", "ext.cnf")
+            ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            ctx.load_cert_chain(str(folder / "leaf.pem"), str(folder / "leaf.key"))
+        except (OSError, subprocess.SubprocessError, ssl.SSLError):
+            return None
+        self.tls = ctx
+        return str(folder / "ca.pem")
 
 
 # --- the snapshot ------------------------------------------------------------------------------
@@ -1373,8 +1715,30 @@ def run_browser(repo, mode, plan, settings, server, workdir, timeout, other_mach
     hook.write_text(HOOK.replace("__PLAN_ENV__", n["env"]), "utf-8")
     wrapper.write_text(WRAPPER.replace("__NETMOD__", n["netmod"]), "utf-8")
     out = workdir / ("%s.json" % n["out"])
-    plan = dict(plan, mode=mode, out=str(out), base=server.base, path=n["path"], param=n["param"], pick=n["pick"],
-                attr=n["attr"], netmod=n["netmod"], **{"global": n["global"]})
+    # the probe on the run's first site (a fresh profile of the "network" mode upgrades a site to https,
+    # which the local server does not answer: there the address of this computer, as before)
+    sites = n.get("sites") or {}
+    scheme = "https" if server.ca else "http"
+    base = "%s://%s" % (scheme, sites["a"]) if mode == "measure" and sites.get("a") else server.base
+    plan = dict(plan, mode=mode, out=str(out), base=base, path=n["path"], param=n["param"], pick=n["pick"],
+                attr=n["attr"], netmod=n["netmod"], site=n.get("site"), wfile=n.get("wfile"),
+                **{"global": n["global"]})
+    if "sites" not in plan:
+        plan["sites"] = sites if mode == "measure" else {}
+    plan["site_order"] = [k for k in ("a", "a2", "b", "c", "d", "e") if k in plan["sites"]]
+    plan["scheme"] = scheme
+    if server.ca and mode == "measure":
+        # the run's own certificate authority, trusted in this profile only (its NSS database)
+        nss = home / ".pki" / "nssdb"
+        nss.mkdir(parents=True, exist_ok=True)
+        try:
+            subprocess.run(["certutil", "-d", "sql:%s" % nss, "-N", "--empty-password"], capture_output=True,
+                           timeout=60, check=True)
+            subprocess.run(["certutil", "-d", "sql:%s" % nss, "-A", "-t", "C,,", "-n", n["title"], "-i", server.ca],
+                           capture_output=True, timeout=60, check=True)
+        except (OSError, subprocess.SubprocessError) as exc:
+            return {"errors": [{"section": mode, "error": "the run's certificate authority could not be trusted in the "
+                                                          "profile (certutil, libnss3-tools): %s" % exc}]}
     (workdir / ("%s.json" % n["plan"])).write_text(json.dumps(plan), "utf-8")
     (workdir / "run").mkdir(mode=0o700, exist_ok=True)
     proxy = "http://127.0.0.1:%d" % server.port
@@ -1394,16 +1758,26 @@ def run_browser(repo, mode, plan, settings, server, workdir, timeout, other_mach
         "http_proxy": proxy, "https_proxy": proxy, "HTTP_PROXY": proxy, "HTTPS_PROXY": proxy,
         "all_proxy": proxy, "ALL_PROXY": proxy, "no_proxy": "127.0.0.1,localhost", "NO_PROXY": "127.0.0.1,localhost",
     })
+    preexec = None
     if other_machine:
         screen = workdir / ("%s.json" % n["out"].replace("o", "s", 1))
         screen.write_text(json.dumps({"screens": [dict(OTHER_MACHINE["screen"], name="s", x=0, y=0, logicalDpi=96,
                                                        logicalBaseDpi=96, dpr=1)]}), "utf-8")
         env.update({"TZ": OTHER_MACHINE["tz"], "LANG": OTHER_MACHINE["lang"],
                     "QT_QPA_PLATFORM": "offscreen:configfile=%s" % screen})
+        # N7 of the fourth review: other processors and memory too, so a disguise that equals this
+        # computer's real value (4 cores, 8 GB, as GitHub's runners) is told from the real one
+        cpus = sorted(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else []
+        if len(cpus) >= 2:
+            keep = cpus[:OTHER_MACHINE["cpus"]] if len(cpus) > OTHER_MACHINE["cpus"] else cpus[:1]
+            preexec = lambda keep=keep: os.sched_setaffinity(0, keep)  # noqa: E731
+        shim = _memory_shim(workdir)
+        if shim:
+            env["LD_PRELOAD"] = shim
     cmd = [sys.executable, str(wrapper), str(Path(repo).resolve() / "ike_boot.py")]
     try:
         proc = subprocess.run(cmd, cwd=str(workdir), env=env, capture_output=True, text=True, encoding="utf-8",
-                              errors="replace", timeout=timeout)
+                              errors="replace", timeout=timeout, preexec_fn=preexec)
         code, stderr = proc.returncode, proc.stderr
     except subprocess.TimeoutExpired as exc:
         code, stderr = "timeout", (exc.stderr or b"").decode("utf-8", "replace") if isinstance(exc.stderr, bytes) \
@@ -1416,10 +1790,24 @@ def run_browser(repo, mode, plan, settings, server, workdir, timeout, other_mach
     return data
 
 
-def snapshot(repo, levels=LEVELS, sections=SECTIONS, fixtures=FIXTURES, keep=None, settle=6.0, keys=None):
+def masked_fonts(repo):
+    """The names fingerprint.js masks (its MASKED_FONTS), of a checkout; [] when it has none."""
+    try:
+        text = (Path(repo) / "ike" / "resources" / "fingerprint.js").read_text("utf-8")
+        m = re.search(r"var MASKED_FONTS = (\[.*?\]);", text, re.S)
+        return [str(x) for x in json.loads(m.group(1))] if m else []
+    except (OSError, ValueError):
+        return []
+
+
+def snapshot(repo, levels=LEVELS, sections=SECTIONS, fixtures=FIXTURES, keep=None, settle=6.0, keys=None,
+             shape=None, fonts_main=None, names=None):
     """The behaviour snapshot of the checkout in `repo` (a dict, see FORMAT). keys: the noise keys of
     the measured sessions, SESSIONS of them (default fixed_keys(); `check` gives both sides the same
-    random ones, so the code measured cannot know them in advance)."""
+    random ones, so the code measured cannot know them in advance). shape: the probe's sizes, text and
+    sound (default SHAPE; `check` gives both sides the same random one), names: the run's random names
+    and sites (run_names(); `check` gives both sides the same: the noise is per site). fonts_main: main's names of
+    fingerprint.js's MASKED_FONTS, tested here too (N4: a name taken out of the list is still tested)."""
     repo = Path(repo).resolve()
     corpus = load_corpus(fixtures)
     t0 = time.monotonic()
@@ -1429,16 +1817,22 @@ def snapshot(repo, levels=LEVELS, sections=SECTIONS, fixtures=FIXTURES, keep=Non
             "scriptlet_hosts": corpus["scriptlet_hosts"], "keys": keys[:SESSIONS],
             "pick_keys": keys[SESSIONS:SESSIONS + PICK_DRAWS],
             "defaults": sorted(SAFE_DEFAULTS),
-            "hostile_flags": HOSTILE_FLAGS, "hostile_env": HOSTILE_ENV, "settle": settle}
+            "hostile_flags": HOSTILE_FLAGS, "hostile_env": HOSTILE_ENV, "settle": settle,
+            "fonts_main": list(fonts_main or ())}
+    server = Server(corpus, names=names, shape=shape)
     quiet = {"lists_version": _lists_version(repo), "last_lists_update": 4102444800,
              "last_fast_update": 4102444800, "chrome_checked": 4102444800, "app_updates": "off",
              "auto_update": False, "newtab_bg": "", "newtab_bg_118": True, "app_updates_1113": True,
-             "site_opts": {p["host"]: {"https": False} for p in corpus["pages"]}}
-    server = Server(corpus)
+             "site_opts": dict({p["host"]: {"https": False} for p in corpus["pages"]},
+                               **{h: {"https": False} for h in server.sites})}
     dirs = server.names["dirs"]
     raw = {}
     tmp = tempfile.mkdtemp() if keep is None else str(keep)
+    server.ca = server.https(Path(tmp) / ("%s-t" % dirs[0]))
     try:
+        if server.ca is None and set(sections) & {"fingerprint", "security"}:
+            raw["tls"] = {"errors": [{"section": "fingerprint", "error": "the run's sites could not be served over "
+                                                                        "https (openssl): not secure contexts"}]}
         measured = [s for s in sections if s != "network"]
         if measured:
             raw["measure"] = run_browser(repo, "measure", plan, quiet, server, Path(tmp) / dirs[0], timeout=420)
@@ -1449,7 +1843,8 @@ def snapshot(repo, levels=LEVELS, sections=SECTIONS, fixtures=FIXTURES, keep=Non
         if "fingerprint" in sections:
             # the same page on another real machine (time zone, language, screen): a fixed disguise
             # must not follow the real one (the "env." marks); one session, the first key
-            raw["env2"] = run_browser(repo, "measure", dict(plan, sections=["fingerprint"], keys=keys[:1], pick_keys=[]),
+            raw["env2"] = run_browser(repo, "measure", dict(plan, sections=["fingerprint"], keys=keys[:1], pick_keys=[],
+                                                            sites={}, again=False),
                                       quiet,
                                       server, Path(tmp) / (dirs[0] + "e"), timeout=300, other_machine=True)
             raw["env2"]["proxy_hosts"] = server.take()
@@ -1479,7 +1874,7 @@ def snapshot(repo, levels=LEVELS, sections=SECTIONS, fixtures=FIXTURES, keep=Non
     # the samples are in the observations as the noise's sizes and references: not kept twice
     for part in ("measure", "env2"):
         for here in ((raw.get(part) or {}).get("levels") or {}).values():
-            for p in [here.get("probe")] + list(here.get("probe_sessions") or []):
+            for p in [here.get("probe"), here.get("probe_again")] + list(here.get("probe_sessions") or []):
                 for k in SAMPLES - {"third_frame"}:
                     (p or {}).pop(k, None)
                 if isinstance((p or {}).get("third_frame"), list):
@@ -1583,8 +1978,9 @@ def _env_marks(lv, probe, flats, off, env2):
         here2, r1, r2 = _parts(two[k]["value"], k), _parts(real1[k]["value"], k), _parts(real2[k]["value"], k)
         held = None
         for path, v in parts.items():
-            if _role(k, path) is not None or any(s.get(path, MISSING) != v for s in sessions):
-                continue                    # drawn per session: not a fixed disguise
+            if any(s.get(path, MISSING) != v for s in sessions):
+                continue                    # drawn per session: not a fixed disguise (a pick the same in every
+                #                             session is one: the cores at Strict, N7 of the fourth review)
             if r1.get(path, MISSING) == r2.get(path, MISSING):
                 continue                    # the environment did not change the real one
             held = (held is not False) and here2.get(path, MISSING) == v
@@ -1593,10 +1989,68 @@ def _env_marks(lv, probe, flats, off, env2):
     return marks
 
 
+def _again_marks(lv, here, fp, errors):
+    """N2 of the fourth review: the first key once more on the probe page, in another load: each judged
+    value reads as in the first session ("again.<value>"; a noise drawn anew at every load fails)."""
+    again = here.get("probe_again")
+    if "probe_again" not in here:
+        return {}
+    if not isinstance(again, dict):
+        errors.append({"section": "fingerprint", "error": "the probe page gave no result at %s with the first "
+                                                          "key again" % lv})
+        return {}
+    fa, out = {}, {}
+    _flat("", {k: v for k, v in again.items() if k not in SAMPLES}, fa, "exact")
+    for k, o in fp.items():
+        if FP_JUDGED.match(k) and k in fa:
+            out["again.%s" % k] = {"rule": "safer-true", "value": fa[k]["value"] == o["value"]}
+    return out
+
+
+def _site_marks(sites, off_sites):
+    """N1 of the fourth review: the page of the sites on the run's hosts. For each read: other sites
+    differ ("sites.differ."; under a public suffix of two labels too), two hosts of one site agree
+    ("sites.agree."), every host differs from the real value ("sites.noised."). None where a host gave
+    nothing (it cannot be judged)."""
+    if not isinstance(sites, dict):
+        return {}
+    real = (off_sites or {}).get("a") if isinstance(off_sites, dict) else None
+    out = {}
+    for v in SITE_READS:
+        vals = {n: (s.get(v) if isinstance(s, dict) else None) for n, s in sites.items()}
+        ok = len(vals) >= 6 and all(x is not None and not (isinstance(x, str) and FAILED.match(x))
+                                    for x in vals.values())
+        others = [vals.get(n) for n in ("a", "b", "c", "d", "e")]
+        out["sites.differ.%s" % v] = {"rule": "safer-true", "value": len({_id(x) for x in others}) == len(others)
+                                      if ok else None}
+        out["sites.agree.%s" % v] = {"rule": "safer-true", "value": vals.get("a") == vals.get("a2") if ok else None}
+        r = real.get(v) if isinstance(real, dict) else None
+        out["sites.noised.%s" % v] = {"rule": "safer-true", "value": all(x != r for x in vals.values())
+                                      if ok and r is not None else None}
+    return out
+
+
+def _frame_agrees(probes):
+    """True when the same-origin frame's canvas hash is the page's in every session read."""
+    read = 0
+    for p in probes:
+        if not isinstance(p, dict):
+            continue
+        f, c = p.get("frame"), p.get("canvas")
+        fh = f[4][0] if isinstance(f, list) and len(f) > 4 and isinstance(f[4], list) and f[4] else None
+        ch = c[0] if isinstance(c, list) and c else None
+        if fh is None or ch is None:
+            return None
+        if fh != ch:
+            return False
+        read += 1
+    return True if read else None
+
+
 def observations(raw, levels, sections, corpus):
     """(errors, {key: {"rule", "value"}}) from what the browser recorded."""
     errors, obs = [], {}
-    for part in ("measure", "env2", "network", "network2"):
+    for part in ("measure", "env2", "network", "network2", "tls"):
         if part in raw and (raw[part] or {}).get("python_hosts", None) is None and "errors" in (raw[part] or {}) \
                 and not (raw[part] or {}).get("errors"):
             # the audit hook that records I.K.E.'s own connections did not report: not measured
@@ -1683,6 +2137,17 @@ def observations(raw, levels, sections, corpus):
                 if lv != "off" and raw.get("env2"):
                     for k, v in _env_marks(lv, probe, flats, off, raw["env2"]).items():
                         fp["env.%s" % k] = {"rule": "safer-true", "value": v}
+                if lv != "off":
+                    fp.update(_again_marks(lv, here, fp, errors))
+                    fp.update(_site_marks(here.get("sites"), ((m.get("levels") or {}).get("off") or {}).get("sites")))
+                    # a frame shares its page's noise: its canvas is the page's in every session
+                    fp["frame.agrees.canvas"] = {"rule": "safer-true", "value": _frame_agrees([probe] + others)}
+                if lv in ("strict", "maximum") and m.get("fonts_findable") is not None:
+                    found = here.get("fonts_found")
+                    for where, name in (("page", "fonts_found"), ("frame", "fonts_found_frame")):
+                        got = found.get(where) if isinstance(found, dict) else None
+                        fp[name] = {"rule": "masked-fonts", "value": sorted(
+                            {str(x).lower() for x in got} - FONTS_KEPT) if isinstance(got, list) else None}
                 for k, v in fp.items():
                     obs["fingerprint/%s/%s" % (lv, k)] = v
         if "security" in sections:
@@ -1848,6 +2313,16 @@ def _judge(rule, base, cand, key=""):
             return "changed", "added here: %s" % ", ".join(new[:8])
         return "worse", "; ".join(x for x in ("lost here: %s" % ", ".join(lost[:8]) if lost else "",
                                               "new here: %s" % ", ".join(new[:8]) if new else "") if x)
+    if rule == "masked-fonts":
+        # the fonts a page can find on this computer that the protected page (or its frame) still finds
+        # (N4 of the fourth review): one more than on main is worse
+        if not isinstance(cand, list):
+            return "unjudged", "the fonts a page finds could not be measured here (%s)" % _short(cand, 60)
+        extra = sorted(set(cand) - set(base or []))
+        if extra or not isinstance(base, list):
+            return "worse", "a font a page can find on this computer is not masked here: %s" % ", ".join(
+                extra[:8] or cand[:8])
+        return "stricter", "masked here, found on main: %s" % ", ".join(sorted(set(base) - set(cand))[:8])
     if rule == "safer-true":
         return ("worse", "%s on main, %s here" % (base, cand)) if base is True else \
             ("stricter", "%s on main, %s here" % (base, cand)) if cand is True else ("worse", "%r -> %r" % (base, cand))
@@ -2076,14 +2551,43 @@ def _tolerance(m, nb):
 def load_floors(path=None):
     """{value: {measure: the least noise size}} kept by a person (NOISE_FLOORS): the noise is judged
     against the larger of main's (less the tolerance of chance) and this floor (with no tolerance), so
-    merges cannot lower it step by step. None when the file cannot be read (an error, never no floors)."""
+    merges cannot lower it step by step. None when the file cannot be read, and when any floor is not a
+    number above 0 (a floor written as text was dropped before: N6 of the fourth review): an error,
+    never no floor."""
     try:
         data = json.loads(Path(path or NOISE_FLOORS).read_text("utf-8"))
         floors = data["floors"]
-        return {k: {m: float(x) for m, x in v.items() if isinstance(x, (int, float)) and not isinstance(x, bool)}
-                for k, v in floors.items() if isinstance(v, dict)}
+        out = {}
+        for k, v in floors.items():
+            if not isinstance(v, dict):
+                return None
+            for m, x in v.items():
+                if not isinstance(x, (int, float)) or isinstance(x, bool) or not x > 0:
+                    return None
+            out[k] = {m: float(x) for m, x in v.items()}
+        return out
     except (OSError, ValueError, KeyError, TypeError, AttributeError):
         return None
+
+
+# a floor under this share of what main measures is stale (N6 of the fourth review: the audio's stayed at
+# half of the noise before #148, a tenth of the noise after it): the report says so
+FLOOR_STALE = 0.6
+
+
+def stale_floors(snap, floors):
+    """The floors far under what main measures (FLOOR_STALE): ["value measure: floor F, main M"]."""
+    out = []
+    for key, o in sorted((snap.get("observations") or {}).items()):
+        name = key.split("/", 2)[-1]
+        noise = o.get("noise") if isinstance(o, dict) else None
+        if not key.startswith("fingerprint/") or not isinstance(noise, dict) or name not in (floors or {}):
+            continue
+        for m, f in sorted(floors[name].items()):
+            v = noise.get(m)
+            if _number(v) and v > 0 and f < FLOOR_STALE * v:
+                out.append("%s %s: floor %g, main %g" % (key.split("/", 1)[1], m, f, v))
+    return out
 
 
 def _judge_noise(name, nb, nc, floors):
@@ -2168,12 +2672,17 @@ def _tokens(v):
 # name, a list of extensions, a number of cores, a text width with its 61 steps): two sessions
 # alike, or a common real value, can be chance; they are judged only on what chance cannot explain.
 # Any other part: a fixed disguise or an unknown kind, judged strictly.
+FRAMES = ("frame_x", "frame_html", "frame_srcdoc")         # frameRead: canvas, card, extensions, sound, ...
+WORKERS = ("worker", "shared_worker", "file_worker")
 NOISE_PARTS = {("canvas", "[0]"), ("canvas_blob", ""), ("canvas_offset", ""), ("canvas_flat", ""), ("audio", ""),
-               ("webgl.read_pixels", ""), ("navigator.plugins", ""), ("frame", "[4][0]")}
+               ("webgl.read_pixels", ""), ("navigator.plugins", ""), ("frame", "[4][0]"),
+               ("webgl2.read_pixels", ""), ("audio_copy", ""), ("audio_analyser", ""), ("canvas_offscreen", ""),
+               ("video_frame", ""), ("shared_worker", "[7]"), ("file_worker", "[7]")} | \
+    {(f, p) for f in FRAMES for p in ("[0]", "[3]", "[6]")}
 PICK_VALUES = {"webgl.unmasked_renderer", "webgl.unmasked_vendor", "webgl.extensions", "navigator.hardwareConcurrency",
-               "fonts_generic"}
-PICK_PARTS = {("canvas", "[2]"), ("frame", "[0]"), ("frame", "[4][2]"), ("worker", "[2]"), ("worker", "[5]"),
-              ("worker", "[6]")}
+               "fonts_generic", "webgl2.unmasked_renderer", "webgl2.unmasked_vendor", "webgl2.extensions"}
+PICK_PARTS = {("canvas", "[2]"), ("frame", "[0]"), ("frame", "[4][2]")} | \
+    {(w, p) for w in WORKERS for p in ("[2]", "[5]", "[6]")} | {(f, p) for f in FRAMES for p in ("[1]", "[2]", "[5]")}
 # single text widths: their noise has 61 steps and one of them is none, so the real width comes back
 # by chance (about 1 in 61 a session); how often is measured on main's 128 (the frame: 64) widths of
 # every session (the value's "widths" noise), and the real width here is judged against that
@@ -2181,7 +2690,9 @@ WIDTH_PARTS = {("canvas", "[2]"), ("frame", "[4][2]")}
 WIDTH_VALUES = {"fonts_generic"}
 # a list disguised by the same rule as another value read in more sessions: how often that rule leaves
 # the real list is measured on the other (the worker's WebGL extensions: the page's, 24 draws a level)
-LIST_PEERS = {("worker", "[6][1]"): "webgl.extensions"}
+LIST_PEERS = {("worker", "[6][1]"): "webgl.extensions", ("shared_worker", "[6][1]"): "webgl.extensions",
+              ("file_worker", "[6][1]"): "webgl.extensions", ("frame_x", "[2]"): "webgl.extensions",
+              ("frame_html", "[2]"): "webgl.extensions", ("frame_srcdoc", "[2]"): "webgl.extensions"}
 
 
 def _role(name, path):
@@ -2373,6 +2884,10 @@ def _judge_part(name, path, b, c, common=None, noise=None, peer=None):
         return "unjudged", "cannot be judged: main's other sessions were not measured"
     if drawn_c == 1:
         return "worse", "the same in every session here (on main it changed with the session)"
+    if role == "noise" and len(sb) > 2 and drawn_b == len(sb) and drawn_c < len(sc):
+        # N2 of the fourth review: a large space drawn from a few keys (8 noises for 8 sessions: alike in
+        # two of them 99.8 % of the time); on main every session differed
+        return "worse", "only %d different in %d sessions here (on main all %d differed)" % (drawn_c, len(sc), len(sb))
     return "changed", "still noised (not the real value) and different in each session"
 
 
@@ -2487,7 +3002,7 @@ PROTECTIVE = (
 )
 # marks judged as a protection that must stay on: the value differs from Off (".noised"), from the
 # other start (".differs"), reads the same twice ("stable."), differs on another site ("site.")
-MARKS = re.compile(r"(\.noised|\.differs)$|^(stable|site|env)\.")
+MARKS = re.compile(r"(\.noised|\.differs)$|^(stable|site|sites|env|again)\.|^frame\.agrees\.")
 
 
 def _protective(name):
@@ -2576,13 +3091,24 @@ def load_allowlist(path):
     return entries, ("%d entries without a key or a reason were ignored" % bad) if bad else ""
 
 
-def _accepted(entries, key, base, cand):
+def _accepted(entries, key, base, cand, detail="", version=""):
+    """The index of the allowlist entry a person wrote for this row, or None. Beyond the key and the
+    values (main's, the candidate's), an entry may pin (N9 of the fourth review, for the rows whose
+    values change with the session's key): "part", the part of a disguised value the row is about (its
+    detail starts with it); "detail", a text the row's detail holds; "version", the I.K.E. version of
+    the candidate it is for (another version: the entry no longer counts)."""
     for i, e in enumerate(entries):
         if not fnmatch.fnmatchcase(key, e["key"]):
             continue
         if "base" in e and e["base"] != base:
             continue
         if "candidate" in e and e["candidate"] != cand:
+            continue
+        if "part" in e and not str(detail).startswith(str(e["part"]) + " "):
+            continue
+        if "detail" in e and str(e["detail"]) not in str(detail):
+            continue
+        if "version" in e and str(e["version"]) != str(version):
             continue
         return i
     return None
@@ -2833,7 +3359,10 @@ def compare(base, cand, allowlist_entries=(), evidence=None, floors=None, common
         b, c = bo.get(key), co.get(key)
         rule = _rule(key, b, c)
         bv, cv = (b or {}).get("value"), (c or {}).get("value")
-        if rule == "fingerprint" and (bv != cv or (b and c and (
+        if b is not None and c is None:
+            # N10 of the fourth review: measured on main (even as null), missing here: never "same"
+            kind, detail = "unjudged", "not measured on the candidate"
+        elif rule == "fingerprint" and (bv != cv or (b and c and (
                 _sessions(b) != _sessions(c) or b.get("noise") != c.get("noise")))):
             kind, detail = _judge_fingerprint(key, b, c, bo, co, floors, common)
         elif rule == "fonts":
@@ -2869,7 +3398,8 @@ def compare(base, cand, allowlist_entries=(), evidence=None, floors=None, common
             row.update(why=claims[row["key"]], passed_by="necessity")
             rows["evidence"].append(row)
             continue
-        i = _accepted(allowlist_entries, row["key"], row["main"], row["candidate"])
+        i = _accepted(allowlist_entries, row["key"], row["main"], row["candidate"], row["detail"],
+                      (cand.get("repo") or {}).get("version") or "")
         if i is not None:
             used.add(i)
             row.update(why=allowlist_entries[i].get("why"), passed_by="person")
@@ -2886,7 +3416,14 @@ def compare(base, cand, allowlist_entries=(), evidence=None, floors=None, common
         s = _section(k)
         counts[s] = counts.get(s, 0) + 1
     info = ("repo", "seconds", "corpus", "levels", "sections")
+    # N5 of the fourth review: every fingerprinting row that is not the same or stricter (changed, passed
+    # by evidence, accepted by a person, or worse): a person's change may bring them, an AI's never by
+    # itself (tests.yml "Fingerprinting unchanged", tools/automerge.py)
+    review = [{"key": r["key"], "detail": r["detail"], "passed_by": r.get("passed_by", "")}
+              for kind in ("worse", "evidence", "accepted", "changed") for r in rows[kind]
+              if r["section"] == "fingerprinting"]
     return {"verdict": verdict, "errors": errors, "main": {k: base.get(k) for k in info},
+            "fingerprint_review": review, "floor_notices": stale_floors(base, floors),
             "candidate": {k: cand.get(k) for k in info}, "compared": counts,
             "sections": sections, "unused_allowlist": [e for i, e in enumerate(allowlist_entries) if i not in used],
             "evidence_read": {"changed_files": len(evidence["changed"]) if evidence.get("changed") is not None
@@ -2989,6 +3526,12 @@ def markdown(report, limit=60):
     if report["unused_allowlist"]:
         out += ["", "Allowlist entries that matched nothing (a person may remove them): %s." % ", ".join(
             "`%s`" % e["key"] for e in report["unused_allowlist"][:20])]
+    if report.get("floor_notices"):
+        out += ["", "**Noise floors far under main's noise** (under %d %%: a person raises them in "
+                "tests/data/no-regression/noise-floor.json): %s." % (
+                    FLOOR_STALE * 100, "; ".join(report["floor_notices"][:12]))]
+    if report.get("runs", 1) > 1:
+        out += ["", "Measured %d times, each with its own random keys: a row worse in any run is worse." % report["runs"]]
     return "\n".join(out) + "\n"
 
 
@@ -3042,6 +3585,9 @@ def main(argv=None):
     k.add_argument("--markdown")
     k.add_argument("--diff", help="this change as git's diff output (default: asked of git in the candidate's "
                                   "checkout, from main's commit)")
+    k.add_argument("--runs", type=int, default=1,
+                   help="measure both sides this many times, each with its own random keys and shape; a row "
+                        "worse in any run is worse (tests.yml: 3 for an AI's change of the fingerprinting)")
     for x in (c, k):
         x.add_argument("--main-junit", action="append", default=[],
                        help="pytest's junit file of main's tests (evidence: a test that fails there)")
@@ -3072,27 +3618,62 @@ def main(argv=None):
         evidence["confirmed"] = set(args.confirmed)
         return _finish(compare(base, cand, entries, evidence), args)
     out = Path(args.out_dir)
-    # the same two noise keys for both sides, random: the code measured cannot know them in advance
     import secrets
-    keys = [secrets.token_hex(16) for _ in range(SESSIONS + PICK_DRAWS)]
-    base = snapshot(args.base_repo, fixtures=args.fixtures, keys=keys)
-    _write(out / "main.json", json.dumps(base, indent=1, ensure_ascii=False, default=str) + "\n")
-    cand = snapshot(args.candidate_repo, fixtures=args.fixtures, keys=keys)
-    _write(out / "candidate.json", json.dumps(cand, indent=1, ensure_ascii=False, default=str) + "\n")
-    diff = Path(args.diff).read_text("utf-8", "replace") if args.diff else \
-        _change(args.candidate_repo, (base.get("repo") or {}).get("commit"))
-    if diff is not None:
-        evidence["changed"], evidence["added"] = read_diff(diff)
-    # only a test a person bound to values can be evidence: only those are run again, on both sides
-    bound = {e["test"] for e in evidence["necessity"]}
-    main_t, cand_t = evidence["main_tests"], evidence["candidate_tests"]
-    asked = sorted(t for t in bound if main_t.get(t) == "failed" and cand_t.get(t) == "passed")
-    evidence["confirmation"], evidence["confirmed"] = confirm(asked, args.base_repo, args.candidate_repo)
-    report = compare(base, cand, entries, evidence)
+    reports, runs = [], max(1, int(args.runs or 1))
+    # main's names of the masked fonts, tested on both sides (N4: a name taken out is still tested)
+    fonts_main = masked_fonts(args.base_repo)
+    for run in range(runs):
+        # the same noise keys and the same shape of the probe for both sides, random: the code measured
+        # cannot know them in advance
+        keys = [secrets.token_hex(16) for _ in range(SESSIONS + PICK_DRAWS)]
+        shape, names = random_shape(), run_names()
+        where = out if run == 0 else out / ("run%d" % (run + 1))
+        base = snapshot(args.base_repo, fixtures=args.fixtures, keys=keys, shape=shape, fonts_main=fonts_main,
+                        names=names)
+        _write(where / "main.json", json.dumps(base, indent=1, ensure_ascii=False, default=str) + "\n")
+        cand = snapshot(args.candidate_repo, fixtures=args.fixtures, keys=keys, shape=shape, fonts_main=fonts_main,
+                        names=names)
+        _write(where / "candidate.json", json.dumps(cand, indent=1, ensure_ascii=False, default=str) + "\n")
+        if run == 0:
+            diff = Path(args.diff).read_text("utf-8", "replace") if args.diff else \
+                _change(args.candidate_repo, (base.get("repo") or {}).get("commit"))
+            if diff is not None:
+                evidence["changed"], evidence["added"] = read_diff(diff)
+            # only a test a person bound to values can be evidence: only those are run again, on both sides
+            bound = {e["test"] for e in evidence["necessity"]}
+            main_t, cand_t = evidence["main_tests"], evidence["candidate_tests"]
+            asked = sorted(t for t in bound if main_t.get(t) == "failed" and cand_t.get(t) == "passed")
+            evidence["confirmation"], evidence["confirmed"] = confirm(asked, args.base_repo, args.candidate_repo)
+        reports.append(compare(base, cand, entries, evidence))
+    report = merge_runs(reports)
     report["confirmation"] = evidence["confirmation"]
     args.json = args.json or str(out / "report.json")
     args.markdown = args.markdown or str(out / "report.md")
     return _finish(report, args)
+
+
+def merge_runs(reports):
+    """Several checks of the same change, each with its own keys and shape: the first run's report, with
+    every row any other run found worse (or could not judge) added, every error, and the fingerprinting
+    rows of all runs (a row worse in any run is worse)."""
+    report = reports[0]
+    report["runs"] = len(reports)
+    seen = {(r["key"], r["detail"]) for r in report["worse"]}
+    review = {(r["key"], r["detail"]) for r in report.get("fingerprint_review") or ()}
+    for n, other in enumerate(reports[1:], 2):
+        report["errors"] += ["run %d: %s" % (n, e) for e in other["errors"]]
+        for r in other["worse"]:
+            if (r["key"], r["detail"]) not in seen:
+                seen.add((r["key"], r["detail"]))
+                report["worse"].append(dict(r, detail="run %d: %s" % (n, r["detail"])))
+                report["sections"].setdefault(r["section"], {}).setdefault("worse", 0)
+                report["sections"][r["section"]]["worse"] += 1
+        for r in other.get("fingerprint_review") or ():
+            if (r["key"], r["detail"]) not in review:
+                review.add((r["key"], r["detail"]))
+                report.setdefault("fingerprint_review", []).append(dict(r, detail="run %d: %s" % (n, r["detail"])))
+    report["verdict"] = "fail" if report["worse"] or report["errors"] else "pass"
+    return report
 
 
 if __name__ == "__main__":

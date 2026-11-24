@@ -489,6 +489,35 @@ def failure_of(repo, run_id, api=gh_api):
     return ""
 
 
+FINGERPRINT_TITLE = "# What \"Nothing gets worse\" found changed in the fingerprinting (not the same, not stricter)"
+
+
+def fingerprint_rows(repo, sha, api=gh_api):
+    """N5 of the fourth review of "Nothing gets worse": the fingerprinting rows that are not the same or
+    stricter on this commit (report.json's fingerprint_review, in the artifact tests-checks of its run of
+    tests.yml), as text for the reviewers; "" when there are none or they cannot be read."""
+    try:
+        runs = api("repos/%s/actions/runs?head_sha=%s&per_page=20" % (repo, sha)).get("workflow_runs", [])
+        for run in runs:
+            if not str(run.get("path") or "").endswith("/tests.yml"):
+                continue
+            arts = api("repos/%s/actions/runs/%s/artifacts?name=tests-checks" % (repo, run["id"])).get("artifacts", [])
+            for art in arts:
+                with zipfile.ZipFile(io.BytesIO(api("repos/%s/actions/artifacts/%s/zip" % (repo, art["id"]),
+                                                    raw=True))) as z:
+                    name = "no-regression/report.json"
+                    if name not in z.namelist() or z.getinfo(name).file_size > 20_000_000:
+                        continue
+                    rows = json.loads(z.read(name).decode("utf-8", "replace")).get("fingerprint_review") or []
+                    if not rows:
+                        return ""
+                    return "%s\n\n%s\n" % (FINGERPRINT_TITLE, "\n".join(
+                        "- %s: %s" % (r.get("key"), str(r.get("detail"))[:300]) for r in rows[:40]))
+    except Exception as e:
+        print("the fingerprinting rows could not be read: %s" % str(e)[:160].replace("::", ": "))
+    return ""
+
+
 def prepare(repo, sha, out, api=gh_api, diff=ai_diff):
     """Writes request.json, diff.patch and failure.md for the review of the pull request whose last
     commit this is; returns the request, or None when no such pull request has an AI commit."""
@@ -519,7 +548,10 @@ def prepare(repo, sha, out, api=gh_api, diff=ai_diff):
                "files": files, "needed": _tool("tier-b").needed_reviews(files)}
     (out / "request.json").write_text(json.dumps(request) + "\n", "utf-8")
     (out / "diff.patch").write_text(diff(sha, files), "utf-8")
-    (out / "failure.md").write_text(failure_of(repo, run.group(1), api) if run else "", "utf-8")
+    failure = failure_of(repo, run.group(1), api) if run else ""
+    # what "Nothing gets worse" found changed in the fingerprinting: shown to the reviewers with the failure
+    rows = fingerprint_rows(repo, sha, api)
+    (out / "failure.md").write_text(failure + ("\n\n" + rows if rows else ""), "utf-8")
     return request
 
 

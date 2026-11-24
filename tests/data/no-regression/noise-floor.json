@@ -1,17 +1,81 @@
 {
- "about": "Nothing gets worse (tools/no-regression.py NOISE_FLOORS, docs/MAINTENANCE.md): the least size of the fingerprinting protection's noise, per value and measure. A candidate's noise must stay at least main's less the tolerance of chance and at least this floor, with no tolerance on the floor, so merges cannot lower it step by step. Only for measures that do not depend on the computer's fonts or graphics card (pictures of varied known bytes, flat stripes, text widths' relative noise, the audio samples), set to about half of what main measured on 2026-11-24 (room for other machines). \"_between\" measures: the share of elements that differ from one session to the next. Only a person (or Claude, with the change read in full) edits this file: it is under tests/, so the automatic fix may not touch it and a pull request that changes it never merges by itself; tests.yml reads main's copy. A floor is raised when the noise is made stronger, never lowered without a person reading why.",
- "measured": "2026-11-24, I.K.E. 1.1.24 (main c547993), Balanced/Strict, 8 sessions: pictures of known bytes 0.0151-0.0160 (changed) and 0.030-0.031 (between sessions), text widths 1.53e-06 (relative), 0.98 (changed, between) and 0.96 (the session with the fewest changed, \"widths_least\") at Strict, flat stripes 0.11 (changed) and 0.20 (between), audio dispersion 5.0e-05, share 1.0, between 1.0",
+ "about": "Nothing gets worse (tools/no-regression.py NOISE_FLOORS, docs/MAINTENANCE.md): the least size of the fingerprinting protection's noise, per value and measure. A candidate's noise must stay at least main's less the tolerance of chance and at least this floor, with no tolerance on the floor, so merges cannot lower it step by step. Only for measures that do not depend on the computer's fonts or graphics card (pictures of varied known bytes, flat stripes, text widths' relative noise, the audio samples). Since the fourth review (2026-11-24) each floor is 0.9 of the lowest main measured (0.8 for the flat stripes, whose count varies most); a floor that is not a number above 0 is an error, and the report says when a floor is under 60 % of main's noise (a stronger noise merged: raise the floor). \"_between\" measures: the share of elements that differ from one session to the next; \"widths_least\": the session with the fewest widths changed. Only a person (or Claude, with the change read in full) edits this file: it is under tests/, so the automatic fix may not touch it and a pull request that changes it never merges by itself; tests.yml reads main's copy. A floor is raised when the noise is made stronger, never lowered without a person reading why.",
+ "measured": "2026-11-24, I.K.E. 1.1.24 after #148 (main f51ba83), Balanced/Strict/Maximum, 19 snapshots of 8 sessions with independent keys, sites and the same random shape: pictures of known bytes 0.0150-0.0165 (changed) and 0.029-0.033 (between sessions), text widths 1.45e-06-1.6e-06 (relative), 0.97-0.99 (changed, between) and 0.92-0.98 (the session with the fewest changed), flat stripes 0.109-0.131 (changed) and 0.205-0.241 (between), audio dispersion 4.88e-04-5.08e-04, share and between 1.0",
  "floors": {
-  "canvas": {"pixels": 0.0073, "pixels_share": 0.0073, "pixels_between": 0.014, "png": 0.0073, "png_share": 0.0073,
-             "png_between": 0.014, "widths": 7.5e-07, "widths_share": 0.45, "widths_between": 0.45, "widths_least": 0.45},
-  "canvas_blob": {"png": 0.0073, "png_share": 0.0073, "png_between": 0.014},
-  "canvas_offset": {"pixels": 0.0073, "pixels_share": 0.0073, "pixels_between": 0.014},
-  "canvas_flat": {"stripes": 0.05, "stripes_share": 0.05, "stripes_between": 0.09},
-  "frame": {"pixels": 0.0073, "pixels_share": 0.0073, "pixels_between": 0.014, "png": 0.0073, "png_share": 0.0073,
-            "png_between": 0.014, "widths": 7.5e-07, "widths_share": 0.45, "widths_between": 0.45, "widths_least": 0.45},
-  "webgl.read_pixels": {"pixels": 0.0073, "pixels_share": 0.0073, "pixels_between": 0.014},
-  "worker": {"pixels": 0.0073, "pixels_share": 0.0073, "pixels_between": 0.014},
-  "fonts_generic": {"widths": 7.5e-07, "widths_share": 0.45, "widths_between": 0.45, "widths_least": 0.45},
-  "audio": {"dispersion": 2.4e-05, "share": 0.5, "between": 0.5}
+  "audio": {
+   "between": 0.899,
+   "dispersion": 0.000439,
+   "share": 0.899
+  },
+  "audio_copy": {
+   "between": 0.899,
+   "dispersion": 0.000439,
+   "share": 0.899
+  },
+  "canvas": {
+   "pixels": 0.0136,
+   "pixels_between": 0.0268,
+   "pixels_share": 0.0136,
+   "png": 0.0135,
+   "png_between": 0.0266,
+   "png_share": 0.0135,
+   "widths": 1.34e-06,
+   "widths_between": 0.878,
+   "widths_least": 0.865,
+   "widths_share": 0.882
+  },
+  "canvas_blob": {
+   "png": 0.0135,
+   "png_between": 0.0264,
+   "png_share": 0.0135
+  },
+  "canvas_flat": {
+   "stripes": 0.0875,
+   "stripes_between": 0.164,
+   "stripes_share": 0.0875
+  },
+  "canvas_offscreen": {
+   "png": 0.0136,
+   "png_between": 0.0268,
+   "png_share": 0.0136
+  },
+  "canvas_offset": {
+   "pixels": 0.0134,
+   "pixels_between": 0.0262,
+   "pixels_share": 0.0134
+  },
+  "fonts_generic": {
+   "widths": 1.34e-06,
+   "widths_between": 0.878,
+   "widths_least": 0.865,
+   "widths_share": 0.882
+  },
+  "frame": {
+   "pixels": 0.0135,
+   "pixels_between": 0.0265,
+   "pixels_share": 0.0135,
+   "png": 0.0135,
+   "png_between": 0.0265,
+   "png_share": 0.0135,
+   "widths": 1.31e-06,
+   "widths_between": 0.866,
+   "widths_least": 0.83,
+   "widths_share": 0.875
+  },
+  "webgl.read_pixels": {
+   "pixels": 0.0135,
+   "pixels_between": 0.0266,
+   "pixels_share": 0.0135
+  },
+  "webgl2.read_pixels": {
+   "pixels": 0.0135,
+   "pixels_between": 0.0266,
+   "pixels_share": 0.0135
+  },
+  "worker": {
+   "pixels": 0.0137,
+   "pixels_between": 0.0269,
+   "pixels_share": 0.0137
+  }
  }
 }

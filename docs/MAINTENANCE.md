@@ -122,6 +122,18 @@ covers. Where an older paragraph below still says "waits for a person" or
    in order; a new line may not leave old code, switch a value of the old file
    to a constant, or reach out; the table may only grow. On a candidate of
    the engine the wrapper follows the new engine (no additive rule there).
+   In I.K.E.'s own page scripts (since the fourth review of "Nothing gets
+   worse", 2026-11-24, whose copies made of added lines only weakened the
+   fingerprinting) a new line also may not leave code (`return`, `throw`,
+   `break`, `continue`) anywhere but inside a function the change itself
+   adds, may not read where or when the page is (the address, its host and
+   protocol, the origin, `top`, `parent`, `frameElement`, the referrer, the
+   date, `performance`, `Math.random`), and may not change an object the old
+   script has by a method (`splice`, `pop`, `shift`, `push`, `add`, `set`,
+   `delete`...) or `delete` from it: no early exit for some sites or frames,
+   no protection that depends on the site or the time, no name taken out of
+   the masked fonts or the hidden extensions, no site put into a list of
+   exceptions.
 6. *Small*: 5 files and 150 lines per attempt, 8 files and 400 lines for all
    the AI commits of a pull request; no file added, removed or renamed.
 7. *The component manifest*: only a new entry, a plain download of a file
@@ -154,7 +166,16 @@ deterministic recipe) may be reviewed by any of them.
 verified merge: the static guard on the whole AI change; the category
 `no-regression` ("Nothing gets worse": ad blocking with YouTube's, the
 fingerprinting surface, the network hosts, the security settings, against
-`main`) passed on that commit; the workflow's own status `ai-review` and its
+`main`) passed on that commit; the step "Fingerprinting unchanged" passed too
+(every fingerprinting value the same or stricter: a value that is only
+"changed", or passed by evidence or by the allowlist, needs a person on an
+AI's change; the two reviewers are shown those rows); no "worse" of "Nothing
+gets worse" ever found on the same change of protected code (its patch id,
+the label `nothing-gets-worse:<id>` the merge adds when it fails: a later run
+that passes does not count; a person removes the label to have it judged
+again); for an AI's change of the page scripts or `ike/shields.py`, three
+measures with independent keys (`--runs 3`), any one weaker fails; the
+workflow's own status `ai-review` and its
 comment with two approving reviews of that very commit by two providers,
 none the author's; no test file changed beyond the recorded rules the
 workflow itself adds.
@@ -2613,15 +2634,35 @@ computer) and without a display, with the real browser of each commit:
   through is always worse; the rule applies to snapshots measured with
   other list data (`compare`).
 - **Fingerprinting surface.** What a probe page's scripts read at every level
-  (navigator, screen, fonts, canvas, WebGL, audio, matchMedia, Client Hints,
-  workers, frames, permissions, storage, battery, the `ike:` pages), in
-  **eight sessions** at every level but Off (two there): each a page load with
-  its own noise key, as a new start of the browser has; `check` gives both
-  sides the same eight keys, random. Each noised value is also read twice in
+  (navigator, screen, fonts, canvas, WebGL and WebGL2, audio by
+  `getChannelData`, `copyFromChannel` and an `AnalyserNode`, `toBlob`,
+  `convertToBlob`, `VideoFrame.copyTo`, matchMedia, Client Hints, workers
+  (dedicated from a blob, shared, and from a file of the site), frames (added,
+  made by `innerHTML` and from `srcdoc`, each with its card, extensions,
+  sound, languages and cores), permissions, storage, battery, the `ike:`
+  pages), in **eight sessions** at every level but Off (two there): each a
+  page load with its own noise key, as a new start of the browser has, and
+  once more with the first key (what is noised must read as it did then: a
+  noise drawn anew at each load fails, `again.<value>`). The probe is served
+  **on real-looking sites over https** (since the fourth review: an address
+  of this computer told the code measured where it was, and every page was
+  one site): random names under common top-level domains, through the local
+  proxy, with a certificate of the run's own authority trusted in that
+  profile only (`openssl`, `certutil`). A small page of the sites is read on
+  six hosts per level: other sites must differ (two of them under `.co.uk`,
+  a public suffix of two labels), two hosts of one site agree, every host is
+  noised (`sites.differ.`, `sites.agree.`, `sites.noised.`); the frame's
+  canvas must stay its page's (`frame.agrees.canvas`); a large space whose
+  sessions all differ on main must not repeat (a noise drawn from a few
+  keys). The probe's sizes, text and sound are random per check, the same on
+  both sides. `check` gives both sides the same keys, sites and shape, all
+  random. Each noised value is also read twice in
   the same session and in a frame of another site; the probe's canvas and
   sound are read on two starts with a fresh profile and the browser's own
   random key; and the whole probe once more on **another machine** (another
-  time zone, language and screen size). Every level is measured after the
+  time zone, language and screen size, 3 processors and 2 GB: a disguise
+  equal to this computer's value, 4 cores or 8 GB, is told from the real one
+  there). Every level is measured after the
   check of the fonts a page could find (`fontcheck.py`, which a start runs
   after 15 s and which changes every level's settings) has answered, as on a
   user's computer after the first start; no answer is an error. Since 2026-11-24 the values the
@@ -2688,7 +2729,11 @@ computer) and without a display, with the real browser of each commit:
     at least 20 %, never more than 35 %, `TOLERANCE_CAP`: where it would be
     more, more is measured, as the 896 stripes) **and at least the floor** a
     person keeps (`tests/data/no-regression/noise-floor.json`), with no
-    tolerance on the floor, so merges cannot lower the noise step by step;
+    tolerance on the floor, so merges cannot lower the noise step by step.
+    The floors are 0.9 of the lowest `main` measured (0.8 for the flat
+    stripes, whose count varies most); a floor written as anything but a
+    number above 0 is an error, and the report says when a floor is under 60 %
+    of `main`'s noise (a stronger noise merged: a person raises the floor);
   - **marks** that must stay true where they are on `main`: `<value>.noised`
     (it differs from Off), `stable.<value>` (read twice in the same session, the
     same: a noise new at every read could be averaged away), `site.<value>`
@@ -2702,10 +2747,18 @@ computer) and without a display, with the real browser of each commit:
     pull request #155): judged by what protects, not by their digest. The
     tool measures itself, in the same run, which fonts a page can find (a
     page of its own in a profile with none of I.K.E.'s scripts, over
-    fingerprint.js's names and the families installed); every one must be
+    fingerprint.js's names, `main`'s as well as the candidate's, and the
+    families installed); every one must be
     masked (but the six every system has). A font found and left unmasked
     where `main` masked it is worse; another list that masks every font
     found is "changed"; not measured on the candidate, it cannot be judged.
+    And at Strict and Maximum each of those fonts is tested **inside the
+    protected page and in a frame of it** (`fonts_found`,
+    `fonts_found_frame`): none may keep its own width there; one more than
+    on `main` is worse (a name taken out of the list, or out of the masks at
+    run time, shows here);
+  - **values that were null on main and are missing here** are never "the
+    same": not measured on the candidate, so worse.
 
   When that holds, the change passes: "changed" (still protected), or
   "stricter" when the noise grew beyond the tolerance (the case of pull
@@ -2797,7 +2850,12 @@ for what a person read and wants although the tool calls it worse: a real
 weakening, or a change it cannot judge. A person adds an entry to
 `tests/data/no-regression/allowlist.json`: the observation's key as the report
 prints it (a glob), optionally its value on `main` and on the candidate (so it
-accepts that one change only), why, and who accepted it when. The file is
+accepts that one change only), why, and who accepted it when. For a value whose
+readings change with the session's key (a disguised value: its value never
+repeats), an entry pins instead the part the row is about (`"part": "[3]"`),
+a text of the row's detail (`"detail": "the real value"`) and the version of
+I.K.E. it is for (`"version": "1.1.25"`: with another version the entry no
+longer counts). The file is
 under `tests/data/`: the automatic fix may not touch it, and a pull request
 that changes it is a test file changed, so it never merges by itself. Since
 2026-11-24 `tests.yml` reads **`main`'s copy** of the allowlist, of the

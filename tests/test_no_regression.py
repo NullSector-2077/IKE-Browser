@@ -1297,6 +1297,220 @@ def test_the_masked_fonts_are_judged_by_what_protects():
     assert judged(cmp({key: dict(old)}, base=fp_snap({key: old})), key)[0] == "same"
 
 
+# a page script as fingerprint.js is built (the parts the fourth review's copies changed)
+PAGE_OLD = """(function () {
+  var CFG = __IKE_CFG__;
+  var host = location.hostname;
+  var MASKED_FONTS = ["Arial Black", "Calibri"];
+  var MASKED = (CFG.fonts instanceof Array) ? CFG.fonts : MASKED_FONTS;
+  var hiddenExt = {};
+  function siteOf(h) {
+    var p = h.split('.');
+    return p.slice(-2).join('.');
+  }
+  function noiseImage(img) {
+    var px = pixels(img), tag = TAG(px);
+    if (tag === 'Uint8ClampedArray') farble(px, seed, rng, LEN(px));
+  }
+  function install(w) {
+    if (!w || isProtected(w)) return;
+    var doc = w.document;
+    [w.WebGLRenderingContext, w.WebGL2RenderingContext].forEach(function (GL) {
+      if (!GL) return;
+      wrap(GL.prototype, 'getParameter', function (orig) {
+        return function (p) { return RAPPLY(orig, this, [p]); };
+      });
+    });
+  }
+  install(window);
+})();
+"""
+
+
+def test_the_guard_refuses_the_added_lines_that_weakened_the_fingerprinting():
+    """The fourth review (2026-11-24): copies made of added lines only weakened the fingerprinting and
+    tools/fix-guard.py accepted them. In I.K.E.'s page scripts a new line may not leave code but inside a
+    function the change adds, read where or when the page is, or change (or delete from) an object the old
+    script has. Each copy below was accepted before (fails on main's guard) and is refused now."""
+    guard = load("fix-guard")
+    name = "ike/resources/fingerprint.js"
+    copies = {
+        # vS: the noise left out on a few top-level domains
+        "vS": ("    var px = pixels(img), tag = TAG(px);\n", "    var px = pixels(img), tag = TAG(px);\n"
+               "    if (/\\\\.(com|org|net|it)$/.test(location.hostname)) {\n      return;\n    }\n"),
+        # vF: eleven installed families taken out of the masked names at run time
+        "vF": ("  var hiddenExt = {};\n", "  var hiddenExt = {};\n  if (MASKED.length > 11) MASKED.splice(0, 11);\n"),
+        # a constant site, WebGL2 skipped, sub-frames skipped, hidden extensions shown, a site exempted
+        "siteOf": ("    var p = h.split('.');\n", "    if (h) {\n      return 'web';\n    }\n    var p = h.split('.');\n"),
+        "WebGL2": ("      if (!GL) return;\n", "      if (!GL) return;\n      if (GL === w.WebGL2RenderingContext) {\n"
+                   "        return;\n      }\n"),
+        "frames": ("    var doc = w.document;\n", "    var doc = w.document;\n    if (w !== window) {\n      return;\n    }\n"),
+        "hiddenExt": ("  var hiddenExt = {};\n", "  var hiddenExt = {};\n  for (var k in hiddenExt) delete hiddenExt[k];\n"),
+        "nofp": ("  var host = location.hostname;\n", "  var host = location.hostname;\n  if (CFG.nofp) CFG.nofp.push(host);\n"),
+        "time": ("  var hiddenExt = {};\n", "  var hiddenExt = {};\n  var late = new Date().getHours() > 22;\n"),
+        "chance": ("  var hiddenExt = {};\n", "  var hiddenExt = {};\n  var coin = Math.random() < 0.5;\n"),
+    }
+    for what, (old, new) in copies.items():
+        assert PAGE_OLD.count(old) == 1, what
+        problems = guard.file_problems(name, PAGE_OLD, PAGE_OLD.replace(old, new))
+        assert problems, what
+    # a new helper with its own exits, a new wrap: still accepted (only what the rules name is refused)
+    helper = PAGE_OLD.replace("  var hiddenExt = {};\n", "  var hiddenExt = {};\n  function clamp(v) {\n"
+                              "    if (v < 0) {\n      return 0;\n    }\n    return v;\n  }\n")
+    assert guard.file_problems(name, PAGE_OLD, helper) == []
+    wrap_more = PAGE_OLD.replace("  install(window);\n", "  [1, 2].forEach(function (n) {\n    if (!n) {\n"
+                                 "      return;\n    }\n    wrap(n, 'x', function (orig) { return orig; });\n  });\n"
+                                 "  install(window);\n")
+    assert guard.file_problems(name, PAGE_OLD, wrap_more) == []
+    # the rules are for I.K.E.'s page scripts: rule 5 as before elsewhere
+    assert "ike/resources/fingerprint.js" in guard.PROTECTED_JS
+
+
+def test_the_reviewers_see_the_fingerprinting_rows():
+    """N5: what "Nothing gets worse" found changed in the fingerprinting on an AI's commit is added to what
+    the two reviewers read (the artifact tests-checks of its run of tests.yml)."""
+    import io
+    import zipfile
+    review = load("ai-review")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("no-regression/report.json", json.dumps({"fingerprint_review": [
+            {"key": "fingerprint/strict/canvas", "detail": "the noise is smaller", "passed_by": ""}]}))
+
+    def api(path, raw=False):
+        if "actions/runs?head_sha=" in path:
+            return {"workflow_runs": [{"id": 5, "path": ".github/workflows/arch.yml"},
+                                      {"id": 6, "path": ".github/workflows/tests.yml"}]}
+        if "/runs/6/artifacts?name=tests-checks" in path:
+            return {"artifacts": [{"id": 9}]}
+        if path.endswith("/artifacts/9/zip"):
+            return buf.getvalue()
+        raise AssertionError(path)
+    text = review.fingerprint_rows("o/r", "a" * 40, api)
+    assert text.startswith(review.FINGERPRINT_TITLE) and "fingerprint/strict/canvas: the noise is smaller" in text
+
+    def down(path, raw=False):
+        raise RuntimeError("down")
+    assert review.fingerprint_rows("o/r", "a" * 40, down) == ""
+
+
+def test_the_fourth_review_sites_keys_frames_and_fonts():
+    """The fourth review's measures, as judged: N1 (the sites: other sites differ, under a public suffix of
+    two labels too, two hosts of one site agree, every host noised), N2 (the first key again in another
+    load; a large space drawn from a few keys; the frame's canvas the page's), N4 (the fonts a page can find
+    still found in the protected page), N7 (a pick the same in every session is a fixed disguise for the
+    other machine)."""
+    # N1: one key for every site (vE): the sites alike; a host of one site with another noise; a TLD skipped
+    real = {"pic": "p0", "url": "u0", "audio": "a0", "gl": "g0", "width": "w0"}
+    good = {n: {v: "%s-%s" % (v, n if n != "a2" else "a") for v in nr.SITE_READS} for n in ("a", "a2", "b", "c", "d", "e")}
+    marks = nr._site_marks(good, {"a": real})
+    assert all(marks["sites.%s.%s" % (m, v)]["value"] is True for m in ("differ", "agree", "noised") for v in nr.SITE_READS)
+    same = {n: {v: "%s-x" % v for v in nr.SITE_READS} for n in good}
+    assert nr._site_marks(same, {"a": real})["sites.differ.pic"]["value"] is False            # vE
+    psl = dict(good, c=dict(good["b"]))                     # x.co.uk and y.co.uk taken as one site
+    assert nr._site_marks(psl, {"a": real})["sites.differ.audio"]["value"] is False
+    split = dict(good, a2=dict(good["d"]))
+    assert nr._site_marks(split, {"a": real})["sites.agree.gl"]["value"] is False
+    skipped = dict(good, d=dict(real))                      # vS: the .com host left unnoised
+    assert nr._site_marks(skipped, {"a": real})["sites.noised.pic"]["value"] is False
+    assert nr._site_marks(dict(good, e=None), {"a": real})["sites.differ.pic"]["value"] is None   # not read
+    key = "fingerprint/strict/sites.differ.pic"
+    assert nr._rule(key, {"rule": "x"}, None) == "safer-true"
+    assert judged(cmp({key: {"rule": "safer-true", "value": False}},
+                      base=fp_snap({key: {"rule": "safer-true", "value": True}})), key)[0] == "worse"
+    names = nr.run_names()
+    s = names["sites"]
+    assert s["a2"].endswith("." + s["a"]) and s["b"].endswith(".co.uk") and s["c"].endswith(".co.uk")
+    assert s["b"] != s["c"] and s["d"].endswith(".com") and s["e"].rsplit(".", 1)[1] != s["a"].rsplit(".", 1)[1]
+    assert not any(h.endswith((".example", ".test", ".localhost")) or h[0].isdigit() for h in s.values())
+    assert not names["third"].endswith(".example")
+    # N2: the first key again: a value read another way in another load is worse (vC); sessions of a large
+    # space alike where main's all differed (vD); the frame's canvas no longer the page's
+    here = {"probe_again": {"audio": "171.5", "canvas": ["h1", "x", 1.0]}}
+    fp = {"audio": {"value": "171.4"}, "canvas": {"value": ["h1", "x", 1.0]}}
+    errs = []
+    assert nr._again_marks("strict", here, fp, errs) == {
+        "again.audio": {"rule": "safer-true", "value": False}, "again.canvas": {"rule": "safer-true", "value": True}}
+    assert nr._again_marks("strict", {"probe_again": None}, fp, errs) == {} and errs
+    hashes = ["%08x" % (i * 2654435761 % 2 ** 32) for i in range(8)]
+    canvas, off_canvas = "fingerprint/strict/canvas", {"fingerprint/off/canvas": fixed(CANVAS_OFF)}
+    cb = fp_snap(dict(off_canvas, **{canvas: drawn([[h, "5a63666b", 140.515625] for h in hashes], CANVAS_NOISE)}))
+    few = [[hashes[i % 3], "5a63666b", 140.515625] for i in range(8)]
+    kind, detail = judged(cmp(dict(off_canvas, **{canvas: drawn(few, CANVAS_NOISE)}), base=cb), canvas)
+    assert kind == "worse" and "only 3 different in 8 sessions here (on main all 8 differed)" in detail, detail
+    assert nr._frame_agrees([{"frame": [4, "ua", 2, 800, ["h1", "x", 1]], "canvas": ["h1", "x", 1]}]) is True
+    assert nr._frame_agrees([{"frame": [4, "ua", 2, 800, ["h2", "x", 1]], "canvas": ["h1", "x", 1]}]) is False
+    assert nr._frame_agrees([{"frame": "error", "canvas": ["h1"]}]) is None
+    # N4: the fonts a page can find, tested in the protected page: one found here and not on main is worse
+    assert nr._judge("masked-fonts", [], ["arimo"])[0] == "worse"
+    assert nr._judge("masked-fonts", ["arimo", "cousine"], ["arimo"])[0] == "stricter"
+    assert nr._judge("masked-fonts", [], None)[0] == "unjudged"
+    assert nr._judge("masked-fonts", None, [])[0] == "worse"            # main's not measured: cannot be judged
+    assert nr.masked_fonts(ROOT)[:1] and "Calibri" in nr.masked_fonts(ROOT)
+    # N7: the cores at Strict, a pick drawn the same in every session (4 of [4, 8] there): a fixed disguise
+    # for the other machine, so one that follows its real value (3 processors there) is told
+    probe = {"navigator": {"hardwareConcurrency": 4}}
+    flats = [{"navigator.hardwareConcurrency": {"value": 4}}] * 7
+    off = {"navigator": {"hardwareConcurrency": 4}}
+
+    def env2(here_cores):
+        return {"levels": {"strict": {"probe": {"navigator": {"hardwareConcurrency": here_cores}}},
+                           "off": {"probe": {"navigator": {"hardwareConcurrency": 3}}}}}
+    assert nr._env_marks("strict", probe, flats, off, env2(4)) == {"navigator.hardwareConcurrency": True}
+    assert nr._env_marks("strict", probe, flats, off, env2(3)) == {"navigator.hardwareConcurrency": False}
+    assert nr.OTHER_MACHINE["cpus"] == 3 and nr.OTHER_MACHINE["memory_gb"] == 2 and "_SC_PHYS_PAGES" in nr.MEMORY_SHIM
+
+
+def test_the_fourth_review_rules_of_the_report():
+    """N6 (a floor as text is an error; a floor far under main's noise is said), N9 (the allowlist pins a
+    part, a detail, a version), N10 (measured on main as null, missing here: never "same"), N5 (the
+    fingerprinting rows not the same or stricter; several runs, a row worse in any is worse)."""
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        p = Path(d) / "f.json"
+        p.write_text(json.dumps({"floors": {"audio": {"dispersion": "0.0004"}}}))
+        assert nr.load_floors(p) is None
+        p.write_text(json.dumps({"floors": {"audio": {"dispersion": 0}}}))
+        assert nr.load_floors(p) is None
+        p.write_text(json.dumps({"floors": {"audio": {"dispersion": 0.0004}}}))
+        assert nr.load_floors(p) == {"audio": {"dispersion": 0.0004}}
+    main = fp_snap({"fingerprint/strict/audio": disguised("1", "2", {"dispersion": 5e-4, "share": 1.0})})
+    assert nr.stale_floors(main, {"audio": {"dispersion": 2.4e-5, "share": 0.9}}) == [
+        "strict/audio dispersion: floor 2.4e-05, main 0.0005"]
+    report = nr.compare(main, main, [], None, {"audio": {"dispersion": 2.4e-5}}, {})
+    assert report["floor_notices"] and "Noise floors far under main's noise" in nr.markdown(report)
+    floors = nr.load_floors()
+    assert floors["audio"]["dispersion"] >= 4e-4                 # raised after #148 (main's is 5e-4)
+    # N9: an entry for one part, one detail, one version
+    rows = {"key": "fingerprint/strict/frame_x", "detail": "[3] the real value (Off's) here, in a session where main "
+                                                           "never gave it"}
+    e = [{"key": "fingerprint/strict/frame_x", "part": "[3]", "detail": "the real value", "version": "1.1.25",
+          "why": "w"}]
+    assert nr._accepted(e, rows["key"], 1, 2, rows["detail"], "1.1.25") == 0
+    assert nr._accepted(e, rows["key"], 1, 2, rows["detail"], "1.1.26") is None
+    assert nr._accepted(e, rows["key"], 1, 2, "[0] " + rows["detail"][4:], "1.1.25") is None
+    assert nr._accepted(e, rows["key"], 1, 2, "[3] fewer names", "1.1.25") is None
+    # N10: null on main, missing here
+    for key, rule in (("network/fresh-profile", "no-new"), ("fingerprint/strict/battery", "protective")):
+        b = snap(**{key.replace("/", "__"): (rule, None)})
+        c = snap()
+        kind, detail = judged(nr.compare(b, c, [], None, {}, {}), key)
+        assert kind == "worse" and "not measured on the candidate" in detail, (key, kind, detail)
+    # N5: the fingerprinting rows not the same or stricter, and several runs merged
+    cand = fp_snap({"fingerprint/strict/screen.width": fixed(1680)})
+    report = nr.compare(fp_snap(), cand, [], None, {}, {"fingerprint/strict/screen.width": [1680]} and {})
+    assert any(r["key"] == "fingerprint/strict/screen.width" for r in report["fingerprint_review"])
+    assert nr.compare(fp_snap(), fp_snap(), [], None, {}, {})["fingerprint_review"] == []
+    one = nr.compare(fp_snap(), fp_snap(), [], None, {}, {})
+    two = nr.compare(fp_snap(), cand, [], None, {}, {})
+    merged = nr.merge_runs([one, two])
+    assert merged["runs"] == 2 and merged["verdict"] == "fail"
+    assert any(r["detail"].startswith("run 2: ") for r in merged["worse"])
+    assert "Measured 2 times" in nr.markdown(merged)
+    shape = nr.random_shape()
+    assert 80 <= shape["pw"] <= 112 and 4096 <= shape["len"] <= 6144 and len(shape["text"].split()) == 4
+
+
 def test_every_level_is_measured_after_the_font_check():
     """The fonts a page could find are asked 15 s after a start and change every level's settings: the
     hook's start asks at once and waits (pull request #157, the one wait); measure() then finds the
