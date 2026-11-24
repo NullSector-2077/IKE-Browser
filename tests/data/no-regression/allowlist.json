@@ -441,16 +441,6 @@
    "accepted": "the owner asked for the 1.1.25 fingerprinting work on 2026-11-24; entry written by Claude from the values GitHub's runner measured on PR #162"
   },
   {
-   "key": "fingerprint/strict/frame",
-   "why": "A frame reads what the page reads (1.1.25): its canvas carries the new edge noise and its plugins are Chrome's five, so the frame row changes with the page's canvas and plugins. Key-only entry (the report shows these long values cut, so they cannot be pinned exactly): it is removed again right after the 1.1.25 pull request is merged.",
-   "accepted": "the owner asked for the 1.1.25 fingerprinting work on 2026-11-24; entry written by Claude from the values GitHub's runner measured on PR #162; TEMPORARY: to be removed right after #162 merges"
-  },
-  {
-   "key": "fingerprint/strict/worker",
-   "why": "A worker reads what the page reads (1.1.25): Chrome's brand list, no card name, the fixed WebGL identity and the coherent languages, so the worker row changes with the page. Key-only entry (the report shows these long values cut, so they cannot be pinned exactly): it is removed again right after the 1.1.25 pull request is merged.",
-   "accepted": "the owner asked for the 1.1.25 fingerprinting work on 2026-11-24; entry written by Claude from the values GitHub's runner measured on PR #162; TEMPORARY: to be removed right after #162 merges"
-  },
-  {
    "key": "fingerprint/maximum/canvas",
    "base": [
     "c9dd8b7",
@@ -464,16 +454,6 @@
    ],
    "why": "Canvas noise only where the drawing has edges, keyed per site and session (1.1.25): the noised canvas hash and the text width a page reads change on purpose; flat canvases read back exactly as Chrome does.",
    "accepted": "the owner asked for the 1.1.25 fingerprinting work on 2026-11-24; entry written by Claude from the values GitHub's runner measured on PR #162"
-  },
-  {
-   "key": "fingerprint/maximum/frame",
-   "why": "A frame reads what the page reads (1.1.25): its canvas carries the new edge noise and its plugins are Chrome's five, so the frame row changes with the page's canvas and plugins. Key-only entry (the report shows these long values cut, so they cannot be pinned exactly): it is removed again right after the 1.1.25 pull request is merged.",
-   "accepted": "the owner asked for the 1.1.25 fingerprinting work on 2026-11-24; entry written by Claude from the values GitHub's runner measured on PR #162; TEMPORARY: to be removed right after #162 merges"
-  },
-  {
-   "key": "fingerprint/maximum/worker",
-   "why": "A worker reads what the page reads (1.1.25): Chrome's brand list, no card name, the fixed WebGL identity and the coherent languages, so the worker row changes with the page. Key-only entry (the report shows these long values cut, so they cannot be pinned exactly): it is removed again right after the 1.1.25 pull request is merged.",
-   "accepted": "the owner asked for the 1.1.25 fingerprinting work on 2026-11-24; entry written by Claude from the values GitHub's runner measured on PR #162; TEMPORARY: to be removed right after #162 merges"
   }
  ]
 }
