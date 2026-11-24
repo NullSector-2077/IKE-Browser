@@ -250,7 +250,7 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cargo/bin/cargo-deny
-          key: cargo-deny-0.20.2-${{ runner.os }}
+          key: cargo-deny-0.22.0-${{ runner.os }}
       - name: Licences
         id: licences
         # 1.1.18: every Rust library of the AdBlock engine under a licence
@@ -259,8 +259,8 @@ jobs:
         # sources (tools/third-party.py). A new licence, or one that cannot be
         # read, stops here: docs/THIRD-PARTY.md, "Approving a new licence".
         run: |
-          if [ "$(cargo deny --version 2>/dev/null)" != "cargo-deny 0.20.2" ]; then
-            cargo install --locked cargo-deny@0.20.2
+          if [ "$(cargo deny --version 2>/dev/null)" != "cargo-deny 0.22.0" ]; then
+            cargo install --locked cargo-deny@0.22.0
           fi
           cargo deny --manifest-path ike-adblock/Cargo.toml --locked --config ike-adblock/deny.toml \
               check licenses bans sources
