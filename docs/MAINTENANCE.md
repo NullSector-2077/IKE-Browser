@@ -267,7 +267,10 @@ again with it, which starts them. It is only in those steps: no AI ever sees
 it, and the automatic fix's push checks once more that nothing under
 `.github/` changes. Without it nothing crashes and nothing is weakened: the
 verified candidate is "retrying", the owner gets one note that says how to
-make the token, and it merges by itself once the token exists. Branch
+make the token, and it merges by itself once the token exists. A fine-grained token
+expires: the weekly check (`health.yml`, `tools/automation-health.py` `token_problem`)
+reads GitHub's header `GitHub-Authentication-Token-Expiration` and opens the issue "Automation
+health" 21 days before the date, or at once when GitHub refuses the token (2026-11-25). Branch
 protection is never changed, no check is faked, no run is approved by API.
 
 **The informed signature** (`tools/release-notice.py`, `release-ready.yml`).
