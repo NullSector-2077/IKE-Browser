@@ -77,6 +77,36 @@ MESSAGES = {
               "non resterebbe quota per far rivedere la correzione da altre AI, oppure è lavoro di fondo che "
               "aspetta: prima gli aggiornamenti veri): Antigravity non è partito.",
 }
+# the way forward of the reviewers' reserve (2026-11-25, tools/ai-quota.py way_forward)
+DEFERRED = (" Oggi nessun'altra AI aveva quota per rivederla: la correzione è stata scritta lo stesso e aspetta le "
+            "revisioni indipendenti nei prossimi giorni; non entra in main senza di esse.")
+
+
+def way(spend, reserves, session, rotated=False):
+    """Whether Antigravity is started, for the budget of the free quotas (the deadlock of 2026-11-25, PR #111: the
+    rotation skipped Antigravity and the reserves' budget skipped all of them, for three days):
+    (run, reviews later, why not). reserves: the other providers with a key, in the order of this attempt.
+
+    Not rotated: Antigravity when the budget allows it; else the reserves when one of them can be asked (now, or
+    with its reviews later: tools/autofix-reserve.py does that itself); else Antigravity with its reviews later
+    when that is the way forward. Rotated (a later attempt starts with another provider): the reserves when one of
+    them can be asked now; else Antigravity when it can be asked now; else the reserves with their reviews later;
+    else Antigravity with its reviews later. Never a provider skipped while it is the only one with room."""
+    ok, why = spend.allows("Antigravity", 0, "fix", requests=session)
+    ways = {}
+    for n in reserves:
+        choice, mode = spend.way_forward([n])
+        ways[n] = mode if choice else ""
+    if rotated and any(m == "now" for m in ways.values()):
+        return False, False, "rotated"
+    if ok:
+        return True, False, ""
+    if any(ways.values()):
+        return False, False, "rotated" if rotated else why
+    choice, mode = spend.way_forward(["Antigravity"], {"Antigravity": (0, session)})
+    if choice == "Antigravity":
+        return True, mode == "reviews-later", ""
+    return False, False, "rotated" if rotated else why
 # a billing error: the model or the project is not on the free tier (WP9; the
 # same words as tools/autofix-reserve.py, never a quota's advice)
 BILLING = re.compile(r"payment[ _]required|insufficient[ _](?:balance|credits?|funds)|BILLING_DISABLED"
@@ -366,7 +396,30 @@ def main(argv=None):
     deadline = time.monotonic() + a.total_timeout
     off = {n.strip() for n in (os.environ.get("AUTOFIX_UNAVAILABLE") or "").split(",") if n.strip()}
     first = a.first or os.environ.get("AUTOFIX_FIRST", "")
-    if first and first not in ("Antigravity", "Gemini"):
+    rotate = bool(first and first not in ("Antigravity", "Gemini"))
+    # part 2 of AUTOMAT: the budget of Gemini's free quota. One session of the agent is counted as
+    # session_requests requests (it reads and edits files in several requests)
+    spend, session, later = None, 0, False
+    if a.quota_limits or a.quota_state or a.quota_usage:
+        quota = _quota()
+        limits = quota.load_limits(a.quota_limits)
+        named = [n.strip() for n in (os.environ.get("AUTOFIX_REVIEWERS") or "").split(",") if n.strip() in quota.NAMES]
+        spend = quota.Budget(limits, quota.load_state(a.quota_state) if a.quota_state else None, a.candidate,
+                             tier_b=tier_b, available=[n for n in (named or quota.NAMES) if n not in off
+                                                       and not (n == "Antigravity" and "Gemini" in off)],
+                             pending=quota.pending_for_run(a.quota_memory, a.quota_pending, limits))
+        session = int(limits["providers"]["Antigravity"].get("session_requests") or 10)
+    if rotate and spend is not None and not off & {"Antigravity", "Gemini"}:
+        # never skipped by the rotation while it is the only one with room (2026-11-25, PR #111)
+        names = [n for n in spend.available if n != "Antigravity"]
+        if first in names:
+            names = names[names.index(first):] + names[:names.index(first)]
+        run, later, _why = way(spend, names, session, rotated=True)
+        if run:
+            rotate = False
+            print("The rotation would start with %s, but no other provider can be asked with its reviews today: "
+                  "Antigravity goes on" % first.replace("::", ": ")[:40], flush=True)
+    if rotate:
         # a later attempt starts with another free provider (tools/ai-providers.py FIX_ATTEMPTS): a
         # fresh context, another model family; the reserves begin with that one
         Path(a.status).write_text(json.dumps({"result": "rotated", "model": "", "message": MESSAGES["rotated"],
@@ -379,19 +432,11 @@ def main(argv=None):
                                               MESSAGES["unavailable"], "detail": ""}, ensure_ascii=False), "utf-8")
         print("Outcome: unavailable (marked by the weekly check)", flush=True)
         return 0
-    # part 2 of AUTOMAT: the budget of Gemini's free quota. One session of the agent is counted as
-    # session_requests requests (it reads and edits files in several requests)
-    spend, session = None, 0
-    if a.quota_limits or a.quota_state or a.quota_usage:
-        quota = _quota()
-        limits = quota.load_limits(a.quota_limits)
-        named = [n.strip() for n in (os.environ.get("AUTOFIX_REVIEWERS") or "").split(",") if n.strip() in quota.NAMES]
-        spend = quota.Budget(limits, quota.load_state(a.quota_state) if a.quota_state else None, a.candidate,
-                             tier_b=tier_b, available=[n for n in (named or quota.NAMES) if n not in off
-                                                       and not (n == "Antigravity" and "Gemini" in off)],
-                             pending=quota.pending_for_run(a.quota_memory, a.quota_pending, limits))
-        session = int(limits["providers"]["Antigravity"].get("session_requests") or 10)
+    if spend is not None and not later:
         allowed, why = spend.allows("Antigravity", 0, "fix", requests=session)
+        if not allowed:
+            # the way forward when nobody else can be asked either: its reviews on a later day
+            allowed, later, _no = way(spend, [n for n in spend.available if n != "Antigravity"], session)
         if not allowed:
             spend.skipped["Antigravity"] = why
             Path(a.status).write_text(json.dumps({"result": "budget", "model": "", "message": MESSAGES["budget"],
@@ -458,8 +503,10 @@ def main(argv=None):
             print("This model is not available now: the next model goes on", flush=True)
             continue
         break                    # auth, config, timeout, error, unavailable: switching model would not help
-    Path(a.status).write_text(json.dumps({"result": result, "model": used, "message": MESSAGES[result],
-                                          "detail": detail}, ensure_ascii=False), "utf-8")
+    status = {"result": result, "model": used, "message": MESSAGES[result], "detail": detail}
+    if later and result == "ok":
+        status.update(message=MESSAGES[result] + DEFERRED, reviews_deferred=True)
+    Path(a.status).write_text(json.dumps(status, ensure_ascii=False), "utf-8")
     if spend is not None and a.quota_usage:
         spend.result = "answered" if result in ("ok", "timeout", "error") else ""
         Path(a.quota_usage).write_text(json.dumps(spend.delta()) + "\n", "utf-8")

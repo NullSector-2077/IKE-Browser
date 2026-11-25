@@ -72,6 +72,10 @@
     "per day",
     "daily"
    ],
+   "minute_words": [
+    "PerMinute",
+    "per minute"
+   ],
    "reset": {
     "time": "00:00",
     "zone": "America/Los_Angeles",
@@ -107,6 +111,11 @@
     "(TPD)",
     "daily"
    ],
+   "minute_words": [
+    "per minute",
+    "(RPM)",
+    "(TPM)"
+   ],
    "reset": {
     "time": "00:00",
     "zone": "UTC",
@@ -139,9 +148,19 @@
    "day_words": [
     "per day",
     "daily",
-    "1302",
-    "1305"
+    "code:1304",
+    "code:1310"
    ],
+   "minute_words": [
+    "code:1302",
+    "code:1303",
+    "code:1305",
+    "concurrency",
+    "per minute",
+    "too frequent",
+    "overloaded"
+   ],
+   "words_source": "2026-11-25, a real deadlock (PR #111): Z.AI's codes 1302 (too much concurrency) and 1305 (the service is overloaded) were taken as the day's quota, so Z.AI was 'spent today' every morning. Z.AI's error codes as remembered from docs.z.ai (not reachable on 2026-11-25, not verified): 1302 concurrency, 1303 frequency, 1305 overloaded (each a wait of seconds), 1304 the day's call limit, 1310 the week's or month's limit. A \"code:N\" word matches only Z.AI's own \"code\" field, never a number anywhere in the text",
    "reset": {
     "time": "00:00",
     "zone": "UTC",
@@ -169,6 +188,10 @@
     "per day",
     "free-models-per-day",
     "daily"
+   ],
+   "minute_words": [
+    "per minute",
+    "free-models-per-min"
    ],
    "reset": {
     "time": "00:00",

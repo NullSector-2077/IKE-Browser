@@ -927,11 +927,16 @@ def test_without_the_reviewers_reserve_the_fix_waits_and_nobody_is_called(tmp_pa
     state.write_text(json.dumps(used))
     usage = tmp_path / "usage.json"
     out, seen, repo = reserves(tmp_path, [GOOD], ["--quota-state", str(state), "--quota-usage", str(usage)])
-    # Groq and Z.AI could write a fix, but only one other provider could review it: nothing is asked
-    assert seen == [] and out["result"] == "budget" and out["no_provider"] is True
-    assert "la correzione aspetta" in out["message"] and "the reviewers' reserve" in out["budget"]["Groq"]
-    assert json.loads(usage.read_text())["calls"] == [] and (repo / "ike/window.py").read_text().endswith("return 10\n")
-    # a provider the weekly check marked unavailable is no reviewer (it names Gemini, behind Antigravity)
+    # Groq and Z.AI could write a fix, but only one other provider could review it today. Until 2026-11-25 nothing
+    # was asked, every day (the deadlock of PR #111); now the way forward (tools/ai-quota.py way_forward): the one
+    # whose fix leaves the most reviewers writes it, and its reviews come on a later day (never merged without
+    # them: tests/test_automat_deadlock.py)
+    assert [host for host, _body in seen] == ["api.groq.com"] and out["result"] == "ok"
+    assert out["reviews_deferred"] is True and out["no_provider"] is False and "revisioni indipendenti" in out["message"]
+    assert [c["provider"] for c in json.loads(usage.read_text())["calls"]] == ["Groq"]
+    assert (repo / "ike/window.py").read_text().endswith("return 11\n")
+    # a provider the weekly check marked unavailable is no reviewer (it names Gemini, behind Antigravity): with
+    # only two providers no fix could ever get two independent reviews, so the fix waits and nobody is called
     state.write_text(json.dumps(quota.empty_state()))
     marked = dict(ENV, AUTOFIX_UNAVAILABLE="Gemini,OpenRouter")
     out, seen, _repo = reserves(tmp_path / "u", [GOOD], ["--quota-state", str(state)], env=marked)

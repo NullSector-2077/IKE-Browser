@@ -746,6 +746,55 @@ count). The signing notice shows, per provider, what real work and the backgroun
 **Antigravity and the background**: one session of the agent counts ten requests of Gemini's twenty a day,
 so a class 3 or 4 session fits only when real work left that much; it then waits like any other.
 
+### No deadlock of the free quotas (2026-11-25)
+
+A real jam, found on 2026-11-25: PR #111 (`automation/update/lists-2026-11-22`) was "retrying", yet for
+three days no attempt landed, because every provider was skipped for a reason of its own and so nobody
+was ever asked: Antigravity by the rotation (the attempt started with Z.AI), Z.AI as "spent today" (a
+429 of **concurrency**, Z.AI's code 1302, was one of its "day words"), OpenRouter by the reviewers'
+reserve (no other provider had room for a review that day), Groq because the request (7,678 tokens) was
+larger than its limit of 6,000 tokens a minute, which no later day could change. The owner's rule is
+that nothing stays behind, so none of these may hold forever. What changed (`tools/ai-quota.py`,
+`tools/ai-quota.json`, `tools/autofix-reserve.py`, `tools/autofix-agent.py`; the proofs, with a drill
+of that day's four reasons, are `tests/test_automat_deadlock.py`):
+
+- **A request is fitted to the provider's minute** (`fitted`, `compact_message`): when it is larger than
+  the provider's limit of tokens per minute, it is made smaller, deterministically: the rules stay
+  whole; the end of the failure and the plan's notes (the reasons earlier fixes were refused among them)
+  each keep their share; the names of the files to change, and whole files to change while they fit; the
+  code around the failure takes what is left; the answer may shrink to `MIN_ANSWER` tokens. Only when
+  even that cannot fit is the provider skipped, with that reason ("even the smallest request ...").
+  A follow-up of the inner loop is fitted the same way. A provider that answers 413 or 429 with its
+  limit per minute ("Limit 6000") teaches it (`learned_minute_tokens`): it is kept in the day's record
+  and the request is fitted to it and asked again.
+- **A 429 says which limit** (`rate_limit_scope`): the day's quota only when the provider says so in its
+  words and not of a minute, when its own headers say nothing is left of its day, or when it asks to
+  wait more than an hour; a limit per minute, of concurrency or a busy service (`minute_words`, and for
+  Z.AI its codes 1302, 1303 and 1305, matched only as its `"code"`) is waited out and asked again in
+  the same run (at most `MINUTE_RETRIES` times, each wait at most `MINUTE_WAIT` seconds). When nothing
+  says which, it is a minute: one more request tomorrow costs less than a provider lost for a day. A 503
+  is asked again after 5, 15 and 45 seconds (`BACKOFF`, or its own short `Retry-After`).
+- **The reviewers' reserve has a way forward** (`Budget.way_forward`): when the reserve alone would leave
+  every provider unasked, a second pass asks the one whose fix leaves the most reviewers with room today
+  (the attempt's order breaks a tie). The fix is written now and **its two independent reviews come on a
+  later day**: the reserve only decides when, never whether. The verified merge still requires the
+  status `ai-review` of two (three for tier B) independent providers on that very commit, so the fix
+  waits on its branch, and the review is asked again every day until it comes. The fix's summary
+  and the status of the run say so (`reviews_deferred`). Never for background work (classes 3 and 4
+  simply wait), and never when fewer providers than the reviews need could ever review it (a key, not
+  marked unavailable). A review now counts within the provider's own minute (`review_size`): Groq, with
+  6,000 tokens a minute against the reserve's 9,000, never counted as a reviewer.
+- **The rotation never skips the only provider with room**: a later attempt still starts with the next
+  provider, unless no reserve can be asked (now, or with its reviews later) and Antigravity can: then
+  Antigravity goes on. Not rotated, Antigravity keeps the reviewers' reserve as before while a reserve
+  can be asked, and takes the way forward itself only when none can.
+- **The watchdog** (`ran --component`, `days_unasked`, `stuck_text`): each run of the automatic fix
+  records its branch as asked or unasked for the day in `quota.json`; a branch that asked nobody for two
+  days in a row (`UNASKED_DAYS`) is said plainly, in Italian, in the reserves' message (which reaches the
+  pull request), as a warning of the run, by `ai-quota.py show`, and in bold in the signing notice
+  before the updates still being retried. Nobody is mailed for it. A run whose attempt started with a
+  reserve (rotated) and asked nobody now counts as a day with no provider too.
+
 ## What runs by itself
 
 | When | What | Workflow | Result |
