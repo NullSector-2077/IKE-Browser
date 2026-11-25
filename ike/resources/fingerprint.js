@@ -397,7 +397,9 @@
     }
   }
   // A text's width with the site's noise (Strict and above): a factor of
-  // 1 +- 0.000003 chosen by the width's own bits and the seed; 0 stays 0.
+  // 1 +- 0.000003 chosen by the width's own bits and the seed, never 1 (one
+  // width in 61 kept its real value: 1.1.25's review of a failed test run);
+  // 0 stays 0.
   // F, U: a Float64Array of one number and a Uint32Array over it, made
   // before any page script. Self-contained: it also runs inside workers.
   function widthNoise(real, seed, F, U) {
@@ -409,7 +411,8 @@
     h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) | 0;
     h ^= h >>> 15;
     h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) | 0;
-    return real * (1 + ((((h >>> 8) % 61) - 30) / 10000000));
+    var k = ((h >>> 8) % 60) - 30;
+    return real * (1 + ((k < 0 ? k : k + 1) / 10000000));
   }
   // A @font-face source list without its local() entries: comments taken
   // out and CSS escapes decoded first, entries split at the commas outside
