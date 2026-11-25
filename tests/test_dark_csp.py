@@ -47,6 +47,17 @@ PAGES = {
              + BODY, {"Content-Security-Policy": "default-src 'self'"}),
     "/own.css": ("html, body { background-color: rgb(18, 18, 18); color: rgb(238, 238, 238) }"
                  "body { min-height: 600px }", {"Content-Type": "text/css"}),
+    # a part of the page in an open shadow root, styled by its own sheet: Dark Reader's
+    # <style> there is refused too, and its copy goes to the shadow root
+    "/shadow": (page("shadow").replace("</head>", "<script src='/shadow.js'></script></head>"),
+                {"Content-Security-Policy": "default-src 'self'"}),
+    "/shadow.js": ("customElements.define('x-card', class extends HTMLElement { constructor() { super();"
+                   "  var r = this.attachShadow({mode: 'open'});"
+                   "  r.innerHTML = \"<link rel='stylesheet' href='/site.css'><div id='in' class='box'>"
+                   "Text in a shadow root</div>\"; } });"
+                   "addEventListener('DOMContentLoaded', function () {"
+                   "  document.body.appendChild(document.createElement('x-card')); });",
+                   {"Content-Type": "application/javascript"}),
     "/site.css": (CSS, {"Content-Type": "text/css"}),
     # the page counts the policy's refusals it is told of
     "/watch.js": ("window.__refused = [];"
@@ -94,6 +105,9 @@ READ = """JSON.stringify({
   link: getComputedStyle(document.getElementById('l')).color,
   inline: getComputedStyle(document.getElementById('inline')).backgroundColor,
   adopted: document.adoptedStyleSheets.length,
+  shadow: (function () { var c = document.querySelector('x-card'); if (!c) return null;
+    var i = c.shadowRoot.getElementById('in'), st = getComputedStyle(i);
+    return {bg: st.backgroundColor, color: st.color, adopted: c.shadowRoot.adoptedStyleSheets.length}; })(),
   styles: document.querySelectorAll('style').length,
   refused: window.__refused || null,
   title: document.title})"""
@@ -101,7 +115,7 @@ READ = """JSON.stringify({
 def steps(ike, qapp, out):
     view = ike.windows[0].current_view()
     yield 500
-    for name in ("default", "style", "open", "later", "own"):
+    for name in ("default", "style", "open", "later", "own", "shadow"):
         yield from load(view, SITE + "/" + name)
         yield 2500
         out[name] = json.loads((yield from js(view, READ)))
@@ -142,6 +156,11 @@ def test_dark_mode_under_a_strict_policy(run_ike, site):
     assert later["title"] == "later set" and later["adopted"] > 1, later
     assert lightness(later["a"]) < 0.3 and lightness(later["body"]) < 0.3, later
     assert lightness(later["text"]) > 0.6, later
+    # a shadow root under the policy: dark inside too, through its own copy
+    sh = out["shadow"]
+    assert lightness(sh["body"]) < 0.3 and sh["shadow"], sh
+    assert lightness(sh["shadow"]["bg"]) < 0.3 and lightness(sh["shadow"]["color"]) > 0.6, sh
+    assert sh["shadow"]["adopted"] > 0, sh
     # an own dark theme under the policy: left as it is (the copies were not taken for it)
     own = out["own"]
     assert own["body"] == "rgb(18, 18, 18)" and own["adopted"] == 0, own
