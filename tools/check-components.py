@@ -1339,8 +1339,11 @@ KNOWN_UNRUN_SCRIPTLETS = ("noeval", "nofab", "popads-dummy", "popads.net", "fing
 def ike_modules(root):
     """ike.config and ike.scriptlets of this checkout (neither needs Qt)."""
     root = Path(root).resolve()
-    if str(root) not in sys.path:
-        sys.path.insert(0, str(root))
+    # first on the path, also when it is already there further down (a test that ran before
+    # may have added it): otherwise "import ike" finds the copy in the working directory
+    if str(root) in sys.path:
+        sys.path.remove(str(root))
+    sys.path.insert(0, str(root))
     import ike.config
     import ike.scriptlets
     if Path(ike.config.__file__).resolve().parent.parent != root:
