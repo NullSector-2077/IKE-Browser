@@ -300,13 +300,6 @@
    "sig": "12d85f2f0d7bd999",
    "since": "2026-11-25"
   },
-  "automation/update/darkreader": {
-   "at": "2026-11-25T14:44:47Z",
-   "date": "2026-11-25",
-   "n": 1,
-   "sig": "e2bc2dd6dd0c696d",
-   "since": "2026-11-25"
-  },
   "automation/update/drill-qt": {
    "at": "2026-11-25T14:08:22Z",
    "date": "2026-11-25",
