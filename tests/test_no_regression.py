@@ -1384,25 +1384,188 @@ def test_the_guard_refuses_the_added_lines_that_weakened_the_fingerprinting():
         problems = guard.file_problems(name, page5, page5.replace(*fable[what]))
         assert any("assigns to" in p for p in problems), (what, problems)
     assert any("names sites" in p for p in guard.file_problems(name, page5, page5.replace(*fable["F1"])))
-    assert any("runs something later" in p for p in guard.file_problems(name, page5, page5.replace(*fable["F4"])))
-    # new code may still set its own names, in its own functions
-    own = page5.replace("  install(window);\n", "  var count = 0;\n  function bump(a) {\n    a = a || 0;\n"
+    # F4's timer: a read of the page's environment since round 6 (timers are among ENV_NAMES)
+    assert any("environment (setTimeout)" in p for p in guard.file_problems(name, page5, page5.replace(*fable["F4"])))
+    # new code may still set its own names, in its own functions (round 6: with no branch on data, so the
+    # round-5 form `a = a || 0` is refused now: a || on what is given)
+    own = page5.replace("  install(window);\n", "  var count = 0;\n  function bump(a) {\n"
                         "    count += a;\n    return count;\n  }\n  install(window);\n")
     assert guard.file_problems(name, page5, own) == [], guard.file_problems(name, page5, own)
+    branch = own.replace("  function bump(a) {\n", "  function bump(a) {\n    a = a || CFG.step;\n")
+    assert any("|| on data" in p for p in guard.file_problems(name, page5, branch))
     # every name of a declaration list is the change's own (a real commit of main, 34e0e4a, declares two)
     pair = page5.replace("  install(window);\n", "  var call = Function.prototype.call, apply2 = call.bind(call);\n"
                          "  apply2 = null;\n  install(window);\n")
     assert guard.file_problems(name, page5, pair) == [], guard.file_problems(name, page5, pair)
-    # a new helper with its own exits, a new wrap: still accepted (only what the rules name is refused)
+    # a new helper with its own exit, a new wrap of a property the old script never names: still accepted.
+    # Round 6: the round-5 forms of both had a branch on data (`if (v < 0)`, `if (!n)`): refused now
     helper = PAGE_OLD.replace("  var hiddenExt = {};\n", "  var hiddenExt = {};\n  function clamp(v) {\n"
-                              "    if (v < 0) {\n      return 0;\n    }\n    return v;\n  }\n")
-    assert guard.file_problems(name, PAGE_OLD, helper) == []
-    wrap_more = PAGE_OLD.replace("  install(window);\n", "  [1, 2].forEach(function (n) {\n    if (!n) {\n"
-                                 "      return;\n    }\n    wrap(n, 'x', function (orig) { return orig; });\n  });\n"
-                                 "  install(window);\n")
-    assert guard.file_problems(name, PAGE_OLD, wrap_more) == []
+                              "    return Math.max(v, 0);\n  }\n")
+    assert guard.file_problems(name, PAGE_OLD, helper) == [], guard.file_problems(name, PAGE_OLD, helper)
+    wrap_more = PAGE_OLD.replace("  install(window);\n", "  wrap(Navigator.prototype, 'freshName', function (orig) {\n"
+                                 "    return function () { return 0; };\n  });\n  install(window);\n")
+    assert guard.file_problems(name, PAGE_OLD, wrap_more) == [], guard.file_problems(name, PAGE_OLD, wrap_more)
+    old_helper = PAGE_OLD.replace("  var hiddenExt = {};\n", "  var hiddenExt = {};\n  function clamp(v) {\n"
+                                  "    if (v < 0) {\n      return 0;\n    }\n    return v;\n  }\n")
+    assert guard.file_problems(name, PAGE_OLD, old_helper) == []          # a branch on its own parameter
+    on_site = old_helper.replace("    if (v < 0) {\n", "    if (host.length > 30) {\n")
+    assert any("condition on data" in p for p in guard.file_problems(name, PAGE_OLD, on_site))
+    old_wrap = PAGE_OLD.replace("  install(window);\n", "  [1, 2].forEach(function (n) {\n    if (!n) {\n"
+                                "      return;\n    }\n    wrap(n, 'x', function (orig) { return orig; });\n  });\n"
+                                "  install(window);\n")
+    assert guard.file_problems(name, PAGE_OLD, old_wrap) == []             # a callback's parameter, a list of its own
+    over_old = old_wrap.replace("[1, 2].forEach", "MASKED.forEach")
+    assert guard.file_problems(name, PAGE_OLD, over_old) == []             # reading an old list is no change of it
+    gated = old_wrap.replace("    if (!n) {\n", "    if (MASKED.length > 1) {\n")
+    assert any("condition on data" in p for p in guard.file_problems(name, PAGE_OLD, gated))
     # the rules are for I.K.E.'s page scripts: rule 5 as before elsewhere
     assert "ike/resources/fingerprint.js" in guard.PROTECTED_JS
+
+
+# --- round 6 (2026-11-25): I.K.E.'s page scripts by their syntax trees --------------------------------
+
+# Fable's toy script for the forms of a write (scratch g.py of the second review of 7cf5b7a)
+TOY = """(function () {
+  var a = 1, b = 2;
+  var tbl = {};
+  function f(data, n) {
+    var k = n * 2;
+    use(data, k, a, b);
+  }
+  f([], 3);
+})();
+"""
+
+
+def test_the_page_script_parser_reads_as_the_browser_or_refuses():
+    """tools/js-parse.py: the guard's own parser (no package, no network on the runners). It reads every page
+    script of today; it refuses what would read differently in the browser (an escaped name, a separator that
+    ends a comment there, an HTML-like comment, an old octal, a name beyond ASCII)."""
+    jsp = load("js-parse")
+    guard = load("fix-guard")
+    for name in guard.PROTECTED_JS:
+        tree = jsp.parse((ROOT / name).read_text("utf-8"))
+        assert tree["type"] == "Program" and tree["body"], name
+    e = jsp.parse("x = a / b / c, r = /x\\/[/]y/g.test(s);")["body"][0]["expression"]
+    assert e["expressions"][0]["right"]["type"] == "BinaryExpression"
+    assert e["expressions"][1]["right"]["callee"]["object"]["regex"] == {"pattern": "x\\/[/]y", "flags": "g"}
+    d = jsp.parse("({ k } = { k: n }); [k] = [n]; for (k of [n]) {}")["body"]
+    assert d[0]["expression"]["left"]["type"] == "ObjectPattern" and d[1]["expression"]["left"]["type"] == "ArrayPattern"
+    assert d[2]["type"] == "ForOfStatement"
+    for bad in ("var \\u0073eed = 1;", "// a seed = 1;", "x = 1 <!-- y\n", "x = 010;", "var sеed = 1;",
+                "x = 'a' +\n--> y", "if (a) {"):
+        with pytest.raises(jsp.JSSyntaxError):
+            jsp.parse(bad)
+    # a text may hold any character, the separators too
+    assert jsp.parse("var s = 'p q é';")["body"][0]["declarations"][0]["init"]["value"] == "p q é"
+    # the parser is a rule of the guard: tier B, never changed by an AI's fix, never shown to one as recent
+    assert guard.tier("tools/js-parse.py") == "B"
+    assert "tools/js-parse.py" in load("check-autofix-patch").FORBIDDEN_FILES
+    assert "tools/js-parse.py" in load("autofix-context").NOT_RECENT
+
+
+def test_round_six_the_forms_of_a_write_a_read_and_a_branch_are_refused():
+    """The second review of 7cf5b7a (Fable): forms the rules on lines did not see. Each is refused now by the
+    syntax trees (what the old script has is written only by the old script)."""
+    guard = load("fix-guard")
+    name = "ike/resources/fingerprint.js"
+    anchor = "    var k = n * 2;\n"
+
+    def toy(line):
+        return guard.file_problems(name, TOY, TOY.replace(anchor, anchor + "    " + line + "\n"))
+    for line, word in (("k = n;", "assigns to k"), ("[k] = [n];", "assigns to k"), ("({ k } = { k: n });", "assigns to k"),
+                       ("for (k of [n]) {}", "loop over data"), ("var n = g(n);", "declares n again"),
+                       ("var b = g(b);", "refers to"), ("var a = g(a);", "refers to"),
+                       ("Object.defineProperty(tbl, 'x', { value: n });", "neither a prototype"),
+                       ("Reflect.set(tbl, 'x', n);", "neither a prototype"),
+                       ("Object.assign(tbl, { x: n });", "Object.assign changes"),
+                       ("Object.freeze(tbl);", "Object.freeze changes"),
+                       ("tbl.__proto__ = null;", "assigns to"), ("delete tbl.x;", "assigns to tbl.x"),
+                       ("[].push.call(tbl, n);", "on an object the change did not make"),
+                       ("Reflect.apply(Array.prototype.push, tbl, [n]);", "applies a method"),
+                       ("var t = tbl; t.x = 1;", "assigns to t.x"), ("n++;", "assigns to n"),
+                       ("a ||= 0;", "||= on data"), ("x = 1;", "the global x"),
+                       ("let a = 0; use(a);", "refers to"), ("return;", "leaves the old code"),
+                       ("throw 1;", "leaves the old code"), ("var o = tbl?.x;", "optional chain"),
+                       ("for (;;) {}", "never ends"), ("with (tbl) {}", "with statement"), ("eval('1');", "eval"),
+                       ("var F = Function('return 1');", "Function"), ("var m = import('x');", "import()"),
+                       ("var c = tbl.constructor;", ".constructor"), ("var q = tbl[n];", "computed name"),
+                       ("var s = 'loc'; var w = window[s + 'ation'];", "computed name"),
+                       ("var w = window[`location`];", "environment (location)")):
+        found = toy(line)
+        assert any(word in p for p in found), (line, found)
+    # what the change makes itself it may set, in its own functions too
+    for line in ("var fresh = {}; fresh.x = 1;", "var count = 0; count += 2;",
+                 "for (var i = 0; i < 4; i++) { use(i); }", "var list = [1, 2]; list.push(3);",
+                 "var add = function (x) { return x + 1; };"):
+        assert toy(line) == [], (line, toy(line))
+    # a text that does not parse is refused, and so is a page script when the parser is missing
+    assert any("does not parse" in p for p in guard.file_problems(name, TOY, TOY.replace(anchor, anchor + "    if (k {\n")))
+    real_tool = guard._tool
+    try:
+        guard._tool = lambda n: (_ for _ in ()).throw(ImportError("gone")) if n == "js-parse" else real_tool(n)
+        assert any("does not parse" in p for p in guard.file_problems(name, TOY, TOY.replace(anchor, anchor + "    use(k);\n")))
+    finally:
+        guard._tool = real_tool
+
+
+def test_round_six_a_condition_is_allowed_only_on_what_is_measured():
+    """The second review of 7cf5b7a reproduced a weakening through both layers: the real cores re-wrapped for
+    every screen whose devicePixelRatio is not 1 (every session of the measurement had 1); the same behind a
+    window wider than 3000 px or a coarse pointer. The owner's direction (2026-11-25): the automatic fix must not
+    need a person, so the users' common configurations are measured up front (tools/env-axes.py, the matrix)
+    and a new condition may read exactly what is measured: literals, the change's own names set from them, the
+    level, and the matrix's axes. The gated re-wrap is refused for the re-wrap (a property the old script
+    protects), and a condition on anything the matrix does not cover stays refused."""
+    guard = load("fix-guard")
+    axes = load("env-axes")
+    name = "ike/resources/fingerprint.js"
+    old = (ROOT / name).read_text("utf-8")
+    anchor = "  install(window);\n"
+    assert old.count(anchor) == 1
+
+    def judged(text, after=False):
+        return guard.file_problems(name, old, old.replace(anchor, (anchor + text) if after else (text + anchor), 1))
+    gate = "  var tc = realCores;\n  if (%s) { getter(Navigator.prototype, 'hardwareConcurrency', function () { return tc; }); }\n"
+    for test in ("devicePixelRatio !== 1", "innerWidth > 3000", "matchMedia('(pointer: coarse)').matches"):
+        for after in (False, True):
+            found = judged(gate % test, after)
+            assert any("hardwareConcurrency again" in p for p in found), found
+            assert not any("condition on data" in p or "environment" in p for p in found), found
+    # a condition on a measured axis, the level or the change's own values: accepted (a new disguise)
+    for text in ("  if (devicePixelRatio > 1.4 && strict) {\n    wrap(Navigator.prototype, 'freshName', function (o) "
+                 "{ return function () { return 0; }; });\n  }\n",
+                 "  var wide = innerWidth > 3000 || screen.width >= 2560;\n  var many = navigator.hardwareConcurrency > 8;\n"
+                 "  var dark = matchMedia('(prefers-color-scheme: dark)').matches ? 1 : 0;\n",
+                 "  function isThing(o) { if (!o) return false; return true; }\n",
+                 "  var gentle = lv < 3 && !strict;\n",
+                 "  var zone = Intl.DateTimeFormat().resolvedOptions().timeZone === 'Asia/Tokyo';\n"):
+        assert judged(text) == [], (text, judged(text))
+    # what the matrix does not cover: refused, in a condition and as a read
+    for text, word in (("  if (navigator.userAgent.length > 9) { var x = 1; }\n", "environment (userAgent"),
+                       ("  var ck = document.visibilityState;\n", "environment (visibilityState"),
+                       ("  if (matchMedia('(display-mode: standalone)').matches) { var y = 1; }\n", "environment (matchMedia"),
+                       ("  if (CFG.payframes) { var z = 1; }\n", "condition on data no measurement covers"),
+                       ("  if (host.length > 30) { var z = 1; }\n", "condition on data no measurement covers"),
+                       ("  var extra = CFG.extra || [];\n", "|| on data"),
+                       ("  getter(window.TouchEvent && Navigator.prototype, 'freshName', function () { return 1; });\n",
+                        "&& on data"),
+                       ("  var late = false;\n  function arm2() { setTimeout(function () { late = true; }, 5); }\n"
+                        "  var pick = late ? 1 : 2;\n", "condition on data"),
+                       ("  var calls = 0;\n  function seen() { calls += 1; if (calls > 3) { return 1; } return 0; }\n",
+                        "condition on data"),
+                       ("  try { var q = new Notification('x'); } catch (e) { q = 1; }\n", "catch or finally")):
+        assert any(word in p for p in judged(text)), (text, judged(text))
+    # one list for both: what the matrix measures is what a condition may read (an axis added there is allowed)
+    assert "devicePixelRatio" in axes.COVERED_READS and "pointer" in axes.COVERED_MEDIA
+    assert {"lv", "strict", "maximum"} == set(axes.PROTECTION_STATE)
+    real = guard._tool
+    try:
+        guard._tool = lambda n: (_ for _ in ()).throw(ImportError("gone")) if n == "env-axes" else real(n)
+        found = judged("  var wide = innerWidth > 3000;\n")
+        assert any("environment (innerWidth" in p for p in found), found          # no axes: nothing is covered
+    finally:
+        guard._tool = real
 
 
 def test_the_reviewers_see_the_fingerprinting_rows():
@@ -1602,16 +1765,68 @@ def test_round_five_measures_late_reads_brands_and_the_other_machine():
     assert nr.FP_JUDGED.match("canvas_large") and "webgl_large" in nr.NOISED and ("canvas_large", "") in nr.NOISE_PARTS
 
 
-def test_every_level_is_measured_after_the_font_check():
-    """The fonts a page could find are asked 15 s after a start and change every level's settings: the
-    hook's start asks at once and waits (pull request #157, the one wait); measure() then finds the
-    answer there, and no answer is an error (a level measured before it and another after it)."""
-    hook = nr.HOOK[nr.HOOK.index("def measure():"):nr.HOOK.index("def _start():")]
-    assert "fc._run()" not in hook and nr.HOOK.count("fc._run()") == 1       # one wait, in _start
-    assert hook.index("gave no answer in 60 s") < hook.index("yield from _fonts_findable()") < \
-        hook.index('for lv in PLAN["levels"]:')
-    # the fonts a page can find: the tool's own test, in a profile with none of I.K.E.'s scripts
-    assert "QWebEngineProfile(qapp)" in nr.HOOK and "FONTS_JS" in nr.HOOK
+def test_round_six_the_matrix_of_the_users_configurations():
+    """The probe measures I.K.E.'s page scripts in the users' common configurations (tools/env-axes.py): every
+    pair of two axes' values in a session, the corners at each level, a seed per run (the same on both sides of
+    a check). In a session the page's value is worse where it is that configuration's real value (read in a
+    world of its own), main showed something else there, and main never shows that value at that level."""
+    axes = load("env-axes")
+    rows = axes.sessions(7)
+    names = [a for a, _v in axes.AXES]
+    index = {a: list(v) for a, v in axes.AXES}
+    for (i, a), (j, b) in __import__("itertools").combinations(enumerate(names), 2):
+        for va in index[a]:
+            for vb in index[b]:
+                assert any(r[a] == va and r[b] == vb for r in rows), (a, va, b, vb)
+    for level in index["level"]:
+        assert any(r["level"] == level and r["cores"] == 32 and r["screen"] == (3840, 2160) for r in rows)
+    assert len(rows) < 80 and axes.sessions(7) == rows and axes.sessions(8) != rows
+    assert {"scale", "zoom", "screen", "touch", "scheme", "motion", "contrast", "language", "timezone", "cores",
+            "memory", "level"} == set(names)
+    assert set(index["scale"]) == {1, 1.25, 1.5, 2} and (3440, 1440) in index["screen"] and (1280, 720) in index["screen"]
+    assert axes.NOT_COVERED and axes.viewport({"screen": (3840, 2160), "zoom": 1.25})[0] == 3072
+    # the observations of a session, and the judgement
+    s = dict(rows[0], n=0, screen=list(rows[0]["screen"]))
+    m = {"sessions": [s], "matrix": [{"n": 0, "prot": dict({k: "p" for k in nr.MATRIX_VALUES}, cores=8),
+                                      "real": dict({k: "r" for k in nr.MATRIX_VALUES}, cores=32)}]}
+    errs = []
+    obs = nr._matrix_obs(m, errs)
+    assert not errs and obs["matrix/00/cores"] == {"rule": "matrix", "value": 8, "real": 32, "level": s["level"],
+                                                   "config": nr._matrix_label(s)}
+    assert obs["matrix/00/languages"]["real"] == "%s,%s" % (s["language"], s["language"].split("-")[0])
+    key, lv = "matrix/00/cores", s["level"]
+    base = {key: {"rule": "matrix", "value": 8, "real": 32, "level": lv},
+            "matrix/01/cores": {"rule": "matrix", "value": 4, "real": 4, "level": lv}}
+    assert nr._judge_matrix(key, base[key], dict(base[key], value=32), base)[0] == "worse"
+    assert nr._judge_matrix(key, base[key], dict(base[key], value=4), base)[0] == "changed"
+    shown = dict(base, **{"matrix/02/cores": {"rule": "matrix", "value": 32, "real": 32, "level": lv}})
+    assert nr._judge_matrix(key, shown[key], dict(shown[key], value=32), shown)[0] == "changed"   # main shows 32 too
+    assert nr._judge_matrix(key, base[key], None, base)[0] == "unjudged"
+    assert nr._section(key) == "fingerprinting" and nr.RULE_WHY["matrix"]
+    errs = []
+    nr._matrix_obs({"sessions": [s, s], "matrix": [m["matrix"][0]]}, errs)
+    assert errs and "not measured" in errs[0]["error"]
+    # the engine's emulation of a session, and the touch screen in a browser run of its own
+    cmds = dict(_hook_ns()["_matrix_commands"](dict(s, scale=1.5, scheme="dark", contrast="forced"), (1000, 700)))
+    assert cmds["Emulation.setDeviceMetricsOverride"]["deviceScaleFactor"] == 1.5
+    assert {"name": "prefers-color-scheme", "value": "dark"} in cmds["Emulation.setEmulatedMedia"]["features"]
+    assert cmds["Emulation.setHardwareConcurrencyOverride"]["hardwareConcurrency"] == s["cores"]
+    assert "maxTouchPoints=5" in nr.TOUCH_SETTINGS and "--no-zygote" in (ROOT / "tools/no-regression.py").read_text("utf-8")
+    # the tool's own files: tier B, never an AI's
+    guard = load("fix-guard")
+    assert guard.tier("tools/env-axes.py") == "B"
+    assert "tools/env-axes.py" in load("check-autofix-patch").FORBIDDEN_FILES
+    assert "tools/env-axes.py" in load("autofix-context").NOT_RECENT
+
+
+def _hook_ns():
+    """The hook's functions (they run inside the browser) without the browser: only what needs no Qt."""
+    src = nr.HOOK
+    start = src.index("# --- round 6: the users' configurations")
+    end = src.index("\ndef _matrix():")
+    ns = {"os": os, "json": json, "time": __import__("time")}
+    exec(compile(src[start:end], "hook", "exec"), ns)
+    return ns
 
 
 def test_the_code_measured_cannot_find_the_tool_by_its_names():

@@ -98,6 +98,9 @@ FIXED_KEY_2 = "6e6f2d72656772657373696f6e2d6b32"
 # another real machine for the "env." marks: what a fixed disguise shows must not follow it
 OTHER_MACHINE = {"tz": "Pacific/Auckland", "lang": "de_DE.UTF-8", "screen": {"width": 1366, "height": 768},
                  "cpus": 32, "memory_gb": 2}
+# the other machines and the head of their observations (round 6: the users' configurations are a matrix of
+# their own, MATRIX, in the same browser run; this machine stays for the "env." marks of the fixed disguises)
+MACHINES = (("env2", "fingerprint2", OTHER_MACHINE),)
 # the other machine's memory (N7): a small library loaded first (LD_PRELOAD) gives the engine another
 # amount of memory; built with the computer's C compiler, or not at all (then a notice in the report)
 MEMORY_SHIM = r"""#define _GNU_SOURCE
@@ -130,12 +133,94 @@ int sysinfo(struct sysinfo *info) {
 """
 
 
-def _memory_shim(workdir):
+# round 6: the matrix's machines in one browser run: each new page process reads its processors and memory
+# from a small file the run rewrites before each session (the engine's emulation gives the processors too)
+DYNAMIC_SHIM = r"""#define _GNU_SOURCE
+#include <dlfcn.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/sysinfo.h>
+#include <sched.h>
+#include <string.h>
+/* the machine of this process: "cpus gb tz" read once from the file named by NRM_FILE (a new page
+   process reads the file as it is then: --no-zygote) */
+static int m_read = 0, m_cpus = 0;
+static long m_gb = 0;
+static char m_tz[64];
+static void load(void) {
+  if (m_read) return;
+  m_read = 1;
+  static char *(*rgetenv)(const char *) = 0;
+  if (!rgetenv) rgetenv = (char *(*)(const char *))dlsym(RTLD_NEXT, "getenv");
+  const char *p = rgetenv("NRM_FILE");
+  if (!p) return;
+  FILE *f = fopen(p, "r");
+  if (!f) return;
+  if (fscanf(f, "%d %ld %63s", &m_cpus, &m_gb, m_tz) != 3) { m_cpus = 0; m_gb = 0; m_tz[0] = 0; }
+  fclose(f);
+}
+char *getenv(const char *name) {
+  static char *(*real)(const char *) = 0;
+  if (!real) real = (char *(*)(const char *))dlsym(RTLD_NEXT, "getenv");
+  if (name && strcmp(name, "TZ") == 0) { load(); if (m_tz[0]) return m_tz; }
+  return real(name);
+}
+long sysconf(int name) {
+  static long (*real)(int) = 0;
+  if (!real) real = (long (*)(int))dlsym(RTLD_NEXT, "sysconf");
+  load();
+  if (name == _SC_PHYS_PAGES && m_gb) { long ps = real(_SC_PAGESIZE); return ps > 0 ? (m_gb << 30) / ps : real(name); }
+  if ((name == _SC_NPROCESSORS_ONLN || name == _SC_NPROCESSORS_CONF) && m_cpus) return m_cpus;
+  return real(name);
+}
+int sched_getaffinity(pid_t pid, size_t size, cpu_set_t *set) {
+  static int (*real)(pid_t, size_t, cpu_set_t *) = 0;
+  if (!real) real = (int (*)(pid_t, size_t, cpu_set_t *))dlsym(RTLD_NEXT, "sched_getaffinity");
+  int r = real(pid, size, set);
+  load();
+  if (r == 0 && set && m_cpus) { memset(set, 0, size); for (int i = 0; i < m_cpus && (size_t)i < size * 8; i++) CPU_SET_S(i, size, set); }
+  return r;
+}
+int sysinfo(struct sysinfo *info) {
+  static int (*real)(struct sysinfo *) = 0;
+  if (!real) real = (int (*)(struct sysinfo *))dlsym(RTLD_NEXT, "sysinfo");
+  int r = real(info);
+  load();
+  if (r == 0 && info->mem_unit && m_gb) info->totalram = (m_gb << 30) / info->mem_unit;
+  return r;
+}
+"""
+
+
+def _dynamic_shim(workdir):
+    """The matrix's machine library, built in workdir; None when no compiler builds it."""
+    src, lib = Path(workdir) / "d.c", Path(workdir) / "d.so"
+    try:
+        src.write_text(DYNAMIC_SHIM, "utf-8")
+        subprocess.run(["cc", "-shared", "-fPIC", "-O1", "-o", str(lib), str(src), "-ldl"], capture_output=True,
+                       timeout=60, check=True)
+        return str(lib)
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def env_axes():
+    """tools/env-axes.py beside this file: the axes the matrix measures and the static guard allows."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("ike_env_axes", Path(__file__).resolve().parent / "env-axes.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _memory_shim(workdir, machine=None):
     """The other machine's memory library, built in workdir; None when no compiler builds it."""
+    machine = machine or OTHER_MACHINE
     src, lib = Path(workdir) / "m.c", Path(workdir) / "m.so"
     try:
-        src.write_text(MEMORY_SHIM.replace("__GB__", str(int(OTHER_MACHINE["memory_gb"])))
-                       .replace("__CPUS__", str(int(OTHER_MACHINE["cpus"]))), "utf-8")
+        src.write_text(MEMORY_SHIM.replace("__GB__", str(int(machine["memory_gb"])))
+                       .replace("__CPUS__", str(int(machine["cpus"]))), "utf-8")
         subprocess.run(["cc", "-shared", "-fPIC", "-O1", "-o", str(lib), str(src), "-ldl"], capture_output=True,
                        timeout=60, check=True)
         return str(lib)
@@ -1046,6 +1131,197 @@ def _fonts_findable():
         _err("fonts")
 
 
+# --- round 6: the users' configurations (MATRIX), each session a page of its own with the engine's emulation ---
+def _ws_open(url):
+    """A WebSocket to the engine's DevTools (this computer only), with the standard library."""
+    import base64
+    import socket
+    hostport, path = url[len("ws://"):].split("/", 1)
+    host, port = hostport.rsplit(":", 1)
+    s = socket.create_connection((host, int(port)), timeout=10)
+    key = base64.b64encode(os.urandom(16)).decode()
+    s.sendall(("GET /%s HTTP/1.1\r\nHost: %s\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+               "Sec-WebSocket-Key: %s\r\nSec-WebSocket-Version: 13\r\n\r\n" % (path, hostport, key)).encode())
+    buf = b""
+    while b"\r\n\r\n" not in buf:
+        chunk = s.recv(4096)
+        if not chunk:
+            raise OSError("the DevTools socket closed")
+        buf += chunk
+    head, rest = buf.split(b"\r\n\r\n", 1)
+    if b" 101 " not in head.split(b"\r\n", 1)[0] + b" ":
+        raise OSError("no WebSocket: %r" % head[:80])
+    return [s, rest]
+
+
+def _ws_send(ws, text):
+    import struct
+    data, mask = text.encode("utf-8"), os.urandom(4)
+    n = len(data)
+    head = bytes([0x81]) + (bytes([0x80 | n]) if n < 126 else bytes([0x80 | 126]) + struct.pack(">H", n)
+                            if n < 65536 else bytes([0x80 | 127]) + struct.pack(">Q", n))
+    ws[0].sendall(head + mask + bytes(b ^ mask[i % 4] for i, b in enumerate(data)))
+
+
+def _ws_recv(ws):
+    import struct
+
+    def need(k):
+        while len(ws[1]) < k:
+            chunk = ws[0].recv(65536)
+            if not chunk:
+                raise OSError("the DevTools socket closed")
+            ws[1] += chunk
+        out, ws[1] = ws[1][:k], ws[1][k:]
+        return out
+    msg = b""
+    while True:
+        b1, b2 = need(2)
+        n = b2 & 127
+        if n == 126:
+            n = struct.unpack(">H", need(2))[0]
+        elif n == 127:
+            n = struct.unpack(">Q", need(8))[0]
+        mask = need(4) if b2 & 128 else None
+        data = need(n)
+        if mask:
+            data = bytes(b ^ mask[i % 4] for i, b in enumerate(data))
+        op = b1 & 15
+        if op == 8:
+            raise OSError("the DevTools socket closed")
+        if op in (0, 1, 2):
+            msg += data
+            if b1 & 128:
+                return msg.decode("utf-8")
+
+
+class _Emulation:
+    """The DevTools session of one page, on a thread of its own (the engine answers on this thread): the
+    session's emulation is given, and kept while the page loads and is read (it ends with the session)."""
+    def __init__(self, port, target, commands):
+        import threading
+        self.port, self.target, self.commands = port, target, commands
+        self.ready, self.done, self.results, self.error = threading.Event(), threading.Event(), [], None
+        self.thread = threading.Thread(target=self._run, daemon=True)
+        self.thread.start()
+
+    def _run(self):
+        try:
+            ws = _ws_open("ws://127.0.0.1:%d/devtools/page/%s" % (self.port, self.target))
+            for n, (method, params) in enumerate(self.commands, 1):
+                _ws_send(ws, json.dumps({"id": n, "method": method, "params": params}))
+                while True:
+                    r = json.loads(_ws_recv(ws))
+                    if r.get("id") == n:
+                        self.results.append((method, r.get("error", {}).get("message") if "error" in r else "ok"))
+                        break
+            self.ready.set()
+            self.done.wait(60)
+            ws[0].close()
+        except Exception as exc:
+            self.error = "%s: %s" % (type(exc).__name__, exc)
+            self.ready.set()
+
+
+def _matrix_commands(s, viewport):
+    w, h = s["screen"]
+    media = [{"name": "prefers-color-scheme", "value": s["scheme"]},
+             {"name": "prefers-reduced-motion", "value": s["motion"]},
+             {"name": "forced-colors", "value": "active" if s["contrast"] == "forced" else "none"},
+             {"name": "prefers-contrast", "value": "more" if s["contrast"] == "forced" else "no-preference"}]
+    return [("Emulation.setDeviceMetricsOverride", {
+                "width": viewport[0], "height": viewport[1], "deviceScaleFactor": s["scale"], "mobile": False,
+                "screenWidth": w, "screenHeight": h,
+                "screenOrientation": {"type": "landscapePrimary" if w >= h else "portraitPrimary", "angle": 0}}),
+            ("Emulation.setEmulatedMedia", {"features": media}),
+            ("Emulation.setTimezoneOverride", {"timezoneId": s["timezone"]}),
+            ("Emulation.setLocaleOverride", {"locale": s["language"]}),
+            ("Emulation.setHardwareConcurrencyOverride", {"hardwareConcurrency": int(s["cores"])})]
+
+
+def _matrix():
+    """Each session of the run's matrix: the machine's memory (the small library, read by the page's new
+    process), the language (I.K.E.'s own setting), the level, then a new page with the engine's emulation of
+    the screen, scale, touch, colours, motion, contrast, time zone, locale and processors, and the browser's
+    zoom; the matrix page read in the page (protected) and in a world of its own (the real values)."""
+    from PyQt6.QtWebEngineCore import QWebEnginePage
+    from PyQt6.QtWebEngineWidgets import QWebEngineView
+    sh, cfg = ike.shields, ike.config                                    # noqa: F821
+    prof = ike.windows[0].current_view().page().profile()                # noqa: F821
+    out = OUT["matrix"] = []
+    g = json.dumps(PLAN["global"])
+    t_all = time.monotonic()
+    for s in PLAN["matrix"]:
+        n = s["n"]
+        rec = {"n": n, "prot": None, "real": None}
+        out.append(rec)
+        em = view = None
+        try:
+            with open(PLAN["matrix_file"], "w", encoding="utf-8") as f:
+                f.write("%d %d UTC" % (int(s["cores"]), int(s["memory"])))
+            base = s["language"].split("-")[0]
+            cfg["accept_language"] = "%s,%s;q=0.9" % (s["language"], base)
+            cfg["shield_level"] = s["level"]
+            # a key of its own per session (the run's keys in turn): what main draws covers its few values
+            keys = PLAN.get("matrix_keys") or PLAN["keys"]
+            _keys(sh, keys[n % len(keys)])
+            sh.apply_settings()
+            yield 30
+            view = QWebEngineView()
+            page = QWebEnginePage(prof, view)
+            view.setPage(page)
+            vw, vh = s["window"]
+            view.resize(vw, vh)
+            view.show()
+            state = {}
+            # first a page of the matrix's site (its own process, which read the session's memory): the
+            # emulation is given there, and stays for the same site's matrix page
+            page.loadFinished.connect(lambda ok, state=state: state.setdefault("blank", ok))
+            page.setUrl(QUrl("%s/%s-%d" % (PLAN["base"], PLAN["matrix_page"], n)))
+            end = time.monotonic() + 10
+            while "blank" not in state and time.monotonic() < end:
+                yield 20
+            em = _Emulation(PLAN["matrix_port"], page.devToolsId(), _matrix_commands(s, (vw, vh)))
+            end = time.monotonic() + 15
+            while not em.ready.is_set() and time.monotonic() < end:
+                yield 20
+            if em.error or not em.ready.is_set():
+                rec["error"] = "emulation: %s" % (em.error or "no answer")
+                continue
+            rec["emulation"] = [m for m, r in em.results if r != "ok"]
+            page.setZoomFactor(float(s["zoom"]))
+            page.loadFinished.connect(lambda ok, state=state: state.setdefault("ok", ok))
+            page.setUrl(QUrl("%s/%s?%s=%s.m%d" % (PLAN["base"], PLAN["matrix_page"], PLAN["param"], s["level"], n)))
+            end = time.monotonic() + 20
+            while "ok" not in state and time.monotonic() < end:
+                yield 20
+            page.setZoomFactor(float(s["zoom"]))
+            for world, code, key in ((0, "window[%s] || ''" % g, "prot"),
+                                     (77, PLAN["matrix_real"], None), (77, "window.__mr || ''", "real")):
+                end = time.monotonic() + 20
+                while time.monotonic() < end:
+                    res = {}
+                    page.runJavaScript(code, world, lambda r, res=res: res.setdefault("r", r))
+                    while "r" not in res and time.monotonic() < end:
+                        yield 20
+                    if key is None:
+                        break
+                    if res.get("r"):
+                        rec[key] = json.loads(res["r"])
+                        break
+                    yield 50
+        except Exception:
+            rec["error"] = traceback.format_exc()[-1500:]
+        finally:
+            if em is not None:
+                em.done.set()
+            if view is not None:
+                view.close()
+                view.deleteLater()
+        yield 30
+    OUT["matrix_seconds"] = round(time.monotonic() - t_all, 1)
+
+
 def measure():
     yield 300
     b, sh, cfg = ike.blocker, ike.shields, ike.config        # noqa: F821
@@ -1248,6 +1524,8 @@ def measure():
         OUT["late"]["later"] = got
         OUT["late"]["seconds"] = round(time.monotonic() - t0, 1)
         lp.deleteLater()
+    if "matrix" in sections and PLAN.get("matrix"):
+        yield from _matrix()
     if "scriptlets" in sections:
         try:
             OUT["scriptlets"] = {h: b.scriptlets.for_host(h) for h in PLAN["scriptlet_hosts"]}
@@ -1508,6 +1786,59 @@ SITE_PAGE = r"""<!doctype html><html><head><meta charset="utf-8"><title>__TITLE_
 })();
 </script></body></html>"""
 SITE_READS = ("pic", "url", "audio", "gl", "width")
+# round 6: the matrix page reads what a page can know of the user's configuration, and the same pictures,
+# sound, WebGL and text widths as the page of the sites; MATRIX_READS run in the page (I.K.E.'s protection)
+# and, as MATRIX_REAL, in a world of their own (the engine's real values under the session's configuration)
+MATRIX_MEDIA = ("(pointer: coarse)", "(any-pointer: coarse)", "(hover: hover)", "(prefers-color-scheme: dark)",
+                "(prefers-reduced-motion: reduce)", "(forced-colors: active)", "(prefers-contrast: more)",
+                "(min-resolution: 1.5dppx)", "(min-width: 3000px)", "(orientation: portrait)")
+MATRIX_READS = r"""
+  __COMMON__
+  async function mreads() {
+    var R = {}, n = navigator;
+    function t(f) { try { var v = f(); return v === undefined ? 'undefined' : v; } catch (e) { return 'error ' + e; } }
+    R.cores = t(function () { return n.hardwareConcurrency; });
+    R.memory = t(function () { return n.deviceMemory; });
+    R.language = t(function () { return n.language; });
+    R.languages = t(function () { return (n.languages || []).join(','); });
+    R.touch = t(function () { return n.maxTouchPoints; });
+    R.platform = t(function () { return n.platform; });
+    R.ua = t(function () { return n.userAgent; });
+    R.screen = t(function () { return [screen.width, screen.height, screen.availWidth, screen.availHeight, screen.colorDepth].join('x'); });
+    R.orientation = t(function () { return screen.orientation ? screen.orientation.type : null; });
+    R.dpr = t(function () { return devicePixelRatio; });
+    R.viewport = t(function () { return innerWidth + 'x' + innerHeight; });
+    R.timezone = t(function () { return Intl.DateTimeFormat().resolvedOptions().timeZone; });
+    R.locale = t(function () { return Intl.DateTimeFormat().resolvedOptions().locale; });
+    R.offset = t(function () { return new Date(2026, 0, 15, 12).getTimezoneOffset(); });
+    R.media = t(function () { return __MEDIA__.map(function (q) { return matchMedia(q).matches ? 1 : 0; }).join(''); });
+    try { R.pic = hash(readAll(picture(SHAPE.pw, SHAPE.pw, SHAPE.seed + 11))); } catch (e) { R.pic = 'error ' + e; }
+    try { R.url = hash(picture(48, 48, SHAPE.seed + 13).canvas.toDataURL()); } catch (e) { R.url = 'error ' + e; }
+    try { R.audio = (await render())[0]; } catch (e) { R.audio = 'error ' + e; }
+    try { var g = glRead('webgl'); R.gl = g ? hash(g.pixels) : null; } catch (e) { R.gl = 'error ' + e; }
+    try {
+      var tw = document.createElement('canvas').getContext('2d'), ws = [];
+      tw.font = '16px sans-serif';
+      for (var i = 0; i < 32; i++) ws.push(tw.measureText(SHAPE.word + ' ' + i + ' ' + SHAPE.text).width);
+      R.width = hash(ws.join(','));
+    } catch (e) { R.width = 'error ' + e; }
+    return R;
+  }
+"""
+MATRIX_PAGE = r"""<!doctype html><html><head><meta charset="utf-8"><title>__TITLE__</title></head><body>
+<script>
+(async function () {
+__READS__
+  window['__GLOBAL__'] = JSON.stringify(await mreads());
+})();
+</script></body></html>"""
+MATRIX_REAL = r"""(function () { (async function () {
+__READS__
+  window.__mr = JSON.stringify(await mreads());
+})(); return 1; })()"""
+# what is judged of each session (MATRIX_READS' names)
+MATRIX_VALUES = ("cores", "memory", "language", "languages", "touch", "platform", "ua", "screen", "orientation",
+                 "dpr", "viewport", "timezone", "locale", "offset", "media", "pic", "url", "audio", "gl", "width")
 
 
 # the probe's canvas and sound drawn the same way in a frame of another site (R.third_frame): with a
@@ -1582,7 +1913,8 @@ def run_names(seed=None):
     return {"path": t(), "param": "q" + t(), "title": t(), "global": "_" + t(), "frame": t(), "tag": t(),
             "third": "%s.%s" % (words[5], r.choice(tlds)), "attr": "data-" + t(), "hook": "h" + t(),
             "wrapper": "w" + t(), "out": "o" + t(), "plan": "p" + t(), "env": "Q" + t().upper(), "netmod": "_" + t(),
-            "dirs": ["d" + t() for _ in range(3)], "pick": t(), "site": t(), "wfile": t(), "sites": sites}
+            "dirs": ["d" + t() for _ in range(3)], "pick": t(), "site": t(), "wfile": t(), "sites": sites,
+            "matrix": t(), "matrix_seed": r.getrandbits(31)}
 
 
 BRAND_HOSTS = ("www.google.com", "www.youtube.com", "www.facebook.com", "www.instagram.com", "www.amazon.com",
@@ -1714,6 +2046,10 @@ class Server:
             .replace("__WORKER__", json.dumps(WORKER_JS)).replace("__WFILE__", n.get("wfile", "w")) \
             .replace("__GLOBAL__", n["global"]).replace("__TITLE__", n["title"])
 
+    def matrix_js(self, text):
+        """The matrix page, or the script of the real values (MATRIX_REAL), with this run's shape."""
+        return self._common(text.replace("__READS__", MATRIX_READS.replace("__MEDIA__", json.dumps(MATRIX_MEDIA))))
+
     def page(self, lv):
         n = self.names
         return self._common(PROBE.replace("__THIRD__", n["third"]).replace("__LVP__", n["param"])
@@ -1734,6 +2070,8 @@ class Server:
             return self._common(PICK_PAGE).encode("utf-8"), "text/html; charset=utf-8"
         if ours and path == "/" + n.get("site", "-"):
             return self._common(SITE_PAGE).encode("utf-8"), "text/html; charset=utf-8"
+        if ours and path == "/" + n.get("matrix", "-"):
+            return self.matrix_js(MATRIX_PAGE).encode("utf-8"), "text/html; charset=utf-8"
         if ours and path == "/%s.js" % n.get("wfile", "-"):
             return (WORKER_JS + "run(function(m){postMessage(m)});").encode("utf-8"), "text/javascript"
         if host == n["third"] and path == "/" + n["frame"]:
@@ -1806,9 +2144,10 @@ def _git(repo, *args):
         return ""
 
 
-def run_browser(repo, mode, plan, settings, server, workdir, timeout, other_machine=False):
+def run_browser(repo, mode, plan, settings, server, workdir, timeout, other_machine=False, matrix=None):
     """Start the checkout's I.K.E. with a profile of its own in workdir; returns the hook's output.
-    other_machine: another real environment (OTHER_MACHINE: time zone, language, screen size)."""
+    other_machine: another real environment (OTHER_MACHINE: time zone, language, screen size). matrix: the
+    users' configurations (round 6): {"port": the engine's DevTools port, "file", "shim"}."""
     workdir = Path(workdir)
     home = workdir / "home"
     cfg = home / ".config" / "ike-browser"
@@ -1872,18 +2211,29 @@ def run_browser(repo, mode, plan, settings, server, workdir, timeout, other_mach
         "all_proxy": proxy, "ALL_PROXY": proxy, "no_proxy": "127.0.0.1,localhost", "NO_PROXY": "127.0.0.1,localhost",
     })
     preexec, shim = None, None
-    if other_machine:
+    machine = (OTHER_MACHINE if other_machine is True else other_machine) or None
+    if machine:
         screen = workdir / ("%s.json" % n["out"].replace("o", "s", 1))
-        screen.write_text(json.dumps({"screens": [dict(OTHER_MACHINE["screen"], name="s", x=0, y=0, logicalDpi=96,
+        screen.write_text(json.dumps({"screens": [dict(machine["screen"], name="s", x=0, y=0, logicalDpi=96,
                                                        logicalBaseDpi=96, dpr=1)]}), "utf-8")
-        env.update({"TZ": OTHER_MACHINE["tz"], "LANG": OTHER_MACHINE["lang"],
+        env.update({"TZ": machine["tz"], "LANG": machine["lang"],
                     "QT_QPA_PLATFORM": "offscreen:configfile=%s" % screen})
         # N7 of the fourth review and round 5: other processors (32: more than 8, where a protection that
         # gives way to many cores shows) and memory (2 GB), so a disguise that equals this computer's real
         # value (4 cores, 8 GB, as GitHub's runners) is told from the real one; a small library loaded first
-        shim = _memory_shim(workdir)
+        shim = _memory_shim(workdir, machine)
         if shim:
             env["LD_PRELOAD"] = shim
+    if matrix:
+        # the engine's emulation per page (DevTools on this computer only) and a new process per page, which
+        # reads the session's memory from the small library's file
+        env["QTWEBENGINE_CHROMIUM_FLAGS"] += " --remote-debugging-port=%d --no-zygote " \
+            "--disable-features=SpareRendererForSitePerProcess" % matrix["port"]
+        if matrix.get("touch"):
+            env["QTWEBENGINE_CHROMIUM_FLAGS"] += " --blink-settings=%s" % TOUCH_SETTINGS
+        env["NRM_FILE"] = matrix["file"]
+        if matrix.get("shim"):
+            env["LD_PRELOAD"] = matrix["shim"]
     cmd = [sys.executable, str(wrapper), str(Path(repo).resolve() / "ike_boot.py")]
     try:
         proc = subprocess.run(cmd, cwd=str(workdir), env=env, capture_output=True, text=True, encoding="utf-8",
@@ -1897,7 +2247,7 @@ def run_browser(repo, mode, plan, settings, server, workdir, timeout, other_mach
                             % (code, stderr[-2000:])}]}
     data = json.loads(out.read_text("utf-8"))
     data["exit"] = code
-    if other_machine and not shim:
+    if machine and not shim:
         # no other memory on the other machine: a disguise equal to this computer's could not be told
         data.setdefault("errors", []).append({"section": "fingerprint", "error": "the other machine's memory could "
                                               "not be set (no C compiler for its small library)"})
@@ -1912,6 +2262,96 @@ def masked_fonts(repo):
         return [str(x) for x in json.loads(m.group(1))] if m else []
     except (OSError, ValueError):
         return []
+
+
+def _free_port():
+    import socket
+    s = socket.socket()
+    try:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+    finally:
+        s.close()
+
+
+# a touch screen (round 6): the engine's touch emulation is undone by each navigation, so the sessions with
+# touch are measured in a browser run of their own whose engine has these settings (a coarse pointer with
+# no hover, 5 touch points)
+TOUCH_SETTINGS = "primaryPointerType=2,availablePointerTypes=2,primaryHoverType=1,availableHoverTypes=1,maxTouchPoints=5"
+
+
+def run_matrix(repo, plan, settings, server, workdir, keys):
+    """The users' configurations (round 6): the run's sessions of tools/env-axes.py (its seed is the run's,
+    the same on both sides), measured in two browser runs (without and with a touch screen), each session a
+    page of its own."""
+    axes = env_axes()
+    rows = axes.sessions(server.names.get("matrix_seed", 1))
+    for n, s in enumerate(rows):
+        s["n"] = n
+        s["screen"] = list(s["screen"])
+        # the page's window before the zoom (the browser's own bars aside); the page sees it at its zoom
+        s["window"] = [s["screen"][0], s["screen"][1] - axes.CHROME_HEIGHT]
+    data = {"matrix": [], "sessions": rows, "errors": [], "matrix_seconds": 0, "python_hosts": []}
+    for touch in (False, True):
+        part = [s for s in rows if bool(s["touch"]) == touch]
+        if not part:
+            continue
+        where = Path(workdir) / ("t" if touch else "n")
+        where.mkdir(parents=True, exist_ok=True)
+        mfile = where / "m.txt"
+        mfile.write_text("4 8 UTC", "utf-8")
+        shim = _dynamic_shim(where)
+        port = _free_port()
+        mplan = dict(plan, sections=["matrix"], levels=[], keys=keys[:1], pick_keys=[], sites={}, again=False,
+                     late=None, matrix=part, matrix_keys=list(keys), matrix_port=port, matrix_file=str(mfile),
+                     matrix_page=server.names["matrix"], matrix_real=server.matrix_js(MATRIX_REAL))
+        got = run_browser(repo, "measure", mplan, settings, server, where, timeout=900,
+                          matrix={"port": port, "file": str(mfile), "shim": shim, "touch": touch})
+        data["matrix"] += got.get("matrix") or []
+        data["errors"] += got.get("errors") or []
+        data["matrix_seconds"] += got.get("matrix_seconds") or 0
+        if got.get("python_hosts") is None:
+            data["python_hosts"] = None
+        elif data["python_hosts"] is not None:
+            data["python_hosts"] = sorted(set(data["python_hosts"]) | set(got["python_hosts"]))
+        if not shim:
+            data["errors"].append({"section": "fingerprint", "error": "the configurations' memory could not be "
+                                   "set (no C compiler for the small library)"})
+    return data
+
+
+def _matrix_label(s):
+    w, h = s["screen"]
+    return "%s, %dx%d at %sx, zoom %s%%, %s%s%s%s, %s, %s, %d cores, %d GB" % (
+        s["level"], w, h, s["scale"], int(round(s["zoom"] * 100)), "touch " if s["touch"] else "",
+        "dark " if s["scheme"] == "dark" else "", "reduced motion " if s["motion"] == "reduce" else "",
+        "forced colours" if s["contrast"] == "forced" else "", s["language"], s["timezone"], s["cores"], s["memory"])
+
+
+def _matrix_obs(m, errors):
+    """matrix/<session>/<value>: what the page showed (protected) and the real value under that session's
+    configuration (a world of its own; the languages the configuration's, since the engine itself disguises
+    them at Strict and Maximum)."""
+    obs, failed = {}, []
+    rows = m.get("sessions") or []
+    for rec in m.get("matrix") or []:
+        n = rec.get("n")
+        s = rows[n] if isinstance(n, int) and n < len(rows) else None
+        prot, real = rec.get("prot"), rec.get("real")
+        if s is None or rec.get("error") or not isinstance(prot, dict) or not isinstance(real, dict):
+            failed.append("%s (%s)" % (n, (rec.get("error") or "not read").strip().splitlines()[-1][:120]))
+            continue
+        real = dict(real, language=s["language"], languages="%s,%s" % (s["language"], s["language"].split("-")[0]))
+        for k in MATRIX_VALUES:
+            obs["matrix/%02d/%s" % (n, k)] = {"rule": "matrix", "value": prot.get(k), "real": real.get(k),
+                                              "level": s["level"], "config": _matrix_label(s)}
+    if not rows or len(m.get("matrix") or []) < len(rows):
+        errors.append({"section": "fingerprint", "error": "the configuration matrix was not measured (%d of %d "
+                       "sessions)" % (len(m.get("matrix") or []), len(rows))})
+    elif failed:
+        errors.append({"section": "fingerprint", "error": "the configuration matrix: %d sessions not read: %s" % (
+            len(failed), "; ".join(failed[:3]))})
+    return obs
 
 
 def snapshot(repo, levels=LEVELS, sections=SECTIONS, fixtures=FIXTURES, keep=None, settle=6.0, keys=None,
@@ -1959,13 +2399,20 @@ def snapshot(repo, levels=LEVELS, sections=SECTIONS, fixtures=FIXTURES, keep=Non
                 raw["measure"]["headers"] = server.headers
                 server.headers = {}
         if "fingerprint" in sections:
-            # the same page on another real machine (time zone, language, screen): a fixed disguise
-            # must not follow the real one (the "env." marks); one session, the first key
-            raw["env2"] = run_browser(repo, "measure", dict(plan, sections=["fingerprint"], keys=keys[:1], pick_keys=[],
-                                                            sites={}, again=False, late=None),
-                                      quiet,
-                                      server, Path(tmp) / (dirs[0] + "e"), timeout=300, other_machine=True)
-            raw["env2"]["proxy_hosts"] = server.take()
+            # the same page on another real machine (time zone, language, screen, processors, memory): a fixed
+            # disguise must not follow the real one (the "env." marks), and what main protects stays protected
+            # there; one session, the first key
+            for part, _head, machine in MACHINES:
+                raw[part] = run_browser(repo, "measure", dict(plan, sections=["fingerprint"], keys=keys[:1],
+                                                              pick_keys=[], sites={}, again=False, late=None),
+                                        quiet, server, Path(tmp) / (dirs[0] + part[-1]), timeout=300,
+                                        other_machine=machine)
+                raw[part]["proxy_hosts"] = server.take()
+                with server.lock:
+                    server.headers = {}
+            # round 6: the users' configurations (tools/env-axes.py), each pair of two axes' values in a session
+            raw["matrix"] = run_matrix(repo, plan, quiet, server, Path(tmp) / (dirs[0] + "m"), keys)
+            raw["matrix"]["proxy_hosts"] = server.take()
             with server.lock:
                 server.headers = {}
         if "network" in sections:
@@ -1990,7 +2437,7 @@ def snapshot(repo, levels=LEVELS, sections=SECTIONS, fixtures=FIXTURES, keep=Non
             "seconds": round(time.monotonic() - t0, 1)}
     snap["errors"], snap["observations"] = observations(raw, levels, sections, corpus)
     # the samples are in the observations as the noise's sizes and references: not kept twice
-    for part in ("measure", "env2"):
+    for part in ("measure", "env2", "matrix"):
         for here in ((raw.get(part) or {}).get("levels") or {}).values():
             for p in [here.get("probe"), here.get("probe_again")] + list(here.get("probe_sessions") or []):
                 for k in SAMPLES - {"third_frame"}:
@@ -2142,7 +2589,7 @@ def _late_marks(late):
     return out
 
 
-def _machine2(levels, env2):
+def _machine2(levels, env2, head="fingerprint2"):
     """Round 5: the other machine's values (32 processors, 2 GB, another time zone, language and screen),
     as observations of their own ("fingerprint2/<level>/<value>", Off there the real value): judged by the
     same rules, so a disguise that gives way to that machine (more than 8 cores) shows."""
@@ -2157,7 +2604,7 @@ def _machine2(levels, env2):
         for k, o in f.items():
             if FP_JUDGED.match(k):
                 o["rule"] = "machine2" if lv != "off" else "exact"
-                obs["fingerprint2/%s/%s" % (lv, k)] = o
+                obs["%s/%s/%s" % (head, lv, k)] = o
     return obs
 
 
@@ -2208,6 +2655,36 @@ def _judge_machine2(key, b, c, bo, co):
     if worse:
         return "worse", "; ".join(worse[:4])
     return "changed", "the other machine: still not its real value"
+
+
+def _matrix_shown(bo, name, level, _cache={}):
+    """The values main showed of one read at one level, over all the matrix's sessions."""
+    key = (id(bo), name, level)
+    if key not in _cache or _cache[key][0] is not bo:
+        _cache.clear()
+        _cache[key] = (bo, {_id(o.get("value")) for k, o in bo.items() if k.startswith("matrix/") and
+                            k.rsplit("/", 1)[-1] == name and o.get("level") == level})
+    return _cache[key][1]
+
+
+def _judge_matrix(key, b, c, bo):
+    """matrix/<session>/<value> (round 6): one of the users' configurations at one level. Worse where the page
+    shows the real value of that configuration, main did not, and main never shows that value at that level
+    in any session (so neither a draw that meets the real one by chance nor a value main leaves real counts)."""
+    if c is None:
+        return "unjudged", "not measured on the candidate"
+    name = key.rsplit("/", 1)[-1]
+    real, cv = c.get("real"), c.get("value")
+    if b is not None and _id(b.get("value")) == _id(cv):
+        return "same", ""
+    if real is None or (isinstance(real, str) and real.startswith("error")) or _id(cv) != _id(real):
+        return "changed", "not the real value in this configuration"
+    if b is not None and _id(b.get("value")) == _id(b.get("real")):
+        return "changed", "the real value on main too"
+    if _id(real) in _matrix_shown(bo, name, c.get("level")):
+        return "changed", "a value main shows at this level too"
+    return "worse", "the real value (%s) in the configuration %s, a value main never shows at this level" % (
+        _short(real, 40), c.get("config") or key.split("/")[1])
 
 
 def _site_marks(sites, off_sites):
@@ -2263,7 +2740,7 @@ def _frame_agrees(probes):
 def observations(raw, levels, sections, corpus):
     """(errors, {key: {"rule", "value"}}) from what the browser recorded."""
     errors, obs = [], {}
-    for part in ("measure", "env2", "network", "network2", "tls"):
+    for part in ("measure", "env2", "matrix", "network", "network2", "tls"):
         if part in raw and (raw[part] or {}).get("python_hosts", None) is None and "errors" in (raw[part] or {}) \
                 and not (raw[part] or {}).get("errors"):
             # the audit hook that records I.K.E.'s own connections did not report: not measured
@@ -2412,8 +2889,12 @@ def observations(raw, levels, sections, corpus):
             obs["scriptlets/%s" % h] = {"rule": "kept", "value": None if rules is None else
                                         sorted(json.dumps(r, ensure_ascii=False) for r in rules)}
         obs["video-hosts"] = {"rule": "kept", "value": sorted(m.get("video_hosts") or [])}
-    if "fingerprint" in sections and raw.get("env2"):
-        obs.update(_machine2(levels, raw["env2"]))
+    if "fingerprint" in sections:
+        for part, head, _machine in MACHINES:
+            if raw.get(part):
+                obs.update(_machine2(levels, raw[part], head))
+        if raw.get("matrix") is not None:
+            obs.update(_matrix_obs(raw["matrix"], errors))
     if "security" in sections:
         sec = m.get("security") or {}
         flags = sec.get("flags") or []
@@ -2472,7 +2953,7 @@ def observations(raw, levels, sections, corpus):
                     if known and off.get(k) is not None else None}
     if m:
         hosts = set(m.get("proxy_hosts") or []) | set(m.get("python_hosts") or [])
-        for e in ("env2",):
+        for e in ("env2", "matrix"):
             hosts |= set((raw.get(e) or {}).get("proxy_hosts") or []) | set((raw.get(e) or {}).get("python_hosts") or [])
         obs["network/while-measuring"] = {"rule": "no-new", "value": sorted(hosts)}
     return errors, obs
@@ -2484,7 +2965,7 @@ def _section(key):
     return {"requests": "blocking", "request-headers": "security", "cosmetic": "blocking",
             "cosmetic-rules": "blocking", "page-scriptlets": "blocking", "scriptlets": "blocking",
             "video-hosts": "blocking", "fingerprint": "fingerprinting", "fingerprint-config": "fingerprinting",
-            "fingerprint2": "fingerprinting",
+            "fingerprint2": "fingerprinting", "matrix": "fingerprinting",
             "network": "network"}.get(head, "security")
 
 
@@ -3367,6 +3848,8 @@ RULE_WHY = {
     "fingerprint": "judged by what protects: still disguised (the fingerprinting rules)",
     "fonts": "judged by what protects: every font a page can find is masked",
     "machine2": "judged by what protects on the other machine: not its real value, no closer to it",
+    "matrix": "judged by what protects in each of the users' configurations: never a real value main never shows "
+              "at that level",
 }
 
 
@@ -3589,6 +4072,8 @@ def compare(base, cand, allowlist_entries=(), evidence=None, floors=None, common
             kind, detail = _judge_fonts(key, b, c)
         elif rule == "machine2":
             kind, detail = ("same", "") if bv == cv else _judge_machine2(key, b, c, bo, co)
+        elif rule == "matrix":
+            kind, detail = _judge_matrix(key, b, c, bo)
         elif rule == "protective":
             test = None if key.startswith("page-scriptlets/") else _protective(key.split("/", 2)[2])[1]
             kind, detail = ("same", "") if bv == cv else \

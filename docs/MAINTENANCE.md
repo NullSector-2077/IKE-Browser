@@ -141,15 +141,78 @@ covers. Where an older paragraph below still says "waits for a person" or
    something later (a timer, a frame or idle callback, a microtask, a
    promise's continuation, a listener) outside a function the change adds;
    and may not name sites in a pattern or a text (a regular expression of
-   brand names or top-level domains). A new helper with its own names, or a
-   new wrap, stays accepted. Measured on the 37 commits of `main` that
-   changed `fingerprint.js` (2026-11-25): 36 change old lines, refused by the
-   additive rule already. Taking only the lines each commit added (29 of them
-   added some), `main`'s guard refuses 25, this one 27: the two more are
-   1.1.14's frames of PayPal and Stripe left alone (a site exception) and
-   1.1.25's early `return` for `toString` inside an old function (an exit,
-   now only inside a function the change adds). Both are a person's to
-   write.
+   brand names or top-level domains).
+   **Since round 6** (2026-11-25: rules on lines kept leaking. A destructuring
+   `[k] = [n]`, a loop's target, a second declarator wrote to old names;
+   `Object.defineProperty`, `Reflect.set` and `Object.assign` changed old
+   objects; `document.URL` or `window['loc' + 'ation']` read the address; and
+   two added lines re-wrapped the real processor count for every screen whose
+   `devicePixelRatio` is not 1, a condition no session of "Nothing gets worse"
+   made true. Placed before `install(window)`, as the review wrote them, they
+   leak nothing, because install's own wrap comes after and stays outer; placed
+   after it, they leak) a page script is read by its **syntax tree**. The guard has its
+   own JavaScript parser (`tools/js-parse.py`: no package, no network, checked
+   against acorn on every version of the page scripts in the history). It
+   refuses what would read differently in the browser: an escaped name, a line
+   separator outside a text, an HTML-like comment, an old octal, a name beyond
+   ASCII. A script that does not parse is refused. Every statement of the old
+   tree must still be in the new one, in order and in its place; statements
+   may only be added to a list of statements. In what is added, nothing may:
+   (a) write to what the old script has: a binding by any assignment, pattern,
+   `++`, a loop's target or a declaration, a parameter's too, or one that
+   changes what an old name refers to; an object's properties, `delete`, a
+   method that changes it, `Object.defineProperty`, `assign`,
+   `setPrototypeOf`, `freeze` and the like, `Reflect.set`, `__proto__`, a
+   page object or a global. New code changes only objects it makes itself;
+   (b) read the page's environment (where or when the page is, its screen,
+   window and device, chance, timers and events), unless "Nothing gets worse"
+   measures it in its matrix of the users' configurations (below), or the
+   new code is inside a function the change adds and reads exactly what the
+   old script reads too. An interface's prototype, such as `Date.prototype`,
+   is no read;
+   (c) reach a property by a computed name (only a literal, or a number:
+   arithmetic, a length, a counter), or use `eval`, `Function`, `with`,
+   `import()` or `.constructor`;
+   (d) leave code (`return` or `throw` outside a function the change adds,
+   `break` or `continue` out of a loop it did not add);
+   (e) branch on what no measurement covers: an `if`, `?:`, `&&`, `||`, `??`,
+   `switch`, loop test, `?.`, default value, `for-in/of`, or a `catch` that
+   does more than give a value back. Its test may read only literals, the
+   change's own names (set in their own function from such values; a
+   parameter when every call gives such values), the level (`lv`, `strict`,
+   `maximum`: every level is measured), and the configurations the matrix
+   measures: devicePixelRatio, the window and screen sizes, the orientation,
+   touch points, `matchMedia` with a literal query of the pointer, hover,
+   colour scheme, motion, contrast, resolution or size, the languages, the
+   time zone (`Intl`), the processors and the memory. These are listed once,
+   in `tools/env-axes.py`, for both the probe and the guard: an axis added
+   to the probe is allowed in the guard at once, and nothing else is. A
+   condition on a counter, the time, the referrer, cookies, the visibility,
+   a site, a text or an API the matrix does not cover stays refused;
+   (f) define or re-wrap a property through an I.K.E. helper (`wrap`,
+   `getter`, `setter`, any old function that defines properties) or
+   `Object.defineProperty` and the like. The exception is a property whose
+   name is a literal the old script never has, on a prototype: a new
+   disguise, never a second wrap of a protected one.
+   The rules on lines stay for what they add: the old lines in order, no
+   always-true condition, nothing that reaches out, no site named, no new
+   address.
+   *What it accepts and refuses*, measured on 2026-11-25. Every one of the 38
+   weakened copies made in the reviews is refused, the three forms of the
+   gated re-wrap among them (by the re-wrap). Of Fable's 15 additive forms of
+   an AI's honest fix (a new wrap, a helper, a counter, a listener, a
+   timer...), 11 pass (`main`'s guard: 12, round 5's: 11). Of the six reads
+   of the environment no matrix covers (`navigator.userAgent`,
+   `document.cookie`, `visibilityState`, `document.URL`, `baseURI`,
+   `window['loc' + 'ation']`), none passes (`main`'s and round 5's: 4). Of the
+   33 commits of `main`'s history that added lines to `fingerprint.js`
+   (their added lines alone), it refuses all 33 (`main`'s guard 28, round
+   5's 31). Those are a person's feature work: each changes old objects,
+   wraps protected properties again, branches on page data or feature
+   detection, or reads the environment, and only one of them is refused
+   for a branch alone. So the automatic fix can add a new disguise with
+   conditions on the users' configurations and the level, a helper, a new
+   wrap; changing what the old script protects stays a person's.
 6. *Small*: 5 files and 150 lines per attempt, 8 files and 400 lines for all
    the AI commits of a pull request; no file added, removed or renamed.
 7. *The component manifest*: only a new entry, a plain download of a file
@@ -2684,7 +2747,63 @@ computer) and without a display, with the real browser of each commit:
   `main` fixes in all its sessions, comes closer to it; a pick, whose pool
   may follow the machine, the cores among 4 and 8 where there are 8 or
   more, gets the real-value test only, and a width or a list drawn per
-  session is judged on the first machine's sessions). Since round 5 the page of the sites is also read on the hosts of
+  session is judged on the first machine's sessions). Since round 6 the
+  page scripts are also measured in **a matrix of the users' common
+  configurations** (`tools/env-axes.py`, one list for the probe and the
+  static guard; the owner's direction of 2026-11-25: cover them up front,
+  so the automatic fix needs no person for a condition on them). Its axes
+  are:
+  - scale 1, 1.25, 1.5, 2;
+  - page zoom 90 %, 100 %, 110 %, 125 %, 150 %;
+  - screens 1280 x 720, 1366 x 768, 1536 x 864, 1920 x 1080, 2560 x 1440,
+    3440 x 1440 and 3840 x 2160, the window filling the screen;
+  - no touch or a touch screen (5 points, a coarse pointer, no hover);
+  - light or dark colours, reduced motion or not, forced colours (high
+    contrast) or not;
+  - English, Italian, German, Japanese;
+  - the time zones UTC, Europe/Rome, America/New_York, Asia/Tokyo;
+  - 2 to 32 processors, 4 to 32 GB;
+  - the four protected levels.
+
+  The sources are the public statistics of desktop screens and browsers and
+  the Steam hardware survey (2025-2026): 1366 x 768 and 1920 x 1080 lead, and
+  1536 x 864 is 1920 x 1080 at 125 %. GNOME and KDE offer these scales;
+  dark colours, reduced motion and high contrast are accessibility settings
+  of every desktop. The languages and zones are those of I.K.E.'s users.
+  Every pair of two axes' values is in at least one session (a greedy
+  all-pairs cover, about 50 sessions). Added to them are the corners: each
+  level with every axis at its first value and at its last. The seed is the
+  run's own, the same on both sides of a check, so different runs meet
+  different triples.
+
+  Each session is a page of its own in one browser run, with a noise key of
+  its own (the run's keys in turn), so every one of the few values `main`
+  draws appears. The engine's own emulation (its DevTools, on this computer
+  only) gives:
+  - the screen, its scale, the window and the orientation;
+  - the colours, the motion and the contrast;
+  - the time zone and the locale;
+  - the processors.
+
+  The browser gives the zoom. I.K.E.'s setting gives the languages. A small
+  preloaded library gives the memory, read by each page's new process. A
+  touch screen is a second browser run whose engine has the touch settings,
+  because each navigation undoes the engine's touch emulation. The page
+  reads its values twice: in the page, protected, and in a world of its own,
+  where they are the real ones under that configuration. The languages are
+  the configuration's own, since the engine itself disguises them at Strict
+  and Maximum. A session's value is worse (`matrix/<session>/<value>`) where
+  the page shows that configuration's real value, `main` did not, and `main`
+  never shows that value at that level in any session, so neither a draw
+  that meets the real one by chance nor a value `main` leaves real counts.
+
+  The matrix adds about 30 s a side (two browser starts and about 20 s of
+  sessions). What it cannot give on GitHub's runners: the graphics card's
+  names (WebGL runs on the engine's software renderer, whose texts no switch
+  changes) and X11 against Wayland (no display server; the engine runs
+  offscreen). The static guard keeps refusing a condition on either. The
+  other machine (32 processors, 2 GB, another time zone, language and
+  screen) stays for the fixed disguises' `env.` marks. Since round 5 the page of the sites is also read on the hosts of
   well-known brands (`www.google.com`, `www.youtube.com`, ...; one mark per
   brand, `sites.brand.<read>.<host>`, for a protection switched off for
   sites named in a pattern), once more in the same page 100 s after its load
@@ -2908,7 +3027,11 @@ API than those measured); YouTube's own pages, which need HTTPS (its requests,
 element-hiding rules and scriptlets are measured, not a page of it);
 timers that start more than 100 s after the page's load (the late read at
 Balanced waits 100 s; a later change, or one at another level, is the
-static guard's to refuse); brands other than the nine hosts measured; the
+static guard's to refuse); brands other than the nine hosts measured; a
+configuration outside the matrix (a triple of values no session of the run
+meets, an axis it does not have: the graphics card, the display server): the
+static guard refuses a condition on what the matrix does not cover, and
+different runs meet different triples; the
 sandbox really on (GitHub's
 runners refuse it: `security.yml` tests it); a real graphics card and the
 user's own fonts (software rendering, the runner's fonts, the same on both
@@ -2957,10 +3080,13 @@ real-value tests at 1 in 10,000 each (0.43 %); the picks, the hashes and the
 marks far below: under 0.8 % per run. And 20 real runs of `check`, main
 against main as in `tests.yml`, gave 20 passes (an earlier 20, a round
 before, had one red: the storage estimate at Off ran out of its 3 s on a busy
-computer; it now has 10 s), and 6 more with round 5's measures (2026-11-25,
-`main` 8176b12) gave 6 passes. A check takes about 290 s on a 4-core
-computer running two at once (the late read and the brands add about 55 s a
-side); `--runs 3` about 15 minutes, within its step's 45.
+computer; it now has 10 s), 6 more with round 5's measures (2026-11-25,
+`main` 8176b12) gave 6 passes, and 6 more with round 6's matrix gave 6
+passes; the 240 pairs of 16 snapshots with independent keys, each with its
+56 sessions of the matrix, gave none worse. A check takes about 350 s on a
+4-core computer running two at once (the late read and the brands add about
+55 s a side, the matrix about 30 s a side: two browser starts and 20 s of
+sessions); `--runs 3` about 18 minutes, within its step's 45.
 
 **Code that recognises the measurement** and behaves differently there
 is only partly guarded: the probe's address, title, global, the frame's host,
