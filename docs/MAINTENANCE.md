@@ -133,7 +133,23 @@ covers. Where an older paragraph below still says "waits for a person" or
    `delete`...) or `delete` from it: no early exit for some sites or frames,
    no protection that depends on the site or the time, no name taken out of
    the masked fonts or the hidden extensions, no site put into a list of
-   exceptions.
+   exceptions. Since round 5 (2026-11-25: one-line copies passed both this
+   guard and "Nothing gets worse") a new line also may not assign, anywhere
+   in it (inside a callback, a loop, after a `;`, `++`), to a name the change
+   does not declare itself (the level for some sites, the cores above 8, a
+   size under which the noise stops, the key changed later); may not run
+   something later (a timer, a frame or idle callback, a microtask, a
+   promise's continuation, a listener) outside a function the change adds;
+   and may not name sites in a pattern or a text (a regular expression of
+   brand names or top-level domains). A new helper with its own names, or a
+   new wrap, stays accepted. Measured on the 37 commits of `main` that
+   changed `fingerprint.js` (2026-11-25): 36 change old lines, refused by the
+   additive rule already. Taking only the lines each commit added (29 of them
+   added some), `main`'s guard refuses 25, this one 27: the two more are
+   1.1.14's frames of PayPal and Stripe left alone (a site exception) and
+   1.1.25's early `return` for `toString` inside an old function (an exit,
+   now only inside a function the change adds). Both are a person's to
+   write.
 6. *Small*: 5 files and 150 lines per attempt, 8 files and 400 lines for all
    the AI commits of a pull request; no file added, removed or renamed.
 7. *The component manifest*: only a new entry, a plain download of a file
@@ -2660,9 +2676,21 @@ computer) and without a display, with the real browser of each commit:
   the same session and in a frame of another site; the probe's canvas and
   sound are read on two starts with a fresh profile and the browser's own
   random key; and the whole probe once more on **another machine** (another
-  time zone, language and screen size, 3 processors and 2 GB: a disguise
+  time zone, language and screen size, 32 processors and 2 GB: a disguise
   equal to this computer's value, 4 cores or 8 GB, is told from the real one
-  there). Every level is measured after the
+  there, and one that gives way to more than 8 cores shows; its values are
+  observations of their own, `fingerprint2/<level>/<value>`, worse where a
+  part is that machine's real value and was not on `main`, or, for a part
+  `main` fixes in all its sessions, comes closer to it; a pick, whose pool
+  may follow the machine, the cores among 4 and 8 where there are 8 or
+  more, gets the real-value test only, and a width or a list drawn per
+  session is judged on the first machine's sessions). Since round 5 the page of the sites is also read on the hosts of
+  well-known brands (`www.google.com`, `www.youtube.com`, ...; one mark per
+  brand, `sites.brand.<read>.<host>`, for a protection switched off for
+  sites named in a pattern), once more in the same page 100 s after its load
+  at Balanced (`late.<read>`: a change deferred past the first seconds), and
+  the probe reads a picture of 1024 x 1024 and a WebGL texture of 512 x 512
+  (`canvas_large`, `webgl_large`: a noise that stops above some size). Every level is measured after the
   check of the fonts a page could find (`fontcheck.py`, which a start runs
   after 15 s and which changes every level's settings) has answered, as on a
   user's computer after the first start; no answer is an error. Since 2026-11-24 the values the
@@ -2878,7 +2906,10 @@ commit, and runs the bound tests again itself; `compare` takes `--confirmed`).
 What it cannot see: a weakening outside the corpus (another site, request or
 API than those measured); YouTube's own pages, which need HTTPS (its requests,
 element-hiding rules and scriptlets are measured, not a page of it);
-timers that start after the first seconds; the sandbox really on (GitHub's
+timers that start more than 100 s after the page's load (the late read at
+Balanced waits 100 s; a later change, or one at another level, is the
+static guard's to refuse); brands other than the nine hosts measured; the
+sandbox really on (GitHub's
 runners refuse it: `security.yml` tests it); a real graphics card and the
 user's own fonts (software rendering, the runner's fonts, the same on both
 sides); whether a new disguised value is rarer than the old one when neither
@@ -2907,8 +2938,15 @@ sites and shape on both sides) gives the same values, so nothing is judged at
 all. A rewrite of the noise of the same strength draws every noised value
 anew; measured as main against main with independent random keys and sites
 (16 snapshots, every ordered pair: 240 comparisons), none had a "worse" on
-2026-11-24 (`main` f51ba83, with the fourth review's measures). The same
-experiment, in earlier rounds, found what more readings fixed: 84 of 240 with
+2026-11-24 (`main` f51ba83, with the fourth review's measures), nor on
+2026-11-25 (`main` 8176b12, with round 5's measures: brands, the late read,
+the large pictures, the other machine with 32 processors). The same
+experiment, in earlier rounds, found what more readings fixed: in round 5,
+texts of the same width (digits for digits) noised alike since 1.1.25 draws
+a width's noise from its own value, so the count changed varied with the
+key (now 128 texts of different widths), and the cores, a pick drawn only
+on the other machine, judged as a fixed disguise there (now its real value
+there only); 84 of 240 with
 the real value of a text width or of the extensions' list in one session
 (chance gives it: now judged against how often, measured on `main`), and 5 of
 240 with fewer flat stripes changed (448 stripes repeating every 256 were
@@ -2919,7 +2957,10 @@ real-value tests at 1 in 10,000 each (0.43 %); the picks, the hashes and the
 marks far below: under 0.8 % per run. And 20 real runs of `check`, main
 against main as in `tests.yml`, gave 20 passes (an earlier 20, a round
 before, had one red: the storage estimate at Off ran out of its 3 s on a busy
-computer; it now has 10 s).
+computer; it now has 10 s), and 6 more with round 5's measures (2026-11-25,
+`main` 8176b12) gave 6 passes. A check takes about 290 s on a 4-core
+computer running two at once (the late read and the brands add about 55 s a
+side); `--runs 3` about 15 minutes, within its step's 45.
 
 **Code that recognises the measurement** and behaves differently there
 is only partly guarded: the probe's address, title, global, the frame's host,

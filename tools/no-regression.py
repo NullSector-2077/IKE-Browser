@@ -97,18 +97,28 @@ FIXED_KEY = "6e6f2d72656772657373696f6e2d6b31"
 FIXED_KEY_2 = "6e6f2d72656772657373696f6e2d6b32"
 # another real machine for the "env." marks: what a fixed disguise shows must not follow it
 OTHER_MACHINE = {"tz": "Pacific/Auckland", "lang": "de_DE.UTF-8", "screen": {"width": 1366, "height": 768},
-                 "cpus": 3, "memory_gb": 2}
+                 "cpus": 32, "memory_gb": 2}
 # the other machine's memory (N7): a small library loaded first (LD_PRELOAD) gives the engine another
 # amount of memory; built with the computer's C compiler, or not at all (then a notice in the report)
 MEMORY_SHIM = r"""#define _GNU_SOURCE
 #include <dlfcn.h>
 #include <unistd.h>
 #include <sys/sysinfo.h>
+#include <sched.h>
+#include <string.h>
 long sysconf(int name) {
   static long (*real)(int) = 0;
   if (!real) real = (long (*)(int))dlsym(RTLD_NEXT, "sysconf");
   if (name == _SC_PHYS_PAGES) { long ps = real(_SC_PAGESIZE); return ps > 0 ? (__GB__L << 30) / ps : real(name); }
+  if (name == _SC_NPROCESSORS_ONLN || name == _SC_NPROCESSORS_CONF) return __CPUS__;
   return real(name);
+}
+int sched_getaffinity(pid_t pid, size_t size, cpu_set_t *set) {
+  static int (*real)(pid_t, size_t, cpu_set_t *) = 0;
+  if (!real) real = (int (*)(pid_t, size_t, cpu_set_t *))dlsym(RTLD_NEXT, "sched_getaffinity");
+  int r = real(pid, size, set);
+  if (r == 0 && set) { memset(set, 0, size); for (int i = 0; i < __CPUS__ && (size_t)i < size * 8; i++) CPU_SET_S(i, size, set); }
+  return r;
 }
 int sysinfo(struct sysinfo *info) {
   static int (*real)(struct sysinfo *) = 0;
@@ -124,7 +134,8 @@ def _memory_shim(workdir):
     """The other machine's memory library, built in workdir; None when no compiler builds it."""
     src, lib = Path(workdir) / "m.c", Path(workdir) / "m.so"
     try:
-        src.write_text(MEMORY_SHIM.replace("__GB__", str(int(OTHER_MACHINE["memory_gb"]))), "utf-8")
+        src.write_text(MEMORY_SHIM.replace("__GB__", str(int(OTHER_MACHINE["memory_gb"])))
+                       .replace("__CPUS__", str(int(OTHER_MACHINE["cpus"]))), "utf-8")
         subprocess.run(["cc", "-shared", "-fPIC", "-O1", "-o", str(lib), str(src), "-ldl"], capture_output=True,
                        timeout=60, check=True)
         return str(lib)
@@ -178,7 +189,8 @@ PNG = bytes.fromhex("89504e470d0a1a0a0000000d4948445200000001000000010806000000"
 # API is offered, permissions, the native look of the replaced functions, the third-party image...)
 # keeps the exact rule: any change is worse.
 FP_JUDGED = re.compile(
-    r"^(canvas|canvas_blob|canvas_offset|canvas_flat|canvas_offscreen|audio|audio_copy|audio_analyser|video_frame"
+    r"^(canvas|canvas_blob|canvas_offset|canvas_flat|canvas_offscreen|canvas_large|webgl_large|audio|audio_copy"
+    r"|audio_analyser|video_frame"
     r"|frame|frame_x|frame_html|frame_srcdoc|worker|shared_worker|file_worker|media_queries"
     r"|webgl2?\.(vendor|renderer|unmasked_vendor|unmasked_renderer|max_texture|extensions|read_pixels)"
     r"|navigator\.(userAgent|appVersion|platform|vendor|product|productSub|oscpu|hardwareConcurrency|deviceMemory"
@@ -219,7 +231,7 @@ NOISE = {
 }
 # values whose ".noised" mark (differs from Off) is kept
 NOISED = ("canvas", "canvas_blob", "canvas_offset", "canvas_flat", "audio", "audio_copy", "audio_analyser",
-          "canvas_offscreen", "video_frame")
+          "canvas_offscreen", "video_frame", "canvas_large", "webgl_large")
 # the size of the noise (the two sessions' average) may shrink by this share before it is worse (more
 # where few elements changed: _tolerance)
 NOISE_TOLERANCE = 0.2
@@ -329,6 +341,7 @@ COMMON_JS = r"""
     return x;
   }
   function readAll(x) { return b64(x.getImageData(0, 0, x.canvas.width, x.canvas.height).data); }
+  function hashBytes(a) { var h = 2166136261; for (var i = 0; i < a.length; i++) { h ^= a[i]; h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); }
   function dataUrl(b) {
     return new Promise(function (ok) { var fr = new FileReader(); fr.onload = function () { ok(String(fr.result)); };
       fr.onerror = function () { ok('error'); }; fr.readAsDataURL(b); });
@@ -461,6 +474,25 @@ PROBE = r"""<!doctype html><html><head><meta charset="utf-8"><meta name="referre
     R.canvas_blob = PNG.blob === 'timeout' ? 'timeout' : hash(PNG.blob);
     ST.canvas_blob = (await blobOf(bc)) === PNG.blob;
   } catch (e) { R.canvas_blob = 'error ' + e; }
+  // round 5: large pictures (a noise left out above some size, 256 x 256 in the reviewer's copy)
+  try {
+    var lx = picture(1024, 1024, SHAPE.seed + 21);
+    R.canvas_large = hashBytes(lx.getImageData(0, 0, 1024, 1024).data);
+    ST.canvas_large = hashBytes(lx.getImageData(0, 0, 1024, 1024).data) === R.canvas_large;
+  } catch (e) { R.canvas_large = 'error ' + e; }
+  try {
+    var lg = document.createElement('canvas').getContext('webgl');
+    if (lg) {
+      var LN = 512, ltex = lg.createTexture();
+      lg.bindTexture(lg.TEXTURE_2D, ltex);
+      lg.texImage2D(lg.TEXTURE_2D, 0, lg.RGBA, LN, LN, 0, lg.RGBA, lg.UNSIGNED_BYTE, new Uint8Array(knownBytes(LN * LN, SHAPE.seed + 23).buffer));
+      lg.bindFramebuffer(lg.FRAMEBUFFER, lg.createFramebuffer());
+      lg.framebufferTexture2D(lg.FRAMEBUFFER, lg.COLOR_ATTACHMENT0, lg.TEXTURE_2D, ltex, 0);
+      var lpx = new Uint8Array(LN * LN * 4);
+      lg.readPixels(0, 0, LN, LN, lg.RGBA, lg.UNSIGNED_BYTE, lpx);
+      R.webgl_large = hashBytes(lpx);
+    } else R.webgl_large = null;
+  } catch (e) { R.webgl_large = 'error ' + e; }
   // an OffscreenCanvas of known bytes by convertToBlob, and a VideoFrame of a canvas copied out (N3)
   try {
     var offBlob = async function () {
@@ -482,7 +514,9 @@ PROBE = r"""<!doctype html><html><head><meta charset="utf-8"><meta name="referre
     var tw = document.createElement('canvas').getContext('2d');
     tw.font = '16px sans-serif';
     R.text_widths = [];
-    for (var ti = 0; ti < 128; ti++) R.text_widths.push(tw.measureText(SHAPE.word + ' ' + ti + ' gy ' + (ti * 37) + ' kAy').width);
+    // texts of different lengths: every width its own (1.1.25 draws a width's noise from its own value, so
+    // texts of the same width, digits for digits, were noised alike and the count changed varied by key)
+    for (var ti = 0; ti < 128; ti++) R.text_widths.push(tw.measureText(SHAPE.word + ' ' + 'mWi'.repeat(1 + (ti >> 2)) + 'ka'.slice(0, ti & 1) + 'y'.repeat((ti >> 1) & 1)).width);
   } catch (e) { R.text_widths = null; }
   // WebGL and WebGL2: the card, its limits and extensions, readPixels of a texture of known bytes
   ['webgl', 'webgl2'].forEach(function (kind) {
@@ -566,7 +600,7 @@ PROBE = r"""<!doctype html><html><head><meta charset="utf-8"><meta name="referre
     var fwx = fw.document.createElement('canvas').getContext('2d');
     fwx.font = '16px sans-serif';
     R.frame_widths = [];
-    for (var fi = 0; fi < 64; fi++) R.frame_widths.push(fwx.measureText('Fr ' + fi + ' qz ' + (fi * 29) + ' Wy').width);
+    for (var fi = 0; fi < 64; fi++) R.frame_widths.push(fwx.measureText('Fr ' + 'qWl'.repeat(1 + (fi >> 2)) + 'zo'.slice(0, fi & 1) + 'y'.repeat((fi >> 1) & 1)).width);
     R.frame_x = await frameRead(fw);
   } catch (e) { R.frame = 'error ' + e; }
   // frames made other ways (N3): by innerHTML, and from srcdoc (loaded)
@@ -1051,6 +1085,39 @@ def measure():
     except Exception:
         _err("fingerprint")
     view = ike.windows[0].current_view()            # noqa: F821
+    late = None
+    if "fingerprint" in sections and PLAN.get("late") and PLAN.get("site") and PLAN["late"] in PLAN["levels"]:
+        # round 5: the page of the sites, loaded now at the level PLAN["late"] with the first key in a page of
+        # its own, and read again at the end, at least late_wait seconds later
+        from PyQt6.QtWebEngineCore import QWebEnginePage
+        try:
+            cfg["shield_level"] = PLAN["late"]
+            sh.apply_settings()
+        except Exception:
+            _err("fingerprint")
+        yield 50
+        lp = QWebEnginePage(view.page().profile(), qapp)  # noqa: F821
+        lstate = {}
+        lp.loadFinished.connect(lambda ok, lstate=lstate: lstate.setdefault("ok", ok))
+        lp.load(QUrl("%s/%s?%s=%s.late" % (PLAN["base"], PLAN["site"], PLAN["param"], PLAN["late"])))
+        t0 = time.monotonic()
+        end = t0 + 20
+        while "ok" not in lstate and time.monotonic() < end:
+            yield 50
+        first = None
+        end = time.monotonic() + 15
+        while time.monotonic() < end:
+            res = {}
+            lp.runJavaScript("window[%s] || ''" % json.dumps(PLAN["global"]), 0,
+                             lambda r, res=res: res.setdefault("r", r))
+            while "r" not in res and time.monotonic() < end:
+                yield 50
+            if res.get("r"):
+                first = json.loads(res["r"])
+                break
+            yield 100
+        OUT["late"] = {"level": PLAN["late"], "first": first}
+        late = (lp, t0)
     OUT["levels"] = {}
     for lv in PLAN["levels"]:
         cfg["shield_level"] = lv
@@ -1154,6 +1221,33 @@ def measure():
                         break
                     yield 100
                 pages[pg["id"]] = {"loaded": state.get("ok"), "result": json.loads(seen) if seen else None}
+    # round 5: the page of the sites read again in the same page, LATE seconds after it was loaded (a change
+    # of the protection deferred past the measurement's first seconds)
+    if late:
+        lp, t0 = late
+        while time.monotonic() - t0 < float(PLAN.get("late_wait") or 100):
+            yield 500
+        box = {}
+        g = json.dumps(PLAN["global"] + "_l")
+        code = "(function(){ window[%s] = ''; window[%s]().then(function (r) { window[%s] = JSON.stringify(r); }," \
+               " function (e) { window[%s] = JSON.stringify({error: String(e)}); }); return 1; })()" % (
+                   g, json.dumps(PLAN["global"] + "_r"), g, g)
+        res = {}
+        lp.runJavaScript(code, 0, lambda r, res=res: res.setdefault("r", r))
+        end = time.monotonic() + 30
+        got = None
+        while time.monotonic() < end:
+            res2 = {}
+            lp.runJavaScript("window[%s] || ''" % g, 0, lambda r, res2=res2: res2.setdefault("r", r))
+            while "r" not in res2 and time.monotonic() < end:
+                yield 50
+            if res2.get("r"):
+                got = json.loads(res2["r"])
+                break
+            yield 200
+        OUT["late"]["later"] = got
+        OUT["late"]["seconds"] = round(time.monotonic() - t0, 1)
+        lp.deleteLater()
     if "scriptlets" in sections:
         try:
             OUT["scriptlets"] = {h: b.scriptlets.for_host(h) for h in PLAN["scriptlet_hosts"]}
@@ -1393,19 +1487,24 @@ PICK_PAGE = r"""<!doctype html><html><head><meta charset="utf-8"><title>__TITLE_
 SITE_PAGE = r"""<!doctype html><html><head><meta charset="utf-8"><title>__TITLE__</title></head><body>
 <script>
 (async function () {
-  var R = {};
   __COMMON__
-  try { R.pic = hash(readAll(picture(SHAPE.pw, SHAPE.pw, SHAPE.seed + 11))); } catch (e) { R.pic = 'error ' + e; }
-  try { R.url = hash(picture(48, 48, SHAPE.seed + 13).canvas.toDataURL()); } catch (e) { R.url = 'error ' + e; }
-  try { R.audio = (await render())[0]; } catch (e) { R.audio = 'error ' + e; }
-  try { var g = glRead('webgl'); R.gl = g ? hash(g.pixels) : null; } catch (e) { R.gl = 'error ' + e; }
-  try {
-    var tw = document.createElement('canvas').getContext('2d'), ws = [];
-    tw.font = '16px sans-serif';
-    for (var i = 0; i < 32; i++) ws.push(tw.measureText(SHAPE.word + ' ' + i + ' ' + SHAPE.text).width);
-    R.width = hash(ws.join(','));
-  } catch (e) { R.width = 'error ' + e; }
-  window['__GLOBAL__'] = JSON.stringify(R);
+  // the reads, again on request (the late re-read of round 5: the same page read again after 100 s)
+  async function reads() {
+    var R = {};
+    try { R.pic = hash(readAll(picture(SHAPE.pw, SHAPE.pw, SHAPE.seed + 11))); } catch (e) { R.pic = 'error ' + e; }
+    try { R.url = hash(picture(48, 48, SHAPE.seed + 13).canvas.toDataURL()); } catch (e) { R.url = 'error ' + e; }
+    try { R.audio = (await render())[0]; } catch (e) { R.audio = 'error ' + e; }
+    try { var g = glRead('webgl'); R.gl = g ? hash(g.pixels) : null; } catch (e) { R.gl = 'error ' + e; }
+    try {
+      var tw = document.createElement('canvas').getContext('2d'), ws = [];
+      tw.font = '16px sans-serif';
+      for (var i = 0; i < 32; i++) ws.push(tw.measureText(SHAPE.word + ' ' + i + ' ' + SHAPE.text).width);
+      R.width = hash(ws.join(','));
+    } catch (e) { R.width = 'error ' + e; }
+    return R;
+  }
+  window['__GLOBAL___r'] = reads;
+  window['__GLOBAL__'] = JSON.stringify(await reads());
 })();
 </script></body></html>"""
 SITE_READS = ("pic", "url", "audio", "gl", "width")
@@ -1477,12 +1576,17 @@ def run_names(seed=None):
     sites = {"a": a, "a2": "%s.%s" % (r.choice(("www", "shop", "news", "m", "app")), a),
              "b": "%s.co.uk" % words[1], "c": "%s.co.uk" % words[2], "d": "%s.com" % words[3],
              "e": "%s.%s" % (words[4], other)}
+    # round 5: the hosts of the sites a protection might be switched off for by name (a pattern of brand
+    # names), every run: served by the local proxy with the run's own certificate like the others
+    sites.update(("brand%d" % i, h) for i, h in enumerate(BRAND_HOSTS))
     return {"path": t(), "param": "q" + t(), "title": t(), "global": "_" + t(), "frame": t(), "tag": t(),
             "third": "%s.%s" % (words[5], r.choice(tlds)), "attr": "data-" + t(), "hook": "h" + t(),
             "wrapper": "w" + t(), "out": "o" + t(), "plan": "p" + t(), "env": "Q" + t().upper(), "netmod": "_" + t(),
             "dirs": ["d" + t() for _ in range(3)], "pick": t(), "site": t(), "wfile": t(), "sites": sites}
 
 
+BRAND_HOSTS = ("www.google.com", "www.youtube.com", "www.facebook.com", "www.instagram.com", "www.amazon.com",
+               "www.cloudflare.com", "www.hcaptcha.com", "www.microsoft.com", "www.paypal.com")
 # the fixed names a recorded value gets back for this run's sites (Server._plain)
 SITE_NAMES = {"a": "site-a.test", "a2": "www.site-a.test", "b": "site-b.test", "c": "site-c.test",
               "d": "site-d.test", "e": "site-e.test"}
@@ -1733,7 +1837,8 @@ def run_browser(repo, mode, plan, settings, server, workdir, timeout, other_mach
                 **{"global": n["global"]})
     if "sites" not in plan:
         plan["sites"] = sites if mode == "measure" else {}
-    plan["site_order"] = [k for k in ("a", "a2", "b", "c", "d", "e") if k in plan["sites"]]
+    plan["site_order"] = [k for k in ("a", "a2", "b", "c", "d", "e") if k in plan["sites"]] + sorted(
+        k for k in plan["sites"] if k.startswith("brand"))
     plan["scheme"] = scheme
     if server.ca and mode == "measure":
         # the run's own certificate authority, trusted in this profile only (its NSS database)
@@ -1773,12 +1878,9 @@ def run_browser(repo, mode, plan, settings, server, workdir, timeout, other_mach
                                                        logicalBaseDpi=96, dpr=1)]}), "utf-8")
         env.update({"TZ": OTHER_MACHINE["tz"], "LANG": OTHER_MACHINE["lang"],
                     "QT_QPA_PLATFORM": "offscreen:configfile=%s" % screen})
-        # N7 of the fourth review: other processors and memory too, so a disguise that equals this
-        # computer's real value (4 cores, 8 GB, as GitHub's runners) is told from the real one
-        cpus = sorted(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else []
-        if len(cpus) >= 2:
-            keep = cpus[:OTHER_MACHINE["cpus"]] if len(cpus) > OTHER_MACHINE["cpus"] else cpus[:1]
-            preexec = lambda keep=keep: os.sched_setaffinity(0, keep)  # noqa: E731
+        # N7 of the fourth review and round 5: other processors (32: more than 8, where a protection that
+        # gives way to many cores shows) and memory (2 GB), so a disguise that equals this computer's real
+        # value (4 cores, 8 GB, as GitHub's runners) is told from the real one; a small library loaded first
         shim = _memory_shim(workdir)
         if shim:
             env["LD_PRELOAD"] = shim
@@ -1830,7 +1932,7 @@ def snapshot(repo, levels=LEVELS, sections=SECTIONS, fixtures=FIXTURES, keep=Non
             "pick_keys": keys[SESSIONS:SESSIONS + PICK_DRAWS],
             "defaults": sorted(SAFE_DEFAULTS),
             "hostile_flags": HOSTILE_FLAGS, "hostile_env": HOSTILE_ENV, "settle": settle,
-            "fonts_main": list(fonts_main or ())}
+            "fonts_main": list(fonts_main or ()), "late": LATE["level"], "late_wait": LATE["seconds"]}
     server = Server(corpus, names=names or run_names(seed=FIXED_KEY), shape=shape)
     quiet = {"lists_version": _lists_version(repo), "last_lists_update": 4102444800,
              "last_fast_update": 4102444800, "chrome_checked": 4102444800, "app_updates": "off",
@@ -1840,11 +1942,15 @@ def snapshot(repo, levels=LEVELS, sections=SECTIONS, fixtures=FIXTURES, keep=Non
     dirs = server.names["dirs"]
     raw = {}
     tmp = tempfile.mkdtemp() if keep is None else str(keep)
-    server.ca = server.https(Path(tmp) / ("%s-t" % dirs[0]))
+    import shutil as _sh
+    missing = [t for t, pkg in (("openssl", "openssl"), ("certutil", "libnss3-tools")) if not _sh.which(t)]
+    server.ca = server.https(Path(tmp) / ("%s-t" % dirs[0])) if not missing else None
     try:
         if server.ca is None and set(sections) & {"fingerprint", "security"}:
-            raw["tls"] = {"errors": [{"section": "fingerprint", "error": "the run's sites could not be served over "
-                                                                        "https (openssl): not secure contexts"}]}
+            raw["tls"] = {"errors": [{"section": "fingerprint", "error": (
+                "the run's sites could not be served over https: %s missing (install openssl and libnss3-tools; "
+                "the test environment .github/actions/ike-test-env does)" % " and ".join(missing)) if missing else
+                "the run's sites could not be served over https: openssl failed"}]}
         measured = [s for s in sections if s != "network"]
         if measured:
             raw["measure"] = run_browser(repo, "measure", plan, quiet, server, Path(tmp) / dirs[0], timeout=420)
@@ -1856,7 +1962,7 @@ def snapshot(repo, levels=LEVELS, sections=SECTIONS, fixtures=FIXTURES, keep=Non
             # the same page on another real machine (time zone, language, screen): a fixed disguise
             # must not follow the real one (the "env." marks); one session, the first key
             raw["env2"] = run_browser(repo, "measure", dict(plan, sections=["fingerprint"], keys=keys[:1], pick_keys=[],
-                                                            sites={}, again=False),
+                                                            sites={}, again=False, late=None),
                                       quiet,
                                       server, Path(tmp) / (dirs[0] + "e"), timeout=300, other_machine=True)
             raw["env2"]["proxy_hosts"] = server.take()
@@ -1990,9 +2096,9 @@ def _env_marks(lv, probe, flats, off, env2):
         here2, r1, r2 = _parts(two[k]["value"], k), _parts(real1[k]["value"], k), _parts(real2[k]["value"], k)
         held = None
         for path, v in parts.items():
-            if any(s.get(path, MISSING) != v for s in sessions):
-                continue                    # drawn per session: not a fixed disguise (a pick the same in every
-                #                             session is one: the cores at Strict, N7 of the fourth review)
+            if _role(k, path) is not None or any(s.get(path, MISSING) != v for s in sessions):
+                continue                    # drawn per session, or a pick (its pool may follow the machine:
+                #                             the cores, 4 or 8 where there are 8): judged as fingerprint2/
             if r1.get(path, MISSING) == r2.get(path, MISSING):
                 continue                    # the environment did not change the real one
             held = (held is not False) and here2.get(path, MISSING) == v
@@ -2019,6 +2125,91 @@ def _again_marks(lv, here, fp, errors):
     return out
 
 
+# round 5: the page of the sites read once more in the same page this many seconds after its load, at this
+# level (a change deferred past the measurement's first seconds: the reviewer's copy changed the key after 90 s)
+LATE = {"level": "balanced", "seconds": 100}
+
+
+def _late_marks(late):
+    """{"late.<read>": mark}: the page of the sites read again in the same page LATE["seconds"] later reads
+    the same (None where either read is missing)."""
+    first, later = late.get("first"), late.get("later")
+    out = {}
+    for v in SITE_READS:
+        a = first.get(v) if isinstance(first, dict) else None
+        b = later.get(v) if isinstance(later, dict) else None
+        out["late.%s" % v] = {"rule": "safer-true", "value": a == b if a is not None and b is not None else None}
+    return out
+
+
+def _machine2(levels, env2):
+    """Round 5: the other machine's values (32 processors, 2 GB, another time zone, language and screen),
+    as observations of their own ("fingerprint2/<level>/<value>", Off there the real value): judged by the
+    same rules, so a disguise that gives way to that machine (more than 8 cores) shows."""
+    obs = {}
+    lv2 = (env2 or {}).get("levels") or {}
+    for lv in levels:
+        p = (lv2.get(lv) or {}).get("probe")
+        if not isinstance(p, dict):
+            continue
+        f = {}
+        _flat("", {k: v for k, v in p.items() if k not in SAMPLES}, f, "exact")
+        for k, o in f.items():
+            if FP_JUDGED.match(k):
+                o["rule"] = "machine2" if lv != "off" else "exact"
+                obs["fingerprint2/%s/%s" % (lv, k)] = o
+    return obs
+
+
+def _judge_machine2(key, b, c, bo, co):
+    """fingerprint2/<level>/<value>: one session on the other machine, against its Off (the real value
+    there). Worse where a part is that machine's real value and was not on main, or comes closer to it (a
+    number, a list); "changed" otherwise (a disguise drawn otherwise is judged by the first machine's rules)."""
+    if c is None:
+        return "unjudged", "not measured on the candidate"
+    head, _, name = key.split("/", 2)
+    level = key.split("/")[1]
+    ob = _parts((bo.get("%s/off/%s" % (head, name)) or {}).get("value"), name)
+    oc = _parts((co.get("%s/off/%s" % (head, name)) or {}).get("value"), name)
+    pb, pc = _parts((b or {}).get("value"), name), _parts(c.get("value"), name)
+    # what main draws per session on the first machine (its sessions differ): one reading here cannot tell a
+    # draw from a weakening, so only a fixed part (the same in all of main's sessions) is judged here, and a
+    # drawn one only where chance never gives the real value (a hash of a large space)
+    first = bo.get("fingerprint/%s/%s" % (level, name))
+    sessions = [_parts(x, name) for x in (_sessions(first) or [])] if first else []
+    worse = []
+    for path in sorted(set(pb) | set(pc)):
+        vb, vc = pb.get(path, MISSING), pc.get(path, MISSING)
+        if vb == vc:
+            continue
+        role = _role(name, path)
+        lists = (not path and name in FP_LISTS) or (name, path) in LIST_PARTS
+        drawn = len({_id(s.get(path, MISSING)) for s in sessions}) > 1 or role == "pick"
+        # a pick may be drawn on the other machine only (the cores: 4 or 8 where there are 8 or more): its
+        # real value there is never among the picks; a single width or a list drawn per session can be the real
+        # one by chance, so it is judged on the first machine (its sessions), not here
+        if drawn and ((name, path) in WIDTH_PARTS or name in WIDTH_VALUES or lists):
+            continue
+        reals = (ob.get(path, MISSING), oc.get(path, MISSING))
+        if drawn:
+            if vc in reals and vb not in reals:
+                worse.append("%sthe other machine's real value here (%s)" % (path + " " if path else "",
+                                                                            _short(vc, 40)))
+            continue
+        if vc in reals and vb not in reals:
+            worse.append("%sthe other machine's real value here (%s)" % (path + " " if path else "", _short(vc, 40)))
+        elif _number(vb, vc, reals[0], reals[1]) and abs(vc - reals[1]) < abs(vb - reals[0]):
+            worse.append("%scloser to the other machine's real value: %g here, %g on main" % (
+                path + " " if path else "", vc, vb))
+        elif all(isinstance(x, str) for x in (vb, vc, reals[0], reals[1])) and (
+                not path and name in FP_LISTS or (name, path) in LIST_PARTS) and \
+                _far(vc, reals[1]) < _far(vb, reals[0]):
+            worse.append("%scloser to the other machine's real list" % (path + " " if path else ""))
+    if worse:
+        return "worse", "; ".join(worse[:4])
+    return "changed", "the other machine: still not its real value"
+
+
 def _site_marks(sites, off_sites):
     """N1 of the fourth review: the page of the sites on the run's hosts. For each read: other sites
     differ ("sites.differ."; under a public suffix of two labels too), two hosts of one site agree
@@ -2030,9 +2221,19 @@ def _site_marks(sites, off_sites):
     out = {}
     for v in SITE_READS:
         vals = {n: (s.get(v) if isinstance(s, dict) else None) for n, s in sites.items()}
+        brands = {n: x for n, x in vals.items() if n.startswith("brand")}
+        vals = {n: x for n, x in vals.items() if not n.startswith("brand")}
         ok = len(vals) >= 6 and all(x is not None and not (isinstance(x, str) and FAILED.match(x))
                                     for x in vals.values())
         others = [vals.get(n) for n in ("a", "b", "c", "d", "e")]
+        # round 5: each brand's host on its own (main may leave some alone on purpose, a payment site): noised
+        # where main noises it, and not the value of another site
+        r0 = real.get(v) if isinstance(real, dict) else None
+        for n, x in sorted(brands.items()):
+            good = x is not None and not (isinstance(x, str) and FAILED.match(x)) and r0 is not None
+            host = BRAND_HOSTS[int(n[5:])] if n[5:].isdigit() and int(n[5:]) < len(BRAND_HOSTS) else n
+            out["sites.brand.%s.%s" % (v, host)] = {"rule": "safer-true", "value": (x != r0 and x != vals.get("a"))
+                                                    if good and vals.get("a") is not None else None}
         out["sites.differ.%s" % v] = {"rule": "safer-true", "value": len({_id(x) for x in others}) == len(others)
                                       if ok else None}
         out["sites.agree.%s" % v] = {"rule": "safer-true", "value": vals.get("a") == vals.get("a2") if ok else None}
@@ -2145,6 +2346,8 @@ def observations(raw, levels, sections, corpus):
                 fp["site.canvas"] = {"rule": "safer-true", "value": tf[0] != top[0]
                                      if read and isinstance(top, list) and top else None}
                 fp["site.audio"] = {"rule": "safer-true", "value": tf[1] != probe.get("audio") if read else None}
+                if lv == LATE["level"] and isinstance(m.get("late"), dict):
+                    fp.update(_late_marks(m["late"]))
                 # another real environment (time zone, language, screen): a fixed disguise must not follow it
                 if lv != "off" and raw.get("env2"):
                     for k, v in _env_marks(lv, probe, flats, off, raw["env2"]).items():
@@ -2209,6 +2412,8 @@ def observations(raw, levels, sections, corpus):
             obs["scriptlets/%s" % h] = {"rule": "kept", "value": None if rules is None else
                                         sorted(json.dumps(r, ensure_ascii=False) for r in rules)}
         obs["video-hosts"] = {"rule": "kept", "value": sorted(m.get("video_hosts") or [])}
+    if "fingerprint" in sections and raw.get("env2"):
+        obs.update(_machine2(levels, raw["env2"]))
     if "security" in sections:
         sec = m.get("security") or {}
         flags = sec.get("flags") or []
@@ -2279,6 +2484,7 @@ def _section(key):
     return {"requests": "blocking", "request-headers": "security", "cosmetic": "blocking",
             "cosmetic-rules": "blocking", "page-scriptlets": "blocking", "scriptlets": "blocking",
             "video-hosts": "blocking", "fingerprint": "fingerprinting", "fingerprint-config": "fingerprinting",
+            "fingerprint2": "fingerprinting",
             "network": "network"}.get(head, "security")
 
 
@@ -2689,7 +2895,8 @@ WORKERS = ("worker", "shared_worker", "file_worker")
 NOISE_PARTS = {("canvas", "[0]"), ("canvas_blob", ""), ("canvas_offset", ""), ("canvas_flat", ""), ("audio", ""),
                ("webgl.read_pixels", ""), ("navigator.plugins", ""), ("frame", "[4][0]"),
                ("webgl2.read_pixels", ""), ("audio_copy", ""), ("audio_analyser", ""), ("canvas_offscreen", ""),
-               ("video_frame", ""), ("shared_worker", "[7]"), ("file_worker", "[7]")} | \
+               ("video_frame", ""), ("shared_worker", "[7]"), ("file_worker", "[7]"), ("canvas_large", ""),
+               ("webgl_large", "")} | \
     {(f, p) for f in FRAMES for p in ("[0]", "[3]", "[6]")}
 PICK_VALUES = {"webgl.unmasked_renderer", "webgl.unmasked_vendor", "webgl.extensions", "navigator.hardwareConcurrency",
                "fonts_generic", "webgl2.unmasked_renderer", "webgl2.unmasked_vendor", "webgl2.extensions"}
@@ -3014,7 +3221,7 @@ PROTECTIVE = (
 )
 # marks judged as a protection that must stay on: the value differs from Off (".noised"), from the
 # other start (".differs"), reads the same twice ("stable."), differs on another site ("site.")
-MARKS = re.compile(r"(\.noised|\.differs)$|^(stable|site|sites|env|again)\.|^frame\.agrees\.")
+MARKS = re.compile(r"(\.noised|\.differs)$|^(stable|site|sites|env|again|late)\.|^frame\.agrees\.")
 
 
 def _protective(name):
@@ -3159,6 +3366,7 @@ RULE_WHY = {
     "protective": "now protected (hidden, refused or native-looking)",
     "fingerprint": "judged by what protects: still disguised (the fingerprinting rules)",
     "fonts": "judged by what protects: every font a page can find is masked",
+    "machine2": "judged by what protects on the other machine: not its real value, no closer to it",
 }
 
 
@@ -3379,6 +3587,8 @@ def compare(base, cand, allowlist_entries=(), evidence=None, floors=None, common
             kind, detail = _judge_fingerprint(key, b, c, bo, co, floors, common)
         elif rule == "fonts":
             kind, detail = _judge_fonts(key, b, c)
+        elif rule == "machine2":
+            kind, detail = ("same", "") if bv == cv else _judge_machine2(key, b, c, bo, co)
         elif rule == "protective":
             test = None if key.startswith("page-scriptlets/") else _protective(key.split("/", 2)[2])[1]
             kind, detail = ("same", "") if bv == cv else \

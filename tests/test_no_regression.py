@@ -1355,6 +1355,44 @@ def test_the_guard_refuses_the_added_lines_that_weakened_the_fingerprinting():
         assert PAGE_OLD.count(old) == 1, what
         problems = guard.file_problems(name, PAGE_OLD, PAGE_OLD.replace(old, new))
         assert problems, what
+    # round 5 (Fable's re-check of d0f33b9): one-line weakenings that passed main's guard and this one's of
+    # round 4 - a downgrade for sites named in a pattern, the real cores above 8, no noise above a size, the
+    # key changed after 90 s - and the forms of an assignment the anchored rule did not see (F5)
+    page5 = PAGE_OLD.replace("  var hiddenExt = {};\n", "  var hiddenExt = {};\n  var lv = 2, cores = 4, seed = 7;\n")
+    fable = {
+        "F1": ("  var lv = 2, cores = 4, seed = 7;\n", "  var lv = 2, cores = 4, seed = 7;\n  if (/(^|\\\\.)(google|"
+               "youtube|facebook|instagram|amazon|cloudflare|hcaptcha)\\\\.[a-z.]+$/.test(host)) lv = Math.min(lv, 1);\n"),
+        "F2": ("  var lv = 2, cores = 4, seed = 7;\n", "  var lv = 2, cores = 4, seed = 7;\n"
+               "  if (realCores > 8) cores = realCores;\n"),
+        "F3": ("    var px = pixels(img), tag = TAG(px);\n", "    var px = pixels(img), tag = TAG(px);\n"
+               "    if (px.length > 262144) px = [];\n"),
+        "F4": ("  var lv = 2, cores = 4, seed = 7;\n", "  var lv = 2, cores = 4, seed = 7;\n"
+               "  setTimeout(function () { seed = 1; }, 90000);\n"),
+        "F5 loop": ("  var lv = 2, cores = 4, seed = 7;\n", "  var lv = 2, cores = 4, seed = 7;\n"
+                    "  for (var i = 0; i < 1; i++) seed = 1;\n"),
+        "F5 after ;": ("  var lv = 2, cores = 4, seed = 7;\n", "  var lv = 2, cores = 4, seed = 7;\n"
+                       "  var t = 0; seed = t;\n"),
+        "F5 ++": ("  var lv = 2, cores = 4, seed = 7;\n", "  var lv = 2, cores = 4, seed = 7;\n  lv++;\n"),
+        "later": ("  install(window);\n", "  install(window);\n  Promise.resolve().then(function () { install(window); });\n"),
+        "brand text": ("  var hiddenExt = {};\n", "  var hiddenExt = {};\n  var skip = ['www.google.com'];\n"),
+    }
+    for what, (old, new) in fable.items():
+        assert page5.count(old) == 1, what
+        problems = guard.file_problems(name, page5, page5.replace(old, new))
+        assert problems, what
+    for what in ("F1", "F2", "F4", "F5 loop", "F5 after ;", "F5 ++"):
+        problems = guard.file_problems(name, page5, page5.replace(*fable[what]))
+        assert any("assigns to" in p for p in problems), (what, problems)
+    assert any("names sites" in p for p in guard.file_problems(name, page5, page5.replace(*fable["F1"])))
+    assert any("runs something later" in p for p in guard.file_problems(name, page5, page5.replace(*fable["F4"])))
+    # new code may still set its own names, in its own functions
+    own = page5.replace("  install(window);\n", "  var count = 0;\n  function bump(a) {\n    a = a || 0;\n"
+                        "    count += a;\n    return count;\n  }\n  install(window);\n")
+    assert guard.file_problems(name, page5, own) == [], guard.file_problems(name, page5, own)
+    # every name of a declaration list is the change's own (a real commit of main, 34e0e4a, declares two)
+    pair = page5.replace("  install(window);\n", "  var call = Function.prototype.call, apply2 = call.bind(call);\n"
+                         "  apply2 = null;\n  install(window);\n")
+    assert guard.file_problems(name, page5, pair) == [], guard.file_problems(name, page5, pair)
     # a new helper with its own exits, a new wrap: still accepted (only what the rules name is refused)
     helper = PAGE_OLD.replace("  var hiddenExt = {};\n", "  var hiddenExt = {};\n  function clamp(v) {\n"
                               "    if (v < 0) {\n      return 0;\n    }\n    return v;\n  }\n")
@@ -1428,7 +1466,7 @@ def test_the_fourth_review_sites_keys_frames_and_fonts():
     # a snapshot made on its own has the same names every time (two of them compare); check gives both
     # sides the same random ones
     assert nr.run_names(seed=nr.FIXED_KEY) == nr.run_names(seed=nr.FIXED_KEY) != nr.run_names()
-    assert len(set(s.values())) == 6
+    assert len(set(s.values())) == 6 + len(nr.BRAND_HOSTS)
     # N2: the first key again: a value read another way in another load is worse (vC); sessions of a large
     # space alike where main's all differed (vD); the frame's canvas no longer the page's
     here = {"probe_again": {"audio": "171.5", "canvas": ["h1", "x", 1.0]}}
@@ -1452,18 +1490,19 @@ def test_the_fourth_review_sites_keys_frames_and_fonts():
     assert nr._judge("masked-fonts", [], None)[0] == "unjudged"
     assert nr._judge("masked-fonts", None, [])[0] == "worse"            # main's not measured: cannot be judged
     assert nr.masked_fonts(ROOT)[:1] and "Calibri" in nr.masked_fonts(ROOT)
-    # N7: the cores at Strict, a pick drawn the same in every session (4 of [4, 8] there): a fixed disguise
-    # for the other machine, so one that follows its real value (3 processors there) is told
-    probe = {"navigator": {"hardwareConcurrency": 4}}
-    flats = [{"navigator.hardwareConcurrency": {"value": 4}}] * 7
-    off = {"navigator": {"hardwareConcurrency": 4}}
+    # N7: a disguise that follows the other machine. A fixed one (the memory at Strict) by the env. marks; the
+    # cores, a pick whose pool follows the machine (4 or 8 where there are 8 or more: round 5's other machine has
+    # 32), by the other machine's own observations (fingerprint2/, rule machine2: its real value there is worse)
+    probe = {"navigator": {"hardwareConcurrency": 4, "deviceMemory": 8}}
+    flats = [{"navigator.hardwareConcurrency": {"value": 4}, "navigator.deviceMemory": {"value": 8}}] * 7
+    off = {"navigator": {"hardwareConcurrency": 4, "deviceMemory": 8}}
 
-    def env2(here_cores):
-        return {"levels": {"strict": {"probe": {"navigator": {"hardwareConcurrency": here_cores}}},
-                           "off": {"probe": {"navigator": {"hardwareConcurrency": 3}}}}}
-    assert nr._env_marks("strict", probe, flats, off, env2(4)) == {"navigator.hardwareConcurrency": True}
-    assert nr._env_marks("strict", probe, flats, off, env2(3)) == {"navigator.hardwareConcurrency": False}
-    assert nr.OTHER_MACHINE["cpus"] == 3 and nr.OTHER_MACHINE["memory_gb"] == 2 and "_SC_PHYS_PAGES" in nr.MEMORY_SHIM
+    def env2(cores, memory):
+        return {"levels": {"strict": {"probe": {"navigator": {"hardwareConcurrency": cores, "deviceMemory": memory}}},
+                           "off": {"probe": {"navigator": {"hardwareConcurrency": 32, "deviceMemory": 2}}}}}
+    assert nr._env_marks("strict", probe, flats, off, env2(8, 8)) == {"navigator.deviceMemory": True}
+    assert nr._env_marks("strict", probe, flats, off, env2(32, 2)) == {"navigator.deviceMemory": False}
+    assert nr.OTHER_MACHINE["cpus"] == 32 and nr.OTHER_MACHINE["memory_gb"] == 2 and "_SC_PHYS_PAGES" in nr.MEMORY_SHIM
 
 
 def test_the_fourth_review_rules_of_the_report():
@@ -1514,6 +1553,53 @@ def test_the_fourth_review_rules_of_the_report():
     assert "Measured 2 times" in nr.markdown(merged)
     shape = nr.random_shape()
     assert 80 <= shape["pw"] <= 112 and 4096 <= shape["len"] <= 6144 and len(shape["text"].split()) == 4
+
+
+def test_round_five_measures_late_reads_brands_and_the_other_machine():
+    """Round 5 (Fable): the page of the sites read again 100 s later in the same page (a key changed after
+    90 s); each brand's host on its own (a downgrade for named sites); the other machine's values judged as
+    observations of their own (more than 8 cores there: a disguise that gives way to them)."""
+    late = {"first": {v: "x-" + v for v in nr.SITE_READS}, "later": dict({v: "x-" + v for v in nr.SITE_READS},
+                                                                          audio="changed")}
+    marks = nr._late_marks(late)
+    assert marks["late.audio"]["value"] is False and marks["late.pic"]["value"] is True
+    assert nr._late_marks({"first": None, "later": None})["late.pic"]["value"] is None
+    assert nr.LATE["seconds"] >= 95 and nr.MARKS.search("late.pic")
+    real = {v: "r-" + v for v in nr.SITE_READS}
+    sites = {n: {v: "%s-%s" % (v, n) for v in nr.SITE_READS} for n in ("a", "a2", "b", "c", "d", "e")}
+    sites["a2"] = dict(sites["a"])
+    sites["brand0"] = {v: "%s-g" % v for v in nr.SITE_READS}
+    sites["brand8"] = dict(real)                             # left alone on main on purpose (a payment site)
+    marks = nr._site_marks(sites, {"a": real})
+    assert marks["sites.brand.pic.%s" % nr.BRAND_HOSTS[0]]["value"] is True
+    assert marks["sites.brand.pic.%s" % nr.BRAND_HOSTS[8]]["value"] is False
+    assert marks["sites.noised.pic"]["value"] is True        # the brands are judged on their own
+    downgraded = dict(sites, brand0=dict(real))              # F1: the protection off for a named site
+    assert nr._site_marks(downgraded, {"a": real})["sites.brand.pic.%s" % nr.BRAND_HOSTS[0]]["value"] is False
+    names = nr.run_names()
+    assert set(nr.BRAND_HOSTS) <= set(names["sites"].values())
+    # the other machine: 32 processors and 2 GB; Strict's cores the real ones there (F2) is worse
+    assert nr.OTHER_MACHINE["cpus"] > 8 and "sched_getaffinity" in nr.MEMORY_SHIM and "_SC_NPROCESSORS_ONLN" in nr.MEMORY_SHIM
+    off = {"fingerprint2/off/navigator.hardwareConcurrency": {"rule": "exact", "value": 32}}
+    key = "fingerprint2/strict/navigator.hardwareConcurrency"
+    base = fp_snap(dict(off, **{key: {"rule": "machine2", "value": 8}}))
+    kind, detail = judged(nr.compare(base, fp_snap(dict(off, **{key: {"rule": "machine2", "value": 32}})), [],
+                                     None, {}, {}), key)
+    assert kind == "worse" and "real value" in detail, detail
+    # a pick (its pool may follow the machine): only its real value there is judged, never "closer"
+    assert judged(nr.compare(base, fp_snap(dict(off, **{key: {"rule": "machine2", "value": 16}})), [], None, {}, {}),
+                  key)[0] == "changed"
+    # a fixed disguise (the memory at Strict): closer to the other machine's real value is worse
+    mem, moff = "fingerprint2/strict/navigator.deviceMemory", {"fingerprint2/off/navigator.deviceMemory":
+                                                                 {"rule": "exact", "value": 2}}
+    mb = fp_snap(dict(moff, **{mem: {"rule": "machine2", "value": 8}}))
+    assert judged(nr.compare(mb, fp_snap(dict(moff, **{mem: {"rule": "machine2", "value": 4}})), [], None, {}, {}),
+                  mem)[0] == "worse"
+    assert judged(nr.compare(base, fp_snap(dict(off, **{key: {"rule": "machine2", "value": 4}})), [], None, {}, {}),
+                  key)[0] == "changed"
+    assert nr._section(key) == "fingerprinting"
+    # the large pictures are judged values, with their ".noised" marks
+    assert nr.FP_JUDGED.match("canvas_large") and "webgl_large" in nr.NOISED and ("canvas_large", "") in nr.NOISE_PARTS
 
 
 def test_every_level_is_measured_after_the_font_check():
