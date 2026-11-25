@@ -300,13 +300,6 @@
    "sig": "12d85f2f0d7bd999",
    "since": "2026-11-25"
   },
-  "automation/update/crates": {
-   "at": "2026-11-25T07:24:32Z",
-   "date": "2026-11-25",
-   "n": 1,
-   "sig": "12c104ff9231a16b",
-   "since": "2026-11-25"
-  },
   "automation/update/darkreader": {
    "at": "2026-11-25T14:44:47Z",
    "date": "2026-11-25",
