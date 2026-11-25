@@ -795,6 +795,24 @@ of that day's four reasons, are `tests/test_automat_deadlock.py`):
   before the updates still being retried. Nobody is mailed for it. A run whose attempt started with a
   reserve (rotated) and asked nobody now counts as a day with no provider too.
 
+**From the providers' own documentation** (read on 2026-11-25; each provider's `signals_source` or
+`words_source` in `tools/ai-quota.json` names the page or the provider's own code, and says what was
+seen only through a search excerpt). Nothing is marked `"verified": true`: the file's rule is that
+a person verifies a number. Gemini: a quotaId with `PerDay` or `Daily`, or `limit: 0`, is the day,
+read before a short retryDelay; a retryDelay over 300 seconds is the day too (`day_wait_seconds`,
+from Google's own gemini-cli); `MODEL_CAPACITY_EXHAUSTED` is a busy model (the next model). Groq: the
+`x-ratelimit-*-requests` headers are the day's, `x-ratelimit-*-tokens` the minute's, and the message
+says "per minute (TPM)" or "per day (RPD)". Z.AI answers every limit with a 429: only its
+`error.code` tells which (1302, 1303 and 1305 wait; 1308, 1309, 1310 and 1313 end the day; 1113
+asks for money). OpenRouter: 20 requests a minute and 50 a day for all its `:free` models together
+(`requests_per_minute` is now 20), the day ends at 00:00 UTC (its own OpenAPI spec), and a 429's
+`limit_source` says which limit (`openrouter_free_tier_per_minute`, `upstream_provider_shared_pool`:
+a minute; `openrouter_free_tier_daily`: the day). A 404 "No endpoints found matching your data
+policy" is the account's privacy setting, not a quota and not a model that is gone: the message says
+so plainly and the other providers go on. Antigravity's free models change: several were announced to
+leave on 2026-11-30, so a model that is no longer offered (`MODEL_GONE`) makes way for the next model
+of the list instead of stopping the agent.
+
 ## What runs by itself
 
 | When | What | Workflow | Result |

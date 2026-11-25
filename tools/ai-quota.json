@@ -69,13 +69,16 @@
    "headers": {},
    "day_words": [
     "PerDay",
+    "Daily",
     "per day",
-    "daily"
+    "limit: 0"
    ],
    "minute_words": [
     "PerMinute",
     "per minute"
    ],
+   "day_wait_seconds": 300,
+   "signals_source": "how a 429 is read, checked on 2026-11-25 against Google's own code (google-gemini/gemini-cli packages/core/src/utils/googleQuotaErrors.ts @08e9a20f: a quotaId with PerDay or Daily, or 'limit: 0', is the day; PerMinute is a minute; a retryDelay over 300 s is the day, and PerDay is read before the delay) and ai.google.dev/gemini-api/docs/rate-limits (seen only through a search excerpt). The numbers above are not published for the free tier any more: not verified",
    "reset": {
     "time": "00:00",
     "zone": "America/Los_Angeles",
@@ -116,6 +119,7 @@
     "(RPM)",
     "(TPM)"
    ],
+   "signals_source": "console.groq.com/docs/rate-limits (2026-11-25, seen only through a search excerpt): the message says 'per minute (RPM)' / 'per minute (TPM)' or 'per day (RPD)' / 'per day (TPD)'; x-ratelimit-*-requests is the day's (RPD), x-ratelimit-*-tokens the minute's (TPM); retry-after only on a 429. Third-party copies of Groq's table give 30 RPM, 1,000 RPD, 8,000 TPM, 200,000 TPD for the free plan: not verified, so the careful values above stay and the live headers correct them",
    "reset": {
     "time": "00:00",
     "zone": "UTC",
@@ -148,8 +152,10 @@
    "day_words": [
     "per day",
     "daily",
-    "code:1304",
-    "code:1310"
+    "code:1308",
+    "code:1309",
+    "code:1310",
+    "code:1313"
    ],
    "minute_words": [
     "code:1302",
@@ -157,10 +163,9 @@
     "code:1305",
     "concurrency",
     "per minute",
-    "too frequent",
     "overloaded"
    ],
-   "words_source": "2026-11-25, a real deadlock (PR #111): Z.AI's codes 1302 (too much concurrency) and 1305 (the service is overloaded) were taken as the day's quota, so Z.AI was 'spent today' every morning. Z.AI's error codes as remembered from docs.z.ai (not reachable on 2026-11-25, not verified): 1302 concurrency, 1303 frequency, 1305 overloaded (each a wait of seconds), 1304 the day's call limit, 1310 the week's or month's limit. A \"code:N\" word matches only Z.AI's own \"code\" field, never a number anywhere in the text",
+   "words_source": "2026-11-25, a real deadlock (PR #111): Z.AI's codes 1302 (rate limit of requests: too fast or too many at once) and 1305 (the service is overloaded, not your quota) were taken as the day's quota, so Z.AI was 'spent today' every morning. docs.z.ai/api-reference/api-code (seen only through a search excerpt on 2026-11-25): a 429 alone means nothing, always read error.code; 1302 and 1305 are retried after a pause, 1308 (a usage limit until its next_flush_time), 1309 (a plan expired), 1310 (the week's or month's limit) and 1313 (a fair-use restriction, not verified) are not; 1303 (frequency) is not in the excerpt: not verified, read like 1302. The free Flash models have no documented daily cap and no published numbers (concurrency about 1, third-party, not verified). A \"code:N\" word matches only Z.AI's own \"code\" field, never a number anywhere in the text",
    "reset": {
     "time": "00:00",
     "zone": "UTC",
@@ -171,7 +176,7 @@
   "OpenRouter": {
    "what": "OpenRouter's \":free\" models only (tools/ai-providers.py FREE_SUFFIX)",
    "requests_per_day": 50,
-   "requests_per_minute": 10,
+   "requests_per_minute": 20,
    "tokens_per_day": null,
    "tokens_per_minute": null,
    "verified": false,
@@ -187,12 +192,16 @@
    "day_words": [
     "per day",
     "free-models-per-day",
+    "openrouter_free_tier_daily",
     "daily"
    ],
    "minute_words": [
     "per minute",
-    "free-models-per-min"
+    "free-models-per-min",
+    "openrouter_free_tier_per_minute",
+    "upstream_provider_shared_pool"
    ],
+   "signals_source": "openrouter.ai/docs/api_reference/limits and /errors-and-debugging (2026-11-25, seen only through a search excerpt): 20 requests a minute and 50 a day for the :free models of an account that never bought credits, all keys and all :free models together; failed requests count. A 429's error.metadata.limit_source says which: openrouter_free_tier_per_minute (wait for X-RateLimit-Reset), upstream_provider_shared_pool (the model's provider is busy: a minute), openrouter_free_tier_daily (the day; this name only in OpenRouter's tutorial code: not verified). The day resets at 00:00 UTC: OpenRouter's own OpenAPI spec (OpenRouterTeam/python-sdk .speakeasy/in.openapi.yaml @faf973f9, FreeModelDailyRequests)",
    "reset": {
     "time": "00:00",
     "zone": "UTC",

@@ -428,6 +428,12 @@ BILLING = re.compile(r"payment[ _]required|insufficient[ _](?:balance|credits?|f
                      r"|only available (?:on|for|to) (?:the )?paid", re.I)
 
 
+# OpenRouter: the privacy settings of the account allow no free endpoint (2026-11-25, openrouter.ai/docs)
+DATA_POLICY = re.compile(r"no endpoints found matching your data policy", re.I)
+POLICY = (" OpenRouter non può usare i modelli gratuiti: nelle impostazioni di privacy dell'account va permesso "
+          "l'uso degli endpoint gratuiti (\"No endpoints found matching your data policy\").")
+
+
 def billing_in(text):
     return bool(BILLING.search(text or ""))
 
@@ -493,6 +499,10 @@ def ask(url, key, model, messages, timeout=REQUEST_TIMEOUT, opener=urllib.reques
             meter(402 if billing_in(said) else e.code, e.headers, None, said[:2000])
         if billing_in(said):                # never a quota to wait for: money is asked
             raise Stop("unavailable", "HTTP %d, billing" % e.code, 0)
+        if e.code == 404 and DATA_POLICY.search(said):
+            # OpenRouter's account setting blocks the free endpoints (openrouter.ai/docs: "No endpoints found
+            # matching your data policy"): an owner's setting, never a quota and never a model that is gone
+            raise Stop("policy", "HTTP 404, the account's privacy setting", 0, 404)
         raise Stop(classify(e.code), "HTTP %d" % e.code, wait, e.code)
     except (urllib.error.URLError, TimeoutError, OSError, ValueError, http.client.HTTPException) as e:
         # http.client's IncompleteRead (an answer cut off) is no OSError: until the
@@ -934,7 +944,7 @@ def one_model(url, key, model, base, tokens, deadline, opener, workdir, shown, a
                 time.sleep(wait + 1)
                 tries -= 1                  # the wait does not use up a try
                 continue
-            if kind in ("auth", "toolarge", "config", "unavailable"):
+            if kind in ("auth", "toolarge", "config", "unavailable", "policy"):
                 return kind, "", refused
             return ("quota" if kind in ("quota", "temporary") else "error"), "", refused
         answers += 1
@@ -1157,7 +1167,7 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     # out of quota or not free ends "no provider available" (the work waits:
     # tools/ai-work.py), not a question for the owner
     outcomes, not_free = [], []
-    deferred, second = "", False
+    deferred, second, policy_blocked = "", False, []
     system = rules + "\n" + instructions(a.allow_adblock, a.lists, a.builder)
     while True:
         for provider, url, key, model, budget, tokens in plan:      # the list may grow (free_models)
@@ -1214,6 +1224,11 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
                 skip.add(provider)
                 if spend is not None:
                     spend.mark_spent(provider, "not free (billing, or a cost in the answer)")
+            if outcome == "policy":
+                # an owner's setting of the account, said plainly; the other providers go on
+                policy_blocked.append(provider)
+                skip.add(provider)
+                outcome = "unavailable"
             if outcome == "budget":
                 # the budget of the free quotas says no (spent today, the reviewers' reserve, this candidate's
                 # share): none of this provider's models is asked in this run
@@ -1276,7 +1291,7 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
             spend.skipped.pop(n, None)
         skip.update(n for n in dict.fromkeys(p[0] for p in plan) if n not in names)
         plan = sorted((p for p in plan if p[0] in names), key=lambda p: ranked.index(p[0]))
-    no_provider = bool(outcomes) and all(o in ("quota", "unavailable", "budget") for o in outcomes)
+    no_provider = bool(outcomes) and all(o in ("quota", "unavailable", "budget", "policy") for o in outcomes)
     if no_provider and not_free and result != "quota":
         result = "unavailable"
     if no_provider and outcomes and all(o == "budget" for o in outcomes):
@@ -1292,6 +1307,8 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     if result in ("ok", "none", "refused"):
         text = redact(summary.strip()[:3000], keys) or "La riserva non ha scritto un riassunto."
         (auto / "summary.md").write_text("%s\n\n_(%s)_\n" % (text, message), "utf-8")
+    if policy_blocked:
+        message += POLICY
     if not_free:
         message += " Non gratuite in questo run (fatturazione o costo nella risposta): %s." % ", ".join(
             sorted(set(not_free)))

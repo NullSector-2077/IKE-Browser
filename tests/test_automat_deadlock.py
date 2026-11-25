@@ -54,7 +54,8 @@ LIMITS = quota.load_limits()
 # Z.AI's own answers (docs.z.ai's codes, as remembered: tools/ai-quota.json words_source)
 ZAI_CONCURRENCY = '{"error": {"code": "1302", "message": "High concurrency usage of this API, please reduce concurrency"}}'
 ZAI_OVERLOADED = '{"error": {"code": "1305", "message": "The service may be temporarily overloaded, try again later"}}'
-ZAI_DAY = '{"error": {"code": "1304", "message": "The daily call limit for this API has been reached"}}'
+ZAI_DAY = ('{"error": {"code": "1308", "message": "Usage limit reached for 5 hour. Your limit will reset at '
+           '2026-11-25 18:00:00"}}')
 GROQ_TPM = ('{"error": {"message": "Request too large for model `qwen/qwen3.8-27b` in organization `org` service tier '
             '`on_demand` on tokens per minute (TPM): Limit 6000, Requested 7678, please reduce your message size"}}')
 
@@ -85,6 +86,11 @@ def state_of(**providers):
     ("OpenRouter", "Rate limit exceeded: free-models-per-day", {}, "day"),
     ("OpenRouter", "Rate limit exceeded: free-models-per-min", {}, "minute"),
     ("OpenRouter", "slow down", {"Retry-After": "7200"}, "day"),
+    ("OpenRouter", '{"error": {"code": 429, "metadata": {"limit_source": "openrouter_free_tier_per_minute"}}}', {}, "minute"),
+    ("OpenRouter", '{"error": {"code": 429, "metadata": {"limit_source": "upstream_provider_shared_pool"}}}', {}, "minute"),
+    ("OpenRouter", '{"error": {"code": 429, "metadata": {"limit_source": "openrouter_free_tier_daily"}}}', {}, "day"),
+    ("Antigravity", "Quota exceeded ... limit: 0, model: gemini-x", {}, "day"),
+    ("Antigravity", "Please retry in 20s", {"retry-after": "400"}, "day"),          # over 300 s: Google's own rule
     ("Antigravity", "Quota exceeded for quota metric GenerateRequestsPerMinutePerProjectPerModel", {}, "minute"),
     ("Antigravity", "Quota exceeded: GenerateRequestsPerDayPerProjectPerModel-FreeTier", {}, "day"),
     ("Groq", "Too Many Requests", {}, "minute"),                     # nothing says which: a minute
@@ -426,3 +432,81 @@ def test_the_workflow_counts_a_rotated_attempt_that_asked_nobody_and_records_the
     assert "tests/test_automat_deadlock.py" in (ROOT / "tools/autofix-context.py").read_text("utf-8")
     doc = (ROOT / "docs/MAINTENANCE.md").read_text("utf-8")
     assert "No deadlock of the free quotas" in doc and "tests/test_automat_deadlock.py" in doc
+
+
+# =====================================================================================================
+# The providers' own signals (their documentation and code, 2026-11-25: tools/ai-quota.json's sources)
+# =====================================================================================================
+
+def test_gemini_says_which_limit_and_a_model_that_is_gone_gives_way_to_the_next():
+    agent = load("autofix-agent")
+
+    def err(code, status, msg):
+        return 'AGY_ERROR:{"error_code": %d, "status": "%s"}\n%s' % (code, status, msg)
+    # the day first, before a short retryDelay is trusted (google-gemini/gemini-cli googleQuotaErrors.ts)
+    assert agent.classify(1, err(429, "RESOURCE_EXHAUSTED", "quotaId: GenerateRequestsPerDayPerProjectPerModel-"
+                                                            "FreeTier retryDelay: 20s"))[0] == "day"
+    assert agent.classify(1, err(429, "RESOURCE_EXHAUSTED", "Quota exceeded, limit: 0, model: x retryDelay: 9s"))[0] \
+        == "day"
+    assert agent.classify(1, err(429, "RESOURCE_EXHAUSTED", "GenerateRequestsPerMinutePerProjectPerModel-FreeTier "
+                                                            "retryDelay: 40s")) == ("minute", 40)
+    assert agent.classify(1, err(429, "RESOURCE_EXHAUSTED", "reason: MODEL_CAPACITY_EXHAUSTED"))[0] == "temporary"
+    # a model no longer offered (several free models were announced to leave Antigravity on 2026-11-30): the next one
+    assert agent.MODEL_GONE.search("404 NOT_FOUND: models/gemini-3.8-flash is not found for API version v1beta")
+    assert not agent.MODEL_GONE.search("API key not valid")
+
+
+def test_a_gone_model_does_not_stop_antigravity(tmp_path, monkeypatch):
+    agent = load("autofix-agent")
+    work = tmp_path / "work"
+    (work / ".autofix").mkdir(parents=True)
+    (work / ".autofix/failure.md").write_text(p2.FAILURE)
+    prompt = tmp_path / "prompt.md"
+    prompt.write_text("RULES")
+    monkeypatch.setenv("GEMINI_API_KEY", "AIzaTESTONLY")
+    monkeypatch.setenv("AUTOFIX_MODEL", "Gone Model")
+    for name in ("AUTOFIX_UNAVAILABLE", "AUTOFIX_FIRST", "AUTOFIX_REVIEWERS"):
+        monkeypatch.delenv(name, raising=False)
+    real_run, asked = subprocess.run, []
+
+    def fake_run(cmd, *a, **k):
+        if cmd and cmd[0] == "git":
+            return real_run(cmd, *a, **k)
+        model = cmd[cmd.index("--model") + 1]
+        asked.append(model)
+        if model == "Gone Model":
+            return subprocess.CompletedProcess(cmd, 1, b"", b'AGY_ERROR:{"error_code": 404, "status": "NOT_FOUND"}\n'
+                                                           b"models/gone-model is not found")
+        return subprocess.CompletedProcess(cmd, 0, b"{}", b"")
+    monkeypatch.setattr(agent.subprocess, "run", fake_run)
+    status = tmp_path / "status.json"
+    assert agent.main(["--workdir", str(work), "--prompt", str(prompt), "--out", str(tmp_path / "out"), "--status",
+                       str(status), "--agent-cmd", "agy"]) == 0
+    assert json.loads(status.read_text())["result"] == "ok" and asked[:2] == ["Gone Model", agent.FREE_MODELS[0]]
+
+
+def test_openrouters_privacy_setting_is_said_plainly_and_is_no_quota(tmp_path):
+    reserve = load("autofix-reserve")
+    reserve.time = p2.QuietTime()
+    env = {"OPENROUTER_API_KEY": "sk-or-TESTONLY", "AUTOFIX_OPENROUTER_MODELS": "o1:free",
+           "GROQ_API_KEY": "gsk_TESTONLY", "AUTOFIX_GROQ_MODELS": "g1"}
+    policy = (404, {}, '{"error": {"message": "No endpoints found matching your data policy (Free model training)", '
+                       '"code": 404}}')
+    out, seen = run_reserve(reserve, tmp_path, [(429, {}, "busy"), policy], env, [])
+    assert [h for h, _b in seen] == ["api.groq.com", "openrouter.ai"]       # no search for other free models
+    assert "impostazioni di privacy dell'account" in out["message"] and out["result"] != "ok"
+    assert out["no_provider"] is True
+
+
+def test_the_data_names_its_sources_and_what_is_not_verified():
+    data = json.loads((ROOT / "tools/ai-quota.json").read_text("utf-8"))["providers"]
+    assert "googleQuotaErrors.ts" in data["Antigravity"]["signals_source"]
+    assert data["Antigravity"]["day_wait_seconds"] == 300
+    assert "console.groq.com/docs/rate-limits" in data["Groq"]["signals_source"]
+    assert "docs.z.ai/api-reference/api-code" in data["Z.AI"]["words_source"]
+    assert {"code:1308", "code:1309", "code:1310", "code:1313"} <= set(data["Z.AI"]["day_words"])
+    assert "openrouter_free_tier_per_minute" in data["OpenRouter"]["minute_words"]
+    assert data["OpenRouter"]["requests_per_minute"] == 20 and data["OpenRouter"]["requests_per_day"] == 50
+    # nothing read only through a search excerpt is marked verified (a person verifies, the file says)
+    assert all(p["verified"] is False for p in data.values())
+    assert quota.load_limits()["providers"]["Groq"]["day_wait_seconds"] == quota.DAY_WAIT

@@ -115,6 +115,12 @@ BILLING = re.compile(r"payment[ _]required|insufficient[ _](?:balance|credits?|f
                      re.I)
 
 
+# a model the provider no longer offers (Antigravity's free models change: several were announced to leave on
+# 2026-11-30): the next model of the list is tried, never the end of the agent
+MODEL_GONE = re.compile(r"model not found|unknown model|not_found|is not found|no longer (?:available|supported)"
+                        r"|has been (?:deprecated|retired|removed)|is not supported", re.I)
+
+
 def models(wanted):
     """AUTOFIX_MODEL (one name or several, separated by commas), then the free
     Flash models; no duplicates, no empty names."""
@@ -136,7 +142,8 @@ def classify(status, err):
     # Google busy, even when the CLI's own retries then ran into its time limit
     # (final review of 1.1.18, run 44715968623: "Error 503 ... high demand" after
     # 326 s, finished_reason print_timeout): the next model, as for any 5xx
-    if re.search(r"\bError 503\b|Status: UNAVAILABLE|experiencing high demand", text):
+    if re.search(r"\bError 503\b|Status: UNAVAILABLE|experiencing high demand|MODEL_CAPACITY_EXHAUSTED"
+                 r"|MODEL_CAPACITY_EXCEEDED", text):
         return "temporary", 0
     # the CLI's own time limit ("print timeout ... turn still in progress"): the
     # agent was still working, not Google failing. Another try would end the
@@ -163,7 +170,9 @@ def classify(status, err):
         m = re.search(r"retryDelay:?\s*\"?(\d+)s", text) or re.search(r"retry in (\d+(?:\.\d+)?)s", text)
         if m:
             wait = int(float(m.group(1)))
-        if "perday" in lower.replace(" ", "") or "per day" in lower:
+        # the day first, before a short retryDelay is trusted (Google's own gemini-cli, googleQuotaErrors.ts:
+        # a quotaId with PerDay or Daily, or "limit: 0", is the day's quota; tools/ai-quota.json)
+        if "perday" in lower.replace(" ", "") or "per day" in lower or "daily" in lower or "limit: 0" in lower:
             return "day", wait
         if "perminute" in lower.replace(" ", "") or "per minute" in lower:
             return "minute", wait
@@ -501,6 +510,9 @@ def main(argv=None):
             break
         if result in ("quota", "temporary"):
             print("This model is not available now: the next model goes on", flush=True)
+            continue
+        if result == "config" and MODEL_GONE.search(detail or ""):
+            print("This model is not offered any more: the next model goes on", flush=True)
             continue
         break                    # auth, config, timeout, error, unavailable: switching model would not help
     status = {"result": result, "model": used, "message": MESSAGES[result], "detail": detail}
