@@ -218,14 +218,16 @@ jobs:
         # their icons: Adwaita (GNOME), elementary (Xfce), MATE's, Papirus
         # (Cinnamon, and common with KDE)
         run: |
-          pkgs=(python python-pyqt6 python-pyqt6-webengine qt6-webengine qt6-webchannel qt6-svg
+          pkgs=(
+                python python-pyqt6 python-pyqt6-webengine qt6-webengine qt6-webchannel qt6-svg
                 python-cryptography python-jeepney publicsuffix-list python-pytest
                 base-devel rust sudo nodejs
                 ffmpeg dbus glib2 noto-fonts ttf-dejavu
                 noto-fonts-cjk intel-media-driver libva-nvidia-driver
                 breeze oxygen kvantum plasma-integration breeze-icons
                 gtk3 xorg-server-xvfb lxqt-qtplugin
-                adwaita-icon-theme elementary-icon-theme mate-icon-theme papirus-icon-theme)
+                adwaita-icon-theme elementary-icon-theme mate-icon-theme papirus-icon-theme
+          )
           # a mirror may already have dropped a file of the snapshot's version (2026-11-25:
           # zxing-cpp-3.1.1-1's signature answered 404 and pacman gave up): then the
           # snapshot's own archive alone, which keeps every version
