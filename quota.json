@@ -136,10 +136,10 @@
    "runs": 12
   },
   "2026-11-25": {
-   "answered": 9,
+   "answered": 10,
    "answered_for": {
     "automation/update/darkreader": 1,
-    "automation/update/lists-2026-11-22": 3
+    "automation/update/lists-2026-11-22": 4
    },
    "no_provider": 2,
    "providers": {
@@ -168,37 +168,37 @@
        "tokens": 10625
       },
       "automation/update/lists-2026-11-22": {
-       "requests": 9,
-       "tokens": 54096
+       "requests": 14,
+       "tokens": 84238
       }
      },
      "classes": {
       "2": {
-       "requests": 11,
-       "tokens": 64721
+       "requests": 16,
+       "tokens": 94863
       }
      },
      "observed": {
       "requests": {
-       "at": 1795628840,
+       "at": 1795631267,
        "limit": 1000,
-       "mark": 11,
+       "mark": 16,
        "remaining": 997,
        "reset": 260,
        "window": "day"
       },
       "tokens": {
-       "at": 1795628840,
+       "at": 1795631267,
        "limit": 8000,
-       "mark": 64721,
-       "remaining": 3235,
-       "reset": 36,
+       "mark": 94863,
+       "remaining": 3363,
+       "reset": 35,
        "window": "minute"
       }
      },
-     "requests": 11,
+     "requests": 16,
      "spent": "",
-     "tokens": 64721
+     "tokens": 94863
     },
     "OpenRouter": {
      "account": "free",
@@ -252,7 +252,7 @@
      "tokens": 27200
     }
    },
-   "runs": 11,
+   "runs": 12,
    "unasked": {
     "automation/update/drill-qt": 1
    }
